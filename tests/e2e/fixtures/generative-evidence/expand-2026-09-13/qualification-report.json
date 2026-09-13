@@ -1,0 +1,62 @@
+{
+  "cases": [
+    {
+      "border_changed_ratio": 0.9971920289855073,
+      "border_luminance_stddev": 47.39650860497374,
+      "case": "landscape-right-bottom",
+      "execution_backend": "ort-native",
+      "fixture": "real-life-landscape.jpg",
+      "mean_seam_gradient_0_255": 2.119047619047619,
+      "model_id": "lama-inpainting",
+      "output": "1184x888",
+      "provider_ms": 58488,
+      "source": "1024x768",
+      "wall_ms": 58488,
+      "warnings": []
+    },
+    {
+      "border_changed_ratio": 0.999676513671875,
+      "border_luminance_stddev": 51.17028847095545,
+      "case": "portrait-left-right",
+      "execution_backend": "ort-native",
+      "fixture": "real-life-braided-portrait.jpg",
+      "mean_seam_gradient_0_255": 2.8865559895833335,
+      "model_id": "lama-inpainting",
+      "output": "1145x1024",
+      "provider_ms": 19917,
+      "source": "825x1024",
+      "wall_ms": 19917,
+      "warnings": []
+    },
+    {
+      "border_changed_ratio": 0.9998395647321429,
+      "border_luminance_stddev": 66.2702354014516,
+      "case": "architecture-top",
+      "execution_backend": "ort-native",
+      "fixture": "real-life-brookings-hall.jpg",
+      "mean_seam_gradient_0_255": 3.1637369791666665,
+      "model_id": "lama-inpainting",
+      "output": "1024x950",
+      "provider_ms": 20995,
+      "source": "1024x810",
+      "wall_ms": 20995,
+      "warnings": []
+    },
+    {
+      "border_changed_ratio": 0.9992859887295082,
+      "border_luminance_stddev": 83.32016265100435,
+      "case": "seascape-all-sides",
+      "execution_backend": "ort-native",
+      "fixture": "real-life-seascape-sunset.jpg",
+      "mean_seam_gradient_0_255": 11.12034970238095,
+      "model_id": "lama-inpainting",
+      "output": "928x1184",
+      "provider_ms": 19742,
+      "source": "768x1024",
+      "wall_ms": 19743,
+      "warnings": []
+    }
+  ],
+  "generated_at": "2026-09-13",
+  "model": "lama-inpainting"
+}

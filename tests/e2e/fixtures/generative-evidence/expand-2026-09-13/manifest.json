@@ -1,0 +1,29 @@
+{
+  "model": {
+    "id": "lama-inpainting",
+    "artifact": "lama_fp32.onnx",
+    "sha256": "1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d6",
+    "source": "Carve/LaMa-ONNX (saic-mdal/lama big-lama)",
+    "license": "Apache-2.0",
+    "runtime": "varve-bgremove lama_inpaint / ort-native CPU"
+  },
+  "evidence_files": {
+    "architecture-top-real-life-brookings-hall-accepted.png": "05c580f7623382832d8fe98dab790acd2568d73606da3f988f07b631fa7458af",
+    "architecture-top-real-life-brookings-hall-frame.png": "03944a3fd0e201eb4a7cedd53df3e2043abcf6ef319d050e711bad914da0e131",
+    "architecture-top-real-life-brookings-hall-provider.png": "f43b63e9f35569782339b3664d09baedc075559764993e67aa5588ed6b2a0d39",
+    "architecture-top-real-life-brookings-hall-source.png": "f6071370920bd519e13dbfa0e84de606f52972aeada50c4157a1aeda023b1d50",
+    "landscape-right-bottom-real-life-landscape-accepted.png": "50fe4b3a60297992142644419f7d72a95b08454c15a9476b786808c9d89c8cdb",
+    "landscape-right-bottom-real-life-landscape-frame.png": "c2af3364fa9b5f55a6ed576c9ae212c6905db3167405413c391402c9fd0ec302",
+    "landscape-right-bottom-real-life-landscape-provider.png": "86b9ff689a96978aa527b8e7af5f8ce90a862f757a4ae2cc586cdca68bf3d1f4",
+    "landscape-right-bottom-real-life-landscape-source.png": "dd0662956c8891153741b5143a03ec145cc0d9d27a30c4cea1104e23a2cd81b1",
+    "portrait-left-right-real-life-braided-portrait-accepted.png": "d88e0fa4706b7c98c8588eea663d1aa469eb13653884cf9144498b474113f892",
+    "portrait-left-right-real-life-braided-portrait-frame.png": "042d70de608266b0f009ac29cade24480ea58c88e62d4aa3b25e5390d235b119",
+    "portrait-left-right-real-life-braided-portrait-provider.png": "e32f766be3ddb35f20f1151ebd9ba8e6e3ad97aaf2de22b1d289b8f1764673aa",
+    "portrait-left-right-real-life-braided-portrait-source.png": "114d395e7cd27c315e10c7103d952a0539de54e146957ca38961a354c3ad15bc",
+    "qualification-report.json": "322c1720c7b1aa6b04d90064bcc14cb2ced0a68b7b7c84618d5e9749c23a0892",
+    "seascape-all-sides-real-life-seascape-sunset-accepted.png": "2a0404b3604ba7b187cd7a2421df8e66697c57a8968cfcb3bf68da622e91ef01",
+    "seascape-all-sides-real-life-seascape-sunset-frame.png": "b9f74850b78530ae6be5ff2c1a86caf97a35e86f68afd367203c3dd8c83d5f68",
+    "seascape-all-sides-real-life-seascape-sunset-provider.png": "ecf09189a73544b286c7fde1bef6623d2a8fe818b6ed1e4c576fe0c76d1078be",
+    "seascape-all-sides-real-life-seascape-sunset-source.png": "6e4b74bcf1d0b6841bb02d124f63f1c754048b18e4f25aa6ce857c0843618eaf"
+  }
+}
