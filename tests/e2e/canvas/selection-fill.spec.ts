@@ -29,11 +29,24 @@ test.describe('selection-to-flats workflow', () => {
     const rasterRow = page.locator('[role="treeitem"][data-node-id]').last();
     await rasterRow.click();
     await toolbar.locator('[data-tool="marquee"]').click();
+    const toolOptions = page.getByRole('button', { name: 'Tool options' });
+    await expect(toolOptions).toBeVisible();
+    await toolOptions.click();
 
     const before = await canvas.screenshot();
-    await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.45);
+    const surface = page.locator('.editor-canvas');
+    const surfaceBox = await surface.boundingBox();
+    if (!surfaceBox) throw new Error('editor canvas surface not found');
+    await page.mouse.move(
+      surfaceBox.x + surfaceBox.width * 0.3,
+      surfaceBox.y + surfaceBox.height * 0.35,
+    );
     await page.mouse.down();
-    await page.mouse.move(box.x + box.width * 0.76, box.y + box.height * 0.66, { steps: 6 });
+    await page.mouse.move(
+      surfaceBox.x + surfaceBox.width * 0.48,
+      surfaceBox.y + surfaceBox.height * 0.5,
+      { steps: 6 },
+    );
     await page.mouse.up();
 
     await page.getByRole('button', { name: 'Selection Sources' }).click();
