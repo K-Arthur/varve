@@ -65,6 +65,14 @@ function renderOverlay(node: TextNode) {
   );
 }
 
+async function settleBlurCommit() {
+  await act(async () => {
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => window.setTimeout(resolve, 120))),
+    );
+  });
+}
+
 describe('TextEditOverlay', () => {
   it('renders a textarea with the node text', () => {
     const node = makeNode('Hello');
@@ -97,9 +105,7 @@ describe('TextEditOverlay', () => {
     document.body.appendChild(toolbar);
     toolbar.focus();
     fireEvent.blur(ta);
-    await act(async () => {
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    });
+    await settleBlurCommit();
     expect(onCommit).not.toHaveBeenCalled();
   });
 
@@ -120,10 +126,64 @@ describe('TextEditOverlay', () => {
     const ta = screen.getByRole('textbox') as HTMLTextAreaElement;
     ta.focus();
     ta.blur();
-    await act(async () => {
-      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    });
+    await settleBlurCommit();
     expect(onCommit).toHaveBeenCalledWith('Hello');
+  });
+
+  it('keeps the edit session alive when a viewport resize blurs the textarea', async () => {
+    const onCommit = vi.fn();
+    render(
+      <EditorProvider>
+        <TextEditOverlay
+          node={makeNode('Hello')}
+          zoom={1}
+          pan={{ x: 0, y: 0 }}
+          canvasElement={document.createElement('canvas')}
+          onCommit={onCommit}
+          onUpdateText={() => {}}
+        />
+      </EditorProvider>,
+    );
+    const ta = screen.getByRole('textbox') as HTMLTextAreaElement;
+    ta.focus();
+    const previousWidth = window.innerWidth;
+    window.innerWidth = previousWidth + 120;
+    fireEvent(window, new Event('resize'));
+    ta.blur();
+    await settleBlurCommit();
+
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(ta);
+    window.innerWidth = previousWidth;
+  });
+
+  it('ignores the Escape delivered by a viewport resize before accepting a later Escape', () => {
+    const onCommit = vi.fn();
+    render(
+      <EditorProvider>
+        <TextEditOverlay
+          node={makeNode('Hello')}
+          zoom={1}
+          pan={{ x: 0, y: 0 }}
+          canvasElement={document.createElement('canvas')}
+          onCommit={onCommit}
+          onUpdateText={() => {}}
+        />
+      </EditorProvider>,
+    );
+    const ta = screen.getByRole('textbox') as HTMLTextAreaElement;
+    ta.focus();
+    const previousWidth = window.innerWidth;
+    window.innerWidth = previousWidth + 120;
+    fireEvent(window, new Event('resize'));
+    fireEvent.keyDown(ta, { key: 'Escape' });
+
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(ta);
+
+    fireEvent.keyDown(ta, { key: 'Escape' });
+    expect(onCommit).toHaveBeenCalledWith('Hello');
+    window.innerWidth = previousWidth;
   });
 
   it('reports grapheme-aware selection range on select', () => {

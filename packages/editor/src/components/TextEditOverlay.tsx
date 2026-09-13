@@ -74,6 +74,11 @@ export function TextEditOverlay({
   const burstTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasActiveBurstRef = useRef(false);
   const blurCommitFrameRef = useRef<number | null>(null);
+  const blurCommitTimerRef = useRef<number | null>(null);
+  const viewportSizeRef = useRef({ width: 0, height: 0 });
+  const resizeVersionRef = useRef(0);
+  const handledResizeVersionRef = useRef(0);
+  const resizeEscapeTimerRef = useRef<number | null>(null);
   const committedRef = useRef(false);
   const onUpdateTextRef = useRef(onUpdateText);
   onUpdateTextRef.current = onUpdateText;
@@ -198,6 +203,17 @@ export function TextEditOverlay({
         // Escape selects/accepts the platform IME candidate. It must not
         // commit the document while composition is still provisional.
         if (composingRef.current || e.nativeEvent.isComposing) return;
+        // Chromium/WebView can send an Escape to the focused textarea while a
+        // viewport resize is re-anchoring the editing surface. That event is
+        // part of the responsive layout handoff, not the user's request to
+        // finish editing. Consume it once and restore the native focus.
+        if (resizeVersionRef.current !== handledResizeVersionRef.current) {
+          handledResizeVersionRef.current = resizeVersionRef.current;
+          e.preventDefault();
+          e.stopPropagation();
+          textareaRef.current?.focus({ preventScroll: true });
+          return;
+        }
         e.preventDefault();
         commit(textareaRef.current?.value ?? '');
       }
@@ -232,25 +248,84 @@ export function TextEditOverlay({
     if (blurCommitFrameRef.current !== null) {
       cancelAnimationFrame(blurCommitFrameRef.current);
     }
+    if (blurCommitTimerRef.current !== null) {
+      window.clearTimeout(blurCommitTimerRef.current);
+      blurCommitTimerRef.current = null;
+    }
     // The editor, floating toolbar, and its portaled menus form one logical
     // focus surface. A textarea blur fires before a toolbar control receives
     // focus, so committing synchronously here unmounts the very control the
     // user is trying to use. Decide after the browser has completed focus
     // transfer and retain the session for any Varve overlay.
+    // A browser resize may dispatch blur before its resize event. Wait one
+    // additional frame so the viewport listener has observed the new bounds
+    // before deciding whether this is a real edit-session exit.
     blurCommitFrameRef.current = requestAnimationFrame(() => {
-      blurCommitFrameRef.current = null;
-      if (committedRef.current || composingRef.current) return;
-      const active = document.activeElement;
-      const insideEditingSurface =
-        active instanceof Element &&
-        Boolean(
-          active.closest(
-            '[data-text-edit-surface="true"],[data-varve-overlay="true"],.inspector-panel,.inspector',
-          ),
-        );
-      if (!insideEditingSurface) commit(textareaRef.current?.value ?? '');
+      blurCommitFrameRef.current = requestAnimationFrame(() => {
+        blurCommitFrameRef.current = null;
+        // Some browser/WebView implementations dispatch the resize event
+        // after the animation frame that follows blur. Give that event a
+        // short, bounded window to arrive before committing the edit session.
+        blurCommitTimerRef.current = window.setTimeout(() => {
+          blurCommitTimerRef.current = null;
+          if (committedRef.current || composingRef.current) return;
+          const active = document.activeElement;
+          const insideEditingSurface =
+            active instanceof Element &&
+            Boolean(
+              active.closest(
+                '[data-text-edit-surface="true"],[data-varve-overlay="true"],.inspector-panel,.inspector',
+              ),
+            );
+          const viewport = { width: window.innerWidth, height: window.innerHeight };
+          if (
+            viewport.width !== viewportSizeRef.current.width ||
+            viewport.height !== viewportSizeRef.current.height
+          ) {
+            viewportSizeRef.current = viewport;
+            resizeVersionRef.current += 1;
+          }
+          if (resizeVersionRef.current !== handledResizeVersionRef.current) {
+            handledResizeVersionRef.current = resizeVersionRef.current;
+            // Browser viewport changes can blur a native textarea without
+            // ending the user's editing session. Restore focus only when the
+            // resize left focus outside the shared editing surface; toolbar
+            // focus remains a legitimate formatting handoff.
+            if (!insideEditingSurface) textareaRef.current?.focus({ preventScroll: true });
+            return;
+          }
+          if (!insideEditingSurface) commit(textareaRef.current?.value ?? '');
+        }, 100);
+      });
     });
   }, [commit, commitBurst, flushPendingText]);
+
+  useEffect(() => {
+    const updateViewport = () => {
+      const next = { width: window.innerWidth, height: window.innerHeight };
+      if (viewportSizeRef.current.width === 0 && viewportSizeRef.current.height === 0) {
+        viewportSizeRef.current = next;
+        return;
+      }
+      if (
+        next.width !== viewportSizeRef.current.width ||
+        next.height !== viewportSizeRef.current.height
+      ) {
+        viewportSizeRef.current = next;
+        resizeVersionRef.current += 1;
+        if (resizeEscapeTimerRef.current !== null) {
+          window.clearTimeout(resizeEscapeTimerRef.current);
+        }
+        resizeEscapeTimerRef.current = window.setTimeout(() => {
+          resizeEscapeTimerRef.current = null;
+          handledResizeVersionRef.current = resizeVersionRef.current;
+        }, 250);
+      }
+    };
+    updateViewport();
+    window.addEventListener('resize', updateViewport);
+    return () => window.removeEventListener('resize', updateViewport);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -259,6 +334,12 @@ export function TextEditOverlay({
       }
       if (blurCommitFrameRef.current !== null) {
         cancelAnimationFrame(blurCommitFrameRef.current);
+      }
+      if (blurCommitTimerRef.current !== null) {
+        window.clearTimeout(blurCommitTimerRef.current);
+      }
+      if (resizeEscapeTimerRef.current !== null) {
+        window.clearTimeout(resizeEscapeTimerRef.current);
       }
       updateTimerRef.current = null;
       const pending = pendingTextRef.current;
@@ -272,6 +353,7 @@ export function TextEditOverlay({
         hasActiveBurstRef.current = false;
         ctxRef.current.commitTransaction();
       }
+      resizeEscapeTimerRef.current = null;
     };
   }, [notifyUpdateRef]);
 

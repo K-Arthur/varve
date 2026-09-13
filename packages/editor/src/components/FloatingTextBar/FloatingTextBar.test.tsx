@@ -317,6 +317,17 @@ describe('FloatingTextBar', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it('keeps the edit session open through a resize-triggered Escape', async () => {
+    const onClose = vi.fn();
+    render(<FloatingTextBar {...defaultProps({ onClose })} />);
+    await settledToolbar();
+    fireEvent(window, new Event('resize'));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it('uses the shared fixed overlay placement for text', async () => {
     const rect = { x: 100, y: 300, w: 200, h: 30 };
     render(<FloatingTextBar {...defaultProps({ textScreenRect: rect })} />);

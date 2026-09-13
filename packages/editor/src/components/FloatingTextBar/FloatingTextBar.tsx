@@ -41,6 +41,45 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
   const [colorOpen, setColorOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLButtonElement>(null);
+  const ignoreResizeEscapeRef = useRef(false);
+  const resizeEscapeTimerRef = useRef<number | null>(null);
+  const [suppressResizeEscape, setSuppressResizeEscape] = useState(false);
+  useEffect(() => {
+    const markResize = () => {
+      // Chromium/WebView can synthesize an Escape while a focused portal is
+      // re-anchored after a viewport resize. Consume only that next Escape so
+      // the edit session and its quick toolbar survive responsive layout.
+      ignoreResizeEscapeRef.current = true;
+      setSuppressResizeEscape(true);
+      if (resizeEscapeTimerRef.current !== null) {
+        window.clearTimeout(resizeEscapeTimerRef.current);
+      }
+      resizeEscapeTimerRef.current = window.setTimeout(() => {
+        resizeEscapeTimerRef.current = null;
+        ignoreResizeEscapeRef.current = false;
+        setSuppressResizeEscape(false);
+      }, 250);
+    };
+    const consumeResizeEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || !ignoreResizeEscapeRef.current) return;
+      ignoreResizeEscapeRef.current = false;
+      if (resizeEscapeTimerRef.current !== null) {
+        window.clearTimeout(resizeEscapeTimerRef.current);
+        resizeEscapeTimerRef.current = null;
+      }
+      setSuppressResizeEscape(false);
+    };
+    window.addEventListener('resize', markResize);
+    document.addEventListener('keydown', consumeResizeEscape, true);
+    return () => {
+      window.removeEventListener('resize', markResize);
+      document.removeEventListener('keydown', consumeResizeEscape, true);
+      if (resizeEscapeTimerRef.current !== null) {
+        window.clearTimeout(resizeEscapeTimerRef.current);
+        resizeEscapeTimerRef.current = null;
+      }
+    };
+  }, []);
   const textAnchor = useMemo(
     () => pointAnchor(viewportPoint(textScreenRect.x, textScreenRect.y), document),
     [textScreenRect.x, textScreenRect.y],
@@ -108,8 +147,18 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
       fallbackPlacements={TOOLBAR_FALLBACKS}
       offsetDistance={8}
       kind="popover"
-      dismissOnEscape={!colorOpen}
-      onClose={() => onClose()}
+      dismissOnEscape={!colorOpen && !suppressResizeEscape}
+      // Resizing or reactivating the editor can transiently blur the window;
+      // that must not end a text-edit session or discard the quick toolbar.
+      dismissOnWindowBlur={false}
+      onClose={(reason) => {
+        if (reason === 'escape' && ignoreResizeEscapeRef.current) {
+          ignoreResizeEscapeRef.current = false;
+          setSuppressResizeEscape(false);
+          return;
+        }
+        onClose();
+      }}
       className="floating-text-bar__layer"
     >
       <div className="floating-text-bar" role="toolbar" aria-label="Text formatting">
