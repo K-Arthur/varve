@@ -15,6 +15,7 @@ pub(crate) struct NativeResourceSnapshot {
     pub(crate) required_memory_bytes: u64,
     pub(crate) resource_tier: &'static str,
     pub(crate) execution_backend: &'static str,
+    pub(crate) platform: &'static str,
     pub(crate) architecture: &'static str,
 }
 
@@ -163,6 +164,7 @@ pub(crate) fn snapshot(width: u32, height: u32) -> NativeResourceSnapshot {
             .unwrap_or(NATIVE_DIFFUSION_MINIMUM_MEMORY_BYTES),
         resource_tier: resource_tier(available_memory_bytes),
         execution_backend: "native-cpu",
+        platform: std::env::consts::OS,
         architecture: std::env::consts::ARCH,
     }
 }

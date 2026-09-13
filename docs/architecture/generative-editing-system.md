@@ -136,8 +136,10 @@ The native diffusion boundary performs a second resource check immediately
 before helper startup. Linux (including a ChromeOS Linux desktop container),
 Windows/Windows-on-ARM, and macOS/Apple Silicon use platform memory APIs when
 available; the status reports the measured architecture, backend, available
-memory, and conservative requirement. A constrained device is refused before
-model loading and is directed to the promptless Fast/PatchMatch path. Browser
+memory, and conservative requirement. A model's qualification record is also
+bound to the exact helper runtime, target OS, backend, and CPU architecture;
+moving the model to another platform or ARM/x86 build requires a fresh masked
+qualification. A constrained device is refused before model loading and is directed to the promptless Fast/PatchMatch path. Browser
 device-memory hints are advisory only and never imply that a prompt model is
 available; WASM/WebGPU providers must still pass their own safe-peak budget.
 

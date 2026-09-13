@@ -286,6 +286,7 @@ export function ContentAwareFillDialog({
     requiredBytes: number;
     tier: string;
     backend: string;
+    platform: string;
     architecture: string;
   } | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -609,6 +610,7 @@ export function ContentAwareFillDialog({
           available.memoryRequiredBytes ?? NATIVE_GENERATIVE_MODEL_PROFILE.minimumMemoryBytes,
         tier: available.resourceTier ?? 'unknown',
         backend: available.executionBackend ?? 'unknown',
+        platform: available.platform ?? 'unknown',
         architecture: available.architecture ?? 'unknown',
       });
     });
@@ -1943,7 +1945,7 @@ export function ContentAwareFillDialog({
               <small>
                 {mode === 'replace' || mode === 'expand' || promptNeedsDiffusion
                   ? diffusionModelHandle
-                    ? `Diffusion · ${Math.round(diffusionModelSize / 1_000_000)} MB · qualified local${diffusionResource ? ` · ${diffusionResource.backend}/${diffusionResource.architecture}` : ''}`
+                    ? `Diffusion · ${Math.round(diffusionModelSize / 1_000_000)} MB · qualified local${diffusionResource ? ` · ${diffusionResource.backend}/${diffusionResource.platform}/${diffusionResource.architecture}` : ''}`
                     : diffusionModelInstalled
                       ? 'Diffusion model installed · validation required'
                       : 'Diffusion model required · local only'
@@ -2017,7 +2019,8 @@ export function ContentAwareFillDialog({
                   diffusionResource.availableBytes >= diffusionResource.requiredBytes && (
                     <>
                       {diffusionResource.tier} memory · {diffusionResource.backend}/
-                      {diffusionResource.architecture} · measured before generation.{' '}
+                      {diffusionResource.platform}/{diffusionResource.architecture} · measured
+                      before generation.{' '}
                     </>
                   )}
                 {diffusionModelHandle

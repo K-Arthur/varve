@@ -34,6 +34,8 @@ export interface NativeGenerativeModelStatus {
   resourceTier?: string;
   /** The helper backend selected by the packaged runtime. */
   executionBackend?: string;
+  /** Target OS used when the model was qualified and for the current helper. */
+  platform?: string;
   /** OS architecture, including arm64/aarch64 where applicable. */
   architecture?: string;
 }
@@ -58,6 +60,7 @@ export async function getNativeGenerativeModelStatus(): Promise<NativeGenerative
       memoryRequiredBytes: NATIVE_GENERATIVE_MODEL_PROFILE.minimumMemoryBytes,
       resourceTier: 'unknown',
       executionBackend: 'unknown',
+      platform: undefined,
       architecture: undefined,
     };
   }
@@ -79,6 +82,7 @@ export async function getNativeGenerativeModelStatus(): Promise<NativeGenerative
       memoryRequiredBytes: NATIVE_GENERATIVE_MODEL_PROFILE.minimumMemoryBytes,
       resourceTier: 'unknown',
       executionBackend: 'unknown',
+      platform: undefined,
       architecture: undefined,
     };
   }

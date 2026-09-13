@@ -1366,7 +1366,12 @@ const GENERATIVE_MODEL_HANDLE: &str = "varve-diffusion-inpainting";
 const GENERATIVE_MODEL_PROFILE: &str = "sd15-inpainting-q4_0-v1";
 const GENERATIVE_MODEL_CUSTOM_PROFILE: &str = "custom-safe-inpainting-v1";
 const GENERATIVE_MODEL_METADATA_SUFFIX: &str = ".metadata.json";
-const GENERATIVE_MODEL_METADATA_SCHEMA_VERSION: u32 = 2;
+// Qualification is tied to the exact helper/runtime, backend, and target
+// platform. Older records did not carry that provenance and must be
+// re-qualified instead of being trusted on ARM, another OS, or after a helper
+// change.
+const GENERATIVE_MODEL_METADATA_SCHEMA_VERSION: u32 = 3;
+const GENERATIVE_MODEL_RUNTIME_ID: &str = "diffusion-rs-0.1.20";
 const GENERATIVE_MODEL_FILENAME: &str = "varve-diffusion-inpainting.gguf";
 const GENERATIVE_MODEL_DOWNLOAD_URL: &str = "https://huggingface.co/gpustack/stable-diffusion-v1-5-inpainting-GGUF/resolve/21491e4/stable-diffusion-v1-5-inpainting-Q4_0.gguf?download=true";
 const GENERATIVE_MODEL_DOWNLOAD_SIZE: u64 = 1_747_219_584;
@@ -1387,6 +1392,10 @@ struct GenerativeModelMetadata {
     profile_id: String,
     size_bytes: u64,
     checksum_sha256: String,
+    runtime_id: String,
+    execution_backend: String,
+    platform: String,
+    architecture: String,
     qualified: bool,
     qualified_at: Option<u64>,
 }
@@ -1406,7 +1415,42 @@ struct GenerativeModelStatus {
     memory_required_bytes: u64,
     resource_tier: String,
     execution_backend: String,
+    platform: String,
     architecture: String,
+}
+
+fn generative_model_record_is_ready(
+    record: &GenerativeModelMetadata,
+    size_bytes: u64,
+    checksum_sha256: &str,
+    resource: &generative_resources::NativeResourceSnapshot,
+) -> bool {
+    record.schema_version == GENERATIVE_MODEL_METADATA_SCHEMA_VERSION
+        && record.model_handle == GENERATIVE_MODEL_HANDLE
+        && matches!(
+            record.profile_id.as_str(),
+            GENERATIVE_MODEL_PROFILE | GENERATIVE_MODEL_CUSTOM_PROFILE
+        )
+        && record.size_bytes == size_bytes
+        && record.checksum_sha256 == checksum_sha256
+        && record.runtime_id == GENERATIVE_MODEL_RUNTIME_ID
+        && record.execution_backend == resource.execution_backend
+        && record.platform == resource.platform
+        && record.architecture == resource.architecture
+        && record.qualified
+}
+
+fn generative_model_is_ready(
+    record: &GenerativeModelMetadata,
+    size_bytes: u64,
+    checksum_sha256: &str,
+    resource: &generative_resources::NativeResourceSnapshot,
+) -> bool {
+    generative_model_record_is_ready(record, size_bytes, checksum_sha256, resource)
+        && resource
+            .available_memory_bytes
+            .map(|available| available >= resource.required_memory_bytes)
+            .unwrap_or(true)
 }
 
 fn managed_generative_model_paths(app: &tauri::AppHandle) -> Result<Vec<std::path::PathBuf>, String> {
@@ -1449,21 +1493,31 @@ fn model_status_blocking(
             if metadata.is_file() && metadata.len() > 0 {
                 let (size_bytes, checksum_sha256) = sha256_file(&path)?;
                 let record = read_generative_model_metadata(&path);
+                let record_matches_runtime = record.as_ref().is_some_and(|record| {
+                    generative_model_record_is_ready(
+                        record,
+                        size_bytes,
+                        &checksum_sha256,
+                        &resource,
+                    )
+                });
+                let memory_available = resource.available_memory_bytes;
+                let memory_sufficient = memory_available
+                    .map(|available| available >= resource.required_memory_bytes)
+                    .unwrap_or(true);
                 let ready = record.as_ref().is_some_and(|record| {
-                        record.schema_version == GENERATIVE_MODEL_METADATA_SCHEMA_VERSION
-                        && record.model_handle == GENERATIVE_MODEL_HANDLE
-                        && matches!(
-                            record.profile_id.as_str(),
-                            GENERATIVE_MODEL_PROFILE | GENERATIVE_MODEL_CUSTOM_PROFILE
-                        )
-                        && record.size_bytes == size_bytes
-                        && record.checksum_sha256 == checksum_sha256
-                        && record.qualified
+                    generative_model_is_ready(record, size_bytes, &checksum_sha256, &resource)
                 });
                 let reason = if ready {
                     Some("The local model passed Varve's masked inpainting qualification.".into())
+                } else if record_matches_runtime && !memory_sufficient {
+                    let available_mib = memory_available.unwrap_or_default() / (1024 * 1024);
+                    let required_mib = resource.required_memory_bytes.div_ceil(1024 * 1024);
+                    Some(format!(
+                        "The model is qualified for this device, but only {available_mib} MiB is currently available and about {required_mib} MiB is required. Close memory-heavy apps or use Quick Cleanup."
+                    ))
                 } else if record.is_some() {
-                    Some("The model changed or failed qualification. Validate it again before generation.".into())
+                    Some("The model changed, was qualified on another runtime/device, or failed qualification. Validate it again before generation.".into())
                 } else {
                     Some("Model installed locally. Validate it with a masked production run before generation.".into())
                 };
@@ -1472,7 +1526,9 @@ fn model_status_blocking(
                     ready,
                     model_handle: record
                         .as_ref()
-                        .filter(|record| record.model_handle == GENERATIVE_MODEL_HANDLE)
+                        .filter(|record| {
+                            ready && record.model_handle == GENERATIVE_MODEL_HANDLE
+                        })
                         .map(|_| GENERATIVE_MODEL_HANDLE.into()),
                     profile_id: record.as_ref().map(|record| record.profile_id.clone()),
                     checksum_sha256: Some(checksum_sha256),
@@ -1483,6 +1539,7 @@ fn model_status_blocking(
                     memory_required_bytes: resource.required_memory_bytes,
                     resource_tier: resource.resource_tier.into(),
                     execution_backend: resource.execution_backend.into(),
+                    platform: resource.platform.into(),
                     architecture: resource.architecture.into(),
                 });
             }
@@ -1511,6 +1568,7 @@ fn model_status_blocking(
         memory_required_bytes: resource.required_memory_bytes,
         resource_tier: resource.resource_tier.into(),
         execution_backend: resource.execution_backend.into(),
+        platform: resource.platform.into(),
         architecture: resource.architecture.into(),
     })
 }
@@ -1939,6 +1997,7 @@ fn write_generative_model_metadata(
     qualified: bool,
 ) -> Result<(), String> {
     let (size_bytes, checksum_sha256) = sha256_file(model_path)?;
+    let resource = generative_resources::snapshot(512, 512);
     let profile_id = if size_bytes == GENERATIVE_MODEL_DOWNLOAD_SIZE
         && checksum_sha256 == GENERATIVE_MODEL_DOWNLOAD_SHA256
     {
@@ -1952,6 +2011,10 @@ fn write_generative_model_metadata(
         profile_id: profile_id.into(),
         size_bytes,
         checksum_sha256,
+        runtime_id: GENERATIVE_MODEL_RUNTIME_ID.into(),
+        execution_backend: resource.execution_backend.into(),
+        platform: resource.platform.into(),
+        architecture: resource.architecture.into(),
         qualified,
         qualified_at: qualified.then(unix_timestamp_seconds),
     };
@@ -4634,6 +4697,63 @@ mod tests {
         assert!(generation_cancel_requested(&request_id));
         assert!(take_generation_cancellation(&request_id));
         assert!(!generation_cancel_requested(&request_id));
+    }
+
+    #[test]
+    fn model_qualification_is_bound_to_the_current_platform_and_architecture() {
+        let resource = generative_resources::NativeResourceSnapshot {
+            available_memory_bytes: Some(8 * 1024 * 1024 * 1024),
+            required_memory_bytes: 6 * 1024 * 1024 * 1024,
+            resource_tier: "high",
+            execution_backend: "native-cpu",
+            platform: "linux",
+            architecture: "x86_64",
+        };
+        let record = GenerativeModelMetadata {
+            schema_version: GENERATIVE_MODEL_METADATA_SCHEMA_VERSION,
+            model_handle: GENERATIVE_MODEL_HANDLE.into(),
+            profile_id: GENERATIVE_MODEL_PROFILE.into(),
+            size_bytes: 42,
+            checksum_sha256: "hash".into(),
+            runtime_id: GENERATIVE_MODEL_RUNTIME_ID.into(),
+            execution_backend: "native-cpu".into(),
+            platform: "linux".into(),
+            architecture: "x86_64".into(),
+            qualified: true,
+            qualified_at: Some(1),
+        };
+
+        assert!(generative_model_record_is_ready(
+            &record, 42, "hash", &resource
+        ));
+        assert!(generative_model_is_ready(&record, 42, "hash", &resource));
+
+        let mut arm_resource = resource.clone();
+        arm_resource.architecture = "aarch64";
+        assert!(!generative_model_record_is_ready(
+            &record,
+            42,
+            "hash",
+            &arm_resource
+        ));
+
+        let mut constrained_resource = resource.clone();
+        constrained_resource.available_memory_bytes = Some(4 * 1024 * 1024 * 1024);
+        assert!(!generative_model_is_ready(
+            &record,
+            42,
+            "hash",
+            &constrained_resource
+        ));
+
+        let mut windows_resource = resource.clone();
+        windows_resource.platform = "windows";
+        assert!(!generative_model_record_is_ready(
+            &record,
+            42,
+            "hash",
+            &windows_resource
+        ));
     }
 
     #[test]

@@ -276,6 +276,10 @@ export function getRuntimeCapabilitiesSync(): RuntimeCapabilities {
   if (cachedCapabilities) return cachedCapabilities;
   const memoryMB = approximateMemoryMB();
   const crossOriginIsolated = detectCrossOriginIsolated();
+  const userAgentData =
+    typeof navigator !== 'undefined'
+      ? (navigator as Navigator & { userAgentData?: UserAgentDataHints }).userAgentData
+      : undefined;
   return {
     crossOriginIsolated,
     isWebKitGTK: detectWebKitGTK(),
@@ -288,8 +292,8 @@ export function getRuntimeCapabilitiesSync(): RuntimeCapabilities {
     wasmSafePeakBytes: estimateWasmSafePeakBytes(crossOriginIsolated, memoryMB),
     preferredOnnxProviders: ['wasm'],
     label: 'Sync snapshot (no async probes)',
-    os: detectOs(),
-    cpuArch: detectCpuArch(),
+    os: detectOsFromSignal(userAgentData?.platform) ?? detectOs(),
+    cpuArch: detectCpuArch() ?? detectCpuArchFromSignal(userAgentData?.architecture),
     logicalProcessors: typeof navigator !== 'undefined' ? (navigator.hardwareConcurrency ?? 0) : 0,
     approximateMemoryMB: memoryMB,
     memoryTier: memoryTier(memoryMB),
