@@ -2996,6 +2996,62 @@ input[type="number"] {
   }
 }
 
+/* ── Portrait menubar consolidation ──
+ * The document title is duplicated in the tab strip and the status bar, and
+ * the menubar zoom duplicates the status-bar zoom chip. Portrait keeps the
+ * menu strip, the icon-only workspace switcher, and undo/redo, and makes the
+ * menu strip scrollable so a wider workspace menu set can never clip an
+ * option. */
+@media (max-width: 899px) and (orientation: portrait) {
+  .editor-menubar__center {
+    display: none;
+  }
+
+  .editor-menubar__zoom,
+  .editor-menubar__zoom-divider {
+    display: none;
+  }
+
+  .editor-menubar .workspace-dock {
+    gap: var(--space-1);
+  }
+
+  .editor-menubar .workspace-dock__item,
+  .editor-menubar .workspace-dock__more {
+    min-inline-size: 32px;
+    padding-inline: var(--space-1);
+  }
+
+  .editor-menubar .workspace-dock__label {
+    display: none;
+  }
+
+  .editor-menubar__left {
+    min-width: 0;
+    flex-shrink: 1;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .editor-menubar__left::-webkit-scrollbar {
+    display: none;
+  }
+
+  .editor-menubar__controls {
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editor__layers-panel,
+  .editor__inspector-panel,
+  .editor__library-panel,
+  .editor__logo-panel {
+    transition: none;
+  }
+}
+
 /* ── Elevated container panel treatment ─────────────────
  * 100% opaque, instrument-grade elevated surface.
  * Retains .editor__panel--glass class for compatibility.

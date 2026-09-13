@@ -442,6 +442,11 @@ test.describe('touch interaction', () => {
         timeout: 10000,
       })
       .not.toBe(0);
+    // The committed document must serialize deterministically after a touch
+    // interaction (no half-applied transaction, no unstable ids).
+    const serializedOnce = await serializeEditorDocument(page);
+    const serializedTwice = await serializeEditorDocument(page);
+    expect(serializedTwice).toBe(serializedOnce);
     expect(pageErrors).toEqual([]);
   });
 
@@ -828,6 +833,322 @@ test.describe('portrait and landscape presentation', () => {
       expect(pageErrors).toEqual([]);
     });
   });
+});
+
+test.describe('accessibility alternatives and input scoping', () => {
+  test.skip(
+    ({ browserName }) => browserName !== 'chromium',
+    'emulated device matrix runs on Chromium',
+  );
+
+  test.describe('non-drag alternatives', () => {
+    test.use({ viewport: { width: 1280, height: 800 } });
+
+    test('numeric inspector fields move and constrain a selection without dragging', async ({
+      page,
+    }) => {
+      await navigateToEditor(page);
+      await settleLayout(page);
+
+      await page.keyboard.press('r');
+      const canvas = page.locator('canvas.editor-canvas__content-layer');
+      const box = await canvas.boundingBox();
+      if (!box) throw new Error('content canvas not laid out');
+      await page.mouse.move(box.x + 200, box.y + 180);
+      await page.mouse.down();
+      await page.mouse.move(box.x + 360, box.y + 300, { steps: 6 });
+      await page.mouse.up();
+      await page.keyboard.press('v');
+      await page.getByRole('treeitem').first().click();
+
+      const xField = page.getByRole('spinbutton', { name: 'X (px)', exact: true });
+      if (!(await xField.isVisible().catch(() => false))) {
+        await page
+          .getByRole('button', { name: /Position & Size/i })
+          .first()
+          .click();
+      }
+      await expect(xField).toBeVisible({ timeout: 10000 });
+      const wField = page.getByRole('spinbutton', { name: 'W (px)', exact: true });
+      const hField = page.getByRole('spinbutton', { name: 'H (px)', exact: true });
+
+      // Move by typing: the document changes without any drag gesture.
+      const beforeMove = await serializeEditorDocument(page);
+      const x0 = Number.parseFloat(await xField.inputValue());
+      expect(Number.isFinite(x0)).toBe(true);
+      await xField.fill(String(x0 + 40));
+      await xField.press('Tab');
+      await expect.poll(() => serializeEditorDocument(page)).not.toBe(beforeMove);
+
+      // Constrained resize: with the proportion lock on, editing W scales H by
+      // the same ratio (the keyboard-free path to a constrained transform).
+      const w0 = Number.parseFloat(await wField.inputValue());
+      const h0 = Number.parseFloat(await hField.inputValue());
+      expect(w0).toBeGreaterThan(0);
+      expect(h0).toBeGreaterThan(0);
+      await page
+        .getByRole('checkbox', { name: 'Constrain proportions' })
+        .evaluate((element: HTMLInputElement) => element.click());
+      await wField.fill(String(w0 + 60));
+      await wField.press('Tab');
+      const expectedHeight = h0 * ((w0 + 60) / w0);
+      await expect
+        .poll(async () => Number.parseFloat(await hField.inputValue()), { timeout: 5000 })
+        .toBeGreaterThan(0);
+      const heightValue = Number.parseFloat(await hField.inputValue());
+      expect(Math.abs(heightValue - expectedHeight)).toBeLessThan(1.5);
+      expect(pageErrors).toEqual([]);
+    });
+  });
+
+  test.describe('on-screen edit actions', () => {
+    test.use({ hasTouch: true, viewport: { width: 800, height: 1280 } });
+
+    test('undo and redo are reachable and effective without a keyboard', async ({ page }) => {
+      await navigateToEditor(page);
+      await settleLayout(page);
+
+      await page.keyboard.press('r');
+      const canvas = page.locator('canvas.editor-canvas__content-layer');
+      const box = await canvas.boundingBox();
+      if (!box) throw new Error('content canvas not laid out');
+      await page.mouse.move(box.x + 140, box.y + 160);
+      await page.mouse.down();
+      await page.mouse.move(box.x + 300, box.y + 280, { steps: 6 });
+      await page.mouse.up();
+      await expect.poll(() => documentNodeCount(page), { timeout: 10000 }).toBeGreaterThan(0);
+      const afterDraw = await documentNodeCount(page);
+
+      // Undo/redo through the Edit menu: the same commands the toolbar
+      // exposes, reachable by tap alone.
+      await page.getByRole('menubar').getByRole('menuitem', { name: 'Edit', exact: true }).click();
+      await page.getByRole('menuitem', { name: /^undo/i }).click();
+      await expect.poll(() => documentNodeCount(page), { timeout: 10000 }).toBeLessThan(afterDraw);
+
+      await page.getByRole('menubar').getByRole('menuitem', { name: 'Edit', exact: true }).click();
+      await page.getByRole('menuitem', { name: /^redo/i }).click();
+      await expect.poll(() => documentNodeCount(page), { timeout: 10000 }).toBe(afterDraw);
+      expect(pageErrors).toEqual([]);
+    });
+  });
+
+  test.describe('wheel scoping', () => {
+    test.use({ viewport: { width: 1280, height: 800 } });
+
+    test('panel scrolling, canvas pan, and ctrl+wheel zoom stay in scope', async ({ page }) => {
+      await navigateToEditor(page);
+      await settleLayout(page);
+
+      // Stack enough objects to overflow the virtualized layers list. Draw one
+      // rectangle, then duplicate it with the keyboard: deterministic and far
+      // faster than 30 drags, which the renderer drops under load.
+      const canvas = page.locator('canvas.editor-canvas__content-layer');
+      const canvasBox = await canvas.boundingBox();
+      if (!canvasBox) throw new Error('content canvas not laid out');
+      await page.keyboard.press('r');
+      await page.mouse.move(canvasBox.x + 200, canvasBox.y + 180);
+      await page.mouse.down();
+      await page.mouse.move(canvasBox.x + 300, canvasBox.y + 260, { steps: 4 });
+      await page.mouse.up();
+      await page.keyboard.press('v');
+      await page.getByRole('treeitem').first().click();
+      for (let i = 0; i < 40; i += 1) {
+        await page.keyboard.press('Control+d');
+      }
+      await settleLayout(page);
+      // The list is virtualized: the DOM renders only the visible window of
+      // rows, so assert the underlying scroll capacity instead of a row count.
+      const scrollCapacity = await page.evaluate(() => {
+        const root = document.querySelector('.editor__layers-panel');
+        let maxScroll = 0;
+        if (root) {
+          for (const element of [root, ...root.querySelectorAll('*')]) {
+            maxScroll = Math.max(maxScroll, element.scrollHeight - element.clientHeight);
+          }
+        }
+        return maxScroll;
+      });
+      expect(scrollCapacity).toBeGreaterThan(100);
+
+      const firstRow = page.getByRole('treeitem').first();
+      await expect(firstRow).toBeVisible();
+      const rowBox = await firstRow.boundingBox();
+      if (!rowBox) throw new Error('layers row not laid out');
+      const beforeRowY = rowBox.y;
+      const zoomBefore = Number.parseFloat(await page.locator('#menubar-zoom').inputValue());
+      await page.mouse.move(rowBox.x + rowBox.width / 2, rowBox.y + rowBox.height / 2);
+      await page.mouse.wheel(0, 600);
+      await page.waitForTimeout(250);
+
+      // The panel consumes the wheel (scrollTop or virtualized row movement)
+      // instead of forwarding it to the canvas camera.
+      const afterRowY = (await firstRow.boundingBox())?.y ?? 0;
+      const panelScrolled = await page.evaluate(() => {
+        const root = document.querySelector('.editor__layers-panel');
+        if (!root) return false;
+        return [root, ...root.querySelectorAll('*')].some((element) => element.scrollTop > 0);
+      });
+      const wheelDiagnostics = await page.evaluate(() => {
+        const root = document.querySelector('.editor__layers-panel');
+        const scrollables: Array<{ cls: string; top: number; surplus: number }> = [];
+        if (root) {
+          for (const element of [root, ...root.querySelectorAll('*')]) {
+            const surplus = element.scrollHeight - element.clientHeight;
+            if (surplus > 2) {
+              scrollables.push({
+                cls: `${element.tagName}.${String(element.className).slice(0, 50)}`,
+                top: element.scrollTop,
+                surplus,
+              });
+            }
+          }
+        }
+        return {
+          treeitems: document.querySelectorAll('[role="treeitem"]').length,
+          scrollables: scrollables.slice(0, 5),
+        };
+      });
+      expect(
+        afterRowY !== beforeRowY || panelScrolled,
+        `wheel did not move the layers panel: ${JSON.stringify(wheelDiagnostics)}`,
+      ).toBe(true);
+      // Wheel over the panel must not zoom the canvas.
+      const zoomAfterPanel = Number.parseFloat(await page.locator('#menubar-zoom').inputValue());
+      expect(zoomAfterPanel).toBeCloseTo(zoomBefore, 1);
+
+      // Ctrl+wheel over the canvas is the trackpad-pinch equivalent and zooms.
+      await page.mouse.move(canvasBox.x + 60, canvasBox.y + 60);
+      await page.keyboard.down('Control');
+      await page.mouse.wheel(0, -240);
+      await page.keyboard.up('Control');
+      await expect
+        .poll(async () => Number.parseFloat(await page.locator('#menubar-zoom').inputValue()), {
+          timeout: 5000,
+        })
+        .toBeGreaterThan(zoomAfterPanel);
+      expect(pageErrors).toEqual([]);
+    });
+  });
+
+  test.describe('reduced motion', () => {
+    test.use({
+      hasTouch: true,
+      viewport: { width: 600, height: 960 },
+    });
+
+    test('drawer and sheet transitions are removed', async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await navigateToEditor(page);
+      await settleLayout(page);
+
+      await page.locator('.editor__fab--inspector').click();
+      const panel = page.locator('.editor__inspector-panel');
+      await expect(panel).toHaveAttribute('data-visible', 'true');
+      const transition = await panel.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { property: style.transitionProperty, duration: style.transitionDuration };
+      });
+      expect(transition.property === 'none' || transition.duration === '0s').toBe(true);
+      expect(pageErrors).toEqual([]);
+    });
+  });
+});
+
+test.describe('portrait menubar compaction', () => {
+  test.skip(({ browserName }) => browserName !== 'chromium', 'emulated tablet runs on Chromium');
+
+  for (const entry of [
+    { name: 'portrait-600x960', width: 600, height: 960 },
+    { name: 'portrait-800x1280', width: 800, height: 1280 },
+  ]) {
+    test(`${entry.name}: no menubar option is clipped and the workspace switcher is compact`, async ({
+      page,
+    }, testInfo) => {
+      await navigateToEditor(page);
+      await page.setViewportSize({ width: entry.width, height: entry.height });
+      await settleLayout(page);
+
+      const geometry = await page.evaluate(() => {
+        const menubar = document.querySelector('.editor-menubar');
+        if (!menubar) throw new Error('menubar missing');
+        const menubarRect = menubar.getBoundingClientRect();
+        const items = Array.from(menubar.querySelectorAll('.editor-menubar__item')).map((el) => {
+          const rect = el.getBoundingClientRect();
+          return {
+            label: el.textContent?.trim() ?? '',
+            left: Math.round(rect.left),
+            right: Math.round(rect.right),
+            width: Math.round(rect.width),
+          };
+        });
+        const dockItems = Array.from(menubar.querySelectorAll('.workspace-dock__item')).map(
+          (el) => {
+            const rect = el.getBoundingClientRect();
+            const label = el.querySelector('.workspace-dock__label');
+            const labelRect = label?.getBoundingClientRect();
+            return {
+              width: Math.round(rect.width),
+              left: Math.round(rect.left),
+              right: Math.round(rect.right),
+              labelVisible: Boolean(labelRect && labelRect.width > 1),
+            };
+          },
+        );
+        const docName = menubar.querySelector('.editor-menubar__center');
+        const controlsButton = menubar.querySelector('.editor-menubar__controls button');
+        return {
+          menubar: {
+            left: Math.round(menubarRect.left),
+            right: Math.round(menubarRect.right),
+            clientWidth: menubar.clientWidth,
+            scrollWidth: menubar.scrollWidth,
+          },
+          items,
+          dockItems,
+          docNameVisible: Boolean(docName && docName.getBoundingClientRect().width > 1),
+          controlsVisible: Boolean(
+            controlsButton && controlsButton.getBoundingClientRect().width > 1,
+          ),
+        };
+      });
+
+      const rightEdge = geometry.menubar.left + geometry.menubar.clientWidth;
+      const clipped = geometry.items.filter((item) => item.right > rightEdge + 1);
+      expect(clipped, `clipped menu items: ${JSON.stringify(geometry)}`).toEqual([]);
+      const oversizedDock = geometry.dockItems.filter((item) => item.width > 44);
+      expect(
+        oversizedDock,
+        `workspace switcher items wider than 44px in portrait: ${JSON.stringify(geometry)}`,
+      ).toEqual([]);
+      const labelShowing = geometry.dockItems.filter((item) => item.labelVisible);
+      expect(
+        labelShowing,
+        `workspace switcher labels still visible in portrait: ${JSON.stringify(geometry)}`,
+      ).toEqual([]);
+      expect(
+        geometry.docNameVisible,
+        `document name still shown: ${JSON.stringify(geometry)}`,
+      ).toBe(false);
+      expect(geometry.controlsVisible, `right controls hidden: ${JSON.stringify(geometry)}`).toBe(
+        true,
+      );
+      expect(
+        geometry.menubar.scrollWidth,
+        `menubar content overflows its box: ${JSON.stringify(geometry)}`,
+      ).toBeLessThanOrEqual(geometry.menubar.clientWidth + 1);
+
+      const screenshotPath = testInfo.outputPath(`menubar-${entry.name}.png`);
+      await page.screenshot({
+        path: screenshotPath,
+        clip: { x: 0, y: 0, width: entry.width, height: 120 },
+      });
+      await testInfo.attach(`menubar-${entry.name}`, {
+        path: screenshotPath,
+        contentType: 'image/png',
+      });
+      expect(pageErrors).toEqual([]);
+    });
+  }
 });
 
 test.describe('keyboard inset publication', () => {
