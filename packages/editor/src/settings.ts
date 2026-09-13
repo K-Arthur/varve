@@ -107,6 +107,14 @@ export interface StartupSettingsStore {
 /** Application-level viewport/view defaults restored on new sessions and page reload. */
 export interface ViewportSettingsStore {
   snapEnabled: boolean;
+  /** Magnetic acquisition tolerance in CSS pixels; exact keyboard nudges ignore it. */
+  snapTolerancePx: number;
+  /** Include visible object edges and centers in pointer snapping. */
+  snapToObjects: boolean;
+  /** Include page and containing-frame geometry in pointer snapping. */
+  snapToPages: boolean;
+  /** Include authored ruler and frame layout guide lines in pointer snapping. */
+  snapToGuides: boolean;
   pixelGridEnabled: boolean;
   pixelGridSnapEnabled: boolean;
   dotGridEnabled: boolean;
@@ -307,6 +315,10 @@ export const DEFAULT_STARTUP_SETTINGS: StartupSettingsStore = {
 
 export const DEFAULT_VIEWPORT_SETTINGS: ViewportSettingsStore = {
   snapEnabled: true,
+  snapTolerancePx: 8,
+  snapToObjects: true,
+  snapToPages: true,
+  snapToGuides: true,
   pixelGridEnabled: false,
   pixelGridSnapEnabled: false,
   dotGridEnabled: false,
@@ -320,6 +332,9 @@ export const DEFAULT_VIEWPORT_SETTINGS: ViewportSettingsStore = {
   gridVisible: false,
   gridSubdivisions: 4,
 };
+
+export const SNAP_TOLERANCE_MIN = 1;
+export const SNAP_TOLERANCE_MAX = 32;
 
 export const DEFAULT_SECTION_SETTINGS: SectionSettingsStore = {
   version: 1,
@@ -544,10 +559,7 @@ export function loadSettings(): EditorSettings {
         DEFAULT_STARTUP_SETTINGS,
         parsed.startup as Partial<StartupSettingsStore>,
       ),
-      viewport: mergePartial(
-        DEFAULT_VIEWPORT_SETTINGS,
-        parsed.viewport as Partial<ViewportSettingsStore>,
-      ),
+      viewport: normalizeViewportSettings(parsed.viewport as Partial<ViewportSettingsStore>),
       sections: {
         version: 1,
         sections: migrateLegacyDisclosureState(
@@ -617,6 +629,35 @@ function normalizeLayersSettings(
   return layers;
 }
 
+function normalizeSnapTolerance(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_VIEWPORT_SETTINGS.snapTolerancePx;
+  }
+  return Math.min(SNAP_TOLERANCE_MAX, Math.max(SNAP_TOLERANCE_MIN, value));
+}
+
+function normalizeViewportSettings(
+  partial: Partial<ViewportSettingsStore> | undefined,
+): ViewportSettingsStore {
+  const viewport = mergePartial(DEFAULT_VIEWPORT_SETTINGS, partial);
+  return {
+    ...viewport,
+    snapTolerancePx: normalizeSnapTolerance(viewport.snapTolerancePx),
+    snapToObjects:
+      typeof viewport.snapToObjects === 'boolean'
+        ? viewport.snapToObjects
+        : DEFAULT_VIEWPORT_SETTINGS.snapToObjects,
+    snapToPages:
+      typeof viewport.snapToPages === 'boolean'
+        ? viewport.snapToPages
+        : DEFAULT_VIEWPORT_SETTINGS.snapToPages,
+    snapToGuides:
+      typeof viewport.snapToGuides === 'boolean'
+        ? viewport.snapToGuides
+        : DEFAULT_VIEWPORT_SETTINGS.snapToGuides,
+  };
+}
+
 export function saveSettings(settings: EditorSettings): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
 }
@@ -649,7 +690,7 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
     panel: { ...current.panel, ...patch.panel },
     render: { ...current.render, ...patch.render },
     startup: { ...current.startup, ...patch.startup },
-    viewport: { ...current.viewport, ...patch.viewport },
+    viewport: normalizeViewportSettings({ ...current.viewport, ...patch.viewport }),
     sections: {
       ...current.sections,
       ...patch.sections,

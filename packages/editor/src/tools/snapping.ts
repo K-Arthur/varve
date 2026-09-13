@@ -37,6 +37,8 @@ export interface GridSnapConfig {
 
 export interface SnapBoxOptions {
   zoom?: number;
+  /** Magnetic acquisition tolerance in CSS pixels. */
+  tolerancePx?: number;
   otherBounds?: Array<{ x: number; y: number; w: number; h: number }>;
   /** Handle that produced this box. Enables anchor-preserving resize snaps. */
   resizeHandle?: ResizeHandle;
@@ -90,6 +92,8 @@ export interface SnapSession {
 export interface SnapOptions {
   /** Current zoom for screen-pixel threshold scaling. Default 1. */
   zoom?: number;
+  /** Magnetic acquisition/release tolerance in CSS pixels. */
+  tolerancePx?: number;
   /** Prior sticky session for hysteresis. */
   session?: SnapSession | null;
   /** Unsnapped proposal for this sample. Required when a caller retains a corrected box. */
@@ -107,6 +111,9 @@ export interface SnapOptions {
 }
 
 export const SNAP_RANGE_PX = 200;
+export const DEFAULT_SNAP_TOLERANCE_PX = 8;
+export const SNAP_TOLERANCE_MIN_PX = 1;
+export const SNAP_TOLERANCE_MAX_PX = 32;
 
 export type SnapTargetInput = { x: number; y: number; w: number; h: number } | SnapTarget;
 
@@ -128,12 +135,19 @@ export function snapTargetSearchRect(
   };
 }
 
-function thresholdWorld(zoom: number): number {
-  return 8 / Math.max(0.001, zoom);
+function resolvedTolerancePx(value: number | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return DEFAULT_SNAP_TOLERANCE_PX;
+  }
+  return Math.min(SNAP_TOLERANCE_MAX_PX, Math.max(SNAP_TOLERANCE_MIN_PX, value));
 }
 
-function releaseThresholdWorld(zoom: number): number {
-  return thresholdWorld(zoom) * 1.5;
+function thresholdWorld(zoom: number, tolerancePx = DEFAULT_SNAP_TOLERANCE_PX): number {
+  return resolvedTolerancePx(tolerancePx) / Math.max(0.001, zoom);
+}
+
+function releaseThresholdWorld(zoom: number, tolerancePx = DEFAULT_SNAP_TOLERANCE_PX): number {
+  return thresholdWorld(zoom, tolerancePx) * 1.5;
 }
 
 /** Screen-space bounding box of a target (cx, cy, half-extent). */
@@ -308,7 +322,9 @@ function lockMatchesGuide(lock: SnapLock, guide: SnapGuide): boolean {
     return (
       lock.targetId === guide.targetId &&
       lock.sourceFeature === guide.sourceFeature &&
-      lock.targetFeature === guide.targetFeature
+      lock.targetFeature === guide.targetFeature &&
+      lock.guidePosition === guide.position &&
+      lock.referenceSpace === guide.referenceSpace
     );
   }
   return (
@@ -578,8 +594,8 @@ export function snapPosition(
 ): SnapResult & { session: SnapSession } {
   const zoom = options.zoom ?? 1;
   const sticky = options.sticky !== false;
-  const thresh = thresholdWorld(zoom);
-  const release = releaseThresholdWorld(zoom);
+  const thresh = thresholdWorld(zoom, options.tolerancePx);
+  const release = releaseThresholdWorld(zoom, options.tolerancePx);
   let session: SnapSession = options.session ?? { stickyX: null, stickyY: null };
 
   // `x`/`y` are historically the current proposal. Callers that retain a
@@ -1291,6 +1307,7 @@ function snapResizeAxisToGrid(
 export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}): SelectionBox {
   const {
     zoom = 1,
+    tolerancePx,
     otherBounds = [],
     resizeHandle,
     resizeCentered = false,
@@ -1298,7 +1315,7 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
     layoutGridStep,
     pixelGridSnap,
   } = options;
-  const thresh = thresholdWorld(zoom);
+  const thresh = thresholdWorld(zoom, tolerancePx);
 
   let snappedCx = box.cx;
   let snappedCy = box.cy;

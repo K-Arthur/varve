@@ -15,6 +15,10 @@ describe('loadSettings', () => {
     expect(s.appearance.theme).toBe('system');
     expect(s.startup.showBrandedLoader).toBe(true);
     expect(s.viewport.snapEnabled).toBe(true);
+    expect(s.viewport.snapTolerancePx).toBe(8);
+    expect(s.viewport.snapToObjects).toBe(true);
+    expect(s.viewport.snapToPages).toBe(true);
+    expect(s.viewport.snapToGuides).toBe(true);
     expect(s.viewport.guidesVisible).toBe(true);
     expect(s.viewport.snapGrid).toBe(8);
     expect(s.render.memoryBudget).toBe('medium');
@@ -183,6 +187,33 @@ describe('loadSettings', () => {
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ nudge: { small: 'bad', big: null } }));
     expect(loadSettings().nudge).toEqual({ small: 1, big: 10 });
+  });
+
+  it('normalizes snap tolerance and preserves candidate-scope migrations', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        viewport: {
+          snapTolerancePx: 99,
+          snapToObjects: false,
+          snapToPages: 'invalid',
+          snapToGuides: true,
+        },
+      }),
+    );
+    expect(loadSettings().viewport).toMatchObject({
+      snapTolerancePx: 32,
+      snapToObjects: false,
+      snapToPages: true,
+      snapToGuides: true,
+    });
+
+    updateSettings({ viewport: { snapTolerancePx: 0, snapToPages: false } });
+    expect(loadSettings().viewport).toMatchObject({
+      snapTolerancePx: 1,
+      snapToPages: false,
+      snapToObjects: false,
+    });
   });
 
   it('normalizes drawing input preferences without rejecting older settings files', () => {

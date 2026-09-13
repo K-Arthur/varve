@@ -19,8 +19,16 @@ import {
   resolveBlendEvaluationSpace,
 } from '@varve/shared';
 import { Select, Switch } from '@varve/ui';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
+import {
+  DEFAULT_VIEWPORT_SETTINGS,
+  loadSettings,
+  SNAP_TOLERANCE_MAX,
+  SNAP_TOLERANCE_MIN,
+  updateSettings,
+  type ViewportSettingsStore,
+} from '../../../settings';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { SegmentedControl } from '../controls/SegmentedControl';
@@ -70,6 +78,26 @@ export function DocumentPanel() {
     colorConfig?.defaultGradientInterpolation ?? 'oklab';
   const fallbackColor = useMemo(() => whiteForMode(documentColorMode), [documentColorMode]);
   const canvasBgColor = doc.canvasBackground ?? fallbackColor;
+  const [snapPreferences, setSnapPreferences] = useState<ViewportSettingsStore>(
+    () => loadSettings().viewport,
+  );
+  const updateSnapPreferences = useCallback((patch: Partial<ViewportSettingsStore>) => {
+    const next = updateSettings({ viewport: patch });
+    setSnapPreferences(next.viewport);
+  }, []);
+  const resetSnapPreferences = useCallback(() => {
+    setSnapEnabled(DEFAULT_VIEWPORT_SETTINGS.snapEnabled);
+    const next = updateSettings({
+      viewport: {
+        snapEnabled: DEFAULT_VIEWPORT_SETTINGS.snapEnabled,
+        snapTolerancePx: DEFAULT_VIEWPORT_SETTINGS.snapTolerancePx,
+        snapToObjects: DEFAULT_VIEWPORT_SETTINGS.snapToObjects,
+        snapToPages: DEFAULT_VIEWPORT_SETTINGS.snapToPages,
+        snapToGuides: DEFAULT_VIEWPORT_SETTINGS.snapToGuides,
+      },
+    });
+    setSnapPreferences(next.viewport);
+  }, [setSnapEnabled]);
   // When no custom background is set the canvas renders the theme sunken colour,
   // not white.  Show that in the swatch so the picker reflects reality.
   const swatchBackground = useMemo(
@@ -97,6 +125,84 @@ export function DocumentPanel() {
             </div>
           </div>
         </div>
+      </DisclosureSection>
+      <DisclosureSection title="Snapping" id="snapping" defaultExpanded>
+        <fieldset className="insp-canvas-props" aria-label="Pointer snapping settings">
+          <div className="insp-field">
+            <span className="insp-field__label">Global snap</span>
+            <div className="insp-field__control insp-field__control--inline">
+              <Switch
+                label="Enable magnetic pointer snapping"
+                checked={state.snapEnabled}
+                onChange={(event) => setSnapEnabled(event.target.checked)}
+              />
+            </div>
+          </div>
+          <div className="insp-field">
+            <span className="insp-field__label">Tolerance</span>
+            <div className="insp-field__control">
+              <input
+                type="number"
+                min={SNAP_TOLERANCE_MIN}
+                max={SNAP_TOLERANCE_MAX}
+                step="0.5"
+                value={snapPreferences.snapTolerancePx}
+                onChange={(event) => {
+                  const value = Number(event.target.value);
+                  if (Number.isFinite(value)) updateSnapPreferences({ snapTolerancePx: value });
+                }}
+                className="insp-num__input"
+                aria-label={`Snap tolerance ${snapPreferences.snapTolerancePx} CSS pixels`}
+              />
+              <span className="insp-num__unit" aria-hidden="true">
+                CSS px
+              </span>
+            </div>
+          </div>
+          <div className="insp-field">
+            <span className="insp-field__label">Object geometry</span>
+            <div className="insp-field__control insp-field__control--inline">
+              <Switch
+                label="Edges and centers"
+                checked={snapPreferences.snapToObjects}
+                onChange={(event) => updateSnapPreferences({ snapToObjects: event.target.checked })}
+              />
+            </div>
+          </div>
+          <div className="insp-field">
+            <span className="insp-field__label">Pages and frames</span>
+            <div className="insp-field__control insp-field__control--inline">
+              <Switch
+                label="Page and frame bounds"
+                checked={snapPreferences.snapToPages}
+                onChange={(event) => updateSnapPreferences({ snapToPages: event.target.checked })}
+              />
+            </div>
+          </div>
+          <div className="insp-field">
+            <span className="insp-field__label">Guides</span>
+            <div className="insp-field__control insp-field__control--inline">
+              <Switch
+                label="Ruler and layout guides"
+                checked={snapPreferences.snapToGuides}
+                onChange={(event) => updateSnapPreferences({ snapToGuides: event.target.checked })}
+              />
+            </div>
+          </div>
+          <p className="insp-panel__color-mode-note" role="note">
+            Tolerance is measured in CSS pixels, so zoom does not change how far the pointer must
+            travel. Ctrl/Cmd temporarily bypasses magnetic snapping during a drag. Keyboard nudges,
+            grid snap, and pixel snap remain separate operations.
+          </p>
+          <div className="insp-field">
+            <span className="insp-field__label">Defaults</span>
+            <div className="insp-field__control insp-field__control--inline">
+              <button type="button" className="insp-btn" onClick={resetSnapPreferences}>
+                Reset snapping
+              </button>
+            </div>
+          </div>
+        </fieldset>
       </DisclosureSection>
       <DisclosureSection title="Document Color" sectionId="document-color" defaultExpanded>
         <div className="insp-panel__color-mode">
@@ -311,7 +417,7 @@ export function DocumentPanel() {
             </div>
           </div>
           <div className="insp-field">
-            <span className="insp-field__label">Snapping</span>
+            <span className="insp-field__label">Grid snap</span>
             <div className="insp-field__control insp-field__control--inline">
               <Switch
                 label="Snap to document grid"
@@ -319,11 +425,6 @@ export function DocumentPanel() {
                 onChange={(e) =>
                   setDocumentGrid({ ...state.documentGrid, snapEnabled: e.target.checked })
                 }
-              />
-              <Switch
-                label="Enable snapping globally"
-                checked={state.snapEnabled}
-                onChange={(e) => setSnapEnabled(e.target.checked)}
               />
             </div>
           </div>
@@ -477,10 +578,15 @@ export function DocumentPanel() {
             <span className="insp-field__label">Pixel grid</span>
             <div className="insp-field__control insp-field__control--inline">
               <Switch
-                label="Show pixel grid at high zoom"
+                label="Show at high zoom"
                 checked={state.pixelGridEnabled}
                 onChange={(e) => setPixelGridEnabled(e.target.checked)}
               />
+            </div>
+          </div>
+          <div className="insp-field">
+            <span className="insp-field__label">Pixel snap</span>
+            <div className="insp-field__control insp-field__control--inline">
               <Switch
                 label="Snap to integer pixels"
                 checked={state.pixelGridSnapEnabled}

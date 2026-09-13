@@ -75,6 +75,21 @@ describe('snapPosition', () => {
     expect(result.guides).toHaveLength(0);
   });
 
+  it('uses the configured screen-space tolerance without changing world precision', () => {
+    const result = snapPosition(12, 200, 100, 100, [box(0, 200, 100, 100)], undefined, undefined, {
+      zoom: 1,
+      tolerancePx: 16,
+    });
+    expect(result.x).toBe(0);
+    expect(result.guides[0]?.distance).toBe(12);
+
+    const zoomed = snapPosition(12, 200, 100, 100, [box(0, 200, 100, 100)], undefined, undefined, {
+      zoom: 2,
+      tolerancePx: 16,
+    });
+    expect(zoomed.x).toBe(12);
+  });
+
   it('returns no guides and unchanged position for empty targets', () => {
     const result = snapPosition(50, 50, 100, 100, []);
     expect(result.x).toBe(50);
@@ -662,6 +677,24 @@ describe('snapPosition — sticky hysteresis', () => {
     expect(next.session.stickyX && (next.session.stickyX as { targetId?: string }).targetId).toBe(
       'target-b',
     );
+  });
+
+  it('recomputes a sticky lock when the same target moves', () => {
+    const target = { id: 'target-a', bounds: box(0, 50, 100, 100) };
+    const first = snapPosition(3, 50, 100, 100, [target] as never, undefined, undefined, {
+      zoom: 1,
+      session: createSnapSession(),
+    });
+
+    const movedTarget = { id: 'target-a', bounds: box(5, 50, 100, 100) };
+    const next = snapPosition(6, 50, 100, 100, [movedTarget] as never, undefined, undefined, {
+      zoom: 1,
+      session: first.session,
+    });
+
+    expect(next.x).toBe(5);
+    expect(next.session.stickyX?.targetId).toBe('target-a');
+    expect(next.session.stickyX?.guidePosition).toBe(5);
   });
 
   it('chooses the same tied target when candidate order is shuffled', () => {

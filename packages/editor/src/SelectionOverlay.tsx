@@ -33,7 +33,8 @@ import {
   nodeWorldBounds,
   nodeWorldTransform,
 } from './scene/world';
-import { type SnapBoxOptions, snapSelectionBox } from './tools/snapping';
+import { loadSettings } from './settings';
+import { filterSnapTargetEntries, type SnapBoxOptions, snapSelectionBox } from './tools/snapping';
 import { storeRepeatTransform } from './transform/repeatTransform';
 import { type SkewAxis, TransformEngine } from './transform/TransformEngine';
 
@@ -498,14 +499,35 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   const snapOptionsRef = useRef<SnapBoxOptions | null>(null);
   const buildSnapOptions = useCallback((): SnapBoxOptions => {
     if (snapOptionsRef.current) return snapOptionsRef.current;
-    const otherBounds: Array<{ x: number; y: number; w: number; h: number }> = [];
-    for (const [id] of Object.entries(state.document.nodes)) {
+    const snapPreferences = loadSettings().viewport;
+    const otherBoundsWithIds: Array<{
+      nodeId: string;
+      bounds: { x: number; y: number; w: number; h: number };
+    }> = [];
+    for (const [id, candidate] of Object.entries(state.document.nodes)) {
       if (state.selection.includes(id)) continue;
+      if (candidate.visible === false || candidate.snapExcluded === true) continue;
       const bounds = nodeWorldBounds(state.document, id, parentIndex);
-      if (bounds) otherBounds.push(bounds);
+      if (bounds) otherBoundsWithIds.push({ nodeId: id, bounds });
     }
+    const selectionBounds = box
+      ? { x: box.cx - box.w / 2, y: box.cy - box.h / 2, w: box.w, h: box.h }
+      : { x: 0, y: 0, w: 0, h: 0 };
+    const otherBounds =
+      state.snapEnabled && snapPreferences.snapToObjects
+        ? filterSnapTargetEntries(
+            selectionBounds,
+            { zoom: state.zoom },
+            otherBoundsWithIds,
+            parentIndex,
+            state.selection[0] ?? '',
+            undefined,
+            new Set(state.selection),
+          ).map((target) => target.bounds)
+        : [];
     snapOptionsRef.current = {
       zoom: state.zoom,
+      tolerancePx: snapPreferences.snapTolerancePx,
       otherBounds,
       grid: state.snapEnabled && state.documentGrid?.snapEnabled ? state.documentGrid : undefined,
       pixelGridSnap: state.snapEnabled && state.pixelGridSnapEnabled,
@@ -519,6 +541,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
     state.documentGrid,
     state.pixelGridSnapEnabled,
     parentIndex,
+    box,
   ]);
 
   const releaseSnapOptions = useCallback(() => {
