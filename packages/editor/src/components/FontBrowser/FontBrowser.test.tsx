@@ -172,6 +172,31 @@ describe('FontBrowser', () => {
     expect(document.activeElement).toBe(all);
   });
 
+  it('keeps virtualized family rows keyboard navigable with one tab stop', () => {
+    render(<FontBrowser layout="modal" showDownloadable />);
+
+    const rows = screen
+      .getAllByRole('button')
+      .filter((button) => button.classList.contains('font-browser__select-btn'));
+    expect(rows.length).toBeGreaterThan(2);
+    expect(rows[0]).toHaveAttribute('tabindex', '0');
+    expect(rows[1]).toHaveAttribute('tabindex', '-1');
+
+    rows[0]!.focus();
+    fireEvent.keyDown(rows[0]!, { key: 'ArrowDown' });
+    expect(rows[1]).toHaveAttribute('tabindex', '0');
+    expect(document.activeElement).toBe(rows[1]);
+
+    fireEvent.keyDown(rows[1]!, { key: 'End' });
+    const last = rows.at(-1)!;
+    expect(last).toHaveAttribute('tabindex', '0');
+    expect(document.activeElement).toBe(last);
+
+    fireEvent.keyDown(last, { key: 'Home' });
+    expect(rows[0]).toHaveAttribute('tabindex', '0');
+    expect(document.activeElement).toBe(rows[0]);
+  });
+
   it('applies the exact registered face chosen from an expanded family', () => {
     const onSelectFace = vi.fn();
     render(

@@ -67,6 +67,19 @@ test.describe('Font browser filter reset', () => {
     await page.keyboard.press('Home');
     await expect(allTab).toHaveAttribute('aria-selected', 'true');
     await expect(allTab).toBeFocused();
+
+    const familyRows = dialog.locator('.font-browser__select-btn');
+    await expect(familyRows.first()).toHaveAttribute('tabindex', '0');
+    await familyRows.first().focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(familyRows.nth(1)).toHaveAttribute('tabindex', '0');
+    await expect(familyRows.nth(1)).toBeFocused();
+    await page.keyboard.press('End');
+    await expect(familyRows.last()).toHaveAttribute('tabindex', '0');
+    await expect(familyRows.last()).toBeFocused();
+    await page.keyboard.press('Home');
+    await expect(familyRows.first()).toBeFocused();
+
     await page.screenshot({
       path: test.info().outputPath('font-browser-reset-narrow.png'),
       animations: 'disabled',

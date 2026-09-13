@@ -6,7 +6,7 @@
  * preview-only for document use until the user explicitly installs it.
  */
 
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { defaultRangeExtractor, useVirtualizer } from '@tanstack/react-virtual';
 import { getFontRegistry } from '@varve/engine';
 import type { FontReference } from '@varve/engine/font';
 import {
@@ -312,6 +312,7 @@ export function FontBrowser({
   const [selectedFamily, setSelectedFamily] = useState<string | undefined>(selectedFamilyProp);
   const [selectedFace, setSelectedFace] = useState<FontFaceSelection | undefined>();
   const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(new Set());
+  const [activeFamilyIndex, setActiveFamilyIndex] = useState(-1);
   const [listElement, setListElement] = useState<HTMLDivElement | null>(null);
   const [installingFamily, setInstallingFamily] = useState<string | null>(null);
   const [installError, setInstallError] = useState<string | null>(null);
@@ -325,6 +326,7 @@ export function FontBrowser({
   >('idle');
   const [localFontCount, setLocalFontCount] = useState(0);
   const previewFaceRef = useRef<FontFace | undefined>(undefined);
+  const familyButtonRefs = useRef(new Map<number, HTMLButtonElement>());
   const tagInputId = useId();
   const localFontApiAvailable = useMemo(() => hasQueryLocalFonts(), []);
 
@@ -390,6 +392,11 @@ export function FontBrowser({
     estimateSize: () => 58,
     getItemKey: (index) => displayEntries[index]?.record.familyId ?? index,
     overscan: 8,
+    rangeExtractor: (range) => {
+      const visible = defaultRangeExtractor(range);
+      if (activeFamilyIndex < 0) return visible;
+      return [...new Set([...visible, activeFamilyIndex])].sort((a, b) => a - b);
+    },
   });
   const virtualItems = virtualizer.getVirtualItems();
   // A zero-sized jsdom viewport (and the first render before a portal/list
@@ -406,6 +413,36 @@ export function FontBrowser({
           size: 0,
           lane: 0,
         }));
+
+  const firstVirtualIndex = virtualItems[0]?.index ?? -1;
+  const lastVirtualIndex = virtualItems[virtualItems.length - 1]?.index ?? -1;
+
+  useEffect(() => {
+    setActiveFamilyIndex((current) => (current >= displayEntries.length ? -1 : current));
+  }, [displayEntries.length]);
+
+  useEffect(() => {
+    if (activeFamilyIndex < 0) return;
+    const focusActiveFamily = () => {
+      familyButtonRefs.current.get(activeFamilyIndex)?.focus();
+    };
+    if (familyButtonRefs.current.has(activeFamilyIndex)) {
+      focusActiveFamily();
+      return;
+    }
+    const frame = window.requestAnimationFrame(focusActiveFamily);
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeFamilyIndex, firstVirtualIndex, lastVirtualIndex]);
+
+  const moveFamilyFocus = useCallback(
+    (index: number) => {
+      if (index < 0 || index >= displayEntries.length) return;
+      setActiveFamilyIndex(index);
+      if (listElement) virtualizer.scrollToIndex(index, { align: 'auto' });
+      familyButtonRefs.current.get(index)?.focus();
+    },
+    [displayEntries.length, listElement, virtualizer],
+  );
 
   const selectedRecord = selectedFamily ? semantic.findByFamilyName(selectedFamily) : undefined;
   const selectedFaces = useMemo(
@@ -839,7 +876,42 @@ export function FontBrowser({
                         <button
                           type="button"
                           className="font-browser__select-btn"
+                          id={`font-browser-family-${virtualRow.index}`}
+                          ref={(element) => {
+                            if (element) familyButtonRefs.current.set(virtualRow.index, element);
+                            else familyButtonRefs.current.delete(virtualRow.index);
+                          }}
+                          tabIndex={
+                            activeFamilyIndex < 0
+                              ? virtualRow.index === 0
+                                ? 0
+                                : -1
+                              : activeFamilyIndex === virtualRow.index
+                                ? 0
+                                : -1
+                          }
                           onClick={() => handleSelect(record)}
+                          onFocus={() => setActiveFamilyIndex(virtualRow.index)}
+                          onKeyDown={(event) => {
+                            const isPrevious = event.key === 'ArrowUp';
+                            const isNext = event.key === 'ArrowDown';
+                            const isFirst = event.key === 'Home';
+                            const isLast = event.key === 'End';
+                            if (!isPrevious && !isNext && !isFirst && !isLast) return;
+                            event.preventDefault();
+                            const nextIndex = isFirst
+                              ? 0
+                              : isLast
+                                ? displayEntries.length - 1
+                                : Math.max(
+                                    0,
+                                    Math.min(
+                                      displayEntries.length - 1,
+                                      virtualRow.index + (isPrevious ? -1 : 1),
+                                    ),
+                                  );
+                            moveFamilyFocus(nextIndex);
+                          }}
                           aria-pressed={isSelected}
                         >
                           <span className="font-browser__row-copy">

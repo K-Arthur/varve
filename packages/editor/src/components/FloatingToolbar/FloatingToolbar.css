@@ -28,7 +28,10 @@
 .floating-toolbar [role="toolbar"] {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
+  /* Keep the primary tool palette on the same spacing token as the text and
+   * selection quick bars. A separate literal here made the palettes drift
+   * when the toolbar rhythm changed. */
+  gap: var(--space-toolbar-item);
   padding: var(--space-2) var(--space-3);
   background: var(--elevation-surface-raised);
   border-radius: var(--radius-floating);
