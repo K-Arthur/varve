@@ -3,60 +3,104 @@
  *
  * First drag selects the source region (rectangle). After selection,
  * click to position the patch over the target area. The patch is
- * composited with edge feathering for seamless correction.
+ * composited with edge feathering to reduce edge discontinuities.
  *
  * Research basis: Photoshop Patch tool, GIMP Clone tool (perspective).
  */
-import { patchRegion } from '@varve/engine';
+import type { RasterLayerNode, RasterTile } from '@varve/scene';
+import { compositePatchRegionOnNode, flattenTilesForSampling, snapshotTiles } from '@varve/scene';
 import { BaseTool } from './BaseTool';
+import { findEditableRasterLayer, rasterLocalPoint } from './rasterTarget';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
+
+export interface PatchToolOptions {
+  featherRadius: number;
+  opacity: number;
+  sampleAllLayers: boolean;
+}
 
 interface PatchState {
   phase: 'select' | 'position' | 'idle';
   sourceRect: { x: number; y: number; w: number; h: number } | null;
+  sourceTiles: Map<string, RasterTile> | null;
+  rasterNodeId: string | null;
 }
 
 export class PatchTool extends BaseTool {
   id = 'patch' as const;
 
-  private patchState: PatchState = { phase: 'idle', sourceRect: null };
+  private options: PatchToolOptions = { featherRadius: 12, opacity: 1, sampleAllLayers: false };
+
+  private patchState: PatchState = {
+    phase: 'idle',
+    sourceRect: null,
+    sourceTiles: null,
+    rasterNodeId: null,
+  };
 
   override cursor(_state: ToolCursorState): CursorSpec {
     return { css: 'crosshair' };
   }
 
+  setOptions(opts: Partial<PatchToolOptions>): void {
+    Object.assign(this.options, opts);
+  }
+
+  getOptions(): Readonly<PatchToolOptions> {
+    return { ...this.options };
+  }
+
   override onActivate(_ctx: ToolContext): void {
-    this.patchState = { phase: 'idle', sourceRect: null };
+    this.patchState = this.emptyState();
+  }
+
+  override onDeactivate(ctx: ToolContext): void {
+    if (this.patchState.sourceTiles) ctx.abortTransaction();
+    this.patchState = this.emptyState();
+    ctx.setDraft(null);
   }
 
   override onPointerDown(
     e: PointerEvent,
     ctx: ToolContext,
   ): { consumed: boolean; captured?: boolean } {
-    const canvas = ctx.canvasElement;
-    if (!canvas) return { consumed: false };
-
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
 
     if (this.patchState.phase === 'idle') {
-      ctx.setPointerCapture(e.pointerId);
+      const rasterNodeId = findEditableRasterLayer(ctx);
+      if (!rasterNodeId) {
+        ctx.announce('Patch needs an editable raster layer with source pixels');
+        return { consumed: false };
+      }
+      const node = ctx.getNode(rasterNodeId);
+      if (node?.kind !== 'rasterLayer') {
+        ctx.announce('Patch could not resolve its raster target');
+        return { consumed: false };
+      }
+      const gesture = super.onPointerDown(e, ctx);
+      if (!gesture.consumed) return gesture;
       ctx.beginTransaction();
-      this.drag = {
-        kind: 'dragging',
-        pointerId: e.pointerId,
-        startCanvas: { x: e.clientX, y: e.clientY },
-        startWorld: world,
-        currentCanvas: { x: e.clientX, y: e.clientY },
-        currentWorld: world,
+      this.patchState = {
+        phase: 'idle',
+        sourceRect: null,
+        sourceTiles: this.options.sampleAllLayers
+          ? this.flattenVisibleStack(ctx, node as RasterLayerNode)
+          : snapshotTiles(node as RasterLayerNode),
+        rasterNodeId,
       };
-      return { consumed: true, captured: true };
+      return gesture;
     }
 
     if (this.patchState.phase === 'position' && this.patchState.sourceRect) {
-      this.applyPatch(world, canvas, ctx);
-      this.patchState = { phase: 'idle', sourceRect: null };
+      const changed = this.applyPatch(world, ctx);
+      this.patchState = this.emptyState();
       ctx.setDraft(null);
-      ctx.commitTransaction();
+      if (changed) {
+        ctx.commitTransaction();
+      } else {
+        ctx.abortTransaction();
+        ctx.announce('Patch had no valid source or destination pixels');
+      }
       return { consumed: true };
     }
 
@@ -64,8 +108,8 @@ export class PatchTool extends BaseTool {
   }
 
   override onDragMove(ctx: ToolContext): void {
-    if (this.patchState.phase !== 'idle') return;
-    const rect = this.computeDragRect(ctx);
+    if (this.patchState.phase !== 'idle' || !this.patchState.rasterNodeId) return;
+    const rect = this.computeLocalDragRect(ctx, this.patchState.rasterNodeId);
     ctx.setDraft({
       kind: 'rect',
       x: rect.x,
@@ -77,56 +121,97 @@ export class PatchTool extends BaseTool {
   }
 
   override onDragEnd(ctx: ToolContext): void {
-    if (this.patchState.phase !== 'idle') return;
-    const rect = this.computeDragRect(ctx);
+    if (this.patchState.phase !== 'idle' || !this.patchState.rasterNodeId) return;
+    const rect = this.computeLocalDragRect(ctx, this.patchState.rasterNodeId);
     if (rect.w < 4 || rect.h < 4) {
       ctx.abortTransaction();
+      this.patchState = this.emptyState();
       ctx.setDraft(null);
       return;
     }
-    this.patchState = { phase: 'position', sourceRect: rect };
+    this.patchState = { ...this.patchState, phase: 'position', sourceRect: rect };
     ctx.announce('Source region selected. Click to position the patch.');
   }
 
   override onDragCancel(ctx: ToolContext): void {
-    if (this.patchState.phase === 'idle') {
+    if (this.patchState.sourceTiles) {
       ctx.abortTransaction();
       ctx.setDraft(null);
     }
-    this.patchState = { phase: 'idle', sourceRect: null };
+    this.patchState = this.emptyState();
   }
 
   override onKeyDown(e: KeyboardEvent, ctx: ToolContext): boolean {
-    if (e.key === 'Escape' && this.patchState.phase === 'position') {
-      this.patchState = { phase: 'idle', sourceRect: null };
-      ctx.setDraft(null);
+    if (e.key === 'Escape' && this.patchState.sourceTiles) {
       ctx.abortTransaction();
+      this.patchState = this.emptyState();
+      ctx.setDraft(null);
       return true;
     }
     return false;
   }
 
-  private applyPatch(
-    targetWorld: { x: number; y: number },
-    canvas: HTMLCanvasElement,
-    ctx: ToolContext,
-  ): void {
-    const canvasCtx = canvas.getContext('2d');
-    if (!canvasCtx || !this.patchState.sourceRect) return;
-
-    const canvasW = canvas.width;
-    const canvasH = canvas.height;
-    const imageData = canvasCtx.getImageData(0, 0, canvasW, canvasH);
-
+  private applyPatch(targetWorld: { x: number; y: number }, ctx: ToolContext): boolean {
+    const { sourceRect, sourceTiles, rasterNodeId } = this.patchState;
+    if (!sourceRect || !sourceTiles || !rasterNodeId) return false;
+    const targetLocal = rasterLocalPoint(ctx, rasterNodeId, targetWorld);
     const targetRect = {
-      x: Math.round(targetWorld.x - this.patchState.sourceRect.w / 2),
-      y: Math.round(targetWorld.y - this.patchState.sourceRect.h / 2),
-      w: this.patchState.sourceRect.w,
-      h: this.patchState.sourceRect.h,
+      x: targetLocal.x - sourceRect.w / 2,
+      y: targetLocal.y - sourceRect.h / 2,
+      w: sourceRect.w,
+      h: sourceRect.h,
     };
+    const targetNode = ctx.getNode(rasterNodeId);
+    if (targetNode?.kind !== 'rasterLayer') return false;
+    const patchOptions = {
+      sourceTiles,
+      sourceRect,
+      targetRect,
+      featherRadius: this.options.featherRadius,
+      opacity: this.options.opacity,
+    };
+    // updateNode invokes its updater from React state reconciliation. Decide
+    // whether this is a real edit before enqueueing it; otherwise a delayed
+    // updater can run after abortTransaction and leave history/announcement
+    // state inconsistent with the pixels.
+    const preview = compositePatchRegionOnNode(targetNode, patchOptions);
+    const changed = preview !== targetNode;
+    if (!changed) return false;
+    ctx.updateNode(rasterNodeId, (current) => {
+      if (current.kind !== 'rasterLayer') return current;
+      return compositePatchRegionOnNode(current, patchOptions);
+    });
+    ctx.announce('Patch applied to the raster layer');
+    return true;
+  }
 
-    const result = patchRegion(imageData, this.patchState.sourceRect, targetRect);
-    canvasCtx.putImageData(result, 0, 0);
-    ctx.announce('Patch applied');
+  private computeLocalDragRect(ctx: ToolContext, rasterNodeId: string) {
+    const start = rasterLocalPoint(ctx, rasterNodeId, this.drag.startWorld);
+    const current = rasterLocalPoint(ctx, rasterNodeId, this.drag.currentWorld);
+    return {
+      x: Math.min(start.x, current.x),
+      y: Math.min(start.y, current.y),
+      w: Math.abs(current.x - start.x),
+      h: Math.abs(current.y - start.y),
+    };
+  }
+
+  private emptyState(): PatchState {
+    return {
+      phase: 'idle',
+      sourceRect: null,
+      sourceTiles: null,
+      rasterNodeId: null,
+    };
+  }
+
+  private flattenVisibleStack(ctx: ToolContext, target: RasterLayerNode): Map<string, RasterTile> {
+    const layers: Array<{ tiles: Map<string, RasterTile>; opacity?: number; visible?: boolean }> =
+      [];
+    for (const node of Object.values(ctx.document.nodes)) {
+      if (node.kind !== 'rasterLayer') continue;
+      layers.push({ tiles: node.tiles, opacity: node.opacity, visible: node.visible });
+    }
+    return layers.length > 0 ? flattenTilesForSampling(layers) : snapshotTiles(target);
   }
 }

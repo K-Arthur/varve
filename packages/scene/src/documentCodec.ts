@@ -37,6 +37,7 @@ import {
 } from './masks';
 import { sanitizeMockupState } from './mockup/normalize';
 import { resolveNodePaints } from './paint';
+import { validatePhotoSourceBinding, validateRetouchProvenance } from './photoSource';
 import { deserializeTiles, type SerializableTiles } from './rasterLayer';
 import { normalizeSavedAreaSelections } from './savedAreaSelection';
 import { createEmptySelectionSetsData } from './selectionSet';
@@ -563,6 +564,75 @@ function normalizeImageFillGeometry(doc: Document): Document {
   };
 }
 
+/** Validate photographic source bindings without discarding unknown operations. */
+function validatePhotoSourceState(doc: Document, warnings: DocumentCodecWarning[]): Document {
+  for (const [nodeId, node] of Object.entries(doc.nodes)) {
+    for (const [fillIndex, fill] of (node.fills ?? []).entries()) {
+      if (fill.type !== 'image' || !fill.image?.photoSource) continue;
+      const binding = fill.image.photoSource;
+      const validation = validatePhotoSourceBinding(binding);
+      if (!validation.valid) {
+        warnings.push(
+          warning(
+            'document.invalid-photo-source',
+            `Photo source binding was retained for manual recovery: ${validation.errors.join('; ')}`,
+            'warning',
+            `nodes.${nodeId}.fills.${fillIndex}.image.photoSource`,
+          ),
+        );
+        continue;
+      }
+      const missingSources = binding.sourceAssetIds.filter((assetId) => !doc.assets?.[assetId]);
+      if (!doc.assets?.[binding.derivedAssetId]) missingSources.push(binding.derivedAssetId);
+      if (binding.masterAssetId && !doc.assets?.[binding.masterAssetId]) {
+        missingSources.push(binding.masterAssetId);
+      }
+      if (missingSources.length > 0) {
+        warnings.push(
+          warning(
+            'document.missing-photo-source-assets',
+            `Photo source binding references missing asset(s): ${missingSources.join(', ')}`,
+            'warning',
+            `nodes.${nodeId}.fills.${fillIndex}.image.photoSource`,
+          ),
+        );
+      }
+    }
+  }
+  return doc;
+}
+
+/** Keep baked repair metadata recoverable while surfacing malformed ownership. */
+function validateRetouchProvenanceState(doc: Document, warnings: DocumentCodecWarning[]): Document {
+  for (const [nodeId, node] of Object.entries(doc.nodes)) {
+    if (node.kind !== 'rasterLayer' || !node.retouchProvenance) continue;
+    const provenance = node.retouchProvenance;
+    const validation = validateRetouchProvenance(provenance);
+    if (!validation.valid) {
+      warnings.push(
+        warning(
+          'document.invalid-retouch-provenance',
+          `Retouch provenance was retained for manual recovery: ${validation.errors.join('; ')}`,
+          'warning',
+          `nodes.${nodeId}.retouchProvenance`,
+        ),
+      );
+      continue;
+    }
+    if (!doc.nodes[provenance.sourceNodeId]) {
+      warnings.push(
+        warning(
+          'document.missing-retouch-source',
+          `Retouch layer ${nodeId} references missing source node ${provenance.sourceNodeId}; its pixels were retained`,
+          'warning',
+          `nodes.${nodeId}.retouchProvenance.sourceNodeId`,
+        ),
+      );
+    }
+  }
+  return doc;
+}
+
 function normalizeRasterTiles(
   nodeId: NodeId,
   node: SceneNode,
@@ -848,6 +918,8 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
   document = sanitizeStructuralMaskState(document, warnings);
   document = sanitizeRasterMaskState(document, warnings);
   document = sanitizeImageAssetState(document, warnings);
+  document = validatePhotoSourceState(document, warnings);
+  document = validateRetouchProvenanceState(document, warnings);
   document = sanitizeIconAssetState(document, warnings);
   document = sanitizeMockupState(document, warnings);
   document = normalizeDocumentEffects(document);

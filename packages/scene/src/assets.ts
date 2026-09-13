@@ -11,6 +11,7 @@
  * See docs/audits/smart-object-feasibility-audit.md for the decision record.
  */
 
+import { validatePhotoAssetProvenance } from './photoSource';
 import { sha256Utf8 } from './sha256';
 import type { DocumentAsset } from './types';
 
@@ -19,7 +20,22 @@ interface AssetDoc {
 }
 
 interface AssetNodeMap {
-  nodes: Record<string, { fills?: Array<{ type: string; image?: { assetId?: string } }> }>;
+  nodes: Record<
+    string,
+    {
+      fills?: Array<{
+        type: string;
+        image?: {
+          assetId?: string;
+          photoSource?: {
+            sourceAssetIds?: string[];
+            derivedAssetId?: string;
+            masterAssetId?: string;
+          };
+        };
+      }>;
+    }
+  >;
   paints?: Record<string, { fill: { type: string; image?: { assetId?: string } } }>;
   generativeEdits?: Record<
     string,
@@ -132,6 +148,12 @@ export function validateDocumentAsset(asset: DocumentAsset): string | null {
   if (asset.metadata !== undefined) {
     const metadataError = validateImageSourceMetadata(asset.id, asset.metadata);
     if (metadataError) return metadataError;
+  }
+  if (asset.photoSource !== undefined) {
+    const photoError = validatePhotoAssetProvenance(asset.photoSource);
+    if (!photoError.valid) {
+      return `Document asset ${asset.id} photoSource: ${photoError.errors.join('; ')}`;
+    }
   }
   if (asset.animated !== undefined) {
     const animatedError = validateAnimatedAssetMetadata(asset.id, asset.animated);
@@ -384,13 +406,31 @@ export function findOrCreateEmbeddedAsset<T extends AssetDoc>(
 /** True if any node, paint, or retained generative recipe references `assetId`. */
 export function isAssetReferenced(doc: AssetNodeMap, assetId: string): boolean {
   for (const node of Object.values(doc.nodes)) {
-    if (node.fills?.some((fill) => fill.type === 'image' && fill.image?.assetId === assetId)) {
-      return true;
+    for (const fill of node.fills ?? []) {
+      if (fill.type !== 'image') continue;
+      const image = fill.image;
+      if (
+        image?.assetId === assetId ||
+        image?.photoSource?.derivedAssetId === assetId ||
+        image?.photoSource?.masterAssetId === assetId ||
+        image?.photoSource?.sourceAssetIds?.includes(assetId)
+      ) {
+        return true;
+      }
     }
   }
   if (doc.paints) {
     for (const paint of Object.values(doc.paints)) {
-      if (paint.fill.type === 'image' && paint.fill.image?.assetId === assetId) return true;
+      const image = paint.fill.image;
+      if (
+        paint.fill.type === 'image' &&
+        (image?.assetId === assetId ||
+          image?.photoSource?.derivedAssetId === assetId ||
+          image?.photoSource?.masterAssetId === assetId ||
+          image?.photoSource?.sourceAssetIds?.includes(assetId))
+      ) {
+        return true;
+      }
     }
   }
   for (const edit of Object.values(doc.generativeEdits ?? {})) {

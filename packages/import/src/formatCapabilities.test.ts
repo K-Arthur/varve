@@ -56,6 +56,15 @@ describe('format capability registry', () => {
     expect(listFormatCapabilities().some((format) => format.id === 'svg')).toBe(true);
   });
 
+  it('labels a TIFF-signature DNG as a RAW container without advertising generic import', () => {
+    const dng = new Uint8Array([0x49, 0x49, 0x2a, 0x00, 0x08, 0x00, 0x00, 0x00]);
+    expect(detectFileFormat({ filename: 'camera.dng', data: dng })).toMatchObject({
+      format: 'dng',
+      source: 'signature',
+    });
+    expect(getFormatCapability('dng')?.import.level).toBe('unsupported');
+  });
+
   it('can identify SVG content when the extension is absent', () => {
     expect(
       detectFileFormat({ filename: 'asset', data: '<svg viewBox="0 0 10 10"></svg>' }).format,

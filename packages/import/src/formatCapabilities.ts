@@ -12,6 +12,7 @@ export type ImageFormatId =
   | 'gif'
   | 'bmp'
   | 'tiff'
+  | 'dng'
   | 'svg'
   | 'svgz'
   | 'pdf'
@@ -226,6 +227,27 @@ const raster = {
 } satisfies Record<string, Omit<FormatCapability, 'id'> & { id: ImageFormatId }>;
 
 const nonRaster = {
+  dng: {
+    id: 'dng',
+    label: 'DNG (RAW)',
+    kind: 'container',
+    extensions: ['dng'],
+    mimeTypes: ['image/x-adobe-dng', 'image/dng'],
+    import: {
+      level: 'unsupported',
+      browser: 'unsupported',
+      desktop: 'unsupported',
+      notes: [
+        'The generic artwork importer never promotes a DNG preview to RAW pixels; supported classic DNG development is opened from Photo/Image Tuning.',
+      ],
+    },
+    export: { available: false, lossy: false, notes: ['RAW source files are never overwritten.'] },
+    alpha: 'none',
+    animation: 'none',
+    pages: 'none',
+    color: ['Sensor mosaic is not an RGB display encoding'],
+    metadata: ['DNG/EXIF metadata is inspected by the RAW development route'],
+  },
   svg: {
     id: 'svg',
     label: 'SVG',
@@ -665,7 +687,11 @@ export function detectFileFormat(input: {
   // `.ai` extension is the only bounded discriminator available before the
   // AI wrapper parser inspects the payload, so retain that logical format.
   const signature =
-    detectedSignature === 'pdf' && extensionFormat === 'ai' ? 'ai' : detectedSignature;
+    detectedSignature === 'pdf' && extensionFormat === 'ai'
+      ? 'ai'
+      : detectedSignature === 'tiff' && extensionFormat === 'dng'
+        ? 'dng'
+        : detectedSignature;
   const format = signature ?? mimeFormat ?? extensionFormat ?? null;
   const warnings: FormatDetectionWarning[] = [];
 

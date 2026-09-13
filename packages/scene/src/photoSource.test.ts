@@ -90,6 +90,9 @@ describe('photo source persistence', () => {
     node.fills = [
       {
         type: 'image',
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
         image: {
           src: derivedAsset.dataUrl,
           assetId: derivedAsset.id,
@@ -148,7 +151,10 @@ describe('photo source persistence', () => {
 
     expect(reopened.ok).toBe(true);
     if (!reopened.ok) return;
-    expect(reopened.document.nodes.repair?.retouchProvenance).toMatchObject({
+    const reopenedRepair = reopened.document.nodes.repair;
+    expect(reopenedRepair?.kind).toBe('rasterLayer');
+    if (reopenedRepair?.kind !== 'rasterLayer') return;
+    expect(reopenedRepair.retouchProvenance).toMatchObject({
       sourceNodeId: 'missing-photo',
       sourceRevision: 'old-revision',
     });

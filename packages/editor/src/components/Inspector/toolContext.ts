@@ -31,6 +31,10 @@ const TOOL_OPTIONS_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>([
   'magicWand',
   'text',
   'crop',
+  'cloneStamp',
+  'healBrush',
+  'spotHeal',
+  'patch',
 ]);
 
 export function toolContextSurface(tool: ToolId): ToolContextSurface | null {

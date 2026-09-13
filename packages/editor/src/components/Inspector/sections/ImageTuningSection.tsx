@@ -14,6 +14,7 @@ import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { NumberField } from '../controls/NumberField';
 import { commonValue, isMixed } from '../selection/selectionState';
+import { PhotoSourceSection } from './PhotoSourceSection';
 
 import './imageTuning.css';
 
@@ -508,6 +509,7 @@ export function ImageTuningSection({ nodes }: { nodes: SceneNode[] }) {
           );
         })}
       </div>
+      {nodes.length === 1 && <PhotoSourceSection nodes={nodes} />}
     </DisclosureSection>
   );
 }

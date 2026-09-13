@@ -5,6 +5,7 @@ import { type ToolId, useEditor } from '../../context';
 import { setToolOptionsHandler } from '../../context/toolOptionsBridge';
 import { toolLabel } from '../../tools/toolRegistry';
 import { hasToolOptions } from '../Inspector/toolContext';
+import { type RetouchToolId, RetouchToolOptions } from './RetouchToolOptions';
 import './ToolOptionsPopover.css';
 
 const BrushLibraryPanel = lazy(() =>
@@ -26,6 +27,7 @@ const ImageCropSection = lazy(() =>
 const BRUSH_TOOLS = new Set<ToolId>(['paint', 'eraser', 'pencil', 'smudge']);
 const MARQUEE_TOOLS = new Set<ToolId>(['marquee', 'ellipseMarquee', 'pixelLasso']);
 const MAGIC_WAND_TOOLS = new Set<ToolId>(['magicWand']);
+const RETOUCH_TOOLS = new Set<ToolId>(['cloneStamp', 'healBrush', 'spotHeal', 'patch']);
 const DEFAULT_TEXT_CREATION_SETTINGS = {
   writingMode: 'horizontal-tb' as const,
   textOrientation: 'mixed' as const,
@@ -308,6 +310,7 @@ export function ToolOptionsPopover() {
       BRUSH_TOOLS.has(state.tool) ||
         MARQUEE_TOOLS.has(state.tool) ||
         MAGIC_WAND_TOOLS.has(state.tool) ||
+        RETOUCH_TOOLS.has(state.tool) ||
         state.tool === 'text',
     );
   }, [state.tool]);
@@ -412,6 +415,9 @@ export function ToolOptionsPopover() {
                 settings={state.magicWandSettings}
                 onChange={setMagicWandSettings}
               />
+            )}
+            {RETOUCH_TOOLS.has(state.tool) && (
+              <RetouchToolOptions tool={state.tool as RetouchToolId} />
             )}
             {state.tool === 'text' && (
               <TextToolOptions

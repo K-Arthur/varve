@@ -11,6 +11,7 @@ import type { BrushDab, RasterLayerNode, RasterTile } from '@varve/scene';
 import {
   compositeHealDabOnNode,
   defaultBrushPreset,
+  flattenTilesForSampling,
   generateDabs,
   snapshotTiles,
   strokePoint,
@@ -24,7 +25,9 @@ export interface HealingBrushOptions {
   brushSize: number;
   hardness: number;
   opacity: number;
+  flow: number;
   spacing: number;
+  sampleAllLayers: boolean;
 }
 
 interface HealSession {
@@ -46,7 +49,9 @@ export class HealingBrushTool extends BaseTool {
     brushSize: 40,
     hardness: 0.7,
     opacity: 1,
+    flow: 1,
     spacing: 0.15,
+    sampleAllLayers: false,
   };
 
   setOptions(opts: Partial<HealingBrushOptions>): void {
@@ -102,7 +107,9 @@ export class HealingBrushTool extends BaseTool {
     ctx.beginTransaction();
     this.session = {
       rasterNodeId,
-      sourceTiles: snapshotTiles(node),
+      sourceTiles: this.options.sampleAllLayers
+        ? this.flattenVisibleStack(ctx, node)
+        : snapshotTiles(node),
       offsetX: local.x - this.sourcePoint.x,
       offsetY: local.y - this.sourcePoint.y,
       areaSelection: ctx.areaSelection ?? null,
@@ -154,7 +161,7 @@ export class HealingBrushTool extends BaseTool {
       radius: Math.max(0.5, this.options.brushSize / 2),
       hardness: this.options.hardness,
       opacity: this.options.opacity,
-      flow: 1,
+      flow: this.options.flow,
       spacing: this.options.spacing,
       smoothing: 0,
     };
@@ -191,5 +198,15 @@ export class HealingBrushTool extends BaseTool {
     this.session = null;
     if (session.transactionOpen) ctx.abortTransaction();
     ctx.setDraft(null);
+  }
+
+  private flattenVisibleStack(ctx: ToolContext, target: RasterLayerNode): Map<string, RasterTile> {
+    const layers: Array<{ tiles: Map<string, RasterTile>; opacity?: number; visible?: boolean }> =
+      [];
+    for (const node of Object.values(ctx.document.nodes)) {
+      if (node.kind !== 'rasterLayer') continue;
+      layers.push({ tiles: node.tiles, opacity: node.opacity, visible: node.visible });
+    }
+    return layers.length > 0 ? flattenTilesForSampling(layers) : snapshotTiles(target);
   }
 }

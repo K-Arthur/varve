@@ -790,6 +790,8 @@ export interface DocumentAsset {
    * extraction existed round-trip unchanged.
    */
   metadata?: ImageSourceMetadata;
+  /** Immutable source/recipe provenance for RAW and HDR-derived assets. */
+  photoSource?: import('./photoSource').PhotoAssetProvenance;
   /**
    * Animated-media facts (v2.20+), probed from the container bytes for
    * animated GIF/APNG/WebP imports. The original encoded bytes stay
@@ -859,6 +861,8 @@ export interface ImageFillData {
   src: string;
   /** Reference into `Document.assets`. See doc comment on `src` above. */
   assetId?: string;
+  /** Source/derived relationship for RAW development or HDR renditions. */
+  photoSource?: import('./photoSource').PhotoSourceBinding;
   fit: ImageFit;
   /** Position offset in px (relative to node top-left) when fit !== 'fill'/'stretch'. */
   x: number;
@@ -1909,6 +1913,8 @@ export interface RasterLayerNode extends NodeBase {
   tiles: Map<string, RasterTile>;
   /** Local transform for positioning/rotation/scale. */
   transform: Affine;
+  /** Optional source revision for an explicitly baked photographic repair. */
+  retouchProvenance?: import('./photoSource').RetouchProvenance;
   /** Non-destructive appearance effects applied to the composited raster. */
   effects?: Effect[];
 }

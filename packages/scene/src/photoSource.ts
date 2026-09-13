@@ -8,7 +8,11 @@
  * after a white-balance/profile/demosaic change.
  */
 
-export type PhotoSourceOperation = 'raw-development' | 'hdr-radiance' | 'hdr-exposure-fusion';
+export type PhotoSourceOperation =
+  | 'raw-development'
+  | 'hdr-radiance'
+  | 'hdr-exposure-fusion'
+  | 'hdr-master-import';
 export type PhotoSourceStatus = 'current' | 'stale' | 'baked';
 export type PhotoAssetRole = 'raw-source' | 'developed-raster' | 'hdr-master' | 'sdr-rendition';
 
@@ -17,6 +21,8 @@ export interface PhotoSourceBinding {
   sourceAssetIds: string[];
   sourceRevision: string;
   derivedAssetId: string;
+  /** Range-bearing master used to produce the current display rendition. */
+  masterAssetId?: string;
   decoderId?: string;
   recipe: Record<string, unknown>;
   stage: 'source-mosaic' | 'scene-linear' | 'display-linear';
@@ -70,7 +76,9 @@ export function validatePhotoSourceBinding(value: unknown): PhotoSourceValidatio
   const errors: string[] = [];
   if (!isRecord(value)) return { valid: false, errors: ['photo source binding must be an object'] };
   if (
-    !['raw-development', 'hdr-radiance', 'hdr-exposure-fusion'].includes(value.operation as string)
+    !['raw-development', 'hdr-radiance', 'hdr-exposure-fusion', 'hdr-master-import'].includes(
+      value.operation as string,
+    )
   ) {
     errors.push('photo source operation is unsupported');
   }
@@ -78,6 +86,9 @@ export function validatePhotoSourceBinding(value: unknown): PhotoSourceValidatio
     errors.push('sourceAssetIds must contain asset ids');
   if (!nonEmptyString(value.sourceRevision)) errors.push('sourceRevision must be non-empty');
   if (!nonEmptyString(value.derivedAssetId)) errors.push('derivedAssetId must be non-empty');
+  if (value.masterAssetId !== undefined && !nonEmptyString(value.masterAssetId)) {
+    errors.push('masterAssetId must be non-empty when present');
+  }
   if (value.decoderId !== undefined && !nonEmptyString(value.decoderId))
     errors.push('decoderId must be non-empty when present');
   if (!isRecord(value.recipe)) errors.push('recipe must be a JSON object');
@@ -100,14 +111,16 @@ export function validatePhotoAssetProvenance(value: unknown): PhotoSourceValidat
     errors.push('photo asset role is unsupported');
   }
   const sourceAssetIdsValid =
-    value.role === 'raw-source'
+    value.role === 'raw-source' || value.role === 'hdr-master'
       ? Array.isArray(value.sourceAssetIds) && value.sourceAssetIds.every(nonEmptyString)
       : nonEmptyStringArray(value.sourceAssetIds);
   if (!sourceAssetIdsValid) errors.push('sourceAssetIds must contain asset ids');
   if (!nonEmptyString(value.sourceRevision)) errors.push('sourceRevision must be non-empty');
   if (
     value.operation !== undefined &&
-    !['raw-development', 'hdr-radiance', 'hdr-exposure-fusion'].includes(value.operation as string)
+    !['raw-development', 'hdr-radiance', 'hdr-exposure-fusion', 'hdr-master-import'].includes(
+      value.operation as string,
+    )
   ) {
     errors.push('photo asset operation is unsupported');
   }
