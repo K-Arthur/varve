@@ -147,7 +147,7 @@ export function NodeEditControls({
   const updateNumber = (key: string, value: number) => {
     if (!singlePoint || !Number.isFinite(value)) return;
     const index = [...selectedAnchors][0]!;
-    const nextShape = updatePathPointAtIndex(shape, index, (point) => {
+    let nextShape = updatePathPointAtIndex(shape, index, (point) => {
       if (key === 'x' || key === 'y') {
         return { ...point, [key]: value };
       }
@@ -156,6 +156,10 @@ export function NodeEditControls({
       current[axis === 'x' ? 0 : 1] = value;
       return { ...point, [which]: current };
     });
+    const mode = nodeModeForPoint(singlePoint);
+    if (mode === 'smooth' || mode === 'symmetric' || mode === 'automatic') {
+      nextShape = setNodeModeAtIndex(nextShape, index, mode === 'automatic' ? 'smooth' : mode);
+    }
     commitShape(nextShape);
   };
 
