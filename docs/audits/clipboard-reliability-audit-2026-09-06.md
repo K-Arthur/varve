@@ -1421,9 +1421,10 @@ Validation evidence for this audit:
 - The Chromium `tests/e2e/canvas/file-import.spec.ts` format lane was attempted through the real menu. The parser-advertising retry hit the shared Vite editor startup timeout before the `New` button appeared; the earlier SVG visual run reached the editor and imported the artwork, but its Chromium snapshot differed only in the concurrent shell/canvas height (682×552 actual versus 682×597 baseline). The artwork itself was inspected; no baseline was changed.
 - `pnpm audit:docs`, `pnpm audit:emoji`, and `pnpm audit:tokens` — **all passed**. `pnpm verify:plan` selected the broad concurrent workspace closure and required escalation; `pnpm verify:affected` exited 2 at that escalation boundary, so the full gate was not run.
 
-The implementation and this evidence update are on `master` in commits
-`581c124728ff70e8e5d67cf924793070ac77e010` and
-`57b0e4e24e081a458ca25e0e053ace5b0ac3949b`.
+The implementation and evidence updates are on `master` in commits
+`581c124728ff70e8e5d67cf924793070ac77e010`,
+`57b0e4e24e081a458ca25e0e053ace5b0ac3949b`, and the TIFF source-metadata
+follow-up `9614af21f499149c2502e7fa301eb23b0763c55a`.
 
 External verification remains open for a real Illustrator-authored `.ai`, a
 multi-page or layered TIFF, a PSD with pixel-bearing layers/effects, packaged
