@@ -242,9 +242,11 @@ async function drawRect(page: import('@playwright/test').Page): Promise<void> {
   await dragOnCanvas(page, 100, 60, 380, 320);
   // Re-activate the tool and draw the second (top) rect, starting the drag
   // outside the first rect so the tool creates a new shape instead of
-  // moving the existing one.
+  // moving the existing one. Keep both endpoints inside the fitted artboard;
+  // coordinates near the canvas chrome are treated as selection/navigation
+  // input by some viewport sizes.
   await page.keyboard.press('r');
-  await dragOnCanvas(page, 40, 20, 320, 300);
+  await dragOnCanvas(page, 420, 40, 620, 240);
   await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
   await page.keyboard.press('v');
 }
