@@ -124,7 +124,7 @@ function applyPlacementTransform(
 }
 
 /** Draw a source-image mask using the same placement contract as image fills. */
-function drawSourceBoundRasterMask(
+export function drawSourceBoundRasterMask(
   ctx: RasterContext,
   image: CanvasImageSource,
   placement: ReturnType<typeof computeImagePlacement>,
