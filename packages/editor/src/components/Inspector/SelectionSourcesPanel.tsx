@@ -30,7 +30,16 @@ function runAction(id: string): void {
 }
 
 export function SelectionSourcesPanel() {
-  const { state, setAreaSelection, setTool, updateDoc, announce } = useEditor();
+  const {
+    state,
+    setAreaSelection,
+    setTool,
+    updateDoc,
+    beginTransaction,
+    commitTransaction,
+    abortTransaction,
+    announce,
+  } = useEditor();
   const saved = state.document.savedAreaSelections ?? [];
   const hasAreaSelection = Boolean(state.areaSelection);
   const [nextName, setNextName] = useState(`Selection ${saved.length + 1}`);
@@ -83,15 +92,22 @@ export function SelectionSourcesPanel() {
       announce('Selection did not cover any pixels');
       return;
     }
-    updateDoc((doc) => {
-      const current = doc.nodes[target.id];
-      if (current?.kind !== 'rasterLayer' || current.locked || current.visible === false) {
-        return doc;
-      }
-      const filled = fillCoverageOnNode(current, coverage, color);
-      return filled === current ? doc : { ...doc, nodes: { ...doc.nodes, [target.id]: filled } };
-    });
-    announce(`Selection filled on ${target.name}`);
+    beginTransaction();
+    try {
+      updateDoc((doc) => {
+        const current = doc.nodes[target.id];
+        if (current?.kind !== 'rasterLayer' || current.locked || current.visible === false) {
+          return doc;
+        }
+        const filled = fillCoverageOnNode(current, coverage, color);
+        return filled === current ? doc : { ...doc, nodes: { ...doc.nodes, [target.id]: filled } };
+      });
+      commitTransaction();
+      announce(`Selection filled on ${target.name}`);
+    } catch (error) {
+      abortTransaction();
+      announce(error instanceof Error ? error.message : 'Could not fill the selection');
+    }
   };
 
   const cancelPaint = () => {
