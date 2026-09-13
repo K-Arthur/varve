@@ -57,7 +57,7 @@ source inspection and focused tests before repair.
 | Enter malformed Levels/Curves values | NaN/infinity and reversed intervals could reach LUT arithmetic | Kernel trusted UI-normalized input | Finite bounded Levels parameters, deterministic interval collapse/reversal, finite Curve points and duplicate-x resolution | Levels/Curves focused tests |
 | Target a neutral pixel with a colour-range Hue/Saturation edit | A Reds/Saturation edit treated an achromatic hue of zero as red | Range selection was evaluated without an achromatic guard | Only the Master range can affect a zero-chroma pixel; targeted ranges keep neutral artwork neutral | Hue/Saturation focused test |
 | Inspect Levels/Curves later in a stack | Histogram source was always the scoped pre-stack composite | Cache key and render stage omitted selected entry/upstream filters | Histogram key includes stage; upstream `FilterIR` is rendered through the existing compositor; UI labels the source stage | Panel/editor tests; browser visual workflow pending final E2E gate |
-| Open the adjustment entry point from Object | Chromium reached the editor but the Object button returned to `aria-expanded=false` with no menu portal after a click | Menubar context invalidation could close a menu opened in the same render as session/workspace state settling | Extracted context lifecycle handling; preserve the opening context, but still close a menu when an already-open menu crosses document/workspace context | Menubar unit suite 21/21; fresh canvas E2E remained blocked before this assertion by the editor canvas startup path |
+| Open the adjustment entry point from Object immediately after creating a document | Chromium reached the editor but the Object button returned to `aria-expanded=false` with no menu portal after a click | A startup/native-overlay history guard was being removed with asynchronous `history.back()`; a new menu could push a second guard before the old pop arrived, and the stale pop dispatched Escape to the focused Object button. Menubar context invalidation was a separate stale-menu risk. | Extracted menubar context lifecycle handling and made `TabletBackDismiss` reconcile a pending guard removal without dispatching Escape to a newly opened layer | Menubar unit suite 21/21; tablet-guard regression 1/1; Chromium adjustment-picker 1/1; front-facing visual adjustment scenarios 2/2 |
 
 ## Canonical contracts after this slice
 
@@ -105,12 +105,14 @@ is not a final-output or display-proof histogram.
   from concurrent work, and the fresh run reached Varve's “bundle loaded but
   never rendered” startup watchdog during Vite dependency optimization. These
   are runtime blockers for the visual gate, not successful adjustment evidence.
-- After the menubar lifecycle repair, a new Chromium run reached the test
-  worker but timed out waiting for
-  `canvas.editor-canvas__content-layer` before the adjustment scenario began.
-  The captured failure is under
-  `test-results/adjustments-e2e-menu-fix/`; this is a shared editor startup
-  failure, not evidence that the adjustment workflow passed.
+- Earlier Chromium runs reached the editor but were blocked by the stale menu
+  close described in the matrix above. After the pending-history-guard repair,
+  the isolated adjustment-picker scenario passed and the front-facing Hue /
+  Saturation, Levels, Curves, and empty-scope scenarios passed. Their inspected
+  screenshots are under `reports/ui-review/front-facing-adjustments/`. The
+  repository global warm-up still timed out once under concurrent load, and a
+  separate run used the documented `VARVE_VISUAL_HARNESS_ONLY=1` warm-up bypass;
+  the spec's own navigation/readiness checks remained active.
 - The effect kernel remains an RGBA8 Canvas2D/software reference path. Native,
   WASM, and WebGPU acceleration must prove equivalence before dispatch.
 - Histogram sampling is stage-aware but still downscaled and does not yet

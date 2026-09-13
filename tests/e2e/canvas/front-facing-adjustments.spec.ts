@@ -85,7 +85,10 @@ test.describe('front-facing adjustment and canvas controls', () => {
 
     await createAdjustmentLayer(page);
     await expect(page.getByText('Affected targets', { exact: true })).toBeVisible();
-    await expect(page.getByText('0', { exact: true }).first()).toBeVisible();
+    const affectedTargetsField = page.locator('.insp-field').filter({
+      hasText: 'Affected targets',
+    });
+    await expect(affectedTargetsField.locator('.insp-field__value')).toHaveText('0');
     await expect(
       page.getByText('No targets selected; this adjustment is currently inactive', { exact: true }),
     ).toBeVisible();
