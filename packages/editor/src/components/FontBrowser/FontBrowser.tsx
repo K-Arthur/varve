@@ -354,14 +354,24 @@ export function FontBrowser({
     [activeFilter, effectiveQuery, interpretation, semantic, semanticRevision, showDownloadable],
   );
   const displayEntries = useMemo<FontDisplayEntry[]>(() => {
-    const entries = searchResults
-      .filter((result) => showDownloadable || result.record.installed)
-      .filter((result) => sourceMatches(result.record, activeFilter))
-      .map((result) => ({
-        record: result.record,
-        result,
-        faces: facesFor(result.record, registry),
-      }));
+    // A record can be returned by both the literal-family fast path and the
+    // semantic ranker during a catalog revision. Keep one row per portable
+    // family identity so virtualization keys remain unique and the manager
+    // never shows duplicate families while a search is settling.
+    const seen = new Set<string>();
+    const entries = searchResults.flatMap((result) => {
+      if (!showDownloadable && !result.record.installed) return [];
+      if (!sourceMatches(result.record, activeFilter)) return [];
+      if (seen.has(result.record.familyId)) return [];
+      seen.add(result.record.familyId);
+      return [
+        {
+          record: result.record,
+          result,
+          faces: facesFor(result.record, registry),
+        },
+      ];
+    });
     if (effectiveQuery) return entries;
     return entries.sort((a, b) => a.record.familyName.localeCompare(b.record.familyName));
   }, [activeFilter, effectiveQuery, registry, searchResults, showDownloadable]);

@@ -359,3 +359,9 @@ it shows Carrois Gothic restored from IndexedDB before editing, with no
 Missing Fonts dialog. Catalog-only Gothic inspection was also verified with
 an explicit preview-only message; no provider request is made by search or
 hover.
+
+The same selector audit found duplicate React keys when a literal family match
+and the semantic ranker both returned a local record. The full browser now
+deduplicates result rows by `familyId` before virtualization; the focused
+FontBrowser suite passed **8/8** after the repair and no longer emits the
+duplicate-key warning during the exact-family search.

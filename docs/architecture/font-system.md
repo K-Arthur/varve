@@ -156,6 +156,9 @@ portable face key); catalog weight/style combinations are never presented as
 selectable faces when no corresponding artifact is installed. The family list
 uses measured virtualization with an overscan window; an unmeasured or
 zero-sized test viewport falls back to normal flow until a real range exists.
+Search-result merges are deduplicated by canonical family identity before rows
+are virtualized, so a literal-family match cannot render a duplicate row or
+steal the active descendant while the catalog revision settles.
 Selecting an expanded registered face applies its weight, style, PostScript
 metadata, and canonical `fontReference` together; variable-font named
 instances are real `fvar` records and apply their declared coordinates without

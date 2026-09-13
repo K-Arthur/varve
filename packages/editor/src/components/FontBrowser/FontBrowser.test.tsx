@@ -77,6 +77,11 @@ describe('FontBrowser', () => {
           button.textContent?.includes('IBM Plex Sans Variable'),
       );
     expect(exactRow).toBeVisible();
+
+    const familyRows = screen
+      .getAllByRole('button')
+      .filter((button) => button.classList.contains('font-browser__select-btn'));
+    expect(new Set(familyRows.map((button) => button.textContent)).size).toBe(familyRows.length);
   });
 
   it('exposes local font discovery as an explicit action', () => {
