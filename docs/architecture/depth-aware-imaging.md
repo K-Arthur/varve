@@ -1,9 +1,10 @@
 # Depth-aware imaging
 
 Status: depth-mask workflow implemented on `master`; scalar contract, model
-integrity, persistence, and browser workflow are covered by focused tests and
-the depth-masking Playwright evidence dated 2026-09-13. Model/preprocessing
-parity and low-end hardware performance remain explicit release gates.
+integrity, persistence, source-bound placement, and browser workflow are
+covered by focused tests and the depth-masking Playwright evidence dated
+2026-09-13. Model/preprocessing parity and low-end hardware performance remain
+explicit release gates.
 
 This document records the repository audit and the contract for Varve's
 depth-aware imaging foundation. It deliberately separates the user-facing
@@ -151,8 +152,13 @@ kernel and commits through the existing raster-mask owner.
   recipe records the accepted map id, source node/fill identity, range,
   transitions, inversion, combine mode, algorithm version, and a correction
   asset when a later coverage edit is made. Changing the range does not rerun
-  inference; Replace intentionally starts a fresh range, while a combine mode
-  can rebase against the saved correction.
+  inference; a new range defaults to preserving an existing raster mask with
+  Intersect, while Replace intentionally starts a fresh range and other
+  combine modes can rebase against the saved correction.
+- Source-bound adjustment coverage reuses the exact image-fill placement
+  contract, including source crop, contain/cover/stretch, tiling, rotation,
+  and flips. A cropped source does not stretch its full mask over the visible
+  crop.
 - Removing Depth Blur no longer removes an accepted map: explicit resource
   deletion owns pruning, so a map referenced by a mask recipe remains
   available. Duplicate/paste remap source, map, mask, and recipe ids together.
@@ -324,6 +330,9 @@ The depth-aware masking slice was delivered incrementally on `master`:
   closure safety.
 - `d3da1254` — browser workflow selectors, safe-mode recovery, and visual
   evidence coverage.
+- `272fb8eb1` — source identity compaction, preserving combine defaults,
+  cross-document source-asset remapping, and crop-aware source-bound replay.
+- `ba16191c9` — regression coverage for cropped source-bound mask placement.
 
 The exact final commit list and validation results are recorded in
 `docs/audits/depth-aware-masking-implementation-2026-09-13.md`. The workflow

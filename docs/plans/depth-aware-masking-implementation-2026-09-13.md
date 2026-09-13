@@ -1,6 +1,8 @@
 # Depth-aware masking implementation plan
 
-Status: core implementation complete on `master`; model-parity, real-photo
+Status: core implementation complete on `master`; source-bound crop/fit
+placement and preserving combine defaults are covered by the final replay
+regression slice. Model-parity, real-photo
 edge-quality, and low-end-platform gates remain explicitly deferred. This plan
 was intentionally sliced so each commit left the existing editor usable. It is based on the research record
 in [`docs/research/depth-aware-masking-2026-09-13.md`](../research/depth-aware-masking-2026-09-13.md).
@@ -141,7 +143,7 @@ source alignment, changed coverage, and preserved source pixels.
 
 Implemented and verified: one canonical depth/validity contract; bounded
 Varve scalar import/export; source-bound map alignment; shared range coverage
-and soft combination; standalone image and adjustment masks; existing Mask
+and soft combination; crop-aware standalone image and adjustment masks; existing Mask
 refinement ownership; re-editable recipes with resolved last-good coverage;
 save/reopen, undo/redo, duplicate/paste remapping, blur-independent reuse, and
 owner-aware cancellation. Marketing and user guidance are limited to
