@@ -32,12 +32,15 @@ export function assessImageInferenceResources(options: {
   height: number;
   modelPeakBytes: number;
   runtime: Pick<RuntimeCapabilities, 'wasmSafePeakBytes'>;
+  /** Resident source buffers that coexist with the bounded working frame. */
+  additionalBytes?: number;
   operation?: string;
 }): ImageInferenceResourceAssessment {
   const estimatedPeakBytes = estimateInferenceReservation({
     width: options.width,
     height: options.height,
     modelBytes: options.modelPeakBytes,
+    additionalBytes: options.additionalBytes,
     workingSetMultiplier: IMAGE_WORKING_SET_MULTIPLIER,
   });
   const safePeakBytes = options.runtime.wasmSafePeakBytes;

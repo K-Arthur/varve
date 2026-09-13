@@ -211,6 +211,14 @@ so a capable ARM desktop is not confused with a browser that merely omitted
 `navigator.deviceMemory`; if that snapshot cannot be obtained, the conservative
 WebView safe peak remains in force.
 
+AI background removal applies the same source-aware policy before its preview
+downscale. On a browser that exposes an explicit memory hint, the reservation
+includes the resident source frame and the temporary preparation copy, so a
+large photograph is refused before a second full-resolution canvas can trigger
+an allocation failure. Quick Cleanup remains available. An absent browser hint
+does not claim a measured low-memory device; the provider's own model and
+runtime gates still decide whether the AI path can start.
+
 ## Mask and coordinate contract
 
 The analytical selection is document-space and camera-aware. The model mask is

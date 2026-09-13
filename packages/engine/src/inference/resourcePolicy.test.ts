@@ -29,6 +29,21 @@ describe('assessImageInferenceResources', () => {
     expect(assessment.estimatedPeakBytes).toBeGreaterThan(700_000_000);
   });
 
+  it('accounts for a resident full-resolution source beside the working frame', () => {
+    const assessment = assessImageInferenceResources({
+      width: 2048,
+      height: 1536,
+      modelPeakBytes: 330_000_000,
+      additionalBytes: 50_000_000,
+      runtime: { wasmSafePeakBytes: 400_000_000 },
+      operation: 'AI background removal',
+    });
+
+    expect(assessment.allowed).toBe(false);
+    expect(assessment.reason).toContain('AI background removal');
+    expect(assessment.estimatedPeakBytes).toBeGreaterThan(400_000_000);
+  });
+
   it('allows a bounded source when the measured safe budget contains it', () => {
     const assessment = assessImageInferenceResources({
       width: 2048,
