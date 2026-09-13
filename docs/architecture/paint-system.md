@@ -1,7 +1,7 @@
 # Paint System
 
 **Status:** Implemented; see Limitations for what is not
-**Updated:** 2026-08-28
+**Updated:** 2026-09-13
 
 ## Scope
 
@@ -304,8 +304,20 @@ deposits, so a spacing restart at a batch boundary shows as a blotch rather than
 a slightly uneven edge. The preset is frozen at pointer-down, since strength
 drives both how much pigment moves and how fast the trail fades.
 
-`sampleAllLayers` uses the same read-only flattened composite Clone Stamp does.
-Deposits still land on the target layer alone.
+The existing Smudge tool exposes this contract in its Brush inspector. `Mode`
+selects `sampling`, `mixing`, or `fingerpaint`; `Sample merged layers` is an
+explicit opt-in toggle, and the button state is part of the live brush
+settings rather than an invisible tool flag. Merged sampling uses the same
+read-only flattened composite Clone Stamp does. Deposits still land on the
+active target layer alone, so an artist can texture a blank layer from visible
+paint without accidentally painting the reference layers.
+
+The merged snapshot is currently a bounded snapshot of visible raster-layer
+tiles in the active scene tree's paint order. It is not a renderer readback:
+vector nodes, group isolation, effects, and transformed non-raster content are
+not implicitly sampled. The UI copy uses “merged raster layers” deliberately; a
+future renderer-backed sampling path must preserve the same source/target
+separation and revision checks.
 
 ## Clone Stamp and Healing Brush
 
@@ -395,6 +407,9 @@ draining so fast the trail died before it left the shape it started in.
 - Tilt magnitude and azimuth are retained through `StrokePoint`; no built-in
   preset currently maps azimuth, twist or tangential pressure to a target.
 - Brush thumbnails do not render grain.
+- Smudge merged sampling does not yet include vector/group/effect content or
+  transformed raster compositing; use a flattened raster copy when that source
+  fidelity is required.
 - Mask painting supports the container-local form (`FrameNode`); masks in
   `source-image-pixels` space still go through `RefineMaskTool`.
 

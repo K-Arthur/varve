@@ -7576,10 +7576,16 @@ export function EditorProvider({
         // legacy sibling semantics and its explicit scope agree. Frames and
         // groups are special: the adjustment becomes their last child and
         // therefore filters the rendered result of that container only.
-        let scope: import('@varve/scene').AdjustmentScope | undefined;
+        // New layers always start with an explicit scope. In particular, an
+        // empty selection must not fall through to legacy sibling-below
+        // resolution, which can unexpectedly affect unrelated artwork.
+        let scope: import('@varve/scene').AdjustmentScope = {
+          mode: 'explicit-targets',
+          targetNodeIds: [],
+        };
         let parentId: NodeId | null = null;
         let insertAfterId: NodeId | null = null;
-        let scopeLabel = '';
+        let scopeLabel = ' (no targets selected)';
         if (sel.length === 1) {
           const firstId = sel[0]!;
           const target = currentState.document.nodes[firstId];
@@ -7836,10 +7842,7 @@ export function EditorProvider({
             opacity: 1,
             blendMode: 'normal',
             effects: [],
-            scope:
-              targetIds.length > 0
-                ? scopeForTargets(state.document, targetIds)
-                : { mode: 'document' },
+            scope: scopeForTargets(state.document, targetIds),
           },
         );
         const withAdjustments = { ...node, adjustments: adjs };
@@ -10603,3 +10606,4 @@ function colorsEqual(a: unknown, b: unknown): boolean {
   if (a.length !== b.length) return false;
   return a.every((v, i) => v === (b as number[])[i]);
 }
+        smudgeSampleAllLayers: false,

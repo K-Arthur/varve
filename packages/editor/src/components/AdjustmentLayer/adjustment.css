@@ -1487,3 +1487,10 @@
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
+
+.histogram-widget__source {
+  font-size: var(--font-size-2xs, 11px);
+  color: var(--color-text-muted);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}

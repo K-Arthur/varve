@@ -13,12 +13,14 @@
  * Research basis: Clipboard API (W3C), custom MIME types for structured data.
  */
 import type { Platform } from '@varve/platform';
-import type { MockupTemplateAsset } from '@varve/scene';
 import {
+  activePageNodes,
   type Document,
   type DocumentAsset,
   type DocumentIconAsset,
   deserializeTiles,
+  isContainer,
+  type MockupTemplateAsset,
   type RasterLayerNode,
   type RasterMaskAsset,
   type SceneNode,
@@ -158,6 +160,55 @@ export interface TransferRequest {
 }
 
 export type ClipboardRequest = TransferRequest;
+
+/**
+ * Return selected roots in the document's paint/display order.
+ *
+ * Selection state records the order in which the user clicked layers. That
+ * order is useful for announcing a selection, but it must not change the
+ * sibling order or z-order when a multi-root selection is exported as SVG or
+ * transferred to another document. The walk is iterative so a malformed or
+ * unusually deep document cannot grow the call stack during a clipboard
+ * gesture.
+ */
+export function orderClipboardRoots(doc: Document, ids: readonly string[]): string[] {
+  const selected = new Set(ids.filter((id) => Boolean(doc.nodes[id])));
+  if (selected.size < 2) return [...selected];
+
+  const ordered: string[] = [];
+  const seen = new Set<string>();
+  const seeds = [...activePageNodes(doc)];
+  const seeded = new Set(seeds);
+  for (const id of doc.rootChildren) {
+    if (!seeded.has(id)) {
+      seeds.push(id);
+      seeded.add(id);
+    }
+  }
+  const pending = seeds.reverse();
+  while (pending.length > 0) {
+    const id = pending.pop()!;
+    if (seen.has(id)) continue;
+    const node = doc.nodes[id];
+    if (!node) continue;
+    seen.add(id);
+    if (selected.has(id)) ordered.push(id);
+    if (isContainer(node)) {
+      for (let index = node.children.length - 1; index >= 0; index -= 1) {
+        pending.push(node.children[index]!);
+      }
+    }
+  }
+
+  // Selected nodes can belong to an inactive page, a detached master, or a
+  // legacy document whose roots are not exposed by activePageNodes(). Keep
+  // those items rather than silently dropping them, using selection order only
+  // as the deterministic fallback for nodes with no display projection.
+  for (const id of ids) {
+    if (selected.has(id) && !ordered.includes(id)) ordered.push(id);
+  }
+  return ordered;
+}
 
 export interface ClipboardCapabilities {
   readonly text: boolean;
@@ -835,8 +886,19 @@ function extractSvgFromHtml(html: string): string | null {
   }
 }
 
-function addSvgItem(result: UnifiedClipboardResult, data: string, name: string): void {
+function addSvgItem(
+  result: UnifiedClipboardResult,
+  data: string,
+  name: string,
+  dedupe = true,
+): void {
+  // A single clipboard item can expose SVG through several equivalent MIME
+  // representations (string MIME, HTML, and a file). Those alternatives are
+  // one logical item and should be deduplicated. Separate ClipboardItem
+  // entries, however, are distinct user content even when their bytes happen
+  // to be identical, so the async Clipboard API can opt out of this check.
   if (
+    dedupe &&
     result.importItems.some(
       (item) =>
         item.mimeType === 'image/svg+xml' && typeof item.data === 'string' && item.data === data,
@@ -882,7 +944,9 @@ async function readClipboardItem(
     try {
       const text = await (await item.getType(svgType)).text();
       if (isSvgText(text)) {
-        addSvgItem(result, text, `clipboard-${itemIndex}.svg`);
+        // ClipboardItem boundaries are logical item boundaries. Do not merge
+        // two separately copied, byte-identical SVGs into one pasted layer.
+        addSvgItem(result, text, `clipboard-${itemIndex}.svg`, false);
         return;
       }
     } catch {

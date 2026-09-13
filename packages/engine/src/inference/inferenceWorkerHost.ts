@@ -42,6 +42,8 @@ const DEFAULT_TIMEOUT_MS = 120_000;
 export class InferenceWorkerHost {
   private worker: Worker | null = null;
   private pendingJobs = new Map<string, PendingJob>();
+  /** Requests whose caller stopped caring while the graph is still running. */
+  private discardedRequestIds = new Set<string>();
   private nextRequestId = 0;
   private workerReady = false;
 
@@ -83,7 +85,10 @@ export class InferenceWorkerHost {
     }
 
     const job = this.pendingJobs.get(msg.requestId);
-    if (!job) return;
+    if (!job) {
+      this.discardedRequestIds.delete(msg.requestId);
+      return;
+    }
 
     clearTimeout(job.timer);
     job.abortCleanup?.();
@@ -125,6 +130,32 @@ export class InferenceWorkerHost {
       this.pendingJobs.delete(id);
       job.reject(reason);
     }
+    this.discardedRequestIds.clear();
+  }
+
+  /**
+   * Stop observing one request without tearing down the shared worker.
+   *
+   * ORT does not expose a portable cancellation hook for every graph, so the
+   * computation may finish in the worker. Its late result is discarded by
+   * request id. Callers that need hard interruption use the timeout/crash path,
+   * which explicitly reports that the shared worker was restarted.
+   */
+  cancel(requestId: string): boolean {
+    const job = this.pendingJobs.get(requestId);
+    if (!job) return false;
+    clearTimeout(job.timer);
+    job.abortCleanup?.();
+    this.pendingJobs.delete(requestId);
+    this.discardedRequestIds.add(requestId);
+    job.reject(
+      new InferenceError('inference_cancelled', undefined, {
+        message: 'Inference result discarded after cancellation.',
+        technical: 'The request was detached from its caller; the shared worker was kept alive.',
+        recovery: 'Retry the operation when ready.',
+      }),
+    );
+    return true;
   }
 
   async infer(
@@ -199,19 +230,7 @@ export class InferenceWorkerHost {
 
         if (options.signal) {
           const onAbort = () => {
-            const pending = this.pendingJobs.get(requestId);
-            if (!pending) return;
-            clearTimeout(pending.timer);
-            this.pendingJobs.delete(requestId);
-            pending.abortCleanup = undefined;
-            pending.reject(new InferenceError('inference_cancelled'));
-            // Stop the current graph before a retry can be posted.
-            this.restartWorker(
-              new InferenceError('worker_crash', undefined, {
-                message: 'Inference worker restarted after cancellation.',
-                technical: 'The worker was terminated to stop a non-cancellable graph.',
-              }),
-            );
+            this.cancel(requestId);
           };
           job.abortCleanup = () => options.signal?.removeEventListener('abort', onAbort);
           options.signal.addEventListener('abort', onAbort, { once: true });
@@ -235,6 +254,7 @@ export class InferenceWorkerHost {
       this.worker = null;
     }
     this.workerReady = false;
+    this.discardedRequestIds.clear();
   }
 
   get isReady(): boolean {

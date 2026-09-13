@@ -1,3 +1,4 @@
+import { nodeWorldTransform } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { parseSvg } from './svg';
 import { parsePathData, parseSingleElement } from './svg/shared';
@@ -170,6 +171,57 @@ describe('parseSvg', () => {
     );
     const node = result.document.nodes[result.nodeIds[0]!];
     expect(node?.transform).toEqual([1, 0, 0, 1, 5, 7]);
+  });
+
+  it('preserves source order and world geometry across nested transformed groups', () => {
+    const result = parseSvg(
+      '<svg>' +
+        '<rect x="0" y="0" width="4" height="4" />' +
+        '<g transform="translate(10,20) scale(2)">' +
+        '<g transform="rotate(90)"><rect x="5" y="6" width="10" height="4" /></g>' +
+        '<circle cx="40" cy="20" r="3" />' +
+        '</g>' +
+        '<rect x="100" y="100" width="8" height="8" />' +
+        '</svg>',
+    );
+
+    // The two authored root shapes remain around the grouped artwork in the
+    // same paint order as the source SVG.
+    expect(result.nodeIds).toHaveLength(3);
+    const [beforeId, groupId, afterId] = result.nodeIds;
+    expect(result.document.nodes[beforeId!]?.kind).toBe('shape');
+    expect(result.document.nodes[groupId!]?.kind).toBe('frame');
+    expect(result.document.nodes[afterId!]?.kind).toBe('shape');
+
+    const group = result.document.nodes[groupId!];
+    expect(group?.kind).toBe('frame');
+    if (group?.kind !== 'frame') return;
+    expect(group.children).toHaveLength(2);
+    const nested = result.document.nodes[group.children[0]!];
+    expect(nested?.kind).toBe('frame');
+    if (nested?.kind !== 'frame') return;
+
+    const leafId = nested.children[0]!;
+    const leafWorld = nodeWorldTransform(result.document, leafId);
+    // translate(10,20) scale(2) rotate(90) followed by the leaf's (5,6)
+    // placement. The transform is applied exactly once by the hierarchy.
+    expect(leafWorld[0]).toBeCloseTo(0);
+    expect(leafWorld[1]).toBeCloseTo(-2);
+    expect(leafWorld[2]).toBeCloseTo(2);
+    expect(leafWorld[3]).toBeCloseTo(0);
+    expect(leafWorld[4]).toBeCloseTo(22);
+    expect(leafWorld[5]).toBeCloseTo(10);
+  });
+
+  it('reports a singular group transform without dropping its children', () => {
+    const result = parseSvg(
+      '<svg><g transform="scale(0)"><rect width="12" height="8" /></g></svg>',
+    );
+    expect(result.nodeIds).toHaveLength(1);
+    expect(result.document.nodes[result.nodeIds[0]!]?.kind).toBe('shape');
+    expect(result.warnings).toContain(
+      'SVG group transform is non-invertible; grouping was omitted',
+    );
   });
 
   it('parses fill and stroke attributes', () => {

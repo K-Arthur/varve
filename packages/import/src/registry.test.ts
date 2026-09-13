@@ -83,4 +83,12 @@ describe('ImportRegistry', () => {
     expect(getParserForFile('artwork.ai', pdfCompatibleAi)).toBe(ai);
     expect(getParserForFile('artwork.psb', largePhotoshop)).toBe(psd);
   });
+
+  it('keeps an extension-owned parser for malformed content so failures are classified', () => {
+    resetRegistry();
+    const svg = createSvgParser();
+    registerParser(svg);
+
+    expect(getParserForFile('broken.svgz', new Uint8Array([0x1f, 0x8b, 0x08]))).toBe(svg);
+  });
 });

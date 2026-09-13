@@ -21,8 +21,13 @@ import type { Adjustment } from '@varve/engine';
 import { getImportAcceptString, type ImportReport, ImportService } from '@varve/import';
 import type { Document, NodeId, SceneNode } from '@varve/scene';
 import { type ChangeEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { editorScreenToWorld } from '../canvas/cameraState';
 import type { ImportResultReport } from '../context/sessionGlobals';
-import { type PreparedFragment, preparedFragmentFromRootSets } from '../dropUtils';
+import {
+  type PreparedFragment,
+  preparedFragmentFromRootSets,
+  resolvePasteDestination,
+} from '../dropUtils';
 
 /** Files that describe a colour transform rather than artwork. */
 const LUT_PATTERN = /\.(cube|3dl|clf|ctf)$/i;
@@ -37,15 +42,71 @@ interface ImportProgressState {
 export interface FileImportEditor {
   /** Snapshot used to reject a picker result that outlived its destination. */
   state: {
-    document: { id: string };
+    document: Document;
     activeId: string;
     revision: number;
     selectionRevision: number;
+    selection: readonly NodeId[];
+    workspaceMode: string;
+    zoom: number;
+    pan: { x: number; y: number };
+    cameraRotation: number;
   };
   announce: (message: string) => void;
   addLutAdjustment: (adjustment: Adjustment) => void;
   batchImportNodes: (items: { node: SceneNode; sourceDoc: Document }[]) => void;
   commitPreparedFragment: (fragment: PreparedFragment) => string[];
+}
+
+export interface ImportContextSnapshot {
+  documentId: string;
+  activeId: string;
+  revision: number;
+  selectionRevision: number;
+  activePageId: string | null;
+  activeDesignCanvasId: string | null;
+  workspaceMode: string;
+  targetParentId: NodeId | null;
+  center: { x: number; y: number };
+}
+
+type CanvasRef = { readonly current: HTMLElement | null };
+
+function captureImportContext(
+  editor: FileImportEditor,
+  canvasRef?: CanvasRef,
+): ImportContextSnapshot {
+  const canvas = canvasRef?.current;
+  const width = canvas?.clientWidth ?? (typeof window === 'undefined' ? 1920 : window.innerWidth);
+  const height =
+    canvas?.clientHeight ?? (typeof window === 'undefined' ? 1080 : window.innerHeight - 120);
+  const [x, y] = editorScreenToWorld(
+    {
+      zoom: editor.state.zoom,
+      pan: editor.state.pan,
+      cameraRotation: editor.state.cameraRotation,
+    },
+    width / 2,
+    height / 2,
+    { width, height },
+  );
+  const centerPoint = { x, y };
+  const destination = resolvePasteDestination(
+    editor.state.document,
+    editor.state.selection,
+    centerPoint,
+  );
+  return {
+    documentId: editor.state.document.id,
+    activeId: editor.state.activeId,
+    revision: editor.state.revision,
+    selectionRevision: editor.state.selectionRevision,
+    activePageId: editor.state.document.activePageId ?? null,
+    activeDesignCanvasId: editor.state.document.activeDesignCanvasId ?? null,
+    workspaceMode: editor.state.workspaceMode,
+    targetParentId: destination.targetId,
+    center: destination.center,
+  };
 }
 
 export interface FileImportController {
@@ -108,10 +169,14 @@ function reportHasIssues(report: ImportReport): boolean {
   );
 }
 
-export function useFileImport(editor: FileImportEditor): FileImportController {
+export function useFileImport(
+  editor: FileImportEditor,
+  canvasRef?: CanvasRef,
+): FileImportController {
   const inputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef(editor);
   editorRef.current = editor;
+  const pendingContextRef = useRef<ImportContextSnapshot | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const operationSequenceRef = useRef(0);
   const activeOperationRef = useRef<number | null>(null);
@@ -128,7 +193,13 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
     [],
   );
 
-  const openPicker = useCallback(() => inputRef.current?.click(), []);
+  const openPicker = useCallback(() => {
+    // The picker can remain open while the user changes tabs, pages, selection,
+    // or camera state. Capture the initiating destination and geometry before
+    // handing control to the browser so a later file cannot land elsewhere.
+    pendingContextRef.current = captureImportContext(editorRef.current, canvasRef);
+    inputRef.current?.click();
+  }, [canvasRef]);
   const cancel = useCallback(() => abortRef.current?.abort(), []);
   const dismissReport = useCallback(() => setReport(null), []);
 
@@ -136,6 +207,9 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
     async (event: ChangeEvent<HTMLInputElement>) => {
       const input = event.target;
       const files = Array.from(input.files ?? []);
+      const capturedContext =
+        pendingContextRef.current ?? captureImportContext(editorRef.current, canvasRef);
+      pendingContextRef.current = null;
       if (files.length === 0) return;
       // A second picker gesture supersedes the first one. Aborting the old
       // controller is not enough by itself: its promise may settle later and
@@ -149,10 +223,7 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
       const isActiveOperation = (): boolean =>
         isOwnedOperation() && !abortController.signal.aborted;
       const expected = {
-        documentId: editor.state.document.id,
-        activeId: editor.state.activeId,
-        revision: editor.state.revision,
-        selectionRevision: editor.state.selectionRevision,
+        ...capturedContext,
       };
       const isCurrent = (): boolean => {
         const current = editorRef.current.state;
@@ -160,7 +231,10 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
           current.document.id === expected.documentId &&
           current.activeId === expected.activeId &&
           current.revision === expected.revision &&
-          current.selectionRevision === expected.selectionRevision
+          current.selectionRevision === expected.selectionRevision &&
+          current.workspaceMode === expected.workspaceMode &&
+          (current.document.activePageId ?? null) === expected.activePageId &&
+          (current.document.activeDesignCanvasId ?? null) === expected.activeDesignCanvasId
         );
       };
       const isCurrentOperation = (): boolean => isActiveOperation() && isCurrent();
@@ -211,7 +285,10 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
         // One batch, so the whole import is a single undo step.
         if (parsedItems.length > 0) {
           const committedIds = editor.commitPreparedFragment(
-            preparedFragmentFromRootSets('import', parsedItems, { targetParentId: null }),
+            preparedFragmentFromRootSets('import', parsedItems, {
+              targetParentId: expected.targetParentId,
+              center: expected.center,
+            }),
           );
           if (reportHasIssues(result) && isActiveOperation()) {
             setReport({
@@ -249,7 +326,7 @@ export function useFileImport(editor: FileImportEditor): FileImportController {
         }
       }
     },
-    [editor],
+    [editor, canvasRef],
   );
 
   return {

@@ -413,6 +413,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
         <div className="typography__family-field">
           <FontSelector
             value={isMixed(familyRaw) ? '' : familyRaw}
+            fontReference={textNodes.length === 1 ? textNodes[0]?.fontReference : undefined}
             onChange={(v) => batchUpdate((n) => ({ ...n, ...fontFamilyChanges(v || undefined) }))}
           />
           <Tooltip label="Browse fonts">

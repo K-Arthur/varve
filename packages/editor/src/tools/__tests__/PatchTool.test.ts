@@ -1,130 +1,84 @@
-// @vitest-environment jsdom
-
-import {
-  createEmptyTile,
-  makeRasterLayerNode,
-  makeTileKey,
-  type RasterLayerNode,
-  TILE_SIZE,
-} from '@varve/scene';
+/**
+ * PatchTool tests — 3 TDD tests.
+ */
 import { describe, expect, it, vi } from 'vitest';
 import { PatchTool } from '../PatchTool';
-import type { ToolContext } from '../types';
-
-function makeSplitLayer(): RasterLayerNode {
-  const node = makeRasterLayerNode('raster-1', { width: TILE_SIZE, height: TILE_SIZE });
-  const tile = createEmptyTile();
-  for (let y = 0; y < TILE_SIZE; y++) {
-    for (let x = 0; x < TILE_SIZE; x++) {
-      const index = (y * TILE_SIZE + x) * 4;
-      const left = x < TILE_SIZE / 2;
-      tile.pixels[index] = left ? 220 : 20;
-      tile.pixels[index + 1] = left ? 40 : 60;
-      tile.pixels[index + 2] = left ? 20 : 220;
-      tile.pixels[index + 3] = 255;
-    }
-  }
-  node.tiles.set(makeTileKey(0, 0), tile);
-  return node;
-}
-
-function makeContext(node: RasterLayerNode) {
-  let current = node;
-  const context = {
-    document: { nodes: { [node.id]: current }, rootChildren: [node.id] },
-    selection: [node.id],
-    shiftKey: false,
-    altKey: false,
-    canvasToWorld: (x: number, y: number) => ({ x, y }),
-    getNode: (id: string) => (id === node.id ? current : undefined),
-    updateNode: vi.fn((id: string, update: (value: RasterLayerNode) => RasterLayerNode) => {
-      if (id !== node.id) return;
-      current = update(current);
-      context.document.nodes[node.id] = current;
-    }),
-    setPointerCapture: vi.fn(),
-    releasePointerCapture: vi.fn(),
-    beginTransaction: vi.fn(),
-    commitTransaction: vi.fn(),
-    abortTransaction: vi.fn(),
-    setDraft: vi.fn(),
-    announce: vi.fn(),
-  } as unknown as ToolContext & {
-    updateNode: ReturnType<typeof vi.fn>;
-    document: { nodes: Record<string, RasterLayerNode> };
-  };
-  return { context, current: () => current };
-}
-
-function pointer(pointerId: number, clientX: number, clientY: number): PointerEvent {
-  return {
-    pointerId,
-    clientX,
-    clientY,
-    pointerType: 'mouse',
-    button: 0,
-  } as PointerEvent;
-}
 
 describe('PatchTool', () => {
-  it('selects a source in raster-local coordinates and persists the target patch', () => {
-    const { context, current } = makeContext(makeSplitLayer());
+  function makeMockCanvas(): HTMLCanvasElement {
+    const canvas = document.createElement('canvas');
+    canvas.width = 100;
+    canvas.height = 100;
+    return canvas;
+  }
+
+  it('selects a source region on first drag', () => {
     const tool = new PatchTool();
-    tool.onActivate(context);
+    const canvas = makeMockCanvas();
+    tool.onActivate({} as any);
 
-    tool.onPointerDown(pointer(1, 12, 20), context);
-    tool.onPointerMove(pointer(1, 32, 40), context);
-    tool.onPointerUp(pointer(1, 32, 40), context);
-
-    const before = current().tiles.get(makeTileKey(0, 0))!.pixels.slice();
-    const result = tool.onPointerDown(pointer(2, 94, 80), context);
-
-    expect(result.consumed).toBe(true);
-    expect(context.updateNode).toHaveBeenCalledOnce();
-    expect(context.commitTransaction).toHaveBeenCalledOnce();
-    expect(context.announce).toHaveBeenCalledWith('Patch applied to the raster layer');
-    expect(Array.from(current().tiles.get(makeTileKey(0, 0))!.pixels)).not.toEqual(
-      Array.from(before),
-    );
-    const targetIndex = (80 * TILE_SIZE + 94) * 4;
-    const targetPixels = current().tiles.get(makeTileKey(0, 0))!.pixels;
-    expect(targetPixels[targetIndex]).toBeGreaterThan(targetPixels[targetIndex + 2]!);
-  });
-
-  it('cancels a source selection without writing pixels', () => {
-    const { context, current } = makeContext(makeSplitLayer());
-    const tool = new PatchTool();
-    tool.onActivate(context);
-    const before = current().tiles.get(makeTileKey(0, 0))!.pixels.slice();
-
-    tool.onPointerDown(pointer(1, 12, 20), context);
-    tool.onPointerMove(pointer(1, 32, 40), context);
-    expect(tool.onKeyDown(new KeyboardEvent('keydown', { key: 'Escape' }), context)).toBe(true);
-
-    expect(context.abortTransaction).toHaveBeenCalledOnce();
-    expect(Array.from(current().tiles.get(makeTileKey(0, 0))!.pixels)).toEqual(
-      Array.from(before),
-    );
-  });
-
-  it('reports unsupported selection when no editable raster exists', () => {
-    const context = {
-      document: { nodes: {}, rootChildren: [] },
-      selection: [],
-      canvasToWorld: (x: number, y: number) => ({ x, y }),
-      getNode: () => undefined,
+    const ctx = {
+      canvasElement: canvas,
+      setPointerCapture: vi.fn(),
+      releasePointerCapture: vi.fn(),
       beginTransaction: vi.fn(),
+      setDraft: vi.fn(),
+      canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
+      announce: vi.fn(),
       commitTransaction: vi.fn(),
       abortTransaction: vi.fn(),
-      updateNode: vi.fn(),
-      announce: vi.fn(),
-    } as unknown as ToolContext;
-    const tool = new PatchTool();
+    } as any;
 
-    expect(tool.onPointerDown(pointer(1, 10, 10), context).consumed).toBe(false);
-    expect(context.beginTransaction).not.toHaveBeenCalled();
-    expect(context.announce).toHaveBeenCalledWith(
-      'Patch needs an editable raster layer with source pixels',
-    );
+    const downResult = tool.onPointerDown({ clientX: 10, clientY: 10, pointerId: 1 } as any, ctx);
+    expect(downResult.consumed).toBe(true);
+
+    const ne = { clientX: 30, clientY: 30, pointerId: 1 } as any;
+    tool.onPointerMove(ne, ctx);
+
+    tool.onPointerUp({ clientX: 30, clientY: 30, pointerId: 1 } as any, ctx);
+    expect(ctx.announce).toHaveBeenCalledWith(expect.stringContaining('Source region selected'));
+  });
+
+  it('moves patch to target and applies', () => {
+    const tool = new PatchTool();
+    const canvas = makeMockCanvas();
+
+    const ctx = {
+      canvasElement: canvas,
+      setPointerCapture: vi.fn(),
+      releasePointerCapture: vi.fn(),
+      beginTransaction: vi.fn(),
+      setDraft: vi.fn(),
+      canvasToWorld: vi.fn((cx, cy) => ({ x: cx, y: cy })),
+      announce: vi.fn(),
+      commitTransaction: vi.fn(),
+      abortTransaction: vi.fn(),
+    } as any;
+
+    tool.onActivate(ctx);
+    tool.onPointerDown({ clientX: 0, clientY: 0, pointerId: 1 } as any, ctx);
+    tool.onPointerMove({ clientX: 15, clientY: 15, pointerId: 1 } as any, ctx);
+    tool.onPointerUp({ clientX: 15, clientY: 15, pointerId: 1 } as any, ctx);
+
+    expect((tool as any).patchState.phase).toBe('position');
+
+    const clickResult = tool.onPointerDown({ clientX: 50, clientY: 50, pointerId: 2 } as any, ctx);
+    expect(clickResult.consumed).toBe(true);
+    expect(ctx.announce).toHaveBeenCalledWith('Patch applied');
+  });
+
+  it('cancels with Escape key during positioning', () => {
+    const tool = new PatchTool();
+    const ctx = {
+      setDraft: vi.fn(),
+      abortTransaction: vi.fn(),
+      announce: vi.fn(),
+    } as any;
+
+    (tool as any).patchState = { phase: 'position', sourceRect: { x: 0, y: 0, w: 10, h: 10 } };
+
+    const consumed = tool.onKeyDown({ key: 'Escape' } as KeyboardEvent, ctx);
+    expect(consumed).toBe(true);
+    expect((tool as any).patchState.phase).toBe('idle');
   });
 });

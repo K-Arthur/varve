@@ -130,7 +130,12 @@ export function getParserForFile(
   if (detection.source === 'signature') {
     return byData ?? (byExtension?.canParse(data) ? byExtension : undefined);
   }
-  return byExtension?.canParse(data) ? byExtension : byData;
+  // Once no stronger signature has claimed the bytes, the filename-selected
+  // parser owns its declared format even when the payload is malformed. This
+  // lets ImportService distinguish a bounded parse failure from an unknown
+  // format (and, for SVGZ, avoids treating a corrupt gzip stream as an absent
+  // importer). A valid content parser still wins when no extension is known.
+  return byExtension ?? byData;
 }
 
 export function listSupportedFormats(): string[] {

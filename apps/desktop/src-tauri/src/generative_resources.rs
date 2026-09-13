@@ -15,6 +15,7 @@ pub(crate) struct NativeResourceSnapshot {
     pub(crate) required_memory_bytes: u64,
     pub(crate) resource_tier: &'static str,
     pub(crate) execution_backend: &'static str,
+    pub(crate) platform: &'static str,
     pub(crate) architecture: &'static str,
 }
 
@@ -32,10 +33,56 @@ fn parse_linux_available_memory(contents: &str) -> Option<u64> {
     })
 }
 
+/// Read a cgroup memory value. cgroup v2 uses `max` for an unlimited limit;
+/// treating that as absent lets the host's MemAvailable value remain the
+/// authority. Very large v1 sentinel values are also treated as unlimited.
+fn parse_cgroup_memory_value(contents: &str) -> Option<u64> {
+    let value = contents.trim();
+    if value == "max" {
+        return None;
+    }
+    let bytes = value.parse::<u64>().ok()?;
+    (bytes < (1 << 60)).then_some(bytes)
+}
+
+fn cgroup_available_memory(limit: &str, current: &str) -> Option<u64> {
+    let limit = parse_cgroup_memory_value(limit)?;
+    let current = parse_cgroup_memory_value(current)?;
+    // A transient usage value above the limit is pressure, not evidence that
+    // the host budget is usable. Keep the refusal conservative in that case.
+    Some(limit.saturating_sub(current))
+}
+
 #[cfg(target_os = "linux")]
 fn available_memory_bytes_impl() -> Option<u64> {
-    let contents = std::fs::read_to_string("/proc/meminfo").ok()?;
-    parse_linux_available_memory(&contents)
+    let host_available = std::fs::read_to_string("/proc/meminfo")
+        .ok()
+        .and_then(|contents| parse_linux_available_memory(&contents));
+
+    // Crostini and other sandboxed Linux environments may expose the host's
+    // MemAvailable while enforcing a smaller memory.max for the app. The
+    // effective budget is the lower of the host value and the current cgroup
+    // allowance. Try cgroup v2 first, then the legacy v1 mount.
+    let cgroup_available = [
+        ("/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory.current"),
+        (
+            "/sys/fs/cgroup/memory/memory.limit_in_bytes",
+            "/sys/fs/cgroup/memory/memory.usage_in_bytes",
+        ),
+    ]
+    .into_iter()
+    .find_map(|(limit_path, current_path)| {
+        let limit = std::fs::read_to_string(limit_path).ok()?;
+        let current = std::fs::read_to_string(current_path).ok()?;
+        cgroup_available_memory(&limit, &current)
+    });
+
+    match (host_available, cgroup_available) {
+        (Some(host), Some(cgroup)) => Some(host.min(cgroup)),
+        (Some(host), None) => Some(host),
+        (None, Some(cgroup)) => Some(cgroup),
+        (None, None) => None,
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -109,6 +156,94 @@ pub(crate) fn estimated_required_memory_bytes(width: u32, height: u32) -> Option
     NATIVE_DIFFUSION_MINIMUM_MEMORY_BYTES.checked_add(frame_working_bytes)
 }
 
+/// Estimate the reservation for a native ONNX model whose measured peak RSS
+/// is already known. The model peak covers the model graph and its fixed-size
+/// inference tensors; the command still has to retain the source image and
+/// one or more conversion/output buffers. Three RGBA source-sized buffers are
+/// a deliberately conservative allowance for that command-side lifetime.
+pub(crate) fn estimated_required_memory_bytes_for_model(
+    width: u32,
+    height: u32,
+    measured_peak_memory_bytes: u64,
+) -> Option<u64> {
+    let pixels = u64::from(width).checked_mul(u64::from(height))?;
+    if pixels == 0 {
+        return None;
+    }
+    let source_working_bytes = pixels.checked_mul(4)?.checked_mul(3)?;
+    measured_peak_memory_bytes.checked_add(source_working_bytes)
+}
+
+fn snapshot_with_requirement(required_memory_bytes: u64) -> NativeResourceSnapshot {
+    let available_memory_bytes = available_memory_bytes();
+    NativeResourceSnapshot {
+        available_memory_bytes,
+        required_memory_bytes,
+        resource_tier: resource_tier(available_memory_bytes),
+        execution_backend: "native-cpu",
+        platform: std::env::consts::OS,
+        architecture: std::env::consts::ARCH,
+    }
+}
+
+fn memory_shortage_error(
+    operation: &str,
+    required_memory_bytes: u64,
+    available_memory_bytes: u64,
+    architecture: &str,
+) -> Option<String> {
+    if available_memory_bytes >= required_memory_bytes {
+        return None;
+    }
+    let available_mib = (available_memory_bytes / BYTES_PER_MIB).max(1);
+    let required_mib = required_memory_bytes.div_ceil(BYTES_PER_MIB);
+    Some(format!(
+        "{operation} needs about {required_mib} MiB, but only {available_mib} MiB is currently available on this {architecture} device. Close other memory-heavy apps or use Quick Cleanup, which does not load a model."
+    ))
+}
+
+fn memory_measurement_error(operation: &str, snapshot: &NativeResourceSnapshot) -> String {
+    format!(
+        "{operation} cannot start because available memory could not be measured on this {}/{} device. Close memory-heavy apps or use Quick Cleanup, which does not load a model.",
+        snapshot.platform, snapshot.architecture
+    )
+}
+
+fn measured_available_memory(
+    operation: &str,
+    snapshot: &NativeResourceSnapshot,
+) -> Result<u64, String> {
+    snapshot
+        .available_memory_bytes
+        .ok_or_else(|| memory_measurement_error(operation, snapshot))
+}
+
+/// Perform the native-side check for a model-backed ONNX operation. This is
+/// intentionally separate from the diffusion check because segmentation and
+/// inpainting have measured footprints that are materially smaller (or, for
+/// BiRefNet, larger) than the six-GiB diffusion floor.
+pub(crate) fn preflight_model(
+    operation: &str,
+    width: u32,
+    height: u32,
+    measured_peak_memory_bytes: u64,
+) -> Result<NativeResourceSnapshot, String> {
+    let required_memory_bytes =
+        estimated_required_memory_bytes_for_model(width, height, measured_peak_memory_bytes)
+            .ok_or_else(|| format!("{operation} source dimensions are empty or overflowed"))?;
+    let snapshot = snapshot_with_requirement(required_memory_bytes);
+    let available = measured_available_memory(operation, &snapshot)?;
+    if let Some(error) = memory_shortage_error(
+        operation,
+        snapshot.required_memory_bytes,
+        available,
+        snapshot.architecture,
+    ) {
+        return Err(error);
+    }
+    Ok(snapshot)
+}
+
 pub(crate) fn snapshot(width: u32, height: u32) -> NativeResourceSnapshot {
     let available_memory_bytes = available_memory_bytes();
     NativeResourceSnapshot {
@@ -117,28 +252,33 @@ pub(crate) fn snapshot(width: u32, height: u32) -> NativeResourceSnapshot {
             .unwrap_or(NATIVE_DIFFUSION_MINIMUM_MEMORY_BYTES),
         resource_tier: resource_tier(available_memory_bytes),
         execution_backend: "native-cpu",
+        platform: std::env::consts::OS,
         architecture: std::env::consts::ARCH,
     }
 }
 
 pub(crate) fn preflight(width: u32, height: u32) -> Result<NativeResourceSnapshot, String> {
     let snapshot = snapshot(width, height);
-    if let Some(available) = snapshot.available_memory_bytes {
-        if available < snapshot.required_memory_bytes {
-            let available_mib = (available / BYTES_PER_MIB).max(1);
-            let required_mib = snapshot.required_memory_bytes.div_ceil(BYTES_PER_MIB);
-            return Err(format!(
-                "Local diffusion generation needs about {required_mib} MiB, but only {available_mib} MiB is currently available on this {} device. Close other memory-heavy apps or use Quick Cleanup, which does not load the diffusion model.",
-                snapshot.architecture
-            ));
-        }
+    let available = measured_available_memory("Local diffusion generation", &snapshot)?;
+    if let Some(error) = memory_shortage_error(
+        "Local diffusion generation",
+        snapshot.required_memory_bytes,
+        available,
+        snapshot.architecture,
+    ) {
+        return Err(error);
     }
     Ok(snapshot)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{estimated_required_memory_bytes, parse_linux_available_memory, resource_tier};
+    use super::{
+        cgroup_available_memory, estimated_required_memory_bytes,
+        estimated_required_memory_bytes_for_model, measured_available_memory,
+        memory_measurement_error, memory_shortage_error, parse_cgroup_memory_value,
+        parse_linux_available_memory, resource_tier, NativeResourceSnapshot, BYTES_PER_MIB,
+    };
 
     const GIB: u64 = 1024 * 1024 * 1024;
 
@@ -150,6 +290,24 @@ mod tests {
             parse_linux_available_memory(contents),
             Some(3_500_000 * 1024)
         );
+    }
+
+    #[test]
+    fn uses_the_effective_crostini_cgroup_budget() {
+        let host_available = 8 * GIB;
+        let cgroup_available =
+            cgroup_available_memory("2147483648\n", "536870912\n").expect("finite cgroup budget");
+        assert_eq!(cgroup_available, 1536 * 1024 * 1024);
+        assert_eq!(host_available.min(cgroup_available), cgroup_available);
+    }
+
+    #[test]
+    fn ignores_unlimited_and_malformed_cgroup_limits() {
+        assert_eq!(parse_cgroup_memory_value("max\n"), None);
+        assert_eq!(parse_cgroup_memory_value("9223372036854771712\n"), None);
+        assert_eq!(cgroup_available_memory("max", "1024"), None);
+        assert_eq!(cgroup_available_memory("not-a-number", "1024"), None);
+        assert_eq!(cgroup_available_memory("1024", "2048"), Some(0));
     }
 
     #[test]
@@ -167,5 +325,52 @@ mod tests {
         assert!(base >= 6 * GIB);
         assert!(large > base);
         assert_eq!(estimated_required_memory_bytes(0, 512), None);
+    }
+
+    #[test]
+    fn measured_model_peak_includes_bounded_source_buffers() {
+        let base =
+            estimated_required_memory_bytes_for_model(1, 1, 850_000_000).expect("valid dimensions");
+        let large = estimated_required_memory_bytes_for_model(4096, 4096, 850_000_000)
+            .expect("valid dimensions");
+        assert!(base > 850_000_000);
+        assert!(large > base);
+        assert_eq!(estimated_required_memory_bytes_for_model(0, 1, 1), None);
+    }
+
+    #[test]
+    fn memory_shortage_is_actionable_and_architecture_specific() {
+        let error = memory_shortage_error(
+            "Native background removal",
+            850_000_000,
+            512 * BYTES_PER_MIB,
+            "aarch64",
+        )
+        .expect("insufficient memory should be refused");
+        assert!(error.contains("Native background removal"));
+        assert!(error.contains("aarch64"));
+        assert!(error.contains("Quick Cleanup"));
+        assert!(memory_shortage_error("operation", 1, 2, "x86_64").is_none());
+    }
+
+    #[test]
+    fn unknown_native_memory_fails_closed_with_platform_context() {
+        let snapshot = NativeResourceSnapshot {
+            available_memory_bytes: None,
+            required_memory_bytes: 6 * GIB,
+            resource_tier: "unknown",
+            execution_backend: "native-cpu",
+            platform: "linux",
+            architecture: "aarch64",
+        };
+
+        let error = measured_available_memory("Local diffusion generation", &snapshot)
+            .expect_err("unknown native memory must not be treated as unlimited");
+        assert_eq!(
+            error,
+            memory_measurement_error("Local diffusion generation", &snapshot)
+        );
+        assert!(error.contains("linux/aarch64"));
+        assert!(error.contains("Quick Cleanup"));
     }
 }

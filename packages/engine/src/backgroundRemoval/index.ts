@@ -1,11 +1,18 @@
+import { getRuntimeCapabilities } from '../inference/core/RuntimeCapabilities';
+import { getModelById } from '../inference/modelCatalog';
+import { assessImageInferenceResources } from '../inference/resourcePolicy';
 import { maskToDataUrl } from './heuristic';
 import { decodeMaskDataUrl } from './maskDecode';
 import { resizeMaskBilinear } from './maskOps';
 import { downscaleImageData } from './previewDownscale';
 import { dispatchBackgroundRemoval } from './providers/dispatch';
+import {
+  getNativeBackgroundRemovalModelStatus,
+  preflightNativeBackgroundRemoval,
+} from './providers/tauriProvider';
 import { composeSourceAndSubjectAlpha } from './reconstructMask';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from './types';
-import { DEFAULT_PREVIEW_MAX_DIMENSION } from './types';
+import { DEFAULT_PREVIEW_MAX_DIMENSION, preferredWorkerModelIdForMethod } from './types';
 
 export type { AdaptiveSelection, AdaptiveSelectionOptions } from './adaptiveSelection';
 export { selectAdaptiveModel } from './adaptiveSelection';
@@ -156,6 +163,81 @@ function withPreviewDefaults(options: BackgroundRemovalOptions): BackgroundRemov
   };
 }
 
+const FALLBACK_MODEL_ID = 'u2netp';
+const FALLBACK_MODEL_PEAK_BYTES = 330_000_000;
+
+function boundedWorkingDimensions(
+  width: number,
+  height: number,
+  maxDimension: number,
+): { width: number; height: number } {
+  if (!Number.isSafeInteger(maxDimension) || maxDimension <= 0) return { width, height };
+  if (width <= maxDimension && height <= maxDimension) return { width, height };
+  const scale = maxDimension / Math.max(width, height);
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+}
+
+/**
+ * Refuse a source before `downscaleImageData` creates another full-resolution
+ * canvas. The model-only WASM gate cannot see that resident source buffer,
+ * which is enough to tip a 2 GB Chromebook or ARM WebView into an allocation
+ * failure. A ready native provider gets an OS/cgroup preflight with the
+ * original dimensions; a desktop WebView without that provider uses the same
+ * conservative browser gate as any other WASM fallback.
+ */
+async function preflightBrowserSourceMemory(
+  imageData: ImageData,
+  options: BackgroundRemovalOptions,
+  maxDimension: number,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (options.method === 'quick') return;
+
+  const runtime = await getRuntimeCapabilities();
+  if (signal?.aborted) throw new Error('cancelled');
+  const nativeModelId = preferredWorkerModelIdForMethod(options.method);
+  if (runtime.isTauri && nativeModelId) {
+    const nativeStatus = await getNativeBackgroundRemovalModelStatus(nativeModelId);
+    if (signal?.aborted) throw new Error('cancelled');
+    if (nativeStatus?.runtimeReady && nativeStatus.installed) {
+      await preflightNativeBackgroundRemoval(nativeModelId, imageData.width, imageData.height);
+      return;
+    }
+  }
+
+  // Browser/WASM runtimes, including a Tauri WebView that has no usable native
+  // model, use the canonical safe peak even when `navigator.deviceMemory` is
+  // absent. That is common in privacy-preserving browsers and some ChromeOS/
+  // ARM WebViews.
+
+  const working = boundedWorkingDimensions(imageData.width, imageData.height, maxDimension);
+  const sourceBytes = imageData.width * imageData.height * 4;
+  const sourcePreparationBytes =
+    imageData.width > maxDimension || imageData.height > maxDimension
+      ? sourceBytes * 2
+      : sourceBytes;
+  const fallbackPeakBytes =
+    getModelById(FALLBACK_MODEL_ID)?.peakMemoryBytes ?? FALLBACK_MODEL_PEAK_BYTES;
+  const assessment = assessImageInferenceResources({
+    width: working.width,
+    height: working.height,
+    modelPeakBytes: fallbackPeakBytes,
+    additionalBytes: sourcePreparationBytes,
+    runtime,
+    operation: 'AI background removal',
+  });
+
+  if (!assessment.allowed) {
+    throw new Error(
+      `${assessment.reason ?? 'AI background removal does not fit this runtime.'} ` +
+        'Use Quick mode or reduce the image dimensions before trying AI again.',
+    );
+  }
+}
+
 /**
  * Remove background from an ImageData buffer.
  *
@@ -178,9 +260,19 @@ export async function removeBackground(
   if (imageData.width === 0 || imageData.height === 0) {
     throw new Error('Cannot remove background from a 0-byte image (width or height is zero)');
   }
+  if (
+    !Number.isSafeInteger(imageData.width) ||
+    !Number.isSafeInteger(imageData.height) ||
+    imageData.width < 0 ||
+    imageData.height < 0
+  ) {
+    throw new Error('Cannot remove background from an image with invalid dimensions');
+  }
 
   const resolved = withPreviewDefaults(options);
   const maxDim = resolved.previewMaxDimension ?? DEFAULT_PREVIEW_MAX_DIMENSION;
+  await preflightBrowserSourceMemory(imageData, resolved, maxDim, signal);
+  if (signal?.aborted) throw new Error('cancelled');
   const needsDownscale = imageData.width > maxDim || imageData.height > maxDim;
   const workingBuffer = needsDownscale ? downscaleImageData(imageData, maxDim) : imageData;
 

@@ -3,6 +3,7 @@ import { imageShapeSrc, isImageShape } from '@varve/scene';
 import { useEditor } from '../../../context';
 import { insertDerivedImageShape, restoreImageShapeContent } from '../../../imageOperations';
 import { DisclosureSection } from '../controls/DisclosureSection';
+import { BoundedImagePreview } from './ImageFillControls';
 
 interface ContentAwareFillSectionProps {
   nodes: SceneNode[];
@@ -23,6 +24,8 @@ export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFil
   const isImage = Boolean(node && isImageShape(node));
   const typedNode = isImage ? (node as import('@varve/scene').ShapeNode) : null;
   const imageSrc = typedNode ? imageShapeSrc(typedNode) : '';
+  const imageFill = typedNode?.fills?.find((fill) => fill.type === 'image')?.image;
+  const imageAsset = imageFill?.assetId ? state.document.assets?.[imageFill.assetId] : undefined;
 
   if (!isImage || !typedNode) return null;
 
@@ -68,14 +71,57 @@ export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFil
     beginTransaction();
     try {
       const duplicateEditId = `${acceptedEdit.id}-copy-${Date.now()}`;
+      const sourceImageFill = typedNode.fills?.find(
+        (fill) => fill.type === 'image' && !fill.image?.generativeEditOverlay,
+      );
+      const boundedOverlay = typedNode.fills?.some(
+        (fill) => fill.type === 'image' && Boolean(fill.image?.generativeEditOverlay),
+      );
+      const duplicateWidth =
+        typedNode.shape.kind === 'rect' ? typedNode.shape.w : resultAsset.naturalWidth;
+      const duplicateHeight =
+        typedNode.shape.kind === 'rect' ? typedNode.shape.h : resultAsset.naturalHeight;
       const duplicated = insertDerivedImageShape(state.document, typedNode.id, {
-        dataUrl: resultAsset.dataUrl,
-        assetId: resultAsset.id,
-        width: resultAsset.naturalWidth,
-        height: resultAsset.naturalHeight,
+        dataUrl: boundedOverlay
+          ? (sourceImageFill?.image?.src ?? resultAsset.dataUrl)
+          : resultAsset.dataUrl,
+        assetId: boundedOverlay ? sourceImageFill?.image?.assetId : resultAsset.id,
+        width: duplicateWidth,
+        height: duplicateHeight,
         suffix: 'Generative Edit Copy',
         generativeEditId: duplicateEditId,
       });
+      const duplicatedNode = duplicated.doc.nodes[duplicated.nodeId];
+      const duplicateFills =
+        boundedOverlay && duplicatedNode?.kind === 'shape'
+          ? typedNode.fills?.map((fill) =>
+              fill.type === 'image' && fill.image?.generativeEditOverlay
+                ? {
+                    ...fill,
+                    image: {
+                      ...fill.image,
+                      src: resultAsset.dataUrl,
+                      assetId: resultAsset.id,
+                      generativeEditOverlay: {
+                        editId: duplicateEditId,
+                        variationId:
+                          acceptedVariation?.id ?? fill.image.generativeEditOverlay.variationId,
+                      },
+                    },
+                  }
+                : fill,
+            )
+          : undefined;
+      const duplicatedWithFills =
+        duplicateFills && duplicatedNode?.kind === 'shape'
+          ? {
+              ...duplicated.doc,
+              nodes: {
+                ...duplicated.doc.nodes,
+                [duplicated.nodeId]: { ...duplicatedNode, fills: duplicateFills },
+              },
+            }
+          : duplicated.doc;
       // Candidate/source assets are immutable and can be shared, but the
       // record itself belongs to the new layer. Keeping a distinct record
       // prevents edits to the duplicate's recipe from changing the source's
@@ -88,7 +134,7 @@ export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFil
         updatedAt: Date.now(),
       };
       updateDoc(() => ({
-        ...duplicated.doc,
+        ...duplicatedWithFills,
         generativeEdits: {
           ...duplicated.doc.generativeEdits,
           [duplicateEditId]: duplicateEdit,
@@ -111,17 +157,29 @@ export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFil
         </p>
         {imageSrc && (
           <div className="caf-entry-thumb">
-            <img
-              src={imageSrc}
-              alt="Source"
-              className="caf-entry-thumb__img"
-              style={{
-                width: '100%',
-                maxHeight: 80,
-                objectFit: 'contain',
-                borderRadius: 'var(--radius-control-compact)',
-              }}
-            />
+            {((imageFill?.imageWidth ?? imageAsset?.naturalWidth ?? 0) > 1024 ||
+              (imageFill?.imageHeight ?? imageAsset?.naturalHeight ?? 0) > 1024) &&
+            (imageSrc.startsWith('data:') || imageSrc.startsWith('blob:')) ? (
+              <BoundedImagePreview
+                source={imageSrc}
+                sourceWidth={imageFill?.imageWidth ?? imageAsset?.naturalWidth ?? 0}
+                sourceHeight={imageFill?.imageHeight ?? imageAsset?.naturalHeight ?? 0}
+                className="caf-entry-thumb__img"
+              />
+            ) : (
+              <img
+                src={imageSrc}
+                alt="Source"
+                className="caf-entry-thumb__img"
+                decoding="async"
+                style={{
+                  width: '100%',
+                  maxHeight: 80,
+                  objectFit: 'contain',
+                  borderRadius: 'var(--radius-control-compact)',
+                }}
+              />
+            )}
             <span className="insp-hint">
               {imageWidth} {String.fromCharCode(215)} {imageHeight}
             </span>

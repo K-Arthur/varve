@@ -26,6 +26,7 @@ import { ModelDownloadDialog } from '../../BackgroundRemoval/ModelDownloadDialog
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { RangeValueControl } from '../controls/RangeValueControl';
+import { BoundedImagePreview } from './ImageFillControls';
 
 function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
   const message = e instanceof Error ? e.message : String(e);
@@ -132,6 +133,17 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
         fills: resolveNodePaints({ paintRefs: selectedNode.paintRefs }, state.document),
       }
     : selectedNode;
+  const imageFill = node?.fills?.find((fill) => fill.type === 'image')?.image;
+  const imageAsset = imageFill?.assetId ? state.document.assets?.[imageFill.assetId] : undefined;
+  const previewSource = imageAsset?.dataUrl ?? (node ? imageShapeSrc(node) : '');
+  const previewSourceWidth =
+    imageFill?.imageWidth ??
+    imageAsset?.naturalWidth ??
+    (node?.shape?.kind === 'rect' ? node.shape.w : 0);
+  const previewSourceHeight =
+    imageFill?.imageHeight ??
+    imageAsset?.naturalHeight ??
+    (node?.shape?.kind === 'rect' ? node.shape.h : 0);
   const decontaminateId = useId();
   const hasMask = Boolean(
     node && (isImageShape(node) || node.mask?.rasterMask || node.backgroundRemoval),
@@ -893,22 +905,18 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                     backgroundSize: '16px 16px',
                   }}
                 >
-                  <img
-                    src={imageShapeSrc(node)}
+                  <BoundedImagePreview
+                    source={previewSource}
+                    sourceWidth={previewSourceWidth}
+                    sourceHeight={previewSourceHeight}
                     alt="Isolated subject preview"
+                    className="insp-mask-review__image"
+                    maskDataUrl={previewSession.maskDataUrl}
                     style={{
                       display: 'block',
                       width: '100%',
                       maxHeight: 180,
                       objectFit: 'contain',
-                      WebkitMaskImage: `url("${previewSession.maskDataUrl}")`,
-                      WebkitMaskSize: 'contain',
-                      WebkitMaskPosition: 'center',
-                      WebkitMaskRepeat: 'no-repeat',
-                      maskImage: `url("${previewSession.maskDataUrl}")`,
-                      maskSize: 'contain',
-                      maskPosition: 'center',
-                      maskRepeat: 'no-repeat',
                     }}
                   />
                 </div>

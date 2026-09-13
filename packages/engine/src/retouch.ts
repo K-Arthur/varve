@@ -2,11 +2,9 @@
  * Retouch engine — shared pixel-processing functions for clone stamp,
  * healing brush, spot heal, and patch tools.
  *
- * Research basis: Porter-Duff source-over compositing, normalized
- * cross-correlation patch matching, and the documented clone/heal/patch
- * workflows in established raster editors. The byte-oriented APIs in this
- * module are legacy compatibility helpers; range-bearing work uses the
- * separate float surface contract.
+ * Research basis: Image compositing algebra (Porter-Duff), NCC patch matching,
+ *                 Poisson image editing (Mertens-Kautz-Van Reeth 2005), and
+ *                 Photoshop/GIMP retouching tool internals.
  *
  * F1: All functions operate on raw ImageData (Uint8ClampedArray RGBA).
  * F2: Brush masks are pre-computed Uint8Array (0-255 weight per pixel).
@@ -42,46 +40,6 @@ export function createBrushMask(
 
 function readPixel(data: Uint8ClampedArray, i: number): number {
   return data[i]!;
-}
-
-/**
- * Composite one straight-alpha byte pixel with source-over semantics.
- * RGB is combined in premultiplied form, then unpremultiplied once. This is
- * important at transparent edges: independently lerping straight RGB and
- * alpha creates dark fringes and can erase the destination with an empty
- * source sample.
- */
-function blendBytePixel(
-  destination: Uint8ClampedArray,
-  destinationIndex: number,
-  source: Uint8ClampedArray,
-  sourceIndex: number,
-  coverage: number,
-  output: Uint8ClampedArray,
-): void {
-  const amount = Math.max(0, Math.min(1, coverage));
-  if (amount <= 0) return;
-  const sourceAlpha = (readPixel(source, sourceIndex + 3) / 255) * amount;
-  const destinationAlpha = readPixel(destination, destinationIndex + 3) / 255;
-  const outputAlpha = sourceAlpha + destinationAlpha * (1 - sourceAlpha);
-  if (outputAlpha <= 1e-8) {
-    output[destinationIndex] = 0;
-    output[destinationIndex + 1] = 0;
-    output[destinationIndex + 2] = 0;
-    output[destinationIndex + 3] = 0;
-    return;
-  }
-  for (let channel = 0; channel < 3; channel++) {
-    const sourcePremultiplied = (readPixel(source, sourceIndex + channel) / 255) * sourceAlpha;
-    const destinationPremultiplied =
-      (readPixel(destination, destinationIndex + channel) / 255) *
-      destinationAlpha *
-      (1 - sourceAlpha);
-    output[destinationIndex + channel] = Math.round(
-      ((sourcePremultiplied + destinationPremultiplied) / outputAlpha) * 255,
-    );
-  }
-  output[destinationIndex + 3] = Math.round(outputAlpha * 255);
 }
 
 /**
@@ -138,7 +96,17 @@ export function clonePixels(
       const si = (sy * srcW + sx) * 4;
       const f = weight / 255;
 
-      blendBytePixel(td, ti, sd, si, f, rd);
+      if (f >= 1) {
+        rd[ti] = readPixel(sd, si);
+        rd[ti + 1] = readPixel(sd, si + 1);
+        rd[ti + 2] = readPixel(sd, si + 2);
+        rd[ti + 3] = readPixel(sd, si + 3);
+      } else {
+        rd[ti] = Math.round(readPixel(td, ti) * (1 - f) + readPixel(sd, si) * f);
+        rd[ti + 1] = Math.round(readPixel(td, ti + 1) * (1 - f) + readPixel(sd, si + 1) * f);
+        rd[ti + 2] = Math.round(readPixel(td, ti + 2) * (1 - f) + readPixel(sd, si + 2) * f);
+        rd[ti + 3] = Math.round(readPixel(td, ti + 3) * (1 - f) + readPixel(sd, si + 3) * f);
+      }
     }
   }
   return result;
@@ -159,7 +127,7 @@ export function ncc(
   a: Uint8ClampedArray,
   b: Uint8ClampedArray,
   offset: number,
-  stride: number,
+  _stride: number,
   count: number,
 ): number {
   let sumA = 0,
@@ -168,18 +136,10 @@ export function ncc(
     sumB2 = 0,
     sumAB = 0;
   let n = 0;
-  const side = Math.floor(Math.sqrt(count));
-  const isSquare = side > 0 && side * side === count && stride >= side * 4;
   for (let i = 0; i < count; i++) {
-    const row = isSquare ? Math.floor(i / side) : 0;
-    const column = isSquare ? i % side : i;
-    const idx = offset + (isSquare ? row * stride + column * 4 : i * 4);
-    // Legacy callers sometimes pass the same full image for both operands;
-    // in that case keep both views on the supplied strided region. A packed
-    // target patch (the normal findBestPatch path) uses its compact row stride.
-    const aIndex = isSquare && a !== b ? (row * side + column) * 4 : idx;
+    const idx = offset + i * 4;
     for (let c = 0; c < 3; c++) {
-      const va = readPixel(a, aIndex + c);
+      const va = readPixel(a, idx + c);
       const vb = readPixel(b, idx + c);
       sumA += va;
       sumB += vb;
@@ -195,11 +155,7 @@ export function ncc(
   const varA = sumA2 / n - meanA * meanA;
   const varB = sumB2 / n - meanB * meanB;
   const denom = Math.sqrt(varA * varB);
-  if (denom < 1e-10) {
-    // NCC is undefined for a flat patch, but exact flat matches are still
-    // useful for blemish removal and should beat the first search candidate.
-    return Math.abs(meanA - meanB) < 1e-6 ? 1 : 0;
-  }
+  if (denom < 1e-10) return 0;
   return cov / denom;
 }
 
@@ -208,7 +164,7 @@ export function ncc(
  * Returns the {x, y} of the top-left corner of the best match.
  */
 export function findBestPatch(
-  targetData: ImageData,
+  _targetData: ImageData,
   sourceData: ImageData,
   targetCenterX: number,
   targetCenterY: number,
@@ -216,36 +172,24 @@ export function findBestPatch(
   searchRadius: number,
 ): { x: number; y: number } {
   const pw = patchRadius * 2 + 1;
-  if (
-    patchRadius < 0 ||
-    targetData.width < pw ||
-    targetData.height < pw ||
-    sourceData.width < pw ||
-    sourceData.height < pw
-  ) {
-    return { x: Math.max(0, Math.floor(targetCenterX)), y: Math.max(0, Math.floor(targetCenterY)) };
-  }
-  const targetW = targetData.width;
-  const targetH = targetData.height;
   const srcW = sourceData.width;
   const srcH = sourceData.height;
-  const targetX = Math.max(patchRadius, Math.min(targetW - patchRadius - 1, targetCenterX));
-  const targetY = Math.max(patchRadius, Math.min(targetH - patchRadius - 1, targetCenterY));
+  const targetX = Math.max(patchRadius, Math.min(srcW - patchRadius - 1, targetCenterX));
+  const targetY = Math.max(patchRadius, Math.min(srcH - patchRadius - 1, targetCenterY));
 
   const patchCount = pw * pw;
   const patchBytes = patchCount * 4;
-  const td = targetData.data;
   const sd = sourceData.data;
 
   const targetPatch = new Uint8ClampedArray(patchBytes);
   for (let dy = -patchRadius; dy <= patchRadius; dy++) {
     for (let dx = -patchRadius; dx <= patchRadius; dx++) {
       const idx = ((dy + patchRadius) * pw + (dx + patchRadius)) * 4;
-      const ti = ((targetY + dy) * targetW + (targetX + dx)) * 4;
-      targetPatch[idx] = readPixel(td, ti);
-      targetPatch[idx + 1] = readPixel(td, ti + 1);
-      targetPatch[idx + 2] = readPixel(td, ti + 2);
-      targetPatch[idx + 3] = readPixel(td, ti + 3);
+      const si = ((targetY + dy) * srcW + (targetX + dx)) * 4;
+      targetPatch[idx] = readPixel(sd, si);
+      targetPatch[idx + 1] = readPixel(sd, si + 1);
+      targetPatch[idx + 2] = readPixel(sd, si + 2);
+      targetPatch[idx + 3] = readPixel(sd, si + 3);
     }
   }
 
@@ -302,7 +246,17 @@ export function healPixels(
       const si = (y * pw + x) * 4;
       const f = weight / 255;
 
-      blendBytePixel(td, ri, spd, si, f, rd);
+      if (f >= 1) {
+        rd[ri] = readPixel(spd, si);
+        rd[ri + 1] = readPixel(spd, si + 1);
+        rd[ri + 2] = readPixel(spd, si + 2);
+        rd[ri + 3] = readPixel(spd, si + 3);
+      } else {
+        rd[ri] = Math.round(readPixel(td, ri) * (1 - f) + readPixel(spd, si) * f);
+        rd[ri + 1] = Math.round(readPixel(td, ri + 1) * (1 - f) + readPixel(spd, si + 1) * f);
+        rd[ri + 2] = Math.round(readPixel(td, ri + 2) * (1 - f) + readPixel(spd, si + 2) * f);
+        rd[ri + 3] = Math.round(readPixel(td, ri + 3) * (1 - f) + readPixel(spd, si + 3) * f);
+      }
     }
   }
   return result;
@@ -335,15 +289,23 @@ export function spotHeal(
       const sx = Math.max(0, Math.min(w - 1, mirrorSx));
       const sy = Math.max(0, Math.min(h - 1, mirrorSy));
 
-      const tx = centerX + dx;
-      const ty = centerY + dy;
-      if (tx < 0 || tx >= w || ty < 0 || ty >= h) continue;
-      const ri = (ty * w + tx) * 4;
+      const ri = ((centerY + dy) * w + (centerX + dx)) * 4;
       const si = (sy * w + sx) * 4;
 
       const edgeWeight = Math.max(0, Math.min(1, (radius - dist) / Math.max(1, radius * 0.3)));
 
-      blendBytePixel(id, ri, id, si, edgeWeight, rd);
+      if (edgeWeight >= 1) {
+        rd[ri] = readPixel(id, si);
+        rd[ri + 1] = readPixel(id, si + 1);
+        rd[ri + 2] = readPixel(id, si + 2);
+        rd[ri + 3] = readPixel(id, si + 3);
+      } else {
+        const f = edgeWeight;
+        rd[ri] = Math.round(readPixel(id, ri) * (1 - f) + readPixel(id, si) * f);
+        rd[ri + 1] = Math.round(readPixel(id, ri + 1) * (1 - f) + readPixel(id, si + 1) * f);
+        rd[ri + 2] = Math.round(readPixel(id, ri + 2) * (1 - f) + readPixel(id, si + 2) * f);
+        rd[ri + 3] = Math.round(readPixel(id, ri + 3) * (1 - f) + readPixel(id, si + 3) * f);
+      }
     }
   }
   return result;
@@ -400,7 +362,18 @@ export function patchRegion(
       const ti = (ty * w + tx) * 4;
       const weight = weights[dy * rw + dx] ?? 0;
 
-      blendBytePixel(id, ti, id, si, weight, rd);
+      if (weight >= 1) {
+        rd[ti] = readPixel(id, si);
+        rd[ti + 1] = readPixel(id, si + 1);
+        rd[ti + 2] = readPixel(id, si + 2);
+        rd[ti + 3] = readPixel(id, si + 3);
+      } else {
+        const f = weight;
+        rd[ti] = Math.round(readPixel(id, ti) * (1 - f) + readPixel(id, si) * f);
+        rd[ti + 1] = Math.round(readPixel(id, ti + 1) * (1 - f) + readPixel(id, si + 1) * f);
+        rd[ti + 2] = Math.round(readPixel(id, ti + 2) * (1 - f) + readPixel(id, si + 2) * f);
+        rd[ti + 3] = Math.round(readPixel(id, ti + 3) * (1 - f) + readPixel(id, si + 3) * f);
+      }
     }
   }
   return result;

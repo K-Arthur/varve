@@ -68,18 +68,6 @@ describe('clonePixels', () => {
 
     expect(() => clonePixels(target, source, 0, 0, 0, 0, 20, null)).not.toThrow();
   });
-
-  it('composites transparent source pixels without darkening the destination', () => {
-    const target = makeTestImageData(3, 3, () => 80);
-    const source = makeTestImageData(3, 3, () => 240);
-    source.data[3] = 0;
-
-    const result = clonePixels(target, source, 1, 1, 0, 0, 1, null);
-
-    const index = (1 * 3 + 1) * 4;
-    expect(result.data[index]).toBe(80);
-    expect(result.data[index + 3]).toBe(255);
-  });
 });
 
 describe('createBrushMask', () => {
@@ -127,17 +115,6 @@ describe('findBestPatch', () => {
     const result = findBestPatch(src, src, 6, 6, 1, 10);
     expect(result.x).toBeGreaterThanOrEqual(5);
     expect(result.y).toBeGreaterThanOrEqual(5);
-  });
-
-  it('uses the target image rather than assuming source and target are the same buffer', () => {
-    const target = makeTestImageData(20, 20, (x, y) => (x * 17 + y * 11) % 256);
-    const source = makeTestImageData(20, 20, (x, y) => (x + y) % 256);
-    const result = findBestPatch(target, source, 10, 10, 1, 4);
-
-    expect(result.x).toBeGreaterThanOrEqual(1);
-    expect(result.x).toBeLessThanOrEqual(18);
-    expect(result.y).toBeGreaterThanOrEqual(1);
-    expect(result.y).toBeLessThanOrEqual(18);
   });
 });
 

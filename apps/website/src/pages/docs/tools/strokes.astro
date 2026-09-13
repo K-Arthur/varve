@@ -16,6 +16,16 @@ import { sitePath } from '../../../lib/siteUrl';
       </p>
 
       <section class="docs-section">
+        <h2>Raster brush marks</h2>
+        <p>
+          This guide covers editable vector strokes. For pixel-level illustration work, use the existing Paint, Eraser, and Smudge tools on the same canvas and document. Smudge exposes three reservoir modes in Tool options: <strong>Pure smudge</strong>, <strong>Loaded paint</strong>, and <strong>Fingerpaint</strong>.
+        </p>
+        <p>
+          <strong>Sample merged layers</strong> is an explicit opt-in setting. It reads a read-only snapshot of visible raster-layer tiles while depositing only on the active target, which makes clipped texture and paintover passes safer. It does not implicitly sample vector nodes, group isolation, effects, or transformed non-raster content; use an explicit flattened raster copy when those sources are required.
+        </p>
+      </section>
+
+      <section class="docs-section">
         <h2>Inspector workflow</h2>
         <ol>
           <li>Select a supported layer and open <strong>Stroke</strong> in the Inspector.</li>

@@ -1337,6 +1337,9 @@ passed
 
 pnpm exec tsc -p packages/import/tsconfig.json --noEmit --pretty false
 passed
+
+pnpm exec vitest run packages/import/src --maxWorkers=1 --reporter=dot
+356 tests passed across 31 import test files
 ```
 
 The website capability page and file-format guide now describe operation
@@ -1430,3 +1433,689 @@ External verification remains open for a real Illustrator-authored `.ai`, a
 multi-page or layered TIFF, a PSD with pixel-bearing layers/effects, packaged
 Tauri CSP, and WebKitGTK. Those are recorded as unverified rather than inferred
 from synthetic fixtures.
+
+### IMP-06 — Nested SVG group transform and bounds correction (2026-09-12)
+
+The format audit reproduced a parser/placement defect that the earlier SVG
+tests did not cover. A nested `<g>` carrying scale or rotation inherited the
+complete ancestor matrix on each child and then applied that same matrix again
+to the generated frame. Group bounds also considered only translation and
+untransformed width/height. The result could scale or rotate artwork twice and
+clip the edges when a design was pasted or imported.
+
+The correction is local to the SVG conversion boundary. Before a source group
+becomes a Varve frame, every direct child transform is rebased through the
+inverse composed group matrix. Bounds use the canonical scene local bounds and
+the full affine rectangle transform, then children are offset into the frame
+origin. The authored root and child arrays are left in source order. A
+non-invertible group transform is reported and its converted children remain
+visible as roots instead of being hidden by an empty frame.
+
+Evidence and reproduction:
+
+```text
+pnpm exec vitest run packages/import/src/svg.test.ts \
+  packages/import/src/svg-clipmask.test.ts --maxWorkers=1 --reporter=dot
+36 tests passed
+
+pnpm exec vitest run packages/import/src/formatCapabilities.test.ts \
+  packages/import/src/registry.test.ts \
+  packages/import/src/format-honesty.test.ts \
+  packages/import/src/service.test.ts \
+  packages/import/src/psd.test.ts \
+  packages/import/src/psd-mask.test.ts \
+  packages/import/src/bitmap.test.ts \
+  packages/import/src/svg.test.ts \
+  packages/import/src/svg-clipmask.test.ts \
+  packages/import/src/validation.test.ts --maxWorkers=1 --reporter=dot
+113 tests passed
+
+pnpm exec tsc -p packages/import/tsconfig.json --noEmit --pretty false
+passed
+```
+
+The regression test asserts source sibling order, nested frame ownership, and
+the expected world matrix for a rotated child under a scaled parent. It also
+asserts that `scale(0)` reports the singular transform without dropping its
+child. The implementation and documentation are committed as
+`49efa563285b1af0cbb3df5738e9b942acbf152a`.
+
+The real Chromium File > Import checks also reached the application on this
+checkout. The parser-advertising test passed. The SVG, PSD/PSB, and PDF/AI/EPS
+tests passed their menu, layer-tree, and Import Results assertions; their
+visual snapshot comparisons stopped on the existing 682×552 canvas versus
+682×597 baseline size drift. The received artwork was inspected in the
+generated PNGs and no unrelated baselines were changed. Packaged WebKitGTK,
+Firefox-owned external transfers, and an Illustrator-authored fixture remain
+separate verification lanes.
+
+### IMP-07 — Malformed extension-owned vector files were misclassified (2026-09-12)
+
+**Checkout:** `1b0644efe419b0f60a6903134af1d703777c9aeb` on `master`,
+`/home/kevina/CodingProjects/varve`. **Environment:** Linux KDE/Wayland
+(`WAYLAND_DISPLAY=wayland-0`, `DISPLAY=:0`), Node/Vitest, and the checked-in
+browser import harness. The working tree also contains unrelated Inspector,
+generative-edit, typography, and visual-snapshot changes; they remain outside
+this repair.
+
+The reproduction supplied a three-byte gzip header as `broken.svgz`. Because
+the SVG parser could not validate the decompressed text, registry lookup
+returned no parser and Import Results said *No importer is registered for
+svgz*. That is a parser-boundary classification defect: the declared format
+was known, but malformed source was indistinguishable from an unsupported
+format. The same stale ownership rule affected other extension-owned parsers
+when no stronger content signature was available.
+
+| ID | Defect | Status | Evidence |
+| --- | --- | --- | --- |
+| IMP-07 | A malformed `.svgz` stopped at registry lookup and was reported as unsupported; valid `.svgz` was reported only as generic `svg` | **Resolved locally** | `packages/import/src/registry.ts`, `service.ts`, `registry.test.ts`, `format-honesty.test.ts` |
+
+The registry now keeps the filename-selected parser when content detection has
+not produced a stronger signature. The parser can therefore return a bounded
+failure and preserve the source label. `ImportService` reports `svgz` for both
+valid and malformed `.svgz`, while content signatures still win for a genuine
+PNG/JPEG or other mismatched file. No browser decoder or active SVG markup is
+introduced by this change.
+
+Validation evidence:
+
+```text
+pnpm exec vitest run packages/import/src/registry.test.ts \
+  packages/import/src/format-honesty.test.ts \
+  packages/import/src/service.test.ts --maxWorkers=1 --reporter=dot
+27 tests passed
+
+pnpm exec tsc -p packages/import/tsconfig.json --noEmit --pretty false
+passed
+
+pnpm exec biome check packages/import/src/registry.ts \
+  packages/import/src/service.ts \
+  packages/import/src/format-honesty.test.ts \
+  packages/import/src/registry.test.ts
+passed
+```
+
+The format guide and capability table now describe malformed declared files as
+parse failures and align GIF/WebP language with the animated-media path. A
+packaged Tauri/WebKitGTK run, Firefox-owned external transfers, and an
+Illustrator-authored fixture remain external verification lanes; this repair
+does not infer those results. The implementation and evidence update are
+committed as `4fe38896ac661e0dce2ef184f77336a52417f6b3`.
+
+### Validation refresh — 2026-09-12
+
+After the malformed-format repair, the complete import package suite was
+rerun from the current `master` checkout:
+
+```text
+pnpm exec vitest run packages/import/src --maxWorkers=1 --reporter=dot
+31 files, 358 tests passed
+
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_E2E_PORT=1605 \
+  VARVE_E2E_WORKERS=1 pnpm exec playwright test \
+  tests/e2e/canvas/file-import.spec.ts --project=chromium --workers=1 \
+  --grep "advertises parser-backed formats" --reporter=list
+1 passed; the real File > Import accept list included PNG/JPEG/WebP/GIF/BMP/
+TIFF/AVIF/PSD/PSB/SVG/PDF/AI/EPS/Figma/Sketch routes
+```
+
+The required `pnpm verify:plan` selected the broad concurrent workspace
+closure with no full-suite escalation. `pnpm verify:affected` stopped at
+`format:touched` on the unrelated concurrent `AIStatusIndicator.tsx`
+formatter diagnostic; no import file was implicated. The targeted import
+package typecheck, format check, documentation/emoji/token audits, and the
+two commands above passed. This refresh is recorded on `master` after
+`4fe38896ac661e0dce2ef184f77336a52417f6b3`.
+
+### IMP-08 — Malformed Photoshop and Illustrator sources could look partially imported (2026-09-12)
+
+**Reproduction checkout:** `aa1f69006bf089839e3ed7c11fb0165988e23605` on
+`master`, `/home/kevina/CodingProjects/varve`. **Environment:** Linux
+KDE/Wayland (`WAYLAND_DISPLAY=wayland-0`, `DISPLAY=:0`), Node `v22.23.2`,
+Vitest, and Chromium Playwright. The working tree contains unrelated editor,
+engine, website, and visual-snapshot changes; they remain outside this repair.
+
+The fresh audit sent truncated `8BPS` headers and a header-only `%PDF-` file
+through `ImportService.importFiles`. The PSD/PSB parser reached its dependency
+with no usable header and the service added generic fidelity warnings, so a
+zero-node result was labelled **partial**. The AI adapter always generated an
+`Adobe Illustrator content` text node for any PDF header, even when the wrapper
+contained no supported artwork. These are parser/application classification
+failures, not transport or placement failures.
+
+| ID | Defect | Status | Evidence |
+| --- | --- | --- | --- |
+| IMP-08a | Truncated or over-budget PSD/PSB headers could reach `@webtoon/psd` and be reported as partial | **Resolved locally** | `packages/import/src/psd.ts`, `format-honesty.test.ts` |
+| IMP-08b | Header-only AI PDF wrappers fabricated a placeholder layer | **Resolved locally** | `packages/import/src/ai.ts`, `ai.test.ts`, `format-honesty.test.ts` |
+| IMP-08c | A declared-format failure was not consistently distinguished from a partial conversion | **Resolved locally** | `packages/import/src/service.ts` |
+
+The repair validates the Photoshop header (version, channel count, dimensions,
+bit depth, colour mode, encoded bytes, and decoded-pixel budget) before invoking
+the third-party parser. AI's bounded fallback now extracts only supported SVG,
+text, or basic rectangle content; an empty wrapper produces no nodes and a
+failure warning. Import Results continues to show fidelity warnings for real
+partial imports while classifying malformed declared files as failures.
+
+Validation evidence for this milestone:
+
+```text
+pnpm exec vitest run packages/import/src/ai.test.ts \
+  packages/import/src/format-honesty.test.ts \
+  packages/import/src/service.test.ts \
+  packages/import/src/psd.test.ts \
+  packages/import/src/psd-mask.test.ts --maxWorkers=1 --reporter=dot
+5 files, 53 tests passed
+
+pnpm exec vitest run packages/import/src --maxWorkers=1 --reporter=dot
+31 files, 362 tests passed
+
+pnpm exec biome check --write packages/import/src/psd.ts \
+  packages/import/src/ai.ts packages/import/src/service.ts \
+  packages/import/src/format-honesty.test.ts packages/import/src/ai.test.ts
+passed; no fixes required
+```
+
+The real Chromium File > Import lane reached the PSD/PSB, PDF/AI/EPS, TIFF,
+and SVG insertion assertions. Its existing Chromium visual baselines are
+`682×597`, while the current concurrent shell renders `682×552`; the targeted
+format runs therefore stopped at snapshot dimension comparison. The actual
+PSD/PSB Import Results dialog, SVG artwork, raster matrix, and PDF/AI/EPS
+results were inspected from the captured images, and no unrelated baseline was
+changed. The parser-advertising retry also hit the shared Vite startup timeout
+before the `New` button appeared. This is visual baseline/startup evidence,
+not a format parser failure.
+
+The implementation and focused regressions are committed as
+`286ccee4710c1a6ca64af15b502c02ba2fcd2632`.
+
+### IMP-09 — Browser format smoke coverage did not exercise the complete design-file matrix (2026-09-12)
+
+**Validation checkout:** `7b5cd7af8fcbd8c62c0cd7813e34c741e1f1868f` on
+`master` (the smoke test was committed immediately afterward as
+`7f4a052ba6287e477258f9f9fcc80246193b77a5`). **Environment:** Linux
+KDE/Wayland (`WAYLAND_DISPLAY=wayland-0`, `DISPLAY=:0`), Node `v22.23.2`,
+Chromium Playwright, and the checked-in corpus. The corpus contains Adobe
+Photoshop 22.4/22.5 PSD/PSB fixtures and a 64×48 16-bit RGB TIFF; AI/PDF/EPS
+are intentionally synthetic parser fixtures because no licensed
+Illustrator-authored file is available in this checkout.
+
+The existing package tests covered parser behavior, but the browser matrix did
+not independently prove that each supported file reached the real File > Import
+action and produced an Import Results entry. This was an **open application /
+validation gap**, separate from parser correctness.
+
+| ID | Defect | Status | Evidence |
+| --- | --- | --- | --- |
+| IMP-09 | No independent browser smoke asserted PSD, PSB, TIFF, SVG, PDF, AI, and EPS together through File > Import | **Resolved locally** | `tests/e2e/canvas/import-format-smoke.spec.ts`, Playwright run below |
+
+Validation evidence:
+
+```text
+pnpm exec biome check tests/e2e/canvas/import-format-smoke.spec.ts
+passed
+
+pnpm exec tsc -p packages/import/tsconfig.json --noEmit --pretty false
+passed after importing the `ImportResult` type used by the service classifier
+
+pnpm exec vitest run packages/import/src/service.test.ts \
+  packages/import/src/format-honesty.test.ts --maxWorkers=1 --reporter=dot
+2 files, 22 tests passed
+
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_E2E_PORT=1614 \
+  VARVE_E2E_WORKERS=1 pnpm exec playwright test \
+  tests/e2e/canvas/import-format-smoke.spec.ts --project=chromium \
+  --workers=1 --reporter=list
+2 passed (45.5s)
+```
+
+The first test imported the checked-in `example.psd`, `example.psb`, and
+`raster.tif` bytes. The second imported an ordered/transformed SVG and
+synthetic PDF-compatible AI plus EPS content. Both tests used the hidden file
+input behind the actual File menu, asserted the layer tree became populated,
+expanded Import Results, and checked every filename. The captured screenshots
+were inspected manually:
+
+* `test-results/run-1571628-1614/canvas-import-format-smoke-25372-TIFF-bytes-through-the-menu-chromium/design-format-psd-tiff.png`
+* `test-results/run-1571628-1614/canvas-import-format-smoke-05a48-PS-content-through-the-menu-chromium/design-format-svg-ai-eps.png`
+
+The first image shows 27 inserted layers and the PSD/PSB/TIFF fidelity
+warnings; the second shows the ordered SVG artwork, eight inserted layers, and
+the PDF/AI/EPS fidelity report. A missing-font dialog visible behind the second
+report is an existing fixture limitation and is surfaced as a warning. The
+test intentionally does not turn these screenshots into shell-size baselines;
+the long-lived visual baselines still have the unrelated 682×597 versus
+682×552 canvas-height mismatch recorded above.
+
+The supported local matrix is therefore exercised as follows: PSD/PSB retain
+editable layer trees with partial fidelity; SVG/SVGZ retain editable vector
+groups, source order, transforms, and viewBox placement within the bounded
+subset; AI/EPS/PDF use the bounded text/vector wrapper adapters; TIFF is
+decoded through the bounded first-IFD path and stored as an alpha-preserving
+PNG asset with source colour metadata. Layer effects, smart objects, advanced
+Illustrator appearance, multi-page/layered TIFF, and exact high-bit-depth/CMYK
+round-trips remain explicit fidelity losses or unverified external cases.
+
+### CLIP-44 — Native Wayland lane reaches the user workflow but its IPC bridge is unavailable (2026-09-12)
+
+**Validation checkout:** `65a01e39b6a7e90f6bcd9536525a43e0ed694754` on
+`master`. **Environment:** Linux KDE/Wayland (`WAYLAND_DISPLAY=wayland-0`,
+`DISPLAY=:0`), WebKitGTK 2.52.4, GTK 3.24.52, Node 26, and the Tauri WDIO
+embedded WebDriver service. This lane is intentionally separate from the
+Chromium clipboard tests and from parser/import tests.
+
+The desktop preflight passed and confirmed the GUI and WebKitGTK dependencies.
+The prescribed `pnpm desktop:build:test` command stopped before compiling the
+desktop bundle because the concurrent ContentAwareFill work has three unrelated
+TypeScript errors. A bounded workaround built the WDIO web assets with
+`pnpm --dir apps/desktop exec vite build --mode wdio` and the native binary with
+`cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --features wdio --bin varve-desktop`;
+both completed with warnings only.
+
+The explicit Wayland lane then started the embedded service and exercised the
+actual accessible rectangle command, pointer dispatch, Edit menu, and Copy menu
+item. The focused run used:
+
+```text
+VARVE_WDIO_SPECS=./tests/wdio/clipboard-wayland.e2e.ts \
+TAURI_WEBDRIVER_PORT=4451 pnpm exec wdio run wdio.conf.ts \
+--mochaOpts.grep "writes and reads"
+```
+
+It finished **0 passed, 1 failed (22.9s)**. The failure occurred at the native
+clipboard read with `Tauri core.invoke not available after 5s timeout` from the
+WDIO Tauri evaluation bridge. The full explicit lane on port 4447 finished
+**0 passed, 3 failed (3m32s)** with the same bridge/core-invoke failure and
+timeouts. The DOM-only portions were moved to standard WDIO execution so the
+result no longer hides behind a test-only React-fiber invocation.
+
+This is a **transport/test-provider/platform verification failure**, not an
+application parser failure: the shell rendered, the real command surface was
+reached, and the native provider could not expose Tauri `core.invoke` to the
+embedded WebDriver evaluation context. Diagnostics also report that
+`tauri-driver`, `WebKitWebDriver`, and the distro-specific package names are
+not installed. The production CSP was left unchanged. CLIP-15 therefore stays
+open for a desktop with a working WebKit/Tauri driver and for ownership-lifetime
+verification; no native clipboard or packaged `.fig` parity claim is made.
+
+Inspected failure captures:
+
+* `artifacts/desktop/failed-1789267476008.png`
+* `artifacts/desktop/failed-1789267507896.png`
+
+The images show the intact desktop shell and no renderer crash. A rerun on a
+machine with the missing driver/IPC bridge must assert real copy, paste, cut,
+ownership lifetime, and native `.fig` import before CLIP-15 or CLIP-14 can be
+closed.
+
+### CLIP-45 — Native image fallback now shares cancellation and deadline ownership (2026-09-12)
+
+**Classification:** Native transport / lifetime. **Resolved in the local
+bridge; packaged ownership remains open.**
+
+The `arboard` image fallback previously ran synchronously inside the Tauri
+command and accepted no operation identity. A stalled compositor read or an
+oversized pixel buffer could therefore block command processing or allocate
+before the frontend's read deadline had a chance to act. The command now
+accepts a bounded operation ID, runs the clipboard read and PNG conversion on a
+worker, checks cancellation before and after conversion, validates dimensions,
+pixel count, and the RGBA byte length before constructing an image, and returns
+within the same five-second deadline used by native MIME reads. The platform
+interface carries an optional `AbortSignal`; the Tauri wrapper sends
+`cancel_clipboard_operation` on timeout or abort, while web and memory
+implementations preserve the optional cancellation contract.
+
+Evidence from the current `master` checkout (`344360a47`) at
+`/home/kevina/CodingProjects/varve`, Linux KDE/Wayland (`WAYLAND_DISPLAY=wayland-0`,
+`DISPLAY=:0`), Node 26, Rust 1.97, and the installed WebKitGTK toolchain:
+
+```text
+pnpm exec biome check packages/platform/src/platform.ts \
+  packages/platform/src/memory.ts packages/platform/src/web.ts \
+  packages/platform/src/tauri.ts packages/platform/src/tauri.test.ts
+passed
+
+VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/platform/src/tauri.test.ts \
+  --maxWorkers=1 --reporter=dot
+8 tests passed
+
+cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml \
+  --features wdio --bin varve-desktop
+passed (existing warnings only)
+```
+
+The native image dimension unit test and bounded Wayland pipe tests remain in
+the desktop crate. This evidence does not close CLIP-15: the packaged
+WebKitGTK/Tauri ownership lane still fails when the embedded WebDriver cannot
+expose `Tauri core.invoke`, and a real Firefox-to-desktop image transfer and
+clipboard-owner lifetime test still require a working native driver.
+
+### IMP-10 — Cross-browser design-file menu smoke (2026-09-12)
+
+The real File > Import menu smoke was rerun in Firefox against the checked-in
+corpus and synthetic vector wrappers. Both cases passed: the Photoshop PSD/PSB
+and 16-bit TIFF bytes produced 27 editable layers with their fidelity report,
+and the ordered/transformed SVG plus PDF-compatible AI and EPS inputs produced
+8 layers with the expected grouped SVG order and per-file warnings. This
+confirms the format route and frontend report do not depend on Chromium's file
+input implementation.
+
+```text
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_E2E_PORT=1617 \
+  VARVE_E2E_WORKERS=1 pnpm exec playwright test \
+  tests/e2e/canvas/import-format-smoke.spec.ts --project=firefox \
+  --workers=1 --reporter=list
+2 passed (54.4s)
+```
+
+Inspected captures:
+
+* `test-results/run-1646462-1617/canvas-import-format-smoke-25372-TIFF-bytes-through-the-menu-firefox/design-format-psd-tiff.png`
+* `test-results/run-1646462-1617/canvas-import-format-smoke-05a48-PS-content-through-the-menu-firefox/design-format-svg-ai-eps.png`
+
+The Firefox screenshots show the same inserted-layer counts, grouped SVG
+children, report details, and actionable **Reveal selection** control as the
+Chromium run. This remains browser-level evidence; Illustrator-authored files,
+layered/multipage TIFF, full Photoshop effects/smart objects, and packaged
+Tauri/WebKitGTK import still require the provenance and platform lanes listed
+in IMP-09 and CLIP-15.
+
+### IMP-11 — Figma JSON and native archive browser smoke (2026-09-12)
+
+The Figma import route was also exercised through the real browser file input.
+An editable REST-style JSON fixture preserved its frame, button, and text
+hierarchy, and the checked-in native `OpenFigs.fig` archive decoded into an
+editable layer tree. Both Chromium cases passed and the resulting artwork was
+inspected. This verifies the local file-import frontend and decoder contract;
+it does not imply support for ordinary Figma clipboard Copy.
+
+```text
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_E2E_PORT=1618 \
+  VARVE_E2E_WORKERS=1 pnpm exec playwright test \
+  tests/e2e/canvas/figma-import.spec.ts --project=chromium \
+  --workers=1 --grep='imports editable Figma JSON|checked-in native' \
+  --reporter=list
+2 passed (53.4s)
+```
+
+Inspected captures:
+
+* `test-results/figma-import-basic-ui.png`
+* `test-results/run-1659237-1618/canvas-figma-import-Figma--82867-hrough-the-real-file-picker-chromium/native-fig-import.png`
+
+The native fixture contains an embedded visual warning for an unavailable
+source asset, which remains visible in the layer/report evidence. Packaged
+Tauri CSP/resource behavior and Firefox-owned Figma clipboard captures remain
+open under CLIP-13, CLIP-14, and CLIP-15.
+
+### IMP-12 — Raw native `.fig` chunks could expand outside the decoder budget (2026-09-12)
+
+The native archive path already bounded ZIP entries, but the raw `fig-` binary
+path passed compressed schema and message chunks directly to `inflateSync` or
+`fzstd`'s one-shot helper. A crafted chunk could therefore allocate its full
+decompressed result before the Kiwi depth and node guards ran. This was a
+decoder/lifetime defect: the source was recognized correctly, but allocation
+was not bounded at the compression boundary.
+
+The decoder now collects `fflate.Inflate` and `fzstd.Decompress` output in
+bounded chunks and rejects schema or message output above 128 MiB before it is
+handed to the schema interpreter. The existing 64 MiB `.fig` input, 256 MiB
+archive, 100,000-node, and 256-level nesting limits remain in force. ZIP
+archives and raw `fig-` binaries therefore share an explicit pre-decoder
+allocation contract, while the production Tauri CSP remains unchanged.
+
+| ID | Defect | Status | Evidence |
+| --- | --- | --- | --- |
+| IMP-12 | Raw schema/message decompression used unbounded one-shot helpers | **Resolved locally** | `packages/import/src/figma/native.ts`, `packages/import/src/figma.test.ts`, current native fixture decode |
+
+Validation from `/home/kevina/CodingProjects/varve` on `master` SHA
+`07098c3dee3122e02f9d1c68dcdb651dd6592e3b` (Linux KDE/Wayland, Node 26,
+Rust 1.97) was:
+
+```text
+pnpm exec biome check packages/import/src/figma/native.ts
+passed
+
+pnpm exec tsc -p packages/import/tsconfig.json --noEmit --pretty false
+passed
+
+VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/import/src/figma.test.ts \
+  packages/import/src/service.test.ts --maxWorkers=1 --reporter=dot
+24 tests passed
+
+VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/import/src --maxWorkers=1 --reporter=dot
+362 tests passed across 31 import test files
+```
+
+The existing browser `.fig` smoke and the dynamic-code-disabled unit test
+exercise both the archive decoder and the CSP-compatible interpreter. A
+packaged WebKitGTK run is still required before claiming desktop transport or
+packaged `.fig` parity; that external lane remains open under CLIP-14/15.
+
+### IMP-13 — Photoshop imports had structure but no visible layer pixels (2026-09-12)
+
+The format smoke exposed a fidelity gap that layer-count assertions could not
+catch: the synchronous PSD adapter created transparent shape placeholders for
+every layer. A Photoshop file could therefore report a successful layer-tree
+conversion while its artwork was visually absent. This was an application
+conversion/rendering defect, separate from PSD signature detection and from
+the TIFF/SVG routes.
+
+The import service now uses an optional asynchronous PSD/PSB decoder. It calls
+the maintained `@webtoon/psd` layer compositor, validates each layer's
+dimensions and RGBA length against the existing 64 MiB/64 MPixel budgets,
+encodes the pixels as PNG, and registers one content-addressed embedded asset
+per distinct layer image. Layer names, order, bounds, visibility, opacity,
+groups, and masks remain scene metadata; Photoshop text remains rasterized and
+adjustment layers, effects, smart objects, and exact text editing remain
+reported losses. The synchronous parser stays available for validation and
+legacy callers, while File > Import, Drop, and Paste through `ImportService`
+receive the visible pixel path.
+
+| ID | Defect | Status | Evidence |
+| --- | --- | --- | --- |
+| IMP-13 | PSD/PSB layer-tree imports used transparent placeholders and could hide the source artwork | **Resolved locally** | `packages/import/src/types.ts`, `packages/import/src/service.ts`, `packages/import/src/psd.ts`, `packages/import/src/format-honesty.test.ts`, `tests/e2e/canvas/import-format-smoke.spec.ts` |
+
+Validation checkout for the parser and browser commands was the parent
+`master` SHA `163d9a89076f505ede02157ffd7dcac1986cbcc8`; the reviewed format
+milestone is committed as `cc537652cbdb81d4fefc98f21e83b43f967d285e`. The
+environment was Linux KDE/Wayland (Chromium and Firefox), and the following
+commands passed:
+
+```text
+VARVE_TEST_WORKERS=1 pnpm exec vitest run \
+  packages/import/src/format-honesty.test.ts packages/import/src/psd.test.ts \
+  packages/import/src/service.test.ts --maxWorkers=1 --reporter=dot
+36 tests passed
+
+VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/import/src \
+  --maxWorkers=1 --reporter=dot
+363 tests passed across 31 import test files
+
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_E2E_PORT=1621 \
+  VARVE_E2E_WORKERS=1 pnpm exec playwright test \
+  tests/e2e/canvas/import-format-smoke.spec.ts --project=chromium \
+  --workers=1 --reporter=list
+2 passed (1.4m)
+
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_E2E_PORT=1622 \
+  VARVE_E2E_WORKERS=1 pnpm exec playwright test \
+  tests/e2e/canvas/import-format-smoke.spec.ts --project=firefox \
+  --workers=1 --reporter=list
+2 passed (1.4m)
+```
+
+Inspected post-report artwork captures (the second pair verifies the canvas
+after the Import Results dialog is closed):
+
+* `test-results/run-1689020-1621/canvas-import-format-smoke-25372-TIFF-bytes-through-the-menu-chromium/design-format-psd-tiff-artwork.png`
+* `test-results/run-1692051-1622/canvas-import-format-smoke-25372-TIFF-bytes-through-the-menu-firefox/design-format-psd-tiff-artwork.png`
+* `test-results/run-1689020-1621/canvas-import-format-smoke-05a48-PS-content-through-the-menu-chromium/design-format-svg-ai-eps-artwork.png`
+* `test-results/run-1692051-1622/canvas-import-format-smoke-05a48-PS-content-through-the-menu-firefox/design-format-svg-ai-eps-artwork.png`
+
+The PSD/PSB captures show visible source colors and imagery behind the
+selection overlays, and the layer report still exposes the mask and fidelity
+warnings. The SVG/AI/EPS captures retain the ordered SVG group and show the
+existing actionable missing-font dialog for the synthetic `sans-serif` text.
+No visual baselines were replaced. Illustrator-authored fixtures,
+multi-page/layered TIFF, full Photoshop effects/smart objects, and packaged
+Tauri/WebKitGTK import remain provenance/platform lanes rather than inferred
+support.
+
+### IMP-14 — Legacy Illustrator wrappers lost their source-route warning (2026-09-12)
+
+The format audit also exercised the legacy PostScript form of an Illustrator
+file. The EPS subset produced the expected rectangle, but the adapter returned
+the nested EPS result directly and dropped the outer `.ai` warning. That made a
+partial Illustrator conversion look like a generic EPS import in Import
+Results. The adapter now merges its AI-wrapper warning with the EPS parser's
+warnings while retaining the `.ai` report format and the same bounded subset.
+
+| ID | Defect | Status | Evidence |
+| --- | --- | --- | --- |
+| IMP-14 | Legacy `.ai` EPS wrapper omitted its source-route/provenance warning | **Resolved locally** | `packages/import/src/ai.ts`, `packages/import/src/format-honesty.test.ts` |
+
+Validation on `master` after `cc537652c` (Linux KDE/Wayland, Node 26) was:
+
+```text
+pnpm exec biome check packages/import/src/ai.ts packages/import/src/format-honesty.test.ts
+passed
+
+pnpm exec tsc -p packages/import/tsconfig.json --noEmit --pretty false
+passed
+
+VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/import/src/format-honesty.test.ts \
+  packages/import/src/ai.test.ts --maxWorkers=1 --reporter=dot
+24 tests passed
+
+VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/import/src \
+  --maxWorkers=1 --reporter=dot
+364 tests passed across 31 import test files
+```
+
+The repository still has no licensed Illustrator-authored fixture, so this
+closes the adapter/reporting defect without changing the documented partial
+fidelity claim.
+
+### IMP-15 — PSD group roots and sentinel masks changed the displayed artwork (2026-09-12)
+
+**Checkout:** `af4a6dea4ab47839fdb7df93e4cba8733859dc7d` on `master`,
+`/home/kevina/CodingProjects/varve`. **Environment:** Linux KDE/Wayland,
+Chromium and Firefox, Node 26, with concurrent Inspector, generative-edit,
+typography, and visual-snapshot work left in the shared worktree.
+
+The first visual review of the real Photoshop fixture found two conversion
+defects that object-count assertions missed. A group conversion left each
+child in `rootChildren` as well as in its group, so the same layer could be
+painted and selected twice. The fixture also exposed an unsigned `0xffff`
+layer-mask rectangle sentinel through `@webtoon/psd`; treating that value as a
+real 65k-pixel mask hid the decoded layer pixels. These are application
+placement/scene-ownership defects, separate from file transport and parser
+signature detection.
+
+| ID | Defect | Status | Evidence |
+| --- | --- | --- | --- |
+| IMP-15 | PSD groups leaked child layers into document roots, and sentinel mask bounds could hide visible layer pixels | **Resolved locally** | `packages/import/src/psd.ts`, `packages/import/src/psd-mask.test.ts`, `apps/website/src/pages/docs/file-formats.astro`, `docs/architecture/image-format-capability-matrix.md`, `docs/architecture/import-system.md` |
+
+The implementation and evidence update is committed on `master` as
+`8329c15e32c9b5eaf5381a8d67ed0040cdde8764`.
+
+The converter now allocates a group as the only transfer root and removes its
+child IDs from `rootChildren` after both synchronous and asynchronous
+conversion. Mask containers still retain valid masks, while non-finite,
+sentinel, non-positive, or over-budget rectangles are omitted with a warning;
+the decoded layer shape remains visible and available for its embedded PNG
+fill. Dependency-only PSD nodes never become visible roots.
+
+Validation on the checkout above:
+
+```text
+pnpm exec biome check packages/import/src/psd.ts packages/import/src/psd-mask.test.ts packages/import/src/format-honesty.test.ts
+passed
+
+pnpm exec tsc -p packages/import/tsconfig.json --noEmit --pretty false
+passed
+
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/import/src/psd-mask.test.ts packages/import/src/psd.test.ts packages/import/src/format-honesty.test.ts --maxWorkers=1 --reporter=dot
+37 tests passed
+
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/import/src --maxWorkers=1 --reporter=dot
+31 files, 366 tests passed
+
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_E2E_PORT=1635 VARVE_E2E_WORKERS=1 VARVE_E2E_OUTPUT_DIR=import-format-visual-2026-09-12-final-chromium pnpm exec playwright test tests/e2e/canvas/import-format-smoke.spec.ts --project=chromium --workers=1 --reporter=list
+2 passed (1.0m)
+
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true VARVE_E2E_PORT=1636 VARVE_E2E_WORKERS=1 VARVE_E2E_OUTPUT_DIR=import-format-visual-2026-09-12-final-firefox pnpm exec playwright test tests/e2e/canvas/import-format-smoke.spec.ts --project=firefox --workers=1 --reporter=list
+2 passed (1.0m)
+```
+
+The post-report artwork captures were inspected in both browsers. The PSD
+capture shows 31 objects with 25 shapes and 2 groups, visible source imagery,
+and no duplicate child roots. The SVG/PDF/AI/EPS capture keeps the ordered
+layer-panel sequence `Rectangle → Group → Circle → Rectangle`; its missing-font
+dialog is the existing actionable report for the synthetic `sans-serif` text.
+Evidence files are:
+
+* `test-results/import-format-visual-2026-09-12-final-chromium/canvas-import-format-smoke-25372-TIFF-bytes-through-the-menu-chromium/design-format-psd-tiff-artwork.png`
+* `test-results/import-format-visual-2026-09-12-final-chromium/canvas-import-format-smoke-05a48-PS-content-through-the-menu-chromium/design-format-svg-ai-eps-artwork.png`
+* `test-results/import-format-visual-2026-09-12-final-firefox/canvas-import-format-smoke-25372-TIFF-bytes-through-the-menu-firefox/design-format-psd-tiff-artwork.png`
+* `test-results/import-format-visual-2026-09-12-final-firefox/canvas-import-format-smoke-05a48-PS-content-through-the-menu-firefox/design-format-svg-ai-eps-artwork.png`
+
+No visual baseline was replaced. A packaged Tauri/WebKitGTK run, a licensed
+Illustrator-authored fixture, and multi-page/layered TIFF remain explicit
+external verification lanes.
+
+### CLIP-46 — File picker placement was captured after the dialog returned (2026-09-12)
+
+**Checkout:** `b98cb90723d283f259cd7ff935b86ebcb6bc3beb` on `master`, with the
+initial repair committed as `b8231a4351f568a83f2af974b0287ce067ffd3bf` and the
+canvas-boundary tightening committed as `45a49fbc4c70425d43bb87c0822177ea885f9816`.
+**Environment:**
+`/home/kevina/CodingProjects/varve`, Linux KDE/Wayland, Node 26, Chromium/jsdom
+unit harness; concurrent Inspector, generative-edit, typography, and visual
+snapshot work remained in the shared worktree.
+
+The audit found that File > Import resolved the destination only in the change
+handler, after the browser or native picker returned. A user could pan, zoom,
+change selection, or switch workspace while the dialog was open and then place
+the imported artwork in the later context. This was an application lifetime and
+placement defect, separate from file transport and parser behavior.
+
+| ID | Defect | Status | Evidence |
+| --- | --- | --- | --- |
+| CLIP-46 | File picker destination and canvas center were read after dialog return | **Resolved locally** | `packages/editor/src/importing/useFileImport.ts`, `packages/editor/src/importing/useFileImport.test.tsx`, `packages/editor/src/Shell.tsx` |
+
+`useFileImport.openPicker` now captures document/session/revision, selection
+revision, page/design canvas, workspace, the selected-container destination,
+and the initiating canvas world center before calling the input's `click()`.
+That center is calculated directly from the captured camera and initiating
+canvas dimensions rather than from `editor.canvasToWorld`, whose fallback can
+query a later global canvas element.
+The selected files carry that snapshot into `PreparedFragment`; a document-scope
+change cancels the operation before commit. A second picker gesture still
+aborts the first owner, and only the active owner can publish progress, clear
+the input, report results, or commit roots.
+
+Validation for the repair:
+
+```text
+pnpm exec biome check packages/editor/src/importing/useFileImport.ts packages/editor/src/importing/useFileImport.test.tsx packages/editor/src/Shell.tsx
+passed
+
+VITE_CONFIG_NATIVE_IGNORE_WARNING=true pnpm exec vitest run packages/editor/src/importing/useFileImport.test.tsx packages/editor/src/dropUtils.test.ts packages/editor/src/importing/preparedFragment.test.ts packages/editor/src/clipboard.test.ts --maxWorkers=1 --reporter=dot
+4 files, 63 tests passed
+
+pnpm exec tsc -p packages/editor/tsconfig.json --noEmit --pretty false
+passed
+
+pnpm verify:plan
+selected the affected closure; full-suite escalation: NO
+
+pnpm verify:affected
+stopped at the pre-existing formatter violation in packages/editor/src/components/AIStatusIndicator/AIStatusIndicator.tsx:22; no touched import/clipboard file failed
+```
+
+The new regression mutates camera pan and zoom after `openPicker()` but before
+the synthetic file change event; the commit still receives the selected frame
+and its original world center. This closes the browser-picker race. Packaged
+Tauri/WebKitGTK picker behavior and native Wayland transport remain separate
+platform lanes.

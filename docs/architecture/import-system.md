@@ -100,15 +100,15 @@ server (`tests/e2e/canvas/file-import.spec.ts`, snapshots inspected).
 |---|---|---|
 | PNG | Full | Alpha, ICC, EXIF orientation preserved |
 | JPEG | Full | EXIF orientation applied to displayed dimensions |
-| WebP | Full | Extended-format dimension probe fixed 2026-08-27. Animated WebP retained as animated media |
-| GIF | Full | Animation retained, not flattened to a first frame |
+| WebP | Editable raster (animated media) | Extended-format dimension probe fixed 2026-08-27. Animated WebP retains its frame metadata and is placed through the media clock; conversion/export remains first-frame where documented |
+| GIF | Editable raster (animated media) | Animation retains its frame metadata and is placed through the media clock; conversion/export remains first-frame where documented |
 | BMP | Full | |
 | TIFF | Flattened raster | The first IFD is decoded and transcoded to an embedded PNG (`utif` + `upng-js`); source photometric/bit-depth metadata is inspected before normalization, while multi-page/layered TIFF fidelity is reported as a loss |
 | AVIF | Full | `ispe` box probe now recurses through `iprp`/`ipco` |
-| SVG / SVGZ | Editable vector | See fidelity matrix; `.svgz` is gunzipped by content sniff |
-| PSD / PSB | Partial | Version 1/2 `8BPS` files import a bounded layer tree (groups, bounds, visibility, opacity, and representable masks); layer pixels, effects, adjustment layers, and smart objects are reported as unsupported |
+| SVG / SVGZ | Editable vector | See fidelity matrix; `.svgz` is gunzipped by content sniff and retains the `svgz` source label in the Import Results report, including bounded malformed-input failures |
+| PSD / PSB | Partial | Version 1/2 `8BPS` files import a bounded layer tree (groups, bounds, visibility, opacity, and representable masks), and the asynchronous service path materializes supported layer pixels as embedded PNG image fills; header, dimension, encoded-size, and pixel budgets are checked before parsing; invalid or sentinel mask rectangles are omitted with a warning; effects, adjustment layers, smart objects, and exact text editing are reported as unsupported |
 | PDF | Partial | Basic paths and text; gradients approximated, fonts substituted |
-| AI | Partial | `.ai` files with a PDF-compatible wrapper or legacy EPS header use the AI adapter; complex Illustrator effects, meshes, and native semantics are reported as losses |
+| AI | Partial | `.ai` files with a PDF-compatible wrapper or legacy EPS header use the AI adapter; complex Illustrator effects, meshes, and native semantics are reported as losses; header-only or over-budget wrappers fail without fabricated nodes |
 | EPS | Partial | Basic paths |
 | Sketch | Partial | Symbols, shared styles and constraints not preserved |
 | Figma | Partial | REST/plugin JSON is the documented high-fidelity route; local native `.fig` decoding is format-version dependent and desktop CSP verification remains open |
@@ -146,7 +146,7 @@ hold, but that is an inference and not a measurement.
 | Feature | Support | Degradation |
 |---|---|---|
 | `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, `path` | Full | — |
-| Groups, nested transforms | Full | Flattened to a Varve frame with a composed affine |
+| Groups, nested transforms | Full | Flattened to a Varve frame with a composed affine; direct children are rebased into the frame once, preserving source order and avoiding repeated ancestor scale/rotation |
 | `viewBox`, `width`/`height`, units (px/pt/mm/cm/in) | Full | — |
 | Fill, stroke, opacity, fill-rule | Full | — |
 | Linear/radial gradients | Supported | Warned as "may not render identically" |
@@ -231,15 +231,25 @@ decode; cyclic `<use>` is detected by a visited-id set.
   format honesty, service), including the checked-in PSD/PSB/TIFF corpus and
   synthetic PDF-compatible AI wrapper, plus `packages/editor/src/importPickerWiring.test.tsx`.
 - E2E: `tests/e2e/canvas/file-import.spec.ts` (real menu action, six specs
-  with visual snapshots), `tests/e2e/browser/try-demo.spec.ts` (demo import).
+  with visual snapshots) and `tests/e2e/canvas/import-format-smoke.spec.ts`
+  (PSD/PSB/TIFF plus SVG/PDF/AI/EPS through the real menu, with inspected
+  evidence screenshots), `tests/e2e/browser/try-demo.spec.ts` (demo import).
 
 ## Frontend operation lifetime
 
-File picker and canvas drop each create a request-owned abort controller before
-reading bytes. Starting another gesture supersedes the earlier request, and
-unmounting the editor aborts it. Progress, report state, and the hidden file
-input are cleared only by the operation that owns them. The importer checks its
-signal before worker progress/report callbacks and before returning a result.
+File > Import captures the initiating document, session, page/design canvas,
+workspace, selection-derived destination parent, and canvas world center
+synchronously **before opening the browser or native file picker**. The selected
+files therefore keep the placement and editing scope of the gesture even when
+the dialog remains open while the user pans, changes zoom, switches selection,
+or changes workspace. File picker and canvas drop each then create a
+request-owned abort controller before reading bytes. Starting another gesture
+supersedes the earlier request, and unmounting the editor aborts it. Progress,
+report state, and the hidden file input are cleared only by the operation that
+owns them. The importer checks its signal before worker progress/report
+callbacks and before returning a result. The picker computes the center with the
+captured camera and that canvas's dimensions directly; it does not consult a
+later global canvas query.
 
 Paste, Import, and Drop all finish through `commitPreparedFragment`, which
 clones each logical artifact with one dependency mapping, applies its route

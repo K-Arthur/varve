@@ -1198,6 +1198,7 @@ export function createActionHandlers(
     toolScale: setTool('scale'),
     toolSlice: setTool('slice'),
     toolKnife: setTool('knife'),
+    toolShapeBuilder: setTool('shapeBuilder'),
     toolCloneStamp: setTool('cloneStamp'),
     toolSam2Segment: setTool('sam2Segment'),
     toolMagicWand: setTool('magicWand'),

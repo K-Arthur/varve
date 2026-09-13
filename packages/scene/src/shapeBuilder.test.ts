@@ -4,6 +4,8 @@ import {
   applyShapeBuilderAction,
   buildShapeBuilderModel,
   facesCrossedBySegment,
+  previewShapeBuilderAction,
+  previewShapeBuilderSelection,
 } from './shapeBuilder';
 
 const identity = [1, 0, 0, 1, 0, 0] as const;
@@ -31,6 +33,49 @@ describe('Shape Builder arrangement and actions', () => {
     expect(model.faces.filter((face) => face.filledBy.length === 2)).toHaveLength(1);
     expect(model.faces.every((face) => face.id.startsWith('face:'))).toBe(true);
     expect(model.faces.every((face) => face.edgeIds.length > 0)).toBe(true);
+  });
+
+  it('matches the rectangle boolean areas while preserving selectable ownership', () => {
+    const doc = rectangles();
+    const model = buildShapeBuilderModel(doc, ['a', 'b']);
+    const area = (faceIds: string[]) =>
+      previewShapeBuilderSelection(model, faceIds).components.reduce(
+        (sum, component) =>
+          sum +
+          Math.abs(
+            component.outer.reduce((ringArea, point, index) => {
+              const next = component.outer[(index + 1) % component.outer.length]!;
+              return ringArea + point.x * next.y - next.x * point.y;
+            }, 0) / 2,
+          ) -
+          component.holes.reduce(
+            (holesArea, hole) =>
+              holesArea +
+              Math.abs(
+                hole.reduce((ringArea, point, index) => {
+                  const next = hole[(index + 1) % hole.length]!;
+                  return ringArea + point.x * next.y - next.x * point.y;
+                }, 0) / 2,
+              ),
+            0,
+          ),
+        0,
+      );
+    const union = model.faces.map((face) => face.id);
+    const intersection = model.faces
+      .filter((face) => face.filledBy.includes('a') && face.filledBy.includes('b'))
+      .map((face) => face.id);
+    const onlyA = model.faces
+      .filter((face) => face.filledBy.includes('a') && !face.filledBy.includes('b'))
+      .map((face) => face.id);
+    const xor = model.faces.filter((face) => face.filledBy.length === 1).map((face) => face.id);
+
+    expect(area(union)).toBeCloseTo(15_000, 6);
+    expect(area(intersection)).toBeCloseTo(5_000, 6);
+    expect(area(onlyA)).toBeCloseTo(5_000, 6);
+    expect(area(xor)).toBeCloseTo(10_000, 6);
+    expect(intersection).toHaveLength(1);
+    expect(onlyA).toHaveLength(1);
   });
 
   it('selects every thin face crossed by a sweep, even when endpoints miss it', () => {
@@ -106,5 +151,37 @@ describe('Shape Builder arrangement and actions', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toMatch(/changed|preview/i);
+  });
+
+  it('keeps disconnected selected output as separate components', () => {
+    let doc = createDocument('disconnected', true);
+    doc = addNode(
+      doc,
+      makeShapeNode('left', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 }, { transform: identity }),
+    );
+    doc = addNode(
+      doc,
+      makeShapeNode('right', { kind: 'rect', x: 100, y: 0, w: 20, h: 20 }, { transform: identity }),
+    );
+    const model = buildShapeBuilderModel(doc, ['left', 'right']);
+    const output = previewShapeBuilderSelection(
+      model,
+      model.faces.filter((face) => face.selectable).map((face) => face.id),
+    );
+    expect(output.components).toHaveLength(2);
+    expect(output.components.every((component) => component.outer.length === 4)).toBe(true);
+  });
+
+  it('previews destructive remainders separately from the selected output', () => {
+    const doc = rectangles();
+    const model = buildShapeBuilderModel(doc, ['a', 'b']);
+    const selected = model.faces
+      .filter((face) => face.filledBy.includes('a') && face.filledBy.includes('b'))
+      .map((face) => face.id);
+    const preview = previewShapeBuilderAction(model, selected, 'erase');
+
+    expect(preview.output).toHaveLength(0);
+    expect(preview.remainders).toHaveLength(2);
+    expect(preview.remainders.every((remainder) => remainder.regions.length > 0)).toBe(true);
   });
 });

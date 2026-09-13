@@ -17,6 +17,8 @@ export type GenerativeEditExecutionBackend = 'native' | 'webgpu' | 'wasm' | 'unk
 export interface GenerativeEditResourceProfile {
   /** Conservative device tier used for local preflight and UI copy. */
   tier: GenerativeEditResourceTier;
+  /** Best-effort platform family (for example `chromeos`, `macos`, or `android`). */
+  platform?: string;
   /** Best-known execution family; this is not a quality qualification. */
   executionBackend: GenerativeEditExecutionBackend;
   /** Runtime-reported architecture when one is available. */
