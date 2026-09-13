@@ -738,6 +738,17 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
           surface.canvas.height,
           {
             quality: input.quality,
+            // Document-anchor pattern filters on object-local stacks too:
+            // the surface origin is (minX - expL, minY - expT) in world
+            // coordinates and the surface is rendered at `renderScale`.
+            coordSpace: {
+              scale: renderScale,
+              originX: -(minX - expL) * renderScale,
+              originY: -(minY - expT) * renderScale,
+              regionX: 0,
+              regionY: 0,
+            },
+            fullFrame: input.quality === 'export',
             treatmentSpace: objectTreatmentSpaceForCapture(framePixelToDocument, frameTransform, {
               x: sourceBounds.x,
               y: sourceBounds.y,
@@ -876,6 +887,15 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
               gCanvas.canvas.height,
               {
                 quality: input.quality,
+                // Document-anchor pattern filters on group Object Filters.
+                coordSpace: {
+                  scale: renderScale,
+                  originX: -(minX - padding) * renderScale,
+                  originY: -(minY - padding) * renderScale,
+                  regionX: 0,
+                  regionY: 0,
+                },
+                fullFrame: input.quality === 'export',
                 treatmentSpace: documentTreatmentSpaceForCapture(groupPixelToDocument, {
                   x: minX,
                   y: minY,
@@ -1117,6 +1137,7 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
         {
           quality: input.quality,
           coordSpace,
+          fullFrame: input.quality === 'export',
           treatmentSpace: pixelToDocument
             ? documentTreatmentSpaceForCapture(pixelToDocument, {
                 x: minX,

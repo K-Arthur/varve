@@ -59,6 +59,10 @@ export interface ExportRasterOptions {
   dpi?: number;
   /** Background color as [r,g,b,a]. Default transparent. */
   backgroundColor?: readonly [number, number, number, number];
+  /** Document-space origin of the rendered subtree bounds (default 0,0).
+   *  Required for document-anchored pattern effects to keep their phase. */
+  documentOriginX?: number;
+  documentOriginY?: number;
 }
 
 export interface SubtreeRasterization {
@@ -188,7 +192,14 @@ export async function exportRasterizedSubtree(
       outputHeight,
       {
         quality: 'export',
-        coordSpace: { scale, originX: 0, originY: 0, regionX: 0, regionY: 0 },
+        coordSpace: {
+          scale,
+          originX: -(opts.documentOriginX ?? 0) * scale,
+          originY: -(opts.documentOriginY ?? 0) * scale,
+          regionX: 0,
+          regionY: 0,
+        },
+        fullFrame: true,
         treatmentSpace: {
           pixelToTreatment: [
             1 / scale,
@@ -267,7 +278,14 @@ export function exportRasterizedSubtreeSync(
       outputHeight,
       {
         quality: 'export',
-        coordSpace: { scale, originX: 0, originY: 0, regionX: 0, regionY: 0 },
+        coordSpace: {
+          scale,
+          originX: -(opts.documentOriginX ?? 0) * scale,
+          originY: -(opts.documentOriginY ?? 0) * scale,
+          regionX: 0,
+          regionY: 0,
+        },
+        fullFrame: true,
         treatmentSpace: {
           pixelToTreatment: [
             1 / scale,

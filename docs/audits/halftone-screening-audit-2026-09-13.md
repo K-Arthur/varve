@@ -43,6 +43,16 @@ numerics are clamped at load and sanitized again at render time.
 - Screenshots: `test-results/halftone-visual/` (run-specific output dirs under
   `test-results/run-*`).
 
+## 3b. Export and object-filter wiring
+
+- Export replay declares `fullFrame: true` (editor boundary rasterization,
+  `exportRasterizedSubtree`), so an explicitly selected error-diffusion screen
+  actually runs on export while previews stay position-stable.
+- Object and group Object Filter surfaces now pass a document-space
+  `coordSpace` (surface origin + capture scale) into the shared compositor, so
+  pattern effects on objects are document-anchored like adjustment layers
+  instead of being anchored to the object's local pixel grid.
+
 ## 4. Measured environment and limits
 
 - Bench: `packages/engine/src/bench/halftoneScreening.bench.ts` (run

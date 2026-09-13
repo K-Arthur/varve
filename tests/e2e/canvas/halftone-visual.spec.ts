@@ -50,18 +50,17 @@ async function navigateToEditor(page: Page) {
 // ── Scene helpers ──────────────────────────────────────────────────────
 
 async function drawRect(page: Page, x1: number, y1: number, x2: number, y2: number) {
-  await page.getByRole('button', { name: 'Rectangle', exact: true }).first().click();
+  // Use the canonical shortcut instead of a toolbar locator: the responsive
+  // toolbar groups shape tools and the button's accessible name includes its
+  // shortcut badge.
+  await page.keyboard.press('r');
   await dragOnCanvas(page, x1, y1, x2, y2);
   await page.keyboard.press('v');
   await page.waitForTimeout(300);
 }
 
 async function drawEllipse(page: Page, x1: number, y1: number, x2: number, y2: number) {
-  // The toolbar shows one shape button + a "Shapes menu" chevron; open the
-  // menu to pick the ellipse tool.
-  await page.getByRole('button', { name: 'Shapes menu' }).click();
-  await page.waitForTimeout(200);
-  await page.getByRole('menuitem', { name: 'Ellipse', exact: true }).click();
+  await page.keyboard.press('o');
   await dragOnCanvas(page, x1, y1, x2, y2);
   await page.keyboard.press('v');
   await page.waitForTimeout(300);
@@ -73,16 +72,18 @@ async function drawEllipse(page: Page, x1: number, y1: number, x2: number, y2: n
  * adjustment and open its editor.
  */
 async function addHalftoneAdjustment(page: Page) {
-  await page.getByRole('menuitem', { name: /^Object$/i }).click();
-  await page.getByRole('menuitem', { name: /new adjustment layer/i }).click();
-  await page.waitForTimeout(600);
+  // Alt+N is the canonical New Adjustment Layer shortcut. Using it keeps the
+  // spec independent of the top-level menubar dropdown portals.
+  await page.keyboard.press('Alt+n');
+  await page.waitForTimeout(1200);
 
   const adjTab = page.locator('[role="tablist"] button[role="tab"]', { hasText: /^adjustments$/i });
   await adjTab.waitFor({ state: 'visible', timeout: 8000 });
   await adjTab.click();
-  await page.waitForTimeout(400);
 
-  await page.getByRole('button', { name: /add adjustment/i }).click();
+  const addAdjustment = page.getByRole('button', { name: /add adjustment/i });
+  await addAdjustment.waitFor({ timeout: 30000 });
+  await addAdjustment.click();
   await page.waitForTimeout(300);
   const halftoneOption = page.getByRole('menuitem', { name: /^Halftone$/i });
   await halftoneOption.scrollIntoViewIfNeeded();
