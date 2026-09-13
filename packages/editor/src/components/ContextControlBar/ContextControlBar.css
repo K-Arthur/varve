@@ -4,10 +4,13 @@
   --context-toolbar-control-height: var(--component-compact-height);
   display: flex;
   align-items: center;
-  min-height: calc(var(--context-toolbar-control-height) + var(--space-toolbar) + 1px);
+  /* The contextual row is a toolbar surface too. Use the same border-box
+   * height and vertical padding as the floating palette so switching between
+   * editing surfaces never moves the control centerline. */
+  min-height: calc(var(--toolbar-height) + 2px);
   height: auto;
   box-sizing: border-box;
-  padding: 0 var(--space-3);
+  padding: var(--space-toolbar) var(--space-3);
   gap: var(--space-toolbar-item);
   background: var(--color-surface-base);
   border-bottom: 1px solid var(--color-border-subtle);

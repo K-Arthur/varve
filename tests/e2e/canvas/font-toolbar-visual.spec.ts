@@ -125,7 +125,14 @@ async function measureToolbarConsistency(page: Page, toolbar: Locator) {
   return { chrome, palette, measured };
 }
 
-async function measureContextFontControls(contextBar: Locator, floatingToolbar: Locator) {
+async function measureContextFontControls(
+  page: Page,
+  contextBar: Locator,
+  floatingToolbar: Locator,
+) {
+  const paletteHeight = await page
+    .locator('.floating-toolbar__row')
+    .evaluate((element) => element.getBoundingClientRect().height);
   const measured = await contextBar.evaluate((element) => {
     const style = getComputedStyle(element);
     const controls = Array.from(element.querySelectorAll('input, button')).map((control) => ({
@@ -154,6 +161,7 @@ async function measureContextFontControls(contextBar: Locator, floatingToolbar: 
     contentType: 'application/json',
   });
   expect(measured.height).toBeGreaterThanOrEqual(32);
+  expect(measured.height, 'contextual bar height').toBeCloseTo(paletteHeight, 0);
   expect(measured.gap).toBe(floatingStyle.gap);
   expect(measured.fontFamily).toBe(floatingStyle.fontFamily);
   expect(measured.fontSize).toBe(floatingStyle.fontSize);
@@ -185,7 +193,7 @@ for (const dpr of [1, 2, 3]) {
         await page.setViewportSize({ width: 1280, height: 800 });
         await containedInViewport(page, toolbar);
         const consistency = await measureToolbarConsistency(page, toolbar);
-        await measureContextFontControls(contextBar, toolbar);
+        await measureContextFontControls(page, contextBar, toolbar);
         await writeFile(
           testInfo.outputPath(`${theme}-toolbar-metrics.json`),
           JSON.stringify(consistency, null, 2),

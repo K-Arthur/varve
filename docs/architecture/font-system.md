@@ -178,9 +178,10 @@ before worker rendering can reuse them; otherwise the main-thread replay
 
 The inspector, contextual text bar, floating text toolbar, and Logo wordmark
 panel use the same family picker model. The contextual bar exposes family,
-weight, and size commands directly below the menubar, with 32px compact
-controls and a horizontal overflow boundary instead of shrinking a family
-field to an unreadable label. The floating toolbar uses the main floating
+weight, and size commands directly below the menubar, with the same fluid
+border-box height, vertical padding, and 32px compact controls as the main
+floating palette. A horizontal overflow boundary prevents the family field
+from shrinking into an unreadable label. The floating toolbar uses the main floating
 palette's spacing, surface and shadow tokens, with 32px compact controls,
 consistent field typography and a separate More panel for alignment and lists.
 Its independently anchored font menu remains inside the viewport. Escape has an

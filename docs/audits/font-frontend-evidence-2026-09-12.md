@@ -39,7 +39,9 @@ browser and native stores can be validated without a mounted editor surface.
   exposes the shared variable-aware weight control, and commits a draft size
   on blur or Enter. Its family field and controls use the 32px compact token;
   narrow layouts scroll the row instead of truncating the family into a static
-  160px label.
+  160px label. Its surface now uses the floating palette's fluid border-box
+  height and vertical padding as well, keeping the two text toolbars on one
+  centerline across viewport widths and coarse-pointer controls.
 - The Logo wordmark panel now uses the shared family combobox, an explicit
   Browse fonts dialog, and direct weight/style controls. Family-only changes
   clear stale exact references; an expanded registered face applies its
@@ -134,6 +136,23 @@ The inspected geometry remains aligned with the shared palette: a
 5.76px/9.44px outer padding, and a contained readable family menu. The
 captured DPR 3 failure is retained as a platform limitation rather than being
 silently omitted from the visual record.
+
+The contextual-bar height repair was checked independently on port 1585:
+
+```text
+VARVE_E2E_PORT=1585 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium -g 'DPR 1' --reporter=list --timeout=120000
+```
+
+The test passed and now compares the contextual row's measured height with the
+floating palette in addition to checking the shared gap, controls, type scale,
+and viewport containment. I inspected the resulting light closed and dark
+narrow captures:
+
+- `test-results/run-1969024-1585/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/light-closed.png`
+- `test-results/run-1969024-1585/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/dark-narrow.png`
+
+The contextual and floating surfaces now share the same visible height and
+control centerline while retaining the narrow horizontal scroll boundary.
 
 ## Focused validation
 
