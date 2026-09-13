@@ -7,8 +7,13 @@
  * geometry. This is shared by every editor surface through EditorContext.
  */
 
-import type { Document, NodeId, SceneNode } from '@varve/scene';
-import { buildParentIndexMap } from '@varve/scene';
+import {
+  buildParentIndexMap,
+  type Document,
+  type NodeId,
+  pageBoundsInWorld,
+  type SceneNode,
+} from '@varve/scene';
 import {
   type Affine,
   type AlignAxis,
@@ -62,6 +67,22 @@ export interface AlignSelectionOptions {
 }
 
 export type AlignmentReference = 'selection' | 'container' | 'page';
+
+export interface AlignmentGuideLine {
+  axis: 'vertical' | 'horizontal';
+  position: number;
+  /** Human-readable description of the applied relationship. */
+  label?: string;
+}
+
+export interface AlignmentFeedback {
+  /** Guide geometry is derived from the post-command document. */
+  lines: ReadonlyArray<AlignmentGuideLine>;
+  /** Roots whose transforms changed in the applied command. */
+  movedIds: ReadonlyArray<NodeId>;
+  reference: AlignmentReference;
+  keyObjectId: NodeId | null;
+}
 
 export interface DistributeSelectionOptions {
   mode?: DistributeMode;
@@ -173,6 +194,19 @@ export function commonAlignmentContainerBounds(
     candidate = parentIndex.get(candidate) ?? null;
   }
   return null;
+}
+
+/** Resolve the active placed page trim, with the legacy flat-canvas fallback. */
+export function alignmentPageBounds(doc: Document): BBox {
+  const placed = doc.activePageId ? pageBoundsInWorld(doc, doc.activePageId) : null;
+  if (placed) return placed;
+  const legacy = doc as Document & { canvasWidth?: number; canvasHeight?: number };
+  return {
+    x: 0,
+    y: 0,
+    w: legacy.canvasWidth ?? 1920,
+    h: legacy.canvasHeight ?? 1080,
+  };
 }
 
 /**
@@ -395,6 +429,90 @@ export function alignSelectionWithObbInDocument(
   return applyWorldTranslations(doc, items, collected.parentIndex, deltas);
 }
 
+/**
+ * Describe the relationship produced by an alignment command.
+ *
+ * This intentionally accepts both documents: using the post-command bounds
+ * prevents the feedback from describing a pre-operation selection snapshot.
+ * The same reference/options and OBB mode used by the command are required so
+ * the guide remains truthful for page, frame, key-object, and single-item
+ * alignment.
+ */
+export function alignmentFeedbackForResult(
+  before: Document,
+  after: Document,
+  selection: readonly NodeId[],
+  axis: AlignAxis,
+  options: AlignSelectionOptions = {},
+  oriented = false,
+): AlignmentFeedback | null {
+  if (before === after) return null;
+
+  const collected = collectSelection(after, selection);
+  if (collected.items.length === 0) return null;
+
+  let position: number | null = null;
+  if (oriented) {
+    const items = collected.items.flatMap((item) => {
+      const local = nodeLocalBounds(item.node, after);
+      if (!local) return [];
+      const transform = nodeWorldTransform(after, item.id, collected.parentIndex);
+      if (!isFiniteAffine(transform)) return [];
+      return [{ ...item, obb: transformedRectCorners(transform, local) }];
+    });
+    if (items.length === 0) return null;
+    position = resolveObbTarget(items, axis, options);
+  } else {
+    const target = resolveAlignmentTarget(collected.items, axis, options);
+    position = target ? alignmentTargetCoordinate(axis, target) : null;
+  }
+  if (position === null || !Number.isFinite(position)) return null;
+
+  const movedIds = selection.filter((id) => {
+    const oldTransform = before.nodes[id]?.transform;
+    const newTransform = after.nodes[id]?.transform;
+    return Boolean(
+      oldTransform &&
+        newTransform &&
+        oldTransform.some((value, index) => value !== newTransform[index]),
+    );
+  });
+  if (movedIds.length === 0) return null;
+
+  const reference = options.reference ?? 'selection';
+  const keyIsValid = Boolean(
+    options.keyObjectId && collected.items.some((item) => item.id === options.keyObjectId),
+  );
+  const referenceLabel = keyIsValid
+    ? 'Key object'
+    : reference === 'page'
+      ? 'Page'
+      : reference === 'container'
+        ? 'Frame'
+        : 'Selection';
+  const axisLabel: Record<AlignAxis, string> = {
+    left: 'Left edge',
+    centerH: 'Horizontal center',
+    right: 'Right edge',
+    top: 'Top edge',
+    centerV: 'Vertical center',
+    bottom: 'Bottom edge',
+  };
+
+  return {
+    lines: [
+      {
+        axis: axis === 'left' || axis === 'centerH' || axis === 'right' ? 'vertical' : 'horizontal',
+        position,
+        label: `${axisLabel[axis]} · ${referenceLabel}`,
+      },
+    ],
+    movedIds,
+    reference,
+    keyObjectId: keyIsValid ? (options.keyObjectId ?? null) : null,
+  };
+}
+
 function collectSelection(doc: Document, selection: readonly NodeId[]): CollectedSelection {
   const collected = collectManualPositionRoots(doc, selection);
   const items: SelectionItem[] = [];
@@ -539,7 +657,7 @@ function resolveObbTarget(
   options: AlignSelectionOptions,
 ): number | null {
   const explicitBounds = explicitAlignmentBounds(options);
-  if (explicitBounds) return alignmentTargetCoordinate(axis, explicitBounds);
+  if (explicitBounds) return alignmentTargetCoordinateFromBounds(axis, explicitBounds);
   const keyItem = options.keyObjectId
     ? items.find((item) => item.id === options.keyObjectId)
     : null;
@@ -665,7 +783,24 @@ function targetForBounds(bounds: BBox): AlignmentTarget {
   };
 }
 
-function alignmentTargetCoordinate(axis: AlignAxis, bounds: BBox): number {
+function alignmentTargetCoordinate(axis: AlignAxis, target: AlignmentTarget): number {
+  switch (axis) {
+    case 'left':
+      return target.left;
+    case 'centerH':
+      return target.centerX;
+    case 'right':
+      return target.right;
+    case 'top':
+      return target.top;
+    case 'centerV':
+      return target.centerY;
+    case 'bottom':
+      return target.bottom;
+  }
+}
+
+function alignmentTargetCoordinateFromBounds(axis: AlignAxis, bounds: BBox): number {
   switch (axis) {
     case 'left':
       return bounds.x;

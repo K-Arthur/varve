@@ -2,20 +2,25 @@
  * Align/Distribute toolbar — multi-selection alignment and distribution.
  *
  * 6 alignment buttons + 2 distribute buttons + advanced controls.
- * Uses the batch alignSelected/distributeSelected context methods.
+ * Uses the batch alignment and distribution commands from EditorContext.
  *
  * Research basis: Figma/Sketch align toolbar; APG Toolbar pattern; pill-chip pattern.
  */
 
-import type { TidyLayoutOptions } from '@varve/shared';
+import { convertDocumentUnit, type DocumentUnit, type TidyLayoutOptions } from '@varve/shared';
 import { FloatingPortal, NumberInput, Tooltip, TooltipProvider } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import {
   type AlignmentReference,
+  alignmentFeedbackForResult,
+  alignmentPageBounds,
+  alignSelectionInDocument,
+  alignSelectionWithObbInDocument,
+  commonAlignmentContainerBounds,
   getAlignmentCapabilities,
 } from '../../../scene/selectionArrangement';
-import { showAlignmentGuidesFromSelection } from '../../AlignmentOverlay/AlignmentGuideOverlay';
+import { showAlignmentGuidesFromResult } from '../../AlignmentOverlay/AlignmentGuideOverlay';
 
 interface AlignIconProps {
   type: 'alignLeft' | 'alignCenterH' | 'alignRight' | 'alignTop' | 'alignCenterV' | 'alignBottom';
@@ -323,7 +328,6 @@ export function AlignDistributeBar() {
   const {
     alignSelected,
     obbAlignSelected,
-    distributeSelected,
     distributeWithGap,
     distributeWithMode,
     tidySelected,
@@ -347,6 +351,10 @@ export function AlignDistributeBar() {
   const tidyBtnRef = useRef<HTMLButtonElement>(null);
   const distributionBtnRef = useRef<HTMLButtonElement>(null);
   const capabilities = getAlignmentCapabilities(state.document, state.selection);
+  const effectiveKeyObjectId =
+    keyObjectId && capabilities.eligibleRootIds.includes(keyObjectId) ? keyObjectId : null;
+  const gapUnit: DocumentUnit = state.document.documentUnit ?? 'px';
+  const displayDistributionGap = convertDocumentUnit(distributionGap, 'px', gapUnit);
   const canAlign =
     alignmentReference === 'page'
       ? capabilities.canAlignToPage
@@ -361,6 +369,10 @@ export function AlignDistributeBar() {
     else setAlignmentReference((current) => (current === 'page' ? 'selection' : current));
   }, [alignToPage]);
 
+  useEffect(() => {
+    if (keyObjectId && !effectiveKeyObjectId) setKeyObject(null);
+  }, [effectiveKeyObjectId, keyObjectId, setKeyObject]);
+
   const chooseAlignmentReference = useCallback(
     (reference: AlignmentReference) => {
       setAlignmentReference(reference);
@@ -373,18 +385,30 @@ export function AlignDistributeBar() {
     (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => {
       const sel = state.selection;
       const doc = state.document;
-      showAlignmentGuidesFromSelection(doc, sel);
+      const options = {
+        reference: alignmentReference,
+        keyObjectId: effectiveKeyObjectId,
+        pageBounds: alignmentReference === 'page' ? alignmentPageBounds(doc) : null,
+        containerBounds:
+          alignmentReference === 'container' ? commonAlignmentContainerBounds(doc, sel) : null,
+      } as const;
+      const nextDoc = obbEnabled
+        ? alignSelectionWithObbInDocument(doc, sel, axis, options)
+        : alignSelectionInDocument(doc, sel, axis, options);
       if (obbEnabled) {
         obbAlignSelected(axis, alignmentReference);
       } else {
         alignSelected(axis, alignmentReference);
       }
+      const feedback = alignmentFeedbackForResult(doc, nextDoc, sel, axis, options, obbEnabled);
+      if (feedback) showAlignmentGuidesFromResult(feedback);
     },
     [
       alignSelected,
       alignmentReference,
       obbAlignSelected,
       obbEnabled,
+      effectiveKeyObjectId,
       state.selection,
       state.document,
     ],
@@ -393,25 +417,22 @@ export function AlignDistributeBar() {
   const handleDistribute = useCallback(
     (axis: 'horizontal' | 'vertical') => {
       if (distributionMode === 'fixedGap') {
-        if (distributeWithGap) distributeWithGap(axis, distributionGap);
-        else distributeSelected(axis);
-      } else if (distributeWithMode) {
-        distributeWithMode(axis, distributionMode);
+        distributeWithGap(axis, distributionGap);
       } else {
-        distributeSelected(axis);
+        distributeWithMode(axis, distributionMode);
       }
     },
-    [distributionGap, distributionMode, distributeSelected, distributeWithGap, distributeWithMode],
+    [distributionGap, distributionMode, distributeWithGap, distributeWithMode],
   );
 
   const handleToggleKeyObject = useCallback(() => {
     const sel = state.selection;
-    if (keyObjectId) {
+    if (effectiveKeyObjectId) {
       setKeyObject(null);
     } else if (sel.length >= 2 && state.primaryId) {
       setKeyObject(state.primaryId);
     }
-  }, [keyObjectId, setKeyObject, state.primaryId, state.selection]);
+  }, [effectiveKeyObjectId, setKeyObject, state.primaryId, state.selection]);
 
   const handleTidyUp = useCallback(
     (columns: number, options: TidyLayoutOptions) => {
@@ -602,12 +623,14 @@ export function AlignDistributeBar() {
                 </fieldset>
                 {distributionMode === 'fixedGap' && (
                   <NumberInput
-                    label="Gap (px)"
-                    value={distributionGap}
+                    label={`Gap (${gapUnit})`}
+                    value={displayDistributionGap}
                     min={-99999}
                     max={99999}
                     step={1}
-                    onChange={setDistributionGap}
+                    onChange={(value) =>
+                      setDistributionGap(convertDocumentUnit(value, gapUnit, 'px'))
+                    }
                   />
                 )}
                 <p>Negative gaps intentionally overlap items.</p>
@@ -619,18 +642,22 @@ export function AlignDistributeBar() {
           <div className="insp-align-group">
             <Tooltip
               label={
-                keyObjectId ? 'Key object set. Click to clear' : 'Set key object from selection'
+                effectiveKeyObjectId
+                  ? 'Key object set. Click to clear'
+                  : 'Set key object from selection'
               }
             >
               <button
                 type="button"
-                className={`pill-group__btn ${keyObjectId ? 'pill-group__btn--active' : ''}`}
-                aria-label={keyObjectId ? 'Clear key object' : 'Set key object from selection'}
+                className={`pill-group__btn ${effectiveKeyObjectId ? 'pill-group__btn--active' : ''}`}
+                aria-label={
+                  effectiveKeyObjectId ? 'Clear key object' : 'Set key object from selection'
+                }
                 onClick={handleToggleKeyObject}
                 disabled={!capabilities.canAlign}
               >
                 <KeyObjectIcon />
-                {keyObjectId && <span className="insp-badge" />}
+                {effectiveKeyObjectId && <span className="insp-badge" />}
               </button>
             </Tooltip>
             <div className="insp-align-targets" role="radiogroup" aria-label="Alignment reference">

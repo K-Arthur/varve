@@ -154,11 +154,14 @@ export function computeDistribution(
   if (bounds.length < 2) return null;
   if (bounds.length === 2 && fixedGap === undefined) return null;
 
-  const sorted = [...bounds].sort((a, b) => {
-    const posA = axis === 'horizontal' ? a.x : a.y;
-    const posB = axis === 'horizontal' ? b.x : b.y;
-    return posA - posB;
-  });
+  const sorted = bounds
+    .map((bound, index) => ({ bound, index }))
+    .sort((a, b) => {
+      const posA = axis === 'horizontal' ? a.bound.x : a.bound.y;
+      const posB = axis === 'horizontal' ? b.bound.x : b.bound.y;
+      return posA - posB || a.index - b.index;
+    })
+    .map(({ bound }) => bound);
 
   const getPos = (b: BBox) => (axis === 'horizontal' ? b.x : b.y);
   const getSize = (b: BBox) => (axis === 'horizontal' ? b.w : b.h);
@@ -204,11 +207,14 @@ export function computeDistribution(
 export function computeDistributionCenters(axis: DistributeAxis, bounds: BBox[]): number[] | null {
   if (bounds.length < 3) return null;
 
-  const sorted = [...bounds].sort((a, b) => {
-    const posA = axis === 'horizontal' ? a.x + a.w / 2 : a.y + a.h / 2;
-    const posB = axis === 'horizontal' ? b.x + b.w / 2 : b.y + b.h / 2;
-    return posA - posB;
-  });
+  const sorted = bounds
+    .map((bound, index) => ({ bound, index }))
+    .sort((a, b) => {
+      const posA = axis === 'horizontal' ? a.bound.x + a.bound.w / 2 : a.bound.y + a.bound.h / 2;
+      const posB = axis === 'horizontal' ? b.bound.x + b.bound.w / 2 : b.bound.y + b.bound.h / 2;
+      return posA - posB || a.index - b.index;
+    })
+    .map(({ bound }) => bound);
 
   const getCenter = (b: BBox) => (axis === 'horizontal' ? b.x + b.w / 2 : b.y + b.h / 2);
 

@@ -1,6 +1,6 @@
 export {
   AlignmentGuideOverlay,
   showAlignmentGuides,
-  showAlignmentGuidesFromSelection,
+  showAlignmentGuidesFromResult,
 } from './AlignmentGuideOverlay';
 export { AlignmentHandleOverlay } from './AlignmentHandleOverlay';

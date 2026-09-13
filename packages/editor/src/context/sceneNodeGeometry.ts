@@ -17,6 +17,8 @@ import type { ToolId } from './types';
 
 export type { AlignmentReference } from '../scene/selectionArrangement';
 export {
+  alignmentFeedbackForResult,
+  alignmentPageBounds,
   alignSelectionInDocument,
   alignSelectionWithObbInDocument,
   commonAlignmentContainerBounds,

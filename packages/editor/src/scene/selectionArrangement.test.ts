@@ -11,6 +11,7 @@ import {
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
+  alignmentFeedbackForResult,
   alignSelectionInDocument,
   commonAlignmentContainerBounds,
   distributeSelectionInDocument,
@@ -263,6 +264,40 @@ describe('selectionArrangement', () => {
     expect(capabilities.canAlign).toBe(false);
     expect(capabilities.canAlignToPage).toBe(true);
     expect(bounds(next, a.id)).toMatchObject({ x: 280, y: 20, w: 40, h: 30 });
+  });
+
+  it('reports the applied page relationship for single-object alignment', () => {
+    let doc = createDocument('alignment feedback');
+    const a = rect('a', 35, 20, 40, 30);
+    doc = addNode(doc, a);
+    const options = {
+      reference: 'page' as const,
+      pageBounds: { x: 0, y: 0, w: 100, h: 80 },
+    };
+    const next = alignSelectionInDocument(doc, [a.id], 'right', options);
+    const feedback = alignmentFeedbackForResult(doc, next, [a.id], 'right', options);
+
+    expect(feedback).toEqual({
+      lines: [{ axis: 'vertical', position: 100, label: 'Right edge · Page' }],
+      movedIds: [a.id],
+      reference: 'page',
+      keyObjectId: null,
+    });
+  });
+
+  it('reports a stationary key-object target rather than the old selection snapshot', () => {
+    let doc = createDocument('key feedback');
+    const key = rect('key', 0, 0, 20, 20);
+    const other = rect('other', 100, 40, 40, 20);
+    doc = addNode(addNode(doc, key), other);
+    const options = { reference: 'selection' as const, keyObjectId: key.id };
+    const next = alignSelectionInDocument(doc, [key.id, other.id], 'right', options);
+    const feedback = alignmentFeedbackForResult(doc, next, [key.id, other.id], 'right', options);
+
+    expect(feedback?.lines).toEqual([
+      { axis: 'vertical', position: 20, label: 'Right edge · Key object' },
+    ]);
+    expect(feedback?.movedIds).toEqual([other.id]);
   });
 
   it('aligns a single child to its nearest common frame bounds', () => {

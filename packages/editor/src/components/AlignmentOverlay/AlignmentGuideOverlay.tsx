@@ -1,19 +1,23 @@
-import { computeFloatingOrigin } from '@varve/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getEditorViewport } from '../../canvas/cameraState';
+import { guideLineScreenEndpoints } from '../../canvas/guideGeometry';
 import { useEditor } from '../../context';
-import { nodeWorldBounds } from '../../scene/world';
+import type { AlignmentFeedback, AlignmentGuideLine } from '../../scene/selectionArrangement';
 import './alignment-overlay.css';
 
-interface GuideLine {
-  axis: 'vertical' | 'horizontal';
-  position: number;
-}
+export type GuideLine = AlignmentGuideLine;
 
 const GUIDE_DURATION_MS = 800;
+const GUIDE_EVENT = 'varve:alignment-guide';
+const LEGACY_GUIDE_EVENT = 'strata:alignment-guide';
 
 export function showAlignmentGuides(lines: GuideLine[]) {
-  window.dispatchEvent(new CustomEvent<GuideLine[]>('strata:alignment-guide', { detail: lines }));
+  window.dispatchEvent(new CustomEvent<GuideLine[]>(GUIDE_EVENT, { detail: lines }));
+}
+
+export function showAlignmentGuidesFromResult(feedback: AlignmentFeedback | null): void {
+  if (!feedback || feedback.lines.length === 0) return;
+  showAlignmentGuides([...feedback.lines]);
 }
 
 export function AlignmentGuideOverlay() {
@@ -36,70 +40,57 @@ export function AlignmentGuideOverlay() {
   }, []);
 
   useEffect(() => {
-    window.addEventListener('strata:alignment-guide', onGuide);
+    window.addEventListener(GUIDE_EVENT, onGuide);
     return () => {
-      window.removeEventListener('strata:alignment-guide', onGuide);
-      if (fadeRef.current !== null) {
-        clearTimeout(fadeRef.current);
-      }
+      window.removeEventListener(GUIDE_EVENT, onGuide);
+      if (fadeRef.current !== null) clearTimeout(fadeRef.current);
     };
+  }, [onGuide]);
+
+  useEffect(() => {
+    window.addEventListener(LEGACY_GUIDE_EVENT, onGuide);
+    return () => window.removeEventListener(LEGACY_GUIDE_EVENT, onGuide);
   }, [onGuide]);
 
   if (!visible || guides.length === 0) return null;
 
-  const zoom = state.zoom;
-  const pan = state.pan;
-  const width = typeof window !== 'undefined' ? window.innerWidth : 99999;
-  // These guide lines are drawn purely axis-aligned (no camera-rotation
-  // support), so only the floating-origin translation needs correcting here
-  // — not a full 2D worldToScreen, which would also rotate the line.
-  const origin = computeFloatingOrigin({ zoom, pan, rotation: 0 }, getEditorViewport());
+  const viewport = getEditorViewport();
+  const camera = {
+    zoom: state.zoom,
+    pan: state.pan,
+    cameraRotation: state.cameraRotation,
+  };
 
   return (
-    <svg className="alignment-guide-overlay" aria-hidden="true">
+    <svg
+      className="alignment-guide-overlay"
+      aria-hidden="true"
+      viewBox={`0 0 ${viewport.width} ${viewport.height}`}
+    >
       <title>Alignment guides</title>
-      {guides.map((guide, _i) => {
-        const originAxis = guide.axis === 'vertical' ? origin[0] : origin[1];
-        const pos =
-          (guide.position - originAxis) * zoom + (guide.axis === 'vertical' ? pan.x : pan.y);
+      {guides.map((guide) => {
+        const line = guideLineScreenEndpoints(guide, camera, viewport);
         return (
-          <line
-            key={`guide-${guide.axis}-${guide.position}`}
-            x1={guide.axis === 'vertical' ? pos : 0}
-            y1={guide.axis === 'vertical' ? 0 : pos}
-            x2={guide.axis === 'vertical' ? pos : Math.max(width, 99999)}
-            y2={guide.axis === 'vertical' ? Math.max(width, 99999) : pos}
-            className={`alignment-guide__line ${visible ? '' : 'alignment-guide__line--fade'}`}
-          />
+          <g key={`guide-${guide.axis}-${guide.position}-${guide.label ?? ''}`}>
+            <line
+              x1={line.x1}
+              y1={line.y1}
+              x2={line.x2}
+              y2={line.y2}
+              className={`alignment-guide__line ${visible ? '' : 'alignment-guide__line--fade'}`}
+            />
+            {guide.label && (
+              <text
+                x={(line.x1 + line.x2) / 2 + 4}
+                y={(line.y1 + line.y2) / 2 - 4}
+                className="alignment-guide__label"
+              >
+                {guide.label}
+              </text>
+            )}
+          </g>
         );
       })}
     </svg>
   );
-}
-
-export function showAlignmentGuidesFromSelection(
-  doc: import('@varve/scene').Document,
-  sel: string[],
-) {
-  if (sel.length < 2) return;
-  const bounds = sel
-    .map((id) => nodeWorldBounds(doc, id))
-    .filter((b): b is NonNullable<typeof b> => b !== null);
-  if (bounds.length < 2) return;
-
-  const minX = Math.min(...bounds.map((b) => b.x));
-  const maxX = Math.max(...bounds.map((b) => b.x + b.w));
-  const minY = Math.min(...bounds.map((b) => b.y));
-  const maxY = Math.max(...bounds.map((b) => b.y + b.h));
-  const centerX = (minX + maxX) / 2;
-  const centerY = (minY + maxY) / 2;
-
-  showAlignmentGuides([
-    { axis: 'vertical', position: centerX },
-    { axis: 'horizontal', position: centerY },
-    { axis: 'vertical', position: minX },
-    { axis: 'vertical', position: maxX },
-    { axis: 'horizontal', position: minY },
-    { axis: 'horizontal', position: maxY },
-  ]);
 }

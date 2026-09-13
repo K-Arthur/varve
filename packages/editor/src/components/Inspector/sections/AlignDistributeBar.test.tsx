@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({ useEditor: vi.fn() }));
 
 vi.mock('../../../context', () => ({ useEditor: mocks.useEditor }));
 vi.mock('../../AlignmentOverlay/AlignmentGuideOverlay', () => ({
-  showAlignmentGuidesFromSelection: vi.fn(),
+  showAlignmentGuidesFromResult: vi.fn(),
 }));
 
 import { AlignDistributeBar } from './AlignDistributeBar';

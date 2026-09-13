@@ -430,6 +430,7 @@ import {
 import { isReducedMotion } from './context/reducedMotionManager';
 import {
   addMaskForSelection,
+  alignmentPageBounds,
   alignSelectionInDocument,
   alignSelectionWithObbInDocument,
   applyKnifeCutOutcome,
@@ -676,18 +677,6 @@ function offsetRect(
 }
 
 /** Resolve the active canvas/page trim in placed world space for alignment. */
-function alignmentPageBounds(doc: Document): { x: number; y: number; w: number; h: number } {
-  const placed = doc.activePageId ? pageBoundsInWorld(doc, doc.activePageId) : null;
-  if (placed) return placed;
-  const legacy = doc as Document & { canvasWidth?: number; canvasHeight?: number };
-  return {
-    x: 0,
-    y: 0,
-    w: legacy.canvasWidth ?? 1920,
-    h: legacy.canvasHeight ?? 1080,
-  };
-}
-
 function gatherSubtreeNodes(doc: Document, ids: NodeId[]): SceneNode[] {
   const seen = new Set<NodeId>();
   const result: SceneNode[] = [];
@@ -6058,7 +6047,7 @@ export function EditorProvider({
 
       distributeWithGap: (axis, gap) => {
         const sel = state.selection;
-        if (sel.length < 3) return;
+        if (sel.length < 2) return;
         updateDoc((doc) => distributeSelectionInDocument(doc, sel, axis, { gap }));
       },
 
