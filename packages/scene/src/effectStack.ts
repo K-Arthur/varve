@@ -31,6 +31,17 @@ export function layerEffectStage(effect: Pick<Effect, 'type'>): LayerEffectStage
   }
 }
 
+/**
+ * True when the Layer Effects renderer evaluates an effect mask for this
+ * effect type. Masks are applied in the content pass only; backdrop
+ * (background blur, glass) and appearance (shadows, glows) passes ignore
+ * `effect.mask` in every renderer. The Inspector must not offer a control
+ * that the renderer silently discards.
+ */
+export function effectSupportsMask(effect: Pick<Effect, 'type'>): boolean {
+  return layerEffectStage(effect) === 'content';
+}
+
 /** Find the nearest same-stage row in the requested direction. */
 export function layerEffectMoveTarget(
   stack: readonly Effect[],

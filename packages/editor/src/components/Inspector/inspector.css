@@ -5049,6 +5049,16 @@ fieldset.insp-canvas-props,
   padding-inline-start: var(--space-2);
 }
 
+.insp-effect-mask-note {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+}
+
 /* A card per effect, not a flat bordered list — matches the Figma/Sketch
  * "stacked chips" convention for a reorderable effect stack instead of
  * reading as one continuous utility strip. */

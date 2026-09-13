@@ -31,6 +31,7 @@ import {
   canHaveLayerEffects,
   cloneEffects,
   createDefaultEffect,
+  effectSupportsMask,
   layerEffectMoveTarget,
   layerEffectStage,
   removeEffectMask,
@@ -1445,7 +1446,20 @@ function EffectParams({
   index: number;
   onChange: (updater: (e: Effect) => Effect) => void;
 }) {
-  const maskControl = <EffectMaskControl nodes={nodes} index={index} />;
+  const maskSupported = effectSupportsMask({ type });
+  const hasAuthoredMask = nodes.some((node) => Boolean(getEffect(node, index)?.mask));
+  const maskControl = (
+    <>
+      {(maskSupported || hasAuthoredMask) && <EffectMaskControl nodes={nodes} index={index} />}
+      {!maskSupported && (
+        <p className="insp-effect-mask-note" role="note">
+          {hasAuthoredMask
+            ? 'This effect type ignores masks today; the authored mask can be removed here.'
+            : 'Masks apply to content-stage effects (blur, chromatic aberration, glitch). This effect type ignores effect masks, so the control is hidden rather than silently discarded.'}
+        </p>
+      )}
+    </>
+  );
   switch (type) {
     case 'dropShadow':
     case 'innerShadow':

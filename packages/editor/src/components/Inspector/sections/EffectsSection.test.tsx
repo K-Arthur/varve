@@ -191,8 +191,8 @@ describe('EffectsSection — glass material tint swatch', () => {
     expect(swatch).toHaveStyle({ background: 'rgba(200,220,255,0.24)' });
   });
 
-  it('authors a live scene-node effect mask through the inspector', async () => {
-    const target = nodeWithShadow('n1');
+  it('authors a live scene-node effect mask through the inspector for a content-stage effect', async () => {
+    const target = nodeWithChromaticAberration('n1');
     const source = nodeWithShadow('source');
     const document = {
       nodes: { n1: target, source },
@@ -209,7 +209,7 @@ describe('EffectsSection — glass material tint swatch', () => {
     } as never);
 
     render(<EffectsSection nodes={[target]} />);
-    fireEvent.click(screen.getByRole('button', { name: /expand drop shadow parameters/i }));
+    fireEvent.click(screen.getByRole('button', { name: /expand .* parameters/i }));
     fireEvent.click(await screen.findByRole('combobox', { name: 'Effect mask source' }));
     fireEvent.click(await screen.findByRole('option', { name: 'Rect' }));
 
@@ -220,6 +220,26 @@ describe('EffectsSection — glass material tint swatch', () => {
       type: 'alpha',
       coordinateSpace: 'world',
     });
+  });
+
+  it('hides the effect mask control for effect types whose renderer ignores masks', async () => {
+    const target = nodeWithShadow('n1');
+    const source = nodeWithShadow('source');
+    mockedUseEditor.mockReturnValue({
+      updateNode,
+      updateDoc,
+      beginTransaction,
+      commitTransaction,
+      announce,
+      documentColorMode: 'rgb',
+      state: { document: { nodes: { n1: target, source }, rootChildren: ['n1', 'source'] } },
+    } as never);
+
+    render(<EffectsSection nodes={[target]} />);
+    fireEvent.click(screen.getByRole('button', { name: /expand .* parameters/i }));
+
+    expect(screen.queryByRole('combobox', { name: 'Effect mask source' })).toBeNull();
+    expect((await screen.findByRole('note')).textContent).toMatch(/ignores effect masks/i);
   });
 });
 

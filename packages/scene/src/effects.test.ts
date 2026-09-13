@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { createDocument, makeAdjustmentNode, makeShapeNode } from './document';
-import { layerEffectMoveTarget, layerEffectStage, moveLayerEffect } from './effectStack';
+import {
+  effectSupportsMask,
+  layerEffectMoveTarget,
+  layerEffectStage,
+  moveLayerEffect,
+} from './effectStack';
 import {
   canHaveLayerEffects,
   createDefaultEffect,
@@ -109,6 +114,36 @@ describe('normalizeEffectParams', () => {
       'shadow-a',
       'content',
     ]);
+  });
+
+  it('reports mask support only for content-stage effects', () => {
+    // The renderer applies effect.mask in the content pass only; the
+    // Inspector uses this predicate to disable/hide the control instead of
+    // accepting input every renderer silently discards.
+    for (const type of [
+      'layerBlur',
+      'depthBlur',
+      'gaussianBlur',
+      'fieldBlur',
+      'irisBlur',
+      'tiltShiftBlur',
+      'pathBlur',
+      'spinBlur',
+      'chromaticAberration',
+      'glitch',
+    ] as const) {
+      expect(effectSupportsMask({ type })).toBe(true);
+    }
+    for (const type of [
+      'dropShadow',
+      'innerShadow',
+      'outerGlow',
+      'innerGlow',
+      'backgroundBlur',
+      'glassMaterial',
+    ] as const) {
+      expect(effectSupportsMask({ type })).toBe(false);
+    }
   });
 
   it('assigns a stable id to an effect without one', () => {
