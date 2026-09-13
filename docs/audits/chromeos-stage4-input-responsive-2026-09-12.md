@@ -126,6 +126,12 @@ The input core already exists and is documented by
 | Coarse-target measurements | `coarse-target-measurements.json` attachment from the passing run | after fixes: zero controls below 24x24 at 800x1280 | attachment + inspected screenshot |
 | Tablet back gesture, portrait/landscape, tap-does-not-move (`f52f64305`) | `VARVE_E2E_PORT=1494 VARVE_E2E_OUTPUT_DIR=stage4-cert pnpm exec playwright test tests/e2e/interaction/chromeos-device-matrix.spec.ts --project=chromium --reporter=list --retries=1` | **21/21 passed** (5.3m), single certified run | Inspected portrait sheet screenshots for inspector and library: bottom-anchored, full width, rounded top corners, canvas dimmed behind the sheet (`/tmp/varve-chromeos-stage4-portrait/`). Matrix/landscape screenshots inspected in earlier runs. |
 | Overlay registry count subscription (`f52f64305`) | `pnpm exec vitest run packages/ui/src/components/OverlayRegistry.test.ts` | 9/9 passed | test output |
+| Accessibility alternatives, wheel scoping, reduced motion, portrait menubar (`659407fd7`) | `VARVE_E2E_PORT=1494 … playwright test tests/e2e/interaction/chromeos-device-matrix.spec.ts --project=chromium --reporter=list --retries=1` (27-test spec), then a warm rerun of the six resource-failed tests | 21/27 in the full run; all 6 passed on rerun → **27/27 effective**. The six failures were `net::ERR_INSUFFICIENT_RESOURCES` / `page.goto` timeouts under shared-machine load, not assertion failures | Inspected menubar screenshots at 600x960 and 800x1280 (`/tmp/varve-chromeos-stage4-menubar/`): menus fit, switcher icon-only, undo/redo visible, no clipped options. Portrait sheet screenshots inspected earlier (`/tmp/varve-chromeos-stage4-portrait/`). |
+
+The wheel-scoping test surfaced a harness detail worth keeping: the layers
+list is virtualized, so the wheel must target a rendered row (panel-center
+hover could land outside the scroller). Once targeted correctly, the panel
+scrolls without changing canvas zoom, and ctrl+wheel over the canvas zooms.
 
 Pre-fix measurements retained for the record: the coarse-target test first
 failed with 13 undersized controls (menubar items 19.25px tall, tabs 18px,

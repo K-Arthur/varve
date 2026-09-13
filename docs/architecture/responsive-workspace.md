@@ -12,7 +12,8 @@ handled.
 |---|---|
 | `> 899px` width | Desktop grid. Layers, inspector, and library are docked columns; panel widths are user-resizable and persisted per workspace. |
 | `<= 899px` width | Drawer mode. Layers/library/inspector become fixed drawers translated offscreen; the canvas takes the full grid width. Drawer triggers are the three `.editor__fab` buttons. |
-| `<= 640px` width | Compact menubar: the document title center block is hidden, menu items compress, and the menubar zoom controls move to the status bar. |
+| `<= 899px` + portrait | Menubar consolidation: the document title (duplicated in the tab strip and status bar) and the menubar zoom (duplicated in the status bar) are hidden, the workspace switcher stays icon-only at 32px (44px coarse), and the menu strip scrolls horizontally rather than clipping an option. Supplementary panels present as bottom sheets. |
+| `<= 640px` width | Compact menubar: menu items compress and the menubar zoom controls are hidden. |
 | `html { min-width: 320px }` | Absolute floor only. 320 CSS px is the WCAG 1.4.10 reflow width; the shell must never force horizontal page scrolling at supported viewport sizes, including split-screen. |
 
 The former `min-width: 600px` floor predated drawer mode and caused horizontal

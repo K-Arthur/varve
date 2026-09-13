@@ -124,6 +124,14 @@ Delivered on `master`:
 - Certified device-matrix run: 21/21 Chromium tests passed, including tablet
   back, portrait/landscape, rotation mid-gesture, tap-does-not-move, and
   guard cleanup; portrait sheet screenshots visually inspected.
+- Accessibility alternatives and compaction (`659407fd7`): non-drag move and
+  constrained resize via Inspector fields, on-screen undo/redo at tablet
+  width, wheel scoping across panel/canvas, reduced-motion drawer
+  transitions, deterministic serialization after touch, and the portrait
+  menubar consolidation (hidden duplicated title/zoom, icon-only switcher,
+  scrollable menu strip). Full 27-test spec: 21 passed in one
+  resource-constrained run, remaining 6 passed on rerun (27/27 effective);
+  menubar screenshots inspected at 600x960 and 800x1280.
 
 Explicit remaining gaps: Duet hardware verification (audit section 5),
 support-matrix promotion (Stage 7), and a real OSK run in the installed PWA.

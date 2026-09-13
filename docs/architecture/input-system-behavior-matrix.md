@@ -239,6 +239,10 @@ for desktop; they are not yet re-verified on the Duet.
   (`primary chrome meets the 24 CSS px target floor`) measures every button in
   the menubar, status bar, floating toolbar, and FAB cluster at 800x1280 with
   a coarse pointer and fails on any visible control below 24px.
+- Portrait menubar: the workspace switcher is icon-only (32px, 44px under a
+  coarse pointer), the menu strip scrolls instead of clipping options, and the
+  document title and menubar zoom are hidden because the tab strip and status
+  bar already expose them. Asserted by the `portrait menubar compaction` E2E.
 
 ### 8.4 Virtual keyboard
 
@@ -268,3 +272,23 @@ The OS back gesture starts in a narrow left-edge inset and cannot be claimed
 by page content; a canvas stroke that intersects it receives `pointercancel`
 and is rolled back. ChromeOS-reserved combinations remain documented in
 section 8.1.
+
+### 8.6 Keyboard-free alternatives (WCAG 2.2 SC 2.5.7)
+
+Every drag- or modifier-dependent core action has a single-pointer or
+field-based equivalent:
+
+| Function | Pointer path | Non-drag / keyboard-free alternative |
+|---|---|---|
+| Move | drag the object | Inspector Position & Size X/Y fields; Arrow / Shift+Arrow nudge |
+| Resize | drag a handle | W/H fields; the **Constrain proportions** lock preserves the aspect ratio while typing |
+| Context actions | right-click | touch/pen long-press deep-selection menu |
+| Multi-select | Shift/Ctrl+click | touch multi-select toggle in the floating toolbar |
+| Undo / redo | `Ctrl+Z` / `Ctrl+Shift+Z` | Edit menu items (also the menubar icon buttons); E2E verified at 800x1280 |
+| Canvas navigation | drag / wheel | status-bar zoom stepper and field; Hand tool; keyboard zoom |
+| ChromeOS function keys | top-row keys are actions (F1 = Back) | `Search`/`Launcher` + key, or the Help menu; Delete is `Backspace`, forward-delete is the OS `Alt+Backspace` and is not required by any Varve action |
+| Text editing | double-tap/double-click into a text node | FloatingTextBar fields; Inspector Typography fields |
+
+E2E evidence: `numeric inspector fields move and constrain a selection without
+dragging`, `undo and redo are reachable and effective without a keyboard`,
+`a tap selects without moving the object`.
