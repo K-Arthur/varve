@@ -74,10 +74,10 @@ Verified by source inspection before implementation:
 | Fill classification | Partial / risky | `region.ts` normalizes contour winding before nonzero classification; that can erase the authored winding information required for nonzero holes and nested islands. |
 | Open paths and strokes | Explicitly limited | Current Boolean eligibility rejects open paths and expects stroke outlining elsewhere. Shape Builder must not broaden this silently or substitute a bounding box. |
 | Live Boolean groups | Working for their narrower model | `liveBoolean.ts` recomputes supported whole-object operations, but it cannot encode arbitrary selected face sets or stale face identity safely. |
-| Editor tool routing | Partial | Tool registration, pointer capture/cancellation, transactions, overlays, and shortcuts exist, but no Shape Builder state/tool/overlay is registered. |
+| Editor tool routing | Implemented / browser evidence pending | Shape Builder registration, pointer capture/cancellation, staged overlay, action buttons, keyboard shortcuts, and one-transaction commit are wired; runtime evidence is recorded below. |
 | History/document mutation | Working primitives | `EditorContext` exposes atomic `updateDoc`, transactions, undo/redo, and selection. A Shape Builder action must use those primitives once per accepted session. |
 | Rendering/export | Working infrastructure, feature missing | Shape nodes, compound contours, SVG/PDF resolvers, Layers, and node editing exist; a new result must use ordinary editable path nodes and real contour rings. |
-| Website/help | Missing | No current Shape Builder command, help article, or marketing feature explanation was found. |
+| Website/help | Implemented | In-app help, What Is This lookup, public guide, vector-tools guide, feature card, and marketing copy now describe the verified workflow and limitations. |
 
 ## Product contract
 
@@ -90,7 +90,7 @@ Eligible input is visible, unlocked, editable filled geometry in the current
 isolation scope: primitive shapes and closed paths/compound paths whose rendered
 fill can be converted to construction rings. Ancestor/descendant selections are
 deduplicated. Locked/hidden content, masks/clips, instances/layout-managed
-children, live effects, open paths, visible strokes, images, outlined text,
+children, live effects, open paths, visible strokes, images, unexpanded text,
 and live Boolean groups are reported with the required explicit action (for
 example, “Outline Stroke” or “Expand live result”); they are never silently
 flattened, detached, or outlined.
@@ -144,23 +144,23 @@ result’s world placement.
   the same face set that committed geometry will use.
 
 Initial budgets are deliberately finite and observable: 64 source objects,
-20,000 construction segments, 200,000 pair intersections, 50,000 faces, and a
-bounded generated-vertex budget. These are safety limits, not a license to drop
-small regions.
+20,000 construction segments, 300,000 candidate pairs, 100,000 intersections,
+10,000 faces, and 100,000 generated vertices. These are safety limits, not a
+license to drop small regions.
 
 ## Capability matrix and regression plan
 
 | Capability | Baseline | Target evidence |
 | --- | --- | --- |
-| Two overlapping rectangles: regions, areas, boundaries, remainders | Partial | Scene tests for 15,000 union / 5,000 intersection / 5,000 difference / 10,000 XOR plus face ownership and untouched remainders; real UI E2E. |
-| Circles/curves and transformed artwork | Partial | Independent deviation checks after nonuniform/shear transforms; screenshot and node-edit inspection. |
-| Donuts, nested islands, compound paths | Partial / risky | Fill-rule-aware arrangement tests and SVG/save/reopen/export checks. |
-| One self-intersecting path | Partial | Arrangement and fill-rule tests without requiring a second object. |
-| Shared/tangent/coincident/near-coincident geometry | Partial / risky | Deterministic no-phantom-face tests, finite-coordinate assertions, complexity diagnostics. |
+| Two overlapping rectangles: regions, areas, boundaries, remainders | Working / verified in scene | Scene tests cover 15,000 union / 5,000 intersection / 5,000 difference / 10,000 XOR, face ownership, disconnected components, destructive remainders, and stale revisions; real UI E2E is the remaining gate. |
+| Circles/curves and transformed artwork | Partial | Independent deviation checks after nonuniform/shear transforms; screenshot and node-edit inspection remain required. |
+| Donuts, nested islands, compound paths | Working / scene verified | Fill-rule-aware arrangement tests preserve a donut hole and reject artificial connectors; save/reopen/export visual evidence remains required. |
+| One self-intersecting path | Partial | Arrangement API supports one selected source; a dedicated self-intersection UI fixture remains to be added. |
+| Shared/tangent/coincident/near-coincident geometry | Partial / guarded | Deterministic no-phantom-face tests and finite-coordinate assertions exist; broader degeneracy fixtures remain. |
 | Open boundaries, strokes, and gaps | Missing | Explicit eligibility message in v1; no silent closure or bounding-box fallback. |
-| Staged selection, sweep crossing, idempotence, touch/keyboard/cancel | Missing | Playwright pointer/touch/keyboard flows, before/during/after screenshots, cancellation and history assertions. |
-| Source retention, style, hierarchy, references | Missing | Scene mutation tests, Layers/node editing, save/reopen, export, and reference-safety checks. |
-| Browser/Tauri parity and constrained-device behavior | Unverified | Browser E2E plus desktop build/typecheck; measured geometry/preview budgets and cancellation latency. |
+| Staged selection, sweep crossing, idempotence, touch/keyboard/cancel | Implemented / browser evidence pending | Playwright pointer sweep covers before/during/after, create, undo/redo, and node-edit entry; touch-only and cancellation recordings remain. |
+| Source retention, style, hierarchy, references | Partial | Create retains sources, destructive references are guarded, and outputs are ordinary path nodes; save/reopen/export and mixed-style evidence remain. |
+| Browser/Tauri parity and constrained-device behavior | Partial | Browser tool is wired and desktop/editor builds are available; a clean browser E2E and measured constrained-device run remain. |
 
 This matrix is intentionally not marked complete until the linked tests and
 inspected visual evidence exist. Validation receipts and artifact paths will be
@@ -188,3 +188,30 @@ therefore reports a broad affected closure caused by unrelated generative,
 import, font, and background-removal work. Feature-specific commands are listed
 with their exact scope as implementation lands; unrelated baseline failures are
 not attributed to Shape Builder.
+
+### 2026-09-13 implementation receipt
+
+- Scene geometry: `packages/scene/src/shapeBuilder.test.ts` passed 8/8, including
+  the rectangle area oracle, thin-face sweep, donut hole, disconnected output,
+  retained-source Create, destructive remainders, and stale revision rejection.
+- Independent curve check: the transformed cubic deviation test passed with a
+  measured maximum below the 0.08-unit fixture budget; it does not compare two
+  paths through the same conversion helper.
+- Real browser interaction: Playwright drove the browser application in an
+  isolated worktree on Linux, created two rectangles through the UI, entered
+  Shape Builder from the visible toolbar, swept three regions, and the status
+  announced “3 regions selected”. The inspected artifacts were
+  `/var/tmp/shape-builder-before.png`,
+  `/var/tmp/shape-builder-selected.png`,
+  `/var/tmp/shape-builder-entered.png`, and
+  `/var/tmp/shape-builder-during.png`.
+- Visual review confirmed separate source outlines, patterned selected faces,
+  teal candidate output, the staged action panel, and the two selected layers.
+  The final Create/Undo/Redo/Node Edit portion is covered by
+  `tests/e2e/canvas/shape-builder.spec.ts`, but the full clean browser runner
+  was not green on this shared machine: Chromium crashed during startup while
+  unrelated E2E suites were concurrently consuming renderer memory. That
+  portion remains unverified rather than being reported as passed.
+- The website source was checked with the Shape Builder guide and feature-card
+  links present; a clean website build remains part of the affected validation
+  run.

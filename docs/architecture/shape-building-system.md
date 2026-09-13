@@ -15,7 +15,7 @@ Apply creates one undoable document transaction.
 
 | Action | Result |
 | --- | --- |
-| Merge | Creates one editable result from the selected filled regions and removes the selected sources. Internal selected boundaries disappear. Untouched source areas remain in source remainders. |
+| Merge | Creates editable result component(s) from the selected filled regions and removes the selected sources. Internal selected boundaries disappear. Untouched source areas remain in source remainders. Disconnected components remain separate objects. |
 | Erase | Removes the selected areas from participating sources. Unrelated source regions and unselected objects remain. Empty remainders are removed. |
 | Extract | Creates editable output for the selected connected result while preserving unrelated source regions according to the source-remainder policy. |
 | Create | Creates an editable result and retains the original sources. The result intentionally overlaps them and is not a live recipe. |
@@ -87,7 +87,9 @@ The interaction has an idle/preparing/hovering/selecting/previewing/committing
 model even though the ephemeral draft is held by the tool manager. Click or
 tap selects one region; a sweep tests every arrangement face crossed between
 pointer samples, so a thin face between samples is not skipped. Shift, Alt,
-Ctrl, or Command enables idempotent toggle selection for the gesture.
+Ctrl, or Command enables idempotent toggle selection for the gesture. Hovering
+an action button previews its committed output in teal and source remainders in
+amber before the button is pressed.
 
 Escape first cancels an active gesture, then clears the staged region set, then
 leaves the tool. Buttons expose every implemented action, and keyboard
@@ -99,8 +101,8 @@ cannot or do not want to drag.
 ## Budgets and invalidation
 
 The arrangement refuses work above 64 sources, 20,000 segments, 300,000
-candidate pairs, 100,000 intersections or generated vertices, and 10,000
-faces. These are safety budgets, not a license to discard small regions. The
+candidate pairs, 100,000 intersections, 10,000 faces, or 100,000 generated
+vertices. These are safety budgets, not a license to discard small regions. The
 editor caches the arrangement while only hover changes; a document or
 selection revision invalidates it. A stale revision cannot be committed.
 

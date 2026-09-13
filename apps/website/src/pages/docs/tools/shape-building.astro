@@ -18,13 +18,13 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>A predictable staged workflow</h2>
         <ol>
-          <li>Select two or more editable filled shapes or closed paths.</li>
+          <li>Select one or more editable filled shapes or closed paths.</li>
           <li>Enter <strong>Shape Builder</strong> from the vector toolbar, or press <code>Shift+B</code>.</li>
           <li>Click a region or sweep across several regions. The document stays unchanged while you preview.</li>
           <li>Choose Merge, Erase, Extract, Create, or Divide. Apply commits one undoable operation.</li>
         </ol>
         <p>
-          Fast sweeps test the faces crossed between pointer samples, and revisiting a face during a toggle gesture is idempotent. Escape cancels the active sweep first, then clears the staged selection, then exits the tool.
+          Fast sweeps test the faces crossed between pointer samples, and revisiting a face during a toggle gesture is idempotent. Hover an action to see teal output and amber source remainders before applying it. Escape cancels the active sweep first, then clears the staged selection, then exits the tool.
         </p>
       </section>
 
@@ -53,7 +53,7 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>After you apply</h2>
         <p>
-          The result is an ordinary editable path: it appears in Layers, can be opened in Node Edit, and follows the existing save, reopen, SVG, and PDF routes. Shape Builder's arrangement is derived preview state and is not stored as a second document authority.
+          The result is an ordinary editable path: it appears in Layers, can be opened in Node Edit, and follows the existing save, reopen, SVG, and PDF routes. Disconnected result components remain separate objects; holes remain compound contours. Shape Builder's arrangement is derived preview state and is not stored as a second document authority.
         </p>
         <p>
           The Create action is source-retaining and reversible through Undo. Merge, Erase, Extract, and Divide rebuild the affected sources in one atomic transaction so an error cannot leave half-deleted artwork.
