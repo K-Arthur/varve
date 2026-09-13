@@ -2016,6 +2016,9 @@ signature detection.
 | --- | --- | --- | --- |
 | IMP-15 | PSD groups leaked child layers into document roots, and sentinel mask bounds could hide visible layer pixels | **Resolved locally** | `packages/import/src/psd.ts`, `packages/import/src/psd-mask.test.ts`, `apps/website/src/pages/docs/file-formats.astro`, `docs/architecture/image-format-capability-matrix.md`, `docs/architecture/import-system.md` |
 
+The implementation and evidence update is committed on `master` as
+`8329c15e32c9b5eaf5381a8d67ed0040cdde8764`.
+
 The converter now allocates a group as the only transfer root and removes its
 child IDs from `rootChildren` after both synchronous and asynchronous
 conversion. Mask containers still retain valid masks, while non-finite,
