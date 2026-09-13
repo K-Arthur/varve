@@ -238,4 +238,7 @@ not attributed to Shape Builder.
 - The website source was checked with the Shape Builder guide and feature-card
   links present; the guide documents rounded-rectangle support and explicit
   unsupported-input behavior. A clean website build remains part of the
-  affected validation run.
+  affected validation run. The attempted `pnpm --filter @varve/website build`
+  stopped in the existing unrelated `src/pages/product.astro:64:13` Astro
+  type error (`loading` is not a supported `VideoHTMLAttributes` property),
+  before producing a clean site build.
