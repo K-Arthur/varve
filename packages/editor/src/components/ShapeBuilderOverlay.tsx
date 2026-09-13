@@ -256,6 +256,18 @@ export function ShapeBuilderOverlay({
                     ? `${selectedFaces.length} region${selectedFaces.length === 1 ? '' : 's'} selected. Create retains sources; other actions rebuild them.`
                     : 'Click a filled region or sweep across several regions.'}
           </div>
+          {model.status === 'ready' && (
+            <div
+              data-testid="shape-builder-style-policy"
+              style={{
+                marginTop: 'var(--space-1)',
+                fontSize: 'var(--font-size-xs)',
+                color: 'var(--color-text-muted)',
+              }}
+            >
+              Style: first selected source · Create retains sources
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)' }}>
           {ACTIONS.map(({ action, label, shortcut, title }) => (
