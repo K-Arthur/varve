@@ -11,7 +11,7 @@
 
 import type { CharacterFormat, ManagedColor, RichSelection, RichText, TextRun } from '@varve/scene';
 import { applyFormatToSelection, characterFormatValue, mergeAdjacentRuns } from '@varve/scene';
-import { managedColorToCss } from '@varve/shared';
+import { managedColorToCss, openTypeFeaturesToCss } from '@varve/shared';
 import { useCallback, useMemo, useRef } from 'react';
 import { useEditor } from '../../../context';
 import { InspectorColorPopover } from './InspectorColorPopover';
@@ -46,6 +46,18 @@ function runColorToCss(c: unknown): string | undefined {
     return managedColorToCss(c as ManagedColor);
   }
   return undefined;
+}
+
+function variableFontSettingsToCss(
+  settings: Record<string, number> | undefined,
+): string | undefined {
+  if (!settings) return undefined;
+  const entries = Object.entries(settings).filter(
+    ([tag, value]) => /^[A-Za-z]{4}$/u.test(tag) && Number.isFinite(value),
+  );
+  return entries.length > 0
+    ? entries.map(([tag, value]) => `"${tag}" ${value}`).join(', ')
+    : undefined;
 }
 
 function runKey(run: TextRun, i: number): string {
@@ -170,6 +182,8 @@ export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorPro
                 fontSize: fmt.fontSize,
                 fontFamily: fmt.fontFamily,
                 color: runColorToCss(fmt.color),
+                fontFeatureSettings: openTypeFeaturesToCss(fmt.openTypeFeatures),
+                fontVariationSettings: variableFontSettingsToCss(fmt.variableFontSettings),
               }}
             >
               {run.text || '​'}

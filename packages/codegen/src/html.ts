@@ -12,6 +12,7 @@
  *       responsive inference, and HTML element hints.
  */
 
+import { openTypeFeaturesToCss } from '@varve/shared';
 import type {
   AppearanceSpec,
   FidelityWarning,
@@ -307,6 +308,8 @@ function typographyToCss(typo: TypographySpec, unit: string, base: number): Reco
   if (typo.letterSpacing !== 0) {
     props['letter-spacing'] = sizeValue(typo.letterSpacing, unit, base);
   }
+  const featureSettings = openTypeFeaturesToCss(typo.openTypeFeatures);
+  if (featureSettings) props['font-feature-settings'] = featureSettings;
   if (typo.textAlign && typo.textAlign !== 'left') {
     props['text-align'] = typo.textAlign;
   }

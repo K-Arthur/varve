@@ -6,6 +6,8 @@ export interface ConvertTextOutlineCallbacks {
   onWarn: (msg: string) => void;
   onResult: (newDoc: Document) => void;
   onError: (msg: string) => void;
+  /** Return false when the source document/selection changed while loading or shaping. */
+  isCurrent?: () => boolean;
 }
 
 /**
@@ -22,7 +24,7 @@ export async function convertTextOutline(
 ): Promise<void> {
   try {
     const sourceNode = doc.nodes[nodeId];
-    if (!sourceNode || sourceNode.kind !== 'text') {
+    if (sourceNode?.kind !== 'text') {
       callbacks.onError('Select a text node before converting to outlines.');
       return;
     }
@@ -168,6 +170,10 @@ export async function convertTextOutline(
       }
     }
 
+    if (callbacks.isCurrent && !callbacks.isCurrent()) {
+      console.info('[Varve] discarded stale text outline conversion');
+      return;
+    }
     callbacks.onResult(result.document);
   } catch (err) {
     // Keep implementation details and backend/browser messages out of the

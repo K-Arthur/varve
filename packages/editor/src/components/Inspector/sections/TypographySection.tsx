@@ -30,6 +30,7 @@ import { docVariableStore } from '../../../docVariableStore';
 import type { FontFaceSelection } from '../../FontBrowser/FontBrowser';
 import { FontBrowserDialog } from '../../FontBrowser/FontBrowserDialog';
 import { FontSelector } from '../../FontBrowser/FontSelector';
+import { AdvancedOpenTypeFeaturesSection } from '../../Typography/AdvancedOpenTypeFeaturesSection';
 import {
   fontFamilyChanges,
   fontStyleChanges,
@@ -168,64 +169,6 @@ const RESIZING_OPTIONS: { value: TextNode['textResizing']; label: string }[] = [
   { value: 'autoWidth', label: 'Auto W' },
   { value: 'autoHeight', label: 'Auto H' },
   { value: 'fixed', label: 'Fixed' },
-];
-
-const OPENTYPE_FEATURE_LABELS: Record<string, string> = {
-  liga: 'Standard Ligatures',
-  dlig: 'Discretionary Ligatures',
-  sups: 'Superscript',
-  subs: 'Subscript',
-  numr: 'Numerators',
-  dnom: 'Denominators',
-  frac: 'Fractions',
-  ordn: 'Ordinals',
-  tnum: 'Tabular Numbers',
-  pnum: 'Proportional Numbers',
-  lnum: 'Lining Figures',
-  onum: 'Old-Style Figures',
-  zero: 'Slashed Zero',
-  ss01: 'Stylistic Set 1',
-  ss02: 'Stylistic Set 2',
-  ss03: 'Stylistic Set 3',
-  ss04: 'Stylistic Set 4',
-  ss05: 'Stylistic Set 5',
-  ss06: 'Stylistic Set 6',
-  ss07: 'Stylistic Set 7',
-  ss08: 'Stylistic Set 8',
-  ss09: 'Stylistic Set 9',
-  ss10: 'Stylistic Set 10',
-  kern: 'Kerning',
-  calt: 'Contextual Alternates',
-  case: 'Case-Sensitive Forms',
-  cpsp: 'Capital Spacing',
-  aalt: 'Access All Alternates',
-  salt: 'Stylistic Alternates',
-  locl: 'Localized Forms',
-  rlig: 'Required Ligatures',
-  mark: 'Mark Positioning',
-  mkmk: 'Mark-to-Mark Positioning',
-  ccmp: 'Glyph Composition',
-  init: 'Initial Forms',
-  medi: 'Medial Forms',
-  fina: 'Final Forms',
-  isol: 'Isolated Forms',
-};
-
-const COMMON_FEATURES = [
-  'liga',
-  'dlig',
-  'kern',
-  'calt',
-  'tnum',
-  'pnum',
-  'lnum',
-  'onum',
-  'frac',
-  'zero',
-  'case',
-  'ss01',
-  'ss02',
-  'ss03',
 ];
 
 function getTextValue<T>(n: SceneNode, accessor: (t: TextNode) => T): T {
@@ -668,9 +611,10 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           />
         </FieldRow>
         {/* OpenType features */}
-        <OpenTypeFeaturesSection
+        <AdvancedOpenTypeFeaturesSection
           textNodes={textNodes}
           familyRaw={familyRaw}
+          applyChanges={applyTypographyToSelection}
           batchUpdate={batchUpdate}
         />
         {/* Variable font axes */}
@@ -698,65 +642,12 @@ export function TypographySection({ nodes }: TypographySectionProps) {
       </div>
       {textNodes.length === 1 && (
         <div className="insp-field-group">
-          <GlyphTypographySection node={textNodes[0]!} />
+          <GlyphTypographySection
+            node={textNodes[0]!}
+            onConvertToOutlines={() => editor.convertTextToOutlines()}
+          />
         </div>
       )}
-    </DisclosureSection>
-  );
-}
-
-// ── OpenType Features Sub-section ─────────────────────────────────────────
-
-interface OpenTypeFeaturesSectionProps {
-  textNodes: TextNode[];
-  familyRaw: MaybeMixed<string>;
-  batchUpdate: (updater: (node: TextNode) => TextNode) => void;
-}
-
-function OpenTypeFeaturesSection({
-  textNodes,
-  familyRaw,
-  batchUpdate,
-}: OpenTypeFeaturesSectionProps) {
-  const registry = getFontRegistry();
-  const family = isMixed(familyRaw) ? '' : familyRaw;
-  const supportedFeatures = family ? registry.getSupportedFeatures(family) : [];
-  const featuresToShow = supportedFeatures.length > 0 ? supportedFeatures : COMMON_FEATURES;
-
-  const currentFeatures = commonValue(textNodes, (n) => (n as TextNode).openTypeFeatures ?? {});
-  const featuresMap = isMixed(currentFeatures) ? {} : currentFeatures;
-
-  const toggleFeature = useCallback(
-    (tag: string, enabled: boolean) => {
-      batchUpdate((n) => ({
-        ...n,
-        openTypeFeatures: { ...(n.openTypeFeatures ?? {}), [tag]: enabled },
-      }));
-    },
-    [batchUpdate],
-  );
-
-  return (
-    <DisclosureSection
-      title="OpenType Features"
-      sectionId="typography"
-      subsectionId="openTypeFeatures"
-      defaultExpanded={false}
-    >
-      <div className="insp-opentype-list">
-        {featuresToShow.map((tag) => (
-          <label key={tag} className="insp-opentype-row">
-            <input
-              type="checkbox"
-              checked={featuresMap[tag] === true}
-              onChange={(e) => toggleFeature(tag, e.target.checked)}
-              aria-label={OPENTYPE_FEATURE_LABELS[tag] ?? tag}
-            />
-            <span className="insp-opentype-label">{OPENTYPE_FEATURE_LABELS[tag] ?? tag}</span>
-            <code className="insp-opentype-tag">{tag}</code>
-          </label>
-        ))}
-      </div>
     </DisclosureSection>
   );
 }

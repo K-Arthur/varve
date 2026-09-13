@@ -7479,6 +7479,14 @@ export function EditorProvider({
                 announcerRef.current?.announce('Text converted to outlines');
                 toastHandler?.({ message: 'Text converted to vector paths.', type: 'success' });
               },
+              isCurrent: () => {
+                const current = stateRef.current;
+                return (
+                  current.document === state.document &&
+                  current.selection.length === 1 &&
+                  current.selection[0] === nodeId
+                );
+              },
               onError: (err) => {
                 toastHandler?.({ message: err, type: 'error' });
               },

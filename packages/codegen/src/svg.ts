@@ -26,6 +26,7 @@ import {
   applyAffine,
   DEFAULT_ARTWORK_FONT_FAMILY,
   multiplyAffine,
+  openTypeFeaturesToCss,
   rotateDeg,
   textWrap,
   tryInvertAffine,
@@ -817,18 +818,8 @@ function buildTextContent(node: TextNode, indent: string): string {
         runStyleParts.push(`font-variation-settings: ${settings};`);
       }
       if (format.openTypeFeatures && Object.keys(format.openTypeFeatures).length > 0) {
-        const features = Object.entries(format.openTypeFeatures)
-          .filter(([tag]) => tag !== 'custom')
-          .map(([tag, on]) => `"${tag}" ${on ? '1' : '0'}`)
-          .join(', ');
+        const features = openTypeFeaturesToCss(format.openTypeFeatures);
         if (features) runStyleParts.push(`font-feature-settings: ${features};`);
-        const custom = format.openTypeFeatures.custom;
-        if (custom) {
-          const customFeatures = Object.entries(custom)
-            .map(([tag, on]) => `"${tag}" ${on ? '1' : '0'}`)
-            .join(', ');
-          if (customFeatures) runStyleParts.push(`font-feature-settings: ${customFeatures};`);
-        }
       }
       if (runStyleParts.length > 0) runAttrs.push(`style="${runStyleParts.join(' ')}"`);
       // Per-paragraph RTL direction for BiDi-aware SVG renderers.
@@ -1090,18 +1081,8 @@ ${shapeInner}`
         styleParts.push(`font-variation-settings: ${settings};`);
       }
       if (textNode.openTypeFeatures && Object.keys(textNode.openTypeFeatures).length > 0) {
-        const features = Object.entries(textNode.openTypeFeatures)
-          .filter(([tag]) => tag !== 'custom')
-          .map(([tag, on]) => `"${tag}" ${on ? '1' : '0'}`)
-          .join(', ');
+        const features = openTypeFeaturesToCss(textNode.openTypeFeatures);
         if (features) styleParts.push(`font-feature-settings: ${features};`);
-        const custom = textNode.openTypeFeatures.custom;
-        if (custom) {
-          const customFeatures = Object.entries(custom)
-            .map(([tag, on]) => `"${tag}" ${on ? '1' : '0'}`)
-            .join(', ');
-          if (customFeatures) styleParts.push(`font-feature-settings: ${customFeatures};`);
-        }
       }
       attrs.push(...compositing.attributes);
       styleParts.push(...compositing.styles);

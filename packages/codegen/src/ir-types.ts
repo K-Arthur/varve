@@ -8,6 +8,8 @@
  *       semantic HTML element hints, visual fidelity warnings.
  */
 
+import type { OpenTypeFeatureMap } from '@varve/shared';
+
 // ── Core IR Types ─────────────────────────────────────────────────────────────
 
 export type SemanticKind =
@@ -259,7 +261,7 @@ export interface TypographySpec {
   writingMode?: 'horizontal-tb' | 'vertical-lr' | 'vertical-rl';
   textOrientation?: 'mixed' | 'upright' | 'sideways';
   variableAxes?: Record<string, number>;
-  openTypeFeatures?: Record<string, boolean>;
+  openTypeFeatures?: OpenTypeFeatureMap;
   textIndent?: number;
   wordSpacing?: number;
   whiteSpace?: 'normal' | 'nowrap' | 'pre' | 'pre-wrap' | 'pre-line';
