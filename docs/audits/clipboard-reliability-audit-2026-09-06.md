@@ -1846,3 +1846,47 @@ The native fixture contains an embedded visual warning for an unavailable
 source asset, which remains visible in the layer/report evidence. Packaged
 Tauri CSP/resource behavior and Firefox-owned Figma clipboard captures remain
 open under CLIP-13, CLIP-14, and CLIP-15.
+
+### IMP-12 — Raw native `.fig` chunks could expand outside the decoder budget (2026-09-12)
+
+The native archive path already bounded ZIP entries, but the raw `fig-` binary
+path passed compressed schema and message chunks directly to `inflateSync` or
+`fzstd`'s one-shot helper. A crafted chunk could therefore allocate its full
+decompressed result before the Kiwi depth and node guards ran. This was a
+decoder/lifetime defect: the source was recognized correctly, but allocation
+was not bounded at the compression boundary.
+
+The decoder now collects `fflate.Inflate` and `fzstd.Decompress` output in
+bounded chunks and rejects schema or message output above 128 MiB before it is
+handed to the schema interpreter. The existing 64 MiB `.fig` input, 256 MiB
+archive, 100,000-node, and 256-level nesting limits remain in force. ZIP
+archives and raw `fig-` binaries therefore share an explicit pre-decoder
+allocation contract, while the production Tauri CSP remains unchanged.
+
+| ID | Defect | Status | Evidence |
+| --- | --- | --- | --- |
+| IMP-12 | Raw schema/message decompression used unbounded one-shot helpers | **Resolved locally** | `packages/import/src/figma/native.ts`, `packages/import/src/figma.test.ts`, current native fixture decode |
+
+Validation from `/home/kevina/CodingProjects/varve` on `master` SHA
+`07098c3dee3122e02f9d1c68dcdb651dd6592e3b` (Linux KDE/Wayland, Node 26,
+Rust 1.97) was:
+
+```text
+pnpm exec biome check packages/import/src/figma/native.ts
+passed
+
+pnpm exec tsc -p packages/import/tsconfig.json --noEmit --pretty false
+passed
+
+VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/import/src/figma.test.ts \
+  packages/import/src/service.test.ts --maxWorkers=1 --reporter=dot
+24 tests passed
+
+VARVE_TEST_WORKERS=1 pnpm exec vitest run packages/import/src --maxWorkers=1 --reporter=dot
+362 tests passed across 31 import test files
+```
+
+The existing browser `.fig` smoke and the dynamic-code-disabled unit test
+exercise both the archive decoder and the CSP-compatible interpreter. A
+packaged WebKitGTK run is still required before claiming desktop transport or
+packaged `.fig` parity; that external lane remains open under CLIP-14/15.

@@ -2,8 +2,8 @@
 // normalizes the source's broad node property surface. Keep extraction of field
 // mappers on the backlog if support for additional native schema fields grows.
 
-import { inflateSync, unzipSync } from 'fflate';
-import { decompress as zstdDecompress } from 'fzstd';
+import { Inflate, unzipSync } from 'fflate';
+import { Decompress } from 'fzstd';
 import {
   ByteBuffer,
   type Definition,
@@ -29,8 +29,53 @@ const MAX_ARCHIVE_UNCOMPRESSED_BYTES = 256 * 1024 * 1024;
 const MAX_ARCHIVE_ENTRY_BYTES = 128 * 1024 * 1024;
 const MAX_ARCHIVE_COMPRESSION_RATIO = 2000;
 const MAX_KIWI_DEPTH = 256;
+/** Raw schema/message chunks are bounded independently before Kiwi sees them. */
+const MAX_FIG_CHUNK_BYTES = 128 * 1024 * 1024;
 
 type RecordValue = Record<string, unknown>;
+
+function concatBoundedChunks(
+  chunks: readonly Uint8Array[],
+  total: number,
+  label: string,
+): Uint8Array {
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  if (offset !== total) throw new Error(`${label} decompression produced an invalid length`);
+  return result;
+}
+
+/** Inflate a raw Figma chunk without allowing the decompressor to grow freely. */
+function inflateFigmaChunk(data: Uint8Array, label: string): Uint8Array {
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const inflater = new Inflate((chunk) => {
+    total += chunk.byteLength;
+    if (total > MAX_FIG_CHUNK_BYTES)
+      throw new Error(`${label} exceeds the ${MAX_FIG_CHUNK_BYTES}-byte limit`);
+    chunks.push(chunk);
+  });
+  inflater.push(data, true);
+  return concatBoundedChunks(chunks, total, label);
+}
+
+/** Decode a Zstandard Figma chunk through the same bounded streaming contract. */
+function decompressFigmaChunk(data: Uint8Array, label: string): Uint8Array {
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const decoder = new Decompress((chunk) => {
+    total += chunk.byteLength;
+    if (total > MAX_FIG_CHUNK_BYTES)
+      throw new Error(`${label} exceeds the ${MAX_FIG_CHUNK_BYTES}-byte limit`);
+    chunks.push(chunk);
+  });
+  decoder.push(data, true);
+  return concatBoundedChunks(chunks, total, label);
+}
 
 /**
  * Decode a Kiwi message without `kiwi-schema.compileSchema`.
@@ -137,7 +182,7 @@ function createBoundedKiwiDecoder(schema: Schema): (data: Uint8Array) => RecordV
         definition.kind === 'MESSAGE' && definition.name.toLowerCase().includes('document'),
     );
   return (data: Uint8Array): RecordValue => {
-    if (!messageDefinition || messageDefinition.kind !== 'MESSAGE') {
+    if (messageDefinition?.kind !== 'MESSAGE') {
       throw new Error('Native .fig schema does not contain a document message');
     }
     const reader = new ByteBuffer(data);
@@ -189,15 +234,15 @@ function parseBoundedFigBinary(data: Uint8Array): FigDocument {
   }
   if (chunks.length < 2)
     throw new Error('Native .fig binary is missing its schema or message chunk');
-  const schema = decodeBinarySchema(inflateSync(chunks[0]!)) as Schema;
+  const schema = decodeBinarySchema(inflateFigmaChunk(chunks[0]!, 'Native .fig schema')) as Schema;
   const decodeMessage = createBoundedKiwiDecoder(schema);
   const messageBytes =
     chunks[1]![0] === 0x28 &&
     chunks[1]![1] === 0xb5 &&
     chunks[1]![2] === 0x2f &&
     chunks[1]![3] === 0xfd
-      ? zstdDecompress(chunks[1]!)
-      : inflateSync(chunks[1]!);
+      ? decompressFigmaChunk(chunks[1]!, 'Native .fig message')
+      : inflateFigmaChunk(chunks[1]!, 'Native .fig message');
   const message = decodeMessage(messageBytes);
   const nodes = Array.isArray(message.nodeChanges) ? (message.nodeChanges as FigNode[]) : [];
   const nodeMap = new Map<string, FigNode>();
