@@ -12,6 +12,9 @@ test.describe('canvas feature page', () => {
     await expect(contract).toBeVisible();
     await expect(contract).toContainText('Stable coordinates');
     await expect(contract).toContainText('Honest rendering');
+    await expect(contract).toContainText('Plain wheel input pans the canvas');
+    await expect(contract).toContainText('Arrow and Shift+Arrow');
+    await expect(contract).toContainText('existing Settings panel');
     await expect(contract.locator('article')).toHaveCount(3);
     const emptySurface = page.getByTestId('canvas-empty-surface-contract');
     await expect(emptySurface).toBeVisible();
