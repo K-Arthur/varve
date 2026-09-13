@@ -48,6 +48,18 @@ opacity, blend, and parameter edits retain the target entry id. This makes
 undo, save/reopen, copy/paste, and accessible stack controls address the same
 filter rather than relying on a mutable array index.
 
+### LUT input-space boundary
+
+LUT files retain their declared `inputSpace` for compatibility and provenance,
+but the current browser reference compositor executes LUT values against the
+document's sRGB byte surface. The optional **Linearize** control applies the
+tested sRGB transfer before sampling and converts the result back; it is not a
+primaries, white-point, ICC, or camera-log conversion. The editor therefore
+keeps ACES, Display-P3, Rec. 2020, and camera-log labels visible for legacy
+documents as disabled metadata-only choices, and reports that no conversion is
+implemented. Those labels must not be presented as equivalent color-managed
+transforms until a conversion contract and provider parity tests exist.
+
 ## Layer-panel identity
 
 The Layers panel deliberately separates a layer's user name from its applied

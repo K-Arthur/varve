@@ -151,6 +151,12 @@ const gradientPickerShot = scenes['gradient-picker']?.status === 'captured' ? sc
           is RGBA8 and does not claim HDR, CMYK-raster, or ICC-accurate effect
           math.
         </p>
+        <p>
+          LUT imports preserve their source-space metadata, but the current browser
+          compositor executes against sRGB values. The optional Linearize control is a
+          tested sRGB transfer—not an ACES, Display-P3, or camera-log conversion—so
+          those labels are not advertised as equivalent color-managed transforms.
+        </p>
       </section>
 
       <section class="feature-section constrained-editing" aria-labelledby="constrained-editing-title">
