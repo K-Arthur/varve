@@ -221,9 +221,11 @@ the audit host:
 Node counts are not time-weighted: LaMa's CPU-side nodes account for a small
 fraction of kernel time (profiler CPU total 815 ms vs WebGPU 23304 ms over
 the profiled runs), but "WebGPU active" for that model must be reported as
-*WebGPU with a CPU fallback partition*, not full-acceleration. The upscale
-model path (`varve-upscale`) is not yet wired to the provider policy and
-remains a documented remaining integration item.
+*WebGPU with a CPU fallback partition*, not full-acceleration. The embedded
+Real-ESRGAN upscale model now shares the same policy: parity is 1 LSB max on
+a 96×72→384×288 tiled run, with cold 651 ms GPU vs 683 ms CPU and warm
+374 ms GPU vs 921 ms CPU (the CPU is a valid choice for cold one-offs; the
+policy is size- and use-case-sensitive rather than GPU-always).
 
 Command:
 

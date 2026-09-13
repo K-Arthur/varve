@@ -116,6 +116,10 @@ pub fn ai_upscale(
             "Upscale model '{model_id}' not found. Install it in Settings > Models."
         ));
     }
+    // An already-cancelled job must not load a model or create a session.
+    if matches!(&cancel, Some(c) if c.load(Ordering::Relaxed)) {
+        return Err("cancelled".into());
+    }
 
     // `mut` binding is required because ONNX Runtime borrows the session
     // mutably during `run`, even though the model graph is unchanged.
@@ -272,7 +276,7 @@ fn infer_tile(session: &mut Session, rgba: &[u8], w: u32, h: u32) -> Vec<u8> {
     rgb
 }
 
-fn base_session_builder() -> Result<ort::session::builder::SessionBuilder, String> {
+fn base_builder_settings() -> Result<ort::session::builder::SessionBuilder, String> {
     let builder = Session::builder().map_err(|e| format!("Failed to create ONNX session: {e}"))?;
     let builder = builder
         .with_optimization_level(ort::session::builder::GraphOptimizationLevel::All)
@@ -289,6 +293,55 @@ fn base_session_builder() -> Result<ort::session::builder::SessionBuilder, Strin
     builder
         .with_parallel_execution(false)
         .map_err(|e| format!("Failed to configure execution mode: {e}"))
+}
+
+static LAST_SESSION_PROVIDER: std::sync::Mutex<&'static str> = std::sync::Mutex::new("native-cpu");
+
+/// Execution provider chosen for the most recently created upscale session.
+pub fn last_session_provider() -> &'static str {
+    LAST_SESSION_PROVIDER
+        .lock()
+        .map(|guard| *guard)
+        .unwrap_or("native-cpu")
+}
+
+fn remember_provider(provider: &'static str) {
+    if let Ok(mut guard) = LAST_SESSION_PROVIDER.lock() {
+        *guard = provider;
+    }
+}
+
+/// Session builder with the native provider policy applied (`auto`/`cpu`/`gpu`
+/// share the process-wide policy with background removal). `auto` attaches the
+/// WebGPU plugin EP when it is registered and falls back to a fresh CPU
+/// builder on any attachment failure; `gpu` fails closed.
+fn base_session_builder() -> Result<ort::session::builder::SessionBuilder, String> {
+    use varve_bgremove::webgpu_ep::{self, InferenceProviderPolicy};
+    let policy = webgpu_ep::inference_provider_policy();
+    let builder = base_builder_settings()?;
+    if !webgpu_ep::device_usable() || matches!(policy, InferenceProviderPolicy::Cpu) {
+        if matches!(policy, InferenceProviderPolicy::Gpu) && !webgpu_ep::device_usable() {
+            return Err(
+                "WebGPU execution provider is unavailable; select Automatic or CPU".to_string(),
+            );
+        }
+        remember_provider("native-cpu");
+        return Ok(builder);
+    }
+    match webgpu_ep::attach_webgpu(builder) {
+        Ok(attached) => {
+            remember_provider("native-webgpu");
+            Ok(attached)
+        }
+        Err(err) => {
+            if matches!(policy, InferenceProviderPolicy::Gpu) {
+                return Err(err);
+            }
+            webgpu_ep::note_attach_failure(&err);
+            remember_provider("native-cpu");
+            base_builder_settings()
+        }
+    }
 }
 
 fn build_session_from_bytes(bytes: &[u8]) -> Result<Session, String> {

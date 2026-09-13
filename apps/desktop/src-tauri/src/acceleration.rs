@@ -134,7 +134,7 @@ pub fn native_set_inference_provider(policy: String) -> Result<String, String> {
     #[cfg(feature = "ai")]
     {
         use varve_bgremove::webgpu_ep::{self, InferenceProviderPolicy};
-        let parsed = InferenceProviderPolicy::from_str(&policy);
+        let parsed = InferenceProviderPolicy::from_label(&policy);
         if matches!(parsed, InferenceProviderPolicy::Gpu) && !webgpu_ep::device_usable() {
             return Err(
                 "The WebGPU execution provider is not registered on this system; \
@@ -164,10 +164,9 @@ pub async fn native_acceleration_status(
         state.reset();
     }
 
-    let mut compute =
-        tauri::async_runtime::spawn_blocking(discovery::discover_compute_devices)
-            .await
-            .map_err(|err| format!("acceleration discovery task failed: {err}"))?;
+    let mut compute = tauri::async_runtime::spawn_blocking(discovery::discover_compute_devices)
+        .await
+        .map_err(|err| format!("acceleration discovery task failed: {err}"))?;
 
     let engine_ready = state.current_engine().is_some();
     let verified_device_id = state.verified_device_id();

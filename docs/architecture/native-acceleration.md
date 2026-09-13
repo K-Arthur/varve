@@ -133,10 +133,12 @@ Hardware evidence (AMD Ryzen 3 5300U, RADV RENOIR, Mesa 26.2.2, u2netp
 runs, output parity vs the CPU EP is 2e-6 max / 4e-8 mean absolute
 difference, and median wall time is 1999 ms (CPU) vs 336 ms (WebGPU).
 
-Unverified limits: only u2netp has placement/parity evidence; other models
-(birefnet-lite, scunet, LaMa, upscale models), Windows, and macOS execution
-still default to CPU until measured. NPU execution remains unsupported and
-none is advertised.
+Unverified limits: u2netp and isnet-general-use run fully on WebGPU in
+measured runs; LaMa runs with a CPU fallback partition (≈28% of node
+executions) reported as such. The embedded Real-ESRGAN
+upscale pipeline shares the same policy and attaches the same devices. Other
+models, Windows, and macOS execution still default to CPU until measured.
+NPU execution remains unsupported and none is advertised.
 
 ## Memory and scheduling
 

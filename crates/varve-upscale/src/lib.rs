@@ -26,6 +26,9 @@ mod ai;
 #[cfg(feature = "ai")]
 pub use ai::{ai_upscale, ProgressCallback, UpscaleOptions};
 
+#[cfg(feature = "ai")]
+pub use ai::last_session_provider;
+
 /// CPU filter used for conventional enlargement.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UpscaleFilter {

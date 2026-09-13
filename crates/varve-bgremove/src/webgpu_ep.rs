@@ -63,7 +63,7 @@ impl InferenceProviderPolicy {
         }
     }
 
-    pub fn from_str(value: &str) -> Self {
+    pub fn from_label(value: &str) -> Self {
         match value.to_ascii_lowercase().as_str() {
             "cpu" => Self::Cpu,
             "gpu" | "webgpu" => Self::Gpu,

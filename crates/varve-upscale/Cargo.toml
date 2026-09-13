@@ -13,10 +13,17 @@ dirs-next = "2"
 
 # ONNX Runtime (optional, gated by 'ai' feature)
 ort = { version = "=2.0.0-rc.13", optional = true }
+# Shared native provider policy + WebGPU plugin EP attachment. Only linked
+# with the `ai` feature; upscale sessions otherwise stay pure CPU.
+varve-bgremove = { path = "../varve-bgremove", optional = true }
 
 [features]
 default = []
-ai = ["ort"]
+ai = ["ort", "dep:varve-bgremove", "varve-bgremove/ai"]
+
+[[example]]
+name = "ai_upscale_probe"
+required-features = ["ai"]
 
 [lints]
 workspace = true
