@@ -197,7 +197,12 @@ text.
 The useful capabilities are distinct: catalog presence, stored bytes, a
 validated face, main-thread readiness, worker adoption, shaping/export
 support, and operation permission. A face is not “ready” merely because its
-family name is present. Byte-backed loads publish a local blob-backed
+family name is present. Shared geometry now applies `wght` through the Canvas
+font shorthand and custom axes/features through optional Canvas typography
+properties when available. Rich-run layout identities include stable feature
+and variation keys, so an axis or feature edit cannot reuse a snapshot measured
+for another authored setting. Runtimes without those optional properties still
+use the exact parsed-face/SVG or native shaping boundary described below. Byte-backed loads publish a local blob-backed
 `@font-face` rule so the worker can harvest the exact payload without a
 network request. The bridge also carries the portable
 `sha256:<digest>:<member>` face key and a process-local revision in the rule.
@@ -213,6 +218,22 @@ pruning decision and the later worker dispatch now share one synchronous
 through a second branch while adoption is pending. A stale or failed
 acknowledgement therefore selects the main-thread replay before any bitmap is
 presented.
+
+When a browser Canvas2D context lacks its optional OpenType feature or
+variation properties, the main-thread renderer has a second exact-face boundary.
+`canvasOpenTypeRenderer.ts` parses the already discovered source artifact and
+draws glyph paths with the authored feature map and axes. If that parser path is
+unavailable, `canvasSvgTextRenderer.ts` asks the browser's SVG shaper to render
+the complete logical run and embeds the same local source bytes in the SVG
+`@font-face`; it never substitutes an unrelated system face. The parsed-face
+and SVG image caches are bounded and process-local, and a ready notification
+requests an authoritative replay. The normal Canvas2D result is used only
+while the exact source is loading or when the runtime cannot support either
+path. Weight and italic style are passed explicitly so a CSS shorthand cannot
+collapse an authored bold or italic run to regular. This closes the Chromium
+feature-path defect while native WebKitGTK, Windows WebView2, and macOS
+WKWebView remain platform evidence obligations.
+
 Package export sets `bundled` only after writing verified bytes into `fonts/`.
 Package manifests use schema `2.0` and retain the document's scoped font
 manifest, including reusable text-style references and independent embedding
@@ -330,7 +351,9 @@ registered face applies its family, weight, style, and reference together.
 Weight and style are available directly in the Logo panel so wordmarks do not
 fall back to a family-only text field. Each authored Logo typography change is
 wrapped in the shared `Typography` compound operation, so it creates one undo
-step instead of bypassing persistent history.
+step instead of bypassing persistent history. Logo project creation, concept
+lifecycle, variant, brief, and clear-space commands use the same history
+adapter, so setup mutations do not bypass persistent history either.
 
 Ordinary weight menus are registry-backed across the inspector, contextual bar,
 floating text toolbar, and Logo panel. Static families expose only the weights
