@@ -86,6 +86,7 @@ export * from './imagePerspective';
 export * from './intelligence';
 export * from './interaction-types';
 export * from './interactions';
+export * from './isometricGeometry';
 export * from './layerColor';
 export * from './layerStates';
 export * from './library';
