@@ -43,4 +43,50 @@ describe('refineHairMatting', () => {
     const mask = new Uint8Array(8);
     expect(() => refineHairMatting(image, mask)).toThrow(/dimensions/);
   });
+
+  it('does nothing on a hard binary mask with guided smoothing (documented limit)', () => {
+    const image = makeSolidImage(5, 5, 200, 50, 50);
+    const mask = new Uint8Array(25);
+    for (let i = 0; i < 25; i += 1) mask[i] = i % 5 >= 2 ? 255 : 0;
+    expect(Array.from(refineHairMatting(image, mask, { method: 'guided' }))).toEqual(
+      Array.from(mask),
+    );
+  });
+
+  it('refines a hard binary mask with closed-form matting and a spatial band', () => {
+    const width = 8;
+    const height = 4;
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const at = (y * width + x) * 4;
+        const foreground = x >= 4;
+        data[at] = foreground ? 220 : 20;
+        data[at + 1] = foreground ? 30 : 60;
+        data[at + 2] = foreground ? 40 : 220;
+        data[at + 3] = 255;
+      }
+    }
+    const image = new ImageData(data, width, height);
+    // The mask is deliberately one pixel too wide: the blue column at x=3 is
+    // selected even though the image edge is at x=4.
+    const mask = new Uint8Array(width * height);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 3; x < width; x += 1) mask[y * width + x] = 255;
+    }
+
+    let diagnostics: string | undefined;
+    const refined = refineHairMatting(image, mask, {
+      method: 'closed-form',
+      bandRadius: 2,
+      iterations: 200,
+      onDiagnostics: (value) => {
+        diagnostics = value.refusedReason;
+      },
+    });
+    expect(diagnostics).toBeUndefined();
+    expect(refined[1 * width + 3]).toBeLessThan(120);
+    expect(refined[1 * width + 4]).toBeGreaterThan(180);
+    expect(Array.from(refined)).not.toEqual(Array.from(mask));
+  });
 });
