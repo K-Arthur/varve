@@ -8,7 +8,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { navigateToEditor, switchWorkspace } from '../shared';
 
 const PHOTO_PATH = path.resolve(__dirname, '..', 'fixtures', 'real-life-landscape.jpg');
 
@@ -39,6 +39,80 @@ async function readEditorDocument(page: import('@playwright/test').Page): Promis
     if (!documentState) throw new Error('editor document state not found');
     return documentState;
   });
+}
+
+async function inspectRegionOverlay(
+  page: import('@playwright/test').Page,
+  sourceUrl: string,
+  overlayUrl: string,
+  frame: { x: number; y: number; width: number; height: number },
+  sourceWidth: number,
+  sourceHeight: number,
+): Promise<{ nonTransparentPixels: number; changedPixels: number; uniqueColorBuckets: number }> {
+  return page.evaluate(
+    async ({ sourceUrl, overlayUrl, frame, sourceWidth, sourceHeight }) => {
+      const decode = (url: string): Promise<ImageData> =>
+        new Promise((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = image.naturalWidth;
+            canvas.height = image.naturalHeight;
+            const context = canvas.getContext('2d');
+            if (!context) {
+              reject(new Error('region-overlay check canvas is unavailable'));
+              return;
+            }
+            context.drawImage(image, 0, 0);
+            resolve(context.getImageData(0, 0, canvas.width, canvas.height));
+          };
+          image.onerror = () => reject(new Error('region-overlay image decode failed'));
+          image.src = url;
+        });
+      const source = await decode(sourceUrl);
+      const overlay = await decode(overlayUrl);
+      if (overlay.width !== frame.width || overlay.height !== frame.height) {
+        throw new Error(
+          `Overlay dimensions ${overlay.width}x${overlay.height} do not match its ${frame.width}x${frame.height} frame`,
+        );
+      }
+      let nonTransparentPixels = 0;
+      let changedPixels = 0;
+      const colors = new Set<number>();
+      for (let y = 0; y < overlay.height; y += 1) {
+        for (let x = 0; x < overlay.width; x += 1) {
+          const overlayOffset = (y * overlay.width + x) * 4;
+          if (overlay.data[overlayOffset + 3]! <= 8) continue;
+          nonTransparentPixels += 1;
+          colors.add(
+            (overlay.data[overlayOffset]! >> 4) * 256 +
+              (overlay.data[overlayOffset + 1]! >> 4) * 16 +
+              (overlay.data[overlayOffset + 2]! >> 4),
+          );
+          const sourceX = frame.x + x;
+          const sourceY = frame.y + y;
+          if (
+            sourceX < 0 ||
+            sourceY < 0 ||
+            sourceX >= sourceWidth ||
+            sourceY >= sourceHeight ||
+            sourceX >= source.width ||
+            sourceY >= source.height
+          ) {
+            continue;
+          }
+          const sourceOffset = (sourceY * source.width + sourceX) * 4;
+          const delta =
+            Math.abs(overlay.data[overlayOffset]! - source.data[sourceOffset]!) +
+            Math.abs(overlay.data[overlayOffset + 1]! - source.data[sourceOffset + 1]!) +
+            Math.abs(overlay.data[overlayOffset + 2]! - source.data[sourceOffset + 2]!);
+          if (delta >= 12) changedPixels += 1;
+        }
+      }
+      return { nonTransparentPixels, changedPixels, uniqueColorBuckets: colors.size };
+    },
+    { sourceUrl, overlayUrl, frame, sourceWidth, sourceHeight },
+  );
 }
 
 async function triggerCafDialog(
@@ -164,6 +238,12 @@ async function paintMask(page: import('@playwright/test').Page): Promise<void> {
 }
 
 async function dismissRecoveryDialog(page: import('@playwright/test').Page): Promise<void> {
+  const continueNormalStartup = page.getByRole('button', { name: /continue normal startup/i });
+  if (await continueNormalStartup.isVisible({ timeout: 1500 }).catch(() => false)) {
+    await continueNormalStartup.click({ timeout: 5000 });
+    await page.locator('.safe-mode-screen').waitFor({ state: 'hidden', timeout: 10_000 });
+    await page.waitForTimeout(250);
+  }
   const dialog = page.locator('dialog.crash-dialog[open]').first();
   if (await dialog.isVisible({ timeout: 1500 }).catch(() => false)) {
     await dialog
@@ -260,6 +340,23 @@ test.describe('accepted generative edit portability', () => {
     expect(applied.assets?.[appliedEdit.sourceSnapshotAssetId]).toBeTruthy();
     expect(applied.rasterMaskAssets?.[appliedEdit.masks.userMaskAssetId]).toBeTruthy();
     expect(applied.assets?.[appliedEdit.variations[0].assetId]).toBeTruthy();
+    const sourceAsset = applied.assets?.[appliedEdit.sourceSnapshotAssetId];
+    const variation = appliedEdit.variations[0];
+    const overlayAsset = applied.assets?.[variation.assetId];
+    expect(sourceAsset?.dataUrl).toBeTruthy();
+    expect(overlayAsset?.dataUrl).toBeTruthy();
+    expect(variation.assetKind).toBe('region-overlay');
+    const overlayStats = await inspectRegionOverlay(
+      page,
+      sourceAsset.dataUrl,
+      overlayAsset.dataUrl,
+      variation.outputFrame,
+      sourceAsset.naturalWidth,
+      sourceAsset.naturalHeight,
+    );
+    expect(overlayStats.nonTransparentPixels).toBeGreaterThan(100);
+    expect(overlayStats.changedPixels).toBeGreaterThan(100);
+    expect(overlayStats.uniqueColorBuckets).toBeGreaterThan(8);
 
     await page.keyboard.press('Control+s');
     await expect(page.locator('.save-status')).toHaveText('Saved', { timeout: 30_000 });
@@ -332,5 +429,80 @@ test.describe('accepted generative edit portability', () => {
       expect(pasted.rasterMaskAssets?.[edit.masks.userMaskAssetId]).toBeTruthy();
       expect(pasted.assets?.[edit.variations[0].assetId]).toBeTruthy();
     }
+
+    // Export the accepted composition through the user-facing Export tab
+    // before restoring it. This proves the result is not only present in the
+    // serialized record but also consumable by the normal raster exporter.
+    await page.locator(`.layers-row[data-node-id="${nodeId}"]`).click();
+    const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
+      hasText: /^export$/i,
+    });
+    if (await exportTab.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await exportTab.click();
+    } else {
+      await page.getByRole('button', { name: /^More inspector tabs/ }).click();
+      await page
+        .getByRole('menu', { name: 'More inspector tabs' })
+        .getByRole('menuitem', { name: 'Export', exact: true })
+        .click();
+    }
+    await page.getByRole('button', { name: 'PNG', exact: true }).first().click();
+    const exportDownloadPromise = page.waitForEvent('download', { timeout: 60_000 });
+    await page.getByRole('button', { name: 'Download PNG', exact: true }).click();
+    const exportDownload = await exportDownloadPromise;
+    const exportPath = await exportDownload.path();
+    expect(exportPath).toBeTruthy();
+    const exportedPng = readFileSync(exportPath as string);
+    expect(exportedPng.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    await page.screenshot({
+      path: testInfo.outputPath('real-photo-exported.png'),
+      animations: 'disabled',
+    });
+
+    // Restore through the Inspector command, then use the normal history
+    // path to put the accepted edit back. The source asset must remain the
+    // same immutable snapshot in both states.
+    await switchWorkspace(page, 'Photo');
+    await page.getByRole('tab', { name: 'Adjustments', exact: true }).click();
+    const generativeSection = page.getByRole('button', {
+      name: 'Generative Edit',
+      exact: true,
+    });
+    await expect(generativeSection).toBeVisible({ timeout: 15_000 });
+    if ((await generativeSection.getAttribute('aria-expanded')) !== 'true') {
+      await generativeSection.click();
+    }
+    const restoreButton = page.getByRole('button', { name: 'Restore original image', exact: true });
+    await expect(restoreButton).toBeVisible();
+    await restoreButton.click();
+    await expect
+      .poll(async () => {
+        const restored = await readEditorDocument(page);
+        const restoredNode = restored.nodes[nodeId];
+        return {
+          editId: restoredNode?.generativeEditId ?? null,
+          imageAssetId: restoredNode?.fills?.find((fill: any) => fill.type === 'image')?.image
+            ?.assetId,
+        };
+      })
+      .toEqual({ editId: null, imageAssetId: reopenedEdit.sourceSnapshotAssetId });
+    await page.screenshot({
+      path: testInfo.outputPath('real-photo-restored.png'),
+      animations: 'disabled',
+    });
+
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect
+      .poll(async () => (await readEditorDocument(page)).nodes[nodeId]?.generativeEditId ?? null)
+      .toBe(reopenedEdit.id);
+    await page.screenshot({
+      path: testInfo.outputPath('real-photo-restored-undone.png'),
+      animations: 'disabled',
+    });
+
+    await page.keyboard.press('ControlOrMeta+Shift+z');
+    await expect
+      .poll(async () => (await readEditorDocument(page)).nodes[nodeId]?.generativeEditId ?? null)
+      .toBeNull();
   });
 });
