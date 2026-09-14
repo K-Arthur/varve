@@ -380,3 +380,20 @@ cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --features wdio
 The browser toolbar evidence remains the authoritative visual proof: the
 focused Chromium run passed 6/6 at DPR 1/2/3 with light, dark, high-contrast,
 and narrow captures inspected. No native pass is claimed from this host.
+
+## Final full-gate checkpoint — 2026-09-14
+
+The required Tier-5 checkpoint was run after the overlay repair:
+
+```text
+VARVE_FULL_GATE_REASON='font system final checkpoint: native WDIO test-overlay asset root and documented frontend/website/toolbar validation; planner escalated because shared workspace/toolchain/validation infrastructure is dirty' pnpm verify:full
+```
+
+The gate stopped in the workspace typecheck after the architecture audit. The
+reported failures are outside the font scope: `contentAwareFill/quickCleanup.test.ts`
+generic arguments, the concurrent `inference/models/mobileSam.test.ts`
+nullability assertions, and the existing `lut*.test.ts` `LutTransform.size`
+diagnostics. The audit also reported the existing 14 dependency cycles,
+unstable-module ceiling/budget reports, and hub-budget warnings. No font
+diagnostic was emitted. This is the final repository-wide validation result for
+this shared worktree; focused font and toolbar checks remain green above.
