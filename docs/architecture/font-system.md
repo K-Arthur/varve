@@ -191,7 +191,12 @@ text.
 The useful capabilities are distinct: catalog presence, stored bytes, a
 validated face, main-thread readiness, worker adoption, shaping/export
 support, and operation permission. A face is not “ready” merely because its
-family name is present. Byte-backed loads publish a local blob-backed
+family name is present. Shared geometry now applies `wght` through the Canvas
+font shorthand and custom axes/features through optional Canvas typography
+properties when available. Rich-run layout identities include stable feature
+and variation keys, so an axis or feature edit cannot reuse a snapshot measured
+for another authored setting. Runtimes without those optional properties still
+use the exact parsed-face/SVG or native shaping boundary described below. Byte-backed loads publish a local blob-backed
 `@font-face` rule so the worker can harvest the exact payload without a
 network request. The bridge also carries the portable
 `sha256:<digest>:<member>` face key and a process-local revision in the rule.
