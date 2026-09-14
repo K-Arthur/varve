@@ -6,8 +6,10 @@
  *
  * Research basis: Figma generative fill panel density; APG form disclosure.
  */
-import type { RemovalMethod } from '@varve/engine';
+
+import type { AreaSelectionOperation, RemovalMethod } from '@varve/engine';
 import {
+  combineAreaSelections,
   DEFAULT_PREVIEW_MAX_DIMENSION,
   getEnvironmentCapabilities,
   getModelInfo,
@@ -20,8 +22,15 @@ import { imageShapeSrc, isImageShape, resolveNodePaints } from '@varve/scene';
 import { Button, Select, ShineBorder, Switch } from '@varve/ui';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { removeRasterMaskFromNode } from '../../../backgroundRemoval/commitRasterMask';
+import { getToolManager } from '../../../canvas/toolDispatcher';
 import { isCapabilityRestricted } from '../../../capabilities/restrictions';
 import { useEditor } from '../../../context';
+import type {
+  Sam2PromptMode,
+  Sam2PromptPolarity,
+  Sam2SegmentationTool,
+} from '../../../tools/Sam2SegmentationTool';
+import { areaSelectionFromMaskCoverage } from '../../../tools/selectionMask';
 import { ModelDownloadDialog } from '../../BackgroundRemoval/ModelDownloadDialog';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
@@ -117,6 +126,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     cancelBackgroundRemovalPreview,
     updateDoc,
     announce,
+    setAreaSelection,
     setShowOriginalBg,
     setMaskPreviewMode,
     setTool,
@@ -199,6 +209,12 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   >(null);
   const [objectSelectionError, setObjectSelectionError] = useState<string | null>(null);
   const objectSelectionDownloadAbortRef = useRef<AbortController | null>(null);
+  const [objectSelectionPromptMode, setObjectSelectionPromptMode] =
+    useState<Sam2PromptMode>('point');
+  const [objectSelectionPromptPolarity, setObjectSelectionPromptPolarity] =
+    useState<Sam2PromptPolarity>('include');
+  const [objectSelectionCombination, setObjectSelectionCombination] =
+    useState<AreaSelectionOperation>('replace');
   const [aiAvailable, setAiAvailable] = useState(false);
   const [hasGpuAccel, setHasGpuAccel] = useState(false);
   const [wasmModelSafe, setWasmModelSafe] = useState(true);
@@ -302,9 +318,56 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     if (!node) return;
     setTool('sam2Segment');
     announce(
-      'Object Selection active. Click to include; Shift-click to subtract; drag a box to prompt.',
+      'Object Selection active. Prompt polarity controls new points; Shift temporarily excludes. Use two taps or a drag for a box hint.',
     );
   }, [announce, node, setTool]);
+
+  const configureObjectSelectionTool = useCallback(
+    (mode: Sam2PromptMode, polarity: Sam2PromptPolarity) => {
+      const tool = getToolManager().getTool<Sam2SegmentationTool>('sam2Segment');
+      tool?.setPromptMode(mode);
+      tool?.setPromptPolarity(polarity);
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (state.tool !== 'sam2Segment') return;
+    configureObjectSelectionTool(objectSelectionPromptMode, objectSelectionPromptPolarity);
+  }, [
+    configureObjectSelectionTool,
+    objectSelectionPromptMode,
+    objectSelectionPromptPolarity,
+    state.tool,
+  ]);
+
+  const handleObjectSelectionPromptMode = useCallback(
+    (value: string) => {
+      const mode = value as Sam2PromptMode;
+      setObjectSelectionPromptMode(mode);
+      configureObjectSelectionTool(mode, objectSelectionPromptPolarity);
+      announce(
+        mode === 'box'
+          ? 'Box hint mode. Tap two corners or drag a box; the box is a model hint, not a hard crop.'
+          : 'Point prompt mode. Click to add a point; Shift temporarily excludes the clicked region.',
+      );
+    },
+    [announce, configureObjectSelectionTool, objectSelectionPromptPolarity],
+  );
+
+  const handleObjectSelectionPromptPolarity = useCallback(
+    (value: string) => {
+      const polarity = value as Sam2PromptPolarity;
+      setObjectSelectionPromptPolarity(polarity);
+      configureObjectSelectionTool(objectSelectionPromptMode, polarity);
+      announce(
+        polarity === 'include'
+          ? 'New point prompts will include the clicked region.'
+          : 'New point prompts will exclude the clicked region.',
+      );
+    },
+    [announce, configureObjectSelectionTool, objectSelectionPromptMode],
+  );
 
   const applyObjectSelectionMask = useCallback(() => {
     if (!node || !objectSelection) return;
@@ -319,9 +382,15 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     });
   }, [applySam2Segmentation, node, objectSelection]);
 
-  const applyObjectSelectionAsSelection = useCallback(() => {
+  const applyObjectSelectionAsSelection = useCallback(async () => {
     if (!node || !objectSelection) return;
-    void applySam2Segmentation({
+    const commitCombinedSelection = setAreaSelection;
+    if (objectSelectionCombination !== 'replace' && !commitCombinedSelection) {
+      announce('Pixel selection combination is unavailable in this editor surface.');
+      return;
+    }
+    const baseline = state.areaSelection ?? null;
+    const result = await applySam2Segmentation({
       nodeId: node.id,
       prompts: {
         points: objectSelection.points,
@@ -330,7 +399,38 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       operation: 'selection',
       candidateIndex: objectSelection.selectedCandidate,
     });
-  }, [applySam2Segmentation, node, objectSelection]);
+    if (!result || objectSelectionCombination === 'replace') return;
+    if (!commitCombinedSelection) return;
+    const incoming = areaSelectionFromMaskCoverage(
+      state.document,
+      node.id,
+      result.mask,
+      result.width,
+      result.height,
+      'source-image-pixels',
+    );
+    if (!incoming) {
+      commitCombinedSelection(baseline);
+      announce('The reviewed mask could not be combined with the current selection.');
+      return;
+    }
+    const combined = combineAreaSelections(baseline, incoming, objectSelectionCombination);
+    commitCombinedSelection(combined);
+    announce(
+      combined
+        ? `Reviewed object selection ${objectSelectionCombination}.`
+        : 'Reviewed object selection needs an existing selection for this combination.',
+    );
+  }, [
+    announce,
+    applySam2Segmentation,
+    node,
+    objectSelection,
+    objectSelectionCombination,
+    setAreaSelection,
+    state.areaSelection,
+    state.document,
+  ]);
 
   const retryObjectSelection = useCallback(() => {
     if (!node || !objectSelection) return;
@@ -594,6 +694,46 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
               Select an object on the image, then refine it with more points or a box. The preview
               is temporary until you apply it as a mask.
             </p>
+            <FieldRow label="Prompt input">
+              <Select
+                label="Object Selection prompt input"
+                value={objectSelectionPromptMode}
+                options={[
+                  { value: 'point', label: 'Points — include or exclude regions' },
+                  { value: 'box', label: 'Box hint — two taps or drag' },
+                ]}
+                onChange={handleObjectSelectionPromptMode}
+              />
+            </FieldRow>
+            <FieldRow label="Prompt polarity">
+              <Select
+                label="Object Selection prompt polarity"
+                value={objectSelectionPromptPolarity}
+                options={[
+                  { value: 'include', label: 'Include new points' },
+                  { value: 'exclude', label: 'Exclude new points' },
+                ]}
+                onChange={handleObjectSelectionPromptPolarity}
+              />
+            </FieldRow>
+            <FieldRow label="Selection combination">
+              <Select
+                label="Object Selection output combination"
+                value={objectSelectionCombination}
+                options={[
+                  { value: 'replace', label: 'Replace current selection' },
+                  { value: 'add', label: 'Add to current selection' },
+                  { value: 'subtract', label: 'Subtract from current selection' },
+                  { value: 'intersect', label: 'Intersect current selection' },
+                ]}
+                onChange={(value) => setObjectSelectionCombination(value as AreaSelectionOperation)}
+              />
+            </FieldRow>
+            <p className="insp-field__hint">
+              Polarity labels a new model prompt. Combination changes only{' '}
+              <strong>Use as selection</strong>; <strong>Apply as mask</strong> always creates the
+              reviewed mask as a document mask.
+            </p>
             <button type="button" className="insp-btn-sm" onClick={startObjectSelection}>
               {objectSelection ? 'Continue Object Selection' : 'Select Object'}
             </button>
@@ -736,13 +876,21 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                   )}
                 </div>
                 <p className="insp-field__hint">
-                  Canvas markers use + for include and − for exclude. Tap a marker to remove that
-                  prompt, or press Backspace to remove the last one. Clearing prompts also clears
-                  the current preview; the image itself is never changed.
+                  {objectSelectionPromptMode === 'box'
+                    ? 'Box hint mode accepts two taps for opposite corners or a drag. It guides the model and does not hard-clip the output.'
+                    : 'Canvas markers use + for include and − for exclude. Tap a marker to remove that prompt, or press Backspace to remove the last one.'}{' '}
+                  Clearing prompts also clears the current preview; the image itself is never
+                  changed.
                 </p>
                 <span className="insp-field__hint" data-testid="object-selection-prompt-count">
-                  {objectSelection.points.length + (objectSelection.box ? 1 : 0)} prompt
-                  {objectSelection.points.length + (objectSelection.box ? 1 : 0) === 1 ? '' : 's'}
+                  {objectSelection.points.length +
+                    (objectSelection.box || objectSelection.draftBox ? 1 : 0)}{' '}
+                  prompt
+                  {objectSelection.points.length +
+                    (objectSelection.box || objectSelection.draftBox ? 1 : 0) ===
+                  1
+                    ? ''
+                    : 's'}
                 </span>
               </>
             )}

@@ -54,12 +54,17 @@ test.describe('Object Selection workflow', () => {
 
     await page.mouse.click(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2);
 
-    // A clean install has no model files yet. The interaction should surface
-    // the explicit download requirement without throwing or corrupting the
-    // canvas; model-backed preview coverage belongs to the release corpus.
-    await expect(page.getByText(/one-time model download|download.*AI model/i).first()).toBeVisible(
-      { timeout: 15000 },
-    );
+    // A clean install surfaces the explicit download requirement. A shared
+    // local profile may already have the model, in which case the honest
+    // alternative is the local-ready state (model-backed quality is covered
+    // separately by the real-model gate).
+    await expect(
+      page
+        .getByText(
+          /one-time model download|download.*AI model|Object Selection model ready|safe inference budget/i,
+        )
+        .first(),
+    ).toBeVisible({ timeout: 15000 });
     await expect(canvas).toBeVisible();
     await testInfo.attach('object-selection-editor-after', {
       body: await canvas.screenshot(),
@@ -144,5 +149,59 @@ test.describe('Object Selection workflow', () => {
     });
     await canvas.screenshot({ path: testInfo.outputPath('object-selection-one-prompt.png') });
     await expect(canvas).toBeVisible();
+  });
+
+  test('exposes separate prompt polarity and two-tap box controls', async ({ page }, testInfo) => {
+    await navigateToEditor(page);
+    await page
+      .locator('#file-import-input')
+      .setInputFiles(path.resolve('tests/e2e/fixtures/test-image.png'));
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 15000 });
+
+    const inspector = page.locator('.editor__inspector-panel');
+    await inspector.getByRole('tab', { name: 'Adjustments' }).click();
+    await inspector.getByRole('button', { name: 'Object Selection' }).click();
+    await expect(
+      inspector.getByRole('combobox', { name: 'Object Selection prompt input' }),
+    ).toBeVisible();
+    await expect(
+      inspector.getByRole('combobox', { name: 'Object Selection prompt polarity' }),
+    ).toBeVisible();
+    await expect(
+      inspector.getByRole('combobox', { name: 'Object Selection output combination' }),
+    ).toBeVisible();
+
+    const promptInput = inspector.getByRole('combobox', {
+      name: 'Object Selection prompt input',
+    });
+    await promptInput.click();
+    await page.getByRole('option', { name: 'Box hint — two taps or drag' }).click();
+    const polarity = inspector.getByRole('combobox', {
+      name: 'Object Selection prompt polarity',
+    });
+    await polarity.click();
+    await page.getByRole('option', { name: 'Exclude new points' }).click();
+
+    await inspector.getByRole('button', { name: 'Select Object' }).click();
+    const canvas = page.getByTestId('editor-canvas');
+    const bounds = await canvas.boundingBox();
+    expect(bounds).not.toBeNull();
+    const first = { x: bounds!.x + bounds!.width * 0.25, y: bounds!.y + bounds!.height * 0.25 };
+    const second = { x: bounds!.x + bounds!.width * 0.65, y: bounds!.y + bounds!.height * 0.7 };
+
+    await page.mouse.click(first.x, first.y);
+    await expect(inspector.getByTestId('object-selection-prompt-count')).toHaveText('1 prompt');
+    await testInfo.attach('object-selection-box-first-corner', {
+      body: await canvas.screenshot(),
+      contentType: 'image/png',
+    });
+
+    await page.mouse.click(second.x, second.y);
+    await expect(inspector.getByTestId('object-selection-prompt-count')).toHaveText('1 prompt');
+    await expect(canvas).toBeVisible();
+    await testInfo.attach('object-selection-box-two-tap', {
+      body: await canvas.screenshot(),
+      contentType: 'image/png',
+    });
   });
 });
