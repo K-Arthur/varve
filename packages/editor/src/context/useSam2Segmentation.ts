@@ -1,6 +1,7 @@
 import type {
   AreaSelection,
   PromptedProviderFact,
+  PromptedProviderPreference,
   PromptedSelectionExecutionProvider,
 } from '@varve/engine';
 import {
@@ -27,7 +28,7 @@ import {
   SAM2_QUALITY_VALIDATION,
 } from '@varve/engine';
 import { type Document, imageShapeSrc, type NodeId } from '@varve/scene';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
 import { setCollapsed } from '../components/Inspector/sectionState';
@@ -91,6 +92,11 @@ function promptedProviderFacts(
       warmPromptP50Ms: mobileLatency?.p50Ms,
       warmPromptP95Ms: mobileLatency?.p95Ms,
       warmPromptP95Source: mobileLatency?.source ?? 'estimated',
+      // Real-photo browser validation found a recoverable but important
+      // ambiguity: a boundary click can receive a high predicted-IoU score
+      // for an expansive background patch. Keep MobileSAM explicit until a
+      // broader browser-quality corpus proves that automatic promotion is safe.
+      experimental: true,
       capabilities: MOBILE_SAM_CAPABILITIES,
       validation: MOBILE_SAM_QUALITY_VALIDATION,
       supportedExecutionProviders: ['wasm'],
@@ -178,6 +184,8 @@ export interface Sam2SegmentationAPI {
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation: () => void;
   selectSam2Candidate: (index: number) => void;
+  promptedProviderPreference: PromptedProviderPreference;
+  setPromptedProviderPreference: (preference: PromptedProviderPreference) => void;
 }
 
 export function useSam2Segmentation(
@@ -232,6 +240,8 @@ export function useSam2Segmentation(
         ),
     });
   }
+  const [promptedProviderPreference, setPromptedProviderPreferenceState] =
+    useState<PromptedProviderPreference>('auto');
 
   const writeTransientSession = useCallback(
     (session: ObjectSelectionSession | null, extra: Partial<EditorState> = {}): void => {
@@ -255,6 +265,23 @@ export function useSam2Segmentation(
     generationRef.current += 1;
     writeTransientSession(null, { maskPreviewMode: 'none' });
   }, [writeTransientSession]);
+
+  const setPromptedProviderPreference = useCallback(
+    (preference: PromptedProviderPreference) => {
+      if (preference === promptedProviderPreference) return;
+      const session = stateRef.current.objectSelectionSession;
+      if (
+        session &&
+        (session.status === 'preparing' ||
+          session.status === 'encoding' ||
+          session.status === 'decoding')
+      ) {
+        cancelSam2Segmentation();
+      }
+      setPromptedProviderPreferenceState(preference);
+    },
+    [cancelSam2Segmentation, promptedProviderPreference, stateRef],
+  );
 
   const selectSam2Candidate = useCallback(
     (index: number) => {
@@ -693,6 +720,8 @@ export function useSam2Segmentation(
       // largest allocation while still allowing a warm provider to win.
       let decision = routePromptedSelection({
         preference: 'auto',
+        preferredProviderId: promptedProviderPreference,
+        allowExperimentalProvider: promptedProviderPreference !== 'auto',
         sourceWidth: naturalW,
         sourceHeight: naturalH,
         executionProvider,
@@ -810,6 +839,8 @@ export function useSam2Segmentation(
       if (cachedEmbeddingProvider && cachedEmbeddingProvider !== providerId) {
         const warmDecision = routePromptedSelection({
           preference: 'auto',
+          preferredProviderId: promptedProviderPreference,
+          allowExperimentalProvider: promptedProviderPreference !== 'auto',
           sourceWidth: naturalW,
           sourceHeight: naturalH,
           executionProvider,
@@ -886,6 +917,22 @@ export function useSam2Segmentation(
         return null;
       }
       const normPrompts = normalizeSam2Prompts(prompts, imageMapper, naturalW, naturalH);
+      if (normPrompts.unmappedPointCount > 0 || normPrompts.unmappedBoxCornerCount > 0) {
+        const unmappedParts = [
+          normPrompts.unmappedPointCount > 0
+            ? `${normPrompts.unmappedPointCount} point${normPrompts.unmappedPointCount === 1 ? '' : 's'}`
+            : null,
+          normPrompts.unmappedBoxCornerCount > 0
+            ? `${normPrompts.unmappedBoxCornerCount} box corner${normPrompts.unmappedBoxCornerCount === 1 ? '' : 's'}`
+            : null,
+        ].filter((part): part is string => part !== null);
+        markFailure({
+          code: 'prompt_out_of_bounds',
+          message: `Object Selection could not map ${unmappedParts.join(' and ')} to visible image pixels. Place every prompt inside the image and try again.`,
+          retryable: true,
+        });
+        return null;
+      }
       try {
         const host = getInferenceWorkerHost();
         const encoderArtifact = getModelById(encoderId)?.checksum || resolvedEncoderPath;
@@ -1165,10 +1212,25 @@ export function useSam2Segmentation(
 
       return null;
     },
-    [enabled, stateRef, setState, updateDoc, announcerRef, setAreaSelection, writeTransientSession],
+    [
+      enabled,
+      stateRef,
+      setState,
+      updateDoc,
+      announcerRef,
+      setAreaSelection,
+      writeTransientSession,
+      promptedProviderPreference,
+    ],
   );
 
-  return { applySam2Segmentation, cancelSam2Segmentation, selectSam2Candidate };
+  return {
+    applySam2Segmentation,
+    cancelSam2Segmentation,
+    selectSam2Candidate,
+    promptedProviderPreference,
+    setPromptedProviderPreference,
+  };
 }
 
 function combineAbortSignals(...signals: AbortSignal[]): AbortSignal {

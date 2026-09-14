@@ -4,6 +4,7 @@ import type {
   AreaSelectionSettings,
   BlendMode,
   PathPoint,
+  PromptedProviderPreference,
 } from '@varve/engine';
 import type { Platform } from '@varve/platform';
 import type { PrototypeData, PrototypeDebugConsole, PrototypeRuntime } from '@varve/prototype';
@@ -1343,6 +1344,9 @@ export interface EditorContextValue {
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation: () => void;
   selectSam2Candidate: (index: number) => void;
+  /** Explicit model choice for Object Selection; `auto` is the measured route. */
+  promptedProviderPreference: PromptedProviderPreference;
+  setPromptedProviderPreference: (preference: PromptedProviderPreference) => void;
 
   // Prototype
   setPrototypeMode: (active: boolean) => void;

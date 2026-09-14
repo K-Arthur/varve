@@ -24,6 +24,8 @@ export interface FontStorageMetadata {
   faceKey?: string;
   /** Optional document reference retaining a project-font lifetime. */
   documentId?: string;
+  /** Storage lifetime. Project faces are released when their document closes. */
+  scope?: 'project' | 'persistent';
   contentHash?: string;
   license?: string;
   licenseUrl?: string;
@@ -82,6 +84,12 @@ interface QuarantineRecord {
   quarantinedAt: number;
 }
 
+interface ProjectFontReference {
+  key: string;
+  documentId: string;
+  faceKey: string;
+}
+
 const DB_NAME = 'varve-font-storage-v2';
 const STORE_NAME = 'artifacts';
 const ARTIFACT_BLOBS_STORE = 'artifactBlobs';
@@ -89,6 +97,7 @@ const FACES_STORE = 'faces';
 const MIGRATION_STORE = 'migrationJournal';
 const TOMBSTONE_STORE = 'tombstones';
 const QUARANTINE_STORE = 'quarantine';
+const PROJECT_REFS_STORE = 'projectRefs';
 const LEGACY_MIGRATION_KEY = 'legacy-font-storage-v1';
 export const LEGACY_FONT_STORAGE_DATABASES = [
   'varve-font-storage',
@@ -121,7 +130,7 @@ function transactionDone(transaction: IDBTransaction): Promise<void> {
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 2);
+    const request = indexedDB.open(DB_NAME, 3);
     request.onupgradeneeded = () => {
       if (!request.result.objectStoreNames.contains(STORE_NAME)) {
         request.result.createObjectStore(STORE_NAME, { keyPath: 'key' });
@@ -140,6 +149,9 @@ function openDb(): Promise<IDBDatabase> {
       }
       if (!request.result.objectStoreNames.contains(QUARANTINE_STORE)) {
         request.result.createObjectStore(QUARANTINE_STORE, { keyPath: 'key' });
+      }
+      if (!request.result.objectStoreNames.contains(PROJECT_REFS_STORE)) {
+        request.result.createObjectStore(PROJECT_REFS_STORE, { keyPath: 'key' });
       }
     };
     request.onsuccess = () => {
@@ -245,6 +257,21 @@ async function readStoredRecords(db: IDBDatabase): Promise<StoredFontRecord[]> {
   )) as StoredFontRecord[];
 }
 
+function storageScope(metadata: FontStorageMetadata | undefined): 'project' | 'persistent' {
+  if (metadata?.scope === 'project' || metadata?.documentId) return 'project';
+  return 'persistent';
+}
+
+function projectReferenceKey(documentId: string, faceKey: string): string {
+  return `${documentId}\u0000${faceKey}`;
+}
+
+async function readProjectReferences(db: IDBDatabase): Promise<ProjectFontReference[]> {
+  return (await requestResult(
+    db.transaction(PROJECT_REFS_STORE, 'readonly').objectStore(PROJECT_REFS_STORE).getAll(),
+  )) as ProjectFontReference[];
+}
+
 /** Store one validated artifact by its complete identity. */
 export async function storeFont(
   familyName: string,
@@ -280,28 +307,53 @@ export async function storeFont(
   const db = await openDb();
   try {
     const transaction = db.transaction(
-      [STORE_NAME, FACES_STORE, ARTIFACT_BLOBS_STORE],
+      [STORE_NAME, FACES_STORE, ARTIFACT_BLOBS_STORE, PROJECT_REFS_STORE],
       'readwrite',
     );
-    transaction.objectStore(STORE_NAME).put(record);
-    const face: StoredFaceRecord = {
-      faceKey: resolvedFaceKey,
-      artifactHash: contentHash,
-      familyName,
-      metadata: resolvedMetadata,
-      storedAt: record.storedAt,
-    };
     const faceStore = transaction.objectStore(FACES_STORE);
     const existingFaceRequest = faceStore.get(resolvedFaceKey);
-    faceStore.put(face);
     const artifactStore = transaction.objectStore(ARTIFACT_BLOBS_STORE);
     const artifactRequest = artifactStore.get(artifactKey(contentHash));
+    const store = transaction.objectStore(STORE_NAME);
+    const projectRefs = transaction.objectStore(PROJECT_REFS_STORE);
     let existingFace: StoredFaceRecord | undefined;
     let existingArtifact: StoredArtifactRecord | undefined;
     let faceRead = false;
     let artifactRead = false;
     const writeArtifact = () => {
       if (!faceRead || !artifactRead) return;
+      // A face may be imported into more than one document. The artifact and
+      // face records are shared, while projectRefs carries the per-document
+      // lifetime. Once a face has been made persistent it must never be
+      // downgraded to a project-only asset by a later import.
+      const existingScope = existingFace ? storageScope(existingFace.metadata) : null;
+      const incomingScope = storageScope(metadata);
+      const scope =
+        existingScope === 'persistent' || incomingScope === 'persistent' ? 'persistent' : 'project';
+      const faceMetadata: FontStorageMetadata = {
+        ...resolvedMetadata,
+        scope,
+        ...(scope === 'persistent' ? { documentId: undefined } : {}),
+      };
+      const storedRecord: StoredFontRecord = {
+        ...record,
+        metadata: faceMetadata,
+      };
+      store.put(storedRecord);
+      faceStore.put({
+        faceKey: resolvedFaceKey,
+        artifactHash: contentHash,
+        familyName,
+        metadata: faceMetadata,
+        storedAt: record.storedAt,
+      } satisfies StoredFaceRecord);
+      if (metadata.documentId) {
+        projectRefs.put({
+          key: projectReferenceKey(metadata.documentId, resolvedFaceKey),
+          documentId: metadata.documentId,
+          faceKey: resolvedFaceKey,
+        } satisfies ProjectFontReference);
+      }
       artifactStore.put({
         artifactHash: artifactKey(contentHash),
         data: existingArtifact?.data ?? bytes,
@@ -321,7 +373,7 @@ export async function storeFont(
       writeArtifact();
     };
     await transactionDone(transaction);
-    return record;
+    return (await getStoredFontByIdentity(resolvedFaceKey)) ?? record;
   } finally {
     db.close();
   }
@@ -440,12 +492,14 @@ export async function removeStoredFont(keyOrFamilyName: string): Promise<void> {
   const db = await openDb();
   try {
     const records = await readStoredRecords(db);
+    const projectReferences = await readProjectReferences(db);
     const transaction = db.transaction(
-      [STORE_NAME, FACES_STORE, TOMBSTONE_STORE, ARTIFACT_BLOBS_STORE],
+      [STORE_NAME, FACES_STORE, TOMBSTONE_STORE, ARTIFACT_BLOBS_STORE, PROJECT_REFS_STORE],
       'readwrite',
     );
     const store = transaction.objectStore(STORE_NAME);
     const tombstones = transaction.objectStore(TOMBSTONE_STORE);
+    const projectRefs = transaction.objectStore(PROJECT_REFS_STORE);
     const removed = records.filter((record) => {
       const familyName = typeof record.familyName === 'string' ? record.familyName : '';
       return (
@@ -471,6 +525,9 @@ export async function removeStoredFont(keyOrFamilyName: string): Promise<void> {
       ) {
         store.delete(record.key);
         transaction.objectStore(FACES_STORE).delete(recordFaceKey(record));
+        for (const reference of projectReferences) {
+          if (reference.faceKey === recordFaceKey(record)) projectRefs.delete(reference.key);
+        }
         tombstones.put({
           key: recordFaceKey(record),
           faceKey: recordFaceKey(record),
@@ -510,15 +567,20 @@ export async function removeStoredFontByIdentity(
   const db = await openDb();
   try {
     const records = await readStoredRecords(db);
+    const projectReferences = await readProjectReferences(db);
     const record = records.find((candidate) => candidate.key === requestedKey);
     if (!record) return false;
     const transaction = db.transaction(
-      [STORE_NAME, FACES_STORE, TOMBSTONE_STORE, ARTIFACT_BLOBS_STORE],
+      [STORE_NAME, FACES_STORE, TOMBSTONE_STORE, ARTIFACT_BLOBS_STORE, PROJECT_REFS_STORE],
       'readwrite',
     );
     const store = transaction.objectStore(STORE_NAME);
     store.delete(requestedKey);
     transaction.objectStore(FACES_STORE).delete(recordFaceKey(record));
+    const projectRefs = transaction.objectStore(PROJECT_REFS_STORE);
+    for (const reference of projectReferences) {
+      if (reference.faceKey === recordFaceKey(record)) projectRefs.delete(reference.key);
+    }
     transaction.objectStore(TOMBSTONE_STORE).put({
       key: recordFaceKey(record),
       faceKey: recordFaceKey(record),
@@ -547,6 +609,88 @@ export async function removeStoredFontByIdentity(
     };
     await transactionDone(transaction);
     return true;
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * Release project-scoped faces retained by one document.
+ *
+ * References are removed even when a face is shared by another document. A
+ * face is deleted only when its last project reference disappears and it has
+ * never been promoted to persistent storage. This makes tab close/restart
+ * idempotent and keeps shared artifacts alive for the remaining document.
+ */
+export async function releaseDocumentFontsInIndexedDb(documentId: string): Promise<number> {
+  if (typeof indexedDB === 'undefined' || documentId.trim() === '') return 0;
+  const db = await openDb();
+  try {
+    const records = await readStoredRecords(db);
+    const references = await readProjectReferences(db);
+    const faces = (await requestResult(
+      db.transaction(FACES_STORE, 'readonly').objectStore(FACES_STORE).getAll(),
+    )) as StoredFaceRecord[];
+    const referencesForDocument = references.filter(
+      (reference) => reference.documentId === documentId,
+    );
+    if (referencesForDocument.length === 0) return 0;
+    const remainingByFace = new Map<string, number>();
+    for (const reference of references) {
+      if (reference.documentId === documentId) continue;
+      remainingByFace.set(reference.faceKey, (remainingByFace.get(reference.faceKey) ?? 0) + 1);
+    }
+    const candidates = new Set(referencesForDocument.map((reference) => reference.faceKey));
+    const removable = [...candidates].filter((faceKey) => {
+      if ((remainingByFace.get(faceKey) ?? 0) > 0) return false;
+      const face = faces.find((candidate) => candidate.faceKey === faceKey);
+      return Boolean(face && storageScope(face.metadata) === 'project');
+    });
+    const removableSet = new Set(removable);
+    const removedRecords = records.filter((record) => removableSet.has(recordFaceKey(record)));
+    const remainingByArtifact = new Map<string, number>();
+    for (const record of records) {
+      if (removableSet.has(recordFaceKey(record))) continue;
+      const digest = recordArtifactDigest(record);
+      if (!digest) continue;
+      const key = artifactKey(digest);
+      remainingByArtifact.set(key, (remainingByArtifact.get(key) ?? 0) + 1);
+    }
+
+    const transaction = db.transaction(
+      [STORE_NAME, FACES_STORE, TOMBSTONE_STORE, ARTIFACT_BLOBS_STORE, PROJECT_REFS_STORE],
+      'readwrite',
+    );
+    const store = transaction.objectStore(STORE_NAME);
+    const faceStore = transaction.objectStore(FACES_STORE);
+    const tombstones = transaction.objectStore(TOMBSTONE_STORE);
+    const artifactStore = transaction.objectStore(ARTIFACT_BLOBS_STORE);
+    const projectRefs = transaction.objectStore(PROJECT_REFS_STORE);
+    for (const reference of referencesForDocument) projectRefs.delete(reference.key);
+    for (const faceKey of removable) {
+      faceStore.delete(faceKey);
+      tombstones.put({
+        key: faceKey,
+        faceKey,
+        removedAt: Date.now(),
+      } satisfies TombstoneRecord);
+    }
+    for (const record of removedRecords) {
+      store.delete(record.key);
+      const digest = recordArtifactDigest(record);
+      if (!digest) continue;
+      const artifactHash = artifactKey(digest);
+      const artifactRequest = artifactStore.get(artifactHash);
+      artifactRequest.onsuccess = () => {
+        const artifact = artifactRequest.result as StoredArtifactRecord | undefined;
+        if (!artifact) return;
+        const refCount = remainingByArtifact.get(artifactHash) ?? 0;
+        if (refCount === 0) artifactStore.delete(artifactHash);
+        else artifactStore.put({ ...artifact, refCount });
+      };
+    }
+    await transactionDone(transaction);
+    return removable.length;
   } finally {
     db.close();
   }

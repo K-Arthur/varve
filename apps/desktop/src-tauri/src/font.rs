@@ -137,7 +137,15 @@ fn build_face_handle_from_data(
 
 /// Enumerate fonts installed on the host operating system.
 #[tauri::command]
-pub fn enumerate_system_fonts(
+pub async fn enumerate_system_fonts(
+    request: EnumerateSystemFontsRequest,
+) -> Result<Vec<SystemFontFace>, String> {
+    tauri::async_runtime::spawn_blocking(move || enumerate_system_fonts_sync(request))
+        .await
+        .map_err(|error| format!("font enumeration worker failed: {error}"))?
+}
+
+fn enumerate_system_fonts_sync(
     request: EnumerateSystemFontsRequest,
 ) -> Result<Vec<SystemFontFace>, String> {
     let collection = font_enumeration::Collection::new()
@@ -226,7 +234,13 @@ pub fn enumerate_system_fonts(
 /// hash before any bytes leave the native process. This prevents a webview
 /// caller from turning the command into an arbitrary filesystem reader.
 #[tauri::command]
-pub fn load_system_font(request: LoadSystemFontRequest) -> Result<Option<Vec<u8>>, String> {
+pub async fn load_system_font(request: LoadSystemFontRequest) -> Result<Option<Vec<u8>>, String> {
+    tauri::async_runtime::spawn_blocking(move || load_system_font_sync(request))
+        .await
+        .map_err(|error| format!("font loading worker failed: {error}"))?
+}
+
+fn load_system_font_sync(request: LoadSystemFontRequest) -> Result<Option<Vec<u8>>, String> {
     let handle = decode_handle(&request.handle)?;
     let collection = font_enumeration::Collection::new()
         .map_err(|e| format!("failed to open system font collection: {e}"))?;
@@ -267,7 +281,7 @@ mod tests {
     /// environment fact, not a defect in this code — but the invariants are
     /// still checked whenever fonts are present.
     fn enumerate(family: Option<&str>) -> Option<Vec<SystemFontFace>> {
-        enumerate_system_fonts(EnumerateSystemFontsRequest {
+        enumerate_system_fonts_sync(EnumerateSystemFontsRequest {
             family: family.map(str::to_string),
         })
         .ok()

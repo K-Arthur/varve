@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FontDownloadManager } from './fontDownloadManager';
+import { parseFontData } from './fontParser';
 
 // Mock parseFontData so validation doesn't fail on synthetic buffers
 vi.mock('./fontParser', () => ({
@@ -188,6 +189,76 @@ describe('FontDownloadManager', () => {
     const hugeBuffer = new ArrayBuffer(1000);
 
     await expect(mgr.validateFont(hugeBuffer, 'ttf')).rejects.toThrow('too large');
+  });
+
+  it('passes the validation abort signal into the parser', async () => {
+    const controller = new AbortController();
+    const buffer = new ArrayBuffer(100);
+    await manager.validateFont(buffer, 'woff2', controller.signal);
+    expect(parseFontData).toHaveBeenCalledWith(buffer, { signal: controller.signal });
+  });
+
+  it('cancels an in-flight validation without reporting a late result', async () => {
+    let validationAborted = false;
+    vi.mocked(parseFontData).mockImplementationOnce(
+      (_data, options) =>
+        new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener(
+            'abort',
+            () => {
+              validationAborted = true;
+              reject(new Error('Font parsing cancelled'));
+            },
+            { once: true },
+          );
+        }),
+    );
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeFetchResponse(new ArrayBuffer(100))));
+
+    const job = manager.addJob('https://example.com/font.woff2', 'Inter');
+    await vi.waitFor(() => expect(manager.getJob(job.id)?.status).toBe('validating'));
+
+    expect(manager.cancelJob(job.id)).toBe(true);
+    await vi.waitFor(() => expect(validationAborted).toBe(true));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(manager.getJob(job.id)?.status).toBe('cancelled');
+    expect(events.onJobComplete).not.toHaveBeenCalled();
+    expect(events.onJobFailed).not.toHaveBeenCalled();
+  });
+
+  it('drains the queue after cancelling validation and starts the next job', async () => {
+    let validationAborted = false;
+    vi.mocked(parseFontData).mockImplementationOnce(
+      (_data, options) =>
+        new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener(
+            'abort',
+            () => {
+              validationAborted = true;
+              reject(new Error('Font parsing cancelled'));
+            },
+            { once: true },
+          );
+        }),
+    );
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeFetchResponse(new ArrayBuffer(100))));
+
+    const singleSlot = new FontDownloadManager(
+      { maxConcurrent: 1, validateIntegrity: false, allowedHosts: ['example.com'] },
+      events,
+    );
+    const first = singleSlot.addJob('https://example.com/first.woff2', 'First');
+    const second = singleSlot.addJob('https://example.com/second.woff2', 'Second');
+    await vi.waitFor(() => expect(singleSlot.getJob(first.id)?.status).toBe('validating'));
+
+    expect(singleSlot.cancelJob(first.id)).toBe(true);
+    await vi.waitFor(() => expect(validationAborted).toBe(true));
+    await vi.waitFor(() => expect(singleSlot.getJob(second.id)?.status).toBe('complete'));
+
+    expect(singleSlot.getJob(first.id)?.status).toBe('cancelled');
+    expect(events.onJobComplete).toHaveBeenCalledWith(singleSlot.getJob(second.id));
   });
 
   it('validateFont rejects invalid formats', async () => {

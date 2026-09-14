@@ -9,7 +9,7 @@ vi.mock('../fontRegistry', () => ({
   getFontRegistry: () => ({ getEntries }),
 }));
 
-import { collectFontData } from './fontDataCollector';
+import { collectFontData, FontCollectionTimeoutError } from './fontDataCollector';
 
 const firstReference = { artifactHash: 'a'.repeat(64), collectionIndex: 0 };
 const secondReference = {
@@ -105,5 +105,51 @@ describe('collectFontData exact requests', () => {
 
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(result).toEqual([]);
+  });
+
+  it('bounds a stalled bundled fetch and exposes an explicit export failure', async () => {
+    const fetchMock = vi.fn(
+      (_url: string, init: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(new Error('aborted by timeout')), {
+            once: true,
+          });
+        }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const statuses: string[] = [];
+
+    await expect(
+      collectFontData([{ family: 'Shared Family', fontReference: secondReference }], {
+        fetchBundled: true,
+        timeoutMs: 5,
+        failOnTimeout: true,
+        onProgress: (_family, status) => statuses.push(status),
+      }),
+    ).rejects.toBeInstanceOf(FontCollectionTimeoutError);
+    expect(statuses).toContain('timeout');
+  });
+
+  it('returns a missing result after a timeout when callers opt into recovery', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () => reject(new Error('aborted')), {
+              once: true,
+            });
+          }),
+      ),
+    );
+    const statuses: string[] = [];
+    const result = await collectFontData(
+      [{ family: 'Shared Family', fontReference: secondReference }],
+      { fetchBundled: true, timeoutMs: 5, onProgress: (_family, status) => statuses.push(status) },
+    );
+
+    expect(result).toEqual([]);
+    expect(statuses).toContain('timeout');
+    expect(statuses).not.toContain('missing');
   });
 });

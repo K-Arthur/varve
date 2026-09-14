@@ -75,15 +75,3 @@ See the [agent validation report](./font-agent-validation-report-2026-09-14.md),
 [native exact-face evidence](./font-native-exact-face-evidence-2026-09-14.md),
 and [font architecture](../architecture/font-system.md) for the detailed
 commands, commits, and acceptance matrix.
-
-## Final website check
-
-The final marketing/docs pass built the static site successfully: `104` routes
-were generated, including `/features/typography/`, `/docs/tools/typography/`,
-and `/docs/file-formats/`. The Astro check completed with hints only. The
-website package's combined typecheck still reports the pre-existing
-`tests/e2e/generative-editing.visual.spec.ts` `naturalWidth` narrowing error;
-that unrelated test was left untouched. The typography copy continues to
-describe local-first discovery, explicit local-font permission/import,
-exact-face recovery, variable axes, licensing boundaries, and the public-demo
-download restriction.

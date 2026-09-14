@@ -73,6 +73,30 @@ describe('FontSelector', () => {
     document.removeEventListener('keydown', onDocumentKeyDown);
   });
 
+  it('previews keyboard and pointer navigation without applying a family', async () => {
+    const onChange = vi.fn();
+    const onPreviewFamily = vi.fn();
+    const onClearPreview = vi.fn();
+    render(
+      <FontSelector
+        value="Inter"
+        onChange={onChange}
+        onPreviewFamily={onPreviewFamily}
+        onClearPreview={onClearPreview}
+      />,
+    );
+
+    const input = screen.getByRole('combobox', { name: 'Font family' });
+    fireEvent.focus(input);
+    const option = await screen.findByRole('option', { name: /Inter/ });
+    fireEvent.mouseEnter(option);
+    expect(onPreviewFamily).toHaveBeenCalledWith('Inter');
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(onClearPreview).toHaveBeenCalledOnce();
+  });
+
   it('keeps literal family options mounted before the portaled viewport is measured', async () => {
     render(<FontSelector value="Inter" onChange={() => {}} />);
     const input = screen.getByRole('combobox', { name: 'Font family' });

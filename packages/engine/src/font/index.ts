@@ -40,7 +40,11 @@ export type {
 export { diffCatalogs, FontCatalog } from './fontCatalog';
 // Font data collector (binary retrieval for export)
 export type { FontCollectOptions, FontDataRecord, FontDataRequest } from './fontDataCollector';
-export { collectAllStoredFonts, collectFontData } from './fontDataCollector';
+export {
+  collectAllStoredFonts,
+  collectFontData,
+  FontCollectionTimeoutError,
+} from './fontDataCollector';
 export type {
   DownloadJob,
   DownloadManagerConfig,
@@ -113,8 +117,9 @@ export {
   buildDocumentFontManifest,
   resolveManifestAgainstCatalog,
 } from './fontManifest';
+export type { FontParseOptions } from './fontParser';
 // Font file parsing
-export { classifyEmbeddingFSType, parseFontData } from './fontParser';
+export { classifyEmbeddingFSType, parseFontCollection, parseFontData } from './fontParser';
 export type { FontPersistenceResult } from './fontPersistence';
 // Document font manifest persistence (save/load integration)
 export {
@@ -136,7 +141,10 @@ export type {
   FontSubstitute,
   MissingFontInfo,
   ResolverDocument,
+  ResolverRichText,
+  ResolverStory,
   ResolverTextNode,
+  ResolverTextRun,
 } from './fontResolver';
 // Missing font resolution
 export { FONT_COMPAT_MAP, FontResolver } from './fontResolver';
@@ -147,6 +155,7 @@ export {
   getStoredFontCount,
   listStoredFonts,
   loadStoredFont,
+  releaseDocumentFontsInIndexedDb,
   removeStoredFont,
   removeStoredFontByIdentity,
   resetFontStorageMigrationForTests,
@@ -159,6 +168,7 @@ export {
   isFilesystemFontStorageAvailable,
   listFilesystemFonts,
   loadFontFromFilesystem,
+  releaseDocumentFonts,
   removeFontFromFilesystem,
   storeFontOnFilesystem,
 } from './fontStorageFs';
