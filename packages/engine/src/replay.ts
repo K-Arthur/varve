@@ -31,6 +31,7 @@ import {
   computeScreenBounds,
 } from './effectPipeline';
 import { applyFilterWithCompositing } from './filterCompositor';
+import { withoutIdentityFilters } from './filterIdentity';
 import { computePointwiseFilterSurface } from './filterSurfaceRegion';
 import { applyFilterChain, filterChainToCss, filterToCss, supportsCanvasFilter } from './filters';
 import { getImageCache } from './imageCache';
@@ -828,6 +829,13 @@ function replayItemOnIsolatedSurface(
   colorOptions?: ReplayColorOptions,
 ): boolean {
   const canvas = target.canvas;
+  // Neutral entries must not force the isolated-surface round-trip: rendering
+  // an item to an intermediate surface and drawing it back can shift
+  // antialiased edge pixels even when no filter has an effect.
+  const activeFilters =
+    item.filters && item.filters.length > 0
+      ? withoutIdentityFilters(item.filters)
+      : (item.filters ?? []);
   const needsLinearBlend =
     colorOptions?.blendEvaluationSpace === 'linear-srgb' &&
     item.blendMode !== undefined &&
@@ -837,7 +845,7 @@ function replayItemOnIsolatedSurface(
     !target.drawImage ||
     !target.getTransform ||
     !target.setTransform ||
-    (!item.filters?.some(
+    (!activeFilters.some(
       (filter) =>
         !supportsCanvasFilter(target) ||
         filter.blendMode !== 'normal' ||
@@ -856,7 +864,7 @@ function replayItemOnIsolatedSurface(
     cameraTransform: matrix,
     itemTransform: item.transform,
     strokes: item.strokes,
-    filters: item.filters ?? [],
+    filters: activeFilters,
     hasVisibleEffects: item.effects?.some((effect) => effect.visible) ?? false,
     canvasWidth: canvas.width,
     canvasHeight: canvas.height,
@@ -896,7 +904,7 @@ function replayItemOnIsolatedSurface(
   );
   applyFilterWithCompositing(
     surface.context as CanvasRenderingContext2D,
-    item.filters ?? [],
+    activeFilters,
     surfaceWidth,
     surfaceHeight,
     { treatmentSpace: treatmentSpaceForReplayItem(matrix, item) },
@@ -1009,21 +1017,27 @@ export function replayIr(
         // - Filters with non-normal blend mode
         // - Filters with opacity < 1
         // - Filters without a CSS equivalent (curves, levels, selectiveColor, etc.)
-        const needsPostRenderFilters = item.filters?.some(
+        // Neutral entries are dropped first so a reset control cannot force the
+        // offscreen path and change antialiased pixels for no reason.
+        const activeFilters =
+          item.filters && item.filters.length > 0
+            ? withoutIdentityFilters(item.filters)
+            : (item.filters ?? []);
+        const needsPostRenderFilters = activeFilters.some(
           (f) =>
             !f.blendMode || f.blendMode !== 'normal' || (f.opacity ?? 1) < 1 || !filterToCss(f),
         );
-        if (item.filters && item.filters.length > 0) {
+        if (activeFilters.length > 0) {
           if (needsPostRenderFilters) {
             // Simple CSS filters are applied before fills for GPU rendering.
             // Complex filters are deferred to post-render compositing.
-            const simpleFilters = item.filters.filter(
+            const simpleFilters = activeFilters.filter(
               (f) => f.blendMode === 'normal' && (f.opacity ?? 1) >= 1,
             );
             const simpleCss = filterChainToCss(simpleFilters);
             if (simpleCss) target.filter = simpleCss;
           } else {
-            applyFilterChain(target, item.filters);
+            applyFilterChain(target, activeFilters);
           }
         }
 
@@ -1142,8 +1156,8 @@ export function replayIr(
         // ── Post-render filter compositing ────────────────────────────
         // Apply complex filters (non-CSS, or requiring per-filter opacity/blend)
         // via offscreen canvas compositing on the fully rendered item.
-        if (needsPostRenderFilters && item.filters && item.filters.length > 0) {
-          const complexFilters = item.filters.filter(
+        if (needsPostRenderFilters && activeFilters.length > 0) {
+          const complexFilters = activeFilters.filter(
             (f) => f.blendMode !== 'normal' || (f.opacity ?? 1) < 1 || !filterToCss(f),
           );
           if (complexFilters.length > 0) {
