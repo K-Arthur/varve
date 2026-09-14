@@ -41,6 +41,7 @@ import {
 } from '@varve/scene';
 import { Button, Switch } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { computePlacementRevision } from '../../backgroundRemoval/SubjectIsolationService';
 import { useEditor } from '../../context';
 import { replaceImageShapeContent } from '../../imageOperations';
 import { decodeRasterMaskDataUrl, rasterizeAreaSelectionForNode } from '../../tools/selectionMask';
@@ -479,7 +480,13 @@ export function ContentAwareFillDialog({
   const [maskFeather, setMaskFeather] = useState(0);
   const [contextPadding, setContextPadding] = useState(32);
   const [maskOrigin, setMaskOrigin] = useState<
-    'brush' | 'pixel-selection' | 'layer-mask' | 'image-alpha' | 'object-selection' | 'persisted'
+    | 'brush'
+    | 'pixel-selection'
+    | 'layer-mask'
+    | 'background-removal'
+    | 'image-alpha'
+    | 'object-selection'
+    | 'persisted'
   >('brush');
   const [maskOperation, setMaskOperation] = useState<MaskCombineOperation>('replace');
   const [modelAvailable, setModelAvailable] = useState(false);
@@ -651,6 +658,17 @@ export function ContentAwareFillDialog({
       })
     : '';
   const sourceImage = typedNode?.fills?.find((fill) => fill.type === 'image')?.image;
+  const backgroundRemovalPreview =
+    typedNode &&
+    state.backgroundRemovalPreviewSession?.nodeId === typedNode.id &&
+    state.backgroundRemovalPreviewSession.documentId === state.document.id &&
+    state.backgroundRemovalPreviewSession.sourceLocator === imageSrc &&
+    computePlacementRevision(sourceImage ?? null) ===
+      state.backgroundRemovalPreviewSession.placementRevision &&
+    (!state.backgroundRemovalPreviewSession.sourceIdentity ||
+      state.backgroundRemovalPreviewSession.sourceIdentity.image === sourceImage)
+      ? state.backgroundRemovalPreviewSession
+      : null;
   const acceptedEdit = typedNode?.generativeEditId
     ? state.document.generativeEdits?.[typedNode.generativeEditId]
     : undefined;
@@ -1293,12 +1311,17 @@ export function ContentAwareFillDialog({
       coverage: Uint8Array,
       width: number,
       height: number,
-      origin: 'pixel-selection' | 'layer-mask' | 'image-alpha' | 'object-selection',
-    ) => {
+      origin:
+        | 'pixel-selection'
+        | 'layer-mask'
+        | 'background-removal'
+        | 'image-alpha'
+        | 'object-selection',
+    ): boolean => {
       const canvas = maskCanvasRef.current;
       if (!canvas || naturalSize.w <= 0 || naturalSize.h <= 0) {
         announce('The source image is still loading; try again in a moment');
-        return;
+        return false;
       }
       try {
         const resized = resizeMaskCoverage(
@@ -1318,8 +1341,10 @@ export function ContentAwareFillDialog({
         bumpMaskRevision();
         invalidatePreview();
         setErrorMessage(null);
+        return true;
       } catch (err) {
         announce(err instanceof Error ? err.message : 'The mask could not be loaded');
+        return false;
       }
     },
     [announce, bumpMaskRevision, invalidatePreview, maskOperation, naturalSize.h, naturalSize.w],
@@ -1384,9 +1409,24 @@ export function ContentAwareFillDialog({
       announce('This image has no raster layer mask to use');
       return;
     }
-    const decoded = await decodeRasterMaskDataUrl(layerMaskAsset.dataUrl);
+    const target = maskCanvasRef.current;
+    if (!target || naturalSize.w <= 0 || naturalSize.h <= 0) {
+      announce('The source image is still loading; try again in a moment');
+      return;
+    }
+    const decoded = await decodeRasterMaskDataUrl(layerMaskAsset.dataUrl, {
+      width: target.width,
+      height: target.height,
+    });
     if (!decoded) {
       announce('The layer mask could not be decoded');
+      return;
+    }
+    if (
+      (decoded.sourceWidth ?? decoded.width) !== layerMaskAsset.width ||
+      (decoded.sourceHeight ?? decoded.height) !== layerMaskAsset.height
+    ) {
+      announce('The layer mask dimensions do not match the stored mask asset');
       return;
     }
     applyMaskCoverage(
@@ -1395,7 +1435,61 @@ export function ContentAwareFillDialog({
       decoded.height,
       'layer-mask',
     );
-  }, [announce, applyMaskCoverage, layerMaskAsset]);
+  }, [announce, applyMaskCoverage, layerMaskAsset, naturalSize.h, naturalSize.w]);
+
+  const handleUseBackgroundRemovalPreview = useCallback(async () => {
+    if (!backgroundRemovalPreview) {
+      announce('The background removal preview is no longer current; run it again first');
+      return;
+    }
+    const target = maskCanvasRef.current;
+    if (!target || naturalSize.w <= 0 || naturalSize.h <= 0) {
+      announce('The source image is still loading; try again in a moment');
+      return;
+    }
+    const decoded = await decodeRasterMaskDataUrl(backgroundRemovalPreview.maskDataUrl, {
+      width: target.width,
+      height: target.height,
+    });
+    if (!decoded) {
+      announce('The background removal preview mask could not be decoded');
+      return;
+    }
+    const expectedSourceWidth =
+      naturalSize.w || sourceImage?.imageWidth || sourceAsset?.naturalWidth || 0;
+    const expectedSourceHeight =
+      naturalSize.h || sourceImage?.imageHeight || sourceAsset?.naturalHeight || 0;
+    if (
+      (decoded.sourceWidth ?? decoded.width) !== backgroundRemovalPreview.width ||
+      (decoded.sourceHeight ?? decoded.height) !== backgroundRemovalPreview.height ||
+      backgroundRemovalPreview.sourceWidth !== expectedSourceWidth ||
+      backgroundRemovalPreview.sourceHeight !== expectedSourceHeight
+    ) {
+      announce('The background removal preview does not match the current source dimensions');
+      return;
+    }
+    const applied = applyMaskCoverage(
+      maskCoverageFromRgba(decoded.data),
+      decoded.width,
+      decoded.height,
+      'background-removal',
+    );
+    if (applied) {
+      announce(
+        `Using the ${backgroundRemovalPreview.actualMethod} background removal preview as an editable mask`,
+      );
+    }
+  }, [
+    announce,
+    applyMaskCoverage,
+    backgroundRemovalPreview,
+    naturalSize.h,
+    naturalSize.w,
+    sourceAsset?.naturalHeight,
+    sourceAsset?.naturalWidth,
+    sourceImage?.imageHeight,
+    sourceImage?.imageWidth,
+  ]);
 
   const handleUseImageAlpha = useCallback(async () => {
     if (!imageSrc) {
@@ -2776,6 +2870,21 @@ export function ContentAwareFillDialog({
                 type="button"
                 variant="ghost"
                 size="sm"
+                onClick={() => void handleUseBackgroundRemovalPreview()}
+                disabled={
+                  !backgroundRemovalPreview ||
+                  naturalSize.w <= 0 ||
+                  naturalSize.h <= 0 ||
+                  hasResult ||
+                  isProcessing
+                }
+              >
+                Use Background Removal Preview
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => void handleUseImageAlpha()}
                 disabled={!imageSrc || hasResult || isProcessing}
               >
@@ -2825,9 +2934,11 @@ export function ContentAwareFillDialog({
                     ? 'Using the source image alpha channel.'
                     : maskOrigin === 'object-selection'
                       ? 'Using the confirmed Object Selection candidate; refine it with the brush.'
-                      : maskOrigin === 'persisted'
-                        ? 'Using the accepted edit mask.'
-                        : 'Paint directly on the source to define the edit region.'}
+                      : maskOrigin === 'background-removal'
+                        ? 'Using the Background Removal preview as an editable mask; refine it with the brush before generating.'
+                        : maskOrigin === 'persisted'
+                          ? 'Using the accepted edit mask.'
+                          : 'Paint directly on the source to define the edit region.'}
             </p>
           </div>
 

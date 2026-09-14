@@ -59,15 +59,20 @@ Adjustments and opens the same dialog, so menu, palette, and inspector entry
 points cannot drift into separate workflows. If the selection is mixed or
 multi-layer, the action announces the requirement and does not open a modal.
 
-The dialog accepts five mask sources: a painted source mask, the current
+The dialog accepts six mask sources: a painted source mask, the current
 document pixel selection, the selected image's raster layer mask, the source
-image alpha channel, or a ready candidate from the shared Object Selection
-session. Object Selection remains a suggestion until the user confirms a
-candidate; CAF then copies that candidate into its own editable mask, so later
-brush edits cannot mutate the transient segmentation session. All five sources
-are normalized into source-image pixel space before inference. Alpha-derived
-coverage remains soft at semitransparent edges instead of being thresholded into
-a binary selection. Invert, Clear
+image alpha channel, a ready candidate from the shared Object Selection
+session, or a current Background Removal preview. Object Selection remains a
+suggestion until the user confirms a candidate; CAF then copies that candidate
+into its own editable mask, so later brush edits cannot mutate the transient
+segmentation session. The Background Removal preview is also copied rather
+than linked: its source locator, placement revision, and declared mask/source
+dimensions must still match the selected image, and a large mask is drawn
+directly into the bounded CAF preview canvas instead of allocating a second
+full-resolution working buffer. All six sources are normalized into source-image
+pixel space before inference. Alpha-derived coverage remains soft at
+semitransparent edges instead of being thresholded into a binary selection.
+Invert, Clear
 Paint, Show Mask Overlay, brush size, add/subtract/intersect mask operations,
 mask grow/shrink, feather, context padding, quality/model choice, prompt (when
 a ready provider can consume it), Fit, 1:1, Original/Result, variation

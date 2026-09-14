@@ -63,6 +63,98 @@ async function seedReadyObjectSelectionAndOpenCaf(
   await expect(dialog).toBeVisible();
 }
 
+async function seedBackgroundRemovalPreviewAndOpenCaf(
+  page: import('@playwright/test').Page,
+): Promise<void> {
+  await page.evaluate(() => {
+    const root = document.querySelector('#root > *') as any;
+    if (!root) throw new Error('editor root not found');
+    const fiberKey = Object.keys(root).find((key) => key.startsWith('__reactFiber$'));
+    if (!fiberKey) throw new Error('editor fiber not found');
+    const seen = new Set<any>();
+    (function walk(fiber: any): void {
+      if (!fiber || seen.has(fiber)) return;
+      seen.add(fiber);
+      let hook = fiber.memoizedState;
+      while (hook) {
+        if (hook.queue) {
+          const current = hook.queue.lastRenderedState;
+          if (current?.document?.nodes) {
+            const imageNode = Object.values(current.document.nodes).find(
+              (node: any) =>
+                node?.kind === 'shape' && node.fills?.some((fill: any) => fill.type === 'image'),
+            ) as any;
+            if (!imageNode) {
+              hook = hook.next;
+              continue;
+            }
+            const imageFill = imageNode.fills.find((fill: any) => fill.type === 'image');
+            const image = imageFill?.image;
+            const asset = image?.assetId ? current.document.assets?.[image.assetId] : undefined;
+            const width = image?.imageWidth ?? asset?.naturalWidth ?? 0;
+            const height = image?.imageHeight ?? asset?.naturalHeight ?? 0;
+            if (!image?.src || !Number.isSafeInteger(width) || !Number.isSafeInteger(height)) {
+              throw new Error('imported image dimensions are unavailable');
+            }
+            const mask = document.createElement('canvas');
+            mask.width = width;
+            mask.height = height;
+            const context = mask.getContext('2d');
+            if (!context) throw new Error('mask canvas unavailable');
+            context.fillStyle = 'black';
+            context.fillRect(0, 0, width, height);
+            context.fillStyle = 'white';
+            context.fillRect(
+              Math.floor(width * 0.35),
+              Math.floor(height * 0.35),
+              Math.max(1, Math.floor(width * 0.3)),
+              Math.max(1, Math.floor(height * 0.3)),
+            );
+            const crop = image.crop;
+            const placementRevision = JSON.stringify([
+              image.x ?? 0,
+              image.y ?? 0,
+              image.scale ?? 1,
+              image.fit ?? '',
+              image.rotation ?? 0,
+              image.flipH ?? false,
+              image.flipV ?? false,
+              crop ? [crop.x, crop.y, crop.w, crop.h] : null,
+            ]);
+            hook.queue.dispatch((previous: any) => ({
+              ...previous,
+              selection: [imageNode.id],
+              cafDialogNodeId: imageNode.id,
+              backgroundRemovalPreviewSession: {
+                nodeId: imageNode.id,
+                documentId: previous.document.id,
+                sourceLocator: image.src,
+                placementRevision,
+                maskDataUrl: mask.toDataURL('image/png'),
+                width,
+                height,
+                sourceWidth: width,
+                sourceHeight: height,
+                requestedMethod: 'quick',
+                actualMethod: 'quick',
+                confidence: 0.92,
+                feather: 0.5,
+                decontaminate: false,
+              },
+            }));
+            return;
+          }
+        }
+        hook = hook.next;
+      }
+      walk(fiber.child);
+      walk(fiber.sibling);
+    })(root[fiberKey]);
+  });
+  const dialog = page.locator('dialog.varve-dialog--caf[open]');
+  await expect(dialog).toBeVisible();
+}
+
 test('uses a confirmed Object Selection candidate as an editable CAF mask', async ({ page }) => {
   await navigateToEditor(page);
   await page
@@ -80,6 +172,34 @@ test('uses a confirmed Object Selection candidate as an editable CAF mask', asyn
   );
   await expect(dialog.getByRole('button', { name: /clear paint/i })).toBeEnabled();
   await expect(dialog.getByRole('button', { name: /remove && fill/i })).toBeEnabled();
+  await dialog.getByRole('button', { name: /^cancel$/i }).click();
+  await expect(dialog).not.toBeVisible();
+});
+
+test('uses a current Background Removal preview as an editable CAF mask', async ({
+  page,
+}, testInfo) => {
+  await navigateToEditor(page);
+  await page
+    .locator('#file-import-input')
+    .setInputFiles(path.resolve('tests/e2e/fixtures/real-life-portrait.jpg'));
+  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 30_000 });
+
+  await seedBackgroundRemovalPreviewAndOpenCaf(page);
+  const dialog = page.locator('dialog.varve-dialog--caf[open]');
+  const previewButton = dialog.getByRole('button', {
+    name: 'Use Background Removal Preview',
+  });
+  await expect(previewButton).toBeEnabled({ timeout: 10_000 });
+  await previewButton.click();
+  await expect(dialog).toContainText(
+    'Using the Background Removal preview as an editable mask; refine it with the brush before generating.',
+  );
+  await expect(dialog.getByRole('button', { name: /clear paint/i })).toBeEnabled();
+  await testInfo.attach('caf-background-removal-mask-source', {
+    body: await dialog.screenshot(),
+    contentType: 'image/png',
+  });
   await dialog.getByRole('button', { name: /^cancel$/i }).click();
   await expect(dialog).not.toBeVisible();
 });

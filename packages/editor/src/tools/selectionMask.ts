@@ -39,6 +39,14 @@ export interface DecodedMaskPixels {
   data: Uint8ClampedArray;
   width: number;
   height: number;
+  /** Natural dimensions of the encoded mask before an optional downsample. */
+  sourceWidth?: number;
+  sourceHeight?: number;
+}
+
+export interface RasterMaskDecodeTarget {
+  width: number;
+  height: number;
 }
 
 function sampleDecodedAlpha(pixels: DecodedMaskPixels, x: number, y: number): number {
@@ -333,23 +341,35 @@ export function areaSelectionFromMaskCoverage(
   return areaSelectionFromMaskPixels(doc, nodeId, { data: rgba, width, height }, coordinateSpace);
 }
 
-export function decodeRasterMaskDataUrl(dataUrl: string): Promise<DecodedMaskPixels | null> {
+export function decodeRasterMaskDataUrl(
+  dataUrl: string,
+  target?: RasterMaskDecodeTarget,
+): Promise<DecodedMaskPixels | null> {
   if (typeof Image === 'undefined' || typeof document === 'undefined') return Promise.resolve(null);
   return new Promise((resolve) => {
     const image = new Image();
     image.onload = () => {
       try {
+        const width = target?.width ?? image.naturalWidth;
+        const height = target?.height ?? image.naturalHeight;
+        if (!dimensionsAllowed(width, height)) return resolve(null);
         const canvas = document.createElement('canvas');
-        canvas.width = image.naturalWidth;
-        canvas.height = image.naturalHeight;
+        canvas.width = width;
+        canvas.height = height;
         const context = canvas.getContext('2d', { willReadFrequently: true });
         if (!context || canvas.width <= 0 || canvas.height <= 0) return resolve(null);
         // Canvas starts transparent. Decode the loaded image into it before
         // reading pixels; without this every image-derived selection sees a
         // fully transparent plane irrespective of the actual source asset.
-        context.drawImage(image, 0, 0);
+        context.drawImage(image, 0, 0, width, height);
         const result = context.getImageData(0, 0, canvas.width, canvas.height);
-        resolve({ data: result.data, width: result.width, height: result.height });
+        resolve({
+          data: result.data,
+          width: result.width,
+          height: result.height,
+          sourceWidth: image.naturalWidth,
+          sourceHeight: image.naturalHeight,
+        });
       } catch {
         resolve(null);
       }
