@@ -14,7 +14,7 @@ Focused tests:
 
 ```text
 ./node_modules/.bin/vitest run packages/editor/src/components/Typography/fontWeight.test.ts --config vitest.config.ts --reporter=dot
-  1 file, 16 tests passed
+  1 file, 21 tests passed
 
 ./node_modules/.bin/vitest run packages/editor/src/components/FloatingTextBar/FloatingTextBar.test.tsx --config vitest.config.ts --reporter=dot
   1 file, 33 tests passed
