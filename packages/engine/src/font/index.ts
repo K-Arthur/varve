@@ -20,6 +20,22 @@ export type {
   FontCatalogFilter,
   FontCatalogSort,
 } from './fontCatalog';
+export type {
+  CatalogCapability,
+  ExportCapability,
+  FontCapabilityAction,
+  FontCapabilityDiagnostic,
+  FontCapabilityOutcome,
+  FontCapabilityState,
+  MainThreadCapability,
+  NetworkCapability,
+  OperationPermission,
+  ShapingCapability,
+  StoredBytesCapability,
+  ValidatedFaceCapability,
+  WorkerCapability,
+} from './fontCapabilities';
+export { diagnoseFontCapabilities, unknownFontCapabilities } from './fontCapabilities';
 // Searchable catalog
 export { diffCatalogs, FontCatalog } from './fontCatalog';
 // Font data collector (binary retrieval for export)

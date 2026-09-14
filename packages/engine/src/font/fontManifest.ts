@@ -12,6 +12,7 @@
  *   - Preflight / export: embedding rights are checked before embedding fonts.
  */
 
+import { diagnoseFontCapabilities, type FontCapabilityState } from './fontCapabilities';
 import type { FontCatalog, FontCatalogEntry } from './fontCatalog';
 import type {
   EmbeddingRights,
@@ -33,7 +34,13 @@ export type FontManifestStatus =
   | 'available' // present in the local catalog
   | 'missing' // referenced but not available
   | 'substituted' // replaced with a substitute font
-  | 'restricted'; // embedding forbidden by fsType/license
+  | 'restricted' // embedding forbidden by fsType/license
+  | 'loading'
+  | 'corrupt'
+  | 'unsupported'
+  | 'permission-denied'
+  | 'offline'
+  | 'error';
 
 export interface FontManifestEntry {
   /** Display family name used in the document/UI. */
@@ -54,6 +61,8 @@ export interface FontManifestEntry {
   embeddingPolicy?: FontEmbeddingPolicy;
   /** Runtime status of the font reference. */
   status: FontManifestStatus;
+  /** Explicit runtime capability projection, when the catalog has one. */
+  capabilities?: FontCapabilityState;
   /** If status is `substituted`, the original family name that was replaced. */
   substituteFor?: string;
   /** Optional asset id if the font is embedded in the document itself. */
@@ -157,11 +166,7 @@ export function buildDocumentFontManifest(
         catalogEntryToManifest(catalogEntry, {
           requestedWeight: u.weight,
           requestedStyle: u.style,
-          status: appliedReplacement
-            ? 'substituted'
-            : embeddingAllowed(catalogEntry.embeddingRights)
-              ? 'available'
-              : 'restricted',
+          status: appliedReplacement ? 'substituted' : manifestStatusForCatalogEntry(catalogEntry),
           substituteFor: appliedReplacement?.original,
         }),
       );
@@ -244,7 +249,7 @@ export function resolveManifestAgainstCatalog(
   const updated: FontManifestEntry[] = [];
 
   for (const entry of manifest.fonts) {
-    if (entry.status === 'available' || entry.status === 'restricted') {
+    if (entry.status !== 'missing' && entry.status !== 'substituted') {
       // Verify the font is still available and the identity still matches.
       const catalogEntry = entry.fontReference
         ? catalog.getEntryForReference(entry.fontReference)
@@ -262,7 +267,7 @@ export function resolveManifestAgainstCatalog(
           catalogEntryToManifest(catalogEntry, {
             requestedWeight: entry.requestedWeight,
             requestedStyle: entry.requestedStyle,
-            status: embeddingAllowed(catalogEntry.embeddingRights) ? 'available' : 'restricted',
+            status: manifestStatusForCatalogEntry(catalogEntry),
           }),
         );
       } else {
@@ -287,9 +292,10 @@ export function resolveManifestAgainstCatalog(
           catalogEntryToManifest(replacementEntry, {
             requestedWeight: entry.requestedWeight,
             requestedStyle: entry.requestedStyle,
-            status: embeddingAllowed(replacementEntry.embeddingRights)
-              ? 'substituted'
-              : 'restricted',
+            status:
+              manifestStatusForCatalogEntry(replacementEntry) === 'available'
+                ? 'substituted'
+                : manifestStatusForCatalogEntry(replacementEntry),
             substituteFor: entry.substituteFor,
           }),
         );
@@ -328,9 +334,7 @@ export function resolveManifestAgainstCatalog(
             requestedWeight: entry.requestedWeight,
             requestedStyle: entry.requestedStyle,
             status: isExactFamily
-              ? embeddingAllowed(subEntry.embeddingRights)
-                ? 'available'
-                : 'restricted'
+              ? manifestStatusForCatalogEntry(subEntry)
               : embeddingAllowed(subEntry.embeddingRights)
                 ? 'substituted'
                 : 'restricted',
@@ -404,8 +408,43 @@ function catalogEntryToManifest(
     embeddingRights: entry.embeddingRights,
     embeddingPolicy: entry.embeddingPolicy,
     status: overrides.status,
+    ...(entry.capabilities ? { capabilities: entry.capabilities } : {}),
     substituteFor: overrides.substituteFor,
   };
+}
+
+function manifestStatusForCatalogEntry(entry: FontCatalogEntry): FontManifestStatus {
+  const fallback: FontManifestStatus = embeddingAllowed(entry.embeddingRights)
+    ? 'available'
+    : 'restricted';
+  if (!entry.capabilities) return fallback;
+  // Catalog projections often arrive before an exact face has been loaded.
+  // That is a pending runtime detail, not proof that a persisted font is
+  // broken; preserve the manifest's availability until a concrete failure is
+  // reported.
+  if (
+    entry.capabilities.validatedFace === 'unknown' &&
+    entry.capabilities.mainThread === 'unavailable'
+  ) {
+    return fallback;
+  }
+  const outcome = diagnoseFontCapabilities(entry.capabilities).outcome;
+  switch (outcome) {
+    case 'loading':
+    case 'corrupt':
+    case 'unsupported':
+    case 'permission-denied':
+    case 'offline':
+    case 'error':
+      return outcome;
+    case 'restricted':
+      return 'restricted';
+    case 'missing-family':
+    case 'missing-face':
+      return 'missing';
+    default:
+      return fallback;
+  }
 }
 
 function findReplacementForFamily(

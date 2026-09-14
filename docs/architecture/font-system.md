@@ -219,6 +219,17 @@ through a second branch while adoption is pending. A stale or failed
 acknowledgement therefore selects the main-thread replay before any bitmap is
 presented.
 
+`fontCapabilities.ts` is the projection boundary for these signals. It keeps
+catalog presence, stored-byte integrity, face validation, renderer readiness,
+worker adoption, shaping support, network state, and local/embed/redistribution
+permissions as separate fields. `diagnoseFontCapabilities` evaluates them in a
+stable order: corrupt or unsupported bytes win over offline, permission denial
+is distinct from a missing family, and restricted embedding is distinct from
+render readiness. Catalog entries and document manifest entries retain this
+projection, while the Document Fonts panel renders a compact status badge for
+the exact face. Unknown startup metadata stays conservative and does not get
+reported as a corrupt or missing file.
+
 When a browser Canvas2D context lacks its optional OpenType feature or
 variation properties, the main-thread renderer has a second exact-face boundary.
 `canvasOpenTypeRenderer.ts` parses the already discovered source artifact and

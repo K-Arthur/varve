@@ -81,6 +81,26 @@ export function resolveFontManifestForLoadedDocument(
         `Font "${entry.familyName}" has restricted embedding permissions. ` +
           `It cannot be included in exported documents or packages.`,
       );
+    } else if (entry.status === 'corrupt') {
+      warnings.push(
+        `Font "${entry.familyName}" has corrupt stored bytes. Repair or re-import the exact face before export.`,
+      );
+    } else if (entry.status === 'unsupported') {
+      warnings.push(
+        `Font "${entry.familyName}" is unsupported by this renderer. Choose a compatible face or outline the text.`,
+      );
+    } else if (entry.status === 'permission-denied') {
+      warnings.push(
+        `Font "${entry.familyName}" needs local-font permission before it can be restored.`,
+      );
+    } else if (entry.status === 'offline') {
+      warnings.push(
+        `Font "${entry.familyName}" is not stored locally and cannot be recovered while offline.`,
+      );
+    } else if (entry.status === 'loading') {
+      warnings.push(`Font "${entry.familyName}" is still loading; wait before exporting.`);
+    } else if (entry.status === 'error') {
+      warnings.push(`Font "${entry.familyName}" has no ready rendering path on this device.`);
     }
   }
 

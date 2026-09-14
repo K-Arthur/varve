@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { FontCapabilityState } from './fontCapabilities';
 import { FontCatalog } from './fontCatalog';
 import type { FontIdentity, ParsedFontMetadata } from './fontIdentity';
 import {
@@ -92,6 +93,35 @@ describe('buildDocumentFontManifest', () => {
 
     const manifest = buildDocumentFontManifest(doc, catalog);
     expect(manifest.fonts[0]!.status).toBe('restricted');
+  });
+
+  it('persists concrete runtime capability failures in the manifest', () => {
+    const entry = makeEntry('BrokenFont', 'Regular');
+    const catalog = catalogWith([entry]);
+    const catalogEntry = catalog.getEntriesForFamily('BrokenFont')[0]!;
+    const capabilities: FontCapabilityState = {
+      catalog: 'present',
+      storedBytes: 'corrupt',
+      validatedFace: 'corrupt',
+      mainThread: 'unavailable',
+      worker: 'unavailable',
+      shaping: 'unsupported',
+      export: 'unavailable',
+      network: 'online',
+      permissions: {
+        localAccess: 'allowed',
+        embedding: 'allowed',
+        redistribution: 'unknown',
+      },
+    };
+    catalog.setCapabilities(catalogEntry.id, capabilities);
+    const manifest = buildDocumentFontManifest(
+      docWith({ t1: { id: 't1', kind: 'text', text: 'Hello', fontFamily: 'BrokenFont' } }),
+      catalog,
+    );
+
+    expect(manifest.fonts[0]!.status).toBe('corrupt');
+    expect(manifest.fonts[0]!.capabilities).toEqual(capabilities);
   });
 
   it('auto-substitutes missing fonts when requested', () => {

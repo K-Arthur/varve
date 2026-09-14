@@ -14,6 +14,7 @@
  */
 
 import type { FontEntry, FontRegistry } from '../fontRegistry';
+import type { FontCapabilityState } from './fontCapabilities';
 import { FontCatalog, type FontCatalogEntry } from './fontCatalog';
 import {
   fontReferenceFromIdentity,
@@ -49,6 +50,7 @@ export function createFontCatalogFromRegistry(registry: FontRegistry): FontCatal
     for (const entry of registry.getEntries(family)) {
       const catalogEntry = catalog.addEntry(parsedMetadataFromRegistryEntry(registry, entry));
       catalog.setActive(catalogEntry.id, registry.isAvailable(family));
+      catalog.setCapabilities(catalogEntry.id, capabilitiesFromRegistryEntry(registry, entry));
     }
   }
   return catalog;
@@ -96,6 +98,10 @@ export class FontBridge {
           parsedMetadataFromRegistryEntry(this.registry, entry),
         );
         this.catalog.setActive(catalogEntry.id, this.registry.isAvailable(family));
+        this.catalog.setCapabilities(
+          catalogEntry.id,
+          capabilitiesFromRegistryEntry(this.registry, entry),
+        );
       }
     }
   }
@@ -231,6 +237,38 @@ function parsedMetadataFromRegistryEntry(
     source: sourceKindFromRegistry(entry.source),
     ...(entry.sourceLocation ? { sourceLocation: entry.sourceLocation } : {}),
     ...(entry.sourceHandle ? { sourceHandle: entry.sourceHandle } : {}),
+  };
+}
+
+function capabilitiesFromRegistryEntry(
+  registry: FontRegistry,
+  entry: FontEntry,
+): FontCapabilityState {
+  const metadata = registry.getMetadata(entry.family);
+  const loaded = registry.isAvailable(entry.family);
+  const embedding = metadata?.embeddingRights;
+  const embeddingAllowed =
+    embedding === 'installable' || embedding === 'editable' || embedding === 'no-subsetting';
+  return {
+    catalog: 'present',
+    // Registry entries can be system, bundled, or provider metadata without
+    // proving that the original artifact bytes are persisted locally.
+    storedBytes: 'unknown',
+    validatedFace: entry.faceKey || entry.postScriptName ? 'available' : 'unknown',
+    mainThread: loaded
+      ? 'ready'
+      : registry.state(entry.family) === 'loading'
+        ? 'pending'
+        : 'unavailable',
+    worker: 'unavailable',
+    shaping: metadata?.openTypeFeatures?.length ? 'supported' : 'fallback',
+    export: embedding === undefined ? 'unknown' : embeddingAllowed ? 'supported' : 'restricted',
+    network: entry.source === 'google' ? 'online' : 'unknown',
+    permissions: {
+      localAccess: entry.source === 'system' ? 'allowed' : 'unknown',
+      embedding: embedding === undefined ? 'unknown' : embeddingAllowed ? 'allowed' : 'denied',
+      redistribution: 'unknown',
+    },
   };
 }
 

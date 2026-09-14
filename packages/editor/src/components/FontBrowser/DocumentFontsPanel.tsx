@@ -1,11 +1,12 @@
 import { getFontRegistry } from '@varve/engine';
 import {
   createFontCatalogFromRegistry,
+  diagnoseFontCapabilities,
   type FontReference,
   type FontReplacement,
 } from '@varve/engine/font';
 import type { Document } from '@varve/scene';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useEditor } from '../../context';
 import {
   applyFontReplacement,
@@ -93,6 +94,40 @@ function usageMatches(usage: DocumentFontUsage, query: string): boolean {
     .some((value) => value!.toLocaleLowerCase().includes(needle));
 }
 
+function capabilityLabel(
+  usage: DocumentFontUsage,
+  catalog: ReturnType<typeof createFontCatalogFromRegistry>,
+): { label: string; tone: 'ready' | 'warning' | 'error' } {
+  const entry = usage.fontReference
+    ? catalog.getEntryForReference(usage.fontReference)
+    : catalog.getEntriesForFamily(usage.family)[0];
+  if (!entry) return { label: 'Missing exact face', tone: 'error' };
+  if (!entry.capabilities) return { label: 'Cataloged', tone: 'warning' };
+  const diagnostic = diagnoseFontCapabilities(entry.capabilities);
+  switch (diagnostic.outcome) {
+    case 'ready':
+      return { label: 'Ready', tone: 'ready' };
+    case 'loading':
+      return { label: 'Loading', tone: 'warning' };
+    case 'restricted':
+      return { label: 'Embedding restricted', tone: 'warning' };
+    case 'permission-denied':
+      return { label: 'Permission needed', tone: 'warning' };
+    case 'offline':
+      return { label: 'Offline recovery', tone: 'warning' };
+    case 'corrupt':
+      return { label: 'Corrupt bytes', tone: 'error' };
+    case 'unsupported':
+      return { label: 'Unsupported face', tone: 'error' };
+    case 'missing-family':
+      return { label: 'Missing family', tone: 'error' };
+    case 'missing-face':
+      return { label: 'Missing exact face', tone: 'error' };
+    default:
+      return { label: 'Needs validation', tone: 'warning' };
+  }
+}
+
 export function DocumentFontsPanel() {
   const editor = useEditor();
   const { state, setSelectionRefs, announce } = editor;
@@ -105,6 +140,20 @@ export function DocumentFontsPanel() {
     replacement: FontReplacement;
   } | null>(null);
   const restoreDialogRef = useRef<HTMLDivElement>(null);
+  const registry = useMemo(() => getFontRegistry(), []);
+  const registrySubscribe = useCallback(
+    (listener: () => void) => registry.subscribe(listener),
+    [registry],
+  );
+  const registryRevision = useSyncExternalStore(
+    registrySubscribe,
+    () => registry.revision,
+    () => registry.revision,
+  );
+  const catalog = useMemo(
+    () => createFontCatalogFromRegistry(registry),
+    [registry, registryRevision],
+  );
   const page = state.document.pages?.find(
     (candidate) => candidate.id === state.document.activePageId,
   );
@@ -357,6 +406,7 @@ export function DocumentFontsPanel() {
             </div>
           ) : (
             usedEntries.map((entry) => {
+              const capability = capabilityLabel(entry, catalog);
               const restorable = findRestorableFontReplacement(
                 state.document,
                 entry.family,
@@ -370,6 +420,12 @@ export function DocumentFontsPanel() {
                     <small>{usageDescription(entry)}</small>
                     <small className={entry.fontReference ? 'is-exact' : 'is-family-only'}>
                       {referenceSummary(entry.fontReference)}
+                    </small>
+                    <small
+                      className={`document-fonts-panel__capability document-fonts-panel__capability--${capability.tone}`}
+                      role="status"
+                    >
+                      {capability.label}
                     </small>
                   </div>
                   <div className="document-fonts-panel__row-actions">

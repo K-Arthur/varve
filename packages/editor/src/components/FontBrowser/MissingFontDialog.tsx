@@ -183,6 +183,10 @@ export function MissingFontDialog({
     'missing-glyph': 'Missing glyphs',
     corrupt: 'Corrupt',
     unsupported: 'Unsupported',
+    'permission-denied': 'Permission needed',
+    offline: 'Offline',
+    loading: 'Loading',
+    error: 'Unavailable',
     conflicting: 'Conflicting face',
     'version-mismatch': 'Version mismatch',
   };

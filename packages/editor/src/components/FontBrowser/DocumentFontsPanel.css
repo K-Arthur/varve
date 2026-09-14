@@ -198,6 +198,33 @@
   color: var(--color-feedback-warning-strong);
 }
 
+.document-fonts-panel__capability {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: fit-content;
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-control-compact);
+  font-size: var(--font-size-3xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.document-fonts-panel__capability--ready {
+  color: var(--color-feedback-success-strong);
+  background: color-mix(in srgb, var(--color-feedback-success) 14%, transparent);
+}
+
+.document-fonts-panel__capability--warning {
+  color: var(--color-feedback-warning-strong);
+  background: color-mix(in srgb, var(--color-feedback-warning) 14%, transparent);
+}
+
+.document-fonts-panel__capability--error {
+  color: var(--color-feedback-danger);
+  background: color-mix(in srgb, var(--color-feedback-danger) 14%, transparent);
+}
+
 .document-fonts-panel__select {
   flex: 0 0 auto;
 }

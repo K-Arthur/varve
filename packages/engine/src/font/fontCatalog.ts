@@ -9,6 +9,7 @@
  * OpenType spec metadata fields, Figma font menu behaviour.
  */
 
+import type { FontCapabilityState } from './fontCapabilities';
 import type {
   EmbeddingRights,
   FontCategory,
@@ -36,6 +37,8 @@ export interface FontCatalogEntry extends ParsedFontMetadata {
   recentlyUsedAt?: number;
   /** User-defined tags for organisation. */
   tags: string[];
+  /** Runtime readiness projection for this exact artifact/member. */
+  capabilities?: FontCapabilityState;
 }
 
 /** Filter criteria for catalog search. */
@@ -118,6 +121,7 @@ export class FontCatalog {
         isFavorite: existing.isFavorite,
         recentlyUsedAt: existing.recentlyUsedAt,
         tags: existing.tags,
+        capabilities: existing.capabilities,
       };
       this.entries.set(id, merged);
       return merged;
@@ -223,6 +227,16 @@ export class FontCatalog {
   setActive(id: string, active: boolean): void {
     const e = this.entries.get(id);
     if (e) e.isActive = active;
+  }
+
+  /** Replace the runtime capability projection without changing font metadata. */
+  setCapabilities(id: string, capabilities: FontCapabilityState): void {
+    const entry = this.entries.get(id);
+    if (entry) entry.capabilities = capabilities;
+  }
+
+  getCapabilities(id: string): FontCapabilityState | undefined {
+    return this.entries.get(id)?.capabilities;
   }
 
   // -- Tags ----------------------------------------------------------------

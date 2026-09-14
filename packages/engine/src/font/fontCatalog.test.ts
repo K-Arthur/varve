@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { unknownFontCapabilities } from './fontCapabilities';
 import { diffCatalogs, FontCatalog } from './fontCatalog';
 import type { FontIdentity, ParsedFontMetadata } from './fontIdentity';
 import { fontIdentityKey } from './fontIdentity';
@@ -52,6 +53,16 @@ function makeId(overrides: Partial<FontIdentity> = {}): string {
 // ---------------------------------------------------------------------------
 
 describe('FontCatalog', () => {
+  it('keeps runtime capabilities attached to the exact face identity', () => {
+    const catalog = new FontCatalog();
+    const entry = catalog.addEntry(makeMeta());
+    const capabilities = unknownFontCapabilities();
+    catalog.setCapabilities(entry.id, capabilities);
+
+    expect(catalog.getCapabilities(entry.id)).toBe(capabilities);
+    expect(catalog.addEntry(makeMeta({ fileSize: 101 })).capabilities).toBe(capabilities);
+  });
+
   // -- Basic CRUD ----------------------------------------------------------
 
   describe('addEntry / getEntry / hasEntry / removeEntry / size', () => {
