@@ -176,18 +176,13 @@ Delivered on `master`:
   guide's "Failure modes Varve deliberately avoids" section was captured
   while that shared file was committed for accelerator copy; content verified
   present.
-- Pending: `tests/e2e/canvas/adaptive-residency.spec.ts` enables `?perf=1`
-  and asserts the seam exists so its `forceFullRedraw` oracle is real; the
-  change passed the production-artifact E2E run recorded in the audit §8.2.
-  Its commit is blocked by the shared-tree `typecheck:e2e` gate: two
-  untracked in-flight specs (`tests/e2e/canvas/liquify.spec.ts`,
-  `tests/e2e/canvas/frequency-separation.spec.ts`) declare a narrower
-  `Window.__varvePerf` than the committed
-  `tests/e2e/visual/raster-lod-parity.spec.ts`, and
-  `tests/e2e/_probe-liquify.spec.ts` has an unused import. All three belong
-  to active writers (retry once they land). The committed `maskDecode.ts`
-  Blob-typing regression that also blocked the gate was repaired in
-  `7b655516c`.
+- `51aa60f71` — `adaptive-residency.spec.ts` enables `?perf=1` and asserts
+  the seam exists, so its `forceFullRedraw` oracle is a real settled-pixels
+  comparison instead of a hash compared to itself. Its commit landed after
+  the untracked liquify/frequency-separation specs' conflicting
+  `Window.__varvePerf` declarations briefly cleared; the committed
+  `maskDecode.ts` Blob-typing regression that also blocked the shared gate
+  was repaired in `7b655516c`.
 
 Validation actually run, exact commands, and the shared-worktree blockers are
 recorded in the audit's §8.
