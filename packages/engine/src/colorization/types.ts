@@ -72,11 +72,16 @@ export interface ColorizationParams {
   skinProtection: boolean;
   neutralProtection: boolean;
   referenceNodeId?: string;
+  hintsNodeId?: string;
   palette?: readonly string[];
   /** Shaded palette influence or literal palette quantization. */
   paletteMode?: 'shaded' | 'strict';
   maskNodeId?: string;
   adherence?: number;
+  /** Line-art paper threshold 0-1. */
+  lineThreshold?: number;
+  /** Line-art gap-closing radius in working pixels 0-8. */
+  gapClose?: number;
 }
 
 export interface ColorizationProgress {
@@ -101,8 +106,12 @@ export interface ColorizationRequest {
   params: ColorizationParams;
   imageData: ImageData;
   referenceData?: ImageData;
+  /** Color hints for line-art colorization. */
+  hintsData?: ImageData;
   /** Identity of the decoded reference used by the legacy facade. */
   referenceSrc?: string;
+  /** Identity of the decoded hint image used by the legacy facade. */
+  hintsSrc?: string;
   maskData?: Uint8Array;
   maskWidth?: number;
   maskHeight?: number;

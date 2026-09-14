@@ -25,6 +25,7 @@ import type {
 import { combineLabToImageData } from './colorSpace';
 import { resolveDdColorRuntime } from './ddcolorRuntime';
 import { harmonize } from './harmonize';
+import { type LineArtStats, lineArtColorize } from './lineArt';
 import { paletteColorize, validatePalette } from './palette';
 import { selectiveRecolor } from './recolor';
 import { featherMask } from './sam2Recolor';
@@ -127,6 +128,30 @@ export function validateColorizationRequest(request: ColorizationRequestContract
         return 'reference dimensions must be positive integers';
       }
       break;
+    case 'lineart-colorize':
+      if (!request.hints) return 'lineart-colorize requires a color-hint image';
+      if (!request.hints.src) return 'lineart-colorize requires a hint source';
+      if (
+        !Number.isSafeInteger(request.hints.width) ||
+        !Number.isSafeInteger(request.hints.height) ||
+        request.hints.width <= 0 ||
+        request.hints.height <= 0
+      ) {
+        return 'hint dimensions must be positive integers';
+      }
+      if (
+        request.params?.lineThreshold !== undefined &&
+        (request.params.lineThreshold < 0 || request.params.lineThreshold > 1)
+      ) {
+        return 'lineThreshold must be between 0 and 1';
+      }
+      if (
+        request.params?.gapClose !== undefined &&
+        (request.params.gapClose < 0 || request.params.gapClose > 8)
+      ) {
+        return 'gapClose must be between 0 and 8';
+      }
+      break;
     case 'sam2-encode':
       // Source image data must be provided via the editor context
       break;
@@ -164,11 +189,13 @@ async function dispatchClassical(
   request: ColorizationRequestContract,
   sourceData: ImageData,
   referenceData?: ImageData,
+  hintsData?: ImageData,
 ): Promise<ColorizationResultContract> {
   const startTime = performance.now();
   request.onProgress?.({ phase: 'preprocessing', percent: 10, elapsedMs: 0 });
 
   let resultData: ImageData;
+  let lineArtStats: LineArtStats | undefined;
 
   switch (request.kind) {
     case 'selective-recolor': {
@@ -241,6 +268,18 @@ async function dispatchClassical(
       break;
     }
 
+    case 'lineart-colorize': {
+      if (!hintsData) throw new Error('Hint image data required');
+      const params = request.params ?? {};
+      const lineArtResult = lineArtColorize(sourceData, hintsData, {
+        lineThreshold: params.lineThreshold ?? 0.5,
+        gapClose: params.gapClose ?? 1,
+      });
+      resultData = lineArtResult.image;
+      lineArtStats = lineArtResult.stats;
+      break;
+    }
+
     default:
       throw new Error(`Classical dispatch not supported for kind: ${request.kind}`);
   }
@@ -262,6 +301,7 @@ async function dispatchClassical(
     referenceRevision: request.reference?.revision,
     dispatchedAt: performance.now(),
     imageData: resultData,
+    ...(lineArtStats ? { lineArt: lineArtStats } : {}),
     workflow: request.kind as ColorizationResultContract['workflow'],
     modelUsed: null,
     provider: 'classical',
@@ -438,6 +478,7 @@ export async function dispatchColorization(
   request: ColorizationRequestContract,
   sourceData: ImageData,
   referenceData?: ImageData,
+  hintsData?: ImageData,
 ): Promise<ColorizationResultContract> {
   const validation = validateColorizationRequest(request);
   if (validation) throw new Error(`Invalid request: ${validation}`);
@@ -466,6 +507,19 @@ export async function dispatchColorization(
   ) {
     throw new Error('Reference image data required');
   }
+  if (
+    hintsData &&
+    request.hints &&
+    (hintsData.width !== request.hints.width || hintsData.height !== request.hints.height)
+  ) {
+    throw new Error('Hint image dimensions do not match the request identity');
+  }
+  if (hintsData && hintsData.data.length < hintsData.width * hintsData.height * 4) {
+    throw new Error('Hint image data is shorter than its dimensions');
+  }
+  if (request.hints && !hintsData && request.kind === 'lineart-colorize') {
+    throw new Error('Hint image data required');
+  }
 
   if (request.signal?.aborted) throw new Error('Request cancelled');
 
@@ -475,10 +529,11 @@ export async function dispatchColorization(
     'reference-transfer',
     'harmonize',
     'palette-colorize',
+    'lineart-colorize',
   ]);
 
   if (classicalKinds.has(request.kind)) {
-    return dispatchClassical(request, sourceData, referenceData);
+    return dispatchClassical(request, sourceData, referenceData, hintsData);
   }
 
   // ONNX-based workflows go through the worker

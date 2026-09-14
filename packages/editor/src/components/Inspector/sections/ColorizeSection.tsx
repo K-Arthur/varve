@@ -11,6 +11,7 @@ import type {
   ColorizationProgressPhase,
   ColorizationRequestContract,
   ColorizationResultContract,
+  LineArtStats,
   QualityMode,
   SourceKind,
 } from '@varve/engine';
@@ -26,7 +27,7 @@ import { FieldRow } from '../controls/FieldRow';
 import { RangeValueControl } from '../controls/RangeValueControl';
 import './ColorizeSection.css';
 
-type ColorizeWorkflow = 'photo' | 'recolor' | 'palette' | 'transfer' | 'harmonize';
+type ColorizeWorkflow = 'photo' | 'recolor' | 'palette' | 'transfer' | 'harmonize' | 'lineart';
 type RecolorScope = 'whole' | 'mask';
 type PaletteMode = 'shaded' | 'strict';
 
@@ -51,6 +52,7 @@ interface ColorizeState {
   previewImageData: ImageData | null;
   previewChroma: ChromaPlanes | null;
   previewSourceKind: SourceKind | null;
+  previewLineArt: LineArtStats | null;
   previewSignature: string | null;
   previewSourceSrc: string | null;
   previewSourceId: string | null;
@@ -95,6 +97,8 @@ function workflowKind(workflow: ColorizeWorkflow): ColorizationRequestContract['
       return 'reference-transfer';
     case 'harmonize':
       return 'harmonize';
+    case 'lineart':
+      return 'lineart-colorize';
     default:
       return 'selective-recolor';
   }
@@ -190,9 +194,13 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
   const adherenceId = useId();
   const referenceInputId = useId();
   const maskInputId = useId();
+  const hintsInputId = useId();
+  const lineThresholdId = useId();
+  const gapCloseId = useId();
   const abortRef = useRef<AbortController | null>(null);
   const elapsedRef = useRef<number | null>(null);
   const referenceUrlRef = useRef<string | null>(null);
+  const hintsUrlRef = useRef<string | null>(null);
   const liveStateRef = useRef(state);
   const operationGenerationRef = useRef(0);
   const parameterSignatureRef = useRef('');
@@ -212,6 +220,9 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
   const [recolorScope, setRecolorScope] = useState<RecolorScope>('whole');
   const [selectedSwatchIds, setSelectedSwatchIds] = useState<string[]>([]);
   const [reference, setReference] = useState<ReferenceSelection | null>(null);
+  const [hints, setHints] = useState<ReferenceSelection | null>(null);
+  const [lineThreshold, setLineThreshold] = useState(0.5);
+  const [gapClose, setGapClose] = useState(1);
   const [mask, setMask] = useState<MaskSelection | null>(null);
   const [modelAvailable, setModelAvailable] = useState<boolean | null>(null);
   const [colorize, setColorize] = useState<ColorizeState>({
@@ -222,6 +233,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
     previewImageData: null,
     previewChroma: null,
     previewSourceKind: null,
+    previewLineArt: null,
     previewSignature: null,
     previewSourceSrc: null,
     previewSourceId: null,
@@ -269,8 +281,11 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
         skinProtection,
         neutralProtection,
         recolorScope,
+        lineThreshold,
+        gapClose,
         swatches: selectedPalette.map(({ swatch, hex }) => [swatch.id, hex]),
         referenceRevision: reference?.revision ?? null,
+        hintsRevision: hints?.revision ?? null,
         maskRevision: mask?.revision ?? null,
       }),
     [
@@ -287,8 +302,11 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
       skinProtection,
       neutralProtection,
       recolorScope,
+      lineThreshold,
+      gapClose,
       selectedPalette,
       reference?.revision,
+      hints?.revision,
       mask?.revision,
     ],
   );
@@ -307,6 +325,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
       previewImageData: null,
       previewChroma: null,
       previewSourceKind: null,
+      previewLineArt: null,
       previewSignature: null,
       previewSourceSrc: null,
       previewSourceId: null,
@@ -350,6 +369,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
     return () => {
       abortRef.current?.abort();
       if (referenceUrlRef.current) URL.revokeObjectURL(referenceUrlRef.current);
+      if (hintsUrlRef.current) URL.revokeObjectURL(hintsUrlRef.current);
     };
   }, []);
 
@@ -422,6 +442,9 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
       if (workflow === 'palette' && selectedPalette.length === 0) {
         throw new Error('Select at least one document swatch before previewing');
       }
+      if (workflow === 'lineart' && !hints) {
+        throw new Error('Choose a color-hint image before previewing');
+      }
 
       const request: ColorizationRequestContract = {
         requestId: generateColorizationRequestId(),
@@ -468,6 +491,15 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
               src: reference.src,
             }
           : undefined,
+        hints: hints
+          ? {
+              assetId: 'colorize-hints',
+              revision: hints.revision,
+              width: hints.data.width,
+              height: hints.data.height,
+              src: hints.src,
+            }
+          : undefined,
         params: {
           targetHue,
           hueMode,
@@ -478,6 +510,8 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
           paletteMode,
           skinProtection,
           neutralProtection,
+          lineThreshold,
+          gapClose,
         },
         signal: controller.signal,
         onProgress: (progress) => {
@@ -488,7 +522,12 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
         },
       };
 
-      const result = await dispatchColorization(request, processingData, reference?.data);
+      const result = await dispatchColorization(
+        request,
+        processingData,
+        reference?.data,
+        hints?.data,
+      );
       if (controller.signal.aborted) throw new Error('Colorization cancelled');
       if (parameterSignatureRef.current !== expectedSignature) {
         throw new Error('Colorize result is stale because its controls changed');
@@ -525,6 +564,9 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
       adherence,
       skinProtection,
       neutralProtection,
+      hints,
+      lineThreshold,
+      gapClose,
     ],
   );
 
@@ -536,7 +578,9 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
         ? selectedPalette.length > 0
         : workflow === 'transfer' || workflow === 'harmonize'
           ? reference !== null
-          : recolorScope === 'whole' || mask !== null);
+          : workflow === 'lineart'
+            ? hints !== null
+            : recolorScope === 'whole' || mask !== null);
 
   const previewIsCurrent =
     colorize.previewSignature === operationSignature &&
@@ -560,6 +604,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
       previewImageData: null,
       previewChroma: null,
       previewSourceKind: null,
+      previewLineArt: null,
       previewSignature: null,
       previewSourceSrc: null,
       previewSourceId: null,
@@ -579,6 +624,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
         previewImageData: result.imageData,
         previewChroma: result.chroma ?? null,
         previewSourceKind: result.sourceKind ?? null,
+        previewLineArt: result.lineArt ?? null,
         previewSignature: expectedSignature,
         previewSourceSrc: imageSrc,
         previewSourceId: sourceId,
@@ -740,6 +786,30 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
     [loadImageData, invalidatePreview],
   );
 
+  const handleHintsFile = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      try {
+        const data = await loadImageData(url);
+        if (hintsUrlRef.current) URL.revokeObjectURL(hintsUrlRef.current);
+        hintsUrlRef.current = url;
+        setHints({ src: url, data, revision: Date.now() });
+        invalidatePreview();
+      } catch (error) {
+        URL.revokeObjectURL(url);
+        setColorize((previous) => ({
+          ...previous,
+          status: 'error',
+          errorMessage: error instanceof Error ? error.message : 'Hint image could not be read',
+        }));
+      }
+    },
+    [loadImageData, invalidatePreview],
+  );
+
   const handleMaskFile = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -799,6 +869,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
             options={[
               { value: 'photo', label: 'Photo Colorization (AI)' },
               { value: 'recolor', label: 'Tint / Selective Recolor' },
+              { value: 'lineart', label: 'Line art (color hints)' },
               { value: 'palette', label: 'Palette Colorize' },
               { value: 'transfer', label: 'Reference Transfer' },
               { value: 'harmonize', label: 'Harmonize' },
@@ -1001,6 +1072,96 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
           </>
         )}
 
+        {workflow === 'lineart' && (
+          <>
+            <p className="insp-hint">
+              Paint color hints on a copy of the drawing (any resolution), then choose it here.
+              Colors spread up to the linework; unfilled regions stay transparent and strokes are
+              preserved.
+            </p>
+            <div className="colorize-section__input-group">
+              <input
+                id={hintsInputId}
+                className="colorize-section__file-input"
+                type="file"
+                accept="image/*"
+                onChange={handleHintsFile}
+                disabled={isProcessing}
+                aria-label="Choose line-art color hint image"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => document.getElementById(hintsInputId)?.click()}
+                disabled={isProcessing}
+              >
+                {hints ? 'Replace hint image' : 'Choose hint image'}
+              </Button>
+              {hints && (
+                <>
+                  <img
+                    className="colorize-section__reference-thumb"
+                    src={hints.src}
+                    alt="Selected color hints"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (hintsUrlRef.current) URL.revokeObjectURL(hintsUrlRef.current);
+                      hintsUrlRef.current = null;
+                      setHints(null);
+                      invalidatePreview();
+                    }}
+                    disabled={isProcessing}
+                  >
+                    Clear
+                  </Button>
+                </>
+              )}
+            </div>
+            <FieldRow label="Line threshold" htmlFor={`${lineThresholdId}-range`}>
+              <RangeValueControl
+                id={lineThresholdId}
+                label="Line threshold"
+                value={lineThreshold}
+                min={0.05}
+                max={0.95}
+                step={0.05}
+                unit="%"
+                displayScale={100}
+                disabled={isProcessing}
+                rangeClassName="insp-range"
+                rangeAriaLabel="Line-art paper threshold"
+                onChange={(value) => {
+                  setLineThreshold(value);
+                  invalidatePreview();
+                }}
+              />
+            </FieldRow>
+            <FieldRow label="Gap closing" htmlFor={`${gapCloseId}-range`}>
+              <RangeValueControl
+                id={gapCloseId}
+                label="Gap closing"
+                value={gapClose}
+                min={0}
+                max={4}
+                step={1}
+                unit="px"
+                disabled={isProcessing}
+                rangeClassName="insp-range"
+                rangeAriaLabel="Gap-closing radius in pixels"
+                onChange={(value) => {
+                  setGapClose(value);
+                  invalidatePreview();
+                }}
+              />
+            </FieldRow>
+          </>
+        )}
+
         {(workflow === 'transfer' || workflow === 'harmonize') && (
           <div className="colorize-section__input-group">
             <input
@@ -1195,6 +1356,13 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
                 This image already contains strong color. Photo colorization replaces its chroma
                 with inferred colors; use Tint / Selective Recolor to adjust existing colors
                 instead.
+              </p>
+            )}
+            {workflow === 'lineart' && colorize.previewLineArt && (
+              <p className="insp-hint">
+                Filled {Math.round(colorize.previewLineArt.filledFraction * 100)}% of reachable
+                pixels from {colorize.previewLineArt.seedCount} hint pixels. Unhinted or unreachable
+                regions stay transparent; increase Gap closing if color leaks across thin strokes.
               </p>
             )}
             <div className="insp-actions">

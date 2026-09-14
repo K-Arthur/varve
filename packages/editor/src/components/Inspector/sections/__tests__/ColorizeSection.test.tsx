@@ -126,6 +126,7 @@ describe('ColorizeSection', () => {
     expect(options.map((o) => o.textContent)).toEqual([
       'Photo Colorization (AI)',
       'Tint / Selective Recolor',
+      'Line art (color hints)',
       'Palette Colorize',
       'Reference Transfer',
       'Harmonize',

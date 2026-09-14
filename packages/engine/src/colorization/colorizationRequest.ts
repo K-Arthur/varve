@@ -20,6 +20,7 @@
  *   - SAM2 (Kirillov et al., 2023): Segment Anything Model 2.
  *   - SCUNet (Zhang et al., 2023): CNN+Transformer denoising.
  */
+import type { LineArtStats } from './lineArt';
 import type { ColorizationWorkflow, QualityMode, SourceKind } from './types';
 
 // ---------------------------------------------------------------------------
@@ -32,6 +33,7 @@ export type ColorizationRequestKind =
   | 'reference-transfer'
   | 'harmonize'
   | 'photo-colorize'
+  | 'lineart-colorize'
   | 'scunet-denoise'
   | 'sam2-encode'
   | 'sam2-decode';
@@ -149,6 +151,8 @@ export interface ColorizationRequestContract {
   palette?: PaletteReference;
   /** Optional reference image for color transfer. */
   reference?: ReferenceImage;
+  /** Optional color-hint image for line-art colorization. */
+  hints?: ReferenceImage;
   /** Workflow-specific parameters. */
   params?: {
     /** Target hue in degrees (for selective-recolor). */
@@ -169,6 +173,10 @@ export interface ColorizationRequestContract {
     neutralProtection?: boolean;
     /** Skin-tone protection. */
     skinProtection?: boolean;
+    /** Line-art paper threshold 0-1. */
+    lineThreshold?: number;
+    /** Line-art gap-closing radius in working pixels 0-8. */
+    gapClose?: number;
     /** Denoise strength 0-1 (for SCUNet). */
     denoiseStrength?: number;
     /** SAM2-specific prompt data. */
@@ -233,6 +241,8 @@ export interface ColorizationResultContract {
   /** Deterministic classification of the source image. Lets the UI label an
    *  already-colored photograph as a recolor rather than a recovery. */
   sourceKind?: SourceKind;
+  /** Line-art colorization diagnostics (seed count, coverage). */
+  lineArt?: LineArtStats;
   /** For SAM2 decode: multiple mask candidates. */
   maskCandidates?: Array<{
     mask: Uint8Array;

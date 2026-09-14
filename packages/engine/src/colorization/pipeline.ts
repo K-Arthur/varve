@@ -33,15 +33,19 @@ export const colorizationPipeline: ColorizationPipeline = {
 };
 
 export async function dispatchColorize(request: ColorizationRequest): Promise<ColorizationResult> {
-  const { params, imageData, referenceData, maskData, maskWidth, maskHeight, signal, onProgress } =
-    request;
+  const {
+    params,
+    imageData,
+    referenceData,
+    hintsData,
+    maskData,
+    maskWidth,
+    maskHeight,
+    signal,
+    onProgress,
+  } = request;
   const startTime = performance.now();
   const workflow = params.workflow;
-  if (workflow === 'lineart-colorize') {
-    throw new Error(
-      'lineart-colorize is not exposed as a photo-model workflow. Use Tint / Selective Recolor with a mask; hint-guided line-art fills are deferred.',
-    );
-  }
   const contract: ColorizationRequestContract = {
     requestId: generateColorizationRequestId(),
     kind: legacyWorkflowKind(workflow),
@@ -84,6 +88,15 @@ export async function dispatchColorize(request: ColorizationRequest): Promise<Co
           src: request.referenceSrc ?? 'legacy-reference',
         }
       : undefined,
+    hints: hintsData
+      ? {
+          assetId: params.hintsNodeId ?? 'legacy-hints',
+          revision: params.sourceRevision,
+          width: hintsData.width,
+          height: hintsData.height,
+          src: request.hintsSrc ?? 'legacy-hints',
+        }
+      : undefined,
     params: {
       targetHue: params.targetHue,
       hueMode: params.hueMode,
@@ -94,6 +107,8 @@ export async function dispatchColorize(request: ColorizationRequest): Promise<Co
       paletteMode: params.paletteMode,
       neutralProtection: params.neutralProtection,
       skinProtection: params.skinProtection,
+      lineThreshold: params.lineThreshold,
+      gapClose: params.gapClose,
     },
     signal,
     onProgress: (progress) => {
@@ -105,12 +120,12 @@ export async function dispatchColorize(request: ColorizationRequest): Promise<Co
     },
   };
 
-  const result = await dispatchColorization(contract, imageData, referenceData);
+  const result = await dispatchColorization(contract, imageData, referenceData, hintsData);
   return toLegacyResult(result, params.sourceNodeId, params.sourceRevision, workflow, startTime);
 }
 
 function legacyWorkflowKind(
-  workflow: Exclude<ColorizationParams['workflow'], 'lineart-colorize'>,
+  workflow: ColorizationParams['workflow'],
 ): ColorizationRequestContract['kind'] {
   switch (workflow) {
     case 'reference-transfer':
@@ -123,6 +138,8 @@ function legacyWorkflowKind(
       return 'harmonize';
     case 'photo-colorize':
       return 'photo-colorize';
+    case 'lineart-colorize':
+      return 'lineart-colorize';
   }
 }
 

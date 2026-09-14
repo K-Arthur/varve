@@ -168,4 +168,72 @@ describe('dispatchColorization (classical)', () => {
     expect(result.modelUsed).toBeNull();
     expect(result.provider).toBe('classical');
   });
+
+  it('dispatches lineart-colorize with hints and reports stats', async () => {
+    const sourceData = new ImageData(
+      new Uint8ClampedArray([
+        255, 255, 255, 255, 0, 0, 0, 255, 255, 255, 255, 255, 0, 0, 0, 255, 255, 255, 255, 255,
+      ]),
+      5,
+      1,
+    );
+    const hintsData = new ImageData(
+      new Uint8ClampedArray([
+        255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255,
+      ]),
+      5,
+      1,
+    );
+
+    const request: ColorizationRequestContract = {
+      requestId: 'test-lineart-1',
+      kind: 'lineart-colorize',
+      source: { nodeId: 'n1', revision: 1, width: 5, height: 1 },
+      qualityMode: 'balanced',
+      provider: { backend: 'auto', intent: 'full' },
+      hints: {
+        assetId: 'hints-1',
+        revision: 1,
+        width: 5,
+        height: 1,
+        src: 'data:image/png;base64,...',
+      },
+      params: { lineThreshold: 0.5, gapClose: 0 },
+    };
+
+    const result = await dispatchColorization(request, sourceData, undefined, hintsData);
+    expect(result.workflow).toBe('lineart-colorize');
+    expect(result.provider).toBe('classical');
+    expect(result.lineArt?.seedCount).toBe(2);
+    expect(result.imageData.width).toBe(5);
+  });
+
+  it('rejects lineart-colorize without hint pixels', async () => {
+    const sourceData = new ImageData(new Uint8ClampedArray([255, 255, 255, 255]), 1, 1);
+    const request: ColorizationRequestContract = {
+      requestId: 'test-lineart-missing',
+      kind: 'lineart-colorize',
+      source: { nodeId: 'n1', revision: 1, width: 1, height: 1 },
+      qualityMode: 'balanced',
+      provider: { backend: 'auto', intent: 'full' },
+      hints: { assetId: 'hints-1', revision: 1, width: 1, height: 1, src: 'x' },
+    };
+    await expect(dispatchColorization(request, sourceData)).rejects.toThrow('Hint image data');
+  });
+
+  it('rejects lineart-colorize with mismatched hint dimensions', async () => {
+    const sourceData = new ImageData(new Uint8ClampedArray([255, 255, 255, 255]), 1, 1);
+    const hintsData = new ImageData(new Uint8ClampedArray([255, 0, 0, 255]), 2, 2);
+    const request: ColorizationRequestContract = {
+      requestId: 'test-lineart-dims',
+      kind: 'lineart-colorize',
+      source: { nodeId: 'n1', revision: 1, width: 1, height: 1 },
+      qualityMode: 'balanced',
+      provider: { backend: 'auto', intent: 'full' },
+      hints: { assetId: 'hints-1', revision: 1, width: 1, height: 1, src: 'x' },
+    };
+    await expect(dispatchColorization(request, sourceData, undefined, hintsData)).rejects.toThrow(
+      'Hint image dimensions',
+    );
+  });
 });

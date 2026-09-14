@@ -234,12 +234,12 @@ export {
 } from './colorization/colorSpace';
 export { resolveDdColorRuntime } from './colorization/ddcolorRuntime';
 export { harmonize } from './colorization/harmonize';
-export { lineArtColorize } from './colorization/lineArt';
 export type {
   LineArtOptions,
   LineArtResult,
   LineArtStats,
 } from './colorization/lineArt';
+export { lineArtColorize } from './colorization/lineArt';
 export { colorizationPipeline, paletteColorize, validatePalette } from './colorization/pipeline';
 export { dispatchColorization, validateColorizationRequest } from './colorization/pipelineDispatch';
 export { selectiveRecolor } from './colorization/recolor';

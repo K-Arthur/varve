@@ -20,6 +20,8 @@ export {
 export { combineChromaAtSourceResolution, combineLabToImageData } from './colorSpace';
 export { resolveDdColorRuntime } from './ddcolorRuntime';
 export { harmonize } from './harmonize';
+export type { LineArtOptions, LineArtResult, LineArtStats } from './lineArt';
+export { lineArtColorize } from './lineArt';
 export { colorizationPipeline, paletteColorize, validatePalette } from './pipeline';
 export { dispatchColorization, validateColorizationRequest } from './pipelineDispatch';
 export type {
