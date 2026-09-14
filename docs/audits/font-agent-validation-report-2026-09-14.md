@@ -76,7 +76,7 @@ Passed:
 - Toolbar contrast rerun: **3 passed** at DPR 1, 2, and 3 after correcting the
   highlighted family-row foreground colour; light, dark, and high-contrast
   menu captures were inspected.
-- `audit:docs`: clean, 876 docs / 471 links / 174 ADRs.
+- `audit:docs`: clean, 876 docs / 472 links / 174 ADRs.
 - `audit:emoji`: clean, 4,655 files.
 - `audit:tokens`: all 153 WCAG pairs pass across light, dark, and high
   contrast themes.
