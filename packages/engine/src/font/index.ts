@@ -113,8 +113,9 @@ export {
   buildDocumentFontManifest,
   resolveManifestAgainstCatalog,
 } from './fontManifest';
+export type { FontParseOptions } from './fontParser';
 // Font file parsing
-export { classifyEmbeddingFSType, parseFontData } from './fontParser';
+export { classifyEmbeddingFSType, parseFontCollection, parseFontData } from './fontParser';
 export type { FontPersistenceResult } from './fontPersistence';
 // Document font manifest persistence (save/load integration)
 export {

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FontDownloadManager } from './fontDownloadManager';
+import { parseFontData } from './fontParser';
 
 // Mock parseFontData so validation doesn't fail on synthetic buffers
 vi.mock('./fontParser', () => ({
@@ -188,6 +189,13 @@ describe('FontDownloadManager', () => {
     const hugeBuffer = new ArrayBuffer(1000);
 
     await expect(mgr.validateFont(hugeBuffer, 'ttf')).rejects.toThrow('too large');
+  });
+
+  it('passes the validation abort signal into the parser', async () => {
+    const controller = new AbortController();
+    const buffer = new ArrayBuffer(100);
+    await manager.validateFont(buffer, 'woff2', controller.signal);
+    expect(parseFontData).toHaveBeenCalledWith(buffer, { signal: controller.signal });
   });
 
   it('validateFont rejects invalid formats', async () => {

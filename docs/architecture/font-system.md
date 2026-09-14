@@ -79,9 +79,14 @@ before metadata extraction. Original and reconstructed bytes are bounded to
 128 MiB, with at most 4,095 tables and a two-second deadline per compressed
 table. SFNT reconstruction preserves the physical table order, restores the
 search fields and recomputes the `head` checksum adjustment. The original
-container remains the identity source. These bounds do not yet provide the
-planned parser-worker deadline or validation of every inner OpenType table.
-See the [WOFF evidence](../audits/font-woff-evidence-2026-09-10.md).
+container remains the identity source. `parseFontData` and
+`parseFontCollection` now also carry a two-second whole-operation budget by
+default and accept an `AbortSignal`; bounded table, collection, cmap, feature,
+and decompression loops check that budget. `FontDownloadManager` aborts that
+validation signal when a job is cancelled. This bounds the parser call itself;
+isolated worker execution and validation of every inner OpenType table remain
+separate platform/security work. See the [WOFF evidence](../audits/font-woff-evidence-2026-09-10.md)
+and [parser deadline evidence](../audits/font-parser-deadline-evidence-2026-09-14.md).
 
 Embedding policy is additive: the OS/2 base right (`installable`,
 `preview-and-print`, `editable`, or `restricted`) is stored beside independent

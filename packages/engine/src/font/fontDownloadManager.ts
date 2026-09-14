@@ -93,6 +93,7 @@ export class FontDownloadManager {
   private events: DownloadManagerEvents;
   private jobs = new Map<string, DownloadJob>();
   private abortControllers = new Map<string, AbortController>();
+  private validationControllers = new Map<string, AbortController>();
   private executing = new Set<DownloadJob>();
   private generations = new WeakMap<DownloadJob, number>();
   private processing = false;
@@ -153,6 +154,8 @@ export class FontDownloadManager {
     const controller = this.abortControllers.get(jobId);
     controller?.abort();
     this.abortControllers.delete(jobId);
+    this.validationControllers.get(jobId)?.abort();
+    this.validationControllers.delete(jobId);
 
     job.status = 'cancelled';
     job.completedAt = Date.now();
@@ -280,7 +283,16 @@ export class FontDownloadManager {
 
       // Validate format
       job.status = 'validating';
-      const metadata = await this.validateFont(data, job.format);
+      const validationController = new AbortController();
+      this.validationControllers.set(job.id, validationController);
+      let metadata: ParsedFontMetadata;
+      try {
+        metadata = await this.validateFont(data, job.format, validationController.signal);
+      } finally {
+        if (this.validationControllers.get(job.id) === validationController) {
+          this.validationControllers.delete(job.id);
+        }
+      }
       if (!this.isCurrentAttempt(job, generation)) return;
 
       // Integrity check
@@ -309,6 +321,7 @@ export class FontDownloadManager {
       this.events.onJobFailed?.(job);
     } finally {
       this.executing.delete(job);
+      this.validationControllers.delete(job.id);
       this.processQueue();
     }
   }
@@ -418,7 +431,11 @@ export class FontDownloadManager {
   // ── Validation ─────────────────────────────────────────────────────────
 
   /** Validate font data: check file size, format, and parse metadata. */
-  async validateFont(data: ArrayBuffer, expectedFormat: FontFormat): Promise<ParsedFontMetadata> {
+  async validateFont(
+    data: ArrayBuffer,
+    expectedFormat: FontFormat,
+    signal?: AbortSignal,
+  ): Promise<ParsedFontMetadata> {
     if (data.byteLength > this.config.maxFileSize) {
       throw new Error(
         `Font file too large: ${data.byteLength} bytes (max ${this.config.maxFileSize})`,
@@ -429,7 +446,7 @@ export class FontDownloadManager {
       throw new Error('Font file is empty');
     }
 
-    const metadata = await parseFontData(data);
+    const metadata = await parseFontData(data, { signal });
 
     if (
       expectedFormat !== 'unknown' &&
