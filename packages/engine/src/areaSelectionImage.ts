@@ -129,8 +129,10 @@ export function areaSelectionFromImageAlpha(
 }
 
 /**
- * Phase 7.1 — select by Rec.709 luma of the gamma-encoded pixels. Pure black
- * yields zero coverage and pure white full coverage; combine with `invert` or
+ * Phase 7.1 — select by Rec.709 luma of the gamma-encoded pixels, weighted by
+ * pixel alpha. Pure black yields zero coverage and pure white full coverage;
+ * a semi-transparent pixel contributes luma × alpha so fully transparent
+ * pixels never contribute their hidden RGB. Combine with `invert` or
  * `threshold` for luminosity masks.
  */
 export function areaSelectionFromImageLuminance(
@@ -146,10 +148,12 @@ export function areaSelectionFromImageLuminance(
   const r = sampleChannel(source, size.width, size.height, 0);
   const g = sampleChannel(source, size.width, size.height, 1);
   const b = sampleChannel(source, size.width, size.height, 2);
+  const a = sampleChannel(source, size.width, size.height, 3);
   const plane = new Uint8Array(size.width * size.height);
   for (let i = 0; i < plane.length; i += 1) {
+    const alpha = a[i]! / 255;
     const luma = (0.2126 * r[i]! + 0.7152 * g[i]! + 0.0722 * b[i]!) / 255;
-    plane[i] = encodeCoverage(luma, options);
+    plane[i] = encodeCoverage(luma * alpha, options);
   }
   return wrapPlane(plane, size.width, size.height, source, options);
 }

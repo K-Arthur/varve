@@ -57,6 +57,17 @@ describe('Phase 7.1 — alpha/luminance selections', () => {
     expect(areaSelectionCoverageAt(sel, { x: 2.5, y: 0.5 })).toBeCloseTo(128 / 255, 5);
   });
 
+  it('weights luminance by alpha so hidden RGB never becomes coverage', () => {
+    const sel = areaSelectionFromImageLuminance(
+      rgbaSource(2, 1, [
+        [255, 255, 255, 0],
+        [255, 255, 255, 128],
+      ]),
+    )!;
+    expect(areaSelectionCoverageAt(sel, { x: 0.5, y: 0.5 })).toBe(0);
+    expect(areaSelectionCoverageAt(sel, { x: 1.5, y: 0.5 })).toBeCloseTo(128 / 255, 5);
+  });
+
   it('binarizes with threshold and supports inversion', () => {
     const src = rgbaSource(2, 1, [
       [0, 0, 0, 200],

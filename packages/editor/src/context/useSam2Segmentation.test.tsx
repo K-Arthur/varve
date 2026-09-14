@@ -113,7 +113,9 @@ function setup(session: ObjectSelectionSession, doc: Document) {
       stateRef,
       setState,
       updateDoc,
-      { current: { announce } },
+      {
+        current: { announce } as unknown as import('../canvas/CanvasAnnouncer').CanvasAnnouncer,
+      },
       true,
       setAreaSelection,
     ),

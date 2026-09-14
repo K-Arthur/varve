@@ -138,6 +138,14 @@ export class MagicWandTool extends BaseTool {
       operation,
       (ctx.areaSelection?.generation ?? 0) + 1,
     );
+    if (!next) {
+      ctx.announce(
+        operation === 'intersect'
+          ? 'Nothing to intersect with — make a selection first'
+          : 'Nothing to subtract from — make a selection first',
+      );
+      return;
+    }
     ctx.setAreaSelection(next);
     ctx.announce(
       settings.mode === 'contiguous'
@@ -245,6 +253,14 @@ export class MagicWandTool extends BaseTool {
       operation,
       (ctx.areaSelection?.generation ?? 0) + 1,
     );
+    if (!next) {
+      ctx.announce(
+        operation === 'intersect'
+          ? 'Nothing to intersect with — make a selection first'
+          : 'Nothing to subtract from — make a selection first',
+      );
+      return;
+    }
     ctx.setAreaSelection(next);
     ctx.announce(
       settings.mode === 'contiguous'
