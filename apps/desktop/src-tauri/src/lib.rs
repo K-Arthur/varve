@@ -2916,6 +2916,23 @@ fn cancel_upscale(app: tauri::AppHandle, job_id: u64) {
 
 const MAX_UPSCALE_INPUT_BYTES: usize = 128 * 1024 * 1024;
 const MAX_UPSCALE_OUTPUT_PIXELS: u64 = 64 * 1024 * 1024;
+// The native GPU route includes a source upload, destination storage buffer,
+// and readback staging buffer. Below this measured workload size, that
+// transfer/setup cost is not reliably repaid by the shader, so automatic mode
+// keeps the cheaper CPU path and avoids waking a discrete GPU for tiny jobs.
+const MIN_GPU_RESAMPLE_PIXELS: u64 = 1_000_000;
+
+fn should_try_gpu_resample(
+    src_width: u32,
+    src_height: u32,
+    dst_width: u32,
+    dst_height: u32,
+) -> bool {
+    let source_pixels = u64::from(src_width) * u64::from(src_height);
+    let output_pixels = u64::from(dst_width) * u64::from(dst_height);
+    source_pixels != output_pixels
+        && source_pixels.max(output_pixels) >= MIN_GPU_RESAMPLE_PIXELS
+}
 
 #[derive(Debug, Deserialize)]
 struct UpscaleImageOptions {
@@ -3072,9 +3089,6 @@ async fn upscale_image_command(
                     .into(),
             );
         }
-        // GPU device creation is intentionally after cancellation and inside
-        // the blocking worker. A failed creation is a normal CPU fallback.
-        let gpu_workers = acceleration_state.and_then(|state| state.workers().ok());
         let dimensions = image::ImageReader::new(std::io::Cursor::new(&image_data))
             .with_guessed_format()
             .map_err(|e| format!("Image format error: {e}"))?
@@ -3102,7 +3116,7 @@ async fn upscale_image_command(
             model_id.as_str(),
             progress_callback,
             cancel_for_worker,
-            gpu_workers,
+            acceleration_state,
         )
     })
     .await
@@ -3206,7 +3220,7 @@ fn upscale_image_impl(
     model_id: &str,
     progress_callback: Option<varve_upscale::ProgressCallback>,
     cancel_flag: std::sync::Arc<AtomicBool>,
-    gpu_workers: Option<acceleration::GpuWorkers>,
+    acceleration_state: Option<std::sync::Arc<acceleration::AccelerationState>>,
 ) -> Result<UpscaleImageResult, String> {
     if cancel_flag.load(Ordering::SeqCst) {
         return Err("Upscale cancelled".into());
@@ -3241,6 +3255,19 @@ fn upscale_image_impl(
             "Output contains {output_pixels} pixels; the effective limit is {effective_max} pixels"
         ));
     }
+
+    // GPU device creation is intentionally deferred until the worker has
+    // decoded the image and the output has passed admission checks. This keeps
+    // a small resize from paying initialization cost or waking a discrete GPU.
+    let gpu_workers = if method != "ai"
+        && should_try_gpu_resample(width, height, out_w, out_h)
+    {
+        acceleration_state
+            .as_ref()
+            .and_then(|state| state.workers().ok())
+    } else {
+        None
+    };
 
     let (result, execution_provider) = if method == "ai" {
         #[cfg(feature = "ai")]
@@ -6090,6 +6117,13 @@ mod tests {
         let decoded = image::load_from_memory(&result.bytes).expect("result must be PNG");
         assert_eq!(decoded.width(), 16);
         assert_eq!(decoded.height(), 16);
+    }
+
+    #[test]
+    fn gpu_resample_admission_avoids_small_setup_boundaries() {
+        assert!(!should_try_gpu_resample(8, 8, 32, 32));
+        assert!(!should_try_gpu_resample(1000, 1000, 1000, 1000));
+        assert!(should_try_gpu_resample(1920, 1080, 3840, 2160));
     }
 
     #[test]
