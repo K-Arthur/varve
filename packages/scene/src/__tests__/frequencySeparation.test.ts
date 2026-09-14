@@ -2,6 +2,7 @@ import { imageDataToRasterTiles, rasterTilesToImageData } from '@varve/engine';
 import { describe, expect, it } from 'vitest';
 import { deepCloneSubtree } from '../clone';
 import { addNode, createDocument, type Document } from '../document';
+import { DocumentCodec } from '../documentCodec';
 import {
   createFrequencySeparation,
   decodeFrequencySeparationTiles,
@@ -184,6 +185,48 @@ describe('createFrequencySeparation', () => {
     const clonedDoc = { ...doc, nodes: { ...doc.nodes, ...clone.nodes }, nextId: clone.nextId };
     const composite = compositeOf(clonedDoc, clone.rootId);
     expect(composite.width).toBe(64);
+  });
+
+  it('round-trips the marker and both bands through the document codec', () => {
+    const result = createFrequencySeparation(makeRasterDoc().doc, 'r1', { radius: 4 })!;
+    const doc = result.doc as Document;
+    const before = compositeOf(doc, result.groupId);
+    const encoded = DocumentCodec.decode(DocumentCodec.encode(doc));
+    expect(encoded.ok).toBe(true);
+    if (!encoded.ok) return;
+    const decoded = encoded.document as Document;
+    const resolved = resolveFrequencySeparation(decoded, result.groupId);
+    expect(resolved).not.toBeNull();
+    const after = compositeOf(decoded, result.groupId);
+    expect(maxError(before, after)).toBe(0);
+    const restoredState = getFrequencySeparationState(decoded.nodes[result.groupId]);
+    expect(restoredState).toEqual(getFrequencySeparationState(doc.nodes[result.groupId]));
+  });
+
+  it('deforms only the band that owns the field during decode', () => {
+    const result = createFrequencySeparation(makeRasterDoc().doc, 'r1', { radius: 4 })!;
+    const doc = result.doc as Document;
+    const lowBefore = compositeOf(doc, result.groupId);
+    const highNode = doc.nodes[result.highId] as RasterLayerNode;
+    const field = applyLiquifyDabToNode(
+      { ...doc, nodes: { ...doc.nodes, [result.highId]: highNode } },
+      result.highId,
+      'push',
+      { x: 32, y: 24, radius: 24, strength: 1, pressure: 1, deltaX: 8, deltaY: 0 },
+    )!;
+    const highAfter = (field.nodes[result.highId] as RasterLayerNode).liquify;
+    expect(highAfter).toBeDefined();
+    const lowUntouched = getLiquifyField(doc.nodes[result.lowId] as RasterLayerNode);
+    expect(lowUntouched).toBeNull();
+    const composite = compositeOf(field, result.groupId);
+    // The detail band moved: the decoded composite differs near the dab and is
+    // unchanged far away.
+    expect(composite.data.length).toBe(lowBefore.data.length);
+    let changed = 0;
+    for (let i = 0; i < composite.data.length; i += 4) {
+      if (composite.data[i] !== lowBefore.data[i]) changed++;
+    }
+    expect(changed).toBeGreaterThan(0);
   });
 });
 

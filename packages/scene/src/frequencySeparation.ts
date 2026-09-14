@@ -64,7 +64,7 @@ export interface FrequencySeparationGroup {
 
 interface DocumentLike {
   nodes: Record<string, SceneNode>;
-  nextId: number;
+  nextId?: number;
   rootChildren?: readonly string[];
 }
 
@@ -123,16 +123,45 @@ export function findFrequencySeparationForBand(
   doc: DocumentLike,
   bandNodeId: string,
 ): FrequencySeparationGroup | null {
-  for (const node of Object.values(doc.nodes)) {
-    if (node.kind !== 'group') continue;
-    const state = getFrequencySeparationState(node);
-    if (!state) continue;
-    if (state.lowNodeId === bandNodeId || state.highNodeId === bandNodeId) {
-      const resolved = resolveFrequencySeparation(doc, node.id);
-      if (resolved) return resolved;
-    }
-  }
-  return null;
+  const resolved = resolveBandFrequencySeparation(doc, bandNodeId);
+  return resolved ? { groupId: resolved.groupId, state: resolved.state } : null;
+}
+
+export interface BandFrequencySeparation {
+  groupId: string;
+  role: 'low' | 'high';
+  state: FrequencySeparationState;
+}
+
+/**
+ * O(1) band resolution: the band's role field points at its group, then the
+ * marker is validated in both directions so a stale role from a partial edit
+ * can never decode the wrong pixels.
+ */
+export function resolveBandFrequencySeparation(
+  doc: DocumentLike,
+  bandNodeId: string,
+): BandFrequencySeparation | null {
+  const band = doc.nodes[bandNodeId];
+  if (band?.kind !== 'rasterLayer') return null;
+  const role = band.frequencySeparationRole;
+  if (!role) return null;
+  const group = resolveFrequencySeparation(doc, role.groupId);
+  if (!group) return null;
+  const expected = role.role === 'low' ? group.state.lowNodeId : group.state.highNodeId;
+  if (expected !== bandNodeId) return null;
+  return { groupId: role.groupId, role: role.role, state: group.state };
+}
+
+/** Whether the band's sibling is currently visible (raises decode decisions). */
+export function separationSiblingVisible(
+  doc: DocumentLike,
+  separation: BandFrequencySeparation,
+): boolean {
+  const siblingId =
+    separation.role === 'low' ? separation.state.highNodeId : separation.state.lowNodeId;
+  const sibling = doc.nodes[siblingId];
+  return sibling !== undefined && sibling.visible !== false;
 }
 
 export interface BandTiles {
@@ -229,9 +258,9 @@ export function createFrequencySeparation<D extends DocumentLike>(
     effects: [],
     tiles: bumpTileMap(lowTiles),
   };
-  nodes[sourceNodeId] = low;
 
-  const highId = mintNodeId(doc.nextId, nodes);
+  const baseNextId = doc.nextId ?? 1;
+  const highId = mintNodeId(baseNextId, nodes);
   const nextOrder = nextSiblingOrder(doc, sourceNodeId);
   const highNode: RasterLayerNode = {
     ...makeRasterLayerNode(highId, { width: source.width, height: source.height }),
@@ -246,7 +275,17 @@ export function createFrequencySeparation<D extends DocumentLike>(
   };
   nodes[highId] = highNode;
 
-  const groupId = mintNodeId(doc.nextId + 1, nodes);
+  const groupId = mintNodeId(baseNextId + 1, nodes);
+  // Both bands carry their role so any render path can resolve the decode in
+  // O(1) without scanning the document for the owning marker.
+  nodes[sourceNodeId] = {
+    ...low,
+    frequencySeparationRole: { groupId, role: 'low' },
+  };
+  nodes[highId] = {
+    ...highNode,
+    frequencySeparationRole: { groupId, role: 'high' },
+  };
   const group: GroupNode = {
     ...makeGroupNode(groupId, {
       name: `${stripBandSuffix(source.name)} Frequency Separation`,
@@ -275,7 +314,7 @@ export function createFrequencySeparation<D extends DocumentLike>(
     },
   };
 
-  const next: DocumentLike = { ...doc, nodes, nextId: doc.nextId + 2 };
+  const next: DocumentLike = { ...doc, nodes, nextId: baseNextId + 2 };
   replaceChild(next, sourceNodeId, groupId, groupId);
   return { doc: next as D, groupId, lowId: sourceNodeId, highId, reconstruction };
 }
@@ -339,6 +378,7 @@ export function flattenFrequencySeparation<D extends DocumentLike>(
     name: stripBandSuffix(low.name),
     tiles: bumpTileMap(decoded.tiles),
     effects: group.effects ?? low.effects,
+    frequencySeparationRole: undefined,
     ...(group.mask ? { mask: group.mask } : {}),
     opacity: group.opacity ?? low.opacity,
     blendMode: group.blendMode ?? low.blendMode,
