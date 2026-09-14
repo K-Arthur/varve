@@ -73,11 +73,17 @@ test.describe('Select subject — model-free foreground estimate', () => {
       /(?:Subject \d+|All foreground) selected/,
       { timeout: 30000 },
     );
-    await expect(inspector.getByText(/estimate · \d+ proposal/)).toBeVisible();
+    await expect(inspector.getByText(/estimate\s+\d+\s+proposal/)).toBeVisible();
     await expect(
       inspector.getByRole('button', { name: /(?:Subject \d+|All foreground), covers \d+ percent/ }),
     ).toBeVisible();
     await expect(inspector.getByRole('button', { name: 'Save selection' })).toBeEnabled();
+    await inspector.getByRole('button', { name: 'Apply as mask' }).click();
+    await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
+      /(?:Subject \d+|All foreground) applied as a mask/,
+      { timeout: 15000 },
+    );
+    await expect(page.getByRole('treeitem')).toHaveCount(1);
 
     const canvas = page.getByTestId('editor-canvas');
     await page.getByRole('button', { name: 'Fit sel' }).click();
@@ -111,7 +117,7 @@ test.describe('Select subject — model-free foreground estimate', () => {
       'All foreground selected',
       { timeout: 15000 },
     );
-    await expect(inspector.getByText(/estimate · \d+ proposal/)).toBeVisible();
+    await expect(inspector.getByText(/estimate\s+\d+\s+proposal/)).toBeVisible();
     await expect(
       inspector.getByRole('button', { name: /All foreground, covers \d+ percent/ }),
     ).toBeVisible();
