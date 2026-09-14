@@ -53,6 +53,51 @@ audited only where they bound this slice.
 7. `findBestPatch` read the target patch from the source image, and `ncc`
    ignored its stride argument; `clonePixels`/`healPixels`/`spotHeal`/
    `patchRegion` blended straight RGB and alpha independently.
+8. The Levels/Curves histogram exposed clipping counts only to screen readers;
+   a sighted user could not tell whether an endpoint spike was the subject or
+   lost detail.
+9. Image Tuning Reset did not return the canvas to its original bytes. A
+   neutral Exposure entry was still passed to `applyFilterWithCompositing`,
+   which allocated two full-canvas surfaces and ran a premultiplied
+   `getImageData`/`putImageData` round-trip. A frozen-build diagnostic measured
+   295 differing pixels between the baseline and the reset state, every one of
+   them exactly one quantization step (max delta 1), scattered across the
+   antialiased image perimeter. The neutral rendering itself is exact for
+   opaque pixels: the shared sRGB transfer functions round-trip all 256 byte
+   values. The difference came from translucent edge pixels crossing the
+   premultiplied canvas boundary for no reason.
+10. Ctrl+Z pressed while a numeric input still has focus is consumed by the
+    field's native text undo: the editor's document undo is deliberately
+    skipped for typing widgets (`shouldIgnoreShortcutTarget`). The field then
+    shows the pre-edit text while the document and canvas keep the applied
+    value, and blurring commits the stale text as a new history entry. The
+    journey verification blurs the field before undo; making in-field Ctrl+Z
+    undo the document transaction is recorded as a shortcut-policy follow-up
+    rather than changed in this pass.
+
+Verification note: items 1, 2, 3, 4, and the tool-side half of 6 are owned by
+a concurrent agent working in the same worktree (see
+`docs/agents/photo-retouch-coordination-2026-09-13.md`); this session
+committed item 7 and the histogram half of item 8, recorded their evidence,
+and deliberately did not duplicate the owner's tool files.
+
+## Surface-consistency verification (this pass, source inspection)
+
+- Image Tuning's Exposure, Contrast, Shadows/Highlights, Temperature, Tint,
+  Vibrance, and Saturation controls map to the shared `exposure`, `contrast`,
+  `shadowHighlight`, `temperature`, `tint`, `vibrance`, and `saturation`
+  adjustment kinds (`ImageTuningSection.tsx` control table); Object Filters and
+  Adjustment Layers lower the same union through `adjustmentToFilter` and the
+  reference compositor. The surfaces differ in attachment scope, not operator
+  identities.
+- The Exposure kernel converts sRGB bytes to linear light, applies `2^stops`,
+  a bounded linear offset, and gamma, then re-encodes; a focused numeric test
+  already pins this (`filterCompositor.test.ts`).
+- PNG export starts from a metadata-free canvas encode and adds only explicit
+  policy chunks, so a normalized orientation or dimension cannot be replayed
+  from stale metadata (`metadata/png.ts`); raster decode applies EXIF
+  orientation once via `createImageBitmap`'s default from-image behavior and
+  `displayedDimensions` matches the decoded pixels.
 
 ## Decisions and implementation consequences
 
@@ -68,6 +113,9 @@ audited only where they bound this slice.
   about not being a full renderer readback.
 - No-op strokes abort instead of committing history; tile versions only change
   when a pixel value changes.
+- A provably neutral filter entry at full opacity with normal blending is
+  dropped before the compositor allocates surfaces, so Reset and re-enabled
+  neutral controls return byte-exact original pixels and do no pointless work.
 - The retouch overlay is wired so the source marker and target badge are
   actually visible.
 - Healing remains a first-order mean-shift approximation; it is not advertised
@@ -86,6 +134,8 @@ audited only where they bound this slice.
 | All-visible raster-layer sampling in paint order | Sampling scope: Current and visible raster layers | partial (insertion order, hidden ancestors included) | code inspection | Fixed for raster layers; vector/group/effect/transform boundaries documented |
 | Adjustment double-application avoidance | current-and-below scope | missing | external user evidence | Added by scope choice (adjustment layers are not raster layers, so they are outside the raster composite; the deposit target can be below them and the UI states the scope) |
 | Straight/premultiplied alpha correctness | clone/heal/spot/patch engines | partial before this pass | unit tests added | Fixed in engine byte paths; tile compositor already premultiplied |
+| Return-to-original (Reset) byte fidelity | Image Tuning exposure | broken before this pass; 295 edge pixels one step off | frozen-build pixel diagnostic | Fixed by neutral-filter skip in the compositor and replay (`91e9fa03b`, `15d254912`); re-verified by E2E journey |
+| Undo after a committed numeric value | Ctrl+Z with the field focused | native text undo only; document keeps the value until blur | frozen-build state diagnostic | Documented; journey blurs first; shortcut-policy follow-up |
 | No-op stroke leaves no history/tile churn | retouch tools | partial | new tests | Fixed |
 | Final pointer position committed | clone/heal | broken before this pass | code inspection + E2E | Fixed |
 | Healing quality (illumination adaptation) | Healing Brush | first-order approximation | docs + tests | Documented; perceptual-space solve is a follow-up |
@@ -107,3 +157,32 @@ audited only where they bound this slice.
 Focused Vitest per package, the retouch Playwright spec updates, and inspected
 screenshots/recordings are recorded in the Agent Validation Report accompanying
 the implementation commits. Cross-platform claims are limited to what was run.
+
+Method note for the correction journey: the shared worktree was being edited by
+a concurrent retouch agent while the first journey runs executed, and Vite HMR
+reloaded the page mid-test. The verification was therefore moved to a frozen
+production bundle (`vite build` to a temp directory, then `vite preview`), which
+removes HMR as a variable; the Playwright session still exercised the real UI.
+Diagnostics for the reset-identity and undo findings were run in the same
+frozen-build environment with `?perf=1` so the canvas hash came from the
+authoritative full-redraw path where available.
+
+## Independent verification results (frozen build)
+
+| Check | Command shape | Result |
+| --- | --- | --- |
+| Engine identity predicate + compositor | `vitest run packages/engine/src/filterIdentity.test.ts packages/engine/src/filterCompositor.test.ts` | 47 passed |
+| Engine replay after the isolation change | `vitest run packages/engine/src/replay.test.ts packages/engine/src/filterIdentity.test.ts` | 71 passed |
+| Editor replay scene | `vitest run packages/editor/src/render/replayScene.test.ts` | 11 passed (one import-time failure on a first run during concurrent edits; clean on rerun) |
+| Histogram clipping widget | `vitest run packages/editor/src/components/Inspector/controls/HistogramWidget.test.tsx` | 9 passed |
+| Histogram clipping real UI | frozen-build Chromium capture: Levels added above a black/white fixture | passed: warning reads "Clipped shadows 50.0% / Clipped highlights 50.0%", both endpoint markers drawn; screenshots `05-histogram-clipping-warning`, `06-histogram-clipping-panel` inspected |
+| Corrections journey | frozen-build Chromium run of `tests/e2e/canvas/photo-correction-journey.spec.ts` | passed (53.5s): import, +1 EV, reset to baseline, undo/redo, bypass/re-enable, save, reload, reopen, and export. Screenshots `01-baseline`, `02-exposure-plus-one`, `03-bypass-restored`, `04-reopened` inspected. Edited export 2,055,397 B vs original 1,883,287 B; the reopened export is byte-identical to the edited export. |
+| Reset identity diagnostic | frozen-build state capture before/after Reset | 295 edge pixels at delta 1 before the fix; byte-exact after |
+| Undo state diagnostic | frozen-build state capture across edit/reset/edit/undo | in-field Ctrl+Z is native text undo only; documented above |
+| Docs/emoji | `pnpm audit:docs`, `pnpm audit:emoji` | clean (821 docs prior to the last edit; emoji clean, 4616 files) |
+
+The full repository gate was not run: `pnpm verify:plan` escalated because the
+shared working tree carries other agents' workspace/toolchain changes, and the
+machine was running several concurrent E2E suites. Targeted checks were run
+directly (and, where the pnpm script runner was broken by a concurrent manifest
+change, via the underlying node scripts and binaries).
