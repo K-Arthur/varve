@@ -94,30 +94,34 @@ Automatic subject trimming remains a separate bounds proposal/ranking path.
 
 ## Automatic subject proposals
 
-`Select subject` in the Selection Sources panel is a separate, model-free
-capability. It never claims semantic recognition and never downloads a model:
+`Select subject` in the Selection Sources panel is an automatic foreground
+capability, separate from prompted Object Selection and never presented as
+semantic recognition. Two implementation families produce its candidates:
 
-- The estimator (`@varve/engine/foregroundSelect`, exported as the
-  `@varve/engine/foregroundSelect` subpath) proposes candidates from two
-  evidence sources: a border flood through colour-continuous pixels
-  (background consumed from the edges) and a centre flood through
-  colour-similar pixels (a centred subject on a plain or gradient
-  background). Near-duplicate proposals are merged, and a subject that touches
-  the image border is still proposed by the centre path.
-- Candidates are ranked by the documented policy
-  `0.55·coverage + 0.25·centrality + 0.20·edgeAlignment` and returned with
-  analysis-resolution masks. Analysis runs on a plane capped at 1024 px on the
-  long edge, so the working set stays in the low megabytes even for very large
-  images; masks are mapped back to source pixels deterministically.
-- The top-ranked proposal is applied as an area selection immediately; every
-  alternative stays one click away, and "All subjects" unions the proposals.
-  Ranking never overrides a deliberate choice: clicking a candidate replaces
-  the selection explicitly.
-- Enclosed background-coloured regions stay inside a proposal (holes are not
-  punched automatically); the existing refinement tools can remove them.
-- `Select subject` cannot recognise what an object is. Text prompts, sky,
-  hair, or other semantic sub-selections remain separate capabilities; Object
-  Selection (prompted) is the path for a specific object.
+- **Model-backed proposals** reuse the background-removal models Varve already
+  ships, through the shared model catalog, provider chain, and memory
+  preflight: `u2netp` (bundled, the default Fast level), `isnet-general-use`
+  (Balanced when installed), and `birefnet-general-lite` (High quality when
+  installed and admissible). The routing decision
+  (`@varve/engine/subjectProposal`) records the model that ran, any step-down,
+  and every rejected alternative; an explicit model request is never silently
+  substituted, and an optional model is only downloaded after an explicit
+  confirmation that shows its size. Model candidates keep the soft coverage
+  the provider produced for mask output, and derive per-region binary
+  alternatives from significant connected components.
+- **The model-free estimator** (`@varve/engine/foregroundSelect`) remains the
+  no-model fallback: a border flood through colour-continuous pixels plus a
+  centre flood, ranked by `0.55·coverage + 0.25·centrality + 0.20·edgeAlignment`,
+  analysed on a plane capped at 1024 px on the long edge. It is used only when
+  no model can run (nothing installed and no download chosen, or the working
+  set does not fit this device), and the panel says so.
+
+The panel applies the top-ranked proposal as a pixel selection immediately;
+every alternative stays one click away, and "Apply as mask" commits the active
+candidate (soft alpha when the provider produced one) as an ordinary document
+mask. A model-backed estimate never mixes confidence semantics: candidate
+labels report coverage, and the provider/platform is stated in words rather
+than as a probability.
 
 ## Automatic trim boundary
 
@@ -176,6 +180,12 @@ model directories into `dev.varve.desktop/models` without deleting or replacing
 the old files. Embeddings are memory-bounded session data and are never
 written into Varve documents. Images are not uploaded by this workflow.
 
+Automatic subject estimates request one specific model explicitly. A request
+that cannot run its model reports that outcome (with the model's download size
+when installing it is the answer) instead of substituting another model, and
+the browser preflight assesses the requested model's working set rather than a
+single conservative default.
+
 ## Runtime decision status
 
 The current implementation retains the existing ONNX worker path because it
@@ -193,9 +203,12 @@ the release-gate procedure) for the required benchmark matrix.
 - Candidate masks can be cycled in the Inspector before Apply; the selected
   candidate is the mask committed to the document.
 - The current SAM2 graph is promptable, not a semantic subject detector.
-- The model-free subject estimate is a foreground heuristic ranked by
-  coverage/centrality/edge support. It is weakest on landscape or texture
-  scenes and is never labelled as semantic recognition.
+- Automatic subject estimates are foreground proposals. The model-backed
+  levels are substantially stronger than the model-free heuristic on
+  photographic subjects, but they still fail on cluttered or low-contrast
+  scenes, and no level identifies *which* object the user intends.
+- The model-free estimator is weakest on landscape or texture scenes and is
+  used only when no model runs; the panel always names the source.
 - Hair, fur, glass, smoke, and other fractional-transparency cases need the
   existing matting/refinement tools and visual review.
 - A fresh model download and frontend integration run is recorded in the

@@ -33,12 +33,30 @@ not create a second AI-selection subsystem.
 
 | Phase | Work | Status in this plan |
 | --- | --- | --- |
-| P0 | Fix the preflight/model-spec correctness defects; pin reviewed-candidate behaviour with tests | Shipped |
-| P1 | Model-backed automatic foreground proposals + routing policy + honest UI + mask output | Shipped |
-| P2 | MobileSAM adapter (low-memory prompted provider) behind the provider seam, gated on corpus measurement | Adapter + catalog + gate harness |
+| P0 | Fix the preflight/model-spec correctness defects; pin reviewed-candidate behaviour with tests | Shipped 2026-09-14 |
+| P1 | Model-backed automatic foreground proposals + routing policy + honest UI + mask output | Shipped 2026-09-14 |
+| P2 | MobileSAM adapter (low-memory prompted provider) behind the provider seam, gated on corpus measurement | Researched and artifact-verified; adapter work is the next slice |
 | P3 | Refinement handoff from proposals (existing refine section is the handoff) | Shipped via selection→refine path |
 | P4 | EfficientSAM A-B | Deferred (adapter-only, not shipped) |
 | P5 | Text/object discovery (Grounding DINO → promptable segmenter) | Deferred, research only |
+
+### P0/P1 implementation notes (2026-09-14)
+
+- `BackgroundRemovalOptions.modelId` is an explicit, non-substitutable model
+  request honored by the worker, direct-ONNX, and native providers; native
+  declines when the request is not its own model, and the automatic
+  quality-to-balanced dispatch fallback is skipped for explicit requests.
+- `removeBackground`'s preflight resolves the model the request will run and
+  assesses its catalog working set (5 s bounded probe), and
+  `getSegmentationModelSpec` maps `u2netp-int8` to the 320 px u2netp family.
+- `@varve/engine/subjectProposal` owns routing, candidate derivation
+  (`proposalSetFromAlpha`), execution, and the editor-facing capability
+  helpers. `SelectionSourcesPanel` renders quality levels, the provider that
+  ran with step-down/skip reasons, explicit install offers with size and
+  progress, candidate actions, and "Apply as mask".
+- Tests: engine routing/execution unit tests, admission regression tests, RTL
+  panel coverage, and the real-photo `subject-proposal` E2E spec.
+
 
 ## Routing policy
 

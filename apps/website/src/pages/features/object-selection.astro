@@ -38,14 +38,20 @@ import { sitePath } from '../../lib/siteUrl';
       </section>
 
       <section class="feature-section">
-        <h2>A subject estimate with no download</h2>
+        <h2>A subject estimate, fast by default</h2>
         <p>
           When you have an obvious subject but no prompts in mind, Selection Sources &gt; Select
-          subject proposes foreground regions with no model, no account, and no GPU. Proposals are
-          ranked by coverage, centrality, and edge support; the top-ranked one becomes a pixel
-          selection immediately, every alternative stays one click away, and All subjects unions
-          them. Scores are shown as estimates, never as semantic confidence, and the copy never
-          claims to know what an object is.
+          subject proposes foreground regions on-device. The default Fast level runs the bundled
+          U²-Net Light model — no download, no account, no GPU — and a model-free estimator still
+          covers offline machines with no model at all. Balanced and High quality levels use
+          optional installed models when they fit the device; the result always names the model
+          that actually ran, and a higher-quality level never silently becomes a different one.
+        </p>
+        <p>
+          Proposals are ranked foreground estimates: the top-ranked one becomes a pixel selection
+          immediately, every alternative stays one click away, and each candidate can be applied as
+          an editable mask instead. Scores are shown as estimates, never as semantic confidence,
+          and the copy never claims to know what an object is.
         </p>
       </section>
 
@@ -65,15 +71,17 @@ import { sitePath } from '../../lib/siteUrl';
         <p>
           The optional segmentation model pair is downloaded explicitly from Settings &gt; Offline
           Models, verified before use, and run on the device through Varve's worker-backed
-          inference path. A model is not loaded at application startup, and image embeddings are
-          kept in a bounded session cache rather than stored in your document.
+          inference path. Higher-quality subject estimates offer their optional model in place with
+          its download size, and the bundled Fast level works without one. A model is not loaded at
+          application startup, and image embeddings are kept in a bounded session cache rather than
+          stored in your document.
         </p>
       </section>
 
       <section class="feature-section note">
         <h2>Set the right expectation</h2>
         <p>
-          Promptable segmentation follows your points and box; it is not a guarantee of semantic subject understanding or perfect alpha matting. Hair, glass, smoke, and similar boundaries may need the existing brush or trimap refinement tools. The model-free Select subject estimate is a foreground heuristic, works best on plain or gradient backgrounds, and is weakest on landscape or texture scenes. Review the mask against the final background before export.
+          Promptable segmentation follows your points and box; it is not a guarantee of semantic subject understanding or perfect alpha matting. Hair, glass, smoke, and similar boundaries may need the existing brush or trimap refinement tools. Select subject is a foreground estimate that works best when the subject stands out from its surroundings, and the model-free fallback is weakest on landscape or texture scenes. Review the mask against the final background before export.
         </p>
       </section>
 

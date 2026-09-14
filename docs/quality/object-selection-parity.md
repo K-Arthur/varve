@@ -206,6 +206,45 @@ quality decision remains unchanged.
   for the maintainer. No quality threshold in this document was changed to
   make this run pass.
 
+## Automatic foreground proposals (2026-09-14)
+
+`Select subject` moved from a model-free-only estimate to an explicitly
+routed automatic-foreground capability. The models are the ones Varve already
+ships; the routing policy and the artifact research are recorded in
+`docs/quality/subject-selection-provider-research-2026-09-14.md` and the plan
+`docs/plans/subject-selection-providers-2026-09-14.md`.
+
+| Level | Provider | Download | Runtime gate |
+| --- | --- | --- | --- |
+| Fast (default) | `u2netp` (MIT, 4.7 MB, bundled) | none | Browser/WASM or native; catalog working set 330 MB |
+| Balanced | `isnet-general-use` when installed, else Fast | optional 179 MB | Native preferred; browser/WASM needs the catalog 1.3 GB peak to fit the safe budget |
+| High quality | `birefnet-general-lite` when installed and admissible, then Balanced | optional 224 MB | Native preferred; bare-WASM runs are rejected unless the multiple-GB working set fits |
+| No model | model-free `foregroundSelect` estimator | none | Always available; the panel labels it |
+
+Routing is capability- and measurement-based. The decision function records,
+for every request, the ordered attempts, the reason each was chosen, and every
+rejected alternative; execution reports the model that actually produced the
+candidates plus any step-down. An explicit model request (`modelId` on the
+removal options) is honored by every provider or fails loudly — the native
+provider declines when the requested model is not its own, and the
+quality-to-balanced automatic fallback is skipped for explicit requests.
+
+**Admission fix.** The `removeBackground` browser preflight previously assessed
+every AI method with the bundled `u2netp` peak (330 MB). An installed IS-Net or
+BiRefNet run could therefore pass the gate and later exceed the wasm32 ceiling.
+The preflight now resolves the model the request will actually run (bounded to
+a 5 s probe so a blocked model store cannot hang it) and assesses that model's
+catalog working set. The `u2netp-int8` variant is also mapped to its real
+320 px u2netp-family spec instead of the 1024 BiRefNet fall-through.
+
+**Real-photo review.** `tests/e2e/canvas/subject-proposal.spec.ts` runs the
+shipped Fast level on the licensed photographic corpus (still life, portrait
+with hair, interior) through the real worker path and exports the preview,
+applied-selection, and applied-mask screenshots plus the candidate coverage
+labels for inspection. Those captures are workflow and visual-review evidence;
+a real photograph has no binary ground truth here, so the parity corpus above
+remains the quantitative gate and this review covers photographic reality.
+
 ## Model acquisition and hosting (2026-09-14)
 
 - `sam2_hiera_tiny.encoder.onnx` (134,261,315 B, upstream SHA-256

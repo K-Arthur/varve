@@ -404,6 +404,7 @@ export function SelectionSourcesPanel() {
     const sourceLocator = imageShapeSrc(selectedNode);
     // Mirror the reviewed-candidate Object Selection commit with one document
     // updater. The editor's mutation boundary records this as one edit.
+    beginTransaction();
     try {
       updateDoc((doc) => {
         const live = doc.nodes[nodeId];
@@ -419,8 +420,10 @@ export function SelectionSourcesPanel() {
           sourceLocator,
         });
       });
+      commitTransaction();
       announce(`${candidate.label ?? 'Subject'} applied as a mask`);
     } catch (error) {
+      abortTransaction();
       announce(error instanceof Error ? error.message : 'Could not apply the subject mask');
     }
   };

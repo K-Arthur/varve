@@ -31,8 +31,8 @@ import { sitePath } from '../../../lib/siteUrl';
 
       <section class="docs-section">
         <h2>Select subject without a prompt</h2>
-        <p><strong>Selection Sources &gt; Select subject</strong> is a model-free foreground estimate for images with an obvious main subject. It needs no download, no account, and no GPU: Varve ranks proposals by coverage, centrality, and edge support, applies the top-ranked proposal as a pixel selection immediately, and keeps every alternative one click away, with <strong>All subjects</strong> to union them.</p>
-        <p>The estimate is deliberately conservative about what it claims. Scores are shown as estimate scores rather than semantic confidence, and it never labels what an object is. It works best on plain or gradient backgrounds where the subject differs from the border. Enclosed background-coloured regions stay inside a proposal rather than being punched out automatically, and the refine tools can remove them. For a specific object, use Object Selection with points or a box.</p>
+        <p><strong>Selection Sources &gt; Select subject</strong> proposes a foreground region for images with an obvious main subject. Choose an estimate quality first. <strong>Fast</strong> is the default and runs the bundled U²-Net Light model with no download, no account, and no GPU. <strong>Balanced</strong> prefers an installed IS-Net model, and <strong>High quality</strong> prefers an installed BiRefNet Lite model; when one is missing, the panel offers its download size explicitly and says which model actually ran. Varve applies the top-ranked proposal as a pixel selection immediately, keeps every alternative one click away, and can apply the active candidate as an editable mask instead.</p>
+        <p>The estimate is deliberately conservative about what it claims. Scores are shown as estimate scores rather than semantic confidence, and it never labels what an object is. A model-backed estimate works best when the subject stands out from its surroundings; a fully offline machine with no model falls back to the model-free heuristic, and the panel says so. Enclosed background-coloured regions stay inside a proposal rather than being punched out automatically, and the refine tools can remove them. For a specific object, use Object Selection with points or a box.</p>
       </section>
 
       <section class="docs-section">
@@ -63,7 +63,7 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Limitations</h2>
         <p>Object Selection is promptable segmentation, not semantic recognition. A click tells the model which region to segment; it does not guarantee that an arbitrary automatic result is the subject. Hair, fur, glass, smoke, shadows, and translucent edges may need brush or trimap refinement.</p>
-        <p>The model-free <strong>Select subject</strong> estimate is a foreground heuristic ranked by coverage, centrality, and edge support. It is weakest on landscape or texture scenes and is never presented as semantic recognition, so Magic Wand and Object Selection remain the precise paths.</p>
+        <p>The <strong>Select subject</strong> estimate is a foreground proposal, not semantic recognition. The Fast level uses the bundled U²-Net Light model, optional higher-quality levels use installed IS-Net or BiRefNet Lite, and the model-free fallback (used when no model is available) is weakest on landscape or texture scenes. None of them labels what an object is, so Magic Wand and Object Selection remain the precise paths.</p>
       </section>
     </div>
   </div>
