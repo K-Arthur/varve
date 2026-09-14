@@ -8,6 +8,31 @@ screenshots and mocks do not qualify.
 
 Last updated: 2026-09-14.
 
+The frozen input gate can be checked offline with:
+
+```bash
+node scripts/quality/generative-qualification.mjs --json
+```
+
+That command validates the 24 photographic fixtures and 32 fixed tasks only;
+it intentionally makes no model-quality claim. A real qualification run must
+write a `report.json` in an evidence directory and pass the same gate with:
+
+```bash
+node scripts/quality/generative-qualification.mjs \
+  --evidence-dir /path/to/qualification-evidence --json
+```
+
+The evidence report must retain all three frozen seeds per task, source and
+mask representations, prepared context, raw candidate, composite, difference
+map, 100% boundary crop, timing, measured peak memory, provider provenance,
+and 0–4 review scores. Failed or missing candidates are errors in the gate;
+they cannot count as successful generation. The gate also requires zero
+protected-pixel deltas, source-placement preservation, alpha-safe compositing,
+an acceptable candidate for at least 90% of tasks, and coverage of every
+fixture category. It is an evidence-integrity check, not a replacement for
+visual inspection or the native runtime qualification.
+
 ## Provider and platform status
 
 The engine-level capability object records `available`, `ready`, supported
