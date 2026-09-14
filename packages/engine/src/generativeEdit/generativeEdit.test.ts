@@ -242,6 +242,25 @@ describe('GenerativeJobController', () => {
     expect(jobs.getState().status).toBe('completed');
   });
 
+  it('ignores progress from a superseded job', () => {
+    const jobs = new GenerativeJobController();
+    const first = jobs.start(1);
+    const second = jobs.start(1);
+
+    expect(jobs.update(first, 0.9, 'generating')).toBe(false);
+    expect(jobs.getState()).toMatchObject({
+      status: 'queued',
+      jobId: second.id,
+      progress: 0,
+    });
+    expect(jobs.update(second, 0.4, 'generating')).toBe(true);
+    expect(jobs.getState()).toMatchObject({
+      status: 'generating',
+      jobId: second.id,
+      progress: 0.4,
+    });
+  });
+
   it('rejects a result when any source-affecting snapshot field changes', () => {
     const jobs = new GenerativeJobController();
     const snapshot = {

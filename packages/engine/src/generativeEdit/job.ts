@@ -81,11 +81,13 @@ export class GenerativeJobController {
   }
 
   update(
+    token: GenerativeJobToken,
     progress: number,
     status: Extract<GenerativeJobStatus, 'preparing' | 'generating' | 'compositing'>,
-  ): void {
-    if (!this.active) return;
+  ): boolean {
+    if (this.active?.token.id !== token.id || token.signal.aborted) return false;
     this.state = { ...this.state, status, progress: Math.max(0, Math.min(1, progress)) };
+    return true;
   }
 
   isCurrent(token: GenerativeJobToken, current: GenerativeJobSnapshot | number): boolean {

@@ -1973,7 +1973,7 @@ export function ContentAwareFillDialog({
           signal: token.signal,
           isCurrent: isCurrentJob,
           onProgress: ({ stage, progress }) => {
-            jobControllerRef.current.update(progress, stage);
+            if (!isCurrentJob() || !jobControllerRef.current.update(token, progress, stage)) return;
             setGenerationProgress((index + progress) / effectiveVariationCount);
             setGenerationStage(
               `${stage[0]?.toUpperCase() + stage.slice(1)} · variation ${index + 1}/${effectiveVariationCount}`,
