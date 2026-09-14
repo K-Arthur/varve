@@ -192,11 +192,14 @@ function TextSection({
     typographySurface.pendingFormat,
   );
   const displayNode = { ...node, ...display.values };
+  const effectiveNodes = display.effectiveNodes.length > 0 ? display.effectiveNodes : [displayNode];
   const fontFamily = displayNode.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
   const fontWeight = displayNode.fontWeight ?? 400;
-  const weightOptions = fontWeightOptions(displayNode);
+  const weightOptions = fontWeightOptions(effectiveNodes);
   const isItalic = (displayNode.fontStyle ?? 'normal') === 'italic';
-  const italicAvailable = isItalic || fontStyleAvailable(displayNode, 'italic');
+  const italicAvailable = display.mixed.fontStyle
+    ? fontStyleAvailable(effectiveNodes, 'italic')
+    : isItalic || fontStyleAvailable(effectiveNodes, 'italic');
   const applyChanges = (changes: TypographyTextChanges) =>
     applyTypographyChanges(typographySurface, node.id, changes);
   return (

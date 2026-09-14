@@ -53,9 +53,13 @@ export function FloatingTextBar({
     [node, pendingFormat, selectionRange],
   );
   const displayNode = useMemo(() => ({ ...node, ...display.values }), [display.values, node]);
+  const effectiveNodes = useMemo(
+    () => (display.effectiveNodes.length > 0 ? display.effectiveNodes : [displayNode]),
+    [display.effectiveNodes, displayNode],
+  );
   const weightOptions = useMemo(
-    () => fontWeightOptions(displayNode, registry),
-    [displayNode, registry],
+    () => fontWeightOptions(effectiveNodes, registry),
+    [effectiveNodes, registry],
   );
   const [colorOpen, setColorOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -160,10 +164,13 @@ export function FloatingTextBar({
   const fillColor: ManagedColor = node.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 };
   const fillColorRgba = managedColorToRgba(fillColor);
   const isBold = (displayNode.fontWeight ?? 400) >= 600;
-  const boldAvailable =
-    isBold || weightOptions.some((option) => option.value === 700 && !option.disabled);
+  const boldAvailable = display.mixed.fontWeight
+    ? weightOptions.some((option) => option.value === 700 && !option.disabled)
+    : isBold || weightOptions.some((option) => option.value === 700 && !option.disabled);
   const isItalic = (displayNode.fontStyle ?? 'normal') === 'italic';
-  const italicAvailable = isItalic || fontStyleAvailable(displayNode, 'italic', registry);
+  const italicAvailable = display.mixed.fontStyle
+    ? fontStyleAvailable(effectiveNodes, 'italic', registry)
+    : isItalic || fontStyleAvailable(effectiveNodes, 'italic', registry);
   const isList = (node.listStyle ?? 'none') !== 'none';
   const textAlign = node.textAlign ?? 'left';
 

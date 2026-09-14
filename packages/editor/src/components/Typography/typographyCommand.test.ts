@@ -151,6 +151,22 @@ describe('typography command adapter', () => {
     expect(display.values.fontWeight).toBe(400);
     expect(display.mixed.fontFamily).toBe(true);
     expect(display.mixed.fontWeight).toBe(true);
+    expect(display.effectiveNodes).toEqual([
+      {
+        fontFamily: 'Inter',
+        fontReference: undefined,
+        fontWeight: 400,
+        fontStyle: 'normal',
+        variableAxes: { opsz: 14 },
+      },
+      {
+        fontFamily: 'Georgia',
+        fontReference: undefined,
+        fontWeight: 700,
+        fontStyle: 'normal',
+        variableAxes: { opsz: 14 },
+      },
+    ]);
   });
 
   it('uses pending insertion formatting at a collapsed caret', () => {
@@ -174,5 +190,14 @@ describe('typography command adapter', () => {
       variableAxes: { wdth: 90 },
     });
     expect(display.mixed).toEqual({});
+    expect(display.effectiveNodes).toEqual([
+      {
+        fontFamily: 'Georgia',
+        fontReference: undefined,
+        fontWeight: 700,
+        fontStyle: 'normal',
+        variableAxes: { wdth: 90 },
+      },
+    ]);
   });
 });

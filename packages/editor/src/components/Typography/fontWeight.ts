@@ -163,9 +163,20 @@ export function fontWeightOptions(
  * family-only records continue to use the available family metadata.
  */
 export function fontStyleAvailable(
-  node: WeightNode,
+  nodeOrNodes: WeightNode | readonly WeightNode[],
   style: NonNullable<TextNode['fontStyle']>,
   registry: ReturnType<typeof getFontRegistry> = getFontRegistry(),
+): boolean {
+  const nodes = nodesList(nodeOrNodes);
+  return (
+    nodes.length > 0 && nodes.every((node) => fontStyleAvailableForNode(node, style, registry))
+  );
+}
+
+function fontStyleAvailableForNode(
+  node: WeightNode,
+  style: NonNullable<TextNode['fontStyle']>,
+  registry: ReturnType<typeof getFontRegistry>,
 ): boolean {
   if ((node.fontStyle ?? 'normal') === style) return true;
 

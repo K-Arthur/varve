@@ -38,12 +38,23 @@ export type TypographyDisplayField =
   | 'fontSize'
   | 'variableAxes';
 
+/** Effective face data for each run addressed by the active range. */
+export type TypographyDisplayNode = Pick<
+  TextNode,
+  'fontFamily' | 'fontReference' | 'fontWeight' | 'fontStyle' | 'variableAxes'
+>;
+
 export interface TypographyDisplayValues {
   values: Pick<
     TextNode,
     'fontFamily' | 'fontReference' | 'fontWeight' | 'fontStyle' | 'fontSize' | 'variableAxes'
   >;
   mixed: Partial<Record<TypographyDisplayField, boolean>>;
+  /**
+   * Resolved run faces in selection order. Empty means the control is reading
+   * the text-node defaults or a browse-only node value.
+   */
+  effectiveNodes: readonly TypographyDisplayNode[];
 }
 
 const DISPLAY_FORMAT_FIELDS: readonly {
@@ -97,7 +108,7 @@ export function typographyDisplayValues(
   const mixed: Partial<Record<TypographyDisplayField, boolean>> = {};
   const rich = node.richText;
   if (!selectionRange || !rich) {
-    return { values, mixed };
+    return { values, mixed, effectiveNodes: [] };
   }
 
   const startBeforeEnd =
@@ -143,8 +154,20 @@ export function typographyDisplayValues(
           field.node === 'variableAxes' && next ? { ...(next as Record<string, number>) } : next;
       }
     }
-    return { values, mixed };
+    return { values, mixed, effectiveNodes: [] };
   }
+
+  const effectiveNodes: TypographyDisplayNode[] = selectedRuns.map((run) => ({
+    fontFamily: hasOwn(run.format, 'fontFamily') ? run.format?.fontFamily : values.fontFamily,
+    fontReference: hasOwn(run.format, 'fontReference')
+      ? run.format?.fontReference
+      : values.fontReference,
+    fontWeight: hasOwn(run.format, 'fontWeight') ? run.format?.fontWeight : values.fontWeight,
+    fontStyle: hasOwn(run.format, 'fontStyle') ? run.format?.fontStyle : values.fontStyle,
+    variableAxes: hasOwn(run.format, 'variableFontSettings')
+      ? run.format?.variableFontSettings
+      : values.variableAxes,
+  }));
 
   for (const field of DISPLAY_FORMAT_FIELDS) {
     const runValues = selectedRuns.map((run) => {
@@ -167,9 +190,22 @@ export function typographyDisplayValues(
         field.node === 'variableAxes' && next ? { ...(next as Record<string, number>) } : next;
       delete mixed[field.node];
     }
+    return {
+      values,
+      mixed,
+      effectiveNodes: [
+        {
+          fontFamily: values.fontFamily,
+          fontReference: values.fontReference,
+          fontWeight: values.fontWeight,
+          fontStyle: values.fontStyle,
+          variableAxes: values.variableAxes,
+        },
+      ],
+    };
   }
 
-  return { values, mixed };
+  return { values, mixed, effectiveNodes };
 }
 
 /** True when a selection addresses characters rather than a collapsed caret. */

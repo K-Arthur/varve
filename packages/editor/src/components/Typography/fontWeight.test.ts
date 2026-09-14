@@ -122,6 +122,22 @@ describe('fontWeightOptions', () => {
     ]);
   });
 
+  it('requires a real italic capability on every selected face', () => {
+    const registry = new FontRegistry([
+      { family: 'A', weight: 400, style: 'normal', source: 'user' },
+      { family: 'A', weight: 400, style: 'italic', source: 'user' },
+      { family: 'B', weight: 400, style: 'normal', source: 'user' },
+    ]);
+
+    expect(
+      fontStyleAvailable(
+        [node({ fontFamily: 'A' }), node({ fontFamily: 'B' })],
+        'italic',
+        registry,
+      ),
+    ).toBe(false);
+  });
+
   it('scopes static weights to an exact artifact when the registry has face keys', () => {
     const firstReference = { artifactHash: 'a'.repeat(64) };
     const secondReference = { artifactHash: 'b'.repeat(64) };
