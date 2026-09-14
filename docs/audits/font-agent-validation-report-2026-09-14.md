@@ -215,3 +215,23 @@ Passed: Biome and all 77 focused tests. `verify:plan` selected the shared
 worktree full-gate escalation; `verify:affected` exited 2 at that required
 escalation boundary without running the broad closure. Existing Chromium
 toolbar screenshots remain the visual evidence for geometry and readability.
+
+## Native WDIO continuation — 2026-09-14
+
+Added `tests/wdio/font-native.e2e.ts` to exercise native enumeration, nested
+family filtering, stable de-duplication, and exact artifact-byte hashing through
+the actual Tauri bridge. `pnpm typecheck:e2e` passed before this addition, and
+the new WDIO file passed Biome.
+
+The requested native command was:
+
+```text
+VARVE_WDIO_SPECS=./tests/wdio/font-native.e2e.ts pnpm test:desktop:native
+```
+
+It stopped in `apps/desktop`'s `build:wdio` TypeScript step before launching
+Tauri. The errors are in concurrent/shared files (`Menubar.tsx`,
+`inputPipeline.ts`, `wheelClassifier.ts`, `applyFontReplacement.ts`,
+`ManageLayoutsDialog.tsx`, `geometry/vectorOps.ts`, `snapping.ts`, and
+`workspace/layoutVariants.ts`); no native WDIO pass is claimed. The executable
+next check is to rerun this exact spec after that shared build lane is repaired.

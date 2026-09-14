@@ -61,3 +61,24 @@ export/import concern and remains covered by acceptance scenarios 5 and 20.
 Real desktop WebKit capture, OS refresh notifications, and Windows/macOS
 manual runs remain pending. The native enumeration test uses the host font
 database; it is an invariant check, not a frozen corpus certification.
+
+## Embedded WDIO follow-up — 2026-09-14
+
+`tests/wdio/font-native.e2e.ts` now exercises the real Tauri bridge. It checks
+stable `(family, name)` ordering and de-duplication, the nested family-filter
+request, and exact-byte loading by hashing the returned artifact and comparing
+it with the native `artifactHash`. A minimal host with no readable font file
+still records enumeration invariants; the normal Linux lane requires the
+loaded-byte assertion.
+
+The requested run was:
+
+```text
+VARVE_WDIO_SPECS=./tests/wdio/font-native.e2e.ts pnpm test:desktop:native
+```
+
+It reached `desktop:build:test` but stopped in the shared worktree's existing
+frontend TypeScript errors (`Menubar.tsx`, `inputPipeline.ts`, `wheelClassifier.ts`,
+`applyFontReplacement.ts`, `ManageLayoutsDialog.tsx`, `geometry/vectorOps.ts`,
+`snapping.ts`, and `workspace/layoutVariants.ts`) before the Tauri binary or
+WDIO spec could start. This is a build-lane blocker, not native test evidence.
