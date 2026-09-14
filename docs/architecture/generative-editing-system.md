@@ -176,10 +176,11 @@ removal dispatch, and the generic model worker host. The default policy admits
 one heavy request at a time; callers may supply a measured reservation for a
 known model and working frame. A queued request is removed immediately when
 its signal aborts, and every owner releases its lease in `finally`, including
-worker crashes, timeouts, and decode failures. A native generation request that
-has been cancelled releases its lease only after the supervised IPC invocation
-settles, so a replacement model session cannot start while the helper is still
-being terminated. Quick heuristic removal does not acquire a lease. This keeps
+worker crashes, timeouts, and decode failures. A native generation or LaMa
+request that has been cancelled releases its lease only after the
+supervised/native IPC invocation settles, so a replacement model session cannot
+start while the helper is still being terminated. Quick heuristic removal does
+not acquire a lease. This keeps
 a background-removal fallback chain from
 competing with generation while allowing unrelated lightweight editor work to
 continue.
