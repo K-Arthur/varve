@@ -71,6 +71,17 @@ not touch because they contain concurrent uncommitted work.
 - Real-model corpus gate: unavailable here (encoder artifact absent);
   recorded as unverified, not skipped silently.
 
+## Website integration of a stopped writer (2026-09-14)
+
+`apps/website/src/pages/docs/tools/object-selection.astro` and
+`apps/website/src/pages/features/background-removal.astro` carried a stopped
+writer's refinement copy (last modified 2026-09-13 23:28, over an hour before
+integration) with a **stale staged snapshot** that held the reverse text. The
+working-tree versions (the matting-first refinement copy matching the landed
+`194b37764` refinement work) were preserved and committed together with this
+task's subject-estimate and reviewed-candidate copy. No other writer's lines
+were altered, and the stale staged hunks were never committed.
+
 ## Commit discipline
 
 Every commit uses an explicit path list of files this task owns. Unrelated

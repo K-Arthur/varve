@@ -18,9 +18,15 @@ import { sitePath } from '../../../lib/siteUrl';
           <li>Select an image and activate <strong>Select Object</strong>.</li>
           <li>Click an object to add a positive prompt. Hold <strong>Shift</strong> while clicking to subtract a region.</li>
           <li>Drag a box when a coarse region is easier to identify than a point.</li>
-          <li>Add more prompts to refine the temporary preview. Press <strong>Escape</strong> to discard it.</li>
-          <li>Choose <strong>Apply as mask</strong> for an editable document mask, or <strong>Use as selection</strong> for a temporary pixel-area selection.</li>
+          <li>Add more prompts to refine the temporary preview. Tap a marker to remove that prompt, or press <strong>Backspace</strong> to remove the last one. <strong>Escape</strong> or <strong>Clear prompts</strong> discards the preview.</li>
+          <li>Choose <strong>Apply as mask</strong> for an editable document mask, or <strong>Use as selection</strong> for a temporary pixel-area selection. Both commit the candidate you reviewed; choosing an output does not run the model again.</li>
         </ol>
+      </section>
+
+      <section class="docs-section">
+        <h2>Select subject without a prompt</h2>
+        <p><strong>Selection Sources &gt; Select subject</strong> is a model-free foreground estimate for images with an obvious main subject. It needs no download, no account, and no GPU: Varve ranks proposals by coverage, centrality, and edge support, applies the top-ranked proposal as a pixel selection immediately, and keeps every alternative one click away, with <strong>All subjects</strong> to union them.</p>
+        <p>The estimate is deliberately conservative about what it claims. Scores are shown as estimate scores rather than semantic confidence, and it never labels what an object is. It works best on plain or gradient backgrounds where the subject differs from the border. Enclosed background-coloured regions stay inside a proposal rather than being punched out automatically, and the refine tools can remove them. For a specific object, use Object Selection with points or a box.</p>
       </section>
 
       <section class="docs-section">
@@ -51,6 +57,7 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Limitations</h2>
         <p>Object Selection is promptable segmentation, not semantic recognition. A click tells the model which region to segment; it does not guarantee that an arbitrary automatic result is the subject. Hair, fur, glass, smoke, shadows, and translucent edges may need brush or trimap refinement.</p>
+        <p>The model-free <strong>Select subject</strong> estimate is a foreground heuristic ranked by coverage, centrality, and edge support. It is weakest on landscape or texture scenes and is never presented as semantic recognition, so Magic Wand and Object Selection remain the precise paths.</p>
       </section>
     </div>
   </div>

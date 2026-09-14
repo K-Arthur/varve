@@ -19,10 +19,24 @@ import { sitePath } from '../../lib/siteUrl';
         <h2>Select with the canvas</h2>
         <ul>
           <li>Click to include an object or Shift-click to exclude a region.</li>
+          <li>Tap a prompt marker to remove just that prompt, or press Backspace for the last one.</li>
           <li>Drag a box when a rough boundary is a better starting point.</li>
+          <li>Compare candidate masks before applying; the candidate you reviewed is the one that is committed.</li>
           <li>Preview the result before it becomes part of the document.</li>
           <li>Apply once to create a non-destructive raster mask that survives save, reload, and model removal.</li>
         </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>A subject estimate with no download</h2>
+        <p>
+          When you have an obvious subject but no prompts in mind, Selection Sources &gt; Select
+          subject proposes foreground regions with no model, no account, and no GPU. Proposals are
+          ranked by coverage, centrality, and edge support; the top-ranked one becomes a pixel
+          selection immediately, every alternative stays one click away, and All subjects unions
+          them. Scores are shown as estimates, never as semantic confidence, and the copy never
+          claims to know what an object is.
+        </p>
       </section>
 
       <section class="feature-section">
@@ -49,7 +63,7 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section note">
         <h2>Set the right expectation</h2>
         <p>
-          Promptable segmentation follows your points and box; it is not a guarantee of semantic subject understanding or perfect alpha matting. Hair, glass, smoke, and similar boundaries may need the existing brush or trimap refinement tools. Review the mask against the final background before export.
+          Promptable segmentation follows your points and box; it is not a guarantee of semantic subject understanding or perfect alpha matting. Hair, glass, smoke, and similar boundaries may need the existing brush or trimap refinement tools. The model-free Select subject estimate is a foreground heuristic, works best on plain or gradient backgrounds, and is weakest on landscape or texture scenes. Review the mask against the final background before export.
         </p>
       </section>
 
