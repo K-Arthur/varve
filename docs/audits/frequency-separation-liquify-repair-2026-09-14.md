@@ -111,6 +111,17 @@ Focused unit/scene evidence currently passes:
 - Editor cache/tool repair tests: replacement accounting and component target
   resolution.
 
+The feature-specific browser regressions also pass. The re-split and Liquify
+cases were run with HMR disabled to keep the shared checkout's concurrent
+source edits from navigating the test page:
+
+- `frequency-separation.spec.ts`: reconstruction/undo passed in Chromium;
+  the re-split preservation case passed independently in 3.6 minutes.
+- `liquify.spec.ts`: real push drag, undo, and redo passed in Chromium in
+  4.7 minutes.
+- `frequency-liquify-persistence.spec.ts`: combined creation, group Liquify,
+  save/reopen, and byte-identical export passed in Chromium in 2.2 minutes.
+
 The dirty checkout contains unrelated concurrent edits and several active
 dev servers. The first Chromium E2E attempt was therefore not accepted as
 visual evidence: the app remained on Loading Varve and the page context was
