@@ -2636,21 +2636,24 @@ fixed permitted regions and extends the live override surface instead.
   - chrome-less workspace keeps its launchers at 760px (the P0 fix).
   Two earlier failures were a cold-start startup timeout (passed on rerun)
   and a spec issue where the still-open Manage Layouts modal intercepted the
-  FAB click (spec now closes the dialog first).
+  FAB click (spec now closes the dialog first). Once the foreign
+  `typecheck:e2e` failures cleared, a final single run at the spec commit
+  passed 6/6 in 8.0 minutes.
 - Visual inspection: `reports/workspace-review/manage-layouts-pre-css-fix.png`
-  showed the dialog clipping its right-side actions; the after screenshot
-  (`test-results/workspace-manage-layouts.png` in the verification run)
-  confirms Duplicate/Save/Done sit inside the dialog frame, and
-  `workspace-narrow-drawer.png` confirms the drawer overlay with FABs above
-  the status bar.
+  showed the dialog clipping its right-side actions; the final-run capture
+  (`reports/workspace-review/manage-layouts-after-css-fix.png`) confirms
+  Duplicate/Save/Done sit inside the dialog frame,
+  `customize-dialog-chrome-history.png` shows the Editor Chrome toggles with
+  the History panel enabled, `narrow-drawer-760px.png` confirms the drawer
+  overlay with FABs above the status bar, and
+  `narrow-focus-canvas-launchers.png` shows the launchers surviving a
+  chrome-less workspace at 760px.
 - Desktop lane sanity: `node scripts/desktop/preflight.mjs --json` is green
   on this host (CachyOS, Wayland, gtk 3.24.52, webkit2gtk-4.1 2.52.6, xvfb
   available). A full Tauri app relaunch was not run.
-- The E2E spec commit remains in the working tree because `pnpm typecheck:e2e`
-  fails on foreign in-flight types (`packages/scene`, `packages/engine`).
-  Land it with:
-  `git add tests/e2e/workspace/customization.spec.ts && git commit -m "test(workspace): add layout customization and recovery E2E spec"`
-  once `pnpm typecheck:e2e` is green.
+- The E2E spec is committed as `dd89c23cc`
+  (`test(workspace): add layout customization and recovery E2E spec`), and
+  `pnpm typecheck:e2e` passes for it.
 
 
 
