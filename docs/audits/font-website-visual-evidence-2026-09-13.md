@@ -32,3 +32,24 @@ missing-font recovery, variable axes, Document Fonts, Select by Font, image
 identification, and export limitations. Claims that remain pending in the
 product are labelled as integration work rather than presented as shipped
 capabilities.
+
+## Follow-up visual pass — 2026-09-14
+
+The narrow captures exposed an inline-axis token wrapping at the hyphen. The
+feature and guide now keep inline code tokens intact within their paragraph
+flow, while still allowing the whole token to move to the next line. This is a
+page-scoped change; it does not change the global code-block behavior.
+
+Commands:
+
+```text
+pnpm --filter @varve/website build
+pnpm build:website:pages
+CI=1 VARVE_WEBSITE_E2E_PORT=1753 VARVE_WEBSITE_E2E_PORT_ROOT=1754 npx playwright test apps/website/tests/e2e/typography-workflow.spec.ts -c playwright.website.config.ts --project=ghpages --project=custom-domain --reporter=list
+```
+
+Both builds completed with **0 errors** (Astro reported five existing hints),
+and the two deployment projects passed **14/14** typography/FAQ cases. I
+inspected the refreshed desktop light, desktop dark, and 390×844 narrow
+captures for both base paths; the `vertical-rl` and `vertical-lr` chips remain
+readable without horizontal overflow.

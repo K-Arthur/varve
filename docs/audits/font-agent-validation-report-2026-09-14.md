@@ -235,3 +235,22 @@ Tauri. The errors are in concurrent/shared files (`Menubar.tsx`,
 `ManageLayoutsDialog.tsx`, `geometry/vectorOps.ts`, `snapping.ts`, and
 `workspace/layoutVariants.ts`); no native WDIO pass is claimed. The executable
 next check is to rerun this exact spec after that shared build lane is repaired.
+
+## Website visual continuation — 2026-09-14
+
+The typography and provider marketing surfaces received a final narrow-layout
+polish: inline axis code tokens no longer split inside the token. The current
+Astro build and both base-path outputs were rebuilt successfully.
+
+Commands actually run:
+
+```text
+pnpm --filter @varve/website build
+pnpm build:website:pages
+CI=1 VARVE_WEBSITE_E2E_PORT=1753 VARVE_WEBSITE_E2E_PORT_ROOT=1754 npx playwright test apps/website/tests/e2e/typography-workflow.spec.ts -c playwright.website.config.ts --project=ghpages --project=custom-domain --reporter=list
+```
+
+Passed: both builds (0 errors, five existing Astro hints) and **14/14**
+typography/FAQ cases across `/varve` and `/`. Desktop light/dark and narrow
+dark captures were inspected. The broader website suite and unrelated global
+visual snapshots remain outside this focused proof.
