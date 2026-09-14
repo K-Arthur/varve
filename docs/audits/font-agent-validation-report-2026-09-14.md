@@ -18,6 +18,8 @@ isolated index so those staged entries were preserved.
 - `a1d5ab9a6` — reject browser export faces that never become ready.
 - `aab2dcb9b` — project exact-face capabilities through catalog, manifest,
   recovery UI, and Document Fonts status badges.
+- `e0af7317` — fix highlighted quick-toolbar font-menu contrast and record the
+  inspected DPR rerun.
 
 The quick-toolbar geometry work is covered by the existing frontend changes and
 is rechecked by `tests/e2e/canvas/font-toolbar-visual.spec.ts`.
@@ -120,6 +122,13 @@ Full suite run: yes — `pnpm verify:full` was required by the planner escalatio
 If yes, reason: the planner classified the dirty shared worktree as a
 workspace/toolchain/validation-infrastructure change whose package-selection
 contract could affect every package.
+
+After the capability and toolbar commits, the required full-gate rerun used
+the same escalation reason and stopped at the same unrelated lint,
+architecture-cycle, and engine typecheck failures before downstream suites.
+The exact post-rerun `pnpm verify:plan` and `pnpm verify:affected` commands were
+also run; the latter exited 2 solely because the planner requires that full
+gate for this dirty shared workspace.
 
 ## Evidence links
 
