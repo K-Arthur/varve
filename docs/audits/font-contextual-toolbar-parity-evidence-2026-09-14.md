@@ -23,12 +23,14 @@ italic capability gating, and size commit validation.
 ## Visual validation
 
 ```text
-VARVE_E2E_PORT=1493 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts tests/e2e/canvas/typography-editing.spec.ts --project=chromium --reporter=list
+VARVE_E2E_PORT=1494 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts tests/e2e/canvas/typography-editing.spec.ts --project=chromium --reporter=list
 ```
 
-Chromium passed **6/6** scenarios at DPR 1, 2, and 3. I inspected the latest
-light, dark-narrow, and high-contrast captures under
-`test-results/run-1408705-1493/`. The contextual and floating bars retain the
+Chromium passed **6/6** scenarios at DPR 1, 2, and 3 in 5.3 minutes. I
+inspected the latest light, dark-narrow, and high-contrast captures under
+`test-results/run-1437687-1494/`. The contextual and floating bars retain the
 same 32px control centerline, readable family field, bounded menu, and narrow
-overflow behavior after adding Bold. Native WebKitGTK, Windows WebView2, and
-macOS WKWebView still require their platform-specific runs.
+overflow behavior after adding Bold. The typography workflow also confirmed
+that canceling an untouched text node still removes it and that an OpenType
+change redraws the artwork. Native WebKitGTK, Windows WebView2, and macOS
+WKWebView still require their platform-specific runs.
