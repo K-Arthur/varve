@@ -337,6 +337,31 @@ describe('fontWeightChanges', () => {
       ),
     ).toEqual({ fontWeight: 700, fontReference: undefined });
   });
+
+  it('does not treat stale authored wght values as an axis on an exact static face', () => {
+    const artifactHash = '6'.repeat(64);
+    const registry = new FontRegistry([
+      {
+        family: 'Static Axis Metadata Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash }),
+      },
+    ]);
+
+    expect(
+      fontWeightChanges(
+        node({
+          fontFamily: 'Static Axis Metadata Family',
+          fontReference: { artifactHash },
+          variableAxes: { wght: 400 },
+        }),
+        700,
+        registry,
+      ),
+    ).toEqual({ fontWeight: 700, fontReference: undefined });
+  });
 });
 
 describe('fontStyleChanges', () => {
@@ -560,5 +585,29 @@ describe('fontStyleChanges', () => {
         registry,
       ),
     ).toEqual({ fontStyle: 'italic', fontReference: undefined });
+  });
+
+  it('does not treat stale authored ital values as an axis on an exact static face', () => {
+    const artifactHash = '7'.repeat(64);
+    const registry = new FontRegistry([
+      {
+        family: 'Static Italic Metadata Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash }),
+      },
+    ]);
+    const current = node({
+      fontFamily: 'Static Italic Metadata Family',
+      fontReference: { artifactHash },
+      variableAxes: { ital: 0 },
+    });
+
+    expect(fontStyleAvailable(current, 'italic', registry)).toBe(false);
+    expect(fontStyleChanges(current, 'italic', registry)).toEqual({
+      fontStyle: 'italic',
+      fontReference: undefined,
+    });
   });
 });

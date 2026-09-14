@@ -37,6 +37,17 @@ function sameArtifact(faceKey: string | undefined, reference: FontReference): bo
   return match?.[1]?.toLowerCase() === reference.artifactHash.toLowerCase();
 }
 
+function declaresAxis(
+  entries: ReturnType<ReturnType<typeof getFontRegistry>['getEntries']>,
+  tag: string,
+): boolean {
+  return entries.some(
+    (entry) =>
+      entry.axisDefinitions?.some((axis) => axis.tag === tag) === true ||
+      entry.variableAxes?.[tag] !== undefined,
+  );
+}
+
 function nodesList(nodeOrNodes: WeightNode | readonly WeightNode[]): readonly WeightNode[] {
   return Array.isArray(nodeOrNodes) ? nodeOrNodes : [nodeOrNodes as WeightNode];
 }
@@ -191,7 +202,9 @@ export function fontStyleAvailable(
     const max = Math.max(italicAxis.min, italicAxis.max);
     return style === 'italic' ? max >= 1 && min <= 1 : min <= 0 && max >= 0;
   }
-  return style === 'italic' && node.variableAxes?.ital !== undefined;
+  const authoredAxesAreSupported =
+    !node.fontReference || entriesWithIdentity.length === 0 || declaresAxis(exactEntries, 'ital');
+  return style === 'italic' && authoredAxesAreSupported && node.variableAxes?.ital !== undefined;
 }
 
 /**
@@ -220,6 +233,7 @@ export function fontWeightChanges(
   const family = node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
   const entries = registry.getEntries(family);
   const hasIdentity = entries.some((entry) => entry.faceKey);
+  const entriesWithIdentity = entries.filter((entry) => entry.faceKey);
   const scopedEntries =
     node.fontReference && hasIdentity
       ? entries.filter((entry) => sameArtifact(entry.faceKey, node.fontReference!))
@@ -235,9 +249,11 @@ export function fontWeightChanges(
       (entry) => entry.axisDefinitions?.length,
     )?.axisDefinitions ??
     (node.fontReference && hasIdentity ? undefined : registry.getAxisDefinitions(family));
+  const authoredWeightAxis =
+    node.variableAxes?.wght !== undefined &&
+    (!node.fontReference || entriesWithIdentity.length === 0 || declaresAxis(exactEntries, 'wght'));
   const hasWeightAxis =
-    axisDefinitions?.some((axis) => axis.tag === 'wght') === true ||
-    node.variableAxes?.wght !== undefined;
+    axisDefinitions?.some((axis) => axis.tag === 'wght') === true || authoredWeightAxis;
   if (hasWeightAxis) {
     return { fontWeight: weight, variableAxes: { ...(node.variableAxes ?? {}), wght: weight } };
   }
@@ -297,7 +313,10 @@ export function fontStyleChanges(
     )?.axisDefinitions ??
     (node.fontReference && hasIdentity ? undefined : registry.getAxisDefinitions(family));
   const italicAxis = axisDefinitions?.find((axis) => axis.tag === 'ital');
-  if (italicAxis || node.variableAxes?.ital !== undefined) {
+  const authoredItalicAxis =
+    node.variableAxes?.ital !== undefined &&
+    (!node.fontReference || hasIdentity === false || declaresAxis(exactEntries, 'ital'));
+  if (italicAxis || authoredItalicAxis) {
     return {
       fontStyle: style,
       variableAxes: {
