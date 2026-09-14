@@ -202,6 +202,7 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
           onPressedChange={handleItalicToggle}
           label="Italic"
           disabled={!italicAvailable}
+          title={italicAvailable ? undefined : 'This font has no real italic face'}
           className={`floating-text-bar__btn${isItalic ? ' floating-text-bar__btn--active' : ''}`}
         />
 

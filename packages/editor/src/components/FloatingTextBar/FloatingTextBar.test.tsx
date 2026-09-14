@@ -210,6 +210,7 @@ describe('FloatingTextBar', () => {
 
     const italic = screen.getByLabelText('Italic');
     expect(italic).toBeDisabled();
+    expect(italic).toHaveAttribute('title', 'This font has no real italic face');
     fireEvent.click(italic);
     expect(onUpdate).not.toHaveBeenCalled();
   });
