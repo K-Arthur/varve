@@ -1,6 +1,6 @@
 # Generative Expand and Subtract completion plan — 2026-09-13
 
-Status: implementation complete; final validation record in progress on `master`. Integration owner for this
+Status: complete on `master`; final validation is recorded below. Integration owner for this
 slice: Codex. This document deliberately does not claim ownership of unrelated
 dirty files listed by `git status`; those changes belong to concurrent work and
 will be re-read before any shared-file edit.
@@ -93,8 +93,10 @@ provider manager was added.
 - `e2b50b939` — truthful Expand quality and generated-resolution limits.
 - `172720f71` — preserve the reviewed authored raster bounds during export.
 - `2133bed06` — Generative Subtract E2E source-asset protection assertion.
-- The final docs/marketing/evidence commit will contain the qualification
-  record, website copy and visual goldens, and retained browser captures.
+- `2207f84c8` — qualification report, completion record, marketing copy, and
+  retained browser evidence captures.
+- `0e2a4e3f8` — refreshed and visually inspected website Expand/Subtract
+  snapshots.
 
 The pinned native `lama-inpainting` ONNX model was executed through the
 production `varve-bgremove` helper on Linux x86_64 CPU across landscape,
@@ -105,11 +107,59 @@ Generative Subtract and now has an explicit real-photo source-preservation
 regression. Fast/PatchMatch remains the offline browser/constrained-device
 fallback.
 
-The final validation record must retain the exact affected/full-gate outcomes
-and distinguish the browser workflow pass (WASM unavailable, Fast provider)
-from the native model-quality qualification. The architecture case remains a
-review-only limitation because independent inspection found a dark generated
-band despite a close immediate seam score.
+The final validation record below distinguishes the browser workflow pass (WASM
+unavailable, Fast provider) from the native model-quality qualification. The
+architecture case remains a review-only limitation because independent
+inspection found a dark generated band despite a close immediate seam score.
+
+## Final validation record — 2026-09-13
+
+Passed feature evidence:
+
+- Native model qualification: `VARVE_LAMA_QUALIFICATION=1 node
+  scripts/quality/heavy-lease.mjs generative-expand-lama -- cargo test -p
+  varve-bgremove --features ai --test lama_expand_qualification --
+  --nocapture` — 1 test, 4 real photographs, 148.86 seconds total; source
+  RGBA protection passed for every case. Linux x86_64 CPU, `ort-native`,
+  `lama-inpainting`, 208 MB model, approximately 850 MB reserved peak.
+- Editor Expand workflow: clean no-HMR Chromium run of
+  `tests/e2e/caf/expand-real-photo.spec.ts` — 1 test passed in 2.6 minutes;
+  reviewed 1664x1272 output, exact source placement, independent PNG decode,
+  undo/redo, reopen, and Restore Original. The browser used Fast/PatchMatch
+  because WASM was unavailable; it is workflow/fallback evidence, not native
+  LaMa quality evidence.
+- Editor Generative Subtract workflow: clean no-HMR Chromium run of the real
+  photographic Remove test in `tests/e2e/caf/caf.spec.ts` — 1 test passed in
+  2.8 minutes. It proves the `remove` recipe, bounded overlay, provider
+  provenance, unchanged canonical source asset data URL, and unchanged source
+  fill identity.
+- Website marketing/docs visual validation: the existing generative-editing
+  visual spec passed all 3 Chromium tests in 35.8 seconds after inspecting the
+  feature full page, 390px narrow page, and dark docs page. The updated
+  snapshots are committed in `0e2a4e3f8`; no horizontal overflow was found.
+- Focused JS validation with `node_modules/.bin/vitest`: 5 files/67 tests for
+  the core contracts and 8 files/67 tests for plan/provider/CAF/export/session
+  coverage; all passed. Documentation, emoji, and token audits also passed.
+
+Gate results and limits:
+
+- `pnpm verify:plan` selected the full affected closure and reported
+  `FULL-SUITE ESCALATION: YES` because the shared master tree contains
+  workspace/toolchain/validation-infrastructure changes.
+- `pnpm verify:affected` returned the expected escalation exit without running
+  the full suite. The required `pnpm verify:full` was then invoked with the
+  stated reason, but stopped at unrelated current-tree type errors in
+  `packages/engine/src/backgroundRemoval/maskDecode.ts` and the LUT tests
+  (`BlobPart` and `LutTransform.size`) after reporting existing architecture
+  cycles/budget drift. It did not reach its test lanes. These failures are not
+  in the Expand/Subtract changed files; the focused and real-runtime evidence
+  above is the completion gate for this slice.
+
+The accepted pixels, source snapshot, provenance, and browser export captures
+are committed; no model or service is needed to reopen, undo/redo, or render an
+accepted result. Cross-platform native LaMa, prompt-conditioned expansion,
+transparent-object continuation, HDR/RAW master generation, animation, and
+large/strong-perspective expansions remain explicitly limited or gated.
 
 ## Coordination and validation gates
 
