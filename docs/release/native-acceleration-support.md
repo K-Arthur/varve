@@ -108,6 +108,32 @@ The public product and image-enhancement pages use the same boundary: native
 GPU offscreen work is described separately from webview composition, and no
 NPU support is advertised until this matrix has a verified row.
 
+## Release-like desktop smoke evidence — 2026-09-13
+
+On the primary CachyOS/Wayland host, the optimized Tauri binary compiled and
+launched in the real desktop session. A release-like AppImage and `.deb` were
+then built with `NO_STRIP=1` and a single Cargo build worker. The AppImage
+was launched from the produced file and a 1280×800 screenshot was opened for
+visual review. The clean isolated-data launch reached the normal update
+consent dialog; the direct optimized binary reached the home/workspace view.
+
+The first package pass exposed two packaging hazards that are now covered by
+the release scripts: Arch's linuxdeploy strip incompatibility, and stale
+foreign-runtime directories retained in a reused Tauri AppDir. The final
+AppImage payload contains only `linux-x86_64` under its ONNX Runtime resource
+directory; the `.deb` data archive has the same target-only contents. The
+local artifacts measured approximately 585 MiB (AppImage) and 591 MiB (`.deb`)
+because they include the full desktop/webview payload. The AppImage uses host
+WebKit/GTK/GStreamer/Mesa after the documented prune step and is therefore a
+smoke artifact for this host, not a portable release-baseline certification.
+
+The package smoke used a Vite-transpiled frontend because the current shared
+working tree has unrelated TypeScript errors; it does not waive the release
+typecheck. Those errors and the unavailable AppImage signing step remain in
+the validation report. Native GPU/inference claims continue to rely on the
+separate wgpu and ONNX Runtime provider traces, parity checks, and opened
+visual fixtures described above.
+
 ## Primary references checked 2026-09-13
 
 - [Tauri webview versions](https://v2.tauri.app/reference/webview-versions/)

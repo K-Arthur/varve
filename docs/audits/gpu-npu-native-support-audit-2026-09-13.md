@@ -261,3 +261,31 @@ cargo run --release -p varve-bgremove --features ai --example webgpu_ep_probe --
 F1/F2/F5 are superseded accordingly: the core artifact is still CPU-only, but
 registered plugin execution is real and observed for this model. Other models
 and platforms remain unverified and stay on the CPU policy.
+
+## 8. Installed/release-like desktop verification
+
+The optimized Tauri binary, AppImage, and `.deb` were built on the primary
+CachyOS/Wayland host on 2026-09-13. The first AppImage launch was live but
+its screenshot showed blank white document thumbnails, reproducing the class
+of stale bundled-WebKit failure documented in the release audit. The build
+was then re-run with `NO_STRIP=1`, and the AppImage was reassembled with
+`scripts/release/prune-appimage-bundled-libs.mjs`. That script now also
+removes foreign ONNX Runtime target directories retained by a reused Tauri
+AppDir and verifies the final payload.
+
+Final package inspection found only `linux-x86_64` in the AppImage's native
+runtime resource directory and the `.deb` data archive. The final AppImage
+was launched from the produced file under Wayland with isolated XDG data,
+and its startup/update-consent UI was captured and opened. The direct
+optimized binary was also launched and its home/workspace screen was
+captured and opened. The AppImage emitted `GStreamer element appsink not
+found`, an optional host media-plugin prerequisite; the editor window still
+rendered and remained alive. This verifies package startup and the recovery
+boundary, not every media codec or model workflow.
+
+The package command used a Vite-transpiled frontend because the shared dirty
+working tree currently has unrelated TypeScript errors; this is explicitly
+not a release typecheck pass. AppImage signing was intentionally disabled for
+local smoke testing. The exact commands and the remaining typecheck,
+architecture, and signing limitations are recorded in the session's Agent
+Validation Report.

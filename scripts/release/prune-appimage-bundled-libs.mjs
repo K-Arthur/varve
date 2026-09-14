@@ -62,7 +62,7 @@ import {
 import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { normalizeArchitecture } from './targets.mjs';
+import { normalizeArchitecture, normalizeTargetId, targetIdFor } from './targets.mjs';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const TAURI_CONF = join(REPO_ROOT, 'apps', 'desktop', 'src-tauri', 'tauri.conf.json');
@@ -128,6 +128,33 @@ export function collectPrunePlan(squashfsRoot, resourceDirName) {
   return { remove, keep };
 }
 
+/**
+ * Tauri can reuse an existing AppDir. Pruning the source staging directory
+ * before a later build therefore does not remove foreign runtimes already
+ * copied into usr/lib/<productName>/onnxruntime-libs. Keep only the runtime
+ * for the Linux target being packaged; unknown resource directories are left
+ * untouched so this cleanup cannot delete a future, unregistered artifact.
+ */
+export function collectRuntimePrunePlan(runtimeRoot, targetId) {
+  if (!existsSync(runtimeRoot)) return { remove: [], keep: [] };
+
+  const remove = [];
+  const keep = [];
+  for (const entry of readdirSync(runtimeRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    let normalized;
+    try {
+      normalized = normalizeTargetId(entry.name);
+    } catch {
+      continue;
+    }
+    const full = join(runtimeRoot, entry.name);
+    if (normalized === targetId) keep.push(full);
+    else remove.push(full);
+  }
+  return { remove, keep };
+}
+
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const bundleDir = resolve(args['bundle-dir'] ?? 'apps/desktop/src-tauri/target/release/bundle');
@@ -166,6 +193,25 @@ function main() {
     // the CI host does not have.
     rmSync(entry, { recursive: true, force: true });
   }
+  const targetId = targetIdFor('linux', architecture);
+  const runtimeRoot = resourceDirName
+    ? join(squashfsRoot, 'usr', 'lib', resourceDirName, 'onnxruntime-libs')
+    : null;
+  const runtimePlan = runtimeRoot
+    ? collectRuntimePrunePlan(runtimeRoot, targetId)
+    : { remove: [], keep: [] };
+  for (const entry of runtimePlan.remove) {
+    rmSync(entry, { recursive: true, force: true });
+  }
+  if (runtimePlan.remove.length > 0) {
+    process.stdout.write(
+      'Removing ' +
+        runtimePlan.remove.length +
+        ' foreign ONNX Runtime target director' +
+        (runtimePlan.remove.length === 1 ? 'y' : 'ies') +
+        ' from the AppImage payload.\n',
+    );
+  }
   const removed = remove.length;
   if (keep.length > 0) {
     process.stdout.write(
@@ -175,7 +221,7 @@ function main() {
     );
   }
 
-  if (removed === 0) {
+  if (removed === 0 && runtimePlan.remove.length === 0) {
     rmSync(work, { recursive: true, force: true });
     process.stdout.write('No bundled libraries to prune.\n');
     return;
@@ -241,8 +287,17 @@ function main() {
       const preserved = join(verifyWork, 'squashfs-root', 'usr', 'lib', resourceDirName);
       if (!existsSync(preserved)) {
         throw new Error(
-          `Pruned AppImage lost its resource directory usr/lib/${resourceDirName}. ` +
-            'The native ONNX Runtime and generative helper would be missing.',
+          'Pruned AppImage lost its resource directory usr/lib/' +
+            resourceDirName +
+            '. The native ONNX Runtime and generative helper would be missing.',
+        );
+      }
+      const finalRuntimeRoot = join(preserved, 'onnxruntime-libs');
+      const finalRuntimePlan = collectRuntimePrunePlan(finalRuntimeRoot, targetId);
+      if (finalRuntimePlan.remove.length > 0) {
+        throw new Error(
+          'Pruned AppImage still contains foreign ONNX Runtime targets: ' +
+            finalRuntimePlan.remove.map((p) => p.slice(finalRuntimeRoot.length + 1)).join(', '),
         );
       }
     } finally {
@@ -253,7 +308,8 @@ function main() {
   const prunedSize = statSync(output).size;
   rmSync(work, { recursive: true, force: true });
   process.stdout.write(
-    `Pruned ${removed} bundled library entries and re-assembled ${appImage} (${(prunedSize / 1e6).toFixed(1)} MB). ` +
+    `Pruned ${removed} bundled library entries, removed ${runtimePlan.remove.length} foreign ` +
+      `runtime directories, and re-assembled ${appImage} (${(prunedSize / 1e6).toFixed(1)} MB). ` +
       'AppImage now uses host WebKit/GTK/GStreamer/Mesa and keeps its own resources — see module doc.\n',
   );
 }

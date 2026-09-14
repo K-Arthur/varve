@@ -11,7 +11,11 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { collectPrunePlan, resolveLinuxResourceDirName } from './prune-appimage-bundled-libs.mjs';
+import {
+  collectPrunePlan,
+  collectRuntimePrunePlan,
+  resolveLinuxResourceDirName,
+} from './prune-appimage-bundled-libs.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
 const fixture = mkdtempSync(join(tmpdir(), 'varve-prune-plan-'));
@@ -88,7 +92,29 @@ try {
   mkdirSync(emptyRoot, { recursive: true });
   assert.deepEqual(collectPrunePlan(emptyRoot, 'Varve'), { remove: [], keep: [] });
 
-  // ── 4. Resource directory name comes from the real Tauri config ─────────
+  // ── 4. Reused AppDirs keep only the target runtime ─────────────────────
+  const runtimeRoot = join(appRoot, 'usr', 'lib', 'Varve', 'onnxruntime-libs');
+  write(join(runtimeRoot, 'linux-x86_64', 'libonnxruntime.so'));
+  write(join(runtimeRoot, 'macos-aarch64', 'libonnxruntime.dylib'));
+  write(join(runtimeRoot, 'windows-x86_64', 'onnxruntime.dll'));
+  write(join(runtimeRoot, 'future-target', 'runtime.bin'));
+  const runtimePlan = collectRuntimePrunePlan(runtimeRoot, 'linux-x86_64');
+  assert.deepEqual(
+    runtimePlan.keep.map((p) => relative(appRoot, p)),
+    ['usr/lib/Varve/onnxruntime-libs/linux-x86_64'],
+    'the current Linux runtime must survive an AppDir cleanup',
+  );
+  assert.deepEqual(
+    runtimePlan.remove.map((p) => relative(appRoot, p)).sort(),
+    [
+      'usr/lib/Varve/onnxruntime-libs/linux-aarch64',
+      'usr/lib/Varve/onnxruntime-libs/macos-aarch64',
+      'usr/lib/Varve/onnxruntime-libs/windows-x86_64',
+    ],
+    'known foreign runtimes must be removed while unknown directories are preserved',
+  );
+
+  // ── 5. Resource directory name comes from the real Tauri config ─────────
   const productName = resolveLinuxResourceDirName(
     join(root, 'apps', 'desktop', 'src-tauri', 'tauri.conf.json'),
   );
