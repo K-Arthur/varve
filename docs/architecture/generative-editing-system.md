@@ -166,7 +166,9 @@ reuses the embedded result asset.
 
 Native cancellation has two coordinated parts. The renderer races the native
 invocation against its `AbortSignal`, so the dialog acknowledges cancellation
-immediately even if an IPC future has not resolved. The desktop command keeps a
+immediately even if an IPC future has not resolved. It also checks the signal
+again after asynchronous output decoding; a cancellation during PNG decode
+cannot release a candidate to the editor. The desktop command keeps a
 cancellation tombstone, kills the supervised helper, and checks that tombstone
 before and after process registration and before reading output. Consequently a
 late helper response cannot turn a cancelled request into an accepted candidate.
