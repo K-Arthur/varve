@@ -186,11 +186,77 @@ describe('Sam2SegmentationTool', () => {
     expect(ctx.cancelSam2Segmentation).toHaveBeenCalledTimes(1);
     expect(tool.getPrompts()).toEqual({ points: [], box: null });
   });
+
+  it('removes a specific prompt when its marker is tapped', () => {
+    const tool = new Sam2SegmentationTool();
+    const ctx = statefulMockCtx();
+    tool.onPointerDown(
+      new PointerEvent('pointerdown', { clientX: 10, clientY: 10, button: 0 }),
+      ctx,
+    );
+    tool.onDragEnd(ctx);
+    tool.onPointerDown(
+      new PointerEvent('pointerdown', { clientX: 100, clientY: 100, button: 0 }),
+      ctx,
+    );
+    tool.onDragEnd(ctx);
+    expect(tool.getPrompts().points).toHaveLength(2);
+
+    tool.onPointerDown(
+      new PointerEvent('pointerdown', { clientX: 100, clientY: 100, button: 0 }),
+      ctx,
+    );
+
+    expect(tool.getPrompts().points).toEqual([{ x: 10, y: 10, label: 1 }]);
+    expect(ctx.applySam2Segmentation).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        prompts: { points: [{ x: 10, y: 10, label: 1 }] },
+        operation: 'preview',
+      }),
+    );
+  });
+
+  it('clears the session when the last prompt marker is tapped', () => {
+    const tool = new Sam2SegmentationTool();
+    const ctx = statefulMockCtx();
+    tool.onPointerDown(
+      new PointerEvent('pointerdown', { clientX: 40, clientY: 40, button: 0 }),
+      ctx,
+    );
+    tool.onDragEnd(ctx);
+
+    tool.onPointerDown(
+      new PointerEvent('pointerdown', { clientX: 44, clientY: 43, button: 0 }),
+      ctx,
+    );
+
+    expect(tool.getPrompts().points).toHaveLength(0);
+    expect(ctx.cancelSam2Segmentation).toHaveBeenCalled();
+  });
+
+  it('adds a point when the tap is outside the marker radius', () => {
+    const tool = new Sam2SegmentationTool();
+    const ctx = statefulMockCtx();
+    tool.onPointerDown(
+      new PointerEvent('pointerdown', { clientX: 10, clientY: 10, button: 0 }),
+      ctx,
+    );
+    tool.onDragEnd(ctx);
+
+    tool.onPointerDown(
+      new PointerEvent('pointerdown', { clientX: 60, clientY: 60, button: 0 }),
+      ctx,
+    );
+    tool.onDragEnd(ctx);
+
+    expect(tool.getPrompts().points).toHaveLength(2);
+  });
 });
 
 function mockCtx() {
   return {
     canvasToWorld: (x: number, y: number) => ({ x, y }),
+    zoom: 1,
     setPointerCapture: vi.fn(),
     announce: vi.fn(),
   } as unknown as import('./types').ToolContext;

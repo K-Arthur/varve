@@ -683,7 +683,7 @@ describe('BackgroundRemovalSection - Object Selection', () => {
     expect(applySam2Segmentation).toHaveBeenCalledWith(
       expect.objectContaining({ nodeId: 'n1', operation: 'selection' }),
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear prompts' }));
     expect(cancelSam2Segmentation).toHaveBeenCalledTimes(1);
   });
 

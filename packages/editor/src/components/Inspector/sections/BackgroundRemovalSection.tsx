@@ -729,14 +729,21 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                   <button type="button" className="insp-btn-sm" onClick={cancelSam2Segmentation}>
                     Clear prompts
                   </button>
-                  <button type="button" className="insp-btn-sm" onClick={cancelSam2Segmentation}>
-                    Cancel
-                  </button>
+                  {objectSelection.status !== 'ready' && objectSelection.status !== 'error' && (
+                    <button type="button" className="insp-btn-sm" onClick={cancelSam2Segmentation}>
+                      Cancel
+                    </button>
+                  )}
                 </div>
                 <p className="insp-field__hint">
-                  Canvas markers use + for include and − for exclude. Dragging creates a box prompt;
-                  it does not add an accidental point.
+                  Canvas markers use + for include and − for exclude. Tap a marker to remove that
+                  prompt, or press Backspace to remove the last one. Clearing prompts also clears
+                  the current preview; the image itself is never changed.
                 </p>
+                <span className="insp-field__hint" data-testid="object-selection-prompt-count">
+                  {objectSelection.points.length + (objectSelection.box ? 1 : 0)} prompt
+                  {objectSelection.points.length + (objectSelection.box ? 1 : 0) === 1 ? '' : 's'}
+                </span>
               </>
             )}
           </div>

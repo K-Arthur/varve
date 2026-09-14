@@ -2,11 +2,15 @@
  * Sam2SegmentationTool — interactive object segmentation via SAM2.
  *
  * Click to add foreground points, Shift+click for background points, and
- * drag to create a box. Prompt geometry is mirrored into transient editor
- * state while it is being drawn so the overlay and inspector have one source
- * of truth. Only the completed prompt is sent to the model.
+ * drag to create a box. Tapping an existing point marker removes that
+ * specific prompt (the single-pointer alternative to keyboard deletion),
+ * while Backspace/Delete removes the last staged prompt. Prompt geometry is
+ * mirrored into transient editor state while it is being drawn so the
+ * overlay and inspector have one source of truth. Only the completed prompt
+ * is sent to the model.
  */
 import { BaseTool } from './BaseTool';
+import { worldDistanceForCssPixels } from './inputNormalizer';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 interface SegmentationPoint {
@@ -18,6 +22,10 @@ interface SegmentationPoint {
 type SegmentationBox = { x1: number; y1: number; x2: number; y2: number };
 
 const DRAG_THRESHOLD_CSS_PX = 3;
+// Tapping an existing include/exclude marker removes that specific prompt.
+// The radius is in CSS pixels so it follows the user's hand, not the camera
+// zoom, and it is the single-pointer alternative to keyboard deletion.
+const PROMPT_REMOVE_HIT_CSS_PX = 10;
 
 export class Sam2SegmentationTool extends BaseTool {
   id = 'sam2Segment' as const;
@@ -43,13 +51,36 @@ export class Sam2SegmentationTool extends BaseTool {
     if (e.button !== 0) return { consumed: false };
 
     this.syncFromSession(ctx);
+    const world = ctx.canvasToWorld(e.clientX, e.clientY);
+
+    // A tap on an existing prompt marker removes exactly that prompt. This
+    // is deliberately handled before a new point is staged so the marker
+    // gesture is never also interpreted as adding to the prompt set.
+    const markerIndex = this.findMarkerIndex(world, ctx.zoom);
+    if (markerIndex >= 0) {
+      this.points.splice(markerIndex, 1);
+      this.pendingPoint = null;
+      this.pendingBox = null;
+      if (this.points.length > 0 || this.box) {
+        this.patchPrompts(ctx, 'previewing', {
+          draftPoint: null,
+          draftBox: null,
+          invalidatePreview: true,
+        });
+        void this.runSegmentation(ctx);
+      } else {
+        ctx.cancelSam2Segmentation?.();
+      }
+      ctx.announce('Prompt removed');
+      return { consumed: true };
+    }
+
     // A new prompt supersedes an older encoder/decoder request immediately,
     // not only after pointer-up. This closes the small race where an old
     // result could publish between the next pointer-down and pointer-up.
     if (ctx.objectSelectionSession && ctx.objectSelectionSession.status !== 'drawing') {
       ctx.cancelSam2Segmentation?.();
     }
-    const world = ctx.canvasToWorld(e.clientX, e.clientY);
     this.pendingPoint = { x: world.x, y: world.y, label: e.shiftKey ? 0 : 1 };
     this.pendingBox = null;
     this.patchPrompts(ctx, 'drawing', {
@@ -58,6 +89,19 @@ export class Sam2SegmentationTool extends BaseTool {
       invalidatePreview: true,
     });
     return super.onPointerDown(e, ctx);
+  }
+
+  /** Index of the include/exclude marker within the removal radius, or -1. */
+  private findMarkerIndex(world: { x: number; y: number }, zoom: number): number {
+    const tolerance = worldDistanceForCssPixels(
+      PROMPT_REMOVE_HIT_CSS_PX,
+      Number.isFinite(zoom) && zoom > 0 ? zoom : 1,
+    );
+    for (let index = this.points.length - 1; index >= 0; index -= 1) {
+      const point = this.points[index]!;
+      if (Math.hypot(point.x - world.x, point.y - world.y) <= tolerance) return index;
+    }
+    return -1;
   }
 
   override onDragMove(ctx: ToolContext): void {
