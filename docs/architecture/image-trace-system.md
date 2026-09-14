@@ -74,8 +74,12 @@ so every provider (native included) sees identical pixels:
 the dialog uses it to disable centerline (with a reason) on web builds.
 `dispatchTrace` attaches the winning `providerId` to the result, and
 provenance records that id — the engine label is no longer guessed from the
-environment. For its supported monochrome mode, the WASM facade passes corner
-angle, maximum fitting error, and source-pixel simplify tolerance to the same
+environment. The native adapter translates the editor's two-dimensional mode
+contract at the wire boundary: `pixel-art` becomes Rust's `pixel_art`,
+grayscale receives its bounded color count, and monochrome sends `0` so the
+native sanitizer does not reinterpret the request. For its supported
+monochrome mode, the WASM facade passes corner angle, maximum fitting error and
+source-pixel simplify tolerance to the same
 Rust trace path as desktop; older generated artifacts fall back safely to
 their legacy entry point.
 
@@ -193,7 +197,7 @@ pollute the palette.
 - Rust unit tests: thresholding, quantization, components, contour/hole
   invariants, structure (stacked covered-hole dropping, transparency hole
   keeping), centerline closed loops, pixel-art, cancellation, determinism,
-  degenerate inputs, wire compat (74 tests in varve-trace; 5 trace tests in
+  degenerate inputs, wire compat (75 tests in varve-trace; 5 trace tests in
   the Tauri crate).
 - TS engine tests: contour/hole goldens, output structure, no hidden white
   dropping, provider identity through dispatch.

@@ -4,7 +4,7 @@
  * The settings shape is serializable (no functions, no DOM types) so it can
  * be persisted to editor settings and passed across worker boundaries. The
  * actual trace execution reuses the engine's existing provider chain
- * (`@varve/engine` dispatchTrace): worker → direct → wasm → native.
+ * (`@varve/engine` dispatchTrace): native (desktop) → worker → direct → wasm.
  */
 
 import type { RasterTraceOptions } from '@varve/engine';

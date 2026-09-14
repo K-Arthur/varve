@@ -52,7 +52,7 @@ failure-mode evidence: `docs/agents/trace-research-2026-09-13.md`.
 
 ### Automated tests (run 2026-09-14)
 
-- `cargo test -p varve-trace`: 74 passed, 0 failed (new: stacked covered-hole
+- `cargo test -p varve-trace`: 75 passed, 0 failed (new: stacked covered-hole
   dropping, transparency hole keeping, dominant-white retention, closed-ring
   and two-ring skeleton loops).
 - `cargo clippy -p varve-trace --all-targets -- -D warnings`: clean.
@@ -108,3 +108,12 @@ alt text and caption.
 - Visible-appearance capture (crop/mask/adjustment/effect compositing) is not
   implemented; the dialog states the source-only scope when overrides exist.
 - Centerline remains native-only; the web dialog disables it with a reason.
+- Before `779452dd7`, the desktop adapter could silently downgrade grayscale
+  to monochrome and pixel-art to a silhouette because the editor `mode` was not
+  translated to the Rust `traceMode`/`maxColors` wire fields. The scoped
+  regression test now asserts the exact grayscale and pixel-art payloads.
+- A source identity hash currently fingerprints the source reference string;
+  it detects a changed data URL or source reference but cannot prove that the
+  bytes behind an unchanged external URI are unchanged. Same-URI replacement
+  remains a documented limitation until asset revision/content hashing is
+  available from the shared asset pipeline.

@@ -1,17 +1,18 @@
-# Image Trace — research and capability audit (2026-09-13)
+# Image Trace — research and capability audit (2026-09-13, amended 2026-09-14)
 
 Owner: vectorization session (`docs/agents/vectorization-2026-09-13-ownership.md`).
-All sources accessed 2026-09-13. Facts are separated from repository
-observations, hypotheses, and product decisions.
+The first pass accessed sources on 2026-09-13. The follow-up source check and
+repository verification were completed on 2026-09-14. Facts are separated
+from repository observations, hypotheses, and product decisions.
 
 ## 1. External sources examined
 
 | Source | Version / date | Finding | Consequence for Varve |
 |---|---|---|---|
-| Adobe Illustrator Image Trace options (helpx.adobe.com) | blocked (HTTP 403) — no direct capture; used [Adobe Community reports](#3-failure-modes-users-report) as evidence instead | Documented capability set (reference only, not copied): trace presets, mode (color/grayscale/B&W), palette, paths/anchors, corners, noise, "ignore white", abutting vs overlapping output, strokes vs fills, transparency handling | Varve should expose structure (abutting/cutout vs stacked), explicit background removal, and honest per-mode controls. Not claimed as implemented unless verified. |
-| [VTracer README](https://github.com/visioncortex/vtracer) | 1.0.0-alpha.4 (master, read 2026-09-13) | MIT. Pipeline covers segmentation, curve fitting, color fitting, output optimization. Key features: `--hierarchical cutout` (true seam-free mosaic with shared boundaries), `--hierarchical stacked` (default; stacking avoids holes), `--simplify` (paper.js-style, shared boundaries simplified once in cutout), `--palette`/`--max-colors` (OKLab), `--adaptive` Bradley–Roth thresholding, watershed clustering, pixel mode, speckle filter | These are the capabilities Varve's color modes should be measured against. Stacked emission and adaptive thresholding are the highest-value, lowest-risk additions; shared-boundary cutout is the correct long-term fix for seam artifacts. VTracer is MIT but is a whole new engine — no vendoring considered for this pass; Varve's existing engine is extended instead. |
-| [Potrace](https://potrace.sourceforge.net/) | 1.16 (2019-09-17) | GPL-2.0-or-later. Algorithm: binarize → decompose → optimal polygon → curve optimization. Options: turdsize, alphamax (corner threshold), opttolerance, turnpolicy. Dual licensing via Potrace Professional (Icosasoft) for proprietary integration | **Do not vendor Potrace source.** GPL is incompatible with Varve's licensing. Varve's own Rust/TS implementations remain the path; Potrace is a behavior reference only. `alphamax` ≈ Varve `cornerAngle`; `turdsize` ≈ `minArea`; `opttolerance` ≈ `optimizeTolerance` (not exposed). |
-| [Inkscape tracing guide](https://inkscape-manuals.readthedocs.io/en/latest/tracing-an-image.html) | 1.3 (read 2026-09-13) | Conversion is not guaranteed faithful; multicolor traces quickly become hard to edit; warns about complexity | Varve must keep preset descriptions honest and show complexity diagnostics (already partially present). |
+| [Adobe Illustrator Image Trace options](https://helpx.adobe.com/illustrator/desktop/manage-objects/traces-mockups-symbols/image-trace-panel-options.html) | official page read 2026-09-14; current page last updated 2026-02-11 | Reference capability set (not copied): color/grayscale/B&W modes, palette, Paths/Corners/Noise, Ignore White, Transparency, Fills/Strokes/Gradients, Abutting versus Overlapping, and Info diagnostics for paths/anchors/colors | Varve should expose structure (cutout versus stacked), explicit background policy, and honest per-mode controls. The previous 403 note is superseded; the page is now directly verified. |
+| [VTracer README and releases](https://github.com/visioncortex/vtracer/releases) | exact release inspected: `1.0.0-alpha.4`, released 2026-08-29; README/API read 2026-09-14 | MIT. Pipeline covers segmentation, curve fitting, color fitting, output optimization. Key features include `hierarchical cutout` with shared-boundary handling, `hierarchical stacked`, `simplify`, OKLab `max_colors`, Bradley–Roth `adaptive`, watershed clustering, pixel mode, and speckle filtering. The release is explicitly alpha/prerelease. | These are comparison points, not an integration recommendation. Shared-boundary simplification and stacked emission remain useful quality targets; Varve keeps its existing Rust/TS engine because adding a second whole engine would increase topology, provider, memory, and lifecycle risk. Re-evaluate only against a pinned stable release and a license/maintenance review. |
+| [Potrace algorithm paper and project](https://potrace.sourceforge.net/potrace.pdf) | 1.16 project/paper, 2019-09-17; checked 2026-09-14 | GPL-2.0-or-later. Binarize → decompose → optimal polygon → curve optimization; `turdsize`, `alphamax`, `opttolerance`, and `turnpolicy` are behavior references. Potrace offers a separate commercial licensing route. | **Do not vendor Potrace source.** GPL compatibility and a second binary engine need a separate legal and artifact review. Varve's own Rust/TS implementations remain the production path. `alphamax` is analogous to `cornerAngle`; `turdsize` to `minArea`; `opttolerance` to the bounded fitting/simplification budget. |
+| [Inkscape tracing guide](https://inkscape-manuals.readthedocs.io/en/latest/tracing-an-image.html) | 1.3 (read 2026-09-14) | Conversion is not guaranteed faithful; multicolor traces quickly become hard to edit; warns about complexity | Varve must keep preset descriptions honest and show complexity diagnostics (already partially present). |
 | [HTML Living Standard — canvas](https://html.spec.whatwg.org/multipage/canvas.html) | living standard | Pixel-manipulation methods (`putImageData`) are not affected by the current transformation matrix, `globalAlpha`, clipping, or compositing | **Confirmed root cause of the preview compositing bug**: `drawPreview` scaled and set `globalAlpha` before `putImageData`. Fixed by drawing the prepared source through an offscreen canvas with `drawImage`. |
 | [SVG 2 painting / fill-rule](https://www.w3.org/TR/SVG2/painting.html) | SVG 2 (W3C) | `fill-rule` is `nonzero` by default; `evenodd` is the choice for compound paths with holes; open subpaths are implicitly closed for filling | Inserted trace paths must declare `fillRule: 'evenodd'` together with `holes`, and preview must use the same rule. Stacked output must not emit `holes` at all. |
 | [WCAG 2.2 SC 2.5.7 Dragging Movements](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html) | W3C | Any drag operation needs a single-pointer, non-drag alternative | Preview comparison/zoom controls must be buttons/segmented controls, not drag-only sliders. |
@@ -21,6 +22,27 @@ path. `varve-upscale`/`varve-bgremove` ONNX providers are unrelated to trace
 dispatch and were not touched. ONNX Runtime web deployment guidance was
 reviewed previously by the upscale work; adding an ONNX dependency to tracing
 is out of scope and unjustified without ablation evidence.
+
+### Follow-up source and contract check (2026-09-14)
+
+- Adobe's official options page is now directly accessible, so the earlier
+  403 observation must not be carried forward as if it were a product fact.
+  Its documented distinction between abutting and overlapping output supports
+  Varve's explicit `cutout`/`stacked` wording, but does not prove that Varve's
+  independent simplification is seam-free.
+- VTracer `1.0.0-alpha.4` is still a prerelease. Its current Rust/Node API
+  and release artifacts were inspected, but no dependency was added: a whole
+  alternate tracing engine would duplicate topology, provider, cancellation,
+  memory, and export contracts. This is a product decision, not a claim that
+  VTracer is low quality.
+- The native IPC contract has two mode fields with different responsibilities:
+  the editor's `mode` selects grayscale/color/pixel-art intent, while Rust's
+  `traceMode` selects `silhouette`/`centerline`/`pixel_art`. Before the
+  follow-up fix, desktop grayscale omitted `maxColors` (Rust then defaulted to
+  monochrome) and pixel-art sent `silhouette` (Rust then traced a silhouette).
+  The adapter now translates those values explicitly and has a regression test
+  for the exact camelCase wire payload. This was a repository root cause, not
+  an upstream algorithm limitation.
 
 ## 2. Repository observations (verified by reading code, 2026-09-13)
 
@@ -96,6 +118,10 @@ Community reports were used to choose what to fix first. Access date
 | Multicolor trace leaves holes/gaps; Stack leaves tails | graphicdesign.stackexchange 169653 | Same abutting limitation | Stacked mode added; seams documented and measured |
 | Centerline vs outline confusion ("single black lines" become filled compound shapes) | r/Inkscape 1ifregl | Centerline mode exists natively and is labeled; web explains unavailability | Preview now strokes centerline exactly as committed; closed loops stay stroked |
 | Traced result changes with theme/display mode | r/Inkscape 1ifregl (display mode) | Centerline preview changed with theme | Artwork rendering is now theme-independent (theme used only for chrome) |
+| Preview is detailed but Apply is smoother/different | [r/Inkscape, 2026-08-25](https://www.reddit.com/r/Inkscape/comments/1vy3cim/preview_for_trace_bitmap_not_previewing_what_it/) | A common workflow complaint; preview and committed paths are separate trust surfaces | Varve uses the same fitted display paths for preview and insertion; final-resolution differences remain labeled |
+| Transparent artwork collapses to all black/white or loses white interiors | [r/Inkscape, 2024-10-08](https://www.reddit.com/r/Inkscape/comments/1fz35g1/trace_bitmap_only_showing_complete_black_or_white/) and [r/Inkscape, 2025-02-14](https://www.reddit.com/r/Inkscape/comments/1ipgtd0/trace_bitmap_turns_white_transparent/) | Alpha/background policy is easy to misread and white artwork is often dropped | Border-connected removal is explicit and preserves enclosed white; alpha and background fixtures are required |
+| White seams/lines appear between colour regions | [Adobe Community](https://community.adobe.com/questions-652/image-tracing-problems-762957) and [r/Inkscape](https://www.reddit.com/r/Inkscape/comments/rp9w97/trace_bitmap_leaving_white_gaps_spots/) | Independently simplified abutting contours can expose the backdrop | Varve exposes `stacked` as the mitigation; shared-chain cutout simplification remains partial |
+| Too many paths or fragile geometry makes editing/export painful | [r/Inkscape](https://www.reddit.com/r/Inkscape/comments/142jl20/traced_import_with_multiple_paths_but_already_saved_as_svg/) | Path count and topology are part of quality, not just visual similarity | Diagnostics report paths/anchors/holes and max-path/omitted-hole degradation; no promise of semantic reconstruction |
 
 ## 4. Capability matrix (after this work unless marked otherwise)
 
@@ -121,6 +147,25 @@ Community reports were used to choose what to fix first. Access date
 | Gradient/primitive recovery | Missing (documented) | Not promised in copy |
 | Model-assisted tracing | Missing (deliberate) | No ONNX dependency in trace dispatch |
 
+### Follow-up capability matrix: state, risk, and reproduction
+
+This matrix is intentionally compact. “Unverified” means that the repository
+has no evidence for the claim; it is not a negative result. Fixtures refer to
+the synthetic and browser fixtures in `tests/e2e/canvas/image-trace.spec.ts`
+and the Rust/TS contour tests.
+
+| Capability / failure surface | State | Severity | Affected environments | Reproduction fixture | Root-cause evidence | Regression evidence |
+|---|---|---:|---|---|---|---|
+| Desktop grayscale and pixel-art intent reaches the native algorithm | Fixed | High | Tauri desktop before `779452dd7` | 2-colour/16-colour mode requests | Adapter sent no grayscale `maxColors` and sent `silhouette` for pixel-art | `nativeTraceProvider.test.ts` exact wire-payload assertions |
+| Preview geometry equals inserted cubic geometry | Working | High | Web + desktop | donut/curved colour fixture | Preview and insertion share `buildDisplayPaths`/fit path | preview-path unit tests + image-trace E2E pixel checks |
+| Prepared raster scale/opacity is composited correctly | Working | High | Browser canvas | transparent prepared-source fixture | Canvas spec excludes `putImageData` from transform/alpha | preview unit test + E2E source/overlay pixels |
+| Holes, nested islands, and closed centerline loops | Working | High | Rust/native; fallback holes in supported modes | donut, nested-ring, skeleton-loop fixtures | contour ownership and loop insertion rules | Rust contour/centerline tests + E2E donut |
+| Colour seams in independently simplified cutout paths | Partial | Medium/High | All colour providers at high tolerance | touching-colour regions | contours are simplified independently | stacked/cutout unit coverage; shared-chain test remains missing |
+| Visible appearance (mask/crop/effect/backdrop) tracing | Missing | High | All | transformed/masked image fixture | no renderer capture contract in trace input | UI warning only; no passing implementation test |
+| Re-trace source identity for same external URI with changed bytes | Partial | Medium | Linked/external assets | same URI, replacement bytes | current identity is a source-string hash, not content-addressed bytes | metadata tests cover source-string change; same-URI byte-change remains unverified |
+| Gradients, semantic text, and primitive recovery | Missing | Medium | All | gradient/text/primitive fixtures | no supported editable representation in provider contract | deliberately not promised in UI/site copy |
+| Native/WASM byte-identical output | Unverified | Low | Desktop vs web | same prepared fixture | providers use separate implementations | parity is capability/topology/determinism; no byte-golden claim |
+
 ## 5. Product decisions
 
 1. **Extend, do not replace.** No VTracer/Potrace vendoring. Keep the Rust
@@ -142,9 +187,10 @@ Community reports were used to choose what to fix first. Access date
 
 ## 6. Uncertainty / limits
 
-- Adobe's options page could not be fetched (403); the capability list is
-  treated as orientation from community reports, not a verified spec.
-- VTracer was read at `1.0.0-alpha.4` master; prerelease details may change.
+- Adobe's options page was directly verified on 2026-09-14, but the product
+  descriptions remain reference capabilities rather than Varve requirements.
+- VTracer was read at exact prerelease `1.0.0-alpha.4`; prerelease details may
+  change, so no API or output contract is treated as stable.
 - Shared-boundary cutout was not implemented here; stacked mode reduces but
   does not provably eliminate seams at high simplification tolerances. This is
   recorded as a known limitation with a reproducible fixture.
