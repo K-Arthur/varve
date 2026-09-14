@@ -1,5 +1,11 @@
 import type { FontReference } from '@varve/engine';
-import type { Document, SceneNode, TextNode } from '@varve/scene';
+import {
+  buildAllVariantCaches,
+  type Document,
+  getEffectiveNode,
+  type SceneNode,
+  type TextNode,
+} from '@varve/scene';
 
 export interface DocumentFontUsage {
   /** Stable display/group key. Exact artifact members never collapse by family. */
@@ -132,12 +138,13 @@ function isVisibleAndUnlocked(
   nodeId: string,
   doc: Document,
   parents: Map<string, string>,
+  resolveNode: (id: string) => SceneNode | undefined = (id) => doc.nodes[id],
 ): boolean {
   let current: string | undefined = nodeId;
   const visited = new Set<string>();
   while (current && !visited.has(current)) {
     visited.add(current);
-    const node = doc.nodes[current];
+    const node = resolveNode(current);
     if (!node || node.visible === false || node.locked === true) return false;
     current = parents.get(current);
   }
@@ -176,6 +183,14 @@ export function buildDocumentFontUsage(
   const usage = new Map<string, DocumentFontUsage>();
   const processedStories = new Set<string>();
   const visibleStoryFrames = new Map<string, string[]>();
+  // Component variants can change the effective visibility and text content
+  // of an instance child without changing the authored node in `doc.nodes`.
+  // Select by Font must inspect the same effective projection as the canvas so
+  // hidden variant layers do not appear as selectable usage and text overrides
+  // contribute their rendered character count.
+  const variantCaches = buildAllVariantCaches(doc);
+  const resolveNode = (id: string): SceneNode | undefined =>
+    getEffectiveNode(doc, id, variantCaches) ?? doc.nodes[id];
 
   // Collect every visible frame before consuming story content. A story can
   // start on another page and continue on this one; counting it from the first
@@ -183,7 +198,7 @@ export function buildDocumentFontUsage(
   for (const node of Object.values(doc.nodes)) {
     if (!isTextNode(node) || !node.storyBinding) continue;
     if (!isWithinRoot(node.id, options.rootId, parents)) continue;
-    if (!isVisibleAndUnlocked(node.id, doc, parents)) continue;
+    if (!isVisibleAndUnlocked(node.id, doc, parents, resolveNode)) continue;
     const frames = visibleStoryFrames.get(node.storyBinding.storyId) ?? [];
     if (!frames.includes(node.id)) frames.push(node.id);
     visibleStoryFrames.set(node.storyBinding.storyId, frames);
@@ -233,27 +248,30 @@ export function buildDocumentFontUsage(
   for (const node of Object.values(doc.nodes)) {
     if (!isTextNode(node)) continue;
     if (!isWithinRoot(node.id, options.rootId, parents)) continue;
-    if (!isVisibleAndUnlocked(node.id, doc, parents)) continue;
+    if (!isVisibleAndUnlocked(node.id, doc, parents, resolveNode)) continue;
+
+    const effectiveNode = resolveNode(node.id);
+    if (effectiveNode?.kind !== 'text') continue;
 
     const location = locationFor(node.id, parents, roots);
-    const style = textStyleFor(doc, node);
+    const style = textStyleFor(doc, effectiveNode);
     const base = mergeFormat(
       {
-        fontFamily: style.fontFamily ?? node.fontFamily,
-        fontReference: style.fontReference ?? node.fontReference,
-        fontWeight: style.fontWeight ?? node.fontWeight,
-        fontStyle: style.fontStyle ?? node.fontStyle,
+        fontFamily: style.fontFamily ?? effectiveNode.fontFamily,
+        fontReference: style.fontReference ?? effectiveNode.fontReference,
+        fontWeight: style.fontWeight ?? effectiveNode.fontWeight,
+        fontStyle: style.fontStyle ?? effectiveNode.fontStyle,
       },
       undefined,
     );
     const styleId = node.styleId;
-    const storyId = node.storyBinding?.storyId;
+    const storyId = effectiveNode.storyBinding?.storyId;
     const storyRecord = storyId ? (doc.stories?.[storyId] as StoryRecord | undefined) : undefined;
     const story = storyRecord?.content;
     if (storyId && story && processedStories.has(storyId)) continue;
     if (storyId) processedStories.add(storyId);
 
-    const richText = story ?? (node.richText as StoryContent | undefined);
+    const richText = story ?? (effectiveNode.richText as StoryContent | undefined);
     const paragraphs = richText?.paragraphs ?? [];
     if (paragraphs.length > 0) {
       for (const paragraph of paragraphs) {
@@ -282,7 +300,7 @@ export function buildDocumentFontUsage(
       base,
       storyId ? frameIds : [node.id],
       locations[0] ?? location,
-      node.text ?? '',
+      effectiveNode.text ?? '',
       styleId,
     );
     for (const storyLocation of locations.slice(1)) ensure(base, storyLocation, styleId);

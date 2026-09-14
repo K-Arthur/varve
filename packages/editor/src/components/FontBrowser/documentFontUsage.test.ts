@@ -1,4 +1,4 @@
-import type { Document } from '@varve/scene';
+import { type Document, makeFrameNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { buildDocumentFontUsage } from './documentFontUsage';
 
@@ -177,5 +177,61 @@ describe('buildDocumentFontUsage', () => {
     expect(usage.find((entry) => entry.family === 'Inter')?.fontReference?.artifactHash).toBe(
       'a'.repeat(64),
     );
+  });
+
+  it('uses effective component variants for visibility and rendered text', () => {
+    const doc = fixture();
+    const pageRoot = doc.nodes['page-root'];
+    if (pageRoot?.kind !== 'group') throw new Error('fixture page root missing');
+
+    const instanceLabel = {
+      ...(doc.nodes.title as Extract<(typeof doc.nodes)[string], { kind: 'text' }>),
+      id: 'instance-label',
+      name: 'Label',
+      text: 'Authored label',
+      fontFamily: 'Component Family',
+    };
+    const instance = makeFrameNode('component-instance', {
+      name: 'Button instance',
+      w: 120,
+      h: 40,
+      children: ['instance-label'],
+      componentId: 'component-1',
+      variant: 'hidden-label',
+    });
+    doc.nodes['component-instance'] = instance;
+    doc.nodes['instance-label'] = instanceLabel;
+    pageRoot.children = [...pageRoot.children, 'component-instance'];
+    doc.components = {
+      'component-1': {
+        id: 'component-1',
+        name: 'Button',
+        masterRootId: 'component-master',
+        slots: [],
+        properties: [{ id: 'label-visible', name: 'Label', type: 'boolean', defaultValue: true }],
+        variants: [
+          {
+            id: 'hidden-label',
+            name: 'Hidden label',
+            propertyValues: { Label: false },
+          },
+        ],
+      },
+    };
+
+    const hiddenUsage = buildDocumentFontUsage(doc, { rootId: 'page-root' });
+    expect(hiddenUsage.find((entry) => entry.family === 'Component Family')).toBeUndefined();
+
+    const visibleDoc: Document = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        'component-instance': { ...instance, variant: undefined },
+      },
+    };
+    const visibleUsage = buildDocumentFontUsage(visibleDoc, { rootId: 'page-root' });
+    const componentEntry = visibleUsage.find((entry) => entry.family === 'Component Family');
+    expect(componentEntry?.nodeIds).toEqual(['instance-label']);
+    expect(componentEntry?.totalCharacters).toBe('Authored label'.length);
   });
 });
