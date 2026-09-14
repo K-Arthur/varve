@@ -127,6 +127,22 @@ background `[238,242,246]` outside.
   unreachable Select Similar commands) are recorded but not changed in this
   task; they belong to the hit-test owner.
 
+## Follow-up baseline review (2026-09-14)
+
+The source-backed recheck found one implementation/documentation mismatch that
+is in this workstream's owned prompt tool: the research ledger and website
+described a click-first-corner/click-second-corner box path, but the live tool
+only recognized a drag as a box and interpreted every click as a point. The
+Inspector also exposed Shift-click as the only polarity affordance and had no
+visible output-combination control. These were treated as correctness and
+accessibility gaps, not cosmetic copy issues.
+
+The follow-up implementation therefore adds an explicit Point / Box hint mode,
+visible Include / Exclude prompt polarity, and Replace / Add / Subtract /
+Intersect output intent. Dragging remains available; in Box hint mode two taps
+create the same XYXY prompt without requiring a held pointer. A box remains a
+model hint rather than a hard output clip.
+
 ## Agent Validation Report
 
 ```text
