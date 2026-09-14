@@ -22,7 +22,7 @@ import {
 } from '@varve/scene';
 import type { RulerMode } from '@varve/shared';
 import { isWorldRectInViewport } from '@varve/shared';
-import { useMemo } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 
 import { CanvasNameLabels } from '../canvas/CanvasNameLabels';
 import { viewportWorldRect } from '../canvas/cameraState';
@@ -34,6 +34,8 @@ import { nodeWorldBounds, worldRectToScreenAabb } from '../scene/world';
 import type { DraftShape, PixelProbe, ShapeBuilderDraft } from '../tools';
 import type { CropTool } from '../tools/CropTool';
 import type { PerspectiveTool } from '../tools/PerspectiveTool';
+import { retouchTargetFromDocument } from '../tools/rasterTarget';
+import { getRetouchOverlaySnapshot, subscribeRetouchOverlay } from '../tools/retouchOverlayState';
 import type { SnapGuide } from '../tools/snapping';
 import { AlignmentGuideOverlay, AlignmentHandleOverlay } from './AlignmentOverlay';
 import { BlurGalleryOverlay } from './BlurGalleryOverlay';
@@ -58,6 +60,7 @@ import { OnionSkinOverlay } from './OnionSkinOverlay';
 import { PageLayoutOverlay } from './PageLayoutOverlay';
 import { PagePrintOverlays } from './PagePrintOverlays';
 import { PageToolOverlay } from './PageToolOverlay';
+import { PaintOverlay } from './PaintOverlay/PaintOverlay';
 import { PenConstructionActions } from './PenConstructionActions';
 import { PerspectiveOverlay } from './PerspectiveOverlay';
 import { Ruler } from './Ruler/Ruler';
@@ -246,6 +249,24 @@ export function CanvasOverlays({
       : null;
 
   const showGradientHandles = selection.length >= 1;
+
+  // Retouch chrome: the clone/heal source anchor and the live paint-target
+  // badge answer "what will this stroke do?" before the user commits.
+  const retouchOverlay = useSyncExternalStore(subscribeRetouchOverlay, getRetouchOverlaySnapshot);
+  const isRetouchTool =
+    tool === 'cloneStamp' || tool === 'healBrush' || tool === 'spotHeal' || tool === 'patch';
+  const cloneToolActive = tool === 'cloneStamp' || tool === 'healBrush';
+  const retouchBadge = useMemo(() => {
+    if (!isRetouchTool) return null;
+    const target = retouchTargetFromDocument(doc, selection);
+    return target.kind === 'raster'
+      ? { status: `Retouching: ${target.label}`, blocked: false }
+      : { status: target.reason, blocked: true };
+  }, [doc, isRetouchTool, selection]);
+  const activeCloneSource =
+    cloneToolActive && retouchOverlay.toolId === tool ? retouchOverlay.cloneSourceWorld : null;
+  const activeCloneCursor =
+    cloneToolActive && activeCloneSource ? retouchOverlay.cloneCursorWorld : null;
 
   const showMeshWarp = warpMesh !== null && selection.length >= 1;
 
@@ -724,6 +745,18 @@ export function CanvasOverlays({
           />
         )}
       <SelectionOverlay canvasRef={contentCanvasRef} />
+      {retouchBadge && (
+        <PaintOverlay
+          camera={{ zoom, pan, rotation: cameraRotation ?? 0 }}
+          width={canvasSize.width}
+          height={canvasSize.height}
+          symmetry={null}
+          cloneSource={activeCloneSource}
+          cloneCursor={activeCloneCursor}
+          targetStatus={retouchBadge.status}
+          targetBlocked={retouchBadge.blocked}
+        />
+      )}
       {renderSpatialFilter}
       {renderBlurGallery}
       {pixelProbe && (

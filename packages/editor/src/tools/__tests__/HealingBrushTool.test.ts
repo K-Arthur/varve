@@ -1,7 +1,7 @@
 /**
  * HealingBrushTool tests — 4 TDD tests.
  */
-import { makeRasterLayerNode } from '@varve/scene';
+import { createEmptyTile, makeRasterLayerNode, makeTileKey, TILE_SIZE } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { HealingBrushTool } from '../HealingBrushTool';
 
@@ -91,6 +91,20 @@ describe('HealingBrushTool', () => {
     const commitTx = vi.fn();
 
     const ctx = makeMockContext(canvas, { commitTransaction: commitTx });
+    // Seed real pixels: healing needs a source and destination to actually
+    // change bytes, otherwise the stroke is a no-op and aborts.
+    const node = ctx.getNode('raster-1') as ReturnType<typeof makeRasterLayerNode>;
+    const tile = createEmptyTile();
+    for (let y = 0; y < TILE_SIZE; y++) {
+      for (let x = 0; x < TILE_SIZE; x++) {
+        const index = (y * TILE_SIZE + x) * 4;
+        tile.pixels[index] = (x * 3) % 256;
+        tile.pixels[index + 1] = (y * 5) % 256;
+        tile.pixels[index + 2] = 120;
+        tile.pixels[index + 3] = 255;
+      }
+    }
+    node.tiles.set(makeTileKey(0, 0), tile);
 
     (tool as any).sourcePoint = { nodeId: 'raster-1', x: 5, y: 5 };
 

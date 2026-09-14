@@ -4,6 +4,7 @@ import { getToolManager } from '../../canvas/toolDispatcher';
 import type { CloneStampOptions, CloneStampTool } from '../../tools/CloneStampTool';
 import type { HealingBrushOptions, HealingBrushTool } from '../../tools/HealingBrushTool';
 import type { PatchTool, PatchToolOptions } from '../../tools/PatchTool';
+import type { SamplingScope as RetouchSamplingScope } from '../../tools/retouchSampling';
 import type { SpotHealOptions, SpotHealTool } from '../../tools/SpotHealTool';
 import type { Tool as EditorTool } from '../../tools/types';
 import { NumberField } from '../Inspector/controls/NumberField';
@@ -17,7 +18,7 @@ const DEFAULT_CLONE_OPTIONS: CloneStampOptions = {
   flow: 1,
   spacing: 0.15,
   aligned: true,
-  sampleAllLayers: false,
+  samplingScope: 'current',
 };
 
 const DEFAULT_HEAL_OPTIONS: HealingBrushOptions = {
@@ -26,7 +27,7 @@ const DEFAULT_HEAL_OPTIONS: HealingBrushOptions = {
   opacity: 1,
   flow: 1,
   spacing: 0.15,
-  sampleAllLayers: false,
+  samplingScope: 'current',
 };
 
 const DEFAULT_SPOT_OPTIONS: SpotHealOptions = {
@@ -34,13 +35,13 @@ const DEFAULT_SPOT_OPTIONS: SpotHealOptions = {
   hardness: 1,
   opacity: 1,
   flow: 1,
-  sampleAllLayers: false,
+  samplingScope: 'current',
 };
 
 const DEFAULT_PATCH_OPTIONS: PatchToolOptions = {
   featherRadius: 12,
   opacity: 1,
-  sampleAllLayers: false,
+  samplingScope: 'current',
 };
 
 export function RetouchToolOptions({ tool }: { tool: RetouchToolId }) {
@@ -73,8 +74,8 @@ function CloneStampOptionsPanel() {
         onChange={(event) => update('aligned', event.target.checked)}
       />
       <SamplingScope
-        value={options.sampleAllLayers}
-        onChange={(value) => update('sampleAllLayers', value)}
+        value={options.samplingScope}
+        onChange={(value) => update('samplingScope', value)}
       />
       <p className="tool-options__hint">
         Alt-click an existing pixel to set the anchor. The repair is deposited on the editable
@@ -100,8 +101,8 @@ function HealingBrushOptionsPanel() {
       <div className="tool-options__heading">Healing Brush</div>
       <RetouchBrushFields options={options} onChange={update} />
       <SamplingScope
-        value={options.sampleAllLayers}
-        onChange={(value) => update('sampleAllLayers', value)}
+        value={options.samplingScope}
+        onChange={(value) => update('samplingScope', value)}
       />
       <p className="tool-options__hint">
         Alt-click sets the source. Colour is adapted from the destination while texture comes from
@@ -127,8 +128,8 @@ function SpotHealOptionsPanel() {
       <div className="tool-options__heading">Spot Heal</div>
       <RetouchBrushFields options={options} onChange={update} includeFlow={false} />
       <SamplingScope
-        value={options.sampleAllLayers}
-        onChange={(value) => update('sampleAllLayers', value)}
+        value={options.samplingScope}
+        onChange={(value) => update('samplingScope', value)}
       />
       <p className="tool-options__hint">
         Proximity match only: the bounded repair selects an existing nearby texture patch. It does
@@ -171,8 +172,8 @@ function PatchOptionsPanel() {
         onChange={(value) => update('opacity', value / 100)}
       />
       <SamplingScope
-        value={options.sampleAllLayers}
-        onChange={(value) => update('sampleAllLayers', value)}
+        value={options.samplingScope}
+        onChange={(value) => update('samplingScope', value)}
       />
       <p className="tool-options__hint">
         Drag a source region, then click its destination. The source is frozen before the patch is
@@ -241,18 +242,19 @@ function SamplingScope({
   value,
   onChange,
 }: {
-  value: boolean;
-  onChange: (value: boolean) => void;
+  value: RetouchSamplingScope;
+  onChange: (value: RetouchSamplingScope) => void;
 }) {
   return (
     <Select
       label="Sampling scope"
-      value={value ? 'merged' : 'current'}
+      value={value}
       options={[
-        { value: 'current', label: 'Current raster layer' },
-        { value: 'merged', label: 'Current and visible raster layers' },
+        { value: 'current', label: 'Current layer' },
+        { value: 'below', label: 'Current and below' },
+        { value: 'allVisible', label: 'All visible layers' },
       ]}
-      onChange={(next) => onChange(next === 'merged')}
+      onChange={(next) => onChange(next as RetouchSamplingScope)}
     />
   );
 }

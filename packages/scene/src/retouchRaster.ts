@@ -177,6 +177,7 @@ function compositeRetouchDab(
   const size = Math.ceil(dab.radius * 2);
   const tileKeys = tilesForDab(dab);
   const newTiles = new Map(node.tiles);
+  let changed = false;
 
   for (const { col, row } of tileKeys) {
     const key = makeTileKey(col, row);
@@ -235,6 +236,14 @@ function compositeRetouchDab(
         };
         const blended = blendRetouchPixel(dest, src, coverageAmount, alphaLock);
         if (!blended) continue;
+        if (
+          blended.r === dest.r &&
+          blended.g === dest.g &&
+          blended.b === dest.b &&
+          blended.a === dest.a
+        ) {
+          continue;
+        }
         pixels[idx] = blended.r;
         pixels[idx + 1] = blended.g;
         pixels[idx + 2] = blended.b;
@@ -243,11 +252,12 @@ function compositeRetouchDab(
       }
     }
 
-    if (!tile && !wrote) continue;
+    if (!wrote) continue;
+    changed = true;
     newTiles.set(key, { pixels, version: (tile?.version ?? 0) + 1 });
   }
 
-  return { ...node, tiles: newTiles };
+  return changed ? { ...node, tiles: newTiles } : node;
 }
 
 /** Clone Stamp: copy source pixels verbatim. */

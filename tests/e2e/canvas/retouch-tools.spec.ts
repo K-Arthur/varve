@@ -71,9 +71,10 @@ async function preparePhotoRetouch(page: import('@playwright/test').Page) {
   await switchWorkspace(page, 'Photo');
 }
 
-async function chooseMergedSampling(
+async function chooseSamplingScope(
   page: import('@playwright/test').Page,
   toolLabel: string,
+  scopeLabel: string,
 ): Promise<void> {
   const optionsButton = page.getByRole('button', { name: 'Tool options' });
   await expect(optionsButton).toBeVisible();
@@ -87,10 +88,8 @@ async function chooseMergedSampling(
   await expect(options).toBeVisible();
   const sampling = options.getByRole('combobox', { name: 'Sampling scope' });
   await sampling.click();
-  await page
-    .getByRole('option', { name: 'Current and visible raster layers', exact: true })
-    .click();
-  await expect(sampling).toContainText('Current and visible raster layers');
+  await page.getByRole('option', { name: scopeLabel, exact: true }).click();
+  await expect(sampling).toContainText(scopeLabel);
   await page.keyboard.press('Escape');
 }
 
@@ -189,7 +188,9 @@ async function serializedDocument(page: import('@playwright/test').Page): Promis
 test('Photo workspace retouch tools paint through the real canvas interaction', async ({
   page,
 }) => {
-  test.setTimeout(120000);
+  // Cold editor mount plus canvas interactions under concurrent-agent load can
+  // exceed 120 s even when the interaction itself is healthy.
+  test.setTimeout(240000);
   mkdirSync(REVIEW_DIR, { recursive: true });
   await page.setViewportSize({ width: 1280, height: 800 });
   await navigateToEditor(page, '/?perf=1');
@@ -205,7 +206,7 @@ test('Photo workspace retouch tools paint through the real canvas interaction', 
   await expect(page.getByRole('menuitem', { name: 'Healing Brush' })).toBeVisible();
   await page.getByRole('menuitem', { name: 'Healing Brush' }).click();
   await expect(page.locator('[data-tool="healBrush"]')).toBeVisible();
-  await chooseMergedSampling(page, 'Healing Brush');
+  await chooseSamplingScope(page, 'Healing Brush', 'All visible layers');
 
   const before = await canvas.screenshot();
 
@@ -234,7 +235,10 @@ test('Photo workspace retouch tools paint through the real canvas interaction', 
 test('Spot Heal and Patch use the persistent raster target and coherent undo', async ({
   page,
 }, testInfo) => {
-  test.setTimeout(120000);
+  // Save, reload, reopen, export, and undo/redo in one test. Under several
+  // concurrent agents sharing the machine the 120 s budget has been observed
+  // to run out after the reopen succeeded, so keep a load-tolerant budget.
+  test.setTimeout(240000);
   mkdirSync(REVIEW_DIR, { recursive: true });
   await page.setViewportSize({ width: 1280, height: 800 });
   await navigateToEditor(page, '/?perf=1');
@@ -252,7 +256,7 @@ test('Spot Heal and Patch use the persistent raster target and coherent undo', a
   await retouchMenu.click();
   await page.getByRole('menuitem', { name: 'Spot Heal' }).click();
   await expect(page.locator('[data-tool="spotHeal"]')).toBeVisible();
-  await chooseMergedSampling(page, 'Spot Heal');
+  await chooseSamplingScope(page, 'Spot Heal', 'All visible layers');
 
   const beforeSpot = await canvas.screenshot();
   await canvas.click({ position: { x: box.width * 0.55, y: box.height * 0.45 } });
@@ -271,7 +275,7 @@ test('Spot Heal and Patch use the persistent raster target and coherent undo', a
   await retouchMenu.click();
   await page.getByRole('menuitem', { name: 'Patch Tool' }).click();
   await expect(page.locator('[data-tool="patch"]')).toBeVisible();
-  await chooseMergedSampling(page, 'Patch Tool');
+  await chooseSamplingScope(page, 'Patch Tool', 'All visible layers');
   const beforePatch = await authoritativeCanvasPixelHash(page);
   await page.mouse.move(box.x + box.width * 0.76, box.y + box.height * 0.52);
   await page.mouse.down();
@@ -358,4 +362,82 @@ test('Spot Heal and Patch use the persistent raster target and coherent undo', a
       `${String(layer.name)} should retain non-transparent pixels`,
     ).toBe(true);
   }
+});
+
+test('Clone Stamp refuses locked and non-pixel targets instead of redirecting the edit', async ({
+  page,
+}) => {
+  test.setTimeout(240000);
+  mkdirSync(REVIEW_DIR, { recursive: true });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await navigateToEditor(page, '/?perf=1');
+  await dismissRecovery(page);
+  await preparePhotoRetouch(page);
+
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('content canvas is not measurable');
+  const treeItems = page.locator('.layers-panel__tree [role="treeitem"]');
+  const announcer = page.locator('#strata-canvas-announcer-polite');
+
+  // 1) A locked source layer is a described refusal; nothing is created and
+  //    no other layer is silently retouched in its place.
+  const retouchMenu = page.getByLabel('Retouch menu');
+  await retouchMenu.click();
+  await page.getByRole('menuitem', { name: 'Clone Stamp' }).click();
+  await expect(page.locator('[data-tool="cloneStamp"]')).toBeVisible();
+  // The tool-options popover opens automatically; close it so canvas clicks
+  // below land on the canvas rather than the popover.
+  await page.keyboard.press('Escape');
+  await treeItems.filter({ hasText: 'Photo pixels' }).click();
+  const lockedCount = await treeItems.count();
+  await page.keyboard.down('Alt');
+  await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
+  await page.keyboard.up('Alt');
+  await expect(announcer).toHaveText(/locked/i);
+  expect(await treeItems.count()).toBe(lockedCount);
+
+  // 2) A selected non-raster object must not be silently replaced by some
+  //    other pixel layer elsewhere in the document. The imported photo is an
+  //    image-filled shape; selecting it and retouching must refuse, not write
+  //    to the repair layer behind the user's back.
+  const imageShape = treeItems.filter({ hasText: 'photo-fixture' }).first();
+  await expect(imageShape).toBeVisible();
+  await imageShape.click();
+  await page.keyboard.down('Alt');
+  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+  await page.keyboard.up('Alt');
+  await expect(announcer).toHaveText(/not a pixel layer/i);
+  expect(await treeItems.count()).toBe(lockedCount);
+
+  // 3) The Repair layer remains a usable destination: setting the source and
+  //    painting through the real canvas interaction changes the photograph.
+  await treeItems.filter({ hasText: 'Repair layer' }).click();
+  await chooseSamplingScope(page, 'Clone Stamp', 'All visible layers');
+  await expect(page.locator('.paint-overlay__badge')).toContainText('Repair layer');
+  await page.keyboard.down('Alt');
+  await page.mouse.click(box.x + box.width * 0.43, box.y + box.height * 0.43);
+  await page.keyboard.up('Alt');
+  await expect(announcer).toHaveText('Clone source set');
+  // The source marker is real chrome, not just tool state: it must be on the
+  // canvas once the anchor exists.
+  await expect(page.locator('.paint-overlay__clone-source')).toBeVisible();
+  await expect(page.locator('.paint-overlay__badge')).toBeVisible();
+
+  const before = await canvas.screenshot();
+  await page.mouse.move(box.x + box.width * 0.52, box.y + box.height * 0.5);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.56, box.y + box.height * 0.54);
+  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.58);
+  await page.mouse.up();
+  await expect
+    .poll(async () => (await canvas.screenshot()).equals(before), {
+      timeout: 15000,
+      message: 'clone stamp should change the photograph on the repair layer',
+    })
+    .toBe(false);
+
+  await hidePerfHud(page);
+  await page.screenshot({ path: path.join(REVIEW_DIR, '05-target-safety.png') });
+  expect(await treeItems.count()).toBe(lockedCount);
 });

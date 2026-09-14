@@ -1,12 +1,18 @@
 .paint-overlay {
   position: absolute;
   inset: 0;
+  /*
+   * The content/overlay canvases paint an opaque background across their full
+   * bounds at z-index 2-3, so chrome left at `auto` is silently hidden. Match
+   * CANVAS_INTERACTIVE_OVERLAY_Z_INDEX (canvas/overlayZIndex.ts).
+   */
+  z-index: 10;
   /* Chrome, not artwork: it must never intercept a brush stroke. */
   pointer-events: none;
 }
 
 .paint-overlay__symmetry line {
-  stroke: var(--color-accent);
+  stroke: var(--color-accent-primary);
   stroke-width: 1;
   stroke-dasharray: 6 4;
   opacity: 0.6;
@@ -14,26 +20,32 @@
 
 .paint-overlay__origin {
   fill: var(--color-surface-raised);
-  stroke: var(--color-accent);
+  stroke: var(--color-accent-primary);
   stroke-width: 1.5;
 }
 
 .paint-overlay__clone line {
-  stroke: var(--color-accent);
+  stroke: var(--color-accent-primary);
   stroke-width: 1;
   opacity: 0.75;
 }
 
 .paint-overlay__clone-source {
   fill: none;
-  stroke: var(--color-accent);
+  stroke: var(--color-accent-primary);
   stroke-width: 1.5;
 }
 
 .paint-overlay__badge {
   position: absolute;
-  inset-block-end: var(--space-3);
-  inset-inline-start: 50%;
+  /*
+   * Top-center keeps the badge clear of the floating toolbar, which occupies
+   * the bottom-center of the canvas while a paint tool is active. Physical
+   * top/left are intentional: centering is symmetric and this avoids the
+   * logical-property fallback selector the CSS pipeline emits for RTL.
+   */
+  top: var(--space-3);
+  left: 50%;
   z-index: var(--z-overlay);
   margin: 0;
   padding: var(--space-1) var(--space-3);
@@ -49,7 +61,7 @@
 }
 
 .paint-overlay__badge.is-blocked {
-  color: var(--color-text-on-danger, var(--color-text-primary-on-overlay));
-  background: var(--color-danger-surface, var(--color-surface-overlay));
-  border-color: var(--color-danger, var(--color-border-default));
+  color: var(--color-feedback-danger);
+  background: var(--color-surface-overlay);
+  border-color: var(--color-feedback-danger);
 }

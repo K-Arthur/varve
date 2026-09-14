@@ -122,7 +122,7 @@ describe('PatchTool', () => {
     expect(tool.onPointerDown(pointer(1, 10, 10), context).consumed).toBe(false);
     expect(context.beginTransaction).not.toHaveBeenCalled();
     expect(context.announce).toHaveBeenCalledWith(
-      'Patch needs an editable raster layer with source pixels',
+      'No editable pixel layer is available. Add a pixel layer or prepare one from the photo before retouching.',
     );
   });
 });

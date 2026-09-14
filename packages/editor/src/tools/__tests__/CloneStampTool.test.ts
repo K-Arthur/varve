@@ -1,7 +1,7 @@
 /**
  * CloneStampTool tests — 6 TDD tests.
  */
-import { makeRasterLayerNode } from '@varve/scene';
+import { createEmptyTile, makeRasterLayerNode, makeTileKey, TILE_SIZE } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { CloneStampTool } from '../CloneStampTool';
 
@@ -128,6 +128,20 @@ describe('CloneStampTool', () => {
       commitTransaction: commitTx,
       abortTransaction: abortTx,
     });
+    // Seed real pixels: a source sample that differs from the destination is
+    // what makes this a committed edit rather than a no-op.
+    const node = ctx.getNode('raster-1') as ReturnType<typeof makeRasterLayerNode>;
+    const tile = createEmptyTile();
+    for (let index = 0; index < tile.pixels.length; index += 4) {
+      tile.pixels[index] = 200;
+      tile.pixels[index + 1] = 200;
+      tile.pixels[index + 2] = 200;
+      tile.pixels[index + 3] = 255;
+    }
+    const sourceIndex = (5 * TILE_SIZE + 5) * 4;
+    tile.pixels[sourceIndex] = 20;
+    node.tiles.set(makeTileKey(0, 0), tile);
+    (ctx.document.nodes as Record<string, unknown>)['raster-1'] = node;
 
     (tool as any).sourcePoint = { nodeId: 'raster-1', x: 5, y: 5 };
 

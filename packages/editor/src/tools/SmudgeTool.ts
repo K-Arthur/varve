@@ -19,7 +19,6 @@ import type {
   BrushPreset,
   RasterLayerNode,
   RasterTile,
-  SceneNode,
   SmudgeState,
   StrokeDabSession,
   StrokePoint,
@@ -39,8 +38,11 @@ import { BaseTool } from './BaseTool';
 import { collectSourceEvents, type NormalizedInputEvent } from './inputNormalizer';
 import { PreviewCanvas } from './previewCanvas';
 import { createRasterTarget, findEditableRasterLayer, rasterLocalPoint } from './rasterTarget';
+import { rasterSamplingLayersInPaintOrder } from './retouchSampling';
 import { selectionCoverageForDab } from './selectionCoverage';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
+
+export { rasterSamplingLayersInPaintOrder };
 
 /**
  * UI-facing smudge modes. `sampling` moves only existing pigment, `mixing`
@@ -48,61 +50,6 @@ import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './
  * the foreground into the reservoir on every pickup.
  */
 export type SmudgeMode = 'sampling' | 'mixing' | 'fingerpaint';
-
-export interface RasterSamplingLayer {
-  id: string;
-  tiles: Map<string, RasterTile>;
-  opacity?: number;
-  visible?: boolean;
-}
-
-/**
- * Return raster sources in the same bottom-to-top order exposed by the active
- * scene scope. Object insertion order is not paint order: layer reordering
- * edits the parent child arrays without rebuilding `document.nodes`.
- *
- * Hidden ancestors are excluded so merged sampling cannot pull pixels from a
- * hidden group. Group opacity, masks, effects, and transforms remain outside
- * this tile-only source contract and are documented as limitations below.
- */
-export function rasterSamplingLayersInPaintOrder(
-  ctx: Pick<ToolContext, 'document' | 'rootNodes'>,
-): RasterSamplingLayer[] {
-  const layers: RasterSamplingLayer[] = [];
-  const visited = new Set<string>();
-
-  const visit = (nodes: readonly SceneNode[], inheritedVisible: boolean): void => {
-    for (const node of nodes) {
-      if (visited.has(node.id)) continue;
-      visited.add(node.id);
-
-      const visible = inheritedVisible && (node as { visible?: boolean }).visible !== false;
-      if (!visible) continue;
-
-      if ((node as { kind?: string }).kind === 'rasterLayer') {
-        const raster = node as unknown as RasterLayerNode;
-        layers.push({
-          id: raster.id,
-          tiles: raster.tiles,
-          opacity: raster.opacity,
-          visible: raster.visible,
-        });
-      }
-
-      const childIds = 'children' in node && Array.isArray(node.children) ? node.children : [];
-      if (childIds.length === 0) continue;
-      visit(
-        childIds
-          .map((childId) => ctx.document.nodes[childId])
-          .filter((child): child is SceneNode => Boolean(child)),
-        visible,
-      );
-    }
-  };
-
-  visit(ctx.rootNodes(), true);
-  return layers;
-}
 
 /** Stable 32-bit hash so a stroke's jitter is reproducible from its identity. */
 function hashSeed(text: string): number {

@@ -7,12 +7,14 @@
  * the beginning of the operation.
  *
  * Research basis: Photoshop Spot Healing Brush, GIMP Heal selection.
- *                 Content-aware fill (PatchMatch algorithm).
+ *                 Poisson image editing (Pérez et al. 2003) as the standard the
+ *                 simple mean-shift approximation is measured against.
  */
 import type { BrushDab, RasterLayerNode, RasterTile } from '@varve/scene';
-import { compositeSpotHealDabOnNode, flattenTilesForSampling, snapshotTiles } from '@varve/scene';
+import { compositeSpotHealDabOnNode, snapshotTiles } from '@varve/scene';
 import { BaseTool } from './BaseTool';
-import { findEditableRasterLayer, rasterLocalPoint } from './rasterTarget';
+import { rasterLocalPoint, resolveRetouchTarget } from './rasterTarget';
+import { buildRetouchSampleSource, type SamplingScope } from './retouchSampling';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 
 export interface SpotHealOptions {
@@ -20,7 +22,7 @@ export interface SpotHealOptions {
   hardness: number;
   opacity: number;
   flow: number;
-  sampleAllLayers: boolean;
+  samplingScope: SamplingScope;
 }
 
 export class SpotHealTool extends BaseTool {
@@ -31,7 +33,7 @@ export class SpotHealTool extends BaseTool {
     hardness: 1,
     opacity: 1,
     flow: 1,
-    sampleAllLayers: false,
+    samplingScope: 'current',
   };
 
   override cursor(_state: ToolCursorState): CursorSpec {
@@ -42,11 +44,12 @@ export class SpotHealTool extends BaseTool {
     e: PointerEvent,
     ctx: ToolContext,
   ): { consumed: boolean; captured?: boolean } {
-    const rasterNodeId = findEditableRasterLayer(ctx);
-    if (!rasterNodeId) {
-      ctx.announce('Spot Heal needs an editable raster layer with source pixels');
+    const target = resolveRetouchTarget(ctx);
+    if (target.kind !== 'raster') {
+      ctx.announce(target.reason);
       return { consumed: false };
     }
+    const rasterNodeId = target.nodeId;
     const node = ctx.getNode(rasterNodeId);
     if (node?.kind !== 'rasterLayer') {
       ctx.announce('Spot Heal could not resolve its raster target');
@@ -68,10 +71,8 @@ export class SpotHealTool extends BaseTool {
       strokeDistance: 0,
     };
     ctx.beginTransaction();
-    const sourceTiles = this.options.sampleAllLayers
-      ? this.flattenVisibleStack(ctx, node as RasterLayerNode)
-      : snapshotTiles(node as RasterLayerNode);
-    const preview = compositeSpotHealDabOnNode(node as RasterLayerNode, dab, {
+    const sourceTiles = this.buildSamplingSource(ctx, node);
+    const preview = compositeSpotHealDabOnNode(node, dab, {
       sourceTiles,
       offsetX: 0,
       offsetY: 0,
@@ -103,13 +104,14 @@ export class SpotHealTool extends BaseTool {
     return { ...this.options };
   }
 
-  private flattenVisibleStack(ctx: ToolContext, target: RasterLayerNode): Map<string, RasterTile> {
-    const layers: Array<{ tiles: Map<string, RasterTile>; opacity?: number; visible?: boolean }> =
-      [];
-    for (const node of Object.values(ctx.document.nodes)) {
-      if (node.kind !== 'rasterLayer') continue;
-      layers.push({ tiles: node.tiles, opacity: node.opacity, visible: node.visible });
+  private buildSamplingSource(ctx: ToolContext, node: RasterLayerNode): Map<string, RasterTile> {
+    if (this.options.samplingScope === 'current') return snapshotTiles(node);
+    const result = buildRetouchSampleSource(ctx, node, this.options.samplingScope);
+    if (result.truncated) {
+      ctx.announce(
+        'Merged sampling reached its size budget; some transformed layers were not sampled.',
+      );
     }
-    return layers.length > 0 ? flattenTilesForSampling(layers) : snapshotTiles(target);
+    return result.tiles;
   }
 }

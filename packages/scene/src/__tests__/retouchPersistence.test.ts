@@ -1,4 +1,5 @@
 import {
+  compositeCloneDabOnNode,
   compositePatchRegionOnNode,
   compositeSpotHealDabOnNode,
   createEmptyTile,
@@ -101,5 +102,47 @@ describe('persistent retouch raster operations', () => {
     expect(result).not.toBe(node);
     const output = result.tiles.get(makeTileKey(1, 0))!.pixels;
     expect(output[blemish]).toBeLessThan(255);
+  });
+
+  it('returns the same node and keeps tile versions when a clone changes nothing', () => {
+    const node = splitLayer();
+    const versionsBefore = new Map(
+      [...node.tiles].map(([key, tile]) => [key, tile.version] as const),
+    );
+    const result = compositeCloneDabOnNode(node, dab(20, 20, 8), {
+      sourceTiles: snapshotTiles(node),
+      offsetX: 0,
+      offsetY: 0,
+    });
+
+    // Cloning a region onto itself is a byte-identical no-op: no history step,
+    // no cache-invalidating version bump, no replaced tile objects.
+    expect(result).toBe(node);
+    for (const [key, version] of versionsBefore) {
+      expect(node.tiles.get(key)!.version).toBe(version);
+    }
+  });
+
+  it('leaves absent tiles absent when a dab writes nothing', () => {
+    const node = splitLayer();
+    const result = compositeCloneDabOnNode(node, dab(TILE_SIZE * 2 + 40, 40, 8), {
+      sourceTiles: snapshotTiles(node),
+      offsetX: 0,
+      offsetY: 0,
+    });
+    expect(result).toBe(node);
+    expect(node.tiles.has(makeTileKey(2, 0))).toBe(false);
+  });
+
+  it('returns the same node when the source sample is fully transparent', () => {
+    const node = splitLayer();
+    const empty = makeRasterLayerNode('empty', { width: TILE_SIZE, height: TILE_SIZE });
+    empty.tiles.set(makeTileKey(0, 0), createEmptyTile());
+    const result = compositeCloneDabOnNode(node, dab(20, 20, 8), {
+      sourceTiles: snapshotTiles(empty),
+      offsetX: 0,
+      offsetY: 0,
+    });
+    expect(result).toBe(node);
   });
 });

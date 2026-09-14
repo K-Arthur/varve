@@ -584,7 +584,7 @@ describe('deepCloneSubtree — duplicate fidelity', () => {
     const clonedContent = result.nodes[result.idMap.get(content.id)!];
     expect(clonedGroup.children).toHaveLength(2);
     expect(clonedContent).toBeDefined();
-    if (!clonedContent || !('effects' in clonedContent)) return;
+    if (!clonedContent || !('effects' in clonedContent) || !clonedContent.effects) return;
     const maskSource = (
       clonedContent.effects[0] as { mask?: { source?: { kind: string; nodeId: string } } }
     ).mask?.source;

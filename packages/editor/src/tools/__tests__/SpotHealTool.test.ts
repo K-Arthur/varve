@@ -107,7 +107,7 @@ describe('SpotHealTool', () => {
     expect(tool.onPointerDown(pointer(19, 19), context).consumed).toBe(false);
     expect(context.beginTransaction).not.toHaveBeenCalled();
     expect(context.announce).toHaveBeenCalledWith(
-      'Spot Heal needs an editable raster layer with source pixels',
+      'No editable pixel layer is available. Add a pixel layer or prepare one from the photo before retouching.',
     );
   });
 });

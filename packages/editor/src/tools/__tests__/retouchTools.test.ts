@@ -12,7 +12,7 @@ import { CloneStampTool } from '../CloneStampTool';
 import { HealingBrushTool } from '../HealingBrushTool';
 import type { ToolContext } from '../types';
 
-/** Raster layer whose left half is red and right half is blue. */
+/** Raster layer whose left half is red and right half is blue, with texture. */
 function makeSplitLayer(): RasterLayerNode {
   const node = makeRasterLayerNode('raster-1', { width: TILE_SIZE, height: TILE_SIZE });
   const tile = createEmptyTile();
@@ -21,7 +21,9 @@ function makeSplitLayer(): RasterLayerNode {
       const i = (y * TILE_SIZE + x) * 4;
       const left = x < TILE_SIZE / 2;
       tile.pixels[i] = left ? 255 : 0;
-      tile.pixels[i + 1] = 0;
+      // A deterministic texture makes healing a real edit rather than the
+      // byte-identical copy a flat synthetic patch would produce.
+      tile.pixels[i + 1] = (x * 3 + y * 5) % 64;
       tile.pixels[i + 2] = left ? 0 : 255;
       tile.pixels[i + 3] = 255;
     }
@@ -55,6 +57,7 @@ function makeCtx(node: RasterLayerNode) {
     foregroundColor: [0, 0, 0, 255] as [number, number, number, number],
     canvasToWorld: (cx: number, cy: number) => ({ x: cx, y: cy }),
     worldToCanvas: (wx: number, wy: number) => ({ x: wx, y: wy }),
+    rootNodes: () => Object.values(ctx.document.nodes) as never,
     getNode: (id: string) => (id === 'raster-1' ? state.node : undefined),
     updateNode: vi.fn((id: string, updater: (n: RasterLayerNode) => RasterLayerNode) => {
       if (id !== 'raster-1') return;
@@ -242,12 +245,12 @@ describe('HealingBrushTool', () => {
   });
 });
 
-describe('CloneStampTool sample-all-layers', () => {
+describe('CloneStampTool sample scope', () => {
   it('samples only the target layer by default', () => {
     const { ctx, current } = makeCtx(makeSplitLayer());
     const tool = new CloneStampTool();
     tool.setOptions({ brushSize: 20, hardness: 1 });
-    expect(tool.getOptions().sampleAllLayers).toBe(false);
+    expect(tool.getOptions().samplingScope).toBe('current');
 
     tool.onPointerDown(ptr(20, 40, { altKey: true }), ctx);
     tool.onPointerDown(ptr(90, 40), ctx);
@@ -258,7 +261,7 @@ describe('CloneStampTool sample-all-layers', () => {
   it('samples the visible stack when asked, and still deposits on one layer', () => {
     const { ctx, current } = makeCtx(makeSplitLayer());
     const tool = new CloneStampTool();
-    tool.setOptions({ brushSize: 20, hardness: 1, sampleAllLayers: true });
+    tool.setOptions({ brushSize: 20, hardness: 1, samplingScope: 'allVisible' });
 
     tool.onPointerDown(ptr(20, 40, { altKey: true }), ctx);
     tool.onPointerDown(ptr(90, 40), ctx);
@@ -268,5 +271,59 @@ describe('CloneStampTool sample-all-layers', () => {
     // point is that deposits still land on the active layer alone.
     expect(pixelAt(current(), 90, 40)).toMatchObject({ r: 255, b: 0 });
     expect(ctx.commitTransaction).toHaveBeenCalledOnce();
+  });
+
+  it('refuses a selected non-raster object instead of stealing another layer', () => {
+    const { ctx } = makeCtx(makeSplitLayer());
+    (ctx.document.nodes as Record<string, unknown>)['frame-1'] = {
+      id: 'frame-1',
+      kind: 'frame',
+      name: 'Photo frame',
+      children: [],
+      visible: true,
+      locked: false,
+    };
+    ctx.selection = ['frame-1'];
+
+    const tool = new CloneStampTool();
+    const result = tool.onPointerDown(ptr(40, 40, { altKey: true }), ctx);
+
+    expect(result.consumed).toBe(false);
+    expect(ctx.announce).toHaveBeenCalledWith(expect.stringContaining('not a pixel layer'));
+    expect(ctx.updateNode).not.toHaveBeenCalled();
+    expect(ctx.createRasterLayer).not.toHaveBeenCalled();
+  });
+
+  it('does not fabricate a layer when no pixel layer exists', () => {
+    const { ctx } = makeCtx(makeSplitLayer());
+    ctx.selection = [];
+    (ctx.document as { nodes: Record<string, unknown> }).nodes = {};
+    (ctx.document as { rootChildren: string[] }).rootChildren = [];
+
+    const tool = new CloneStampTool();
+    const result = tool.onPointerDown(ptr(40, 40), ctx);
+
+    expect(result.consumed).toBe(false);
+    expect(ctx.announce).toHaveBeenCalledWith(expect.stringContaining('No editable pixel layer'));
+    expect(ctx.createRasterLayer).not.toHaveBeenCalled();
+    expect(ctx.updateNode).not.toHaveBeenCalled();
+  });
+
+  it('aborts a no-op stroke without touching tile versions', () => {
+    const node = makeSplitLayer();
+    const { ctx, current } = makeCtx(node);
+    const tool = new CloneStampTool();
+    tool.setOptions({ brushSize: 20, hardness: 1, opacity: 1 });
+    const versionBefore = current().tiles.get(makeTileKey(0, 0))!.version;
+
+    // Set the source in the red half, then paint on the same red pixels:
+    // every deposit is byte-identical, so nothing should change.
+    tool.onPointerDown(ptr(20, 40, { altKey: true }), ctx);
+    tool.onPointerDown(ptr(20, 40), ctx);
+    tool.onPointerUp(ptr(20, 40), ctx);
+
+    expect(current().tiles.get(makeTileKey(0, 0))!.version).toBe(versionBefore);
+    expect(ctx.commitTransaction).not.toHaveBeenCalled();
+    expect(ctx.abortTransaction).toHaveBeenCalled();
   });
 });

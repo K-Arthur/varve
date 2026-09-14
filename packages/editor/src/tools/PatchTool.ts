@@ -8,15 +8,16 @@
  * Research basis: Photoshop Patch tool, GIMP Clone tool (perspective).
  */
 import type { RasterLayerNode, RasterTile } from '@varve/scene';
-import { compositePatchRegionOnNode, flattenTilesForSampling, snapshotTiles } from '@varve/scene';
+import { compositePatchRegionOnNode, snapshotTiles } from '@varve/scene';
 import { BaseTool } from './BaseTool';
-import { findEditableRasterLayer, rasterLocalPoint } from './rasterTarget';
+import { rasterLocalPoint, resolveRetouchTarget } from './rasterTarget';
+import { buildRetouchSampleSource, type SamplingScope } from './retouchSampling';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 
 export interface PatchToolOptions {
   featherRadius: number;
   opacity: number;
-  sampleAllLayers: boolean;
+  samplingScope: SamplingScope;
 }
 
 interface PatchState {
@@ -29,7 +30,7 @@ interface PatchState {
 export class PatchTool extends BaseTool {
   id = 'patch' as const;
 
-  private options: PatchToolOptions = { featherRadius: 12, opacity: 1, sampleAllLayers: false };
+  private options: PatchToolOptions = { featherRadius: 12, opacity: 1, samplingScope: 'current' };
 
   private patchState: PatchState = {
     phase: 'idle',
@@ -67,12 +68,12 @@ export class PatchTool extends BaseTool {
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
 
     if (this.patchState.phase === 'idle') {
-      const rasterNodeId = findEditableRasterLayer(ctx);
-      if (!rasterNodeId) {
-        ctx.announce('Patch needs an editable raster layer with source pixels');
+      const target = resolveRetouchTarget(ctx);
+      if (target.kind !== 'raster') {
+        ctx.announce(target.reason);
         return { consumed: false };
       }
-      const node = ctx.getNode(rasterNodeId);
+      const node = ctx.getNode(target.nodeId);
       if (node?.kind !== 'rasterLayer') {
         ctx.announce('Patch could not resolve its raster target');
         return { consumed: false };
@@ -83,10 +84,8 @@ export class PatchTool extends BaseTool {
       this.patchState = {
         phase: 'idle',
         sourceRect: null,
-        sourceTiles: this.options.sampleAllLayers
-          ? this.flattenVisibleStack(ctx, node as RasterLayerNode)
-          : snapshotTiles(node as RasterLayerNode),
-        rasterNodeId,
+        sourceTiles: this.buildSamplingSource(ctx, node as RasterLayerNode),
+        rasterNodeId: target.nodeId,
       };
       return gesture;
     }
@@ -205,13 +204,14 @@ export class PatchTool extends BaseTool {
     };
   }
 
-  private flattenVisibleStack(ctx: ToolContext, target: RasterLayerNode): Map<string, RasterTile> {
-    const layers: Array<{ tiles: Map<string, RasterTile>; opacity?: number; visible?: boolean }> =
-      [];
-    for (const node of Object.values(ctx.document.nodes)) {
-      if (node.kind !== 'rasterLayer') continue;
-      layers.push({ tiles: node.tiles, opacity: node.opacity, visible: node.visible });
+  private buildSamplingSource(ctx: ToolContext, node: RasterLayerNode): Map<string, RasterTile> {
+    if (this.options.samplingScope === 'current') return snapshotTiles(node);
+    const result = buildRetouchSampleSource(ctx, node, this.options.samplingScope);
+    if (result.truncated) {
+      ctx.announce(
+        'Merged sampling reached its size budget; some transformed layers were not sampled.',
+      );
     }
-    return layers.length > 0 ? flattenTilesForSampling(layers) : snapshotTiles(target);
+    return result.tiles;
   }
 }
