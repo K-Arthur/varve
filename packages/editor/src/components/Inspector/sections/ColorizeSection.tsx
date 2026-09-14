@@ -53,6 +53,7 @@ interface ColorizeState {
   previewSourceKind: SourceKind | null;
   previewSignature: string | null;
   previewSourceSrc: string | null;
+  previewSourceId: string | null;
   elapsedMs: number;
 }
 
@@ -223,6 +224,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
     previewSourceKind: null,
     previewSignature: null,
     previewSourceSrc: null,
+    previewSourceId: null,
     elapsedMs: 0,
   });
 
@@ -307,6 +309,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
       previewSourceKind: null,
       previewSignature: null,
       previewSourceSrc: null,
+      previewSourceId: null,
       elapsedMs: 0,
     }));
   }, []);
@@ -526,6 +529,12 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
           ? reference !== null
           : recolorScope === 'whole' || mask !== null);
 
+  const previewIsCurrent =
+    colorize.previewSignature === operationSignature &&
+    colorize.previewSourceSrc === imageSrc &&
+    colorize.previewSourceId === sourceId;
+  const canApply = canRun && colorize.previewDataUrl !== null && previewIsCurrent;
+
   const handlePreview = useCallback(async () => {
     if (!imageSrc || !canRun) return;
     abortRef.current?.abort();
@@ -544,6 +553,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
       previewSourceKind: null,
       previewSignature: null,
       previewSourceSrc: null,
+      previewSourceId: null,
       elapsedMs: 0,
     }));
 
@@ -562,6 +572,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
         previewSourceKind: result.sourceKind ?? null,
         previewSignature: expectedSignature,
         previewSourceSrc: imageSrc,
+        previewSourceId: sourceId,
         elapsedMs: 0,
       }));
       announce('Colorize preview ready');
@@ -578,7 +589,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
   }, [imageSrc, canRun, operationSignature, loadImageData, runColorize, announce, qualityMode]);
 
   const handleApply = useCallback(async () => {
-    if (!imageSrc || !canRun || !colorize.previewDataUrl) return;
+    if (!imageSrc || !canRun || !colorize.previewDataUrl || !previewIsCurrent) return;
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -674,6 +685,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
     colorize.previewChroma,
     colorize.previewSignature,
     colorize.previewSourceSrc,
+    previewIsCurrent,
     operationSignature,
     sourceId,
     loadImageData,
@@ -1157,6 +1169,12 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
             {colorize.previewSourceSrc === imageSrc && (
               <ColorizeCompare sourceSrc={imageSrc} previewSrc={colorize.previewDataUrl!} />
             )}
+            {!previewIsCurrent && (
+              <p className="insp-hint colorize-section__stale" role="status">
+                This preview is out of date for the current selection or settings. Generate a new
+                preview before applying.
+              </p>
+            )}
             {workflow === 'photo' && (
               <p className="insp-hint">
                 Apply rebuilds the approved preview&apos;s predicted colors over the full-resolution
@@ -1176,7 +1194,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
                 variant="default"
                 size="sm"
                 onClick={handleApply}
-                disabled={isProcessing || !canRun}
+                disabled={isProcessing || !canApply}
                 loading={colorize.status === 'applying'}
                 aria-label="Apply colorization at full resolution"
               >
@@ -1229,7 +1247,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
                 type="button"
                 variant="default"
                 size="sm"
-                disabled={!showPreview || !canRun}
+                disabled={!canApply}
                 onClick={handleApply}
                 aria-label="Apply colorization at full resolution"
               >

@@ -277,6 +277,10 @@
   object-fit: contain;
 }
 
+.colorize-section__stale {
+  color: var(--color-feedback-warning);
+}
+
 .colorize-section__compare {
   position: relative;
   margin-top: var(--space-2);
