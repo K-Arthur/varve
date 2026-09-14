@@ -1,18 +1,19 @@
 mod acceleration;
 mod crash;
 mod file_open;
+mod filesystem;
 mod font;
 mod font_storage;
-mod filesystem;
 mod generative_qualification;
 mod generative_resources;
-mod logs;
 mod lifecycle;
+mod logs;
 mod menu;
 mod print;
 mod renderer;
 mod updates;
 
+use base64::Engine as _;
 use image::load_from_memory;
 use notify::Watcher;
 use serde::{Deserialize, Serialize};
@@ -23,7 +24,6 @@ use std::process::{Child, Command as ProcessCommand, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant};
-use base64::Engine as _;
 use tauri::ipc::Response;
 use tauri::Emitter;
 use tauri::Manager;
@@ -364,8 +364,12 @@ fn resolve_user_path_approved(raw: &str) -> Result<std::path::PathBuf, String> {
         };
         ancestor = parent;
     }
-    let mut resolved = std::fs::canonicalize(ancestor)
-        .map_err(|e| format!("Failed to resolve existing ancestor {}: {e}", ancestor.display()))?;
+    let mut resolved = std::fs::canonicalize(ancestor).map_err(|e| {
+        format!(
+            "Failed to resolve existing ancestor {}: {e}",
+            ancestor.display()
+        )
+    })?;
     for component in suffix.into_iter().rev() {
         resolved.push(component);
     }
@@ -398,11 +402,9 @@ fn write_binary_file_to_folder(
     for component in components {
         target.push(component);
     }
-    let resolved = resolve_user_path_approved(
-        target
-            .to_str()
-            .ok_or_else(|| "Export path cannot be represented by the desktop IPC boundary".to_string())?,
-    )?;
+    let resolved = resolve_user_path_approved(target.to_str().ok_or_else(|| {
+        "Export path cannot be represented by the desktop IPC boundary".to_string()
+    })?)?;
     if !resolved.starts_with(&root) {
         return Err("Export path escapes the selected directory".into());
     }
@@ -428,11 +430,7 @@ const NATIVE_CLIPBOARD_DEADLINE: Duration = Duration::from_secs(5);
 static NATIVE_CLIPBOARD_CANCELLATIONS: LazyLock<Mutex<HashSet<String>>> =
     LazyLock::new(|| Mutex::new(HashSet::new()));
 
-fn validate_bounded_image_dimensions(
-    width: u32,
-    height: u32,
-    label: &str,
-) -> Result<(), String> {
+fn validate_bounded_image_dimensions(width: u32, height: u32, label: &str) -> Result<(), String> {
     if width == 0 || height == 0 {
         return Err(format!("{label} has empty dimensions"));
     }
@@ -445,9 +443,7 @@ fn validate_bounded_image_dimensions(
         .checked_mul(u64::from(height))
         .ok_or_else(|| format!("{label} dimensions overflow"))?;
     if pixels > MAX_NATIVE_IMAGE_PIXELS {
-        return Err(format!(
-            "{label} exceeds the 64 megapixel limit"
-        ));
+        return Err(format!("{label} exceeds the 64 megapixel limit"));
     }
     Ok(())
 }
@@ -566,7 +562,9 @@ fn read_wayland_pipe_bounded(
             if error.kind() == ErrorKind::Interrupted {
                 continue;
             }
-            return Err(format!("Failed waiting for Wayland clipboard data: {error}"));
+            return Err(format!(
+                "Failed waiting for Wayland clipboard data: {error}"
+            ));
         }
         if ready == 0 {
             continue;
@@ -1011,12 +1009,7 @@ fn preflight_native_model(
             "{operation} cannot start because native model '{model_id}' has no measured memory profile"
         )
     })?;
-    generative_resources::preflight_model(
-        operation,
-        width,
-        height,
-        measured_peak_memory_bytes,
-    )?;
+    generative_resources::preflight_model(operation, width, height, measured_peak_memory_bytes)?;
     Ok(())
 }
 
@@ -1096,9 +1089,10 @@ async fn download_background_removal_model(
     // before the network future starts so model download progress remains
     // responsive and a loader failure becomes a normal command error.
     let runtime_app = app.clone();
-    let runtime_ready = tauri::async_runtime::spawn_blocking(move || ensure_native_ai(&runtime_app))
-        .await
-        .map_err(|error| format!("Native AI initialization task failed: {error}"))?;
+    let runtime_ready =
+        tauri::async_runtime::spawn_blocking(move || ensure_native_ai(&runtime_app))
+            .await
+            .map_err(|error| format!("Native AI initialization task failed: {error}"))?;
     if !runtime_ready {
         return Err("Native ONNX Runtime is unavailable on this desktop build".into());
     }
@@ -1390,7 +1384,9 @@ async fn download_inference_model(
             .map_err(|error| format!("Model download failed: {error}"))?
             .error_for_status()
             .map_err(|error| format!("Model download failed: {error}"))?;
-        let total = size_bytes.or_else(|| response.content_length()).unwrap_or(0);
+        let total = size_bytes
+            .or_else(|| response.content_length())
+            .unwrap_or(0);
         let mut file = std::fs::File::create(&temporary)
             .map_err(|error| format!("Failed to create model file: {error}"))?;
         let mut digest = Sha256::new();
@@ -1512,7 +1508,9 @@ async fn remove_background_binary(
     let image_data = match request.body() {
         tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
         tauri::ipc::InvokeBody::Json(_) => {
-            return Err("Binary background removal requires an application/octet-stream body".into())
+            return Err(
+                "Binary background removal requires an application/octet-stream body".into(),
+            )
         }
     };
     let options_json = request
@@ -1699,7 +1697,11 @@ pub struct ContentAwareFillOptions {
 }
 
 fn validate_content_aware_fill_options(options: &ContentAwareFillOptions) -> Result<(), String> {
-    validate_bounded_image_dimensions(options.image_w, options.image_h, "content-aware fill image")?;
+    validate_bounded_image_dimensions(
+        options.image_w,
+        options.image_h,
+        "content-aware fill image",
+    )?;
     validate_bounded_image_dimensions(options.mask_w, options.mask_h, "content-aware fill mask")?;
     if options.preview_max_dimension == Some(0) {
         return Err("content-aware fill preview_max_dimension must be positive".into());
@@ -1937,7 +1939,8 @@ const GENERATIVE_MODEL_RUNTIME_ID: &str = "diffusion-rs-0.1.20";
 const GENERATIVE_MODEL_FILENAME: &str = "varve-diffusion-inpainting.gguf";
 const GENERATIVE_MODEL_DOWNLOAD_URL: &str = "https://huggingface.co/gpustack/stable-diffusion-v1-5-inpainting-GGUF/resolve/21491e4/stable-diffusion-v1-5-inpainting-Q4_0.gguf?download=true";
 const GENERATIVE_MODEL_DOWNLOAD_SIZE: u64 = 1_747_219_584;
-const GENERATIVE_MODEL_DOWNLOAD_SHA256: &str = "d157ce24483f0c999062da140eacebe8f3ed015e652723e31f6d39119b800c16";
+const GENERATIVE_MODEL_DOWNLOAD_SHA256: &str =
+    "d157ce24483f0c999062da140eacebe8f3ed015e652723e31f6d39119b800c16";
 
 // A model may only become usable after the frozen real-photograph corpus has
 // been reviewed and its exact artifact hash has been intentionally promoted
@@ -2031,12 +2034,14 @@ fn generative_model_is_ready(
     resource: &generative_resources::NativeResourceSnapshot,
 ) -> bool {
     generative_model_record_is_ready(record, size_bytes, checksum_sha256, resource)
-        && resource.available_memory_bytes.is_some_and(|available| {
-            available >= resource.required_memory_bytes
-        })
+        && resource
+            .available_memory_bytes
+            .is_some_and(|available| available >= resource.required_memory_bytes)
 }
 
-fn managed_generative_model_paths(app: &tauri::AppHandle) -> Result<Vec<std::path::PathBuf>, String> {
+fn managed_generative_model_paths(
+    app: &tauri::AppHandle,
+) -> Result<Vec<std::path::PathBuf>, String> {
     let dir = model_dir(app)?;
     Ok(["safetensors", "gguf"]
         .into_iter()
@@ -2052,9 +2057,7 @@ fn generative_model_metadata_path(model_path: &std::path::Path) -> std::path::Pa
     model_path.with_file_name(format!("{file_name}{GENERATIVE_MODEL_METADATA_SUFFIX}"))
 }
 
-fn read_generative_model_metadata(
-    model_path: &std::path::Path,
-) -> Option<GenerativeModelMetadata> {
+fn read_generative_model_metadata(model_path: &std::path::Path) -> Option<GenerativeModelMetadata> {
     let bytes = std::fs::read(generative_model_metadata_path(model_path)).ok()?;
     serde_json::from_slice(&bytes).ok()
 }
@@ -2066,9 +2069,7 @@ fn unix_timestamp_seconds() -> u64 {
         .as_secs()
 }
 
-fn model_status_blocking(
-    app: &tauri::AppHandle,
-) -> Result<GenerativeModelStatus, String> {
+fn model_status_blocking(app: &tauri::AppHandle) -> Result<GenerativeModelStatus, String> {
     let resource = generative_resources::snapshot(512, 512);
     let paths = managed_generative_model_paths(app)?;
     for path in &paths {
@@ -2140,9 +2141,7 @@ fn model_status_blocking(
                     ready,
                     model_handle: record
                         .as_ref()
-                        .filter(|record| {
-                            ready && record.model_handle == GENERATIVE_MODEL_HANDLE
-                        })
+                        .filter(|record| ready && record.model_handle == GENERATIVE_MODEL_HANDLE)
                         .map(|_| GENERATIVE_MODEL_HANDLE.into()),
                     profile_id: record.as_ref().map(|record| record.profile_id.clone()),
                     checksum_sha256: Some(checksum_sha256),
@@ -2161,7 +2160,9 @@ fn model_status_blocking(
     }
     let partial_bytes = paths
         .iter()
-        .find(|path| path.file_name().and_then(|name| name.to_str()) == Some(GENERATIVE_MODEL_FILENAME))
+        .find(|path| {
+            path.file_name().and_then(|name| name.to_str()) == Some(GENERATIVE_MODEL_FILENAME)
+        })
         .map(|path| path.with_extension("gguf.part"))
         .and_then(|path| path.metadata().ok())
         .map(|metadata| metadata.len().min(GENERATIVE_MODEL_DOWNLOAD_SIZE))
@@ -2232,7 +2233,12 @@ fn available_disk_space(path: &std::path::Path) -> Option<u64> {
         // SAFETY: `wide` is a valid NUL-terminated UTF-16 path and `free`
         // points to writable storage for the OS result.
         let ok = unsafe {
-            GetDiskFreeSpaceExW(wide.as_ptr(), &mut free, std::ptr::null_mut(), std::ptr::null_mut())
+            GetDiskFreeSpaceExW(
+                wide.as_ptr(),
+                &mut free,
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+            )
         };
         return (ok != 0).then_some(free);
     }
@@ -2247,7 +2253,10 @@ async fn download_generative_model_attempt(
     client: &reqwest::Client,
 ) -> Result<(), String> {
     let partial = destination.with_extension("gguf.part");
-    let mut loaded = partial.metadata().map(|metadata| metadata.len()).unwrap_or(0);
+    let mut loaded = partial
+        .metadata()
+        .map(|metadata| metadata.len())
+        .unwrap_or(0);
     if loaded > GENERATIVE_MODEL_DOWNLOAD_SIZE {
         std::fs::remove_file(&partial)
             .map_err(|error| format!("Could not discard oversized model partial: {error}"))?;
@@ -2476,7 +2485,9 @@ fn import_generative_edit_model(
         .metadata()
         .map_err(|error| format!("Could not read selected model: {error}"))?;
     if !metadata.is_file() || metadata.len() == 0 || metadata.len() > 16 * 1024 * 1024 * 1024 {
-        return Err("The selected model file is empty or larger than the 16 GB safety limit".into());
+        return Err(
+            "The selected model file is empty or larger than the 16 GB safety limit".into(),
+        );
     }
     let paths = managed_generative_model_paths(&app)?;
     let destination = paths
@@ -2648,6 +2659,7 @@ async fn qualify_generative_edit_model(
         if !valid_generation_request_id(&request_id) {
             return Err("Invalid generative qualification request id".into());
         }
+        let options = qualification_request(GENERATIVE_MODEL_HANDLE, request_id);
         let qualification_request_id = options.request_id.clone();
         let qualification_mask = options.mask.clone();
         let qualification_width = options.mask_w;
@@ -2759,8 +2771,15 @@ fn resolve_generative_helper(app: &tauri::AppHandle) -> Result<std::path::PathBu
         }
     }
     let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    let profile = if cfg!(debug_assertions) { "debug" } else { "release" };
-    let dev_path = manifest_dir.join("../../../target").join(profile).join(file_name);
+    let profile = if cfg!(debug_assertions) {
+        "debug"
+    } else {
+        "release"
+    };
+    let dev_path = manifest_dir
+        .join("../../../target")
+        .join(profile)
+        .join(file_name);
     if dev_path.is_file() {
         return Ok(dev_path);
     }
@@ -2774,17 +2793,24 @@ fn write_generation_inputs(
     let image_pixels = u64::from(options.image_w)
         .checked_mul(u64::from(options.image_h))
         .ok_or_else(|| "Generation source dimensions overflow".to_string())?;
-    if image_pixels == 0 || image_pixels > 64 * 1024 * 1024 || options.image_data.len() as u64 != image_pixels * 4 {
+    if image_pixels == 0
+        || image_pixels > 64 * 1024 * 1024
+        || options.image_data.len() as u64 != image_pixels * 4
+    {
         return Err("Generation source pixels do not match the declared dimensions".into());
     }
     let mask_pixels = u64::from(options.mask_w)
         .checked_mul(u64::from(options.mask_h))
         .ok_or_else(|| "Generation mask dimensions overflow".to_string())?;
-    if mask_pixels == 0 || mask_pixels > 64 * 1024 * 1024 || options.mask.len() as u64 != mask_pixels {
+    if mask_pixels == 0
+        || mask_pixels > 64 * 1024 * 1024
+        || options.mask.len() as u64 != mask_pixels
+    {
         return Err("Generation mask pixels do not match the declared dimensions".into());
     }
-    let rgba = image::RgbaImage::from_raw(options.image_w, options.image_h, options.image_data.clone())
-        .ok_or_else(|| "Generation source image buffer is invalid".to_string())?;
+    let rgba =
+        image::RgbaImage::from_raw(options.image_w, options.image_h, options.image_data.clone())
+            .ok_or_else(|| "Generation source image buffer is invalid".to_string())?;
     let mask = image::GrayImage::from_raw(options.mask_w, options.mask_h, options.mask.clone())
         .ok_or_else(|| "Generation mask buffer is invalid".to_string())?;
     let image_path = work_dir.join("source.png");
@@ -2830,7 +2856,11 @@ fn generative_edit_blocking_with_requirement(
     if options.prompt.trim().is_empty() {
         return Err("A prompt is required for prompt-capable generation".into());
     }
-    if options.output_w == 0 || options.output_h == 0 || options.output_w > 2048 || options.output_h > 2048 {
+    if options.output_w == 0
+        || options.output_h == 0
+        || options.output_w > 2048
+        || options.output_h > 2048
+    {
         return Err("Generation output dimensions must be between 1 and 2048 pixels".into());
     }
     generative_resources::preflight(options.output_w, options.output_h)?;
@@ -3046,12 +3076,14 @@ async fn native_ai_status(_app: tauri::AppHandle) -> bool {
 fn ensure_native_ai(app: &tauri::AppHandle) -> bool {
     if !varve_bgremove::runtime::native_ai_ready() {
         match resolve_onnxruntime_dylib(app) {
-            Some(path) => match varve_bgremove::runtime::init_native_runtime(&path) {
-                Ok(()) => println!("[bgremove] native ONNX Runtime ready: {}", path.display()),
-                Err(e) => {
-                    eprintln!("[bgremove] native ONNX Runtime init failed ({e}); falling back to WASM")
+            Some(path) => {
+                match varve_bgremove::runtime::init_native_runtime(&path) {
+                    Ok(()) => println!("[bgremove] native ONNX Runtime ready: {}", path.display()),
+                    Err(e) => {
+                        eprintln!("[bgremove] native ONNX Runtime init failed ({e}); falling back to WASM")
+                    }
                 }
-            },
+            }
             None => {
                 eprintln!(
                     "[bgremove] no bundled onnxruntime dylib found for this platform ({}-{}); \
@@ -3195,8 +3227,7 @@ fn should_try_gpu_resample(
 ) -> bool {
     let source_pixels = u64::from(src_width) * u64::from(src_height);
     let output_pixels = u64::from(dst_width) * u64::from(dst_height);
-    source_pixels != output_pixels
-        && source_pixels.max(output_pixels) >= MIN_GPU_RESAMPLE_PIXELS
+    source_pixels != output_pixels && source_pixels.max(output_pixels) >= MIN_GPU_RESAMPLE_PIXELS
 }
 
 #[derive(Debug, Deserialize)]
@@ -3525,9 +3556,7 @@ fn upscale_image_impl(
     // GPU device creation is intentionally deferred until the worker has
     // decoded the image and the output has passed admission checks. This keeps
     // a small resize from paying initialization cost or waking a discrete GPU.
-    let gpu_workers = if method != "ai"
-        && should_try_gpu_resample(width, height, out_w, out_h)
-    {
+    let gpu_workers = if method != "ai" && should_try_gpu_resample(width, height, out_w, out_h) {
         acceleration_state
             .as_ref()
             .and_then(|state| state.workers().ok())
@@ -3564,14 +3593,12 @@ fn upscale_image_impl(
         // result is within 1 LSB of the image-rs CPU filters (verified by
         // crates/varve-accel parity tests); on any failure the CPU path runs.
         let gpu_result = gpu_workers.as_ref().and_then(|workers| {
-            acceleration::resample_on_gpu(
-                workers, pixels, width, height, out_w, out_h, method,
-            )
-            .map_err(|err| {
-                eprintln!("native GPU resample unavailable ({err}); using CPU filters");
-                err
-            })
-            .ok()
+            acceleration::resample_on_gpu(workers, pixels, width, height, out_w, out_h, method)
+                .map_err(|err| {
+                    eprintln!("native GPU resample unavailable ({err}); using CPU filters");
+                    err
+                })
+                .ok()
         });
         if let Some(bytes) = gpu_result {
             (bytes, "native-gpu")
@@ -3773,9 +3800,7 @@ fn sanitize_trace_options(raw: TraceImageOptions) -> varve_trace::TraceOptions {
 /// the request body; decode options travel as a small JSON header. Mirrors
 /// the trace/upscale binary channels.
 #[tauri::command]
-async fn media_probe_binary(
-    request: tauri::ipc::Request<'_>,
-) -> Result<String, String> {
+async fn media_probe_binary(request: tauri::ipc::Request<'_>) -> Result<String, String> {
     let bytes = match request.body() {
         tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
         tauri::ipc::InvokeBody::Json(_) => {
@@ -3798,7 +3823,9 @@ async fn media_decode_frames_binary(
     let bytes = match request.body() {
         tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
         tauri::ipc::InvokeBody::Json(_) => {
-            return Err("media_decode_frames_binary requires an application/octet-stream body".into())
+            return Err(
+                "media_decode_frames_binary requires an application/octet-stream body".into(),
+            )
         }
     };
     let options_json = request
@@ -4347,8 +4374,7 @@ struct RecentFileRecord {
 }
 
 fn recent_to_home(r: varve_sync::RecentRow) -> RecentFileRecord {
-    let workspace_relevance = serde_json::from_str(&r.workspace_relevance)
-        .unwrap_or_default();
+    let workspace_relevance = serde_json::from_str(&r.workspace_relevance).unwrap_or_default();
     RecentFileRecord {
         id: r.id,
         name: r.name,
@@ -4793,7 +4819,12 @@ fn home_touch_recent_file(
     content_hash: Option<String>,
 ) -> Result<RecentFileRecord, String> {
     store
-        .touch_recent_file(&id, &name, source_workspace_id.as_deref(), content_hash.as_deref())
+        .touch_recent_file(
+            &id,
+            &name,
+            source_workspace_id.as_deref(),
+            content_hash.as_deref(),
+        )
         .map(recent_to_home)
         .map_err(|e| e.to_string())
 }
@@ -4884,24 +4915,21 @@ fn model_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
 
 #[tauri::command]
 fn read_model_file(app: tauri::AppHandle, model_id: String) -> Result<Vec<u8>, String> {
-    filesystem::validate_storage_key(&model_id)
-        .map_err(|error| error.message)?;
+    filesystem::validate_storage_key(&model_id).map_err(|error| error.message)?;
     let path = model_dir(&app)?.join(&model_id);
     std::fs::read(&path).map_err(|e| format!("Failed to read model file {model_id}: {e}"))
 }
 
 #[tauri::command]
 fn write_model_file(app: tauri::AppHandle, model_id: String, data: Vec<u8>) -> Result<(), String> {
-    filesystem::validate_storage_key(&model_id)
-        .map_err(|error| error.message)?;
+    filesystem::validate_storage_key(&model_id).map_err(|error| error.message)?;
     let path = model_dir(&app)?.join(&model_id);
     write_file_atomic(&path, &data)
 }
 
 #[tauri::command]
 fn delete_model_file(app: tauri::AppHandle, model_id: String) -> Result<(), String> {
-    filesystem::validate_storage_key(&model_id)
-        .map_err(|error| error.message)?;
+    filesystem::validate_storage_key(&model_id).map_err(|error| error.message)?;
     let path = model_dir(&app)?.join(&model_id);
     if path.exists() {
         std::fs::remove_file(&path)
@@ -5521,12 +5549,18 @@ mod tests {
         let first = state.register("lama-first");
         let second = state.register("lama-second");
 
-        assert!(first.is_cancelled(), "a newer request supersedes the older one");
+        assert!(
+            first.is_cancelled(),
+            "a newer request supersedes the older one"
+        );
         assert!(!second.is_cancelled());
 
         state.finish("lama-first");
         state.cancel("lama-second");
-        assert!(second.is_cancelled(), "the active request can be cancelled by id");
+        assert!(
+            second.is_cancelled(),
+            "the active request can be cancelled by id"
+        );
         state.finish("lama-second");
 
         let third = state.register("lama-third");
@@ -5658,10 +5692,9 @@ mod tests {
         writer.write_all(b"clipboard").expect("write fixture");
         drop(writer);
 
-        let result = read_wayland_pipe_bounded(reader, "native-clipboard-test")
-            .expect("bounded pipe read");
+        let result =
+            read_wayland_pipe_bounded(reader, "native-clipboard-test").expect("bounded pipe read");
         assert_eq!(result, b"clipboard");
-
     }
 
     #[cfg(target_os = "linux")]
@@ -6272,7 +6305,7 @@ mod tests {
 
     #[test]
     fn bg_remove_binary_response_keeps_mask_out_of_json() {
-        use tauri::ipc::{IpcResponse, InvokeResponseBody};
+        use tauri::ipc::{InvokeResponseBody, IpcResponse};
 
         let mask = [137u8, 80, 78, 71];
         let result = BgRemoveResult {
@@ -6293,8 +6326,8 @@ mod tests {
         };
         assert_eq!(&bytes[..4], BG_REMOVE_BINARY_MAGIC);
         let metadata_len = u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as usize;
-        let metadata: serde_json::Value = serde_json::from_slice(&bytes[8..8 + metadata_len])
-            .expect("metadata JSON");
+        let metadata: serde_json::Value =
+            serde_json::from_slice(&bytes[8..8 + metadata_len]).expect("metadata JSON");
         assert_eq!(metadata["method"], "quick");
         assert_eq!(&bytes[8 + metadata_len..], mask);
     }
@@ -6682,9 +6715,17 @@ mod tests {
         let leftovers = std::fs::read_dir(&dir)
             .expect("read test dir")
             .filter_map(Result::ok)
-            .filter(|entry| entry.file_name().to_string_lossy().starts_with(".varve-write-"))
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".varve-write-")
+            })
             .count();
-        assert_eq!(leftovers, 0, "successful writes should consume their staging file");
+        assert_eq!(
+            leftovers, 0,
+            "successful writes should consume their staging file"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
