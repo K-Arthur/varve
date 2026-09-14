@@ -48,6 +48,7 @@ import { FloatingTextBar } from './FloatingTextBar/FloatingTextBar';
 import { GradientHandleOverlay } from './GradientHandleOverlay';
 import { GuideOverlay } from './GuideOverlay/GuideOverlay';
 import { KnifeHoverOverlay } from './KnifeHoverOverlay';
+import { LiquifyOverlay } from './Liquify/LiquifyOverlay';
 import { MeshWarpOverlay } from './MeshWarpOverlay';
 import { MockupSurfaceOverlay } from './MockupSurfaceOverlay';
 import { MotionPathOverlay } from './MotionPathOverlay';
@@ -658,6 +659,7 @@ export function CanvasOverlays({
       {tool === 'warp' && editor.state.warpEdit && (
         <WarpOverlay zoom={zoom} pan={pan} cameraRotation={cameraRotation} />
       )}
+      {tool === 'liquify' && <LiquifyOverlay />}
       {tool === 'select' && selection.length === 1 && (
         <MockupSurfaceOverlay
           zoom={zoom}

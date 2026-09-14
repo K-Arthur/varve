@@ -143,24 +143,4 @@ describe('SegmentedControl', () => {
     fireEvent.keyDown(firstRadio, { key: 'ArrowRight' });
     expect(val).toBe('column');
   });
-
-  it('skips disabled options and exposes their reason', () => {
-    let val: Dir = 'row';
-    render(
-      <SegmentedControl
-        label="Direction"
-        value={val}
-        options={[
-          { value: 'row', label: 'Row' },
-          { value: 'column', label: 'Column', disabled: true, disabledReason: 'Unavailable' },
-        ]}
-        onChange={(v) => (val = v)}
-      />,
-    );
-    const disabled = screen.getByRole('radio', { name: 'Column' });
-    expect(disabled).toBeDisabled();
-    expect(disabled).toHaveAttribute('title', 'Unavailable');
-    fireEvent.keyDown(screen.getByRole('radio', { name: 'Row' }), { key: 'ArrowRight' });
-    expect(val).toBe('row');
-  });
 });

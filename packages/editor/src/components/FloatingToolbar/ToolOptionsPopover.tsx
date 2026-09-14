@@ -23,6 +23,11 @@ const ImageCropSection = lazy(() =>
     default: module.ImageCropSection,
   })),
 );
+const LiquifyOptionsPanel = lazy(() =>
+  import('./LiquifyToolOptions').then((module) => ({
+    default: module.LiquifyOptionsPanel,
+  })),
+);
 
 const BRUSH_TOOLS = new Set<ToolId>(['paint', 'eraser', 'pencil', 'smudge']);
 const MARQUEE_TOOLS = new Set<ToolId>(['marquee', 'ellipseMarquee', 'pixelLasso']);
@@ -311,6 +316,7 @@ export function ToolOptionsPopover() {
         MARQUEE_TOOLS.has(state.tool) ||
         MAGIC_WAND_TOOLS.has(state.tool) ||
         RETOUCH_TOOLS.has(state.tool) ||
+        state.tool === 'liquify' ||
         state.tool === 'text',
     );
   }, [state.tool]);
@@ -433,6 +439,7 @@ export function ToolOptionsPopover() {
                 }
               />
             )}
+            {state.tool === 'liquify' && <LiquifyOptionsPanel />}
             {state.tool === 'crop' && (
               <ImageCropSection nodes={selectedNodes()} sectionId="image-crop" />
             )}

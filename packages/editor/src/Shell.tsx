@@ -62,6 +62,7 @@ import {
   type ExportLayerHandle,
   FindReplaceLayer,
   type FindReplaceLayerHandle,
+  FrequencySeparationDialogHost,
   ImageResizeDialogHost,
   ImportProgress,
   ImportResults,
@@ -1128,6 +1129,9 @@ function ShellInner({
 
         {/* Image Trace dialog */}
         {editor.vectorizeDialogOpen && <VectorizeDialogHost />}
+
+        {/* Frequency Separation dialog */}
+        {editor.frequencySeparationDialogOpen && <FrequencySeparationDialogHost />}
 
         {/* File Thumbnail picker */}
         <ThumbnailPickerHost />

@@ -23,13 +23,14 @@ import {
   warpShapeToPath,
   warpTextToClusterAdjustments,
 } from '@varve/engine';
-import type { Document, Fill, NodeId, SceneNode } from '@varve/scene';
+import type { Document, Fill, GroupNode, NodeId, RasterLayerNode, SceneNode } from '@varve/scene';
 import {
   activeSmartFilters,
   applyBindingsToNode,
   buildAllVariantCaches,
   createVariableStore,
   getEffectiveNode,
+  getFrequencySeparationState,
   isExportRegion,
   isLiveBooleanNode,
   nodeLocalBoundsSource,
@@ -44,6 +45,8 @@ import { DEFAULT_ARTWORK_FONT_FAMILY, resolveTextGeometryMode } from '@varve/sha
 import { maskRenderUrl } from '../backgroundRemoval/maskRenderCache';
 import { resolvePlacedLiveBoolean } from '../scene/liveBooleanGeometry';
 import { nodeWorldTransform } from '../scene/world';
+import { decodedSeparationTilesForRender } from './frequencySeparationRenderCache';
+import { warpedTilesForRender } from './liquifyRenderCache';
 import { pathShapeInTextSpace } from './pathTextGeometry';
 import { compileTableToEngineNode } from './tableCompile';
 
@@ -437,8 +440,12 @@ export function sceneNodeToEngineNode(
   }
 
   if (node.kind === 'rasterLayer') {
+    // Liquify is applied here, at the canonical IR boundary, so the canvas,
+    // worker, thumbnails and export all see the same deformed pixels without
+    // rewriting the source tiles. Identity fields skip the pass entirely.
+    const sourceTiles = warpedTilesForRender(node);
     const tiles: Record<string, { pixels: number[]; version: number }> = {};
-    for (const [key, tile] of node.tiles) {
+    for (const [key, tile] of sourceTiles) {
       tiles[key] = {
         pixels: Array.from(tile.pixels),
         version: tile.version,
@@ -514,6 +521,48 @@ export function flattenSceneToEngine(
       });
       ids.push(id);
       nodes.push(compiled as unknown as EngineNode);
+    } else if (
+      effective.kind === 'group' &&
+      getFrequencySeparationState(effective) !== null &&
+      isLiveBooleanNode(effective) === false
+    ) {
+      // Frequency-separation group: emit one decoded composite item under the
+      // group's id. Structural replay substitutes it for the two band children
+      // (mirroring the live-Boolean contract), so group opacity, blend, mask
+      // and effects still apply to the recombined result.
+      const decoded = decodedSeparationTilesForRender(document, id);
+      const state = getFrequencySeparationState(effective);
+      if (decoded && state) {
+        const low = document.nodes[state.lowNodeId] as RasterLayerNode | undefined;
+        if (low && low.kind === 'rasterLayer') {
+          const synthetic: RasterLayerNode = {
+            ...low,
+            id,
+            name: effective.name,
+            tiles: decoded,
+            transform: effective.transform,
+            opacity: effective.opacity,
+            blendMode: effective.blendMode,
+            rotation: effective.rotation,
+            effects: effective.effects ?? [],
+            mask: (effective as GroupNode).mask,
+            // A field on the group deforms the reconstructed composite; band
+            // fields (advanced single-component deformation) are applied
+            // inside the decode. Exactly one of the two is present per target.
+            liquify: (effective as GroupNode).liquify,
+          };
+          let engineNode = sceneNodeToEngineNode(synthetic, options, document);
+          engineNode = {
+            ...engineNode,
+            transform: options.localTransforms
+              ? sceneLocalWorldTransform(document, id)
+              : nodeWorldTransform(document, id),
+          };
+          ids.push(id);
+          nodes.push(engineNode);
+          return;
+        }
+      }
     } else if (isLiveBooleanNode(effective)) {
       const placed = resolvePlacedLiveBoolean(
         document,

@@ -525,6 +525,7 @@ export {
   getFontRegistry,
   resetFontRegistry,
 } from './fontRegistry';
+export * from './frequencySeparation';
 export type {
   ExpandedFrame,
   ExpandGenerationEstimate,
@@ -926,6 +927,7 @@ export {
   depthToBlurWeight,
   depthToHeatmapImageData,
 } from './lensBlur';
+export * from './liquify';
 export * from './liveEffects';
 export type { EffectQuality, EffectQualityParam } from './liveEffects/quality';
 export type {

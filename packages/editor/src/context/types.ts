@@ -624,6 +624,10 @@ export interface EditorState {
   vectorizeDialogOpen: boolean;
   /** Re-trace target for the Image Trace dialog (Edit Trace workflow). */
   vectorizeDialogPrefill: { replaceGroupId: string } | null;
+  /** Whether the Frequency Separation dialog is open. */
+  frequencySeparationDialogOpen: boolean;
+  /** Raster layer or separation group the Frequency Separation dialog targets. */
+  frequencySeparationTargetId: NodeId | null;
   /** Whether the Extract Color Palette dialog is open. */
   paletteExtractDialogOpen: boolean;
   /** Source image URL the palette dialog is analyzing. */
@@ -1243,6 +1247,11 @@ export interface EditorContextValue {
   vectorizeDialogOpen: boolean;
   openVectorizeDialog: (prefill?: { replaceGroupId: string } | null) => void;
   closeVectorizeDialog: () => void;
+
+  // Frequency Separation dialog
+  frequencySeparationDialogOpen: boolean;
+  openFrequencySeparationDialog: (targetNodeId: NodeId) => void;
+  closeFrequencySeparationDialog: () => void;
 
   // Extract Color Palette dialog
   paletteExtractDialogOpen: boolean;

@@ -361,6 +361,15 @@ export const TOOL_REGISTRY = [
     aliases: ['blur', 'blend'],
   },
   {
+    id: 'liquify',
+    label: 'Liquify',
+    icon: 'WavesHorizontal',
+    category: 'raster',
+    kind: 'tool',
+    shortcutId: 'toolLiquify',
+    aliases: ['liquefy', 'deform', 'warp', 'push', 'bloat', 'pucker', 'twirl', 'freeze', 'reshape'],
+  },
+  {
     id: 'sam2Segment',
     label: 'Object Selection',
     icon: 'Scan',

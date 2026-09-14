@@ -18,6 +18,9 @@ import type {
   Affine,
   DepthMapResource,
   FontReference,
+  FrequencySeparationMethod,
+  LiquifyField,
+  LiquifyFreezeMask,
   PathPoint,
   Shape,
   SpatialBlurEffect,
@@ -1557,6 +1560,58 @@ export interface GroupNode extends NodeBase {
    * geometry from them and never serialize a copied result as authority.
    */
   boolean?: LiveBooleanState;
+  /**
+   * V2.17+: frequency-separation marker. When present and still linked, the
+   * IR builder decodes `low + (high − 128)·2` instead of compositing the two
+   * band children as ordinary layers. The marker stores band node ids, never
+   * names; an unlinked marker renders as an ordinary group.
+   */
+  frequencySeparation?: FrequencySeparationState;
+  /**
+   * V2.17+: shared liquify deformation for a frequency-separation group.
+   * Applied to the recombined composite (after the two bands are decoded), so
+   * linked tone/detail components stay aligned. Meaningful only on marked
+   * groups in this version; ordinary groups ignore it.
+   */
+  liquify?: LiquifyField;
+}
+
+/**
+ * Persistent frequency-separation linkage. Defined here (next to `GroupNode`)
+ * so scene code can rely on it without importing the operations module.
+ */
+export interface FrequencySeparationState {
+  /** Algorithm/serialization version; currently 1. */
+  version: 1;
+  method: FrequencySeparationMethod;
+  /** Gaussian sigma in layer pixels at creation/regeneration time. */
+  radius: number;
+  lowNodeId: NodeId;
+  highNodeId: NodeId;
+  /** Wall-clock creation stamp; informational only. */
+  createdAt?: number;
+}
+
+/**
+ * Provenance retained on a group produced by text-to-outlines. Geometry is
+ * authoritative after conversion, but this record keeps the logical source,
+ * exact font identity, feature/axis choices, and source ranges needed for
+ * diagnostics, export reporting, and a future "restore text" workflow.
+ */
+export interface OutlinedTextMetadata {
+  schemaVersion: 1;
+  sourceText: string;
+  fontFamily?: string;
+  fontReference?: FontReference;
+  fontIdentity?: string;
+  openTypeFeatures?: OpenTypeFeatureMap;
+  variableAxes?: Record<string, number>;
+  glyphs: Array<{
+    nodeId: NodeId;
+    glyphId?: number;
+    sourceStart?: number;
+    sourceEnd?: number;
+  }>;
 }
 
 /** A live Boolean group evaluates its direct children in this operation. */
@@ -1917,6 +1972,17 @@ export interface RasterLayerNode extends NodeBase {
   retouchProvenance?: import('./photoSource').RetouchProvenance;
   /** Non-destructive appearance effects applied to the composited raster. */
   effects?: Effect[];
+  /**
+   * V2.17+: non-destructive liquify deformation. The source tiles are never
+   * rewritten by brush strokes; the deformation is resampled during IR build,
+   * so the field stays re-editable and reversible. Absent = no deformation.
+   */
+  liquify?: LiquifyField;
+  /**
+   * V2.17+: frozen (protected) coverage for subsequent liquify strokes.
+   * Authoring-only data: it never affects rendering. Absent = nothing frozen.
+   */
+  liquifyFreeze?: LiquifyFreezeMask;
 }
 
 export type SceneNode =

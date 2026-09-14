@@ -15,6 +15,9 @@ import {
 } from '@varve/engine';
 import { ImportService, toDelimitedText } from '@varve/import';
 import {
+  findFrequencySeparationForBand,
+  flattenFrequencySeparation,
+  getFrequencySeparationState,
   getImageFill,
   getOwnRasterMaskAsset,
   isImageShape,
@@ -1659,6 +1662,58 @@ export function createActionHandlers(
       e.openCafDialog(selectedImages[0]!.id);
     },
     batchBgRemove: () => cb.onBatchBgRemove?.(),
+    frequencySeparation: () => {
+      const sel = e.state.selection;
+      if (sel.length !== 1) {
+        e.announce?.('Select one raster layer or an existing separation group');
+        return;
+      }
+      const node = e.state.document.nodes[sel[0]!];
+      if (!node) return;
+      if (node.kind === 'rasterLayer') {
+        e.openFrequencySeparationDialog(node.id);
+        return;
+      }
+      if (node.kind === 'group' && getFrequencySeparationState(node)) {
+        e.openFrequencySeparationDialog(node.id);
+        return;
+      }
+      const separation = findFrequencySeparationForBand(e.state.document, node.id);
+      if (separation) {
+        e.openFrequencySeparationDialog(separation.groupId);
+        return;
+      }
+      e.announce?.('Frequency Separation needs a raster layer or an existing separation group');
+    },
+    flattenFrequencySeparation: () => {
+      const sel = e.state.selection;
+      if (sel.length !== 1) return;
+      const node = e.state.document.nodes[sel[0]!];
+      if (!node) return;
+      const groupId =
+        node.kind === 'group' && getFrequencySeparationState(node)
+          ? node.id
+          : findFrequencySeparationForBand(e.state.document, node.id)?.groupId;
+      if (!groupId) {
+        e.announce?.('Select a frequency separation group or one of its bands');
+        return;
+      }
+      const flattened = flattenFrequencySeparation(e.state.document, groupId);
+      if (!flattened) {
+        e.announce?.('Frequency separation could not be flattened');
+        return;
+      }
+      e.beginTransaction();
+      try {
+        e.updateDoc(() => flattened);
+        e.commitTransaction();
+      } catch (error) {
+        e.abortTransaction();
+        throw error;
+      }
+      e.setSelection(sel[0]!);
+      e.announce?.('Frequency separation flattened into one raster layer');
+    },
     extractPalette: () => {
       const selected = e.state.selection;
       const imageNode = selected

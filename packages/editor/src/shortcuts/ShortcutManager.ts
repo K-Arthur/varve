@@ -282,6 +282,7 @@ export const SHORTCUT_DEFS = {
   toolPaint: { binding: { key: 'b' }, label: 'Paint brush', category: 'Tools' },
   toolEraser: { binding: { key: 'e' }, label: 'Eraser', category: 'Tools' },
   toolSmudge: { binding: { key: 'u' }, label: 'Smudge tool', category: 'Tools' },
+  toolLiquify: { binding: { key: 'y' }, label: 'Liquify tool', category: 'Tools' },
   toolScale: { binding: { key: 's' }, label: 'Scale tool', category: 'Tools' },
   toolSlice: { binding: { key: 'k' }, label: 'Export Region tool', category: 'Tools' },
   toolKnife: { binding: { key: 'n' }, label: 'Knife tool', category: 'Tools' },

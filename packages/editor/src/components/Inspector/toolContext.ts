@@ -35,6 +35,7 @@ const TOOL_OPTIONS_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>([
   'healBrush',
   'spotHeal',
   'patch',
+  'liquify',
 ]);
 
 export function toolContextSurface(tool: ToolId): ToolContextSurface | null {

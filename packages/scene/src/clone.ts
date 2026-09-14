@@ -380,6 +380,31 @@ export function deepCloneSubtree(
         (newNodes[newId] as import('./types').AdjustmentNode).scope = remapped;
       }
     }
+    // Remap frequency-separation band references. Both bands live inside the
+    // group subtree, so an in-document duplicate always finds both in the
+    // idMap. Under cross-document paste a missing band would leave a marker
+    // pointing at foreign ids — drop the marker so the pasted group renders
+    // as ordinary layers instead of a broken decode.
+    if (original.kind === 'group') {
+      const originalFs = (
+        original as { frequencySeparation?: import('./types').FrequencySeparationState }
+      ).frequencySeparation;
+      if (originalFs) {
+        const low = idMap.get(originalFs.lowNodeId);
+        const high = idMap.get(originalFs.highNodeId);
+        if (low && high) {
+          newNodes[newId] = {
+            ...newNodes[newId]!,
+            frequencySeparation: { ...originalFs, lowNodeId: low, highNodeId: high },
+          } as SceneNode;
+        } else if (dropForeign) {
+          const { frequencySeparation: _fs, ...withoutMarker } = newNodes[newId]! as {
+            frequencySeparation?: unknown;
+          };
+          newNodes[newId] = withoutMarker as SceneNode;
+        }
+      }
+    }
     // Remap pathTextSettings.pathNodeId: if the referenced path was cloned,
     // point at the new clone. Under dropForeign (cross-document paste), a
     // foreign path that was not included in the clone is invalid — detach

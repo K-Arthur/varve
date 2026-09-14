@@ -26,6 +26,7 @@ import { PencilTool } from '../tools/PencilTool';
 import { PenTool } from '../tools/PenTool';
 import { PerspectiveTool } from '../tools/PerspectiveTool';
 import { PixelLassoTool } from '../tools/PixelLassoTool';
+import { LiquifyTool } from '../tools/LiquifyTool';
 import { PixelProbeTool } from '../tools/PixelProbeTool';
 import { PolygonTool } from '../tools/PolygonTool';
 import { RectangleTool } from '../tools/RectangleTool';
@@ -83,6 +84,7 @@ export function getToolManager(): ToolManager {
     toolManager.register('paint', () => new PaintTool(false));
     toolManager.register('eraser', () => new PaintTool(true));
     toolManager.register('smudge', () => new SmudgeTool());
+    toolManager.register('liquify', () => new LiquifyTool());
     toolManager.register('sam2Segment', () => new Sam2SegmentationTool());
     toolManager.register('lasso', () => new LassoTool());
     toolManager.register('pixelLasso', () => new PixelLassoTool());

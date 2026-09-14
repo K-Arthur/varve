@@ -212,6 +212,7 @@ export function shapeForTool(tool: ToolId): Shape {
     case 'paint':
     case 'eraser':
     case 'smudge':
+    case 'liquify':
     case 'sam2Segment':
     case 'shape':
     case 'connector':

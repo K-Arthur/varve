@@ -1576,6 +1576,14 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   openVectorizeDialog: (prefill?: { replaceGroupId: string } | null) => void;
   /** Close the Image Trace dialog. */
   closeVectorizeDialog: () => void;
+  /** Whether the Frequency Separation dialog is open. */
+  frequencySeparationDialogOpen: boolean;
+  /** Raster layer or separation group the Frequency Separation dialog targets. */
+  frequencySeparationTargetId: NodeId | null;
+  /** Open the Frequency Separation dialog for a raster layer or existing group. */
+  openFrequencySeparationDialog: (targetNodeId: NodeId) => void;
+  /** Close the Frequency Separation dialog. */
+  closeFrequencySeparationDialog: () => void;
   rasterizeSelected: (
     scaleOrOptions?: number | import('./flatten/rasterizeOptions').RasterizeSelectionOptions,
   ) => void;
@@ -2800,6 +2808,8 @@ export function EditorProvider({
       imageResizeDialogOpen: false,
       vectorizeDialogOpen: false,
       vectorizeDialogPrefill: null,
+      frequencySeparationDialogOpen: false,
+      frequencySeparationTargetId: null,
       paletteExtractDialogOpen: false,
       paletteExtractSrc: null,
       debugOverlay: {
@@ -9045,6 +9055,14 @@ export function EditorProvider({
       },
       closeVectorizeDialog: () => {
         patch({ vectorizeDialogOpen: false, vectorizeDialogPrefill: null });
+      },
+      frequencySeparationDialogOpen: state.frequencySeparationDialogOpen,
+      frequencySeparationTargetId: state.frequencySeparationTargetId,
+      openFrequencySeparationDialog: (targetNodeId) => {
+        patch({ frequencySeparationDialogOpen: true, frequencySeparationTargetId: targetNodeId });
+      },
+      closeFrequencySeparationDialog: () => {
+        patch({ frequencySeparationDialogOpen: false, frequencySeparationTargetId: null });
       },
       paletteExtractDialogOpen: state.paletteExtractDialogOpen,
       openPaletteExtract: (src) => {

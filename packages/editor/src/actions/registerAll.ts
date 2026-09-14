@@ -162,6 +162,8 @@ export function registerEditorActions(
     ['customizeWorkspace', 'Customize Workspace', 'view'],
     ['manageWorkspaceLayouts', 'Manage Layouts', 'view'],
     ['contentAwareFill', 'Generative Edit…', 'object'],
+    ['frequencySeparation', 'Frequency Separation…', 'object'],
+    ['flattenFrequencySeparation', 'Flatten Frequency Separation', 'object'],
     ['batchBgRemove', 'Batch Background Removal', 'object'],
     ['resizeImage', 'Resize Image…', 'object'],
     ['extractPalette', 'Extract Color Palette', 'object'],
