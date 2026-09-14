@@ -2612,6 +2612,7 @@ function paintRichText(
         richText,
         {
           fontFamily: p.fontFamily,
+          fontReference: p.fontReference,
           fontSize: p.fontSize,
           fontWeight: p.fontWeight,
           fontStyle: p.fontStyle,

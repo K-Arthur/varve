@@ -8,7 +8,9 @@
  * supplies the same request for every segment.
  */
 
-import { variationSettingsKey } from '@varve/shared';
+import { textMeasureRevision, variationSettingsKey } from '@varve/shared';
+import type { FontReference } from './font/fontIdentity';
+import { fontReferenceKey } from './font/fontIdentity';
 import { scriptCodeToTag, shapeRun } from './shaping';
 import { type ItemizedParagraph, itemizeParagraph, type ParagraphRange } from './text/paragraphs';
 import type { TextLayoutSnapshot } from './textLayoutSnapshot';
@@ -29,6 +31,7 @@ export interface RichTextMeasureContext {
 
 export interface RichTextLayoutDefaults {
   fontFamily: string;
+  fontReference?: FontReference;
   fontSize: number;
   fontWeight: number;
   fontStyle: 'normal' | 'italic';
@@ -118,7 +121,7 @@ function shapeParagraph(
           tracking: format.tracking ?? defaults.tracking,
           openTypeFeatures: format.openTypeFeatures ?? defaults.openTypeFeatures,
           variableAxes: format.variableFontSettings ?? defaults.variableAxes,
-          fontReference: format.fontReference,
+          fontReference: format.fontReference ?? defaults.fontReference,
           direction: scripted.direction,
           language: format.language ?? defaults.language,
           ctx: ctx as unknown as CanvasRenderingContext2D,
@@ -160,7 +163,7 @@ function stableTypographyValue(value: unknown): string {
 function typographyIdentityKeys(
   richText: RichText,
   defaults: RichTextLayoutDefaults,
-): { featureKey: string; variationKey: string } {
+): { featureKey: string; variationKey: string; faceKey: string } {
   const featureValues = [
     defaults.openTypeFeatures,
     ...richText.paragraphs.flatMap((paragraph) =>
@@ -175,9 +178,18 @@ function typographyIdentityKeys(
       ),
     ),
   ];
+  const faceValues = [
+    defaults.fontReference,
+    ...richText.paragraphs.flatMap((paragraph) =>
+      paragraph.runs.map((run) => run.format?.fontReference ?? defaults.fontReference),
+    ),
+  ]
+    .filter((reference): reference is FontReference => reference !== undefined)
+    .map((reference) => fontReferenceKey(reference));
   return {
     featureKey: stableTypographyValue(featureValues),
     variationKey: variationValues.join('|'),
+    faceKey: faceValues.join('|'),
   };
 }
 
@@ -215,7 +227,9 @@ export function layoutRichTextSnapshot(
     lineHeight: options.lineHeight,
     paragraphSpacing: options.paragraphSpacing,
     sourceRevision: options.sourceRevision,
-    fontRevision: options.fontRevision,
+    fontRevision: [options.fontRevision ?? textMeasureRevision(), typographyKeys.faceKey]
+      .filter(Boolean)
+      .join('|'),
     language: options.language ?? defaults.language,
     writingMode: options.writingMode ?? defaults.writingMode,
     textOrientation: options.textOrientation ?? defaults.textOrientation,

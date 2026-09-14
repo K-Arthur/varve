@@ -376,4 +376,28 @@ describe('layoutRichTextSnapshot typography identity', () => {
     expect(snapshot.identity.variationKey).toContain('wdth:80');
     expect(snapshot.identity.variationKey).toContain('wght:700');
   });
+
+  it('inherits the primitive face reference and measurement revision', () => {
+    const ctx = {
+      measureText: (text: string) => ({ width: text.length * 10 }),
+      font: '',
+    } as unknown as CanvasRenderingContext2D;
+    const snapshot = layoutRichTextSnapshot(
+      { paragraphs: [{ runs: [{ text: 'Exact face' }] }] },
+      {
+        fontFamily: 'Shared Sans',
+        fontReference: { artifactHash: 'a'.repeat(64) },
+        fontSize: 16,
+        fontWeight: 400,
+        fontStyle: 'normal',
+        letterSpacing: 0,
+        tracking: 0,
+      },
+      ctx,
+      { maxWidth: 400, lineHeight: 22 },
+    );
+
+    expect(snapshot.identity.fontRevision).toContain('sha256:');
+    expect(snapshot.identity.fontRevision).toContain('text-measure:');
+  });
 });
