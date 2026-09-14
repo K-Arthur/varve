@@ -2584,7 +2584,7 @@ export function ContentAwareFillDialog({
                       ? 'Diffusion model installed · validation required'
                       : 'Diffusion model required · local only'
                   : quality === 'fast'
-                    ? 'PatchMatch · no download'
+                    ? 'Quick Cleanup · no download'
                     : 'LaMa · stored on this device'}
                 {resourceLabel ? ` · ${resourceLabel}` : ''}
               </small>
