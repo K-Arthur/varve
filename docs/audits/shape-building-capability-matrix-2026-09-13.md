@@ -155,16 +155,17 @@ license to drop small regions.
 
 | Capability | Baseline | Target evidence |
 | --- | --- | --- |
-| Two overlapping rectangles: regions, areas, boundaries, remainders | Working / verified in scene | Scene tests cover 15,000 union / 5,000 intersection / 5,000 difference / 10,000 XOR, face ownership, disconnected components, destructive remainders, stale revisions, and paint-placement safety in the 16/16 suite; real UI E2E is the remaining gate. |
+| Two overlapping rectangles: regions, areas, boundaries, remainders | Working / verified in scene and browser | Scene tests cover 15,000 union / 5,000 intersection / 5,000 difference / 10,000 XOR, face ownership, disconnected components, destructive remainders, stale revisions, and paint-placement safety; the browser spec draws two rectangles through the real toolbar, sweeps all three regions, and commits/undoes/redoes a retained result in a frozen, reload-free environment. |
 | Circles/curves and transformed artwork | Partial / bounded | Independent deviation checks cover transformed cubic and ellipse conversion; reconstructed results remain documented polygonal approximations and screenshot/node-edit inspection remain required. |
 | Rendered rounded rectangles and negative-direction geometry | Working / scene verified | Rounded-rectangle hit testing uses the rendered boundary, including per-corner radii, transformed arc sampling, and negative-direction rectangles; continuous/smoothed corners remain explicitly unsupported. |
 | Donuts, nested islands, compound paths | Working / scene verified | Fill-rule-aware arrangement tests preserve a donut hole and reject artificial connectors; save/reopen/export visual evidence remains required. |
+| Empty bounded regions | Working / scene + editor verified | Bounded empty faces (holes or enclosed unfilled areas) are selectable for Create only; Create fills the hole in the scene oracle without modifying the source, and Merge/Erase/Extract/Divide return an actionable “use Create” reason. Overlay RTL covers Create-enabled/Merge-disabled selection state. |
 | One self-intersecting path | Working / scene verified | Arrangement supports one selected self-intersecting source under its authored fill rule; the pentagram fixture verifies distinct even-odd (five arms plus an unselectable center) and non-zero (one region) decompositions. A dedicated UI drawing fixture remains future coverage. |
 | Shared/tangent/coincident/near-coincident geometry | Working / fixture-covered | Deterministic no-phantom-face tests cover externally tangent circles, exact shared edges, fully coincident rectangles and circles, four quadrants at one vertex, partial overlaps, thin slivers, duplicate rings, duplicate points, and zero-length segments; finite-coordinate assertions run on every degenerate fixture. |
 | Open boundaries, strokes, and gaps | Guarded with explicit recovery | Visible-stroke sources are reported and the panel offers a real “Outline strokes and retry” action that expands the selection through the existing stroke-outline command and rebuilds regions. Open paths are told to be closed or outlined. No silent gap welding and no bounding-box fallback; near-miss boundaries remain finite, selectable regions. |
-| Staged selection, sweep crossing, idempotence, touch/keyboard/cancel | Implemented / browser verified | Scene/editor tests cover fast face crossing, touch multi-select toggling, and pointer cancellation. A real Chromium session verified entry, sweep (3 regions), staged status, Escape leaving the document unchanged, Create retaining sources, post-create selection, Layers/canvas agreement, Undo/Redo, and double-click Node Edit. The committed spec asserts the same flow; a clean full-suite runner remains an integration gate. |
+| Staged selection, sweep crossing, idempotence, touch/keyboard/cancel | Implemented / browser verified | Scene/editor tests cover fast face crossing, touch multi-select toggling, and pointer cancellation. A real Chromium session verified entry, sweep (3 regions), staged status, Escape leaving the document unchanged, Create retaining sources, post-create selection, Layers/canvas agreement, Undo/Redo, and double-click Node Edit. The committed spec passes 2/2 in a frozen, reload-free worktree, including the stroke-recovery path (`docs/screenshots/shape-builder/2026-09-14-verification/`). |
 | Source retention, style, hierarchy, references | Partial | Create retains sources and places the result above them; the result is selected after commit and opens in Node Edit by double-click. Destructive references are guarded and outputs are ordinary path nodes; the scene codec round-trips compound components and holes. UI export after a real build and mixed-style visual evidence remain. |
-| Browser/Tauri parity and constrained-device behavior | Partial | Browser tool is wired and desktop/editor builds are available; a clean browser E2E and measured constrained-device run remain. |
+| Browser/Tauri parity and constrained-device behavior | Partial | Browser tool is wired and its end-to-end spec passes in a frozen reload-free environment; desktop/editor builds remain available. A measured constrained-device (Chromebook) run is still unverified — the shared host was under concurrent multi-agent load, so no timing claim is made. |
 
 This matrix is intentionally not marked complete until the linked tests and
 inspected visual evidence exist. Validation receipts and artifact paths will be
@@ -282,6 +283,14 @@ not attributed to Shape Builder.
   component. The connected-disconnected fixture in
   `shapeBuilder.degeneracy.test.ts` covers the distinction (47/47 focused
   tests passed after the change).
+- Empty bounded regions are now supported through an explicit Create path.
+  `hitTestShapeBuilderFace` and `facesCrossedBySegment` accept
+  `{ includeEmpty: true }`; the editor tool opts in, while default callers keep
+  the previous selectable-only behavior. The donut oracle asserts the hole is
+  hidden by default, becomes selectable for Create, produces a 2,500-unit
+  result without touching the source, and that Merge on the empty face fails
+  with the “use Create” reason. The overlay RTL test asserts Create stays
+  enabled while Merge is disabled for an empty-region selection.
 
 ### 2026-09-13 continuation receipt — real-UI verification and repairs
 
@@ -345,3 +354,37 @@ Evidence:
   double-click Node Edit; the spec captures before/during/after screenshots at
   each stage (inspected from the same run). The second (stroke-outline) test in
   the shared spec belongs to a concurrent agent’s in-flight work.
+
+### 2026-09-14 empty-region, Merge, and stroke-outline fixes (frozen browser run)
+
+- Merge now emits one editable compound node; Extract keeps one node per
+  component. A disconnected fixture asserts 1 node with 2 contours for Merge
+  versus 2 nodes for Extract. Focused matrix: 72/72 passed.
+- Bounded empty regions are selectable for Create only. The donut oracle
+  asserts the default hit test hides the hole, `{ includeEmpty: true }` finds
+  it, Create produces a 2,500-unit result with the source untouched, and
+  Merge on the empty face returns the “use Create” reason. Overlay RTL asserts
+  Create stays enabled while Merge is disabled for that selection.
+- Stroke-outline keyhole fix: an isolated scene probe showed
+  `facesCrossedBySegment` returned 0 faces and hover was null across a
+  freshly outlined band, because `expandStroke` concatenates the two offset
+  loops of a closed centre-line into one self-touching ring and even-odd
+  classification cuts the band on the connector side. `expandStrokeNode` now
+  emits an outer contour plus its hole; `vectorOps.test.ts` asserts that
+  structure (25/25).
+- Frozen-environment browser run (detached worktree, private Vite instance,
+  no concurrent writers, custom config without webServer):
+  `tests/e2e/canvas/shape-builder.spec.ts` passed 2/2 —
+  (1) two rectangles → sweep 3 regions → Create → result selected →
+  Undo/Redo → double-click Node Edit (56.8 s and 49.5 s in two runs);
+  (2) visible stroke via the real Inspector → “Outline strokes and retry” →
+  band plus enclosed interior sweep as 2 regions → Create commits the filled
+  result while the outlined source remains (48.2 s).
+  Artifacts copied to
+  `docs/screenshots/shape-builder/2026-09-14-verification/`
+  (before/during/after, stroke-blocked, stroke-outlined-usable,
+  stroke-recovered-result), all opened and inspected.
+- The earlier shared-tree failures are attributable to concurrent full-page
+  HMR reloads (Vite dependency re-optimization while other agents edited the
+  same working tree), not to the tool: the frozen environment, which removes
+  that variable, passes both specs.
