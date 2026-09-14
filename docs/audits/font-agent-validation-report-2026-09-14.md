@@ -152,3 +152,42 @@ preview, multilingual and color-font parity, 1k/10k picker budgets, and native
 image-identification/OCR overlays.
 The collaboration dependency payload is prepared; live transport remains
 outside this project.
+
+## Corpus and shaping continuation — 2026-09-14
+
+The parser corpus milestone is committed at `20753b027028d04d6dcd5c49513a34bd27d85af6`.
+It adds licensed static, TTC, Arabic, Devanagari, Japanese WOFF2, and COLR/CPAL
+artifacts with exact SHA-256 provenance and six parser assertions. The focused
+corpus plus existing parser suite passed **3 files / 69 tests**. The follow-up
+multilingual shaping proof is committed at
+`550e96d0f409fe134c4dc53eeb880621460fe529`; it uses the checked-in Arabic and
+Devanagari bytes and passed **2 files / 16 tests**.
+
+Additional commands actually run:
+
+```text
+pnpm exec biome check packages/engine/src/font/fontParser.corpus.test.ts
+pnpm exec vitest run packages/engine/src/font/fontParser.corpus.test.ts packages/engine/src/font/fontParser.realfont.test.ts packages/engine/src/font/fontParser.test.ts --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
+pnpm exec biome check packages/engine/src/shapingOracle.test.ts
+pnpm exec vitest run packages/engine/src/shapingOracle.test.ts packages/engine/src/shapingBackend.test.ts --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=verbose
+pnpm audit:docs
+pnpm verify:plan
+pnpm verify:affected
+VARVE_FULL_GATE_REASON='corpus-backed multilingual shaping oracle milestone; verify planner escalated because the shared workspace contains foundational and validation-infrastructure changes' pnpm verify:full
+```
+
+Passed: both focused suites, both touched-file Biome checks, and `audit:docs`
+(878 documents, 473 links, 174 ADRs). `audit:emoji` also passed in the full
+gate (4,661 files).
+
+The affected planner again escalated because the shared worktree includes
+workspace, toolchain, and validation-infrastructure changes. The full gate did
+not certify the tree: it stopped on the same concurrent website/editor lint
+diagnostics, engine/scene/editor architecture cycles (including the concurrent
+`contentAwareFill/index.ts → quickCleanup.ts → generativeEdit/types.ts` cycle),
+and existing engine type errors in `quickCleanup.test.ts` and `lut*.test.ts`.
+Those failures are outside the corpus and shaping files.
+
+This continuation closes the parser and required Arabic/Devanagari shaping
+evidence only. It does not close native restart, color rendering parity,
+emoji/CJK shaping, main/worker canvas identity, or platform WebView proof.
