@@ -86,7 +86,7 @@ Notes on method and environment:
   after `data-theme="dark"` + redraw.
 - Review screenshots (`reports/trace-review/`) were inspected: Vector view
   shows cubic edges, a transparent hole, and anchor/handle overlay; the dark
-  theme changes only the chrome.
+  theme changes only the chrome and diagnostic checkerboard, not artwork paint.
 
 ### Visual evidence
 
@@ -99,6 +99,22 @@ the earth fixture with diagnostics (1000 paths / 57,200 points / 5,456 holes /
 1 omitted) on the 1000×1000 source, and was then synced to
 `docs/screenshots/product/` + `apps/website/public/screenshots/` with updated
 alt text and caption.
+
+### Follow-up visual validation (2026-09-14)
+
+After the native mode-contract fix and the theme diagnostic-surface fix
+(`779452dd7`, `959887437`), the real Playwright workflow was rerun with one
+Chromium worker: **8 passed, 0 failed, 2.9m**. The inspected captures show a
+single filled donut path with one transparent hole, cubic/handle anchors in
+Vector view, and identical black artwork in light and dark themes. Dark and
+high-contrast themes adapt only the transparency checkerboard so black artwork
+remains readable; the artwork paint itself does not change.
+
+The run still logs non-failing `ResizeObserver loop completed` development
+server messages and a `NaN` quick-bar `left` style during the existing selection
+overlay lifecycle. These are not trace assertion failures and belong to the
+concurrent selection/UI worktree; they remain follow-up diagnostics rather than
+being hidden by the trace test.
 
 ## Remaining limitations (not silently claimed as solved)
 
