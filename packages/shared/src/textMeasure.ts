@@ -59,6 +59,55 @@ export type MeasureTextFn = (
   options: TextMeasureOptions,
 ) => { width: number; height: number };
 
+/**
+ * Canvas2D typography properties used by every shared measurement caller.
+ *
+ * Canvas's font shorthand carries the weight axis, but it has no portable
+ * slot for custom variation axes or OpenType feature values.  Browsers that
+ * expose the optional context properties receive those values here; older
+ * runtimes stay on their honest fallback path.  Keeping this at the shared
+ * boundary prevents geometry and paint from silently measuring different
+ * typography settings.
+ */
+type CanvasTypographyContext = CanvasRenderingContext2D & {
+  fontFeatureSettings?: string;
+  fontVariationSettings?: string;
+};
+
+type CanvasTextTypographyOptions = Pick<
+  TextMeasureOptions,
+  'fontSize' | 'fontFamily' | 'fontWeight' | 'fontStyle' | 'openTypeFeatures'
+> & {
+  variableAxes?: Record<string, number>;
+  variableFontSettings?: Record<string, number>;
+};
+
+function finiteAxisEntries(axes?: Record<string, number>): Array<[string, number]> {
+  return Object.entries(axes ?? {})
+    .filter(([tag, value]) => /^[\x20-\x7e]{4}$/.test(tag) && Number.isFinite(value))
+    .sort(([first], [second]) => first.localeCompare(second));
+}
+
+/** Stable axis serialization for measurement caches and layout identities. */
+export function variationSettingsKey(axes?: Record<string, number>): string {
+  return finiteAxisEntries(axes)
+    .map(([tag, value]) => `${tag}:${value}`)
+    .join(',');
+}
+
+function effectiveWeight(
+  options: Pick<
+    CanvasTextTypographyOptions,
+    'fontWeight' | 'variableAxes' | 'variableFontSettings'
+  >,
+): number | undefined {
+  const axis = (options.variableAxes ?? options.variableFontSettings)?.wght;
+  if (typeof axis === 'number' && Number.isFinite(axis)) {
+    return Math.max(1, Math.min(1000, axis));
+  }
+  return options.fontWeight;
+}
+
 const DEFAULT_FONT_SIZE = 16;
 const DEFAULT_LINE_HEIGHT = 1.4;
 const CHAR_WIDTH_RATIO = 0.6;
@@ -147,10 +196,38 @@ function estimateLineHeight(fontSize: number, lineHeight?: number): number {
   return fontSize * (lineHeight ?? DEFAULT_LINE_HEIGHT);
 }
 
-function buildFontString(options: TextMeasureOptions): string {
+/** Build the Canvas font shorthand, coupling the ordinary weight control to wght. */
+export function buildTextMeasureFontString(options: CanvasTextTypographyOptions): string {
   const style = options.fontStyle === 'italic' ? 'italic ' : '';
-  const weight = options.fontWeight ? `${options.fontWeight} ` : '';
+  const weightValue = effectiveWeight(options);
+  const weight = weightValue ? `${weightValue} ` : '';
   return `${style}${weight}${options.fontSize ?? DEFAULT_FONT_SIZE}px ${options.fontFamily}`;
+}
+
+/**
+ * Assign a font and the optional Canvas2D typography properties together.
+ *
+ * The property checks are deliberate: WebKitGTK and older embedded webviews
+ * may omit one or both properties.  In that case the caller's parsed-face or
+ * fallback shaper remains responsible for the authored settings.
+ */
+export function applyTextMeasureTypography(
+  ctx: CanvasRenderingContext2D,
+  options: CanvasTextTypographyOptions,
+): void {
+  const typography = ctx as CanvasTypographyContext;
+  typography.font = buildTextMeasureFontString(options);
+  if ('fontFeatureSettings' in typography) {
+    typography.fontFeatureSettings = openTypeFeaturesToCss(options.openTypeFeatures) ?? 'normal';
+  }
+  if ('fontVariationSettings' in typography) {
+    const customAxes = finiteAxisEntries(
+      options.variableAxes ?? options.variableFontSettings,
+    ).filter(([tag]) => tag !== 'wght');
+    typography.fontVariationSettings = customAxes.length
+      ? customAxes.map(([tag, value]) => `"${tag}" ${value}`).join(', ')
+      : 'normal';
+  }
 }
 
 export function measureTextWithCanvas(
@@ -162,7 +239,7 @@ export function measureTextWithCanvas(
   const lh = options.lineHeight ?? DEFAULT_LINE_HEIGHT;
   const displayText = applyTextCase(text, options.textCase);
 
-  ctx.font = buildFontString(options);
+  applyTextMeasureTypography(ctx, options);
 
   const rawLines = displayText.split('\n');
   const lines: MeasuredLine[] = [];
@@ -251,7 +328,7 @@ export function textWrap(
   const displayText = applyTextCase(text, options.textCase);
 
   if (ctx) {
-    ctx.font = buildFontString(options);
+    applyTextMeasureTypography(ctx, options);
   }
 
   const paragraphs = displayText.split('\n');
@@ -346,12 +423,6 @@ export interface RichTextMeasureResult {
   height: number;
 }
 
-function buildFontStringFromRun(opts: RunMeasureOptions): string {
-  const style = opts.fontStyle === 'italic' ? 'italic ' : '';
-  const weight = opts.fontWeight ? `${opts.fontWeight} ` : '';
-  return `${style}${weight}${opts.fontSize}px ${opts.fontFamily}`;
-}
-
 export function measureRun(
   text: string,
   format: RunMeasureOptions,
@@ -363,7 +434,10 @@ export function measureRun(
 
   let width: number;
   if (ctx) {
-    ctx.font = buildFontStringFromRun(format);
+    applyTextMeasureTypography(ctx, {
+      ...format,
+      variableAxes: format.variableFontSettings,
+    });
     const metrics = ctx.measureText(displayText);
     const spacingWidth =
       displayText.length > 0 ? (displayText.length - 1) * perCharSpacing(format) : 0;

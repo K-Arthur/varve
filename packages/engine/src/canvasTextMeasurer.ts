@@ -20,9 +20,12 @@
  */
 
 import {
+  applyTextMeasureTypography,
+  buildTextMeasureFontString,
   setTextAdvanceMeasurer,
   type TextAdvanceMeasurer,
   type TextMeasureOptions,
+  variationSettingsKey,
 } from '@varve/shared';
 
 /** Entries are tiny (a number each); this bounds the map, not the memory. */
@@ -32,6 +35,8 @@ const MAX_CACHED_TEXT_LENGTH = 512;
 
 type Ctx2D = {
   font: string;
+  fontFeatureSettings?: string;
+  fontVariationSettings?: string;
   measureText(text: string): { width: number };
 };
 
@@ -79,10 +84,12 @@ function isRealTextMeasurement(ctx: Ctx2D): boolean {
 }
 
 function fontString(options: TextMeasureOptions): string {
-  const style = options.fontStyle === 'italic' ? 'italic ' : '';
-  const weight = options.fontWeight ? `${options.fontWeight} ` : '';
   const family = options.fontFamily.includes('"') ? options.fontFamily : `"${options.fontFamily}"`;
-  return `${style}${weight}${options.fontSize}px ${family}, sans-serif`;
+  return `${buildTextMeasureFontString({ ...options, fontFamily: family })}, sans-serif`;
+}
+
+function featureSettingsKey(options: TextMeasureOptions): string {
+  return JSON.stringify(options.openTypeFeatures ?? {});
 }
 
 const measurer: TextAdvanceMeasurer = {
@@ -103,15 +110,23 @@ const measurer: TextAdvanceMeasurer = {
     if (!capable) return null;
 
     const font = fontString(options);
-    // Variation settings change advances on a variable face, and Canvas2D has
-    // no way to express them, so they belong in the key: a wght 700 layout
-    // must not reuse the wght 400 measurement even though the CSS font
-    // shorthand is identical.
-    const axes = options.variableAxes ? JSON.stringify(options.variableAxes) : '';
-    const key = `${font}|${axes}|${text}`;
+    // Keep every authored typography value in the key.  The context receives
+    // the same values below when the runtime exposes the optional properties;
+    // when it does not, the key still prevents a setting from reusing a
+    // measurement produced for a different request.
+    const axes = variationSettingsKey(options.variableAxes);
+    const features = featureSettingsKey(options);
+    const key = `${font}|${axes}|${features}|${text}`;
     const hit = cache.get(key);
     if (hit !== undefined) return hit;
 
+    applyTextMeasureTypography(ctx as unknown as CanvasRenderingContext2D, {
+      ...options,
+      fontFamily: options.fontFamily,
+    });
+    // Keep the exact family/weight shorthand used for the cache. The shared
+    // helper intentionally does not add a fallback family because it is also
+    // used by callers that already provide a CSS family chain.
     ctx.font = font;
     const width = ctx.measureText(text).width;
     if (!Number.isFinite(width)) return null;

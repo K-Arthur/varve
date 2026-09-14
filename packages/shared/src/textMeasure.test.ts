@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 import {
+  applyTextMeasureTypography,
   buildFeatureSettingsCSS,
   buildVariationSettingsCSS,
   measureRichText,
@@ -8,6 +9,7 @@ import {
   measureText,
   measureTextWithCanvas,
   textWrap,
+  variationSettingsKey,
 } from './textMeasure';
 
 describe('measureText', () => {
@@ -217,6 +219,36 @@ describe('measureTextWithCanvas', () => {
   it('textWrap falls back to estimate when no ctx provided', () => {
     const lines = textWrap('one two three four', 80, { fontSize: 16, fontFamily: 'Arial' });
     expect(lines.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('applies variable axes and OpenType features to a capable context', () => {
+    const ctx = {
+      font: '',
+      fontFeatureSettings: 'normal',
+      fontVariationSettings: 'normal',
+    } as unknown as CanvasRenderingContext2D;
+
+    applyTextMeasureTypography(ctx, {
+      fontSize: 20,
+      fontFamily: 'Variable Sans',
+      fontWeight: 400,
+      variableAxes: { wdth: 80, wght: 700 },
+      openTypeFeatures: { liga: false },
+    });
+
+    expect(ctx.font).toContain('700');
+    expect(
+      (ctx as CanvasRenderingContext2D & { fontFeatureSettings: string }).fontFeatureSettings,
+    ).toContain('"liga" 0');
+    expect(
+      (ctx as CanvasRenderingContext2D & { fontVariationSettings: string }).fontVariationSettings,
+    ).toContain('"wdth" 80');
+  });
+
+  it('serializes axis keys independently of object insertion order', () => {
+    expect(variationSettingsKey({ wdth: 80, wght: 700 })).toBe(
+      variationSettingsKey({ wght: 700, wdth: 80 }),
+    );
   });
 });
 

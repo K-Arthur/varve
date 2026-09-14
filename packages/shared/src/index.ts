@@ -602,7 +602,9 @@ export type {
   TextMetricsResult,
 } from './textMeasure';
 export {
+  applyTextMeasureTypography,
   buildFeatureSettingsCSS,
+  buildTextMeasureFontString,
   buildVariationSettingsCSS,
   measureAdvanceWidth,
   measureRichText,
@@ -613,6 +615,7 @@ export {
   setTextAdvanceMeasurer,
   textMeasureRevision,
   textWrap,
+  variationSettingsKey,
 } from './textMeasure';
 export * from './thumbnail/contracts';
 export { DEFAULT_ARTWORK_FONT_FAMILY } from './typographyDefaults';

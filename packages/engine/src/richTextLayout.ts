@@ -8,6 +8,7 @@
  * supplies the same request for every segment.
  */
 
+import { variationSettingsKey } from '@varve/shared';
 import { scriptCodeToTag, shapeRun } from './shaping';
 import { type ItemizedParagraph, itemizeParagraph, type ParagraphRange } from './text/paragraphs';
 import type { TextLayoutSnapshot } from './textLayoutSnapshot';
@@ -51,6 +52,9 @@ export interface RichTextLayoutOptions {
   language?: string;
   writingMode?: WritingMode;
   textOrientation?: TextOrientation;
+  /** Optional caller-provided additions to the canonical typography identity. */
+  featureKey?: string;
+  variationKey?: string;
 }
 
 interface SpanRange {
@@ -140,6 +144,43 @@ function paragraphRange(index: number, text: string, start: number): ParagraphRa
   return { index, start, end: start + text.length, text };
 }
 
+/** Stable JSON for authored feature maps, including ranged settings. */
+function stableTypographyValue(value: unknown): string {
+  if (value === undefined) return 'null';
+  if (Array.isArray(value)) return `[${value.map(stableTypographyValue).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([first], [second]) => first.localeCompare(second))
+      .map(([key, entry]) => `${JSON.stringify(key)}:${stableTypographyValue(entry)}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function typographyIdentityKeys(
+  richText: RichText,
+  defaults: RichTextLayoutDefaults,
+): { featureKey: string; variationKey: string } {
+  const featureValues = [
+    defaults.openTypeFeatures,
+    ...richText.paragraphs.flatMap((paragraph) =>
+      paragraph.runs.map((run) => run.format?.openTypeFeatures ?? defaults.openTypeFeatures),
+    ),
+  ];
+  const variationValues = [
+    variationSettingsKey(defaults.variableAxes),
+    ...richText.paragraphs.flatMap((paragraph) =>
+      paragraph.runs.map((run) =>
+        variationSettingsKey(run.format?.variableFontSettings ?? defaults.variableAxes),
+      ),
+    ),
+  ];
+  return {
+    featureKey: stableTypographyValue(featureValues),
+    variationKey: variationValues.join('|'),
+  };
+}
+
 /** Build one snapshot for all logical rich-text paragraphs. */
 export function layoutRichTextSnapshot(
   richText: RichText,
@@ -147,6 +188,7 @@ export function layoutRichTextSnapshot(
   ctx: RichTextMeasureContext,
   options: RichTextLayoutOptions,
 ): TextLayoutSnapshot {
+  const typographyKeys = typographyIdentityKeys(richText, defaults);
   let sourceOffset = 0;
   const paragraphs: LayoutParagraphInput[] = [];
   const sourceText: string[] = [];
@@ -177,5 +219,9 @@ export function layoutRichTextSnapshot(
     language: options.language ?? defaults.language,
     writingMode: options.writingMode ?? defaults.writingMode,
     textOrientation: options.textOrientation ?? defaults.textOrientation,
+    featureKey: [typographyKeys.featureKey, options.featureKey ?? ''].filter(Boolean).join('|'),
+    variationKey: [typographyKeys.variationKey, options.variationKey ?? '']
+      .filter(Boolean)
+      .join('|'),
   });
 }

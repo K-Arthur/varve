@@ -16,8 +16,17 @@ const OPTIONS = { fontSize: 20, fontFamily: 'Test Sans' } as const;
  * engine does; `shaping: false` returns a per-character constant, which is
  * what jsdom's stub does and what the capability probe must reject.
  */
-function installFakeCanvas(options: { shaping: boolean; onMeasure?: () => void }): void {
+function installFakeCanvas(options: {
+  shaping: boolean;
+  onMeasure?: (ctx: {
+    font: string;
+    fontFeatureSettings: string;
+    fontVariationSettings: string;
+  }) => void;
+}): void {
   let font = '';
+  let fontFeatureSettings = 'normal';
+  let fontVariationSettings = 'normal';
   const glyphWidth = (ch: string): number => {
     if (!options.shaping) return 10;
     if (ch === 'i' || ch === 'l') return 4;
@@ -31,9 +40,24 @@ function installFakeCanvas(options: { shaping: boolean; onMeasure?: () => void }
     set font(next: string) {
       font = next;
     },
+    get fontFeatureSettings() {
+      return fontFeatureSettings;
+    },
+    set fontFeatureSettings(next: string) {
+      fontFeatureSettings = next;
+    },
+    get fontVariationSettings() {
+      return fontVariationSettings;
+    },
+    set fontVariationSettings(next: string) {
+      fontVariationSettings = next;
+    },
     measureText(text: string) {
-      options.onMeasure?.();
-      const scale = font.includes('Wide Sans') ? 3 : 1;
+      options.onMeasure?.({ font, fontFeatureSettings, fontVariationSettings });
+      const scale =
+        (font.includes('Wide Sans') ? 3 : 1) *
+        (font.includes('700') ? 1.35 : 1) *
+        (fontVariationSettings.includes('"wdth" 80') ? 0.8 : 1);
       return { width: [...text].reduce((sum, ch) => sum + glyphWidth(ch) * scale, 0) };
     },
   };
@@ -98,6 +122,35 @@ describe('canvas text measurer', () => {
     expect(calls).toBe(afterFirst); // cached
     measureAdvanceWidth('Hello', { ...OPTIONS, variableAxes: { wght: 700 } });
     expect(calls).toBeGreaterThan(afterFirst); // a different face, re-measured
+  });
+
+  it('applies weight, custom axes, and features before measuring', () => {
+    const latest = {
+      current: null as {
+        font: string;
+        fontFeatureSettings: string;
+        fontVariationSettings: string;
+      } | null,
+    };
+    installFakeCanvas({
+      shaping: true,
+      onMeasure: (ctx) => {
+        latest.current = ctx;
+      },
+    });
+    installCanvasTextMeasurer();
+
+    const regular = measureAdvanceWidth('Hello', OPTIONS);
+    const styled = measureAdvanceWidth('Hello', {
+      ...OPTIONS,
+      variableAxes: { wght: 700, wdth: 80 },
+      openTypeFeatures: { liga: false },
+    });
+
+    expect(styled).not.toBe(regular);
+    expect(latest.current?.font).toContain('700');
+    expect(latest.current?.fontFeatureSettings).toContain('"liga" 0');
+    expect(latest.current?.fontVariationSettings).toContain('"wdth" 80');
   });
 
   it('advances its revision and drops cached advances on invalidation', () => {

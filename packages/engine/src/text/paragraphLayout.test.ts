@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
+import { layoutRichTextSnapshot } from '../richTextLayout';
 import { scriptCodeToTag, shapeParagraphRuns } from '../shaping';
 import { type LayoutTextInput, layoutText, selectionRects } from '../textLayoutSnapshot';
 import { BIDI_FIXTURES, SCRIPT_FIXTURES } from './fixtures';
@@ -334,5 +335,45 @@ describe('shapeParagraphRuns — canvas bridge into the canonical pipeline', () 
       .map((line) => snapshot.text.slice(line.sourceStart, line.sourceEnd))
       .join('');
     expect(reconstructed).toBe(text);
+  });
+});
+
+describe('layoutRichTextSnapshot typography identity', () => {
+  it('includes rich-run feature and variation settings in the snapshot identity', () => {
+    const ctx = {
+      measureText: (text: string) => ({ width: text.length * 10 }),
+      font: '',
+    } as unknown as CanvasRenderingContext2D;
+    const richText = {
+      paragraphs: [
+        {
+          runs: [
+            {
+              text: 'office',
+              format: {
+                openTypeFeatures: { liga: false },
+                variableFontSettings: { wdth: 80, wght: 700 },
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const defaults = {
+      fontFamily: 'Variable Sans',
+      fontSize: 16,
+      fontWeight: 400,
+      fontStyle: 'normal' as const,
+      letterSpacing: 0,
+      tracking: 0,
+    };
+    const snapshot = layoutRichTextSnapshot(richText, defaults, ctx, {
+      maxWidth: 400,
+      lineHeight: 22,
+    });
+
+    expect(snapshot.identity.featureKey).toContain('liga');
+    expect(snapshot.identity.variationKey).toContain('wdth:80');
+    expect(snapshot.identity.variationKey).toContain('wght:700');
   });
 });
