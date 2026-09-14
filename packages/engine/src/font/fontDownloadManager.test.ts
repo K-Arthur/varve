@@ -228,6 +228,39 @@ describe('FontDownloadManager', () => {
     expect(events.onJobFailed).not.toHaveBeenCalled();
   });
 
+  it('drains the queue after cancelling validation and starts the next job', async () => {
+    let validationAborted = false;
+    vi.mocked(parseFontData).mockImplementationOnce(
+      (_data, options) =>
+        new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener(
+            'abort',
+            () => {
+              validationAborted = true;
+              reject(new Error('Font parsing cancelled'));
+            },
+            { once: true },
+          );
+        }),
+    );
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeFetchResponse(new ArrayBuffer(100))));
+
+    const singleSlot = new FontDownloadManager(
+      { maxConcurrent: 1, validateIntegrity: false, allowedHosts: ['example.com'] },
+      events,
+    );
+    const first = singleSlot.addJob('https://example.com/first.woff2', 'First');
+    const second = singleSlot.addJob('https://example.com/second.woff2', 'Second');
+    await vi.waitFor(() => expect(singleSlot.getJob(first.id)?.status).toBe('validating'));
+
+    expect(singleSlot.cancelJob(first.id)).toBe(true);
+    await vi.waitFor(() => expect(validationAborted).toBe(true));
+    await vi.waitFor(() => expect(singleSlot.getJob(second.id)?.status).toBe('complete'));
+
+    expect(singleSlot.getJob(first.id)?.status).toBe('cancelled');
+    expect(events.onJobComplete).toHaveBeenCalledWith(singleSlot.getJob(second.id));
+  });
+
   it('validateFont rejects invalid formats', async () => {
     // A buffer that starts with PDF magic bytes, not a font
     const pdfBuffer = new ArrayBuffer(100);

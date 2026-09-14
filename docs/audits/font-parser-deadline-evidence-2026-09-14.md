@@ -11,8 +11,8 @@ cancels a validating download.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Real and synthetic parser corpus, WOFF reconstruction, collections, malformed inputs | `pnpm exec vitest run packages/engine/src/font/fontParser.test.ts packages/engine/src/font/fontDownloadManager.test.ts packages/engine/src/font/fontParser.woff.test.ts packages/engine/src/font/fontParser.corpus.test.ts packages/engine/src/font/fontParser.realfont.test.ts --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot` | 5 files, 114 tests passed |
-| Abort/deadline and cancellation-race assertions | Included in the parser run above | Already-aborted signal and zero-millisecond deadline reject with actionable errors; cancellation during an in-flight validation produces neither completion nor failure |
+| Real and synthetic parser corpus, WOFF reconstruction, collections, malformed inputs | `pnpm exec vitest run packages/engine/src/font/fontParser.test.ts packages/engine/src/font/fontDownloadManager.test.ts packages/engine/src/font/fontParser.woff.test.ts packages/engine/src/font/fontParser.corpus.test.ts packages/engine/src/font/fontParser.realfont.test.ts --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot` | 5 files, 115 tests passed |
+| Abort/deadline and cancellation-race assertions | Included in the parser run above | Already-aborted signal and zero-millisecond deadline reject with actionable errors; cancellation during in-flight validation produces neither completion nor failure and releases the queue slot for the next job |
 | Changed parser/download-manager surface | `pnpm exec biome check packages/engine/src/font/fontParser.ts packages/engine/src/font/fontParser.test.ts packages/engine/src/font/fontDownloadManager.ts packages/engine/src/font/fontDownloadManager.test.ts packages/engine/src/font/index.ts` | Passed |
 
 ## Limits
