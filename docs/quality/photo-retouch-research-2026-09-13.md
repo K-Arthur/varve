@@ -179,7 +179,9 @@ authoritative full-redraw path where available.
 | Corrections journey | frozen-build Chromium run of `tests/e2e/canvas/photo-correction-journey.spec.ts` | passed (53.5s): import, +1 EV, reset to baseline, undo/redo, bypass/re-enable, save, reload, reopen, and export. Screenshots `01-baseline`, `02-exposure-plus-one`, `03-bypass-restored`, `04-reopened` inspected. Edited export 2,055,397 B vs original 1,883,287 B; the reopened export is byte-identical to the edited export. |
 | Reset identity diagnostic | frozen-build state capture before/after Reset | 295 edge pixels at delta 1 before the fix; byte-exact after |
 | Undo state diagnostic | frozen-build state capture across edit/reset/edit/undo | in-field Ctrl+Z is native text undo only; documented above |
-| Docs/emoji | `pnpm audit:docs`, `pnpm audit:emoji` | clean (821 docs prior to the last edit; emoji clean, 4616 files) |
+| Docs/emoji | `pnpm audit:docs`, `pnpm audit:emoji` | clean (836 docs, 4618 files) |
+| Engine package suite | `vitest run packages/engine` | 4876 passed, 3 failed, none attributable to this session: `shaping.bench.test.ts` is a timing assertion that passes in isolation, `generativeEdit/diffusionFrame.test.ts` is concurrent uncommitted work, and `lut/lut-edge.test.ts` fails in the `.3dl` parser committed by the adjustments owner (`4593c24c6`). |
+| Changed-file typecheck | `tsc -p packages/engine/tsconfig.json --noEmit` filtered to changed files; `tsc -p tests/e2e/tsconfig.json` filtered to the new spec | clean |
 
 The full repository gate was not run: `pnpm verify:plan` escalated because the
 shared working tree carries other agents' workspace/toolchain changes, and the
