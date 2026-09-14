@@ -2,7 +2,8 @@
  * Sam2SegmentationTool — interactive object segmentation via SAM2.
  *
  * Click to add foreground points, Shift+click for background points, and
- * drag to create a box. Tapping an existing point marker removes that
+ * drag to create a box. Box mode also supports the WCAG-recommended
+ * two-tap corner gesture. Tapping an existing point marker removes that
  * specific prompt (the single-pointer alternative to keyboard deletion),
  * while Backspace/Delete removes the last staged prompt. Prompt geometry is
  * mirrored into transient editor state while it is being drawn so the
@@ -20,6 +21,8 @@ interface SegmentationPoint {
 }
 
 type SegmentationBox = { x1: number; y1: number; x2: number; y2: number };
+export type Sam2PromptMode = 'point' | 'box';
+export type Sam2PromptPolarity = 'include' | 'exclude';
 
 const DRAG_THRESHOLD_CSS_PX = 3;
 // Tapping an existing include/exclude marker removes that specific prompt.
@@ -33,6 +36,9 @@ export class Sam2SegmentationTool extends BaseTool {
   private box: SegmentationBox | null = null;
   private pendingBox: SegmentationBox | null = null;
   private pendingPoint: SegmentationPoint | null = null;
+  private boxAnchor: { x: number; y: number } | null = null;
+  private promptMode: Sam2PromptMode = 'point';
+  private promptPolarity: 0 | 1 = 1;
 
   override cursor(_state: ToolCursorState): CursorSpec {
     return { css: 'crosshair' };
@@ -45,6 +51,19 @@ export class Sam2SegmentationTool extends BaseTool {
   override onDeactivate(ctx: ToolContext): void {
     this.clearLocalPrompts();
     ctx.cancelSam2Segmentation?.();
+  }
+
+  /** Select point prompts or the two-tap/drag box-hint gesture. */
+  setPromptMode(mode: Sam2PromptMode): void {
+    this.promptMode = mode;
+    this.pendingBox = null;
+    this.pendingPoint = null;
+    this.boxAnchor = null;
+  }
+
+  /** Set the default polarity for new point prompts. Shift still forces exclude. */
+  setPromptPolarity(polarity: Sam2PromptPolarity): void {
+    this.promptPolarity = polarity === 'include' ? 1 : 0;
   }
 
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
@@ -81,11 +100,16 @@ export class Sam2SegmentationTool extends BaseTool {
     if (ctx.objectSelectionSession && ctx.objectSelectionSession.status !== 'drawing') {
       ctx.cancelSam2Segmentation?.();
     }
-    this.pendingPoint = { x: world.x, y: world.y, label: e.shiftKey ? 0 : 1 };
+    this.pendingPoint = {
+      x: world.x,
+      y: world.y,
+      label: e.shiftKey ? 0 : this.promptPolarity,
+    };
     this.pendingBox = null;
     this.patchPrompts(ctx, 'drawing', {
-      draftPoint: this.pendingPoint,
-      draftBox: null,
+      draftPoint: this.promptMode === 'point' ? this.pendingPoint : null,
+      draftBox:
+        this.promptMode === 'box' ? { x1: world.x, y1: world.y, x2: world.x, y2: world.y } : null,
       invalidatePreview: true,
     });
     return super.onPointerDown(e, ctx);
@@ -126,8 +150,46 @@ export class Sam2SegmentationTool extends BaseTool {
       (Math.abs(this.drag.currentCanvas.x - this.drag.startCanvas.x) > DRAG_THRESHOLD_CSS_PX ||
         Math.abs(this.drag.currentCanvas.y - this.drag.startCanvas.y) > DRAG_THRESHOLD_CSS_PX);
 
+    if (this.promptMode === 'box') {
+      if (moved && this.pendingBox) {
+        this.box = normalizedBox(this.pendingBox);
+        this.boxAnchor = null;
+        this.pendingBox = null;
+        this.patchPrompts(ctx, 'previewing', { draftPoint: null, draftBox: null });
+        void this.runSegmentation(ctx);
+        return;
+      }
+
+      if (!this.boxAnchor) {
+        // A click in Box hint mode is the first corner. Keep it as draft UI
+        // state; the model must not run until the second corner is supplied.
+        this.boxAnchor = { x: point.x, y: point.y };
+        this.pendingBox = {
+          x1: point.x,
+          y1: point.y,
+          x2: point.x,
+          y2: point.y,
+        };
+        this.patchPrompts(ctx, 'drawing', { draftPoint: null, draftBox: this.pendingBox });
+        ctx.announce('Box first corner set; tap a second corner or drag.');
+        return;
+      }
+
+      this.box = normalizedBox({
+        x1: this.boxAnchor.x,
+        y1: this.boxAnchor.y,
+        x2: point.x,
+        y2: point.y,
+      });
+      this.boxAnchor = null;
+      this.pendingBox = null;
+      this.patchPrompts(ctx, 'previewing', { draftPoint: null, draftBox: null });
+      void this.runSegmentation(ctx);
+      return;
+    }
+
     if (moved && this.pendingBox) {
-      this.box = this.pendingBox;
+      this.box = normalizedBox(this.pendingBox);
     } else {
       this.points.push(point);
     }
@@ -139,6 +201,7 @@ export class Sam2SegmentationTool extends BaseTool {
   override onDragCancel(ctx: ToolContext): void {
     this.pendingPoint = null;
     this.pendingBox = null;
+    this.boxAnchor = null;
     this.patchPrompts(ctx, 'drawing', { draftPoint: null, draftBox: null });
   }
 
@@ -154,6 +217,8 @@ export class Sam2SegmentationTool extends BaseTool {
     if (e.key === 'Backspace' || e.key === 'Delete') {
       if (this.pendingBox) {
         this.pendingBox = null;
+      } else if (this.boxAnchor) {
+        this.boxAnchor = null;
       } else if (this.box) {
         this.box = null;
       } else if (this.points.length > 0) {
@@ -188,6 +253,7 @@ export class Sam2SegmentationTool extends BaseTool {
     this.box = null;
     this.pendingBox = null;
     this.pendingPoint = null;
+    this.boxAnchor = null;
   }
 
   private syncFromSession(ctx: ToolContext): void {
@@ -293,4 +359,13 @@ export class Sam2SegmentationTool extends BaseTool {
   clearPrompts(): void {
     this.clearLocalPrompts();
   }
+}
+
+function normalizedBox(box: SegmentationBox): SegmentationBox {
+  return {
+    x1: Math.min(box.x1, box.x2),
+    y1: Math.min(box.y1, box.y2),
+    x2: Math.max(box.x1, box.x2),
+    y2: Math.max(box.y1, box.y2),
+  };
 }

@@ -63,6 +63,33 @@ describe('Sam2SegmentationTool', () => {
     expect(points[0]!.label).toBe(0); // background
   });
 
+  it('uses the visible polarity setting while preserving shift as an override', () => {
+    const tool = new Sam2SegmentationTool();
+    const ctx = mockCtx();
+    tool.setPromptPolarity('exclude');
+
+    tool.onPointerDown(
+      new PointerEvent('pointerdown', { clientX: 30, clientY: 40, button: 0 }),
+      ctx,
+    );
+    tool.onDragEnd(ctx);
+    expect(tool.getPrompts().points[0]!.label).toBe(0);
+
+    tool.clearPrompts();
+    tool.setPromptPolarity('include');
+    tool.onPointerDown(
+      new PointerEvent('pointerdown', {
+        clientX: 30,
+        clientY: 40,
+        button: 0,
+        shiftKey: true,
+      }),
+      ctx,
+    );
+    tool.onDragEnd(ctx);
+    expect(tool.getPrompts().points[0]!.label).toBe(0);
+  });
+
   it('accumulates multiple points', () => {
     const tool = new Sam2SegmentationTool();
     const ctx = mockCtx();
@@ -145,6 +172,39 @@ describe('Sam2SegmentationTool', () => {
     tool.onDragEnd(ctx);
     expect(tool.getPrompts().points).toHaveLength(0);
     expect(tool.getPrompts().box).toEqual({ x1: 10, y1: 10, x2: 100, y2: 80 });
+  });
+
+  it('creates a box with two taps and normalizes reverse corner order', () => {
+    const tool = new Sam2SegmentationTool();
+    const ctx = statefulMockCtx();
+    tool.setPromptMode('box');
+
+    tap(tool, ctx, 100, 80);
+    expect(ctx.objectSelectionSession?.status).toBe('drawing');
+    expect(ctx.objectSelectionSession?.box).toBeNull();
+    expect(ctx.objectSelectionSession?.draftBox).toEqual({
+      x1: 100,
+      y1: 80,
+      x2: 100,
+      y2: 80,
+    });
+    expect(ctx.applySam2Segmentation).not.toHaveBeenCalled();
+
+    tap(tool, ctx, 20, 10);
+    expect(tool.getPrompts().points).toHaveLength(0);
+    expect(tool.getPrompts().box).toEqual({ x1: 20, y1: 10, x2: 100, y2: 80 });
+    expect(ctx.objectSelectionSession?.box).toEqual({
+      x1: 20,
+      y1: 10,
+      x2: 100,
+      y2: 80,
+    });
+    expect(ctx.applySam2Segmentation).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        prompts: { box: { x1: 20, y1: 10, x2: 100, y2: 80 } },
+        operation: 'preview',
+      }),
+    );
   });
 
   it('keeps existing points when a later box prompt is drawn', () => {
@@ -258,8 +318,20 @@ function mockCtx() {
     canvasToWorld: (x: number, y: number) => ({ x, y }),
     zoom: 1,
     setPointerCapture: vi.fn(),
+    releasePointerCapture: vi.fn(),
     announce: vi.fn(),
   } as unknown as import('./types').ToolContext;
+}
+
+function tap(
+  tool: Sam2SegmentationTool,
+  ctx: import('./types').ToolContext,
+  x: number,
+  y: number,
+): void {
+  const event = { clientX: x, clientY: y, button: 0, pointerId: 1 };
+  tool.onPointerDown(new PointerEvent('pointerdown', event), ctx);
+  tool.onPointerUp(new PointerEvent('pointerup', event), ctx);
 }
 
 function statefulMockCtx() {
