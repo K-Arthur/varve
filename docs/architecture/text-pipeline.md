@@ -138,15 +138,26 @@ The live browser canvas still paints complete source runs through the browser's
 native shaping implementation. When the selected family has an inspectable
 local CSS source, Varve creates a process-local `FontFace` descriptor alias so
 whole-run feature values and custom variation axes reach that browser shaper;
-the generated family is never persisted. Canvas2D has no portable API for
-drawing an arbitrary glyph ID or applying a UTF-16-ranged feature map, so the
-byte-backed backend is used for exact outline conversion rather than
-pretending that browser `fillText` exposed the same glyph stream. Native PDF
-currently has a character-oriented writer; the
-editor preflight rasterizes path text, complex/non-Latin text, rich runs,
-ligature-sensitive strings, feature/axis/range settings, tracking, and manual
-cluster edits through the live renderer. This is an intentional appearance
-guarantee with an explicit loss of PDF text searchability for those nodes.
+the generated family is never persisted. Some Canvas2D implementations expose
+neither `fontFeatureSettings` nor `fontVariationSettings`, and Chromium can
+ignore those descriptors on `fillText` even after the alias is ready. In that
+case `canvasOpenTypeRenderer.ts` parses the exact local source and draws real
+glyph paths with the authored feature map and axes. If the source cannot be
+parsed, `canvasSvgTextRenderer.ts` uses the browser's native SVG shaper and
+embeds the same local source bytes in a bounded, process-local image. Both
+paths preserve the complete logical run and notify replay for an authoritative
+redraw; a loading or failed source keeps the normal Canvas2D result as an
+explicit fallback. Catalog search and hover never fetch a remote font.
+
+Canvas2D still has no portable API for drawing an arbitrary glyph ID or
+applying a UTF-16-ranged feature map, so the byte-backed backend is used for
+exact outline conversion rather than pretending that browser `fillText`
+exposed the same glyph stream. Native PDF currently has a character-oriented
+writer; the editor preflight rasterizes path text, complex/non-Latin text, rich
+runs, ligature-sensitive strings, feature/axis/range settings, tracking, and
+manual cluster edits through the live renderer. This is an intentional
+appearance guarantee with an explicit loss of PDF text searchability for those
+nodes.
 
 The legacy Canvas measurement bridge now consumes the resolved visual BiDi run
 order from `analyzeParagraph`; it no longer reverses an entire RTL paragraph as
