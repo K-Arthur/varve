@@ -329,11 +329,15 @@ export async function storeFont(
 
 export async function getStoredFont(familyName: string): Promise<StoredFontRecord | null> {
   const records = await listStoredFonts();
-  return (
-    records.find(
-      (record) => record.familyName.toLocaleLowerCase() === familyName.toLocaleLowerCase(),
-    ) ?? null
+  const normalizedFamily = familyName.toLocaleLowerCase();
+  const matches = records.filter(
+    (record) => record.familyName.toLocaleLowerCase() === normalizedFamily,
   );
+  // A family name is display metadata, not a portable identity. Returning
+  // the first hash/member here silently selects the wrong artifact when two
+  // files share a family. Callers must use getStoredFontByIdentity for that
+  // case so the UI can offer an explicit face choice or recovery action.
+  return matches.length === 1 ? (matches[0] ?? null) : null;
 }
 
 /** Resolve one exact stored face without falling back to a family match. */

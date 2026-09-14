@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  getStoredFont,
   getStoredFontByIdentity,
   getStoredFontCount,
   listStoredFonts,
@@ -105,6 +106,7 @@ describe('canonical font storage', () => {
     });
     expect(regular.key).not.toBe(italic.key);
     expect(await getStoredFontCount()).toBe(2);
+    expect(await getStoredFont('Inter')).toBeNull();
   });
 
   it('persists the content hash and can remove one exact artifact', async () => {
