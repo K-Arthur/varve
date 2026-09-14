@@ -357,6 +357,9 @@ importers:
       '@types/prismjs':
         specifier: ^1.26.6
         version: 1.26.6
+      '@webgpu/types':
+        specifier: ^0.1.71
+        version: 0.1.71
 
   packages/engine:
     dependencies:

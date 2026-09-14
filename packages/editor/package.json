@@ -47,7 +47,8 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@tauri-apps/api": "^2.11.1",
-    "@types/prismjs": "^1.26.6"
+    "@types/prismjs": "^1.26.6",
+    "@webgpu/types": "^0.1.71"
   },
   "license": "FSL-1.1-MIT"
 }
