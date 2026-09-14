@@ -67,6 +67,12 @@ dispatcher. Classical requests cannot fall through into AI when an input is
 malformed. The result carries document, source, mask, palette, reference, and
 parameter identity so a caller can reject late work.
 
+A preview is bound to the selected source node, the authored parameter
+signature, and the request identity. Changing any of them leaves the old
+preview visible but marked out of date; both Apply entry points are disabled
+until a new preview is generated, and the commit helper re-checks the source
+before inserting anything.
+
 ### Source and alpha rules
 
 The input source is decoded once per operation. Transparent pixels retain their
@@ -211,6 +217,8 @@ failure reports, not as mathematical authority:
 | [DDColor users report flicker](https://github.com/piddnad/DDColor/issues/35) and the [model zoo warns about red-block artifacts](https://github.com/piddnad/DDColor/blob/master/MODEL_ZOO.md) | Do not claim a model is ready from a filename; require artifact/hash/tensor/smoke/visual verification and keep the photo lane gated until then. |
 | [DeOldify users report failed downloads or unusable output](https://github.com/jantic/DeOldify/issues/136) and [save/output problems](https://github.com/jantic/DeOldify/issues/472) | Keep acquisition states explicit, reject failed artifacts, embed accepted output bytes in the document, and make export independent of fresh inference. |
 | [Photoshop users report Neural Filter errors/temporary disablement](https://www.reddit.com/r/photoshop/comments/1dtktcp/does_anyone_else_get_the_weve_temporarily_disabled_this_filter_because_of_an_error/) | Do not silently require a cloud account or fall back to a different effect. Varve names local model readiness and leaves deterministic modes usable. |
+| [Krita users report the colorize mask is slow and needs repeated manual updates on large images](https://www.reddit.com/r/krita/comments/1mp5e7f/help_how_does_this_thing_work1/) | Deterministic operations are explicit and bounded (256–1024px preview class); the panel never recomputes per keystroke, and Apply reuses the approved chroma instead of processing the image again. |
+| [DDColor's own community notes the model cannot accept user hints or reference guidance](https://discuss.huggingface.co/t/problems-with-duplication/176137/62) | The photo lane never claims hint conditioning. Corrections are an explicit deterministic mask re-run on the source, and the photo hint states that colors are inferred, not recovered. |
 
 ## Verification matrix
 
