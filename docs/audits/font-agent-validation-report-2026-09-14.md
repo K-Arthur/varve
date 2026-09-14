@@ -134,6 +134,7 @@ gate for this dirty shared workspace.
 
 - [Acceptance matrix](./font-acceptance-matrix-2026-09-09.md)
 - [Fresh toolbar visual evidence](./font-toolbar-visual-evidence-2026-09-14.md)
+- [Capability projection evidence](./font-capability-projection-evidence-2026-09-14.md)
 - [Fresh typography/OpenType evidence](./font-opentype-redraw-evidence-2026-09-14.md)
 - [Inherited exact-face evidence](./font-face-inheritance-evidence-2026-09-14.md)
 - [Typography product research](../research/font-typography-ux-research-2026-09-12.md)
