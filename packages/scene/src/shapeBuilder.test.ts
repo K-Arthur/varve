@@ -1,7 +1,8 @@
 import { applyAffine } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
-import { addNode, createDocument, makeShapeNode } from './document';
+import { addNode, createDocument, type Document, getParent, makeShapeNode } from './document';
 import { DocumentCodec } from './documentCodec';
+import { solidFill } from './fills';
 import {
   applyShapeBuilderAction,
   buildShapeBuilderModel,
@@ -415,5 +416,289 @@ describe('Shape Builder arrangement and actions', () => {
     if (result?.kind !== 'shape' || result.shape.kind !== 'path') return;
     expect(result.shape.contours?.length).toBeGreaterThan(0);
     expect(result.shape.holes?.length).toBeGreaterThan(0);
+  });
+
+  it('styles the created result from the first selected source', () => {
+    let doc = createDocument('style-source', true);
+    const first = makeShapeNode(
+      'first',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+      { transform: identity },
+    );
+    first.fills = [solidFill({ space: 'rgb', r: 255, g: 0, b: 0, a: 255 } as const)];
+    const second = makeShapeNode(
+      'second',
+      { kind: 'rect', x: 50, y: 0, w: 100, h: 100 },
+      { transform: identity },
+    );
+    second.fills = [solidFill({ space: 'rgb', r: 0, g: 0, b: 255, a: 255 } as const)];
+    doc = addNode(doc, first);
+    doc = addNode(doc, second);
+
+    const model = buildShapeBuilderModel(doc, ['second', 'first']);
+    const applied = applyShapeBuilderAction(
+      doc,
+      ['second', 'first'],
+      model.faces.map((face) => face.id),
+      'create',
+      { expectedRevision: model.revision },
+    );
+    expect(applied.ok).toBe(true);
+    if (!applied.ok) return;
+    const output = applied.doc.nodes[applied.createdNodeIds[0]!];
+    expect(output?.kind).toBe('shape');
+    if (output?.kind !== 'shape') return;
+    const color = output.fills?.[0]?.color as { b?: number } | undefined;
+    expect(color?.b).toBe(255);
+  });
+
+  it('places created output above the participating sources', () => {
+    const doc = rectangles();
+    const model = buildShapeBuilderModel(doc, ['a', 'b']);
+    const applied = applyShapeBuilderAction(
+      doc,
+      ['a', 'b'],
+      model.faces.map((face) => face.id),
+      'create',
+      { expectedRevision: model.revision },
+    );
+    expect(applied.ok).toBe(true);
+    if (!applied.ok) return;
+    const resultId = applied.createdNodeIds[0]!;
+    const parentId = getParent(applied.doc, resultId);
+    const siblings = parentId
+      ? ((applied.doc.nodes[parentId] as { children?: string[] }).children ?? [])
+      : applied.doc.rootChildren;
+    expect(siblings).toContain('a');
+    expect(siblings).toContain('b');
+    expect(siblings.indexOf(resultId)).toBeGreaterThan(siblings.indexOf('a'));
+    expect(siblings.indexOf(resultId)).toBeGreaterThan(siblings.indexOf('b'));
+  });
+
+  it('preserves the participants stacking position relative to later siblings', () => {
+    const build = () => {
+      let doc = createDocument('stacking', true);
+      doc = addNode(
+        doc,
+        makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }, { transform: identity }),
+      );
+      doc = addNode(
+        doc,
+        makeShapeNode('b', { kind: 'rect', x: 50, y: 0, w: 100, h: 100 }, { transform: identity }),
+      );
+      doc = addNode(
+        doc,
+        makeShapeNode(
+          'tail',
+          { kind: 'rect', x: 300, y: 0, w: 10, h: 10 },
+          { transform: identity },
+        ),
+      );
+      return doc;
+    };
+    const siblingsFor = (doc: Document, nodeId: string): string[] => {
+      const parentId = getParent(doc, nodeId);
+      return parentId
+        ? ((doc.nodes[parentId] as { children?: string[] }).children ?? [])
+        : doc.rootChildren;
+    };
+
+    const createdDoc = build();
+    const createModel = buildShapeBuilderModel(createdDoc, ['a', 'b']);
+    const created = applyShapeBuilderAction(
+      createdDoc,
+      ['a', 'b'],
+      createModel.faces.map((face) => face.id),
+      'create',
+      { expectedRevision: createModel.revision },
+    );
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const createResultId = created.createdNodeIds[0]!;
+    const createSiblings = siblingsFor(created.doc, createResultId);
+    // Above the sources, but not above a later unselected sibling.
+    expect(createSiblings.indexOf(createResultId)).toBeGreaterThan(createSiblings.indexOf('b'));
+    expect(createSiblings.indexOf(createResultId)).toBeLessThan(createSiblings.indexOf('tail'));
+
+    const mergedDoc = build();
+    const mergeModel = buildShapeBuilderModel(mergedDoc, ['a', 'b']);
+    const merged = applyShapeBuilderAction(
+      mergedDoc,
+      ['a', 'b'],
+      mergeModel.faces.map((face) => face.id),
+      'merge',
+      { expectedRevision: mergeModel.revision },
+    );
+    expect(merged.ok).toBe(true);
+    if (!merged.ok) return;
+    const mergeResultId = merged.createdNodeIds[0]!;
+    const mergeSiblings = siblingsFor(merged.doc, mergeResultId);
+    // The removed participants' former slot is preserved: before tail.
+    expect(mergeSiblings.indexOf(mergeResultId)).toBeLessThan(mergeSiblings.indexOf('tail'));
+  });
+
+  describe('degenerate operands', () => {
+    it('treats identical coincident operands as one selectable face', () => {
+      let doc = createDocument('identical', true);
+      doc = addNode(
+        doc,
+        makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }, { transform: identity }),
+      );
+      doc = addNode(
+        doc,
+        makeShapeNode('b', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }, { transform: identity }),
+      );
+      const model = buildShapeBuilderModel(doc, ['a', 'b']);
+      expect(model.status).toBe('ready');
+      const selectable = model.faces.filter((face) => face.selectable);
+      expect(selectable).toHaveLength(1);
+      expect(selectable[0]!.area).toBeCloseTo(10_000, 6);
+      expect([...selectable[0]!.filledBy].sort()).toEqual(['a', 'b']);
+      expect(model.faces.every((face) => Number.isFinite(face.area) && face.area > 0)).toBe(true);
+
+      const applied = applyShapeBuilderAction(
+        doc,
+        ['a', 'b'],
+        selectable.map((face) => face.id),
+        'merge',
+        { expectedRevision: model.revision },
+      );
+      expect(applied.ok).toBe(true);
+      if (!applied.ok) return;
+      expect(applied.removedNodeIds.sort()).toEqual(['a', 'b']);
+      expect(applied.createdNodeIds).toHaveLength(1);
+    });
+
+    it('merges rectangles that share an edge without a seam or connector', () => {
+      let doc = createDocument('shared-edge', true);
+      doc = addNode(
+        doc,
+        makeShapeNode(
+          'left',
+          { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+          { transform: identity },
+        ),
+      );
+      doc = addNode(
+        doc,
+        makeShapeNode(
+          'right',
+          { kind: 'rect', x: 100, y: 0, w: 100, h: 100 },
+          { transform: identity },
+        ),
+      );
+      const model = buildShapeBuilderModel(doc, ['left', 'right']);
+      expect(model.status).toBe('ready');
+      const selectable = model.faces.filter((face) => face.selectable);
+      expect(selectable).toHaveLength(2);
+      expect(selectable.reduce((sum, face) => sum + face.area, 0)).toBeCloseTo(20_000, 6);
+
+      const merged = applyShapeBuilderAction(
+        doc,
+        ['left', 'right'],
+        selectable.map((face) => face.id),
+        'merge',
+        { expectedRevision: model.revision },
+      );
+      expect(merged.ok).toBe(true);
+      if (!merged.ok) return;
+      expect(merged.createdNodeIds).toHaveLength(1);
+      const output = merged.doc.nodes[merged.createdNodeIds[0]!];
+      expect(output?.kind).toBe('shape');
+      if (output?.kind !== 'shape' || output.shape.kind !== 'path') return;
+      const contours = output.shape.contours ?? [];
+      expect(contours).toHaveLength(1);
+      const ring = contours[0]!;
+      const area = Math.abs(
+        ring.reduce((sum, point, index) => {
+          const next = ring[(index + 1) % ring.length]!;
+          return sum + point.x * next.y - next.x * point.y;
+        }, 0) / 2,
+      );
+      expect(area).toBeCloseTo(20_000, 3);
+    });
+
+    it('keeps externally tangent circles as two finite regions', () => {
+      let doc = createDocument('tangent', true);
+      doc = addNode(
+        doc,
+        makeShapeNode('c1', { kind: 'circle', cx: 0, cy: 0, r: 50 }, { transform: identity }),
+      );
+      doc = addNode(
+        doc,
+        makeShapeNode('c2', { kind: 'circle', cx: 100, cy: 0, r: 50 }, { transform: identity }),
+      );
+      const model = buildShapeBuilderModel(doc, ['c1', 'c2']);
+      expect(model.status).toBe('ready');
+      const selectable = model.faces.filter((face) => face.selectable);
+      expect(selectable).toHaveLength(2);
+      const expected = Math.PI * 50 * 50;
+      for (const face of selectable) {
+        expect(Math.abs(face.area - expected)).toBeLessThan(expected * 0.01);
+      }
+      expect(
+        model.faces.every((face) =>
+          face.outer.every((point) => Number.isFinite(point.x) && Number.isFinite(point.y)),
+        ),
+      ).toBe(true);
+    });
+
+    it('treats sub-tolerance separation as coincident instead of a sliver face', () => {
+      let doc = createDocument('near-coincident', true);
+      doc = addNode(
+        doc,
+        makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }, { transform: identity }),
+      );
+      doc = addNode(
+        doc,
+        makeShapeNode(
+          'b',
+          { kind: 'rect', x: 1e-9, y: 0, w: 100, h: 100 },
+          { transform: identity },
+        ),
+      );
+      const model = buildShapeBuilderModel(doc, ['a', 'b']);
+      expect(model.status).toBe('ready');
+      expect(model.faces.filter((face) => face.selectable).length).toBeLessThanOrEqual(2);
+      const total = model.faces
+        .filter((face) => face.selectable)
+        .reduce((sum, face) => sum + face.area, 0);
+      expect(Math.abs(total - 10_000)).toBeLessThan(1e-3);
+    });
+
+    it('ignores duplicate and zero-length path points without losing the face', () => {
+      const point = (x: number, y: number) => ({ x, y, handleIn: null, handleOut: null });
+      const points = [
+        point(0, 0),
+        point(0, 0),
+        point(100, 0),
+        point(100, 0),
+        point(100, 100),
+        point(0, 100),
+        point(0, 100),
+      ];
+      let doc = createDocument('duplicate-points', true);
+      doc = addNode(
+        doc,
+        makeShapeNode(
+          'dup',
+          {
+            kind: 'path',
+            points,
+            contours: [points],
+            holes: [],
+            closed: true,
+            tolerance: 3,
+            fillRule: 'evenodd',
+          },
+          { transform: identity },
+        ),
+      );
+      const model = buildShapeBuilderModel(doc, ['dup']);
+      expect(model.status).toBe('ready');
+      const selectable = model.faces.filter((face) => face.selectable);
+      expect(selectable).toHaveLength(1);
+      expect(selectable[0]!.area).toBeCloseTo(10_000, 6);
+    });
   });
 });

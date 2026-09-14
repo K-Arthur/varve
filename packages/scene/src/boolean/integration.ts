@@ -261,7 +261,13 @@ export function pathPointsToPolygon(
       const p2 = next.handleIn
         ? { x: next.anchor.x + next.handleIn.x, y: next.anchor.y + next.handleIn.y }
         : p3;
-      const sampled = sampleCubicBezier(p0, p1, p2, p3, tolerance);
+      // Bound the approximation against the segment's own scale as well as
+      // the whole path's. A small curved feature inside a very large path
+      // must not be flattened to a chord just because the path's diagonal is
+      // large; the per-segment budget keeps local error local without
+      // claiming an error bound after the recursion/vertex caps are hit.
+      const segmentTolerance = Math.min(tolerance, curveTolerance([p0, p1, p2, p3]));
+      const sampled = sampleCubicBezier(p0, p1, p2, p3, segmentTolerance);
       for (let j = 0; j < sampled.length - 1; j++) result.push(sampled[j]!);
     } else {
       result.push(p0);

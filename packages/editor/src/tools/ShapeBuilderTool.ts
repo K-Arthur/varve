@@ -236,10 +236,17 @@ export class ShapeBuilderTool implements Tool {
       );
       return;
     }
-    ctx.setSelectionRefs?.(result.selectedNodeIds, {
-      primary: result.selectedNodeIds[0] ?? null,
-      origin: 'canvas',
-    });
+    // Select the committed result through the single-id primitives. The
+    // ref-based multi-select API filters against the render-synced document
+    // state, which does not yet contain nodes created earlier in this same
+    // tick, so it would silently drop the new result ids.
+    const selectedResultIds = result.selectedNodeIds;
+    if (selectedResultIds.length === 0) {
+      ctx.setSelection(null);
+    } else {
+      ctx.setSelection(selectedResultIds[0]!);
+      for (const nodeId of selectedResultIds.slice(1)) ctx.toggleSelection(nodeId, true);
+    }
     ctx.setDraft(null);
     ctx.announceOperation(
       `Shape Builder ${action}`,

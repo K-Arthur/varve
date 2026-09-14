@@ -1416,10 +1416,22 @@ export function applyShapeBuilderAction(
     }
   }
 
-  const anchorSourceId =
+  const primarySourceId =
     nodeIds.find((nodeId) => model.sources.some((source) => source.id === nodeId)) ??
     model.sources[0]!.id;
-  const anchor = booleanAnchorForNode(doc, anchorSourceId);
+  const anchor = booleanAnchorForNode(doc, primarySourceId);
+  const anchorSiblings = anchor.parentId
+    ? ((doc.nodes[anchor.parentId] as { children?: NodeId[] } | undefined)?.children ?? [])
+    : doc.rootChildren;
+  // Place created output immediately above the topmost participating source so
+  // a retained-source result is visible and clickable rather than hidden under
+  // an identical source. The index is computed before destructive mutations;
+  // reparentNode clamps it when sources were removed.
+  let insertIndex = anchor.index + 1;
+  for (const source of model.sources) {
+    const siblingIndex = anchorSiblings.indexOf(source.id);
+    if (siblingIndex >= insertIndex) insertIndex = siblingIndex + 1;
+  }
   const parentTransform = anchor.parentId ? nodeWorldTransform(doc, anchor.parentId) : IDENTITY;
   const inverseParent = tryInvertAffine(parentTransform);
   if (!inverseParent)
@@ -1428,7 +1440,7 @@ export function applyShapeBuilderAction(
       reason: 'The destination parent has a non-invertible transform.',
       revision: model.revision,
     };
-  const styleSourceId = options.styleSourceId ?? selectedFaces[0]!.filledBy[0];
+  const styleSourceId = options.styleSourceId ?? primarySourceId;
   const styleSource =
     model.sources.find((source) => source.id === styleSourceId) ?? model.sources[0]!;
 
@@ -1502,6 +1514,20 @@ export function applyShapeBuilderAction(
 
   const createdNodeIds: NodeId[] = [];
   if (outputRegions.length > 0) {
+    // Stacking anchor: the original sibling that followed the participating
+    // sources. After destructive removals it preserves the participants'
+    // former position; when the sources were last, output lands at the end.
+    const currentChildren = anchor.parentId
+      ? ((nextDoc.nodes[anchor.parentId] as { children?: NodeId[] } | undefined)?.children ?? [])
+      : nextDoc.rootChildren;
+    let outputIndex = currentChildren.length;
+    for (let cursor = insertIndex; cursor < anchorSiblings.length; cursor++) {
+      const siblingIndex = currentChildren.indexOf(anchorSiblings[cursor]!);
+      if (siblingIndex >= 0) {
+        outputIndex = siblingIndex;
+        break;
+      }
+    }
     for (let index = 0; index < outputRegions.length; index++) {
       const allocation = nextNodeId(nextDoc);
       nextDoc = allocation.doc;
@@ -1518,7 +1544,7 @@ export function applyShapeBuilderAction(
         nextDoc,
         allocation.id,
         anchor.parentId,
-        anchor.index + index,
+        outputIndex + index,
         IDENTITY,
       );
       createdNodeIds.push(allocation.id);

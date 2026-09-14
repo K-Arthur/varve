@@ -104,4 +104,85 @@ describe('Boolean curve conversion', () => {
 
     expect(maximumEllipseDeviation(polygon, ellipse, transform)).toBeLessThan(0.011);
   });
+
+  it('keeps a small curved feature inside a very large path within its local budget', () => {
+    const bumpStart = {
+      x: 200_008,
+      y: 500_000,
+      handleIn: null,
+      handleOut: [-2, 32] as [number, number],
+    };
+    const bumpEnd = {
+      x: 200_000,
+      y: 500_000,
+      handleIn: [2, 32] as [number, number],
+      handleOut: null,
+    };
+    const authored = [
+      { x: 0, y: 0, handleIn: null, handleOut: null },
+      { x: 1_000_000, y: 0, handleIn: null, handleOut: null },
+      { x: 1_000_000, y: 500_000, handleIn: null, handleOut: null },
+      bumpStart,
+      bumpEnd,
+      { x: 0, y: 500_000, handleIn: null, handleOut: null },
+    ];
+    // Shear plus non-uniform scale: the bump must still be sampled after the
+    // complete transform, not flattened because the whole path is huge.
+    const transform = [1, 0.35, 0.4, 2.5, 1000, -500] as const;
+    const polygon = pathPointsToPolygon(authored, true, transform);
+
+    const p0 = { x: bumpStart.x, y: bumpStart.y };
+    const p1 = { x: bumpStart.x + bumpStart.handleOut[0], y: bumpStart.y + bumpStart.handleOut[1] };
+    const p2 = { x: bumpEnd.x + bumpEnd.handleIn[0], y: bumpEnd.y + bumpEnd.handleIn[1] };
+    const p3 = { x: bumpEnd.x, y: bumpEnd.y };
+
+    const distanceToPolygon = (point: { x: number; y: number }): number => {
+      let nearest = Infinity;
+      for (let index = 0; index < polygon.length; index++) {
+        nearest = Math.min(
+          nearest,
+          distanceToSegment(point, polygon[index]!, polygon[(index + 1) % polygon.length]!),
+        );
+      }
+      return nearest;
+    };
+
+    let curveDeviation = 0;
+    for (let i = 0; i <= 400; i++) {
+      const t = i / 400;
+      const u = 1 - t;
+      const curveX =
+        u * u * u * p0.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t * t * t * p3.x;
+      const curveY =
+        u * u * u * p0.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t * t * t * p3.y;
+      curveDeviation = Math.max(
+        curveDeviation,
+        distanceToPolygon(transformedPoint(curveX, curveY, transform)),
+      );
+    }
+
+    // The polyline follows the real cubic within its local budget. A
+    // whole-path tolerance would flatten the ~60-world-unit sheared bump into
+    // a chord, which cannot be within 0.05 of the analytic apex.
+    expect(curveDeviation).toBeLessThan(0.05);
+
+    // Prove the bump was subdivided rather than merely sampled at its
+    // endpoints: several output vertices lie on the analytic curve.
+    const samples: Array<{ x: number; y: number }> = [];
+    for (let i = 0; i <= 400; i++) {
+      const t = i / 400;
+      const u = 1 - t;
+      samples.push(
+        transformedPoint(
+          u * u * u * p0.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t * t * t * p3.x,
+          u * u * u * p0.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t * t * t * p3.y,
+          transform,
+        ),
+      );
+    }
+    const onCurve = polygon.filter((point) =>
+      samples.some((sample) => Math.hypot(point.x - sample.x, point.y - sample.y) <= 0.05),
+    ).length;
+    expect(onCurve).toBeGreaterThan(10);
+  });
 });

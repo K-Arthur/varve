@@ -55,8 +55,12 @@ same source contributors do not alias.
 Parametric rectangles with ordinary corner radii are converted from the
 rendered rounded boundary before intersection construction. Arc sampling uses
 the complete world affine and a bounded 0.01-world-unit chord-error ceiling;
-continuous/smoothed corners remain explicitly unsupported until their renderer
-path can be shared without drift. After world-space extraction, construction is
+Bézier subdivision uses the smaller of the whole-path tolerance and a budget
+derived from the segment's own control polygon, so a small curved feature
+inside a very large path is not flattened to a chord (a sheared 8×24-unit bump
+inside a 1,000,000-unit path is measured within 0.05 world units). Continuous
+or smoothed corners remain explicitly unsupported until their renderer path can
+be shared without drift. After world-space extraction, construction is
 translated to the source bounds and its topology tolerance is capped by the
 shortest authored edge. This avoids losing a small feature inside a very large
 operand while keeping dimensional tolerances explicit. Zero-area primitives
@@ -89,12 +93,16 @@ atomically by the editor.
 
 The first source supplies the result style. This is an explicit policy rather
 than a promise to merge incompatible fills, gradients, blend modes, opacity
-stacks, or effects. Create retains the original appearance alongside the new
-result; destructive actions preserve the source fill policy where a source
-remainder is reconstructed. Inline gradient fields are rebased through world
-space when a result changes its bounds; bounds-relative image/pattern paints
-are rejected with an explicit conversion instruction, and shared gradient
-paints must be detached before construction.
+stacks, or effects. Created output is inserted immediately above the topmost
+participating source, so a retained-source Create result is visible and
+directly selectable instead of hidden under an identical source; destructive
+results land at the participants' former position (the insertion index is
+clamped when sources were removed). Create retains the original appearance
+alongside the new result; destructive actions preserve the source fill policy
+where a source remainder is reconstructed. Inline gradient fields are rebased
+through world space when a result changes its bounds; bounds-relative
+image/pattern paints are rejected with an explicit conversion instruction, and
+shared gradient paints must be detached before construction.
 
 When a visible stroke is the only blocker, the tool panel offers an explicit
 **Outline strokes and retry** action. It runs the same stroke-to-outline
@@ -111,7 +119,10 @@ tap selects one region; a sweep tests every arrangement face crossed between
 pointer samples, so a thin face between samples is not skipped. Shift, Alt,
 Ctrl, or Command enables idempotent toggle selection for the gesture. Hovering
 an action button previews its committed output in teal and source remainders in
-amber before the button is pressed.
+amber before the button is pressed. Apply produces one document transaction,
+selects the committed result (or the surviving source remainders), and returns
+to the Select tool; with a path result selected, a double-click re-enters Node
+Edit directly on the new geometry.
 
 Escape first cancels an active gesture, then clears the staged region set, then
 leaves the tool. Buttons expose every implemented action, and keyboard

@@ -61,6 +61,7 @@ function context(overrides: Partial<ToolContext> = {}): ToolContext {
     hasPredictedEvents: false,
     sourceEvents: [],
     maskPreviewMode: 'none',
+    setMaskPreviewMode: vi.fn(),
     foregroundColor: [0, 0, 0, 255],
     snapEnabled: false,
     snapGrid: 8,
