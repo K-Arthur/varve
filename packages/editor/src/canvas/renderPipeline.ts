@@ -8,6 +8,7 @@ import {
   buildInnerGlowImage,
   buildOuterGlowImage,
   CompositeCanvas,
+  type EffectDiagnostic,
   type Engine,
   type EngineColor,
   type SceneNode as EngineNode,
@@ -399,6 +400,8 @@ export interface RenderContentDeps {
   subtreeIrCacheRef: React.MutableRefObject<SubtreeIrCache>;
   nodeHashMemoRef: React.MutableRefObject<NodeHashMemo>;
   engineNodeMemoRef: React.MutableRefObject<EngineNodeMemo>;
+  /** Receives declared effect degradations from leaf replay (bounded by caller). */
+  onEffectDiagnostic?: (diagnostic: EffectDiagnostic) => void;
   drawInFlightRef: React.MutableRefObject<boolean>;
   drawPendingRef: React.MutableRefObject<boolean>;
   lastRenderedDocRef: React.MutableRefObject<Document>;
@@ -1279,6 +1282,7 @@ export function renderContent(deps: RenderContentDeps): void {
           resolveLiveEffectMask,
           replayImagePolicy,
           replayColorOptions,
+          deps.onEffectDiagnostic,
         );
       }
     };

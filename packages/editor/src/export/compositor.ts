@@ -26,6 +26,7 @@ import {
   applyRasterizationTransform,
   createEngine,
   createRasterSurface,
+  type EffectDiagnostic,
   type Engine,
   encodeRasterSurface,
   type RasterSurface,
@@ -170,9 +171,9 @@ export interface ExportSnapshot {
   diagnostics: RasterizationDiagnostic[];
 }
 
-/** A rasterized fallback that could not be produced. */
+/** A rasterized fallback that could not be produced or was degraded. */
 export interface RasterizationDiagnostic {
-  code: 'pixel-budget-exceeded' | 'surface-unavailable' | 'encode-failed';
+  code: 'pixel-budget-exceeded' | 'surface-unavailable' | 'encode-failed' | 'effect-degraded';
   nodeId: string;
   message: string;
 }
@@ -199,6 +200,12 @@ function rasterizationDiagnostic(
         code,
         nodeId,
         message: `Rasterized fallback for "${nodeId}" could not be encoded as PNG, so the unsupported region is missing from this export. Retry the export.`,
+      };
+    case 'effect-degraded':
+      return {
+        code,
+        nodeId,
+        message: `An effect on "${nodeId}" was degraded in the rasterized fallback; that effect's pixels are missing from this export.`,
       };
   }
 }
@@ -1044,6 +1051,7 @@ async function renderBoundaryToSurface(
   exportScale: number,
   bounds: { x: number; y: number; w: number; h: number },
   expansion?: RasterAsset['expansion'],
+  onEffectDiagnostic?: (diagnostic: EffectDiagnostic) => void,
 ): Promise<void> {
   // Mockup frames present live-bound sources: include them in the flattened
   // set so the surface bake can replay them at export resolution.
@@ -1113,6 +1121,7 @@ async function renderBoundaryToSurface(
     items: ir,
     extrasByNodeId: decorated.extrasByNodeId,
     quality: 'export',
+    ...(onEffectDiagnostic ? { onEffectDiagnostic } : {}),
   });
   ctx.restore();
 }
@@ -1283,6 +1292,7 @@ async function rasterizeBoundaries(
     // gradients, images, masks, blend modes, and adjustment compositing
     // match the live document exactly. Content is anchored at the expansion
     // offset inside the padded surface.
+    const effectDiagnostics: EffectDiagnostic[] = [];
     await renderBoundaryToSurface(
       surface,
       node.id,
@@ -1291,7 +1301,24 @@ async function rasterizeBoundaries(
       exportScale,
       { ...bounds, w: cssWidth, h: cssHeight },
       expansion,
+      (diagnostic) => effectDiagnostics.push(diagnostic),
     );
+    // Engine-level degradations (missing mask/depth, refused surface) are
+    // per-boundary facts: report them once each so a fallback with an
+    // unapplied effect is never presented as a complete conversion.
+    const seenEffectDiagnostics = new Set<string>();
+    for (const diagnostic of effectDiagnostics) {
+      const key = `${diagnostic.code}:${diagnostic.effectType}:${diagnostic.reason}`;
+      if (seenEffectDiagnostics.has(key)) continue;
+      seenEffectDiagnostics.add(key);
+      const mapped: RasterizationDiagnostic = {
+        code: 'effect-degraded',
+        nodeId: node.id,
+        message: `Effect "${diagnostic.effectType}" on "${node.name || node.id}" was degraded in the rasterized fallback (${diagnostic.reason}); unmodified content was kept for that effect.`,
+      };
+      diagnostics.push(mapped);
+      opts.onRasterizationDiagnostic?.(mapped);
+    }
 
     let dataUrl: string;
     try {

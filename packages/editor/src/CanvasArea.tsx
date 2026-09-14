@@ -832,6 +832,8 @@ export function CanvasArea({
 
   // ── Content canvas draw: board background, IR replay, outline mode ──────
 
+  const degradedEffectKeysRef = useRef<Set<string>>(new Set());
+
   const drawContent = useCallback(() => {
     renderContent({
       contentCanvasRef,
@@ -871,6 +873,18 @@ export function CanvasArea({
       editor,
       setCompositorDiagnostics,
       scheduleDrawContent: drawContent,
+      onEffectDiagnostic: (diagnostic) => {
+        // A degraded effect is announced once per code/type/id so a broken
+        // frame does not spam the live region; the canvas keeps unmodified
+        // content for that effect, matching the export warning contract.
+        const key = `${diagnostic.code}:${diagnostic.effectType}:${diagnostic.effectId ?? ''}`;
+        const announced = degradedEffectKeysRef.current;
+        if (announced.has(key) || announced.size >= 4) return;
+        announced.add(key);
+        editorRef.current.announce(
+          `Effect "${diagnostic.effectType}" was degraded: ${diagnostic.reason}. Unmodified content is shown for it.`,
+        );
+      },
     });
   }, [
     rootNodes,
@@ -1191,12 +1205,7 @@ export function CanvasArea({
           }),
         );
       }
-      if (
-        report.partialCount > 0 ||
-        report.failureCount > 0 ||
-        report.warnings.length > 0 ||
-        report.files.some((file) => file.unsupportedFeatures.length > 0 || file.warnings.length > 0)
-      ) {
+      if (importReportHasIssues(report)) {
         publishImportReport({
           ...report,
           insertedCount: committedIds.length,

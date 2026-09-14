@@ -21,6 +21,7 @@ import {
   buildOuterGlowImage,
   CompositeCanvas,
   createRasterSurface,
+  type EffectDiagnostic,
   type EffectQuality,
   type FilterIR,
   gaussianBlurSeparable,
@@ -74,6 +75,8 @@ export interface StructuredReplayInput {
   extrasByNodeId?: ReadonlyMap<NodeId, readonly RenderItem[]>;
   /** Export forces full-quality live-treatment kernels. */
   quality?: EffectQuality;
+  /** Receives declared effect degradations from the engine replay. */
+  onEffectDiagnostic?: (diagnostic: EffectDiagnostic) => void;
 }
 
 function setMatrix(context: SceneContext, matrix: DOMMatrix): void {
@@ -399,6 +402,11 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
     replayNode: (nodeId, target) => replayNode(nodeId, target),
   });
 
+  // Engine-level effect degradations (missing mask/depth, surface refusal)
+  // bubble to the caller so an export can report them instead of silently
+  // shipping unmodified content.
+  const onEffectDiagnostic = input.onEffectDiagnostic;
+
   const compositeIsolated = (
     target: SceneContext,
     draw: (isolated: SceneContext) => void,
@@ -428,7 +436,16 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
     // under the group's id. Structural replay must make the same substitution
     // instead of painting its editable source children individually.
     if (isLiveBooleanNode(node)) {
-      if (item) replayIr(target as unknown as ReplayTarget, [item], undefined, resolveEffectMask);
+      if (item)
+        replayIr(
+          target as unknown as ReplayTarget,
+          [item],
+          undefined,
+          resolveEffectMask,
+          undefined,
+          undefined,
+          onEffectDiagnostic,
+        );
       return;
     }
 
@@ -736,10 +753,21 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
               ],
               undefined,
               resolveEffectMask,
+              undefined,
+              undefined,
+              onEffectDiagnostic,
             );
           }
           for (const extra of input.extrasByNodeId?.get(nodeId) ?? []) {
-            replayIr(surfaceContext as unknown as ReplayTarget, [extra]);
+            replayIr(
+              surfaceContext as unknown as ReplayTarget,
+              [extra],
+              undefined,
+              undefined,
+              undefined,
+              undefined,
+              onEffectDiagnostic,
+            );
           }
           if (node.clipContent !== false) {
             const [a, b, c, d, e, f] = frameTransform;
@@ -860,10 +888,29 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
         }
       }
 
-      if (item) replayIr(target as unknown as ReplayTarget, [item], undefined, resolveEffectMask);
+      if (item)
+        replayIr(
+          target as unknown as ReplayTarget,
+          [item],
+          undefined,
+          resolveEffectMask,
+          undefined,
+          undefined,
+          onEffectDiagnostic,
+        );
       const extras = input.extrasByNodeId?.get(nodeId);
       if (extras) {
-        for (const extra of extras) replayIr(target as unknown as ReplayTarget, [extra]);
+        for (const extra of extras) {
+          replayIr(
+            target as unknown as ReplayTarget,
+            [extra],
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            onEffectDiagnostic,
+          );
+        }
       }
       if (node.children.length === 0) return;
 
@@ -1403,11 +1450,27 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
           doc: input.document,
           baseTransform: target.getTransform(),
           paintContent: (ctx) =>
-            replayIr(ctx as unknown as ReplayTarget, [item], undefined, resolveEffectMask),
+            replayIr(
+              ctx as unknown as ReplayTarget,
+              [item],
+              undefined,
+              resolveEffectMask,
+              undefined,
+              undefined,
+              onEffectDiagnostic,
+            ),
           getWorldTransform: (nodeId) => nodeWorldTransform(input.document, nodeId),
         });
       } else {
-        replayIr(target as unknown as ReplayTarget, [item], undefined, resolveEffectMask);
+        replayIr(
+          target as unknown as ReplayTarget,
+          [item],
+          undefined,
+          resolveEffectMask,
+          undefined,
+          undefined,
+          onEffectDiagnostic,
+        );
       }
     }
   };

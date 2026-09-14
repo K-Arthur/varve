@@ -385,19 +385,43 @@ function applyRasterEffectMask(
       input.width,
       input.height,
     );
-    if (!mask) return;
+    if (!mask) {
+      reportEffectDiagnostic(
+        effect,
+        'effect-mask-unresolved',
+        effectMaskResolver
+          ? 'the effect-mask resolver returned no pixels'
+          : 'no scene-node/vector mask resolver was provided for this replay',
+      );
+      return;
+    }
     const evaluated = canvas.getImageData(0, 0, canvas.width, canvas.height);
     const merged = compositeMaskedEffectPixels(input, evaluated, mask, binding);
     canvas.putImageData(merged as unknown as ImageData, 0, 0);
     return;
   }
   if (!source.src) {
+    reportEffectDiagnostic(
+      effect,
+      'effect-mask-unresolved',
+      'the raster mask asset has no resolvable source',
+    );
     return;
   }
   const image = resolveReplayImage(source.src, imageLookupForCurrentReplay, getImageCache());
-  if (!image) return;
+  if (!image) {
+    reportEffectDiagnostic(effect, 'effect-mask-unresolved', 'the raster mask image is not loaded');
+    return;
+  }
   const maskBuffer = createEffectBuffer(canvas.canvas.width, canvas.canvas.height);
-  if (!maskBuffer) return;
+  if (!maskBuffer) {
+    reportEffectDiagnostic(
+      effect,
+      'effect-mask-budget',
+      'the effect mask buffer could not be allocated',
+    );
+    return;
+  }
   const maskCtx = maskBuffer.ctx as CanvasRenderingContext2D;
   maskCtx.setTransform(1, 0, 0, 1, 0, 0);
   maskCtx.clearRect(0, 0, maskBuffer.canvas.width, maskBuffer.canvas.height);
@@ -447,7 +471,13 @@ function paintContentEffects(
       if (effect.type === 'layerBlur') {
         canvas.applyBlur(Math.max(0, effect.radius));
       } else if (effect.type === 'depthBlur') {
-        if (effect.depthMap) {
+        if (!effect.depthMap) {
+          reportEffectDiagnostic(
+            effect,
+            'effect-depth-missing',
+            'the depth map resource is not present in the document',
+          );
+        } else {
           try {
             const resource = effect.depthMap;
             const cacheKey = depthMapCacheKey(resource);
@@ -465,6 +495,11 @@ function paintContentEffects(
           } catch {
             // A missing/corrupt persisted resource must not blank the
             // document; keeping the input is the safe render fallback.
+            reportEffectDiagnostic(
+              effect,
+              'effect-depth-missing',
+              'the persisted depth map failed to decode',
+            );
           }
         }
       } else if (
@@ -501,6 +536,15 @@ function paintContentEffects(
   } catch {
     // A surface allocation/readback failure is recoverable for this item: the
     // base content remains authoritative and later items must still render.
+    // Report it so an offscreen-budget refusal is never mistaken for the
+    // authored effect having been applied.
+    for (const effect of contentEffects) {
+      reportEffectDiagnostic(
+        effect,
+        'effect-surface-unavailable',
+        'the content-effect surface could not be allocated or read back',
+      );
+    }
     paintFillsAndStrokes(target, item, itemAlpha, itemBlend);
   }
 }
@@ -632,8 +676,22 @@ function paintBackgroundBlur(
   effect: BackgroundBlurEffect,
 ): void {
   const canvas = target.canvas as HTMLCanvasElement | OffscreenCanvas | undefined;
-  if (!canvas || !target.drawImage || typeof OffscreenCanvas === 'undefined') return;
-  if (!target.getTransform) return;
+  if (!canvas || !target.drawImage || typeof OffscreenCanvas === 'undefined') {
+    reportEffectDiagnostic(
+      effect,
+      'effect-surface-unavailable',
+      'the replay target cannot sample an offscreen backdrop for background blur',
+    );
+    return;
+  }
+  if (!target.getTransform) {
+    reportEffectDiagnostic(
+      effect,
+      'effect-surface-unavailable',
+      'the replay target has no transform stack for backdrop sampling',
+    );
+    return;
+  }
 
   const bounds = primitiveBounds(item.primitive);
   if (bounds.w <= 0 || bounds.h <= 0) return;
@@ -665,7 +723,17 @@ function paintBackgroundBlur(
     return;
   }
 
-  const cc = new CompositeCanvas({ width: sw, height: sh, devicePixelRatio: 1 });
+  let cc: CompositeCanvas;
+  try {
+    cc = new CompositeCanvas({ width: sw, height: sh, devicePixelRatio: 1 });
+  } catch {
+    reportEffectDiagnostic(
+      effect,
+      'effect-surface-unavailable',
+      'the background-blur backdrop surface could not be allocated',
+    );
+    return;
+  }
   cc.captureSource(canvas, screen.x, screen.y, sw, sh, 0, 0);
   cc.applyBlur(effect.radius);
 
@@ -699,8 +767,22 @@ function paintGlassMaterial(
   effect: GlassMaterialEffect,
 ): void {
   const canvas = target.canvas as HTMLCanvasElement | OffscreenCanvas | undefined;
-  if (!canvas || !target.drawImage || typeof OffscreenCanvas === 'undefined') return;
-  if (!target.getTransform) return;
+  if (!canvas || !target.drawImage || typeof OffscreenCanvas === 'undefined') {
+    reportEffectDiagnostic(
+      effect,
+      'effect-surface-unavailable',
+      'the replay target cannot sample an offscreen backdrop for glass material',
+    );
+    return;
+  }
+  if (!target.getTransform) {
+    reportEffectDiagnostic(
+      effect,
+      'effect-surface-unavailable',
+      'the replay target has no transform stack for backdrop sampling',
+    );
+    return;
+  }
 
   const bounds = primitiveBounds(item.primitive);
   if (bounds.w <= 0 || bounds.h <= 0) return;
@@ -716,7 +798,17 @@ function paintGlassMaterial(
   const sh = screen.h;
   const alphaMask = createBackdropAlphaMask(item, m, screen);
 
-  const cc = new CompositeCanvas({ width: sw, height: sh, devicePixelRatio: 1 });
+  let cc: CompositeCanvas;
+  try {
+    cc = new CompositeCanvas({ width: sw, height: sh, devicePixelRatio: 1 });
+  } catch {
+    reportEffectDiagnostic(
+      effect,
+      'effect-surface-unavailable',
+      'the glass-material backdrop surface could not be allocated',
+    );
+    return;
+  }
   cc.captureSource(canvas, screen.x, screen.y, sw, sh, 0, 0);
 
   // Step 1: Blur the backdrop
@@ -765,6 +857,73 @@ function paintGlassMaterialEdgeHighlight(
 let imageLookupForCurrentReplay: ((src: string) => CanvasImageSource | undefined) | null = null;
 let effectMaskResolverForCurrentReplay: EffectMaskResolver | null = null;
 let imagePolicyForCurrentReplay: ReplayImagePolicy | undefined;
+
+/** A declared degradation of an authored effect during replay. */
+export type EffectDiagnosticCode =
+  | 'effect-surface-unavailable'
+  | 'effect-mask-unresolved'
+  | 'effect-mask-budget'
+  | 'effect-mask-unsupported'
+  | 'effect-depth-missing';
+
+export interface EffectDiagnostic {
+  code: EffectDiagnosticCode;
+  effectType: string;
+  effectId?: string;
+  reason: string;
+}
+
+let effectDiagnosticSinkForCurrentReplay: ((diagnostic: EffectDiagnostic) => void) | null = null;
+
+/**
+ * Report an effect that was skipped or degraded. These paths previously kept
+ * unmodified content with no signal, so a missing mask, depth map, or
+ * offscreen surface silently shipped as if it were final output.
+ */
+function reportEffectDiagnostic(
+  effect: { type: string; id?: string },
+  code: EffectDiagnosticCode,
+  reason: string,
+): void {
+  effectDiagnosticSinkForCurrentReplay?.({
+    code,
+    effectType: effect.type,
+    ...(effect.id ? { effectId: effect.id } : {}),
+    reason,
+  });
+}
+
+/** Effect types whose `mask` binding the content pass actually evaluates. */
+const CONTENT_EFFECT_TYPES: ReadonlySet<string> = new Set([
+  'layerBlur',
+  'depthBlur',
+  'gaussianBlur',
+  'fieldBlur',
+  'irisBlur',
+  'tiltShiftBlur',
+  'pathBlur',
+  'spinBlur',
+  'chromaticAberration',
+  'glitch',
+]);
+
+/**
+ * Appearance and backdrop effects ignore `effect.mask` in every renderer
+ * today. Report an authored, visible mask so it is never mistaken for an
+ * applied one (the Inspector already hides authoring for these types).
+ */
+function reportUnsupportedEffectMasks(item: RenderItem): void {
+  if (!effectDiagnosticSinkForCurrentReplay || !item.effects) return;
+  for (const effect of item.effects) {
+    if (!effect.visible || !effect.mask || effect.mask.visible === false) continue;
+    if (CONTENT_EFFECT_TYPES.has(effect.type)) continue;
+    reportEffectDiagnostic(
+      effect,
+      'effect-mask-unsupported',
+      'effect masks are only evaluated for content-stage effects',
+    );
+  }
+}
 
 type ReplayAffine = readonly [number, number, number, number, number, number];
 
@@ -954,6 +1113,7 @@ export function replayIr(
   effectMaskResolver?: EffectMaskResolver,
   imagePolicy?: ReplayImagePolicy,
   colorOptions?: ReplayColorOptions,
+  onEffectDiagnostic?: (diagnostic: EffectDiagnostic) => void,
 ): void {
   // Backdrop pixels are sampled from the target canvas, so a cache entry is
   // valid only within this replay. Keeping it across document revisions can
@@ -965,12 +1125,15 @@ export function replayIr(
   const previousImageLookup = imageLookupForCurrentReplay;
   const previousEffectMaskResolver = effectMaskResolverForCurrentReplay;
   const previousImagePolicy = imagePolicyForCurrentReplay;
+  const previousEffectDiagnosticSink = effectDiagnosticSinkForCurrentReplay;
   imageLookupForCurrentReplay = imageLookup ?? previousImageLookup;
   effectMaskResolverForCurrentReplay = effectMaskResolver ?? previousEffectMaskResolver;
   imagePolicyForCurrentReplay = imagePolicy ?? previousImagePolicy;
+  effectDiagnosticSinkForCurrentReplay = onEffectDiagnostic ?? previousEffectDiagnosticSink;
   try {
     primeCanvasTypographyAliases(target, ir);
     for (const item of ir) {
+      reportUnsupportedEffectMasks(item);
       if (
         replayItemOnIsolatedSurface(
           target,
@@ -1221,6 +1384,7 @@ export function replayIr(
     imageLookupForCurrentReplay = previousImageLookup;
     effectMaskResolverForCurrentReplay = previousEffectMaskResolver;
     imagePolicyForCurrentReplay = previousImagePolicy;
+    effectDiagnosticSinkForCurrentReplay = previousEffectDiagnosticSink;
   }
 }
 

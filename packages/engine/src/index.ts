@@ -234,6 +234,12 @@ export {
 } from './colorization/colorSpace';
 export { resolveDdColorRuntime } from './colorization/ddcolorRuntime';
 export { harmonize } from './colorization/harmonize';
+export { lineArtColorize } from './colorization/lineArt';
+export type {
+  LineArtOptions,
+  LineArtResult,
+  LineArtStats,
+} from './colorization/lineArt';
 export { colorizationPipeline, paletteColorize, validatePalette } from './colorization/pipeline';
 export { dispatchColorization, validateColorizationRequest } from './colorization/pipelineDispatch';
 export { selectiveRecolor } from './colorization/recolor';
@@ -1191,7 +1197,13 @@ export type {
   RasterTransformContext,
 } from './rasterTransform';
 export { applyRasterizationTransform, sourceBoundsToRasterTransform } from './rasterTransform';
-export type { EffectMaskResolver, ReplayColorOptions, ReplayTarget } from './replay';
+export type {
+  EffectDiagnostic,
+  EffectDiagnosticCode,
+  EffectMaskResolver,
+  ReplayColorOptions,
+  ReplayTarget,
+} from './replay';
 export { primitiveBounds, renderAlphaMask, replayIr, resetGradientCacheForTest } from './replay';
 export type {
   CapabilityStatus,

@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 
-import { CompositeCanvas, createEngine } from '@varve/engine';
+import { CompositeCanvas, createEngine, type EffectDiagnostic } from '@varve/engine';
 import { isRasterPyramidEnabled, setRasterPyramidEnabled } from '@varve/engine/rasterPyramid';
 import {
   addChild,
   addNode,
+  createDefaultEffect,
   createDocument,
   makeAdjustmentNode,
   makeFrameNode,
@@ -515,5 +516,58 @@ describe('replayStructuredScene', () => {
       items: [],
     });
     expect(isRasterPyramidEnabled()).toBe(false);
+  });
+});
+
+describe('effect degradation diagnostics', () => {
+  it('reports an authored appearance-effect mask the renderer cannot apply', async () => {
+    let doc = createDocument('Masked shadow', true);
+    const target = makeShapeNode(
+      'target',
+      { kind: 'rect', x: 0, y: 0, w: 40, h: 40 },
+      {
+        effects: [
+          {
+            ...createDefaultEffect('dropShadow', 'fx-masked'),
+            mask: {
+              source: { kind: 'scene-node', nodeId: 'source' },
+              type: 'alpha',
+              coordinateSpace: 'world',
+            },
+          },
+        ],
+      },
+    );
+    const source = makeShapeNode('source', { kind: 'rect', x: 60, y: 0, w: 40, h: 40 });
+    doc = addNode(doc, target);
+    doc = addNode(doc, source);
+
+    const flattened = flattenSceneToEngine(doc, ['target']);
+    const engine = await createEngine('stub');
+    const items = await engine.buildIr({ nodes: flattened.nodes });
+    const canvas = document.createElement('canvas');
+    canvas.width = 200;
+    canvas.height = 200;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('test canvas unavailable');
+    if (typeof context.getTransform !== 'function') {
+      context.getTransform = () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }) as DOMMatrix;
+    }
+
+    const diagnostics: EffectDiagnostic[] = [];
+    replayStructuredScene(context, {
+      document: doc,
+      rootIds: ['target'],
+      flattenedIds: flattened.ids,
+      items,
+      onEffectDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
+    });
+
+    expect(
+      diagnostics.some(
+        (diagnostic) =>
+          diagnostic.code === 'effect-mask-unsupported' && diagnostic.effectType === 'dropShadow',
+      ),
+    ).toBe(true);
   });
 });

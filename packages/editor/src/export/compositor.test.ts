@@ -1227,4 +1227,42 @@ describe('rasterization diagnostics', () => {
     expect(result.svg.rasterAssets.big?.dataUrl).toBe('');
     expect(result.svg.rasterizedNodeIds.has('big')).toBe(true);
   });
+
+  it('reports engine effect degradations from a rasterized boundary', async () => {
+    const depth = makeShapeNode(
+      'depth',
+      { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+      {
+        effects: [
+          {
+            id: 'fx-depth',
+            type: 'depthBlur',
+            depthMapId: 'missing-depth-map',
+            focusDepth: 0.5,
+            focusRange: 0.2,
+            blurStrength: 8,
+            falloff: 1,
+            invert: false,
+            edgeProtection: 0,
+            visible: true,
+          },
+        ] as any,
+      },
+    );
+    const doc = makeDoc({ depth: depth });
+
+    const reported: Array<{ code: string; message: string }> = [];
+    const result = await composeFlattenedExportSnapshot(doc, ['svg'], {
+      scale: 1,
+      onRasterizationDiagnostic: (diagnostic) => reported.push(diagnostic),
+    });
+
+    // The engine reports the missing depth resource; the compositor turns it
+    // into an explicit export diagnostic instead of shipping a fallback that
+    // silently skipped the authored blur.
+    const degraded = result.svg.diagnostics.filter((d) => d.code === 'effect-degraded');
+    expect(degraded.length).toBeGreaterThan(0);
+    expect(degraded[0]?.message).toMatch(/depthBlur/i);
+    expect(reported.some((d) => d.code === 'effect-degraded')).toBe(true);
+  });
 });
