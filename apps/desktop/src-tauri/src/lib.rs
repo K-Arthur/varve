@@ -2444,6 +2444,29 @@ async fn download_generative_model_attempt_inner(
     Ok(())
 }
 
+/// Claim a model-download request before any filesystem or network work starts.
+///
+/// Cancellation can arrive after the renderer queues the command but before
+/// Tauri polls the command future. Treat that tombstone as authoritative at
+/// dispatch time instead of clearing it and accidentally starting the
+/// download.
+fn begin_generative_model_download(request_id: &str) -> Result<(), String> {
+    let mut cancellations = GENERATIVE_MODEL_DOWNLOAD_CANCELLATIONS
+        .lock()
+        .map_err(|_| "Generative model download state is unavailable".to_string())?;
+    if cancellations.remove(request_id) {
+        return Err("Download cancelled".into());
+    }
+
+    let mut downloads = GENERATIVE_MODEL_DOWNLOADS
+        .lock()
+        .map_err(|_| "Generative model download state is unavailable".to_string())?;
+    if !downloads.insert(request_id.to_owned()) {
+        return Err("A generative model download is already active".into());
+    }
+    Ok(())
+}
+
 #[tauri::command]
 async fn download_generative_edit_model(
     app: tauri::AppHandle,
@@ -2452,17 +2475,7 @@ async fn download_generative_edit_model(
     if !valid_download_request_id(&request_id) {
         return Err("Invalid model-download request id".into());
     }
-    {
-        let _ = GENERATIVE_MODEL_DOWNLOAD_CANCELLATIONS
-            .lock()
-            .map(|mut requests| requests.remove(&request_id));
-        let mut requests = GENERATIVE_MODEL_DOWNLOADS
-            .lock()
-            .map_err(|_| "Generative model download state is unavailable".to_string())?;
-        if !requests.insert(request_id.clone()) {
-            return Err("A generative model download is already active".into());
-        }
-    }
+    begin_generative_model_download(&request_id)?;
 
     let result = async {
         let destination = model_dir(&app)?.join(GENERATIVE_MODEL_FILENAME);
@@ -5717,6 +5730,25 @@ mod tests {
             .lock()
             .expect("cancellation state is available")
             .remove(&request_id);
+    }
+
+    #[test]
+    fn model_download_cancellation_before_dispatch_is_honored() {
+        let request_id = format!("download-cancel-before-dispatch-{}", uuid());
+        cancel_generative_edit_model_download(request_id.clone()).expect("record cancellation");
+
+        assert_eq!(
+            begin_generative_model_download(&request_id),
+            Err("Download cancelled".into())
+        );
+        assert!(!GENERATIVE_MODEL_DOWNLOADS
+            .lock()
+            .expect("download state is available")
+            .contains(&request_id));
+        assert!(!GENERATIVE_MODEL_DOWNLOAD_CANCELLATIONS
+            .lock()
+            .expect("cancellation state is available")
+            .contains(&request_id));
     }
 
     #[test]
