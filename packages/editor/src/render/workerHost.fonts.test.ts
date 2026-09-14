@@ -9,8 +9,8 @@ vi.mock('./workerFonts', async () => {
   return { ...actual, harvestDocumentFontFaces };
 });
 
-import { createRenderWorkerHost } from './workerHost';
 import type { WorkerFontFace } from './workerFonts';
+import { createRenderWorkerHost } from './workerHost';
 
 const face: WorkerFontFace = {
   family: 'Exact Sans',
@@ -58,6 +58,7 @@ describe('render worker font adoption gate', () => {
     expect(fontCommand?.key).toBeTruthy();
     expect(host!.fontsReady).toBe(false);
     expect([...host!.unavailableFontFamilies]).toEqual(['Exact Sans']);
+    expect([...host!.unavailableFontFaceKeys]).toEqual([face.faceKey]);
 
     worker.onmessage?.({
       data: { type: 'fontsAdopted', key: 'fonts:stale', families: ['Exact Sans'] },
@@ -72,10 +73,16 @@ describe('render worker font adoption gate', () => {
     expect([...host!.unavailableFontFamilies]).toEqual(['Exact Sans']);
 
     worker.onmessage?.({
-      data: { type: 'fontsAdopted', key: fontCommand!.key, families: ['Exact Sans'] },
+      data: {
+        type: 'fontsAdopted',
+        key: fontCommand!.key,
+        families: ['Exact Sans'],
+        faceKeys: [face.faceKey],
+      },
     } as MessageEvent);
     expect(host!.fontsReady).toBe(true);
     expect(host!.unavailableFontFamilies.size).toBe(0);
+    expect(host!.unavailableFontFaceKeys.size).toBe(0);
 
     host!.terminate();
   });

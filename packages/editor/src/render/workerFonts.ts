@@ -32,6 +32,11 @@ export interface WorkerFontFace {
   revision?: string;
 }
 
+export interface AdoptedWorkerFonts {
+  families: string[];
+  faceKeys: string[];
+}
+
 /**
  * Read the document's `@font-face` rules.
  *
@@ -157,11 +162,14 @@ export function fontFaceSetKey(faces: readonly WorkerFontFace[]): string {
  * bold weight of a family whose bold payload failed would otherwise be
  * cleared for a realm that can only synthesise it.
  */
-export async function adoptFontFaces(faces: readonly WorkerFontFace[]): Promise<string[]> {
+export async function adoptFontFacesDetailed(
+  faces: readonly WorkerFontFace[],
+): Promise<AdoptedWorkerFonts> {
   const set = (globalThis as { fonts?: FontFaceSet }).fonts;
-  if (!set || typeof FontFace === 'undefined') return [];
+  if (!set || typeof FontFace === 'undefined') return { families: [], faceKeys: [] };
   const failed = new Set<string>();
   const seen = new Set<string>();
+  const successful = new Set<string>();
   await Promise.all(
     faces.map(async (face) => {
       seen.add(face.family);
@@ -173,6 +181,7 @@ export async function adoptFontFaces(faces: readonly WorkerFontFace[]): Promise<
         if (face.unicodeRange) descriptors.unicodeRange = face.unicodeRange;
         const loaded = await new FontFace(face.family, face.source, descriptors).load();
         set.add(loaded);
+        if (face.faceKey) successful.add(face.faceKey);
       } catch {
         // Unreachable or undecodable payload. The family stays on fallback in
         // this realm, so it is withheld from the adopted set and text using it
@@ -181,7 +190,19 @@ export async function adoptFontFaces(faces: readonly WorkerFontFace[]): Promise<
       }
     }),
   );
-  return [...seen].filter((family) => !failed.has(family));
+  const families = [...seen].filter((family) => !failed.has(family));
+  const successfulFamilies = new Set(families);
+  return {
+    families,
+    faceKeys: faces
+      .filter((face) => successfulFamilies.has(face.family) && face.faceKey)
+      .map((face) => face.faceKey!),
+  };
+}
+
+/** Compatibility projection used by callers that only need family readiness. */
+export async function adoptFontFaces(faces: readonly WorkerFontFace[]): Promise<string[]> {
+  return (await adoptFontFacesDetailed(faces)).families;
 }
 
 /**
@@ -193,6 +214,7 @@ export async function adoptFontFaces(faces: readonly WorkerFontFace[]): Promise<
  */
 interface WorkerTextFormat {
   fontFamily?: string;
+  fontReference?: WorkerFontReference;
 }
 
 interface WorkerTextRun {
@@ -207,11 +229,26 @@ interface WorkerTextContent {
 interface WorkerTextStyle {
   type?: string;
   fontFamily?: string;
+  fontReference?: WorkerFontReference;
+}
+
+interface WorkerFontReference {
+  artifactHash?: string;
+  collectionIndex?: number;
+}
+
+function workerFaceKey(reference: WorkerFontReference | undefined): string | undefined {
+  const hash = reference?.artifactHash?.trim().toLowerCase();
+  if (!hash) return undefined;
+  const member =
+    reference?.collectionIndex === undefined ? 'single' : String(reference.collectionIndex);
+  return `sha256:${hash}:${member}`;
 }
 
 interface WorkerTextNode {
   kind: string;
   fontFamily?: string;
+  fontReference?: WorkerFontReference;
   styleId?: string;
   richText?: WorkerTextContent;
   storyBinding?: { storyId: string };
@@ -264,9 +301,36 @@ export function documentNeedsWorkerFonts(
  * repair that frame.
  */
 export function workerHasFontsForDocument(
-  host: { unavailableFontFamilies: ReadonlySet<string> } | null,
+  host: {
+    unavailableFontFamilies: ReadonlySet<string>;
+    unavailableFontFaceKeys?: ReadonlySet<string>;
+  } | null,
   doc: WorkerDocument,
 ): boolean {
   if (!host) return false;
-  return !documentNeedsWorkerFonts(doc, host.unavailableFontFamilies);
+  if (documentNeedsWorkerFonts(doc, host.unavailableFontFamilies)) return false;
+  const unavailableFaceKeys = host.unavailableFontFaceKeys;
+  if (!unavailableFaceKeys || unavailableFaceKeys.size === 0) return true;
+  for (const node of Object.values(doc.nodes)) {
+    if (node.kind !== 'text') continue;
+    const style = node.styleId ? doc.styles?.[node.styleId] : undefined;
+    if (unavailableFaceKeys.has(workerFaceKey(node.fontReference) ?? '')) return false;
+    if (unavailableFaceKeys.has(workerFaceKey(style?.fontReference) ?? '')) return false;
+    if (richTextNeedsWorkerFace(node.richText, unavailableFaceKeys)) return false;
+    const story = node.storyBinding ? doc.stories?.[node.storyBinding.storyId] : undefined;
+    if (richTextNeedsWorkerFace(story?.content, unavailableFaceKeys)) return false;
+  }
+  return true;
+}
+
+function richTextNeedsWorkerFace(
+  content: WorkerTextContent | undefined,
+  unavailableFaceKeys: ReadonlySet<string>,
+): boolean {
+  for (const paragraph of content?.paragraphs ?? []) {
+    for (const run of paragraph.runs ?? []) {
+      if (unavailableFaceKeys.has(workerFaceKey(run.format?.fontReference) ?? '')) return true;
+    }
+  }
+  return false;
 }

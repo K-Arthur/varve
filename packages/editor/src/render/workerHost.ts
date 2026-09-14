@@ -100,7 +100,7 @@ export type WorkerResponse =
   | { type: 'error'; message: string; docVersion?: number; renderRevision?: RenderRevision }
   /** Clock-calibration pong; `t1`/`t2` are worker.performance.now(). */
   | { type: 'clockPong'; seq: number; t0: number; t1: number; t2: number }
-  | { type: 'fontsAdopted'; key: string; families: string[] };
+  | { type: 'fontsAdopted'; key: string; families: string[]; faceKeys?: string[] };
 
 export interface RenderWorkerHost {
   /** Returns false when the host refused the command or postMessage failed. */
@@ -137,6 +137,8 @@ export interface RenderWorkerHost {
    * trusted with any text in the document.
    */
   readonly unavailableFontFamilies: ReadonlySet<string>;
+  /** Exact artifact/member keys the worker has not adopted yet. */
+  readonly unavailableFontFaceKeys: ReadonlySet<string>;
   /** Compatibility diagnostics for callers that need the aggregate state. */
   readonly fontsReady: boolean;
   readonly declaredFontFamilies: ReadonlySet<string>;
@@ -227,6 +229,7 @@ export function createRenderWorkerHost(
   let declaredFontFamilies: ReadonlySet<string> = new Set<string>();
   let adoptedFontKey: string | null = null;
   let adoptedFamilies: ReadonlySet<string> = new Set<string>();
+  let adoptedFaceKeys: ReadonlySet<string> = new Set<string>();
 
   /**
    * Re-read the document's faces and hand any new ones to the worker.
@@ -247,10 +250,12 @@ export function createRenderWorkerHost(
     if (faces.length === 0) {
       adoptedFontKey = key;
       adoptedFamilies = new Set<string>();
+      adoptedFaceKeys = new Set<string>();
       return;
     }
     adoptedFontKey = null;
     adoptedFamilies = new Set<string>();
+    adoptedFaceKeys = new Set<string>();
     try {
       postToWorker({ type: 'fonts', faces, key });
     } catch {
@@ -464,6 +469,7 @@ export function createRenderWorkerHost(
           if (msg.key === declaredFontKey) {
             adoptedFontKey = msg.key;
             adoptedFamilies = new Set(msg.families);
+            adoptedFaceKeys = new Set(msg.faceKeys ?? []);
           }
           return;
         }
@@ -603,6 +609,7 @@ export function createRenderWorkerHost(
         // again; text frames stay on the main thread until it confirms.
         adoptedFontKey = null;
         adoptedFamilies = new Set<string>();
+        adoptedFaceKeys = new Set<string>();
         declaredFontKey = '';
         provisionFonts();
         const delay = Math.min(2 ** restartCount, 30) * 1000;
@@ -728,6 +735,7 @@ export function createRenderWorkerHost(
       permanentFailure = true;
       adoptedFontKey = null;
       adoptedFamilies = new Set<string>();
+      adoptedFaceKeys = new Set<string>();
       unsubscribeFonts();
       clearRestartTimeout();
       worker?.terminate();
@@ -767,6 +775,16 @@ export function createRenderWorkerHost(
       const missing = new Set<string>();
       for (const family of declaredFontFamilies) {
         if (!adoptedFamilies.has(family)) missing.add(family);
+      }
+      return missing;
+    },
+    get unavailableFontFaceKeys() {
+      if (adoptedFontKey !== declaredFontKey) {
+        return new Set(declaredFaces.flatMap((face) => (face.faceKey ? [face.faceKey] : [])));
+      }
+      const missing = new Set<string>();
+      for (const face of declaredFaces) {
+        if (face.faceKey && !adoptedFaceKeys.has(face.faceKey)) missing.add(face.faceKey);
       }
       return missing;
     },

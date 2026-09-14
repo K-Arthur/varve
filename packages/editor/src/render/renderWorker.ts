@@ -10,7 +10,7 @@ import { closeImageBitmapMap, reconcileImageBitmapMap } from './collectImageBitm
 import { applyProofToIr } from './proofing';
 import { shouldTransferRenderedFrame } from './renderWorkerGuards';
 import { applyWorkerCamera } from './workerCamera';
-import { adoptFontFaces } from './workerFonts';
+import { adoptFontFacesDetailed } from './workerFonts';
 import type { WorkerCommand, WorkerRenderTiming, WorkerResponse } from './workerHost';
 
 // The worker is the primary display path; the raster LOD pyramid (ADR-0214)
@@ -45,8 +45,8 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
     // worker draws in a bundled family is silently substituted, so the host
     // keeps such frames on the main thread until it hears the echo below.
     const key = msg.key;
-    void adoptFontFaces(msg.faces).then((families) => {
-      post({ type: 'fontsAdopted', key, families });
+    void adoptFontFacesDetailed(msg.faces).then(({ families, faceKeys }) => {
+      post({ type: 'fontsAdopted', key, families, faceKeys });
     });
     return;
   }
