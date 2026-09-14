@@ -5,10 +5,10 @@
  * drag to create a box. Box mode also supports the WCAG-recommended
  * two-tap corner gesture. Tapping an existing point marker removes that
  * specific prompt (the single-pointer alternative to keyboard deletion),
- * while Backspace/Delete removes the last staged prompt. Prompt geometry is
- * mirrored into transient editor state while it is being drawn so the
- * overlay and inspector have one source of truth. Only the completed prompt
- * is sent to the model.
+ * while dragging a marker moves that prompt and Backspace/Delete removes the
+ * last staged prompt. Prompt geometry is mirrored into transient editor state
+ * while it is being drawn so the overlay and inspector have one source of
+ * truth. Only the completed prompt is sent to the model.
  */
 import { BaseTool } from './BaseTool';
 import { worldDistanceForCssPixels } from './inputNormalizer';
@@ -37,6 +37,9 @@ export class Sam2SegmentationTool extends BaseTool {
   private pendingBox: SegmentationBox | null = null;
   private pendingPoint: SegmentationPoint | null = null;
   private boxAnchor: { x: number; y: number } | null = null;
+  private movingPointIndex: number | null = null;
+  private movingPointOriginal: SegmentationPoint | null = null;
+  private movingPointDidMove = false;
   private promptMode: Sam2PromptMode = 'point';
   private promptPolarity: 0 | 1 = 1;
 
@@ -59,6 +62,9 @@ export class Sam2SegmentationTool extends BaseTool {
     this.pendingBox = null;
     this.pendingPoint = null;
     this.boxAnchor = null;
+    this.movingPointIndex = null;
+    this.movingPointOriginal = null;
+    this.movingPointDidMove = false;
   }
 
   /** Set the default polarity for new point prompts. Shift still forces exclude. */
@@ -72,26 +78,23 @@ export class Sam2SegmentationTool extends BaseTool {
     this.syncFromSession(ctx);
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
 
-    // A tap on an existing prompt marker removes exactly that prompt. This
-    // is deliberately handled before a new point is staged so the marker
-    // gesture is never also interpreted as adding to the prompt set.
+    // A tap on an existing prompt marker removes exactly that prompt, while
+    // dragging it moves the prompt. This is deliberately handled before a
+    // new point is staged so the marker gesture is never also interpreted as
+    // adding to the prompt set.
     const markerIndex = this.findMarkerIndex(world, ctx.zoom);
     if (markerIndex >= 0) {
-      this.points.splice(markerIndex, 1);
-      this.pendingPoint = null;
-      this.pendingBox = null;
-      if (this.points.length > 0 || this.box) {
-        this.patchPrompts(ctx, 'previewing', {
-          draftPoint: null,
-          draftBox: null,
-          invalidatePreview: true,
-        });
-        void this.runSegmentation(ctx);
-      } else {
+      const marker = this.points[markerIndex];
+      if (!marker) return { consumed: false };
+      if (ctx.objectSelectionSession && ctx.objectSelectionSession.status !== 'drawing') {
         ctx.cancelSam2Segmentation?.();
       }
-      ctx.announce('Prompt removed');
-      return { consumed: true };
+      this.movingPointIndex = markerIndex;
+      this.movingPointOriginal = { ...marker };
+      this.movingPointDidMove = false;
+      this.pendingPoint = null;
+      this.pendingBox = null;
+      return super.onPointerDown(e, ctx);
     }
 
     // A new prompt supersedes an older encoder/decoder request immediately,
@@ -129,6 +132,19 @@ export class Sam2SegmentationTool extends BaseTool {
   }
 
   override onDragMove(ctx: ToolContext): void {
+    if (this.movingPointIndex !== null) {
+      const point = this.points[this.movingPointIndex];
+      if (!point) return;
+      const world = ctx.canvasToWorld(this.drag.currentCanvas.x, this.drag.currentCanvas.y);
+      this.points[this.movingPointIndex] = { ...point, x: world.x, y: world.y };
+      this.patchPrompts(ctx, 'drawing', {
+        draftPoint: null,
+        draftBox: null,
+        invalidatePreview: !this.movingPointDidMove,
+      });
+      this.movingPointDidMove = true;
+      return;
+    }
     if (!this.pendingPoint) return;
     const world = ctx.canvasToWorld(this.drag.currentCanvas.x, this.drag.currentCanvas.y);
     this.pendingBox = {
@@ -141,6 +157,38 @@ export class Sam2SegmentationTool extends BaseTool {
   }
 
   override onDragEnd(ctx: ToolContext): void {
+    if (this.movingPointIndex !== null) {
+      const index = this.movingPointIndex;
+      const moved =
+        this.drag.kind === 'dragging' &&
+        (Math.abs(this.drag.currentCanvas.x - this.drag.startCanvas.x) > DRAG_THRESHOLD_CSS_PX ||
+          Math.abs(this.drag.currentCanvas.y - this.drag.startCanvas.y) > DRAG_THRESHOLD_CSS_PX);
+      this.movingPointIndex = null;
+      this.movingPointOriginal = null;
+      this.movingPointDidMove = false;
+
+      if (moved) {
+        this.patchPrompts(ctx, 'previewing', {
+          draftPoint: null,
+          draftBox: null,
+          invalidatePreview: true,
+        });
+        void this.runSegmentation(ctx);
+        ctx.announce('Prompt moved');
+      } else {
+        this.points.splice(index, 1);
+        this.patchPrompts(ctx, 'previewing', {
+          draftPoint: null,
+          draftBox: null,
+          invalidatePreview: true,
+        });
+        if (this.points.length > 0 || this.box) void this.runSegmentation(ctx);
+        else ctx.cancelSam2Segmentation?.();
+        ctx.announce('Prompt removed');
+      }
+      return;
+    }
+
     const point = this.pendingPoint;
     this.pendingPoint = null;
     if (!point) return;
@@ -199,9 +247,15 @@ export class Sam2SegmentationTool extends BaseTool {
   }
 
   override onDragCancel(ctx: ToolContext): void {
+    if (this.movingPointIndex !== null && this.movingPointOriginal) {
+      this.points[this.movingPointIndex] = { ...this.movingPointOriginal };
+    }
     this.pendingPoint = null;
     this.pendingBox = null;
     this.boxAnchor = null;
+    this.movingPointIndex = null;
+    this.movingPointOriginal = null;
+    this.movingPointDidMove = false;
     this.patchPrompts(ctx, 'drawing', { draftPoint: null, draftBox: null });
   }
 
@@ -254,6 +308,9 @@ export class Sam2SegmentationTool extends BaseTool {
     this.pendingBox = null;
     this.pendingPoint = null;
     this.boxAnchor = null;
+    this.movingPointIndex = null;
+    this.movingPointOriginal = null;
+    this.movingPointDidMove = false;
   }
 
   private syncFromSession(ctx: ToolContext): void {

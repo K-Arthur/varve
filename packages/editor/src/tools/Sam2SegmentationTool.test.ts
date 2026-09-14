@@ -250,22 +250,11 @@ describe('Sam2SegmentationTool', () => {
   it('removes a specific prompt when its marker is tapped', () => {
     const tool = new Sam2SegmentationTool();
     const ctx = statefulMockCtx();
-    tool.onPointerDown(
-      new PointerEvent('pointerdown', { clientX: 10, clientY: 10, button: 0 }),
-      ctx,
-    );
-    tool.onDragEnd(ctx);
-    tool.onPointerDown(
-      new PointerEvent('pointerdown', { clientX: 100, clientY: 100, button: 0 }),
-      ctx,
-    );
-    tool.onDragEnd(ctx);
+    tap(tool, ctx, 10, 10);
+    tap(tool, ctx, 100, 100);
     expect(tool.getPrompts().points).toHaveLength(2);
 
-    tool.onPointerDown(
-      new PointerEvent('pointerdown', { clientX: 100, clientY: 100, button: 0 }),
-      ctx,
-    );
+    tap(tool, ctx, 100, 100);
 
     expect(tool.getPrompts().points).toEqual([{ x: 10, y: 10, label: 1 }]);
     expect(ctx.applySam2Segmentation).toHaveBeenLastCalledWith(
@@ -276,19 +265,39 @@ describe('Sam2SegmentationTool', () => {
     );
   });
 
+  it('moves a specific prompt when its marker is dragged', () => {
+    const tool = new Sam2SegmentationTool();
+    const ctx = statefulMockCtx();
+    tap(tool, ctx, 10, 10);
+
+    tool.onPointerDown(
+      new PointerEvent('pointerdown', { clientX: 10, clientY: 10, button: 0, pointerId: 1 }),
+      ctx,
+    );
+    tool.onPointerMove(
+      new PointerEvent('pointermove', { clientX: 50, clientY: 60, button: 0, pointerId: 1 }),
+      ctx,
+    );
+    tool.onPointerUp(
+      new PointerEvent('pointerup', { clientX: 50, clientY: 60, button: 0, pointerId: 1 }),
+      ctx,
+    );
+
+    expect(tool.getPrompts().points).toEqual([{ x: 50, y: 60, label: 1 }]);
+    expect(ctx.announce).toHaveBeenCalledWith('Prompt moved');
+    expect(ctx.applySam2Segmentation).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        prompts: { points: [{ x: 50, y: 60, label: 1 }] },
+        operation: 'preview',
+      }),
+    );
+  });
+
   it('clears the session when the last prompt marker is tapped', () => {
     const tool = new Sam2SegmentationTool();
     const ctx = statefulMockCtx();
-    tool.onPointerDown(
-      new PointerEvent('pointerdown', { clientX: 40, clientY: 40, button: 0 }),
-      ctx,
-    );
-    tool.onDragEnd(ctx);
-
-    tool.onPointerDown(
-      new PointerEvent('pointerdown', { clientX: 44, clientY: 43, button: 0 }),
-      ctx,
-    );
+    tap(tool, ctx, 40, 40);
+    tap(tool, ctx, 44, 43);
 
     expect(tool.getPrompts().points).toHaveLength(0);
     expect(ctx.cancelSam2Segmentation).toHaveBeenCalled();
@@ -297,17 +306,8 @@ describe('Sam2SegmentationTool', () => {
   it('adds a point when the tap is outside the marker radius', () => {
     const tool = new Sam2SegmentationTool();
     const ctx = statefulMockCtx();
-    tool.onPointerDown(
-      new PointerEvent('pointerdown', { clientX: 10, clientY: 10, button: 0 }),
-      ctx,
-    );
-    tool.onDragEnd(ctx);
-
-    tool.onPointerDown(
-      new PointerEvent('pointerdown', { clientX: 60, clientY: 60, button: 0 }),
-      ctx,
-    );
-    tool.onDragEnd(ctx);
+    tap(tool, ctx, 10, 10);
+    tap(tool, ctx, 60, 60);
 
     expect(tool.getPrompts().points).toHaveLength(2);
   });

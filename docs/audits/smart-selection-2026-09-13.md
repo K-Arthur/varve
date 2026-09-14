@@ -142,8 +142,8 @@ background `[238,242,246]` outside.
   was not met and the four weak categories are proposed as documented review
   categories decided by the maintainer.
 - WebKitGTK/Tauri, physical pen, and touch hardware: unverified.
-- Prompt **move** (as opposed to remove) is not implemented; tap removes a
-  specific prompt and Backspace removes the last one.
+- Prompt markers support tap-to-remove and drag-to-move; Backspace/Delete still
+  removes the last staged prompt.
 - The lasso-as-region-hint adapter for the prompted model is not implemented;
   a lasso is never silently converted to a bounding box.
 - Iterative low-resolution mask input is not exposed by the pinned decoder

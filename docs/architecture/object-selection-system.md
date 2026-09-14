@@ -63,12 +63,17 @@ open so prompts can be corrected.
 
 ## Interaction contract
 
-- A click creates one positive point.
-- Shift-click creates one negative point.
-- A drag creates a box prompt and does not inject a point at the drag origin.
+- Point mode creates one positive point per click; Shift-click or the visible
+  Exclude polarity control creates a negative point.
+- Box hint mode accepts either a drag or two taps for opposite corners and does
+  not inject a point at the drag origin. The box is a model hint, not an output
+  clipping constraint.
 - Tapping an existing include/exclude marker removes that specific prompt
-  within a CSS-pixel tolerance; Backspace/Delete removes the last staged
-  prompt. Both are single-pointer operations.
+  within a CSS-pixel tolerance; dragging a marker moves it; Backspace/Delete
+  removes the last staged prompt. These are all single-pointer operations.
+- Prompt polarity and accepted-selection combination are separate concepts:
+  Include/Exclude labels model prompts, while Replace/Add/Subtract/Intersect
+  applies only when a reviewed candidate becomes an area selection.
 - Prompt edits remain transient until an output is chosen.
 - Apply as mask creates an editable document mask; Use as selection creates
   an ephemeral pixel-area selection without changing artwork or document

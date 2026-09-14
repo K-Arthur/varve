@@ -138,8 +138,21 @@ test.describe('Object Selection workflow', () => {
       contentType: 'image/png',
     });
 
-    // Tapping the first marker removes only that prompt; the second stays.
-    await page.mouse.click(first.x, first.y);
+    // Dragging a marker moves only that prompt; the second stays.
+    const moved = { x: first.x + 32, y: first.y + 18 };
+    await page.mouse.move(first.x, first.y);
+    await page.mouse.down();
+    await page.mouse.move(moved.x, moved.y, { steps: 3 });
+    await page.mouse.up();
+    await expect(inspector.getByTestId('object-selection-prompt-count')).toHaveText('2 prompts');
+    await testInfo.attach('object-selection-moved-prompt', {
+      body: await canvas.screenshot(),
+      contentType: 'image/png',
+    });
+    await canvas.screenshot({ path: testInfo.outputPath('object-selection-moved-prompt.png') });
+
+    // Tapping the moved marker removes only that prompt; the second stays.
+    await page.mouse.click(moved.x, moved.y);
     await expect(inspector.getByTestId('object-selection-prompt-count')).toHaveText('1 prompt', {
       timeout: 5000,
     });

@@ -878,7 +878,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 <p className="insp-field__hint">
                   {objectSelectionPromptMode === 'box'
                     ? 'Box hint mode accepts two taps for opposite corners or a drag. It guides the model and does not hard-clip the output.'
-                    : 'Canvas markers use + for include and − for exclude. Tap a marker to remove that prompt, or press Backspace to remove the last one.'}{' '}
+                    : 'Canvas markers use + for include and − for exclude. Tap a marker to remove it, drag a marker to move it, or press Backspace to remove the last one.'}{' '}
                   Clearing prompts also clears the current preview; the image itself is never
                   changed.
                 </p>
