@@ -148,6 +148,14 @@ The same image placement mapping is used by brush mask editing. Prompt
 coordinates are never derived from an axis-aligned world bounding box, because
 that fails for rotated, cropped, flipped, or nested image nodes.
 
+Prompt normalization is fail-closed. Every include/exclude point must map to a
+visible source-image pixel, and all four corners of a box hint must map before
+the source-space box is constructed. If a point or corner falls outside the
+visible image, the request stops before model inference with a retryable
+out-of-bounds message; it is never silently dropped or replaced with a box
+made from the remaining corners. This keeps a partial gesture from becoming a
+different object-selection request.
+
 ## Mask persistence
 
 The preview mask is a `Uint8Array` in transient editor state. It is not
