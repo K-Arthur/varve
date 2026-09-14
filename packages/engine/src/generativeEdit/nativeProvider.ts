@@ -78,6 +78,14 @@ function nativeFailure(error: unknown): GenerativeEditError {
   if (normalized.includes('timed out') || normalized.includes('timeout')) {
     return new GenerativeEditError('timeout', message);
   }
+  if (
+    normalized.includes('not installed') ||
+    normalized.includes('not passed') ||
+    normalized.includes('unqualified') ||
+    normalized.includes('qualification')
+  ) {
+    return new GenerativeEditError('missing-model', message);
+  }
   if (normalized.includes('out of memory') || normalized.includes('allocation')) {
     return new GenerativeEditError('insufficient-memory', message);
   }

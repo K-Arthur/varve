@@ -90,6 +90,17 @@ describe('nativeGenerativeProvider', () => {
     });
   });
 
+  it('classifies an unqualified native model as a setup failure', async () => {
+    invoke.mockRejectedValue(
+      new Error('The local diffusion model has not passed inpainting qualification'),
+    );
+
+    await expect(nativeGenerativeProvider.infer(request())).rejects.toMatchObject({
+      code: 'missing-model',
+      message: expect.stringContaining('qualification'),
+    });
+  });
+
   it('rejects a response whose geometry does not match the requested frame', async () => {
     invoke.mockResolvedValue({
       png_base64: btoa('png'),
