@@ -118,10 +118,12 @@ test.describe('Object Selection workflow', () => {
     await inspector.getByRole('button', { name: 'Select Object' }).click();
 
     const canvas = page.getByTestId('editor-canvas');
+    await page.getByRole('button', { name: 'Fit sel' }).click();
+    await page.waitForTimeout(400);
     const bounds = await canvas.boundingBox();
     expect(bounds).not.toBeNull();
-    const first = { x: bounds!.x + bounds!.width * 0.32, y: bounds!.y + bounds!.height * 0.34 };
-    const second = { x: bounds!.x + bounds!.width * 0.62, y: bounds!.y + bounds!.height * 0.64 };
+    const first = { x: bounds!.x + bounds!.width * 0.45, y: bounds!.y + bounds!.height * 0.45 };
+    const second = { x: bounds!.x + bounds!.width * 0.55, y: bounds!.y + bounds!.height * 0.55 };
 
     await page.mouse.click(first.x, first.y);
     await page.mouse.click(second.x, second.y);
