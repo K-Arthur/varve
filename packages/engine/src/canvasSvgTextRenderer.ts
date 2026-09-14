@@ -9,6 +9,7 @@
  */
 
 import { type OpenTypeFeatureMap, openTypeFeaturesToCss } from '@varve/shared';
+import { resolveCanvasFontSource } from './canvasOpenTypeRenderer';
 import type { ReplayTarget } from './replayTypes';
 
 interface CachedSvgText {
@@ -193,8 +194,7 @@ function serializeSourceFace(face: CanvasSvgSourceFace): string {
 }
 
 async function inlineSource(source: string): Promise<string | null> {
-  const match = /url\(\s*(['"]?)(.*?)\1\s*\)/i.exec(source);
-  const value = match?.[2]?.trim();
+  const value = resolveCanvasFontSource(source);
   if (!value || /^data:/i.test(value)) return value ? source : null;
   const existing = sourceData.get(value);
   if (existing) return existing;

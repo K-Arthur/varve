@@ -30,7 +30,7 @@ const pendingSources = new Map<string, Promise<Font | null>>();
 
 /** Fetch, decode, and parse a CSS `src` expression into a usable OpenType face. */
 export async function loadCanvasOpenTypeFont(source: string): Promise<Font | null> {
-  const url = extractSourceUrl(source);
+  const url = resolveCanvasFontSource(source);
   if (!url || typeof fetch !== 'function') return null;
   const cached = pendingSources.get(url);
   if (cached) return cached;
@@ -81,6 +81,39 @@ export function resetCanvasOpenTypeFonts(): void {
 }
 
 /**
+ * Resolve the first usable source in a CSS `src` list without crossing the
+ * local-font privacy boundary. Remote catalog/CDN artifacts must be installed
+ * explicitly before they can participate in an exact redraw.
+ */
+export function resolveCanvasFontSource(source: string): string | null {
+  const matches = source.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi);
+  for (const match of matches) {
+    const value = match[2]?.trim();
+    if (!value || /^local\(/i.test(value)) continue;
+    if (/^data:/i.test(value)) return value;
+    try {
+      const base =
+        typeof document !== 'undefined'
+          ? document.baseURI
+          : typeof location !== 'undefined'
+            ? location.href
+            : undefined;
+      const resolved = new URL(value, base);
+      if (resolved.protocol === 'blob:') return resolved.href;
+      if (resolved.protocol === 'file:') return resolved.href;
+      if (resolved.protocol !== 'http:' && resolved.protocol !== 'https:') continue;
+      if (typeof location !== 'undefined' && location.origin !== 'null') {
+        if (resolved.origin !== location.origin) continue;
+      }
+      return resolved.href;
+    } catch {
+      // A malformed/relative source is not an exact face source.
+    }
+  }
+  return null;
+}
+
+/**
  * Paint a feature-bearing run with real OpenType paths. Returns false when
  * the source face is still loading or cannot be parsed, allowing the caller
  * to use its honest Canvas2D fallback for that frame.
@@ -125,17 +158,6 @@ export function drawCanvasOpenTypeText(
     return true;
   } catch {
     return false;
-  }
-}
-
-function extractSourceUrl(source: string): string | null {
-  const match = /url\(\s*(['"]?)(.*?)\1\s*\)/i.exec(source);
-  const value = match?.[2]?.trim();
-  if (!value || /^local\(/i.test(value)) return null;
-  try {
-    return new URL(value, typeof document !== 'undefined' ? document.baseURI : undefined).href;
-  } catch {
-    return value;
   }
 }
 
