@@ -8,11 +8,14 @@ import { getImageCache, resampleImageData } from '@varve/engine';
 import type { ImageCropRect } from '@varve/scene';
 
 export type ImageResizeResample = 'nearest' | 'bilinear' | 'bicubic' | 'lanczos3';
+export type ImageResizeWorkingSpace = 'srgb' | 'linear-srgb';
 
 export interface ImageResizeRequest {
   newWidth: number;
   newHeight: number;
   resample: ImageResizeResample;
+  /** Encoded-space compatibility default; linear light is explicit. */
+  workingSpace?: ImageResizeWorkingSpace;
 }
 
 const MAX_RESIZE_PIXELS = 64_000_000;
@@ -41,6 +44,7 @@ export function resizeImageData(
 
   const result = resampleImageData(source, width, height, {
     algorithm: request.resample,
+    workingSpace: request.workingSpace,
     maxPixels: MAX_RESIZE_PIXELS,
     tileHeight: 256,
     onProgress: () => {

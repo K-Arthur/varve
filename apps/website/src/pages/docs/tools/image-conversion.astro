@@ -52,6 +52,23 @@ import { sitePath } from '../../../lib/siteUrl';
       </section>
 
       <section class="docs-section">
+        <h2>Resize a placed image</h2>
+        <p>
+          For source-pixel work, select an image and open <strong>Object &gt; Resize Image…</strong>.
+          Width and height change the embedded raster; the placed node's bounds, crop, and page
+          geometry do not. Keep the aspect-ratio link on for proportional output, or unlock it
+          deliberately for a non-uniform raster resize.
+        </p>
+        <p>
+          <strong>Encoded sRGB</strong> is the compatibility default. Choose <strong>Linear light</strong>
+          when a photograph or transparent product edge needs physical-light averaging; Varve
+          converts straight RGB before alpha premultiplication so antialiased edges do not acquire
+          a dark fringe. This is a source-pixel operation, not placement scaling, canvas resizing,
+          or a promise of recovered detail.
+        </p>
+      </section>
+
+      <section class="docs-section">
         <h2>Metadata and color behavior</h2>
         <p>
           The conversion surface is a normalized RGBA8 canvas boundary. It applies EXIF orientation when the runtime supports the orientation-aware decoder, but it does not promise to copy ICC, EXIF, DPI, XMP, PNG ancillary chunks, animation timing, or source bit depth. Varve shows that loss as a warning before conversion.

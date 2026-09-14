@@ -12,7 +12,7 @@
 import type { ImageFillData, NodeId } from '@varve/scene';
 import { Select } from '@varve/ui';
 import { type KeyboardEvent as ReactKeyboardEvent, useEffect, useRef, useState } from 'react';
-import type { ImageResizeResample } from '../imageResize';
+import type { ImageResizeResample, ImageResizeWorkingSpace } from '../imageResize';
 
 export type ResizeResample = ImageResizeResample;
 
@@ -21,6 +21,7 @@ export interface ImageResizeResult {
   newWidth: number;
   newHeight: number;
   resample: ResizeResample;
+  workingSpace: ImageResizeWorkingSpace;
 }
 
 export interface ImageResizeDialogProps {
@@ -37,6 +38,11 @@ const RESAMPLE_OPTIONS: { value: ResizeResample; label: string }[] = [
   { value: 'lanczos3', label: 'Lanczos 3' },
 ];
 
+const WORKING_SPACE_OPTIONS: { value: ImageResizeWorkingSpace; label: string }[] = [
+  { value: 'srgb', label: 'Encoded sRGB (compatibility)' },
+  { value: 'linear-srgb', label: 'Linear light (photo edges)' },
+];
+
 function clampDim(v: number): number {
   return Math.max(1, Math.min(65536, Math.round(v)));
 }
@@ -50,6 +56,7 @@ export function ImageResizeDialog({ nodeId, fill, onClose, onApply }: ImageResiz
   const [height, setHeight] = useState(srcH);
   const [linked, setLinked] = useState(true);
   const [resample, setResample] = useState<ResizeResample>('bicubic');
+  const [workingSpace, setWorkingSpace] = useState<ImageResizeWorkingSpace>('srgb');
   const [scalePercent, setScalePercent] = useState(100);
   const dialogRef = useRef<HTMLDivElement>(null);
   const widthRef = useRef<HTMLInputElement>(null);
@@ -97,7 +104,7 @@ export function ImageResizeDialog({ nodeId, fill, onClose, onApply }: ImageResiz
 
   const handleApply = () => {
     if (tooLarge) return;
-    onApply({ nodeId, newWidth: width, newHeight: height, resample });
+    onApply({ nodeId, newWidth: width, newHeight: height, resample, workingSpace });
   };
 
   const handleDialogKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -215,12 +222,33 @@ export function ImageResizeDialog({ nodeId, fill, onClose, onApply }: ImageResiz
               Resample
             </label>
             <Select
+              id="resize-resample"
+              className="image-resize-dialog__select"
               label="Resample method"
               value={resample}
               options={RESAMPLE_OPTIONS}
               onChange={(value) => setResample(value as ResizeResample)}
             />
           </div>
+
+          <div className="image-resize-dialog__row">
+            <label className="image-resize-dialog__label" htmlFor="resize-working-space">
+              Working space
+            </label>
+            <Select
+              id="resize-working-space"
+              className="image-resize-dialog__select"
+              label="Resize working space"
+              value={workingSpace}
+              options={WORKING_SPACE_OPTIONS}
+              onChange={(value) => setWorkingSpace(value as ImageResizeWorkingSpace)}
+            />
+          </div>
+          <p className="image-resize-dialog__hint">
+            Linear light keeps translucent and antialiased edges from darkening during photo
+            resizing. Encoded sRGB preserves the compatibility default. This changes source
+            pixels only; the placed image bounds stay unchanged.
+          </p>
 
           <div className="image-resize-dialog__info" id="image-resize-summary" role="status">
             <span>

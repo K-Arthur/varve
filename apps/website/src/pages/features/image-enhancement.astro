@@ -78,6 +78,18 @@ const enhanceShot = scenes['enhance-dialog-auto']?.status === 'captured' ? scene
         </div>
       </section>
 
+      <section class="resize-contract" aria-labelledby="resize-contract-title">
+        <p class="eyebrow">Source pixels stay explicit</p>
+        <h2 id="resize-contract-title">Resize the image without resizing its placement.</h2>
+        <p>
+          Object → Resize Image changes the embedded raster dimensions while keeping the placed
+          image's bounds and crop contract intact. The dialog keeps encoded sRGB as the compatible
+          default and offers an explicit linear-light path for translucent or antialiased photo
+          edges. It does not secretly change the page, object scale, or the saved source when you
+          cancel.
+        </p>
+      </section>
+
       <section class="acceleration" aria-labelledby="acceleration-title">
         <p class="eyebrow">Desktop acceleration</p>
         <h2 id="acceleration-title">The useful path is selected per workload.</h2>
@@ -163,6 +175,9 @@ const enhanceShot = scenes['enhance-dialog-auto']?.status === 'captured' ? scene
   .review-grid article { border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); padding: 1rem; }
   .review-grid h3 { color: var(--text-primary); margin: 0 0 .5rem; }
   .review-grid p { line-height: 1.65; margin: 0; }
+  .resize-contract { border-left: 3px solid var(--border-accent); margin: 0 0 4rem; padding: 0 0 0 1.25rem; }
+  .resize-contract h2 { color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2.3rem); margin: .5rem 0 1rem; }
+  .resize-contract p:not(.eyebrow) { color: var(--text-secondary); line-height: 1.75; max-width: 720px; }
   .acceleration { border-top: 1px solid var(--border-default); padding: 4rem 0; }
   .acceleration h2 { color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2.3rem); margin: .5rem 0 1rem; }
   .acceleration p { color: var(--text-secondary); line-height: 1.75; }
