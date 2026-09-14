@@ -115,19 +115,25 @@ The dirty checkout contains unrelated concurrent edits and several active
 dev servers. The first Chromium E2E attempt was therefore not accepted as
 visual evidence: the app remained on Loading Varve and the page context was
 destroyed during setup. A dedicated rerun used an isolated port and artifact
-directory. It completed the production workflow in 2.3 minutes with one
-Chromium worker. The first rerun exposed a brittle cross-camera backing
-surface hash: the serialized retouch state and exported PNG were unchanged,
-but the restored viewport painted a different camera projection. The
-regression now compares the surface before/after a forced full redraw at each
-camera, and compares the actual pre- and post-reopen PNG bytes. Both checks
-pass.
+directory. The final trace-bearing run completed the production workflow in
+2.2 minutes with one Chromium worker. The first successful rerun exposed a
+brittle cross-camera backing surface hash: the serialized retouch state and
+exported PNG were unchanged, but the restored viewport painted a different
+camera projection. The regression now compares the surface before/after a
+forced full redraw at each camera, and compares the actual pre- and
+post-reopen PNG bytes. Both checks pass.
 
 Captured artifacts:
 
-- [committed PNG](../../test-results/retouch-fs-liquify-20260914c/canvas-frequency-liquify-p-869b3-vive-save-reopen-and-export-chromium/frequency-liquify.png)
-- [reopened PNG](../../test-results/retouch-fs-liquify-20260914c/canvas-frequency-liquify-p-869b3-vive-save-reopen-and-export-chromium/frequency-liquify-reopened.png)
+- [export PNG](../../test-results/retouch-fs-liquify-20260914-final3/canvas-frequency-liquify-p-869b3-vive-save-reopen-and-export-chromium/frequency-liquify.png)
+- [reopened export PNG](../../test-results/retouch-fs-liquify-20260914-final3/canvas-frequency-liquify-p-869b3-vive-save-reopen-and-export-chromium/frequency-liquify-reopened.png)
+- [interaction summary](../../test-results/retouch-fs-liquify-20260914-final3/canvas-frequency-liquify-p-869b3-vive-save-reopen-and-export-chromium/frequency-liquify-interaction-summary.json)
 - SHA-256 for both files: `450f93b9eff1d4e3755e89e91ef9f396bfe0210bde04532026e959b9dba4742` (512 × 384 RGBA PNG)
+
+The trace recorded 2 committed interaction samples. Pointer-to-present was
+80.1 ms p50 and 286.4 ms p95/max. Total interaction time was 206.2 ms p50
+and 9.38 s max; the max includes the test's deliberate full-resolution
+reopen/export waits and is not a pure input-latency budget.
 
 ## Capability and limitation matrix
 
@@ -163,6 +169,7 @@ transparent edge and a 128-alpha island. Environment: AMD Ryzen 3 5300U
 (4C/8T), CachyOS Linux 7.2.3, Node v22.23.2, Vitest 4.1.10, CPU path,
 22 GiB host RAM with only about 6.6 GiB available during the run. The values
 are a loaded development-machine baseline, not a device guarantee. The
-production Chromium scenario's interaction trace is attached by the E2E and
-is the source for pointer-to-present latency once that trace-bearing run has
-completed; no throttled browser number is promoted to a product budget.
+Chromium pointer-to-present measurement above is from one 1440 × 900
+production-canvas run on the same host; it is evidence for this workflow,
+not a cross-device product budget. No throttled browser number is promoted
+to a product budget.

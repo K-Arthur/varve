@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { expect, type Page, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
@@ -217,6 +217,11 @@ test('frequency separation and Liquify survive save/reopen and export', async ({
     body: JSON.stringify(interactionSummary, null, 2),
     contentType: 'application/json',
   });
+  await writeFile(
+    testInfo.outputPath('frequency-liquify-interaction-summary.json'),
+    JSON.stringify(interactionSummary, null, 2),
+  );
+  console.log(`Liquify interaction summary: ${JSON.stringify(interactionSummary)}`);
   expect(interactionSummary?.count).toBeGreaterThan(0);
   expect(interactionSummary?.pointerToPresent.count).toBeGreaterThan(0);
   expect(interactionSummary?.pointerToPresent.p95).toBeGreaterThanOrEqual(0);
