@@ -290,3 +290,25 @@ Passed: both builds (0 errors, five existing Astro hints) and **14/14**
 typography/FAQ cases across `/varve` and `/`. Desktop light/dark and narrow
 dark captures were inspected. The broader website suite and unrelated global
 visual snapshots remain outside this focused proof.
+
+## Linked-story replacement continuation — 2026-09-14
+
+Commit `61b4a27e364066d52f1e9c90d702c6a3873d8519` routes authoritative text
+stories through the same resolver used by ordinary text nodes, styles, and rich
+runs. Missing-font detection now retains every frame in a story thread as an
+affected location, while replacement updates the story's rich runs once. The
+editor adapter scopes the story projection to the selected frame set and merges
+the updated story back into the document without changing unrelated stories or
+the thread order.
+
+Commands actually run:
+
+```text
+pnpm exec biome check packages/engine/src/font/fontResolver.ts packages/engine/src/font/index.ts packages/engine/src/font/fontResolver.test.ts packages/editor/src/components/FontBrowser/applyFontReplacement.ts packages/editor/src/components/FontBrowser/applyFontReplacement.test.ts
+pnpm exec vitest run packages/engine/src/font/fontResolver.test.ts packages/editor/src/components/FontBrowser/applyFontReplacement.test.ts --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
+```
+
+Passed: Biome and **49 focused tests**. This closes the linked-story
+detection/replacement component proof and moves acceptance scenario 13 to
+Partial. A one-step undo assertion, preview/cancel restoration flow, durable
+save/reopen proof, and native restart evidence remain open.
