@@ -103,11 +103,14 @@ const node = makeTextNode('logo-text', 'Varve', {
 });
 
 const updateDoc = vi.fn();
+const groupCompoundOperation = vi.fn((_label: string, action: () => void) => action());
 
 beforeEach(() => {
   updateDoc.mockReset();
+  groupCompoundOperation.mockClear();
   vi.mocked(useEditor).mockReturnValue({
     updateDoc,
+    groupCompoundOperation,
     convertTextToOutlines: vi.fn(),
   } as never);
 });
@@ -132,6 +135,7 @@ describe('LogoTypographySection', () => {
         fontReference: undefined,
       }),
     );
+    expect(groupCompoundOperation).toHaveBeenCalledWith('Typography', expect.any(Function));
   });
 
   it('applies an exact face, style, and weight from the font browser', () => {

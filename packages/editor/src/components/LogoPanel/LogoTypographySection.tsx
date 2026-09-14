@@ -33,14 +33,16 @@ export function LogoTypographySection({ node }: { node: TextNode }) {
     (node.fontStyle ?? 'normal') === 'italic' || fontStyleAvailable(node, 'italic', registry);
 
   const patch = useMemo(
-    () => (patch: Partial<TextNode>) => {
-      editor.updateDoc((doc) => ({
-        ...doc,
-        nodes: {
-          ...doc.nodes,
-          [nodeId]: { ...(doc.nodes[nodeId] as TextNode), ...patch },
-        },
-      }));
+    () => (changes: Partial<TextNode>) => {
+      editor.groupCompoundOperation('Typography', () => {
+        editor.updateDoc((doc) => ({
+          ...doc,
+          nodes: {
+            ...doc.nodes,
+            [nodeId]: { ...(doc.nodes[nodeId] as TextNode), ...changes },
+          },
+        }));
+      });
     },
     [editor, nodeId],
   );
