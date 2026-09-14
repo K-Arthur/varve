@@ -15,6 +15,7 @@ import {
   FontResolver,
   getFontsourceCatalog,
 } from '@varve/engine/font';
+import type { Document } from '@varve/scene';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { isCapabilityRestricted, RESTRICTION_MESSAGES } from '../../capabilities/restrictions';
 import { useEditor } from '../../context';

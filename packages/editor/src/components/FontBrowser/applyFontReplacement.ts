@@ -194,7 +194,9 @@ function resolveReplacement(
       stories = { ...doc.stories };
       for (const storyId of scopedStoryIds) {
         const updatedStory = resolved.stories[storyId];
-        if (updatedStory) stories[storyId] = updatedStory as Document['stories'][string];
+        if (updatedStory) {
+          stories[storyId] = updatedStory as NonNullable<Document['stories']>[string];
+        }
       }
     }
     return { nodes, styles: doc.styles, stories };
