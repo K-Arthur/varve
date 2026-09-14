@@ -53,7 +53,11 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
   try {
     browser = await chromium.launch();
     const page = await browser.newPage();
-    await page.goto(BASE_URL, { timeout: 180_000, waitUntil: 'domcontentloaded' });
+    // 300s: under several concurrent agent suites, domcontentloaded has been
+    // observed at 90-200s on this machine, so the previous 180s budget failed
+    // before the warm-up even reached the editor. Shared navigation uses the
+    // same ceiling.
+    await page.goto(BASE_URL, { timeout: 300_000, waitUntil: 'domcontentloaded' });
     // Handle safe mode dialog if present (from a previous crash)
     const continueBtn = page.getByRole('button', { name: /continue normal startup/i });
     if (await continueBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
