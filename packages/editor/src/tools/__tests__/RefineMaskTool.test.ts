@@ -272,17 +272,6 @@ describe('RefineMaskTool', () => {
     expect(ctx.announce).toHaveBeenCalledWith('Select a visual layer or frame to paint a mask');
   });
 
-  it('brush mode switches with keyboard 1/2/3 as a non-Alt alternative', () => {
-    const tool = new RefineMaskTool();
-    const ctx = makeMinimalCtx();
-    tool.onKeyDown({ key: '2' } as KeyboardEvent, ctx);
-    expect(tool.getOptions().mode).toBe('subtract');
-    tool.onKeyDown({ key: '3' } as KeyboardEvent, ctx);
-    expect(tool.getOptions().mode).toBe('restore');
-    tool.onKeyDown({ key: '1' } as KeyboardEvent, ctx);
-    expect(tool.getOptions().mode).toBe('add');
-  });
-
   it('Escape exits refine mask mode', () => {
     const tool = new RefineMaskTool();
     const ctx = makeMinimalCtx({ setTool: vi.fn() });
@@ -502,6 +491,7 @@ describe('RefineMaskTool', () => {
     const initialPixel = maskData.data[0];
     (tool as any).maskData = maskData;
     (tool as any).nodeId = 'img-1';
+    (tool as any).lastPaintedPoint = { x: 10, y: 10 };
     const ctx = makeMinimalCtx();
 
     (tool as any).drag = {

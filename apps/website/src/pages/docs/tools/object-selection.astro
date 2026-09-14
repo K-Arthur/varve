@@ -24,20 +24,6 @@ import { sitePath } from '../../../lib/siteUrl';
       </section>
 
       <section class="docs-section">
-        <h2>Refine a mask or pixel selection</h2>
-        <p>Open an image with a mask and choose <strong>Refine Mask</strong> in the Background Removal section or the Mask inspector. The brush has three explicit intents &mdash; <strong>Add / reveal</strong>, <strong>Subtract / hide</strong>, and <strong>Restore original</strong> &mdash; selectable in the inspector or with <strong>1</strong>/<strong>2</strong>/<strong>3</strong>, with <strong>Alt</strong> as a hold-to-subtract shortcut. Brush size is measured in image pixels, and fast strokes are interpolated so no gaps appear between pointer samples.</p>
-        <p>Strokes are <em>not</em> clipped to the current pixel selection unless you enable <strong>Clip strokes to selection</strong>. That default exists because a refinement brush that can only paint inside the selection it is trying to grow cannot recover missing hair or foreground outside it.</p>
-        <p><strong>Refine edges</strong> offers two honest methods. <strong>Guided</strong> is an edge-aware smoother for pixels that already carry partial coverage. <strong>Matting</strong> solves a closed-form matting system over a spatial unknown band, so it can refine hard binary masks and recover thin structures the current mask missed. If a solve is declined (for example, an extremely large unknown region on a constrained device), Varve says so and applies guided smoothing instead of committing a corrupt matte.</p>
-        <p>For difficult edges, <strong>Edit trimap</strong> paints categorical foreground, unknown, and background constraints. Unknown is a label, not 50% opacity; the matting solve estimates fractional coverage inside it. Manual constraints are preserved across re-solves, and your previous mask is used as a warm start and fallback.</p>
-      </section>
-
-      <section class="docs-section">
-        <h2>Refine selection coverage</h2>
-        <p>The Selection Sources inspector (and the Pixel Selection menu) refines area coverage without touching layer selection. Feather creates a Gaussian transition, Smooth reshapes the boundary, Grow and Shrink move it by a distance, Harden (contrast) steepens or flattens coverage, Threshold hardens it at a coverage cut, Antialias adds a one-pixel transition, Border selects a band inside, outside, or centered on the boundary, Shift edge translates a soft transition without flattening it, and Cleanup removes small islands or fills small enclosed holes.</p>
-        <p>Every operation is computed from the current selection and commits as a single undoable step. Marching ants trace the 50% coverage contour; feathered pixels beyond the outline are still partially selected, which is why paint and fill tools can appear to act slightly outside the visible boundary.</p>
-      </section>
-
-      <section class="docs-section">
         <h2>Models and privacy</h2>
         <p>The optional local model pair is downloaded explicitly from Settings &gt; Offline Models, verified with its manifest checksums, and loaded lazily. Images are not uploaded by this workflow. Embeddings are temporary session data and are not stored in the document.</p>
         <p>After applying, the document stores a normal raster mask resource, so reopening the document does not require the model to be installed.</p>

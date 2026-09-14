@@ -9,9 +9,11 @@ artifact and collection member rather than a family-only list.
 
 Authored family, face, style, weight, size, and tracking changes run through
 the shared `Typography` compound operation. Each choice therefore produces one
-undo entry and does not emit the persistent-history bypass warning used to
-detect direct Logo mutations. The component regression covers the disabled
-Italic state and the transaction label.
+undo entry; the wordmark component no longer calls `updateDoc` outside that
+boundary. The component regression covers the disabled Italic state and the
+transaction label. The browser workflow still logs existing history warnings
+from project setup and text creation, which are outside this control and remain
+a separate Logo lifecycle follow-up.
 
 Focused component validation:
 

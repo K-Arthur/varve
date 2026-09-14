@@ -125,7 +125,6 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     startTrimapEdit,
     applyTrimapMatting,
     setTrimapEditOptions,
-    getTrimapData,
   } = useEditor();
   const selectedNode = nodes[0] as ShapeNode | undefined;
   const node = selectedNode?.paintRefs?.length
@@ -216,74 +215,6 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const refineMethod = state.refineMaskOptions?.method ?? 'guided';
   const refineRadius = state.refineMaskOptions?.radius ?? 4;
   const refineBandRadius = state.refineMaskOptions?.bandRadius ?? refineRadius;
-  const trimapPreviewRef = useRef<HTMLCanvasElement | null>(null);
-  const editingTrimapNodeId = node && editingTrimap ? node.id : null;
-  useEffect(() => {
-    if (!editingTrimapNodeId) return;
-    const resolveColor = (
-      value: string,
-      fallback: [number, number, number],
-    ): [number, number, number] => {
-      try {
-        const probe = document.createElement('canvas');
-        probe.width = 1;
-        probe.height = 1;
-        const probeCtx = probe.getContext('2d');
-        if (!probeCtx) return fallback;
-        probeCtx.fillStyle = value;
-        probeCtx.fillRect(0, 0, 1, 1);
-        const data = probeCtx.getImageData(0, 0, 1, 1).data;
-        return [data[0] ?? fallback[0], data[1] ?? fallback[1], data[2] ?? fallback[2]];
-      } catch {
-        return fallback;
-      }
-    };
-    const draw = () => {
-      const entry = getTrimapData(editingTrimapNodeId);
-      const canvas = trimapPreviewRef.current;
-      if (!entry || !canvas || entry.width <= 0 || entry.height <= 0) return;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      const style = getComputedStyle(canvas);
-      const fg = resolveColor(
-        style.getPropertyValue('--trimap-fg').trim() || '#4ade80',
-        [74, 222, 128],
-      );
-      const bg = resolveColor(
-        style.getPropertyValue('--trimap-bg').trim() || '#64748b',
-        [100, 116, 139],
-      );
-      const unknown = resolveColor(
-        style.getPropertyValue('--trimap-unknown').trim() || '#fbbf24',
-        [251, 191, 36],
-      );
-      // Categorical rendering: unknown is its own colour, never a 50% alpha.
-      const pixels = new Uint8ClampedArray(entry.width * entry.height * 4);
-      for (let i = 0; i < entry.data.length; i += 1) {
-        const value = entry.data[i]!;
-        const color = value >= 245 ? fg : value <= 10 ? bg : unknown;
-        const offset = i * 4;
-        pixels[offset] = color[0];
-        pixels[offset + 1] = color[1];
-        pixels[offset + 2] = color[2];
-        pixels[offset + 3] = 255;
-      }
-      const offscreen = document.createElement('canvas');
-      offscreen.width = entry.width;
-      offscreen.height = entry.height;
-      offscreen
-        .getContext('2d')
-        ?.putImageData(new ImageData(pixels, entry.width, entry.height), 0, 0);
-      canvas.width = 192;
-      canvas.height = Math.max(48, Math.round((192 * entry.height) / entry.width));
-      ctx.imageSmoothingEnabled = false;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(offscreen, 0, 0, canvas.width, canvas.height);
-    };
-    draw();
-    const timer = window.setInterval(draw, 250);
-    return () => window.clearInterval(timer);
-  }, [editingTrimapNodeId, getTrimapData]);
   const trimapOpts = state.trimapEditOptions ?? {
     brushSize: 20,
     hardness: 0.8,
@@ -555,7 +486,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     setMaskEditorOpen(true);
     setMaskPreviewMode('checkerboard');
     setTool('refineMask');
-    announce('Refine mask: 1 add, 2 subtract, 3 restore, Alt paints subtract; Escape to finish');
+    announce('Refine mask: paint to add, Alt+paint to subtract, Escape to finish');
   };
 
   const handleRefineHair = () => {
@@ -1259,16 +1190,6 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
         {maskEditorOpen && editingTrimap && maskProvenance && (
           <div className="insp-nested-panel">
             <p className="insp-subsection__label">Trimap</p>
-            <canvas
-              ref={trimapPreviewRef}
-              className="trimap-preview"
-              role="img"
-              aria-label="Trimap preview: green foreground, grey background, amber unknown"
-            />
-            <p className="insp-hint">
-              Green is definite foreground, grey is definite background, amber is unknown. Unknown
-              is a constraint region, not 50% opacity; matting estimates the coverage inside it.
-            </p>
             <FieldRow label="Pen">
               <Select
                 label="Trimap pen"

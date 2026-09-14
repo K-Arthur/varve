@@ -184,9 +184,7 @@ export function greyMorphPlane(
   const neutral = mode === 'dilate' ? 0 : 255;
   const paddedWidth = width + 2 * r;
   const paddedHeight = height + 2 * r;
-  // Uint8 storage: coverage is 8-bit, and a 50 MP plane padded for a large
-  // radius would otherwise cost four times as much for no precision gain.
-  const buffer = new Uint8Array(paddedWidth * paddedHeight);
+  const buffer = new Float32Array(paddedWidth * paddedHeight);
   buffer.fill(neutral);
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {

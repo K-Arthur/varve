@@ -48,18 +48,8 @@ import StatusPill from '../../components/StatusPill.astro';
         <p>
           Review the cutout on a checkerboard before applying it as an editable mask. After Apply,
           use Show Original to compare, or Edit mask to inspect edges against black and white
-          backgrounds. The refine brush has explicit Add / reveal, Subtract / hide, and Restore
-          original intents, and is not clipped to the current pixel selection unless you ask for
-          it, so missing detail outside the current boundary can be recovered. Fast strokes are
-          interpolated for gap-free coverage, and one undo entry is recorded per completed stroke.
-        </p>
-        <p>
-          Edge refinement offers guided smoothing for already-soft edges and closed-form matting
-          over a spatial unknown band for hard or binary masks. Trimap editing paints categorical
-          foreground, unknown, and background constraints; unknown never means “half opaque,” and
-          the matting solve estimates the fractional coverage from the image. When the matting
-          system is declined because a region is too large for the device, Varve reports it and
-          falls back to guided smoothing instead of writing a bad matte.
+          backgrounds. Brush refinement, hair-edge refinement, and trimap editing are available
+          for further corrections.
         </p>
       </section>
 
