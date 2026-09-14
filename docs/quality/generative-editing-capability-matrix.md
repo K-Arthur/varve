@@ -59,6 +59,13 @@ the user starts a job.
 | In-place acceptance and Restore Original | Implemented; automatically verified | Shared implementation | Shared implementation | `packages/editor/src/imageOperations.test.ts` and scene persistence tests |
 | Save/reopen, clipboard, package export | Implemented paths | Implemented paths; repeated-edit lineage and bounded overlay markers are remapped on import | Shared implementation | Document codec, closure, and clipboard tests; generative package evidence pending |
 
+Model download cancellation is covered by
+`packages/engine/src/generativeEdit/nativeModel.test.ts`: an already-aborted
+request never starts Tauri work, progress is request-scoped, and an active
+download rejects immediately while forwarding the native cancellation command.
+This is renderer lifecycle evidence; native cancellation latency and the
+post-download install race still require desktop-package evidence.
+
 ## Pinned desktop model profile
 
 The explicit download profile is Stable Diffusion 1.5 Inpainting Q4_0 from

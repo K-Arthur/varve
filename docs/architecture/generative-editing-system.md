@@ -356,6 +356,12 @@ loading weights, so it never guesses at resampling or mask alignment. The
 desktop workflow supports an explicit, allowlisted download or user import,
 then validation; downloads resume through a native partial file, verify the
 pinned SHA-256, and install atomically. There is no silent model download.
+Cancelling a download forwards its opaque request id to the desktop command
+and rejects the renderer operation immediately, including when the native
+network future is still pending; matching progress events stop at the same
+boundary. The native partial-file tombstone still has to be observed before
+the command can finish, so cancellation is not reported as complete merely
+because the renderer closed the dialog.
 
 Each helper invocation owns a private, per-request scratch directory under the
 application cache. Source pixels, masks, prompts, and helper output are removed
