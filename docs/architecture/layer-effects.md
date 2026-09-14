@@ -120,9 +120,11 @@ as a claim about every renderer:
 - **Effect degradation is declared, not silent.** Engine replay reports typed
   diagnostics (`effect-surface-unavailable`, `effect-mask-unresolved`,
   `effect-mask-budget`, `effect-mask-unsupported`, `effect-depth-missing`) via
-  `replayIr`'s `onEffectDiagnostic` sink. Structured export forwards them into
-  `ExportSnapshot.diagnostics` and the export warnings; live leaf replay
-  forwards them into a bounded, deduplicated CanvasArea announcement. Export
+  `replayIr`'s `onEffectDiagnostic` sink, and the shared group/frame effect
+  stages forward the same diagnostics from their surface, mask, depth, and
+  backdrop catches. Structured export maps them into
+  `ExportSnapshot.diagnostics` and the export warnings; live replay forwards
+  them into a bounded, deduplicated CanvasArea announcement. Export
   rasterization failures additionally report `pixel-budget-exceeded` /
   `surface-unavailable` / `encode-failed`. Remaining blind spots: the
   `filterCompositor` `onDiagnostic` hook still has no production caller, and

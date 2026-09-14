@@ -22,6 +22,7 @@ import {
   computeScreenBounds,
   createRasterSurface,
   deserializeDepthMap,
+  type EffectDiagnostic,
   type EffectMaskResolver,
   getImageCache,
   type RenderItem,
@@ -54,6 +55,8 @@ export interface GroupContentEffectOptions {
   effectMaskResolver?: EffectMaskResolver;
   /** Synthetic item describing the group's surface in document coordinates. */
   effectTarget?: RenderItem;
+  /** Receives declared effect degradations (surface refusal, missing mask/depth). */
+  onEffectDiagnostic?: (diagnostic: EffectDiagnostic) => void;
 }
 
 type EngineChromaticEffect = Parameters<typeof applyChromaticAberration>[3];
@@ -108,13 +111,19 @@ function traceVectorMask(
 export function createEffectMaskResolver(options: {
   document: Document;
   replayNode: (nodeId: string, target: MaskReplayContext) => void;
+  /** Receives mask-surface allocation/readback refusals. */
+  onEffectDiagnostic?: (diagnostic: EffectDiagnostic) => void;
 }): EffectMaskResolver {
   const activeSources = new Set<string>();
+  const report = (code: EffectDiagnostic['code'], reason: string): void => {
+    options.onEffectDiagnostic?.({ code, effectType: 'effect-mask', reason });
+  };
   return (binding, item, target, width, height) => {
     let maskSurface: ReturnType<typeof createRasterSurface>;
     try {
       maskSurface = createRasterSurface(width, height);
     } catch {
+      report('effect-mask-budget', 'the effect-mask surface could not be allocated');
       return undefined;
     }
 
@@ -138,6 +147,7 @@ export function createEffectMaskResolver(options: {
       try {
         return maskCtx.getImageData(0, 0, width, height);
       } catch {
+        report('effect-mask-unresolved', 'the raster effect-mask pixels could not be read back');
         return undefined;
       }
     }
@@ -179,6 +189,10 @@ export function createEffectMaskResolver(options: {
     try {
       return maskCtx.getImageData(0, 0, width, height);
     } catch {
+      report(
+        'effect-mask-unresolved',
+        'the scene/vector effect-mask pixels could not be read back',
+      );
       return undefined;
     }
   };
@@ -221,8 +235,29 @@ export function applyGroupContentEffects(
   effects: readonly Effect[],
   options: GroupContentEffectOptions = {},
 ): void {
+  const report = (effect: Effect, code: EffectDiagnostic['code'], reason: string): void => {
+    options.onEffectDiagnostic?.({
+      code,
+      effectType: effect.type,
+      ...(effect.id ? { effectId: effect.id } : {}),
+      reason,
+    });
+  };
+
   for (const effect of effects) {
     if (!effect.visible || !isGroupContentEffect(effect)) continue;
+
+    if (
+      effect.mask &&
+      effect.mask.visible !== false &&
+      (!options.effectMaskResolver || !options.effectTarget)
+    ) {
+      report(
+        effect,
+        'effect-mask-unresolved',
+        'the group effect mask has no resolver for this surface',
+      );
+    }
 
     // Group/frame effects do not have a leaf RenderItem in the authored IR.
     // Capture the pre-effect surface only when a mask is present, then use
@@ -246,7 +281,10 @@ export function applyGroupContentEffects(
           input.width,
           input.height,
         );
-        if (!mask) return;
+        if (!mask) {
+          report(effect, 'effect-mask-unresolved', 'the effect-mask resolver returned no pixels');
+          return;
+        }
         const evaluated = gCanvas.getImageData(0, 0, gCanvas.width, gCanvas.height);
         const composited = compositeMaskedEffectPixels(input, evaluated, mask, effect.mask);
         const compositedImage = new ImageData(composited.width, composited.height);
@@ -254,6 +292,7 @@ export function applyGroupContentEffects(
         gCanvas.putImageData(compositedImage, 0, 0);
       } catch {
         // A refused mask readback must not blank the evaluated group surface.
+        report(effect, 'effect-mask-unresolved', 'the group effect-mask compositor was refused');
       }
     };
 
@@ -262,6 +301,11 @@ export function applyGroupContentEffects(
         gCanvas.applyBlur(effect.radius);
       } catch {
         // A refused readback leaves the authoritative pre-effect surface.
+        report(
+          effect,
+          'effect-surface-unavailable',
+          'the group layer-blur surface could not be read back',
+        );
       }
       applyMask();
       continue;
@@ -269,7 +313,14 @@ export function applyGroupContentEffects(
 
     if (effect.type === 'depthBlur') {
       const resource = documentModel.depthMaps?.[effect.depthMapId];
-      if (!resource) continue;
+      if (!resource) {
+        report(
+          effect,
+          'effect-depth-missing',
+          'the depth map resource is not present in the document',
+        );
+        continue;
+      }
       try {
         const input = gCanvas.getImageData(0, 0, gCanvas.width, gCanvas.height);
         const decoded = deserializeDepthMap(resource);
@@ -288,6 +339,7 @@ export function applyGroupContentEffects(
       } catch {
         // A missing/corrupt depth resource must not blank the group. The
         // unmodified surface remains the safe, visible rendering fallback.
+        report(effect, 'effect-depth-missing', 'the persisted depth map failed to decode');
       }
       applyMask();
       continue;
@@ -306,6 +358,11 @@ export function applyGroupContentEffects(
         gCanvas.putImageData(applySpatialBlur(input, effect), 0, 0);
       } catch {
         // Constrained runtimes keep the authoritative pre-effect surface.
+        report(
+          effect,
+          'effect-surface-unavailable',
+          'the group spatial-blur surface could not be read back',
+        );
       }
       applyMask();
       continue;
@@ -321,6 +378,11 @@ export function applyGroupContentEffects(
         );
       } catch {
         // Keep the source surface if a pixel allocation is refused.
+        report(
+          effect,
+          'effect-surface-unavailable',
+          'the group chromatic-aberration surface could not be read back',
+        );
       }
       applyMask();
       continue;
@@ -336,6 +398,11 @@ export function applyGroupContentEffects(
         );
       } catch {
         // Keep the source surface if a pixel allocation is refused.
+        report(
+          effect,
+          'effect-surface-unavailable',
+          'the group glitch surface could not be read back',
+        );
       }
       applyMask();
     }
@@ -356,10 +423,22 @@ export function compositeGroupBackdropEffect(
   dw: number,
   dh: number,
   groupOpacity: number,
+  onEffectDiagnostic?: (diagnostic: EffectDiagnostic) => void,
 ): void {
+  const report = (code: EffectDiagnostic['code'], reason: string): void => {
+    onEffectDiagnostic?.({
+      code,
+      effectType: effect.type,
+      ...(effect.id ? { effectId: effect.id } : {}),
+      reason,
+    });
+  };
   const source = target.canvas as HTMLCanvasElement | OffscreenCanvas;
   const transform = target.getTransform?.();
-  if (!source || !transform) return;
+  if (!source || !transform) {
+    report('effect-surface-unavailable', 'the target cannot sample an offscreen backdrop');
+    return;
+  }
 
   const radius = effect.type === 'backgroundBlur' ? effect.radius : effect.blur;
   const blurPad = Math.ceil(Math.max(0, radius) * 3);
@@ -441,5 +520,9 @@ export function compositeGroupBackdropEffect(
   } catch {
     // Backdrop effects are optional preview stages. A refused allocation
     // leaves the original target intact; group content is still painted.
+    report(
+      'effect-surface-unavailable',
+      'the group backdrop surface could not be allocated or composited',
+    );
   }
 }

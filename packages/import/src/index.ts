@@ -69,7 +69,13 @@ export type {
 export { ImportService } from './service';
 export { createSketchParser } from './sketch';
 export { createSvgParser, parseSvg } from './svg';
-export type { BatchFileResult, ImportOptions, ImportParser, ImportResult } from './types';
+export type {
+  BatchFileResult,
+  ImportCapabilities,
+  ImportOptions,
+  ImportParser,
+  ImportResult,
+} from './types';
 export type { ImportValidation } from './validation';
 export { validateImport } from './validation';
 

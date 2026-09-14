@@ -400,6 +400,7 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
   const resolveEffectMask = createEffectMaskResolver({
     document: input.document,
     replayNode: (nodeId, target) => replayNode(nodeId, target),
+    onEffectDiagnostic: input.onEffectDiagnostic,
   });
 
   // Engine-level effect degradations (missing mask/depth, surface refusal)
@@ -833,12 +834,14 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
                 width,
                 height,
                 frameOpacity,
+                input.onEffectDiagnostic,
               );
             }
           }
           applyStagedGroupContentEffects(input.document, frameSurface, frameEffects, {
             effectMaskResolver: resolveEffectMask,
             effectTarget: createGroupEffectTargetItem(dx, dy, width, height),
+            onEffectDiagnostic: input.onEffectDiagnostic,
           });
           for (const effect of frameEffects) {
             if (effect.type === 'dropShadow' || effect.type === 'outerGlow') {
@@ -1173,12 +1176,14 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
                 groupWidth,
                 groupHeight,
                 gopacity,
+                input.onEffectDiagnostic,
               );
             }
           }
           applyStagedGroupContentEffects(input.document, gCanvas, visibleEffects, {
             effectMaskResolver: resolveEffectMask,
             effectTarget: createGroupEffectTargetItem(dx, dy, groupWidth, groupHeight),
+            onEffectDiagnostic: input.onEffectDiagnostic,
           });
           for (const effect of visibleEffects) {
             if (effect.type === 'dropShadow' || effect.type === 'outerGlow') {

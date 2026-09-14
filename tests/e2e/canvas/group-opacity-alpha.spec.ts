@@ -19,9 +19,19 @@ import { dragOnCanvas } from '../shared';
 const CANVAS = 'canvas.editor-canvas__content-layer';
 const EVIDENCE_DIR = 'reports/layer-fidelity';
 
+interface EditorContextHandle {
+  groupSelected?: () => unknown;
+  setSelectedFill?: (color: unknown) => unknown;
+}
+
+/**
+ * Find the live editor context. Discriminates on `groupSelected` (the command
+ * surface), not on the persistence object: several mounted values expose
+ * `serializeDocument`, and picking a stale one silently no-ops edits.
+ */
 async function callEditor(
   page: import('@playwright/test').Page,
-  method: string,
+  method: keyof EditorContextHandle,
   ...args: unknown[]
 ): Promise<unknown> {
   return page.evaluate(
@@ -37,7 +47,7 @@ async function callEditor(
         if (!fiber) return null;
         for (const props of [fiber.memoizedProps, fiber.pendingProps]) {
           const value = (props as Record<string, unknown> | undefined)?.value;
-          if (value && typeof value === 'object' && 'serializeDocument' in value) {
+          if (value && typeof value === 'object' && 'groupSelected' in value) {
             return value as Record<string, unknown>;
           }
         }
@@ -54,6 +64,56 @@ async function callEditor(
     },
     { method, args },
   );
+}
+
+/**
+ * Patch a node directly by id through the editor's `updateNode`. Avoids
+ * depending on which context object the fiber walk reaches or on selection
+ * having flushed, both of which made the opacity step race-prone.
+ */
+async function updateNode(
+  page: import('@playwright/test').Page,
+  nodeId: string,
+  patch: Record<string, unknown>,
+): Promise<void> {
+  const updated = await page.evaluate(
+    ({ nodeId, patch }) => {
+      const root = document.getElementById('root');
+      if (!root) return false;
+      const key = Object.keys(root).find(
+        (candidate) =>
+          candidate.startsWith('__reactFiber$') || candidate.startsWith('__reactContainer$'),
+      );
+      if (!key) return false;
+      function find(fiber: Record<string, unknown> | null): Record<string, unknown> | null {
+        if (!fiber) return null;
+        for (const props of [fiber.memoizedProps, fiber.pendingProps]) {
+          const value = (props as Record<string, unknown> | undefined)?.value;
+          if (value && typeof value === 'object' && 'updateNode' in value) {
+            return value as Record<string, unknown>;
+          }
+        }
+        return (
+          find(fiber.child as Record<string, unknown> | null) ||
+          find(fiber.sibling as Record<string, unknown> | null)
+        );
+      }
+      const context = find(
+        (root as unknown as Record<string, unknown>)[key] as Record<string, unknown> | null,
+      );
+      const update = context?.updateNode as
+        | ((
+            id: string,
+            updater: (node: Record<string, unknown>) => Record<string, unknown>,
+          ) => void)
+        | undefined;
+      if (typeof update !== 'function') return false;
+      update(nodeId, (node) => ({ ...node, ...patch }));
+      return true;
+    },
+    { nodeId, patch },
+  );
+  expect(updated).toBe(true);
 }
 
 /** Read canvas-backing-store pixels at canvas-relative CSS points. */
@@ -79,22 +139,45 @@ async function samplePixels(
   );
 }
 
-async function waitForArtwork(page: import('@playwright/test').Page): Promise<void> {
-  await page.waitForFunction(
-    (selector) => {
-      const canvas = document.querySelector(selector) as HTMLCanvasElement | null;
-      if (!canvas || canvas.width === 0 || canvas.height === 0) return false;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return false;
-      const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-      for (let i = 0; i < pixels.length; i += 4) {
-        if (pixels[i + 3]! > 0) return true;
-      }
-      return false;
-    },
-    CANVAS,
-    { timeout: 20000 },
-  );
+/** Poll until at least one sampled point has painted pixels. */
+async function waitForPaint(
+  page: import('@playwright/test').Page,
+  points: ReadonlyArray<readonly [number, number]>,
+  timeoutMs = 30000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const pixels = await samplePixels(page, points);
+    if (pixels.some((pixel) => (pixel[3] ?? 0) > 0)) return;
+    await page.waitForTimeout(250);
+  }
+}
+
+/**
+ * Poll until the sampled pixels differ from `baseline`. Canvas repaints are
+ * asynchronous (worker bitmap promotion, rAF scheduling), and a fixed delay
+ * sampled the pre-update frame under load.
+ */
+async function waitForPaintChange(
+  page: import('@playwright/test').Page,
+  points: ReadonlyArray<readonly [number, number]>,
+  baseline: number[][],
+  timeoutMs = 30000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const pixels = await samplePixels(page, points);
+    const changed = pixels.some((pixel, index) => {
+      const base = baseline[index];
+      return !(
+        base &&
+        pixel.length === base.length &&
+        pixel.every((value, channel) => value === (base[channel] ?? 0))
+      );
+    });
+    if (changed) return;
+    await page.waitForTimeout(250);
+  }
 }
 
 test.describe('group opacity isolation', () => {
@@ -110,7 +193,6 @@ test.describe('group opacity isolation', () => {
     await dragOnCanvas(page, 160, 140, 340, 260);
     await page.keyboard.press('v');
     await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
-    await waitForArtwork(page);
 
     const points = [
       [120, 130],
@@ -118,6 +200,7 @@ test.describe('group opacity isolation', () => {
       [300, 240],
     ] as const;
 
+    await waitForPaint(page, points);
     // Baseline before grouping/opacity: fully opaque coverage.
     const before = await samplePixels(page, points);
 
@@ -130,12 +213,10 @@ test.describe('group opacity isolation', () => {
       .getByRole('treeitem')
       .filter({ hasText: /^Group\b/ })
       .first();
-    await group.click();
-    expect(await callEditor(page, 'setSelectedOpacity', 0.5)).not.toBeNull();
-
-    await waitForArtwork(page);
-    // Let the committed opacity frame settle before sampling.
-    await page.waitForTimeout(400);
+    const groupId = await group.getAttribute('data-node-id');
+    expect(groupId).toBeTruthy();
+    await updateNode(page, groupId!, { opacity: 0.5 });
+    await waitForPaintChange(page, points, before);
 
     const [onlyA, overlap, onlyB] = await samplePixels(page, points);
 
@@ -195,7 +276,6 @@ test.describe('group opacity isolation', () => {
     await dragOnCanvas(page, 180, 160, 320, 260);
     await page.keyboard.press('v');
     await expect(page.getByRole('treeitem')).toHaveCount(3, { timeout: 10000 });
-    await waitForArtwork(page);
 
     const points = [
       [95, 95],
@@ -203,6 +283,7 @@ test.describe('group opacity isolation', () => {
       [210, 190],
       [300, 240],
     ] as const;
+    await waitForPaint(page, points);
     const before = await samplePixels(page, points);
     // The backdrop recolor must have landed (blue channel above red).
     expect(before[0]?.[2] ?? 0).toBeGreaterThan(before[0]?.[0] ?? 255);
@@ -217,11 +298,10 @@ test.describe('group opacity isolation', () => {
       .getByRole('treeitem')
       .filter({ hasText: /^Group\b/ })
       .first();
-    await group.click();
-    expect(await callEditor(page, 'setSelectedOpacity', 0.5)).not.toBeNull();
-
-    await waitForArtwork(page);
-    await page.waitForTimeout(400);
+    const groupId = await group.getAttribute('data-node-id');
+    expect(groupId).toBeTruthy();
+    await updateNode(page, groupId!, { opacity: 0.5 });
+    await waitForPaintChange(page, points, before);
     const [backdropOnly, onlyA, overlap, onlyB] = await samplePixels(page, points);
 
     const channelClose = (a: number[] | undefined, b: number[] | undefined, tol: number) =>

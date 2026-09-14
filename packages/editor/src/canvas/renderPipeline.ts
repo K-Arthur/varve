@@ -1527,6 +1527,7 @@ export function renderContent(deps: RenderContentDeps): void {
                   groupWidth,
                   groupHeight,
                   n.opacity ?? 1,
+                  deps.onEffectDiagnostic,
                 );
               }
             }
@@ -1536,6 +1537,7 @@ export function renderContent(deps: RenderContentDeps): void {
             applyGroupContentEffects(doc, gCanvas, visibleGroupEffects, {
               effectMaskResolver: resolveLiveEffectMask,
               effectTarget: createGroupEffectTargetItem(groupX, groupY, groupWidth, groupHeight),
+              onEffectDiagnostic: deps.onEffectDiagnostic,
             });
 
             for (const effect of visibleGroupEffects) {
@@ -1947,6 +1949,7 @@ export function renderContent(deps: RenderContentDeps): void {
           replayForceAll = previousForce;
         }
       },
+      onEffectDiagnostic: deps.onEffectDiagnostic,
     });
 
     function replaySubtree(
