@@ -164,12 +164,12 @@ const METHOD_GUIDANCE: Record<
 const PROMPTED_MODEL_OPTIONS = {
   'mobile-sam': {
     label: 'Faster local model',
-    detail: 'MobileSAM · about 45 MB · lower working set',
+    detail: 'MobileSAM · about 45 MB download · experimental; may need substantial working memory',
     ids: [MOBILE_SAM_ENCODER_ID, MOBILE_SAM_DECODER_ID] as const,
   },
   sam2: {
     label: 'Higher-detail local model',
-    detail: 'SAM2 Tiny · about 155 MB · more memory and detail',
+    detail: 'SAM2 Tiny · about 155 MB download · more memory and detail',
     ids: ['sam2-hiera-tiny-encoder', 'sam2-hiera-tiny-decoder'] as const,
   },
 } as const;
@@ -265,8 +265,6 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const [modelState, setModelState] = useState<'unavailable' | 'downloading' | 'ready' | 'error'>(
     'unavailable',
   );
-  const [objectSelectionModelState, setObjectSelectionModelState] =
-    useState<PromptedModelState>('checking');
   const [mobileSamModelState, setMobileSamModelState] = useState<PromptedModelState>('checking');
   const [sam2ModelState, setSam2ModelState] = useState<PromptedModelState>('checking');
   const [objectSelectionDownloadProgress, setObjectSelectionDownloadProgress] = useState<
@@ -559,9 +557,6 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       if (entry.providerId === 'mobile-sam') setMobileSamModelState(entry.state);
       else setSam2ModelState(entry.state);
     }
-    const hasReady = entries.some((entry) => entry.state === 'ready');
-    const hasPartial = entries.some((entry) => entry.state === 'partial');
-    setObjectSelectionModelState(hasReady ? 'ready' : hasPartial ? 'partial' : 'missing');
   }, []);
 
   useEffect(() => {
@@ -930,10 +925,16 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 </button>
               </div>
             )}
-            {objectSelectionModelState === 'ready' && (
+            {sam2ModelState === 'ready' && (
               <span className="insp-field__hint" role="status">
-                Object Selection model ready · local processing · Varve routes by available memory
-                and measured runtime
+                Higher-detail Object Selection model ready · local processing · Auto may use it when
+                the measured runtime budget allows
+              </span>
+            )}
+            {mobileSamModelState === 'ready' && (
+              <span className="insp-field__hint" role="status">
+                Faster local MobileSAM installed · explicit experimental choice only; Auto will not
+                silently substitute it
               </span>
             )}
             {objectSelection && (

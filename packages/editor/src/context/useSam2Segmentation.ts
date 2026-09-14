@@ -47,6 +47,14 @@ import type { EditorState, ObjectSelectionSession } from './types';
 const SAM2_SOFT_DEADLINE_MS = 15_000;
 const EMBEDDING_CACHE_MAX_BYTES = 512 * 1024 * 1024;
 const EMBEDDING_CACHE_MIN_BYTES = 16 * 1024 * 1024;
+const MOBILE_SAM_FALLBACK_PEAK_BYTES = 1_200_000_000;
+
+function promptedEncoderPeakBytes(encoderId: string): number {
+  return (
+    getModelById(encoderId)?.peakMemoryBytes ??
+    (encoderId === MOBILE_SAM_ENCODER_ID ? MOBILE_SAM_FALLBACK_PEAK_BYTES : 600_000_000)
+  );
+}
 
 /**
  * Keep embeddings proportional to the runtime's safe working budget. This is
@@ -88,7 +96,7 @@ function promptedProviderFacts(
       encoderId: MOBILE_SAM_ENCODER_ID,
       decoderId: MOBILE_SAM_DECODER_ID,
       installed: mobileInstalled,
-      workingSetBytes: getModelById(MOBILE_SAM_ENCODER_ID)?.peakMemoryBytes ?? 600_000_000,
+      workingSetBytes: promptedEncoderPeakBytes(MOBILE_SAM_ENCODER_ID),
       warmPromptP50Ms: mobileLatency?.p50Ms,
       warmPromptP95Ms: mobileLatency?.p95Ms,
       warmPromptP95Source: mobileLatency?.source ?? 'estimated',
@@ -762,7 +770,7 @@ export function useSam2Segmentation(
           routingRejections: decision.rejected,
         });
       }
-      const encoderPeakBytes = getModelById(encoderId)?.peakMemoryBytes ?? 600_000_000;
+      const encoderPeakBytes = promptedEncoderPeakBytes(encoderId);
       let resourceAssessment = assessImageInferenceResources({
         width: naturalW,
         height: naturalH,
@@ -861,7 +869,7 @@ export function useSam2Segmentation(
           const warmResourceAssessment = assessImageInferenceResources({
             width: naturalW,
             height: naturalH,
-            modelPeakBytes: getModelById(encoderId)?.peakMemoryBytes ?? 600_000_000,
+            modelPeakBytes: promptedEncoderPeakBytes(encoderId),
             runtime: { wasmSafePeakBytes: safePeakBytes },
             operation: 'Object Selection',
           });
