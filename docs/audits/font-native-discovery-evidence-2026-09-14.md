@@ -107,3 +107,29 @@ the embedded server up within 60 seconds. The host also lacks
 evidence, not a passing native-font certification. The next executable check is
 the same compact spec in the Linux desktop lane with a stable embedded-driver
 startup.
+
+## Native command scheduling follow-up — 2026-09-14
+
+Enumeration and exact-byte loading now run through Tauri's blocking task pool.
+The command boundary remains asynchronous, so filesystem enumeration, font
+parsing, and artifact hashing cannot starve the WebView callback queue while a
+WDIO session is waiting for `invoke`.
+
+Focused validation:
+
+```text
+rustfmt --edition 2021 --check apps/desktop/src-tauri/src/font.rs
+cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --lib font::tests -- --nocapture
+cargo check --manifest-path apps/desktop/src-tauri/Cargo.toml --lib
+cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --features wdio
+timeout 90s env VARVE_DESKTOP_BINARY=apps/desktop/src-tauri/target/debug/varve-desktop VARVE_WDIO_SPECS=./tests/wdio/font-native.e2e.ts pnpm exec wdio run wdio.conf.ts
+```
+
+The targeted Rust formatter check, four native font tests, library check, and
+feature-enabled binary build passed. The bounded WDIO attempt reached the
+embedded WebDriver and completed session setup, but both specs still reported
+`Tauri core.invoke not available after 5s timeout`. The host diagnostics also
+report no `WebKitWebDriver` and no `tauri-driver`. This is a useful scheduling
+improvement and a reproducible environment boundary, but it is not a passing
+desktop E2E result; the Linux desktop lane with its installed driver remains
+the required certification check.
