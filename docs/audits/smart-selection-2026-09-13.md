@@ -191,5 +191,59 @@ Skipped as unrelated: full Vitest/Cargo workspace, full Playwright matrix,
   missing encoder artifact).
 Escalations: none.
 Full suite run: no. Reason: not triggered by the task's localized scope; the
-  release gates remain with their owners.
+release gates remain with their owners.
 ```
+
+## Follow-up implementation and validation (2026-09-14)
+
+The follow-up slice was completed on `master` in progressively scoped commits:
+
+| Commit | Verified outcome |
+| --- | --- |
+| `53eba6ad2` | Re-opened the primary sources and user-failure evidence, and recorded the documentation mismatch. |
+| `41652870c` | Added explicit Point / Box hint modes, reverse-safe box normalization, and two-tap box prompting. |
+| `cd5ba8d38` | Added visible prompt polarity and Replace / Add / Subtract / Intersect output controls, with the existing selection algebra. |
+| `86795d314` | Updated the Object Selection help and feature pages without promising semantic recognition or cloud processing. |
+| `d827fdedd` | Bounded the embedding cache by the runtime safe budget and added verified encoder/decoder artifact identity to its key. |
+| `308108a66` | Added tap-to-remove and drag-to-move prompt markers, with cancellation restoration and real-UI coverage. |
+| `33c491ca4` | Clarified that a reviewed preview can become either a selection or a mask. |
+
+### Current validation record
+
+```text
+Changed scope: Object Selection prompt tool, Inspector controls, segmentation
+  cache identity/budget, Object Selection E2E tests, selection architecture and
+  quality docs, and website feature/help pages.
+Validation plan: pnpm verify:plan selected the full affected closure because
+  the shared master worktree contained 307 changed files across editor, engine,
+  scene, shared, desktop, website, and Rust crates; FULL-SUITE ESCALATION: YES.
+Commands actually run: pnpm verify:plan; pnpm verify:affected; pnpm
+  verify:full with VARVE_FULL_GATE_REASON; focused Vitest suites; pnpm
+  typecheck:e2e; pnpm audit:tokens; pnpm audit:docs; pnpm audit:emoji; node
+  scripts/audit-architecture.mjs --ci; pnpm --filter @varve/website build;
+  targeted Playwright Object Selection runs; pnpm bench (stopped after the
+  unrelated history benchmark had already taken 259 seconds).
+Passed: 33 focused prompt/segmentation/selection tests; 36 focused Inspector
+  tests; typecheck:e2e in the commit checkpoints; token audit (153/153 across
+  three themes); docs and emoji audits; website Astro check and static build
+  (104 pages); prior final-slice browser runs for box prompting, low-memory
+  refusal, prompt removal, and marker movement; scoped diff check.
+Skipped as unrelated: the remaining affected closure after the full gate
+  stopped at concurrent engine failures; WebKitGTK/Tauri, physical touch and
+  stylus hardware, and the real-model corpus were not rerun in this slice.
+Escalations: the full gate was started as required, then stopped at concurrent
+  failures: an unallowlisted engine contentAwareFill cycle and existing engine
+  test type errors in quickCleanup/lut. A final dev-server browser rerun also
+  could not reach the app because concurrent font changes left the Vite graph
+  without getFontRegistry; earlier frozen/focused browser runs passed and the
+  failure is outside the selection-owned files.
+Full suite run: yes, pnpm verify:full was started because the planner
+  escalated; it did not complete successfully for the concurrent failures
+  above. No selection-owned file was changed to mask those failures.
+```
+
+The inspected visual evidence includes the two-tap draft-box canvas, a
+low-memory real-photo refusal with the canvas intact, a one-marker prompt
+state, and a moved-marker state with both the moved and stable markers visible.
+The real-model corpus result remains the previously recorded provisional mean
+IoU 0.654 / best-candidate IoU 0.720; no quality threshold was relaxed.
