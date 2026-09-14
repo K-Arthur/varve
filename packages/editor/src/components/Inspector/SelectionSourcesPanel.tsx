@@ -2,16 +2,31 @@ import {
   type AreaSelectionRefineOperation,
   combineAreaSelections,
   MAX_REFINE_RADIUS,
+  maskArrayToDataUrl,
 } from '@varve/engine';
 import {
   type ForegroundProposalSet,
   mapProposalMaskToSource,
-  proposeForegroundSubjects,
 } from '@varve/engine/foregroundSelect';
-import { buildParentIndexMap, fillCoverageOnNode, getImageFill, isImageShape } from '@varve/scene';
+import {
+  downloadSubjectModel,
+  listInstalledSubjectModels,
+  proposeSubjects,
+  resolveSubjectRuntimeCapabilities,
+  type SubjectProposalQuality,
+  subjectModelLabel,
+} from '@varve/engine/subjectProposal';
+import {
+  buildParentIndexMap,
+  fillCoverageOnNode,
+  getImageFill,
+  imageShapeSrc,
+  isImageShape,
+} from '@varve/scene';
 import { Icon, Select, Tooltip } from '@varve/ui';
-import { useState, useSyncExternalStore } from 'react';
+import { useRef, useState, useSyncExternalStore } from 'react';
 import { getActionRegistry } from '../../actions/ActionRegistry';
+import { commitRasterMask } from '../../backgroundRemoval/commitRasterMask';
 import { getToolManager } from '../../canvas/toolDispatcher';
 import { type ToolId, useEditor } from '../../context';
 import { nodeWorldTransform } from '../../scene/world';
@@ -42,6 +57,18 @@ const AREA_SELECTION_TOOLS = new Set<ToolId>([
   'trimapEdit',
   'sam2Segment',
 ]);
+
+const SUBJECT_QUALITY_OPTIONS = [
+  { value: 'fast', label: 'Fast (bundled)' },
+  { value: 'balanced', label: 'Balanced' },
+  { value: 'high', label: 'High quality' },
+];
+
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '';
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  return `${Math.round(bytes / (1024 * 1024))} MB`;
+}
 
 function runAction(id: string): void {
   getActionRegistry().get(id)?.handler(undefined);
@@ -75,6 +102,9 @@ export function SelectionSourcesPanel() {
   const [refineMinIsland, setRefineMinIsland] = useState(16);
   const [refineMaxHole, setRefineMaxHole] = useState(16);
   const [refineShift, setRefineShift] = useState(2);
+  const [subjectQuality, setSubjectQuality] = useState<SubjectProposalQuality>('fast');
+  const [activeSubjectCandidate, setActiveSubjectCandidate] = useState(0);
+  const subjectDownloadRef = useRef<AbortController | null>(null);
   const subjectState = useSyncExternalStore(
     subscribeSubjectProposals,
     getSubjectProposalState,
@@ -190,9 +220,9 @@ export function SelectionSourcesPanel() {
       return;
     }
     setAreaSelection?.(selection);
-    announce(
-      `Subject ${index + 1} selected (estimate score ${Math.round(candidate.score * 100)}%)`,
-    );
+    setActiveSubjectCandidate(index);
+    const providerLabel = getSubjectProposalState().provider?.label ?? 'Foreground';
+    announce(`${candidate.label ?? `Subject ${index + 1}`} selected (${providerLabel} estimate)`);
   };
 
   const selectSubject = async () => {
@@ -209,32 +239,189 @@ export function SelectionSourcesPanel() {
       return;
     }
     const target = { documentId: state.document.id, nodeId: selectedNode.id };
-    setSubjectProposalState({ target, proposals: null, busy: true });
+    setSubjectProposalState({
+      target,
+      proposals: null,
+      provider: null,
+      install: null,
+      busy: true,
+      stage: 'preparing',
+      error: null,
+      downloadProgress: null,
+    });
     try {
+      setSubjectProposalState({ stage: 'estimating' });
       const decoded = await decodeRasterMaskDataUrl(source);
       if (!decoded) {
-        announce('The image could not be decoded for subject selection');
+        const message = 'The image could not be decoded for subject selection';
+        setSubjectProposalState({ busy: false, stage: 'idle', error: message });
+        announce(message);
         return;
       }
-      const result = proposeForegroundSubjects({
-        data: decoded.data,
-        width: decoded.width,
-        height: decoded.height,
+      const [runtime, installedModelIds] = await Promise.all([
+        resolveSubjectRuntimeCapabilities(),
+        listInstalledSubjectModels(),
+      ]);
+      const imageData = new ImageData(
+        new Uint8ClampedArray(decoded.data),
+        decoded.width,
+        decoded.height,
+      );
+      const result = await proposeSubjects({
+        quality: subjectQuality,
+        imageData,
+        sourceWidth: decoded.width,
+        sourceHeight: decoded.height,
+        installedModelIds,
+        runtime,
+        allowModelFreeFallback: true,
       });
-      if (result.candidates.length === 0) {
-        announce(
-          result.emptyReason === 'all-transparent'
+      if (result.set.candidates.length === 0) {
+        const message =
+          result.set.emptyReason === 'all-transparent'
             ? 'The image has no visible pixels to select'
-            : 'No prominent foreground subject was found; use Magic Wand or Object Selection instead',
-        );
+            : 'No prominent foreground subject was found; use Magic Wand or Object Selection instead';
+        setSubjectProposalState({
+          proposals: null,
+          provider: null,
+          install: result.plan.install ?? null,
+          busy: false,
+          stage: 'idle',
+          error: message,
+        });
+        announce(message);
         return;
       }
-      setSubjectProposalState({ target, proposals: result, busy: false });
+      const chosen = result.plan.attempts.find((attempt) => attempt.modelId === result.source);
+      setSubjectProposalState({
+        proposals: result.set,
+        provider: {
+          source: result.source,
+          label: subjectModelLabel(result.source),
+          modelId: result.modelId,
+          quality: subjectQuality,
+          steppedDown: result.source !== 'model-free' && Boolean(chosen?.steppedDown),
+          failed: result.attempts
+            .filter((attempt) => attempt.outcome === 'failed')
+            .map((attempt) => ({
+              modelId: attempt.modelId,
+              reason: attempt.reason ?? 'the model could not run',
+            })),
+        },
+        install: result.plan.install ?? null,
+        busy: false,
+        stage: 'idle',
+        downloadProgress: null,
+        error: null,
+      });
+      setActiveSubjectCandidate(0);
       // One click should produce a usable result. The top-ranked proposal is
       // applied immediately and every alternative stays one click away.
-      applySubjectCandidate(result, 0);
+      applySubjectCandidate(result.set, 0);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Subject selection could not complete';
+      setSubjectProposalState({ busy: false, stage: 'idle', error: message });
+      announce(message);
+    }
+  };
+
+  const installProposalModel = async () => {
+    const offer = getSubjectProposalState().install;
+    if (!offer) return;
+    const controller = new AbortController();
+    subjectDownloadRef.current = controller;
+    setSubjectProposalState({
+      busy: true,
+      stage: 'downloading',
+      downloadProgress: 0,
+      error: null,
+    });
+    try {
+      await downloadSubjectModel(
+        offer.modelId,
+        (loaded, total) => {
+          setSubjectProposalState({
+            downloadProgress: total > 0 ? Math.max(0, Math.min(1, loaded / total)) : null,
+          });
+        },
+        controller.signal,
+      );
+      setSubjectProposalState({
+        install: null,
+        busy: false,
+        stage: 'idle',
+        downloadProgress: null,
+      });
+      announce(`${offer.displayName} installed`);
+      await selectSubject();
+    } catch {
+      const message = controller.signal.aborted
+        ? 'Model download cancelled'
+        : `Could not install ${offer.displayName}. Check the connection and try again.`;
+      setSubjectProposalState({
+        busy: false,
+        stage: 'idle',
+        downloadProgress: null,
+        error: message,
+      });
+      announce(message);
     } finally {
-      setSubjectProposalState({ busy: false });
+      subjectDownloadRef.current = null;
+    }
+  };
+
+  const cancelProposalDownload = () => {
+    subjectDownloadRef.current?.abort();
+  };
+
+  const applySubjectAsMask = () => {
+    const result = subjectProposalSet;
+    if (!result || selectedNode?.kind !== 'shape' || !isImageShape(selectedNode)) return;
+    const candidate = result.candidates[activeSubjectCandidate];
+    if (!candidate) return;
+    const sourceMask = mapProposalMaskToSource(
+      candidate.alpha ?? candidate.mask,
+      result.analysisWidth,
+      result.analysisHeight,
+      result.width,
+      result.height,
+    );
+    if (!sourceMask?.some((value) => value > 0)) {
+      announce('The subject estimate contains no pixels to apply');
+      return;
+    }
+    const provider = getSubjectProposalState().provider;
+    const nodeId = selectedNode.id;
+    const modelId = provider?.modelId ?? 'foreground-estimate';
+    const method: 'quick' | 'ai-balanced' | 'ai-quality' =
+      provider?.source === 'birefnet-general-lite'
+        ? 'ai-quality'
+        : provider && provider.source !== 'model-free'
+          ? 'ai-balanced'
+          : 'quick';
+    const dataUrl = maskArrayToDataUrl(sourceMask, result.width, result.height);
+    const sourceLocator = imageShapeSrc(selectedNode);
+    // Mirror the reviewed-candidate Object Selection commit with one document
+    // updater. The editor's mutation boundary records this as one edit.
+    try {
+      updateDoc((doc) => {
+        const live = doc.nodes[nodeId];
+        if (live?.kind !== 'shape') return doc;
+        return commitRasterMask(doc, nodeId, {
+          dataUrl,
+          width: result.width,
+          height: result.height,
+          method,
+          modelId,
+          confidence: candidate.score,
+          generatedAt: Date.now(),
+          sourceLocator,
+        });
+      });
+      announce(`${candidate.label ?? 'Subject'} applied as a mask`);
+    } catch (error) {
+      announce(error instanceof Error ? error.message : 'Could not apply the subject mask');
     }
   };
 
@@ -500,18 +687,34 @@ export function SelectionSourcesPanel() {
             </button>
           </Tooltip>
           <Tooltip
-            label="Select subject (quick estimate)"
+            label="Select subject (foreground estimate)"
             disabledReason={!hasImage ? 'Select one image to use this command' : undefined}
           >
             <button
               type="button"
-              className="insp-selection-sources__button"
+              className="insp-selection-sources__button insp-selection-sources__button--primary"
               disabled={!hasImage || subjectProposalBusy}
               onClick={() => void selectSubject()}
             >
-              {subjectProposalBusy ? 'Finding subjects…' : 'Select subject'}
+              {subjectState.stage === 'preparing'
+                ? 'Preparing image…'
+                : subjectState.stage === 'estimating'
+                  ? 'Estimating subject…'
+                  : subjectState.stage === 'downloading'
+                    ? 'Downloading model…'
+                    : subjectProposalBusy
+                      ? 'Finding subjects…'
+                      : 'Select subject'}
             </button>
           </Tooltip>
+          <FieldRow label="Estimate quality">
+            <Select
+              label="Subject estimate quality"
+              value={subjectQuality}
+              options={SUBJECT_QUALITY_OPTIONS}
+              onChange={(value) => setSubjectQuality(value as SubjectProposalQuality)}
+            />
+          </FieldRow>
           <label className="insp-selection-sources__name-field">
             <span>Name</span>
             <input
@@ -530,42 +733,127 @@ export function SelectionSourcesPanel() {
             Save selection
           </button>
         </div>
-        {subjectProposalSet && subjectProposalSet.candidates.length > 0 && (
-          <section className="insp-selection-sources__session" aria-label="Subject proposals">
+        {subjectState.install && subjectState.stage !== 'downloading' && (
+          <section className="insp-selection-sources__session" aria-label="Optional subject model">
             <span className="insp-selection-sources__session-label">
-              Foreground estimate · {subjectProposalSet.candidates.length}{' '}
-              {subjectProposalSet.candidates.length === 1 ? 'proposal' : 'proposals'}
+              Higher-quality estimates need an optional local model
+            </span>
+            <p className="insp-field__hint">
+              {subjectState.install.displayName} ({formatBytes(subjectState.install.downloadBytes)})
+              downloads once, is verified against its checksum, and stays on this device. The
+              bundled fast model still works without it.
+            </p>
+            <div className="insp-selection-sources__session-actions">
+              <button
+                type="button"
+                className="insp-selection-sources__button insp-selection-sources__button--primary"
+                disabled={subjectProposalBusy}
+                onClick={() => void installProposalModel()}
+              >
+                Download {subjectState.install.displayName}
+              </button>
+            </div>
+          </section>
+        )}
+        {subjectState.stage === 'downloading' && (
+          <section className="insp-selection-sources__session" aria-label="Subject model download">
+            <span className="insp-selection-sources__session-label">
+              {subjectState.downloadProgress !== null
+                ? `Downloading model… ${Math.round(subjectState.downloadProgress * 100)}%`
+                : 'Downloading model…'}
             </span>
             <div className="insp-selection-sources__session-actions">
-              {subjectProposalSet.candidates.map((candidate, index) => (
-                <button
-                  key={`subject-${candidate.centroid.x.toFixed(4)}-${candidate.centroid.y.toFixed(4)}`}
-                  type="button"
-                  className="insp-selection-sources__button"
-                  aria-label={`Subject ${index + 1}, estimate score ${Math.round(candidate.score * 100)} percent`}
-                  onClick={() => applySubjectCandidate(subjectProposalSet, index)}
-                >
-                  Subject {index + 1} · {Math.round(candidate.coverage * 100)}% area
-                </button>
-              ))}
               <button
                 type="button"
                 className="insp-selection-sources__button"
-                onClick={applyAllSubjectProposals}
+                onClick={cancelProposalDownload}
               >
-                All subjects
+                Cancel
+              </button>
+            </div>
+          </section>
+        )}
+        {subjectState.error && (
+          <p className="insp-selection-sources__error" role="status">
+            {subjectState.error}
+          </p>
+        )}
+        {subjectProposalSet && subjectProposalSet.candidates.length > 0 && (
+          <section className="insp-selection-sources__session" aria-label="Subject proposals">
+            <span className="insp-selection-sources__session-label">
+              {subjectState.provider
+                ? `${subjectState.provider.label} estimate`
+                : 'Foreground estimate'}{' '}
+              {subjectProposalSet.candidates.length}{' '}
+              {subjectProposalSet.candidates.length === 1 ? 'proposal' : 'proposals'}
+            </span>
+            {subjectState.provider && (
+              <p className="insp-field__hint">
+                {subjectState.provider.source === 'model-free'
+                  ? 'The model-free estimate uses border and centre contrast. It cannot recognise what an object is; use Object Selection for a prompted mask.'
+                  : subjectState.provider.steppedDown
+                    ? `The requested ${subjectState.provider.quality} model could not run; this proposal came from ${subjectState.provider.label} instead.`
+                    : `On-device ${subjectState.provider.quality} estimate from ${subjectState.provider.label}. Review it before applying.`}
+                {subjectState.provider.failed.length > 0 &&
+                  ` Skipped: ${subjectState.provider.failed
+                    .map((failure) => `${failure.modelId} (${failure.reason})`)
+                    .join('; ')}.`}
+              </p>
+            )}
+            <div className="insp-selection-sources__session-actions">
+              {subjectProposalSet.candidates.map((candidate, index) => (
+                <button
+                  key={`subject-${candidate.centroid.x.toFixed(4)}-${candidate.centroid.y.toFixed(4)}-${candidate.score.toFixed(4)}`}
+                  type="button"
+                  className={`insp-selection-sources__button${
+                    index === activeSubjectCandidate
+                      ? ' insp-selection-sources__button--active'
+                      : ''
+                  }`}
+                  aria-pressed={index === activeSubjectCandidate}
+                  aria-label={`${candidate.label ?? `Subject ${index + 1}`}, covers ${Math.round(candidate.coverage * 100)} percent`}
+                  onClick={() => applySubjectCandidate(subjectProposalSet, index)}
+                >
+                  {candidate.label ?? `Subject ${index + 1}`} ·{' '}
+                  {Math.round(candidate.coverage * 100)}% area
+                </button>
+              ))}
+              {subjectState.provider?.source === 'model-free' && (
+                <button
+                  type="button"
+                  className="insp-selection-sources__button"
+                  onClick={applyAllSubjectProposals}
+                >
+                  All subjects
+                </button>
+              )}
+            </div>
+            <div className="insp-selection-sources__session-actions">
+              <button
+                type="button"
+                className="insp-selection-sources__button insp-selection-sources__button--primary"
+                onClick={applySubjectAsMask}
+              >
+                Apply as mask
               </button>
               <button
                 type="button"
                 className="insp-selection-sources__button"
-                onClick={() => setSubjectProposalState({ proposals: null })}
+                onClick={() =>
+                  setSubjectProposalState({
+                    proposals: null,
+                    provider: null,
+                    install: null,
+                    error: null,
+                  })
+                }
               >
                 Dismiss
               </button>
             </div>
             <p className="insp-field__hint">
-              Model-free estimate from border and centre contrast. It cannot recognise what an
-              object is; use Object Selection for a prompted mask.
+              The active candidate is applied as a pixel selection; refine it below before applying
+              it as a mask. Estimates are proposals, not semantic recognition.
             </p>
           </section>
         )}

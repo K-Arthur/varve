@@ -43,6 +43,21 @@
   color: var(--color-accent-strong, var(--color-accent));
 }
 
+.insp-selection-sources__button--active {
+  background: var(--color-accent-subtle, var(--color-surface-hover));
+  border-color: var(--color-accent);
+  color: var(--color-accent-strong, var(--color-accent));
+}
+
+.insp-selection-sources__error {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
+  margin: 0;
+  border-left: 2px solid var(--color-warning, var(--color-border-subtle));
+  padding-left: 8px;
+}
+
 .insp-selection-sources__button:disabled {
   cursor: not-allowed;
   opacity: 0.45;

@@ -8,8 +8,12 @@
  * applied. This tiny external store keeps the proposals and their target
  * identity alive across remounts, and the target identity prevents a stale
  * proposal set from being offered for a different document or image.
+ *
+ * It also keeps the provider decision and install offer so the panel can
+ * explain what actually ran (or what needs installing) after a remount.
  */
 import type { ForegroundProposalSet } from '@varve/engine/foregroundSelect';
+import type { SubjectProposalQuality, SubjectProposalSource } from '@varve/engine/subjectProposal';
 import type { NodeId } from '@varve/scene';
 
 export interface SubjectProposalTarget {
@@ -17,13 +21,47 @@ export interface SubjectProposalTarget {
   nodeId: NodeId;
 }
 
+export interface SubjectProposalProviderInfo {
+  source: SubjectProposalSource;
+  label: string;
+  modelId: string | null;
+  quality: SubjectProposalQuality;
+  /** True when the requested quality model could not run and a lighter one did. */
+  steppedDown: boolean;
+  /** Model attempts that failed before this result, with reasons. */
+  failed: Array<{ modelId: string; reason: string }>;
+}
+
+export interface SubjectProposalInstallOffer {
+  modelId: 'isnet-general-use' | 'birefnet-general-lite';
+  displayName: string;
+  downloadBytes: number;
+}
+
 export interface SubjectProposalState {
   target: SubjectProposalTarget | null;
   proposals: ForegroundProposalSet | null;
+  provider: SubjectProposalProviderInfo | null;
+  install: SubjectProposalInstallOffer | null;
   busy: boolean;
+  /** Coarse stage for user-facing progress copy. */
+  stage: 'idle' | 'preparing' | 'estimating' | 'downloading';
+  /** Download progress 0..1 when `stage === 'downloading'`. */
+  downloadProgress: number | null;
+  error: string | null;
 }
 
-let state: SubjectProposalState = { target: null, proposals: null, busy: false };
+let state: SubjectProposalState = {
+  target: null,
+  proposals: null,
+  provider: null,
+  install: null,
+  busy: false,
+  stage: 'idle',
+  downloadProgress: null,
+  error: null,
+};
+
 const listeners = new Set<() => void>();
 
 export function getSubjectProposalState(): SubjectProposalState {
@@ -44,5 +82,15 @@ export function setSubjectProposalState(next: Partial<SubjectProposalState>): vo
 
 /** Clear proposals and busy state; used by tests and document teardown. */
 export function resetSubjectProposals(): void {
-  setSubjectProposalState({ target: null, proposals: null, busy: false });
+  state = {
+    target: null,
+    proposals: null,
+    provider: null,
+    install: null,
+    busy: false,
+    stage: 'idle',
+    downloadProgress: null,
+    error: null,
+  };
+  for (const listener of listeners) listener();
 }

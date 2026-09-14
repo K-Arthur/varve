@@ -128,7 +128,7 @@ export interface SubjectRoutingPlan {
   fallbackReason?: string;
   /** Set when the requested quality model is not installed (never auto-downloads). */
   install?: {
-    modelId: ModelSubjectSource;
+    modelId: Exclude<ModelSubjectSource, 'u2netp'>;
     displayName: string;
     downloadBytes: number;
   };
@@ -163,7 +163,7 @@ export function decideSubjectRouting(request: SubjectRoutingRequest): SubjectRou
   const rejected: Array<{ modelId: string; reason: string }> = [];
   let install: SubjectRoutingPlan['install'];
 
-  if (!isInstalled(requested, request.installedModelIds)) {
+  if (requested !== 'u2netp' && !isInstalled(requested, request.installedModelIds)) {
     install = {
       modelId: requested,
       displayName: subjectModelLabel(requested),
@@ -481,3 +481,54 @@ export async function proposeSubjects(
 
 /** Re-exported so callers can type provider ids without importing the catalog. */
 export type { WorkerModelId };
+
+// ── Editor-facing capability helpers ─────────────────────────
+//
+// These keep the editor from importing the model loader or the runtime
+// capability module directly; routing facts stay one module deep.
+
+export interface SubjectRuntimeCapabilities {
+  isTauri: boolean;
+  nativeReady: boolean;
+  safePeakBytes: number;
+}
+
+export async function resolveSubjectRuntimeCapabilities(): Promise<SubjectRuntimeCapabilities> {
+  const { getRuntimeCapabilitiesSync } = await import('../inference/core/RuntimeCapabilities');
+  const runtime = getRuntimeCapabilitiesSync();
+  let nativeReady = false;
+  if (runtime.isTauri) {
+    const { isNativeAiReady } = await import('../backgroundRemoval/providers/tauriProvider');
+    nativeReady = await isNativeAiReady().catch(() => false);
+  }
+  return {
+    isTauri: runtime.isTauri,
+    nativeReady,
+    safePeakBytes: runtime.wasmSafePeakBytes,
+  };
+}
+
+/** Installed model ids (bundled models included). */
+export async function listInstalledSubjectModels(signal?: AbortSignal): Promise<string[]> {
+  const { getModelLoader } = await import('../backgroundRemoval/modelLoader');
+  const loader = getModelLoader(signal);
+  const models = await loader.listInstalledModels(signal);
+  return models.filter((model) => model.installed).map((model) => model.id);
+}
+
+/**
+ * Download an optional automatic-proposal model through the shared store.
+ * Callers must ask the user first; this never runs from a proposal click.
+ */
+export async function downloadSubjectModel(
+  modelId: ModelSourceForDownload,
+  onProgress?: (loaded: number, total: number) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const { getModelLoader } = await import('../backgroundRemoval/modelLoader');
+  const loader = getModelLoader(signal);
+  await loader.downloadModel(modelId, onProgress, signal);
+}
+
+/** Models the subject-proposal flow can offer to install. */
+export type ModelSourceForDownload = Exclude<ModelSubjectSource, 'u2netp'>;
