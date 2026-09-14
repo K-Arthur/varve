@@ -11,12 +11,31 @@ vi.mock('../../context', () => ({
 }));
 
 vi.mock('../FontBrowser/FontSelector', () => ({
-  FontSelector: ({ value, onChange }: { value: string; onChange: (family: string) => void }) => (
-    <input
-      aria-label="Font family"
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-    />
+  FontSelector: ({
+    value,
+    onChange,
+    onPreviewFamily,
+    onClearPreview,
+  }: {
+    value: string;
+    onChange: (family: string) => void;
+    onPreviewFamily?: (family: string) => void;
+    onClearPreview?: () => void;
+  }) => (
+    <>
+      <input
+        aria-label="Font family"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      <button
+        type="button"
+        aria-label="Preview family"
+        onMouseEnter={() => onPreviewFamily?.('Preview Font')}
+      />
+      <button type="button" aria-label="Apply family" onClick={() => onChange('Applied Font')} />
+      <button type="button" aria-label="Clear font preview" onClick={onClearPreview} />
+    </>
   ),
 }));
 
@@ -54,12 +73,18 @@ const updateNode = vi.fn();
 const applyFormatToSelection = vi.fn();
 const setPendingFormat = vi.fn();
 const groupCompoundOperation = vi.fn((_label: string, action: () => void) => action());
+const beginTransaction = vi.fn();
+const commitTransaction = vi.fn();
+const abortTransaction = vi.fn();
 
 beforeEach(() => {
   updateNode.mockReset();
   applyFormatToSelection.mockReset();
   setPendingFormat.mockReset();
   groupCompoundOperation.mockClear();
+  beginTransaction.mockReset();
+  commitTransaction.mockReset();
+  abortTransaction.mockReset();
   vi.mocked(useEditor).mockReturnValue({
     state: {
       selection: [node.id],
@@ -71,6 +96,9 @@ beforeEach(() => {
     applyFormatToSelection,
     setPendingFormat,
     groupCompoundOperation,
+    beginTransaction,
+    commitTransaction,
+    abortTransaction,
     setTool: vi.fn(),
     groupSelected: vi.fn(),
     setSelectedFlipH: vi.fn(),
@@ -208,6 +236,22 @@ describe('ContextControlBar typography controls', () => {
       expect.objectContaining({ fontFamily: 'IBM Plex Sans Variable', fontReference: undefined }),
     );
     expect(updateNode).not.toHaveBeenCalled();
+  });
+
+  it('keeps quick-picker preview outside history until selection is confirmed', () => {
+    render(<ContextControlBar />);
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Preview family' }));
+    expect(beginTransaction).toHaveBeenCalledWith('preview');
+    expect(updateNode).toHaveBeenCalledOnce();
+    expect(commitTransaction).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apply family' }));
+    expect(commitTransaction).toHaveBeenCalledOnce();
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Preview family' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear font preview' }));
+    expect(abortTransaction).toHaveBeenCalledOnce();
   });
 
   it('commits a valid size once on blur and rejects invalid values', () => {

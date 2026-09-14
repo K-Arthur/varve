@@ -21,9 +21,9 @@ import type { FrameNode, SceneNode, TextNode } from '@varve/scene';
 import { isExportRegion, isImageShape } from '@varve/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from '@varve/shared';
 import { Icon, Select, Tooltip } from '@varve/ui';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
-import { FontSelector } from '../FontBrowser/FontSelector';
+import { type FontFaceSelection, FontSelector } from '../FontBrowser/FontSelector';
 import {
   fontFamilyChanges,
   fontStyleAvailable,
@@ -204,8 +204,82 @@ function TextSection({
   const italicAvailable = display.mixed.fontStyle
     ? fontStyleAvailable(effectiveNodes, 'italic')
     : isItalic || fontStyleAvailable(effectiveNodes, 'italic');
-  const applyChanges = (changes: TypographyTextChanges) =>
-    applyTypographyChanges(typographySurface, node.id, changes);
+  const previewActiveRef = useRef(false);
+  const applyChanges = useCallback(
+    (changes: TypographyTextChanges) => applyTypographyChanges(typographySurface, node.id, changes),
+    [node.id, typographySurface],
+  );
+  const clearFontPreview = useCallback(() => {
+    if (!previewActiveRef.current) return;
+    previewActiveRef.current = false;
+    typographySurface.abortPreview?.();
+  }, [typographySurface]);
+  const previewChanges = useCallback(
+    (changes: TypographyTextChanges) => {
+      if (!typographySurface.beginPreview || !typographySurface.abortPreview) return;
+      if (!previewActiveRef.current) {
+        typographySurface.beginPreview();
+        previewActiveRef.current = true;
+      }
+      applyChanges(changes);
+    },
+    [applyChanges, typographySurface],
+  );
+  const commitChanges = useCallback(
+    (changes: TypographyTextChanges) => {
+      if (previewActiveRef.current) {
+        applyChanges(changes);
+        previewActiveRef.current = false;
+        typographySurface.commitPreview?.();
+        return;
+      }
+      applyChanges(changes);
+    },
+    [applyChanges, typographySurface],
+  );
+
+  useEffect(() => clearFontPreview, [clearFontPreview, node.id]);
+
+  const familyChanges = useCallback(
+    (family: string) =>
+      fontFamilyChanges(
+        family,
+        displayNode.fontFamily,
+        displayNode.fontReference,
+        displayNode.variableAxes,
+      ),
+    [displayNode.fontFamily, displayNode.fontReference, displayNode.variableAxes],
+  );
+  const previewFamily = useCallback(
+    (family: string) => previewChanges(familyChanges(family)),
+    [familyChanges, previewChanges],
+  );
+  const selectFamily = useCallback(
+    (family: string) => commitChanges(familyChanges(family)),
+    [commitChanges, familyChanges],
+  );
+  const selectFace = useCallback(
+    (selection: FontFaceSelection) =>
+      commitChanges({
+        fontFamily: selection.family,
+        fontWeight: selection.weight,
+        fontStyle: selection.style,
+        fontReference: selection.fontReference,
+        variableAxes: selection.variableAxes,
+      }),
+    [commitChanges],
+  );
+  const previewFace = useCallback(
+    (selection: FontFaceSelection) =>
+      previewChanges({
+        fontFamily: selection.family,
+        fontWeight: selection.weight,
+        fontStyle: selection.style,
+        fontReference: selection.fontReference,
+        variableAxes: selection.variableAxes,
+      }),
+    [previewChanges],
+  );
   return (
     <>
       <span className="ccb__label">Text</span>
@@ -216,25 +290,11 @@ function TextSection({
         fontReference={displayNode.fontReference}
         variableAxes={displayNode.variableAxes}
         mixed={display.mixed.fontFamily === true}
-        onChange={(family) =>
-          applyChanges(
-            fontFamilyChanges(
-              family,
-              displayNode.fontFamily,
-              displayNode.fontReference,
-              displayNode.variableAxes,
-            ),
-          )
-        }
-        onSelectFace={(selection) =>
-          applyChanges({
-            fontFamily: selection.family,
-            fontWeight: selection.weight,
-            fontStyle: selection.style,
-            fontReference: selection.fontReference,
-            variableAxes: selection.variableAxes,
-          })
-        }
+        onChange={selectFamily}
+        onSelectFace={selectFace}
+        onPreviewFamily={previewFamily}
+        onPreviewFace={previewFace}
+        onClearPreview={clearFontPreview}
       />
       <Select
         label="Font weight"
@@ -453,6 +513,9 @@ export function ContextControlBar() {
     applyFormatToSelection,
     setPendingFormat,
     groupCompoundOperation,
+    beginTransaction,
+    commitTransaction,
+    abortTransaction,
   } = useEditor();
   const sel = state.selection;
   const doc = state.document;
@@ -466,9 +529,15 @@ export function ContextControlBar() {
       applyFormatToSelection,
       setPendingFormat,
       groupCompoundOperation,
+      beginPreview: beginTransaction ? () => beginTransaction('preview') : undefined,
+      commitPreview: commitTransaction,
+      abortPreview: abortTransaction,
     }),
     [
+      abortTransaction,
       applyFormatToSelection,
+      beginTransaction,
+      commitTransaction,
       groupCompoundOperation,
       setPendingFormat,
       state.pendingFormat,
