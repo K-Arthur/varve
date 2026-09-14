@@ -353,13 +353,12 @@ export async function exportNodeAsRaster(
   }
 
   const transparent = opts.format !== 'image/jpeg' && (opts.transparency ?? true);
-  // JPEG has no alpha channel. An alpha:false canvas is not a reliable matte:
-  // browser implementations may still expose transparent initial pixels until
-  // something explicitly paints them. Keep the flattening policy visible and
-  // deterministic instead of allowing an implementation-defined black fill.
-  const defaultJpegMatte: [number, number, number, number] = [255, 255, 255, 255];
-  const matteColor =
-    opts.matteColor ?? (opts.format === 'image/jpeg' ? defaultJpegMatte : undefined);
+  // An alpha:false canvas is not a reliable matte: browser implementations may
+  // still expose transparent initial pixels until something explicitly paints
+  // them. Keep every opaque raster export deterministic instead of allowing an
+  // implementation-defined black fill.
+  const defaultFlattenMatte: [number, number, number, number] = [255, 255, 255, 255];
+  const matteColor = opts.matteColor ?? (!transparent ? defaultFlattenMatte : undefined);
   const surface = createRasterSurface(w, h, { alpha: transparent });
   const ctx = surface.context;
 
@@ -368,9 +367,11 @@ export async function exportNodeAsRaster(
     ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
     ctx.fillRect(0, 0, w, h);
   }
-  if (opts.format === 'image/jpeg' && !opts.matteColor) {
+  if (!transparent && !opts.matteColor) {
     warnings.push(
-      'JPEG cannot carry transparency; no matte was supplied, so the export was flattened to white.',
+      opts.format === 'image/jpeg'
+        ? 'JPEG cannot carry transparency; no matte was supplied, so the export was flattened to white.'
+        : `${opts.format} transparency was disabled; no matte was supplied, so the export was flattened to white.`,
     );
   }
 

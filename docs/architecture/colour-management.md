@@ -222,12 +222,13 @@ that the GPU preview target is a high-precision document surface.
 ### Explicit raster flattening
 
 The editor's authoritative raster exporter paints an explicit matte before
-replaying a non-transparent output. JPEG is always opaque; when no matte is
-provided, it uses white and returns a warning naming that fallback. This is
-intentional because `alpha: false` on a browser canvas does not itself prove
-that the initial pixels contain the chosen background. PNG and WebP retain
-alpha when their export configuration leaves transparency enabled. A matte is
-an export-only operation and never replaces the editable document pixels.
+replaying an opaque output. JPEG is always opaque; when no matte is provided,
+it uses white and returns a warning naming that fallback. PNG and WebP retain
+alpha when their export configuration leaves transparency enabled, and use the
+same explicit white fallback when transparency is deliberately disabled. This
+is intentional because `alpha: false` on a browser canvas does not itself
+prove that the initial pixels contain the chosen background. A matte is an
+export-only operation and never replaces the editable document pixels.
 
 ### Analytical (browser) path
 All browser-side rendering converts CMYK/Gray/Spot → sRGB via analytical formulas

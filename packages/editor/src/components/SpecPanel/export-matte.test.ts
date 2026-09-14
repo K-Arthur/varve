@@ -75,4 +75,23 @@ describe('raster export flattening', () => {
       args: [0, 0, 1, 1],
     });
   });
+
+  it('uses a visible white matte when PNG transparency is explicitly disabled', async () => {
+    const { doc, node } = buildDoc();
+    const eng = await createEngine('stub');
+
+    const { warnings } = await exportNodeAsRaster(node, doc, eng, {
+      format: 'image/png',
+      scale: 1,
+      transparency: false,
+    });
+
+    expect(warnings).toContain(
+      'image/png transparency was disabled; no matte was supplied, so the export was flattened to white.',
+    );
+    expect(matteFillCalls[0]).toEqual({
+      fillStyle: 'rgba(255, 255, 255, 1)',
+      args: [0, 0, 1, 1],
+    });
+  });
 });
