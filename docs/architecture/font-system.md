@@ -315,9 +315,14 @@ floating bars use the shared range/caret command adapter. The inspector and
 toolbar weight controls share the same variable-font `wght` update path,
 preserving unrelated authored axes. The Advanced Typography inspector also
 uses the registry revision to refresh face-defined feature rows and alternate
-previews; hover previews are transient, cancellable, and never create history.
-The browser preview remains metadata/specimen-only until an exact installed or
-bundled face is available.
+previews. `useTypographyPreview` is the shared presentation boundary for the
+floating toolbar, contextual bar, and inspector: hover and keyboard movement
+apply a temporary face through a `preview` transaction, while Escape,
+dismissal, target changes, and unmount abort it. Choosing a family or exact
+face commits the final value once. Hover previews are therefore transient,
+cancellable, and never create history, even when the active rich-text range
+spans several runs or nodes. The browser preview remains metadata/specimen-only
+until an exact installed or bundled face is available.
 
 The compact combobox advertises its portaled listbox with `aria-haspopup`,
 opens from `Alt+ArrowDown`, keeps Home/End available to edit the search text,

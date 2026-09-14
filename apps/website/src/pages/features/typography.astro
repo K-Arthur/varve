@@ -43,7 +43,7 @@ const fontReplacementFaq = {
       name: 'Can I preview a font before applying or installing it?',
       acceptedAnswer: {
         '@type': 'Answer',
-        text: 'You can inspect catalog metadata and installed faces without a network request. A family specimen becomes available after you explicitly install the font on desktop; choosing a result alone never downloads or changes the document.',
+        text: 'You can inspect catalog metadata and installed faces without a network request. In the compact toolbar and Inspector, hovering or navigating previews an installed face temporarily; choosing it commits one change and Escape restores the prior formatting. A family specimen becomes available after you explicitly install the font on desktop; choosing a catalog result alone never downloads or changes the document.',
       },
     },
     {
@@ -193,7 +193,7 @@ const fontReplacementFaq = {
           <li><strong>Font system:</strong> Offline semantic catalog, local-first search, @fontsource runtime loading, CSS fallback chains, and explicit version-pinned desktop installs</li>
           <li><strong>Font discovery:</strong> Natural-language intent, coverage and feature constraints, personal tags, similarity, alternatives, pairings, and explainable result reasons</li>
           <li><strong>Missing-font replacement:</strong> Ranked local candidates, rich-text-aware Replace All, and manifest provenance across save/reopen</li>
-          <li><strong>Quick text toolbar:</strong> Compact 32px controls share the editor palette's spacing and surface tokens; expand a family to choose a registered face or named variable instance without losing its exact identity; alignment and lists live in More text formatting, with keyboard dismissal for the font picker</li>
+          <li><strong>Quick text toolbar:</strong> Compact 32px controls share the editor palette's spacing and surface tokens; expand a family to choose a registered face or named variable instance without losing its exact identity; family and face hover previews stay outside history until chosen; alignment and lists live in More text formatting, with keyboard dismissal for the font picker</li>
           <li><strong>Typography inspector:</strong> Font family, weight, style, size, line height, letter spacing, alignment, OpenType features</li>
           <li><strong>Image font identification:</strong> Bounded local image analysis, optional local OCR text capture with editable review, installed-font comparison, and explicit Use for new text or Apply to target actions</li>
         </ul>
@@ -236,11 +236,13 @@ const fontReplacementFaq = {
       <section class="feature-section">
         <h2>Current font workflow limits</h2>
         <p>
-          The compact toolbar and ordinary inspector controls currently format
-          selected text objects. Use the Rich Text editor for range formatting.
-          Registered exact-face selection is available from the expanded browser
-          rows; the Logo wordmark panel shares that browser and exposes weight
-          and style controls. Recovery of an imported collection face, scoped
+          The compact toolbar, contextual bar, and Inspector use the active
+          text range or caret when one exists, and otherwise format selected
+          text objects. Family and exact-face hover previews are presentation
+          only; choosing a result commits one undoable change, while Escape
+          restores the previous formatting. Registered exact-face selection is
+          available from the expanded browser rows; the Logo wordmark panel
+          shares that browser and exposes weight and style controls. Recovery of an imported collection face, scoped
           Select by Font replacement with layout preview, arbitrary image-region crop/overlay selection,
           and applying an identified face to an existing text target are still
           being integrated. Text-to-outlines is available from the Typography inspector for supported monochrome, byte-backed faces; it creates an explicit destructive conversion with source-range/font provenance and undo recovery. Browser
@@ -301,7 +303,7 @@ const fontReplacementFaq = {
         <h3>Will replacement alter layout?</h3>
         <p>It can. Font metrics affect wrapping and bounds, so Varve shows the match quality and asks you to review reflow before delivery.</p>
         <h3>Can I preview a font before applying it?</h3>
-        <p>Installed and bundled faces can be previewed locally. Catalog-only results show metadata until you explicitly install the exact desktop artifact; browsing never starts a remote request.</p>
+        <p>Yes. Hover or use the arrow keys in the compact family picker to preview an installed or bundled face without changing document history; choose it to commit one change, or press Escape to restore the previous formatting. Catalog-only results show metadata until you explicitly install the exact desktop artifact; browsing never starts a remote request.</p>
         <h3>How do I see which faces are used in a document?</h3>
         <p>Open the Fonts panel's Document fonts view. It starts on the active page, separates exact faces from family-only requests, excludes hidden and locked content, and lets you select every matching text layer. Choose Entire document when you need a broader audit; Browse all fonts keeps discovery separate from the document.</p>
         <h3>Is vertical text just rotated text?</h3>

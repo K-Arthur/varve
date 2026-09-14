@@ -21,7 +21,7 @@ import type { FrameNode, SceneNode, TextNode } from '@varve/scene';
 import { isExportRegion, isImageShape } from '@varve/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from '@varve/shared';
 import { Icon, Select, Tooltip } from '@varve/ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import { type FontFaceSelection, FontSelector } from '../FontBrowser/FontSelector';
 import {
@@ -37,6 +37,7 @@ import {
   type TypographyTextChanges,
   typographyDisplayValues,
 } from '../Typography/typographyCommand';
+import { useTypographyPreview } from '../Typography/useTypographyPreview';
 import './ContextControlBar.css';
 
 /* ── Small helpers ───────────────────────────────────────────────── */
@@ -204,41 +205,20 @@ function TextSection({
   const italicAvailable = display.mixed.fontStyle
     ? fontStyleAvailable(effectiveNodes, 'italic')
     : isItalic || fontStyleAvailable(effectiveNodes, 'italic');
-  const previewActiveRef = useRef(false);
   const applyChanges = useCallback(
     (changes: TypographyTextChanges) => applyTypographyChanges(typographySurface, node.id, changes),
     [node.id, typographySurface],
   );
-  const clearFontPreview = useCallback(() => {
-    if (!previewActiveRef.current) return;
-    previewActiveRef.current = false;
-    typographySurface.abortPreview?.();
-  }, [typographySurface]);
-  const previewChanges = useCallback(
-    (changes: TypographyTextChanges) => {
-      if (!typographySurface.beginPreview || !typographySurface.abortPreview) return;
-      if (!previewActiveRef.current) {
-        typographySurface.beginPreview();
-        previewActiveRef.current = true;
-      }
-      applyChanges(changes);
-    },
-    [applyChanges, typographySurface],
-  );
-  const commitChanges = useCallback(
-    (changes: TypographyTextChanges) => {
-      if (previewActiveRef.current) {
-        applyChanges(changes);
-        previewActiveRef.current = false;
-        typographySurface.commitPreview?.();
-        return;
-      }
-      applyChanges(changes);
-    },
-    [applyChanges, typographySurface],
-  );
-
-  useEffect(() => clearFontPreview, [clearFontPreview, node.id]);
+  const {
+    previewChanges,
+    commitChanges,
+    clearPreview: clearFontPreview,
+  } = useTypographyPreview(applyChanges, {
+    beginPreview: typographySurface.beginPreview,
+    commitPreview: typographySurface.commitPreview,
+    abortPreview: typographySurface.abortPreview,
+    resetKey: node.id,
+  });
 
   const familyChanges = useCallback(
     (family: string) =>

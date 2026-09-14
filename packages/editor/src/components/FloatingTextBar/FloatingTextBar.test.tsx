@@ -356,6 +356,29 @@ describe('FloatingTextBar', () => {
     expect(fontInput).toBeInTheDocument();
   });
 
+  it('keeps quick-toolbar family previews outside history until committed', async () => {
+    const onUpdate = vi.fn();
+    const beginPreview = vi.fn();
+    const commitPreview = vi.fn();
+    const abortPreview = vi.fn();
+    render(
+      <FloatingTextBar
+        {...defaultProps({ onUpdate, beginPreview, commitPreview, abortPreview })}
+      />,
+    );
+    await settledToolbar();
+    const fontInput = screen.getByRole('combobox', { name: 'Font family' });
+    fireEvent.focus(fontInput);
+    const option = await screen.findByRole('option', { name: /Arial/ });
+    fireEvent.mouseEnter(option);
+    expect(beginPreview).toHaveBeenCalledOnce();
+    expect(onUpdate).toHaveBeenCalled();
+    expect(commitPreview).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(fontInput, { key: 'Escape' });
+    expect(abortPreview).toHaveBeenCalledOnce();
+  });
+
   it('clears stale exact identity when choosing the current family row', async () => {
     const onUpdate = vi.fn();
     render(

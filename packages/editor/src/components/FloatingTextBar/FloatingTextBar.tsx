@@ -22,6 +22,7 @@ import {
   fontWeightOptions,
 } from '../Typography/fontWeight';
 import { typographyDisplayValues } from '../Typography/typographyCommand';
+import { useTypographyPreview } from '../Typography/useTypographyPreview';
 import './FloatingTextBar.css';
 
 export interface FloatingTextBarProps {
@@ -31,6 +32,9 @@ export interface FloatingTextBarProps {
   textScreenRect: { x: number; y: number; w: number; h: number };
   selectionRange?: RichSelection | null;
   pendingFormat?: CharacterFormat | null;
+  beginPreview?: () => void;
+  commitPreview?: () => void;
+  abortPreview?: () => void;
 }
 
 const TOOLBAR_FALLBACKS: Array<'bottom-start' | 'right-start' | 'left-start'> = [
@@ -46,6 +50,9 @@ export function FloatingTextBar({
   textScreenRect,
   selectionRange = null,
   pendingFormat = null,
+  beginPreview,
+  commitPreview,
+  abortPreview,
 }: FloatingTextBarProps) {
   const registry = useMemo(() => getFontRegistry(), []);
   const display = useMemo(
@@ -108,6 +115,17 @@ export function FloatingTextBar({
     [textScreenRect.x, textScreenRect.y],
   );
 
+  const applyTypography = useCallback(
+    (changes: Partial<TextNode>) => onUpdate(node.id, changes),
+    [node.id, onUpdate],
+  );
+  const { previewChanges, commitChanges, clearPreview } = useTypographyPreview(applyTypography, {
+    beginPreview,
+    commitPreview,
+    abortPreview,
+    resetKey: node.id,
+  });
+
   const handleBoldToggle = useCallback(() => {
     const current = displayNode.fontWeight ?? 400;
     const next = current >= 600 ? 400 : 700;
@@ -141,8 +159,7 @@ export function FloatingTextBar({
 
   const handleFontFamilyChange = useCallback(
     (value: string) => {
-      onUpdate(
-        node.id,
+      commitChanges(
         fontFamilyChanges(
           value,
           displayNode.fontFamily,
@@ -151,7 +168,41 @@ export function FloatingTextBar({
         ),
       );
     },
-    [displayNode, node.id, onUpdate],
+    [commitChanges, displayNode],
+  );
+  const handleFontFamilyPreview = useCallback(
+    (value: string) =>
+      previewChanges(
+        fontFamilyChanges(
+          value,
+          displayNode.fontFamily,
+          displayNode.fontReference,
+          displayNode.variableAxes,
+        ),
+      ),
+    [displayNode, previewChanges],
+  );
+  const handleFontFaceChange = useCallback(
+    (selection: import('../FontBrowser/fontFaceSelection').FontFaceSelection) =>
+      commitChanges({
+        fontFamily: selection.family,
+        fontWeight: selection.weight,
+        fontStyle: selection.style,
+        fontReference: selection.fontReference,
+        variableAxes: selection.variableAxes,
+      }),
+    [commitChanges],
+  );
+  const handleFontFacePreview = useCallback(
+    (selection: import('../FontBrowser/fontFaceSelection').FontFaceSelection) =>
+      previewChanges({
+        fontFamily: selection.family,
+        fontWeight: selection.weight,
+        fontStyle: selection.style,
+        fontReference: selection.fontReference,
+        variableAxes: selection.variableAxes,
+      }),
+    [previewChanges],
   );
 
   const handleFontWeightChange = useCallback(
@@ -187,6 +238,7 @@ export function FloatingTextBar({
       // that must not end a text-edit session or discard the quick toolbar.
       dismissOnWindowBlur={false}
       onClose={(reason) => {
+        clearPreview();
         if (reason === 'escape' && ignoreResizeEscapeRef.current) {
           ignoreResizeEscapeRef.current = false;
           setSuppressResizeEscape(false);
@@ -203,15 +255,10 @@ export function FloatingTextBar({
           variableAxes={displayNode.variableAxes}
           mixed={display.mixed.fontFamily === true}
           onChange={handleFontFamilyChange}
-          onSelectFace={(selection) =>
-            onUpdate(node.id, {
-              fontFamily: selection.family,
-              fontWeight: selection.weight,
-              fontStyle: selection.style,
-              fontReference: selection.fontReference,
-              variableAxes: selection.variableAxes,
-            })
-          }
+          onSelectFace={handleFontFaceChange}
+          onPreviewFamily={handleFontFamilyPreview}
+          onPreviewFace={handleFontFacePreview}
+          onClearPreview={clearPreview}
         />
 
         <div className="floating-text-bar__separator" />

@@ -570,6 +570,9 @@ export function CanvasOverlays({
               changes,
             )
           }
+          beginPreview={() => editor.beginTransaction('preview')}
+          commitPreview={editor.commitTransaction}
+          abortPreview={editor.abortTransaction}
           onClose={() =>
             finishTextEdit(richTextToPlainText(n.richText ?? plainTextToRichText(n.text)))
           }
