@@ -94,6 +94,51 @@ modal cannot silently discard that draft. This avoids trapping a modal
 workflow behind an inert canvas while keeping the transient segmentation
 session and the editable CAF mask separate.
 
+### Selection correctness contract
+
+Selection is a reviewed input to generation, not an implementation detail. A
+subject estimate is never treated as semantic recognition: the foreground
+model proposes a candidate, Object Selection uses point/box prompts to propose
+one or more candidates, and the user can switch candidates or refine the
+editable mask before generating. Every asynchronous proposal is bound to the
+document id, node id, resolved source locator, decoded source fingerprint, and
+placement fingerprint. Replacing the image in the same node invalidates the
+proposal.
+
+The dialog reports the current mask's covered percentage, pixel bounds,
+connected-region count, edge contact, and soft-only coverage. Empty and
+four-pixel-or-smaller masks are blocked for Fill, Remove, and Replace. Broad,
+disconnected, edge-touching, and soft masks remain possible but are explicitly
+warned about so the user can verify the overlay. Imported masks must have a
+valid byte count and a source-compatible aspect ratio; they are never silently
+stretched from an unrelated frame. The editable user mask, provider inference
+mask, and final composite mask remain separate representations. Brush input is
+rasterized as continuous segments between pointer events on the preview
+canvas, so a fast drag cannot collapse into only its final point. Each gesture
+captures its starting mask and operation; Replace, Add, Subtract, and Intersect
+therefore apply to the complete stroke even when the browser coalesces or
+drops intermediate events.
+
+Provider contracts are explicit: promptless repair routes to PatchMatch or
+LaMa, while a prompt is sent only to a provider that advertises and consumes
+semantic conditioning. Inpainting preparation uses aspect-preserving context
+padding and the provider's documented mask polarity. The model cannot repair a
+wrong selection, and a reconstruction provider cannot infer a requested
+object; both limitations are surfaced in the capability and review UI. See the
+[selection and model audit](../audits/generative-editing-selection-model-audit-2026-09-14.md)
+for the evidence ledger and real-photograph qualification status.
+
+Prompted Object Selection has a second, provider-independent gate after model
+decoding. It ranks candidates by model score only among masks that contain each
+include point, exclude each background point, and overlap a supplied box. The
+SAM2 decoding first removes the encoder's recorded square-frame padding before
+resizing a candidate back to source pixels; raw low-resolution logits remain
+available for refinement. The result records prompt match separately from
+predicted IoU; a candidate that misses the user's explicit constraints cannot
+be applied, even when its model score is high, and is not exposed as a review
+candidate. This is prompt adherence, not semantic object recognition, so the
+overlay and candidate review remain mandatory.
+
 Expand exposes the four independent source-pixel margins as the authoritative
 frame controls. It also provides common target aspect ratios, explicit output
 width and height, and nine source anchors (center, sides, and corners). The
