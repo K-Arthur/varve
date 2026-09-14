@@ -171,10 +171,11 @@ export async function isNativeGpuComputeUsable(): Promise<boolean> {
     const selected = status.report.compute.devices.find(
       (device) => device.id === status.report.compute.selectedId,
     );
-    if (
-      status.engineReady &&
-      (selected?.stage === 'deviceUsable' || selected?.stage === 'executionVerified')
-    ) {
+    // Device creation proves that a queue can be made, not that Varve's
+    // shader contract can submit and read back successfully. Require the
+    // native self-test's execution evidence before an effect provider is
+    // admitted; this also makes driver/sandbox failures take the CPU route.
+    if (status.engineReady && selected?.stage === 'executionVerified') {
       return true;
     }
     const report = await runNativeGpuSelfTest();
