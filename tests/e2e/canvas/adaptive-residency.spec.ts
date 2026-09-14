@@ -48,11 +48,20 @@ async function canvasHash(page: import('@playwright/test').Page): Promise<number
   });
 }
 
+/** The forceFullRedraw oracle is only real when the perf handle is installed. */
+async function expectPerfSeam(page: import('@playwright/test').Page): Promise<void> {
+  const installed = await page.evaluate(() =>
+    Boolean((window as Window & { __varvePerf?: unknown }).__varvePerf),
+  );
+  expect(installed, 'perf handle must be installed for the redraw oracle').toBe(true);
+}
+
 test('selected-frame image import remains nested, clipped, and pixel-stable', async ({
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await navigateToEditor(page);
+  await navigateToEditor(page, '/?perf=1');
+  await expectPerfSeam(page);
 
   const canvas = page.locator('canvas.editor-canvas__content-layer');
   await page.keyboard.press('f');
@@ -121,7 +130,8 @@ test('selected-frame image import remains nested, clipped, and pixel-stable', as
 
 test('large imagery converges after rapid zoom without losing settled pixels', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await navigateToEditor(page);
+  await navigateToEditor(page, '/?perf=1');
+  await expectPerfSeam(page);
   const canvas = page.locator('canvas.editor-canvas__content-layer');
   await page
     .locator('#file-import-input')
