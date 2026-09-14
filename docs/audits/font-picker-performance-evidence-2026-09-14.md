@@ -28,12 +28,12 @@ pnpm exec tsx scripts/bench/font-picker-performance.ts
 
 | Families | Cold catalog build (ms) | Warm open p95 (ms) | Warm search p95 (ms) | Metadata lookup p95 (ms) | Rows |
 |---:|---:|---:|---:|---:|---:|
-| 1,000 | 57.3 | 0.6 | 8.5 | 0.03 | 1,001 |
-| 10,000 | 183.4 | 9.3 | 66.5 | 0.03 | 10,001 |
+| 1,000 | 64.9 | 0.8 | 11.5 | 0.03 | 1,001 |
+| 10,000 | 195.5 | 9.9 | 66.1 | 0.02 | 10,001 |
 
 The warm targets are ≤150 ms for opening and ≤100 ms for search, so both
 catalog-side budgets pass for this run. The 10,000-family cold build is
-reported separately at 183.4 ms; it is outside the warm interaction budget and
+reported separately at 195.5 ms; it is outside the warm interaction budget and
 should remain visible in future regressions.
 
 ## Boundary and next check
