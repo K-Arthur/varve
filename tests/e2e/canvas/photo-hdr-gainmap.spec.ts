@@ -65,9 +65,13 @@ function sceneLinearExr(): Uint8Array {
 
 async function dismissRecovery(page: import('@playwright/test').Page): Promise<void> {
   const recovery = page.locator('dialog.recovery-dialog[open]');
+  const safeMode = page.getByRole('button', { name: /continue normal startup/i });
   for (let attempt = 0; attempt < 16; attempt += 1) {
     if ((await recovery.count()) > 0) {
       await recovery.locator('.recovery-dialog__close').click({ force: true, timeout: 5000 });
+    }
+    if (await safeMode.isVisible({ timeout: 500 }).catch(() => false)) {
+      await safeMode.click({ force: true, timeout: 5000 });
     }
     await page.waitForTimeout(500);
   }

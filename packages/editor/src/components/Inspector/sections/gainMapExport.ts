@@ -29,9 +29,9 @@ export interface UltraHdrExportRequest {
   hdrDisplayLinear: RangeRaster;
   /** Base-image JPEG quality, 0.6 to 1. Default 0.92. */
   jpegQuality?: number;
-  /** Gain-map JPEG quality, 0.6 to 1. Default 0.9. */
+  /** Gain-map JPEG quality, 0.6 to 1. Default 0.92. */
   gainMapQuality?: number;
-  /** Gain-map resolution divisor: 1, 2, 4, or 8. Default 4. */
+  /** Gain-map resolution divisor: 1, 2, 4, or 8. Default 2. */
   gainMapDownsample?: 1 | 2 | 4 | 8;
   gainMapGamma?: number;
 }
@@ -176,12 +176,12 @@ export async function buildUltraHdrExport(
     { sdr: storedLinear, hdr },
     {
       channels: 3,
-      downsample: request.gainMapDownsample ?? 4,
+      downsample: request.gainMapDownsample ?? 2,
       gamma: request.gainMapGamma ?? 1,
     },
   );
   const baseJpeg = encodeJpeg(baseImage, request.jpegQuality ?? 0.92);
-  const gainMapJpeg = encodeJpeg(gainMapImageData(encoded.gainMap), request.gainMapQuality ?? 0.9);
+  const gainMapJpeg = encodeJpeg(gainMapImageData(encoded.gainMap), request.gainMapQuality ?? 0.92);
   const container = assembleUltraHdrJpeg({
     baseJpeg,
     gainMapJpeg,
