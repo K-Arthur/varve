@@ -83,6 +83,34 @@ Weights are not stored in the repository or in portable documents.
   warm timings, cancellation latency, and package-level reopening evidence
   remain outstanding.
 
+## Visual validation checkpoint — 2026-09-13
+
+The real-browser visual lane has been run against photographic sources, not
+synthetic canvases:
+
+- The promptless Fill case used `real-life-still-life.jpg`, painted the mask
+  with pointer events, applied the result, and independently decoded the
+  retained overlay. The result was inspected at the dialog scale.
+- The real-photo Remove/in-place case used `real-life-landscape.jpg` and
+  checked the retained source recipe, source-layer identity, and applied
+  result. The 33 MP portrait case exercised bounded source preparation and
+  was inspected after Apply.
+- The promptless Expand case used the same landscape photograph and was
+  checked at full composition and 100% output/export scale. Protected source
+  pixels and output geometry passed exactly, but the generated border showed
+  repeated/striped texture at the edges. Expand therefore remains an
+  explicitly disclosed reconstruction path, not evidence of semantic or
+  release-quality outpainting.
+- The website visual suite passed on the GitHub Pages base path for desktop
+  feature, mobile feature, and dark documentation views. The reviewed
+  before/after photographs and the narrow layout were inspected without
+  snapshot updates.
+
+These checks establish that real output reaches the review, acceptance,
+storage, and export surfaces. They do not qualify prompt-conditioned Fill,
+Replace, or Expand; those modes remain gated until a model/runtime passes the
+photographic quality corpus.
+
 The renderer-side cancellation races are covered by the native-provider unit
 lane: abort rejects active prompt generation and LaMa requests immediately and
 forwards each opaque request id to its desktop cancellation command. The
