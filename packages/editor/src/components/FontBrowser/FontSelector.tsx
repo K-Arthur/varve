@@ -80,6 +80,7 @@ export function FontSelector({
   const inputId = useId();
   const listboxId = `${inputId}-listbox`;
   const inputRef = useRef<HTMLInputElement>(null);
+  const restoreFocusRef = useRef(false);
   // A portal mounts after this component's effects. Store its scroll element
   // in state so the virtualizer observes the real viewport once attached.
   const [listElement, setListElement] = useState<HTMLDivElement | null>(null);
@@ -283,11 +284,22 @@ export function FontSelector({
       onChange(family);
       setIsOpen(false);
       setHighlightedIndex(-1);
+      // A pointer selection normally keeps focus in the input because the
+      // option consumes mousedown. Restore it for programmatic/assistive
+      // activation too, while suppressing the focus handler's reopen path.
+      if (document.activeElement !== inputRef.current) {
+        restoreFocusRef.current = true;
+        inputRef.current?.focus();
+      }
     },
     [allInstalled, onChange, semantic],
   );
 
   const handleInputFocus = useCallback(() => {
+    if (restoreFocusRef.current) {
+      restoreFocusRef.current = false;
+      return;
+    }
     setQuery('');
     setIsOpen(true);
     setHighlightedIndex(-1);
@@ -314,7 +326,7 @@ export function FontSelector({
             setQuery('');
             setIsOpen(true);
             highlight(0);
-          } else highlight(highlightedIndex + 1);
+          } else if (!event.altKey) highlight(highlightedIndex + 1);
           break;
         case 'ArrowUp':
           event.preventDefault();
@@ -368,6 +380,7 @@ export function FontSelector({
           onBlur={dismiss}
           onKeyDown={handleInputKeyDown}
           role="combobox"
+          aria-haspopup="listbox"
           aria-expanded={isOpen}
           aria-autocomplete="list"
           aria-controls={listboxId}

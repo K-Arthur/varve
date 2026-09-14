@@ -23,6 +23,7 @@ describe('FontSelector', () => {
     for (const id of controls) {
       expect(id).toBeTruthy();
     }
+    expect(inputs[0]).toHaveAttribute('aria-haspopup', 'listbox');
     fireEvent.focus(inputs[0]!);
     await screen.findByRole('listbox', { name: 'Font families' });
     expect(document.getElementById(controls[0]!)).toHaveAttribute('role', 'listbox');
@@ -38,6 +39,18 @@ describe('FontSelector', () => {
     fireEvent.focus(input);
     expect(fireEvent.keyDown(input, { key: 'Home' })).toBe(true);
     expect(fireEvent.keyDown(input, { key: 'End' })).toBe(true);
+  });
+
+  it('opens from Alt+ArrowDown without changing the query', async () => {
+    render(<FontSelector value="Inter" onChange={() => {}} />);
+    const input = screen.getByRole('combobox');
+    fireEvent.focus(input);
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(screen.queryByRole('listbox', { name: 'Font families' })).not.toBeInTheDocument();
+    fireEvent.keyDown(input, { key: 'Alt' });
+    fireEvent.keyDown(input, { key: 'ArrowDown', altKey: true });
+    expect(await screen.findByRole('listbox', { name: 'Font families' })).toBeInTheDocument();
+    expect(input).toHaveValue('');
   });
 
   it('dismisses the open picker without bubbling Escape to the toolbar', async () => {
@@ -133,6 +146,7 @@ describe('FontSelector', () => {
       fireEvent.mouseDown(option);
       expect(onChange).toHaveBeenCalledWith('IBM Plex Sans Variable');
       expect(markRecentlyUsed).toHaveBeenCalledWith(record!.familyId);
+      expect(document.activeElement).toBe(input);
     } finally {
       semantic.setFavorite(record!.familyId, previousFavorite);
       markRecentlyUsed.mockRestore();
