@@ -106,6 +106,12 @@ impl AccelerationState {
     fn last_error(&self) -> Option<String> {
         self.last_error.lock().ok().and_then(|guard| guard.clone())
     }
+
+    fn record_error(&self, message: impl Into<String>) {
+        if let Ok(mut error) = self.last_error.lock() {
+            *error = Some(message.into());
+        }
+    }
 }
 
 /// A GPU engine plus its owning state, usable from blocking workers.
@@ -221,15 +227,25 @@ pub async fn native_gpu_self_test(
     // not run on the Tauri/GTK event thread. The state handle is cheap to move;
     // the engine is created inside the blocking worker.
     let acceleration_state = Arc::clone(&*state);
-    let report = tauri::async_runtime::spawn_blocking(move || -> Result<SelfTestReport, String> {
+    let result = tauri::async_runtime::spawn_blocking(move || -> Result<SelfTestReport, String> {
         let engine = acceleration_state.engine()?;
         engine.self_test().map_err(|err| err.to_string())
     })
         .await
-        .map_err(|err| format!("GPU self-test task failed: {err}"))?
-        ?;
-    state.record_verified(report.device_id.clone());
-    Ok(report)
+        .map_err(|err| format!("GPU self-test task failed: {err}"))?;
+    match result {
+        Ok(report) => {
+            state.record_verified(report.device_id.clone());
+            Ok(report)
+        }
+        Err(error) => {
+            state.record_error(&error);
+            // A queue/device that failed the verification dispatch must not
+            // remain cached as a candidate for the next workload.
+            state.reset();
+            Err(error)
+        }
+    }
 }
 
 /// Apply a live effect on the GPU. Errors map to a string; device-loss
@@ -250,10 +266,12 @@ pub fn apply_effect_on_gpu(
         .apply(request, rgba)
         .map(|(bytes, _)| bytes)
         .map_err(|err| {
+            let message = err.to_string();
             if matches!(err, AccelError::DeviceLost(_)) {
                 workers.state.reset();
             }
-            err.to_string()
+            workers.state.record_error(message.clone());
+            message
         })
 }
 
@@ -280,10 +298,12 @@ pub fn resample_on_gpu(
         )
         .map(|(bytes, _)| bytes)
         .map_err(|err| {
+            let message = err.to_string();
             if matches!(err, AccelError::DeviceLost(_)) {
                 workers.state.reset();
             }
-            err.to_string()
+            workers.state.record_error(message.clone());
+            message
         })
 }
 
@@ -394,6 +414,12 @@ fn inference_capabilities() -> InferenceCapabilities {
             "OpenVINO (Intel)",
             DeviceKind::Gpu,
             "Externally provided OpenVINO runtime required; not bundled",
+        ),
+        provider(
+            "openvino-npu",
+            "OpenVINO (Intel NPU)",
+            DeviceKind::Npu,
+            "Requires an Intel NPU, compatible OpenVINO NPU plugin/runtime, driver, and model; not bundled",
         ),
         provider(
             "migraphx",
