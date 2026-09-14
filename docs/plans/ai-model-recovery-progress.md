@@ -7,16 +7,19 @@
 > through other sessions (font detection, colourisation fallbacks). Verify
 > against the codebase before treating any "pending" row as open work.
 
-> **Current verification (2026-09-13):** the DDColor adapter and official
-> export contract are present, but no DDColor ONNX bytes were found in
-> `models-source/` or `apps/desktop/public/models/`; both configured
-> `models-v1` release asset URLs returned HTTP 404.
-> The manifest therefore keeps `integrityVerified: false` and
-> `inferenceVerified: false`. The editor exposes photo colorization only as a
-> clearly gated workflow; deterministic tint/recolor, palette, and reference
-> workflows do not depend on this artifact. Do not change these flags without
-> recording the artifact byte size, SHA-256, ONNX checker result, and worker
-> smoke-test provider.
+> **Current verification (2026-09-14):** the DDColor adapter, the official
+> export contract, and the exported artifacts are now verified. Both models
+> were converted from the official Apache-2.0 checkpoints at DDColor
+> `2adb63f2` with `tools/ddcolor-export/export_ddcolor.py`: ONNX checker and
+> shape inference pass, zero missing/unexpected keys, ONNX Runtime 1.30 CPU
+> smoke matches PyTorch (mean absolute difference below 1e-4), and the
+> SHA-256 values are pinned in the catalog and manifest. The artifacts are
+> published to the `models-v1` release and staged in `models-source/`.
+> GitHub release assets send no CORS headers, so the desktop app uses the
+> native `download_inference_model` command while the web build needs the
+> HuggingFace mirror produced by `tools/ddcolor-export/mirror-to-hf.sh`
+> (pending an HF write token). Deterministic tint/recolor, palette, and
+> reference workflows do not depend on any of this.
 
 > Scoped implementation plan for restoring colourisation and font-identification
 > capabilities that are currently disabled due to unavailable model artifacts.

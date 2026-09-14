@@ -274,11 +274,15 @@ Stable deterministic coverage currently includes:
 
 The production UI tests exercise real Colorize control acquisition, preview
 invalidations, disabled invalid states, and the functional document commit
-helper. Browser visual validation covers the Inspector and marketing page. The
-DDColor export is verified against the official checkpoint (ONNX checker, ORT
-CPU smoke, PyTorch parity, application worker smoke); native/Tauri provider
-coverage and cross-browser model benchmarks remain open. Browser WebKit is not
-treated as complete Tauri WebKitGTK verification.
+helper. The DDColor export is verified against the official checkpoint (ONNX
+checker, ORT CPU smoke, PyTorch parity) and the published asset re-downloads
+byte-identical to the verified artifact. Browser visual validation covers the
+Inspector and marketing page; the deterministic workflow passes in Chromium
+and Firefox. Playwright WebKit on this Linux host is blocked by missing system
+libraries (`libicu74`, `libxml2`, `libflite1`) that require a package-manager
+install, and browser WebKit is not treated as Tauri WebKitGTK verification
+either way. Native/Tauri provider coverage and cross-browser model benchmarks
+remain open.
 
 ## Deferred work
 

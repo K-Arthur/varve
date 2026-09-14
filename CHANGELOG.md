@@ -92,6 +92,13 @@ update, not for someone reading the commit log.
   radius, preserves strokes and their antialiased edges, and keeps unhinted
   regions transparent. Hints may be a different resolution; the preview reports
   filled area, unassigned area, and seed count. No model required.
+- **Local AI model delivery** — DDColor Tiny and DDColor are exported from the
+  official Apache-2.0 checkpoints, hash-pinned, and published to the
+  `models-v1` release. Desktop downloads them through a native Rust command
+  that verifies the catalog SHA-256 before installing and serves the file to
+  the ONNX worker through the scoped asset protocol; the web build uses a
+  CORS-enabled HuggingFace mirror (mirror script included) because GitHub
+  release assets send no CORS headers.
 - **Curve and node editing** — Node editing now supports compound contours and
   holes, multi-anchor movement, relative-handle numeric controls, distinct
   corner/smooth/symmetric/automatic modes, nearest-parameter Bézier insertion,
