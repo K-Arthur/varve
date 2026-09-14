@@ -41,7 +41,7 @@ Commands:
 pnpm exec biome check packages/engine/src/canvasOpenTypeRenderer.ts packages/engine/src/canvasSvgTextRenderer.ts packages/engine/src/canvasFontAliases.ts packages/engine/src/replay.ts
 pnpm exec vitest run packages/engine/src/canvasFontAliases.test.ts packages/engine/src/canvasFontAliases.faceIdentity.test.ts --pool=threads --maxWorkers=1 --reporter=dot
 pnpm exec vitest run packages/editor/src/components/FloatingTextBar/FloatingTextBar.test.tsx packages/editor/src/components/FloatingToolbar/FloatingToolbar.test.tsx packages/editor/src/components/ContextControlBar/ContextControlBar.test.tsx packages/editor/src/components/FontBrowser/FontSelector.test.tsx packages/editor/src/components/FontBrowser/DocumentFontsPanel.test.tsx packages/editor/src/components/FontBrowser/fontStorage.test.ts packages/editor/src/components/Typography/typographyCommand.test.ts packages/engine/src/font/fontDownloadLifecycle.test.ts packages/engine/src/font/fontDownloadManager.test.ts packages/engine/src/canvasFontAliases.test.ts packages/engine/src/canvasFontAliases.faceIdentity.test.ts --pool=threads --maxWorkers=1 --reporter=dot
-CI=1 TMPDIR=/home/kevina/varve-tmp VARVE_E2E_PORT=1743 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-typography-editing-20260914-all-final npx playwright test tests/e2e/canvas/typography-editing.spec.ts --project=chromium --reporter=list --timeout=180000
+CI=1 TMPDIR=/home/kevina/varve-tmp VARVE_E2E_PORT=1744 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-typography-editing-20260914-final-run npx playwright test tests/e2e/canvas/typography-editing.spec.ts --project=chromium --reporter=list --timeout=180000
 ```
 
 Results:
@@ -58,8 +58,8 @@ Results:
 I inspected the before/after canvas captures at:
 
 ```text
-test-results/font-typography-editing-20260914-all-final/canvas-typography-editing--da252-ent-redraw-the-real-artwork-chromium/advanced-typography-before-canvas.png
-test-results/font-typography-editing-20260914-all-final/canvas-typography-editing--da252-ent-redraw-the-real-artwork-chromium/advanced-typography-after-canvas.png
+test-results/font-typography-editing-20260914-final-run/canvas-typography-editing--da252-ent-redraw-the-real-artwork-chromium/advanced-typography-before-canvas.png
+test-results/font-typography-editing-20260914-final-run/canvas-typography-editing--da252-ent-redraw-the-real-artwork-chromium/advanced-typography-after-canvas.png
 ```
 
 The IBM Plex face, selection bounds, and editor chrome remain present in both
