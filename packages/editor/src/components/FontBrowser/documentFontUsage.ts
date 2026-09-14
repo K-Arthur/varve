@@ -1,11 +1,5 @@
 import type { FontReference } from '@varve/engine';
-import {
-  buildAllVariantCaches,
-  type Document,
-  getEffectiveNode,
-  type SceneNode,
-  type TextNode,
-} from '@varve/scene';
+import { buildAllVariantCaches, type Document, type SceneNode, type TextNode } from '@varve/scene';
 
 export interface DocumentFontUsage {
   /** Stable display/group key. Exact artifact members never collapse by family. */
@@ -189,8 +183,16 @@ export function buildDocumentFontUsage(
   // hidden variant layers do not appear as selectable usage and text overrides
   // contribute their rendered character count.
   const variantCaches = buildAllVariantCaches(doc);
+  const effectiveNodes = new Map<string, SceneNode>();
+  for (const cache of variantCaches.values()) {
+    for (const [id, node] of cache) {
+      // Preserve the same first-cache precedence as getEffectiveNode while
+      // making each usage lookup O(1) instead of scanning every instance.
+      if (!effectiveNodes.has(id)) effectiveNodes.set(id, node);
+    }
+  }
   const resolveNode = (id: string): SceneNode | undefined =>
-    getEffectiveNode(doc, id, variantCaches) ?? doc.nodes[id];
+    effectiveNodes.get(id) ?? doc.nodes[id];
 
   // Collect every visible frame before consuming story content. A story can
   // start on another page and continue on this one; counting it from the first
