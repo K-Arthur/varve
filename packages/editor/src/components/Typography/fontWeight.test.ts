@@ -362,6 +362,31 @@ describe('fontWeightChanges', () => {
       ),
     ).toEqual({ fontWeight: 700, fontReference: undefined });
   });
+
+  it('does not borrow a wght axis when the requested collection member is unresolved', () => {
+    const artifactHash = '8'.repeat(64);
+    const registry = new FontRegistry([
+      {
+        family: 'Unresolved Collection Axis Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash, collectionIndex: 0 }),
+        axisDefinitions: [{ tag: 'wght', name: 'Weight', min: 300, default: 400, max: 700 }],
+      },
+    ]);
+    const current = node({
+      fontFamily: 'Unresolved Collection Axis Family',
+      fontReference: { artifactHash, collectionIndex: 9 },
+      fontWeight: 400,
+    });
+
+    expect(fontWeightOptions(current, registry)).toEqual([{ value: 400, label: '400' }]);
+    expect(fontWeightChanges(current, 700, registry)).toEqual({
+      fontWeight: 700,
+      fontReference: undefined,
+    });
+  });
 });
 
 describe('fontStyleChanges', () => {
@@ -602,6 +627,31 @@ describe('fontStyleChanges', () => {
       fontFamily: 'Static Italic Metadata Family',
       fontReference: { artifactHash },
       variableAxes: { ital: 0 },
+    });
+
+    expect(fontStyleAvailable(current, 'italic', registry)).toBe(false);
+    expect(fontStyleChanges(current, 'italic', registry)).toEqual({
+      fontStyle: 'italic',
+      fontReference: undefined,
+    });
+  });
+
+  it('does not borrow an ital axis when the requested collection member is unresolved', () => {
+    const artifactHash = '9'.repeat(64);
+    const registry = new FontRegistry([
+      {
+        family: 'Unresolved Collection Italic Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash, collectionIndex: 0 }),
+        axisDefinitions: [{ tag: 'ital', name: 'Italic', min: 0, default: 0, max: 1 }],
+      },
+    ]);
+    const current = node({
+      fontFamily: 'Unresolved Collection Italic Family',
+      fontReference: { artifactHash, collectionIndex: 9 },
+      fontStyle: 'normal',
     });
 
     expect(fontStyleAvailable(current, 'italic', registry)).toBe(false);
