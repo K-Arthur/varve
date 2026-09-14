@@ -211,7 +211,7 @@ established by the family bridge.
 
 The inspector, contextual text bar, floating text toolbar, and Logo wordmark
 panel use the same family picker model. The contextual bar exposes family,
-weight, and size commands directly below the menubar, with the same fluid
+weight, italic, and size commands directly below the menubar, with the same fluid
 border-box height, vertical padding, and 32px compact controls as the main
 floating palette. A horizontal overflow boundary prevents the family field
 from shrinking into an unreadable label. The floating toolbar uses the main floating
@@ -221,7 +221,7 @@ Its independently anchored font menu remains inside the viewport. Escape has an
 explicit precedence: an open family picker
 closes first without committing the search; a subsequent Escape exits text
 editing. The size field commits its draft on blur or Enter; Escape discards an
-unfinished draft. Family, weight, and size changes from the contextual and
+unfinished draft. Family, weight, italic, and size changes from the contextual and
 floating bars use the shared range/caret command adapter. The inspector and
 toolbar weight controls share the same variable-font `wght` update path,
 preserving unrelated authored axes. The Advanced Typography inspector also
