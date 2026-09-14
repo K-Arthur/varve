@@ -299,9 +299,11 @@ remain untouched. A legacy value outside the selected face is kept as a
 disabled option with an explanation, so opening a document does not hide or
 silently synthesize its requested weight. Older family/style-only registry
 records fall back to their metadata until an exact face is discovered. The
-floating **Bold** action is disabled when a real 700 face or in-range variable
-value is unavailable, while an existing legacy bold value can still be turned
-off.
+axis lookup is scoped to the requested artifact whenever an exact reference is
+present, so a variable file that shares a family name cannot add `wght` or
+`ital` coordinates to a static face. The floating **Bold** action is disabled
+when a real 700 face or in-range variable value is unavailable, while an
+existing legacy bold value can still be turned off.
 
 The image **Identify Font** panel bounds decoded image data to a 2048px edge,
 passes the live registry projection and local render comparison into the
