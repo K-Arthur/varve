@@ -6,7 +6,7 @@ import StatusPill from '../../components/StatusPill.astro';
 
 <Layout
   title="Shader Effects"
-  description="Use curated, editable shader effects in Varve with deterministic controls, CPU fallback, and honest export behavior."
+  description="Use curated, editable effects in Varve with optional GPU compute, deterministic controls, CPU fallback, and honest export behavior."
 >
   <div class="container-custom">
     <main class="feature-page">
@@ -15,7 +15,7 @@ import StatusPill from '../../components/StatusPill.astro';
       </nav>
 
       <header class="page-hero">
-        <div class="eyebrow"><StatusPill status="available" /> <span>Curated GPU-assisted effects</span></div>
+        <div class="eyebrow"><StatusPill status="available" /> <span>Curated effects with optional GPU compute</span></div>
         <h1>Give pixels a point of view. Keep the design editable.</h1>
         <p>
           Varve’s shader effects turn print screens, optical bloom, analog signal, refracted light,
@@ -30,7 +30,7 @@ import StatusPill from '../../components/StatusPill.astro';
         <div class="workflow-grid">
           <article><span>01</span><h3>Select</h3><p>Pick a shape, image, text object, or group and add a curated effect from the existing Effect Studio and Object Filters surfaces.</p></article>
           <article><span>02</span><h3>Author</h3><p>Use meaningful controls for scale, angle, origin, colors, intensity, seed, and quality. Before/After comparison keeps experiments reversible.</p></article>
-          <article><span>03</span><h3>Export</h3><p>Export uses the committed document recipe and requested bounds. Unsupported GPU work falls back to a verified software path instead of disappearing.</p></article>
+          <article><span>03</span><h3>Export</h3><p>Export uses the committed document recipe and requested bounds. The authoritative software path remains available when an optional accelerator cannot complete.</p></article>
         </div>
       </section>
 
@@ -47,7 +47,7 @@ import StatusPill from '../../components/StatusPill.astro';
       <section class="feature-section feature-section--highlight" aria-labelledby="trust-title">
         <h2 id="trust-title">Acceleration is optional. The result is not.</h2>
         <dl class="trust-list">
-          <div><dt>WebGPU or native compute</dt><dd>Used only when the detected device, shader contract, and request are usable. Backend diagnostics distinguish actual execution from API availability.</dd></div>
+          <div><dt>WebGPU or native compute</dt><dd>Available to explicit asynchronous effect consumers only after the device, shader contract, and request are usable. The current interactive preview and export replay stay on the authoritative software path; diagnostics distinguish actual execution from API availability.</dd></div>
           <div><dt>Software fallback</dt><dd>CPU kernels remain the compatibility path for Linux WebKitGTK, older browsers, software adapters, and device loss. The document is never held hostage by a GPU.</dd></div>
           <div><dt>Honest export</dt><dd>Effects are evaluated at export quality and correct bounds. SVG/PDF preserve unaffected vector and text content, rasterizing only the dependency region that cannot be represented structurally.</dd></div>
           <div><dt>Offline-first</dt><dd>Ordinary effects require no cloud compiler, model download, hidden network request, or arbitrary code execution.</dd></div>

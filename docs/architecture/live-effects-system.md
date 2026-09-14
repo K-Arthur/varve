@@ -71,18 +71,18 @@ No hub file (CanvasArea/Shell) changes.
 
 ## 2. Renderer capability matrix
 
-| Effect | WebGPU runner | CPU/Canvas2D | Native | Export | Notes |
+| Effect | WebGPU runner | CPU/Canvas2D | Native route | Export | Notes |
 | --- | --- | --- | --- | --- | --- |
-| dither | partial | yes | yes | raster | error diffusion is sequential; GPU runner falls back to CPU |
-| paletteSnap | async provider | yes | yes | raster | LUT-accelerated lookup |
-| bloom | async provider | yes | yes | raster | GPU: 2-level pyramid; CPU: 3-4 levels |
-| rgbSplit | async provider | yes | yes | raster | premultiplied sampling |
-| crt | async provider | yes | yes | raster | analytic patterns only |
-| vhs | async provider | yes | yes | raster | seeded, frame-locked; GPU noise is hash-per-pixel |
-| lightShafts | async provider | yes | yes | raster | screen-space ray marching |
-| lensFlare | async provider | yes | yes | raster | procedural components |
-| lightLeak | async provider | yes | yes | raster | seeded fBm + HSL |
-| caustics | async provider | yes | yes | raster | GPU evaluates the field at full res |
+| dither | partial | yes | provider; CPU in current product path | raster | error diffusion is sequential; GPU runner falls back to CPU |
+| paletteSnap | async provider | yes | provider; CPU in current product path | raster | LUT-accelerated lookup |
+| bloom | async provider | yes | provider; CPU in current product path | raster | GPU: 2-level pyramid; CPU: 3-4 levels |
+| rgbSplit | async provider | yes | provider; CPU in current product path | raster | premultiplied sampling |
+| crt | async provider | yes | provider; CPU in current product path | raster | analytic patterns only |
+| vhs | async provider | yes | provider; CPU in current product path | raster | seeded, frame-locked; GPU noise is hash-per-pixel |
+| lightShafts | async provider | yes | provider; CPU in current product path | raster | screen-space ray marching |
+| lensFlare | async provider | yes | provider; CPU in current product path | raster | procedural components |
+| lightLeak | async provider | yes | provider; CPU in current product path | raster | seeded fBm + HSL |
+| caustics | async provider | yes | provider; CPU in current product path | raster | GPU evaluates the field at full res |
 
 Three backends, one dispatch:
 
@@ -108,6 +108,11 @@ Adjustment → FilterIR → applyFilterWithCompositing (sync, interactive previe
   u32-wrapping hashes) and are exposed via the `apply_live_effect_binary`
   Tauri command (raw RGBA body + `x-varve-effect` JSON header). All 20
   fixture agreement cases pass (byte-exact for dither/paletteSnap/rgbSplit).
+  The native `wgpu` provider is an explicit asynchronous/diagnostic route; it
+  is not injected into the synchronous editor preview or export replay. The
+  actual desktop GPU consumer in this milestone is image resampling, while
+  live-effect replay remains CPU-authoritative until an end-to-end consumer
+  can preserve ordering, masks, cancellation, and frame delivery.
 - GPU kernels live in `packages/compositor/src/webgpu/effects/` — a compute
   runner + one WGSL kernel per effect (dither error diffusion is sequential,
   so its GPU tier falls back to CPU). Offline naga compilation in

@@ -51,15 +51,17 @@ model must therefore never conflate *advertised* with *usable*.
 5. Do not reintroduce async effect dispatch into export flattening. The
    current export path replays the real pipeline by design; the earlier
    `flattenForExport.ts` dispatch was removed because it produced wrong
-   output. Async GPU effects are wired through the provider chain, and a
-   consumer must opt in only where the pipeline is asynchronous end to end.
+   output. Async GPU effects remain available through the provider contract
+   for an explicit end-to-end consumer, but the current editor preview/export
+   paths do not call that provider. Native GPU resampling is the integrated
+   desktop image-processing consumer in this milestone.
 
 ## Consequences
 
-- Positive: a real, measured native GPU path (RGB split parity is byte-exact;
-  measured 14–38× over CPU from 512² to 4096²), a capability report that can
-  explain *why* something is unavailable, and a bounded self-test that proves
-  execution instead of inferring it.
+- Positive: real, measured native GPU paths (RGB split parity is byte-exact;
+  resampling includes upload/dispatch/synchronization/readback), a capability
+  report that can explain *why* something is unavailable, and a bounded
+  self-test that proves execution instead of inferring it.
 - Positive: no new runtime artifacts or vendor SDKs ship in the base app;
   `wgpu` is compiled in and uses the system graphics stack.
 - Negative: a new heavyweight build dependency (`wgpu`) and a new workspace

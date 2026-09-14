@@ -220,44 +220,34 @@ the audit host:
 | birefnet-general-lite 1×3×1024×1024 | CPU baseline runs; **WebGPU EP fails at run time** on `/decoder/Split_33`: `Too many storage buffers in shader. Current: 17, Max is 16` (Dawn/WebGPU kernel limit for this adapter; the graph fixes input at 1024). No parity/timing captured because the probe aborts on the failure. |
 | Missing plugin (negative control) | `PLUGIN_REGISTER_FAILED` with the missing path named, exit 2 — no silent GPU claim, CPU policy unaffected |
 
-### Discovered gap: run-time EP failures need model-level CPU fallback
+### Post-audit fixes: model-level fallback and complete SCUNet installation
 
-`birefnet-general-lite` shows that session creation succeeding is not a
-guarantee that a model can execute on the WebGPU EP: the failure surfaces at
-the first `run()` (`16` storage buffers per shader stage is the WebGPU
-specification default; this decoder kernel needs `17`). Under the `auto`
-policy the request currently fails instead of falling back, so the remaining
-integration work is: quarantine a model path after a WebGPU run failure,
-retry once on a fresh CPU session, and report the quarantine reason in the
-capability status. Until that lands, `auto` users can select `cpu` for this
-model class; the CPU execution provider path is unaffected.
+The BiRefNet result established that session creation is not execution proof:
+the WebGPU run fails at `/decoder/Split_33` because the kernel needs 17 storage
+buffers while this adapter exposes 16. `execution_provider_fallback` now
+handles that class of failure under `auto`: it discards the failed GPU lease,
+quarantines the model path for the current process, checks cancellation, and
+retries exactly once with a fresh CPU session. The returned provider is
+`native-cpu`, while the diagnostic fallback reason remains available through
+the native inference diagnostics API. Explicit `gpu` still fails closed, and a
+re-detect/reset clears the quarantine.
 
-### Discovered defect: native SCUNet download omits the external weights file
-
-- `crates/varve-bgremove/src/model.rs` pins only the graph: `checksum_sha256`
-  matches the 3.8 MB `scunet_color_real_psnr.onnx`, while `size_bytes`
-  (76,936,854) is the graph **plus** the 73 MB external-weights file. The
-  `ModelInfo` struct has no external-data URL.
-- `packages/engine/src/inference/modelLoader.ts:345` only fetches
-  `remoteDataUrl` when `isBrowserEnv()`, so the Tauri path never downloads
-  `scunet_color_real_psnr.onnx.data`.
-- Reproduction: with only the graph in the native models directory, session
-  creation fails because ONNX Runtime cannot resolve the external-data
-  sibling. Supplying the 73 MB file beside the graph (the run above) loads
-  and executes correctly, and the combined size matches the pinned total
-  exactly.
-- Fix shape: add a data URL + checksum + size to the native model table,
-  download both files in `download_background_removal_model`, and delete
-  both on model deletion.
+The SCUNet external-data defect is fixed. `ModelInfo` now declares the graph
+and `scunet_color_real_psnr.onnx.data` with separate URLs, sizes, and hashes;
+native download, completeness checks, and deletion operate on both artifacts.
+The graph-only reproduction fails as expected, while the complete 76,936,854
+byte installation loads and executes. The Rust model-contract test and the
+desktop model lifecycle tests cover the two-file contract.
 
 Node counts are not time-weighted: LaMa's CPU-side nodes account for a small
 fraction of kernel time (profiler CPU total 815 ms vs WebGPU 23304 ms over
 the profiled runs), but "WebGPU active" for that model must be reported as
 *WebGPU with a CPU fallback partition*, not full-acceleration. The embedded
-Real-ESRGAN upscale model now shares the same policy: parity is 1 LSB max on
-a 96×72→384×288 tiled run, with cold 651 ms GPU vs 683 ms CPU and warm
-374 ms GPU vs 921 ms CPU (the CPU is a valid choice for cold one-offs; the
-policy is size- and use-case-sensitive rather than GPU-always).
+Real-ESRGAN upscale model now shares the same policy and is wired through the
+native desktop command: parity is 1 LSB max on a 96×72→384×288 tiled run,
+with cold 651 ms GPU vs 683 ms CPU and warm 374 ms GPU vs 921 ms CPU. The
+automatic policy gates native resampling by workload size, because CPU is the
+valid choice for cold one-offs and tiny transfers.
 
 Command:
 

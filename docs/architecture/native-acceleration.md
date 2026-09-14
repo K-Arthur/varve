@@ -133,15 +133,19 @@ Hardware evidence (AMD Ryzen 3 5300U, RADV RENOIR, Mesa 26.2.2, u2netp
 runs, output parity vs the CPU EP is 2e-6 max / 4e-8 mean absolute
 difference, and median wall time is 1999 ms (CPU) vs 336 ms (WebGPU).
 
-Unverified limits: u2netp and isnet-general-use run fully on WebGPU in
-measured runs; LaMa and SCUNet run with CPU fallback partitions (≈28% of node
-executions) reported as such. birefnet-general-lite runs on CPU but its
-WebGPU EP run fails on a decoder kernel that needs 17 storage buffers per
-shader stage (WebGPU default maximum is 16), so run-time EP failure fallback
-is the next required integration step. The embedded Real-ESRGAN
-upscale pipeline shares the same policy and attaches the same devices. Other
-models, Windows, and macOS execution still default to CPU until measured.
-NPU execution remains unsupported and none is advertised.
+Measured limits are model-specific: u2netp and isnet-general-use run fully on
+WebGPU; LaMa and SCUNet run with CPU fallback partitions (the profiled runs
+reported about 34% and 27% of node executions on CPU, respectively). The
+BiRefNet Lite WebGPU run fails at execution on a decoder kernel that needs 17
+storage buffers per shader stage while this adapter exposes 16. Automatic
+inference now quarantines that model/provider combination, retries once with a
+fresh CPU session, and records the reason; explicit WebGPU remains fail-closed.
+The embedded Real-ESRGAN upscale pipeline shares the policy and reports the
+provider that produced the result. Other models and Windows/macOS providers
+remain CPU or externally supplied until their runtime and representative model
+placement are measured. NPU execution is capability-gated only: no bundled
+NPU runtime or physical NPU was available on the verification host, so none is
+advertised as active.
 
 ## Memory and scheduling
 
