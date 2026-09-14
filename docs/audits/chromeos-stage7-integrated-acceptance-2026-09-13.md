@@ -6,8 +6,9 @@
 **Base SHA at start:** `ceb6c3962af1cfd7ce5acbd06a80c90a509a1b4f`
 **Reference device:** Lenovo Chromebook Duet 11M889, 8 GB primary target — not attached
 **Candidate version:** `0.2.1`
-**Candidate code SHA (frozen):** `614bc7a79ca60e047fd2bc3831d0e2bc41fa0ac0` (master at the final evidence snapshot; build mode: `VITE_DEMO=1`, `pnpm --filter @varve/desktop build:try`)
-**Evidence record commit:** `9015173920b40ea966976bd9c93fb01a6ee0119e`; the shared `master` ref may advance independently
+**Candidate source SHA (frozen reference):** `614bc7a79ca60e047fd2bc3831d0e2bc41fa0ac0`
+**Build mode attempted:** `VITE_DEMO=1`; `pnpm --filter @varve/desktop build:try` on the shared integrated working tree (failed before emitting a current artifact)
+**Evidence record commits:** `9015173920b40ea966976bd9c93fb01a6ee0119e`, `9ac1e3f039c0a0df8b64580777c44ba69c06b7aa`, and `c1b6098a860d86dda0ff8a88f3d2ff93e2b23305`; the shared `master` ref may advance independently
 **Ownership:** [`chromeos-stage7-ownership.md`](../agents/chromeos-stage7-ownership.md)
 
 This is an integration and acceptance record, not a claim that a synthetic
@@ -76,8 +77,12 @@ Key handoff commits were independently resolved on `master` with
 
 ## 2a. Integrated evidence collected so far
 
-These are interim results from the shared `master` working tree. They are not
-the final candidate until the last Stage 7 evidence commit freezes one SHA.
+These results are scoped to the exact command and artifact named in each row.
+The late integrated checks ran against a shared working tree while other
+agents continued committing; they are not evidence of a clean checkout of
+`614bc7a…`. The failed current `build:try` produced no current release
+artifact, so the older Stage 2 artifact is deliberately not relabelled as
+this candidate.
 
 | Surface | Exact command / method | Result | Status boundary |
 |---|---|---|---|
