@@ -103,3 +103,86 @@ that area at this snapshot.
 - Stage 5 Linux ARM64 remains independent.
 - The v6 browser database is forward-only. A v6-aware legacy mode is the
   rollback path; an unmodified v5 client cannot open a higher-version IDB.
+
+## Stage 3 continuation (2026-09-13)
+
+**Task:** `chromeos-stage3-continuation-2026-09-13`
+**Coordinator:** opencode (graphics/performance continuation session)
+**Base SHA:** `fbfb56f38`
+**Branch/worktree:** `master` / `/home/kevina/CodingProjects/varve` (explicit
+user instruction: work on `master`, not a new branch)
+**Updated:** 2026-09-13
+
+Scope: close the Stage 3 open items that can be resolved without Duet
+hardware, add the user-requested failure-mode research (what comparable
+products get wrong on constrained devices), refresh the marketing and
+performance-guide copy that depends on rendering/storage behavior, and re-run
+browser visual acceptance with the pixel oracle actually enabled.
+
+Newly owned (one writer at a time):
+
+| Path | Purpose |
+|---|---|
+| `packages/editor/src/backupService.ts` (+ new test) | Skip identical automatic backups; record the saved snapshot on `markSaved` |
+| `packages/editor/src/context/useAutoBackupServices.ts` (+ new test) | One recovery write per untitled autosave |
+| `packages/platform/src/storageWriteMetrics.ts` | Extend logical write counters to recovery and backup writes |
+| `packages/platform/src/web.ts` (+ new test) | Reclaim orphaned `fileContent`/`versionContent` on permanent delete |
+| `packages/editor/src/canvas/viewportPrefetch.ts` (+ test) | REMOVE dead code (decision recorded) |
+| `apps/website/src/pages/product.astro`, `apps/website/src/pages/docs/performance.astro` | Evidence-backed performance copy |
+| `docs/architecture/image-lifecycle.md` (one row) | Prefetch row status |
+| `docs/audits/chromeos-stage3-rendering-ai-2026-09-12.md` | Continuation ledger and evidence |
+
+Still not owned: `context.tsx`, `CanvasArea.tsx`, `Shell.tsx`; other agents'
+in-flight font/clipboard/shape/colorization paths (including the uncommitted
+`packages/engine/src/inference/*` edits, which are read-only to this
+continuation); Stage 5 website files.
+
+Decisions recorded in this continuation:
+
+- `viewportPrefetch.ts` is deleted rather than wired: it has no consumer and
+  no measured benefit, and a real prefetch must be designed against the
+  residency byte budget (`adaptiveResidency.ts`) and the finite worker image
+  budget. `adaptiveProfile` no longer claims prefetch fields.
+- Automatic backups are deduplicated by content. The prior behavior rewrote a
+  full-document backup every five minutes for unchanged JSON because
+  `markSaved` had no caller. Dedup fixes the write amplification without a
+  new hub-file import.
+- The per-edit `serializeDocument()` in `context.tsx` (the backup snapshot
+  feed) stays as a checked-in follow-up: a lazy `markDirty(() => string)`
+  change belongs in that file with its active writers, not in this run.
+- `adaptive-residency.spec.ts` is corrected to enable `?perf=1`; its
+  `forceFullRedraw` oracle previously compared a hash to itself because the
+  perf handle was never installed.
+
+Reserved port remains `VARVE_E2E_PORT=1498`, fallback the first free port in
+`15000-15009`.
+
+### Continuation progress (2026-09-13)
+
+Delivered on `master`:
+
+- `88b581e1d` — one recovery write per untitled autosave (previously two
+  full-document writes per cycle); recovery/backup writes are counted and
+  exposed through `__varvePerf.storageWrites()`.
+- `1f0fe5c3c` — identical automatic backups are skipped; `markSaved` records
+  the saved snapshot. Direct BackupService tests added.
+- `04a626bec` — `purgeFile`/`deleteVersionInfo` reclaim orphaned
+  `fileContent`/`versionContent` once the last reference is gone.
+- `cc5e5f52c` — removed the unreferenced `viewportPrefetch.ts` helpers;
+  image-lifecycle status corrected.
+- `40d942efa` — product-page performance copy on constrained-device failure
+  modes plus regenerated, inspected visual baselines.
+- `f7535e09b` (another writer's commit) — the lower-memory performance
+  guide's "Failure modes Varve deliberately avoids" section was captured
+  while that shared file was committed for accelerator copy; content verified
+  present.
+- Pending: `tests/e2e/canvas/adaptive-residency.spec.ts` enables `?perf=1`
+  and asserts the seam exists so its `forceFullRedraw` oracle is real; the
+  change passed the production-artifact E2E run recorded in the audit §8.2,
+  but its commit is blocked by the shared-tree `typecheck:e2e` gate failing
+  on another writer's in-flight `packages/engine/src/backgroundRemoval/maskDecode.ts`
+  (`Uint8Array<ArrayBufferLike>` vs `BlobPart`, TS2322). Retry after the
+  owning writer lands.
+
+Validation actually run, exact commands, and the shared-worktree blockers are
+recorded in the audit's §8.
