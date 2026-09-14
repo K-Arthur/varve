@@ -151,6 +151,20 @@ describe('resampleImageData', () => {
     expect(p[0]).toBeLessThanOrEqual(194);
   });
 
+  it('linearizes straight RGB before premultiplying translucent pixels', () => {
+    // The first source pixel is 50%-alpha white and the second is transparent.
+    // In linear light, averaging their premultiplied values must preserve white
+    // as the straight RGB result. Applying the transfer curve after multiplying
+    // by alpha instead produces a gray fringe (roughly 175) on the edge.
+    const src = imageData(2, 1, [255, 255, 255, 128, 0, 0, 0, 0]);
+    const out = resampleImageData(src, 1, 1, {
+      algorithm: 'area',
+      workingSpace: 'linear-srgb',
+    });
+
+    expect(px(out.imageData, 0, 0)).toEqual([255, 255, 255, 64]);
+  });
+
   it('preserves luminance overall when downscaling a gradient (no drift)', () => {
     const src = imageData(
       64,

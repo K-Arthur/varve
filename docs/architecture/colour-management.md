@@ -188,6 +188,26 @@ alpha remains untouched. CMYKA buffers are a distinct five-channel representatio
 deliberately rejected by the RGB transform: RGB↔CMYK needs a declared destination ICC
 profile/provider, not a four-channel reinterpretation.
 
+### Alpha-safe raster resampling
+
+The export resampler in `packages/engine/src/exportPipeline/resample.ts` keeps
+the transfer-function and alpha steps in this order:
+
+1. Read straight encoded RGB and normalized alpha from the source surface.
+2. Convert straight RGB to the requested working space (`srgb` or
+   `linear-srgb`).
+3. Premultiply by alpha before the separable filter samples it.
+4. Unpremultiply the filtered result, convert back to the output encoding, and
+   quantize once to the `ImageData` surface.
+
+Linearizing an already-premultiplied encoded channel is not equivalent: a
+50%-alpha white edge can come back as gray after unpremultiplication. The
+regression fixture in `resample.test.ts` verifies that a translucent white edge
+downscales to white RGB with the expected fractional alpha, while the existing
+encoded-space fixtures preserve the compatibility default. This rule applies
+to the shared export pipeline; it does not claim that every Canvas2D effect or
+display surface is linear-light.
+
 Compiled analytical raster transforms are memoized in a bounded 64-entry cache keyed by
 source/target model, primaries, and transfer function. The cache is safe to share because
 compiled transforms are immutable; profile fingerprints remain metadata on the source and

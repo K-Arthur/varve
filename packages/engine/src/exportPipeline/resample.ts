@@ -449,16 +449,21 @@ export function resampleImageData(
         const o = srcOffset + x * 4;
         const a = source.data[o + 3] as number;
         const pa = a / 255;
+        // Convert straight encoded RGB to the requested working space before
+        // premultiplying. Applying the transfer curve to an already-
+        // premultiplied sRGB channel changes the color of translucent pixels
+        // (for example, 50%-alpha white becomes gray after unpremultiplying).
         // Premultiplied channels are normalized to 0..1 (alpha stays 0..1) so
         // the vertical pass and unpremultiply math stay in a single scale.
-        let r = ((source.data[o] as number) / 255) * pa;
-        let g = ((source.data[o + 1] as number) / 255) * pa;
-        let b = ((source.data[o + 2] as number) / 255) * pa;
-        if (workingSpace === 'linear-srgb') {
-          r = srgbToLinearFloat(r);
-          g = srgbToLinearFloat(g);
-          b = srgbToLinearFloat(b);
-        }
+        const sr = (source.data[o] as number) / 255;
+        const sg = (source.data[o + 1] as number) / 255;
+        const sb = (source.data[o + 2] as number) / 255;
+        let r = workingSpace === 'linear-srgb' ? srgbToLinearFloat(sr) : sr;
+        let g = workingSpace === 'linear-srgb' ? srgbToLinearFloat(sg) : sg;
+        let b = workingSpace === 'linear-srgb' ? srgbToLinearFloat(sb) : sb;
+        r *= pa;
+        g *= pa;
+        b *= pa;
         const d = x * 4;
         srcRow[d] = r;
         srcRow[d + 1] = g;
