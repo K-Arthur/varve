@@ -277,3 +277,11 @@ The current Varve baseline also revealed a local documentation mismatch: the
 ledger and Object Selection docs described a two-tap box path that the live
 tool did not implement. The follow-up slice closes that gap and makes prompt
 polarity and output combination visible instead of requiring Shift knowledge.
+
+The same follow-up keeps cache correctness and device limits explicit: encoder
+embeddings now include the catalog checksums for both SAM2 components in their
+cache identity, and the byte allowance scales from the runtime safe budget.
+This prevents a stable model URL or locator from silently reusing an older
+artifact while avoiding a fixed 512 MB reservation on Chromebook-class
+devices. The existing source fingerprint and preflight admission checks remain
+the correctness and allocation gates.

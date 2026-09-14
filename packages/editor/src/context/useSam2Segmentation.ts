@@ -24,6 +24,24 @@ import type { EditorState, ObjectSelectionSession } from './types';
 
 type WorkerTensor = { data: Float32Array; dims: number[] };
 const SAM2_SOFT_DEADLINE_MS = 15_000;
+const EMBEDDING_CACHE_MAX_BYTES = 512 * 1024 * 1024;
+const EMBEDDING_CACHE_MIN_BYTES = 16 * 1024 * 1024;
+
+/**
+ * Keep embeddings proportional to the runtime's safe working budget. This is
+ * a cache allowance, not a claim that the model fits; resource preflight still
+ * decides whether a request may allocate its source and model buffers.
+ */
+function embeddingCacheBudgetBytes(): number {
+  const safePeakBytes = getRuntimeCapabilitiesSync().wasmSafePeakBytes;
+  if (!Number.isFinite(safePeakBytes) || safePeakBytes <= 0) {
+    return 128 * 1024 * 1024;
+  }
+  return Math.min(
+    EMBEDDING_CACHE_MAX_BYTES,
+    Math.max(EMBEDDING_CACHE_MIN_BYTES, Math.floor(safePeakBytes * 0.15)),
+  );
+}
 
 export interface Sam2SegmentationAPI {
   applySam2Segmentation: (params: {
@@ -82,7 +100,7 @@ export function useSam2Segmentation(
       sourceFingerprint: string;
     }>({
       maxEntries: 2,
-      maxBytes: 512 * 1024 * 1024,
+      maxBytes: embeddingCacheBudgetBytes(),
       estimateBytes: (entry) =>
         Object.values(entry.embeddings).reduce(
           (total, tensor) => total + tensor.data.byteLength,
@@ -593,6 +611,14 @@ export function useSam2Segmentation(
       try {
         const host = getInferenceWorkerHost();
 
+        // A model path can remain stable while a verified model artifact is
+        // replaced in storage. Include both component checksums so a newly
+        // installed encoder/decoder cannot reuse embeddings produced by an
+        // older contract. The preprocessing tag must be bumped whenever the
+        // encoder transform changes.
+        const encoderArtifact = getModelById(encoderId)?.checksum || resolvedEncoderPath;
+        const decoderArtifact = getModelById(decoderId)?.checksum || resolvedDecoderPath;
+
         const cacheKey = [
           currentDoc.id,
           nodeId,
@@ -601,6 +627,9 @@ export function useSam2Segmentation(
           naturalH,
           sourceFingerprint,
           encoderId,
+          encoderArtifact,
+          decoderId,
+          decoderArtifact,
           'preprocess-v1',
         ]
           .map((part) => encodeURIComponent(String(part)))

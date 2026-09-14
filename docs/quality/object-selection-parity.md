@@ -224,6 +224,22 @@ Interpretation, recorded as measured fact rather than a passing claim:
 
 ## Graph repair
 
+## Cache and constrained-device follow-up (2026-09-14)
+
+The encoder embedding cache is now bounded relative to the runtime's reported
+safe working budget rather than using one 512 MB allowance on every device. The
+allowance is capped at 512 MB, has a 16 MB floor for runtimes with a valid
+budget, and defaults to 128 MB when no usable budget is reported. This is only
+a cache policy; the source-plus-model resource preflight remains the admission
+gate, and a coarse browser memory hint is not treated as proof that the model
+fits.
+
+Cache keys include the source pixel fingerprint, the preprocessing revision,
+and the verified encoder and decoder artifact checksums from the model catalog.
+That prevents a model replacement behind a stable locator from reusing old
+embeddings. A transform change must still bump the preprocessing revision, and
+the cache never persists embeddings into the document.
+
 The upstream `sam2_hiera_tiny.encoder.onnx` declares empty shapes
 (`{}`) for the `/conv_s0` and `/conv_s1` output value_info entries.
 onnxruntime-node tolerates this with a lenient merge, but ort-web's wasm
