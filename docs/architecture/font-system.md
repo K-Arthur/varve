@@ -238,8 +238,9 @@ the menu. Selecting the already-authored family is idempotent, preserving its
 exact face reference and variation axes. Its bounded fallback keeps the active
 descendant mounted while the portal viewport is measuring. Arrow keys move
 through family rows and, when expanded, through each registered face row;
-Enter applies the active exact face and keeps `aria-activedescendant` mounted
-even while virtualized rows scroll.
+ArrowRight expands a family, ArrowLeft collapses it, and Enter applies the
+active exact face. `aria-activedescendant` stays mounted even while
+virtualized rows scroll.
 
 When a family has more than one registered face, the compact menu exposes an
 expand control beside that family. The expanded rows come only from the local

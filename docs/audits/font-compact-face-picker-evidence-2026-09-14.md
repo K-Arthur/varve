@@ -21,9 +21,10 @@ provider artifact, or make hover/search network requests.
 - Compact family rows show an expand/collapse control only when more than one
   registered face is available. Face rows are indented, keyboard-safe listbox
   options and are virtualized with the family rows.
-- ArrowDown/ArrowUp enter and traverse the expanded face rows, while Enter
-  applies the highlighted exact face. The active descendant is pinned through
-  both the measured virtualizer and the bounded pre-measure fallback.
+- ArrowRight expands a highlighted family, ArrowLeft collapses it, and
+  ArrowDown/ArrowUp traverse the expanded face rows. Enter applies the
+  highlighted exact face. The active descendant is pinned through both the
+  measured virtualizer and the bounded pre-measure fallback.
 - Expanding a family at the menu's lower edge scrolls the first face into the
   visible portaled viewport. Named instances are distinguished by their axes
   when marking the current exact selection.

@@ -248,7 +248,10 @@ describe('FontSelector', () => {
       fireEvent.focus(input);
       fireEvent.change(input, { target: { value: 'Keyboard Face Fixture' } });
       await screen.findByRole('option', { name: /Keyboard Face Fixture/ });
-      fireEvent.click(screen.getByRole('button', { name: /Expand Keyboard Face Fixture faces/ }));
+      fireEvent.keyDown(input, { key: 'ArrowRight' });
+      expect(
+        await screen.findByRole('button', { name: /Collapse Keyboard Face Fixture faces/ }),
+      ).toHaveAttribute('aria-expanded', 'true');
 
       fireEvent.keyDown(input, { key: 'ArrowDown' });
       const regularActiveId = input.getAttribute('aria-activedescendant');

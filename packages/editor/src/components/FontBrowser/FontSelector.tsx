@@ -586,6 +586,46 @@ export function FontSelector({
             }
           }
           break;
+        case 'ArrowRight': {
+          if (!isOpen) break;
+          const activeFamily = rows.find(
+            (row) => row.kind === 'font' && row.index === highlightedIndex,
+          );
+          if (activeFamily?.kind !== 'font' || activeFamily.faces.length <= 1) break;
+          event.preventDefault();
+          if (!expandedFamilies.has(activeFamily.record.familyId)) {
+            toggleExpanded(activeFamily.record.familyId);
+          } else {
+            const firstFace = rows.find(
+              (row) => row.kind === 'face' && row.parentFamilyId === activeFamily.record.familyId,
+            );
+            if (firstFace) highlightFace(firstFace.key);
+          }
+          break;
+        }
+        case 'ArrowLeft': {
+          if (!isOpen) break;
+          const activeFace = highlightedFaceKey
+            ? rows.find((row) => row.kind === 'face' && row.key === highlightedFaceKey)
+            : undefined;
+          const activeFamily = rows.find(
+            (row) => row.kind === 'font' && row.index === highlightedIndex,
+          );
+          const parentFamilyId =
+            activeFace?.kind === 'face'
+              ? activeFace.parentFamilyId
+              : activeFamily?.kind === 'font' && expandedFamilies.has(activeFamily.record.familyId)
+                ? activeFamily.record.familyId
+                : undefined;
+          if (!parentFamilyId) break;
+          event.preventDefault();
+          const parentFamily = rows.find(
+            (row) => row.kind === 'font' && row.record.familyId === parentFamilyId,
+          );
+          toggleExpanded(parentFamilyId);
+          if (parentFamily?.kind === 'font') highlight(parentFamily.index);
+          break;
+        }
         case 'Enter':
           if (!isOpen) break;
           event.preventDefault();
@@ -622,6 +662,7 @@ export function FontSelector({
       rows,
       select,
       selectFace,
+      toggleExpanded,
     ],
   );
 
