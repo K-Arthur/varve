@@ -12,7 +12,10 @@ export interface FontWeightOption {
   disabledReason?: string;
 }
 
-type WeightNode = Pick<TextNode, 'fontFamily' | 'fontWeight' | 'fontStyle' | 'fontReference'>;
+type WeightNode = Pick<
+  TextNode,
+  'fontFamily' | 'fontWeight' | 'fontStyle' | 'fontReference' | 'variableAxes'
+>;
 
 const STANDARD_WEIGHT_STOPS = [100, 200, 300, 400, 500, 600, 700, 800, 900] as const;
 
