@@ -47,12 +47,13 @@ preserves custom axes and mandatory shaping features across the inspector,
 contextual bar, floating text bar, and Logo controls. Static faces retain
 ordinary weight behavior without inventing variation data.
 
-The compact floating toolbar also checks the selected family before enabling
-Italic. A static family must expose an italic sibling in the same exact
-artifact; a variable family must declare an `ital` axis. Existing italic text
-can always be returned to regular. This keeps a click from silently creating a
-synthetic slant or switching to another same-name artifact. The control's
-disabled state is a capability signal, not a license assertion.
+The compact floating toolbar and inspector style control also check the
+selected family before enabling Italic. A static family must expose an italic
+sibling in the same exact artifact; a variable family must declare an `ital`
+axis. Existing italic text can always be returned to regular. This keeps a
+click from silently creating a synthetic slant or switching to another
+same-name artifact. The disabled state is a capability signal, not a license
+assertion, and the reason remains available from the inspector control.
 
 ## Parsed metrics
 

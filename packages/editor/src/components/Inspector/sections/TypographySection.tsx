@@ -34,6 +34,7 @@ import { FontSelector } from '../../FontBrowser/FontSelector';
 import { AdvancedOpenTypeFeaturesSection } from '../../Typography/AdvancedOpenTypeFeaturesSection';
 import {
   fontFamilyChanges,
+  fontStyleAvailable,
   fontStyleChanges,
   fontWeightChanges,
   fontWeightOptions,
@@ -178,6 +179,7 @@ function getTextValue<T>(n: SceneNode, accessor: (t: TextNode) => T): T {
 
 export function TypographySection({ nodes }: TypographySectionProps) {
   const editor = useEditor();
+  const registry = useMemo(() => getFontRegistry(), []);
   const {
     updateNode,
     beginTransaction,
@@ -325,6 +327,23 @@ export function TypographySection({ nodes }: TypographySectionProps) {
   const resizingRaw = commonValue(textNodes, (n) =>
     getTextValue(n, (t) => t.textResizing ?? 'fixed'),
   );
+  const italicAvailable = textNodes.every(
+    (node) =>
+      (node.fontStyle ?? 'normal') === 'italic' || fontStyleAvailable(node, 'italic', registry),
+  );
+  const fontStyleOptions = useMemo(
+    () =>
+      FONT_STYLE_OPTIONS.map((option) =>
+        option.value === 'italic' && !italicAvailable
+          ? {
+              ...option,
+              disabled: true,
+              disabledReason: 'This font has no real italic face for the selection',
+            }
+          : option,
+      ),
+    [italicAvailable],
+  );
 
   return (
     <DisclosureSection title="Typography" sectionId="typography">
@@ -435,7 +454,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           <SegmentedControl
             label="Font style"
             value={isMixed(styleRaw) ? 'normal' : styleRaw}
-            options={FONT_STYLE_OPTIONS}
+            options={fontStyleOptions}
             onChange={(v) =>
               textNodes.length === 1
                 ? applyTypographyToSelection(fontStyleChanges(textNodes[0]!, v))
