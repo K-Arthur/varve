@@ -425,6 +425,11 @@ export function ContentAwareFillDialog({
   const jobControllerRef = useRef(new GenerativeJobController());
   const downloadAbortRef = useRef<AbortController | null>(null);
   const diffusionDownloadAbortRef = useRef<AbortController | null>(null);
+  // Qualification is a native task, so the current provider facade cannot
+  // abort its helper yet. Keep a renderer-side ownership token in the
+  // meantime: closing or cancelling the session must prevent a late status
+  // response from being applied to a subsequent dialog session.
+  const qualificationRunRef = useRef(0);
   const isPaintingRef = useRef(false);
   const generationRef = useRef<{
     sourceSignature: string;
@@ -811,6 +816,7 @@ export function ContentAwareFillDialog({
   useEffect(() => {
     if (!isOpen) return;
     jobControllerRef.current.cancel();
+    qualificationRunRef.current += 1;
     sessionSourceSignatureRef.current = sourceSignature;
     setQuality('fast');
     setMode('remove');
@@ -912,10 +918,20 @@ export function ContentAwareFillDialog({
   }, [announce, imageSrc, invalidatePreview, isOpen, onClose, sourceSignature, typedNode]);
 
   useEffect(() => {
+    if (!isOpen) {
+      jobControllerRef.current.cancel();
+      downloadAbortRef.current?.abort();
+      diffusionDownloadAbortRef.current?.abort();
+      qualificationRunRef.current += 1;
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
     return () => {
       jobControllerRef.current.cancel();
       downloadAbortRef.current?.abort();
       diffusionDownloadAbortRef.current?.abort();
+      qualificationRunRef.current += 1;
     };
   }, []);
 
@@ -1557,6 +1573,11 @@ export function ContentAwareFillDialog({
     diffusionDownloadAbortRef.current?.abort();
   }, []);
 
+  const handleCancelQualification = useCallback(() => {
+    qualificationRunRef.current += 1;
+    setStatus('idle');
+  }, []);
+
   const handleDownloadDiffusionModel = useCallback(async () => {
     setStatus('downloading');
     setErrorMessage(null);
@@ -1645,10 +1666,14 @@ export function ContentAwareFillDialog({
   }, []);
 
   const handleQualifyDiffusionModel = useCallback(async () => {
+    const runId = qualificationRunRef.current + 1;
+    qualificationRunRef.current = runId;
+    const isCurrentQualification = () => qualificationRunRef.current === runId;
     setStatus('qualifying');
     setErrorMessage(null);
     try {
       const qualified = await qualifyNativeGenerativeModel();
+      if (!isCurrentQualification()) return;
       setDiffusionModelInstalled(qualified.installed);
       setDiffusionModelHandle(qualified.ready ? qualified.modelHandle : null);
       setDiffusionModelSize(qualified.sizeBytes);
@@ -1665,6 +1690,7 @@ export function ContentAwareFillDialog({
       if (!qualified.ready) throw new Error(qualified.reason ?? 'Model qualification failed.');
       setStatus('idle');
     } catch (err) {
+      if (!isCurrentQualification()) return;
       setStatus('error');
       setErrorMessage(
         err instanceof Error ? err.message : 'The diffusion model could not be qualified.',
@@ -3360,6 +3386,8 @@ export function ContentAwareFillDialog({
                   onClick={() => {
                     if (status === 'downloading') {
                       handleCancelDownload();
+                    } else if (status === 'qualifying') {
+                      handleCancelQualification();
                     } else {
                       jobControllerRef.current.cancel();
                       setStatus('idle');

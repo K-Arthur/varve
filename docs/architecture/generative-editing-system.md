@@ -172,6 +172,13 @@ cannot release a candidate to the editor. The desktop command keeps a
 cancellation tombstone, kills the supervised helper, and checks that tombstone
 before and after process registration and before reading output. Consequently a
 late helper response cannot turn a cancelled request into an accepted candidate.
+Model qualification currently has the same renderer-side session ownership
+guard: Cancel, close, or reopening the dialog invalidates the qualification
+run, so a late status response cannot overwrite the new session. Native
+qualification still needs the request-id cancellation command used by normal
+generation before it can satisfy the helper-termination gate; until that is
+implemented, qualification is treated as cancellable in the UI only and is
+never a readiness or quality certificate by itself.
 
 All heavy local inference also passes through `InferenceAdmission`. It is a
 single FIFO lease queue shared by prompt generation, native LaMa, background
