@@ -5,7 +5,7 @@
  * asset collection, and ZIP packaging.
  */
 
-import type { Document } from '@varve/scene';
+import type { Document, GenerativeEditRecord } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   buildArchive,
@@ -228,6 +228,97 @@ describe('archiveBuilder', () => {
       const assets = collectArchiveAssets(doc);
       expect(assets.length).toBe(1);
       expect(assets[0]!.path).toMatch(/^masks\/mask-1\.png$/);
+    });
+
+    it('collects retained generative sources, candidates, thumbnails, and contexts', () => {
+      const asset = (id: string, payload: string) => ({
+        id,
+        storage: 'embedded' as const,
+        mimeType: 'image/png',
+        dataUrl: `data:image/png;base64,${payload}`,
+        naturalWidth: 1,
+        naturalHeight: 1,
+        byteLength: 3,
+        hash: id,
+      });
+      const source = asset('archive-source', 'AQID');
+      const variation = asset('archive-variation', 'BAUG');
+      const thumbnail = asset('archive-thumbnail', 'CwgJ');
+      const context = asset('archive-context', 'BwgJ');
+      const edit = {
+        schemaVersion: 2,
+        id: 'archive-edit',
+        mode: 'replace',
+        sourceNodeId: 'n1',
+        sourceAssetId: source.id,
+        sourceSnapshotAssetId: source.id,
+        sourceLocator: `asset:${source.id}`,
+        sourceRevision: 1,
+        placementRevision: 'placement-1',
+        masks: {
+          userMaskAssetId: 'mask-1',
+          width: 1,
+          height: 1,
+          offsetX: 0,
+          offsetY: 0,
+          coordinateSpace: 'source-image-pixels',
+        },
+        outputFrame: {
+          x: 0,
+          y: 0,
+          width: 1,
+          height: 1,
+          sourceWidth: 1,
+          sourceHeight: 1,
+          coordinateSpace: 'source-image-pixels',
+        },
+        maskAssetId: 'mask-1',
+        maskWidth: 1,
+        maskHeight: 1,
+        maskCoordinateSpace: 'source-image-pixels',
+        settings: {
+          quality: 'draft',
+          contextPadding: 0,
+          maskExpansion: 0,
+          feather: 0,
+        },
+        provider: { kind: 'local', id: 'test', runtime: 'native-cpu' },
+        variations: [
+          {
+            id: 'archive-variation-record',
+            assetId: variation.id,
+            thumbnailAssetId: thumbnail.id,
+            contextAssetId: context.id,
+            width: 1,
+            height: 1,
+            createdAt: 1,
+          },
+        ],
+        activeVariationId: 'archive-variation-record',
+        createdAt: 1,
+        updatedAt: 1,
+      } satisfies GenerativeEditRecord;
+      const doc = {
+        ...makeTestDocument(),
+        assets: {
+          [source.id]: source,
+          [variation.id]: variation,
+          [thumbnail.id]: thumbnail,
+          [context.id]: context,
+        },
+        generativeEdits: { [edit.id]: edit },
+      } as Document;
+
+      const assets = collectArchiveAssets(doc);
+
+      expect(assets.map((entry) => entry.path)).toEqual(
+        expect.arrayContaining([
+          'generative/archive-source.png',
+          'generative/archive-variation.png',
+          'generative/archive-thumbnail.png',
+          'generative/archive-context.png',
+        ]),
+      );
     });
 
     it('deduplicates identical assets', () => {

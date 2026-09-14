@@ -12,6 +12,8 @@
  *     {assetId}.{ext}        (embedded images)
  *   masks/
  *     {assetId}.png          (raster masks)
+ *   generative/
+ *     {assetId}.{ext}        (retained generative sources/candidates/contexts)
  *   checksums/
  *     manifest.sha256
  *
@@ -257,6 +259,39 @@ export function collectArchiveAssets(doc: Document): ArchiveAssetEntry[] {
     }
   }
 
+  // Generative records retain assets that are not necessarily attached to a
+  // node fill: the immutable source snapshot, candidate output, thumbnail,
+  // and prepared context. Keep those bytes in the archive as well so archive
+  // inspection and future restore tooling do not depend on a model or a
+  // source layer still being present.
+  for (const edit of Object.values(doc.generativeEdits ?? {})) {
+    const assetIds = [
+      edit.sourceAssetId,
+      edit.sourceSnapshotAssetId,
+      ...edit.variations.flatMap((variation) => [
+        variation.assetId,
+        variation.thumbnailAssetId,
+        variation.contextAssetId,
+      ]),
+    ];
+    for (const assetId of assetIds) {
+      if (!assetId) continue;
+      const asset = doc.assets?.[assetId];
+      if (!asset?.dataUrl) continue;
+      const match = /^data:([^;,]+);base64,(.+)$/i.exec(asset.dataUrl);
+      if (!match?.[1] || !match[2] || seen.has(match[2])) continue;
+      const ext = extensionForMime(match[1]);
+      const basePath = `generative/${safeArchiveAssetName(asset.id)}.${ext}`;
+      let path = basePath;
+      let suffix = 2;
+      while (entries.some((entry) => entry.path === path)) {
+        path = `generative/${safeArchiveAssetName(asset.id)}-${suffix++}.${ext}`;
+      }
+      seen.set(match[2], path);
+      entries.push({ path, bytes: base64ToBytes(match[2]) });
+    }
+  }
+
   return entries;
 }
 
@@ -357,6 +392,10 @@ function extensionForMime(mimeType: string): string {
 
 function safeArchiveName(name: string): string {
   return name.replace(/[^a-zA-Z0-9-_\s]/g, '').trim() || 'varve-archive';
+}
+
+function safeArchiveAssetName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9_-]/g, '_').trim() || 'asset';
 }
 
 const ALL_CATEGORIES: SettingsCategory[] = [
