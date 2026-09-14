@@ -15,6 +15,7 @@ import {
   type FontReference,
   type FontSourceKind,
   fontReferenceFromIdentity,
+  inheritedFontReference,
   fontReferenceKey,
 } from '@varve/engine/font';
 import { dataUrlToBytes } from '@varve/import';
@@ -329,7 +330,14 @@ async function collectFonts(
     addRequest(node.fontFamily, node.fontReference);
     for (const paragraph of node.richText?.paragraphs ?? []) {
       for (const run of paragraph.runs ?? []) {
-        addRequest(run.format?.fontFamily, run.format?.fontReference);
+        const runFamily = run.format?.fontFamily ?? node.fontFamily;
+        const runReference = inheritedFontReference(
+          node.fontFamily,
+          node.fontReference,
+          run.format?.fontFamily,
+          run.format?.fontReference,
+        );
+        addRequest(runFamily, runReference);
       }
     }
   }

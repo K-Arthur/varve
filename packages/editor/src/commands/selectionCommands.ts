@@ -11,6 +11,7 @@
  * Sketch hierarchy navigation.
  */
 
+import { inheritedFontReference } from '@varve/engine/font';
 import type { Document, NodeId, SceneNode, ShapeNode } from '@varve/scene';
 import { getChildren, getParent } from '@varve/scene';
 
@@ -69,14 +70,30 @@ function textFontKeys(doc: Document, node: Extract<SceneNode, { kind: 'text' }>)
   add(baseFamily, baseReference);
   for (const paragraph of node.richText?.paragraphs ?? []) {
     for (const run of paragraph.runs) {
-      add(run.format?.fontFamily ?? baseFamily, run.format?.fontReference ?? baseReference);
+      add(
+        run.format?.fontFamily ?? baseFamily,
+        inheritedFontReference(
+          baseFamily,
+          baseReference,
+          run.format?.fontFamily,
+          run.format?.fontReference,
+        ),
+      );
     }
   }
 
   const story = node.storyBinding ? doc.stories?.[node.storyBinding.storyId] : undefined;
   for (const paragraph of story?.content.paragraphs ?? []) {
     for (const run of paragraph.runs) {
-      add(run.format?.fontFamily ?? baseFamily, run.format?.fontReference ?? baseReference);
+      add(
+        run.format?.fontFamily ?? baseFamily,
+        inheritedFontReference(
+          baseFamily,
+          baseReference,
+          run.format?.fontFamily,
+          run.format?.fontReference,
+        ),
+      );
     }
   }
   return [...keys];

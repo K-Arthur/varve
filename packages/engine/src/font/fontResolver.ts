@@ -13,6 +13,7 @@
  */
 
 import type { FontCatalog, FontCatalogEntry } from './fontCatalog';
+import { inheritedFontReference } from './fontFaceInheritance';
 import type { FontReference, FontSourceKind } from './fontIdentity';
 import { fontReferenceKey } from './fontIdentity';
 
@@ -232,11 +233,16 @@ function getFontFamiliesFromNode(node: ResolverTextNode): Array<{
 
   for (const paragraph of node.richText?.paragraphs ?? []) {
     for (const run of paragraph.runs) {
-      const family = run.format?.fontFamily;
+      const family = run.format?.fontFamily ?? node.fontFamily;
       if (!family) continue;
       results.push({
         family,
-        fontReference: run.format?.fontReference,
+        fontReference: inheritedFontReference(
+          node.fontFamily,
+          node.fontReference,
+          run.format?.fontFamily,
+          run.format?.fontReference,
+        ),
         weight: run.format?.fontWeight,
         style: run.format?.fontStyle,
         text: run.text,

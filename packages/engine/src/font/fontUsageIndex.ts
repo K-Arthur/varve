@@ -12,6 +12,7 @@
  * Figma/ Sketch font usage tracking.
  */
 
+import { inheritedFontReference } from './fontFaceInheritance';
 import type { FontReference } from './fontIdentity';
 import { fontReferenceKey } from './fontIdentity';
 
@@ -140,9 +141,17 @@ export class FontUsageIndex {
       if (node.richText) {
         for (const paragraph of node.richText.paragraphs) {
           for (const run of paragraph.runs) {
-            const family = run.format?.fontFamily;
+            const family = run.format?.fontFamily ?? node.fontFamily;
             if (family) {
-              const usage = ensure(family, run.format?.fontReference);
+              const usage = ensure(
+                family,
+                inheritedFontReference(
+                  node.fontFamily,
+                  node.fontReference,
+                  run.format?.fontFamily,
+                  run.format?.fontReference,
+                ),
+              );
               if (!usage.nodeIds.includes(node.id)) {
                 usage.nodeIds.push(node.id);
               }

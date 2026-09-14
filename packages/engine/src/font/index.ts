@@ -32,6 +32,7 @@ export type {
 } from './fontDownloadManager';
 // Download manager
 export { FontDownloadManager } from './fontDownloadManager';
+export { inheritedFontReference } from './fontFaceInheritance';
 // Identity and types
 export type {
   EmbeddingBaseRights,

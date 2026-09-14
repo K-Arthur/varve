@@ -11,6 +11,7 @@
 import { textMeasureRevision, variationSettingsKey } from '@varve/shared';
 import type { FontReference } from './font/fontIdentity';
 import { fontReferenceKey } from './font/fontIdentity';
+import { inheritedFontReference } from './font/fontFaceInheritance';
 import { scriptCodeToTag, shapeRun } from './shaping';
 import { type ItemizedParagraph, itemizeParagraph, type ParagraphRange } from './text/paragraphs';
 import type { TextLayoutSnapshot } from './textLayoutSnapshot';
@@ -111,9 +112,16 @@ function shapeParagraph(
         const lineHeight =
           (format.lineHeight ?? defaults.lineHeight ?? 1.4) *
           (format.fontSize ?? defaults.fontSize);
+        const runFamily = format.fontFamily ?? defaults.fontFamily;
+        const runReference = inheritedFontReference(
+          defaults.fontFamily,
+          defaults.fontReference,
+          format.fontFamily,
+          format.fontReference,
+        );
         const runs = shapeRun({
           text,
-          fontFamily: format.fontFamily ?? defaults.fontFamily,
+          fontFamily: runFamily,
           fontSize: format.fontSize ?? defaults.fontSize,
           fontWeight: format.fontWeight ?? defaults.fontWeight,
           fontStyle: format.fontStyle ?? defaults.fontStyle,
@@ -121,7 +129,7 @@ function shapeParagraph(
           tracking: format.tracking ?? defaults.tracking,
           openTypeFeatures: format.openTypeFeatures ?? defaults.openTypeFeatures,
           variableAxes: format.variableFontSettings ?? defaults.variableAxes,
-          fontReference: format.fontReference ?? defaults.fontReference,
+          fontReference: runReference,
           direction: scripted.direction,
           language: format.language ?? defaults.language,
           ctx: ctx as unknown as CanvasRenderingContext2D,
@@ -181,7 +189,14 @@ function typographyIdentityKeys(
   const faceValues = [
     defaults.fontReference,
     ...richText.paragraphs.flatMap((paragraph) =>
-      paragraph.runs.map((run) => run.format?.fontReference ?? defaults.fontReference),
+      paragraph.runs.map((run) =>
+        inheritedFontReference(
+          defaults.fontFamily,
+          defaults.fontReference,
+          run.format?.fontFamily,
+          run.format?.fontReference,
+        ),
+      ),
     ),
   ]
     .filter((reference): reference is FontReference => reference !== undefined)

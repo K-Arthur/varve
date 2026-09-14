@@ -183,6 +183,56 @@ describe('FontResolver', () => {
       });
     });
 
+    it('inherits an exact node face for unformatted runs without leaking it to another family', () => {
+      const catalog = new FontCatalog();
+      catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({
+            contentHash: 'b'.repeat(64),
+            hashAlgorithm: 'sha256',
+            familyName: 'Inter',
+          }),
+        }),
+      );
+      catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({
+            contentHash: 'c'.repeat(64),
+            hashAlgorithm: 'sha256',
+            familyName: 'Roboto',
+          }),
+        }),
+      );
+
+      const exact = { artifactHash: 'a'.repeat(64) };
+      const missing = resolver.detectMissing(
+        {
+          nodes: {
+            t1: {
+              id: 't1',
+              kind: 'text',
+              fontFamily: 'Inter',
+              fontReference: exact,
+              richText: {
+                paragraphs: [
+                  {
+                    runs: [
+                      { text: 'inherits' },
+                      { text: 'switches', format: { fontFamily: 'Roboto' } },
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+        },
+        catalog,
+      );
+
+      expect(missing).toHaveLength(1);
+      expect(missing[0]).toMatchObject({ familyName: 'Inter', fontReference: exact });
+    });
+
     it('reports an unavailable exact face even when another file shares its family', () => {
       const catalog = new FontCatalog();
       catalog.addEntry(
@@ -614,6 +664,33 @@ describe('FontUsageIndex', () => {
       expect(usage.has('inter')).toBe(true);
       expect(usage.has('roboto')).toBe(true);
       expect(usage.get('roboto')!.totalCharacters).toBe(5); // "World"
+    });
+
+    it('keeps an inherited exact face on unformatted runs and clears it on family changes', () => {
+      const exact = { artifactHash: 'a'.repeat(64) };
+      const usage = index.build({
+        nodes: {
+          t1: {
+            id: 't1',
+            kind: 'text',
+            fontFamily: 'Inter',
+            fontReference: exact,
+            richText: {
+              paragraphs: [
+                {
+                  runs: [{ text: 'same' }, { text: 'other', format: { fontFamily: 'Roboto' } }],
+                },
+              ],
+            },
+          },
+        },
+      });
+
+      expect(usage.get(`inter\u0000sha256:${exact.artifactHash}:single`)).toMatchObject({
+        totalCharacters: 4,
+      });
+      expect(usage.get('roboto')).toMatchObject({ totalCharacters: 5 });
+      expect(usage.get('roboto')?.fontReference).toBeUndefined();
     });
 
     it('keeps exact artifact members separate while family queries remain aggregated', () => {

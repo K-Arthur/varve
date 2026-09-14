@@ -21,6 +21,7 @@ import {
   type FontDataRecord,
   fitRasterDimensions,
   fontReferenceKey,
+  inheritedFontReference,
   insertJpegIccProfile,
   insertPngIccp,
   insertPngTextChunks,
@@ -110,12 +111,19 @@ function collectEngineFonts(nodes: readonly EngineNode[]): ExportFontRequest[] {
     });
     for (const paragraph of current.richText?.paragraphs ?? []) {
       for (const run of paragraph.runs) {
+        const runFamily = run.format?.fontFamily ?? family;
+        const runReference = inheritedFontReference(
+          family,
+          current.fontReference,
+          run.format?.fontFamily,
+          run.format?.fontReference,
+        );
         requests.push({
-          family: run.format?.fontFamily ?? family,
+          family: runFamily,
           weight: run.format?.fontWeight ?? weight,
           style: run.format?.fontStyle === 'italic' ? 'italic' : style,
           text: run.text,
-          ...(run.format?.fontReference ? { fontReference: run.format.fontReference } : {}),
+          ...(runReference ? { fontReference: runReference } : {}),
         });
       }
     }

@@ -1,4 +1,4 @@
-import type { FontReference } from '@varve/engine';
+import { inheritedFontReference, type FontReference } from '@varve/engine';
 import { buildAllVariantCaches, type Document, type SceneNode, type TextNode } from '@varve/scene';
 
 export interface DocumentFontUsage {
@@ -82,7 +82,12 @@ function mergeFormat(base: FontFormat, override?: FontFormat): UsageCandidate {
   return {
     family: override?.fontFamily ?? base.fontFamily,
     fontFamily: override?.fontFamily ?? base.fontFamily,
-    fontReference: override?.fontReference ?? base.fontReference,
+    fontReference: inheritedFontReference(
+      base.fontFamily,
+      base.fontReference,
+      override?.fontFamily,
+      override?.fontReference,
+    ),
     fontWeight: override?.fontWeight ?? base.fontWeight,
     fontStyle: override?.fontStyle ?? base.fontStyle,
   };
