@@ -14,6 +14,21 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Trustworthy image tracing** — Image Trace previews now render the exact
+  curves, holes, fills, and strokes that Apply commits: cubic handles are
+  drawn (not polylines), every hole subpath closes, and artwork paint no
+  longer follows the UI theme. The dialog adds Source / Prepared / Overlay /
+  Vector views, an anchor overlay, 1:1 zoom, and provider plus
+  effective-resolution diagnostics. Source preparation gains explicit
+  border-connected background removal (enclosed white counters survive),
+  adaptive thresholding for uneven scans, and a user-visible alpha cutoff;
+  colour and pixel-art modes can emit cutout (compound holes) or stacked
+  (back-to-front, transparency-aware holes) regions; centerline traces keep
+  genuine closed loops as closed strokes. Every trace stores a reproducible
+  recipe — the full preparation stack, the provider that actually ran, the
+  effective trace resolution, and a source identity hash — and Edit Trace
+  restores it, warning when the linked source changed.
+
 - **Selection refinement and closed-form matting** — Pixel-selection coverage
   now has the full documented operation set: Feather (Gaussian), Smooth
   (boundary open/close, not a blur), Grow/Shrink, Harden (contrast),

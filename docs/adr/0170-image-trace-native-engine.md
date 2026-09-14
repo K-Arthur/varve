@@ -86,3 +86,40 @@ fallbacks on web, and close the lifecycle/UX gaps:
 - `packages/editor/src/components/Vectorize/` — dialog/workflow.
 - `packages/editor/src/logo/vectorization/metadata.ts` — provenance helpers.
 - `tests/e2e/canvas/image-trace.spec.ts` — E2E coverage.
+
+## Amendment — 2026-09-14: preview trust, preparation, structure, provenance
+
+Community evidence (see `docs/agents/trace-research-2026-09-13.md`) showed the
+dominant user-visible failures of tracing tools are not missing modes but
+lies in the interaction: previews that do not match the committed result,
+silent background/color removal, holes that vanish or become specks, seams
+between regions, and provenance that cannot reproduce a trace. The following
+decisions extend ADR-0170 without changing its provider architecture:
+
+1. **The preview is the committed geometry.** Display paths are fitted with
+   the same algorithm as insertion (`buildDisplayPaths` +
+   `fitBezierToContour`), rendered with cubic handle offsets, per-hole
+   `closePath`, and the committed paint. The raster is composited with
+   `drawImage` — `putImageData` ignores transforms and `globalAlpha`
+   (HTML canvas spec). Artwork paint never depends on the UI theme.
+2. **Preparation is explicit and provider-independent.** Border-connected
+   near-white removal replaces the hidden ">40% near-white bucket" heuristic
+   so enclosed white survives; adaptive Bradley–Roth thresholding serves
+   uneven scans; fixed binarization uses the trace threshold.
+3. **Structure is chosen by intent.** `stacked` output (back-to-front, with
+   holes only over transparency) joins `cutout` (compound holes). Both are
+   implemented in the TS fallback and the native engine, and the mode is
+   recorded.
+4. **Provenance v2 is reproducible.** The full preparation stack, the actual
+   provider id, effective trace/source dimensions, and a source identity hash
+   are stored; Edit Trace restores them and warns when the source changed.
+   Schema v1 payloads still load.
+5. **Closed loops stay loops.** Endpoint-free skeletons are walked with
+   direction preference so genuine centerline loops are extracted as closed
+   strokes rather than being forced open or filled.
+
+Consequences: preview/committed agreement is testable (unit + pixel-level
+E2E), white artwork cannot disappear silently, and re-traces are honest about
+resolution and source changes. Shared-boundary (shared-chain) simplification
+and visible-appearance capture remain future work, documented as limitations
+rather than implied capabilities.

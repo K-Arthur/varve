@@ -832,9 +832,9 @@ const SCENES = [
     file: 'vectorize-dialog-light.png',
     theme: 'light',
     feature: 'vector-tools',
-    alt: 'The Varve Vectorize dialog tracing an imported photo into editable vector paths, with mode, colour count and path-fitting controls',
+    alt: 'The Varve Vectorize dialog tracing an imported photo into editable vector paths, with colour mode, output structure controls, and a source-versus-vector preview',
     caption:
-      'Trace an imported image into editable paths — computed locally by the Rust trace engine.',
+      'Trace an imported image into editable paths — entirely on-device, with prepare/overlay/vector previews before anything is committed.',
     async run(page) {
       await openCleanEditor(page);
       await importImage(page, 'earth.jpg');
@@ -863,9 +863,11 @@ const SCENES = [
       if (!(await colorMode.isChecked())) {
         throw new Error('Vectorize did not switch to colour mode');
       }
-      // Colour mode re-runs the trace preview; capturing before it settles
-      // would show the previous mode's result under the new mode's controls.
-      await page.waitForTimeout(2500);
+      // Colour mode re-runs the trace preview; wait for the diagnostics that
+      // only render with a settled result instead of a fixed delay, so the
+      // capture never shows the previous mode's (or an empty) preview.
+      await dialog.locator('.vectorize__diagnostics').waitFor({ state: 'visible', timeout: 30000 });
+      await page.waitForTimeout(400);
     },
   },
   {

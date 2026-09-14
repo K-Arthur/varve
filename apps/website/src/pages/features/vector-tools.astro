@@ -47,13 +47,13 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
           <li><strong>Layers:</strong> A dense, virtualized hierarchy with search, filters, thumbnails, compact drag handles, inline rename, and precise before/after/into reparenting</li>
           <li><strong>Groups and frames:</strong> Group/ungroup, spatial containers with flex and grid auto-layout</li>
           <li><strong>Snapping:</strong> Sticky snap to edges, centers, and other objects with configurable thresholds</li>
-          <li><strong>Image trace:</strong> Convert a raster image to editable paths locally, in black and white, greyscale, colour, or pixel-art modes</li>
+          <li><strong>Image trace:</strong> Convert a raster image to editable paths locally in black and white, greyscale, colour, pixel-art, or centerline modes (centerline in the desktop app). Prepared-source, overlay, and vector previews render the curves that will be committed; border-connected background removal keeps enclosed white detail; regions can be cut out with real holes or stacked; every trace records its full settings and can be re-traced in place</li>
         </ul>
       </section>
 
       <FeatureVisual
         scene="vectorize"
-        caption="Tracing an imported image into editable paths. Mode, colour count, and path fitting are set before the trace runs; the result lands on the canvas as ordinary vector paths."
+        caption="Tracing an imported image into editable paths. The preview shows the committed curves and colours; Apply re-runs the same recipe at higher resolution and inserts ordinary editable paths beside the source. Tracing reads source pixels — masks, crops, and effects are not composited into the trace input."
       />
 
       <section class="feature-section">
@@ -79,6 +79,7 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
             <li>Complex boolean and Shape Builder results on curved paths use bounded, documented approximation; original sources remain available with Create</li>
             <li>Break/split into separate path objects and joining separate endpoint objects are not yet exposed in node editing; dependent text-on-path, mask, motion, and interaction paths are protected until detached or converted</li>
             <li>Advanced grid track functions and absolute-child anchoring remain limited; use the <a href={sitePath('/docs/tools/auto-layout')}>Auto Layout guide</a> for the supported responsive subset</li>
+            <li>Image tracing reads source pixels only — masks, crops, and effects are not composited into the trace input. Abutting cutout regions can show hairline seams at high simplification tolerances; switch to stacked output or lower the tolerance. Centerline tracing requires the desktop app.</li>
           </ul>
         </div>
       </section>
