@@ -18,6 +18,12 @@ text styles, rich runs, and linked-story runs. Its readiness key includes the
 artifact/member identity, so two same-family files cannot collapse into one
 prefetch request.
 
+An explicit local-font refresh now unregisters the previous native face keys
+and opaque handles before publishing the new enumeration. Removing an OS font
+while Varve is open therefore cannot leave a stale native face in the catalog;
+the document keeps its authored reference and reports the next exact-face
+load as unavailable until the user repairs or replaces it.
+
 ## Evidence
 
 ```text
@@ -36,6 +42,8 @@ The new native registry tests prove:
 - a missing exact reference does not call `document.fonts.load` for the family;
 - a stale native handle produces an error without attempting local-family
   fallback; and
+- a refresh can remove a native face by its opaque handle without removing
+  another same-family source; and
 - the existing browser/native bridge contract remains nested as
   `load_system_font({ request: { handle } })`.
 
@@ -49,4 +57,3 @@ Native WebKitGTK, Windows WebView2, and macOS WKWebView still require their
 platform lanes for restart, OS refresh/revocation, and native export proof;
 this evidence does not promote those acceptance rows beyond their documented
 Partial status.
-
