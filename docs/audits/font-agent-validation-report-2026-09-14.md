@@ -153,6 +153,42 @@ image-identification/OCR overlays.
 The collaboration dependency payload is prepared; live transport remains
 outside this project.
 
+## Resolver and color-face continuation — 2026-09-14
+
+The resolver boundary follow-up is committed at `af8016aad` and
+`922df0dec`. Resolver text nodes now carry node-level style overrides, and the
+scoped replacement adapter narrows opaque resolver nodes after checking the
+text discriminant. The focused replacement, resolver, and native-font tests
+passed **48/48**. The desktop typecheck no longer reports a font-related
+error; the remaining failures are concurrent shared editor errors in the menu,
+canvas input/wheel, layout, geometry, snapping, and workspace modules.
+
+The color-face UI continuation is committed at `fda36f1c1`. Installed-font
+details now show detected color formats and palette count and explicitly state
+that color glyphs must stay live or be rasterized when outline export cannot
+preserve them. The focused details/browser slice passed **15/15**; this is a
+user-facing fallback boundary, not proof of native color output parity.
+
+Additional commands actually run:
+
+```text
+pnpm exec biome check packages/editor/src/components/FontBrowser/applyFontReplacement.ts packages/engine/src/font/index.ts
+pnpm --dir apps/desktop typecheck
+pnpm exec biome check packages/editor/src/components/FontBrowser/FontLicenseDetails.tsx packages/editor/src/components/FontBrowser/FontLicenseDetails.test.tsx
+pnpm exec vitest run packages/editor/src/components/FontBrowser/FontLicenseDetails.test.tsx packages/editor/src/components/FontBrowser/FontBrowser.test.tsx --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
+```
+
+The native WDIO command remains blocked before Tauri launch by those unrelated
+desktop type errors; no native pass is claimed.
+
+The post-continuation full gate was also run with
+`VARVE_FULL_GATE_REASON='font typography continuation: resolver boundary and color-face UI; planner escalated due shared workspace and validation-infrastructure changes'`.
+It reached the architecture audit and package typecheck, then exited before
+downstream suites. The recorded failures were the shared website/editor lint
+diagnostics, 14 existing architecture cycles/instability budget reports, and
+engine type errors in `contentAwareFill/quickCleanup.test.ts` and `lut*.test.ts`.
+No failure was reported from the resolver or color-face UI tests.
+
 ## Corpus and shaping continuation — 2026-09-14
 
 The parser corpus milestone is committed at `20753b027028d04d6dcd5c49513a34bd27d85af6`.
