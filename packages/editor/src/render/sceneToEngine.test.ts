@@ -4,13 +4,18 @@
  * Research basis: local-first documents must render the same alpha matte after
  * persistence as before save, while legacy inline masks remain readable.
  */
+
+import { imageDataToRasterTiles } from '@varve/engine';
 import {
   addNode,
   addRasterMaskAsset,
+  applyLiquifyDabToNode,
   colorConfigWithDefaults,
   createDocument,
+  createFrequencySeparation,
   DocumentCodec,
   makeFrameNode,
+  makeRasterLayerNode,
   makeShapeNode,
   makeSmartFilter,
   makeTextNode,
@@ -216,5 +221,94 @@ describe('scene gradient interpolation resolution', () => {
     const node = gradientNode({ interpolationSpace: 'linear-srgb' });
     const converted = sceneNodeToEngineNode(node, {}, createDocument('Pinned'));
     expect(converted.fills?.[0]?.gradient?.interpolationSpace).toBe('linear-srgb');
+  });
+});
+
+// ── Frequency separation + liquify IR boundary ───────────────────────────────
+
+function makeRetouchRaster(id: string, w: number, h: number) {
+  const data = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      data[i] = (x * 11) % 256;
+      data[i + 1] = (y * 17) % 256;
+      data[i + 2] = ((x + y) % 2 === 0 ? 220 : 30) + ((x * y) % 20);
+      data[i + 3] = 255;
+    }
+  }
+  const node = makeRasterLayerNode(id, { width: w, height: h }, { name: 'Photo' });
+  node.tiles = imageDataToRasterTiles(new ImageData(data, w, h), 128);
+  return node;
+}
+
+describe('frequency separation at the IR boundary', () => {
+  it('renders the tone band as the decoded composite and hides the detail band', () => {
+    const source = makeRetouchRaster('r1', 64, 48);
+    let doc = addNode(createDocument('FS'), source);
+    const created = createFrequencySeparation(doc, 'r1', { radius: 4 });
+    expect(created).not.toBeNull();
+    doc = created!.doc as typeof doc;
+
+    const flattened = flattenSceneToEngine(doc, doc.rootChildren as string[]);
+    const lowItem = flattened.nodes.find((node) => node.id === created!.lowId);
+    const highItem = flattened.nodes.find((node) => node.id === created!.highId);
+    expect(lowItem).toBeDefined();
+    expect(highItem).toBeDefined();
+    expect(lowItem!.kind).toBe('rasterLayer');
+    const rasterData = (lowItem as { rasterLayerData?: { tiles: Record<string, unknown> } })
+      .rasterLayerData;
+    expect(rasterData).toBeDefined();
+    expect(Object.keys(rasterData!.tiles).length).toBeGreaterThan(0);
+    // The encoded detail band contributes nothing while its mate is visible.
+    expect((highItem as { opacity?: number }).opacity).toBe(0);
+  });
+
+  it('renders each band alone when its sibling is hidden', () => {
+    const source = makeRetouchRaster('r1', 64, 48);
+    let doc = addNode(createDocument('FS'), source);
+    const created = createFrequencySeparation(doc, 'r1', { radius: 4 })!;
+    doc = created.doc as typeof doc;
+    const high = doc.nodes[created.highId] as { visible?: boolean };
+    const withHiddenHigh = {
+      ...doc,
+      nodes: { ...doc.nodes, [created.highId]: { ...high, visible: false } },
+    } as typeof doc;
+    const flattened = flattenSceneToEngine(withHiddenHigh, withHiddenHigh.rootChildren as string[]);
+    expect(flattened.ids).toContain(created.lowId);
+    expect(flattened.ids).not.toContain(created.highId);
+    const lowItem = flattened.nodes.find((node) => node.id === created.lowId);
+    expect(
+      Object.keys(
+        (lowItem as { rasterLayerData?: { tiles: Record<string, unknown> } }).rasterLayerData!
+          .tiles,
+      ).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it('warps raster tiles at the IR boundary and identity is a no-op', () => {
+    const source = makeRetouchRaster('r1', 64, 48);
+    const doc = addNode(createDocument('Liquify'), source);
+    const baseline = flattenSceneToEngine(doc, ['r1']);
+    const baselineItem = baseline.nodes[0] as {
+      rasterLayerData?: { tiles: Record<string, { pixels: number[]; version: number }> };
+    };
+    const baselineBytes = baselineItem.rasterLayerData!.tiles['0:0']!.pixels.slice(0, 64);
+
+    const pushed = applyLiquifyDabToNode(doc, 'r1', 'push', {
+      x: 20,
+      y: 20,
+      radius: 24,
+      strength: 1,
+      pressure: 1,
+      deltaX: 10,
+      deltaY: 4,
+    })!;
+    const warped = flattenSceneToEngine(pushed, ['r1']);
+    const warpedItem = warped.nodes[0] as {
+      rasterLayerData?: { tiles: Record<string, { pixels: number[]; version: number }> };
+    };
+    const warpedBytes = warpedItem.rasterLayerData!.tiles['0:0']!.pixels.slice(0, 64);
+    expect(warpedBytes).not.toEqual(baselineBytes);
   });
 });

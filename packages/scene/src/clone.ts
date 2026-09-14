@@ -397,6 +397,22 @@ export function deepCloneSubtree(
             ...newNodes[newId]!,
             frequencySeparation: { ...originalFs, lowNodeId: low, highNodeId: high },
           } as SceneNode;
+          // Bands carry an O(1) back-reference; without remapping it a cloned
+          // separation would decode against the original group's pixels.
+          const clonedLow = newNodes[low];
+          if (clonedLow) {
+            newNodes[low] = {
+              ...clonedLow,
+              frequencySeparationRole: { groupId: newId, role: 'low' },
+            } as SceneNode;
+          }
+          const clonedHigh = newNodes[high];
+          if (clonedHigh) {
+            newNodes[high] = {
+              ...clonedHigh,
+              frequencySeparationRole: { groupId: newId, role: 'high' },
+            } as SceneNode;
+          }
         } else if (dropForeign) {
           const { frequencySeparation: _fs, ...withoutMarker } = newNodes[newId]! as {
             frequencySeparation?: unknown;

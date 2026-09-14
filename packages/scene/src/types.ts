@@ -1979,6 +1979,16 @@ export interface RasterLayerNode extends NodeBase {
    */
   liquify?: LiquifyField;
   /**
+   * V2.17+: marks this raster as a band of a linked frequency separation.
+   * Rendering substitutes the decoded composite for the tone band and hides
+   * the encoded detail band; the raw tiles remain the editable source. Set at
+   * creation, cleared by flatten, remapped by clone.
+   */
+  frequencySeparationRole?: {
+    groupId: NodeId;
+    role: 'low' | 'high';
+  };
+  /**
    * V2.17+: frozen (protected) coverage for subsequent liquify strokes.
    * Authoring-only data: it never affects rendering. Absent = nothing frozen.
    */

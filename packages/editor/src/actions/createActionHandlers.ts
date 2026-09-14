@@ -1201,6 +1201,7 @@ export function createActionHandlers(
     toolPaint: setTool('paint'),
     toolEraser: setTool('eraser'),
     toolSmudge: setTool('smudge'),
+    toolLiquify: setTool('liquify'),
     toolCrop: setTool('crop'),
     toolPerspective: setTool('perspective'),
     toolWarp: setTool('warp'),

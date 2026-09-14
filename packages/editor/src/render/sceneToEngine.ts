@@ -23,21 +23,22 @@ import {
   warpShapeToPath,
   warpTextToClusterAdjustments,
 } from '@varve/engine';
-import type { Document, Fill, GroupNode, NodeId, RasterLayerNode, SceneNode } from '@varve/scene';
+import type { Document, Fill, NodeId, SceneNode } from '@varve/scene';
 import {
   activeSmartFilters,
   applyBindingsToNode,
   buildAllVariantCaches,
   createVariableStore,
   getEffectiveNode,
-  getFrequencySeparationState,
   isExportRegion,
   isLiveBooleanNode,
   nodeLocalBoundsSource,
   resolveAllStyles,
+  resolveBandFrequencySeparation,
   resolveNodePaints,
   resolveRasterMaskAsset,
   nodeWorldTransform as sceneLocalWorldTransform,
+  separationSiblingVisible,
   textNodeLocalBounds,
   warpsOnNode,
 } from '@varve/scene';
@@ -440,10 +441,36 @@ export function sceneNodeToEngineNode(
   }
 
   if (node.kind === 'rasterLayer') {
+    // Frequency separation: the tone band renders the decoded composite while
+    // its sibling is visible; each band renders its own pixels when the mate
+    // is hidden, so ordinary layer visibility semantics hold. A linked marker
+    // is resolved in O(1) through the band's role, then validated both ways.
+    const separation = doc ? resolveBandFrequencySeparation(doc, node.id) : null;
+    const compositeActive =
+      separation !== null && doc !== undefined && separationSiblingVisible(doc, separation);
+    if (separation && separation.role === 'high' && compositeActive) {
+      // The encoded detail band contributes nothing to the on-screen decode;
+      // its tiles remain the editable source in the layers panel.
+      return {
+        ...base,
+        shape: { kind: 'rect', x: 0, y: 0, w: node.width, h: node.height },
+        w: node.width,
+        h: node.height,
+        fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
+        fills: [],
+        strokes: [],
+        effects: [],
+        opacity: 0,
+        filters: [],
+      };
+    }
+    const decoded = compositeActive
+      ? decodedSeparationTilesForRender(doc!, separation!.groupId)
+      : null;
     // Liquify is applied here, at the canonical IR boundary, so the canvas,
     // worker, thumbnails and export all see the same deformed pixels without
     // rewriting the source tiles. Identity fields skip the pass entirely.
-    const sourceTiles = warpedTilesForRender(node);
+    const sourceTiles = decoded ?? warpedTilesForRender(node);
     const tiles: Record<string, { pixels: number[]; version: number }> = {};
     for (const [key, tile] of sourceTiles) {
       tiles[key] = {
@@ -521,48 +548,6 @@ export function flattenSceneToEngine(
       });
       ids.push(id);
       nodes.push(compiled as unknown as EngineNode);
-    } else if (
-      effective.kind === 'group' &&
-      getFrequencySeparationState(effective) !== null &&
-      isLiveBooleanNode(effective) === false
-    ) {
-      // Frequency-separation group: emit one decoded composite item under the
-      // group's id. Structural replay substitutes it for the two band children
-      // (mirroring the live-Boolean contract), so group opacity, blend, mask
-      // and effects still apply to the recombined result.
-      const decoded = decodedSeparationTilesForRender(document, id);
-      const state = getFrequencySeparationState(effective);
-      if (decoded && state) {
-        const low = document.nodes[state.lowNodeId] as RasterLayerNode | undefined;
-        if (low && low.kind === 'rasterLayer') {
-          const synthetic: RasterLayerNode = {
-            ...low,
-            id,
-            name: effective.name,
-            tiles: decoded,
-            transform: effective.transform,
-            opacity: effective.opacity,
-            blendMode: effective.blendMode,
-            rotation: effective.rotation,
-            effects: effective.effects ?? [],
-            mask: (effective as GroupNode).mask,
-            // A field on the group deforms the reconstructed composite; band
-            // fields (advanced single-component deformation) are applied
-            // inside the decode. Exactly one of the two is present per target.
-            liquify: (effective as GroupNode).liquify,
-          };
-          let engineNode = sceneNodeToEngineNode(synthetic, options, document);
-          engineNode = {
-            ...engineNode,
-            transform: options.localTransforms
-              ? sceneLocalWorldTransform(document, id)
-              : nodeWorldTransform(document, id),
-          };
-          ids.push(id);
-          nodes.push(engineNode);
-          return;
-        }
-      }
     } else if (isLiveBooleanNode(effective)) {
       const placed = resolvePlacedLiveBoolean(
         document,

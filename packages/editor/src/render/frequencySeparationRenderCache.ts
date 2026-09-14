@@ -10,10 +10,15 @@ import { liquifyFieldRevision } from '@varve/engine';
 import {
   type Document,
   decodeFrequencySeparationTiles,
+  type RasterLayerNode,
   type RasterTile,
   resolveFrequencySeparation,
 } from '@varve/scene';
-import { rasterTileMapRevision, renderableLiquifyField } from './liquifyRenderCache';
+import {
+  rasterTileMapRevision,
+  renderableLiquifyField,
+  warpedTilesForRender,
+} from './liquifyRenderCache';
 
 interface DecodedEntry {
   key: string;
@@ -31,7 +36,7 @@ let cachedPixels = 0;
  * rendering.
  */
 export function decodedSeparationTilesForRender(
-  doc: Document,
+  doc: Pick<Document, 'nodes'>,
   groupId: string,
 ): Map<string, RasterTile> | null {
   const resolved = resolveFrequencySeparation(doc, groupId);
@@ -39,6 +44,11 @@ export function decodedSeparationTilesForRender(
   const low = doc.nodes[resolved.state.lowNodeId];
   const high = doc.nodes[resolved.state.highNodeId];
   if (low?.kind !== 'rasterLayer' || !high || high.kind !== 'rasterLayer') return null;
+  const groupNode = doc.nodes[groupId];
+  const groupField =
+    groupNode && groupNode.kind === 'group'
+      ? renderableLiquifyField({ liquify: groupNode.liquify })
+      : null;
 
   const key = [
     resolved.state.method,
@@ -49,6 +59,7 @@ export function decodedSeparationTilesForRender(
     rasterTileMapRevision(high.tiles),
     liquifyFieldRevision(renderableLiquifyField(low)),
     liquifyFieldRevision(renderableLiquifyField(high)),
+    liquifyFieldRevision(groupField),
   ].join('|');
 
   const existing = cache.get(groupId);
@@ -60,14 +71,24 @@ export function decodedSeparationTilesForRender(
 
   const decoded = decodeFrequencySeparationTiles(doc, groupId);
   if (!decoded) return null;
+  // A shared deformation on the group warps the recombined composite, so
+  // linked tone/detail components cannot drift apart.
+  const tiles = groupField
+    ? warpedTilesForRender({
+        ...(low as RasterLayerNode),
+        id: groupId,
+        tiles: decoded.tiles,
+        liquify: groupField,
+      })
+    : decoded.tiles;
   const version = (hashString(`${groupId}|${key}`) % 1_000_000) + 1;
-  for (const tile of decoded.tiles.values()) tile.version = version;
+  for (const tile of tiles.values()) tile.version = version;
 
   evictExcess();
   const pixels = decoded.width * decoded.height;
-  cache.set(groupId, { key, pixels, tiles: decoded.tiles });
+  cache.set(groupId, { key, pixels, tiles });
   cachedPixels += pixels;
-  return decoded.tiles;
+  return tiles;
 }
 
 export function releaseFrequencySeparationRenderCache(groupId?: string): void {

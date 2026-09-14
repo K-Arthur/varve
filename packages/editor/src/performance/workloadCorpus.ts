@@ -45,6 +45,7 @@ export type PerformanceWorkloadId =
   | 'effects-masks'
   | 'rapid-brush'
   | 'paint-raster-lod'
+  | 'retouch-raster'
   | 'motion'
   | 'extreme-zoom'
   | 'document-switching'
@@ -680,6 +681,90 @@ function rasterLodTilePixels(
   }
 }
 
+/**
+ * Small deterministic raster fixture for retouching E2E (frequency separation
+ * and liquify). Content deliberately mixes: a smooth gradient (tone), dense
+ * pseudo-noise (texture), hard black/white edges (clipping), a transparent
+ * disc (alpha), and hairline tile-boundary lines (seam probes).
+ */
+function retouchRasterPixels(
+  pixels: Uint8ClampedArray,
+  tileSize: number,
+  col: number,
+  row: number,
+  width: number,
+  height: number,
+): void {
+  let seed = ((col * 73856093) ^ (row * 19349663)) >>> 0;
+  const rand = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 0xffffffff;
+  };
+  for (let ty = 0; ty < tileSize; ty++) {
+    for (let tx = 0; tx < tileSize; tx++) {
+      const x = col * tileSize + tx;
+      const y = row * tileSize + ty;
+      const i = (ty * tileSize + tx) * 4;
+      if (x >= width || y >= height) {
+        pixels[i + 3] = 0;
+        continue;
+      }
+      // Smooth tone ramp.
+      const base = 40 + (x / width) * 150 + (y / height) * 50;
+      const noise = (rand() - 0.5) * 70;
+      const inDisc = Math.hypot(x - width * 0.78, y - height * 0.24) < 44;
+      if (inDisc) {
+        pixels[i] = Math.max(0, Math.min(255, base + noise));
+        pixels[i + 1] = Math.max(0, Math.min(255, base * 0.6 + noise));
+        pixels[i + 2] = Math.max(0, Math.min(255, base * 0.3 - noise));
+        pixels[i + 3] = 0;
+        continue;
+      }
+      if (x % tileSize === 0 || y % tileSize === 0) {
+        pixels[i] = 245;
+        pixels[i + 1] = 245;
+        pixels[i + 2] = 245;
+        pixels[i + 3] = 255;
+        continue;
+      }
+      if ((x > 96 && x < 160 && y > 96 && y < 160) || (x > 300 && x < 340 && y > 220 && y < 250)) {
+        // Hard black / white blocks: clipping and ring probes.
+        const white = (x + y) % 2 === 0;
+        pixels[i] = white ? 250 : 6;
+        pixels[i + 1] = white ? 250 : 6;
+        pixels[i + 2] = white ? 250 : 6;
+        pixels[i + 3] = 255;
+        continue;
+      }
+      pixels[i] = Math.max(0, Math.min(255, base + noise));
+      pixels[i + 1] = Math.max(0, Math.min(255, base * 0.7 + noise * 0.6));
+      pixels[i + 2] = Math.max(0, Math.min(255, base * 0.4 + noise * 0.9));
+      pixels[i + 3] = 255;
+    }
+  }
+}
+
+function retouchRaster(): PerformanceWorkload {
+  const width = 512;
+  const height = 384;
+  const tileSize = 128;
+  const layer = makeRasterLayerNode('retouch-raster-1', { width, height });
+  for (let row = 0; row < Math.ceil(height / tileSize); row++) {
+    for (let col = 0; col < Math.ceil(width / tileSize); col++) {
+      const pixels = new Uint8ClampedArray(tileSize * tileSize * 4);
+      retouchRasterPixels(pixels, tileSize, col, row, width, height);
+      layer.tiles.set(`${col}:${row}`, { pixels, version: 1 });
+    }
+  }
+  const document = appendNodes(workloadDocument('retouch-raster'), [layer]);
+  return finish('retouch-raster', document, {
+    expected: {
+      decodedImageBytes: 0,
+      rasterTileCount: Math.ceil(width / tileSize) * Math.ceil(height / tileSize),
+    },
+  });
+}
+
 function paintRasterLod(): PerformanceWorkload {
   // An 8192x8192 sparse paint layer whose content lives in a dense
   // 2048x2048 block at the origin. At 25% zoom on a 1440x900 viewport the
@@ -893,6 +978,7 @@ const FACTORIES: Record<PerformanceWorkloadId, () => PerformanceWorkload> = {
   'effects-masks': effectsMasks,
   'rapid-brush': rapidBrush,
   'paint-raster-lod': paintRasterLod,
+  'retouch-raster': retouchRaster,
   motion,
   'extreme-zoom': extremeZoom,
   'document-switching': documentSwitching,

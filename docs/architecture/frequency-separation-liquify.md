@@ -62,15 +62,28 @@ group "… Frequency Separation"   GroupNode.frequencySeparation = {
 
 ### 1.3 Rendering
 
-`flattenSceneToEngine` recognizes a linked marker and emits **one decoded
-raster item under the group's id**:
-`decode = low + 2·(high − 128)`, alpha from the low band, cached by a revision
-that folds in both bands' tile versions and band fields. `replayScene` replays
-that item instead of the two children (mirroring the live-Boolean contract), so
-group opacity, blend mode, masks, and effects apply to the recombined result.
+The decode happens at **band conversion**, inside `sceneNodeToEngineNode`, so
+every render path — the worker-cached canvas traversal, the main-thread replay,
+thumbnails, SVG/PDF raster bakes, and export — shares one implementation:
 
-`sceneToEngine`/`replayScene` cannot be bypassed by a render path without
-losing the decode — the item *is* the composite.
+- While both bands are visible, the **tone band emits the decoded composite**
+  (`low + 2·(high − 128)`, alpha from the low band) and the encoded detail band
+  emits nothing.
+- Hiding the detail band leaves the tone band rendering its own pixels; hiding
+  the tone band leaves the detail band visible. Ordinary layer-visibility
+  semantics therefore hold, and the bands remain honest layers in the panel.
+- Band resolution is O(1): each band carries a validated `frequencySeparationRole`
+  back-reference; a stale or foreign reference falls back to plain layer
+  rendering.
+- Group opacity, blend mode, masks, and effects apply to the composite through
+  the normal group replay/structural semantics.
+- The decode is cached by a revision that folds in both bands' tile versions
+  and band fields, with a bounded pixel budget.
+- A shared deformation on the group (`GroupNode.liquify`) is applied to the
+  decoded composite; band-level fields are applied before reconstruction.
+
+No render path can bypass the decode without bypassing `sceneNodeToEngineNode`,
+which is the canonical conversion module.
 
 ### 1.4 Lifecycle rules
 

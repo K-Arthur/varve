@@ -40,7 +40,6 @@ import {
   activeSmartFilters,
   effectivePaintOrder,
   effectPadding,
-  getFrequencySeparationState,
   isLiveBooleanNode,
   resolveAdjustmentScope,
 } from '@varve/scene';
@@ -445,29 +444,6 @@ function replayStructuredSceneInner(context: SceneContext, input: StructuredRepl
       maskSourceId === undefined || maskSource === undefined || maskSource.kind !== 'adjustment';
     const maskHasVector = !!mask?.vectorMask && mask.vectorMask.points.length > 0;
     const maskHasRaster = mask?.rasterMask !== undefined;
-
-    // Frequency-separation groups resolve to one decoded composite item under
-    // the group's id (see flattenSceneToEngine). Replay that item with the
-    // group's own leaf mask instead of painting the two band children; an
-    // inert marker produces no item and falls through to normal group replay.
-    if (item && node.kind === 'group' && getFrequencySeparationState(node) !== null) {
-      if (mask && requiresLeafMaskReplay(mask)) {
-        replayLeafMask(target as unknown as CanvasRenderingContext2D, {
-          node,
-          mask,
-          irItem: item,
-          doc: input.document,
-          baseTransform: target.getTransform(),
-          paintContent: (ctx) =>
-            replayIr(ctx as unknown as ReplayTarget, [item], undefined, resolveEffectMask),
-          getWorldTransform: (nodeId) => nodeWorldTransform(input.document, nodeId),
-        });
-      } else {
-        replayIr(target as unknown as ReplayTarget, [item], undefined, resolveEffectMask);
-      }
-      return;
-    }
-
     if (
       node.kind !== 'adjustment' &&
       'children' in node &&
