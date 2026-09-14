@@ -30,6 +30,15 @@ import {
 } from './missingFontRecovery';
 import { downloadAndApplyOnlineFont } from './useOnlineFontSearch';
 
+/** Keep the resolver projection aligned with the document's authoritative text sources. */
+export function toFontResolverDocument(doc: Document): ResolverDocument {
+  return {
+    nodes: doc.nodes,
+    styles: doc.styles,
+    stories: doc.stories,
+  } as unknown as ResolverDocument;
+}
+
 export function MissingFontController() {
   const editor = useEditor();
   const [missingFonts, setMissingFonts] = useState<MissingFontInfo[]>([]);
@@ -61,9 +70,10 @@ export function MissingFontController() {
     if (!catalogRef.current || !resolverRef.current) return;
 
     const doc = editor.state.document;
-    const minimalDoc = { nodes: doc.nodes, styles: doc.styles } as unknown as ResolverDocument;
-
-    const missing = resolverRef.current.detectMissing(minimalDoc, catalogRef.current);
+    const missing = resolverRef.current.detectMissing(
+      toFontResolverDocument(doc),
+      catalogRef.current,
+    );
     setMissingFonts(missing);
   }, [editor.state.document, catalogRevision]);
 
