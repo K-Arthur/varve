@@ -275,8 +275,10 @@ Stable deterministic coverage currently includes:
 The production UI tests exercise real Colorize control acquisition, preview
 invalidations, disabled invalid states, and the functional document commit
 helper. The DDColor export is verified against the official checkpoint (ONNX
-checker, ORT CPU smoke, PyTorch parity) and the published asset re-downloads
-byte-identical to the verified artifact. Browser visual validation covers the
+checker, ORT CPU smoke, PyTorch parity), the published asset re-downloads
+byte-identical to the verified artifact, and the tiny variant completed an
+application worker smoke in Chromium (model load, inference, and preview in
+~10–12s on a loaded machine). Browser visual validation covers the
 Inspector and marketing page; the deterministic workflow passes in Chromium
 and Firefox. Playwright WebKit on this Linux host is blocked by missing system
 libraries (`libicu74`, `libxml2`, `libflite1`) that require a package-manager

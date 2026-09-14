@@ -1376,10 +1376,10 @@
         "contractVerified": true,
         "integrityVerified": true,
         "provenanceStatus": "verified",
-        "inferenceVerified": false,
-        "validationSummary": "Official Apache-2.0 weights (piddnad/ddcolor_paper_tiny) converted with tools/ddcolor-export/export_ddcolor.py at DDColor @2adb63f2656ac41cbdf7b894cddd94121a3faf13. ONNX checker and shape inference pass; zero missing/unexpected keys; ONNX Runtime 1.30 CPU smoke produced [1,2,256,256]; PyTorch parity mean abs diff 4.28e-05 (max 0.0188). Verified SHA-256 1410b455cd230a587c38b5771a0193aa6f28bb89b0e29566fbdb791bb1310c47, 223,650,419 bytes. Application worker smoke and publication pending.",
+        "inferenceVerified": true,
+        "validationSummary": "Official Apache-2.0 weights (piddnad/ddcolor_paper_tiny) converted with tools/ddcolor-export/export_ddcolor.py at DDColor @2adb63f2656ac41cbdf7b894cddd94121a3faf13. ONNX checker and shape inference pass; zero missing/unexpected keys; ONNX Runtime 1.30 CPU smoke produced [1,2,256,256]; PyTorch parity mean abs diff 4.28e-05 (max 0.0188). Artifact SHA-256 1410b455cd230a587c38b5771a0193aa6f28bb89b0e29566fbdb791bb1310c47 (223,650,419 bytes) is published on the models-v1 release and re-downloads byte-identical. Application worker smoke (Chromium, ONNX Runtime Web) produced a colorized preview in 9.6s.",
         "contractVersion": 1,
-        "contractVerifiedAt": "2026-09-13T23:31:00.000Z"
+        "contractVerifiedAt": "2026-09-14T08:41:00.000Z"
       },
       "notes": "DDColor-Tiny (ConvNeXt-tiny) — fast grayscale-to-color preview. Expected artifact size ~220MB. Apache-2.0. Input: 256x256 grayscale-derived RGB [0,1] (source L* -> Lab(L,0,0) -> RGB, square stretch resize). Output: a*b* chroma [1,2,256,256] resized to source dimensions. The official conversion recipe is documented, but this artifact is not bundled and remains unavailable until its bytes are hash-verified and smoke-tested."
     },
@@ -1448,7 +1448,7 @@
         "integrityVerified": true,
         "provenanceStatus": "verified",
         "inferenceVerified": false,
-        "validationSummary": "Official Apache-2.0 weights (piddnad/ddcolor_modelscope) converted with tools/ddcolor-export/export_ddcolor.py at DDColor @2adb63f2656ac41cbdf7b894cddd94121a3faf13. ONNX checker and shape inference pass; zero missing/unexpected keys; ONNX Runtime 1.30 CPU smoke produced [1,2,512,512]; PyTorch parity mean abs diff 9.38e-05 (max 0.00737). Verified SHA-256 9c881551a0caf29ea283be09e863a841b5bf454b83299357f483f49f6ca18193, 915,477,115 bytes. Application worker smoke and publication pending.",
+        "validationSummary": "Official Apache-2.0 weights (piddnad/ddcolor_modelscope) converted with tools/ddcolor-export/export_ddcolor.py at DDColor @2adb63f2656ac41cbdf7b894cddd94121a3faf13. ONNX checker and shape inference pass; zero missing/unexpected keys; ONNX Runtime 1.30 CPU smoke produced [1,2,512,512]; PyTorch parity mean abs diff 9.38e-05 (max 0.00737). Artifact SHA-256 9c881551a0caf29ea283be09e863a841b5bf454b83299357f483f49f6ca18193 (915,477,115 bytes) is published on the models-v1 release. Application worker smoke pending for this 915 MB variant.",
         "contractVersion": 1,
         "contractVerifiedAt": "2026-09-13T23:35:00.000Z"
       },

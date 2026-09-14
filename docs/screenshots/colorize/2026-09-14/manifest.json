@@ -1,0 +1,56 @@
+{
+  "date": "2026-09-14",
+  "feature": "Colorize — DDColor Tiny local inference through the production worker",
+  "status": "reviewed",
+  "artifact": {
+    "model": "ddcolor-tiny",
+    "sha256": "1410b455cd230a587c38b5771a0193aa6f28bb89b0e29566fbdb791bb1310c47",
+    "bytes": 223650419,
+    "provenance": "Official Apache-2.0 checkpoint (piddnad/ddcolor_paper_tiny) exported with tools/ddcolor-export/export_ddcolor.py at DDColor @2adb63f2",
+    "installedAs": "apps/desktop/public/models/ddcolor-tiny.onnx (local validation copy; the public path is gitignored)"
+  },
+  "environment": {
+    "runner": "Playwright 1.62.1, Chromium headless shell",
+    "runtime": "ONNX Runtime Web worker (WASM) inside the app",
+    "platform": "Linux (CachyOS), canvas2d software renderer"
+  },
+  "command": "npx playwright test tests/e2e/canvas/colorize-model.local.spec.ts --project=chromium --workers=1",
+  "measured": {
+    "previewReadyMs": [9607, 12257],
+    "note": "Two passing runs; time spans model session creation, inference, and preview rendering on a concurrently loaded machine."
+  },
+  "workflowSteps": [
+    "Import a photo into the editor",
+    "Adjustments -> Colorize -> Photo Colorization (AI); loader reports a verified DDColor model",
+    "Generate preview: the ONNX Runtime worker loads the 224 MB artifact and predicts chroma",
+    "Inspect the Preview|Original comparator",
+    "Apply: the approved chroma is rebuilt over the full-resolution source and committed as a derived layer"
+  ],
+  "notCovered": [
+    "The published GitHub asset was re-downloaded and hashed byte-identical, but this local run used the staged file because GitHub release assets send no CORS headers.",
+    "Native Tauri download path (implemented and unit-tested; no live Tauri E2E in this environment).",
+    "The 915 MB DDColor variant was not exercised through the browser worker."
+  ],
+  "files": [
+    {
+      "name": "01-photo-ready.png",
+      "description": "Photo Colorization selected; the panel reports 'Verified DDColor model ready'.",
+      "sha256": "d224effae907454a944b9e606af2b1e31c2e7eb047037f4afb2311d72b92fc17"
+    },
+    {
+      "name": "02-preview-page.png",
+      "description": "Model-generated preview and the Preview|Original comparator, with quality modes visible.",
+      "sha256": "520157e248e3117a3c952d44936980a8176fdc0f4264062d7947943d6cae9fc6"
+    },
+    {
+      "name": "03-preview-panel.png",
+      "description": "Inspector-scoped preview panel.",
+      "sha256": "ec18ccdc4600e18cd0f4dea1cc0b5e105b082bff6d3ac7c1c7d816ce401c3720"
+    },
+    {
+      "name": "04-applied-page.png",
+      "description": "Committed 'photo-result' derived layer above the intact source.",
+      "sha256": "12dcb88238ac9617b4692fe431e93b5562f519065d0066c429f5f6687a04ddd3"
+    }
+  ]
+}
