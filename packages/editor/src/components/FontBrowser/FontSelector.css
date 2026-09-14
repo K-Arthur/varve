@@ -190,6 +190,7 @@
 .font-selector__option:hover,
 .font-selector__option--highlighted {
   background: var(--color-interactive-hover);
+  color: var(--color-text-on-accent);
 }
 
 .font-selector__option--selected {
@@ -200,6 +201,7 @@
 .font-selector__option--selected:hover,
 .font-selector__option--selected.font-selector__option--highlighted {
   background: var(--color-interactive-hover);
+  color: var(--color-text-on-accent);
 }
 
 .font-selector__option--empty {

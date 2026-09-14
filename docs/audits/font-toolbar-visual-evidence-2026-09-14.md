@@ -60,3 +60,20 @@ narrow captures under
 single aligned row, the expanded variable-face list is readable in high
 contrast, and the narrow menu is collision-contained rather than clipped by
 the page.
+
+## Contrast repair rerun — 2026-09-14
+
+The inspected light capture exposed a contrast defect that geometry checks did
+not catch: a keyboard-highlighted family row used the dark hover surface while
+retaining the normal text colour. The selector now applies the theme's
+`text-on-accent` colour to highlighted and hovered rows, which remains correct
+for the dark and high-contrast token ramps.
+
+```text
+CI=1 TMPDIR=/home/kevina/varve-tmp VARVE_E2E_PORT=1747 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-toolbar-contrast-20260914 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium --reporter=list --timeout=180000
+```
+
+Result: **3 passed** (DPR 1, 2, and 3) in 2.1 minutes. I inspected the new
+light, dark, and high-contrast open-menu captures; the highlighted family rows
+now retain readable foreground contrast while the toolbar measurements remain
+unchanged.
