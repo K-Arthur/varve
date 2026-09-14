@@ -16,6 +16,7 @@ vi.mock('@tauri-apps/api/core', () => ({ invoke }));
 
 vi.mock('../upscaleProviders/pngDecode', () => ({ decodeImageBytesToImageData }));
 
+import { getInferenceAdmission } from '../inference/admission';
 import { nativeLaMaProvider } from './nativeProvider';
 
 describe('nativeLaMaProvider', () => {
@@ -92,7 +93,26 @@ describe('nativeLaMaProvider', () => {
 
   it('cancels the native request and does not await a late helper response', async () => {
     const controller = new AbortController();
-    const pending = new Promise<never>(() => undefined);
+    let resolvePending!: (response: {
+      png_base64: string;
+      width: number;
+      height: number;
+      model_id: string;
+      execution_backend: string;
+      processing_time_ms: number;
+      warnings: string[];
+    }) => void;
+    const pending = new Promise<{
+      png_base64: string;
+      width: number;
+      height: number;
+      model_id: string;
+      execution_backend: string;
+      processing_time_ms: number;
+      warnings: string[];
+    }>((resolve) => {
+      resolvePending = resolve;
+    });
     invoke.mockImplementation((command: string) => {
       if (command === 'content_aware_fill') return pending;
       return Promise.resolve();
@@ -111,5 +131,19 @@ describe('nativeLaMaProvider', () => {
       expect(invoke).toHaveBeenCalledWith('cancel_content_aware_fill', expect.anything()),
     );
     await expect(inference).rejects.toThrow('cancelled');
+
+    expect(getInferenceAdmission().getSnapshot()).toMatchObject({ active: 1, pending: 0 });
+    resolvePending({
+      png_base64: btoa('png'),
+      width: 24,
+      height: 16,
+      model_id: 'lama-inpainting',
+      execution_backend: 'ort-native',
+      processing_time_ms: 1,
+      warnings: [],
+    });
+    await vi.waitFor(() =>
+      expect(getInferenceAdmission().getSnapshot()).toMatchObject({ active: 0, pending: 0 }),
+    );
   });
 });

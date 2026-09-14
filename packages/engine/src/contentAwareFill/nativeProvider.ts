@@ -82,7 +82,7 @@ export const nativeLaMaProvider = {
       throw new Error('Native LaMa inference requires the desktop app');
     }
 
-    const lease: InferenceLease = await getInferenceAdmission().acquire({
+    let lease: InferenceLease | undefined = await getInferenceAdmission().acquire({
       kind: 'other',
       reservationBytes: estimateInferenceReservation({
         width: imageData.width,
@@ -93,12 +93,19 @@ export const nativeLaMaProvider = {
       signal,
       label: 'content-aware fill',
     });
+    let nativeInvocation: Promise<NativeLaMaResponse> | undefined;
+    let nativeInvocationSettled = true;
+    let deferLeaseRelease = false;
+    const releaseLease = () => {
+      lease?.release();
+      lease = undefined;
+    };
     try {
       const { invoke } = await import('@tauri-apps/api/core');
       const requestId = `lama-${Date.now()}-${Math.random().toString(16).slice(2)}`;
       let rejectOnAbort: ((reason: Error) => void) | null = null;
       const abort = () => {
-        void invoke('cancel_content_aware_fill', { requestId });
+        void invoke('cancel_content_aware_fill', { requestId }).catch(() => undefined);
         rejectOnAbort?.(new Error('cancelled'));
       };
       signal?.addEventListener('abort', abort, { once: true });
@@ -110,18 +117,35 @@ export const nativeLaMaProvider = {
             abort();
             return;
           }
-          void invoke<NativeLaMaResponse>('content_aware_fill', {
-            options: {
-              request_id: requestId,
-              image_data: Array.from(imageData.data),
-              image_w: imageData.width,
-              image_h: imageData.height,
-              mask: Array.from(mask),
-              mask_w: imageData.width,
-              mask_h: imageData.height,
-              preview_max_dimension: 2048,
-            },
-          }).then(resolve, reject);
+          try {
+            nativeInvocationSettled = false;
+            nativeInvocation = invoke<NativeLaMaResponse>('content_aware_fill', {
+              options: {
+                request_id: requestId,
+                image_data: Array.from(imageData.data),
+                image_w: imageData.width,
+                image_h: imageData.height,
+                mask: Array.from(mask),
+                mask_w: imageData.width,
+                mask_h: imageData.height,
+                preview_max_dimension: 2048,
+              },
+            });
+            nativeInvocation.then(
+              () => {
+                nativeInvocationSettled = true;
+                if (deferLeaseRelease) releaseLease();
+              },
+              () => {
+                nativeInvocationSettled = true;
+                if (deferLeaseRelease) releaseLease();
+              },
+            );
+            nativeInvocation.then(resolve, reject);
+          } catch (error) {
+            nativeInvocationSettled = true;
+            reject(error);
+          }
         });
       } finally {
         rejectOnAbort = null;
@@ -151,7 +175,11 @@ export const nativeLaMaProvider = {
         warnings: raw.warnings ?? [],
       };
     } finally {
-      lease.release();
+      if (nativeInvocation && !nativeInvocationSettled) {
+        deferLeaseRelease = true;
+      } else {
+        releaseLease();
+      }
     }
   },
 };
