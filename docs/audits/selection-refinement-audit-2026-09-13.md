@@ -253,9 +253,9 @@ high)
 All defects in §1 are repaired. Commit trail: `ac03fd07d` (audit), `fe9ebc34a`
 (coverage geometry + full operation set), `71acb8d6b` (validated matting),
 `e9a159ebf` (reliable refine brushes + refinement controls), `f0113229c`
-(exact neutral selection no-ops), and `d3c8657fc` (target-safe, complete
-refinement strokes). The editor-default and documentation follow-up is kept
-in the next scoped commit.
+(exact neutral selection no-ops), `d3c8657fc` (target-safe, complete
+refinement strokes), and `194b37764` (binary-safe editor default, documentation,
+and marketing copy).
 
 - **D1 fixed.** `trimapFromMask()` now builds a spatial unknown band from the
   signed distance to the 50% contour, so hard binary masks get a real unknown
