@@ -21,30 +21,9 @@ export interface FontCollectOptions {
   fetchBundled?: boolean;
   /** Abort signal for cancellation. */
   signal?: AbortSignal;
-  /** Maximum time allowed for one bundled artifact fetch. */
-  timeoutMs?: number;
-  /** Reject instead of returning a missing record when a fetch times out. */
-  failOnTimeout?: boolean;
   /** Callback per font attempted. */
-  onProgress?: (
-    family: string,
-    status: 'cached' | 'storage' | 'fetched' | 'missing' | 'timeout',
-  ) => void;
+  onProgress?: (family: string, status: 'cached' | 'storage' | 'fetched' | 'missing') => void;
 }
-
-export class FontCollectionTimeoutError extends Error {
-  readonly code = 'font-fetch-timeout';
-
-  constructor(
-    readonly family: string,
-    readonly timeoutMs: number,
-  ) {
-    super(`Timed out loading bundled font “${family}” after ${timeoutMs} ms`);
-    this.name = 'FontCollectionTimeoutError';
-  }
-}
-
-const DEFAULT_FONT_FETCH_TIMEOUT_MS = 15_000;
 
 function isWoff2(data: Uint8Array): boolean {
   if (data.byteLength < 4) return false;
@@ -96,56 +75,24 @@ interface FetchedFontData {
   artifactHash?: string;
 }
 
-interface FontFetchOutcome {
-  data: FetchedFontData | null;
-  timedOut: boolean;
-  externallyAborted: boolean;
-}
-
 function arrayBufferFor(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
-async function fetchFontData(
-  url: string,
-  signal: AbortSignal | undefined,
-  timeoutMs: number,
-): Promise<FontFetchOutcome> {
-  const controller = new AbortController();
-  let timedOut = false;
-  let externallyAborted = signal?.aborted === true;
-  const abortFromCaller = () => {
-    externallyAborted = true;
-    controller.abort();
-  };
-  signal?.addEventListener('abort', abortFromCaller, { once: true });
-  const timer = setTimeout(
-    () => {
-      timedOut = true;
-      controller.abort();
-    },
-    Math.max(1, timeoutMs),
-  );
+async function fetchFontData(url: string, signal?: AbortSignal): Promise<FetchedFontData | null> {
   try {
-    const response = await fetch(url, { signal: controller.signal });
-    if (!response.ok) return { data: null, timedOut, externallyAborted };
+    const response = await fetch(url, { signal });
+    if (!response.ok) return null;
     const buffer = await response.arrayBuffer();
     const data = new Uint8Array(buffer);
     const hash = await computeFontHash(buffer);
     const decompressed = await decompressWoff2(data);
     return {
-      data: {
-        data: decompressed ?? data,
-        ...(hash.hashAlgorithm === 'sha256' ? { artifactHash: hash.contentHash } : {}),
-      },
-      timedOut,
-      externallyAborted,
+      data: decompressed ?? data,
+      ...(hash.hashAlgorithm === 'sha256' ? { artifactHash: hash.contentHash } : {}),
     };
   } catch {
-    return { data: null, timedOut, externallyAborted };
-  } finally {
-    clearTimeout(timer);
-    signal?.removeEventListener('abort', abortFromCaller);
+    return null;
   }
 }
 
@@ -165,13 +112,7 @@ export async function collectFontData(
   families: readonly (string | FontDataRequest)[],
   options: FontCollectOptions = {},
 ): Promise<FontDataRecord[]> {
-  const {
-    fetchBundled = true,
-    signal,
-    onProgress,
-    timeoutMs = DEFAULT_FONT_FETCH_TIMEOUT_MS,
-    failOnTimeout = false,
-  } = options;
+  const { fetchBundled = true, signal, onProgress } = options;
   const results: FontDataRecord[] = [];
   const seen = new Set<string>();
 
@@ -229,14 +170,7 @@ export async function collectFontData(
                 entry.postScriptName === request.fontReference.postScriptName)),
         );
         if (bundled?.url) {
-          const fetchedResult = await fetchFontData(bundled.url, signal, timeoutMs);
-          if (fetchedResult.externallyAborted && signal?.aborted) break;
-          if (fetchedResult.timedOut) {
-            onProgress?.(family, 'timeout');
-            if (failOnTimeout) throw new FontCollectionTimeoutError(family, timeoutMs);
-            continue;
-          }
-          const fetched = fetchedResult.data;
+          const fetched = await fetchFontData(bundled.url, signal);
           const exactArtifactMatches =
             !request.fontReference ||
             fetched?.artifactHash === request.fontReference.artifactHash.toLowerCase();
@@ -250,8 +184,7 @@ export async function collectFontData(
             continue;
           }
         }
-      } catch (error) {
-        if (error instanceof FontCollectionTimeoutError) throw error;
+      } catch {
         // Registry unavailable
       }
     }

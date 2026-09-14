@@ -480,7 +480,6 @@ export function ContentAwareFillDialog({
   const [strength, setStrength] = useState(0.75);
   const [steps, setSteps] = useState(24);
   const [guidanceScale, setGuidanceScale] = useState(7);
-  const [imageGuidanceScale, setImageGuidanceScale] = useState(1);
   const [brushSize, setBrushSize] = useState(DEFAULT_BRUSH_SIZE);
   const [maskExpansion, setMaskExpansion] = useState(0);
   const [maskFeather, setMaskFeather] = useState(0);
@@ -725,7 +724,6 @@ export function ContentAwareFillDialog({
     strength,
     steps,
     guidanceScale,
-    imageGuidanceScale,
     maskExpansion,
     maskFeather,
     contextPadding,
@@ -828,7 +826,6 @@ export function ContentAwareFillDialog({
     setStrength(0.75);
     setSteps(24);
     setGuidanceScale(7);
-    setImageGuidanceScale(1);
     setBrushSize(DEFAULT_BRUSH_SIZE);
     setMaskExpansion(0);
     setMaskFeather(0);
@@ -879,7 +876,6 @@ export function ContentAwareFillDialog({
     setStrength(settings.strength ?? 0.75);
     setSteps(settings.steps ?? 24);
     setGuidanceScale(settings.guidanceScale ?? 7);
-    setImageGuidanceScale(settings.imageGuidanceScale ?? 1);
     setMaskExpansion(settings.maskExpansion ?? 0);
     setMaskFeather(settings.feather ?? 0);
     setContextPadding(settings.contextPadding ?? 32);
@@ -2005,7 +2001,6 @@ export function ContentAwareFillDialog({
           strength,
           steps,
           guidanceScale,
-          imageGuidanceScale,
           contextPadding,
           outputWidth: generationImage.width,
           outputHeight: generationImage.height,
@@ -2229,7 +2224,6 @@ export function ContentAwareFillDialog({
     strength,
     steps,
     guidanceScale,
-    imageGuidanceScale,
     variationCount,
   ]);
 
@@ -2361,7 +2355,6 @@ export function ContentAwareFillDialog({
         maskExpansion,
         feather: maskFeather,
         ...(usesDiffusion ? { strength, steps, guidanceScale } : {}),
-        ...(usesDiffusion ? { imageGuidanceScale } : {}),
       };
       const outputFrame = {
         ...generatedFrame,
@@ -2538,7 +2531,6 @@ export function ContentAwareFillDialog({
     strength,
     steps,
     guidanceScale,
-    imageGuidanceScale,
     usesDiffusion,
   ]);
 
@@ -2869,27 +2861,6 @@ export function ContentAwareFillDialog({
                   disabled={isProcessing}
                 />
               </div>
-              {modeCapability.supportedParameters.includes('imageGuidanceScale') && (
-                <div className="caf-dialog__section">
-                  <label className="caf-dialog__label" htmlFor="caf-dialog-image-guidance">
-                    Image guidance: {imageGuidanceScale}
-                  </label>
-                  <input
-                    id="caf-dialog-image-guidance"
-                    type="range"
-                    className="varve-native-range caf-dialog__range"
-                    min={0}
-                    max={20}
-                    step={0.5}
-                    value={imageGuidanceScale}
-                    onChange={(event) => {
-                      setImageGuidanceScale(Number(event.target.value));
-                      invalidatePreview();
-                    }}
-                    disabled={isProcessing}
-                  />
-                </div>
-              )}
             </div>
           )}
 

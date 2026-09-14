@@ -14,9 +14,7 @@ import {
   type FontCatalog,
   FontResolver,
   getFontsourceCatalog,
-  releaseDocumentFonts,
 } from '@varve/engine/font';
-import type { Document } from '@varve/scene';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { isCapabilityRestricted, RESTRICTION_MESSAGES } from '../../capabilities/restrictions';
 import { useEditor } from '../../context';
@@ -32,15 +30,6 @@ import {
 } from './missingFontRecovery';
 import { downloadAndApplyOnlineFont } from './useOnlineFontSearch';
 
-/** Keep the resolver projection aligned with the document's authoritative text sources. */
-export function toFontResolverDocument(doc: Document): ResolverDocument {
-  return {
-    nodes: doc.nodes,
-    styles: doc.styles,
-    stories: doc.stories,
-  } as unknown as ResolverDocument;
-}
-
 export function MissingFontController() {
   const editor = useEditor();
   const [missingFonts, setMissingFonts] = useState<MissingFontInfo[]>([]);
@@ -50,19 +39,6 @@ export function MissingFontController() {
   const dismissedKeyRef = useRef('');
   const catalogRef = useRef<FontCatalog | null>(null);
   const resolverRef = useRef<FontResolver | null>(null);
-
-  // Project-scoped font bytes follow the document lifetime. The editor emits
-  // this event only after a close is accepted and no second tab references the
-  // same document, so shared faces remain available to other open documents.
-  useEffect(() => {
-    const handleDocumentClosed = (event: Event) => {
-      const detail = (event as CustomEvent<{ documentId?: unknown }>).detail;
-      if (typeof detail?.documentId !== 'string' || detail.documentId.length === 0) return;
-      void releaseDocumentFonts(detail.documentId);
-    };
-    window.addEventListener('varve:document-fonts-closed', handleDocumentClosed);
-    return () => window.removeEventListener('varve:document-fonts-closed', handleDocumentClosed);
-  }, []);
 
   // Build the catalog from the registry and refresh it when a local/provider
   // font becomes available. A stale catalog would keep offering a fallback
@@ -85,10 +61,9 @@ export function MissingFontController() {
     if (!catalogRef.current || !resolverRef.current) return;
 
     const doc = editor.state.document;
-    const missing = resolverRef.current.detectMissing(
-      toFontResolverDocument(doc),
-      catalogRef.current,
-    );
+    const minimalDoc = { nodes: doc.nodes, styles: doc.styles } as unknown as ResolverDocument;
+
+    const missing = resolverRef.current.detectMissing(minimalDoc, catalogRef.current);
     setMissingFonts(missing);
   }, [editor.state.document, catalogRevision]);
 
@@ -174,7 +149,6 @@ export function MissingFontController() {
         style: match.artifact.style,
         subset: match.artifact.subset,
         variable: match.artifact.variable,
-        documentId: editor.state.document.id,
       },
     );
     if (recoveryRequiresReplacement(missing, match)) {

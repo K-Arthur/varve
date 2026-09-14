@@ -29,40 +29,7 @@ import {
  * Parse raw font file bytes into complete metadata.
  * Accepts TTF, OTF, WOFF, or WOFF2 data.
  */
-export interface FontParseOptions {
-  /** Abort an in-flight validation operation between bounded parser steps. */
-  signal?: AbortSignal;
-  /** Whole-operation deadline in milliseconds (default: 2 seconds). */
-  deadlineMs?: number;
-}
-
-const DEFAULT_PARSE_DEADLINE_MS = 2_000;
-
-class ParseBudget {
-  readonly deadline: number;
-  readonly signal?: AbortSignal;
-
-  constructor(options: FontParseOptions = {}) {
-    const deadlineMs =
-      options.deadlineMs === undefined || !Number.isFinite(options.deadlineMs)
-        ? DEFAULT_PARSE_DEADLINE_MS
-        : Math.max(0, options.deadlineMs);
-    this.deadline = Date.now() + deadlineMs;
-    this.signal = options.signal;
-  }
-
-  check(): void {
-    if (this.signal?.aborted) throw new Error('Font parsing cancelled');
-    if (Date.now() >= this.deadline) throw new Error('Font parsing timed out');
-  }
-}
-
-export async function parseFontData(
-  data: ArrayBuffer,
-  options: FontParseOptions = {},
-): Promise<ParsedFontMetadata> {
-  const budget = new ParseBudget(options);
-  budget.check();
+export async function parseFontData(data: ArrayBuffer): Promise<ParsedFontMetadata> {
   if (data.byteLength < 12) {
     throw new Error('Font data is truncated');
   }
@@ -70,16 +37,16 @@ export async function parseFontData(
 
   // WOFF2 needs brotli decompression — defer to the WOFF2 parser
   if (format === 'woff2') {
-    return parseWOFF2(data, budget);
+    return parseWOFF2(data);
   }
 
   // WOFF1 uses zlib compression within tables — decompress tables
   if (format === 'woff') {
-    return parseWOFF1(data, budget);
+    return parseWOFF1(data);
   }
 
-  const members = await parseRawCollectionMembers(data, format, budget);
-  return members[0] ?? (await parseRawFontAtOffset(data, format, 0, 0, budget));
+  const members = await parseRawCollectionMembers(data, format);
+  return members[0] ?? (await parseRawFontAtOffset(data, format, 0, 0));
 }
 
 /**
@@ -87,26 +54,16 @@ export async function parseFontData(
  * Non-collection files return a single-element array.
  * Accepts raw TTF/OTF/TTC/OTC bytes and WOFF2 files that decompress to a collection.
  */
-export async function parseFontCollection(
-  data: ArrayBuffer,
-  options: FontParseOptions = {},
-): Promise<ParsedFontMetadata[]> {
-  const budget = new ParseBudget(options);
-  budget.check();
+export async function parseFontCollection(data: ArrayBuffer): Promise<ParsedFontMetadata[]> {
   const format = detectFontFormat(data);
 
   if (format === 'woff2') {
-    const decompressed = await decompressWOFF2(data, budget);
+    const decompressed = await decompressWOFF2(data);
     if (decompressed) {
-      const collectionMembers = await parseRawCollectionMembers(decompressed, 'woff2', budget);
-      const members =
-        collectionMembers.length > 0
-          ? collectionMembers
-          : [await parseRawFontAtOffset(decompressed, 'woff2', 0, 0, budget)];
+      const members = await parseFontCollection(decompressed);
       // A collection-capable importer must resolve the same artifact as the
       // single-face path. Hash the original container once for every member.
       const artifactIdentity = await computeFontHash(data);
-      budget.check();
       return members.map((metadata) => ({
         ...metadata,
         format: 'woff2',
@@ -115,20 +72,20 @@ export async function parseFontCollection(
       }));
     }
     // Decompression failed — fall back to header-only metadata
-    return [await parseFontData(data, options)];
+    return [await parseFontData(data)];
   }
 
   if (format === 'woff') {
     // WOFF1 is not a collection container in practice; parse as a single font.
-    return [await parseWOFF1(data, budget)];
+    return [await parseWOFF1(data)];
   }
 
   const view = new DataView(data);
   if (data.byteLength >= 4 && view.getUint32(0) !== TTC_SIGNATURE) {
-    return [await parseRawFontAtOffset(data, format, 0, 0, budget)];
+    return [await parseRawFontAtOffset(data, format, 0, 0)];
   }
 
-  return await parseRawCollectionMembers(data, format, budget);
+  return await parseRawCollectionMembers(data, format);
 }
 
 const DEFAULT_IDENTITY = {
@@ -175,8 +132,7 @@ function fallbackMetadata(format: FontFormat, fileSize: number): ParsedFontMetad
 
 // ── WOFF2 Parsing ───────────────────────────────────────────────────────────
 
-async function parseWOFF2(data: ArrayBuffer, budget: ParseBudget): Promise<ParsedFontMetadata> {
-  budget.check();
+async function parseWOFF2(data: ArrayBuffer): Promise<ParsedFontMetadata> {
   const view = new DataView(data);
 
   // WOFF2 header: signature(4) flavor(4) length(4) numTables(2) reserved(2)
@@ -190,11 +146,11 @@ async function parseWOFF2(data: ArrayBuffer, budget: ParseBudget): Promise<Parse
   // and fall back to reading available fields.
 
   // Try using the built-in decompression if available
-  const decompressed = await decompressWOFF2(data, budget);
+  const decompressed = await decompressWOFF2(data);
   if (decompressed) {
-    const members = await parseRawCollectionMembers(decompressed, 'woff2', budget);
+    const members = await parseRawCollectionMembers(decompressed, 'woff2');
     return withOriginalArtifactIdentity(
-      members[0] ?? (await parseRawFontAtOffset(decompressed, 'woff2', 0, 0, budget)),
+      members[0] ?? (await parseRawFontAtOffset(decompressed, 'woff2', 0, 0)),
       data,
     );
   }
@@ -255,11 +211,7 @@ async function parseWOFF2(data: ArrayBuffer, budget: ParseBudget): Promise<Parse
  * Dynamic import confines the failure to this function, which already degrades
  * to header-only parsing. Do not convert this back to a static import.
  */
-async function decompressWOFF2(
-  data: ArrayBuffer,
-  budget: ParseBudget,
-): Promise<ArrayBuffer | null> {
-  budget.check();
+async function decompressWOFF2(data: ArrayBuffer): Promise<ArrayBuffer | null> {
   const timeoutMs = 2_000;
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -274,7 +226,6 @@ async function decompressWOFF2(
     if (timeoutId !== undefined) clearTimeout(timeoutId);
     // wawoff2 returns a Uint8Array/Buffer of the decompressed SFNT data.
     if (result && result.byteLength > 0) {
-      budget.check();
       return result.buffer.slice(
         result.byteOffset,
         result.byteOffset + result.byteLength,
@@ -290,19 +241,17 @@ async function decompressWOFF2(
 
 // ── WOFF1 Parsing ───────────────────────────────────────────────────────────
 
-async function parseWOFF1(data: ArrayBuffer, budget: ParseBudget): Promise<ParsedFontMetadata> {
-  budget.check();
+async function parseWOFF1(data: ArrayBuffer): Promise<ParsedFontMetadata> {
   const view = new DataView(data);
-  const entries = readWoffDirectory(data, budget);
+  const entries = readWoffDirectory(data);
   const tables = new Map<string, ArrayBuffer>();
   // Preserve physical table order when reconstructing the original SFNT.
   for (const entry of entries.sort((a, b) => a.offset - b.offset)) {
-    budget.check();
     const compressed = data.slice(entry.offset, entry.offset + entry.compressedLength);
     const decoded =
       entry.compressedLength === entry.length
         ? compressed
-        : await decompressZlib(compressed, entry.length, budget);
+        : await decompressZlib(compressed, entry.length);
     if (computeTableChecksum(decoded, entry.tag === 'head') !== entry.checksum) {
       throw new Error(`Invalid WOFF1 checksum for ${entry.tag}`);
     }
@@ -320,7 +269,7 @@ interface WoffTable extends TableDirectory {
   compressedLength: number;
 }
 
-function readWoffDirectory(data: ArrayBuffer, budget?: ParseBudget): WoffTable[] {
+function readWoffDirectory(data: ArrayBuffer): WoffTable[] {
   if (data.byteLength < 44 || data.byteLength > MAX_WOFF_BYTES) {
     throw new Error('Invalid WOFF1 header or file size');
   }
@@ -340,7 +289,6 @@ function readWoffDirectory(data: ArrayBuffer, budget?: ParseBudget): WoffTable[]
   let decodedSize = 12 + count * 16;
   let previousTag = -1;
   for (let i = 0; i < count; i++) {
-    budget?.check();
     const record = 44 + i * 20;
     const tag = view.getUint32(record);
     const length = view.getUint32(record + 12);
@@ -359,16 +307,11 @@ function readWoffDirectory(data: ArrayBuffer, budget?: ParseBudget): WoffTable[]
     });
   }
   if (decodedSize !== view.getUint32(16)) throw new Error('Invalid WOFF1 decoded size');
-  validateWoffBlocks(data, entries, directoryEnd, budget);
+  validateWoffBlocks(data, entries, directoryEnd);
   return entries;
 }
 
-function validateWoffBlocks(
-  data: ArrayBuffer,
-  entries: WoffTable[],
-  directoryEnd: number,
-  budget?: ParseBudget,
-): void {
+function validateWoffBlocks(data: ArrayBuffer, entries: WoffTable[], directoryEnd: number): void {
   const view = new DataView(data);
   const blocks = entries.map((entry) => ({ offset: entry.offset, length: entry.compressedLength }));
   blocks.sort((a, b) => a.offset - b.offset);
@@ -388,12 +331,10 @@ function validateWoffBlocks(
   if (privateOffset) blocks.push({ offset: privateOffset, length: privateLength });
   let end = directoryEnd;
   for (const block of blocks) {
-    budget?.check();
     if (block.offset !== alignFontBytes(end) || block.length > data.byteLength - block.offset) {
       throw new Error('Invalid WOFF1 block alignment, overlap or bounds');
     }
     for (let i = end; i < block.offset; i++) {
-      budget?.check();
       if (view.getUint8(i) !== 0) throw new Error('Invalid WOFF1 padding');
     }
     end = block.offset + block.length;
@@ -402,7 +343,6 @@ function validateWoffBlocks(
     throw new Error('Invalid WOFF1 trailing data');
   }
   for (let i = end; i < data.byteLength; i++) {
-    budget?.check();
     if (view.getUint8(i) !== 0) throw new Error('Invalid WOFF1 trailing padding');
   }
 }
@@ -411,11 +351,7 @@ function validateWoffBlocks(
  * WOFF1 uses the zlib wrapper, including its checksum, rather than raw deflate.
  * Bound retained output to the declared length and settle stream errors once.
  */
-async function decompressZlib(
-  data: ArrayBuffer,
-  expectedLength: number,
-  budget?: ParseBudget,
-): Promise<ArrayBuffer> {
+async function decompressZlib(data: ArrayBuffer, expectedLength: number): Promise<ArrayBuffer> {
   if (typeof DecompressionStream === 'undefined') {
     throw new Error('DecompressionStream is not available for WOFF1 decompression');
   }
@@ -431,7 +367,6 @@ async function decompressZlib(
     const chunks: Uint8Array[] = [];
     let total = 0;
     while (true) {
-      budget?.check();
       const { done, value } = await Promise.race([reader.read(), deadline]);
       if (done) break;
       total += value.byteLength;
@@ -564,9 +499,7 @@ const MAX_COLLECTION_MEMBERS = 64;
 async function parseRawCollectionMembers(
   data: ArrayBuffer,
   format: FontFormat,
-  budget?: ParseBudget,
 ): Promise<ParsedFontMetadata[]> {
-  budget?.check();
   const view = new DataView(data);
   if (data.byteLength < 8 || view.getUint32(0) !== TTC_SIGNATURE) {
     return [];
@@ -582,12 +515,11 @@ async function parseRawCollectionMembers(
   const offsetStart = 12;
   const members: ParsedFontMetadata[] = [];
   for (let i = 0; i < numFonts; i++) {
-    budget?.check();
     const offsetOff = offsetStart + i * 4;
     if (offsetOff + 4 > data.byteLength) break;
     const sfntOffset = view.getUint32(offsetOff);
     if (sfntOffset + 12 > data.byteLength) continue;
-    const meta = await parseRawFontAtOffset(data, format, i, sfntOffset, budget);
+    const meta = await parseRawFontAtOffset(data, format, i, sfntOffset);
     members.push(meta);
   }
 
@@ -599,9 +531,7 @@ async function parseRawFontAtOffset(
   format: FontFormat,
   collectionIndex: number,
   sfntOffset: number,
-  budget?: ParseBudget,
 ): Promise<ParsedFontMetadata> {
-  budget?.check();
   const view = new DataView(data);
 
   // Read offset table
@@ -614,18 +544,17 @@ async function parseRawFontAtOffset(
   }
 
   // Build table directory map
-  const tableMap = readTableDirectory(data, sfntOffset, numTables, budget);
+  const tableMap = readTableDirectory(data, sfntOffset, numTables);
 
   // Parse required tables
-  const nameRecords = parseNameTable(data, tableMap, budget);
-  budget?.check();
+  const nameRecords = parseNameTable(data, tableMap);
   const headData = parseHeadTable(data, tableMap);
   const os2Data = parseOS2Table(data, tableMap);
   const hheaData = parseHheaTable(data, tableMap);
-  const fvarData = parseFvarTable(data, tableMap, nameRecords, budget);
-  const cmapRanges = parseCmapTable(data, tableMap, budget);
-  const gsubFeatures = parseGSUBTable(data, tableMap, budget);
-  const gposFeatures = parseGPOSTable(data, tableMap, budget);
+  const fvarData = parseFvarTable(data, tableMap, nameRecords);
+  const cmapRanges = parseCmapTable(data, tableMap);
+  const gsubFeatures = parseGSUBTable(data, tableMap);
+  const gposFeatures = parseGPOSTable(data, tableMap);
   const colorCapabilities = detectColorCapabilities(data, tableMap);
 
   // Extract name strings (OpenType name table)
@@ -647,9 +576,7 @@ async function parseRawFontAtOffset(
 
   // Compute canonical SHA-256 content hash of the whole collection file.
   // Members are differentiated by collectionIndex + PostScript name in fontIdentityKey.
-  budget?.check();
   const { contentHash, fingerprint, hashAlgorithm } = await computeFontHash(data);
-  budget?.check();
 
   const unitsPerEm = headData.unitsPerEm || 1000;
   const ascender = os2Data.ascender ?? hheaData.ascender ?? 800;
@@ -710,7 +637,7 @@ async function parseRawFontAtOffset(
     // Script coverage is derived from the validated cmap ranges rather than
     // guessed from the family name. This keeps source filters useful for
     // multilingual fonts whose OS/2 code-page bits are incomplete.
-    scripts: scriptsFromUnicodeRanges(cmapRanges, budget),
+    scripts: scriptsFromUnicodeRanges(cmapRanges),
     languages: [],
     embeddingRights,
     embeddingPolicy: os2Data.embeddingPolicy,
@@ -736,14 +663,12 @@ function readTableDirectory(
   data: ArrayBuffer,
   sfntOffset: number,
   numTables: number,
-  budget?: ParseBudget,
 ): Map<string, TableDirectory> {
   const view = new DataView(data);
   const map = new Map<string, TableDirectory>();
   const dirStart = sfntOffset + 12;
 
   for (let i = 0; i < numTables; i++) {
-    budget?.check();
     const off = dirStart + i * 16;
     if (off + 16 > data.byteLength) break;
 
@@ -773,11 +698,7 @@ interface NameRecords {
   [nameID: number]: string;
 }
 
-function parseNameTable(
-  data: ArrayBuffer,
-  tables: Map<string, TableDirectory>,
-  budget?: ParseBudget,
-): NameRecords {
+function parseNameTable(data: ArrayBuffer, tables: Map<string, TableDirectory>): NameRecords {
   const table = tables.get('name');
   if (!table || table.length < 6) return {};
 
@@ -794,7 +715,6 @@ function parseNameTable(
   }
 
   for (let i = 0; i < count; i++) {
-    budget?.check();
     const recOff = recordsStart + i * 12;
 
     const platformID = view.getUint16(recOff);
@@ -1006,7 +926,6 @@ function parseFvarTable(
   data: ArrayBuffer,
   tables: Map<string, TableDirectory>,
   names: NameRecords = {},
-  budget?: ParseBudget,
 ): FvarData {
   const table = tables.get('fvar');
   if (!table) return { axes: [], instances: [] };
@@ -1033,7 +952,6 @@ function parseFvarTable(
   let axisOffset = base + axesArrayOffset;
 
   for (let i = 0; i < axesCount && i < 20; i++) {
-    budget?.check();
     if (axisOffset + axisSize > data.byteLength) break;
 
     const tag = String.fromCharCode(
@@ -1072,7 +990,6 @@ function parseFvarTable(
   let instOffset = base + axesArrayOffset + axesCount * axisSize;
 
   for (let i = 0; i < instanceCount && i < 50; i++) {
-    budget?.check();
     if (instOffset + instanceSize > data.byteLength) break;
 
     // instance record: subfamilyNameID(0) flags(2) coordinates(4...)
@@ -1099,7 +1016,6 @@ function parseFvarTable(
 function parseCmapTable(
   data: ArrayBuffer,
   tables: Map<string, TableDirectory>,
-  budget?: ParseBudget,
 ): Array<[number, number]> {
   const table = tables.get('cmap');
   if (!table || table.length < 4) return [];
@@ -1113,16 +1029,15 @@ function parseCmapTable(
 
   const ranges: Array<[number, number]> = [];
   for (let i = 0; i < Math.min(numSubtables, 32); i++) {
-    budget?.check();
     const record = base + 4 + i * 8;
     const offset = view.getUint32(record + 4);
     if (offset > table.length - 2) continue;
     const subtable = base + offset;
     const format = view.getUint16(subtable);
-    ranges.push(...parseCmapSubtable(view, subtable, tableEnd, format, budget));
+    ranges.push(...parseCmapSubtable(view, subtable, tableEnd, format));
   }
 
-  return mergeUnicodeRanges(ranges, budget);
+  return mergeUnicodeRanges(ranges);
 }
 
 function parseCmapSubtable(
@@ -1130,21 +1045,20 @@ function parseCmapSubtable(
   offset: number,
   tableEnd: number,
   format: number,
-  budget?: ParseBudget,
 ): Array<[number, number]> {
   switch (format) {
     case 0:
-      return parseCmapFormat0(view, offset, tableEnd, budget);
+      return parseCmapFormat0(view, offset, tableEnd);
     case 4:
-      return parseCmapFormat4(view, offset, tableEnd, budget);
+      return parseCmapFormat4(view, offset, tableEnd);
     case 6:
-      return parseCmapFormat6(view, offset, tableEnd, budget);
+      return parseCmapFormat6(view, offset, tableEnd);
     case 10:
-      return parseCmapFormat10(view, offset, tableEnd, budget);
+      return parseCmapFormat10(view, offset, tableEnd);
     case 12:
-      return parseCmapFormat12Or13(view, offset, tableEnd, false, budget);
+      return parseCmapFormat12Or13(view, offset, tableEnd, false);
     case 13:
-      return parseCmapFormat12Or13(view, offset, tableEnd, true, budget);
+      return parseCmapFormat12Or13(view, offset, tableEnd, true);
     default:
       return [];
   }
@@ -1167,13 +1081,11 @@ function parseCmapFormat0(
   view: DataView,
   offset: number,
   tableEnd: number,
-  budget?: ParseBudget,
 ): Array<[number, number]> {
   const end = subtableEnd(view, offset, tableEnd, 2, 262);
   if (end === null) return [];
   const ranges: Array<[number, number]> = [];
   for (let code = 0; code < 256; code++) {
-    budget?.check();
     if (view.getUint8(offset + 6 + code) !== 0) ranges.push([code, code]);
   }
   return ranges;
@@ -1183,7 +1095,6 @@ function parseCmapFormat4(
   view: DataView,
   offset: number,
   tableEnd: number,
-  budget?: ParseBudget,
 ): Array<[number, number]> {
   const end = subtableEnd(view, offset, tableEnd, 2, 16);
   if (end === null || offset + 8 > end) return [];
@@ -1198,7 +1109,6 @@ function parseCmapFormat4(
 
   const ranges: Array<[number, number]> = [];
   for (let segment = 0; segment < segCount; segment++) {
-    budget?.check();
     const endCode = view.getUint16(endCodes + segment * 2);
     const startCode = view.getUint16(startCodes + segment * 2);
     if (startCode > endCode || startCode === 0xffff) continue;
@@ -1207,7 +1117,6 @@ function parseCmapFormat4(
     let runStart: number | null = null;
     let previous = -2;
     for (let code = startCode; code <= endCode; code++) {
-      budget?.check();
       let glyph = 0;
       if (rangeOffset === 0) {
         glyph = (code + delta) & 0xffff;
@@ -1234,7 +1143,6 @@ function parseCmapFormat6(
   view: DataView,
   offset: number,
   tableEnd: number,
-  budget?: ParseBudget,
 ): Array<[number, number]> {
   const end = subtableEnd(view, offset, tableEnd, 2, 10);
   if (end === null) return [];
@@ -1243,7 +1151,6 @@ function parseCmapFormat6(
   if (offset + 10 + entryCount * 2 > end) return [];
   const ranges: Array<[number, number]> = [];
   for (let index = 0; index < entryCount; index++) {
-    budget?.check();
     if (view.getUint16(offset + 10 + index * 2) !== 0) {
       ranges.push([firstCode + index, firstCode + index]);
     }
@@ -1255,7 +1162,6 @@ function parseCmapFormat10(
   view: DataView,
   offset: number,
   tableEnd: number,
-  budget?: ParseBudget,
 ): Array<[number, number]> {
   const end = subtableEnd(view, offset, tableEnd, 4, 20);
   if (end === null) return [];
@@ -1264,7 +1170,6 @@ function parseCmapFormat10(
   if (entryCount > (end - (offset + 20)) / 2) return [];
   const ranges: Array<[number, number]> = [];
   for (let index = 0; index < entryCount; index++) {
-    budget?.check();
     if (view.getUint16(offset + 20 + index * 2) !== 0) {
       ranges.push([firstCode + index, firstCode + index]);
     }
@@ -1277,7 +1182,6 @@ function parseCmapFormat12Or13(
   offset: number,
   tableEnd: number,
   constantGlyph: boolean,
-  budget?: ParseBudget,
 ): Array<[number, number]> {
   const end = subtableEnd(view, offset, tableEnd, 4, 16);
   if (end === null) return [];
@@ -1285,7 +1189,6 @@ function parseCmapFormat12Or13(
   if (groups > (end - (offset + 16)) / 12 || groups > 100_000) return [];
   const ranges: Array<[number, number]> = [];
   for (let index = 0; index < groups; index++) {
-    budget?.check();
     const group = offset + 16 + index * 12;
     const start = view.getUint32(group);
     const finish = view.getUint32(group + 4);
@@ -1297,15 +1200,11 @@ function parseCmapFormat12Or13(
   return ranges;
 }
 
-function mergeUnicodeRanges(
-  ranges: Array<[number, number]>,
-  budget?: ParseBudget,
-): Array<[number, number]> {
+function mergeUnicodeRanges(ranges: Array<[number, number]>): Array<[number, number]> {
   if (ranges.length < 2) return ranges;
   const sorted = [...ranges].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   const merged: Array<[number, number]> = [];
   for (const [start, end] of sorted) {
-    budget?.check();
     const previous = merged.at(-1);
     if (previous && start <= previous[1] + 1) previous[1] = Math.max(previous[1], end);
     else merged.push([start, end]);
@@ -1314,10 +1213,9 @@ function mergeUnicodeRanges(
 }
 
 /** Return OpenType script tags represented by validated cmap coverage. */
-function scriptsFromUnicodeRanges(ranges: Array<[number, number]>, budget?: ParseBudget): string[] {
+function scriptsFromUnicodeRanges(ranges: Array<[number, number]>): string[] {
   const scripts = new Set<string>();
   for (const [start, end] of ranges) {
-    budget?.check();
     for (const [tag, scriptStart, scriptEnd] of UNICODE_SCRIPT_RANGES) {
       if (start <= scriptEnd && end >= scriptStart) scripts.add(tag);
     }
@@ -1355,32 +1253,19 @@ const UNICODE_SCRIPT_RANGES: readonly [string, number, number][] = [
   ['kana', 0x3040, 0x30ff],
 ];
 
-function parseGSUBTable(
-  data: ArrayBuffer,
-  tables: Map<string, TableDirectory>,
-  budget?: ParseBudget,
-): string[] {
+function parseGSUBTable(data: ArrayBuffer, tables: Map<string, TableDirectory>): string[] {
   const table = tables.get('GSUB');
   if (!table) return [];
-  return parseFeatureList(data, table.offset, table.length, budget);
+  return parseFeatureList(data, table.offset, table.length);
 }
 
-function parseGPOSTable(
-  data: ArrayBuffer,
-  tables: Map<string, TableDirectory>,
-  budget?: ParseBudget,
-): string[] {
+function parseGPOSTable(data: ArrayBuffer, tables: Map<string, TableDirectory>): string[] {
   const table = tables.get('GPOS');
   if (!table) return [];
-  return parseFeatureList(data, table.offset, table.length, budget);
+  return parseFeatureList(data, table.offset, table.length);
 }
 
-function parseFeatureList(
-  data: ArrayBuffer,
-  offset: number,
-  length: number,
-  budget?: ParseBudget,
-): string[] {
+function parseFeatureList(data: ArrayBuffer, offset: number, length: number): string[] {
   const tableEnd = Math.min(data.byteLength, offset + length);
   if (length < 10 || offset < 0 || offset + 10 > tableEnd) return [];
 
@@ -1395,7 +1280,6 @@ function parseFeatureList(
   const features: string[] = [];
 
   for (let i = 0; i < featureCount && i < 100; i++) {
-    budget?.check();
     const recOff = featureList + 2 + i * 6;
 
     const tag = String.fromCharCode(

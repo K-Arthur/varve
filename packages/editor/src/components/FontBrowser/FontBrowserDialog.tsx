@@ -15,7 +15,6 @@ export interface FontBrowserDialogProps {
   onSelect?: (family: string) => void;
   onSelectFace?: (selection: FontFaceSelection) => void;
   selectedFamily?: string;
-  documentId?: string;
 }
 
 export function FontBrowserDialog({
@@ -24,7 +23,6 @@ export function FontBrowserDialog({
   onSelect,
   onSelectFace,
   selectedFamily,
-  documentId,
 }: FontBrowserDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -59,7 +57,6 @@ export function FontBrowserDialog({
         layout="modal"
         showDownloadable
         selectedFamily={selectedFamily}
-        documentId={documentId}
         onSelect={onSelect}
         onSelectFace={onSelectFace}
       />

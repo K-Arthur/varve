@@ -44,7 +44,6 @@ import {
   type TypographyCommandSurface,
   type TypographyTextChanges,
 } from '../../Typography/typographyCommand';
-import { useTypographyPreview } from '../../Typography/useTypographyPreview';
 import { BindingMenu } from '../controls/BindingMenu';
 import { ContrastIndicator } from '../controls/ContrastIndicator';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -183,7 +182,6 @@ export function TypographySection({ nodes }: TypographySectionProps) {
     updateNode,
     beginTransaction,
     commitTransaction,
-    abortTransaction,
     setBindingField,
     bindingField,
     setSelectedBinding,
@@ -244,21 +242,6 @@ export function TypographySection({ nodes }: TypographySectionProps) {
     },
     [batchUpdate, textNodes, typographySurface],
   );
-
-  const typographyTargetKey = textNodes
-    .map((node) => node.id)
-    .sort()
-    .join(',');
-  const {
-    previewChanges: previewTypographyChanges,
-    commitChanges: commitTypographyChanges,
-    clearPreview: clearTypographyPreview,
-  } = useTypographyPreview(applyTypographyToSelection, {
-    beginPreview: () => beginTransaction('preview'),
-    commitPreview: commitTransaction,
-    abortPreview: abortTransaction,
-    resetKey: typographyTargetKey,
-  });
 
   const textContent = useMemo(() => {
     const textVals = textNodes.map((n) => (n.richText ? richTextToPlainText(n.richText) : n.text));
@@ -349,7 +332,6 @@ export function TypographySection({ nodes }: TypographySectionProps) {
         open={fontBrowserOpen}
         onClose={() => setFontBrowserOpen(false)}
         selectedFamily={isMixed(familyRaw) ? undefined : familyRaw}
-        documentId={editor.state.document.id}
         onSelect={(family) => {
           applyTypographyToSelection(fontFamilyChanges(family || undefined));
           setFontBrowserOpen(false);
@@ -419,21 +401,9 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             value={isMixed(familyRaw) ? '' : familyRaw}
             fontReference={textNodes.length === 1 ? textNodes[0]?.fontReference : undefined}
             variableAxes={textNodes.length === 1 ? textNodes[0]?.variableAxes : undefined}
-            mixed={isMixed(familyRaw)}
-            onChange={(v) => commitTypographyChanges(fontFamilyChanges(v || undefined))}
-            onPreviewFamily={(v) => previewTypographyChanges(fontFamilyChanges(v || undefined))}
-            onClearPreview={clearTypographyPreview}
+            onChange={(v) => applyTypographyToSelection(fontFamilyChanges(v || undefined))}
             onSelectFace={(selection) =>
-              commitTypographyChanges({
-                fontFamily: selection.family,
-                fontWeight: selection.weight,
-                fontStyle: selection.style,
-                fontReference: selection.fontReference,
-                variableAxes: selection.variableAxes,
-              })
-            }
-            onPreviewFace={(selection) =>
-              previewTypographyChanges({
+              applyTypographyToSelection({
                 fontFamily: selection.family,
                 fontWeight: selection.weight,
                 fontStyle: selection.style,

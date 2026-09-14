@@ -13,13 +13,9 @@
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    path::PathBuf,
-};
+use std::{collections::BTreeSet, path::PathBuf};
 
 const TOMBSTONES_FILE: &str = ".tombstones.json";
-const PROJECT_REFS_FILE: &str = ".project-refs.json";
 
 /// Metadata stored alongside each font.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -48,10 +44,6 @@ pub struct FontStorageMeta {
     #[serde(default)]
     #[serde(alias = "post_script_name")]
     pub post_script_name: Option<String>,
-    #[serde(default, alias = "document_id")]
-    pub document_id: Option<String>,
-    #[serde(default)]
-    pub scope: Option<String>,
     #[serde(default = "default_integrity")]
     pub integrity: String,
 }
@@ -63,13 +55,6 @@ struct FontStorageTombstones {
     face_keys: BTreeSet<String>,
     #[serde(default)]
     family_keys: BTreeSet<String>,
-}
-
-#[derive(Debug, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct FontProjectReferences {
-    #[serde(default)]
-    face_documents: BTreeMap<String, BTreeSet<String>>,
 }
 
 fn default_integrity() -> String {
@@ -101,10 +86,6 @@ fn font_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 
 fn tombstones_path(root: &PathBuf) -> PathBuf {
     root.join(TOMBSTONES_FILE)
-}
-
-fn project_refs_path(root: &PathBuf) -> PathBuf {
-    root.join(PROJECT_REFS_FILE)
 }
 
 fn family_tombstone_key(family: &str) -> String {
@@ -143,45 +124,6 @@ fn write_tombstones(root: &PathBuf, tombstones: &FontStorageTombstones) -> Resul
         let _ = std::fs::remove_file(&temporary);
     }
     result
-}
-
-fn read_project_refs(root: &PathBuf) -> Result<FontProjectReferences, String> {
-    let path = project_refs_path(root);
-    if !path.exists() {
-        return Ok(FontProjectReferences::default());
-    }
-    let content = std::fs::read_to_string(path)
-        .map_err(|error| format!("Cannot read project font references: {error}"))?;
-    serde_json::from_str(&content)
-        .map_err(|error| format!("Cannot parse project font references: {error}"))
-}
-
-fn write_project_refs(root: &PathBuf, refs: &FontProjectReferences) -> Result<(), String> {
-    let content = serde_json::to_string(refs)
-        .map_err(|error| format!("Cannot serialize project font references: {error}"))?;
-    let stamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    let temporary = root.join(format!(
-        ".varve-project-refs-{}-{stamp}.tmp",
-        std::process::id()
-    ));
-    let result = std::fs::write(&temporary, content)
-        .map_err(|error| format!("Cannot write project font references: {error}"))
-        .and_then(|()| {
-            crate::filesystem::replace_file(&temporary, &project_refs_path(root)).map_err(|error| {
-                format!("Cannot finalize project font references: {}", error.message)
-            })
-        });
-    if result.is_err() {
-        let _ = std::fs::remove_file(&temporary);
-    }
-    result
-}
-
-fn is_project_scoped(meta: &FontStorageMeta) -> bool {
-    meta.scope.as_deref() == Some("project") || meta.document_id.is_some()
 }
 
 fn face_key_from_meta(meta: &FontStorageMeta) -> Option<String> {
@@ -360,8 +302,6 @@ pub fn store_font_on_filesystem(
     post_script_name: Option<String>,
     artifact_hash: Option<String>,
     face_key: Option<String>,
-    document_id: Option<String>,
-    scope: Option<String>,
 ) -> Result<FontStorageMeta, String> {
     // Compute SHA-256
     let mut hasher = Sha256::new();
@@ -386,16 +326,6 @@ pub fn store_font_on_filesystem(
     let dir = face_storage_path(&app, &resolved_face_key)?;
     std::fs::create_dir_all(&dir).map_err(|e| format!("Cannot create font storage dir: {e}"))?;
 
-    let existing_meta = std::fs::read_to_string(meta_path(&dir))
-        .ok()
-        .and_then(|content| serde_json::from_str::<FontStorageMeta>(&content).ok());
-    let incoming_persistent = scope.as_deref() == Some("persistent") || document_id.is_none();
-    let persistent = incoming_persistent
-        || existing_meta
-            .as_ref()
-            .map(|meta| !is_project_scoped(meta))
-            .unwrap_or(false);
-    let resolved_scope = if persistent { "persistent" } else { "project" };
     // Detect format from magic bytes
     let ext = if data.len() > 4 {
         match (&data[0], &data[1], &data[2], &data[3]) {
@@ -451,15 +381,9 @@ pub fn store_font_on_filesystem(
         stored_at: chrono::Utc::now().to_rfc3339(),
         file_size_bytes: file_size,
         sha256,
-        face_key: Some(resolved_face_key.clone()),
+        face_key: Some(resolved_face_key),
         collection_index,
         post_script_name,
-        document_id: if persistent {
-            None
-        } else {
-            document_id.clone()
-        },
-        scope: Some(resolved_scope.to_string()),
         integrity: "verified".into(),
     };
 
@@ -482,20 +406,6 @@ pub fn store_font_on_filesystem(
         let _ = std::fs::remove_file(&meta_tmp);
     }
     meta_result?;
-
-    // Commit the lifetime reference only after both the font bytes and its
-    // metadata are durable.
-    let mut project_refs = read_project_refs(&root)?;
-    if persistent {
-        project_refs.face_documents.remove(&resolved_face_key);
-    } else if let Some(document_id) = document_id.as_ref() {
-        project_refs
-            .face_documents
-            .entry(resolved_face_key.clone())
-            .or_default()
-            .insert(document_id.clone());
-    }
-    write_project_refs(&root, &project_refs)?;
 
     Ok(meta)
 }
@@ -612,7 +522,6 @@ pub fn remove_font_from_filesystem(
         let key = key.to_ascii_lowercase();
         let root = font_dir(&app)?;
         let mut tombstones = read_tombstones(&root)?;
-        let mut project_refs = read_project_refs(&root)?;
         let dir = face_storage_path(&app, &key)?;
         let mut removed = false;
         if dir.exists() {
@@ -642,17 +551,14 @@ pub fn remove_font_from_filesystem(
                 removed = true;
             }
         }
-        project_refs.face_documents.remove(&key);
         tombstones.face_keys.insert(key);
         write_tombstones(&root, &tombstones)?;
-        write_project_refs(&root, &project_refs)?;
         return Ok(removed);
     }
 
     let family = family.as_deref().unwrap_or_default();
     let root = font_dir(&app)?;
     let mut tombstones = read_tombstones(&root)?;
-    let mut project_refs = read_project_refs(&root)?;
     let mut matches = Vec::new();
     for entry in std::fs::read_dir(&root).map_err(|e| format!("Cannot read font dir: {e}"))? {
         let Ok(entry) = entry else { continue };
@@ -666,7 +572,6 @@ pub fn remove_font_from_filesystem(
         };
         if meta.family.eq_ignore_ascii_case(family) {
             if let Some(key) = face_key_from_meta(&meta) {
-                project_refs.face_documents.remove(&key);
                 tombstones.face_keys.insert(key);
             }
             matches.push(path);
@@ -683,58 +588,8 @@ pub fn remove_font_from_filesystem(
     if !matches.is_empty() {
         tombstones.family_keys.insert(family_tombstone_key(family));
         write_tombstones(&root, &tombstones)?;
-        write_project_refs(&root, &project_refs)?;
     }
     Ok(!matches.is_empty())
-}
-
-/// Release project-scoped faces retained by a document that has been closed.
-/// Shared faces remain until their final document reference disappears.
-#[tauri::command]
-pub fn release_document_fonts(app: tauri::AppHandle, document_id: String) -> Result<u32, String> {
-    if document_id.trim().is_empty() {
-        return Ok(0);
-    }
-    let root = font_dir(&app)?;
-    let mut refs = read_project_refs(&root)?;
-    let candidate_faces: Vec<String> = refs
-        .face_documents
-        .iter_mut()
-        .filter_map(|(face_key, documents)| {
-            documents.remove(&document_id);
-            if documents.is_empty() {
-                Some(face_key.clone())
-            } else {
-                None
-            }
-        })
-        .collect();
-    let mut tombstones = read_tombstones(&root)?;
-    let mut removed = 0u32;
-    for face_key in candidate_faces {
-        let dir = face_storage_path(&app, &face_key)?;
-        let Some(meta) = std::fs::read_to_string(meta_path(&dir))
-            .ok()
-            .and_then(|content| serde_json::from_str::<FontStorageMeta>(&content).ok())
-        else {
-            refs.face_documents.remove(&face_key);
-            continue;
-        };
-        if !is_project_scoped(&meta) {
-            refs.face_documents.remove(&face_key);
-            continue;
-        }
-        if dir.exists() {
-            std::fs::remove_dir_all(&dir)
-                .map_err(|error| format!("Cannot remove project font directory: {error}"))?;
-            removed += 1;
-        }
-        refs.face_documents.remove(&face_key);
-        tombstones.face_keys.insert(face_key);
-    }
-    write_project_refs(&root, &refs)?;
-    write_tombstones(&root, &tombstones)?;
-    Ok(removed)
 }
 
 #[tauri::command]
@@ -851,8 +706,6 @@ mod tests {
             face_key: Some(format!("sha256:{DIGEST}:single")),
             collection_index: None,
             post_script_name: None,
-            document_id: None,
-            scope: Some("persistent".into()),
             integrity: "verified".into(),
         };
         let key = face_key_from_meta(&meta).expect("metadata should contain a valid face key");

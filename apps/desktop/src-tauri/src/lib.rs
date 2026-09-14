@@ -1921,103 +1921,8 @@ pub struct GenerativeEditOptions {
     pub output_h: u32,
     pub steps: u32,
     pub guidance_scale: f32,
-    pub image_guidance_scale: f32,
     pub seed: i64,
     pub strength: f32,
-}
-
-const MAX_GENERATIVE_OUTPUT_DIMENSION: u32 = 2_048;
-const MAX_GENERATIVE_STEPS: u32 = 100;
-const MAX_GENERATIVE_PROMPT_CHARS: usize = 16_384;
-
-fn validate_generation_buffer(
-    width: u32,
-    height: u32,
-    byte_len: usize,
-    bytes_per_pixel: u64,
-    label: &str,
-) -> Result<(), String> {
-    validate_bounded_image_dimensions(width, height, label)?;
-    let pixels = u64::from(width)
-        .checked_mul(u64::from(height))
-        .ok_or_else(|| format!("{label} dimensions overflow"))?;
-    let expected_bytes = pixels
-        .checked_mul(bytes_per_pixel)
-        .ok_or_else(|| format!("{label} buffer size overflow"))?;
-    if byte_len as u64 != expected_bytes {
-        return Err(format!(
-            "{label} buffer does not match its declared dimensions"
-        ));
-    }
-    Ok(())
-}
-
-fn validate_generative_edit_options(options: &GenerativeEditOptions) -> Result<(), String> {
-    if options.model_handle != GENERATIVE_MODEL_HANDLE {
-        return Err("Unknown or unqualified generative model handle".into());
-    }
-    if options.mode != "fill" && options.mode != "replace" && options.mode != "expand" {
-        return Err("The diffusion helper supports Fill, Replace, and Expand only".into());
-    }
-    if options.prompt.trim().is_empty() {
-        return Err("A prompt is required for prompt-capable generation".into());
-    }
-    if options.prompt.chars().count() > MAX_GENERATIVE_PROMPT_CHARS {
-        return Err(format!(
-            "Generation prompt exceeds the {MAX_GENERATIVE_PROMPT_CHARS}-character limit"
-        ));
-    }
-    if options.negative_prompt.chars().count() > MAX_GENERATIVE_PROMPT_CHARS {
-        return Err(format!(
-            "Generation negative prompt exceeds the {MAX_GENERATIVE_PROMPT_CHARS}-character limit"
-        ));
-    }
-    if options.output_w == 0
-        || options.output_h == 0
-        || options.output_w > MAX_GENERATIVE_OUTPUT_DIMENSION
-        || options.output_h > MAX_GENERATIVE_OUTPUT_DIMENSION
-    {
-        return Err(format!(
-            "Generation output dimensions must be between 1 and {MAX_GENERATIVE_OUTPUT_DIMENSION} pixels"
-        ));
-    }
-    if options.image_w != options.output_w || options.image_h != options.output_h {
-        return Err("Generation source dimensions must match the output working frame".into());
-    }
-    if options.mask_w != options.output_w || options.mask_h != options.output_h {
-        return Err("Generation mask dimensions must match the output working frame".into());
-    }
-    if options.steps == 0 || options.steps > MAX_GENERATIVE_STEPS {
-        return Err(format!(
-            "Generation steps must be between 1 and {MAX_GENERATIVE_STEPS}"
-        ));
-    }
-    if !options.guidance_scale.is_finite() || !(0.0..=50.0).contains(&options.guidance_scale) {
-        return Err("Generation guidance scale must be between 0 and 50".into());
-    }
-    if !options.image_guidance_scale.is_finite()
-        || !(0.0..=50.0).contains(&options.image_guidance_scale)
-    {
-        return Err("Generation image guidance scale must be between 0 and 50".into());
-    }
-    if !options.strength.is_finite() || !(0.0..=1.0).contains(&options.strength) {
-        return Err("Generation strength must be between 0 and 1".into());
-    }
-    validate_generation_buffer(
-        options.image_w,
-        options.image_h,
-        options.image_data.len(),
-        4,
-        "Generation source image",
-    )?;
-    validate_generation_buffer(
-        options.mask_w,
-        options.mask_h,
-        options.mask.len(),
-        1,
-        "Generation mask",
-    )?;
-    Ok(())
 }
 
 const GENERATIVE_MODEL_STEM: &str = "varve-diffusion-inpainting";
@@ -2031,10 +1936,7 @@ const GENERATIVE_MODEL_METADATA_SUFFIX: &str = ".metadata.json";
 // that provenance and must be re-qualified instead of being trusted on ARM,
 // another OS, or after a helper change.
 const GENERATIVE_MODEL_METADATA_SCHEMA_VERSION: u32 = 4;
-// This identifier includes Varve's safe image-guidance extension. Changing
-// the helper or its binding must invalidate qualification metadata so a
-// result cannot be trusted under a different runtime contract.
-const GENERATIVE_MODEL_RUNTIME_ID: &str = "diffusion-rs-0.1.20-varve-image-cfg-v1";
+const GENERATIVE_MODEL_RUNTIME_ID: &str = "diffusion-rs-0.1.20";
 const GENERATIVE_MODEL_FILENAME: &str = "varve-diffusion-inpainting.gguf";
 const GENERATIVE_MODEL_DOWNLOAD_URL: &str = "https://huggingface.co/gpustack/stable-diffusion-v1-5-inpainting-GGUF/resolve/21491e4/stable-diffusion-v1-5-inpainting-Q4_0.gguf?download=true";
 const GENERATIVE_MODEL_DOWNLOAD_SIZE: u64 = 1_747_219_584;
@@ -2776,7 +2678,6 @@ fn qualification_request(model_handle: &str, request_id: String) -> GenerativeEd
         output_h: HEIGHT,
         steps: 4,
         guidance_scale: 7.0,
-        image_guidance_scale: 1.0,
         seed: 417,
         strength: 0.85,
     }
@@ -2949,7 +2850,6 @@ struct GenerativeHelperRequest {
     height: u32,
     steps: u32,
     guidance_scale: f32,
-    image_guidance_scale: f32,
     seed: i64,
     strength: f32,
 }
@@ -3009,20 +2909,24 @@ fn write_generation_inputs(
     work_dir: &std::path::Path,
     options: &GenerativeEditOptions,
 ) -> Result<(std::path::PathBuf, std::path::PathBuf), String> {
-    validate_generation_buffer(
-        options.image_w,
-        options.image_h,
-        options.image_data.len(),
-        4,
-        "Generation source image",
-    )?;
-    validate_generation_buffer(
-        options.mask_w,
-        options.mask_h,
-        options.mask.len(),
-        1,
-        "Generation mask",
-    )?;
+    let image_pixels = u64::from(options.image_w)
+        .checked_mul(u64::from(options.image_h))
+        .ok_or_else(|| "Generation source dimensions overflow".to_string())?;
+    if image_pixels == 0
+        || image_pixels > 64 * 1024 * 1024
+        || options.image_data.len() as u64 != image_pixels * 4
+    {
+        return Err("Generation source pixels do not match the declared dimensions".into());
+    }
+    let mask_pixels = u64::from(options.mask_w)
+        .checked_mul(u64::from(options.mask_h))
+        .ok_or_else(|| "Generation mask dimensions overflow".to_string())?;
+    if mask_pixels == 0
+        || mask_pixels > 64 * 1024 * 1024
+        || options.mask.len() as u64 != mask_pixels
+    {
+        return Err("Generation mask pixels do not match the declared dimensions".into());
+    }
     let rgba =
         image::RgbaImage::from_raw(options.image_w, options.image_h, options.image_data.clone())
             .ok_or_else(|| "Generation source image buffer is invalid".to_string())?;
@@ -3062,7 +2966,22 @@ fn generative_edit_blocking_with_requirement(
     let _cancellation_guard = GenerationCancellationGuard {
         request_id: options.request_id.clone(),
     };
-    validate_generative_edit_options(&options)?;
+    if options.model_handle != GENERATIVE_MODEL_HANDLE {
+        return Err("Unknown or unqualified generative model handle".into());
+    }
+    if options.mode != "fill" && options.mode != "replace" && options.mode != "expand" {
+        return Err("The diffusion helper supports Fill, Replace, and Expand only".into());
+    }
+    if options.prompt.trim().is_empty() {
+        return Err("A prompt is required for prompt-capable generation".into());
+    }
+    if options.output_w == 0
+        || options.output_h == 0
+        || options.output_w > 2048
+        || options.output_h > 2048
+    {
+        return Err("Generation output dimensions must be between 1 and 2048 pixels".into());
+    }
     generative_resources::preflight(options.output_w, options.output_h)?;
     let helper = resolve_generative_helper(&app)?;
     let model_path = resolve_generative_model_for_run(&app, require_qualified)?;
@@ -3097,7 +3016,6 @@ fn generative_edit_blocking_with_requirement(
         height: options.output_h,
         steps: options.steps,
         guidance_scale: options.guidance_scale,
-        image_guidance_scale: options.image_guidance_scale,
         seed: options.seed,
         strength: options.strength,
     };
@@ -5615,7 +5533,6 @@ pub fn run() {
             font_storage::load_font_from_filesystem,
             font_storage::list_filesystem_fonts,
             font_storage::remove_font_from_filesystem,
-            font_storage::release_document_fonts,
             font_storage::get_filesystem_font_storage_usage,
             // Native model file storage
             read_model_file,
@@ -5795,53 +5712,6 @@ mod tests {
         assert!(generation_cancel_requested(&request_id));
         assert!(take_generation_cancellation(&request_id));
         assert!(!generation_cancel_requested(&request_id));
-    }
-
-    #[test]
-    fn generative_options_are_validated_before_model_preflight() {
-        let request_id = format!("generative-options-test-{}", uuid());
-        let mut options = qualification_request(GENERATIVE_MODEL_HANDLE, request_id);
-        assert!(validate_generative_edit_options(&options).is_ok());
-
-        options.steps = 0;
-        assert!(validate_generative_edit_options(&options)
-            .expect_err("zero diffusion steps must be rejected")
-            .contains("steps"));
-        options.steps = 4;
-
-        options.guidance_scale = f32::NAN;
-        assert!(validate_generative_edit_options(&options)
-            .expect_err("non-finite guidance must be rejected")
-            .contains("guidance scale"));
-        options.guidance_scale = 7.0;
-
-        options.strength = 1.1;
-        assert!(validate_generative_edit_options(&options)
-            .expect_err("out-of-range strength must be rejected")
-            .contains("strength"));
-        options.strength = 0.85;
-
-        options.prompt = "x".repeat(MAX_GENERATIVE_PROMPT_CHARS + 1);
-        assert!(validate_generative_edit_options(&options)
-            .expect_err("oversized prompts must be rejected")
-            .contains("prompt"));
-    }
-
-    #[test]
-    fn generative_options_reject_unmapped_frames_and_mismatched_buffers() {
-        let request_id = format!("generative-buffer-test-{}", uuid());
-        let mut options = qualification_request(GENERATIVE_MODEL_HANDLE, request_id);
-
-        options.output_w = 256;
-        assert!(validate_generative_edit_options(&options)
-            .expect_err("the helper must not guess a source resize")
-            .contains("source dimensions"));
-        options.output_w = 512;
-
-        options.mask.pop();
-        assert!(validate_generative_edit_options(&options)
-            .expect_err("a truncated mask must be rejected before model access")
-            .contains("mask buffer"));
     }
 
     #[test]

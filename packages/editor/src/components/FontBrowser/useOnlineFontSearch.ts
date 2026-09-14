@@ -5,11 +5,10 @@ import {
   FontDownloadManager,
   FontLoader,
   getFontsourceCatalog,
-  removeFontFromFilesystem,
-  storeFontOnFilesystem,
 } from '@varve/engine/font';
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { isCapabilityRestricted } from '../../capabilities/restrictions';
+import { removeStoredFont, storeFont } from './fontStorage';
 
 export interface OnlineFontSearchResult {
   results: FontProviderResult[];
@@ -72,12 +71,7 @@ export function useOnlineFontSearch(query: string): {
 let globalDownloadManager: FontDownloadManager | null = null;
 const pendingDownloadWaiters = new Map<
   string,
-  {
-    resolve: () => void;
-    reject: (error: Error) => void;
-    artifact: FontArtifactDescriptor;
-    documentId?: string;
-  }
+  { resolve: () => void; reject: (error: Error) => void; artifact: FontArtifactDescriptor }
 >();
 
 function getDownloadManager(): FontDownloadManager {
@@ -92,16 +86,20 @@ function getDownloadManager(): FontDownloadManager {
               throw new Error('The downloaded font did not contain usable font data.');
             }
             const artifact = waiter.artifact;
-            const stored = await storeFontOnFilesystem(job.familyName, job.data, {
+            const stored = await storeFont(job.familyName, job.data, {
               providerId: artifact.providerId,
+              familyId: artifact.familyId,
+              packageVersion: artifact.packageVersion,
+              upstreamVersion: artifact.upstreamVersion,
+              weight: artifact.weight,
+              style: artifact.style,
+              subset: artifact.subset,
+              variable: artifact.variable,
+              axes: artifact.axes,
               postScriptName: job.metadata.identity.postScriptName,
-              licenseName: artifact.license.name,
+              license: artifact.license.name,
               licenseUrl: artifact.license.url,
-              version: artifact.packageVersion,
-              documentId: waiter.documentId,
-              scope: waiter.documentId ? 'project' : 'persistent',
             });
-            if (!stored) throw new Error('The font could not be saved locally.');
             const result = await new FontLoader(undefined).loadFromArrayBufferPublic(
               artifact.familyName,
               job.data,
@@ -110,7 +108,7 @@ function getDownloadManager(): FontDownloadManager {
               { weight: artifact.weight, style: artifact.style },
             );
             if (!result.success) {
-              await removeFontFromFilesystem(stored.faceKey ?? { artifactHash: stored.sha256 });
+              await removeStoredFont(stored.key);
               throw new Error('The font could not be registered, so its saved copy was removed.');
             }
             getFontsourceCatalog().setInstalled(artifact.familyId, true);
@@ -161,8 +159,6 @@ export async function downloadAndApplyOnlineFont(
     style?: 'normal' | 'italic';
     subset?: string;
     variable?: boolean;
-    /** Retain the installed face only for this open document when supplied. */
-    documentId?: string;
   } = {},
 ): Promise<void> {
   if (providerId !== 'fontsource')
@@ -172,19 +168,13 @@ export async function downloadAndApplyOnlineFont(
       'Font search is available offline, but downloading additional fonts is disabled in this demo.',
     );
   }
-  const { documentId, ...artifactRequest } = request;
-  const artifact = getFontsourceCatalog().resolve({ familyId, ...artifactRequest });
+  const artifact = getFontsourceCatalog().resolve({ familyId, ...request });
   const job = getDownloadManager().addJob(artifact.url, familyName, artifact.format, {
     providerId: artifact.providerId,
     familyId: artifact.familyId,
     packageVersion: artifact.packageVersion,
   });
   await new Promise<void>((resolve, reject) => {
-    pendingDownloadWaiters.set(job.id, {
-      resolve,
-      reject,
-      artifact,
-      documentId,
-    });
+    pendingDownloadWaiters.set(job.id, { resolve, reject, artifact });
   });
 }

@@ -372,7 +372,7 @@ async function collectFonts(
   // face before exporting editable text.
   const records = await collectFontData(
     requestedFonts.filter((request) => request.fontReference !== undefined),
-    { fetchBundled: true, failOnTimeout: true },
+    { fetchBundled: true },
   );
   const recordByRequest = new Map(
     records.map((record) => [

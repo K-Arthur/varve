@@ -210,6 +210,42 @@ export function SelectionSourcesPanel() {
     announce('Selection paint cancelled');
   };
 
+  const previewSubjectCandidate = (result: ForegroundProposalSet, index: number) => {
+    const candidate = result.candidates[index];
+    if (!candidate || selectedNode?.kind !== 'shape' || !isImageShape(selectedNode)) return;
+    const sourceMask = mapProposalMaskToSource(
+      candidate.mask,
+      result.analysisWidth,
+      result.analysisHeight,
+      result.width,
+      result.height,
+    );
+    if (!sourceMask) {
+      announce('The subject estimate could not be mapped to the image');
+      return;
+    }
+    const selection = areaSelectionFromMaskCoverage(
+      state.document,
+      selectedNode.id,
+      sourceMask,
+      result.width,
+      result.height,
+      'source-image-pixels',
+    );
+    if (!selection) {
+      announce('The subject estimate could not be converted into a selection');
+      return;
+    }
+    // This is a visual review preview, not an acceptance of the candidate as
+    // the mask used by a destructive or generative command. The explicit
+    // confirmation buttons below remain the only acceptance path.
+    setAreaSelection?.(selection);
+    setActiveSubjectCandidate(index);
+    announce(
+      `${candidate.label ?? `Subject ${index + 1}`} previewed; verify the highlighted pixels before applying it`,
+    );
+  };
+
   const applySubjectCandidate = (result: ForegroundProposalSet, index: number) => {
     const candidate = result.candidates[index];
     if (!candidate || selectedNode?.kind !== 'shape' || !isImageShape(selectedNode)) return;
@@ -350,9 +386,13 @@ export function SelectionSourcesPanel() {
         error: null,
       });
       setActiveSubjectCandidate(0);
-      // One click should produce a usable result. The top-ranked proposal is
-      // applied immediately and every alternative stays one click away.
-      applySubjectCandidate(result.set, 0);
+      // Automatic foreground estimation is not semantic recognition. Do not
+      // mutate the document selection from an unreviewed top-ranked candidate;
+      // multiple disconnected subjects and background patches are common on
+      // photographic inputs. The user must first review a candidate and then
+      // explicitly confirm it as a selection or mask.
+      setActiveSubjectCandidate(0);
+      announce('Subject proposals ready; choose a candidate to preview it before applying it');
     } catch (error) {
       if (runController.signal.aborted) return;
       const message =
@@ -853,7 +893,7 @@ export function SelectionSourcesPanel() {
                   }`}
                   aria-pressed={index === activeSubjectCandidate}
                   aria-label={`${candidate.label ?? `Subject ${index + 1}`}, covers ${Math.round(candidate.coverage * 100)} percent`}
-                  onClick={() => applySubjectCandidate(subjectProposalSet, index)}
+                  onClick={() => previewSubjectCandidate(subjectProposalSet, index)}
                 >
                   {candidate.label ?? `Subject ${index + 1}`} ·{' '}
                   {Math.round(candidate.coverage * 100)}% area
@@ -870,6 +910,13 @@ export function SelectionSourcesPanel() {
               )}
             </div>
             <div className="insp-selection-sources__session-actions">
+              <button
+                type="button"
+                className="insp-selection-sources__button insp-selection-sources__button--primary"
+                onClick={() => applySubjectCandidate(subjectProposalSet, activeSubjectCandidate)}
+              >
+                Use selected candidate
+              </button>
               <button
                 type="button"
                 className="insp-selection-sources__button insp-selection-sources__button--primary"
@@ -893,8 +940,9 @@ export function SelectionSourcesPanel() {
               </button>
             </div>
             <p className="insp-field__hint">
-              The active candidate is applied as a pixel selection; refine it below before applying
-              it as a mask. Estimates are proposals, not semantic recognition.
+              Candidate buttons only change the review target. Confirm with Use selected candidate
+              or Apply as mask; refine the confirmed selection below. Estimates are proposals, not
+              semantic recognition.
             </p>
           </section>
         )}

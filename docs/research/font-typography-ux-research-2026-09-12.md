@@ -170,25 +170,6 @@ Downloads remain limited to two concurrent jobs and face loads to three.
 Platform evidence must label environment, exact `master` SHA, command, and
 owner; pending Windows/macOS runs are not silently treated as passing.
 
-## September 14 primary-source delta
-
-The latest first-party checks add four implementation details that are easy to
-miss when a font system is modeled only as a family list:
-
-| Evidence | Implementation consequence for Varve |
-| --- | --- |
-| Figma's font browser separates **All fonts**, **In this file**, **Popular**, organization fonts, installed fonts, Google fonts, and variable fonts. It also previews a face on selected text and remembers the last filter for the session. | Keep filters as catalog projections, preserve the active face by exact artifact/member identity, and keep hover preview temporary. Persist the filter preference only at the UI-session level; never persist a preview as document formatting. |
-| Figma documents conflicting versions as a cause of reflow and ligature failures and provides “Select all with same font” plus layout recomputation as recovery. | A same-family row must expose version/artifact state and affected locations. A replacement or repair action should offer an explicit reflow warning and a deterministic full-layout recomputation. |
-| Illustrator's Find/Replace Font dialog distinguishes **Document**, **Recent**, and **System** sources and separates **Change** from **Change All**. Its missing-font dialog separately offers adding, replacing, or previewing. | Varve's Select by Font and Document Fonts actions should keep source scope, affected scope, preview, and commit as separate controls. A preview or temporary substitute cannot silently become a permanent replacement. |
-| InDesign packaging runs preflight, can include hidden/non-printing assets by an explicit option, and rolls the package back when an error occurs. Adobe's font-packaging guidance also warns that license terms may forbid copying font files. | Export/package preflight must verify exact bytes and policy before claiming success, include hidden dependencies only through an explicit choice, and leave no partial package after failure. Technical embedding flags remain separate from license provenance. |
-| Affinity community reports repeatedly distinguish temporary substitution from permanent replacement and ask for a direct replace action; another report describes variable-font kerning/export mismatches. These are anecdotal, not product guarantees. | Label “substitute for this session/export” separately from “replace authored runs,” and preserve the original request for later restoration. Add variable-axis and export parity to the visual/oracle checks rather than assuming a readable fallback is equivalent. |
-
-These findings reinforce the current architecture: discovery, preview,
-substitution, authored replacement, and export are separate operations. They
-also give the quick toolbar a concrete usability rule: it should show the
-effective mixed value and face capability synchronously, while any face preview
-is a cancellable presentation override that cannot commit through a stale load.
-
 ## Sources
 
 Official documentation:
@@ -198,18 +179,11 @@ Official documentation:
 - [Figma: Manage conflicting fonts](https://help.figma.com/hc/en-us/articles/4403175325719-Manage-conflicting-fonts)
 - [Figma: Local network access](https://help.figma.com/hc/en-us/articles/34458998159511-Local-network-access-in-Figma)
 - [Figma: Variable fonts](https://www.figma.com/typography/variable-fonts/)
-- [Figma: Browse and apply fonts](https://help.figma.com/hc/en-us/articles/360041308034-Browse-and-apply-fonts)
-- [Figma: Explore text properties](https://help.figma.com/hc/en-us/articles/360039956634-Explore-text-properties)
-- [Figma: Use variable fonts](https://help.figma.com/hc/en-us/articles/5579502031511-Use-variable-fonts)
-- [Figma: Use the actions menu](https://help.figma.com/hc/en-us/articles/23570416033943-Use-the-actions-menu-in-Figma-Design)
 - [Adobe Illustrator: Preview, add, or replace missing fonts](https://helpx.adobe.com/in/illustrator/desktop/design-with-text/fonts-and-scripts/preview-add-or-replace-missing-fonts.html)
 - [Adobe Illustrator: Find and replace fonts](https://helpx.adobe.com/illustrator/desktop/design-with-text/fonts-and-scripts/find-and-replace-fonts.html)
 - [Adobe Illustrator: Fonts FAQ](https://helpx.adobe.com/illustrator/using/fonts-faq.html)
-- [Adobe Illustrator: Find and apply fonts](https://helpx.adobe.com/illustrator/desktop/design-with-text/fonts-and-scripts/find-and-apply-fonts.html)
 - [Adobe InDesign: Install and activate fonts](https://helpx.adobe.com/ie/indesign/desktop/fonts/install-and-activate-fonts.html)
 - [Adobe InDesign: Preview and explore fonts](https://helpx.adobe.com/indesign/desktop/fonts/preview-and-explore-fonts.html)
-- [Adobe InDesign: Package files for output](https://helpx.adobe.com/indesign/desktop/print/preflight/package-files-for-output.html)
-- [Adobe Fonts: Package font files](https://helpx.adobe.com/fonts/web/getting-and-using-fonts/package-font-files.html)
 - [Adobe Photoshop: Search for and apply a specific font style](https://helpx.adobe.com/photoshop/desktop/text-typography/select-manage-fonts/search-for-and-apply-a-specific-font-style.html)
 - [Adobe Photoshop: OpenType variable fonts](https://helpx.adobe.com/photoshop/desktop/text-typography/select-manage-fonts/use-opentype-variable-fonts.html)
 - [Affinity Designer: Character panel](https://s3-eu-west-1.amazonaws.com/affinity-docs/help/designer/en-US.lproj/pages/Panels/characterPanel.html)
@@ -227,9 +201,6 @@ User and community reports (anecdotal):
 - [Adobe community: After Effects font preview errors](https://community.adobe.com/bug-reports-528/after-effects-font-dropdown-throws-cannot-create-font-x-repeatedly-freezes-on-scroll-survives-full-reinstall-1639469)
 - [Adobe community: Photoshop font arrow-key navigation](https://community.adobe.com/bug-reports-711/p-can-t-scroll-through-fonts-using-arrow-keys-660059/index4.html)
 - [Affinity community: variable-font support request](https://www.reddit.com/r/affinity/comments/1czaz5k)
-- [Affinity forum: font substitution versus permanent replacement](https://forum.affinity.serif.com/index.php?/topic/137987-font-substitution-for-all-missing-fonts/)
-- [Affinity forum: font manager replacement confusion](https://forum.affinity.serif.com/index.php?/topic/185303-font-manager-cant-find-the-font-and-wont-replace-the-missing-font/)
-- [Affinity forum: variable-font kerning issue](https://forum.affinity.serif.com/index.php?/topic/202885-variable-font-support-kerning-issue/)
 
 Community reports are useful for identifying failure modes, but they are not
 treated as official product guarantees or statistically representative user

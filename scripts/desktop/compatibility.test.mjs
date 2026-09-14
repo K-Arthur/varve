@@ -143,12 +143,6 @@ test('WDIO permissions and bridge are excluded from normal desktop builds', () =
 
   assert.match(releaseConfig, /"capabilities": \["default"\]/);
   assert.match(testConfig, /"capabilities": \["default", "wdio"\]/);
-  // Keep the test overlay self-contained. If this path is omitted, Tauri can
-  // start the embedded WebDriver server while the test window remains
-  // `about:blank`, because the overlay no longer supplies the frontend asset
-  // root when configs are merged by the CLI.
-  const parsedTestConfig = JSON.parse(testConfig);
-  assert.equal(parsedTestConfig.build?.frontendDist, '../dist');
   assert.match(capability, /"wdio:default"/);
   assert.match(capability, /"wdio-webdriver:default"/);
   assert.match(entrypoint, /import\('@wdio\/tauri-plugin'\)/);

@@ -185,9 +185,14 @@ describe('SelectionSourcesPanel subject proposals', () => {
     expect(mockProposeSubjects).toHaveBeenCalledWith(
       expect.objectContaining({ quality: 'fast', installedModelIds: ['u2netp'] }),
     );
+    expect(editor.current?.state.areaSelection ?? null).toBeNull();
     const proposalsSection = screen.getByLabelText('Subject proposals');
     expect(within(proposalsSection).getByText(/U²-Net Light estimate/)).toBeTruthy();
 
+    fireEvent.click(screen.getByRole('button', { name: /^All foreground/ }));
+    await waitFor(() => expect(editor.current?.state.areaSelection ?? null).not.toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: 'Use selected candidate' }));
+    await waitFor(() => expect(editor.current?.state.areaSelection ?? null).not.toBeNull());
     fireEvent.click(screen.getByRole('button', { name: 'Apply as mask' }));
     await waitFor(() => {
       const node = editor.current?.state.document.nodes.photo;

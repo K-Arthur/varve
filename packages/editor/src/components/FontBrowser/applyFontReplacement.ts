@@ -50,7 +50,6 @@ export function applyFontReplacement(
     {
       nodes: updated.nodes,
       styles: updated.styles,
-      stories: updated.stories,
       fontManifest: {
         version: 2,
         fonts: doc.fontManifest?.fonts ?? [],
@@ -64,7 +63,6 @@ export function applyFontReplacement(
     ...doc,
     nodes: updated.nodes as Document['nodes'],
     ...(updated.styles ? { styles: updated.styles as Document['styles'] } : {}),
-    ...(updated.stories ? { stories: updated.stories as Document['stories'] } : {}),
     fontManifest: manifest,
   };
 }
@@ -114,25 +112,17 @@ function resolveReplacement(
   doc: Document,
   replacement: FontReplacement,
   scope: FontReplacementScope | undefined,
-): {
-  nodes: Document['nodes'];
-  styles: Document['styles'] | undefined;
-  stories: Document['stories'] | undefined;
-} {
+): { nodes: Document['nodes']; styles: Document['styles'] | undefined } {
   const resolver = new FontResolver();
   if (scope?.nodeIds !== undefined) {
-    if (scope.nodeIds.length === 0) {
-      return { nodes: doc.nodes, styles: doc.styles, stories: doc.stories };
-    }
+    if (scope.nodeIds.length === 0) return { nodes: doc.nodes, styles: doc.styles };
 
     const targetIds = new Set(scope.nodeIds);
     const scopedNodes = { ...doc.nodes };
     const styleBackedTargets = new Set<string>();
-    const scopedStoryIds = new Set<string>();
     for (const nodeId of targetIds) {
       const node = doc.nodes[nodeId];
       if (node?.kind !== 'text') continue;
-      if (node.storyBinding?.storyId) scopedStoryIds.add(node.storyBinding.storyId);
       const style = node.styleId ? doc.styles?.[node.styleId] : undefined;
       if (style?.type !== 'text') continue;
       const overrides = node.styleOverrides ?? {};
@@ -154,18 +144,7 @@ function resolveReplacement(
     }
 
     const resolved = resolver.applyReplacement(
-      {
-        nodes: scopedNodes,
-        styles: undefined,
-        stories:
-          scopedStoryIds.size > 0
-            ? Object.fromEntries(
-                [...scopedStoryIds]
-                  .filter((storyId) => doc.stories?.[storyId])
-                  .map((storyId) => [storyId, doc.stories![storyId]]),
-              )
-            : undefined,
-      } as unknown as ResolverDocument,
+      { nodes: scopedNodes, styles: undefined } as unknown as ResolverDocument,
       replacement,
     );
     const nodes = { ...doc.nodes };
@@ -189,27 +168,16 @@ function resolveReplacement(
         nodes[nodeId] = updated as Document['nodes'][string];
       }
     }
-    let stories = doc.stories;
-    if (resolved.stories && doc.stories) {
-      stories = { ...doc.stories };
-      for (const storyId of scopedStoryIds) {
-        const updatedStory = resolved.stories[storyId];
-        if (updatedStory) {
-          stories[storyId] = updatedStory as NonNullable<Document['stories']>[string];
-        }
-      }
-    }
-    return { nodes, styles: doc.styles, stories };
+    return { nodes, styles: doc.styles };
   }
 
   const resolved = resolver.applyReplacement(
-    { nodes: doc.nodes, styles: doc.styles, stories: doc.stories } as unknown as ResolverDocument,
+    { nodes: doc.nodes, styles: doc.styles } as unknown as ResolverDocument,
     replacement,
   );
   return {
     nodes: resolved.nodes as Document['nodes'],
     styles: resolved.styles as Document['styles'] | undefined,
-    stories: resolved.stories as Document['stories'] | undefined,
   };
 }
 
@@ -277,7 +245,6 @@ export function restoreFontReplacement(
     ...doc,
     nodes: updated.nodes as Document['nodes'],
     ...(updated.styles ? { styles: updated.styles as Document['styles'] } : {}),
-    ...(updated.stories ? { stories: updated.stories as Document['stories'] } : {}),
     fontManifest: manifest,
   };
 }

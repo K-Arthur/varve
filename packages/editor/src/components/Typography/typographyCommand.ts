@@ -28,12 +28,6 @@ export interface TypographyCommandSurface {
   applyFormatToSelection: (format: CharacterFormat) => void;
   setPendingFormat: (format: CharacterFormat) => void;
   groupCompoundOperation: (label: string, action: () => void) => void;
-  /** Begin a presentation-only edit that can be discarded without history. */
-  beginPreview?: () => void;
-  /** Commit the active presentation-only edit as one history entry. */
-  commitPreview?: () => void;
-  /** Restore the document captured before the presentation-only edit. */
-  abortPreview?: () => void;
 }
 
 export type TypographyDisplayField =
@@ -304,10 +298,6 @@ export function applyTypographyChanges(
   id: NodeId,
   changes: TypographyTextChanges,
 ): void {
-  // A family row can resolve to the already-authored family (for example
-  // after hovering it in the picker). Avoid cloning the node or opening an
-  // empty history transaction for that no-op.
-  if (Object.keys(changes).length === 0) return;
   const format = toCharacterFormat(changes);
   const ownsTextRange =
     surface.selectedIds.length === 1 &&

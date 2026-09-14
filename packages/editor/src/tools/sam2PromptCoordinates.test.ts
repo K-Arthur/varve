@@ -22,8 +22,6 @@ describe('normalizeSam2Prompts', () => {
       200,
       100,
     );
-    expect(result.unmappedPointCount).toBe(0);
-    expect(result.unmappedBoxCornerCount).toBe(0);
     expect(result.points).toEqual([
       { x: 0.25, y: 0.25, label: 1 },
       { x: 0.75, y: 0.75, label: 0 },
@@ -42,32 +40,16 @@ describe('normalizeSam2Prompts', () => {
       200,
       100,
     );
-    expect(result.unmappedPointCount).toBe(0);
-    expect(result.unmappedBoxCornerCount).toBe(0);
     expect(result.box).toEqual({ x1: 0.5, y1: 0, x2: 0.9, y2: 0.6 });
   });
 
-  it('reports a partially visible box instead of silently dropping corners', () => {
+  it('keeps a partially visible box usable and clamps source coordinates', () => {
     const result = normalizeSam2Prompts(
       { box: { x1: 0, y1: 0, x2: 10, y2: 10 } },
       mapper({ '0,0': { x: -10, y: -20 }, '10,10': { x: 220, y: 120 } }),
       200,
       100,
     );
-    expect(result.box).toBeUndefined();
-    expect(result.unmappedPointCount).toBe(0);
-    expect(result.unmappedBoxCornerCount).toBe(2);
-  });
-
-  it('reports a point outside the visible image instead of dropping it', () => {
-    const result = normalizeSam2Prompts(
-      { points: [{ x: 10, y: 20, label: 1 }] },
-      mapper({}),
-      200,
-      100,
-    );
-    expect(result.points).toEqual([]);
-    expect(result.unmappedPointCount).toBe(1);
-    expect(result.unmappedBoxCornerCount).toBe(0);
+    expect(result.box).toEqual({ x1: 0, y1: 0, x2: 1, y2: 1 });
   });
 });

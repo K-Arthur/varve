@@ -984,18 +984,6 @@ describe('fontIdentityKey', () => {
 });
 
 describe('error handling', () => {
-  it('honours an already-aborted validation signal before reading tables', async () => {
-    const controller = new AbortController();
-    controller.abort();
-    await expect(parseFontData(buildTestFont(), { signal: controller.signal })).rejects.toThrow(
-      /cancelled/i,
-    );
-  });
-
-  it('enforces the whole-operation parser deadline', async () => {
-    await expect(parseFontData(buildTestFont(), { deadlineMs: 0 })).rejects.toThrow(/timed out/i);
-  });
-
   it('handles empty font data gracefully', async () => {
     await expect(parseFontData(new ArrayBuffer(0))).rejects.toThrow();
   });

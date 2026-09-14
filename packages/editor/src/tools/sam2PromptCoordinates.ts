@@ -16,10 +16,6 @@ export interface Sam2WorldPrompts {
 export interface Sam2NormalizedPrompts {
   points?: Array<{ x: number; y: number; label: 0 | 1 }>;
   box?: { x1: number; y1: number; x2: number; y2: number };
-  /** Prompts that could not be mapped to visible source-image pixels. */
-  unmappedPointCount: number;
-  /** Box corners that could not be mapped to visible source-image pixels. */
-  unmappedBoxCornerCount: number;
 }
 
 function clamp01(value: number): number {
@@ -37,28 +33,14 @@ export function normalizeSam2Prompts(
   naturalW: number,
   naturalH: number,
 ): Sam2NormalizedPrompts {
-  const result: Sam2NormalizedPrompts = {
-    unmappedPointCount: 0,
-    unmappedBoxCornerCount: 0,
-  };
-  if (!imageMapper || !Number.isFinite(naturalW) || !Number.isFinite(naturalH)) {
-    result.unmappedPointCount = prompts.points?.length ?? 0;
-    result.unmappedBoxCornerCount = prompts.box ? 4 : 0;
-    return result;
-  }
-  if (naturalW <= 0 || naturalH <= 0) {
-    result.unmappedPointCount = prompts.points?.length ?? 0;
-    result.unmappedBoxCornerCount = prompts.box ? 4 : 0;
-    return result;
-  }
+  const result: Sam2NormalizedPrompts = {};
+  if (!imageMapper || !Number.isFinite(naturalW) || !Number.isFinite(naturalH)) return result;
+  if (naturalW <= 0 || naturalH <= 0) return result;
 
   if (prompts.points) {
     result.points = prompts.points.flatMap((point) => {
       const source = imageMapper.mapWorldPoint({ x: point.x, y: point.y });
-      if (!finitePoint(source)) {
-        result.unmappedPointCount += 1;
-        return [];
-      }
+      if (!finitePoint(source)) return [];
       return [
         { x: clamp01(source.x / naturalW), y: clamp01(source.y / naturalH), label: point.label },
       ];
@@ -76,12 +58,7 @@ export function normalizeSam2Prompts(
     const sourceCorners = worldCorners
       .map((corner) => imageMapper.mapWorldPoint(corner))
       .filter(finitePoint);
-    result.unmappedBoxCornerCount = worldCorners.length - sourceCorners.length;
-    // A box is an explicit spatial constraint. Dropping one or more corners
-    // silently changes that constraint, so only expose it when its complete
-    // geometry was mapped. Callers can then fail closed with an actionable
-    // message instead of asking the model to guess the missing geometry.
-    if (result.unmappedBoxCornerCount === 0) {
+    if (sourceCorners.length > 0) {
       const minX = Math.min(...sourceCorners.map((point) => point.x));
       const minY = Math.min(...sourceCorners.map((point) => point.y));
       const maxX = Math.max(...sourceCorners.map((point) => point.x));

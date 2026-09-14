@@ -436,7 +436,6 @@ async function prepareClipboardFontDependencies(
 /** Restore permitted clipboard font bytes without dirtying the document. */
 export async function restoreClipboardFontDependencies(
   dependencies: readonly ClipboardFontDependency[] | undefined,
-  documentId?: string,
 ): Promise<{ restored: number; skipped: number }> {
   let restored = 0;
   let skipped = 0;
@@ -459,7 +458,6 @@ export async function restoreClipboardFontDependencies(
       collectionIndex: reference.collectionIndex,
       faceKey: fontReferenceKey(reference),
       ...(dependency.postScriptName ? { postScriptName: dependency.postScriptName } : {}),
-      ...(documentId ? { documentId, scope: 'project' as const } : {}),
     };
     try {
       const buffer = bytes.buffer.slice(
@@ -1186,10 +1184,9 @@ function createClipboardResult(): UnifiedClipboardResult {
 
 async function hydrateClipboardFonts(
   result: UnifiedClipboardResult,
-  documentId?: string,
 ): Promise<UnifiedClipboardResult> {
   if (result.varveData?.fontDependencies) {
-    await restoreClipboardFontDependencies(result.varveData.fontDependencies, documentId);
+    await restoreClipboardFontDependencies(result.varveData.fontDependencies);
   }
   return result;
 }
@@ -1330,7 +1327,7 @@ async function readClipboardItem(
   }
 }
 
-export async function readClipboardUnified(documentId?: string): Promise<UnifiedClipboardResult> {
+export async function readClipboardUnified(): Promise<UnifiedClipboardResult> {
   const result = createClipboardResult();
   try {
     const items = await navigator.clipboard.read();
@@ -1338,7 +1335,7 @@ export async function readClipboardUnified(documentId?: string): Promise<Unified
   } catch {
     // Clipboard read failed or permission denied
   }
-  return hydrateClipboardFonts(result, documentId);
+  return hydrateClipboardFonts(result);
 }
 
 /**
@@ -1353,11 +1350,10 @@ export async function readClipboardUnified(documentId?: string): Promise<Unified
  */
 export async function readFromClipboardEvent(
   event: ClipboardEvent,
-  documentId?: string,
 ): Promise<UnifiedClipboardResult> {
   const dt = event.clipboardData;
   if (!dt) return createClipboardResult();
-  return hydrateClipboardFonts(await readClipboardSnapshot(snapshotClipboardData(dt)), documentId);
+  return hydrateClipboardFonts(await readClipboardSnapshot(snapshotClipboardData(dt)));
 }
 
 interface ClipboardFileSnapshot {
@@ -1681,7 +1677,6 @@ export function cancelPasteFallback(request?: TransferRequest): void {
 export async function readClipboardUnifiedWithFallback(
   platform?: Pick<Platform, 'kind' | 'readClipboardData' | 'readClipboardImage'>,
   request?: TransferRequest,
-  documentId?: string,
 ): Promise<UnifiedClipboardResult> {
   // An explicit request is authoritative. For compatibility with menu and
   // test callers that do not have a request, only reuse the latest request if
@@ -1704,9 +1699,9 @@ export async function readClipboardUnifiedWithFallback(
   // into a pasted text layer.
   const eventResult = eventSnapshot ? await readClipboardSnapshot(eventSnapshot) : null;
   if (eventResult && hasRichClipboardContent(eventResult)) {
-    return hydrateClipboardFonts(eventResult, documentId);
+    return hydrateClipboardFonts(eventResult);
   }
-  const apiResult = await readClipboardUnified(documentId);
+  const apiResult = await readClipboardUnified();
   if (hasRichClipboardContent(apiResult)) {
     return apiResult;
   }
@@ -1716,8 +1711,7 @@ export async function readClipboardUnifiedWithFallback(
       if (nativeItem && nativeItem.data.byteLength <= MAX_CLIPBOARD_JSON_BYTES) {
         if (isVarvePayloadType(nativeItem.mimeType)) {
           const parsed = parseClipboardData(new TextDecoder().decode(nativeItem.data));
-          if (parsed)
-            return hydrateClipboardFonts({ varveData: parsed, importItems: [] }, documentId);
+          if (parsed) return hydrateClipboardFonts({ varveData: parsed, importItems: [] });
         } else if (
           nativeItem.mimeType === 'image/svg+xml' ||
           nativeItem.mimeType === 'text/svg+xml'

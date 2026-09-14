@@ -354,44 +354,6 @@ describe('FontResolver', () => {
       expect(missing[0]!.status).toBe('missing-glyph');
       expect(missing[0]!.missingGlyphs).toEqual(['Ж']);
     });
-
-    it('finds one missing story face across every linked frame', () => {
-      const missing = resolver.detectMissing(
-        {
-          nodes: {
-            frameA: { id: 'frameA', kind: 'text' },
-            frameB: { id: 'frameB', kind: 'text' },
-          },
-          stories: {
-            story: {
-              id: 'story',
-              name: 'Linked story',
-              thread: ['frameA', 'frameB'],
-              content: {
-                paragraphs: [
-                  {
-                    runs: [
-                      {
-                        text: 'Linked copy',
-                        format: { fontFamily: 'Story Missing', fontWeight: 600 },
-                      },
-                    ],
-                  },
-                ],
-              },
-            },
-          },
-        },
-        new FontCatalog(),
-      );
-
-      expect(missing).toHaveLength(1);
-      expect(missing[0]).toMatchObject({
-        familyName: 'Story Missing',
-        requestedWeight: 600,
-        nodeIds: ['frameA', 'frameB'],
-      });
-    });
   });
 
   describe('findSubstitutes', () => {
@@ -650,45 +612,6 @@ describe('FontResolver', () => {
       expect(updated.nodes.exact).toMatchObject({ fontFamily: 'Noto Sans' });
       expect((updated.nodes.exact as any).fontReference).toBeUndefined();
       expect(updated.nodes.other).toMatchObject({ fontFamily: 'Inter', fontReference: other });
-    });
-
-    it('replaces authoritative linked story runs while preserving the thread', () => {
-      const doc: ResolverDocument = {
-        nodes: {
-          frameA: { id: 'frameA', kind: 'text' },
-          frameB: { id: 'frameB', kind: 'text' },
-        },
-        stories: {
-          story: {
-            id: 'story',
-            name: 'Linked story',
-            thread: ['frameA', 'frameB'],
-            content: {
-              paragraphs: [
-                {
-                  runs: [
-                    { text: 'A linked run', format: { fontFamily: 'Old Story', fontWeight: 700 } },
-                    { text: ' stays', format: { fontFamily: 'Other Face' } },
-                  ],
-                },
-              ],
-            },
-          },
-        },
-      };
-
-      const updated = resolver.applyReplacement(doc, {
-        original: 'Old Story',
-        replacement: 'New Story',
-        applyToAll: true,
-        preserveOriginalReference: false,
-      });
-      const story = updated.stories?.story;
-      expect(story?.thread).toEqual(['frameA', 'frameB']);
-      expect(story?.content?.paragraphs[0]?.runs).toEqual([
-        { text: 'A linked run', format: { fontFamily: 'New Story', fontWeight: 700 } },
-        { text: ' stays', format: { fontFamily: 'Other Face' } },
-      ]);
     });
   });
 

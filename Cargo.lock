@@ -732,6 +732,8 @@ dependencies = [
 [[package]]
 name = "diffusion-rs"
 version = "0.1.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "746a1e78354f170748282c5edde94e75746b327fde9e3e5ecdab18c4968db59e"
 dependencies = [
  "chrono",
  "derive_builder",

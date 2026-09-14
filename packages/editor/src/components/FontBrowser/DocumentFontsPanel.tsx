@@ -201,7 +201,7 @@ export function DocumentFontsPanel() {
           </button>
           <span aria-current="page">Browse all fonts</span>
         </div>
-        <FontBrowser layout="panel" showDownloadable documentId={state.document.id} />
+        <FontBrowser layout="panel" showDownloadable />
       </div>
     );
   }
@@ -316,7 +316,6 @@ export function DocumentFontsPanel() {
         <FontBrowserDialog
           open
           selectedFamily={replacementTarget.family}
-          documentId={state.document.id}
           onClose={() => setReplacementTarget(null)}
           onSelect={(family) =>
             applyReplacement(replacementTarget, {

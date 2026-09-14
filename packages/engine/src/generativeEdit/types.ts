@@ -55,7 +55,6 @@ export type GenerativeEditCapabilityParameter =
   | 'strength'
   | 'steps'
   | 'guidanceScale'
-  | 'imageGuidanceScale'
   | 'variations'
   | 'contextPadding'
   | 'maskExpansion'
@@ -120,8 +119,6 @@ export interface GenerativeEditRequest {
   strength?: number;
   steps?: number;
   guidanceScale?: number;
-  /** Separate image-conditioning guidance used by local inpainting models. */
-  imageGuidanceScale?: number;
   outputWidth?: number;
   outputHeight?: number;
   contextPadding?: number;

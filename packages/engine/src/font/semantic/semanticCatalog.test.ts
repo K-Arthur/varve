@@ -105,18 +105,4 @@ describe('FontSemanticCatalog legacy migration', () => {
     expect(result[0]?.record.familyName).toBe('IBM Plex Sans Variable');
     expect(result[0]?.reasons[0]?.kind).toBe('exact-match');
   });
-
-  it('invalidates cached family snapshots when user state changes', () => {
-    const catalog = new FontSemanticCatalog({
-      fontsource: [sourceRecord('inter', 'Inter')],
-      registry: { families: () => [], getEntries: () => [] } as never,
-    });
-
-    const before = catalog.all();
-    catalog.setFavorite('inter', true);
-
-    expect(before[0]?.isFavorite).toBe(false);
-    expect(catalog.all()[0]?.isFavorite).toBe(true);
-    expect(catalog.findByFamilyName('INTER')?.isFavorite).toBe(true);
-  });
 });

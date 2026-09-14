@@ -886,22 +886,6 @@ export function useSam2Segmentation(
         return null;
       }
       const normPrompts = normalizeSam2Prompts(prompts, imageMapper, naturalW, naturalH);
-      if (normPrompts.unmappedPointCount > 0 || normPrompts.unmappedBoxCornerCount > 0) {
-        const unmappedParts = [
-          normPrompts.unmappedPointCount > 0
-            ? `${normPrompts.unmappedPointCount} point${normPrompts.unmappedPointCount === 1 ? '' : 's'}`
-            : null,
-          normPrompts.unmappedBoxCornerCount > 0
-            ? `${normPrompts.unmappedBoxCornerCount} box corner${normPrompts.unmappedBoxCornerCount === 1 ? '' : 's'}`
-            : null,
-        ].filter((part): part is string => part !== null);
-        markFailure({
-          code: 'prompt_out_of_bounds',
-          message: `Object Selection could not map ${unmappedParts.join(' and ')} to visible image pixels. Place every prompt inside the image and try again.`,
-          retryable: true,
-        });
-        return null;
-      }
       try {
         const host = getInferenceWorkerHost();
         const encoderArtifact = getModelById(encoderId)?.checksum || resolvedEncoderPath;

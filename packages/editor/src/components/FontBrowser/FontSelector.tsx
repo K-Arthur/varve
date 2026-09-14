@@ -35,12 +35,6 @@ export interface FontSelectorProps {
   onChange: (family: string) => void;
   /** Apply an exact registered face or named variable instance. */
   onSelectFace?: (selection: FontFaceSelection) => void;
-  /** Preview a family while the user navigates without changing document history. */
-  onPreviewFamily?: (family: string) => void;
-  /** Preview an exact registered face while the user navigates. */
-  onPreviewFace?: (selection: FontFaceSelection) => void;
-  /** Clear a presentation-only preview when the picker is dismissed. */
-  onClearPreview?: () => void;
   /** Exact artifact/member requested by the current text target, if any. */
   fontReference?: FontReference;
   /** Authored variation coordinates used to distinguish named instances. */
@@ -190,9 +184,6 @@ export function FontSelector({
   value,
   onChange,
   onSelectFace,
-  onPreviewFamily,
-  onPreviewFace,
-  onClearPreview,
   fontReference,
   variableAxes,
   mixed = false,
@@ -233,10 +224,6 @@ export function FontSelector({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [highlightedFaceKey, setHighlightedFaceKey] = useState<string | null>(null);
   const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    return () => onClearPreview?.();
-  }, [onClearPreview]);
 
   const results = useMemo(
     () =>
@@ -416,10 +403,9 @@ export function FontSelector({
       const clamped = Math.max(-1, Math.min(index, flatList.length - 1));
       setHighlightedIndex(clamped);
       setHighlightedFaceKey(null);
-      if (clamped >= 0) onPreviewFamily?.(flatList[clamped]!.familyName);
       if (clamped >= 0 && isOpen) scrollToFontIndex(clamped);
     },
-    [flatList, isOpen, onPreviewFamily, scrollToFontIndex],
+    [flatList.length, isOpen, scrollToFontIndex],
   );
 
   useEffect(() => {
@@ -515,8 +501,7 @@ export function FontSelector({
     setIsOpen(false);
     setHighlightedIndex(-1);
     setHighlightedFaceKey(null);
-    onClearPreview?.();
-  }, [onClearPreview]);
+  }, []);
 
   const scrollToRow = useCallback(
     (rowKey: string) => {
@@ -530,11 +515,9 @@ export function FontSelector({
     (rowKey: string) => {
       setHighlightedIndex(-1);
       setHighlightedFaceKey(rowKey);
-      const row = rows.find((candidate) => candidate.kind === 'face' && candidate.key === rowKey);
-      if (row?.kind === 'face') onPreviewFace?.(row.selection);
       if (isOpen) scrollToRow(rowKey);
     },
-    [isOpen, onPreviewFace, rows, scrollToRow],
+    [isOpen, scrollToRow],
   );
 
   const handleInputKeyDown = useCallback(

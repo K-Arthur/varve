@@ -896,7 +896,6 @@ export async function exportNodeAsPdf(
   );
   const fontRecords = await collectFontData(fontDataRequests, {
     fetchBundled: true,
-    failOnTimeout: true,
     signal: undefined,
   });
   assertExportFontData(fontRequests, fontRecords);
@@ -989,7 +988,6 @@ export async function exportNodeAsPdfX(
   );
   const fontRecords = await collectFontData(fontDataRequests, {
     fetchBundled: true,
-    failOnTimeout: true,
     signal: undefined,
   });
   assertExportFontData(fontRequests, fontRecords);

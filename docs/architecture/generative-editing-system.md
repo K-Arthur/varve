@@ -397,12 +397,6 @@ model bytes. Imported safe-format artifacts are hashed and must pass an actual
 masked helper run before prompt modes are enabled. The helper validates that
 the decoded source and mask dimensions match the declared working frame before
 loading weights, so it never guesses at resampling or mask alignment. The
-desktop command repeats this boundary before resource/model lookup: it rejects
-unsupported modes, non-finite or out-of-range strength/guidance values, steps
-outside 1–100, prompts over 16,384 characters, and source/mask buffers whose
-byte lengths or working-frame dimensions do not match the request. These
-checks protect the native process from malformed IPC payloads; they do not
-make an unqualified model ready. The
 desktop workflow supports an explicit, allowlisted download or user import,
 then validation; downloads resume through a native partial file, verify the
 pinned SHA-256, and install atomically. There is no silent model download.

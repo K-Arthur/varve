@@ -39,12 +39,9 @@ browser and native stores can be validated without a mounted editor surface.
   exposes the shared variable-aware weight control, and commits a draft size
   on blur or Enter. Its family field and controls use the 32px compact token;
   narrow layouts scroll the row instead of truncating the family into a static
-  160px label. It now exposes the same capability-gated Bold action as the
-  floating text bar, so contextual editing cannot silently omit a real bold
-  face or synthesize one. Its surface now uses the floating palette's fluid
-  border-box height and vertical padding as well, keeping the two text
-  toolbars on one centerline across viewport widths and coarse-pointer
-  controls.
+  160px label. Its surface now uses the floating palette's fluid border-box
+  height and vertical padding as well, keeping the two text toolbars on one
+  centerline across viewport widths and coarse-pointer controls.
 - The Logo wordmark panel now uses the shared family combobox, an explicit
   Browse fonts dialog, and direct weight/style controls. Family-only changes
   clear stale exact references; an expanded registered face applies its

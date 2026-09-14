@@ -53,7 +53,6 @@ export function LogoTypographySection({ node }: { node: TextNode }) {
         open={fontBrowserOpen}
         onClose={() => setFontBrowserOpen(false)}
         selectedFamily={node.fontFamily}
-        documentId={editor.state.document.id}
         onSelect={(family) => {
           patch(fontFamilyChanges(family || undefined));
           setFontBrowserOpen(false);
