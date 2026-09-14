@@ -77,7 +77,9 @@ test.describe('Logo panel', () => {
 
     // Turn kerning off.
     await kerning.click();
-    await page.getByRole('option', { name: 'Off' }).click();
+    const kerningListboxId = await kerning.getAttribute('aria-controls');
+    if (!kerningListboxId) throw new Error('Kerning select did not expose its listbox');
+    await page.locator(`#${kerningListboxId}`).getByRole('option', { name: 'Off' }).click();
     await expect(kerning).toHaveText(/Off/);
 
     // Per-glyph controls are present.
