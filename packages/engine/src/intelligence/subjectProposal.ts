@@ -59,6 +59,12 @@ const NATIVE_MODEL: Partial<Record<ModelSubjectSource, RemovalMethod>> = {
 const MIN_COMPONENT_FRACTION = 0.001;
 /** Alpha level that separates proposed foreground from background. */
 const FOREGROUND_THRESHOLD = 128;
+/**
+ * Above this source size, only the union candidate is offered. Region
+ * candidates are full source-resolution buffers, and a large photo must not
+ * hold several of them at once.
+ */
+const MAX_REGION_CANDIDATE_PIXELS = 4_000_000;
 
 export function modelForSubjectQuality(quality: SubjectProposalQuality): ModelSubjectSource {
   return QUALITY_MODEL[quality];
@@ -408,12 +414,14 @@ export async function proposeSubjects(
         });
         continue;
       }
-      const set = proposalSetFromAlpha(
-        alpha,
-        result.width,
-        result.height,
-        request.maxRegionCandidates ?? 4,
-      );
+      const sourcePixels = result.width * result.height;
+      // Every region candidate is a full source-resolution copy. On very large
+      // sources, offering separate regions would multiply the largest buffer in
+      // the session, so keep only the soft union there; the user still gets the
+      // region tooling through the refine/selection path.
+      const regionCandidates =
+        sourcePixels > MAX_REGION_CANDIDATE_PIXELS ? 0 : (request.maxRegionCandidates ?? 4);
+      const set = proposalSetFromAlpha(alpha, result.width, result.height, regionCandidates);
       if (set.candidates.length === 0) {
         attempts.push({
           modelId: attempt.modelId,

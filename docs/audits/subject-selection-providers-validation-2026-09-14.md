@@ -21,7 +21,8 @@ and the affected checks for this slice were run and recorded below instead.
 | `pnpm exec vitest run packages/engine/src/backgroundRemoval/__tests__/modelSpec.test.ts packages/engine/src/backgroundRemoval/__tests__/modelSelection.test.ts` | 13 passed |
 | `pnpm exec vitest run packages/engine/src/backgroundRemoval/__tests__/index.test.ts` | 21 passed (includes the new BiRefNet budget-block regression) |
 | `pnpm exec vitest run packages/engine/src/backgroundRemoval/__tests__/explicitModelRouting.test.ts` | 5 passed |
-| `pnpm exec vitest run packages/engine/src/intelligence/subjectProposal.test.ts packages/engine/src/intelligence/foregroundSelect.test.ts` | 23 passed |
+| `pnpm exec vitest run packages/engine/src/intelligence/subjectProposal.test.ts packages/engine/src/intelligence/foregroundSelect.test.ts` | 23 passed, then 13 passed after the large-source candidate bound |
+| `pnpm exec vitest run packages/engine/src/inference/models/...` (MobileSAM contract) | not this slice |
 | `pnpm exec vitest run packages/editor/src/components/Inspector/SelectionSourcesPanel.subject.test.tsx packages/editor/src/components/Inspector/SelectionSourcesPanel.test.tsx` | 4 passed |
 | `pnpm exec vitest run packages/engine/src/backgroundRemoval/__tests__` (shared suite) | 553 passed, 6 failed — all six are `modelLoader.test.ts` failures caused by the concurrent MobileSAM download-verification refactor; they passed before that change and are not in this slice |
 | `pnpm --filter @varve/engine typecheck` | No errors in this slice's files (pre-existing errors in unrelated in-flight files) |
@@ -44,6 +45,25 @@ U²-Net Light, no model download, licensed fixtures
 - Cluttered interior → the estimate selects the curtain/wall region and
   excludes the framed portraits and furniture; recorded as the honest weak
   case that motivates review-before-apply.
+
+## Existing SAM2 prompted baseline (regression check)
+
+`VARVE_SAM2_REAL_MODEL=1 VARVE_E2E_PORT=1429 VARVE_SAM2_PROFILE_DIR=test-results/profile-sam2-real-fresh pnpm exec playwright test tests/e2e/canvas/object-selection-real-model.spec.ts --project=chromium`
+on a fresh profile (which also re-verified the served repaired encoder checksum
+`b4cfd6c8…` and decoder `f5a4bd65…`).
+
+- The real prompt produced `Preview ready · 88% score · 3 candidate masks` in
+  **30 s** cold, so the existing prompted path still works after this slice's
+  provider/admission changes.
+- The spec's final assertion expects the label `model score`; the shared
+  working tree is mid-refactor by a concurrent agent
+  (`useSam2Segmentation.ts` is switching to `formatSelectionScore` /
+  `scoreSource`), so the live label currently reads `score` and the assertion
+  fails on the string only. The preview, candidate count, and latency were all
+  produced by the real model.
+- An earlier attempt reused `test-results/profile-sam2-real`, whose profile
+  was stuck on the Safe Mode screen (left by another crashed run); that run's
+  timeout was environmental. The fresh-profile run above is the record.
 
 ## What was not run (and why)
 

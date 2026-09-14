@@ -217,6 +217,38 @@ describe('proposeSubjects', () => {
     expect(result.attempts.at(-1)).toMatchObject({ modelId: 'model-free', outcome: 'used' });
   });
 
+  it('keeps only the union candidate on very large sources to bound memory', async () => {
+    const width = 2100;
+    const height = 2000;
+    const alpha = new Uint8Array(width * height);
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const first = (x - 300) ** 2 + (y - 300) ** 2 <= 80 * 80;
+        const second = (x - 1500) ** 2 + (y - 1200) ** 2 <= 90 * 90;
+        if (first || second) alpha[y * width + x] = 255;
+      }
+    }
+    mockRemoveBackground.mockReset().mockResolvedValue({
+      maskDataUrl: 'data:image/png;base64,x',
+      confidence: 0.9,
+      method: 'ai-balanced',
+      processingTimeMs: 5,
+      width,
+      height,
+      rawMask: alpha,
+    });
+
+    const result = await proposeSubjects({
+      ...BASE_ROUTING,
+      quality: 'fast',
+      sourceWidth: width,
+      sourceHeight: height,
+      imageData: { data: new Uint8ClampedArray(4), width, height } as ImageData,
+    });
+
+    expect(result.set.candidates.map((candidate) => candidate.label)).toEqual(['All foreground']);
+  });
+
   it('never substitutes a different model when the requested one is missing', async () => {
     mockRemoveBackground.mockReset().mockResolvedValue({
       maskDataUrl: 'data:image/png;base64,x',
