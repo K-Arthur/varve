@@ -319,6 +319,65 @@ describe('FontDetectSection', () => {
     expect(announce).toHaveBeenCalledWith('Local OCR recognized 2 text regions');
   });
 
+  it('lets the user select OCR regions before comparing fonts', async () => {
+    vi.mocked(hasLocalFontOcr).mockResolvedValue(true);
+    render(<FontDetectSection nodes={[image]} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Recognize text locally' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /OCR region 1: Sample/ })).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /OCR region 1: Sample/ }));
+    expect(screen.getByRole('textbox', { name: 'Text in image (optional)' })).toHaveValue('text');
+    expect(screen.getByText(/1\s*\/\s*2\s*selected/)).toBeInTheDocument();
+    expect(announce).toHaveBeenCalledWith('Excluded OCR region 1');
+  });
+
+  it('requires review of a low-confidence target preview before applying', async () => {
+    vi.mocked(detectFont).mockResolvedValueOnce({
+      status: 'low-confidence',
+      candidates: [
+        {
+          rank: 0,
+          family: 'Unknown Sans',
+          style: 'Regular',
+          confidenceCategory: 'low-confidence',
+          confidenceScore: 0.21,
+          matchType: 'unknown',
+          isAvailable: false,
+          source: 'unknown',
+        },
+      ],
+      features: null,
+      message: 'Low confidence',
+      elapsedMs: 2,
+      usedClassifier: true,
+      resolvedMode: 'classifier',
+      qualityWarnings: [],
+    });
+    render(<FontDetectSection nodes={[image]} />);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Existing text target' }), {
+      target: { value: 'text-target' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Identify font in image' }));
+
+    await waitFor(() => expect(screen.getByText('Preview on Headline')).toBeInTheDocument());
+    const apply = screen.getByRole('button', {
+      name: 'Apply Unknown Sans to existing text target',
+    });
+    expect(apply).toBeDisabled();
+    expect(screen.getByText(/Confidence is low/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Review preview' }));
+    expect(apply).toBeEnabled();
+    fireEvent.click(apply);
+    expect(groupCompoundOperation).toHaveBeenCalledWith(
+      'Apply identified font',
+      expect.any(Function),
+    );
+  });
+
   it('keeps manual entry available when local OCR assets are missing', async () => {
     render(<FontDetectSection nodes={[image]} />);
 

@@ -36,6 +36,58 @@
   flex-wrap: wrap;
 }
 
+.font-detect-ocr-preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+}
+
+.font-detect-ocr-preview__canvas {
+  position: relative;
+  width: 100%;
+  min-height: 4rem;
+  overflow: hidden;
+  background-color: var(--color-surface-base);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+}
+
+.font-detect-ocr-preview__box {
+  position: absolute;
+  box-sizing: border-box;
+  min-width: 12px;
+  min-height: 12px;
+  padding: 0;
+  background: color-mix(in oklab, var(--color-interactive-default) 12%, transparent);
+  border: 1px solid var(--color-interactive-default);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.font-detect-ocr-preview__box:hover,
+.font-detect-ocr-preview__box:focus-visible {
+  background: color-mix(in oklab, var(--color-interactive-default) 28%, transparent);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.font-detect-ocr-preview__box.is-selected {
+  background: color-mix(in oklab, var(--color-interactive-default) 24%, transparent);
+  border-width: 2px;
+}
+
+.font-detect-ocr-preview__caption {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
 .font-detect-target-field {
   display: flex;
   flex-direction: column;
@@ -145,6 +197,37 @@
   line-height: 1.25;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.font-detect-candidate__target-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-block: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  overflow: hidden;
+  background: color-mix(in oklab, var(--color-feedback-warning) 7%, var(--color-surface-base));
+  border: 1px solid color-mix(in oklab, var(--color-feedback-warning) 35%, transparent);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  line-height: 1.25;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.font-detect-candidate__target-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.font-detect-candidate__review {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding-block: var(--space-1);
 }
 .font-detect-candidate__meta {
   display: flex;

@@ -346,7 +346,14 @@ assets are already present, the same panel can run bounded transformed OCR to
 fill an editable recognized-text field, report model/confidence metadata, and
 cancel on target changes; it never downloads assets while opening or searching.
 Manual entry remains the fallback. OCR-assisted region overlays remain separate
-work.
+work. When OCR is available, the panel now renders the bounded decoded crop with
+selectable region boxes. Selecting or excluding a box updates the editable
+comparison text without changing the source image. Candidate cards show a
+target-specific preview when a destination is selected; low-confidence,
+insufficient-quality, and out-of-catalogue candidates require an explicit
+preview review before **Apply to target** is enabled. This keeps uncertain
+identification reversible and prevents a confidence badge from being mistaken
+for proof of a face.
 
 ## Research-derived UX constraints
 
