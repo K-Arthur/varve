@@ -12,6 +12,12 @@ export {
 } from './coordinateMapping';
 export { patchMatchFill } from './patchMatch';
 export { runContentAwareFillPipeline, runLaMaInference } from './pipeline';
+export {
+  QUICK_CLEANUP_PROVIDER,
+  type QuickCleanupOptions,
+  type QuickCleanupResult,
+  runQuickCleanup,
+} from './quickCleanup';
 export type { TileBlendWeights, TileConfig, TileRegion } from './tiling';
 export {
   blendTiles,

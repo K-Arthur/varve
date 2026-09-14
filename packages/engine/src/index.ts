@@ -270,6 +270,8 @@ export type {
   ContentAwareFillQuality,
   ContentAwareFillResult,
   FillTransform,
+  QuickCleanupOptions,
+  QuickCleanupResult,
 } from './contentAwareFill';
 export {
   applyFillTransform,
@@ -281,8 +283,10 @@ export {
   patchMatchFill,
   QUALITY_DESCRIPTIONS,
   QUALITY_LABELS,
+  QUICK_CLEANUP_PROVIDER,
   runContentAwareFillPipeline,
   runLaMaInference,
+  runQuickCleanup,
   unmapFillResult,
 } from './contentAwareFill';
 export type {

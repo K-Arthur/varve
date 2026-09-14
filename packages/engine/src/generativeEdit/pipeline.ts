@@ -1,4 +1,9 @@
-import { type ContentAwareFillQuality, runContentAwareFillPipeline } from '../contentAwareFill';
+import {
+  type ContentAwareFillQuality,
+  QUICK_CLEANUP_PROVIDER,
+  runContentAwareFillPipeline,
+  runQuickCleanup,
+} from '../contentAwareFill';
 import {
   compositeFillResult,
   computeBoundedContextRegion,
@@ -249,6 +254,46 @@ export async function runGenerativeEdit(
       resourceAssessment.reasonCode ?? 'insufficient-memory',
       resourceAssessment.reason ?? 'The requested local model does not fit this device safely.',
     );
+  }
+  const usesQuickCleanup =
+    request.quality === 'draft' && (request.mode === 'fill' || request.mode === 'remove');
+  if (usesQuickCleanup && !requiresDiffusion) {
+    const quickResult = await runQuickCleanup({
+      imageData: request.imageData,
+      mask: request.mask,
+      maskWidth: request.maskWidth,
+      maskHeight: request.maskHeight,
+      maskOffsetX: request.maskOffsetX ?? 0,
+      maskOffsetY: request.maskOffsetY ?? 0,
+      contextPadding: request.contextPadding,
+      seed: request.seed,
+      signal: request.signal,
+      onProgress: (progress) => {
+        const stage = progress < 0.2 ? 'preparing' : progress < 0.9 ? 'generating' : 'compositing';
+        request.onProgress?.({ stage, progress: 0.1 + progress * 0.85 });
+      },
+    });
+    if (request.signal?.aborted) throw new GenerativeEditError('cancelled', 'cancelled');
+    if (request.isCurrent && !request.isCurrent()) {
+      throw new GenerativeEditError('stale', 'The source changed while generation was running.');
+    }
+    request.onProgress?.({ stage: 'compositing', progress: 1 });
+    warnings.push(...quickResult.warnings);
+    return {
+      imageData: quickResult.imageData,
+      width: quickResult.width,
+      height: quickResult.height,
+      filledBounds: quickResult.filledBounds,
+      mode: request.mode,
+      quality: request.quality,
+      provider: {
+        kind: 'local',
+        id: QUICK_CLEANUP_PROVIDER.id,
+        runtime: QUICK_CLEANUP_PROVIDER.runtime,
+      },
+      processingTimeMs: performance.now() - startTime,
+      warnings,
+    };
   }
   if (requiresDiffusion && nativeGenerativeProvider.isAvailable()) {
     const context = extractBoundedContext(
