@@ -77,6 +77,50 @@ describe('nativeUpscaleProvider', () => {
     expect(Array.from(new Uint8Array(body as ArrayBuffer))).toEqual([1, 2, 3]);
   });
 
+  it('returns only the matching job execution provider', async () => {
+    setTauri(true);
+    vi.resetModules();
+
+    vi.doMock('./pngDecode', () => ({
+      encodeImageDataToPngBytes: async () => new Uint8Array([7, 8, 9]),
+      decodeImageBytesToImageData: () => new ImageData(2, 2),
+    }));
+
+    type DoneListener = (event: {
+      payload: { jobId?: number; executionProvider?: string };
+    }) => void;
+    let doneListener: DoneListener | undefined;
+    const listenMock = vi.fn(async (event: string, listener: DoneListener) => {
+      if (event === 'upscale:done') doneListener = listener;
+      return vi.fn();
+    });
+    const invokeMock = vi.fn(async (command: string, _body?: unknown, options?: unknown) => {
+      if (command !== 'upscale_image_binary') return null;
+      const headers = (options as { headers?: Record<string, string> } | undefined)?.headers;
+      const wireOptions = JSON.parse(headers?.['x-varve-upscale-options'] ?? '{}') as {
+        jobId?: number;
+      };
+      doneListener?.({
+        payload: { jobId: (wireOptions.jobId ?? 0) + 1, executionProvider: 'stale-provider' },
+      });
+      doneListener?.({
+        payload: { jobId: wireOptions.jobId, executionProvider: 'native-gpu' },
+      });
+      return new Uint8Array([1, 2, 3]).buffer;
+    });
+    vi.doMock('@tauri-apps/api/core', () => ({ invoke: invokeMock }));
+    vi.doMock('@tauri-apps/api/event', () => ({ listen: listenMock }));
+
+    const { nativeUpscaleProvider } = await import('./nativeProvider');
+    const result = await nativeUpscaleProvider.upscaleWithMetadata?.(
+      new ImageData(2, 2),
+      { method: 'ai' },
+      new AbortController().signal,
+    );
+
+    expect(result?.executionProvider).toBe('native-gpu');
+  });
+
   it('keeps compatibility with legacy JSON-array responses byte-for-byte', async () => {
     setTauri(true);
     vi.resetModules();

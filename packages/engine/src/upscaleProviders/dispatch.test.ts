@@ -111,6 +111,37 @@ describe('dispatchUpscale', () => {
     expect(result.width).toBe(4);
   });
 
+  it('reports the executor from a per-job metadata result', async () => {
+    let observedProvider: string | undefined;
+    const chain: UpscaleProvider[] = [
+      {
+        id: 'native-upscale',
+        label: 'Native',
+        isAvailable: () => true,
+        upscale: async () => {
+          throw new Error('the metadata path should be used');
+        },
+        upscaleWithMetadata: async () => ({
+          imageData: solidImage(4, 4),
+          executionProvider: 'native-webgpu',
+        }),
+      },
+    ];
+
+    const result = await dispatchUpscale(
+      solidImage(2, 2),
+      { scale: 2 },
+      undefined,
+      chain,
+      (providerId) => {
+        observedProvider = providerId;
+      },
+    );
+
+    expect(result.width).toBe(4);
+    expect(observedProvider).toBe('native-webgpu');
+  });
+
   it('rejects AI with an actionable message when no provider accepts it', async () => {
     const chain: UpscaleProvider[] = [
       {

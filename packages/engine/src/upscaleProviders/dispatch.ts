@@ -8,7 +8,7 @@
 import type { UpscaleOptions } from '../imageEnhancement';
 import { directUpscaleProvider } from './directProvider';
 import { nativeUpscaleProvider } from './nativeProvider';
-import type { UpscaleProvider } from './types';
+import type { UpscaleProvider, UpscaleProviderResult } from './types';
 import { workerUpscaleProvider } from './workerProvider';
 
 /** Ordered providers — first available success wins. */
@@ -73,13 +73,17 @@ export async function dispatchUpscale(
     if (!available) continue;
 
     try {
-      const result = await withTimeout(
-        provider.upscale(imageData, options, signal),
+      const result: UpscaleProviderResult = await withTimeout(
+        provider.upscaleWithMetadata
+          ? provider.upscaleWithMetadata(imageData, options, signal)
+          : provider.upscale(imageData, options, signal).then((resultImage) => ({
+              imageData: resultImage,
+            })),
         providerTimeoutMs,
         signal,
       );
-      onProvider?.(provider.id);
-      return result;
+      onProvider?.(result.executionProvider ?? provider.id);
+      return result.imageData;
     } catch (error) {
       if (signal?.aborted) throw new Error('cancelled');
       // Tauri rejects with a bare string rather than an Error, so normalize
