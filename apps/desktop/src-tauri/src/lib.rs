@@ -2348,6 +2348,9 @@ async fn download_generative_model_attempt(
     }
     file.sync_all()
         .map_err(|error| format!("Could not flush model partial: {error}"))?;
+    if generative_model_download_cancelled(request_id) {
+        return Err("Download cancelled".into());
+    }
     if loaded != total {
         return Err(format!(
             "Generative model download ended at {loaded} bytes; expected {total}"
@@ -2380,6 +2383,9 @@ async fn download_generative_edit_model(
         let destination = model_dir(&app)?.join(GENERATIVE_MODEL_FILENAME);
         if let Ok((size, checksum)) = sha256_file(&destination) {
             if size == GENERATIVE_MODEL_DOWNLOAD_SIZE && checksum == GENERATIVE_MODEL_DOWNLOAD_SHA256 {
+                if generative_model_download_cancelled(&request_id) {
+                    return Err("Download cancelled".into());
+                }
                 return model_status_blocking(&app);
             }
         }
@@ -2427,6 +2433,9 @@ async fn download_generative_edit_model(
         if !last_error.is_empty() {
             return Err(last_error);
         }
+        if generative_model_download_cancelled(&request_id) {
+            return Err("Download cancelled".into());
+        }
         let (size, checksum) = sha256_file(&destination.with_extension("gguf.part"))?;
         if size != GENERATIVE_MODEL_DOWNLOAD_SIZE || checksum != GENERATIVE_MODEL_DOWNLOAD_SHA256 {
             let _ = std::fs::remove_file(destination.with_extension("gguf.part"));
@@ -2436,12 +2445,24 @@ async fn download_generative_edit_model(
             ));
         }
         let partial = destination.with_extension("gguf.part");
-        if destination.exists() {
-            std::fs::remove_file(&destination)
-                .map_err(|error| format!("Could not replace old diffusion model: {error}"))?;
+        // Linearize the final cancellation check with the rename. A cancel
+        // command that acquires this lock first prevents installation; one
+        // that arrives after the rename is a cancellation of the completed
+        // operation and cannot leave a half-installed model.
+        {
+            let cancellations = GENERATIVE_MODEL_DOWNLOAD_CANCELLATIONS
+                .lock()
+                .map_err(|_| "Generative model download state is unavailable".to_string())?;
+            if cancellations.contains(&request_id) {
+                return Err("Download cancelled".into());
+            }
+            if destination.exists() {
+                std::fs::remove_file(&destination)
+                    .map_err(|error| format!("Could not replace old diffusion model: {error}"))?;
+            }
+            std::fs::rename(&partial, &destination)
+                .map_err(|error| format!("Could not atomically install diffusion model: {error}"))?;
         }
-        std::fs::rename(&partial, &destination)
-            .map_err(|error| format!("Could not atomically install diffusion model: {error}"))?;
         write_generative_model_metadata(&destination, false)?;
         model_status_blocking(&app)
     }
@@ -2884,6 +2905,8 @@ fn generative_edit_blocking_with_requirement(
     let (image_path, mask_path) = write_generation_inputs(&root, &options)?;
     let output_path = root.join("output.png");
     let request_path = root.join("request.json");
+    let stdout_path = root.join("helper.stdout");
+    let stderr_path = root.join("helper.stderr");
     let helper_request = GenerativeHelperRequest {
         model_path: model_path.to_string_lossy().into_owned(),
         init_image_path: image_path.to_string_lossy().into_owned(),
@@ -2901,14 +2924,21 @@ fn generative_edit_blocking_with_requirement(
     let request_bytes = serde_json::to_vec(&helper_request).map_err(|error| error.to_string())?;
     std::fs::write(&request_path, request_bytes)
         .map_err(|error| format!("Could not write generation request: {error}"))?;
+    let stdout_file = std::fs::File::create(&stdout_path)
+        .map_err(|error| format!("Could not create diffusion helper stdout log: {error}"))?;
+    let stderr_file = std::fs::File::create(&stderr_path)
+        .map_err(|error| format!("Could not create diffusion helper stderr log: {error}"))?;
 
     let started = Instant::now();
     let child = ProcessCommand::new(helper)
         .arg("--request")
         .arg(&request_path)
         .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        // File-backed pipes cannot fill a bounded OS pipe while the helper is
+        // running. The files remain inside the request workspace and are
+        // removed by WorkspaceGuard on every terminal path.
+        .stdout(Stdio::from(stdout_file))
+        .stderr(Stdio::from(stderr_file))
         .spawn()
         .map_err(|error| format!("Could not start local diffusion helper: {error}"))?;
     let request_id = options.request_id.clone();
@@ -2958,7 +2988,7 @@ fn generative_edit_blocking_with_requirement(
     let mut processes = GENERATIVE_CHILDREN
         .lock()
         .map_err(|_| "Generation process registry is unavailable".to_string())?;
-    let process = match processes.remove(&request_id) {
+    let mut process = match processes.remove(&request_id) {
         Some(process) => process,
         None => {
             drop(processes);
@@ -2966,22 +2996,32 @@ fn generative_edit_blocking_with_requirement(
         }
     };
     drop(processes);
-    let output = process
-        .wait_with_output()
+    process
+        .wait()
         .map_err(|error| format!("Could not collect diffusion helper output: {error}"))?;
     if generation_cancel_requested(&request_id) {
         return Err("Generation was cancelled".into());
     }
+    let stdout = std::fs::read(&stdout_path)
+        .map_err(|error| format!("Could not read diffusion helper stdout: {error}"))?;
+    let stderr = std::fs::read(&stderr_path)
+        .map_err(|error| format!("Could not read diffusion helper stderr: {error}"))?;
+    if generation_cancel_requested(&request_id) {
+        return Err("Generation was cancelled".into());
+    }
     if !status.success() {
-        let reason = String::from_utf8_lossy(&output.stderr);
+        let reason = String::from_utf8_lossy(&stderr);
         return Err(if reason.trim().is_empty() {
             "Local diffusion generation failed".into()
         } else {
             reason.trim().to_string()
         });
     }
-    let helper_response: GenerativeHelperResponse = serde_json::from_slice(&output.stdout)
+    let helper_response: GenerativeHelperResponse = serde_json::from_slice(&stdout)
         .map_err(|error| format!("Invalid diffusion helper response: {error}"))?;
+    if generation_cancel_requested(&request_id) {
+        return Err("Generation was cancelled".into());
+    }
     let png = std::fs::read(&output_path)
         .map_err(|error| format!("Diffusion helper did not produce an output image: {error}"))?;
     Ok(GenerativeEditResult {
