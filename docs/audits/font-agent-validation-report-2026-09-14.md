@@ -420,3 +420,25 @@ as Partial by `95f171aa0`; native WebKit, Windows WebView2, and macOS WKWebView
 captures remain platform dependencies. The compact toolbar geometry and
 light/dark/high-contrast visual evidence remain covered by the existing
 DPR 1/2/3 capture set.
+
+## Readiness and geometry oracle continuation — 2026-09-14
+
+The existing font-specific Chromium oracle was rerun against the current
+checkout. It passed the independent readiness and geometry assertions described
+in [`font-geometry-oracle-evidence-2026-09-14.md`](./font-geometry-oracle-evidence-2026-09-14.md):
+font-load redraw without interaction, unchanged glyph pixels after selection,
+three-line selection bounds, later-line hit testing, live newline growth, and
+area-text resize semantics.
+
+```text
+CI=1 VARVE_E2E_PORT=1831 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 \
+npx playwright test tests/e2e/canvas/font-geometry-oracle.spec.ts \
+  --project=chromium --reporter=list --timeout=180000 --retries=0
+```
+
+Passed: **5 Chromium tests** in 2.4 minutes. Captures were inspected from
+`test-results/run-1825841-1831/`. The desktop typecheck was also retried, but
+it still stops on unrelated Menubar, canvas input/wheel, segmentation,
+geometry, snapping, and workspace diagnostics, so the native WDIO build cannot
+be launched from this shared checkout. Real-byte worker pixel identity and
+native WebKit/Windows/macOS proof remain open.
