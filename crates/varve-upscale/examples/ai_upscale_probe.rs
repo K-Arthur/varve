@@ -5,7 +5,7 @@
 
 use std::time::Instant;
 
-use varve_upscale::{ai_upscale, UpscaleOptions};
+use varve_upscale::{ai_upscale_with_metadata, UpscaleOptions};
 
 fn synthetic(width: u32, height: u32) -> Vec<u8> {
     let mut rgba = vec![0u8; (width as usize) * (height as usize) * 4];
@@ -51,35 +51,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     webgpu_ep::set_inference_provider_policy(InferenceProviderPolicy::Gpu);
     let started = Instant::now();
-    let gpu = ai_upscale(&input, width, height, "upscale-realesr-general", options())?;
+    let gpu =
+        ai_upscale_with_metadata(&input, width, height, "upscale-realesr-general", options())?;
     let gpu_cold_ms = started.elapsed().as_secs_f64() * 1000.0;
-    let gpu_provider = varve_upscale::last_session_provider();
+    let gpu_provider = gpu.execution_provider;
     let started = Instant::now();
-    let gpu_warm = ai_upscale(&input, width, height, "upscale-realesr-general", options())?;
+    let gpu_warm =
+        ai_upscale_with_metadata(&input, width, height, "upscale-realesr-general", options())?;
     let gpu_warm_ms = started.elapsed().as_secs_f64() * 1000.0;
-    debug_assert_eq!(gpu, gpu_warm);
+    debug_assert_eq!(gpu.pixels, gpu_warm.pixels);
 
     webgpu_ep::set_inference_provider_policy(InferenceProviderPolicy::Cpu);
     let started = Instant::now();
-    let cpu = ai_upscale(&input, width, height, "upscale-realesr-general", options())?;
+    let cpu =
+        ai_upscale_with_metadata(&input, width, height, "upscale-realesr-general", options())?;
     let cpu_cold_ms = started.elapsed().as_secs_f64() * 1000.0;
-    let cpu_provider = varve_upscale::last_session_provider();
+    let cpu_provider = cpu.execution_provider;
     let started = Instant::now();
-    let cpu_warm = ai_upscale(&input, width, height, "upscale-realesr-general", options())?;
+    let cpu_warm =
+        ai_upscale_with_metadata(&input, width, height, "upscale-realesr-general", options())?;
     let cpu_warm_ms = started.elapsed().as_secs_f64() * 1000.0;
-    debug_assert_eq!(cpu, cpu_warm);
+    debug_assert_eq!(cpu.pixels, cpu_warm.pixels);
 
-    if cpu.len() != gpu.len() {
+    if cpu.pixels.len() != gpu.pixels.len() {
         eprintln!(
             "UPSCALE_LENGTH_MISMATCH cpu={} gpu={}",
-            cpu.len(),
-            gpu.len()
+            cpu.pixels.len(),
+            gpu.pixels.len()
         );
         std::process::exit(4);
     }
     let mut max_diff = 0i32;
     let mut sum = 0f64;
-    for (cpu_byte, gpu_byte) in cpu.iter().zip(gpu.iter()) {
+    for (cpu_byte, gpu_byte) in cpu.pixels.iter().zip(gpu.pixels.iter()) {
         let diff = (*cpu_byte as i32 - *gpu_byte as i32).abs();
         max_diff = max_diff.max(diff);
         sum += f64::from(diff);
@@ -89,8 +93,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("UPSCALE_PROVIDERS gpu={gpu_provider} cpu={cpu_provider}");
     println!(
         "UPSCALE_PARITY max={max_diff} mean={:.6} bytes={}",
-        sum / cpu.len().max(1) as f64,
-        gpu.len()
+        sum / cpu.pixels.len().max(1) as f64,
+        gpu.pixels.len()
     );
     if gpu_provider != "native-webgpu" || cpu_provider != "native-cpu" {
         eprintln!("UPSCALE_PROVIDER_MISMATCH");

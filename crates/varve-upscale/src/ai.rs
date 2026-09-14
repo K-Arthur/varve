@@ -39,22 +39,35 @@ pub struct UpscaleOptions {
 
 pub type ProgressCallback = Box<dyn Fn(usize, usize) + Send + Sync>;
 
-/// Allocation-free tile progress counter shared between the upscale loop and a
-/// TypeScript callback (delivered through Tauri event emission).
-#[derive(Clone)]
-pub struct SharedProgress {
-    inner: Arc<ProgressInner>,
+/// Result metadata for one native AI upscale invocation.
+///
+/// `execution_provider` is the provider selected for the session that produced
+/// the returned pixels. ONNX Runtime may still partition a graph internally;
+/// callers must describe that limitation rather than turn this into a blanket
+/// per-node placement claim.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AiUpscaleResult {
+    pub pixels: Vec<u8>,
+    pub execution_provider: &'static str,
 }
 
-#[derive(Default)]
-struct ProgressInner {
+/// Allocation-free tile progress counter shared between the upscale loop and a
+/// TypeScript callback (delivered through Tauri event emission). The callback
+/// is borrowed so an automatic provider retry can report progress again
+/// without moving or duplicating the callback closure.
+#[derive(Clone)]
+pub struct SharedProgress<'a> {
+    inner: Arc<ProgressInner<'a>>,
+}
+
+struct ProgressInner<'a> {
     current: AtomicUsize,
     total: AtomicUsize,
-    callback: Option<ProgressCallback>,
+    callback: Option<&'a ProgressCallback>,
 }
 
-impl SharedProgress {
-    fn new(total: usize, callback: Option<ProgressCallback>) -> Self {
+impl<'a> SharedProgress<'a> {
+    fn new(total: usize, callback: Option<&'a ProgressCallback>) -> Self {
         Self {
             inner: Arc::new(ProgressInner {
                 current: AtomicUsize::new(0),
@@ -98,9 +111,28 @@ pub fn ai_upscale(
     model_id: &str,
     options: UpscaleOptions,
 ) -> Result<Vec<u8>, String> {
+    Ok(ai_upscale_with_metadata(pixels, width, height, model_id, options)?.pixels)
+}
+
+/// Run Real-ESRGAN and return the provider selected for this invocation.
+///
+/// Automatic WebGPU execution failures restart the complete request on a
+/// fresh CPU session. The failed session is not reused and no partial GPU
+/// output is returned, which keeps recovery deterministic for the caller.
+pub fn ai_upscale_with_metadata(
+    pixels: &[u8],
+    width: u32,
+    height: u32,
+    model_id: &str,
+    options: UpscaleOptions,
+) -> Result<AiUpscaleResult, String> {
     let UpscaleOptions { progress, cancel } = options;
 
-    if pixels.len() as u32 != width * height * 4 {
+    let input_bytes = u64::from(width)
+        .checked_mul(u64::from(height))
+        .and_then(|pixels| pixels.checked_mul(4))
+        .ok_or_else(|| "Image dimensions overflow the native input limit".to_string())?;
+    if pixels.len() as u64 != input_bytes {
         return Err("Pixel buffer size does not match dimensions".into());
     }
     if width == 0 || height == 0 {
@@ -108,6 +140,16 @@ pub fn ai_upscale(
     }
     if width > MAX_DIMENSION || height > MAX_DIMENSION {
         return Err("Image dimension exceeds 16384px safety limit for AI upscaling".into());
+    }
+    let out_pixels = u64::from(width)
+        .checked_mul(u64::from(height))
+        .and_then(|pixels| pixels.checked_mul(u64::from(SCALE_U32).pow(2)))
+        .ok_or_else(|| "AI upscale output dimensions overflow the native limit".to_string())?;
+    if out_pixels > 64 * 1024 * 1024 {
+        return Err(format!(
+            "AI upscale output contains {out_pixels} pixels; the native limit is {}",
+            64 * 1024 * 1024
+        ));
     }
 
     let is_native = model_id == NATIVE_MODEL_ID;
@@ -123,7 +165,7 @@ pub fn ai_upscale(
 
     // `mut` binding is required because ONNX Runtime borrows the session
     // mutably during `run`, even though the model graph is unchanged.
-    let mut session = if is_native {
+    let (mut session, mut provider) = if is_native {
         build_session_from_bytes(NATIVE_MODEL_BYTES)?
     } else {
         build_session_from_file(model_id)?
@@ -131,8 +173,83 @@ pub fn ai_upscale(
 
     let out_w = width * SCALE_U32;
     let out_h = height * SCALE_U32;
-    let mut rgb_out = vec![0u8; (out_w * out_h * 3) as usize];
+    let run = run_session(
+        &mut session,
+        pixels,
+        width,
+        height,
+        out_w,
+        out_h,
+        progress.as_ref(),
+        &cancel,
+    );
+    let rgba = match run {
+        Ok(rgba) => rgba,
+        Err(gpu_error)
+            if provider == "native-webgpu"
+                && matches!(
+                    varve_bgremove::webgpu_ep::inference_provider_policy(),
+                    varve_bgremove::webgpu_ep::InferenceProviderPolicy::Auto
+                ) =>
+        {
+            if matches!(&cancel, Some(c) if c.load(Ordering::Relaxed)) {
+                return Err("cancelled".into());
+            }
+            let reason = format!(
+                "AI upscale execution failed on native WebGPU: {gpu_error}; retrying on CPU"
+            );
+            varve_bgremove::webgpu_ep::note_attach_failure(&reason);
+            drop(session);
+            let (mut cpu_session, cpu_provider) = if is_native {
+                build_cpu_session_from_bytes(NATIVE_MODEL_BYTES)?
+            } else {
+                build_cpu_session_from_file(model_id)?
+            };
+            provider = cpu_provider;
+            run_session(
+                &mut cpu_session,
+                pixels,
+                width,
+                height,
+                out_w,
+                out_h,
+                progress.as_ref(),
+                &cancel,
+            )?
+        }
+        Err(error) => return Err(error),
+    };
 
+    Ok(AiUpscaleResult {
+        pixels: rgba,
+        execution_provider: provider,
+    })
+}
+
+fn run_session(
+    session: &mut Session,
+    pixels: &[u8],
+    width: u32,
+    height: u32,
+    out_w: u32,
+    out_h: u32,
+    progress: Option<&ProgressCallback>,
+    cancel: &Option<Arc<AtomicBool>>,
+) -> Result<Vec<u8>, String> {
+    let input_name = session
+        .inputs()
+        .first()
+        .ok_or_else(|| "Upscale model has no input".to_string())?
+        .name()
+        .to_owned();
+    let output_name = session
+        .outputs()
+        .first()
+        .ok_or_else(|| "Upscale model has no output".to_string())?
+        .name()
+        .to_owned();
+
+    let mut rgb_out = vec![0u8; (u64::from(out_w) * u64::from(out_h) * 3) as usize];
     let step = TILE.saturating_sub(OVERLAP).max(1);
     let total_tiles = u32::max(1, width.div_ceil(step)) * u32::max(1, height.div_ceil(step));
     let shared_progress = progress.map(|cb| SharedProgress::new(total_tiles as usize, Some(cb)));
@@ -143,7 +260,7 @@ pub fn ai_upscale(
 
     for sy in (0..height).step_by(step as usize) {
         for sx in (0..width).step_by(step as usize) {
-            if matches!(&cancel, Some(c) if c.load(Ordering::Relaxed)) {
+            if matches!(cancel, Some(c) if c.load(Ordering::Relaxed)) {
                 return Err("cancelled".into());
             }
 
@@ -156,7 +273,7 @@ pub fn ai_upscale(
                 tile.extend_from_slice(&pixels[start..start + tile_w as usize * 4]);
             }
 
-            let up = infer_tile(&mut session, &tile, tile_w, tile_h);
+            let up = infer_tile(session, &input_name, &output_name, &tile, tile_w, tile_h)?;
 
             // Write only the core of the upscaled tile — never the overlap
             // margin that a neighbour will also cover — so tiles never write
@@ -216,7 +333,14 @@ pub fn ai_upscale(
     Ok(rgba)
 }
 
-fn infer_tile(session: &mut Session, rgba: &[u8], w: u32, h: u32) -> Vec<u8> {
+fn infer_tile(
+    session: &mut Session,
+    input_name: &str,
+    output_name: &str,
+    rgba: &[u8],
+    w: u32,
+    h: u32,
+) -> Result<Vec<u8>, String> {
     let n = (w * h) as usize;
     let mut tensor_data = Vec::with_capacity(n * 3);
     for c in 0..3 {
@@ -226,39 +350,29 @@ fn infer_tile(session: &mut Session, rgba: &[u8], w: u32, h: u32) -> Vec<u8> {
     }
 
     let input_tensor = Tensor::from_array(([1usize, 3, h as usize, w as usize], tensor_data))
-        .expect("tensor shape matches pixel count");
-
-    let input_name = session
-        .inputs()
-        .first()
-        .expect("session preflight validates an input exists")
-        .name()
-        .to_owned();
-    let output_name = session
-        .outputs()
-        .first()
-        .expect("session preflight validates an output exists")
-        .name()
-        .to_owned();
+        .map_err(|error| format!("Failed to create upscale input tensor: {error}"))?;
 
     let outputs = session
-        .run(ort::inputs! { input_name.as_str() => input_tensor })
-        .expect("session preflight validates inference succeeds");
+        .run(ort::inputs! { input_name => input_tensor })
+        .map_err(|error| format!("Upscale inference failed: {error}"))?;
 
     let output = outputs
         .get(&output_name)
-        .expect("output exists if run succeeded");
+        .ok_or_else(|| "Upscale model output is missing".to_string())?;
     let (_, data) = output
         .try_extract_tensor::<f32>()
-        .expect("session preflight validates f32 output");
+        .map_err(|error| format!("Upscale output is not f32: {error}"))?;
 
     let out_h = h * SCALE_U32;
     let out_w = w * SCALE_U32;
     let plane = (out_h * out_w) as usize;
-    assert!(
-        data.len() >= plane * 3,
-        "session preflight validates output size"
-    );
+    if data.len() < plane * 3 {
+        return Err(format!(
+            "Upscale model output has {} values; expected at least {}",
+            data.len(),
+            plane * 3
+        ));
+    }
 
     let slice = &data[..plane * 3];
     let mut rgb = vec![0u8; plane * 3];
@@ -273,7 +387,7 @@ fn infer_tile(session: &mut Session, rgba: &[u8], w: u32, h: u32) -> Vec<u8> {
             rgb[i * 3 + 2] = (b * 255.0).round() as u8;
         }
     }
-    rgb
+    Ok(rgb)
 }
 
 fn base_builder_settings() -> Result<ort::session::builder::SessionBuilder, String> {
@@ -295,27 +409,11 @@ fn base_builder_settings() -> Result<ort::session::builder::SessionBuilder, Stri
         .map_err(|e| format!("Failed to configure execution mode: {e}"))
 }
 
-static LAST_SESSION_PROVIDER: std::sync::Mutex<&'static str> = std::sync::Mutex::new("native-cpu");
-
-/// Execution provider chosen for the most recently created upscale session.
-pub fn last_session_provider() -> &'static str {
-    LAST_SESSION_PROVIDER
-        .lock()
-        .map(|guard| *guard)
-        .unwrap_or("native-cpu")
-}
-
-fn remember_provider(provider: &'static str) {
-    if let Ok(mut guard) = LAST_SESSION_PROVIDER.lock() {
-        *guard = provider;
-    }
-}
-
 /// Session builder with the native provider policy applied (`auto`/`cpu`/`gpu`
 /// share the process-wide policy with background removal). `auto` attaches the
 /// WebGPU plugin EP when it is registered and falls back to a fresh CPU
 /// builder on any attachment failure; `gpu` fails closed.
-fn base_session_builder() -> Result<ort::session::builder::SessionBuilder, String> {
+fn base_session_builder() -> Result<(ort::session::builder::SessionBuilder, &'static str), String> {
     use varve_bgremove::webgpu_ep::{self, InferenceProviderPolicy};
     let policy = webgpu_ep::inference_provider_policy();
     let builder = base_builder_settings()?;
@@ -325,32 +423,48 @@ fn base_session_builder() -> Result<ort::session::builder::SessionBuilder, Strin
                 "WebGPU execution provider is unavailable; select Automatic or CPU".to_string(),
             );
         }
-        remember_provider("native-cpu");
-        return Ok(builder);
+        return Ok((builder, "native-cpu"));
     }
     match webgpu_ep::attach_webgpu(builder) {
-        Ok(attached) => {
-            remember_provider("native-webgpu");
-            Ok(attached)
-        }
+        Ok(attached) => Ok((attached, "native-webgpu")),
         Err(err) => {
             if matches!(policy, InferenceProviderPolicy::Gpu) {
                 return Err(err);
             }
             webgpu_ep::note_attach_failure(&err);
-            remember_provider("native-cpu");
-            base_builder_settings()
+            Ok((base_builder_settings()?, "native-cpu"))
         }
     }
 }
 
-fn build_session_from_bytes(bytes: &[u8]) -> Result<Session, String> {
-    base_session_builder()?
-        .commit_from_memory(bytes)
-        .map_err(|e| format!("Failed to load bundled Real-ESRGAN model: {e}"))
+fn build_session_from_bytes(bytes: &[u8]) -> Result<(Session, &'static str), String> {
+    let (mut builder, provider) = base_session_builder()?;
+    let committed = builder.commit_from_memory(bytes);
+    match committed {
+        Ok(session) => Ok((session, provider)),
+        Err(error)
+            if provider == "native-webgpu"
+                && matches!(
+                    varve_bgremove::webgpu_ep::inference_provider_policy(),
+                    varve_bgremove::webgpu_ep::InferenceProviderPolicy::Auto
+                ) =>
+        {
+            let gpu_error =
+                format!("Failed to load bundled Real-ESRGAN with native WebGPU: {error}");
+            varve_bgremove::webgpu_ep::note_attach_failure(&gpu_error);
+            let session =
+                base_builder_settings()?
+                    .commit_from_memory(bytes)
+                    .map_err(|cpu_error| {
+                        format!("{gpu_error}; CPU session fallback also failed: {cpu_error}")
+                    })?;
+            Ok((session, "native-cpu"))
+        }
+        Err(error) => Err(format!("Failed to load bundled Real-ESRGAN model: {error}")),
+    }
 }
 
-fn build_session_from_file(model_id: &str) -> Result<Session, String> {
+fn build_session_from_file(model_id: &str) -> Result<(Session, &'static str), String> {
     let path = model_path(model_id);
     if !path.exists() {
         return Err(format!(
@@ -358,9 +472,47 @@ fn build_session_from_file(model_id: &str) -> Result<Session, String> {
             path.display()
         ));
     }
-    base_session_builder()?
+    let (mut builder, provider) = base_session_builder()?;
+    let committed = builder.commit_from_file(&path);
+    match committed {
+        Ok(session) => Ok((session, provider)),
+        Err(error)
+            if provider == "native-webgpu"
+                && matches!(
+                    varve_bgremove::webgpu_ep::inference_provider_policy(),
+                    varve_bgremove::webgpu_ep::InferenceProviderPolicy::Auto
+                ) =>
+        {
+            let gpu_error =
+                format!("Failed to load upscale model '{model_id}' with native WebGPU: {error}");
+            varve_bgremove::webgpu_ep::note_attach_failure(&gpu_error);
+            let session =
+                base_builder_settings()?
+                    .commit_from_file(&path)
+                    .map_err(|cpu_error| {
+                        format!("{gpu_error}; CPU session fallback also failed: {cpu_error}")
+                    })?;
+            Ok((session, "native-cpu"))
+        }
+        Err(error) => Err(format!(
+            "Failed to load upscale model '{model_id}': {error}"
+        )),
+    }
+}
+
+fn build_cpu_session_from_bytes(bytes: &[u8]) -> Result<(Session, &'static str), String> {
+    let session = base_builder_settings()?
+        .commit_from_memory(bytes)
+        .map_err(|error| format!("Failed to create CPU Real-ESRGAN session: {error}"))?;
+    Ok((session, "native-cpu"))
+}
+
+fn build_cpu_session_from_file(model_id: &str) -> Result<(Session, &'static str), String> {
+    let path = model_path(model_id);
+    let session = base_builder_settings()?
         .commit_from_file(&path)
-        .map_err(|e| format!("Failed to load upscale model '{model_id}': {e}"))
+        .map_err(|error| format!("Failed to create CPU upscale session '{model_id}': {error}"))?;
+    Ok((session, "native-cpu"))
 }
 
 #[cfg(test)]

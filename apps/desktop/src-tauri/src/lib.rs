@@ -3249,14 +3249,14 @@ fn upscale_image_impl(
                 progress: progress_callback,
                 cancel: Some(cancel_flag.clone()),
             };
-            // The current Real-ESRGAN route is CPU-backed. Keep this explicit
-            // until a provider-aware API can report the executor for this
-            // invocation; a selected provider or a loaded runtime is not
-            // execution evidence.
-            (
-                varve_upscale::ai_upscale(pixels, width, height, model_id, upscale_opts)?,
-                "native-cpu",
-            )
+            let result = varve_upscale::ai_upscale_with_metadata(
+                pixels,
+                width,
+                height,
+                model_id,
+                upscale_opts,
+            )?;
+            (result.pixels, result.execution_provider)
         }
         #[cfg(not(feature = "ai"))]
         {

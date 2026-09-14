@@ -24,10 +24,9 @@ pub fn configure_model_directory(path: PathBuf) {
 #[cfg(feature = "ai")]
 mod ai;
 #[cfg(feature = "ai")]
-pub use ai::{ai_upscale, ProgressCallback, UpscaleOptions};
-
-#[cfg(feature = "ai")]
-pub use ai::last_session_provider;
+pub use ai::{
+    ai_upscale, ai_upscale_with_metadata, AiUpscaleResult, ProgressCallback, UpscaleOptions,
+};
 
 /// CPU filter used for conventional enlargement.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
