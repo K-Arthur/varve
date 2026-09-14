@@ -198,6 +198,36 @@ describe('FontDownloadManager', () => {
     expect(parseFontData).toHaveBeenCalledWith(buffer, { signal: controller.signal });
   });
 
+  it('cancels an in-flight validation without reporting a late result', async () => {
+    let validationAborted = false;
+    vi.mocked(parseFontData).mockImplementationOnce(
+      (_data, options) =>
+        new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener(
+            'abort',
+            () => {
+              validationAborted = true;
+              reject(new Error('Font parsing cancelled'));
+            },
+            { once: true },
+          );
+        }),
+    );
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(makeFetchResponse(new ArrayBuffer(100))));
+
+    const job = manager.addJob('https://example.com/font.woff2', 'Inter');
+    await vi.waitFor(() => expect(manager.getJob(job.id)?.status).toBe('validating'));
+
+    expect(manager.cancelJob(job.id)).toBe(true);
+    await vi.waitFor(() => expect(validationAborted).toBe(true));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(manager.getJob(job.id)?.status).toBe('cancelled');
+    expect(events.onJobComplete).not.toHaveBeenCalled();
+    expect(events.onJobFailed).not.toHaveBeenCalled();
+  });
+
   it('validateFont rejects invalid formats', async () => {
     // A buffer that starts with PDF magic bytes, not a font
     const pdfBuffer = new ArrayBuffer(100);
