@@ -3485,6 +3485,7 @@ struct TraceImageOptions {
     centerline_prune: Option<f64>,
     max_paths: Option<u32>,
     compound_holes: Option<bool>,
+    structure: Option<String>,
     #[serde(rename = "jobId")]
     job_id: Option<u64>,
 }
@@ -3540,6 +3541,10 @@ fn sanitize_trace_options(raw: TraceImageOptions) -> varve_trace::TraceOptions {
             None => 1000,
         },
         compound_holes: raw.compound_holes.unwrap_or(true),
+        structure: match raw.structure.as_deref() {
+            Some("stacked") => varve_trace::Structure::Stacked,
+            _ => varve_trace::Structure::Cutout,
+        },
     }
 }
 
@@ -6358,10 +6363,12 @@ mod tests {
             centerline_prune: Some(5000.0),
             max_paths: Some(0),
             compound_holes: Some(true),
+            structure: Some("stacked".into()),
             job_id: None,
         };
         let opts = sanitize_trace_options(options);
         assert_eq!(opts.trace_mode, varve_trace::TraceMode::PixelArt);
+        assert_eq!(opts.structure, varve_trace::Structure::Stacked);
         assert_eq!(opts.threshold, 1, "threshold clamped to 1");
         assert_eq!(opts.min_pixels, 1, "min_pixels clamped to 1");
         assert_eq!(opts.max_colors, 64, "max_colors clamped to 64");

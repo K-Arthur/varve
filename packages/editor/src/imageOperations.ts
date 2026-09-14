@@ -510,7 +510,8 @@ function scaleStrokeWeight(strokeWidth: number, scaleX: number, scaleY: number):
 }
 
 /** Build one traced path node: filled for closed contours, stroked for
- *  centerline (open) contours. Hole rings only apply to closed fills. */
+ *  centerline (open or looped) contours. Hole rings only apply to closed
+ *  filled paths. */
 function makeTraceChildNode(
   id: NodeId,
   traced: TraceGroupInput['paths'][number],
@@ -523,18 +524,20 @@ function makeTraceChildNode(
   fallbackStrokeWeight: number,
   strokeScaleX: number,
   strokeScaleY: number,
+  traceMode: 'silhouette' | 'centerline',
 ): ReturnType<typeof makeShapeNode> {
   const holes = traced.holes?.map((h) => scaleAndFit(h, true, traced.curveFitted));
   const fillColor = traced.fill ?? { r: 0, g: 0, b: 0, a: 255 };
-  if (!traced.closed) {
-    // Centerline output: an open stroked path (no fill).
+  // Centerline output is always a stroke, even when the skeleton forms a
+  // closed loop. Filling it would bake a black blob and lose editability.
+  if (traceMode === 'centerline' || !traced.closed) {
     return makeShapeNode(
       id,
       {
         kind: 'path',
-        closed: false,
+        closed: traced.closed,
         tolerance: 1,
-        points: scaleAndFit(traced.points, false, traced.curveFitted),
+        points: scaleAndFit(traced.points, traced.closed, traced.curveFitted),
       },
       {
         name: `Trace ${index + 1}`,
@@ -632,6 +635,7 @@ export function insertTraceGroup(
       input.centerlineWidth ?? 2,
       scaleX,
       scaleY,
+      input.traceMode ?? 'silhouette',
     );
     result = addChild(result, group.id, child);
   }
@@ -725,6 +729,7 @@ export function insertLiveTraceGroup(
       input.centerlineWidth ?? 2,
       scaleX,
       scaleY,
+      input.traceMode ?? 'silhouette',
     );
     result = addChild(result, group.id, child);
   }

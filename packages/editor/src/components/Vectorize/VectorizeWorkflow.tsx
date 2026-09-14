@@ -14,7 +14,7 @@
  * generation + abort), so newer previews cancel older ones.
  */
 
-import type { RasterTracePath, RasterTraceResult } from '@varve/engine';
+import type { RasterTracePath } from '@varve/engine';
 import {
   imageShapeSrc,
   isImageShape,
@@ -27,9 +27,18 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { getDesktopAnalytics } from '../../analytics/desktopAnalytics';
 import { useEditor } from '../../context';
 import { insertTraceGroup, replaceTraceGroup } from '../../imageOperations';
-import { buildTraceMetadata, traceEngineLabel } from '../../logo/vectorization/metadata';
+import {
+  buildTraceMetadata,
+  hashTraceSource,
+  traceSourceChanged,
+} from '../../logo/vectorization/metadata';
 import { MAX_PREVIEW_DIM } from '../../logo/vectorization/prepareSource';
-import { drawPreview, MAX_FINAL_DIM, runPreviewTrace } from '../../logo/vectorization/preview';
+import {
+  drawPreview,
+  MAX_FINAL_DIM,
+  type PreviewDrawOptions,
+  runPreviewTrace,
+} from '../../logo/vectorization/preview';
 import {
   type TraceDiagnostics,
   traceDiagnostics,
@@ -61,6 +70,18 @@ const TRACE_MODE_OPTIONS = [
 const FOREGROUND_OPTIONS = [
   { value: 'dark', label: 'Dark ink' },
   { value: 'light', label: 'Light ink' },
+] as const;
+
+const STRUCTURE_OPTIONS = [
+  { value: 'cutout', label: 'Cutout' },
+  { value: 'stacked', label: 'Stacked' },
+] as const;
+
+const PREVIEW_VIEW_OPTIONS = [
+  { value: 'source', label: 'Source' },
+  { value: 'prepared', label: 'Prepared' },
+  { value: 'overlay', label: 'Overlay' },
+  { value: 'vector', label: 'Vector' },
 ] as const;
 
 type PreviewStatus = 'idle' | 'running' | 'ready' | 'error';
@@ -100,12 +121,7 @@ function describeTraceError(error: unknown): string {
 interface PreviewState {
   status: PreviewStatus;
   error?: string;
-  payload?: {
-    imageData: ImageData;
-    result: RasterTraceResult;
-    width: number;
-    height: number;
-  };
+  payload?: import('../../logo/vectorization/preview').PreviewPayload;
   diagnostics?: TraceDiagnostics;
 }
 
@@ -158,6 +174,11 @@ export function VectorizeWorkflow({
     ...(initialSettings ?? DEFAULT_VECTORIZATION_SETTINGS),
   });
   const [preview, setPreview] = useState<PreviewState>({ status: 'idle' });
+  const [previewOptions, setPreviewOptions] = useState<PreviewDrawOptions>({
+    view: 'overlay',
+    showAnchors: false,
+    zoom: 'fit',
+  });
   const [applying, setApplying] = useState(false);
   const [traceProgress, setTraceProgress] = useState<number | null>(null);
   const sessionRef = useRef<VectorizationSession | null>(null);
@@ -216,13 +237,8 @@ export function VectorizeWorkflow({
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || preview.status !== 'ready' || !preview.payload) return;
-    drawPreview(
-      canvas,
-      preview.payload,
-      getComputedStyle(document.documentElement).getPropertyValue('--color-surface-sunken') ||
-        '#f7f8fa',
-    );
-  }, [preview]);
+    drawPreview(canvas, preview.payload, previewOptions);
+  }, [preview, previewOptions]);
 
   const apply = useCallback(async () => {
     if (!node || !sessionRef.current) return;
@@ -261,13 +277,19 @@ export function VectorizeWorkflow({
         Pick<RasterTracePath, 'closed' | 'points' | 'holes' | 'fill' | 'strokeWidth'>
       >;
       const insertedRef: { nodeId: string | null } = { nodeId: null };
-      const metadata: TraceMetadata = buildTraceMetadata(
-        node.id,
+      const diagnostics = traceDiagnostics(result);
+      const metadata: TraceMetadata = buildTraceMetadata({
+        sourceNodeId: node.id,
         settings,
-        traceDiagnostics(result),
-        result.omittedHoles,
-        traceEngineLabel(),
-      );
+        diagnostics,
+        omittedHoles: result.omittedHoles,
+        ...(result.providerId ? { providerId: result.providerId } : {}),
+        traceWidth: width,
+        traceHeight: height,
+        sourceWidth: payload.sourceWidth,
+        sourceHeight: payload.sourceHeight,
+        sourceHash: hashTraceSource(imageShapeSrc(node)),
+      });
       editor.updateDoc((d) => {
         const input = {
           width,
@@ -338,10 +360,46 @@ export function VectorizeWorkflow({
   }, []);
 
   const validation = validateVectorizationSettings(settings);
-  const sourceIsLarge =
-    node !== null && Math.max(node.shape.kind === 'rect' ? node.shape.w : 0, 0) > 2048;
+  // Effective source pixels when a preview/final trace has actually loaded the
+  // asset; node.shape.w is document placement, not source resolution.
+  const effectiveSourceWidth = preview.payload?.sourceWidth ?? null;
+  const sourceIsLarge = effectiveSourceWidth !== null && effectiveSourceWidth > 2048;
   const previewIsDownsampled =
-    node !== null && Math.max(node.shape.kind === 'rect' ? node.shape.w : 0, 0) > MAX_PREVIEW_DIM;
+    effectiveSourceWidth !== null && effectiveSourceWidth > MAX_PREVIEW_DIM;
+
+  // Reproducibility guard: warn when the linked source changed under the same
+  // node id, instead of silently re-tracing different pixels.
+  const sourceChangedWarning = useMemo(() => {
+    if (!replaceGroupId || !node) return null;
+    const group = doc.nodes[replaceGroupId];
+    if (group?.kind !== 'group' || !group.traceMetadata) return null;
+    return traceSourceChanged(group.traceMetadata, imageShapeSrc(node))
+      ? 'The source image changed since this trace was created. Replacing re-traces the current pixels.'
+      : null;
+  }, [doc, replaceGroupId, node]);
+
+  // Visible-appearance tracing is not implemented: make the capture scope
+  // explicit when the source has appearance overrides the trace will ignore.
+  const hasAppearanceOverrides = useMemo(() => {
+    if (!node) return false;
+    if (node.mask) return true;
+    if ((node.effects?.length ?? 0) > 0) return true;
+    if ((node.opacity ?? 1) < 1) return true;
+    return (node.fills ?? []).some((fill) => {
+      if (fill.type !== 'image') return false;
+      const image = fill.image;
+      return Boolean(
+        image &&
+          (image.crop ||
+            (image.rotation ?? 0) !== 0 ||
+            image.flipH ||
+            image.flipV ||
+            image.perspective ||
+            image.generativeEditOverlay ||
+            fill.opacity < 1),
+      );
+    });
+  }, [node]);
 
   // Capability gating: centerline is native-only. On web builds the option
   // stays visible but disabled with an honest reason instead of silently
@@ -458,9 +516,31 @@ export function VectorizeWorkflow({
         />
       </div>
 
+      {settings.mode !== 'monochrome' && settings.traceMode === 'silhouette' && (
+        <div className="vectorize__field">
+          <span className="vectorize__field-label">Output structure</span>
+          <SegmentedControl
+            label="Output structure"
+            value={settings.structure}
+            options={STRUCTURE_OPTIONS}
+            onChange={(structure) => patch({ structure })}
+          />
+          <p className="vectorize__muted">
+            {settings.structure === 'stacked'
+              ? 'Regions paint back-to-front; holes remain only where transparency does. Avoids abutting seams.'
+              : 'Regions abut with evenodd holes attached; each region is a separate compound path.'}
+          </p>
+        </div>
+      )}
+
       <details className="vectorize__subsection">
         <summary className="vectorize__subsection-heading">Source preparation</summary>
         <div className="vectorize__subsection-body">
+          <Checkbox
+            label="Remove white background connected to the image edge"
+            checked={settings.prep.removeBackground}
+            onChange={(e) => patchPrep({ removeBackground: e.target.checked })}
+          />
           <Checkbox
             label="Grayscale first"
             checked={settings.prep.grayscale}
@@ -474,12 +554,33 @@ export function VectorizeWorkflow({
           <Checkbox
             label="Binary threshold before tracing"
             checked={settings.prep.threshold}
+            disabled={settings.prep.adaptiveThreshold}
             onChange={(e) => patchPrep({ threshold: e.target.checked })}
           />
           <Checkbox
-            label="Ignore transparent pixels"
-            checked={settings.prep.ignoreTransparent}
-            onChange={(e) => patchPrep({ ignoreTransparent: e.target.checked })}
+            label="Adaptive threshold (uneven scans)"
+            checked={settings.prep.adaptiveThreshold}
+            onChange={(e) => patchPrep({ adaptiveThreshold: e.target.checked })}
+          />
+          {settings.prep.adaptiveThreshold && (
+            <>
+              <Slider
+                {...sliderProps('Adaptive window', settings.prep.adaptiveWindow, 0, 127)}
+                step={2}
+                formatValue={(v) => (v === 0 ? 'Auto' : `${v} px`)}
+                onChange={(adaptiveWindow) => patchPrep({ adaptiveWindow })}
+              />
+              <Slider
+                {...sliderProps('Adaptive sensitivity', settings.prep.adaptiveSensitivity, 1, 50)}
+                formatValue={(v) => `${v}%`}
+                onChange={(adaptiveSensitivity) => patchPrep({ adaptiveSensitivity })}
+              />
+            </>
+          )}
+          <Slider
+            {...sliderProps('Alpha cutoff', settings.alphaThreshold, 1, 254)}
+            formatValue={(v) => String(v)}
+            onChange={(alphaThreshold) => patch({ alphaThreshold })}
           />
           <Slider
             {...sliderProps('Contrast', settings.prep.contrast, 0.5, 1.5)}
@@ -543,14 +644,54 @@ export function VectorizeWorkflow({
         </p>
       )}
 
+      {sourceChangedWarning && (
+        <div className="vectorize__warning" role="alert">
+          {sourceChangedWarning}
+        </div>
+      )}
+
+      {hasAppearanceOverrides && (
+        <p className="vectorize__muted" role="note">
+          Traces the source pixels only. Masks, crops, adjustments, and effects are not composited
+          into the trace input.
+        </p>
+      )}
+
       {complexityWarning && (
         <div className="vectorize__warning" role="alert">
           {complexityWarning}
         </div>
       )}
 
+      <div className="vectorize__preview-controls">
+        <SegmentedControl
+          label="Preview view"
+          value={previewOptions.view}
+          options={PREVIEW_VIEW_OPTIONS}
+          onChange={(view) => setPreviewOptions((prev) => ({ ...prev, view }))}
+        />
+        <Checkbox
+          label="Anchors"
+          checked={previewOptions.showAnchors}
+          onChange={(e) =>
+            setPreviewOptions((prev) => ({ ...prev, showAnchors: e.target.checked }))
+          }
+        />
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() =>
+            setPreviewOptions((prev) => ({ ...prev, zoom: prev.zoom === 1 ? 'fit' : 1 }))
+          }
+          aria-pressed={previewOptions.zoom === 1}
+        >
+          {previewOptions.zoom === 1 ? 'Fit' : '1:1'}
+        </Button>
+      </div>
+
       <div
         className="vectorize__preview"
+        data-zoom={previewOptions.zoom === 1 ? '1' : 'fit'}
         role="img"
         aria-label={
           preview.status === 'ready' && diagnostics
@@ -578,8 +719,9 @@ export function VectorizeWorkflow({
 
       {previewIsDownsampled && preview.status !== 'idle' && (
         <p className="vectorize__muted">
-          Preview is downsampled for responsiveness; Apply traces at full resolution (up to{' '}
-          {MAX_FINAL_DIM} px).
+          Preview is downsampled for responsiveness; Apply traces at up to {MAX_FINAL_DIM} px long
+          edge. Settings are scaled to each resolution; detail lost to downsampling is not recovered
+          by matching a tolerance.
         </p>
       )}
 
@@ -604,6 +746,22 @@ export function VectorizeWorkflow({
           <div>
             <dt>Complexity</dt>
             <dd>{complexity}</dd>
+          </div>
+          <div>
+            <dt>Provider</dt>
+            <dd>{preview.payload?.providerId ?? '—'}</dd>
+          </div>
+          <div>
+            <dt>Traced at</dt>
+            <dd>{preview.payload ? `${preview.payload.width}x${preview.payload.height}` : '—'}</dd>
+          </div>
+          <div>
+            <dt>Source</dt>
+            <dd>
+              {preview.payload
+                ? `${preview.payload.sourceWidth}x${preview.payload.sourceHeight}`
+                : '—'}
+            </dd>
           </div>
         </dl>
       )}

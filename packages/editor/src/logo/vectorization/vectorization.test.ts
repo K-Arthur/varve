@@ -146,7 +146,10 @@ describe('source preparation', () => {
       brightness: 10,
       denoise: 1,
       threshold: false,
-      ignoreTransparent: true,
+      adaptiveThreshold: false,
+      adaptiveWindow: 0,
+      adaptiveSensitivity: 15,
+      removeBackground: false,
     };
     const first = prepareImageData(input, prep);
     const second = prepareImageData(input, prep);

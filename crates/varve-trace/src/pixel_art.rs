@@ -19,10 +19,10 @@
 //! rayon parallelism is used in this module — output never depends on
 //! scheduling.
 
-use crate::contours::{component_polylines, pair_compound_holes, split_outers_holes};
 use crate::quantize::{oklab_distance_sq, QuantizedColor};
 use crate::{
-    is_cancelled, BezierPath, BezierPoint, RgbColor, TraceBezierResult, TraceCancellation,
+    collect_mask_loops, hierarchy, is_cancelled, probe_hole_interior, sort_paths_by_area_desc,
+    BezierPath, BezierPoint, MaskLoops, RgbColor, Structure, TraceBezierResult, TraceCancellation,
     TraceOptions, TraceProgress,
 };
 use std::collections::HashMap;
@@ -196,48 +196,65 @@ fn to_beziers(points: &[Point]) -> Vec<BezierPoint> {
         .collect()
 }
 
-/// Trace one color mask to pixel-aligned compound polygons.
+/// Trace one color mask's collected loops to pixel-aligned compound polygons.
 ///
 /// Components are 4-connected (diagonally touching pixels stay separate) and
-/// discovered in scan order, so output order is deterministic.
-fn trace_color_mask(
-    mask: &[bool],
+/// discovered in scan order, so output order is deterministic. In `Stacked`
+/// structure, a hole is kept only when the pixel behind it is transparent or
+/// belongs to a color that emitted no paths; otherwise the region painted on
+/// top covers it and keeping the hole would create seams or specks.
+#[allow(clippy::too_many_arguments)]
+fn color_mask_paths(
+    loops: &MaskLoops,
     dims: (u32, u32),
-    min_region: usize,
-    cancel: Option<&TraceCancellation>,
-    fill: RgbColor,
-    compound_holes: bool,
+    structure: Structure,
+    mask: Option<&[bool]>,
+    assignments: &[i16],
+    emitted: &[bool],
     omitted_holes: &mut usize,
+    fill: RgbColor,
 ) -> Vec<BezierPath> {
     let (width, height) = dims;
-    let polys = component_polylines(mask, width, height, min_region, cancel);
-    if polys.is_empty() {
+    if loops.outers.is_empty() && loops.holes.is_empty() {
         return Vec::new();
     }
 
-    if compound_holes {
-        let (compounds, omitted) = pair_compound_holes(&polys);
-        *omitted_holes += omitted;
-        return compounds
-            .into_iter()
-            .map(|c| BezierPath {
-                points: to_beziers(&c.outer),
-                closed: true,
-                fill: Some(fill),
-                holes: c.holes.iter().map(|ring| to_beziers(ring)).collect(),
+    let holes: Vec<Vec<Point>> = if structure == Structure::Stacked {
+        let Some(mask) = mask else {
+            return Vec::new();
+        };
+        loops
+            .raw_holes
+            .iter()
+            .enumerate()
+            .filter_map(|(hole_index, raw_hole)| {
+                let keep = match probe_hole_interior(raw_hole, mask, width, height) {
+                    None => true,
+                    Some(index) => {
+                        let assigned = assignments[index];
+                        assigned < 0 || !emitted[assigned as usize]
+                    }
+                };
+                if keep {
+                    loops.holes.get(hole_index).cloned()
+                } else {
+                    None
+                }
             })
-            .collect();
-    }
+            .collect()
+    } else {
+        loops.holes.clone()
+    };
 
-    let (outers, hole_rings) = split_outers_holes(&polys);
-    *omitted_holes += hole_rings.len();
-    outers
+    let (compounds, omitted) = hierarchy::pair_holes(&loops.outers, &holes);
+    *omitted_holes += omitted;
+    compounds
         .into_iter()
-        .map(|poly| BezierPath {
-            points: to_beziers(&poly),
+        .map(|c| BezierPath {
+            points: to_beziers(&c.outer),
             closed: true,
             fill: Some(fill),
-            holes: Vec::new(),
+            holes: c.holes.iter().map(|ring| to_beziers(ring)).collect(),
         })
         .collect()
 }
@@ -288,7 +305,11 @@ pub(crate) fn trace_pixel_art(
     let mut paths: Vec<BezierPath> = Vec::new();
     let mut omitted_holes = 0usize;
     let total = palette.len().max(1);
-    for (pi, color) in palette.iter().enumerate() {
+    // Pass 1: boundary loops per color. Masks are rebuilt in pass 2 only for
+    // stacked output (interior probing needs the mask), so peak memory stays
+    // one mask at a time and contours are extracted once per color.
+    let mut loops_per_color: Vec<MaskLoops> = Vec::with_capacity(palette.len());
+    for (pi, _color) in palette.iter().enumerate() {
         if cancel.is_some_and(is_cancelled) {
             break;
         }
@@ -299,34 +320,59 @@ pub(crate) fn trace_pixel_art(
         for (m, &a) in mask.iter_mut().zip(assignments.iter()) {
             *m = a == pi as i16;
         }
+        loops_per_color.push(collect_mask_loops(
+            &mask,
+            width,
+            height,
+            opts.min_pixels.max(1),
+            0.0,
+            cancel,
+        ));
+    }
+    let emitted: Vec<bool> = loops_per_color
+        .iter()
+        .map(|l| !l.outers.is_empty())
+        .collect();
+
+    for (pi, color) in palette.iter().enumerate() {
+        if cancel.is_some_and(is_cancelled) {
+            break;
+        }
+        let Some(loops) = loops_per_color.get(pi) else {
+            break;
+        };
+        let mask = if opts.structure == Structure::Stacked {
+            let mut mask = vec![false; count];
+            for (m, &a) in mask.iter_mut().zip(assignments.iter()) {
+                *m = a == pi as i16;
+            }
+            Some(mask)
+        } else {
+            None
+        };
         let fill = RgbColor {
             r: color.r,
             g: color.g,
             b: color.b,
             a: color.a,
         };
-        paths.extend(trace_color_mask(
-            &mask,
+        paths.extend(color_mask_paths(
+            loops,
             (width, height),
-            opts.min_pixels.max(1),
-            cancel,
-            fill,
-            opts.compound_holes,
+            opts.structure,
+            mask.as_deref(),
+            &assignments,
+            &emitted,
             &mut omitted_holes,
+            fill,
         ));
         if opts.max_paths > 0 && paths.len() >= opts.max_paths {
             break;
         }
     }
 
+    sort_paths_by_area_desc(&mut paths);
     if opts.max_paths > 0 && paths.len() > opts.max_paths {
-        paths.sort_by(|a, b| {
-            let area_a: f64 = a.points.iter().map(|p| p.x * p.y).sum();
-            let area_b: f64 = b.points.iter().map(|p| p.x * p.y).sum();
-            area_b
-                .partial_cmp(&area_a)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
         paths.truncate(opts.max_paths);
     }
 

@@ -151,20 +151,26 @@ fn neighbor_count_8(img: &[u8], w: usize, x: usize, y: usize) -> u32 {
     count
 }
 
-/// Extract a skeleton graph from a thinned image.
-/// Returns branches as polylines between endpoints/junctions.
+/// A traced skeleton branch: an open polyline or a closed loop.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SkeletonBranch {
+    pub points: Vec<(f64, f64)>,
+    /// True when the walk returned to its own start pixel (a genuine loop).
+    pub closed: bool,
+}
+
 /// Extract a skeleton graph from a thinned image.
 /// Returns branches as polylines between endpoints/junctions.
 ///
-/// `cancel`, when provided, is polled between branches; a cancelled
-/// extraction returns the branches collected so far.
+/// `cancel`, when provided, is polled between branches; a cancelled walk
+/// returns the branches collected so far.
 pub fn extract_skeleton(
     binary: &[bool],
     width: u32,
     height: u32,
     min_branch: f64,
     cancel: Option<&TraceCancellation>,
-) -> Vec<Vec<(f64, f64)>> {
+) -> Vec<SkeletonBranch> {
     let total = (width * height) as usize;
     if total == 0 || binary.len() < total {
         return Vec::new();
@@ -188,6 +194,11 @@ pub fn extract_skeleton(
         }
     }
 
+    // A skeleton with no endpoints is a set of pure closed loops: the walk
+    // must follow the loop through corners instead of stopping at the first
+    // pixel with two unvisited neighbours.
+    let loop_mode = endpoints.is_empty();
+
     if endpoints.is_empty() {
         // No endpoints means a closed loop — use any foreground pixel
         for y in 0..height as usize {
@@ -209,7 +220,7 @@ pub fn extract_skeleton(
 
     // Walk from each endpoint to extract branches
     let mut visited = vec![false; total];
-    let mut branches: Vec<Vec<(f64, f64)>> = Vec::new();
+    let mut branches: Vec<SkeletonBranch> = Vec::new();
 
     // 8-direction offsets
     let dirs_8: [(i32, i32); 8] = [
@@ -223,7 +234,27 @@ pub fn extract_skeleton(
         (1, -1),
     ];
 
-    for &(sx, sy) in &endpoints {
+    let mut seeds = endpoints;
+    let mut seed_cursor = 0usize;
+    while seed_cursor < seeds.len() || loop_mode {
+        if seed_cursor >= seeds.len() {
+            // Pure-loop skeleton: seed any loop an earlier walk did not reach.
+            let mut next_seed = None;
+            'search: for y in 0..height as usize {
+                for x in 0..w {
+                    if img[y * w + x] == 1 && !visited[y * w + x] {
+                        next_seed = Some((x, y));
+                        break 'search;
+                    }
+                }
+            }
+            match next_seed {
+                Some(seed) => seeds.push(seed),
+                None => break,
+            }
+        }
+        let (sx, sy) = seeds[seed_cursor];
+        seed_cursor += 1;
         if cancel.is_some_and(is_cancelled) {
             break;
         }
@@ -236,11 +267,16 @@ pub fn extract_skeleton(
         let mut branch: Vec<(f64, f64)> = Vec::new();
         let mut cx = sx;
         let mut cy = sy;
+        let mut closed = false;
+        let (mut dir_x, mut dir_y) = (0.0_f64, 0.0_f64);
 
         loop {
             let cidx = cy * w + cx;
             if visited[cidx] {
-                // If we just visited this, add it; otherwise stop
+                // Returning to the start pixel is a genuine loop; stopping on
+                // any other visited pixel means the branch merged into an
+                // already-walked part of the skeleton and stays open.
+                closed = cidx == sidx && branch.len() >= 3;
                 break;
             }
             visited[cidx] = true;
@@ -264,31 +300,50 @@ pub fn extract_skeleton(
             }
 
             if unvisited.is_empty() {
+                // In a pure-loop skeleton a walk that runs out of unvisited
+                // neighbours has traversed the whole loop back to its start.
+                if loop_mode && branch.len() >= 3 {
+                    closed = true;
+                }
                 break; // reached the other end
             }
 
-            // If more than one unvisited neighbor, this is a junction — stop
-            // (the first branch to reach the junction claims it; we'll
-            // continue from the junction with other endpoints)
-            if unvisited.len() > 1 {
-                // Mark this pixel visited (already done above)
+            if unvisited.len() > 1 && !loop_mode {
+                // A junction: the first branch to reach it claims it; other
+                // arms continue from their own endpoints.
                 break;
             }
 
-            // Continue along the skeleton
-            let (next_x, next_y) = unvisited[0];
-            cx = next_x;
-            cy = next_y;
+            // Pick the straightest continuation. On pure loops this follows
+            // the ring through corners; at a loop's start (no heading yet)
+            // the first candidate in direction order wins deterministically.
+            let mut next = unvisited[0];
+            let mut best_dot = f64::NEG_INFINITY;
+            for candidate in &unvisited {
+                let dot = (candidate.0 as f64 - cx as f64) * dir_x
+                    + (candidate.1 as f64 - cy as f64) * dir_y;
+                if dot > best_dot {
+                    best_dot = dot;
+                    next = *candidate;
+                }
+            }
+            dir_x = next.0 as f64 - cx as f64;
+            dir_y = next.1 as f64 - cy as f64;
+            cx = next.0;
+            cy = next.1;
         }
 
         if branch.len() >= 2 {
-            branches.push(branch);
+            branches.push(SkeletonBranch {
+                points: branch,
+                closed,
+            });
         }
     }
 
     // Prune short branches
     let min_len = min_branch.max(1.0);
-    branches.retain(|b| b.len() as f64 >= min_len);
+    branches.retain(|b| b.points.len() as f64 >= min_len);
 
     branches
 }
@@ -296,6 +351,42 @@ pub fn extract_skeleton(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn closed_ring_is_extracted_as_a_closed_branch() {
+        // 1-pixel-thick square ring: the skeleton is a single closed loop.
+        let mut binary = vec![false; 9 * 9];
+        for y in 2..=6usize {
+            for x in 2..=6usize {
+                if x == 2 || x == 6 || y == 2 || y == 6 {
+                    binary[y * 9 + x] = true;
+                }
+            }
+        }
+        let thinned = thin_image(&binary, 9, 9, None);
+        let branches = extract_skeleton(&thinned, 9, 9, 1.0, None);
+        assert_eq!(branches.len(), 1, "one loop branch expected");
+        assert!(branches[0].closed, "loop branch must be marked closed");
+        assert!(branches[0].points.len() >= 8);
+    }
+
+    #[test]
+    fn two_separate_rings_both_extract_as_closed_branches() {
+        let mut binary = vec![false; 12 * 6];
+        for (x0, y0) in [(1usize, 1usize), (7, 1)] {
+            for y in y0..y0 + 4 {
+                for x in x0..x0 + 4 {
+                    if x == x0 || x == x0 + 3 || y == y0 || y == y0 + 3 {
+                        binary[y * 12 + x] = true;
+                    }
+                }
+            }
+        }
+        let thinned = thin_image(&binary, 12, 6, None);
+        let branches = extract_skeleton(&thinned, 12, 6, 1.0, None);
+        assert_eq!(branches.len(), 2, "both loops must be seeded");
+        assert!(branches.iter().all(|branch| branch.closed));
+    }
 
     #[test]
     fn single_horizontal_line() {
@@ -312,7 +403,7 @@ mod tests {
 
         let branches = extract_skeleton(&thinned, 5, 3, 1.0, None);
         assert_eq!(branches.len(), 1, "should be 1 branch");
-        assert_eq!(branches[0].len(), 5, "branch should have 5 points");
+        assert_eq!(branches[0].points.len(), 5, "branch should have 5 points");
     }
 
     #[test]

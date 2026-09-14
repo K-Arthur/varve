@@ -21,10 +21,19 @@ export interface SourcePrepSettings {
   brightness: number;
   /** Box-blur radius used for denoise (0 = off, max 2). */
   denoise: number;
-  /** Apply a binary threshold to the prepared pixels before tracing. */
+  /** Binarize with the trace threshold before tracing. */
   threshold: boolean;
-  /** Ignore transparent pixels when classifying foreground. */
-  ignoreTransparent: boolean;
+  /** Bradley–Roth local-mean threshold for uneven scans. */
+  adaptiveThreshold: boolean;
+  /** Adaptive window in source pixels; 0 = auto (about 1/8 of the short edge). */
+  adaptiveWindow: number;
+  /** Adaptive sensitivity: percent below the local mean treated as ink (1-50). */
+  adaptiveSensitivity: number;
+  /**
+   * Remove near-white pixels connected to the image border. Enclosed white
+   * details are preserved; this is not a global white-color filter.
+   */
+  removeBackground: boolean;
 }
 
 export interface VectorizationSettings {
@@ -38,6 +47,15 @@ export interface VectorizationSettings {
   maxPaths: number;
   maxColors: number;
   compoundHoles: boolean;
+  /**
+   * Region output structure for multi-color modes.
+   * - `cutout`: abutting regions with evenodd holes attached (compound paths).
+   * - `stacked`: back-to-front paint order, holes only where transparency
+   *   remains (no omitted holes; relies on later regions covering earlier ones).
+   * Monochrome output always uses compound holes because there is no second
+   * region to cover a hole.
+   */
+  structure: 'cutout' | 'stacked';
   cornerAngle: number;
   /** Maximum Bezier fitting error in pixels (0.1–10). Controls curve fidelity. */
   maxError: number;
@@ -65,6 +83,7 @@ export const DEFAULT_VECTORIZATION_SETTINGS: VectorizationSettings = {
   maxPaths: 1000,
   maxColors: 8,
   compoundHoles: true,
+  structure: 'cutout',
   cornerAngle: 135,
   maxError: 1.0,
   foreground: 'dark',
@@ -78,7 +97,10 @@ export const DEFAULT_VECTORIZATION_SETTINGS: VectorizationSettings = {
     brightness: 0,
     denoise: 0,
     threshold: false,
-    ignoreTransparent: true,
+    adaptiveThreshold: false,
+    adaptiveWindow: 0,
+    adaptiveSensitivity: 15,
+    removeBackground: true,
   },
 };
 
@@ -96,6 +118,7 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
       maxPaths: 1000,
       maxColors: 8,
       compoundHoles: true,
+      structure: 'cutout',
       cornerAngle: 135,
       maxError: 1.0,
       foreground: 'dark',
@@ -109,7 +132,10 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
         brightness: 0,
         denoise: 0,
         threshold: false,
-        ignoreTransparent: true,
+        adaptiveThreshold: false,
+        adaptiveWindow: 0,
+        adaptiveSensitivity: 15,
+        removeBackground: true,
       },
     },
   },
@@ -126,6 +152,7 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
       maxPaths: 800,
       maxColors: 8,
       compoundHoles: true,
+      structure: 'cutout',
       cornerAngle: 120,
       maxError: 1.0,
       foreground: 'dark',
@@ -139,7 +166,10 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
         brightness: 0,
         denoise: 1,
         threshold: false,
-        ignoreTransparent: true,
+        adaptiveThreshold: true,
+        adaptiveWindow: 0,
+        adaptiveSensitivity: 12,
+        removeBackground: true,
       },
     },
   },
@@ -156,6 +186,7 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
       maxPaths: 1000,
       maxColors: 8,
       compoundHoles: true,
+      structure: 'cutout',
       cornerAngle: 160,
       maxError: 1.0,
       foreground: 'dark',
@@ -169,7 +200,10 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
         brightness: 0,
         denoise: 0,
         threshold: false,
-        ignoreTransparent: true,
+        adaptiveThreshold: false,
+        adaptiveWindow: 0,
+        adaptiveSensitivity: 15,
+        removeBackground: true,
       },
     },
   },
@@ -186,6 +220,7 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
       maxPaths: 1000,
       maxColors: 8,
       compoundHoles: true,
+      structure: 'cutout',
       cornerAngle: 135,
       maxError: 1.0,
       foreground: 'dark',
@@ -199,7 +234,10 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
         brightness: 0,
         denoise: 0,
         threshold: false,
-        ignoreTransparent: true,
+        adaptiveThreshold: false,
+        adaptiveWindow: 0,
+        adaptiveSensitivity: 15,
+        removeBackground: true,
       },
     },
   },
@@ -216,6 +254,7 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
       maxPaths: 2000,
       maxColors: 8,
       compoundHoles: true,
+      structure: 'cutout',
       cornerAngle: 140,
       maxError: 0.8,
       foreground: 'dark',
@@ -229,7 +268,10 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
         brightness: 0,
         denoise: 0,
         threshold: false,
-        ignoreTransparent: true,
+        adaptiveThreshold: false,
+        adaptiveWindow: 0,
+        adaptiveSensitivity: 15,
+        removeBackground: true,
       },
     },
   },
@@ -246,6 +288,7 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
       maxPaths: 1200,
       maxColors: 12,
       compoundHoles: true,
+      structure: 'stacked',
       cornerAngle: 110,
       maxError: 1.5,
       foreground: 'dark',
@@ -259,7 +302,10 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
         brightness: 0,
         denoise: 1,
         threshold: false,
-        ignoreTransparent: true,
+        adaptiveThreshold: false,
+        adaptiveWindow: 0,
+        adaptiveSensitivity: 15,
+        removeBackground: false,
       },
     },
   },
@@ -276,6 +322,7 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
       maxPaths: 1000,
       maxColors: 8,
       compoundHoles: true,
+      structure: 'cutout',
       cornerAngle: 130,
       maxError: 1.0,
       foreground: 'dark',
@@ -289,7 +336,10 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
         brightness: 5,
         denoise: 2,
         threshold: false,
-        ignoreTransparent: true,
+        adaptiveThreshold: false,
+        adaptiveWindow: 0,
+        adaptiveSensitivity: 15,
+        removeBackground: true,
       },
     },
   },
@@ -306,6 +356,7 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
       maxPaths: 300,
       maxColors: 8,
       compoundHoles: true,
+      structure: 'cutout',
       cornerAngle: 150,
       maxError: 1.5,
       foreground: 'dark',
@@ -319,7 +370,10 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
         brightness: 0,
         denoise: 1,
         threshold: false,
-        ignoreTransparent: true,
+        adaptiveThreshold: false,
+        adaptiveWindow: 0,
+        adaptiveSensitivity: 15,
+        removeBackground: true,
       },
     },
   },
@@ -336,6 +390,7 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
       maxPaths: 1000,
       maxColors: 16,
       compoundHoles: true,
+      structure: 'cutout',
       cornerAngle: 135,
       maxError: 1.0,
       foreground: 'dark',
@@ -349,7 +404,10 @@ export const VECTORIZATION_PRESETS: readonly VectorizationPreset[] = [
         brightness: 0,
         denoise: 0,
         threshold: false,
-        ignoreTransparent: true,
+        adaptiveThreshold: false,
+        adaptiveWindow: 0,
+        adaptiveSensitivity: 15,
+        removeBackground: false,
       },
     },
   },
@@ -380,6 +438,10 @@ export function validateVectorizationSettings(s: VectorizationSettings): Vectori
   if (s.prep.brightness < -100 || s.prep.brightness > 100)
     warnings.push('Brightness must be -100 to 100.');
   if (s.prep.denoise < 0 || s.prep.denoise > 2) warnings.push('Denoise radius must be 0-2.');
+  if (s.prep.adaptiveSensitivity < 1 || s.prep.adaptiveSensitivity > 50)
+    warnings.push('Adaptive sensitivity must be 1-50.');
+  if (s.prep.adaptiveWindow < 0 || s.prep.adaptiveWindow > 255)
+    warnings.push('Adaptive window must be 0-255.');
   return { ok: warnings.length === 0, warnings };
 }
 
@@ -396,6 +458,7 @@ export function toTraceOptions(s: VectorizationSettings): RasterTraceOptions {
     maxPaths: s.maxPaths,
     maxColors: s.maxColors,
     compoundHoles: s.compoundHoles,
+    structure: s.structure,
     cornerAngle: s.cornerAngle,
     maxError: s.maxError,
     centerlineWidth: s.centerlineWidth,

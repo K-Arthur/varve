@@ -106,6 +106,20 @@ pub enum TraceMode {
     PixelArt,
 }
 
+/// Region output structure for multi-color traces.
+///
+/// - `Cutout` (default): abutting regions with evenodd holes attached.
+/// - `Stacked`: back-to-front paint order; holes are kept only where the
+///   interior is transparent or its region was not emitted. No region is
+///   silently merged away.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Structure {
+    #[default]
+    Cutout,
+    Stacked,
+}
+
 /// Options for raster-to-vector tracing.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TraceOptions {
@@ -147,6 +161,10 @@ pub struct TraceOptions {
     /// When true, attach holes to their containing outer via winding-number nesting.
     #[serde(default = "default_compound_holes")]
     pub compound_holes: bool,
+    /// Region output structure for multi-color modes. Ignored by monochrome and
+    /// centerline output, which have a single ink and always use compound holes.
+    #[serde(default)]
+    pub structure: Structure,
 }
 
 fn default_corner_angle() -> f64 {
@@ -198,6 +216,7 @@ impl Default for TraceOptions {
             centerline_prune: default_centerline_prune(),
             max_paths: default_max_paths(),
             compound_holes: default_compound_holes(),
+            structure: Structure::default(),
         }
     }
 }
@@ -521,89 +540,113 @@ fn binarize_rgba(pixels: &[u8], width: u32, height: u32, opts: &TraceOptions) ->
     mask
 }
 
-/// Trace a single binary mask to Bezier paths.
-/// Uses the shared boundary-edge extractor (4-connected components), then
-/// fits each closed polyline with cubic Béziers. Hole rings are paired with
-/// their containing outer when `compound_holes` is enabled.
-fn trace_mask_to_beziers(
+/// Boundary loop sets for one binary mask, split by winding.
+#[derive(Debug, Default, Clone)]
+pub(crate) struct MaskLoops {
+    pub outers: Vec<Vec<Point>>,
+    pub holes: Vec<Vec<Point>>,
+    /// Hole rings before simplification, used for interior probing.
+    pub raw_holes: Vec<Vec<Point>>,
+}
+
+/// Collect and simplify the boundary loops of every component in a mask.
+pub(crate) fn collect_mask_loops(
     mask: &[bool],
     width: u32,
     height: u32,
-    opts: &TraceOptions,
+    min_pixels: usize,
+    simplify_tolerance: f64,
     cancel: Option<&TraceCancellation>,
+) -> MaskLoops {
+    let raw_polys = contours::component_polylines(mask, width, height, min_pixels.max(1), cancel);
+    let mut loops = MaskLoops::default();
+    for poly in &raw_polys {
+        if polygon_area_internal(poly) >= 0.0 {
+            loops
+                .outers
+                .push(simplify_closed_path(poly, simplify_tolerance));
+        } else {
+            loops.raw_holes.push(poly.clone());
+            loops
+                .holes
+                .push(simplify_closed_path(poly, simplify_tolerance));
+        }
+    }
+    loops
+}
+
+/// Find a mask-free pixel inside a raw hole loop, when one can be proven.
+///
+/// Used by stacked output to decide whether a hole must be preserved because
+/// transparency or a dropped region lies behind it.
+pub(crate) fn probe_hole_interior(
+    raw_hole: &[Point],
+    mask: &[bool],
+    width: u32,
+    height: u32,
+) -> Option<usize> {
+    const CANDIDATES: [(i64, i64); 4] = [(-1, -1), (0, -1), (-1, 0), (0, 0)];
+    for vertex in raw_hole {
+        let vx = vertex.x.round() as i64;
+        let vy = vertex.y.round() as i64;
+        for (dx, dy) in CANDIDATES {
+            let px = vx + dx;
+            let py = vy + dy;
+            if px < 0 || py < 0 || px >= width as i64 || py >= height as i64 {
+                continue;
+            }
+            let index = (py as u32 * width + px as u32) as usize;
+            if mask[index] {
+                continue;
+            }
+            if contours::point_in_polygon_even_odd((px as f64 + 0.5, py as f64 + 0.5), raw_hole) {
+                return Some(index);
+            }
+        }
+    }
+    None
+}
+
+fn fit_closed_contour(contour: &[Point], opts: &TraceOptions) -> Vec<BezierPoint> {
+    let points: Vec<(f64, f64)> = contour.iter().map(|pt| (pt.x, pt.y)).collect();
+    bezier_fit::fit_bezier_to_contour(&points, true, opts.corner_angle, opts.max_error)
+}
+
+/// Fit collected loops into paths, pairing holes with their containing outer.
+fn fit_loops(
+    loops: &MaskLoops,
+    opts: &TraceOptions,
     fill_color: Option<RgbColor>,
-    omitted_holes: &mut usize,
-) -> Vec<BezierPath> {
-    let raw_polys =
-        contours::component_polylines(mask, width, height, opts.min_pixels.max(1), cancel);
-    let polys: Vec<Vec<Point>> = raw_polys
-        .iter()
-        .map(|poly| simplify_closed_path(poly, opts.simplify_tolerance))
-        .collect();
-    let mut result: Vec<BezierPath> = polys
-        .iter()
-        .map(|p| {
-            let contour: Vec<(f64, f64)> = p.iter().map(|pt| (pt.x, pt.y)).collect();
-            let points = bezier_fit::fit_bezier_to_contour(
-                &contour,
-                true,
-                opts.corner_angle,
-                opts.max_error,
-            );
-            BezierPath {
-                points,
+    attach_holes: bool,
+) -> (Vec<BezierPath>, usize) {
+    if !attach_holes {
+        let paths = loops
+            .outers
+            .iter()
+            .map(|outer| BezierPath {
+                points: fit_closed_contour(outer, opts),
                 closed: true,
                 fill: fill_color,
                 holes: Vec::new(),
-            }
-        })
-        .collect();
-
-    // Apply hole pairing if enabled
-    if opts.compound_holes && result.len() >= 2 {
-        let (compounds, omitted) = contours::pair_compound_holes(&polys);
-        *omitted_holes += omitted;
-        let color = fill_color;
-        result = compounds
-            .into_iter()
-            .map(|c| {
-                let contour: Vec<(f64, f64)> = c.outer.iter().map(|pt| (pt.x, pt.y)).collect();
-                let points = bezier_fit::fit_bezier_to_contour(
-                    &contour,
-                    true,
-                    opts.corner_angle,
-                    opts.max_error,
-                );
-                let holes: Vec<Vec<BezierPoint>> = c
-                    .holes
-                    .iter()
-                    .map(|ring| {
-                        let contour: Vec<(f64, f64)> = ring.iter().map(|pt| (pt.x, pt.y)).collect();
-                        bezier_fit::fit_bezier_to_contour(
-                            &contour,
-                            true,
-                            opts.corner_angle,
-                            opts.max_error,
-                        )
-                    })
-                    .collect();
-                BezierPath {
-                    points,
-                    closed: true,
-                    fill: color,
-                    holes,
-                }
             })
             .collect();
+        return (paths, loops.holes.len());
     }
-
-    // Apply max_paths limit
-    if opts.max_paths > 0 && result.len() > opts.max_paths {
-        sort_paths_by_area_desc(&mut result);
-        result.truncate(opts.max_paths);
-    }
-
-    result
+    let (compounds, omitted) = hierarchy::pair_holes(&loops.outers, &loops.holes);
+    let paths = compounds
+        .into_iter()
+        .map(|c| BezierPath {
+            points: fit_closed_contour(&c.outer, opts),
+            closed: true,
+            fill: fill_color,
+            holes: c
+                .holes
+                .iter()
+                .map(|ring| fit_closed_contour(ring, opts))
+                .collect(),
+        })
+        .collect();
+    (paths, omitted)
 }
 
 pub(crate) fn polygon_area_internal(points: &[Point]) -> f64 {
@@ -676,7 +719,9 @@ pub fn trace_to_beziers_cancellable(
             if is_cancelled_flag(cancel) {
                 break;
             }
+            let closed = branch.closed;
             let branch_points: Vec<Point> = branch
+                .points
                 .iter()
                 .map(|point| Point::new(point.0, point.1))
                 .collect();
@@ -686,14 +731,14 @@ pub fn trace_to_beziers_cancellable(
                 .collect();
             let points = bezier_fit::fit_bezier_to_contour(
                 &contour,
-                false,
+                closed,
                 opts.corner_angle,
                 opts.max_error,
             );
             if !points.is_empty() {
                 paths.push(BezierPath {
                     points,
-                    closed: false,
+                    closed,
                     fill: None,
                     holes: Vec::new(),
                 });
@@ -766,11 +811,11 @@ pub fn trace_to_beziers_cancellable(
             assignments[i] = best;
         }
 
-        let mut all_paths: Vec<BezierPath> = Vec::new();
-        let mut omitted_holes = 0usize;
-        let count_pixels = count as f64;
         let total_colors = palette.len().max(1);
-        for (pi, color) in palette.iter().enumerate() {
+        // Pass 1: collect boundary loops per color. Masks are rebuilt in pass 2
+        // only for stacked output, so peak memory stays one mask at a time.
+        let mut loops_per_color: Vec<MaskLoops> = Vec::with_capacity(palette.len());
+        for (pi, _color) in palette.iter().enumerate() {
             if is_cancelled_flag(cancel) {
                 break;
             }
@@ -780,38 +825,81 @@ pub fn trace_to_beziers_cancellable(
                     0.15 + 0.8 * (pi as f64 + 1.0) / total_colors as f64,
                 );
             }
-            // Skip near-white background buckets (>40% of opaque pixels)
-            let is_near_white = color.r > 245 && color.g > 245 && color.b > 245;
-            if is_near_white && color.count as f64 / count_pixels > 0.4 {
-                continue;
-            }
-
             let mut mask = vec![false; count];
             for (m, &a) in mask.iter_mut().zip(assignments.iter()) {
                 *m = a == pi as i16;
             }
-            let paths = trace_mask_to_beziers(
+            loops_per_color.push(collect_mask_loops(
                 &mask,
                 width,
                 height,
-                opts,
+                opts.min_pixels,
+                opts.simplify_tolerance,
                 cancel,
+            ));
+        }
+        let emitted: Vec<bool> = loops_per_color
+            .iter()
+            .map(|l| !l.outers.is_empty())
+            .collect();
+
+        let mut all_paths: Vec<BezierPath> = Vec::new();
+        let mut omitted_holes = 0usize;
+        for (pi, color) in palette.iter().enumerate() {
+            if is_cancelled_flag(cancel) {
+                break;
+            }
+            let Some(source_loops) = loops_per_color.get(pi) else {
+                break;
+            };
+            let mut loops = source_loops.clone();
+            if opts.structure == Structure::Stacked {
+                let mut mask = vec![false; count];
+                for (m, &a) in mask.iter_mut().zip(assignments.iter()) {
+                    *m = a == pi as i16;
+                }
+                loops.holes = loops
+                    .raw_holes
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(hole_index, raw_hole)| {
+                        let keep = match probe_hole_interior(raw_hole, &mask, width, height) {
+                            None => true,
+                            Some(index) => {
+                                let assigned = assignments[index];
+                                assigned < 0 || !emitted[assigned as usize]
+                            }
+                        };
+                        if keep {
+                            loops.holes.get(hole_index).cloned()
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                loops.raw_holes = Vec::new();
+            }
+            let attach_holes = opts.structure == Structure::Stacked || opts.compound_holes;
+            let (paths, omitted) = fit_loops(
+                &loops,
+                opts,
                 Some(RgbColor {
                     r: color.r,
                     g: color.g,
                     b: color.b,
                     a: color.a,
                 }),
-                &mut omitted_holes,
+                attach_holes,
             );
+            omitted_holes += omitted;
             all_paths.extend(paths);
             if opts.max_paths > 0 && all_paths.len() >= opts.max_paths {
                 break;
             }
         }
 
+        sort_paths_by_area_desc(&mut all_paths);
         if opts.max_paths > 0 && all_paths.len() > opts.max_paths {
-            sort_paths_by_area_desc(&mut all_paths);
             all_paths.truncate(opts.max_paths);
         }
 
@@ -836,9 +924,15 @@ pub fn trace_to_beziers_cancellable(
     if let Some(report) = progress {
         report("tracing", 0.5);
     }
-    let mut omitted_holes = 0usize;
-    let result =
-        trace_mask_to_beziers(&mask, width, height, opts, cancel, None, &mut omitted_holes);
+    let loops = collect_mask_loops(
+        &mask,
+        width,
+        height,
+        opts.min_pixels,
+        opts.simplify_tolerance,
+        cancel,
+    );
+    let (result, omitted_holes) = fit_loops(&loops, opts, None, opts.compound_holes);
     if is_cancelled_flag(cancel) {
         return TraceBezierResult {
             paths: Vec::new(),
@@ -860,11 +954,20 @@ fn is_cancelled_flag(cancel: Option<&TraceCancellation>) -> bool {
 }
 
 pub(crate) fn sort_paths_by_area_desc(paths: &mut [BezierPath]) {
+    fn anchor_area(points: &[BezierPoint]) -> f64 {
+        if points.len() < 3 {
+            return 0.0;
+        }
+        let mut sum = 0.0;
+        for i in 0..points.len() {
+            let j = (i + 1) % points.len();
+            sum += points[i].x * points[j].y - points[j].x * points[i].y;
+        }
+        (sum / 2.0).abs()
+    }
     paths.sort_by(|a, b| {
-        let area_a: f64 = a.points.iter().map(|p| p.x * p.y).sum();
-        let area_b: f64 = b.points.iter().map(|p| p.x * p.y).sum();
-        area_b
-            .partial_cmp(&area_a)
+        anchor_area(&b.points)
+            .partial_cmp(&anchor_area(&a.points))
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 }
@@ -1186,5 +1289,171 @@ mod tests {
         let json = serde_json::to_string(&with_holes).unwrap();
         let decoded: BezierPath = serde_json::from_str(&json).unwrap();
         assert_eq!(decoded, with_holes);
+    }
+
+    fn ring_on_background(
+        width: u32,
+        height: u32,
+        background: [u8; 4],
+        ring: [u8; 3],
+        bounds: (u32, u32, u32, u32),
+    ) -> Vec<u8> {
+        let (x0, y0, x1, y1) = bounds;
+        let mut buf = vec![0u8; (width * height * 4) as usize];
+        for y in 0..height {
+            for x in 0..width {
+                let on_ring = x >= x0
+                    && x <= x1
+                    && y >= y0
+                    && y <= y1
+                    && !(x > x0 && x < x1 && y > y0 && y < y1);
+                let i = ((y * width + x) * 4) as usize;
+                if on_ring {
+                    buf[i..i + 4].copy_from_slice(&[ring[0], ring[1], ring[2], 255]);
+                } else {
+                    buf[i..i + 4].copy_from_slice(&background);
+                }
+            }
+        }
+        buf
+    }
+
+    fn anchor_area(path: &BezierPath) -> f64 {
+        let points: Vec<Point> = path
+            .points
+            .iter()
+            .map(|point| Point::new(point.x, point.y))
+            .collect();
+        polygon_area_internal(&points).abs()
+    }
+
+    #[test]
+    fn stacked_structure_drops_holes_covered_by_later_regions() {
+        let pixels = ring_on_background(9, 9, [255, 255, 255, 255], [200, 0, 0], (2, 2, 6, 6));
+        let result = trace_to_beziers(
+            &pixels,
+            9,
+            9,
+            &TraceOptions {
+                trace_mode: TraceMode::PixelArt,
+                max_colors: 2,
+                min_pixels: 1,
+                structure: Structure::Stacked,
+                ..Default::default()
+            },
+        );
+        assert!(
+            result.len() >= 3,
+            "outer background, ring and inner island expected: {}",
+            result.len()
+        );
+        assert!(result.iter().all(|path| path.holes.is_empty()));
+        for pair in result.windows(2) {
+            assert!(
+                anchor_area(&pair[0]) >= anchor_area(&pair[1]),
+                "stacked output must be ordered back-to-front by area"
+            );
+        }
+        let white = result
+            .iter()
+            .filter(|path| {
+                path.fill
+                    .is_some_and(|f| f.r > 240 && f.g > 240 && f.b > 240)
+            })
+            .count();
+        assert_eq!(
+            white, 2,
+            "outer background and inner island are separate whites"
+        );
+        let red = result
+            .iter()
+            .filter(|path| path.fill.is_some_and(|f| f.r > 150 && f.g < 80 && f.b < 80))
+            .count();
+        assert_eq!(red, 1);
+    }
+
+    #[test]
+    fn stacked_structure_keeps_a_hole_when_transparency_shows_through() {
+        let pixels = ring_on_background(9, 9, [0, 0, 0, 0], [200, 0, 0], (2, 2, 6, 6));
+        let result = trace_to_beziers(
+            &pixels,
+            9,
+            9,
+            &TraceOptions {
+                trace_mode: TraceMode::PixelArt,
+                max_colors: 2,
+                min_pixels: 1,
+                structure: Structure::Stacked,
+                ..Default::default()
+            },
+        );
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].holes.len(), 1, "transparent center stays a hole");
+    }
+
+    #[test]
+    fn large_white_region_is_not_silently_dropped() {
+        let mut pixels = vec![0u8; 32 * 32 * 4];
+        for y in 0..32u32 {
+            for x in 0..32u32 {
+                let dark = (10..22).contains(&x) && (10..22).contains(&y);
+                let i = ((y * 32 + x) * 4) as usize;
+                let value: [u8; 4] = if dark {
+                    [0, 0, 0, 255]
+                } else {
+                    [255, 255, 255, 255]
+                };
+                pixels[i..i + 4].copy_from_slice(&value);
+            }
+        }
+        let result = trace_to_beziers(
+            &pixels,
+            32,
+            32,
+            &TraceOptions {
+                max_colors: 2,
+                min_pixels: 1,
+                compound_holes: true,
+                ..Default::default()
+            },
+        );
+        assert!(
+            result.iter().any(|path| path
+                .fill
+                .is_some_and(|f| f.r > 240 && f.g > 240 && f.b > 240)),
+            "a dominant white region must be traced, not skipped as background"
+        );
+    }
+
+    #[test]
+    fn centerline_preserves_closed_loops_as_closed_stroked_paths() {
+        let mut pixels = vec![0u8; 9 * 9 * 4];
+        for y in 2..=6u32 {
+            for x in 2..=6u32 {
+                let border = x == 2 || x == 6 || y == 2 || y == 6;
+                if !border {
+                    continue;
+                }
+                let i = ((y * 9 + x) * 4) as usize;
+                pixels[i..i + 4].copy_from_slice(&[0, 0, 0, 255]);
+            }
+        }
+        let result = trace_to_beziers(
+            &pixels,
+            9,
+            9,
+            &TraceOptions {
+                trace_mode: TraceMode::Centerline,
+                min_pixels: 1,
+                centerline_prune: 1.0,
+                ..Default::default()
+            },
+        );
+        assert_eq!(result.len(), 1, "one skeleton loop expected");
+        assert!(result[0].closed, "a closed skeleton loop must stay closed");
+        assert!(
+            result[0].fill.is_none(),
+            "centerline paths are stroked, not filled"
+        );
     }
 }

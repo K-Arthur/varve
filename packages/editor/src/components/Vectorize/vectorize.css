@@ -59,10 +59,26 @@
   overflow: hidden;
 }
 
+/* 1:1 inspection mode scrolls instead of shrinking the artwork. */
+.vectorize__preview[data-zoom="1"] {
+  overflow: auto;
+}
+
+.vectorize__preview-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
 .vectorize__preview-canvas {
   display: block;
   width: 100%;
   height: auto;
+}
+
+.vectorize__preview[data-zoom="1"] .vectorize__preview-canvas {
+  max-width: none;
 }
 
 .vectorize__preview-badge {

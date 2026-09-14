@@ -339,21 +339,37 @@ describe('trace metadata and re-trace', () => {
   });
 
   it('metadata settings round-trip restores editable settings', async () => {
-    const { settingsFromTraceMetadata, buildTraceMetadata, traceEngineLabel } = await import(
+    const { settingsFromTraceMetadata, buildTraceMetadata } = await import(
       './logo/vectorization/metadata'
     );
     const { DEFAULT_VECTORIZATION_SETTINGS } = await import('./logo/vectorization/settings');
-    const built = buildTraceMetadata(
-      'img-m1',
-      { ...DEFAULT_VECTORIZATION_SETTINGS, mode: 'pixel-art', maxColors: 16, minArea: 1 },
-      { pathCount: 3, pointCount: 24, holeCount: 1, omittedHoles: 0, complexity: 72 },
-      0,
-      traceEngineLabel(),
-    );
+    const built = buildTraceMetadata({
+      sourceNodeId: 'img-m1',
+      settings: {
+        ...DEFAULT_VECTORIZATION_SETTINGS,
+        mode: 'pixel-art',
+        maxColors: 16,
+        minArea: 1,
+        prep: { ...DEFAULT_VECTORIZATION_SETTINGS.prep, removeBackground: false },
+      },
+      diagnostics: { pathCount: 3, pointCount: 24, holeCount: 1, omittedHoles: 0, complexity: 72 },
+      omittedHoles: 0,
+      providerId: 'worker-trace',
+      traceWidth: 512,
+      traceHeight: 512,
+      sourceWidth: 2048,
+      sourceHeight: 2048,
+      sourceHash: 'abc',
+    });
     const restored = settingsFromTraceMetadata(built);
     expect(restored.mode).toBe('pixel-art');
     expect(restored.maxColors).toBe(16);
     expect(restored.minArea).toBe(1);
     expect(restored.prep.grayscale).toBe(DEFAULT_VECTORIZATION_SETTINGS.prep.grayscale);
+    expect(restored.prep.removeBackground).toBe(false);
+    expect(built.schemaVersion).toBe(2);
+    expect(built.providerId).toBe('worker-trace');
+    expect(built.traceWidth).toBe(512);
+    expect(built.engine).toBe('worker');
   });
 });

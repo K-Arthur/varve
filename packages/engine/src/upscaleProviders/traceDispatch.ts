@@ -39,7 +39,8 @@ export async function dispatchTrace(
     }
     if (!available) continue;
     try {
-      return await provider.trace(imageData, options, signal);
+      const result = await provider.trace(imageData, options, signal);
+      return { ...result, providerId: provider.id };
     } catch (error) {
       if (signal?.aborted) throw new Error('cancelled');
       const message = error instanceof Error ? error.message : String(error);

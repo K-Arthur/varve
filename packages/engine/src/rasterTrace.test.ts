@@ -200,3 +200,103 @@ describe('traceRasterToPaths pixel-art mode', () => {
     );
   });
 });
+
+describe('traceRasterToPaths output structure', () => {
+  function ringOnBackground(
+    width: number,
+    height: number,
+    background: [number, number, number, number],
+    ring: [number, number, number],
+    ringBounds: { x0: number; y0: number; x1: number; y1: number },
+  ): ImageData {
+    const pixels: number[] = [];
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const onRing =
+          x >= ringBounds.x0 &&
+          x <= ringBounds.x1 &&
+          y >= ringBounds.y0 &&
+          y <= ringBounds.y1 &&
+          !(x > ringBounds.x0 && x < ringBounds.x1 && y > ringBounds.y0 && y < ringBounds.y1);
+        if (onRing) pixels.push(ring[0], ring[1], ring[2], 255);
+        else pixels.push(...background);
+      }
+    }
+    return rgba(width, height, pixels);
+  }
+
+  it('stacked output drops holes that a later region paints over', () => {
+    // White background with a red ring; the ring's center is white again.
+    const source = ringOnBackground(9, 9, [255, 255, 255, 255], [200, 0, 0], {
+      x0: 2,
+      y0: 2,
+      x1: 6,
+      y1: 6,
+    });
+    const result = traceRasterToPaths(source, {
+      mode: 'pixel-art',
+      maxColors: 2,
+      minArea: 1,
+      simplifyTolerance: 0,
+      structure: 'stacked',
+    });
+    expect(result.omittedHoles).toBe(0);
+    expect(result.paths.length).toBeGreaterThanOrEqual(3);
+    for (const path of result.paths) {
+      expect(path.holes ?? []).toHaveLength(0);
+    }
+    // Paint order is back-to-front: non-increasing area.
+    for (let i = 1; i < result.paths.length; i += 1) {
+      expect(result.paths[i - 1]!.area).toBeGreaterThanOrEqual(result.paths[i]!.area);
+    }
+    const whiteFills = result.paths.filter(
+      (path) => path.fill && path.fill.r > 240 && path.fill.g > 240 && path.fill.b > 240,
+    );
+    expect(whiteFills).toHaveLength(2);
+    const redFills = result.paths.filter(
+      (path) => path.fill && path.fill.r > 150 && path.fill.g < 80 && path.fill.b < 80,
+    );
+    expect(redFills).toHaveLength(1);
+  });
+
+  it('stacked output keeps a hole when transparency shows through it', () => {
+    const source = ringOnBackground(9, 9, [0, 0, 0, 0], [200, 0, 0], {
+      x0: 2,
+      y0: 2,
+      x1: 6,
+      y1: 6,
+    });
+    const result = traceRasterToPaths(source, {
+      mode: 'color',
+      maxColors: 2,
+      minArea: 1,
+      simplifyTolerance: 0,
+      structure: 'stacked',
+    });
+    expect(result.omittedHoles).toBe(0);
+    expect(result.paths).toHaveLength(1);
+    expect(result.paths[0]?.holes).toHaveLength(1);
+  });
+
+  it('never silently drops a large white region (no hidden background heuristic)', () => {
+    const pixels: number[] = [];
+    for (let y = 0; y < 32; y += 1) {
+      for (let x = 0; x < 32; x += 1) {
+        const dark = x >= 10 && x < 22 && y >= 10 && y < 22;
+        if (dark) pixels.push(0, 0, 0, 255);
+        else pixels.push(255, 255, 255, 255);
+      }
+    }
+    const result = traceRasterToPaths(rgba(32, 32, pixels), {
+      mode: 'color',
+      maxColors: 2,
+      minArea: 1,
+      simplifyTolerance: 0,
+    });
+    const white = result.paths.filter(
+      (path) => path.fill && path.fill.r > 240 && path.fill.g > 240 && path.fill.b > 240,
+    );
+    expect(white.length).toBeGreaterThanOrEqual(1);
+    expect(white[0]?.area).toBeGreaterThan(100);
+  });
+});

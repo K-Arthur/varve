@@ -219,6 +219,30 @@ pub fn component_polylines(
     polys
 }
 
+/// Even-odd point-in-polygon test for simple closed loops.
+///
+/// Pixel-boundary loops produced by `component_polylines` are simple, so the
+/// crossing-parity rule is sufficient (and cheaper than winding number).
+pub fn point_in_polygon_even_odd(point: (f64, f64), polygon: &[Point]) -> bool {
+    let (x, y) = point;
+    let n = polygon.len();
+    if n < 3 {
+        return false;
+    }
+    let mut inside = false;
+    let mut j = n - 1;
+    for i in 0..n {
+        let a = polygon[i];
+        let b = polygon[j];
+        // The inequality guards the division: a.y != b.y whenever this is true.
+        if (a.y > y) != (b.y > y) && x < (b.x - a.x) * (y - a.y) / (b.y - a.y) + a.x {
+            inside = !inside;
+        }
+        j = i;
+    }
+    inside
+}
+
 /// Partition boundary polygons into outer contours (positive area) and hole
 /// rings (negative area, i.e. clockwise).
 pub fn split_outers_holes(polys: &[Vec<Point>]) -> (Vec<Vec<Point>>, Vec<Vec<Point>>) {

@@ -30,8 +30,8 @@ import type {
 import type {
   AnimatedAssetMetadata,
   MediaFillSettings,
-  OpenTypeFeatureMap as SharedOpenTypeFeatureMap,
   RasterColorEncoding,
+  OpenTypeFeatureMap as SharedOpenTypeFeatureMap,
 } from '@varve/shared';
 
 export type { AnimatedAssetMetadata, MediaFillSettings } from '@varve/shared';
@@ -1483,7 +1483,9 @@ export interface TextNode extends NodeBase {
   /**
    * Per-cluster glyph adjustments keyed by grapheme-cluster index. When
    * present, the renderer draws cluster-by-cluster so offsets, rotations,
-   * and scales apply without corrupting ordinary text behavior.
+   * and scales apply without corrupting ordinary text behavior. The map is
+   * explicitly invalidated when source text changes; it is never treated as
+   * a glyph-array or glyph-ID cache.
    */
   glyphAdjustments?: Record<number, GlyphAdjustment>;
   /**
@@ -1624,9 +1626,28 @@ export interface LiveBooleanState {
  * Versioned provenance for a traced group (see `GroupNode.traceMetadata`).
  * Stored on the group so it survives save/load and undo without embedding
  * raster data in the metadata.
+ *
+ * v1 stored the trace options and a coarse engine label. v2 adds the full
+ * preparation stack, the provider that actually produced the result, the
+ * effective trace raster dimensions, and source dimensions so re-tracing is
+ * reproducible and honest about resolution. All v2 fields are optional so v1
+ * documents keep loading.
  */
+export interface TracePrepSnapshot {
+  grayscale: boolean;
+  invert: boolean;
+  contrast: number;
+  brightness: number;
+  denoise: number;
+  threshold: boolean;
+  adaptiveThreshold: boolean;
+  adaptiveWindow: number;
+  adaptiveSensitivity: number;
+  removeBackground: boolean;
+}
+
 export interface TraceMetadata {
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
   /** The image node this trace was generated from. */
   sourceNodeId: NodeId;
   /** Content hash of the source pixels at trace time (sha256 hex), when known. */
@@ -1643,11 +1664,23 @@ export interface TraceMetadata {
   maxPaths: number;
   maxColors: number;
   compoundHoles: boolean;
+  /** v2: region output structure for multi-color modes. */
+  structure?: 'cutout' | 'stacked';
   cornerAngle: number;
   /** Maximum Bezier fitting error in pixels (0.1–10). Default 1.0. */
   maxError?: number;
   centerlineWidth: number;
   centerlinePrune: number;
+  /** v2: full source preparation stack, for faithful re-tracing. */
+  prep?: TracePrepSnapshot;
+  /** v2: provider id that produced the result (e.g. `native-trace`). */
+  providerId?: string;
+  /** v2: effective raster dimensions the provider traced, in pixels. */
+  traceWidth?: number;
+  traceHeight?: number;
+  /** v2: source image pixel dimensions at trace time. */
+  sourceWidth?: number;
+  sourceHeight?: number;
   /** Which engine produced the result (native Rust / TS worker / WASM). */
   engine: 'native' | 'worker' | 'wasm' | 'direct';
   /** Result statistics at trace time. */

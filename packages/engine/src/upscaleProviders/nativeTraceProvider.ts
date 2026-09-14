@@ -100,6 +100,7 @@ export const nativeTraceProvider: TraceProvider = {
         centerlinePrune: options.centerlinePrune ?? 4,
         maxPaths: options.maxPaths ?? 1000,
         compoundHoles: options.compoundHoles ?? true,
+        structure: options.structure ?? 'cutout',
         jobId,
       };
       const result = await invoke<{

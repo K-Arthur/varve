@@ -54,6 +54,15 @@ export interface RasterTraceOptions {
   maxPaths?: number;
   /** When true (default), attach CW loops as holes on the outer path. */
   compoundHoles?: boolean;
+  /**
+   * Region output structure for multi-color modes.
+   * - `cutout` (default): abutting regions with evenodd holes attached.
+   * - `stacked`: back-to-front paint order, holes kept only where the
+   *   interior is transparent or its region was not emitted. No region is
+   *   silently merged away.
+   * Monochrome output ignores this and always uses compound holes.
+   */
+  structure?: 'cutout' | 'stacked';
   /** Trace mode. Defaults to monochrome. */
   mode?: RasterTraceMode;
   /** Palette size for color/grayscale modes (2–32). Default 8 color / 4 grayscale. */
@@ -81,6 +90,12 @@ export interface RasterTraceResult {
    * compoundHoles is enabled and at least one outer exists).
    */
   omittedHoles: number;
+  /**
+   * Provider that actually produced this result, attached by `dispatchTrace`.
+   * Display/provenance code must record this rather than guessing from the
+   * environment.
+   */
+  providerId?: string;
 }
 
 interface Edge {
@@ -225,12 +240,46 @@ interface TraceMaskOptions {
   fill?: RasterTraceFill;
 }
 
-function traceMaskToPaths(mask: Uint8Array, options: TraceMaskOptions): RasterTraceResult {
-  const { width, height, minArea, simplifyTolerance, maxPaths, compoundHoles, fill } = options;
+/** Loops of one 4-connected mask component, split by winding. */
+interface MaskLoopSet {
+  outers: RasterTracePoint[][];
+  holes: RasterTracePoint[][];
+  /** Hole loops before simplification, used for interior probing. */
+  rawHoles: RasterTracePoint[][];
+}
+
+function boundsOf(points: readonly RasterTracePoint[]): RasterTracePath['bounds'] {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const point of points) {
+    if (point.x < minX) minX = point.x;
+    if (point.y < minY) minY = point.y;
+    if (point.x > maxX) maxX = point.x;
+    if (point.y > maxY) maxY = point.y;
+  }
+  if (!Number.isFinite(minX)) return { x: 0, y: 0, w: 0, h: 0 };
+  const w = Math.max(1, maxX - minX);
+  const h = Math.max(1, maxY - minY);
+  return { x: minX, y: minY, w, h };
+}
+
+/**
+ * Extract the boundary loops of every 4-connected component of a mask.
+ * Deterministic: components are discovered in scan order and loops chain in
+ * edge order.
+ */
+function traceMaskLoops(
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  minArea: number,
+  simplifyTolerance: number,
+): MaskLoopSet[] {
   const count = width * height;
   const visited = new Uint8Array(count);
-  const paths: RasterTracePath[] = [];
-  let omittedHoles = 0;
+  const result: MaskLoopSet[] = [];
 
   for (let seed = 0; seed < count; seed += 1) {
     if (!mask[seed] || visited[seed]) continue;
@@ -259,17 +308,9 @@ function traceMaskToPaths(mask: Uint8Array, options: TraceMaskOptions): RasterTr
 
     const componentSet = new Set(component);
     const edges: Edge[] = [];
-    let minX = width;
-    let minY = height;
-    let maxX = 0;
-    let maxY = 0;
     for (const index of component) {
       const x = index % width;
       const y = Math.floor(index / width);
-      minX = Math.min(minX, x);
-      minY = Math.min(minY, y);
-      maxX = Math.max(maxX, x + 1);
-      maxY = Math.max(maxY, y + 1);
       if (y === 0 || !componentSet.has(index - width))
         edges.push({ start: { x, y }, end: { x: x + 1, y } });
       if (x + 1 === width || !componentSet.has(index + 1))
@@ -282,52 +323,150 @@ function traceMaskToPaths(mask: Uint8Array, options: TraceMaskOptions): RasterTr
 
     const outers: RasterTracePoint[][] = [];
     const holes: RasterTracePoint[][] = [];
+    const rawHoles: RasterTracePoint[][] = [];
     for (const loop of loopsFromEdges(edges)) {
       const points = canonicalizeLoop(simplify(loop, simplifyTolerance));
-      if (signedPolygonArea(points) < 0) {
+      if (signedPolygonArea(loop) < 0) {
         holes.push(points);
+        rawHoles.push(loop);
       } else {
         outers.push(points);
       }
     }
-
-    if (outers.length === 0) {
-      omittedHoles += holes.length;
-      continue;
-    }
-
     outers.sort((a, b) => polygonArea(b) - polygonArea(a));
-    const primary = outers[0] as RasterTracePoint[];
-    const attachedHoles = compoundHoles ? holes : [];
-    if (!compoundHoles) omittedHoles += holes.length;
+    holes.sort((a, b) => polygonArea(b) - polygonArea(a));
+    result.push({ outers, holes, rawHoles });
+  }
+  return result;
+}
 
-    paths.push({
-      points: primary,
-      holes: attachedHoles.length > 0 ? attachedHoles : undefined,
-      closed: true,
-      area: polygonArea(primary),
-      bounds: { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
-      ...(fill ? { fill } : {}),
-    });
+/** Even-odd point-in-polygon test (pixel loops are simple). */
+function pointInPolygon(
+  point: { x: number; y: number },
+  polygon: readonly RasterTracePoint[],
+): boolean {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+    const a = polygon[i] as RasterTracePoint;
+    const b = polygon[j] as RasterTracePoint;
+    const intersects =
+      a.y > point.y !== b.y > point.y &&
+      point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y || Number.EPSILON) + a.x;
+    if (intersects) inside = !inside;
+  }
+  return inside;
+}
 
-    for (let i = 1; i < outers.length; i += 1) {
+/**
+ * Pair each hole with the smallest containing outer (mirrors the Rust
+ * `hierarchy::pair_holes`). Returns one hole list per outer, in the same
+ * order as `outers`, plus the unpaired count.
+ */
+function pairHolesToOuters(
+  outers: readonly RasterTracePoint[][],
+  holes: readonly RasterTracePoint[][],
+): { holesPerOuter: RasterTracePoint[][][]; omitted: number } {
+  const indexed = outers.map((outer, index) => ({ outer, index, area: polygonArea(outer) }));
+  const ordered = [...indexed].sort((a, b) => a.area - b.area);
+  const holesPerOuter: RasterTracePoint[][][] = outers.map(() => []);
+  let omitted = 0;
+  for (const hole of holes) {
+    if (hole.length === 0) continue;
+    const test = hole[0] as RasterTracePoint;
+    let target: number | null = null;
+    for (const candidate of ordered) {
+      if (pointInPolygon(test, candidate.outer)) {
+        target = candidate.index;
+        break;
+      }
+    }
+    if (target === null) {
+      omitted += 1;
+    } else {
+      (holesPerOuter[target] as RasterTracePoint[][]).push(hole);
+    }
+  }
+  return { holesPerOuter, omitted };
+}
+
+/**
+ * Find a mask-free pixel inside a hole loop (used by stacked output to decide
+ * whether a hole must be preserved because transparency or a dropped region
+ * lies behind it). Returns null when no probe is conclusive.
+ */
+function probeHoleInterior(
+  rawHole: readonly RasterTracePoint[],
+  mask: Uint8Array,
+  width: number,
+  height: number,
+): number | null {
+  const candidates = [
+    [-1, -1],
+    [0, -1],
+    [-1, 0],
+    [0, 0],
+  ] as const;
+  for (const vertex of rawHole) {
+    const vx = Math.round(vertex.x);
+    const vy = Math.round(vertex.y);
+    for (const [dx, dy] of candidates) {
+      const px = vx + dx;
+      const py = vy + dy;
+      if (px < 0 || py < 0 || px >= width || py >= height) continue;
+      const index = py * width + px;
+      if (mask[index]) continue;
+      if (pointInPolygon({ x: px + 0.5, y: py + 0.5 }, rawHole)) return index;
+    }
+  }
+  return null;
+}
+
+function traceMaskToPaths(mask: Uint8Array, options: TraceMaskOptions): RasterTraceResult {
+  const { width, height, minArea, simplifyTolerance, maxPaths, compoundHoles, fill } = options;
+  const loopSets = traceMaskLoops(mask, width, height, minArea, simplifyTolerance);
+  const outers: RasterTracePoint[][] = [];
+  const holes: RasterTracePoint[][] = [];
+  let omittedHoles = 0;
+  for (const set of loopSets) {
+    outers.push(...set.outers);
+    if (compoundHoles) {
+      holes.push(...set.holes);
+    } else {
+      omittedHoles += set.holes.length;
+    }
+    if (set.outers.length === 0) omittedHoles += set.holes.length;
+  }
+
+  const paths: RasterTracePath[] = [];
+  if (compoundHoles) {
+    const paired = pairHolesToOuters(outers, holes);
+    omittedHoles += paired.omitted;
+    for (let i = 0; i < outers.length; i += 1) {
       const ring = outers[i] as RasterTracePoint[];
+      const attached = paired.holesPerOuter[i] as RasterTracePoint[][];
+      paths.push({
+        points: ring,
+        holes: attached.length > 0 ? attached : undefined,
+        closed: true,
+        area: polygonArea(ring),
+        bounds: boundsOf(ring),
+        ...(fill ? { fill } : {}),
+      });
+    }
+  } else {
+    for (const ring of outers) {
       paths.push({
         points: ring,
         closed: true,
         area: polygonArea(ring),
-        bounds: { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
+        bounds: boundsOf(ring),
         ...(fill ? { fill } : {}),
       });
-    }
-
-    while (paths.length > maxPaths) {
-      paths.sort((left, right) => right.area - left.area);
-      paths.pop();
     }
   }
 
   paths.sort((left, right) => right.area - left.area);
+  while (paths.length > maxPaths) paths.pop();
   return { width, height, paths, omittedHoles };
 }
 
@@ -545,33 +684,71 @@ function tracePaletteModes(
   const minArea = Math.max(1, Math.round(options.minArea ?? 1));
   const simplifyTolerance = Math.max(0, options.simplifyTolerance ?? 0.75);
   const maxPaths = Math.max(1, Math.round(options.maxPaths ?? 1_000));
-  const compoundHoles = options.compoundHoles !== false;
+  const stacked = options.structure === 'stacked';
+
+  const loopSetsByColor: MaskLoopSet[][] = [];
+  const emittedPerColor: number[] = [];
+  for (let paletteIndex = 0; paletteIndex < palette.length; paletteIndex += 1) {
+    const mask = new Uint8Array(count);
+    for (let i = 0; i < count; i += 1) {
+      mask[i] = assignments[i] === paletteIndex ? 1 : 0;
+    }
+    const sets = traceMaskLoops(mask, source.width, source.height, minArea, simplifyTolerance);
+    loopSetsByColor.push(sets);
+    emittedPerColor.push(sets.reduce((total, set) => total + set.outers.length, 0));
+  }
 
   const paths: RasterTracePath[] = [];
   let omittedHoles = 0;
   for (let paletteIndex = 0; paletteIndex < palette.length; paletteIndex += 1) {
     const color = palette[paletteIndex] as QuantizedColor;
-    // Skip near-white background bucket when it dominates (>40% of opaque pixels).
-    const isNearWhite = color.r > 245 && color.g > 245 && color.b > 245;
-    if (isNearWhite && color.count / Math.max(1, count) > 0.4) continue;
-
-    const mask = new Uint8Array(count);
-    for (let i = 0; i < count; i += 1) {
-      mask[i] = assignments[i] === paletteIndex ? 1 : 0;
+    const sets = loopSetsByColor[paletteIndex] as MaskLoopSet[];
+    const outers: RasterTracePoint[][] = [];
+    const holes: RasterTracePoint[][] = [];
+    if (!stacked) {
+      for (const set of sets) {
+        outers.push(...set.outers);
+        holes.push(...set.holes);
+      }
+    } else {
+      // Stacked output: a hole is only needed when something that is not
+      // painted later shows through (transparent pixels, or a region that was
+      // dropped by minArea/maxPaths). Otherwise the region inside the hole is
+      // painted on top and keeping the hole would only create seams or specks.
+      const mask = new Uint8Array(count);
+      for (let i = 0; i < count; i += 1) {
+        mask[i] = assignments[i] === paletteIndex ? 1 : 0;
+      }
+      for (const set of sets) {
+        outers.push(...set.outers);
+        for (let i = 0; i < set.rawHoles.length; i += 1) {
+          const rawHole = set.rawHoles[i] as RasterTracePoint[];
+          const simplified = set.holes[i] as RasterTracePoint[];
+          const probe = probeHoleInterior(rawHole, mask, source.width, source.height);
+          const assigned = probe === null ? -1 : (assignments[probe] as number);
+          const keep = probe === null || assigned < 0 || (emittedPerColor[assigned] ?? 0) === 0;
+          if (keep) holes.push(simplified);
+        }
+      }
     }
-    const remaining = Math.max(1, maxPaths - paths.length);
-    const result = traceMaskToPaths(mask, {
-      width: source.width,
-      height: source.height,
-      minArea,
-      simplifyTolerance,
-      maxPaths: remaining,
-      compoundHoles,
-      fill: { r: color.r, g: color.g, b: color.b, a: 255 },
-    });
-    paths.push(...result.paths);
-    omittedHoles += result.omittedHoles;
-    if (paths.length >= maxPaths) break;
+    if (outers.length === 0) {
+      omittedHoles += holes.length;
+      continue;
+    }
+    const paired = pairHolesToOuters(outers, holes);
+    omittedHoles += paired.omitted;
+    for (let i = 0; i < outers.length; i += 1) {
+      const ring = outers[i] as RasterTracePoint[];
+      const attached = paired.holesPerOuter[i] as RasterTracePoint[][];
+      paths.push({
+        points: ring,
+        ...(attached.length > 0 ? { holes: attached } : {}),
+        closed: true,
+        area: polygonArea(ring),
+        bounds: boundsOf(ring),
+        fill: { r: color.r, g: color.g, b: color.b, a: 255 },
+      });
+    }
   }
 
   paths.sort((left, right) => right.area - left.area);
@@ -716,39 +893,73 @@ function tracePixelArt(source: ImageData, options: RasterTraceOptions): RasterTr
   }
   const minArea = Math.max(1, Math.round(options.minArea ?? 1));
   const maxPaths = Math.max(1, Math.round(options.maxPaths ?? 1_000));
-  const compoundHoles = options.compoundHoles !== false;
-  const paths: RasterTracePath[] = [];
-  let omittedHoles = 0;
+  const stacked = options.structure === 'stacked';
+
+  const loopSetsByColor: MaskLoopSet[][] = [];
+  const emittedPerColor: number[] = [];
   for (let p = 0; p < palette.length; p += 1) {
-    const color = palette[p] as QuantizedColor;
     const mask = new Uint8Array(count);
     for (let i = 0; i < count; i += 1) {
       mask[i] = assignments[i] === p ? 1 : 0;
     }
-    const remaining = Math.max(1, maxPaths - paths.length);
-    // Zero simplification tolerance collapses collinear runs while keeping
-    // every true corner — the pixel grid is preserved exactly.
-    const result = traceMaskToPaths(mask, {
-      width: source.width,
-      height: source.height,
-      minArea,
-      // Zero simplification tolerance keeps every pixel-grid point; the
-      // cyclic collinear pass below collapses straight runs afterwards.
-      simplifyTolerance: 0,
-      maxPaths: remaining,
-      compoundHoles,
-      fill: { r: color.r, g: color.g, b: color.b, a: 255 },
-    });
-    // Collapse collinear runs on every ring (outer + holes), cyclically.
-    const cleaned = result.paths.map((path) => ({
-      ...path,
-      points: removeCollinearPoints(path.points),
-      ...(path.holes ? { holes: path.holes.map((ring) => removeCollinearPoints(ring)) } : {}),
-    }));
-    paths.push(...cleaned);
-    omittedHoles += result.omittedHoles;
-    if (paths.length >= maxPaths) break;
+    // Zero simplification tolerance keeps every pixel-grid point; the cyclic
+    // collinear pass below collapses straight runs afterwards.
+    const sets = traceMaskLoops(mask, source.width, source.height, minArea, 0);
+    loopSetsByColor.push(sets);
+    emittedPerColor.push(sets.reduce((total, set) => total + set.outers.length, 0));
   }
+
+  const paths: RasterTracePath[] = [];
+  let omittedHoles = 0;
+  for (let p = 0; p < palette.length; p += 1) {
+    const color = palette[p] as QuantizedColor;
+    const sets = loopSetsByColor[p] as MaskLoopSet[];
+    const outers: RasterTracePoint[][] = [];
+    const holes: RasterTracePoint[][] = [];
+    if (!stacked) {
+      for (const set of sets) {
+        outers.push(...set.outers);
+        holes.push(...set.holes);
+      }
+    } else {
+      const mask = new Uint8Array(count);
+      for (let i = 0; i < count; i += 1) {
+        mask[i] = assignments[i] === p ? 1 : 0;
+      }
+      for (const set of sets) {
+        outers.push(...set.outers);
+        for (let i = 0; i < set.rawHoles.length; i += 1) {
+          const rawHole = set.rawHoles[i] as RasterTracePoint[];
+          const simplified = set.holes[i] as RasterTracePoint[];
+          const probe = probeHoleInterior(rawHole, mask, source.width, source.height);
+          const assigned = probe === null ? -1 : (assignments[probe] as number);
+          const keep = probe === null || assigned < 0 || (emittedPerColor[assigned] ?? 0) === 0;
+          if (keep) holes.push(simplified);
+        }
+      }
+    }
+    if (outers.length === 0) {
+      omittedHoles += holes.length;
+      continue;
+    }
+    const paired = pairHolesToOuters(outers, holes);
+    omittedHoles += paired.omitted;
+    for (let i = 0; i < outers.length; i += 1) {
+      const ring = removeCollinearPoints(outers[i] as RasterTracePoint[]);
+      const attached = (paired.holesPerOuter[i] as RasterTracePoint[][]).map((hole) =>
+        removeCollinearPoints(hole),
+      );
+      paths.push({
+        points: ring,
+        ...(attached.length > 0 ? { holes: attached } : {}),
+        closed: true,
+        area: polygonArea(ring),
+        bounds: boundsOf(ring),
+        fill: { r: color.r, g: color.g, b: color.b, a: 255 },
+      });
+    }
+  }
+
   paths.sort((left, right) => right.area - left.area);
   while (paths.length > maxPaths) paths.pop();
   return { width: source.width, height: source.height, paths, omittedHoles };
