@@ -55,6 +55,27 @@ function nativeMaxColors(
 }
 
 /**
+ * Rust's trace contract quantizes the RGBA input it receives and has no
+ * separate grayscale-mode flag. Match the TS tracer's Rec.709 conversion at
+ * the provider boundary so native grayscale cannot accidentally emit coloured
+ * palette fills.
+ */
+function grayscaleImageData(imageData: ImageData): ImageData {
+  const data = new Uint8ClampedArray(imageData.data);
+  for (let offset = 0; offset < data.length; offset += 4) {
+    const luminance = Math.round(
+      0.2126 * (data[offset] ?? 0) +
+        0.7152 * (data[offset + 1] ?? 0) +
+        0.0722 * (data[offset + 2] ?? 0),
+    );
+    data[offset] = luminance;
+    data[offset + 1] = luminance;
+    data[offset + 2] = luminance;
+  }
+  return new ImageData(data, imageData.width, imageData.height);
+}
+
+/**
  * Native desktop tracing via Tauri `trace_image_binary` (raw PNG request body
  * + options header). Each job carries a monotonic id so the Rust side can
  * report stage progress and honor cancellation through the shared cancel
@@ -77,7 +98,8 @@ export const nativeTraceProvider: TraceProvider = {
     if (signal?.aborted) throw new Error('cancelled');
     if (!isTauri()) throw new Error('Native trace requires the desktop app');
 
-    const bytes = await encodeImageDataToPngBytes(imageData);
+    const traceImageData = options.mode === 'grayscale' ? grayscaleImageData(imageData) : imageData;
+    const bytes = await encodeImageDataToPngBytes(traceImageData);
     if (signal?.aborted) throw new Error('cancelled');
 
     const [{ invoke }, { listen }] = await Promise.all([

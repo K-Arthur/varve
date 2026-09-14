@@ -42,8 +42,12 @@ describe('nativeTraceProvider', () => {
   it('sends camelCase options with full passthrough and a raw binary body', async () => {
     setTauri(true);
     vi.resetModules();
+    const encodedImages: ImageData[] = [];
     vi.doMock('./pngDecode', () => ({
-      encodeImageDataToPngBytes: async () => new Uint8Array([9, 8, 7]),
+      encodeImageDataToPngBytes: async (imageData: ImageData) => {
+        encodedImages.push(imageData);
+        return new Uint8Array([9, 8, 7]);
+      },
       decodeImageBytesToImageData: (_b: Uint8Array) => new ImageData(2, 2),
     }));
     const invokeMock = vi.fn(async (cmd: string, _args?: unknown, _options?: unknown) => {
@@ -97,12 +101,21 @@ describe('nativeTraceProvider', () => {
     expect(opts.traceMode).toBe('silhouette');
     expect(opts.maxColors).toBe(12);
 
-    await nativeTraceProvider.trace(source, { mode: 'grayscale' }, new AbortController().signal);
+    const grayscaleSource = new ImageData(2, 2);
+    grayscaleSource.data.set([255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255]);
+    await nativeTraceProvider.trace(
+      grayscaleSource,
+      { mode: 'grayscale' },
+      new AbortController().signal,
+    );
     await nativeTraceProvider.trace(
       source,
       { mode: 'pixel-art', maxColors: 16 },
       new AbortController().signal,
     );
+    expect(Array.from(encodedImages[1]?.data ?? [])).toEqual([
+      54, 54, 54, 255, 182, 182, 182, 255, 18, 18, 18, 255, 255, 255, 255, 255,
+    ]);
     const traceOptions = invokeMock.mock.calls
       .filter((call) => call[0] === 'trace_image_binary')
       .map((call) => {
