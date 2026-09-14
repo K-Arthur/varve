@@ -14,6 +14,24 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Selection refinement and closed-form matting** — Pixel-selection coverage
+  now has the full documented operation set: Feather (Gaussian), Smooth
+  (boundary open/close, not a blur), Grow/Shrink, Harden (contrast),
+  Threshold, Antialias, Border (inside/outside/centered), Shift edge
+  (translates a soft transition without flattening it), and Cleanup
+  (islands/holes), each with numeric inputs and one undoable Apply in the
+  Selection Sources inspector. The refine brush gains explicit
+  Add / Subtract / Restore-original intents, gap-free interpolated strokes,
+  and an opt-in (default off) clip-to-selection behavior so missing detail
+  outside the current selection can be recovered. Edge refinement offers
+  guided smoothing for soft edges and a corrected closed-form matting solver
+  over a spatial unknown band for hard/binary masks, with bounded regions,
+  solver diagnostics, a guided fallback when a solve is declined, and
+  trimap labels that stay categorical instead of treating unknown as 50%
+  opacity — including a colour-coded trimap preview (green foreground, grey
+  background, amber unknown) so the constraint regions are visible while
+  painting. All operations run locally with no model, network, or new
+  dependency.
 - **Frequency Separation and Liquify** — Two source-preserving raster
   retouching workflows. Frequency Separation converts a raster layer into a
   marked group of ordinary Tone and Detail layers; the render path recombines
@@ -87,6 +105,16 @@ update, not for someone reading the commit log.
 
 ### Fixed
 
+- **Selection mask geometry and refinement parameters** — Raster-mask coverage
+  is now evaluated at cell centres, removing a systematic half-pixel shift
+  from every selection-to-mask round trip (and any blur/shift accumulation
+  when refinement was applied repeatedly). Zero-radius grow/shrink/feather/
+  contrast/shift-edge calls are byte-exact no-ops, malformed parameters are
+  clamped instead of producing NaN coverage, and the previously broken default
+  threshold now hashes at 0.5 as documented. Morphology, feathering, and
+  distance transforms are bounded linear-time operations rather than
+  radius-quadratic loops, and the guided filter uses O(N) sliding-window box
+  statistics.
 - **Shaping and outline fidelity** — Browser replay keeps ligature-sensitive
   source runs intact; HarfBuzz/rustybuzz shaping now preserves UTF-16 clusters,
   numeric feature values, ranges, inferred direction, metrics, and face identity.
