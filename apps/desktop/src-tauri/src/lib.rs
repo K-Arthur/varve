@@ -2640,10 +2640,14 @@ fn write_generative_model_metadata(
 #[tauri::command]
 async fn qualify_generative_edit_model(
     app: tauri::AppHandle,
+    request_id: Option<String>,
 ) -> Result<GenerativeModelStatus, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let model_path = resolve_generative_model_for_run(&app, false)?;
-        let options = qualification_request(GENERATIVE_MODEL_HANDLE, format!("qualification-{}", uuid()));
+        let request_id = request_id.unwrap_or_else(|| format!("qualification-{}", uuid()));
+        if !valid_generation_request_id(&request_id) {
+            return Err("Invalid generative qualification request id".into());
+        }
         let qualification_request_id = options.request_id.clone();
         let qualification_mask = options.mask.clone();
         let qualification_width = options.mask_w;
@@ -2678,6 +2682,9 @@ async fn qualify_generative_edit_model(
             qualification_height,
             [238; 3],
         )?;
+        if take_generation_cancellation(&qualification_request_id) {
+            return Err("Generation was cancelled".into());
+        }
         // This records only that the helper and prompt signal were compatible
         // with the fixed probe. Product readiness still requires an exact
         // hash in GENERATIVE_MODEL_QUALITY_CERTIFIED_CHECKSUMS after the

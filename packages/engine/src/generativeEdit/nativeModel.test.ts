@@ -13,6 +13,7 @@ vi.mock('@varve/platform', () => ({ isTauriRuntime: isTauri }));
 import {
   downloadNativeGenerativeModel,
   type NativeGenerativeModelDownloadProgress,
+  qualifyNativeGenerativeModel,
 } from './nativeModel';
 
 describe('downloadNativeGenerativeModel', () => {
@@ -117,5 +118,47 @@ describe('downloadNativeGenerativeModel', () => {
     controller.abort();
 
     await expect(pending).rejects.toThrow('cancelled');
+  });
+
+  it('cancels qualification by request id and rejects before native work settles', async () => {
+    const controller = new AbortController();
+    let resolveQualification!: (status: { ready: boolean }) => void;
+    invoke.mockImplementation((command: string) => {
+      if (command === 'qualify_generative_edit_model') {
+        return new Promise((resolve) => {
+          resolveQualification = resolve;
+        });
+      }
+      return Promise.resolve(undefined);
+    });
+
+    const pending = qualifyNativeGenerativeModel(controller.signal);
+    await vi.waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith(
+        'qualify_generative_edit_model',
+        expect.objectContaining({
+          requestId: expect.stringMatching(/^generative-qualification-/),
+        }),
+      ),
+    );
+
+    controller.abort();
+
+    await expect(pending).rejects.toThrow('cancelled');
+    const qualificationCall = invoke.mock.calls.find(
+      ([command]) => command === 'qualify_generative_edit_model',
+    );
+    expect(invoke).toHaveBeenCalledWith('cancel_generative_edit', {
+      requestId: qualificationCall?.[1]?.requestId,
+    });
+    resolveQualification({ ready: false });
+  });
+
+  it('does not start qualification when its signal is already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(qualifyNativeGenerativeModel(controller.signal)).rejects.toThrow('cancelled');
+    expect(invoke).not.toHaveBeenCalled();
   });
 });

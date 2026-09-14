@@ -144,14 +144,14 @@ storage, and export surfaces. They do not qualify prompt-conditioned Fill,
 Replace, or Expand; those modes remain gated until a model/runtime passes the
 photographic quality corpus.
 
-The renderer-side cancellation races are covered by the native-provider unit
-lane: abort rejects active prompt generation and LaMa requests immediately and
-forwards each opaque request id to its desktop cancellation command. The
-desktop LaMa command now owns a request-scoped cooperative token and serialized
-execution gate; closing or cancelling the editor also invalidates an in-flight
-qualification response before it can update a later session. Native helper
-termination for qualification and cross-platform latency measurements still
-require native package evidence.
+The renderer-side cancellation races are covered by the native-provider and
+native-model unit lanes: abort rejects active prompt generation, LaMa, model
+download, and qualification requests immediately, and forwards each opaque
+request id to its desktop cancellation command. The desktop LaMa and diffusion
+commands own request-scoped cancellation tokens; closing or cancelling the
+editor also invalidates an in-flight qualification response before it can
+update a later session. Native helper termination latency for qualification
+and cross-platform timing measurements still require native package evidence.
 
 This ledger deliberately records gaps rather than converting an enabled
 control or a passing mock into a capability claim.

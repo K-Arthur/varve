@@ -425,10 +425,9 @@ export function ContentAwareFillDialog({
   const jobControllerRef = useRef(new GenerativeJobController());
   const downloadAbortRef = useRef<AbortController | null>(null);
   const diffusionDownloadAbortRef = useRef<AbortController | null>(null);
-  // Qualification is a native task, so the current provider facade cannot
-  // abort its helper yet. Keep a renderer-side ownership token in the
-  // meantime: closing or cancelling the session must prevent a late status
-  // response from being applied to a subsequent dialog session.
+  const qualificationAbortRef = useRef<AbortController | null>(null);
+  // The ownership token protects against a late status response even after
+  // the native request has been asked to stop.
   const qualificationRunRef = useRef(0);
   const isPaintingRef = useRef(false);
   const generationRef = useRef<{
@@ -922,6 +921,7 @@ export function ContentAwareFillDialog({
       jobControllerRef.current.cancel();
       downloadAbortRef.current?.abort();
       diffusionDownloadAbortRef.current?.abort();
+      qualificationAbortRef.current?.abort();
       qualificationRunRef.current += 1;
     }
   }, [isOpen]);
@@ -931,6 +931,7 @@ export function ContentAwareFillDialog({
       jobControllerRef.current.cancel();
       downloadAbortRef.current?.abort();
       diffusionDownloadAbortRef.current?.abort();
+      qualificationAbortRef.current?.abort();
       qualificationRunRef.current += 1;
     };
   }, []);
@@ -1574,6 +1575,8 @@ export function ContentAwareFillDialog({
   }, []);
 
   const handleCancelQualification = useCallback(() => {
+    qualificationAbortRef.current?.abort();
+    qualificationAbortRef.current = null;
     qualificationRunRef.current += 1;
     setStatus('idle');
   }, []);
@@ -1669,10 +1672,13 @@ export function ContentAwareFillDialog({
     const runId = qualificationRunRef.current + 1;
     qualificationRunRef.current = runId;
     const isCurrentQualification = () => qualificationRunRef.current === runId;
+    const controller = new AbortController();
+    qualificationAbortRef.current?.abort();
+    qualificationAbortRef.current = controller;
     setStatus('qualifying');
     setErrorMessage(null);
     try {
-      const qualified = await qualifyNativeGenerativeModel();
+      const qualified = await qualifyNativeGenerativeModel(controller.signal);
       if (!isCurrentQualification()) return;
       setDiffusionModelInstalled(qualified.installed);
       setDiffusionModelHandle(qualified.ready ? qualified.modelHandle : null);
@@ -1695,6 +1701,8 @@ export function ContentAwareFillDialog({
       setErrorMessage(
         err instanceof Error ? err.message : 'The diffusion model could not be qualified.',
       );
+    } finally {
+      if (qualificationAbortRef.current === controller) qualificationAbortRef.current = null;
     }
   }, []);
 

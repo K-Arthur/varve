@@ -99,11 +99,35 @@ export async function importNativeGenerativeModel(
 }
 
 /** Run the production helper against a fixed masked fixture before considering a model. */
-export async function qualifyNativeGenerativeModel(): Promise<NativeGenerativeModelStatus> {
+export async function qualifyNativeGenerativeModel(
+  signal?: AbortSignal,
+): Promise<NativeGenerativeModelStatus> {
   if (!isTauriRuntime())
     throw new Error('Local diffusion models can only be qualified in the desktop app.');
   const { invoke } = await import('@tauri-apps/api/core');
-  return invoke<NativeGenerativeModelStatus>('qualify_generative_edit_model');
+  if (signal?.aborted) throw new Error('Qualification cancelled');
+  const requestId = `generative-qualification-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  let rejectOnAbort: ((reason: Error) => void) | undefined;
+  const cancel = () => {
+    void invoke('cancel_generative_edit', { requestId }).catch(() => undefined);
+    rejectOnAbort?.(new Error('Qualification cancelled'));
+  };
+  signal?.addEventListener('abort', cancel, { once: true });
+  try {
+    if (signal?.aborted) throw new Error('Qualification cancelled');
+    const nativeQualification = invoke<NativeGenerativeModelStatus>(
+      'qualify_generative_edit_model',
+      { requestId },
+    );
+    if (!signal) return await nativeQualification;
+    const cancelled = new Promise<never>((_, reject) => {
+      rejectOnAbort = reject;
+    });
+    if (signal.aborted) cancel();
+    return await Promise.race([nativeQualification, cancelled]);
+  } finally {
+    signal?.removeEventListener('abort', cancel);
+  }
 }
 
 /**
