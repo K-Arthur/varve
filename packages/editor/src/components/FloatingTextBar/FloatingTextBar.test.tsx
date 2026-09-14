@@ -325,6 +325,27 @@ describe('FloatingTextBar', () => {
     expect(fontInput).toBeInTheDocument();
   });
 
+  it('does not rewrite the exact face when choosing the current family', async () => {
+    const onUpdate = vi.fn();
+    render(
+      <FloatingTextBar
+        {...defaultProps({
+          onUpdate,
+          node: {
+            ...BASE_TEXT_NODE,
+            fontReference: { artifactHash: 'a'.repeat(64) },
+          },
+        })}
+      />,
+    );
+    await settledToolbar();
+    const family = screen.getByRole('combobox', { name: 'Font family' });
+    fireEvent.focus(family);
+    fireEvent.change(family, { target: { value: 'Arial' } });
+    fireEvent.click(await screen.findByRole('option', { name: /Arial/ }));
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
   it('clears an older exact face for a family-only choice', () => {
     expect(fontFamilyChanges('IBM Plex Sans Variable')).toEqual({
       fontFamily: 'IBM Plex Sans Variable',
