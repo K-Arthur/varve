@@ -819,12 +819,22 @@ function rasterAssetsEqual(left: RasterMaskAsset, right: RasterMaskAsset): boole
 }
 
 function isRasterAssetReferenced(doc: Document, assetId: string, exceptNodeId?: NodeId): boolean {
-  return Object.values(doc.nodes).some(
+  const referencedByNode = Object.values(doc.nodes).some(
     (node) =>
       node.id !== exceptNodeId &&
       (node.mask?.rasterMask?.assetId === assetId ||
         node.mask?.rasterMask?.depthRecipe?.correction?.assetId === assetId),
   );
+  if (referencedByNode) return true;
+  return Object.values(doc.generativeEdits ?? {}).some((edit) => {
+    const masks = edit.masks;
+    return (
+      edit.maskAssetId === assetId ||
+      masks?.userMaskAssetId === assetId ||
+      masks?.inferenceMaskAssetId === assetId ||
+      masks?.compositeMaskAssetId === assetId
+    );
+  });
 }
 
 function withoutUnreferencedAsset(doc: Document, assetId: string): Document {
@@ -832,7 +842,13 @@ function withoutUnreferencedAsset(doc: Document, assetId: string): Document {
   return pruneUnreferencedRasterMaskAssets(doc);
 }
 
-/** Remove mask payloads that are no longer referenced by a live mask or recipe correction. */
+/**
+ * Remove mask payloads that are no longer referenced by a live mask, recipe
+ * correction, or retained generative-edit record. Generative masks are not
+ * attached through `Node.mask`: they are the immutable recipe used to reopen
+ * and refine an accepted edit, so pruning them would silently break that
+ * workflow after an unrelated mask operation.
+ */
 export function pruneUnreferencedRasterMaskAssets(doc: Document): Document {
   if (!doc.rasterMaskAssets) return doc;
   const referenced = new Set<string>();
@@ -843,6 +859,12 @@ export function pruneUnreferencedRasterMaskAssets(doc: Document): Document {
     if (rasterMask.depthRecipe?.correction?.assetId) {
       referenced.add(rasterMask.depthRecipe.correction.assetId);
     }
+  }
+  for (const edit of Object.values(doc.generativeEdits ?? {})) {
+    if (edit.maskAssetId) referenced.add(edit.maskAssetId);
+    if (edit.masks?.userMaskAssetId) referenced.add(edit.masks.userMaskAssetId);
+    if (edit.masks?.inferenceMaskAssetId) referenced.add(edit.masks.inferenceMaskAssetId);
+    if (edit.masks?.compositeMaskAssetId) referenced.add(edit.masks.compositeMaskAssetId);
   }
   const rasterMaskAssets = Object.fromEntries(
     Object.entries(doc.rasterMaskAssets).filter(([id]) => referenced.has(id)),

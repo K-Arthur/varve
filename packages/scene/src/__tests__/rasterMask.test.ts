@@ -18,6 +18,7 @@ import {
 import {
   addRasterMaskAsset,
   markMaskStale,
+  pruneUnreferencedRasterMaskAssets,
   removeRasterMaskAsset,
   resolveMask,
   resolveRasterMaskAsset,
@@ -353,6 +354,39 @@ describe('native raster masks', () => {
     expect(replaced.nodes[imageId]?.mask?.rasterMask?.assetId).toBe('new-mask');
     expect(replaced.rasterMaskAssets?.['new-mask']).toBeDefined();
     expect(replaced.rasterMaskAssets?.['old-mask']).toBeUndefined();
+  });
+
+  it('retains masks owned by a generative edit during raster-mask pruning', () => {
+    const { doc, imageId } = makeImageDocument();
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('live-mask'));
+    const withGenerativeMasks = {
+      ...attached,
+      rasterMaskAssets: {
+        ...attached.rasterMaskAssets,
+        'user-mask': makeRasterAsset('user-mask'),
+        'inference-mask': makeRasterAsset('inference-mask'),
+        'composite-mask': makeRasterAsset('composite-mask'),
+        unrelated: makeRasterAsset('unrelated'),
+      },
+      generativeEdits: {
+        edit: {
+          maskAssetId: 'user-mask',
+          masks: {
+            userMaskAssetId: 'user-mask',
+            inferenceMaskAssetId: 'inference-mask',
+            compositeMaskAssetId: 'composite-mask',
+          },
+        },
+      } as unknown as Document['generativeEdits'],
+    };
+
+    const pruned = pruneUnreferencedRasterMaskAssets(withGenerativeMasks);
+
+    expect(pruned.rasterMaskAssets?.['live-mask']).toBeDefined();
+    expect(pruned.rasterMaskAssets?.['user-mask']).toBeDefined();
+    expect(pruned.rasterMaskAssets?.['inference-mask']).toBeDefined();
+    expect(pruned.rasterMaskAssets?.['composite-mask']).toBeDefined();
+    expect(pruned.rasterMaskAssets?.unrelated).toBeUndefined();
   });
 
   it('preserves a shared prior asset when add replaces only one raster mask', () => {
