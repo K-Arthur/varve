@@ -135,17 +135,19 @@ workspace/toolchain edits, so the affected closure below was run directly).
 | Shared live/export effect stages and mask compositor | `TASK_TMP=$(mktemp -d /home/kevina/layer-fidelity.XXXXXX) && TMPDIR="$TASK_TMP" pnpm exec vitest run --maxWorkers=1 packages/engine/src/effectMaskCompositor.test.ts packages/editor/src/render/groupEffectStages.test.ts packages/editor/src/render/replayScene.test.ts` | 17 passed across 3 files; includes scene-node/vector mask resolution, feathered coverage, masked group content, and frame effects |
 | Raster export utility | `pnpm exec vitest run --maxWorkers=1 packages/editor/src/components/SpecPanel/export.test.ts` | 21 passed |
 | Grouped spatial-blur export (real browser) | `VARVE_E2E_PORT=1793 VARVE_E2E_OUTPUT_DIR=layer-fidelity-export pnpm exec playwright test tests/e2e/export/compositor.spec.ts --project=chromium --grep "grouped spatial blur" --reporter=list` | 1 passed (3m 12s including cold Vite startup); export and live screenshots inspected |
-| Live + export sequential group effects (real browser) | `VARVE_E2E_PORT=1832 VARVE_E2E_WORKERS=1 VARVE_E2E_OUTPUT_DIR=layer-fidelity-live-final pnpm exec playwright test tests/e2e/export/compositor.spec.ts --project=chromium --grep "Live and exported group replay" --reporter=list` | Not green yet: the run reached the editor setup, then a concurrent hot reload left `ShellInner` outside `EditorProvider` (`useEditor must be used within EditorProvider`) before the tree assertion. Earlier runs also exposed a test-tool timing issue, which is now covered by polling. The shared live/export code is covered by unit tests and the grouped spatial-blur browser export; rerun this spec against a quiet production-preview/native route before release. |
+| Live + export sequential group effects (real browser) | `VARVE_LAYER_FIDELITY_OUTPUT_DIR=test-results/layer-fidelity-preview-committed ./node_modules/.bin/playwright test tests/e2e/export/compositor.spec.ts --config playwright.layer-fidelity.local.config.ts --project=chromium --grep "Live and exported group replay" --reporter=list` | **Passed** (1 test, 25.9 s) against a complete isolated Vite preview bundle on `localhost:5491`; the live canvas and PNG export both contained the two authored content-stage blur passes. `reports/layer-fidelity/group-multiple-layer-blur-live.png` and `group-multiple-layer-blur-export.png` were opened and inspected. A preceding attempt against a concurrently-written bundle failed before export because the inspector chunk was missing; it was discarded as invalid harness evidence, not counted as a renderer result. |
+| Render-path performance ratio gate | `TASK_TMP=$(mktemp -d /home/kevina/layer-fidelity-render-perf.XXXXXX) && TMPDIR="$TASK_TMP" node scripts/audit-render-perf.mjs --ci` | The six scale benchmarks passed, but the ratio gate failed under a measured load average of 28.9–30.5: current control p50 was 23.70 ms versus the 11.84 ms baseline, with 100-node full-frame 3.09 ms and 50k-node full-frame 693.99 ms. No baseline was updated and no speedup is claimed; this is a contaminated performance run requiring a quiet-host rerun. |
 | Package/editor typecheck | `pnpm --filter @varve/editor typecheck` | blocked by pre-existing unrelated errors in the dirty checkout; no diagnostic referenced the changed replay/export files |
 | E2E typecheck | `pnpm typecheck:e2e` | blocked by pre-existing `packages/engine/src/canvasFontAliases.ts:307` and `packages/engine/src/replay.ts:1278`; no diagnostic referenced the new spec |
 
 The two Chromium group-opacity cases above are the final browser evidence for
-the compositing contract; the export group-effect screenshots
-(`group-spatial-blur-live.png` / `group-spatial-blur-export.png`) are the final
-browser evidence for the structured export fix. The shared live sequential
-effect regression is tracked above and must be rerun on a quiet host before
-calling live/export stage parity complete. Untested lanes: native Tauri
-webview, Chromebook Duet/ARM hardware, and a WebGPU-capable device.
+the compositing contract. The grouped spatial-blur and sequential group-effect
+screenshots (`group-spatial-blur-live.png` / `group-spatial-blur-export.png` /
+`group-multiple-layer-blur-live.png` / `group-multiple-layer-blur-export.png`)
+are the final browser evidence for structured and live Canvas2D stage parity;
+the sequential check was run against a complete isolated production-style
+bundle to avoid HMR state contamination. Untested lanes: native Tauri webview,
+Chromebook Duet/ARM hardware, and a WebGPU-capable device.
 
 ## Research-driven product gaps worth scheduling
 
