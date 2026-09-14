@@ -6,6 +6,7 @@ import { awaitExportsReady, getFontRegistry, resetFontRegistry } from './fontReg
 function installFontSet() {
   const fontSet = {
     load: vi.fn(async () => []),
+    check: vi.fn(() => true),
     ready: Promise.resolve(),
   };
   Object.defineProperty(document, 'fonts', {
@@ -66,5 +67,22 @@ describe('awaitExportsReady exact-face admission', () => {
       ]),
     ).resolves.toBeUndefined();
     expect(fontSet.load).toHaveBeenCalledWith('italic 700 16px "Export Exact"', 'Exact');
+  });
+
+  it('rejects a face when the browser reports that the requested sample is not ready', async () => {
+    const fontSet = installFontSet();
+    fontSet.check.mockReturnValue(false);
+    const registry = getFontRegistry();
+    registry.register({
+      family: 'Export Unready',
+      weight: 400,
+      style: 'normal',
+      source: 'bundled',
+    });
+    vi.spyOn(registry as any, 'doLoad').mockResolvedValue(undefined);
+
+    await expect(awaitExportsReady([{ family: 'Export Unready' }])).rejects.toThrow(
+      /did not become ready for export/,
+    );
   });
 });

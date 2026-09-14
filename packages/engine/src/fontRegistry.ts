@@ -827,7 +827,15 @@ export async function awaitExportsReady(
     const style = request.style ?? 'normal';
     const weight = request.weight ?? 400;
     const descriptor = `${style} ${weight} 16px "${request.family.replaceAll('"', '\\"')}"`;
-    await document.fonts.load(descriptor, request.text || 'BESbswy');
+    const sample = request.text || 'BESbswy';
+    const loadedFaces = await document.fonts.load(descriptor, sample);
+    if (
+      typeof document.fonts.check === 'function' &&
+      loadedFaces.length === 0 &&
+      !document.fonts.check(descriptor, sample)
+    ) {
+      throw new Error(`Font face did not become ready for export: ${request.family}`);
+    }
   });
 
   const readiness = Promise.all(loadFaces).then(async () => {

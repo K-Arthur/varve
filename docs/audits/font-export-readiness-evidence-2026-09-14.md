@@ -15,8 +15,9 @@ pnpm exec biome check packages/engine/src/fontRegistry.ts packages/engine/src/fo
 pnpm exec vitest run packages/engine/src/fontRegistry.exportReadiness.test.ts packages/engine/src/fontRegistry.test.ts --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
 ```
 
-Result: **3 files passed Biome; 2 test files and 51 tests passed**. The jsdom
-readiness tests cover rejection of a wrong artifact and successful loading of a
+Result: **3 files passed Biome; 2 test files and 52 tests passed**. The jsdom
+readiness tests cover rejection of a wrong artifact, rejection when the browser
+reports the requested sample is not ready, and successful loading of a
 registered collection member with the requested weight, style, and text.
 
 This does not certify native PDF per-face embedding, subsetting, outlining, or

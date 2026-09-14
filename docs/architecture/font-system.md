@@ -260,6 +260,9 @@ family has exact entries but the requested member is absent, export fails with
 an actionable exact-face error instead of loading a same-family fallback. Legacy
 family-only registry entries retain their compatibility behavior until a
 portable identity is available.
+After each requested load, the browser `FontFaceSet` is also checked with the
+export sample when that API is available; a zero-face load with a failed check
+is an export error, never a successful fallback.
 
 ## Compact editing surfaces
 
