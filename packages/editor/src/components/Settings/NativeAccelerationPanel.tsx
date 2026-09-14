@@ -70,6 +70,14 @@ export function NativeAccelerationPanel() {
   const selected = compute?.devices.find((device) => device.id === compute.selectedId);
   const inference = status?.report.inference;
   const policy = status?.inferencePolicy ?? 'auto';
+  const webgpuProvider = inference?.providers.find((provider) => provider.id === 'webgpu');
+  const webgpuReady =
+    webgpuProvider?.stage === 'deviceUsable' || webgpuProvider?.stage === 'executionVerified';
+  const webgpuDisabledReason = webgpuReady
+    ? undefined
+    : webgpuProvider
+      ? `Unavailable until the native WebGPU runtime and device are ready (${describeAccelStage(webgpuProvider.stage).toLowerCase()})`
+      : 'Native inference runtime has not been checked yet';
 
   async function handlePolicyChange(value: string) {
     setError(null);
@@ -140,7 +148,12 @@ export function NativeAccelerationPanel() {
               options={[
                 { value: 'auto', label: 'Automatic (compatible WebGPU, then CPU)' },
                 { value: 'cpu', label: 'CPU only' },
-                { value: 'gpu', label: 'WebGPU only (fails if unavailable)' },
+                {
+                  value: 'gpu',
+                  label: 'WebGPU only (fails if unavailable)',
+                  disabled: !webgpuReady,
+                  disabledReason: webgpuDisabledReason,
+                },
               ]}
               value={policy}
               onChange={(value) => void handlePolicyChange(value)}
