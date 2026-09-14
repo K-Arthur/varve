@@ -211,4 +211,71 @@ describe('FontSelector', () => {
       registry.unregisterFace({ faceKey: secondFaceKey });
     }
   });
+
+  it('navigates expanded faces with the keyboard and activates the exact face', async () => {
+    const registry = getFontRegistry();
+    const semantic = getFontSemanticCatalog();
+    const regularFaceKey = `sha256:${'c'.repeat(64)}:single`;
+    const boldFaceKey = `sha256:${'c'.repeat(64)}:1`;
+    registry.register({
+      family: 'Keyboard Face Fixture',
+      weight: 400,
+      style: 'normal',
+      source: 'user',
+      faceKey: regularFaceKey,
+      postScriptName: 'KeyboardFace-Regular',
+    });
+    registry.register({
+      family: 'Keyboard Face Fixture',
+      weight: 700,
+      style: 'normal',
+      source: 'user',
+      faceKey: boldFaceKey,
+      collectionIndex: 1,
+      postScriptName: 'KeyboardFace-Bold',
+    });
+    semantic.syncRegistry(registry);
+    const onSelectFace = vi.fn();
+    try {
+      render(
+        <FontSelector
+          value="Keyboard Face Fixture"
+          onChange={() => {}}
+          onSelectFace={onSelectFace}
+        />,
+      );
+      const input = screen.getByRole('combobox', { name: 'Font family' });
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value: 'Keyboard Face Fixture' } });
+      await screen.findByRole('option', { name: /Keyboard Face Fixture/ });
+      fireEvent.click(screen.getByRole('button', { name: /Expand Keyboard Face Fixture faces/ }));
+
+      fireEvent.keyDown(input, { key: 'ArrowDown' });
+      const regularActiveId = input.getAttribute('aria-activedescendant');
+      expect(regularActiveId).toBeTruthy();
+      expect(document.getElementById(regularActiveId!)).toHaveTextContent('400');
+
+      fireEvent.keyDown(input, { key: 'ArrowDown' });
+      const boldActiveId = input.getAttribute('aria-activedescendant');
+      expect(boldActiveId).toBeTruthy();
+      expect(document.getElementById(boldActiveId!)).toHaveTextContent('700');
+
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(onSelectFace).toHaveBeenCalledWith(
+        expect.objectContaining({
+          family: 'Keyboard Face Fixture',
+          weight: 700,
+          postScriptName: 'KeyboardFace-Bold',
+          fontReference: {
+            artifactHash: 'c'.repeat(64),
+            collectionIndex: 1,
+            postScriptName: 'KeyboardFace-Bold',
+          },
+        }),
+      );
+    } finally {
+      registry.unregisterFace({ faceKey: regularFaceKey });
+      registry.unregisterFace({ faceKey: boldFaceKey });
+    }
+  });
 });

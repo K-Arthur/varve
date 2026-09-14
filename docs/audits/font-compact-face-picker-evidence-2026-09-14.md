@@ -21,6 +21,9 @@ provider artifact, or make hover/search network requests.
 - Compact family rows show an expand/collapse control only when more than one
   registered face is available. Face rows are indented, keyboard-safe listbox
   options and are virtualized with the family rows.
+- ArrowDown/ArrowUp enter and traverse the expanded face rows, while Enter
+  applies the highlighted exact face. The active descendant is pinned through
+  both the measured virtualizer and the bounded pre-measure fallback.
 - Expanding a family at the menu's lower edge scrolls the first face into the
   visible portaled viewport. Named instances are distinguished by their axes
   when marking the current exact selection.
@@ -51,7 +54,7 @@ CI=1 TMPDIR=/home/kevina/varve-tmp \
   packages/editor/src/components/FloatingTextBar/FloatingTextBar.test.tsx \
   packages/editor/src/components/ContextControlBar/ContextControlBar.test.tsx \
   --reporter=dot
-# 3 files, 49 tests passed
+# 3 files, 50 tests passed
 
 CI=1 TMPDIR=/home/kevina/varve-tmp VARVE_E2E_PORT=1740 \
   VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 \
@@ -60,6 +63,12 @@ CI=1 TMPDIR=/home/kevina/varve-tmp VARVE_E2E_PORT=1740 \
   --project=chromium --grep 'DPR 1' --reporter=list --timeout=180000
 # 1 test passed; light, dark, and high-contrast face-expansion captures written
 ```
+
+CI=1 TMPDIR=/home/kevina/varve-tmp \
+  ./node_modules/.bin/vitest run --maxWorkers=1 \
+  packages/editor/src/components/FontBrowser/FontSelector.test.tsx \
+  --reporter=dot
+# 1 file, 11 tests passed, including keyboard exact-face activation
 
 The focused editor typecheck still reports the repository's existing unrelated
 diagnostics (Menubar menu state, input pipeline point mutability, wheel

@@ -166,6 +166,18 @@ function sameAxes(
   return firstEntries.every(([tag, value]) => second?.[tag] !== undefined && second[tag] === value);
 }
 
+function findFamilyRow(
+  rows: FontRow[],
+  start: number,
+  direction: 1 | -1,
+): Extract<FontRow, { kind: 'font' }> | undefined {
+  for (let index = start; index >= 0 && index < rows.length; index += direction) {
+    const row = rows[index];
+    if (row?.kind === 'font') return row;
+  }
+  return undefined;
+}
+
 export function FontSelector({
   value,
   onChange,
@@ -207,6 +219,7 @@ export function FontSelector({
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [highlightedFaceKey, setHighlightedFaceKey] = useState<string | null>(null);
   const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(new Set());
 
   const results = useMemo(
@@ -320,7 +333,9 @@ export function FontSelector({
     // when the user scrolls away from the keyboard selection.
     rangeExtractor: (range) => {
       const visible = defaultRangeExtractor(range);
-      const active = rows.findIndex((row) => row.kind === 'font' && row.index === highlightedIndex);
+      const active = highlightedFaceKey
+        ? rows.findIndex((row) => row.kind === 'face' && row.key === highlightedFaceKey)
+        : rows.findIndex((row) => row.kind === 'font' && row.index === highlightedIndex);
       return active < 0 ? visible : [...new Set([...visible, active])].sort((a, b) => a - b);
     },
   });
@@ -343,9 +358,9 @@ export function FontSelector({
     for (let index = 0; index < Math.min(rows.length, MENU_FALLBACK_ROW_LIMIT); index += 1) {
       indexes.add(index);
     }
-    const activeRow = rows.findIndex(
-      (row) => row.kind === 'font' && row.index === highlightedIndex,
-    );
+    const activeRow = highlightedFaceKey
+      ? rows.findIndex((row) => row.kind === 'face' && row.key === highlightedFaceKey)
+      : rows.findIndex((row) => row.kind === 'font' && row.index === highlightedIndex);
     const pinned = activeRow >= 0 ? new Set([activeRow]) : new Set<number>();
     if (activeRow >= 0) indexes.add(activeRow);
     while (indexes.size > MENU_FALLBACK_ROW_LIMIT) {
@@ -367,7 +382,7 @@ export function FontSelector({
         };
       });
     return { items, totalSize };
-  }, [highlightedIndex, rows]);
+  }, [highlightedFaceKey, highlightedIndex, rows]);
   const renderedVirtualItems = virtualItems.length > 0 ? virtualItems : fallbackLayout.items;
   const contentHeight =
     virtualItems.length > 0 ? virtualizer.getTotalSize() : fallbackLayout.totalSize;
@@ -384,6 +399,7 @@ export function FontSelector({
     (index: number) => {
       const clamped = Math.max(-1, Math.min(index, flatList.length - 1));
       setHighlightedIndex(clamped);
+      setHighlightedFaceKey(null);
       if (clamped >= 0 && isOpen) scrollToFontIndex(clamped);
     },
     [flatList.length, isOpen, scrollToFontIndex],
@@ -416,6 +432,7 @@ export function FontSelector({
       onChange(family);
       setIsOpen(false);
       setHighlightedIndex(-1);
+      setHighlightedFaceKey(null);
       // A pointer selection normally keeps focus in the input because the
       // option consumes mousedown. Restore it for programmatic/assistive
       // activation too, while suppressing the focus handler's reopen path.
@@ -437,6 +454,7 @@ export function FontSelector({
       else onChange(selection.family);
       setIsOpen(false);
       setHighlightedIndex(-1);
+      setHighlightedFaceKey(null);
       if (document.activeElement !== inputRef.current) {
         restoreFocusRef.current = true;
         inputRef.current?.focus();
@@ -466,18 +484,38 @@ export function FontSelector({
     setQuery('');
     setIsOpen(true);
     setHighlightedIndex(-1);
+    setHighlightedFaceKey(null);
   }, []);
 
   const handleInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     setQuery(event.target.value);
     setIsOpen(true);
     setHighlightedIndex(0);
+    setHighlightedFaceKey(null);
   }, []);
 
   const dismiss = useCallback(() => {
     setIsOpen(false);
     setHighlightedIndex(-1);
+    setHighlightedFaceKey(null);
   }, []);
+
+  const scrollToRow = useCallback(
+    (rowKey: string) => {
+      const rowIndex = rows.findIndex((row) => row.key === rowKey);
+      if (rowIndex >= 0) virtualizer.scrollToIndex(rowIndex, { align: 'auto' });
+    },
+    [rows, virtualizer],
+  );
+
+  const highlightFace = useCallback(
+    (rowKey: string) => {
+      setHighlightedIndex(-1);
+      setHighlightedFaceKey(rowKey);
+      if (isOpen) scrollToRow(rowKey);
+    },
+    [isOpen, scrollToRow],
+  );
 
   const handleInputKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
@@ -488,22 +526,78 @@ export function FontSelector({
           if (!isOpen) {
             setQuery('');
             setIsOpen(true);
+            setHighlightedFaceKey(null);
             highlight(0);
-          } else if (!event.altKey) highlight(highlightedIndex + 1);
+          } else if (!event.altKey) {
+            const activeFaceIndex = highlightedFaceKey
+              ? rows.findIndex((row) => row.kind === 'face' && row.key === highlightedFaceKey)
+              : -1;
+            if (activeFaceIndex >= 0) {
+              const nextFace = rows[activeFaceIndex + 1];
+              if (nextFace?.kind === 'face') {
+                highlightFace(nextFace.key);
+              } else {
+                highlight(findFamilyRow(rows, activeFaceIndex + 1, 1)?.index ?? 0);
+              }
+            } else {
+              const activeFamilyIndex = rows.findIndex(
+                (row) => row.kind === 'font' && row.index === highlightedIndex,
+              );
+              const activeFamily = activeFamilyIndex >= 0 ? rows[activeFamilyIndex] : undefined;
+              const firstFace =
+                activeFamily?.kind === 'font' && expandedFamilies.has(activeFamily.record.familyId)
+                  ? rows.find(
+                      (row) =>
+                        row.kind === 'face' && row.parentFamilyId === activeFamily.record.familyId,
+                    )
+                  : undefined;
+              if (firstFace) highlightFace(firstFace.key);
+              else highlight(findFamilyRow(rows, activeFamilyIndex + 1, 1)?.index ?? 0);
+            }
+          }
           break;
         case 'ArrowUp':
           event.preventDefault();
           if (!isOpen) {
             setQuery('');
             setIsOpen(true);
+            setHighlightedFaceKey(null);
           }
-          highlight(highlightedIndex <= 0 ? flatList.length - 1 : highlightedIndex - 1);
+          {
+            const activeFaceIndex = highlightedFaceKey
+              ? rows.findIndex((row) => row.kind === 'face' && row.key === highlightedFaceKey)
+              : -1;
+            if (activeFaceIndex > 0) {
+              const previousFace = rows[activeFaceIndex - 1];
+              if (previousFace?.kind === 'face') {
+                highlightFace(previousFace.key);
+              } else {
+                highlight(
+                  findFamilyRow(rows, activeFaceIndex - 1, -1)?.index ?? flatList.length - 1,
+                );
+              }
+            } else {
+              const activeFamilyIndex = rows.findIndex(
+                (row) => row.kind === 'font' && row.index === highlightedIndex,
+              );
+              highlight(
+                findFamilyRow(rows, activeFamilyIndex - 1, -1)?.index ?? flatList.length - 1,
+              );
+            }
+          }
           break;
         case 'Enter':
           if (!isOpen) break;
           event.preventDefault();
-          if (highlightedIndex >= 0 && flatList[highlightedIndex])
+          if (highlightedFaceKey) {
+            const faceRow = rows.find(
+              (row): row is Extract<FontRow, { kind: 'face' }> =>
+                row.kind === 'face' && row.key === highlightedFaceKey,
+            );
+            if (faceRow) selectFace(faceRow.selection);
+          } else if (highlightedIndex >= 0 && flatList[highlightedIndex]) {
             select(flatList[highlightedIndex]!.familyName);
+          }
           break;
         case 'Escape':
           if (!isOpen) break;
@@ -516,7 +610,19 @@ export function FontSelector({
           break;
       }
     },
-    [dismiss, flatList, highlight, highlightedIndex, isOpen, select],
+    [
+      dismiss,
+      expandedFamilies,
+      flatList,
+      highlight,
+      highlightFace,
+      highlightedFaceKey,
+      highlightedIndex,
+      isOpen,
+      rows,
+      select,
+      selectFace,
+    ],
   );
 
   return (
@@ -548,9 +654,16 @@ export function FontSelector({
           aria-autocomplete="list"
           aria-controls={listboxId}
           aria-activedescendant={
-            isOpen && flatList[highlightedIndex]
-              ? `${listboxId}-option-${highlightedIndex}`
-              : undefined
+            isOpen && highlightedFaceKey
+              ? (() => {
+                  const activeRow = rows.findIndex(
+                    (row) => row.kind === 'face' && row.key === highlightedFaceKey,
+                  );
+                  return activeRow >= 0 ? `${listboxId}-face-${activeRow}` : undefined;
+                })()
+              : isOpen && flatList[highlightedIndex]
+                ? `${listboxId}-option-${highlightedIndex}`
+                : undefined
           }
           autoComplete="off"
         />
@@ -631,6 +744,7 @@ export function FontSelector({
                           role="option"
                           tabIndex={-1}
                           aria-selected={selected}
+                          onMouseEnter={() => highlightFace(row.key)}
                           onMouseDown={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
