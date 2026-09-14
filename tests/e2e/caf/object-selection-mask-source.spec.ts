@@ -11,14 +11,17 @@ import { navigateToEditor } from '../shared';
 async function seedReadyObjectSelectionAndOpenCaf(
   page: import('@playwright/test').Page,
 ): Promise<void> {
-  await page.evaluate(() => {
+  await page.evaluate(async () => {
     const root = document.querySelector('#root > *') as any;
     if (!root) throw new Error('editor root not found');
     const fiberKey = Object.keys(root).find((key) => key.startsWith('__reactFiber$'));
     if (!fiberKey) throw new Error('editor fiber not found');
     const seen = new Set<any>();
+    let dispatch: ((updater: (previous: any) => any) => void) | undefined;
+    let imageSource = '';
+    let imageNodeId = '';
     (function walk(fiber: any): void {
-      if (!fiber || seen.has(fiber)) return;
+      if (!fiber || seen.has(fiber) || dispatch) return;
       seen.add(fiber);
       let hook = fiber.memoizedState;
       while (hook) {
@@ -28,28 +31,17 @@ async function seedReadyObjectSelectionAndOpenCaf(
             const imageNode = Object.values(current.document.nodes).find(
               (node: any) =>
                 node?.kind === 'shape' && node.fills?.some((fill: any) => fill.type === 'image'),
-            ) as { id: string } | undefined;
+            ) as
+              | {
+                  id: string;
+                  fills?: Array<{ type?: string; image?: { src?: string | null } }>;
+                }
+              | undefined;
             if (imageNode) {
-              hook.queue.dispatch((previous: any) => ({
-                ...previous,
-                selection: [imageNode.id],
-                cafDialogNodeId: imageNode.id,
-                objectSelectionSession: {
-                  documentId: previous.document.id,
-                  nodeId: imageNode.id,
-                  width: 1,
-                  height: 1,
-                  candidates: [{ mask: new Uint8Array([255]), confidence: 0.99 }],
-                  selectedCandidate: 0,
-                  points: [{ x: 0.5, y: 0.5, label: 1 }],
-                  box: null,
-                  confidence: 0.99,
-                  confidenceSource: 'model-iou',
-                  status: 'ready',
-                  modelId: 'sam2-hiera-tiny',
-                },
-              }));
-              return;
+              const imageFill = imageNode.fills?.find((fill) => fill.type === 'image');
+              imageSource = imageFill?.image?.src ?? '';
+              imageNodeId = imageNode.id;
+              dispatch = hook.queue.dispatch;
             }
           }
         }
@@ -58,6 +50,61 @@ async function seedReadyObjectSelectionAndOpenCaf(
       walk(fiber.child);
       walk(fiber.sibling);
     })(root[fiberKey]);
+    if (!dispatch || !imageSource || !imageNodeId) throw new Error('image state was not found');
+
+    const image = new Image();
+    const loaded = new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error('image source could not be decoded'));
+    });
+    image.src = imageSource;
+    await loaded;
+    const width = image.naturalWidth;
+    const height = image.naturalHeight;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context || width <= 0 || height <= 0) throw new Error('image dimensions unavailable');
+    context.drawImage(image, 0, 0, width, height);
+    const pixels = context.getImageData(0, 0, width, height).data;
+    const header = new TextEncoder().encode(`${width}x${height}:`);
+    const input = new Uint8Array(header.length + pixels.byteLength);
+    input.set(header);
+    input.set(pixels, header.length);
+    const digest = await crypto.subtle.digest('SHA-256', input);
+    const sourceFingerprint = `sha256:${Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('')}`;
+    const mask = new Uint8Array(width * height);
+    const left = Math.floor(width * 0.35);
+    const top = Math.floor(height * 0.35);
+    const right = Math.ceil(width * 0.65);
+    const bottom = Math.ceil(height * 0.65);
+    for (let y = top; y < bottom; y += 1) {
+      mask.fill(255, y * width + left, y * width + right);
+    }
+    dispatch((previous: any) => ({
+      ...previous,
+      selection: [imageNodeId],
+      cafDialogNodeId: imageNodeId,
+      objectSelectionSession: {
+        documentId: previous.document.id,
+        nodeId: imageNodeId,
+        width,
+        height,
+        candidates: [{ mask, confidence: 0.99, scoreSource: 'model-iou' }],
+        selectedCandidate: 0,
+        points: [{ x: width * 0.5, y: height * 0.5, label: 1 }],
+        box: null,
+        confidence: 0.99,
+        confidenceSource: 'model-iou',
+        sourceLocator: imageSource,
+        sourceFingerprint,
+        status: 'ready',
+        modelId: 'sam2-hiera-tiny',
+      },
+    }));
   });
   const dialog = page.locator('dialog.varve-dialog--caf[open]');
   await expect(dialog).toBeVisible();

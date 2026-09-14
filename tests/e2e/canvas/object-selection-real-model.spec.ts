@@ -120,10 +120,15 @@ test.describe('Object Selection real-model gate', () => {
     const canvas = page.getByTestId('editor-canvas');
     const bounds = await canvas.boundingBox();
     expect(bounds).not.toBeNull();
+    // Use an off-centre point on the person's torso. This exercises the
+    // non-square source mapping and the decoder's removal of model padding;
+    // a centre click can pass while a vertically displaced mask is wrong.
+    const promptX = bounds!.x + bounds!.width * 0.5;
+    const promptY = bounds!.y + bounds!.height * 0.6;
 
     // Session 1: cold path (model load + image encode + decoder).
     const t0 = Date.now();
-    await page.mouse.click(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2);
+    await page.mouse.click(promptX, promptY);
     const status = inspector.getByText(/Preview ready/).first();
     await status.waitFor({ timeout: 600000 });
     const statusText = (await status.textContent()) ?? '';
@@ -133,7 +138,9 @@ test.describe('Object Selection real-model gate', () => {
       '| latency:',
       `${Math.round((Date.now() - t0) / 1000)}s`,
     );
-    expect(statusText).toMatch(/Preview ready · \d+% model score · \d+ candidate masks?/);
+    expect(statusText).toMatch(
+      /Preview ready · predicted IoU score [\d.]+ · prompt match 100% · \d+ candidate masks?/i,
+    );
     expect(statusText).not.toMatch(/0 candidate mask/);
     await testInfo.attach('real-model-preview', {
       body: await canvas.screenshot(),
@@ -165,14 +172,11 @@ test.describe('Object Selection real-model gate', () => {
       exact: true,
     });
     await expect(backgroundRemovalToggle).toHaveAttribute('aria-expanded', 'true');
-    await expect(inspector.getByText(/Mask score \d+%/).first()).toBeVisible({ timeout: 120000 });
-    console.log(
-      'APPLIED PROVENANCE:',
-      await inspector
-        .getByText(/Mask score \d+%/)
-        .first()
-        .textContent(),
-    );
+    const appliedScore = inspector
+      .getByText(/(?:predicted IoU score [\d.]+|mask score \d+%|score [\d.]+)/i)
+      .first();
+    await expect(appliedScore).toBeVisible({ timeout: 120000 });
+    console.log('APPLIED PROVENANCE:', await appliedScore.textContent());
     await testInfo.attach('real-model-applied', {
       body: await canvas.screenshot(),
       contentType: 'image/png',
@@ -181,20 +185,22 @@ test.describe('Object Selection real-model gate', () => {
 
     // Undo removes the committed mask; redo restores it.
     await page.keyboard.press('Control+KeyZ');
-    await expect(inspector.getByText(/Mask score \d+%/).first()).toBeHidden({ timeout: 60000 });
+    await expect(appliedScore).toBeHidden({ timeout: 60000 });
     await page.keyboard.press('Control+Shift+KeyZ');
     // Undo/redo restores the document snapshot and may return the Inspector
     // to its Design tab; return to the adjustment surface before reviewing
     // the restored mask provenance.
     await inspector.getByRole('tab', { name: 'Adjustments' }).click();
-    await expect(inspector.getByText(/Mask score \d+%/).first()).toBeVisible({ timeout: 60000 });
+    await expect(
+      inspector.getByText(/(?:predicted IoU score [\d.]+|mask score \d+%|score [\d.]+)/i).first(),
+    ).toBeVisible({ timeout: 60000 });
     console.log('UNDO/REDO OK');
 
     // Session 2: same image, warm embedding cache — the encoder must be
     // reused (prompt-only latency, well under the cold path).
     await inspector.getByRole('button', { name: 'Select Object' }).click();
     const t1 = Date.now();
-    await page.mouse.click(bounds!.x + bounds!.width / 2, bounds!.y + bounds!.height / 2);
+    await page.mouse.click(promptX, promptY);
     const warm = inspector.getByText(/Preview ready/).first();
     await warm.waitFor({ timeout: 120000 });
     const warmText = (await warm.textContent()) ?? '';
@@ -208,7 +214,7 @@ test.describe('Object Selection real-model gate', () => {
     const selectionStart = Date.now();
     await inspector.getByRole('button', { name: 'Use as selection' }).click();
     await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
-      /Selected subject \(model score \d+%\)/,
+      /Selected subject \((?:predicted IoU score [\d.]+|model score \d+%|score [\d.]+)\)/i,
       { timeout: 60000 },
     );
     const selectionLatency = Date.now() - selectionStart;

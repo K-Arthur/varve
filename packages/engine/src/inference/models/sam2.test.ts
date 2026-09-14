@@ -156,6 +156,18 @@ describe('sam2', () => {
       expect(best.mask.length).toBe(32);
     });
 
+    it('crops square-frame padding before restoring a non-square source mask', () => {
+      const raw = new Float32Array([1, 1, 1, 1, 1, 1, -1, -1, 1, 1, -1, -1, 1, 1, 1, 1]);
+      const decoded = decodeSam2DecoderOutput(raw, [1, 1, 4, 4], null, null, 4, 2, {
+        offsetX: 0,
+        offsetY: 256,
+        contentWidth: 1024,
+        contentHeight: 512,
+      });
+
+      expect(Array.from(decoded.masks[0]!.mask)).toEqual([255, 255, 0, 0, 255, 255, 0, 0]);
+    });
+
     it.each([
       ['empty candidate dimension', new Float32Array(), [1, 0, 2, 2]],
       ['truncated mask data', new Float32Array(3), [1, 1, 2, 2]],

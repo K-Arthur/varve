@@ -101,6 +101,9 @@ export interface Sam2DecoderOutput {
 export interface Sam2Letterbox {
   offsetX: number;
   offsetY: number;
+  /** Rounded dimensions of the source content inside the model square. */
+  contentWidth?: number;
+  contentHeight?: number;
 }
 
 /**
@@ -242,6 +245,7 @@ export function decodeSam2DecoderOutput(
   iouDims: number[] | null,
   targetWidth: number,
   targetHeight: number,
+  letterbox?: Sam2Letterbox,
 ): DecodedMaskResult {
   /**
    * Decoder output layout (SAM2.1):
@@ -270,9 +274,20 @@ export function decodeSam2DecoderOutput(
     }
 
     const iou = iouData ? iouData[m]! : computeIoU(rawMask, maskPixels);
-    // resizeMaskBilinear takes (srcH, srcW, dstH, dstW) — passing
-    // (targetWidth, targetHeight) here would transpose non-square images.
-    const upscaled = resizeMaskBilinear(rawMask, maskH, maskW, targetHeight, targetWidth);
+    // The decoder emits logits in the square encoder frame. When the worker
+    // preserved the source aspect ratio, the square contains padded pixels;
+    // remove those pixels before resizing back to source coordinates. Otherwise
+    // a portrait mask is visibly squeezed toward the centre (and a wide mask
+    // is vertically compressed), so a correct model result is applied to the
+    // wrong document pixels. Keep the full raw logits for future refinement.
+    const content = cropSam2Letterbox(rawMask, maskW, maskH, letterbox);
+    const upscaled = resizeMaskBilinear(
+      content.data,
+      content.height,
+      content.width,
+      targetHeight,
+      targetWidth,
+    );
 
     const binaryMask = new Uint8Array(targetWidth * targetHeight);
     for (let i = 0; i < upscaled.length; i++) {
@@ -311,6 +326,65 @@ export function decodeSam2DecoderOutput(
     confidenceSource,
     lowResMask: { data: lowResData, width: maskH, height: maskW },
   };
+}
+
+function cropSam2Letterbox(
+  rawMask: Float32Array,
+  maskWidth: number,
+  maskHeight: number,
+  letterbox: Sam2Letterbox | undefined,
+): { data: Float32Array; width: number; height: number } {
+  if (!letterbox || (letterbox.offsetX === 0 && letterbox.offsetY === 0)) {
+    return { data: rawMask, width: maskWidth, height: maskHeight };
+  }
+
+  const offsetX = letterbox.offsetX;
+  const offsetY = letterbox.offsetY;
+  const contentWidth = letterbox.contentWidth ?? SAM2_INPUT_SIZE - offsetX * 2;
+  const contentHeight = letterbox.contentHeight ?? SAM2_INPUT_SIZE - offsetY * 2;
+  if (
+    !Number.isFinite(offsetX) ||
+    !Number.isFinite(offsetY) ||
+    !Number.isFinite(contentWidth) ||
+    !Number.isFinite(contentHeight) ||
+    offsetX < 0 ||
+    offsetY < 0 ||
+    contentWidth <= 0 ||
+    contentHeight <= 0 ||
+    offsetX + contentWidth > SAM2_INPUT_SIZE + 1 ||
+    offsetY + contentHeight > SAM2_INPUT_SIZE + 1
+  ) {
+    throw new Error('Invalid SAM2 decoder letterbox geometry');
+  }
+
+  const left = Math.max(
+    0,
+    Math.min(maskWidth - 1, Math.floor((offsetX / SAM2_INPUT_SIZE) * maskWidth)),
+  );
+  const top = Math.max(
+    0,
+    Math.min(maskHeight - 1, Math.floor((offsetY / SAM2_INPUT_SIZE) * maskHeight)),
+  );
+  const right = Math.max(
+    left + 1,
+    Math.min(maskWidth, Math.ceil(((offsetX + contentWidth) / SAM2_INPUT_SIZE) * maskWidth)),
+  );
+  const bottom = Math.max(
+    top + 1,
+    Math.min(maskHeight, Math.ceil(((offsetY + contentHeight) / SAM2_INPUT_SIZE) * maskHeight)),
+  );
+  if (right > maskWidth || bottom > maskHeight || right <= left || bottom <= top) {
+    throw new Error('Invalid SAM2 decoder letterbox crop');
+  }
+
+  const width = right - left;
+  const height = bottom - top;
+  const data = new Float32Array(width * height);
+  for (let y = 0; y < height; y += 1) {
+    const sourceOffset = (top + y) * maskWidth + left;
+    data.set(rawMask.subarray(sourceOffset, sourceOffset + width), y * width);
+  }
+  return { data, width, height };
 }
 
 function computeIoU(rawMask: Float32Array, pixelCount: number): number {

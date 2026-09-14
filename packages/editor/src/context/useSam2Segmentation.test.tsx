@@ -60,9 +60,9 @@ async function sessionFor(options: SetupOptions = {}): Promise<{
   );
   const fingerprint = await fingerprintImageData(new ImageData(size, size));
   controls.load.mockResolvedValue({ width: size, height: size });
-  const candidates = [{ mask, confidence: 0.9 }];
+  const candidates = [{ mask, confidence: 0.9, promptContainment: 1 }];
   if (options.alternateMask) {
-    candidates.push({ mask: options.alternateMask, confidence: 0.5 });
+    candidates.push({ mask: options.alternateMask, confidence: 0.5, promptContainment: 1 });
   }
   return {
     doc,
@@ -236,5 +236,24 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
     expect(setAreaSelection).not.toHaveBeenCalled();
     expect(stateRef.current.objectSelectionSession?.status).toBe('error');
     expect(stateRef.current.objectSelectionSession?.error?.code).toBe('empty_result');
+  });
+
+  it('refuses a reviewed candidate that does not honor the prompts', async () => {
+    const { doc, session } = await sessionFor();
+    session.candidates[0]!.promptContainment = 0;
+    const { result, stateRef, setAreaSelection } = setup(session, doc);
+
+    await act(async () => {
+      await result.current.applySam2Segmentation({
+        nodeId: 'image',
+        prompts: { points: session.points },
+        operation: 'selection',
+      });
+    });
+
+    expect(controls.infer).not.toHaveBeenCalled();
+    expect(setAreaSelection).not.toHaveBeenCalled();
+    expect(stateRef.current.objectSelectionSession?.status).toBe('error');
+    expect(stateRef.current.objectSelectionSession?.error?.code).toBe('prompt_not_honored');
   });
 });

@@ -136,16 +136,32 @@ ready with no manual file placement.
 | Install (download 155 MB + verify + repair + store) | completed in-run; no manual model copy |
 | Cold preview (load from store + encode + decoder + first candidate) | 27 s |
 | Candidate masks per prompt | 3, cycling wrapped |
-| Apply as mask provenance | Mask score 88% |
+| Apply as mask provenance | Predicted IoU score 0.88; prompt match 100% |
 | Undo / redo | removes and restores one mask operation |
 | Warm preview (embedding cache hit) | 3 s |
 | Use as selection (reviewed candidate, no re-encode) | 1 s; area selection saveable |
 
 Screenshots inspected: the preview overlay covers the prompted person; the
 applied mask cuts the person out of the wall (hair and crossed arms kept);
-the selection output traces the same silhouette. The downloader, the
-reviewed-candidate commit path, and the persistence path were exercised in
-one pass.
+the selection output traces the same silhouette. The decoder removes the
+model-square padding recorded by the encoder before restoring the source-sized
+mask. On the 320x483 portrait, the uncorrected decoded silhouette occupied
+approximately x=84..253; the corrected mask occupied x=46..300 and matched the
+inspected source silhouette. The regression is covered by
+`packages/engine/src/inference/models/sam2.test.ts`. The downloader, the
+reviewed-candidate commit path, and the persistence path were exercised in one
+pass. Candidates that fail explicit point or box constraints are now removed
+from the review list, and a stale or legacy rejected candidate cannot be
+applied.
+
+A follow-up run used the same photograph with an off-centre torso point rather
+than the earlier centre prompt. It completed in 23 s cold and 1 s warm,
+reported predicted IoU 0.91, prompt match 100%, and three eligible candidates.
+The inspected preview, applied mask, and selection boundary followed the full
+person, including hair, arms, shirt, and the lower boundary. This also records
+the intended interaction distinction: a point on the head can validly select
+the head region, while a whole-person target should use a torso point, a box,
+or additional include/exclude prompts.
 
 ## Corpus quality run (2026-09-14)
 

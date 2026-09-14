@@ -1,8 +1,11 @@
-import type { AreaSelection, WorkerInferResult } from '@varve/engine';
+import type {
+  AreaSelection,
+  PromptedProviderFact,
+  PromptedSelectionExecutionProvider,
+} from '@varve/engine';
 import {
   assessImageInferenceResources,
   cachedImageDims,
-  decodeSam2DecoderOutput,
   EmbeddingCache,
   getImageCache,
   getInferenceWorkerHost,
@@ -10,6 +13,18 @@ import {
   getModelLoader,
   getNativeGenerativeModelStatus,
   getRuntimeCapabilitiesSync,
+  MOBILE_SAM_CAPABILITIES,
+  MOBILE_SAM_DECODER_ID,
+  MOBILE_SAM_ENCODER_ID,
+  MOBILE_SAM_PROVIDER_ID,
+  MOBILE_SAM_QUALITY_VALIDATION,
+  PROMPTED_PROVIDER_LATENCY_PROXY,
+  routePromptedSelection,
+  SAM2_CAPABILITIES,
+  SAM2_DECODER_ID,
+  SAM2_ENCODER_ID,
+  SAM2_PROVIDER_ID,
+  SAM2_QUALITY_VALIDATION,
 } from '@varve/engine';
 import { type Document, imageShapeSrc, type NodeId } from '@varve/scene';
 import { useCallback, useEffect, useRef } from 'react';
@@ -20,9 +35,14 @@ import { prepareImageMaskMapper } from '../tools/imageMaskCoordinates';
 import { normalizeSam2Prompts } from '../tools/sam2PromptCoordinates';
 import { areaSelectionFromMaskCoverage } from '../tools/selectionMask';
 import { fingerprintImageData } from './imageFingerprint';
+import {
+  type PromptedEmbedding,
+  type PromptedMaskCandidate,
+  type PromptedWorkerTensor,
+  runPromptedSegmentation,
+} from './promptedSegmentationProvider';
 import type { EditorState, ObjectSelectionSession } from './types';
 
-type WorkerTensor = { data: Float32Array; dims: number[] };
 const SAM2_SOFT_DEADLINE_MS = 15_000;
 const EMBEDDING_CACHE_MAX_BYTES = 512 * 1024 * 1024;
 const EMBEDDING_CACHE_MIN_BYTES = 16 * 1024 * 1024;
@@ -41,6 +61,108 @@ function embeddingCacheBudgetBytes(): number {
     EMBEDDING_CACHE_MAX_BYTES,
     Math.max(EMBEDDING_CACHE_MIN_BYTES, Math.floor(safePeakBytes * 0.15)),
   );
+}
+
+function promptedExecutionProvider(
+  runtime: ReturnType<typeof getRuntimeCapabilitiesSync>,
+): PromptedSelectionExecutionProvider {
+  // A WebGPU-capable browser is not the same thing as a WebGPU-validated
+  // graph. The currently pinned prompted artifacts are catalogued for WASM;
+  // the inference worker also forces that provider for these model ids. Keep
+  // the routing explanation truthful until a graph-specific WebGPU gate exists.
+  void runtime;
+  return 'wasm';
+}
+
+function promptedProviderFacts(
+  mobileInstalled: boolean,
+  sam2Installed: boolean,
+): PromptedProviderFact[] {
+  const mobileLatency = PROMPTED_PROVIDER_LATENCY_PROXY[MOBILE_SAM_PROVIDER_ID];
+  const sam2Latency = PROMPTED_PROVIDER_LATENCY_PROXY[SAM2_PROVIDER_ID];
+  return [
+    {
+      id: MOBILE_SAM_PROVIDER_ID,
+      label: 'Faster prompted selection',
+      encoderId: MOBILE_SAM_ENCODER_ID,
+      decoderId: MOBILE_SAM_DECODER_ID,
+      installed: mobileInstalled,
+      workingSetBytes: getModelById(MOBILE_SAM_ENCODER_ID)?.peakMemoryBytes ?? 600_000_000,
+      warmPromptP50Ms: mobileLatency?.p50Ms,
+      warmPromptP95Ms: mobileLatency?.p95Ms,
+      warmPromptP95Source: mobileLatency?.source ?? 'estimated',
+      capabilities: MOBILE_SAM_CAPABILITIES,
+      validation: MOBILE_SAM_QUALITY_VALIDATION,
+      supportedExecutionProviders: ['wasm'],
+    },
+    {
+      id: SAM2_PROVIDER_ID,
+      label: 'Higher-detail prompted selection',
+      encoderId: SAM2_ENCODER_ID,
+      decoderId: SAM2_DECODER_ID,
+      installed: sam2Installed,
+      workingSetBytes: getModelById(SAM2_ENCODER_ID)?.peakMemoryBytes ?? 700_000_000,
+      warmPromptP50Ms: sam2Latency?.p50Ms,
+      warmPromptP95Ms: sam2Latency?.p95Ms,
+      warmPromptP95Source: sam2Latency?.source ?? 'estimated',
+      capabilities: SAM2_CAPABILITIES,
+      validation: SAM2_QUALITY_VALIDATION,
+      supportedExecutionProviders: ['wasm'],
+    },
+  ];
+}
+
+function promptedRequiredCapabilities(prompts: {
+  points?: Array<{ x: number; y: number; label: 0 | 1 }>;
+  box?: { x1: number; y1: number; x2: number; y2: number };
+}): { pointPrompts: boolean; boxPrompts: boolean } {
+  return {
+    pointPrompts: (prompts.points?.length ?? 0) > 0,
+    boxPrompts: prompts.box != null,
+  };
+}
+
+function promptedEmbeddingCacheKey({
+  documentId,
+  nodeId,
+  src,
+  width,
+  height,
+  sourceFingerprint,
+  providerId,
+  encoderId,
+  encoderArtifact,
+  decoderId,
+  decoderArtifact,
+}: {
+  documentId: string;
+  nodeId: NodeId;
+  src: string;
+  width: number;
+  height: number;
+  sourceFingerprint: string;
+  providerId: string;
+  encoderId: string;
+  encoderArtifact: string;
+  decoderId: string;
+  decoderArtifact: string;
+}): string {
+  return [
+    documentId,
+    nodeId,
+    src,
+    width,
+    height,
+    sourceFingerprint,
+    providerId,
+    encoderId,
+    encoderArtifact,
+    decoderId,
+    decoderArtifact,
+    providerId === MOBILE_SAM_PROVIDER_ID ? 'mobilesam-acly-v1' : 'sam2-v1',
+  ]
+    .map((part) => encodeURIComponent(String(part)))
+    .join('|');
 }
 
 export interface Sam2SegmentationAPI {
@@ -73,13 +195,14 @@ export function useSam2Segmentation(
   const embeddingCacheRef = useRef<EmbeddingCache<{
     nodeId: NodeId;
     src: string;
-    embeddings: Record<string, WorkerTensor>;
+    providerId: string;
+    embeddings: Record<string, PromptedWorkerTensor>;
     // The letterbox transform the encoder's *own* preprocessing applied to
     // this image (scale-to-fit + center + pad for non-square images).
     // Prompt encoding must reuse this exact transform — see sam2.ts — so
     // it's cached alongside the embeddings it was computed from, not
     // recomputed from the image dimensions independently.
-    letterbox: { offsetX: number; offsetY: number };
+    letterbox?: { offsetX: number; offsetY: number };
     naturalW: number;
     naturalH: number;
     sourceFingerprint: string;
@@ -88,13 +211,14 @@ export function useSam2Segmentation(
     embeddingCacheRef.current = new EmbeddingCache<{
       nodeId: NodeId;
       src: string;
-      embeddings: Record<string, WorkerTensor>;
+      providerId: string;
+      embeddings: Record<string, PromptedWorkerTensor>;
       // The letterbox transform the encoder's *own* preprocessing applied to
       // this image (scale-to-fit + center + pad for non-square images).
       // Prompt encoding must reuse this exact transform — see sam2.ts — so
       // it's cached alongside the embeddings it was computed from, not
       // recomputed from the image dimensions independently.
-      letterbox: { offsetX: number; offsetY: number };
+      letterbox?: { offsetX: number; offsetY: number };
       naturalW: number;
       naturalH: number;
       sourceFingerprint: string;
@@ -275,6 +399,27 @@ export function useSam2Segmentation(
             );
             return null;
           }
+          const hasPromptConstraints =
+            previousSession.points.length > 0 || previousSession.box !== null;
+          if (hasPromptConstraints && candidate.promptContainment !== 1) {
+            const live = stateRef.current.objectSelectionSession;
+            if (generation === generationRef.current && live?.nodeId === nodeId) {
+              writeTransientSession({
+                ...live,
+                status: 'error',
+                error: {
+                  code: 'prompt_not_honored',
+                  message:
+                    'This candidate does not honor the reviewed prompts. Create a new preview before applying it.',
+                  retryable: true,
+                },
+              });
+            }
+            announcerRef.current?.announce(
+              'This candidate does not honor the reviewed prompts. Create a new preview before applying it.',
+            );
+            return null;
+          }
           if (countMaskCoverage(candidate.mask) === 0) {
             const live = stateRef.current.objectSelectionSession;
             if (generation === generationRef.current && live?.nodeId === nodeId) {
@@ -320,7 +465,7 @@ export function useSam2Segmentation(
             setAreaSelection(areaSelection);
             writeTransientSession(null, { maskPreviewMode: 'none' });
             announcerRef.current?.announce(
-              `Selected subject (${scoreNoun(previousSession.confidenceSource)} ${Math.round(candidate.confidence * 100)}%)`,
+              `Selected subject (${formatSelectionScore(candidate.confidence, candidate.scoreSource ?? previousSession.confidenceSource)})`,
             );
             return {
               mask: candidate.mask,
@@ -345,7 +490,8 @@ export function useSam2Segmentation(
               height: previousSession.height,
               method: 'ai-quality',
               modelId: previousSession.modelId || 'sam2-hiera-tiny',
-              confidence: candidate.confidence,
+              score: candidate.confidence,
+              scoreSource: candidate.scoreSource ?? previousSession.confidenceSource,
               generatedAt: Date.now(),
               sourceLocator: src,
             });
@@ -366,7 +512,7 @@ export function useSam2Segmentation(
               ),
             });
             announcerRef.current?.announce(
-              `Selection applied as a mask (${scoreNoun(previousSession.confidenceSource)} ${Math.round(candidate.confidence * 100)}%)`,
+              `Selection applied as a mask (${formatSelectionScore(candidate.confidence, candidate.scoreSource ?? previousSession.confidenceSource)})`,
             );
             return {
               mask: candidate.mask,
@@ -502,9 +648,27 @@ export function useSam2Segmentation(
         return null;
       }
 
-      const encoderId = 'sam2-hiera-tiny-encoder';
-      const decoderId = 'sam2-hiera-tiny-decoder';
-      const encoderPeakBytes = getModelById(encoderId)?.peakMemoryBytes ?? 700_000_000;
+      const loader = getModelLoader();
+      const modelIds = [
+        MOBILE_SAM_ENCODER_ID,
+        MOBILE_SAM_DECODER_ID,
+        SAM2_ENCODER_ID,
+        SAM2_DECODER_ID,
+      ] as const;
+      let paths: Array<string | null>;
+      try {
+        paths = await Promise.all(
+          modelIds.map((modelId) => loader.getModelPath(modelId, combinedSignal)),
+        );
+      } catch (error) {
+        const raw = error instanceof Error ? error.message : String(error);
+        if (isCancellationError(raw)) return null;
+        markFailure(mapSegmentationFailure(raw));
+        return null;
+      }
+
+      const mobileInstalled = Boolean(paths[0] && paths[1]);
+      const sam2Installed = Boolean(paths[2] && paths[3]);
       const runtime = getRuntimeCapabilitiesSync();
       let safePeakBytes = runtime.wasmSafePeakBytes;
       if (runtime.isTauri) {
@@ -519,7 +683,58 @@ export function useSam2Segmentation(
           safePeakBytes = nativeResources.memoryAvailableBytes;
         }
       }
-      const resourceAssessment = assessImageInferenceResources({
+      const executionProvider = promptedExecutionProvider(runtime);
+      const providers = promptedProviderFacts(mobileInstalled, sam2Installed);
+      const embeddingCache = embeddingCacheRef.current;
+      if (!embeddingCache) return null;
+      // Route once from dimensions before allocating a full-resolution source
+      // buffer. The cache-aware route is resolved below, after the decoded
+      // source fingerprint exists; this keeps the memory gate ahead of the
+      // largest allocation while still allowing a warm provider to win.
+      let decision = routePromptedSelection({
+        preference: 'auto',
+        sourceWidth: naturalW,
+        sourceHeight: naturalH,
+        executionProvider,
+        safeWorkingSetBytes: safePeakBytes,
+        requiredCapabilities: promptedRequiredCapabilities(prompts),
+        providers,
+      });
+      if (!decision.providerId || !decision.encoderId || !decision.decoderId) {
+        markFailure({
+          code: 'provider_unavailable',
+          message: decision.reason,
+          retryable: true,
+        });
+        return null;
+      }
+      let providerId: string = decision.providerId;
+      let encoderId: string = decision.encoderId;
+      let decoderId: string = decision.decoderId;
+      let encoderIndex = modelIds.indexOf(encoderId as (typeof modelIds)[number]);
+      let decoderIndex = modelIds.indexOf(decoderId as (typeof modelIds)[number]);
+      let resolvedEncoderPath = paths[encoderIndex] ?? null;
+      let resolvedDecoderPath = paths[decoderIndex] ?? null;
+      if (!resolvedEncoderPath || !resolvedDecoderPath) {
+        markFailure({
+          code: 'model_not_installed',
+          message:
+            'Prompted object selection needs an optional local model. Download it from this panel, then try again.',
+          retryable: true,
+        });
+        return null;
+      }
+      const liveSession = stateRef.current.objectSelectionSession;
+      if (liveSession?.nodeId === nodeId && stateRef.current.document.id === currentDoc.id) {
+        writeTransientSession({
+          ...liveSession,
+          modelId: providerId,
+          routingReason: decision.reason,
+          routingRejections: decision.rejected,
+        });
+      }
+      const encoderPeakBytes = getModelById(encoderId)?.peakMemoryBytes ?? 600_000_000;
+      let resourceAssessment = assessImageInferenceResources({
         width: naturalW,
         height: naturalH,
         modelPeakBytes: encoderPeakBytes,
@@ -568,6 +783,93 @@ export function useSam2Segmentation(
       const sourceFingerprint = await fingerprintImageData(imageData);
       if (combinedSignal.aborted) return null;
 
+      const providerCacheKey = (provider: PromptedProviderFact): string => {
+        const providerEncoderIndex = modelIds.indexOf(
+          provider.encoderId as (typeof modelIds)[number],
+        );
+        const providerDecoderIndex = modelIds.indexOf(
+          provider.decoderId as (typeof modelIds)[number],
+        );
+        return `${promptedEmbeddingCacheKey({
+          documentId: currentDoc.id,
+          nodeId,
+          src,
+          width: naturalW,
+          height: naturalH,
+          sourceFingerprint,
+          providerId: provider.id,
+          encoderId: provider.encoderId,
+          encoderArtifact: getModelById(provider.encoderId)?.checksum || provider.encoderId,
+          decoderId: provider.decoderId,
+          decoderArtifact: getModelById(provider.decoderId)?.checksum || provider.decoderId,
+        })}|${paths[providerEncoderIndex] ?? ''}|${paths[providerDecoderIndex] ?? ''}`;
+      };
+      const cachedEmbeddingProvider = providers.find((provider) =>
+        embeddingCache.get(providerCacheKey(provider)),
+      )?.id;
+      if (cachedEmbeddingProvider && cachedEmbeddingProvider !== providerId) {
+        const warmDecision = routePromptedSelection({
+          preference: 'auto',
+          sourceWidth: naturalW,
+          sourceHeight: naturalH,
+          executionProvider,
+          safeWorkingSetBytes: safePeakBytes,
+          cachedEmbeddingProvider,
+          requiredCapabilities: promptedRequiredCapabilities(prompts),
+          providers,
+        });
+        if (warmDecision.providerId && warmDecision.encoderId && warmDecision.decoderId) {
+          decision = warmDecision;
+          providerId = warmDecision.providerId;
+          encoderId = warmDecision.encoderId;
+          decoderId = warmDecision.decoderId;
+          encoderIndex = modelIds.indexOf(encoderId as (typeof modelIds)[number]);
+          decoderIndex = modelIds.indexOf(decoderId as (typeof modelIds)[number]);
+          resolvedEncoderPath = paths[encoderIndex] ?? null;
+          resolvedDecoderPath = paths[decoderIndex] ?? null;
+          const warmResourceAssessment = assessImageInferenceResources({
+            width: naturalW,
+            height: naturalH,
+            modelPeakBytes: getModelById(encoderId)?.peakMemoryBytes ?? 600_000_000,
+            runtime: { wasmSafePeakBytes: safePeakBytes },
+            operation: 'Object Selection',
+          });
+          if (!warmResourceAssessment.allowed) {
+            markFailure({
+              code: 'out_of_memory',
+              message:
+                warmResourceAssessment.reason ??
+                'Object Selection needs more memory on this device.',
+              retryable: false,
+            });
+            return null;
+          }
+          resourceAssessment = warmResourceAssessment;
+          const live = stateRef.current.objectSelectionSession;
+          if (live?.nodeId === nodeId && stateRef.current.document.id === currentDoc.id) {
+            writeTransientSession({
+              ...live,
+              modelId: providerId,
+              routingReason: decision.reason,
+              routingRejections: decision.rejected,
+            });
+          }
+        }
+      }
+
+      // A warm-provider reroute can change the model ids and paths. Recheck
+      // the resolved handles after that branch so a partial installation can
+      // never reach the worker with a nullable path.
+      if (!resolvedEncoderPath || !resolvedDecoderPath) {
+        markFailure({
+          code: 'model_not_installed',
+          message:
+            'Prompted object selection needs an optional local model. Download it from this panel, then try again.',
+          retryable: true,
+        });
+        return null;
+      }
+
       const imageMapper = prepareImageMaskMapper({
         document: currentDoc,
         node,
@@ -584,101 +886,31 @@ export function useSam2Segmentation(
         return null;
       }
       const normPrompts = normalizeSam2Prompts(prompts, imageMapper, naturalW, naturalH);
-
-      const loader = getModelLoader();
-      let resolvedEncoderPath: string | null;
-      let resolvedDecoderPath: string | null;
-      try {
-        resolvedEncoderPath = await loader.getModelPath(encoderId, combinedSignal);
-        resolvedDecoderPath = await loader.getModelPath(decoderId, combinedSignal);
-      } catch (error) {
-        const raw = error instanceof Error ? error.message : String(error);
-        if (isCancellationError(raw)) return null;
-        markFailure(mapSegmentationFailure(raw));
-        return null;
-      }
-
-      if (!resolvedEncoderPath || !resolvedDecoderPath) {
-        markFailure({
-          code: 'model_not_installed',
-          message:
-            'Object selection needs a one-time model download. Install it from Settings > Offline Models, then try again.',
-          retryable: true,
-        });
-        return null;
-      }
-
       try {
         const host = getInferenceWorkerHost();
-
-        // A model path can remain stable while a verified model artifact is
-        // replaced in storage. Include both component checksums so a newly
-        // installed encoder/decoder cannot reuse embeddings produced by an
-        // older contract. The preprocessing tag must be bumped whenever the
-        // encoder transform changes.
         const encoderArtifact = getModelById(encoderId)?.checksum || resolvedEncoderPath;
         const decoderArtifact = getModelById(decoderId)?.checksum || resolvedDecoderPath;
-
-        const cacheKey = [
-          currentDoc.id,
+        const cacheKey = `${promptedEmbeddingCacheKey({
+          documentId: currentDoc.id,
           nodeId,
           src,
-          naturalW,
-          naturalH,
+          width: naturalW,
+          height: naturalH,
           sourceFingerprint,
+          providerId,
           encoderId,
           encoderArtifact,
           decoderId,
           decoderArtifact,
-          'preprocess-v1',
-        ]
-          .map((part) => encodeURIComponent(String(part)))
-          .join('|');
-        const embeddingCache = embeddingCacheRef.current;
-        if (!embeddingCache) return null;
-        let cached = embeddingCache.get(cacheKey);
-        if (!cached) {
-          if (combinedSignal.aborted) return null;
-
-          const encResult: WorkerInferResult = await host.infer(
-            {
-              type: 'infer',
-              modelType: 'sam2-encoder',
-              modelPath: resolvedEncoderPath,
-              modelId: encoderId,
-              imageData,
-              reuseSession: true,
-            },
-            {
-              signal: combinedSignal,
-              reservationBytes: resourceAssessment.estimatedPeakBytes,
-            },
-          );
-
-          if (generation !== generationRef.current || combinedSignal.aborted) return null;
-
-          const encOutputs = encResult.outputs as {
-            image_embed: WorkerTensor;
-            high_res_feats_0: WorkerTensor;
-            high_res_feats_1: WorkerTensor;
-            letterbox?: { offsetX: number; offsetY: number };
-          };
-
-          cached = {
-            nodeId,
-            src,
-            embeddings: {
-              image_embed: encOutputs.image_embed,
-              high_res_feats_0: encOutputs.high_res_feats_0,
-              high_res_feats_1: encOutputs.high_res_feats_1,
-            },
-            letterbox: encOutputs.letterbox ?? { offsetX: 0, offsetY: 0 },
-            naturalW,
-            naturalH,
-            sourceFingerprint,
-          };
-          embeddingCache.set(cacheKey, cached);
-        }
+        })}|${resolvedEncoderPath}|${resolvedDecoderPath}`;
+        const cached = embeddingCache.get(cacheKey);
+        const cachedEmbedding: PromptedEmbedding | undefined = cached
+          ? {
+              providerId: cached.providerId,
+              tensors: cached.embeddings,
+              letterbox: cached.letterbox,
+            }
+          : undefined;
 
         if (generation !== generationRef.current || combinedSignal.aborted) return null;
 
@@ -693,42 +925,52 @@ export function useSam2Segmentation(
         }
 
         writeCurrentSam2Stage(stateRef, setState, nodeId, 'decoding');
-        const decResult: WorkerInferResult = await host.infer(
-          {
-            type: 'infer',
-            modelType: 'sam2-decoder',
-            modelPath: resolvedDecoderPath,
-            modelId: decoderId,
-            tensors: cached.embeddings,
-            params: {
-              points: normPrompts.points,
-              box: normPrompts.box,
-              letterbox: cached.letterbox,
-            },
-            reuseSession: true,
-          },
-          {
-            signal: combinedSignal,
-            reservationBytes: resourceAssessment.estimatedPeakBytes,
-          },
-        );
+        const prediction = await runPromptedSegmentation({
+          host,
+          decision,
+          encoderPath: resolvedEncoderPath,
+          decoderPath: resolvedDecoderPath,
+          imageData,
+          sourceWidth: naturalW,
+          sourceHeight: naturalH,
+          points: normPrompts.points,
+          box: normPrompts.box,
+          embedding: cachedEmbedding,
+          signal: combinedSignal,
+          reservationBytes: resourceAssessment.estimatedPeakBytes,
+        });
+        if (!cachedEmbedding) {
+          embeddingCache.set(cacheKey, {
+            nodeId,
+            src,
+            providerId,
+            embeddings: prediction.embedding.tensors,
+            letterbox: prediction.embedding.letterbox,
+            naturalW,
+            naturalH,
+            sourceFingerprint,
+          });
+        }
 
         if (generation !== generationRef.current || combinedSignal.aborted) return null;
 
-        const decOutputs = decResult.outputs as {
-          masks: { data: Float32Array; dims: number[] };
-          iou_predictions?: { data: Float32Array; dims: number[] };
-          executionProvider: string;
+        const decoded = {
+          masks: prediction.candidates.map((candidate: PromptedMaskCandidate) => ({
+            mask: candidate.mask,
+            width: candidate.width,
+            height: candidate.height,
+            iouScore: candidate.score,
+            scoreSource: candidate.scoreSource,
+            promptContainment: candidate.promptContainment,
+            confidenceSource:
+              candidate.scoreSource === 'predicted-iou'
+                ? ('predicted-iou' as const)
+                : ('heuristic' as const),
+          })),
+          selectedIndex: prediction.selectedIndex,
+          confidence: prediction.selectedScore,
+          confidenceSource: prediction.scoreSource,
         };
-
-        const decoded = decodeSam2DecoderOutput(
-          decOutputs.masks.data,
-          decOutputs.masks.dims,
-          decOutputs.iou_predictions?.data ?? null,
-          decOutputs.iou_predictions?.dims ?? null,
-          naturalW,
-          naturalH,
-        );
 
         if (generation !== generationRef.current || combinedSignal.aborted) return null;
 
@@ -737,6 +979,17 @@ export function useSam2Segmentation(
           Math.min(decoded.masks.length - 1, candidateIndex ?? decoded.selectedIndex),
         );
         const bestMask = decoded.masks[selectedCandidate]!;
+        const hasPromptConstraints =
+          (normPrompts.points?.length ?? 0) > 0 || normPrompts.box !== undefined;
+        if (hasPromptConstraints && bestMask.promptContainment !== 1) {
+          markFailure({
+            code: 'prompt_not_honored',
+            message:
+              'The selected candidate did not honor the supplied prompts. Adjust the prompts and create a new preview.',
+            retryable: true,
+          });
+          return null;
+        }
         const selectedConfidence = bestMask.iouScore;
         const maskResult = {
           mask: bestMask.mask,
@@ -757,6 +1010,8 @@ export function useSam2Segmentation(
                 candidates: decoded.masks.map((candidate) => ({
                   mask: candidate.mask,
                   confidence: candidate.iouScore,
+                  scoreSource: candidate.scoreSource,
+                  promptContainment: candidate.promptContainment,
                 })),
                 selectedCandidate,
                 points: prompts.points ?? [],
@@ -766,8 +1021,10 @@ export function useSam2Segmentation(
                 confidence: selectedConfidence,
                 confidenceSource: decoded.confidenceSource,
                 status: 'ready' as const,
-                modelId: 'sam2-hiera-tiny',
-                executionProvider: decOutputs.executionProvider,
+                modelId: providerId,
+                executionProvider: prediction.executionProvider,
+                routingReason: decision.reason,
+                routingRejections: decision.rejected,
                 sourceLocator: src,
                 sourceFingerprint,
                 startedAt: promptSession.startedAt,
@@ -782,8 +1039,8 @@ export function useSam2Segmentation(
             );
             announcerRef.current?.announce(
               coveragePixels === 0
-                ? `No pixels were selected for these prompts (${scoreNoun(decoded.confidenceSource)} ${Math.round(selectedConfidence * 100)}%). Adjust the prompts and try again.`
-                : `Subject preview ready (${scoreNoun(decoded.confidenceSource)} ${Math.round(selectedConfidence * 100)}%). Press Enter to apply as a mask, Escape to cancel.`,
+                ? `No pixels were selected for these prompts (${formatSelectionScore(selectedConfidence, bestMask.scoreSource)}). Adjust the prompts and try again.`
+                : `Subject preview ready (${formatSelectionScore(selectedConfidence, bestMask.scoreSource)}). Press Enter to apply as a mask, Escape to cancel.`,
             );
             return maskResult;
 
@@ -830,8 +1087,9 @@ export function useSam2Segmentation(
                 width: naturalW,
                 height: naturalH,
                 method: 'ai-quality',
-                modelId: 'sam2-hiera-tiny',
-                confidence: selectedConfidence,
+                modelId: providerId,
+                score: selectedConfidence,
+                scoreSource: bestMask.scoreSource,
                 generatedAt: Date.now(),
                 sourceLocator: src,
               });
@@ -841,7 +1099,7 @@ export function useSam2Segmentation(
             if (committed) {
               writeTransientSession(null, { maskPreviewMode: 'none' });
               announcerRef.current?.announce(
-                `Selection applied as a mask (${scoreNoun(decoded.confidenceSource)} ${Math.round(selectedConfidence * 100)}%)`,
+                `Selection applied as a mask (${formatSelectionScore(selectedConfidence, bestMask.scoreSource)})`,
               );
             }
             return maskResult;
@@ -884,7 +1142,7 @@ export function useSam2Segmentation(
             setAreaSelection(areaSelection);
             writeTransientSession(null, { maskPreviewMode: 'none' });
             announcerRef.current?.announce(
-              `Selected subject (${scoreNoun(decoded.confidenceSource)} ${Math.round(selectedConfidence * 100)}%)`,
+              `Selected subject (${formatSelectionScore(selectedConfidence, bestMask.scoreSource)})`,
             );
             return maskResult;
           }
@@ -998,11 +1256,21 @@ function countMaskCoverage(mask: Uint8Array): number {
   return count;
 }
 
-/** Name the score by provenance; never call a predicted quality score "confidence". */
-function scoreNoun(source: 'model-iou' | 'activation-heuristic' | undefined): string {
-  if (source === 'model-iou') return 'model score';
-  if (source === 'activation-heuristic') return 'heuristic score';
-  return 'score';
+/** Format score provenance without presenting a quality score as intent probability. */
+function formatSelectionScore(
+  score: number,
+  source: ObjectSelectionSession['confidenceSource'],
+): string {
+  if (source === 'predicted-iou' || source === 'model-iou') {
+    return `predicted IoU score ${score.toFixed(2)}`;
+  }
+  if (source === 'stability') {
+    return `stability score ${Math.round(Math.max(0, Math.min(1, score)) * 100)}%`;
+  }
+  if (source === 'heuristic' || source === 'activation-heuristic') {
+    return `heuristic score ${score.toFixed(2)}`;
+  }
+  return `score ${score.toFixed(2)}`;
 }
 
 function mapSegmentationFailure(raw: string): {

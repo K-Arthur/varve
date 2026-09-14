@@ -190,6 +190,7 @@ async function predictFixture(
     iou ? [...iou.dims] : null,
     fixture.width,
     fixture.height,
+    { offsetX, offsetY },
   );
   return decoded;
 }
