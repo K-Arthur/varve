@@ -354,6 +354,16 @@ export function buildCanvasContextMenuItems({
           ...(isSingleImage
             ? [
                 {
+                  id: 'ctx-generative-edit',
+                  label: 'Generative Edit…',
+                  icon: 'WandSparkles' as const,
+                  onAction: () => {
+                    record('generativeEdit');
+                    if (selectedId) editor.openCafDialog(selectedId);
+                    closeMenu();
+                  },
+                } satisfies MenuEntry,
+                {
                   id: 'ctx-vectorize',
                   label: 'Vectorize image…',
                   icon: 'Spline' as const,
