@@ -233,8 +233,9 @@ bundled face is available.
 The compact combobox advertises its portaled listbox with `aria-haspopup`,
 opens from `Alt+ArrowDown`, keeps Home/End available to edit the search text,
 and returns focus to the input after an option is selected without reopening
-the menu. Its bounded fallback keeps the active descendant mounted while the
-portal viewport is measuring.
+the menu. Selecting the already-authored family is idempotent, preserving its
+exact face reference and variation axes. Its bounded fallback keeps the active
+descendant mounted while the portal viewport is measuring.
 
 The full browser's license details view exposes the base embedding right,
 no-subsetting and bitmap-only declarations as separate rows, plus whether the
