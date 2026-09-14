@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { resolveWebModel } from '../modelSelection';
+import { resolveWebModel, resolveWebModelPeakBytes } from '../modelSelection';
 
 describe('resolveWebModel', () => {
   beforeEach(() => {
@@ -66,5 +66,49 @@ describe('resolveWebModel', () => {
       modelId: 'u2netp',
       precision: 'fp32',
     });
+  });
+});
+
+describe('resolveWebModelPeakBytes', () => {
+  it('reports the bundled u2netp working set when no enhanced model is installed', async () => {
+    const loader = {
+      hasDownloadedBlob: vi.fn().mockResolvedValue(false),
+      getModelPath: vi.fn(async (id: string) => `/models/${id}.onnx`),
+    };
+    await expect(resolveWebModelPeakBytes('ai-balanced', loader)).resolves.toEqual({
+      modelId: 'u2netp',
+      peakMemoryBytes: 330_000_000,
+    });
+  });
+
+  it('reports the installed IS-Net working set instead of the u2netp fallback', async () => {
+    const loader = {
+      hasDownloadedBlob: vi.fn().mockResolvedValue(true),
+      getModelPath: vi.fn(async (id: string) => `blob:${id}`),
+    };
+    await expect(resolveWebModelPeakBytes('ai-balanced', loader)).resolves.toEqual({
+      modelId: 'isnet-general-use',
+      peakMemoryBytes: 1_300_000_000,
+    });
+  });
+
+  it('reports the installed BiRefNet Lite working set for quality requests', async () => {
+    const loader = {
+      hasDownloadedBlob: vi.fn(async (id: string) => id === 'birefnet-general-lite'),
+      getModelPath: vi.fn(async (id: string) => `blob:${id}`),
+    };
+    await expect(resolveWebModelPeakBytes('ai-quality', loader)).resolves.toEqual({
+      modelId: 'birefnet-general-lite',
+      peakMemoryBytes: 7_000_000_000,
+    });
+  });
+
+  it('returns null for quick mode and when nothing resolves', async () => {
+    const loader = {
+      hasDownloadedBlob: vi.fn().mockResolvedValue(false),
+      getModelPath: vi.fn(async () => null),
+    };
+    await expect(resolveWebModelPeakBytes('quick', loader)).resolves.toBeNull();
+    await expect(resolveWebModelPeakBytes('ai-balanced', loader)).resolves.toBeNull();
   });
 });

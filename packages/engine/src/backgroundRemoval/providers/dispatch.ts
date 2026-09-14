@@ -247,8 +247,9 @@ async function dispatchBackgroundRemovalAdmitted(
 
   // Failed at the requested quality. If this was ai-quality, automatically
   // fall back to ai-balanced (u2netp) — the bundled model is always safe
-  // and doesn't risk crashing on WASM memory limits.
-  if (options.method === 'ai-quality') {
+  // and doesn't risk crashing on WASM memory limits. An explicit model
+  // request must never be silently substituted, so it skips this fallback.
+  if (options.method === 'ai-quality' && !options.modelId) {
     console.warn(
       '[bg-removal] ai-quality failed through all providers; falling back to ai-balanced (u2netp)',
     );
@@ -268,6 +269,13 @@ async function dispatchBackgroundRemovalAdmitted(
 
     throw new Error(
       'AI background removal failed in all quality modes. Switch to Quick mode or try again later.',
+    );
+  }
+
+  if (options.modelId) {
+    throw new Error(
+      `The requested local model (${options.modelId}) could not run on this device. ` +
+        'Choose another quality level, or manage local models in Settings, Offline Models.',
     );
   }
 

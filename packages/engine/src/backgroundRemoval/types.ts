@@ -54,6 +54,13 @@ export type HeuristicMethod = 'floodFill' | 'chromaKey' | 'kMeans' | 'edgeDetect
 
 export interface BackgroundRemovalOptions {
   method: RemovalMethod;
+  /**
+   * Explicit model request. When set, providers must run this exact model or
+   * fail; they must never substitute the method's preferred model. Used by
+   * subject-proposal routing so a "Fast" estimate cannot silently become an
+   * installed IS-Net run.
+   */
+  modelId?: WorkerModelId;
   heuristicMethod?: HeuristicMethod;
   tolerance?: number;
   feather?: number;

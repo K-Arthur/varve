@@ -11,6 +11,16 @@ export interface SegmentationModelSpec {
 const IMAGENET_MEAN = [0.485, 0.456, 0.406] as const;
 const IMAGENET_STD = [0.229, 0.224, 0.225] as const;
 
+/**
+ * The quantized variant is a 320x320 u2netp-family graph with the same
+ * probability output, not a 1024 BiRefNet-style graph. Keeping this mapping
+ * explicit prevents the INT8 variant from being packed with ImageNet
+ * normalization at 1024 and failing (or silently degrading) at session input.
+ */
+function isU2NetLightFamily(modelId: WorkerModelId): boolean {
+  return modelId === 'u2netp' || modelId === 'u2netp-int8';
+}
+
 /** Exact preprocessing/output conventions for the supported rembg models. */
 export function getSegmentationModelSpec(modelId: WorkerModelId): SegmentationModelSpec {
   if (modelId === 'isnet-general-use') {
@@ -23,11 +33,12 @@ export function getSegmentationModelSpec(modelId: WorkerModelId): SegmentationMo
     };
   }
 
+  const u2netLight = isU2NetLightFamily(modelId);
   return {
-    inputSize: modelId === 'u2netp' ? 320 : 1024,
+    inputSize: u2netLight ? 320 : 1024,
     mean: IMAGENET_MEAN,
     std: IMAGENET_STD,
-    applySigmoid: modelId !== 'u2netp',
+    applySigmoid: !u2netLight,
     // Mean-colour padding maps close to zero after ImageNet normalization.
     paddingRgb: [124, 116, 104],
   };

@@ -1,6 +1,12 @@
+import { getModelById } from '../inference/modelCatalog';
 import type { ModelPrecision } from '../inference/types';
 import { isInt8FasterOnThisCpu } from './precisionCapabilities';
-import type { InferenceQualityPreference, RemovalMethod, WorkerModelId } from './types';
+import type {
+  BackgroundRemovalOptions,
+  InferenceQualityPreference,
+  RemovalMethod,
+  WorkerModelId,
+} from './types';
 import { preferredWorkerModelIdForMethod, workerModelIdForMethod } from './types';
 
 export interface ResolvedWebModel {
@@ -91,4 +97,84 @@ export async function resolveWebModel(
     precisionAdjusted,
     selectionReason,
   };
+}
+
+/**
+ * Resolve the model a request must run, honoring an explicit `modelId`.
+ *
+ * An explicit request is a contract: if the model's bytes are unreachable the
+ * resolution returns null and the provider throws, rather than substituting
+ * the method's preferred model. This is what keeps "Fast (U²-NetP)" from
+ * silently becoming an installed IS-Net run.
+ */
+export async function resolveWebModelForOptions(
+  options: Pick<BackgroundRemovalOptions, 'method' | 'qualityPreference' | 'modelId'>,
+  loader: {
+    getModelPath(modelId: string, signal?: AbortSignal): Promise<string | null>;
+    hasDownloadedBlob?(modelId: string): Promise<boolean>;
+  },
+  signal?: AbortSignal,
+): Promise<ResolvedWebModel | null> {
+  if (options.modelId) {
+    const path = await loader.getModelPath(options.modelId, signal);
+    if (!path) return null;
+    return {
+      modelId: options.modelId,
+      modelPath: path,
+      precision: options.modelId.endsWith('-int8') ? 'int8' : 'fp32',
+      precisionAdjusted: false,
+      selectionReason: `Explicit model request: ${options.modelId}`,
+    };
+  }
+  return resolveWebModel(options.method, loader, options.qualityPreference, signal);
+}
+
+/**
+ * Native model for a request, or null when the native path must decline.
+ *
+ * The Rust bridge resolves its model from the *method*, so an explicit model
+ * request may only use native execution when the requested model is exactly
+ * the native model for that method. This keeps the no-substitution contract
+ * without changing the native wire protocol.
+ */
+export function nativeModelIdForOptions(options: {
+  method: RemovalMethod;
+  modelId?: WorkerModelId;
+}): WorkerModelId | null {
+  const native = preferredWorkerModelIdForMethod(options.method);
+  if (!options.modelId) return native;
+  return options.modelId === native ? native : null;
+}
+
+/**
+ * Peak working set for the model a request will actually run.
+ *
+ * The browser preflight in `removeBackground` used to assess every AI method
+ * with the bundled u2netp peak (330 MB). When an installed IS-Net or BiRefNet
+ * model is selected instead, that under-estimates the run, so the wasm32
+ * linear-memory ceiling can abort the page before any provider reports an
+ * error. Resolving the model first keeps the admission gate honest. Returns
+ * null when nothing resolves; the caller then applies the bundled-model
+ * fallback (which is also what dispatch would fall back to).
+ */
+export async function resolveWebModelPeakBytes(
+  method: RemovalMethod,
+  loader: {
+    getModelPath(modelId: string, signal?: AbortSignal): Promise<string | null>;
+    hasDownloadedBlob?(modelId: string): Promise<boolean>;
+  },
+  qualityPreference?: InferenceQualityPreference,
+  signal?: AbortSignal,
+  modelId?: WorkerModelId,
+): Promise<{ modelId: WorkerModelId; peakMemoryBytes: number } | null> {
+  if (method === 'quick') return null;
+  const resolved = await resolveWebModelForOptions(
+    { method, qualityPreference, modelId },
+    loader,
+    signal,
+  );
+  if (!resolved) return null;
+  const peak = getModelById(resolved.modelId)?.peakMemoryBytes;
+  if (typeof peak !== 'number' || !Number.isFinite(peak) || peak <= 0) return null;
+  return { modelId: resolved.modelId, peakMemoryBytes: peak };
 }

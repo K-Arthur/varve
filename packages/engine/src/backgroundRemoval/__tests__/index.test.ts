@@ -370,27 +370,24 @@ describe('removeBackground dispatch', () => {
     );
   });
 
-  it('passes default previewMaxDimension 2048 to worker for AI quality tier', async () => {
+  it('blocks an installed BiRefNet quality run before dispatch when the budget cannot hold it', async () => {
     vi.stubGlobal('Worker', class {});
-    mockRunPooledInference.mockResolvedValue({
-      maskDataUrl: 'data:image/png;base64,worker',
-      confidence: 0.9,
-      method: 'ai-quality',
-      processingTimeMs: 10,
-      width: 4,
-      height: 4,
+    mockGetModelLoader.mockReturnValue({
+      getState: () => 'ready',
+      hasDownloadedBlob: vi.fn(async (id: string) => id === 'birefnet-general-lite'),
+      getModelPath: vi.fn(async (id: string) => `blob:${id}`),
+      syncFromStorage: vi.fn().mockResolvedValue(undefined),
+      isModelAvailable: vi.fn().mockResolvedValue(true),
     });
 
     const { removeBackground } = await import('../index');
-    await removeBackground(makeImage(), { method: 'ai-quality' });
-
-    expect(mockRunPooledInference).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ previewMaxDimension: 2048, method: 'ai-quality' }),
-      expect.anything(),
-      'birefnet-general-lite',
-      expect.anything(),
+    await expect(removeBackground(makeImage(), { method: 'ai-quality' })).rejects.toThrow(
+      /safe inference budget/i,
     );
+    // The gate must reject before any worker/provider allocation happens: the
+    // u2netp-sized estimate used to pass here and the wasm ceiling could abort.
+    expect(mockRunPooledInference).not.toHaveBeenCalled();
+    expect(mockHeuristic).not.toHaveBeenCalled();
   });
 
   it('does not silently substitute a heuristic when AI providers are unavailable', async () => {
@@ -459,6 +456,13 @@ describe('removeBackground dispatch', () => {
   it('rejects a Tauri heuristic result for an AI request', async () => {
     (window as unknown as { __TAURI__?: unknown }).__TAURI__ = {};
     vi.stubGlobal('Worker', class {});
+    mockGetModelLoader.mockReturnValue({
+      getState: () => 'ready',
+      hasDownloadedBlob: vi.fn().mockResolvedValue(false),
+      getModelPath: vi.fn(async (id: string) => (id === 'u2netp' ? '/models/u2netp.onnx' : null)),
+      syncFromStorage: vi.fn().mockResolvedValue(undefined),
+      isModelAvailable: vi.fn(async (id: string) => id === 'u2netp'),
+    });
     mockRunPooledInference.mockRejectedValue(new Error('worker unavailable'));
     mockInvoke.mockResolvedValue({
       maskBase64: 'fake',

@@ -6,7 +6,7 @@ import {
   normalizeSegmentationOutput,
   resizeMaskBilinear,
 } from '../maskOps';
-import { resolveWebModel } from '../modelSelection';
+import { resolveWebModelForOptions } from '../modelSelection';
 import { getSegmentationModelSpec, packModelInput } from '../modelSpec';
 import { configureOrtRuntime } from '../ortRuntimeAssets';
 import { downscaleImageData } from '../previewDownscale';
@@ -212,30 +212,29 @@ export const directOnnxRemovalProvider: RemovalProvider = {
 
   async isAvailable(options: BackgroundRemovalOptions, signal?: AbortSignal): Promise<boolean> {
     const workerModelId = workerModelIdForMethod(options.method);
-    if (!workerModelId) return false;
+    if (!workerModelId && !options.modelId) return false;
     const { getModelLoader } = await import('../modelLoader');
     const loader = getModelLoader(signal);
     await loader.syncFromStorage(signal);
-    return (
-      (await resolveWebModel(options.method, loader, options.qualityPreference, signal)) !== null
-    );
+    return (await resolveWebModelForOptions(options, loader, signal)) !== null;
   },
 
   async remove(imageData, options, signal) {
     const workerModelId = workerModelIdForMethod(options.method);
-    if (!workerModelId) {
+    if (!workerModelId && !options.modelId) {
       throw new Error(`No direct ONNX model for method: ${options.method}`);
     }
     const { getModelLoader } = await import('../modelLoader');
     const loader = getModelLoader(signal);
     await loader.syncFromStorage(signal);
-    const resolved = await resolveWebModel(
-      options.method,
-      loader,
-      options.qualityPreference,
-      signal,
-    );
-    if (!resolved) throw new Error(`No installed direct ONNX model for ${options.method}`);
+    const resolved = await resolveWebModelForOptions(options, loader, signal);
+    if (!resolved) {
+      throw new Error(
+        options.modelId
+          ? `The requested model (${options.modelId}) is not available to the direct ONNX path.`
+          : `No installed direct ONNX model for ${options.method}`,
+      );
+    }
     return removeBackgroundDirectOnnx(imageData, options, resolved.modelId, signal);
   },
 };

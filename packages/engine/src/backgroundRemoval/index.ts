@@ -4,6 +4,7 @@ import { assessImageInferenceResources } from '../inference/resourcePolicy';
 import { maskToDataUrl } from './heuristic';
 import { decodeMaskDataUrl } from './maskDecode';
 import { resizeMaskBilinear } from './maskOps';
+import { nativeModelIdForOptions, resolveWebModelPeakBytes } from './modelSelection';
 import { downscaleImageData } from './previewDownscale';
 import { dispatchBackgroundRemoval } from './providers/dispatch';
 import {
@@ -12,7 +13,7 @@ import {
 } from './providers/tauriProvider';
 import { composeSourceAndSubjectAlpha } from './reconstructMask';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from './types';
-import { DEFAULT_PREVIEW_MAX_DIMENSION, preferredWorkerModelIdForMethod } from './types';
+import { DEFAULT_PREVIEW_MAX_DIMENSION } from './types';
 
 export type { AdaptiveSelection, AdaptiveSelectionOptions } from './adaptiveSelection';
 export { selectAdaptiveModel } from './adaptiveSelection';
@@ -181,6 +182,45 @@ function boundedWorkingDimensions(
 }
 
 /**
+ * Catalog peak working set for the model this request would actually run, or
+ * null when it cannot be resolved (the caller then uses the bundled-model
+ * fallback, which is the minimum any AI path can spend).
+ *
+ * The probe is bounded: a blocked or hung model store must not hang the
+ * preflight. Dispatch still reports the real failure, with its own deadline.
+ */
+const MODEL_RESOLUTION_PROBE_TIMEOUT_MS = 5_000;
+
+async function resolveInstalledModelPeakBytes(
+  options: BackgroundRemovalOptions,
+  signal?: AbortSignal,
+): Promise<number | null> {
+  if (options.method === 'quick') return null;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  try {
+    const { getModelLoader } = await import('./modelLoader');
+    const loader = getModelLoader(signal);
+    const resolved = await Promise.race([
+      resolveWebModelPeakBytes(
+        options.method,
+        loader,
+        options.qualityPreference,
+        signal,
+        options.modelId,
+      ),
+      new Promise<null>((resolve) => {
+        timer = setTimeout(() => resolve(null), MODEL_RESOLUTION_PROBE_TIMEOUT_MS);
+      }),
+    ]);
+    return resolved?.peakMemoryBytes ?? null;
+  } catch {
+    return null;
+  } finally {
+    if (timer !== null) clearTimeout(timer);
+  }
+}
+
+/**
  * Refuse a source before `downscaleImageData` creates another full-resolution
  * canvas. The model-only WASM gate cannot see that resident source buffer,
  * which is enough to tip a 2 GB Chromebook or ARM WebView into an allocation
@@ -198,7 +238,7 @@ async function preflightBrowserSourceMemory(
 
   const runtime = await getRuntimeCapabilities();
   if (signal?.aborted) throw new Error('cancelled');
-  const nativeModelId = preferredWorkerModelIdForMethod(options.method);
+  const nativeModelId = nativeModelIdForOptions(options);
   if (runtime.isTauri && nativeModelId) {
     const nativeStatus = await getNativeBackgroundRemovalModelStatus(nativeModelId);
     if (signal?.aborted) throw new Error('cancelled');
@@ -221,10 +261,15 @@ async function preflightBrowserSourceMemory(
       : sourceBytes;
   const fallbackPeakBytes =
     getModelById(FALLBACK_MODEL_ID)?.peakMemoryBytes ?? FALLBACK_MODEL_PEAK_BYTES;
+  // Assess the model that will actually run. Falling back to the bundled
+  // u2netp peak for every method under-gated installed IS-Net/BiRefNet runs:
+  // the estimate passed, then the model exceeded the wasm32 ceiling and
+  // aborted the webview.
+  const resolvedPeakBytes = await resolveInstalledModelPeakBytes(options, signal);
   const assessment = assessImageInferenceResources({
     width: working.width,
     height: working.height,
-    modelPeakBytes: fallbackPeakBytes,
+    modelPeakBytes: resolvedPeakBytes ?? fallbackPeakBytes,
     additionalBytes: sourcePreparationBytes,
     runtime,
     operation: 'AI background removal',

@@ -32,6 +32,15 @@ export interface ForegroundProposalSource {
 export interface ForegroundProposal {
   /** Binary mask at analysis resolution: 255 = proposed foreground. */
   mask: Uint8Array;
+  /**
+   * Soft coverage at analysis resolution (0..255) when the provider produced
+   * one. Model-backed proposals keep their soft boundary here; the binary
+   * `mask` is what area selections and overlays consume. Absent for the
+   * model-free estimator.
+   */
+  alpha?: Uint8Array;
+  /** Display label for provider-derived candidates ("All foreground", "Region 1"). */
+  label?: string;
   /** Fraction of analysis pixels covered by this proposal (0..1). */
   coverage: number;
   /**

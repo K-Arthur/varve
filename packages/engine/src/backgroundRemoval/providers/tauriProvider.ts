@@ -4,7 +4,7 @@ import type { BackgroundRemovalOptions, BackgroundRemovalResult } from '../types
 
 export { isTauriRuntime };
 
-import { preferredWorkerModelIdForMethod } from '../types';
+import { nativeModelIdForOptions } from '../modelSelection';
 import type { RemovalProvider } from './types';
 
 /** Wire-format response from the Rust `remove_background` Tauri command. */
@@ -232,7 +232,7 @@ async function invokeTauriRemoveBackground(
     throw new Error('cancelled');
   }
 
-  const modelId = preferredWorkerModelIdForMethod(options.method);
+  const modelId = nativeModelIdForOptions(options);
   if (modelId) {
     await preflightNativeBackgroundRemoval(modelId, imageData.width, imageData.height);
     if (signal?.aborted) {
@@ -310,7 +310,7 @@ export const tauriRemovalProvider: RemovalProvider = {
   id: 'tauri-native',
 
   async isAvailable(options: BackgroundRemovalOptions, _signal?: AbortSignal): Promise<boolean> {
-    const modelId = preferredWorkerModelIdForMethod(options.method);
+    const modelId = nativeModelIdForOptions(options);
     if (!modelId) return false;
     const status = await getNativeBackgroundRemovalModelStatus(modelId);
     return Boolean(status?.runtimeReady && status.installed);

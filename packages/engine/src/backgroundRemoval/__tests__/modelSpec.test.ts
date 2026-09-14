@@ -26,4 +26,21 @@ describe('segmentation model specifications', () => {
     expect(spec.inputSize).toBe(320);
     expect(spec.applySigmoid).toBe(false);
   });
+
+  it('treats the bundled INT8 variant as the same 320px u2netp-family graph', () => {
+    const spec = getSegmentationModelSpec('u2netp-int8');
+    expect(spec.inputSize).toBe(320);
+    expect(spec.applySigmoid).toBe(false);
+    expect(spec.mean).toEqual([0.485, 0.456, 0.406]);
+    expect(spec.std).toEqual([0.229, 0.224, 0.225]);
+    // The variant is quantized from u2netp; its declared tensor contract is
+    // a 320x320 input, so the old 1024 fall-through packed the wrong shape.
+    expect(spec).toEqual(getSegmentationModelSpec('u2netp'));
+  });
+
+  it('keeps BiRefNet on the 1024 logits contract with in-app sigmoid', () => {
+    const spec = getSegmentationModelSpec('birefnet-general-lite');
+    expect(spec.inputSize).toBe(1024);
+    expect(spec.applySigmoid).toBe(true);
+  });
 });

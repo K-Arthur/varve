@@ -52,6 +52,10 @@
     "./foregroundSelect": {
       "types": "./src/intelligence/foregroundSelect.ts",
       "default": "./src/intelligence/foregroundSelect.ts"
+    },
+    "./subjectProposal": {
+      "types": "./src/intelligence/subjectProposal.ts",
+      "default": "./src/intelligence/subjectProposal.ts"
     }
   },
   "scripts": {
