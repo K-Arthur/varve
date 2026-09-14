@@ -197,4 +197,178 @@ test.describe('Image Trace', () => {
     const item = page.getByRole('menuitem', { name: /Vectorize Image/i });
     await expect(item).toBeDisabled();
   });
+
+  test('preview shows committed geometry: holes transparent, artwork theme-independent', async ({
+    page,
+  }) => {
+    await importTestImage(page);
+    await openMenu(page, 'Object');
+    await page.getByRole('menuitem', { name: /Vectorize Image/i }).click();
+    await page
+      .getByRole('dialog')
+      .getByText(/Preset/i)
+      .waitFor({ timeout: 10000 });
+    await page.locator('.vectorize__diagnostics').waitFor({ timeout: 20000 });
+
+    const choosePreviewView = (label: string) =>
+      page
+        .getByRole('radiogroup', { name: 'Preview view' })
+        .getByText(label, { exact: true })
+        .click();
+
+    // 1:1 zoom makes canvas device pixels correspond to prepared-source pixels.
+    await page.getByRole('button', { name: '1:1' }).click();
+    await choosePreviewView('Vector');
+
+    const sample = () =>
+      page.evaluate(() => {
+        const canvas = document.querySelector('.vectorize__preview-canvas') as HTMLCanvasElement;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('no 2d context');
+        const cssWidth = Number.parseFloat(canvas.style.width) || canvas.width;
+        const ratio = canvas.width / cssWidth;
+        const at = (x: number, y: number) => {
+          const d = ctx.getImageData(Math.round(x * ratio), Math.round(y * ratio), 1, 1).data;
+          return [d[0], d[1], d[2], d[3]] as [number, number, number, number];
+        };
+        return { ring: at(80, 30), center: at(80, 80), outside: at(4, 4) };
+      });
+
+    const vector = await sample();
+    // The ring is committed paint; the donut hole and removed background stay
+    // transparent (closed hole subpaths + evenodd fill).
+    expect(vector.ring[3]).toBeGreaterThan(200);
+    expect(vector.center[3]).toBe(0);
+    expect(vector.outside[3]).toBe(0);
+
+    // Switching the UI theme must not change committed artwork colors.
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+    await choosePreviewView('Overlay');
+    await choosePreviewView('Vector');
+    const dark = await sample();
+    expect(dark.ring).toEqual(vector.ring);
+    expect(dark.center[3]).toBe(0);
+    await page.evaluate(() => document.documentElement.removeAttribute('data-theme'));
+  });
+
+  test('Edit Trace restores the preparation stack and records the real provider', async ({
+    page,
+  }) => {
+    await importTestImage(page);
+    await openMenu(page, 'Object');
+    await page.getByRole('menuitem', { name: /Vectorize Image/i }).click();
+    await page
+      .getByRole('dialog')
+      .getByText(/Preset/i)
+      .waitFor({ timeout: 10000 });
+    await page.locator('.vectorize__diagnostics').waitFor({ timeout: 20000 });
+
+    const providerCell = page
+      .locator('.vectorize__diagnostics div')
+      .filter({ hasText: 'Provider' })
+      .locator('dd');
+    await expect(providerCell).toHaveText(/-trace$/);
+
+    // Change a preparation setting; v2 metadata must restore it on Edit Trace.
+    // The checkbox lives inside a scrolled dialog section; dispatch the click
+    // on the input itself so the assertion is about metadata, not scrolling.
+    await page.locator('summary').filter({ hasText: 'Source preparation' }).click();
+    await page.waitForTimeout(400);
+    await page
+      .getByRole('checkbox', { name: 'Binary threshold before tracing' })
+      .evaluate((element) => (element as HTMLInputElement).click());
+    await expect(
+      page.getByRole('checkbox', { name: 'Binary threshold before tracing' }),
+    ).toBeChecked();
+    await page.locator('.vectorize__diagnostics').waitFor({ timeout: 20000 });
+
+    await page.getByRole('button', { name: 'Apply trace' }).click();
+    await expect(page.getByText(/Inserted \d+ vector path/)).toBeVisible({ timeout: 20000 });
+    await page.getByRole('button', { name: 'Close dialog' }).first().click({ timeout: 5000 });
+    await page.waitForTimeout(300);
+
+    const canvas = page
+      .locator('.editor-shell__main canvas, .editor-canvas canvas, canvas')
+      .first();
+    await canvas.dispatchEvent('contextmenu');
+    const editTrace = page
+      .locator('.varve-ctxmenu')
+      .locator('[role="menuitem"], button')
+      .filter({ hasText: /Edit Trace/i })
+      .first();
+    await editTrace.waitFor({ timeout: 8000 });
+    await editTrace.evaluate((element) => (element as HTMLButtonElement).click());
+    await page.locator('.vectorize__diagnostics').waitFor({ timeout: 20000 });
+
+    await expect(providerCell).toHaveText(/-trace$/);
+    await page.locator('summary').filter({ hasText: 'Source preparation' }).click();
+    await expect(
+      page.getByRole('checkbox', { name: 'Binary threshold before tracing' }),
+    ).toBeChecked();
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+  });
+
+  test('preview can be cancelled and resumes when settings change', async ({ page }) => {
+    await importTestImage(page);
+    await openMenu(page, 'Object');
+    await page.getByRole('menuitem', { name: /Vectorize Image/i }).click();
+    await page
+      .getByRole('dialog')
+      .getByText(/Preset/i)
+      .waitFor({ timeout: 10000 });
+    await page.locator('.vectorize__diagnostics').waitFor({ timeout: 20000 });
+
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByText('Preview appears here')).toBeVisible({ timeout: 5000 });
+
+    // A settings change restarts the debounced preview without document writes.
+    const threshold = page.getByRole('slider', { name: 'Threshold' });
+    await threshold.focus();
+    await threshold.press('ArrowRight');
+    await page.locator('.vectorize__diagnostics').waitFor({ timeout: 20000 });
+  });
+
+  test('captures preview review screenshots', async ({ page }, testInfo) => {
+    await importTestImage(page);
+    await openMenu(page, 'Object');
+    await page.getByRole('menuitem', { name: /Vectorize Image/i }).click();
+    await page
+      .getByRole('dialog')
+      .getByText(/Preset/i)
+      .waitFor({ timeout: 10000 });
+    await page.locator('.vectorize__diagnostics').waitFor({ timeout: 20000 });
+
+    const dir = path.join('reports', 'trace-review');
+    fs.mkdirSync(dir, { recursive: true });
+    const dialog = page.getByRole('dialog');
+    const preview = page.locator('.vectorize__preview');
+    const choosePreviewView = (label: string) =>
+      page
+        .getByRole('radiogroup', { name: 'Preview view' })
+        .getByText(label, { exact: true })
+        .click();
+    const capture = async (name: string) => {
+      await preview.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(250);
+      await dialog.screenshot({ path: path.join(dir, name) });
+    };
+    await capture('preview-overlay-light.png');
+
+    await choosePreviewView('Vector');
+    await page
+      .getByRole('checkbox', { name: 'Anchors' })
+      .evaluate((element) => (element as HTMLInputElement).click());
+    await expect(page.getByRole('checkbox', { name: 'Anchors' })).toBeChecked();
+    await capture('preview-vector-anchors-light.png');
+
+    await page.evaluate(() => document.documentElement.setAttribute('data-theme', 'dark'));
+    await choosePreviewView('Prepared');
+    await choosePreviewView('Vector');
+    await capture('preview-vector-dark.png');
+    await page.evaluate(() => document.documentElement.removeAttribute('data-theme'));
+
+    // Keep the evidence path in the HTML report.
+    await testInfo.attach('trace-preview-dir', { body: dir, contentType: 'text/plain' });
+  });
 });

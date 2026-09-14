@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "note": "GENERATED FILE — do not hand-edit. Written by scripts/screenshots/product.mjs and validated by scripts/screenshots/validate.mjs. Each scene maps one canonical screenshot consumed by the website and documentation. status: 'captured' when the pipeline produced the file, 'skipped' when the scene could not be produced (reason required).",
-  "generatedAt": "2026-09-10T16:02:00.871Z",
+  "generatedAt": "2026-09-14T08:38:53.451Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -139,14 +139,15 @@
     },
     "vectorize": {
       "file": "vectorize-dialog-light.png",
-      "alt": "The Varve Vectorize dialog tracing an imported photo into editable vector paths, with mode, colour count and path-fitting controls",
-      "caption": "Trace an imported image into editable paths — computed locally by the Rust trace engine.",
+      "alt": "The Varve Vectorize dialog tracing an imported photo into editable vector paths, with colour mode, output structure controls, and a source-versus-vector preview",
+      "caption": "Trace an imported image into editable paths — entirely on-device, with prepare/overlay/vector previews before anything is committed.",
       "feature": "vector-tools",
       "theme": "light",
       "status": "captured",
       "lastValidatedAgainst": null,
       "width": 1440,
-      "height": 900
+      "height": 900,
+      "sha256": "40d3ec57be45f47bf6c8ba647a610b9b94f12d56c921520221a9df251a234f2c"
     },
     "workspaces": {
       "file": "workspaces-light.png",

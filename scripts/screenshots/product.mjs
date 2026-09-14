@@ -867,6 +867,9 @@ const SCENES = [
       // only render with a settled result instead of a fixed delay, so the
       // capture never shows the previous mode's (or an empty) preview.
       await dialog.locator('.vectorize__diagnostics').waitFor({ state: 'visible', timeout: 30000 });
+      // The dialog is taller than the viewport; bring the preview into frame
+      // (the point of the capture) before the harness screenshots it.
+      await dialog.locator('.vectorize__preview').scrollIntoViewIfNeeded();
       await page.waitForTimeout(400);
     },
   },
