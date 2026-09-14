@@ -19,10 +19,11 @@ use notify::Watcher;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
+use std::future::Future;
 use std::io::{Read, Write};
 use std::process::{Child, Command as ProcessCommand, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{LazyLock, Mutex};
+use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 use tauri::ipc::Response;
 use tauri::Emitter;
@@ -2246,11 +2247,87 @@ fn available_disk_space(path: &std::path::Path) -> Option<u64> {
     None
 }
 
+/// Race an in-flight reqwest operation against the native cancellation
+/// channel. Dropping the reqwest future closes the request body, which keeps
+/// a cancelled download from waiting for the next network chunk.
+async fn await_generative_download_or_cancel<T, Operation>(
+    operation: Operation,
+    cancellation: &mut tauri::async_runtime::Receiver<()>,
+    error_prefix: &'static str,
+) -> Result<T, String>
+where
+    Operation: Future<Output = Result<T, reqwest::Error>>,
+{
+    let mut operation = Box::pin(operation);
+    let mut cancelled = Box::pin(cancellation.recv());
+    std::future::poll_fn(move |cx| {
+        if let std::task::Poll::Ready(result) = operation.as_mut().poll(cx) {
+            return std::task::Poll::Ready(
+                result.map_err(|error| format!("{error_prefix}: {error}")),
+            );
+        }
+        if let std::task::Poll::Ready(Some(())) = cancelled.as_mut().poll(cx) {
+            return std::task::Poll::Ready(Err("Download cancelled".into()));
+        }
+        std::task::Poll::Pending
+    })
+    .await
+}
+
+/// The cancellation command runs independently of the async downloader. A
+/// short-lived watcher bridges the command's synchronous tombstone set to the
+/// async request without adding another long-lived task or exposing a native
+/// cancellation token over IPC.
+fn start_generative_download_cancellation_watcher(
+    request_id: &str,
+) -> (
+    Arc<AtomicBool>,
+    tauri::async_runtime::Receiver<()>,
+    std::thread::JoinHandle<()>,
+) {
+    let (sender, receiver) = tauri::async_runtime::channel(1);
+    let stop = Arc::new(AtomicBool::new(false));
+    let stop_for_thread = Arc::clone(&stop);
+    let request_id = request_id.to_owned();
+    let watcher = std::thread::spawn(move || {
+        while !stop_for_thread.load(Ordering::Acquire) {
+            if generative_model_download_cancelled(&request_id) {
+                let _ = sender.blocking_send(());
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(25));
+        }
+    });
+    (stop, receiver, watcher)
+}
+
 async fn download_generative_model_attempt(
     app: &tauri::AppHandle,
     request_id: &str,
     destination: &std::path::Path,
     client: &reqwest::Client,
+) -> Result<(), String> {
+    let (stop_watcher, mut cancellation, watcher) =
+        start_generative_download_cancellation_watcher(request_id);
+    let result = download_generative_model_attempt_inner(
+        app,
+        request_id,
+        destination,
+        client,
+        &mut cancellation,
+    )
+    .await;
+    stop_watcher.store(true, Ordering::Release);
+    let _ = watcher.join();
+    result
+}
+
+async fn download_generative_model_attempt_inner(
+    app: &tauri::AppHandle,
+    request_id: &str,
+    destination: &std::path::Path,
+    client: &reqwest::Client,
+    cancellation: &mut tauri::async_runtime::Receiver<()>,
 ) -> Result<(), String> {
     let partial = destination.with_extension("gguf.part");
     let mut loaded = partial
@@ -2270,21 +2347,24 @@ async fn download_generative_model_attempt(
     if loaded > 0 {
         request = request.header(reqwest::header::RANGE, format!("bytes={loaded}-"));
     }
-    let mut response = request
-        .send()
-        .await
-        .map_err(|error| format!("Generative model download failed: {error}"))?;
+    let mut response = await_generative_download_or_cancel(
+        request.send(),
+        cancellation,
+        "Generative model download failed",
+    )
+    .await?;
     if loaded > 0 && response.status() == reqwest::StatusCode::OK {
         // The server ignored Range. Restart from a clean partial rather than
         // appending the full response to an existing prefix.
         std::fs::remove_file(&partial)
             .map_err(|error| format!("Could not restart model download: {error}"))?;
         loaded = 0;
-        response = client
-            .get(GENERATIVE_MODEL_DOWNLOAD_URL)
-            .send()
-            .await
-            .map_err(|error| format!("Generative model download failed: {error}"))?;
+        response = await_generative_download_or_cancel(
+            client.get(GENERATIVE_MODEL_DOWNLOAD_URL).send(),
+            cancellation,
+            "Generative model download failed",
+        )
+        .await?;
     }
     if loaded > 0 && response.status() != reqwest::StatusCode::PARTIAL_CONTENT {
         return Err(format!(
@@ -2295,6 +2375,9 @@ async fn download_generative_model_attempt(
     response = response
         .error_for_status()
         .map_err(|error| format!("Generative model download failed: {error}"))?;
+    if generative_model_download_cancelled(request_id) {
+        return Err("Download cancelled".into());
+    }
 
     let response_total = response.content_length().unwrap_or(0);
     if response_total > 0 && loaded + response_total != GENERATIVE_MODEL_DOWNLOAD_SIZE {
@@ -2323,10 +2406,12 @@ async fn download_generative_model_attempt(
             total,
         },
     );
-    while let Some(chunk) = response
-        .chunk()
-        .await
-        .map_err(|error| format!("Generative model download interrupted: {error}"))?
+    while let Some(chunk) = await_generative_download_or_cancel(
+        response.chunk(),
+        cancellation,
+        "Generative model download interrupted",
+    )
+    .await?
     {
         if generative_model_download_cancelled(request_id) {
             return Err("Download cancelled".into());
@@ -5614,6 +5699,24 @@ mod tests {
         assert!(generation_cancel_requested(&request_id));
         assert!(take_generation_cancellation(&request_id));
         assert!(!generation_cancel_requested(&request_id));
+    }
+
+    #[test]
+    fn model_download_cancellation_wakes_in_flight_network_wait() {
+        let request_id = format!("download-cancel-test-{}", uuid());
+        let (stop_watcher, mut cancellation, watcher) =
+            start_generative_download_cancellation_watcher(&request_id);
+
+        cancel_generative_edit_model_download(request_id.clone()).expect("record cancellation");
+        let observed = tauri::async_runtime::block_on(async { cancellation.recv().await });
+
+        assert_eq!(observed, Some(()));
+        stop_watcher.store(true, Ordering::Release);
+        watcher.join().expect("cancellation watcher exits");
+        GENERATIVE_MODEL_DOWNLOAD_CANCELLATIONS
+            .lock()
+            .expect("cancellation state is available")
+            .remove(&request_id);
     }
 
     #[test]
