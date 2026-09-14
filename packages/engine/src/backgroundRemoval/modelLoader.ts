@@ -245,6 +245,19 @@ class ModelLoader {
       return bundled;
     }
 
+    // Desktop: prefer a hash-verified native download over browser storage.
+    // The native command verified the catalog SHA-256 at install time, and the
+    // asset-protocol URL is fetchable by the ONNX worker without CORS.
+    const { isTauriRuntime } = await import('@varve/platform');
+    if (isTauriRuntime()) {
+      const { nativeInferenceModelPath } = await import('./nativeInferenceModels');
+      const nativePath = await nativeInferenceModelPath(modelId);
+      if (nativePath) {
+        const { convertFileSrc } = await import('@tauri-apps/api/core');
+        return convertFileSrc(nativePath);
+      }
+    }
+
     try {
       if (typeof fetch !== 'undefined') {
         const head = await fetchWithTimeout(
@@ -309,6 +322,11 @@ class ModelLoader {
 
   /** Whether a downloaded model blob exists in IndexedDB, independent of in-memory state. */
   async hasDownloadedBlob(modelId: string): Promise<boolean> {
+    const { isTauriRuntime } = await import('@varve/platform');
+    if (isTauriRuntime()) {
+      const { nativeInferenceModelPath } = await import('./nativeInferenceModels');
+      if (await nativeInferenceModelPath(modelId)) return true;
+    }
     if (!isBrowserEnv()) return false;
     try {
       return await hasModelBlob(modelId);
@@ -462,6 +480,12 @@ class ModelLoader {
     if (AVAILABLE_MODELS.some((model) => model.id === modelId)) {
       const { deleteNativeBackgroundRemovalModel } = await import('./providers/tauriProvider');
       await deleteNativeBackgroundRemovalModel(modelId);
+    } else {
+      const { isTauriRuntime } = await import('@varve/platform');
+      if (isTauriRuntime()) {
+        const { nativeDeleteInferenceModel } = await import('./nativeInferenceModels');
+        await nativeDeleteInferenceModel(modelId);
+      }
     }
     if (isBrowserEnv()) {
       await deleteModelBlob(modelId);
@@ -667,6 +691,31 @@ class ModelLoader {
       const sources = await this.resolveDownloadSources(modelId, signal);
       const localPath = sources?.local ?? `/models/${modelId}.onnx`;
       remoteUrl = sources?.remote ?? model.remoteUrl;
+
+      // Desktop: download and verify on the Rust side. GitHub release assets
+      // carry no CORS headers, so the browser fetch path cannot read them;
+      // the native command streams the bytes, checks the catalog SHA-256, and
+      // installs the file where the asset protocol serves it to the worker.
+      const { isTauriRuntime } = await import('@varve/platform');
+      if (isTauriRuntime() && remoteUrl && manifestEntry?.sha256) {
+        const { nativeDownloadInferenceModel } = await import('./nativeInferenceModels');
+        const requestId = `inference-${Date.now().toString(36)}-${Math.random()
+          .toString(36)
+          .slice(2, 10)}`;
+        await nativeDownloadInferenceModel({
+          requestId,
+          modelId,
+          url: remoteUrl,
+          sha256: manifestEntry.sha256,
+          signal,
+          onProgress,
+        });
+        this.state = 'ready';
+        this.currentModelId = modelId;
+        this.saveState();
+        this.notify();
+        return;
+      }
 
       const existingPartial =
         isBrowserEnv() && remoteUrl ? await loadPartialDownload(modelId) : null;

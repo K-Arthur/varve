@@ -205,16 +205,6 @@ function normalizeEntry(raw: RawManifestEntry): ModelManifestEntry {
  * `sha256 === null`, etc.) into one place.
  */
 function deriveAcquisition(raw: RawManifestEntry): ModelAcquisition {
-  if (raw.id === 'ddcolor' || raw.id === 'ddcolor-tiny') {
-    return {
-      kind: 'unavailable',
-      reasonCode: 'export-pending',
-      detail:
-        'No verified DDColor ONNX artifact is published. Freeze the official source revision, export it with tools/ddcolor-export, then record its hash and worker smoke test before enabling download.',
-      alternatives: ['Use deterministic Tint / Selective Recolor'],
-    };
-  }
-
   // Bundled models ship with the app — no download needed.
   if (raw.bundled) {
     return {

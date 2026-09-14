@@ -31,12 +31,14 @@
         "default-src": ["'self'"],
         "script-src": ["'self'", "'wasm-unsafe-eval'", "blob:"],
         "style-src": ["'self'", "'unsafe-inline'"],
-        "img-src": ["'self'", "data:", "blob:", "https:"],
+        "img-src": ["'self'", "data:", "blob:", "https:", "asset:", "http://asset.localhost"],
         "font-src": ["'self'", "data:"],
         "connect-src": [
           "'self'",
           "ipc:",
           "http://ipc.localhost",
+          "asset:",
+          "http://asset.localhost",
           "https://github.com",
           "https://huggingface.co",
           "https://raw.githubusercontent.com",
@@ -62,12 +64,14 @@
         "default-src": ["'self'"],
         "script-src": ["'self'", "'wasm-unsafe-eval'", "blob:"],
         "style-src": ["'self'", "'unsafe-inline'"],
-        "img-src": ["'self'", "data:", "blob:", "https:"],
+        "img-src": ["'self'", "data:", "blob:", "https:", "asset:", "http://asset.localhost"],
         "font-src": ["'self'", "data:"],
         "connect-src": [
           "'self'",
           "ipc:",
           "http://ipc.localhost",
+          "asset:",
+          "http://asset.localhost",
           "ws://localhost:1420",
           "https://github.com",
           "https://huggingface.co",
@@ -89,7 +93,11 @@
         "form-action": ["'none'"],
         "manifest-src": ["'self'"]
       },
-      "capabilities": ["default"]
+      "capabilities": ["default"],
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/models/**"]
+      }
     }
   },
   "bundle": {

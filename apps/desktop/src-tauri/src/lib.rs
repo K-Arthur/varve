@@ -1261,6 +1261,210 @@ async fn download_background_removal_model(
     result
 }
 
+// ---------------------------------------------------------------------------
+// Generic inference-model downloads (native, CORS-free)
+// ---------------------------------------------------------------------------
+
+static CANCELLED_INFERENCE_MODEL_DOWNLOADS: LazyLock<Mutex<HashSet<String>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
+
+#[derive(Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InferenceModelProgress {
+    request_id: String,
+    model_id: String,
+    loaded: u64,
+    total: u64,
+}
+
+/// Reject ids that could escape the models directory or collide with another
+/// model's file.
+fn validate_inference_model_id(model_id: &str) -> Result<(), String> {
+    if model_id.is_empty() || model_id.len() > 64 {
+        return Err("Invalid model id".into());
+    }
+    if !model_id
+        .bytes()
+        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+    {
+        return Err("Model id may only contain lowercase letters, digits, and dashes".into());
+    }
+    Ok(())
+}
+
+fn validate_inference_sha256(sha256: &str) -> Result<(), String> {
+    if sha256.len() != 64
+        || !sha256
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    {
+        return Err("Model SHA-256 must be 64 lowercase hex characters".into());
+    }
+    Ok(())
+}
+
+fn inference_model_destination(model_id: &str) -> Result<std::path::PathBuf, String> {
+    validate_inference_model_id(model_id)?;
+    let dir = varve_bgremove::model::models_dir();
+    std::fs::create_dir_all(&dir)
+        .map_err(|error| format!("Failed to create native model directory: {error}"))?;
+    Ok(dir.join(format!("{model_id}.onnx")))
+}
+
+/// Absolute path of an installed generic inference model, if present.
+#[tauri::command]
+fn inference_model_path(model_id: String) -> Result<Option<String>, String> {
+    let destination = inference_model_destination(&model_id)?;
+    if destination.is_file() {
+        return Ok(Some(destination.to_string_lossy().to_string()));
+    }
+    Ok(None)
+}
+
+#[tauri::command]
+fn delete_inference_model(model_id: String) -> Result<bool, String> {
+    let destination = inference_model_destination(&model_id)?;
+    if !destination.is_file() {
+        return Ok(false);
+    }
+    std::fs::remove_file(&destination)
+        .map_err(|error| format!("Failed to remove native model: {error}"))?;
+    Ok(true)
+}
+
+#[tauri::command]
+fn cancel_inference_model_download(request_id: String) -> Result<(), String> {
+    CANCELLED_INFERENCE_MODEL_DOWNLOADS
+        .lock()
+        .map_err(|_| "Model-download cancellation state is unavailable".to_string())?
+        .insert(request_id);
+    Ok(())
+}
+
+/// Download a generic inference model to the native model directory and verify
+/// its SHA-256 before it is exposed to the webview. Native downloads bypass the
+/// release-host CORS restrictions that block browser `fetch`, and keep the
+/// bytes out of IndexedDB on desktop.
+#[tauri::command]
+async fn download_inference_model(
+    app: tauri::AppHandle,
+    request_id: String,
+    model_id: String,
+    url: String,
+    sha256: String,
+    size_bytes: Option<u64>,
+) -> Result<String, String> {
+    let destination = inference_model_destination(&model_id)?;
+    validate_inference_sha256(&sha256)?;
+    if !url.starts_with("https://") {
+        return Err(format!("Refusing insecure model URL for {model_id}"));
+    }
+    if destination.is_file() {
+        let _ = app.emit(
+            "inference-model-progress",
+            InferenceModelProgress {
+                request_id: request_id.clone(),
+                model_id: model_id.clone(),
+                loaded: size_bytes.unwrap_or(0),
+                total: size_bytes.unwrap_or(0),
+            },
+        );
+        return Ok(destination.to_string_lossy().to_string());
+    }
+    let result = async {
+        let client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::custom(|attempt| {
+                if attempt.url().scheme() == "https" {
+                    attempt.follow()
+                } else {
+                    attempt.stop()
+                }
+            }))
+            .build()
+            .map_err(|error| format!("Failed to create model downloader: {error}"))?;
+        let temporary = destination.with_extension(format!("download-{request_id}"));
+        let mut response = client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|error| format!("Model download failed: {error}"))?
+            .error_for_status()
+            .map_err(|error| format!("Model download failed: {error}"))?;
+        let total = size_bytes.or_else(|| response.content_length()).unwrap_or(0);
+        let mut file = std::fs::File::create(&temporary)
+            .map_err(|error| format!("Failed to create model file: {error}"))?;
+        let mut digest = Sha256::new();
+        let mut loaded = 0u64;
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .map_err(|error| format!("Model download interrupted: {error}"))?
+        {
+            let cancelled = CANCELLED_INFERENCE_MODEL_DOWNLOADS
+                .lock()
+                .map_err(|_| "Model-download cancellation state is unavailable".to_string())?
+                .remove(&request_id);
+            if cancelled {
+                return Err("Download cancelled".into());
+            }
+            file.write_all(&chunk)
+                .map_err(|error| format!("Failed to write model file: {error}"))?;
+            digest.update(&chunk);
+            loaded = loaded.saturating_add(chunk.len() as u64);
+            let _ = app.emit(
+                "inference-model-progress",
+                InferenceModelProgress {
+                    request_id: request_id.clone(),
+                    model_id: model_id.clone(),
+                    loaded,
+                    total,
+                },
+            );
+        }
+        file.sync_all()
+            .map_err(|error| format!("Failed to flush model file: {error}"))?;
+        if let Some(expected_size) = size_bytes {
+            if loaded != expected_size {
+                return Err(format!(
+                    "Model size mismatch: expected {expected_size}, received {loaded}"
+                ));
+            }
+        }
+        let actual = digest
+            .finalize()
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>();
+        if actual != sha256 {
+            return Err(format!(
+                "Model SHA-256 mismatch: expected {sha256}, received {actual}"
+            ));
+        }
+        if let Err(rename_error) = std::fs::rename(&temporary, &destination) {
+            if destination.exists() {
+                std::fs::remove_file(&destination)
+                    .map_err(|error| format!("Failed to replace native model artifact: {error}"))?;
+                std::fs::rename(&temporary, &destination).map_err(|error| {
+                    format!("Failed to install native model artifact after replacement: {error}")
+                })?;
+            } else {
+                return Err(format!(
+                    "Failed to install native model artifact: {rename_error}"
+                ));
+            }
+        }
+        Ok(())
+    }
+    .await;
+    if result.is_err() {
+        let _ = std::fs::remove_file(destination.with_extension(format!("download-{request_id}")));
+    }
+    let _ = CANCELLED_INFERENCE_MODEL_DOWNLOADS
+        .lock()
+        .map(|mut cancelled| cancelled.remove(&request_id));
+    result.map(|_| destination.to_string_lossy().to_string())
+}
+
 /// Remove background from an image via the native `varve-bgremove` crate.
 ///
 /// `method: "quick"` always uses the heuristic engine (always available).
@@ -5108,6 +5312,10 @@ pub fn run() {
             download_background_removal_model,
             cancel_background_removal_model_download,
             delete_background_removal_model,
+            download_inference_model,
+            cancel_inference_model_download,
+            delete_inference_model,
+            inference_model_path,
             denoise_image,
             content_aware_fill,
             cancel_content_aware_fill,
@@ -5268,6 +5476,29 @@ fn cancel_print_job(printer_name: String, job_id: u32) -> Result<String, String>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inference_model_ids_reject_traversal_and_uppercase() {
+        assert!(validate_inference_model_id("ddcolor-tiny").is_ok());
+        assert!(validate_inference_model_id("ddcolor").is_ok());
+        assert!(validate_inference_model_id("").is_err());
+        assert!(validate_inference_model_id("../secrets").is_err());
+        assert!(validate_inference_model_id("DDColor").is_err());
+        assert!(validate_inference_model_id("ddcolor.onnx").is_err());
+        assert!(validate_inference_model_id(&"a".repeat(65)).is_err());
+    }
+
+    #[test]
+    fn inference_sha256_requires_lowercase_hex() {
+        assert!(validate_inference_sha256(
+            "1410b455cd230a587c38b5771a0193aa6f28bb89b0e29566fbdb791bb1310c47"
+        )
+        .is_ok());
+        assert!(validate_inference_sha256("").is_err());
+        assert!(validate_inference_sha256(&"A".repeat(64)).is_err());
+        assert!(validate_inference_sha256(&"g".repeat(64)).is_err());
+        assert!(validate_inference_sha256(&"a".repeat(63)).is_err());
+    }
 
     #[test]
     fn lama_cancellation_is_request_scoped_and_stale_finish_is_ignored() {

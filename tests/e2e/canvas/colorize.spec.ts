@@ -16,8 +16,14 @@ test.describe('Colorize production workflow', () => {
     });
     // Warm the app before the shared helper runs: its boot-time localStorage
     // probe can otherwise race the initial "Loading Varve" navigation under
-    // concurrent dev-server load and destroy the execution context.
+    // concurrent dev-server load and destroy the execution context. Repeated
+    // OOM crashes can also land the app in Safe Mode first, so clear that
+    // before waiting for the home shell.
     await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 300000 });
+    const continueNormal = page.getByRole('button', { name: /continue normal startup/i });
+    if (await continueNormal.isVisible({ timeout: 5000 }).catch(() => false)) {
+      await continueNormal.click({ timeout: 10000 }).catch(() => undefined);
+    }
     await page
       .getByRole('button', { name: /^new$/i })
       .waitFor({ state: 'visible', timeout: 180000 });
@@ -55,7 +61,9 @@ test.describe('Colorize production workflow', () => {
 
     // The preview is compared against the untouched source; the reveal slider
     // drives the overlay clip without changing the committed result.
-    await expect(preview.getByRole('img', { name: 'Original source for comparison' })).toBeVisible();
+    await expect(
+      preview.getByRole('img', { name: 'Original source for comparison' }),
+    ).toBeVisible();
     const reveal = preview.getByRole('slider', { name: /Reveal colorize preview/ });
     await expect(reveal).toBeVisible();
     const overlay = preview.locator('.colorize-section__compare-overlay');

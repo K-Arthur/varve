@@ -33,6 +33,22 @@ this directory as its catalog filename (`ddcolor.onnx`, `ddcolor-tiny.onnx`):
 `publish-model-assets.mjs` refuses to upload anything whose hash does not
 match the catalog.
 
+## Hosting and CORS
+
+GitHub release assets are an archive mirror only: they send **no**
+`Access-Control-Allow-Origin` header (verified against the live `models-v1`
+upload on 2026-09-14), so a browser `fetch` from the app cannot read them.
+
+- **Desktop** downloads through the native Rust command
+  (`download_inference_model`), which streams the bytes, verifies the catalog
+  SHA-256, and exposes the file through Tauri's asset protocol — no CORS
+  involved.
+- **Web** needs a CORS-enabled host. `tools/ddcolor-export/mirror-to-hf.sh`
+  uploads both artifacts and the model card to a HuggingFace repo
+  (`K-Arthur/varve-ddcolor-onnx` by default); add that URL as the first
+  `sources` entry in the catalog afterwards. HuggingFace serves
+  `access-control-allow-origin` for the requesting origin.
+
 `font-classify.onnx` is kept here only as a provenance record — the app
 downloads it from its upstream HuggingFace source, which is already pinned to
 the same SHA-256 in the model catalog. The two `ddcolor` models are custom ONNX

@@ -755,11 +755,14 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
       outputActivation: 'none',
     },
     acquisition: {
-      kind: 'unavailable',
-      reasonCode: 'export-pending',
-      detail:
-        'Verified ONNX export recorded 2026-09-13: 223,650,419 bytes, SHA-256 1410b455..., zero missing keys, ORT CPU/PyTorch parity mean 4.28e-05. The artifact is not yet published to a download host; deterministic workflows do not need it.',
-      alternatives: ['Use deterministic Tint / Selective Recolor'],
+      kind: 'remote',
+      sources: [
+        {
+          url: 'https://github.com/K-Arthur/varve/releases/download/models-v1/ddcolor-tiny.onnx',
+          sha256: '1410b455cd230a587c38b5771a0193aa6f28bb89b0e29566fbdb791bb1310c47',
+        },
+      ],
+      sha256: '1410b455cd230a587c38b5771a0193aa6f28bb89b0e29566fbdb791bb1310c47',
     },
   },
   {
@@ -787,11 +790,14 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
       outputActivation: 'none',
     },
     acquisition: {
-      kind: 'unavailable',
-      reasonCode: 'export-pending',
-      detail:
-        'Verified ONNX export recorded 2026-09-13: 915,477,115 bytes, SHA-256 9c881551..., zero missing keys, ORT CPU/PyTorch parity mean 9.38e-05. The artifact is not yet published to a download host; deterministic workflows do not need it.',
-      alternatives: ['Use deterministic Tint / Selective Recolor'],
+      kind: 'remote',
+      sources: [
+        {
+          url: 'https://github.com/K-Arthur/varve/releases/download/models-v1/ddcolor.onnx',
+          sha256: '9c881551a0caf29ea283be09e863a841b5bf454b83299357f483f49f6ca18193',
+        },
+      ],
+      sha256: '9c881551a0caf29ea283be09e863a841b5bf454b83299357f483f49f6ca18193',
     },
   },
   {

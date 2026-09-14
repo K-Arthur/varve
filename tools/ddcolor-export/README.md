@@ -127,6 +127,15 @@ Notes:
 - The exported artifacts are produced by `tools/ddcolor-export/export_ddcolor.py`
   in the working environment; they are not committed to the repository.
 
+## Hosting and the HuggingFace mirror
+
+GitHub release assets (`models-v1`) are an archive and native-desktop mirror.
+They send no `Access-Control-Allow-Origin` header, so browser builds must fetch
+from a CORS-enabled host. Run `mirror-to-hf.sh` with an `HF_TOKEN` to publish
+the verified files plus `hf-model-card.md` to HuggingFace, then add the HF URL
+as the first catalog source for web downloads. The desktop build uses its
+native downloader and does not depend on the mirror.
+
 ## License & Redistribution
 
 DDColor code and weights are Apache-2.0. The exported ONNX artifact is a

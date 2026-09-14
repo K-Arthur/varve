@@ -194,18 +194,25 @@ its missing color inferred.
 Catalog presence, download completion, checksum verification, runtime
 compatibility, session load, and smoke-tested execution are separate states.
 Colorize uses the integrity-aware model loader and disables photo Preview until
-`ddcolor-tiny` or `ddcolor` is actually available and path-resolvable. A model
-listed in a manifest is not enough.
+`ddcolor-tiny` or `ddcolor` is actually available and path-resolvable.
 
-As of 2026-09-13, this checkout contains no DDColor ONNX byte artifact: only
-the model catalog/manifest entries and the official conversion route are
-present. The configured `models-v1` GitHub release asset returned HTTP 404 for
-both DDColor variants on that date, so it is not presented as a download
-source. No community checkpoint is substituted. The official DDColor project
-publishes Apache-2.0 code and an ONNX export script; the resulting weights still
-require independent hash, content, tensor, numerical, and visual verification
-before redistribution. See [`models-source/README.md`](../../models-source/README.md)
-and [`docs/plans/ai-model-recovery-progress.md`](../plans/ai-model-recovery-progress.md).
+As of 2026-09-14 the official Apache-2.0 checkpoints have been exported and
+verified: ONNX checker, ONNX Runtime CPU smoke, and PyTorch parity (mean
+absolute difference below 1e-4) all pass, with the artifact SHA-256 pinned in
+the catalog and manifest. The artifacts are published to the `models-v1`
+release and staged in `models-source/` for the publisher script.
+
+Download routes:
+
+- **Desktop** uses the native `download_inference_model` command: the Rust
+  side streams the bytes, verifies the catalog SHA-256 before installing, and
+  serves the file through Tauri's asset protocol, so release-host CORS policy
+  is irrelevant.
+- **Web** requires a CORS-enabled host; GitHub release assets do not send
+  `Access-Control-Allow-Origin`. `tools/ddcolor-export/mirror-to-hf.sh` mirrors
+  the verified files to HuggingFace, whose resolve endpoints do send CORS
+  headers. Until the web mirror is published, the web build surfaces the
+  download failure as an actionable error instead of falling back to a tint.
 
 When an artifact is absent or fails integrity, the UI names that state and
 offers Settings → Models. It never returns a tint and calls it photo
