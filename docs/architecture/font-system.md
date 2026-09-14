@@ -352,6 +352,12 @@ product complaints into runtime constraints:
   Document Fonts/Select by Font scope is the current page, with inherited,
   linked, and component text included and hidden or locked content excluded.
   A replacement is previewable, one undo transaction, and reversible.
+- Component instances are indexed from their effective variant projection. A
+  boolean variant that hides a text layer removes that layer from the usage
+  rows, while a visible instance keeps its authored node id and surface
+  location so Select, Go to, and scoped replacement still target the editable
+  instance. This keeps the panel aligned with the canvas rather than with
+  hidden authored branches.
 - Missing-font recovery uses the same exact artifact/member key as document
   resolution. Family-only legacy records use a family compatibility key;
   exact same-family artifacts get independent recovery rows and alias installs
