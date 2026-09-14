@@ -254,7 +254,12 @@ family-addressed export when rich runs require two different exact artifacts,
 instead of embedding one file for both styles. Per-face native PDF embedding
 and the full cache identity across face revision, axes, features, language and
 rich runs remain integration requirements, not established by the family wire
-bridge.
+bridge. Before waiting on `document.fonts`, export readiness checks an
+identity-aware registry for the requested `sha256:<digest>:<member>` key. If a
+family has exact entries but the requested member is absent, export fails with
+an actionable exact-face error instead of loading a same-family fallback. Legacy
+family-only registry entries retain their compatibility behavior until a
+portable identity is available.
 
 ## Compact editing surfaces
 

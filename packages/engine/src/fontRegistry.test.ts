@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { FontRegistry, getFontRegistry, resetFontRegistry } from './fontRegistry';
+import {
+  awaitExportsReady,
+  FontRegistry,
+  getFontRegistry,
+  resetFontRegistry,
+} from './fontRegistry';
 
 /** Check if the current test environment has document (i.e. jsdom). */
 function hasDom(): boolean {
@@ -452,6 +457,29 @@ describe('FontRegistry', () => {
 });
 
 describe('FontRegistry DOM-dependent', () => {
+  it('rejects an export whose exact face is absent from an identity-aware family', async () => {
+    if (!hasDom() || !document.fonts || typeof document.fonts.load !== 'function') return;
+    resetFontRegistry();
+    const registry = getFontRegistry();
+    registry.register({
+      family: 'Export Shared',
+      weight: 400,
+      style: 'normal',
+      source: 'user',
+      faceKey: `sha256:${'1'.repeat(64)}:single`,
+    });
+    vi.spyOn(registry as any, 'doLoad').mockResolvedValue(undefined);
+
+    await expect(
+      awaitExportsReady([
+        {
+          family: 'Export Shared',
+          fontReference: { artifactHash: '2'.repeat(64) },
+        },
+      ]),
+    ).rejects.toThrow(/Exact font face is not registered for export/);
+  });
+
   it('bridges CSS FontFaceSet completion into the registry revision stream', () => {
     if (!hasDom() || !document.fonts || typeof document.fonts.dispatchEvent !== 'function') return;
     const reg = new FontRegistry([]);

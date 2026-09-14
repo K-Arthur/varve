@@ -810,6 +810,19 @@ export async function awaitExportsReady(
   }
 
   const loadFaces = [...unique.values()].map(async (request) => {
+    if (request.fontReference) {
+      const registered = registry.getEntries(request.family);
+      const identityAwareFaces = registered.filter((entry) => Boolean(entry.faceKey));
+      const requestedKey = fontReferenceKey(request.fontReference);
+      if (
+        identityAwareFaces.length > 0 &&
+        !identityAwareFaces.some((entry) => entry.faceKey === requestedKey)
+      ) {
+        throw new Error(
+          `Exact font face is not registered for export: ${request.family} (${requestedKey})`,
+        );
+      }
+    }
     await registry.load(request.family);
     const style = request.style ?? 'normal';
     const weight = request.weight ?? 400;
