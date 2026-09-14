@@ -47,6 +47,8 @@ export interface PreviewPayload {
   /** Provider that produced the result (reported by dispatch). */
   providerId?: string;
   omittedHoles: number;
+  /** Pixel-art sources must stay unsmoothed at every preview zoom. */
+  pixelArt: boolean;
 }
 
 export interface TraceRasterDimensions {
@@ -187,6 +189,7 @@ export async function runPreviewTrace(
     sourceHeight,
     ...(result.providerId ? { providerId: result.providerId } : {}),
     omittedHoles: result.omittedHoles,
+    pixelArt: settings.mode === 'pixel-art',
   };
 }
 
@@ -280,7 +283,7 @@ export function drawPreview(
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
-  ctx.imageSmoothingEnabled = scale < 1;
+  ctx.imageSmoothingEnabled = !payload.pixelArt && scale < 1;
 
   const raster = options.view === 'source' ? payload.sourceImageData : payload.imageData;
   if (options.view !== 'vector') {
