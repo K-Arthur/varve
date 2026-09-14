@@ -19,7 +19,11 @@ import {
 } from '@varve/shared';
 import { isVerticalWritingMode } from '@varve/shared/verticalText';
 import type { AlphaStrokeOps } from './alphaStroke';
-import { resolveCanvasFontFamily, setCanvasFont } from './canvasFontAliases';
+import {
+  drawCanvasOpenTypeText,
+  resolveCanvasFontFamily,
+  setCanvasFont,
+} from './canvasFontAliases';
 import { blendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
 import { DepthMapCache, deserializeDepthMap, resizeDepthMap } from './depthMap';
 import { compositeMaskedEffectPixels, type PixelImageData } from './effectMaskCompositor';
@@ -2864,26 +2868,25 @@ function paintCanonicalRichText(
       if (runText.length === 0 || runText.includes('\n')) continue;
       const features = format.openTypeFeatures ?? p.openTypeFeatures;
       const axes = format.variableFontSettings ?? p.variableAxes;
-      setCanvasFont(
-        target,
-        replayFontString(
-          family,
-          size,
-          weight,
-          format.fontStyle ?? run.sourceRun.fontStyle,
-          features,
-          axes,
-          runText,
-          format.fontReference
-            ? fontReferenceKey(format.fontReference)
-            : p.fontReference
-              ? fontReferenceKey(p.fontReference)
-              : undefined,
-        ),
-      );
+      const faceKey = format.fontReference
+        ? fontReferenceKey(format.fontReference)
+        : p.fontReference
+          ? fontReferenceKey(p.fontReference)
+          : undefined;
       if (format.color) target.fillStyle = rgba(format.color);
       const restoreSettings = applyReplayTextSettings(target, features, axes, run.direction);
-      target.fillText(runText, p.x + xOffset + run.x, p.y + verticalOffset + line.baseline);
+      paintTypographyRun(target, {
+        family,
+        text: runText,
+        x: p.x + xOffset + run.x,
+        y: p.y + verticalOffset + line.baseline,
+        fontSize: size,
+        fontWeight: weight,
+        fontStyle: format.fontStyle ?? run.sourceRun.fontStyle,
+        features,
+        axes,
+        faceKey,
+      });
       restoreSettings();
       target.fillStyle = originalFillStyle;
     }
@@ -2992,19 +2995,6 @@ function paintCanonicalText(
         p.variableAxes?.wght != null
           ? effectiveWeight(p)
           : Math.max(1, Math.min(1000, run.sourceRun.fontWeight));
-      setCanvasFont(
-        target,
-        replayFontString(
-          run.sourceRun.fontFamily,
-          run.sourceRun.fontSize,
-          weight,
-          run.sourceRun.fontStyle,
-          p.openTypeFeatures,
-          p.variableAxes,
-          snapshot.text.slice(run.sourceStart, run.sourceEnd),
-          p.fontReference ? fontReferenceKey(p.fontReference) : undefined,
-        ),
-      );
       // Canvas2D has no portable glyph-ID drawing API. Painting every shaped
       // glyph by slicing its source cluster is therefore incorrect: it
       // disables ligatures and contextual joining. Keep the logical source
@@ -3017,7 +3007,18 @@ function paintCanonicalText(
           p.variableAxes,
           run.direction,
         );
-        target.fillText(runText, p.x + xOffset + run.x, p.y + verticalOffset + line.baseline);
+        paintTypographyRun(target, {
+          family: run.sourceRun.fontFamily,
+          text: runText,
+          x: p.x + xOffset + run.x,
+          y: p.y + verticalOffset + line.baseline,
+          fontSize: run.sourceRun.fontSize,
+          fontWeight: weight,
+          fontStyle: run.sourceRun.fontStyle,
+          features: p.openTypeFeatures,
+          axes: p.variableAxes,
+          faceKey: p.fontReference ? fontReferenceKey(p.fontReference) : undefined,
+        });
         restoreSettings();
       }
     }
@@ -3236,6 +3237,56 @@ function replayFontString(
   const weight = Math.max(1, Math.min(1000, fontWeight));
   const resolvedFamily = resolveCanvasFontFamily(family, features, axes, text, faceKey);
   return `${style}${weight} ${fontSize}px "${resolvedFamily}"`;
+}
+
+/** Paint one logical run, using parsed OpenType paths when Canvas2D cannot
+ * carry authored feature or custom-axis settings through fillText. */
+function paintTypographyRun(
+  target: ReplayTarget,
+  input: {
+    family: string;
+    text: string;
+    x: number;
+    y: number;
+    fontSize: number;
+    fontWeight: number;
+    fontStyle?: string;
+    features?: import('@varve/shared').OpenTypeFeatureMap;
+    axes?: Record<string, number>;
+    faceKey?: string;
+  },
+): void {
+  setCanvasFont(
+    target,
+    replayFontString(
+      input.family,
+      input.fontSize,
+      input.fontWeight,
+      input.fontStyle,
+      input.features,
+      input.axes,
+      input.text,
+      input.faceKey,
+    ),
+  );
+  const advanced =
+    Object.keys(input.features ?? {}).length > 0 ||
+    Object.keys(input.axes ?? {}).some((tag) => tag !== 'wght');
+  const drawn =
+    advanced &&
+    drawCanvasOpenTypeText(target, {
+      family: input.family,
+      text: input.text,
+      x: input.x,
+      y: input.y,
+      fontSize: input.fontSize,
+      fontWeight: input.fontWeight,
+      fontStyle: input.fontStyle,
+      features: input.features,
+      axes: { ...(input.axes ?? {}), wght: input.fontWeight },
+      faceKey: input.faceKey,
+    });
+  if (!drawn) target.fillText(input.text, input.x, input.y);
 }
 
 function ellipsizeText(text: string, maxWidth: number, measure: (value: string) => number): string {

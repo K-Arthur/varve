@@ -16,6 +16,20 @@ import {
   type OpenTypeFeatureMap,
   openTypeFeaturesToCss,
 } from '@varve/shared';
+import {
+  drawCanvasOpenTypeText as drawOpenTypeText,
+  loadCanvasOpenTypeFont,
+  registerCanvasOpenTypeFont,
+  removeCanvasOpenTypeFont,
+  resetCanvasOpenTypeFonts,
+} from './canvasOpenTypeRenderer';
+import type { CanvasSvgSourceFace } from './canvasSvgTextRenderer';
+import {
+  drawCanvasSvgText,
+  resetCanvasSvgText,
+  subscribeToCanvasSvgTextReady,
+} from './canvasSvgTextRenderer';
+import type { ReplayTarget } from './replayTypes';
 
 interface CanvasFontAliasFace {
   family: string;
@@ -37,6 +51,7 @@ interface CanvasFontAliasEntry {
   aliasFaces: CanvasFontAliasFace[];
   featureSettings?: string;
   variationSettings?: string;
+  openTypeReady: boolean;
 }
 
 const MAX_ALIASES = 64;
@@ -50,6 +65,11 @@ const readyListeners = new Set<() => void>();
 let sourceFacesStyleSheetCount = -1;
 let aliasStyle: HTMLStyleElement | null = null;
 const aliasStyles: HTMLStyleElement[] = [];
+
+// SVG text images use the browser's native shaper when Canvas2D lacks its
+// optional feature properties. Bridge their completion into the same redraw
+// stream as generated FontFace aliases.
+subscribeToCanvasSvgTextReady(() => notifyCanvasFontReady());
 
 /**
  * Resolve a whole-run Canvas2D font alias for feature/axis settings.
@@ -104,6 +124,7 @@ export function resolveCanvasFontFamily(
     aliasFaces: [...aliasFaces],
     ...(featureSettings ? { featureSettings } : {}),
     ...(variationSettings ? { variationSettings } : {}),
+    openTypeReady: false,
   };
   aliases.set(key, entry);
   while (aliases.size > MAX_ALIASES) {
@@ -113,6 +134,7 @@ export function resolveCanvasFontFamily(
     if (evicted) {
       evicted.active = false;
       removeFontFaces(evicted);
+      removeCanvasOpenTypeFont(evicted.family);
     }
     aliases.delete(oldest);
   }
@@ -129,6 +151,7 @@ export function resolveCanvasFontFamily(
   // its lazy loading semantics are the only option available in that runtime.
   refreshAliasStyle();
   entry.ready = true;
+  entry.openTypeReady = true;
   return aliasFamily;
 }
 
@@ -153,6 +176,7 @@ export function resetCanvasFontAliases(): void {
   for (const entry of aliases.values()) {
     entry.active = false;
     removeFontFaces(entry);
+    removeCanvasOpenTypeFont(entry.family);
   }
   aliases.clear();
   sourceFacesByFamily.clear();
@@ -160,6 +184,8 @@ export function resetCanvasFontAliases(): void {
   for (const style of aliasStyles) style.remove();
   aliasStyles.length = 0;
   aliasStyle = null;
+  resetCanvasOpenTypeFonts();
+  resetCanvasSvgText();
 }
 
 /** Subscribe to completion of a generated face so the editor can repaint. */
@@ -176,6 +202,64 @@ export function subscribeToCanvasFontReady(listener: () => void): () => void {
 export function setCanvasFont(context: Pick<CanvasRenderingContext2D, 'font'>, font: string): void {
   if (isCanvasFontAliasString(font)) context.font = '1px sans-serif';
   context.font = font;
+}
+
+/**
+ * Draw a whole run through the parsed source face when Canvas2D cannot carry
+ * the authored OpenType settings. The resolver is shared with replay so the
+ * alias key and face identity stay identical to the preceding font assignment.
+ */
+export function drawCanvasOpenTypeText(
+  target: ReplayTarget,
+  input: {
+    family: string;
+    text: string;
+    x: number;
+    y: number;
+    fontSize: number;
+    fontWeight: number;
+    fontStyle?: string;
+    features?: OpenTypeFeatureMap;
+    axes?: Record<string, number>;
+    faceKey?: string;
+  },
+): boolean {
+  const alias = resolveCanvasFontFamily(
+    input.family,
+    input.features,
+    input.axes,
+    input.text,
+    input.faceKey,
+  );
+  const drawnByOpenType = drawOpenTypeText(
+    target,
+    alias,
+    input.text,
+    input.x,
+    input.y,
+    input.fontSize,
+    {
+      features: input.features,
+      variableAxes: input.axes,
+    },
+  );
+  if (drawnByOpenType) return true;
+  if (typeof target.fillStyle !== 'string') return false;
+  const sourceFaces = facesForText(findFontFaces(input.family, input.faceKey), input.text);
+  if (sourceFaces.length === 0) return false;
+  return drawCanvasSvgText(target, {
+    family: input.family,
+    text: input.text,
+    x: input.x,
+    y: input.y,
+    fontSize: input.fontSize,
+    fontWeight: input.fontWeight,
+    fontStyle: input.fontStyle,
+    features: input.features,
+    axes: input.axes,
+    sourceFaces: sourceFaces satisfies readonly CanvasSvgSourceFace[],
+    fillStyle: target.fillStyle,
+  });
 }
 
 function hasFontSetApi(): boolean {
@@ -330,7 +414,13 @@ async function loadAliasFaces(entry: CanvasFontAliasEntry): Promise<void> {
     const results = await Promise.allSettled(faces.map((face) => face.load()));
     if (!entry.active) return;
     if (faces.length > 0 && results.every((result) => result.status === 'fulfilled')) {
+      const needsOpenType = Boolean(entry.featureSettings || entry.variationSettings);
+      // Alias readiness keeps the existing Canvas fallback responsive. The
+      // parsed face arrives independently; once it does, replay receives a
+      // second notification and paints the exact glyph paths.
+      entry.openTypeReady = !needsOpenType;
       markAliasReady(entry);
+      if (needsOpenType) void preloadOpenTypeFaces(entry);
       return;
     }
   } catch {
@@ -340,6 +430,25 @@ async function loadAliasFaces(entry: CanvasFontAliasEntry): Promise<void> {
   removeFontFaces(entry);
   entry.active = false;
   notifyCanvasFontReady();
+}
+
+async function preloadOpenTypeFaces(entry: CanvasFontAliasEntry): Promise<void> {
+  const parsed = await Promise.all(
+    entry.aliasFaces.map(async (sourceFace) => ({
+      sourceFace,
+      font: await loadCanvasOpenTypeFont(sourceFace.source),
+    })),
+  );
+  if (!entry.active) return;
+  for (const result of parsed) {
+    if (!result.font) continue;
+    registerCanvasOpenTypeFont(entry.family, result.font, {
+      unicodeRange: result.sourceFace.unicodeRange,
+      faceKey: result.sourceFace.faceKey,
+    });
+  }
+  entry.openTypeReady = parsed.some((result) => result.font !== null);
+  if (entry.openTypeReady) notifyCanvasFontReady();
 }
 
 function isAliasReady(entry: CanvasFontAliasEntry): boolean {
