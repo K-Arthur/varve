@@ -197,13 +197,14 @@ export class FontSemanticCatalog {
 
   findByFamilyName(familyName: string): FontSemanticRecord | undefined {
     const target = normalize(familyName);
-    this.familyNameIndex ??= new Map(
-      this.records.values().reduce((index, record) => {
+    if (!this.familyNameIndex) {
+      const index = new Map<string, FontSemanticRecord>();
+      for (const record of this.records.values()) {
         const key = normalize(record.familyName);
         if (!index.has(key)) index.set(key, record);
-        return index;
-      }, new Map<string, FontSemanticRecord>()),
-    );
+      }
+      this.familyNameIndex = index;
+    }
     return this.familyNameIndex.get(target);
   }
 
