@@ -39,6 +39,16 @@ pub struct UpscaleOptions {
 
 pub type ProgressCallback = Box<dyn Fn(usize, usize) + Send + Sync>;
 
+struct SessionRun<'a> {
+    pixels: &'a [u8],
+    width: u32,
+    height: u32,
+    out_w: u32,
+    out_h: u32,
+    progress: Option<&'a ProgressCallback>,
+    cancel: &'a Option<Arc<AtomicBool>>,
+}
+
 /// Result metadata for one native AI upscale invocation.
 ///
 /// `execution_provider` is the provider selected for the session that produced
@@ -175,13 +185,15 @@ pub fn ai_upscale_with_metadata(
     let out_h = height * SCALE_U32;
     let run = run_session(
         &mut session,
-        pixels,
-        width,
-        height,
-        out_w,
-        out_h,
-        progress.as_ref(),
-        &cancel,
+        SessionRun {
+            pixels,
+            width,
+            height,
+            out_w,
+            out_h,
+            progress: progress.as_ref(),
+            cancel: &cancel,
+        },
     );
     let rgba = match run {
         Ok(rgba) => rgba,
@@ -208,13 +220,15 @@ pub fn ai_upscale_with_metadata(
             provider = cpu_provider;
             run_session(
                 &mut cpu_session,
-                pixels,
-                width,
-                height,
-                out_w,
-                out_h,
-                progress.as_ref(),
-                &cancel,
+                SessionRun {
+                    pixels,
+                    width,
+                    height,
+                    out_w,
+                    out_h,
+                    progress: progress.as_ref(),
+                    cancel: &cancel,
+                },
             )?
         }
         Err(error) => return Err(error),
@@ -226,16 +240,16 @@ pub fn ai_upscale_with_metadata(
     })
 }
 
-fn run_session(
-    session: &mut Session,
-    pixels: &[u8],
-    width: u32,
-    height: u32,
-    out_w: u32,
-    out_h: u32,
-    progress: Option<&ProgressCallback>,
-    cancel: &Option<Arc<AtomicBool>>,
-) -> Result<Vec<u8>, String> {
+fn run_session(session: &mut Session, request: SessionRun<'_>) -> Result<Vec<u8>, String> {
+    let SessionRun {
+        pixels,
+        width,
+        height,
+        out_w,
+        out_h,
+        progress,
+        cancel,
+    } = request;
     let input_name = session
         .inputs()
         .first()
@@ -331,11 +345,7 @@ fn run_session(
 /// its predecessor and therefore legitimately returns a zero width.
 fn tile_copy_extent(start: u32, source_len: u32) -> (u32, u32, u32) {
     let tile_len = TILE.min(source_len.saturating_sub(start));
-    let source_offset = if start == 0 {
-        0
-    } else {
-        OVERLAP.min(tile_len)
-    };
+    let source_offset = if start == 0 { 0 } else { OVERLAP.min(tile_len) };
     (
         source_offset,
         start.saturating_add(source_offset),
@@ -367,7 +377,7 @@ fn infer_tile(
         .map_err(|error| format!("Upscale inference failed: {error}"))?;
 
     let output = outputs
-        .get(&output_name)
+        .get(output_name)
         .ok_or_else(|| "Upscale model output is missing".to_string())?;
     let (_, data) = output
         .try_extract_tensor::<f32>()
@@ -619,7 +629,10 @@ mod tests {
                 if count == 0 {
                     continue;
                 }
-                assert_eq!(destination, cursor, "source length {source_len}, start {start}");
+                assert_eq!(
+                    destination, cursor,
+                    "source length {source_len}, start {start}"
+                );
                 cursor += count;
             }
             assert_eq!(cursor, source_len, "source length {source_len}");
