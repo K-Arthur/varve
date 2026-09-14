@@ -10,7 +10,7 @@
 #![forbid(unsafe_code)]
 
 use image::{DynamicImage, ImageBuffer, Rgba};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 static CONFIGURED_MODEL_DIRECTORY: OnceLock<PathBuf> = OnceLock::new();
@@ -154,23 +154,29 @@ pub fn model_path(model_id: &str) -> std::path::PathBuf {
                 .join("dev.varve.desktop")
                 .join("models")
         });
-    let by_id = base.join(format!("{model_id}.onnx"));
-    if by_id.exists() {
-        return by_id;
+    let fallback = base.join(format!("{model_id}.onnx"));
+    model_candidates(&base, model_id)
+        .into_iter()
+        .find(|candidate| candidate.is_file())
+        .unwrap_or(fallback)
+}
+
+/// Return the names used by the desktop model store and by the release
+/// manifest. Tauri storage intentionally uses the model id as the filename,
+/// while bundled/manifest assets retain their `.onnx` filename.
+fn model_candidates(base: &Path, model_id: &str) -> Vec<PathBuf> {
+    let mut candidates = vec![base.join(model_id), base.join(format!("{model_id}.onnx"))];
+
+    // Manifest filenames for Real-ESRGAN variants.
+    if let Some(filename) = match model_id {
+        "upscale-realesr-general" => Some("realesr-general-x4v3.onnx"),
+        "upscale-realesrgan-x4plus" => Some("realesrgan-x4plus.onnx"),
+        "upscale-realesrgan-anime" => Some("realesrgan-anime-6b.onnx"),
+        _ => None,
+    } {
+        candidates.push(base.join(filename));
     }
-    // Manifest filenames for Real-ESRGAN variants
-    let alt = match model_id {
-        "upscale-realesr-general" => "realesr-general-x4v3.onnx",
-        "upscale-realesrgan-x4plus" => "realesrgan-x4plus.onnx",
-        "upscale-realesrgan-anime" => "realesrgan-x4plus-anime.onnx",
-        _ => return by_id,
-    };
-    let by_name = base.join(alt);
-    if by_name.exists() {
-        by_name
-    } else {
-        by_id
-    }
+    candidates
 }
 
 #[cfg(test)]
@@ -283,5 +289,18 @@ mod tests {
             UpscaleFilter::from_method("bicubic"),
             UpscaleFilter::CatmullRom
         );
+    }
+
+    #[test]
+    fn model_candidates_include_storage_key_and_manifest_filename() {
+        let base = Path::new("/varve/models");
+        let candidates = model_candidates(base, "upscale-realesrgan-anime");
+
+        assert_eq!(candidates[0], base.join("upscale-realesrgan-anime"));
+        assert_eq!(
+            candidates[1],
+            base.join("upscale-realesrgan-anime.onnx")
+        );
+        assert_eq!(candidates[2], base.join("realesrgan-anime-6b.onnx"));
     }
 }
