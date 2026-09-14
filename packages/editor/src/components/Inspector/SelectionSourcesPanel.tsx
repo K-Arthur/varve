@@ -10,7 +10,7 @@ import {
 } from '@varve/engine/foregroundSelect';
 import { buildParentIndexMap, fillCoverageOnNode, getImageFill, isImageShape } from '@varve/scene';
 import { Icon, Select, Tooltip } from '@varve/ui';
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { getActionRegistry } from '../../actions/ActionRegistry';
 import { getToolManager } from '../../canvas/toolDispatcher';
 import { type ToolId, useEditor } from '../../context';
@@ -23,6 +23,11 @@ import { DisclosureSection } from './controls/DisclosureSection';
 import { FieldRow } from './controls/FieldRow';
 import { RangeValueControl } from './controls/RangeValueControl';
 import { applySelectionRefine, SELECTION_REFINE_OPERATIONS } from './selectionRefineApply';
+import {
+  getSubjectProposalState,
+  setSubjectProposalState,
+  subscribeSubjectProposals,
+} from './subjectProposalStore';
 
 import './selectionSources.css';
 
@@ -70,8 +75,11 @@ export function SelectionSourcesPanel() {
   const [refineMinIsland, setRefineMinIsland] = useState(16);
   const [refineMaxHole, setRefineMaxHole] = useState(16);
   const [refineShift, setRefineShift] = useState(2);
-  const [subjectProposalSet, setSubjectProposalSet] = useState<ForegroundProposalSet | null>(null);
-  const [subjectProposalBusy, setSubjectProposalBusy] = useState(false);
+  const subjectState = useSyncExternalStore(
+    subscribeSubjectProposals,
+    getSubjectProposalState,
+    getSubjectProposalState,
+  );
   const selectedNode =
     state.selection.length === 1 ? state.document.nodes[state.selection[0]!] : undefined;
   const hasClosedPath =
@@ -86,6 +94,17 @@ export function SelectionSourcesPanel() {
   const selectedRasterNode =
     selectedRasterCandidate?.kind === 'rasterLayer' ? selectedRasterCandidate : undefined;
   const paintingSelection = state.tool === 'selectionPaint';
+  const subjectTarget = selectedNode
+    ? { documentId: state.document.id, nodeId: selectedNode.id }
+    : null;
+  const subjectProposalSet =
+    subjectState.proposals &&
+    subjectTarget &&
+    subjectState.target?.documentId === subjectTarget.documentId &&
+    subjectState.target.nodeId === subjectTarget.nodeId
+      ? subjectState.proposals
+      : null;
+  const subjectProposalBusy = subjectState.busy && subjectTarget !== null;
 
   const fillDisabledReason = !hasAreaSelection
     ? 'Create a pixel selection first'
@@ -189,8 +208,8 @@ export function SelectionSourcesPanel() {
       announce('The image source is unavailable');
       return;
     }
-    setSubjectProposalBusy(true);
-    setSubjectProposalSet(null);
+    const target = { documentId: state.document.id, nodeId: selectedNode.id };
+    setSubjectProposalState({ target, proposals: null, busy: true });
     try {
       const decoded = await decodeRasterMaskDataUrl(source);
       if (!decoded) {
@@ -210,12 +229,12 @@ export function SelectionSourcesPanel() {
         );
         return;
       }
-      setSubjectProposalSet(result);
+      setSubjectProposalState({ target, proposals: result, busy: false });
       // One click should produce a usable result. The top-ranked proposal is
       // applied immediately and every alternative stays one click away.
       applySubjectCandidate(result, 0);
     } finally {
-      setSubjectProposalBusy(false);
+      setSubjectProposalState({ busy: false });
     }
   };
 
@@ -539,7 +558,7 @@ export function SelectionSourcesPanel() {
               <button
                 type="button"
                 className="insp-selection-sources__button"
-                onClick={() => setSubjectProposalSet(null)}
+                onClick={() => setSubjectProposalState({ proposals: null })}
               >
                 Dismiss
               </button>

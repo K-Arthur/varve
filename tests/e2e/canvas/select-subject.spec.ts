@@ -83,6 +83,8 @@ test.describe('Select subject — model-free foreground estimate', () => {
     await expect(inspector.getByRole('button', { name: 'Save selection' })).toBeEnabled();
 
     const canvas = page.getByTestId('editor-canvas');
+    await page.getByRole('button', { name: 'Fit sel' }).click();
+    await page.waitForTimeout(400);
     await testInfo.attach('select-subject-result', {
       body: await canvas.screenshot(),
       contentType: 'image/png',
