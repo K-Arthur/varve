@@ -16,11 +16,17 @@ import { sitePath } from '../../../lib/siteUrl';
         <h2>Workflow</h2>
         <ol>
           <li>Select an image and activate <strong>Select Object</strong>.</li>
-          <li>Click an object to add a positive prompt. Hold <strong>Shift</strong> while clicking to subtract a region.</li>
-          <li>Drag a box when a coarse region is easier to identify than a point.</li>
+          <li>Choose <strong>Points</strong> for include/exclude prompts, or <strong>Box hint</strong> when a coarse region is easier to identify than a point.</li>
+          <li>Set <strong>Prompt polarity</strong> explicitly. <strong>Shift</strong> remains a temporary exclude override for a point; it is not the same as subtracting an accepted selection.</li>
+          <li>In Box hint mode, tap two opposite corners or drag a box. The box guides segmentation; it is not silently treated as a hard clipping boundary.</li>
           <li>Add more prompts to refine the temporary preview. Tap a marker to remove that prompt, or press <strong>Backspace</strong> to remove the last one. <strong>Escape</strong> or <strong>Clear prompts</strong> discards the preview.</li>
-          <li>Choose <strong>Apply as mask</strong> for an editable document mask, or <strong>Use as selection</strong> for a temporary pixel-area selection. Both commit the candidate you reviewed; choosing an output does not run the model again.</li>
+          <li>Review candidate masks, then choose a <strong>Selection combination</strong> (replace, add, subtract, or intersect) if using <strong>Use as selection</strong>. <strong>Apply as mask</strong> always commits the reviewed candidate as an editable document mask. Neither output runs inference again.</li>
         </ol>
+      </section>
+
+      <section class="docs-section">
+        <h2>What candidates mean</h2>
+        <p>Candidate masks are alternative interpretations of the same prompts. They are not a list of separately discovered object instances. Multiple positive points can still describe one object, and a disconnected object or a hole is not automatically discarded or filled. Use separate prompt sessions when you intend to select separate objects, then combine their accepted pixel selections deliberately.</p>
       </section>
 
       <section class="docs-section">

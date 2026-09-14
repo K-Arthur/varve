@@ -18,13 +18,23 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section">
         <h2>Select with the canvas</h2>
         <ul>
-          <li>Click to include an object or Shift-click to exclude a region.</li>
+          <li>Choose point prompts or an explicit box-hint mode; create a box by dragging or by tapping its two corners.</li>
+          <li>Set include or exclude polarity visibly. Shift remains a temporary exclude shortcut, separate from selection subtraction.</li>
           <li>Tap a prompt marker to remove just that prompt, or press Backspace for the last one.</li>
-          <li>Drag a box when a rough boundary is a better starting point.</li>
           <li>Compare candidate masks before applying; the candidate you reviewed is the one that is committed.</li>
           <li>Preview the result before it becomes part of the document.</li>
-          <li>Apply once to create a non-destructive raster mask that survives save, reload, and model removal.</li>
+          <li>Use replace, add, subtract, or intersect when sending the reviewed candidate to a pixel selection, or apply it as a standalone non-destructive raster mask.</li>
         </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Prompts are not object discovery</h2>
+        <p>
+          Candidate masks are alternative readings of the same prompt, not separate detected
+          instances. Multiple points may describe one object, and Varve keeps disconnected pieces
+          and holes instead of silently keeping only the largest component. Use a new prompt session
+          when you mean a different object, then combine the accepted selections intentionally.
+        </p>
       </section>
 
       <section class="feature-section">
