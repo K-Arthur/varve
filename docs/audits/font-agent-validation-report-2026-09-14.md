@@ -359,3 +359,24 @@ arity plus missing `LutTransform.size` in `lut*.test.ts`. The linked-story
 files are absent from the failure list; the earlier native WDIO build boundary
 has the same shared editor diagnostics. No unrelated files were changed to
 silence this gate.
+
+## Native test-overlay repair — 2026-09-14
+
+The final native investigation isolated an asset-root defect in the Tauri test
+overlay. `tauri.test.conf.json` now declares `build.frontendDist: "../dist"`,
+and `scripts/desktop/compatibility.test.mjs` parses the overlay and asserts the
+same value so a future merge cannot silently produce an `about:blank` WDIO
+window. The focused compatibility suite passed **16/16**. A feature-enabled
+Rust binary was rebuilt from the existing WDIO Vite bundle; native WebKit
+session certification remains pending because this host does not provide
+`WebKitWebDriver` or `tauri-driver` and the embedded probe still cannot be
+certified here.
+
+```text
+node --test scripts/desktop/compatibility.test.mjs
+cargo build --manifest-path apps/desktop/src-tauri/Cargo.toml --features wdio
+```
+
+The browser toolbar evidence remains the authoritative visual proof: the
+focused Chromium run passed 6/6 at DPR 1/2/3 with light, dark, high-contrast,
+and narrow captures inspected. No native pass is claimed from this host.

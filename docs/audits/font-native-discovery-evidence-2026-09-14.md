@@ -133,3 +133,17 @@ report no `WebKitWebDriver` and no `tauri-driver`. This is a useful scheduling
 improvement and a reproducible environment boundary, but it is not a passing
 desktop E2E result; the Linux desktop lane with its installed driver remains
 the required certification check.
+
+## Test-overlay asset root follow-up — 2026-09-14
+
+The embedded driver failure was also reproduced with a compact WebDriver probe:
+the Tauri globals existed, but the active document was `about:blank` and the
+WDIO frontend bridge had never executed. The root cause was the test config
+overlay omitting `build.frontendDist`; a merged Tauri configuration can then
+launch the WebDriver server without a frontend asset root. The overlay now
+declares `"frontendDist": "../dist"`, and the desktop compatibility test guards
+that contract. A feature-only binary was rebuilt from the already generated
+WDIO Vite bundle; the Rust build completed, while this host still lacks the
+platform WebKit driver needed for a complete native session. The next check is
+the same font spec in Linux CI/desktop with the corrected overlay and installed
+driver. No native pass is claimed here.
