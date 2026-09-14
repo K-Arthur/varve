@@ -199,8 +199,18 @@ class ModelLoader {
   private state: ModelState = 'unavailable';
   private currentModelId = '';
   private listeners: StateListener[] = [];
-  /** Object URL created from an IndexedDB-backed blob, revoked on next resolve/clear. */
-  private activeBlobUrl: string | null = null;
+  /**
+   * Object URLs created from IndexedDB-backed blobs.
+   *
+   * Several split providers resolve their encoder and decoder together. A
+   * single "active" URL is unsafe here: resolving the second artifact would
+   * revoke the first URL while the inference worker was still fetching it.
+   * Keep one stable URL per artifact instead and invalidate it only when that
+   * artifact is replaced or deleted.
+   */
+  private activeBlobUrls = new Map<string, string>();
+  /** Coalesce concurrent reads of the same stored artifact. */
+  private activeBlobUrlPromises = new Map<string, Promise<string | null>>();
 
   private loadState() {
     try {
@@ -312,8 +322,16 @@ class ModelLoader {
     // fetch it like any other model source.
     if (isBrowserEnv()) {
       try {
-        const blob = await loadModelBlob(modelId);
-        if (blob) {
+        const existingUrl = this.activeBlobUrls.get(modelId);
+        if (existingUrl) return existingUrl;
+
+        const activePromise = this.activeBlobUrlPromises.get(modelId);
+        if (activePromise) return activePromise;
+
+        const resolvePromise = (async () => {
+          const blob = await loadModelBlob(modelId);
+          if (!blob) return null;
+
           // A stored blob can predate this loader (legacy stores, partially
           // completed downloads committed by an older writer). Verify it
           // against the manifest before handing it to the runtime: a corrupt
@@ -328,11 +346,17 @@ class ModelLoader {
               return null;
             }
           }
-          if (this.activeBlobUrl) {
-            URL.revokeObjectURL(this.activeBlobUrl);
+          const objectUrl = URL.createObjectURL(blob);
+          this.activeBlobUrls.set(modelId, objectUrl);
+          return objectUrl;
+        })();
+        this.activeBlobUrlPromises.set(modelId, resolvePromise);
+        try {
+          return await resolvePromise;
+        } finally {
+          if (this.activeBlobUrlPromises.get(modelId) === resolvePromise) {
+            this.activeBlobUrlPromises.delete(modelId);
           }
-          this.activeBlobUrl = URL.createObjectURL(blob);
-          return this.activeBlobUrl;
         }
       } catch {
         // IndexedDB unavailable/blocked — fall through
@@ -513,11 +537,8 @@ class ModelLoader {
       await deleteModelBlob(modelId);
       await deletePartialDownload(modelId).catch(() => {});
     }
+    this.revokeBlobUrl(modelId);
     if (this.currentModelId === modelId) {
-      if (this.activeBlobUrl) {
-        URL.revokeObjectURL(this.activeBlobUrl);
-        this.activeBlobUrl = null;
-      }
       this.state = 'unavailable';
       this.currentModelId = '';
       this.saveState();
@@ -873,6 +894,10 @@ class ModelLoader {
 
       if (isBrowserEnv()) {
         await saveModelBlob(modelId, blob);
+        // A successful replacement must not leave callers with a URL for the
+        // previous bytes. The next resolve creates a URL for the verified blob
+        // now in IndexedDB; URLs for other split artifacts remain valid.
+        this.revokeBlobUrl(modelId);
         await deletePartialDownload(modelId);
         // Models above the 2GB protobuf limit keep their weights in a sibling
         // `.onnx.data` file. The graph alone parses but cannot initialize, so a
@@ -963,14 +988,23 @@ class ModelLoader {
         // ignore
       }
     }
-    if (this.activeBlobUrl) {
-      URL.revokeObjectURL(this.activeBlobUrl);
-      this.activeBlobUrl = null;
-    }
+    this.revokeAllBlobUrls();
     this.state = 'unavailable';
     this.currentModelId = '';
     this.saveState();
     this.notify();
+  }
+
+  private revokeBlobUrl(modelId: string): void {
+    const url = this.activeBlobUrls.get(modelId);
+    if (!url) return;
+    URL.revokeObjectURL(url);
+    this.activeBlobUrls.delete(modelId);
+  }
+
+  private revokeAllBlobUrls(): void {
+    for (const url of this.activeBlobUrls.values()) URL.revokeObjectURL(url);
+    this.activeBlobUrls.clear();
   }
 }
 

@@ -248,6 +248,34 @@ describe('ModelLoader', () => {
     expect(mockLoad).toHaveBeenCalledWith('birefnet-general-lite');
   });
 
+  it('keeps split-provider artifact URLs stable when paths resolve concurrently', async () => {
+    const { getModelLoader, resetModelLoader } = await import('../modelLoader');
+    resetModelLoader();
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+    mockLoad.mockImplementation(async (id: string) =>
+      id.startsWith('mobile-sam') ? new Blob([id]) : null,
+    );
+    const createObjectUrl = vi.mocked(URL.createObjectURL);
+    let nextUrl = 0;
+    createObjectUrl.mockImplementation(() => `blob:split-artifact-${nextUrl++}`);
+
+    const loader = getModelLoader();
+    const [encoderPath, decoderPath] = await Promise.all([
+      loader.getModelPath('mobile-sam-encoder'),
+      loader.getModelPath('mobile-sam-decoder'),
+    ]);
+
+    expect(encoderPath).toBe('blob:split-artifact-0');
+    expect(decoderPath).toBe('blob:split-artifact-1');
+    expect(URL.revokeObjectURL).not.toHaveBeenCalled();
+
+    // A warm resolve reuses the verified URL instead of creating a new URL and
+    // revoking one that an inference worker may still be fetching.
+    await expect(loader.getModelPath('mobile-sam-encoder')).resolves.toBe(encoderPath);
+    expect(createObjectUrl).toHaveBeenCalledTimes(2);
+  });
+
   it('getModelPath returns null when neither bundled nor downloaded', async () => {
     const { getModelLoader, resetModelLoader } = await import('../modelLoader');
     resetModelLoader();
