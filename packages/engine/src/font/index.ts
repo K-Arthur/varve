@@ -136,7 +136,10 @@ export type {
   FontSubstitute,
   MissingFontInfo,
   ResolverDocument,
+  ResolverRichText,
+  ResolverStory,
   ResolverTextNode,
+  ResolverTextRun,
 } from './fontResolver';
 // Missing font resolution
 export { FONT_COMPAT_MAP, FontResolver } from './fontResolver';

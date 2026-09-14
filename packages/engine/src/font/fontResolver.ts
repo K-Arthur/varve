@@ -33,19 +33,30 @@ export interface ResolverTextNode {
   fontWeight?: number;
   fontStyle?: string;
   text?: string;
-  richText?: {
-    paragraphs: Array<{
-      runs: Array<{
-        text: string;
-        format?: {
-          fontFamily?: string;
-          fontReference?: FontReference;
-          fontWeight?: number;
-          fontStyle?: string;
-        };
-      }>;
-    }>;
+  richText?: ResolverRichText;
+}
+
+export interface ResolverTextRun {
+  text: string;
+  format?: {
+    fontFamily?: string;
+    fontReference?: FontReference;
+    fontWeight?: number;
+    fontStyle?: string;
   };
+}
+
+export interface ResolverRichText {
+  paragraphs: Array<{ runs: ResolverTextRun[] }>;
+}
+
+/** Authoritative linked-story projection used by missing-font recovery. */
+export interface ResolverStory {
+  id: string;
+  name?: string;
+  thread: string[];
+  content?: ResolverRichText;
+  language?: string;
 }
 
 /** Minimal style shape used by the resolver. */
@@ -61,6 +72,7 @@ export interface ResolverTextStyle {
 export interface ResolverDocument {
   nodes: Record<string, ResolverTextNode | { id: string; kind: string }>;
   styles?: Record<string, ResolverTextStyle | { type: string; [key: string]: unknown }>;
+  stories?: Record<string, ResolverStory>;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,6 +189,25 @@ export const FONT_COMPAT_MAP: Record<string, string[]> = {
 // Helpers
 // ---------------------------------------------------------------------------
 
+type FontResolutionReference = {
+  family: string;
+  fontReference?: FontReference;
+  weight?: number;
+  style?: string;
+  text?: string;
+};
+
+type MissingFamilyRecord = {
+  family: string;
+  fontReference?: FontReference;
+  nodeIds: string[];
+  weight?: number;
+  style?: string;
+  missingGlyphs: Set<string>;
+  status: MissingFontStatus;
+  diagnostic?: MissingFontDiagnostic;
+};
+
 function hasTextStyleFont(
   node: ResolverTextNode | { id: string; kind: string },
 ): node is ResolverTextNode {
@@ -225,20 +256,8 @@ function getFontFamiliesFromStyles(doc: ResolverDocument): Array<{
   return results;
 }
 
-function getFontFamiliesFromNode(node: ResolverTextNode): Array<{
-  family: string;
-  fontReference?: FontReference;
-  weight?: number;
-  style?: string;
-  text?: string;
-}> {
-  const results: Array<{
-    family: string;
-    fontReference?: FontReference;
-    weight?: number;
-    style?: string;
-    text?: string;
-  }> = [];
+function getFontFamiliesFromNode(node: ResolverTextNode): FontResolutionReference[] {
+  const results: FontResolutionReference[] = [];
 
   if (node.fontFamily) {
     results.push({
@@ -272,6 +291,76 @@ function getFontFamiliesFromNode(node: ResolverTextNode): Array<{
   return results;
 }
 
+function getFontFamiliesFromStory(
+  story: ResolverStory,
+  fallback?: Pick<ResolverTextNode, 'fontFamily' | 'fontReference' | 'fontWeight' | 'fontStyle'>,
+): FontResolutionReference[] {
+  const results: FontResolutionReference[] = [];
+  for (const paragraph of story.content?.paragraphs ?? []) {
+    for (const run of paragraph.runs) {
+      const family = run.format?.fontFamily ?? fallback?.fontFamily;
+      if (!family) continue;
+      results.push({
+        family,
+        fontReference: inheritedFontReference(
+          fallback?.fontFamily,
+          fallback?.fontReference,
+          run.format?.fontFamily,
+          run.format?.fontReference,
+        ),
+        weight: run.format?.fontWeight ?? fallback?.fontWeight,
+        style: run.format?.fontStyle ?? fallback?.fontStyle,
+        text: run.text,
+      });
+    }
+  }
+  return results;
+}
+
+function recordMissingReference(
+  familyNodes: Map<string, MissingFamilyRecord>,
+  catalog: FontCatalog,
+  reference: FontResolutionReference,
+  nodeIds: readonly string[],
+): void {
+  const key = reference.fontReference
+    ? `reference:${fontReferenceKey(reference.fontReference)}`
+    : `family:${reference.family.toLowerCase()}`;
+  const entry = resolveCatalogEntry(catalog, reference);
+  const missingGlyphs = entry ? findMissingGlyphs(reference.text, entry) : [];
+  if (entry && missingGlyphs.length === 0) return;
+
+  const classified = classifyMissingReference(catalog, reference);
+  const status: MissingFontStatus = missingGlyphs.length > 0 ? 'missing-glyph' : classified.status;
+  const diagnostic: MissingFontDiagnostic =
+    missingGlyphs.length > 0 ? missingFontDiagnostic('missing-glyph') : classified.diagnostic;
+  const existing = familyNodes.get(key);
+  if (existing) {
+    for (const nodeId of nodeIds) {
+      if (!existing.nodeIds.includes(nodeId)) existing.nodeIds.push(nodeId);
+    }
+    if (existing.weight === undefined) existing.weight = reference.weight;
+    if (existing.style === undefined) existing.style = reference.style;
+    for (const glyph of missingGlyphs) existing.missingGlyphs.add(glyph);
+    if (statusPriority(status) > statusPriority(existing.status)) {
+      existing.status = status;
+      existing.diagnostic = diagnostic;
+    }
+    return;
+  }
+
+  familyNodes.set(key, {
+    family: reference.family,
+    fontReference: reference.fontReference,
+    nodeIds: [...nodeIds],
+    weight: reference.weight,
+    style: reference.style,
+    missingGlyphs: new Set(missingGlyphs),
+    status,
+    diagnostic,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // FontResolver
 // ---------------------------------------------------------------------------
@@ -283,60 +372,27 @@ export class FontResolver {
    * node IDs collected.
    */
   detectMissing(doc: ResolverDocument, catalog: FontCatalog): MissingFontInfo[] {
-    const familyNodes = new Map<
-      string,
-      {
-        family: string;
-        fontReference?: FontReference;
-        nodeIds: string[];
-        weight?: number;
-        style?: string;
-        missingGlyphs: Set<string>;
-        status: MissingFontStatus;
-        diagnostic?: MissingFontDiagnostic;
-      }
-    >();
+    const familyNodes = new Map<string, MissingFamilyRecord>();
 
     // Scan text nodes
     for (const node of Object.values(doc.nodes)) {
       if (node.kind !== 'text') continue;
 
       for (const reference of getFontFamiliesFromNode(node as ResolverTextNode)) {
-        const family = reference.family;
-        const key = reference.fontReference
-          ? `reference:${fontReferenceKey(reference.fontReference)}`
-          : `family:${family.toLowerCase()}`;
-        const entry = resolveCatalogEntry(catalog, reference);
-        const missingGlyphs = entry ? findMissingGlyphs(reference.text, entry) : [];
-        if (entry && missingGlyphs.length === 0) continue;
-        const classified = classifyMissingReference(catalog, reference);
-        const status: MissingFontStatus =
-          missingGlyphs.length > 0 ? 'missing-glyph' : classified.status;
-        const diagnostic: MissingFontDiagnostic =
-          missingGlyphs.length > 0 ? missingFontDiagnostic('missing-glyph') : classified.diagnostic;
+        recordMissingReference(familyNodes, catalog, reference, [node.id]);
+      }
+    }
 
-        const existing = familyNodes.get(key);
-        if (existing) {
-          if (!existing.nodeIds.includes(node.id)) existing.nodeIds.push(node.id);
-          if (existing.weight === undefined) existing.weight = reference.weight;
-          if (existing.style === undefined) existing.style = reference.style;
-          for (const glyph of missingGlyphs) existing.missingGlyphs.add(glyph);
-          if (statusPriority(status) > statusPriority(existing.status)) {
-            existing.status = status;
-            existing.diagnostic = diagnostic;
-          }
-        } else {
-          familyNodes.set(key, {
-            family,
-            fontReference: reference.fontReference,
-            nodeIds: [node.id],
-            weight: reference.weight,
-            style: reference.style,
-            missingGlyphs: new Set(missingGlyphs),
-            status,
-            diagnostic,
-          });
-        }
+    // Linked stories own their rich text; every visible frame is retained as
+    // an affected location so one replacement updates the authoritative text
+    // once while the UI can still navigate to each frame.
+    for (const story of Object.values(doc.stories ?? {})) {
+      const frameIds = story.thread ?? [];
+      const fallbackNode = frameIds
+        .map((frameId) => doc.nodes[frameId])
+        .find((node): node is ResolverTextNode => node?.kind === 'text');
+      for (const reference of getFontFamiliesFromStory(story, fallbackNode)) {
+        recordMissingReference(familyNodes, catalog, reference, frameIds);
       }
     }
 
@@ -607,10 +663,39 @@ export class FontResolver {
       }
     }
 
+    const updatedStories = doc.stories ? { ...doc.stories } : undefined;
+    if (updatedStories) {
+      for (const [id, story] of Object.entries(updatedStories)) {
+        if (!story.content) continue;
+        let storyChanged = false;
+        const paragraphs = story.content.paragraphs.map((paragraph) => {
+          let paragraphChanged = false;
+          const runs = paragraph.runs.map((run) => {
+            if (!matches(run.format?.fontFamily, run.format?.fontReference)) return run;
+            paragraphChanged = true;
+            return {
+              ...run,
+              format: replaceFormat(run.format ?? {}),
+            };
+          });
+          if (!paragraphChanged) return paragraph;
+          storyChanged = true;
+          return { ...paragraph, runs };
+        });
+        if (storyChanged) {
+          updatedStories[id] = {
+            ...story,
+            content: { ...story.content, paragraphs },
+          };
+        }
+      }
+    }
+
     return {
       ...doc,
       nodes: updatedNodes,
       styles: updatedStyles,
+      stories: updatedStories,
     } as ResolverDocument;
   }
 

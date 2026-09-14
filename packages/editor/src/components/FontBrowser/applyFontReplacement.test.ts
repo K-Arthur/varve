@@ -201,6 +201,68 @@ describe('applyFontReplacement', () => {
     ]);
   });
 
+  it('updates the authoritative linked story for a scoped frame', () => {
+    let doc = createDocument('font-replacement-story');
+    const rootId = doc.pages?.[0]?.contentRoot;
+    if (!rootId) throw new Error('fixture page root missing');
+    const first = makeTextNode('story-frame-a', 'Frame A', { fontFamily: 'Old Story' });
+    const second = makeTextNode('story-frame-b', 'Frame B', { fontFamily: 'Old Story' });
+    doc = addChild(addChild(doc, rootId, first), rootId, second);
+    const firstNode = doc.nodes['story-frame-a'];
+    const secondNode = doc.nodes['story-frame-b'];
+    if (firstNode?.kind !== 'text' || secondNode?.kind !== 'text') {
+      throw new Error('story frame nodes missing');
+    }
+    doc = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        'story-frame-a': {
+          ...firstNode,
+          storyBinding: { storyId: 'story-1', threadIndex: 0 },
+        },
+        'story-frame-b': {
+          ...secondNode,
+          storyBinding: { storyId: 'story-1', threadIndex: 1 },
+        },
+      },
+      stories: {
+        'story-1': {
+          id: 'story-1',
+          name: 'Linked story',
+          thread: ['story-frame-a', 'story-frame-b'],
+          content: {
+            paragraphs: [
+              {
+                runs: [
+                  { text: 'Linked copy', format: { fontFamily: 'Old Story', fontWeight: 600 } },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    const updated = applyFontReplacement(
+      doc,
+      new FontCatalog(),
+      {
+        original: 'Old Story',
+        replacement: 'New Story',
+        applyToAll: true,
+        preserveOriginalReference: false,
+      },
+      { nodeIds: ['story-frame-a'] },
+    );
+
+    expect(updated.stories?.['story-1']?.content.paragraphs[0]?.runs[0]?.format).toMatchObject({
+      fontFamily: 'New Story',
+      fontWeight: 600,
+    });
+    expect(updated.stories?.['story-1']?.thread).toEqual(['story-frame-a', 'story-frame-b']);
+  });
+
   it('keeps provenance for distinct replacement faces of the same family', () => {
     const doc = createDocument('font-replacement-faces');
     const first = {
