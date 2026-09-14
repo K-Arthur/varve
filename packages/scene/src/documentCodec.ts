@@ -46,10 +46,17 @@ import { validatePhotoSourceBinding, validateRetouchProvenance } from './photoSo
 import { deserializeTiles, type SerializableTiles } from './rasterLayer';
 import { normalizeSavedAreaSelections } from './savedAreaSelection';
 import { createEmptySelectionSetsData } from './selectionSet';
+import { sha256Utf8 } from './sha256';
 import { normalizeStrokeIds } from './strokeIdentity';
 import { emptyTableModel, tableContentNodeIds } from './table';
 import { normalizeTableModelDefensively } from './tableOps';
-import { type NodeId, normalizeImageFillData, type Page, type SceneNode } from './types';
+import {
+  type NodeId,
+  normalizeImageFillData,
+  type Page,
+  type RasterMaskAsset,
+  type SceneNode,
+} from './types';
 import {
   CURRENT_DOCUMENT_VERSION,
   migrateDocumentDetailed,
@@ -228,9 +235,28 @@ function hasDepthMaskSource(doc: Document, node: SceneNode): boolean {
   return source ? hasImageFill(doc, source) : false;
 }
 
+/**
+ * Upgrade the short content id emitted by the first browser generative-mask
+ * implementation. `checksum` is a SHA-256 field, so the old 16-hex FNV id
+ * made DocumentCodec discard otherwise valid masks during save/reopen.
+ */
+function upgradeLegacyRasterMaskChecksum(asset: RasterMaskAsset): RasterMaskAsset {
+  if (
+    typeof asset.checksum !== 'string' ||
+    !/^[a-f0-9]{16}$/.test(asset.checksum) ||
+    hashContent(asset.dataUrl) !== asset.checksum
+  ) {
+    return asset;
+  }
+  return { ...asset, checksum: sha256Utf8(asset.dataUrl) };
+}
+
 function sanitizeRasterMaskState(doc: Document, warnings: DocumentCodecWarning[]): Document {
+  const normalizedAssets = Object.entries(doc.rasterMaskAssets ?? {}).map(
+    ([assetId, asset]) => [assetId, upgradeLegacyRasterMaskChecksum(asset)] as const,
+  );
   const validAssets = Object.fromEntries(
-    Object.entries(doc.rasterMaskAssets ?? {}).filter(([assetId, asset]) => {
+    normalizedAssets.filter(([assetId, asset]) => {
       const error = validateRasterMaskAsset(asset);
       if (!error) return true;
       warnings.push(

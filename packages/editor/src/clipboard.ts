@@ -1375,7 +1375,13 @@ export async function readClipboardUnifiedWithFallback(
     capturedClipboardSnapshots.delete(owned.operationId);
     removePendingRequest(owned);
   }
-  if (eventSnapshot) return readClipboardSnapshot(eventSnapshot);
+  // Some Chromium builds expose only text to the DOM ClipboardEvent for a
+  // custom `web ` MIME item, even though the async Clipboard API can read the
+  // rich payload. Prefer the event snapshot when it contains artwork, but
+  // fall through when it is text-only instead of turning an editable copy
+  // into a pasted text layer.
+  const eventResult = eventSnapshot ? await readClipboardSnapshot(eventSnapshot) : null;
+  if (eventResult && hasRichClipboardContent(eventResult)) return eventResult;
   const apiResult = await readClipboardUnified();
   if (hasRichClipboardContent(apiResult)) {
     return apiResult;
@@ -1437,5 +1443,5 @@ export async function readClipboardUnifiedWithFallback(
       // empty result rather than rejecting the whole paste() action.
     }
   }
-  return apiResult;
+  return eventResult ?? apiResult;
 }

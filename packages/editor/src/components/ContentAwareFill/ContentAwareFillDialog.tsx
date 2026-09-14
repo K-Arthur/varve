@@ -38,6 +38,7 @@ import {
   isImageShape,
   resolveRasterMaskAsset,
   type ShapeNode,
+  sha256Utf8,
 } from '@varve/scene';
 import { Button, Switch } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -2237,7 +2238,11 @@ export function ContentAwareFillDialog({
         width,
         height,
         byteLength: decodedDataUrlByteLength(dataUrl),
-        checksum: hashContent(dataUrl),
+        // Raster-mask validation reserves `checksum` for a real SHA-256
+        // digest. The short FNV content id is useful for asset naming but is
+        // not an integrity checksum and caused every generative mask to be
+        // discarded by DocumentCodec on save/reopen.
+        checksum: sha256Utf8(dataUrl),
       });
       const userMaskAsset = makeMaskAsset(
         'user',

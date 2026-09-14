@@ -12,6 +12,7 @@ import {
   readClipboardUnified,
   readClipboardUnifiedWithFallback,
   readFromClipboardEvent,
+  WEB_VARVE_MIME,
   writeClipboard,
   writeClipboardOutcome,
   writeClipboardRepresentation,
@@ -300,6 +301,48 @@ describe('readFromClipboardEvent', () => {
 
     expect(result.plainText).toBe('initiating text');
     clearCapturedClipboardEvent();
+  });
+
+  it('falls through a text-only paste event to the rich async clipboard payload', async () => {
+    clearCapturedClipboardEvent();
+    const originalClipboard = navigator.clipboard;
+    const varveJson = JSON.stringify({
+      format: 'varve-clipboard',
+      version: 2,
+      rootIds: ['n1'],
+      nodes: [{ id: 'n1', kind: 'shape', name: 'Rich clipboard node' }],
+    });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        read: vi.fn(async () => [
+          {
+            types: [WEB_VARVE_MIME, 'text/plain'],
+            getType: async (type: string) =>
+              new Blob([type === WEB_VARVE_MIME ? varveJson : 'Rich clipboard node'], {
+                type,
+              }),
+          },
+        ]),
+      },
+    });
+    try {
+      const request = createTransferRequest('paste', 'session-rich');
+      const dt = createDataTransferWithFiles([]);
+      dt.getData = (format: string) => (format === 'text/plain' ? 'Rich clipboard node' : '');
+      captureClipboardEvent({ clipboardData: dt } as ClipboardEvent, request);
+
+      const result = await readClipboardUnifiedWithFallback(undefined, request);
+
+      expect(result.varveData?.nodes[0]?.name).toBe('Rich clipboard node');
+      expect(result.importItems).toHaveLength(0);
+    } finally {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+      clearCapturedClipboardEvent();
+    }
   });
 
   it('routes an SVG embedded in HTML through the SVG import representation', async () => {
