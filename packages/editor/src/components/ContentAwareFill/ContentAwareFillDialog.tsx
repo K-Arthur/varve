@@ -3358,8 +3358,12 @@ export function ContentAwareFillDialog({
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    jobControllerRef.current.cancel();
-                    setStatus('idle');
+                    if (status === 'downloading') {
+                      handleCancelDownload();
+                    } else {
+                      jobControllerRef.current.cancel();
+                      setStatus('idle');
+                    }
                   }}
                 >
                   Cancel
