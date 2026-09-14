@@ -2935,6 +2935,14 @@ struct UpscaleImageOptions {
     job_id: Option<u64>,
 }
 
+/// The binary response remains the encoded image, while the event channel
+/// carries provenance for this specific request. Keeping the metadata out of
+/// the response body preserves the compact octet-stream IPC contract.
+struct UpscaleImageResult {
+    bytes: Vec<u8>,
+    execution_provider: String,
+}
+
 fn default_upscale_method() -> String {
     "bicubic".into()
 }
@@ -3107,11 +3115,15 @@ async fn upscale_image_command(
 
     let _ = app.emit(
         "upscale:done",
-        serde_json::json!({ "jobId": job_id, "cancelled": false }),
+        serde_json::json!({
+            "jobId": job_id,
+            "cancelled": false,
+            "executionProvider": result.execution_provider,
+        }),
     );
     // `Response` selects Tauri's application/octet-stream IPC response. A
     // Vec<u8> would be serialized as a large JSON number array.
-    Ok(Response::new(result))
+    Ok(Response::new(result.bytes))
 }
 
 /// Native live-effect kernels — raw RGBA request body, `x-varve-effect` JSON
@@ -3195,7 +3207,7 @@ fn upscale_image_impl(
     progress_callback: Option<varve_upscale::ProgressCallback>,
     cancel_flag: std::sync::Arc<AtomicBool>,
     gpu_workers: Option<acceleration::GpuWorkers>,
-) -> Result<Vec<u8>, String> {
+) -> Result<UpscaleImageResult, String> {
     if cancel_flag.load(Ordering::SeqCst) {
         return Err("Upscale cancelled".into());
     }
@@ -3230,14 +3242,21 @@ fn upscale_image_impl(
         ));
     }
 
-    let result = if method == "ai" {
+    let (result, execution_provider) = if method == "ai" {
         #[cfg(feature = "ai")]
         {
             let upscale_opts = varve_upscale::UpscaleOptions {
                 progress: progress_callback,
                 cancel: Some(cancel_flag.clone()),
             };
-            varve_upscale::ai_upscale(pixels, width, height, model_id, upscale_opts)?
+            // The current Real-ESRGAN route is CPU-backed. Keep this explicit
+            // until a provider-aware API can report the executor for this
+            // invocation; a selected provider or a loaded runtime is not
+            // execution evidence.
+            (
+                varve_upscale::ai_upscale(pixels, width, height, model_id, upscale_opts)?,
+                "native-cpu",
+            )
         }
         #[cfg(not(feature = "ai"))]
         {
@@ -3262,11 +3281,17 @@ fn upscale_image_impl(
             .ok()
         });
         if let Some(bytes) = gpu_result {
-            bytes
+            (bytes, "native-gpu")
         } else if mp > 4_000_000 {
-            varve_upscale::tiled_upscale(pixels, width, height, scale, 256, 16, filter)?
+            (
+                varve_upscale::tiled_upscale(pixels, width, height, scale, 256, 16, filter)?,
+                "native-cpu",
+            )
         } else {
-            varve_upscale::cpu_upscale(pixels, width, height, scale, filter)?
+            (
+                varve_upscale::cpu_upscale(pixels, width, height, scale, filter)?,
+                "native-cpu",
+            )
         }
     };
 
@@ -3287,7 +3312,10 @@ fn upscale_image_impl(
         )
         .map_err(|e| format!("PNG encode error: {e}"))?;
 
-    Ok(bytes)
+    Ok(UpscaleImageResult {
+        bytes,
+        execution_provider: execution_provider.to_string(),
+    })
 }
 
 // ── Image trace (native raster-to-vector) ──────────────
@@ -6058,7 +6086,8 @@ mod tests {
             None,
         )
         .expect("upscale_image should succeed");
-        let decoded = image::load_from_memory(&result).expect("result must be PNG");
+        assert_eq!(result.execution_provider, "native-cpu");
+        let decoded = image::load_from_memory(&result.bytes).expect("result must be PNG");
         assert_eq!(decoded.width(), 16);
         assert_eq!(decoded.height(), 16);
     }
