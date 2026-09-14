@@ -22,11 +22,14 @@ Apply creates one undoable document transaction.
 | Divide | Creates separate editable output components for the selected regions without fabricating a segment between disconnected components. |
 
 The unbounded exterior is never selectable. A bounded face that is empty under
-the authored fill rules is shown as an unavailable face; version 1 does not
-create new artwork in that empty face. Open paths, visible strokes, image and
-pattern paints, masks, effects, layout-managed children, instances, and live
-Boolean groups are reported as unsupported rather than silently flattened,
-outlined, or shifted to a new paint bounds.
+the authored fill rules (a hole, or an enclosed area no source fills) is
+selectable for Create only: Create fills it with a new editable shape and
+leaves every source untouched. Merge, Erase, Extract, and Divide explain that
+they need a filled region instead of silently ignoring the empty selection.
+Open paths, visible strokes, image and pattern paints, masks, effects,
+layout-managed children, instances, and live Boolean groups are reported as
+unsupported rather than silently flattened, outlined, or shifted to a new
+paint bounds.
 
 Whole-object Union, Subtract, Intersect, and Exclude remain available as
 separate commands. Shape Builder does not reinterpret a whole-object command
@@ -110,6 +113,13 @@ conversion as the Object menu command on the current selection, commits it as
 its own undoable step, and rebuilds the arrangement. Nothing is outlined
 silently: the action is only shown after eligibility has reported the stroke,
 and open paths without a stroke are told to be closed instead.
+
+Outlining a closed centre-line emits the converted geometry as an outer
+contour plus its inner hole rather than one self-touching keyhole ring.
+Even-odd classification of the keyhole form cut off the band on the connector
+side, so part of a freshly outlined stroke was reported “ready” yet could not
+be hovered, swept, or filled; the contour/hole form keeps the whole band a
+single selectable region.
 
 ## Interaction and accessibility
 

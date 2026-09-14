@@ -472,4 +472,56 @@ describe('Shape Builder degeneracy and fill-rule fixtures', () => {
       }
     }
   });
+
+  it('fills a bounded empty region with Create and rejects destructive actions on it', () => {
+    let doc = createDocument('empty-region', true);
+    const point = (x: number, y: number) => ({ x, y, handleIn: null, handleOut: null });
+    const outer = [point(0, 0), point(100, 0), point(100, 100), point(0, 100)];
+    const hole = [point(25, 25), point(25, 75), point(75, 75), point(75, 25)];
+    doc = addNode(
+      doc,
+      makeShapeNode(
+        'donut',
+        {
+          kind: 'path',
+          points: outer,
+          contours: [outer, hole],
+          holes: [hole],
+          closed: true,
+          tolerance: 3,
+          fillRule: 'evenodd',
+        },
+        { transform: identity },
+      ),
+    );
+
+    const model = buildShapeBuilderModel(doc, ['donut']);
+    expect(model.status).toBe('ready');
+    const emptyFace = model.faces.find((face) => !face.selectable && face.area === 2_500);
+    expect(emptyFace).toBeDefined();
+    expect(hitTestShapeBuilderFace(model, { x: 50, y: 50 })).toBeNull();
+    expect(
+      hitTestShapeBuilderFace(model, { x: 50, y: 50 }, undefined, { includeEmpty: true })?.id,
+    ).toBe(emptyFace!.id);
+
+    const created = applyShapeBuilderAction(doc, ['donut'], [emptyFace!.id], 'create', {
+      expectedRevision: model.revision,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    expect(created.createdNodeIds).toHaveLength(1);
+    expect(created.removedNodeIds).toHaveLength(0);
+    expect(created.doc.nodes.donut).toBeDefined();
+    const result = created.doc.nodes[created.createdNodeIds[0]!];
+    if (result?.kind === 'shape' && result.shape.kind === 'path') {
+      expect(ringArea(result.shape.contours![0]!)).toBeCloseTo(2_500, 6);
+    }
+
+    const merged = applyShapeBuilderAction(doc, ['donut'], [emptyFace!.id], 'merge', {
+      expectedRevision: model.revision,
+    });
+    expect(merged.ok).toBe(false);
+    if (merged.ok) return;
+    expect(merged.reason).toMatch(/empty|create/i);
+  });
 });

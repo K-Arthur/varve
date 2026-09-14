@@ -53,7 +53,7 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Holes, islands, and boundaries</h2>
         <p>
-          Donuts, nested islands, compound paths, self-intersections, shared edges, and transformed shapes are decomposed into selectable faces. Holes remain holes. The unbounded outside is never offered as a giant region, and a bounded empty face is shown as unavailable rather than silently turned into new artwork.
+          Donuts, nested islands, compound paths, self-intersections, shared edges, and transformed shapes are decomposed into selectable faces. Holes remain holes. The unbounded outside is never offered as a giant region. A bounded empty face—a hole or an enclosed area no shape fills—can be selected and filled with Create, which leaves every source untouched; Merge, Erase, Extract, and Divide say that they need a filled region instead of silently ignoring it.
         </p>
         <p>
           Ordinary rounded rectangles use the rendered rounded boundary, including per-corner radii and negative-direction geometry. Inline gradients keep their world placement; continuous/smoothed corners, open paths, visible strokes, image or pattern paints, shared gradient paints, masks, effects, instances, locked ancestors, and live Boolean groups are reported as unsupported. Convert or outline them explicitly when you need those semantics; Varve does not silently flatten or shift your source. Stretch, tangency, shared or coincident edges, and self-intersecting paths are decomposed deterministically with the authored even-odd or non-zero fill rule applied per source.

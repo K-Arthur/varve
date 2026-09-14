@@ -84,7 +84,7 @@ export class ShapeBuilderTool implements Tool {
       return { consumed: true };
     }
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
-    const hit = hitTestShapeBuilderFace(model, world);
+    const hit = hitTestShapeBuilderFace(model, world, undefined, { includeEmpty: true });
     this.gesturePointerId = e.pointerId;
     this.gestureModel = model;
     this.gestureStartCanvas = { x: e.clientX, y: e.clientY };
@@ -115,7 +115,8 @@ export class ShapeBuilderTool implements Tool {
     }
     if (this.gesturePointerId < 0) {
       const world = ctx.canvasToWorld(e.clientX, e.clientY);
-      this.hoveredFaceId = hitTestShapeBuilderFace(model, world)?.id ?? null;
+      this.hoveredFaceId =
+        hitTestShapeBuilderFace(model, world, undefined, { includeEmpty: true })?.id ?? null;
       this.publish(ctx, model);
       return;
     }
@@ -130,7 +131,9 @@ export class ShapeBuilderTool implements Tool {
     const dy = e.clientY - this.gestureStartCanvas.y;
     if (Math.hypot(dx, dy) > DRAG_THRESHOLD_CSS_PX) this.gestureDragging = true;
     if (this.gestureDragging) {
-      for (const face of facesCrossedBySegment(model, this.gestureLastWorld, world)) {
+      for (const face of facesCrossedBySegment(model, this.gestureLastWorld, world, {
+        includeEmpty: true,
+      })) {
         if (this.gestureToggle) {
           if (!this.gestureVisited.has(face.id)) {
             this.applyFaceSelection(face, true);
@@ -142,7 +145,8 @@ export class ShapeBuilderTool implements Tool {
       }
     }
     this.gestureLastWorld = world;
-    this.hoveredFaceId = hitTestShapeBuilderFace(model, world)?.id ?? null;
+    this.hoveredFaceId =
+      hitTestShapeBuilderFace(model, world, undefined, { includeEmpty: true })?.id ?? null;
     this.publish(ctx, model);
   }
 

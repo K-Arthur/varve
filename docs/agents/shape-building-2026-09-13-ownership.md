@@ -14,7 +14,11 @@ This record continues the shape-building capability audit at
 - `packages/scene/src/shapeBuilder.degeneracy.test.ts` — the new degeneracy,
   fill-rule, and action-policy fixture suite (this task).
 - `packages/editor/src/components/ShapeBuilderOverlay.tsx` and its new RTL test
-  — the explicit stroke-outline recovery action (this task).
+  — the explicit stroke-outline recovery action and bounded-empty-region
+  Create selection (this task).
+- `packages/scene/src/shapeBuilder.ts` — Merge-as-one-compound output and the
+  `{ includeEmpty: true }` selection option for filling bounded empty regions
+  (after the concurrent placement editor landed `ed50b9202`).
 - `packages/editor/src/components/CanvasOverlays.tsx` — one prop wire-up for
   that action (no new imports; hub-file budgets unchanged).
 - `tests/e2e/canvas/shape-builder.spec.ts` — browser workflow coverage,
@@ -52,3 +56,9 @@ as a contour; Create, Extract, and Divide keep one node per component. The
 disconnected fixture in `shapeBuilder.degeneracy.test.ts` asserts the
 distinction, and the full focused shape-builder matrix passed 47/47 after the
 change.
+
+Bounded empty faces are no longer dead UI: the tool opts into
+`{ includeEmpty: true }` hit testing and sweeps, Create fills the selected
+hole or enclosed unfilled area as a new editable shape with sources untouched,
+and destructive actions explain that they need a filled region. The donut
+oracle and the overlay RTL state test cover it.

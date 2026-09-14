@@ -1148,15 +1148,35 @@ function faceContains(face: ShapeBuilderFace, point: Point2D, tolerance: number)
   );
 }
 
+export interface ShapeBuilderFaceSelectionOptions {
+  /**
+   * Include bounded faces that are empty under every source fill rule. They
+   * cannot be merged, erased, or extracted because they contain no artwork,
+   * but Create may fill them with a new editable shape.
+   */
+  includeEmpty?: boolean;
+}
+
+function faceMatchesSelectionOptions(
+  face: ShapeBuilderFace,
+  options: ShapeBuilderFaceSelectionOptions,
+): boolean {
+  return face.selectable || (options.includeEmpty === true && face.filledBy.length === 0);
+}
+
 export function hitTestShapeBuilderFace(
   model: ShapeBuilderModel,
   point: Point2D,
   tolerance = model.tolerance,
+  options: ShapeBuilderFaceSelectionOptions = {},
 ): ShapeBuilderFace | null {
   if (model.status !== 'ready') return null;
   return (
     model.faces
-      .filter((face) => face.selectable && faceContains(face, point, tolerance))
+      .filter(
+        (face) =>
+          faceMatchesSelectionOptions(face, options) && faceContains(face, point, tolerance),
+      )
       .sort((a, b) => a.area - b.area || a.id.localeCompare(b.id))[0] ?? null
   );
 }
@@ -1165,10 +1185,11 @@ export function facesCrossedBySegment(
   model: ShapeBuilderModel,
   start: Point2D,
   end: Point2D,
+  options: ShapeBuilderFaceSelectionOptions = {},
 ): ShapeBuilderFace[] {
   if (model.status !== 'ready') return [];
   return model.faces.filter((face) => {
-    if (!face.selectable) return false;
+    if (!faceMatchesSelectionOptions(face, options)) return false;
     if (faceContains(face, start, model.tolerance) || faceContains(face, end, model.tolerance))
       return true;
     const rings = [face.outer, ...face.holes];
@@ -1183,13 +1204,14 @@ export function facesCrossedBySegment(
 export function previewShapeBuilderSelection(
   model: ShapeBuilderModel,
   faceIds: readonly string[],
+  options: ShapeBuilderFaceSelectionOptions = {},
 ): BooleanResult {
   if (model.status !== 'ready') {
     return { components: [], outerContours: [], holes: [], fillRule: 'evenodd' };
   }
   const requested = new Set(faceIds);
   const regions = model.faces
-    .filter((face) => requested.has(face.id) && face.selectable)
+    .filter((face) => requested.has(face.id) && faceMatchesSelectionOptions(face, options))
     .map(regionForFace);
   if (regions.length === 0)
     return { components: [], outerContours: [], holes: [], fillRule: 'evenodd' };
@@ -1226,11 +1248,16 @@ export function previewShapeBuilderAction(
   };
   if (model.status !== 'ready') return empty;
   const requested = new Set(faceIds);
-  const selectedFaces = model.faces.filter((face) => requested.has(face.id) && face.selectable);
+  const includeEmpty = action === 'create';
+  const selectedFaces = model.faces.filter(
+    (face) =>
+      requested.has(face.id) && (face.selectable || (includeEmpty && face.filledBy.length === 0)),
+  );
   if (selectedFaces.length === 0) return empty;
   const selected = previewShapeBuilderSelection(
     model,
     selectedFaces.map((face) => face.id),
+    { includeEmpty },
   );
   const output = action === 'erase' ? [] : outputRegionsForAction(action, selectedFaces, selected);
   if (action === 'create') return { selected, output, remainders: [] };
@@ -1386,16 +1413,28 @@ export function applyShapeBuilderAction(
       revision: model.revision,
     };
   }
-  const selectedFaces = model.faces.filter((face) => faceIds.includes(face.id) && face.selectable);
-  if (selectedFaces.length === 0)
+  const includeEmpty = action === 'create';
+  const selectedFaces = model.faces.filter(
+    (face) =>
+      faceIds.includes(face.id) &&
+      (face.selectable || (includeEmpty && face.filledBy.length === 0)),
+  );
+  if (selectedFaces.length === 0) {
+    const emptyRequested = model.faces.some(
+      (face) => faceIds.includes(face.id) && !face.selectable && face.filledBy.length === 0,
+    );
     return {
       ok: false,
-      reason: 'Select at least one filled region first.',
+      reason: emptyRequested
+        ? 'Those regions are empty. Use Create to fill them, or select a filled region.'
+        : 'Select at least one filled region first.',
       revision: model.revision,
     };
+  }
   const selectedResult = previewShapeBuilderSelection(
     model,
     selectedFaces.map((face) => face.id),
+    { includeEmpty },
   );
   if (action !== 'erase' && selectedResult.components.length === 0) {
     return {

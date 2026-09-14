@@ -90,7 +90,11 @@ function modelSelection(
 ) {
   if (model.revision !== revision || model.status !== 'ready') return [];
   const selected = new Set(selectedFaceIds);
-  return model.faces.filter((face) => selected.has(face.id) && face.selectable);
+  // Bounded empty faces are selectable for Create; they are not artwork, so
+  // destructive actions filter them out again in the scene layer.
+  return model.faces.filter(
+    (face) => selected.has(face.id) && (face.selectable || face.filledBy.length === 0),
+  );
 }
 
 export function ShapeBuilderOverlay({
@@ -123,6 +127,7 @@ export function ShapeBuilderOverlay({
       previewShapeBuilderSelection(
         model,
         selectedFaces.map((face) => face.id),
+        { includeEmpty: true },
       ),
     [model, selectedFaceKey],
   );
@@ -134,9 +139,13 @@ export function ShapeBuilderOverlay({
     [draft.selectedFaceIds, model, previewAction, selectedFaceKey, selectedFaces.length],
   );
   const selectedIds = new Set(draft.selectedFaceIds);
-  const hovered = model.faces.find((face) => face.id === draft.hoveredFaceId && face.selectable);
+  const hovered = model.faces.find((face) => face.id === draft.hoveredFaceId);
   const stale = model.revision !== draft.revision;
-  const canApply = model.status === 'ready' && !stale && selectedFaces.length > 0;
+  const hasFilledSelection = selectedFaces.some((face) => face.selectable);
+  const canApply = (action: ShapeBuilderAction): boolean =>
+    model.status === 'ready' &&
+    !stale &&
+    (action === 'create' ? selectedFaces.length > 0 : hasFilledSelection);
 
   return (
     <>
@@ -268,7 +277,9 @@ export function ShapeBuilderOverlay({
                 : actionPreview
                   ? `Previewing ${previewAction}. Amber outlines show source remainders; teal shows the committed output.`
                   : selectedFaces.length > 0
-                    ? `${selectedFaces.length} region${selectedFaces.length === 1 ? '' : 's'} selected. Create retains sources; other actions rebuild them.`
+                    ? hasFilledSelection
+                      ? `${selectedFaces.length} region${selectedFaces.length === 1 ? '' : 's'} selected. Create retains sources; other actions rebuild them.`
+                      : `${selectedFaces.length} empty region${selectedFaces.length === 1 ? '' : 's'} selected. Create fills ${selectedFaces.length === 1 ? 'it' : 'them'}; Merge, Erase, Extract, and Divide need a filled region.`
                     : 'Click a filled region or sweep across several regions.'}
           </div>
           {model.status === 'ready' && (
@@ -301,7 +312,7 @@ export function ShapeBuilderOverlay({
               key={action}
               type="button"
               className="varve-btn varve-btn--secondary"
-              disabled={!canApply}
+              disabled={!canApply(action)}
               aria-label={`${label} selected regions`}
               title={`${title} (${shortcut})`}
               onPointerEnter={() => setPreviewAction(action)}
