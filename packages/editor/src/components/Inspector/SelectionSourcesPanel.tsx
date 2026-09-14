@@ -3,7 +3,12 @@ import {
   combineAreaSelections,
   MAX_REFINE_RADIUS,
 } from '@varve/engine';
-import { buildParentIndexMap, fillCoverageOnNode, isImageShape } from '@varve/scene';
+import {
+  type ForegroundProposalSet,
+  mapProposalMaskToSource,
+  proposeForegroundSubjects,
+} from '@varve/engine/foregroundSelect';
+import { buildParentIndexMap, fillCoverageOnNode, getImageFill, isImageShape } from '@varve/scene';
 import { Icon, Select, Tooltip } from '@varve/ui';
 import { useState } from 'react';
 import { getActionRegistry } from '../../actions/ActionRegistry';
@@ -13,6 +18,7 @@ import { nodeWorldTransform } from '../../scene/world';
 import type { SelectionPaintTool } from '../../tools/SelectionPaintTool';
 import { deserializeAreaSelection, serializeAreaSelection } from '../../tools/savedAreaSelections';
 import { selectionCoverageForRasterNode } from '../../tools/selectionCoverage';
+import { areaSelectionFromMaskCoverage, decodeRasterMaskDataUrl } from '../../tools/selectionMask';
 import { DisclosureSection } from './controls/DisclosureSection';
 import { FieldRow } from './controls/FieldRow';
 import { RangeValueControl } from './controls/RangeValueControl';
@@ -64,6 +70,8 @@ export function SelectionSourcesPanel() {
   const [refineMinIsland, setRefineMinIsland] = useState(16);
   const [refineMaxHole, setRefineMaxHole] = useState(16);
   const [refineShift, setRefineShift] = useState(2);
+  const [subjectProposalSet, setSubjectProposalSet] = useState<ForegroundProposalSet | null>(null);
+  const [subjectProposalBusy, setSubjectProposalBusy] = useState(false);
   const selectedNode =
     state.selection.length === 1 ? state.document.nodes[state.selection[0]!] : undefined;
   const hasClosedPath =
@@ -134,6 +142,114 @@ export function SelectionSourcesPanel() {
     setAreaSelection?.(tool?.getOriginalSelection() ?? null);
     setTool('select');
     announce('Selection paint cancelled');
+  };
+
+  const applySubjectCandidate = (result: ForegroundProposalSet, index: number) => {
+    const candidate = result.candidates[index];
+    if (!candidate || selectedNode?.kind !== 'shape' || !isImageShape(selectedNode)) return;
+    const sourceMask = mapProposalMaskToSource(
+      candidate.mask,
+      result.analysisWidth,
+      result.analysisHeight,
+      result.width,
+      result.height,
+    );
+    if (!sourceMask) {
+      announce('The subject estimate could not be mapped to the image');
+      return;
+    }
+    const selection = areaSelectionFromMaskCoverage(
+      state.document,
+      selectedNode.id,
+      sourceMask,
+      result.width,
+      result.height,
+      'source-image-pixels',
+    );
+    if (!selection) {
+      announce('The subject estimate could not be converted into a selection');
+      return;
+    }
+    setAreaSelection?.(selection);
+    announce(
+      `Subject ${index + 1} selected (estimate score ${Math.round(candidate.score * 100)}%)`,
+    );
+  };
+
+  const selectSubject = async () => {
+    if (selectedNode?.kind !== 'shape' || !isImageShape(selectedNode)) {
+      announce('Select one image to find a subject');
+      return;
+    }
+    const image = getImageFill(selectedNode)?.image;
+    const source = image?.assetId
+      ? (state.document.assets?.[image.assetId]?.dataUrl ?? image.src)
+      : image?.src;
+    if (!image || !source) {
+      announce('The image source is unavailable');
+      return;
+    }
+    setSubjectProposalBusy(true);
+    setSubjectProposalSet(null);
+    try {
+      const decoded = await decodeRasterMaskDataUrl(source);
+      if (!decoded) {
+        announce('The image could not be decoded for subject selection');
+        return;
+      }
+      const result = proposeForegroundSubjects({
+        data: decoded.data,
+        width: decoded.width,
+        height: decoded.height,
+      });
+      if (result.candidates.length === 0) {
+        announce(
+          result.emptyReason === 'all-transparent'
+            ? 'The image has no visible pixels to select'
+            : 'No prominent foreground subject was found; use Magic Wand or Object Selection instead',
+        );
+        return;
+      }
+      setSubjectProposalSet(result);
+      // One click should produce a usable result. The top-ranked proposal is
+      // applied immediately and every alternative stays one click away.
+      applySubjectCandidate(result, 0);
+    } finally {
+      setSubjectProposalBusy(false);
+    }
+  };
+
+  const applyAllSubjectProposals = () => {
+    const result = subjectProposalSet;
+    if (!result || selectedNode?.kind !== 'shape' || !isImageShape(selectedNode)) return;
+    const union = new Uint8Array(result.width * result.height);
+    for (const candidate of result.candidates) {
+      const sourceMask = mapProposalMaskToSource(
+        candidate.mask,
+        result.analysisWidth,
+        result.analysisHeight,
+        result.width,
+        result.height,
+      );
+      if (!sourceMask) continue;
+      for (let index = 0; index < union.length; index += 1) {
+        if (sourceMask[index] !== 0) union[index] = 255;
+      }
+    }
+    const selection = areaSelectionFromMaskCoverage(
+      state.document,
+      selectedNode.id,
+      union,
+      result.width,
+      result.height,
+      'source-image-pixels',
+    );
+    if (!selection) {
+      announce('The subject estimate could not be converted into a selection');
+      return;
+    }
+    setAreaSelection?.(selection);
+    announce(`All ${result.candidates.length} proposals selected`);
   };
 
   const applyRefine = () => {
@@ -364,6 +480,19 @@ export function SelectionSourcesPanel() {
               Luminance
             </button>
           </Tooltip>
+          <Tooltip
+            label="Select subject (quick estimate)"
+            disabledReason={!hasImage ? 'Select one image to use this command' : undefined}
+          >
+            <button
+              type="button"
+              className="insp-selection-sources__button"
+              disabled={!hasImage || subjectProposalBusy}
+              onClick={() => void selectSubject()}
+            >
+              {subjectProposalBusy ? 'Finding subjects…' : 'Select subject'}
+            </button>
+          </Tooltip>
           <label className="insp-selection-sources__name-field">
             <span>Name</span>
             <input
@@ -382,6 +511,45 @@ export function SelectionSourcesPanel() {
             Save selection
           </button>
         </div>
+        {subjectProposalSet && subjectProposalSet.candidates.length > 0 && (
+          <section className="insp-selection-sources__session" aria-label="Subject proposals">
+            <span className="insp-selection-sources__session-label">
+              Foreground estimate · {subjectProposalSet.candidates.length}{' '}
+              {subjectProposalSet.candidates.length === 1 ? 'proposal' : 'proposals'}
+            </span>
+            <div className="insp-selection-sources__session-actions">
+              {subjectProposalSet.candidates.map((candidate, index) => (
+                <button
+                  key={`subject-${candidate.centroid.x.toFixed(4)}-${candidate.centroid.y.toFixed(4)}`}
+                  type="button"
+                  className="insp-selection-sources__button"
+                  aria-label={`Subject ${index + 1}, estimate score ${Math.round(candidate.score * 100)} percent`}
+                  onClick={() => applySubjectCandidate(subjectProposalSet, index)}
+                >
+                  Subject {index + 1} · {Math.round(candidate.coverage * 100)}% area
+                </button>
+              ))}
+              <button
+                type="button"
+                className="insp-selection-sources__button"
+                onClick={applyAllSubjectProposals}
+              >
+                All subjects
+              </button>
+              <button
+                type="button"
+                className="insp-selection-sources__button"
+                onClick={() => setSubjectProposalSet(null)}
+              >
+                Dismiss
+              </button>
+            </div>
+            <p className="insp-field__hint">
+              Model-free estimate from border and centre contrast. It cannot recognise what an
+              object is; use Object Selection for a prompted mask.
+            </p>
+          </section>
+        )}
         {paintingSelection && (
           <section
             className="insp-selection-sources__session"

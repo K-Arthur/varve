@@ -48,6 +48,10 @@
     "./segmentationQuality": {
       "types": "./src/segmentation/quality/index.ts",
       "default": "./src/segmentation/quality/index.ts"
+    },
+    "./foregroundSelect": {
+      "types": "./src/intelligence/foregroundSelect.ts",
+      "default": "./src/intelligence/foregroundSelect.ts"
     }
   },
   "scripts": {
