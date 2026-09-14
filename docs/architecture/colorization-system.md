@@ -68,10 +68,10 @@ malformed. The result carries document, source, mask, palette, reference, and
 parameter identity so a caller can reject late work.
 
 A preview is bound to the selected source node, the authored parameter
-signature, and the request identity. Changing any of them leaves the old
-preview visible but marked out of date; both Apply entry points are disabled
-until a new preview is generated, and the commit helper re-checks the source
-before inserting anything.
+signature, and the request identity. Changing an authored control clears it;
+if the selected source changes, Apply stays disabled until a new preview
+matches the current source (any retained preview is marked out of date). The
+commit helper re-checks the source before inserting anything.
 
 ### Source and alpha rules
 
