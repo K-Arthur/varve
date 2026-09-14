@@ -191,8 +191,8 @@ proposals, and Home-thumbnail mockup decoration.
 | Focused mockup regression set | scene, engine, editor, package, panel, inspector, and action tests | 9 files / 83 tests pass |
 | E2E typecheck (clean baseline) | `pnpm typecheck:e2e` | pass before the later concurrent master changes; retained as baseline evidence |
 | Format/lint | `pnpm biome check` on all touched files | pass |
-| Docs audit | `pnpm audit:docs` | clean; the later rerun reported 828 docs, 456 links, and 174 ADRs indexed |
-| Emoji audit | `pnpm audit:emoji` | clean; the later rerun reported 4612 scanned files |
+| Docs audit | `pnpm audit:docs` | clean; no documentation drift or broken-link violations |
+| Emoji audit | `pnpm audit:emoji` | clean; no emoji violations |
 | Token audit | `pnpm audit:tokens` | 153/153 across 3 themes |
 | Scene typecheck | `pnpm exec tsc -p packages/scene/tsconfig.json --noEmit` | only a pre-existing unrelated test error |
 | Editor typecheck | `pnpm exec tsc -p packages/editor/tsconfig.json --noEmit` | 23 errors, all in unrelated in-flight files; zero in mockup/touched files |
