@@ -4,6 +4,10 @@ This document defines how Varve measures Object Selection quality and how a
 replacement segmentation runtime is accepted. It exists so that "the model
 looks fine on one screenshot" is never the acceptance bar.
 
+External product/model research and the observed Varve behaviour that
+motivated the 2026-09-13 smart-selection repairs are recorded in
+`docs/quality/smart-selection-research-2026-09-13.md`.
+
 ## Corpus
 
 `SEGMENTATION_CORPUS` in

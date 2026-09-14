@@ -23,8 +23,7 @@ Transient ObjectSelectionSession
         ├── Apply as mask (one document update)
         │   Document Mask.rasterMask → RasterMaskAsset
         └── Use as selection
-            transient analytical AreaSelection
-```
+            transient analytical AreaSelection```
 
 The current editor path calls the generic worker bridge and uses the verified
 split ONNX encoder/decoder adapter in `@varve/engine`; it does not instantiate
@@ -46,19 +45,34 @@ The overlay renders draft prompts even when no model frame exists, so a slow or
 unavailable model cannot make a valid user gesture appear to have been lost.
 
 Escape, Clear prompts, tool deactivation, selection changes, and document
-changes invalidate the generation and clear the transient preview. Apply and
-Enter commit the currently visible candidate directly; they do not rerun the
-decoder. A failed commit leaves the prompts and candidate available for retry.
+changes invalidate the generation and clear the transient preview. Apply,
+Enter, and Use as selection commit the currently visible candidate directly;
+they do not rerun the decoder, and the candidate index is pinned when the
+action is invoked so cycling during a pending commit cannot swap the mask.
+A failed or stale commit leaves the prompts and candidate available for retry.
+
+## Reviewed-candidate commit path
+
+"Apply as mask" and "Use as selection" share one commit path. Both revalidate
+the source fingerprint against the preview before converting, reject an
+all-zero candidate with a retryable `empty_result` error, and use the exact
+candidate the user inspected. The only difference is the destination: a
+document `RasterMaskAsset` or a transient analytical `AreaSelection`. An
+empty smart-selection result is never committed silently; the session stays
+open so prompts can be corrected.
 
 ## Interaction contract
 
 - A click creates one positive point.
 - Shift-click creates one negative point.
 - A drag creates a box prompt and does not inject a point at the drag origin.
+- Tapping an existing include/exclude marker removes that specific prompt
+  within a CSS-pixel tolerance; Backspace/Delete removes the last staged
+  prompt. Both are single-pointer operations.
 - Prompt edits remain transient until an output is chosen.
 - Apply as mask creates an editable document mask; Use as selection creates
   an ephemeral pixel-area selection without changing artwork or document
-  history.
+  history. Both consume the reviewed candidate.
 - Escape cancels the session; stale async generations cannot replace a newer
   result.
 - The preview labels the score according to its provenance: verified decoder
@@ -72,6 +86,33 @@ belong to the region indicated by these prompts”; that is not the same as
 semantic subject detection. The legacy `sam2Segment` command id is retained
 for compatibility, while the visible workflow is named Object Selection.
 Automatic subject trimming remains a separate bounds proposal/ranking path.
+
+## Automatic subject proposals
+
+`Select subject` in the Selection Sources panel is a separate, model-free
+capability. It never claims semantic recognition and never downloads a model:
+
+- The estimator (`@varve/engine/foregroundSelect`, exported as the
+  `@varve/engine/foregroundSelect` subpath) proposes candidates from two
+  evidence sources: a border flood through colour-continuous pixels
+  (background consumed from the edges) and a centre flood through
+  colour-similar pixels (a centred subject on a plain or gradient
+  background). Near-duplicate proposals are merged, and a subject that touches
+  the image border is still proposed by the centre path.
+- Candidates are ranked by the documented policy
+  `0.55·coverage + 0.25·centrality + 0.20·edgeAlignment` and returned with
+  analysis-resolution masks. Analysis runs on a plane capped at 1024 px on the
+  long edge, so the working set stays in the low megabytes even for very large
+  images; masks are mapped back to source pixels deterministically.
+- The top-ranked proposal is applied as an area selection immediately; every
+  alternative stays one click away, and "All subjects" unions the proposals.
+  Ranking never overrides a deliberate choice: clicking a candidate replaces
+  the selection explicitly.
+- Enclosed background-coloured regions stay inside a proposal (holes are not
+  punched automatically); the existing refinement tools can remove them.
+- `Select subject` cannot recognise what an object is. Text prompts, sky,
+  hair, or other semantic sub-selections remain separate capabilities; Object
+  Selection (prompted) is the path for a specific object.
 
 ## Automatic trim boundary
 
@@ -147,6 +188,9 @@ the release-gate procedure) for the required benchmark matrix.
 - Candidate masks can be cycled in the Inspector before Apply; the selected
   candidate is the mask committed to the document.
 - The current SAM2 graph is promptable, not a semantic subject detector.
+- The model-free subject estimate is a foreground heuristic ranked by
+  coverage/centrality/edge support. It is weakest on landscape or texture
+  scenes and is never labelled as semantic recognition.
 - Hair, fur, glass, smoke, and other fractional-transparency cases need the
   existing matting/refinement tools and visual review.
 - A fresh model download and frontend integration run is recorded in the
