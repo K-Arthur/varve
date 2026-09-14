@@ -9,6 +9,7 @@ import {
   makeGroupNode,
   makeShapeNode,
   makeTableNode,
+  makeTextNode,
   validateDocument,
 } from './document';
 import { DocumentCodec } from './documentCodec';
@@ -383,6 +384,63 @@ describe('DocumentCodec', () => {
     expect(closure.interactions?.[instance.id]).toHaveLength(1);
     expect(closure.timelines?.timeline?.tracks[0]?.nodeId).toBe(instance.id);
     expect(closure.nodeIds.has(master.id)).toBe(true);
+  });
+
+  it('scopes exact and legacy font manifest entries to the copied text closure', () => {
+    const exactReference = { artifactHash: 'a'.repeat(64), collectionIndex: 1 };
+    const selected = makeTextNode('selected-font', 'Selected', {
+      fontFamily: 'Shared Family',
+      fontReference: exactReference,
+    });
+    const unrelated = makeTextNode('unrelated-font', 'Other', { fontFamily: 'Other Family' });
+    const identity = (familyName: string, contentHash: string) => ({
+      contentHash,
+      postScriptName: `${familyName.replaceAll(' ', '-')}-Regular`,
+      familyName,
+      subfamilyName: 'Regular',
+      fullName: `${familyName} Regular`,
+    });
+    const doc = {
+      ...createDocument('font closure', true),
+      rootChildren: [selected.id, unrelated.id],
+      nodes: { [selected.id]: selected, [unrelated.id]: unrelated },
+      fontManifest: {
+        version: 2 as const,
+        fonts: [
+          {
+            familyName: 'Shared Family',
+            fontReference: exactReference,
+            identity: identity('Shared Family', exactReference.artifactHash),
+            source: 'project' as const,
+            embeddingRights: 'installable' as const,
+            status: 'available' as const,
+          },
+          {
+            familyName: 'Shared Family',
+            identity: identity('Shared Family', ''),
+            source: 'missing' as const,
+            embeddingRights: 'unknown' as const,
+            status: 'missing' as const,
+          },
+          {
+            familyName: 'Other Family',
+            identity: identity('Other Family', 'b'.repeat(64)),
+            source: 'system' as const,
+            embeddingRights: 'installable' as const,
+            status: 'available' as const,
+          },
+        ],
+      },
+    };
+
+    const closure = DocumentCodec.collectNodeClosure(doc, [selected.id]);
+
+    expect(closure.fontManifest?.fonts).toHaveLength(2);
+    expect(closure.fontManifest?.fonts.map((font) => font.familyName)).toEqual([
+      'Shared Family',
+      'Shared Family',
+    ]);
+    expect(closure.fontManifest?.fonts[0]?.fontReference).toEqual(exactReference);
   });
 
   it('collects table cell scene content and cross-root mask dependencies', () => {

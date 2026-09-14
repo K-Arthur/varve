@@ -12,7 +12,21 @@
  *
  * Research basis: Clipboard API (W3C), custom MIME types for structured data.
  */
+
 import type { DepthMapResource } from '@varve/engine';
+import { getFontRegistry } from '@varve/engine';
+import type {
+  EmbeddingRights,
+  FontEmbeddingPolicy,
+  FontReference,
+  FontSourceKind,
+} from '@varve/engine/font';
+import {
+  collectFontData,
+  FontLoader,
+  fontReferenceKey,
+  storeFontOnFilesystem,
+} from '@varve/engine/font';
 import type { Platform } from '@varve/platform';
 import {
   activePageNodes,
@@ -68,6 +82,8 @@ const LEGACY_CLIPBOARD_VERSION = 1 as const;
 const MAX_CLIPBOARD_JSON_BYTES = 64 * 1024 * 1024;
 const MAX_CLIPBOARD_NODES = 100_000;
 const MAX_CLIPBOARD_DEPTH = 256;
+const MAX_CLIPBOARD_FONT_DEPENDENCIES = 256;
+const MAX_CLIPBOARD_FONT_BYTES = 32 * 1024 * 1024;
 
 /** Every type a Varve payload may arrive under, prefixed or not. */
 function isVarvePayloadType(type: string): boolean {
@@ -95,6 +111,9 @@ export interface ClipboardData {
   dependencyIds?: string[];
   /** Accepted depth resources referenced by the copied mask/effect closure. */
   depthMaps?: Record<string, DepthMapResource>;
+  /** Font metadata and permitted local bytes required by this fragment. */
+  fontManifest?: Document['fontManifest'];
+  fontDependencies?: ClipboardFontDependency[];
   rasterMaskAssets?: Record<string, RasterMaskAsset>;
   assets?: Record<string, DocumentAsset>;
   iconAssets?: Record<string, DocumentIconAsset>;
@@ -125,6 +144,20 @@ export interface ClipboardData {
    * fragment that must be centered for the destination.
    */
   worldAnchor?: Record<string, Affine>;
+}
+
+export interface ClipboardFontDependency {
+  family: string;
+  fontReference?: FontReference;
+  postScriptName?: string;
+  requestedWeight?: number;
+  requestedStyle?: string;
+  source?: FontSourceKind;
+  embeddingRights?: EmbeddingRights;
+  embeddingPolicy?: FontEmbeddingPolicy;
+  /** `embedded` means the original bytes are present in dataBase64. */
+  status: 'embedded' | 'metadata-only' | 'missing' | 'restricted';
+  dataBase64?: string;
 }
 
 /** Immutable selection and geometry snapshot used by delayed exports. */
@@ -250,6 +283,198 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+interface ClipboardFontRequest {
+  family: string;
+  fontReference?: FontReference;
+}
+
+function clipboardFontRequestKey(request: ClipboardFontRequest): string {
+  return request.fontReference
+    ? `${request.family.toLowerCase()}\u0000${fontReferenceKey(request.fontReference)}`
+    : request.family.toLowerCase();
+}
+
+function collectClipboardFontRequests(
+  nodes: readonly SceneNode[],
+  styles?: Document['styles'],
+): ClipboardFontRequest[] {
+  const requests = new Map<string, ClipboardFontRequest>();
+  const add = (family: string | undefined, fontReference?: FontReference): void => {
+    const normalized = family?.trim();
+    if (!normalized) return;
+    const request = { family: normalized, ...(fontReference ? { fontReference } : {}) };
+    requests.set(clipboardFontRequestKey(request), request);
+  };
+  for (const node of nodes) {
+    if (node.kind !== 'text') continue;
+    add(node.fontFamily, node.fontReference);
+    for (const paragraph of node.richText?.paragraphs ?? []) {
+      for (const run of paragraph.runs ?? []) {
+        add(run.format?.fontFamily, run.format?.fontReference);
+      }
+    }
+  }
+  for (const style of Object.values(styles ?? {})) {
+    const candidate = style as unknown as {
+      type?: string;
+      fontFamily?: string;
+      fontReference?: FontReference;
+      format?: { fontFamily?: string; fontReference?: FontReference };
+      characterFormat?: { fontFamily?: string; fontReference?: FontReference };
+    };
+    if (candidate.type === 'text') add(candidate.fontFamily, candidate.fontReference);
+    add(candidate.format?.fontFamily, candidate.format?.fontReference);
+    add(candidate.characterFormat?.fontFamily, candidate.characterFormat?.fontReference);
+  }
+  return [...requests.values()].sort((a, b) =>
+    clipboardFontRequestKey(a).localeCompare(clipboardFontRequestKey(b)),
+  );
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  if (typeof btoa === 'function') return btoa(binary);
+  const BufferCtor = (
+    globalThis as unknown as {
+      Buffer?: { from(value: Uint8Array): { toString(encoding: string): string } };
+    }
+  ).Buffer;
+  return BufferCtor?.from(bytes).toString('base64') ?? '';
+}
+
+function base64ToBytes(value: string): Uint8Array | null {
+  try {
+    if (typeof atob === 'function') {
+      const binary = atob(value);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1)
+        bytes[index] = binary.charCodeAt(index);
+      return bytes;
+    }
+    const BufferCtor = (
+      globalThis as unknown as {
+        Buffer?: { from(value: string, encoding: string): Uint8Array };
+      }
+    ).Buffer;
+    return BufferCtor ? new Uint8Array(BufferCtor.from(value, 'base64')) : null;
+  } catch {
+    return null;
+  }
+}
+
+function isEmbeddingPermitted(rights: EmbeddingRights | undefined): boolean {
+  return rights === 'installable' || rights === 'editable' || rights === 'no-subsetting';
+}
+
+/** Build a portable, bounded font closure for a native/browser clipboard write. */
+async function prepareClipboardFontDependencies(
+  nodes: readonly SceneNode[],
+  styles: Document['styles'] | undefined,
+  manifest: Document['fontManifest'] | undefined,
+): Promise<ClipboardFontDependency[]> {
+  const requests = collectClipboardFontRequests(nodes, styles);
+  if (requests.length === 0) return [];
+  const manifestByKey = new Map<string, NonNullable<Document['fontManifest']>['fonts'][number]>();
+  for (const entry of manifest?.fonts ?? []) {
+    const key = entry.fontReference
+      ? `${entry.familyName.toLowerCase()}\u0000${fontReferenceKey(entry.fontReference)}`
+      : entry.familyName.toLowerCase();
+    manifestByKey.set(key, entry);
+  }
+  const exactRequests = requests.filter((request) => request.fontReference);
+  const records = await collectFontData(exactRequests, {
+    // Copying a layer must never start a remote font download. An explicit
+    // package export may fetch bundled assets; clipboard writes stay local.
+    fetchBundled: false,
+  });
+  const recordsByKey = new Map(
+    records.map((record) => [
+      clipboardFontRequestKey({ family: record.family, fontReference: record.fontReference }),
+      record,
+    ]),
+  );
+  let embeddedBytes = 0;
+  return requests.slice(0, MAX_CLIPBOARD_FONT_DEPENDENCIES).map((request) => {
+    const exactKey = clipboardFontRequestKey(request);
+    const entry =
+      manifestByKey.get(exactKey) ??
+      (!request.fontReference ? manifestByKey.get(request.family.toLowerCase()) : undefined);
+    const record = request.fontReference ? recordsByKey.get(exactKey) : undefined;
+    const rights = entry?.embeddingRights;
+    const canEmbed = Boolean(record && request.fontReference && isEmbeddingPermitted(rights));
+    const withinBudget = Boolean(
+      canEmbed && record && embeddedBytes + record.data.byteLength <= MAX_CLIPBOARD_FONT_BYTES,
+    );
+    if (withinBudget && record) embeddedBytes += record.data.byteLength;
+    const status: ClipboardFontDependency['status'] = withinBudget
+      ? 'embedded'
+      : rights === 'restricted'
+        ? 'restricted'
+        : request.fontReference && !record
+          ? 'missing'
+          : 'metadata-only';
+    const identity = entry?.identity;
+    return {
+      family: request.family,
+      ...(request.fontReference ? { fontReference: request.fontReference } : {}),
+      ...(identity?.postScriptName ? { postScriptName: identity.postScriptName } : {}),
+      ...(entry?.requestedWeight !== undefined ? { requestedWeight: entry.requestedWeight } : {}),
+      ...(entry?.requestedStyle ? { requestedStyle: entry.requestedStyle } : {}),
+      ...(entry?.source ? { source: entry.source } : {}),
+      ...(rights ? { embeddingRights: rights } : {}),
+      ...(entry?.embeddingPolicy ? { embeddingPolicy: entry.embeddingPolicy } : {}),
+      status,
+      ...(withinBudget && record ? { dataBase64: bytesToBase64(record.data) } : {}),
+    };
+  });
+}
+
+/** Restore permitted clipboard font bytes without dirtying the document. */
+export async function restoreClipboardFontDependencies(
+  dependencies: readonly ClipboardFontDependency[] | undefined,
+): Promise<{ restored: number; skipped: number }> {
+  let restored = 0;
+  let skipped = 0;
+  if (!dependencies) return { restored, skipped };
+  const loader = new FontLoader(undefined, getFontRegistry());
+  for (const dependency of dependencies.slice(0, MAX_CLIPBOARD_FONT_DEPENDENCIES)) {
+    if (dependency.status !== 'embedded' || !dependency.fontReference || !dependency.dataBase64) {
+      skipped++;
+      continue;
+    }
+    const bytes = base64ToBytes(dependency.dataBase64);
+    if (!bytes || bytes.byteLength > MAX_CLIPBOARD_FONT_BYTES) {
+      skipped++;
+      continue;
+    }
+    const reference = dependency.fontReference;
+    const metadata = {
+      providerId: 'clipboard',
+      artifactHash: reference.artifactHash,
+      collectionIndex: reference.collectionIndex,
+      faceKey: fontReferenceKey(reference),
+      ...(dependency.postScriptName ? { postScriptName: dependency.postScriptName } : {}),
+    };
+    try {
+      const buffer = bytes.buffer.slice(
+        bytes.byteOffset,
+        bytes.byteOffset + bytes.byteLength,
+      ) as ArrayBuffer;
+      await storeFontOnFilesystem(dependency.family, buffer, metadata);
+      const result = await loader.restoreFont(dependency.family, buffer, metadata);
+      if (result.success) restored++;
+      else skipped++;
+    } catch {
+      skipped++;
+    }
+  }
+  return { restored, skipped };
+}
+
 function serializeClipboardNode(node: SceneNode): SceneNode {
   if (node.kind !== 'rasterLayer') return node;
   const raster = node as RasterLayerNode;
@@ -336,6 +561,66 @@ function validResourceMap(value: unknown): boolean {
   return Object.values(value).every((entry) => isRecord(entry) && finitePayload(entry));
 }
 
+function validClipboardFontReference(value: unknown): value is FontReference {
+  if (!isRecord(value) || typeof value.artifactHash !== 'string') return false;
+  if (!/^[0-9a-f]{64}$/i.test(value.artifactHash)) return false;
+  return (
+    value.collectionIndex === undefined ||
+    (typeof value.collectionIndex === 'number' &&
+      Number.isInteger(value.collectionIndex) &&
+      value.collectionIndex >= 0)
+  );
+}
+
+function validClipboardFontDependencies(value: unknown): value is ClipboardFontDependency[] {
+  if (value === undefined) return true;
+  if (!Array.isArray(value) || value.length > MAX_CLIPBOARD_FONT_DEPENDENCIES) return false;
+  let totalBytes = 0;
+  for (const candidate of value) {
+    if (
+      !isRecord(candidate) ||
+      typeof candidate.family !== 'string' ||
+      candidate.family.length > 512
+    ) {
+      return false;
+    }
+    if (
+      candidate.fontReference !== undefined &&
+      !validClipboardFontReference(candidate.fontReference)
+    ) {
+      return false;
+    }
+    if (
+      !['embedded', 'metadata-only', 'missing', 'restricted'].includes(String(candidate.status))
+    ) {
+      return false;
+    }
+    if (candidate.dataBase64 !== undefined) {
+      if (
+        typeof candidate.dataBase64 !== 'string' ||
+        candidate.dataBase64.length > Math.ceil((MAX_CLIPBOARD_FONT_BYTES * 4) / 3) + 4 ||
+        !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
+          candidate.dataBase64,
+        )
+      ) {
+        return false;
+      }
+      const bytes = base64ToBytes(candidate.dataBase64);
+      if (!bytes) return false;
+      totalBytes += bytes.byteLength;
+      if (totalBytes > MAX_CLIPBOARD_FONT_BYTES) return false;
+    }
+    if (!finitePayload(candidate)) return false;
+  }
+  return true;
+}
+
+function validClipboardFontManifest(value: unknown): value is Document['fontManifest'] {
+  if (value === undefined) return true;
+  if (!isRecord(value) || (value.version !== 1 && value.version !== 2)) return false;
+  return Array.isArray(value.fonts) && value.fonts.length <= MAX_CLIPBOARD_FONT_DEPENDENCIES;
+}
+
 /** Reject NaN/Infinity anywhere in a transported fragment without recursive stack growth. */
 function finitePayload(value: unknown): boolean {
   const stack: Array<{ value: unknown; depth: number }> = [{ value, depth: 0 }];
@@ -369,6 +654,12 @@ export function parseClipboardData(text: string): ClipboardData | null {
     return null;
   }
   if (!isRecord(raw) || !Array.isArray(raw.nodes) || raw.nodes.length > MAX_CLIPBOARD_NODES) {
+    return null;
+  }
+  if (
+    !validClipboardFontManifest(raw.fontManifest) ||
+    !validClipboardFontDependencies(raw.fontDependencies)
+  ) {
     return null;
   }
   if (
@@ -452,6 +743,12 @@ export function parseClipboardData(text: string): ClipboardData | null {
     ...(rootIds ? { rootIds: [...rootIds] } : {}),
     ...(dependencyIds ? { dependencyIds: [...dependencyIds] } : {}),
     ...(isRecord(raw.depthMaps) ? { depthMaps: raw.depthMaps as ClipboardData['depthMaps'] } : {}),
+    ...(validClipboardFontManifest(raw.fontManifest)
+      ? { fontManifest: raw.fontManifest as ClipboardData['fontManifest'] }
+      : {}),
+    ...(Array.isArray(raw.fontDependencies)
+      ? { fontDependencies: raw.fontDependencies as ClipboardFontDependency[] }
+      : {}),
     ...(isRecord(raw.rasterMaskAssets)
       ? { rasterMaskAssets: raw.rasterMaskAssets as ClipboardData['rasterMaskAssets'] }
       : {}),
@@ -511,6 +808,8 @@ function serializeClipboardData(
   motionPresets?: Document['motionPresets'],
   dependencyIds?: string[],
   depthMaps?: Record<string, DepthMapResource>,
+  fontManifest?: Document['fontManifest'],
+  fontDependencies?: ClipboardFontDependency[],
 ): string {
   const data: ClipboardData = {
     format: VARVE_CLIPBOARD_FORMAT,
@@ -520,6 +819,8 @@ function serializeClipboardData(
     ...(rootIds && rootIds.length > 0 ? { rootIds: [...rootIds] } : {}),
     ...(dependencyIds && dependencyIds.length > 0 ? { dependencyIds: [...dependencyIds] } : {}),
     ...(depthMaps && Object.keys(depthMaps).length > 0 ? { depthMaps } : {}),
+    ...(fontManifest ? { fontManifest } : {}),
+    ...(fontDependencies && fontDependencies.length > 0 ? { fontDependencies } : {}),
     ...(rasterMaskAssets && Object.keys(rasterMaskAssets).length > 0 ? { rasterMaskAssets } : {}),
     ...(assets && Object.keys(assets).length > 0 ? { assets } : {}),
     ...(iconAssets && Object.keys(iconAssets).length > 0 ? { iconAssets } : {}),
@@ -581,6 +882,7 @@ export function writeClipboardOutcome(
   motionPresets?: Document['motionPresets'],
   dependencyIds?: string[],
   depthMaps?: Record<string, DepthMapResource>,
+  fontManifest?: Document['fontManifest'],
 ): Promise<ClipboardWriteOutcome> {
   return enqueueClipboardWrite((generation) =>
     writeClipboardOutcomeNow(
@@ -606,6 +908,7 @@ export function writeClipboardOutcome(
       generation,
       dependencyIds,
       depthMaps,
+      fontManifest,
     ),
   );
 }
@@ -699,12 +1002,15 @@ async function writeClipboardOutcomeNow(
   generation?: number,
   dependencyIds?: string[],
   depthMaps?: Record<string, DepthMapResource>,
+  fontManifest?: Document['fontManifest'],
 ): Promise<ClipboardWriteOutcome> {
   const isCurrentWrite = (): boolean =>
     generation === undefined || generation === latestClipboardWrite;
   if (!isCurrentWrite()) return { status: 'failed', reason: 'write-failed' };
   let json: string;
   try {
+    const fontDependencies = await prepareClipboardFontDependencies(nodes, styles, fontManifest);
+    if (!isCurrentWrite()) return { status: 'failed', reason: 'write-failed' };
     json = serializeClipboardData(
       nodes,
       rasterMaskAssets,
@@ -726,6 +1032,8 @@ async function writeClipboardOutcomeNow(
       motionPresets,
       dependencyIds,
       depthMaps,
+      fontManifest,
+      fontDependencies,
     );
   } catch {
     return { status: 'failed', reason: 'write-failed' };
@@ -874,6 +1182,15 @@ function createClipboardResult(): UnifiedClipboardResult {
   return { varveData: null, importItems: [] };
 }
 
+async function hydrateClipboardFonts(
+  result: UnifiedClipboardResult,
+): Promise<UnifiedClipboardResult> {
+  if (result.varveData?.fontDependencies) {
+    await restoreClipboardFontDependencies(result.varveData.fontDependencies);
+  }
+  return result;
+}
+
 function isSvgText(text: string): boolean {
   return /^(?:\uFEFF|\s|<!--(?:[\s\S]*?)-->)*(?:<\?xml\b[^>]*>\s*)?(?:<!--(?:[\s\S]*?)-->\s*)*<svg(?:\s|>)/i.test(
     text,
@@ -1018,7 +1335,7 @@ export async function readClipboardUnified(): Promise<UnifiedClipboardResult> {
   } catch {
     // Clipboard read failed or permission denied
   }
-  return result;
+  return hydrateClipboardFonts(result);
 }
 
 /**
@@ -1036,7 +1353,7 @@ export async function readFromClipboardEvent(
 ): Promise<UnifiedClipboardResult> {
   const dt = event.clipboardData;
   if (!dt) return createClipboardResult();
-  return readClipboardSnapshot(snapshotClipboardData(dt));
+  return hydrateClipboardFonts(await readClipboardSnapshot(snapshotClipboardData(dt)));
 }
 
 interface ClipboardFileSnapshot {
@@ -1381,7 +1698,9 @@ export async function readClipboardUnifiedWithFallback(
   // fall through when it is text-only instead of turning an editable copy
   // into a pasted text layer.
   const eventResult = eventSnapshot ? await readClipboardSnapshot(eventSnapshot) : null;
-  if (eventResult && hasRichClipboardContent(eventResult)) return eventResult;
+  if (eventResult && hasRichClipboardContent(eventResult)) {
+    return hydrateClipboardFonts(eventResult);
+  }
   const apiResult = await readClipboardUnified();
   if (hasRichClipboardContent(apiResult)) {
     return apiResult;
@@ -1392,7 +1711,7 @@ export async function readClipboardUnifiedWithFallback(
       if (nativeItem && nativeItem.data.byteLength <= MAX_CLIPBOARD_JSON_BYTES) {
         if (isVarvePayloadType(nativeItem.mimeType)) {
           const parsed = parseClipboardData(new TextDecoder().decode(nativeItem.data));
-          if (parsed) return { varveData: parsed, importItems: [] };
+          if (parsed) return hydrateClipboardFonts({ varveData: parsed, importItems: [] });
         } else if (
           nativeItem.mimeType === 'image/svg+xml' ||
           nativeItem.mimeType === 'text/svg+xml'

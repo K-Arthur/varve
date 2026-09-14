@@ -60,6 +60,7 @@ describe('buildPackageExport', () => {
 
     const manifest = readJson<PackageManifest>(entries, 'manifest.json');
     expect(manifest.kind).toBe('varve-package');
+    expect(manifest.schemaVersion).toBe('2.0');
     expect(manifest.compatibility.tier).toBe('lossless-varve-document');
     expect(manifest.assets[0]).toMatchObject({
       status: 'embedded',
@@ -145,6 +146,55 @@ describe('buildPackageExport', () => {
       expect.arrayContaining([firstReference, secondReference]),
     );
     expect(result.manifest.fonts.every((font) => font.bundled === false)).toBe(true);
+  });
+
+  it('includes exact faces referenced only by reusable text styles', async () => {
+    const reference = { artifactHash: 'c'.repeat(64), collectionIndex: 0 };
+    const doc: Document = {
+      ...createDocument('Styled Fonts', true),
+      styles: {
+        heading: {
+          id: 'heading',
+          type: 'text',
+          name: 'Heading',
+          fontFamily: 'Styled Family',
+          fontReference: reference,
+          fontSize: 32,
+        },
+      },
+      fontManifest: {
+        version: 2,
+        fonts: [
+          {
+            familyName: 'Styled Family',
+            fontReference: reference,
+            identity: {
+              contentHash: reference.artifactHash,
+              postScriptName: 'StyledFamily-Regular',
+              familyName: 'Styled Family',
+              subfamilyName: 'Regular',
+              fullName: 'Styled Family Regular',
+            },
+            source: 'project',
+            embeddingRights: 'installable',
+            status: 'available',
+          },
+        ],
+      },
+    };
+
+    const result = await buildPackageExport(doc);
+
+    expect(result.manifest.fonts).toEqual([
+      expect.objectContaining({
+        family: 'Styled Family',
+        fontReference: reference,
+        status: 'available',
+        embeddingStatus: 'installable',
+        bundled: false,
+      }),
+    ]);
+    expect(result.manifest.fontManifest?.fonts[0]?.fontReference).toEqual(reference);
   });
 
   it('packages retained generative sources, candidates, and contexts', async () => {

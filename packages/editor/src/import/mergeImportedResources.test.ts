@@ -6,11 +6,88 @@ import {
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
+  makeTextNode,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { mergeImportedResources } from './mergeImportedResources';
 
 describe('mergeImportedResources', () => {
+  it('merges exact font manifest provenance without collapsing same-family faces', () => {
+    const firstReference = { artifactHash: 'a'.repeat(64), collectionIndex: 0 };
+    const secondReference = { artifactHash: 'b'.repeat(64), collectionIndex: 1 };
+    const sourceNode = makeTextNode('source-font', 'Source', {
+      fontFamily: 'Shared Family',
+      fontReference: secondReference,
+    });
+    const source = {
+      ...createDocument('source-fonts'),
+      rootChildren: [sourceNode.id],
+      nodes: { [sourceNode.id]: sourceNode },
+      fontManifest: {
+        version: 2 as const,
+        fonts: [
+          {
+            familyName: 'Shared Family',
+            fontReference: secondReference,
+            identity: {
+              contentHash: secondReference.artifactHash,
+              postScriptName: 'SharedFamily-Bold',
+              familyName: 'Shared Family',
+              subfamilyName: 'Bold',
+              fullName: 'Shared Family Bold',
+            },
+            source: 'project' as const,
+            embeddingRights: 'installable' as const,
+            status: 'available' as const,
+          },
+        ],
+      },
+    };
+    const targetNode = makeTextNode('target-font', 'Target', {
+      fontFamily: 'Shared Family',
+      fontReference: firstReference,
+    });
+    const target = {
+      ...createDocument('target-fonts'),
+      rootChildren: [targetNode.id],
+      nodes: { [targetNode.id]: targetNode },
+      fontManifest: {
+        version: 2 as const,
+        fonts: [
+          {
+            familyName: 'Shared Family',
+            fontReference: firstReference,
+            identity: {
+              contentHash: firstReference.artifactHash,
+              postScriptName: 'SharedFamily-Regular',
+              familyName: 'Shared Family',
+              subfamilyName: 'Regular',
+              fullName: 'Shared Family Regular',
+            },
+            source: 'project' as const,
+            embeddingRights: 'installable' as const,
+            status: 'available' as const,
+          },
+        ],
+      },
+    };
+    const clone = deepCloneSubtree(source.nodes, target.nextId, sourceNode.id);
+    const merged = mergeImportedResources(
+      {
+        ...target,
+        nodes: { ...target.nodes, ...clone.nodes },
+        rootChildren: [...target.rootChildren, clone.rootId],
+        nextId: clone.nextId,
+      },
+      [{ sourceDoc: source, idMap: clone.idMap }],
+    );
+
+    expect(merged.fontManifest?.fonts.map((font) => font.fontReference)).toEqual(
+      expect.arrayContaining([firstReference, secondReference]),
+    );
+    expect(merged.fontManifest?.fonts).toHaveLength(2);
+  });
+
   it('remaps imported components, styles, variables and prototype targets', () => {
     const master = makeFrameNode('source-master', { name: 'Master' });
     const instance = {
@@ -391,5 +468,88 @@ describe('mergeImportedResources', () => {
     expect(importedEdit?.masks.userMaskAssetId).toBe(maskAssetId);
     expect(importedEdit?.variations[0]?.assetId).toBe(imageAssetId);
     expect(importedEdit?.variations[0]?.contextAssetId).toBe(imageAssetId);
+  });
+
+  it('drops foreign references instead of resolving coincident destination ids', () => {
+    const sourceNode = {
+      ...makeShapeNode('source-foreign-ref', { kind: 'rect', x: 0, y: 0, w: 32, h: 32 }),
+      fills: [
+        {
+          type: 'image' as const,
+          image: {
+            src: 'data:image/png;base64,AA==',
+            assetId: 'foreign-image',
+            fit: 'fill' as const,
+            x: 0,
+            y: 0,
+            scale: 1,
+          },
+          opacity: 1,
+          blendMode: 'normal' as const,
+          visible: true,
+        },
+      ],
+      mask: {
+        type: 'alpha' as const,
+        visible: true,
+        rasterMask: {
+          assetId: 'foreign-mask',
+          coordinateSpace: 'node-local-pixels' as const,
+          sourceIdentity: { kind: 'source-metadata' as const, locator: 'foreign', revision: 1 },
+        },
+      },
+    };
+    const source = {
+      ...createDocument('source-foreign'),
+      rootChildren: [sourceNode.id],
+      nodes: { [sourceNode.id]: sourceNode },
+      interactions: {
+        [sourceNode.id]: [
+          {
+            id: 'foreign-interaction',
+            nodeId: sourceNode.id,
+            name: 'Navigate',
+            trigger: { kind: 'onClick' },
+            actions: [{ kind: 'navigateTo', targetId: 'foreign-node' }],
+            enabled: true,
+          },
+        ],
+      },
+    };
+    const coincident = makeShapeNode('foreign-node', {
+      kind: 'rect',
+      x: 100,
+      y: 100,
+      w: 10,
+      h: 10,
+    });
+    const target = {
+      ...createDocument('target-foreign'),
+      nodes: { [coincident.id]: coincident },
+      rootChildren: [coincident.id],
+    };
+    const clone = deepCloneSubtree(source.nodes, target.nextId, sourceNode.id, {
+      dropForeignReferences: true,
+    });
+    const clonedDocument = {
+      ...target,
+      nodes: { ...target.nodes, ...clone.nodes },
+      rootChildren: [...target.rootChildren, clone.rootId],
+      nextId: clone.nextId,
+    };
+
+    const merged = mergeImportedResources(clonedDocument, [
+      { sourceDoc: source, idMap: clone.idMap },
+    ]);
+    const imported = merged.nodes[clone.rootId]!;
+    const action = merged.interactions?.[clone.rootId]?.[0]?.actions[0] as
+      | { targetId?: string }
+      | undefined;
+
+    expect(imported.fills?.[0]?.image?.assetId).toBeUndefined();
+    expect(imported.fills?.[0]?.image?.src).toBe('data:image/png;base64,AA==');
+    expect(imported.mask?.rasterMask).toBeUndefined();
+    expect(action?.targetId).toBeUndefined();
+    expect(action).not.toEqual(expect.objectContaining({ targetId: coincident.id }));
   });
 });

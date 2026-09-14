@@ -351,6 +351,42 @@ function mergeImportedAssets(target: Document, source: Document, maps: ResourceM
   };
 }
 
+function fontManifestEntryKey(
+  entry: NonNullable<Document['fontManifest']>['fonts'][number],
+): string {
+  const family = entry.familyName.trim().toLowerCase();
+  const reference = entry.fontReference;
+  return reference
+    ? `${family}\u0000${reference.artifactHash.toLowerCase()}:${reference.collectionIndex ?? 'single'}`
+    : `${family}\u0000legacy`;
+}
+
+function mergeFontManifests(
+  target: Document['fontManifest'],
+  source: Document['fontManifest'],
+): Document['fontManifest'] | undefined {
+  if (!target && !source) return undefined;
+  const entries = new Map<string, NonNullable<Document['fontManifest']>['fonts'][number]>();
+  for (const entry of target?.fonts ?? []) entries.set(fontManifestEntryKey(entry), entry);
+  for (const entry of source?.fonts ?? []) {
+    const key = fontManifestEntryKey(entry);
+    if (!entries.has(key)) entries.set(key, entry);
+  }
+  const replacements = new Map<
+    string,
+    NonNullable<NonNullable<Document['fontManifest']>['replacements']>[number]
+  >();
+  for (const replacement of [...(target?.replacements ?? []), ...(source?.replacements ?? [])]) {
+    const key = `${replacement.original.toLowerCase()}\u0000${replacement.replacement.toLowerCase()}\u0000${replacement.originalReference?.artifactHash ?? ''}`;
+    replacements.set(key, replacement);
+  }
+  return {
+    version: 2,
+    fonts: [...entries.values()],
+    ...(replacements.size > 0 ? { replacements: [...replacements.values()] } : {}),
+  };
+}
+
 function remapValue(value: string | boolean, nodeIds: Map<string, string>): string | boolean {
   return typeof value === 'string' ? (nodeIds.get(value) ?? value) : value;
 }
@@ -436,6 +472,7 @@ function mergeGroup(
   doc = mapped.doc;
   maps.iccProfileIds = mapped.ids;
   doc = mergeImportedAssets(doc, sourceDoc, maps);
+  const mergedFontManifest = mergeFontManifests(doc.fontManifest, sourceDoc.fontManifest);
 
   for (const id of Object.keys(sourceDoc.components)) {
     const allocated = allocateResourceId(doc, occupied);
@@ -772,6 +809,7 @@ function mergeGroup(
       ...(Object.keys(motionExtensions).length > 0 ? { motionExtensions } : {}),
       ...(Object.keys(motionPresets).length > 0 ? { motionPresets } : {}),
       ...(Object.keys(generativeEdits).length > 0 ? { generativeEdits } : {}),
+      ...(mergedFontManifest ? { fontManifest: mergedFontManifest } : {}),
     },
     maps,
   };

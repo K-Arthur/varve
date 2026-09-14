@@ -9,7 +9,11 @@
 import {
   collectFontData,
   type FontCatalog,
+  type FontEmbeddingPolicy,
+  type FontIdentity,
+  type FontManifestStatus,
   type FontReference,
+  type FontSourceKind,
   fontReferenceFromIdentity,
   fontReferenceKey,
 } from '@varve/engine/font';
@@ -42,7 +46,7 @@ export function embeddingStatusFromRights(fsType?: number): PackageFontEntry['em
 
 /** Determine if embedding rights permit including the font in a package. */
 function canBundleFont(status: PackageFontEntry['embeddingStatus']): boolean {
-  return status === 'installable' || status === 'editable';
+  return status === 'installable' || status === 'editable' || status === 'no-subsetting';
 }
 
 export interface PackageExportResult {
@@ -53,7 +57,7 @@ export interface PackageExportResult {
 }
 
 export interface PackageManifest {
-  schemaVersion: '1.0';
+  schemaVersion: '2.0';
   kind: 'varve-package';
   createdAt: string;
   document: {
@@ -65,6 +69,8 @@ export interface PackageManifest {
   contents: PackageContentEntry[];
   assets: PackageAssetEntry[];
   fonts: PackageFontEntry[];
+  /** The scoped document manifest retained alongside the package notes. */
+  fontManifest?: Document['fontManifest'];
   compatibility: {
     tier: 'lossless-varve-document';
     notes: string[];
@@ -101,6 +107,10 @@ export interface PackageFontEntry {
   family: string;
   /** Exact requested artifact/member when the document carries one. */
   fontReference?: FontReference;
+  identity?: FontIdentity;
+  source?: FontSourceKind;
+  status?: FontManifestStatus;
+  embeddingPolicy?: FontEmbeddingPolicy;
   bundled: boolean;
   reason: string;
   embeddingStatus:
@@ -132,11 +142,15 @@ export async function buildPackageExport(
   addJson(pkg, 'document.varve', 'document', DocumentCodec.encode(doc));
   addJson(pkg, 'tokens/tokens.dtcg.json', 'tokens', dtcgExport());
   addJson(pkg, 'assets/manifest.json', 'asset-manifest', { assets });
-  addJson(pkg, 'fonts/manifest.json', 'font-manifest', { fonts });
+  addJson(pkg, 'fonts/manifest.json', 'font-manifest', {
+    version: 2,
+    fonts,
+    ...(doc.fontManifest ? { documentManifest: doc.fontManifest } : {}),
+  });
   addJson(pkg, 'export-report.json', 'report', exportReport ?? emptyExportReport());
 
   const manifest: PackageManifest = {
-    schemaVersion: '1.0',
+    schemaVersion: '2.0',
     kind: 'varve-package',
     createdAt: new Date().toISOString(),
     document: {
@@ -148,6 +162,7 @@ export async function buildPackageExport(
     contents: pkg.contents,
     assets,
     fonts,
+    ...(doc.fontManifest ? { fontManifest: doc.fontManifest } : {}),
     compatibility: {
       tier: 'lossless-varve-document',
       notes: [
@@ -318,6 +333,18 @@ async function collectFonts(
       }
     }
   }
+  for (const style of Object.values(doc.styles ?? {})) {
+    const candidate = style as unknown as {
+      type?: string;
+      fontFamily?: string;
+      fontReference?: FontReference;
+      format?: { fontFamily?: string; fontReference?: FontReference };
+      characterFormat?: { fontFamily?: string; fontReference?: FontReference };
+    };
+    if (candidate.type === 'text') addRequest(candidate.fontFamily, candidate.fontReference);
+    addRequest(candidate.format?.fontFamily, candidate.format?.fontReference);
+    addRequest(candidate.characterFormat?.fontFamily, candidate.characterFormat?.fontReference);
+  }
 
   // Package export is an explicit user action, so bundled assets may be
   // resolved from the shipped registry. The manifest must still be honest:
@@ -352,7 +379,13 @@ async function collectFonts(
     const requestKey = fontReference
       ? `${family.toLocaleLowerCase()}\u0000${fontReferenceKey(fontReference)}`
       : family.toLocaleLowerCase();
-    const embeddingStatus = resolveEmbeddingStatus(family, catalog, fontReference);
+    const manifestEntry = findManifestEntry(doc.fontManifest, family, fontReference);
+    const embeddingStatus = resolveEmbeddingStatus(
+      family,
+      catalog,
+      fontReference,
+      manifestEntry?.embeddingRights,
+    );
     const canBundle = fontReference !== undefined && canBundleFont(embeddingStatus);
     const record = fontReference ? recordByRequest.get(requestKey) : undefined;
     const bundled = canBundle && record !== undefined;
@@ -368,6 +401,10 @@ async function collectFonts(
     return {
       family,
       ...(fontReference ? { fontReference } : {}),
+      ...(manifestEntry?.identity ? { identity: manifestEntry.identity } : {}),
+      ...(manifestEntry?.source ? { source: manifestEntry.source } : {}),
+      ...(manifestEntry?.status ? { status: manifestEntry.status } : {}),
+      ...(manifestEntry?.embeddingPolicy ? { embeddingPolicy: manifestEntry.embeddingPolicy } : {}),
       bundled,
       embeddingStatus,
       reason: embeddingReason(
@@ -385,11 +422,12 @@ function resolveEmbeddingStatus(
   family: string,
   catalog?: FontCatalog,
   fontReference?: FontReference,
+  manifestRights?: PackageFontEntry['embeddingStatus'],
 ): PackageFontEntry['embeddingStatus'] {
-  if (!catalog) return 'unknown';
+  if (!catalog) return manifestRights ?? 'unknown';
 
   const entries = catalog.getEntriesForFamily(family);
-  if (entries.length === 0) return 'unknown';
+  if (entries.length === 0) return manifestRights ?? 'unknown';
 
   const entry = fontReference
     ? entries.find((candidate) => {
@@ -400,7 +438,8 @@ function resolveEmbeddingStatus(
         );
       })
     : entries[0];
-  const rights = entry?.embeddingRights ?? entries[0]!.embeddingRights;
+  const rights =
+    entry?.embeddingRights ?? (fontReference ? manifestRights : entries[0]!.embeddingRights);
   switch (rights) {
     case 'installable':
       return 'installable';
@@ -415,6 +454,22 @@ function resolveEmbeddingStatus(
     default:
       return 'unknown';
   }
+}
+
+function findManifestEntry(
+  manifest: Document['fontManifest'],
+  family: string,
+  reference?: FontReference,
+): NonNullable<Document['fontManifest']>['fonts'][number] | undefined {
+  const normalized = family.toLowerCase();
+  return (manifest?.fonts ?? []).find((entry) => {
+    if (entry.familyName.toLowerCase() !== normalized) return false;
+    if (!reference) return !entry.fontReference;
+    return (
+      entry.fontReference !== undefined &&
+      fontReferenceKey(entry.fontReference) === fontReferenceKey(reference)
+    );
+  });
 }
 
 function embeddingReason(

@@ -8089,6 +8089,7 @@ export function EditorProvider({
           closure.motionPresets,
           dependencyIds,
           closure.depthMaps,
+          closure.fontManifest,
         ).then(
           (outcome) => {
             if (outcome.status === 'editable') {
@@ -8154,6 +8155,7 @@ export function EditorProvider({
           closure.motionPresets,
           dependencyIds,
           closure.depthMaps,
+          closure.fontManifest,
         ).then(
           (outcome) => {
             if (outcome.status !== 'editable') {
@@ -8290,6 +8292,7 @@ export function EditorProvider({
             nodes: tempNodes,
             ...(varveData.rasterMaskAssets ? { rasterMaskAssets: varveData.rasterMaskAssets } : {}),
             ...(varveData.depthMaps ? { depthMaps: varveData.depthMaps } : {}),
+            ...(varveData.fontManifest ? { fontManifest: varveData.fontManifest } : {}),
             ...(varveData.assets ? { assets: varveData.assets } : {}),
             ...(varveData.iconAssets ? { iconAssets: varveData.iconAssets } : {}),
             ...(varveData.mockupTemplates ? { mockupTemplates: varveData.mockupTemplates } : {}),

@@ -822,6 +822,61 @@ describe('readFromClipboardEvent', () => {
     ).toBeNull();
   });
 
+  it('carries scoped exact font metadata and permitted-byte references across clipboard reads', () => {
+    const reference = { artifactHash: 'a'.repeat(64), collectionIndex: 0 };
+    const fontManifest = {
+      version: 2 as const,
+      fonts: [
+        {
+          familyName: 'Clipboard Sans',
+          fontReference: reference,
+          identity: {
+            contentHash: reference.artifactHash,
+            postScriptName: 'ClipboardSans-Regular',
+            familyName: 'Clipboard Sans',
+            subfamilyName: 'Regular',
+            fullName: 'Clipboard Sans Regular',
+          },
+          source: 'project' as const,
+          embeddingRights: 'installable' as const,
+          status: 'available' as const,
+        },
+      ],
+    };
+    const parsed = parseClipboardData(
+      JSON.stringify({
+        format: 'varve-clipboard',
+        version: 2,
+        nodes: [
+          { id: 'font-node', kind: 'text', fontFamily: 'Clipboard Sans', fontReference: reference },
+        ],
+        rootIds: ['font-node'],
+        fontManifest,
+        fontDependencies: [
+          {
+            family: 'Clipboard Sans',
+            fontReference: reference,
+            postScriptName: 'ClipboardSans-Regular',
+            source: 'project',
+            embeddingRights: 'installable',
+            status: 'embedded',
+            dataBase64: 'AQID',
+          },
+        ],
+      }),
+    );
+
+    expect(parsed?.fontManifest?.fonts[0]?.fontReference).toEqual(reference);
+    expect(parsed?.fontDependencies).toEqual([
+      expect.objectContaining({
+        family: 'Clipboard Sans',
+        fontReference: reference,
+        status: 'embedded',
+        dataBase64: 'AQID',
+      }),
+    ]);
+  });
+
   it('round-trips dependency-only node ids without promoting them to roots', () => {
     const parsed = parseClipboardData(
       JSON.stringify({

@@ -223,6 +223,14 @@ collapse an authored bold or italic run to regular. This closes the Chromium
 feature-path defect while native WebKitGTK, Windows WebView2, and macOS
 WKWebView remain platform evidence obligations.
 Package export sets `bundled` only after writing verified bytes into `fonts/`.
+Package manifests use schema `2.0` and retain the document's scoped font
+manifest, including reusable text-style references and independent embedding
+policy metadata. Clipboard fragments use the same closure boundary: they carry
+exact face/member references and include local bytes only when the recorded
+embedding right permits it. Clipboard writes never fetch remote font URLs;
+permitted bytes are restored into hash-addressed local storage before a paste,
+without dirtying the receiving document. Family-only legacy requests remain
+metadata-only and are never promoted to an invented exact face.
 Export requests carry a document's exact `fontReference`, so same-family
 artifacts and collection members remain separate; an unavailable requested
 member is never silently replaced by a different family artifact. Exact
