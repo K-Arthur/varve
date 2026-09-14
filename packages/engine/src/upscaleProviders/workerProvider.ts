@@ -1,5 +1,5 @@
 import type { UpscaleOptions } from '../imageEnhancement';
-import { runUpscaleInWorker } from './enhancementWorkerHost';
+import { runUpscaleInWorker, runUpscaleInWorkerWithMetadata } from './enhancementWorkerHost';
 import type { UpscaleProvider } from './types';
 
 function workersAvailable(): boolean {
@@ -15,5 +15,8 @@ export const workerUpscaleProvider: UpscaleProvider = {
   },
   upscale(imageData, options, signal) {
     return runUpscaleInWorker(imageData, options, signal);
+  },
+  upscaleWithMetadata(imageData, options, signal) {
+    return runUpscaleInWorkerWithMetadata(imageData, options, signal);
   },
 };

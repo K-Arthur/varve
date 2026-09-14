@@ -19,11 +19,21 @@ vi.mock('onnxruntime-web', () => ({
 }));
 
 vi.mock('../backgroundRemoval/ortRuntimeAssets', () => ({ configureOrtRuntime }));
+const { getBestOnnxProviders } = vi.hoisted(() => ({
+  getBestOnnxProviders: vi.fn(async () => ['wasm']),
+}));
+vi.mock('../backgroundRemoval/environmentCapabilities', () => ({ getBestOnnxProviders }));
 
-import { copyUpscaledTileCore, packRgbChw, upscaleWithRealEsrgan } from './aiUpscale';
+import {
+  copyUpscaledTileCore,
+  packRgbChw,
+  upscaleWithRealEsrgan,
+  upscaleWithRealEsrganWithMetadata,
+} from './aiUpscale';
 
 describe('Real-ESRGAN worker helpers', () => {
   it('uses the shared single-threaded ORT runtime configuration', async () => {
+    getBestOnnxProviders.mockResolvedValue(['wasm']);
     createSession.mockResolvedValueOnce({
       inputNames: ['input'],
       outputNames: ['output'],
@@ -42,6 +52,43 @@ describe('Real-ESRGAN worker helpers', () => {
     expect(result.width).toBe(4);
     expect(result.height).toBe(4);
     expect(configureOrtRuntime).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries a model execution failure on WASM without overlapping sessions', async () => {
+    getBestOnnxProviders.mockResolvedValue(['webgpu', 'wasm']);
+    const gpuRelease = vi.fn(async () => {});
+    const wasmRelease = vi.fn(async () => {});
+    const gpuSession = {
+      inputNames: ['input'],
+      outputNames: ['output'],
+      run: vi.fn().mockRejectedValue(new Error('WebGPU operator unsupported')),
+      release: gpuRelease,
+    };
+    const wasmSession = {
+      inputNames: ['input'],
+      outputNames: ['output'],
+      run: vi.fn(async () => ({
+        output: { data: new Float32Array(4 * 4 * 3).fill(0.5), dims: [1, 3, 4, 4] },
+      })),
+      release: wasmRelease,
+    };
+    createSession.mockReset();
+    createSession.mockResolvedValueOnce(gpuSession).mockResolvedValueOnce(wasmSession);
+
+    const result = await upscaleWithRealEsrganWithMetadata(
+      new ImageData(1, 1),
+      '/models/realesr.onnx',
+      () => false,
+    );
+
+    expect(result.executionProvider).toBe('wasm');
+    expect(result.imageData.width).toBe(4);
+    expect(gpuRelease).toHaveBeenCalledOnce();
+    expect(wasmRelease).toHaveBeenCalledOnce();
+    expect(createSession.mock.calls.map((call) => call[1])).toEqual([
+      { executionProviders: ['webgpu'] },
+      { executionProviders: ['wasm'] },
+    ]);
   });
 
   it('packs RGB pixels as normalized NCHW planes', () => {

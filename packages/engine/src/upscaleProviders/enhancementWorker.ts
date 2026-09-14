@@ -5,7 +5,7 @@
 
 import { computeUpscalePreview, type UpscaleOptions, upscaleImageData } from '../imageEnhancement';
 import { type RasterTraceOptions, traceRasterToPaths } from '../rasterTrace';
-import { upscaleWithRealEsrgan } from './aiUpscale';
+import { upscaleWithRealEsrganWithMetadata } from './aiUpscale';
 import type { EnhancementWorkerRequest, EnhancementWorkerResponse } from './enhancementWorkerHost';
 
 const cancelled = new Set<string>();
@@ -33,7 +33,7 @@ self.onmessage = async (event: MessageEvent<EnhancementWorkerRequest>) => {
     const options = msg.options as UpscaleOptions;
 
     if (msg.type === 'upscale') {
-      let result: ImageData;
+      let result: { imageData: ImageData; executionProvider?: string };
       if (options.preview) {
         // Preview mode: use CPU preview for non-AI, AI preview handled via downsample
         if (options.method === 'ai') {
@@ -49,40 +49,47 @@ self.onmessage = async (event: MessageEvent<EnhancementWorkerRequest>) => {
               targetWidth: outW,
               targetHeight: outH,
             });
-            result = await upscaleWithRealEsrgan(downsampled, msg.modelPath ?? '', () =>
+            result = await upscaleWithRealEsrganWithMetadata(downsampled, msg.modelPath ?? '', () =>
               cancelled.has(msg.id),
             );
           } else {
-            result = await upscaleWithRealEsrgan(imageData, msg.modelPath ?? '', () =>
+            result = await upscaleWithRealEsrganWithMetadata(imageData, msg.modelPath ?? '', () =>
               cancelled.has(msg.id),
             );
           }
         } else {
           // CPU modes: use preview helper
-          result = computeUpscalePreview(imageData, options);
+          result = {
+            imageData: computeUpscalePreview(imageData, options),
+            executionProvider: 'browser-worker',
+          };
         }
       } else {
         // Full upscale
         result =
           options.method === 'ai'
-            ? await upscaleWithRealEsrgan(imageData, msg.modelPath ?? '', () =>
+            ? await upscaleWithRealEsrganWithMetadata(imageData, msg.modelPath ?? '', () =>
                 cancelled.has(msg.id),
               )
-            : upscaleImageData(imageData, options);
+            : {
+                imageData: upscaleImageData(imageData, options),
+                executionProvider: 'browser-worker',
+              };
       }
       if (cancelled.has(msg.id)) {
         cancelled.delete(msg.id);
         post({ type: 'cancelled', id: msg.id });
         return;
       }
-      const out = new Uint8ClampedArray(result.data);
+      const out = new Uint8ClampedArray(result.imageData.data);
       post(
         {
           type: 'upscale-result',
           id: msg.id,
-          width: result.width,
-          height: result.height,
+          width: result.imageData.width,
+          height: result.imageData.height,
           buffer: out.buffer as ArrayBuffer,
+          executionProvider: result.executionProvider,
         },
         [out.buffer as ArrayBuffer],
       );

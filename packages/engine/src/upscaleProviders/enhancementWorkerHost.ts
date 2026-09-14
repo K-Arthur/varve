@@ -33,6 +33,8 @@ export type EnhancementWorkerResponse =
       width: number;
       height: number;
       buffer: ArrayBuffer;
+      /** Provider selected for this completed model job, when observable. */
+      executionProvider?: string;
     }
   | {
       type: 'trace-result';
@@ -43,7 +45,7 @@ export type EnhancementWorkerResponse =
   | { type: 'cancelled'; id: string };
 
 type Pending = {
-  resolve: (value: ImageData | RasterTraceResult) => void;
+  resolve: (value: ImageData | RasterTraceResult, executionProvider?: string) => void;
   reject: (error: Error) => void;
   abortHandler?: () => void;
 };
@@ -72,7 +74,10 @@ function ensureWorker(): Worker {
       return;
     }
     if (msg.type === 'upscale-result') {
-      entry.resolve(new ImageData(new Uint8ClampedArray(msg.buffer), msg.width, msg.height));
+      entry.resolve(
+        new ImageData(new Uint8ClampedArray(msg.buffer), msg.width, msg.height),
+        msg.executionProvider,
+      );
       return;
     }
     entry.resolve(msg.result);
@@ -112,11 +117,16 @@ function imageDataToTransferable(imageData: ImageData): {
   };
 }
 
-export async function runUpscaleInWorker(
+export interface EnhancementWorkerUpscaleResult {
+  imageData: ImageData;
+  executionProvider?: string;
+}
+
+export async function runUpscaleInWorkerWithMetadata(
   imageData: ImageData,
   options: UpscaleOptions,
   signal?: AbortSignal,
-): Promise<ImageData> {
+): Promise<EnhancementWorkerUpscaleResult> {
   if (signal?.aborted) throw new Error('cancelled');
   let modelPath: string | undefined;
   if (options.method === 'ai') {
@@ -128,7 +138,7 @@ export async function runUpscaleInWorker(
   const id = `upscale-${nextId++}`;
   const { buffer, width, height } = imageDataToTransferable(imageData);
   const w = ensureWorker();
-  return new Promise<ImageData>((resolve, reject) => {
+  return new Promise<EnhancementWorkerUpscaleResult>((resolve, reject) => {
     const abortHandler = () => {
       w.postMessage({ type: 'cancel', id } satisfies EnhancementWorkerRequest);
       const entry = pending.get(id);
@@ -139,9 +149,9 @@ export async function runUpscaleInWorker(
       signal.addEventListener('abort', abortHandler, { once: true });
     }
     pending.set(id, {
-      resolve: (value) => {
+      resolve: (value, executionProvider) => {
         if (signal) signal.removeEventListener('abort', abortHandler);
-        resolve(value as ImageData);
+        resolve({ imageData: value as ImageData, executionProvider });
       },
       reject: (error) => {
         if (signal) signal.removeEventListener('abort', abortHandler);
@@ -162,6 +172,15 @@ export async function runUpscaleInWorker(
       [buffer],
     );
   });
+}
+
+export async function runUpscaleInWorker(
+  imageData: ImageData,
+  options: UpscaleOptions,
+  signal?: AbortSignal,
+): Promise<ImageData> {
+  const result = await runUpscaleInWorkerWithMetadata(imageData, options, signal);
+  return result.imageData;
 }
 
 export async function runTraceInWorker(
