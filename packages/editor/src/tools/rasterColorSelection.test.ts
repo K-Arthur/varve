@@ -60,7 +60,8 @@ describe('rasterColorSelectionAt', () => {
     );
 
     expect(selection).not.toBeNull();
-    expect(areaSelectionCoverageAt(selection!, { x: 6, y: 4 })).toBeGreaterThan(0.9);
+    // Raster-mask samples live at cell centres (pixel + 0.5).
+    expect(areaSelectionCoverageAt(selection!, { x: 6.5, y: 4.5 })).toBeGreaterThan(0.9);
   });
 
   it('does not create a selection from transparent pixels', () => {

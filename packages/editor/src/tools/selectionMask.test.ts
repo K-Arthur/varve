@@ -75,9 +75,11 @@ describe('selection mask bridge', () => {
       throw new Error('expected a raster-mask selection shape');
     }
     expect(selection.expression.shape.boundary.length).toBeGreaterThan(0);
-    expect(areaSelectionCoverageAt(selection!, { x: 10, y: 20 })).toBe(1);
-    expect(areaSelectionCoverageAt(selection!, { x: 11, y: 21 })).toBeCloseTo(0.5, 2);
-    expect(areaSelectionCoverageAt(selection!, { x: 12, y: 22 })).toBeCloseTo(0.25, 2);
+    // Container-local cells start at the frame origin; samples sit at their
+    // centres, so plane pixel (i, j) is evaluated at origin + i + 0.5.
+    expect(areaSelectionCoverageAt(selection!, { x: 10.5, y: 20.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(selection!, { x: 11.5, y: 21.5 })).toBeCloseTo(0.5, 2);
+    expect(areaSelectionCoverageAt(selection!, { x: 12.5, y: 22.5 })).toBeCloseTo(0.25, 2);
   });
 
   it('loads a one-channel candidate mask without treating RGB as coverage', () => {
@@ -91,8 +93,8 @@ describe('selection mask bridge', () => {
       'container-local-pixels',
     );
     expect(selection).not.toBeNull();
-    expect(areaSelectionCoverageAt(selection!, { x: 10, y: 20 })).toBe(1);
-    expect(areaSelectionCoverageAt(selection!, { x: 11, y: 20 })).toBe(0);
+    expect(areaSelectionCoverageAt(selection!, { x: 10.5, y: 20.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(selection!, { x: 11.5, y: 20.5 })).toBe(0);
   });
 
   it('does not leak selection into contain-fit image margins', () => {

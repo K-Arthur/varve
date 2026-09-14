@@ -740,8 +740,9 @@ describe('createActionHandlers — pixel selection refine & transform', () => {
     createActionHandlers(editor).areaSelectionGrow?.();
     expect(setAreaSelection).toHaveBeenCalledTimes(1);
     const next = setAreaSelection.mock.calls[0]![0];
-    expect(areaSelectionCoverageAt(next, { x: 5, y: 5 })).toBe(1);
-    expect(areaSelectionCoverageAt(next, { x: -1, y: 5 })).toBe(1);
+    // Raster-mask cells sample at +0.5; the grown mask spans doc [-1, 11].
+    expect(areaSelectionCoverageAt(next, { x: 5.5, y: 5.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(next, { x: -0.5, y: 5.5 })).toBe(1);
   });
 
   it('shrinks the active selection inward by one pixel', () => {

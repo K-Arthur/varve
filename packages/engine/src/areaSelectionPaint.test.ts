@@ -31,15 +31,15 @@ describe('Phase 4 — Selection Paint / Quick Mask', () => {
     const painted = paintSelectionMask(fullRect(20), []);
     expect(painted).not.toBeNull();
     expect(asRaster(painted!)).not.toBeNull();
-    expect(areaSelectionCoverageAt(painted!, { x: 10, y: 10 })).toBe(1); // interior
-    expect(areaSelectionCoverageAt(painted!, { x: 30, y: 10 })).toBe(0); // outside bounds
+    expect(areaSelectionCoverageAt(painted!, { x: 10.5, y: 10.5 })).toBe(1); // interior
+    expect(areaSelectionCoverageAt(painted!, { x: 30.5, y: 10.5 })).toBe(0); // outside bounds
   });
 
   it('subtracts a hard dab from the selection interior', () => {
     const subtract: MaskBrushStamp = { x: 10, y: 10, radius: 4, hardness: 1, mode: 'subtract' };
     const painted = paintSelectionMask(fullRect(20), [subtract])!;
-    expect(areaSelectionCoverageAt(painted, { x: 10, y: 10 })).toBe(0); // erased centre
-    expect(areaSelectionCoverageAt(painted, { x: 2, y: 2 })).toBe(1); // untouched corner
+    expect(areaSelectionCoverageAt(painted, { x: 10, y: 10 })).toBe(0); // erased centre (cell 9 centre)
+    expect(areaSelectionCoverageAt(painted, { x: 2.5, y: 2.5 })).toBe(1); // untouched corner
   });
 
   it('adds a hard dab back over a previously subtracted region', () => {
@@ -55,7 +55,7 @@ describe('Phase 4 — Selection Paint / Quick Mask', () => {
     // Dab centre on a pixel centre (doc 9.5) so the sampled pixel is fully erased.
     const soft: MaskBrushStamp = { x: 9.5, y: 9.5, radius: 6, hardness: 0, mode: 'subtract' };
     const painted = paintSelectionMask(fullRect(20), [soft])!;
-    expect(areaSelectionCoverageAt(painted, { x: 9, y: 9 })).toBe(0); // centre pixel erased
+    expect(areaSelectionCoverageAt(painted, { x: 9.5, y: 9.5 })).toBe(0); // centre pixel erased
     const mid = areaSelectionCoverageAt(painted, { x: 12.5, y: 9.5 }); // half-radius out
     expect(mid).toBeGreaterThan(0);
     expect(mid).toBeLessThan(1);

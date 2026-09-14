@@ -15,6 +15,17 @@ import {
   multiplyAffine,
   translate,
 } from '@varve/shared';
+import {
+  antialiasPlane,
+  borderPlane,
+  cleanupPlane,
+  contrastPlane,
+  gaussianBlurPlane,
+  growPlane,
+  shiftEdgePlane,
+  shrinkPlane,
+  smoothShapePlane,
+} from './areaSelectionMorphology';
 
 export type AreaSelectionOperation = 'replace' | 'add' | 'subtract' | 'intersect';
 
@@ -449,17 +460,25 @@ function shapeCoverage(shape: AreaSelectionShape, point: SelectionPoint): number
   }
 
   if (shape.kind === 'raster-mask') {
+    if (shape.w <= 0 || shape.h <= 0) return 0;
     const local = applyAffine(shape.inverseTransform, [point.x, point.y]);
-    const nx = ((local[0] - shape.x) / shape.w) * shape.width;
-    const ny = ((local[1] - shape.y) / shape.h) * shape.height;
-    if (nx < 0 || ny < 0 || nx >= shape.width || ny >= shape.height) return 0;
-    const x0 = Math.floor(nx);
-    const y0 = Math.floor(ny);
-    const x1 = Math.min(shape.width - 1, x0 + 1);
-    const y1 = Math.min(shape.height - 1, y0 + 1);
-    const tx = nx - x0;
-    const ty = ny - y0;
-    const at = (x: number, y: number) => shape.data[y * shape.width + x]! / 255;
+    // Stored samples live at the centres of their cells: pixel (i, j) covers
+    // document [x + i·w/W, x + (i+1)·w/W] and its sample sits at the midpoint.
+    // Sampling the lattice without the half-cell offset systematically shifted
+    // every raster-mask round trip by half a pixel.
+    const fx = ((local[0] - shape.x) / shape.w) * shape.width - 0.5;
+    const fy = ((local[1] - shape.y) / shape.h) * shape.height - 0.5;
+    if (fx < -0.5 || fy < -0.5 || fx > shape.width - 0.5 || fy > shape.height - 0.5) return 0;
+    const x0 = Math.floor(fx);
+    const y0 = Math.floor(fy);
+    const x1 = x0 + 1;
+    const y1 = y0 + 1;
+    const tx = fx - x0;
+    const ty = fy - y0;
+    const at = (x: number, y: number) =>
+      x < 0 || y < 0 || x >= shape.width || y >= shape.height
+        ? 0
+        : shape.data[y * shape.width + x]! / 255;
     const top = at(x0, y0) * (1 - tx) + at(x1, y0) * tx;
     const bottom = at(x0, y1) * (1 - tx) + at(x1, y1) * tx;
     return top * (1 - ty) + bottom * ty;
@@ -1299,21 +1318,70 @@ export function paintSelectionMask(
  * Morphological and coverage operations on a selection. These are inherently
  * raster operations, so the selection is rasterized over its (padded, bounded)
  * document-space bounds and the result is re-wrapped as a bounded raster-mask
- * shape. The analytical expression is intentionally dropped — refinement is a
- * one-shot destructive transform of coverage values, never an interactive
- * query — and rasterizing only the finite target keeps allocation bounded.
+ * shape. Refinement is a one-shot transform computed from the *current*
+ * selection; a caller that wants a non-accumulating preview must recompute
+ * from a session baseline rather than feeding each result back in.
+ *
+ * Operation semantics (also documented in
+ * `docs/architecture/selection-system.md`):
+ *
+ * - `grow` / `shrink`: greyscale dilation/erosion with a square radius
+ *   `amount` in document units; coverage values are preserved so a soft edge
+ *   translates outward/inward instead of being re-thresholded.
+ * - `smooth`: morphological opening+closing of the 50% shape with radius
+ *   `sigma`; removes boundary noise and small gaps without blurring a convex
+ *   edge.
+ * - `threshold`: hard cut at `threshold` (0..1, default 0.5).
+ * - `feather`: separable Gaussian with standard deviation `sigma`.
+ * - `contrast`: level remap around 0.5; `contrast` 1 removes all grey.
+ * - `antialias`: one-pixel binomial transition at the 50% contour.
+ * - `border`: hard ring of width `amount` around the contour; `placement`
+ *   selects inside, outside, or centered (half in, half out).
+ * - `shift-edge`: translate the coverage profile by the signed `amount` in
+ *   document units along the boundary normal, preserving softness.
+ * - `cleanup`: remove islands below `minIslandArea` and fill enclosed holes
+ *   up to `maxHoleArea`; retained coverage values are preserved.
+ *
+ * Zero-radius grow/shrink/feather/contrast/shift-edge calls are byte-exact
+ * no-ops. Negative and non-finite parameters are clamped to the documented
+ * ranges instead of producing NaN coverage.
  */
-export type AreaSelectionRefineOperation = 'grow' | 'shrink' | 'smooth' | 'threshold';
+export type AreaSelectionRefineOperation =
+  | 'grow'
+  | 'shrink'
+  | 'smooth'
+  | 'threshold'
+  | 'feather'
+  | 'contrast'
+  | 'antialias'
+  | 'border'
+  | 'shift-edge'
+  | 'cleanup';
 
 export interface RefineAreaSelectionOptions {
-  /** Dilation/erosion radius in document units (grow/shrink). Default 1. */
+  /** Radius/width/distance in document units (grow/shrink/border/shift-edge). Default 1. */
   amount?: number;
-  /** Gaussian-approximation sigma in document units (smooth). Default 1. */
+  /** Radius or standard deviation in document units (smooth/feather). Default 1. */
   sigma?: number;
   /** Hard-coverage cut (0..1) for the threshold operation. Default 0.5. */
   threshold?: number;
+  /** Contrast amount (0..1) for the contrast operation. Default 1. */
+  contrast?: number;
+  /** Ring placement for the border operation. Default 'centered'. */
+  placement?: 'inside' | 'outside' | 'centered';
+  /** Cleanup: remove 4-connected islands smaller than this area. */
+  minIslandArea?: number;
+  /** Cleanup: fill 4-connected enclosed holes up to this area. */
+  maxHoleArea?: number;
   /** Coverage samples used when rasterizing the source. Default 1. */
   samples?: number;
+}
+
+/** Hard cap on any refinement radius, in document units. */
+export const MAX_REFINE_RADIUS = 1024;
+
+function refineNumber(value: number | undefined, fallback: number): number {
+  return Number.isFinite(value) ? (value as number) : fallback;
 }
 
 export function refineAreaSelection(
@@ -1326,59 +1394,108 @@ export function refineAreaSelection(
   if (!Number.isFinite(generation) || generation < 0) return null;
 
   const bounds = areaSelectionBounds(selection.expression);
-  const amount = Math.max(0, Math.floor(finiteNonNegative(options.amount ?? 1)));
-  const sigma = finiteNonNegative(options.sigma ?? 1);
-  const threshold = Math.max(
-    0,
-    Math.min(1, Number.isFinite(options.threshold ?? 0.5) ? options.threshold! : 0.5),
+  const amount = Math.min(MAX_REFINE_RADIUS, Math.max(0, refineNumber(options.amount, 1)));
+  const signedAmount = Math.max(
+    -MAX_REFINE_RADIUS,
+    Math.min(MAX_REFINE_RADIUS, refineNumber(options.amount, 0)),
   );
+  const sigma = Math.min(MAX_REFINE_RADIUS, Math.max(0, refineNumber(options.sigma, 1)));
+  const threshold = Math.max(0, Math.min(1, refineNumber(options.threshold, 0.5)));
+  const contrastAmount = Math.max(0, Math.min(1, refineNumber(options.contrast, 1)));
+  const placement =
+    options.placement === 'inside' || options.placement === 'outside'
+      ? options.placement
+      : 'centered';
+  const minIslandArea = Math.max(0, Math.floor(refineNumber(options.minIslandArea, 0)));
+  const maxHoleArea = Math.max(0, Math.floor(refineNumber(options.maxHoleArea, 0)));
 
   let pad = 0;
-  if (operation === 'grow' || operation === 'shrink') pad = amount;
-  else if (operation === 'smooth') pad = Math.ceil(sigma * 3);
-
-  let x = bounds.x - pad;
-  let y = bounds.y - pad;
-  let width = Math.max(1, Math.ceil(bounds.w) + pad * 2);
-  let height = Math.max(1, Math.ceil(bounds.h) + pad * 2);
-
-  if (width > MAX_AREA_SELECTION_DIMENSION) {
-    const scale = MAX_AREA_SELECTION_DIMENSION / width;
-    x = bounds.x + (x - bounds.x) * scale;
-    width = MAX_AREA_SELECTION_DIMENSION;
+  switch (operation) {
+    case 'grow':
+    case 'shrink':
+      pad = Math.ceil(amount);
+      break;
+    case 'smooth':
+      pad = Math.round(sigma) + 1;
+      break;
+    case 'feather':
+      pad = Math.ceil(sigma * 3);
+      break;
+    case 'border':
+      pad = Math.ceil(amount) + 2;
+      break;
+    case 'shift-edge':
+      pad = Math.ceil(Math.abs(signedAmount)) + 2;
+      break;
+    case 'antialias':
+      pad = 1;
+      break;
+    default:
+      pad = 0;
+      break;
   }
-  if (height > MAX_AREA_SELECTION_DIMENSION) {
-    const scale = MAX_AREA_SELECTION_DIMENSION / height;
-    y = bounds.y + (y - bounds.y) * scale;
-    height = MAX_AREA_SELECTION_DIMENSION;
-  }
-  if (Number.isInteger(x) === false) x = Math.floor(x);
-  if (Number.isInteger(y) === false) y = Math.floor(y);
 
-  const source = rasterizeAreaSelection(selection, {
-    x,
-    y,
-    width,
-    height,
-    samples: Math.max(1, Math.min(MAX_SAMPLES, Math.floor(options.samples ?? 1))),
-  });
+  const regionX = Math.floor(bounds.x - pad);
+  const regionY = Math.floor(bounds.y - pad);
+  const regionW = Math.max(1, Math.ceil(bounds.w) + pad * 2);
+  const regionH = Math.max(1, Math.ceil(bounds.h) + pad * 2);
+  const size = boundedPlaneSize(regionW, regionH);
+  const width = size.width;
+  const height = size.height;
+  // Document units per plane pixel; radii are converted with the smaller
+  // axis so a radius never exceeds its requested document-space footprint.
+  const scale = Math.min(width / regionW, height / regionH);
+  const amountPx = Math.max(1, Math.round(amount * scale));
+  const sigmaPx = Math.max(1, sigma * scale);
+
+  let source: AlphaMask;
+  try {
+    source = rasterizeAreaSelection(selection, {
+      x: regionX,
+      y: regionY,
+      width,
+      height,
+      samples: Math.max(1, Math.min(MAX_SAMPLES, Math.floor(refineNumber(options.samples, 1)))),
+    });
+  } catch {
+    return null;
+  }
 
   let data: Uint8Array;
   switch (operation) {
     case 'grow':
-      data = dilateMask(source.data, width, height, amount);
+      data = growPlane(source.data, width, height, amountPx, 'exclude');
       break;
     case 'shrink':
-      data = erodeMask(source.data, width, height, amount);
+      data = shrinkPlane(source.data, width, height, amountPx, 'exclude');
       break;
     case 'smooth':
-      data = smoothMask(source.data, width, height, Math.max(1, Math.round(sigma)));
+      data = smoothShapePlane(source.data, width, height, Math.max(1, Math.round(sigmaPx)));
       break;
-    case 'threshold':
+    case 'threshold': {
       data = new Uint8Array(source.data.length);
       for (let i = 0; i < source.data.length; i += 1) {
         data[i] = source.data[i]! / 255 >= threshold ? 255 : 0;
       }
+      break;
+    }
+    case 'feather':
+      data = gaussianBlurPlane(source.data, width, height, sigmaPx);
+      break;
+    case 'contrast':
+      data = contrastPlane(source.data, contrastAmount);
+      break;
+    case 'antialias':
+      data = antialiasPlane(source.data, width, height);
+      break;
+    case 'border':
+      data = borderPlane(source.data, width, height, amountPx, placement);
+      break;
+    case 'shift-edge':
+      data = shiftEdgePlane(source.data, width, height, signedAmount * scale);
+      break;
+    case 'cleanup':
+      data = cleanupPlane(source.data, width, height, { minIslandArea, maxHoleArea });
       break;
     default:
       data = new Uint8Array(source.data);
@@ -1387,10 +1504,10 @@ export function refineAreaSelection(
 
   const refined = createAreaSelection({
     kind: 'raster-mask',
-    x,
-    y,
-    w: width,
-    h: height,
+    x: regionX,
+    y: regionY,
+    w: regionW,
+    h: regionH,
     width,
     height,
     data,
@@ -1402,104 +1519,4 @@ export function refineAreaSelection(
   });
   if (!refined) return null;
   return { ...refined, generation: Math.floor(generation) };
-}
-
-/** Separable max filter (morphological dilation) with box radius `r`. */
-function dilateMask(data: Uint8Array, width: number, height: number, r: number): Uint8Array {
-  const radius = Math.min(1024, Math.max(0, Math.floor(r)));
-  if (radius <= 0) return new Uint8Array(data);
-  const temp = new Uint8Array(width * height);
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      let max = 0;
-      for (let k = -radius; k <= radius; k += 1) {
-        const xx = x + k;
-        if (xx < 0 || xx >= width) continue;
-        const value = data[y * width + xx]!;
-        if (value > max) max = value;
-      }
-      temp[y * width + x] = max;
-    }
-  }
-  const out = new Uint8Array(width * height);
-  for (let x = 0; x < width; x += 1) {
-    for (let y = 0; y < height; y += 1) {
-      let max = 0;
-      for (let k = -radius; k <= radius; k += 1) {
-        const yy = y + k;
-        if (yy < 0 || yy >= height) continue;
-        const value = temp[yy * width + x]!;
-        if (value > max) max = value;
-      }
-      out[y * width + x] = max;
-    }
-  }
-  return out;
-}
-
-/** Separable min filter (morphological erosion) with box radius `r`. */
-function erodeMask(data: Uint8Array, width: number, height: number, r: number): Uint8Array {
-  const radius = Math.min(1024, Math.max(0, Math.floor(r)));
-  if (radius <= 0) return new Uint8Array(data);
-  const temp = new Uint8Array(width * height);
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      let min = 255;
-      for (let k = -radius; k <= radius; k += 1) {
-        const xx = x + k;
-        if (xx < 0 || xx >= width) continue;
-        const value = data[y * width + xx]!;
-        if (value < min) min = value;
-      }
-      temp[y * width + x] = min;
-    }
-  }
-  const out = new Uint8Array(width * height);
-  for (let x = 0; x < width; x += 1) {
-    for (let y = 0; y < height; y += 1) {
-      let min = 255;
-      for (let k = -radius; k <= radius; k += 1) {
-        const yy = y + k;
-        if (yy < 0 || yy >= height) continue;
-        const value = temp[yy * width + x]!;
-        if (value < min) min = value;
-      }
-      out[y * width + x] = min;
-    }
-  }
-  return out;
-}
-
-/** Separable box blur approximating a Gaussian with radius `r`. */
-function smoothMask(data: Uint8Array, width: number, height: number, r: number): Uint8Array {
-  const radius = Math.min(1024, Math.max(1, Math.floor(r)));
-  const temp = new Float32Array(width * height);
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      let sum = 0;
-      let count = 0;
-      for (let k = -radius; k <= radius; k += 1) {
-        const xx = x + k;
-        if (xx < 0 || xx >= width) continue;
-        sum += data[y * width + xx]!;
-        count += 1;
-      }
-      temp[y * width + x] = sum / count;
-    }
-  }
-  const out = new Uint8Array(width * height);
-  for (let x = 0; x < width; x += 1) {
-    for (let y = 0; y < height; y += 1) {
-      let sum = 0;
-      let count = 0;
-      for (let k = -radius; k <= radius; k += 1) {
-        const yy = y + k;
-        if (yy < 0 || yy >= height) continue;
-        sum += temp[yy * width + x]!;
-        count += 1;
-      }
-      out[y * width + x] = Math.round(sum / count);
-    }
-  }
-  return out;
 }

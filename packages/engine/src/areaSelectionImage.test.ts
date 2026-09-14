@@ -38,10 +38,10 @@ describe('Phase 7.1 — alpha/luminance selections', () => {
         [0, 0, 0, 64],
       ]),
     )!;
-    expect(areaSelectionCoverageAt(sel, { x: 0, y: 0 })).toBe(1);
-    expect(areaSelectionCoverageAt(sel, { x: 1, y: 0 })).toBeCloseTo(128 / 255, 5);
-    expect(areaSelectionCoverageAt(sel, { x: 0, y: 1 })).toBe(0);
-    expect(areaSelectionCoverageAt(sel, { x: 1, y: 1 })).toBeCloseTo(64 / 255, 5);
+    expect(areaSelectionCoverageAt(sel, { x: 0.5, y: 0.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(sel, { x: 1.5, y: 0.5 })).toBeCloseTo(128 / 255, 5);
+    expect(areaSelectionCoverageAt(sel, { x: 0.5, y: 1.5 })).toBe(0);
+    expect(areaSelectionCoverageAt(sel, { x: 1.5, y: 1.5 })).toBeCloseTo(64 / 255, 5);
   });
 
   it('selects by Rec.709 luma', () => {
@@ -52,9 +52,9 @@ describe('Phase 7.1 — alpha/luminance selections', () => {
         [128, 128, 128, 255],
       ]),
     )!;
-    expect(areaSelectionCoverageAt(sel, { x: 0, y: 0 })).toBe(1);
-    expect(areaSelectionCoverageAt(sel, { x: 1, y: 0 })).toBe(0);
-    expect(areaSelectionCoverageAt(sel, { x: 2, y: 0 })).toBeCloseTo(128 / 255, 5);
+    expect(areaSelectionCoverageAt(sel, { x: 0.5, y: 0.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(sel, { x: 1.5, y: 0.5 })).toBe(0);
+    expect(areaSelectionCoverageAt(sel, { x: 2.5, y: 0.5 })).toBeCloseTo(128 / 255, 5);
   });
 
   it('binarizes with threshold and supports inversion', () => {
@@ -63,10 +63,10 @@ describe('Phase 7.1 — alpha/luminance selections', () => {
       [0, 0, 0, 100],
     ]);
     const hard = areaSelectionFromImageAlpha(src, { threshold: 0.6 })!;
-    expect(areaSelectionCoverageAt(hard, { x: 0, y: 0 })).toBe(1);
-    expect(areaSelectionCoverageAt(hard, { x: 1, y: 0 })).toBe(0);
+    expect(areaSelectionCoverageAt(hard, { x: 0.5, y: 0.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(hard, { x: 1.5, y: 0.5 })).toBe(0);
     const inverted = areaSelectionFromImageAlpha(src, { invert: true })!;
-    expect(areaSelectionCoverageAt(inverted, { x: 0, y: 0 })).toBeCloseTo(55 / 255, 5);
+    expect(areaSelectionCoverageAt(inverted, { x: 0.5, y: 0.5 })).toBeCloseTo(55 / 255, 5);
   });
 
   it('returns null for malformed sources', () => {
@@ -86,23 +86,23 @@ describe('Phase 7.2 — colour range selection', () => {
       { r: 220, g: 30, b: 40 },
       { tolerance: 0.05 },
     )!;
-    expect(areaSelectionCoverageAt(sel, { x: 0, y: 0 })).toBe(1);
-    expect(areaSelectionCoverageAt(sel, { x: 1, y: 0 })).toBe(1);
-    expect(areaSelectionCoverageAt(sel, { x: 2, y: 0 })).toBe(0);
+    expect(areaSelectionCoverageAt(sel, { x: 0.5, y: 0.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(sel, { x: 1.5, y: 0.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(sel, { x: 2.5, y: 0.5 })).toBe(0);
   });
 
   it('restricts contiguous mode to the region reachable from the seed', () => {
     const src = rgbaSource(3, 1, [RED, BLUE, RED]);
     const target = { r: 220, g: 30, b: 40 };
     const global = areaSelectionFromColorRange(src, target, { tolerance: 0.05 })!;
-    expect(areaSelectionCoverageAt(global, { x: 2, y: 0 })).toBe(1); // far blob selected
+    expect(areaSelectionCoverageAt(global, { x: 2.5, y: 0.5 })).toBe(1); // far blob selected
     const contiguous = areaSelectionFromColorRange(src, target, {
       tolerance: 0.05,
       mode: 'contiguous',
       seed: { x: 0, y: 0 },
     })!;
-    expect(areaSelectionCoverageAt(contiguous, { x: 0, y: 0 })).toBe(1); // seed blob kept
-    expect(areaSelectionCoverageAt(contiguous, { x: 2, y: 0 })).toBe(0); // far blob excluded
+    expect(areaSelectionCoverageAt(contiguous, { x: 0.5, y: 0.5 })).toBe(1); // seed blob kept
+    expect(areaSelectionCoverageAt(contiguous, { x: 2.5, y: 0.5 })).toBe(0); // far blob excluded
   });
 
   it('ramps coverage across the feather band', () => {
@@ -114,8 +114,8 @@ describe('Phase 7.2 — colour range selection', () => {
       { r: 0, g: 0, b: 0 },
       { tolerance: 0.2, feather: 0.6 },
     )!;
-    expect(areaSelectionCoverageAt(sel, { x: 0, y: 0 })).toBe(1); // exact match
-    const mid = areaSelectionCoverageAt(sel, { x: 1, y: 0 });
+    expect(areaSelectionCoverageAt(sel, { x: 0.5, y: 0.5 })).toBe(1); // exact match
+    const mid = areaSelectionCoverageAt(sel, { x: 1.5, y: 0.5 });
     expect(mid).toBeGreaterThan(0);
     expect(mid).toBeLessThan(1);
   });
@@ -126,7 +126,7 @@ describe('Phase 7.2 — colour range selection', () => {
       { r: 220, g: 30, b: 40 },
       { tolerance: 0.05 },
     )!;
-    expect(areaSelectionCoverageAt(sel, { x: 0, y: 0 })).toBe(0);
+    expect(areaSelectionCoverageAt(sel, { x: 0.5, y: 0.5 })).toBe(0);
   });
 
   it('does not let hidden RGB bridge a contiguous colour range', () => {
@@ -140,8 +140,8 @@ describe('Phase 7.2 — colour range selection', () => {
       { r: 220, g: 30, b: 40 },
       { tolerance: 0.05, mode: 'contiguous', seed: { x: 0, y: 0 } },
     )!;
-    expect(areaSelectionCoverageAt(contiguous, { x: 0, y: 0 })).toBe(1);
-    expect(areaSelectionCoverageAt(contiguous, { x: 2, y: 0 })).toBe(0);
+    expect(areaSelectionCoverageAt(contiguous, { x: 0.5, y: 0.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(contiguous, { x: 2.5, y: 0.5 })).toBe(0);
   });
 
   it('validates options and seed', () => {
@@ -171,7 +171,9 @@ describe('Phase 7.2 — colour range selection', () => {
     )!;
     const raster = asRaster(sel)!;
     expect(raster.width).toBe(2);
-    expect(areaSelectionCoverageAt(sel, { x: 0, y: 0 })).toBe(1);
+    // The downscaled plane still spans the full 4x4 document frame; sample at
+    // the two plane cell centres (doc 1 and doc 3).
+    expect(areaSelectionCoverageAt(sel, { x: 1, y: 1 })).toBe(1);
     expect(areaSelectionCoverageAt(sel, { x: 3, y: 3 })).toBe(1); // far corner inside frame
   });
 });

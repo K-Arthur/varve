@@ -21,8 +21,10 @@ const columnPlane = (columns: number[]): AreaSelection => {
   return maskAreaSelectionFromPlane({ data, width: 4, height: 4 }, { x: 0, y: 0, w: 4, h: 4 })!;
 };
 
+// Raster-mask samples live at cell centres, so integer column indices sample
+// at x + 0.5 (and y + 0.5).
 const coverage = (sel: AreaSelection, x: number): number =>
-  areaSelectionCoverageAt(sel, { x, y: 0 });
+  areaSelectionCoverageAt(sel, { x: x + 0.5, y: 0.5 });
 
 describe('Phase 8 — coverage blends', () => {
   const a = rect(0, 2); // columns 0-1
@@ -66,9 +68,9 @@ describe('Phase 8 — coverage blends', () => {
     const soft = columnPlane([128, 128, 128, 128]);
     const hard = rect(0, 4);
     const multiplied = blendAreaSelections(soft, hard, 'multiply')!;
-    expect(areaSelectionCoverageAt(multiplied, { x: 0, y: 0 })).toBeCloseTo(128 / 255, 5);
+    expect(areaSelectionCoverageAt(multiplied, { x: 0.5, y: 0.5 })).toBeCloseTo(128 / 255, 5);
     const subtracted = blendAreaSelections(hard, soft, 'subtract')!;
-    expect(areaSelectionCoverageAt(subtracted, { x: 0, y: 0 })).toBeCloseTo(127 / 255, 5);
+    expect(areaSelectionCoverageAt(subtracted, { x: 0.5, y: 0.5 })).toBeCloseTo(127 / 255, 5);
   });
 
   it('blends across a union frame larger than either input', () => {

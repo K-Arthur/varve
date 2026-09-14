@@ -122,37 +122,35 @@ describe('refineAreaSelection', () => {
   it('grows a 1x1 rectangle into a 3x3 block with amount 1', () => {
     const grown = refineAreaSelection(rect(5, 5, 1, 1), 'grow', { amount: 1 });
     expect(grown).not.toBeNull();
-    expect(areaSelectionCoverageAt(grown!, { x: 5, y: 5 })).toBe(1);
-    expect(areaSelectionCoverageAt(grown!, { x: 4, y: 5 })).toBe(1);
-    expect(areaSelectionCoverageAt(grown!, { x: 6, y: 5 })).toBe(1);
-    expect(areaSelectionCoverageAt(grown!, { x: 3, y: 5 })).toBe(0);
+    // The refined mask stores samples at cell centres (doc coordinate + 0.5).
+    expect(areaSelectionCoverageAt(grown!, { x: 5.5, y: 5.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(grown!, { x: 4.5, y: 5.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(grown!, { x: 6.5, y: 5.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(grown!, { x: 3.5, y: 5.5 })).toBe(0);
   });
 
   it('shrinks a 5x5 rectangle into a 3x3 core with amount 1', () => {
     const shrunk = refineAreaSelection(rect(0, 0, 5, 5), 'shrink', { amount: 1 });
-    expect(areaSelectionCoverageAt(shrunk!, { x: 2, y: 2 })).toBe(1);
-    expect(areaSelectionCoverageAt(shrunk!, { x: 0, y: 2 })).toBe(0);
-    expect(areaSelectionCoverageAt(shrunk!, { x: 4, y: 2 })).toBe(0);
+    expect(areaSelectionCoverageAt(shrunk!, { x: 2.5, y: 2.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(shrunk!, { x: 0.5, y: 2.5 })).toBe(0);
+    expect(areaSelectionCoverageAt(shrunk!, { x: 4.5, y: 2.5 })).toBe(0);
   });
 
   it('shrinking by a large amount empties the selection', () => {
     const empty = refineAreaSelection(rect(0, 0, 3, 3), 'shrink', { amount: 5 });
-    expect(areaSelectionCoverageAt(empty!, { x: 1, y: 1 })).toBe(0);
+    expect(areaSelectionCoverageAt(empty!, { x: 1.5, y: 1.5 })).toBe(0);
   });
 
-  it('smooths a hard edge into a graded coverage ramp', () => {
+  it('smooths boundary irregularities without blurring a convex edge', () => {
     const smoothed = refineAreaSelection(rect(0, 0, 4, 4), 'smooth', { sigma: 1 });
-    const centre = areaSelectionCoverageAt(smoothed!, { x: 2, y: 2 });
-    const edge = areaSelectionCoverageAt(smoothed!, { x: 0, y: 2 });
-    expect(centre).toBe(1);
-    expect(edge).toBeGreaterThan(0);
-    expect(edge).toBeLessThan(1);
+    expect(areaSelectionCoverageAt(smoothed!, { x: 2.5, y: 2.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(smoothed!, { x: -1.5, y: 2.5 })).toBe(0);
   });
 
   it('thresholds soft coverage into a hard mask', () => {
     const selection = rect(0, 0, 4, 4, { feather: 2 });
     const hard = refineAreaSelection(selection, 'threshold', { threshold: 0.5 });
-    const inner = areaSelectionCoverageAt(hard!, { x: 2, y: 2 });
+    const inner = areaSelectionCoverageAt(hard!, { x: 2.5, y: 2.5 });
     expect(inner === 1 || inner === 0).toBe(true);
   });
 
@@ -175,5 +173,145 @@ describe('refineAreaSelection', () => {
     const base = rect(0, 0, 1, 1);
     const grown = refineAreaSelection(base, 'grow', { amount: 1 });
     expect(grown!.generation).toBe(base.generation + 1);
+  });
+
+  it('uses the documented default threshold instead of producing NaN coverage', () => {
+    const selection = rect(0, 0, 4, 4, { feather: 2 });
+    const hard = refineAreaSelection(selection, 'threshold');
+    expect(hard).not.toBeNull();
+    expect(areaSelectionCoverageAt(hard!, { x: 2.5, y: 2.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(hard!, { x: -1.5, y: 2.5 })).toBe(0);
+  });
+
+  it('is a no-op for zero-radius operations', () => {
+    const zeroFeather = refineAreaSelection(rect(0, 0, 4, 4), 'feather', { sigma: 0 });
+    expect(zeroFeather).not.toBeNull();
+    expect(areaSelectionCoverageAt(zeroFeather!, { x: 2.5, y: 2.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(zeroFeather!, { x: -1.5, y: 2.5 })).toBe(0);
+    const zeroContrast = refineAreaSelection(rect(0, 0, 4, 4), 'contrast', { contrast: 0 });
+    expect(areaSelectionCoverageAt(zeroContrast!, { x: 2.5, y: 2.5 })).toBe(1);
+  });
+
+  it('feathers a hard edge into a monotonic transition', () => {
+    const feathered = refineAreaSelection(rect(0, 0, 8, 8), 'feather', { sigma: 1 });
+    expect(feathered).not.toBeNull();
+    const samples = [-4, -1, 0, 1, 4].map((offset) =>
+      areaSelectionCoverageAt(feathered!, { x: offset, y: 4.5 }),
+    );
+    for (let i = 1; i < samples.length; i += 1) {
+      expect(samples[i]!).toBeGreaterThanOrEqual(samples[i - 1]!);
+    }
+    expect(samples[samples.length - 1]).toBe(1);
+    expect(samples[0]).toBe(0);
+    expect(samples[2]!).toBeGreaterThan(0);
+    expect(samples[2]!).toBeLessThan(1);
+  });
+
+  it('hardens a soft transition with contrast and never inverts it', () => {
+    const soft = rect(0, 0, 8, 8, { feather: 2 });
+    const before = [0.5, 1.5, 2.5, 3.5].map((x) => areaSelectionCoverageAt(soft, { x, y: 4.5 }));
+    const hardened = refineAreaSelection(soft, 'contrast', { contrast: 0.9 });
+    const after = [0.5, 1.5, 2.5, 3.5].map((x) =>
+      areaSelectionCoverageAt(hardened!, { x, y: 4.5 }),
+    );
+    for (let i = 0; i < before.length; i += 1) {
+      expect(after[i]!).toBeGreaterThanOrEqual(before[i]! - 1e-6);
+      expect(after[i]!).toBeLessThanOrEqual(1);
+    }
+    expect(after[after.length - 1]).toBe(1);
+  });
+
+  it('antialiases a hard boundary within one pixel', () => {
+    const soft = refineAreaSelection(rect(0, 0, 6, 6), 'antialias');
+    expect(soft).not.toBeNull();
+    // The centre stays fully selected and the exterior stays empty.
+    expect(areaSelectionCoverageAt(soft!, { x: 3.5, y: 3.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(soft!, { x: -2.5, y: 3.5 })).toBe(0);
+    // Sampling across the one-pixel transition yields fractional coverage.
+    const edge = areaSelectionCoverageAt(soft!, { x: 0, y: 3.5 });
+    expect(edge).toBeGreaterThan(0);
+    expect(edge).toBeLessThan(1);
+  });
+
+  it('builds a band around the boundary without selecting the interior', () => {
+    const inside = refineAreaSelection(rect(0, 0, 8, 8), 'border', {
+      amount: 2,
+      placement: 'inside',
+    });
+    expect(inside).not.toBeNull();
+    expect(areaSelectionCoverageAt(inside!, { x: 4.5, y: 4.5 })).toBe(0);
+    expect(areaSelectionCoverageAt(inside!, { x: 1.5, y: 4.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(inside!, { x: -1.5, y: 4.5 })).toBe(0);
+
+    const centered = refineAreaSelection(rect(0, 0, 8, 8), 'border', {
+      amount: 2,
+      placement: 'centered',
+    });
+    expect(areaSelectionCoverageAt(centered!, { x: -0.5, y: 4.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(centered!, { x: 0.5, y: 4.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(centered!, { x: 2.5, y: 4.5 })).toBe(0);
+  });
+
+  it('shifts a soft edge without flattening it', () => {
+    const soft = rect(0, 0, 8, 8, { feather: 2 });
+    const expanded = refineAreaSelection(soft, 'shift-edge', { amount: 1 });
+    const contracted = refineAreaSelection(soft, 'shift-edge', { amount: -1 });
+    expect(expanded).not.toBeNull();
+    expect(contracted).not.toBeNull();
+    const probe = { x: 0.5, y: 4.5 };
+    expect(areaSelectionCoverageAt(expanded!, probe)).toBeGreaterThan(
+      areaSelectionCoverageAt(soft, probe),
+    );
+    expect(areaSelectionCoverageAt(contracted!, probe)).toBeLessThan(
+      areaSelectionCoverageAt(soft, probe),
+    );
+  });
+
+  it('cleans up small islands and holes while preserving kept coverage', () => {
+    const width = 12;
+    const height = 12;
+    const data = new Uint8Array(width * height);
+    for (let y = 3; y < 9; y += 1) for (let x = 3; x < 9; x += 1) data[y * width + x] = 180;
+    data[1 * width + 1] = 255;
+    data[6 * width + 6] = 0;
+    const mask = createAreaSelection({
+      kind: 'raster-mask',
+      x: 0,
+      y: 0,
+      w: width,
+      h: height,
+      width,
+      height,
+      data,
+      boundary: [],
+      transform: [1, 0, 0, 1, 0, 0],
+      inverseTransform: [1, 0, 0, 1, 0, 0],
+      feather: 0,
+      antialias: false,
+    });
+    expect(mask).not.toBeNull();
+    const cleaned = refineAreaSelection(mask!, 'cleanup', { minIslandArea: 4, maxHoleArea: 4 });
+    expect(cleaned).not.toBeNull();
+    expect(areaSelectionCoverageAt(cleaned!, { x: 1.5, y: 1.5 })).toBe(0);
+    expect(areaSelectionCoverageAt(cleaned!, { x: 6.5, y: 6.5 })).toBe(1);
+    expect(areaSelectionCoverageAt(cleaned!, { x: 5.5, y: 5.5 })).toBeCloseTo(180 / 255, 2);
+  });
+
+  it('clamps malformed parameters instead of producing NaN coverage', () => {
+    const selection = rect(0, 0, 4, 4);
+    for (const options of [
+      { amount: Number.NaN },
+      { amount: -5 },
+      { sigma: Number.POSITIVE_INFINITY },
+      { threshold: Number.NaN },
+      { contrast: 42 },
+    ]) {
+      const refined = refineAreaSelection(selection, 'grow', options);
+      expect(refined).not.toBeNull();
+      const value = areaSelectionCoverageAt(refined!, { x: 2, y: 2 });
+      expect(Number.isFinite(value)).toBe(true);
+      expect(value).toBeGreaterThanOrEqual(0);
+      expect(value).toBeLessThanOrEqual(1);
+    }
   });
 });
