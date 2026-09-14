@@ -792,7 +792,7 @@ test.describe('Content-Aware Fill dialog', () => {
     expect(afterNode.generativeEditId).toBeTruthy();
     const edit = after.generativeEdits?.[afterNode.generativeEditId];
     expect(edit?.mode).toBe('remove');
-    expect(edit?.provider.id).toBe('varve-content-aware');
+    expect(edit?.provider.id).toBe('varve-quick-cleanup');
     expect(edit?.sourceSnapshotAssetId).toBe(sourceAssetId);
     expect(after.assets?.[sourceAssetId]).toBeTruthy();
     expect(after.assets?.[sourceAssetId]?.dataUrl).toBe(before.assets?.[sourceAssetId]?.dataUrl);
@@ -853,7 +853,7 @@ test.describe('Content-Aware Fill dialog', () => {
     const node = after.nodes[photographicNodeId];
     const edit = after.generativeEdits?.[node.generativeEditId];
     expect(edit?.mode).toBe('fill');
-    expect(edit?.provider.id).toBe('varve-content-aware');
+    expect(edit?.provider.id).toBe('varve-quick-cleanup');
     const variation = edit.variations[0];
     const sourceAsset = after.assets?.[edit.sourceSnapshotAssetId];
     const overlayAsset = after.assets?.[variation.assetId];
@@ -900,7 +900,7 @@ test.describe('Content-Aware Fill dialog', () => {
     const afterNode = after.nodes[photographicNodeId];
     const edit = after.generativeEdits?.[afterNode.generativeEditId];
     const contextAsset = after.assets?.[edit.variations[0].contextAssetId];
-    expect(edit.provider.id).toBe('varve-content-aware');
+    expect(edit.provider.id).toBe('varve-quick-cleanup');
     expect(contextAsset.naturalWidth * contextAsset.naturalHeight).toBeLessThan(
       sourceAsset.naturalWidth * sourceAsset.naturalHeight,
     );

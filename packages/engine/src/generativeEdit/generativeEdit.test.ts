@@ -196,6 +196,7 @@ describe('generative edit capabilities', () => {
     const first = await runGenerativeEdit(request({ prompt: 'a red chair' }));
     const second = await runGenerativeEdit(request({ prompt: 'a blue chair' }));
     expect(first.provider.kind).toBe('local');
+    expect(first.provider.id).toBe('varve-quick-cleanup');
     expect(first.provider.runtime).toBe('patchmatch');
     expect(first.warnings[0]).toContain('does not use prompts');
     expect(Array.from(first.imageData.data)).toEqual(Array.from(second.imageData.data));
