@@ -2835,7 +2835,15 @@ fn generative_edit_blocking_with_requirement(
         .map_err(|error| format!("Could not resolve generation cache: {error}"))?
         .join("generative-edits")
         .join(&options.request_id);
-    std::fs::create_dir_all(&root).map_err(|error| format!("Could not create generation cache: {error}"))?;
+    let scratch_root = root
+        .parent()
+        .ok_or_else(|| "Could not resolve generation scratch directory".to_string())?;
+    generative_resources::remove_stale_workspaces(scratch_root, std::time::SystemTime::now());
+    std::fs::create_dir_all(scratch_root)
+        .map_err(|error| format!("Could not create generation cache: {error}"))?;
+    std::fs::create_dir(&root)
+        .map_err(|error| format!("Could not create generation workspace: {error}"))?;
+    let _workspace_guard = generative_resources::WorkspaceGuard::new(root.clone());
     let (image_path, mask_path) = write_generation_inputs(&root, &options)?;
     let output_path = root.join("output.png");
     let request_path = root.join("request.json");
