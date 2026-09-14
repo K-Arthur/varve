@@ -1409,6 +1409,19 @@ export function refineAreaSelection(
   const minIslandArea = Math.max(0, Math.floor(refineNumber(options.minIslandArea, 0)));
   const maxHoleArea = Math.max(0, Math.floor(refineNumber(options.maxHoleArea, 0)));
 
+  // A zero-radius refinement must be a true identity operation. Apart from
+  // avoiding unnecessary raster work, returning the original selection keeps
+  // a neutral inspector change out of document history and preserves its
+  // exact coverage, bounds, and generation. The raster operators clamp their
+  // internal radius to one pixel for ordinary calls, so this guard must happen
+  // before the plane is constructed.
+  const isZeroRadiusNoop =
+    ((operation === 'grow' || operation === 'shrink') && amount === 0) ||
+    ((operation === 'smooth' || operation === 'feather') && sigma === 0) ||
+    (operation === 'contrast' && contrastAmount === 0) ||
+    (operation === 'shift-edge' && signedAmount === 0);
+  if (isZeroRadiusNoop) return selection;
+
   let pad = 0;
   switch (operation) {
     case 'grow':

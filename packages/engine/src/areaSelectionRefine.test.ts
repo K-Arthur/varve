@@ -183,13 +183,18 @@ describe('refineAreaSelection', () => {
     expect(areaSelectionCoverageAt(hard!, { x: -1.5, y: 2.5 })).toBe(0);
   });
 
-  it('is a no-op for zero-radius operations', () => {
-    const zeroFeather = refineAreaSelection(rect(0, 0, 4, 4), 'feather', { sigma: 0 });
-    expect(zeroFeather).not.toBeNull();
-    expect(areaSelectionCoverageAt(zeroFeather!, { x: 2.5, y: 2.5 })).toBe(1);
-    expect(areaSelectionCoverageAt(zeroFeather!, { x: -1.5, y: 2.5 })).toBe(0);
-    const zeroContrast = refineAreaSelection(rect(0, 0, 4, 4), 'contrast', { contrast: 0 });
-    expect(areaSelectionCoverageAt(zeroContrast!, { x: 2.5, y: 2.5 })).toBe(1);
+  it('is an exact no-op for zero-radius operations', () => {
+    const selection = rect(0, 0, 4, 4, { feather: 1.5, antialias: true });
+    for (const [operation, options] of [
+      ['grow', { amount: 0 }],
+      ['shrink', { amount: 0 }],
+      ['smooth', { sigma: 0 }],
+      ['feather', { sigma: 0 }],
+      ['contrast', { contrast: 0 }],
+      ['shift-edge', { amount: 0 }],
+    ] as const) {
+      expect(refineAreaSelection(selection, operation, options)).toBe(selection);
+    }
   });
 
   it('feathers a hard edge into a monotonic transition', () => {
