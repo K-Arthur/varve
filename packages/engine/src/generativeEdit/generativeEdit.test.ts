@@ -46,7 +46,7 @@ describe('generative edit capabilities', () => {
       fill: true,
       remove: true,
       replace: false,
-      expand: true,
+      expand: false,
       prompt: false,
     });
     expect(capabilities.modes.remove).toMatchObject({
@@ -56,6 +56,11 @@ describe('generative edit capabilities', () => {
       variations: false,
     });
     expect(capabilities.modes.replace).toMatchObject({
+      available: false,
+      ready: false,
+      reasonCode: 'runtime-unavailable',
+    });
+    expect(capabilities.modes.expand).toMatchObject({
       available: false,
       ready: false,
       reasonCode: 'runtime-unavailable',
@@ -179,6 +184,21 @@ describe('generative edit capabilities', () => {
 
   it('rejects prompt-only modes until a verified provider exists', async () => {
     await expect(runGenerativeEdit(request({ mode: 'replace' }))).rejects.toMatchObject({
+      code: 'unsupported-mode',
+    });
+  });
+
+  it('does not route browser Expand through the unqualified heuristic fallback', async () => {
+    await expect(
+      runGenerativeEdit(
+        request({
+          mode: 'expand',
+          mask: new Uint8Array(144).fill(255),
+          maskWidth: 12,
+          maskHeight: 12,
+        }),
+      ),
+    ).rejects.toMatchObject({
       code: 'unsupported-mode',
     });
   });

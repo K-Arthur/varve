@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { chooseExpandGenerationStrategy, runDeterministicExpandFallback } from './expandFallback';
-import { runGenerativeEdit } from './pipeline';
 
 function expandedFrame(): {
   imageData: ImageData;
@@ -70,23 +69,6 @@ describe('deterministic Expand fallback', () => {
     expect(sourcePixels({ ...frame, imageData: result.imageData })).toEqual(sourcePixels(frame));
     expect(result.filledBounds).toEqual({ x: 0, y: 0, w: 14, h: 12 });
     expect(result.warnings.join(' ')).toMatch(/promptless local reconstruction/i);
-  });
-
-  it('is reachable through the generative edit facade without a prompt provider', async () => {
-    const frame = expandedFrame();
-    const result = await runGenerativeEdit({
-      mode: 'expand',
-      imageData: frame.imageData,
-      mask: frame.mask,
-      maskWidth: frame.imageData.width,
-      maskHeight: frame.imageData.height,
-      quality: 'draft',
-      seed: 23,
-    });
-
-    expect(result.mode).toBe('expand');
-    expect(result.provider.runtime).toBe('patchmatch');
-    expect(sourcePixels({ ...frame, imageData: result.imageData })).toEqual(sourcePixels(frame));
   });
 
   it('rejects an aborted request before allocating the guarded frame', async () => {

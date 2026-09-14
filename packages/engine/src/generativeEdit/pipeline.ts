@@ -75,14 +75,17 @@ function localCapabilities(): GenerativeEditCapabilities {
   const unavailablePromptReason = promptCapable
     ? 'Install and validate the local diffusion model before generating.'
     : 'Prompt-conditioned generation requires the packaged desktop diffusion provider.';
+  const unavailableBrowserExpandReason =
+    'Expand is unavailable in the browser because no qualified local outpainting provider is available. Use the desktop app for local expansion; Fill and Remove remain available here.';
   return {
     fill: true,
     remove: true,
     replace: promptCapable,
-    // Promptless expansion uses the same deterministic reconstruction path
-    // as Remove. Prompt-conditioned expansion remains gated by the native
-    // diffusion provider below.
-    expand: true,
+    // The browser fallback can produce a structurally valid frame while
+    // visibly repeating/striping photographic edges. Keep that unqualified
+    // path out of the user-facing capability contract until a browser
+    // outpainting provider passes the real-photo quality gate.
+    expand: promptCapable,
     prompt: promptCapable,
     variations: promptCapable,
     modes: {
@@ -112,15 +115,18 @@ function localCapabilities(): GenerativeEditCapabilities {
         reason: unavailablePromptReason,
       }),
       expand: modeCapabilities({
-        // Promptless expansion is a deterministic local reconstruction and is
-        // useful on every supported runtime. Prompt-conditioned expansion is
-        // still separately gated by the provider's prompt capability/model.
-        available: true,
-        ready: true,
+        // Desktop can use the shared local reconstruction path for promptless
+        // expansion and the native provider for prompts. Browser expansion is
+        // deliberately unavailable until its photographic quality is
+        // qualified; do not expose a heuristic result as outpainting.
+        available: promptCapable,
+        ready: promptCapable,
         prompt: promptCapable,
         variations: promptCapable,
-        supportedParameters: promptCapable ? diffusionParameters : reconstructionParameters,
+        supportedParameters: promptCapable ? diffusionParameters : [],
         limits: promptCapable ? NATIVE_LIMITS : BROWSER_LIMITS,
+        reasonCode: promptCapable ? undefined : 'runtime-unavailable',
+        reason: promptCapable ? undefined : unavailableBrowserExpandReason,
       }),
     },
     resourceProfile,

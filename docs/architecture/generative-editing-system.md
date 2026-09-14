@@ -10,8 +10,9 @@ provider, while the document semantics remain the same.
 
 ## Current capability boundary
 
-The verified local pipeline currently supports mask-guided Fill and Remove, and
-promptless Expand:
+The verified local pipeline currently supports mask-guided Fill and Remove.
+Promptless Expand is available only through the desktop local path; the browser
+does not expose its currently unqualified edge-continuation fallback:
 
 ```text
 selection / painted mask / confirmed Object Selection candidate
@@ -22,7 +23,7 @@ selection / painted mask / confirmed Object Selection candidate
   → embedded result asset + generation provenance
   → one editor transaction on accept
 
-expand margins on a retained source rectangle
+desktop expand margins on a retained source rectangle
   → validated full-frame plan (source translated, never rescaled)
   → border coverage mask including corners
   → LaMa (local model) or PatchMatch (offline) on the padded frame
@@ -36,9 +37,11 @@ language, so the shared prompt control is explicitly advisory in the current
 local provider and is not persisted as if it conditioned the result.
 Prompt-conditioned Replace and Expand use the same session and job contract but
 remain capability-gated until a verified prompt-conditioned model exists.
-Promptless Expand is available because its plan, source protection, and real
-model output were measured; see
-[the expand qualification](../audits/generative-expand-qualification-2026-09-13.md).
+Desktop promptless Expand is available within the limited photographic boundary
+that was measured; the browser path is intentionally unavailable because its
+real-photo Fast output showed visible edge striping. See [the Expand
+qualification](../audits/generative-expand-qualification-2026-09-13.md) and the
+rejected browser evidence recorded there.
 
 ## Tool surface and synchronization
 
@@ -93,7 +96,9 @@ convert a containing output frame into margins; they never crop or scale
 the retained source. The same computed margins feed the planner, preview,
 inference mask, output-frame record, and acceptance transaction. If the selected
 device budget would round the generated border away, the control surface marks
-the frame unavailable before a job can start.
+the frame unavailable before a job can start. In a browser runtime, the
+controls remain explainable but generation is disabled until a qualified local
+outpainting provider is available; Fill and Remove remain usable there.
 
 On Apply, the source is revalidated, the accepted result and mask assets are
 embedded, and the existing image node is updated in one editor transaction.

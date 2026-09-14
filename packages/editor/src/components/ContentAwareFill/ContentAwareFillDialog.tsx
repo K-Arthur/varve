@@ -606,7 +606,7 @@ export function ContentAwareFillDialog({
       ? expandWorkingPlanPreview.message
       : mode === 'expand' && expandPlanPreview && !expandPlanPreview.ok
         ? expandPlanPreview.error.message
-        : null;
+        : (modeCapability.reason ?? null);
 
   const node = nodeId ? state.document.nodes[nodeId] : undefined;
   const isImage = Boolean(node && isImageShape(node));
@@ -2549,7 +2549,9 @@ export function ContentAwareFillDialog({
               <p id="caf-dialog-prompt-note" className="caf-dialog__hint">
                 {modeCapability.prompt
                   ? 'Sent only to the locally installed diffusion model; it never leaves this device.'
-                  : 'Prompt conditioning is unavailable in the browser. Install the desktop diffusion model to use it.'}
+                  : mode === 'expand' && !modeCapability.available
+                    ? 'Prompt conditioning and browser outpainting are unavailable here. Use the desktop app after a local provider passes qualification.'
+                    : 'Prompt conditioning is unavailable in the browser. Install the desktop diffusion model to use it.'}
               </p>
               {modeCapability.prompt && (
                 <>

@@ -20,8 +20,8 @@ the user starts a job.
 |---|---|---|---|---|
 | Fill without a prompt | Implemented; automatically verified with deterministic tests | Implemented through the shared pipeline | Not separately qualified | `packages/engine/src/generativeEdit/generativeEdit.test.ts`, `tests/e2e/caf/caf.spec.ts` |
 | Remove without a prompt | Implemented; automatically verified with deterministic tests | Implemented through the shared pipeline | Not separately qualified | `packages/engine/src/generativeEdit/generativeEdit.test.ts`, `tests/e2e/caf/caf.spec.ts` |
-| Expand without a prompt | Implemented; Fast/PatchMatch texture continuation, not model-backed | Implemented; LaMa model-backed when the pinned local model is installed, deterministic PatchMatch otherwise. Source pixels are copied through exactly; the full requested border including corners is generated; effective generated detail is bounded by the model frame and disclosed in review | Not separately qualified | [Expand qualification 2026-09-13](../audits/generative-expand-qualification-2026-09-13.md), `crates/varve-bgremove/tests/lama_expand_qualification.rs`, `packages/engine/src/generativeEdit/expandPlan.test.ts`, `packages/engine/src/generativeEdit/expandFallback.test.ts`, `tests/e2e/caf/expand-real-photo.spec.ts` |
-| Expand frame controls | Four source-pixel margins, target size/aspect-ratio presets, and source anchors (center, sides, corners) are implemented and unit-tested | Shared dialog path converts only containing frames to margins; no crop or source resampling | Pointer/keyboard browser coverage pending the next real-photo run | `packages/editor/src/components/ContentAwareFill/expandControls.test.ts`, `tests/e2e/caf/expand-real-photo.spec.ts` |
+| Expand without a prompt | Unavailable; the Fast/PatchMatch edge continuation produced visible striping on the real-photo review and is no longer exposed | Implemented; LaMa model-backed when the pinned local model is installed, deterministic reconstruction otherwise. Source pixels are copied through exactly; the full requested border including corners is generated; effective generated detail is bounded by the model frame and disclosed in review. Architecture continuation remains limited/review-only | Linux x86_64 CPU only; Windows, macOS, ARM, and constrained package evidence pending | [Expand qualification 2026-09-13](../audits/generative-expand-qualification-2026-09-13.md), `crates/varve-bgremove/tests/lama_expand_qualification.rs`, `packages/engine/src/generativeEdit/expandPlan.test.ts`, `packages/engine/src/generativeEdit/expandFallback.test.ts`, `tests/e2e/caf/expand-real-photo.spec.ts` |
+| Expand frame controls | Visible for capability explanation, but Generate is disabled until a browser provider qualifies | Shared dialog path converts only containing frames to margins; no crop or source resampling | Desktop pointer/keyboard coverage and package qualification pending | `packages/editor/src/components/ContentAwareFill/expandControls.test.ts`, `tests/e2e/caf/expand-real-photo.spec.ts` |
 | Prompt-conditioned Fill | Unavailable by design; no remote fallback | Candidate adapter exists, but no model is qualified after the 2026-09-12 real-photo run | Not verified | [Runtime qualification report](../audits/generative-editing-runtime-qualification-2026-09-12.md) |
 | Prompt-conditioned Replace | Unavailable by design | Candidate adapter exists, but no model is qualified after the 2026-09-12 real-photo run | Not verified | [Runtime qualification report](../audits/generative-editing-runtime-qualification-2026-09-12.md) |
 | Prompt-conditioned Expand | Unavailable by design | Contract and candidate adapter exist, but no model is qualified after the 2026-09-12 real-photo run; the promptless local path is a separate row | Not verified | `packages/editor/src/components/ContentAwareFill/expandCanvas.test.ts`; [runtime qualification report](../audits/generative-editing-runtime-qualification-2026-09-12.md) |
@@ -95,12 +95,13 @@ synthetic canvases:
   checked the retained source recipe, source-layer identity, and applied
   result. The 33 MP portrait case exercised bounded source preparation and
   was inspected after Apply.
-- The promptless Expand case used the same landscape photograph and was
-  checked at full composition and 100% output/export scale. Protected source
-  pixels and output geometry passed exactly, but the generated border showed
-  repeated/striped texture at the edges. Expand therefore remains an
-  explicitly disclosed reconstruction path, not evidence of semantic or
-  release-quality outpainting.
+- The browser Expand case used the same landscape photograph and was checked
+  at the real dialog surface. The previous browser output was inspected at
+  full composition and 100% output/export scale and showed repeated/striped
+  texture at the edges; the current browser capability test therefore verifies
+  that Generate is unavailable with an explicit explanation. Desktop LaMa
+  qualification remains a separate, limited reconstruction result and is not
+  evidence of semantic outpainting.
 - The website visual suite passed on the GitHub Pages base path for desktop
   feature, mobile feature, and dark documentation views. The reviewed
   before/after photographs and the narrow layout were inspected without

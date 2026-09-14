@@ -8,9 +8,10 @@ categories. It preserves every retained source pixel byte-for-byte and fills
 the full requested border including corners. It is not an all-content quality
 guarantee: the visual review below records a clear dark-band failure on the
 architecture top-expansion case, which remains limited and review-only.
-The capability is therefore enabled as **Expand (promptless, local
+The capability is therefore enabled as **Expand (promptless, desktop local
 reconstruction)** in the shared generative-edit surface, with the declared
-content limits intact.
+content limits intact. The browser Fast/PatchMatch path is not enabled: its
+real-photograph output showed visible edge striping during visual review.
 
 The existing **Remove** mode is the user-facing **Generative Subtract**
 operation: marked source pixels are reconstructed from their surrounding
@@ -65,14 +66,11 @@ the run. The harness lives at
 Two browser workflow lanes complement the native run:
 
 - `tests/e2e/caf/expand-real-photo.spec.ts` drives the real dialog on a
-  1632x1224 landscape with Fast quality and asserts the reviewed preview
-  dimensions, the accepted record (mode, output frame, full-output asset kind),
-  node identity and geometry, exact retained source pixels, independent PNG
-  export dimensions/protection, undo/redo, reopening the accepted edit, and
-  Restore Original. The final clean no-HMR Chromium run in an isolated
-  validation worktree passed one test in 2.6 minutes on 2026-09-13. Its
-  reviewed dialog and independently decoded 1664x1272 export are retained as
-  `browser-expand-dialog-result.png` and `browser-expand-export.png`.
+  1632x1224 landscape and verifies that browser Expand is unavailable, the
+  Generate control is disabled, and the user-visible reason explains the
+  desktop/provider boundary. The previous browser generation run was retained
+  as rejected evidence because its 1664x1272 output showed edge striping;
+  `real-landscape-expand-unavailable.png` is the current boundary capture.
 - The promptless reconstruction warning is visible in the review footer, so
   the provider boundary is disclosed at acceptance time.
 - `tests/e2e/caf/caf.spec.ts` drives the real Remove workflow on the same
@@ -83,11 +81,11 @@ Two browser workflow lanes complement the native run:
   scene are retained under
   `tests/e2e/fixtures/generative-evidence/subtract-2026-09-13/`.
 
-The browser lanes used the Fast/PatchMatch local provider because the browser
-WASM engine was unavailable in that isolated run and native LaMa is not a
-browser capability. They prove the editor workflow, source-safe composition,
-persistence/export plumbing, and fallback behavior; the native qualification
-above is the model-backed quality evidence.
+The browser Remove lane uses the Fast/PatchMatch local provider and proves the
+editor workflow, source-safe composition, persistence/export plumbing, and
+fallback behavior. Browser Expand is intentionally only a capability-boundary
+lane after the rejected visual result; the native qualification above is the
+model-backed Expand evidence.
 
 ## Results
 
@@ -210,9 +208,9 @@ answering behavior in Varve.
 
 ## Remaining gaps
 
-- Browser PatchMatch expansion is implemented as the offline heuristic path and
-  is not model-backed. Its quality boundary is texture continuation, not scene
-  understanding.
+- Browser PatchMatch expansion remains an internal fallback implementation but
+  is not exposed as a capability. Its rejected quality boundary was visible
+  edge striping on a real photograph, not scene understanding.
 - Cross-platform package qualification (Windows, macOS, ARM, constrained
   memory) is pending; the measurements above are Linux x86_64 CPU only.
 - The full 24-photo/32-task corpus and multi-seed repetition have not been run
