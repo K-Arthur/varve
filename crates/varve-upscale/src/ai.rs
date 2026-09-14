@@ -254,10 +254,6 @@ fn run_session(
     let total_tiles = u32::max(1, width.div_ceil(step)) * u32::max(1, height.div_ceil(step));
     let shared_progress = progress.map(|cb| SharedProgress::new(total_tiles as usize, Some(cb)));
 
-    let out_tile = TILE * SCALE_U32;
-    let overlap_out = OVERLAP * SCALE_U32;
-    let core_out = out_tile.saturating_sub(overlap_out * 2).max(1);
-
     for sy in (0..height).step_by(step as usize) {
         for sx in (0..width).step_by(step as usize) {
             if matches!(cancel, Some(c) if c.load(Ordering::Relaxed)) {
@@ -275,27 +271,22 @@ fn run_session(
 
             let up = infer_tile(session, &input_name, &output_name, &tile, tile_w, tile_h)?;
 
-            // Write only the core of the upscaled tile — never the overlap
-            // margin that a neighbour will also cover — so tiles never write
-            // the same output pixels and seams cannot form.
             let tw = tile_w * SCALE_U32;
-            let th = tile_h * SCALE_U32;
-            let is_first_col = sx == 0;
-            let is_first_row = sy == 0;
-            let src_x0 = if is_first_col { 0 } else { overlap_out };
-            let src_y0 = if is_first_row { 0 } else { overlap_out };
-            let dst_x0 = if is_first_col {
-                sx * SCALE_U32
-            } else {
-                sx * SCALE_U32 + overlap_out
-            };
-            let dst_y0 = if is_first_row {
-                sy * SCALE_U32
-            } else {
-                sy * SCALE_U32 + overlap_out
-            };
-            let copy_w = (tw - src_x0).min(core_out).min(out_w - dst_x0);
-            let copy_h = (th - src_y0).min(core_out).min(out_h - dst_y0);
+            // Tiles start `step` source pixels apart and overlap the previous
+            // tile by OVERLAP pixels. The first tile owns its entire extent;
+            // every later tile drops only its left/top overlap. This gives
+            // one authoritative writer for every destination pixel, including
+            // the final narrow tile (which may be entirely covered by its
+            // predecessor). The old symmetric-core calculation left gaps and
+            // could underflow when a final tile was narrower than OVERLAP.
+            let (src_x0, dst_x0, copy_w_source) = tile_copy_extent(sx, width);
+            let (src_y0, dst_y0, copy_h_source) = tile_copy_extent(sy, height);
+            let src_x0 = src_x0 * SCALE_U32;
+            let src_y0 = src_y0 * SCALE_U32;
+            let dst_x0 = dst_x0 * SCALE_U32;
+            let dst_y0 = dst_y0 * SCALE_U32;
+            let copy_w = copy_w_source * SCALE_U32;
+            let copy_h = copy_h_source * SCALE_U32;
 
             for ty in 0..copy_h {
                 for tx in 0..copy_w {
@@ -331,6 +322,25 @@ fn run_session(
         rgba.push(alpha_up[i * 4 + 3]);
     }
     Ok(rgba)
+}
+
+/// Return the source offset, global destination offset, and source width of
+/// the portion of one tile that owns output pixels. Tiles overlap the prior
+/// tile on one side, so the first tile owns its full extent and subsequent
+/// tiles skip only the overlap. A small trailing tile can be fully covered by
+/// its predecessor and therefore legitimately returns a zero width.
+fn tile_copy_extent(start: u32, source_len: u32) -> (u32, u32, u32) {
+    let tile_len = TILE.min(source_len.saturating_sub(start));
+    let source_offset = if start == 0 {
+        0
+    } else {
+        OVERLAP.min(tile_len)
+    };
+    (
+        source_offset,
+        start.saturating_add(source_offset),
+        tile_len.saturating_sub(source_offset),
+    )
 }
 
 fn infer_tile(
@@ -597,5 +607,22 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(err, "cancelled");
+    }
+
+    #[test]
+    fn tile_ownership_covers_every_source_axis_without_gaps() {
+        let step = TILE.saturating_sub(OVERLAP).max(1);
+        for source_len in [1, 16, 17, 32, 48, 49, 64, 65, 96, 100, 112, 113, 160, 161] {
+            let mut cursor = 0;
+            for start in (0..source_len).step_by(step as usize) {
+                let (_, destination, count) = tile_copy_extent(start, source_len);
+                if count == 0 {
+                    continue;
+                }
+                assert_eq!(destination, cursor, "source length {source_len}, start {start}");
+                cursor += count;
+            }
+            assert_eq!(cursor, source_len, "source length {source_len}");
+        }
     }
 }
