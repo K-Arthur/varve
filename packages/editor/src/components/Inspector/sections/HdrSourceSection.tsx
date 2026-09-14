@@ -12,6 +12,7 @@ import {
 import { Button } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import { GainMapExportSection } from './GainMapExportSection';
 import { HdrMergeDialog } from './HdrMergeDialog';
 import {
   bytesToDataUrl,
@@ -49,6 +50,9 @@ export function HdrSourceSection({ node }: { node: SceneNode }) {
   const binding = image?.photoSource;
   const masterAssetId = resolveMasterAssetId(binding);
   const masterAsset = masterAssetId ? state.document.assets?.[masterAssetId] : undefined;
+  const sdrRenditionAsset = binding?.derivedAssetId
+    ? state.document.assets?.[binding.derivedAssetId]
+    : undefined;
   const hasHdrBinding = Boolean(
     masterAssetId && binding && binding.operation !== 'raw-development',
   );
@@ -352,6 +356,15 @@ export function HdrSourceSection({ node }: { node: SceneNode }) {
                 {warning}
               </p>
             ))}
+            <GainMapExportSection
+              masterRaster={session.decoded.raster}
+              sdrRenditionDataUrl={sdrRenditionAsset?.dataUrl ?? null}
+              appliedExposureStops={readRecipeNumber(binding?.recipe, 'toneMapExposureStops', 0)}
+              appliedWhitePoint={readRecipeNumber(binding?.recipe, 'toneMapWhitePoint', 1)}
+              currentExposureStops={toneMapExposure}
+              currentWhitePoint={toneMapWhitePoint}
+              onAnnounce={announce}
+            />
             <p className="photo-source-section__note">
               Editing the output transform creates a new SDR rendition. The OpenEXR master remains
               the authority and is not tone-mapped twice.

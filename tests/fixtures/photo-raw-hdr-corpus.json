@@ -86,6 +86,35 @@
       "kind": "synthetic-retouch",
       "source": "Generated in packages/scene/src/__tests__/retouchPersistence.test.ts and packages/engine/src/retouch.test.ts",
       "expected": "Frozen source patches, bounded spot search, premultiplied alpha sampling, zero-strength/cancel identity, and persistent tile ownership."
+    },
+    {
+      "id": "ultrahdr-gain-map-reference",
+      "kind": "generated-hdr-container",
+      "source": "google/libultrahdr v2.0.2 ultrahdr_app, built locally from upstream and fed synthetic RGB half-float input generated for Varve",
+      "license": "libultrahdr is MIT/Apache-2.0; the encoded content is Varve-generated synthetic data, not third-party imagery.",
+      "files": [
+        {
+          "name": "packages/engine/src/hdr/__fixtures__/ultrahdr-iso-xmp-reference.jpg",
+          "committed": true,
+          "expected": "64x48 base JPEG plus gain map secondary with XMP hdrgm and ISO 21496-1 metadata; Varve's parser must prefer the ISO block and reconstruct 0..5.62 stops without rejecting the file."
+        },
+        {
+          "name": "packages/engine/src/hdr/__fixtures__/tiny-base.jpg",
+          "source": "ImageMagick gradient:red-blue, committed",
+          "expected": "Container byte-preservation oracle: the base scan and JFIF segment must survive assembly unchanged."
+        },
+        {
+          "name": "packages/engine/src/hdr/__fixtures__/tiny-gain.jpg",
+          "source": "ImageMagick grayscale gradient, committed",
+          "expected": "Secondary-image oracle for MPF/GContainer assembly and parse."
+        }
+      ]
+    },
+    {
+      "id": "ultrahdr-gain-map-interop",
+      "kind": "synthetic-hdr-container",
+      "source": "Generated at verification time in /tmp by Varve's encoder and decoded by a locally built libultrahdr v2.0.2 CLI",
+      "expected": "libultrahdr probe reads the exact ISO metadata; display boost 1 preserves the stored base; Varve's normative reconstruction stays within 0.01 of source. Not committed beyond the reference JPEG above."
     }
   ]
 }

@@ -20,7 +20,7 @@ immutable source bytes
   -> existing image tuning and persistent raster retouch
   -> optional bounded HDR alignment/deghost and radiance/fusion merge
   -> explicit tone map and gamut/display transform
-  -> disposable SDR preview or range-bearing master export
+  -> disposable SDR preview, gain-map JPEG sharing, or range-bearing master export
 ```
 
 `@varve/engine/raw` owns the bounded classic DNG sensor subset and produces a
@@ -171,14 +171,54 @@ EXR asset is the range-bearing master. Rendered exposure-fusion EXR output is
 display-linear and may remain in [0, 1]; only the radiance path promises
 scene-linear extended values when the inputs and exposures are valid.
 
+## Gain-map JPEG sharing
+
+Scene-linear masters can be shared as an Ultra HDR gain-map JPEG. The engine
+slice lives in `@varve/engine/hdr/gainMap.ts`:
+
+- `encodeGainMap` builds a per-channel (or luminance) recovery map against the
+  **linear light of the stored 8-bit base pixels**, which is what every decoder
+  applies the map to. It returns XMP- and ISO-ready metadata, a bounded
+  downsample, and a quantization diagnostic.
+- `assembleUltraHdrJpeg` writes the primary XMP packet (GContainer directory
+  plus `hdrgm:Version`), the primary ISO 21496-1 version block, a two-entry MPF
+  index, the secondary image's XMP/ISO metadata carrying the numeric fields,
+  and the gain-map JPEG. The base JPEG's scan and JFIF segment are copied, never
+  re-encoded.
+- `parseUltraHdrJpeg` locates the secondary image through MPF (with a
+  GContainer fallback) and reads whichever metadata block is authoritative:
+  ISO 21496-1 wins over XMP, matching libultrahdr's precedence. Multi-channel
+  metadata and arrays are supported by the reconstruction equation.
+
+The editor's `GainMapExportSection` exports only the **stored SDR rendition** as
+the base image. Changing the tone-map sliders without applying a new SDR
+rendition blocks export instead of silently re-rendering the base; this is the
+reported failure mode where an HDR edit drifts the SDR fallback of another
+editor. Display-linear masters (exposure fusion) report that there is no extra
+headroom to encode rather than emitting an identity map.
+
+Verification is part of the export: the written container is parsed again, both
+JPEGs are decoded, the parsed metadata is applied, and the worst and
+95th-percentile reconstruction error in stops plus the SDR fallback's JPEG byte
+delta are reported in the panel. The 8-bit map bounds quantization; JPEG
+ringing at a hard highlight edge can raise the worst sample while p95 stays near
+the quantization floor. A gain-map JPEG is a sharing format, not a replacement
+for the OpenEXR master.
+
+Independent evidence: libultrahdr v2.0.2 (built locally from upstream, not a
+runtime dependency) probes the container, reads the exact ISO metadata, and its
+SDR fallback matches the stored base rendition. Varve's own reconstruction of
+the synthetic reference stays within 0.01 of source. PQ/HLG display encoding
+remains unimplemented; gain-map output uses the scene-linear master and the
+display-linear SDR rendition, not a PQ/HLG transfer.
+
 ## Display and output truth
 
 Tone mapping is a stable full-frame global Reinhard transform. It uses an
 explicit scene exposure and white-point scale and does not recompute from the
 viewport or mutate the master. PQ and HLG are distinct transfer/display
 systems; this slice does not encode either or infer absolute nits from scene
-values. Gain-map JPEG/HEIF/Ultra HDR output is deferred until a validated
-encoder, metadata relationship, and independent decoder are integrated.
+values.
 
 The preview probes float16 Canvas2D, wide-gamut/high-dynamic-range media
 queries, and WebGPU availability, but reports a candidate/unknown route rather
@@ -205,6 +245,13 @@ bundled dependency must be reviewed separately:
 - ONNX models are not required for RAW, retouch, or HDR. Existing inference
   manifests/providers remain the owner if an optional assisted retouch model is
   later qualified.
+
+The gain-map slice adds no runtime dependency: XMP, ISO 21496-1 metadata, MPF,
+and the reconstruction equation are implemented in `@varve/engine/hdr`. The
+libultrahdr v2.0.2 CLI (MIT/Apache-2.0) was built locally from upstream and used
+only as an independent verifier for the writer's output and as the source for
+one committed synthetic reference fixture; it is not bundled or invoked by the
+application.
 
 See the dated implementation audit for source URLs, access date, issue-based
 failure evidence, corpus provenance, and measured results.

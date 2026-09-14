@@ -86,16 +86,7 @@ export function rangeRasterToSdrPngDataUrl(
   options: SdrRenditionOptions = {},
 ): string {
   if (typeof document === 'undefined') throw new Error('Image export requires a browser document');
-  if (source.contract.reference === 'display-referred') {
-    throw new Error('SDR rendition requires scene-linear or display-linear working data');
-  }
-  // Radiance/RAW masters need the explicit global tone map. Exposure fusion
-  // already produces display-linear values; applying Reinhard again would be
-  // an accidental second tone-map and would change its declared semantics.
-  const display =
-    source.contract.reference === 'scene-linear'
-      ? toneMapReinhardGlobal(source, options).raster
-      : applyDisplayExposure(source, options);
+  const display = rangeRasterToSdrDisplayLinear(source, options);
   const bytes = rangeRasterToSrgbBytes(display);
   const canvas = document.createElement('canvas');
   canvas.width = display.contract.width;
@@ -108,6 +99,42 @@ export function rangeRasterToSdrPngDataUrl(
     0,
   );
   return canvas.toDataURL('image/png');
+}
+
+/**
+ * The display-linear rendition behind an SDR preview. Scene-linear masters are
+ * tone-mapped; display-linear fusion output only receives the explicit output
+ * exposure. Both the PNG preview and the gain map base share this exact path.
+ */
+export function rangeRasterToSdrDisplayLinear(
+  source: RangeRaster,
+  options: SdrRenditionOptions = {},
+): RangeRaster {
+  if (source.contract.reference === 'display-referred') {
+    throw new Error('SDR rendition requires scene-linear or display-linear working data');
+  }
+  // Radiance/RAW masters need the explicit global tone map. Exposure fusion
+  // already produces display-linear values; applying Reinhard again would be
+  // an accidental second tone-map and would change its declared semantics.
+  return source.contract.reference === 'scene-linear'
+    ? toneMapReinhardGlobal(source, options).raster
+    : applyDisplayExposure(source, options);
+}
+
+/**
+ * The master's display-linear values with the same output exposure as the SDR
+ * rendition, but without tone mapping. This is the extended-range side of a
+ * gain map: values may legitimately exceed 1.0 when the master carries scene
+ * headroom.
+ */
+export function rangeRasterToHdrDisplayLinear(
+  source: RangeRaster,
+  options: SdrRenditionOptions = {},
+): RangeRaster {
+  if (source.contract.reference === 'display-referred') {
+    throw new Error('HDR rendition requires scene-linear or display-linear working data');
+  }
+  return applyDisplayExposure(source, options);
 }
 
 function applyDisplayExposure(source: RangeRaster, options: SdrRenditionOptions): RangeRaster {

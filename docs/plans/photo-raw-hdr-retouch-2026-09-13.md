@@ -99,9 +99,9 @@ optional, accept/discard workflow.
 - [ICC v4 specifications](https://www.color.org/v4spec/) provide the current profile vocabulary, but the existing Varve ICC path is not a complete PQ/HLG display pipeline. Unknown or unsupported profiles remain unknown.
 
 Decision: use float32 scene-linear data for computation and a range-bearing
-OpenEXR master before considering PQ/HLG or gain-map output. Keep exposure,
-grading, tone mapping, gamut mapping, encoding, and display capability as
-separate stages.
+OpenEXR master as the authority. A verified Ultra HDR gain-map JPEG sharing
+slice was added on top of that master (see below); PQ/HLG display encoding and
+gain-map HEIF/AVIF remain unimplemented.
 
 ### Browser and desktop presentation
 
@@ -190,6 +190,10 @@ silently reinterpret or relocate an existing repair.
   clipping it; display-HDR status is independently tested and never inferred
   from an API flag or screenshot; output transform changes do not mutate the
   master or source recipe.
+- Gain-map sharing: the exported Ultra HDR JPEG uses the stored SDR rendition
+  as its base image, carries both XMP and ISO 21496-1 metadata, is independently
+  decodable by libultrahdr, and reports its measured reconstruction error;
+  changing the output transform without applying it blocks export.
 - Website: feature and file-format pages distinguish implemented-and-verified,
   implemented-but-unverified, unsupported, deferred, and blocked capabilities.
 
@@ -206,7 +210,8 @@ subset named here; it is not a universal camera, display, or decoder claim.
 | Exposure-bracket radiance master + SDR export | Implemented-and-verified in the engine; real-camera bracket blocked | Synthetic linear tests prove 1/2/4 exposure separation and OpenEXR round-trip. The real OpenCV bracket is verified as exposure fusion, not radiance. The real iPhone ProRAW bracket is explicitly rejected because its JPEG-compressed 0x8023 DNG is outside the current decoder subset. |
 | RAW → retouch → upstream change policy | Implemented; browser chain unverified | Versioned source revisions and baked repair ownership are persisted and tested. An upstream recipe change leaves the old repair in place and surfaces a stale/rebase warning; a full browser sequence across both operations still needs a dedicated fixture run. |
 | SDR-only editing without master clipping | Implemented-and-verified through the Photo source surface | Float32 range-bearing processing and the verified OpenEXR master are independent of display output; supported OpenEXR masters can be reopened, output-adjusted, saved as a new SDR rendition, and downloaded without rewriting the master. The rendered fusion fixture happens to remain within [0,1], while synthetic radiance tests retain above-white and negative working values. |
-| Physical HDR presentation | Unverified | No supported runtime/display evidence exists; numeric computation/storage and SDR-only master reopen/edit are implemented, but the display route remains candidate/unknown until runtime and monitor evidence exists. |
+| Ultra HDR gain-map JPEG sharing | Implemented-and-verified for scene-linear masters | `@varve/engine/hdr/gainMap.ts` writes XMP + ISO 21496-1 metadata in an MPF container; libultrahdr v2.0.2 probes it and preserves the SDR fallback; Varve's reconstruction is within 0.34% of source on the synthetic reference. The stored SDR rendition is the base image and an unapplied output transform blocks export. Display-linear fusion output reports no headroom instead of writing an identity map. |
+| Physical HDR presentation | Unverified | No supported runtime/display evidence exists; numeric computation/storage, SDR-only master reopen/edit, and gain-map JPEG sharing are implemented, but the display route remains candidate/unknown until runtime and monitor evidence exists. |
 
 This ledger must be updated when a new decoder, output encoder, or display
 runtime is added; it must not be replaced with marketing language until the

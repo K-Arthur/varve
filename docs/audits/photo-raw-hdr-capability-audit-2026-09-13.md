@@ -24,12 +24,26 @@ Public issue/forum reports are qualitative signals, not prevalence claims. The
 following failure modes are realistic to address in Varve's architecture:
 
 - darktable reports of projected source anchors, no visible retouch result,
-  and resolution-dependent retouch motivated stable source snapshots,
-  authoritative redraw, and explicit target resolution;
+  reduced-opacity brush clones, and resolution-dependent retouch motivated
+  stable source snapshots, authoritative redraw, and explicit target resolution
+  ([#12410](https://github.com/darktable-org/darktable/issues/12410),
+  [#4655](https://github.com/darktable-org/darktable/issues/4655),
+  [#4293](https://github.com/darktable-org/darktable/issues/4293),
+  [#11325](https://github.com/darktable-org/darktable/issues/11325));
 - Lightroom discussions about switching/committing healing tools motivated
   coherent transactions, cancel behavior, and no preview history pollution;
+  reports of removed content reappearing because masks and removals interact
+  motivated the persistent repair layer's single declared target
+  ([erase-tool ghosting](https://www.lightroomqueen.com/community/threads/erase-tools.54713/));
 - Lightroom HDR/gain-map discussions motivated separate master/SDR status,
-  independent export inspection, and no unsupported gain-map claim;
+  independent export inspection, and no unsupported gain-map claim; the
+  recurring complaint that editing in HDR mode **drifts the SDR fallback** and
+  that HDR exports do not match the editing preview is addressed by exporting
+  the stored SDR rendition as the base and blocking export while the output
+  transform is unapplied
+  ([SDR drift report](https://community.adobe.com/questions-680/importing-an-ios-photo-with-hdr-gainmap-and-activating-hdr-edit-mode-causes-the-sdr-grade-to-drift-908668),
+  [washed-out SDR fallback](https://www.reddit.com/r/Lightroom/comments/1qmu4ld/hdr_images_look_washedout_in_sdr/),
+  [format fragmentation](https://www.reddit.com/r/Lightroom/comments/1u79u7i/free_lightroom_classic_plugin_for_exporting_hdr/));
 - RawTherapee stale-preview and crop/transform reports motivated recipe
   revision identity, source bytes as authority, and explicit crop/orientation
   metadata instead of trusting a thumbnail.
@@ -57,7 +71,8 @@ and [darktable crop/transform #17101](https://github.com/darktable-org/darktable
 | Rendered exposure fusion | HDR unit tests + real OpenCV bracket E2E | Implemented-and-verified | Display-referred alternative, not radiance recovery |
 | SDR rendition | tone-map/export path | Implemented and numerically verified | Disposable full-frame SDR output |
 | HDR display | `hdrDisplay.ts` runtime probe | Implemented probe; physical display unverified | Candidate/unknown only until runtime and monitor evidence exists |
-| PQ/HLG/gain-map export | no encoder/decoder integration | Unsupported/deferred | No display-HDR or Ultra HDR export claim |
+| PQ/HLG display encoding | no encoder integration | Deferred | Display transfer encoding is not claimed; gain-map JPEG uses display-linear sharing, not PQ/HLG |
+| Ultra HDR gain-map JPEG | `@varve/engine/hdr/gainMap.ts` tests + browser export E2E + libultrahdr probe/decode | Implemented-and-verified for scene-linear masters | SDR base is the stored rendition; per-channel map with XMP + ISO 21496-1 metadata; display-linear fusion reports no headroom |
 | Model-assisted retouch | existing inference owner | Not required and not changed | Manual repairs remain usable without downloads/cloud |
 
 ## Supported matrix
@@ -69,6 +84,7 @@ and [darktable crop/transform #17101](https://github.com/darktable-org/darktable
 | RAW calibration | Black/white, active/default crop, orientation, AsShotNeutral, ColorMatrix, LinearizationTable |
 | RAW fixture | `RAW_LEICA_M8.DNG`, DNG 1.0.0.0, Leica M8, 3920x2638 raw IFD, source hash recorded in corpus manifest |
 | HDR master | Varve single-part uncompressed scanline OpenEXR, float16/float32 RGB(A) |
+| Sharing JPEG | Ultra HDR gain-map JPEG: base SDR + per-channel recovery map, XMP (`hdrgm` + GContainer) and ISO 21496-1 APP2/MPF metadata; scene-linear masters only |
 | Browser/desktop | Shared TypeScript engine route in the browser and Tauri webview; no native decoder dependency |
 | Physical HDR | Unavailable as a verified product claim on the tested SDR/browser environment |
 
@@ -108,6 +124,23 @@ and `vips avg` reported 1.000000, 0.004555, and 0.332174 respectively. That
 fixture therefore proves truthful exposure fusion and export structure, not
 above-white scene radiance recovery. Focused test commands and exact results
 are kept in the final Agent Validation Report.
+
+The gain-map writer was independently cross-checked with libultrahdr v2.0.2,
+built locally from upstream (`ultrahdr_app`) and never bundled. Its probe
+reports `Ultra HDR Image: Yes` for a Varve-written file and reads the exact ISO
+21496-1 values (`maxContentBoost 14.5881`, `minContentBoost 2.78922`, gamma 1,
+offsets 1/64, capacity 1..14.5881). Decoding with display boost 1 leaves the
+stored base rendition unchanged (worst absolute error 0.011 in half-float
+linear light, i.e. the quantization of the linearized 8-bit base), which is the
+backward-compatibility guarantee. Varve's own normative reconstruction of the
+same synthetic reference has worst absolute error 0.0097 on values up to 2.9
+(about 0.34%), and the encode diagnostics bound the stored-map error to under
+0.005 stops. libultrahdr's full-boost rendition differs from the source by up
+to 0.39 in chroma-heavy regions because it applies channel gains inside its YUV
+pipeline; that is a decoder-domain difference, not a container or metadata
+error, and it is not used as Varve's accuracy oracle. The committed reference
+fixture `packages/engine/src/hdr/__fixtures__/ultrahdr-iso-xmp-reference.jpg`
+was produced by that CLI from synthetic input generated for this verification.
 
 The real three-frame LuckyHDR iPhone bracket was also fetched locally without
 being committed. LibRaw's `raw-identify` identified Apple iPhone17,2 files with
@@ -150,6 +183,16 @@ Research was performed and rechecked on 2026-09-13. Primary sources include
 [WebView2](https://learn.microsoft.com/en-us/microsoft-edge/webview2/),
 [Android Ultra HDR](https://developer.android.com/media/platform/hdr-image-format),
 and [ONNX execution providers](https://onnxruntime.ai/docs/execution-providers/).
+The gain-map slice added and rechecked these primary sources on 2026-09-13:
+[Android Ultra HDR Image Format v1.1](https://developer.android.com/media/platform/hdr-image-format)
+(the normative equations, `hdrgm` attributes, GContainer directory, and invalid-
+metadata policy), [CIPA DC-007 Multi-Picture Format](https://www.cipa.jp/std/documents/e/DC-X007-KEY_E.pdf)
+(the MPF index used to locate the secondary image), the
+[ISO 21496-1 draft sample](https://cdn.standards.iteh.ai/samples/iso/iso-prf-21496-1/215637cb8ac548feaf7e22c576a5e64b/iso-prf-21496-1.pdf)
+(structure of the fractional metadata), and [google/libultrahdr v2.0.2](https://github.com/google/libultrahdr)
+(the reference implementation and MIT/Apache-2.0 verification tool). The
+Lightroom gain-map drift and format-fragmentation reports listed under
+complaint-derived repairs were accessed on the same date.
 
 ## Remaining limits and handoffs
 

@@ -37,7 +37,14 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Master and SDR output</h2>
         <p>HDR merge saves a range-bearing float32 OpenEXR master and a separate SDR PNG rendition. The master uses the verified one-part, uncompressed scanline RGB(A) subset and carries Varve metadata for reference, alpha, provenance, primaries, transfer, and relative reference white. Independently decode the downloaded EXR if another application does not recognize it.</p>
-        <p>The SDR rendition uses a stable full-frame global tone map. It is disposable and does not change the source recipe or master. On SDR-only or unknown runtimes, this output remains available. PQ, HLG, Ultra HDR/gain-map output, and physically verified HDR display presentation are not part of this slice.</p>
+        <p>The SDR rendition uses a stable full-frame global tone map. It is disposable and does not change the source recipe or master. On SDR-only or unknown runtimes, this output remains available. PQ/HLG display encoding and physically verified HDR display presentation are not part of this slice.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Share an extended-range JPEG</h2>
+        <p>Scene-linear masters can be shared as an Ultra HDR gain-map JPEG. The stored SDR rendition becomes the base image, and a separate per-channel recovery map (default one quarter resolution) encodes the ratio between the SDR rendition and the master's display-linear values. Metadata is written in both the XMP form (<code>hdrgm</code> plus a GContainer directory) and the ISO 21496-1 binary form inside an MPF container, so legacy viewers show the SDR image and range-aware viewers can reconstruct the highlights.</p>
+        <p>The base image is never regenerated from the master: changing the tone-map exposure or white point requires applying a new SDR rendition first, and the export button stays disabled until you do. This is deliberate — a gain map whose base silently differs from the rendition you reviewed is the failure mode reported with other editors. Display-linear fusion masters report that there is no extra headroom to encode instead of producing an identity map.</p>
+        <p>Varve verifies the actual encoded file before offering it: it decodes the base and gain-map JPEGs again, applies the parsed metadata, and reports the worst and 95th-percentile reconstruction error in stops alongside the JPEG byte delta of the SDR fallback. The map is 8-bit and the reconstruction is quantization-bounded; JPEG ringing at hard highlight edges can raise the worst sample while the 95th percentile stays near the quantization floor. A downloadable gain-map JPEG is a sharing format, not a replacement for the OpenEXR master.</p>
       </section>
 
       <section class="docs-section">

@@ -147,6 +147,21 @@
   inline-size: 100%;
 }
 
+.photo-source-section__gainmap {
+  border-top: 1px dashed var(--color-border-subtle, #2d3339);
+  display: grid;
+  gap: var(--space-2, 8px);
+  margin-top: var(--space-2, 8px);
+  padding-top: var(--space-2, 8px);
+}
+
+.photo-source-section__gainmap h4 {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs, 0.75rem);
+  font-weight: 600;
+  margin: 0;
+}
+
 .photo-source-section__warning {
   color: var(--color-warning, #d49a26);
 }

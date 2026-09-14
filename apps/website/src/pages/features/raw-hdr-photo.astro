@@ -45,6 +45,7 @@ import { sitePath } from '../../lib/siteUrl';
             <li>As-shot or custom white balance, camera-matrix or explicit sRGB fallback, exposure, black/white, highlights, shadows, crop, and orientation.</li>
             <li>Reviewed bracket selection, reference frame, exposure entry, bounded translation alignment, conservative deghosting, and separate radiance/fusion semantics.</li>
             <li>Float32 scene-linear computation, SDR preview, and single-part uncompressed OpenEXR float16/float32 master export.</li>
+            <li>Ultra HDR gain-map JPEG sharing: the stored SDR rendition becomes the base image and a separate per-channel recovery map carries the extended range, so an SDR viewer shows exactly the rendition you reviewed.</li>
             <li>Reopen a supported range-bearing OpenEXR on an SDR-only runtime, adjust the SDR output transform, and keep the master unchanged.</li>
             <li>Persistent clone, heal, spot-heal, and patch repairs on the existing raster-layer target.</li>
           </ul>
@@ -54,9 +55,10 @@ import { sitePath } from '../../lib/siteUrl';
           <p>
             This is not universal camera RAW support. Compressed proprietary RAW, X-Trans, multi-shot,
             unsupported DNG opcodes, and missing lens profiles are reported or deferred. Rendered JPEG/PNG
-            brackets are exposure-fused, not calibrated radiance. PQ/HLG, gain-map export, and physical HDR
-            display presentation remain unverified or deferred. OpenEXR support is the verified
-            single-part uncompressed RGB(A) subset, not a promise for every EXR variant.
+            brackets are exposure-fused, not calibrated radiance. PQ/HLG display encoding and physical HDR
+            display presentation remain unverified. Gain-map JPEG export is verified for scene-linear masters;
+            display-linear fusion output has no extra headroom to encode and is reported as such. OpenEXR
+            support is the verified single-part uncompressed RGB(A) subset, not a promise for every EXR variant.
           </p>
         </aside>
       </section>
@@ -67,6 +69,11 @@ import { sitePath } from '../../lib/siteUrl';
           The connected monitor does not decide whether Varve can calculate or save the master. On SDR-only
           runtimes, Varve shows a deliberate SDR rendition and retains the OpenEXR range. Display-HDR status
           is reported separately and is not inferred from WebGPU, a browser media query, or a screenshot.
+        </p>
+        <p>
+          When Varve writes a gain-map JPEG, the SDR base image is the stored rendition you reviewed — it is
+          never silently re-rendered from the master. If you change HDR settings without applying them, export
+          is blocked rather than letting the SDR fallback drift.
         </p>
         <a href={sitePath('/docs/tools/raw-hdr-photo')}>Read the RAW &amp; HDR Photo guide →</a>
       </aside>
