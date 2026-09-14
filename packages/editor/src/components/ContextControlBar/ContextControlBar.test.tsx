@@ -125,6 +125,53 @@ describe('ContextControlBar typography controls', () => {
     expect(italic).toHaveAttribute('title', 'This font has no real italic face');
   });
 
+  it('keeps bold parity with the floating text toolbar', () => {
+    render(<ContextControlBar />);
+    const bold = screen.getByRole('button', { name: 'Bold' });
+
+    expect(bold).not.toBeDisabled();
+    expect(bold).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('applies a real bold face from the contextual toolbar', () => {
+    const boldNode = makeTextNode('text-1', 'Typography', {
+      fontFamily: 'Arial',
+      fontSize: 16,
+      fontWeight: 400,
+    });
+    vi.mocked(useEditor).mockReturnValue({
+      state: {
+        selection: [boldNode.id],
+        document: { nodes: { [boldNode.id]: boldNode } },
+        selectionRange: null,
+        pendingFormat: null,
+      },
+      updateNode,
+      applyFormatToSelection,
+      setPendingFormat,
+      groupCompoundOperation,
+      setTool: vi.fn(),
+      groupSelected: vi.fn(),
+      setSelectedFlipH: vi.fn(),
+      setSelectedFlipV: vi.fn(),
+      applyFramePreset: vi.fn(),
+      setNodeClipContent: vi.fn(),
+      removeBackground: vi.fn(),
+      openVectorizeDialog: vi.fn(),
+      alignSelected: vi.fn(),
+      booleanOp: vi.fn(),
+    } as never);
+
+    render(<ContextControlBar />);
+    fireEvent.click(screen.getByRole('button', { name: 'Bold' }));
+
+    const [, updater] = updateNode.mock.calls[0] as [
+      string,
+      (current: typeof boldNode) => typeof boldNode,
+    ];
+    expect(updater(boldNode)).toEqual(expect.objectContaining({ fontWeight: 700 }));
+  });
+
   it('applies a family edit to the active rich-text range', () => {
     vi.mocked(useEditor).mockReturnValue({
       state: {

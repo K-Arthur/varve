@@ -73,7 +73,7 @@ function CcbButton({
         title={title}
         onClick={onClick}
       >
-        <Icon name={icon as Parameters<typeof Icon>[0]['name']} size={14} />
+        <Icon name={icon as Parameters<typeof Icon>[0]['name']} size={16} />
       </button>
     </Tooltip>
   );
@@ -92,7 +92,7 @@ function EmptySection({ setTool }: { setTool: (id: ToolId) => void }) {
           aria-label="Create frame"
           onClick={() => setTool('frame')}
         >
-          <Icon name="Frame" size={13} />
+          <Icon name="Frame" size={16} />
           <span>Frame</span>
           <kbd className="ccb__kbd">F</kbd>
         </button>
@@ -104,7 +104,7 @@ function EmptySection({ setTool }: { setTool: (id: ToolId) => void }) {
           aria-label="Draw rectangle"
           onClick={() => setTool('rect')}
         >
-          <Icon name="Square" size={13} />
+          <Icon name="Square" size={16} />
           <span>Rect</span>
           <kbd className="ccb__kbd">R</kbd>
         </button>
@@ -116,7 +116,7 @@ function EmptySection({ setTool }: { setTool: (id: ToolId) => void }) {
           aria-label="Add text"
           onClick={() => setTool('text')}
         >
-          <Icon name="Type" size={13} />
+          <Icon name="Type" size={16} />
           <span>Text</span>
           <kbd className="ccb__kbd">T</kbd>
         </button>
@@ -128,7 +128,7 @@ function EmptySection({ setTool }: { setTool: (id: ToolId) => void }) {
           aria-label="Pen tool"
           onClick={() => setTool('pen')}
         >
-          <Icon name="Pen" size={13} />
+          <Icon name="Pen" size={16} />
           <span>Pen</span>
           <kbd className="ccb__kbd">P</kbd>
         </button>
@@ -196,6 +196,10 @@ function TextSection({
   const fontFamily = displayNode.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
   const fontWeight = displayNode.fontWeight ?? 400;
   const weightOptions = fontWeightOptions(effectiveNodes);
+  const isBold = fontWeight >= 600;
+  const boldAvailable = display.mixed.fontWeight
+    ? weightOptions.some((option) => option.value === 700 && !option.disabled)
+    : isBold || weightOptions.some((option) => option.value === 700 && !option.disabled);
   const isItalic = (displayNode.fontStyle ?? 'normal') === 'italic';
   const italicAvailable = display.mixed.fontStyle
     ? fontStyleAvailable(effectiveNodes, 'italic')
@@ -244,6 +248,14 @@ function TextSection({
           disabledReason: option.disabledReason,
         }))}
         onChange={(value) => applyChanges(fontWeightChanges(displayNode, Number(value)))}
+      />
+      <CcbButton
+        icon="Bold"
+        label="Bold"
+        active={isBold}
+        disabled={!boldAvailable}
+        title={boldAvailable ? undefined : 'This font has no real bold face'}
+        onClick={() => applyChanges(fontWeightChanges(displayNode, isBold ? 400 : 700))}
       />
       <CcbButton
         icon="Italic"
