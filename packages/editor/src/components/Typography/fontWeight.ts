@@ -199,7 +199,7 @@ export function fontFamilyChanges(family: string | undefined): Partial<TextNode>
  * axis in sync. Other variation axes belong to the author and are retained.
  */
 export function fontWeightChanges(
-  node: TextNode,
+  node: WeightNode,
   weight: number,
   registry: ReturnType<typeof getFontRegistry> = getFontRegistry(),
 ): Partial<TextNode> {
@@ -239,7 +239,7 @@ export function fontWeightChanges(
  * nodes retain their existing style-only behavior.
  */
 export function fontStyleChanges(
-  node: TextNode,
+  node: WeightNode,
   style: TextNode['fontStyle'],
   registry: ReturnType<typeof getFontRegistry> = getFontRegistry(),
 ): Partial<TextNode> {
