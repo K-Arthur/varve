@@ -117,27 +117,43 @@ export async function downloadNativeGenerativeModel(
 ): Promise<NativeGenerativeModelStatus> {
   if (!isTauriRuntime())
     throw new Error('Local diffusion models can only be downloaded in the desktop app.');
+  if (signal?.aborted) throw new Error('Download cancelled');
   const [{ invoke }, { listen }] = await Promise.all([
     import('@tauri-apps/api/core'),
     import('@tauri-apps/api/event'),
   ]);
   const requestId = `generative-model-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  let rejectOnAbort: ((reason: Error) => void) | undefined;
   const cancel = () => {
-    void invoke('cancel_generative_edit_model_download', { requestId });
+    // Native storage owns the partial file and must be told to stop. The
+    // renderer also rejects immediately so a slow network read cannot keep a
+    // closed dialog in a downloading state.
+    void invoke('cancel_generative_edit_model_download', { requestId }).catch(() => undefined);
+    rejectOnAbort?.(new Error('Download cancelled'));
   };
-  const unlisten = await listen<NativeGenerativeModelDownloadProgress>(
-    'generative-edit-model-progress',
-    (event) => {
-      if (event.payload.requestId === requestId) onProgress?.(event.payload);
-    },
-  );
   signal?.addEventListener('abort', cancel, { once: true });
+  let unlisten: (() => void | Promise<void>) | undefined;
   try {
-    return await invoke<NativeGenerativeModelStatus>('download_generative_edit_model', {
+    if (signal?.aborted) throw new Error('Download cancelled');
+    unlisten = await listen<NativeGenerativeModelDownloadProgress>(
+      'generative-edit-model-progress',
+      (event) => {
+        if (signal?.aborted || event.payload.requestId !== requestId) return;
+        onProgress?.(event.payload);
+      },
+    );
+    if (signal?.aborted) throw new Error('Download cancelled');
+    const nativeDownload = invoke<NativeGenerativeModelStatus>('download_generative_edit_model', {
       requestId,
     });
+    if (!signal) return await nativeDownload;
+    const cancelled = new Promise<never>((_, reject) => {
+      rejectOnAbort = reject;
+    });
+    if (signal.aborted) cancel();
+    return await Promise.race([nativeDownload, cancelled]);
   } finally {
     signal?.removeEventListener('abort', cancel);
-    await unlisten();
+    await unlisten?.();
   }
 }
