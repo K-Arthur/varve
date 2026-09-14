@@ -692,7 +692,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
           <div className="insp-field-group">
             <p className="insp-field__hint">
               Select an object on the image, then refine it with more points or a box. The preview
-              is temporary until you apply it as a mask.
+              is temporary until you use it as a selection or apply it as a mask.
             </p>
             <FieldRow label="Prompt input">
               <Select
