@@ -25,6 +25,8 @@ import { fontReferenceKey } from './fontIdentity';
 export interface ResolverTextNode {
   id: string;
   kind: 'text';
+  /** Node-level overrides for a linked text style. */
+  styleOverrides?: Record<string, unknown>;
   fontFamily?: string;
   /** Exact artifact/member identity when the document has one. */
   fontReference?: FontReference;
