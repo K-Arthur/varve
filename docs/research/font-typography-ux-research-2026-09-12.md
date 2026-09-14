@@ -11,6 +11,48 @@ only as anecdotal evidence of failure modes, not as a measurement of product
 quality. The review was performed on 2026-09-12; product behavior and help
 pages can change.
 
+## Research update — 2026-09-14
+
+The follow-up review checked the current first-party help pages again before
+the next implementation pass. These details sharpen the acceptance contract:
+
+- Figma's missing-font flow identifies the affected layers and distinguishes an
+  unavailable font or style from a browser-helper or permission problem. Its
+  conflicting-font guidance also warns that different versions can change
+  text layout, reflow, and ligatures. Varve's recovery UI should therefore
+  report the exact face and affected locations together, rather than reducing
+  the state to a family-level warning.
+- Illustrator's Find and Replace Fonts panel separates document, recent, and
+  system scopes and exposes **Change** separately from **Change All**. Its
+  missing-font panel separates adding a font, replacing it, and previewing a
+  substitute while activation is still pending. Varve's replacement command
+  follows the same explicit scope and one-transaction rule, with a visible
+  preview before any multi-location change.
+- InDesign's font browser documents real-time hover previews, classification,
+  favorites, recent and activated filters, variable/OpenType indicators, and a
+  switch to disable in-menu previews. This validates Varve's choice to keep
+  navigation synchronous and previews bounded, and adds a concrete follow-up:
+  expose a reduced-preview preference once the current performance budgets are
+  measured on 1,000- and 10,000-family catalogs.
+- Photoshop's current font browser groups variants under a family and exposes
+  **Your fonts**, Adobe Fonts, variable-font, favorite, and similar-font
+  filters. Varve should keep family grouping as presentation only: the active
+  option and persistence key still need the exact artifact/member identity and
+  instance axes.
+- Figma's local-network-access documentation makes permission revocation an
+  expected runtime state. The browser picker must preserve a document's
+  requested face while clearly showing that local enumeration is unavailable;
+  it must not silently substitute a same-name system face.
+
+These observations do not change the scope of the 24-scenario matrix. They add
+specific evidence requirements for affected-layer counts, replacement scope,
+activation progress, preview disablement, exact-version diagnostics, and
+permission revocation. The current master branch has the identity, exact-face
+render/export plumbing, native handles, ambiguity protection, and toolbar
+visual evidence. Document Fonts replacement UI, native restart proof, full
+variable-axis persistence, and cross-platform WebView evidence remain open and
+are listed as such in the matrix.
+
 ## What other products teach us
 
 | Product | Useful behavior | Failure mode to avoid in Varve |
@@ -135,11 +177,14 @@ Official documentation:
 - [Figma: Add a font to Figma](https://help.figma.com/hc/en-us/articles/360039956894-Add-a-font-to-Figma)
 - [Figma: Missing font alert in Figma Design](https://help.figma.com/hc/en-us/articles/360039956994-Missing-font-alert-in-Figma-Design)
 - [Figma: Manage conflicting fonts](https://help.figma.com/hc/en-us/articles/4403175325719-Manage-conflicting-fonts)
+- [Figma: Local network access](https://help.figma.com/hc/en-us/articles/34458998159511-Local-network-access-in-Figma)
 - [Figma: Variable fonts](https://www.figma.com/typography/variable-fonts/)
 - [Adobe Illustrator: Preview, add, or replace missing fonts](https://helpx.adobe.com/in/illustrator/desktop/design-with-text/fonts-and-scripts/preview-add-or-replace-missing-fonts.html)
 - [Adobe Illustrator: Find and replace fonts](https://helpx.adobe.com/illustrator/desktop/design-with-text/fonts-and-scripts/find-and-replace-fonts.html)
 - [Adobe Illustrator: Fonts FAQ](https://helpx.adobe.com/illustrator/using/fonts-faq.html)
 - [Adobe InDesign: Install and activate fonts](https://helpx.adobe.com/ie/indesign/desktop/fonts/install-and-activate-fonts.html)
+- [Adobe InDesign: Preview and explore fonts](https://helpx.adobe.com/indesign/desktop/fonts/preview-and-explore-fonts.html)
+- [Adobe Photoshop: Search for and apply a specific font style](https://helpx.adobe.com/photoshop/desktop/text-typography/select-manage-fonts/search-for-and-apply-a-specific-font-style.html)
 - [Adobe Photoshop: OpenType variable fonts](https://helpx.adobe.com/photoshop/desktop/text-typography/select-manage-fonts/use-opentype-variable-fonts.html)
 - [Affinity Designer: Character panel](https://s3-eu-west-1.amazonaws.com/affinity-docs/help/designer/en-US.lproj/pages/Panels/characterPanel.html)
 - [Affinity Publisher: Variable fonts](https://affinity.help/publisher2/en-US.lproj/index.html?page=pages/Text/variableFonts.html&title=Variable+fonts)
