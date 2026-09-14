@@ -119,7 +119,7 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
 
   const handleFontFamilyChange = useCallback(
     (value: string) => {
-      onUpdate(node.id, fontFamilyChanges(value));
+      onUpdate(node.id, fontFamilyChanges(value, node.fontFamily));
     },
     [node, onUpdate],
   );

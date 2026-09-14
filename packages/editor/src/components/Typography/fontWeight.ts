@@ -200,7 +200,11 @@ export function fontStyleAvailable(
  * `opsz` may not exist on the newly chosen face), so retaining them would
  * make the resolver apply unsupported coordinates or silently alter layout.
  */
-export function fontFamilyChanges(family: string | undefined): Partial<TextNode> {
+export function fontFamilyChanges(
+  family: string | undefined,
+  currentFamily?: string,
+): Partial<TextNode> {
+  if (family === currentFamily) return {};
   return { fontFamily: family, fontReference: undefined, variableAxes: undefined };
 }
 

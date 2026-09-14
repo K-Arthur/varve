@@ -39,6 +39,10 @@ describe('fontFamilyChanges', () => {
       variableAxes: undefined,
     });
   });
+
+  it('does not clear an exact face when the current family is selected again', () => {
+    expect(fontFamilyChanges('Inter', 'Inter')).toEqual({});
+  });
 });
 
 describe('fontWeightOptions', () => {
