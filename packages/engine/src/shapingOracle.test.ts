@@ -1,12 +1,13 @@
 /**
  * Shaping oracle — structural invariants of correct OpenType shaping.
  *
- * Uses system Noto fonts at test time (never redistributed; skipped when the
- * fonts are absent, so the suite stays green on machines without them).
- * Font versions vary between systems, so the oracle asserts *invariants of
- * correct shaping* — joining forms differ, ligatures/conjuncts reduce glyph
- * counts, marks get zero advances and GPOS offsets, RTL glyphs are emitted in
- * visual order, clusters stay in bounds — rather than golden glyph IDs.
+ * Uses checked-in licensed Noto Arabic and Devanagari faces for the required
+ * multilingual assertions. The optional Thai and Hebrew probes still use a
+ * local system face when one is present. Font versions vary between systems,
+ * so the oracle asserts *invariants of correct shaping* — joining forms differ,
+ * ligatures/conjuncts reduce glyph counts, marks get zero advances and GPOS
+ * offsets, RTL glyphs are emitted in visual order, clusters stay in bounds —
+ * rather than golden glyph IDs.
  *
  * Backend under test: the lazy harfbuzz-wasm adapter in `shapingBackend.ts`,
  * the same contract the native rustybuzz path normalizes into.
@@ -16,17 +17,23 @@ import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createHarfBuzzWasmBackend } from './shapingBackend';
 
+function fileData(path: string): ArrayBuffer {
+  const data = readFileSync(new URL(path, import.meta.url));
+  return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
+}
+
 function fontData(...candidates: string[]): ArrayBuffer | null {
   for (const candidate of candidates) {
     if (existsSync(candidate)) {
-      return readFileSync(candidate).buffer as ArrayBuffer;
+      const data = readFileSync(candidate);
+      return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer;
     }
   }
   return null;
 }
 
-const ARABIC = fontData('/usr/share/fonts/noto/NotoSansArabic-Regular.ttf');
-const DEVANAGARI = fontData('/usr/share/fonts/noto/NotoSansDevanagari-Regular.ttf');
+const ARABIC = fileData('./font/__fixtures__/noto-arabic/NotoSansArabic-Regular.ttf');
+const DEVANAGARI = fileData('./font/__fixtures__/noto-devanagari/NotoSansDevanagari-Regular.ttf');
 const THAI = fontData('/usr/share/fonts/noto/NotoSansThai-Regular.ttf');
 const HEBREW = fontData('/usr/share/fonts/noto/NotoSansHebrew-Regular.ttf');
 

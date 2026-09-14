@@ -34,6 +34,27 @@ Hebrew fixtures available. The assertions intentionally validate structural
 invariants instead of hard-coding glyph IDs, because host font revisions may
 change IDs while preserving correct shaping.
 
+## Corpus-backed continuation — 2026-09-14
+
+The required Arabic and Devanagari paths now read the checked-in OFL-1.1
+artifacts from `packages/engine/src/font/__fixtures__`; they no longer depend
+on a host installation. The optional Thai and Hebrew probes retain their
+host-font fallback because their acceptance assertions are supplementary.
+The test also slices Node `Buffer` views to the exact file bytes before handing
+them to HarfBuzz, so a larger backing `ArrayBuffer` cannot contaminate a face.
+
+The focused continuation ran at parent SHA `20753b027028d04d6dcd5c49513a34bd27d85af6`:
+
+```text
+pnpm exec vitest run packages/engine/src/shapingOracle.test.ts packages/engine/src/shapingBackend.test.ts --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=verbose
+```
+
+Result: **2 files passed, 16 tests passed**. The checked-in corpus produced
+Arabic joining forms, mark offsets, RTL visual clusters, Devanagari conjuncts,
+pre-base matras, and monotone source clusters. It is still a shaping oracle,
+not a claim that browser Canvas2D and native WebKitGTK render the same pixels;
+the exact-byte main/worker and colour-render paths remain open.
+
 ## Remaining evidence
 
 This is engine/layout evidence. It does not certify color-font rendering,
