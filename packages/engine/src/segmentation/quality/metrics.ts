@@ -91,7 +91,8 @@ export function boundaryFScore(
   const gt = boundaryPixels(groundTruth, width, height);
   if (gt.size === 0) return pred.size === 0 ? 1 : 0;
 
-  let matched = 0;
+  let matchedPredicted = 0;
+  const matchedGroundTruth = new Set<number>();
   for (const i of pred) {
     const x = i % width;
     const y = Math.floor(i / width);
@@ -107,11 +108,25 @@ export function boundaryFScore(
         }
       }
     }
-    if (hit) matched++;
+    if (hit) {
+      matchedPredicted++;
+      // A tolerance window may contain several predicted boundary pixels.
+      // Count each ground-truth boundary pixel at most once as well, or the
+      // recall term can exceed 1 and the reported F-score becomes invalid.
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+          const groundTruthIndex = ny * width + nx;
+          if (gt.has(groundTruthIndex)) matchedGroundTruth.add(groundTruthIndex);
+        }
+      }
+    }
   }
 
-  const precision = pred.size === 0 ? 0 : matched / pred.size;
-  const recall = matched / gt.size;
+  const precision = pred.size === 0 ? 0 : matchedPredicted / pred.size;
+  const recall = matchedGroundTruth.size / gt.size;
   return precision + recall === 0 ? 0 : (2 * precision * recall) / (precision + recall);
 }
 

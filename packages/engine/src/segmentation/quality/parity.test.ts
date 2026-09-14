@@ -89,6 +89,21 @@ describe('segmentation quality metrics', () => {
     expect(metrics.boundaryF).toBeGreaterThanOrEqual(0.85);
   });
 
+  it('keeps boundary F-score at or below one when tolerance windows overlap', () => {
+    const predicted = new Uint8Array(25);
+    const groundTruth = new Uint8Array(25);
+    // Two adjacent predicted pixels both fall within one pixel of the same
+    // one-pixel ground-truth boundary. A naive match counter double-counts
+    // that target and reports an impossible F-score above one.
+    predicted[2 * 5 + 1] = 1;
+    predicted[2 * 5 + 2] = 1;
+    groundTruth[2 * 5 + 2] = 1;
+
+    const score = boundaryFScore(predicted, groundTruth, 5, 5);
+    expect(score).toBeGreaterThanOrEqual(0);
+    expect(score).toBeLessThanOrEqual(1);
+  });
+
   it('rejects mismatched mask lengths', () => {
     expect(() => maskIoU(new Uint8Array(4), new Uint8Array(5))).toThrow(/length/i);
     expect(() => boundaryFScore(new Uint8Array(4), new Uint8Array(5), 2, 2)).toThrow(/length/i);

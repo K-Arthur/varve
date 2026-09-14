@@ -1,4 +1,4 @@
-# Generative editing model and workflow landscape — 2026-09-12
+# Generative editing model and workflow landscape — 2026-09-14
 
 Status: research and product-routing decision record. This document broadens
 the completion work; it does not turn an unqualified model into a product
@@ -119,18 +119,28 @@ edits.
 - PowerPaint is especially relevant to Varve because its stated task coverage
   includes text-guided insertion, promptless object removal, shape-guided
   insertion, and outpainting in one task-conditioned system. The official
-  repository is a strong next candidate, but its Python/diffusers integration,
-  exact checkpoint licensing, memory footprint, and native-runtime parity must
-  be established before packaging. [PowerPaint repository](https://github.com/open-mmlab/PowerPaint)
+  checkpoint card describes a Diffusers/Safetensors distribution of about
+  6.06 GB, based on SD 1.5, and currently has no hosted inference provider.
+  It is therefore a high-memory lab candidate until its exact checkpoint
+  license, native-runtime parity, and measured peak memory are qualified.
+  [PowerPaint repository](https://github.com/open-mmlab/PowerPaint),
+  [PowerPaint v2 model card](https://huggingface.co/Sanster/PowerPaint_v2)
 
 - BrushNet is a plug-and-play dual-branch approach intended to preserve
   pixel-level masked image features while using a diffusion model. It may
   address the “semantic result but poor boundary” trade-off better than a base
   image-to-image route. The official repository documents SD 1.5/SDXL-related
-  work and also acknowledges that resource-constrained diffusion needs special
-  optimisation. Its external Python/diffusers dependency and checkpoint
-  compatibility are substantial integration risks. [BrushNet repository](https://github.com/TencentARC/BrushNet),
+  work, but requires an external Python/PyTorch/Diffusers stack and separate
+  base/BrushNet checkpoints. The repository code is Apache-2.0; the base and
+  learned weights require separate provenance and license review. [BrushNet repository](https://github.com/TencentARC/BrushNet),
+  [BrushNet license](https://github.com/TencentARC/BrushNet/blob/main/LICENSE),
   [BrushNet paper](https://arxiv.org/abs/2403.06976)
+
+- BrushEdit is a newer related research direction for brush-guided image
+  editing, but its official repository is still under review and documents a
+  CUDA/PyTorch-oriented setup. It is a research comparison point, not a
+  shippable local-first dependency until code, weights, CPU/ARM behaviour, and
+  native cancellation are all qualified. [BrushEdit repository](https://github.com/TencentARC/BrushEdit)
 
 - RePaint and CoPaint are useful research references for preserving known
   pixels during diffusion, but their reference implementations are not
@@ -144,6 +154,11 @@ edits.
   FLUX.1 dev license is non-commercial. It must not be the bundled default.
   [Diffusers FLUX pipelines](https://huggingface.co/docs/diffusers/api/pipelines/flux),
   [FLUX.1 dev license](https://github.com/black-forest-labs/flux/blob/main/model_licenses/LICENSE-FLUX1-dev)
+
+- OpenCV's current LaMa ONNX distribution is a useful small-footprint
+  promptless baseline: the model card lists an Apache-2.0 92.6 MB artifact.
+  It is appropriate for reconstruction/removal qualification, not semantic
+  Replace or prompt-conditioned insertion. [OpenCV LaMa model card](https://huggingface.co/opencv/inpainting_lama)
 
 The current stable-diffusion.cpp inpainting diagnostics are an additional
 warning: an upstream issue reports broken inpainting models in the relevant

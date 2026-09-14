@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "kind": "diagnostic-model-probe",
+  "capturedAt": "2026-09-14",
+  "decision": "rejected",
+  "source": {
+    "fixture": "tests/e2e/fixtures/real-life-tsitsikamma-coast.jpg",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Tsitsikamma_National_Park_(ZA),_Kanus_an_der_Küste_--_2024_--_1990.jpg",
+    "creator": "Dietmar Rabich",
+    "license": "CC BY-SA 4.0",
+    "derivativeTransform": "center crop to a 512x512 square; no retouching",
+    "file": "source-tsitsikamma-water-512.png",
+    "sha256": "11a7216c1251f436b68636d0a45911e5ce817d86eb6c71427fdb5ecd84c5af54",
+    "width": 512,
+    "height": 512
+  },
+  "mask": {
+    "file": "mask-red-canoe-water-512.png",
+    "sha256": "95eec116204dec2dab6634729b4b2a095e6c87ff9653c8ee1f297e334bbef3c6",
+    "polarity": "white-edit-black-preserve",
+    "bounds": { "x": 360, "y": 250, "width": 116, "height": 96 }
+  },
+  "request": {
+    "mode": "replace",
+    "prompt": "a small red canoe floating on the ocean, side view, realistic photograph",
+    "negativePrompt": "text, watermark, blurry, distorted, duplicate objects",
+    "seed": 42,
+    "width": 256,
+    "height": 256,
+    "steps": 8,
+    "guidanceScale": 7,
+    "strength": 0.75,
+    "threads": 4
+  },
+  "model": {
+    "family": "Stable Diffusion 1.5 Inpainting",
+    "artifact": "varve-sd15-inpainting-genai-q4_0.gguf",
+    "sha256": "ababf34dbf33f8b23d1401afeaa719167ff6a95b16389c61a08d83e8503a1b4d",
+    "license": "CreativeML OpenRAIL-M"
+  },
+  "runtime": {
+    "name": "stable-diffusion.cpp",
+    "revision": "master-866-42d6c0a",
+    "commit": "42d6c0ab92fe6595776b28e3f7c8925db79b31f5",
+    "backend": "cpu",
+    "host": "Linux x86_64; AMD Ryzen 3 5300U with integrated Radeon graphics",
+    "elapsedSeconds": 89.12
+  },
+  "result": {
+    "file": "rejected-genai-q4-cpu-256.png",
+    "sha256": "41fbac963f8d6b4ecee382eedcef49f40725e58ae67de8d8c1b8db16964bc1a8",
+    "logFile": "rejected-genai-q4-cpu-256.log",
+    "visualFinding": "The output preserved the surrounding photograph but produced a bright neon rectangular object in the masked water instead of a small red canoe.",
+    "qualityDimensionsFailed": ["prompt-adherence", "photographic-plausibility"]
+  }
+}

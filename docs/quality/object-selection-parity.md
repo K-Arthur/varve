@@ -169,18 +169,24 @@ execution provider, ort-node 1.27.0, ~5.0-5.8 s per prompt, cold session
 | fixture | IoU (default) | best candidate | boundary F |
 | --- | --- | --- | --- |
 | circle-plain | 0.994 | 0.994 | 1.000 |
-| fuzzy-edge | 0.910 | 0.922 | 0.705 |
-| thin-geometry | 0.993 | 0.993 | 0.984 |
+| fuzzy-edge | 0.910 | 0.922 | 0.677 |
+| thin-geometry | 0.993 | 0.993 | 1.000 |
 | overlapping | 0.621 | 0.703 | 0.599 |
-| tiny-object | 0.871 | 0.871 | 1.020 |
-| touches-edge | 0.552 | **0.947** | 0.695 |
+| tiny-object | 0.871 | 0.871 | 1.000 |
+| touches-edge | 0.552 | **0.947** | 0.693 |
 | low-contrast | 0.986 | 0.986 | 1.000 |
 | soft-alpha | 0.222 | 0.253 | 0.000 |
 | multiple-similar | 0.389 | 0.526 | 0.354 |
-| foliage-like | 0.000 | 0.008 | 0.204 |
-| **mean** | **0.654** | **0.720** | **0.656** |
+| foliage-like | 0.000 | 0.008 | 0.215 |
+| **mean** | **0.654** | **0.720** | **0.654** |
 
 Interpretation, recorded as measured fact rather than a passing claim:
+
+The table was rerun on 2026-09-14 after correcting the tolerance matcher to
+deduplicate ground-truth boundary pixels. The previous scorer could report an
+impossible boundary F-score above 1 when several predicted pixels matched the
+same target boundary; the corrected score is bounded to `[0, 1]` and the
+quality decision remains unchanged.
 
 - Preprocessing and prompt mapping are validated by the plain, thin, tiny,
   low-contrast, and fuzzy fixtures (all ≥ 0.87 IoU) plus the real-photo run
