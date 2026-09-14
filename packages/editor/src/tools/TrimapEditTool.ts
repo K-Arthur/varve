@@ -60,7 +60,6 @@ export class TrimapEditTool extends BaseTool {
   private width = 0;
   private height = 0;
   private nodeId: string | null = null;
-  private lastPaintedPoint: { x: number; y: number } | null = null;
   private lastPaintedSource: { x: number; y: number } | null = null;
   private mapper: MapperState | null = null;
 
@@ -72,7 +71,6 @@ export class TrimapEditTool extends BaseTool {
   override onDeactivate(_ctx: ToolContext): void {
     this.trimap = null;
     this.nodeId = null;
-    this.lastPaintedPoint = null;
     this.lastPaintedSource = null;
     this.mapper = null;
   }
@@ -123,7 +121,6 @@ export class TrimapEditTool extends BaseTool {
     }
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
-    this.lastPaintedPoint = world;
     const source = this.mapWorldToSource(world);
     this.lastPaintedSource = source;
     ctx.setPointerCapture(e.pointerId);
@@ -148,22 +145,26 @@ export class TrimapEditTool extends BaseTool {
     this.drag.currentWorld = world;
 
     if (!this.trimap) return;
-    // Legacy/test callers may only have set the world anchor.
-    if (!this.lastPaintedSource && this.lastPaintedPoint) {
-      this.lastPaintedSource = this.mapWorldToSource(this.lastPaintedPoint);
-    }
-    if (!this.lastPaintedSource) return;
 
     const spacing = Math.max(1, this.options.brushSize * 0.3);
     const coalesced = this.getCoalescedStrokes(e, ctx);
     for (const stroke of coalesced) {
+      const pressure = effectivePressure(stroke.event);
       const source = this.mapWorldToSource(stroke.world);
-      if (!source) continue;
-      for (const point of interpolateStrokeSegment(this.lastPaintedSource, source, spacing)) {
-        this.paintSourcePoint(point, effectivePressure(stroke.event));
+      if (!source) {
+        // The pointer left the image; do not interpolate across the gap.
+        this.lastPaintedSource = null;
+        continue;
+      }
+      if (!this.lastPaintedSource) {
+        // A gesture may start outside the visible image.
+        this.paintSourcePoint(source, pressure);
+      } else {
+        for (const point of interpolateStrokeSegment(this.lastPaintedSource, source, spacing)) {
+          this.paintSourcePoint(point, pressure);
+        }
       }
       this.lastPaintedSource = source;
-      this.lastPaintedPoint = stroke.world;
       ctx.setTrimapPreview?.(this.trimap, this.width, this.height);
     }
   }
@@ -174,13 +175,11 @@ export class TrimapEditTool extends BaseTool {
       ctx.commitTrimapEdit?.(this.trimap);
     }
     ctx.commitTransaction();
-    this.lastPaintedPoint = null;
     this.lastPaintedSource = null;
   }
 
   override onDragCancel(ctx: ToolContext): void {
     ctx.abortTransaction();
-    this.lastPaintedPoint = null;
     this.lastPaintedSource = null;
   }
 

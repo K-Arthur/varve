@@ -51,9 +51,37 @@ untracked/staged conflict and other in-flight changes are left alone.
 ## Validation
 
 - Engine and editor unit tests for every changed algorithm (`vitest run` on
-  exact paths).
-- `pnpm verify:plan` / `pnpm verify:affected` at checkpoints.
-- A new Playwright spec drives the real refine-mask and selection-refinement
-  UI on an isolated port, and its screenshots are opened and inspected.
-- Physical pen/stylus and non-Chromium runtimes remain unverified unless
-  hardware is attached; the audit records exactly what was observed.
+  exact paths); 96 area-selection and 502 background-removal tests pass,
+  including dense-reference and naive-reference checks.
+- `tests/e2e/canvas/selection-refine-operations.spec.ts` drives the real
+  editor under Chromium on isolated port 1593 (heavy-task lease held); both
+  cases pass and the screenshots are archived and inspected in
+  `docs/screenshots/selection-refinement/2026-09-13/`.
+- Performance recorded in `docs/audits/selection-refinement-audit-2026-09-13.md`
+  §6 and reproducible via
+  `packages/engine/src/bench/selectionRefinement.bench.test.ts`.
+- Physical pen/stylus, Tauri WebKitGTK, and non-Chromium runtimes remain
+  unverified; the audit records exactly what was observed.
+- `pnpm verify:plan --staged` (scoped through a temporary Git index so the
+  277-file concurrent working tree does not inflate the plan) reports a
+  bounded closure with no full-suite escalation. `pnpm verify:affected
+  --staged` passes Tier 0 and Tier 1, including the new E2E spec, then stops
+  at `js-unit:@varve/website` on a reproducible baseline failure:
+  `pages/features/canvas.astro` and `pages/docs/tools/grids.astro` contain
+  raw colours (`#172126`, `#dce7eb`) and reference undefined
+  `--surface-raised` / `--font-ui` tokens. Both files are unmodified versus
+  `HEAD` (`git diff` empty) and are not part of this task's ownership.
+- Tier 2 engine/editor suites are run directly because the aggregate runner
+  aborts at the first failing lane. Results (2026-09-13, isolated runs):
+  - Full `@varve/engine`: 4886 passed, 5 skipped, **1 failed** —
+    `lut/lut-edge.test.ts > edge cases — .3dl files > file with extra
+    whitespace lines`, a pre-existing LUT parser failure unrelated to
+    selection refinement (the same file already has baseline type errors).
+    Every selection, morphology, matting, and background-removal test passes.
+  - Combined engine + editor run before the last memory/shortcut edits:
+    11 985 passed, 43 failed across 4 files, with 36 snapshot mismatches.
+    The offending surfaces are concurrent-agent areas (LUT parsing,
+    `nativeAdapter` menu snapshot, and other uncommitted UI work); the
+    Inspector and tool surfaces touched here were re-run individually and
+    pass (PropertiesPanel, FloatingToolbar, SelectionSourcesPanel,
+    bgRemovalFeatures, both refine tools, then the engine subset again).

@@ -106,28 +106,96 @@ that can be made safe. The pre-existing source commands remain exposed as
 **Select from Image Alpha**, **Select from Image Luminance**, and **Magic Wand
 from Image** in the Pixel Selection menu and Selection Sources panel.
 
-SAM2 subject segmentation (`Sam2SegmentationTool`) remains a separate,
-raster-mask-producing path and does **not** feed into `AreaSelection` —
-"Select Subject" and pixel selection are still two different systems.
+SAM2 subject segmentation (`Sam2SegmentationTool`) produces raster masks
+first. **Use as selection** is the one explicit bridge: the committed subject
+mask is converted through `areaSelectionFromMaskCoverage()` into a
+document-space `AreaSelection` in the source-image coordinate space, with the
+same image-placement mapping as every other mask → selection conversion. There
+is no implicit synchronization — a segmentation preview never mutates the
+active pixel selection, and applying a mask does not replace it unless the
+user asks for the selection output.
+
+## Coverage conventions
+
+Coverage is an 8-bit plane: 0 = outside, 255 = inside, intermediate =
+fractional coverage. A `raster-mask` shape stores samples at the **centres of
+their cells**: cell `(i, j)` covers document
+`[x + i·w/W, x + (i+1)·w/W] × [y + j·h/H, y + (j+1)·h/H]`, and evaluation
+bilinearly interpolates those centre samples with zero extension at the outer
+half-cell. Rasterization writes samples at cell centres, so a
+rasterize → evaluate round trip at the same coordinates is exact and repeated
+refinement no longer accumulates a half-pixel shift. The finite domain of
+inversion, Select All, growth, and mask conversion is the bounded plane the
+selection was rasterized over; an empty result propagates as zero coverage,
+never as unrestricted editing.
 
 ## Refinement and transform
 
-Engine functions in `packages/engine/src/areaSelection.ts`:
+Engine functions in `packages/engine/src/areaSelection.ts`, with the pure
+plane operations in `packages/engine/src/areaSelectionMorphology.ts`:
 
-- `refineAreaSelection(selection, op, params)` — `op` is `'grow'`, `'shrink'`,
-  `'smooth'`, or `'threshold'`. All are bounded raster operations (the
-  selection is rasterized, morphologically processed, and re-wrapped).
+- `refineAreaSelection(selection, op, params)` — bounded raster operations
+  (the selection is rasterized over padded finite bounds, processed, and
+  re-wrapped as a `raster-mask`). Operations and documented meanings:
+
+  | Operation | Meaning |
+  |---|---|
+  | `grow` / `shrink` | Grey-scale dilation/erosion with a square radius; coverage values are preserved, so soft edges translate. |
+  | `smooth` | Morphological open+close of the 50% shape (not a blur); a convex edge is byte-exact unchanged. |
+  | `feather` | Separable Gaussian transition with edge-locked normalization at the plane border. |
+  | `contrast` | Level remap around 0.5; amount 1 removes all grey. |
+  | `threshold` | Hard coverage cut (default 0.5). |
+  | `antialias` | One-pixel binomial transition at the 50% contour. |
+  | `border` | Hard band of `amount` around the contour, placed inside, outside, or centered (half in, half out). |
+  | `shift-edge` | Translates the coverage profile along the boundary normal by a signed distance, preserving softness. |
+  | `cleanup` | Removes 4-connected islands below `minIslandArea`, fills enclosed holes up to `maxHoleArea`, preserving retained coverage. |
+
+  Zero-radius grow/shrink/feather/contrast/shift-edge calls are byte-exact
+  no-ops; malformed and excessive parameters clamp to documented ranges
+  instead of producing NaN coverage. Operations are computed from the current
+  committed selection; the inspector exposes one undoable Apply per operation
+  and does not live-accumulate previews.
 - Transform (move/scale/rotate) is applied analytically via
   `areaSelectionTransformMatrix()` in `packages/editor/src/actions/createActionHandlers.ts`
   — the expression tree itself is transformed, not rasterized.
 
 Both are exposed as **Grow / Shrink / Smooth / Threshold** and **Nudge /
 Scale / Rotate** commands in the Pixel Selection menu, each a single
-increment per invocation (repeatable via shortcut or menu re-trigger).
-**Transform Selection Boundary** also activates `SelectionBoundaryTool`, a
-live move/scale/rotate interaction that transforms the `AreaSelection`
-expression only; it never changes node geometry or pixel content. Cancelling
-the gesture restores the exact initial expression.
+increment per invocation (repeatable via shortcut or menu re-trigger); the
+Selection Sources inspector exposes the full operation set with numeric
+inputs. **Transform Selection Boundary** also activates
+`SelectionBoundaryTool`, a live move/scale/rotate interaction that transforms
+the `AreaSelection` expression only; it never changes node geometry or pixel
+content. Cancelling the gesture restores the exact initial expression.
+
+## Edge refinement, trimaps, and matting
+
+Mask refinement lives in the background-removal/mask domain and bridges to
+area selections only through explicit commands:
+
+- **Refine Mask brush** (`RefineMaskTool`) paints an existing raster mask (or
+  creates one) with explicit add / subtract / restore-original intents,
+  interpolated strokes, and opt-in clipping to the active area selection
+  (default off). It edits mask coverage only; source RGB is never changed.
+- **Trimap editing** (`TrimapEditTool`) stores categorical labels
+  (`TRIMap.BG` 0 / `TRIMap.UNKNOWN` 128 / `TRIMap.FG` 255), switchable with
+  `1`/`2`/`3`. Unknown is not an opacity instruction: the mask editor renders
+  a colour-coded trimap preview (green foreground, grey background, amber
+  unknown) so the constraint regions are visible while painting.
+- **Matting** (`solveMattingLaplacian`, `packages/engine/src/backgroundRemoval/mattingSolver.ts`)
+  builds the Levin et al. closed-form matting system over a spatial unknown
+  band generated by `trimapFromMask()` — including for hard binary masks that
+  have no intermediate alpha — solves it matrix-free with hard constraints,
+  and returns diagnostics (region, unknown count, iterations, residual,
+  refusal reason). `refineHairMatting` selects guided smoothing
+  (`'guided'`, soft edges only) or `'closed-form'`; a refused solve keeps the
+  previous valid mask and falls back to guided smoothing with a reported
+  reason. Bounded region/unknown caps keep memory predictable; there is no
+  model, network, or GPU requirement.
+- Mask → selection and selection → mask conversions are explicit commands
+  (`areaSelectionFromMaskCoverage`, `rasterizeAreaSelectionForNode`) with
+  capability checks; they do not silently replace object selection or
+  overwrite an unrelated mask.
 
 ## Floating pixel transforms
 

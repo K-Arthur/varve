@@ -21,7 +21,7 @@ deliberately one coherent subsystem, not a pile of per-feature special cases.
 | **Alpha mask** | Mask alpha (`A`) controls target opacity. |
 | **Luminance mask** | Mask luminance (`L·A`, BT.709 coefficients in linear RGB) controls target opacity (SVG 1.1 §14.4 semantics). |
 | **Raster mask** | A document-owned PNG payload (`Document.rasterMaskAssets`) supplying mask pixels. Attaches to image-filled shape nodes (`source-image-pixels` space), frames (`container-local-pixels` space), visual leaves (`node-local-pixels`), or a source-image-bound depth mask on an adjustment; must be `type: 'alpha'`. |
-| **Brush mask** | A raster mask created/edited by painting with the brush tool (`refineMask`): paint reveals, Alt+paint hides, pressure/coalesced events supported. Images and frames both support paint-to-create — no background removal required. |
+| **Brush mask** | A raster mask created/edited by painting with the refine brush (`refineMask`): explicit Add / Subtract / Restore-original intents (Alt is a subtract shortcut), interpolated gap-free strokes, pressure/coalesced events supported, and clipping to the active pixel selection is opt-in and off by default. Images and frames both support paint-to-create — no background removal required. |
 | **Layer mask** | A mask attached to a single node (leaf raster masks; container masks). |
 | **Group mask** | A mask attached to a group: group children composite, then the mask modulates the group's result. |
 | **Effect mask** | A mask attached to an **adjustment node**: it limits *where* the adjustment's result is visible. |
