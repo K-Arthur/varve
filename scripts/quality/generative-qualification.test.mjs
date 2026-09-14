@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -38,6 +39,12 @@ function writeEvidenceFile(root, name) {
   return name;
 }
 
+function hashEvidenceFile(root, name) {
+  return createHash('sha256')
+    .update(fs.readFileSync(path.join(root, name)))
+    .digest('hex');
+}
+
 function candidate(root, task, seed, sourceHash, status = 'passed') {
   const artifacts = {
     source: writeEvidenceFile(root, `${task.id}-${seed}-source.png`),
@@ -53,6 +60,23 @@ function candidate(root, task, seed, sourceHash, status = 'passed') {
     boundaryCrop:
       status === 'passed' ? writeEvidenceFile(root, `${task.id}-${seed}-boundary.png`) : null,
   };
+  const artifactNames = [
+    'source',
+    'mask',
+    'preparedContext',
+    'rawCandidate',
+    'finalComposite',
+    'differenceMap',
+    'boundaryCrop',
+  ];
+  const artifactHashes = Object.fromEntries(
+    artifactNames.map((name) => [
+      name,
+      artifacts[name] === null ? null : hashEvidenceFile(root, artifacts[name]),
+    ]),
+  );
+  artifactHashes.maskForms = artifacts.maskForms.map((name) => hashEvidenceFile(root, name));
+  artifacts.sha256 = artifactHashes;
   return {
     seed,
     status,
@@ -170,6 +194,19 @@ try {
         provenancePath: path.join(repositoryRoot, 'tests/e2e/fixtures/PROVENANCE.md'),
       }),
     /sourceFixtureSha256 does not match/,
+  );
+
+  const tamperedArtifact = structuredClone(evidence);
+  const tamperedSource = tamperedArtifact.tasks[0].candidates[0].artifacts.source;
+  const tamperedBytes = fs.readFileSync(path.join(tempRoot, tamperedSource));
+  tamperedBytes[tamperedBytes.length - 1] ^= 1;
+  fs.writeFileSync(path.join(tempRoot, tamperedSource), tamperedBytes);
+  assert.throws(
+    () =>
+      validateEvidence(corpus, tamperedArtifact, tempRoot, {
+        provenancePath: path.join(repositoryRoot, 'tests/e2e/fixtures/PROVENANCE.md'),
+      }),
+    /checksum does not match/,
   );
 } finally {
   fs.rmSync(tempRoot, { recursive: true, force: true });

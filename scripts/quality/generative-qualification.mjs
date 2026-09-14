@@ -6,6 +6,7 @@
  * it cannot promote a model, inspect pixels, or replace human review.
  */
 
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -218,7 +219,25 @@ function validateCorpus(corpus, options = {}) {
   };
 }
 
-function resolveEvidenceArtifact(root, candidatePath, label, errors) {
+function sha256File(filePath) {
+  const descriptor = fs.openSync(filePath, 'r');
+  const hash = createHash('sha256');
+  const buffer = Buffer.allocUnsafe(1024 * 1024);
+  try {
+    let offset = 0;
+    let bytesRead = 0;
+    do {
+      bytesRead = fs.readSync(descriptor, buffer, 0, buffer.length, offset);
+      if (bytesRead > 0) hash.update(buffer.subarray(0, bytesRead));
+      offset += bytesRead;
+    } while (bytesRead > 0);
+    return hash.digest('hex');
+  } finally {
+    fs.closeSync(descriptor);
+  }
+}
+
+function resolveEvidenceArtifact(root, candidatePath, label, errors, expectedSha256) {
   if (typeof candidatePath !== 'string' || candidatePath.length === 0) {
     errors.push(`${label} must name a retained artifact`);
     return;
@@ -242,8 +261,14 @@ function resolveEvidenceArtifact(root, candidatePath, label, errors) {
   }
   if (!stat.isFile() || stat.size === 0)
     errors.push(`${label} must be a non-empty file: ${candidatePath}`);
-  else if (!looksLikeRasterArtifact(resolved, candidatePath))
+  else if (!looksLikeRasterArtifact(resolved, candidatePath)) {
     errors.push(`${label} must be a PNG, JPEG, or WebP raster artifact: ${candidatePath}`);
+  } else if (requireSha256(expectedSha256, `${label}Sha256`, errors)) {
+    const actualSha256 = sha256File(resolved);
+    if (actualSha256 !== expectedSha256) {
+      errors.push(`${label} checksum does not match its retained artifact`);
+    }
+  }
 }
 
 function looksLikeRasterArtifact(filePath, reportedPath) {
@@ -349,6 +374,7 @@ function validateCandidate(
   }
 
   const artifacts = isObject(candidate.artifacts) ? candidate.artifacts : {};
+  const artifactHashes = isObject(artifacts.sha256) ? artifacts.sha256 : {};
   for (const key of REQUIRED_ARTIFACTS) {
     const artifact = artifacts[key];
     const outputArtifact = [
@@ -358,18 +384,31 @@ function validateCandidate(
       'boundaryCrop',
     ].includes(key);
     if (candidate.status === 'passed' || !outputArtifact || artifact !== null) {
-      resolveEvidenceArtifact(evidenceRoot, artifact, `${label}.artifacts.${key}`, errors);
+      resolveEvidenceArtifact(
+        evidenceRoot,
+        artifact,
+        `${label}.artifacts.${key}`,
+        errors,
+        artifactHashes[key],
+      );
+    } else if (artifactHashes[key] !== null) {
+      errors.push(`${label}.artifacts.sha256.${key} must be null when the artifact is null`);
     }
   }
   if (!Array.isArray(artifacts.maskForms) || artifacts.maskForms.length === 0) {
     errors.push(`${label}.artifacts.maskForms must retain at least one mask representation`);
   } else {
+    const maskFormHashes = Array.isArray(artifactHashes.maskForms) ? artifactHashes.maskForms : [];
+    if (maskFormHashes.length !== artifacts.maskForms.length) {
+      errors.push(`${label}.artifacts.sha256.maskForms must hash every mask representation`);
+    }
     for (const [index, maskForm] of artifacts.maskForms.entries()) {
       resolveEvidenceArtifact(
         evidenceRoot,
         maskForm,
         `${label}.artifacts.maskForms[${index}]`,
         errors,
+        maskFormHashes[index],
       );
     }
   }
