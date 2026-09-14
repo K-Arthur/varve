@@ -279,7 +279,7 @@ fn font_file_path(dir: &PathBuf) -> PathBuf {
             let path = entry.path();
             if let Some(ext) = path.extension() {
                 match ext.to_str().unwrap_or("").to_ascii_lowercase().as_str() {
-                    "ttf" | "otf" | "woff" | "woff2" => return path,
+                    "ttf" | "otf" | "ttc" | "otc" | "woff" | "woff2" => return path,
                     _ => continue,
                 }
             }
@@ -635,8 +635,9 @@ pub fn get_filesystem_font_storage_usage(app: tauri::AppHandle) -> Result<(u64, 
 #[cfg(test)]
 mod tests {
     use super::{
-        canonical_face_key, face_key_from_meta, family_tombstone_key, is_canonical_face_key,
-        path_is_tombstoned, select_family_storage_path, FontStorageMeta, FontStorageTombstones,
+        canonical_face_key, face_key_from_meta, family_tombstone_key, font_file_path,
+        is_canonical_face_key, path_is_tombstoned, select_family_storage_path, FontStorageMeta,
+        FontStorageTombstones,
     };
     use std::path::PathBuf;
 
@@ -725,6 +726,28 @@ mod tests {
         assert!(!path_is_tombstoned(&root, "Inter", &tombstones));
         tombstones.face_keys.insert(key);
         assert!(path_is_tombstoned(&root, "Other", &tombstones));
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn finds_true_type_and_open_type_collection_files_after_restart() {
+        let root = std::env::temp_dir().join(format!(
+            "varve-font-storage-collection-file-test-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("system clock should be after epoch")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&root).expect("create test directory");
+
+        for extension in ["ttc", "otc"] {
+            let path = root.join(format!("font.{extension}"));
+            std::fs::write(&path, b"collection").expect("write collection fixture");
+            assert_eq!(font_file_path(&root), path);
+            std::fs::remove_file(path).expect("remove collection fixture");
+        }
+
         let _ = std::fs::remove_dir_all(root);
     }
 }
