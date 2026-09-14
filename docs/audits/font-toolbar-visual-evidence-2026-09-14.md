@@ -38,3 +38,25 @@ viewport rather than the page. The generated artifacts are under
 
 The run proves the browser geometry and interaction contract. It does not prove
 native WebKitGTK, Windows WebView2, or macOS WKWebView rendering.
+
+## Fresh rerun — 2026-09-14
+
+The evidence was re-run after the inherited exact-face projection fix with a
+separate output directory so the capture is independently reviewable.
+
+```text
+CI=1 TMPDIR=/home/kevina/varve-tmp VARVE_E2E_PORT=1744 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-toolbar-final-20260914-rerun npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium --reporter=list --timeout=180000
+```
+
+Result: **3 passed** (DPR 1, 2, and 3) in 1.9 minutes. The run measured the
+same 46.796875px palette/toolbar height, 32px controls, shared 2.88px gap and
+5.76px 9.44px padding, and 14.72px field text. It also kept the menu inside
+the 640px narrow viewport and retained a mounted active descendant after
+keyboard search.
+
+I inspected the fresh light open-menu, high-contrast expanded-face, and dark
+narrow captures under
+`test-results/font-toolbar-final-20260914-rerun/`. The toolbar remains a
+single aligned row, the expanded variable-face list is readable in high
+contrast, and the narrow menu is collision-contained rather than clipped by
+the page.

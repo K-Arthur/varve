@@ -76,3 +76,18 @@ native WebKitGTK, Windows WebView2, or macOS WKWebView. It also does not close
 the full main-thread/worker geometry oracle: line breaks, caret stops, hit
 testing, overset, and exact face-revision parity still need the real-byte
 forced-redraw comparison described in the acceptance matrix.
+
+## Fresh browser rerun — 2026-09-14
+
+The typography editing E2E was repeated after the exact-face projection
+change:
+
+```text
+CI=1 TMPDIR=/home/kevina/varve-tmp VARVE_E2E_PORT=1745 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-typography-editing-20260914-rerun npx playwright test tests/e2e/canvas/typography-editing.spec.ts --project=chromium --reporter=list --timeout=180000
+```
+
+Result: **3 passed** in 1.2 minutes. This covered point-text focus and toolbar
+liveness, empty-text cancellation, and the OpenType `liga: false` plus cluster
+adjustment redraw path. Fresh captures are under
+`test-results/font-typography-editing-20260914-rerun/`; the text-toolbar menu
+and before/after OpenType canvas images were inspected.
