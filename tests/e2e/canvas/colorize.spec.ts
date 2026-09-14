@@ -7,13 +7,20 @@ test.describe('Colorize production workflow', () => {
   test('previews, commits, and exports a deterministic recolor without a model', async ({
     page,
   }, testInfo) => {
-    test.setTimeout(180000);
+    test.setTimeout(240000);
     page.on('pageerror', (error) =>
       console.log(`[colorize pageerror] ${error.stack ?? error.message}`),
     );
     page.on('console', (message) => {
       if (message.type() === 'error') console.log(`[colorize console] ${message.text()}`);
     });
+    // Warm the app before the shared helper runs: its boot-time localStorage
+    // probe can otherwise race the initial "Loading Varve" navigation under
+    // concurrent dev-server load and destroy the execution context.
+    await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 300000 });
+    await page
+      .getByRole('button', { name: /^new$/i })
+      .waitFor({ state: 'visible', timeout: 180000 });
     await navigateToEditor(page);
     await page
       .locator('#file-import-input')
