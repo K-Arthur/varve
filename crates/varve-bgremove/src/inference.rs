@@ -425,6 +425,23 @@ pub fn auto_gpu_model_fallback_reason(model_id: &str) -> Option<String> {
         .and_then(|failures| failures.get(&model_failure_key(&path)).cloned())
 }
 
+/// All model paths currently quarantined from automatic WebGPU execution,
+/// with the reason, for capability/diagnostics surfaces. Diagnostics-only;
+/// never persisted.
+pub fn auto_gpu_model_fallbacks() -> Vec<(String, String)> {
+    let mut entries: Vec<(String, String)> = auto_gpu_model_failures()
+        .lock()
+        .map(|failures| {
+            failures
+                .iter()
+                .map(|(path, reason)| (path.to_string_lossy().into_owned(), reason.clone()))
+                .collect()
+        })
+        .unwrap_or_default();
+    entries.sort();
+    entries
+}
+
 fn provider_cache_key(model_path: &Path, provider: &str) -> String {
     format!("{}::{provider}", model_path.to_string_lossy())
 }
@@ -1493,11 +1510,47 @@ fn resize_mask(mask: &[u8], src_w: u32, src_h: u32, dst_w: u32, dst_h: u32) -> V
 #[cfg(test)]
 mod tests {
     use super::{
+        auto_gpu_model_fallbacks, auto_gpu_model_is_quarantined, automatic_gpu_fallback_allowed,
         clear_auto_gpu_model_quarantine, execution_provider_fallback, model_spec,
-        normalize_segmentation_output, pad_rgba_edges, reconstruct_letterbox_mask, resize_mask,
-        InferenceRuntime, InferenceSession, LetterboxTransform, OrtInferenceRuntime,
+        normalize_segmentation_output, pad_rgba_edges, quarantine_auto_gpu_model,
+        reconstruct_letterbox_mask, resize_mask, InferenceRuntime, InferenceSession,
+        LetterboxTransform, OrtInferenceRuntime,
     };
     use crate::session_pool::{InferenceCancellationToken, SessionPool, SessionPoolLimits};
+
+    #[test]
+    fn webgpu_quarantine_seam_blocks_other_paths_and_clears() {
+        let path = Path::new("/tmp/varve-quarantine-seam-test.onnx");
+        clear_auto_gpu_model_quarantine();
+        assert!(!auto_gpu_model_is_quarantined(path));
+        assert!(auto_gpu_model_fallbacks().is_empty());
+
+        quarantine_auto_gpu_model(path, "storage-buffer limit");
+        assert!(auto_gpu_model_is_quarantined(path));
+        assert!(!auto_gpu_model_is_quarantined(Path::new(
+            "/tmp/other-model.onnx"
+        )));
+        let entries = auto_gpu_model_fallbacks();
+        assert_eq!(entries.len(), 1);
+        assert!(entries[0].1.contains("storage-buffer"));
+
+        clear_auto_gpu_model_quarantine();
+        assert!(!auto_gpu_model_is_quarantined(path));
+        assert!(auto_gpu_model_fallbacks().is_empty());
+    }
+
+    #[test]
+    fn automatic_fallback_is_gated_to_auto_policy() {
+        use crate::webgpu_ep::{set_inference_provider_policy, InferenceProviderPolicy};
+        let original = crate::webgpu_ep::inference_provider_policy();
+        set_inference_provider_policy(InferenceProviderPolicy::Auto);
+        assert!(automatic_gpu_fallback_allowed());
+        set_inference_provider_policy(InferenceProviderPolicy::Gpu);
+        assert!(!automatic_gpu_fallback_allowed());
+        set_inference_provider_policy(InferenceProviderPolicy::Cpu);
+        assert!(!automatic_gpu_fallback_allowed());
+        set_inference_provider_policy(original);
+    }
     use image::{Rgba, RgbaImage};
     use std::path::Path;
 

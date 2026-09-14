@@ -231,8 +231,8 @@ pub async fn native_gpu_self_test(
         let engine = acceleration_state.engine()?;
         engine.self_test().map_err(|err| err.to_string())
     })
-        .await
-        .map_err(|err| format!("GPU self-test task failed: {err}"))?;
+    .await
+    .map_err(|err| format!("GPU self-test task failed: {err}"))?;
     match result {
         Ok(report) => {
             state.record_verified(report.device_id.clone());
@@ -333,6 +333,25 @@ fn webgpu_provider() -> InferenceProviderStatus {
             } else {
                 AccelStage::DeviceUsable
             };
+            let fallback_note = {
+                let entries = varve_bgremove::inference::auto_gpu_model_fallbacks();
+                if entries.is_empty() {
+                    String::new()
+                } else {
+                    let summary = entries
+                        .iter()
+                        .map(|(path, reason)| {
+                            let name = std::path::Path::new(path)
+                                .file_stem()
+                                .and_then(|stem| stem.to_str())
+                                .unwrap_or(path.as_str());
+                            format!("{name}: {}", reason.chars().take(140).collect::<String>())
+                        })
+                        .collect::<Vec<_>>()
+                        .join("; ");
+                    format!("; automatic CPU fallback active for {summary}")
+                }
+            };
             InferenceProviderStatus {
                 id: "webgpu".into(),
                 label: "WebGPU (Dawn)".into(),
@@ -340,13 +359,14 @@ fn webgpu_provider() -> InferenceProviderStatus {
                 stage,
                 reason: None,
                 detail: Some(format!(
-                    "Plugin EP registered; device vendor={} id={} type={}{}",
+                    "Plugin EP registered; device vendor={} id={} type={}{}{}",
                     device.vendor.as_deref().unwrap_or("unknown"),
                     device.device_id,
                     device.device_type,
                     varve_bgremove::webgpu_ep::last_attach_error()
                         .map(|err| format!("; last attach error: {err}"))
-                        .unwrap_or_default()
+                        .unwrap_or_default(),
+                    fallback_note
                 )),
             }
         }
