@@ -78,6 +78,10 @@ export interface LiquifyFreezeMask {
 }
 
 export const LIQUIFY_FREEZE_MAX_DIMENSION = 512;
+export const LIQUIFY_FREEZE_MAX_PIXELS = LIQUIFY_FREEZE_MAX_DIMENSION ** 2;
+
+const MAX_LIQUIFY_REFERENCE_EXTENT = 1_000_000_000;
+const MAX_DAB_DT_MS = 250;
 
 export function clampGridDimension(value: unknown, fallback = LIQUIFY_DEFAULT_GRID): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
@@ -96,8 +100,8 @@ export function createLiquifyField(
   const count = (safeRows + 1) * (safeColumns + 1);
   return {
     version: LIQUIFY_FIELD_VERSION,
-    referenceWidth: Math.max(1, Math.round(referenceWidth)),
-    referenceHeight: Math.max(1, Math.round(referenceHeight)),
+    referenceWidth: normalizeReferenceExtent(referenceWidth),
+    referenceHeight: normalizeReferenceExtent(referenceHeight),
     rows: safeRows,
     columns: safeColumns,
     displacement: new Array<number>(count * 2).fill(0),
@@ -144,6 +148,17 @@ export function sampleLiquifyDisplacement(
   target: [number, number],
 ): [number, number] {
   const { rows, columns, displacement } = field;
+  if (
+    rows < 1 ||
+    columns < 1 ||
+    !Number.isFinite(u) ||
+    !Number.isFinite(v) ||
+    displacement.length < (rows + 1) * (columns + 1) * 2
+  ) {
+    target[0] = 0;
+    target[1] = 0;
+    return target;
+  }
   const gx = Math.max(0, Math.min(1, u)) * columns;
   const gy = Math.max(0, Math.min(1, v)) * rows;
   const c0 = Math.min(columns - 1, Math.floor(gx));
@@ -225,7 +240,19 @@ export function applyLiquifyDab(
   dab: LiquifyDab,
   freeze: FreezeSampler | null = null,
 ): LiquifyField {
-  if (!(dab.radius > 0) || dab.strength <= 0 || field.displacement.length === 0) return field;
+  if (
+    !Number.isFinite(dab.x) ||
+    !Number.isFinite(dab.y) ||
+    !Number.isFinite(dab.radius) ||
+    !Number.isFinite(dab.strength) ||
+    !Number.isFinite(dab.deltaX) ||
+    !Number.isFinite(dab.deltaY) ||
+    !(dab.radius > 0) ||
+    dab.strength <= 0 ||
+    field.displacement.length === 0
+  ) {
+    return field;
+  }
   const pressure = Number.isFinite(dab.pressure) ? Math.max(0, Math.min(1, dab.pressure)) : 0.5;
   const strength = Math.max(0, Math.min(1, dab.strength)) * pressure;
   if (strength <= 0) return field;
@@ -240,7 +267,12 @@ export function applyLiquifyDab(
 
   // Time normalization: a 60 Hz stream maps to one "unit" per 16.7 ms, so a
   // fast device emitting 240 Hz dabs deforms at the same rate as a mouse.
-  const dtUnits = dab.dtMs !== undefined ? Math.max(0, dab.dtMs) / (1000 / 60) : 1;
+  const dtUnits =
+    dab.dtMs === undefined
+      ? 1
+      : Number.isFinite(dab.dtMs)
+        ? Math.min(MAX_DAB_DT_MS, Math.max(0, dab.dtMs)) / (1000 / 60)
+        : 0;
 
   const next = cloneLiquifyField(field);
   const d = next.displacement;
@@ -395,14 +427,25 @@ export function decodeFreezeMask(rle: string, expectedLength?: number): Uint8Arr
   const text = base64Decode(rle);
   if (text === null) return null;
   if (text.length === 0) return new Uint8Array(0);
+  if (
+    expectedLength !== undefined &&
+    (!Number.isSafeInteger(expectedLength) ||
+      expectedLength < 0 ||
+      expectedLength > LIQUIFY_FREEZE_MAX_PIXELS)
+  ) {
+    return null;
+  }
   const out: number[] = [];
   for (const part of text.split(',')) {
     const colon = part.indexOf(':');
     if (colon <= 0) return null;
     const value = Number.parseInt(part.slice(0, colon), 36);
     const count = Number.parseInt(part.slice(colon + 1), 36);
-    if (!Number.isFinite(value) || !Number.isFinite(count) || value < 0 || value > 255) return null;
-    if (count <= 0 || out.length + count > (expectedLength ?? Number.MAX_SAFE_INTEGER)) return null;
+    if (!Number.isSafeInteger(value) || !Number.isSafeInteger(count) || value < 0 || value > 255) {
+      return null;
+    }
+    const limit = expectedLength ?? LIQUIFY_FREEZE_MAX_PIXELS;
+    if (count <= 0 || count > limit - out.length) return null;
     for (let i = 0; i < count; i++) out.push(value);
   }
   if (expectedLength !== undefined && out.length !== expectedLength) return null;
@@ -415,9 +458,20 @@ export function createFreezeSampler(
   height: number,
   data: Uint8Array,
 ): FreezeSampler | null {
-  if (width <= 0 || height <= 0 || data.length < width * height) return null;
+  if (
+    !Number.isSafeInteger(width) ||
+    !Number.isSafeInteger(height) ||
+    width <= 0 ||
+    height <= 0 ||
+    width > LIQUIFY_FREEZE_MAX_DIMENSION ||
+    height > LIQUIFY_FREEZE_MAX_DIMENSION ||
+    data.length !== width * height
+  ) {
+    return null;
+  }
   return {
     sampleNormalized(u: number, v: number): number {
+      if (!Number.isFinite(u) || !Number.isFinite(v)) return 0;
       // Pixel-center convention: normalized 0..1 spans the full extent, so
       // pixel (i) center is at (i + 0.5) / width.
       const x = Math.max(0, Math.min(1, u)) * width - 0.5;
@@ -448,6 +502,21 @@ export function stampFreezeMask(
   freeze: boolean,
   hardness = 0.6,
 ): void {
+  if (
+    !Number.isSafeInteger(width) ||
+    !Number.isSafeInteger(height) ||
+    width <= 0 ||
+    height <= 0 ||
+    width > LIQUIFY_FREEZE_MAX_DIMENSION ||
+    height > LIQUIFY_FREEZE_MAX_DIMENSION ||
+    data.length !== width * height ||
+    !Number.isFinite(cx) ||
+    !Number.isFinite(cy) ||
+    !Number.isFinite(radius) ||
+    radius <= 0
+  ) {
+    return;
+  }
   const r = Math.max(1, radius);
   const minX = Math.max(0, Math.floor(cx - r));
   const maxX = Math.min(width - 1, Math.ceil(cx + r));
@@ -486,8 +555,10 @@ export function validateLiquifyField(raw: unknown): LiquifyField | null {
   const columns = clampGridDimension(value.columns);
   const expected = (rows + 1) * (columns + 1) * 2;
   if (!Array.isArray(value.displacement) || value.displacement.length !== expected) return null;
-  const maxX = width * MAX_LIQUIFY_DISPLACEMENT_FRACTION;
-  const maxY = height * MAX_LIQUIFY_DISPLACEMENT_FRACTION;
+  const referenceWidth = normalizeReferenceExtent(width);
+  const referenceHeight = normalizeReferenceExtent(height);
+  const maxX = referenceWidth * MAX_LIQUIFY_DISPLACEMENT_FRACTION;
+  const maxY = referenceHeight * MAX_LIQUIFY_DISPLACEMENT_FRACTION;
   const displacement = new Array<number>(expected);
   for (let i = 0; i < expected; i += 2) {
     const dx = value.displacement[i];
@@ -497,12 +568,17 @@ export function validateLiquifyField(raw: unknown): LiquifyField | null {
   }
   return {
     version: LIQUIFY_FIELD_VERSION,
-    referenceWidth: Math.round(width),
-    referenceHeight: Math.round(height),
+    referenceWidth,
+    referenceHeight,
     rows,
     columns,
     displacement,
   };
+}
+
+function normalizeReferenceExtent(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 1;
+  return Math.max(1, Math.min(MAX_LIQUIFY_REFERENCE_EXTENT, Math.round(value)));
 }
 
 /** Cheap deterministic revision for render caches (FNV-1a over quantized values). */

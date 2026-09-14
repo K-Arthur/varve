@@ -1,4 +1,8 @@
-import { imageDataToRasterTiles, rasterTilesToImageData } from '@varve/engine';
+import {
+  imageDataToRasterTiles,
+  rasterTilesToImageData,
+  warpImageDataByField,
+} from '@varve/engine';
 import { describe, expect, it } from 'vitest';
 import { deepCloneSubtree } from '../clone';
 import { addNode, createDocument, type Document } from '../document';
@@ -82,6 +86,70 @@ describe('createFrequencySeparation', () => {
     expect(high.tiles.size).toBeGreaterThan(0);
   });
 
+  it('moves source appearance to the group without duplicating it on a band', () => {
+    const { doc, nodeId } = makeRasterDoc();
+    const source = doc.nodes[nodeId] as RasterLayerNode;
+    const authoredTransform = [1, 0, 0, 1, 18, 11] as const;
+    const authoredRotation = 17;
+    const authoredOpacity = 0.42;
+    const authoredBlendMode = 'multiply' as const;
+    const authored = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        [nodeId]: {
+          ...source,
+          transform: authoredTransform,
+          rotation: authoredRotation,
+          opacity: authoredOpacity,
+          blendMode: authoredBlendMode,
+        },
+      },
+    };
+    const result = createFrequencySeparation(authored, nodeId, { radius: 4 })!;
+    const group = result.doc.nodes[result.groupId] as GroupNode;
+    const low = result.doc.nodes[result.lowId] as RasterLayerNode;
+    const high = result.doc.nodes[result.highId] as RasterLayerNode;
+
+    expect(group.opacity).toBe(authoredOpacity);
+    expect(group.blendMode).toBe(authoredBlendMode);
+    expect(low.opacity).toBe(1);
+    expect(high.opacity).toBe(1);
+    expect(low.blendMode).toBe('normal');
+    expect(high.blendMode).toBe('normal');
+    expect(low.transform).toEqual(authoredTransform);
+    expect(high.transform).toEqual(authoredTransform);
+    expect(low.rotation).toBe(authoredRotation);
+    expect(high.rotation).toBe(authoredRotation);
+  });
+
+  it('keeps a source Liquify field shared when separation is created afterward', () => {
+    const { doc, nodeId } = makeRasterDoc();
+    const deformed = applyLiquifyDabToNode(doc, nodeId, 'push', {
+      x: 32,
+      y: 24,
+      radius: 24,
+      strength: 1,
+      pressure: 1,
+      deltaX: 7,
+      deltaY: -2,
+    })!;
+    const result = createFrequencySeparation(deformed, nodeId, { radius: 4 })!;
+    const group = result.doc.nodes[result.groupId] as GroupNode;
+    const low = result.doc.nodes[result.lowId] as RasterLayerNode;
+    const high = result.doc.nodes[result.highId] as RasterLayerNode;
+
+    expect(group.liquify).toBeDefined();
+    expect(low.liquify).toBeUndefined();
+    expect(high.liquify).toBeUndefined();
+    // The shared field is intentionally kept outside this scene-level decode;
+    // the canonical renderer applies it once after reconstruction. The raw
+    // linked bands still reconstruct the undeformed source at this boundary.
+    expect(
+      maxError(compositeOf(result.doc as Document, result.groupId), makeSourceImage(64, 48)),
+    ).toBeLessThanOrEqual(1);
+  });
+
   it('reconstructs the source within the declared tolerance before edits', () => {
     const { doc, nodeId } = makeRasterDoc();
     const result = createFrequencySeparation(doc, nodeId, { radius: 4 })!;
@@ -134,6 +202,26 @@ describe('createFrequencySeparation', () => {
     expect(state!.radius).toBe(9);
   });
 
+  it('materializes component deformation once when re-splitting', () => {
+    const result = createFrequencySeparation(makeRasterDoc().doc, 'r1', { radius: 3 })!;
+    const doc = result.doc as Document;
+    const edited = applyLiquifyDabToNode(doc, result.highId, 'push', {
+      x: 32,
+      y: 24,
+      radius: 28,
+      strength: 1,
+      pressure: 1,
+      deltaX: 9,
+      deltaY: 0,
+    })!;
+    const before = compositeOf(edited, result.groupId);
+    const regenerated = regenerateFrequencySeparation(edited, result.groupId, { radius: 9 })!;
+    const after = compositeOf(regenerated.doc as Document, result.groupId);
+    expect(maxError(before, after)).toBeLessThanOrEqual(1);
+    expect((regenerated.doc.nodes[result.lowId] as RasterLayerNode).liquify).toBeUndefined();
+    expect((regenerated.doc.nodes[result.highId] as RasterLayerNode).liquify).toBeUndefined();
+  });
+
   it('flatten bakes the decode into one raster layer and drops the marker', () => {
     const result = createFrequencySeparation(makeRasterDoc().doc, 'r1', { radius: 4 })!;
     const doc = result.doc as Document;
@@ -146,6 +234,29 @@ describe('createFrequencySeparation', () => {
     const bakedImage = rasterTilesToImageData(baked.tiles, baked.width, baked.height, TILE_SIZE);
     expect(maxError(before, bakedImage)).toBeLessThanOrEqual(1);
     expect((flattened.rootChildren ?? []).includes(result.lowId)).toBe(true);
+  });
+
+  it('bakes a shared group deformation exactly once when flattening', () => {
+    const result = createFrequencySeparation(makeRasterDoc().doc, 'r1', { radius: 4 })!;
+    const doc = result.doc as Document;
+    const deformed = applyLiquifyDabToNode(doc, result.groupId, 'push', {
+      x: 32,
+      y: 24,
+      radius: 26,
+      strength: 1,
+      pressure: 1,
+      deltaX: 8,
+      deltaY: 2,
+    })!;
+    const groupField = getLiquifyField(deformed.nodes[result.groupId] as GroupNode)!;
+    const expected = warpImageDataByField(compositeOf(deformed, result.groupId), groupField);
+    const flattened = flattenFrequencySeparation(deformed, result.groupId)!;
+    const baked = flattened.nodes[result.lowId] as RasterLayerNode;
+    const actual = rasterTilesToImageData(baked.tiles, baked.width, baked.height, TILE_SIZE);
+    expect(maxError(expected, actual)).toBeLessThanOrEqual(1);
+    expect(baked.liquify).toBeUndefined();
+    expect(baked.liquifyFreeze).toBeUndefined();
+    expect(baked.transform).toEqual(expect.any(Array));
   });
 
   it('resolve/lookup becomes inert when a band is deleted', () => {

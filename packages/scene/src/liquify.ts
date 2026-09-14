@@ -7,9 +7,9 @@
  * stores a small field diff (ordinary structural sharing of arrays), not a
  * second copy of the layer pixels.
  *
- * Targets: raster layers (their own deformation) and frequency-separation
- * groups (a shared deformation on the recombined composite). A group without
- * a valid separation marker is not a liquify target.
+ * Targets: raster layers (including an explicitly selected frequency band) and
+ * frequency-separation groups (a shared deformation on the recombined
+ * composite). A group without a valid separation marker is not a target.
  */
 
 import {
@@ -44,8 +44,8 @@ export function freezeMaskDimensions(
   width: number,
   height: number,
 ): { width: number; height: number } {
-  const safeW = Math.max(1, Math.round(width));
-  const safeH = Math.max(1, Math.round(height));
+  const safeW = safeLayerDimension(width);
+  const safeH = safeLayerDimension(height);
   const scale = Math.min(1, LIQUIFY_FREEZE_MAX_DIMENSION / Math.max(safeW, safeH));
   return {
     width: Math.max(8, Math.round(safeW * scale)),
@@ -60,10 +60,12 @@ export function decodeNodeFreezeMask(node: {
   const stored = node.liquifyFreeze;
   if (!stored) return null;
   if (
-    !Number.isFinite(stored.width) ||
-    !Number.isFinite(stored.height) ||
+    !Number.isSafeInteger(stored.width) ||
+    !Number.isSafeInteger(stored.height) ||
     stored.width <= 0 ||
-    stored.height <= 0
+    stored.height <= 0 ||
+    stored.width > LIQUIFY_FREEZE_MAX_DIMENSION ||
+    stored.height > LIQUIFY_FREEZE_MAX_DIMENSION
   ) {
     return null;
   }
@@ -265,6 +267,17 @@ export function stampFreezeMaskData(
   freeze: boolean,
   hardness = 0.6,
 ): void {
+  if (
+    !Number.isFinite(layerWidth) ||
+    !Number.isFinite(layerHeight) ||
+    !Number.isFinite(layerX) ||
+    !Number.isFinite(layerY) ||
+    !Number.isFinite(layerRadius) ||
+    layerWidth <= 0 ||
+    layerHeight <= 0
+  ) {
+    return;
+  }
   const sx = mask.width / Math.max(1, layerWidth);
   const sy = mask.height / Math.max(1, layerHeight);
   stampFreezeMask(
@@ -277,6 +290,11 @@ export function stampFreezeMaskData(
     freeze,
     hardness,
   );
+}
+
+function safeLayerDimension(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 1;
+  return Math.max(1, Math.round(value));
 }
 
 /** Stable revision for render caches: field only (freeze never affects output). */

@@ -60,6 +60,19 @@ export interface FrequencySeparationOptions {
   method?: FrequencySeparationMethod;
 }
 
+/**
+ * Normalize a method arriving from a document/plugin boundary. The public
+ * type is intentionally narrow, but persisted JSON and IPC payloads are not
+ * type-safe. Falling back to the only implemented method keeps the operation
+ * honest: callers never receive a result labelled "median" when Gaussian was
+ * actually run.
+ */
+export function normalizeFrequencySeparationMethod(value: unknown): FrequencySeparationMethod {
+  return FREQUENCY_SEPARATION_METHODS.includes(value as FrequencySeparationMethod)
+    ? (value as FrequencySeparationMethod)
+    : 'gaussian';
+}
+
 export interface FrequencySeparationBands {
   low: ImageData;
   high: ImageData;
@@ -214,7 +227,7 @@ export function decomposeFrequencyBands(
   options: FrequencySeparationOptions,
 ): FrequencySeparationBands {
   const sigma = normalizeSeparationRadius(options.radius);
-  const method = options.method ?? 'gaussian';
+  const method = normalizeFrequencySeparationMethod(options.method);
   const low = lowPassImageData(source, sigma);
   const high = new Uint8ClampedArray(source.data.length);
   const src = source.data;
@@ -246,6 +259,11 @@ export function decomposeFrequencyBands(
  * single clamp, alpha from the low band.
  */
 export function reconstructFrequencyBands(low: ImageData, high: ImageData): ImageData {
+  if (low.width !== high.width || low.height !== high.height) {
+    throw new RangeError(
+      `Frequency bands must have matching dimensions; received ${low.width}×${low.height} and ${high.width}×${high.height}`,
+    );
+  }
   const w = low.width;
   const h = low.height;
   const out = new Uint8ClampedArray(w * h * 4);
@@ -260,9 +278,9 @@ export function reconstructFrequencyBands(low: ImageData, high: ImageData): Imag
       out[i + 2] = 0;
       continue;
     }
-    out[i] = l[i]! + decodeResidualChannel(e[i] ?? DETAIL_NEUTRAL);
-    out[i + 1] = l[i + 1]! + decodeResidualChannel(e[i + 1] ?? DETAIL_NEUTRAL);
-    out[i + 2] = l[i + 2]! + decodeResidualChannel(e[i + 2] ?? DETAIL_NEUTRAL);
+    out[i] = clampByte(l[i]! + decodeResidualChannel(e[i] ?? DETAIL_NEUTRAL));
+    out[i + 1] = clampByte(l[i + 1]! + decodeResidualChannel(e[i + 1] ?? DETAIL_NEUTRAL));
+    out[i + 2] = clampByte(l[i + 2]! + decodeResidualChannel(e[i + 2] ?? DETAIL_NEUTRAL));
   }
   return new ImageData(out, w, h);
 }

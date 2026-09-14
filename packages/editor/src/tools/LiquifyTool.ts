@@ -74,6 +74,8 @@ export const DEFAULT_LIQUIFY_OPTIONS: LiquifyToolOptions = {
 
 interface LiquifyTarget {
   id: string;
+  /** Pixel-space node used for screen/document → field coordinates. */
+  coordinateNodeId: string;
   width: number;
   height: number;
   /** Freeze masks persist only on raster layers in this version. */
@@ -88,7 +90,13 @@ export function resolveLiquifyTarget(
   if (!node || node.visible === false) return null;
   if (node.kind === 'rasterLayer') {
     if (node.locked) return null;
-    return { id: node.id, width: node.width, height: node.height, freezeSupported: true };
+    return {
+      id: node.id,
+      coordinateNodeId: node.id,
+      width: node.width,
+      height: node.height,
+      freezeSupported: true,
+    };
   }
   if (node.kind === 'group' && getFrequencySeparationState(node)) {
     const state = getFrequencySeparationState(node)!;
@@ -97,7 +105,13 @@ export function resolveLiquifyTarget(
     if (node.locked) return null;
     // Freeze masks are persisted per raster layer in this version; a group
     // target accepts deformation only, with a clear message.
-    return { id: node.id, width: low.width, height: low.height, freezeSupported: false };
+    return {
+      id: node.id,
+      coordinateNodeId: low.id,
+      width: low.width,
+      height: low.height,
+      freezeSupported: false,
+    };
   }
   return null;
 }
@@ -115,9 +129,7 @@ export function liquifyUnsupportedReason(
   if (node.kind === 'rasterLayer') return null;
   if (node.kind === 'group' && getFrequencySeparationState(node)) return null;
   const separation = findFrequencySeparationForBand(ctx.document, ctx.selection[0]!);
-  if (separation) {
-    return 'Use the separation group as the target for a shared deformation, or select a band for a single-component edit';
-  }
+  if (separation) return null;
   return 'Liquify works on raster layers and frequency separation groups';
 }
 
@@ -190,19 +202,21 @@ export class LiquifyTool extends BaseTool {
       return { consumed: false };
     }
     this.target = target;
+    if (this.options.freezeTool !== 'off' && !target.freezeSupported) {
+      ctx.announce(
+        'Freeze and Thaw are available on raster layers; select Tone or Detail for component protection',
+      );
+      this.publishOverlay(ctx, target);
+      return { consumed: false };
+    }
     ctx.beginTransaction();
     this.transactionOpen = true;
 
     const world = ctx.canvasToWorld(event.clientX, event.clientY);
-    const point = rasterLocalPoint(ctx, target.id, world);
+    const point = rasterLocalPoint(ctx, target.coordinateNodeId, world);
     this.lastLayerPoint = point;
     this.lastSampleTime = event.timeStamp || performance.now();
 
-    if (this.options.freezeTool !== 'off' && !target.freezeSupported) {
-      ctx.announce(
-        'Freeze masks are not available on a frequency separation group; deforming the composite',
-      );
-    }
     if (this.options.freezeTool !== 'off' && target.freezeSupported) {
       this.sessionFreeze =
         decodeNodeFreezeMask(ctx.document.nodes[target.id] as never) ??
@@ -239,7 +253,7 @@ export class LiquifyTool extends BaseTool {
       const target = resolveLiquifyTarget(ctx);
       if (target) {
         const world = ctx.canvasToWorld(event.clientX, event.clientY);
-        this.publishOverlay(ctx, target, rasterLocalPoint(ctx, target.id, world));
+        this.publishOverlay(ctx, target, rasterLocalPoint(ctx, target.coordinateNodeId, world));
       }
       return;
     }
@@ -253,7 +267,7 @@ export class LiquifyTool extends BaseTool {
     for (const ev of events) {
       if (ev.isPredicted) continue;
       const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
-      const point = rasterLocalPoint(ctx, target.id, world);
+      const point = rasterLocalPoint(ctx, target.coordinateNodeId, world);
       const now = ev.time > 0 ? ev.time : performance.now();
       const dtMs = Math.max(0, now - this.lastSampleTime);
       this.lastSampleTime = now;
@@ -282,7 +296,7 @@ export class LiquifyTool extends BaseTool {
     if (predicted.length > 0) {
       const last = predicted[predicted.length - 1]!;
       const world = ctx.canvasToWorld(last.clientX, last.clientY);
-      this.publishOverlay(ctx, target, rasterLocalPoint(ctx, target.id, world));
+      this.publishOverlay(ctx, target, rasterLocalPoint(ctx, target.coordinateNodeId, world));
     }
     this.updateDraft(ctx);
   }
@@ -290,30 +304,35 @@ export class LiquifyTool extends BaseTool {
   override onPointerUp(event: PointerEvent, ctx: ToolContext): void {
     if (this.drag.kind !== 'dragging' || this.drag.pointerId !== event.pointerId) return;
     const target = this.target;
-    const point =
-      target && this.lastLayerPoint
-        ? this.lastLayerPoint
-        : target
-          ? rasterLocalPoint(ctx, target.id, ctx.canvasToWorld(event.clientX, event.clientY))
-          : null;
+    const point = target
+      ? rasterLocalPoint(
+          ctx,
+          target.coordinateNodeId,
+          ctx.canvasToWorld(event.clientX, event.clientY),
+        )
+      : null;
+    const previous = this.lastLayerPoint;
+    const hasNewReleasePoint =
+      point !== null && (previous === null || point.x !== previous.x || point.y !== previous.y);
 
-    if (target && point) {
+    if (target && point && hasNewReleasePoint) {
       if (this.options.freezeTool !== 'off' && this.sessionFreeze) {
         this.stampFreeze(ctx, point);
       } else {
-        const previous = this.lastLayerPoint ?? point;
         const rawPressure = this.options.pressureEnabled ? event.pressure : 0.75;
+        const now = event.timeStamp || performance.now();
         this.applyDab(ctx, {
           x: point.x,
           y: point.y,
           radius: this.radiusForPressure(rawPressure),
           strength: this.options.strength,
           pressure: this.pressureFor(rawPressure),
-          deltaX: point.x - previous.x,
-          deltaY: point.y - previous.y,
-          dtMs: 16.7,
+          deltaX: point.x - (previous?.x ?? point.x),
+          deltaY: point.y - (previous?.y ?? point.y),
+          dtMs: Math.max(0, now - this.lastSampleTime) || 16.7,
         });
       }
+      this.lastLayerPoint = point;
     }
 
     if (this.transactionOpen) {
@@ -455,14 +474,22 @@ export class LiquifyTool extends BaseTool {
     const target = this.target;
     const point = this.lastLayerPoint;
     if (!target || !point) return;
-    const world = this.layerToWorld(ctx, target.id, point);
     const radius = this.options.brushSize / 2;
+    const transform = ctx.getWorldTransform?.(target.coordinateNodeId);
+    const world = this.layerToWorld(ctx, target.coordinateNodeId, point);
+    const [a, b, c, d] = transform ?? [1, 0, 0, 1];
+    // DraftShape is axis-aligned, while the real overlay draws the exact
+    // transformed ellipse. Use the transformed ellipse's AABB here so the
+    // fallback draft never advertises a smaller circular influence under a
+    // rotated or non-uniformly scaled target.
+    const halfWidth = Math.abs(a * radius) + Math.abs(c * radius);
+    const halfHeight = Math.abs(b * radius) + Math.abs(d * radius);
     ctx.setDraft({
       kind: 'ellipse',
-      x: world.x - radius,
-      y: world.y - radius,
-      w: radius * 2,
-      h: radius * 2,
+      x: world.x - halfWidth,
+      y: world.y - halfHeight,
+      w: halfWidth * 2,
+      h: halfHeight * 2,
       label: `${Math.round(this.options.brushSize)}px ${this.modeLabel()}`,
     });
   }

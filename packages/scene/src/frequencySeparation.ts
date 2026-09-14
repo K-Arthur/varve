@@ -38,13 +38,14 @@ import {
   imageDataToRasterTiles,
   isIdentityLiquifyField,
   measureReconstruction,
+  normalizeFrequencySeparationMethod,
   normalizeSeparationRadius,
   type ReconstructionError,
   rasterTilesToImageData,
   validateLiquifyField,
   warpImageDataByField,
 } from '@varve/engine';
-import { generateKeyBetween } from '@varve/shared';
+import { generateKeyBetween, multiplyAffine, rotateDeg } from '@varve/shared';
 import { makeGroupNode } from './document-utils';
 import { makeRasterLayerNode, TILE_SIZE } from './rasterLayer';
 import type {
@@ -237,11 +238,12 @@ export function createFrequencySeparation<D extends DocumentLike>(
   if (source?.kind !== 'rasterLayer') return null;
   if (source.width <= 0 || source.height <= 0 || source.tiles.size === 0) return null;
   const radius = normalizeSeparationRadius(options.radius);
-  const method = options.method ?? 'gaussian';
+  const method = normalizeFrequencySeparationMethod(options.method);
 
   const sourceImage = rasterTilesToImageData(source.tiles, source.width, source.height, TILE_SIZE);
   const bands = decomposeFrequencyBands(sourceImage, { radius, method });
   const reconstruction = measureReconstruction(sourceImage, bands.low, bands.high);
+  const sourceLiquify = validateLiquifyField(source.liquify);
 
   const lowTiles = imageDataToRasterTiles(bands.low, TILE_SIZE);
   const highTiles = imageDataToRasterTiles(bands.high, TILE_SIZE);
@@ -256,6 +258,14 @@ export function createFrequencySeparation<D extends DocumentLike>(
     // band. Leaving them on the tone band would double-apply with the decode.
     mask: undefined,
     effects: [],
+    // Appearance belongs to the group. Leaving the source opacity/blend on
+    // the decoded tone band would apply it twice whenever the group is
+    // composited, and would make the hidden-sibling previews misleading.
+    opacity: 1,
+    blendMode: 'normal',
+    liquify: undefined,
+    smartFilters: undefined,
+    smartFiltersEnabled: undefined,
     tiles: bumpTileMap(lowTiles),
   };
 
@@ -268,8 +278,11 @@ export function createFrequencySeparation<D extends DocumentLike>(
     order: nextOrder,
     visible: true,
     locked: source.locked,
+    opacity: 1,
+    blendMode: 'normal',
     fill: { ...source.fill },
     pixelMode: source.pixelMode,
+    rotation: source.rotation,
     transform: [...source.transform],
     tiles: bumpTileMap(highTiles),
   };
@@ -294,13 +307,22 @@ export function createFrequencySeparation<D extends DocumentLike>(
       locked: source.locked,
       opacity: source.opacity,
       blendMode: source.blendMode ?? 'normal',
-      rotation: source.rotation ?? 0,
+      // The source placement/rotation remains on both aligned bands. The
+      // wrapper starts identity so creation cannot rotate the tone band a
+      // second time; subsequent group transforms still affect both bands.
+      rotation: 0,
       transform: [1, 0, 0, 1, 0, 0],
       effects: [],
       children: [sourceNodeId, highId],
     }),
     ...(source.mask ? { mask: source.mask } : {}),
     ...(source.effects && source.effects.length > 0 ? { effects: source.effects } : {}),
+    ...(source.smartFilters && source.smartFilters.length > 0
+      ? { smartFilters: source.smartFilters }
+      : {}),
+    ...(source.smartFiltersEnabled !== undefined
+      ? { smartFiltersEnabled: source.smartFiltersEnabled }
+      : {}),
   };
   nodes[groupId] = {
     ...group,
@@ -312,6 +334,7 @@ export function createFrequencySeparation<D extends DocumentLike>(
       highNodeId: highId,
       createdAt: Date.now(),
     },
+    ...(sourceLiquify ? { liquify: sourceLiquify } : {}),
   };
 
   const next: DocumentLike = { ...doc, nodes, nextId: baseNextId + 2 };
@@ -334,7 +357,7 @@ export function regenerateFrequencySeparation<D extends DocumentLike>(
   const decoded = decodeFrequencySeparationTiles(doc, groupId);
   if (!decoded) return null;
   const radius = normalizeSeparationRadius(options.radius);
-  const method = options.method ?? resolved.state.method;
+  const method = normalizeFrequencySeparationMethod(options.method ?? resolved.state.method);
   const image = rasterTilesToImageData(decoded.tiles, decoded.width, decoded.height, TILE_SIZE);
   const bands = decomposeFrequencyBands(image, { radius, method });
   const reconstruction = measureReconstruction(image, bands.low, bands.high);
@@ -344,9 +367,14 @@ export function regenerateFrequencySeparation<D extends DocumentLike>(
   const highId = resolved.state.highNodeId;
   const low = nodes[lowId] as RasterLayerNode;
   const high = nodes[highId] as RasterLayerNode;
-  nodes[lowId] = bumpTileVersions({ ...low, tiles: imageDataToRasterTiles(bands.low, TILE_SIZE) });
+  const { liquify: _lowLiquify, ...lowWithoutLiquify } = low;
+  const { liquify: _highLiquify, ...highWithoutLiquify } = high;
+  nodes[lowId] = bumpTileVersions({
+    ...lowWithoutLiquify,
+    tiles: imageDataToRasterTiles(bands.low, TILE_SIZE),
+  });
   nodes[highId] = bumpTileVersions({
-    ...high,
+    ...highWithoutLiquify,
     tiles: imageDataToRasterTiles(bands.high, TILE_SIZE),
   });
   const group = nodes[groupId] as GroupNode;
@@ -359,7 +387,6 @@ export function regenerateFrequencySeparation<D extends DocumentLike>(
 
 /**
  * Bake the current decode into a single raster layer and drop the separation.
- * Keeps the tone band's id (and therefore selection and layer identity).
  */
 export function flattenFrequencySeparation<D extends DocumentLike>(
   doc: D,
@@ -373,18 +400,47 @@ export function flattenFrequencySeparation<D extends DocumentLike>(
   const lowId = resolved.state.lowNodeId;
   const highId = resolved.state.highNodeId;
   const low = doc.nodes[lowId] as RasterLayerNode;
+  const decodedImage = rasterTilesToImageData(
+    decoded.tiles,
+    decoded.width,
+    decoded.height,
+    TILE_SIZE,
+  );
+  const groupField = validateLiquifyField(group.liquify);
+  const bakedImage =
+    groupField && !isIdentityLiquifyField(groupField)
+      ? warpImageDataByField(decodedImage, groupField)
+      : decodedImage;
+  const {
+    liquify: _lowLiquify,
+    liquifyFreeze: _lowFreeze,
+    frequencySeparationRole: _lowRole,
+    ...lowWithoutTransientState
+  } = low;
+  const groupTransform = group.transform;
+  const groupPlacement =
+    (group.rotation ?? 0) !== 0
+      ? multiplyAffine(groupTransform, rotateDeg(group.rotation ?? 0))
+      : groupTransform;
+  const lowPlacement =
+    (low.rotation ?? 0) !== 0
+      ? multiplyAffine(low.transform, rotateDeg(low.rotation ?? 0))
+      : low.transform;
   const baked: RasterLayerNode = {
-    ...low,
+    ...lowWithoutTransientState,
     name: stripBandSuffix(low.name),
-    tiles: bumpTileMap(decoded.tiles),
+    tiles: bumpTileMap(imageDataToRasterTiles(bakedImage, TILE_SIZE)),
     effects: group.effects ?? low.effects,
+    smartFilters: group.smartFilters,
+    smartFiltersEnabled: group.smartFiltersEnabled,
     frequencySeparationRole: undefined,
     ...(group.mask ? { mask: group.mask } : {}),
     opacity: group.opacity ?? low.opacity,
     blendMode: group.blendMode ?? low.blendMode,
     visible: group.visible,
     locked: group.locked,
-    rotation: group.rotation ?? low.rotation,
+    rotation: 0,
+    transform: multiplyAffine(groupPlacement, lowPlacement),
     order: group.order ?? low.order,
   };
 

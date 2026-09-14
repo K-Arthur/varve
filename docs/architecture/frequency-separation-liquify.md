@@ -6,7 +6,8 @@ are applied at the canonical `flattenSceneToEngine` boundary, so the live
 canvas, the render worker, thumbnails, and every export path agree by
 construction.
 
-**Status (2026-09-13):** implemented and verified. Working representation is
+**Status (2026-09-13):** implemented and verified for the Chromium web path;
+the native WebKitGTK/WKWebView visual matrix remains pending. Working representation is
 8-bit RGBA. No 16-bit, float, wide-gamut, or CMYK claims are made for either
 feature; the declared precision contracts below are the product promise.
 
@@ -256,3 +257,31 @@ VARVE_E2E_PORT=1452 npx playwright test \
   visible pause.
 - Vector/text liquify and geometry-level deformation of curved paths are out
   of scope for this system.
+
+### 7.1 Repair pass (2026-09-13)
+
+The repair pass added regression coverage for failure modes that are easy to
+miss in helper-only implementations:
+
+- Separation moves source opacity, blend mode, object filters, masks, and
+  effects to the wrapper group so a decoded band does not apply appearance
+  twice. The aligned bands retain their source placement and rotation.
+- A source Liquify field is carried to the new separation group; it is not
+  left on the tone band and applied a second time. Re-splitting materializes
+  any advanced per-band deformation once and clears those consumed fields.
+- Flatten materializes both component and shared group deformation once,
+  removes authoring-only Liquify state, and composes group/child placement
+  before deleting the wrapper.
+- Group Liquify pointer coordinates resolve through the tone band's pixel
+  space even when the wrapper and band have different transforms.
+- CPU warp output dimensions and freeze-mask runs are bounded before typed
+  array allocation. Invalid dabs and non-finite protection samples are safe
+  no-ops.
+- Render-cache replacement and eviction account for the old entry exactly
+  once and expose read-only pixel-budget diagnostics.
+
+The supported workflow remains intentionally conservative: 8-bit encoded
+sRGB, Gaussian two-band separation, raster Liquify targets, and a CPU warp
+fallback. Median/bilateral/wavelet decomposition, vector geometry Liquify,
+group-level freeze masks, and a tiled large-raster warp path remain deferred
+until they have independent reconstruction, sampling, and platform evidence.

@@ -16,7 +16,13 @@
  * The identity field short-circuits to a bit-exact copy of the source.
  */
 
-import { isIdentityLiquifyField, type LiquifyField, sampleLiquifyDisplacement } from './field';
+import {
+  createLiquifyField,
+  isIdentityLiquifyField,
+  type LiquifyField,
+  sampleLiquifyDisplacement,
+  validateLiquifyField,
+} from './field';
 
 export type LiquifyBorderPolicy = 'transparent' | 'clamp';
 
@@ -26,6 +32,14 @@ export interface LiquifyWarpOptions {
   outputWidth?: number;
   outputHeight?: number;
 }
+
+/**
+ * Maximum temporary output allocation for a CPU warp. This matches the
+ * editor's conservative 32-Mi-pixel raster-surface policy. Callers that need
+ * larger artwork must use the tiled renderer; a hostile output request falls
+ * back to the source extent instead of attempting an unbounded allocation.
+ */
+export const MAX_LIQUIFY_WARP_PIXELS = 33_554_432;
 
 export interface SampledRgba {
   r: number;
@@ -43,6 +57,17 @@ export function sampleImageDataBilinear(
   y: number,
   border: LiquifyBorderPolicy,
 ): SampledRgba {
+  if (
+    !Number.isFinite(x) ||
+    !Number.isFinite(y) ||
+    !Number.isSafeInteger(width) ||
+    !Number.isSafeInteger(height) ||
+    width <= 0 ||
+    height <= 0 ||
+    data.length < width * height * 4
+  ) {
+    return { r: 0, g: 0, b: 0, a: 0 };
+  }
   const x0f = Math.floor(x);
   const y0f = Math.floor(y);
   const fx = x - x0f;
@@ -58,6 +83,9 @@ export function sampleImageDataBilinear(
       return { r: 0, g: 0, b: 0, a: 0 };
     }
     const index = (sy * width + sx) * 4;
+    if (index < 0 || index + 3 >= data.length) {
+      return { r: 0, g: 0, b: 0, a: 0 };
+    }
     return { r: data[index]!, g: data[index + 1]!, b: data[index + 2]!, a: data[index + 3]! };
   };
 
@@ -104,17 +132,30 @@ export function warpImageDataByField(
   field: LiquifyField,
   options: LiquifyWarpOptions = {},
 ): ImageData {
-  const outW = options.outputWidth ?? source.width;
-  const outH = options.outputHeight ?? source.height;
-  if (outW <= 0 || outH <= 0) return new ImageData(Math.max(1, outW), Math.max(1, outH));
+  const [outW, outH] = safeOutputDimensions(
+    options.outputWidth,
+    options.outputHeight,
+    source.width,
+    source.height,
+  );
+  const safeField = validateLiquifyField(field) ?? createLiquifyField(source.width, source.height);
 
-  if (isIdentityLiquifyField(field)) {
-    return new ImageData(new Uint8ClampedArray(source.data), outW, outH);
+  if (outW === source.width && outH === source.height && isIdentityLiquifyField(safeField)) {
+    return source;
+  }
+
+  // A valid document may contain a raster larger than the temporary CPU
+  // surface budget. Keeping the source authoritative is safer than asking a
+  // browser/native ImageData implementation for an allocation it cannot
+  // honour. The tiled render path can replace this early return later without
+  // changing the persisted field contract.
+  if (source.width * source.height > MAX_LIQUIFY_WARP_PIXELS) {
+    return source;
   }
 
   const border = options.border ?? 'transparent';
-  const scaleX = source.width / field.referenceWidth;
-  const scaleY = source.height / field.referenceHeight;
+  const scaleX = source.width / safeField.referenceWidth;
+  const scaleY = source.height / safeField.referenceHeight;
   const srcData = source.data;
   const out = new Uint8ClampedArray(outW * outH * 4);
   const offset: [number, number] = [0, 0];
@@ -123,9 +164,9 @@ export function warpImageDataByField(
     const v = (y + 0.5) / outH;
     for (let x = 0; x < outW; x++) {
       const u = (x + 0.5) / outW;
-      sampleLiquifyDisplacement(field, u, v, offset);
-      const sx = x + 0.5 + offset[0] * scaleX - 0.5;
-      const sy = y + 0.5 + offset[1] * scaleY - 0.5;
+      sampleLiquifyDisplacement(safeField, u, v, offset);
+      const sx = ((x + 0.5) / outW) * source.width - 0.5 + offset[0] * scaleX;
+      const sy = ((y + 0.5) / outH) * source.height - 0.5 + offset[1] * scaleY;
       const sample = sampleImageDataBilinear(srcData, source.width, source.height, sx, sy, border);
       const index = (y * outW + x) * 4;
       out[index] = sample.r;
@@ -135,6 +176,28 @@ export function warpImageDataByField(
     }
   }
   return new ImageData(out, outW, outH);
+}
+
+function safeOutputDimensions(
+  widthValue: number | undefined,
+  heightValue: number | undefined,
+  fallbackWidth: number,
+  fallbackHeight: number,
+): [number, number] {
+  const width = safeDimension(widthValue, fallbackWidth);
+  const height = safeDimension(heightValue, fallbackHeight);
+  if (
+    width > Math.floor(Number.MAX_SAFE_INTEGER / Math.max(1, height)) ||
+    width * height > MAX_LIQUIFY_WARP_PIXELS
+  ) {
+    return [fallbackWidth, fallbackHeight];
+  }
+  return [width, height];
+}
+
+function safeDimension(value: number | undefined, fallback: number): number {
+  if (value === undefined || !Number.isSafeInteger(value) || value <= 0) return fallback;
+  return value;
 }
 
 /** Compose raster tiles into a single RGBA buffer (transparent where absent). */
