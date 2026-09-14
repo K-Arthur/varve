@@ -37,8 +37,9 @@ The inspected light, dark, and high-contrast captures include closed, open,
 and narrow menu states. The floating toolbar remains 46.796875 CSS px high;
 all controls, including Italic, are 32px and share a 2.88px gap, 5.76px /
 9.44px padding, and 14.72px control text. The contextual bar remains on the
-same centerline and keeps its family field at least 180px wide. The visual
-artifacts are in `test-results/font-toolbar-final-20260914/`.
+same centerline and keeps its family field at least 180px wide. The committed
+[visual evidence set](../screenshots/fonts/2026-09-14-contextual-italic/README.md)
+contains the nine inspected captures and per-theme measurements.
 
 This is Linux Chromium evidence. Embedded WebKitGTK, WebView2, and WKWebView
 face-specific runs remain platform-owned follow-up checks.
