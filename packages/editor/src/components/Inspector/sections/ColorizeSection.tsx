@@ -320,20 +320,29 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
       return;
     }
     let active = true;
+    let unsubscribe: (() => void) | null = null;
     setModelAvailable(null);
     void import('@varve/engine')
       .then(async ({ getModelLoaderReady }) => {
         const loader = await getModelLoaderReady();
-        const available =
-          (await loader.isModelAvailable('ddcolor-tiny')) ||
-          (await loader.isModelAvailable('ddcolor'));
-        if (active) setModelAvailable(available);
+        const check = async () => {
+          const available =
+            (await loader.isModelAvailable('ddcolor-tiny')) ||
+            (await loader.isModelAvailable('ddcolor'));
+          if (active) setModelAvailable(available);
+        };
+        await check();
+        // Model installation/removal happens in Settings while this panel may
+        // stay open; keep the gated lane's readiness live instead of requiring
+        // a mode toggle.
+        if (active) unsubscribe = loader.subscribe(() => void check());
       })
       .catch(() => {
         if (active) setModelAvailable(false);
       });
     return () => {
       active = false;
+      unsubscribe?.();
     };
   }, [workflow]);
 

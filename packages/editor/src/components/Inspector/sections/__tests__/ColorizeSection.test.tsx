@@ -53,6 +53,7 @@ vi.mock('@varve/engine', () => ({
   listAllModels: vi.fn(() => []),
   getModelLoaderReady: vi.fn(async () => ({
     isModelAvailable: vi.fn().mockResolvedValue(false),
+    subscribe: vi.fn(() => vi.fn()),
   })),
 }));
 
