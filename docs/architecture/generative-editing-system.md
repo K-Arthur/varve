@@ -50,6 +50,7 @@ can safely provide one raster source:
 
 - the image inspector's Adjustments section;
 - the image inspector's Crop & Bounds → Generative Expand action;
+- an image layer's Layers-panel or canvas context menu;
 - Object → Generative Edit…;
 - the command palette, under the same action id, with `generative`,
   `inpainting`, `fill`, `remove object`, and `heal` search terms.
