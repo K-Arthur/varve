@@ -278,6 +278,24 @@ describe('traceRasterToPaths output structure', () => {
     expect(result.paths[0]?.holes).toHaveLength(1);
   });
 
+  it('color cutout output keeps holes regardless of the legacy compoundHoles flag', () => {
+    const pixels: number[] = [];
+    for (let y = 0; y < 5; y += 1) {
+      for (let x = 0; x < 5; x += 1) {
+        const dark = x >= 1 && x <= 3 && y >= 1 && y <= 3 && !(x === 2 && y === 2);
+        pixels.push(dark ? 0 : 255, dark ? 0 : 255, dark ? 0 : 255, 255);
+      }
+    }
+    const result = traceRasterToPaths(rgba(5, 5, pixels), {
+      mode: 'color',
+      maxColors: 2,
+      minArea: 1,
+      simplifyTolerance: 0,
+      compoundHoles: false,
+    });
+    expect(result.paths.some((path) => (path.holes?.length ?? 0) > 0)).toBe(true);
+  });
+
   it('never silently drops a large white region (no hidden background heuristic)', () => {
     const pixels: number[] = [];
     for (let y = 0; y < 32; y += 1) {

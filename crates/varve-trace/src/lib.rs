@@ -879,7 +879,8 @@ pub fn trace_to_beziers_cancellable(
                     .collect();
                 loops.raw_holes = Vec::new();
             }
-            let attach_holes = opts.structure == Structure::Stacked || opts.compound_holes;
+            // Multi-color output is governed by structure, not the legacy
+            // compound_holes flag; cutout keeps all holes, stacked filters them.
             let (paths, omitted) = fit_loops(
                 &loops,
                 opts,
@@ -889,7 +890,7 @@ pub fn trace_to_beziers_cancellable(
                     b: color.b,
                     a: color.a,
                 }),
-                attach_holes,
+                true,
             );
             omitted_holes += omitted;
             all_paths.extend(paths);
@@ -1422,6 +1423,28 @@ mod tests {
                 .fill
                 .is_some_and(|f| f.r > 240 && f.g > 240 && f.b > 240)),
             "a dominant white region must be traced, not skipped as background"
+        );
+    }
+
+    #[test]
+    fn color_mode_ignores_legacy_compound_holes_flag() {
+        // Multi-color structure is governed by `structure`; the legacy
+        // compound_holes flag must not silently drop holes in cutout mode.
+        let pixels = donut_rgba(32, 32, 4, 14, 16, 16);
+        let result = trace_to_beziers(
+            &pixels,
+            32,
+            32,
+            &TraceOptions {
+                max_colors: 2,
+                compound_holes: false,
+                min_pixels: 4,
+                ..Default::default()
+            },
+        );
+        assert!(
+            result.iter().any(|path| !path.holes.is_empty()),
+            "cutout color output keeps holes regardless of compound_holes"
         );
     }
 

@@ -434,7 +434,6 @@ function traceMaskToPaths(mask: Uint8Array, options: TraceMaskOptions): RasterTr
     } else {
       omittedHoles += set.holes.length;
     }
-    if (set.outers.length === 0) omittedHoles += set.holes.length;
   }
 
   const paths: RasterTracePath[] = [];
