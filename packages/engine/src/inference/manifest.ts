@@ -54,7 +54,7 @@ function inferCategory(id: string): string {
   if (id.startsWith('upscale-')) return 'upscaling';
   if (id.startsWith('birefnet-') || id.startsWith('u2netp') || id.startsWith('isnet-'))
     return 'segmentation';
-  if (id.startsWith('sam2-')) return 'segmentation';
+  if (id.startsWith('sam2-') || id.startsWith('mobile-sam')) return 'segmentation';
   if (id.startsWith('ddcolor')) return 'colorization';
   if (id === 'scunet') return 'denoising';
   if (id.startsWith('depth-')) return 'depth';
@@ -79,8 +79,11 @@ const KNOWN_SIZES: Record<string, number> = {
   'upscale-realesr-general-int8': 1_300_000,
   'upscale-realesrgan-anime': 17_906_556,
   scunet: 18_000_000,
-  'sam2-hiera-tiny': 154902133_902_201,
-  'sam2-hiera-small': 183344311_344_379,
+  'sam2-hiera-tiny': 154_902_201,
+  'sam2-hiera-small': 183_000_000,
+  'mobile-sam': 44_653_652,
+  'mobile-sam-encoder': 28_157_093,
+  'mobile-sam-decoder': 16_496_559,
   'tr-ocr-base-printed': 340_000_000,
   'depth-anything-v2-small': 27_258_801,
   'dinov2-small': 88_459_888,
@@ -123,6 +126,8 @@ function entryDescription(id: string, notes?: string): string {
     return 'SCUNet — conservative blind denoising for sensor noise and grain in photos. It is not a dedicated JPEG-artifact remover.';
   if (id === 'sam2-hiera-tiny' || id === 'sam2-hiera-small')
     return 'SAM2 — interactive object segmentation via point, box, or mask prompts. Click foreground/background, drag box, iteratively refine.';
+  if (id === 'mobile-sam')
+    return 'MobileSAM — lower-working-set interactive object segmentation via point or box prompts. Returns multiple candidates for review; it is not an automatic foreground or semantic detector.';
   if (id === 'tr-ocr-base-printed')
     return 'TrOCR — printed Latin text recognition from images. Produces structured text with confidence scores.';
 
@@ -260,6 +265,9 @@ function modelDisplayName(id: string): string {
     scunet: 'SCUNet Denoise',
     'sam2-hiera-tiny': 'SAM2 Tiny',
     'sam2-hiera-small': 'SAM2 Small',
+    'mobile-sam': 'Faster Prompted Selection (MobileSAM)',
+    'mobile-sam-encoder': 'Faster Prompted Selection — Image Encoder',
+    'mobile-sam-decoder': 'Faster Prompted Selection — Multi-mask Decoder',
     'tr-ocr-base-printed': 'TrOCR (Printed Text)',
     'depth-anything-v2-small': 'Depth-Anything-V2 Small',
     'dinov2-small': 'Find Similar Images (DINOv2)',
@@ -279,8 +287,11 @@ function modelQuality(id: string): number {
     'upscale-realesr-general': 4,
     'upscale-realesr-general-int8': 3.5,
     scunet: 4,
-    'sam2-hiera-tiny': 154902133.5,
-    'sam2-hiera-small': 183344311,
+    'sam2-hiera-tiny': 3.5,
+    'sam2-hiera-small': 4,
+    'mobile-sam': 3,
+    'mobile-sam-encoder': 3,
+    'mobile-sam-decoder': 3,
     'tr-ocr-base-printed': 4,
     'depth-anything-v2-small': 4.5,
     'dinov2-small': 4,

@@ -20,7 +20,10 @@ import { AVAILABLE_MODELS } from './types';
 // upscaleModels.ts. These mirror entries from modelCatalog.ts FALLBACK_ENTRIES
 // so the download infrastructure can resolve remoteUrl and size without waiting
 // for an async manifest fetch.
-const EXTENDED_MODEL_META: Record<string, { remoteUrl: string; name: string; size: number }> = {
+const EXTENDED_MODEL_META: Record<
+  string,
+  { remoteUrl: string; name: string; size: number; checksum?: string }
+> = {
   'dinov2-small': {
     // Verified 2026-08-13: Xenova/dinov2-small ONNX export (Apache-2.0).
     // Image embedding model used by the local Find Similar workflow.
@@ -68,6 +71,25 @@ const EXTENDED_MODEL_META: Record<string, { remoteUrl: string; name: string; siz
     name: 'SAM2 Small',
     size: 92_000_000,
   },
+  'mobile-sam': {
+    remoteUrl: '',
+    name: 'Faster Prompted Selection (MobileSAM)',
+    size: 44_653_652,
+  },
+  'mobile-sam-encoder': {
+    remoteUrl:
+      'https://huggingface.co/Acly/MobileSAM/resolve/0d3b403339b4674a82493d5e97964dd78089ddc8/mobile_sam_image_encoder.onnx',
+    name: 'Faster Prompted Selection — Image Encoder',
+    size: 28_157_093,
+    checksum: '580f5fb648ea1062c0aabc26217aed56921985f03f0cbbd852bba81d760cc749',
+  },
+  'mobile-sam-decoder': {
+    remoteUrl:
+      'https://huggingface.co/Acly/MobileSAM/resolve/0d3b403339b4674a82493d5e97964ddc8/sam_mask_decoder_multi.onnx',
+    name: 'Faster Prompted Selection — Multi-mask Decoder',
+    size: 16_496_559,
+    checksum: '8976b90a87ba50a6a72217a5ff994f7d25ce16f2229fcc1ed259e1294c622ffe',
+  },
   'tr-ocr-base-printed': {
     remoteUrl: '',
     name: 'TrOCR (Printed Text)',
@@ -77,7 +99,7 @@ const EXTENDED_MODEL_META: Record<string, { remoteUrl: string; name: string; siz
 
 function modelMeta(
   modelId: string,
-): { remoteUrl: string; name?: string; size: number } | undefined {
+): { remoteUrl: string; name?: string; size: number; checksum?: string } | undefined {
   const bg = AVAILABLE_MODELS.find((m) => m.id === modelId);
   if (bg) return bg;
   const up = getUpscaleModel(modelId);
@@ -635,7 +657,12 @@ class ModelLoader {
       // feature hand-rolling its own fetch loop.
       const entry = await getManifestEntry(modelId, signal);
       if (entry) {
-        model = { remoteUrl: entry.remoteUrl, name: entry.filename, size: 0 };
+        model = {
+          remoteUrl: entry.remoteUrl,
+          name: entry.filename,
+          size: 0,
+          checksum: entry.sha256 ?? undefined,
+        };
       }
     }
     if (!model) {
@@ -821,7 +848,8 @@ class ModelLoader {
         offset += chunk.length;
       }
       const upstreamBuffer = bytes.buffer;
-      const expectedUpstream = manifestEntry?.upstreamChecksum ?? manifestEntry?.sha256 ?? null;
+      const expectedUpstream =
+        manifestEntry?.upstreamChecksum ?? manifestEntry?.sha256 ?? model.checksum ?? null;
       if (!(await verifyModelChecksum(upstreamBuffer, expectedUpstream))) {
         await deletePartialDownload(modelId);
         throw new Error(`Model ${modelId} failed SHA-256 verification`);

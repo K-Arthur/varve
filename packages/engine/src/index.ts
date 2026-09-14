@@ -792,6 +792,12 @@ export type {
   ModelSource,
   ModelState as InferenceModelState,
   ModelUnavailableReason,
+  PromptedProviderFact,
+  PromptedRoutingDecision,
+  PromptedRoutingRejection,
+  PromptedRoutingRequest,
+  PromptedSelectionExecutionProvider,
+  PromptedSelectionPreference,
   ProviderChainOptions,
   RuntimeCapabilities,
 } from './inference';
@@ -814,11 +820,18 @@ export {
   InferenceWorkerHost,
   isInferenceError,
   listAllModels,
+  MOBILE_SAM_DECODER_ID,
+  MOBILE_SAM_ENCODER_ID,
+  MOBILE_SAM_PROVIDER_ID,
   ModelRegistry,
   resetInferenceAdmission,
   resetRuntimeCapabilities,
   resolveAcquisition,
+  routePromptedSelection,
   runProviderChain,
+  SAM2_DECODER_ID,
+  SAM2_ENCODER_ID,
+  SAM2_PROVIDER_ID,
   SessionManager,
 } from './inference';
 export { clampImageToMaxDimension } from './inference/imageTensor';
@@ -846,6 +859,26 @@ export {
   FONT_CLASSIFY_TENSOR_SPEC,
 } from './inference/models/fontClassify';
 export { decodeLineArtOutput, LINE_ART_INPUT_SIZE } from './inference/models/lineArt';
+export type {
+  MobileSamDecoderOutput,
+  MobileSamMaskCandidate,
+  MobileSamPoint,
+  MobileSamPrompt,
+  MobileSamScoreSource,
+  MobileSamTensor,
+} from './inference/models/mobileSam';
+export {
+  decodeMobileSamDecoderOutput,
+  encodeMobileSamPrompts,
+  MOBILE_SAM_INPUT_SIZE,
+  MOBILE_SAM_MASK_INPUT_SIZE,
+  MOBILE_SAM_MAX_CANDIDATES,
+  MOBILE_SAM_PREPROCESSING_VERSION,
+  MOBILE_SAM_TENSOR_SPEC,
+  resizeLongestSideDimensions,
+  resizeMaskBilinear as resizeMobileSamMaskBilinear,
+  validateMobileSamPrompts,
+} from './inference/models/mobileSam';
 export type { TextRegion } from './inference/models/paddleocr';
 export { decodeTextRegions, padToStride } from './inference/models/paddleocr';
 export type { PaddleRecInput, PaddleRecResult } from './inference/models/paddlerec';
@@ -856,6 +889,7 @@ export type {
   Sam2DecoderOutput,
   Sam2EncoderInput,
   Sam2EncoderOutput,
+  Sam2Letterbox,
   Sam2MaskCandidate,
   Sam2Prompt,
 } from './inference/models/sam2';

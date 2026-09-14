@@ -3,6 +3,23 @@ export { EmbeddingCache } from '../segmentation/embeddingCache';
 export type { AlphaMask, MaskCombineMode } from '../segmentation/maskAlgebra';
 export { combineAlphaMasks, invertAlphaMask } from '../segmentation/maskAlgebra';
 export type {
+  PromptedProviderFact,
+  PromptedRoutingDecision,
+  PromptedRoutingRejection,
+  PromptedRoutingRequest,
+  PromptedSelectionExecutionProvider,
+  PromptedSelectionPreference,
+} from '../segmentation/promptedRouting';
+export {
+  MOBILE_SAM_DECODER_ID,
+  MOBILE_SAM_ENCODER_ID,
+  MOBILE_SAM_PROVIDER_ID,
+  routePromptedSelection,
+  SAM2_DECODER_ID,
+  SAM2_ENCODER_ID,
+  SAM2_PROVIDER_ID,
+} from '../segmentation/promptedRouting';
+export type {
   ImageEmbedding,
   SegmentationBackend,
   SegmentationBox,
@@ -15,6 +32,7 @@ export type {
   SegmentationPointLabel,
   SegmentationPrediction,
   SegmentationPrompt,
+  SegmentationScoreSource,
 } from '../segmentation/types';
 export { isUsableSegmentationPrompt, serializeSegmentationCacheKey } from '../segmentation/types';
 export type {
@@ -83,10 +101,31 @@ export {
 } from './models/fontClassify';
 export { decodeLamaOutput, LAMA_INPUT_SIZE } from './models/lama';
 export type {
+  MobileSamDecoderOutput,
+  MobileSamMaskCandidate,
+  MobileSamPoint,
+  MobileSamPrompt,
+  MobileSamScoreSource,
+  MobileSamTensor,
+} from './models/mobileSam';
+export {
+  decodeMobileSamDecoderOutput,
+  encodeMobileSamPrompts,
+  MOBILE_SAM_INPUT_SIZE,
+  MOBILE_SAM_MASK_INPUT_SIZE,
+  MOBILE_SAM_MAX_CANDIDATES,
+  MOBILE_SAM_PREPROCESSING_VERSION,
+  MOBILE_SAM_TENSOR_SPEC,
+  resizeLongestSideDimensions,
+  resizeMaskBilinear as resizeMobileSamMaskBilinear,
+  validateMobileSamPrompts,
+} from './models/mobileSam';
+export type {
   Sam2DecoderInput,
   Sam2DecoderOutput,
   Sam2EncoderInput,
   Sam2EncoderOutput,
+  Sam2Letterbox,
   Sam2Prompt,
 } from './models/sam2';
 export {

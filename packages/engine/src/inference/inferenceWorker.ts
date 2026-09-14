@@ -32,6 +32,13 @@ import { YU_NET_INPUT_SIZE, YU_NET_TENSOR_SPEC } from './models/faceDetect';
 import { FONT_CLASSIFY_INPUT_SIZE, FONT_CLASSIFY_TENSOR_SPEC } from './models/fontClassify';
 import { LAMA_INPUT_SIZE, LAMA_TENSOR_SPEC } from './models/lama';
 import { LINE_ART_INPUT_SIZE, LINE_ART_TENSOR_SPEC } from './models/lineArt';
+import type { MobileSamPrompt } from './models/mobileSam';
+import {
+  encodeMobileSamPrompts,
+  MOBILE_SAM_INPUT_SIZE,
+  MOBILE_SAM_TENSOR_SPEC,
+  resizeLongestSideDimensions,
+} from './models/mobileSam';
 import { NAFNET_INPUT_SIZE, NAFNET_TENSOR_SPEC } from './models/nafnet';
 import { PADDLE_DET_TENSOR_SPEC } from './models/paddleocr';
 import { PADDLE_REC_TENSOR_SPEC } from './models/paddlerec';
@@ -46,6 +53,8 @@ export type WorkerModelType =
   | 'sam2'
   | 'sam2-encoder'
   | 'sam2-decoder'
+  | 'mobile-sam-encoder'
+  | 'mobile-sam-decoder'
   | 'scunet'
   | 'nafnet'
   | 'depth'
@@ -76,6 +85,10 @@ export interface WorkerLetterbox {
   offsetY: number;
   contentWidth?: number;
   contentHeight?: number;
+  /** Provider-owned preprocessing geometry, when it is not a square letterbox. */
+  mode?: 'square-letterbox' | 'longest-side-top-left';
+  scaleX?: number;
+  scaleY?: number;
 }
 
 /** External-weights sidecar: the graph-internal filename and a readable URL. */
@@ -171,6 +184,12 @@ interface ModelPreprocessor {
    * letterbox. Matches pipelines whose reference implementation squashes to
    * the input size (DDColor upstream). */
   stretchInput?: boolean;
+  /**
+   * MobileSAM's exported encoder accepts resized raw HWC RGB and performs
+   * normalization plus right/bottom padding inside the graph. It must not go
+   * through the generic NCHW/ImageNet letterbox path.
+   */
+  resizeLongestSideHwc?: boolean;
 }
 
 const modelRegistry = new Map<WorkerModelType, ModelPreprocessor>();
@@ -224,6 +243,27 @@ registerModelType('sam2-decoder', {
       mask_input: encoded.maskInput,
       has_mask_input: encoded.hasMaskInput,
     };
+  },
+});
+
+registerModelType('mobile-sam-encoder', {
+  tensorSpec: MOBILE_SAM_TENSOR_SPEC,
+  getInputSize: () => MOBILE_SAM_INPUT_SIZE,
+  hasImageInput: true,
+  resizeLongestSideHwc: true,
+});
+
+registerModelType('mobile-sam-decoder', {
+  tensorSpec: MOBILE_SAM_TENSOR_SPEC,
+  getInputSize: () => 0,
+  hasImageInput: false,
+  encodePrompts: (params: Record<string, unknown>) => {
+    const prompt: MobileSamPrompt = {
+      points: params.points as MobileSamPrompt['points'],
+      box: params.box as MobileSamPrompt['box'],
+      previousMask: params.previousMask as MobileSamPrompt['previousMask'],
+    };
+    return encodeMobileSamPrompts(prompt, Number(params.sourceWidth), Number(params.sourceHeight));
   },
 });
 
@@ -685,6 +725,50 @@ function preprocessImage(
   };
 }
 
+/**
+ * Prepare the exact image tensor expected by Acly's MobileSAM encoder graph.
+ * The graph's first nodes perform mean/std normalization, channel permutation,
+ * and right/bottom padding to 1024. Feeding an already-normalized NCHW tensor
+ * here would silently double-normalize and produce a plausible-looking but
+ * wrong mask.
+ */
+function preprocessMobileSamImage(imageData: ImageData): {
+  tensor: Float32Array;
+  width: number;
+  height: number;
+  offsetX: number;
+  offsetY: number;
+  contentWidth: number;
+  contentHeight: number;
+} {
+  const resized = resizeLongestSideDimensions(imageData.width, imageData.height);
+  const sourceCanvas = new OffscreenCanvas(imageData.width, imageData.height);
+  const sourceContext = sourceCanvas.getContext('2d');
+  if (!sourceContext) throw new Error('Canvas context unavailable');
+  sourceContext.putImageData(imageData, 0, 0);
+
+  const resizedCanvas = new OffscreenCanvas(resized.width, resized.height);
+  const resizedContext = resizedCanvas.getContext('2d');
+  if (!resizedContext) throw new Error('Canvas context unavailable');
+  resizedContext.drawImage(sourceCanvas, 0, 0, resized.width, resized.height);
+  const pixels = resizedContext.getImageData(0, 0, resized.width, resized.height).data;
+  const tensor = new Float32Array(resized.width * resized.height * 3);
+  for (let index = 0, output = 0; index < pixels.length; index += 4) {
+    tensor[output++] = pixels[index] ?? 0;
+    tensor[output++] = pixels[index + 1] ?? 0;
+    tensor[output++] = pixels[index + 2] ?? 0;
+  }
+  return {
+    tensor,
+    width: resized.width,
+    height: resized.height,
+    offsetX: 0,
+    offsetY: 0,
+    contentWidth: resized.width,
+    contentHeight: resized.height,
+  };
+}
+
 self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   const data = e.data;
   if (data?.type !== 'infer') return;
@@ -746,19 +830,23 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
         const primarySource = modelPre.transformInput
           ? modelPre.transformInput(imageData)
           : imageData;
-        const primary = preprocessImage(primarySource, inputSize, modelPre.tensorSpec, {
-          channelsLast: modelPre.channelsLast,
-          stretch: modelPre.stretchInput,
-        });
+        const primary = modelPre.resizeLongestSideHwc
+          ? preprocessMobileSamImage(primarySource)
+          : preprocessImage(primarySource, inputSize, modelPre.tensorSpec, {
+              channelsLast: modelPre.channelsLast,
+              stretch: modelPre.stretchInput,
+            });
         letterboxOffsetX = primary.offsetX;
         letterboxOffsetY = primary.offsetY;
         letterboxContentWidth = primary.contentWidth;
         letterboxContentHeight = primary.contentHeight;
 
         finalTensor = primary.tensor;
-        dims = modelPre.channelsLast
-          ? [1, primary.height, primary.width, 3]
-          : [1, 3, primary.height, primary.width];
+        dims = modelPre.resizeLongestSideHwc
+          ? [primary.height, primary.width, 3]
+          : modelPre.channelsLast
+            ? [1, primary.height, primary.width, 3]
+            : [1, 3, primary.height, primary.width];
 
         if (modelPre.auxImage?.concatChannels && auxImageData) {
           const aux = preprocessImage(
@@ -863,6 +951,13 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
           offsetY: letterboxOffsetY,
           contentWidth: letterboxContentWidth,
           contentHeight: letterboxContentHeight,
+          ...(modelPre.resizeLongestSideHwc
+            ? {
+                mode: 'longest-side-top-left' as const,
+                scaleX: letterboxContentWidth / imageData.width,
+                scaleY: letterboxContentHeight / imageData.height,
+              }
+            : {}),
         } satisfies WorkerLetterbox;
       }
     }

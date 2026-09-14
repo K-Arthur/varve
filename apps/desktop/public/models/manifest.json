@@ -1455,6 +1455,231 @@
       "notes": "DDColor-L (ConvNeXt-large) — higher-quality grayscale-to-color. Expected artifact size ~980MB. Apache-2.0. Input: 512x512 grayscale-derived RGB [0,1] (source L* -> Lab(L,0,0) -> RGB, square stretch resize). Output: a*b* chroma [1,2,512,512] resized to source dimensions. The official conversion recipe is documented, but this artifact is not bundled and remains unavailable until its bytes are hash-verified and smoke-tested."
     },
     {
+      "id": "mobile-sam",
+      "filename": "",
+      "localPath": "",
+      "sha256": null,
+      "bundled": false,
+      "remoteUrl": "",
+      "precision": "fp32",
+      "modelVersion": "acly-2023-08-03",
+      "sourceRevision": "Acly/MobileSAM@0d3b403339b4674a82493d5e97964dd78089ddc8",
+      "sourceLicense": "MIT",
+      "preprocessingVersion": 1,
+      "postprocessingVersion": 1,
+      "supportedProviders": [
+        "wasm"
+      ],
+      "notes": "Faster prompted object selection using the pinned Acly/MobileSAM split ONNX artifacts. The encoder accepts raw RGB HWC after ResizeLongestSide; the graph normalizes and right/bottom pads to 1024. The multi-mask decoder returns four source-sized logits and raw predicted-IoU ranking scores. This is a prompted segmenter, not a foreground proposal or semantic detector. Node CPU RSS measured ~548MB with both sessions resident on a 1920x1080 image; browser/Varve inference remains an explicit validation gate.",
+      "components": [
+        {
+          "id": "mobile-sam-encoder",
+          "filename": "mobile_sam_image_encoder.onnx",
+          "localPath": "/models/mobile-sam/mobile_sam_image_encoder.onnx",
+          "remoteUrl": "https://huggingface.co/Acly/MobileSAM/resolve/0d3b403339b4674a82493d5e97964dd78089ddc8/mobile_sam_image_encoder.onnx",
+          "role": "encoder",
+          "checksum": "580f5fb648ea1062c0aabc26217aed56921985f03f0cbbd852bba81d760cc749",
+          "sizeBytes": 28157093
+        },
+        {
+          "id": "mobile-sam-decoder",
+          "filename": "sam_mask_decoder_multi.onnx",
+          "localPath": "/models/mobile-sam/sam_mask_decoder_multi.onnx",
+          "remoteUrl": "https://huggingface.co/Acly/MobileSAM/resolve/0d3b403339b4674a82493d5e97964dd78089ddc8/sam_mask_decoder_multi.onnx",
+          "role": "decoder",
+          "checksum": "8976b90a87ba50a6a72217a5ff994f7d25ce16f2229fcc1ed259e1294c622ffe",
+          "sizeBytes": 16496559
+        }
+      ]
+    },
+    {
+      "id": "mobile-sam-encoder",
+      "filename": "mobile_sam_image_encoder.onnx",
+      "localPath": "/models/mobile-sam/mobile_sam_image_encoder.onnx",
+      "sha256": "580f5fb648ea1062c0aabc26217aed56921985f03f0cbbd852bba81d760cc749",
+      "bundled": false,
+      "remoteUrl": "https://huggingface.co/Acly/MobileSAM/resolve/0d3b403339b4674a82493d5e97964dd78089ddc8/mobile_sam_image_encoder.onnx",
+      "precision": "fp32",
+      "modelVersion": "acly-2023-08-03",
+      "sourceRevision": "Acly/MobileSAM@0d3b403339b4674a82493d5e97964dd78089ddc8 encoder",
+      "sourceLicense": "MIT",
+      "preprocessingVersion": 1,
+      "postprocessingVersion": 1,
+      "supportedProviders": [
+        "wasm"
+      ],
+      "tensorContract": {
+        "version": 1,
+        "inputs": [
+          {
+            "name": "input_image",
+            "dims": [
+              null,
+              null,
+              3
+            ],
+            "dtype": "float32"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "image_embeddings",
+            "dims": [
+              1,
+              256,
+              64,
+              64
+            ],
+            "dtype": "float32"
+          }
+        ],
+        "normalization": {
+          "mean": [
+            123.675,
+            116.28,
+            103.53
+          ],
+          "std": [
+            58.395,
+            57.12,
+            57.375
+          ],
+          "channelOrder": "rgb"
+        },
+        "outputActivation": "none",
+        "peakMemoryBytes": 420000000
+      },
+      "validation": {
+        "contractVerified": true,
+        "integrityVerified": true,
+        "provenanceStatus": "verified",
+        "inferenceVerified": false,
+        "validationSummary": "ONNX graph inspected directly and executed with onnxruntime-node on a real public-domain photograph. Browser worker validation is pending.",
+        "contractVersion": 1,
+        "contractVerifiedAt": "2026-09-14T00:00:00Z",
+        "integrityVerifiedAt": "2026-09-14T00:00:00Z"
+      },
+      "notes": "MobileSAM encoder. ResizeLongestSide is provider-owned: input is raw RGB HWC at the rounded resized dimensions; the graph performs normalization and right/bottom padding to 1024. SHA-256 pinned from Acly/MobileSAM revision 0d3b403339b4674a82493d5e97964dd78089ddc8.",
+      "validationStatus": "partially-verified"
+    },
+    {
+      "id": "mobile-sam-decoder",
+      "filename": "sam_mask_decoder_multi.onnx",
+      "localPath": "/models/mobile-sam/sam_mask_decoder_multi.onnx",
+      "sha256": "8976b90a87ba50a6a72217a5ff994f7d25ce16f2229fcc1ed259e1294c622ffe",
+      "bundled": false,
+      "remoteUrl": "https://huggingface.co/Acly/MobileSAM/resolve/0d3b403339b4674a82493d5e97964dd78089ddc8/sam_mask_decoder_multi.onnx",
+      "precision": "fp32",
+      "modelVersion": "acly-2023-08-03",
+      "sourceRevision": "Acly/MobileSAM@0d3b403339b4674a82493d5e97964dd78089ddc8 multi decoder",
+      "sourceLicense": "MIT",
+      "preprocessingVersion": 1,
+      "postprocessingVersion": 1,
+      "supportedProviders": [
+        "wasm"
+      ],
+      "tensorContract": {
+        "version": 1,
+        "inputs": [
+          {
+            "name": "image_embeddings",
+            "dims": [
+              1,
+              256,
+              64,
+              64
+            ],
+            "dtype": "float32"
+          },
+          {
+            "name": "point_coords",
+            "dims": [
+              1,
+              null,
+              2
+            ],
+            "dtype": "float32"
+          },
+          {
+            "name": "point_labels",
+            "dims": [
+              1,
+              null
+            ],
+            "dtype": "float32"
+          },
+          {
+            "name": "mask_input",
+            "dims": [
+              1,
+              1,
+              256,
+              256
+            ],
+            "dtype": "float32"
+          },
+          {
+            "name": "has_mask_input",
+            "dims": [
+              1
+            ],
+            "dtype": "float32"
+          },
+          {
+            "name": "orig_im_size",
+            "dims": [
+              2
+            ],
+            "dtype": "float32"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "masks",
+            "dims": [
+              1,
+              4,
+              null,
+              null
+            ],
+            "dtype": "float32"
+          },
+          {
+            "name": "iou_predictions",
+            "dims": [
+              1,
+              4
+            ],
+            "dtype": "float32"
+          },
+          {
+            "name": "low_res_masks",
+            "dims": [
+              1,
+              4,
+              256,
+              256
+            ],
+            "dtype": "float32"
+          }
+        ],
+        "outputActivation": "linear",
+        "peakMemoryBytes": 240000000
+      },
+      "validation": {
+        "contractVerified": true,
+        "integrityVerified": true,
+        "provenanceStatus": "verified",
+        "inferenceVerified": false,
+        "validationSummary": "ONNX graph inspected directly and executed with onnxruntime-node on a real public-domain photograph. Browser worker validation is pending.",
+        "contractVersion": 1,
+        "contractVerifiedAt": "2026-09-14T00:00:00Z",
+        "integrityVerifiedAt": "2026-09-14T00:00:00Z"
+      },
+      "notes": "MobileSAM multi-mask decoder. The model's iou_predictions are raw predicted-IoU ranking scores, not probabilities; no stability output is present in this artifact. Masks are logits thresholded at zero after the graph's source-size postprocessing. SHA-256 pinned from Acly/MobileSAM revision 0d3b403339b4674a82493d5e97964dd78089ddc8.",
+      "validationStatus": "partially-verified"
+    },
+    {
       "id": "sam2-hiera-small",
       "filename": "",
       "localPath": "",

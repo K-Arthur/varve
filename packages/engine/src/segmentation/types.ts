@@ -9,6 +9,14 @@
 
 export type SegmentationPointLabel = 'foreground' | 'background';
 
+/**
+ * Provenance of a candidate score. These values are deliberately distinct:
+ * predicted IoU is a model quality estimate, stability measures threshold
+ * robustness, and a heuristic is an application-side ranking signal. None is
+ * a calibrated probability that the user intended a particular object.
+ */
+export type SegmentationScoreSource = 'predicted-iou' | 'stability' | 'heuristic';
+
 export interface SegmentationPoint {
   /** Source-image pixel coordinates, not screen or world coordinates. */
   x: number;
@@ -69,6 +77,7 @@ export interface SegmentationCandidate {
   width: number;
   height: number;
   confidence: number;
+  scoreSource?: SegmentationScoreSource;
   stability?: number;
   /** Optional score explaining how well prompts are contained by the mask. */
   promptContainment?: number;
