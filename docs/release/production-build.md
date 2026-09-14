@@ -194,6 +194,13 @@ cannot pass the gate; it runs on the ubuntu-22.04 CI baseline, so it does
 NOT exercise the modern-Mesa path — the prune step exists because of that
 gap, not despite it.
 
+The `just package-linux`, `just package-appimage`, and
+`just package-linux-dev` recipes run this prune step automatically after Tauri
+bundling. The cleanup preserves Varve-owned resources, including the native
+ONNX Runtime and generative helper, and removes stale foreign-platform runtime
+directories from a reused AppDir. The release workflow performs the same
+post-bundle verification before signing and collection.
+
 ### All Linux formats at once
 
 ```sh

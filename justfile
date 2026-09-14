@@ -258,6 +258,7 @@ prune-runtimes:
 # Build all Linux bundles (AppImage + deb + rpm). Requires Linux + Tauri deps.
 package-linux: prune-runtimes
     cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage,deb,rpm --ci --features ai
+    node scripts/release/prune-appimage-bundled-libs.mjs --bundle-dir apps/desktop/src-tauri/target/release/bundle
     @echo "Bundles written to apps/desktop/src-tauri/target/release/bundle/"
 
 # Build deb only (faster; useful for quick install testing on Debian/Ubuntu).
@@ -271,6 +272,7 @@ package-rpm: prune-runtimes
 # Build AppImage only. Local smoke-test artifact — see the note above.
 package-appimage: prune-runtimes
     cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage --ci --features ai
+    node scripts/release/prune-appimage-bundled-libs.mjs --bundle-dir apps/desktop/src-tauri/target/release/bundle
 
 # Dev/test bundles with a snapshot version (<release>-dev.<short-sha>) instead
 # of the committed release version. The tauri config merge overrides only the
@@ -283,6 +285,7 @@ package-linux-dev: prune-runtimes
     V="$(node scripts/release/version.mjs snapshot)"
     echo "Building dev bundles as ${V}..."
     cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage,deb --ci --features ai --config "{\"version\":\"${V}\"}"
+    node scripts/release/prune-appimage-bundled-libs.mjs --bundle-dir apps/desktop/src-tauri/target/release/bundle
     echo "Dev bundles written to apps/desktop/src-tauri/target/release/bundle/"
 
 # Build macOS dmg (run on macOS only).
