@@ -20,6 +20,10 @@ require a native platform lane.
   missing-font recovery, variable axes, licensing boundaries, Document Fonts,
   Select by Font, and image identification. The affected pages are the
   typography feature page, typography guide, and file-format guide.
+- Native opaque-handle loading now selects the requested TTC/OTC member and
+  refuses same-family fallback for missing or stale exact references; the
+  focused proof is in
+  [`font-native-exact-face-evidence-2026-09-14.md`](./font-native-exact-face-evidence-2026-09-14.md).
 
 ## Final focused checks
 
@@ -72,4 +76,3 @@ lanes for exact installed-face restart, OS refresh/revocation, and native
 clipboard/export certification. Those limitations remain explicitly Partial
 or Open in the acceptance matrix; this closeout does not promote them to
 complete.
-
