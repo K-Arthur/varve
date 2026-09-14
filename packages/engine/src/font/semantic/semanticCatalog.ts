@@ -160,6 +160,8 @@ export class FontSemanticCatalog {
   private readonly records = new Map<string, FontSemanticRecord>();
   private readonly userState = readUserState();
   private readonly listeners = new Set<Listener>();
+  private allSnapshot: FontSemanticRecord[] | undefined;
+  private familyNameIndex: Map<string, FontSemanticRecord> | undefined;
   private _revision = 0;
 
   constructor(
@@ -183,7 +185,10 @@ export class FontSemanticCatalog {
   }
 
   all(): FontSemanticRecord[] {
-    return [...this.records.values()];
+    this.allSnapshot ??= [...this.records.values()];
+    // Keep the historical mutable-array return contract without rebuilding the
+    // family snapshot on every picker render.
+    return [...this.allSnapshot];
   }
 
   get(familyId: string): FontSemanticRecord | undefined {
@@ -192,7 +197,14 @@ export class FontSemanticCatalog {
 
   findByFamilyName(familyName: string): FontSemanticRecord | undefined {
     const target = normalize(familyName);
-    return [...this.records.values()].find((record) => normalize(record.familyName) === target);
+    this.familyNameIndex ??= new Map(
+      this.records.values().reduce((index, record) => {
+        const key = normalize(record.familyName);
+        if (!index.has(key)) index.set(key, record);
+        return index;
+      }, new Map<string, FontSemanticRecord>()),
+    );
+    return this.familyNameIndex.get(target);
   }
 
   search(
@@ -249,6 +261,7 @@ export class FontSemanticCatalog {
     const existing = this.records.get(input.familyId);
     const record = existing ? mergeFontSemanticInput(existing, input) : this.recordFromInput(input);
     this.records.set(input.familyId, this.applyUserState(record));
+    this.invalidateIndexes();
     this.notify();
     return this.records.get(input.familyId)!;
   }
@@ -266,6 +279,7 @@ export class FontSemanticCatalog {
     this.userState.set(record.familyId, state);
     writeUserState(this.userState);
     this.records.set(record.familyId, this.applyUserState(record));
+    this.invalidateIndexes();
     this.notify();
   }
 
@@ -302,6 +316,7 @@ export class FontSemanticCatalog {
     this.userState.set(record.familyId, state);
     writeUserState(this.userState);
     this.records.set(record.familyId, this.applyUserState(record));
+    this.invalidateIndexes();
     this.notify();
   }
 
@@ -313,6 +328,7 @@ export class FontSemanticCatalog {
     this.userState.set(record.familyId, state);
     writeUserState(this.userState);
     this.records.set(record.familyId, this.applyUserState(record));
+    this.invalidateIndexes();
     this.notify();
   }
 
@@ -324,6 +340,7 @@ export class FontSemanticCatalog {
     this.userState.set(record.familyId, state);
     writeUserState(this.userState);
     this.records.set(record.familyId, this.applyUserState(record));
+    this.invalidateIndexes();
     this.notify();
   }
 
@@ -352,6 +369,7 @@ export class FontSemanticCatalog {
       merged.source = sourcePriority(merged);
       merged.installed = true;
       this.records.set(existing.familyId, this.applyUserState(merged));
+      this.invalidateIndexes();
       return;
     }
     this.upsertRecord(this.recordFromInput(input));
@@ -365,6 +383,12 @@ export class FontSemanticCatalog {
         existing ? mergeFontSemanticInput(existing, recordToInput(record)) : record,
       ),
     );
+    this.invalidateIndexes();
+  }
+
+  private invalidateIndexes(): void {
+    this.allSnapshot = undefined;
+    this.familyNameIndex = undefined;
   }
 
   private recordFromInput(input: FontSemanticInput): FontSemanticRecord {
