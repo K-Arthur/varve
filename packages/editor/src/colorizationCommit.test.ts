@@ -1,6 +1,6 @@
 import { createDocument, makeImageShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
-import { commitColorizationResult } from './colorizationCommit';
+import { commitColorizationResult, planColorizeApply } from './colorizationCommit';
 
 function imageDocument() {
   const base = createDocument('Colorize', true);
@@ -52,5 +52,78 @@ describe('commitColorizationResult', () => {
         suffix: 'result',
       }),
     ).toThrow('stale');
+  });
+});
+
+describe('planColorizeApply', () => {
+  const base = {
+    expectedSignature: 'sig-1',
+    sourceSrc: 'data:image/png;base64,SOURCE',
+    fullWidth: 4000,
+    fullHeight: 3000,
+    hasPreviewImage: true,
+    hasPreviewChroma: true,
+  };
+
+  it('reuses the preview pixels when the preview already ran at source size', () => {
+    expect(
+      planColorizeApply({
+        ...base,
+        previewSignature: 'sig-1',
+        previewSourceSrc: base.sourceSrc,
+        previewWidth: 4000,
+        previewHeight: 3000,
+      }),
+    ).toBe('reuse-preview-image');
+  });
+
+  it('reuses the approved chroma when the preview is smaller than the source', () => {
+    expect(
+      planColorizeApply({
+        ...base,
+        previewSignature: 'sig-1',
+        previewSourceSrc: base.sourceSrc,
+        previewWidth: 1024,
+        previewHeight: 768,
+      }),
+    ).toBe('reuse-preview-chroma');
+  });
+
+  it('falls back to a full rerun when the controls changed', () => {
+    expect(
+      planColorizeApply({
+        ...base,
+        previewSignature: 'sig-0',
+        previewSourceSrc: base.sourceSrc,
+        previewWidth: 1024,
+        previewHeight: 768,
+      }),
+    ).toBe('rerun');
+  });
+
+  it('falls back to a full rerun when the source changed', () => {
+    expect(
+      planColorizeApply({
+        ...base,
+        previewSignature: 'sig-1',
+        previewSourceSrc: 'data:image/png;base64,OTHER',
+        previewWidth: 1024,
+        previewHeight: 768,
+      }),
+    ).toBe('rerun');
+  });
+
+  it('falls back to a full rerun when neither preview pixels nor chroma are available', () => {
+    expect(
+      planColorizeApply({
+        ...base,
+        previewSignature: 'sig-1',
+        previewSourceSrc: base.sourceSrc,
+        previewWidth: 1024,
+        previewHeight: 768,
+        hasPreviewImage: false,
+        hasPreviewChroma: false,
+      }),
+    ).toBe('rerun');
   });
 });

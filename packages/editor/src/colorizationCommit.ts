@@ -19,6 +19,49 @@ export interface ColorizationCommitInput {
 }
 
 /**
+ * Which pixels Apply may commit.
+ *
+ * `reuse-preview-image` means the approved preview already ran at the source
+ * dimensions. `reuse-preview-chroma` means the preview's model prediction can
+ * be rebuilt at full resolution (bilinear chroma over the original L-star and
+ * alpha).
+ * `rerun` means the approved preview cannot be trusted for this target and a
+ * fresh full-resolution request is required.
+ */
+export type ColorizeApplyPlan = 'reuse-preview-image' | 'reuse-preview-chroma' | 'rerun';
+
+export interface ColorizeApplyPlanInput {
+  previewSignature: string | null;
+  previewSourceSrc: string | null;
+  previewWidth: number | null;
+  previewHeight: number | null;
+  hasPreviewImage: boolean;
+  hasPreviewChroma: boolean;
+  expectedSignature: string;
+  sourceSrc: string;
+  fullWidth: number;
+  fullHeight: number;
+}
+
+export function planColorizeApply(input: ColorizeApplyPlanInput): ColorizeApplyPlan {
+  const matches =
+    input.previewSignature !== null &&
+    input.previewSignature === input.expectedSignature &&
+    input.previewSourceSrc !== null &&
+    input.previewSourceSrc === input.sourceSrc;
+  if (!matches) return 'rerun';
+  if (
+    input.hasPreviewImage &&
+    input.previewWidth === input.fullWidth &&
+    input.previewHeight === input.fullHeight
+  ) {
+    return 'reuse-preview-image';
+  }
+  if (input.hasPreviewChroma) return 'reuse-preview-chroma';
+  return 'rerun';
+}
+
+/**
  * Commit a materialized colorization result against the latest document.
  *
  * The source identity check prevents a late worker result from being placed

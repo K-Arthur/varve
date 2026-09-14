@@ -19,7 +19,7 @@ import { imageShapeSrc, isImageShape, managedColorToHex } from '@varve/scene';
 import { Button, Select, Switch } from '@varve/ui';
 import type { ChangeEvent } from 'react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { commitColorizationResult } from '../../../colorizationCommit';
+import { commitColorizationResult, planColorizeApply } from '../../../colorizationCommit';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
@@ -597,19 +597,23 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
     try {
       const fullData = await loadImageData(imageSrc);
       if (controller.signal.aborted || generation !== operationGenerationRef.current) return;
-      const previewMatches =
-        colorize.previewSignature === expectedSignature &&
-        colorize.previewSourceSrc === capturedSourceSrc;
-      const canReusePreviewImage =
-        previewMatches &&
-        colorize.previewImageData?.width === fullData.width &&
-        colorize.previewImageData?.height === fullData.height;
-      const canReusePreviewChroma = previewMatches && colorize.previewChroma !== null;
+      const plan = planColorizeApply({
+        previewSignature: colorize.previewSignature,
+        previewSourceSrc: colorize.previewSourceSrc,
+        previewWidth: colorize.previewImageData?.width ?? null,
+        previewHeight: colorize.previewImageData?.height ?? null,
+        hasPreviewImage: colorize.previewImageData !== null,
+        hasPreviewChroma: colorize.previewChroma !== null,
+        expectedSignature,
+        sourceSrc: capturedSourceSrc,
+        fullWidth: fullData.width,
+        fullHeight: fullData.height,
+      });
       let result: ImageData;
-      if (canReusePreviewImage) {
+      if (plan === 'reuse-preview-image') {
         // The preview already ran at source resolution; commit it verbatim.
         result = colorize.previewImageData!;
-      } else if (canReusePreviewChroma) {
+      } else if (plan === 'reuse-preview-chroma') {
         // Rebuild the approved model chroma over the full-resolution source
         // L*/detail and alpha. No second inference, no color surprise.
         const { combineChromaAtSourceResolution } = await import('@varve/engine');
