@@ -33,12 +33,14 @@ main-thread redraw path, not a second source of stale pixels.
 
 ## Verification
 
-Code commit: `74df576e77ff2c2c7897a189a84cc91abf20e715`.
+Renderer commits: `74df576e77ff2c2c7897a189a84cc91abf20e715` and
+`c809bc7abfae24ca301808fad095a24f7f5b292f`.
 
 Commands:
 
 ```text
 pnpm exec biome check packages/engine/src/canvasOpenTypeRenderer.ts packages/engine/src/canvasSvgTextRenderer.ts packages/engine/src/canvasFontAliases.ts packages/engine/src/replay.ts
+pnpm exec vitest run packages/engine/src/canvasFontSource.test.ts packages/engine/src/canvasFontAliases.test.ts packages/engine/src/canvasFontAliases.faceIdentity.test.ts --pool=threads --maxWorkers=1 --reporter=dot
 pnpm exec vitest run packages/engine/src/canvasFontAliases.test.ts packages/engine/src/canvasFontAliases.faceIdentity.test.ts --pool=threads --maxWorkers=1 --reporter=dot
 pnpm exec vitest run packages/editor/src/components/FloatingTextBar/FloatingTextBar.test.tsx packages/editor/src/components/FloatingToolbar/FloatingToolbar.test.tsx packages/editor/src/components/ContextControlBar/ContextControlBar.test.tsx packages/editor/src/components/FontBrowser/FontSelector.test.tsx packages/editor/src/components/FontBrowser/DocumentFontsPanel.test.tsx packages/editor/src/components/FontBrowser/fontStorage.test.ts packages/editor/src/components/Typography/typographyCommand.test.ts packages/engine/src/font/fontDownloadLifecycle.test.ts packages/engine/src/font/fontDownloadManager.test.ts packages/engine/src/canvasFontAliases.test.ts packages/engine/src/canvasFontAliases.faceIdentity.test.ts --pool=threads --maxWorkers=1 --reporter=dot
 CI=1 TMPDIR=/home/kevina/varve-tmp VARVE_E2E_PORT=1744 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-typography-editing-20260914-final-run npx playwright test tests/e2e/canvas/typography-editing.spec.ts --project=chromium --reporter=list --timeout=180000
@@ -47,6 +49,8 @@ CI=1 TMPDIR=/home/kevina/varve-tmp VARVE_E2E_PORT=1744 VARVE_E2E_WORKERS=1 VARVE
 Results:
 
 - Biome passed for all four renderer files.
+- The source privacy regression passed: 3 files, 8 tests. Remote CSS sources
+  are rejected; data, blob, and same-origin sources remain eligible.
 - Alias and face-identity tests passed: 2 files, 5 tests.
 - Focused frontend/engine suite passed: 11 files, 120 tests.
 - Typography E2E passed: 3 scenarios, including point-text focus, empty-text
