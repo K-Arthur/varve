@@ -289,7 +289,9 @@ The Logo wordmark controls use the same picker and an explicit Browse fonts
 dialog. Choosing a family clears an older exact reference; choosing a
 registered face applies its family, weight, style, and reference together.
 Weight and style are available directly in the Logo panel so wordmarks do not
-fall back to a family-only text field.
+fall back to a family-only text field. Each authored Logo typography change is
+wrapped in the shared `Typography` compound operation, so it creates one undo
+step instead of bypassing persistent history.
 
 Ordinary weight menus are registry-backed across the inspector, contextual bar,
 floating text toolbar, and Logo panel. Static families expose only the weights
