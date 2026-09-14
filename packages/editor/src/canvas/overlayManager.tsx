@@ -19,15 +19,24 @@ import {
   floatingTransformedSelection,
 } from '@varve/engine';
 import {
+  type ForegroundProposalSet,
+  mapProposalMaskToSource,
+} from '@varve/engine/foregroundSelect';
+import {
   canBeClipMaskSource,
   type Document,
+  isImageShape,
   type NodeId,
   resolveEditorSceneScope,
   resolveNodePaints,
   type ShapeNode,
 } from '@varve/scene';
 import { applyAffine } from '@varve/shared';
-import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
+import { type MutableRefObject, useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
+import {
+  getSubjectProposalState,
+  subscribeSubjectProposals,
+} from '../components/Inspector/subjectProposalStore';
 import type { EditorState } from '../context/types';
 import type { TransformCache } from '../scene/transformCache';
 import {
@@ -216,15 +225,17 @@ function drawFloatingRasterPreview(
   ctx.restore();
 }
 
-function drawObjectSelectionPreview(
+function drawImageMaskPreview(
   ctx: CanvasRenderingContext2D,
   doc: Document,
   node: ShapeNode,
-  session: NonNullable<EditorState['objectSelectionSession']>,
+  mask: Uint8Array,
+  width: number,
+  height: number,
   worldTransform: readonly [number, number, number, number, number, number],
+  color: readonly [number, number, number],
 ): void {
-  const candidate = session.candidates[session.selectedCandidate];
-  if (!candidate || candidate.mask.length !== session.width * session.height) return;
+  if (width <= 0 || height <= 0 || mask.length !== width * height) return;
   const image = resolveNodePaints(
     node as unknown as Parameters<typeof resolveNodePaints>[0],
     doc,
@@ -233,8 +244,8 @@ function drawObjectSelectionPreview(
   if (!image || !bounds) return;
   const placement = computeImagePlacement({
     fit: image.fit,
-    sourceWidth: session.width,
-    sourceHeight: session.height,
+    sourceWidth: width,
+    sourceHeight: height,
     bounds,
     x: image.x,
     y: image.y,
@@ -247,16 +258,16 @@ function drawObjectSelectionPreview(
   if (!placement) return;
 
   const maskCanvas = document.createElement('canvas');
-  maskCanvas.width = session.width;
-  maskCanvas.height = session.height;
+  maskCanvas.width = width;
+  maskCanvas.height = height;
   const maskCtx = maskCanvas.getContext('2d');
   if (!maskCtx) return;
-  const pixels = maskCtx.createImageData(session.width, session.height);
-  for (let i = 0; i < candidate.mask.length; i += 1) {
-    const alpha = Math.round(candidate.mask[i]! * 0.42);
-    pixels.data[i * 4] = 32;
-    pixels.data[i * 4 + 1] = 160;
-    pixels.data[i * 4 + 2] = 255;
+  const pixels = maskCtx.createImageData(width, height);
+  for (let i = 0; i < mask.length; i += 1) {
+    const alpha = Math.round(mask[i]! * 0.42);
+    pixels.data[i * 4] = color[0]!;
+    pixels.data[i * 4 + 1] = color[1]!;
+    pixels.data[i * 4 + 2] = color[2]!;
     pixels.data[i * 4 + 3] = alpha;
   }
   maskCtx.putImageData(pixels, 0, 0);
@@ -300,6 +311,66 @@ function drawObjectSelectionPreview(
     );
   }
   ctx.restore();
+}
+
+function drawObjectSelectionPreview(
+  ctx: CanvasRenderingContext2D,
+  doc: Document,
+  node: ShapeNode,
+  session: NonNullable<EditorState['objectSelectionSession']>,
+  worldTransform: readonly [number, number, number, number, number, number],
+): void {
+  const candidate = session.candidates[session.selectedCandidate];
+  if (!candidate) return;
+  drawImageMaskPreview(
+    ctx,
+    doc,
+    node,
+    candidate.mask,
+    session.width,
+    session.height,
+    worldTransform,
+    [32, 160, 255],
+  );
+}
+
+function drawForegroundProposalPreview(
+  ctx: CanvasRenderingContext2D,
+  doc: Document,
+  node: ShapeNode,
+  proposalSet: ForegroundProposalSet,
+  candidateIndex: number,
+  worldTransform: readonly [number, number, number, number, number, number],
+): void {
+  const candidate = proposalSet.candidates[candidateIndex];
+  if (!candidate) return;
+  const mask = mapProposalMaskToSource(
+    candidate.mask,
+    proposalSet.analysisWidth,
+    proposalSet.analysisHeight,
+    proposalSet.width,
+    proposalSet.height,
+  );
+  if (!mask) return;
+  drawImageMaskPreview(
+    ctx,
+    doc,
+    node,
+    mask,
+    proposalSet.width,
+    proposalSet.height,
+    worldTransform,
+    [255, 166, 32],
+  );
+}
+
+function resolvedImageSourceLocator(doc: Document, node: ShapeNode): string {
+  const image = resolveNodePaints(
+    node as unknown as Parameters<typeof resolveNodePaints>[0],
+    doc,
+  ).find((fill) => fill.type === 'image')?.image;
+  if (!image) return '';
+  return image.assetId ? (doc.assets?.[image.assetId]?.dataUrl ?? image.src) : image.src;
 }
 
 function drawObjectSelectionPrompts(
@@ -361,6 +432,11 @@ export function useOverlayDraw({
   const overlayFrameKey = useRef<string | null>(null);
   const areaSelectionPhaseRef = useRef(0);
   overlayFrameKey.current ??= createCanvasFrameKey('overlay');
+  const subjectProposalState = useSyncExternalStore(
+    subscribeSubjectProposals,
+    getSubjectProposalState,
+    getSubjectProposalState,
+  );
 
   const drawOverlay = useCallback(() => {
     const canvas = overlayCanvasRef.current;
@@ -495,6 +571,36 @@ export function useOverlayDraw({
       if (objectTransform) {
         drawObjectSelectionPreview(ctx, doc, objectNode, objectSession, objectTransform);
         drawObjectSelectionPrompts(ctx, objectSession, s.zoom);
+      }
+    }
+
+    // ── Automatic subject proposal review ────────────────────────────────
+    // The foreground estimator is not allowed to write the real pixel
+    // selection while the user is inspecting a candidate. Render its mask
+    // directly from the external review store so every downstream command
+    // continues to see only an explicitly accepted selection.
+    const foregroundTarget = subjectProposalState.target;
+    const foregroundSet = subjectProposalState.proposals;
+    const foregroundNode = foregroundTarget ? doc.nodes[foregroundTarget.nodeId] : undefined;
+    if (
+      foregroundTarget &&
+      foregroundSet &&
+      subjectProposalState.reviewedCandidate === subjectProposalState.activeCandidate &&
+      foregroundNode?.kind === 'shape' &&
+      isImageShape(foregroundNode) &&
+      foregroundTarget.documentId === doc.id &&
+      foregroundTarget.sourceLocator === resolvedImageSourceLocator(doc, foregroundNode)
+    ) {
+      const foregroundTransform = getCachedWorldTransform(cache, doc, foregroundNode.id);
+      if (foregroundTransform) {
+        drawForegroundProposalPreview(
+          ctx,
+          doc,
+          foregroundNode,
+          foregroundSet,
+          subjectProposalState.activeCandidate,
+          foregroundTransform,
+        );
       }
     }
 
@@ -918,6 +1024,7 @@ export function useOverlayDraw({
     accentColorRef,
     draft,
     objectSelectionSession,
+    subjectProposalState,
     areaSelection,
     floatingRaster,
     dropTargetFrameId,

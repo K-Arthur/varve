@@ -103,7 +103,6 @@ export function SelectionSourcesPanel() {
   const [refineMaxHole, setRefineMaxHole] = useState(16);
   const [refineShift, setRefineShift] = useState(2);
   const [subjectQuality, setSubjectQuality] = useState<SubjectProposalQuality>('fast');
-  const [activeSubjectCandidate, setActiveSubjectCandidate] = useState(0);
   const subjectDownloadRef = useRef<AbortController | null>(null);
   const subjectRunRef = useRef<AbortController | null>(null);
   const subjectState = useSyncExternalStore(
@@ -251,23 +250,15 @@ export function SelectionSourcesPanel() {
       announce('The subject estimate could not be mapped to the image');
       return;
     }
-    const selection = areaSelectionFromMaskCoverage(
-      state.document,
-      selectedNode.id,
-      sourceMask,
-      result.width,
-      result.height,
-      'source-image-pixels',
-    );
-    if (!selection) {
-      announce('The subject estimate could not be converted into a selection');
+    if (!sourceMask.some((value) => value > 0)) {
+      announce('The subject estimate contains no pixels to preview');
       return;
     }
-    // This is a visual review preview, not an acceptance of the candidate as
-    // the mask used by a destructive or generative command. The explicit
-    // confirmation buttons below remain the only acceptance path.
-    setAreaSelection?.(selection);
-    setActiveSubjectCandidate(index);
+    // Candidate review is intentionally separate from the real area-selection
+    // state. Downstream commands must not consume a proposal until the user
+    // explicitly confirms it, and switching Inspector scope must not reset the
+    // candidate that was inspected.
+    setSubjectProposalState({ activeCandidate: index, reviewedCandidate: index });
     announce(
       `${candidate.label ?? `Subject ${index + 1}`} previewed; verify the highlighted pixels before applying it`,
     );
@@ -276,6 +267,11 @@ export function SelectionSourcesPanel() {
   const applySubjectCandidate = (result: ForegroundProposalSet, index: number) => {
     const candidate = result.candidates[index];
     if (!candidate || selectedNode?.kind !== 'shape' || !isImageShape(selectedNode)) return;
+    const proposalState = getSubjectProposalState();
+    if (proposalState.reviewedCandidate !== index || proposalState.activeCandidate !== index) {
+      announce('Preview and verify a candidate before using it as a selection');
+      return;
+    }
     const sourceMask = mapProposalMaskToSource(
       candidate.mask,
       result.analysisWidth,
@@ -300,7 +296,7 @@ export function SelectionSourcesPanel() {
       return;
     }
     setAreaSelection?.(selection);
-    setActiveSubjectCandidate(index);
+    setSubjectProposalState({ reviewedCandidate: null, activeCandidate: index });
     const providerLabel = getSubjectProposalState().provider?.label ?? 'Foreground';
     announce(`${candidate.label ?? `Subject ${index + 1}`} selected (${providerLabel} estimate)`);
   };
@@ -416,14 +412,14 @@ export function SelectionSourcesPanel() {
         stage: 'idle',
         downloadProgress: null,
         error: null,
+        activeCandidate: 0,
+        reviewedCandidate: null,
       });
-      setActiveSubjectCandidate(0);
       // Automatic foreground estimation is not semantic recognition. Do not
       // mutate the document selection from an unreviewed top-ranked candidate;
       // multiple disconnected subjects and background patches are common on
       // photographic inputs. The user must first review a candidate and then
       // explicitly confirm it as a selection or mask.
-      setActiveSubjectCandidate(0);
       announce('Subject proposals ready; choose a candidate to preview it before applying it');
     } catch (error) {
       if (runController.signal.aborted) return;
@@ -488,7 +484,13 @@ export function SelectionSourcesPanel() {
   const applySubjectAsMask = () => {
     const result = subjectProposalSet;
     if (!result || selectedNode?.kind !== 'shape' || !isImageShape(selectedNode)) return;
-    const candidate = result.candidates[activeSubjectCandidate];
+    const proposalState = getSubjectProposalState();
+    const activeCandidate = proposalState.activeCandidate;
+    if (proposalState.reviewedCandidate !== activeCandidate) {
+      announce('Preview and verify a candidate before applying it as a mask');
+      return;
+    }
+    const candidate = result.candidates[activeCandidate];
     if (!candidate) return;
     const sourceMask = mapProposalMaskToSource(
       candidate.alpha ?? candidate.mask,
@@ -531,6 +533,7 @@ export function SelectionSourcesPanel() {
         });
       });
       commitTransaction();
+      setSubjectProposalState({ reviewedCandidate: null });
       announce(`${candidate.label ?? 'Subject'} applied as a mask`);
     } catch (error) {
       abortTransaction();
@@ -541,34 +544,10 @@ export function SelectionSourcesPanel() {
   const applyAllSubjectProposals = () => {
     const result = subjectProposalSet;
     if (!result || selectedNode?.kind !== 'shape' || !isImageShape(selectedNode)) return;
-    const union = new Uint8Array(result.width * result.height);
-    for (const candidate of result.candidates) {
-      const sourceMask = mapProposalMaskToSource(
-        candidate.mask,
-        result.analysisWidth,
-        result.analysisHeight,
-        result.width,
-        result.height,
-      );
-      if (!sourceMask) continue;
-      for (let index = 0; index < union.length; index += 1) {
-        if (sourceMask[index] !== 0) union[index] = 255;
-      }
-    }
-    const selection = areaSelectionFromMaskCoverage(
-      state.document,
-      selectedNode.id,
-      union,
-      result.width,
-      result.height,
-      'source-image-pixels',
-    );
-    if (!selection) {
-      announce('The subject estimate could not be converted into a selection');
-      return;
-    }
-    setAreaSelection?.(selection);
-    announce(`All ${result.candidates.length} proposals selected`);
+    // The union candidate is already the model-free estimator's explicit
+    // "all foreground" result. Route it through the same review-only path so
+    // this convenience action cannot bypass candidate confirmation.
+    previewSubjectCandidate(result, 0);
   };
 
   const applyRefine = () => {
@@ -919,11 +898,11 @@ export function SelectionSourcesPanel() {
                   key={`subject-${candidate.centroid.x.toFixed(4)}-${candidate.centroid.y.toFixed(4)}-${candidate.score.toFixed(4)}`}
                   type="button"
                   className={`insp-selection-sources__button${
-                    index === activeSubjectCandidate
+                    index === subjectState.activeCandidate
                       ? ' insp-selection-sources__button--active'
                       : ''
                   }`}
-                  aria-pressed={index === activeSubjectCandidate}
+                  aria-pressed={index === subjectState.activeCandidate}
                   aria-label={`${candidate.label ?? `Subject ${index + 1}`}, covers ${Math.round(candidate.coverage * 100)} percent`}
                   onClick={() => previewSubjectCandidate(subjectProposalSet, index)}
                 >
@@ -937,7 +916,7 @@ export function SelectionSourcesPanel() {
                   className="insp-selection-sources__button"
                   onClick={applyAllSubjectProposals}
                 >
-                  All subjects
+                  Preview all subjects
                 </button>
               )}
             </div>
@@ -945,13 +924,17 @@ export function SelectionSourcesPanel() {
               <button
                 type="button"
                 className="insp-selection-sources__button insp-selection-sources__button--primary"
-                onClick={() => applySubjectCandidate(subjectProposalSet, activeSubjectCandidate)}
+                disabled={subjectState.reviewedCandidate !== subjectState.activeCandidate}
+                onClick={() =>
+                  applySubjectCandidate(subjectProposalSet, subjectState.activeCandidate)
+                }
               >
                 Use selected candidate
               </button>
               <button
                 type="button"
                 className="insp-selection-sources__button insp-selection-sources__button--primary"
+                disabled={subjectState.reviewedCandidate !== subjectState.activeCandidate}
                 onClick={applySubjectAsMask}
               >
                 Apply as mask
@@ -964,6 +947,8 @@ export function SelectionSourcesPanel() {
                     proposals: null,
                     provider: null,
                     install: null,
+                    activeCandidate: 0,
+                    reviewedCandidate: null,
                     error: null,
                   })
                 }

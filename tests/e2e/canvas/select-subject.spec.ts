@@ -79,10 +79,17 @@ test.describe('Select subject — model-free foreground estimate', () => {
     });
     await expect(candidate).toBeVisible();
     await expect(inspector.getByRole('button', { name: 'Save selection' })).toBeDisabled();
+    await expect(inspector.getByRole('button', { name: 'Use selected candidate' })).toBeDisabled();
     await candidate.first().click();
     await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
       /(?:Subject \d+|All foreground) previewed/,
     );
+    await expect(inspector.getByRole('button', { name: 'Save selection' })).toBeDisabled();
+    await expect(inspector.getByRole('button', { name: 'Use selected candidate' })).toBeEnabled();
+    await testInfo.attach('select-subject-real-review', {
+      body: await page.getByTestId('editor-canvas').screenshot(),
+      contentType: 'image/png',
+    });
     await inspector.getByRole('button', { name: 'Use selected candidate' }).click();
     await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
       /(?:Subject \d+|All foreground) selected/,
@@ -91,6 +98,13 @@ test.describe('Select subject — model-free foreground estimate', () => {
       inspector.getByRole('button', { name: /(?:Subject \d+|All foreground), covers \d+ percent/ }),
     ).toBeVisible();
     await expect(inspector.getByRole('button', { name: 'Save selection' })).toBeEnabled();
+    // Applying a mask is a separate acceptance action. Re-preview the same
+    // candidate so this test exercises both downstream consumers without
+    // treating the prior selection acceptance as implicit mask consent.
+    await candidate.first().click();
+    await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
+      /(?:Subject \d+|All foreground) previewed/,
+    );
     await inspector.getByRole('button', { name: 'Apply as mask' }).click();
     await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
       /(?:Subject \d+|All foreground) applied as a mask/,
@@ -136,6 +150,7 @@ test.describe('Select subject — model-free foreground estimate', () => {
     // No area selection exists until the candidate has been reviewed.
     await expect(inspector.getByRole('button', { name: 'Save selection' })).toBeDisabled();
     await candidate.click();
+    await expect(inspector.getByRole('button', { name: 'Save selection' })).toBeDisabled();
     await inspector.getByRole('button', { name: 'Use selected candidate' }).click();
     await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
       'All foreground selected',

@@ -19,6 +19,8 @@ import type { NodeId } from '@varve/scene';
 export interface SubjectProposalTarget {
   documentId: string;
   nodeId: NodeId;
+  /** Resolved source locator captured before inference began. */
+  sourceLocator: string;
 }
 
 export interface SubjectProposalProviderInfo {
@@ -43,6 +45,10 @@ export interface SubjectProposalState {
   proposals: ForegroundProposalSet | null;
   provider: SubjectProposalProviderInfo | null;
   install: SubjectProposalInstallOffer | null;
+  /** Candidate currently shown in the canvas review overlay. */
+  activeCandidate: number;
+  /** Candidate explicitly reviewed by the user, or null before review. */
+  reviewedCandidate: number | null;
   busy: boolean;
   /** Coarse stage for user-facing progress copy. */
   stage: 'idle' | 'preparing' | 'estimating' | 'downloading';
@@ -56,6 +62,8 @@ let state: SubjectProposalState = {
   proposals: null,
   provider: null,
   install: null,
+  activeCandidate: 0,
+  reviewedCandidate: null,
   busy: false,
   stage: 'idle',
   downloadProgress: null,
@@ -87,6 +95,8 @@ export function resetSubjectProposals(): void {
     proposals: null,
     provider: null,
     install: null,
+    activeCandidate: 0,
+    reviewedCandidate: null,
     busy: false,
     stage: 'idle',
     downloadProgress: null,

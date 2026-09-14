@@ -188,11 +188,13 @@ describe('SelectionSourcesPanel subject proposals', () => {
     expect(editor.current?.state.areaSelection ?? null).toBeNull();
     const proposalsSection = screen.getByLabelText('Subject proposals');
     expect(within(proposalsSection).getByText(/U²-Net Light estimate/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Use selected candidate' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Apply as mask' })).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: /^All foreground/ }));
-    await waitFor(() => expect(editor.current?.state.areaSelection ?? null).not.toBeNull());
-    fireEvent.click(screen.getByRole('button', { name: 'Use selected candidate' }));
-    await waitFor(() => expect(editor.current?.state.areaSelection ?? null).not.toBeNull());
+    await waitFor(() => expect(editor.current?.state.areaSelection ?? null).toBeNull());
+    expect(screen.getByRole('button', { name: 'Use selected candidate' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Apply as mask' })).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: 'Apply as mask' }));
     await waitFor(() => {
       const node = editor.current?.state.document.nodes.photo;
@@ -340,6 +342,6 @@ describe('SelectionSourcesPanel subject proposals', () => {
     await renderPanel();
     fireEvent.click(await screen.findByRole('button', { name: /^Select subject$/ }));
     expect(await screen.findByText(/Model-free estimate estimate/)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'All subjects' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Preview all subjects' })).toBeTruthy();
   });
 });
