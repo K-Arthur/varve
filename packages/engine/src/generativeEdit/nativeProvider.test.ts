@@ -82,6 +82,23 @@ describe('nativeGenerativeProvider', () => {
     expect(result.executionProvider).toBe('native-cpu');
   });
 
+  it('forwards an explicit image-conditioning guidance setting', async () => {
+    invoke.mockResolvedValue({
+      png_base64: btoa('png'),
+      width: 8,
+      height: 6,
+      execution_backend: 'native-cpu',
+      processing_time_ms: 42,
+      warnings: [],
+    });
+
+    await nativeGenerativeProvider.infer(request({ imageGuidanceScale: 2.25 }));
+
+    expect(invoke.mock.calls[0]?.[1]?.options).toEqual(
+      expect.objectContaining({ image_guidance_scale: 2.25 }),
+    );
+  });
+
   it('preserves typed native setup errors', async () => {
     invoke.mockRejectedValue(new GenerativeEditError('missing-model', 'Model is not ready.'));
 
