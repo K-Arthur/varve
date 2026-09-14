@@ -261,6 +261,24 @@ describe('applyFontReplacement', () => {
       fontWeight: 600,
     });
     expect(updated.stories?.['story-1']?.thread).toEqual(['story-frame-a', 'story-frame-b']);
+
+    const restored = restoreFontReplacement(
+      updated,
+      new FontCatalog(),
+      {
+        original: 'Old Story',
+        replacement: 'New Story',
+        applyToAll: true,
+        preserveOriginalReference: false,
+      },
+      undefined,
+      { nodeIds: ['story-frame-a'] },
+    );
+    expect(restored.stories?.['story-1']?.content.paragraphs[0]?.runs[0]?.format?.fontFamily).toBe(
+      'Old Story',
+    );
+    expect(restored.stories?.['story-1']?.thread).toEqual(['story-frame-a', 'story-frame-b']);
+    expect(restored.fontManifest?.replacements ?? []).toEqual([]);
   });
 
   it('keeps provenance for distinct replacement faces of the same family', () => {
