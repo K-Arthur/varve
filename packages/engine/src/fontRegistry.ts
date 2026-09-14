@@ -293,11 +293,12 @@ export class FontRegistry {
   unregisterFace(criteria: {
     family?: string;
     faceKey?: string;
+    sourceHandle?: string;
     postScriptName?: string;
     weight?: number;
     style?: string;
   }): boolean {
-    if (!criteria.faceKey && !criteria.family) return false;
+    if (!criteria.faceKey && !criteria.sourceHandle && !criteria.family) return false;
     let removed = false;
     const families = criteria.family ? [criteria.family] : [...this.entries.keys()];
     for (const family of families) {
@@ -306,11 +307,13 @@ export class FontRegistry {
       const kept = entries.filter((entry) => {
         const matches = criteria.faceKey
           ? entry.faceKey === criteria.faceKey
-          : criteria.postScriptName
-            ? entry.postScriptName === criteria.postScriptName &&
-              (criteria.weight === undefined || entry.weight === criteria.weight) &&
-              (criteria.style === undefined || entry.style === criteria.style)
-            : false;
+          : criteria.sourceHandle
+            ? entry.sourceHandle === criteria.sourceHandle
+            : criteria.postScriptName
+              ? entry.postScriptName === criteria.postScriptName &&
+                (criteria.weight === undefined || entry.weight === criteria.weight) &&
+                (criteria.style === undefined || entry.style === criteria.style)
+              : false;
         if (matches) removed = true;
         return !matches;
       });

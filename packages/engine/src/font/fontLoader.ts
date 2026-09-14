@@ -782,6 +782,9 @@ interface WindowWithLocalFonts extends Window {
 /** Cache for queryLocalFonts results (enumerated once per session). */
 let _enumeratedSystemFamilies: string[] | null = null;
 let _enumeratedSystemFonts: LocalFontMetadata[] | null = null;
+/** Native entries from the previous explicit refresh, removed before re-scan. */
+let _enumeratedNativeFaceKeys: string[] = [];
+let _enumeratedNativeHandles: string[] = [];
 export type SystemFontDiscoveryStatus =
   | 'unknown'
   | 'native'
@@ -829,6 +832,8 @@ export async function enumerateSystemFonts(): Promise<string[]> {
       });
       const registry = getFontRegistry();
       const familySet = new Set<string>();
+      const nativeFaceKeys: string[] = [];
+      const nativeHandles: string[] = [];
 
       for (const face of faces) {
         familySet.add(face.family);
@@ -843,7 +848,12 @@ export async function enumerateSystemFonts(): Promise<string[]> {
           faceKey: face.faceKey,
           collectionIndex: face.collectionIndex,
         });
+        if (face.faceKey) nativeFaceKeys.push(face.faceKey);
+        if (face.handle) nativeHandles.push(face.handle);
       }
+
+      _enumeratedNativeFaceKeys = nativeFaceKeys;
+      _enumeratedNativeHandles = nativeHandles;
 
       const families = [...familySet].sort();
       _enumeratedSystemFamilies = families;
@@ -911,6 +921,13 @@ export function getCachedLocalFontMetadata(): LocalFontMetadata[] | null {
  * Reset cached system font enumeration (for testing or when fonts change).
  */
 export function resetSystemFontCache(): void {
+  const registry = getFontRegistry();
+  for (const faceKey of _enumeratedNativeFaceKeys) registry.unregisterFace({ faceKey });
+  for (const sourceHandle of _enumeratedNativeHandles) {
+    registry.unregisterFace({ sourceHandle });
+  }
+  _enumeratedNativeFaceKeys = [];
+  _enumeratedNativeHandles = [];
   _enumeratedSystemFamilies = null;
   _enumeratedSystemFonts = null;
   _systemFontDiscoveryStatus = 'unknown';

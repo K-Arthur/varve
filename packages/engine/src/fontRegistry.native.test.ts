@@ -161,4 +161,19 @@ describe('FontRegistry native exact-face loading', () => {
     expect(domFonts.load).not.toHaveBeenCalled();
     expect(registry.state('Stale Native')).toBe('error');
   });
+
+  it('can remove a refreshed native face by its opaque handle', () => {
+    const registry = new FontRegistry([]);
+    registry.register({
+      family: 'Refreshable Native',
+      weight: 400,
+      style: 'normal',
+      source: 'system',
+      sourceHandle: 'refresh-handle',
+      faceKey: `sha256:${'2'.repeat(64)}:single`,
+    });
+
+    expect(registry.unregisterFace({ sourceHandle: 'refresh-handle' })).toBe(true);
+    expect(registry.getEntries('Refreshable Native')).toEqual([]);
+  });
 });
