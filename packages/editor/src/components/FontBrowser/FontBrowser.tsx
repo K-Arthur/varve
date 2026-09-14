@@ -34,9 +34,12 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { FontLicenseDetails } from './FontLicenseDetails';
+import type { FontFaceSelection } from './fontFaceSelection';
 import { type FontPreviewStatus, loadFontPreview, removeFontPreview } from './fontPreview';
 import { downloadAndApplyOnlineFont } from './useOnlineFontSearch';
 import './FontBrowser.css';
+
+export type { FontFaceSelection } from './fontFaceSelection';
 
 export interface FontBrowserProps {
   onSelect?: (family: string) => void;
@@ -69,16 +72,6 @@ interface FontFaceEntry {
   style: string;
   source: string;
   fontReference?: FontReference;
-}
-
-export interface FontFaceSelection {
-  family: string;
-  weight: number;
-  style: 'normal' | 'italic';
-  postScriptName?: string;
-  fontReference?: FontReference;
-  variableAxes?: Record<string, number>;
-  namedInstanceName?: string;
 }
 
 interface FontDisplayEntry {

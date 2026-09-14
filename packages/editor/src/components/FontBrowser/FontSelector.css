@@ -142,6 +142,51 @@
   color: var(--color-text-primary);
 }
 
+/* Face rows are deliberately indented beneath their family. They are backed
+ * by registered entries only, so choosing one can retain an exact artifact,
+ * collection member, or named variable instance instead of collapsing back to
+ * a family-only request. */
+.font-selector__face-option {
+  padding-inline-start: calc(var(--space-2) + 20px);
+  background: var(--color-surface-sunken);
+}
+
+.font-selector__face-meta {
+  flex: 0 1 45%;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.font-selector__expand-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-inline-end: var(--space-1);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control-compact);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.font-selector__expand-btn:hover {
+  background: var(--color-interactive-hover-surface);
+  color: var(--color-text-primary);
+}
+
+.font-selector__expand-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
 .font-selector__option:hover,
 .font-selector__option--highlighted {
   background: var(--color-interactive-hover);

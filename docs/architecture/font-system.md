@@ -238,6 +238,14 @@ the menu. Selecting the already-authored family is idempotent, preserving its
 exact face reference and variation axes. Its bounded fallback keeps the active
 descendant mounted while the portal viewport is measuring.
 
+When a family has more than one registered face, the compact menu exposes an
+expand control beside that family. The expanded rows come only from the local
+registry, so a collection member, PostScript face, or named variable instance
+can be selected without inventing an unavailable weight/style combination. The
+face selection callback carries the exact reference and authored axes through
+the contextual bar, floating text bar, inspector, and Logo controls; expanding
+at the lower edge of the menu scrolls the first face into view.
+
 The full browser's license details view exposes the base embedding right,
 no-subsetting and bitmap-only declarations as separate rows, plus whether the
 font actually declares license provenance. This keeps a technical file flag

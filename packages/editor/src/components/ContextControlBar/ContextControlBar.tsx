@@ -200,7 +200,17 @@ function TextSection({
         className="ccb__font-selector"
         value={fontFamily}
         fontReference={node.fontReference}
+        variableAxes={node.variableAxes}
         onChange={(family) => applyChanges(fontFamilyChanges(family, node.fontFamily))}
+        onSelectFace={(selection) =>
+          applyChanges({
+            fontFamily: selection.family,
+            fontWeight: selection.weight,
+            fontStyle: selection.style,
+            fontReference: selection.fontReference,
+            variableAxes: selection.variableAxes,
+          })
+        }
       />
       <Select
         label="Font weight"

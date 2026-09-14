@@ -400,7 +400,17 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           <FontSelector
             value={isMixed(familyRaw) ? '' : familyRaw}
             fontReference={textNodes.length === 1 ? textNodes[0]?.fontReference : undefined}
+            variableAxes={textNodes.length === 1 ? textNodes[0]?.variableAxes : undefined}
             onChange={(v) => applyTypographyToSelection(fontFamilyChanges(v || undefined))}
+            onSelectFace={(selection) =>
+              applyTypographyToSelection({
+                fontFamily: selection.family,
+                fontWeight: selection.weight,
+                fontStyle: selection.style,
+                fontReference: selection.fontReference,
+                variableAxes: selection.variableAxes,
+              })
+            }
           />
           <Tooltip label="Browse fonts">
             <button

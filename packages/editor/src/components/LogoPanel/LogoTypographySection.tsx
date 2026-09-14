@@ -85,8 +85,18 @@ export function LogoTypographySection({ node }: { node: TextNode }) {
         <FontSelector
           value={node.fontFamily ?? ''}
           fontReference={node.fontReference}
+          variableAxes={node.variableAxes}
           label="Font family"
           onChange={(family) => patch(fontFamilyChanges(family || undefined))}
+          onSelectFace={(selection) =>
+            patch({
+              fontFamily: selection.family,
+              fontWeight: selection.weight,
+              fontStyle: selection.style,
+              fontReference: selection.fontReference,
+              variableAxes: selection.variableAxes,
+            })
+          }
         />
         <Button
           type="button"

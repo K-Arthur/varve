@@ -25,20 +25,41 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
+import type { FontFaceSelection } from './fontFaceSelection';
 import './FontSelector.css';
+
+export type { FontFaceSelection } from './fontFaceSelection';
 
 export interface FontSelectorProps {
   value: string;
   onChange: (family: string) => void;
+  /** Apply an exact registered face or named variable instance. */
+  onSelectFace?: (selection: FontFaceSelection) => void;
   /** Exact artifact/member requested by the current text target, if any. */
   fontReference?: FontReference;
+  /** Authored variation coordinates used to distinguish named instances. */
+  variableAxes?: Record<string, number>;
   label?: string;
   className?: string;
 }
 
 type FontRow =
   | { kind: 'section'; key: string; title: string }
-  | { kind: 'font'; key: string; family: string; index: number; record: FontSemanticRecord };
+  | {
+      kind: 'font';
+      key: string;
+      family: string;
+      index: number;
+      record: FontSemanticRecord;
+      faces: FontFaceSelection[];
+    }
+  | {
+      kind: 'face';
+      key: string;
+      family: string;
+      parentFamilyId: string;
+      selection: FontFaceSelection;
+    };
 
 const MENU_FALLBACKS: Array<'top-start'> = ['top-start'];
 const MENU_FALLBACK_ROW_LIMIT = 120;
@@ -68,10 +89,89 @@ function recordLabels(record: FontSemanticRecord): string[] {
   ].slice(0, 2);
 }
 
+function fontReferenceFromFaceKey(
+  faceKey: string | undefined,
+  postScriptName: string | undefined,
+): FontReference | undefined {
+  const match = /^sha256:([0-9a-f]{64}):(single|[0-9]+)$/i.exec(faceKey ?? '');
+  if (!match) return undefined;
+  return {
+    artifactHash: match[1]!.toLowerCase(),
+    ...(match[2] === 'single' ? {} : { collectionIndex: Number(match[2]) }),
+    ...(postScriptName ? { postScriptName } : {}),
+  };
+}
+
+function faceIdentity(selection: FontFaceSelection): string {
+  return selection.fontReference
+    ? fontReferenceKey(selection.fontReference)
+    : `${selection.family}\u0000${selection.postScriptName ?? ''}\u0000${selection.weight}\u0000${selection.style}\u0000${JSON.stringify(selection.variableAxes ?? {})}`;
+}
+
+function facesFor(
+  record: FontSemanticRecord,
+  registry: ReturnType<typeof getFontRegistry>,
+): FontFaceSelection[] {
+  const seen = new Set<string>();
+  const metadataInstances = registry.getMetadata(record.familyName)?.namedInstances ?? [];
+  return registry.getEntries(record.familyName).flatMap((entry, entryIndex) => {
+    const base: FontFaceSelection = {
+      family: record.familyName,
+      weight: entry.weight,
+      style: entry.style,
+      ...(entry.postScriptName ? { postScriptName: entry.postScriptName } : {}),
+      ...(fontReferenceFromFaceKey(entry.faceKey, entry.postScriptName)
+        ? { fontReference: fontReferenceFromFaceKey(entry.faceKey, entry.postScriptName) }
+        : {}),
+    };
+    const baseKey =
+      entry.faceKey ??
+      `${record.familyName}\u0000${entry.postScriptName ?? ''}\u0000${entry.weight}\u0000${entry.style}\u0000${entry.source}\u0000${entryIndex}`;
+    const output: FontFaceSelection[] = [];
+    if (!seen.has(baseKey)) {
+      seen.add(baseKey);
+      output.push(base);
+    }
+    const instances = entry.namedInstances ?? metadataInstances;
+    for (const instance of instances) {
+      const selection: FontFaceSelection = {
+        ...base,
+        namedInstanceName: instance.name,
+        variableAxes: { ...instance.coordinates },
+        weight: Math.round(instance.coordinates.wght ?? entry.weight),
+        style: instance.coordinates.ital === 1 ? 'italic' : entry.style,
+      };
+      const key = `${baseKey}\u0000instance:${instance.name}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      output.push(selection);
+    }
+    return output;
+  });
+}
+
+function faceLabel(selection: FontFaceSelection): string {
+  if (selection.namedInstanceName) return selection.namedInstanceName;
+  const style = selection.style === 'italic' ? ' Italic' : '';
+  return `${selection.weight}${style}`;
+}
+
+function sameAxes(
+  first: Record<string, number> | undefined,
+  second: Record<string, number> | undefined,
+): boolean {
+  const firstEntries = Object.entries(first ?? {}).filter(([, value]) => Number.isFinite(value));
+  const secondEntries = Object.entries(second ?? {}).filter(([, value]) => Number.isFinite(value));
+  if (firstEntries.length !== secondEntries.length) return false;
+  return firstEntries.every(([tag, value]) => second?.[tag] !== undefined && second[tag] === value);
+}
+
 export function FontSelector({
   value,
   onChange,
+  onSelectFace,
   fontReference,
+  variableAxes,
   label = 'Font family',
   className,
 }: FontSelectorProps) {
@@ -81,6 +181,7 @@ export function FontSelector({
   const listboxId = `${inputId}-listbox`;
   const inputRef = useRef<HTMLInputElement>(null);
   const restoreFocusRef = useRef(false);
+  const expandedTargetRef = useRef<string | null>(null);
   // A portal mounts after this component's effects. Store its scroll element
   // in state so the virtualizer observes the real viewport once attached.
   const [listElement, setListElement] = useState<HTMLDivElement | null>(null);
@@ -106,6 +207,7 @@ export function FontSelector({
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(new Set());
 
   const results = useMemo(
     () =>
@@ -177,20 +279,36 @@ export function FontSelector({
   const flatList = useMemo(() => sections.flatMap((section) => section.records), [sections]);
   const rows = useMemo<FontRow[]>(() => {
     let fontIndex = -1;
-    return sections.flatMap((section) => [
-      { kind: 'section' as const, key: `section-${section.title}`, title: section.title },
-      ...section.records.map((record) => {
+    return sections.flatMap((section) => {
+      const sectionRows: FontRow[] = [
+        { kind: 'section', key: `section-${section.title}`, title: section.title },
+      ];
+      for (const record of section.records) {
         fontIndex += 1;
-        return {
+        const familyRow: FontRow = {
           kind: 'font' as const,
           key: `${section.title}-${record.familyId}`,
           family: record.familyName,
           index: fontIndex,
           record,
+          faces: facesFor(record, registry),
         };
-      }),
-    ]);
-  }, [sections]);
+        sectionRows.push(familyRow);
+        if (expandedFamilies.has(record.familyId)) {
+          sectionRows.push(
+            ...familyRow.faces.map((selection, faceIndex) => ({
+              kind: 'face' as const,
+              key: `${familyRow.key}-face-${faceIdentity(selection)}-${faceIndex}`,
+              family: record.familyName,
+              parentFamilyId: record.familyId,
+              selection,
+            })),
+          );
+        }
+      }
+      return sectionRows;
+    });
+  }, [expandedFamilies, registry, registryRevision, sections]);
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -275,6 +393,20 @@ export function FontSelector({
     if (isOpen && highlightedIndex >= 0) scrollToFontIndex(highlightedIndex);
   }, [highlightedIndex, isOpen, scrollToFontIndex]);
 
+  useEffect(() => {
+    const familyId = expandedTargetRef.current;
+    if (!isOpen || !familyId) return;
+    const familyRowIndex = rows.findIndex(
+      (row) => row.kind === 'font' && row.record.familyId === familyId,
+    );
+    if (familyRowIndex < 0) return;
+    expandedTargetRef.current = null;
+    // Wait for the expanded rows to be measured before moving the portaled
+    // viewport. This keeps the newly revealed faces visible even when the
+    // family was at the bottom edge of the compact menu.
+    requestAnimationFrame(() => virtualizer.scrollToIndex(familyRowIndex + 1, { align: 'start' }));
+  }, [isOpen, rows, virtualizer]);
+
   const select = useCallback(
     (family: string) => {
       const record = allInstalled.find(
@@ -294,6 +426,37 @@ export function FontSelector({
     },
     [allInstalled, onChange, semantic],
   );
+
+  const selectFace = useCallback(
+    (selection: FontFaceSelection) => {
+      const record = allInstalled.find(
+        (candidate) => normalize(candidate.familyName) === normalize(selection.family),
+      );
+      if (record) semantic.markRecentlyUsed(record.familyId);
+      if (onSelectFace) onSelectFace(selection);
+      else onChange(selection.family);
+      setIsOpen(false);
+      setHighlightedIndex(-1);
+      if (document.activeElement !== inputRef.current) {
+        restoreFocusRef.current = true;
+        inputRef.current?.focus();
+      }
+    },
+    [allInstalled, onChange, onSelectFace, semantic],
+  );
+
+  const toggleExpanded = useCallback((familyId: string) => {
+    setExpandedFamilies((previous) => {
+      const next = new Set(previous);
+      if (next.has(familyId)) {
+        next.delete(familyId);
+      } else {
+        next.add(familyId);
+        expandedTargetRef.current = familyId;
+      }
+      return next;
+    });
+  }, []);
 
   const handleInputFocus = useCallback(() => {
     if (restoreFocusRef.current) {
@@ -447,10 +610,55 @@ export function FontSelector({
                       </div>
                     );
                   }
-                  const { family, index: idx, record } = row;
+                  if (row.kind === 'face') {
+                    const selected =
+                      row.selection.fontReference !== undefined &&
+                      fontReference !== undefined &&
+                      fontReferenceKey(row.selection.fontReference) ===
+                        fontReferenceKey(fontReference) &&
+                      sameAxes(row.selection.variableAxes, variableAxes);
+                    return (
+                      <div
+                        key={virtualRow.key}
+                        ref={virtualizer.measureElement}
+                        data-index={virtualRow.index}
+                        className="font-selector__virtual-row"
+                        style={rowStyle}
+                      >
+                        <div
+                          id={`${listboxId}-face-${virtualRow.index}`}
+                          className={`font-selector__option font-selector__face-option${selected ? ' font-selector__option--selected' : ''}`}
+                          role="option"
+                          tabIndex={-1}
+                          aria-selected={selected}
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            selectFace(row.selection);
+                          }}
+                        >
+                          <span
+                            className="font-selector__option-name"
+                            style={{
+                              fontFamily: `"${row.family.replaceAll('"', '')}", sans-serif`,
+                            }}
+                          >
+                            {faceLabel(row.selection)}
+                          </span>
+                          {row.selection.postScriptName && (
+                            <span className="font-selector__face-meta">
+                              {row.selection.postScriptName}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+                  const { family, index: idx, record, faces } = row;
                   const isHighlighted = idx === highlightedIndex;
                   const isSelected = normalize(family) === normalize(value);
                   const labels = recordLabels(record);
+                  const isExpanded = expandedFamilies.has(record.familyId);
                   return (
                     <div
                       key={virtualRow.key}
@@ -468,6 +676,24 @@ export function FontSelector({
                       }}
                       onMouseEnter={() => highlight(idx)}
                     >
+                      {faces.length > 1 && (
+                        <button
+                          type="button"
+                          className="font-selector__expand-btn"
+                          aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${family} faces`}
+                          aria-expanded={isExpanded}
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                          }}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleExpanded(record.familyId);
+                          }}
+                        >
+                          <Icon name={isExpanded ? 'ChevronDown' : 'ChevronRight'} size={12} />
+                        </button>
+                      )}
                       <span
                         className="font-selector__option-name"
                         style={{ fontFamily: `"${family.replaceAll('"', '')}", sans-serif` }}

@@ -167,7 +167,17 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
         <FontSelector
           value={node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY}
           fontReference={node.fontReference}
+          variableAxes={node.variableAxes}
           onChange={handleFontFamilyChange}
+          onSelectFace={(selection) =>
+            onUpdate(node.id, {
+              fontFamily: selection.family,
+              fontWeight: selection.weight,
+              fontStyle: selection.style,
+              fontReference: selection.fontReference,
+              variableAxes: selection.variableAxes,
+            })
+          }
         />
 
         <div className="floating-text-bar__separator" />

@@ -211,6 +211,21 @@ for (const dpr of [1, 2, 3]) {
         const menu = page.getByRole('listbox', { name: 'Font families' });
         await expect(menu.getByRole('option').first()).toBeVisible();
         await containedInViewport(page, menu);
+        const variableFaceToggle = page.getByRole('button', {
+          name: /Expand IBM Plex Sans Variable faces/i,
+        });
+        if (await variableFaceToggle.isVisible().catch(() => false)) {
+          await variableFaceToggle.click();
+          await expect(menu.getByRole('option', { name: /400/ }).first()).toBeVisible();
+          await containedInViewport(page, menu);
+          await page.screenshot({
+            path: testInfo.outputPath(`${theme}-faces-open.png`),
+            animations: 'disabled',
+          });
+          await page
+            .getByRole('button', { name: /Collapse IBM Plex Sans Variable faces/i })
+            .click();
+        }
         await page.screenshot({
           path: testInfo.outputPath(`${theme}-open.png`),
           animations: 'disabled',

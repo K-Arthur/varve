@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { getFontRegistry } from '@varve/engine';
 import { getFontSemanticCatalog } from '@varve/engine/font';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FontSelector } from './FontSelector';
@@ -150,6 +151,64 @@ describe('FontSelector', () => {
     } finally {
       semantic.setFavorite(record!.familyId, previousFavorite);
       markRecentlyUsed.mockRestore();
+    }
+  });
+
+  it('expands registered faces and preserves an exact face selection', async () => {
+    const registry = getFontRegistry();
+    const semantic = getFontSemanticCatalog();
+    const firstFaceKey = `sha256:${'b'.repeat(64)}:single`;
+    const secondFaceKey = `sha256:${'b'.repeat(64)}:1`;
+    registry.register({
+      family: 'Toolbar Face Fixture',
+      weight: 400,
+      style: 'normal',
+      source: 'user',
+      faceKey: firstFaceKey,
+      postScriptName: 'ToolbarFace-Regular',
+    });
+    registry.register({
+      family: 'Toolbar Face Fixture',
+      weight: 700,
+      style: 'normal',
+      source: 'user',
+      faceKey: secondFaceKey,
+      collectionIndex: 1,
+      postScriptName: 'ToolbarFace-Bold',
+    });
+    semantic.syncRegistry(registry);
+    const onSelectFace = vi.fn();
+    try {
+      render(
+        <FontSelector
+          value="Toolbar Face Fixture"
+          onChange={() => {}}
+          onSelectFace={onSelectFace}
+        />,
+      );
+      const input = screen.getByRole('combobox', { name: 'Font family' });
+      fireEvent.focus(input);
+      await screen.findByRole('option', { name: /Toolbar Face Fixture/ });
+      const expand = screen.getByRole('button', { name: /Expand Toolbar Face Fixture faces/ });
+      fireEvent.click(expand);
+      const boldFace = await screen.findByRole('option', { name: /700/ });
+      fireEvent.mouseDown(boldFace);
+      expect(onSelectFace).toHaveBeenCalledWith(
+        expect.objectContaining({
+          family: 'Toolbar Face Fixture',
+          weight: 700,
+          postScriptName: 'ToolbarFace-Bold',
+          fontReference: {
+            artifactHash: 'b'.repeat(64),
+            collectionIndex: 1,
+            postScriptName: 'ToolbarFace-Bold',
+          },
+        }),
+      );
+      expect(input).toHaveValue('Toolbar Face Fixture');
+    } finally {
+      registry.unregisterFace({ faceKey: firstFaceKey });
+      registry.unregisterFace({ faceKey: secondFaceKey });
     }
   });
 });
