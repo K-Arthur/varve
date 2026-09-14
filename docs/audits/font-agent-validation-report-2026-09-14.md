@@ -461,3 +461,24 @@ aligned, with `2.88px` gap, `5.76px 9.44px` padding, and `14.72px` field text.
 The listbox stayed inside the viewport and the highlighted row remained legible
 in all three themes. This is the current visual evidence for the quick-toolbar
 spacing/size repair; native WebView visual proof remains platform-owned.
+
+## Marketing website typography validation — 2026-09-14
+
+The two typography routes were rebuilt for both website base paths and tested in
+light, dark, and narrow layouts. The targeted run passed **14/14** scenarios,
+including image decoding, overflow bounds, visible feature-limit copy, and FAQ
+structured-data consistency. The evidence is recorded in
+[`font-website-evidence-2026-09-14.md`](./font-website-evidence-2026-09-14.md).
+
+```text
+pnpm build:website
+pnpm build:website:pages
+VARVE_WEBSITE_E2E_PORT=4471 VARVE_WEBSITE_E2E_PORT_ROOT=4472 CI=1 \
+pnpm exec playwright test -c playwright.website.config.ts \
+  apps/website/tests/e2e/typography-workflow.spec.ts \
+  --project=ghpages --project=custom-domain --reporter=list
+```
+
+Astro produced zero errors and six existing hints during the build. The current
+shared worktree still contains uncommitted website changes from other work; no
+website files were staged by this continuation.
