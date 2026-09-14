@@ -16,7 +16,7 @@ Focused tests:
 
 ```text
 ./node_modules/.bin/vitest run packages/editor/src/components/Typography/fontWeight.test.ts --config vitest.config.ts --reporter=dot
-  1 file, 24 tests passed
+  1 file, 26 tests passed
 
 ./node_modules/.bin/vitest run packages/editor/src/components/FloatingTextBar/FloatingTextBar.test.tsx --config vitest.config.ts --reporter=dot
   1 file, 34 tests passed
@@ -25,11 +25,11 @@ Focused tests:
   2 files, 15 tests passed
 ```
 
-The follow-up identity audit adds six collision and stale-metadata regressions:
-a variable axis from a different same-family artifact or collection member,
-or stale authored axis values on an exact static face, cannot affect the
-selected face's weight or style controls. The font-policy suite now passes 24
-assertions in total.
+The follow-up identity audit adds eight collision and stale-metadata
+regressions: a variable axis from a different same-family artifact or
+collection member, stale authored axis values on an exact static face, or an
+unresolved collection member cannot affect the selected face's weight or style
+controls. The font-policy suite now passes 26 assertions in total.
 
 The test environment was space constrained under `/tmp`; the successful runs
 used `TMPDIR=/home/kevina/varve-tmp`. The first combined attempt failed while

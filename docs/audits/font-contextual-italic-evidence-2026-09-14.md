@@ -18,19 +18,19 @@ CI=1 TMPDIR=/home/kevina/varve-tmp ./node_modules/.bin/vitest run \
   packages/editor/src/components/Inspector/sections/__tests__/TypographySection.test.tsx \
   packages/editor/src/components/FontBrowser/FontSelector.test.tsx --reporter=dot
 
-6 files, 87 tests passed
+6 files, 89 tests passed
 ```
 
 The real Chromium visual workflow was rerun after adding the control:
 
 ```text
-CI=1 TMPDIR=/home/kevina/varve-tmp VARVE_E2E_PORT=1731 \
+CI=1 TMPDIR=/home/kevina/varve-tmp VARVE_E2E_PORT=1732 \
 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 \
-VARVE_E2E_OUTPUT_DIR=font-toolbar-final-20260914 \
+VARVE_E2E_OUTPUT_DIR=font-toolbar-final-20260914-head \
 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts \
   --project=chromium -g 'DPR 1' --reporter=list --timeout=180000
 
-1 passed (1.2m)
+1 passed (1.2m) at master SHA `6f4c4375ebd16e5f3349238a8180a57d1a4a209d`
 ```
 
 The inspected light, dark, and high-contrast captures include closed, open,
