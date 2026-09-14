@@ -75,12 +75,17 @@ vi.mock('@varve/ui', () => ({
   }: {
     label: string;
     value: string;
-    options: Array<{ value: string; label: string }>;
+    options: Array<{ value: string; label: string; disabled?: boolean; disabledReason?: string }>;
     onChange: (value: string) => void;
   }) => (
     <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)}>
       {options.map((option) => (
-        <option key={option.value} value={option.value}>
+        <option
+          key={option.value}
+          value={option.value}
+          disabled={option.disabled}
+          title={option.disabled ? option.disabledReason : undefined}
+        >
           {option.label}
         </option>
       ))}
@@ -166,6 +171,8 @@ describe('LogoTypographySection', () => {
       fontReference: { artifactHash: 'f'.repeat(64) },
     };
     render(<LogoTypographySection node={exactNode} />);
+
+    expect(screen.getByRole('option', { name: 'Italic' })).toBeDisabled();
 
     fireEvent.change(screen.getByRole('combobox', { name: 'Font style' }), {
       target: { value: 'italic' },

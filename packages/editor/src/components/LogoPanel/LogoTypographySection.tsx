@@ -7,6 +7,7 @@
  * full glyph-refinement workflow is available visually in the Logo panel.
  */
 
+import { getFontRegistry } from '@varve/engine';
 import type { TextNode } from '@varve/scene';
 import { Button, Icon, NumberInput, Select } from '@varve/ui';
 import { useMemo, useState } from 'react';
@@ -16,6 +17,7 @@ import { FontBrowserDialog } from '../FontBrowser/FontBrowserDialog';
 import { FontSelector } from '../FontBrowser/FontSelector';
 import {
   fontFamilyChanges,
+  fontStyleAvailable,
   fontStyleChanges,
   fontWeightChanges,
   fontWeightOptions,
@@ -26,6 +28,9 @@ export function LogoTypographySection({ node }: { node: TextNode }) {
   const editor = useEditor();
   const nodeId = node.id;
   const [fontBrowserOpen, setFontBrowserOpen] = useState(false);
+  const registry = useMemo(() => getFontRegistry(), []);
+  const italicAvailable =
+    (node.fontStyle ?? 'normal') === 'italic' || fontStyleAvailable(node, 'italic', registry);
 
   const patch = useMemo(
     () => (patch: Partial<TextNode>) => {
@@ -112,7 +117,12 @@ export function LogoTypographySection({ node }: { node: TextNode }) {
             value={node.fontStyle ?? 'normal'}
             options={[
               { value: 'normal', label: 'Normal' },
-              { value: 'italic', label: 'Italic' },
+              {
+                value: 'italic',
+                label: 'Italic',
+                disabled: !italicAvailable,
+                disabledReason: 'This font has no real italic face for the wordmark',
+              },
             ]}
             onChange={(fontStyle) =>
               patch(fontStyleChanges(node, fontStyle as TextNode['fontStyle']))
