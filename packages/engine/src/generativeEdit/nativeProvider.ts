@@ -179,6 +179,7 @@ export const nativeGenerativeProvider = {
                 output_h: request.outputHeight ?? request.imageData.height,
                 steps: request.steps ?? (request.quality === 'draft' ? 12 : 24),
                 guidance_scale: request.guidanceScale ?? 7,
+                image_guidance_scale: request.imageGuidanceScale ?? 1,
                 seed: request.seed ?? -1,
                 strength: request.strength ?? (request.mode === 'replace' ? 0.85 : 0.75),
               },

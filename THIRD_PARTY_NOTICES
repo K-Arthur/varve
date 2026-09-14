@@ -143,6 +143,18 @@ ort (MIT)
   Copyright (c) pyke.io and contributors
   Licensed under MIT OR Apache-2.0 (dual).
 
+diffusion-rs (MIT)
+  Copyright (c) 2024 Flavio Bizzarri
+  https://github.com/newfla/diffusion-rs
+  Vendored at 0.1.20 with a narrowly scoped Varve image-guidance API patch.
+  Licensed under MIT License.
+
+stable-diffusion.cpp (MIT)
+  Copyright (c) 2023 leejet and contributors
+  https://github.com/leejet/stable-diffusion.cpp
+  Used through diffusion-rs-sys for the supervised local generation helper.
+  Licensed under MIT License.
+
 -----------------------------------------------------------------------------
 ONNX AI Models
 -----------------------------------------------------------------------------

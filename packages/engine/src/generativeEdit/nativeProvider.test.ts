@@ -73,6 +73,7 @@ describe('nativeGenerativeProvider', () => {
         strength: 0.85,
         steps: 28,
         guidance_scale: 6.5,
+        image_guidance_scale: 1,
         output_w: 8,
         output_h: 6,
       }),

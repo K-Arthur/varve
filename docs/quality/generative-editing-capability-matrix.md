@@ -91,9 +91,13 @@ execution backend, and CPU architecture. A model qualified on x86_64 is not
 treated as ready on ARM64, Windows, macOS, ChromeOS Linux, or a changed helper
 build until that target runs its own masked qualification.
 
-The pinned Rust binding is `diffusion-rs = 0.1.20`. The helper is supervised in
-a separate process, and the webview receives only an opaque qualified handle.
-Weights are not stored in the repository or in portable documents.
+The pinned Rust binding is `diffusion-rs = 0.1.20`, vendored with Varve's safe
+separate-image-guidance field and identified at runtime as
+`diffusion-rs-0.1.20-varve-image-cfg-v1`. The helper is supervised in a
+separate process, and the webview receives only an opaque qualified handle.
+Weights are not stored in the repository or in portable documents. This fixes
+the request/runtime configuration boundary; it does not promote the currently
+failed model-quality candidate.
 
 ## Evidence state
 

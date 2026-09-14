@@ -1921,6 +1921,7 @@ pub struct GenerativeEditOptions {
     pub output_h: u32,
     pub steps: u32,
     pub guidance_scale: f32,
+    pub image_guidance_scale: f32,
     pub seed: i64,
     pub strength: f32,
 }
@@ -1936,7 +1937,10 @@ const GENERATIVE_MODEL_METADATA_SUFFIX: &str = ".metadata.json";
 // that provenance and must be re-qualified instead of being trusted on ARM,
 // another OS, or after a helper change.
 const GENERATIVE_MODEL_METADATA_SCHEMA_VERSION: u32 = 4;
-const GENERATIVE_MODEL_RUNTIME_ID: &str = "diffusion-rs-0.1.20";
+// This identifier includes Varve's safe image-guidance extension. Changing
+// the helper or its binding must invalidate qualification metadata so a
+// result cannot be trusted under a different runtime contract.
+const GENERATIVE_MODEL_RUNTIME_ID: &str = "diffusion-rs-0.1.20-varve-image-cfg-v1";
 const GENERATIVE_MODEL_FILENAME: &str = "varve-diffusion-inpainting.gguf";
 const GENERATIVE_MODEL_DOWNLOAD_URL: &str = "https://huggingface.co/gpustack/stable-diffusion-v1-5-inpainting-GGUF/resolve/21491e4/stable-diffusion-v1-5-inpainting-Q4_0.gguf?download=true";
 const GENERATIVE_MODEL_DOWNLOAD_SIZE: u64 = 1_747_219_584;
@@ -2678,6 +2682,7 @@ fn qualification_request(model_handle: &str, request_id: String) -> GenerativeEd
         output_h: HEIGHT,
         steps: 4,
         guidance_scale: 7.0,
+        image_guidance_scale: 1.0,
         seed: 417,
         strength: 0.85,
     }
@@ -2850,6 +2855,7 @@ struct GenerativeHelperRequest {
     height: u32,
     steps: u32,
     guidance_scale: f32,
+    image_guidance_scale: f32,
     seed: i64,
     strength: f32,
 }
@@ -3016,6 +3022,7 @@ fn generative_edit_blocking_with_requirement(
         height: options.output_h,
         steps: options.steps,
         guidance_scale: options.guidance_scale,
+        image_guidance_scale: options.image_guidance_scale,
         seed: options.seed,
         strength: options.strength,
     };
@@ -5533,6 +5540,7 @@ pub fn run() {
             font_storage::load_font_from_filesystem,
             font_storage::list_filesystem_fonts,
             font_storage::remove_font_from_filesystem,
+            font_storage::release_document_fonts,
             font_storage::get_filesystem_font_storage_usage,
             // Native model file storage
             read_model_file,
