@@ -55,7 +55,7 @@ Passed:
 - Toolbar E2E: **3 passed** at DPR 1, 2, and 3 in 1.9 minutes.
 - Typography editing E2E: **3 passed** in 1.2 minutes, including empty-text
   cancellation and OpenType redraw.
-- `audit:docs`: clean, 872 docs / 465 links / 174 ADRs.
+- `audit:docs`: clean, 873 docs / 471 links / 174 ADRs.
 - `audit:emoji`: clean, 4,655 files.
 - `audit:tokens`: all 153 WCAG pairs pass across light, dark, and high
   contrast themes.
