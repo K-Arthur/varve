@@ -95,6 +95,25 @@ describe('nativeTraceProvider', () => {
     expect(opts.alphaThreshold).toBe(4);
     expect(opts.compoundHoles).toBe(true);
     expect(opts.traceMode).toBe('silhouette');
+    expect(opts.maxColors).toBe(12);
+
+    await nativeTraceProvider.trace(source, { mode: 'grayscale' }, new AbortController().signal);
+    await nativeTraceProvider.trace(
+      source,
+      { mode: 'pixel-art', maxColors: 16 },
+      new AbortController().signal,
+    );
+    const traceOptions = invokeMock.mock.calls
+      .filter((call) => call[0] === 'trace_image_binary')
+      .map((call) => {
+        const callOptions = call[2] as { headers?: Record<string, string> } | undefined;
+        return JSON.parse(callOptions?.headers?.['x-varve-trace-options'] ?? '{}') as Record<
+          string,
+          unknown
+        >;
+      });
+    expect(traceOptions.at(-2)).toMatchObject({ traceMode: 'silhouette', maxColors: 4 });
+    expect(traceOptions.at(-1)).toMatchObject({ traceMode: 'pixel_art', maxColors: 16 });
     // Every option key is camelCase — snake_case keys would be silently
     // ignored by the Rust `rename_all = "camelCase"` contract.
     for (const key of Object.keys(opts)) {

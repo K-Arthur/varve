@@ -33,6 +33,28 @@ interface NativeTraceProgressEvent {
 export type TraceProgressFn = (stage: string, progress: number) => void;
 
 /**
+ * Map the editor's two-dimensional mode contract onto the native engine's
+ * trace-mode enum. The browser tracer uses `mode` to select colour/pixel-art
+ * algorithms, while the Rust engine uses `traceMode` for pixel art. Keeping
+ * this translation at the IPC boundary prevents desktop tracing from
+ * silently falling back to a monochrome silhouette.
+ */
+function nativeTraceMode(options: RasterTraceOptions): 'silhouette' | 'centerline' | 'pixel_art' {
+  if (options.traceMode === 'centerline') return 'centerline';
+  if (options.mode === 'pixel-art') return 'pixel_art';
+  return 'silhouette';
+}
+
+function nativeMaxColors(
+  options: RasterTraceOptions,
+  traceMode: 'silhouette' | 'centerline' | 'pixel_art',
+): number | undefined {
+  if (traceMode === 'centerline') return undefined;
+  if (options.mode === 'monochrome' || options.mode === undefined) return 0;
+  return options.maxColors ?? (options.mode === 'grayscale' ? 4 : 8);
+}
+
+/**
  * Native desktop tracing via Tauri `trace_image_binary` (raw PNG request body
  * + options header). Each job carries a monotonic id so the Rust side can
  * report stage progress and honor cancellation through the shared cancel
@@ -86,15 +108,16 @@ export const nativeTraceProvider: TraceProvider = {
     signal?.addEventListener('abort', onAbort, { once: true });
 
     try {
+      const traceMode = nativeTraceMode(options);
       const wireOptions = {
         threshold: options.threshold ?? 128,
         minPixels: options.minArea ?? 10,
-        maxColors: options.mode === 'color' ? (options.maxColors ?? 8) : undefined,
+        maxColors: nativeMaxColors(options, traceMode),
         foreground: options.foreground ?? 'dark',
         cornerAngle: options.cornerAngle ?? 135,
         maxError: options.maxError ?? 1.0,
         simplifyTolerance: options.simplifyTolerance ?? 0.75,
-        traceMode: options.traceMode ?? 'silhouette',
+        traceMode,
         alphaThreshold: options.alphaThreshold ?? 1,
         centerlineWidth: options.centerlineWidth ?? 2,
         centerlinePrune: options.centerlinePrune ?? 4,
