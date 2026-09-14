@@ -40,9 +40,10 @@ is out of scope and unjustified without ablation evidence.
   `traceMode` selects `silhouette`/`centerline`/`pixel_art`. Before the
   follow-up fix, desktop grayscale omitted `maxColors` (Rust then defaulted to
   monochrome) and pixel-art sent `silhouette` (Rust then traced a silhouette).
-  The adapter now translates those values explicitly and has a regression test
-  for the exact camelCase wire payload. This was a repository root cause, not
-  an upstream algorithm limitation.
+  The adapter now translates those values explicitly, converts grayscale RGBA
+  pixels to Rec.709 luminance before encoding, and has regression coverage for
+  the exact camelCase payload and encoded luminance values. This was a
+  repository root cause, not an upstream algorithm limitation.
 
 ## 2. Repository observations (verified by reading code, 2026-09-13)
 

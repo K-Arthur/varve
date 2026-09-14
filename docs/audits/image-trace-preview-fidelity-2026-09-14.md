@@ -127,7 +127,10 @@ being hidden by the trace test.
 - Before `779452dd7`, the desktop adapter could silently downgrade grayscale
   to monochrome and pixel-art to a silhouette because the editor `mode` was not
   translated to the Rust `traceMode`/`maxColors` wire fields. The scoped
-  regression test now asserts the exact grayscale and pixel-art payloads.
+  regression test now asserts the exact grayscale and pixel-art payloads. The
+  native schema has no grayscale bit, so the adapter also normalizes grayscale
+  RGBA to Rec.709 luma before encoding; a pixel-level regression assertion
+  guards that chroma cannot leak back into native grayscale fills.
 - A source identity hash currently fingerprints the source reference string;
   it detects a changed data URL or source reference but cannot prove that the
   bytes behind an unchanged external URI are unchanged. Same-URI replacement

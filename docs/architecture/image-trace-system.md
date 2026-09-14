@@ -76,8 +76,10 @@ the dialog uses it to disable centerline (with a reason) on web builds.
 provenance records that id — the engine label is no longer guessed from the
 environment. The native adapter translates the editor's two-dimensional mode
 contract at the wire boundary: `pixel-art` becomes Rust's `pixel_art`,
-grayscale receives its bounded color count, and monochrome sends `0` so the
-native sanitizer does not reinterpret the request. For its supported
+grayscale is converted to Rec.709 luminance before encoding and receives its
+bounded color count, and monochrome sends `0` so the native sanitizer does not
+reinterpret the request. This preserves the TS and native meaning of grayscale
+even though the Rust wire schema has no separate grayscale flag. For its supported
 monochrome mode, the WASM facade passes corner angle, maximum fitting error and
 source-pixel simplify tolerance to the same
 Rust trace path as desktop; older generated artifacts fall back safely to

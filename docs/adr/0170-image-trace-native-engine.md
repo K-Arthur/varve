@@ -120,10 +120,12 @@ decisions extend ADR-0170 without changing its provider architecture:
 6. **The provider adapter preserves tracing intent.** The editor's `mode`
    selects grayscale, colour, or pixel-art behavior while Rust's `traceMode`
    selects `silhouette`, `centerline`, or `pixel_art`; the native adapter maps
-   those fields explicitly and sends bounded `maxColors` values. This prevents
-   desktop grayscale from becoming monochrome and desktop pixel-art from
-   becoming a filled silhouette. The exact camelCase payload is covered by a
-   provider regression test.
+   those fields explicitly, converts grayscale RGBA to Rec.709 luminance
+   because the Rust wire schema has no grayscale flag, and sends bounded
+   `maxColors` values. This prevents desktop grayscale from becoming
+   monochrome or retaining coloured fills and prevents desktop pixel-art from
+   becoming a filled silhouette. The exact camelCase payload and encoded
+   luminance are covered by provider regression tests.
 
 Consequences: preview/committed agreement is testable (unit + pixel-level
 E2E), white artwork cannot disappear silently, and re-traces are honest about
