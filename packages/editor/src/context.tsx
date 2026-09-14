@@ -3695,7 +3695,13 @@ export function EditorProvider({
     inTransactionRef,
   );
 
-  const logoProject = useLogoProject(setState, stateRef, updateDoc, announcerRef);
+  const logoProject = useLogoProject(
+    setState,
+    stateRef,
+    updateDoc,
+    groupCompoundOperation,
+    announcerRef,
+  );
 
   const workspaceModeCtx = useWorkspaceMode(
     state,

@@ -98,6 +98,7 @@ export function useLogoProject(
   setState: React.Dispatch<React.SetStateAction<EditorState>>,
   stateRef: React.MutableRefObject<EditorState>,
   updateDoc: (fn: (doc: EditorState['document']) => EditorState['document']) => void,
+  groupCompoundOperation: (label: string, action: () => void) => void,
   announcerRef: React.MutableRefObject<CanvasAnnouncer | null>,
 ): LogoProjectAPI {
   const announce = useCallback(
@@ -112,37 +113,39 @@ export function useLogoProject(
       const s = stateRef.current;
       const existing = getLogoProject(s.document);
       let artboardId: NodeId | null = null;
-      updateDoc((doc) => {
-        let d = doc;
-        if (!d.logoProject) {
-          d = {
-            ...d,
-            logoProject: normalizeLogoProject(createLogoProject(name ?? 'Logo Project')),
-          };
-        }
-        const count = d.logoProject?.concepts.length ?? 0;
-        const col = count % 3;
-        const row = Math.floor(count / 3);
-        const created = createLogoArtboard(d, {
-          name: `Concept ${count + 1}`,
-          width: 1024,
-          height: 1024,
-          x: col * 1280,
-          y: row * 1280,
+      groupCompoundOperation('Logo project', () => {
+        updateDoc((doc) => {
+          let d = doc;
+          if (!d.logoProject) {
+            d = {
+              ...d,
+              logoProject: normalizeLogoProject(createLogoProject(name ?? 'Logo Project')),
+            };
+          }
+          const count = d.logoProject?.concepts.length ?? 0;
+          const col = count % 3;
+          const row = Math.floor(count / 3);
+          const created = createLogoArtboard(d, {
+            name: `Concept ${count + 1}`,
+            width: 1024,
+            height: 1024,
+            x: col * 1280,
+            y: row * 1280,
+          });
+          artboardId = created.artboardId;
+          d = addLogoConcept(created.doc, {
+            name: `Concept ${count + 1}`,
+            artboardId: created.artboardId,
+          });
+          return d;
         });
-        artboardId = created.artboardId;
-        d = addLogoConcept(created.doc, {
-          name: `Concept ${count + 1}`,
-          artboardId: created.artboardId,
-        });
-        return d;
       });
       if (artboardId) {
         setState((prev) => ({ ...prev, selection: [artboardId!] }));
       }
       announce(existing ? 'Created logo concept artboard' : 'Created logo project');
     },
-    [announce, setState, stateRef, updateDoc],
+    [announce, groupCompoundOperation, setState, stateRef, updateDoc],
   );
 
   const createLogoConcept = useCallback(() => {
@@ -152,28 +155,30 @@ export function useLogoProject(
       return;
     }
     let artboardId: NodeId | null = null;
-    updateDoc((doc) => {
-      const count = doc.logoProject?.concepts.length ?? 0;
-      const col = count % 3;
-      const row = Math.floor(count / 3);
-      const created = createLogoArtboard(doc, {
-        name: `Concept ${count + 1}`,
-        width: 1024,
-        height: 1024,
-        x: col * 1280,
-        y: row * 1280,
-      });
-      artboardId = created.artboardId;
-      return addLogoConcept(created.doc, {
-        name: `Concept ${count + 1}`,
-        artboardId: created.artboardId,
+    groupCompoundOperation('Logo concept', () => {
+      updateDoc((doc) => {
+        const count = doc.logoProject?.concepts.length ?? 0;
+        const col = count % 3;
+        const row = Math.floor(count / 3);
+        const created = createLogoArtboard(doc, {
+          name: `Concept ${count + 1}`,
+          width: 1024,
+          height: 1024,
+          x: col * 1280,
+          y: row * 1280,
+        });
+        artboardId = created.artboardId;
+        return addLogoConcept(created.doc, {
+          name: `Concept ${count + 1}`,
+          artboardId: created.artboardId,
+        });
       });
     });
     if (artboardId) {
       setState((prev) => ({ ...prev, selection: [artboardId!] }));
     }
     announce('Created new concept artboard');
-  }, [announce, setState, stateRef, updateDoc]);
+  }, [announce, groupCompoundOperation, setState, stateRef, updateDoc]);
 
   const duplicateActiveConcept = useCallback(() => {
     const s = stateRef.current;
@@ -188,24 +193,28 @@ export function useLogoProject(
       return;
     }
     let newArtboardId: NodeId | null = null;
-    updateDoc((doc) => {
-      const duplicated = duplicateLogoConcept(doc, concept.id);
-      const project = getLogoProject(duplicated);
-      const copy = project?.concepts[project.concepts.length - 1];
-      newArtboardId = copy?.artboardId ?? null;
-      return duplicated;
+    groupCompoundOperation('Duplicate logo concept', () => {
+      updateDoc((doc) => {
+        const duplicated = duplicateLogoConcept(doc, concept.id);
+        const project = getLogoProject(duplicated);
+        const copy = project?.concepts[project.concepts.length - 1];
+        newArtboardId = copy?.artboardId ?? null;
+        return duplicated;
+      });
     });
     if (newArtboardId) {
       setState((prev) => ({ ...prev, selection: [newArtboardId!] }));
     }
     announce('Duplicated concept');
-  }, [announce, setState, stateRef, updateDoc]);
+  }, [announce, groupCompoundOperation, setState, stateRef, updateDoc]);
 
   const setConceptStatus = useCallback(
     (conceptId: string, status: LogoConceptStatus) => {
-      updateDoc((doc) => setLogoConceptStatus(doc, conceptId, status));
+      groupCompoundOperation('Logo concept status', () => {
+        updateDoc((doc) => setLogoConceptStatus(doc, conceptId, status));
+      });
     },
-    [updateDoc],
+    [groupCompoundOperation, updateDoc],
   );
 
   const createLogoVariant = useCallback(
@@ -217,25 +226,29 @@ export function useLogoProject(
         return;
       }
       const concept = conceptForNode(s.document, artboardId);
-      updateDoc((doc) =>
-        addLogoVariant(doc, {
-          name,
-          kind,
-          artboardId,
-          sourceConceptId: concept?.id ?? null,
-          derivedFromVariantId: null,
-        }),
-      );
+      groupCompoundOperation('Logo variant', () => {
+        updateDoc((doc) =>
+          addLogoVariant(doc, {
+            name,
+            kind,
+            artboardId,
+            sourceConceptId: concept?.id ?? null,
+            derivedFromVariantId: null,
+          }),
+        );
+      });
       announce(`Registered ${kind} variant`);
     },
-    [announce, stateRef, updateDoc],
+    [announce, groupCompoundOperation, stateRef, updateDoc],
   );
 
   const patchBrief = useCallback(
     (patch: Parameters<LogoProjectAPI['patchBrief']>[0]) => {
-      updateDoc((doc) => patchLogoBrief(doc, patch));
+      groupCompoundOperation('Logo brief', () => {
+        updateDoc((doc) => patchLogoBrief(doc, patch));
+      });
     },
-    [updateDoc],
+    [groupCompoundOperation, updateDoc],
   );
 
   const addClearSpaceGuides = useCallback(
@@ -245,10 +258,12 @@ export function useLogoProject(
         announce('Select artwork inside a concept artboard first');
         return;
       }
-      updateDoc((doc) => addClearSpaceGuidesOp(doc, artboardId, gap));
+      groupCompoundOperation('Logo clear-space guides', () => {
+        updateDoc((doc) => addClearSpaceGuidesOp(doc, artboardId, gap));
+      });
       announce('Added clear-space guides');
     },
-    [announce, stateRef, updateDoc],
+    [announce, groupCompoundOperation, stateRef, updateDoc],
   );
 
   return {
