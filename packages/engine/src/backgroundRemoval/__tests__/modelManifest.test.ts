@@ -40,6 +40,7 @@ describe('modelManifest', () => {
     );
     const entry = await getManifestEntry('u2netp');
     expect(entry?.bundled).toBe(true);
+    expect(entry?.sizeBytes).toBeGreaterThan(0);
     expect(entry?.localPath).toBe('/models/u2netp.onnx');
   });
 

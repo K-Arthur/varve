@@ -21,6 +21,8 @@ import type { ModelManifestEntry as InfModelManifestEntry } from '../inference/t
 export interface ModelManifestEntry {
   id: string;
   filename: string;
+  /** Model file size from the unified catalog, used by native download preflight. */
+  sizeBytes: number;
   localPath: string;
   sha256: string | null;
   bundled: boolean;
@@ -52,6 +54,7 @@ function toLegacyEntry(e: InfModelManifestEntry): ModelManifestEntry {
   return {
     id: e.id,
     filename: `${e.id}.onnx`,
+    sizeBytes: e.sizeBytes,
     localPath: e.localPath ?? `/models/${e.id}.onnx`,
     sha256: e.checksum || null,
     bundled: e.bundled,
