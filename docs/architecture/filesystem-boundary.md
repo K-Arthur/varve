@@ -39,7 +39,7 @@ locations itself.
 | Application data | `app_data_dir()` | root, `fonts/`, `models/` | durable user data | private |
 | Configuration | `app_config_dir()` | root | durable preferences | private |
 | State | `app_local_data_dir()` | root, `recovery/`, `crash-reports/` | restart/recovery state | private |
-| Cache | `app_cache_dir()` | `thumbnails/`, `staging/` | regenerable | private |
+| Cache | `app_cache_dir()` | `thumbnails/`, `staging/`, `generative-edits/` | regenerable | private |
 | Logs | `app_log_dir()` | root | bounded operational diagnostics | private |
 | Temporary | `temp_dir()` | `varve/` (created lazily by operation) | ephemeral | private |
 | Resources | `resource_dir()` | packaged resources | read-only | non-user, may identify build |
@@ -55,6 +55,12 @@ regenerable cache must not remove either. Model storage is injected into the
 native inference crates at startup so all desktop inference uses the same
 Tauri-resolved root; standalone crate tests retain a deterministic platform
 fallback.
+
+`generative-edits/` contains only per-request native-helper scratch directories.
+The request guard removes them at terminal completion, and the generative
+resource module removes directories older than its crash-recovery window. It
+must never be traversed as document asset storage or copied into a portable
+project.
 
 ## Path taxonomy
 

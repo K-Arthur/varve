@@ -343,6 +343,13 @@ desktop workflow supports an explicit, allowlisted download or user import,
 then validation; downloads resume through a native partial file, verify the
 pinned SHA-256, and install atomically. There is no silent model download.
 
+Each helper invocation owns a private, per-request scratch directory under the
+application cache. Source pixels, masks, prompts, and helper output are removed
+by an RAII guard after success, cancellation, timeout, decode failure, or helper
+crash; they are not document assets. A bounded 24-hour sweep removes only old
+request directories left by an application crash. A fresh request-id collision
+is refused instead of allowing one request to delete another request's data.
+
 Native image adapters validate the returned dimensions against the requested
 working frame before decoding or compositing. They also require a finite
 non-negative processing time, a non-empty execution backend/model identity,

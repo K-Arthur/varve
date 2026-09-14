@@ -5,6 +5,10 @@
 //! the last preflight immediately before starting the helper so a low-memory
 //! device receives a deterministic refusal instead of an avoidable OOM.
 
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime};
+
 const BYTES_PER_MIB: u64 = 1024 * 1024;
 const BYTES_PER_GIB: u64 = 1024 * BYTES_PER_MIB;
 pub(crate) const NATIVE_DIFFUSION_MINIMUM_MEMORY_BYTES: u64 = 6 * BYTES_PER_GIB;
@@ -372,5 +376,127 @@ mod tests {
         );
         assert!(error.contains("linux/aarch64"));
         assert!(error.contains("Quick Cleanup"));
+    }
+}
+
+/// Ephemeral filesystem ownership for one native generative-edit request.
+///
+/// The desktop process writes source pixels, masks, prompts, and helper output
+/// to a private cache directory because the helper is intentionally isolated
+/// from the webview. Those files are scratch data, not document assets. The
+/// guard removes them on every terminal path, while the bounded startup sweep
+/// recovers directories left behind by a process crash.
+pub(crate) const STALE_WORKSPACE_AGE: Duration = Duration::from_secs(24 * 60 * 60);
+
+pub(crate) struct WorkspaceGuard {
+    path: PathBuf,
+}
+
+impl WorkspaceGuard {
+    pub(crate) fn new(path: PathBuf) -> Self {
+        Self { path }
+    }
+}
+
+impl Drop for WorkspaceGuard {
+    fn drop(&mut self) {
+        // The workspace is private scratch data. A best-effort cleanup is
+        // preferable to replacing a useful generation error with a cleanup
+        // error, but report unexpected failures for diagnostics.
+        if let Err(error) = fs::remove_dir_all(&self.path) {
+            if error.kind() != std::io::ErrorKind::NotFound {
+                eprintln!("Could not remove generative-edit scratch data: {error}");
+            }
+        }
+    }
+}
+
+fn is_stale(modified: SystemTime, now: SystemTime) -> bool {
+    now.duration_since(modified)
+        .is_ok_and(|age| age >= STALE_WORKSPACE_AGE)
+}
+
+/// Remove only old child directories belonging to the generative scratch
+/// root. Files and fresh directories are left untouched so a malformed cache
+/// entry or an active request cannot cause an unrelated deletion.
+pub(crate) fn remove_stale_workspaces(root: &Path, now: SystemTime) -> usize {
+    let Ok(entries) = fs::read_dir(root) else {
+        return 0;
+    };
+
+    entries
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let path = entry.path();
+            let file_type = entry.file_type().ok()?;
+            if !file_type.is_dir() {
+                return None;
+            }
+            let metadata = entry.metadata().ok()?;
+            let modified = metadata.modified().ok()?;
+            is_stale(modified, now).then_some(path)
+        })
+        .filter(|path| fs::remove_dir_all(path).is_ok())
+        .count()
+}
+
+#[cfg(test)]
+mod workspace_tests {
+    use super::{is_stale, remove_stale_workspaces, WorkspaceGuard, STALE_WORKSPACE_AGE};
+    use std::fs;
+    use std::path::PathBuf;
+    use std::time::{Duration, SystemTime};
+
+    fn test_root(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!(
+            "varve-generative-workspace-{name}-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("create workspace test root");
+        root
+    }
+
+    #[test]
+    fn guard_removes_scratch_data_when_scope_exits() {
+        let root = test_root("guard");
+        fs::write(root.join("source.png"), [1u8]).expect("write scratch source");
+        {
+            let _guard = WorkspaceGuard::new(root.clone());
+            assert!(root.join("source.png").is_file());
+        }
+        assert!(
+            !root.exists(),
+            "terminal work must remove private scratch data"
+        );
+    }
+
+    #[test]
+    fn stale_sweep_keeps_fresh_and_non_directory_entries() {
+        let root = test_root("sweep");
+        let fresh = root.join("fresh-request");
+        fs::create_dir(&fresh).expect("create fresh request");
+        fs::write(root.join("unexpected-file"), [1u8]).expect("create unrelated entry");
+
+        let now = SystemTime::now();
+        assert_eq!(remove_stale_workspaces(&root, now), 0);
+        assert!(fresh.exists());
+        assert!(root.join("unexpected-file").exists());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn stale_age_is_strictly_bounded() {
+        let now = SystemTime::UNIX_EPOCH + Duration::from_secs(10_000);
+        assert!(!is_stale(now, now));
+        assert!(!is_stale(
+            now.checked_sub(STALE_WORKSPACE_AGE - Duration::from_secs(1))
+                .expect("test time"),
+            now
+        ));
+        assert!(is_stale(
+            now.checked_sub(STALE_WORKSPACE_AGE).expect("test time"),
+            now
+        ));
     }
 }
