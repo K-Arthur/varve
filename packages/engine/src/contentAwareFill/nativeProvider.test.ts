@@ -74,6 +74,38 @@ describe('nativeLaMaProvider', () => {
     ).rejects.toThrow('do not match response');
   });
 
+  it('rejects when cancellation arrives while the native output is decoding', async () => {
+    const controller = new AbortController();
+    let resolveDecode!: (imageData: ImageData) => void;
+    decodeImageBytesToImageData.mockImplementationOnce(
+      () =>
+        new Promise<ImageData>((resolve) => {
+          resolveDecode = resolve;
+        }),
+    );
+    invoke.mockResolvedValue({
+      png_base64: btoa('png'),
+      width: 24,
+      height: 16,
+      model_id: 'lama-inpainting',
+      execution_backend: 'ort-native',
+      processing_time_ms: 1,
+      warnings: [],
+    });
+
+    const inference = nativeLaMaProvider.infer(
+      new ImageData(24, 16),
+      new Uint8Array(24 * 16),
+      controller.signal,
+    );
+    await vi.waitFor(() => expect(decodeImageBytesToImageData).toHaveBeenCalled());
+
+    controller.abort();
+    resolveDecode(new ImageData(24, 16));
+
+    await expect(inference).rejects.toThrow('cancelled');
+  });
+
   it('rejects native metadata that cannot support honest provenance', async () => {
     invoke.mockResolvedValue({
       png_base64: btoa('png'),

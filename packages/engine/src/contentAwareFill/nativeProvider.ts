@@ -159,6 +159,10 @@ export const nativeLaMaProvider = {
       const binary = atob(raw.png_base64);
       const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
       const decoded = await decodeImageBytesToImageData(bytes);
+      // PNG decoding is asynchronous and may finish after the native
+      // request has been cancelled. Do not let that late frame reach the
+      // compositing pipeline or apply to the document.
+      if (signal?.aborted) throw new Error('cancelled');
 
       if (decoded.width !== raw.width || decoded.height !== raw.height) {
         throw new Error(
