@@ -86,6 +86,8 @@ impl AccelerationState {
         if let Ok(mut verified) = self.verified_device_id.lock() {
             *verified = None;
         }
+        #[cfg(feature = "ai")]
+        varve_bgremove::inference::clear_auto_gpu_model_quarantine();
     }
 
     fn record_verified(&self, device_id: String) {
@@ -215,11 +217,17 @@ pub async fn native_acceleration_status(
 pub async fn native_gpu_self_test(
     state: tauri::State<'_, Arc<AccelerationState>>,
 ) -> Result<SelfTestReport, String> {
-    let engine = state.engine()?;
-    let report = tauri::async_runtime::spawn_blocking(move || engine.self_test())
+    // Adapter/device creation can enter a platform graphics loader and must
+    // not run on the Tauri/GTK event thread. The state handle is cheap to move;
+    // the engine is created inside the blocking worker.
+    let acceleration_state = Arc::clone(&*state);
+    let report = tauri::async_runtime::spawn_blocking(move || -> Result<SelfTestReport, String> {
+        let engine = acceleration_state.engine()?;
+        engine.self_test().map_err(|err| err.to_string())
+    })
         .await
         .map_err(|err| format!("GPU self-test task failed: {err}"))?
-        .map_err(|err| err.to_string())?;
+        ?;
     state.record_verified(report.device_id.clone());
     Ok(report)
 }
