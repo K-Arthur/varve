@@ -191,3 +191,27 @@ Those failures are outside the corpus and shaping files.
 This continuation closes the parser and required Arabic/Devanagari shaping
 evidence only. It does not close native restart, color rendering parity,
 emoji/CJK shaping, main/worker canvas identity, or platform WebView proof.
+
+## Mixed-range toolbar continuation — 2026-09-14
+
+The frontend follow-up is committed at
+`cf05b5e1b7087e2e7c96c2457544ef710e17b4d0`. The quick toolbar and contextual
+text bar now receive effective typography data for every selected rich-text
+run. Weight options and Italic availability are intersected across those real
+faces; a mixed range can no longer borrow a capability from only its first run.
+Pending caret formatting remains the source for the next insertion, and the
+existing range command remains one grouped transaction.
+
+Additional commands actually run:
+
+```text
+pnpm exec biome check packages/editor/src/components/Typography/typographyCommand.ts packages/editor/src/components/Typography/typographyCommand.test.ts packages/editor/src/components/Typography/fontWeight.ts packages/editor/src/components/Typography/fontWeight.test.ts packages/editor/src/components/FloatingTextBar/FloatingTextBar.tsx packages/editor/src/components/ContextControlBar/ContextControlBar.tsx
+pnpm exec vitest run packages/editor/src/components/Typography/typographyCommand.test.ts packages/editor/src/components/Typography/fontWeight.test.ts packages/editor/src/components/FloatingTextBar/FloatingTextBar.test.tsx packages/editor/src/components/ContextControlBar/ContextControlBar.test.tsx --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
+pnpm verify:plan
+pnpm verify:affected
+```
+
+Passed: Biome and all 77 focused tests. `verify:plan` selected the shared
+worktree full-gate escalation; `verify:affected` exited 2 at that required
+escalation boundary without running the broad closure. Existing Chromium
+toolbar screenshots remain the visual evidence for geometry and readability.
