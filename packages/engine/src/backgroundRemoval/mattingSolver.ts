@@ -28,7 +28,7 @@
  * caller keeps its last valid result and can fall back to guided filtering.
  */
 
-import { signedDistancePlane } from '../areaSelectionMorphology';
+import { growPlane, shrinkPlane } from '../areaSelectionMorphology';
 
 /** Trimap zone constants shared with the refinement tools. */
 export const TRIMap = {
@@ -66,11 +66,21 @@ export function trimapFromMask(
   const trimap = new Uint8Array(Math.max(0, n));
   if (n === 0 || mask.length < n) return trimap;
   const band = Math.max(0, Math.floor(Number.isFinite(unknownBandPx) ? unknownBandPx : 0));
-  const field = signedDistancePlane(mask, width, height);
+
+  const inside = new Uint8Array(n);
+  for (let i = 0; i < n; i += 1) inside[i] = (mask[i] ?? 0) >= 128 ? 255 : 0;
+
+  // The unknown band straddles the 50% contour: dilating the binary shape
+  // marks the outside half of the band and eroding marks the inside half.
+  // Morphology is O(N) and needs only one byte per plane, so a 50 MP image
+  // does not allocate the three Float32 planes a signed distance field would.
+  const dilated = band > 0 ? growPlane(inside, width, height, band, 'exclude') : null;
+  const eroded = band > 0 ? shrinkPlane(inside, width, height, band, 'exclude') : null;
   for (let i = 0; i < n; i += 1) {
     const coverage = mask[i] ?? 0;
     const intermediate = coverage > CORE_LOW && coverage < CORE_HIGH;
-    const nearBoundary = field.hasBoundary && Math.abs(field.signed[i] ?? 0) <= band;
+    const nearBoundary =
+      dilated !== null && eroded !== null && dilated[i]! >= 128 && eroded[i]! < 128;
     if (intermediate || nearBoundary) {
       trimap[i] = TRIMap.UNKNOWN;
     } else {

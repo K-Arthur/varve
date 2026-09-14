@@ -91,7 +91,6 @@ export class RefineMaskTool extends BaseTool {
   private maskData: ImageData | null = null;
   private maskSnapshot: ImageData | null = null;
   private nodeId: string | null = null;
-  private lastPaintedPoint: { x: number; y: number } | null = null;
   private lastPaintedSource: { x: number; y: number } | null = null;
   private pendingLoad = false;
   private mapper: MapperState | null = null;
@@ -140,6 +139,21 @@ export class RefineMaskTool extends BaseTool {
       ctx.announce(`Hardness ${Math.round(this.options.hardness * 100)}%`);
       return true;
     }
+    if (e.key === '1') {
+      this.setOptions({ mode: 'add' });
+      ctx.announce('Refine brush: add / reveal');
+      return true;
+    }
+    if (e.key === '2') {
+      this.setOptions({ mode: 'subtract' });
+      ctx.announce('Refine brush: subtract / hide');
+      return true;
+    }
+    if (e.key === '3') {
+      this.setOptions({ mode: 'restore' });
+      ctx.announce('Refine brush: restore original');
+      return true;
+    }
     return false;
   }
 
@@ -160,7 +174,6 @@ export class RefineMaskTool extends BaseTool {
     this.strokeDirty = false;
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
-    this.lastPaintedPoint = world;
     const sourcePixel = this.mapWorldToSource(world);
     this.lastPaintedSource = sourcePixel;
 
@@ -191,28 +204,29 @@ export class RefineMaskTool extends BaseTool {
     this.drag.currentWorld = world;
 
     if (!this.maskData) return;
-    // Legacy/test callers may only have set the world anchor.
-    if (!this.lastPaintedSource && this.lastPaintedPoint) {
-      this.lastPaintedSource = this.mapWorldToSource(this.lastPaintedPoint);
-    }
-    if (!this.lastPaintedSource) return;
 
     const mode = this.resolveMode(e.altKey);
     const coalesced = this.getCoalescedStrokes(e, ctx);
+    const spacing = Math.max(1, this.options.brushSize * 0.25);
     for (const stroke of coalesced) {
+      const pressure = effectivePressure(stroke.event);
       const source = this.mapWorldToSource(stroke.world);
-      if (!source) continue;
-      const spacing = Math.max(1, this.options.brushSize * 0.25);
-      for (const point of interpolateStrokeSegment(this.lastPaintedSource, source, spacing)) {
-        this.paintSourcePoint(
-          point,
-          effectivePressure(stroke.event),
-          mode,
-          this.strokeAreaSelection,
-        );
+      if (!source) {
+        // The pointer left the target. Do not interpolate across the gap and
+        // let a later sample re-enter and start a fresh segment.
+        this.lastPaintedSource = null;
+        continue;
+      }
+      if (!this.lastPaintedSource) {
+        // A stroke may legitimately begin outside the target image; the first
+        // paintable sample starts the segment instead of aborting the gesture.
+        this.paintSourcePoint(source, pressure, mode, this.strokeAreaSelection);
+      } else {
+        for (const point of interpolateStrokeSegment(this.lastPaintedSource, source, spacing)) {
+          this.paintSourcePoint(point, pressure, mode, this.strokeAreaSelection);
+        }
       }
       this.lastPaintedSource = source;
-      this.lastPaintedPoint = stroke.world;
     }
   }
 
@@ -226,7 +240,6 @@ export class RefineMaskTool extends BaseTool {
       ctx.abortTransaction();
     }
     this.maskSnapshot = null;
-    this.lastPaintedPoint = null;
     this.lastPaintedSource = null;
     this.strokeAreaSelection = null;
     this.strokeDirty = false;
@@ -238,7 +251,6 @@ export class RefineMaskTool extends BaseTool {
     }
     this.maskSnapshot = null;
     ctx.abortTransaction();
-    this.lastPaintedPoint = null;
     this.lastPaintedSource = null;
     this.strokeAreaSelection = null;
     this.strokeDirty = false;
@@ -484,7 +496,6 @@ export class RefineMaskTool extends BaseTool {
     this.maskData = null;
     this.maskSnapshot = null;
     this.nodeId = null;
-    this.lastPaintedPoint = null;
     this.lastPaintedSource = null;
     this.pendingLoad = false;
     this.mapper = null;

@@ -5713,3 +5713,15 @@ fieldset.insp-canvas-props,
   height: var(--component-compact-height);
   min-height: var(--component-compact-height);
 }
+
+.trimap-preview {
+  --trimap-fg: var(--color-feedback-success);
+  --trimap-bg: var(--color-surface-sunken);
+  --trimap-unknown: var(--color-feedback-warning);
+  width: 100%;
+  max-width: 192px;
+  image-rendering: pixelated;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-sunken);
+}

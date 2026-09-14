@@ -185,7 +185,6 @@ describe('TrimapEditTool', () => {
     (tool as any).width = 100;
     (tool as any).height = 100;
     (tool as any).nodeId = 'img-1';
-    (tool as any).lastPaintedPoint = { x: 10, y: 10 };
     (tool as any).options.penMode = 'background';
     (tool as any).options.brushSize = 4;
     const ctx = makeMinimalCtx();
