@@ -382,4 +382,15 @@ describe('compositeFillResult', () => {
         );
     }
   });
+
+  it('preserves hidden RGB and alpha exactly outside a zero-coverage mask', () => {
+    const source = new ImageData(2, 1);
+    source.data.set([17, 29, 43, 0, 40, 50, 60, 91]);
+    const generated = new ImageData(2, 1);
+    generated.data.set([255, 0, 0, 255, 0, 255, 0, 0]);
+
+    const result = compositeFillResult(source, generated, 0, 0, new Uint8Array([0, 0]));
+
+    expect(Array.from(result.data)).toEqual(Array.from(source.data));
+  });
 });

@@ -184,6 +184,13 @@ export function compositeFillResult(
       const maskCoverage = mask ? (mask[y * fillResult.width + x] ?? 0) / 255 : 1;
       const sourceAlpha = (imageData.data[di + 3] ?? 0) / 255;
       const fillAlpha = ((fillResult.data[si + 3] ?? 0) / 255) * maskCoverage;
+
+      // A zero-coverage pixel is outside the effective edit region. The
+      // result starts as an exact source clone, so leave it untouched rather
+      // than normalizing hidden RGB behind alpha zero (or rounding an
+      // otherwise unchanged source pixel through the linear-light path).
+      if (fillAlpha <= 0) continue;
+
       const outputAlpha = fillAlpha + sourceAlpha * (1 - fillAlpha);
 
       if (outputAlpha <= 0) {
