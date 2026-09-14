@@ -59,6 +59,30 @@ export interface RasterMaskCommitFields {
   sourceIdentity?: RasterMaskSourceIdentity;
 }
 
+/**
+ * Convert the provider reported by an inference job into the persisted scene
+ * runtime vocabulary. Provider names are deliberately more specific than the
+ * scene schema: native WebGPU is an accelerated native runtime, while a
+ * native CPU retry remains distinguishable as CPU execution.
+ */
+export function runtimeForBackgroundRemovalProvider(
+  executionProvider?: string,
+): BackgroundRemovalProvenance['runtime'] {
+  switch (executionProvider) {
+    case 'native-webgpu':
+      return 'native-accelerated';
+    case 'native':
+    case 'native-cpu':
+      return 'native-cpu';
+    case 'webgpu':
+    case 'webgl':
+    case 'wasm':
+      return executionProvider;
+    default:
+      return 'typescript';
+  }
+}
+
 function dataUrlByteLength(dataUrl: string): number {
   const prefix = 'data:image/png;base64,';
   if (!dataUrl.startsWith(prefix)) return 0;

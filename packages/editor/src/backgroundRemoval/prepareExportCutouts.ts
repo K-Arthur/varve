@@ -4,6 +4,7 @@ import { resolveNodePaints } from '@varve/scene';
 import {
   commitPreparedBackgroundRemoval,
   type PreparedBackgroundRemoval,
+  runtimeForBackgroundRemovalProvider,
 } from './commitRasterMask';
 
 /** Prepare a frozen export snapshot; publication remains owned by the caller. */
@@ -63,10 +64,7 @@ export async function prepareExportCutouts(
       sourceAsset: sourceImage.assetId ? document?.assets?.[sourceImage.assetId] : undefined,
       documentId: document?.id,
       modelId: result.modelId,
-      runtime:
-        result.executionProvider === 'native'
-          ? 'native-cpu'
-          : (result.executionProvider ?? 'typescript'),
+      runtime: runtimeForBackgroundRemovalProvider(result.executionProvider),
       maskDataUrl: result.maskDataUrl,
       method: result.method,
       confidence: result.confidence,

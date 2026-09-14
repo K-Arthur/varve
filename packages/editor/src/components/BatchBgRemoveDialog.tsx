@@ -25,7 +25,10 @@ import type {
 } from '@varve/scene';
 import { resolveNodePaints } from '@varve/scene';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { PreparedBackgroundRemoval } from '../backgroundRemoval/commitRasterMask';
+import {
+  type PreparedBackgroundRemoval,
+  runtimeForBackgroundRemovalProvider,
+} from '../backgroundRemoval/commitRasterMask';
 import { FocusTrap } from '../onboard/FocusTrap';
 import { ModelDownloadDialog } from './BackgroundRemoval/ModelDownloadDialog';
 import './BatchBgRemoveDialog.css';
@@ -289,10 +292,7 @@ export function BatchBgRemoveDialog({
         sourceLocator: file.src,
         documentId,
         modelId: result.modelId,
-        runtime:
-          result.executionProvider === 'native'
-            ? 'native-cpu'
-            : (result.executionProvider ?? 'typescript'),
+        runtime: runtimeForBackgroundRemovalProvider(result.executionProvider),
         method: finalized.method,
         confidence: finalized.confidence,
         appliedAt: Date.now(),

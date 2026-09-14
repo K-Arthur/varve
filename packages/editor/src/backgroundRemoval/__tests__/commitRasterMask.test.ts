@@ -16,6 +16,7 @@ import {
   commitRasterMask,
   hasNativeRasterMask,
   removeRasterMaskFromNode,
+  runtimeForBackgroundRemovalProvider,
 } from '../commitRasterMask';
 
 const PNG_WHITE =
@@ -36,6 +37,14 @@ function makeDoc(): Document {
 }
 
 describe('commitRasterMask', () => {
+  it('persists native provider attribution without conflating GPU and CPU', () => {
+    expect(runtimeForBackgroundRemovalProvider('native-webgpu')).toBe('native-accelerated');
+    expect(runtimeForBackgroundRemovalProvider('native-cpu')).toBe('native-cpu');
+    expect(runtimeForBackgroundRemovalProvider('native')).toBe('native-cpu');
+    expect(runtimeForBackgroundRemovalProvider('wasm')).toBe('wasm');
+    expect(runtimeForBackgroundRemovalProvider('unexpected-provider')).toBe('typescript');
+  });
+
   it('never aliases mask payloads on divergent history paths', () => {
     const before = makeDoc();
     const fields = { width: 1, height: 1, dataUrl: PNG_WHITE };
