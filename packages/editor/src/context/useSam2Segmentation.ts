@@ -197,6 +197,16 @@ export function useSam2Segmentation(
         return null;
       }
 
+      // Refuse a pixel-selection output before any model work when the editor
+      // surface has no area-selection setter. Otherwise a full encode/decode
+      // would run only to fail at the final conversion step.
+      if (operation === 'selection' && !setAreaSelection) {
+        announcerRef.current?.announce(
+          'Pixel selection output is unavailable in this editor surface.',
+        );
+        return null;
+      }
+
       const previousSession = stateRef.current.objectSelectionSession;
       const sameSessionTarget =
         previousSession?.nodeId === nodeId &&
@@ -204,10 +214,11 @@ export function useSam2Segmentation(
         (!previousSession.sourceLocator || previousSession.sourceLocator === src);
 
       // Applying a visible candidate must be a commit, not a second model
-      // run. This makes Apply/Enter deterministic and keeps the mask the user
-      // inspected identical to the mask written to the document.
+      // run. This makes Apply/Enter and Use as selection deterministic and
+      // keeps the exact mask the user inspected as the committed output.
+      const isCommitOperation = operation === 'mask' || operation === 'selection';
       if (
-        operation === 'mask' &&
+        isCommitOperation &&
         sameSessionTarget &&
         previousSession.status === 'ready' &&
         previousSession.sourceFingerprint &&
@@ -246,6 +257,25 @@ export function useSam2Segmentation(
             );
             return null;
           }
+          if (countMaskCoverage(candidate.mask) === 0) {
+            const live = stateRef.current.objectSelectionSession;
+            if (generation === generationRef.current && live?.nodeId === nodeId) {
+              writeTransientSession({
+                ...live,
+                status: 'error',
+                error: {
+                  code: 'empty_result',
+                  message:
+                    'The reviewed candidate contains no pixels. Adjust or remove prompts and create a new preview.',
+                  retryable: true,
+                },
+              });
+            }
+            announcerRef.current?.announce(
+              'The reviewed candidate contains no pixels. Adjust the prompts and try again.',
+            );
+            return null;
+          }
           abortRef.current?.abort();
           abortRef.current = null;
           generationRef.current += 1;
@@ -253,6 +283,35 @@ export function useSam2Segmentation(
             clearTimeout(softDeadlineRef.current);
             softDeadlineRef.current = null;
           }
+
+          if (operation === 'selection') {
+            const areaSelection = areaSelectionFromMaskCoverage(
+              currentDoc,
+              nodeId,
+              candidate.mask,
+              previousSession.width,
+              previousSession.height,
+              'source-image-pixels',
+            );
+            if (!areaSelection || !setAreaSelection) {
+              announcerRef.current?.announce(
+                'The subject mask could not be converted into a pixel selection.',
+              );
+              return null;
+            }
+            setAreaSelection(areaSelection);
+            writeTransientSession(null, { maskPreviewMode: 'none' });
+            announcerRef.current?.announce(
+              `Selected subject (${scoreNoun(previousSession.confidenceSource)} ${Math.round(candidate.confidence * 100)}%)`,
+            );
+            return {
+              mask: candidate.mask,
+              width: previousSession.width,
+              height: previousSession.height,
+              confidence: candidate.confidence,
+            };
+          }
+
           const maskDataUrl = await maskToDataUrl(
             candidate.mask,
             previousSession.width,
@@ -289,7 +348,7 @@ export function useSam2Segmentation(
               ),
             });
             announcerRef.current?.announce(
-              `Selection applied as a mask (${Math.round(candidate.confidence * 100)}% confidence)`,
+              `Selection applied as a mask (${scoreNoun(previousSession.confidenceSource)} ${Math.round(candidate.confidence * 100)}%)`,
             );
             return {
               mask: candidate.mask,
@@ -656,6 +715,7 @@ export function useSam2Segmentation(
           height: naturalH,
           confidence: selectedConfidence,
         };
+        const coveragePixels = countMaskCoverage(bestMask.mask);
 
         switch (operation) {
           case 'preview':
@@ -692,11 +752,22 @@ export function useSam2Segmentation(
               { maskPreviewMode: 'overlay' },
             );
             announcerRef.current?.announce(
-              `Subject preview ready (${Math.round(selectedConfidence * 100)}% confidence). Press Enter to apply, Escape to cancel.`,
+              coveragePixels === 0
+                ? `No pixels were selected for these prompts (${scoreNoun(decoded.confidenceSource)} ${Math.round(selectedConfidence * 100)}%). Adjust the prompts and try again.`
+                : `Subject preview ready (${scoreNoun(decoded.confidenceSource)} ${Math.round(selectedConfidence * 100)}%). Press Enter to apply as a mask, Escape to cancel.`,
             );
             return maskResult;
 
           case 'mask': {
+            if (coveragePixels === 0) {
+              markFailure({
+                code: 'empty_result',
+                message:
+                  'The model did not find any pixels for these prompts. Adjust the prompts and create a new preview.',
+                retryable: true,
+              });
+              return null;
+            }
             const liveBeforeCommit = stateRef.current.document.nodes[nodeId];
             if (
               stateRef.current.document.id !== currentDoc.id ||
@@ -741,13 +812,22 @@ export function useSam2Segmentation(
             if (committed) {
               writeTransientSession(null, { maskPreviewMode: 'none' });
               announcerRef.current?.announce(
-                `Selection applied as a mask (${Math.round(selectedConfidence * 100)}% confidence)`,
+                `Selection applied as a mask (${scoreNoun(decoded.confidenceSource)} ${Math.round(selectedConfidence * 100)}%)`,
               );
             }
             return maskResult;
           }
 
           case 'selection': {
+            if (coveragePixels === 0) {
+              markFailure({
+                code: 'empty_result',
+                message:
+                  'The model did not find any pixels for these prompts. Adjust the prompts and create a new preview.',
+                retryable: true,
+              });
+              return null;
+            }
             if (!setAreaSelection) {
               markFailure({
                 code: 'selection_output_unavailable',
@@ -775,7 +855,7 @@ export function useSam2Segmentation(
             setAreaSelection(areaSelection);
             writeTransientSession(null, { maskPreviewMode: 'none' });
             announcerRef.current?.announce(
-              `Selected subject (${Math.round(selectedConfidence * 100)}% confidence)`,
+              `Selected subject (${scoreNoun(decoded.confidenceSource)} ${Math.round(selectedConfidence * 100)}%)`,
             );
             return maskResult;
           }
@@ -878,6 +958,22 @@ function writeCurrentSam2Stage(
 
 function isCancellationError(raw: string): boolean {
   return /cancelled|canceled|abort/i.test(raw);
+}
+
+/** Count non-zero coverage pixels in a one-channel mask. */
+function countMaskCoverage(mask: Uint8Array): number {
+  let count = 0;
+  for (let index = 0; index < mask.length; index += 1) {
+    if (mask[index]! > 0) count += 1;
+  }
+  return count;
+}
+
+/** Name the score by provenance; never call a predicted quality score "confidence". */
+function scoreNoun(source: 'model-iou' | 'activation-heuristic' | undefined): string {
+  if (source === 'model-iou') return 'model score';
+  if (source === 'activation-heuristic') return 'heuristic score';
+  return 'score';
 }
 
 function mapSegmentationFailure(raw: string): {
