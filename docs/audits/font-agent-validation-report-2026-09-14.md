@@ -266,10 +266,12 @@ VARVE_WDIO_SPECS=./tests/wdio/font-native.e2e.ts pnpm test:desktop:native
 ```
 
 It stopped in `apps/desktop`'s `build:wdio` TypeScript step before launching
-Tauri. The errors are in concurrent/shared files (`Menubar.tsx`,
-`inputPipeline.ts`, `wheelClassifier.ts`, `applyFontReplacement.ts`,
+Tauri. After the linked-story type fixes in `be0fe69d47c12998b312c0d9f9595082a1800d27`,
+the remaining diagnostics are confined to concurrent/shared editor files
+(`Menubar.tsx`, `inputPipeline.ts`, `wheelClassifier.ts`,
 `ManageLayoutsDialog.tsx`, `geometry/vectorOps.ts`, `snapping.ts`, and
-`workspace/layoutVariants.ts`); no native WDIO pass is claimed. The executable
+`workspace/layoutVariants.ts`). No font file or font-recovery diagnostic
+remains in this build lane, but no native WDIO pass is claimed. The executable
 next check is to rerun this exact spec after that shared build lane is repaired.
 
 ## Website visual continuation — 2026-09-14
