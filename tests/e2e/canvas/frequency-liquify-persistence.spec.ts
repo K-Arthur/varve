@@ -158,6 +158,10 @@ test('frequency separation and Liquify survive save/reopen and export', async ({
     .getByText(/raster layer/i)
     .first();
   await raster.click();
+  await page.waitForTimeout(500);
+  await page.getByTestId('editor-canvas').screenshot({
+    path: testInfo.outputPath('frequency-liquify-before.png'),
+  });
   await runPaletteAction(page, 'Frequency Separation', /Frequency Separation/);
   const separationDialog = page.getByRole('dialog', { name: /Frequency Separation/i });
   await expect(separationDialog.getByRole('button', { name: 'Before', exact: true })).toBeVisible();
@@ -226,6 +230,9 @@ test('frequency separation and Liquify survive save/reopen and export', async ({
   expect(interactionSummary?.pointerToPresent.count).toBeGreaterThan(0);
   expect(interactionSummary?.pointerToPresent.p95).toBeGreaterThanOrEqual(0);
   const committedHash = await assertFullRedrawIsStable(page);
+  await page.getByTestId('editor-canvas').screenshot({
+    path: testInfo.outputPath('frequency-liquify-after.png'),
+  });
   await testInfo.attach('frequency-liquify-committed.png', {
     body: await canvas.screenshot(),
     contentType: 'image/png',
@@ -277,6 +284,9 @@ test('frequency separation and Liquify survive save/reopen and export', async ({
   await testInfo.attach('frequency-liquify-reopened.png', {
     body: await page.getByTestId('editor-canvas').screenshot(),
     contentType: 'image/png',
+  });
+  await page.getByTestId('editor-canvas').screenshot({
+    path: testInfo.outputPath('frequency-liquify-reopened-canvas.png'),
   });
   const reopenedOutputPath = testInfo.outputPath('frequency-liquify-reopened.png');
   const reopenedPng = await exportPng(page, reopenedOutputPath);
