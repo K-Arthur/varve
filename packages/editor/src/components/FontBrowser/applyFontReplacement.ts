@@ -6,6 +6,7 @@ import {
   FontResolver,
   fontReferenceKey,
   type ResolverDocument,
+  type ResolverTextNode,
 } from '@varve/engine/font';
 import type { Document } from '@varve/scene';
 
@@ -151,14 +152,18 @@ function resolveReplacement(
       const updated = resolved.nodes[nodeId];
       if (!updated) continue;
       if (styleBackedTargets.has(nodeId) && updated.kind === 'text') {
-        const styleOverrides = { ...(updated.styleOverrides ?? {}) };
+        // ResolverDocument intentionally keeps non-text nodes opaque. Once
+        // the discriminant is checked, retain the text-node shape so linked
+        // style overrides survive the scoped replacement.
+        const updatedText = updated as ResolverTextNode;
+        const styleOverrides = { ...(updatedText.styleOverrides ?? {}) };
         styleOverrides.fontFamily = replacement.replacement;
         if (replacement.replacementReference) {
           styleOverrides.fontReference = replacement.replacementReference;
         } else {
           delete styleOverrides.fontReference;
         }
-        nodes[nodeId] = { ...updated, styleOverrides } as Document['nodes'][string];
+        nodes[nodeId] = { ...updatedText, styleOverrides } as Document['nodes'][string];
       } else {
         nodes[nodeId] = updated as Document['nodes'][string];
       }

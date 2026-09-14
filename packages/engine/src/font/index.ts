@@ -16,11 +16,6 @@ export type { FontCacheConfig, FontCacheEntry } from './fontCache';
 // Caching
 export { FontBinaryCache, FontMetadataCache } from './fontCache';
 export type {
-  FontCatalogEntry,
-  FontCatalogFilter,
-  FontCatalogSort,
-} from './fontCatalog';
-export type {
   CatalogCapability,
   ExportCapability,
   FontCapabilityAction,
@@ -36,6 +31,11 @@ export type {
   WorkerCapability,
 } from './fontCapabilities';
 export { diagnoseFontCapabilities, unknownFontCapabilities } from './fontCapabilities';
+export type {
+  FontCatalogEntry,
+  FontCatalogFilter,
+  FontCatalogSort,
+} from './fontCatalog';
 // Searchable catalog
 export { diffCatalogs, FontCatalog } from './fontCatalog';
 // Font data collector (binary retrieval for export)
@@ -136,6 +136,7 @@ export type {
   FontSubstitute,
   MissingFontInfo,
   ResolverDocument,
+  ResolverTextNode,
 } from './fontResolver';
 // Missing font resolution
 export { FONT_COMPAT_MAP, FontResolver } from './fontResolver';
