@@ -97,6 +97,40 @@ ordinary work.
    pages. No second raster document, effect registry, selection state, or model
    manager is introduced.
 
+## Implementation outcome — 2026-09-14
+
+The first verified vertical slice implemented the highest-confidence boundary
+fixes from this ledger:
+
+- The shared resampler now reads straight encoded RGB, converts to linear sRGB
+  when requested, then premultiplies before filtering. The default remains
+  encoded sRGB for compatibility.
+- JPEG raster export now paints an explicit white matte when no matte is
+  supplied and emits a warning that transparency was flattened. Callers can
+  provide a different matte through the existing `matteColor` option.
+- Object → Resize Image exposes the working-space choice through the existing
+  dialog and passes it through the existing editor/context operation. The
+  operation changes source-pixel dimensions while preserving placed bounds;
+  it is not placement scaling, canvas resizing, or detail recovery.
+- The existing feature and tool documentation now describes those boundaries,
+  including the local/offline behavior and the honest limits of the selected
+  resampling mode.
+
+Focused numerical/component checks passed: 20 resampler tests, 1 JPEG-matte
+export test, and 5 image-resize tests. The Chromium image-resize workflow also
+passed end to end on Linux, including selecting `Linear light (photo edges)`
+through the real dialog, with screenshots for open, configured, and applied
+states; the screenshots were inspected as pixels, not only checked for
+existence. A follow-up run after widening the dialog passed the same flow and
+confirmed the full working-space label is visible. The website build
+completed all 102 static routes, and the two changed pages were reviewed at
+desktop and narrow mobile widths.
+
+This does not certify universal RAW/HDR support, full ICC management,
+source-preserving resize history, WebKitGTK/ChromeOS runtime parity, or the
+separate retouch/selection work owned by other agents. Those remain bounded by
+the capability matrix and their own validation records.
+
 ## Capability matrix and ownership
 
 | Workflow/capability | Status in this checkout | Evidence/fixture | Primary owner | This slice |
@@ -120,4 +154,3 @@ in Chromium with screenshots and encoded-pixel inspection; Chromium does not
 stand in for WebKitGTK or a physical Chromebook. Full repository validation is
 only appropriate if the final planner escalates it or a release checkpoint
 requires it.
-
