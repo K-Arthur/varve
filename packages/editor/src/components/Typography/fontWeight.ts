@@ -204,8 +204,17 @@ export function fontWeightChanges(
   registry: ReturnType<typeof getFontRegistry> = getFontRegistry(),
 ): Partial<TextNode> {
   const family = node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
+  const entries = registry.getEntries(family);
+  const hasIdentity = entries.some((entry) => entry.faceKey);
+  const scopedEntries =
+    node.fontReference && hasIdentity
+      ? entries.filter((entry) => sameArtifact(entry.faceKey, node.fontReference!))
+      : entries;
+  const axisDefinitions =
+    scopedEntries.find((entry) => entry.axisDefinitions?.length)?.axisDefinitions ??
+    (node.fontReference && hasIdentity ? undefined : registry.getAxisDefinitions(family));
   const hasWeightAxis =
-    registry.getAxisDefinitions(family)?.some((axis) => axis.tag === 'wght') === true ||
+    axisDefinitions?.some((axis) => axis.tag === 'wght') === true ||
     node.variableAxes?.wght !== undefined;
   if (hasWeightAxis) {
     return { fontWeight: weight, variableAxes: { ...(node.variableAxes ?? {}), wght: weight } };
@@ -216,7 +225,6 @@ export function fontWeightChanges(
   // the requested weight in the same artifact, move the member reference with
   // the authored choice; otherwise clear the stale exact face so a different
   // artifact cannot be mistaken for the selected one.
-  const entries = registry.getEntries(family);
   const style = node.fontStyle ?? 'normal';
   const styledEntries = entries.filter((entry) => entry.style === style);
   const candidates = styledEntries.length > 0 ? styledEntries : entries;
@@ -249,7 +257,15 @@ export function fontStyleChanges(
   }
 
   const family = node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
-  const axisDefinitions = registry.getAxisDefinitions(family);
+  const entries = registry.getEntries(family);
+  const hasIdentity = entries.some((entry) => entry.faceKey);
+  const scopedEntries =
+    node.fontReference && hasIdentity
+      ? entries.filter((entry) => sameArtifact(entry.faceKey, node.fontReference!))
+      : entries;
+  const axisDefinitions =
+    scopedEntries.find((entry) => entry.axisDefinitions?.length)?.axisDefinitions ??
+    (node.fontReference && hasIdentity ? undefined : registry.getAxisDefinitions(family));
   const italicAxis = axisDefinitions?.find((axis) => axis.tag === 'ital');
   if (italicAxis || node.variableAxes?.ital !== undefined) {
     return {
@@ -261,7 +277,6 @@ export function fontStyleChanges(
     };
   }
   if (!node.fontReference) return { fontStyle: style };
-  const entries = registry.getEntries(family);
   const target = entries.find(
     (entry) =>
       entry.style === nextStyle &&

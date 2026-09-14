@@ -271,6 +271,36 @@ describe('fontWeightChanges', () => {
       fontReference: undefined,
     });
   });
+
+  it('does not borrow a wght axis from another same-family artifact', () => {
+    const staticHash = 'c'.repeat(64);
+    const variableHash = 'd'.repeat(64);
+    const registry = new FontRegistry([
+      {
+        family: 'Colliding Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash: staticHash }),
+      },
+      {
+        family: 'Colliding Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash: variableHash }),
+        axisDefinitions: [{ tag: 'wght', name: 'Weight', min: 300, default: 400, max: 700 }],
+      },
+    ]);
+
+    expect(
+      fontWeightChanges(
+        node({ fontFamily: 'Colliding Family', fontReference: { artifactHash: staticHash } }),
+        700,
+        registry,
+      ),
+    ).toEqual({ fontWeight: 700, fontReference: undefined });
+  });
 });
 
 describe('fontStyleChanges', () => {
@@ -396,6 +426,36 @@ describe('fontStyleChanges', () => {
     expect(
       fontStyleChanges(
         node({ fontFamily: 'Regular Only', fontReference: { artifactHash } }),
+        'italic',
+        registry,
+      ),
+    ).toEqual({ fontStyle: 'italic', fontReference: undefined });
+  });
+
+  it('does not borrow an ital axis from another same-family artifact', () => {
+    const staticHash = '1'.repeat(64);
+    const variableHash = '2'.repeat(64);
+    const registry = new FontRegistry([
+      {
+        family: 'Colliding Style Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash: staticHash }),
+      },
+      {
+        family: 'Colliding Style Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash: variableHash }),
+        axisDefinitions: [{ tag: 'ital', name: 'Italic', min: 0, default: 0, max: 1 }],
+      },
+    ]);
+
+    expect(
+      fontStyleChanges(
+        node({ fontFamily: 'Colliding Style Family', fontReference: { artifactHash: staticHash } }),
         'italic',
         registry,
       ),
