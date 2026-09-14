@@ -8,6 +8,7 @@
  */
 
 import { labToRgb, rgbToLab } from '../nonSeparable';
+import { isNearNeutralLab, isSkinLikeLab } from './heuristics';
 
 export type RecolorHueMode = 'set' | 'rotate';
 
@@ -138,12 +139,11 @@ export function selectiveRecolor(
       // Protection is deliberately conservative and local. Pure grayscale is
       // not protected: that is the primary tint/colorize use case. Near-neutral
       // authored chroma and skin-like pixels are only softened when the user
-      // explicitly enables the corresponding heuristic.
+      // explicitly enables the corresponding heuristic (see heuristics.ts for
+      // the exact Lab bands).
       let protection = 1;
-      if (neutralProtection && sourceChroma > 0.01 && sourceChroma < 8) protection *= 0.15;
-      if (skinProtection && sourceA > 5 && sourceBStar > 5 && sourceBStar > sourceA * 0.35) {
-        protection *= 0.35;
-      }
+      if (neutralProtection && isNearNeutralLab(sourceA, sourceBStar)) protection *= 0.15;
+      if (skinProtection && isSkinLikeLab(sourceA, sourceBStar)) protection *= 0.35;
       targetA = sourceA + (targetA - sourceA) * protection;
       targetBValue = sourceBStar + (targetBValue - sourceBStar) * protection;
 

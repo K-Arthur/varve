@@ -7,6 +7,7 @@
  */
 
 import { labToRgb, rgbToLab } from '../nonSeparable';
+import { isSkinLikeLab } from './heuristics';
 import { computeLabStats } from './transfer';
 
 function clamp(value: number, min: number, max: number): number {
@@ -59,9 +60,7 @@ export function harmonize(
     const sourceChroma = Math.hypot(sourceA, sourceBStar);
     let protection = 1;
     if (neutralProtection && sourceChroma < 8) protection = 0;
-    if (skinProtection && sourceA > 5 && sourceBStar > 5 && sourceBStar > sourceA * 0.35) {
-      protection *= 0.35;
-    }
+    if (skinProtection && isSkinLikeLab(sourceA, sourceBStar)) protection *= 0.35;
     const pixelAmount = amount * blend * protection;
     const targetA =
       referenceStats.meanA +

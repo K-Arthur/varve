@@ -38,8 +38,8 @@ controls that are decorative in the selected mode.
 | Chroma | Target/reference chroma multiplier (`×`) | Recolor, transfer, harmonize | Applied once in the selected operation |
 | Lightness | Source L* preservation, 0–100% | Recolor, transfer | Contract is CIELAB L*, not HSL lightness or linear luminance |
 | Blend | Final effect strength, 0–100%; mask coverage and blend are multiplied once | Recolor, transfer, harmonize | Zero strength is identity and is covered by tests |
-| Near-neutral protection | Conservative protection of already near-neutral authored pixels; neutral grayscale is still tintable | Recolor, harmonize | Explicit user toggle; not person recognition |
-| Skin-like protection | Conservative heuristic only, labelled as such | Selective recolor | Never presented as reliable segmentation; mask remains the correction mechanism |
+| Near-neutral protection | Softens pixels that already carry small authored chroma; pure grayscale is deliberately left tintable in recolor | Recolor, harmonize | Explicit user toggle; band is documented in `heuristics.ts`, not person recognition |
+| Skin-like protection | Softens pixels inside a broad Lab hue band (20–70° with chroma 8–60); a softening factor, never an exclusion | Selective recolor | Labelled heuristic; a user mask remains the authoritative correction mechanism |
 | Document swatches | Real swatches selected by stable ID, with their current HEX value | Palette colorize | Deleted/unusable swatches disappear from the request; empty palettes disable Preview |
 | Mapping | `Shaded palette influence` retains source L* and can produce tonal shades; `Strict palette colors` uses literal selected sRGB bytes at 100% adherence | Palette colorize | Strict output is tested against authored palette bytes |
 | Adherence | 0–100%; strict constraint applies only at 100% | Palette colorize | Partial adherence is intentionally not strict quantization |
@@ -101,7 +101,10 @@ Lightness control. Target RGB is gamut-clipped at the final sRGB/ImageData
 boundary, and alpha is copied unchanged.
 
 Protection is a reduction of local effect coverage, not a claim that the engine
-recognizes skin or people. A manually authored mask is the authoritative scope.
+recognizes skin or people. Both heuristics live in `heuristics.ts` with the
+exact Lab bands and unit tests; the skin-like band can include warm wood or
+leather, which is why it only softens the effect and why a manually authored
+mask is the authoritative scope.
 
 ### Palette colorize
 
@@ -222,6 +225,8 @@ Stable deterministic coverage currently includes:
 - empty references, malformed parameters, and malformed DDColor tensors;
 - DDColor grayscale-derived input conversion (neutral output, preserved L*,
   preserved alpha) and square-stretch geometry without letterbox reversal;
+- protection heuristics' documented Lab bands (skin-like hue/chroma gate,
+  near-neutral authored chroma) with the warm-tone limitation stated;
 - cached chroma reconstruction at source resolution (upscale path, identity
   path, alpha preservation, malformed planes);
 - contract validation and stale palette/mask/reference/parameter revisions;
