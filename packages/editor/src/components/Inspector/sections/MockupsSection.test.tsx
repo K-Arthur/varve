@@ -13,7 +13,7 @@ import {
   setMockupBinding,
 } from '@varve/scene';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { type EditorContextValue, useEditor } from '../../../context';
+import type { EditorContextValue } from '../../../context';
 import { MockupsSection } from './MockupsSection';
 
 const editorMock = vi.fn<() => Partial<EditorContextValue>>();

@@ -161,6 +161,26 @@
   gap: var(--space-1);
 }
 
+/* Cylinder controls are intentionally stacked inside a narrow inspector. A
+   row containing two labelled controls must never widen the panel and clip
+   the crop/arc actions at desktop split-pane widths. */
+.mockups-section__cylinder .mockups-section__row {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.mockups-section__cylinder .mockups-section__row > .mockups-section__label {
+  flex: 0 0 100%;
+}
+
+.mockups-section__cylinder .mockups-section__inline {
+  min-width: 0;
+}
+
+.mockups-section__cylinder .mockups-section__fit {
+  white-space: normal;
+}
+
 .mockups-section__align {
   display: grid;
   grid-template-columns: repeat(3, 22px);
@@ -282,7 +302,7 @@
   border-color: var(--border-subtle);
 }
 
-.mockups-section__picker-item[aria-current='true'] {
+.mockups-section__picker-item[aria-current="true"] {
   border-color: var(--color-accent-primary);
   color: var(--color-accent-primary);
 }

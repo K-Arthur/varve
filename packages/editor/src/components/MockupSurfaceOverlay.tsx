@@ -354,7 +354,11 @@ export function MockupSurfaceOverlay({ zoom, pan, cameraRotation, selection }: P
       <div className="mockup-overlay__toolbar" role="toolbar" aria-label="Mockup surface actions">
         <span className="mockup-overlay__toolbar-label">
           {selectedSurface.name}
-          {effective.kind === 'quad' ? ' · perspective' : ''}
+          {effective.kind === 'quad'
+            ? ' · perspective'
+            : effective.kind === 'cylindrical'
+              ? ' · bounded cylinder'
+              : ''}
         </span>
         <button
           type="button"

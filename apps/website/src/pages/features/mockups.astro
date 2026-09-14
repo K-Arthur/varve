@@ -3,7 +3,7 @@ import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
 
-<Layout title="Mockups" description="Place editable artwork on replaceable mockup surfaces, author your own photo templates, and export the composed presentation.">
+<Layout title="Mockups" description="Place editable artwork on mobile, apparel, signage, stationery, and packaging mockup surfaces, author photo templates, and export the composed presentation.">
   <div class="container-custom">
     <div class="feature-page">
       <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -20,11 +20,22 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section">
         <h2>Linked surfaces, not frozen pictures</h2>
         <ul>
-          <li>Apply a built-in phone, browser, poster, card, or packaging template to the current selection.</li>
+          <li>Apply a built-in mobile, browser, poster, card, tee, billboard, envelope, or packaging template to the current selection.</li>
           <li>Keep the source live: editing the original updates every surface bound to it.</li>
           <li>Freeze a surface into an embedded snapshot when it should stop following edits.</li>
           <li>Replace artwork on any surface without losing its geometry, fit, masks, or appearance.</li>
         </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Made for real production subjects</h2>
+        <p>
+          Use the same document workflow for mobile screens, desktop windows, front/back
+          stationery, apparel and tees, outdoor billboards, boxes, and product labels. Planar
+          surfaces stay projectively mapped, while the product-label template provides a bounded
+          front-facing cylindrical arc with an explicit wrap, seam, and crop policy. Multiple
+          surfaces can use independent sources or intentionally share one linked source.
+        </p>
       </section>
 
       <section class="feature-section">
@@ -44,17 +55,20 @@ import { sitePath } from '../../lib/siteUrl';
           Angled surfaces use a true projective mapping: drag the four corners and the content is
           resampled from the original source, so straight lines stay straight. Export re-renders
           the source at the requested output scale instead of enlarging a preview, and a missing
-          source is reported as a missing source rather than silently showing an old result.
+          source is reported as a missing source rather than silently showing an old result. A
+          bounded cylinder uses a separate curved remap; it is never mislabeled as perspective or
+          full 3D.
         </p>
       </section>
 
       <section class="feature-section note">
         <h2>Set the right expectation</h2>
         <p>
-          Mockups place artwork on planar or four-corner surfaces. Curved, mesh, and
-          displacement-map wrapping are not available yet and are rejected instead of being
-          approximated silently. Photoshop smart-object re-rendering is not supported; PSD import
-          brings layers and masks in as pixels. Homography geometry is not a 3D renderer.
+          Mockups place artwork on planar, four-corner, or bounded front-facing cylindrical
+          surfaces. Full 3D cameras, mesh wrapping, calibrated displacement maps, and Photoshop
+          smart-object re-rendering are not available; unsupported cases are rejected instead of
+          being approximated silently. PSD import brings supported layers and masks in as pixels.
+          Homography and cylindrical geometry are not a 3D renderer.
         </p>
       </section>
 

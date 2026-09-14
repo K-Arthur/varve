@@ -1,7 +1,9 @@
 # Mockup System — Architecture
 
-Status: implemented (Levels 1–2 + photographic templates); curated curved
-surfaces and displacement remain deferred. ADR: `docs/adr/0015-mockup-system.md`.
+Status: implemented (Levels 1–2 + photographic templates + a bounded
+front-facing cylindrical slice); mesh, calibrated displacement, PSD
+smart-object re-rendering, and model-assisted proposals remain explicitly
+unsupported. ADR: `docs/adr/0015-mockup-system.md`.
 Audit and improvement record: `docs/audits/mockup-editing-improvement-2026-09-13.md`.
 
 ## Product definition
@@ -32,7 +34,7 @@ renderer decoration + inspector/overlay controls.
 ```ts
 interface MockupTemplateAsset {
   id: string;                    // 'builtin:phone-flat' | 'user:…'
-  schemaVersion: 1;
+  schemaVersion: 2;
   name: string; description?: string;
   category: MockupCategory;
   source: 'builtin' | 'user' | 'workspace' | 'community';
@@ -49,14 +51,14 @@ interface MockupTemplateAsset {
   licence?: MockupLicenceSnapshot;
   tags?: string[];
   contentHash: string;
-  capabilities?: string[];    // e.g. ['flat'], ['quad']
+  capabilities?: string[];    // e.g. ['flat'], ['quad'], ['cylindrical']
   library?: boolean;          // user-authored: retained when unreferenced
   createdAt?: number; updatedAt?: number;
 }
 
 interface MockupSurfaceDefinition {
   id: string; name: string; sourceSlot: string;
-  kind: 'flat' | 'quad';         // 'mesh' | 'cylindrical' reserved, rejected
+  kind: 'flat' | 'quad' | 'cylindrical'; // mesh remains reserved/rejected
   x: number; y: number;           // slot rect, template space
   width: number; height: number;
   quad?: MockupQuad;              // required when kind === 'quad'
@@ -70,15 +72,21 @@ interface MockupSurfaceDefinition {
   clipMaskAssetId?: string;       // alpha coverage in template space
   occlusionMaskAssetId?: string;  // foreground coverage; requires plateImage
   maskOptions?: { invert?: boolean; feather?: number; channel?: 'alpha' | 'luminance' };
+  clipMaskOptions?: { invert?: boolean; feather?: number; channel?: 'alpha' | 'luminance' };
+  occlusionMaskOptions?: { invert?: boolean; feather?: number; channel?: 'alpha' | 'luminance' };
+  clipMaskPlacement?: { x: number; y: number; width: number; height: number };
+  occlusionMaskPlacement?: { x: number; y: number; width: number; height: number };
+  cylindrical?: { axis: 'vertical' | 'horizontal'; wrapDegrees: number;
+    seam: number; crop: 'visible' | 'slot' };
   displacementAssetId?: string;   // reserved — rejected until a renderer exists
 }
 ```
 
 `MockupPlateImage` and the mask asset ids reference `Document.assets`
 (content-addressed). Templates remain self-contained: the closure retains
-plate/mask assets on save, clipboard payloads and packages, and codec
-normalization clears dangling references with a warning instead of silently
-dropping the template.
+plate/mask assets on save, clipboard payloads and packages. Codec
+normalization preserves dangling plate/mask references with a warning so a
+restored asset can reconnect; export blocks until the dependency is present.
 
 ### `FrameNode.mockup: MockupInstanceData`
 
@@ -87,6 +95,7 @@ interface MockupInstanceData {
   templateId: string;
   surfaceBindings: Record<string, MockupSourceBinding>;
   overrides?: Record<string, MockupSurfaceOverride>;
+  templateOwnerId?: NodeId;        // private template copy for instance authoring
   detached?: boolean;             // legacy flag; flattening removes the payload
   createdAt?: number;
 }
@@ -100,9 +109,10 @@ Binding modes:
   raster of the source captured at freeze time (content-addressed in
   `Document.assets`).
 
-Per-surface overrides: rect/quad geometry, fit, alignment, rotation (degrees
-about the slot centre), flips, shadow, glow. All are applied by the renderer;
-none are decoration-only.
+Per-surface overrides: rect/quad/cylindrical geometry, fit, alignment, rotation
+(degrees about the slot centre), flips, shadow, and glow. All exposed values
+are applied by the renderer; none are decoration-only. Surface edits clone a
+shared library template to a private instance-owned copy before mutation.
 
 Property operations (scene): `setMockupBinding`, `clearMockupBinding`,
 `setMockupSurfaceOverride`, `replaceMockupSurfaceOverride`,
@@ -120,13 +130,15 @@ shared by every host:
 1. template `backgroundColor` rect;
 2. `template.plate` vector shapes;
 3. `template.plateImage` (untouched photo, fitted cover/contain/stretch);
-4. per surface, in template order: shadow → content → glow;
+4. each surface, in template order: shadow → plate/chrome → mapped artwork
+   (clip and occlusion coverage baked once) → surface glow;
 5. template overlays (opacity multiplied; blend modes mapped to engine names).
 
-Surface content is an image-fill item (flat) or `warpedImage` item (quad).
-`bakeSurface` fits the live source subtree (or snapshot asset) with
-contain/cover/stretch/native + alignment, applies rotation/flips to the
-artwork only, and composites clip/occlusion coverage exactly once:
+Surface content is an image-fill item (flat/cylindrical) or `warpedImage` item
+(quad). `bakeSurface` fits the live source subtree (or snapshot asset) with
+contain/cover/stretch/native + alignment, captures live vector content at the
+projected output footprint, applies rotation/flips to the artwork only, and
+composites clip/occlusion coverage exactly once:
 
 - **clip** keeps content where coverage exists (`destination-in`); inverted
   clip removes it (`destination-out`).
@@ -143,12 +155,25 @@ Quad surfaces bake slot-local plate chrome together with content and warp the
 expanded quad (`platePadding`) through the engine's true inverse-homography
 `warpImageToQuad`. This is projective mapping of a plane, not mesh or 3D.
 
+Cylindrical surfaces use `warpImageToCylinder`: a destination-driven,
+premultiplied-alpha remap with explicit vertical/horizontal axis, 5–180°
+visible wrap, normalized seam, and `visible`/`slot` crop policy. It is a
+front-facing orthographic arc only. It does not infer radius, backside,
+camera perspective, folds, lighting, or calibrated displacement, and its
+output is deliberately raster content inside the ordinary surface image-fill
+path. A cylinder selection therefore cannot be mistaken for full 3D.
+
 ### Host parity
 
 `render/mockup/mockupExport.ts` is the single decoration module for
 export-shaped hosts. It collects live-bound source ids, flattens them with the
 boundary, decorates with `allowStalePreview: false`, settles the baked data
-URLs, and reports missing surfaces. Used by:
+URLs, and reports missing surfaces. Before replay it also settles every
+template-referenced plate and mask asset through the shared image cache. A
+template asset is outside the ordinary scene-node resource barrier, so this
+explicit step prevents a first export from racing lazy plate/mask decode and
+silently baking a placeholder. Missing template assets fail export with an
+actionable reconnect/restore message. Used by:
 
 - **live canvas** (`canvas/renderPipeline.ts`) at `qualityScale: 1`;
 - **raster export** (`components/SpecPanel/export.ts`) at the requested
@@ -201,14 +226,19 @@ replay worker; this also keeps the worker from ever receiving a
   overrides.
 - **Portable bundles**: `.varve-mockup.json` is
   `{ format: 'varve-mockup-template', version: 1, template, assets }`.
-  Import validates template structure, asset count (≤ 8), MIME allowlist
-  (PNG/JPEG/WebP), per-asset bytes (≤ 20 MB), dimensions (≤ 16 384 px),
-  data-URL shape, and referenced-asset completeness before embedding.
-  Exports never include bound artwork, paths, or fonts.
+  Import validates template structure, asset count (≤ 65), MIME allowlist
+  (PNG/JPEG/WebP), per-asset bytes (≤ 20 MB), dimensions (≤ 16 384 px and
+  64 MP), strict base64 data-URL syntax, and referenced-asset completeness
+  before embedding. Exports never include bound artwork, paths, or fonts;
+  bundle import is atomic at the document transaction boundary.
 
-Built-in catalog (`scene/src/mockup/builtinTemplates.ts`): 12 original vector
-templates — no device trade dress, no brand marks; licence FSL-1.1-MIT,
-attribution "Varve contributors".
+Built-in catalog (`scene/src/mockup/builtinTemplates.ts`): 16 original vector
+templates spanning mobile/device screens, browser/desktop, print, stationery
+(including front/back), apparel/tees, signage/billboards, packaging (including
+the bounded cylindrical label), social/marketing, and logo presentation. There
+is no device trade dress or brand mark; the catalogue records FSL-1.1-MIT and
+"Varve contributors" attribution for these original fixtures. This catalogue
+is a subject starter set, not a claim of photo-realistic product fidelity.
 
 ## Source integrity
 
@@ -249,11 +279,11 @@ attribution "Varve contributors".
 | Capability | Status | Evidence / next step |
 |---|---|---|
 | Mesh surfaces | reserved, rejected | `meshWarp` exists but has no topology validation, seam handling, or authoring UI. |
-| Cylindrical surfaces | reserved, rejected | Needs an explicit wrap model (extent, seam, curvature, crop) rendered through a real mapping; an ellipse clip is not a cylindrical projection. |
+| Cylindrical surfaces | implemented, bounded | `warpImageToCylinder` + schema 2 + inspector controls + save/reopen/export coverage implement a front-facing orthographic arc. No backside, camera, radius solve, lighting, or full 3D claim. |
 | Displacement maps | reserved, rejected | Needs map encoding, channel, neutral value, strength units, coordinate space, and edge behaviour defined end to end. Luminance/depth is not a calibrated displacement field. |
 | Luminance mask coverage | reserved, rejected | Only alpha coverage has a renderer path. |
-| Batch variants | in progress | Reuses `exportNodeAsRaster` over a variant plan; previews/UX under `Export` follow-up. |
+| Batch variants | implemented, bounded | `MockupVariantsPanel` reuses the existing raster export service with explicit source/template assignments, deterministic names, collision suffixes, progress, cancellation, and no temporary document nodes. Browser downloads remain the current destination path. |
 | PSD smart-object replacement | not supported | `@webtoon/psd` imports layers/masks/blend modes as pixels; it does not implement Photoshop's renderer. See `docs/architecture/import-system.md`. |
 | Multimodal surface proposals | deferred | Typed request contract ships (`mockup/multimodal.ts`); no model is required for manual workflows. |
 | Community template packs | deferred | Would reuse the icon-pack download/manifest precedent; no remote host is configured. |
-| Thumbnail decoration | follow-up | Home covers render through the engine thumbnail path, which does not yet decorate mockup frames. |
+| Thumbnail decoration | partial / follow-up | The selected document canvas and export paths compose mockups; Home thumbnail decoration still needs a dedicated capture contract and is not presented as verified parity. |

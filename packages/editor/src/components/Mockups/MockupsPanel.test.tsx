@@ -45,7 +45,11 @@ describe('MockupsPanel', () => {
     const templates = getBuiltinMockupTemplates();
     expect(screen.getByText(templates[0]!.name)).toBeTruthy();
     expect(screen.getByRole('searchbox')).toBeTruthy();
-    expect(screen.getByText('12 templates')).toBeTruthy();
+    expect(screen.getByText(`${templates.length} templates`)).toBeTruthy();
+    expect(screen.getByText('T-Shirt — Front')).toBeTruthy();
+    expect(screen.getByText('Billboard — Front')).toBeTruthy();
+    expect(screen.getByText('Product Label — Cylinder')).toBeTruthy();
+    expect(screen.getByText('Envelope — Front')).toBeTruthy();
   });
 
   it('filters by search query', () => {

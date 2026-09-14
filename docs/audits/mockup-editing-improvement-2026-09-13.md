@@ -1,7 +1,8 @@
 # Mockup Editing & Creation — Audit, Research, and Improvement Plan (2026-09-13)
 
-Status: active. Scope: improve the existing Level 1–2 mockup system in place
-(no new workspace, route, mode, or parallel document model).
+Status: completed for the supported scope (2026-09-13). Remaining limits are
+explicitly unsupported/deferred below. Scope: improve the existing mockup
+system in place (no new workspace, route, mode, or parallel document model).
 
 Canonical architecture: `docs/architecture/mockup-system.md`, ADR-0015.
 Prior audits: `docs/audits/mockup-capability-audit-2026-08-05.md`,
@@ -13,15 +14,30 @@ Primary sources consulted (accessed 2026-09-13):
 
 | Source | Version / status | Finding that shaped a decision |
 |---|---|---|
-| Adobe Illustrator — Create mockups for images | Live help page (403 on fetch; workflow documented from Figma/Photoshop references and the repo's own audit) | Replaceable-surface workflow: place art, transform once, replace content non-destructively. |
-| Adobe — Photoshop linked/embedded smart objects | Live help page | Replacement inherits the existing transform; transforms do not compound across replacements. |
-| OpenCV — Geometric Image Transformations | 4.13.0 docs, `warpPerspective`/`getPerspectiveTransform`/`remap` | Mapping is destination→source (inverse), so our per-pixel inverse homography is the correct family; border handling must be explicit (`BORDER_TRANSPARENT` = leave destination untouched). |
-| W3C Compositing and Blending Level 1 | CR Draft 2024-03-21 | Order is filter → clip/mask → blend/composite; masks/blending/filters create isolated groups; coverage is applied exactly once. Drives surface composition order. |
-| W3C Filter Effects Level 1 | Recommendation-track spec | Feather/blur are filters applied before compositing; bounded radii. |
-| W3C SVG 2 | Recommendation-track spec | `mix-blend-mode`/`isolation`/`<image>` semantics for SVG export honesty: a rasterized surface in SVG is a bitmap, not a live projective mapping. |
-| ag-psd (upstream repo + README) | master, read 2026-09-13 | Explicit limitations: no PSB, no 16-bit, no CMYK/Multichannel/Lab, limited pattern support, incomplete text, smart-filter coverage partial. Must not be presented as a Photoshop renderer. |
-| ONNX Runtime — execution providers / large models | Official docs | WASM fallback is the portable path; WebKitGTK lacks WebGL EP; native providers are separate. No new model is required for this task. |
+| [Adobe Illustrator — Create mockups for images](https://helpx.adobe.com/illustrator/desktop/manage-objects/traces-mockups-symbols/create-mockups-for-images.html) | Live official help, accessed 2026-09-13 (crawler access was inconsistent) | Replaceable-surface workflow: place art, transform once, replace content non-destructively. |
+| [Adobe — Edit mockups](https://helpx.adobe.com/illustrator/desktop/manage-objects/traces-mockups-symbols/edit-mockups.html) and [Photoshop linked smart objects](https://www.adobe.com/learn/photoshop/web/photoshop-linked-smart-objects) | Live official help, accessed 2026-09-13 | Replacement inherits the existing transform; transforms do not compound across replacements. |
+| [OpenCV — Geometric Image Transformations](https://docs.opencv.org/4.13.0/da/d54/group__imgproc__transform.html) | 4.13.0 docs, accessed 2026-09-13; `warpPerspective`/`getPerspectiveTransform`/`remap` | Mapping is destination→source (inverse), so our per-pixel inverse homography is the correct family; border handling must be explicit (`BORDER_TRANSPARENT` leaves destination untouched). |
+| [W3C Compositing and Blending Level 1](https://www.w3.org/TR/compositing-1/) | CR Draft 2024-03-21, accessed 2026-09-13 | Order is filter → clip/mask → blend/composite; masks/blending/filters create isolated groups; coverage is applied exactly once. Drives surface composition order. |
+| [W3C Filter Effects Level 1](https://www.w3.org/TR/filter-effects-1/) | Recommendation-track specification, accessed 2026-09-13 | Feather/blur are filters applied before compositing; radii must be bounded. |
+| [W3C SVG 2](https://www.w3.org/TR/SVG2/) | Recommendation-track specification, accessed 2026-09-13 | `mix-blend-mode`/`isolation`/`<image>` semantics support export honesty: a rasterized surface in SVG is a bitmap, not a live projective mapping. |
+| [ag-psd](https://github.com/Agamnentzar/ag-psd) upstream README | master, accessed 2026-09-13 | Explicit limitations: no PSB, no 16-bit, no CMYK/Multichannel/Lab, limited pattern support, incomplete text, smart-filter coverage partial. Must not be presented as a Photoshop renderer. |
+| [ONNX Runtime execution providers](https://onnxruntime.ai/docs/execution-providers/) and [web large models](https://onnxruntime.ai/docs/tutorials/web/large-models.html) | Official docs, accessed 2026-09-13 | WASM fallback is the portable path; provider availability is runtime-specific. No new model is required for deterministic mockup placement. |
 | Installed repo dependencies | `packages/import` uses `@webtoon/psd`; `packages/import`/`editor` use `fflate`; inference uses `onnxruntime-web`/native | Verified before deciding; no new dependency added. |
+
+The following community reports were used as anecdotal failure-mode evidence,
+not as specifications or prevalence measurements: [Photoshop smart-object
+replacement/warp](https://www.reddit.com/r/PhotoshopRequest/comments/1ett2h1),
+[confusing smart-object setup](https://www.reddit.com/r/graphic_design/comments/1igg1yz),
+[multi-face source tradeoffs](https://www.reddit.com/r/photoshop/comments/140xr35),
+[perspective-warp crashes](https://community.adobe.com/questions-712/perspective-warp-and-smart-objects-in-photoshop-cc-1149554),
+[cylinder-wrap mismatch](https://www.reddit.com/r/graphic_design/comments/1mx9bd2),
+[Canva warp accuracy concerns](https://www.reddit.com/r/canva/comments/1jzc95),
+[blurry product output](https://www.reddit.com/r/printful/comments/lrhpe7), and
+[flattened Placeit downloads](https://help.placeit.net/hc/en-us/articles/37882558377369-Am-I-going-to-be-able-to-edit-my-mockup-after-I-complete-the-download).
+They shaped bounded fit policies, explicit source modes, stable slot identity,
+honest flattening, output-scale capture, and a deliberately limited cylinder
+slice. Reddit/community observations can be deleted, edited, or biased; exact
+URLs and access date are retained so this uncertainty is visible.
 
 Community failure modes (what users complain about in existing tools) and
 how this work responds:
@@ -46,24 +62,24 @@ tests. Capability classifications:
 |---|---|---|---|---|---|
 | 1 | Apply a mockup and see it on canvas | `tests/e2e/canvas/mockups.spec.ts` passes; flat surfaces bake through `decorateMockupIr` | — | editor `render/mockup/mockupIr.ts` | Verified |
 | 2 | Edit the linked source and see the mockup update | digest-keyed cache; E2E nudge step | — | scene `computeMockupSourceDigest` | Verified |
-| 3 | Export the mockup as PNG/JPG/WebP | `exportNodeAsRaster` (`components/SpecPanel/export.ts:173`) never calls `decorateMockupIr` | Export path bypasses decoration; only the flatten-boundary route decorates | editor export | **Incorrect** (exports frame gray rect) |
-| 4 | Export to PDF | browser/native paths rasterize via `exportNodeAsRaster` | same as #3 | editor export | **Incorrect** |
-| 5 | Quad (perspective) mockup on a worker-eligible document | `paintWarpedImage` calls `document.createElement` (`mockup/warpReplay.ts:254,274`); `sceneNeedsStructuralCompositing` has no mockup branch (`render/sceneCompositing.ts:18-59`) | Worker replays quad warp, throws, permanently disables worker | editor render | **Incorrect** (hard crash path) |
-| 6 | Cache correctness after moving/resizing a mockup or a surface override | cache key omits frame `w/h` and override geometry (`mockupIr.ts:632`) | stale surface rasters drawn at new geometry | editor render | **Incorrect** |
-| 7 | Rotation/flip overrides | validated (`scene/mockup/validate.ts:458`), ignored by `effectiveSurface` | no renderer support | editor render | **Unreachable** |
-| 8 | `backgroundColor`, overlay `blendMode`, `dark` | declared in schema, never read by renderer | no renderer support | editor render | **Unreachable** |
-| 9 | Snapshot capture (embedded snapshot binding) | `bindingForSource` can create snapshots, no capture action | UI missing | editor mockup | **Unreachable** |
-| 10 | Detach / flatten | `markMockupDetached` exists; no caller | UI + flatten op missing | editor mockup | **Unreachable** |
-| 11 | Replace/swap source for any surface | inspector replaces the first surface only; `replaceSource` uses selection excluding frame | per-surface targeting missing | editor inspector | **Partially integrated** |
-| 12 | Delete a bound source | `removeNode` does not clear live bindings; `isAssetReferenced` ignores snapshot bindings | dangling live binding + snapshot asset pruned on load | scene assets/document-nodes | **Incorrect** (data loss) |
-| 13 | Author a template from a photo (base plate, clip, occluder) | reserved `clipMaskAssetId`/`occlusionMaskAssetId` rejected; no plate image, no authoring UI | never implemented | scene + editor | **Unsupported** (reserved) |
-| 14 | Save/reuse a user template | template JSON helper exists (`buildTemplateFromJson`), no import/export UI or storage | wiring missing | editor mockup | **Unreachable** |
-| 15 | Multi-surface linked/independent duplication, template replace with slot remap | `setMockupTemplate` exists (clears overrides, no slot mapping); no duplicate UI | ops + UI missing | scene + editor | **Partially integrated** |
-| 16 | Batch variants export | documented deferred (`mockup-system.md:199`); no runner | not implemented | editor export | **Unsupported** |
-| 17 | Curved (cylindrical) surface | `'cylindrical'` reserved and rejected by validator | not implemented | engine + scene | **Unsupported** (reserved) |
-| 18 | Background/photographic plate render | no raster plate field | not implemented | scene + editor | **Unsupported** |
-| 19 | Thumbnails / Home covers for mockup frames | thumbnail pipeline has no mockup decoration | same class as #3 | editor thumbnails | **Incorrect** |
-| 20 | Worker/partial-redraw with mockup live sources offscreen | no mockup-aware dirty/culling | source IR absent on partial frames | editor render | **Incorrect** (mitigated by #5 fix) |
+| 3 | Export the mockup as PNG/JPG/WebP | Existing export E2E decodes plate/background pixels; `mockupExport.ts` is called by raster export | Previously the export route bypassed decoration | editor export | **Verified** |
+| 4 | Export to PDF | PDF rasterization shares the export decoration boundary; unit coverage checks missing-source/export policy | Previously shared the same bypass as #3 | editor export | **Verified for rasterized PDF boundary** |
+| 5 | Quad (perspective) mockup on a worker-eligible document | structural-routing branch is covered; quad renderer uses DOM canvas APIs and focused warp tests pass | Worker replay was an invalid host for DOM-dependent baking | editor render | **Verified; structural path** |
+| 6 | Cache correctness after moving/resizing a mockup or a surface override | geometry key includes frame size, quad/rect, fit/alignment, masks, cylinder, and placement | Previous key omitted frame/override geometry | editor render | **Verified** |
+| 7 | Rotation/flip overrides | `effectiveSurface`/placement path and inspector controls are rendered in focused IR tests | Validated fields were previously ignored | editor render | **Verified** |
+| 8 | `backgroundColor`, overlay `blendMode`, `dark` | background and overlay items are emitted; dark remains a template decoration flag | Declared fields previously had no renderer consumer | editor render | **Verified for background/overlay; dark is descriptive** |
+| 9 | Snapshot capture (embedded snapshot binding) | Inspector Snapshot action and capture tests; assets remain embedded | UI/action path was missing | editor mockup | **Verified** |
+| 10 | Detach / flatten | Inspector Flatten to image action uses canonical export decoration and one transaction | UI + flatten op were missing | editor mockup | **Verified** |
+| 11 | Replace/swap source for any surface | Selected surface inspector + canvas chip targets a stable surface id; replacement preserves overrides | Previous action always targeted the first surface | editor inspector | **Verified** |
+| 12 | Delete a bound source | source binding is retained, inspector says Missing source, canvas may show labelled last-good preview, export uses a placeholder/warning | Previous cleanup pruned or hid required references | scene assets/document-nodes | **Verified recovery semantics** |
+| 13 | Author a template from a photo (base plate, clip, occluder) | Create from selection, mask-from-selection, embedded plate/mask assets, and authoring E2E | Reserved fields had no complete path | scene + editor | **Verified for alpha masks** |
+| 14 | Save/reuse a user template | document-embedded library templates plus bounded `.varve-mockup.json` import/export | JSON helper was previously unreachable | editor mockup | **Verified** |
+| 15 | Multi-surface linked/independent duplication, template replace with slot remap | business-card E2E, linked/independent actions, stable source-slot remap tests | Ops/UI were incomplete | scene + editor | **Verified** |
+| 16 | Batch variants export | `MockupVariantsPanel` uses existing raster export service with bounded sequential jobs, deterministic names, collision suffixes, progress/cancel | No runner existed | editor export | **Verified in unit/export path; browser destination is download** |
+| 17 | Curved (cylindrical) surface | schema 2, `warpImageToCylinder`, inspector controls, renderer/export tests, production E2E | No bounded mapping existed | engine + scene + editor | **Verified bounded front-facing arc** |
+| 18 | Background/photographic plate render | plate image is an embedded asset drawn beneath surfaces; authoring uses untouched source | No raster plate field/path existed | scene + editor | **Verified** |
+| 19 | Thumbnails / Home covers for mockup frames | canvas and export are decorated; Home thumbnail parity remains untested | Thumbnail pipeline has no dedicated mockup decoration contract | editor thumbnails | **Deferred / not claimed** |
+| 20 | Worker/partial-redraw with mockup live sources offscreen | mockup documents force structural compositing; focused E2E exercises live updates | Source capture cannot safely be absent from a worker frame | editor render | **Verified structural fallback; oracle still required for future reuse changes** |
 
 Documentation discrepancies found and corrected by this work:
 
@@ -155,9 +171,12 @@ Landed in the surface-editing slice:
   with bounded import validation; library templates retained across reloads;
   instance edits auto-scope to a private template copy.
 
-Still deferred with explicit rejection: mesh surfaces, cylindrical surfaces,
-displacement maps, luminance mask coverage, PSD smart-object replacement, and
-model-assisted surface proposals.
+Implemented for this session: the 16-template subject catalog, bounded
+front-facing cylindrical surfaces, production subject filters, output-footprint
+source capture, and narrow-inspector cylinder control reflow. Still deferred
+with explicit rejection: mesh surfaces, calibrated displacement maps,
+luminance mask coverage, PSD smart-object replacement, model-assisted surface
+proposals, and Home-thumbnail mockup decoration.
 
 ## 6. Validation log (2026-09-13)
 
@@ -169,6 +188,7 @@ model-assisted surface proposals.
 | Template bundles | `packages/editor/src/mockup/mockupTemplatePackage.test.ts` | 4/4 pass |
 | Inspector RTL | `packages/editor/src/components/Inspector/sections/MockupsSection.test.tsx` | 4/4 pass |
 | Panel RTL | `packages/editor/src/components/Mockups/MockupsPanel.test.tsx` | 6/6 pass |
+| Focused mockup regression set | scene, engine, editor, package, panel, inspector, and action tests | 9 files / 83 tests pass |
 | E2E typecheck | `pnpm typecheck:e2e` | pass |
 | Format/lint | `pnpm biome check` on all touched files | pass |
 | Docs audit | `pnpm audit:docs` | clean (784 docs) |
@@ -177,6 +197,8 @@ model-assisted surface proposals.
 | Scene typecheck | `pnpm exec tsc -p packages/scene/tsconfig.json --noEmit` | only a pre-existing unrelated test error |
 | Editor typecheck | `pnpm exec tsc -p packages/editor/tsconfig.json --noEmit` | 23 errors, all in unrelated in-flight files; zero in mockup/touched files |
 | Browser E2E | `tests/e2e/canvas/mockups.spec.ts` on a production build (`vite build` + `vite preview`, port 1453) | 6/6 pass in 1.4 min: full workflow (apply/link/update/save-reopen/export/replace/remove/undo-redo), multi-surface business card, export composition (decoded PNG contains 162 283 template-background px and 22 949 phone-plate px across 85 quantized colours), overlay drag + one-step undo (x 300 → 364 → 300), missing-source reporting after deleting the bound source, template authoring from selection. Zero console/page errors. Artifacts: `reports/mockup-review/` (`export-phone-mockup.png` inspected: bezel, screen with fitted source, shadow, template background). |
+| Production subject/cylinder E2E | `VARVE_E2E_PORT=1487 VARVE_E2E_WORKERS=1 pnpm exec playwright test tests/e2e/canvas/mockup-production-workflows.spec.ts --project=chromium --workers=1 --reporter=line` | pass in 2.9 min: editable text source, Apparel/Signage/Stationery/Packaging filters, cylinder axis/arc/crop controls, real PNG download. Artifact files were written to `reports/mockup-review-2026-09-13/` and inspected. |
+| Production subject/cylinder E2E rerun after source-capture/UI hardening | `VARVE_E2E_PORT=1488 VARVE_E2E_WORKERS=1 pnpm exec playwright test tests/e2e/canvas/mockup-production-workflows.spec.ts --project=chromium --workers=1 --reporter=line` | blocked before app startup by unrelated in-flight `ColorizeSection.tsx` parse failure and `groupEffectStages.ts` export mismatch; no mockup assertion ran. |
 
 Observed unrelated defect (handoff, not introduced here): a real
 right-click on the canvas currently targets the tool-hint overlay
@@ -191,4 +213,3 @@ was not restructured. Changes are (a) a per-document boolean scan in
 `sceneNeedsStructuralCompositing` (memoized by document reference), (b) a
 document-id guard in the mockup decoration block, and (c) export-only
 decoration. No per-node-per-frame dispatch changed.
-

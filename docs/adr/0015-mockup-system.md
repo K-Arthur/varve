@@ -1,6 +1,7 @@
 # ADR-0015: Non-Destructive Mockup System
 
-- **Status:** Accepted — Level 1 + Level 2 implemented (2026-08-05)
+- **Status:** Accepted — Level 1 + Level 2, photographic templates, and a
+  bounded cylindrical slice implemented (2026-09-13)
 - Date: 2026-08-05
 - Deciders: Architecture (repository-first audit of 2026-08-05)
 
@@ -104,18 +105,20 @@ the surface rasterization:
   `packages/scene/src/mockup/`), so source edits invalidate only affected
   surfaces. Cache eviction is LRU with a byte budget.
 
-### 5. Scope: Level 1 (flat) + Level 2 (perspective) now; 3-5 later
+### 5. Scope: Level 1 (flat) + Level 2 (perspective) + bounded cylinder
 
 - Level 1 flat mockups: affine placement (contain/cover/stretch/native +
   alignment), masks via the frame system.
 - Level 2 perspective: four-corner quad placement through the homography;
   quad handles on canvas + numeric controls; invalid geometry rejected or
   clearly reported.
-- Level 3 mesh/cylindrical: schema reserves `'mesh'`/`'cylindrical'` surface
-  kinds; `warpMesh` is the intended seam. Deferred (see
-  docs/architecture/mockup-system.md).
-- Level 4 photographic templates (raster plates, occluders, displacement):
-  schema reserves the fields; validation exists; deferred.
+- Level 3 mesh: schema reserves `'mesh'`; `warpMesh` remains a future seam.
+  Cylindrical surfaces have a bounded front-facing orthographic remap with
+  explicit axis, visible arc, seam, and crop controls. This is raster mapping,
+  not a 3D renderer, and does not infer a backside, camera, radius, or light.
+- Level 4 photographic templates (raster plates and alpha clip/occlusion
+  masks) are implemented through document assets and the authoring UI.
+  Calibrated displacement maps and luminance mask coverage remain rejected.
 - Level 5 multimodal detection: `MockupRequest` types + schema validation
   ship now; the detection/segmentation pipeline is documented and deferred.
 
@@ -144,8 +147,11 @@ workspace/panel plumbing.
 ## Consequences
 
 - Documents gain a `mockupTemplates` table and frames may carry `mockup`
-  payloads. Version bumps 2.14 → 2.15 with a normalization migration.
-- Replay gains one additive primitive case; benchmarked before merge.
+  payloads. Mockup template schema 2 adds cylindrical geometry, mask
+  placement/options, and private instance template ownership; older template
+  schema 1 records migrate with deterministic defaults and rehashed content.
+- Replay gains one additive primitive case; cylindrical content is baked to an
+  ordinary image fill and does not add a 3D or second rendering system.
 - Mockup frames force the structural (main-thread) render path when present
   (worker renderer is disabled), because surface rasterization is
   main-thread. Browsing mockup templates never touches the canvas.

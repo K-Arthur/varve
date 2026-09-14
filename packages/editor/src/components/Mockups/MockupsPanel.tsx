@@ -38,6 +38,8 @@ const CATEGORIES: Array<{ id: MockupCategory | 'all'; label: string }> = [
   { id: 'print', label: 'Print' },
   { id: 'stationery', label: 'Stationery' },
   { id: 'packaging', label: 'Packaging' },
+  { id: 'apparel', label: 'Apparel' },
+  { id: 'signage', label: 'Signage' },
   { id: 'social-marketing', label: 'Social & Marketing' },
   { id: 'logo', label: 'Logo' },
 ];

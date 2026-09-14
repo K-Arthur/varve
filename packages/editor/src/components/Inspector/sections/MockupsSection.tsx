@@ -14,6 +14,7 @@
  */
 
 import {
+  canBindMockupSource,
   clearMockup,
   clearMockupBinding,
   type Document,
@@ -32,12 +33,16 @@ import { Button } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import {
+  addTemplateSurfaceFromSelection,
   applyMockupTemplateToInstance,
   assignSurfaceMaskFromSelection,
   clearSurfaceMask,
+  duplicateTemplateSurface,
   moveTemplateSurface,
   removeTemplateSurface,
   renameTemplateSurface,
+  resetSurfaceMaskOptions,
+  setSurfaceMaskOptions,
   templatesForDocument,
 } from '../../../mockup/mockupActions';
 import {
@@ -47,6 +52,7 @@ import {
   snapshotMockupSurface,
 } from '../../../mockup/mockupCapture';
 import {
+  clearMockupSurfaceSelection,
   selectMockupSurface,
   subscribeMockupSurfaceSelection,
 } from '../../../mockup/mockupSurfaceSelection';
@@ -104,14 +110,22 @@ export function MockupsSection({ node }: { node: FrameNode }): React.ReactElemen
     setStatus(null);
     if (selectedSurfaceId === surfaceId) {
       setSelectedSurfaceId(null);
+      clearMockupSurfaceSelection();
       return;
     }
     setSelectedSurfaceId(surfaceId);
+    selectMockupSurface({ frameId: node.id, surfaceId });
   };
 
   const replaceSource = (surfaceId: string): void => {
     const sourceId = editor.state.selection.find((id) => id !== node.id);
     if (!sourceId) return;
+    if (!canBindMockupSource(doc, node.id, sourceId).ok) {
+      setStatus(
+        'That source cannot be linked here (a mockup cannot contain itself or an ancestor).',
+      );
+      return;
+    }
     editor.beginTransaction();
     try {
       editor.updateDoc((current) =>
@@ -197,6 +211,26 @@ export function MockupsSection({ node }: { node: FrameNode }): React.ReactElemen
         </div>
       )}
 
+      {template && (
+        <div className="mockups-section__actions mockups-section__actions--authoring">
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busy !== null || !editor.state.selection.some((id) => id !== node.id)}
+            onClick={() => {
+              if (!addTemplateSurfaceFromSelection(editor, node.id)) {
+                setStatus(
+                  'Select a separate frame, group, image, or vector node to add as a surface.',
+                );
+              }
+            }}
+            title="Adds a new flat surface from the selected node and links that node as its artwork"
+          >
+            Add surface from selection
+          </Button>
+        </div>
+      )}
+
       {pickerOpen && (
         <TemplatePicker
           doc={doc}
@@ -211,13 +245,17 @@ export function MockupsSection({ node }: { node: FrameNode }): React.ReactElemen
         {surfaceEntries.map((surface) => {
           const binding = mockup.surfaceBindings[surface.id];
           const isMissing =
-            !binding || (binding.mode === 'live' && !!binding.nodeId && !doc.nodes[binding.nodeId]);
+            !binding ||
+            (binding.mode === 'live' && !!binding.nodeId && !doc.nodes[binding.nodeId]) ||
+            (binding.mode === 'snapshot' && !!binding.assetId && !doc.assets?.[binding.assetId]);
           const isSelected = surface.id === selectedSurfaceId;
           const sourceName =
             binding?.mode === 'live' && binding.nodeId
               ? (doc.nodes[binding.nodeId]?.name ?? 'Missing source')
               : binding?.mode === 'snapshot'
-                ? 'Embedded snapshot'
+                ? isMissing
+                  ? 'Missing snapshot'
+                  : 'Embedded snapshot'
                 : 'No source';
           return (
             <li
@@ -252,6 +290,7 @@ export function MockupsSection({ node }: { node: FrameNode }): React.ReactElemen
                     runBusy('snapshot', () => snapshotMockupSurface(editor, node.id, surface.id))
                   }
                   onReconnect={() => reconnectMockupSurface(editor, node.id, surface.id)}
+                  onDuplicate={() => duplicateTemplateSurface(editor, node.id, surface.id)}
                   onSelectSurface={() =>
                     selectMockupSurface({ frameId: node.id, surfaceId: surface.id })
                   }
@@ -343,6 +382,7 @@ interface SurfaceEditorProps {
   onEditSource: () => void;
   onSnapshot: () => void;
   onReconnect: () => boolean;
+  onDuplicate: () => boolean;
   onSelectSurface: () => void;
   onStatus: (message: string | null) => void;
 }
@@ -359,6 +399,7 @@ function SurfaceEditor({
   onEditSource,
   onSnapshot,
   onReconnect,
+  onDuplicate,
   onSelectSurface,
   onStatus,
 }: SurfaceEditorProps): React.ReactElement {
@@ -369,6 +410,7 @@ function SurfaceEditor({
   const override = mockup.overrides?.[surface.id];
   const fit = override?.fit ?? surface.fit;
   const alignment = override?.alignment ?? surface.alignment;
+  const cylindrical = override?.cylindrical ?? surface.cylindrical;
   const rotation = override?.rotation ?? 0;
   const flipH = override?.flipH ?? false;
   const flipV = override?.flipV ?? false;
@@ -378,7 +420,9 @@ function SurfaceEditor({
   const binding = mockup.surfaceBindings[surface.id];
   const isSnapshot = binding?.mode === 'snapshot';
   const isMissing =
-    !binding || (binding?.mode === 'live' && !!binding.nodeId && !doc.nodes[binding.nodeId]);
+    !binding ||
+    (binding?.mode === 'live' && !!binding.nodeId && !doc.nodes[binding.nodeId]) ||
+    (binding?.mode === 'snapshot' && !!binding.assetId && !doc.assets?.[binding.assetId]);
 
   const patch = useCallback(
     (overridePatch: Parameters<typeof setMockupSurfaceOverride>[3]) => {
@@ -409,6 +453,19 @@ function SurfaceEditor({
       editor.commitTransaction();
     }
   }, [editor, frameId, surface.id]);
+
+  const assignMask = useCallback(
+    (kind: 'clip' | 'occlusion') => {
+      setMaskBusy(true);
+      void assignSurfaceMaskFromSelection(editor, frameId, surface.id, kind)
+        .then((ok) => {
+          if (!ok)
+            onStatus('Mask capture could not complete; check the selected source and geometry.');
+        })
+        .finally(() => setMaskBusy(false));
+    },
+    [editor, frameId, onStatus, surface.id],
+  );
 
   return (
     <div className="mockups-section__editor">
@@ -496,6 +553,14 @@ function SurfaceEditor({
           >
             Remove
           </button>
+          <button
+            type="button"
+            className="mockups-section__fit"
+            aria-label={`Duplicate surface ${surface.name}`}
+            onClick={() => onDuplicate()}
+          >
+            Duplicate
+          </button>
         </div>
       </div>
 
@@ -507,46 +572,108 @@ function SurfaceEditor({
             className={`mockups-section__fit ${surface.clipMaskAssetId ? 'mockups-section__fit--active' : ''}`}
             disabled={!canReplace || busy !== null || maskBusy}
             title="Clip artwork to the selected node's alpha coverage"
-            onClick={() => {
-              setMaskBusy(true);
-              void assignSurfaceMaskFromSelection(editor, frameId, surface.id, 'clip').finally(() =>
-                setMaskBusy(false),
-              );
-            }}
+            onClick={() => assignMask('clip')}
           >
             Clip from selection
           </button>
           {surface.clipMaskAssetId && (
-            <button
-              type="button"
-              className="mockups-section__fit"
-              onClick={() => clearSurfaceMask(editor, frameId, surface.id, 'clip')}
-            >
-              Clear clip
-            </button>
+            <>
+              <button
+                type="button"
+                className="mockups-section__fit"
+                onClick={() => clearSurfaceMask(editor, frameId, surface.id, 'clip')}
+              >
+                Clear clip
+              </button>
+              <button
+                type="button"
+                className={`mockups-section__fit ${
+                  (surface.clipMaskOptions ?? surface.maskOptions)?.invert
+                    ? 'mockups-section__fit--active'
+                    : ''
+                }`}
+                aria-pressed={(surface.clipMaskOptions ?? surface.maskOptions)?.invert === true}
+                onClick={() =>
+                  setSurfaceMaskOptions(editor, frameId, surface.id, 'clip', {
+                    invert: !((surface.clipMaskOptions ?? surface.maskOptions)?.invert === true),
+                  })
+                }
+              >
+                Invert clip
+              </button>
+              <NumberField
+                label="Clip feather"
+                value={(surface.clipMaskOptions ?? surface.maskOptions)?.feather ?? 0}
+                unit="px"
+                onCommit={(value) =>
+                  setSurfaceMaskOptions(editor, frameId, surface.id, 'clip', { feather: value })
+                }
+              />
+              <button
+                type="button"
+                className="mockups-section__fit"
+                onClick={() => resetSurfaceMaskOptions(editor, frameId, surface.id, 'clip')}
+              >
+                Reset clip
+              </button>
+            </>
           )}
           <button
             type="button"
             className={`mockups-section__fit ${surface.occlusionMaskAssetId ? 'mockups-section__fit--active' : ''}`}
             disabled={!canReplace || busy !== null || maskBusy}
             title="Reveal the base plate over artwork where the selected node covers it"
-            onClick={() => {
-              setMaskBusy(true);
-              void assignSurfaceMaskFromSelection(editor, frameId, surface.id, 'occlusion').finally(
-                () => setMaskBusy(false),
-              );
-            }}
+            onClick={() => assignMask('occlusion')}
           >
             Occluder from selection
           </button>
           {surface.occlusionMaskAssetId && (
-            <button
-              type="button"
-              className="mockups-section__fit"
-              onClick={() => clearSurfaceMask(editor, frameId, surface.id, 'occlusion')}
-            >
-              Clear occluder
-            </button>
+            <>
+              <button
+                type="button"
+                className="mockups-section__fit"
+                onClick={() => clearSurfaceMask(editor, frameId, surface.id, 'occlusion')}
+              >
+                Clear occluder
+              </button>
+              <button
+                type="button"
+                className={`mockups-section__fit ${
+                  (surface.occlusionMaskOptions ?? surface.maskOptions)?.invert
+                    ? 'mockups-section__fit--active'
+                    : ''
+                }`}
+                aria-pressed={
+                  (surface.occlusionMaskOptions ?? surface.maskOptions)?.invert === true
+                }
+                onClick={() =>
+                  setSurfaceMaskOptions(editor, frameId, surface.id, 'occlusion', {
+                    invert: !(
+                      (surface.occlusionMaskOptions ?? surface.maskOptions)?.invert === true
+                    ),
+                  })
+                }
+              >
+                Invert occluder
+              </button>
+              <NumberField
+                label="Occluder feather"
+                value={(surface.occlusionMaskOptions ?? surface.maskOptions)?.feather ?? 0}
+                unit="px"
+                onCommit={(value) =>
+                  setSurfaceMaskOptions(editor, frameId, surface.id, 'occlusion', {
+                    feather: value,
+                  })
+                }
+              />
+              <button
+                type="button"
+                className="mockups-section__fit"
+                onClick={() => resetSurfaceMaskOptions(editor, frameId, surface.id, 'occlusion')}
+              >
+                Reset occluder
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -643,11 +770,79 @@ function SurfaceEditor({
         </div>
       </div>
 
+      {surface.kind === 'cylindrical' && cylindrical && (
+        <fieldset className="mockups-section__geometry mockups-section__cylinder">
+          <legend className="mockups-section__legend">Cylinder mapping</legend>
+          <div className="mockups-section__row">
+            <span className="mockups-section__label">Axis</span>
+            <div className="mockups-section__inline">
+              {(['vertical', 'horizontal'] as const).map((axis) => (
+                <button
+                  type="button"
+                  key={axis}
+                  className={`mockups-section__fit ${cylindrical.axis === axis ? 'mockups-section__fit--active' : ''}`}
+                  aria-pressed={cylindrical.axis === axis}
+                  onClick={() => patch({ cylindrical: { ...cylindrical, axis } })}
+                >
+                  {axis === 'vertical' ? 'Vertical axis' : 'Horizontal axis'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mockups-section__row">
+            <span className="mockups-section__label">Arc</span>
+            <NumberField
+              label="Cylinder wrap degrees"
+              value={cylindrical.wrapDegrees}
+              unit="°"
+              onCommit={(value) =>
+                patch({
+                  cylindrical: {
+                    ...cylindrical,
+                    wrapDegrees: Math.max(5, Math.min(180, value)),
+                  },
+                })
+              }
+            />
+            <NumberField
+              label="Cylinder seam"
+              value={cylindrical.seam}
+              onCommit={(value) =>
+                patch({ cylindrical: { ...cylindrical, seam: Math.max(0, Math.min(1, value)) } })
+              }
+            />
+          </div>
+          <div className="mockups-section__row">
+            <span className="mockups-section__label">Crop</span>
+            <div className="mockups-section__inline">
+              {(['slot', 'visible'] as const).map((crop) => (
+                <button
+                  type="button"
+                  key={crop}
+                  className={`mockups-section__fit ${cylindrical.crop === crop ? 'mockups-section__fit--active' : ''}`}
+                  aria-pressed={cylindrical.crop === crop}
+                  onClick={() => patch({ cylindrical: { ...cylindrical, crop } })}
+                >
+                  {crop === 'slot' ? 'Fit arc to slot' : 'Natural arc bounds'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="mockups-section__note">
+            Front-facing orthographic arc only; no inferred backside, camera perspective, or 3D
+            lighting.
+          </p>
+        </fieldset>
+      )}
+
       {surface.kind === 'quad' && (override?.quad ?? surface.quad) ? (
         <fieldset className="mockups-section__geometry">
           <legend className="mockups-section__legend">Surface corners (template px)</legend>
           {(override?.quad ?? surface.quad)!.map((point, index) => (
-            <div className="mockups-section__corner" key={`corner-${index}`}>
+            <div
+              className="mockups-section__corner"
+              key={['top-left', 'top-right', 'bottom-right', 'bottom-left'][index]}
+            >
               <span className="mockups-section__corner-label">
                 {['TL', 'TR', 'BR', 'BL'][index]}
               </span>
@@ -787,6 +982,11 @@ function TemplatePicker({
             ? ` Unbound: ${plan.unboundSurfaceIds
                 .map((id) => plan.assignments.find((a) => a.surfaceId === id)?.surfaceName ?? id)
                 .join(', ')}.`
+            : ''}
+          {plan.ambiguousSurfaceIds.length > 0
+            ? ` Ambiguous: ${plan.ambiguousSurfaceIds
+                .map((id) => plan.assignments.find((a) => a.surfaceId === id)?.surfaceName ?? id)
+                .join(', ')}; review after applying.`
             : ''}
         </p>
       )}

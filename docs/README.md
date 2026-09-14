@@ -59,7 +59,7 @@ The current automated and manual accessibility evidence matrix is in
 | `adr/0012-runtime-capability-abstraction.md` | Runtime capability abstraction |
 | `adr/0013-canonical-audit-finding-contract.md` | Canonical audit finding contract |
 | `adr/0014-font-detection-architecture.md` | Font detection architecture |
-| `adr/0015-mockup-system.md` | Non-destructive mockup system (Level 1+2 implemented) |
+| `adr/0015-mockup-system.md` | Non-destructive mockup system (Level 1+2, photo templates, bounded cylinder) |
 | `adr/0016-tables-and-color-modifiers.md` | Tables and colour modifiers |
 | `adr/0122-canonical-editor-session-ownership.md` | One canonical editing session per application session |
 | `adr/0123-state-partitioning-across-windows.md` | State scope taxonomy for multi-window sync |
@@ -277,7 +277,7 @@ The current automated and manual accessibility evidence matrix is in
 | `architecture/blend-evaluation-policy.md` | Blend evaluation policy and compositing operations |
 | `architecture/visual-awareness-system.md` | Demand-driven face, hand, pose, object, and segmentation capability boundary |
 | `architecture/masking-system.md` | Clipping/alpha/luminance mask model and compositing contract |
-| `architecture/mockup-system.md` | Non-destructive mockup system (Level 1+2) |
+| `architecture/mockup-system.md` | Non-destructive mockup system (Level 1+2, photo templates, bounded cylinder) |
 | `architecture/alpha-aware-shadows.md` | Alpha-aware shadow rendering |
 | `architecture/analytics.md` | Privacy-first analytics architecture |
 | `architecture/auto-layout-system.md` | Auto-layout (flex/grid) engine — canonical doc |

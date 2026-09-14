@@ -3,6 +3,14 @@
 Status: deferred. The typed request contract shipped (Stage A/B); the
 model-backed stages below are designed but not implemented.
 
+Scope note (2026-09-13): this plan is specifically for image analysis and
+assisted proposals. The manual mockup system now also supports photographic
+plates, alpha clip/occlusion masks, multi-surface reuse, explicit batch
+variant export, and a bounded front-facing cylindrical remap. Those features
+do not make model-backed plane, curvature, depth, matting, or lighting
+inference available; an assistant must continue to produce inspectable
+candidates and defer to manual refinement.
+
 ## Why deferred
 
 - The deterministic Level 1-2 workflow (templates, manual placement, linked
@@ -27,8 +35,10 @@ model-backed stages below are designed but not implemented.
 - `classifyMockupIntent` maps intent to template categories and a
   deterministic placement mode for 'auto' (flat for phones/tablets/browser/
   desktop; quad for laptop/poster/packaging/signage/print/stationery).
-- Reserved modes ('mesh', 'cylindrical') and batch variants produce explicit
-  warnings, never silent degradation.
+- Assisted modes ('mesh', 'cylindrical') and automatic variant generation
+  produce explicit warnings, never silent degradation. Manual cylindrical
+  editing and the Mockup Variants panel are available through the ordinary
+  editor surfaces.
 
 ## Pipeline stages (designed)
 
