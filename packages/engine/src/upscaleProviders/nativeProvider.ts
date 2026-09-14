@@ -108,6 +108,10 @@ async function upscaleWithNativeMetadata(
   let unlisten: (() => void) | undefined;
   let unlistenDone: (() => void) | undefined;
   let executionProvider: string | undefined;
+  let resolveDone: ((provider: string | undefined) => void) | undefined;
+  const doneEvent = new Promise<string | undefined>((resolve) => {
+    resolveDone = resolve;
+  });
   try {
     unlisten = await listen<{ jobId?: number; done?: number; total?: number }>(
       'upscale:progress',
@@ -126,6 +130,7 @@ async function upscaleWithNativeMetadata(
       if (typeof event.payload.executionProvider === 'string') {
         executionProvider = event.payload.executionProvider;
       }
+      resolveDone?.(executionProvider);
     });
   } catch {
     // Event API unavailable — inference still works, just without progress.
@@ -153,6 +158,16 @@ async function upscaleWithNativeMetadata(
       { headers: { 'x-varve-upscale-options': JSON.stringify(wireOptions) } },
     );
     if (signal?.aborted) throw new Error('cancelled');
+    // Tauri resolves the raw response independently from the event transport.
+    // Give the matching completion event one turn to arrive so diagnostics
+    // report the executor for this job instead of the route name. The short
+    // bound avoids turning a missing event API into a visible resize delay.
+    if (unlistenDone && executionProvider === undefined) {
+      const timeout = new Promise<undefined>((resolve) => {
+        setTimeout(resolve, 100);
+      });
+      executionProvider = await Promise.race([doneEvent, timeout]);
+    }
     // Current Tauri returns ArrayBuffer for the raw Rust `Response`. Keep
     // number[] support as a compatibility adapter for older desktop builds.
     return {
