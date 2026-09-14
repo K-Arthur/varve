@@ -32,7 +32,10 @@ export async function decodeMaskBytes(
   bytes: Uint8Array,
 ): Promise<{ mask: Uint8Array; width: number; height: number }> {
   if (bytes.byteLength === 0) throw new Error('Native mask response is empty');
-  const url = URL.createObjectURL(new Blob([bytes], { type: 'image/png' }));
+  // Copy into an ArrayBuffer-backed view: the incoming view may reference a
+  // SharedArrayBuffer (or a larger buffer with an offset), neither of which is
+  // a valid BlobPart.
+  const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: 'image/png' }));
   try {
     return await decodeMaskDataUrl(url);
   } finally {
