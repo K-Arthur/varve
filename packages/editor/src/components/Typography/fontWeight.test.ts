@@ -4,6 +4,7 @@ import type { TextNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   fontFamilyChanges,
+  fontStyleAvailable,
   fontStyleChanges,
   fontWeightChanges,
   fontWeightOptions,
@@ -11,7 +12,7 @@ import {
 
 function node(
   overrides: Partial<
-    Pick<TextNode, 'fontFamily' | 'fontWeight' | 'fontStyle' | 'fontReference'>
+    Pick<TextNode, 'fontFamily' | 'fontWeight' | 'fontStyle' | 'fontReference' | 'variableAxes'>
   > = {},
 ) {
   return {
@@ -273,6 +274,73 @@ describe('fontWeightChanges', () => {
 });
 
 describe('fontStyleChanges', () => {
+  it('recognizes only styles supplied by the selected artifact', () => {
+    const artifactHash = 'f'.repeat(64);
+    const registry = new FontRegistry([
+      {
+        family: 'Duplicate Style Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash }),
+      },
+      {
+        family: 'Duplicate Style Family',
+        weight: 400,
+        style: 'italic',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash: '0'.repeat(64) }),
+      },
+    ]);
+
+    expect(
+      fontStyleAvailable(
+        node({
+          fontFamily: 'Duplicate Style Family',
+          fontReference: { artifactHash },
+        }),
+        'italic',
+        registry,
+      ),
+    ).toBe(false);
+  });
+
+  it('recognizes an italic variation axis as a real style', () => {
+    const registry = new FontRegistry([
+      {
+        family: 'Italic Variable',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        axisDefinitions: [{ tag: 'ital', name: 'Italic', min: 0, default: 0, max: 1 }],
+      },
+    ]);
+
+    expect(fontStyleAvailable(node({ fontFamily: 'Italic Variable' }), 'italic', registry)).toBe(
+      true,
+    );
+  });
+
+  it('couples variable italic changes to the ital axis', () => {
+    const registry = new FontRegistry([
+      {
+        family: 'Italic Variable',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        axisDefinitions: [{ tag: 'ital', name: 'Italic', min: 0, default: 0, max: 1 }],
+      },
+    ]);
+
+    expect(
+      fontStyleChanges(
+        node({ fontFamily: 'Italic Variable', variableAxes: { wdth: 90 } }),
+        'italic',
+        registry,
+      ),
+    ).toEqual({ fontStyle: 'italic', variableAxes: { wdth: 90, ital: 1 } });
+  });
+
   it('moves an exact static face to a matching italic sibling', () => {
     const artifactHash = 'd'.repeat(64);
     const registry = new FontRegistry([

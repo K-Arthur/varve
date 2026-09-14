@@ -140,6 +140,48 @@ export function fontWeightOptions(
 }
 
 /**
+ * Return whether a selected family can provide the requested real style.
+ *
+ * A persisted exact reference narrows the answer to the same artifact. This
+ * keeps the compact toolbar from offering a synthetic italic face merely
+ * because another file with the same family name happens to have one. Older
+ * family-only records continue to use the available family metadata.
+ */
+export function fontStyleAvailable(
+  node: WeightNode,
+  style: NonNullable<TextNode['fontStyle']>,
+  registry: ReturnType<typeof getFontRegistry> = getFontRegistry(),
+): boolean {
+  if ((node.fontStyle ?? 'normal') === style) return true;
+
+  const family = node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
+  const entries = registry.getEntries(family);
+  const entriesWithIdentity = entries.filter((entry) => entry.faceKey);
+  const scopedEntries =
+    node.fontReference && entriesWithIdentity.length > 0
+      ? entries.filter((entry) => sameArtifact(entry.faceKey, node.fontReference!))
+      : entries;
+
+  if (scopedEntries.some((entry) => entry.style === style)) return true;
+
+  // Variable fonts can expose italic as an `ital` axis rather than a sibling
+  // static face. Treat only a declared axis (or an authored axis value) as a
+  // supported style; a generic `font-style: italic` fallback is not enough.
+  const axisDefinitions =
+    scopedEntries.find((entry) => entry.axisDefinitions?.length)?.axisDefinitions ??
+    (node.fontReference && entriesWithIdentity.length > 0
+      ? undefined
+      : registry.getAxisDefinitions(family));
+  const italicAxis = axisDefinitions?.find((axis) => axis.tag === 'ital');
+  if (italicAxis) {
+    const min = Math.min(italicAxis.min, italicAxis.max);
+    const max = Math.max(italicAxis.min, italicAxis.max);
+    return style === 'italic' ? max >= 1 && min <= 1 : min <= 0 && max >= 0;
+  }
+  return style === 'italic' && node.variableAxes?.ital !== undefined;
+}
+
+/**
  * A family-only choice must not retain identity or variation data from a
  * different artifact. Axis tags are family-specific (for example, `wdth` or
  * `opsz` may not exist on the newly chosen face), so retaining them would
@@ -199,11 +241,23 @@ export function fontStyleChanges(
   registry: ReturnType<typeof getFontRegistry> = getFontRegistry(),
 ): Partial<TextNode> {
   const nextStyle = style ?? 'normal';
-  if (!node.fontReference || nextStyle === (node.fontStyle ?? 'normal')) {
+  if (nextStyle === (node.fontStyle ?? 'normal')) {
     return { fontStyle: style };
   }
 
   const family = node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
+  const axisDefinitions = registry.getAxisDefinitions(family);
+  const italicAxis = axisDefinitions?.find((axis) => axis.tag === 'ital');
+  if (italicAxis || node.variableAxes?.ital !== undefined) {
+    return {
+      fontStyle: style,
+      variableAxes: {
+        ...(node.variableAxes ?? {}),
+        ital: nextStyle === 'italic' ? 1 : 0,
+      },
+    };
+  }
+  if (!node.fontReference) return { fontStyle: style };
   const entries = registry.getEntries(family);
   const target = entries.find(
     (entry) =>

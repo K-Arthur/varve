@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { getFontRegistry } from '@varve/engine';
 import type { TextNode } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fontFamilyChanges } from '../Typography/fontWeight';
@@ -196,6 +197,23 @@ describe('FloatingTextBar', () => {
     expect(onUpdate).not.toHaveBeenCalled();
   });
 
+  it('does not synthesize italic when the selected family has no italic face', () => {
+    const onUpdate = vi.fn();
+    render(
+      <FloatingTextBar
+        {...defaultProps({
+          onUpdate,
+          node: { ...BASE_TEXT_NODE, fontFamily: 'Inter', fontStyle: 'normal' },
+        })}
+      />,
+    );
+
+    const italic = screen.getByLabelText('Italic');
+    expect(italic).toBeDisabled();
+    fireEvent.click(italic);
+    expect(onUpdate).not.toHaveBeenCalled();
+  });
+
   it('couples weight changes to the wght axis while preserving custom axes', () => {
     const onUpdate = vi.fn();
     render(
@@ -219,9 +237,28 @@ describe('FloatingTextBar', () => {
     });
   });
 
-  it('calls onUpdate with italic on italic click', () => {
+  it('calls onUpdate with italic when the selected family has a real italic face', () => {
     const onUpdate = vi.fn();
-    render(<FloatingTextBar {...defaultProps({ onUpdate })} />);
+    getFontRegistry().register({
+      family: 'Toolbar Italic Test',
+      weight: 400,
+      style: 'normal',
+      source: 'user',
+    });
+    getFontRegistry().register({
+      family: 'Toolbar Italic Test',
+      weight: 400,
+      style: 'italic',
+      source: 'user',
+    });
+    render(
+      <FloatingTextBar
+        {...defaultProps({
+          node: { ...BASE_TEXT_NODE, fontFamily: 'Toolbar Italic Test' },
+          onUpdate,
+        })}
+      />,
+    );
     fireEvent.click(screen.getByLabelText('Italic'));
     expect(onUpdate).toHaveBeenCalledWith('text-1', { fontStyle: 'italic' });
   });

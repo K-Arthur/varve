@@ -16,6 +16,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FontSelector } from '../FontBrowser/FontSelector';
 import {
   fontFamilyChanges,
+  fontStyleAvailable,
   fontStyleChanges,
   fontWeightChanges,
   fontWeightOptions,
@@ -136,6 +137,7 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
   const boldAvailable =
     isBold || weightOptions.some((option) => option.value === 700 && !option.disabled);
   const isItalic = (node.fontStyle ?? 'normal') === 'italic';
+  const italicAvailable = isItalic || fontStyleAvailable(node, 'italic', registry);
   const isList = (node.listStyle ?? 'none') !== 'none';
   const textAlign = node.textAlign ?? 'left';
 
@@ -199,6 +201,7 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
           pressed={isItalic}
           onPressedChange={handleItalicToggle}
           label="Italic"
+          disabled={!italicAvailable}
           className={`floating-text-bar__btn${isItalic ? ' floating-text-bar__btn--active' : ''}`}
         />
 
