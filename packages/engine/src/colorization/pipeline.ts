@@ -39,7 +39,7 @@ export async function dispatchColorize(request: ColorizationRequest): Promise<Co
   const workflow = params.workflow;
   if (workflow === 'lineart-colorize') {
     throw new Error(
-      'lineart-colorize is not available in this dispatcher yet; use the deterministic drawing-color workflow',
+      'lineart-colorize is not exposed as a photo-model workflow. Use Tint / Selective Recolor with a mask; hint-guided line-art fills are deferred.',
     );
   }
   const contract: ColorizationRequestContract = {
