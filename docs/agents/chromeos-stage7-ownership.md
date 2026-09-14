@@ -8,6 +8,7 @@
 **Base SHA at ownership:** `ceb6c3962af1cfd7ce5acbd06a80c90a509a1b4f`
 **Reserved E2E port:** `1497`
 **Temporary evidence root:** `/tmp/varve-chromeos-stage7-*`
+**Evidence status:** collected 2026-09-13; Duet hardware unavailable; promotion blocked
 
 ## Scope
 
@@ -28,6 +29,7 @@ labelled as their actual route and are not substituted for hardware evidence.
 |---|---|
 | `docs/agents/chromeos-stage7-ownership.md` | This coordination record |
 | `docs/audits/chromeos-stage7-integrated-acceptance-2026-09-13.md` | Research ledger, integration evidence, route matrix, benchmarks, visual review, hardware kit, and release decision |
+| `docs/screenshots/chromeos-stage7-2026-09-13/` | Deliberately inspected website screenshots; not visual-regression baselines |
 | `apps/website/src/pages/docs/chromebook.astro` | Small Stage 7 truth correction only; Stage 6's completed route page remains the source of layout and route behavior |
 | `apps/website/tests/e2e/chromeos-stage7-truth.spec.ts` | Regression for the correction and the explicit unverified-device boundary |
 
@@ -71,9 +73,10 @@ not accepted without a reproducible command or artifact.
 
 ## Completion handoff
 
-The final audit must contain the exact committed candidate SHA and build mode,
-the actual commands and outcomes, the inspected screenshot/video/export paths,
-the support decision for each route, skipped checks with reasons, and the
-smallest next physical verification step. Hardware promotion remains blocked
-until the Duet kit is run with the normal security settings and its artifacts
-are reviewed.
+The audit contains the exact commands and outcomes, inspected screenshot and
+export paths, route support decisions, skipped checks with reasons, and the
+smallest next physical verification step. The frozen candidate code SHA is
+`614bc7a79ca60e047fd2bc3831d0e2bc41fa0ac0`; the evidence record commit ID is
+written into the audit after the final owned-path commit lands. Hardware
+promotion remains blocked until the Duet kit is run with normal security
+settings and its artifacts are reviewed.
