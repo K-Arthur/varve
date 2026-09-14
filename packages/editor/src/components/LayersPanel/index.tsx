@@ -118,6 +118,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     removeMaskFromSelected,
     toggleMask,
     invertMask,
+    openCafDialog,
     openUpscaleDialog,
     openVectorizeDialog,
     platform,
@@ -813,6 +814,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             toggleMask,
             invertMask,
             setSelection,
+            openCafDialog,
             openUpscaleDialog,
             openVectorizeDialog,
             closeMenu,
@@ -893,6 +895,7 @@ interface BuildLayerMenuItemsArgs {
   toggleMask: () => void;
   invertMask: () => void;
   setSelection: (id: string) => void;
+  openCafDialog: (nodeId: string) => void;
   openUpscaleDialog: () => void;
   openVectorizeDialog: (prefill?: { replaceGroupId: string } | null) => void;
   closeMenu: () => void;
@@ -950,6 +953,7 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
     toggleMask,
     invertMask,
     setSelection,
+    openCafDialog,
     openUpscaleDialog,
     openVectorizeDialog,
     closeMenu,
@@ -1052,6 +1056,16 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
   ) {
     items.push(
       { id: 'sep-upscale', separator: true },
+      {
+        id: 'generative-edit',
+        label: 'Generative Edit…',
+        icon: 'WandSparkles',
+        onAction: () => {
+          setSelection(nodeId);
+          openCafDialog(nodeId);
+          closeMenu();
+        },
+      },
       {
         id: 'vectorize',
         label: 'Vectorize Image…',
