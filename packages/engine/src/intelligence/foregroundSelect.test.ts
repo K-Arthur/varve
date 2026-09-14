@@ -125,6 +125,21 @@ describe('proposeForegroundSubjects', () => {
     expect(masks.some((mask) => mask[50 * 100 + 90] === 255)).toBe(true);
   });
 
+  it('exposes an explicit all-foreground union before individual regions', () => {
+    const img = makeTwoToneImage(100, 100, 60, 255, 255, 255, 0, 0, 0);
+    const result = proposeForegroundSubjects(img);
+    const all = result.candidates[0]!;
+    expect(all.label).toBe('All foreground');
+    expect(all.mask[50 * 100 + 10]).toBe(255);
+    expect(all.mask[50 * 100 + 90]).toBe(255);
+    expect(
+      result.candidates.slice(1).every((candidate) => candidate.label !== 'All foreground'),
+    ).toBe(true);
+    expect(
+      result.candidates.slice(1).some((candidate) => candidate.mask[50 * 100 + 10] === 0),
+    ).toBe(true);
+  });
+
   it('is deterministic for identical input', () => {
     const img = makeSubjectOnBackground(80, 80);
     const first = proposeForegroundSubjects(img);

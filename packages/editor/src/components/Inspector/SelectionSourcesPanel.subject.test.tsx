@@ -58,7 +58,7 @@ afterEach(() => cleanup());
 
 import { EditorProvider, useEditor } from '../../context';
 import { SelectionSourcesPanel } from './SelectionSourcesPanel';
-import { resetSubjectProposals } from './subjectProposalStore';
+import { getSubjectProposalState, resetSubjectProposals } from './subjectProposalStore';
 
 function candidateSet() {
   const size = 1;
@@ -79,6 +79,44 @@ function candidateSet() {
         coverage: 1,
         score: 1,
         centroid: { x: 0, y: 0 },
+        edgeAlignment: 0,
+      },
+    ],
+  };
+}
+
+function multiCandidateSet() {
+  return {
+    width: 4,
+    height: 1,
+    analysisWidth: 4,
+    analysisHeight: 1,
+    candidates: [
+      {
+        mask: new Uint8Array([255, 255, 255, 255]),
+        alpha: new Uint8Array([255, 255, 255, 255]),
+        label: 'All foreground',
+        coverage: 1,
+        score: 1,
+        centroid: { x: 0.5, y: 0.5 },
+        edgeAlignment: 0,
+      },
+      {
+        mask: new Uint8Array([255, 255, 0, 0]),
+        alpha: new Uint8Array([255, 255, 0, 0]),
+        label: 'Region 1',
+        coverage: 0.5,
+        score: 1,
+        centroid: { x: 0.125, y: 0.5 },
+        edgeAlignment: 0,
+      },
+      {
+        mask: new Uint8Array([0, 0, 255, 255]),
+        alpha: new Uint8Array([0, 0, 255, 255]),
+        label: 'Region 2',
+        coverage: 0.5,
+        score: 1,
+        centroid: { x: 0.875, y: 0.5 },
         edgeAlignment: 0,
       },
     ],
@@ -343,5 +381,27 @@ describe('SelectionSourcesPanel subject proposals', () => {
     fireEvent.click(await screen.findByRole('button', { name: /^Select subject$/ }));
     expect(await screen.findByText(/Model-free estimate estimate/)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Preview all subjects' })).toBeTruthy();
+  });
+
+  it('previews the explicit union instead of the largest region', async () => {
+    mockProposeSubjects.mockResolvedValue(
+      proposalResult({
+        source: 'model-free',
+        modelId: null,
+        set: multiCandidateSet(),
+      }),
+    );
+
+    await renderPanel();
+    fireEvent.click(await screen.findByRole('button', { name: /^Select subject$/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Preview all subjects' }));
+
+    await waitFor(() => {
+      const proposalState = getSubjectProposalState();
+      expect(proposalState.reviewedCandidate).toBe(0);
+      expect(proposalState.proposals?.candidates[proposalState.activeCandidate]?.label).toBe(
+        'All foreground',
+      );
+    });
   });
 });

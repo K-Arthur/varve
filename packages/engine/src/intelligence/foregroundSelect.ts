@@ -322,6 +322,41 @@ export function proposeForegroundSubjects(
     return { mask, coverage, score, centroid, edgeAlignment };
   });
 
+  // Keep the multi-subject convenience action honest. The model-free path
+  // returns connected regions, so candidate 0 must not be mistaken for an
+  // "all subjects" union merely because it is the largest region. Expose an
+  // explicit union before the individually reviewable regions whenever more
+  // than one component survived the size gate.
+  if (candidates.length > 1) {
+    const union = new Uint8Array(total);
+    let unionPixels = 0;
+    let unionSumX = 0;
+    let unionSumY = 0;
+    for (const candidate of candidates) {
+      for (let index = 0; index < candidate.mask.length; index += 1) {
+        if (candidate.mask[index] === 0 || union[index] !== 0) continue;
+        union[index] = 255;
+        unionPixels += 1;
+        const x = index % aw;
+        unionSumX += x;
+        unionSumY += (index - x) / aw;
+      }
+    }
+    const unionCoverage = unionPixels / total;
+    const unionCandidate: ForegroundProposal = {
+      mask: union,
+      label: 'All foreground',
+      coverage: unionCoverage,
+      score: Math.max(0, Math.min(1, unionCoverage / 0.25)),
+      centroid: {
+        x: unionSumX / Math.max(1, unionPixels) / aw,
+        y: unionSumY / Math.max(1, unionPixels) / ah,
+      },
+      edgeAlignment: 0,
+    };
+    return { ...base, candidates: [unionCandidate, ...candidates] };
+  }
+
   return { ...base, candidates };
 }
 
