@@ -31,3 +31,21 @@ The visual toolbar captures in the [size-consistency evidence](./font-toolbar-si
 remain the geometry evidence for this control. A fresh browser capture of the
 new disabled-state pixel treatment is still required before calling the visual
 portion of this face-policy check complete.
+
+I attempted that fresh Chromium run in a clean detached worktree with the
+task-local temporary directory:
+
+```text
+CI=1 TMPDIR=/home/kevina/varve-tmp VARVE_E2E_PORT=1698 VARVE_E2E_WORKERS=1 \
+  VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-toolbar-face-policy-20260913 \
+  npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts \
+  --project=chromium -g 'DPR 1' --reporter=list --timeout=180000
+```
+
+The run did not reach the spec: the shared master graph was in the middle of
+concurrent changes and the detached tree reported missing exports from
+`@varve/scene`/`@varve/shared`; global setup then timed out waiting for the
+Home button. This is recorded as an environment-blocked visual check rather
+than a passing capture. The previously inspected light, dark, high-contrast,
+narrow, and DPR 2/3 captures remain valid geometry evidence; a disabled-Italic
+pixel capture should be collected once the shared app graph is buildable.
