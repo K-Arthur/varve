@@ -13,6 +13,7 @@
  */
 
 import type { OpenTypeFeatureMap, PathNodeMode } from '@varve/shared';
+import type { FontReference } from './font/fontIdentity';
 import type { SpatialBlurEffect } from './spatialBlur';
 
 export type { PathNodeMode } from '@varve/shared';
@@ -63,6 +64,8 @@ export interface CharacterFormat {
   /** Typographic tracking in 1/1000 em units, added between glyphs. */
   tracking?: number;
   fontFamily?: string;
+  /** Exact artifact/member identity; absent on legacy family-only documents. */
+  fontReference?: FontReference;
   fontWeight?: number;
   fontStyle?: 'normal' | 'italic';
   fontSize?: number;
@@ -424,6 +427,8 @@ export interface SceneNode {
   text?: string;
   fontSize?: number;
   fontFamily?: string;
+  /** Exact artifact/member identity; absent on legacy family-only documents. */
+  fontReference?: FontReference;
   fontWeight?: number;
   fontStyle?: string;
   /** Text alignment. */
@@ -661,6 +666,8 @@ export type Primitive =
       text: string;
       fontSize: number;
       fontFamily: string;
+      /** Exact artifact/member identity for this text face. */
+      fontReference?: FontReference;
       fontWeight: number;
       fontStyle: 'normal' | 'italic';
       textAlign: 'left' | 'center' | 'right' | 'justify';

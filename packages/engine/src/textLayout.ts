@@ -14,6 +14,7 @@
 
 import { measureAdvanceWidth, openTypeFeaturesToCss } from '@varve/shared';
 import { resolveCanvasFontFamily, setCanvasFont } from './canvasFontAliases';
+import { type FontReference, fontReferenceKey } from './font/fontIdentity';
 import type { OpenTypeFeatureMap, VariableFontSettings } from './types';
 
 export interface RichTextRun {
@@ -21,6 +22,7 @@ export interface RichTextRun {
   format?: {
     fontSize?: number;
     fontFamily?: string;
+    fontReference?: FontReference;
     fontWeight?: number;
     fontStyle?: 'normal' | 'italic';
     textDecoration?: 'none' | 'underline' | 'line-through';
@@ -54,6 +56,7 @@ export interface LayoutRun {
   format: {
     fontSize: number;
     fontFamily?: string;
+    fontReference?: FontReference;
     fontWeight?: number;
     fontStyle?: string;
     textDecoration?: 'none' | 'underline' | 'line-through';
@@ -88,6 +91,7 @@ export function buildFontString(
   openTypeFeatures?: OpenTypeFeatureMap,
   variableFontSettings?: VariableFontSettings,
   text?: string,
+  fontReference?: FontReference,
 ): string {
   const weight = fontWeight ? `${fontWeight} ` : '';
   const style = fontStyle && fontStyle !== 'normal' ? `${fontStyle} ` : '';
@@ -96,6 +100,7 @@ export function buildFontString(
     openTypeFeatures,
     variableFontSettings,
     text,
+    fontReference ? fontReferenceKey(fontReference) : undefined,
   );
   return `${style}${weight}${fontSize}px ${resolvedFamily}`;
 }
@@ -213,6 +218,7 @@ export function layoutRichText(
         run.format?.openTypeFeatures,
         run.format?.variableFontSettings,
         run.text,
+        run.format?.fontReference,
       );
       const featureSettings = buildFeatureSettings(run.format?.openTypeFeatures);
       const variationSettings = buildVariationSettings(run.format?.variableFontSettings);
@@ -251,6 +257,7 @@ export function layoutRichText(
           format: {
             fontSize,
             fontFamily,
+            fontReference: run.format?.fontReference,
             fontWeight,
             fontStyle: fontStyle ?? 'normal',
             textDecoration,

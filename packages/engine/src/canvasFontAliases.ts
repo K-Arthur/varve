@@ -20,6 +20,7 @@ import {
 interface CanvasFontAliasFace {
   family: string;
   source: string;
+  faceKey?: string;
   weight?: string;
   style?: string;
   stretch?: string;
@@ -63,13 +64,14 @@ export function resolveCanvasFontFamily(
   features?: OpenTypeFeatureMap,
   axes?: Record<string, number>,
   text?: string,
+  faceKey?: string,
 ): string {
   const featureSettings = openTypeFeaturesToCss(features);
   const variationSettings = canvasVariationSettings(axes);
-  if (!featureSettings && !variationSettings) return family;
+  if (!featureSettings && !variationSettings && !faceKey) return family;
   if (typeof document === 'undefined') return family;
 
-  const faces = findFontFaces(family);
+  const faces = findFontFaces(family, faceKey);
   if (faces.length === 0) return family;
 
   // Keep only the source faces that can cover this run. A variable family
@@ -78,8 +80,8 @@ export function resolveCanvasFontFamily(
   // is present and loaded. A later run in another script gets its own cache
   // identity and alias family.
   const aliasFaces = facesForText(faces, text);
-  const faceKey = aliasFaces.map(serializeFace).join('|');
-  const key = `${family}\u0000${faceKey}\u0000${featureSettings ?? ''}\u0000${variationSettings ?? ''}`;
+  const aliasFaceSetKey = aliasFaces.map(serializeFace).join('|');
+  const key = `${family}\u0000${faceKey ?? ''}\u0000${aliasFaceSetKey}\u0000${featureSettings ?? ''}\u0000${variationSettings ?? ''}`;
   const cached = aliases.get(key);
   if (cached) {
     // Do not let a Canvas2D context see the alias until its source and
@@ -135,14 +137,15 @@ export function canResolveCanvasFontFamily(
   family: string,
   features?: OpenTypeFeatureMap,
   axes?: Record<string, number>,
+  faceKey?: string,
 ): boolean {
   const featureSettings = openTypeFeaturesToCss(features);
   const variationSettings = canvasVariationSettings(axes);
   const hasFeatures = Object.keys(features ?? {}).length > 0;
   if (hasFeatures && !featureSettings) return false;
-  if (!featureSettings && !variationSettings) return true;
+  if (!featureSettings && !variationSettings && !faceKey) return true;
   if (typeof document === 'undefined') return false;
-  return findFontFaces(family).length > 0;
+  return findFontFaces(family, faceKey).length > 0;
 }
 
 /** Clear process-local aliases; useful after a test replaces the stylesheet. */
@@ -187,7 +190,7 @@ function canvasVariationSettings(axes?: Record<string, number>): string | undefi
   return values.map(([tag, value]) => `${quoteCss(tag)} ${value}`).join(',');
 }
 
-function findFontFaces(family: string): CanvasFontAliasFace[] {
+function findFontFaces(family: string, requestedFaceKey?: string): CanvasFontAliasFace[] {
   const wanted = normalizeFamily(family);
   if (!wanted) return [];
   const styleSheetCount = document.styleSheets.length;
@@ -196,7 +199,7 @@ function findFontFaces(family: string): CanvasFontAliasFace[] {
     sourceFacesStyleSheetCount = styleSheetCount;
   }
   const cached = sourceFacesByFamily.get(wanted);
-  if (cached) return cached;
+  if (cached) return filterFaceIdentity(cached, requestedFaceKey);
   const faces: CanvasFontAliasFace[] = [];
   const seen = new Set<string>();
   for (const sheet of Array.from(document.styleSheets)) {
@@ -215,6 +218,7 @@ function findFontFaces(family: string): CanvasFontAliasFace[] {
       const face: CanvasFontAliasFace = {
         family: declaredFamily,
         source,
+        faceKey: descriptorValue(style, '--varve-face-key'),
         weight: descriptorValue(style, 'font-weight'),
         style: descriptorValue(style, 'font-style'),
         stretch: descriptorValue(style, 'font-stretch'),
@@ -228,7 +232,15 @@ function findFontFaces(family: string): CanvasFontAliasFace[] {
     }
   }
   sourceFacesByFamily.set(wanted, faces);
-  return faces;
+  return filterFaceIdentity(faces, requestedFaceKey);
+}
+
+function filterFaceIdentity(
+  faces: readonly CanvasFontAliasFace[],
+  requestedFaceKey?: string,
+): CanvasFontAliasFace[] {
+  if (!requestedFaceKey) return [...faces];
+  return faces.filter((face) => face.faceKey === requestedFaceKey);
 }
 
 function facesForText(
@@ -401,6 +413,7 @@ function serializeFace(face: CanvasFontAliasFace): string {
     face.stretch,
     face.unicodeRange,
     face.display,
+    face.faceKey,
   ].join('|');
 }
 

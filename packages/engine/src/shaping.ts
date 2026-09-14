@@ -25,6 +25,7 @@
 
 import { openTypeFeaturesToCss } from '@varve/shared';
 import { resolveCanvasFontFamily, setCanvasFont } from './canvasFontAliases';
+import { type FontReference, fontReferenceKey } from './font/fontIdentity';
 import type { ItemizedParagraph } from './text/paragraphs';
 import type {
   OpenTypeFeatureMap,
@@ -58,6 +59,8 @@ export interface ShapeRunInput {
   openTypeFeatures?: OpenTypeFeatureMap;
   /** Variable axes not expressible by the CSS font shorthand. */
   variableAxes?: Record<string, number>;
+  /** Exact artifact/member identity when this run is backed by imported bytes. */
+  fontReference?: FontReference;
   /** Direction override ('ltr' | 'rtl' | 'auto'). */
   direction?: 'ltr' | 'rtl' | 'auto';
   /** ISO language tag. */
@@ -85,6 +88,7 @@ export interface ShapeRichTextInput {
     textOrientation?: TextOrientation;
     openTypeFeatures?: OpenTypeFeatureMap;
     variableAxes?: Record<string, number>;
+    fontReference?: FontReference;
     textAlign?: 'left' | 'center' | 'right' | 'justify';
   }>;
   ctx: CanvasRenderingContext2D;
@@ -110,10 +114,17 @@ function buildFontString(
   openTypeFeatures?: OpenTypeFeatureMap,
   variableAxes?: Record<string, number>,
   text?: string,
+  fontReference?: FontReference,
 ): string {
   const style = fontStyle === 'italic' ? 'italic ' : '';
   const weight = fontWeight ? `${fontWeight} ` : '';
-  const resolvedFamily = resolveCanvasFontFamily(fontFamily, openTypeFeatures, variableAxes, text);
+  const resolvedFamily = resolveCanvasFontFamily(
+    fontFamily,
+    openTypeFeatures,
+    variableAxes,
+    text,
+    fontReference ? fontReferenceKey(fontReference) : undefined,
+  );
   return `${style}${weight}${fontSize}px "${resolvedFamily}"`;
 }
 
@@ -203,6 +214,7 @@ export function shapeParagraphRuns(
     tracking?: number;
     openTypeFeatures?: OpenTypeFeatureMap;
     variableAxes?: Record<string, number>;
+    fontReference?: FontReference;
     language?: string;
   },
 ): ShapedRun[] {
@@ -222,6 +234,7 @@ export function shapeParagraphRuns(
       style.openTypeFeatures,
       style.variableAxes,
       paragraph.text,
+      style.fontReference,
     ),
   );
   for (const scriptedRun of paragraph.scriptedRuns) {
@@ -336,6 +349,7 @@ export function shapeRun(input: ShapeRunInput): ShapedRun[] {
       input.openTypeFeatures,
       input.variableAxes,
       text,
+      input.fontReference,
     ),
   );
 
@@ -474,6 +488,7 @@ export function shapeText(
     language?: string;
     openTypeFeatures?: OpenTypeFeatureMap;
     variableAxes?: Record<string, number>;
+    fontReference?: FontReference;
     writingMode?: WritingMode;
     textOrientation?: TextOrientation;
   },
@@ -490,6 +505,7 @@ export function shapeText(
     language: opts?.language,
     openTypeFeatures: opts?.openTypeFeatures,
     variableAxes: opts?.variableAxes,
+    fontReference: opts?.fontReference,
     writingMode: opts?.writingMode,
     textOrientation: opts?.textOrientation,
     ctx,

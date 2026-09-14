@@ -34,6 +34,7 @@ import { applyFilterWithCompositing } from './filterCompositor';
 import { withoutIdentityFilters } from './filterIdentity';
 import { computePointwiseFilterSurface } from './filterSurfaceRegion';
 import { applyFilterChain, filterChainToCss, filterToCss, supportsCanvasFilter } from './filters';
+import { fontReferenceKey } from './font/fontIdentity';
 import { getImageCache } from './imageCache';
 import { imagePlaceholderFill } from './imagePlaceholder';
 import {
@@ -1412,6 +1413,7 @@ function primeCanvasTypographyAliases(target: ReplayTarget, items: readonly Rend
         features: primitive.openTypeFeatures,
         axes: primitive.variableAxes,
         text: primitive.text,
+        faceKey: primitive.fontReference ? fontReferenceKey(primitive.fontReference) : undefined,
       });
       for (const paragraph of primitive.richText?.paragraphs ?? []) {
         for (const run of paragraph.runs) {
@@ -1424,6 +1426,11 @@ function primeCanvasTypographyAliases(target: ReplayTarget, items: readonly Rend
             features: format?.openTypeFeatures ?? primitive.openTypeFeatures,
             axes: format?.variableFontSettings ?? primitive.variableAxes,
             text: run.text,
+            faceKey: format?.fontReference
+              ? fontReferenceKey(format.fontReference)
+              : primitive.fontReference
+                ? fontReferenceKey(primitive.fontReference)
+                : undefined,
           });
         }
       }
@@ -1443,12 +1450,19 @@ function primeCanvasTypographyAlias(
     features?: import('@varve/shared').OpenTypeFeatureMap;
     axes?: Record<string, number>;
     text: string;
+    faceKey?: string;
   },
 ): void {
   const hasFeatures = Object.keys(input.features ?? {}).length > 0;
   const hasCustomAxes = Object.keys(input.axes ?? {}).some((tag) => tag !== 'wght');
   if (!hasFeatures && !hasCustomAxes) return;
-  const alias = resolveCanvasFontFamily(input.family, input.features, input.axes, input.text);
+  const alias = resolveCanvasFontFamily(
+    input.family,
+    input.features,
+    input.axes,
+    input.text,
+    input.faceKey,
+  );
   if (alias === input.family) return;
   const style = input.style === 'italic' ? 'italic ' : '';
   const weight = Math.max(1, Math.min(1000, input.weight));
@@ -2680,6 +2694,11 @@ function paintRichText(
           runFormat.openTypeFeatures ?? p.openTypeFeatures,
           runFormat.variableFontSettings ?? p.variableAxes,
           run.text,
+          runFormat.fontReference
+            ? fontReferenceKey(runFormat.fontReference)
+            : p.fontReference
+              ? fontReferenceKey(p.fontReference)
+              : undefined,
         ),
       );
       // Run color is ManagedColor since schema 2.14; legacy tuples still
@@ -2855,6 +2874,11 @@ function paintCanonicalRichText(
           features,
           axes,
           runText,
+          format.fontReference
+            ? fontReferenceKey(format.fontReference)
+            : p.fontReference
+              ? fontReferenceKey(p.fontReference)
+              : undefined,
         ),
       );
       if (format.color) target.fillStyle = rgba(format.color);
@@ -2916,6 +2940,7 @@ function canonicalTextSnapshot(target: ReplayTarget, p: TextPrimitive): TextLayo
           tracking: p.tracking,
           openTypeFeatures: p.openTypeFeatures,
           variableAxes: p.variableAxes,
+          fontReference: p.fontReference,
           direction,
           language,
           writingMode: p.writingMode,
@@ -2977,6 +3002,7 @@ function paintCanonicalText(
           p.openTypeFeatures,
           p.variableAxes,
           snapshot.text.slice(run.sourceStart, run.sourceEnd),
+          p.fontReference ? fontReferenceKey(p.fontReference) : undefined,
         ),
       );
       // Canvas2D has no portable glyph-ID drawing API. Painting every shaped
@@ -3044,6 +3070,7 @@ function paintPathText(
       p.openTypeFeatures,
       p.variableAxes,
       displayText,
+      p.fontReference ? fontReferenceKey(p.fontReference) : undefined,
     ),
   );
   target.textBaseline = 'alphabetic';
@@ -3203,10 +3230,11 @@ function replayFontString(
   features: import('@varve/shared').OpenTypeFeatureMap | undefined,
   axes: Record<string, number> | undefined,
   text?: string,
+  faceKey?: string,
 ): string {
   const style = fontStyle === 'italic' ? 'italic ' : '';
   const weight = Math.max(1, Math.min(1000, fontWeight));
-  const resolvedFamily = resolveCanvasFontFamily(family, features, axes, text);
+  const resolvedFamily = resolveCanvasFontFamily(family, features, axes, text, faceKey);
   return `${style}${weight} ${fontSize}px "${resolvedFamily}"`;
 }
 
@@ -3256,6 +3284,7 @@ function paintText(
       p.openTypeFeatures,
       p.variableAxes,
       p.text,
+      p.fontReference ? fontReferenceKey(p.fontReference) : undefined,
     ),
   );
 
@@ -3438,6 +3467,7 @@ function paintText(
           p.openTypeFeatures,
           p.variableAxes,
           displayLine,
+          p.fontReference ? fontReferenceKey(p.fontReference) : undefined,
         ),
       );
       displayLine = ellipsizeText(text, p.w, measureLine);
@@ -3464,6 +3494,7 @@ function paintText(
             p.openTypeFeatures,
             p.variableAxes,
             displayLine,
+            p.fontReference ? fontReferenceKey(p.fontReference) : undefined,
           ),
         );
         const totalTextWidth =

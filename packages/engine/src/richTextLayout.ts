@@ -114,6 +114,7 @@ function shapeParagraph(
           tracking: format.tracking ?? defaults.tracking,
           openTypeFeatures: format.openTypeFeatures ?? defaults.openTypeFeatures,
           variableAxes: format.variableFontSettings ?? defaults.variableAxes,
+          fontReference: format.fontReference,
           direction: scripted.direction,
           language: format.language ?? defaults.language,
           ctx: ctx as unknown as CanvasRenderingContext2D,

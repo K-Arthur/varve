@@ -16,6 +16,7 @@
  * (UAX #29 / UAX #14), Adobe InDesign story composition model.
  */
 
+import { type FontReference, fontReferenceKey } from './font/fontIdentity';
 import { buildFontString, measureRunWidth } from './textLayout';
 
 // Structural story types — the engine must not depend on @varve/scene
@@ -24,6 +25,7 @@ import { buildFontString, measureRunWidth } from './textLayout';
 export interface StoryRunFormat {
   fontSize?: number;
   fontFamily?: string;
+  fontReference?: FontReference;
   fontWeight?: number;
   fontStyle?: 'normal' | 'italic';
   tracking?: number;
@@ -134,7 +136,16 @@ function runPlan(
   const fontStyle = run.format?.fontStyle;
   return {
     fontSize,
-    font: buildFontString(fontSize, fontFamily, fontWeight, fontStyle),
+    font: buildFontString(
+      fontSize,
+      fontFamily,
+      fontWeight,
+      fontStyle,
+      undefined,
+      undefined,
+      undefined,
+      run.format?.fontReference,
+    ),
     tracking: run.format?.tracking ?? 0,
   };
 }
@@ -280,7 +291,7 @@ export function buildCompositionKey(options: ComposeStoryOptions, totalGraphemes
   for (const paragraph of options.content.paragraphs) {
     for (const run of paragraph.runs) {
       parts.push(
-        `${run.text.length}:${run.format?.fontSize ?? ''}:${run.format?.fontFamily ?? ''}`,
+        `${run.text.length}:${run.format?.fontSize ?? ''}:${run.format?.fontFamily ?? ''}:${run.format?.fontReference ? fontReferenceKey(run.format.fontReference) : ''}`,
       );
     }
   }
