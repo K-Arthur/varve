@@ -147,7 +147,11 @@ describe('expandStrokeNode', () => {
     expect(result?.shape.kind).toBe('path');
     if (result?.shape.kind === 'path') {
       expect(result.shape.closed).toBe(true);
-      expect(result.shape.points.length).toBeGreaterThanOrEqual(8);
+      // Closed centre-lines come back as two offset loops; they are emitted as
+      // an outer contour plus one hole so even-odd parity cannot cut the band.
+      expect(result.shape.points).toHaveLength(4);
+      expect(result.shape.contours).toHaveLength(2);
+      expect(result.shape.holes).toHaveLength(1);
     }
     expect(result?.strokes).toEqual([]);
     expect(result?.fills).toHaveLength(1);

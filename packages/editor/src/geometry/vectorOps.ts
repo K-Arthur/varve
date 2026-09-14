@@ -206,12 +206,31 @@ export function expandStrokeNode(node: ShapeNode): ShapeNode | null {
   if (!stroke) return null;
   const expanded = expandStroke(shape.points, shape.closed, [stroke.weight], stroke.cap ?? 'round');
   if (expanded.length < 3) return null;
+  // A closed centre-line produces the two offset loops concatenated: one
+  // point per authored vertex per side. Emitting them as an outer contour plus
+  // one hole keeps the stroke band a single unambiguous region. Keeping them
+  // as one keyhole ring lets even-odd parity cut the band on the connector
+  // side, which silently makes part of the outlined stroke unselectable for
+  // Shape Builder and mis-classified everywhere else.
+  let contours: PathPoint[][] = [expanded];
+  if (shape.closed && expanded.length === shape.points.length * 2) {
+    const first = expanded.slice(0, shape.points.length);
+    const second = expanded.slice(shape.points.length);
+    const firstArea = Math.abs(ringArea(first));
+    const secondArea = Math.abs(ringArea(second));
+    const [outerLoop, innerLoop] = firstArea >= secondArea ? [first, second] : [second, first];
+    if (Math.min(firstArea, secondArea) > 0 && pointInRingEvenOdd(innerLoop[0]!, outerLoop)) {
+      contours = [outerLoop, innerLoop];
+    }
+  }
+  const [outerLoop, ...holeLoops] = contours;
   const expandedShape: Shape = {
     kind: 'path',
-    points: expanded,
+    points: outerLoop ?? expanded,
     closed: true,
     tolerance: shape.tolerance,
-    holes: undefined,
+    contours,
+    holes: holeLoops.length > 0 ? holeLoops : undefined,
     fillRule: 'evenodd',
   };
   return {
@@ -220,6 +239,31 @@ export function expandStrokeNode(node: ShapeNode): ShapeNode | null {
     fills: [resolveStrokeFill(stroke)],
     strokes: [],
   };
+}
+
+function ringArea(ring: readonly PathPoint[]): number {
+  let area = 0;
+  for (let index = 0; index < ring.length; index++) {
+    const current = ring[index]!;
+    const next = ring[(index + 1) % ring.length]!;
+    area += current.x * next.y - next.x * current.y;
+  }
+  return area / 2;
+}
+
+function pointInRingEvenOdd(point: PathPoint, ring: readonly PathPoint[]): boolean {
+  let inside = false;
+  for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index++) {
+    const current = ring[index]!;
+    const prior = ring[previous]!;
+    if (
+      current.y > point.y !== prior.y > point.y &&
+      point.x < ((prior.x - current.x) * (point.y - current.y)) / (prior.y - current.y) + current.x
+    ) {
+      inside = !inside;
+    }
+  }
+  return inside;
 }
 
 function resolveStrokeFill(stroke: Stroke): Fill {
