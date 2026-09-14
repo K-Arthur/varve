@@ -112,23 +112,27 @@ fn decode_handle(value: &str) -> Result<NativeFontHandle, String> {
     Ok(handle)
 }
 
-fn build_face_handle(
+/// Build a handle for one face while reusing bytes read for the containing
+/// artifact. A collection can expose several faces from the same path; the
+/// member index must therefore be resolved per `(family, name)`, never cached
+/// once per path.
+fn build_face_handle_from_data(
     path: &Path,
     family: &str,
     name: &str,
+    data: &[u8],
+    hash: &str,
 ) -> Option<(String, String, Option<u32>)> {
-    let data = std::fs::read(path).ok()?;
-    let hash = artifact_hash(&data);
     let collection_index = face_index_for_font(&data, family, name);
     let handle = NativeFontHandle {
         version: 1,
         path: path.to_string_lossy().into_owned(),
         family: family.to_string(),
         name: name.to_string(),
-        artifact_hash: hash.clone(),
+        artifact_hash: hash.to_string(),
         collection_index,
     };
-    Some((encode_handle(&handle)?, hash, collection_index))
+    Some((encode_handle(&handle)?, hash.to_string(), collection_index))
 }
 
 /// Enumerate fonts installed on the host operating system.
@@ -146,8 +150,9 @@ pub fn enumerate_system_fonts(
     // multiple times if the OS lists it under several aliases.
     let mut seen: HashMap<(String, String), bool> = HashMap::new();
     let mut result: Vec<SystemFontFace> = Vec::new();
-    let mut file_cache: HashMap<std::path::PathBuf, Option<(String, Option<u32>, String)>> =
-        HashMap::new();
+    // Cache the immutable artifact bytes and hash once per path. Handle and
+    // collection-member resolution remains per enumerated face below.
+    let mut file_cache: HashMap<std::path::PathBuf, Option<(Vec<u8>, String)>> = HashMap::new();
 
     for font in fonts {
         if let Some(ref needle) = filter {
@@ -174,18 +179,23 @@ pub fn enumerate_system_fonts(
         };
 
         let path = font.path.to_path_buf();
-        let details = file_cache.entry(path.clone()).or_insert_with(|| {
-            build_face_handle(&path, &font.family_name, &font.font_name)
-                .map(|(handle, hash, index)| (hash, index, handle))
+        let cached = file_cache.entry(path.clone()).or_insert_with(|| {
+            std::fs::read(&path).ok().map(|data| {
+                let hash = artifact_hash(&data);
+                (data, hash)
+            })
+        });
+        let details = cached.as_ref().and_then(|(data, hash)| {
+            build_face_handle_from_data(&path, &font.family_name, &font.font_name, data, hash)
+                .map(|(handle, _face_hash, index)| (hash.clone(), index, handle))
         });
         let (artifact_hash, collection_index, handle, face_key) = details
-            .as_ref()
             .map(|(hash, index, handle)| {
                 let member = index.map_or_else(|| "single".to_string(), |value| value.to_string());
                 (
                     Some(hash.clone()),
-                    *index,
-                    Some(handle.clone()),
+                    index,
+                    Some(handle),
                     Some(format!("sha256:{hash}:{member}")),
                 )
             })

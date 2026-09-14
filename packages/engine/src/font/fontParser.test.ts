@@ -129,6 +129,23 @@ function makeNameTable(fields: Record<number, string>): ArrayBuffer {
   return buffer;
 }
 
+function makeMacRomanNameTable(nameID: number, bytes: number[]): ArrayBuffer {
+  const stringOffset = 18;
+  const buffer = new ArrayBuffer(stringOffset + bytes.length);
+  const view = new DataView(buffer);
+  view.setUint16(0, 0); // format
+  view.setUint16(2, 1); // count
+  view.setUint16(4, stringOffset);
+  view.setUint16(6, 1); // Macintosh platform
+  view.setUint16(8, 0); // Roman encoding
+  view.setUint16(10, 0); // language
+  view.setUint16(12, nameID);
+  view.setUint16(14, bytes.length);
+  view.setUint16(16, 0); // string offset
+  new Uint8Array(buffer, stringOffset).set(bytes.map((byte) => byte & 0xff));
+  return buffer;
+}
+
 function makeHeadTable(unitsPerEm: number = 1000, macStyle: number = 0): ArrayBuffer {
   const buffer = new ArrayBuffer(54);
   const view = new DataView(buffer);
@@ -444,6 +461,12 @@ describe('parseFontData', () => {
     new DataView(name).setUint16(6, 0);
     const meta = await parseFontData(buildMinimalSFNT(makeHeadTable(), name));
     expect(meta.identity.familyName).toBe('Café 字体 𝔄');
+  });
+
+  it('decodes Macintosh platform name records with the MacRoman mapping', async () => {
+    const name = makeMacRomanNameTable(1, [0x43, 0x61, 0x66, 0x8e]); // Café
+    const meta = await parseFontData(buildMinimalSFNT(makeHeadTable(), name));
+    expect(meta.identity.familyName).toBe('Café');
   });
 
   it.each([0, 5, 17, 19])('does not read beyond a %i-byte name table', async (length) => {
