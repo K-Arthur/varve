@@ -15,7 +15,7 @@
  *    never edits the document, marks it dirty, or creates an undo entry.
  */
 
-import { type DocumentFontFace, getFontRegistry } from '@varve/engine';
+import { type DocumentFontFace, fontReferenceKey, getFontRegistry } from '@varve/engine';
 import type { Document } from '@varve/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from '@varve/shared';
 import { useEffect, useRef } from 'react';
@@ -27,13 +27,16 @@ export function collectDocumentFontFaces(doc: Document): DocumentFontFace[] {
     family: string | undefined,
     weight: number | undefined,
     style: string | undefined,
+    fontReference: DocumentFontFace['fontReference'] | undefined,
   ): void => {
     const face: DocumentFontFace = {
       family: family ?? DEFAULT_ARTWORK_FONT_FAMILY,
       weight: weight ?? 400,
       style: style === 'italic' ? 'italic' : 'normal',
+      ...(fontReference ? { fontReference } : {}),
     };
-    faces.set(`${face.style}:${face.weight}:${face.family}`, face);
+    const reference = face.fontReference ? fontReferenceKey(face.fontReference) : '';
+    faces.set(`${face.style}:${face.weight}:${face.family}:${reference}`, face);
   };
   for (const node of Object.values(doc.nodes)) {
     if (node.kind !== 'text') continue;
@@ -42,7 +45,8 @@ export function collectDocumentFontFaces(doc: Document): DocumentFontFace[] {
     const family = node.fontFamily ?? textStyle?.fontFamily;
     const weight = node.fontWeight ?? textStyle?.fontWeight;
     const fontStyle = node.fontStyle ?? textStyle?.fontStyle;
-    add(family, weight, fontStyle);
+    const fontReference = node.fontReference ?? textStyle?.fontReference;
+    add(family, weight, fontStyle, fontReference);
     for (const paragraph of node.richText?.paragraphs ?? []) {
       for (const run of paragraph.runs) {
         // A run inherits whatever it does not override, so a bold run in an
@@ -51,6 +55,7 @@ export function collectDocumentFontFaces(doc: Document): DocumentFontFace[] {
           run.format?.fontFamily ?? family,
           run.format?.fontWeight ?? weight,
           run.format?.fontStyle ?? fontStyle,
+          run.format?.fontReference ?? fontReference,
         );
       }
     }
@@ -65,6 +70,7 @@ export function collectDocumentFontFaces(doc: Document): DocumentFontFace[] {
           run.format?.fontFamily ?? family,
           run.format?.fontWeight ?? weight,
           run.format?.fontStyle ?? fontStyle,
+          run.format?.fontReference ?? fontReference,
         );
       }
     }
@@ -75,7 +81,10 @@ export function collectDocumentFontFaces(doc: Document): DocumentFontFace[] {
 /** Stable identity of a face set, for skipping redundant prefetches. */
 export function documentFontFaceKey(faces: readonly DocumentFontFace[]): string {
   return faces
-    .map((face) => `${face.style}:${face.weight}:${face.family}`)
+    .map((face) => {
+      const reference = face.fontReference ? fontReferenceKey(face.fontReference) : '';
+      return `${face.style}:${face.weight}:${face.family}:${reference}`;
+    })
     .sort()
     .join('\0');
 }

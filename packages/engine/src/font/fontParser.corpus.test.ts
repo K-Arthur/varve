@@ -8,6 +8,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { extractFontCollectionMember } from './fontCollectionMember';
 import { parseFontCollection, parseFontData } from './fontParser';
 
 function bytes(path: string): ArrayBuffer {
@@ -50,6 +51,28 @@ describe('licensed real-font corpus', () => {
       new Set(['0ea773b2354098ccac1972147993c4d52c6b3cd1338e8bd56ebd0f5cbcd3eefd']),
     );
     expect(first.identity).toEqual(members[0]?.identity);
+  });
+
+  it('extracts a selected TTC member as a standalone face', async () => {
+    const collection = bytes('liberation-collection/liberation-sans-serif.ttc');
+    const member = await extractFontCollectionMember(collection, 1);
+    const metadata = await parseFontData(member);
+
+    expect(metadata.format).toBe('ttf');
+    expect(metadata.identity.familyName).toBe('Liberation Serif');
+    expect(metadata.identity.collectionIndex).toBeUndefined();
+    expect(member.byteLength).toBeLessThan(collection.byteLength);
+  });
+
+  it('rejects a collection member whose table span is outside the artifact', async () => {
+    const collection = bytes('liberation-collection/liberation-sans-serif.ttc');
+    const corrupted = collection.slice(0);
+    const view = new DataView(corrupted);
+    const memberOffset = view.getUint32(12);
+    // The first table directory entry's offset is at sfnt + 12 + 8.
+    view.setUint32(memberOffset + 12 + 8, corrupted.byteLength - 2);
+
+    await expect(extractFontCollectionMember(corrupted, 0)).rejects.toThrow(/outside the artifact/);
   });
 
   it.each([

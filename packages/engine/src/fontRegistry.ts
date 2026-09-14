@@ -13,8 +13,10 @@
  */
 
 import { invalidateCanvasTextMeasurements } from './canvasTextMeasurer';
+import { extractFontCollectionMember } from './font/fontCollectionMember';
 import type { FontReference, ParsedNamedInstance } from './font/fontIdentity';
 import { fontReferenceKey } from './font/fontIdentity';
+import { loadSystemFontFace } from './font/fontSystemBridge';
 
 export interface FontEntry {
   family: string;
@@ -76,7 +78,11 @@ export interface DocumentFontFace {
   family: string;
   weight?: number;
   style?: 'normal' | 'italic';
+  /** Exact original artifact/member when the document records one. */
+  fontReference?: FontReference;
 }
+
+const SYSTEM_FACE_LOAD_TIMEOUT_MS = 10_000;
 
 /**
  * Axis definitions for the variable fonts the desktop app bundles, read from
@@ -479,7 +485,8 @@ export class FontRegistry {
     const unique = new Map<string, DocumentFontFace>();
     for (const face of faces) {
       if (!face.family) continue;
-      const key = `${face.style ?? 'normal'}:${face.weight ?? 400}:${face.family}`;
+      const reference = face.fontReference ? fontReferenceKey(face.fontReference) : '';
+      const key = `${face.style ?? 'normal'}:${face.weight ?? 400}:${face.family}:${reference}`;
       if (!unique.has(key)) unique.set(key, face);
     }
     if (unique.size === 0) return;
@@ -488,8 +495,18 @@ export class FontRegistry {
     }
     await Promise.all(
       [...unique.values()].map(async (face) => {
+        const exactEntry = this.findDocumentFontEntry(face);
+        if (face.fontReference && !exactEntry) {
+          this.loadState.set(face.family, 'error');
+          return;
+        }
         const descriptor = `${face.style ?? 'normal'} ${face.weight ?? 400} 16px "${face.family.replaceAll('"', '\\"')}"`;
         try {
+          if (exactEntry?.source === 'system' && exactEntry.sourceHandle) {
+            await this.loadNativeSystemFace(exactEntry, face);
+            this.loadState.set(face.family, 'loaded');
+            return;
+          }
           const loadedFaces = await document.fonts.load(descriptor, 'BESbswy');
           const ready =
             loadedFaces.length > 0 ||
@@ -514,6 +531,15 @@ export class FontRegistry {
     if (!e) throw new Error(`Font "${family}" not registered`);
 
     const entries = e;
+
+    // Native enumeration returns opaque handles because a family name is not
+    // an identity. Read the exact artifact before attempting local(family),
+    // otherwise a same-family sibling can silently win the load.
+    const nativeEntry = entries.find((entry) => entry.source === 'system' && entry.sourceHandle);
+    if (nativeEntry) {
+      await this.loadNativeSystemFace(nativeEntry);
+      return;
+    }
 
     // For Google Fonts, inject a link element first
     const googleEntry = entries.find((f) => f.source === 'google' && f.url);
@@ -566,6 +592,58 @@ export class FontRegistry {
 
     // Wait for font to be ready
     await document.fonts.ready;
+  }
+
+  /** Find the registered face that can satisfy one document request. */
+  private findDocumentFontEntry(face: DocumentFontFace): FontEntry | undefined {
+    const entries = this.entries.get(face.family) ?? [];
+    if (face.fontReference) {
+      const key = fontReferenceKey(face.fontReference);
+      return entries.find((entry) => entry.faceKey === key);
+    }
+    return (
+      entries.find(
+        (entry) =>
+          entry.weight === (face.weight ?? 400) && entry.style === (face.style ?? 'normal'),
+      ) ?? entries.find((entry) => entry.source === 'system' && entry.sourceHandle)
+    );
+  }
+
+  /** Load an opaque native artifact and, for collections, only its requested member. */
+  private async loadNativeSystemFace(
+    entry: FontEntry,
+    requested?: DocumentFontFace,
+  ): Promise<void> {
+    if (typeof FontFace === 'undefined' || !document.fonts?.add) {
+      throw new Error('Exact system face unavailable: FontFace API is unsupported');
+    }
+    if (!entry.sourceHandle) {
+      throw new Error('Exact system face unavailable: refresh local fonts');
+    }
+    const artifact = await loadSystemFontFace(entry.sourceHandle);
+    if (!artifact) {
+      throw new Error('Exact system face unavailable: refresh local fonts');
+    }
+    const bytes = await extractFontCollectionMember(artifact, entry.collectionIndex ?? 0);
+    const weight = requested?.weight ?? entry.weight;
+    const style = requested?.style ?? entry.style;
+    const face = new FontFace(entry.family, bytes, {
+      weight: String(weight),
+      style,
+    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error('Exact system face load timed out; refresh local fonts')),
+          SYSTEM_FACE_LOAD_TIMEOUT_MS,
+        );
+      });
+      await Promise.race([face.load(), timeout]);
+      document.fonts.add(face);
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
   }
 
   /** Get the load state of a font family. */

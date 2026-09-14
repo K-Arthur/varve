@@ -45,4 +45,31 @@ describe('collectDocumentFontFaces', () => {
       ]),
     );
   });
+
+  it('keeps exact artifact members distinct and inherits the node reference', () => {
+    const first = { artifactHash: 'a'.repeat(64), collectionIndex: 0 };
+    const second = { artifactHash: 'b'.repeat(64), collectionIndex: 1 };
+    const node = makeTextNode('exact', 'Exact faces', {
+      fontFamily: 'Shared Family',
+      fontReference: first,
+      richText: {
+        paragraphs: [
+          {
+            runs: [
+              { text: 'one' },
+              { text: 'two', format: { fontReference: second, fontWeight: 700 } },
+            ],
+          },
+        ],
+      },
+    });
+    const doc = { ...createDocument('Exact font document'), nodes: { exact: node } };
+
+    expect(collectDocumentFontFaces(doc)).toEqual(
+      expect.arrayContaining([
+        { family: 'Shared Family', weight: 400, style: 'normal', fontReference: first },
+        { family: 'Shared Family', weight: 700, style: 'normal', fontReference: second },
+      ]),
+    );
+  });
 });

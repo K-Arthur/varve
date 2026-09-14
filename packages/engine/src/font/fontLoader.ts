@@ -18,6 +18,8 @@ import {
 } from './fontIdentity';
 import { parseFontData } from './fontParser';
 
+export { loadSystemFontFace } from './fontSystemBridge';
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export interface FontLoaderConfig {
@@ -101,16 +103,6 @@ export interface SystemFontFace {
   artifactHash?: string;
   collectionIndex?: number;
   faceKey?: string;
-}
-
-/** Load bytes for a native face returned by `enumerate_system_fonts`. */
-export async function loadSystemFontFace(handle: string): Promise<ArrayBuffer | null> {
-  if (!isTauri()) return null;
-  const { invoke } = await import('@tauri-apps/api/core');
-  const bytes = await invoke<number[] | null>('load_system_font', {
-    request: { handle },
-  });
-  return bytes ? Uint8Array.from(bytes).buffer : null;
 }
 
 function createTimeout(ms: number): Promise<never> {
