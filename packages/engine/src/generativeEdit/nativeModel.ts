@@ -98,7 +98,7 @@ export async function importNativeGenerativeModel(
   return invoke<NativeGenerativeModelStatus>('import_generative_edit_model', { path });
 }
 
-/** Run the production helper against a fixed masked fixture before enabling a model. */
+/** Run the production helper against a fixed masked fixture before considering a model. */
 export async function qualifyNativeGenerativeModel(): Promise<NativeGenerativeModelStatus> {
   if (!isTauriRuntime())
     throw new Error('Local diffusion models can only be qualified in the desktop app.');

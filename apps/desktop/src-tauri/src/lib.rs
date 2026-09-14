@@ -1723,16 +1723,24 @@ const GENERATIVE_MODEL_HANDLE: &str = "varve-diffusion-inpainting";
 const GENERATIVE_MODEL_PROFILE: &str = "sd15-inpainting-q4_0-v1";
 const GENERATIVE_MODEL_CUSTOM_PROFILE: &str = "custom-safe-inpainting-v1";
 const GENERATIVE_MODEL_METADATA_SUFFIX: &str = ".metadata.json";
-// Qualification is tied to the exact helper/runtime, backend, and target
-// platform. Older records did not carry that provenance and must be
-// re-qualified instead of being trusted on ARM, another OS, or after a helper
-// change.
-const GENERATIVE_MODEL_METADATA_SCHEMA_VERSION: u32 = 3;
+// The inexpensive masked fixture below is a compatibility/preflight probe,
+// not a release-quality qualification. Qualification is tied to the exact
+// helper/runtime, backend, and target platform. Older records did not carry
+// that provenance and must be re-qualified instead of being trusted on ARM,
+// another OS, or after a helper change.
+const GENERATIVE_MODEL_METADATA_SCHEMA_VERSION: u32 = 4;
 const GENERATIVE_MODEL_RUNTIME_ID: &str = "diffusion-rs-0.1.20";
 const GENERATIVE_MODEL_FILENAME: &str = "varve-diffusion-inpainting.gguf";
 const GENERATIVE_MODEL_DOWNLOAD_URL: &str = "https://huggingface.co/gpustack/stable-diffusion-v1-5-inpainting-GGUF/resolve/21491e4/stable-diffusion-v1-5-inpainting-Q4_0.gguf?download=true";
 const GENERATIVE_MODEL_DOWNLOAD_SIZE: u64 = 1_747_219_584;
 const GENERATIVE_MODEL_DOWNLOAD_SHA256: &str = "d157ce24483f0c999062da140eacebe8f3ed015e652723e31f6d39119b800c16";
+
+// A model may only become usable after the frozen real-photograph corpus has
+// been reviewed and its exact artifact hash has been intentionally promoted
+// here. Keeping this list empty is deliberate while the current SD 1.5
+// candidates fail prompt adherence. A local metadata file or a cheap red
+// pixel probe must never be able to self-certify a model for product use.
+const GENERATIVE_MODEL_QUALITY_CERTIFIED_CHECKSUMS: &[&str] = &[];
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -1753,8 +1761,11 @@ struct GenerativeModelMetadata {
     execution_backend: String,
     platform: String,
     architecture: String,
-    qualified: bool,
-    qualified_at: Option<u64>,
+    /// Passed the bounded runtime/prompt compatibility probe. This is not a
+    /// release-quality certificate; readiness also requires the allowlisted
+    /// reviewed artifact hash below.
+    preflight_qualified: bool,
+    preflight_qualified_at: Option<u64>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -1782,6 +1793,19 @@ fn generative_model_record_is_ready(
     checksum_sha256: &str,
     resource: &generative_resources::NativeResourceSnapshot,
 ) -> bool {
+    generative_model_record_matches_runtime(record, size_bytes, checksum_sha256, resource)
+        && record.preflight_qualified
+        && GENERATIVE_MODEL_QUALITY_CERTIFIED_CHECKSUMS
+            .iter()
+            .any(|certified| *certified == record.checksum_sha256)
+}
+
+fn generative_model_record_matches_runtime(
+    record: &GenerativeModelMetadata,
+    size_bytes: u64,
+    checksum_sha256: &str,
+    resource: &generative_resources::NativeResourceSnapshot,
+) -> bool {
     record.schema_version == GENERATIVE_MODEL_METADATA_SCHEMA_VERSION
         && record.model_handle == GENERATIVE_MODEL_HANDLE
         && matches!(
@@ -1794,7 +1818,6 @@ fn generative_model_record_is_ready(
         && record.execution_backend == resource.execution_backend
         && record.platform == resource.platform
         && record.architecture == resource.architecture
-        && record.qualified
 }
 
 fn generative_model_is_ready(
@@ -1850,7 +1873,7 @@ fn model_status_blocking(
                 let (size_bytes, checksum_sha256) = sha256_file(&path)?;
                 let record = read_generative_model_metadata(&path);
                 let record_matches_runtime = record.as_ref().is_some_and(|record| {
-                    generative_model_record_is_ready(
+                    generative_model_record_matches_runtime(
                         record,
                         size_bytes,
                         &checksum_sha256,
@@ -1866,16 +1889,35 @@ fn model_status_blocking(
                 });
                 let reason = if ready {
                     Some("The local model passed Varve's masked inpainting qualification.".into())
-                } else if record_matches_runtime && memory_available.is_none() {
+                } else if record_matches_runtime
+                    && record
+                        .as_ref()
+                        .is_some_and(|record| record.preflight_qualified)
+                    && !GENERATIVE_MODEL_QUALITY_CERTIFIED_CHECKSUMS
+                        .iter()
+                        .any(|certified| *certified == checksum_sha256)
+                {
+                    Some("The model passed the compatibility probe, but no reviewed real-photograph quality certificate is available for this model. Prompt-conditioned generation remains unavailable.".into())
+                } else if record_matches_runtime
+                    && record
+                        .as_ref()
+                        .is_some_and(|record| record.preflight_qualified)
+                    && memory_available.is_none()
+                {
                     Some(format!(
-                        "The model is qualified, but available memory could not be measured on this {}/{} device. Use Quick Cleanup or a smaller local model.",
+                        "The model passed compatibility validation, but available memory could not be measured on this {}/{} device. Use Quick Cleanup or a smaller local model.",
                         resource.platform, resource.architecture
                     ))
-                } else if record_matches_runtime && !memory_sufficient {
+                } else if record_matches_runtime
+                    && record
+                        .as_ref()
+                        .is_some_and(|record| record.preflight_qualified)
+                    && !memory_sufficient
+                {
                     let available_mib = memory_available.unwrap_or_default() / (1024 * 1024);
                     let required_mib = resource.required_memory_bytes.div_ceil(1024 * 1024);
                     Some(format!(
-                        "The model is qualified for this device, but only {available_mib} MiB is currently available and about {required_mib} MiB is required. Close memory-heavy apps or use Quick Cleanup."
+                        "The model passed compatibility validation, but only {available_mib} MiB is currently available and about {required_mib} MiB is required. Close memory-heavy apps or use Quick Cleanup."
                     ))
                 } else if record.is_some() {
                     Some("The model changed, was qualified on another runtime/device, or failed qualification. Validate it again before generation.".into())
@@ -2362,7 +2404,7 @@ impl Drop for GenerationCancellationGuard {
 
 fn write_generative_model_metadata(
     model_path: &std::path::Path,
-    qualified: bool,
+    preflight_qualified: bool,
 ) -> Result<(), String> {
     let (size_bytes, checksum_sha256) = sha256_file(model_path)?;
     let resource = generative_resources::snapshot(512, 512);
@@ -2383,8 +2425,8 @@ fn write_generative_model_metadata(
         execution_backend: resource.execution_backend.into(),
         platform: resource.platform.into(),
         architecture: resource.architecture.into(),
-        qualified,
-        qualified_at: qualified.then(unix_timestamp_seconds),
+        preflight_qualified,
+        preflight_qualified_at: preflight_qualified.then(unix_timestamp_seconds),
     };
     let bytes = serde_json::to_vec_pretty(&metadata)
         .map_err(|error| format!("Could not serialize model metadata: {error}"))?;
@@ -2402,9 +2444,9 @@ async fn qualify_generative_edit_model(
         let qualification_mask = options.mask.clone();
         let qualification_width = options.mask_w;
         let qualification_height = options.mask_h;
-        // Invalidate any earlier approval before starting. A cancellation,
-        // crash, or failed semantic check must never leave a stale qualified
-        // record for the same bytes.
+        // Invalidate any earlier preflight result before starting. A
+        // cancellation, crash, or failed semantic check must never leave a
+        // stale compatibility record for the same bytes.
         write_generative_model_metadata(&model_path, false)?;
         let result = generative_edit_blocking_with_requirement(app.clone(), options, false)?;
         if result.width != qualification_width || result.height != qualification_height {
@@ -2432,6 +2474,10 @@ async fn qualify_generative_edit_model(
             qualification_height,
             [238; 3],
         )?;
+        // This records only that the helper and prompt signal were compatible
+        // with the fixed probe. Product readiness still requires an exact
+        // hash in GENERATIVE_MODEL_QUALITY_CERTIFIED_CHECKSUMS after the
+        // reviewed photographic corpus has passed.
         write_generative_model_metadata(&model_path, true)?;
         model_status_blocking(&app)
     })
@@ -2955,6 +3001,7 @@ struct UpscaleImageOptions {
 /// The binary response remains the encoded image, while the event channel
 /// carries provenance for this specific request. Keeping the metadata out of
 /// the response body preserves the compact octet-stream IPC contract.
+#[derive(Debug)]
 struct UpscaleImageResult {
     bytes: Vec<u8>,
     execution_provider: String,
@@ -5263,14 +5310,19 @@ mod tests {
             execution_backend: "native-cpu".into(),
             platform: "linux".into(),
             architecture: "x86_64".into(),
-            qualified: true,
-            qualified_at: Some(1),
+            preflight_qualified: true,
+            preflight_qualified_at: Some(1),
         };
 
-        assert!(generative_model_record_is_ready(
+        assert!(generative_model_record_matches_runtime(
             &record, 42, "hash", &resource
         ));
-        assert!(generative_model_is_ready(&record, 42, "hash", &resource));
+        assert!(record.preflight_qualified);
+        assert!(
+            !generative_model_record_is_ready(&record, 42, "hash", &resource),
+            "a cheap compatibility probe must not unlock an uncertified model"
+        );
+        assert!(!generative_model_is_ready(&record, 42, "hash", &resource));
 
         let mut arm_resource = resource.clone();
         arm_resource.architecture = "aarch64";
