@@ -76,7 +76,7 @@ not accepted without a reproducible command or artifact.
 The audit contains the exact commands and outcomes, inspected screenshot and
 export paths, route support decisions, skipped checks with reasons, and the
 smallest next physical verification step. The frozen candidate code SHA is
-`614bc7a79ca60e047fd2bc3831d0e2bc41fa0ac0`; the evidence record commit ID is
-written into the audit after the final owned-path commit lands. Hardware
+`614bc7a79ca60e047fd2bc3831d0e2bc41fa0ac0`; the evidence record commit is
+`9015173920b40ea966976bd9c93fb01a6ee0119e`. Hardware
 promotion remains blocked until the Duet kit is run with normal security
 settings and its artifacts are reviewed.

@@ -7,7 +7,7 @@
 **Reference device:** Lenovo Chromebook Duet 11M889, 8 GB primary target — not attached
 **Candidate version:** `0.2.1`
 **Candidate code SHA (frozen):** `614bc7a79ca60e047fd2bc3831d0e2bc41fa0ac0` (master at the final evidence snapshot; build mode: `VITE_DEMO=1`, `pnpm --filter @varve/desktop build:try`)
-**Evidence record commit:** added by the final owned-path commit below; the shared `master` ref may advance independently
+**Evidence record commit:** `9015173920b40ea966976bd9c93fb01a6ee0119e`; the shared `master` ref may advance independently
 **Ownership:** [`chromeos-stage7-ownership.md`](../agents/chromeos-stage7-ownership.md)
 
 This is an integration and acceptance record, not a claim that a synthetic
