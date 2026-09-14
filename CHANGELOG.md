@@ -14,6 +14,26 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Frequency Separation and Liquify** — Two source-preserving raster
+  retouching workflows. Frequency Separation converts a raster layer into a
+  marked group of ordinary Tone and Detail layers; the render path recombines
+  them exactly (max 1 LSB per 8-bit channel, measured in the dialog), tone and
+  texture can be retouched independently with every existing tool, changing
+  the radius re-splits the current retouched state instead of discarding it,
+  and Flatten bakes the result. Liquify stores a bounded output→source
+  displacement field on the target and resamples it at render/export time, so
+  Push, Expand, Contract, Twirl, Restore, Smooth, and Freeze/Thaw stay
+  re-editable and reversible; one undo per stroke, no pixel bake. Both run
+  entirely on-device with no model, network, or new dependency.
+- **Ultra HDR gain-map JPEG sharing** — A scene-linear HDR master can now be
+  shared as an Ultra HDR gain-map JPEG (XMP `hdrgm` + GContainer directory and
+  ISO 21496-1 metadata in an MPF container). The base image is the stored SDR
+  rendition you reviewed, never a silent re-render, and an unapplied output
+  transform blocks export instead of drifting the SDR fallback. Varve verifies
+  the encoded file by decoding it again and reports the worst and p95
+  reconstruction error in stops; the range-bearing OpenEXR master remains the
+  authority. Display-linear exposure-fusion output reports that it has no extra
+  headroom instead of writing an identity map.
 - **Advanced typography and artistic text** — The Typography inspector now
   exposes face-aware OpenType values (including indexed and source-ranged
   settings where the shaping backend supports them), variable-font axes, a

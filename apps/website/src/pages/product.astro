@@ -125,15 +125,6 @@ import ClosingCTA from '../components/ClosingCTA.astro';
           On constrained hardware — including Chromebooks and 4&nbsp;GB machines — the browser build measures frame cost while you work and adapts: drags and zooms may preview at a reduced render scale, then restore full device resolution as soon as the gesture settles. Exports and saved files are always full fidelity. GPU acceleration is only used after a real adapter and device can be created, not because the browser advertises a feature; when it is unavailable the Canvas2D path is kept and the document is unchanged.
         </p>
         <p>
-          The same design avoids the failure modes people report in browser design tools. An
-          interaction preview is never the file and never stays blurry — settled frames and
-          exports return to full resolution. A discarded or reloaded tab is treated as
-          normal: recovery points are written while you edit, and identical automatic
-          backups are skipped, so persistence does not rewrite the same document on a
-          schedule. Images outside the visible area are not held at full resolution beyond
-          the <a href={sitePath('/docs/performance')}>documented memory budget</a>.
-        </p>
-        <p>
           AI-assisted operations are optional and on-device. Nothing is uploaded, core editing never requires a model download, and unsupported acceleration shows an honest unavailable state instead of silently switching to a server.
         </p>
         <p>

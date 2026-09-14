@@ -1,0 +1,95 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout title="Retouching: Frequency Separation and Liquify" description="Separate tone from texture, retouch each independently, then reshape raster content with a non-destructive, re-editable liquify field. Local to your machine.">
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Retouching
+      </nav>
+
+      <h1>Retouching: Frequency Separation and Liquify</h1>
+      <p class="feature-intro">
+        Two raster workflows that stay honest about what they are: an exact two-band
+        tone/texture split, and a brush-driven deformation stored as editable state
+        rather than baked pixels.
+      </p>
+
+      <section class="feature-section">
+        <h2>Frequency Separation</h2>
+        <p>
+          Split a raster layer into a tone/colour layer and a texture layer, retouch each
+          independently, and let Varve recombine them. The split is exact by construction
+          for flat content and within one 8-bit step per channel elsewhere — the dialog
+          shows the measured reconstruction error before you commit.
+        </p>
+        <ul>
+          <li>Radius is Gaussian sigma in layer pixels: zoom, preview scale, and export scale never change it.</li>
+          <li>Tone and texture are ordinary layers, so clone, heal, paint, masks, and layer effects all work on either band.</li>
+          <li>Change the radius later and Varve re-splits the current retouched state — your edits are not discarded.</li>
+          <li>Flatten bakes the recombined result into one layer whenever you want to move on.</li>
+        </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Liquify</h2>
+        <p>
+          Push, expand, contract, twirl, restore, and smooth raster content with a brush.
+          The deformation is stored as a bounded displacement field on the layer, so every
+          stroke stays re-editable, reversible, and exportable without accumulating
+          resampling blur.
+        </p>
+        <ul>
+          <li>Freeze and thaw protection keeps an area from moving; full protection is respected by every later stroke.</li>
+          <li>Pressure controls size and strength; push follows the pointer without drifting when you hold still.</li>
+          <li>Deform one component of a frequency separation, or the recombined composite so tone and texture stay aligned.</li>
+          <li>Reset, undo, and re-entry recover committed deformation instead of restarting from a flattened screenshot.</li>
+        </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Built for real texture, not just portraits</h2>
+        <p>
+          The same tools clean product shots, even out fabric and material texture, rescue
+          scanned artwork and paint surfaces, and correct local tone. There is no face
+          detection, no automatic smoothing, and no universal "correct" radius: you judge
+          the texture scale on your own content.
+        </p>
+      </section>
+
+      <section class="feature-section note">
+        <h2>No hidden AI, no hidden cost</h2>
+        <p>
+          Both workflows run entirely on your machine with no model download, cloud
+          inference, or network access. They operate in Varve's 8-bit working
+          representation; the precision contract is stated above and measured in the app
+          rather than implied. Freeze protection on a shared separation deformation is not
+          available in this version, and geometry-level vector liquify is a separate future
+          capability — the interface says so rather than silently rasterizing your vectors or text.
+        </p>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Shape the pixels without giving them up</h2>
+        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .feature-page h1 { font-size: clamp(2rem, 5vw, 2.5rem); font-family: var(--font-editorial); margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-intro { font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 3rem; }
+  .feature-section { margin-bottom: 3rem; }
+  .feature-section h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-section p, .feature-section li { color: var(--text-secondary); line-height: 1.7; }
+  .feature-section li + li { margin-top: 0.65rem; }
+  .note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
+  .feature-cta { border-top: 1px solid var(--border-default); padding-top: 2rem; }
+  .feature-cta h2 { color: var(--text-primary); margin-bottom: 1rem; }
+</style>
