@@ -83,3 +83,90 @@ test('uses a confirmed Object Selection candidate as an editable CAF mask', asyn
   await dialog.getByRole('button', { name: /^cancel$/i }).click();
   await expect(dialog).not.toBeVisible();
 });
+
+test('can launch Object Selection from the modal mask-source controls', async ({
+  page,
+}, testInfo) => {
+  await navigateToEditor(page);
+  await page
+    .locator('#file-import-input')
+    .setInputFiles(path.resolve('tests/e2e/fixtures/real-life-portrait.jpg'));
+  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 30_000 });
+
+  const inspector = page.locator('.editor__inspector-panel');
+  await inspector.getByRole('tab', { name: 'Adjustments' }).click();
+  const generativeSection = inspector.getByRole('button', {
+    name: 'Generative Edit',
+    exact: true,
+  });
+  if ((await generativeSection.getAttribute('aria-expanded')) !== 'true') {
+    await generativeSection.click();
+  }
+  await inspector.getByRole('button', { name: 'Open Generative Edit dialog' }).click();
+
+  const dialog = page.locator('dialog.varve-dialog--caf[open]');
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Start Object Selection' }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(
+    page.getByTestId('toolbar').getByRole('button', { name: 'Object Selection' }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  const canvas = page.getByTestId('editor-canvas');
+  await testInfo.attach('caf-object-selection-handoff', {
+    body: await canvas.screenshot(),
+    contentType: 'image/png',
+  });
+  await canvas.screenshot({ path: testInfo.outputPath('caf-object-selection-handoff.png') });
+});
+
+test('keeps the Object Selection handoff disabled after mask painting begins', async ({ page }) => {
+  await navigateToEditor(page);
+  await page
+    .locator('#file-import-input')
+    .setInputFiles(path.resolve('tests/e2e/fixtures/real-life-portrait.jpg'));
+  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 30_000 });
+
+  const inspector = page.locator('.editor__inspector-panel');
+  await inspector.getByRole('tab', { name: 'Adjustments' }).click();
+  const generativeSection = inspector.getByRole('button', {
+    name: 'Generative Edit',
+    exact: true,
+  });
+  if ((await generativeSection.getAttribute('aria-expanded')) !== 'true') {
+    await generativeSection.click();
+  }
+  await inspector.getByRole('button', { name: 'Open Generative Edit dialog' }).click();
+
+  const dialog = page.locator('dialog.varve-dialog--caf[open]');
+  const maskCanvas = dialog.locator('canvas.caf-dialog__mask-canvas');
+  await expect
+    .poll(() => maskCanvas.evaluate((canvas) => (canvas as HTMLCanvasElement).width))
+    .toBeGreaterThan(300);
+  await expect
+    .poll(() => maskCanvas.evaluate((canvas) => (canvas as HTMLCanvasElement).height))
+    .toBeGreaterThan(300);
+  await expect
+    .poll(() =>
+      maskCanvas.evaluate((canvas) => {
+        const rect = canvas.getBoundingClientRect();
+        return rect.width * rect.height;
+      }),
+    )
+    .toBeGreaterThan(10_000);
+  const bounds = await maskCanvas.boundingBox();
+  expect(bounds).not.toBeNull();
+  const y = bounds!.y + bounds!.height / 2;
+  const hitTarget = await page.evaluate(
+    ({ x, y: targetY }) => document.elementFromPoint(x, targetY)?.className ?? '',
+    { x: bounds!.x + bounds!.width * 0.5, y },
+  );
+  expect(hitTarget).toContain('caf-dialog__mask-canvas');
+  await page.mouse.move(bounds!.x + bounds!.width * 0.35, y);
+  await page.mouse.down();
+  await page.mouse.move(bounds!.x + bounds!.width * 0.65, y);
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+
+  await expect(dialog.getByRole('button', { name: 'Start Object Selection' })).toBeDisabled();
+  await expect(dialog.getByRole('button', { name: /clear paint/i })).toBeEnabled();
+});

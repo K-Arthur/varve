@@ -21,28 +21,26 @@
  */
 import { expect, test } from '@playwright/test';
 
-declare global {
-  interface Window {
-    __varvePerf?: {
-      fixtures: {
-        apply: (id: string) => Promise<{ ok: boolean }>;
-      };
-      camera: {
-        setZoom: (zoom: number) => void;
-      };
-      rasterLod: {
-        enable: () => void;
-        disable: () => void;
-        enabled: () => boolean;
-        diagnostics: () => {
-          residency: { residentTiles: number; residentBytes: number; evictions: number };
-          scheduler: { queued: number; running: number };
-        };
-      };
-      forceFullRedraw: () => void;
-    };
-  }
-}
+type RasterLodDiagnostics = {
+  residency: { residentTiles: number; residentBytes: number; evictions: number };
+  scheduler: { queued: number; running: number };
+};
+
+type RasterLodPerf = {
+  fixtures: {
+    apply: (id: string) => Promise<{ ok: boolean }>;
+  };
+  camera: {
+    setZoom: (zoom: number) => void;
+  };
+  rasterLod: {
+    enable: () => void;
+    disable: () => void;
+    enabled: () => boolean;
+    diagnostics: () => RasterLodDiagnostics;
+  };
+  forceFullRedraw: () => void;
+};
 
 async function openEditorWithFixture(page: import('@playwright/test').Page): Promise<void> {
   await page.goto('/?perf=1');
@@ -57,7 +55,10 @@ async function openEditorWithFixture(page: import('@playwright/test').Page): Pro
     .getByRole('button', { name: /create/i })
     .click();
   await page.locator('.layers-panel').waitFor({ timeout: 10000 });
-  const applied = await page.evaluate(() => window.__varvePerf?.fixtures.apply('paint-raster-lod'));
+  const applied = await page.evaluate(() => {
+    const perf = (window as Window & { __varvePerf?: RasterLodPerf }).__varvePerf;
+    return perf?.fixtures.apply('paint-raster-lod');
+  });
   expect(applied?.ok).toBe(true);
   // Wait for the fixture's raster layer to appear in the layers panel.
   await page
@@ -77,14 +78,18 @@ test('pyramid tiles are seam-free and parity-bounded at 25% zoom', async ({ page
   await openEditorWithFixture(page);
 
   // Park the camera at 25% zoom: L2 tiles, 4x minification.
-  await page.evaluate(() => window.__varvePerf?.camera.setZoom(0.25));
+  await page.evaluate(() => {
+    const perf = (window as Window & { __varvePerf?: RasterLodPerf }).__varvePerf;
+    perf?.camera.setZoom(0.25);
+  });
   await page.waitForTimeout(400);
 
   // Wait for the pyramid to generate the visible tiles.
   await page
     .waitForFunction(
       () => {
-        const d = window.__varvePerf?.rasterLod.diagnostics();
+        const perf = (window as Window & { __varvePerf?: RasterLodPerf }).__varvePerf;
+        const d = perf?.rasterLod.diagnostics();
         return !!d && d.residency.residentTiles > 0 && d.scheduler.queued === 0;
       },
       undefined,
@@ -96,16 +101,23 @@ test('pyramid tiles are seam-free and parity-bounded at 25% zoom', async ({ page
   await page.waitForTimeout(500);
 
   const pyramidShot = await screenshotCanvas(page);
-  const pyramidDiag = await page.evaluate(() => window.__varvePerf?.rasterLod.diagnostics());
+  const pyramidDiag = await page.evaluate(() => {
+    const perf = (window as Window & { __varvePerf?: RasterLodPerf }).__varvePerf;
+    return perf?.rasterLod.diagnostics();
+  });
 
   // Retained arm: disable the pyramid in both realms and force a full redraw.
   await page.evaluate(() => {
-    window.__varvePerf?.rasterLod.disable();
-    window.__varvePerf?.forceFullRedraw();
+    const perf = (window as Window & { __varvePerf?: RasterLodPerf }).__varvePerf;
+    perf?.rasterLod.disable();
+    perf?.forceFullRedraw();
   });
   await page.waitForTimeout(500);
   const retainedShot = await screenshotCanvas(page);
-  await page.evaluate(() => window.__varvePerf?.rasterLod.enable());
+  await page.evaluate(() => {
+    const perf = (window as Window & { __varvePerf?: RasterLodPerf }).__varvePerf;
+    perf?.rasterLod.enable();
+  });
 
   // In-page pixel analysis (both shots are PNG buffers).
   const metrics = await page.evaluate(
