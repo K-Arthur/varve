@@ -29,14 +29,15 @@ output = I × (1 − M) + E × M
 
 The Canvas2D engine implements this operation for raster effect-mask sources
 using premultiplied-alpha pixel compositing, including alpha/luminance,
-inversion, density, and missing-source-safe behavior. Structural scene replay
-uses the same operation for live scene-node and vector sources. The Effects inspector can
-author a live scene-node source (including text and groups), edit alpha versus
-luminance, density, feather, inversion, and coordinate space, and remove it in
-one undoable document update. Scene-node and vector sources share the
-serializable contract and dependency graph; the flat worker path is routed to
-structural replay for these bindings. A missing source remains an unmasked
-effect rather than making the owner transparent.
+inversion, density, feathering, and missing-source-safe behavior. Structural
+scene replay uses the same operation for scene-node, vector, and document-owned
+raster sources. The Effects inspector can author a live scene-node source
+(including text and groups), edit alpha versus luminance, density, feather,
+inversion, and coordinate space, and remove it in one undoable document update.
+Scene-node and vector sources share the serializable contract and dependency
+graph; the flat worker path is routed to structural replay for these bindings.
+A missing source remains an unmasked effect rather than making the owner
+transparent.
 
 ## Canonical schema and native interchange
 
@@ -143,15 +144,22 @@ then evaluates the same stages against that surface:
 The group surface and export bounds include conservative accumulated support for
 visible effects in the selected subtree. This prevents a portable raster
 boundary from cropping blur or displacement spill while leaving the source
-hierarchy editable. The live CanvasArea container path still has a separate
-implementation and its group-effect ordering/depth-blur limitations are
-documented in [Layer Effects](layer-effects.md); parity work must keep both
-paths on this staged contract.
+hierarchy editable. Live CanvasArea replay and structured export now call the
+same staged content/backdrop helper
+(`packages/editor/src/render/groupEffectStages.ts`), so every visible group
+layer blur and supported depth/spatial content effect is evaluated against the
+composited surface in both paths. Appearance effects still have owner-specific
+code because their alpha silhouettes and final blend operations differ. Group
+and frame content-stage masks use a synthetic surface item to keep
+scene-node/vector/raster coverage registered under translation, rotation,
+scale, and unlinked mask transforms.
 
 Effect masks on backdrop and appearance effects remain intentionally disabled
 in the Inspector until their mask-combination semantics are specified. An
 existing authored mask is retained for recovery but is not silently presented
-as rendered support.
+as rendered support. Content-stage masks are resolved on the live structural
+Canvas2D path and structured export/thumbnail replay through the shared
+`EffectMaskResolver`; the flat worker path remains ineligible for these scenes.
 
 Portable raster and composite surfaces validate their axis and area limits
 before constructing a backing store. If a content-effect extent or a later

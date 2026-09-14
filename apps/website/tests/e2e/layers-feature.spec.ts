@@ -27,6 +27,12 @@ test('Layers feature page communicates the supported handoff and stays within th
   await expect(visualContract).toBeVisible();
   await expect(visualContract).toContainText('Read the stack before you touch it');
   await expect(page.locator('.layer-demo__toolbar')).toContainText('Filter layers');
+  const fidelity = page.getByTestId('layers-fidelity-contract');
+  await expect(fidelity).toBeVisible();
+  await expect(fidelity).toContainText('Keep the editable source. Know what travels.');
+  await expect(fidelity.getByRole('heading', { name: 'Native documents' })).toBeVisible();
+  await expect(fidelity.getByRole('heading', { name: 'Portable appearance' })).toBeVisible();
+  await expect(fidelity.getByRole('heading', { name: 'Honest interchange' })).toBeVisible();
 
   const bounds = await page.evaluate(() => ({
     documentWidth: document.documentElement.scrollWidth,

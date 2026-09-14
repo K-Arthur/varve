@@ -52,7 +52,7 @@ serialization, and test paths are also present.
 | Raster / brush mask | `RasterMaskData` + document asset | paint/commit/remove | source-image, frame, and visual-leaf paths | structural Canvas2D fallback except source-image leaf IR alpha masks | mask tool and inspector | bounded PNG assets | PSD/background-removal paths | raster/SVG image mask, PDF raster fallback | asset, replay, E2E | complete for supported coordinate spaces |
 | Group/frame clipping | container-owned mask | create/release/reparent | nested structural replay | structural Canvas2D fallback | visible source/content labels | invariant repair on load | importer groups | native SVG where possible | transform, nesting, E2E | complete |
 | Effect spatial mask | adjustment-owned `mask` | mask CRUD | output-region compositing | structural Canvas2D fallback | Mask inspector | stable node references | format-dependent | rasterized boundary where needed | replay + E2E | complete |
-| Effect-local mask | `Effect.mask` + `EffectMaskBinding` | effect mask CRUD | raster effect stages + structural scene-node/vector replay | structural Canvas2D fallback | per-effect live source picker and parameters | additive JSON; deterministic effect IDs | source-dependent | smallest correct raster boundary | unit + inspector coverage; E2E pending | staged |
+| Effect-local mask | `Effect.mask` + `EffectMaskBinding` | effect mask CRUD | content-stage masks use the shared premultiplied replay; backdrop/appearance masks remain disabled | structural Canvas2D fallback | per-effect live source picker and parameters | additive JSON; deterministic effect IDs | source-dependent | smallest correct raster boundary | unit + inspector coverage; live/export E2E in progress | partial |
 | Explicit effect targets | `AdjustmentScope` stable IDs | scope mutation | target-only source replay | structural Canvas2D fallback | accessible target picker | clone/copy remap, missing-target filtering | not applicable | rasterized adjustment boundary | scope + replay + UI | complete for four scope modes |
 | Frame clipping intersection | `clipContent` + mask | existing frame commands | clip intersection | structural Canvas2D fallback | frame + mask sections | JSON | SVG/frame import | raster/PDF fallback | replay + E2E | complete |
 
@@ -214,6 +214,13 @@ The stage operation uses premultiplied-alpha coverage:
 Missing effect-mask sources are treated as an unavailable mask and do not make
 the owning content transparent.
 
+Effect-local masks keep the established engine compatibility ordering: feather
+is applied to the source coverage, density scales that coverage, and inversion
+then selects the complementary coverage. This is deliberately recorded here
+because node masks use the separate `renderEnhancedMask` path and its
+invert/feather/density contract; future unification must be a migration, not a
+silent pixel change in existing documents.
+
 Decisions (each was settled by the renderer's existing structure and is
 tested — see `replayScene.test.ts` and the E2E corpus):
 
@@ -308,8 +315,8 @@ post-processing path. Implemented in the live canvas
 | Raster mask (leaf image) | ✓ (engine `alphaMask`) | ✓ | ✓ via engine IR | ✓ | ✓ |
 | Vector mask on leaf shape/text | ✓ (`replayLeafMask`) | ✓ (`replayLeafMask`) | structural Canvas2D fallback | ✓ via Canvas2D | rasterized boundary |
 | Raster mask on leaf vector/text/table/path/raster | ✓ (`replayLeafMask`) | ✓ (`replayLeafMask`) | structural Canvas2D fallback | ✓ via Canvas2D | rasterized boundary |
-| Effect-local mask (raster) | ✓ (premultiplied stage) | ✓ | structural Canvas2D fallback | ✓ | rasterized boundary |
-| Effect-local mask (live node/vector) | ✓ structural replay | ✓ structural replay | structural Canvas2D fallback | ✓ via Canvas2D | rasterized boundary |
+| Effect-local mask (raster) | ✓ (content-stage premultiplied replay) | ✓ | structural Canvas2D fallback | ✓ | rasterized boundary |
+| Effect-local mask (live node/vector) | ✓ structural replay (content stage) | ✓ structural replay | structural Canvas2D fallback | ✓ via Canvas2D | rasterized boundary |
 | Brush mask (frame, container-local) | ✓ (alpha path) | ✓ | falls back | ✓ | ✓ `<mask>`+`<image>` |
 | Adjustment scope | ✓ | ✓ | falls back | ✓ | rasterized per boundary |
 | Spatial mask on adjustment | ✓ | ✓ | falls back | ✓ | rasterized per boundary |

@@ -111,17 +111,23 @@ as a claim about every renderer:
   mask authoring for those types (`effectSupportsMask`) and keeps an existing
   authored mask removable; a future implementation needs a declared
   mask-combination contract before enabling the control.
-- **The live canvas never resolves `scene-node`/`vector` effect masks**; only
-  export/thumbnail replay (`replayScene.ts` `EffectMaskResolver`) evaluates
-  them.
+- **Content-stage effect masks are now resolved by live structural replay and
+  export/thumbnail replay.** Scene-node, vector, and document-owned raster
+  sources share the engine's premultiplied cross-fade, coordinate-space
+  projection, feather, inversion, and density semantics. The flat worker path
+  remains ineligible for a visible effect mask, and missing sources preserve
+  the unmasked evaluated effect as the safe fallback.
 - **Skipped optional effects are silent in the engine and live renderer.**
   Allocation refusal, missing canvases, and failed pixel reads there fall
   through with no diagnostic channel; `filterCompositor`'s `onDiagnostic` hook
   has no production caller. Export rasterization is the exception: it now
   reports typed `pixel-budget-exceeded` / `surface-unavailable` /
   `encode-failed` diagnostics through `ExportSnapshot` and export warnings.
-- **Frame-owned effects evaluate the frame's own IR item before children**,
-  so an `innerShadow`/`layerBlur` on a frame does not see child pixels
-  (group flattening does).
+- **Frame-owned effects are evaluated on a bounded frame surface** after the
+  frame base and descendants are composited, so `layerBlur`, content-stage
+  masks, backdrop effects, and supported appearance effects see the same
+  frame-owned surface as a group. Allocation refusal falls back to source
+  replay; frame masks and appearance-stage effect masks retain the explicit
+  unsupported-mask policy above.
 
 Fixing these is tracked in `docs/audits/layer-fidelity-2026-09-13.md`.

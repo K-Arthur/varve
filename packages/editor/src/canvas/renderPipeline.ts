@@ -3,18 +3,11 @@ import {
   acquireMaskSurface,
   adjustmentsToFilters,
   applyAlphaSpread,
-  applyBackgroundBlurBackdrop,
-  applyChromaticAberration,
   applyFilterWithCompositing,
-  applyGlassMaterialBackdrop,
-  applyGlitch,
-  applyLayerBlur,
-  applySpatialBlur,
   applyStyleOverrides,
   buildInnerGlowImage,
   buildOuterGlowImage,
   CompositeCanvas,
-  computeScreenBounds,
   type Engine,
   type EngineColor,
   type SceneNode as EngineNode,
@@ -78,6 +71,12 @@ import {
   workerBitmapDelta,
 } from '../render/canvasRenderAdapter';
 import { admitWorkerImagePayload, workerSourceCapFor } from '../render/collectImageBitmaps';
+import {
+  applyGroupContentEffects,
+  compositeGroupBackdropEffect,
+  createEffectMaskResolver,
+  createGroupEffectTargetItem,
+} from '../render/groupEffectStages';
 import { scheduleSettledImageRefinement } from '../render/imageRefinement';
 import { decorateMockupIr, MockupSurfaceCache } from '../render/mockup/mockupIr';
 import { pathShapeInTextSpace } from '../render/pathTextGeometry';
@@ -1293,7 +1292,7 @@ export function renderContent(deps: RenderContentDeps): void {
           targetCtx as unknown as ReplayTarget,
           [item],
           undefined,
-          undefined,
+          resolveLiveEffectMask,
           replayImagePolicy,
           replayColorOptions,
         );
@@ -1527,7 +1526,49 @@ export function renderContent(deps: RenderContentDeps): void {
             }
             gCtx.restore();
 
+            const groupX = minX - effectPadding;
+            const groupY = minY - effectPadding;
             for (const effect of visibleGroupEffects) {
+              if (effect.type === 'backgroundBlur' || effect.type === 'glassMaterial') {
+                compositeGroupBackdropEffect(
+                  targetCtx,
+                  effect,
+                  gCanvas,
+                  groupX,
+                  groupY,
+                  groupWidth,
+                  groupHeight,
+                  n.opacity ?? 1,
+                );
+              }
+            }
+            // Content-stage effects must run against the composited group
+            // surface, in authored order within that stage. The shared helper
+            // also evaluates depth maps and every layer-blur entry.
+            applyGroupContentEffects(doc, gCanvas, visibleGroupEffects, {
+              effectMaskResolver: resolveLiveEffectMask,
+              effectTarget: createGroupEffectTargetItem(groupX, groupY, groupWidth, groupHeight),
+            });
+
+            for (const effect of visibleGroupEffects) {
+              // Backdrop and content stages were evaluated above. The loop
+              // below is deliberately appearance-only.
+              if (
+                effect.type === 'backgroundBlur' ||
+                effect.type === 'glassMaterial' ||
+                effect.type === 'layerBlur' ||
+                effect.type === 'depthBlur' ||
+                effect.type === 'gaussianBlur' ||
+                effect.type === 'fieldBlur' ||
+                effect.type === 'irisBlur' ||
+                effect.type === 'tiltShiftBlur' ||
+                effect.type === 'pathBlur' ||
+                effect.type === 'spinBlur' ||
+                effect.type === 'chromaticAberration' ||
+                effect.type === 'glitch'
+              ) {
+                continue;
+              }
               if (effect.type === 'outerGlow') {
                 const effectCanvas = document.createElement('canvas');
                 effectCanvas.width = gCanvas.canvas.width;
@@ -1620,119 +1661,6 @@ export function renderContent(deps: RenderContentDeps): void {
                   groupHeight,
                 );
                 targetCtx.restore();
-              } else if (effect.type === 'glassMaterial') {
-                // Glass material at group level: capture backdrop behind the group
-                // bounds, apply blur/tint/saturation/brightness/noise, and
-                // composite the processed backdrop clipped to the group area.
-                // This renders BEFORE the group content via the drawImage below.
-                const m = targetCtx.getTransform();
-                const gx = minX - effectPadding;
-                const gy = minY - effectPadding;
-                const screen = computeScreenBounds(m, gx, gy, groupWidth, groupHeight);
-                if (screen.w > 0 && screen.h > 0) {
-                  const blurPad = Math.ceil(effect.blur * 3);
-                  const padX = Math.ceil(Math.abs(blurPad * m.a));
-                  const padY = Math.ceil(Math.abs(blurPad * m.d));
-                  const capX = screen.x - padX;
-                  const capY = screen.y - padY;
-                  const capW = screen.w + padX * 2;
-                  const capH = screen.h + padY * 2;
-                  const cc = new CompositeCanvas({
-                    width: capW,
-                    height: capH,
-                    devicePixelRatio: 1,
-                    testCanvas: document.createElement('canvas'),
-                  });
-                  cc.captureSource(
-                    targetCtx.canvas as HTMLCanvasElement,
-                    capX,
-                    capY,
-                    capW,
-                    capH,
-                    0,
-                    0,
-                  );
-                  cc.applyBlur(effect.blur);
-                  applyGlassMaterialBackdrop(cc, capW, capH, effect);
-                  targetCtx.save();
-                  targetCtx.globalAlpha =
-                    ('opacity' in effect ? (effect as { opacity: number }).opacity : 1) *
-                    (n.opacity ?? 1);
-                  targetCtx.drawImage(
-                    cc.canvas as CanvasImageSource,
-                    0,
-                    0,
-                    capW,
-                    capH,
-                    gx - blurPad,
-                    gy - blurPad,
-                    groupWidth + blurPad * 2,
-                    groupHeight + blurPad * 2,
-                  );
-                  targetCtx.restore();
-                }
-              } else if (effect.type === 'backgroundBlur') {
-                const m = targetCtx.getTransform();
-                const gx = minX - effectPadding;
-                const gy = minY - effectPadding;
-                const screen = computeScreenBounds(m, gx, gy, groupWidth, groupHeight);
-                if (screen.w > 0 && screen.h > 0) {
-                  const blurPad = Math.ceil(effect.radius * 3);
-                  const padX = Math.ceil(Math.abs(blurPad * m.a));
-                  const padY = Math.ceil(Math.abs(blurPad * m.d));
-                  const capX = screen.x - padX;
-                  const capY = screen.y - padY;
-                  const capW = screen.w + padX * 2;
-                  const capH = screen.h + padY * 2;
-                  const cc = new CompositeCanvas({
-                    width: capW,
-                    height: capH,
-                    devicePixelRatio: 1,
-                    testCanvas: document.createElement('canvas'),
-                  });
-                  cc.captureSource(
-                    targetCtx.canvas as HTMLCanvasElement,
-                    capX,
-                    capY,
-                    capW,
-                    capH,
-                    0,
-                    0,
-                  );
-                  applyBackgroundBlurBackdrop(cc, capW, capH, effect.radius);
-                  targetCtx.save();
-                  targetCtx.drawImage(
-                    cc.canvas as CanvasImageSource,
-                    0,
-                    0,
-                    capW,
-                    capH,
-                    gx - blurPad,
-                    gy - blurPad,
-                    groupWidth + blurPad * 2,
-                    groupHeight + blurPad * 2,
-                  );
-                  targetCtx.restore();
-                }
-              } else if (
-                effect.type === 'gaussianBlur' ||
-                effect.type === 'fieldBlur' ||
-                effect.type === 'irisBlur' ||
-                effect.type === 'tiltShiftBlur' ||
-                effect.type === 'pathBlur' ||
-                effect.type === 'spinBlur'
-              ) {
-                try {
-                  const input = gCanvas.getImageData(0, 0, gCanvas.width, gCanvas.height);
-                  gCanvas.putImageData(applySpatialBlur(input, effect), 0, 0);
-                } catch {
-                  // Keep the unmodified group when a constrained canvas cannot
-                  // allocate a temporary pixel buffer.
-                }
-              } else if (effect.type === 'chromaticAberration') {
-                applyChromaticAberration(gCanvas, groupWidth, groupHeight, effect);
-              } else if (effect.type === 'glitch') {
-                applyGlitch(gCanvas, groupWidth, groupHeight, effect);
               } else if (effect.type === 'innerShadow') {
                 renderGroupInsetEffect(effect, gCanvas, renderScale, 'shadow');
               } else if (effect.type === 'innerGlow') {
@@ -1746,30 +1674,17 @@ export function renderContent(deps: RenderContentDeps): void {
               targetCtx.globalCompositeOperation = 'source-over';
             }
             targetCtx.globalAlpha = n.opacity ?? 1;
-            const layerBlur = visibleGroupEffects.find((effect) => effect.type === 'layerBlur');
-            if (layerBlur?.type === 'layerBlur' && layerBlur.radius > 0) {
-              applyLayerBlur(
-                targetCtx,
-                gCanvas,
-                layerBlur.radius,
-                minX - effectPadding,
-                minY - effectPadding,
-                groupWidth,
-                groupHeight,
-              );
-            } else {
-              targetCtx.drawImage(
-                gCanvas.canvas as CanvasImageSource,
-                0,
-                0,
-                gCanvas.canvas.width,
-                gCanvas.canvas.height,
-                minX - effectPadding,
-                minY - effectPadding,
-                groupWidth,
-                groupHeight,
-              );
-            }
+            targetCtx.drawImage(
+              gCanvas.canvas as CanvasImageSource,
+              0,
+              0,
+              gCanvas.canvas.width,
+              gCanvas.canvas.height,
+              minX - effectPadding,
+              minY - effectPadding,
+              groupWidth,
+              groupHeight,
+            );
             targetCtx.restore();
           }
         } else {
@@ -2027,6 +1942,24 @@ export function renderContent(deps: RenderContentDeps): void {
         }
       }
     }
+
+    // Structural replay is selected for any authored effect mask. Keep the
+    // scene/vector source resolver on the same live path as structured export;
+    // otherwise the engine's content-stage mask hook receives no pixels and
+    // silently paints the unmasked effect. Force the source subtree through
+    // the replay set because a matte may be outside the current dirty region.
+    const resolveLiveEffectMask = createEffectMaskResolver({
+      document: doc,
+      replayNode: (nodeId, maskTarget) => {
+        const previousForce = replayForceAll;
+        replayForceAll = true;
+        try {
+          replaySubtreeToCtx(nodeId, maskTarget as CanvasRenderingContext2D);
+        } finally {
+          replayForceAll = previousForce;
+        }
+      },
+    });
 
     function replaySubtree(
       nodeId: string,

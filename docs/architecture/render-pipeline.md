@@ -1,6 +1,6 @@
 # Render Pipeline Architecture
 
-**Updated:** 2026-09-07
+**Updated:** 2026-09-13
 
 > The maintained Canvas 2D lifecycle, coordinate, resource, export, portability, and
 > extension contract is [canvas2d-system.md](canvas2d-system.md). The target model is
@@ -166,6 +166,19 @@ Two invariants are load-bearing; violating either blanks part or all of the scen
    `buildCompositingDependencyGraph()` indexes node-mask and effect-mask source
    edges. A text or group edit outside a target's subtree therefore invalidates
    the target boundary as well as the source's own paint.
+
+5. **Container effects run on the authored surface, not on independent leaves.**
+   Groups and frames that need isolation, opacity, blend context, masks, or
+   effects are composited into a bounded surface before their fixed
+   backdrop → content → appearance stages run. Live Canvas2D replay and
+   structured export share the content/backdrop implementation in
+   `packages/editor/src/render/groupEffectStages.ts`; this keeps sequential
+   blur, depth/spatial effects, and content-stage masks from diverging between
+   the editor and a rasterized export. A visible effect mask makes the flat
+   worker path ineligible because its source dependency cannot be reconstructed
+   safely from the flat batch. Allocation refusal falls back to source replay
+   or an export diagnostic rather than persisting a degraded surface as
+   authored artwork.
 
 ## WebGPU Compositor (2026-07-11; ownership invert 2026-07-13)
 
