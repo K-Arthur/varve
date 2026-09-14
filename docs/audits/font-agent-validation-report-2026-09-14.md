@@ -397,3 +397,26 @@ diagnostics. The audit also reported the existing 14 dependency cycles,
 unstable-module ceiling/budget reports, and hub-budget warnings. No font
 diagnostic was emitted. This is the final repository-wide validation result for
 this shared worktree; focused font and toolbar checks remain green above.
+
+## Rich-range preview continuation — 2026-09-14
+
+The shared presentation-only preview controller now has a direct browser proof
+for the quick toolbar's most failure-prone case: a selected substring in a rich
+text node. The new test commits `fa7e450a3` and the evidence record
+[`font-rich-range-browser-evidence-2026-09-14.md`](./font-rich-range-browser-evidence-2026-09-14.md)
+verify that hovering an exact face changes only the active run, Escape restores
+the exact serialized runs, choosing the face commits only that range, and Undo
+restores the original runs. The rerun against the current checkout passed.
+
+```text
+CI=1 VARVE_E2E_PORT=1827 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 \
+npx playwright test tests/e2e/canvas/typography-editing.spec.ts \
+  --project=chromium --reporter=list --timeout=120000 --retries=0 \
+  -g "font preview and commit stay scoped"
+```
+
+Passed: **1 Chromium test** in 1.0 minute. The acceptance matrix row is recorded
+as Partial by `95f171aa0`; native WebKit, Windows WebView2, and macOS WKWebView
+captures remain platform dependencies. The compact toolbar geometry and
+light/dark/high-contrast visual evidence remain covered by the existing
+DPR 1/2/3 capture set.
