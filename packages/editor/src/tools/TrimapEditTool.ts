@@ -72,7 +72,11 @@ export class TrimapEditTool extends BaseTool {
     this.initTrimap(ctx);
   }
 
-  override onDeactivate(_ctx: ToolContext): void {
+  override onDeactivate(ctx: ToolContext): void {
+    // Trimap edits are a staged session. Apply deletes the entry after the
+    // document mask commits; every other exit path must discard it so Cancel
+    // or Escape cannot resurrect an un-applied edit when the tool is reopened.
+    if (this.nodeId) ctx.clearTrimapData?.(this.nodeId);
     this.initGeneration += 1;
     this.trimap = null;
     this.nodeId = null;
@@ -363,6 +367,7 @@ export class TrimapEditTool extends BaseTool {
   }
 
   private abortInvalidStroke(ctx: ToolContext, pointerId?: number): void {
+    const targetId = this.nodeId;
     if (this.trimapSnapshot && this.trimap) this.trimap.set(this.trimapSnapshot);
     if (pointerId !== undefined) ctx.releasePointerCapture(pointerId);
     if (this.trimap) {
@@ -375,6 +380,7 @@ export class TrimapEditTool extends BaseTool {
       );
     }
     ctx.abortTransaction();
+    if (targetId) ctx.clearTrimapData?.(targetId);
     this.lastPaintedSource = null;
     this.trimapSnapshot = null;
     this.strokeDirty = false;

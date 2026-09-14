@@ -9880,6 +9880,8 @@ export function EditorProvider({
 
       setTrimapData: bgRemoval.setTrimapData,
 
+      clearTrimapData: bgRemoval.clearTrimapData,
+
       // Logo geometry operations
       ...logoGeometry,
       // Logo project operations

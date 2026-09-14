@@ -519,6 +519,7 @@ export function buildToolContext(
     },
 
     getTrimapData: (nodeId) => e.getTrimapData(nodeId),
+    clearTrimapData: (nodeId) => e.clearTrimapData(nodeId),
     setTrimapPreview: (trimap, width, height, nodeId, expectedNode) => {
       const targetId = nodeId ?? s.selection[0];
       if (!targetId) return;

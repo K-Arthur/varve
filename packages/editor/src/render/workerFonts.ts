@@ -169,6 +169,7 @@ export async function adoptFontFacesDetailed(
   if (!set || typeof FontFace === 'undefined') return { families: [], faceKeys: [] };
   const failed = new Set<string>();
   const seen = new Set<string>();
+  const successful = new Set<string>();
   await Promise.all(
     faces.map(async (face) => {
       seen.add(face.family);
@@ -180,6 +181,7 @@ export async function adoptFontFacesDetailed(
         if (face.unicodeRange) descriptors.unicodeRange = face.unicodeRange;
         const loaded = await new FontFace(face.family, face.source, descriptors).load();
         set.add(loaded);
+        if (face.faceKey) successful.add(face.faceKey);
       } catch {
         // Unreachable or undecodable payload. The family stays on fallback in
         // this realm, so it is withheld from the adopted set and text using it

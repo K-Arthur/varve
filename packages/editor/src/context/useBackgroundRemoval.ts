@@ -64,6 +64,7 @@ export interface BackgroundRemovalAPI {
   cancelSubjectPicker: () => void;
   getTrimapData: (nodeId: NodeId) => { data: Uint8Array; width: number; height: number } | null;
   setTrimapData: (nodeId: NodeId, data: Uint8Array, width: number, height: number) => void;
+  clearTrimapData: (nodeId: NodeId) => void;
 }
 
 /**
@@ -725,6 +726,13 @@ export function useBackgroundRemoval(
     [trimapStoreRef],
   );
 
+  const clearTrimapData = useCallback(
+    (nodeId: NodeId) => {
+      trimapStoreRef.current.delete(nodeId);
+    },
+    [trimapStoreRef],
+  );
+
   return {
     removeBackground,
     cancelBackgroundRemoval,
@@ -743,5 +751,6 @@ export function useBackgroundRemoval(
     cancelSubjectPicker,
     getTrimapData,
     setTrimapData,
+    clearTrimapData,
   };
 }

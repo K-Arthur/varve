@@ -1328,6 +1328,7 @@ export interface EditorContextValue {
   cancelSubjectPicker: () => void;
   getTrimapData: (nodeId: NodeId) => { data: Uint8Array; width: number; height: number } | null;
   setTrimapData: (nodeId: NodeId, data: Uint8Array, width: number, height: number) => void;
+  clearTrimapData: (nodeId: NodeId) => void;
 
   // SAM2 segmentation
   applySam2Segmentation: (params: {

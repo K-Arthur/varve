@@ -60,6 +60,7 @@ describe('TrimapEditTool', () => {
       selection: ['img-1'],
       getNode: vi.fn(() => makeMockImageNode()),
       getTrimapData: vi.fn(() => null),
+      clearTrimapData: vi.fn(),
       setTrimapPreview: vi.fn(),
       commitTrimapEdit: vi.fn(),
       canvasToWorld: vi.fn((cx: number, cy: number) => ({ x: cx, y: cy })),
@@ -278,6 +279,17 @@ describe('TrimapEditTool', () => {
     const handled = tool.onKeyDown({ key: 'Escape' } as KeyboardEvent, ctx);
     expect(handled).toBe(true);
     expect(ctx.setTool).toHaveBeenCalledWith('select');
+  });
+
+  it('clears the staged trimap when the tool is cancelled', () => {
+    const tool = new TrimapEditTool();
+    const ctx = makeMinimalCtx();
+    (tool as any).nodeId = 'img-1';
+    (tool as any).trimap = createTestTrimap();
+
+    tool.onDeactivate(ctx);
+
+    expect(ctx.clearTrimapData).toHaveBeenCalledWith('img-1');
   });
 
   it('pen mode switches with keyboard 1/2/3', () => {

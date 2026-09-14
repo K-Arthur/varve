@@ -383,6 +383,8 @@ export interface ToolContext {
 
   /** Ephemeral trimap session (not persisted on Document). */
   getTrimapData?: (nodeId: string) => { data: Uint8Array; width: number; height: number } | null;
+  /** Discard an un-applied trimap session when the tool is cancelled/deactivated. */
+  clearTrimapData?: (nodeId: NodeId) => void;
   setTrimapPreview?: (
     trimap: Uint8Array,
     width: number,
