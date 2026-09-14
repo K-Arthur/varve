@@ -1,4 +1,4 @@
-import type { ContentAwareFillResult } from '../contentAwareFill';
+import type { ContentAwareFillResult } from '../contentAwareFill/types';
 
 /**
  * `remove` is the persisted operation name for Generative Subtract: the user
