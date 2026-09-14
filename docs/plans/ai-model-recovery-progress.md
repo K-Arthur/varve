@@ -167,7 +167,17 @@ Status: **complete**
 
 Model cards, state display, colorization/font UI states.
 
-Status: **pending**
+Status: **complete for Colorize (2026-09-13)**
+
+- One task-oriented Inspector surface with mode-specific controls only.
+- Real mask/reference file inputs, document-swatch palette selection, and an
+  explicit whole-image scope.
+- Quality maps to the preview model size; preview and apply agree.
+- Split-view comparator against the original source, real progress phases,
+  cancellation, stale-preview invalidation, and actionable errors.
+- Photo mode is disabled with a named readiness state until a verified model
+  is installed; deterministic modes never require a model or account.
+- Font detection has its own section (Phase 6).
 
 ---
 
@@ -175,7 +185,14 @@ Status: **pending**
 
 Integrity verification, HTTPS-only, hash validation.
 
-Status: **pending**
+Status: **complete for the model loader path**
+
+- Model bytes are verified against the manifest SHA-256 before use; corrupt
+  IndexedDB blobs are deleted and reported as unavailable.
+- Model acquisition remains `unavailable` until verified release assets exist;
+  no community checkpoint or empty/dummy artifact is substituted.
+- Photo inference runs locally; no image upload fallback exists.
+- Model binaries stay in IndexedDB/model storage, never localStorage.
 
 ---
 
@@ -183,7 +200,16 @@ Status: **pending**
 
 Fixture corpus + benchmarks.
 
-Status: **pending**
+Status: **partial (deterministic complete; photo blocked on the artifact)**
+
+- Deterministic CPU baseline: `packages/engine/src/colorization/colorization.bench.ts`.
+- Unit/integration coverage for tint, palette, transfer, harmonize, mask
+  resampling, alpha handling, DDColor preprocessing geometry, and cached-chroma
+  reconstruction.
+- Production Playwright workflow covers preview, comparator, apply, undo/redo,
+  and PNG export; the marketing page has its own browser checks.
+- DDColor visual/numerical parity against upstream PyTorch remains blocked
+  until a verified artifact exists.
 
 ---
 
@@ -191,7 +217,13 @@ Status: **pending**
 
 Registry, acquisition, inference, workflow tests.
 
-Status: **pending**
+Status: **complete for the implemented scope**
+
+- Engine: contract validation, stale identity, dispatch, algorithms, tensor
+  geometry, and reconstruction tests.
+- Editor: commit/staleness helper and ColorizeSection control tests.
+- E2E: `tests/e2e/canvas/colorize.spec.ts` runs the production workflow and
+  exported-file checks. Model-dependent integration tests remain gated.
 
 ---
 
@@ -199,7 +231,14 @@ Status: **pending**
 
 Update model registry docs, architecture docs, attributions.
 
-Status: **pending**
+Status: **complete**
+
+- `docs/architecture/colorization-system.md` records controls, contracts,
+  research decisions, failure-informed choices, and verification status.
+- `tools/ddcolor-export/README.md` and `models-source/README.md` record the
+  official conversion route and the current artifact state.
+- Website feature/docs pages describe the deterministic workflows and the
+  honest photo-model boundary.
 
 ---
 
@@ -207,13 +246,18 @@ Status: **pending**
 
 Milestone-based commits and pushes.
 
-Status: **pending**
+Status: **in progress (master; model-gated lane still blocked)**
+
+- `e0d2ccf66` engine consolidation; `b9074c159` editor workflow;
+  `a08fc2e0a` docs/website; `3de2103b2` DDColor input contract and approved
+  chroma reuse; `bf38dc91e` comparator coverage and changelog.
+- No push of model assets: none are verified.
 
 ---
 
 ## Files Changed
 
-TBD
+See the commits above and `git log -- packages/engine/src/colorization`.
 
 ## Risks
 
