@@ -38,11 +38,30 @@ agent work; this task stages only the files below).
 - Frequency separation persists as two ordinary raster layer children inside a
   group marker `frequencySeparation = { version, method, radius, lowNodeId,
   highNodeId }`. The high band is the signed residual encoded as
-  `E = round(H/2 + 127.5)`; decode `H' = 2E − 255`. Declared reconstruction
+  `E = clamp(round(H/2) + 128)`; decode `H' = 2(E − 128)`. Declared reconstruction
   tolerance: `max |R − I| ≤ 1` channel LSB (8-bit working representation).
-- Liquify persists as a bounded displacement field on the raster node in
-  normalized layer units; the field is resampled during IR build, never baked
-  into source tiles. Output→source inverse mapping is defined here:
-  `output(x) = sample(source, x + D(x))`.
-- Both features are decoded/applied at the `flattenSceneToEngine` boundary so
-  canvas, worker, thumbnails, and export agree by construction.
+  Decode happens at band conversion in `sceneNodeToEngineNode`, so every
+  render/export path shares it; bands carry a validated O(1) role reference.
+- Liquify persists as a bounded displacement field on the raster node (or the
+  separation group) in reference pixel units; the field is resampled during IR
+  build, never baked into source tiles. Output→source inverse mapping is
+  defined here: `output(x) = sample(source, x + D(x))`.
+- Both features are decoded/applied at the `flattenSceneToEngine` /
+  `sceneNodeToEngineNode` boundary so canvas, worker, thumbnails, and export
+  agree by construction.
+
+## Status — 2026-09-13
+
+Implemented, tested, and visually verified on `master`:
+
+| Commit | Content |
+|---|---|
+| `d6540af8e` | Engine liquify field/warp + frequency-separation math, plan, ownership |
+| `0e1796dfb` | Architecture doc, CHANGELOG, website feature page |
+| `699a0bb65` | Band-level decode fix, roles, clone remap, perf fixture, IR tests, E2E specs |
+
+Verification: 167 focused unit tests across engine/scene/editor; 3 Playwright
+tests green with in-page pixel oracles (separation identity, re-split, liquify
+undo/redo); audits (biome staged, emoji, docs, health, secrets, boundaries)
+clean. Full `pnpm verify:affected` is pending until the shared `node_modules`
+install settles (pnpm currently aborts non-TTY module-dir purges).

@@ -213,3 +213,46 @@ The composition order is fixed and testable:
   feature introduces a new async asset type.
 - Cancellation restores the pre-session state: `abortTransaction` on
   Escape/pointer cancel/tool switch; the dialog's Cancel mutates nothing.
+
+## 6. Verification
+
+| Invariant | Where it is held |
+|---|---|
+| Unedited reconstruction ≤ 1 LSB/channel, flat content exact | engine FS tests, scene ops tests, dialog readout |
+| Editing tone/detail affects only that band | engine + scene tests; E2E pixel oracle |
+| Hidden sibling falls back to the visible band's own pixels | `sceneToEngine.test.ts` |
+| Re-split preserves the current composite | scene test + E2E |
+| Flatten bakes the decode and drops the marker | scene test |
+| Marker/bands survive serialize → decode (no raster bytes moved) | scene codec round-trip test |
+| Duplicate remaps band references | scene clone test + role remap |
+| Liquify identity is a bit-exact no-op | engine warp test |
+| Push direction, expand/contract, twirl sign, restore, smooth | engine brush tests |
+| Freeze fully protects; thaw frees | engine tests (fully-frozen field is identity) |
+| Stationary push cannot drift | engine test |
+| Undo restores the exact source frame; redo re-applies | E2E in-page pixel oracle |
+| IR warp is identical across canvas/worker/export | conversion happens in `sceneNodeToEngineNode` |
+
+Run the suites with:
+
+```bash
+npx vitest run packages/engine/src/frequencySeparation.test.ts \
+  packages/engine/src/liquify/__tests__/liquify.test.ts \
+  packages/scene/src/__tests__/frequencySeparation.test.ts \
+  packages/editor/src/render/sceneToEngine.test.ts
+VARVE_E2E_PORT=1452 npx playwright test \
+  tests/e2e/canvas/frequency-separation.spec.ts \
+  tests/e2e/canvas/liquify.spec.ts --project=chromium
+```
+
+## 7. Known limits
+
+- 8-bit working representation only; the last LSB of a residual is the
+  documented price of that choice.
+- Gaussian method only.
+- Freeze protection is available on raster-layer targets; a frequency
+  separation group accepts deformation without freeze (stated in the tool).
+- No frame-time benchmark yet for the full-resolution decode/warp passes;
+  caches bound repeated cost but a cold pass on a very large layer is a
+  visible pause.
+- Vector/text liquify and geometry-level deformation of curved paths are out
+  of scope for this system.

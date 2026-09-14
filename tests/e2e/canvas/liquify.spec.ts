@@ -102,7 +102,7 @@ async function openEditorWithRetouchFixture(page: Page): Promise<void> {
 }
 
 test.describe('liquify', () => {
-  test('a push drag deforms, undo restores, and redo re-applies', async ({ page }) => {
+  test('a push drag deforms, undo restores, and redo re-applies', async ({ page }, testInfo) => {
     await openEditorWithRetouchFixture(page);
     await installPixelProbe(page);
     await page
@@ -139,6 +139,10 @@ test.describe('liquify', () => {
     await page.waitForTimeout(400);
     const deformed = await capture(page);
     const deformation = await diff(page, before, deformed);
+    await testInfo.attach('liquify-deformed', {
+      body: await page.getByTestId('editor-canvas').screenshot(),
+      contentType: 'image/png',
+    });
     // The artwork must visibly change where the brush moved.
     expect(deformation.mean).toBeGreaterThan(0.2);
     expect(deformation.max).toBeGreaterThan(50);

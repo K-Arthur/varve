@@ -114,7 +114,7 @@ async function openEditorWithRetouchFixture(page: Page): Promise<void> {
 test.describe('frequency separation', () => {
   test('applying separation is visually identical and undo restores the layer', async ({
     page,
-  }) => {
+  }, testInfo) => {
     await openEditorWithRetouchFixture(page);
     await installPixelProbe(page);
     await page
@@ -124,6 +124,10 @@ test.describe('frequency separation', () => {
       .click();
     await page.waitForTimeout(500);
     const before = await capture(page);
+    await testInfo.attach('fs-before', {
+      body: await page.getByTestId('editor-canvas').screenshot(),
+      contentType: 'image/png',
+    });
 
     await runPaletteAction(page, 'Frequency Separation', /Frequency Separation/);
     const dialog = page.getByRole('dialog', { name: /Frequency Separation/i });
@@ -151,6 +155,10 @@ test.describe('frequency separation', () => {
     await page.waitForTimeout(400);
     const after = await capture(page);
     const metrics = await diff(page, before, after);
+    await testInfo.attach('fs-after', {
+      body: await page.getByTestId('editor-canvas').screenshot(),
+      contentType: 'image/png',
+    });
     // Reconstruction is exact within 1 LSB/channel; rendering may add isolated
     // antialias differences at hard edges, but the image must not change.
     expect(metrics.mean).toBeLessThan(0.5);

@@ -20,16 +20,34 @@ Status: in progress (2026-09-13). Canonical architecture doc lands at
 ## Milestones
 
 - **A — shared substrate**: liquify field/brush + warp sampler in engine; FS
-  math in engine; tests. (this commit)
+  math in engine; tests. **Done** (commit `d6540af8e`, 30 unit tests).
 - **B — frequency separation**: scene ops, group marker + codec/clone/validation,
-  IR decode + cache, dialog + command + inspector, E2E, export check.
+  IR decode + cache, dialog + command, E2E. **Done.**
 - **C — liquify**: field persistence on raster node, IR warp, tool + overlay,
-  freeze/thaw, undo, E2E.
-- **D — combined**: FS + liquify composition ordering test; save/reopen;
-  source replacement; deletion/unlink behavior.
-- **E — performance/docs**: benchmark, docs, website feature pages, screenshots.
+  freeze/thaw, undo, E2E. **Done.**
+- **D — combined**: FS + liquify composition ordering, save/reopen codec
+  round-trip, duplicate remap, deletion fallback. **Done** (scene + IR tests).
+- **E — performance/docs**: bounded render caches, fixture corpus, docs,
+  website page. **Done.** A dedicated frame-time benchmark remains open.
+
+## Verification record (2026-09-13)
+
+| Layer | Evidence |
+|---|---|
+| Engine math | `packages/engine/src/frequencySeparation.test.ts` (tolerance, alpha, flat/exact, extremes); `packages/engine/src/liquify/__tests__/liquify.test.ts` (identity, direction, freeze, dt normalization, bounds, validation). |
+| Scene ops | `packages/scene/src/__tests__/frequencySeparation.test.ts` (create/reconstruct/re-split/flatten/delete/duplicate/codec round-trip/band warp). |
+| IR boundary | `packages/editor/src/render/sceneToEngine.test.ts` (band decode, hidden-sibling fallback, liquify warp in IR). |
+| Real canvas | `tests/e2e/canvas/frequency-separation.spec.ts` (in-page pixel oracle: separation identity, undo, re-split), `tests/e2e/canvas/liquify.spec.ts` (drag deforms, undo exactly restores, redo re-applies). All green 2026-09-13. |
+| Audits | biome staged check, audit:emoji, audit:docs, audit:health --staged, secret-scan --staged, import-boundaries — all clean. |
+
+Known environment note: `pnpm` script execution is currently blocked on this
+machine by `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY` (a concurrent
+`node_modules` rebuild), so staged checks and E2E were run through the local
+binaries (`node_modules/.bin/*`, `npx`) instead of the `pnpm` wrapper. Full
+`pnpm verify:affected` remains to be run once the workspace install settles.
 
 ## Explicitly deferred
 
 Median/bilateral decomposition modes, wavelet multiband, vector/text liquify,
-symmetry, reusable deformation maps, GPU shaders.
+symmetry, reusable deformation maps, GPU shaders, freeze on group targets,
+and a dedicated liquify/FS frame-time benchmark.
