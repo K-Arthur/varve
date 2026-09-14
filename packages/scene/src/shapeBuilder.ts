@@ -1528,14 +1528,21 @@ export function applyShapeBuilderAction(
         break;
       }
     }
-    for (let index = 0; index < outputRegions.length; index++) {
+    // Merge follows the documented “one editable compound output”: all selected
+    // components become contours of a single node. Create, Extract, and Divide
+    // keep one node per component so disconnected results stay independently
+    // editable.
+    const outputBatches =
+      action === 'merge' ? [outputRegions] : outputRegions.map((region) => [region]);
+    let outputOffset = 0;
+    for (const batch of outputBatches) {
       const allocation = nextNodeId(nextDoc);
       nextDoc = allocation.doc;
       const output = makeOutputNode(
         styleSource.node,
         allocation.id,
         action === 'create' ? 'Shape Builder result' : `Shape Builder ${action}`,
-        [outputRegions[index]!],
+        batch,
         inverseParent,
         styleSource,
       );
@@ -1544,10 +1551,11 @@ export function applyShapeBuilderAction(
         nextDoc,
         allocation.id,
         anchor.parentId,
-        outputIndex + index,
+        outputIndex + outputOffset,
         IDENTITY,
       );
       createdNodeIds.push(allocation.id);
+      outputOffset += 1;
     }
   }
 

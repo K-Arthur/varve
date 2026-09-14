@@ -42,11 +42,13 @@ HMR reloads during this session cannot invalidate the run. A failed Node Edit
 step attributable to an unrelated full-page reload is recorded as such and
 rerun, not hidden.
 
-## Known remaining gap (recorded, not fixed here)
+## Contract gap resolved
 
 The product contract says Merge produces “one editable compound output”.
-`applyShapeBuilderAction` currently emits one node per selected component for
-Merge, which makes Merge and Extract indistinguishable for disconnected
-selections. Fixing it requires editing the concurrently-owned
-`shapeBuilder.ts`, so it is deliberately deferred with this evidence rather
-than conflicting with the in-flight placement work.
+`applyShapeBuilderAction` originally emitted one node per selected component
+for Merge, making Merge and Extract indistinguishable for disconnected
+selections. Merge now emits a single node containing every selected component
+as a contour; Create, Extract, and Divide keep one node per component. The
+disconnected fixture in `shapeBuilder.degeneracy.test.ts` asserts the
+distinction, and the full focused shape-builder matrix passed 47/47 after the
+change.

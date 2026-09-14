@@ -274,13 +274,14 @@ not attributed to Shape Builder.
 - Measurements taken during this continuation were under load average ≈ 25–30
   from concurrent agent suites; they are identified as contaminated and no
   timing comparison is claimed from them.
-- Known remaining gap (recorded in
-  `docs/agents/shape-building-2026-09-13-ownership.md`): the contract says
-  Merge yields one editable compound output, while the current
-  `applyShapeBuilderAction` emits one node per component, making Merge and
-  Extract indistinguishable for disconnected selections. `shapeBuilder.ts`
-  had a concurrent uncommitted editor during this session, so the fix is
-  deferred rather than merged over in-flight work.
+- Known remaining gap: **resolved**. The contract says Merge yields one
+  editable compound output, while `applyShapeBuilderAction` used to emit one
+  node per component, making Merge and Extract indistinguishable for
+  disconnected selections. Merge now creates a single node whose contours are
+  every selected component; Create, Extract, and Divide keep one node per
+  component. The connected-disconnected fixture in
+  `shapeBuilder.degeneracy.test.ts` covers the distinction (47/47 focused
+  tests passed after the change).
 
 ### 2026-09-13 continuation receipt — real-UI verification and repairs
 

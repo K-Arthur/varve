@@ -15,9 +15,9 @@ Apply creates one undoable document transaction.
 
 | Action | Result |
 | --- | --- |
-| Merge | Creates editable result component(s) from the selected filled regions and removes the selected sources. Internal selected boundaries disappear. Untouched source areas remain in source remainders. Disconnected components remain separate objects. |
+| Merge | Creates one editable compound node from the selected filled regions and removes the selected sources. Internal selected boundaries disappear; disconnected components become additional contours of the same node rather than separate layers. Untouched source areas remain in source remainders. |
 | Erase | Removes the selected areas from participating sources. Unrelated source regions and unselected objects remain. Empty remainders are removed. |
-| Extract | Creates editable output for the selected connected result while preserving unrelated source regions according to the source-remainder policy. |
+| Extract | Creates one editable node per selected connected component and removes those areas from their sources according to the source-remainder policy. |
 | Create | Creates an editable result and retains the original sources. The result intentionally overlaps them and is not a live recipe. |
 | Divide | Creates separate editable output components for the selected regions without fabricating a segment between disconnected components. |
 

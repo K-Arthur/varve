@@ -432,4 +432,44 @@ describe('Shape Builder degeneracy and fill-rule fixtures', () => {
     expect(extracted.doc.nodes.a).toBeDefined();
     expect(extracted.doc.nodes.b).toBeDefined();
   });
+
+  it('emits one compound node for Merge and separate nodes for Extract', () => {
+    const disconnected = rectDoc([
+      ['left', { x: 0, y: 0, w: 20, h: 20 }],
+      ['right', { x: 100, y: 0, w: 20, h: 20 }],
+    ]);
+    const mergeModel = buildShapeBuilderModel(disconnected, ['left', 'right']);
+    const selected = mergeModel.faces.filter((face) => face.selectable).map((face) => face.id);
+    const merged = applyShapeBuilderAction(disconnected, ['left', 'right'], selected, 'merge', {
+      expectedRevision: mergeModel.revision,
+    });
+    expect(merged.ok).toBe(true);
+    if (!merged.ok) return;
+    expect(merged.createdNodeIds).toHaveLength(1);
+    expect(Object.keys(merged.doc.nodes)).toHaveLength(1);
+    const mergedNode = merged.doc.nodes[merged.createdNodeIds[0]!];
+    expect(mergedNode?.kind).toBe('shape');
+    if (mergedNode?.kind === 'shape' && mergedNode.shape.kind === 'path') {
+      expect(mergedNode.shape.contours).toHaveLength(2);
+      expect(mergedNode.shape.points).toEqual(mergedNode.shape.contours?.[0]);
+    }
+
+    const extractModel = buildShapeBuilderModel(disconnected, ['left', 'right']);
+    const extracted = applyShapeBuilderAction(
+      disconnected,
+      ['left', 'right'],
+      extractModel.faces.filter((face) => face.selectable).map((face) => face.id),
+      'extract',
+      { expectedRevision: extractModel.revision },
+    );
+    expect(extracted.ok).toBe(true);
+    if (!extracted.ok) return;
+    expect(extracted.createdNodeIds).toHaveLength(2);
+    for (const id of extracted.createdNodeIds) {
+      const node = extracted.doc.nodes[id];
+      if (node?.kind === 'shape' && node.shape.kind === 'path') {
+        expect(node.shape.contours).toHaveLength(1);
+      }
+    }
+  });
 });
