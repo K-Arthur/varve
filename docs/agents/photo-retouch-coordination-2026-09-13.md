@@ -71,3 +71,25 @@ there:
 
 Neither file was being edited by another writer at the time of the change.
 
+## Retouch ownership landed and verified (2026-09-13, late)
+
+The concurrent retouch owner stopped at 17:34 and left the implementation
+uncommitted. At the user's direction this session verified and integrated it:
+
+- Unit footprint: 98 tests across 11 files (retouch tools, sampling scopes and
+  transforms, overlay store, scene clone/retouch persistence) — all pass.
+- Frozen-build Chromium: three retouch E2E flows pass in 2.9 min — Healing
+  Brush painting, Spot Heal + Patch persistence with undo/redo/save/reopen/
+  export, and Clone Stamp target safety (locked and non-pixel refusals, layer
+  count unchanged, source marker and target badge visible, painting changes the
+  photograph).
+- Inspected evidence: `reports/ui-review/retouch/05-target-safety.png` shows
+  the `Retouching: Repair layer` badge, the source crosshair, and no fabricated
+  layer.
+- Integration commit: `76ff29d66` (explicit path list; 22 files). No unrelated
+  staged work was included.
+- Typecheck: no errors in any retouch file. Editor-wide typecheck still reports
+  17 errors and scene 1 error in other agents' uncommitted files, unchanged by
+  this work and outside this commit.
+
+

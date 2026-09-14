@@ -75,11 +75,13 @@ audited only where they bound this slice.
     undo the document transaction is recorded as a shortcut-policy follow-up
     rather than changed in this pass.
 
-Verification note: items 1, 2, 3, 4, and the tool-side half of 6 are owned by
+Verification note: items 1, 2, 3, 4, and the tool-side half of 6 were owned by
 a concurrent agent working in the same worktree (see
-`docs/agents/photo-retouch-coordination-2026-09-13.md`); this session
-committed item 7 and the histogram half of item 8, recorded their evidence,
-and deliberately did not duplicate the owner's tool files.
+`docs/agents/photo-retouch-coordination-2026-09-13.md`). That owner stopped
+with the work uncommitted; this session verified it (98 unit tests, three
+frozen-build E2E flows, screenshots inspected) and integrated it as
+`76ff29d66`. This session separately committed item 7, the histogram half of
+item 8, and items 9 and 10.
 
 ## Surface-consistency verification (this pass, source inspection)
 
@@ -126,18 +128,18 @@ and deliberately did not duplicate the owner's tool files.
 | Capability | Entry point | Current status | Evidence | Remaining action |
 | --- | --- | --- | --- | --- |
 | Clone source set on Alt-click | Retouch toolbar | working | E2E `retouch-tools.spec.ts`, unit tests | Keep |
-| Clone source marker visible | canvas overlay | broken before this pass (component existed, never rendered) | code inspection | Wire + visual proof |
-| Write-target safety with non-pixel selection | retouch tools | broken before this pass | code inspection + new tests | Fixed |
-| No layer creation during source-only click | retouch tools | broken before this pass | code inspection + new tests | Fixed |
-| Current-layer sampling | Sampling scope: Current raster layer | working | unit tests | Keep |
-| Current-and-below sampling | Sampling scope | missing | code inspection | Added |
-| All-visible raster-layer sampling in paint order | Sampling scope: Current and visible raster layers | partial (insertion order, hidden ancestors included) | code inspection | Fixed for raster layers; vector/group/effect/transform boundaries documented |
+| Clone source marker visible | canvas overlay | broken before this pass (component existed, never rendered) | E2E asserts marker and badge; `05-target-safety.png` inspected | Fixed and integrated (`76ff29d66`) |
+| Write-target safety with non-pixel selection | retouch tools | broken before this pass | code inspection + E2E locked/non-pixel refusals with layer count unchanged | Fixed and integrated (`76ff29d66`) |
+| No layer creation during source-only click | retouch tools | broken before this pass | code inspection + tests | Fixed and integrated (`76ff29d66`) |
+| Current-layer sampling | Sampling scope: Current layer | working | unit tests | Keep |
+| Current-and-below sampling | Sampling scope: Current and below | missing | unit tests | Added (`76ff29d66`) |
+| All-visible sampling in paint order | Sampling scope: All visible layers | partial (insertion order, hidden ancestors included) | `retouchSampling.test.ts`: paint order, ancestor visibility, opacity, transforms, blend modes, no tile aliasing | Fixed and integrated (`76ff29d66`); masks/effects/vector boundaries remain renderer-backed work |
 | Adjustment double-application avoidance | current-and-below scope | missing | external user evidence | Added by scope choice (adjustment layers are not raster layers, so they are outside the raster composite; the deposit target can be below them and the UI states the scope) |
-| Straight/premultiplied alpha correctness | clone/heal/spot/patch engines | partial before this pass | unit tests added | Fixed in engine byte paths; tile compositor already premultiplied |
+| Straight/premultiplied alpha correctness | clone/heal/spot/patch engines | partial before this pass | unit tests added | Fixed in engine byte paths (`523f94e09`); tile compositor already premultiplied |
 | Return-to-original (Reset) byte fidelity | Image Tuning exposure | broken before this pass; 295 edge pixels one step off | frozen-build pixel diagnostic | Fixed by neutral-filter skip in the compositor and replay (`91e9fa03b`, `15d254912`); re-verified by E2E journey |
 | Undo after a committed numeric value | Ctrl+Z with the field focused | native text undo only; document keeps the value until blur | frozen-build state diagnostic | Documented; journey blurs first; shortcut-policy follow-up |
-| No-op stroke leaves no history/tile churn | retouch tools | partial | new tests | Fixed |
-| Final pointer position committed | clone/heal | broken before this pass | code inspection + E2E | Fixed |
+| No-op stroke leaves no history/tile churn | retouch tools | partial | scene and tool tests | Fixed and integrated (`76ff29d66`) |
+| Final pointer position committed | clone/heal | broken before this pass | code inspection + E2E painting changes the photograph | Fixed and integrated (`76ff29d66`) |
 | Healing quality (illumination adaptation) | Healing Brush | first-order approximation | docs + tests | Documented; perceptual-space solve is a follow-up |
 | Per-document sampling preference persistence | tool options | missing | external user evidence | Documented follow-up |
 
@@ -177,6 +179,8 @@ authoritative full-redraw path where available.
 | Histogram clipping widget | `vitest run packages/editor/src/components/Inspector/controls/HistogramWidget.test.tsx` | 9 passed |
 | Histogram clipping real UI | frozen-build Chromium capture: Levels added above a black/white fixture | passed: warning reads "Clipped shadows 50.0% / Clipped highlights 50.0%", both endpoint markers drawn; screenshots `05-histogram-clipping-warning`, `06-histogram-clipping-panel` inspected |
 | Corrections journey | frozen-build Chromium run of `tests/e2e/canvas/photo-correction-journey.spec.ts` | passed (53.5s): import, +1 EV, reset to baseline, undo/redo, bypass/re-enable, save, reload, reopen, and export. Screenshots `01-baseline`, `02-exposure-plus-one`, `03-bypass-restored`, `04-reopened` inspected. Edited export 2,055,397 B vs original 1,883,287 B; the reopened export is byte-identical to the edited export. |
+| Retouch tools journey | frozen-build Chromium run of `tests/e2e/canvas/retouch-tools.spec.ts` | 3 passed (2.9 min): healing paint, spot heal + patch persistence with undo/redo/save/reopen/export, and clone target safety (locked/non-pixel refusals, layer count unchanged, source marker + badge visible, painting changes the photograph). `reports/ui-review/retouch/05-target-safety.png` inspected. |
+| Retouch unit footprint | 11 test files across editor tools and scene | 98 passed |
 | Reset identity diagnostic | frozen-build state capture before/after Reset | 295 edge pixels at delta 1 before the fix; byte-exact after |
 | Undo state diagnostic | frozen-build state capture across edit/reset/edit/undo | in-field Ctrl+Z is native text undo only; documented above |
 | Docs/emoji | `pnpm audit:docs`, `pnpm audit:emoji` | clean (836 docs, 4618 files) |
