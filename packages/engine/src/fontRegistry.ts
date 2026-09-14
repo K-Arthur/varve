@@ -13,7 +13,8 @@
  */
 
 import { invalidateCanvasTextMeasurements } from './canvasTextMeasurer';
-import type { ParsedNamedInstance } from './font/fontIdentity';
+import type { FontReference, ParsedNamedInstance } from './font/fontIdentity';
+import { fontReferenceKey } from './font/fontIdentity';
 
 export interface FontEntry {
   family: string;
@@ -783,6 +784,8 @@ export interface ExportFontRequest {
   family: string;
   weight?: number;
   style?: 'normal' | 'italic';
+  /** Exact artifact/member requested by the authored text, when known. */
+  fontReference?: FontReference;
   /** Representative glyphs force the exact face to load before export. */
   text?: string;
 }
@@ -802,7 +805,7 @@ export async function awaitExportsReady(
   const registry = getFontRegistry();
   const unique = new Map<string, ExportFontRequest>();
   for (const request of requests) {
-    const key = `${request.style ?? 'normal'}:${request.weight ?? 400}:${request.family}`;
+    const key = `${request.style ?? 'normal'}:${request.weight ?? 400}:${request.family}:${request.fontReference ? fontReferenceKey(request.fontReference) : ''}`;
     if (!unique.has(key)) unique.set(key, request);
   }
 
@@ -817,10 +820,16 @@ export async function awaitExportsReady(
   const readiness = Promise.all(loadFaces).then(async () => {
     await document.fonts.ready;
   });
-  await Promise.race([
-    readiness,
-    new Promise<void>((resolve) => {
-      setTimeout(resolve, 5000);
-    }),
-  ]);
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const requested = [...unique.values()].map((request) => request.family).join(', ');
+      reject(new Error(`Font readiness timed out before export: ${requested}`));
+    }, 5000);
+  });
+  try {
+    await Promise.race([readiness, timeout]);
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+  }
 }

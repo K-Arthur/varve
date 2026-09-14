@@ -208,15 +208,18 @@ through a second branch while adoption is pending. A stale or failed
 acknowledgement therefore selects the main-thread replay before any bitmap is
 presented.
 Package export sets `bundled` only after writing verified bytes into `fonts/`.
-Export requests carry a document's exact
-`fontReference`, so same-family artifacts and collection members remain
-separate; an unavailable requested member is never silently replaced by a
-different family artifact. Exact bundled URLs are checked against the
-original artifact SHA-256 before WOFF2 reconstruction; a response with the
-right family label but the wrong bytes is therefore reported unavailable and
-cannot enter the ZIP. Full cache identity across face revision, axes,
-features, language and rich runs remains an integration requirement, not
-established by the family bridge.
+Export requests carry a document's exact `fontReference`, so same-family
+artifacts and collection members remain separate; an unavailable requested
+member is never silently replaced by a different family artifact. Exact
+bundled URLs are checked against the original artifact SHA-256 before WOFF2
+reconstruction; a response with the right family label but the wrong bytes is
+therefore reported unavailable and cannot enter the ZIP. Native vector/PDF
+preflight now requires verified bytes for every exact request and blocks a
+family-addressed export when rich runs require two different exact artifacts,
+instead of embedding one file for both styles. Per-face native PDF embedding
+and the full cache identity across face revision, axes, features, language and
+rich runs remain integration requirements, not established by the family wire
+bridge.
 
 ## Compact editing surfaces
 

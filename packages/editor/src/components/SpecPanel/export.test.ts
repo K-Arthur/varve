@@ -13,7 +13,7 @@ import {
   solidFill,
 } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { exportNodeAsPdf, exportNodeAsRaster } from './export';
+import { assertExportFontData, exportNodeAsPdf, exportNodeAsRaster } from './export';
 
 const { imageLoad, imageState, resetImageState } = vi.hoisted(() => {
   const loaded = new Set<string>();
@@ -51,6 +51,45 @@ function buildDoc() {
   const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Box' });
   return { doc: { ...doc, rootChildren: ['n1'], nodes: { n1: node } }, node };
 }
+
+describe('font export preflight', () => {
+  const firstReference = { artifactHash: 'a'.repeat(64), collectionIndex: 0 };
+  const secondReference = { artifactHash: 'b'.repeat(64), collectionIndex: 0 };
+
+  it('blocks an exact face when verified bytes are unavailable', () => {
+    expect(() =>
+      assertExportFontData([{ family: 'Shared Family', fontReference: firstReference }], []),
+    ).toThrow(/exact face bytes are unavailable/);
+  });
+
+  it('blocks multiple exact artifacts that the family-addressed native wire cannot distinguish', () => {
+    const records = [
+      { family: 'Shared Family', data: new Uint8Array([1]), fontReference: firstReference },
+      { family: 'Shared Family', data: new Uint8Array([2]), fontReference: secondReference },
+    ];
+    expect(() =>
+      assertExportFontData(
+        [
+          { family: 'Shared Family', fontReference: firstReference },
+          { family: 'Shared Family', fontReference: secondReference },
+        ],
+        records,
+      ),
+    ).toThrow(/multiple exact faces share a family/);
+  });
+
+  it('accepts one verified exact artifact and legacy family-only requests', () => {
+    expect(() =>
+      assertExportFontData(
+        [{ family: 'Shared Family', fontReference: firstReference }, { family: 'Arial' }],
+        [
+          { family: 'Shared Family', data: new Uint8Array([1]), fontReference: firstReference },
+          { family: 'Arial', data: new Uint8Array([2]) },
+        ],
+      ),
+    ).not.toThrow();
+  });
+});
 
 describe('exportNodeAsRaster', () => {
   afterEach(() => {

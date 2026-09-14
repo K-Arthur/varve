@@ -18,7 +18,9 @@ import {
   encodeRasterSurface,
   exportColorPolicyLabel,
   exportProfileBytes,
+  type FontDataRecord,
   fitRasterDimensions,
+  fontReferenceKey,
   insertJpegIccProfile,
   insertPngIccp,
   insertPngTextChunks,
@@ -99,7 +101,13 @@ function collectEngineFonts(nodes: readonly EngineNode[]): ExportFontRequest[] {
     const family = current.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
     const weight = current.fontWeight ?? 400;
     const style = current.fontStyle === 'italic' ? 'italic' : 'normal';
-    requests.push({ family, weight, style, text: current.text ?? '' });
+    requests.push({
+      family,
+      weight,
+      style,
+      text: current.text ?? '',
+      ...(current.fontReference ? { fontReference: current.fontReference } : {}),
+    });
     for (const paragraph of current.richText?.paragraphs ?? []) {
       for (const run of paragraph.runs) {
         requests.push({
@@ -107,11 +115,66 @@ function collectEngineFonts(nodes: readonly EngineNode[]): ExportFontRequest[] {
           weight: run.format?.fontWeight ?? weight,
           style: run.format?.fontStyle === 'italic' ? 'italic' : style,
           text: run.text,
+          ...(run.format?.fontReference ? { fontReference: run.format.fontReference } : {}),
         });
       }
     }
   }
   return requests;
+}
+
+function exportFontRequestKey(request: ExportFontRequest): string {
+  return request.fontReference
+    ? `${request.family.toLowerCase()}\u0000${fontReferenceKey(request.fontReference)}`
+    : request.family.toLowerCase();
+}
+
+/**
+ * Ensure every authored exact face has verified bytes before a vector export.
+ * The native PDF wire format is family-addressed for compatibility; embedding
+ * two different artifacts under one family would therefore make rich runs
+ * silently use the first file. Block that ambiguous export with a repairable
+ * message instead of claiming a successful file.
+ */
+export function assertExportFontData(
+  requests: readonly ExportFontRequest[],
+  records: readonly FontDataRecord[],
+): void {
+  const unique = new Map<string, ExportFontRequest>();
+  for (const request of requests) unique.set(exportFontRequestKey(request), request);
+  const recordKeys = new Set(records.map((record) => exportFontRequestKey(record)));
+  const missing = [...unique.values()].filter(
+    (request) => request.fontReference && !recordKeys.has(exportFontRequestKey(request)),
+  );
+  if (missing.length > 0) {
+    const labels = missing
+      .map((request) =>
+        request.fontReference
+          ? `${request.family} (${fontReferenceKey(request.fontReference)})`
+          : request.family,
+      )
+      .join(', ');
+    throw new Error(`Font export blocked: exact face bytes are unavailable for ${labels}.`);
+  }
+  const exactByFamily = new Map<string, Set<string>>();
+  for (const request of unique.values()) {
+    if (!request.fontReference) continue;
+    const keys = exactByFamily.get(request.family.toLowerCase()) ?? new Set<string>();
+    keys.add(fontReferenceKey(request.fontReference));
+    exactByFamily.set(request.family.toLowerCase(), keys);
+  }
+  const ambiguous = [...exactByFamily.entries()].filter(([, keys]) => keys.size > 1);
+  if (ambiguous.length > 0) {
+    throw new Error(
+      `Font export blocked: multiple exact faces share a family (${ambiguous.map(([family]) => family).join(', ')}). Choose outline or raster export, or replace the runs with one exact face.`,
+    );
+  }
+}
+
+function collectExportFontRequests(requests: readonly ExportFontRequest[]): ExportFontRequest[] {
+  const unique = new Map<string, ExportFontRequest>();
+  for (const request of requests) unique.set(exportFontRequestKey(request), request);
+  return [...unique.values()];
 }
 
 function unionBounds(
@@ -817,11 +880,17 @@ export async function exportNodeAsPdf(
   await awaitExportsReady(fontRequests);
 
   // Collect font binary data for native PDF text/embedding
-  const fontFamilies = [...new Set(fontRequests.map((f) => f.family))];
-  const fontRecords = await collectFontData(fontFamilies, {
+  const fontDataRequests = collectExportFontRequests(fontRequests).map(
+    ({ family, fontReference }) => ({
+      family,
+      ...(fontReference ? { fontReference } : {}),
+    }),
+  );
+  const fontRecords = await collectFontData(fontDataRequests, {
     fetchBundled: true,
     signal: undefined,
   });
+  assertExportFontData(fontRequests, fontRecords);
   const fontDataForIpc: Array<[string, number[]]> = fontRecords.map((r) => [
     r.family,
     Array.from(r.data),
@@ -903,11 +972,17 @@ export async function exportNodeAsPdfX(
   const fontRequests = collectEngineFonts(subtree.nodes);
   await awaitExportsReady(fontRequests);
 
-  const fontFamilies = [...new Set(fontRequests.map((f) => f.family))];
-  const fontRecords = await collectFontData(fontFamilies, {
+  const fontDataRequests = collectExportFontRequests(fontRequests).map(
+    ({ family, fontReference }) => ({
+      family,
+      ...(fontReference ? { fontReference } : {}),
+    }),
+  );
+  const fontRecords = await collectFontData(fontDataRequests, {
     fetchBundled: true,
     signal: undefined,
   });
+  assertExportFontData(fontRequests, fontRecords);
   const fonts: Array<[string, number[]]> = fontRecords.map((r) => [r.family, Array.from(r.data)]);
 
   // Press output is 1x document units; scaling belongs to raster formats.
