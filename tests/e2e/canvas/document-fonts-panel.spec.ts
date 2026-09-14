@@ -82,6 +82,11 @@ test.describe('Document fonts panel', () => {
     const replacementDialog = page.getByRole('dialog', { name: 'Browse fonts' });
     await expect(replacementDialog).toBeVisible({ timeout: 10000 });
     await expect(page.getByText(/Review wrapping after replacement/)).toBeVisible();
+    const originalFamily = await panel
+      .locator('.document-fonts-panel__row strong')
+      .first()
+      .textContent();
+    expect(originalFamily?.trim()).toBeTruthy();
     // A prior renderer warning can leave the consent-gated crash dialog in
     // the top layer while the font dialog is still mounted. Dismiss that
     // unrelated recovery surface so the capture reflects the font workflow.
@@ -98,6 +103,58 @@ test.describe('Document fonts panel', () => {
     });
     await page.keyboard.press('Escape');
     await expect(replacementDialog).toBeHidden();
+
+    // Exercise the real replacement transaction, then verify that one Undo
+    // restores the original family and one Redo reapplies the replacement.
+    // This catches a stale panel projection or a transaction split that unit
+    // tests cannot observe through the editor history and canvas surface.
+    await replaceButton.click();
+    await expect(replacementDialog).toBeVisible({ timeout: 10000 });
+    const replacementSearch = replacementDialog.getByRole('searchbox', {
+      name: 'Search fonts by name or design language',
+    });
+    // Keep the replacement local and deterministic: the bundled tab contains
+    // the two variable families shipped with the editor, while the default
+    // search catalog also includes hundreds of downloadable semantic matches.
+    await replacementSearch.fill('');
+    await replacementDialog.getByRole('tab', { name: 'Bundled', exact: true }).click();
+    const replacementFamily = replacementDialog
+      .locator('.font-browser__select-btn')
+      .filter({ hasText: /Geist Variable|Fraunces Variable/ })
+      .first();
+    await expect(replacementFamily).toBeVisible({ timeout: 10000 });
+    const replacementName = (
+      (await replacementFamily.locator('.font-browser__preview').textContent()) ?? ''
+    ).trim();
+    expect(['Geist Variable', 'Fraunces Variable']).toContain(replacementName);
+    await replacementFamily.click();
+    const useFont = replacementDialog.locator('button.font-browser__use-btn');
+    await expect(useFont).toBeEnabled({ timeout: 10000 });
+    await useFont.click();
+    await expect(replacementDialog).toBeHidden({ timeout: 10000 });
+    await expect(
+      panel.locator('.document-fonts-panel__row').filter({ hasText: replacementName }),
+    ).toBeVisible({ timeout: 10000 });
+
+    await page.keyboard.press('Control+z');
+    await expect(
+      panel.locator('.document-fonts-panel__row').filter({ hasText: originalFamily?.trim() ?? '' }),
+    ).toBeVisible({ timeout: 10000 });
+    await page.keyboard.press('Control+Shift+z');
+    await expect(
+      panel.locator('.document-fonts-panel__row').filter({ hasText: replacementName }),
+    ).toBeVisible({ timeout: 10000 });
+
+    // The replacement provenance remains actionable after redo. Confirming
+    // Restore is a separate transaction and returns the exact original row.
+    const restoreButton = panel.getByRole('button', { name: /^Restore original / });
+    await expect(restoreButton).toBeVisible({ timeout: 10000 });
+    await restoreButton.click();
+    await expect(page.getByRole('heading', { name: 'Restore original font?' })).toBeVisible();
+    await page.getByRole('button', { name: 'Restore original', exact: true }).click();
+    await expect(
+      panel.locator('.document-fonts-panel__row').filter({ hasText: originalFamily?.trim() ?? '' }),
+    ).toBeVisible({ timeout: 10000 });
 
     // Leave text creation before switching to the narrow inspector capture;
     // otherwise the Text tool's defaults popover can cover the document-font

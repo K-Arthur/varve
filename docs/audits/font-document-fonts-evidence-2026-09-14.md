@@ -12,7 +12,19 @@ npx playwright test tests/e2e/canvas/document-fonts-panel.spec.ts \
   --project=chromium --reporter=list --timeout=180000 --retries=0
 ```
 
-Result: **1 passed** in 1.3 minutes. The run produced these inspected captures:
+The chooser-only baseline run passed **1/1** in 1.3 minutes. The expanded
+replacement/history workflow was then run against the existing Chromium editor
+server at the same `master` HEAD:
+
+```text
+npx playwright test tests/e2e/canvas/document-fonts-panel.spec.ts \
+  --config=/tmp/varve-existing-e2e.config.mjs --project=chromium \
+  --reporter=list --timeout=180000 --retries=0
+```
+
+That run passed **1/1** in 34.9 seconds and performed a real bundled-face
+replacement, verified one-step Undo and Redo, then confirmed the recorded
+original-font Restore action. The run produced these inspected captures:
 
 - `test-results/run-1843328-1833/canvas-document-fonts-pane-5b10a--in-a-narrow-dark-inspector-chromium/document-fonts-replacement-chooser.png`
 - `test-results/run-1843328-1833/canvas-document-fonts-pane-5b10a--in-a-narrow-dark-inspector-chromium/document-fonts-narrow-dark.png`
@@ -21,6 +33,7 @@ The replacement chooser showed the exact selected family, preview specimen,
 variable-axis control, source/license metadata, and the `Use face` path without
 clipping. The narrow dark capture showed the page/document scope tabs, family
 filter, exact-face usage card, `Go to`, `Select`, and `Replace` actions within
-the viewport. This validates the current browser presentation and entry point;
-native restart, durable replacement recovery, and full linked-story navigation
-remain platform or follow-up evidence.
+the viewport. The browser run now also proves the committed replacement is
+history-safe and that Restore returns the original family. Native restart,
+durable replacement recovery, and full linked-story navigation remain platform
+or follow-up evidence.
