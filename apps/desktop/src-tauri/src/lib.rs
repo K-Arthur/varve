@@ -5541,6 +5541,7 @@ pub fn run() {
             font_storage::list_filesystem_fonts,
             font_storage::remove_font_from_filesystem,
             font_storage::release_document_fonts,
+            font_storage::release_document_fonts,
             font_storage::get_filesystem_font_storage_usage,
             // Native model file storage
             read_model_file,

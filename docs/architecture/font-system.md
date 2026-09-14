@@ -93,7 +93,7 @@ shows the unknown state and the reason an export option is unavailable.
 
 ## Persistence and recovery
 
-Browser artifacts use IndexedDB database `varve-font-storage-v2`, version 2.
+Browser artifacts use IndexedDB database `varve-font-storage-v2`, version 3.
 The `artifacts`, `artifactBlobs`, and `faces` stores are joined by the exact
 SHA-256 artifact/member key; shared blobs carry a reference count. Writes
 rehash the original bytes, reads quarantine tampered records, and exact removal
@@ -101,9 +101,25 @@ leaves a tombstone. A durable migration journal prevents a completed legacy
 import from resurrecting a deleted face after restart. Family lookup remains a
 compatibility projection and is not used for exact recovery.
 
+The version-3 `projectRefs` store records `(documentId, faceKey)` references
+separately from the shared face record. An import marked `scope: project` is
+released when its last owning document closes; a face shared by two documents
+survives the first close, and a face promoted to `scope: persistent` is never
+released by document cleanup. Release removes the reference and the exact
+face/blob atomically, then writes a tombstone so a legacy retry cannot
+reintroduce it. The editor emits the close event only after a tab close is
+accepted and only when no second open tab carries the same document identity.
+Clipboard dependencies and explicit catalog installs pass the destination
+document identity through this boundary. Native storage mirrors the contract
+with an atomic `.project-refs.json` journal and the `release_document_fonts`
+command.
+
 Native storage now writes the same face key into hash-addressed directories,
 keeps old family-addressed files readable, and verifies the sidecar digest on
-load and listing. Windows and macOS native runs remain pending.
+load and listing. Windows and macOS native runs remain pending. Browser and
+native project-reference cleanup is covered by focused storage tests; a full
+restart and native WDIO proof remains pending until the desktop frontend
+typecheck blockers are cleared.
 
 Download attempts retain their concurrency slot through validation and integrity
 checks. Cancellation and pause invalidate an attempt generation, so a late

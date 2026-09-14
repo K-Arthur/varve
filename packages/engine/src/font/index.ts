@@ -150,6 +150,7 @@ export {
   getStoredFontCount,
   listStoredFonts,
   loadStoredFont,
+  releaseDocumentFontsInIndexedDb,
   removeStoredFont,
   removeStoredFontByIdentity,
   resetFontStorageMigrationForTests,
@@ -162,6 +163,7 @@ export {
   isFilesystemFontStorageAvailable,
   listFilesystemFonts,
   loadFontFromFilesystem,
+  releaseDocumentFonts,
   removeFontFromFilesystem,
   storeFontOnFilesystem,
 } from './fontStorageFs';

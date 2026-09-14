@@ -5,6 +5,7 @@ import {
   getStoredFontByIdentity,
   getStoredFontCount,
   listStoredFonts,
+  releaseDocumentFontsInIndexedDb,
   removeStoredFont,
   removeStoredFontByIdentity,
   resetFontStorageMigrationForTests,
@@ -169,6 +170,33 @@ describe('canonical font storage', () => {
       await removeStoredFontByIdentity({ artifactHash: regular.artifactHash, collectionIndex: 1 }),
     ).toBe(true);
     expect(await readArtifactBlob(regular.artifactHash)).toBeUndefined();
+  });
+
+  it('releases project faces only after the last document closes', async () => {
+    const bytes = new Uint8Array([40, 41, 42]).buffer;
+    const first = await storeFont('Project Face', bytes, { ...metadata, documentId: 'doc-a' });
+    await storeFont('Project Face', bytes, { ...metadata, documentId: 'doc-b' });
+    expect((await listStoredFonts())[0]?.metadata.scope).toBe('project');
+    expect(await releaseDocumentFontsInIndexedDb('doc-a')).toBe(0);
+    expect(await getStoredFontByIdentity(first.faceKey)).not.toBeNull();
+    expect(await releaseDocumentFontsInIndexedDb('doc-b')).toBe(1);
+    expect(await getStoredFontByIdentity(first.faceKey)).toBeNull();
+    expect(await readArtifactBlob(first.artifactHash)).toBeUndefined();
+    // Closing the same document twice is harmless and cannot resurrect a
+    // removed face through the migration path.
+    expect(await releaseDocumentFontsInIndexedDb('doc-b')).toBe(0);
+  });
+
+  it('promotes a project face to persistent storage without later release', async () => {
+    const bytes = new Uint8Array([43, 44, 45]).buffer;
+    const project = await storeFont('Promoted Face', bytes, {
+      ...metadata,
+      documentId: 'doc-promote',
+    });
+    await storeFont('Promoted Face', bytes, metadata);
+    expect((await listStoredFonts())[0]?.metadata.scope).toBe('persistent');
+    expect(await releaseDocumentFontsInIndexedDb('doc-promote')).toBe(0);
+    expect(await getStoredFontByIdentity(project.faceKey)).not.toBeNull();
   });
 
   it('quarantines bytes changed behind a verified record', async () => {

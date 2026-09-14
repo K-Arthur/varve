@@ -8221,7 +8221,11 @@ export function EditorProvider({
         // (cross-platform, no Wayland permission issues), falls back to
         // navigator.clipboard.read() for menu-triggered pastes, then to a
         // native OS clipboard read on Tauri for WebKitGTK/Wayland.
-        const unified = await readClipboardUnifiedWithFallback(platform, request);
+        const unified = await readClipboardUnifiedWithFallback(
+          platform,
+          request,
+          invocation.document.id,
+        );
         const varveData = unified.varveData;
 
         const importInputs = (varveData ? [] : unified.importItems).map((item): ImportFileInput => {
@@ -10214,6 +10218,30 @@ export function EditorProvider({
       closeTab: (id, force = false) => {
         const sess = state.sessions.find((s) => s.id === id);
         if (sess?.dirty && !force) return false;
+        const closingDocumentId =
+          id === state.activeId ? state.document.id : sessionStoreRef.current.get(id)?.document.id;
+        const hasOtherOpenSession = closingDocumentId
+          ? state.sessions.some((candidate) => {
+              if (candidate.id === id) return false;
+              const candidateDocumentId =
+                candidate.id === state.activeId
+                  ? state.document.id
+                  : sessionStoreRef.current.get(candidate.id)?.document.id;
+              return candidateDocumentId === closingDocumentId;
+            })
+          : false;
+        if (
+          closingDocumentId &&
+          !hasOtherOpenSession &&
+          typeof window !== 'undefined' &&
+          typeof window.dispatchEvent === 'function'
+        ) {
+          window.dispatchEvent(
+            new CustomEvent('varve:document-fonts-closed', {
+              detail: { documentId: closingDocumentId },
+            }),
+          );
+        }
         setState((s) => {
           const remaining = s.sessions.filter((sess) => sess.id !== id);
           sessionStoreRef.current.delete(id);

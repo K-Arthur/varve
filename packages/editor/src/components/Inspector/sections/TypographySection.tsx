@@ -332,6 +332,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
         open={fontBrowserOpen}
         onClose={() => setFontBrowserOpen(false)}
         selectedFamily={isMixed(familyRaw) ? undefined : familyRaw}
+        documentId={editor.state.document.id}
         onSelect={(family) => {
           applyTypographyToSelection(fontFamilyChanges(family || undefined));
           setFontBrowserOpen(false);

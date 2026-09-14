@@ -14,6 +14,7 @@ import {
   type FontCatalog,
   FontResolver,
   getFontsourceCatalog,
+  releaseDocumentFonts,
 } from '@varve/engine/font';
 import type { Document } from '@varve/scene';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -49,6 +50,19 @@ export function MissingFontController() {
   const dismissedKeyRef = useRef('');
   const catalogRef = useRef<FontCatalog | null>(null);
   const resolverRef = useRef<FontResolver | null>(null);
+
+  // Project-scoped font bytes follow the document lifetime. The editor emits
+  // this event only after a close is accepted and no second tab references the
+  // same document, so shared faces remain available to other open documents.
+  useEffect(() => {
+    const handleDocumentClosed = (event: Event) => {
+      const detail = (event as CustomEvent<{ documentId?: unknown }>).detail;
+      if (typeof detail?.documentId !== 'string' || detail.documentId.length === 0) return;
+      void releaseDocumentFonts(detail.documentId);
+    };
+    window.addEventListener('varve:document-fonts-closed', handleDocumentClosed);
+    return () => window.removeEventListener('varve:document-fonts-closed', handleDocumentClosed);
+  }, []);
 
   // Build the catalog from the registry and refresh it when a local/provider
   // font becomes available. A stale catalog would keep offering a fallback
@@ -160,6 +174,7 @@ export function MissingFontController() {
         style: match.artifact.style,
         subset: match.artifact.subset,
         variable: match.artifact.variable,
+        documentId: editor.state.document.id,
       },
     );
     if (recoveryRequiresReplacement(missing, match)) {

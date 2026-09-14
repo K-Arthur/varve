@@ -9,6 +9,7 @@ export {
   getStoredFontByIdentity,
   getStoredFontCount,
   listStoredFonts,
+  releaseDocumentFontsInIndexedDb,
   removeStoredFont,
   removeStoredFontByIdentity,
   resetFontStorageMigrationForTests,

@@ -717,7 +717,7 @@ export function createActionHandlers(
               importItems: [],
               plainText: text,
             }))
-          : readClipboardUnifiedWithFallback(e.platform, request);
+          : readClipboardUnifiedWithFallback(e.platform, request, e.state.document.id);
       void clipboardRead
         .then(async (clipboard) => {
           let text = clipboard.plainText ?? '';
