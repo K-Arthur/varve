@@ -68,8 +68,8 @@ fixtures). It reports no error in the compact picker or its four consumers.
 
 ## Inspected visual evidence
 
-The inspected captures are under
-`test-results/font-toolbar-face-picker-scroll-20260914/`:
+The inspected captures are committed under
+`docs/screenshots/fonts/2026-09-14-compact-face-picker/`:
 
 - `light-faces-open.png`
 - `dark-faces-open.png`
