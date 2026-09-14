@@ -119,17 +119,42 @@ are available.
 
 The three official component files were converted with the pinned
 `stable-diffusion.cpp` `6b3edaa` CLI in an isolated `/var/tmp` workspace. The
-streaming conversion completed successfully in 22.15 seconds and produced a
-2,132,618,336-byte F16 GGUF (SHA-256
+initial streaming conversion completed successfully in 22.15 seconds and
+produced a 2,132,618,336-byte F16 GGUF (SHA-256
 `6ca6a1830652f2af65abb10a6c3d033cf4fea3655b5f8497e61b4086b1f840ff`). A first
 load attempt failed before inference because the standalone converter emitted
 the `text_encoders.clip_l.*` component namespace without the architecture
 metadata/name form required by the SD 1.5 loader (`get sd version from file
-failed`). A temporary loader adjustment was prepared to force the known SD 1.5
-inpainting architecture and canonicalize the CLIP prefix, but the rebuild was
-stopped when concurrent repository validation jobs reduced the host to about
-1 GiB available memory. No prompt-quality conclusion is drawn from this
-partial conversion follow-up, and the artifact remains outside the repository.
+failed`).
+
+An isolated diagnostic rebuild of the pinned loader then forced the known SD
+1.5 inpainting architecture and excluded the converter's unused position-id
+tensor from export. The resulting 2,132,613,536-byte artifact has the
+canonical `cond_stage_model`, `model`, and `first_stage_model` tensor prefixes
+and SHA-256
+`6edcc106d27eaef5bb024b1ff6270b61f0c8fc6bc4c78b6b7afafaf9336a8c8f`.
+This repairs the observed namespace/conversion defect in the diagnostic
+workspace. A one-step 256 × 256 probe then loaded, sampled, decoded, and
+wrote a PNG in 80 seconds, using about 2.3 GiB resident memory. The full
+frozen photographic task was subsequently run with the same artifact. It
+completed in 1,323 seconds (153.43 seconds encoding, 1,023.51 seconds
+sampling, and 143.25 seconds decoding), but the inspected result was a
+blurred gray/red-edged rectangle rather than a red canoe. The raw candidate,
+protected-source composite, difference map, boundary crop, and detailed
+settings are retained in the adjacent qualification fixture manifest.
+
+The four protected-region crops had zero differing pixels (`mean=0`,
+`max=0`); this is therefore a semantic/model-quality failure, not a
+compositing failure. The diagnostic artifact remains outside the repository
+and is not a product model; the visual quality gate is still open.
+
+The same artifact also failed the product's low-step qualification diagnostic:
+a 256 × 256 plain-background fixture, red ceramic apple prompt, seed `417`,
+and four nominal steps completed in 138 seconds but produced an essentially
+blank/unchanged frame. This rules out treating the slow photographic run as
+the only reason for rejection. That diagnostic output is retained as
+`official-reconverted-f16-qualification-256.png` beside the photographic
+artifacts.
 
 ## Product consequence
 
