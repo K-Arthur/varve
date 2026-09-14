@@ -11,6 +11,13 @@ isolated index so those staged entries were preserved.
   Select by Font, export, and package projections.
 - `eabd0c0d4` — record inherited-face evidence and update the acceptance matrix.
 - `bec9ca36f` — record the fresh toolbar and typography E2E reruns.
+- `6fbd3da0c` — expose actionable missing-family, missing-face, version, and
+  conflict recovery states.
+- `8c9c845a3` — preserve readiness and renderer architecture documentation.
+- `7f54ec98e` — gate export on the exact requested face identity.
+- `a1d5ab9a6` — reject browser export faces that never become ready.
+- `aab2dcb9b` — project exact-face capabilities through catalog, manifest,
+  recovery UI, and Document Fonts status badges.
 
 The quick-toolbar geometry work is covered by the existing frontend changes and
 is rechecked by `tests/e2e/canvas/font-toolbar-visual.spec.ts`.
@@ -25,7 +32,7 @@ incomplete.
 
 ## Agent Validation Report
 
-Changed scope: `packages/engine/src/font/**`, `packages/engine/src/richTextLayout.ts`, `packages/editor/src/commands/selectionCommands.ts`, `packages/editor/src/components/FontBrowser/documentFontUsage.ts`, `packages/editor/src/components/SpecPanel/export.ts`, `packages/editor/src/packageExport.ts`, font acceptance/evidence documentation, and the existing quick-toolbar/browser typography E2E surfaces.
+Changed scope: `packages/engine/src/font/**`, `packages/engine/src/fontRegistry.ts`, `packages/engine/src/richTextLayout.ts`, `packages/editor/src/commands/selectionCommands.ts`, `packages/editor/src/components/FontBrowser/**`, `packages/editor/src/components/SpecPanel/export.ts`, `packages/editor/src/packageExport.ts`, font acceptance/evidence documentation, and the existing quick-toolbar/browser typography E2E surfaces.
 
 Validation plan: `pnpm verify:plan` selected 324 changed files because the shared
 worktree also contains concurrent desktop, website, editor, engine, scene,
@@ -41,8 +48,11 @@ pnpm verify:affected
 VARVE_FULL_GATE_REASON='font identity projection milestone; verify planner escalated because concurrent workspace and validation-infrastructure changes' pnpm verify:full
 pnpm exec biome check <task-owned changed TypeScript files>
 pnpm exec vitest run packages/engine/src/font/fontFaceInheritance.test.ts packages/engine/src/font/fontResolver.test.ts packages/engine/src/text/paragraphLayout.test.ts packages/engine/src/textLayoutSnapshot.test.ts packages/editor/src/components/FontBrowser/documentFontUsage.test.ts packages/editor/src/packageExport.test.ts packages/editor/src/commands/__tests__/selectionCommands.test.ts packages/editor/src/components/SpecPanel/export.test.ts --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
+pnpm exec vitest run packages/engine/src/font --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
+pnpm exec vitest run packages/editor/src/components/FontBrowser --config vitest.config.ts --pool=threads --maxWorkers=1 --reporter=dot
 CI=1 TMPDIR=/home/kevina/varve-tmp VARVE_E2E_PORT=1744 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-toolbar-final-20260914-rerun npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium --reporter=list --timeout=180000
 CI=1 TMPDIR=/home/kevina/varve-tmp VARVE_E2E_PORT=1745 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-typography-editing-20260914-rerun npx playwright test tests/e2e/canvas/typography-editing.spec.ts --project=chromium --reporter=list --timeout=180000
+CI=1 TMPDIR=/home/kevina/varve-tmp VARVE_E2E_PORT=1746 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-document-fonts-capabilities-20260914 npx playwright test tests/e2e/canvas/document-fonts-panel.spec.ts --project=chromium --reporter=list --timeout=180000
 pnpm audit:docs
 pnpm audit:emoji
 pnpm audit:tokens
@@ -52,10 +62,16 @@ pnpm --filter @varve/website typecheck
 Passed:
 
 - Focused identity/projection suite: **126 tests in 8 files**.
+- All engine font tests: **475 tests in 31 files**.
+- All Font Browser tests: **68 tests in 11 files**.
+- Capability/manifest regression slice: **79 tests in 5 files**, followed by
+  **22 tests in 3 files** after the Document Fonts status badge was added.
 - Toolbar E2E: **3 passed** at DPR 1, 2, and 3 in 1.9 minutes.
 - Typography editing E2E: **3 passed** in 1.2 minutes, including empty-text
   cancellation and OpenType redraw.
-- `audit:docs`: clean, 873 docs / 471 links / 174 ADRs.
+- Document Fonts E2E: **1 passed** in 1.1 minutes; the narrow dark capture and
+  replacement chooser were inspected, including the new readiness badge.
+- `audit:docs`: clean, 876 docs / 471 links / 174 ADRs.
 - `audit:emoji`: clean, 4,655 files.
 - `audit:tokens`: all 153 WCAG pairs pass across light, dark, and high
   contrast themes.
@@ -87,8 +103,11 @@ Escalations and failures:
   The architecture audit reported concurrent engine/scene/editor cycles and a
   new `contentAwareFill/index.ts → quickCleanup.ts → generativeEdit/types.ts`
   cycle. Engine typecheck also stopped on unrelated `quickCleanup.test.ts`
-  generic-arity errors and `lut*.test.ts` references to a missing `size`
-  property.
+  generic-arity errors, `generativeEdit/nativeModel.test.ts` references to a
+  missing `qualifyNativeGenerativeModel`, and `lut*.test.ts` references to a
+  missing `size` property. The architecture audit was terminated after its
+  concurrent madge scan remained live for nearly two minutes; its reported
+  cycles are retained here and are not attributed to the font commits.
 - `pnpm --filter @varve/website typecheck` reached a clean Astro check but
   exited 2 on the unrelated `tests/e2e/generative-editing.visual.spec.ts`
   `naturalWidth` type error.
@@ -113,10 +132,10 @@ contract could affect every package.
 
 The next executable work is the native embedded WDIO run and exact-byte restart
 matrix on Linux, followed by the same checks on Windows and macOS. In code, the
-remaining high-risk slices are exact capability/status recovery (missing face,
-corrupt, version mismatch, glyph and permission states), durable native/browser
-migration and uninstall recovery, the real-byte main/worker glyph and geometry
-oracle, linked-story replacement/restore preview, multilingual and color-font
-parity, 1k/10k picker budgets, and native image-identification/OCR overlays.
+remaining high-risk slices are real corrupt-file repair and permission/offline
+E2E, durable native/browser migration and uninstall recovery, the real-byte
+main/worker glyph and geometry oracle, linked-story replacement/restore
+preview, multilingual and color-font parity, 1k/10k picker budgets, and native
+image-identification/OCR overlays.
 The collaboration dependency payload is prepared; live transport remains
 outside this project.
