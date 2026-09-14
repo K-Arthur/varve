@@ -119,6 +119,13 @@ export const nativeGenerativeProvider = {
       modelBytes: NATIVE_GENERATIVE_MODEL_PROFILE.minimumMemoryBytes,
     });
     let lease: InferenceLease | undefined;
+    let nativeInvocation: Promise<NativeGenerativeResponse> | undefined;
+    let nativeInvocationSettled = true;
+    let deferLeaseRelease = false;
+    const releaseLease = () => {
+      lease?.release();
+      lease = undefined;
+    };
     try {
       lease = await getInferenceAdmission().acquire({
         kind: 'generation',
@@ -145,27 +152,44 @@ export const nativeGenerativeProvider = {
             abort();
             return;
           }
-          void invoke<NativeGenerativeResponse>('generative_edit', {
-            options: {
-              request_id: requestId,
-              model_handle: request.modelHandle,
-              image_data: Array.from(request.imageData.data),
-              image_w: request.imageData.width,
-              image_h: request.imageData.height,
-              mask: Array.from(request.mask),
-              mask_w: request.maskWidth,
-              mask_h: request.maskHeight,
-              mode: request.mode,
-              prompt: request.prompt?.trim() || defaultPrompt(request.mode),
-              negative_prompt: request.negativePrompt ?? '',
-              output_w: request.outputWidth ?? request.imageData.width,
-              output_h: request.outputHeight ?? request.imageData.height,
-              steps: request.steps ?? (request.quality === 'draft' ? 12 : 24),
-              guidance_scale: request.guidanceScale ?? 7,
-              seed: request.seed ?? -1,
-              strength: request.strength ?? (request.mode === 'replace' ? 0.85 : 0.75),
-            },
-          }).then(resolve, reject);
+          try {
+            nativeInvocationSettled = false;
+            nativeInvocation = invoke<NativeGenerativeResponse>('generative_edit', {
+              options: {
+                request_id: requestId,
+                model_handle: request.modelHandle,
+                image_data: Array.from(request.imageData.data),
+                image_w: request.imageData.width,
+                image_h: request.imageData.height,
+                mask: Array.from(request.mask),
+                mask_w: request.maskWidth,
+                mask_h: request.maskHeight,
+                mode: request.mode,
+                prompt: request.prompt?.trim() || defaultPrompt(request.mode),
+                negative_prompt: request.negativePrompt ?? '',
+                output_w: request.outputWidth ?? request.imageData.width,
+                output_h: request.outputHeight ?? request.imageData.height,
+                steps: request.steps ?? (request.quality === 'draft' ? 12 : 24),
+                guidance_scale: request.guidanceScale ?? 7,
+                seed: request.seed ?? -1,
+                strength: request.strength ?? (request.mode === 'replace' ? 0.85 : 0.75),
+              },
+            });
+            nativeInvocation.then(
+              () => {
+                nativeInvocationSettled = true;
+                if (deferLeaseRelease) releaseLease();
+              },
+              () => {
+                nativeInvocationSettled = true;
+                if (deferLeaseRelease) releaseLease();
+              },
+            );
+            nativeInvocation.then(resolve, reject);
+          } catch (error) {
+            nativeInvocationSettled = true;
+            reject(error);
+          }
         });
       } finally {
         rejectOnAbort = null;
@@ -194,7 +218,11 @@ export const nativeGenerativeProvider = {
       if (request.signal?.aborted) throw new GenerativeEditError('cancelled', 'cancelled');
       throw nativeFailure(error);
     } finally {
-      lease?.release();
+      if (nativeInvocation && !nativeInvocationSettled) {
+        deferLeaseRelease = true;
+      } else {
+        releaseLease();
+      }
     }
   },
 };

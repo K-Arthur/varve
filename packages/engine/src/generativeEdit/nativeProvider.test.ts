@@ -16,8 +16,13 @@ vi.mock('@tauri-apps/api/core', () => ({ invoke }));
 
 vi.mock('../upscaleProviders/pngDecode', () => ({ decodeImageBytesToImageData }));
 
+import { getInferenceAdmission } from '../inference/admission';
 import { nativeGenerativeProvider } from './nativeProvider';
 import { GenerativeEditError } from './types';
+
+function getInferenceAdmissionSnapshot() {
+  return getInferenceAdmission().getSnapshot();
+}
 
 function request(overrides: Record<string, unknown> = {}) {
   return {
@@ -121,7 +126,24 @@ describe('nativeGenerativeProvider', () => {
 
   it('cancels the native request and rejects without accepting a late result', async () => {
     const controller = new AbortController();
-    const pending = new Promise<never>(() => undefined);
+    let resolveNative!: (response: {
+      png_base64: string;
+      width: number;
+      height: number;
+      execution_backend: string;
+      processing_time_ms: number;
+      warnings: string[];
+    }) => void;
+    const pending = new Promise<{
+      png_base64: string;
+      width: number;
+      height: number;
+      execution_backend: string;
+      processing_time_ms: number;
+      warnings: string[];
+    }>((resolve) => {
+      resolveNative = resolve;
+    });
     invoke.mockImplementation((command: string) => {
       if (command === 'generative_edit') return pending;
       return Promise.resolve();
@@ -139,5 +161,71 @@ describe('nativeGenerativeProvider', () => {
       expect(invoke).toHaveBeenCalledWith('cancel_generative_edit', expect.anything()),
     );
     await expect(generation).rejects.toMatchObject({ code: 'cancelled' });
+    resolveNative({
+      png_base64: btoa('png'),
+      width: 8,
+      height: 6,
+      execution_backend: 'native-cpu',
+      processing_time_ms: 42,
+      warnings: [],
+    });
+  });
+
+  it('keeps the shared heavy-inference lease until cancelled native work settles', async () => {
+    const controller = new AbortController();
+    let resolveFirst!: (response: {
+      png_base64: string;
+      width: number;
+      height: number;
+      execution_backend: string;
+      processing_time_ms: number;
+      warnings: string[];
+    }) => void;
+    const firstNative = new Promise<{
+      png_base64: string;
+      width: number;
+      height: number;
+      execution_backend: string;
+      processing_time_ms: number;
+      warnings: string[];
+    }>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const validResponse = {
+      png_base64: btoa('png'),
+      width: 8,
+      height: 6,
+      execution_backend: 'native-cpu',
+      processing_time_ms: 42,
+      warnings: [],
+    };
+    let generationCalls = 0;
+    invoke.mockImplementation((command: string) => {
+      if (command === 'cancel_generative_edit') return Promise.resolve();
+      generationCalls += 1;
+      return generationCalls === 1 ? firstNative : Promise.resolve(validResponse);
+    });
+
+    const firstGeneration = nativeGenerativeProvider.infer({
+      ...request(),
+      signal: controller.signal,
+    });
+    await vi.waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith('generative_edit', expect.anything()),
+    );
+    const secondGeneration = nativeGenerativeProvider.infer(request({ seed: 418 }));
+    await vi.waitFor(() =>
+      expect(getInferenceAdmissionSnapshot()).toMatchObject({ active: 1, pending: 1 }),
+    );
+
+    controller.abort();
+    await expect(firstGeneration).rejects.toMatchObject({ code: 'cancelled' });
+    expect(getInferenceAdmissionSnapshot()).toMatchObject({ active: 1, pending: 1 });
+
+    resolveFirst(validResponse);
+    await expect(secondGeneration).resolves.toMatchObject({
+      executionProvider: 'native-cpu',
+    });
+    expect(getInferenceAdmissionSnapshot()).toMatchObject({ active: 0, pending: 0 });
   });
 });
