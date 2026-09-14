@@ -50,13 +50,15 @@ controls:
 
 ## Visual review
 
-The following Chromium captures were inspected at the generated output path:
+The following Chromium captures were inspected at the generated output path.
+They are test-owned local artifacts and are intentionally not portable-document
+or repository assets:
 
-- [CAF result before save](../../test-results/generative-portability-2026-09-14-r3/caf-generative-portability-8a082-en-and-clipboard-copy-paste-chromium/real-photo-before-save.png)
-- [reopened photograph](../../test-results/generative-portability-2026-09-14-r3/caf-generative-portability-8a082-en-and-clipboard-copy-paste-chromium/real-photo-after-reopen.png)
-- [export state](../../test-results/generative-portability-2026-09-14-r3/caf-generative-portability-8a082-en-and-clipboard-copy-paste-chromium/real-photo-exported.png)
-- [restored original](../../test-results/generative-portability-2026-09-14-r3/caf-generative-portability-8a082-en-and-clipboard-copy-paste-chromium/real-photo-restored.png)
-- [accepted result after undo](../../test-results/generative-portability-2026-09-14-r3/caf-generative-portability-8a082-en-and-clipboard-copy-paste-chromium/real-photo-restored-undone.png)
+- `test-results/generative-portability-2026-09-14-r3/caf-generative-portability-8a082-en-and-clipboard-copy-paste-chromium/real-photo-before-save.png`
+- `test-results/generative-portability-2026-09-14-r3/caf-generative-portability-8a082-en-and-clipboard-copy-paste-chromium/real-photo-after-reopen.png`
+- `test-results/generative-portability-2026-09-14-r3/caf-generative-portability-8a082-en-and-clipboard-copy-paste-chromium/real-photo-exported.png`
+- `test-results/generative-portability-2026-09-14-r3/caf-generative-portability-8a082-en-and-clipboard-copy-paste-chromium/real-photo-restored.png`
+- `test-results/generative-portability-2026-09-14-r3/caf-generative-portability-8a082-en-and-clipboard-copy-paste-chromium/real-photo-restored-undone.png`
 
 The inspected frames show the real landscape rather than a synthetic fixture,
 the accepted image in the normal canvas, the PNG Export panel, and the

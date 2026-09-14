@@ -134,14 +134,15 @@ camera projection. The regression now compares the surface before/after a
 forced full redraw at each camera, and compares the actual pre- and
 post-reopen PNG bytes. Both checks pass.
 
-Captured artifacts:
+Captured artifacts were test-owned local files and are not checked into the
+repository. Their recorded paths were:
 
-- [before canvas](../../test-results/retouch-fs-liquify-20260914-visual-final/canvas-frequency-liquify-p-869b3-vive-save-reopen-and-export-chromium/frequency-liquify-before.png)
-- [after canvas](../../test-results/retouch-fs-liquify-20260914-visual-final/canvas-frequency-liquify-p-869b3-vive-save-reopen-and-export-chromium/frequency-liquify-after.png)
-- [reopened canvas](../../test-results/retouch-fs-liquify-20260914-visual-final/canvas-frequency-liquify-p-869b3-vive-save-reopen-and-export-chromium/frequency-liquify-reopened-canvas.png)
-- [export PNG](../../test-results/retouch-fs-liquify-20260914-visual-final/canvas-frequency-liquify-p-869b3-vive-save-reopen-and-export-chromium/frequency-liquify.png)
-- [reopened export PNG](../../test-results/retouch-fs-liquify-20260914-visual-final/canvas-frequency-liquify-p-869b3-vive-save-reopen-and-export-chromium/frequency-liquify-reopened.png)
-- [interaction summary](../../test-results/retouch-fs-liquify-20260914-visual-final/canvas-frequency-liquify-p-869b3-vive-save-reopen-and-export-chromium/frequency-liquify-interaction-summary.json)
+- `test-results/retouch-fs-liquify-20260914-visual-final/canvas-frequency-liquify-p-869b3-vive-save-reopen-and-export-chromium/frequency-liquify-before.png`
+- `test-results/retouch-fs-liquify-20260914-visual-final/canvas-frequency-liquify-p-869b3-vive-save-reopen-and-export-chromium/frequency-liquify-after.png`
+- `test-results/retouch-fs-liquify-20260914-visual-final/canvas-frequency-liquify-p-869b3-vive-save-reopen-and-export-chromium/frequency-liquify-reopened-canvas.png`
+- `test-results/retouch-fs-liquify-20260914-visual-final/canvas-frequency-liquify-p-869b3-vive-save-reopen-and-export-chromium/frequency-liquify.png`
+- `test-results/retouch-fs-liquify-20260914-visual-final/canvas-frequency-liquify-p-869b3-vive-save-reopen-and-export-chromium/frequency-liquify-reopened.png`
+- `test-results/retouch-fs-liquify-20260914-visual-final/canvas-frequency-liquify-p-869b3-vive-save-reopen-and-export-chromium/frequency-liquify-interaction-summary.json`
 - SHA-256 for both files: `450f93b9eff1d4e3755e89e91ef9f396bfe0210bde04532026e959b9dba4742` (512 × 384 RGBA PNG)
 
 The final trace recorded 2 committed interaction samples. Pointer-to-present
