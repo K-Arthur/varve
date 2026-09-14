@@ -568,7 +568,7 @@ mod tests {
         let cb: ProgressCallback = Box::new(move |done, total| {
             cb_proxy.lock().unwrap().push((done, total));
         });
-        let progress = SharedProgress::new(4, Some(cb));
+        let progress = SharedProgress::new(4, Some(&cb));
         for _ in 0..4 {
             progress.tick();
             progress.report();
