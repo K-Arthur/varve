@@ -301,6 +301,38 @@ describe('fontWeightChanges', () => {
       ),
     ).toEqual({ fontWeight: 700, fontReference: undefined });
   });
+
+  it('does not borrow a wght axis from another collection member', () => {
+    const artifactHash = '3'.repeat(64);
+    const registry = new FontRegistry([
+      {
+        family: 'Collection Axis Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash, collectionIndex: 0 }),
+      },
+      {
+        family: 'Collection Axis Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash, collectionIndex: 1 }),
+        axisDefinitions: [{ tag: 'wght', name: 'Weight', min: 300, default: 400, max: 700 }],
+      },
+    ]);
+
+    expect(
+      fontWeightChanges(
+        node({
+          fontFamily: 'Collection Axis Family',
+          fontReference: { artifactHash, collectionIndex: 0 },
+        }),
+        700,
+        registry,
+      ),
+    ).toEqual({ fontWeight: 700, fontReference: undefined });
+  });
 });
 
 describe('fontStyleChanges', () => {
@@ -349,6 +381,38 @@ describe('fontStyleChanges', () => {
     expect(fontStyleAvailable(node({ fontFamily: 'Italic Variable' }), 'italic', registry)).toBe(
       true,
     );
+  });
+
+  it('does not treat another collection member axis as the selected style', () => {
+    const artifactHash = '5'.repeat(64);
+    const registry = new FontRegistry([
+      {
+        family: 'Collection Italic Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash, collectionIndex: 0 }),
+      },
+      {
+        family: 'Collection Italic Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash, collectionIndex: 1 }),
+        axisDefinitions: [{ tag: 'ital', name: 'Italic', min: 0, default: 0, max: 1 }],
+      },
+    ]);
+
+    expect(
+      fontStyleAvailable(
+        node({
+          fontFamily: 'Collection Italic Family',
+          fontReference: { artifactHash, collectionIndex: 0 },
+        }),
+        'italic',
+        registry,
+      ),
+    ).toBe(false);
   });
 
   it('couples variable italic changes to the ital axis', () => {
@@ -456,6 +520,38 @@ describe('fontStyleChanges', () => {
     expect(
       fontStyleChanges(
         node({ fontFamily: 'Colliding Style Family', fontReference: { artifactHash: staticHash } }),
+        'italic',
+        registry,
+      ),
+    ).toEqual({ fontStyle: 'italic', fontReference: undefined });
+  });
+
+  it('does not borrow an ital axis from another collection member', () => {
+    const artifactHash = '4'.repeat(64);
+    const registry = new FontRegistry([
+      {
+        family: 'Collection Style Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash, collectionIndex: 0 }),
+      },
+      {
+        family: 'Collection Style Family',
+        weight: 400,
+        style: 'normal',
+        source: 'user',
+        faceKey: fontReferenceKey({ artifactHash, collectionIndex: 1 }),
+        axisDefinitions: [{ tag: 'ital', name: 'Italic', min: 0, default: 0, max: 1 }],
+      },
+    ]);
+
+    expect(
+      fontStyleChanges(
+        node({
+          fontFamily: 'Collection Style Family',
+          fontReference: { artifactHash, collectionIndex: 0 },
+        }),
         'italic',
         registry,
       ),

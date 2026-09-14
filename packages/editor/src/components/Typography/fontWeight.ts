@@ -80,8 +80,10 @@ function supportedWeights(
   const referenceCanUseFamilyMetadata = !node.fontReference || entriesWithIdentity.length === 0;
   const scopedEntries =
     exactEntries.length > 0 ? exactEntries : referenceCanUseFamilyMetadata ? entries : [];
+  const axisEntries =
+    requestedFaceKey && exactKeyEntries.length > 0 ? exactKeyEntries : scopedEntries;
   const axis = (
-    scopedEntries.find((entry) => entry.axisDefinitions?.length)?.axisDefinitions ??
+    axisEntries.find((entry) => entry.axisDefinitions?.length)?.axisDefinitions ??
     (referenceCanUseFamilyMetadata ? registry.getAxisDefinitions(family) : undefined)
   )?.find((candidate) => candidate.tag === 'wght');
   if (axis) {
@@ -164,6 +166,12 @@ export function fontStyleAvailable(
     node.fontReference && entriesWithIdentity.length > 0
       ? entries.filter((entry) => sameArtifact(entry.faceKey, node.fontReference!))
       : entries;
+  const requestedFaceKey = node.fontReference
+    ? fontReferenceKey(node.fontReference).toLowerCase()
+    : undefined;
+  const exactEntries = requestedFaceKey
+    ? entries.filter((entry) => entry.faceKey?.toLowerCase() === requestedFaceKey)
+    : [];
 
   if (scopedEntries.some((entry) => entry.style === style)) return true;
 
@@ -171,7 +179,9 @@ export function fontStyleAvailable(
   // static face. Treat only a declared axis (or an authored axis value) as a
   // supported style; a generic `font-style: italic` fallback is not enough.
   const axisDefinitions =
-    scopedEntries.find((entry) => entry.axisDefinitions?.length)?.axisDefinitions ??
+    (exactEntries.length > 0 ? exactEntries : scopedEntries).find(
+      (entry) => entry.axisDefinitions?.length,
+    )?.axisDefinitions ??
     (node.fontReference && entriesWithIdentity.length > 0
       ? undefined
       : registry.getAxisDefinitions(family));
@@ -210,8 +220,16 @@ export function fontWeightChanges(
     node.fontReference && hasIdentity
       ? entries.filter((entry) => sameArtifact(entry.faceKey, node.fontReference!))
       : entries;
+  const requestedFaceKey = node.fontReference
+    ? fontReferenceKey(node.fontReference).toLowerCase()
+    : undefined;
+  const exactEntries = requestedFaceKey
+    ? entries.filter((entry) => entry.faceKey?.toLowerCase() === requestedFaceKey)
+    : [];
   const axisDefinitions =
-    scopedEntries.find((entry) => entry.axisDefinitions?.length)?.axisDefinitions ??
+    (exactEntries.length > 0 ? exactEntries : scopedEntries).find(
+      (entry) => entry.axisDefinitions?.length,
+    )?.axisDefinitions ??
     (node.fontReference && hasIdentity ? undefined : registry.getAxisDefinitions(family));
   const hasWeightAxis =
     axisDefinitions?.some((axis) => axis.tag === 'wght') === true ||
@@ -263,8 +281,16 @@ export function fontStyleChanges(
     node.fontReference && hasIdentity
       ? entries.filter((entry) => sameArtifact(entry.faceKey, node.fontReference!))
       : entries;
+  const requestedFaceKey = node.fontReference
+    ? fontReferenceKey(node.fontReference).toLowerCase()
+    : undefined;
+  const exactEntries = requestedFaceKey
+    ? entries.filter((entry) => entry.faceKey?.toLowerCase() === requestedFaceKey)
+    : [];
   const axisDefinitions =
-    scopedEntries.find((entry) => entry.axisDefinitions?.length)?.axisDefinitions ??
+    (exactEntries.length > 0 ? exactEntries : scopedEntries).find(
+      (entry) => entry.axisDefinitions?.length,
+    )?.axisDefinitions ??
     (node.fontReference && hasIdentity ? undefined : registry.getAxisDefinitions(family));
   const italicAxis = axisDefinitions?.find((axis) => axis.tag === 'ital');
   if (italicAxis || node.variableAxes?.ital !== undefined) {
