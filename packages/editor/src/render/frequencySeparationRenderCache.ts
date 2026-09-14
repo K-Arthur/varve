@@ -30,6 +30,17 @@ const MAX_CACHE_PIXELS = 24 * 1024 * 1024;
 const cache = new Map<string, DecodedEntry>();
 let cachedPixels = 0;
 
+export interface FrequencySeparationRenderCacheStats {
+  entries: number;
+  pixels: number;
+  maxPixels: number;
+}
+
+/** Read-only diagnostics used by performance evidence and regression tests. */
+export function getFrequencySeparationRenderCacheStats(): FrequencySeparationRenderCacheStats {
+  return { entries: cache.size, pixels: cachedPixels, maxPixels: MAX_CACHE_PIXELS };
+}
+
 /**
  * Decoded composite tiles for a separation group, or null when the marker is
  * inert (missing/unlinked bands) so the caller can fall back to normal group
@@ -84,10 +95,16 @@ export function decodedSeparationTilesForRender(
   const version = (hashString(`${groupId}|${key}`) % 1_000_000) + 1;
   for (const tile of tiles.values()) tile.version = version;
 
-  evictExcess();
   const pixels = decoded.width * decoded.height;
+  const previous = cache.get(groupId);
+  if (previous) {
+    cachedPixels -= previous.pixels;
+    cache.delete(groupId);
+  }
+  if (pixels > MAX_CACHE_PIXELS) return tiles;
   cache.set(groupId, { key, pixels, tiles });
   cachedPixels += pixels;
+  evictExcess();
   return tiles;
 }
 
@@ -99,7 +116,7 @@ export function releaseFrequencySeparationRenderCache(groupId?: string): void {
   }
   const entry = cache.get(groupId);
   if (entry) {
-    cachedPixels -= entry.pixels;
+    cachedPixels = Math.max(0, cachedPixels - entry.pixels);
     cache.delete(groupId);
   }
 }
@@ -109,7 +126,7 @@ function evictExcess(): void {
     const oldestKey = cache.keys().next().value as string | undefined;
     if (oldestKey === undefined) break;
     const entry = cache.get(oldestKey);
-    if (entry) cachedPixels -= entry.pixels;
+    if (entry) cachedPixels = Math.max(0, cachedPixels - entry.pixels);
     cache.delete(oldestKey);
   }
 }

@@ -52,7 +52,7 @@ export function LiquifyOverlay() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const storeRef = useRef(getLiquifyOverlaySnapshot());
   const freezeCanvasRef = useRef<HTMLCanvasElement | null>(null);
-  const freezeRevisionRef = useRef(-1);
+  const freezeRevisionRef = useRef<string | number>('');
   const drawRef = useRef<() => void>(() => {});
 
   drawRef.current = () => {
@@ -95,7 +95,6 @@ export function LiquifyOverlay() {
     const b = (p1.y - p0.y) / Math.max(1, geometry.width);
     const c = (p2.x - p0.x) / Math.max(1, geometry.height);
     const d = (p2.y - p0.y) / Math.max(1, geometry.height);
-    const scale = Math.max(1e-6, (Math.hypot(a, b) + Math.hypot(c, d)) / 2);
 
     // Freeze coverage first (under the grid).
     if (state.showFreeze) {
@@ -103,7 +102,11 @@ export function LiquifyOverlay() {
       const sessionMask = state.sessionFreeze;
       const mask = sessionMask ?? (node.kind === 'rasterLayer' ? decodeNodeFreezeMask(node) : null);
       if (mask && mask.width > 0 && mask.height > 0) {
-        const revisionKey = sessionMask ? state.sessionFreezeRevision : -1;
+        const persistedRevision =
+          node.kind === 'rasterLayer' ? (node.liquifyFreeze?.rle ?? 'none') : 'none';
+        const revisionKey = sessionMask
+          ? `${state.targetId}:session:${state.sessionFreezeRevision}`
+          : `${state.targetId}:persisted:${persistedRevision}`;
         if (
           freezeRevisionRef.current !== revisionKey ||
           !freezeCanvasRef.current ||
@@ -149,10 +152,17 @@ export function LiquifyOverlay() {
         for (let r = 0; r <= field.rows; r++) {
           ctx.beginPath();
           for (let c = 0; c <= field.columns; c++) {
-            const x = (c / field.columns) * field.referenceWidth;
-            const y = (r / field.rows) * field.referenceHeight;
+            const x = (c / field.columns) * geometry.width;
+            const y = (r / field.rows) * geometry.height;
             sampleLiquifyDisplacement(field, c / field.columns, r / field.rows, offset);
-            const screen = layerToCanvas(x + offset[0], y + offset[1]);
+            // The persisted field is an output→source map. A source/content
+            // grid therefore moves approximately by -D; adding D draws the
+            // sampling map and makes the overlay appear to move opposite the
+            // artwork under Push.
+            const screen = layerToCanvas(
+              x - offset[0] * (geometry.width / field.referenceWidth),
+              y - offset[1] * (geometry.height / field.referenceHeight),
+            );
             if (c === 0) ctx.moveTo(screen.x, screen.y);
             else ctx.lineTo(screen.x, screen.y);
           }
@@ -161,10 +171,13 @@ export function LiquifyOverlay() {
         for (let c = 0; c <= field.columns; c++) {
           ctx.beginPath();
           for (let r = 0; r <= field.rows; r++) {
-            const x = (c / field.columns) * field.referenceWidth;
-            const y = (r / field.rows) * field.referenceHeight;
+            const x = (c / field.columns) * geometry.width;
+            const y = (r / field.rows) * geometry.height;
             sampleLiquifyDisplacement(field, c / field.columns, r / field.rows, offset);
-            const screen = layerToCanvas(x + offset[0], y + offset[1]);
+            const screen = layerToCanvas(
+              x - offset[0] * (geometry.width / field.referenceWidth),
+              y - offset[1] * (geometry.height / field.referenceHeight),
+            );
             if (r === 0) ctx.moveTo(screen.x, screen.y);
             else ctx.lineTo(screen.x, screen.y);
           }
@@ -177,21 +190,26 @@ export function LiquifyOverlay() {
     // Brush influence ring at the live cursor.
     if (state.cursorLayer) {
       const center = layerToCanvas(state.cursorLayer.x, state.cursorLayer.y);
-      const outerRadius = Math.max(2, state.radiusLayer * scale);
-      const innerRadius = outerRadius * Math.max(0, Math.min(1, state.hardness));
+      const radiusLayer = Math.max(1, state.radiusLayer);
+      const hardness = Math.max(0, Math.min(1, state.hardness));
       const freezeActive = state.freezeTool !== 'off';
       ctx.save();
+      // Draw in layer-local coordinates so the influence outline remains an
+      // ellipse under rotation and non-uniform scale, exactly matching the
+      // pixels sampled by the brush. `a…d` already includes camera scale.
+      ctx.translate(center.x, center.y);
+      ctx.transform(a, b, c, d, 0, 0);
       ctx.setLineDash(freezeActive ? [] : [4, 4]);
       ctx.lineWidth = 1.5;
       ctx.strokeStyle = freezeActive ? '#5ac8ff' : '#39d0c6';
       ctx.beginPath();
-      ctx.arc(center.x, center.y, outerRadius, 0, Math.PI * 2);
+      ctx.arc(0, 0, radiusLayer, 0, Math.PI * 2);
       ctx.stroke();
-      if (innerRadius > 1) {
+      if (radiusLayer * hardness > 1) {
         ctx.setLineDash([]);
         ctx.globalAlpha = 0.6;
         ctx.beginPath();
-        ctx.arc(center.x, center.y, innerRadius, 0, Math.PI * 2);
+        ctx.arc(0, 0, radiusLayer * hardness, 0, Math.PI * 2);
         ctx.stroke();
       }
       ctx.restore();

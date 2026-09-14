@@ -34,6 +34,17 @@ const MAX_CACHE_PIXELS = 16 * 1024 * 1024;
 const cache = new Map<string, CacheEntry>();
 let cachedPixels = 0;
 
+export interface LiquifyRenderCacheStats {
+  entries: number;
+  pixels: number;
+  maxPixels: number;
+}
+
+/** Read-only diagnostics used by performance evidence and regression tests. */
+export function getLiquifyRenderCacheStats(): LiquifyRenderCacheStats {
+  return { entries: cache.size, pixels: cachedPixels, maxPixels: MAX_CACHE_PIXELS };
+}
+
 /** FNV-1a over tile keys and versions: cheap, order-independent enough. */
 export function rasterTileMapRevision(tiles: ReadonlyMap<string, RasterTile>): string {
   let hash = 2166136261;
@@ -83,10 +94,19 @@ export function warpedTilesForRender(node: RasterLayerNode): Map<string, RasterT
   const version = (hashString(key) % 1_000_000) + 1;
   for (const tile of tiles.values()) tile.version = version;
 
-  evictExcess();
   const pixels = node.width * node.height;
+  const previous = cache.get(node.id);
+  if (previous) {
+    cachedPixels -= previous.pixels;
+    cache.delete(node.id);
+  }
+  // Do not retain a one-off entry that is larger than the entire cache budget.
+  // Returning the freshly computed result is still correct; retaining it would
+  // make the budget unenforceable and pin a large raster until process exit.
+  if (pixels > MAX_CACHE_PIXELS) return tiles;
   cache.set(node.id, { key, pixels, tiles });
   cachedPixels += pixels;
+  evictExcess();
   return tiles;
 }
 
@@ -99,7 +119,7 @@ export function releaseLiquifyRenderCache(nodeId?: string): void {
   }
   const entry = cache.get(nodeId);
   if (entry) {
-    cachedPixels -= entry.pixels;
+    cachedPixels = Math.max(0, cachedPixels - entry.pixels);
     cache.delete(nodeId);
   }
 }
@@ -109,7 +129,7 @@ function evictExcess(): void {
     const oldestKey = cache.keys().next().value as string | undefined;
     if (oldestKey === undefined) break;
     const entry = cache.get(oldestKey);
-    if (entry) cachedPixels -= entry.pixels;
+    if (entry) cachedPixels = Math.max(0, cachedPixels - entry.pixels);
     cache.delete(oldestKey);
   }
 }

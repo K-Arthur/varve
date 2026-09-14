@@ -6,7 +6,7 @@ are applied at the canonical `flattenSceneToEngine` boundary, so the live
 canvas, the render worker, thumbnails, and every export path agree by
 construction.
 
-**Status (2026-09-13):** implemented and verified for the Chromium web path;
+**Status (2026-09-14):** implemented and verified for the Chromium web path;
 the native WebKitGTK/WKWebView visual matrix remains pending. Working representation is
 8-bit RGBA. No 16-bit, float, wide-gamut, or CMYK claims are made for either
 feature; the declared precision contracts below are the product promise.
@@ -200,6 +200,10 @@ The composition order is fixed and testable:
 - FS decode and liquify warp are cached per node revision (tile versions +
   field revisions) with pixel budgets (24 MP / 16 MP). A cache miss is a full
   buffer pass; caching keeps committed state off the per-frame path.
+- Cache replacement removes the previous entry before inserting the new one;
+  a single entry larger than its budget is returned for the current frame but
+  is not retained. This keeps repeated edits and long sessions within the
+  declared pixel budget.
 - During a liquify stroke the document field is updated per coalesced sample;
   the overlay is drawn on its own canvas so the shell is not re-rendered per
   sample.
@@ -242,7 +246,8 @@ npx vitest run packages/engine/src/frequencySeparation.test.ts \
   packages/editor/src/render/sceneToEngine.test.ts
 VARVE_E2E_PORT=1452 npx playwright test \
   tests/e2e/canvas/frequency-separation.spec.ts \
-  tests/e2e/canvas/liquify.spec.ts --project=chromium
+  tests/e2e/canvas/liquify.spec.ts \
+  tests/e2e/canvas/frequency-liquify-persistence.spec.ts --project=chromium
 ```
 
 ## 7. Known limits
@@ -252,9 +257,12 @@ VARVE_E2E_PORT=1452 npx playwright test \
 - Gaussian method only.
 - Freeze protection is available on raster-layer targets; a frequency
   separation group accepts deformation without freeze (stated in the tool).
-- No frame-time benchmark yet for the full-resolution decode/warp passes;
-  caches bound repeated cost but a cold pass on a very large layer is a
-  visible pause.
+- The CPU baseline in
+  `packages/engine/src/bench/frequencySeparationLiquify.bench.ts` measures
+  128×96, 512×384, and 1024×768 RGBA decomposition/recombination/warp. It is
+  a development-machine baseline; a cold full-resolution pass on a very
+  large layer is still a visible pause and the >32 Mi-pixel tiled path is
+  deferred.
 - Vector/text liquify and geometry-level deformation of curved paths are out
   of scope for this system.
 

@@ -31,7 +31,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import './frequencySeparation.css';
 
-type PreviewMode = 'combined' | 'tone' | 'detail';
+type PreviewMode = 'source' | 'combined' | 'tone' | 'detail';
 
 const PREVIEW_MAX_DIMENSION = 420;
 const DEFAULT_RADIUS = 8;
@@ -136,6 +136,10 @@ export function FrequencySeparationDialog({
   const [previewMode, setPreviewMode] = useState<PreviewMode>('combined');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const applyFrameRef = useRef<number | null>(null);
+  const operationGenerationRef = useRef(0);
+  const documentRef = useRef(state.document);
+  documentRef.current = state.document;
 
   const view = useMemo(
     () => sourceViewFor(state.document, targetNodeId),
@@ -163,6 +167,24 @@ export function FrequencySeparationDialog({
   }, [open, view?.existingRadius]);
 
   useEffect(() => {
+    if (open) return;
+    operationGenerationRef.current += 1;
+    if (applyFrameRef.current !== null) {
+      cancelAnimationFrame(applyFrameRef.current);
+      applyFrameRef.current = null;
+    }
+    setBusy(false);
+  }, [open]);
+
+  useEffect(
+    () => () => {
+      operationGenerationRef.current += 1;
+      if (applyFrameRef.current !== null) cancelAnimationFrame(applyFrameRef.current);
+    },
+    [],
+  );
+
+  useEffect(() => {
     if (!open || !view) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -174,11 +196,13 @@ export function FrequencySeparationDialog({
     }
     const bands = decomposeFrequencyBands(proxy, { radius, method });
     const image =
-      previewMode === 'tone'
-        ? bands.low
-        : previewMode === 'detail'
-          ? bands.high
-          : reconstructFrequencyBands(bands.low, bands.high);
+      previewMode === 'source'
+        ? proxy
+        : previewMode === 'tone'
+          ? bands.low
+          : previewMode === 'detail'
+            ? bands.high
+            : reconstructFrequencyBands(bands.low, bands.high);
     canvas.width = image.width;
     canvas.height = image.height;
     const ctx = canvas.getContext('2d');
@@ -203,11 +227,25 @@ export function FrequencySeparationDialog({
     return measureReconstruction(proxy, bands.low, bands.high);
   }, [open, view, state.document, radius, method, previewMode]);
 
+  const cancelPendingApply = useCallback(() => {
+    operationGenerationRef.current += 1;
+    if (applyFrameRef.current !== null) {
+      cancelAnimationFrame(applyFrameRef.current);
+      applyFrameRef.current = null;
+    }
+    setBusy(false);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    cancelPendingApply();
+    onClose();
+  }, [cancelPendingApply, onClose]);
+
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onClose();
+        handleClose();
         return;
       }
       // Affinity-style band comparison without leaving the dialog.
@@ -218,15 +256,27 @@ export function FrequencySeparationDialog({
         );
       }
     },
-    [onClose],
+    [handleClose],
   );
 
   const handleApply = useCallback(() => {
     if (!view || busy) return;
     setBusy(true);
     setError(null);
+    const generation = ++operationGenerationRef.current;
+    const documentAtStart = state.document;
+    const targetAtStart = view.nodeId;
     // Yield one frame so the busy state paints before the decomposition.
-    requestAnimationFrame(() => {
+    applyFrameRef.current = requestAnimationFrame(() => {
+      applyFrameRef.current = null;
+      if (
+        generation !== operationGenerationRef.current ||
+        documentRef.current !== documentAtStart ||
+        view.nodeId !== targetAtStart
+      ) {
+        setBusy(false);
+        return;
+      }
       try {
         if (view.mode === 'create') {
           const result = createFrequencySeparation(state.document, view.nodeId, {
@@ -235,6 +285,11 @@ export function FrequencySeparationDialog({
           });
           if (!result) {
             setError('Frequency separation could not be created for this layer.');
+            setBusy(false);
+            return;
+          }
+          if (documentRef.current !== documentAtStart) {
+            setError('The document changed while preparing the separation. Nothing was applied.');
             setBusy(false);
             return;
           }
@@ -257,6 +312,11 @@ export function FrequencySeparationDialog({
           });
           if (!result) {
             setError('Frequency separation could not be re-split.');
+            setBusy(false);
+            return;
+          }
+          if (documentRef.current !== documentAtStart) {
+            setError('The document changed while preparing the re-split. Nothing was applied.');
             setBusy(false);
             return;
           }
@@ -312,7 +372,7 @@ export function FrequencySeparationDialog({
         <h2 ref={titleRef} className="fs-dialog__title" tabIndex={-1}>
           {title}
         </h2>
-        <button type="button" className="fs-dialog__close" aria-label="Close" onClick={onClose}>
+        <button type="button" className="fs-dialog__close" aria-label="Close" onClick={handleClose}>
           <Icon name="X" size={14} />
         </button>
       </div>
@@ -325,6 +385,10 @@ export function FrequencySeparationDialog({
         </div>
       ) : (
         <>
+          <p className="fs-dialog__target" role="status">
+            Target: <strong>{view.name}</strong> · {view.width} x {view.height} layer pixels ·{' '}
+            {view.mode === 'create' ? 'new linked Tone / Detail group' : 'existing linked group'}
+          </p>
           <div className="fs-dialog__body">
             <div className="fs-dialog__preview-wrap">
               <canvas
@@ -335,6 +399,7 @@ export function FrequencySeparationDialog({
               <fieldset className="fs-dialog__preview-modes" aria-label="Preview band">
                 {(
                   [
+                    ['source', 'Before'],
                     ['combined', 'Combined'],
                     ['tone', 'Tone'],
                     ['detail', 'Detail'],
@@ -352,8 +417,9 @@ export function FrequencySeparationDialog({
                 ))}
               </fieldset>
               <p className="fs-dialog__hint">
-                Press F to cycle Tone / Detail / Combined. Detail is shown as the stored signed
-                residual (neutral gray = no texture change), not a contrast-boosted preview.
+                Before shows the untouched source. Press F to cycle Tone / Detail / Combined. Detail
+                is shown as the stored signed residual (neutral gray = no texture change), not a
+                contrast-boosted preview.
               </p>
             </div>
 
@@ -408,8 +474,8 @@ export function FrequencySeparationDialog({
           </div>
 
           <div className="fs-dialog__footer">
-            <button type="button" className="fs-dialog__btn" onClick={onClose} disabled={busy}>
-              Cancel
+            <button type="button" className="fs-dialog__btn" onClick={handleClose}>
+              {busy ? 'Cancel work' : 'Cancel'}
             </button>
             <button
               type="button"

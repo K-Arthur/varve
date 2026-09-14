@@ -74,15 +74,17 @@ export function LiquifyOptionsPanel() {
     return separation ? `${targetNode.name} (single component)` : targetNode.name;
   })();
   const targetSupported = canLiquifyNode(targetNode);
+  const groupFreezeUnavailable =
+    targetNode?.kind === 'group' && getFrequencySeparationState(targetNode) !== null;
 
   const handleResetAll = useCallback(() => {
     if (!targetId || !targetSupported) return;
     const target = editor.state.document.nodes[targetId];
-    const groupId =
-      target?.kind === 'group' && getFrequencySeparationState(target)
-        ? target.id
-        : findFrequencySeparationForBand(editor.state.document, targetId)?.groupId;
-    const clearId = groupId ?? targetId;
+    // Reset follows the visible target. A selected separation group clears its
+    // shared composite field; selecting Tone or Detail intentionally clears
+    // only that component's advanced field.
+    const clearId =
+      target?.kind === 'group' && getFrequencySeparationState(target) ? target.id : targetId;
     const cleared = clearLiquifyOnNode(editor.state.document, clearId);
     if (!cleared) return;
     editor.beginTransaction();
@@ -112,6 +114,12 @@ export function LiquifyOptionsPanel() {
           onChange={(value) => update('mode', value as LiquifyToolOptions['mode'])}
         />
       </div>
+      {groupFreezeUnavailable && (
+        <p className="liquify-options__warning" role="status">
+          Freeze and Thaw apply to raster layers. Select Tone or Detail to protect one component;
+          the group still supports shared deformation.
+        </p>
+      )}
 
       <div className="liquify-options__field">
         <span className="liquify-options__label">Size</span>
