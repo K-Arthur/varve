@@ -15,6 +15,10 @@ test('image enhancement feature page explains the shipped workflow', async ({ pa
   await expect(page.getByRole('heading', { name: 'Auto / Recommended' })).toBeVisible();
   await expect(page.getByText(/qualitative signal label/i)).toBeVisible();
   await expect(
+    page.getByRole('heading', { name: 'The useful path is selected per workload.' }),
+  ).toBeVisible();
+  await expect(page.getByText(/current release does not ship a vendor NPU runtime/i)).toBeVisible();
+  await expect(
     page.getByRole('heading', { name: 'Inspect the pixels before you commit.' }),
   ).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Choose the detail' })).toBeVisible();
@@ -31,4 +35,8 @@ test('image enhancement documentation is linked and readable', async ({ page }) 
   await expect(page.getByText(/presets cover Auto, CPU and AI photo work/i)).toBeVisible();
   await expect(page.getByText(/untouched source crop/i)).toBeVisible();
   await expect(page.getByText(/Generate AI preview/i)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Which accelerator ran?' })).toBeVisible();
+  await expect(
+    page.getByText(/Provider status is evidence about the completed workload/i),
+  ).toBeVisible();
 });

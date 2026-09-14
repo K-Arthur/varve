@@ -76,7 +76,7 @@ import { sitePath } from '../../lib/siteUrl';
         <ul>
           <li><strong>Settled and exported output:</strong> a blurred or scaled preview never becomes the file. Saved documents, exports, and print output render at full fidelity.</li>
           <li><strong>Your document:</strong> the profile changes rendering cost, not geometry, text, effects, or undo history.</li>
-          <li><strong>Presentation and compute are separate:</strong> Canvas2D remains authoritative for the canvas. Browser WebGPU and native desktop GPU compute are used only after an adapter or device probe succeeds; native compute is limited to offscreen effects and resampling, plus AI inference through a verified GPU execution provider on supported models. Background removal reports which provider actually ran and keeps a CPU fallback. A device NPU is never used — it is not exposed to the browser or the Linux container, and no NPU provider runtime ships with Varve.</li>
+          <li><strong>Presentation and compute are separate:</strong> Canvas2D remains authoritative for the canvas. Browser WebGPU and native desktop GPU compute are used only after an adapter or device probe succeeds; native compute is limited to offscreen effects and resampling, plus AI inference through a verified GPU execution provider on supported models. Background removal reports which provider actually ran and keeps a CPU fallback. The current release does not select an NPU: a product specification, host device, browser request, or Linux device node is not enough. A future NPU route must have a compatible provider runtime, driver, model, and observed execution on the actual process path.</li>
           <li><strong>Manual quality control:</strong> the Performance tab offers Automatic or Full resolution for interactive navigation; it does not expose a render-scale slider. Selection is measured from actual frame time, while Full resolution is an explicit fidelity choice rather than a promise of a fixed frame rate.</li>
         </ul>
       </section>
@@ -88,7 +88,23 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Expect adaptation:</strong> documents around a thousand mixed nodes, several large images, or concentrated effects will push the profile toward performance tiers. The canvas stays interactive; settled frames take the time they take.</li>
           <li><strong>Treat as stress, one at a time:</strong> dozens of 4096×4096 images, tens of thousands of path points, or long effect stacks. These are deliberate worst cases, not everyday documents, and combining them multiplies cost.</li>
           <li><strong>Browser-local limits:</strong> on the deployed demo host, multi-threaded WASM is unavailable because the page is not cross-origin isolated. Large documents are therefore slower in the browser than in the native desktop application.</li>
-          <li><strong>Background work yields:</strong> thumbnails, raster pyramids, and semantic indexing are bounded, cancellable, and paused while the page is hidden or frozen. A browser may still discard a tab under memory pressure — use explicit saves, not recovery copies alone.</li>
+          <li><strong>Background work yields:</strong> thumbnails, raster pyramids, and semantic indexing are bounded, cancellable, and paused while the page is hidden or frozen. Chrome can discard a tab — including an installed web app on ChromeOS — without firing an unload event, so recovery points are written while you edit and an explicit save remains the durable copy.</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Failure modes Varve deliberately avoids</h2>
+        <p>
+          These are the behaviors users of browser design tools most often report as
+          losses, and what Varve does instead. They describe implemented, regression-tested
+          behavior — not device measurements.
+        </p>
+        <ul>
+          <li><strong>A preview that never sharpens:</strong> reduced render scale exists only while an interaction is open; settled frames, hit testing, overlays, and exports return to full device resolution.</li>
+          <li><strong>Full-resolution decode of offscreen images:</strong> visible images are bucketed to power-of-two proxies governed by a decoded-byte budget, so one oversized image cannot pin the working set at full resolution.</li>
+          <li><strong>Background rewrites of unchanged data:</strong> automatic backups are skipped when the document JSON matches the last backup, duplicate untitled recovery writes were removed, recovery storage is byte-capped, and permanently deleting a file or version reclaims its content-addressed JSON.</li>
+          <li><strong>Work loss on tab discard:</strong> Chrome documents that no event fires on discard; recovery points are written while you edit, and a reload or discard restores the latest point. An explicit save is still the durable copy.</li>
+          <li><strong>Silent model downloads or cloud fallback:</strong> optional models are downloaded only after you start the operation, with download/storage size and an estimated peak working memory shown; images are never uploaded to a paid endpoint behind the capability gate.</li>
         </ul>
       </section>
 
