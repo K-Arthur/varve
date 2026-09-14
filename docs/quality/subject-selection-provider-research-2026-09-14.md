@@ -48,7 +48,7 @@ in-app ort-web numbers are measured separately by the E2E gates.
 | Measured latency (artifact check, Python ort CPU) | Encoder 0.84-1.20 s; decoder 0.11 s; 512x512 and 1080x1920 sources measured. Compare: SAM2-Hiera-Tiny encoder 4.2 s in the recorded parity run. |
 | Measured quality (artifact check) | Synthetic circle fixture at 400x600: best candidate IoU 0.997 against the ground-truth circle; 512x512 random-noise prompt returned plausible alternative masks with logits 0.48-1.00. This proves the contract, not production quality; the corpus run is the gate. |
 | Known limitations | Third-party export rather than an official release; the 4th candidate can be a whole-image interpretation; IoU scores are logits and are not calibrated probabilities; WebGPU execution-provider support is unverified (WASM is the reference path); the encoder pre-resize must be done by Varve. |
-| Decision for Varve | **Accepted as the first low-memory prompted provider candidate.** Integration is gated on (a) the real-model corpus comparison against SAM2 on the same prompts and oracles, (b) measured browser/wasm latency and memory, and (c) the provider routing policy shipping it only where it wins. Until the gate passes it is experimental. |
+| Decision for Varve | **Accepted as an explicit smaller-download prompted provider.** The real-model corpus, actual Chromium WASM workflow, and memory evidence are recorded below, but the browser gate found a boundary-click ambiguity. It remains experimental and is not eligible for automatic routing. |
 
 ### 2.1 Alternative MobileSAM artifact evaluated and not selected
 
@@ -92,7 +92,7 @@ introduced.
 | `birefnet-general-lite` | High-quality cutout/refinement proposal | Optional download (224 MB) | MIT; 1024x1024; logits with in-app sigmoid; deliberately native-preferred because bare-WASM can exceed the wasm32 ceiling. |
 | `birefnet-general` | High-quality cutout (larger variant) | Optional download (928 MB) | Not offered on constrained devices. |
 | SAM2-Hiera-Tiny | Prompted object selection | Optional download (155 MB) | Current baseline provider. |
-| MobileSAM | Low-memory prompted selection (candidate) | Optional download (44.7 MB) | See section 2. |
+| MobileSAM | Smaller-download prompted selection (experimental) | Optional download (44.7 MB) | See sections 2 and 9; the file size is not a low-memory guarantee. |
 
 ## 5. Model-free foreground estimate (current Select subject path)
 
@@ -144,9 +144,10 @@ concrete Varve behaviour this work ships or preserves.
    native-preferred). No new model manager, no new download path.
 2. **Keep the model-free estimator** as the no-model fallback and never
    present it as semantic recognition.
-3. **Accept MobileSAM as a low-memory prompted provider candidate**, with the
-   Acly split export, pinned checksums, MIT/Apache-2.0 provenance, and an
-   explicit quality/latency gate before default routing.
+3. **Accept MobileSAM as an explicit smaller-download prompted provider**, with
+   the Acly split export, pinned checksums, MIT/Apache-2.0 provenance, and a
+   documented real-photo browser gate. Its ~1.15 GB Node RSS evidence and
+   boundary-click ambiguity keep it out of automatic routing.
 4. **Reject EdgeSAM** under its current license; **defer EfficientSAM** to an
    A-B experiment; **do not add EfficientViT-SAM**; keep MODNet portrait-only
    and Grounding DINO optional/future.
@@ -154,3 +155,29 @@ concrete Varve behaviour this work ships or preserves.
    requested model reports that, with the download size when a model is the
    answer, and routes to a clearly different capability only with user
    consent or explicit fallback labelling.
+
+## 9. Real-photo browser gate (2026-09-14)
+
+The pinned Acly split artifacts were executed through Varve's actual
+Chromium/ort-web WASM worker, not only through a mock or the Node contract
+harness. The gate used the public-domain `real-life-elephant.jpg` fixture and
+the model preference **Faster local — MobileSAM** so the run could not pass by
+silently selecting SAM2.
+
+| Field | Result |
+| --- | --- |
+| Source / access date | `tests/e2e/fixtures/real-life-elephant.jpg`, 2026-09-14 |
+| Artifact | Acly/MobileSAM revision `0d3b403339b4674a82493d5e97964dd78089ddc8`, MIT model card |
+| Checksums | Encoder `580f5fb648ea1062c0aabc26217aed56921985f03f0cbbd852bba81d760cc749`; multi-mask decoder `8976b90a87ba50a6a72217a5ff994f7d25ce16f2229fcc1ed259e1294c622ffe` |
+| Contract exercised | Encoder raw RGB HWC after provider-owned ResizeLongestSide; decoder padded-1024 prompt coordinates, point labels, four candidates, source-sized masks, raw predicted-IoU scores, and low-resolution logits |
+| Runtime | Headless Chromium, ort-web WASM, COOP/COEP dev server, persistent model profile |
+| Scenario | Interior elephant positive click → negative grass click → review four candidates → cycle away and back → Apply as mask |
+| Result | Passed 1 test in 1.9 minutes; preview, correction, candidate identity, and persisted mask were visually inspected |
+| Memory | Separate Node real-photo sequence peaked at approximately 1.15 GB RSS on a 1920x2560 source; browser peak memory was not instrumented sufficiently for promotion |
+| Known failure | A boundary click on the same photograph can select a high-scoring expansive ground patch; predicted-IoU does not identify user intent |
+| Decision | Keep MobileSAM explicit-only and experimental. Do not route it automatically or market it as a guaranteed low-memory path. |
+
+The exact real-model command and screenshot names are recorded in
+`docs/quality/object-selection-parity.md`. Captures are local temporary
+validation artifacts; pixels, prompts, filenames, and embeddings are not sent
+to analytics or crash reporting.

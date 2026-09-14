@@ -7,7 +7,9 @@
  * license-safe corpus in `packages/engine/src/segmentation/quality/corpus.ts`
  * through the pinned ONNX artifacts with the production encode/decode
  * functions (see `quality/providerAb.test.ts` and
- * `docs/quality/object-selection-parity.md`).
+ * `docs/quality/object-selection-parity.md`). The real-photo Chromium gate is
+ * recorded separately because a small visual scenario proves artifact and
+ * lifecycle execution, not corpus-wide quality.
  *
  * Changing a number here changes production routing. Re-run the A/B harness
  * and update `runtimeEnvironment`, `validatedAt`, and the corpus version in
@@ -19,7 +21,7 @@ import { MOBILE_SAM_PROVIDER_ID, SAM2_PROVIDER_ID } from './promptedRouting';
 
 export const PROMPTED_SELECTION_CORPUS_VERSION = 'object-selection-corpus-v1';
 
-/** Environment string recorded with every measurement below. */
+/** Environment string recorded with every synthetic-corpus measurement below. */
 export const PROMPTED_VALIDATION_ENVIRONMENT =
   'onnxruntime-node 1.27.0 · CPU execution provider · Linux x86_64 · 128x128 corpus fixtures · 1024x1024 encoder input';
 
@@ -88,6 +90,7 @@ export const MOBILE_SAM_QUALITY_VALIDATION: PromptedQualityValidation = {
   categoryIoU: MOBILE_SAM_MEASURED_CATEGORY_IOU,
   criticalCategories: PROMPTED_CRITICAL_CATEGORIES,
   worstCriticalIoU: 0.5494,
+  // biome-ignore lint/suspicious/noApproximativeNumericConstant: measured boundary F-score
   worstCriticalBoundaryF: 0.693,
 };
 
@@ -107,9 +110,10 @@ export const SAM2_CAPABILITIES: PromptedProviderCapabilities = {
 
 /**
  * Warm prompt p95 proxies measured on the same Node CPU run (decoder only,
- * embedding resident). The browser/WebGPU runtime has not been measured yet,
- * so consumers must present these as estimated relative orderings, not as
- * absolute browser latencies.
+ * embedding resident). The real Chromium gate exercises the WASM worker and
+ * visual commit path, but it does not yet provide a controlled browser timing
+ * corpus; consumers must present these as estimated relative orderings, not
+ * as absolute browser latencies.
  */
 export const PROMPTED_PROVIDER_LATENCY_PROXY: Readonly<
   Record<string, { p50Ms: number; p95Ms: number; source: 'estimated' | 'measured' }>

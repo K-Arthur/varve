@@ -48,10 +48,21 @@ import { sitePath } from '../../lib/siteUrl';
           that actually ran, and a higher-quality level never silently becomes a different one.
         </p>
         <p>
-          Proposals are ranked foreground estimates: the top-ranked one becomes a pixel selection
-          immediately, every alternative stays one click away, and each candidate can be applied as
-          an editable mask instead. Scores are shown as estimates, never as semantic confidence,
-          and the copy never claims to know what an object is.
+          Proposals are ranked foreground estimates: preview a candidate first, then explicitly use
+          it as a pixel selection or apply it as an editable mask. Every alternative stays one click
+          away. Scores are shown as estimates, never as semantic confidence, and the copy never
+          claims to know what an object is.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Choose the task, not a mystery model</h2>
+        <p>
+          Use a subject estimate for a quick foreground proposal, Object Selection when you can
+          point to the object you mean, and Improve edges when the boundary needs care. The normal
+          workflow stays simple; advanced settings can prefer speed or detail when an optional
+          local model is installed. A smaller download is not a promise of smaller memory use, so
+          Varve explains unavailable routes instead of silently switching capabilities.
         </p>
       </section>
 
@@ -69,8 +80,8 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section">
         <h2>Local by design</h2>
         <p>
-          The optional segmentation model pair is downloaded explicitly from Settings &gt; Offline
-          Models, verified before use, and run on the device through Varve's worker-backed
+          Optional segmentation models are downloaded explicitly from Settings &gt; Offline Models,
+          verified before use, and run on the device through Varve's worker-backed
           inference path. Higher-quality subject estimates offer their optional model in place with
           its download size, and the bundled Fast level works without one. A model is not loaded at
           application startup, and image embeddings are kept in a bounded session cache rather than

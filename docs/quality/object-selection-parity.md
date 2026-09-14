@@ -346,3 +346,64 @@ translucent fabric, shadows, smoke, reflections, holes, overlapping
 subjects, similar fg/bg colors, tiny objects, occlusion, soft focus, motion
 blur, very low contrast. The synthetic corpus covers the structure of these
 cases; the release visual review covers their photographic reality.
+
+## MobileSAM A/B and real-photo gate (2026-09-14)
+
+The MobileSAM comparison uses the same production prompt encoder/decoder
+adapter, source-coordinate prompts, candidate filtering, and corpus oracles as
+the SAM2 run. It is not a comparison of model-file size alone.
+
+| provider | mean IoU | mean boundary F | worst critical IoU | warm prompt p50/p95 proxy | decision |
+| --- | ---: | ---: | ---: | ---: | --- |
+| SAM2 Hiera Tiny | 0.6538 | 0.6535 | 0.5516 | 496 / 1068 ms | validated Auto provider |
+| MobileSAM split | 0.7474 | 0.7141 | 0.5494 | 326 / 485 ms | explicit experimental provider |
+
+The corpus result is useful evidence, not a release claim: both providers
+remain below the provisional aggregate gates above, and MobileSAM's stronger
+mean did not clear the real-photo intent gate. The raw `iou_predictions` value
+is retained as a predicted-IoU ranking score; it is not a probability that the
+mask matches the user's intended object.
+
+The real browser gate used the pinned Acly split artifacts (encoder SHA-256
+`580f5fb648ea1062c0aabc26217aed56921985f03f0cbbd852bba81d760cc749`, multi-mask
+decoder SHA-256
+`8976b90a87ba50a6a72217a5ff994f7d25ce16f2229fcc1ed259e1294c622ffe`) through
+the actual Chromium/ort-web WASM worker on the public-domain
+`real-life-elephant.jpg` photograph. It selected an interior elephant point,
+added a negative grass point, reviewed all four candidates, returned to the
+reviewed candidate, applied the mask, and verified the mask-output workflow.
+The run passed:
+
+```text
+VARVE_E2E_PORT=1474 VARVE_MOBILE_SAM_REAL_MODEL=1 \
+VARVE_MOBILE_SAM_PROFILE_DIR=/tmp/varve-mobile-sam-profile-20260914 \
+VARVE_MOBILE_SAM_BASE_URL=http://localhost:1474 \
+pnpm exec playwright test \
+  tests/e2e/canvas/object-selection-mobile-real-model.spec.ts \
+  --project=chromium --workers=1 --reporter=line \
+  --output=/tmp/varve-mobile-real-run-20260914b
+```
+
+The inspected captures were `mobile-elephant-click-preview.png`,
+`mobile-elephant-negative-correction.png`, and
+`mobile-elephant-applied-mask.png` in that output directory. The first
+interior click produced a clean elephant overlay; the negative grass prompt
+kept the full elephant and removed the competing ground interpretation; the
+applied mask preserved the body, head, trunk, and legs with a review-worthy
+grass/edge ambiguity. A separate boundary-click probe on the same photograph
+returned a high-scoring expansive ground patch. That failure is why MobileSAM
+is explicit-only today, despite passing the artifact, contract, and browser
+lifecycle gates.
+
+The real-photo run is visual evidence rather than a hidden benchmark: no image
+pixels, screenshots, or filenames are sent to telemetry. The captures are
+local temporary evidence and are not part of the document or model cache.
+
+## Routing decision after the gate
+
+| user intent | validated default | explicit alternative | unavailable/failure behaviour |
+| --- | --- | --- | --- |
+| Automatic subject estimate | bundled U²-Net Fast proposal, or the requested installed higher-quality foreground model | IS-Net / BiRefNet through the existing explicit quality controls | explain the model-free estimate or install offer; never call it semantic recognition |
+| Prompted point/box object selection | SAM2 Hiera Tiny when installed, WASM-compatible, and within the measured working-set budget | MobileSAM split ONNX, only after the user chooses Faster local model | explain the exact provider failure; never silently substitute a foreground estimate |
+| Soft edge / hair refinement | existing brush, trimap, and closed-form matting tools | BiRefNet only in its explicit high-quality cutout/refinement role | preserve binary-safe/manual refinement; do not call a hard mask an alpha matte |
+| Text discovery | not shipped | future detector → reviewed box → prompted segmenter | no detector download or background discovery on Object Selection open |

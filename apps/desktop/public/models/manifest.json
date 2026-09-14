@@ -1470,7 +1470,7 @@
       "supportedProviders": [
         "wasm"
       ],
-      "notes": "Faster prompted object selection using the pinned Acly/MobileSAM split ONNX artifacts. The encoder accepts raw RGB HWC after ResizeLongestSide; the graph normalizes and right/bottom pads to 1024. The multi-mask decoder returns four source-sized logits and raw predicted-IoU ranking scores. This is a prompted segmenter, not a foreground proposal or semantic detector. Node CPU RSS measured ~548MB with both sessions resident on a 1920x1080 image; browser/Varve inference remains an explicit validation gate.",
+      "notes": "Faster prompted object selection using the pinned Acly/MobileSAM split ONNX artifacts. The encoder accepts raw RGB HWC after ResizeLongestSide; the graph normalizes and right/bottom pads to 1024. The multi-mask decoder returns four source-sized logits and raw predicted-IoU ranking scores. This is a prompted segmenter, not a foreground proposal or semantic detector. The 44.7MB download does not imply low runtime memory: the real-photo Node CPU gate reached ~1.15GB RSS at 1920x2560, and the browser worker path remains experimental because boundary clicks can return an expansive background candidate.",
       "components": [
         {
           "id": "mobile-sam-encoder",
@@ -1547,14 +1547,15 @@
           "channelOrder": "rgb"
         },
         "outputActivation": "none",
-        "peakMemoryBytes": 420000000
+        "peakMemoryBytes": 1200000000
       },
       "validation": {
         "contractVerified": true,
         "integrityVerified": true,
         "provenanceStatus": "verified",
-        "inferenceVerified": false,
-        "validationSummary": "ONNX graph inspected directly and executed with onnxruntime-node on a real public-domain photograph. Browser worker validation is pending.",
+        "inferenceVerified": true,
+        "inferenceVerifiedAt": "2026-09-14T00:00:00Z",
+        "validationSummary": "ONNX graph inspected directly and executed with onnxruntime-node plus the Varve Chromium WASM worker on a real public-domain elephant photograph. The corrected interior-positive plus grass-negative workflow produced four reviewable candidates and a persisted mask; a boundary click can still select an expansive ground patch, so automatic routing remains disabled.",
         "contractVersion": 1,
         "contractVerifiedAt": "2026-09-14T00:00:00Z",
         "integrityVerifiedAt": "2026-09-14T00:00:00Z"
@@ -1670,8 +1671,9 @@
         "contractVerified": true,
         "integrityVerified": true,
         "provenanceStatus": "verified",
-        "inferenceVerified": false,
-        "validationSummary": "ONNX graph inspected directly and executed with onnxruntime-node on a real public-domain photograph. Browser worker validation is pending.",
+        "inferenceVerified": true,
+        "inferenceVerifiedAt": "2026-09-14T00:00:00Z",
+        "validationSummary": "ONNX graph inspected directly and executed with onnxruntime-node plus the Varve Chromium WASM worker on a real public-domain elephant photograph. Four source-sized mask candidates, prompt correction, candidate cycling, and mask persistence passed; raw predicted-IoU is not intent confidence and automatic routing remains disabled.",
         "contractVersion": 1,
         "contractVerifiedAt": "2026-09-14T00:00:00Z",
         "integrityVerifiedAt": "2026-09-14T00:00:00Z"

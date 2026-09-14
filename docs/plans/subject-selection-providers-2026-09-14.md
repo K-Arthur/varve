@@ -35,7 +35,7 @@ not create a second AI-selection subsystem.
 | --- | --- | --- |
 | P0 | Fix the preflight/model-spec correctness defects; pin reviewed-candidate behaviour with tests | Shipped 2026-09-14 |
 | P1 | Model-backed automatic foreground proposals + routing policy + honest UI + mask output | Shipped 2026-09-14 |
-| P2 | MobileSAM adapter (low-memory prompted provider) behind the provider seam, gated on corpus measurement | Researched and artifact-verified; adapter work is the next slice |
+| P2 | MobileSAM adapter (smaller-download prompted provider) behind the provider seam, gated on corpus and real-photo evidence | Adapter, pinned artifact, contract tests, and Chromium WASM workflow shipped 2026-09-14; remains explicit experimental and is not in Auto routing |
 | P3 | Refinement handoff from proposals (existing refine section is the handoff) | Shipped via selection→refine path |
 | P4 | EfficientSAM A-B | Deferred (adapter-only, not shipped) |
 | P5 | Text/object discovery (Grounding DINO → promptable segmenter) | Deferred, research only |
@@ -93,7 +93,7 @@ Rules:
 | Intent | Zero-download | Fast | Balanced | High quality | Refinement |
 | --- | --- | --- | --- | --- | --- |
 | Automatic foreground | model-free heuristic | U²-NetP | IS-Net (installed) | BiRefNet Lite (installed, native-preferred) | existing selection refine + hair/trimap matting |
-| Prompted object | — (explicit unavailable state) | — | SAM2-Hiera-Tiny (installed) | MobileSAM (installed, low-memory tier) | existing selection refine |
+| Prompted object | — (explicit unavailable state) | — | SAM2-Hiera-Tiny (installed, validated, and within the measured budget) | MobileSAM only when explicitly chosen; the 44.7 MB download still reached ~1.15 GB RSS in the real-photo Node gate, so it is not treated as a low-memory guarantee | existing selection refine |
 | Text discovery | — | — | — | — | not shipped |
 
 ## Acceptance criteria for this plan
@@ -107,7 +107,9 @@ Rules:
 4. `Select subject` offers fast/balanced/high quality modes with honest labels,
    explicit install affordances and sizes, and preserves the model-free path.
 5. Real-model validation: corpus + E2E for the automatic path; MobileSAM
-   corpus comparison against SAM2 before any default routing claim.
+   contract, corpus, and real-photo browser evidence are recorded, but its
+   boundary-click ambiguity keeps it out of default routing until a broader
+   browser corpus clears the promotion gate.
 6. Deterministic selectors (Magic Wand, colour range, luminance, alpha) stay
    model-free.
 7. Docs, website copy, and notices match the shipped behaviour.
