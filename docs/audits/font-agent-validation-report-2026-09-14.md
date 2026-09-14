@@ -340,3 +340,22 @@ readable at all three DPRs, and the narrow menu scrolls without clipping the
 active row. The run also confirms the existing empty-text cleanup behavior and
 real OpenType redraw path. This is browser visual evidence; native WebKit,
 Windows WebView2, and macOS WKWebView proof remain platform dependencies.
+
+## Full-gate continuation — 2026-09-14
+
+Because `pnpm verify:plan` selected the required Tier 5 escalation for the
+shared workspace and validation-infrastructure changes, I reran the full gate
+after the linked-story and research commits:
+
+```text
+VARVE_FULL_GATE_REASON='font typography continuation: linked-story resolver/controller, primary-source UX research, and fresh quick-toolbar visual validation; planner escalated due shared workspace and validation-infrastructure changes' pnpm verify:full
+```
+
+The gate did not certify the repository. The full lint pass stopped on existing
+diagnostics in shared website/editor files, the architecture audit reported 14
+cycles and the current unstable-module/hub-budget baseline, and the affected
+engine typecheck stopped on `contentAwareFill/quickCleanup.test.ts` generic
+arity plus missing `LutTransform.size` in `lut*.test.ts`. The linked-story
+files are absent from the failure list; the earlier native WDIO build boundary
+has the same shared editor diagnostics. No unrelated files were changed to
+silence this gate.
