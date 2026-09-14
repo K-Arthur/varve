@@ -48,6 +48,17 @@ task began. Every commit uses an explicit path list; unrelated staged files are
 never restaged, reverted, or reformatted. The existing `ShapeBuilderTool`
 untracked/staged conflict and other in-flight changes are left alone.
 
+## Concurrency incident (2026-09-13)
+
+The typography docs commit `12f3147bd` was created from a stale index snapshot
+and recorded the reverse of this task's final changes (deleting the benchmark,
+E2E spec, screenshots, and inspector/trimap updates; reverting the code and
+docs edits). Nothing was lost: the working tree and index still held the
+authored content, and `5eaa86a15` restores exactly the file set from
+`14246c379` while leaving the typography owner's evidence file untouched.
+Future commits should keep constructing the index from the current HEAD rather
+than a snapshot captured before concurrent commits.
+
 ## Validation
 
 - Engine and editor unit tests for every changed algorithm (`vitest run` on
