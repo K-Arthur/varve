@@ -117,8 +117,9 @@ fixes from this ledger:
   including the local/offline behavior and the honest limits of the selected
   resampling mode.
 
-Focused numerical/component checks passed: 20 resampler tests, 1 JPEG-matte
-export test, and 5 image-resize tests. The Chromium image-resize workflow also
+Focused numerical/component checks passed: 27 tests across the resampler,
+image-resize, dialog, and opaque-matte suites, including JPEG and explicitly
+opaque PNG export. The Chromium image-resize workflow also
 passed end to end on Linux, including selecting `Linear light (photo edges)`
 through the real dialog, with screenshots for open, configured, and applied
 states; the screenshots were inspected as pixels, not only checked for
