@@ -11,6 +11,7 @@
 
 import { isTauriRuntime as isTauri } from '@varve/platform';
 import { type FontRegistry, getFontRegistry } from '../fontRegistry';
+import { extractFontCollectionMember } from './fontCollectionMember';
 import {
   fontReferenceFromIdentity,
   fontReferenceKey,
@@ -268,7 +269,15 @@ export class FontLoader {
 
     try {
       if (data) {
-        return await this.loadFromArrayBuffer(family, data, 'network', 'user');
+        return await this.loadFromArrayBuffer(family, data, 'network', 'user', {
+          postScriptName: meta.identity.postScriptName,
+          artifactHash: meta.identity.contentHash,
+          ...(meta.identity.collectionIndex === undefined
+            ? {}
+            : { collectionIndex: meta.identity.collectionIndex }),
+          weight: weightFromSubfamily(meta.identity.subfamilyName),
+          style: /italic|oblique/i.test(meta.identity.subfamilyName) ? 'italic' : 'normal',
+        });
       }
 
       if (meta.sourceLocation) {
@@ -503,14 +512,36 @@ export class FontLoader {
 
     // Parse metadata before loading so we can register accurate weight/style,
     // color capabilities, and license info alongside the FontRegistry entry.
+    let artifactMeta: ParsedFontMetadata | undefined;
     let meta: ParsedFontMetadata | undefined;
+    let faceData = data;
     try {
-      meta = await parseFontData(data);
+      artifactMeta = await parseFontData(data);
+      const collectionIndex = faceOptions?.collectionIndex ?? artifactMeta.identity.collectionIndex;
+      if (collectionIndex !== undefined && artifactMeta.identity.collectionIndex !== undefined) {
+        faceData = await extractFontCollectionMember(data, collectionIndex);
+        meta = await parseFontData(faceData);
+      } else {
+        meta = artifactMeta;
+      }
     } catch {
+      if (faceOptions?.collectionIndex !== undefined) {
+        throw new Error('Font collection member could not be validated');
+      }
       // Parse errors are non-fatal; we fall back to generic registration below.
     }
 
-    const exactKey = exactFaceKey(faceOptions, meta);
+    const collectionIndex = faceOptions?.collectionIndex ?? artifactMeta?.identity.collectionIndex;
+    const exactKey = exactFaceKey(
+      {
+        ...faceOptions,
+        ...(faceOptions?.artifactHash || !artifactMeta?.identity.contentHash
+          ? {}
+          : { artifactHash: artifactMeta.identity.contentHash }),
+        ...(collectionIndex === undefined ? {} : { collectionIndex }),
+      },
+      artifactMeta ?? meta,
+    );
     const cached = exactKey ? this.findLoadedFace(exactKey) : undefined;
     if (cached) return cached.result;
 
@@ -518,7 +549,7 @@ export class FontLoader {
     const weight = faceOptions?.weight ?? weightFromSubfamily(subfamily);
     const style =
       faceOptions?.style ?? (subfamily.toLowerCase().includes('italic') ? 'italic' : 'normal');
-    const face = new FontFace(family, data, { weight: String(weight), style });
+    const face = new FontFace(family, faceData, { weight: String(weight), style });
     try {
       await Promise.race([face.load(), createTimeout(this.config.timeoutMs)]);
     } catch (err) {
@@ -530,7 +561,7 @@ export class FontLoader {
     }
 
     document.fonts.add(face);
-    const bridge = this.exposeByteBackedFaceToWorkers(family, data, weight, style, exactKey);
+    const bridge = this.exposeByteBackedFaceToWorkers(family, faceData, weight, style, exactKey);
     await document.fonts.ready;
 
     const result: LoadResult = { success: true, family, loadedFrom: source };
@@ -553,7 +584,13 @@ export class FontLoader {
     }
 
     // Register in FontRegistry so existing UI components see the font
-    const faceReference = meta ? fontReferenceFromIdentity(meta.identity) : undefined;
+    const artifactIdentity = artifactMeta?.identity ?? meta?.identity;
+    const faceReference = artifactIdentity
+      ? fontReferenceFromIdentity({
+          ...artifactIdentity,
+          ...(collectionIndex === undefined ? {} : { collectionIndex }),
+        })
+      : undefined;
     this.registry.register({
       family,
       weight,
@@ -564,8 +601,8 @@ export class FontLoader {
         : meta?.identity.postScriptName
           ? { postScriptName: meta.identity.postScriptName }
           : {}),
-      ...(faceOptions?.collectionIndex !== undefined
-        ? { collectionIndex: faceOptions.collectionIndex }
+      ...(collectionIndex !== undefined
+        ? { collectionIndex }
         : meta?.identity.collectionIndex === undefined
           ? {}
           : { collectionIndex: meta.identity.collectionIndex }),
