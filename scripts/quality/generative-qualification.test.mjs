@@ -66,6 +66,7 @@ function candidate(root, task, seed, sourceHash, status = 'passed') {
     ...(status === 'passed'
       ? {
           review: {
+            acceptable: true,
             taskSuccess: 4,
             seams: 4,
             preservation: 4,
@@ -136,6 +137,39 @@ try {
         provenancePath: path.join(repositoryRoot, 'tests/e2e/fixtures/PROVENANCE.md'),
       }),
     /raster artifact/,
+  );
+
+  const mismatchedProvider = structuredClone(evidence);
+  mismatchedProvider.tasks[0].candidates[0].provider.modelChecksum = 'b'.repeat(64);
+  assert.throws(
+    () =>
+      validateEvidence(corpus, mismatchedProvider, tempRoot, {
+        provenancePath: path.join(repositoryRoot, 'tests/e2e/fixtures/PROVENANCE.md'),
+      }),
+    /does not match evidence\.model\.checksumSha256/,
+  );
+
+  const unaccepted = structuredClone(evidence);
+  unaccepted.tasks[0].candidates[0].review.acceptable = false;
+  assert.throws(
+    () =>
+      validateEvidence(corpus, unaccepted, tempRoot, {
+        provenancePath: path.join(repositoryRoot, 'tests/e2e/fixtures/PROVENANCE.md'),
+      }),
+    /review\.acceptable must be true/,
+  );
+
+  const failedWithoutSourceIdentity = structuredClone(evidence);
+  delete failedWithoutSourceIdentity.tasks[0].candidates[0].sourceFixtureSha256;
+  failedWithoutSourceIdentity.tasks[0].candidates[0].status = 'failed';
+  failedWithoutSourceIdentity.tasks[0].candidates[0].failureReason = 'model timed out';
+  failedWithoutSourceIdentity.tasks[0].candidates[0].review = { acceptable: false };
+  assert.throws(
+    () =>
+      validateEvidence(corpus, failedWithoutSourceIdentity, tempRoot, {
+        provenancePath: path.join(repositoryRoot, 'tests/e2e/fixtures/PROVENANCE.md'),
+      }),
+    /sourceFixtureSha256 does not match/,
   );
 } finally {
   fs.rmSync(tempRoot, { recursive: true, force: true });
