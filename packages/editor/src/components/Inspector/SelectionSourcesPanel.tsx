@@ -24,7 +24,7 @@ import {
   isImageShape,
 } from '@varve/scene';
 import { Icon, Select, Tooltip } from '@varve/ui';
-import { useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { getActionRegistry } from '../../actions/ActionRegistry';
 import { commitRasterMask } from '../../backgroundRemoval/commitRasterMask';
 import { getToolManager } from '../../canvas/toolDispatcher';
@@ -105,6 +105,7 @@ export function SelectionSourcesPanel() {
   const [subjectQuality, setSubjectQuality] = useState<SubjectProposalQuality>('fast');
   const [activeSubjectCandidate, setActiveSubjectCandidate] = useState(0);
   const subjectDownloadRef = useRef<AbortController | null>(null);
+  const subjectRunRef = useRef<AbortController | null>(null);
   const subjectState = useSyncExternalStore(
     subscribeSubjectProposals,
     getSubjectProposalState,
@@ -112,6 +113,13 @@ export function SelectionSourcesPanel() {
   );
   const selectedNode =
     state.selection.length === 1 ? state.document.nodes[state.selection[0]!] : undefined;
+  // The async estimate must not apply its result to whatever happens to be
+  // selected when it finishes. These refs mirror the live target without
+  // making the click handler depend on a stale render closure.
+  const subjectTargetRef = useRef<{ documentId: string; nodeId: string } | null>(null);
+  subjectTargetRef.current = selectedNode
+    ? { documentId: state.document.id, nodeId: selectedNode.id }
+    : null;
   const hasClosedPath =
     selectedNode?.kind === 'path'
       ? selectedNode.closed
@@ -135,6 +143,15 @@ export function SelectionSourcesPanel() {
       ? subjectState.proposals
       : null;
   const subjectProposalBusy = subjectState.busy && subjectTarget !== null;
+
+  useEffect(() => {
+    return () => {
+      // A panel remount (Inspector scope switch) must not leave a model run
+      // or download writing into a detached store.
+      subjectRunRef.current?.abort();
+      subjectDownloadRef.current?.abort();
+    };
+  }, []);
 
   const fillDisabledReason = !hasAreaSelection
     ? 'Create a pixel selection first'
@@ -239,6 +256,9 @@ export function SelectionSourcesPanel() {
       return;
     }
     const target = { documentId: state.document.id, nodeId: selectedNode.id };
+    subjectRunRef.current?.abort();
+    const runController = new AbortController();
+    subjectRunRef.current = runController;
     setSubjectProposalState({
       target,
       proposals: null,
@@ -252,6 +272,7 @@ export function SelectionSourcesPanel() {
     try {
       setSubjectProposalState({ stage: 'estimating' });
       const decoded = await decodeRasterMaskDataUrl(source);
+      if (runController.signal.aborted) return;
       if (!decoded) {
         const message = 'The image could not be decoded for subject selection';
         setSubjectProposalState({ busy: false, stage: 'idle', error: message });
@@ -262,6 +283,7 @@ export function SelectionSourcesPanel() {
         resolveSubjectRuntimeCapabilities(),
         listInstalledSubjectModels(),
       ]);
+      if (runController.signal.aborted) return;
       const imageData = new ImageData(
         new Uint8ClampedArray(decoded.data),
         decoded.width,
@@ -275,7 +297,20 @@ export function SelectionSourcesPanel() {
         installedModelIds,
         runtime,
         allowModelFreeFallback: true,
+        signal: runController.signal,
       });
+      if (runController.signal.aborted) return;
+      // The user may have changed the target while inference ran. Never apply
+      // the result to a different node, and never present it as current.
+      const liveTarget = subjectTargetRef.current;
+      if (
+        !liveTarget ||
+        liveTarget.documentId !== target.documentId ||
+        liveTarget.nodeId !== target.nodeId
+      ) {
+        setSubjectProposalState({ busy: false, stage: 'idle' });
+        return;
+      }
       if (result.set.candidates.length === 0) {
         const message =
           result.set.emptyReason === 'all-transparent'
@@ -319,10 +354,13 @@ export function SelectionSourcesPanel() {
       // applied immediately and every alternative stays one click away.
       applySubjectCandidate(result.set, 0);
     } catch (error) {
+      if (runController.signal.aborted) return;
       const message =
         error instanceof Error ? error.message : 'Subject selection could not complete';
       setSubjectProposalState({ busy: false, stage: 'idle', error: message });
       announce(message);
+    } finally {
+      if (subjectRunRef.current === runController) subjectRunRef.current = null;
     }
   };
 

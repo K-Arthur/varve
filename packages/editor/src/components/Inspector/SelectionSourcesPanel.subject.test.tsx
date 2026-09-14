@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { addNode, createDocument, makeImageShapeNode } from '@varve/scene';
 import { useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -132,6 +132,16 @@ async function renderPanel() {
       imageHeight: 1,
     }),
   );
+  document = addNode(
+    document,
+    makeImageShapeNode('other', {
+      src: 'data:image/png;base64,mock',
+      w: 32,
+      h: 32,
+      imageWidth: 1,
+      imageHeight: 1,
+    }),
+  );
 
   const editor: { current: ReturnType<typeof useEditor> | undefined } = { current: undefined };
   function CaptureEditor() {
@@ -233,6 +243,31 @@ describe('SelectionSourcesPanel subject proposals', () => {
       ),
     );
     await waitFor(() => expect(mockProposeSubjects).toHaveBeenCalledTimes(2));
+  });
+
+  it('does not apply a stale proposal when the target changes mid-run', async () => {
+    let resolveProposal: ((value: unknown) => void) | undefined;
+    mockProposeSubjects.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveProposal = resolve;
+        }),
+    );
+    const editor = await renderPanel();
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Select subject$/ }));
+    await waitFor(() => expect(mockProposeSubjects).toHaveBeenCalled());
+
+    // The user moves to another image while the estimate is still running.
+    await act(async () => {
+      editor!.current?.setSelection('other');
+    });
+    await act(async () => {
+      resolveProposal?.(proposalResult());
+    });
+
+    expect(editor!.current?.state.areaSelection ?? null).toBeNull();
+    expect(screen.queryByLabelText('Subject proposals')).toBeNull();
   });
 
   it('shows the model-free fallback honestly when no model ran', async () => {
