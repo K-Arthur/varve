@@ -83,6 +83,7 @@ export {
   getCachedLocalFontMetadata,
   getSystemFontDiscoveryStatus,
   hasQueryLocalFonts,
+  loadSystemFontFace,
   resetSystemFontCache,
 } from './fontLoader';
 export type {

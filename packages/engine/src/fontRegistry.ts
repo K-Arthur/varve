@@ -28,6 +28,8 @@ export interface FontEntry {
   collectionIndex?: number;
   /** Native source handle/path retained for exact local access. */
   sourceLocation?: string;
+  /** Opaque native handle for reading the enumerated file/member. */
+  sourceHandle?: string;
   /** Optional source URL retained for legacy/provider metadata. */
   url?: string;
   /** Variable font axis values (e.g. { wght: 500, wdth: 75, slnt: 0, opsz: 14 }). */
@@ -61,6 +63,7 @@ function fontEntryKey(entry: FontEntry): string {
     entry.faceKey ?? '',
     entry.collectionIndex ?? '',
     entry.sourceLocation ?? '',
+    entry.sourceHandle ?? '',
     axes,
   ].join('\u0000');
 }

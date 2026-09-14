@@ -230,6 +230,7 @@ function parsedMetadataFromRegistryEntry(
     category: categoryFromMetadata(familyMetadata?.isCJK, entry.family),
     source: sourceKindFromRegistry(entry.source),
     ...(entry.sourceLocation ? { sourceLocation: entry.sourceLocation } : {}),
+    ...(entry.sourceHandle ? { sourceHandle: entry.sourceHandle } : {}),
   };
 }
 
@@ -252,6 +253,7 @@ function identityFromRegistryEntry(
       entry.postScriptName ?? '',
       entry.url ?? '',
       entry.sourceLocation ?? '',
+      entry.sourceHandle ?? '',
       collectionIndex ?? '',
     ].join(':');
   return {

@@ -198,6 +198,8 @@ export interface ParsedFontMetadata {
   source: FontSourceKind;
   /** Original file path or URL, if known. */
   sourceLocation?: string;
+  /** Opaque native handle for exact local file/member access, when available. */
+  sourceHandle?: string;
 }
 
 /** A variable font axis parsed from the fvar table. */

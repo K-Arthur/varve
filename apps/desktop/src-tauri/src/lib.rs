@@ -5136,6 +5136,7 @@ pub fn run() {
             export_pdf_with_options,
             // Native font enumeration
             font::enumerate_system_fonts,
+            font::load_system_font,
             // Native text shaping
             shape_text_command,
             // Native font filesystem storage

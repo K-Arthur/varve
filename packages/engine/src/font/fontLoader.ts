@@ -97,6 +97,20 @@ export interface SystemFontFace {
   style: string;
   weight: number;
   stretch: number;
+  handle?: string;
+  artifactHash?: string;
+  collectionIndex?: number;
+  faceKey?: string;
+}
+
+/** Load bytes for a native face returned by `enumerate_system_fonts`. */
+export async function loadSystemFontFace(handle: string): Promise<ArrayBuffer | null> {
+  if (!isTauri()) return null;
+  const { invoke } = await import('@tauri-apps/api/core');
+  const bytes = await invoke<number[] | null>('load_system_font', {
+    request: { handle },
+  });
+  return bytes ? Uint8Array.from(bytes).buffer : null;
 }
 
 function createTimeout(ms: number): Promise<never> {
@@ -833,6 +847,9 @@ export async function enumerateSystemFonts(): Promise<string[]> {
           source: 'system',
           postScriptName: face.name,
           sourceLocation: face.path || undefined,
+          sourceHandle: face.handle,
+          faceKey: face.faceKey,
+          collectionIndex: face.collectionIndex,
         });
       }
 

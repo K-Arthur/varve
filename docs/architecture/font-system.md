@@ -154,11 +154,16 @@ entry. Ambiguous family-only history deliberately has no restore action.
 ## Discovery and privacy
 
 Desktop enumeration uses the native `enumerate_system_fonts` request envelope
-and registers the returned family/style faces. Browser Local Font Access is
-only attempted after a deliberate user action and permission; denial falls
-back to the shipped catalog. Hovering, searching, or opening a catalog result
-does not fetch a remote font. The public browser demo can browse metadata and
-bundled faces, but additional artifacts require an explicit desktop install.
+and registers the returned family/style faces. Each readable native face also
+gets an artifact hash, collection member, portable face key, and versioned
+opaque handle. `load_system_font` accepts that handle only after rechecking the
+current font database and artifact hash, so exact local bytes can be requested
+without turning the webview into an arbitrary path reader. Browser Local Font
+Access is only attempted after a deliberate user action and permission; denial
+falls back to the shipped catalog. Hovering, searching, or opening a catalog
+result does not fetch a remote font. The public browser demo can browse
+metadata and bundled faces, but additional artifacts require an explicit
+desktop install.
 
 The full browser exposes that boundary as an explicit **Allow local fonts** or
 **Refresh local fonts** action. Its status distinguishes a native result, a
