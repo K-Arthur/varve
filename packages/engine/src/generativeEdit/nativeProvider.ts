@@ -136,7 +136,7 @@ export const nativeGenerativeProvider = {
       const { invoke } = await import('@tauri-apps/api/core');
       const requestId = `generative-${Date.now()}-${Math.random().toString(16).slice(2)}`;
       const cancel = () => {
-        void invoke('cancel_generative_edit', { requestId });
+        void invoke('cancel_generative_edit', { requestId }).catch(() => undefined);
       };
       let rejectOnAbort: ((reason: GenerativeEditError) => void) | null = null;
       const abort = () => {
