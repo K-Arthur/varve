@@ -5,6 +5,8 @@
  * gather inputs; Stage B: classify intent) so UI and future model-backed
  * stages have a validated, typed boundary. The analysis/segmentation
  * stages (C-H) are deferred: see docs/plans/mockup-multimodal-deferred.md.
+ * Manual cylindrical placement is implemented elsewhere, but this contract
+ * does not claim to infer cylindrical geometry from an image.
  *
  * Invariants:
  * - The pipeline never mutates the document from a model response.
@@ -143,7 +145,7 @@ export function defaultPlacementModeFor(targetKind: MockupTargetKind): 'flat' | 
   }
 }
 
-/** Contradictory requests: mesh/cylindrical are reserved (Level 3). */
+/** Assisted geometry proposals remain bounded even though manual cylinders work. */
 export function classifyMockupIntent(
   raw: unknown,
 ): MockupIntentClassification | { errors: string[] } {
@@ -157,10 +159,14 @@ export function classifyMockupIntent(
   }
   const warnings: string[] = [];
   if (request.placementMode === 'mesh' || request.placementMode === 'cylindrical') {
-    warnings.push('mesh and cylindrical placement are not implemented yet; falling back to flat');
+    warnings.push(
+      'assisted mesh/cylindrical geometry proposals are unavailable; choose a manual template and refine its surface',
+    );
   }
   if (request.requestedVariants !== undefined && request.requestedVariants > 1) {
-    warnings.push('batch variants are not implemented yet; one mockup will be created');
+    warnings.push(
+      'assisted variant generation is unavailable; use the Mockup Variants panel for an explicit export plan',
+    );
   }
   const resolvedPlacementMode =
     request.placementMode === 'auto'

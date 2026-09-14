@@ -14,6 +14,8 @@ import {
   addChild,
   addNode,
   type ContainerNode,
+  canBindMockupSource,
+  computeMockupSourceDigest,
   type Document,
   type FrameNode,
   findOrCreateEmbeddedAsset,
@@ -38,6 +40,7 @@ import {
   collectMockupLiveSourceIds,
   decorateMockupSubtree,
   settleMockupSurfaces,
+  settleMockupTemplateAssets,
 } from '../render/mockup/mockupExport';
 import { replayStructuredScene } from '../render/replayScene';
 import { flattenSceneToEngine } from '../render/sceneToEngine';
@@ -48,6 +51,8 @@ export interface MockupRasterCapture {
   dataUrl: string;
   width: number;
   height: number;
+  /** World-space bounds used when the raster is assigned as a mask. */
+  sourceBounds: { x: number; y: number; w: number; h: number };
 }
 
 async function engineForCapture(): Promise<Engine> {
@@ -84,7 +89,7 @@ export async function captureMockupSourceSnapshot(
     quality: 'export',
   });
   try {
-    return { dataUrl: canvas.toDataURL('image/png'), width, height };
+    return { dataUrl: canvas.toDataURL('image/png'), width, height, sourceBounds: bounds };
   } catch {
     return null;
   }
@@ -105,29 +110,42 @@ export async function snapshotMockupSurface(
   if (!isMockupFrame(frame)) return false;
   const binding = frame.mockup.surfaceBindings[surfaceId];
   if (binding?.mode !== 'live' || !binding.nodeId) return false;
+  const sourceDigest = computeMockupSourceDigest(doc, binding.nodeId);
   const capture = await captureMockupSourceSnapshot(doc, binding.nodeId);
   if (!capture) return false;
 
+  let committed = false;
   editor.beginTransaction();
   try {
     editor.updateDoc((current) => {
+      const currentFrame = current.nodes[frameId];
+      if (
+        !isMockupFrame(currentFrame) ||
+        currentFrame.mockup.surfaceBindings[surfaceId]?.mode !== 'live' ||
+        currentFrame.mockup.surfaceBindings[surfaceId]?.nodeId !== binding.nodeId ||
+        computeMockupSourceDigest(current, binding.nodeId!) !== sourceDigest
+      ) {
+        return current;
+      }
       const { document: withAsset, assetId } = findOrCreateEmbeddedAsset(current, {
         dataUrl: capture.dataUrl,
         mimeType: 'image/png',
         naturalWidth: capture.width,
         naturalHeight: capture.height,
       });
-      return setMockupBinding(withAsset, frameId, surfaceId, {
+      const updated = setMockupBinding(withAsset, frameId, surfaceId, {
         mode: 'snapshot',
         assetId,
         capturedWidth: capture.width,
         capturedHeight: capture.height,
       });
+      committed = updated !== current;
+      return updated;
     });
   } finally {
     editor.commitTransaction();
   }
-  return true;
+  return committed;
 }
 
 /** Reconnect a surface to a live node (default: the current selection). */
@@ -140,13 +158,64 @@ export function reconnectMockupSurface(
   const selection = sourceId ? [sourceId] : editor.state.selection.filter((id) => id !== frameId);
   const nodeId = selection[0];
   if (!nodeId) return false;
+  const frame = editor.state.document.nodes[frameId];
+  if (!isMockupFrame(frame) || !canBindMockupSource(editor.state.document, frameId, nodeId).ok) {
+    return false;
+  }
+  let committed = false;
   editor.beginTransaction();
   try {
-    editor.updateDoc((doc) => setMockupBinding(doc, frameId, surfaceId, { mode: 'live', nodeId }));
+    editor.updateDoc((doc) => {
+      const updated = setMockupBinding(doc, frameId, surfaceId, { mode: 'live', nodeId });
+      committed = updated !== doc;
+      return updated;
+    });
   } finally {
     editor.commitTransaction();
   }
-  return true;
+  return committed;
+}
+
+/** Stable identity for an asynchronous whole-instance capture. */
+function mockupCaptureRevision(doc: Document, frameId: NodeId): string {
+  const frame = doc.nodes[frameId];
+  if (!isMockupFrame(frame)) return `missing:${frameId}`;
+  const sourceIds = collectMockupLiveSourceIds(doc, [frameId]);
+  const templateIds = new Set<string>();
+  for (const id of [frameId, ...sourceIds]) {
+    const candidate = doc.nodes[id];
+    if (isMockupFrame(candidate)) templateIds.add(candidate.mockup.templateId);
+  }
+  const templates = [...templateIds].map((templateId) => {
+    const template = getMockupTemplate(doc, templateId);
+    if (!template) return [templateId, 'missing'];
+    const assetIds = new Set<string>();
+    if (template.plateImage?.assetId) assetIds.add(template.plateImage.assetId);
+    for (const surface of template.surfaces) {
+      if (surface.clipMaskAssetId) assetIds.add(surface.clipMaskAssetId);
+      if (surface.occlusionMaskAssetId) assetIds.add(surface.occlusionMaskAssetId);
+    }
+    return [
+      templateId,
+      template.contentHash,
+      [...assetIds].map((assetId) => [
+        assetId,
+        doc.assets?.[assetId]?.hash ?? doc.assets?.[assetId]?.dataUrl ?? 'missing',
+      ]),
+    ];
+  });
+  return JSON.stringify({
+    frame: {
+      transform: frame.transform,
+      rotation: frame.rotation,
+      w: frame.w,
+      h: frame.h,
+      opacity: frame.opacity,
+      mockup: frame.mockup,
+    },
+    templates,
+    sources: sourceIds.map((sourceId) => [sourceId, computeMockupSourceDigest(doc, sourceId)]),
+  });
 }
 
 /**
@@ -163,11 +232,22 @@ export async function flattenMockupToImage(
   if (!isMockupFrame(frame)) return false;
   const template = getMockupTemplate(doc, frame.mockup.templateId);
   if (!template) return false;
+  const captureRevision = mockupCaptureRevision(doc, frameId);
 
   const sourceIds = collectMockupLiveSourceIds(doc, [frameId]);
   const flattened = flattenSceneToEngine(doc, [frameId, ...sourceIds]);
   const settlement = await settleEngineImageResources(flattened.nodes, { signal: undefined });
-  if (settlement.status === 'cancelled') return false;
+  if (
+    settlement.status === 'cancelled' ||
+    settlement.status === 'failed' ||
+    settlement.status === 'timeout'
+  ) {
+    // Flattening is destructive. A failed or still-pending dependency must
+    // never be baked into the replacement image as an empty/placeholder
+    // region; the caller can retry after reconnecting the source.
+    return false;
+  }
+  await settleMockupTemplateAssets(doc, [frameId, ...sourceIds]);
   const engine = await engineForCapture();
   const ir = await engine.buildIr({ nodes: flattened.nodes });
   const decoration = decorateMockupSubtree({
@@ -213,9 +293,11 @@ export async function flattenMockupToImage(
   }
 
   const parent = findParentId(doc, frameId);
+  let committed = false;
   editor.beginTransaction();
   try {
     editor.updateDoc((current) => {
+      if (mockupCaptureRevision(current, frameId) !== captureRevision) return current;
       const { document: withAsset, assetId } = findOrCreateEmbeddedAsset(current, {
         dataUrl,
         mimeType: 'image/png',
@@ -261,12 +343,13 @@ export async function flattenMockupToImage(
             ? moveChild(inserted, parent, withId.id, frameIndex)
             : moveNode(inserted, withId.id, frameIndex)
           : inserted;
+      committed = true;
       return removeNode(moved, frameId);
     });
   } finally {
     editor.commitTransaction();
   }
-  return true;
+  return committed;
 }
 
 function findParentId(doc: Document, nodeId: NodeId): NodeId | null {
@@ -292,6 +375,7 @@ export async function duplicateMockupInstance(
   const doc = editor.state.document;
   const frame = doc.nodes[frameId];
   if (!isMockupFrame(frame)) return null;
+  const captureRevision = mockupCaptureRevision(doc, frameId);
 
   const snapshots = new Map<NodeId, MockupRasterCapture>();
   if (mode === 'independent') {
@@ -304,15 +388,24 @@ export async function duplicateMockupInstance(
     ];
     for (const sourceId of sourceIds) {
       const capture = await captureMockupSourceSnapshot(doc, sourceId);
-      if (capture) snapshots.set(sourceId, capture);
+      if (!capture) {
+        // An independent duplicate must not quietly retain a live edge. That
+        // would make the action appear detached while later source edits
+        // still change the copy. Abort before opening a document transaction
+        // so the original instance and history remain untouched.
+        return null;
+      }
+      snapshots.set(sourceId, capture);
     }
   }
 
   const parent = findParentId(doc, frameId);
   const { id: newId } = nextNodeId(doc);
+  let committed = false;
   editor.beginTransaction();
   try {
     editor.updateDoc((current) => {
+      if (mockupCaptureRevision(current, frameId) !== captureRevision) return current;
       const currentFrame = current.nodes[frameId];
       if (!isMockupFrame(currentFrame)) return current;
       let next = current;
@@ -353,6 +446,10 @@ export async function duplicateMockupInstance(
         mockup: {
           ...currentFrame.mockup,
           surfaceBindings: bindings,
+          // Linked duplicates share the template until an authoring edit
+          // explicitly makes the copy private. Never leave the old frame's
+          // ownership marker attached to both instances.
+          templateOwnerId: undefined,
           overrides: currentFrame.mockup.overrides
             ? { ...currentFrame.mockup.overrides }
             : undefined,
@@ -364,13 +461,16 @@ export async function duplicateMockupInstance(
         ? (inserted.nodes[parent] as ContainerNode).children.indexOf(frameId)
         : inserted.rootChildren.indexOf(frameId);
       if (index < 0) return inserted;
-      return parent
+      const result = parent
         ? moveChild(inserted, parent, newId, index + 1)
         : moveNode(inserted, newId, index + 1);
+      committed = true;
+      return result;
     });
   } finally {
     editor.commitTransaction();
   }
+  if (!committed) return null;
   editor.setSelection(newId);
   return newId;
 }

@@ -49,6 +49,7 @@ import {
   decorateMockupSubtree,
   missingSurfaceWarning,
   settleMockupSurfaces,
+  settleMockupTemplateAssets,
 } from '../../render/mockup/mockupExport';
 import { replayStructuredScene } from '../../render/replayScene';
 import { flattenSceneToEngine } from '../../render/sceneToEngine';
@@ -311,6 +312,14 @@ export async function exportNodeAsRaster(
       `Export proceeded while ${settlement.pending.length} image resource(s) were still loading; any that complete late cannot appear in this export. Run the export again once images are visible on canvas.`,
     );
   }
+
+  // Template plates and masks live in the document asset table rather than
+  // flattened image-fill nodes. Decode them before building export IR so a
+  // first export cannot race lazy loading and omit a photographic plate or
+  // foreground occluder.
+  await settleMockupTemplateAssets(doc, [node.id, ...mockupSourceIds], {
+    signal: opts.signal,
+  });
 
   const ir = await eng.buildIr({ nodes: flattened.nodes });
   // Mockup + perspective decoration shares the canonical export pipeline

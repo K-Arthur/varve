@@ -7,15 +7,17 @@
 import { hashContent } from '../assets';
 import type { Document } from '../document';
 import type { FrameNode, NodeId } from '../types';
+import { canBindMockupSource } from './binding';
 import type {
   MockupInstanceData,
   MockupSourceBinding,
   MockupSurfaceOverride,
   MockupTemplateAsset,
 } from './types';
-import { validateTemplate } from './validate';
+import { validateInstance, validateTemplate } from './validate';
 
-export const MOCKUP_TEMPLATE_SCHEMA_VERSION = 1;
+/** Current persistent template schema. Schema 1 remains readable via migration. */
+export const MOCKUP_TEMPLATE_SCHEMA_VERSION = 2;
 
 export function isMockupFrame(node: unknown): node is FrameNode & { mockup: MockupInstanceData } {
   return (
@@ -62,6 +64,20 @@ export function hashMockupTemplate(template: Omit<MockupTemplateAsset, 'contentH
 }
 
 /**
+ * Upgrade a validated legacy template to the current schema without
+ * changing its geometry or instance bindings. Schema 2 only adds optional
+ * fields, so this migration is deliberately structural and deterministic.
+ */
+export function migrateMockupTemplateSchema(template: MockupTemplateAsset): MockupTemplateAsset {
+  if (template.schemaVersion >= MOCKUP_TEMPLATE_SCHEMA_VERSION) return template;
+  const migrated: MockupTemplateAsset = {
+    ...template,
+    schemaVersion: MOCKUP_TEMPLATE_SCHEMA_VERSION,
+  };
+  return { ...migrated, contentHash: hashMockupTemplate(migrated) };
+}
+
+/**
  * Add a template to the document, deduplicating by content hash: identical
  * templates collapse to one entry. Returns the resolved template id.
  */
@@ -69,27 +85,28 @@ export function addMockupTemplate(
   doc: Document,
   template: MockupTemplateAsset,
 ): { document: Document; templateId: string } {
-  const contentHash = hashMockupTemplate(template);
+  const compatible = migrateMockupTemplateSchema(template);
+  const contentHash = hashMockupTemplate(compatible);
   const existing = Object.values(
     doc.mockupTemplates ?? ({} as Record<string, MockupTemplateAsset>),
   ).find((t) => t.contentHash === contentHash);
   if (existing) return { document: doc, templateId: existing.id };
 
   const normalized: MockupTemplateAsset = {
-    ...template,
+    ...compatible,
     contentHash,
-    createdAt: template.createdAt ?? Date.now(),
-    updatedAt: template.updatedAt ?? Date.now(),
+    createdAt: compatible.createdAt ?? Date.now(),
+    updatedAt: compatible.updatedAt ?? Date.now(),
   };
   return {
     document: {
       ...doc,
       mockupTemplates: {
         ...doc.mockupTemplates,
-        [template.id]: normalized,
+        [compatible.id]: normalized,
       },
     },
-    templateId: template.id,
+    templateId: compatible.id,
   };
 }
 
@@ -147,6 +164,13 @@ export function setMockupBinding(
 ): Document {
   const node = doc.nodes[nodeId];
   if (!isMockupFrame(node)) return doc;
+  const template = getMockupTemplate(doc, node.mockup.templateId);
+  if (!template?.surfaces.some((surface) => surface.id === surfaceId)) return doc;
+  if (binding.mode === 'live') {
+    if (!binding.nodeId || !canBindMockupSource(doc, nodeId, binding.nodeId).ok) return doc;
+  } else if (!binding.assetId || !doc.assets?.[binding.assetId]) {
+    return doc;
+  }
   const updated: FrameNode = {
     ...node,
     mockup: {
@@ -176,10 +200,17 @@ export function setMockupSurfaceOverride(
     ...node.mockup.overrides,
     [surfaceId]: { ...node.mockup.overrides?.[surfaceId], ...override },
   };
+  const updatedMockup: MockupInstanceData = { ...node.mockup, overrides };
   const updated: FrameNode = {
     ...node,
-    mockup: { ...node.mockup, overrides },
+    mockup: updatedMockup,
   };
+  const validation = validateInstance(
+    { ...doc, nodes: { ...doc.nodes, [nodeId]: updated } },
+    updatedMockup,
+    nodeId,
+  );
+  if (!validation.ok) return doc;
   return {
     ...doc,
     nodes: { ...doc.nodes, [nodeId]: updated },
@@ -238,6 +269,7 @@ export interface MockupTemplateRemapPlan {
   templateFound: boolean;
   assignments: MockupTemplateRemapAssignment[];
   unboundSurfaceIds: string[];
+  ambiguousSurfaceIds: string[];
   remappedCount: number;
 }
 
@@ -256,17 +288,31 @@ export function planMockupTemplateRemap(
   const node = doc.nodes[nodeId];
   const template = doc.mockupTemplates?.[templateId];
   if (!isMockupFrame(node) || !template) {
-    return { templateFound: false, assignments: [], unboundSurfaceIds: [], remappedCount: 0 };
+    return {
+      templateFound: false,
+      assignments: [],
+      unboundSurfaceIds: [],
+      ambiguousSurfaceIds: [],
+      remappedCount: 0,
+    };
   }
   const oldTemplate = doc.mockupTemplates?.[node.mockup.templateId];
   const oldSurfaces = oldTemplate?.surfaces ?? [];
   const consumed = new Set<string>();
   const assignments: MockupTemplateRemapAssignment[] = [];
   const unboundSurfaceIds: string[] = [];
+  const ambiguousSurfaceIds: string[] = [];
   for (const surface of template.surfaces) {
-    const match = oldSurfaces.find(
+    // Prefer stable surface identity. Semantic sourceSlot is the fallback
+    // for a genuinely new template, but multiple candidates are unsafe to
+    // guess because the same artwork may intentionally be assigned to only
+    // one face.
+    const exact = oldSurfaces.find((s) => s.id === surface.id && !consumed.has(s.id));
+    const candidates = oldSurfaces.filter(
       (s) => s.sourceSlot === surface.sourceSlot && !consumed.has(s.id),
     );
+    const match = exact ?? (candidates.length === 1 ? candidates[0] : undefined);
+    const ambiguous = !exact && candidates.length > 1;
     if (match) consumed.add(match.id);
     const binding = match ? node.mockup.surfaceBindings[match.id] : undefined;
     assignments.push({
@@ -276,11 +322,13 @@ export function planMockupTemplateRemap(
       binding,
     });
     if (!binding) unboundSurfaceIds.push(surface.id);
+    if (ambiguous) ambiguousSurfaceIds.push(surface.id);
   }
   return {
     templateFound: true,
     assignments,
     unboundSurfaceIds,
+    ambiguousSurfaceIds,
     remappedCount: assignments.filter((a) => a.binding !== undefined).length,
   };
 }
@@ -306,6 +354,7 @@ export function applyMockupTemplateRemap(
       templateId,
       surfaceBindings: bindings,
       overrides: undefined,
+      templateOwnerId: undefined,
     },
   };
   return {
@@ -349,7 +398,16 @@ export function makeMockupTemplateUnique(
   if (!isMockupFrame(node)) return null;
   const template = doc.mockupTemplates?.[node.mockup.templateId];
   if (!template) return null;
-  const uniqueId = `user:${template.id.replace(/^user:/, '')}-${Date.now().toString(36)}`;
+  if (node.mockup.templateOwnerId === nodeId) {
+    return { document: doc, templateId: template.id };
+  }
+  const baseId = `user:${template.id.replace(/^user:/, '')}-${Date.now().toString(36)}`;
+  let uniqueId = baseId;
+  let suffix = 2;
+  while (doc.mockupTemplates?.[uniqueId]) {
+    uniqueId = `${baseId}-${suffix}`;
+    suffix++;
+  }
   const clone: MockupTemplateAsset = {
     ...template,
     id: uniqueId,
@@ -362,7 +420,7 @@ export function makeMockupTemplateUnique(
   const unique: MockupTemplateAsset = { ...clone, contentHash: hashMockupTemplate(clone) };
   const updated: FrameNode = {
     ...node,
-    mockup: { ...node.mockup, templateId: uniqueId },
+    mockup: { ...node.mockup, templateId: uniqueId, templateOwnerId: nodeId },
   };
   return {
     document: {
@@ -377,10 +435,10 @@ export function makeMockupTemplateUnique(
 /** Replace the instance's template. */
 export function setMockupTemplate(doc: Document, nodeId: NodeId, templateId: string): Document {
   const node = doc.nodes[nodeId];
-  if (!isMockupFrame(node)) return doc;
+  if (!isMockupFrame(node) || !doc.mockupTemplates?.[templateId]) return doc;
   const updated: FrameNode = {
     ...node,
-    mockup: { ...node.mockup, templateId, overrides: undefined },
+    mockup: { ...node.mockup, templateId, overrides: undefined, templateOwnerId: undefined },
   };
   return {
     ...doc,
@@ -465,6 +523,7 @@ export function buildTemplateFromJson(
   const validation = validateTemplate(raw);
   if (!validation.ok) return { errors: validation.errors };
   const t = raw as MockupTemplateAsset;
-  const contentHash = hashMockupTemplate(t);
-  return { template: { ...t, contentHash } };
+  const migrated = migrateMockupTemplateSchema(t);
+  const contentHash = hashMockupTemplate(migrated);
+  return { template: { ...migrated, contentHash } };
 }

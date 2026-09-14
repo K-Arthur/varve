@@ -10,8 +10,8 @@
  * Level contract (see docs/architecture/mockup-system.md):
  * - Level 1 flat surfaces: `kind: 'flat'` with affine placement.
  * - Level 2 perspective surfaces: `kind: 'quad'` with four-corner mapping.
- * - Level 3/4 kinds ('mesh', 'cylindrical') and raster mask assets are
- *   reserved; validation rejects them until implemented.
+ * - Level 3 mesh and calibrated displacement remain reserved. Level 3
+ *   cylindrical surfaces use the bounded front-facing remap described below.
  */
 
 import type { NodeId } from '../types';
@@ -31,7 +31,7 @@ export type MockupTemplateSource = 'builtin' | 'user' | 'workspace' | 'community
 
 export type MockupOrientation = 'portrait' | 'landscape' | 'square' | 'any';
 
-/** Level 1-2 surface kinds; 'mesh'/'cylindrical' reserved for Level 3. */
+/** Surface kinds supported by the current renderer or reserved for later work. */
 export type MockupSurfaceKind = 'flat' | 'quad' | 'mesh' | 'cylindrical';
 
 export type MockupFitMode = 'contain' | 'cover' | 'stretch' | 'native';
@@ -128,6 +128,35 @@ export interface MockupMaskOptions {
   channel?: MockupMaskChannel;
 }
 
+/**
+ * Template-output placement for a raster mask. When omitted, a legacy mask
+ * covers the complete template output. Captured masks store the world-space
+ * selection bounds here so a photo crop or a rotated frame cannot stretch the
+ * mask over unrelated parts of the plate.
+ */
+export interface MockupMaskPlacement {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Bounded, front-facing cylindrical remap. The cylinder axis is in the
+ * template plane; no hidden backside, perspective camera, lighting solve, or
+ * 3D mesh is implied. `wrapDegrees` is the visible arc and `seam` chooses the
+ * source's horizontal phase at the left edge.
+ */
+export interface MockupCylindricalGeometry {
+  axis: 'vertical' | 'horizontal';
+  /** Visible arc in degrees, constrained to 5..180 by validation. */
+  wrapDegrees: number;
+  /** Normalized source phase in [0, 1]. */
+  seam: number;
+  /** Keep the natural projected arc bounds or fit that arc to the slot. */
+  crop: 'visible' | 'slot';
+}
+
 export interface MockupSurfaceDefinition {
   /** Unique within the template. */
   id: string;
@@ -174,7 +203,14 @@ export interface MockupSurfaceDefinition {
   occlusionMaskAssetId?: string;
   /** Shared mask interpretation options for clip/occlusion. */
   maskOptions?: MockupMaskOptions;
-  /** Reserved (Level 3/4): displacement maps are not implemented. */
+  /** Optional per-mask overrides; legacy maskOptions remains the fallback. */
+  clipMaskOptions?: MockupMaskOptions;
+  occlusionMaskOptions?: MockupMaskOptions;
+  clipMaskPlacement?: MockupMaskPlacement;
+  occlusionMaskPlacement?: MockupMaskPlacement;
+  /** Bounded front-facing cylinder mapping (schemaVersion 2+). */
+  cylindrical?: MockupCylindricalGeometry;
+  /** Reserved: calibrated displacement maps are not implemented. */
   displacementAssetId?: string;
 }
 
@@ -247,6 +283,7 @@ export interface MockupSurfaceOverride {
   quad?: MockupQuad;
   fit?: MockupFitMode;
   alignment?: { x: MockupAlign; y: MockupAlign };
+  cylindrical?: MockupCylindricalGeometry;
   rotation?: number;
   flipH?: boolean;
   flipV?: boolean;
@@ -259,6 +296,8 @@ export interface MockupInstanceData {
   templateId: string;
   surfaceBindings: Record<string, MockupSourceBinding>;
   overrides?: Record<string, MockupSurfaceOverride>;
+  /** When set, this frame owns the embedded template copy for authoring. */
+  templateOwnerId?: NodeId;
   /** True once the instance's content has been flattened to editable nodes. */
   detached?: boolean;
   createdAt?: number;

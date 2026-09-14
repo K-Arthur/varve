@@ -9,6 +9,7 @@
  */
 
 import { isQuadValid } from '@varve/engine';
+import { canBindMockupSource } from './binding';
 import type {
   MockupInstanceData,
   MockupQuad,
@@ -34,7 +35,7 @@ export const MOCKUP_LIMITS = {
 } as const;
 
 const KNOWN_SURFACE_KINDS = new Set(['flat', 'quad', 'mesh', 'cylindrical']);
-const IMPLEMENTED_SURFACE_KINDS = new Set(['flat', 'quad']);
+const IMPLEMENTED_SURFACE_KINDS = new Set(['flat', 'quad', 'cylindrical']);
 const KNOWN_FIT_MODES = new Set(['contain', 'cover', 'stretch', 'native']);
 const KNOWN_ALIGNS = new Set(['min', 'center', 'max']);
 const KNOWN_CATEGORIES = new Set([
@@ -81,6 +82,44 @@ export function isValidMockupQuad(quad: MockupQuad | undefined | null): quad is 
 /** True when the color is plausibly a CSS color. */
 export function isPlausibleCssColor(value: unknown): boolean {
   return typeof value === 'string' && value.length <= 64 && CSS_COLOR_RE.test(value);
+}
+
+function validateCylindricalGeometry(
+  value: unknown,
+  errors: string[],
+  label: string,
+): value is {
+  axis: 'vertical' | 'horizontal';
+  wrapDegrees: number;
+  seam: number;
+  crop: 'visible' | 'slot';
+} {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    errors.push(`${label} must be an object`);
+    return false;
+  }
+  const cylinder = value as Record<string, unknown>;
+  if (cylinder.axis !== 'vertical' && cylinder.axis !== 'horizontal') {
+    errors.push(`${label}.axis must be vertical|horizontal`);
+    return false;
+  }
+  if (
+    !isFiniteNumber(cylinder.wrapDegrees) ||
+    cylinder.wrapDegrees < 5 ||
+    cylinder.wrapDegrees > 180
+  ) {
+    errors.push(`${label}.wrapDegrees must be within [5, 180]`);
+    return false;
+  }
+  if (!isFiniteNumber(cylinder.seam) || cylinder.seam < 0 || cylinder.seam > 1) {
+    errors.push(`${label}.seam must be within [0, 1]`);
+    return false;
+  }
+  if (cylinder.crop !== 'visible' && cylinder.crop !== 'slot') {
+    errors.push(`${label}.crop must be visible|slot`);
+    return false;
+  }
+  return true;
 }
 
 export function validateVectorShape(shape: unknown, errors: string[]): shape is MockupVectorShape {
@@ -130,7 +169,7 @@ export function validateSurface(
   surface: unknown,
   errors: string[],
   warnings: string[],
-  template: { outputWidth: number; outputHeight: number },
+  template: { outputWidth: number; outputHeight: number; schemaVersion?: number },
 ): surface is MockupSurfaceDefinition {
   if (!surface || typeof surface !== 'object') {
     errors.push('surface must be an object');
@@ -198,6 +237,25 @@ export function validateSurface(
       errors.push(`surface ${s.id}: invalid quad (crossing, concave, or non-finite)`);
       return false;
     }
+  } else if (s.quad !== undefined) {
+    errors.push(`surface ${s.id}: quad geometry is only valid for quad surfaces`);
+    return false;
+  }
+  if (s.kind === 'cylindrical') {
+    if ((template.schemaVersion ?? 1) < 2) {
+      errors.push(`surface ${s.id}: cylindrical surfaces require template schemaVersion 2`);
+      return false;
+    }
+    if (!s.cylindrical || typeof s.cylindrical !== 'object') {
+      errors.push(`surface ${s.id}: cylindrical geometry is required`);
+      return false;
+    }
+    if (!validateCylindricalGeometry(s.cylindrical, errors, `surface ${s.id}: cylindrical`)) {
+      return false;
+    }
+  } else if (s.cylindrical !== undefined) {
+    errors.push(`surface ${s.id}: cylindrical geometry is only valid for cylindrical surfaces`);
+    return false;
   }
   if (s.plate !== undefined) {
     if (!Array.isArray(s.plate) || s.plate.length > MOCKUP_LIMITS.maxShapeCountPerSurface) {
@@ -228,6 +286,10 @@ export function validateSurface(
       errors.push(`surface ${s.id}: invalid shadow`);
       return false;
     }
+    if (sh.offsetX !== undefined && !isFiniteNumber(sh.offsetX)) {
+      errors.push(`surface ${s.id}: shadow offsetX must be finite`);
+      return false;
+    }
   }
   // Raster clip/occlusion coverage: asset references are validated here;
   // existence is checked at load time against the document's asset table
@@ -242,29 +304,44 @@ export function validateSurface(
       return false;
     }
   }
-  if (s.maskOptions !== undefined && s.maskOptions !== null) {
-    const m = s.maskOptions as Record<string, unknown>;
+  const maskOptionEntries: Array<[string, unknown]> = [
+    ['maskOptions', s.maskOptions],
+    ['clipMaskOptions', s.clipMaskOptions],
+    ['occlusionMaskOptions', s.occlusionMaskOptions],
+  ];
+  for (const [optionName, optionValue] of maskOptionEntries) {
+    if (optionValue === undefined || optionValue === null) continue;
+    const m = optionValue as Record<string, unknown>;
     if (m.invert !== undefined && typeof m.invert !== 'boolean') {
-      errors.push(`surface ${s.id}: maskOptions.invert must be boolean`);
+      errors.push(`surface ${s.id}: ${optionName}.invert must be boolean`);
       return false;
     }
     if (
       m.feather !== undefined &&
       (!isFiniteNumber(m.feather) || m.feather < 0 || m.feather > 512)
     ) {
-      errors.push(`surface ${s.id}: maskOptions.feather must be within [0, 512]`);
+      errors.push(`surface ${s.id}: ${optionName}.feather must be within [0, 512]`);
       return false;
     }
     if (m.channel !== undefined && m.channel !== 'alpha' && m.channel !== 'luminance') {
-      errors.push(`surface ${s.id}: maskOptions.channel must be alpha|luminance`);
+      errors.push(`surface ${s.id}: ${optionName}.channel must be alpha|luminance`);
       return false;
     }
     if (m.channel === 'luminance') {
       // Alpha-coverage masks are implemented end to end; luminance coverage
       // has no renderer path yet, so accepting it would silently misread data.
       errors.push(
-        `surface ${s.id}: maskOptions.channel 'luminance' is reserved (only alpha coverage is implemented)`,
+        `surface ${s.id}: ${optionName}.channel 'luminance' is reserved (only alpha coverage is implemented)`,
       );
+      return false;
+    }
+  }
+  for (const [placementName, placementValue] of [
+    ['clipMaskPlacement', s.clipMaskPlacement],
+    ['occlusionMaskPlacement', s.occlusionMaskPlacement],
+  ] as const) {
+    if (placementValue === undefined || placementValue === null) continue;
+    if (!validateMaskPlacement(placementValue, errors, `surface ${s.id}: ${placementName}`)) {
       return false;
     }
   }
@@ -287,6 +364,38 @@ export function validateSurface(
   return true;
 }
 
+function validateMaskPlacement(value: unknown, errors: string[], label: string): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    errors.push(`${label} must be an object`);
+    return false;
+  }
+  const placement = value as Record<string, unknown>;
+  for (const key of ['x', 'y', 'width', 'height']) {
+    if (!isFiniteNumber(placement[key])) {
+      errors.push(`${label}.${key} must be a finite number`);
+      return false;
+    }
+  }
+  const x = placement.x as number;
+  const y = placement.y as number;
+  const width = placement.width as number;
+  const height = placement.height as number;
+  if (width <= 0 || height <= 0) {
+    errors.push(`${label} width and height must be positive`);
+    return false;
+  }
+  if (
+    Math.abs(x) > MOCKUP_LIMITS.maxGeometryMagnitude ||
+    Math.abs(y) > MOCKUP_LIMITS.maxGeometryMagnitude ||
+    width > MOCKUP_LIMITS.maxGeometryMagnitude ||
+    height > MOCKUP_LIMITS.maxGeometryMagnitude
+  ) {
+    errors.push(`${label} exceeds geometry limits`);
+    return false;
+  }
+  return true;
+}
+
 export function validateTemplate(template: unknown): MockupValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -297,7 +406,7 @@ export function validateTemplate(template: unknown): MockupValidationResult {
   if (typeof t.id !== 'string' || t.id.length === 0 || t.id.length > 256) {
     errors.push('template id must be a non-empty string (<= 256 chars)');
   }
-  if (!isFiniteNumber(t.schemaVersion) || t.schemaVersion !== 1) {
+  if (!isFiniteNumber(t.schemaVersion) || (t.schemaVersion !== 1 && t.schemaVersion !== 2)) {
     errors.push(`unsupported schemaVersion: ${String(t.schemaVersion)}`);
   }
   if (typeof t.name !== 'string' || t.name.length === 0) {
@@ -375,6 +484,7 @@ export function validateTemplate(template: unknown): MockupValidationResult {
     const templateDims = {
       outputWidth: t.outputWidth as number,
       outputHeight: t.outputHeight as number,
+      schemaVersion: t.schemaVersion as number,
     };
     for (const surface of t.surfaces) {
       if (!validateSurface(surface, errors, warnings, templateDims)) continue;
@@ -456,8 +566,13 @@ export function validateLicence(licence: unknown, errors: string[]): boolean {
 
 /** Validate a frame's mockup instance payload against the document. */
 export function validateInstance(
-  doc: { mockupTemplates?: Record<string, MockupTemplateAsset>; nodes?: Record<string, unknown> },
+  doc: {
+    mockupTemplates?: Record<string, MockupTemplateAsset>;
+    nodes?: Record<string, unknown>;
+    assets?: Record<string, unknown>;
+  },
   instance: MockupInstanceData,
+  frameId?: string,
 ): MockupValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -489,13 +604,26 @@ export function validateInstance(
       continue;
     }
     if (binding.mode === 'live') {
-      if (typeof binding.nodeId !== 'string' || !doc.nodes?.[binding.nodeId]) {
-        errors.push(
-          `binding for ${surfaceId}: live source ${String(binding.nodeId)} does not exist`,
+      if (typeof binding.nodeId !== 'string') {
+        errors.push(`binding for ${surfaceId}: live source id is required`);
+      } else if (!doc.nodes?.[binding.nodeId]) {
+        warnings.push(
+          `binding for ${surfaceId}: live source ${binding.nodeId} is missing and can be reconnected`,
         );
+      } else if (frameId) {
+        const check = canBindMockupSource(
+          doc as Parameters<typeof canBindMockupSource>[0],
+          frameId,
+          binding.nodeId,
+        );
+        if (!check.ok) errors.push(`binding for ${surfaceId}: ${check.message ?? check.code}`);
       }
     } else if (typeof binding.assetId !== 'string') {
       errors.push(`binding for ${surfaceId}: snapshot requires assetId`);
+    } else if (!doc.assets?.[binding.assetId]) {
+      warnings.push(
+        `binding for ${surfaceId}: snapshot asset ${binding.assetId} is missing and can be reconnected`,
+      );
     }
   }
   if (instance.overrides !== undefined) {
@@ -506,20 +634,62 @@ export function validateInstance(
       }
       if (!override || typeof override !== 'object') continue;
       const o = override as Record<string, unknown>;
+      for (const key of ['x', 'y', 'width', 'height'] as const) {
+        if (o[key] !== undefined && !isFiniteNumber(o[key])) {
+          errors.push(`override for ${surfaceId}: ${key} must be finite`);
+        }
+      }
+      if (o.width !== undefined && (o.width as number) <= 0) {
+        errors.push(`override for ${surfaceId}: width must be positive`);
+      }
+      if (o.height !== undefined && (o.height as number) <= 0) {
+        errors.push(`override for ${surfaceId}: height must be positive`);
+      }
       if (o.quad !== undefined && !isValidMockupQuad(o.quad as MockupQuad)) {
         errors.push(`override for ${surfaceId}: invalid quad`);
+      } else if (
+        o.quad !== undefined &&
+        template.surfaces.find((surface) => surface.id === surfaceId)?.kind !== 'quad'
+      ) {
+        errors.push(`override for ${surfaceId}: quad geometry requires a quad surface`);
+      }
+      if (o.cylindrical !== undefined) {
+        if (template.surfaces.find((surface) => surface.id === surfaceId)?.kind !== 'cylindrical') {
+          errors.push(
+            `override for ${surfaceId}: cylindrical geometry requires a cylindrical surface`,
+          );
+        } else {
+          validateCylindricalGeometry(
+            o.cylindrical,
+            errors,
+            `override for ${surfaceId}: cylindrical`,
+          );
+        }
       }
       if (o.fit !== undefined && !KNOWN_FIT_MODES.has(String(o.fit))) {
         errors.push(`override for ${surfaceId}: unknown fit ${String(o.fit)}`);
       }
       if (o.shadow !== undefined && o.shadow !== null) {
         const sh = o.shadow as Record<string, unknown>;
-        if (!isFiniteNumber(sh.blur) || !isFiniteNumber(sh.opacity)) {
+        if (
+          !isFiniteNumber(sh.blur) ||
+          !isFiniteNumber(sh.opacity) ||
+          (sh.offsetX !== undefined && !isFiniteNumber(sh.offsetX)) ||
+          (sh.offsetY !== undefined && !isFiniteNumber(sh.offsetY)) ||
+          sh.blur < 0 ||
+          sh.opacity < 0 ||
+          sh.opacity > 1
+        ) {
           errors.push(`override for ${surfaceId}: invalid shadow`);
         }
       }
       if (o.rotation !== undefined && !isFiniteNumber(o.rotation)) {
         errors.push(`override for ${surfaceId}: invalid rotation`);
+      }
+      for (const key of ['flipH', 'flipV'] as const) {
+        if (o[key] !== undefined && typeof o[key] !== 'boolean') {
+          errors.push(`override for ${surfaceId}: ${key} must be boolean`);
+        }
       }
     }
   }

@@ -73,6 +73,11 @@ export function fitRect(
   }
 
   if (fit === 'native') {
+    // Native means one source pixel maps to one destination unit. If the
+    // source is larger than the slot, crop the source at 1:1; if it is
+    // smaller, leave the remaining slot area as transparent padding. The
+    // previous implementation clipped the destination size but still
+    // sampled the whole source, which silently scaled the source down.
     const dw = Math.min(srcW, slotW);
     const dh = Math.min(srcH, slotH);
     const align = (span: number, slot: number, mode: MockupAlignX | MockupAlignY): number => {
@@ -80,15 +85,20 @@ export function fitRect(
       if (mode === 'max') return slot - span;
       return (slot - span) / 2;
     };
+    const sourceOffset = (
+      source: number,
+      span: number,
+      mode: MockupAlignX | MockupAlignY,
+    ): number => (source > span ? align(span, source, mode) : 0);
     return {
       dx: align(dw, slotW, alignX),
       dy: align(dh, slotH, alignY),
       dw,
       dh,
-      sx: 0,
-      sy: 0,
-      sw: srcW,
-      sh: srcH,
+      sx: sourceOffset(srcW, dw, alignX),
+      sy: sourceOffset(srcH, dh, alignY),
+      sw: dw,
+      sh: dh,
       upscaled: false,
     };
   }

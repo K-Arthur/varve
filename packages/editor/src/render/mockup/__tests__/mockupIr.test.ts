@@ -138,6 +138,25 @@ describe('decorateMockupIr', () => {
     expect(p.fit).toBe('stretch');
   });
 
+  it('composes a bounded cylindrical surface as a baked raster slot', () => {
+    const { doc, frameId, sourceId, template } = buildFixture('builtin:label-cylinder-front');
+    const items = [stubFrameItem(frameId, template.outputWidth, template.outputHeight)];
+    const result = decorateMockupIr({
+      doc,
+      nodeIds: [frameId, sourceId],
+      items,
+      renderSubtree: () => {},
+      qualityScale: 1,
+      cache: new MockupSurfaceCache(),
+    });
+    const extras = result.extrasByNodeId.get(frameId)!;
+    const image = extras.find((item) => item.fills?.some((fill) => fill.type === 'image'));
+    expect(image).toBeTruthy();
+    expect(image!.primitive.kind).toBe('rect');
+    expect(getMockupRenderDiagnostics().cylindricalSurfaces).toBeGreaterThan(0);
+    expect(result.missingSurfaces).toHaveLength(0);
+  });
+
   it('emits a placeholder when the template is missing', () => {
     let doc = createDocument('mockup-test', { flat: true });
     const f = nextNodeId(doc);
@@ -199,6 +218,55 @@ describe('decorateMockupIr', () => {
     });
     expect(cache.size).toBe(before);
     expect(again.extrasByNodeId.get(frameId)?.length).toBeGreaterThan(0);
+  });
+
+  it('keeps frame-to-item alignment when decorating multiple frames in place', () => {
+    const { doc, frameId, sourceId, template } = buildFixture('builtin:phone-flat');
+    const second = nextNodeId(doc);
+    const secondFrameId = second.id;
+    const secondFrame = makeFrameNode(secondFrameId, {
+      transform: [1, 0, 0, 1, 900, 100],
+      w: template.outputWidth,
+      h: template.outputHeight,
+      name: 'Second mockup',
+    });
+    const withSecond = {
+      ...second.doc,
+      nodes: {
+        ...second.doc.nodes,
+        [secondFrameId]: {
+          ...secondFrame,
+          mockup: createMockupInstanceData(template.id, {
+            [template.surfaces[0]!.id]: { mode: 'live' as const, nodeId: sourceId },
+          }),
+        },
+      },
+      rootChildren: [...second.doc.rootChildren, secondFrameId],
+    };
+    const firstItem = stubFrameItem(frameId, template.outputWidth, template.outputHeight);
+    const secondItem = {
+      ...stubFrameItem(secondFrameId, template.outputWidth, template.outputHeight),
+      transform: [1, 0, 0, 1, 900, 100] as [number, number, number, number, number, number],
+    };
+    const items = [firstItem, secondItem];
+    const result = decorateMockupIr({
+      doc: withSecond,
+      nodeIds: [frameId, secondFrameId, sourceId],
+      items,
+      renderSubtree: () => {},
+      qualityScale: 1,
+      cache: new MockupSurfaceCache(),
+    });
+    expect(result.extrasByNodeId.get(secondFrameId)?.[0]?.transform).toEqual(secondItem.transform);
+  });
+
+  it('accounts for replacement bytes once in the surface cache', () => {
+    resetMockupRenderDiagnostics();
+    const cache = new MockupSurfaceCache();
+    cache.set('surface', '123456');
+    cache.set('surface', '12');
+    expect(getMockupRenderDiagnostics().residentSurfaceBytes).toBe(2);
+    cache.clear();
   });
 });
 

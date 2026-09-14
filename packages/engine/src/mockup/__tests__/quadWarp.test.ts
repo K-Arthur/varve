@@ -51,6 +51,13 @@ describe('fitRect', () => {
     expect(r!.dy).toBeCloseTo(25, 6);
   });
 
+  it('crops an oversized source at native pixels instead of scaling it down', () => {
+    const r = fitRect(400, 200, 200, 100, 'native', 'center', 'max');
+    expect(r).toMatchObject({ dx: 0, dy: 0, dw: 200, dh: 100, sw: 200, sh: 100 });
+    expect(r!.sx).toBe(100);
+    expect(r!.sy).toBe(100);
+  });
+
   it('rejects degenerate inputs', () => {
     expect(fitRect(0, 10, 100, 100, 'contain')).toBeNull();
     expect(fitRect(10, 10, 0, 100, 'contain')).toBeNull();

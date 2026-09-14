@@ -26,13 +26,36 @@ export const MOCKUP_BUNDLE_LIMITS = {
   /** Serialized template (without assets) and total bundle byte bounds. */
   maxTemplateBytes: 1_048_576,
   maxBundleBytes: 32 * 1024 * 1024,
-  maxAssets: 8,
+  maxAssets: 65,
+  /** Decoded raster bytes; encoded data URLs are bounded below as well. */
   maxAssetBytes: 20 * 1024 * 1024,
   maxAssetDimension: 16_384,
+  maxAssetPixels: 64_000_000,
 } as const;
 
 const ALLOWED_MIME = new Set(['image/png', 'image/jpeg', 'image/webp']);
 const DATA_URL_RE = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=\s]+)$/;
+
+function isValidBase64Payload(payload: string): boolean {
+  const compact = payload.replace(/\s/g, '');
+  if (compact.length === 0 || compact.length % 4 !== 0) return false;
+
+  const paddingStart = compact.indexOf('=');
+  if (paddingStart >= 0) {
+    const padding = compact.length - paddingStart;
+    if (padding > 2 || !/^=+$/.test(compact.slice(paddingStart))) return false;
+    if (padding === 1 && paddingStart % 4 !== 3) return false;
+    if (padding === 2 && paddingStart % 4 !== 2) return false;
+  }
+
+  return /^[A-Za-z0-9+/]*={0,2}$/.test(compact);
+}
+
+function estimatedBase64Bytes(payload: string): number {
+  const compact = payload.replace(/\s/g, '');
+  const padding = compact.endsWith('==') ? 2 : compact.endsWith('=') ? 1 : 0;
+  return Math.max(0, Math.floor((compact.length * 3) / 4) - padding);
+}
 
 export interface MockupBundleAsset {
   id: string;
@@ -140,10 +163,11 @@ export function parseMockupTemplateBundle(
       return { errors: [`Bundle asset ${a.id} is missing data`] };
     }
     const match = DATA_URL_RE.exec(a.dataUrl);
-    if (!match || match[1] !== a.mimeType) {
+    if (!match || match[1] !== a.mimeType || !isValidBase64Payload(match[2]!)) {
       return { errors: [`Bundle asset ${a.id} has an invalid data URL`] };
     }
-    if (a.dataUrl.length > MOCKUP_BUNDLE_LIMITS.maxAssetBytes) {
+    const decodedBytes = estimatedBase64Bytes(match[2]!);
+    if (decodedBytes > MOCKUP_BUNDLE_LIMITS.maxAssetBytes) {
       return { errors: [`Bundle asset ${a.id} exceeds the per-asset size limit`] };
     }
     const naturalWidth = a.naturalWidth;
@@ -156,7 +180,8 @@ export function parseMockupTemplateBundle(
       naturalWidth <= 0 ||
       naturalHeight <= 0 ||
       naturalWidth > MOCKUP_BUNDLE_LIMITS.maxAssetDimension ||
-      naturalHeight > MOCKUP_BUNDLE_LIMITS.maxAssetDimension
+      naturalHeight > MOCKUP_BUNDLE_LIMITS.maxAssetDimension ||
+      naturalWidth * naturalHeight > MOCKUP_BUNDLE_LIMITS.maxAssetPixels
     ) {
       return { errors: [`Bundle asset ${a.id} has invalid dimensions`] };
     }
@@ -240,6 +265,7 @@ export function importMockupTemplateBundle(
     }
   }
   const withId: MockupTemplateAsset = { ...remapped, id: templateId };
+  withId.contentHash = hashMockupTemplate(withId);
   return {
     document: {
       ...next,

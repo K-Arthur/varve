@@ -4,12 +4,14 @@ import type { Document } from '../../document';
 import { createDocument, makeFrameNode, nextNodeId } from '../../document';
 import { DocumentCodec } from '../../documentCodec';
 import type { FrameNode } from '../../types';
+import { canBindMockupSource } from '../binding';
 import { getBuiltinMockupTemplates } from '../builtinTemplates';
 import { classifyMockupIntent, validateMockupRequest } from '../multimodal';
 import { sanitizeMockupState } from '../normalize';
 import {
   addMockupTemplate,
   applyMockupTemplateRemap,
+  buildTemplateFromJson,
   clearMockup,
   computeMockupSourceDigest,
   createMockupInstanceData,
@@ -169,6 +171,89 @@ describe('mockup templates', () => {
     expect(validateTemplate(badDims).ok).toBe(false);
   });
 
+  it('migrates schema 1 templates and re-hashes them without enabling reserved geometry', () => {
+    const [template] = getBuiltinMockupTemplates();
+    const legacy = {
+      ...template!,
+      id: 'legacy',
+      source: 'user' as const,
+      library: true,
+      schemaVersion: 1,
+      contentHash: 'old-hash',
+    };
+    const built = buildTemplateFromJson(legacy);
+    expect('template' in built).toBe(true);
+    if (!('template' in built)) return;
+    expect(built.template.schemaVersion).toBe(2);
+    expect(built.template.contentHash).not.toBe('old-hash');
+
+    const legacyCylinder = {
+      ...legacy,
+      surfaces: [
+        {
+          ...legacy.surfaces[0],
+          kind: 'cylindrical' as const,
+          cylindrical: {
+            axis: 'vertical' as const,
+            wrapDegrees: 90,
+            seam: 0,
+            crop: 'slot' as const,
+          },
+        },
+      ],
+    };
+    expect(buildTemplateFromJson(legacyCylinder)).toEqual(
+      expect.objectContaining({
+        errors: expect.arrayContaining([expect.stringContaining('schemaVersion 2')]),
+      }),
+    );
+
+    const warnings: Array<{ code: string }> = [];
+    const sanitized = sanitizeMockupState(
+      {
+        ...fixtureDoc().doc,
+        mockupTemplates: { legacy: legacy },
+      },
+      { push: (warning) => warnings.push(warning) },
+    );
+    expect(sanitized.mockupTemplates?.legacy?.schemaVersion).toBe(2);
+    expect(warnings.some((warning) => warning.code === 'mockup.template-schema-migrated')).toBe(
+      true,
+    );
+  });
+
+  it('validates bounded cylindrical geometry and mask placement', () => {
+    const [template] = getBuiltinMockupTemplates();
+    const cylindrical = {
+      ...template!,
+      schemaVersion: 2,
+      surfaces: [
+        {
+          ...template!.surfaces[0],
+          kind: 'cylindrical' as const,
+          cylindrical: {
+            axis: 'vertical' as const,
+            wrapDegrees: 120,
+            seam: 0.25,
+            crop: 'visible' as const,
+          },
+          clipMaskAssetId: 'mask',
+          clipMaskPlacement: { x: 20, y: 30, width: 80, height: 90 },
+          clipMaskOptions: { invert: true, feather: 3 },
+        },
+      ],
+    };
+    expect(validateTemplate(cylindrical).ok).toBe(true);
+    expect(
+      validateTemplate({
+        ...cylindrical,
+        surfaces: [
+          { ...cylindrical.surfaces[0], clipMaskPlacement: { x: 0, y: 0, width: 0, height: 10 } },
+        ],
+      }).ok,
+    ).toBe(false);
+  });
+
   it('retains library templates when unreferenced and prunes applied ones', () => {
     const { doc } = fixtureDoc();
     const template = getBuiltinMockupTemplates()[0]!;
@@ -316,6 +401,7 @@ describe('template replacement planning and uniqueness', () => {
     expect(plan.templateFound).toBe(true);
     expect(plan.remappedCount).toBe(2);
     expect(plan.unboundSurfaceIds).toEqual(['extra']);
+    expect(plan.ambiguousSurfaceIds).toEqual([]);
     const byId = Object.fromEntries(plan.assignments.map((a) => [a.surfaceId, a.binding]));
     expect(byId.left).toMatchObject({ mode: 'live', nodeId: sourceB });
     expect(byId.right).toMatchObject({ mode: 'live', nodeId: sourceA });
@@ -330,6 +416,37 @@ describe('template replacement planning and uniqueness', () => {
     expect(node.mockup.surfaceBindings.left).toMatchObject({ nodeId: sourceB });
     expect(node.mockup.surfaceBindings.right).toMatchObject({ nodeId: sourceA });
     expect(node.mockup.surfaceBindings.extra).toBeUndefined();
+  });
+
+  it('reports ambiguous source slots instead of guessing a replacement', () => {
+    const { doc: fixture, frameId, sourceA, sourceB } = twoTemplateFixture();
+    const base = getBuiltinMockupTemplates()[0]!;
+    const oldTemplate = {
+      ...base,
+      id: 'test:ambiguous-old',
+      source: 'user' as const,
+      surfaces: [
+        { ...base.surfaces[0]!, id: 'old-a', sourceSlot: 'artwork' },
+        { ...base.surfaces[0]!, id: 'old-b', sourceSlot: 'artwork' },
+      ],
+    };
+    const newTemplate = {
+      ...base,
+      id: 'test:ambiguous-new',
+      source: 'user' as const,
+      surfaces: [{ ...base.surfaces[0]!, id: 'new-artwork', sourceSlot: 'artwork' }],
+    };
+    let doc = addMockupTemplate(fixture, oldTemplate).document;
+    doc = addMockupTemplate(doc, newTemplate).document;
+    doc = frameWithMockup(doc, 'test:ambiguous-old', frameId);
+    doc = setMockupBinding(doc, frameId, 'old-a', { mode: 'live', nodeId: sourceA });
+    doc = setMockupBinding(doc, frameId, 'old-b', { mode: 'live', nodeId: sourceB });
+
+    const plan = planMockupTemplateRemap(doc, frameId, 'test:ambiguous-new');
+    expect(plan.remappedCount).toBe(0);
+    expect(plan.ambiguousSurfaceIds).toEqual(['new-artwork']);
+    expect(plan.unboundSurfaceIds).toEqual(['new-artwork']);
+    expect(plan.assignments[0]?.binding).toBeUndefined();
   });
 
   it('gives one instance a private template copy without mutating the original', () => {
@@ -359,6 +476,71 @@ describe('mockup instance ops', () => {
     expect(node.mockup.surfaceBindings.screen).toMatchObject({ mode: 'live', nodeId: sourceId });
   });
 
+  it('rejects self and indirect recursive live bindings', () => {
+    const { doc, frameId, sourceId } = fixtureDoc();
+    const template = getBuiltinMockupTemplates()[0]!;
+    let next = addMockupTemplate(doc, template).document;
+    next = frameWithMockup(next, template.id, frameId);
+    next = frameWithMockup(next, template.id, sourceId);
+
+    expect(canBindMockupSource(next, frameId, frameId)).toMatchObject({
+      ok: false,
+      code: 'self-reference',
+    });
+    next = setMockupBinding(next, sourceId, 'screen', { mode: 'live', nodeId: frameId });
+    const unchanged = setMockupBinding(next, frameId, 'screen', {
+      mode: 'live',
+      nodeId: sourceId,
+    });
+    expect(unchanged.nodes[frameId]).toEqual(next.nodes[frameId]);
+    expect(canBindMockupSource(next, frameId, sourceId)).toMatchObject({
+      ok: false,
+      code: 'indirect-cycle',
+    });
+  });
+
+  it('allows valid shared sources in a non-cyclic binding graph', () => {
+    const { doc, frameId, sourceId } = fixtureDoc();
+    const template = getBuiltinMockupTemplates()[0]!;
+    let next = addMockupTemplate(doc, template).document;
+    const leafA = nextNodeId(next);
+    next = leafA.doc;
+    next = {
+      ...next,
+      nodes: {
+        ...next.nodes,
+        [leafA.id]: makeFrameNode(leafA.id, {
+          transform: [1, 0, 0, 1, 0, 700],
+          w: 120,
+          h: 120,
+        }),
+      },
+      rootChildren: [...next.rootChildren, leafA.id],
+    };
+    next = frameWithMockup(next, template.id, sourceId);
+    next = frameWithMockup(next, template.id, frameId);
+    const sourceFrame = next.nodes[sourceId] as FrameNode & {
+      mockup: NonNullable<FrameNode['mockup']>;
+    };
+    next = {
+      ...next,
+      nodes: {
+        ...next.nodes,
+        [sourceId]: {
+          ...sourceFrame,
+          mockup: {
+            ...sourceFrame.mockup,
+            surfaceBindings: {
+              first: { mode: 'live', nodeId: leafA.id },
+              second: { mode: 'live', nodeId: leafA.id },
+            },
+          },
+        },
+      },
+    };
+    expect(canBindMockupSource(next, frameId, sourceId)).toEqual({ ok: true });
+  });
+
   it('applies per-surface overrides', () => {
     const { doc, frameId } = fixtureDoc();
     const [template] = getBuiltinMockupTemplates();
@@ -379,6 +561,11 @@ describe('mockup instance ops', () => {
     };
     expect(againNode.mockup.overrides?.screen?.fit).toBe('cover');
     expect(againNode.mockup.overrides?.screen?.rotation).toBe(15);
+
+    const rejected = setMockupSurfaceOverride(again, frameId, 'screen', {
+      width: 0,
+    });
+    expect(rejected).toBe(again);
   });
 
   it('replaces templates and clears mockups', () => {
@@ -504,6 +691,59 @@ describe('codec round-trip and normalization', () => {
     expect(sanitized.mockupTemplates).toBeUndefined();
   });
 
+  it('preserves missing source bindings for explicit reconnect recovery', () => {
+    const { doc, frameId } = fixtureDoc();
+    const template = getBuiltinMockupTemplates()[0]!;
+    const withTemplate = addMockupTemplate(doc, template).document;
+    const frame = frameWithMockup(withTemplate, template.id, frameId);
+    const broken = {
+      ...frame,
+      nodes: {
+        ...frame.nodes,
+        [frameId]: {
+          ...(frame.nodes[frameId] as FrameNode),
+          mockup: createMockupInstanceData(template.id, {
+            screen: { mode: 'live' as const, nodeId: 'deleted-source' },
+          }),
+        },
+      },
+    };
+    const warnings: string[] = [];
+    const sanitized = sanitizeMockupState(broken, {
+      push: (warning) => warnings.push(warning.code),
+    });
+    expect((sanitized.nodes[frameId] as FrameNode).mockup).toBeDefined();
+    expect(warnings).toContain('mockup.missing-source');
+  });
+
+  it('preserves missing template asset references for recovery and export diagnostics', () => {
+    const { doc, frameId } = fixtureDoc();
+    const base = getBuiltinMockupTemplates()[0]!;
+    const template = {
+      ...base,
+      id: 'user:missing-plate',
+      source: 'user' as const,
+      library: true,
+      plateImage: {
+        assetId: 'asset:missing-plate',
+        width: base.outputWidth,
+        height: base.outputHeight,
+        fit: 'cover' as const,
+      },
+      surfaces: [{ ...base.surfaces[0]!, clipMaskAssetId: 'asset:missing-mask' }],
+    };
+    const withTemplate = addMockupTemplate(doc, template).document;
+    const withFrame = frameWithMockup(withTemplate, template.id, frameId);
+    const warnings: string[] = [];
+    const sanitized = sanitizeMockupState(withFrame, {
+      push: (warning) => warnings.push(warning.code),
+    });
+    const retained = sanitized.mockupTemplates?.[template.id];
+    expect(retained?.plateImage?.assetId).toBe('asset:missing-plate');
+    expect(retained?.surfaces[0]?.clipMaskAssetId).toBe('asset:missing-mask');
+    expect(warnings).toContain('mockup.missing-template-asset');
+  });
+
   it('clipboard closure includes mockup templates', () => {
     const { doc, frameId, sourceId } = fixtureDoc();
     const [template] = getBuiltinMockupTemplates();
@@ -578,7 +818,7 @@ describe('multimodal request contract', () => {
     ).toBeNull();
   });
 
-  it('classifies auto placement and flags reserved modes', () => {
+  it('classifies auto placement and flags unsupported assisted geometry', () => {
     const auto = classifyMockupIntent({
       sourceNodeIds: ['a'],
       targetKind: 'poster',
@@ -598,5 +838,17 @@ describe('multimodal request contract', () => {
     const m = mesh as { resolvedPlacementMode: string; warnings: string[] };
     expect(m.resolvedPlacementMode).toBe('flat');
     expect(m.warnings.some((w) => w.includes('mesh'))).toBe(true);
+
+    const variants = classifyMockupIntent({
+      sourceNodeIds: ['a'],
+      targetKind: 'apparel',
+      placementMode: 'flat',
+      preserveSourceLink: true,
+      requestedVariants: 3,
+    });
+    expect(variants).not.toHaveProperty('errors');
+    expect((variants as { warnings: string[] }).warnings).toEqual(
+      expect.arrayContaining([expect.stringContaining('Mockup Variants panel')]),
+    );
   });
 });

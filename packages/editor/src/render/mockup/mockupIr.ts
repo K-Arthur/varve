@@ -20,7 +20,13 @@
  * objects) to avoid allocation churn on the render path.
  */
 
-import { type Affine, fitRect, getImageCache, type RenderItem } from '@varve/engine';
+import {
+  type Affine,
+  fitRect,
+  getImageCache,
+  type RenderItem,
+  warpImageToCylinder,
+} from '@varve/engine';
 import {
   computeMockupSourceDigest,
   type Document,
@@ -37,6 +43,7 @@ import {
   type NodeId,
   nodeWorldBounds,
 } from '@varve/scene';
+import { multiplyAffine } from '@varve/shared';
 
 export interface MockupRenderDiagnostics {
   surfaceCacheHits: number;
@@ -44,6 +51,7 @@ export interface MockupRenderDiagnostics {
   surfacesBaked: number;
   flatSurfaces: number;
   quadSurfaces: number;
+  cylindricalSurfaces: number;
   placeholders: number;
   /** Preview frames that fell back to the last good raster for a lost source. */
   staleFallbacks: number;
@@ -56,6 +64,7 @@ const diag: MockupRenderDiagnostics = {
   surfacesBaked: 0,
   flatSurfaces: 0,
   quadSurfaces: 0,
+  cylindricalSurfaces: 0,
   placeholders: 0,
   staleFallbacks: 0,
   residentSurfaceBytes: 0,
@@ -71,6 +80,7 @@ export function resetMockupRenderDiagnostics(): void {
   diag.surfacesBaked = 0;
   diag.flatSurfaces = 0;
   diag.quadSurfaces = 0;
+  diag.cylindricalSurfaces = 0;
   diag.placeholders = 0;
   diag.staleFallbacks = 0;
   diag.residentSurfaceBytes = 0;
@@ -115,6 +125,8 @@ export class MockupSurfaceCache {
 
   set(key: string, dataUrl: string): void {
     const bytes = dataUrl.length;
+    const previous = this.entries.get(key);
+    if (previous) diag.residentSurfaceBytes -= previous.bytes;
     this.entries.delete(key);
     this.entries.set(key, { dataUrl, bytes });
     diag.residentSurfaceBytes += bytes;
@@ -155,7 +167,7 @@ export interface MockupMissingSurface {
   frameId: NodeId;
   surfaceId: string;
   surfaceName: string;
-  reason: 'no-binding' | 'source-missing' | 'asset-missing';
+  reason: 'no-binding' | 'source-missing' | 'asset-missing' | 'invalid-geometry';
 }
 
 export interface MockupDecorateInput {
@@ -210,12 +222,17 @@ export function decorateMockupIr(input: MockupDecorateInput): MockupDecorateResu
   } = input;
   const extrasByNodeId = new Map<NodeId, RenderItem[]>();
   const missingSurfaces: MockupMissingSurface[] = [];
+  // The decorator may insert extras into `items`; keep the original
+  // node-to-item relationship so later frames cannot inherit an earlier
+  // frame's plate/content RenderItem.
+  const baseItems = items.slice();
+  let insertedCount = 0;
 
   for (let i = 0; i < nodeIds.length; i++) {
     const nodeId = nodeIds[i]!;
     const node = doc.nodes[nodeId];
     if (!node || !isMockupFrame(node)) continue;
-    const frameItem = items[i];
+    const frameItem = baseItems[i];
     if (!frameItem) continue;
 
     const template = getMockupTemplate(doc, node.mockup.templateId);
@@ -223,7 +240,10 @@ export function decorateMockupIr(input: MockupDecorateInput): MockupDecorateResu
       // Missing template: deterministic placeholder over the frame bounds.
       const extras = [placeholderItem(frameItem, node.w, node.h, 'Template missing')];
       extrasByNodeId.set(nodeId, extras);
-      spliceAfter(items, i, extras);
+      if (insertIntoList) {
+        spliceAfter(items, i + insertedCount, extras);
+        insertedCount += extras.length;
+      }
       diag.placeholders++;
       continue;
     }
@@ -253,7 +273,10 @@ export function decorateMockupIr(input: MockupDecorateInput): MockupDecorateResu
     });
     if (extras.length > 0) {
       extrasByNodeId.set(nodeId, extras);
-      if (insertIntoList) spliceAfter(items, i, extras);
+      if (insertIntoList) {
+        spliceAfter(items, i + insertedCount, extras);
+        insertedCount += extras.length;
+      }
     }
   }
   return { extrasByNodeId, missingSurfaces };
@@ -392,6 +415,23 @@ function buildTemplateItems(params: BuildTemplateItemsParams): RenderItem[] {
     const shadowItem = buildShadowItem(frameItem, effective, scaleX, scaleY, effective.shadow);
     if (shadowItem) items.push(shadowItem);
 
+    // Flat and cylindrical plates are output-absolute chrome and remain
+    // visible even while their source is missing or still decoding. Quad
+    // plates are slot-local and are baked together with the projective warp.
+    if (effective.kind !== 'quad') {
+      for (const shape of effective.plate ?? []) {
+        const item = shapeItem(
+          frameItem,
+          shape.x * scaleX,
+          shape.y * scaleY,
+          shape.width * scaleX,
+          shape.height * scaleY,
+          shape,
+        );
+        if (item) items.push(item);
+      }
+    }
+
     const raster = bakeSurface({
       doc,
       node,
@@ -427,21 +467,10 @@ function buildTemplateItems(params: BuildTemplateItemsParams): RenderItem[] {
       diag.quadSurfaces++;
       items.push(buildWarpedItem(frameItem, effective, raster, scaleX, scaleY));
     } else {
-      diag.flatSurfaces++;
-      // Flat surfaces: the plate is output-absolute chrome — emit as IR
-      // shape items so it stays vector-crisp; the content raster is the
-      // fitted source only.
-      for (const shape of surface.plate ?? []) {
-        const item = shapeItem(
-          frameItem,
-          shape.x * scaleX,
-          shape.y * scaleY,
-          shape.width * scaleX,
-          shape.height * scaleY,
-          shape,
-        );
-        if (item) items.push(item);
-      }
+      if (effective.kind === 'cylindrical') diag.cylindricalSurfaces++;
+      else diag.flatSurfaces++;
+      // Flat and cylindrical content rasters are clipped to their slot; the
+      // plate above remains vector-crisp and independent of source decoding.
       items.push(buildFlatImageItem(frameItem, effective, raster, scaleX, scaleY));
     }
 
@@ -490,6 +519,7 @@ export function effectiveSurface(
     quad: override.quad ?? surface.quad,
     fit: override.fit ?? surface.fit,
     alignment: override.alignment ?? surface.alignment,
+    cylindrical: override.cylindrical ?? surface.cylindrical,
     shadow: override.shadow === null ? undefined : (override.shadow ?? surface.shadow),
     screenGlow: override.screenGlow ?? surface.screenGlow,
   };
@@ -532,9 +562,15 @@ function shapeItem(
 ): RenderItem | null {
   const fill = parseCssColor(shape.fill);
   if (!fill) return null;
+  const rotation = shape.rotation ?? 0;
+  const transform =
+    rotation === 0
+      ? frameItem.transform
+      : multiplyAffine(frameItem.transform, rotationAroundCenter(x, y, width, height, rotation));
   if (shape.kind === 'rect') {
     return {
       ...frameItem,
+      transform,
       primitive: {
         kind: 'rect',
         x,
@@ -552,6 +588,7 @@ function shapeItem(
   }
   return {
     ...frameItem,
+    transform,
     primitive: {
       kind: 'ellipse',
       cx: x + width / 2,
@@ -565,6 +602,21 @@ function shapeItem(
     opacity: shape.opacity ?? 1,
     strokes: [],
   };
+}
+
+function rotationAroundCenter(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  degrees: number,
+): [number, number, number, number, number, number] {
+  const radians = (degrees * Math.PI) / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+  return [cos, sin, -sin, cos, cx - cos * cx + sin * cy, cy - sin * cx - cos * cy];
 }
 
 /** Parse '#rgb' | '#rrggbb' | '#rrggbbaa' into an sRGB EngineColor; null otherwise. */
@@ -594,11 +646,11 @@ function buildShadowItem(
   surface: MockupSurfaceDefinition,
   scaleX: number,
   scaleY: number,
-  shadow: { blur: number; offsetY: number; opacity: number } | undefined,
+  shadow: { blur: number; offsetX?: number; offsetY: number; opacity: number } | undefined,
 ): RenderItem | null {
   if (!shadow || shadow.blur <= 0 || shadow.opacity <= 0) return null;
   const pad = shadow.blur * 0.6;
-  const x = (surface.x - pad) * scaleX;
+  const x = (surface.x - pad + (shadow.offsetX ?? 0)) * scaleX;
   const y = (surface.y - pad + shadow.offsetY) * scaleY;
   const w = (surface.width + pad * 2) * scaleX;
   const h = (surface.height + pad * 2) * scaleY;
@@ -733,6 +785,7 @@ interface ResolvedSurfaceMask {
   src: string;
   invert: boolean;
   feather: number;
+  placement?: { x: number; y: number; width: number; height: number };
 }
 
 /**
@@ -745,13 +798,27 @@ function resolveSurfaceMasks(
   doc: Document,
   surface: MockupSurfaceDefinition,
 ): ResolvedSurfaceMask[] {
-  const options = surface.maskOptions ?? {};
   const resolved: ResolvedSurfaceMask[] = [];
-  const kinds: Array<[ResolvedSurfaceMask['kind'], string | undefined]> = [
-    ['clip', surface.clipMaskAssetId],
-    ['occlusion', surface.occlusionMaskAssetId],
+  const kinds: Array<{
+    kind: ResolvedSurfaceMask['kind'];
+    assetId: string | undefined;
+    options: MockupSurfaceDefinition['maskOptions'];
+    placement: MockupSurfaceDefinition['clipMaskPlacement'];
+  }> = [
+    {
+      kind: 'clip',
+      assetId: surface.clipMaskAssetId,
+      options: surface.clipMaskOptions ?? surface.maskOptions,
+      placement: surface.clipMaskPlacement,
+    },
+    {
+      kind: 'occlusion',
+      assetId: surface.occlusionMaskAssetId,
+      options: surface.occlusionMaskOptions ?? surface.maskOptions,
+      placement: surface.occlusionMaskPlacement,
+    },
   ];
-  for (const [kind, assetId] of kinds) {
+  for (const { kind, assetId, options = {}, placement } of kinds) {
     if (!assetId) continue;
     const asset = doc.assets?.[assetId];
     if (!asset) continue;
@@ -760,6 +827,7 @@ function resolveSurfaceMasks(
       src: asset.dataUrl,
       invert: options.invert === true,
       feather: Math.max(0, options.feather ?? 0),
+      placement,
     });
   }
   return resolved;
@@ -810,12 +878,18 @@ function applySurfaceMasks(
     ctx.save();
     ctx.globalCompositeOperation = operation;
     if (featherPx > 0.05) ctx.filter = `blur(${featherPx}px)`;
+    const placement = mask.placement ?? {
+      x: 0,
+      y: 0,
+      width: geometry.template.outputWidth,
+      height: geometry.template.outputHeight,
+    };
     ctx.drawImage(
       entry.image,
-      -geometry.regionX * geometry.scaleX * geometry.bucketScale,
-      -geometry.regionY * geometry.scaleY * geometry.bucketScale,
-      geometry.template.outputWidth * geometry.scaleX * geometry.bucketScale,
-      geometry.template.outputHeight * geometry.scaleY * geometry.bucketScale,
+      (placement.x - geometry.regionX) * geometry.scaleX * geometry.bucketScale,
+      (placement.y - geometry.regionY) * geometry.scaleY * geometry.bucketScale,
+      placement.width * geometry.scaleX * geometry.bucketScale,
+      placement.height * geometry.scaleY * geometry.bucketScale,
     );
     ctx.restore();
   }
@@ -918,9 +992,16 @@ function geometryKey(
     surface.fit ?? EMPTY_FIT,
     `${surface.alignment.x}${surface.alignment.y}`,
     placementKey(placement),
+    JSON.stringify(surface.cylindrical ?? null),
     surface.clipMaskAssetId ?? '',
     surface.occlusionMaskAssetId ?? '',
-    `${maskOptions.invert ? 1 : 0}${maskOptions.feather ?? 0}${maskOptions.channel ?? 'alpha'}`,
+    JSON.stringify({
+      shared: maskOptions,
+      clip: surface.clipMaskOptions ?? null,
+      occlusion: surface.occlusionMaskOptions ?? null,
+      clipPlacement: surface.clipMaskPlacement ?? null,
+      occlusionPlacement: surface.occlusionMaskPlacement ?? null,
+    }),
   ].join('|');
 }
 
@@ -964,10 +1045,17 @@ function bakeSurface(params: BakeSurfaceParams): string | null {
   // export scales above 1 bake at the requested output scale so the warp
   // samples real pixels instead of upscaling a frame-resolution raster.
   const longEdge = Math.max(regionW, regionH);
-  const bucketScale =
+  const requestedBucketScale =
     qualityScale > 1 ? qualityScale : Math.min(qualityScale, longEdge > 0 ? 512 / longEdge : 1, 1);
-  const outW = Math.max(1, Math.min(MAX_SURFACE_PX, Math.round(regionW * bucketScale)));
-  const outH = Math.max(1, Math.min(MAX_SURFACE_PX, Math.round(regionH * bucketScale)));
+  // Cap the common scale, rather than each axis independently. Independent
+  // clamping changes the source footprint and visibly stretches large slots.
+  const bucketScale = Math.min(
+    requestedBucketScale,
+    regionW > 0 ? MAX_SURFACE_PX / regionW : requestedBucketScale,
+    regionH > 0 ? MAX_SURFACE_PX / regionH : requestedBucketScale,
+  );
+  const outW = Math.max(1, Math.round(regionW * bucketScale));
+  const outH = Math.max(1, Math.round(regionH * bucketScale));
   const bucket =
     bucketScale === qualityScale ? String(qualityScale) : `capped-${bucketScale.toFixed(3)}`;
 
@@ -985,7 +1073,8 @@ function bakeSurface(params: BakeSurfaceParams): string | null {
       onMissing(surface.id, 'asset-missing');
       return stalePreview();
     }
-    digest = `snapshot:${binding.assetId}`;
+    const snapshotAsset = doc.assets?.[binding.assetId];
+    digest = `snapshot:${binding.assetId}:${snapshotAsset?.hash ?? snapshotAsset?.dataUrl ?? 'missing'}`;
   } else {
     onMissing(surface.id, 'no-binding');
     return stalePreview();
@@ -996,8 +1085,17 @@ function bakeSurface(params: BakeSurfaceParams): string | null {
     surface.id,
     digest,
     bucket,
+    template.contentHash,
     surface.kind,
     geometryKey(node, surface, placement),
+    JSON.stringify(
+      [surface.clipMaskAssetId, surface.occlusionMaskAssetId].map((assetId) =>
+        assetId ? [assetId, doc.assets?.[assetId]?.hash ?? doc.assets?.[assetId]?.dataUrl] : null,
+      ),
+    ),
+    template.plateImage?.assetId
+      ? `${template.plateImage.assetId}:${doc.assets?.[template.plateImage.assetId]?.hash ?? doc.assets?.[template.plateImage.assetId]?.dataUrl ?? 'missing'}`
+      : '',
   ].join('|');
   const cached = cache.get(cacheKey);
   if (cached) {
@@ -1042,53 +1140,45 @@ function bakeSurface(params: BakeSurfaceParams): string | null {
     else contentCanvas = null;
   }
 
-  const centerX = (pad.x + surface.width / 2) * scaleX;
-  const centerY = (pad.y + surface.height / 2) * scaleY;
+  // `offsetX/Y` already places the slot inside a padded quad capture region;
+  // the placement pivot is therefore relative to the slot, not the region.
+  const centerX = (surface.width / 2) * scaleX;
+  const centerY = (surface.height / 2) * scaleY;
+  let sourceImage: CanvasImageSource | null = null;
+  let sourceImageScale = 1;
+  let sourceWidth = 0;
+  let sourceHeight = 0;
   if (liveNodeId) {
     const sourceBounds = nodeWorldBounds(doc, liveNodeId);
     if (sourceBounds && sourceBounds.w > 0 && sourceBounds.h > 0) {
       const sourceCanvas = document.createElement('canvas');
-      sourceCanvas.width = Math.max(
-        1,
-        Math.min(MAX_SURFACE_PX, Math.round(sourceBounds.w * bucketScale)),
+      sourceImageScale = sourceCaptureScale(
+        sourceBounds.w,
+        sourceBounds.h,
+        slotW,
+        slotH,
+        surface,
+        bucketScale,
       );
-      sourceCanvas.height = Math.max(
-        1,
-        Math.min(MAX_SURFACE_PX, Math.round(sourceBounds.h * bucketScale)),
-      );
+      sourceCanvas.width = Math.max(1, Math.round(sourceBounds.w * sourceImageScale));
+      sourceCanvas.height = Math.max(1, Math.round(sourceBounds.h * sourceImageScale));
       const sourceCtx = sourceCanvas.getContext('2d');
       if (sourceCtx) {
         sourceCtx.setTransform(
-          bucketScale,
+          sourceImageScale,
           0,
           0,
-          bucketScale,
-          -sourceBounds.x * bucketScale,
-          -sourceBounds.y * bucketScale,
+          sourceImageScale,
+          -sourceBounds.x * sourceImageScale,
+          -sourceBounds.y * sourceImageScale,
         );
         renderSubtree(sourceCtx, liveNodeId);
-        const fit = fitRect(
-          Math.max(1, sourceBounds.w),
-          Math.max(1, sourceBounds.h),
-          slotW,
-          slotH,
-          surface.fit ?? EMPTY_FIT,
-          surface.alignment.x,
-          surface.alignment.y,
-        );
-        if (fit) {
-          drawFittedInSlot(
-            contentCtx,
-            sourceCanvas,
-            fit,
-            pad.x * scaleX * bucketScale,
-            pad.y * scaleY * bucketScale,
-            bucketScale,
-            centerX,
-            centerY,
-            placement,
-          );
-        }
+        sourceImage = sourceCanvas;
+        sourceWidth = sourceBounds.w;
+        sourceHeight = sourceBounds.h;
+      } else {
+        onMissing(surface.id, 'invalid-geometry');
+        return stalePreview();
       }
     } else {
       onMissing(surface.id, 'source-missing');
@@ -1100,28 +1190,9 @@ function bakeSurface(params: BakeSurfaceParams): string | null {
       const imageCache = getImageCache();
       const entry = imageCache.get(asset.dataUrl);
       if (entry?.state === 'loaded' && entry.image) {
-        const fit = fitRect(
-          Math.max(1, binding.capturedWidth ?? asset.naturalWidth),
-          Math.max(1, binding.capturedHeight ?? asset.naturalHeight),
-          slotW,
-          slotH,
-          surface.fit ?? EMPTY_FIT,
-          surface.alignment.x,
-          surface.alignment.y,
-        );
-        if (fit) {
-          drawFittedInSlot(
-            contentCtx,
-            entry.image,
-            fit,
-            pad.x * scaleX * bucketScale,
-            pad.y * scaleY * bucketScale,
-            bucketScale,
-            centerX,
-            centerY,
-            placement,
-          );
-        }
+        sourceImage = entry.image;
+        sourceWidth = Math.max(1, binding.capturedWidth ?? asset.naturalWidth);
+        sourceHeight = Math.max(1, binding.capturedHeight ?? asset.naturalHeight);
       } else {
         if (!entry || entry.state === 'idle') {
           imageCache.load(asset.dataUrl).catch(() => undefined);
@@ -1131,6 +1202,57 @@ function bakeSurface(params: BakeSurfaceParams): string | null {
     } else {
       onMissing(surface.id, 'asset-missing');
       return stalePreview();
+    }
+  }
+
+  if (sourceImage) {
+    const fit = fitRect(
+      sourceWidth,
+      sourceHeight,
+      slotW,
+      slotH,
+      surface.fit ?? EMPTY_FIT,
+      surface.alignment.x,
+      surface.alignment.y,
+    );
+    if (fit) {
+      const offsetX = pad.x * scaleX * bucketScale;
+      const offsetY = pad.y * scaleY * bucketScale;
+      let rendered = true;
+      if (surface.kind === 'cylindrical') {
+        rendered = drawCylindricalInSlot(
+          contentCtx,
+          sourceImage,
+          fit,
+          outW,
+          outH,
+          offsetX,
+          offsetY,
+          bucketScale,
+          centerX,
+          centerY,
+          placement,
+          sourceImageScale,
+          surface.cylindrical,
+        );
+      } else {
+        drawFittedInSlot(
+          contentCtx,
+          sourceImage,
+          fit,
+          offsetX,
+          offsetY,
+          bucketScale,
+          centerX,
+          centerY,
+          placement,
+          sourceImageScale,
+        );
+      }
+      if (!rendered) {
+        onMissing(surface.id, 'invalid-geometry');
+        return stalePreview();
+      }
     }
   }
 
@@ -1158,6 +1280,38 @@ function bakeSurface(params: BakeSurfaceParams): string | null {
 }
 
 /**
+ * Capture vector/live sources at the projected output footprint. Capturing at
+ * source bounds alone makes small text and linework soft when a production
+ * surface is larger than the source node. The scale is capped by the same
+ * per-surface texture bound used by the baked raster.
+ */
+function sourceCaptureScale(
+  sourceWidth: number,
+  sourceHeight: number,
+  slotWidth: number,
+  slotHeight: number,
+  surface: MockupSurfaceDefinition,
+  bucketScale: number,
+): number {
+  const fit = fitRect(
+    sourceWidth,
+    sourceHeight,
+    slotWidth,
+    slotHeight,
+    surface.fit ?? EMPTY_FIT,
+    surface.alignment.x,
+    surface.alignment.y,
+  );
+  const footprintX = fit && fit.sw > 0 ? (fit.dw * bucketScale) / fit.sw : bucketScale;
+  const footprintY = fit && fit.sh > 0 ? (fit.dh * bucketScale) / fit.sh : bucketScale;
+  return Math.min(
+    Math.max(bucketScale, footprintX, footprintY),
+    sourceWidth > 0 ? MAX_SURFACE_PX / sourceWidth : bucketScale,
+    sourceHeight > 0 ? MAX_SURFACE_PX / sourceHeight : bucketScale,
+  );
+}
+
+/**
  * Draw a fitted source into a baked surface with the instance placement
  * (rotation about the slot centre, horizontal/vertical flips) applied to the
  * artwork only — surface geometry, plate and masks are unaffected.
@@ -1181,10 +1335,11 @@ function drawFittedInSlot(
   centerX: number,
   centerY: number,
   placement: MockupSurfacePlacement,
+  sourceScale: number,
 ): void {
   const needsPlacement = placement.rotation !== 0 || placement.flipH || placement.flipV;
   if (!needsPlacement) {
-    drawImageFitted(ctx, image, fit, offsetX, offsetY, bucketScale);
+    drawImageFitted(ctx, image, fit, offsetX, offsetY, bucketScale, sourceScale);
     return;
   }
   const cx = offsetX + centerX * bucketScale;
@@ -1194,7 +1349,7 @@ function drawFittedInSlot(
   ctx.rotate((placement.rotation * Math.PI) / 180);
   ctx.scale(placement.flipH ? -1 : 1, placement.flipV ? -1 : 1);
   ctx.translate(-cx, -cy);
-  drawImageFitted(ctx, image, fit, offsetX, offsetY, bucketScale);
+  drawImageFitted(ctx, image, fit, offsetX, offsetY, bucketScale, sourceScale);
   ctx.restore();
 }
 
@@ -1214,18 +1369,79 @@ function drawImageFitted(
   offsetX: number,
   offsetY: number,
   bucketScale: number,
+  sourceScale: number,
 ): void {
   ctx.drawImage(
     image,
-    fit.sx,
-    fit.sy,
-    fit.sw,
-    fit.sh,
+    fit.sx * sourceScale,
+    fit.sy * sourceScale,
+    fit.sw * sourceScale,
+    fit.sh * sourceScale,
     fit.dx * bucketScale + offsetX,
     fit.dy * bucketScale + offsetY,
     fit.dw * bucketScale,
     fit.dh * bucketScale,
   );
+}
+
+/**
+ * Render the fitted artwork into a temporary slot-sized raster, then apply
+ * the destination-driven cylinder remap once. The temporary canvas is
+ * released with the function scope, so drag updates never resample a prior
+ * warped result.
+ */
+function drawCylindricalInSlot(
+  ctx: CanvasRenderingContext2D,
+  image: CanvasImageSource,
+  fit: {
+    dx: number;
+    dy: number;
+    dw: number;
+    dh: number;
+    sx: number;
+    sy: number;
+    sw: number;
+    sh: number;
+  },
+  outW: number,
+  outH: number,
+  offsetX: number,
+  offsetY: number,
+  bucketScale: number,
+  centerX: number,
+  centerY: number,
+  placement: MockupSurfacePlacement,
+  sourceScale: number,
+  cylindrical: MockupSurfaceDefinition['cylindrical'],
+): boolean {
+  if (!cylindrical) return false;
+  const fittedCanvas = document.createElement('canvas');
+  fittedCanvas.width = outW;
+  fittedCanvas.height = outH;
+  const fittedCtx = fittedCanvas.getContext('2d');
+  if (!fittedCtx) return false;
+  drawFittedInSlot(
+    fittedCtx,
+    image,
+    fit,
+    offsetX,
+    offsetY,
+    bucketScale,
+    centerX,
+    centerY,
+    placement,
+    sourceScale,
+  );
+  let source: ImageData;
+  try {
+    source = fittedCtx.getImageData(0, 0, outW, outH);
+  } catch {
+    return false;
+  }
+  const warped = warpImageToCylinder(source.data, outW, outH, outW, outH, cylindrical);
+  if (!warped) return false;
+  ctx.putImageData(warped, 0, 0);
+  return true;
 }
 
 function drawShape(

@@ -1004,6 +1004,8 @@ export {
   policyKeepsSensitiveData,
   resolveMetadataContent,
 } from './metadata/policy';
+export type { CylindricalWarpOptions } from './mockup/cylinderWarp';
+export { warpImageToCylinder } from './mockup/cylinderWarp';
 export type { FitResult, MockupAlignX, MockupAlignY, MockupFitMode } from './mockup/fit';
 export { fitRect, isFitEmpty } from './mockup/fit';
 export type { Homography, Quad, Vec2 } from './mockup/homography';

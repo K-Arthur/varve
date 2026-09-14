@@ -3,6 +3,7 @@ import {
   createDocument,
   findOrCreateEmbeddedAsset,
   getBuiltinMockupTemplates,
+  hashMockupTemplate,
   type MockupTemplateAsset,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
@@ -89,6 +90,7 @@ describe('mockup template bundles', () => {
     expect(imported.document.assets?.[template!.plateImage!.assetId]).toBeDefined();
     const clipId = template!.surfaces[0]!.clipMaskAssetId!;
     expect(imported.document.assets?.[clipId]).toBeDefined();
+    expect(template!.contentHash).toBe(hashMockupTemplate(template!));
   });
 
   it('rejects malformed, oversized, and incomplete bundles', () => {
@@ -128,6 +130,22 @@ describe('mockup template bundles', () => {
       errors: expect.arrayContaining([expect.stringContaining('unsupported MIME')]),
     });
 
+    // A MIME-correct data URL is not enough: reject malformed base64 before
+    // any decoder or embedded-asset allocation sees it.
+    const malformedBase64 = {
+      ...exported.bundle,
+      assets: [
+        {
+          ...exported.bundle.assets[0]!,
+          dataUrl: 'data:image/png;base64,not-base64!',
+        },
+        exported.bundle.assets[1]!,
+      ],
+    };
+    expect(parseMockupTemplateBundle(JSON.stringify(malformedBase64))).toMatchObject({
+      errors: [expect.stringContaining('invalid data URL')],
+    });
+
     // Duplicate asset ids.
     const duplicate = {
       ...exported.bundle,
@@ -135,6 +153,18 @@ describe('mockup template bundles', () => {
     };
     expect(parseMockupTemplateBundle(JSON.stringify(duplicate))).toMatchObject({
       errors: [expect.stringContaining('Duplicate bundle asset id')],
+    });
+
+    const pixelBomb = {
+      ...exported.bundle,
+      assets: exported.bundle.assets.map((asset) => ({
+        ...asset,
+        naturalWidth: 16_384,
+        naturalHeight: 16_384,
+      })),
+    };
+    expect(parseMockupTemplateBundle(JSON.stringify(pixelBomb))).toMatchObject({
+      errors: [expect.stringContaining('invalid dimensions')],
     });
 
     // Oversized raw input is rejected before parsing.

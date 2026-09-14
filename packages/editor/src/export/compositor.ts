@@ -50,6 +50,7 @@ import {
   collectMockupLiveSourceIds,
   decorateMockupSubtree,
   settleMockupSurfaces,
+  settleMockupTemplateAssets,
 } from '../render/mockup/mockupExport';
 import { replayStructuredScene } from '../render/replayScene';
 import { flattenSceneToEngine } from '../render/sceneToEngine';
@@ -1071,6 +1072,7 @@ async function renderBoundaryToSurface(
       `Export cannot include ${settlement.failures.length} failed image(s): ${details}`,
     );
   }
+  await settleMockupTemplateAssets(doc, [boundaryNodeId, ...sourceIds]);
   const ir = await eng.buildIr({ nodes: flattened.nodes });
 
   const decorated = decorateMockupSubtree({

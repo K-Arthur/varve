@@ -17,6 +17,7 @@ import {
   collectMockupLiveSourceIds,
   decorateMockupSubtree,
   missingSurfaceWarning,
+  settleMockupTemplateAssets,
   subtreeNeedsDecoration,
 } from '../mockupExport';
 
@@ -131,5 +132,47 @@ describe('mockup export decoration', () => {
     // No baked surface raster is emitted for the missing source.
     const extras = strict.extrasByNodeId.get(frameId) ?? [];
     expect(extras.some((item) => item.fills?.some((f) => f.type === 'image'))).toBe(false);
+  });
+
+  it('blocks export when a template plate or mask asset is missing', async () => {
+    const { doc, frameId, templateId } = fixture();
+    const template = doc.mockupTemplates?.[templateId];
+    if (!template) throw new Error('fixture template missing');
+    const withMissingAsset: Document = {
+      ...doc,
+      mockupTemplates: {
+        ...doc.mockupTemplates,
+        [templateId]: {
+          ...template,
+          plateImage: {
+            assetId: 'asset:missing-plate',
+            width: template.outputWidth,
+            height: template.outputHeight,
+            fit: 'cover',
+          },
+        },
+      },
+    };
+    await expect(settleMockupTemplateAssets(withMissingAsset, [frameId])).rejects.toThrow(
+      /missing mockup template asset/,
+    );
+  });
+
+  it('blocks export when the referenced template is missing', async () => {
+    const { doc, frameId } = fixture();
+    const frame = doc.nodes[frameId] as FrameNode;
+    const missingTemplate: Document = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        [frameId]: {
+          ...frame,
+          mockup: { ...frame.mockup!, templateId: 'template:missing' },
+        },
+      },
+    };
+    await expect(settleMockupTemplateAssets(missingTemplate, [frameId])).rejects.toThrow(
+      /missing template/,
+    );
   });
 });

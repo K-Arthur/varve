@@ -4,11 +4,13 @@
  * Runs on every load (like the asset/icon sanitizers): drops invalid
  * templates and instance payloads, prunes templates no longer referenced,
  * and emits warnings so malformed mockup state never reaches the renderer.
+ * Missing raster dependencies remain as references so a later reconnect or
+ * asset restore can recover the template; export blocks until they return.
  */
 
 import type { Document } from '../document';
 import type { FrameNode } from '../types';
-import { isMockupFrame } from './ops';
+import { hashMockupTemplate, isMockupFrame, migrateMockupTemplateSchema } from './ops';
 import type { MockupInstanceData, MockupTemplateAsset } from './types';
 import { validateInstance, validateTemplate } from './validate';
 
@@ -28,10 +30,15 @@ export function sanitizeMockupTemplates(
 ): Document {
   if (!doc.mockupTemplates) return doc;
   const kept: Record<string, MockupTemplateAsset> = {};
+  let changed = false;
   for (const [id, template] of Object.entries(doc.mockupTemplates)) {
-    if (!template) continue;
+    if (!template) {
+      changed = true;
+      continue;
+    }
     const validation = validateTemplate(template);
     if (!validation.ok) {
+      changed = true;
       warnings.push({
         code: 'mockup.invalid-template',
         message: `Mockup template ${id} failed validation and was removed (${validation.errors[0] ?? 'unknown error'})`,
@@ -46,9 +53,26 @@ export function sanitizeMockupTemplates(
         severity: 'warning',
       });
     }
-    kept[id] = repairTemplateAssetReferences(doc, id, template, warnings);
+    const migrated = migrateMockupTemplateSchema(template);
+    if (migrated !== template) {
+      warnings.push({
+        code: 'mockup.template-schema-migrated',
+        message: `Mockup template ${id} was migrated from schema ${template.schemaVersion} to ${migrated.schemaVersion}`,
+        severity: 'warning',
+      });
+    }
+    const repaired = repairTemplateAssetReferences(doc, id, migrated, warnings);
+    const normalized = { ...repaired, contentHash: hashMockupTemplate(repaired) };
+    if (
+      migrated !== template ||
+      repaired !== migrated ||
+      normalized.contentHash !== template.contentHash
+    ) {
+      changed = true;
+    }
+    kept[id] = normalized;
   }
-  if (Object.keys(kept).length === Object.keys(doc.mockupTemplates).length) {
+  if (!changed) {
     return doc;
   }
   return {
@@ -58,9 +82,11 @@ export function sanitizeMockupTemplates(
 }
 
 /**
- * Clear plate/mask references whose document asset is missing. Dropping the
- * reference (rather than the template) keeps the template usable with a
- * visible warning; the renderer falls back to the slot geometry.
+ * Preserve plate/mask references whose document asset is missing. Clearing a
+ * reference during normalization would make a recoverable dependency loss
+ * permanent and would let export silently omit the plate or mask. The
+ * renderer can still show its safe fallback; the export barrier blocks until
+ * the referenced asset is restored.
  */
 function repairTemplateAssetReferences(
   doc: Document,
@@ -83,27 +109,10 @@ function repairTemplateAssetReferences(
   if (missing.size === 0) return template;
   warnings.push({
     code: 'mockup.missing-template-asset',
-    message: `Mockup template ${templateId} references ${missing.size} missing raster asset(s); those plate/mask references were cleared`,
+    message: `Mockup template ${templateId} references ${missing.size} missing raster asset(s); plate/mask references were preserved for recovery and export will remain blocked`,
     severity: 'warning',
   });
-  return {
-    ...template,
-    plateImage:
-      template.plateImage && !missing.has(template.plateImage.assetId)
-        ? template.plateImage
-        : undefined,
-    surfaces: template.surfaces.map((surface) => ({
-      ...surface,
-      clipMaskAssetId:
-        surface.clipMaskAssetId && !missing.has(surface.clipMaskAssetId)
-          ? surface.clipMaskAssetId
-          : undefined,
-      occlusionMaskAssetId:
-        surface.occlusionMaskAssetId && !missing.has(surface.occlusionMaskAssetId)
-          ? surface.occlusionMaskAssetId
-          : undefined,
-    })),
-  };
+  return template;
 }
 /** Validate every frame mockup payload; drop invalid payloads. */
 export function sanitizeMockupInstances(
@@ -117,7 +126,14 @@ export function sanitizeMockupInstances(
     if (!node || typeof node !== 'object' || node.kind !== 'frame') continue;
     const frame = node as FrameNode;
     if (!frame.mockup) continue;
-    const result = validateInstance(doc, frame.mockup as MockupInstanceData);
+    const result = validateInstance(doc, frame.mockup as MockupInstanceData, id);
+    for (const message of result.warnings) {
+      warnings.push({
+        code: 'mockup.missing-source',
+        message: `Mockup frame ${id}: ${message}`,
+        severity: 'warning',
+      });
+    }
     if (!result.ok) {
       warnings.push({
         code: 'mockup.invalid-instance',

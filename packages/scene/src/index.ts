@@ -97,6 +97,7 @@ export * from './maskCapability';
 export * from './maskPaint';
 export * from './masks';
 export * from './migrateIds';
+export * from './mockup/binding';
 export * from './mockup/builtinTemplates';
 export * from './mockup/multimodal';
 export * from './mockup/normalize';
