@@ -79,6 +79,7 @@ describe('RefineMaskTool', () => {
       commitRasterMask: vi.fn(),
       canvasToWorld: vi.fn((cx: number, cy: number) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
+      releasePointerCapture: vi.fn(),
       announce: vi.fn(),
       beginTransaction: vi.fn(),
       commitTransaction: vi.fn(),
@@ -223,6 +224,58 @@ describe('RefineMaskTool', () => {
 
     expect(maskData.data[(25 * maskData.width + 25) * 4]).toBe(200);
     expect((tool as any).strokeDirty).toBe(true);
+  });
+
+  it('restore mode returns to the original session mask across strokes', () => {
+    const tool = new RefineMaskTool();
+    tool.setOptions({ brushSize: 4, hardness: 1, mode: 'subtract' });
+    const maskData = createMidGrayMaskImageData();
+    (tool as any).maskData = maskData;
+    (tool as any).nodeId = 'img-1';
+    const ctx = makeMinimalCtx();
+
+    tool.onPointerDown(
+      { altKey: false, clientX: 25, clientY: 25, pointerId: 1, pressure: 1 } as any,
+      ctx,
+    );
+    tool.onPointerUp(
+      { altKey: false, clientX: 25, clientY: 25, pointerId: 1, pressure: 1 } as any,
+      ctx,
+    );
+    expect(maskData.data[(25 * maskData.width + 25) * 4]).toBeLessThan(128);
+
+    tool.setOptions({ mode: 'restore' });
+    tool.onPointerDown(
+      { altKey: false, clientX: 25, clientY: 25, pointerId: 2, pressure: 1 } as any,
+      ctx,
+    );
+    tool.onPointerUp(
+      { altKey: false, clientX: 25, clientY: 25, pointerId: 2, pressure: 1 } as any,
+      ctx,
+    );
+
+    expect(maskData.data[(25 * maskData.width + 25) * 4]).toBe(128);
+  });
+
+  it('delivers the final pointer position when pointerup has no preceding move', () => {
+    const tool = new RefineMaskTool();
+    tool.setOptions({ brushSize: 4, hardness: 1 });
+    const maskData = createMidGrayMaskImageData();
+    (tool as any).maskData = maskData;
+    (tool as any).nodeId = 'img-1';
+    const ctx = makeMinimalCtx();
+
+    tool.onPointerDown(
+      { altKey: false, clientX: 5, clientY: 5, pointerId: 1, pressure: 1 } as any,
+      ctx,
+    );
+    tool.onPointerUp(
+      { altKey: false, clientX: 30, clientY: 30, pointerId: 1, pressure: 1 } as any,
+      ctx,
+    );
+
+    expect(maskData.data[(30 * maskData.width + 30) * 4]).toBe(255);
+    expect(ctx.commitRasterMask).toHaveBeenCalledTimes(1);
   });
 
   it('does not commit mask during drag move', () => {

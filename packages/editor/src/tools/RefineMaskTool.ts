@@ -19,7 +19,7 @@
  * refinement brushes.
  */
 import { type AreaSelection, areaSelectionCoverageAt, createBrushMask } from '@varve/engine';
-import type { FrameNode } from '@varve/scene';
+import type { FrameNode, SceneNode } from '@varve/scene';
 import {
   canReceiveRasterMask,
   getOwnRasterMaskAsset,
@@ -89,8 +89,13 @@ export class RefineMaskTool extends BaseTool {
   };
   private brushMask: Uint8Array | null = null;
   private maskData: ImageData | null = null;
+  /** Immutable mask values from the start of this refinement session. */
+  private originalMask: ImageData | null = null;
   private maskSnapshot: ImageData | null = null;
   private nodeId: string | null = null;
+  /** Object identity captured when the tool resolved its target. */
+  private targetNode: SceneNode | null = null;
+  private loadGeneration = 0;
   private lastPaintedSource: { x: number; y: number } | null = null;
   private pendingLoad = false;
   private mapper: MapperState | null = null;
@@ -101,6 +106,7 @@ export class RefineMaskTool extends BaseTool {
     'source-image-pixels';
 
   override onActivate(ctx: ToolContext): void {
+    this.resetState();
     this.brushMask = createBrushMask(this.options.brushSize, this.options.hardness).mask;
     this.loadMask(ctx);
   }
@@ -168,6 +174,15 @@ export class RefineMaskTool extends BaseTool {
       ctx.announce('Select a visual layer or frame to paint a mask');
       return { consumed: false };
     }
+    if (!this.targetStillValid(ctx)) {
+      ctx.announce('Mask target changed; start a new stroke');
+      return { consumed: false };
+    }
+
+    // Tests and paint-to-create paths can provide a mask without going
+    // through loadMask. Capture the baseline on first use so Restore always
+    // means the original session values, not the previous stroke's values.
+    if (!this.originalMask) this.originalMask = cloneImageData(this.maskData);
 
     this.maskSnapshot = cloneImageData(this.maskData);
     this.strokeAreaSelection = ctx.areaSelection ?? null;
@@ -198,6 +213,10 @@ export class RefineMaskTool extends BaseTool {
 
   override onPointerMove(e: PointerEvent, ctx: ToolContext): void {
     if (this.drag.kind !== 'dragging' || this.drag.pointerId !== e.pointerId) return;
+    if (!this.targetStillValid(ctx)) {
+      this.abortInvalidStroke(ctx, e.pointerId);
+      return;
+    }
     const canvas = { x: e.clientX, y: e.clientY };
     const world = ctx.canvasToWorld(canvas.x, canvas.y);
     this.drag.currentCanvas = canvas;
@@ -220,20 +239,24 @@ export class RefineMaskTool extends BaseTool {
       if (!this.lastPaintedSource) {
         // A stroke may legitimately begin outside the target image; the first
         // paintable sample starts the segment instead of aborting the gesture.
-        this.paintSourcePoint(source, pressure, mode, this.strokeAreaSelection);
+        this.paintSourceSample(source, pressure, mode, this.strokeAreaSelection);
       } else {
-        for (const point of interpolateStrokeSegment(this.lastPaintedSource, source, spacing)) {
-          this.paintSourcePoint(point, pressure, mode, this.strokeAreaSelection);
-        }
+        this.paintSourceSample(source, pressure, mode, this.strokeAreaSelection, spacing);
       }
-      this.lastPaintedSource = source;
     }
+  }
+
+  override onPointerUp(e: PointerEvent, ctx: ToolContext): void {
+    if (this.drag.kind !== 'dragging' || this.drag.pointerId !== e.pointerId) return;
+    this.paintFinalPointer(e, ctx);
+    super.onPointerUp(e, ctx);
   }
 
   override onDragEnd(ctx: ToolContext): void {
     ctx.setDraft(null);
-    if (this.strokeDirty) {
-      this.commitMask(ctx);
+    if (!this.targetStillValid(ctx)) {
+      this.abortInvalidStroke(ctx);
+    } else if (this.strokeDirty && this.commitMask(ctx)) {
       ctx.commitTransaction();
     } else {
       // A stroke that changed no pixel must not create an empty history entry.
@@ -288,6 +311,8 @@ export class RefineMaskTool extends BaseTool {
       return;
     }
 
+    if (this.nodeId && this.nodeId !== selectedId) this.resetState();
+
     const node = ctx.getNode(selectedId);
     const depthSourceId = node?.mask?.rasterMask?.depthRecipe?.sourceBinding.nodeId;
     const sourceNode =
@@ -321,6 +346,7 @@ export class RefineMaskTool extends BaseTool {
       : undefined;
     const maskDataUrl = asset?.dataUrl;
     this.nodeId = node.id;
+    this.targetNode = node;
     this.coordinateSpace = isFrame
       ? 'container-local-pixels'
       : isImage
@@ -339,7 +365,7 @@ export class RefineMaskTool extends BaseTool {
       if (maskDataUrl) {
         this.loadAssetIntoMask(maskDataUrl);
       } else {
-        this.maskData = transparentImageData(maskW, maskH);
+        this.setMaskData(transparentImageData(maskW, maskH));
       }
       return;
     }
@@ -360,7 +386,7 @@ export class RefineMaskTool extends BaseTool {
       if (maskDataUrl) {
         this.loadAssetIntoMask(maskDataUrl);
       } else {
-        this.maskData = transparentImageData(maskW, maskH);
+        this.setMaskData(transparentImageData(maskW, maskH));
       }
       return;
     }
@@ -399,7 +425,7 @@ export class RefineMaskTool extends BaseTool {
     } else {
       // Paint-to-create: images without a mask start with a fresh
       // transparent mask at source resolution.
-      this.maskData = transparentImageData(sourceWidth, sourceHeight);
+      this.setMaskData(transparentImageData(sourceWidth, sourceHeight));
     }
   }
 
@@ -469,9 +495,18 @@ export class RefineMaskTool extends BaseTool {
   }
 
   private loadAssetIntoMask(dataUrl: string): void {
+    const generation = this.loadGeneration;
+    const nodeId = this.nodeId;
+    const targetNode = this.targetNode;
     this.pendingLoad = true;
     const img = new Image();
     img.onload = () => {
+      if (
+        generation !== this.loadGeneration ||
+        this.nodeId !== nodeId ||
+        this.targetNode !== targetNode
+      )
+        return;
       this.pendingLoad = false;
       try {
         const canvas = document.createElement('canvas');
@@ -480,27 +515,69 @@ export class RefineMaskTool extends BaseTool {
         const ctx2d = canvas.getContext('2d');
         if (!ctx2d) return;
         ctx2d.drawImage(img, 0, 0);
-        this.maskData = normalizeMaskImageData(ctx2d.getImageData(0, 0, img.width, img.height));
+        this.setMaskData(normalizeMaskImageData(ctx2d.getImageData(0, 0, img.width, img.height)));
       } catch {
         this.maskData = null;
+        this.originalMask = null;
       }
     };
     img.onerror = () => {
+      if (
+        generation !== this.loadGeneration ||
+        this.nodeId !== nodeId ||
+        this.targetNode !== targetNode
+      )
+        return;
       this.pendingLoad = false;
       this.maskData = null;
+      this.originalMask = null;
     };
     img.src = dataUrl;
   }
 
   private resetState(): void {
+    this.loadGeneration += 1;
     this.maskData = null;
+    this.originalMask = null;
     this.maskSnapshot = null;
     this.nodeId = null;
+    this.targetNode = null;
     this.lastPaintedSource = null;
     this.pendingLoad = false;
     this.mapper = null;
     this.strokeAreaSelection = null;
     this.strokeDirty = false;
+  }
+
+  private setMaskData(data: ImageData): void {
+    this.maskData = data;
+    this.originalMask = cloneImageData(data);
+  }
+
+  private targetStillValid(ctx: ToolContext): boolean {
+    if (!this.nodeId || !ctx.selection?.includes(this.nodeId)) return false;
+    const current = ctx.getNode(this.nodeId);
+    return Boolean(current && (!this.targetNode || current === this.targetNode));
+  }
+
+  private abortInvalidStroke(ctx: ToolContext, pointerId?: number): void {
+    if (this.maskSnapshot) this.maskData = cloneImageData(this.maskSnapshot);
+    if (pointerId !== undefined) ctx.releasePointerCapture(pointerId);
+    ctx.setDraft(null);
+    ctx.abortTransaction();
+    this.maskSnapshot = null;
+    this.lastPaintedSource = null;
+    this.strokeAreaSelection = null;
+    this.strokeDirty = false;
+    this.drag = {
+      kind: 'idle',
+      pointerId: -1,
+      startCanvas: { x: 0, y: 0 },
+      startWorld: { x: 0, y: 0 },
+      currentCanvas: { x: 0, y: 0 },
+      currentWorld: { x: 0, y: 0 },
+    };
+    ctx.announce('Mask target changed; stroke cancelled');
   }
 
   private getCoalescedStrokes(
@@ -570,7 +647,8 @@ export class RefineMaskTool extends BaseTool {
         if (mode === 'subtract') {
           next = current * (1 - scaledWeight / 255);
         } else if (mode === 'restore') {
-          const target = this.maskSnapshot?.data[pixelIdx] ?? current;
+          const target =
+            this.originalMask?.data[pixelIdx] ?? this.maskSnapshot?.data[pixelIdx] ?? current;
           next = current + (target - current) * (scaledWeight / 255);
         } else {
           next = current + (255 - current) * (scaledWeight / 255);
@@ -584,6 +662,47 @@ export class RefineMaskTool extends BaseTool {
         data[pixelIdx + 3] = rounded;
       }
     }
+  }
+
+  private paintSourceSample(
+    source: { x: number; y: number },
+    pressure: number,
+    mode: RefineBrushMode,
+    areaSelection: AreaSelection | null,
+    spacing = Math.max(1, this.options.brushSize * 0.25),
+  ): void {
+    if (!this.lastPaintedSource) {
+      this.paintSourcePoint(source, pressure, mode, areaSelection);
+    } else if (
+      Math.hypot(source.x - this.lastPaintedSource.x, source.y - this.lastPaintedSource.y) > 1e-6
+    ) {
+      for (const point of interpolateStrokeSegment(this.lastPaintedSource, source, spacing)) {
+        this.paintSourcePoint(point, pressure, mode, areaSelection);
+      }
+    }
+    this.lastPaintedSource = source;
+  }
+
+  private paintFinalPointer(e: PointerEvent, ctx: ToolContext): void {
+    if (!this.maskData || !this.targetStillValid(ctx)) {
+      this.abortInvalidStroke(ctx, e.pointerId);
+      return;
+    }
+    const canvas = { x: e.clientX, y: e.clientY };
+    const world = ctx.canvasToWorld(canvas.x, canvas.y);
+    this.drag.currentCanvas = canvas;
+    this.drag.currentWorld = world;
+    const source = this.mapWorldToSource(world);
+    if (!source) {
+      this.lastPaintedSource = null;
+      return;
+    }
+    this.paintSourceSample(
+      source,
+      effectivePressure(e),
+      this.resolveMode(e.altKey),
+      this.strokeAreaSelection,
+    );
   }
 
   /** Sample the frozen document-space selection at a mask pixel centre. */
@@ -611,11 +730,11 @@ export class RefineMaskTool extends BaseTool {
     );
   }
 
-  private commitMask(ctx: ToolContext): void {
-    if (!this.maskData || !this.nodeId) return;
+  private commitMask(ctx: ToolContext): boolean {
+    if (!this.maskData || !this.nodeId || !this.targetStillValid(ctx)) return false;
 
     const newDataUrl = this.encodeMask(this.maskData);
-    if (!newDataUrl) return;
+    if (!newDataUrl) return false;
 
     ctx.commitRasterMask?.(
       this.nodeId,
@@ -623,7 +742,9 @@ export class RefineMaskTool extends BaseTool {
       this.maskData.width,
       this.maskData.height,
       this.coordinateSpace,
+      this.targetNode ?? undefined,
     );
+    return true;
   }
 
   private encodeMask(imageData: ImageData): string | null {

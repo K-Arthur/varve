@@ -64,6 +64,7 @@ describe('TrimapEditTool', () => {
       commitTrimapEdit: vi.fn(),
       canvasToWorld: vi.fn((cx: number, cy: number) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
+      releasePointerCapture: vi.fn(),
       announce: vi.fn(),
       beginTransaction: vi.fn(),
       commitTransaction: vi.fn(),
@@ -230,6 +231,45 @@ describe('TrimapEditTool', () => {
 
     const idx = 10 * 50 + 10;
     expect(trimap[idx]).toBe(128);
+  });
+
+  it('delivers the final pointer position and commits the explicit target', () => {
+    const tool = new TrimapEditTool();
+    const trimap = createTestTrimap(50, 50, 128);
+    (tool as any).trimap = trimap;
+    (tool as any).width = 50;
+    (tool as any).height = 50;
+    (tool as any).nodeId = 'img-1';
+    (tool as any).options.penMode = 'foreground';
+    (tool as any).options.brushSize = 4;
+    const ctx = makeMinimalCtx();
+
+    tool.onPointerDown({ clientX: 5, clientY: 5, pointerId: 1, pressure: 1 } as any, ctx);
+    tool.onPointerUp({ clientX: 30, clientY: 30, pointerId: 1, pressure: 1 } as any, ctx);
+
+    expect(trimap[30 * 50 + 30]).toBe(255);
+    expect(ctx.commitTrimapEdit).toHaveBeenCalledWith(trimap, 'img-1', undefined);
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('restores the trimap on cancellation instead of committing a partial stroke', () => {
+    const tool = new TrimapEditTool();
+    const trimap = createTestTrimap(50, 50, 128);
+    (tool as any).trimap = trimap;
+    (tool as any).width = 50;
+    (tool as any).height = 50;
+    (tool as any).nodeId = 'img-1';
+    (tool as any).options.penMode = 'foreground';
+    (tool as any).options.brushSize = 4;
+    const ctx = makeMinimalCtx();
+
+    tool.onPointerDown({ clientX: 25, clientY: 25, pointerId: 1, pressure: 1 } as any, ctx);
+    expect(trimap[25 * 50 + 25]).toBe(255);
+    tool.onDragCancel(ctx);
+
+    expect(trimap[25 * 50 + 25]).toBe(128);
+    expect(ctx.commitTrimapEdit).not.toHaveBeenCalled();
+    expect(ctx.abortTransaction).toHaveBeenCalledTimes(1);
   });
 
   it('Escape exits trimap edit mode', () => {

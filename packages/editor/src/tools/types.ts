@@ -383,8 +383,14 @@ export interface ToolContext {
 
   /** Ephemeral trimap session (not persisted on Document). */
   getTrimapData?: (nodeId: string) => { data: Uint8Array; width: number; height: number } | null;
-  setTrimapPreview?: (trimap: Uint8Array, width: number, height: number) => void;
-  commitTrimapEdit?: (trimap: Uint8Array) => void;
+  setTrimapPreview?: (
+    trimap: Uint8Array,
+    width: number,
+    height: number,
+    nodeId?: NodeId,
+    expectedNode?: SceneNode,
+  ) => void;
+  commitTrimapEdit?: (trimap: Uint8Array, nodeId?: NodeId, expectedNode?: SceneNode) => void;
   /**
    * The mask the user has explicitly chosen to edit, or null for layer pixels.
    *
@@ -401,6 +407,7 @@ export interface ToolContext {
     width: number,
     height: number,
     coordinateSpace?: 'source-image-pixels' | 'container-local-pixels' | 'node-local-pixels',
+    expectedNode?: SceneNode,
   ) => void;
   createRasterLayer: (width: number, height: number, parentId?: NodeId | null) => string | null;
 

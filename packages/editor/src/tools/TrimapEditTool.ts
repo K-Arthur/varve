@@ -10,7 +10,7 @@
  * Research basis: Levin closed-form matting trimap; Photoshop Select & Mask.
  */
 import { createBrushMask, TRIMap } from '@varve/engine';
-import type { ShapeNode } from '@varve/scene';
+import type { SceneNode, ShapeNode } from '@varve/scene';
 import { getOwnRasterMaskAsset, isImageShape, resolveNodePaints } from '@varve/scene';
 import { BaseTool } from './BaseTool';
 import { effectivePressure, interpolateStrokeSegment } from './brushStroke';
@@ -60,7 +60,11 @@ export class TrimapEditTool extends BaseTool {
   private width = 0;
   private height = 0;
   private nodeId: string | null = null;
+  private targetNode: SceneNode | null = null;
+  private initGeneration = 0;
   private lastPaintedSource: { x: number; y: number } | null = null;
+  private trimapSnapshot: Uint8Array | null = null;
+  private strokeDirty = false;
   private mapper: MapperState | null = null;
 
   override onActivate(ctx: ToolContext): void {
@@ -69,9 +73,13 @@ export class TrimapEditTool extends BaseTool {
   }
 
   override onDeactivate(_ctx: ToolContext): void {
+    this.initGeneration += 1;
     this.trimap = null;
     this.nodeId = null;
+    this.targetNode = null;
     this.lastPaintedSource = null;
+    this.trimapSnapshot = null;
+    this.strokeDirty = false;
     this.mapper = null;
   }
 
@@ -119,10 +127,16 @@ export class TrimapEditTool extends BaseTool {
       ctx.announce('Select an image with background removal applied first');
       return { consumed: false };
     }
+    if (!this.targetStillValid(ctx)) {
+      ctx.announce('Trimap target changed; start a new stroke');
+      return { consumed: false };
+    }
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
     const source = this.mapWorldToSource(world);
     this.lastPaintedSource = source;
+    this.trimapSnapshot = new Uint8Array(this.trimap);
+    this.strokeDirty = false;
     ctx.setPointerCapture(e.pointerId);
     ctx.beginTransaction();
     this.drag = {
@@ -139,6 +153,10 @@ export class TrimapEditTool extends BaseTool {
 
   override onPointerMove(e: PointerEvent, ctx: ToolContext): void {
     if (this.drag.kind !== 'dragging' || this.drag.pointerId !== e.pointerId) return;
+    if (!this.targetStillValid(ctx)) {
+      this.abortInvalidStroke(ctx, e.pointerId);
+      return;
+    }
     const canvas = { x: e.clientX, y: e.clientY };
     const world = ctx.canvasToWorld(canvas.x, canvas.y);
     this.drag.currentCanvas = canvas;
@@ -158,29 +176,64 @@ export class TrimapEditTool extends BaseTool {
       }
       if (!this.lastPaintedSource) {
         // A gesture may start outside the visible image.
-        this.paintSourcePoint(source, pressure);
+        this.paintSourceSample(source, pressure);
       } else {
-        for (const point of interpolateStrokeSegment(this.lastPaintedSource, source, spacing)) {
-          this.paintSourcePoint(point, pressure);
-        }
+        this.paintSourceSample(source, pressure, spacing);
       }
-      this.lastPaintedSource = source;
-      ctx.setTrimapPreview?.(this.trimap, this.width, this.height);
+      ctx.setTrimapPreview?.(
+        this.trimap,
+        this.width,
+        this.height,
+        this.nodeId ?? undefined,
+        this.targetNode ?? undefined,
+      );
     }
+  }
+
+  override onPointerUp(e: PointerEvent, ctx: ToolContext): void {
+    if (this.drag.kind !== 'dragging' || this.drag.pointerId !== e.pointerId) return;
+    this.paintFinalPointer(e, ctx);
+    super.onPointerUp(e, ctx);
   }
 
   override onDragEnd(ctx: ToolContext): void {
-    if (this.trimap) {
-      ctx.setTrimapPreview?.(this.trimap, this.width, this.height);
-      ctx.commitTrimapEdit?.(this.trimap);
+    if (!this.trimap || !this.targetStillValid(ctx)) {
+      this.abortInvalidStroke(ctx);
+      return;
     }
-    ctx.commitTransaction();
+    if (this.strokeDirty) {
+      ctx.setTrimapPreview?.(
+        this.trimap,
+        this.width,
+        this.height,
+        this.nodeId ?? undefined,
+        this.targetNode ?? undefined,
+      );
+      ctx.commitTrimapEdit?.(this.trimap, this.nodeId ?? undefined, this.targetNode ?? undefined);
+      ctx.commitTransaction();
+    } else {
+      ctx.abortTransaction();
+    }
     this.lastPaintedSource = null;
+    this.trimapSnapshot = null;
+    this.strokeDirty = false;
   }
 
   override onDragCancel(ctx: ToolContext): void {
+    if (this.trimapSnapshot && this.trimap) {
+      this.trimap.set(this.trimapSnapshot);
+      ctx.setTrimapPreview?.(
+        this.trimap,
+        this.width,
+        this.height,
+        this.nodeId ?? undefined,
+        this.targetNode ?? undefined,
+      );
+    }
     ctx.abortTransaction();
     this.lastPaintedSource = null;
+    this.trimapSnapshot = null;
+    this.strokeDirty = false;
   }
 
   setOptions(opts: Partial<TrimapEditOptions>): void {
@@ -193,6 +246,7 @@ export class TrimapEditTool extends BaseTool {
   }
 
   private initTrimap(ctx: ToolContext): void {
+    const generation = ++this.initGeneration;
     const selectedId = ctx.selection?.[0];
     if (!selectedId) return;
 
@@ -207,6 +261,7 @@ export class TrimapEditTool extends BaseTool {
     if (!maskDataUrl) return;
 
     this.nodeId = node.id;
+    this.targetNode = node;
 
     const imageFill = resolveNodePaints(
       { paintRefs: node.paintRefs, fills: node.fills, fill: { ...node.fill } },
@@ -234,6 +289,8 @@ export class TrimapEditTool extends BaseTool {
 
     const img = new Image();
     img.onload = () => {
+      if (generation !== this.initGeneration || this.nodeId !== node.id || this.targetNode !== node)
+        return;
       const canvas = document.createElement('canvas');
       canvas.width = img.width;
       canvas.height = img.height;
@@ -245,10 +302,22 @@ export class TrimapEditTool extends BaseTool {
       // so a partially transparent mask must not become foreground.
       const mask = rasterMaskAlphaPlane(maskData);
       import('@varve/engine').then(({ trimapFromMask }) => {
+        if (
+          generation !== this.initGeneration ||
+          this.nodeId !== node.id ||
+          this.targetNode !== node
+        )
+          return;
         this.trimap = trimapFromMask(mask, img.width, img.height, 4);
         this.width = img.width;
         this.height = img.height;
-        ctx.setTrimapPreview?.(this.trimap, this.width, this.height);
+        ctx.setTrimapPreview?.(
+          this.trimap,
+          this.width,
+          this.height,
+          this.nodeId ?? undefined,
+          this.targetNode ?? undefined,
+        );
       });
     };
     img.src = maskDataUrl;
@@ -287,6 +356,80 @@ export class TrimapEditTool extends BaseTool {
       : { x: Math.round(world.x), y: Math.round(world.y) };
   }
 
+  private targetStillValid(ctx: ToolContext): boolean {
+    if (!this.nodeId || !ctx.selection?.includes(this.nodeId)) return false;
+    const current = ctx.getNode(this.nodeId);
+    return Boolean(current && (!this.targetNode || current === this.targetNode));
+  }
+
+  private abortInvalidStroke(ctx: ToolContext, pointerId?: number): void {
+    if (this.trimapSnapshot && this.trimap) this.trimap.set(this.trimapSnapshot);
+    if (pointerId !== undefined) ctx.releasePointerCapture(pointerId);
+    if (this.trimap) {
+      ctx.setTrimapPreview?.(
+        this.trimap,
+        this.width,
+        this.height,
+        this.nodeId ?? undefined,
+        this.targetNode ?? undefined,
+      );
+    }
+    ctx.abortTransaction();
+    this.lastPaintedSource = null;
+    this.trimapSnapshot = null;
+    this.strokeDirty = false;
+    this.drag = {
+      kind: 'idle',
+      pointerId: -1,
+      startCanvas: { x: 0, y: 0 },
+      startWorld: { x: 0, y: 0 },
+      currentCanvas: { x: 0, y: 0 },
+      currentWorld: { x: 0, y: 0 },
+    };
+    ctx.announce('Trimap target changed; stroke cancelled');
+  }
+
+  private paintSourceSample(
+    source: { x: number; y: number },
+    pressure: number,
+    spacing = Math.max(1, this.options.brushSize * 0.3),
+  ): void {
+    if (!this.lastPaintedSource) {
+      this.paintSourcePoint(source, pressure);
+    } else if (
+      Math.hypot(source.x - this.lastPaintedSource.x, source.y - this.lastPaintedSource.y) > 1e-6
+    ) {
+      for (const point of interpolateStrokeSegment(this.lastPaintedSource, source, spacing)) {
+        this.paintSourcePoint(point, pressure);
+      }
+    }
+    this.lastPaintedSource = source;
+  }
+
+  private paintFinalPointer(e: PointerEvent, ctx: ToolContext): void {
+    if (!this.trimap || !this.targetStillValid(ctx)) {
+      this.abortInvalidStroke(ctx, e.pointerId);
+      return;
+    }
+    const canvas = { x: e.clientX, y: e.clientY };
+    const world = ctx.canvasToWorld(canvas.x, canvas.y);
+    this.drag.currentCanvas = canvas;
+    this.drag.currentWorld = world;
+    const source = this.mapWorldToSource(world);
+    if (!source) {
+      this.lastPaintedSource = null;
+      return;
+    }
+    this.paintSourceSample(source, effectivePressure(e));
+    ctx.setTrimapPreview?.(
+      this.trimap,
+      this.width,
+      this.height,
+      this.nodeId ?? undefined,
+      this.targetNode ?? undefined,
+    );
+  }
+
   /** Paint one categorical dab at a source/mask pixel position. */
   private paintSourcePoint(sourcePixel: { x: number; y: number }, pressure: number): void {
     if (!this.trimap) return;
@@ -311,7 +454,10 @@ export class TrimapEditTool extends BaseTool {
         const weight = this.brushMask ? (this.brushMask[by * d + bx] ?? 0) : 255;
         const scaledWeight = Math.round(weight * opacityScale);
         if (scaledWeight < 32) continue;
-        this.trimap[my * this.width + mx] = value;
+        const index = my * this.width + mx;
+        if (this.trimap[index] === value) continue;
+        this.trimap[index] = value;
+        this.strokeDirty = true;
       }
     }
   }

@@ -519,24 +519,29 @@ export function buildToolContext(
     },
 
     getTrimapData: (nodeId) => e.getTrimapData(nodeId),
-    setTrimapPreview: (trimap, width, height) => {
-      const nodeId = s.selection[0];
-      if (nodeId) e.setTrimapData(nodeId, trimap, width, height);
+    setTrimapPreview: (trimap, width, height, nodeId, expectedNode) => {
+      const targetId = nodeId ?? s.selection[0];
+      if (!targetId) return;
+      if (expectedNode && s.document.nodes[targetId] !== expectedNode) return;
+      e.setTrimapData(targetId, trimap, width, height);
     },
-    commitTrimapEdit: (trimap) => {
-      const nodeId = s.selection[0];
-      if (!nodeId) return;
-      const entry = e.getTrimapData(nodeId);
-      if (entry) e.setTrimapData(nodeId, trimap, entry.width, entry.height);
+    commitTrimapEdit: (trimap, nodeId, expectedNode) => {
+      const targetId = nodeId ?? s.selection[0];
+      if (!targetId) return;
+      if (expectedNode && s.document.nodes[targetId] !== expectedNode) return;
+      const entry = e.getTrimapData(targetId);
+      if (entry) e.setTrimapData(targetId, trimap, entry.width, entry.height);
     },
     applySam2Segmentation: (params) => e.applySam2Segmentation(params),
     cancelSam2Segmentation: () => e.cancelSam2Segmentation(),
     objectSelectionSession: s.objectSelectionSession,
     patchEditorState: (partial) => e.patch(partial),
-    commitRasterMask: (nodeId, dataUrl, width, height, coordinateSpace) => {
+    commitRasterMask: (nodeId, dataUrl, width, height, coordinateSpace, expectedNode) => {
       import('../backgroundRemoval/commitRasterMask').then(({ commitRasterMask }) => {
         e.updateDoc((doc) =>
-          commitRasterMask(doc, nodeId, { dataUrl, width, height, coordinateSpace }),
+          expectedNode && doc.nodes[nodeId] !== expectedNode
+            ? doc
+            : commitRasterMask(doc, nodeId, { dataUrl, width, height, coordinateSpace }),
         );
       });
     },
