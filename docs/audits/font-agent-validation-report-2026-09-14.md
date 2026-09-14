@@ -320,3 +320,23 @@ Partial. The editor test now also restores the authoritative story and removes
 its manifest entry. A one-step editor-history assertion, preview/cancel UI
 flow, durable save/reopen proof, and native restart evidence remain open. The
 follow-up test commit is `ea1e3fa246d9ce63ae19a521d5971134f755a9bc`.
+
+## Visual recheck — 2026-09-14
+
+The focused Chromium visual run was repeated on an isolated Vite port after the
+linked-story changes. It covers the quick font toolbar at DPR 1, 2, and 3 and
+the typography editing workflow, including empty-text cancellation and
+OpenType/cluster redraw.
+
+```text
+VARVE_E2E_PORT=1492 VARVE_E2E_WORKERS=1 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts tests/e2e/canvas/typography-editing.spec.ts --project=chromium --reporter=list
+```
+
+Passed: **6 tests** in 2.3 minutes. I inspected the light-open, dark-narrow,
+and high-contrast-open captures from
+`test-results/run-1396279-1492/`; the family field, weight, style, size, and
+swatch controls share the 32 px compact control token, the menu remains
+readable at all three DPRs, and the narrow menu scrolls without clipping the
+active row. The run also confirms the existing empty-text cleanup behavior and
+real OpenType redraw path. This is browser visual evidence; native WebKit,
+Windows WebView2, and macOS WKWebView proof remain platform dependencies.
