@@ -22,11 +22,7 @@ describe('source-pixel image resize', () => {
   });
 
   it('supports explicit linear-light resampling for translucent photo edges', () => {
-    const src = new ImageData(
-      new Uint8ClampedArray([128, 128, 128, 128, 0, 0, 0, 255]),
-      2,
-      1,
-    );
+    const src = new ImageData(new Uint8ClampedArray([128, 128, 128, 128, 0, 0, 0, 255]), 2, 1);
     const output = resizeImageData(src, {
       newWidth: 1,
       newHeight: 1,

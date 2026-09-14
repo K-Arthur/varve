@@ -5,8 +5,10 @@
  * and resampling method selection. Operates on the selected image node's
  * source pixels — does not change the node's geometry.
  *
- * This is a non-destructive operation that changes the image fill's
- * effective resolution. The node bounding box is preserved.
+ * The operation never mutates the selected node's existing asset bytes: the
+ * editor creates a new embedded asset with the resized pixels. It is a baked
+ * source-pixel rendition rather than a live placement transform, and the node
+ * bounding box is preserved.
  */
 
 import type { ImageFillData, NodeId } from '@varve/scene';
@@ -246,8 +248,8 @@ export function ImageResizeDialog({ nodeId, fill, onClose, onApply }: ImageResiz
           </div>
           <p className="image-resize-dialog__hint">
             Linear light keeps translucent and antialiased edges from darkening during photo
-            resizing. Encoded sRGB preserves the compatibility default. This changes source
-            pixels only; the placed image bounds stay unchanged.
+            resizing. Encoded sRGB preserves the compatibility default. This changes source pixels
+            only; the placed image bounds stay unchanged.
           </p>
 
           <div className="image-resize-dialog__info" id="image-resize-summary" role="status">

@@ -23,9 +23,7 @@ describe('ImageResizeDialog', () => {
   it('exposes the linear-light choice and persists it in the apply request', async () => {
     const user = userEvent.setup();
     const onApply = vi.fn();
-    render(
-      <ImageResizeDialog nodeId="photo" fill={fill} onClose={() => {}} onApply={onApply} />,
-    );
+    render(<ImageResizeDialog nodeId="photo" fill={fill} onClose={() => {}} onApply={onApply} />);
 
     await user.click(screen.getByRole('combobox', { name: 'Resize working space' }));
     await user.click(screen.getByRole('option', { name: 'Linear light (photo edges)' }));
@@ -40,4 +38,3 @@ describe('ImageResizeDialog', () => {
     );
   });
 });
-

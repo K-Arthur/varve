@@ -1,5 +1,5 @@
 /**
- * Alpha-safe image resampling for canonical export (Strata export pipeline,
+ * Alpha-safe image resampling for canonical export (Varve export pipeline,
  * Phase 3).
  *
  * This is the canonical "resize the rendered surface" stage. It deliberately
@@ -14,7 +14,7 @@
  *  - Two-pass separable sampling with per-output-pixel weight normalization, so
  *    there is no overall brightness drift at edges or under heavy scaling.
  *  - Optional linear-light working space (IEC 61966-2-1 EOTF). Default is
- *    gamma-encoded (`srgb`), matching the rest of Strata's compositing and the
+ *    gamma-encoded (`srgb`), matching the rest of Varve's compositing and the
  *    conventional behavior of browser `drawImage`.
  *  - Deterministic `auto` algorithm selection (documented in
  *    `selectResamplingAlgorithm`).

@@ -36,6 +36,9 @@ test.describe('Image resize UI', () => {
     await expect(page.locator('#resize-width')).toHaveValue('200');
     await page.getByRole('combobox', { name: 'Resample method' }).click();
     await page.getByRole('option', { name: 'Lanczos 3', exact: true }).click();
+    await page.getByRole('combobox', { name: 'Resize working space' }).click();
+    await page.getByRole('option', { name: 'Linear light (photo edges)', exact: true }).click();
+    await expect(page.locator('#resize-working-space')).toContainText('Linear light (photo edges)');
     await page.screenshot({ path: path.join(REVIEW_DIR, '02-configured.png'), fullPage: false });
 
     await dialog.getByRole('button', { name: 'Apply' }).click();
