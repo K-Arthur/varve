@@ -196,7 +196,12 @@ re-adding the same bytes cannot be mistaken for an already-adopted set.
 `document.fonts`, its worker style/object URL, and the registry; family-level
 unload remains a compatibility operation for legacy unkeyed faces. Worker
 font assets still need an adoption acknowledgement before worker rendering
-can reuse them; otherwise the main-thread replay remains authoritative.
+can reuse them; otherwise the main-thread replay remains authoritative. The
+pruning decision and the later worker dispatch now share one synchronous
+`workerHasFontsForDocument` predicate, so a dynamic/project face cannot pass
+through a second branch while adoption is pending. A stale or failed
+acknowledgement therefore selects the main-thread replay before any bitmap is
+presented.
 Package export sets `bundled` only after writing verified bytes into `fonts/`.
 Export requests carry a document's exact
 `fontReference`, so same-family artifacts and collection members remain

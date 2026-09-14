@@ -90,7 +90,7 @@ import {
   documentTreatmentSpaceForCapture,
   pixelToDocumentFromCapture,
 } from '../render/treatmentSpace';
-import { documentNeedsWorkerFonts } from '../render/workerFonts';
+import { workerHasFontsForDocument } from '../render/workerFonts';
 import { type MasterOffset, offsetWorldBounds, offsetWorldTransform } from '../scene/masterOffsets';
 import {
   getWorldBounds as getCachedWorldBounds,
@@ -165,22 +165,6 @@ let _showOriginalBgNodeId: string | null = null;
  * immutable edits keep the cache warm.
  */
 let _mockupCacheDocId: string | null = null;
-
-/**
- * Whether the worker can be trusted with this document's text.
- *
- * The question is per family, not per batch: a document that uses only
- * families the worker has actually loaded keeps the fast path even while some
- * other declared family is still arriving or has failed there. Text in a
- * family the worker cannot draw stays on the main thread.
- */
-function workerHasFontsForDocument(
-  host: { unavailableFontFamilies: ReadonlySet<string> } | null,
-  doc: Document,
-): boolean {
-  if (!host) return false;
-  return !documentNeedsWorkerFonts(doc, host.unavailableFontFamilies);
-}
 
 export function toEngineNode(node: SceneNode, doc: Document): EngineNode {
   return sceneNodeToEngineNode(
@@ -1994,7 +1978,8 @@ export function renderContent(deps: RenderContentDeps): void {
       workerImageRefusal === null &&
       !documentHasPerspectiveImage(doc) &&
       sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src)) &&
-      !sceneNeedsMainThreadTypography(doc);
+      !sceneNeedsMainThreadTypography(doc) &&
+      workerHasFontsForDocument(renderWorkerRef.current, doc);
 
     // Mockup surface decoration: compose mockup frames into the IR list
     // (plate shapes, baked surface rasters, shadows, glows). Runs before

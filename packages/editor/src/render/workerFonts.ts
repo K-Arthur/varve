@@ -253,3 +253,20 @@ export function documentNeedsWorkerFonts(
   }
   return false;
 }
+
+/**
+ * Synchronous admission predicate shared by pruning and worker dispatch.
+ *
+ * Both branches must make the same decision before a frame paints. If a
+ * declared family is still unavailable in the worker, the caller must keep
+ * the frame on the main-thread replay path until the adoption acknowledgement
+ * arrives; an asynchronous refusal after a stale bitmap is presented cannot
+ * repair that frame.
+ */
+export function workerHasFontsForDocument(
+  host: { unavailableFontFamilies: ReadonlySet<string> } | null,
+  doc: WorkerDocument,
+): boolean {
+  if (!host) return false;
+  return !documentNeedsWorkerFonts(doc, host.unavailableFontFamilies);
+}

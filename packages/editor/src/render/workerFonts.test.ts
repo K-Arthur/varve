@@ -6,6 +6,7 @@ import {
   fontFaceSetKey,
   harvestDocumentFontFaces,
   type WorkerFontFace,
+  workerHasFontsForDocument,
 } from './workerFonts';
 
 function withStyleSheets(sheets: Array<Partial<CSSStyleSheet>>): void {
@@ -237,6 +238,35 @@ describe('documentNeedsWorkerFonts', () => {
         doc({ a: { kind: 'shape', fontFamily: 'Geist Variable' } }),
         declared,
       ),
+    ).toBe(false);
+  });
+});
+
+describe('workerHasFontsForDocument', () => {
+  const doc = (nodes: Record<string, Record<string, unknown>>) =>
+    ({ nodes }) as unknown as Parameters<typeof workerHasFontsForDocument>[1];
+
+  it('rejects dispatch while a used declared family is unavailable', () => {
+    expect(
+      workerHasFontsForDocument(
+        { unavailableFontFamilies: new Set(['Exact Sans']) },
+        doc({ text: { kind: 'text', fontFamily: 'Exact Sans' } }),
+      ),
+    ).toBe(false);
+  });
+
+  it('admits dispatch when the document uses only adopted faces', () => {
+    expect(
+      workerHasFontsForDocument(
+        { unavailableFontFamilies: new Set(['Other Family']) },
+        doc({ text: { kind: 'text', fontFamily: 'Exact Sans' } }),
+      ),
+    ).toBe(true);
+  });
+
+  it('does not admit a missing worker host', () => {
+    expect(
+      workerHasFontsForDocument(null, doc({ text: { kind: 'text', fontFamily: 'Exact Sans' } })),
     ).toBe(false);
   });
 });
