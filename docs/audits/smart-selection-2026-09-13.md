@@ -64,6 +64,29 @@ Ownership record: `docs/agents/smart-selection-2026-09-13-ownership.md`.
 | `679457345` | Proposal store across Inspector remounts |
 | `7254f7d0d` | Website copy (plus stopped writer's refinement copy) |
 
+## Real-model acquisition, hosting, and gates (2026-09-14)
+
+- Acquired the pinned upstream pair from the Apache-2.0 export and verified
+  both checksums; the graph repair reproduced the pinned repaired checksum and
+  size exactly (134,261,247 B at `b4cfd6c8…`).
+- Published the verified upstream pair on the `varve-models-v2` GitHub
+  release as an archival mirror (`gh release download` + `sha256sum -c`).
+- Confirmed GitHub release assets are not CORS-enabled (ledger F9), so the
+  runtime source stays the CORS-enabled upstream host and the manifest/catalog
+  URLs are unchanged; this is a verified platform constraint, not a missing
+  downloader.
+- Updated `object-selection-real-model.spec.ts` to assert the current score
+  wording, select the imported layer deterministically, and verify the
+  reviewed-candidate Use as selection output. The full gate passes on a fresh
+  profile (install through the app downloader → cold 27 s → cycling →
+  apply/undo/redo → warm 3 s → selection 1 s); screenshots inspected.
+- Added the gated corpus runner
+  (`packages/engine/src/segmentation/quality/realModelParity.test.ts`) and ran
+  it: mean default-candidate IoU 0.654, mean best-candidate 0.720, with the
+  measured table and category interpretation in
+  `docs/quality/object-selection-parity.md`. The provisional flat-mean gate
+  was not relaxed to pass; weak categories are proposed for maintainer review.
+
 ## Validation actually run
 
 | Command | Result |
@@ -74,7 +97,8 @@ Ownership record: `docs/agents/smart-selection-2026-09-13-ownership.md`.
 | `pnpm typecheck:e2e` | pass |
 | `pnpm audit:emoji`, `pnpm audit:docs` | clean |
 | Playwright, frozen private build, `VARVE_E2E_PORT` avoided: 5/5 pass — 3 object-selection specs and 2 select-subject specs (`1.2 min`) | pass |
-| Real-model corpus gate (`object-selection-real-model.spec.ts`) | **not run**: `apps/desktop/public/models/sam2_hiera_tiny.encoder.onnx` is absent in this checkout; the release gate in `docs/quality/object-selection-parity.md` stands |
+| Real-model integration gate (fresh profile, install through the app downloader, COOP/COEP dev server) | **pass**: cold 27 s at 88%, 3 candidates, apply/undo/redo, warm 3 s, selection 1 s |
+| Real-model corpus runner (ort-node, 10 fixtures) | ran; mean IoU 0.654, best-candidate 0.720 — recorded in `docs/quality/object-selection-parity.md` with review categories |
 
 The E2E run used a private production build
 (`vite build --outDir dist-selection-verify`) served by `vite preview` and a
@@ -113,7 +137,10 @@ background `[238,242,246]` outside.
 
 ## Remaining limitations and unverified items
 
-- Real-model SAM2 quality/parity: unverified here (encoder artifact absent).
+- Real-model SAM2 integration and the corpus are measured above
+  (`docs/quality/object-selection-parity.md`); the provisional flat-mean gate
+  was not met and the four weak categories are proposed as documented review
+  categories decided by the maintainer.
 - WebKitGTK/Tauri, physical pen, and touch hardware: unverified.
 - Prompt **move** (as opposed to remove) is not implemented; tap removes a
   specific prompt and Backspace removes the last one.

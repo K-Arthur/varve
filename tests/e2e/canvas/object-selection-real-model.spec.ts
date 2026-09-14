@@ -95,6 +95,10 @@ test.describe('Object Selection real-model gate', () => {
       .locator('#file-import-input')
       .setInputFiles(path.resolve('tests/fixtures/bg-removal-corpus/human.jpg'));
     await expect(page.getByRole('treeitem').first()).toBeVisible({ timeout: 120000 });
+    // Import selects the new image in a clean profile, but a restored session
+    // may open without it; select the layer explicitly so the image-specific
+    // Inspector tabs are deterministic.
+    await page.getByRole('treeitem').first().click();
 
     const inspector = page.locator('.editor__inspector-panel');
     await inspector.getByRole('tab', { name: 'Adjustments' }).click();
@@ -129,7 +133,7 @@ test.describe('Object Selection real-model gate', () => {
       '| latency:',
       `${Math.round((Date.now() - t0) / 1000)}s`,
     );
-    expect(statusText).toMatch(/Preview ready · \d+% model confidence · \d+ candidate masks?/);
+    expect(statusText).toMatch(/Preview ready · \d+% model score · \d+ candidate masks?/);
     expect(statusText).not.toMatch(/0 candidate mask/);
     await testInfo.attach('real-model-preview', {
       body: await canvas.screenshot(),
@@ -161,11 +165,11 @@ test.describe('Object Selection real-model gate', () => {
       exact: true,
     });
     await expect(backgroundRemovalToggle).toHaveAttribute('aria-expanded', 'true');
-    await expect(inspector.getByText(/Confidence \d+%/).first()).toBeVisible({ timeout: 120000 });
+    await expect(inspector.getByText(/Mask score \d+%/).first()).toBeVisible({ timeout: 120000 });
     console.log(
       'APPLIED PROVENANCE:',
       await inspector
-        .getByText(/Confidence \d+%/)
+        .getByText(/Mask score \d+%/)
         .first()
         .textContent(),
     );
@@ -177,13 +181,13 @@ test.describe('Object Selection real-model gate', () => {
 
     // Undo removes the committed mask; redo restores it.
     await page.keyboard.press('Control+KeyZ');
-    await expect(inspector.getByText(/Confidence \d+%/).first()).toBeHidden({ timeout: 60000 });
+    await expect(inspector.getByText(/Mask score \d+%/).first()).toBeHidden({ timeout: 60000 });
     await page.keyboard.press('Control+Shift+KeyZ');
     // Undo/redo restores the document snapshot and may return the Inspector
     // to its Design tab; return to the adjustment surface before reviewing
     // the restored mask provenance.
     await inspector.getByRole('tab', { name: 'Adjustments' }).click();
-    await expect(inspector.getByText(/Confidence \d+%/).first()).toBeVisible({ timeout: 60000 });
+    await expect(inspector.getByText(/Mask score \d+%/).first()).toBeVisible({ timeout: 60000 });
     console.log('UNDO/REDO OK');
 
     // Session 2: same image, warm embedding cache — the encoder must be
@@ -197,5 +201,31 @@ test.describe('Object Selection real-model gate', () => {
     const warmLatency = Date.now() - t1;
     console.log('WARM PREVIEW:', warmText, '| latency:', `${Math.round(warmLatency / 1000)}s`);
     expect(warmLatency).toBeLessThan(60000);
+
+    // Use as selection must commit the reviewed candidate without another
+    // encode/decode: the announcement exposes the score provenance and the
+    // selection is immediately available to save.
+    const selectionStart = Date.now();
+    await inspector.getByRole('button', { name: 'Use as selection' }).click();
+    await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
+      /Selected subject \(model score \d+%\)/,
+      { timeout: 60000 },
+    );
+    const selectionLatency = Date.now() - selectionStart;
+    console.log('USE AS SELECTION latency:', `${Math.round(selectionLatency / 1000)}s`);
+    expect(selectionLatency).toBeLessThan(10000);
+    // The Selection Sources panel lives on the Design (properties) tab; open
+    // it and confirm the reviewed candidate became a saveable area selection.
+    await inspector.getByRole('tab', { name: 'Design' }).click();
+    const sourcesToggle = inspector.getByRole('button', { name: 'Selection Sources' });
+    if ((await sourcesToggle.getAttribute('aria-expanded')) !== 'true') {
+      await sourcesToggle.click();
+    }
+    await expect(inspector.getByRole('button', { name: 'Save selection' })).toBeEnabled();
+    await testInfo.attach('real-model-selection', {
+      body: await canvas.screenshot(),
+      contentType: 'image/png',
+    });
+    await canvas.screenshot({ path: testInfo.outputPath('real-model-selection.png') });
   });
 });

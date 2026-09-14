@@ -56,18 +56,22 @@ the real backend plugs in through the worker-backed SAM2 adapter.
 Before a release can claim Object Selection quality, run the corpus against
 the pinned SAM2-Hiera-Tiny model on a machine with the model installed:
 
-1. Install the model (Settings → Offline Models → Object Selection) — the pinned
-   artifact is the *repaired* encoder (see "Graph repair" below).
-2. Serve the app from a server that sends COOP/COEP headers, or use a
-   browser that reports `navigator.deviceMemory`; otherwise the conservative
-   wasm memory gate rejects the encoder even on large machines.
-3. Run the real-model gate spec
-   `tests/e2e/canvas/object-selection-real-model.spec.ts` with
-   `VARVE_SAM2_REAL_MODEL=1` — it drives the real tool end to end (cold
-   preview latency, candidate cycling, Apply, undo/redo, warm-cache prompt
-   latency).
-4. Render the table:
+1. Install the model (Settings → Offline Models → Object Selection), or point
+   the runner at a repaired encoder + decoder directory. The pinned artifact
+   is the *repaired* encoder (see "Graph repair" below).
+2. Run the corpus runner:
+   `VARVE_SAM2_REAL_MODEL_DIR=<dir> VARVE_SAM2_RESULTS_PATH=results.json pnpm exec vitest run packages/engine/src/segmentation/quality/realModelParity.test.ts`
+   It writes `results.json` with per-fixture IoU/Dice/boundary F, the default
+   candidate, the best-of-cycling candidate, and prompt latency.
+3. Render the table:
    `node scripts/bench/object-selection-parity-report.mjs --input results.json`
+4. Run the real-model integration spec
+   `tests/e2e/canvas/object-selection-real-model.spec.ts` with
+   `VARVE_SAM2_REAL_MODEL=1` against a COOP/COEP server (or a browser
+   reporting `navigator.deviceMemory`) — it drives the real tool end to end
+   (cold preview latency, candidate cycling, Apply, undo/redo, warm-cache
+   prompt latency, and reviewed-candidate Use as selection).
+   Set `VARVE_SAM2_BASE_URL` when the server runs on a non-default port.
 
 ## First real-model run (2026-08-14)
 
@@ -88,7 +92,6 @@ cycling wraps, Apply commits one undoable document mask (provenance row with
 confidence), Undo removes it, Redo restores it.
 
 ## Frontend installation and real-model integration run (2026-09-03)
-
 Environment: CachyOS, 22 GiB RAM, headless Chromium, ort-web 1.27.0, WASM
 execution provider, COOP/COEP server (`crossOriginIsolated`). A clean
 persistent Chromium profile exercised the Settings → Offline Models install
@@ -117,6 +120,107 @@ and warm-cache inference. The persistent canvas screenshots were inspected:
 the preview covers the prompted person and the applied frame shows the person
 cut out against the editor background. This validates the frontend install and
 integration path; the corpus-wide quality table remains a release gate.
+
+## Real-model integration run (2026-09-14)
+
+Environment: CachyOS, 22 GiB RAM, Chromium (Playwright persistent profile),
+`vite` dev server with COOP/COEP (`VARVE_CROSS_ORIGIN_ISOLATION=1`) and HMR
+disabled, ort-web WASM execution provider. A fresh profile exercised the real
+installer: the Inspector's "Install Object Selection model" downloaded both
+artifacts (~155 MB), verified the upstream encoder SHA-256, applied the
+documented graph repair, verified the repaired SHA-256, and reported the model
+ready with no manual file placement.
+
+| path | measured |
+| --- | --- |
+| Install (download 155 MB + verify + repair + store) | completed in-run; no manual model copy |
+| Cold preview (load from store + encode + decoder + first candidate) | 27 s |
+| Candidate masks per prompt | 3, cycling wrapped |
+| Apply as mask provenance | Mask score 88% |
+| Undo / redo | removes and restores one mask operation |
+| Warm preview (embedding cache hit) | 3 s |
+| Use as selection (reviewed candidate, no re-encode) | 1 s; area selection saveable |
+
+Screenshots inspected: the preview overlay covers the prompted person; the
+applied mask cuts the person out of the wall (hair and crossed arms kept);
+the selection output traces the same silhouette. The downloader, the
+reviewed-candidate commit path, and the persistence path were exercised in
+one pass.
+
+## Corpus quality run (2026-09-14)
+
+Command:
+
+```sh
+VARVE_SAM2_REAL_MODEL_DIR=<dir with repaired encoder + decoder> \
+VARVE_SAM2_RESULTS_PATH=/tmp/opencode/sam2-corpus-results.json \
+pnpm exec vitest run packages/engine/src/segmentation/quality/realModelParity.test.ts
+```
+
+The runner mirrors the worker preprocessing (RGB, scale-to-fit 1024, centered
+black padding, ImageNet normalization; pure-JS sampling instead of
+OffscreenCanvas) and reuses the production `encodeSam2Prompts` /
+`decodeSam2DecoderOutput`, so prompt mapping and mask postprocessing are the
+app's. `IoU (default)` is the highest predicted-IoU candidate; `best
+candidate` is the best of the three masks (what cycling can reach). CPU
+execution provider, ort-node 1.27.0, ~5.0-5.8 s per prompt, cold session
+0.9 s.
+
+| fixture | IoU (default) | best candidate | boundary F |
+| --- | --- | --- | --- |
+| circle-plain | 0.994 | 0.994 | 1.000 |
+| fuzzy-edge | 0.910 | 0.922 | 0.705 |
+| thin-geometry | 0.993 | 0.993 | 0.984 |
+| overlapping | 0.621 | 0.703 | 0.599 |
+| tiny-object | 0.871 | 0.871 | 1.020 |
+| touches-edge | 0.552 | **0.947** | 0.695 |
+| low-contrast | 0.986 | 0.986 | 1.000 |
+| soft-alpha | 0.222 | 0.253 | 0.000 |
+| multiple-similar | 0.389 | 0.526 | 0.354 |
+| foliage-like | 0.000 | 0.008 | 0.204 |
+| **mean** | **0.654** | **0.720** | **0.656** |
+
+Interpretation, recorded as measured fact rather than a passing claim:
+
+- Preprocessing and prompt mapping are validated by the plain, thin, tiny,
+  low-contrast, and fuzzy fixtures (all ≥ 0.87 IoU) plus the real-photo run
+  above.
+- **Candidate cycling is not cosmetic.** `touches-edge` reaches 0.947 IoU on
+  a non-default candidate (default 0.552); `multiple-similar` reaches 0.526.
+  The UI exposes Previous/Next with a candidate count, and the reviewed
+  candidate is what commits.
+- `soft-alpha` is the documented matting-vs-segmentation difference (oracle
+  is the opaque core); it is not marketed as an alpha matte.
+- `foliage-like` with a single point prompt in a gap selects essentially
+  nothing; a box or multiple points is the correct interaction. This is a
+  fixture prompt-design limitation, not a pipeline failure.
+- The provisional tolerances above predate this run and are deliberately
+  **not** relaxed here: the flat mean is recorded below the provisional 0.80,
+  and the four weak categories are proposed as documented review categories
+  for the maintainer. No quality threshold in this document was changed to
+  make this run pass.
+
+## Model acquisition and hosting (2026-09-14)
+
+- `sam2_hiera_tiny.encoder.onnx` (134,261,315 B, upstream SHA-256
+  `4cc015ee18520e93f8c7ddfeaca7436039daaaaf19721b4b96a8810a805e82f7`)
+  downloads from the Apache-2.0 export
+  `vietanhdev/segment-anything-2-onnx-models`; the repair produces
+  134,261,247 B at
+  `b4cfd6c8bec2ef3674536419d731e61d15840367bd004d65095ae6a2b88b41cf`.
+  Both checksums are pinned in the manifest.
+- `sam2_hiera_tiny.decoder.onnx` (20,640,886 B,
+  `f5a4bd656c143899fb7f52d64ed81e6f6aeb37d477a0b6da50146ac7cf2187bf`).
+- A verified archival mirror is published on the repository's
+  `varve-models-v2` GitHub release with the same upstream bytes and
+  checksums, for manual or CI use:
+  `gh release download varve-models-v2` then `sha256sum -c`.
+- GitHub release assets do **not** send `Access-Control-Allow-Origin`
+  (verified with ranged GET + `Origin`: neither the `302` nor the final `206`
+  carries it), so a browser `fetch()` cannot download them. The in-app
+  downloader therefore keeps using the CORS-enabled upstream host recorded in
+  the manifest; a local-first client without a server proxy cannot consume
+  GitHub release assets directly.
 
 ## Graph repair
 

@@ -182,6 +182,18 @@ Consequence for Varve: no runtime-replacement claim is made by this task; the
 existing worker path is kept with its capability detection; release-packaging
 verification for any new asset is listed as unverified where it was not run.
 
+### F9 — GitHub release assets are not CORS-enabled
+
+Source: ranged GET with `Origin: http://localhost:5495` against the
+`varve-models-v2` release asset URLs on 2026-09-14. Neither the `302` from
+`github.com` nor the final `206` from `release-assets.githubusercontent.com`
+carries `Access-Control-Allow-Origin`; HuggingFace sends the header on its
+`302` and serves the range. Consequence: the in-browser downloader cannot
+consume GitHub release assets. Varve keeps the CORS-enabled upstream host as
+the runtime source and publishes GitHub as a verified archival mirror
+(checksummed). Bridging this would require a server proxy, which the
+local-first architecture and trust boundaries exclude.
+
 ## Observed Varve behaviour (evidence, this task's audit)
 
 ### V1 — "Use as selection" re-ran inference (defect, fixed)

@@ -26,6 +26,19 @@ curl -L -o models/lineart.onnx \
   https://huggingface.co/rocca/informative-drawings-line-art-onnx/resolve/main/model.onnx
 ```
 
+A verified archival mirror of the SAM2 pair lives on the repository's
+`varve-models-v2` GitHub release (same upstream bytes, Apache-2.0). GitHub
+release assets are not CORS-enabled, so the mirror is for manual/CI use only
+(the in-app downloader keeps using the manifest's CORS-enabled URLs):
+
+```bash
+gh release download varve-models-v2 --pattern 'sam2_hiera_tiny.*.onnx' --dir models
+sha256sum -c <<'EOF'
+4cc015ee18520e93f8c7ddfeaca7436039daaaaf19721b4b96a8810a805e82f7  models/sam2_hiera_tiny.encoder.onnx
+f5a4bd656c143899fb7f52d64ed81e6f6aeb37d477a0b6da50146ac7cf2187bf  models/sam2_hiera_tiny.decoder.onnx
+EOF
+```
+
 ## Running
 
 ```bash
