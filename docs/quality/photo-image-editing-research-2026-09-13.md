@@ -105,8 +105,9 @@ fixes from this ledger:
 - The shared resampler now reads straight encoded RGB, converts to linear sRGB
   when requested, then premultiplies before filtering. The default remains
   encoded sRGB for compatibility.
-- JPEG raster export now paints an explicit white matte when no matte is
-  supplied and emits a warning that transparency was flattened. Callers can
+- Opaque raster export now paints an explicit white matte when no matte is
+  supplied and emits a warning that transparency was flattened. This covers
+  JPEG inherently and PNG/WebP when transparency is disabled. Callers can
   provide a different matte through the existing `matteColor` option.
 - Object → Resize Image exposes the working-space choice through the existing
   dialog and passes it through the existing editor/context operation. The
