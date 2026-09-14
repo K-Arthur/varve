@@ -29,6 +29,7 @@ import {
 } from './colorHalftone';
 import { blendPixels, mapBlendMode } from './compositeCanvas';
 import { applyDuotone } from './duotone';
+import { withoutIdentityFilters } from './filterIdentity';
 import { filterToCss, supportsCanvasFilter } from './filters';
 import { applyGradientMapFilter } from './gradientMap';
 import {
@@ -111,7 +112,11 @@ export function applyFilterWithCompositing(
   height: number,
   options: FilterRenderOptions = {},
 ): void {
-  if (filters.length === 0) return;
+  // Neutral entries are provable no-ops at full-opacity normal blending.
+  // Skipping them keeps a reset control byte-identical to the original render
+  // and avoids two full-canvas surfaces per neutral entry.
+  const active = withoutIdentityFilters(filters);
+  if (active.length === 0) return;
 
   let current: ReturnType<typeof createRasterSurface>;
   try {
@@ -120,13 +125,13 @@ export function applyFilterWithCompositing(
     // This API is post-render: merely assigning ctx.filter here would only
     // affect a future draw and leave the existing pixels unchanged. Use the
     // portable software path when an intermediate surface is unavailable.
-    for (const filter of filters)
+    for (const filter of active)
       applySoftwareFilterWithCompositing(target, filter, width, height, options);
     return;
   }
   current.context.drawImage(target.canvas, 0, 0);
 
-  for (const f of filters) {
+  for (const f of active) {
     if ((f.opacity ?? 1) <= 0) continue;
     const css = filterToCss(f);
     let filtered: ReturnType<typeof createRasterSurface>;

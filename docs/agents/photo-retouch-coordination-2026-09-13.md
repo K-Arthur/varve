@@ -52,3 +52,22 @@ that is not in the owner's footprint:
   the cross-worktree lease.
 - Measurements taken while concurrent agents build are recorded as
   contaminated.
+
+## Adjustments-surface overlap (recorded 2026-09-13)
+
+The adjustments integration owner has an audit on this same tree
+(`docs/audits/adjustments-repair-2026-09-13.md`). Two additive changes from
+this session touch that surface because independent verification found defects
+there:
+
+- `packages/engine/src/filterIdentity.ts` plus a two-line change in
+  `applyFilterWithCompositing`: a provably neutral filter entry (for example a
+  reset Exposure at 0 EV) no longer allocates compositing surfaces, so
+  resetting a control returns the canvas to its exact original bytes instead of
+  a premultiplied round-trip that shifted antialiased edge pixels by one
+  quantization step. Non-normal blends and reduced opacity are never skipped.
+- `docs/architecture/tonal-adjustments.md` and the color-effects feature page
+  document the histogram clipping warnings added in `5152c392b`.
+
+Neither file was being edited by another writer at the time of the change.
+
