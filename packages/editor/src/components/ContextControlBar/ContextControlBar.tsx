@@ -24,7 +24,13 @@ import { Icon, Select, Tooltip } from '@varve/ui';
 import { useEffect, useMemo, useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import { FontSelector } from '../FontBrowser/FontSelector';
-import { fontFamilyChanges, fontWeightChanges, fontWeightOptions } from '../Typography/fontWeight';
+import {
+  fontFamilyChanges,
+  fontStyleAvailable,
+  fontStyleChanges,
+  fontWeightChanges,
+  fontWeightOptions,
+} from '../Typography/fontWeight';
 import {
   applyTypographyChanges,
   type TypographyCommandSurface,
@@ -43,12 +49,16 @@ function CcbButton({
   label,
   shortcut,
   active,
+  disabled,
+  title,
   onClick,
 }: {
   icon: string;
   label: string;
   shortcut?: string;
   active?: boolean;
+  disabled?: boolean;
+  title?: string;
   onClick: () => void;
 }) {
   return (
@@ -58,6 +68,8 @@ function CcbButton({
         className={`ccb__btn${active ? ' ccb__btn--active' : ''}`}
         aria-label={label}
         aria-pressed={active}
+        disabled={disabled}
+        title={title}
         onClick={onClick}
       >
         <Icon name={icon as Parameters<typeof Icon>[0]['name']} size={14} />
@@ -176,6 +188,8 @@ function TextSection({
   const fontFamily = node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
   const fontWeight = node.fontWeight ?? 400;
   const weightOptions = fontWeightOptions(node);
+  const isItalic = (node.fontStyle ?? 'normal') === 'italic';
+  const italicAvailable = isItalic || fontStyleAvailable(node, 'italic');
   const applyChanges = (changes: TypographyTextChanges) =>
     applyTypographyChanges(typographySurface, node.id, changes);
   return (
@@ -199,6 +213,14 @@ function TextSection({
           disabledReason: option.disabledReason,
         }))}
         onChange={(value) => applyChanges(fontWeightChanges(node, Number(value)))}
+      />
+      <CcbButton
+        icon="Italic"
+        label="Italic"
+        active={isItalic}
+        disabled={!italicAvailable}
+        title={italicAvailable ? undefined : 'This font has no real italic face'}
+        onClick={() => applyChanges(fontStyleChanges(node, isItalic ? 'normal' : 'italic'))}
       />
       <TextSizeControl node={node} applyChanges={applyChanges} />
     </>

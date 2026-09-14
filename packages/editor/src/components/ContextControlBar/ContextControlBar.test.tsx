@@ -117,6 +117,14 @@ describe('ContextControlBar typography controls', () => {
     expect(updater(node)).toEqual(expect.objectContaining({ fontWeight: 700 }));
   });
 
+  it('blocks synthetic italic when the selected face has no real italic capability', () => {
+    render(<ContextControlBar />);
+    const italic = screen.getByRole('button', { name: 'Italic' });
+
+    expect(italic).toBeDisabled();
+    expect(italic).toHaveAttribute('title', 'This font has no real italic face');
+  });
+
   it('applies a family edit to the active rich-text range', () => {
     vi.mocked(useEditor).mockReturnValue({
       state: {
