@@ -442,3 +442,22 @@ it still stops on unrelated Menubar, canvas input/wheel, segmentation,
 geometry, snapping, and workspace diagnostics, so the native WDIO build cannot
 be launched from this shared checkout. Real-byte worker pixel identity and
 native WebKit/Windows/macOS proof remain open.
+
+## Current quick-toolbar visual rerun — 2026-09-14
+
+The quick font toolbar was rerun against the current checkout with the existing
+DPR 1/2/3 visual spec:
+
+```text
+CI=1 VARVE_E2E_PORT=1832 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 \
+npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts \
+  --project=chromium --reporter=list --timeout=180000 --retries=0
+```
+
+All **3/3** projects passed. I inspected the light-open, dark-narrow, and
+high-contrast-open captures under `test-results/run-1832979-1832/`. The measured
+surface remained `46.796875px`; every control was `32px` high and vertically
+aligned, with `2.88px` gap, `5.76px 9.44px` padding, and `14.72px` field text.
+The listbox stayed inside the viewport and the highlighted row remained legible
+in all three themes. This is the current visual evidence for the quick-toolbar
+spacing/size repair; native WebView visual proof remains platform-owned.
