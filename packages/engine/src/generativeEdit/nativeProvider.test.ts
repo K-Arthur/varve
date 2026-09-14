@@ -171,6 +171,36 @@ describe('nativeGenerativeProvider', () => {
     });
   });
 
+  it('rejects when cancellation arrives while the native output is decoding', async () => {
+    const controller = new AbortController();
+    let resolveDecode!: (imageData: ImageData) => void;
+    decodeImageBytesToImageData.mockImplementationOnce(
+      () =>
+        new Promise<ImageData>((resolve) => {
+          resolveDecode = resolve;
+        }),
+    );
+    invoke.mockResolvedValue({
+      png_base64: btoa('png'),
+      width: 8,
+      height: 6,
+      execution_backend: 'native-cpu',
+      processing_time_ms: 42,
+      warnings: [],
+    });
+
+    const generation = nativeGenerativeProvider.infer({
+      ...request(),
+      signal: controller.signal,
+    });
+    await vi.waitFor(() => expect(decodeImageBytesToImageData).toHaveBeenCalled());
+
+    controller.abort();
+    resolveDecode(new ImageData(8, 6));
+
+    await expect(generation).rejects.toMatchObject({ code: 'cancelled' });
+  });
+
   it('keeps the shared heavy-inference lease until cancelled native work settles', async () => {
     const controller = new AbortController();
     let resolveFirst!: (response: {

@@ -201,6 +201,10 @@ export const nativeGenerativeProvider = {
       const binary = atob(raw.png_base64);
       const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
       const imageData = await decodeImageBytesToImageData(bytes);
+      // Decoding is asynchronous and can outlive the native invocation. A
+      // cancellation that arrives during decode must still prevent the
+      // candidate from escaping to the editor and being applied late.
+      if (request.signal?.aborted) throw new Error('cancelled');
       if (imageData.width !== raw.width || imageData.height !== raw.height) {
         throw new Error(
           `Native generation dimensions ${imageData.width}x${imageData.height} do not match response ${raw.width}x${raw.height}`,
