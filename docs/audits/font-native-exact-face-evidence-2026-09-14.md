@@ -24,6 +24,11 @@ while Varve is open therefore cannot leave a stale native face in the catalog;
 the document keeps its authored reference and reports the next exact-face
 load as unavailable until the user repairs or replaces it.
 
+Persisted project and user faces use the same extraction boundary. Restoring a
+TTC member now parses and registers a standalone member while keeping the
+original artifact hash and collection index in the registry entry, so a
+restart cannot silently render member zero.
+
 ## Evidence
 
 ```text
@@ -44,6 +49,8 @@ The new native registry tests prove:
   fallback; and
 - a refresh can remove a native face by its opaque handle without removing
   another same-family source; and
+- restoring a stored TTC member gives `FontFace` only the selected standalone
+  bytes while retaining its portable face key.
 - the existing browser/native bridge contract remains nested as
   `load_system_font({ request: { handle } })`.
 
