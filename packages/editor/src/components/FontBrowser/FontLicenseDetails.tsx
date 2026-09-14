@@ -21,6 +21,10 @@ export function FontLicenseDetails({ family }: FontLicenseDetailsProps) {
     meta?.embeddingPolicy ??
     (meta?.embeddingRights ? embeddingPolicyFromRights(meta.embeddingRights) : undefined);
   const licenseProvenance = meta?.licenseProvenance ?? (meta?.license ? 'declared' : 'unknown');
+  const colorFormats = meta?.colorFormats ?? [];
+  const hasColorGlyphs = meta?.hasColorGlyphs === true || colorFormats.length > 0;
+  const colorFormatLabel =
+    colorFormats.length > 0 ? colorFormats.join(', ').toUpperCase() : 'detected';
 
   return (
     <div className="font-license-details">
@@ -48,6 +52,24 @@ export function FontLicenseDetails({ family }: FontLicenseDetailsProps) {
           <span className="font-license-details__label">Version</span>
           <span className="font-license-details__value">{meta.version}</span>
         </p>
+      )}
+
+      {hasColorGlyphs && (
+        <>
+          <p className="font-license-details__row">
+            <span className="font-license-details__label">Color face</span>
+            <span className="font-license-details__value font-license-details__value--positive">
+              Detected · {colorFormatLabel}
+              {meta?.paletteCount !== undefined ? ` · ${meta.paletteCount} palettes` : ''}
+            </span>
+          </p>
+          <p className="font-license-details__row">
+            <span className="font-license-details__label">Outlining</span>
+            <span className="font-license-details__value font-license-details__value--warning">
+              Color glyphs stay live or rasterized; outline export is unavailable
+            </span>
+          </p>
+        </>
       )}
 
       {meta?.embeddingRights && (

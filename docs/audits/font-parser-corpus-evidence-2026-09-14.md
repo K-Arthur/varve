@@ -65,3 +65,9 @@ This corpus proves parsing and metadata boundaries. It does not certify native
 font discovery, main/worker glyph parity, colour rendering, or multilingual
 caret/BiDi layout. Those remain explicit rows in the acceptance matrix and
 need real-byte render/oracle and platform evidence.
+
+The installed-font details surface now carries the color metadata into the
+user-visible recovery boundary: color formats and palette count are shown, and
+outline export is explicitly identified as unavailable for color glyphs. The
+renderer-specific native-color probe is still pending, so this evidence does
+not claim that every WebView paints every color format identically.
