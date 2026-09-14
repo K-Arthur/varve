@@ -786,6 +786,10 @@ describe('BackgroundRemovalSection - Phase E actions', () => {
     fireEvent.click(screen.getByText('Edit mask'));
     expect(screen.getByText('Refine edges')).toBeTruthy();
     expect(screen.getByText('Edit trimap')).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Edge method' })).toHaveTextContent(
+      'Matting (binary-safe)',
+    );
+    expect(screen.getByText('Unknown band')).toBeTruthy();
   });
 
   it('calls refineHairEdges when hair refine clicked', () => {
@@ -802,7 +806,11 @@ describe('BackgroundRemovalSection - Phase E actions', () => {
     render(<BackgroundRemovalSection nodes={[node]} />);
     fireEvent.click(screen.getByText('Edit mask'));
     fireEvent.click(screen.getByText('Refine edges'));
-    expect(refineHairEdges).toHaveBeenCalled();
+    expect(refineHairEdges).toHaveBeenCalledWith({
+      method: 'closed-form',
+      radius: 4,
+      bandRadius: 4,
+    });
   });
 
   it('calls startTrimapEdit when Edit trimap clicked', () => {

@@ -252,7 +252,10 @@ high)
 
 All defects in §1 are repaired. Commit trail: `ac03fd07d` (audit), `fe9ebc34a`
 (coverage geometry + full operation set), `71acb8d6b` (validated matting),
-`e9a159ebf` (reliable refine brushes + refinement controls).
+`e9a159ebf` (reliable refine brushes + refinement controls), `f0113229c`
+(exact neutral selection no-ops), and `d3c8657fc` (target-safe, complete
+refinement strokes). The editor-default and documentation follow-up is kept
+in the next scoped commit.
 
 - **D1 fixed.** `trimapFromMask()` now builds a spatial unknown band from the
   signed distance to the 50% contour, so hard binary masks get a real unknown
@@ -340,3 +343,47 @@ a diagnostic instead of allocating without bound.
 - Performance: bounded stress tests (large plane, large radius) assert the
   linear-time algorithms complete within a generous bound and measure the
   before/after on the same machine.
+
+## 8. Follow-up review and complaint-driven corrections
+
+This section was added after the original repair audit, still on **2026-09-13**,
+against the current `master` checkout. It separates newly verified behavior
+from the historical defect record above.
+
+### Verified follow-up findings
+
+| Finding | Evidence | Implementation consequence |
+|---|---|---|
+| Zero-radius grow, shrink, smooth, feather, contrast, and shift-edge previously entered the raster path, whose internal radius floor could turn zero into one pixel. | `refineAreaSelection()` computed `Math.max(1, ...)`; a byte-exact identity test now covers every neutral operation. | `refineAreaSelection()` returns the original immutable selection before rasterization, preserving coverage, bounds, and generation and avoiding a no-op history entry. |
+| Guided filtering is intentionally not a binary-mask matting algorithm. | He, Sun & Tang, *Guided Image Filtering*, ECCV 2010, describes an edge-aware local linear filter; the current guided path preserves definite 0/255 cores under `edgeBandOnly`. | The editor now defaults to closed-form matting for `Refine edges`; Guided remains an explicit choice for already-soft masks. The lower-level engine default remains guided for API compatibility and honest caller control. |
+| Restore must mean the original session mask, not the mask at the beginning of the previous stroke. | Two-stroke test: subtract then restore on one session; the second stroke must return to the first loaded mask. | `RefineMaskTool` keeps an immutable session baseline, a separate per-stroke cancel snapshot, and never paints source RGB. |
+| Pointerup is an input sample, not merely transaction cleanup. | Unit tests send pointerdown followed immediately by pointerup at a different location; the endpoint must be covered. | Refine-mask and trimap tools process the final pointer position, skip duplicate zero-distance dabs, and keep the existing shared interpolation helper for gaps. |
+| The selected node ID is not sufficient target identity during async loading or a gesture. | Replacing a node under the same ID or changing selection can otherwise redirect the callback in `toolContext.ts`. | Tools capture node object identity and session generations; trimap/mask callbacks receive explicit node IDs and expected node identity and reject stale commits. |
+| The existing “Contract soft edges” option is alpha-only. | `decontaminateMask()` only changes the mask plane; the inspector copy explicitly says it does not recolour source pixels. | No RGB mutation was added under a misleading name. Foreground-color estimation remains a separate future derived-asset operation; mask-only output preserves the original artwork. |
+
+### Complaint patterns checked against public reports
+
+These reports are anecdotal and do not establish the other products’ internal
+algorithms. They were used to test whether Varve’s failure modes were
+realistically preventable, not to copy another product’s controls.
+
+| Reported user failure | Source and access date | Varve response |
+|---|---|---|
+| Hair refinement selects sky/background or worsens a good boundary. | Affinity forum, “Replacing Background” (`https://forum.affinity.serif.com/index.php?/topic/178058-replacing-background/`); AffinityPhoto Reddit report (`https://www.reddit.com/r/AffinityPhoto/comments/yuxuzz/`). Accessed 2026-09-13. | Spatial unknown bands, categorical trimaps, hard known constraints, binary-safe default matting, and cancellable previews. Fine hair and translucent material remain quality-limited rather than promised as exact. |
+| Refine Edge damages already-good areas or requires manually rebuilding a selection. | Photopea Reddit report (`https://www.reddit.com/r/photopea/comments/1jej4gf/`) and Krita boundary-clipping report (`https://www.reddit.com/r/krita/comments/1n34k4v/`). Accessed 2026-09-13. | Local brush constraints are session-scoped, cancel restores the prior trimap/mask, and refine strokes are not clipped to the selection by default. |
+| Unknown/gray painting is interpreted as 50% opacity or output loses repaired edge color. | Photopea Refine Edge documentation (`https://www.photopea.com/learn/refine-edge`) and Affinity halo discussion (`https://forum.affinity.serif.com/index.php?/topic/118787-refine-selection-unexpected-halo/`). Accessed 2026-09-13. | Unknown is categorical and previewed separately; alpha refinement does not claim foreground-color repair. Color-changing output is not silently written into a mask-only result. |
+| Feathered selections appear to stop at marching ants and users cannot tell what will be painted. | GIMP selection documentation (`https://docs.gimp.org/3.0/en/gimp-tools-selection.html`) and GIMP feather documentation (`https://docs.gimp.org/3.0/en/gimp-selection-feather.html`). Accessed 2026-09-13. | The UI documents ants as the 50% contour and retains grayscale/coverage preview paths; downstream mask consumers use fractional coverage. |
+
+### Product decisions retained
+
+- This work does not add a second mask editor or a remote model path.
+- Foreground-color decontamination is deliberately not claimed as complete:
+  PyMatting documents foreground estimation as separate from alpha estimation
+  (`https://pymatting.github.io/foreground.html`, accessed 2026-09-13). A future
+  implementation must produce a derived color asset or layer and preview it
+  over multiple backgrounds; it must not modify source RGB during coverage-only
+  refinement.
+- Physical pen pressure, WebKitGTK/Tauri, and non-Chromium browser behavior
+  remain unverified. Chromium pointer interaction and numerical coverage tests
+  are evidence for the supported path, not a claim of universal platform
+  equivalence.

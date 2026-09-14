@@ -54,8 +54,9 @@ import StatusPill from '../../components/StatusPill.astro';
           interpolated for gap-free coverage, and one undo entry is recorded per completed stroke.
         </p>
         <p>
-          Edge refinement offers guided smoothing for already-soft edges and closed-form matting
-          over a spatial unknown band for hard or binary masks. Trimap editing paints categorical
+          Edge refinement starts with closed-form matting over a spatial unknown band, which is
+          safe for hard or binary masks. Guided smoothing remains available for already-soft
+          coverage and deliberately does not invent an alpha band from 0/255 input. Trimap editing paints categorical
           foreground, unknown, and background constraints; unknown never means “half opaque,” and
           the matting solve estimates the fractional coverage from the image. When the matting
           system is declined because a region is too large for the device, Varve reports it and

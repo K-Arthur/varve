@@ -213,7 +213,10 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const { brushSize, hardness } = state.refineMaskOptions ?? { brushSize: 20, hardness: 0.8 };
   const refineMode = state.refineMaskOptions?.mode ?? 'add';
   const clipToSelection = state.refineMaskOptions?.clipToSelection ?? false;
-  const refineMethod = state.refineMaskOptions?.method ?? 'guided';
+  // Most imported and segmented masks are binary. Start with the spatial
+  // unknown-band solver so Refine edges cannot silently do nothing; Guided
+  // remains available for masks that already carry soft coverage.
+  const refineMethod = state.refineMaskOptions?.method ?? 'closed-form';
   const refineRadius = state.refineMaskOptions?.radius ?? 4;
   const refineBandRadius = state.refineMaskOptions?.bandRadius ?? refineRadius;
   const trimapPreviewRef = useRef<HTMLCanvasElement | null>(null);
@@ -1214,8 +1217,8 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 label="Edge method"
                 value={refineMethod}
                 options={[
-                  { value: 'guided', label: 'Guided (soft edges)' },
-                  { value: 'closed-form', label: 'Matting (hard/binary edges)' },
+                  { value: 'guided', label: 'Guided (already-soft edges)' },
+                  { value: 'closed-form', label: 'Matting (binary-safe)' },
                 ]}
                 onChange={(v) => setRefineMaskOptions({ method: v as 'guided' | 'closed-form' })}
               />

@@ -593,7 +593,11 @@ export function useBackgroundRemoval(
         }
         let refusal: string | undefined;
         const refined = refineHairMatting(imageData, mask, {
-          method: options.method ?? 'guided',
+          // Thresholded segmentation and imported masks are commonly 0/255.
+          // Guided filtering intentionally leaves those definite pixels
+          // untouched, so the editor default must use the spatial unknown
+          // band solver instead of silently producing the input mask.
+          method: options.method ?? 'closed-form',
           radius: options.radius,
           bandRadius: options.bandRadius,
           onDiagnostics: (diagnostics) => {
