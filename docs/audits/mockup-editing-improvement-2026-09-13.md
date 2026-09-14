@@ -189,16 +189,25 @@ proposals, and Home-thumbnail mockup decoration.
 | Inspector RTL | `packages/editor/src/components/Inspector/sections/MockupsSection.test.tsx` | 4/4 pass |
 | Panel RTL | `packages/editor/src/components/Mockups/MockupsPanel.test.tsx` | 6/6 pass |
 | Focused mockup regression set | scene, engine, editor, package, panel, inspector, and action tests | 9 files / 83 tests pass |
-| E2E typecheck | `pnpm typecheck:e2e` | pass |
+| E2E typecheck (clean baseline) | `pnpm typecheck:e2e` | pass before the later concurrent master changes; retained as baseline evidence |
 | Format/lint | `pnpm biome check` on all touched files | pass |
-| Docs audit | `pnpm audit:docs` | clean (784 docs) |
-| Emoji audit | `pnpm audit:emoji` | clean (4529 files) |
+| Docs audit | `pnpm audit:docs` | clean; the later rerun reported 828 docs, 456 links, and 174 ADRs indexed |
+| Emoji audit | `pnpm audit:emoji` | clean; the later rerun reported 4612 scanned files |
 | Token audit | `pnpm audit:tokens` | 153/153 across 3 themes |
 | Scene typecheck | `pnpm exec tsc -p packages/scene/tsconfig.json --noEmit` | only a pre-existing unrelated test error |
 | Editor typecheck | `pnpm exec tsc -p packages/editor/tsconfig.json --noEmit` | 23 errors, all in unrelated in-flight files; zero in mockup/touched files |
 | Browser E2E | `tests/e2e/canvas/mockups.spec.ts` on a production build (`vite build` + `vite preview`, port 1453) | 6/6 pass in 1.4 min: full workflow (apply/link/update/save-reopen/export/replace/remove/undo-redo), multi-surface business card, export composition (decoded PNG contains 162 283 template-background px and 22 949 phone-plate px across 85 quantized colours), overlay drag + one-step undo (x 300 → 364 → 300), missing-source reporting after deleting the bound source, template authoring from selection. Zero console/page errors. Artifacts: `reports/mockup-review/` (`export-phone-mockup.png` inspected: bezel, screen with fitted source, shadow, template background). |
 | Production subject/cylinder E2E | `VARVE_E2E_PORT=1487 VARVE_E2E_WORKERS=1 pnpm exec playwright test tests/e2e/canvas/mockup-production-workflows.spec.ts --project=chromium --workers=1 --reporter=line` | pass in 2.9 min: editable text source, Apparel/Signage/Stationery/Packaging filters, cylinder axis/arc/crop controls, real PNG download. Artifact files were written to `reports/mockup-review-2026-09-13/` and inspected. |
 | Production subject/cylinder E2E rerun after source-capture/UI hardening | `VARVE_E2E_PORT=1488 VARVE_E2E_WORKERS=1 pnpm exec playwright test tests/e2e/canvas/mockup-production-workflows.spec.ts --project=chromium --workers=1 --reporter=line` | blocked before app startup by unrelated in-flight `ColorizeSection.tsx` parse failure and `groupEffectStages.ts` export mismatch; no mockup assertion ran. |
+| Clean committed-tree browser probe | temporary sparse archive of the committed `master` tree; Chromium, port 1491 | passed the catalog filters, cylinder controls, and real Export dialog; the harness then timed out waiting for a browser download after clicking Export. The screenshot shows a single `873x600` cylinder export job; no mockup assertion failed. |
+
+The clean committed-tree probe needed two unrelated, uncommitted repairs from
+the shared worktree (`shared/presetRegistry.ts` and `components/Shell/index.ts`)
+to boot the current master snapshot; those files were copied only into the
+temporary archive and were not included in this work. The remaining download
+timeout is therefore recorded as an export-harness/platform boundary, not as
+proof that the cylinder compositor failed. The passing production run above
+is the independent end-to-end evidence for the real browser download path.
 
 Observed unrelated defect (handoff, not introduced here): a real
 right-click on the canvas currently targets the tool-hint overlay
