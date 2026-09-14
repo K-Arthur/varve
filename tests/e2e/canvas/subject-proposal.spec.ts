@@ -76,6 +76,9 @@ test.describe('Automatic subject estimate on real photographs', () => {
     });
 
     const canvas = page.getByTestId('editor-canvas');
+    const firstProposal = proposals.locator('button[aria-label$="percent"]').first();
+    await firstProposal.click();
+    await expect(inspector.getByRole('button', { name: 'Apply as mask' })).toBeEnabled();
     await page.getByRole('button', { name: 'Fit sel' }).click();
     await page.waitForTimeout(400);
     await canvas.screenshot({
@@ -86,8 +89,8 @@ test.describe('Automatic subject estimate on real photographs', () => {
       contentType: 'image/png',
     });
 
-    // The estimate is applied as a pixel selection immediately; the refine
-    // controls appearing is the observable handoff.
+    // Review the highlighted proposal before committing it. The refine
+    // controls appear only after the explicit selection/mask confirmation.
     await expect(inspector.getByText('Refine selection')).toBeVisible({ timeout: 10000 });
 
     await inspector.getByRole('button', { name: 'Apply as mask' }).click();
@@ -116,6 +119,8 @@ test.describe('Automatic subject estimate on real photographs', () => {
     const proposals = inspector.getByLabel('Subject proposals');
     await expect(proposals).toBeVisible({ timeout: 120000 });
     await expect(proposals.getByText(/U²-Net Light estimate/)).toBeVisible();
+    await proposals.locator('button[aria-label$="percent"]').first().click();
+    await expect(inspector.getByRole('button', { name: 'Apply as mask' })).toBeEnabled();
 
     const canvas = page.getByTestId('editor-canvas');
     // Frame the subject before capturing so the overlay and the applied mask
