@@ -104,4 +104,43 @@ test.describe('Object Selection workflow', () => {
       path: testInfo.outputPath('object-selection-low-memory-real-photo.png'),
     });
   });
+
+  test('removes one specific prompt marker by tapping it', async ({ page }, testInfo) => {
+    await navigateToEditor(page);
+    await page
+      .locator('#file-import-input')
+      .setInputFiles(path.resolve('tests/e2e/fixtures/test-image.png'));
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 15000 });
+
+    const inspector = page.locator('.editor__inspector-panel');
+    await inspector.getByRole('tab', { name: 'Adjustments' }).click();
+    await inspector.getByRole('button', { name: 'Object Selection' }).click();
+    await inspector.getByRole('button', { name: 'Select Object' }).click();
+
+    const canvas = page.getByTestId('editor-canvas');
+    const bounds = await canvas.boundingBox();
+    expect(bounds).not.toBeNull();
+    const first = { x: bounds!.x + bounds!.width * 0.32, y: bounds!.y + bounds!.height * 0.34 };
+    const second = { x: bounds!.x + bounds!.width * 0.62, y: bounds!.y + bounds!.height * 0.64 };
+
+    await page.mouse.click(first.x, first.y);
+    await page.mouse.click(second.x, second.y);
+    await expect(inspector.getByTestId('object-selection-prompt-count')).toHaveText('2 prompts');
+    await testInfo.attach('object-selection-two-prompts', {
+      body: await canvas.screenshot(),
+      contentType: 'image/png',
+    });
+
+    // Tapping the first marker removes only that prompt; the second stays.
+    await page.mouse.click(first.x, first.y);
+    await expect(inspector.getByTestId('object-selection-prompt-count')).toHaveText('1 prompt', {
+      timeout: 5000,
+    });
+    await testInfo.attach('object-selection-one-prompt', {
+      body: await canvas.screenshot(),
+      contentType: 'image/png',
+    });
+    await canvas.screenshot({ path: testInfo.outputPath('object-selection-one-prompt.png') });
+    await expect(canvas).toBeVisible();
+  });
 });
