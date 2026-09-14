@@ -113,13 +113,34 @@ export function SelectionSourcesPanel() {
   );
   const selectedNode =
     state.selection.length === 1 ? state.document.nodes[state.selection[0]!] : undefined;
+  const selectedImage =
+    selectedNode?.kind === 'shape' && isImageShape(selectedNode)
+      ? getImageFill(selectedNode)?.image
+      : undefined;
+  // A node id is not enough to identify the pixels an asynchronous estimate
+  // belongs to. Assets can be replaced in place while the model is running,
+  // so keep the resolved source locator in the target contract as well.
+  const selectedSourceLocator = selectedImage
+    ? selectedImage.assetId
+      ? (state.document.assets?.[selectedImage.assetId]?.dataUrl ?? selectedImage.src)
+      : selectedImage.src
+    : '';
   // The async estimate must not apply its result to whatever happens to be
   // selected when it finishes. These refs mirror the live target without
   // making the click handler depend on a stale render closure.
-  const subjectTargetRef = useRef<{ documentId: string; nodeId: string } | null>(null);
-  subjectTargetRef.current = selectedNode
-    ? { documentId: state.document.id, nodeId: selectedNode.id }
-    : null;
+  const subjectTargetRef = useRef<{
+    documentId: string;
+    nodeId: string;
+    sourceLocator: string;
+  } | null>(null);
+  subjectTargetRef.current =
+    selectedNode && selectedSourceLocator
+      ? {
+          documentId: state.document.id,
+          nodeId: selectedNode.id,
+          sourceLocator: selectedSourceLocator,
+        }
+      : null;
   const hasClosedPath =
     selectedNode?.kind === 'path'
       ? selectedNode.closed
@@ -132,14 +153,20 @@ export function SelectionSourcesPanel() {
   const selectedRasterNode =
     selectedRasterCandidate?.kind === 'rasterLayer' ? selectedRasterCandidate : undefined;
   const paintingSelection = state.tool === 'selectionPaint';
-  const subjectTarget = selectedNode
-    ? { documentId: state.document.id, nodeId: selectedNode.id }
-    : null;
+  const subjectTarget =
+    selectedNode && selectedSourceLocator
+      ? {
+          documentId: state.document.id,
+          nodeId: selectedNode.id,
+          sourceLocator: selectedSourceLocator,
+        }
+      : null;
   const subjectProposalSet =
     subjectState.proposals &&
     subjectTarget &&
     subjectState.target?.documentId === subjectTarget.documentId &&
-    subjectState.target.nodeId === subjectTarget.nodeId
+    subjectState.target.nodeId === subjectTarget.nodeId &&
+    subjectState.target.sourceLocator === subjectTarget.sourceLocator
       ? subjectState.proposals
       : null;
   const subjectProposalBusy = subjectState.busy && subjectTarget !== null;
@@ -210,6 +237,42 @@ export function SelectionSourcesPanel() {
     announce('Selection paint cancelled');
   };
 
+  const previewSubjectCandidate = (result: ForegroundProposalSet, index: number) => {
+    const candidate = result.candidates[index];
+    if (!candidate || selectedNode?.kind !== 'shape' || !isImageShape(selectedNode)) return;
+    const sourceMask = mapProposalMaskToSource(
+      candidate.mask,
+      result.analysisWidth,
+      result.analysisHeight,
+      result.width,
+      result.height,
+    );
+    if (!sourceMask) {
+      announce('The subject estimate could not be mapped to the image');
+      return;
+    }
+    const selection = areaSelectionFromMaskCoverage(
+      state.document,
+      selectedNode.id,
+      sourceMask,
+      result.width,
+      result.height,
+      'source-image-pixels',
+    );
+    if (!selection) {
+      announce('The subject estimate could not be converted into a selection');
+      return;
+    }
+    // This is a visual review preview, not an acceptance of the candidate as
+    // the mask used by a destructive or generative command. The explicit
+    // confirmation buttons below remain the only acceptance path.
+    setAreaSelection?.(selection);
+    setActiveSubjectCandidate(index);
+    announce(
+      `${candidate.label ?? `Subject ${index + 1}`} previewed; verify the highlighted pixels before applying it`,
+    );
+  };
+
   const applySubjectCandidate = (result: ForegroundProposalSet, index: number) => {
     const candidate = result.candidates[index];
     if (!candidate || selectedNode?.kind !== 'shape' || !isImageShape(selectedNode)) return;
@@ -255,7 +318,11 @@ export function SelectionSourcesPanel() {
       announce('The image source is unavailable');
       return;
     }
-    const target = { documentId: state.document.id, nodeId: selectedNode.id };
+    const target = {
+      documentId: state.document.id,
+      nodeId: selectedNode.id,
+      sourceLocator: source,
+    };
     subjectRunRef.current?.abort();
     const runController = new AbortController();
     subjectRunRef.current = runController;
@@ -306,7 +373,8 @@ export function SelectionSourcesPanel() {
       if (
         !liveTarget ||
         liveTarget.documentId !== target.documentId ||
-        liveTarget.nodeId !== target.nodeId
+        liveTarget.nodeId !== target.nodeId ||
+        liveTarget.sourceLocator !== target.sourceLocator
       ) {
         setSubjectProposalState({ busy: false, stage: 'idle' });
         return;
@@ -350,9 +418,13 @@ export function SelectionSourcesPanel() {
         error: null,
       });
       setActiveSubjectCandidate(0);
-      // One click should produce a usable result. The top-ranked proposal is
-      // applied immediately and every alternative stays one click away.
-      applySubjectCandidate(result.set, 0);
+      // Automatic foreground estimation is not semantic recognition. Do not
+      // mutate the document selection from an unreviewed top-ranked candidate;
+      // multiple disconnected subjects and background patches are common on
+      // photographic inputs. The user must first review a candidate and then
+      // explicitly confirm it as a selection or mask.
+      setActiveSubjectCandidate(0);
+      announce('Subject proposals ready; choose a candidate to preview it before applying it');
     } catch (error) {
       if (runController.signal.aborted) return;
       const message =
@@ -853,7 +925,7 @@ export function SelectionSourcesPanel() {
                   }`}
                   aria-pressed={index === activeSubjectCandidate}
                   aria-label={`${candidate.label ?? `Subject ${index + 1}`}, covers ${Math.round(candidate.coverage * 100)} percent`}
-                  onClick={() => applySubjectCandidate(subjectProposalSet, index)}
+                  onClick={() => previewSubjectCandidate(subjectProposalSet, index)}
                 >
                   {candidate.label ?? `Subject ${index + 1}`} ·{' '}
                   {Math.round(candidate.coverage * 100)}% area
@@ -870,6 +942,13 @@ export function SelectionSourcesPanel() {
               )}
             </div>
             <div className="insp-selection-sources__session-actions">
+              <button
+                type="button"
+                className="insp-selection-sources__button insp-selection-sources__button--primary"
+                onClick={() => applySubjectCandidate(subjectProposalSet, activeSubjectCandidate)}
+              >
+                Use selected candidate
+              </button>
               <button
                 type="button"
                 className="insp-selection-sources__button insp-selection-sources__button--primary"
@@ -893,8 +972,9 @@ export function SelectionSourcesPanel() {
               </button>
             </div>
             <p className="insp-field__hint">
-              The active candidate is applied as a pixel selection; refine it below before applying
-              it as a mask. Estimates are proposals, not semantic recognition.
+              Candidate buttons only change the review target. Confirm with Use selected candidate
+              or Apply as mask; refine the confirmed selection below. Estimates are proposals, not
+              semantic recognition.
             </p>
           </section>
         )}

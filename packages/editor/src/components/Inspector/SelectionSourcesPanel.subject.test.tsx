@@ -185,9 +185,14 @@ describe('SelectionSourcesPanel subject proposals', () => {
     expect(mockProposeSubjects).toHaveBeenCalledWith(
       expect.objectContaining({ quality: 'fast', installedModelIds: ['u2netp'] }),
     );
+    expect(editor.current?.state.areaSelection ?? null).toBeNull();
     const proposalsSection = screen.getByLabelText('Subject proposals');
     expect(within(proposalsSection).getByText(/U²-Net Light estimate/)).toBeTruthy();
 
+    fireEvent.click(screen.getByRole('button', { name: /^All foreground/ }));
+    await waitFor(() => expect(editor.current?.state.areaSelection ?? null).not.toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: 'Use selected candidate' }));
+    await waitFor(() => expect(editor.current?.state.areaSelection ?? null).not.toBeNull());
     fireEvent.click(screen.getByRole('button', { name: 'Apply as mask' }));
     await waitFor(() => {
       const node = editor.current?.state.document.nodes.photo;
@@ -267,6 +272,44 @@ describe('SelectionSourcesPanel subject proposals', () => {
     });
 
     expect(editor!.current?.state.areaSelection ?? null).toBeNull();
+    expect(screen.queryByLabelText('Subject proposals')).toBeNull();
+  });
+
+  it('does not apply a proposal when the same node receives a new image', async () => {
+    let resolveProposal: ((value: unknown) => void) | undefined;
+    mockProposeSubjects.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveProposal = resolve;
+        }),
+    );
+    const editor = await renderPanel();
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Select subject$/ }));
+    await waitFor(() => expect(mockProposeSubjects).toHaveBeenCalled());
+
+    await act(async () => {
+      editor.current?.beginTransaction();
+      editor.current?.updateDoc((document) => ({
+        ...document,
+        nodes: {
+          ...document.nodes,
+          photo: makeImageShapeNode('photo', {
+            src: 'data:image/png;base64,replaced-source',
+            w: 64,
+            h: 64,
+            imageWidth: 1,
+            imageHeight: 1,
+          }),
+        },
+      }));
+      editor.current?.commitTransaction();
+    });
+    await act(async () => {
+      resolveProposal?.(proposalResult());
+    });
+
+    expect(editor.current?.state.areaSelection ?? null).toBeNull();
     expect(screen.queryByLabelText('Subject proposals')).toBeNull();
   });
 

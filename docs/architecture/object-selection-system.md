@@ -116,12 +116,14 @@ semantic recognition. Two implementation families produce its candidates:
   no model can run (nothing installed and no download chosen, or the working
   set does not fit this device), and the panel says so.
 
-The panel applies the top-ranked proposal as a pixel selection immediately;
-every alternative stays one click away, and "Apply as mask" commits the active
-candidate (soft alpha when the provider produced one) as an ordinary document
-mask. A model-backed estimate never mixes confidence semantics: candidate
-labels report coverage, and the provider/platform is stated in words rather
-than as a probability.
+The panel never applies the top-ranked proposal automatically. Estimation only
+publishes reviewable candidates; clicking a candidate previews its highlighted
+pixels, and an explicit "Use selected candidate" or "Apply as mask" action is
+required before another selection-dependent procedure can consume it. The mask
+action commits the active candidate (soft alpha when the provider produced one)
+as an ordinary document mask. A model-backed estimate never mixes confidence
+semantics: candidate labels report coverage, and the provider/platform is
+stated in words rather than as a probability.
 
 ## Automatic trim boundary
 

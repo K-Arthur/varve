@@ -70,10 +70,23 @@ test.describe('Select subject — model-free foreground estimate', () => {
     await inspector.getByRole('button', { name: 'Select subject' }).click();
 
     await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
-      /(?:Subject \d+|All foreground) selected/,
+      'Subject proposals ready; choose a candidate to preview it before applying it',
       { timeout: 30000 },
     );
     await expect(inspector.getByText(/estimate\s+\d+\s+proposal/)).toBeVisible();
+    const candidate = inspector.getByRole('button', {
+      name: /(?:Subject \d+|All foreground), covers \d+ percent/,
+    });
+    await expect(candidate).toBeVisible();
+    await expect(inspector.getByRole('button', { name: 'Save selection' })).toBeDisabled();
+    await candidate.first().click();
+    await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
+      /(?:Subject \d+|All foreground) previewed/,
+    );
+    await inspector.getByRole('button', { name: 'Use selected candidate' }).click();
+    await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
+      /(?:Subject \d+|All foreground) selected/,
+    );
     await expect(
       inspector.getByRole('button', { name: /(?:Subject \d+|All foreground), covers \d+ percent/ }),
     ).toBeVisible();
@@ -111,16 +124,22 @@ test.describe('Select subject — model-free foreground estimate', () => {
     await expect(selectSubject).toBeVisible();
     await selectSubject.click();
 
-    // The top-ranked proposal is applied immediately and announced by the
-    // canvas announcer; no optional model install or download is involved.
+    // A proposal is review-only until a candidate is previewed and explicitly
+    // confirmed; no optional model install or download is involved.
     await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
-      'All foreground selected',
+      'Subject proposals ready; choose a candidate to preview it before applying it',
       { timeout: 15000 },
     );
     await expect(inspector.getByText(/estimate\s+\d+\s+proposal/)).toBeVisible();
-    await expect(
-      inspector.getByRole('button', { name: /All foreground, covers \d+ percent/ }),
-    ).toBeVisible();
+    const candidate = inspector.getByRole('button', { name: /All foreground, covers \d+ percent/ });
+    await expect(candidate).toBeVisible();
+    // No area selection exists until the candidate has been reviewed.
+    await expect(inspector.getByRole('button', { name: 'Save selection' })).toBeDisabled();
+    await candidate.click();
+    await inspector.getByRole('button', { name: 'Use selected candidate' }).click();
+    await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
+      'All foreground selected',
+    );
     // An area selection now exists, so the save action becomes available.
     await expect(inspector.getByRole('button', { name: 'Save selection' })).toBeEnabled();
 
@@ -134,9 +153,9 @@ test.describe('Select subject — model-free foreground estimate', () => {
     await canvas.screenshot({ path: testInfo.outputPath('select-subject-result.png') });
 
     // Choosing an alternative proposal replaces the selection explicitly.
-    await inspector.getByRole('button', { name: /All foreground, covers \d+ percent/ }).click();
+    await candidate.click();
     await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
-      /All foreground selected/,
+      /All foreground previewed/,
     );
   });
 
