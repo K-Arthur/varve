@@ -24,6 +24,10 @@ that cannot be certified on this Linux host.
   Fonts, licensing boundaries, and image identification. The architecture and
   dated audit documents link the evidence instead of promising unsupported
   native or cross-platform behavior.
+- Browser Local Font Access now distinguishes first-use denial from a later
+  permission revocation. Refresh keeps the session's successful-query marker,
+  reports the revoked state, and gives the user an explicit allow-again action
+  while retaining the offline compatibility list.
 
 ## Visual evidence
 
@@ -56,6 +60,10 @@ Tier-5 escalation because the shared worktree contains unrelated workspace,
 toolchain, Rust, desktop, and validation-infrastructure changes. The required
 full gate was run with an explicit reason and stopped on those unrelated
 typecheck/lint/architecture diagnostics; no font diagnostic was reported.
+
+The revocation follow-up added one engine/UI regression case and reran the
+focused loader/browser slice: **33 tests passed**. The focused files were
+formatted with Biome before staging.
 
 Native Linux WebKit/WDIO, Windows WebView2, and macOS WKWebView restart and
 exact-byte lanes remain platform-owned follow-ups. Live collaboration

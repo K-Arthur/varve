@@ -324,7 +324,14 @@ export function FontBrowser({
   const [previewStatus, setPreviewStatus] = useState<FontPreviewStatus>('unavailable');
   const [previewMessage, setPreviewMessage] = useState<string | undefined>();
   const [localFontStatus, setLocalFontStatus] = useState<
-    'idle' | 'loading' | 'ready' | 'permission-denied' | 'fallback' | 'unsupported' | 'error'
+    | 'idle'
+    | 'loading'
+    | 'ready'
+    | 'permission-denied'
+    | 'permission-revoked'
+    | 'fallback'
+    | 'unsupported'
+    | 'error'
   >('idle');
   const [localFontCount, setLocalFontCount] = useState(0);
   const previewFaceRef = useRef<FontFace | undefined>(undefined);
@@ -696,9 +703,11 @@ export function FontBrowser({
       setLocalFontStatus(
         status === 'permission-denied'
           ? 'permission-denied'
-          : status === 'fallback' || status === 'unsupported'
-            ? status
-            : 'ready',
+          : status === 'permission-revoked'
+            ? 'permission-revoked'
+            : status === 'fallback' || status === 'unsupported'
+              ? status
+              : 'ready',
       );
     } catch {
       setLocalFontStatus('error');
@@ -712,13 +721,15 @@ export function FontBrowser({
         ? `${localFontCount} local ${localFontCount === 1 ? 'family' : 'families'} ready`
         : localFontStatus === 'permission-denied'
           ? 'Local font permission was denied'
-          : localFontStatus === 'fallback'
-            ? 'Using the compatibility font list'
-            : localFontStatus === 'unsupported'
-              ? 'Local font access is unavailable; using the compatibility list'
-              : localFontStatus === 'error'
-                ? 'Local font discovery failed'
-                : undefined;
+          : localFontStatus === 'permission-revoked'
+            ? 'Local font permission was revoked; allow access again'
+            : localFontStatus === 'fallback'
+              ? 'Using the compatibility font list'
+              : localFontStatus === 'unsupported'
+                ? 'Local font access is unavailable; using the compatibility list'
+                : localFontStatus === 'error'
+                  ? 'Local font discovery failed'
+                  : undefined;
 
   const addTag = useCallback(() => {
     if (!selectedRecord || !tagDraft.trim()) return;

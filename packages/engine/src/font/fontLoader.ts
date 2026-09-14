@@ -829,8 +829,13 @@ export type SystemFontDiscoveryStatus =
   | 'fallback'
   | 'unsupported'
   | 'permission-denied'
+  | 'permission-revoked'
   | 'error';
 let _systemFontDiscoveryStatus: SystemFontDiscoveryStatus = 'unknown';
+/** A successful Local Font Access query lets a later NotAllowedError be
+ * identified as revocation rather than first-time denial. This survives an
+ * explicit Refresh because the browser permission state is session-scoped. */
+let _localFontAccessWasGranted = false;
 
 /**
  * Check whether the browser supports the Local Font Access API.
@@ -840,12 +845,17 @@ export function hasQueryLocalFonts(): boolean {
   return typeof (window as WindowWithLocalFonts).queryLocalFonts === 'function';
 }
 
-function classifyLocalFontAccessError(error: unknown): 'permission-denied' | 'error' {
+function classifyLocalFontAccessError(
+  error: unknown,
+): 'permission-denied' | 'permission-revoked' | 'error' {
   const name =
     error && typeof error === 'object' && 'name' in error
       ? String((error as { name?: unknown }).name)
       : '';
-  return name === 'NotAllowedError' || name === 'SecurityError' ? 'permission-denied' : 'error';
+  if (name === 'NotAllowedError' || name === 'SecurityError') {
+    return _localFontAccessWasGranted ? 'permission-revoked' : 'permission-denied';
+  }
+  return 'error';
 }
 
 /**
@@ -912,6 +922,7 @@ export async function enumerateSystemFonts(): Promise<string[]> {
     try {
       const win = window as WindowWithLocalFonts;
       const fonts = await win.queryLocalFonts!();
+      _localFontAccessWasGranted = true;
       _enumeratedSystemFonts = fonts;
       const registry = getFontRegistry();
       for (const font of fonts) {

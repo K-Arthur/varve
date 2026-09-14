@@ -420,6 +420,28 @@ describe('enumerateSystemFonts', () => {
     expect(getSystemFontDiscoveryStatus()).toBe('error');
   });
 
+  it('reports a later permission loss as revocation after a successful query', async () => {
+    const queryLocalFonts = vi
+      .fn()
+      .mockResolvedValueOnce([
+        {
+          postscriptName: 'Granted-Regular',
+          fullName: 'Granted Regular',
+          family: 'Granted Local',
+          style: 'Regular',
+        },
+      ])
+      .mockRejectedValueOnce(Object.assign(new Error('revoked'), { name: 'NotAllowedError' }));
+    vi.stubGlobal('window', { queryLocalFonts });
+
+    await enumerateSystemFonts();
+    expect(getSystemFontDiscoveryStatus()).toBe('local-api');
+
+    resetSystemFontCache();
+    await enumerateSystemFonts();
+    expect(getSystemFontDiscoveryStatus()).toBe('permission-revoked');
+  });
+
   it('registers exact browser faces only after the local-font query resolves', async () => {
     vi.stubGlobal('window', {
       queryLocalFonts: vi.fn().mockResolvedValue([
