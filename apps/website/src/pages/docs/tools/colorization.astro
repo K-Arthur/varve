@@ -23,6 +23,7 @@ import { sitePath } from '../../../lib/siteUrl';
         <div class="mode-table">
           <article><h3>Tint / Selective Recolor</h3><p>Set an absolute hue or rotate existing hue. Whole image is an explicit scope; mask image limits coverage.</p><span>Offline · no model</span></article>
           <article><h3>Palette Colorize</h3><p>Select document swatches, then choose shaded influence or strict palette bytes.</p><span>Offline · no model</span></article>
+          <article><h3>Line art (color hints)</h3><p>Paint hints on the drawing. Color spreads to the linework, gaps can be sealed, and unfilled regions stay transparent.</p><span>Offline · no model</span></article>
           <article><h3>Reference Transfer</h3><p>Choose a separate reference image to transfer its global color distribution. This is not object matching.</p><span>Offline · reference required</span></article>
           <article><h3>Harmonize</h3><p>Move target chroma toward a reference distribution while retaining target structure and source lightness.</p><span>Offline · reference required</span></article>
           <article><h3>Photo Colorization</h3><p>Use local DDColor only when a verified model is installed. It proposes plausible colors, not historical truth.</p><span>Model-gated · artifact status is visible</span></article>
@@ -52,6 +53,21 @@ import { sitePath } from '../../../lib/siteUrl';
           keeps source lightness and can create tonal shades that are not literal swatch bytes.
           Strict mapping reaches only the selected sRGB colors at 100% adherence; at lower
           adherence it intentionally blends toward them and is no longer a strict constraint.
+        </p>
+      </section>
+
+      <section class="docs-section" aria-labelledby="lineart-title">
+        <h2 id="lineart-title">Line art from color hints</h2>
+        <ol>
+          <li>Choose <strong>Line art (color hints)</strong>.</li>
+          <li>Paint color scribbles on a copy of the drawing and choose it as the hint image. Hints can be a different resolution; every hint pixel above its alpha threshold is a seed.</li>
+          <li>Set the <strong>Line threshold</strong> so the strokes become barriers, and raise <strong>Gap closing</strong> if color leaks through a thin break in the linework.</li>
+          <li>Preview. The report shows how much of the reachable area was filled and how many hint pixels were used. Unhinted or unreachable regions stay transparent, so the result layers under other work.</li>
+          <li>Apply. Strokes and antialiased edges are preserved over the fills.</li>
+        </ol>
+        <p>
+          This is a deterministic fill, not semantic region detection. It cannot know that a
+          region is an eye or a shirt, and a gap wider than the gap-closing radius still leaks.
         </p>
       </section>
 

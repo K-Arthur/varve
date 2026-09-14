@@ -72,6 +72,11 @@ update, not for someone reading the commit log.
   source-preserving Apply that commits an embedded result asset. Photo previews
   carry their predicted chroma, so Apply rebuilds the approved colors at full
   resolution. Deterministic modes stay offline and need no model.
+- **Line-art colorization from color hints** — A deterministic Line art mode
+  spreads user color hints up to the linework, seals small gaps with a bounded
+  radius, preserves strokes and their antialiased edges, and keeps unhinted
+  regions transparent. Hints may be a different resolution; the preview reports
+  filled area, unassigned area, and seed count. No model required.
 - **Curve and node editing** — Node editing now supports compound contours and
   holes, multi-anchor movement, relative-handle numeric controls, distinct
   corner/smooth/symmetric/automatic modes, nearest-parameter Bézier insertion,

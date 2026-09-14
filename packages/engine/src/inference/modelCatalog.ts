@@ -735,9 +735,9 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     name: 'DDColor Tiny (AI Colorize)',
     description:
       'Fast local AI colorization for grayscale photos. ConvNeXt-tiny, 256x256 input. Requires a verified model download; the artifact is not bundled (Apache-2.0).',
-    sizeBytes: 220_524_460,
+    sizeBytes: 223_650_419,
     remoteUrl: 'https://github.com/K-Arthur/varve/releases/download/models-v1/ddcolor-tiny.onnx',
-    checksum: 'cb8996efe193140d536d338cad429ac74330dda3d49d57aa53c5b6131c3a3aa8',
+    checksum: '1410b455cd230a587c38b5771a0193aa6f28bb89b0e29566fbdb791bb1310c47',
     bundled: false,
     inputSpec: null,
     quality: 3,
@@ -758,7 +758,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
       kind: 'unavailable',
       reasonCode: 'export-pending',
       detail:
-        'No verified DDColor Tiny ONNX artifact is published. Freeze the official source revision, export it with tools/ddcolor-export, then record its hash and worker smoke test before enabling download.',
+        'Verified ONNX export recorded 2026-09-13: 223,650,419 bytes, SHA-256 1410b455..., zero missing keys, ORT CPU/PyTorch parity mean 4.28e-05. The artifact is not yet published to a download host; deterministic workflows do not need it.',
       alternatives: ['Use deterministic Tint / Selective Recolor'],
     },
   },
@@ -767,9 +767,9 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     name: 'DDColor (AI Colorize)',
     description:
       'Higher-quality local AI colorization for grayscale photos. ConvNeXt-large, 512x512 input. Requires a verified model download; the artifact is not bundled (Apache-2.0).',
-    sizeBytes: 980_082_799,
+    sizeBytes: 915_477_115,
     remoteUrl: 'https://github.com/K-Arthur/varve/releases/download/models-v1/ddcolor.onnx',
-    checksum: '69ba2e3d20ec79290d2056e46b1810e3518d4ba8707dd7e964d1518a18fec812',
+    checksum: '9c881551a0caf29ea283be09e863a841b5bf454b83299357f483f49f6ca18193',
     bundled: false,
     inputSpec: null,
     quality: 4,
@@ -790,7 +790,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
       kind: 'unavailable',
       reasonCode: 'export-pending',
       detail:
-        'No verified DDColor ONNX artifact is published. Freeze the official source revision, export it with tools/ddcolor-export, then record its hash and worker smoke test before enabling download.',
+        'Verified ONNX export recorded 2026-09-13: 915,477,115 bytes, SHA-256 9c881551..., zero missing keys, ORT CPU/PyTorch parity mean 9.38e-05. The artifact is not yet published to a download host; deterministic workflows do not need it.',
       alternatives: ['Use deterministic Tint / Selective Recolor'],
     },
   },

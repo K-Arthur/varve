@@ -6,16 +6,32 @@ bundling. They live here, outside `apps/desktop/public/`, because everything in
 is how `ddcolor.onnx` alone nearly added a gigabyte to every download.
 
 The current checkout intentionally contains no ONNX objects or Git LFS
-pointers for these models. The table below records the intended artifact
-route, not a verification result. A model is not advertised as ready until
-the downloaded bytes pass the catalog SHA-256 check and an ONNX Runtime
-smoke test in the supported worker.
+pointers for these models. A verified export now exists outside the
+repository (see below); publishing it to the `models-v1` release is the
+remaining step. A model is not advertised as ready until the downloaded bytes
+pass the catalog SHA-256 check and the worker smoke test.
 
-| File | Real size | Feature | Distributed via |
+| File | Verified size | Feature | Distributed via |
 |---|---|---|---|
-| `ddcolor.onnx` | expected ~980 MB | AI Colorize (photo) | GitHub release `models-v1` (target; asset returned 404 on 2026-09-13) |
-| `ddcolor-tiny.onnx` | expected ~220 MB | AI Colorize (fast preview) | GitHub release `models-v1` (target; asset returned 404 on 2026-09-13) |
+| `ddcolor.onnx` | 915,477,115 bytes | AI Colorize (photo) | GitHub release `models-v1` (target; not yet uploaded) |
+| `ddcolor-tiny.onnx` | 223,650,419 bytes | AI Colorize (fast preview) | GitHub release `models-v1` (target; not yet uploaded) |
 | `font-classify.onnx` | 64 MB | Font identification | HuggingFace (upstream) |
+
+Verified artifact facts (2026-09-13):
+
+| Field | ddcolor-tiny | ddcolor |
+|---|---|---|
+| SHA-256 | `1410b455cd230a587c38b5771a0193aa6f28bb89b0e29566fbdb791bb1310c47` | `9c881551a0caf29ea283be09e863a841b5bf454b83299357f483f49f6ca18193` |
+| Source checkpoint | `piddnad/ddcolor_paper_tiny` (`8a1277bc…`) | `piddnad/ddcolor_modelscope` (`d8171197…`) |
+| DDColor revision | `2adb63f2656ac41cbdf7b894cddd94121a3faf13` | same |
+| ORT/PyTorch parity (mean) | 4.28e-05 | 9.38e-05 |
+| Verified by | `tools/ddcolor-export/export_ddcolor.py` | same |
+
+The artifacts live outside the repository so a checkout never ships hundreds
+of megabytes of model bytes. Before uploading, copy each verified file into
+this directory as its catalog filename (`ddcolor.onnx`, `ddcolor-tiny.onnx`):
+`publish-model-assets.mjs` refuses to upload anything whose hash does not
+match the catalog.
 
 `font-classify.onnx` is kept here only as a provenance record — the app
 downloads it from its upstream HuggingFace source, which is already pinned to

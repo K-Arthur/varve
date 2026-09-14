@@ -1316,7 +1316,7 @@
       "id": "ddcolor-tiny",
       "filename": "ddcolor-tiny.onnx",
       "localPath": null,
-      "sha256": "cb8996efe193140d536d338cad429ac74330dda3d49d57aa53c5b6131c3a3aa8",
+      "sha256": "1410b455cd230a587c38b5771a0193aa6f28bb89b0e29566fbdb791bb1310c47",
       "bundled": false,
       "remoteUrl": "https://github.com/K-Arthur/varve/releases/download/models-v1/ddcolor-tiny.onnx",
       "precision": "fp32",
@@ -1374,12 +1374,12 @@
       },
       "validation": {
         "contractVerified": true,
-        "integrityVerified": false,
-        "provenanceStatus": "unverified",
+        "integrityVerified": true,
+        "provenanceStatus": "verified",
         "inferenceVerified": false,
-        "validationSummary": "Artifact bytes were not present for verification in the current checkout. The listed checksum and contract are an unverified release claim; contract shape is based on DDColor's official export script. Source: piddnad/ddcolor_paper_tiny on HuggingFace. Apache-2.0.",
+        "validationSummary": "Official Apache-2.0 weights (piddnad/ddcolor_paper_tiny) converted with tools/ddcolor-export/export_ddcolor.py at DDColor @2adb63f2656ac41cbdf7b894cddd94121a3faf13. ONNX checker and shape inference pass; zero missing/unexpected keys; ONNX Runtime 1.30 CPU smoke produced [1,2,256,256]; PyTorch parity mean abs diff 4.28e-05 (max 0.0188). Verified SHA-256 1410b455cd230a587c38b5771a0193aa6f28bb89b0e29566fbdb791bb1310c47, 223,650,419 bytes. Application worker smoke and publication pending.",
         "contractVersion": 1,
-        "contractVerifiedAt": "2026-07-27T20:17:34.043Z"
+        "contractVerifiedAt": "2026-09-13T23:31:00.000Z"
       },
       "notes": "DDColor-Tiny (ConvNeXt-tiny) — fast grayscale-to-color preview. Expected artifact size ~220MB. Apache-2.0. Input: 256x256 grayscale-derived RGB [0,1] (source L* -> Lab(L,0,0) -> RGB, square stretch resize). Output: a*b* chroma [1,2,256,256] resized to source dimensions. The official conversion recipe is documented, but this artifact is not bundled and remains unavailable until its bytes are hash-verified and smoke-tested."
     },
@@ -1387,7 +1387,7 @@
       "id": "ddcolor",
       "filename": "ddcolor.onnx",
       "localPath": null,
-      "sha256": "69ba2e3d20ec79290d2056e46b1810e3518d4ba8707dd7e964d1518a18fec812",
+      "sha256": "9c881551a0caf29ea283be09e863a841b5bf454b83299357f483f49f6ca18193",
       "bundled": false,
       "remoteUrl": "https://github.com/K-Arthur/varve/releases/download/models-v1/ddcolor.onnx",
       "precision": "fp32",
@@ -1445,12 +1445,12 @@
       },
       "validation": {
         "contractVerified": true,
-        "integrityVerified": false,
-        "provenanceStatus": "unverified",
+        "integrityVerified": true,
+        "provenanceStatus": "verified",
         "inferenceVerified": false,
-        "validationSummary": "Artifact bytes were not present for verification in the current checkout. The listed checksum and contract are an unverified release claim; contract shape is based on DDColor's official export script. Source: piddnad/ddcolor_modelscope on HuggingFace. Apache-2.0.",
+        "validationSummary": "Official Apache-2.0 weights (piddnad/ddcolor_modelscope) converted with tools/ddcolor-export/export_ddcolor.py at DDColor @2adb63f2656ac41cbdf7b894cddd94121a3faf13. ONNX checker and shape inference pass; zero missing/unexpected keys; ONNX Runtime 1.30 CPU smoke produced [1,2,512,512]; PyTorch parity mean abs diff 9.38e-05 (max 0.00737). Verified SHA-256 9c881551a0caf29ea283be09e863a841b5bf454b83299357f483f49f6ca18193, 915,477,115 bytes. Application worker smoke and publication pending.",
         "contractVersion": 1,
-        "contractVerifiedAt": "2026-07-27T20:17:34.043Z"
+        "contractVerifiedAt": "2026-09-13T23:35:00.000Z"
       },
       "notes": "DDColor-L (ConvNeXt-large) — higher-quality grayscale-to-color. Expected artifact size ~980MB. Apache-2.0. Input: 512x512 grayscale-derived RGB [0,1] (source L* -> Lab(L,0,0) -> RGB, square stretch resize). Output: a*b* chroma [1,2,512,512] resized to source dimensions. The official conversion recipe is documented, but this artifact is not bundled and remains unavailable until its bytes are hash-verified and smoke-tested."
     },

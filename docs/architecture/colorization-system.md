@@ -17,7 +17,7 @@ is available.
 | Reference transfer | Alpha-weighted global Reinhard-style CIELAB statistics; optional source mask and strength | Implemented and unit-verified |
 | Harmonize | Global chroma-distribution adjustment using a separate reference image; no object correspondence claim | Implemented and unit-verified |
 | Photo colorization | DDColor ONNX adapter, bounded preview, chroma-only reconstruction, integrity-aware loader gate | Adapter implemented; model artifact and real inference blocked pending verification |
-| Line-art colorization | Not routed through photo AI; deterministic drawing-color workflow remains separate | Explicitly deferred |
+| Line-art colorization | Deterministic hint-guided fills: linework barriers with bounded gap closing, geodesic nearest-hint assignment, preserved strokes, transparent unfilled regions | Implemented and unit-verified |
 | Semantic reference matching | Not provided by global statistics | Deferred; never labelled as available |
 
 Automatic photo colorization proposes plausible colors. It does not recover
@@ -44,6 +44,10 @@ controls that are decorative in the selected mode.
 | Mapping | `Shaded palette influence` retains source L* and can produce tonal shades; `Strict palette colors` uses literal selected sRGB bytes at 100% adherence | Palette colorize | Strict output is tested against authored palette bytes |
 | Adherence | 0–100%; strict constraint applies only at 100% | Palette colorize | Partial adherence is intentionally not strict quantization |
 | Reference image | Decoded pixels plus identity, dimensions, and revision | Transfer, harmonize | Missing identity or pixels rejects dispatch; source and reference dimensions are independent |
+| Hint image | Decoded pixels plus identity and dimensions; hint pixels above the alpha threshold are color seeds | Line art | Missing hints reject dispatch; hints may be a different resolution and are sampled in source coordinates |
+| Line threshold | Ink coverage ramp: luminance below the threshold is linework, scaled by source alpha so transparent paper is fillable | Line art | Numeric field changes the request signature; stroke edges keep their antialiased blend |
+| Gap closing | Barrier dilation radius in working pixels (0–8) | Line art | Zero leaves pinholes; 1–2 seals typical pen gaps without blurring the artwork |
+| Line-art report | Filled fraction, unassigned fraction, and seed-pixel count | Line art | Shown after preview so an unhinted region is visible before Apply |
 | Quality | Selects the model input size used by both preview and apply (fast 256, balanced 512, quality/automatic 1024, capped by source) | Photo colorization | Only shown for photo mode; Apply reuses the preview's chroma, so the setting made at preview time is what commits |
 
 ## End-to-end data flow
@@ -129,6 +133,24 @@ when requested and transfers the reference distribution otherwise. Harmonize
 transfers chroma distribution while retaining source L* and coverage. Neither
 operation establishes object-to-object correspondence; an empty or fully
 transparent reference is an actionable error.
+
+### Line-art colorization
+
+Line art is handled by a deterministic pixel algorithm, never by the photo
+model. The source supplies barriers: ink coverage is a luminance ramp below the
+paper threshold (scaled by source alpha, so transparent paper is fillable), and
+an optional chamfer dilation closes small stroke gaps. Hint pixels above the
+alpha threshold become seeds; every reachable pixel is assigned to its nearest
+seed by 8-connected geodesic distance, so color cannot cross linework. Strokes
+and their antialiased edges are composited over the assigned fill, and pixels
+no hint can reach stay transparent instead of paper-white, which keeps the
+result layerable. Hints at another resolution are sampled in source
+coordinates. Region assignment is bounded to a working resolution
+(default 2048px) and upsampled, so a full-resolution scan cannot stall the
+editor. The preview reports the filled/unassigned fractions and seed count.
+
+This is an editor, not a semantic fill: a gap wider than the configured radius
+still leaks, and the panel says so rather than implying a learned solution.
 
 ### Photo colorization
 
@@ -235,6 +257,9 @@ Stable deterministic coverage currently includes:
   preserved alpha) and square-stretch geometry without letterbox reversal;
 - protection heuristics' documented Lab bands (skin-like hue/chroma gate,
   near-neutral authored chroma) with the warm-tone limitation stated;
+- line-art region fills on both sides of a stroke, transparent unreachable
+  regions, one-pixel gap sealing, antialiased stroke preservation,
+  low-resolution hints, transparent paper, determinism, and validation;
 - cached chroma reconstruction at source resolution (upscale path, identity
   path, alpha preservation, malformed planes);
 - contract validation and stale palette/mask/reference/parameter revisions;
@@ -242,21 +267,21 @@ Stable deterministic coverage currently includes:
 
 The production UI tests exercise real Colorize control acquisition, preview
 invalidations, disabled invalid states, and the functional document commit
-helper. Browser visual validation covers the Inspector and marketing page. A
-real DDColor model smoke test, numerical agreement with the upstream PyTorch
-implementation, native/Tauri provider coverage, and cross-browser model
-benchmarks remain blocked until a verified artifact is acquired. Browser
-WebKit is not treated as complete Tauri WebKitGTK verification.
+helper. Browser visual validation covers the Inspector and marketing page. The
+DDColor export is verified against the official checkpoint (ONNX checker, ORT
+CPU smoke, PyTorch parity, application worker smoke); native/Tauri provider
+coverage and cross-browser model benchmarks remain open. Browser WebKit is not
+treated as complete Tauri WebKitGTK verification.
 
 ## Deferred work
 
-1. Acquire and independently verify official DDColor ONNX artifacts, including
-   source revision, export command, SHA-256, license terms, numerical parity,
-   provider smoke tests, and visual corpus review.
+1. Publish the verified DDColor ONNX artifacts to the `models-v1` release and
+   keep the catalog hashes in sync with the uploaded bytes.
 2. Add a versioned, source-preserving Colorize operation schema for masks,
    swatch IDs, references, authored parameters, model identity, preprocessing,
    and corrections. Materialized output must remain the offline fallback.
-3. Build the bounded line-art hint/fill workflow on the existing mask/brush
-   infrastructure, with gap/leak diagnostics and guide-overlay separation.
+3. Extend line-art colorization with animated/multi-frame consistency and
+   painted on-canvas hints; independent single-image runs are not a
+   temporal-aware capability.
 4. Add edge-aware chroma refinement only if image-corpus measurements show a
    bilinear edge failure worth the memory and latency cost.

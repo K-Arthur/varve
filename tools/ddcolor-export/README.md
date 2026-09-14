@@ -79,6 +79,18 @@ weights to ONNX format for use in Varve's colorization pipeline.
   `cv2.resize(img, (input_size, input_size))`; there is no letterbox padding
   for this model, and the a*b* output is resized back to source dimensions.
 
+## Script
+
+`export_ddcolor.py` is the pinned converter. It builds the official
+architecture, loads the official checkpoint, exports opset-12 ONNX named
+`input`/`output`, and refuses to finish silently: it runs the ONNX checker,
+an ONNX Runtime CPU smoke pass, and a PyTorch/ONNX parity comparison, then
+prints the artifact SHA-256, byte size, and parity numbers.
+
+Proven toolchain for the recorded artifacts (pin these with any new export):
+Python 3.14, torch 2.14.0+cpu, onnx 1.22.0, onnxscript 0.7.2,
+onnxruntime 1.30.0, numpy, timm, einops, opencv-python-headless.
+
 ## Post-Export Verification
 
 1. `onnx.checker.check_model` — graph validity.
@@ -90,10 +102,30 @@ weights to ONNX format for use in Varve's colorization pipeline.
 
 | Field | ddcolor-tiny | ddcolor |
 |-------|-------------|---------|
-| Source weight SHA-256 | *(pin at build)* | *(pin at build)* |
-| Exported ONNX SHA-256 | *(pin at build)* | *(pin at build)* |
-| Export date | *(fill)* | *(fill)* |
-| Exported by | *(fill)* | *(fill)* |
+| Source | `piddnad/ddcolor_paper_tiny` (HuggingFace, Apache-2.0) | `piddnad/ddcolor_modelscope` (HuggingFace, Apache-2.0) |
+| Checkpoint SHA-256 | `8a1277bc90a1bfbb6d2d83933a9a6bc821931879ca93e26e4fcec12165d41fce` | `d81711971ec59200da26d5e8a1afae8dd3778d495ea8ad7a7dadc769f403f7e7` |
+| Exported ONNX SHA-256 | `1410b455cd230a587c38b5771a0193aa6f28bb89b0e29566fbdb791bb1310c47` | `9c881551a0caf29ea283be09e863a841b5bf454b83299357f483f49f6ca18193` |
+| ONNX size (bytes) | 223,650,419 | 915,477,115 |
+| Input tensor | `[1, 3, 256, 256]` float32 grayscale-derived RGB | `[1, 3, 512, 512]` float32 grayscale-derived RGB |
+| Output tensor | `[1, 2, 256, 256]` raw a*b* | `[1, 2, 512, 512]` raw a*b* |
+| Parameters | 55,006,640 | 227,869,328 |
+| Missing/unexpected keys | 0 / 0 | 0 / 0 |
+| ORT parity (mean / max abs diff) | 4.28e-05 / 0.0188 | 9.38e-05 / 0.00737 |
+| Export date | 2026-09-13 | 2026-09-13 |
+| Toolchain | Python 3.14, torch 2.14.0+cpu, onnx 1.22.0, onnxscript 0.7.2, onnxruntime 1.30.0 | same |
+| Source revision | `piddnad/DDColor@2adb63f2656ac41cbdf7b894cddd94121a3faf13` | same |
+| Export contract | `torch.onnx.export`, opset 12, names `input`/`output`, fixed shapes | same |
+
+Notes:
+
+- `ddcolor-tiny` is exported at 256×256 to match its training crop (`gt_size: 256`)
+  and Varve's fast-mode runtime contract. The official example invokes the export
+  script with its default `--input_size 512`; that default is for the large model.
+- Parity is measured on a deterministic random input with the ONNX Runtime CPU
+  provider. The small max-abs outliers come from graph decompositions in the
+  exporter; the mean difference is two orders of magnitude below the 1e-3 gate.
+- The exported artifacts are produced by `tools/ddcolor-export/export_ddcolor.py`
+  in the working environment; they are not committed to the repository.
 
 ## License & Redistribution
 
