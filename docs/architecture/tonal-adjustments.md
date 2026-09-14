@@ -180,7 +180,11 @@ entry, upstream entries are rendered through the canonical compositor before
 sampling. The sample is bounded to a 256-pixel maximum dimension and remains a
 diagnostic of the authored RGBA8 effect boundary, not a hidden HDR or display
 proof pipeline. Empty, missing, and unavailable sources remain distinct from
-an invented histogram.
+an invented histogram. Clipped shadows and highlights are surfaced as
+percentages of the diagnostic's opaque samples with endpoint markers on the
+widget; counts below 0.1 percent stay quiet so an ordinary black point is not
+presented as an error. Fully transparent pixels never count toward the
+percentages.
 
 ## Verification and residual risks
 

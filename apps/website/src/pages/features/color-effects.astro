@@ -148,10 +148,11 @@ const gradientPickerShot = scenes['gradient-picker']?.status === 'captured' ? sc
           exposes an adjustment mask for the resolved result, including its
           source, type, visibility, inversion, feather, density, and transform
           link. Levels and Curves show the histogram for the stage you are
-          editing, while Exposure applies stops in linear light at the reference
-          pixel boundary. These are deterministic, offline controls; the current
-          browser effect surface is RGBA8 and does not claim HDR, CMYK-raster,
-          or ICC-accurate effect math.
+          editing and flag clipped shadows and highlights as percentages of the
+          visible samples, while Exposure applies stops in linear light at the
+          reference pixel boundary. These are deterministic, offline controls;
+          the current browser effect surface is RGBA8 and does not claim HDR,
+          CMYK-raster, or ICC-accurate effect math.
         </p>
         <p>
           LUT imports preserve their source-space metadata, but the current browser
