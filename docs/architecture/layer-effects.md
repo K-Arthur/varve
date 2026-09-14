@@ -117,12 +117,17 @@ as a claim about every renderer:
   projection, feather, inversion, and density semantics. The flat worker path
   remains ineligible for a visible effect mask, and missing sources preserve
   the unmasked evaluated effect as the safe fallback.
-- **Skipped optional effects are silent in the engine and live renderer.**
-  Allocation refusal, missing canvases, and failed pixel reads there fall
-  through with no diagnostic channel; `filterCompositor`'s `onDiagnostic` hook
-  has no production caller. Export rasterization is the exception: it now
-  reports typed `pixel-budget-exceeded` / `surface-unavailable` /
-  `encode-failed` diagnostics through `ExportSnapshot` and export warnings.
+- **Effect degradation is declared, not silent.** Engine replay reports typed
+  diagnostics (`effect-surface-unavailable`, `effect-mask-unresolved`,
+  `effect-mask-budget`, `effect-mask-unsupported`, `effect-depth-missing`) via
+  `replayIr`'s `onEffectDiagnostic` sink. Structured export forwards them into
+  `ExportSnapshot.diagnostics` and the export warnings; live leaf replay
+  forwards them into a bounded, deduplicated CanvasArea announcement. Export
+  rasterization failures additionally report `pixel-budget-exceeded` /
+  `surface-unavailable` / `encode-failed`. Remaining blind spots: the
+  `filterCompositor` `onDiagnostic` hook still has no production caller, and
+  shadow-source null-buffer fallbacks inside `shadowSource.ts` are not yet
+  wired to the sink.
 - **Frame-owned effects are evaluated on a bounded frame surface** after the
   frame base and descendants are composited, so `layerBlur`, content-stage
   masks, backdrop effects, and supported appearance effects see the same
