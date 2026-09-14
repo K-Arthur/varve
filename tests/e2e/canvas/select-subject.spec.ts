@@ -1,4 +1,5 @@
 import { writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
@@ -55,7 +56,42 @@ function makeSubjectPng(width: number, height: number, withSubject = true): Buff
 }
 
 test.describe('Select subject — model-free foreground estimate', () => {
-  test('proposes and applies a centred subject without any model', async ({ page }, testInfo) => {
+  test('reviews a foreground proposal on a licensed real photograph', async ({
+    page,
+  }, testInfo) => {
+    await navigateToEditor(page);
+    await page
+      .locator('#file-import-input')
+      .setInputFiles(path.resolve('tests/e2e/fixtures/real-life-still-life.jpg'));
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 15000 });
+
+    const inspector = page.locator('.editor__inspector-panel');
+    await inspector.getByRole('button', { name: 'Selection Sources' }).click();
+    await inspector.getByRole('button', { name: 'Select subject' }).click();
+
+    await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
+      /(?:Subject \d+|All foreground) selected/,
+      { timeout: 30000 },
+    );
+    await expect(inspector.getByText(/estimate · \d+ proposal/)).toBeVisible();
+    await expect(
+      inspector.getByRole('button', { name: /(?:Subject \d+|All foreground), covers \d+ percent/ }),
+    ).toBeVisible();
+    await expect(inspector.getByRole('button', { name: 'Save selection' })).toBeEnabled();
+
+    const canvas = page.getByTestId('editor-canvas');
+    await page.getByRole('button', { name: 'Fit sel' }).click();
+    await page.waitForTimeout(400);
+    await testInfo.attach('select-subject-real-photo', {
+      body: await canvas.screenshot(),
+      contentType: 'image/png',
+    });
+    await canvas.screenshot({ path: testInfo.outputPath('select-subject-real-photo.png') });
+  });
+
+  test('proposes and applies a centred subject with the bundled local model', async ({
+    page,
+  }, testInfo) => {
     await navigateToEditor(page);
 
     const fixture = testInfo.outputPath('subject-fixture.png');
@@ -70,14 +106,14 @@ test.describe('Select subject — model-free foreground estimate', () => {
     await selectSubject.click();
 
     // The top-ranked proposal is applied immediately and announced by the
-    // canvas announcer; no model install or download is involved.
+    // canvas announcer; no optional model install or download is involved.
     await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
-      'Subject 1 selected',
+      'All foreground selected',
       { timeout: 15000 },
     );
-    await expect(inspector.getByText(/Foreground estimate/)).toBeVisible();
+    await expect(inspector.getByText(/estimate · \d+ proposal/)).toBeVisible();
     await expect(
-      inspector.getByRole('button', { name: /Subject 1, estimate score/ }),
+      inspector.getByRole('button', { name: /All foreground, covers \d+ percent/ }),
     ).toBeVisible();
     // An area selection now exists, so the save action becomes available.
     await expect(inspector.getByRole('button', { name: 'Save selection' })).toBeEnabled();
@@ -92,9 +128,9 @@ test.describe('Select subject — model-free foreground estimate', () => {
     await canvas.screenshot({ path: testInfo.outputPath('select-subject-result.png') });
 
     // Choosing an alternative proposal replaces the selection explicitly.
-    await inspector.getByRole('button', { name: /Subject 1, estimate score/ }).click();
+    await inspector.getByRole('button', { name: /All foreground, covers \d+ percent/ }).click();
     await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
-      /Subject 1 selected/,
+      /All foreground selected/,
     );
   });
 
