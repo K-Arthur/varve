@@ -293,7 +293,7 @@ visual snapshots remain outside this focused proof.
 
 ## Linked-story replacement continuation — 2026-09-14
 
-Commits `61b4a27e364066d52f1e9c90d702c6a3873d8519` and
+Commits `61b4a27e364066d52f1e9c90d702c6a3873d8519`,
 `44ff38f9b39e5e03b89483e4dcdd173e542f03e0` route authoritative text
 stories through the same resolver used by ordinary text nodes, styles, and rich
 runs. Missing-font detection now retains every frame in a story thread as an
@@ -314,5 +314,7 @@ pnpm exec vitest run packages/editor/src/components/FontBrowser/MissingFontContr
 
 Passed: Biome and **50 focused tests**. This closes the linked-story
 detection/replacement component proof and moves acceptance scenario 13 to
-Partial. A one-step undo assertion, preview/cancel restoration flow, durable
-save/reopen proof, and native restart evidence remain open.
+Partial. The editor test now also restores the authoritative story and removes
+its manifest entry. A one-step editor-history assertion, preview/cancel UI
+flow, durable save/reopen proof, and native restart evidence remain open. The
+follow-up test commit is `ea1e3fa246d9ce63ae19a521d5971134f755a9bc`.
