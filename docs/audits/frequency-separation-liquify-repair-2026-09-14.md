@@ -146,6 +146,14 @@ The trace recorded 2 committed interaction samples. Pointer-to-present was
 and 9.38 s max; the max includes the test's deliberate full-resolution
 reopen/export waits and is not a pure input-latency budget.
 
+Marketing/docs visual evidence was captured from the built static site at
+1440 × 1000 in a local preview: `/features/retouching/` and
+`/docs/tools/retouching/` both returned HTTP 200, rendered their expected
+title and heading, and showed no horizontal overflow or broken navigation.
+The reviewed captures are `/tmp/retouching-feature.png` and
+`/tmp/retouching-docs.png` (the files are local QA artifacts, not product
+assets).
+
 ## Capability and limitation matrix
 
 | Capability | Status |
