@@ -138,9 +138,20 @@ describe('RefineMaskTool', () => {
     expect((tool as any).brushMask).not.toBeNull();
   });
 
+  function createMidGrayMaskImageData(w = 50, h = 50): ImageData {
+    const imageData = createWhiteMaskImageData(w, h);
+    for (let i = 0; i < imageData.data.length; i += 4) {
+      imageData.data[i] = 128;
+      imageData.data[i + 1] = 128;
+      imageData.data[i + 2] = 128;
+      imageData.data[i + 3] = 128;
+    }
+    return imageData;
+  }
+
   it('undo reverts stroke', () => {
     const tool = new RefineMaskTool();
-    (tool as any).maskData = createWhiteMaskImageData();
+    (tool as any).maskData = createMidGrayMaskImageData();
     (tool as any).nodeId = 'img-1';
     const ctx = makeMinimalCtx();
 
@@ -154,13 +165,15 @@ describe('RefineMaskTool', () => {
     expect(ctx.commitTransaction).toHaveBeenCalled();
   });
 
-  it('commitMask fires on drag end, not during pointer down', () => {
+  it('a stroke that changes no pixel creates no history entry', () => {
     const tool = new RefineMaskTool();
-    const maskData = createWhiteMaskImageData();
+    // Fully white mask + add mode: every dab writes 255 over 255. Built
+    // directly because the canvas mock returns zeroed pixels.
+    const maskData = new ImageData(50, 50);
+    maskData.data.fill(255);
     (tool as any).maskData = maskData;
     (tool as any).nodeId = 'img-1';
     const ctx = makeMinimalCtx();
-    const beforeAvg = averageMaskValue(maskData);
 
     tool.onPointerDown(
       { altKey: false, clientX: 25, clientY: 25, pointerId: 1, pressure: 0.5 } as any,
@@ -168,9 +181,48 @@ describe('RefineMaskTool', () => {
     );
     tool.onDragEnd(ctx);
 
+    expect(ctx.commitRasterMask).not.toHaveBeenCalled();
+    expect(ctx.abortTransaction).toHaveBeenCalled();
+  });
+
+  it('commitMask fires on drag end, not during pointer down', () => {
+    const tool = new RefineMaskTool();
+    const maskData = createMidGrayMaskImageData();
+    (tool as any).maskData = maskData;
+    (tool as any).nodeId = 'img-1';
+    const ctx = makeMinimalCtx();
+
+    tool.onPointerDown(
+      { altKey: false, clientX: 25, clientY: 25, pointerId: 1, pressure: 0.5 } as any,
+      ctx,
+    );
+    expect(ctx.commitRasterMask).not.toHaveBeenCalled();
+    tool.onDragEnd(ctx);
+
     expect(ctx.commitRasterMask).toHaveBeenCalledTimes(1);
     expect(ctx.commitTransaction).toHaveBeenCalled();
-    expect(averageMaskValue(maskData)).toBeGreaterThanOrEqual(beforeAvg);
+  });
+
+  it('restore mode returns pixels to the snapshot value, not full selection', () => {
+    const tool = new RefineMaskTool();
+    tool.setOptions({ mode: 'restore', brushSize: 10, hardness: 1 });
+    const maskData = createMidGrayMaskImageData();
+    // Current mask is 128; the pre-stroke snapshot was 200.
+    const snapshot = createMidGrayMaskImageData();
+    for (let i = 0; i < snapshot.data.length; i += 4) {
+      snapshot.data[i] = 200;
+      snapshot.data[i + 1] = 200;
+      snapshot.data[i + 2] = 200;
+      snapshot.data[i + 3] = 200;
+    }
+    (tool as any).maskData = maskData;
+    (tool as any).maskSnapshot = snapshot;
+    (tool as any).nodeId = 'img-1';
+
+    (tool as any).paintSourcePoint({ x: 25, y: 25 }, 1, 'restore', null);
+
+    expect(maskData.data[(25 * maskData.width + 25) * 4]).toBe(200);
+    expect((tool as any).strokeDirty).toBe(true);
   });
 
   it('does not commit mask during drag move', () => {
@@ -279,9 +331,49 @@ describe('RefineMaskTool', () => {
     expect(highPressureAvg).toBeGreaterThan(lowPressureAvg);
   });
 
-  it('clips a refinement stroke to the active area selection', () => {
+  it('paints outside the active area selection unless clipping is enabled', () => {
     const tool = new RefineMaskTool();
     tool.setOptions({ brushSize: 10, hardness: 1 });
+    const maskData = createWhiteMaskImageData();
+    for (let i = 0; i < maskData.data.length; i += 4) {
+      maskData.data[i] = 128;
+      maskData.data[i + 1] = 128;
+      maskData.data[i + 2] = 128;
+      maskData.data[i + 3] = 128;
+    }
+    (tool as any).maskData = maskData;
+    (tool as any).nodeId = 'img-1';
+    (tool as any).mapper = {
+      mapWorldPoint: (p: { x: number; y: number }) => p,
+      mapMaskPixelToWorld: (p: { x: number; y: number }) => p,
+      sourceWidth: 50,
+      sourceHeight: 50,
+    };
+    const ctx = makeMinimalCtx({
+      areaSelection: createAreaSelection({
+        kind: 'rectangle',
+        x: 23,
+        y: 23,
+        w: 4,
+        h: 4,
+        feather: 0,
+        antialias: false,
+      }),
+    });
+
+    tool.onPointerDown(
+      { altKey: false, clientX: 25, clientY: 25, pointerId: 1, pressure: 1 } as any,
+      ctx,
+    );
+
+    // Inside the selection and outside it both receive the stroke by default.
+    expect(maskData.data[(25 * maskData.width + 25) * 4]).toBe(255);
+    expect(maskData.data[(20 * maskData.width + 25) * 4]).toBe(255);
+  });
+
+  it('clips a refinement stroke to the active area selection when enabled', () => {
+    const tool = new RefineMaskTool();
+    tool.setOptions({ brushSize: 10, hardness: 1, clipToSelection: true });
     const maskData = createWhiteMaskImageData();
     for (let i = 0; i < maskData.data.length; i += 4) {
       maskData.data[i] = 128;
@@ -355,6 +447,35 @@ describe('RefineMaskTool', () => {
     const pixel = mockMapper.mapWorldPoint({ x: 25, y: 25 });
     expect(pixel.x).toBe(13);
     expect(pixel.y).toBe(13);
+  });
+
+  it('interpolates a fast stroke so no gap remains between samples', () => {
+    const tool = new RefineMaskTool();
+    tool.setOptions({ brushSize: 6, hardness: 1 });
+    const maskData = createMidGrayMaskImageData();
+    (tool as any).maskData = maskData;
+    (tool as any).nodeId = 'img-1';
+    const ctx = makeMinimalCtx();
+
+    tool.onPointerDown(
+      { altKey: false, clientX: 10, clientY: 10, pointerId: 1, pressure: 1 } as any,
+      ctx,
+    );
+    (tool as any).drag = {
+      kind: 'dragging',
+      pointerId: 1,
+      startCanvas: { x: 10, y: 10 },
+      startWorld: { x: 10, y: 10 },
+      currentCanvas: { x: 30, y: 10 },
+      currentWorld: { x: 30, y: 10 },
+    };
+    tool.onPointerMove(
+      { pointerId: 1, clientX: 30, clientY: 10, getCoalescedEvents: () => [], pressure: 1 } as any,
+      ctx,
+    );
+
+    // A single coarse sample must still cover the whole 10→30 segment.
+    expect(maskData.data[(10 * maskData.width + 20) * 4]).toBe(255);
   });
 
   it('coalesced events are processed in onPointerMove', () => {

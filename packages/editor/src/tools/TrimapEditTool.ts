@@ -13,6 +13,7 @@ import { createBrushMask, TRIMap } from '@varve/engine';
 import type { ShapeNode } from '@varve/scene';
 import { getOwnRasterMaskAsset, isImageShape, resolveNodePaints } from '@varve/scene';
 import { BaseTool } from './BaseTool';
+import { effectivePressure, interpolateStrokeSegment } from './brushStroke';
 import { prepareImageMaskMapper } from './imageMaskCoordinates';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 
@@ -60,6 +61,7 @@ export class TrimapEditTool extends BaseTool {
   private height = 0;
   private nodeId: string | null = null;
   private lastPaintedPoint: { x: number; y: number } | null = null;
+  private lastPaintedSource: { x: number; y: number } | null = null;
   private mapper: MapperState | null = null;
 
   override onActivate(ctx: ToolContext): void {
@@ -71,6 +73,7 @@ export class TrimapEditTool extends BaseTool {
     this.trimap = null;
     this.nodeId = null;
     this.lastPaintedPoint = null;
+    this.lastPaintedSource = null;
     this.mapper = null;
   }
 
@@ -121,6 +124,8 @@ export class TrimapEditTool extends BaseTool {
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
     this.lastPaintedPoint = world;
+    const source = this.mapWorldToSource(world);
+    this.lastPaintedSource = source;
     ctx.setPointerCapture(e.pointerId);
     ctx.beginTransaction();
     this.drag = {
@@ -131,7 +136,7 @@ export class TrimapEditTool extends BaseTool {
       currentCanvas: { x: e.clientX, y: e.clientY },
       currentWorld: world,
     };
-    this.paintStroke(world, e.pressure);
+    if (source) this.paintSourcePoint(source, effectivePressure(e));
     return { consumed: true, captured: true };
   }
 
@@ -142,14 +147,22 @@ export class TrimapEditTool extends BaseTool {
     this.drag.currentCanvas = canvas;
     this.drag.currentWorld = world;
 
-    if (!this.lastPaintedPoint || !this.trimap) return;
+    if (!this.trimap) return;
+    // Legacy/test callers may only have set the world anchor.
+    if (!this.lastPaintedSource && this.lastPaintedPoint) {
+      this.lastPaintedSource = this.mapWorldToSource(this.lastPaintedPoint);
+    }
+    if (!this.lastPaintedSource) return;
 
+    const spacing = Math.max(1, this.options.brushSize * 0.3);
     const coalesced = this.getCoalescedStrokes(e, ctx);
     for (const stroke of coalesced) {
-      const dx = stroke.world.x - this.lastPaintedPoint.x;
-      const dy = stroke.world.y - this.lastPaintedPoint.y;
-      if (Math.sqrt(dx * dx + dy * dy) < Math.max(1, this.options.brushSize * 0.3)) continue;
-      this.paintStroke(stroke.world, stroke.pressure);
+      const source = this.mapWorldToSource(stroke.world);
+      if (!source) continue;
+      for (const point of interpolateStrokeSegment(this.lastPaintedSource, source, spacing)) {
+        this.paintSourcePoint(point, effectivePressure(stroke.event));
+      }
+      this.lastPaintedSource = source;
       this.lastPaintedPoint = stroke.world;
       ctx.setTrimapPreview?.(this.trimap, this.width, this.height);
     }
@@ -162,11 +175,13 @@ export class TrimapEditTool extends BaseTool {
     }
     ctx.commitTransaction();
     this.lastPaintedPoint = null;
+    this.lastPaintedSource = null;
   }
 
   override onDragCancel(ctx: ToolContext): void {
     ctx.abortTransaction();
     this.lastPaintedPoint = null;
+    this.lastPaintedSource = null;
   }
 
   setOptions(opts: Partial<TrimapEditOptions>): void {
@@ -243,41 +258,50 @@ export class TrimapEditTool extends BaseTool {
   private getCoalescedStrokes(
     e: PointerEvent,
     ctx: ToolContext,
-  ): Array<{ world: { x: number; y: number }; pressure: number }> {
-    const strokes: Array<{ world: { x: number; y: number }; pressure: number }> = [];
+  ): Array<{
+    world: { x: number; y: number };
+    event: { pressure?: number; pointerType?: string };
+  }> {
+    const strokes: Array<{
+      world: { x: number; y: number };
+      event: { pressure?: number; pointerType?: string };
+    }> = [];
 
     if (typeof e.getCoalescedEvents === 'function') {
       const coalesced = e.getCoalescedEvents();
       if (coalesced.length > 0) {
         for (const ce of coalesced) {
           const w = ctx.canvasToWorld(ce.clientX, ce.clientY);
-          strokes.push({ world: w, pressure: ce.pressure });
+          strokes.push({ world: w, event: ce });
         }
         return strokes;
       }
     }
 
-    strokes.push({ world: this.drag.currentWorld, pressure: e.pressure });
+    strokes.push({ world: this.drag.currentWorld, event: e });
     return strokes;
   }
 
-  private paintStroke(world: { x: number; y: number }, pressure: number = 0.5): void {
-    if (!this.trimap) return;
-
-    const sourcePixel = this.mapper
+  private mapWorldToSource(world: { x: number; y: number }): { x: number; y: number } | null {
+    return this.mapper
       ? this.mapper.mapWorldPoint(world)
       : { x: Math.round(world.x), y: Math.round(world.y) };
+  }
 
-    if (!sourcePixel) return;
+  /** Paint one categorical dab at a source/mask pixel position. */
+  private paintSourcePoint(sourcePixel: { x: number; y: number }, pressure: number): void {
+    if (!this.trimap) return;
+    if (!Number.isFinite(sourcePixel.x) || !Number.isFinite(sourcePixel.y)) return;
+    if (!this.brushMask) {
+      this.brushMask = createBrushMask(this.options.brushSize, this.options.hardness).mask;
+    }
 
     const value = penValue(this.options.penMode);
-    this.brushMask = createBrushMask(this.options.brushSize, this.options.hardness).mask;
     const bw = this.options.brushSize;
     const r = Math.floor(bw / 2);
     const tx = Math.round(sourcePixel.x) - r;
     const ty = Math.round(sourcePixel.y) - r;
     const d = r * 2 + 1;
-
     const opacityScale = Math.max(0, Math.min(1, pressure));
 
     for (let by = 0; by < d; by++) {

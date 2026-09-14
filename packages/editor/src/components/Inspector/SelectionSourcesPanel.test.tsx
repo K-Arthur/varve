@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createAreaSelection } from '@varve/engine';
 import { addChild, createDocument, makeRasterLayerNode } from '@varve/scene';
 import { useEffect } from 'react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+
+afterEach(() => cleanup());
+
 import { EditorProvider, useEditor } from '../../context';
 import { SelectionSourcesPanel } from './SelectionSourcesPanel';
 

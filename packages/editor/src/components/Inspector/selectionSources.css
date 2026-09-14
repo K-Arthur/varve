@@ -79,6 +79,11 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.insp-selection-sources__refine-grid {
+  display: grid;
+  gap: 6px;
+}
+
 .insp-selection-sources__saved-title {
   color: var(--color-text-primary);
   font-weight: 600;

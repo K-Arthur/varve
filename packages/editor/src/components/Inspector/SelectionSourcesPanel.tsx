@@ -1,6 +1,10 @@
-import { combineAreaSelections } from '@varve/engine';
+import {
+  type AreaSelectionRefineOperation,
+  combineAreaSelections,
+  MAX_REFINE_RADIUS,
+} from '@varve/engine';
 import { buildParentIndexMap, fillCoverageOnNode, isImageShape } from '@varve/scene';
-import { Icon, Tooltip } from '@varve/ui';
+import { Icon, Select, Tooltip } from '@varve/ui';
 import { useState } from 'react';
 import { getActionRegistry } from '../../actions/ActionRegistry';
 import { getToolManager } from '../../canvas/toolDispatcher';
@@ -10,6 +14,9 @@ import type { SelectionPaintTool } from '../../tools/SelectionPaintTool';
 import { deserializeAreaSelection, serializeAreaSelection } from '../../tools/savedAreaSelections';
 import { selectionCoverageForRasterNode } from '../../tools/selectionCoverage';
 import { DisclosureSection } from './controls/DisclosureSection';
+import { FieldRow } from './controls/FieldRow';
+import { RangeValueControl } from './controls/RangeValueControl';
+import { applySelectionRefine, SELECTION_REFINE_OPERATIONS } from './selectionRefineApply';
 
 import './selectionSources.css';
 
@@ -38,6 +45,7 @@ export function SelectionSourcesPanel() {
     beginTransaction,
     commitTransaction,
     abortTransaction,
+    commitAreaSelection,
     announce,
   } = useEditor();
   const saved = state.document.savedAreaSelections ?? [];
@@ -45,6 +53,17 @@ export function SelectionSourcesPanel() {
   const [nextName, setNextName] = useState(`Selection ${saved.length + 1}`);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [refineOp, setRefineOp] = useState<AreaSelectionRefineOperation>('feather');
+  const [refineAmount, setRefineAmount] = useState(2);
+  const [refineSigma, setRefineSigma] = useState(2);
+  const [refineThreshold, setRefineThreshold] = useState(0.5);
+  const [refineContrast, setRefineContrast] = useState(0.6);
+  const [refinePlacement, setRefinePlacement] = useState<'inside' | 'outside' | 'centered'>(
+    'centered',
+  );
+  const [refineMinIsland, setRefineMinIsland] = useState(16);
+  const [refineMaxHole, setRefineMaxHole] = useState(16);
+  const [refineShift, setRefineShift] = useState(2);
   const selectedNode =
     state.selection.length === 1 ? state.document.nodes[state.selection[0]!] : undefined;
   const hasClosedPath =
@@ -115,6 +134,27 @@ export function SelectionSourcesPanel() {
     setAreaSelection?.(tool?.getOriginalSelection() ?? null);
     setTool('select');
     announce('Selection paint cancelled');
+  };
+
+  const applyRefine = () => {
+    applySelectionRefine(
+      {
+        areaSelection: state.areaSelection ?? null,
+        commit: commitAreaSelection,
+        set: setAreaSelection,
+        announce,
+      },
+      {
+        operation: refineOp,
+        amount: refineOp === 'shift-edge' ? refineShift : refineAmount,
+        sigma: refineSigma,
+        threshold: refineThreshold,
+        contrast: refineContrast,
+        placement: refinePlacement,
+        minIslandArea: refineMinIsland,
+        maxHoleArea: refineMaxHole,
+      },
+    );
   };
 
   const remove = (id: string) => {
@@ -367,6 +407,150 @@ export function SelectionSourcesPanel() {
                 Cancel
               </button>
             </div>
+          </section>
+        )}
+        {hasAreaSelection && (
+          <section
+            className="insp-selection-sources__session"
+            aria-label="Refine selection controls"
+          >
+            <span className="insp-selection-sources__session-label">Refine selection</span>
+            <div className="insp-selection-sources__refine-grid">
+              <FieldRow label="Operation">
+                <Select
+                  label="Refine operation"
+                  value={refineOp}
+                  options={SELECTION_REFINE_OPERATIONS}
+                  onChange={(value) => setRefineOp(value as AreaSelectionRefineOperation)}
+                />
+              </FieldRow>
+              {(refineOp === 'feather' || refineOp === 'smooth') && (
+                <RangeValueControl
+                  id="selection-refine-sigma"
+                  label={refineOp === 'smooth' ? 'Smooth radius' : 'Feather radius'}
+                  value={refineSigma}
+                  min={0}
+                  max={128}
+                  step={0.5}
+                  unit="px"
+                  rangeClassName="insp-range"
+                  rangeAriaLabel="Refinement radius in document units"
+                  onChange={setRefineSigma}
+                />
+              )}
+              {(refineOp === 'grow' || refineOp === 'shrink' || refineOp === 'border') && (
+                <RangeValueControl
+                  id="selection-refine-amount"
+                  label="Amount"
+                  value={refineAmount}
+                  min={0}
+                  max={MAX_REFINE_RADIUS}
+                  unit="px"
+                  rangeClassName="insp-range"
+                  rangeAriaLabel="Refinement amount in document units"
+                  onChange={setRefineAmount}
+                />
+              )}
+              {refineOp === 'shift-edge' && (
+                <RangeValueControl
+                  id="selection-refine-shift"
+                  label="Shift"
+                  value={refineShift}
+                  min={-64}
+                  max={64}
+                  unit="px"
+                  rangeClassName="insp-range"
+                  rangeAriaLabel="Boundary shift in document units; positive expands"
+                  onChange={setRefineShift}
+                />
+              )}
+              {refineOp === 'contrast' && (
+                <RangeValueControl
+                  id="selection-refine-contrast"
+                  label="Contrast"
+                  value={refineContrast}
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  displayScale={100}
+                  unit="%"
+                  rangeClassName="insp-range"
+                  rangeAriaLabel="Coverage contrast; 100% removes grey"
+                  onChange={setRefineContrast}
+                />
+              )}
+              {refineOp === 'threshold' && (
+                <RangeValueControl
+                  id="selection-refine-threshold"
+                  label="Cut"
+                  value={refineThreshold}
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  displayScale={100}
+                  unit="%"
+                  rangeClassName="insp-range"
+                  rangeAriaLabel="Coverage cut for threshold"
+                  onChange={setRefineThreshold}
+                />
+              )}
+              {refineOp === 'border' && (
+                <FieldRow label="Placement">
+                  <Select
+                    label="Border placement"
+                    value={refinePlacement}
+                    options={[
+                      { value: 'inside', label: 'Inside' },
+                      { value: 'outside', label: 'Outside' },
+                      { value: 'centered', label: 'Centered' },
+                    ]}
+                    onChange={(value) =>
+                      setRefinePlacement(value as 'inside' | 'outside' | 'centered')
+                    }
+                  />
+                </FieldRow>
+              )}
+              {refineOp === 'cleanup' && (
+                <>
+                  <RangeValueControl
+                    id="selection-refine-island"
+                    label="Remove islands under"
+                    value={refineMinIsland}
+                    min={0}
+                    max={4096}
+                    unit="px"
+                    rangeClassName="insp-range"
+                    rangeAriaLabel="Remove islands smaller than this area"
+                    onChange={setRefineMinIsland}
+                  />
+                  <RangeValueControl
+                    id="selection-refine-hole"
+                    label="Fill holes under"
+                    value={refineMaxHole}
+                    min={0}
+                    max={4096}
+                    unit="px"
+                    rangeClassName="insp-range"
+                    rangeAriaLabel="Fill holes smaller than this area"
+                    onChange={setRefineMaxHole}
+                  />
+                </>
+              )}
+            </div>
+            <div className="insp-selection-sources__session-actions">
+              <button
+                type="button"
+                className="insp-selection-sources__button insp-selection-sources__button--primary"
+                onClick={applyRefine}
+              >
+                Apply operation
+              </button>
+            </div>
+            <p className="insp-selection-sources__description">
+              Marching ants trace the 50% coverage contour; pixels outside the outline can still be
+              partially selected. Each Apply is one undoable operation computed from the current
+              selection.
+            </p>
           </section>
         )}
         {saved.length > 0 ? (

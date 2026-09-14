@@ -1679,7 +1679,17 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   /** Toggle preview of original image (without background removal mask). */
   setShowOriginalBg: (nodeId: import('@varve/scene').NodeId | null) => void;
   setMaskPreviewMode: (mode: import('./context/types').MaskPreviewMode) => void;
-  setRefineMaskOptions: (opts: Partial<{ brushSize: number; hardness: number }>) => void;
+  setRefineMaskOptions: (
+    opts: Partial<{
+      brushSize: number;
+      hardness: number;
+      mode: 'add' | 'subtract' | 'restore';
+      clipToSelection: boolean;
+      method: 'guided' | 'closed-form';
+      radius: number;
+      bandRadius: number;
+    }>,
+  ) => void;
   setTrimapEditOptions: (
     opts: Partial<{
       brushSize: number;
@@ -1687,7 +1697,11 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
       penMode: import('./context/types').TrimapPenMode;
     }>,
   ) => void;
-  refineHairEdges: () => Promise<void>;
+  refineHairEdges: (options?: {
+    method?: 'guided' | 'closed-form';
+    radius?: number;
+    bandRadius?: number;
+  }) => Promise<void>;
   startTrimapEdit: () => void;
   applyTrimapMatting: () => Promise<void>;
   confirmSubjectPicker: (keepIds: number[]) => void;

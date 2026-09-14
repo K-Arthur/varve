@@ -1,6 +1,11 @@
+import type { MattingMethod } from '@varve/engine';
 import type { BackgroundRemovalMethod, Document, NodeId } from '@varve/scene';
 import { useCallback, useEffect, useRef } from 'react';
-import { commitRasterMask, hasNativeRasterMask } from '../backgroundRemoval/commitRasterMask';
+import {
+  commitRasterMask,
+  hasNativeRasterMask,
+  runtimeForBackgroundRemovalProvider,
+} from '../backgroundRemoval/commitRasterMask';
 import { warmMaskRenderCache } from '../backgroundRemoval/maskRenderCache';
 import {
   computePlacementRevision,
@@ -11,8 +16,16 @@ import {
 } from '../backgroundRemoval/SubjectIsolationService';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
 import { setCollapsed } from '../components/Inspector/sectionState';
+import type { RefineBrushMode } from '../tools/RefineMaskTool';
 import { requestInspectorTab } from './inspectorTabBridge';
 import type { EditorState, MaskPreviewMode, TrimapPenMode } from './types';
+
+/** Options for the one-shot edge refinement action (Refine edges button). */
+export interface EdgeRefineRequest {
+  method?: MattingMethod;
+  radius?: number;
+  bandRadius?: number;
+}
 
 export interface BackgroundRemovalAPI {
   removeBackground: (method: BackgroundRemovalMethod) => Promise<void>;
@@ -26,7 +39,17 @@ export interface BackgroundRemovalAPI {
   ) => Promise<void>;
   setShowOriginalBg: (nodeId: NodeId | null) => void;
   setMaskPreviewMode: (mode: MaskPreviewMode) => void;
-  setRefineMaskOptions: (opts: Partial<{ brushSize: number; hardness: number }>) => void;
+  setRefineMaskOptions: (
+    opts: Partial<{
+      brushSize: number;
+      hardness: number;
+      mode: RefineBrushMode;
+      clipToSelection: boolean;
+      method: MattingMethod;
+      radius: number;
+      bandRadius: number;
+    }>,
+  ) => void;
   setTrimapEditOptions: (
     opts: Partial<{ brushSize: number; hardness: number; penMode: TrimapPenMode }>,
   ) => void;
@@ -34,7 +57,7 @@ export interface BackgroundRemovalAPI {
     key: K,
     value: EditorState['brushSettings'][K],
   ) => void;
-  refineHairEdges: () => Promise<void>;
+  refineHairEdges: (options?: EdgeRefineRequest) => Promise<void>;
   startTrimapEdit: () => void;
   applyTrimapMatting: () => Promise<void>;
   confirmSubjectPicker: (keepIds: number[]) => void;
@@ -374,10 +397,7 @@ export function useBackgroundRemoval(
       generatedAt: Date.now(),
       confidence: preview.confidence,
       decontaminate: preview.decontaminate,
-      runtime:
-        preview.executionProvider === 'native'
-          ? 'native-cpu'
-          : (preview.executionProvider ?? 'typescript'),
+      runtime: runtimeForBackgroundRemovalProvider(preview.executionProvider),
     } as const;
     const committed = commitRasterMask(currentState.document, preview.nodeId, fields);
     if (committed === currentState.document) {
@@ -536,60 +556,77 @@ export function useBackgroundRemoval(
     announcerRef.current?.announce('Subject selection cancelled');
   }, [patch, announcerRef]);
 
-  const refineHairEdges = useCallback(async () => {
-    if (!enabled) {
-      announcerRef.current?.announce('Background removal is available in the main editor window.');
-      return;
-    }
-    const captured = stateRef.current;
-    const doc = captured.document;
-    const source = captured.selection
-      .map((id) => resolveIsolationSource(doc, id))
-      .find((item) => item && hasNativeRasterMask(doc, item.node.id));
-    if (!source) {
-      announcerRef.current?.announce('Apply background removal first');
-      return;
-    }
-    const imageNode = source.node;
-    try {
-      const { decodeMaskDataUrl, getImageCache, maskArrayToDataUrl, refineHairMatting } =
-        await import('@varve/engine');
-      const decoded = await decodeSource(source.image.src, announcerRef);
-      if (!decoded) return;
-      const { imageData, extractW: w, extractH: h } = decoded;
-      const assetId = imageNode.mask!.rasterMask!.assetId;
-      const asset = doc.rasterMaskAssets?.[assetId];
-      const maskUrl = asset?.dataUrl;
-      if (!maskUrl) {
-        announcerRef.current?.announce('Could not resolve mask asset');
+  const refineHairEdges = useCallback(
+    async (options: EdgeRefineRequest = {}) => {
+      if (!enabled) {
+        announcerRef.current?.announce(
+          'Background removal is available in the main editor window.',
+        );
         return;
       }
-      const { mask, width, height } = await decodeMaskDataUrl(maskUrl);
-      if (width !== w || height !== h || mask.length !== w * h) {
-        throw new Error('Mask dimensions do not match the source image');
-      }
-      const refined = refineHairMatting(imageData, mask);
-      const maskDataUrl = maskArrayToDataUrl(refined, w, h);
-      await warmMaskRenderCache(getImageCache(), maskDataUrl, w, h);
-      if (
-        stateRef.current.document.id !== doc.id ||
-        !matchesIsolationSource(stateRef.current.document, imageNode.id, source)
-      )
+      const captured = stateRef.current;
+      const doc = captured.document;
+      const source = captured.selection
+        .map((id) => resolveIsolationSource(doc, id))
+        .find((item) => item && hasNativeRasterMask(doc, item.node.id));
+      if (!source) {
+        announcerRef.current?.announce('Apply background removal first');
         return;
-      updateDoc((d) =>
-        d.id === doc.id && matchesIsolationSource(d, imageNode.id, source)
-          ? commitRasterMask(d, imageNode.id, {
-              dataUrl: maskDataUrl,
-              width: w,
-              height: h,
-            })
-          : d,
-      );
-      announcerRef.current?.announce('Hair/fur edges refined');
-    } catch (e) {
-      announcerRef.current?.announce(`Edge refinement failed: ${(e as Error).message}`);
-    }
-  }, [enabled, stateRef, announcerRef, updateDoc]);
+      }
+      const imageNode = source.node;
+      try {
+        const { decodeMaskDataUrl, getImageCache, maskArrayToDataUrl, refineHairMatting } =
+          await import('@varve/engine');
+        const decoded = await decodeSource(source.image.src, announcerRef);
+        if (!decoded) return;
+        const { imageData, extractW: w, extractH: h } = decoded;
+        const assetId = imageNode.mask!.rasterMask!.assetId;
+        const asset = doc.rasterMaskAssets?.[assetId];
+        const maskUrl = asset?.dataUrl;
+        if (!maskUrl) {
+          announcerRef.current?.announce('Could not resolve mask asset');
+          return;
+        }
+        const { mask, width, height } = await decodeMaskDataUrl(maskUrl);
+        if (width !== w || height !== h || mask.length !== w * h) {
+          throw new Error('Mask dimensions do not match the source image');
+        }
+        let refusal: string | undefined;
+        const refined = refineHairMatting(imageData, mask, {
+          method: options.method ?? 'guided',
+          radius: options.radius,
+          bandRadius: options.bandRadius,
+          onDiagnostics: (diagnostics) => {
+            if (diagnostics.refusedReason) refusal = diagnostics.refusedReason;
+          },
+        });
+        const maskDataUrl = maskArrayToDataUrl(refined, w, h);
+        await warmMaskRenderCache(getImageCache(), maskDataUrl, w, h);
+        if (
+          stateRef.current.document.id !== doc.id ||
+          !matchesIsolationSource(stateRef.current.document, imageNode.id, source)
+        )
+          return;
+        updateDoc((d) =>
+          d.id === doc.id && matchesIsolationSource(d, imageNode.id, source)
+            ? commitRasterMask(d, imageNode.id, {
+                dataUrl: maskDataUrl,
+                width: w,
+                height: h,
+              })
+            : d,
+        );
+        announcerRef.current?.announce(
+          refusal
+            ? `Matting declined (${refusal}); applied guided edge smoothing instead`
+            : 'Hair/fur edges refined',
+        );
+      } catch (e) {
+        announcerRef.current?.announce(`Edge refinement failed: ${(e as Error).message}`);
+      }
+    },
+    [enabled, stateRef, announcerRef, updateDoc],
+  );
 
   const startTrimapEdit = useCallback(() => {
     if (!enabled) {
@@ -623,9 +660,8 @@ export function useBackgroundRemoval(
       return;
     }
     try {
-      const { getImageCache, maskArrayToDataUrl, solveTrimapMatting } = await import(
-        '@varve/engine'
-      );
+      const { decodeMaskDataUrl, getImageCache, maskArrayToDataUrl, solveTrimapMatting } =
+        await import('@varve/engine');
       const decoded = await decodeSource(source.image.src, announcerRef);
       if (!decoded) return;
       const { imageData, extractW: w, extractH: h } = decoded;
@@ -636,7 +672,18 @@ export function useBackgroundRemoval(
       ) {
         throw new Error('Trimap dimensions do not match the source image');
       }
-      const matte = solveTrimapMatting(imageData, trimapEntry.data);
+      // Warm-start the solve from the current mask and keep it as the fallback
+      // so manual corrections survive a refused automatic solve.
+      let initialAlpha: Uint8Array | undefined;
+      const maskAssetId = doc.nodes[nodeId]?.mask?.rasterMask?.assetId;
+      const maskAsset = maskAssetId ? doc.rasterMaskAssets?.[maskAssetId] : undefined;
+      if (maskAsset?.dataUrl) {
+        const decodedMask = await decodeMaskDataUrl(maskAsset.dataUrl);
+        if (decodedMask && decodedMask.width === w && decodedMask.height === h) {
+          initialAlpha = decodedMask.mask;
+        }
+      }
+      const matte = solveTrimapMatting(imageData, trimapEntry.data, { initialAlpha });
       const maskDataUrl = maskArrayToDataUrl(matte, w, h);
       await warmMaskRenderCache(getImageCache(), maskDataUrl, w, h);
       if (

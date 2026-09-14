@@ -1,15 +1,22 @@
 /**
  * RefineMaskTool — brush-based mask refinement for background removal masks.
  *
- * Left-click/brush adds to the mask (foreground mode).
- * Alt+click/brush subtracts from the mask (background mode).
+ * Brush modes: add/reveal, subtract/hide, and restore-original. Alt while
+ * dragging always subtracts, so a pen need not leave the canvas. `brushSize`
+ * is measured in mask (source-image or container) pixels, preserving the
+ * declared source-resolution footprint; the Inspector reports that unit.
+ *
+ * Clipping strokes to the active area selection is an explicit, default-off
+ * option: automatically clipping a refinement brush to the same selection it
+ * is trying to grow makes adding missing detail impossible.
  *
  * Uses imageMaskCoordinates.ts for transform-aware world-to-source pixel
- * mapping. Pressure sensitivity from PointerEvent.pressure, coalesced
- * events from getCoalescedEvents() for seamless strokes.
+ * mapping. Pressure sensitivity from PointerEvent.pressure, coalesced events
+ * and segment interpolation from brushStroke.ts.
  *
- * Research basis: Photoshop Refine Edge brush, GIMP foreground-select tool,
- *                 Canvas 2D ImageData compositing.
+ * Research basis: Photoshop Refine Edge / Select & Mask brush, GIMP
+ * foreground-select tool; Krita-reported limitation of boundary-clipped
+ * refinement brushes.
  */
 import { type AreaSelection, areaSelectionCoverageAt, createBrushMask } from '@varve/engine';
 import type { FrameNode } from '@varve/scene';
@@ -23,15 +30,20 @@ import {
 import { tryInvertAffine } from '@varve/shared';
 import { nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
+import { effectivePressure, interpolateStrokeSegment } from './brushStroke';
 import { prepareImageMaskMapper } from './imageMaskCoordinates';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 
 /** Container-local masks are capped at 2048px per side (documented). */
 const MAX_CONTAINER_MASK_DIMENSION = 2048;
 
+export type RefineBrushMode = 'add' | 'subtract' | 'restore';
+
 interface RefineMaskOptions {
   brushSize: number;
   hardness: number;
+  mode: RefineBrushMode;
+  clipToSelection: boolean;
 }
 
 interface MapperState {
@@ -72,14 +84,18 @@ export class RefineMaskTool extends BaseTool {
   private options: RefineMaskOptions = {
     brushSize: 20,
     hardness: 0.8,
+    mode: 'add',
+    clipToSelection: false,
   };
   private brushMask: Uint8Array | null = null;
   private maskData: ImageData | null = null;
   private maskSnapshot: ImageData | null = null;
   private nodeId: string | null = null;
   private lastPaintedPoint: { x: number; y: number } | null = null;
+  private lastPaintedSource: { x: number; y: number } | null = null;
   private pendingLoad = false;
   private mapper: MapperState | null = null;
+  private strokeDirty = false;
   /** Frozen at pointer-down so an external selection change cannot alter a stroke. */
   private strokeAreaSelection: AreaSelection | null = null;
   private coordinateSpace: 'source-image-pixels' | 'container-local-pixels' | 'node-local-pixels' =
@@ -141,9 +157,12 @@ export class RefineMaskTool extends BaseTool {
 
     this.maskSnapshot = cloneImageData(this.maskData);
     this.strokeAreaSelection = ctx.areaSelection ?? null;
+    this.strokeDirty = false;
 
     const world = ctx.canvasToWorld(e.clientX, e.clientY);
     this.lastPaintedPoint = world;
+    const sourcePixel = this.mapWorldToSource(world);
+    this.lastPaintedSource = sourcePixel;
 
     ctx.setPointerCapture(e.pointerId);
     ctx.beginTransaction();
@@ -156,7 +175,10 @@ export class RefineMaskTool extends BaseTool {
       currentWorld: world,
     };
 
-    this.paintStroke(world, e.altKey, e.pressure, this.strokeAreaSelection);
+    const mode = this.resolveMode(e.altKey);
+    if (sourcePixel) {
+      this.paintSourcePoint(sourcePixel, effectivePressure(e), mode, this.strokeAreaSelection);
+    }
 
     return { consumed: true, captured: true };
   }
@@ -168,27 +190,46 @@ export class RefineMaskTool extends BaseTool {
     this.drag.currentCanvas = canvas;
     this.drag.currentWorld = world;
 
-    if (!this.lastPaintedPoint || !this.maskData) return;
+    if (!this.maskData) return;
+    // Legacy/test callers may only have set the world anchor.
+    if (!this.lastPaintedSource && this.lastPaintedPoint) {
+      this.lastPaintedSource = this.mapWorldToSource(this.lastPaintedPoint);
+    }
+    if (!this.lastPaintedSource) return;
 
+    const mode = this.resolveMode(e.altKey);
     const coalesced = this.getCoalescedStrokes(e, ctx);
     for (const stroke of coalesced) {
-      const dx = stroke.world.x - this.lastPaintedPoint.x;
-      const dy = stroke.world.y - this.lastPaintedPoint.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const step = Math.max(1, this.options.brushSize * 0.3);
-      if (dist < step) continue;
-      this.paintStroke(stroke.world, ctx.altKey, stroke.pressure, this.strokeAreaSelection);
+      const source = this.mapWorldToSource(stroke.world);
+      if (!source) continue;
+      const spacing = Math.max(1, this.options.brushSize * 0.25);
+      for (const point of interpolateStrokeSegment(this.lastPaintedSource, source, spacing)) {
+        this.paintSourcePoint(
+          point,
+          effectivePressure(stroke.event),
+          mode,
+          this.strokeAreaSelection,
+        );
+      }
+      this.lastPaintedSource = source;
       this.lastPaintedPoint = stroke.world;
     }
   }
 
   override onDragEnd(ctx: ToolContext): void {
     ctx.setDraft(null);
-    this.commitMask(ctx);
-    ctx.commitTransaction();
+    if (this.strokeDirty) {
+      this.commitMask(ctx);
+      ctx.commitTransaction();
+    } else {
+      // A stroke that changed no pixel must not create an empty history entry.
+      ctx.abortTransaction();
+    }
     this.maskSnapshot = null;
     this.lastPaintedPoint = null;
+    this.lastPaintedSource = null;
     this.strokeAreaSelection = null;
+    this.strokeDirty = false;
   }
 
   override onDragCancel(ctx: ToolContext): void {
@@ -198,12 +239,34 @@ export class RefineMaskTool extends BaseTool {
     this.maskSnapshot = null;
     ctx.abortTransaction();
     this.lastPaintedPoint = null;
+    this.lastPaintedSource = null;
     this.strokeAreaSelection = null;
+    this.strokeDirty = false;
   }
 
   setOptions(opts: Partial<RefineMaskOptions>): void {
-    Object.assign(this.options, opts);
+    if (opts.brushSize !== undefined) this.options.brushSize = opts.brushSize;
+    if (opts.hardness !== undefined) this.options.hardness = opts.hardness;
+    if (opts.mode !== undefined) this.options.mode = opts.mode;
+    if (opts.clipToSelection !== undefined) {
+      this.options.clipToSelection = opts.clipToSelection;
+    }
     this.brushMask = createBrushMask(this.options.brushSize, this.options.hardness).mask;
+  }
+
+  getOptions(): RefineMaskOptions {
+    return { ...this.options };
+  }
+
+  private resolveMode(altKey: boolean): RefineBrushMode {
+    return altKey ? 'subtract' : this.options.mode;
+  }
+
+  private mapWorldToSource(world: { x: number; y: number }): { x: number; y: number } | null {
+    const mapped = this.mapper
+      ? this.mapper.mapWorldPoint(world)
+      : { x: Math.round(world.x), y: Math.round(world.y) };
+    return mapped ?? null;
   }
 
   private loadMask(ctx: ToolContext): void {
@@ -237,7 +300,8 @@ export class RefineMaskTool extends BaseTool {
     }
 
     const isFrame = node.kind === 'frame';
-    const imageSourceNode = sourceNode && isImageShape(sourceNode) ? sourceNode : null;
+    const imageSourceNode =
+      sourceNode && sourceNode.kind === 'shape' && isImageShape(sourceNode) ? sourceNode : null;
     const isImage = imageSourceNode !== null;
     const rasterMask = node.mask?.rasterMask;
     const asset = rasterMask?.assetId
@@ -421,54 +485,58 @@ export class RefineMaskTool extends BaseTool {
     this.maskSnapshot = null;
     this.nodeId = null;
     this.lastPaintedPoint = null;
+    this.lastPaintedSource = null;
     this.pendingLoad = false;
     this.mapper = null;
     this.strokeAreaSelection = null;
+    this.strokeDirty = false;
   }
 
   private getCoalescedStrokes(
     e: PointerEvent,
     ctx: ToolContext,
-  ): Array<{ world: { x: number; y: number }; pressure: number }> {
-    const strokes: Array<{ world: { x: number; y: number }; pressure: number }> = [];
+  ): Array<{
+    world: { x: number; y: number };
+    event: { pressure?: number; pointerType?: string };
+  }> {
+    const strokes: Array<{
+      world: { x: number; y: number };
+      event: { pressure?: number; pointerType?: string };
+    }> = [];
 
     if (typeof e.getCoalescedEvents === 'function') {
       const coalesced = e.getCoalescedEvents();
       if (coalesced.length > 0) {
         for (const ce of coalesced) {
           const w = ctx.canvasToWorld(ce.clientX, ce.clientY);
-          strokes.push({ world: w, pressure: ce.pressure });
+          strokes.push({ world: w, event: ce });
         }
         return strokes;
       }
     }
 
-    strokes.push({ world: this.drag.currentWorld, pressure: e.pressure });
+    strokes.push({ world: this.drag.currentWorld, event: e });
     return strokes;
   }
 
-  private paintStroke(
-    world: { x: number; y: number },
-    subtract: boolean,
-    pressure: number = 0.5,
-    areaSelection: AreaSelection | null = this.strokeAreaSelection,
+  /** Paint one dab at a mask/source pixel position. */
+  private paintSourcePoint(
+    sourcePixel: { x: number; y: number },
+    pressure: number,
+    mode: RefineBrushMode,
+    areaSelection: AreaSelection | null,
   ): void {
     if (!this.maskData) return;
-
-    const sourcePixel = this.mapper
-      ? this.mapper.mapWorldPoint(world)
-      : { x: Math.round(world.x), y: Math.round(world.y) };
-
-    if (!sourcePixel) return;
-
-    this.brushMask = createBrushMask(this.options.brushSize, this.options.hardness).mask;
+    if (!Number.isFinite(sourcePixel.x) || !Number.isFinite(sourcePixel.y)) return;
+    if (!this.brushMask) {
+      this.brushMask = createBrushMask(this.options.brushSize, this.options.hardness).mask;
+    }
 
     const bw = this.options.brushSize;
     const r = Math.floor(bw / 2);
     const tx = Math.round(sourcePixel.x) - r;
     const ty = Math.round(sourcePixel.y) - r;
     const d = r * 2 + 1;
-
     const opacityScale = Math.max(0, Math.min(1, pressure));
 
     for (let by = 0; by < d; by++) {
@@ -479,27 +547,30 @@ export class RefineMaskTool extends BaseTool {
 
         const data = this.maskData.data;
         const maskWeight = this.brushMask ? this.brushMask[by * d + bx]! : 255;
-        const selectionWeight = this.areaSelectionCoverageAtMaskPixel(mx, my, areaSelection);
+        const selectionWeight =
+          this.options.clipToSelection && areaSelection
+            ? this.areaSelectionCoverageAtMaskPixel(mx, my, areaSelection)
+            : 1;
         const scaledWeight = Math.round(maskWeight * opacityScale * selectionWeight);
         if (scaledWeight === 0) continue;
         const pixelIdx = (my * this.maskData.width + mx) * 4;
-
-        if (subtract) {
-          const newVal = data[pixelIdx]! * (1 - scaledWeight / 255);
-          const rounded = Math.round(newVal);
-          data[pixelIdx] = rounded;
-          data[pixelIdx + 1] = rounded;
-          data[pixelIdx + 2] = rounded;
-          data[pixelIdx + 3] = rounded;
+        const current = data[pixelIdx]!;
+        let next: number;
+        if (mode === 'subtract') {
+          next = current * (1 - scaledWeight / 255);
+        } else if (mode === 'restore') {
+          const target = this.maskSnapshot?.data[pixelIdx] ?? current;
+          next = current + (target - current) * (scaledWeight / 255);
         } else {
-          const curVal = data[pixelIdx]!;
-          const newVal = curVal + (255 - curVal) * (scaledWeight / 255);
-          const rounded = Math.round(newVal);
-          data[pixelIdx] = rounded;
-          data[pixelIdx + 1] = rounded;
-          data[pixelIdx + 2] = rounded;
-          data[pixelIdx + 3] = rounded;
+          next = current + (255 - current) * (scaledWeight / 255);
         }
+        const rounded = Math.round(next);
+        if (rounded === current) continue;
+        this.strokeDirty = true;
+        data[pixelIdx] = rounded;
+        data[pixelIdx + 1] = rounded;
+        data[pixelIdx + 2] = rounded;
+        data[pixelIdx + 3] = rounded;
       }
     }
   }
@@ -512,14 +583,15 @@ export class RefineMaskTool extends BaseTool {
   ): number {
     if (!selection || !this.maskData) return 1;
     const mapper = this.mapper;
-    const sourceWidth = mapper?.sourceWidth ?? this.maskData.width;
-    const sourceHeight = mapper?.sourceHeight ?? this.maskData.height;
+    if (!mapper?.mapMaskPixelToWorld) return 1;
+    const sourceWidth = mapper.sourceWidth ?? this.maskData.width;
+    const sourceHeight = mapper.sourceHeight ?? this.maskData.height;
     const toWorld = (offsetX: number, offsetY: number): number => {
       const sourcePoint = {
         x: ((maskX + offsetX) / this.maskData!.width) * sourceWidth,
         y: ((maskY + offsetY) / this.maskData!.height) * sourceHeight,
       };
-      const world = mapper?.mapMaskPixelToWorld?.(sourcePoint) ?? sourcePoint;
+      const world = mapper.mapMaskPixelToWorld?.(sourcePoint) ?? null;
       return world ? areaSelectionCoverageAt(selection, world) : 0;
     };
     if (!selectionUsesAntialias(selection.expression)) return toWorld(0.5, 0.5);

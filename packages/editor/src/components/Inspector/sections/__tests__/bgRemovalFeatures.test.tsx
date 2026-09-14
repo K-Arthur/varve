@@ -773,7 +773,7 @@ describe('BackgroundRemovalSection - Object Selection', () => {
 });
 
 describe('BackgroundRemovalSection - Phase E actions', () => {
-  it('shows Refine edges (hair/fur) when background removal exists', () => {
+  it('shows Refine edges when background removal exists', () => {
     const node = makeImageNode({
       backgroundRemoval: {
         maskDataUrl: 'data:image/png;base64,mask',
@@ -784,7 +784,7 @@ describe('BackgroundRemovalSection - Phase E actions', () => {
     });
     render(<BackgroundRemovalSection nodes={[node]} />);
     fireEvent.click(screen.getByText('Edit mask'));
-    expect(screen.getByText('Refine edges (hair/fur)')).toBeTruthy();
+    expect(screen.getByText('Refine edges')).toBeTruthy();
     expect(screen.getByText('Edit trimap')).toBeTruthy();
   });
 
@@ -801,7 +801,7 @@ describe('BackgroundRemovalSection - Phase E actions', () => {
     });
     render(<BackgroundRemovalSection nodes={[node]} />);
     fireEvent.click(screen.getByText('Edit mask'));
-    fireEvent.click(screen.getByText('Refine edges (hair/fur)'));
+    fireEvent.click(screen.getByText('Refine edges'));
     expect(refineHairEdges).toHaveBeenCalled();
   });
 

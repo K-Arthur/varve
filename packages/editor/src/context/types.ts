@@ -527,6 +527,16 @@ export interface EditorState {
     hardness: number;
     sourceWidth?: number;
     sourceHeight?: number;
+    /** Brush intent for the refine tool: add, subtract, or restore original. */
+    mode?: 'add' | 'subtract' | 'restore';
+    /** Explicit opt-in for clipping strokes to the active area selection. */
+    clipToSelection?: boolean;
+    /** One-shot edge refinement method (guided smoothing vs closed-form matting). */
+    method?: 'guided' | 'closed-form';
+    /** Guided window radius / closed-form band radius in image pixels. */
+    radius?: number;
+    /** Spatial unknown-band width for closed-form matting. */
+    bandRadius?: number;
   };
   /** Tracks the last duplicate offset for the Repeat Duplicate command. */
   lastDuplicateOffset: { x: number; y: number } | null;
@@ -1289,7 +1299,17 @@ export interface EditorContextValue {
   applyBackgroundRemovalPreview: () => void;
   cancelBackgroundRemovalPreview: () => void;
   setShowOriginalBg: (nodeId: NodeId | null) => void;
-  setRefineMaskOptions: (opts: Partial<{ brushSize: number; hardness: number }>) => void;
+  setRefineMaskOptions: (
+    opts: Partial<{
+      brushSize: number;
+      hardness: number;
+      mode: 'add' | 'subtract' | 'restore';
+      clipToSelection: boolean;
+      method: 'guided' | 'closed-form';
+      radius: number;
+      bandRadius: number;
+    }>,
+  ) => void;
   setTrimapEditOptions: (
     opts: Partial<{ brushSize: number; hardness: number; penMode: TrimapPenMode }>,
   ) => void;
@@ -1297,7 +1317,11 @@ export interface EditorContextValue {
     key: K,
     value: EditorState['brushSettings'][K],
   ) => void;
-  refineHairEdges: () => Promise<void>;
+  refineHairEdges: (options?: {
+    method?: 'guided' | 'closed-form';
+    radius?: number;
+    bandRadius?: number;
+  }) => Promise<void>;
   startTrimapEdit: () => void;
   applyTrimapMatting: () => Promise<void>;
   confirmSubjectPicker: (keepIds: number[]) => void;

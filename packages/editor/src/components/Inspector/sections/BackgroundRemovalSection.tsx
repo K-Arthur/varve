@@ -210,6 +210,11 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     node && state.tool === 'trimapEdit' && state.selection[0] === node.id,
   );
   const { brushSize, hardness } = state.refineMaskOptions ?? { brushSize: 20, hardness: 0.8 };
+  const refineMode = state.refineMaskOptions?.mode ?? 'add';
+  const clipToSelection = state.refineMaskOptions?.clipToSelection ?? false;
+  const refineMethod = state.refineMaskOptions?.method ?? 'guided';
+  const refineRadius = state.refineMaskOptions?.radius ?? 4;
+  const refineBandRadius = state.refineMaskOptions?.bandRadius ?? refineRadius;
   const trimapOpts = state.trimapEditOptions ?? {
     brushSize: 20,
     hardness: 0.8,
@@ -485,7 +490,11 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   };
 
   const handleRefineHair = () => {
-    void refineHairEdges();
+    void refineHairEdges({
+      method: refineMethod,
+      radius: refineRadius,
+      bandRadius: refineBandRadius,
+    });
   };
 
   const handleEditTrimap = () => {
@@ -1065,9 +1074,9 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 variant="ghost"
                 size="sm"
                 onClick={handleRefineHair}
-                aria-label="Refine hair and fur edges with guided matting"
+                aria-label="Refine edges with the selected edge method"
               >
-                Refine edges (hair/fur)
+                Refine edges
               </Button>
               <Button
                 type="button"
@@ -1079,6 +1088,20 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 Edit trimap
               </Button>
             </div>
+            <FieldRow label="Brush mode">
+              <Select
+                label="Brush mode"
+                value={refineMode}
+                options={[
+                  { value: 'add', label: 'Add / reveal' },
+                  { value: 'subtract', label: 'Subtract / hide' },
+                  { value: 'restore', label: 'Restore original' },
+                ]}
+                onChange={(v) =>
+                  setRefineMaskOptions({ mode: v as 'add' | 'subtract' | 'restore' })
+                }
+              />
+            </FieldRow>
             <FieldRow label="Brush size" htmlFor="bg-refine-brush-range">
               <RangeValueControl
                 id="bg-refine-brush"
@@ -1088,7 +1111,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 max={100}
                 unit="px"
                 rangeClassName="insp-range"
-                rangeAriaLabel="Brush size"
+                rangeAriaLabel="Brush size (image pixels)"
                 onChange={(value) => setRefineMaskOptions({ brushSize: value, hardness })}
               />
             </FieldRow>
@@ -1107,6 +1130,55 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 onChange={(value) => setRefineMaskOptions({ brushSize, hardness: value })}
               />
             </FieldRow>
+            <Switch
+              className="insp-switch"
+              label="Clip strokes to selection"
+              checked={clipToSelection}
+              onChange={(event) => setRefineMaskOptions({ clipToSelection: event.target.checked })}
+            />
+            <p className="insp-hint">
+              Off by default: strokes can recover detail outside the current pixel selection. Brush
+              size is measured in image pixels.
+            </p>
+            <FieldRow label="Edge method">
+              <Select
+                label="Edge method"
+                value={refineMethod}
+                options={[
+                  { value: 'guided', label: 'Guided (soft edges)' },
+                  { value: 'closed-form', label: 'Matting (hard/binary edges)' },
+                ]}
+                onChange={(v) => setRefineMaskOptions({ method: v as 'guided' | 'closed-form' })}
+              />
+            </FieldRow>
+            <FieldRow label="Edge radius" htmlFor="bg-refine-radius-range">
+              <RangeValueControl
+                id="bg-refine-radius"
+                label="Edge radius"
+                value={refineRadius}
+                min={1}
+                max={24}
+                unit="px"
+                rangeClassName="insp-range"
+                rangeAriaLabel="Edge refinement radius in image pixels"
+                onChange={(value) => setRefineMaskOptions({ radius: value })}
+              />
+            </FieldRow>
+            {refineMethod === 'closed-form' && (
+              <FieldRow label="Unknown band" htmlFor="bg-refine-band-range">
+                <RangeValueControl
+                  id="bg-refine-band"
+                  label="Unknown band"
+                  value={refineBandRadius}
+                  min={1}
+                  max={48}
+                  unit="px"
+                  rangeClassName="insp-range"
+                  rangeAriaLabel="Matting unknown band width in image pixels"
+                  onChange={(value) => setRefineMaskOptions({ bandRadius: value })}
+                />
+              </FieldRow>
+            )}
             <div className="insp-actions">
               <Button type="button" variant="default" size="sm" onClick={handleDoneMaskEditing}>
                 Done
