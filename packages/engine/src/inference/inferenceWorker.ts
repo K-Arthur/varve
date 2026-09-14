@@ -37,7 +37,7 @@ import {
   encodeMobileSamPrompts,
   MOBILE_SAM_INPUT_SIZE,
   MOBILE_SAM_TENSOR_SPEC,
-  resizeLongestSideDimensions,
+  preprocessMobileSamImageData,
 } from './models/mobileSam';
 import { NAFNET_INPUT_SIZE, NAFNET_TENSOR_SPEC } from './models/nafnet';
 import { PADDLE_DET_TENSOR_SPEC } from './models/paddleocr';
@@ -732,43 +732,6 @@ function preprocessImage(
  * here would silently double-normalize and produce a plausible-looking but
  * wrong mask.
  */
-function preprocessMobileSamImage(imageData: ImageData): {
-  tensor: Float32Array;
-  width: number;
-  height: number;
-  offsetX: number;
-  offsetY: number;
-  contentWidth: number;
-  contentHeight: number;
-} {
-  const resized = resizeLongestSideDimensions(imageData.width, imageData.height);
-  const sourceCanvas = new OffscreenCanvas(imageData.width, imageData.height);
-  const sourceContext = sourceCanvas.getContext('2d');
-  if (!sourceContext) throw new Error('Canvas context unavailable');
-  sourceContext.putImageData(imageData, 0, 0);
-
-  const resizedCanvas = new OffscreenCanvas(resized.width, resized.height);
-  const resizedContext = resizedCanvas.getContext('2d');
-  if (!resizedContext) throw new Error('Canvas context unavailable');
-  resizedContext.drawImage(sourceCanvas, 0, 0, resized.width, resized.height);
-  const pixels = resizedContext.getImageData(0, 0, resized.width, resized.height).data;
-  const tensor = new Float32Array(resized.width * resized.height * 3);
-  for (let index = 0, output = 0; index < pixels.length; index += 4) {
-    tensor[output++] = pixels[index] ?? 0;
-    tensor[output++] = pixels[index + 1] ?? 0;
-    tensor[output++] = pixels[index + 2] ?? 0;
-  }
-  return {
-    tensor,
-    width: resized.width,
-    height: resized.height,
-    offsetX: 0,
-    offsetY: 0,
-    contentWidth: resized.width,
-    contentHeight: resized.height,
-  };
-}
-
 self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   const data = e.data;
   if (data?.type !== 'infer') return;
@@ -831,7 +794,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
           ? modelPre.transformInput(imageData)
           : imageData;
         const primary = modelPre.resizeLongestSideHwc
-          ? preprocessMobileSamImage(primarySource)
+          ? preprocessMobileSamImageData(primarySource)
           : preprocessImage(primarySource, inputSize, modelPre.tensorSpec, {
               channelsLast: modelPre.channelsLast,
               stretch: modelPre.stretchInput,

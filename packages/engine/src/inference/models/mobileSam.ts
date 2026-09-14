@@ -63,6 +63,17 @@ export type MobileSamDecoderOutput = {
   scoreSource: MobileSamScoreSource;
 };
 
+export type MobileSamPreprocessedImage = {
+  /** Raw RGB HWC values in the graph's expected [0, 255] range. */
+  tensor: Float32Array;
+  width: number;
+  height: number;
+  offsetX: number;
+  offsetY: number;
+  contentWidth: number;
+  contentHeight: number;
+};
+
 export function resizeLongestSideDimensions(
   sourceWidth: number,
   sourceHeight: number,
@@ -83,6 +94,55 @@ export function resizeLongestSideDimensions(
     height,
     scaleX: width / sourceWidth,
     scaleY: height / sourceHeight,
+  };
+}
+
+/**
+ * Resize decoded RGBA source pixels using the provider's longest-side
+ * geometry. The ONNX graph performs normalization and padding, so this
+ * function intentionally emits raw RGB HWC values and ignores alpha.
+ *
+ * Keeping this in the provider module makes the browser worker and the gated
+ * Node real-artifact harness use the same preprocessing contract.
+ */
+export function preprocessMobileSamImageData(
+  imageData: { data: ArrayLike<number>; width: number; height: number },
+  targetSize = MOBILE_SAM_INPUT_SIZE,
+): MobileSamPreprocessedImage {
+  validateDimensions(imageData.width, imageData.height);
+  const resized = resizeLongestSideDimensions(imageData.width, imageData.height, targetSize);
+  const tensor = new Float32Array(resized.width * resized.height * 3);
+  const sample = (x: number, y: number, channel: number): number => {
+    const clampedX = Math.max(0, Math.min(imageData.width - 1, x));
+    const clampedY = Math.max(0, Math.min(imageData.height - 1, y));
+    return imageData.data[(clampedY * imageData.width + clampedX) * 4 + channel] ?? 0;
+  };
+  for (let y = 0; y < resized.height; y += 1) {
+    const sourceY = (y + 0.5) * (imageData.height / resized.height) - 0.5;
+    const y0 = Math.max(0, Math.min(imageData.height - 1, Math.floor(sourceY)));
+    const y1 = Math.max(0, Math.min(imageData.height - 1, y0 + 1));
+    const yWeight = Math.max(0, Math.min(1, sourceY - y0));
+    for (let x = 0; x < resized.width; x += 1) {
+      const sourceX = (x + 0.5) * (imageData.width / resized.width) - 0.5;
+      const x0 = Math.max(0, Math.min(imageData.width - 1, Math.floor(sourceX)));
+      const x1 = Math.max(0, Math.min(imageData.width - 1, x0 + 1));
+      const xWeight = Math.max(0, Math.min(1, sourceX - x0));
+      const outputOffset = (y * resized.width + x) * 3;
+      for (let channel = 0; channel < 3; channel += 1) {
+        const top = sample(x0, y0, channel) * (1 - xWeight) + sample(x1, y0, channel) * xWeight;
+        const bottom = sample(x0, y1, channel) * (1 - xWeight) + sample(x1, y1, channel) * xWeight;
+        tensor[outputOffset + channel] = top * (1 - yWeight) + bottom * yWeight;
+      }
+    }
+  }
+  return {
+    tensor,
+    width: resized.width,
+    height: resized.height,
+    offsetX: 0,
+    offsetY: 0,
+    contentWidth: resized.width,
+    contentHeight: resized.height,
   };
 }
 
