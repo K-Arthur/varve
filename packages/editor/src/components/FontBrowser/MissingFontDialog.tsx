@@ -39,6 +39,16 @@ function missingFontKey(missing: MissingFontInfo): string {
   return missingFontRecoveryKey(missing);
 }
 
+const diagnosticActionLabels: Record<
+  NonNullable<MissingFontInfo['diagnostic']>['nextAction'],
+  string
+> = {
+  'install-family': 'Install the family or choose a substitute.',
+  'install-face': 'Install the requested face or replace it explicitly.',
+  'choose-face': 'Choose one exact artifact before applying it.',
+  'replace-glyphs': 'Use a face with the required glyphs or replace the affected text.',
+};
+
 function initialSelections(
   missingFonts: readonly MissingFontInfo[],
   previous?: ReadonlyMap<string, string>,
@@ -168,6 +178,8 @@ export function MissingFontDialog({
 
   const statusLabels: Record<string, string> = {
     missing: 'Missing',
+    'missing-family': 'Missing family',
+    'missing-face': 'Missing face',
     'missing-glyph': 'Missing glyphs',
     corrupt: 'Corrupt',
     unsupported: 'Unsupported',
@@ -254,6 +266,15 @@ export function MissingFontDialog({
                     </span>
                   )}
                 </div>
+
+                {mf.diagnostic && (
+                  <div className="missing-font-dialog__diagnostic" role="status">
+                    <span>{mf.diagnostic.reason}</span>
+                    <span className="missing-font-dialog__diagnostic-action">
+                      {diagnosticActionLabels[mf.diagnostic.nextAction]}
+                    </span>
+                  </div>
+                )}
 
                 <div className="missing-font-dialog__recovery">
                   <div className="missing-font-dialog__recovery-copy">

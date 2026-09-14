@@ -124,6 +124,24 @@ describe('MissingFontDialog', () => {
     );
   });
 
+  it('shows the recovery reason and next action for an unavailable face', () => {
+    const missing: MissingFontInfo = {
+      ...makeMissingFont(),
+      status: 'version-mismatch',
+      diagnostic: {
+        reason:
+          'A face with this PostScript name exists, but its artifact bytes differ from the document.',
+        nextAction: 'install-face',
+      },
+    };
+
+    render(<MissingFontDialog {...dialogProps([missing])} recoveryMatches={new Map()} />);
+
+    const diagnostic = document.querySelector('.missing-font-dialog__diagnostic');
+    expect(diagnostic).toHaveTextContent(/artifact bytes differ/i);
+    expect(diagnostic).toHaveTextContent(/install the requested face/i);
+  });
+
   it('submits the ranked default replacement as one bulk mapping', async () => {
     const user = userEvent.setup();
     const onReplaceAll = vi.fn();

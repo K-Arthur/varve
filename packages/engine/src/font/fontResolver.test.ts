@@ -268,8 +268,59 @@ describe('FontResolver', () => {
       expect(missing[0]).toMatchObject({
         familyName: 'Inter',
         fontReference: requestedReference,
-        status: 'missing',
+        status: 'version-mismatch',
         nodeIds: ['t1'],
+      });
+      expect(missing[0]!.diagnostic).toMatchObject({ nextAction: 'install-face' });
+    });
+
+    it('distinguishes a missing family from a missing face', () => {
+      const catalog = makeCatalog(['Inter']);
+      const doc = makeDoc([
+        { id: 'family-missing', fontFamily: 'No Such Family' },
+        { id: 'face-missing', fontFamily: 'Inter', fontWeight: 900, fontStyle: 'italic' },
+      ]);
+
+      const missing = resolver.detectMissing(doc, catalog);
+      expect(missing).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            familyName: 'No Such Family',
+            status: 'missing-family',
+            diagnostic: expect.objectContaining({ nextAction: 'install-family' }),
+          }),
+          expect.objectContaining({
+            familyName: 'Inter',
+            status: 'missing-face',
+            diagnostic: expect.objectContaining({ nextAction: 'install-face' }),
+          }),
+        ]),
+      );
+    });
+
+    it('reports an ambiguous same-variant family instead of choosing arbitrary bytes', () => {
+      const catalog = new FontCatalog();
+      catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({ contentHash: 'a'.repeat(64), familyName: 'Inter' }),
+        }),
+      );
+      catalog.addEntry(
+        makeMeta({
+          identity: makeIdentity({ contentHash: 'b'.repeat(64), familyName: 'Inter' }),
+        }),
+      );
+
+      const missing = resolver.detectMissing(
+        makeDoc([{ id: 'ambiguous', fontFamily: 'Inter', fontWeight: 400 }]),
+        catalog,
+      );
+
+      expect(missing).toHaveLength(1);
+      expect(missing[0]).toMatchObject({
+        familyName: 'Inter',
+        status: 'conflicting',
+        diagnostic: expect.objectContaining({ nextAction: 'choose-face' }),
       });
     });
 

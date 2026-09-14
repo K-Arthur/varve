@@ -67,11 +67,26 @@ export interface ResolverDocument {
 
 export type MissingFontStatus =
   | 'missing'
+  | 'missing-family'
+  | 'missing-face'
   | 'missing-glyph'
   | 'corrupt'
   | 'unsupported'
   | 'conflicting'
   | 'version-mismatch';
+
+export type MissingFontRecoveryAction =
+  | 'install-family'
+  | 'install-face'
+  | 'choose-face'
+  | 'replace-glyphs';
+
+export interface MissingFontDiagnostic {
+  /** Human-readable explanation of why the authored face cannot be used. */
+  reason: string;
+  /** The first useful action the recovery UI can offer. */
+  nextAction: MissingFontRecoveryAction;
+}
 
 export type MatchQuality =
   | 'exact'
@@ -97,6 +112,8 @@ export interface MissingFontInfo {
   requestedStyle?: string;
   nodeIds: string[];
   status: MissingFontStatus;
+  /** Actionable explanation for statuses that need user recovery. */
+  diagnostic?: MissingFontDiagnostic;
   substitutes: FontSubstitute[];
   originalReference: string;
   /** Code points requested by the document but outside the resolved cmap. */
@@ -273,6 +290,8 @@ export class FontResolver {
         weight?: number;
         style?: string;
         missingGlyphs: Set<string>;
+        status: MissingFontStatus;
+        diagnostic?: MissingFontDiagnostic;
       }
     >();
 
@@ -288,6 +307,11 @@ export class FontResolver {
         const entry = resolveCatalogEntry(catalog, reference);
         const missingGlyphs = entry ? findMissingGlyphs(reference.text, entry) : [];
         if (entry && missingGlyphs.length === 0) continue;
+        const classified = classifyMissingReference(catalog, reference);
+        const status: MissingFontStatus =
+          missingGlyphs.length > 0 ? 'missing-glyph' : classified.status;
+        const diagnostic: MissingFontDiagnostic =
+          missingGlyphs.length > 0 ? missingFontDiagnostic('missing-glyph') : classified.diagnostic;
 
         const existing = familyNodes.get(key);
         if (existing) {
@@ -295,6 +319,10 @@ export class FontResolver {
           if (existing.weight === undefined) existing.weight = reference.weight;
           if (existing.style === undefined) existing.style = reference.style;
           for (const glyph of missingGlyphs) existing.missingGlyphs.add(glyph);
+          if (statusPriority(status) > statusPriority(existing.status)) {
+            existing.status = status;
+            existing.diagnostic = diagnostic;
+          }
         } else {
           familyNodes.set(key, {
             family,
@@ -303,6 +331,8 @@ export class FontResolver {
             weight: reference.weight,
             style: reference.style,
             missingGlyphs: new Set(missingGlyphs),
+            status,
+            diagnostic,
           });
         }
       }
@@ -316,6 +346,7 @@ export class FontResolver {
         : `family:${ref.family.toLowerCase()}`;
       const entry = resolveCatalogEntry(catalog, ref);
       if (!entry) {
+        const diagnostic = classifyMissingReference(catalog, ref);
         const existing = familyNodes.get(key);
         if (!existing) {
           familyNodes.set(key, {
@@ -325,7 +356,12 @@ export class FontResolver {
             weight: ref.weight,
             style: ref.style,
             missingGlyphs: new Set(),
+            status: diagnostic.status,
+            diagnostic: diagnostic.diagnostic,
           });
+        } else if (statusPriority(diagnostic.status) > statusPriority(existing.status)) {
+          existing.status = diagnostic.status;
+          existing.diagnostic = diagnostic.diagnostic;
         }
       }
     }
@@ -340,7 +376,8 @@ export class FontResolver {
           requestedWeight: info.weight,
           requestedStyle: info.style,
           nodeIds: info.nodeIds,
-          status: info.missingGlyphs.size > 0 ? 'missing-glyph' : 'missing',
+          status: info.status,
+          diagnostic: info.diagnostic,
           substitutes: [],
           originalReference: family,
           ...(info.missingGlyphs.size > 0 ? { missingGlyphs: [...info.missingGlyphs].sort() } : {}),
@@ -354,7 +391,8 @@ export class FontResolver {
         requestedWeight: info.weight,
         requestedStyle: info.style,
         nodeIds: info.nodeIds,
-        status: info.missingGlyphs.size > 0 ? 'missing-glyph' : 'missing',
+        status: info.status,
+        diagnostic: info.diagnostic,
         substitutes,
         originalReference: family,
         ...(info.missingGlyphs.size > 0 ? { missingGlyphs: [...info.missingGlyphs].sort() } : {}),
@@ -604,9 +642,138 @@ function resolveCatalogEntry(
     return catalog.getEntryForReference(reference.fontReference);
   }
   const familyKey = reference.family.toLowerCase();
-  return catalog
+  const entries = catalog
     .getEntriesForFamily(reference.family)
-    .find((entry) => entry.identity.familyName.toLowerCase() === familyKey);
+    .filter((entry) => entry.identity.familyName.toLowerCase() === familyKey);
+  if (entries.length === 0) return undefined;
+
+  const requestedVariant = entries.filter((entry) => matchesRequestedVariant(entry, reference));
+  if (requestedVariant.length === 1) return requestedVariant[0];
+  if (requestedVariant.length > 1) return undefined;
+
+  // A family-only request has a useful deterministic default: the regular
+  // face. If multiple artifacts claim that same default, keep it unresolved
+  // so the user can choose an exact face instead of silently picking bytes.
+  if (reference.weight === undefined && reference.style === undefined) {
+    const regular = entries.filter((entry) =>
+      matchesRequestedVariant(entry, { ...reference, weight: 400, style: 'normal' }),
+    );
+    if (regular.length === 1) return regular[0];
+    if (regular.length > 1) return undefined;
+    return entries.length === 1 ? entries[0] : undefined;
+  }
+  return undefined;
+}
+
+function matchesRequestedVariant(
+  entry: FontCatalogEntry,
+  reference: { weight?: number; style?: string },
+): boolean {
+  const subfamily = entry.identity.subfamilyName.toLowerCase();
+  const weight = parseWeightFromSubfamily(entry.identity.subfamilyName);
+  const wantsItalic = reference.style?.toLowerCase() === 'italic';
+  const styleMatches =
+    reference.style === undefined ||
+    (wantsItalic ? subfamily.includes('italic') : !subfamily.includes('italic'));
+  return (reference.weight === undefined || weight === reference.weight) && styleMatches;
+}
+
+function classifyMissingReference(
+  catalog: FontCatalog,
+  reference: {
+    family: string;
+    fontReference?: FontReference;
+    weight?: number;
+    style?: string;
+  },
+): { status: MissingFontStatus; diagnostic: MissingFontDiagnostic } {
+  const entries = catalog.getEntriesForFamily(reference.family);
+  if (entries.length === 0) {
+    return {
+      status: 'missing-family',
+      diagnostic: missingFontDiagnostic('missing-family'),
+    };
+  }
+
+  if (reference.fontReference?.postScriptName) {
+    const requestedPostScript = reference.fontReference.postScriptName.toLowerCase();
+    if (
+      entries.some((entry) => entry.identity.postScriptName.toLowerCase() === requestedPostScript)
+    ) {
+      return {
+        status: 'version-mismatch',
+        diagnostic: missingFontDiagnostic('version-mismatch'),
+      };
+    }
+  }
+
+  const variantEntries = entries.filter((entry) => matchesRequestedVariant(entry, reference));
+  if (variantEntries.length > 1) {
+    return {
+      status: 'conflicting',
+      diagnostic: missingFontDiagnostic('conflicting'),
+    };
+  }
+
+  return {
+    status: 'missing-face',
+    diagnostic: missingFontDiagnostic('missing-face'),
+  };
+}
+
+function missingFontDiagnostic(status: MissingFontStatus): MissingFontDiagnostic {
+  switch (status) {
+    case 'missing-family':
+      return {
+        reason: 'No installed or bundled face matches this family.',
+        nextAction: 'install-family',
+      };
+    case 'missing-face':
+      return {
+        reason: 'The family is available, but the requested face is not installed.',
+        nextAction: 'install-face',
+      };
+    case 'version-mismatch':
+      return {
+        reason:
+          'A face with this PostScript name exists, but its artifact bytes differ from the document.',
+        nextAction: 'install-face',
+      };
+    case 'conflicting':
+      return {
+        reason: 'More than one local artifact can satisfy this request; choose an exact face.',
+        nextAction: 'choose-face',
+      };
+    case 'missing-glyph':
+      return {
+        reason: 'The resolved face does not cover every requested character.',
+        nextAction: 'replace-glyphs',
+      };
+    default:
+      return {
+        reason: 'The requested face is unavailable.',
+        nextAction: 'install-face',
+      };
+  }
+}
+
+function statusPriority(status: MissingFontStatus): number {
+  switch (status) {
+    case 'missing-glyph':
+      return 5;
+    case 'corrupt':
+    case 'unsupported':
+      return 4;
+    case 'version-mismatch':
+    case 'conflicting':
+      return 3;
+    case 'missing-face':
+      return 2;
+    case 'missing-family':
+      return 1;
+    default:
+      return 0;
+  }
 }
 
 /**
