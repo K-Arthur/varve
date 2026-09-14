@@ -108,6 +108,37 @@ describe('FloatingTextBar', () => {
     expect(screen.getByText('Size')).toBeInTheDocument();
   });
 
+  it('shows mixed rich-range values and keeps the controls actionable', async () => {
+    render(
+      <FloatingTextBar
+        {...defaultProps({
+          selectionRange: {
+            start: { paragraphIndex: 0, offset: 0 },
+            end: { paragraphIndex: 0, offset: 11 },
+          },
+          node: {
+            ...BASE_TEXT_NODE,
+            richText: {
+              paragraphs: [
+                {
+                  runs: [
+                    { text: 'Hello', format: { fontFamily: 'Arial', fontWeight: 400 } },
+                    { text: ' world', format: { fontFamily: 'Georgia', fontWeight: 700 } },
+                  ],
+                },
+              ],
+            },
+          },
+        })}
+      />,
+    );
+
+    await settledToolbar();
+    const family = screen.getByRole('combobox', { name: 'Font family' });
+    expect(family).toHaveAttribute('placeholder', 'Mixed fonts');
+    expect(screen.getByLabelText('Font weight')).toHaveTextContent('Mixed');
+  });
+
   it('renders align buttons', async () => {
     render(<FloatingTextBar {...defaultProps()} />);
     fireEvent.click(await screen.findByRole('button', { name: 'More text formatting' }));
@@ -325,7 +356,7 @@ describe('FloatingTextBar', () => {
     expect(fontInput).toBeInTheDocument();
   });
 
-  it('does not rewrite the exact face when choosing the current family', async () => {
+  it('clears stale exact identity when choosing the current family row', async () => {
     const onUpdate = vi.fn();
     render(
       <FloatingTextBar
@@ -342,8 +373,12 @@ describe('FloatingTextBar', () => {
     const family = screen.getByRole('combobox', { name: 'Font family' });
     fireEvent.focus(family);
     fireEvent.change(family, { target: { value: 'Arial' } });
-    fireEvent.click(await screen.findByRole('option', { name: /Arial/ }));
-    expect(onUpdate).not.toHaveBeenCalled();
+    fireEvent.mouseDown(await screen.findByRole('option', { name: /Arial/ }));
+    expect(onUpdate).toHaveBeenCalledWith('text-1', {
+      fontFamily: 'Arial',
+      fontReference: undefined,
+      variableAxes: undefined,
+    });
   });
 
   it('clears an older exact face for a family-only choice', () => {

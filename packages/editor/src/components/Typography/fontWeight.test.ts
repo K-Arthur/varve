@@ -43,6 +43,21 @@ describe('fontFamilyChanges', () => {
   it('does not clear an exact face when the current family is selected again', () => {
     expect(fontFamilyChanges('Inter', 'Inter')).toEqual({});
   });
+
+  it('clears an exact face when the current family row is selected explicitly', () => {
+    expect(
+      fontFamilyChanges(
+        'Inter',
+        'Inter',
+        { artifactHash: 'a'.repeat(64), collectionIndex: 1 },
+        { opsz: 14 },
+      ),
+    ).toEqual({
+      fontFamily: 'Inter',
+      fontReference: undefined,
+      variableAxes: undefined,
+    });
+  });
 });
 
 describe('fontWeightOptions', () => {

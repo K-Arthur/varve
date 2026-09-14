@@ -307,6 +307,11 @@
   padding-block: 0;
 }
 
+.font-selector__input[data-mixed="true"] {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
 .floating-text-bar .floating-text-bar__weight-select {
   flex: 0 0 72px;
   width: 72px;

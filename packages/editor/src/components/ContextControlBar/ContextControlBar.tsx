@@ -35,6 +35,7 @@ import {
   applyTypographyChanges,
   type TypographyCommandSurface,
   type TypographyTextChanges,
+  typographyDisplayValues,
 } from '../Typography/typographyCommand';
 import './ContextControlBar.css';
 
@@ -185,11 +186,17 @@ function TextSection({
   node: TextNode;
   typographySurface: TypographyCommandSurface;
 }) {
-  const fontFamily = node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
-  const fontWeight = node.fontWeight ?? 400;
-  const weightOptions = fontWeightOptions(node);
-  const isItalic = (node.fontStyle ?? 'normal') === 'italic';
-  const italicAvailable = isItalic || fontStyleAvailable(node, 'italic');
+  const display = typographyDisplayValues(
+    node,
+    typographySurface.selectionRange,
+    typographySurface.pendingFormat,
+  );
+  const displayNode = { ...node, ...display.values };
+  const fontFamily = displayNode.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY;
+  const fontWeight = displayNode.fontWeight ?? 400;
+  const weightOptions = fontWeightOptions(displayNode);
+  const isItalic = (displayNode.fontStyle ?? 'normal') === 'italic';
+  const italicAvailable = isItalic || fontStyleAvailable(displayNode, 'italic');
   const applyChanges = (changes: TypographyTextChanges) =>
     applyTypographyChanges(typographySurface, node.id, changes);
   return (
@@ -199,9 +206,19 @@ function TextSection({
       <FontSelector
         className="ccb__font-selector"
         value={fontFamily}
-        fontReference={node.fontReference}
-        variableAxes={node.variableAxes}
-        onChange={(family) => applyChanges(fontFamilyChanges(family, node.fontFamily))}
+        fontReference={displayNode.fontReference}
+        variableAxes={displayNode.variableAxes}
+        mixed={display.mixed.fontFamily === true}
+        onChange={(family) =>
+          applyChanges(
+            fontFamilyChanges(
+              family,
+              displayNode.fontFamily,
+              displayNode.fontReference,
+              displayNode.variableAxes,
+            ),
+          )
+        }
         onSelectFace={(selection) =>
           applyChanges({
             fontFamily: selection.family,
@@ -215,14 +232,15 @@ function TextSection({
       <Select
         label="Font weight"
         className="ccb__weight-select"
-        value={String(fontWeight)}
+        value={display.mixed.fontWeight ? '' : String(fontWeight)}
+        placeholder={display.mixed.fontWeight ? 'Mixed' : undefined}
         options={weightOptions.map((option) => ({
           value: String(option.value),
           label: option.label,
           disabled: option.disabled,
           disabledReason: option.disabledReason,
         }))}
-        onChange={(value) => applyChanges(fontWeightChanges(node, Number(value)))}
+        onChange={(value) => applyChanges(fontWeightChanges(displayNode, Number(value)))}
       />
       <CcbButton
         icon="Italic"
@@ -230,24 +248,30 @@ function TextSection({
         active={isItalic}
         disabled={!italicAvailable}
         title={italicAvailable ? undefined : 'This font has no real italic face'}
-        onClick={() => applyChanges(fontStyleChanges(node, isItalic ? 'normal' : 'italic'))}
+        onClick={() => applyChanges(fontStyleChanges(displayNode, isItalic ? 'normal' : 'italic'))}
       />
-      <TextSizeControl node={node} applyChanges={applyChanges} />
+      <TextSizeControl
+        node={displayNode}
+        mixed={display.mixed.fontSize === true}
+        applyChanges={applyChanges}
+      />
     </>
   );
 }
 
 function TextSizeControl({
   node,
+  mixed = false,
   applyChanges,
 }: {
   node: TextNode;
+  mixed?: boolean;
   applyChanges: (changes: TypographyTextChanges) => void;
 }) {
-  const [draft, setDraft] = useState(String(node.fontSize ?? 16));
+  const [draft, setDraft] = useState(mixed ? '' : String(node.fontSize ?? 16));
   const value = node.fontSize ?? 16;
 
-  useEffect(() => setDraft(String(value)), [value]);
+  useEffect(() => setDraft(mixed ? '' : String(value)), [mixed, value]);
 
   const commit = () => {
     const next = Number(draft);
@@ -272,6 +296,8 @@ function TextSizeControl({
         max={10000}
         step={1}
         value={draft}
+        placeholder={mixed ? 'Mixed' : undefined}
+        data-mixed={mixed || undefined}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={commit}
         onKeyDown={(event) => {

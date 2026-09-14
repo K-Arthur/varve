@@ -552,6 +552,8 @@ export function CanvasOverlays({
         />
         <FloatingTextBar
           node={n}
+          selectionRange={editor.state.selectionRange}
+          pendingFormat={editor.state.pendingFormat}
           textScreenRect={textScreenRect}
           onUpdate={(id, changes) =>
             applyTypographyChanges(

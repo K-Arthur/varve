@@ -39,6 +39,8 @@ export interface FontSelectorProps {
   fontReference?: FontReference;
   /** Authored variation coordinates used to distinguish named instances. */
   variableAxes?: Record<string, number>;
+  /** The active rich-text range contains more than one family. */
+  mixed?: boolean;
   label?: string;
   className?: string;
 }
@@ -184,6 +186,7 @@ export function FontSelector({
   onSelectFace,
   fontReference,
   variableAxes,
+  mixed = false,
   label = 'Font family',
   className,
 }: FontSelectorProps) {
@@ -254,7 +257,7 @@ export function FontSelector({
   const warningLabel = !hasFamilyMatch
     ? 'Font is not installed'
     : 'Exact font face is not installed; fallback is in use';
-  const showWarning = (!hasFamilyMatch || !hasExactFaceMatch) && !isOpen && value.trim();
+  const showWarning = !mixed && (!hasFamilyMatch || !hasExactFaceMatch) && !isOpen && value.trim();
 
   const sections = useMemo(() => {
     const sections: Array<{ title: string; records: FontSemanticRecord[] }> = [];
@@ -679,8 +682,9 @@ export function FontSelector({
           id={inputId}
           type="text"
           className="font-selector__input"
-          value={isOpen ? query : value}
-          placeholder={value || 'Search installed fonts'}
+          value={isOpen ? query : mixed ? '' : value}
+          placeholder={mixed ? 'Mixed fonts' : value || 'Search installed fonts'}
+          data-mixed={mixed || undefined}
           aria-label={label}
           onChange={handleInputChange}
           onFocus={handleInputFocus}
@@ -766,6 +770,7 @@ export function FontSelector({
                   }
                   if (row.kind === 'face') {
                     const selected =
+                      !mixed &&
                       row.selection.fontReference !== undefined &&
                       fontReference !== undefined &&
                       fontReferenceKey(row.selection.fontReference) ===
@@ -811,7 +816,7 @@ export function FontSelector({
                   }
                   const { family, index: idx, record, faces } = row;
                   const isHighlighted = idx === highlightedIndex;
-                  const isSelected = normalize(family) === normalize(value);
+                  const isSelected = !mixed && normalize(family) === normalize(value);
                   const labels = recordLabels(record);
                   const isExpanded = expandedFamilies.has(record.familyId);
                   return (

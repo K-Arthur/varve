@@ -258,6 +258,11 @@
   -moz-appearance: textfield;
 }
 
+.ccb__size-input[data-mixed="true"] {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
 .ccb__size-control:focus-within {
   border-color: var(--color-interactive-focus-ring);
   outline: 2px solid var(--color-interactive-focus-ring);

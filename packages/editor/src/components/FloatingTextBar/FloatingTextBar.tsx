@@ -1,5 +1,5 @@
 import { getFontRegistry } from '@varve/engine';
-import type { ManagedColor, NodeId, TextNode } from '@varve/scene';
+import type { CharacterFormat, ManagedColor, NodeId, RichSelection, TextNode } from '@varve/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY, managedColorToRgba } from '@varve/shared';
 import {
   ColorPicker,
@@ -21,6 +21,7 @@ import {
   fontWeightChanges,
   fontWeightOptions,
 } from '../Typography/fontWeight';
+import { typographyDisplayValues } from '../Typography/typographyCommand';
 import './FloatingTextBar.css';
 
 export interface FloatingTextBarProps {
@@ -28,6 +29,8 @@ export interface FloatingTextBarProps {
   onUpdate: (id: NodeId, changes: Partial<TextNode>) => void;
   onClose: () => void;
   textScreenRect: { x: number; y: number; w: number; h: number };
+  selectionRange?: RichSelection | null;
+  pendingFormat?: CharacterFormat | null;
 }
 
 const TOOLBAR_FALLBACKS: Array<'bottom-start' | 'right-start' | 'left-start'> = [
@@ -36,9 +39,24 @@ const TOOLBAR_FALLBACKS: Array<'bottom-start' | 'right-start' | 'left-start'> = 
   'left-start',
 ];
 
-export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: FloatingTextBarProps) {
+export function FloatingTextBar({
+  node,
+  onUpdate,
+  onClose,
+  textScreenRect,
+  selectionRange = null,
+  pendingFormat = null,
+}: FloatingTextBarProps) {
   const registry = useMemo(() => getFontRegistry(), []);
-  const weightOptions = useMemo(() => fontWeightOptions(node, registry), [node, registry]);
+  const display = useMemo(
+    () => typographyDisplayValues(node, selectionRange, pendingFormat),
+    [node, pendingFormat, selectionRange],
+  );
+  const displayNode = useMemo(() => ({ ...node, ...display.values }), [display.values, node]);
+  const weightOptions = useMemo(
+    () => fontWeightOptions(displayNode, registry),
+    [displayNode, registry],
+  );
   const [colorOpen, setColorOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLButtonElement>(null);
@@ -87,17 +105,17 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
   );
 
   const handleBoldToggle = useCallback(() => {
-    const current = node.fontWeight ?? 400;
+    const current = displayNode.fontWeight ?? 400;
     const next = current >= 600 ? 400 : 700;
     const option = weightOptions.find((candidate) => candidate.value === next);
     if (!option || option.disabled) return;
-    onUpdate(node.id, fontWeightChanges(node, next, registry));
-  }, [node, onUpdate, registry, weightOptions]);
+    onUpdate(node.id, fontWeightChanges(displayNode, next, registry));
+  }, [displayNode, node.id, onUpdate, registry, weightOptions]);
 
   const handleItalicToggle = useCallback(() => {
-    const next = (node.fontStyle ?? 'normal') === 'italic' ? 'normal' : 'italic';
-    onUpdate(node.id, fontStyleChanges(node, next, registry));
-  }, [node, onUpdate, registry]);
+    const next = (displayNode.fontStyle ?? 'normal') === 'italic' ? 'normal' : 'italic';
+    onUpdate(node.id, fontStyleChanges(displayNode, next, registry));
+  }, [displayNode, node.id, onUpdate, registry]);
 
   const handleAlignChange = useCallback(
     (v: 'left' | 'center' | 'right' | 'justify') => {
@@ -119,25 +137,33 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
 
   const handleFontFamilyChange = useCallback(
     (value: string) => {
-      onUpdate(node.id, fontFamilyChanges(value, node.fontFamily));
+      onUpdate(
+        node.id,
+        fontFamilyChanges(
+          value,
+          displayNode.fontFamily,
+          displayNode.fontReference,
+          displayNode.variableAxes,
+        ),
+      );
     },
-    [node, onUpdate],
+    [displayNode, node.id, onUpdate],
   );
 
   const handleFontWeightChange = useCallback(
     (value: string) => {
-      onUpdate(node.id, fontWeightChanges(node, Number(value), registry));
+      onUpdate(node.id, fontWeightChanges(displayNode, Number(value), registry));
     },
-    [node, onUpdate, registry],
+    [displayNode, node.id, onUpdate, registry],
   );
 
   const fillColor: ManagedColor = node.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 };
   const fillColorRgba = managedColorToRgba(fillColor);
-  const isBold = (node.fontWeight ?? 400) >= 600;
+  const isBold = (displayNode.fontWeight ?? 400) >= 600;
   const boldAvailable =
     isBold || weightOptions.some((option) => option.value === 700 && !option.disabled);
-  const isItalic = (node.fontStyle ?? 'normal') === 'italic';
-  const italicAvailable = isItalic || fontStyleAvailable(node, 'italic', registry);
+  const isItalic = (displayNode.fontStyle ?? 'normal') === 'italic';
+  const italicAvailable = isItalic || fontStyleAvailable(displayNode, 'italic', registry);
   const isList = (node.listStyle ?? 'none') !== 'none';
   const textAlign = node.textAlign ?? 'left';
 
@@ -165,9 +191,10 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
     >
       <div className="floating-text-bar" role="toolbar" aria-label="Text formatting">
         <FontSelector
-          value={node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY}
-          fontReference={node.fontReference}
-          variableAxes={node.variableAxes}
+          value={displayNode.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY}
+          fontReference={displayNode.fontReference}
+          variableAxes={displayNode.variableAxes}
+          mixed={display.mixed.fontFamily === true}
           onChange={handleFontFamilyChange}
           onSelectFace={(selection) =>
             onUpdate(node.id, {
@@ -185,7 +212,8 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
         <Select
           label="Font weight"
           className="floating-text-bar__weight-select"
-          value={String(node.fontWeight ?? 400)}
+          value={display.mixed.fontWeight ? '' : String(displayNode.fontWeight ?? 400)}
+          placeholder={display.mixed.fontWeight ? 'Mixed' : undefined}
           options={weightOptions.map((option) => ({
             value: String(option.value),
             label: option.label,
@@ -220,7 +248,8 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
 
         <FontSizeInput
           key={node.id}
-          value={node.fontSize ?? 16}
+          value={displayNode.fontSize ?? 16}
+          mixed={display.mixed.fontSize === true}
           onCommit={(fontSize) => onUpdate(node.id, { fontSize })}
         />
 
@@ -300,9 +329,17 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
 }
 
 /** Editing digits is a draft; blur or Enter commits one authored size. */
-function FontSizeInput({ value, onCommit }: { value: number; onCommit: (value: number) => void }) {
-  const [draft, setDraft] = useState(String(value));
-  useEffect(() => setDraft(String(value)), [value]);
+function FontSizeInput({
+  value,
+  mixed = false,
+  onCommit,
+}: {
+  value: number;
+  mixed?: boolean;
+  onCommit: (value: number) => void;
+}) {
+  const [draft, setDraft] = useState(mixed ? '' : String(value));
+  useEffect(() => setDraft(mixed ? '' : String(value)), [mixed, value]);
   const commit = () => {
     const next = Number(draft);
     if (Number.isFinite(next) && next > 0 && next <= 10000) {
@@ -316,6 +353,8 @@ function FontSizeInput({ value, onCommit }: { value: number; onCommit: (value: n
         type="number"
         className="floating-text-bar__size-input"
         value={draft}
+        placeholder={mixed ? 'Mixed' : undefined}
+        data-mixed={mixed || undefined}
         aria-label="Font size"
         min={1}
         max={10000}

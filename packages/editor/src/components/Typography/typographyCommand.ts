@@ -30,6 +30,148 @@ export interface TypographyCommandSurface {
   groupCompoundOperation: (label: string, action: () => void) => void;
 }
 
+export type TypographyDisplayField =
+  | 'fontFamily'
+  | 'fontReference'
+  | 'fontWeight'
+  | 'fontStyle'
+  | 'fontSize'
+  | 'variableAxes';
+
+export interface TypographyDisplayValues {
+  values: Pick<
+    TextNode,
+    'fontFamily' | 'fontReference' | 'fontWeight' | 'fontStyle' | 'fontSize' | 'variableAxes'
+  >;
+  mixed: Partial<Record<TypographyDisplayField, boolean>>;
+}
+
+const DISPLAY_FORMAT_FIELDS: readonly {
+  node: TypographyDisplayField;
+  format: keyof CharacterFormat;
+}[] = [
+  { node: 'fontFamily', format: 'fontFamily' },
+  { node: 'fontReference', format: 'fontReference' },
+  { node: 'fontWeight', format: 'fontWeight' },
+  { node: 'fontStyle', format: 'fontStyle' },
+  { node: 'fontSize', format: 'fontSize' },
+  { node: 'variableAxes', format: 'variableFontSettings' },
+];
+
+function formatValueEqual(first: unknown, second: unknown): boolean {
+  if (Object.is(first, second)) return true;
+  if (!first || !second || typeof first !== 'object' || typeof second !== 'object') return false;
+  return JSON.stringify(first) === JSON.stringify(second);
+}
+
+function hasOwn(value: CharacterFormat | undefined, key: keyof CharacterFormat): boolean {
+  return value !== undefined && Object.hasOwn(value, key);
+}
+
+function paragraphLength(para: { runs: { text: string }[] }): number {
+  return para.runs.reduce((total, run) => total + run.text.length, 0);
+}
+
+/**
+ * Resolve the values shown by compact typography controls.
+ *
+ * Rich runs use optional fields, so an absent field inherits the text-node
+ * value while an own property containing `undefined` deliberately clears a
+ * reference/axis. This keeps a mixed selection readable without changing the
+ * authored document and lets the command adapter apply the next choice to the
+ * active range.
+ */
+export function typographyDisplayValues(
+  node: TextNode,
+  selectionRange: RichSelection | null,
+  pendingFormat: CharacterFormat | null = null,
+): TypographyDisplayValues {
+  const values = {
+    fontFamily: node.fontFamily,
+    fontReference: node.fontReference,
+    fontWeight: node.fontWeight,
+    fontStyle: node.fontStyle,
+    fontSize: node.fontSize,
+    variableAxes: node.variableAxes,
+  } satisfies TypographyDisplayValues['values'];
+  const mixed: Partial<Record<TypographyDisplayField, boolean>> = {};
+  const rich = node.richText;
+  if (!selectionRange || !rich) {
+    return { values, mixed };
+  }
+
+  const startBeforeEnd =
+    selectionRange.start.paragraphIndex < selectionRange.end.paragraphIndex ||
+    (selectionRange.start.paragraphIndex === selectionRange.end.paragraphIndex &&
+      selectionRange.start.offset <= selectionRange.end.offset);
+  const start = startBeforeEnd ? selectionRange.start : selectionRange.end;
+  const end = startBeforeEnd ? selectionRange.end : selectionRange.start;
+  const selectedRuns: (typeof rich.paragraphs)[number]['runs'] = [];
+  const collapsed = start.paragraphIndex === end.paragraphIndex && start.offset === end.offset;
+
+  for (
+    let paragraphIndex = start.paragraphIndex;
+    paragraphIndex <= end.paragraphIndex;
+    paragraphIndex += 1
+  ) {
+    const paragraph = rich.paragraphs[paragraphIndex];
+    if (!paragraph) continue;
+    const length = paragraphLength(paragraph);
+    const rangeStart = paragraphIndex === start.paragraphIndex ? Math.max(0, start.offset) : 0;
+    const rangeEnd = paragraphIndex === end.paragraphIndex ? Math.min(length, end.offset) : length;
+    let cursor = 0;
+    for (const run of paragraph.runs) {
+      const runEnd = cursor + run.text.length;
+      const intersects = collapsed
+        ? paragraphIndex === start.paragraphIndex &&
+          (start.offset < runEnd || (start.offset === length && start.offset === runEnd)) &&
+          start.offset >= cursor
+        : runEnd > rangeStart && cursor < rangeEnd;
+      if (intersects) selectedRuns.push(run);
+      cursor = runEnd;
+    }
+  }
+
+  if (selectedRuns.length === 0) {
+    // An empty paragraph or a caret at the end of a story has no run to read;
+    // pending formatting still represents the next insertion.
+    if (collapsed && pendingFormat) {
+      for (const field of DISPLAY_FORMAT_FIELDS) {
+        if (!hasOwn(pendingFormat, field.format)) continue;
+        const next = pendingFormat[field.format];
+        (values as Record<string, unknown>)[field.node] =
+          field.node === 'variableAxes' && next ? { ...(next as Record<string, number>) } : next;
+      }
+    }
+    return { values, mixed };
+  }
+
+  for (const field of DISPLAY_FORMAT_FIELDS) {
+    const runValues = selectedRuns.map((run) => {
+      if (hasOwn(run.format, field.format)) return run.format?.[field.format];
+      return values[field.node];
+    });
+    const first = runValues[0];
+    (values as Record<string, unknown>)[field.node] =
+      field.node === 'variableAxes' && first ? { ...(first as Record<string, number>) } : first;
+    if (runValues.some((candidate) => !formatValueEqual(candidate, first))) {
+      mixed[field.node] = true;
+    }
+  }
+
+  if (collapsed && pendingFormat) {
+    for (const field of DISPLAY_FORMAT_FIELDS) {
+      if (!hasOwn(pendingFormat, field.format)) continue;
+      const next = pendingFormat[field.format];
+      (values as Record<string, unknown>)[field.node] =
+        field.node === 'variableAxes' && next ? { ...(next as Record<string, number>) } : next;
+      delete mixed[field.node];
+    }
+  }
+
+  return { values, mixed };
+}
+
 /** True when a selection addresses characters rather than a collapsed caret. */
 export function hasSelectedCharacters(range: RichSelection | null): range is RichSelection {
   if (!range) return false;

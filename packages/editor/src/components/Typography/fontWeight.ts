@@ -215,8 +215,17 @@ export function fontStyleAvailable(
 export function fontFamilyChanges(
   family: string | undefined,
   currentFamily?: string,
+  currentReference?: FontReference,
+  currentAxes?: Record<string, number>,
 ): Partial<TextNode> {
-  if (family === currentFamily) return {};
+  // Selecting a family row is an explicit family-level fallback, even when
+  // the label matches the current node.  An exact face is only retained by
+  // the expanded-face path, which calls onSelectFace instead.  This prevents
+  // a missing artifact/member from remaining silently attached after the
+  // user chooses the visible family again.
+  if (family === currentFamily && currentReference === undefined && currentAxes === undefined) {
+    return {};
+  }
   return { fontFamily: family, fontReference: undefined, variableAxes: undefined };
 }
 

@@ -5,6 +5,7 @@ import {
   hasSelectedCharacters,
   type TypographyCommandSurface,
   toCharacterFormat,
+  typographyDisplayValues,
 } from './typographyCommand';
 
 const range = (start: number, end: number): RichSelection => ({
@@ -123,5 +124,55 @@ describe('typography command adapter', () => {
     const current = surface({ selectionRange: null, updateNode });
     applyTypographyChanges(current, 'text-1', { fontSize: 20 });
     expect(updateNode).toHaveBeenCalledWith('text-1', expect.any(Function));
+  });
+
+  it('shows effective mixed values from the active rich-text range', () => {
+    const node = {
+      fontFamily: 'Inter',
+      fontWeight: 400,
+      fontStyle: 'normal' as const,
+      fontSize: 16,
+      variableAxes: { opsz: 14 },
+      richText: {
+        paragraphs: [
+          {
+            runs: [
+              { text: 'ab', format: { fontFamily: 'Inter', fontWeight: 400 } },
+              { text: 'cd', format: { fontFamily: 'Georgia', fontWeight: 700 } },
+            ],
+          },
+        ],
+      },
+    } as unknown as TextNode;
+
+    const display = typographyDisplayValues(node, range(1, 4));
+
+    expect(display.values.fontFamily).toBe('Inter');
+    expect(display.values.fontWeight).toBe(400);
+    expect(display.mixed.fontFamily).toBe(true);
+    expect(display.mixed.fontWeight).toBe(true);
+  });
+
+  it('uses pending insertion formatting at a collapsed caret', () => {
+    const node = {
+      fontFamily: 'Inter',
+      fontWeight: 400,
+      fontStyle: 'normal' as const,
+      fontSize: 16,
+      richText: { paragraphs: [{ runs: [{ text: 'abc' }] }] },
+    } as unknown as TextNode;
+
+    const display = typographyDisplayValues(node, range(3, 3), {
+      fontFamily: 'Georgia',
+      fontWeight: 700,
+      variableFontSettings: { wdth: 90 },
+    });
+
+    expect(display.values).toMatchObject({
+      fontFamily: 'Georgia',
+      fontWeight: 700,
+      variableAxes: { wdth: 90 },
+    });
+    expect(display.mixed).toEqual({});
   });
 });

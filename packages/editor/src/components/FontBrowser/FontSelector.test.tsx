@@ -126,6 +126,22 @@ describe('FontSelector', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows a mixed family value without reporting a missing-face warning', () => {
+    render(
+      <FontSelector
+        value="Inter"
+        mixed
+        fontReference={{ artifactHash: 'a'.repeat(64), collectionIndex: 0 }}
+        onChange={() => {}}
+      />,
+    );
+
+    const input = screen.getByRole('combobox', { name: 'Font family' });
+    expect(input).toHaveValue('');
+    expect(input).toHaveAttribute('placeholder', 'Mixed fonts');
+    expect(screen.queryByRole('img', { name: /not installed/i })).not.toBeInTheDocument();
+  });
+
   it('shows favorites in the compact picker and records selections as recent', async () => {
     const semantic = getFontSemanticCatalog();
     const record = semantic.findByFamilyName('IBM Plex Sans Variable');

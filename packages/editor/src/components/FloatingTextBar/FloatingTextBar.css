@@ -140,6 +140,11 @@
   -moz-appearance: textfield;
 }
 
+.floating-text-bar__size-input[data-mixed="true"] {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
 .floating-text-bar__alignment {
   flex: 0 0 auto;
 }
