@@ -101,6 +101,16 @@ test.describe('Colorize production workflow', () => {
     expect(exported.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))).toBe(
       true,
     );
+    // Structural verification: the file must carry a real image raster, not
+    // just a valid signature.
+    const exportedWidth = exported.readUInt32BE(16);
+    const exportedHeight = exported.readUInt32BE(20);
+    expect(exportedWidth).toBeGreaterThan(0);
+    expect(exportedHeight).toBeGreaterThan(0);
+    testInfo.annotations.push({
+      type: 'export-size',
+      description: `${exportedWidth}x${exportedHeight} (${exported.length} bytes)`,
+    });
     await testInfo.attach('colorize-export.png', { body: exported, contentType: 'image/png' });
   });
 });
