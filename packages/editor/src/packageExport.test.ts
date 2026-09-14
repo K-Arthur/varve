@@ -160,6 +160,7 @@ describe('buildPackageExport', () => {
     });
     const source = makeAsset('gen-source', 'AQID');
     const variation = makeAsset('gen-variation', 'BAUG');
+    const thumbnail = makeAsset('gen-thumbnail', 'CwgJ');
     const context = makeAsset('gen-context', 'BwgJ');
     const edit: GenerativeEditRecord = {
       schemaVersion: 2,
@@ -204,6 +205,7 @@ describe('buildPackageExport', () => {
         {
           id: 'variation-1',
           assetId: variation.id,
+          thumbnailAssetId: thumbnail.id,
           contextAssetId: context.id,
           width: 1,
           height: 1,
@@ -220,7 +222,12 @@ describe('buildPackageExport', () => {
       ...createDocument('GenerativePackage', true),
       rootChildren: ['n1'],
       nodes: { n1: docWithAssetsAndFonts().nodes.n1! },
-      assets: { [source.id]: source, [variation.id]: variation, [context.id]: context },
+      assets: {
+        [source.id]: source,
+        [variation.id]: variation,
+        [thumbnail.id]: thumbnail,
+        [context.id]: context,
+      },
       generativeEdits: { [edit.id]: edit },
     };
 
@@ -228,6 +235,7 @@ describe('buildPackageExport', () => {
     const entries = unzipSync(result.bytes);
     expect(entries['generative/gen-source.png']).toBeDefined();
     expect(entries['generative/gen-variation.png']).toBeDefined();
+    expect(entries['generative/gen-thumbnail.png']).toBeDefined();
     expect(entries['generative/gen-context.png']).toBeDefined();
     expect(
       result.manifest.assets.filter((asset) => asset.purpose?.startsWith('generative-')),
@@ -235,6 +243,7 @@ describe('buildPackageExport', () => {
       expect.arrayContaining([
         expect.objectContaining({ assetId: source.id, purpose: 'generative-source' }),
         expect.objectContaining({ assetId: variation.id, purpose: 'generative-variation' }),
+        expect.objectContaining({ assetId: thumbnail.id, purpose: 'generative-thumbnail' }),
         expect.objectContaining({ assetId: context.id, purpose: 'generative-context' }),
       ]),
     );

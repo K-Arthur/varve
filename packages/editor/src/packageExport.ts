@@ -251,6 +251,7 @@ function collectAssets(doc: Document, pkg: MutablePackage): PackageAssetEntry[] 
       { assetId: edit.sourceSnapshotAssetId, purpose: 'generative-source-snapshot' },
       ...edit.variations.flatMap((variation) => [
         { assetId: variation.assetId, purpose: 'generative-variation' },
+        { assetId: variation.thumbnailAssetId, purpose: 'generative-thumbnail' },
         { assetId: variation.contextAssetId, purpose: 'generative-context' },
       ]),
     ];
