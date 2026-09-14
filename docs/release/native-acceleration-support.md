@@ -28,8 +28,8 @@ unprofiled when node placement was not traced.
 | Desktop canvas presentation | Webview Canvas2D replay of native scene/render IR | Yes | Yes | Yes | Not an accelerator claim | A native GPU device does not replace the webview presentation surface. |
 | Desktop live `RgbSplit` effect | Native `wgpu` offscreen compute, then binary result transport | Yes | Yes | Yes | Linux AMD RADV | The editor's authoritative synchronous replay/export path remains available; unsupported effects use the CPU path. |
 | Desktop non-AI resampling | Native `wgpu` resampler for nearest, bilinear, bicubic, and Lanczos3 | Yes | Yes | Yes | Linux AMD RADV | Selection is workload-sensitive. A cold, small, or memory-constrained request can stay on CPU. |
-| Desktop AI background removal | ONNX Runtime CPU EP, with optional native WebGPU plugin EP | Yes | Yes for configured artifacts | Yes | Linux AMD RADV for U2NetP and ISNet; mixed partitions for LaMa/SCUNet | Model support and graph placement differ. BiRefNet 1024² remains unqualified on the audit host. |
-| Desktop AI upscaling | Native provider policy with CPU fallback; non-AI resize uses the native resampler | Yes | Yes for configured artifacts | Targeted provider dispatch tested | GPU model evidence is workload-specific | Cold setup, model size, and provider coverage can make CPU the better automatic choice. |
+| Desktop AI background removal | ONNX Runtime CPU EP, with optional native WebGPU plugin EP | Yes | Yes for configured artifacts | Yes | Linux AMD RADV for U2NetP and ISNet; mixed partitions for LaMa/SCUNet | Model support and graph placement differ. BiRefNet 1024² remains unqualified on the audit host. Automatic mode quarantines a model after a failed GPU run, retries it once on CPU, and reports that fallback. |
+| Desktop AI upscaling | Native provider policy with CPU fallback; non-AI resize uses the native resampler | Yes | Yes for configured artifacts | Targeted provider dispatch tested | GPU model evidence is workload-specific | Cold setup, model size, and provider coverage can make CPU the better automatic choice. Provider attribution must be tied to the individual job, not a process-global last-run value. |
 | Desktop NPU inference | No bundled vendor NPU provider | No provider claim | No NPU artifact in the base build | Capability rows only | None | QNN, OpenVINO NPU, AMD XDNA/Vitis AI, Windows ML NPU, and Core ML routes require target-specific runtime, driver, model, and hardware validation. |
 | Browser/PWA presentation | Browser Canvas2D/WASM route | Yes | Yes | Browser tests | Browser-specific only | This does not certify Tauri/WebKitGTK or native `wgpu`. |
 | Browser/PWA GPU compute | Feature-tested browser WebGPU adapter/provider where exposed | Experimental | Yes | Browser route only | Must be verified per browser/device | No flags or security weakening are required; Canvas2D/WASM remains the fallback. |
@@ -69,11 +69,19 @@ The normal desktop policy is workload-specific:
 - Device loss, provider initialization failure, unsupported operators, and
   allocation errors return an explainable fallback while preserving the
   document. No stale bitmap is presented as a fresh result.
+- A failed Automatic WebGPU execution is discarded rather than returned to the
+  session pool. That model is quarantined for the current process, one CPU
+  retry is attempted, and a deliberate capability re-detection clears the
+  quarantine. Explicit WebGPU policy remains fail-closed. This prevents a
+  repeatedly failing model from retrying on every tile while keeping the
+  document usable.
 
 Native background-removal results use a bounded binary envelope for the mask
 payload rather than JSON arrays or base64 image bytes over IPC. Legacy JSON is
 still accepted for older clients. This reduces transport overhead without
-changing the editor-facing mask semantics.
+changing the editor-facing mask semantics. SCUNet is treated as a complete
+two-artifact install: its graph and external weights are downloaded, hashed,
+size-checked, and installed atomically before the model becomes selectable.
 
 ## Release and claim gates
 
@@ -88,6 +96,13 @@ installed/release-like app, inspect provider diagnostics or runtime profiling,
 compare output with the CPU/reference path, and open representative output
 screenshots. Browser Playwright does not certify the Tauri route. A local
 device node, model download, or successful build is not sufficient.
+
+The current primary-host GPU evidence includes a real offscreen resampling
+run with upload, dispatch, synchronization, and readback included in the
+measurement. See [native GPU resampling evidence](../perf/native-gpu-resample-2026-09-13.md)
+when that release record is present. Small or cold requests are intentionally
+allowed to remain on CPU; the measured large-image result is not a universal
+multiplier.
 
 The public product and image-enhancement pages use the same boundary: native
 GPU offscreen work is described separately from webview composition, and no

@@ -4,7 +4,10 @@ Status: active implementation record. This is not a support claim by itself.
 
 Date: 2026-09-13 (America/Vancouver)
 
-Working tree: `master`, HEAD `b08b683ef413d939db3c75853425b68deb0ea49b`.
+Working tree: `master`. The audit baseline was `b08b683ef413d939db3c75853425b68deb0ea49b`;
+`master` advanced during the implementation, so final evidence pins the
+candidate commit for each measurement rather than treating this record's
+opening SHA as the release baseline.
 
 ## Scope and evidence rules
 
@@ -56,7 +59,7 @@ The primary verification host is CachyOS/Arch Linux on Wayland:
 | device nodes | `/dev/dri/renderD128`; no `/dev/accel` | measured; absence is not proof that every NPU is absent |
 | WebKitGTK | `2.52.6` from `pkg-config webkit2gtk-4.1` | measured |
 | Rust | `rustc 1.97` | repository toolchain record and local check |
-| JS tooling | Node `26`, pnpm `11.9` | repository toolchain record |
+| JS tooling | Repository record says Node `26`; the shell used for this session reported Node `22.23.2`, pnpm `11.9` | measured mismatch; release validation must use the declared toolchain |
 
 The repository workspace currently pins `wgpu` `30.0.1` and `ort`
 `2.0.0-rc.13`. The local `wgpu` package declares MSRV `1.87` and the local
