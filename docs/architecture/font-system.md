@@ -291,7 +291,9 @@ registered face applies its family, weight, style, and reference together.
 Weight and style are available directly in the Logo panel so wordmarks do not
 fall back to a family-only text field. Each authored Logo typography change is
 wrapped in the shared `Typography` compound operation, so it creates one undo
-step instead of bypassing persistent history.
+step instead of bypassing persistent history. Logo project creation, concept
+lifecycle, variant, brief, and clear-space commands use the same history
+adapter, so setup mutations do not bypass persistent history either.
 
 Ordinary weight menus are registry-backed across the inspector, contextual bar,
 floating text toolbar, and Logo panel. Static families expose only the weights
