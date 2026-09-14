@@ -11,8 +11,8 @@ reuses it while the picker is open.
 pnpm exec tsx scripts/bench/font-picker-performance.ts
 ```
 
-- Commit under test: `6d7ea1c8b` plus the benchmark change recorded with this
-  evidence.
+- Commit under test: `074c7f073` (semantic snapshot-index follow-up on
+  `44c3396e7`).
 - Runtime: Node `v22.23.2`.
 - Samples: 8 warm-up runs, then 40 samples per operation.
 - Corpus: deterministic synthetic Fontsource-shaped records at 1,000 and
@@ -28,12 +28,12 @@ pnpm exec tsx scripts/bench/font-picker-performance.ts
 
 | Families | Cold catalog build (ms) | Warm open p95 (ms) | Warm search p95 (ms) | Metadata lookup p95 (ms) | Rows |
 |---:|---:|---:|---:|---:|---:|
-| 1,000 | 30.9 | 0.5 | 7.5 | 0.2 | 1,001 |
-| 10,000 | 167.4 | 6.7 | 58.8 | 2.5 | 10,001 |
+| 1,000 | 57.3 | 0.6 | 8.5 | 0.03 | 1,001 |
+| 10,000 | 183.4 | 9.3 | 66.5 | 0.03 | 10,001 |
 
 The warm targets are ≤150 ms for opening and ≤100 ms for search, so both
 catalog-side budgets pass for this run. The 10,000-family cold build is
-reported separately at 167.4 ms; it is outside the warm interaction budget and
+reported separately at 183.4 ms; it is outside the warm interaction budget and
 should remain visible in future regressions.
 
 ## Boundary and next check
@@ -45,4 +45,3 @@ real imported font bytes that records the time from selecting a family to a
 ready `FontFace`, alongside the existing DPR 1/2/3 toolbar visual spec. The
 acceptance matrix therefore remains **Partial** for scenario 21 until that
 browser measurement and the 1,000/10,000 native-enumeration run are recorded.
-
