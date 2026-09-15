@@ -238,6 +238,25 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
     expect(stateRef.current.objectSelectionSession?.error?.code).toBe('empty_result');
   });
 
+  it('refuses a reviewed candidate whose mask no longer matches the source dimensions', async () => {
+    const { doc, session } = await sessionFor();
+    session.candidates[0]!.mask = new Uint8Array(1).fill(255);
+    const { result, stateRef, setAreaSelection } = setup(session, doc);
+
+    await act(async () => {
+      await result.current.applySam2Segmentation({
+        nodeId: 'image',
+        prompts: { points: session.points },
+        operation: 'selection',
+      });
+    });
+
+    expect(controls.infer).not.toHaveBeenCalled();
+    expect(setAreaSelection).not.toHaveBeenCalled();
+    expect(stateRef.current.objectSelectionSession?.status).toBe('error');
+    expect(stateRef.current.objectSelectionSession?.error?.code).toBe('invalid_mask_geometry');
+  });
+
   it('refuses a reviewed candidate that does not honor the prompts', async () => {
     const { doc, session } = await sessionFor();
     session.candidates[0]!.promptContainment = 0;

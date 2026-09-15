@@ -456,6 +456,27 @@ export function useSam2Segmentation(
             );
             return null;
           }
+          if (
+            !maskMatchesDimensions(candidate.mask, previousSession.width, previousSession.height)
+          ) {
+            const live = stateRef.current.objectSelectionSession;
+            if (generation === generationRef.current && live?.nodeId === nodeId) {
+              writeTransientSession({
+                ...live,
+                status: 'error',
+                error: {
+                  code: 'invalid_mask_geometry',
+                  message:
+                    'The reviewed mask no longer matches the image dimensions. Create a new preview before applying it.',
+                  retryable: true,
+                },
+              });
+            }
+            announcerRef.current?.announce(
+              'The reviewed mask no longer matches the image dimensions. Create a new preview before applying it.',
+            );
+            return null;
+          }
           if (countMaskCoverage(candidate.mask) === 0) {
             const live = stateRef.current.objectSelectionSession;
             if (generation === generationRef.current && live?.nodeId === nodeId) {
@@ -1357,6 +1378,17 @@ function countMaskCoverage(mask: Uint8Array): number {
     if (mask[index]! > 0) count += 1;
   }
   return count;
+}
+
+function maskMatchesDimensions(mask: Uint8Array, width: number, height: number): boolean {
+  return (
+    mask instanceof Uint8Array &&
+    Number.isSafeInteger(width) &&
+    Number.isSafeInteger(height) &&
+    width > 0 &&
+    height > 0 &&
+    mask.length === width * height
+  );
 }
 
 /** Format score provenance without presenting a quality score as intent probability. */

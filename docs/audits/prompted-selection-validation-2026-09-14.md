@@ -31,7 +31,9 @@ Before inference, the editor now:
 - fails closed when a prompt is outside the visible source image or a box has no
   positive area;
 - retains source dimensions and a decoded-pixel fingerprint for the request and
-  rechecks them before applying a reviewed mask.
+  rechecks them before applying a reviewed mask;
+- rejects a reviewed candidate whose mask buffer no longer matches the retained
+  source dimensions before converting it to a document mask or area selection.
 
 After decoding, every candidate must:
 
