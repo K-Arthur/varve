@@ -1,0 +1,349 @@
+/**
+ * commitRasterMask — commit background removal masks as native RasterMaskAssets.
+ *
+ * No new code may write to the legacy ShapeNode.backgroundRemoval field.
+ * All mask data goes through the native raster mask pipeline:
+ *   Document.rasterMaskAssets + NodeBase.mask.rasterMask
+ *
+ * Each accepted payload receives a fresh immutable asset ID. Edit revisions
+ * can repeat on divergent history paths and must not identify asset bytes.
+ *
+ * Research basis: Figma non-destructive pixel masks, ADR-0005 offline-first
+ * asset model, immutable Document pattern.
+ */
+import type {
+  BackgroundRemovalProvenance,
+  BackgroundRemovalState,
+  DepthMaskRecipe,
+  Document,
+  DocumentAsset,
+  ImageFillData,
+  NodeId,
+  RasterMaskAsset,
+  RasterMaskSourceIdentity,
+  SceneNode,
+} from '@varve/scene';
+import {
+  addRasterMaskAsset,
+  cryptoId,
+  pruneUnreferencedRasterMaskAssets,
+  removeRasterMaskAsset,
+  resolveNodePaints,
+  updateRasterMaskAsset,
+} from '@varve/scene';
+
+export interface RasterMaskCommitFields {
+  dataUrl: string;
+  width: number;
+  height: number;
+  method?: string;
+  runtime?: BackgroundRemovalProvenance['runtime'];
+  modelId?: string;
+  modelVersion?: string;
+  modelChecksum?: string;
+  generatedAt?: number;
+  confidence?: number;
+  decontaminate?: boolean;
+  /** Source locator and decoded dimensions captured with this mask. */
+  sourceLocator?: string;
+  /**
+   * Pixel coordinate space of the committed mask. Defaults to
+   * `source-image-pixels` (image shapes). Frames use
+   * `container-local-pixels` (brush-painted frame masks). Visual leaves use
+   * `node-local-pixels` (brush-painted layer masks).
+   */
+  coordinateSpace?: 'source-image-pixels' | 'container-local-pixels' | 'node-local-pixels';
+  /** Persist depth intent beside the resolved PNG; null explicitly clears it. */
+  depthRecipe?: DepthMaskRecipe | null;
+  /** Optional source identity for a recipe-backed source-pixel mask. */
+  sourceIdentity?: RasterMaskSourceIdentity;
+}
+
+/**
+ * Convert the provider reported by an inference job into the persisted scene
+ * runtime vocabulary. Provider names are deliberately more specific than the
+ * scene schema: native WebGPU is an accelerated native runtime, while a
+ * native CPU retry remains distinguishable as CPU execution.
+ */
+export function runtimeForBackgroundRemovalProvider(
+  executionProvider?: string,
+): BackgroundRemovalProvenance['runtime'] {
+  switch (executionProvider) {
+    case 'native-webgpu':
+      return 'native-accelerated';
+    case 'native':
+    case 'native-cpu':
+      return 'native-cpu';
+    case 'webgpu':
+    case 'webgl':
+    case 'wasm':
+      return executionProvider;
+    default:
+      return 'typescript';
+  }
+}
+
+function dataUrlByteLength(dataUrl: string): number {
+  const prefix = 'data:image/png;base64,';
+  if (!dataUrl.startsWith(prefix)) return 0;
+  const base64 = dataUrl.slice(prefix.length);
+  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;
+  return Math.floor((base64.length * 3) / 4) - padding;
+}
+
+function makeProvenance(fields: RasterMaskCommitFields): BackgroundRemovalProvenance | undefined {
+  if (!fields.method && !fields.generatedAt) return undefined;
+  return {
+    method: (fields.method ?? 'quick') as 'quick' | 'ai-balanced' | 'ai-quality',
+    runtime: fields.runtime ?? 'typescript',
+    generatedAt: fields.generatedAt ?? Date.now(),
+    origin: 'native',
+    ...(fields.confidence !== undefined ? { confidence: fields.confidence } : {}),
+    ...(fields.decontaminate !== undefined ? { decontaminate: fields.decontaminate } : {}),
+    ...(fields.modelId !== undefined ? { modelId: fields.modelId } : {}),
+    ...(fields.modelVersion !== undefined ? { modelVersion: fields.modelVersion } : {}),
+    ...(fields.modelChecksum !== undefined ? { modelChecksum: fields.modelChecksum } : {}),
+  };
+}
+
+function makeAsset(assetId: string, fields: RasterMaskCommitFields): RasterMaskAsset {
+  return {
+    id: assetId,
+    mimeType: 'image/png',
+    dataUrl: fields.dataUrl,
+    width: fields.width,
+    height: fields.height,
+    byteLength: dataUrlByteLength(fields.dataUrl),
+  };
+}
+
+function attachDepthRecipe(
+  doc: Document,
+  nodeId: NodeId,
+  recipe: DepthMaskRecipe | null | undefined,
+): Document {
+  if (recipe === undefined) return doc;
+  const node = doc.nodes[nodeId];
+  const rasterMask = node?.mask?.rasterMask;
+  if (!node || !rasterMask) return doc;
+  const nextRasterMask = { ...rasterMask };
+  if (recipe === null) delete nextRasterMask.depthRecipe;
+  else {
+    nextRasterMask.depthRecipe = recipe;
+    nextRasterMask.sourceIdentity = recipe.sourceIdentity;
+  }
+  return pruneUnreferencedRasterMaskAssets({
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [nodeId]: {
+        ...node,
+        mask: { ...node.mask!, rasterMask: nextRasterMask },
+      },
+    },
+  });
+}
+
+/**
+ * Brush, trimap, and segmentation edits call this helper without a recipe.
+ * When they replace a depth-derived mask, point the recipe at the new resolved
+ * coverage so a later range edit can reapply the range without discarding that
+ * manual correction.
+ */
+function preserveDepthCorrection(doc: Document, nodeId: NodeId): Document {
+  const node = doc.nodes[nodeId];
+  const rasterMask = node?.mask?.rasterMask;
+  const recipe = rasterMask?.depthRecipe;
+  if (!node || !rasterMask || !recipe) return doc;
+  return attachDepthRecipe(doc, nodeId, {
+    ...recipe,
+    correction: {
+      assetId: rasterMask.assetId,
+      revision: (recipe.correction?.revision ?? 0) + 1,
+      target: 'coverage',
+    },
+  });
+}
+
+/**
+ * Keep cached image metadata aligned with the browser-decoded, orientation-
+ * normalized pixels used for inference. Older imports could retain display
+ * dimensions here, which made a valid full-resolution mask fail scene
+ * validation during Apply. Referenced paints are detached to an equivalent
+ * inline fill so correcting one image does not mutate every paint consumer.
+ */
+function normalizeSourceDimensions(
+  doc: Document,
+  nodeId: NodeId,
+  fields: RasterMaskCommitFields,
+): Document {
+  const node = doc.nodes[nodeId];
+  if (node?.kind !== 'shape') return doc;
+  const fills = resolveNodePaints(node as unknown as Parameters<typeof resolveNodePaints>[0], doc);
+  let found = false;
+  let changed = false;
+  const normalizedFills = fills.map((fill) => {
+    if (
+      found ||
+      fill.type !== 'image' ||
+      !fill.image ||
+      (fields.sourceLocator !== undefined && fill.image.src !== fields.sourceLocator)
+    ) {
+      return fill;
+    }
+    found = true;
+    if (fill.image.imageWidth === fields.width && fill.image.imageHeight === fields.height) {
+      return fill;
+    }
+    changed = true;
+    return {
+      ...fill,
+      image: { ...fill.image, imageWidth: fields.width, imageHeight: fields.height },
+    };
+  });
+  if (!found || (!changed && !(node.paintRefs && node.paintRefs.length > 0))) return doc;
+  return {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [nodeId]: {
+        ...node,
+        fills: normalizedFills,
+        ...(node.paintRefs && node.paintRefs.length > 0 ? { paintRefs: [] } : {}),
+      },
+    },
+  };
+}
+
+/**
+ * Commit a raster mask to the document as a native RasterMaskAsset.
+ *
+ * Creates a fresh asset identity and updates the node reference. History
+ * retains that committed identity; replay never mints a replacement ID.
+ *
+ * The asset dimensions must match the source image fill dimensions
+ * (enforced by validateSourcePixelDimensions). Callers must ensure
+ * fields.width/height match the source image's natural dimensions.
+ */
+export function commitRasterMask(
+  doc: Document,
+  nodeId: NodeId,
+  fields: RasterMaskCommitFields,
+): Document {
+  const sourceAlignedDoc = normalizeSourceDimensions(doc, nodeId, fields);
+  const node = sourceAlignedDoc.nodes[nodeId];
+  const existingMask = node?.mask?.rasterMask;
+
+  const asset = makeAsset(`mask-${cryptoId()}`, fields);
+  if (existingMask) {
+    const updated = updateRasterMaskAsset(sourceAlignedDoc, nodeId, asset);
+    if (updated === sourceAlignedDoc) return doc;
+    const provenance = makeProvenance(fields);
+    const withRecipe =
+      fields.depthRecipe !== undefined
+        ? attachDepthRecipe(updated, nodeId, fields.depthRecipe)
+        : preserveDepthCorrection(updated, nodeId);
+    if (!provenance) return withRecipe;
+    const updatedNode = withRecipe.nodes[nodeId]!;
+    const updatedMask = updatedNode.mask;
+    if (!updatedMask?.rasterMask) return withRecipe;
+    return {
+      ...withRecipe,
+      nodes: {
+        ...withRecipe.nodes,
+        [nodeId]: {
+          ...updatedNode,
+          mask: {
+            ...updatedMask,
+            rasterMask: { ...updatedMask.rasterMask, provenance },
+          },
+        },
+      },
+    };
+  }
+
+  const updated = addRasterMaskAsset(
+    sourceAlignedDoc,
+    nodeId,
+    asset,
+    {
+      provenance: makeProvenance(fields),
+      editRevision: 1,
+      ...(fields.depthRecipe !== undefined && fields.depthRecipe !== null
+        ? { depthRecipe: fields.depthRecipe }
+        : {}),
+      ...(fields.sourceIdentity ? { sourceIdentity: fields.sourceIdentity } : {}),
+    },
+    {
+      coordinateSpace:
+        fields.coordinateSpace ??
+        (fields.depthRecipe !== undefined && fields.depthRecipe !== null
+          ? 'source-image-pixels'
+          : undefined),
+    },
+  );
+  return updated === sourceAlignedDoc ? doc : updated;
+}
+
+/**
+ * Remove a raster mask from a node, cleaning up the asset if unreferenced.
+ */
+export function removeRasterMaskFromNode(doc: Document, nodeId: NodeId): Document {
+  return removeRasterMaskAsset(doc, nodeId);
+}
+
+/**
+ * Check whether a node has a native raster mask attached.
+ */
+export function hasNativeRasterMask(doc: Document, nodeId: NodeId): boolean {
+  const node = doc.nodes[nodeId];
+  return Boolean(node?.mask?.rasterMask);
+}
+
+/** Completed noninteractive job, bound to its submission-time target. */
+export interface PreparedBackgroundRemoval extends BackgroundRemovalState {
+  width: number;
+  height: number;
+  sourceNode: SceneNode;
+  sourceLocator: string;
+  sourceImage?: ImageFillData;
+  sourceAsset?: DocumentAsset;
+  documentId?: string;
+  modelId?: string;
+  runtime?: BackgroundRemovalProvenance['runtime'];
+}
+
+export function commitPreparedBackgroundRemoval(
+  doc: Document,
+  nodeId: NodeId,
+  prepared: PreparedBackgroundRemoval,
+): Document {
+  if (
+    (prepared.documentId && doc.id !== prepared.documentId) ||
+    doc.nodes[nodeId] !== prepared.sourceNode
+  )
+    return doc;
+  if (prepared.sourceImage && prepared.sourceNode.kind === 'shape') {
+    const fills = resolveNodePaints(
+      { fills: prepared.sourceNode.fills, paintRefs: prepared.sourceNode.paintRefs },
+      doc,
+    ).filter((fill) => fill.type === 'image' && fill.image);
+    if (fills.length !== 1 || fills[0]?.image !== prepared.sourceImage) return doc;
+    const asset = prepared.sourceImage.assetId
+      ? doc.assets?.[prepared.sourceImage.assetId]
+      : undefined;
+    if (asset !== prepared.sourceAsset) return doc;
+  }
+  return commitRasterMask(doc, nodeId, {
+    dataUrl: prepared.maskDataUrl,
+    width: prepared.width,
+    height: prepared.height,
+    sourceLocator: prepared.sourceLocator,
+    method: prepared.method,
+    generatedAt: prepared.appliedAt,
+    confidence: prepared.confidence,
+    decontaminate: prepared.decontaminate,
+    modelId: prepared.modelId,
+    runtime: prepared.runtime,
+  });
+}

@@ -1,0 +1,104 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import StatusPill from '../../components/StatusPill.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="Precision Editing"
+  description="Exact nudges, scoped snapping, explicit alignment references, and predictable distribution for Varve design work."
+>
+  <div class="container-custom">
+    <main class="precision-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Precision Editing
+      </nav>
+
+      <header class="page-hero">
+        <StatusPill status="available" />
+        <h1>Place things precisely without fighting the canvas.</h1>
+        <p>
+          Varve separates exact movement from magnetic help and one-shot arrangement. That means
+          the command you chose remains the command you get, even in a transformed, multi-page
+          document.
+        </p>
+      </header>
+
+      <section class="hero-card site-card site-card--surface" aria-labelledby="hero-card-title">
+        <div>
+          <p class="eyebrow">A quieter precision loop</p>
+          <h2 id="hero-card-title">Intent → resolve → explain.</h2>
+          <p>
+            Pointer movement keeps the unsnapped proposal, resolves one common correction for a
+            selection, and exposes the relationship through a guide. Keyboard movement stays exact
+            and independent. Alignment and distribution calculate from world geometry, then persist
+            through each node's parent transform.
+          </p>
+        </div>
+        <div class="flow" aria-label="Precision editing stages">
+          <div><span>01</span><strong>Intent</strong><small>Pointer proposal or exact amount</small></div>
+          <div class="flow-arrow" aria-hidden="true">→</div>
+          <div class="flow-accent"><span>02</span><strong>Resolve</strong><small>Scoped targets and references</small></div>
+          <div class="flow-arrow" aria-hidden="true">→</div>
+          <div><span>03</span><strong>Verify</strong><small>Guides, values, and one undo step</small></div>
+        </div>
+      </section>
+
+      <section class="capabilities" aria-labelledby="capabilities-title">
+        <p class="eyebrow">What is available</p>
+        <h2 id="capabilities-title">Small controls with dependable consequences.</h2>
+        <div class="capability-grid">
+          <article><h3>Fractional nudges</h3><p>Set independent small and big amounts, including positive fractions, in Settings. Existing fractional positions remain fractional.</p></article>
+          <article><h3>Scoped snap help</h3><p>Set a 1–32 CSS-pixel tolerance and choose object geometry, page/frame bounds, or ruler/layout guides in Inspector → Document → Snapping. Moving roots are not their own targets, and proportional handle resizes keep their ratio and fixed anchor.</p></article>
+          <article><h3>Stable bypass</h3><p>Hold Ctrl or Cmd during a pointer gesture to bypass magnetic assistance without losing the pointer-to-object relationship.</p></article>
+          <article><h3>Explicit references</h3><p>Align to the selection, frame, page, or visible key object. The key object stays put and feedback names the reference used.</p></article>
+          <article><h3>Honest spacing modes</h3><p>Equal gaps, equal centers, fixed gap, and Tidy Up are distinct. Fixed gap remains available for two objects; equal-gap distribution accounts for unequal sizes.</p></article>
+          <article><h3>Safe history</h3><p>Completed arrangement and movement gestures commit once. Escape, capture loss, and cancellation clear previews or restore the starting geometry.</p></article>
+        </div>
+      </section>
+
+      <section class="why" aria-labelledby="why-title">
+        <p class="eyebrow">Designed around real failure modes</p>
+        <h2 id="why-title">No mystery jumps, distant targets, or decorative controls.</h2>
+        <p>
+          Precision tools are useful only when their visible feedback agrees with the document. Varve
+          keeps target identity through snap evaluation, excludes moving hierarchies, avoids global
+          integer rounding, and derives arrangement guides from the applied result. Numeric controls
+          remain available when a drag or keyboard is not the right input method.
+        </p>
+        <a class="docs-link" href={sitePath('/docs/tools/precision-placement')}>Read the Precision Placement guide →</a>
+      </section>
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .precision-page { max-width: 920px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { color: var(--text-secondary); font-size: .875rem; margin-bottom: 2.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .page-hero { max-width: 720px; margin-bottom: 4rem; }
+  .page-hero h1 { color: var(--text-primary); font: 700 clamp(2.4rem, 7vw, 4.7rem)/1.03 var(--font-editorial); letter-spacing: -.035em; margin: 1rem 0; }
+  .page-hero p { color: var(--text-secondary); font-size: 1.2rem; line-height: 1.7; }
+  .eyebrow { color: var(--accent-primary); font-size: .75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  .hero-card, .why { border-radius: var(--website-radius-card); padding: clamp(1.5rem, 5vw, 3.5rem); }
+  .hero-card { align-items: center; display: grid; gap: clamp(2rem, 6vw, 5rem); grid-template-columns: minmax(0, .9fr) minmax(360px, 1.1fr); margin-bottom: 5rem; }
+  .hero-card h2, .capabilities h2, .why h2 { color: var(--text-primary); font-size: clamp(1.7rem, 3vw, 2.5rem); letter-spacing: -.02em; margin: .45rem 0 1rem; }
+  .hero-card p:not(.eyebrow), .why p:not(.eyebrow) { color: var(--text-secondary); line-height: 1.75; }
+  .flow { align-items: stretch; display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: var(--space-3); }
+  .flow > div:not(.flow-arrow) { background: var(--surface-muted); border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-4); }
+  .flow .flow-accent { background: var(--surface-accent-soft); border-color: var(--border-accent); }
+  .flow span { color: var(--text-tertiary); font-size: .7rem; }
+  .flow strong { color: var(--text-primary); }
+  .flow small { color: var(--text-secondary); line-height: 1.4; }
+  .flow-arrow { align-self: center; color: var(--accent-primary); font-size: 1.25rem; }
+  .capabilities { margin-bottom: 5rem; }
+  .capability-grid { display: grid; gap: var(--space-3); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .capability-grid article { background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); padding: var(--space-4); }
+  .capability-grid h3 { color: var(--text-primary); font-size: 1rem; margin: 0 0 .5rem; }
+  .capability-grid p { color: var(--text-secondary); font-size: .93rem; line-height: 1.6; margin: 0; }
+  .why { background: var(--surface-muted); border: 1px solid var(--border-default); }
+  .why p:not(.eyebrow) { max-width: 720px; }
+  .docs-link { color: var(--text-link); display: inline-block; font-weight: 600; margin-top: var(--space-3); }
+  @media (max-width: 780px) { .hero-card { grid-template-columns: 1fr; } .capability-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 520px) { .precision-page { padding-top: 2rem; } .flow { grid-template-columns: 1fr; } .flow-arrow { justify-self: start; transform: rotate(90deg); } .capability-grid { grid-template-columns: 1fr; } }
+</style>

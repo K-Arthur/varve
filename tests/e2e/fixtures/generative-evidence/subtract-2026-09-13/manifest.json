@@ -1,0 +1,12 @@
+{
+  "workflow": "Generative Subtract / Remove",
+  "date": "2026-09-13",
+  "fixture": "real-life-landscape.jpg",
+  "provider": "varve-content-aware",
+  "runtime": "Chromium browser worker, Fast/PatchMatch",
+  "sourceProtection": "The E2E assertion compares the canonical source asset data URL before and after acceptance and verifies the source image fill remains first.",
+  "evidence_files": {
+    "browser-subtract-applied.png": "e830b68a496c2ae36e35a8b8d08dbab52ec8a8eb1ad23f7dcd471d1834dca7ed",
+    "browser-subtract-dialog-result.png": "b2473481f8dbeb55dd02a2ad6c108fee8c4d8f3d6a60f3df9d1263262b9673e4"
+  }
+}

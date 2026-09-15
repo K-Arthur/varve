@@ -1,0 +1,643 @@
+/**
+ * ImageFillControls — image fill source + fit controls.
+ *
+ * Supports URL entry and local file pick (FileReader → data URL). Preview when
+ * src is set. Fit mode uses the themed Select, not a native OS menu.
+ *
+ * Research basis: Figma image fill controls; APG file input patterns.
+ */
+import { getImageCache } from '@varve/engine';
+import type { DocumentAsset, EmbeddedAssetInput, ImageFillData, ImageFit } from '@varve/scene';
+import { rasterEncodingLabel, rasterProvenanceLabel } from '@varve/shared';
+import { Icon, Select, Tooltip, TooltipProvider } from '@varve/ui';
+import {
+  type ChangeEvent,
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from 'react';
+import { FieldRow } from '../controls/FieldRow';
+
+/**
+ * Decode a data URL's natural pixel dimensions. Used so a replaced image
+ * gets its own correct imageWidth/imageHeight instead of inheriting the
+ * previous image's — previously never recomputed, which silently corrupted
+ * crop/fit framing whenever the replacement had a different aspect ratio.
+ * Resolves { width: 0, height: 0 } on decode failure (never throws/hangs) so
+ * a replace action always completes.
+ */
+function decodeNaturalSize(dataUrl: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve) => {
+    if (typeof Image === 'undefined') {
+      resolve({ width: 0, height: 0 });
+      return;
+    }
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => resolve({ width: 0, height: 0 });
+    img.src = dataUrl;
+  });
+}
+
+const FIT_OPTIONS: { value: ImageFit; label: string }[] = [
+  { value: 'fill', label: 'Fill' },
+  { value: 'fit', label: 'Fit' },
+  { value: 'crop', label: 'Crop' },
+  { value: 'stretch', label: 'Stretch' },
+  { value: 'tile', label: 'Tile' },
+];
+
+const IMAGE_FILL_PREVIEW_MAX_DIMENSION = 1024;
+
+function isInlineImageSource(source: string): boolean {
+  return source.startsWith('data:') || source.startsWith('blob:');
+}
+
+function imageSourceDimensions(source: {
+  naturalWidth?: number;
+  naturalHeight?: number;
+  width?: number;
+  height?: number;
+}): { width: number; height: number } {
+  return {
+    width: source.naturalWidth || source.width || 0,
+    height: source.naturalHeight || source.height || 0,
+  };
+}
+
+/**
+ * Render an embedded large source through the bounded image-cache proxy.
+ * Inspector previews must not put the original data URL in an <img>: browser
+ * image elements decode their intrinsic dimensions even when CSS makes the
+ * preview small, which can exhaust a Chromebook/WebView on a large photo.
+ */
+export function BoundedImagePreview({
+  source,
+  sourceWidth,
+  sourceHeight,
+  className,
+  alt = '',
+  maskDataUrl,
+  style,
+}: {
+  source: string;
+  sourceWidth: number;
+  sourceHeight: number;
+  className?: string;
+  alt?: string;
+  /** Optional preview-only mask. The persisted mask remains source-resolution. */
+  maskDataUrl?: string;
+  style?: CSSProperties;
+}) {
+  const [thumbnailSource, setThumbnailSource] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setThumbnailSource(null);
+    setFailed(false);
+    const cache = getImageCache();
+    if (!isInlineImageSource(source) || typeof document === 'undefined') {
+      setFailed(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void cache
+      .loadAtSize(source, IMAGE_FILL_PREVIEW_MAX_DIMENSION, {
+        width: sourceWidth,
+        height: sourceHeight,
+      })
+      .then((image) => {
+        if (cancelled) return;
+        const dimensions = imageSourceDimensions(image);
+        if (dimensions.width <= 0 || dimensions.height <= 0)
+          throw new Error('invalid preview size');
+        const scale = Math.min(
+          1,
+          IMAGE_FILL_PREVIEW_MAX_DIMENSION / Math.max(dimensions.width, dimensions.height),
+        );
+        const width = Math.max(1, Math.round(dimensions.width * scale));
+        const height = Math.max(1, Math.round(dimensions.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('preview canvas unavailable');
+        context.drawImage(image as CanvasImageSource, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/png');
+        if (!cancelled) setThumbnailSource(dataUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [source, sourceHeight, sourceWidth]);
+
+  if (thumbnailSource) {
+    return (
+      <img
+        src={thumbnailSource}
+        alt={alt}
+        className={className ?? 'insp-image-fill__preview-img'}
+        decoding="async"
+        style={
+          maskDataUrl
+            ? {
+                ...style,
+                WebkitMaskImage: `url("${maskDataUrl}")`,
+                WebkitMaskSize: 'contain',
+                WebkitMaskPosition: 'center',
+                WebkitMaskRepeat: 'no-repeat',
+                maskImage: `url("${maskDataUrl}")`,
+                maskSize: 'contain',
+                maskPosition: 'center',
+                maskRepeat: 'no-repeat',
+              }
+            : style
+        }
+      />
+    );
+  }
+  return (
+    <span
+      className={className ?? 'insp-image-fill__preview-status'}
+      role="img"
+      aria-label="Image preview"
+    >
+      {failed ? 'Preview unavailable' : 'Preparing preview...'}
+    </span>
+  );
+}
+
+export function ImageFillControls({
+  image,
+  onChange,
+  registerAsset,
+  onResetUpscale,
+  onReUpscale,
+  asset,
+}: {
+  image: ImageFillData;
+  onChange: (img: ImageFillData) => void;
+  /**
+   * Registers file bytes as a document-level embedded asset (dedup'd by
+   * content hash) and returns its id. Optional so existing callers/tests
+   * that don't need asset-table dedup keep working — file picks fall back
+   * to the previous inline-src behavior when omitted.
+   */
+  registerAsset?: (input: EmbeddedAssetInput) => string;
+  /** Callback to reset non-destructive upscale to original. */
+  onResetUpscale?: () => void;
+  /** Callback to re-upscale with new settings. */
+  onReUpscale?: () => void;
+  /** The document asset behind this fill, when embedded (colour metadata). */
+  asset?: DocumentAsset;
+}) {
+  const fileInputId = useId();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const canonicalAssetId = image.src.startsWith('asset:')
+    ? image.src.slice('asset:'.length)
+    : undefined;
+  const hasMissingEmbeddedPayload = Boolean(canonicalAssetId && !asset?.dataUrl);
+  const previewSrc = hasMissingEmbeddedPayload ? undefined : (asset?.dataUrl ?? image.src);
+  const hasPreview = Boolean(previewSrc);
+  const hasImageReference = Boolean(image.src);
+  const sourceWidth = image.imageWidth ?? asset?.naturalWidth ?? 0;
+  const sourceHeight = image.imageHeight ?? asset?.naturalHeight ?? 0;
+  const useBoundedPreview =
+    Boolean(previewSrc) &&
+    isInlineImageSource(previewSrc ?? '') &&
+    (sourceWidth <= 0 || sourceHeight <= 0 || Math.max(sourceWidth, sourceHeight) > 1024);
+
+  const handleFitChange = useCallback(
+    (value: string) => {
+      onChange({ ...image, fit: value as ImageFit });
+    },
+    [image, onChange],
+  );
+
+  const handleSrcChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const nextSrc = e.target.value;
+      const canonicalAssetId = nextSrc.startsWith('asset:')
+        ? nextSrc.slice('asset:'.length)
+        : undefined;
+      // A manually typed URL leaves the embedded-asset path entirely. Keep a
+      // canonical reference linked only when it resolves to the asset shown
+      // by this control; otherwise do not let a stale assetId point at
+      // unrelated content.
+      onChange({
+        ...image,
+        src: nextSrc,
+        assetId: canonicalAssetId && canonicalAssetId === asset?.id ? canonicalAssetId : undefined,
+      });
+    },
+    [asset?.id, image, onChange],
+  );
+
+  const handleFileChange = useCallback(
+    (e: Event | ChangeEvent<HTMLInputElement>) => {
+      const input = e.target as HTMLInputElement;
+      const file = input.files?.[0];
+      input.value = '';
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        if (typeof result !== 'string') return;
+        if (!registerAsset) {
+          onChange({ ...image, src: result });
+          return;
+        }
+        void decodeNaturalSize(result).then(({ width, height }) => {
+          const assetId = registerAsset({
+            dataUrl: result,
+            mimeType: file.type || 'application/octet-stream',
+            naturalWidth: width,
+            naturalHeight: height,
+          });
+          onChange({
+            ...image,
+            assetId,
+            src: result,
+            ...(width > 0 ? { imageWidth: width } : {}),
+            ...(height > 0 ? { imageHeight: height } : {}),
+          });
+        });
+      };
+      reader.readAsDataURL(file);
+    },
+    [image, onChange, registerAsset],
+  );
+
+  // Ref-forwarded handler so all listeners can stay attached once per node
+  // lifetime while always invoking the logic for the CURRENT render.
+  const handleFileChangeRef = useRef(handleFileChange);
+  useEffect(() => {
+    handleFileChangeRef.current = handleFileChange;
+  });
+
+  // The file-pick change must never be missed. Two mechanisms:
+  //  1. a node-bound native listener attached once per node lifetime — fires
+  //     even if the node detached mid-dialog (native listeners survive
+  //     detach; React's root delegation and effect cleanup on remount do
+  //     not);
+  //  2. a document-capture fallback armed while a pick is pending — covers
+  //     a subtree remount replacing the input while the OS dialog is open.
+  const pickPendingRef = useRef(false);
+  const openFilePicker = useCallback(() => {
+    // The visible button opens the hidden input programmatically, so the
+    // document-level click listener cannot observe the input's click itself.
+    // Arm the remount-safe fallback before opening the native picker.
+    pickPendingRef.current = true;
+    fileRef.current?.click();
+  }, []);
+
+  useEffect(() => {
+    const dispatch = (e: Event) => {
+      pickPendingRef.current = false;
+      handleFileChangeRef.current(e);
+    };
+    const nodeHandler = (e: Event) => dispatch(e);
+    const input = fileRef.current;
+    input?.addEventListener('change', nodeHandler);
+    const onDocChange = (e: Event) => {
+      if (!pickPendingRef.current) return;
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement) || target.type !== 'file') return;
+      if (target === fileRef.current) return; // node listener handled it
+      if (!target.classList.contains('insp-image-fill__file')) return;
+      dispatch(e);
+    };
+    const onDocClick = (e: Event) => {
+      const target = e.target;
+      if (!(target instanceof HTMLInputElement) || target.type !== 'file') return;
+      if (!target.classList.contains('insp-image-fill__file')) return;
+      pickPendingRef.current = true;
+    };
+    document.addEventListener('change', onDocChange, true);
+    document.addEventListener('click', onDocClick, true);
+    return () => {
+      // The node listener is intentionally NOT removed on cleanup: if the
+      // node is detached by a remount while the OS dialog is open, removing
+      // it here would lose the user's file choice. The node is garbage
+      // collected with its listener when the remount fully replaces it.
+      document.removeEventListener('change', onDocChange, true);
+      document.removeEventListener('click', onDocClick, true);
+    };
+  }, []);
+
+  const clearImage = useCallback(() => {
+    onChange({ ...image, src: '', assetId: undefined });
+  }, [image, onChange]);
+
+  return (
+    <div className="insp-image-fill">
+      {hasPreview && previewSrc && (
+        <button
+          type="button"
+          className="insp-image-fill__preview"
+          aria-label="Replace image"
+          onClick={openFilePicker}
+        >
+          {useBoundedPreview ? (
+            <BoundedImagePreview
+              source={previewSrc}
+              sourceWidth={sourceWidth}
+              sourceHeight={sourceHeight}
+            />
+          ) : (
+            <img
+              src={previewSrc}
+              alt=""
+              className="insp-image-fill__preview-img"
+              decoding="async"
+            />
+          )}
+        </button>
+      )}
+
+      {!hasPreview && !hasMissingEmbeddedPayload && (
+        <p className="insp-hint insp-image-fill__empty-hint" role="note">
+          No image selected — the fill is transparent until you choose one.
+        </p>
+      )}
+      {hasMissingEmbeddedPayload && (
+        <p className="insp-hint insp-image-fill__empty-hint" role="alert">
+          Embedded image data is unavailable — replace the image to restore this fill.
+        </p>
+      )}
+
+      <div className="insp-image-fill__actions">
+        <input
+          ref={fileRef}
+          id={fileInputId}
+          type="file"
+          accept="image/*"
+          className="insp-image-fill__file"
+          aria-hidden
+          tabIndex={-1}
+          onChange={handleFileChange}
+          onInput={(e) => handleFileChange(e.nativeEvent)}
+        />
+        <button
+          type="button"
+          className="insp-btn-sm insp-image-fill__choose"
+          onClick={openFilePicker}
+        >
+          <Icon name="Image" label={undefined} size="0.85em" />
+          <span>{hasImageReference ? 'Replace image' : 'Choose image'}</span>
+        </button>
+        {hasImageReference && (
+          <button
+            type="button"
+            className="insp-inline-btn"
+            onClick={clearImage}
+            aria-label="Clear image"
+          >
+            <Icon name="X" label={undefined} size="0.85em" />
+          </button>
+        )}
+      </div>
+
+      <FieldRow label="Source">
+        <Tooltip label={image.src} truncationOnly>
+          <input
+            type="text"
+            value={image.src}
+            onChange={handleSrcChange}
+            aria-label="Image source URL"
+            placeholder="URL or choose a file"
+            className="insp-num__input insp-image-fill__src"
+          />
+        </Tooltip>
+        <Tooltip label="Copy source URL">
+          <button
+            type="button"
+            className="insp-inline-btn"
+            aria-label="Copy source URL"
+            onClick={() => {
+              if (navigator.clipboard) {
+                void navigator.clipboard.writeText(image.src);
+              }
+            }}
+          >
+            <Icon name="Copy" label={undefined} size="0.85em" />
+          </button>
+        </Tooltip>
+      </FieldRow>
+      <FieldRow label="Fit">
+        <Select
+          label="Image fit mode"
+          value={image.fit}
+          options={FIT_OPTIONS}
+          onChange={handleFitChange}
+        />
+      </FieldRow>
+      <FieldRow label="Rotation">
+        <div className="insp-image-fill__transform-row">
+          <input
+            type="number"
+            value={image.rotation ?? 0}
+            onChange={(e) => onChange({ ...image, rotation: parseFloat(e.target.value) || 0 })}
+            aria-label="Image rotation degrees"
+            className="insp-num__input insp-image-fill__rot-input"
+            step={15}
+            min={-360}
+            max={360}
+          />
+          <span className="insp-image-fill__deg">°</span>
+        </div>
+      </FieldRow>
+      <FieldRow label="Flip">
+        <div className="insp-image-fill__flip-row">
+          <TooltipProvider>
+            <Tooltip label="Flip horizontal">
+              <button
+                type="button"
+                className={`insp-image-fill__flip-btn${image.flipH ? ' insp-image-fill__flip-btn--active' : ''}`}
+                aria-pressed={!!image.flipH}
+                aria-label="Flip horizontal"
+                onClick={() => onChange({ ...image, flipH: !image.flipH })}
+              >
+                <Icon name="FlipHorizontal2" label={undefined} size="0.85em" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Flip vertical">
+              <button
+                type="button"
+                className={`insp-image-fill__flip-btn${image.flipV ? ' insp-image-fill__flip-btn--active' : ''}`}
+                aria-pressed={!!image.flipV}
+                aria-label="Flip vertical"
+                onClick={() => onChange({ ...image, flipV: !image.flipV })}
+              >
+                <Icon name="FlipVertical2" label={undefined} size="0.85em" />
+              </button>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </FieldRow>
+      {image.crop && (
+        <FieldRow label="Crop">
+          <div className="insp-image-fill__crop-info">
+            <span className="insp-image-fill__crop-dims">
+              {Math.round(image.crop.w)}x{Math.round(image.crop.h)} px
+            </span>
+            <Tooltip label="Reset crop to full image">
+              <button
+                type="button"
+                className="insp-inline-btn insp-image-fill__crop-reset"
+                aria-label="Reset crop"
+                onClick={() => {
+                  const next = { ...image };
+                  delete next.crop;
+                  next.x = 0;
+                  next.y = 0;
+                  next.scale = 1;
+                  onChange(next);
+                }}
+              >
+                <Icon name="RotateCcw" label={undefined} size="0.85em" />
+                <span>Reset</span>
+              </button>
+            </Tooltip>
+          </div>
+        </FieldRow>
+      )}
+      {image.upscale && (
+        <FieldRow label="Upscale">
+          <div className="insp-image-fill__upscale-info">
+            <span className="insp-hint">
+              {image.upscale.mode} {image.upscale.scale}x
+            </span>
+            <div className="insp-image-fill__upscale-actions">
+              {onResetUpscale && (
+                <Tooltip label="Reset to original image">
+                  <button
+                    type="button"
+                    className="insp-inline-btn"
+                    aria-label="Reset upscale"
+                    onClick={onResetUpscale}
+                  >
+                    <Icon name="RotateCcw" label={undefined} size="0.85em" />
+                    <span>Reset</span>
+                  </button>
+                </Tooltip>
+              )}
+              {onReUpscale && (
+                <Tooltip label="Re-upscale with new settings">
+                  <button
+                    type="button"
+                    className="insp-inline-btn"
+                    aria-label="Re-upscale"
+                    onClick={onReUpscale}
+                  >
+                    <Icon name="Settings" label={undefined} size="0.85em" />
+                    <span>Re-upscale</span>
+                  </button>
+                </Tooltip>
+              )}
+            </div>
+          </div>
+        </FieldRow>
+      )}
+      {asset?.metadata && <ImageColorInfo asset={asset} />}
+    </div>
+  );
+}
+
+/**
+ * Compact colour-metadata readout for a placed raster (expandable details).
+ * Text + icon only — never colour alone (WCAG).
+ */
+function ImageColorInfo({ asset }: { asset: DocumentAsset }) {
+  const [expanded, setExpanded] = useState(false);
+  const metadata = asset.metadata;
+  if (!metadata) return null;
+  const encoding = metadata.colorEncoding;
+  const untagged =
+    encoding === undefined ||
+    encoding.provenance === 'format-default' ||
+    encoding.provenance === 'assumed' ||
+    encoding.provenance === 'legacy-assumed-srgb';
+
+  const summary = encoding ? rasterEncodingLabel(encoding) : 'Untagged — interpreted as sRGB';
+  const provenanceLabel = encoding
+    ? rasterProvenanceLabel(encoding.provenance)
+    : rasterProvenanceLabel('legacy-assumed-srgb');
+
+  const details: Array<{ label: string; value: string }> = [];
+  if (encoding) {
+    details.push({ label: 'Profile source', value: provenanceLabel });
+    details.push({ label: 'Primaries', value: encoding.primaries ?? 'unknown' });
+    details.push({ label: 'Transfer', value: encoding.transfer ?? 'unknown' });
+    if (encoding.bitDepth !== undefined) {
+      details.push({ label: 'Bit depth', value: String(encoding.bitDepth) });
+    }
+    if (encoding.matrixCoefficients !== undefined) {
+      details.push({ label: 'Matrix coefficients', value: encoding.matrixCoefficients });
+    }
+    if (encoding.videoRange !== undefined) {
+      details.push({ label: 'Video range', value: encoding.videoRange });
+    }
+    if (encoding.profileId) details.push({ label: 'Profile', value: encoding.profileId });
+  } else {
+    details.push({ label: 'Profile source', value: provenanceLabel });
+  }
+  if (metadata.iccDescription) {
+    details.push({ label: 'Embedded profile name', value: metadata.iccDescription });
+  }
+  if (metadata.iccStatus === 'invalid') {
+    details.push({ label: 'ICC status', value: 'invalid (cannot be colour-managed)' });
+  }
+  if (metadata.orientation !== undefined && metadata.orientation !== 1) {
+    details.push({ label: 'EXIF orientation', value: String(metadata.orientation) });
+  }
+
+  return (
+    <FieldRow label="Colour">
+      <div className="insp-image-fill__color">
+        <div className="insp-image-fill__color-summary">
+          <Icon name="Info" label={undefined} size="0.85em" />
+          <span className={untagged ? 'insp-hint' : undefined}>{summary}</span>
+        </div>
+        {details.length > 0 && (
+          <button
+            type="button"
+            className="insp-inline-btn"
+            aria-expanded={expanded}
+            aria-label={expanded ? 'Hide colour details' : 'Show colour details'}
+            onClick={() => setExpanded((v) => !v)}
+          >
+            <Icon name={expanded ? 'ChevronUp' : 'ChevronDown'} label={undefined} size="0.85em" />
+            <span>{expanded ? 'Hide details' : 'Details'}</span>
+          </button>
+        )}
+        {expanded && (
+          <dl className="insp-image-fill__color-details">
+            {details.map((d) => (
+              <div key={d.label} className="insp-image-fill__color-detail">
+                <dt>{d.label}</dt>
+                <dd>{d.value}</dd>
+              </div>
+            ))}
+            {encoding?.diagnostics?.map((diagnostic) => (
+              <div key={diagnostic} className="insp-image-fill__color-detail">
+                <dt>Note</dt>
+                <dd>{diagnostic}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </div>
+    </FieldRow>
+  );
+}

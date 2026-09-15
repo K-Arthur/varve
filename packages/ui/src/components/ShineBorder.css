@@ -1,0 +1,185 @@
+/*
+ * Shine Border is an emphasis layer, not a structural border. The host keeps
+ * ownership of external layout, radius, background, overflow, and focus
+ * treatment. Static hosts become containing blocks for the reserved ::after.
+ */
+@property --varve-shine-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+:where(.varve-shine-border) {
+  position: relative;
+  --varve-shine-color: var(--color-interactive-default);
+  --varve-shine-highlight: var(--color-accent-primary);
+}
+
+:where(.varve-shine-border--tone-success) {
+  --varve-shine-color: var(--color-feedback-success);
+  --varve-shine-highlight: var(--color-feedback-success-strong, var(--color-feedback-success));
+}
+
+:where(.varve-shine-border)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--varve-shine-color);
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+}
+
+:where(.varve-shine-border--active)::after {
+  opacity: 0.34;
+}
+
+:where(.varve-shine-border--static.varve-shine-border--active)::after {
+  opacity: 0.58;
+}
+
+/*
+ * The ordinary 1px token border above is the safe fallback. Engines with both
+ * conic-gradient and mask composition replace it with the animated ring.
+ */
+@supports (background: conic-gradient(from 0deg, transparent, currentColor)) and
+  ((mask-composite: exclude) or (-webkit-mask-composite: xor)) {
+  :where(.varve-shine-border)::after {
+    border-color: transparent;
+    background: var(--varve-shine-color);
+    background-clip: border-box;
+    /* stylelint-disable property-no-vendor-prefix -- required by Safari/WebKitGTK. */
+    -webkit-mask:
+      linear-gradient(rgb(0 0 0) 0 0) padding-box,
+      linear-gradient(rgb(0 0 0) 0 0);
+    -webkit-mask-composite: xor;
+    /* stylelint-enable property-no-vendor-prefix */
+    mask:
+      linear-gradient(rgb(0 0 0) 0 0) padding-box,
+      linear-gradient(rgb(0 0 0) 0 0);
+    mask-composite: exclude;
+  }
+
+  :where(.varve-shine-border--static.varve-shine-border--active)::after {
+    background: linear-gradient(
+      115deg,
+      var(--varve-shine-color),
+      var(--varve-shine-highlight),
+      var(--varve-shine-color)
+    );
+  }
+
+  :where(.varve-shine-border--beam.varve-shine-border--active)::after {
+    background: conic-gradient(
+      from var(--varve-shine-angle),
+      transparent 0deg 270deg,
+      var(--varve-shine-color) 302deg,
+      var(--varve-shine-highlight) 326deg,
+      transparent 354deg 360deg
+    );
+    animation: varve-shine-border-once var(--duration-emphasis) var(--ease-out) both;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    :where(.varve-shine-border--subtle.varve-shine-border--active:hover)::after {
+      background: conic-gradient(
+        from var(--varve-shine-angle),
+        transparent 0deg 215deg,
+        var(--varve-shine-color) 260deg,
+        var(--varve-shine-highlight) 304deg,
+        transparent 350deg 360deg
+      );
+      opacity: 0.62;
+      animation: varve-shine-border-loop var(--duration-emphasis-loop) linear infinite;
+    }
+  }
+}
+
+@keyframes varve-shine-border-loop {
+  to {
+    --varve-shine-angle: 360deg;
+  }
+}
+
+@keyframes varve-shine-border-once {
+  0% {
+    --varve-shine-angle: -72deg;
+    opacity: 0.2;
+  }
+  18%,
+  76% {
+    opacity: 0.78;
+  }
+  100% {
+    --varve-shine-angle: 288deg;
+    opacity: 0.34;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.varve-shine-border--active)::after {
+    animation: none;
+    background: none;
+    opacity: 0.58;
+  }
+
+  @supports (background: conic-gradient(from 0deg, transparent, currentColor)) and
+    ((mask-composite: exclude) or (-webkit-mask-composite: xor)) {
+    :where(.varve-shine-border--active)::after {
+      background: var(--varve-shine-color);
+    }
+  }
+}
+
+/* High contrast uses one crisp, stationary edge instead of a luminous sweep. */
+[data-theme="high-contrast"] :where(.varve-shine-border--active)::after {
+  animation: none;
+  border: 2px solid var(--color-border-strong);
+  background: none;
+  /* stylelint-disable-next-line property-no-vendor-prefix -- required by Safari/WebKitGTK. */
+  -webkit-mask: none;
+  mask: none;
+  opacity: 1;
+}
+
+/* Match the token system's OS high-contrast mode when no app theme is explicit. */
+@media (prefers-contrast: more) {
+  :root:not([data-theme]) :where(.varve-shine-border--active)::after {
+    animation: none;
+    border: 2px solid var(--color-border-strong);
+    background: none;
+    /* stylelint-disable-next-line property-no-vendor-prefix -- required by Safari/WebKitGTK. */
+    -webkit-mask: none;
+    mask: none;
+    opacity: 1;
+  }
+}
+
+/* Forced-colour users retain the host's ordinary structural border and focus. */
+@media (forced-colors: active) {
+  :where(.varve-shine-border)::after {
+    content: none;
+  }
+}
+
+/*
+ * Terminal interaction suppression follows every theme/motion override. A
+ * focus ring wins while the hidden timeline advances, so blur cannot replay a
+ * one-shot; disabled decoration is fully stopped.
+ */
+:where(.varve-shine-border):focus-visible::after,
+:where(.varve-shine-border):focus-within::after {
+  border-color: transparent;
+  background: none;
+  visibility: hidden;
+  opacity: 0;
+}
+
+:where(.varve-shine-border:disabled)::after,
+:where(.varve-shine-border[aria-disabled="true"])::after,
+:where(.varve-shine-border--disabled)::after {
+  animation: none;
+  visibility: hidden;
+  opacity: 0;
+}

@@ -1,0 +1,512 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+import manifest from '../../data/screenshot-manifest.json';
+import FeatureVisual from '../../components/FeatureVisual.astro';
+
+type ScreenshotScene = {
+  file: string;
+  alt: string;
+  caption: string;
+  width?: number;
+  height?: number;
+  status?: string;
+};
+const scenes = (manifest as { scenes: Record<string, ScreenshotScene> }).scenes;
+const paletteShot = scenes['palette-inspector']?.status === 'captured' ? scenes['palette-inspector'] : null;
+const solidPickerShot = scenes['solid-picker']?.status === 'captured' ? scenes['solid-picker'] : null;
+const gradientPickerShot = scenes['gradient-picker']?.status === 'captured' ? scenes['gradient-picker'] : null;
+---
+
+<Layout title="Color & Effects" description="Varve's color workflow: local palette extraction, native CMYK document colors, ICC profiles, soft proofing, effects, and print-ready export.">
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Color & Effects
+      </nav>
+
+      <h1>Color & Effects</h1>
+      <p class="feature-intro">
+        Keep print colors meaningful from document to export. Varve stores native CMYK values alongside RGB, grayscale, and spot colors, then carries precision-aware working values through conversion, gradients, effects, and proofing.
+      </p>
+
+      <section class="feature-section">
+        <h2>What It Is</h2>
+        <p>
+          Varve provides color management across RGB, CMYK, grayscale, and spot color spaces with ICC profile support. CMYK values remain native document values instead of being flattened into display RGB during editing. Select an image and Varve can also build a local, deterministic palette from the visible crop, suggest harmonies, and surface WCAG 2.1 contrast pairs. The effects system includes alpha-aware drop and inner shadows, layer and background blur, solid or gradient glows, RGB/custom chromatic splits, and glitch. Adjustment layers provide non-destructive editing with curves, levels, selective color, HSL, and exposure controls. The halftone engine supports AM and FM screening for print-style looks, with CMYK process screening documented as an artistic preview rather than a calibrated separation.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>A shared color surface</h2>
+        <p>
+          The 400px color panel keeps the editing hierarchy visible: a large color area, slim hue and opacity ramps, precise fields, and before/current previews. RGB, CMYK, grayscale, Lab, LCH, and Spot views preserve the document's native values, profile, spot identity, and precision while you edit.
+        </p>
+        <p>
+          Gradient fills and strokes use the same floating panel. Pick a stop, edit its color, and open the collapsed Gradient options for interpolation, hue direction, tiling, midpoint, and rotation. A stop drag creates one undo step, and opening the panel or selecting a stop is history-neutral.
+        </p>
+        <p>
+          Proofing and screen sampling are capability-qualified: proof status is separate from the authored color, and the eyedropper is enabled only when the browser exposes the EyeDropper contract. Unsupported runtimes state that limitation instead of suggesting a native fallback that is not present.
+        </p>
+      </section>
+
+      {(solidPickerShot || gradientPickerShot) && (
+        <div class="feature-picker-visuals">
+          {solidPickerShot && (
+            <figure class="feature-visual">
+              <img
+                src={sitePath(`/screenshots/${solidPickerShot.file}`)}
+                alt={solidPickerShot.alt}
+                width={solidPickerShot.width ?? 1440}
+                height={solidPickerShot.height ?? 900}
+                loading="lazy"
+              />
+              <figcaption>{solidPickerShot.caption}</figcaption>
+            </figure>
+          )}
+          {gradientPickerShot && (
+            <figure class="feature-visual">
+              <img
+                src={sitePath(`/screenshots/${gradientPickerShot.file}`)}
+                alt={gradientPickerShot.alt}
+                width={gradientPickerShot.width ?? 1440}
+                height={gradientPickerShot.height ?? 900}
+                loading="lazy"
+              />
+              <figcaption>{gradientPickerShot.caption}</figcaption>
+            </figure>
+          )}
+        </div>
+      )}
+
+      <section class="feature-section">
+        <h2>Image Treatments</h2>
+        <p>
+          Image Treatments bring a smaller, purpose-named set of non-destructive
+          controls to photographs and rendered objects: Fine Texture, Local Contrast,
+          Atmospheric Depth, Dehaze, Vignette, Grain, and Highlight Glow. Image Tuning
+          keeps common image controls together; Object Filters keep advanced ordering,
+          effect opacity, blending, and vector-object use explicit.
+        </p>
+        <p>
+          Embedded image sources stay local to the document and source-preserving
+          through these edits. Crop, fit, masks, and treatment stacks change the
+          placement or rendered result without replacing the original asset.
+        </p>
+        <p>
+          A gray vector rectangle at 50% opacity can receive Grain, Vignette, or
+          Highlight Glow through Object Finishing without losing its editable fill or
+          opacity. Atmospheric Depth is a broad local-depth operator, while Dehaze is a
+          distinct atmospheric-veil recovery treatment. <a href={sitePath('/docs/tools/image-treatments')}>Read the practical guide</a>.
+        </p>
+        <p>
+          Object Filters also provide directional Motion Blur, block-based Mosaic,
+          edge-aware Surface Smooth, and paper-or-transparent Edge Ink. They remain
+          editable stack members on images, vectors, and text, with deterministic
+          raster export. Each recipe member keeps its own opacity and blend mode;
+          changing one member never removes the other members in the stack.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Gradient Maps</h2>
+        <p>
+          Regrade rendered content by tone with an editable Gradient Map adjustment. Choose from
+          thirty built-in treatments, import Photoshop <code>.grd</code> presets, or build a custom
+          ramp with midpoint, opacity, interpolation, reverse, intensity, and source-alpha controls.
+          The adjustment stays scoped and non-destructive across raster and vector content.
+        </p>
+        <p>
+          Preview the input tonal distribution while you work, then carry the complete treatment
+          through save, reload, undo, and raster export. <a href={sitePath('/features/gradient-maps')}>Explore Gradient Maps</a>.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Choose the scope of an edit</h2>
+        <p>
+          Use Image Tuning for photographic corrections, Effect Studio for creative
+          treatments on raster or vector objects, and Object Filters for a precise
+          ordered stack on an image, vector, or text object. Adjustment Filters apply
+          to the content below an adjustment layer within its scope. Layer Effects
+          provide appearance controls such as shadows and glows.
+        </p>
+        <p>
+          <a href={sitePath('/features/layer-effects')}>Layer Effects</a> are the focused appearance stack: they stay attached to editable vector, text, group, frame, image, and raster layers, with stage-aware ordering and alpha-aware coverage.
+        </p>
+        <p>
+          With normal blending, effect opacity mixes the incoming and filtered
+          result. A neutral colour correction at partial strength preserves a
+          cutout's transparency. Object opacity controls the final object's
+          coverage separately. Studio and Object Filter blend modes work on
+          raster images and rendered vectors through the same ordered compositor;
+          original image assets and vector geometry remain editable.
+        </p>
+        <p>
+          Adjustment layers show their resolved target count and keep an empty
+          selection inactive until you choose a target. The same inspector
+          exposes an adjustment mask for the resolved result, including its
+          source, type, visibility, inversion, feather, density, and transform
+          link. Levels and Curves show the histogram for the stage you are
+          editing and flag clipped shadows and highlights as percentages of the
+          visible samples, while Exposure applies stops in linear light at the
+          reference pixel boundary. These are deterministic, offline controls;
+          the current browser effect surface is RGBA8 and does not claim HDR,
+          CMYK-raster, or ICC-accurate effect math.
+        </p>
+        <p>
+          LUT imports preserve their source-space metadata, but the current browser
+          compositor executes against sRGB values. The optional Linearize control is a
+          tested sRGB transfer—not an ACES, Display-P3, or camera-log conversion—so
+          those labels are not advertised as equivalent color-managed transforms.
+        </p>
+        <p>
+          Autodesk/Discreet <code>.3dl</code> imports retain their integer code values,
+          optional shaper stage, and canonical channel order. That format support is a
+          portable LUT decode, not a promise of the source application's color-space
+          conversion or grading model.
+        </p>
+        <p>
+          File → Export SVG uses the same structural compositor as the export panel. Vector
+          artwork stays vector where the format can represent it; adjustment layers and other
+          non-native regions are embedded as derived raster assets at the smallest required
+          boundary, while the editable document remains unchanged.
+        </p>
+      </section>
+
+      <section class="feature-section constrained-editing" aria-labelledby="constrained-editing-title">
+        <p class="eyebrow">Designed for real machines</p>
+        <h2 id="constrained-editing-title">Keep editing while effects settle.</h2>
+        <p>
+          The browser editor treats responsiveness as part of the effect workflow. During a
+          drag or pinch it prioritizes the canvas and active selection, coalesces superseded
+          previews, and can use a temporary lower preview scale. Settled previews and exports
+          return to the requested quality; the authored radius, intensity, seed, mask, and
+          colour values are not rewritten.
+        </p>
+        <p>
+          Small pointwise corrections such as exposure, curves, and LUT treatments use the
+          painted object region when it is safe. Blur, grain, dither, halftone, displacement,
+          and other spatial or global operations keep their full dependency bounds instead of
+          risking clipped halos or tile seams. If a temporary surface cannot fit, Varve keeps
+          the editable base content visible and reports the limitation rather than claiming a
+          successful incomplete render. <a href={sitePath('/docs/performance')}>See the constrained-device guide</a>.
+        </p>
+      </section>
+
+      <section class="feature-section control-contract">
+        <h2>Precision controls that stay in reach</h2>
+        <p>
+          Continuous effect values have two complementary paths: drag a slider while exploring, or
+          enter an exact value with the keyboard. Paired geometry and channel controls use the same
+          responsive grid, so labels, units, locks, and reset actions keep their breathing room as
+          the Inspector or Effect Studio is resized.
+        </p>
+        <div class="control-contract__grid">
+          <article>
+            <h3>Explore, then specify</h3>
+            <p>Sliders and precision fields stay synchronized, including percentage values stored in normalized document units.</p>
+          </article>
+          <article>
+            <h3>Related values stay together</h3>
+            <p>Offsets, dimensions, and channel pairs share bounded tracks that stack cleanly when space gets tight.</p>
+          </article>
+          <article>
+            <h3>Readable at every size</h3>
+            <p>Effect Studio moves from three columns to two and then one flow column instead of forcing clipped controls or hidden values.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <h2>From Image to Working Palette</h2>
+        <p>
+          In Design/Properties → Palette, a bounded preview is analysed locally in perceptual Oklab. Large image files are not uploaded or scanned at full resolution by the editor path, and transparent pixels are handled explicitly.
+        </p>
+        <ul>
+          <li><strong>Useful roles:</strong> dominant, primary, secondary, accent, and neutral candidates with coverage information</li>
+          <li><strong>Generated harmonies:</strong> complementary, analogous, triadic, split-complementary, and monochromatic suggestions clearly labelled as derived—not sampled</li>
+          <li><strong>Accessibility review:</strong> WCAG 2.1 body-text and large-text contrast thresholds with foreground/background previews</li>
+          <li><strong>Reusable output:</strong> copy HEX values, apply a sampled colour as a fill, or save extracted colours as document swatches and variables</li>
+        </ul>
+        <p>
+          Palette roles are helpful starting points rather than semantic image understanding. Review the final type, profile, and export context before publishing.
+        </p>
+      </section>
+
+      {paletteShot && (
+        <figure class="feature-visual">
+          <img
+            src={sitePath(`/screenshots/${paletteShot.file}`)}
+            alt={paletteShot.alt}
+            width={paletteShot.width ?? 1440}
+            height={paletteShot.height ?? 900}
+            loading="lazy"
+          />
+          <figcaption>{paletteShot.caption}</figcaption>
+        </figure>
+      )}
+
+      <section class="feature-section">
+        <h2>Key Capabilities</h2>
+        <ul>
+          <li><strong>Picker views:</strong> RGB with RGB/HSL/HSB formats, CMYK, grayscale, Lab, LCH, and Spot, with canonical values preserved during edits</li>
+          <li><strong>Native document color:</strong> CMYK channels stay tagged as CMYK in the document model, ready for print-oriented editing and export</li>
+          <li><strong>Precision-aware working:</strong> 16-bit integer and floating-point channel values stay distinct through supported conversions, gradients, effects, and proof transforms; quantization is explicit at a display or codec boundary</li>
+          <li><strong>Document color settings:</strong> Inspector controls for precision (8-bit, 16-bit, 16f, 32f) and blend space (sRGB or linear-light), plus an explicit Assign vs Convert dialog for mode changes — assign keeps values, convert rewrites them in one undoable step</li>
+          <li><strong>Precision-preserving editing:</strong> bit-depth-aware numeric fields (0-255 / 0-65535 / 0-1), float HSV drafts, and swatches that carry the full canonical color — editing one channel never quantizes the others, and 16-bit values survive save/reopen exactly</li>
+          <li><strong>Native CMYK in PDF export:</strong> authored CMYK channels are emitted directly with pure-K preserved — no CMYK→RGB→CMYK round trip turning black into a four-color build</li>
+          <li><strong>ICC profiles:</strong> Bundled RGB and CMYK profiles (sRGB, Fogra39, GRACoL, SWOP) with rendering intents</li>
+          <li><strong>Blend modes:</strong> 18 CSS blend modes plus 4 non-separable modes (hue, saturation, color, luminosity)</li>
+          <li><strong>Effects:</strong> Alpha-aware drop/inner shadows, canonical Gaussian and Layer Blur, Field/Iris/Tilt-Shift/Path/Spin spatial blur, background blur, Depth Blur, solid or gradient outer/inner glow, glass material, RGB/custom chromatic split, and glitch</li>
+          <li><strong>Image Treatments:</strong> Fine Texture, Local Contrast, Atmospheric Depth, Dehaze, Vignette, Grain, and Highlight Glow with source-preserving Object Filters and Adjustment Layers</li>
+          <li><strong>Adjustment layers:</strong> Curves (Catmull-Rom spline), levels, selective color (9 targets), HSL, exposure — with per-target scoping</li>
+          <li><strong>Halftone screening:</strong> AM clustered dots (7 shapes) and FM stochastic (blue-noise, Bayer, or full-frame error diffusion); document-anchored ruling in LPI, mono ink/paper with an alpha-screening mode, and CMYK process preview with per-ink angles, GCR/UCR black generation, ink limits, and plate preview</li>
+          <li><strong>Soft proofing:</strong> qualified CMYK simulation and gamut status when a profile converter is registered; browser display remains an sRGB preview</li>
+          <li><strong>Background removal:</strong> Fast, Auto, and High quality local cutouts with optional IS-Net/BiRefNet models, hair-edge refinement, subject picker, and an undoable mask workflow</li>
+          <li><strong>Retouching tools:</strong> Clone stamp, healing brush, spot heal, patch tool</li>
+        </ul>
+      </section>
+
+      <FeatureVisual
+        scene="effects"
+        caption="Effects stay non-destructive and precise — each stack member keeps its own offset, blur, spread, opacity, blend mode, and editable value controls."
+      />
+
+      <section class="feature-section">
+        <h2>Print Preview, Honestly</h2>
+        <p>
+          Native desktop export is the print authority: it can apply the selected document profile, rendering intent, bleed, marks, and PDF/X settings. Browser previews use the browser's sRGB display path and current RGBA8 canvas surfaces, so they are useful for layout and directional proofing—not a substitute for a calibrated monitor or an exported contract proof.
+        </p>
+        <p>
+          Authoring precision — 16-bit and floating-point vector colors, precision-aware picker fields, and high-precision persistence through save/reopen — is shipped. High-precision raster decode (16-bit PNG/TIFF pixels), CMYK raster planes, and high-precision GPU preview targets remain active integration areas. The document model and typed working-buffer boundaries are designed so those paths can be added without silently rewriting stored color values.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Technical Depth</h2>
+        <p>
+          Color management uses a ManagedColor discriminated union (RGB/CMYK/Gray/Spot) with bit-depth-aware channels and analytical sRGB-to-CMYK conversion via OKLab. The blur engine uses normalized separable Gaussian and spatial reference kernels with premultiplied alpha and linear-light accumulation; backend choice does not redefine an authored radius. Adjustment layers support 5 scoping modes for targeting specific layers.
+        </p>
+        <p>
+          The halftone engine screens document-anchored threshold matrices calibrated to Varve's 96 ppi document units, with per-pixel sampling so the rendered ruling matches the requested LPI; CMYK uses standard press angles (C 15°, M 75°, Y 0°, K 45°) overridable per ink, and is an artistic process preview rather than a calibrated ICC separation. Background removal runs locally through an ONNX Runtime pipeline: the browser worker handles the compatible path, while native desktop execution is preferred for heavier models.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Limitations</h2>
+        <div class="limitations">
+          <p><strong>Current limitations:</strong></p>
+          <ul>
+            <li>Browser canvas and ImageData display surfaces remain 8-bit; higher-precision working buffers are available where the selected pipeline supports them, but they do not change the browser display surface</li>
+            <li>Profile-aware raster decode, CMYK raster-plane import, and high-precision GPU render targets are not yet the default browser path</li>
+            <li>Print bleed and trim guides are available in the current print workflow; exported geometry remains the final authority</li>
+            <li>Heavier background-removal models are provider- and memory-dependent. Unsafe bare-WASM runs are blocked before allocation and the UI explains any reduced-quality fallback.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <h2>Status</h2>
+        <div class="status-badge built">
+          <span class="badge-text">Built</span>
+          <p>Color management, native CMYK document values, effects, adjustment layers, halftone, background removal, precision-aware working buffers, and print guides are functional. Some browser display, raster decode, and GPU effect boundaries still use display precision.</p>
+        </div>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Ready to create with color?</h2>
+        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .breadcrumb a {
+    color: var(--text-secondary);
+  }
+  
+  .feature-page h1 {
+    font-size: clamp(2rem, 5vw, 2.5rem);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.015em;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+  
+  .feature-intro {
+    font-size: 1.25rem;
+    color: var(--text-secondary);
+    margin-bottom: 3rem;
+  }
+  
+  .feature-section {
+    margin-bottom: 3rem;
+  }
+
+  .constrained-editing {
+    border-left: 2px solid var(--border-accent);
+    padding-left: 1.25rem;
+  }
+
+  .feature-visual {
+    margin: -1rem 0 3rem;
+  }
+
+  .feature-visual img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    box-shadow: var(--elevation-shadow-raised);
+  }
+
+  .feature-visual figcaption {
+    margin-top: 0.75rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    text-align: center;
+  }
+  
+  .feature-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+  
+  .feature-section p {
+    color: var(--text-secondary);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  
+  .feature-section ul {
+    list-style: none;
+  }
+  
+  .feature-section li {
+    margin-bottom: 0.75rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--text-secondary);
+  }
+  
+  .feature-section li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--text-link-hover);
+  }
+  
+  .feature-section strong {
+    color: var(--text-primary);
+  }
+
+  .control-contract__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .control-contract__grid article {
+    min-width: 0;
+    padding: 1.25rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    background: var(--surface-card);
+  }
+
+  .control-contract__grid h3 {
+    margin: 0 0 0.5rem;
+    color: var(--text-primary);
+    font-size: 1rem;
+  }
+
+  .control-contract__grid p {
+    margin: 0;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 52rem) {
+    .control-contract__grid {
+      grid-template-columns: 1fr;
+    }
+
+    .constrained-editing {
+      padding-left: 1rem;
+    }
+  }
+  
+  .limitations {
+    background: var(--surface-muted);
+    border-radius: var(--website-radius-card);
+    padding: 1.5rem;
+  }
+  
+  .limitations p {
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+  }
+  
+  .status-badge {
+    background: var(--surface-warning);
+    border: 1px solid var(--border-warning);
+    border-radius: var(--website-radius-card);
+    padding: 1.5rem;
+  }
+  
+  .status-badge.partial {
+    background: var(--surface-warning);
+    border-color: var(--border-warning);
+  }
+  
+  .badge-text {
+    display: inline-block;
+    background: var(--status-partial);
+    color: var(--text-on-status);
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--website-radius-control-compact);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+  }
+  
+  .status-badge p {
+    color: var(--text-secondary);
+    margin: 0;
+  }
+  
+  .feature-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--border-default);
+  }
+  
+  .feature-cta h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+  }
+</style>

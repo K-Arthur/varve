@@ -1,0 +1,423 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout title="Troubleshooting" description="Troubleshooting common Varve issues: installation, launch, rendering, export, and performance problems on Linux, macOS, and Windows.">
+  <div class="container-custom">
+    <div class="support-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/support')}>Support</a> / Troubleshooting
+      </nav>
+
+      <h1>Troubleshooting</h1>
+      <p class="support-intro">
+        Common issues and solutions for Varve.
+      </p>
+
+      <div class="troubleshooting-section">
+        <h2>Installation Issues</h2>
+        
+        <div class="troubleshoot-item">
+          <h3>AppImage won't run on Linux</h3>
+          <p><strong>Solution:</strong> Make the AppImage executable:</p>
+          <code class="code-block">chmod +x Varve-*.AppImage</code>
+          <p>Then run it directly:</p>
+          <code class="code-block">./Varve-*.AppImage</code>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Missing dependencies on Linux</h3>
+          <p><strong>Solution:</strong> Install required dependencies:</p>
+          <code class="code-block">sudo apt install libwebkit2gtk-4.1-0 libgtk-3-0 librsvg2-2</code>
+          <p>For Arch/CachyOS:</p>
+          <code class="code-block">sudo pacman -S webkit2gtk gtk3 librsvg</code>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Varve on ChromeOS: install, launch, or file access</h3>
+          <p>
+            <strong>Solution:</strong> Install the <code>.deb</code> inside the ChromeOS
+            Linux development environment and match your architecture
+            (<code>uname -m</code>). ChromeOS does not expose GPU acceleration to Linux
+            apps, printing needs CUPS inside the container, and files kept only in the
+            container are deleted if the Linux environment is removed — keep projects in a
+            shared My files/Drive folder. The full walkthrough is in{' '}
+            <a href={sitePath('/docs/chromeos-linux')}>Varve on ChromeOS</a>.
+          </p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>macOS says "app is damaged" on launch</h3>
+          <p><strong>Solution:</strong> This is a macOS security gate for unsigned apps. Right-click the app and select "Open", then click "Open" in the dialog. This only needs to be done once.</p>
+        </div>
+      </div>
+
+      <div class="troubleshooting-section" id="chromebook-browser-troubleshooting">
+        <h2>Chromebook, Browser, and Low-Memory Issues</h2>
+        <p class="section-note">
+          Each entry states the symptom, the likely causes (and what is uncertain), safe
+          checks that change nothing, a bounded corrective action, the expected result,
+          and an honest escalation path.
+        </p>
+
+        <div class="troubleshoot-item">
+          <h3>WebGPU is unavailable, or GPU-accelerated effects are slow</h3>
+          <p><strong>Symptom:</strong> the capability report shows WebGPU unavailable or failed, and effects such as blur or large image adjustments feel slower than expected.</p>
+          <p><strong>Likely causes:</strong> the device or driver does not expose a usable WebGPU adapter, the GPU process is unavailable, or the page is running in a context where GPU access is restricted. On ChromeOS this is expected on some devices and versions; the exact driver state is uncertain without the capability report.</p>
+          <p><strong>Safe checks:</strong> open <strong>Settings &rarr; Performance &rarr; Platform capability report</strong> and read the graphics result; check <code>chrome://gpu</code> for WebGPU/Canvas status. Do not enable browser flags to force an unsupported path.</p>
+          <p><strong>Bounded action:</strong> continue with the Canvas2D path, which is authoritative. Reduce simultaneous large effects and close other tabs. If you were testing a specific document, try it in a new tab without other media playing.</p>
+          <p><strong>Expected result:</strong> editing remains correct; heavy effects render more slowly through the CPU path, and nothing in the document changes.</p>
+          <p><strong>If it still fails:</strong> report it with the capability report JSON, Chrome/ChromeOS version, and device model. Do not treat the device's advertised NPU as usable; Varve does not use it.</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Heavy operations are slow, stall, or fail</h3>
+          <p><strong>Symptom:</strong> background removal, upscaling, image tracing, large imports, or long pans take a long time or end in an error.</p>
+          <p><strong>Likely causes:</strong> memory pressure from several large images at once, browser WASM running single-threaded on the demo host, a very large source image, or a model operation competing with foreground editing. The browser may also be about to discard the tab.</p>
+          <p><strong>Safe checks:</strong> watch the Storage &amp; Offline estimate and the capability report; confirm the document is saved; check Chrome Task Manager for the tab's memory. Save first — recovery copies are a safety net, not a destination.</p>
+          <p><strong>Bounded action:</strong> run one heavy operation at a time, close unused tabs, and prefer smaller source images. Wait for an operation to finish or cancel it from its dialog before starting another.</p>
+          <p><strong>Expected result:</strong> the operation completes or reports a bounded error; the document stays editable and the last save is untouched.</p>
+          <p><strong>If it still fails:</strong> note the operation, source image size in pixels, and the capability report; report it. Attach no private design content — describe the document instead.</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>The browser reports low storage or a write fails</h3>
+          <p><strong>Symptom:</strong> a save or recovery write fails with a quota message, or the storage estimate is nearly full.</p>
+          <p><strong>Likely causes:</strong> the origin's storage quota is exhausted (the largest contributors are offline application copies, recovery copies, and imported images), or the device itself is low on free space. Quota derives from total disk size and is an estimate, not a guarantee.</p>
+          <p><strong>Safe checks:</strong> open <strong>Settings &rarr; Storage &amp; Offline</strong>; note the estimate and how many recovery copies exist. Make sure any unsaved document is exported through <strong>Save As</strong> first.</p>
+          <p><strong>Bounded action:</strong> clear <strong>offline app copies</strong> only (the control is labeled and prefix-gated); remove downloads you no longer need through Chrome's download manager. Never delete recovery copies while a document has unsaved edits, and never delete browser-wide site data to "clean up" without exporting first.</p>
+          <p><strong>Expected result:</strong> new writes succeed; saved documents, recovery copies, and installed-app state are preserved except the disposable offline copy you chose to clear.</p>
+          <p><strong>If it still fails:</strong> report the estimate, the exact error text, and free disk space. If the device itself is full, free space in ChromeOS Files or remove unused Android/Linux content — with a backup first.</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>A document opens with the wrong font, or text looks different</h3>
+          <p><strong>Symptom:</strong> a font is substituted, text metrics shift, or a document warns about missing fonts.</p>
+          <p><strong>Likely causes:</strong> the document uses a font that is not installed in this environment. The browser uses bundled fonts plus any local fonts the browser exposes; the Linux application sees only the container's fontconfig set, not the host's. Which fonts a given document needs is reported by the missing-font control.</p>
+          <p><strong>Safe checks:</strong> open the font panel and read the missing-font list; compare on the machine where the document was created.</p>
+          <p><strong>Bounded action:</strong> install the missing font in the environment doing the rendering (browser: add the font file through the font controls where offered; Linux: copy the font into <code>~/.local/share/fonts</code> and run <code>fc-cache -f</code>), then reopen the document.</p>
+          <p><strong>Expected result:</strong> the substituted font is replaced; if the face is unavailable, the fallback is documented instead of silently different.</p>
+          <p><strong>If it still fails:</strong> report the font name, format, and where it was installed. Do not upload a licensed font to a public issue.</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>An optional model download is blocked or fails</h3>
+          <p><strong>Symptom:</strong> an optional AI feature reports that its model could not be downloaded, or the download stalls.</p>
+          <p><strong>Likely causes:</strong> network restrictions, a proxy or captive portal, insufficient free space, or an interrupted large download. Models are large (hundreds of megabytes to roughly a gigabyte) and are never bundled with core editing.</p>
+          <p><strong>Safe checks:</strong> confirm normal web browsing works in the same tab, check Storage &amp; Offline, and read the model dialog's byte figures for download versus estimated working memory.</p>
+          <p><strong>Bounded action:</strong> retry on an unmetered connection with enough free space; download one model at a time. Core editing does not need any model — continue without it.</p>
+          <p><strong>Expected result:</strong> the feature reports a clear unavailable state and editing continues unaffected.</p>
+          <p><strong>If it still fails:</strong> report the model name, the error, and available space. Do not disable browser security controls or add untrusted certificate exceptions to make a download work.</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Linux is missing on the Chromebook</h3>
+          <p><strong>Symptom:</strong> "Linux development environment" is absent or disabled in Settings, or the Terminal app is unavailable.</p>
+          <p><strong>Likely causes:</strong> the model does not support Linux, or a work/school administrator has turned it off. This is a device policy state, not a Varve setting.</p>
+          <p><strong>Safe checks:</strong> confirm the Settings path <strong>About ChromeOS &rarr; Developers</strong>; on a managed device, check the organization's policy summary if your administrator provides one.</p>
+          <p><strong>Bounded action:</strong> use the browser route at <a href={sitePath('/try/')}>varve.studio/try/</a>, which needs no Linux. If you need Linux for other reasons, contact your administrator.</p>
+          <p><strong>Expected result:</strong> the browser route remains fully available; the Linux route stays unavailable by design.</p>
+          <p><strong>If it still fails:</strong> ask the administrator. Do not attempt Developer Mode, firmware changes, or policy bypasses — this project neither documents nor supports them.</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>The Linux package installs the wrong architecture or refuses to install</h3>
+          <p><strong>Symptom:</strong> <code>apt</code> reports an architecture mismatch, or the package installs but does not launch.</p>
+          <p><strong>Likely causes:</strong> the downloaded file does not match the device (ARM64 Chromebooks need <code>aarch64</code>; Intel/AMD need <code>x86_64</code>), or the container's Debian release is older than the supported floor (glibc 2.35, Debian 12+).</p>
+          <p><strong>Safe checks:</strong> run <code>uname -m</code> and <code>dpkg --print-architecture</code>, and compare them with the file name and <code>dpkg-deb --info</code> output; run <code>cat /etc/os-release</code> for the container release.</p>
+          <p><strong>Bounded action:</strong> download the matching package from the release page and install it with <code>sudo apt install ./Varve-&lt;version&gt;-linux-&lt;arch&gt;.deb</code>. If the container is too old, update it with <code>sudo apt update &amp;&amp; sudo apt dist-upgrade</code> and retry. Do not force-install with <code>--force-all</code>/<code>--force-depends</code>.</p>
+          <p><strong>Expected result:</strong> the correct package installs and launches from the Launcher or <code>varve-desktop</code>.</p>
+          <p><strong>If it still fails:</strong> report the two architecture outputs, <code>/etc/os-release</code>, the exact file name, and the error. See <a href={sitePath('/docs/chromeos-linux')}>Varve on ChromeOS</a>.</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>A Linux launch shows a blank window or missing libraries</h3>
+          <p><strong>Symptom:</strong> the app opens an empty window, exits immediately, or apt reports unmet dependencies.</p>
+          <p><strong>Likely causes:</strong> the WebKitGTK renderer failed, a declared dependency is missing from the container, or the graphics path is unavailable (ChromeOS does not provide hardware acceleration to Linux apps).</p>
+          <p><strong>Safe checks:</strong> run <code>varve-desktop</code> from the Terminal and read the error; check that a WebKit web process exists with <code>pgrep -af WebKitWebProcess</code>; confirm dependencies with <code>sudo apt install ./Varve-*.deb</code> rather than <code>dpkg -i</code>.</p>
+          <p><strong>Bounded action:</strong> retry once with <code>WEBKIT_DISABLE_DMABUF_RENDERER=1 varve-desktop</code> as a diagnostic. This is a workaround, not a fix: unset it afterwards and report whether it changed anything. Never disable sandboxing or system security.</p>
+          <p><strong>Expected result:</strong> a window renders through the software path, or the terminal error identifies the missing piece.</p>
+          <p><strong>If it still fails:</strong> report the terminal output, container release, and whether the workaround helped. Use the browser route in the meantime.</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>A dialog or the on-screen keyboard hides what I am editing</h3>
+          <p><strong>Symptom:</strong> a dialog opens partly off-screen, or the on-screen keyboard covers the caret or the dialog's buttons.</p>
+          <p><strong>Likely causes:</strong> a viewport height the layout has not seen yet (rotation, split-screen, or keyboard animation), or a zoom level that pushes a fixed-position surface beyond the visible area.</p>
+          <p><strong>Safe checks:</strong> rotate to landscape or exit split-screen and reopen the dialog; check the browser zoom is at 100%.</p>
+          <p><strong>Bounded action:</strong> dismiss and refocus the field so ChromeOS scrolls it back into view; close and reopen the dialog once. Do not use browser fullscreen as a permanent workaround for a layout bug.</p>
+          <p><strong>Expected result:</strong> the caret and commit/cancel controls are visible; closing the keyboard restores the previous canvas size.</p>
+          <p><strong>If it still fails:</strong> report the exact viewport size, orientation, keyboard layout, and a screenshot with no private content. This is a known class of device-only issues and remains on the hardware checklist.</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Printing or colour-managed export is unavailable</h3>
+          <p><strong>Symptom:</strong> no printers are listed in the Linux app, or print-production options (PDF/X, CMYK, ICC) are missing in the browser.</p>
+          <p><strong>Likely causes:</strong> print production is a desktop-only feature and is not in the browser build; inside ChromeOS Linux, printing depends on CUPS, which is commonly absent, and ICC profiles are container-local.</p>
+          <p><strong>Safe checks:</strong> check the Export dialog for PDF export; in the Linux app, check whether CUPS is present; in the browser, use the browser's print dialog after exporting.</p>
+          <p><strong>Bounded action:</strong> export a PDF from Varve and print it from ChromeOS (Files or the browser) instead of printing from the Linux app. Keep colour-managed production work on a supported desktop.</p>
+          <p><strong>Expected result:</strong> a print-ready PDF file; colour management remains an explicit desktop workflow.</p>
+          <p><strong>If it still fails:</strong> report the export format and where printing failed. Do not install third-party CUPS repositories just to enable this route.</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Installing, updating, or removing the browser app misbehaves</h3>
+          <p><strong>Symptom:</strong> no install option appears, the app opens as a tab, an update notice does not apply, or uninstalling removed data unexpectedly.</p>
+          <p><strong>Likely causes:</strong> install criteria not met (unsupported browser, private window, or policy), the page not being reloaded after an update, or choosing "delete data" during uninstall (or clearing browsing data) which removes documents and recovery copies.</p>
+          <p><strong>Safe checks:</strong> confirm the address bar shows the Varve origin over HTTPS; check <code>chrome://apps</code> for the installed entry; export any unsaved work before removing anything.</p>
+          <p><strong>Bounded action:</strong> reload once to pick up a waiting update. If an administrator blocks installation, use the tab instead — the behavior is identical; the browser guide covers the exact menus.</p>
+          <p><strong>Expected result:</strong> the app opens in its own window, updates only after you accept, and uninstall without deleting data leaves documents intact.</p>
+          <p><strong>If it still fails:</strong> report the browser version, ChromeOS version, and whether the device is managed. Never clear all browser data as a first response.</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Collecting safe diagnostics for a report</h3>
+          <p><strong>Do:</strong> include the Varve version, Chrome and ChromeOS versions (<code>chrome://version</code>), the emulated or real viewport size, the platform capability report JSON from <strong>Settings &rarr; Performance</strong>, the exact error text, and steps to reproduce with a non-private sample.</p>
+          <p><strong>Do not:</strong> attach real design documents, font files you cannot redistribute, personal file paths, account details, or any secrets. Strip or replace private content in screenshots.</p>
+          <p><strong>Escalation:</strong> report through <a href={sitePath('/support/report-issue')}>Report an Issue</a> or GitHub Discussions when the issue is reproducible and not a known-limitations item. Mention clearly whether the result came from emulation or real hardware.</p>
+        </div>
+      </div>
+
+      <div class="troubleshooting-section">
+        <h2>Performance Issues</h2>
+        
+        <div class="troubleshoot-item">
+          <h3>Varve is slow or laggy</h3>
+          <p><strong>Solution:</strong></p>
+          <ul>
+            <li>Check if you have many objects on canvas (viewport culling helps, but extreme counts may slow down)</li>
+            <li>Ensure your GPU drivers are up to date</li>
+            <li>Close other applications to free memory</li>
+            <li>Check if you're running on Wayland (primary dev environment) vs X11</li>
+          </ul>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Canvas rendering is slow</h3>
+          <p><strong>Solution:</strong> If you're experiencing slow rendering, check if you're using the WASM backend (web) vs native backend (desktop). The native Rust engine is significantly faster. Try switching to the desktop app for best performance.</p>
+        </div>
+      </div>
+
+      <div class="troubleshooting-section">
+        <h2>Feature Issues</h2>
+        
+        <div class="troubleshoot-item">
+          <h3>Rich text not rendering correctly</h3>
+          <p><strong>Solution:</strong> Rich-text source indexing, grapheme-safe transactions, and selected mixed formatting controls are available, but the canonical shaped layout is still being connected to every renderer and export path. Keep complex per-span compositions short while testing and verify the final export. See the <a href={sitePath('/support/known-issues')}>Known Issues</a> and <a href={sitePath('/features/typography')}>Typography</a> pages for current status.</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Collaboration features not working</h3>
+          <p><strong>Solution:</strong> Collaboration features are UI scaffolding only with no transport or wire protocol. Real-time collaboration is planned for future development.</p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Print export not showing bleed</h3>
+          <p><strong>Solution:</strong> Print bleed and trim guides are available in the current print workflow, but exported trim/bleed geometry remains the final authority. If guides appear stale after changing page settings, reopen the page or export again and verify the PDF.</p>
+        </div>
+      </div>
+
+      <div class="troubleshooting-section">
+        <h2>Input and Devices</h2>
+
+        <div class="troubleshoot-item">
+          <h3>Touch gestures don't do what I expect in the browser demo</h3>
+          <p>
+            <strong>Solution:</strong> One finger operates the active tool by default, while two
+            fingers cancel only the provisional first-pointer action and then pan or pinch-zoom
+            the canvas. Change the reversible choice in <strong>Settings &gt; Drawing input</strong>
+            if one-finger viewport navigation is more useful. After a pinch, lift both fingers
+            and start a fresh contact before drawing; the remaining finger cannot silently resume
+            a stroke. If the wrong tool is active, pick one from the palette or press its shortcut.
+            Long-press a stack of overlapping layers for the deep-selection menu (the touch
+            equivalent of right-click). On a touchscreen laptop both the touchscreen and the
+            trackpad stay active — a trackpad two-finger scroll pans the canvas, and a trackpad
+            pinch zooms it.
+          </p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>A pen stroke is not pressure-sensitive or a finger interrupts it</h3>
+          <p>
+            <strong>Solution:</strong> Open <strong>Settings &gt; Drawing input</strong> and confirm
+            pressure interpretation is enabled. A default or missing pressure sample is not proof
+            of a working pressure sensor, so Varve keeps a stable constant response as the
+            fallback. During an active pen stroke, foreign touch and compatibility contacts are
+            ignored rather than merged into the stroke. Browser emulation does not prove physical
+            USI pressure, tilt, eraser, hover, or palm rejection; include the ChromeOS version,
+            device, and whether this happened in the browser/PWA or Linux desktop route when
+            reporting it.
+          </p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>A keyboard shortcut does nothing on a Chromebook</h3>
+          <p>
+            <strong>Solution:</strong> ChromeOS reserves some combinations before the page sees
+            them. <code>Ctrl+1…8</code> switches browser tabs, <code>Ctrl+T</code> /
+            <code>Ctrl+W</code> / <code>Ctrl+N</code> manage tabs and windows,
+            <code>Ctrl+Shift+I</code> opens Developer Tools, and{' '}
+            <code>Ctrl+Shift++</code> / <code>Ctrl+Shift+-</code> / <code>Ctrl+Shift+0</code>
+            changes the screen resolution. Use the menu, command palette, toolbar, or status bar
+            for those actions. Varve's workspace switching uses{' '}
+            <code>Ctrl+Shift+1…7</code>, and zoom keys are matched by physical key position, so
+            they behave the same on French and English Chromebook keyboards.
+          </p>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>The on-screen keyboard covers the editor</h3>
+          <p>
+            <strong>Solution:</strong> Chromium-based browsers report the on-screen keyboard
+            geometry, and the demo reserves that height for dialogs, toasts, and the panel drawer
+            buttons. If a specific field is still covered, dismiss and refocus the field so the
+            operating system scrolls it back into view; if it persists, report it with your
+            ChromeOS version and device model.
+          </p>
+        </div>
+      </div>
+
+      <div class="troubleshooting-section">
+        <h2>Crashes and Errors</h2>
+        
+        <div class="troubleshoot-item">
+          <h3>Varve crashes on startup</h3>
+          <p><strong>Solution:</strong></p>
+          <ul>
+            <li>Check system requirements (4GB RAM minimum, 8GB recommended)</li>
+            <li>Ensure you're using a supported OS version</li>
+            <li>Check if other applications are using excessive memory</li>
+            <li>Report the issue with your OS, version, and crash logs</li>
+          </ul>
+        </div>
+
+        <div class="troubleshoot-item">
+          <h3>Specific tool crashes</h3>
+          <p><strong>Solution:</strong> Report the issue with steps to reproduce, your OS, and Varve version. Include any error messages or crash logs if available.</p>
+        </div>
+      </div>
+
+      <div class="troubleshoot-cta">
+        <h2>Still need help?</h2>
+        <p>If your issue isn't covered here, <a href={sitePath('/support/report-issue')}>report an issue</a> or ask in <a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a>.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .support-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .breadcrumb a {
+    color: var(--text-secondary);
+  }
+  
+  .support-page h1 {
+    font-size: clamp(2rem, 5vw, 2.5rem);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.015em;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+  
+  .support-intro {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    margin-bottom: 3rem;
+  }
+  
+  .troubleshooting-section {
+    margin-bottom: 3rem;
+  }
+  
+  .troubleshooting-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+  }
+
+  .section-note {
+    color: var(--text-secondary);
+    margin: -0.75rem 0 1.5rem;
+    line-height: 1.6;
+  }
+  
+  .troubleshoot-item {
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-surface);
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .troubleshoot-item h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+  
+  .troubleshoot-item p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: 0.75rem;
+  }
+  
+  .troubleshoot-item ul {
+    list-style: none;
+    margin-bottom: 0.75rem;
+  }
+  
+  .troubleshoot-item li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--text-secondary);
+  }
+  
+  .troubleshoot-item li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--text-link-hover);
+  }
+  
+  .troubleshoot-item strong {
+    color: var(--text-primary);
+  }
+  
+  .troubleshoot-item a {
+    color: var(--text-link);
+  }
+  
+  
+  .troubleshoot-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--border-default);
+  }
+  
+  .troubleshoot-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+  
+  .troubleshoot-cta p {
+    color: var(--text-secondary);
+  }
+</style>

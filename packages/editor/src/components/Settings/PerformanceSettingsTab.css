@@ -1,0 +1,173 @@
+.performance-settings__stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 var(--space-3);
+}
+.performance-settings__stat {
+  --color-text-muted: var(--color-text-muted-on-sunken);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: var(--elevation-surface-sunken);
+  border-radius: var(--radius-control);
+}
+.performance-settings__stat-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.performance-settings__stat-value {
+  font-size: var(--font-size-sm);
+  font-family: monospace;
+  color: var(--color-text-primary);
+}
+
+/* ── High-contrast overrides ──────────────────────────── */
+[data-theme="high-contrast"] .performance-settings__stat {
+  border: 1px solid var(--color-border-strong);
+}
+
+/* ── On-demand platform capability report ───────────────────── */
+.capability-report {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  background: var(--elevation-surface-sunken);
+  border-radius: var(--radius-control);
+}
+.capability-report__title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.capability-report__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.capability-report__message {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.capability-report__summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+}
+.capability-report__summary div {
+  min-width: 0;
+}
+.capability-report__summary dt {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.capability-report__summary dd {
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+  font-family: monospace;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+}
+.capability-report__details {
+  margin-top: var(--space-3);
+  font-size: var(--font-size-xs);
+}
+.capability-report__details summary {
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+.capability-report__details pre {
+  max-height: 20rem;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2);
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--elevation-surface-raised);
+  border-radius: var(--radius-control-compact);
+  font-family: monospace;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+}
+
+[data-theme="high-contrast"] .capability-report {
+  border: 1px solid var(--color-border-strong);
+}
+
+/* ── Interaction trace waterfall ──────────────────────── */
+.interaction-trace__actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.interaction-trace__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-xs);
+  /* Wide content scrolls inside its own container rather than pushing the
+     settings dialog into horizontal scroll. */
+  display: block;
+  overflow-x: auto;
+  max-height: 24rem;
+  overflow-y: auto;
+}
+.interaction-trace__caption {
+  text-align: left;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  padding-bottom: var(--space-1);
+}
+.interaction-trace__table th,
+.interaction-trace__table td {
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.interaction-trace__table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--elevation-surface-raised);
+  color: var(--color-text-muted);
+}
+.interaction-trace__table tbody th {
+  font-family: monospace;
+  font-weight: var(--font-weight-regular);
+}
+.interaction-trace__track {
+  display: block;
+  min-width: 12rem;
+  height: 0.75rem;
+  background: var(--elevation-surface-sunken);
+  border-radius: var(--radius-control-compact);
+}
+.interaction-trace__bar {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-control-compact);
+  background: var(--color-accent-primary);
+}
+/* Estimated spans are hatched as well as recoloured, so the distinction
+   survives greyscale, high contrast and colour-vision deficiency. */
+.interaction-trace__bar--estimated {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-text-muted) 0,
+    var(--color-text-muted) 3px,
+    transparent 3px,
+    transparent 6px
+  );
+}
+
+[data-theme="high-contrast"] .interaction-trace__table th,
+[data-theme="high-contrast"] .interaction-trace__table td {
+  border-bottom: 1px solid var(--color-border-strong);
+}
+[data-theme="high-contrast"] .interaction-trace__bar {
+  outline: 1px solid var(--color-border-strong);
+}

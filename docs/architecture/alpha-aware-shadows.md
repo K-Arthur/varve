@@ -1,0 +1,290 @@
+# Alpha-Aware Shadows and Effects Pipeline
+
+**Updated:** 2026-09-07 | **Status:** Implemented
+
+Companion to [`effect-rendering.md`](effect-rendering.md) (pass structure and
+canonical schema). This document covers how drop/inner shadows and glows are
+derived from an item's **rendered alpha silhouette** rather than its bounding
+rectangle, the coordinate/bounds semantics, the backend matrix, and the
+extension path.
+
+## Why silhouette-based shadows
+
+The fast geometric shadow path casts a shadow from `traceOutline(primitive)`
+— the item's outline. That is wrong whenever the visible alpha differs from
+the outline:
+
+| Content | Outline problem |
+|---|---|
+| Transparent PNG / cut-out subject | Rectangular shadow, filled internal holes |
+| Background-removal (alpha-mask) image | Shadow of the full image rectangle |
+| Cropped / rotated / flipped image | Shadow of the un-cropped, un-transformed image |
+| Text | Shadow of the text box, not the glyphs |
+| Stroke-only line / arrow | Zero-area fill casts no shadow at all |
+
+## The canonical shadow source: `renderShadowSource`
+
+`packages/engine/src/shadowSource.ts` exports `renderShadowSource(target,
+item, ops)`, which rasterizes the item's visible alpha silhouette into a
+target context in opaque black:
+
+- **Image fills** draw their true alpha via the same `paintImageFill` path as
+  the main fill pass, so transparent pixels, internal holes, feathered edges,
+  crop, rotation, flips, and the background-removal `alphaMask` all carry
+  into the shadow.
+- **Solid / gradient / pattern fills** contribute the shape outline at full
+  alpha. (Uniform internal fill alpha is carried by item opacity during
+  compositing, so flattening it here matches the fast path.)
+- **Text** contributes glyph alpha (antialiased edges, counters,
+  decorations) via `paintShapeFill` → `paintText`.
+- **Visible strokes** contribute their stroked silhouette, so stroke-only
+  objects still cast shadows.
+
+`ShadowOps` injects the rendering primitives (`traceOutline`, `paintShapeFill`,
+`paintImageFill`, `paintStroke`, `primitiveBounds`, `rgba`,
+`createEffectBuffer`) from `replay.ts`. This keeps `shadowSource.ts` a leaf
+module (no import cycle) and keeps `replay.ts` under its cyclomatic-complexity
+ceiling.
+
+## Alpha-aware strokes
+
+Strokes use the same rendered-alpha distinction when the visible content is
+not the primitive outline. `packages/engine/src/alphaStroke.ts` renders the
+source into a bounded offscreen buffer, expands or contracts its alpha, and
+tints the resulting band with the authored stroke paint. This covers:
+
+- text glyphs, including counters and antialiased edges;
+- image fills, including transparent pixels, internal holes, crops, and masks;
+- raster layers and warped images, including sparse or disconnected alpha.
+
+Inside, center, and outside alignment are preserved, and solid or gradient
+stroke paint is applied to the resulting silhouette. Vector primitives keep
+Canvas2D's native dash, cap, join, and miter behavior. An alpha silhouette has
+no single centerline, so those centerline controls do not apply to text or
+raster-backed strokes; their weight, color, alignment, transparency, holes,
+and disconnected components do.
+
+The alpha-stroke module receives its renderer through `AlphaStrokeOps`, so the
+source uses the same image placement, text layout, masks, and raster tiles as
+the visible replay. This keeps live Canvas2D replay and raster export on the
+same path without importing the replay hub into the leaf module.
+
+### Drop shadow: shadow-only compositing
+
+`paintAlphaAwareDropShadow`:
+
+1. Rasterizes the silhouette into a padded buffer.
+2. Draws that buffer with the Canvas shadow API onto a scratch canvas.
+3. Erases the source pixels (`destination-out`) leaving only the shadow.
+4. Composites the shadow-only canvas over the existing backdrop with the
+   authored effect blend mode. Because the source silhouette was removed from
+   the scratch surface, this does not repaint the item or disappear behind an
+   opaque backdrop.
+
+Compositing a *shadow-only* canvas (rather than drawing the silhouette with a
+shadow directly) keeps semi-transparent items correct: the silhouette is never
+re-drawn over the item's already-composited pixels.
+
+`outerGlow` uses the same alpha source but a distinct outside-only ring:
+`blur(A) × (1 − A)`. Choke and contour are applied to that normalized
+falloff, preventing the glow from washing over opaque text or vector interiors
+while still following transparent holes and disconnected components.
+
+### Inner shadow / inner glow: alpha products
+
+`paintAlphaAwareInsetEffect`:
+
+- **Inner shadow**: rasterize the silhouette, subtract the *offset* silhouette
+  at pixel level, blur, tint, then multiply by the original alpha. This avoids
+  relying on `putImageData` composite modes and keeps counters, holes, and
+  antialiased edges correct.
+- **Inner glow**: edge origin is `A × (1 − blur(A))`; center origin is
+  `A × blur(A)`. Choke and contour are applied to that normalized alpha
+  falloff, and solid or effect-domain gradient colour is applied afterward.
+  There is no geometric `traceOutline` clip.
+
+Opacity: shadow alpha = `item.opacity × effect.opacity`, applied once at the
+final composite (the previous implementation multiplied it a second time in
+the tint).
+
+## Effect input mode per node type (default selection)
+
+`itemNeedsAlphaShadow` chooses the silhouette path (alpha-based) for:
+
+- text primitives → glyph alpha
+- any visible image fill → raster alpha
+- authored path primitives → compound/path alpha, including even-odd holes
+- stroke-only items → stroke silhouette
+
+Everything else (solid/gradient/pattern fill on a shape) uses the
+**geometric input path** (`paintGeometricDropShadow`), which is rasterized into
+the same bounded shadow-only surface so it remains visible over opaque
+backdrops and can honour the effect blend mode. Raster/text are alpha-based.
+Luminance-based and explicit bounds-based modes are future extension points,
+not silent fallbacks.
+
+## Group-level effects
+
+The live canvas (`CanvasArea.tsx`) flattens a group subtree and applies
+effects to the composited silhouette. `replayStructuredScene`
+(`packages/editor/src/render/replayScene.ts`) — the shared path behind raster
+exports and SpecPanel previews — now does the same:
+
+- Flattens children into a bounded `CompositeCanvas` (world bounds + subtree
+  effect padding).
+- `compositeGroupOuterEffect`: dropShadow/outerGlow via the shadow-only
+  technique, composited ahead of the group content with the effect's blend
+  mode (parity with the live canvas).
+- `applyGroupInsetEffect`: innerShadow/innerGlow via silhouette-difference +
+  `gaussianBlurSeparable` (ported from `renderGroupInsetEffect`).
+- Layer blur composites through `applyLayerBlur`.
+- Group opacity and non-pass-through blend modes are applied at the final
+  composite.
+
+## Effect ordering
+
+Per-item pass order (see `effect-rendering.md`):
+
+1. Backdrop effects (`backgroundBlur`, `glassMaterial` backdrop)
+2. Outer effects (`dropShadow`, `outerGlow`) — rendered before source content
+3. Source content (fills + strokes), then content effects (`layerBlur`,
+   `chromaticAberration`, `glitch`)
+4. Inner effects (`innerShadow`, `innerGlow`) — composited over content using
+   the visible alpha mask
+5. Edge highlight, post-render filters
+
+Multiple shadows of the same type execute in array order, each in its own
+`save/restore`. Effects are keyed by stable `id` in the inspector so reorder
+does not corrupt row state.
+
+## Alpha and premultiplication
+
+The Canvas shadow API and `drawImage`/`destination-out` compositing run in the
+browser's straight-alpha compositing model (gamma space), matching the
+existing replay pipeline (see `.effects_system_memory.md` decision: composite
+in gamma, blur in linear-light where implemented). Image fills are drawn
+through `paintImageFill`, which handles the background-removal mask via
+`renderMaskedImageSample` (`destination-in`), so the shadow inherits the same
+masked silhouette as the visible content — no dark fringes or leaked RGB from
+transparent pixels.
+
+## Effect bounds and invalidation
+
+`packages/scene/src/flatten/bounds.ts::effectPadding` now matches the
+renderer's blur extent:
+
+- `dropShadow`: `blur*3 + max(0, spread)/2` per side + directional offset.
+- `outerGlow`: `blur*3 + max(0, spread)/2` symmetric.
+- `layerBlur`/`backgroundBlur`: `radius*3`.
+- `innerShadow`/`innerGlow`: `0` (clipped to the shape; never expand bounds).
+- Unknown types: `0`.
+
+These feed export "visual" bounds, flatten bounds, and dirty-region padding.
+The canvas's own `appearancePaddingLocal` was already `blur*3`-based.
+
+Malformed parameters (NaN, Infinity, negative, huge values) are clamped by
+`normalizeEffectParams` in `packages/scene/src/effects.ts` at document load,
+and shadow renderers additionally guard via `finiteOr` with a 2048px pad cap,
+so a corrupt document cannot allocate NaN or gigantic buffers.
+
+## Backend capability matrix
+
+| Backend | Path | Shadows | Notes |
+|---|---|---|---|
+| Canvas2D replay (live + export) | `shadowSource.ts` via `replay.ts` | Full (silhouette) | Canonical renderer |
+| Canvas2D structured replay (export, SpecPanel) | `replayScene.ts` | Full for leaf + group effects | Canonical for exports |
+| WebGPU compositor | `Canvas2DBackend.drawVectorItems` → `replayIr` | Full | Falls through to replay |
+| WASM / native Rust `build_ir_json` | IR build only | N/A | Rust mirrors the schema; pixels are produced by Canvas2D replay |
+| CSS `filter` | not used for shadows | — | Not authoritative for shadows |
+
+The canonical, deterministic renderer is the Canvas2D replay; raster export
+and thumbnails reuse it, so live canvas and exported pixels agree. CSS
+`box-shadow` / `filter: drop-shadow()` are never used for canvas objects.
+
+## Export behavior
+
+- **Raster (PNG/JPEG/WebP)**: uses the same `flattenSceneToEngine` →
+  `buildIr` → `replayStructuredScene` pipeline, so alpha-aware shadows are
+  pixel-identical to the live canvas. Alpha-aware strokes use the same replay
+  path, including text glyphs and transparent image/raster pixels. "Visual"
+  export bounds include effect padding so the blur fringe is not clipped.
+- **SVG / HTML codegen**: `buildEffectSpec` maps scene `x/y/blur` → codegen
+  `offsetX/offsetY/radius` (previously read non-existent `offsetX` fields,
+  emitting zero-size shadows). SVG does not emit native filters for shadow
+  blur spread; unsupported cases are flagged as flatten/warning paths.
+- **PDF / print**: preserves vector output where the target backend supports
+  it; otherwise flatten at export resolution.
+
+## Cache and invalidation rules
+
+There is no per-effect bitmap cache in this pipeline yet: the silhouette
+buffers are allocated per frame (bounded by the 2048px pad cap). The existing
+image and masked-image caches (`imageCache`, `maskedImageCache`) already key
+on image identity + placement + crop, so the per-frame cost is the buffer
+compositing, not image re-decoding. Adding a silhouette/effect cache keyed by
+(node revision, effect params, transform scale, dpr) is the recommended next
+step; correctness must not depend on it (document semantics are
+cache-independent).
+
+## Known limitations
+
+- Geometric solid/gradient vector shadows follow the vector outline (plus
+  strokes); authored compound paths use the alpha-silhouette path so holes and
+  fill rules survive. Pattern tile alpha is not yet sampled per pixel.
+- Inner glow uses a bounded blur-ring approximation, which is deterministic and
+  follows visible alpha but does not model a physically based light source.
+- Pattern fills contribute shape geometry (tile alpha is not carried into the
+  shadow silhouette).
+- `normalizeEffectParams` clamps extreme values rather than warning the user;
+  the inspector does not surface the clamp.
+
+## How to add a new effect
+
+1. Add the variant to the `Effect` union in `packages/scene/src/types.ts`.
+2. Add the mirror to `packages/engine/src/types.ts` (and `varve-core` if the
+   native IR must transport it).
+3. Add the `defaultEffect` entry and parameter controls in
+   `packages/editor/src/components/Inspector/sections/EffectsSection.tsx`.
+4. Add a render branch in the appropriate pass in `replay.ts` (leaf) and
+   `replayScene.ts` (group), reusing `renderShadowSource` where the effect is
+   alpha-derived.
+5. Add `effectPadding` coverage in `packages/scene/src/flatten/bounds.ts`.
+6. Add regression tests (see next section).
+
+## How to create visual-regression fixtures
+
+Engine-level tests use the `recorder()` pattern (see
+`packages/engine/src/effects-shadow.test.ts`): a `ReplayTarget` records call
+sequences so tests assert *what was drawn* (no rect-fill over transparent
+holes, drawImage silhouette compositing, glyph `fillText`, stroke shadows,
+opacity scaling) without a real rasterizer. Pixel-level parity is covered by
+Playwright E2E against the live canvas and by exporting through the same
+`replayStructuredScene` path.
+
+## Performance budgets
+
+- Buffer allocations are bounded by content size + `blur*3 + spread/2`
+  (≤ 2048px pad). Malformed documents cannot grow allocations.
+- Alpha-silhouette buffers are used for raster-backed and text strokes, plus
+  alpha-derived shadows. Solid/gradient vector shapes keep the fast geometric
+  stroke and shadow paths.
+- The engine benchmark suite (`packages/engine/src/bench/`) and the canvas
+  perf harnesses (see `docs/perf/`) measure replay cost; per-item effect
+  compositing is covered by `replay-fill.test.ts` timing expectations.
+
+## Troubleshooting
+
+- **Shadow looks rectangular around a PNG**: confirm the item is an image fill
+  (not a solid fill) and the image is loaded in `imageCache`; the silhouette
+  path requires the image bitmap.
+- **Stroke looks rectangular around text or a transparent image**: confirm the
+  stroke is visible and the image has loaded. Text, image fills, raster layers,
+  and warped images use the alpha-silhouette stroke path; a rectangular result
+  indicates a replay regression.
+- **Shadow wrong after background removal**: the `alphaMask` on the image fill
+  must be resolvable in `getImageCache`; check `renderMaskedImageSample`.
+- **Export differs from canvas**: both use `replayStructuredScene`; differences
+  are a bug — file with the document state and exported pixels.
+- **NaN / crash on load**: `normalizeDocumentEffects` should have clamped
+  parameters; if a crash persists, capture the document JSON and the effect
+  that triggered it.

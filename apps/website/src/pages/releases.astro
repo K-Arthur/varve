@@ -1,0 +1,83 @@
+---
+/**
+ * /releases redirects to /changelog.
+ *
+ * The canonical changelog lives at /changelog. This compatibility page
+ * ensures every inbound link to /releases still resolves. The <meta>
+ * refresh provides an immediate redirect for browsers; the link gives
+ * search engines and no-JS users a direct path.
+ */
+import Layout from '../layouts/Layout.astro';
+import { sitePath } from '../lib/siteUrl';
+---
+
+<Layout
+  title="Releases → Changelog"
+  description="Release notes have moved to the Varve changelog."
+  noindex
+  canonicalPath="/changelog"
+>
+  <div class="container-custom">
+    <div class="redirect-page">
+      <h1>Releases</h1>
+      <p>
+        Release notes have moved to the{' '}
+        <a href={sitePath('/changelog')}>Varve changelog</a>.
+      </p>
+      <p class="redirect-timer">
+        Redirecting in <span id="countdown">2</span> seconds&hellip;
+      </p>
+      <p>
+        <a href={sitePath('/changelog')} class="btn-secondary">
+          Go to the changelog now
+        </a>
+      </p>
+    </div>
+  </div>
+</Layout>
+
+<script is:inline>
+  (function () {
+    var seconds = 2;
+    var el = document.getElementById('countdown');
+    var timer = setInterval(function () {
+      seconds--;
+      if (el) el.textContent = String(seconds);
+      if (seconds <= 0) {
+        clearInterval(timer);
+        window.location.href = window.location.pathname.replace(/\/releases\/?$/, '/changelog');
+      }
+    }, 1000);
+  })();
+</script>
+
+<style>
+  .redirect-page {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: clamp(4rem, 10vh, 8rem) 0;
+    text-align: center;
+  }
+
+  .redirect-page h1 {
+    font-family: var(--font-editorial);
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.02em;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+
+  .redirect-page p {
+    font-size: 1.05rem;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+  }
+
+  .redirect-timer {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+  }
+</style>

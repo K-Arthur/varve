@@ -1,0 +1,237 @@
+/**
+ * SelectionQuickBar — same chrome grammar as FloatingToolbar:
+ * raised surface, floating radius, 32px controls, sunken hover, accent active.
+ * Primary actions use horizontal icon+label (Canva density, Strata tokens).
+ */
+
+.selection-quick-bar {
+  --selection-quick-bar-control-height: var(--component-compact-height);
+  position: absolute;
+  z-index: var(--elevation-z-raised);
+  transform: translateX(-50%);
+  pointer-events: none;
+  width: max-content;
+  max-width: calc(100vw - var(--space-4));
+  height: max-content;
+  margin: 0;
+  font-family: var(--type-interface-control-family);
+  font-size: var(--type-interface-control-size);
+  line-height: var(--type-interface-control-line-height);
+}
+
+.selection-quick-bar__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-toolbar-item);
+  min-block-size: calc(var(--toolbar-height) + 2px);
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-toolbar) var(--space-3);
+  background: var(--elevation-surface-raised);
+  border-radius: var(--radius-floating);
+  border: 1px solid var(--color-border-subtle);
+  box-shadow: var(--elevation-shadow-raised);
+  pointer-events: auto;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  white-space: nowrap;
+}
+
+.selection-quick-bar__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-toolbar-item);
+}
+
+/* Shared control base (match .floating-toolbar__btn) */
+.selection-quick-bar__btn,
+.selection-quick-bar__text-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--selection-quick-bar-control-height);
+  height: var(--selection-quick-bar-control-height);
+  box-sizing: border-box;
+  padding: 0 var(--space-1);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: inherit;
+}
+
+.selection-quick-bar__btn {
+  width: var(--selection-quick-bar-control-height);
+}
+
+.selection-quick-bar__text-btn {
+  width: auto;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  font-size: inherit;
+  font-weight: var(--type-interface-control-weight);
+  line-height: inherit;
+  white-space: nowrap;
+}
+
+.selection-quick-bar__text-btn .selection-quick-bar__label {
+  color: inherit;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selection-quick-bar__btn:hover:not(:disabled),
+.selection-quick-bar__text-btn:hover:not(:disabled),
+.selection-quick-bar__chevron:hover:not(:disabled) {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+}
+
+.selection-quick-bar__btn--active,
+.selection-quick-bar__text-btn--active {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
+
+.selection-quick-bar__btn--active:hover:not(:disabled),
+.selection-quick-bar__text-btn--active:hover:not(:disabled) {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  filter: brightness(1.05);
+}
+
+.selection-quick-bar__btn:focus-visible,
+.selection-quick-bar__text-btn:focus-visible,
+.selection-quick-bar__chevron:focus-visible {
+  outline: 2px solid var(--color-interactive-default);
+  outline-offset: 1px;
+}
+
+.selection-quick-bar__btn:disabled,
+.selection-quick-bar__text-btn:disabled,
+.selection-quick-bar__chevron:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.selection-quick-bar__btn--pending,
+.selection-quick-bar__text-btn--pending {
+  opacity: 0.55;
+}
+
+.selection-quick-bar__separator {
+  width: 1px;
+  height: 20px;
+  margin: 0 var(--space-1);
+  background: var(--color-border-subtle);
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.selection-quick-bar__more {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.selection-quick-bar__chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: var(--selection-quick-bar-control-height);
+  min-width: var(--selection-quick-bar-control-height);
+  padding: 0 var(--space-2);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: var(--type-interface-control-weight);
+  line-height: inherit;
+  white-space: nowrap;
+}
+
+.selection-quick-bar__chevron--open {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+}
+
+.selection-quick-bar__menu {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  min-width: 11rem;
+  padding: var(--space-1);
+  background: var(--elevation-surface-overlay);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--elevation-shadow-overlay);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 1;
+}
+
+.selection-quick-bar__menuitem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  min-height: 32px;
+  border: none;
+  border-radius: var(--radius-control-compact);
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium, 500);
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.selection-quick-bar__menuitem:hover:not(:disabled) {
+  background: var(--color-surface-sunken);
+}
+
+.selection-quick-bar__menuitem:focus-visible {
+  outline: 2px solid var(--color-interactive-default);
+  outline-offset: 1px;
+}
+
+.selection-quick-bar__menuitem:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.selection-quick-bar__menuitem--active {
+  background: var(--color-surface-sunken);
+  color: var(--color-interactive-default);
+  font-weight: var(--font-weight-semibold, 600);
+}
+
+[data-theme="high-contrast"] .selection-quick-bar__inner {
+  border-color: var(--color-border-subtle);
+  outline: 1px solid var(--color-border-subtle);
+}
+
+[data-theme="high-contrast"] .selection-quick-bar__btn--active,
+[data-theme="high-contrast"] .selection-quick-bar__text-btn--active {
+  outline: 2px solid var(--color-border-strong);
+  outline-offset: 1px;
+}
+
+@media (pointer: coarse), (any-pointer: coarse) {
+  .selection-quick-bar {
+    --selection-quick-bar-control-height: var(--touch-target-min);
+  }
+}

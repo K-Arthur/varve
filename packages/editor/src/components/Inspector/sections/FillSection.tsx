@@ -1,0 +1,814 @@
+/**
+ * FillSection — stacked fill controls for the Inspector.
+ *
+ * Supports solid, gradient (linear/radial/angular/diamond), image, and pattern
+ * fills. Fills are stacked (paint order bottom to top), reorderable via drag,
+ * with per-fill opacity, blend mode, visibility toggle, and delete.
+ *
+ * Multi-select: matches fills by index across selected nodes, shows "Mixed" for
+ * differing properties. Edits batch across all selected in one undo step via
+ * the transaction API.
+ *
+ * Research basis: Figma/Sketch fill panel; APG Disclosure, Listbox, Slider.
+ */
+import { complementaryHarmony } from '@varve/engine';
+import type {
+  BlendMode,
+  DocumentAsset,
+  Fill,
+  FillType,
+  GradientStop,
+  ImageFillData,
+  ManagedColor,
+  PatternFillData,
+  SceneNode,
+} from '@varve/scene';
+import {
+  alphaModifierLabel,
+  createEmbeddedAsset,
+  gradientFill,
+  imageFill,
+  nodeLocalBounds,
+  patternFill,
+  resolveBoundTokenColor,
+  resolveNodeFills,
+  solidFill,
+} from '@varve/scene';
+import { managedColorToRgba } from '@varve/shared';
+import { Icon, Menu, type MenuEntry, Select, Switch } from '@varve/ui';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useEditor } from '../../../context';
+import { docVariableStore } from '../../../docVariableStore';
+import {
+  resolvedGradientHueInterpolation,
+  resolvedGradientInterpolationSpace,
+} from '../color/gradientUiState';
+import { BindingMenu } from '../controls/BindingMenu';
+import { groupBlendOptions } from '../controls/blendModeOptionGroups';
+import { DisclosureSection } from '../controls/DisclosureSection';
+import { FieldRow } from '../controls/FieldRow';
+import { InspectorColorPopover } from '../controls/InspectorColorPopover';
+import { NumberField } from '../controls/NumberField';
+import type { SegmentedOption } from '../controls/SegmentedControl';
+import { VariableModifierPopover } from '../controls/VariableModifierPopover';
+import { commonValue, isMixed } from '../selection/selectionState';
+import { FillContrastIndicator } from './FillContrastIndicator';
+import { ImageFillControls } from './ImageFillControls';
+import { PatternFillControls } from './PatternFillControls';
+
+export interface FillSectionProps {
+  nodes: SceneNode[];
+}
+
+interface FillModifierState {
+  binding: import('@varve/scene').PropertyBinding;
+  tokenColor: import('@varve/scene').ManagedColor;
+  modifiers: import('@varve/scene').AlphaModifier[];
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
+  variableName: string;
+}
+
+const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
+  { value: 'normal', label: 'Normal' },
+  { value: 'multiply', label: 'Multiply' },
+  { value: 'screen', label: 'Screen' },
+  { value: 'overlay', label: 'Overlay' },
+  { value: 'darken', label: 'Darken' },
+  { value: 'lighten', label: 'Lighten' },
+  { value: 'colorDodge', label: 'Color Dodge' },
+  { value: 'colorBurn', label: 'Color Burn' },
+  { value: 'hardLight', label: 'Hard Light' },
+  { value: 'softLight', label: 'Soft Light' },
+  { value: 'difference', label: 'Difference' },
+  { value: 'exclusion', label: 'Exclusion' },
+  { value: 'hue', label: 'Hue' },
+  { value: 'saturation', label: 'Saturation' },
+  { value: 'color', label: 'Color' },
+  { value: 'luminosity', label: 'Luminosity' },
+  { value: 'plusDarker', label: 'Plus Darker' },
+  { value: 'plusLighter', label: 'Plus Lighter' },
+  { value: 'passThrough', label: 'Pass Through' },
+];
+
+const FILL_TYPE_OPTIONS: SegmentedOption<FillType>[] = [
+  { value: 'solid', label: 'Solid' },
+  { value: 'gradient', label: 'Gradient' },
+  { value: 'image', label: 'Image' },
+  { value: 'pattern', label: 'Pattern' },
+];
+
+type AddFillKind = 'solid' | 'linear' | 'radial' | 'image' | 'pattern';
+
+const ADD_FILL_OPTIONS: { kind: AddFillKind; label: string; icon: string }[] = [
+  { kind: 'solid', label: 'Solid', icon: 'Square' },
+  { kind: 'linear', label: 'Linear gradient', icon: 'ArrowDown' },
+  { kind: 'radial', label: 'Radial gradient', icon: 'Circle' },
+  { kind: 'image', label: 'Image', icon: 'Image' },
+  { kind: 'pattern', label: 'Pattern', icon: 'LayoutGrid' },
+];
+
+/**
+ * Default gradient stops seeded from the source fill's own colour instead of
+ * an arbitrary brand teal/blue: stop 0 keeps the user's current solid and
+ * stop 1 is a deterministic harmony (complementary) derivation of it. The
+ * first frame after Solid → Gradient therefore changes visibly while
+ * preserving the user's chosen hue.
+ */
+function defaultGradientStops(source: Fill | undefined): GradientStop[] {
+  let base: ManagedColor | undefined;
+  if (source?.type === 'solid') base = source.color;
+  else if (source?.type === 'gradient') base = source.gradient?.stops[0]?.color;
+  if (!base) {
+    base = { space: 'rgb' as const, r: 57, g: 208, b: 198, a: 255 };
+  }
+  const [r, g, b, a] = managedColorToRgba(base);
+  const start: ManagedColor = { space: 'rgb' as const, r, g, b, a };
+  const harmony = complementaryHarmony(start);
+  const rawEnd = harmony.colors.length > 0 ? harmony.colors[0] : undefined;
+  let endColor: ManagedColor;
+  if (rawEnd && 'space' in rawEnd) {
+    const [er, eg, eb, ea] = managedColorToRgba(rawEnd);
+    endColor = { space: 'rgb' as const, r: er, g: eg, b: eb, a: ea };
+    if (er === r && eg === g && eb === b) {
+      // Harmony of an achromatic source returns itself; derive a darkening
+      // stop instead so the gradient is still visibly not flat.
+      endColor = {
+        space: 'rgb' as const,
+        r: Math.round(r * 0.5),
+        g: Math.round(g * 0.5),
+        b: Math.round(b * 0.5),
+        a,
+      };
+    }
+  } else {
+    endColor = {
+      space: 'rgb' as const,
+      r: Math.max(0, r - 80),
+      g: Math.max(0, g - 80),
+      b: Math.max(0, b - 80),
+      a,
+    };
+  }
+  return [
+    { position: 0, color: start },
+    { position: 1, color: endColor },
+  ];
+}
+
+/** Build a new fill for the "+ Add fill" menu. */
+function buildNewFill(kind: AddFillKind, source: Fill | undefined): Fill {
+  switch (kind) {
+    case 'solid':
+      return solidFill({ space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 });
+    case 'linear':
+    case 'radial':
+      return gradientFill(kind === 'linear' ? 'linear' : 'radial', defaultGradientStops(source));
+    case 'image':
+      return imageFill('');
+    case 'pattern':
+      return patternFill('');
+  }
+}
+
+function fillSwatchBg(fill: Fill, assets?: Record<string, DocumentAsset>): string {
+  if (fill.type === 'solid' && fill.color) {
+    const [r, g, b, a] = managedColorToRgba(fill.color);
+    return `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
+  }
+  if (fill.type === 'gradient' && fill.gradient) {
+    const stops = fill.gradient.stops
+      .map((s) => {
+        const [r, g, b, a] = managedColorToRgba(s.color);
+        return `rgba(${r},${g},${b},${(a / 255).toFixed(2)}) ${(s.position * 100).toFixed(0)}%`;
+      })
+      .join(', ');
+    return `linear-gradient(90deg, ${stops})`;
+  }
+  if (fill.type === 'image') {
+    const canonicalAssetId = fill.image?.src.startsWith('asset:')
+      ? fill.image.src.slice('asset:'.length)
+      : undefined;
+    const assetId =
+      (canonicalAssetId && assets?.[canonicalAssetId] ? canonicalAssetId : undefined) ??
+      (fill.image?.assetId && assets?.[fill.image.assetId] ? fill.image.assetId : undefined);
+    const src = assetId ? assets?.[assetId]?.dataUrl : fill.image?.src;
+    if (src && !src.startsWith('asset:')) return `url(${src}) center/cover`;
+    return 'var(--color-surface-sunken)';
+  }
+  return 'var(--color-surface-sunken)';
+}
+
+export function FillSection({ nodes }: FillSectionProps) {
+  const editor = useEditor();
+  const {
+    addSelectedFill,
+    updateSelectedFillAt,
+    removeSelectedFillAt,
+    reorderSelectedFill,
+    beginTransaction,
+    commitTransaction,
+    announce,
+  } = editor;
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [fillModifierState, setFillModifierState] = useState<FillModifierState | null>(null);
+  const modifierAnchorRef = useRef<HTMLButtonElement | null>(null);
+  const bindingTriggerRef = useRef<HTMLDivElement>(null);
+  const addTriggerRef = useRef<HTMLButtonElement>(null);
+
+  const fills = useMemo(() => {
+    const all = nodes.map((n) => resolveNodeFills(n));
+    if (all.length === 0) return [];
+    const minLen = Math.min(...all.map((f) => f.length));
+    return Array.from({ length: minLen }, (_, i) => all[0]?.[i] ?? all[0]?.[0]) as Fill[];
+  }, [nodes]);
+
+  const countMixed = nodes.some((n) => resolveNodeFills(n).length !== fills.length);
+
+  const updateFill = useCallback(
+    (index: number, fill: Fill) => {
+      updateSelectedFillAt(index, fill);
+    },
+    [updateSelectedFillAt],
+  );
+
+  const addFill = useCallback(
+    (kind: AddFillKind) => {
+      const fill = buildNewFill(kind, fills[0]);
+      addSelectedFill(fill);
+      announce('Fill added');
+    },
+    [fills, addSelectedFill, announce],
+  );
+
+  const removeFill = useCallback(
+    (index: number) => {
+      removeSelectedFillAt(index);
+      announce('Fill removed');
+    },
+    [removeSelectedFillAt, announce],
+  );
+
+  const reorderFill = useCallback(
+    (from: number, to: number) => {
+      if (from === to) return;
+      beginTransaction();
+      reorderSelectedFill(from, to);
+      commitTransaction();
+    },
+    [beginTransaction, commitTransaction, reorderSelectedFill],
+  );
+
+  const addMenuItems = useMemo(
+    () =>
+      ADD_FILL_OPTIONS.map((option) => ({
+        id: option.kind,
+        label: option.label,
+        onAction: () => {
+          setAddMenuOpen(false);
+          addFill(option.kind);
+        },
+      })),
+    [addFill],
+  );
+
+  return (
+    <DisclosureSection
+      title="Fill"
+      sectionId="fills"
+      action={
+        <div className="insp-fill-add__controls">
+          <button
+            ref={addTriggerRef}
+            type="button"
+            className="insp-add-btn insp-fill-add__trigger"
+            aria-haspopup="menu"
+            aria-expanded={addMenuOpen}
+            onClick={() => setAddMenuOpen((v) => !v)}
+          >
+            <Icon name="Plus" label={undefined} size="0.85em" />
+            <span>Add fill</span>
+          </button>
+          <Menu
+            triggerRef={addTriggerRef}
+            open={addMenuOpen}
+            onClose={() => setAddMenuOpen(false)}
+            label="Add fill"
+            items={addMenuItems}
+            size="compact"
+          />
+        </div>
+      }
+    >
+      {fills.length === 0 && <div className="insp-empty-message">No fill</div>}
+      <div ref={bindingTriggerRef} className="insp-field-group">
+        {fills.map((fill, i) => (
+          <FillRow
+            // biome-ignore lint/suspicious/noArrayIndexKey: fill rows have no stable id in the document model; index identifies the slot
+            key={i}
+            index={i}
+            fill={fill}
+            nodes={nodes}
+            onChange={(f) => updateFill(i, f)}
+            onRemove={() => removeFill(i)}
+            onReorder={(dir) => reorderFill(i, i + dir)}
+            canMoveUp={i > 0}
+            canMoveDown={i < fills.length - 1}
+            onEditStart={beginTransaction}
+            onEditEnd={commitTransaction}
+            binding={
+              i === 0
+                ? (nodes[0]?.bindings?.fill as import('@varve/scene').PropertyBinding | undefined)
+                : undefined
+            }
+            modifierAnchorRef={modifierAnchorRef}
+            onOpenModifier={() => {
+              const binding = nodes[0]?.bindings?.fill;
+              if (!binding) return;
+              const store = docVariableStore(editor.state.document);
+              const tokenColor = resolveBoundTokenColor(store, binding);
+              if (!tokenColor) return;
+              const variableName = store.variables[binding.variableId]?.name ?? binding.variableId;
+              setFillModifierState({
+                binding,
+                tokenColor,
+                modifiers: (binding.modifiers ?? []).filter(
+                  (m): m is import('@varve/scene').AlphaModifier => m.kind === 'alpha',
+                ),
+                anchorRef: modifierAnchorRef,
+                variableName,
+              });
+            }}
+          />
+        ))}
+      </div>
+      {countMixed && fills.length > 0 && (
+        <div className="insp-empty-message">Some selected nodes have additional fills</div>
+      )}
+      {editor.bindingField === 'fill' && (
+        <BindingMenu
+          variableStore={docVariableStore(editor.state.document)}
+          targetType="color"
+          onBind={(variableId, expression) => {
+            editor.setSelectedBinding('fill', { variableId, expression });
+            editor.setBindingField(null);
+          }}
+          onClose={() => editor.setBindingField(null)}
+          triggerRef={bindingTriggerRef}
+        />
+      )}
+      {fillModifierState && (
+        <VariableModifierPopover
+          tokenColor={fillModifierState.tokenColor}
+          modifiers={fillModifierState.modifiers}
+          anchorRef={fillModifierState.anchorRef}
+          onCommit={(modifiers) => {
+            const binding = fillModifierState.binding;
+            if (modifiers) {
+              editor.setSelectedBinding('fill', { ...binding, modifiers });
+            } else {
+              const { modifiers: _drop, ...rest } = binding;
+              editor.setSelectedBinding('fill', rest);
+            }
+            editor.announce(modifiers ? 'Alpha modifier applied' : 'Alpha modifier reset');
+          }}
+          onClose={() => setFillModifierState(null)}
+        />
+      )}
+    </DisclosureSection>
+  );
+}
+
+interface FillRowProps {
+  index: number;
+  fill: Fill;
+  nodes: SceneNode[];
+  onChange: (fill: Fill) => void;
+  onRemove: () => void;
+  onReorder: (dir: number) => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onEditStart?: () => void;
+  onEditEnd?: () => void;
+  /** V2.15+: the node's fill variable binding (badge + modifier popover). */
+  binding?: import('@varve/scene').PropertyBinding;
+  modifierAnchorRef?: React.RefObject<HTMLButtonElement | null>;
+  onOpenModifier?: () => void;
+}
+
+function FillRow({
+  index,
+  fill,
+  nodes,
+  onChange,
+  onRemove,
+  onReorder,
+  canMoveUp,
+  canMoveDown,
+  onEditStart,
+  onEditEnd,
+  binding,
+  modifierAnchorRef,
+  onOpenModifier,
+}: FillRowProps) {
+  const editor = useEditor();
+  const label = index === 0 ? 'Fill' : `Fill ${index + 1}`;
+  const bindingStore = docVariableStore(editor.state.document);
+  const bindingVariableName = binding
+    ? (bindingStore.variables[binding.variableId]?.name ?? binding.variableId)
+    : null;
+  const bindingModifierLabel = binding?.modifiers?.[0]
+    ? alphaModifierLabel(binding.modifiers[0])
+    : null;
+  const bindingValid = binding ? resolveBoundTokenColor(bindingStore, binding) !== undefined : true;
+
+  const visibleRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.visible ?? true);
+  const typeRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.type ?? 'solid');
+  const opacityRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.opacity ?? 1);
+  const blendRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.blendMode ?? 'normal');
+  const documentGradientInterpolation =
+    editor.state.document.colorConfig?.defaultGradientInterpolation ?? 'oklab';
+  const draftKey = `${nodes
+    .map((node) => node.id)
+    .sort()
+    .join(',')}:fill:${index}`;
+
+  // Gradient interpolation/hue are sub-fields; surface "Mixed" across the
+  // selection using resolved semantics. A legacy gradient (missing metadata)
+  // is sRGB, while interpolationSource=document inherits the document value.
+  const interpRaw = commonValue(nodes, (n) =>
+    resolvedGradientInterpolationSpace(
+      resolveNodeFills(n)[index]?.gradient,
+      documentGradientInterpolation,
+    ),
+  );
+  const hueRaw = commonValue(nodes, (n) =>
+    resolvedGradientHueInterpolation(
+      resolveNodeFills(n)[index]?.gradient,
+      documentGradientInterpolation,
+    ),
+  );
+  const gradientInterpMixed = isMixed(interpRaw);
+  const gradientHueMixed = isMixed(hueRaw);
+  const representativeGradient =
+    fill?.gradient ?? (nodes[0] ? resolveNodeFills(nodes[0])[index]?.gradient : undefined);
+  const gradientBounds =
+    nodes.length === 1 && nodes[0] ? nodeLocalBounds(nodes[0], editor.state.document) : undefined;
+
+  const visible = isMixed(visibleRaw) ? true : visibleRaw;
+  const embeddedAssetId =
+    fill.type === 'image' && fill.image
+      ? (() => {
+          const canonicalAssetId = fill.image.src.startsWith('asset:')
+            ? fill.image.src.slice('asset:'.length)
+            : undefined;
+          return (
+            (canonicalAssetId && editor.state.document.assets?.[canonicalAssetId]
+              ? canonicalAssetId
+              : undefined) ?? fill.image.assetId
+          );
+        })()
+      : undefined;
+  const swatchBg = fillSwatchBg(fill, editor.state.document.assets);
+
+  const patch = useCallback(
+    (partial: Partial<Fill>) => onChange({ ...fill, ...partial }),
+    [fill, onChange],
+  );
+
+  const setFillType = useCallback(
+    (newType: FillType) => {
+      if (newType === 'solid') {
+        const firstStop =
+          fill.type === 'gradient' && fill.gradient?.stops[0]
+            ? fill.gradient.stops[0].color
+            : undefined;
+        patch({
+          type: 'solid',
+          color:
+            fill.color ??
+            (firstStop
+              ? ({ ...firstStop } as ManagedColor)
+              : { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 }),
+        });
+      } else if (newType === 'gradient') {
+        patch({
+          type: 'gradient',
+          gradient: fill.gradient ?? {
+            type: 'linear',
+            stops: defaultGradientStops(fill),
+            interpolationSource: 'document',
+          },
+        });
+      } else if (newType === 'image') {
+        patch({
+          type: 'image',
+          image: fill.image ?? { src: '', fit: 'fill', x: 0, y: 0, scale: 1 },
+        });
+      } else if (newType === 'pattern') {
+        patch({
+          type: 'pattern',
+          pattern: fill.pattern ?? { tileSrc: '', spacing: 0, rotation: 0 },
+        });
+      }
+    },
+    [fill, patch],
+  );
+
+  // Low-frequency row commands live in one labelled menu (the same grammar as
+  // effect rows) instead of a strip of unlabelled icons beside the swatch.
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const actionsTriggerRef = useRef<HTMLButtonElement>(null);
+  const harmonySource = fill.type === 'solid' && fill.color?.space === 'rgb' ? fill.color : null;
+  const actionItems = useMemo<readonly MenuEntry[]>(
+    () => [
+      ...(!binding
+        ? [
+            {
+              id: 'link-variable',
+              label: 'Link to variable',
+              onAction: () => editor.setBindingField('fill'),
+              icon: 'Link' as const,
+            },
+          ]
+        : []),
+      ...(harmonySource
+        ? [
+            {
+              id: 'harmony',
+              label: 'Use complementary color',
+              onAction: () => {
+                const harmonyColor = complementaryHarmony(harmonySource).colors[0];
+                if (harmonyColor && 'space' in harmonyColor) patch({ color: harmonyColor });
+              },
+              icon: 'Palette' as const,
+            },
+          ]
+        : []),
+      { id: 'separator-before-order', separator: true },
+      {
+        id: 'move-up',
+        label: `Move ${label.toLowerCase()} up`,
+        onAction: () => onReorder(-1),
+        disabled: !canMoveUp,
+        icon: 'ChevronUp',
+      },
+      {
+        id: 'move-down',
+        label: `Move ${label.toLowerCase()} down`,
+        onAction: () => onReorder(1),
+        disabled: !canMoveDown,
+        icon: 'ChevronDown',
+      },
+      { id: 'separator-before-remove', separator: true },
+      {
+        id: 'remove',
+        label: `Remove ${label.toLowerCase()}`,
+        onAction: onRemove,
+        destructive: true,
+        icon: 'X',
+      },
+    ],
+    [binding, canMoveDown, canMoveUp, editor, harmonySource, label, onRemove, onReorder, patch],
+  );
+
+  return (
+    <div className="insp-fill-row">
+      <div className="insp-paint-row">
+        <Switch
+          className="insp-switch"
+          aria-label={`${visible ? 'Hide' : 'Show'} ${label}`}
+          checked={visible}
+          onChange={() => patch({ visible: !visible })}
+        />
+        {fill.type === 'solid' && fill.color ? (
+          <InspectorColorPopover
+            label={`${label} colour`}
+            value={fill.color}
+            onChange={(c) => patch({ color: c })}
+            swatchStyle={{
+              background: swatchBg,
+              border: '2px solid var(--color-border-strong)',
+            }}
+            documentColorMode={editor.documentColorMode}
+            onEditStart={onEditStart}
+            onEditEnd={onEditEnd}
+          />
+        ) : fill.type === 'gradient' && representativeGradient ? (
+          <InspectorColorPopover
+            label={`${label} gradient`}
+            value={
+              representativeGradient.stops[0]?.color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }
+            }
+            onChange={() => undefined}
+            gradient={{
+              value: representativeGradient,
+              onChange: (g) => editor.updateSelectedFillGradientAt(index, g),
+              documentGradientInterpolation,
+              mixedInterpolationSpace: gradientInterpMixed,
+              mixedHue: gradientHueMixed,
+              gradientBounds: gradientBounds ?? undefined,
+            }}
+            swatchStyle={{
+              background: swatchBg,
+              border: '2px solid var(--color-border-strong)',
+            }}
+            documentColorMode={editor.documentColorMode}
+            onEditStart={onEditStart}
+            onEditEnd={onEditEnd}
+          />
+        ) : (
+          <button
+            type="button"
+            className="insp-swatch"
+            aria-label={`${label} preview`}
+            disabled
+            style={{
+              background: swatchBg,
+              border: '2px solid var(--color-border-strong)',
+            }}
+          />
+        )}
+        {fill.type === 'solid' && fill.color && (
+          <FillContrastIndicator
+            fill={fill}
+            fillIndex={index}
+            fontSize={
+              nodes.length === 1 && nodes[0]?.kind === 'text'
+                ? (nodes[0] as import('@varve/scene').TextNode).fontSize
+                : undefined
+            }
+            fontWeight={
+              nodes.length === 1 && nodes[0]?.kind === 'text'
+                ? (nodes[0] as import('@varve/scene').TextNode).fontWeight
+                : undefined
+            }
+          />
+        )}
+        {binding && onOpenModifier && (
+          <button
+            type="button"
+            ref={modifierAnchorRef}
+            className="varve-binding-badge"
+            aria-label={
+              bindingValid
+                ? 'Linked to ' +
+                  (bindingVariableName ?? '') +
+                  (bindingModifierLabel ? `, alpha ${bindingModifierLabel}` : '')
+                : `Variable ${bindingVariableName ?? ''} is missing or invalid`
+            }
+            title={
+              bindingValid
+                ? 'Linked to $' +
+                  bindingVariableName +
+                  (bindingModifierLabel ? ` · ${bindingModifierLabel}` : '')
+                : 'Linked variable is missing or invalid — binding preserved'
+            }
+            style={{
+              fontSize: 11,
+              padding: '2px 6px',
+              borderRadius: 'var(--radius-control-compact)',
+              border:
+                '1px solid ' +
+                (bindingValid
+                  ? 'var(--color-accent-primary, #39d0c6)'
+                  : 'var(--color-feedback-danger, #d64545)'),
+              color: bindingValid
+                ? 'var(--color-text-primary, #292d36)'
+                : 'var(--color-feedback-danger, #d64545)',
+              background: bindingValid
+                ? 'var(--color-surface-raised, #fff)'
+                : 'rgba(214,69,69,0.08)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 'var(--space-1)',
+              cursor: 'pointer',
+            }}
+            onClick={onOpenModifier}
+          >
+            <span>${bindingVariableName}</span>
+            {bindingModifierLabel && <strong>{bindingModifierLabel}</strong>}
+            {!bindingValid && <span>(invalid)</span>}
+          </button>
+        )}
+        <div className="insp-paint-row__type">
+          <Select
+            label={`${label} type`}
+            value={isMixed(typeRaw) ? '' : typeRaw}
+            options={[
+              ...(isMixed(typeRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+              ...FILL_TYPE_OPTIONS,
+            ]}
+            onChange={(v) => {
+              if (v) setFillType(v as FillType);
+            }}
+            placeholder="Mixed"
+          />
+        </div>
+        <div className="insp-paint-row__opacity">
+          {/* Stored as 0–1 like every paint in the engine; shown as a
+              percentage like layer opacity. Convert only at this boundary. */}
+          <NumberField
+            label={`${label} opacity`}
+            hideLabel
+            value={isMixed(opacityRaw) ? 100 : Math.round(opacityRaw * 1000) / 10}
+            mixed={isMixed(opacityRaw)}
+            unit="%"
+            step={1}
+            min={0}
+            max={100}
+            draftKey={`${draftKey}:opacity`}
+            onChange={(v) => patch({ opacity: Math.min(1, Math.max(0, v / 100)) })}
+          />
+        </div>
+        <button
+          type="button"
+          ref={actionsTriggerRef}
+          className="insp-inline-btn insp-paint-row__menu-trigger"
+          aria-label={`${label} actions`}
+          aria-haspopup="menu"
+          aria-expanded={actionsOpen}
+          onClick={() => setActionsOpen((open) => !open)}
+        >
+          <Icon name="Ellipsis" label={undefined} size="0.85em" />
+        </button>
+        <Menu
+          triggerRef={actionsTriggerRef}
+          open={actionsOpen}
+          onClose={() => setActionsOpen(false)}
+          label={`${label} actions`}
+          items={actionItems}
+          size="compact"
+        />
+      </div>
+
+      {fill.type === 'image' && fill.image && (
+        <ImageFillControls
+          image={fill.image}
+          onChange={(img: ImageFillData) => patch({ image: img })}
+          registerAsset={(input) => {
+            const asset = createEmbeddedAsset(input);
+            // Dedup: if the asset already exists, reuse its id
+            const existing = editor.state.document.assets?.[asset.id];
+            if (!existing) {
+              editor.updateDoc((doc) => ({
+                ...doc,
+                assets: { ...doc.assets, [asset.id]: asset },
+              }));
+            }
+            return asset.id;
+          }}
+          onResetUpscale={
+            fill.image?.upscale
+              ? () => {
+                  const image = fill.image as ImageFillData;
+                  const sourceAssetId = image.upscale?.sourceAssetId;
+                  if (!sourceAssetId) return;
+                  const sourceAsset = editor.state.document.assets?.[sourceAssetId];
+                  if (sourceAsset) {
+                    patch({
+                      image: {
+                        ...image,
+                        src: sourceAsset.dataUrl,
+                        assetId: sourceAssetId,
+                        upscale: undefined,
+                      },
+                    });
+                  }
+                }
+              : undefined
+          }
+          onReUpscale={
+            fill.image?.upscale
+              ? () => {
+                  editor.openUpscaleDialog();
+                }
+              : undefined
+          }
+          asset={embeddedAssetId ? editor.state.document.assets?.[embeddedAssetId] : undefined}
+        />
+      )}
+
+      {fill.type === 'pattern' && fill.pattern && (
+        <PatternFillControls
+          pattern={fill.pattern}
+          onChange={(p: PatternFillData) => patch({ pattern: p })}
+        />
+      )}
+
+      <div className="insp-fill-row__properties">
+        <FieldRow label="Blend mode">
+          <Select
+            label="Fill blend mode"
+            value={isMixed(blendRaw) ? '' : blendRaw}
+            options={isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []}
+            groups={groupBlendOptions(BLEND_OPTIONS)}
+            onChange={(v) => {
+              if (v) patch({ blendMode: v as BlendMode });
+            }}
+            placeholder="Mixed"
+          />
+        </FieldRow>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,83 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout title="RAW & HDR Photo — Varve Docs" description="Use Varve's supported DNG development, bracket merge, retouch, precision, and export paths with explicit capability boundaries.">
+  <div class="container-custom">
+    <article class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Tools / RAW &amp; HDR Photo
+      </nav>
+      <h1>RAW &amp; HDR Photo</h1>
+      <p class="docs-intro">Develop genuine sensor data and merge reviewed brackets from the existing Photo/Image Tuning surface. This guide describes the supported subset, not universal camera compatibility.</p>
+
+      <section class="docs-section">
+        <h2>Open a supported RAW</h2>
+        <p>Select an image shape, open Image Tuning, and choose <strong>Open supported DNG</strong> under Photo source. Varve validates the TIFF/DNG signature and reads the raw IFD. An embedded JPEG preview may be used for quick inspection elsewhere, but it is never the authority for this route or for the full-resolution developed output.</p>
+        <p>The current browser/Tauri-webview decoder supports classic, uncompressed, chunky 2x2 Bayer or monochrome DNG with 8/10/12/14/16-bit packed samples. It reads active area, default crop, orientation, black/white calibration, LinearizationTable, AsShotNeutral, ColorMatrix, and available EXIF exposure metadata. Compressed strips, X-Trans, multi-shot, linear RGB DNG, unsupported opcodes/delta calibration, and unsupported variants fail with a recovery message.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Develop without losing the source</h2>
+        <p>Choose the camera matrix when the DNG provides one, or choose the explicit sRGB D65 fallback. Use As-shot white balance only when the source has calibrated neutral metadata; otherwise enter custom sensor multipliers. Exposure is in stops. Black, white, highlights, shadows, crop, and orientation are recipe values. Missing lens data is not shown as corrected.</p>
+        <p>Apply development creates or replaces a derived full-resolution SDR rendition while embedding the original DNG and versioned recipe. Sensor clipping and output clipping are separate diagnostics. Reset restores the deterministic initial recipe. Changing an upstream recipe does not silently move downstream pixel repairs: existing repairs remain baked to their prior source revision and require an intentional reapply or rebase.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Merge a bracket</h2>
+        <p>Choose <strong>Merge exposure bracket</strong> from Photo source and select two to twelve reviewed files. Duplicate bytes, mixed DNG/rendered inputs, and dimension mismatches are rejected. RAW review checks camera/lens, orientation, crop, CFA, bit depth, focal length, ISO, aperture, and source encoding. Known inconsistencies block radiance normalization; missing metadata is shown as a warning. Enter positive exposure times when they are not present.</p>
+        <ul>
+          <li><strong>Radiance reconstruction</strong> accepts consistently developed linear RAW frames and normalizes by explicit exposure times. It keeps float32 scene values, excludes clipped/invalid samples, and records the chosen reference, transforms, and deghost mask.</li>
+          <li><strong>Exposure fusion</strong> is the separate route for rendered images. It uses display-linear assumed-sRGB pixels and does not recover calibrated scene radiance.</li>
+        </ul>
+        <p>Alignment is a bounded translation search. Rotation, perspective, rolling shutter, focus change, parallax, and moving highlights remain review limits. Borders without valid aligned coverage remain invalid; they are not filled with black scene values. The dialog reports conservative moving-sample exclusions before saving.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Master and SDR output</h2>
+        <p>HDR merge saves a range-bearing float32 OpenEXR master and a separate SDR PNG rendition. The master uses the verified one-part, uncompressed scanline RGB(A) subset and carries Varve metadata for reference, alpha, provenance, primaries, transfer, and relative reference white. Independently decode the downloaded EXR if another application does not recognize it.</p>
+        <p>The SDR rendition uses a stable full-frame global tone map. It is disposable and does not change the source recipe or master. On SDR-only or unknown runtimes, this output remains available. PQ/HLG display encoding and physically verified HDR display presentation are not part of this slice.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Share an extended-range JPEG</h2>
+        <p>Scene-linear masters can be shared as an Ultra HDR gain-map JPEG. The stored SDR rendition becomes the base image, and a separate per-channel recovery map (default one quarter resolution) encodes the ratio between the SDR rendition and the master's display-linear values. Metadata is written in both the XMP form (<code>hdrgm</code> plus a GContainer directory) and the ISO 21496-1 binary form inside an MPF container, so legacy viewers show the SDR image and range-aware viewers can reconstruct the highlights.</p>
+        <p>The base image is never regenerated from the master: changing the tone-map exposure or white point requires applying a new SDR rendition first, and the export button stays disabled until you do. This is deliberate — a gain map whose base silently differs from the rendition you reviewed is the failure mode reported with other editors. Display-linear fusion masters report that there is no extra headroom to encode instead of producing an identity map.</p>
+        <p>Varve verifies the actual encoded file before offering it: it decodes the base and gain-map JPEGs again, applies the parsed metadata, and reports the worst and 95th-percentile reconstruction error in stops alongside the JPEG byte delta of the SDR fallback. The map is 8-bit and the reconstruction is quantization-bounded; JPEG ringing at hard highlight edges can raise the worst sample while the 95th percentile stays near the quantization floor. A downloadable gain-map JPEG is a sharing format, not a replacement for the OpenEXR master.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Reopen and edit a range-bearing master</h2>
+        <p>Select an image shape and choose <strong>Open supported OpenEXR master</strong> in the same Photo source surface. Varve decodes its stored float samples, keeps the EXR bytes as the source asset, and creates a separate SDR rendition for an SDR-only runtime. Tone-map exposure and display white point update only that rendition; the master remains unchanged and downloadable.</p>
+        <p>After a merge, the same controls are available because the master asset and its recipe are retained in the document. The verified subset is single-part, uncompressed scanline RGB(A) with float16/float32 samples and Varve range metadata. Unsupported deep, multipart, tiled, compressed, unknown-channel, or display-referred inputs are rejected with an actionable message.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Retouch after development</h2>
+        <p>Clone, heal, spot-heal, and patch remain existing raster tools. They write to a declared writable raster layer, preserve a coherent undo transaction, and keep source snapshots stable per stroke. Clone sampling, target ownership, alpha coverage, and source scope remain separate. Spot-heal is a bounded evidence-based texture search; it does not invent recovered photographic detail.</p>
+        <p>Use a separate repair layer when possible. An image-filled shape is not silently rasterized into a writable target. A byte-based raster repair is an SDR boundary; it does not claim that an upstream float master has been preserved inside the repair tile.</p>
+      </section>
+
+      <section class="docs-section docs-note">
+        <h2>Capability and privacy notes</h2>
+        <p>Original RAW and bracket bytes stay in the local document asset model when embedded. Exports do not overwrite source files. The current route does not download a model or upload artwork. Metadata policy remains explicit; do not share camera serials, GPS, or private filenames when producing a repro fixture.</p>
+        <p>See the <a href={sitePath('/docs/file-formats')}>file-format guide</a> and the repository's <a href="https://github.com/K-Arthur/varve/blob/main/docs/architecture/photo-raw-hdr-system.md">photo architecture contract</a> for the exact support matrix and evidence status.</p>
+      </section>
+    </article>
+  </div>
+</Layout>
+
+<style>
+  .docs-page { max-width: 800px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { color: var(--text-secondary); font-size: .875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  h1 { color: var(--text-primary); font: 700 clamp(2rem, 5vw, 2.8rem)/1.1 var(--font-editorial); margin-bottom: 1rem; }
+  .docs-intro { color: var(--text-secondary); font-size: 1.15rem; margin-bottom: 3rem; }
+  .docs-section { margin-bottom: 2.5rem; }
+  .docs-section h2 { border-bottom: 2px solid var(--border-accent); color: var(--text-primary); font-size: 1.45rem; margin-bottom: 1rem; padding-bottom: .5rem; }
+  .docs-section p, .docs-section li { color: var(--text-secondary); line-height: 1.8; }
+  .docs-section li { margin-bottom: .5rem; }
+  .docs-section a { color: var(--text-link); }
+  .docs-note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
+</style>

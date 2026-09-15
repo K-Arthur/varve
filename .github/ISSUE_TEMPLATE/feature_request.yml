@@ -1,0 +1,37 @@
+name: Feature request
+description: Suggest something Varve doesn't do yet.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For open-ended ideas or discussion before a concrete proposal, the
+        [Ideas category in Discussions](https://github.com/K-Arthur/varve/discussions/categories/ideas)
+        may be a better fit than an issue.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the workflow or task this would help with, not just the feature.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: What should Varve do?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives or workarounds you've tried
+
+  - type: input
+    id: workflow
+    attributes:
+      label: Affected design workflow
+      placeholder: "e.g. vector editing, layout, typography, motion, print, prototyping"

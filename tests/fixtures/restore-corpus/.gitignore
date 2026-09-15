@@ -1,0 +1,3 @@
+# derived degradations are regenerated deterministically by
+# scripts/bench/restore-reference/generate_fixtures.py
+*--*.png

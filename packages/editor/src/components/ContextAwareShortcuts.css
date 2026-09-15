@@ -1,0 +1,81 @@
+/**
+ * ContextAwareShortcuts CSS — compact, modular toolbar widget in the top navigation bar.
+ */
+
+.context-aware-shortcuts {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-start: var(--space-2);
+}
+
+.context-aware-shortcuts__cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px;
+  background: var(--elevation-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-floating);
+  box-shadow: var(--elevation-shadow-raised);
+}
+
+.context-aware-shortcuts__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  height: calc(var(--space-6) - 4px);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default);
+}
+
+.context-aware-shortcuts__btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.context-aware-shortcuts__btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.context-aware-shortcuts__label {
+  line-height: 1;
+}
+
+.context-aware-shortcuts__kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 1px;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  color: var(--color-text-muted);
+  font-family: var(--type-data-numeric-family, var(--font-mono));
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+}
+
+.context-aware-shortcuts__btn:hover .context-aware-shortcuts__kbd {
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 980px) {
+  .context-aware-shortcuts {
+    display: none;
+  }
+}

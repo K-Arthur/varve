@@ -1,0 +1,21 @@
+{
+  "feature": "font-browser-filter-reset",
+  "capturedAt": "2026-09-13",
+  "launchSha": "f5c482124332e29134fd1d7439303ecbb8ec1703",
+  "completionSha": "f5c482124332e29134fd1d7439303ecbb8ec1703",
+  "viewport": { "width": 540, "height": 640, "deviceScaleFactor": 1 },
+  "command": "TMPDIR=/home/kevina/CodingProjects/varve/.tmp VARVE_E2E_PORT=1665 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-browser-filters-20260913 npx playwright test tests/e2e/canvas/font-browser-filters.spec.ts --project=chromium --reporter=list --timeout=120000",
+  "result": "1 passed (46.2s)",
+  "screenshots": [
+    {
+      "path": "filtered-narrow.png",
+      "sha256": "a7b76ce85b816a6c7513af97b0a4520a67b76c1cf310c1700e66bf25db6d2d83",
+      "inspection": "At 540 CSS pixels, the combined search/source/semantic filter state stacks into a single-column control area; the reset action spans the available width and the modal content remains contained."
+    },
+    {
+      "path": "reset-narrow.png",
+      "sha256": "fad428d20e2a1b501cfd27e76fcf0623f1a51b2a6c3496a4c56b8f6d13b26728",
+      "inspection": "After Reset filters, the All source tab and Semantic filter defaults are restored, the reset action disappears, and the selected-family preview remains readable without horizontal overflow."
+    }
+  ]
+}

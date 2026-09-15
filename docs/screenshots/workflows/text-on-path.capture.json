@@ -1,0 +1,107 @@
+{
+  "workflow": "Text on path",
+  "slug": "text-on-path",
+  "purpose": "Attaching real text to real path geometry and steering it along the curve.",
+  "gitCommit": "7c42b7b5f5c7cc42a6297f1e0a39693e24befd25",
+  "capturedAt": "2026-08-22T21:35:24.690Z",
+  "viewport": "1440x900",
+  "dpr": 1,
+  "fixture": null,
+  "captureRuntime": "chromium 151.0.7922.34 / node v26.7.0",
+  "sourceDuration": 41.53,
+  "deliveredDuration": 33.73,
+  "posterAt": 25.3,
+  "fps": 30,
+  "outputs": {
+    "webm": "docs/screenshots/workflows/text-on-path.webm",
+    "mp4": "docs/screenshots/workflows/text-on-path.mp4",
+    "poster": "docs/screenshots/workflows/text-on-path-poster.png"
+  },
+  "metadata": {},
+  "artifacts": [],
+  "productAssertions": [
+    "ring and label are two independent nodes, both drawn on camera",
+    "Object > Text on Path is enabled for a text layer plus a shape",
+    "attaching moves the glyphs onto the curve",
+    "the text node is in path mode — its Text on Path section is present",
+    "changing the start offset walks the glyphs around the ring",
+    "switching the baseline to the inside of the curve re-lays the glyphs",
+    "the text is still editable text on the path, not outlined glyphs",
+    "the ring stays independently editable and the text follows it"
+  ],
+  "verification": {
+    "findings": [],
+    "clips": {
+      "webm": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "vp9",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 1012,
+          "duration": 33.733,
+          "bytes": 1339626
+        }
+      },
+      "mp4": {
+        "pass": true,
+        "findings": [],
+        "info": {
+          "codec": "h264",
+          "width": 1440,
+          "height": 900,
+          "fps": 30,
+          "frames": 1012,
+          "duration": 33.733333,
+          "bytes": 1427420
+        }
+      }
+    },
+    "frames": [
+      {
+        "label": "start",
+        "at": 0.15,
+        "luma": 234.3,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q1",
+        "at": 8.43,
+        "luma": 231.8,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "mid",
+        "at": 16.87,
+        "luma": 231.6,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "q3",
+        "at": 25.3,
+        "luma": 233,
+        "black": false,
+        "blank": false,
+        "exists": true
+      },
+      {
+        "label": "final",
+        "at": 33.48,
+        "luma": 233.1,
+        "black": false,
+        "blank": false,
+        "exists": true
+      }
+    ],
+    "privacy": [],
+    "pass": true
+  }
+}

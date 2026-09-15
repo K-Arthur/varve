@@ -1,0 +1,45 @@
+[INFO   ] media_io.cpp:592  - resize input image from 512x512 to 256x256
+[INFO   ] media_io.cpp:592  - resize input image from 512x512 to 256x256
+[INFO   ] diffusion_engine.cpp:700  - loading model from '/var/tmp/varve-sd15-inpainting-genai-q4_0.gguf'
+[INFO   ] model_loader.cpp:202  - load /var/tmp/varve-sd15-inpainting-genai-q4_0.gguf using gguf format
+[INFO   ] diffusion_engine.cpp:913  - Version: SD 1.x Inpaint 
+[WARN   ] backend_fit.cpp:444  - auto-fit: no GPU devices; using the default backend
+[INFO   ] diffusion_engine.cpp:1424 - Weight type stat:                      f32: 689  |    q4_0: 442  
+[INFO   ] diffusion_engine.cpp:1425 - Conditioner weight type stat:          f32: 97   |    q4_0: 99   
+[INFO   ] diffusion_engine.cpp:1426 - Diffusion model weight type stat:      f32: 395  |    q4_0: 291  
+[INFO   ] diffusion_engine.cpp:1427 - VAE weight type stat:                  f32: 196  |    q4_0: 52   
+  |##################################################| 1/1 - 0.35MB/s[K
+[INFO   ] model_loader.cpp:1302 - loading tensors completed, taking 0.01s (read: 0.00s, memcpy: 0.00s, convert: 0.00s, copy_to_backend: 0.00s)
+[INFO   ] model_builders.cpp:538  - using VAE for encoding / decoding
+[INFO   ] auto_encoder_kl.hpp:529  - vae decoder: ch = 128
+[INFO   ] diffusion_engine.cpp:1237 - total params memory size = 1503.07MB (VRAM 0.00MB, RAM 1503.07MB): text_encoders 66.61MB(RAM), diffusion_model 1276.78MB(RAM), vae 159.68MB(RAM), controlnet 0.00MB(N/A), extensions 0.00MB(N/A)
+[INFO   ] diffusion_engine.cpp:1350 - running in eps-prediction mode
+[INFO   ] image.cpp:801  - generate_image 256x256
+[INFO   ] denoiser.hpp:1063 - get_sigmas with discrete scheduler
+[INFO   ] request.cpp:418  - sampling using Euler method
+[INFO   ] image.cpp:130  - IMG2IMG
+[INFO   ] image.cpp:174  - target t_enc is 6 steps
+[INFO   ] ggml_graph_cut.cpp:975  - vae build cached graph cut plan done (taking 1 ms)
+  |#                                                 | 1/108 - 0.00MB/s[K  |##################################################| 108/108 - 645.03MB/s[K
+[INFO   ] model_loader.cpp:1302 - loading tensors completed, taking 0.20s (read: 0.06s, memcpy: 0.00s, convert: 0.03s, copy_to_backend: 0.00s)
+[INFO   ] image.cpp:391  - encode_first_stage completed, taking 19.06s
+[INFO   ] ggml_graph_cut.cpp:975  - clip build cached graph cut plan done (taking 12 ms)
+  |#                                                 | 3/196 - 0.00MB/s[K  |##################################################| 196/196 - 328.46MB/s[K
+[INFO   ] model_loader.cpp:1302 - loading tensors completed, taking 0.20s (read: 0.05s, memcpy: 0.00s, convert: 0.00s, copy_to_backend: 0.00s)
+[INFO   ] image.cpp:516  - get_learned_condition completed, taking 0.55s
+[INFO   ] image.cpp:853  - generating image: 1/1 - seed 42
+[INFO   ] ggml_graph_cut.cpp:975  - unet build cached graph cut plan done (taking 6 ms)
+  |#                                                 | 1/686 - 0.00MB/s[K  |#################                                 | 220/686 - 963.54MB/s[K  |##################                                | 245/686 - 925.33MB/s[K  |######################                            | 301/686 - 1.20GB/s[K  |########################                          | 321/686 - 1.19GB/s[K  |#########################                         | 333/686 - 1.13GB/s[K  |##########################                        | 347/686 - 1.14GB/s[K  |###############################                   | 415/686 - 1.15GB/s[K  |##################################                | 461/686 - 1.24GB/s[K  |##################################################| 686/686 - 1.27GB/s[K
+[INFO   ] model_loader.cpp:1302 - loading tensors completed, taking 1.84s (read: 0.86s, memcpy: 0.00s, convert: 0.76s, copy_to_backend: 0.00s)
+  |=======>                                          | 1/7 - 10.39s/it[K  |==============>                                   | 2/7 - 8.21s/it[K  |=====================>                            | 3/7 - 9.40s/it[K  |============================>                     | 4/7 - 6.82s/it[K  |===================================>              | 5/7 - 6.56s/it[K  |==========================================>       | 6/7 - 6.90s/it[K  |==================================================| 7/7 - 6.55s/it[K
+[INFO   ] image.cpp:886  - sampling completed, taking 54.82s
+[INFO   ] image.cpp:898  - generating 1 latent images completed, taking 54.82s
+[INFO   ] image.cpp:541  - decoding 1 latents
+[INFO   ] ggml_graph_cut.cpp:975  - vae build cached graph cut plan done (taking 0 ms)
+  |##                                                | 3/140 - 0.00MB/s[K  |##################################################| 140/140 - 939.07MB/s[K
+[INFO   ] model_loader.cpp:1302 - loading tensors completed, taking 0.20s (read: 0.09s, memcpy: 0.00s, convert: 0.06s, copy_to_backend: 0.00s)
+[INFO   ] image.cpp:607  - latent 1 decoded, taking 14.69s
+[INFO   ] image.cpp:611  - decode_first_stage completed, taking 14.69s
+[INFO   ] image.cpp:1037 - generate_image completed in 89.12s
+[INFO   ] main.cpp:504  - save result image 0 to '/var/tmp/varve-semantic-probe.vFj5PO/result-256-8.png' (success)
+[INFO   ] main.cpp:580  - 1/1 images saved

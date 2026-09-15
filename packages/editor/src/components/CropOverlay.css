@@ -1,0 +1,261 @@
+.crop-toolbar {
+  position: absolute;
+  top: var(--space-3);
+  left: 50%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  max-width: calc(100% - var(--space-6));
+  padding: var(--space-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-floating);
+  background: var(--elevation-surface-raised);
+  box-shadow: var(--elevation-shadow-raised);
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+.crop-toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.crop-toolbar__btn {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control-compact);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.crop-toolbar__btn:hover {
+  background: var(--color-interactive-hover-surface);
+  color: var(--color-text-primary);
+}
+
+.crop-toolbar__btn--active {
+  border-color: var(--color-interactive-default);
+  background: var(--color-interactive-checked-surface);
+  color: var(--color-text-on-accent);
+}
+
+.crop-toolbar__btn:active:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--color-interactive-pressed-surface);
+  color: var(--color-text-on-accent);
+}
+
+.crop-toolbar__btn--active:hover {
+  background: var(--color-interactive-hover);
+  color: var(--color-text-on-accent);
+}
+
+.crop-toolbar__btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.crop-toolbar__separator {
+  width: 1px;
+  height: 24px;
+  margin: 0 var(--space-1);
+  background: var(--color-border-subtle);
+}
+
+.crop-toolbar__label,
+.crop-toolbar__value {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+.crop-toolbar__range {
+  inline-size: 8rem;
+  min-inline-size: 5rem;
+  flex: 1 1 8rem;
+}
+
+.crop-toolbar__value {
+  min-inline-size: 3rem;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+@media (pointer: coarse) {
+  .crop-toolbar__btn {
+    min-height: 44px;
+  }
+  .crop-toolbar__btn:hover {
+    background: transparent;
+    color: var(--color-text-secondary);
+  }
+  .crop-toolbar__btn--active:hover {
+    background: var(--color-interactive-checked-surface);
+    color: var(--color-text-on-accent);
+  }
+}
+
+.crop-overlay {
+  position: absolute;
+  inset: 0;
+  /* 46: above canvas overlays (10-15), below popovers (200) and panels (100). */
+  z-index: 46;
+  pointer-events: none;
+}
+
+.crop-overlay__dim {
+  position: absolute;
+  background: var(--elevation-scrim);
+  pointer-events: none;
+}
+
+.crop-overlay__window {
+  position: absolute;
+  box-sizing: border-box;
+  border: var(--border-micro-accent);
+  box-shadow: 0 0 0 100vmax var(--elevation-scrim);
+  cursor: move;
+  pointer-events: auto;
+  background: transparent;
+}
+
+.crop-overlay__handle {
+  position: absolute;
+  /* The option toolbar can occupy the top of a tightly fitted crop. Keep the
+   * resize affordances above it so a real pointer drag still reaches the
+   * intended handle instead of an overlapping toolbar control. */
+  z-index: 3;
+  width: var(--toolbar-height);
+  height: var(--toolbar-height);
+  padding: 0;
+  border: none;
+  background: transparent;
+  pointer-events: auto;
+}
+
+.crop-overlay__handle::after {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: var(--space-3);
+  height: var(--space-3);
+  border: var(--border-micro-accent);
+  border-radius: var(--radius-control-compact);
+  background: var(--elevation-surface-raised);
+  content: "";
+  transform: translate(-50%, -50%);
+}
+
+.crop-overlay__handle:focus-visible {
+  outline: 2px solid var(--color-interactive-default);
+  outline-offset: var(--space-1);
+}
+
+.crop-overlay__handle--nw {
+  left: calc(var(--toolbar-height) / -2);
+  top: calc(var(--toolbar-height) / -2);
+  cursor: nwse-resize;
+}
+.crop-overlay__handle--n {
+  left: 50%;
+  top: calc(var(--toolbar-height) / -2);
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+.crop-overlay__handle--ne {
+  right: calc(var(--toolbar-height) / -2);
+  top: calc(var(--toolbar-height) / -2);
+  cursor: nesw-resize;
+}
+.crop-overlay__handle--w {
+  left: calc(var(--toolbar-height) / -2);
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+.crop-overlay__handle--e {
+  right: calc(var(--toolbar-height) / -2);
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: ew-resize;
+}
+.crop-overlay__handle--sw {
+  left: calc(var(--toolbar-height) / -2);
+  bottom: calc(var(--toolbar-height) / -2);
+  cursor: nesw-resize;
+}
+.crop-overlay__handle--s {
+  left: 50%;
+  bottom: calc(var(--toolbar-height) / -2);
+  transform: translateX(-50%);
+  cursor: ns-resize;
+}
+.crop-overlay__handle--se {
+  right: calc(var(--toolbar-height) / -2);
+  bottom: calc(var(--toolbar-height) / -2);
+  cursor: nwse-resize;
+}
+
+.crop-overlay__actions {
+  position: absolute;
+  transform: translateX(-50%);
+  display: flex;
+  gap: var(--space-1);
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.crop-overlay__btn {
+  min-height: var(--toolbar-height);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-control-compact);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--elevation-surface-raised);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+}
+
+.crop-overlay__btn:hover {
+  background: var(--color-interactive-hover-surface);
+}
+
+.crop-overlay__btn:active:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--color-interactive-pressed-surface);
+  color: var(--color-text-on-accent);
+}
+
+.crop-overlay__btn--ghost {
+  color: var(--color-text-secondary);
+}
+
+.crop-overlay__btn:focus-visible {
+  outline: 2px solid var(--color-interactive-default);
+  outline-offset: 1px;
+}
+
+.crop-overlay__badge {
+  position: absolute;
+  left: var(--space-2);
+  bottom: var(--space-2);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-control-compact);
+  background: var(--elevation-scrim);
+  color: var(--color-text-on-accent);
+  font-size: var(--font-size-2xs);
+  line-height: var(--font-line-normal);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  pointer-events: none;
+}

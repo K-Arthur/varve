@@ -1,0 +1,94 @@
+.native-accel {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  background: var(--elevation-surface-sunken);
+  border-radius: var(--radius-control);
+}
+.native-accel__title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.native-accel__intro {
+  margin: 0 0 var(--space-3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.native-accel__rows {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-2);
+  margin: 0;
+}
+.native-accel__row {
+  display: grid;
+  grid-template-columns: minmax(9rem, 1fr) 2fr;
+  gap: var(--space-2);
+  align-items: baseline;
+}
+.native-accel__row dt {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.native-accel__row dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+}
+.native-accel__details {
+  margin-top: var(--space-3);
+  font-size: var(--font-size-xs);
+}
+.native-accel__details summary {
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+.native-accel__details h5 {
+  margin: var(--space-2) 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.native-accel__details ul {
+  margin: 0;
+  padding-left: var(--space-3);
+  display: grid;
+  gap: var(--space-1);
+  color: var(--color-text-primary);
+}
+.native-accel__cpu {
+  margin: var(--space-2) 0 0;
+  font-family: monospace;
+  color: var(--color-text-muted);
+}
+.native-accel__status {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+}
+.native-accel__error {
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-status-danger-text, var(--color-text-primary));
+}
+.native-accel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.native-accel__note {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-2);
+  border-left: 2px solid var(--color-border-strong);
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+  color: var(--color-text-muted);
+}
+
+[data-theme="high-contrast"] .native-accel {
+  border: 1px solid var(--color-border-strong);
+}

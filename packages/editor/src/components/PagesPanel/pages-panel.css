@@ -1,0 +1,321 @@
+/* ── Pages Panel (M7) ─────────────────────────────────── */
+/* Neo-Bento: collapsible, virtualized page list sharing the left sidebar
+ * column with the layers tree. Windowed rows keep a 1,000-page document
+ * cheap (30-row window + overscan). */
+
+.pages-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  max-height: 34vh;
+  flex: 0 1 auto;
+}
+
+.pages-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.pages-panel__description {
+  display: block;
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  max-width: 28rem;
+  margin: 0;
+}
+
+.pages-panel__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.pages-panel__count {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-subtle);
+  background: var(--color-surface-hover);
+  border-radius: var(--radius-control-compact);
+  padding: 0 var(--space-1);
+}
+
+.pages-panel__add-btn {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-on-accent);
+  background: var(--color-interactive-default);
+  border: none;
+  border-radius: var(--radius-control-compact);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-default);
+}
+
+.pages-panel__add-btn:hover {
+  background: var(--color-interactive-hover);
+}
+
+.pages-panel__add-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.pages-panel__list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  border-radius: var(--radius-control-compact);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pages-panel__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control-compact);
+  cursor: pointer;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+  min-height: 0;
+}
+
+.pages-panel__row:hover {
+  background: var(--color-surface-hover);
+}
+
+.pages-panel__row:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.pages-panel__row--active {
+  background: var(--color-accent-subtle);
+  border-color: var(--color-interactive-default);
+}
+.pages-panel__row--active:hover {
+  background: var(--color-surface-hover);
+}
+
+.pages-panel__thumb {
+  width: 40px;
+  height: 30px;
+  flex: 0 0 40px;
+  border-radius: var(--radius-control-compact);
+  overflow: hidden;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+}
+
+.pages-panel__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.pages-panel__thumb-placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    135deg,
+    var(--color-surface-raised) 0%,
+    var(--color-surface-sunken) 100%
+  );
+}
+
+.pages-panel__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.pages-panel__name {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pages-panel__number {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-subtle);
+}
+
+.pages-panel__badges {
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.pages-panel__badge {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-hover);
+  border-radius: var(--radius-pill);
+  padding: 0 var(--space-1);
+}
+
+.pages-panel__badge--section {
+  color: var(--color-accent-on-subtle, var(--color-interactive-default));
+  background: var(--color-accent-subtle);
+}
+
+.pages-panel__actions {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-default);
+}
+
+.pages-panel__row:hover .pages-panel__actions,
+.pages-panel__row:focus-within .pages-panel__actions {
+  opacity: 1;
+}
+
+.pages-panel__icon-btn {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-control-compact);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.pages-panel__icon-btn:hover:not(:disabled) {
+  background: var(--color-surface-overlay);
+}
+
+.pages-panel__icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.pages-panel__icon-btn--danger:hover:not(:disabled) {
+  color: var(--color-feedback-danger);
+  background: color-mix(in oklab, var(--color-feedback-danger) 12%, transparent);
+}
+
+.pages-panel__icon-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.pages-panel__empty {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-subtle);
+  padding: var(--space-2);
+}
+
+/* Design Canvas navigator — the surface list is separate from LayersTree.
+ * Canvas roots are scene plumbing and must never become visible layer rows. */
+.design-canvas-panel {
+  max-height: 30vh;
+}
+
+.design-canvas-panel__list {
+  gap: 2px;
+}
+
+.design-canvas-panel__row {
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control-compact);
+}
+
+.design-canvas-panel__row:hover,
+.design-canvas-panel__row--active {
+  background: var(--color-surface-hover);
+}
+
+.design-canvas-panel__row--active {
+  border-color: var(--color-interactive-default);
+  background: var(--color-accent-subtle);
+}
+
+.design-canvas-panel__select {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 30px;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  background: transparent;
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.design-canvas-panel__select:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+  border-radius: var(--radius-control-compact);
+}
+
+.design-canvas-panel__canvas-mark {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+  border: 1px solid var(--color-interactive-default);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-raised);
+}
+
+.design-canvas-panel__row--active .design-canvas-panel__canvas-mark {
+  background: var(--color-interactive-default);
+  box-shadow: inset 0 0 0 2px var(--color-accent-subtle);
+}
+
+.design-canvas-panel__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+}
+
+.design-canvas-panel__actions {
+  display: flex;
+  gap: 1px;
+  padding-right: var(--space-1);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-default);
+}
+
+.design-canvas-panel__actions .pages-panel__icon-btn {
+  width: auto;
+  min-width: 22px;
+  padding: 0 var(--space-1);
+  font-size: 10px;
+}
+
+.design-canvas-panel__row:hover .design-canvas-panel__actions,
+.design-canvas-panel__row:focus-within .design-canvas-panel__actions {
+  opacity: 1;
+}

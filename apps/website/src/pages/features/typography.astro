@@ -1,0 +1,604 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+
+const fontReplacementFaq = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: [
+    {
+      '@type': 'Question',
+      name: 'What happens when an imported design uses a missing font?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Varve identifies the missing family, offers a matching Fontsource family and style when the shipped catalog has one, and ranks installed replacements. Nothing downloads until you approve it. The text stays editable, and the original family is retained in the document font manifest.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Can Varve replace a missing font across a whole document?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Yes. Replace All updates matching text nodes, rich-text runs, and reusable text styles in one undoable editor transaction.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Does font replacement upload my document or fonts?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Core replacement is local-first. It uses the local font catalog and does not require Figma credentials or uploading the document. Optional font providers are separate and user-controlled.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Will a font replacement change the design layout?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'It can. Different font metrics may change wrapping, bounds, and export appearance, so Varve labels the match quality and warns you to review reflow before delivery.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'Can I preview a font before applying or installing it?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'You can inspect catalog metadata and installed faces without a network request. In the compact toolbar and Inspector, hovering or navigating previews an installed face temporarily; choosing it commits one change and Escape restores the prior formatting. A family specimen becomes available after you explicitly install the font on desktop; choosing a catalog result alone never downloads or changes the document.',
+      },
+    },
+    {
+      '@type': 'Question',
+      name: 'How can I find every text layer that uses a font?',
+      acceptedAnswer: {
+        '@type': 'Answer',
+        text: 'Open the Fonts panel and choose Document fonts. It defaults to the active page, groups exact faces separately from family-only requests, excludes hidden and locked content, and lets you select every matching text layer in one action. Switch to Entire document for a broader review.',
+      },
+    },
+  ],
+};
+---
+
+<Layout
+  title="Typography & Missing-Font Replacement"
+  description="Varve keeps imported text editable: Unicode-aware typography, variable fonts, rich text, and local-first missing-font replacement with preserved provenance."
+  structuredData={fontReplacementFaq}
+>
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Typography
+      </nav>
+
+      <h1>Typography</h1>
+      <p class="feature-intro">
+        Professional text tools with a dependable answer to a common import problem: when a design uses a font you do not have, Varve helps you replace it without turning the design into a screenshot.
+      </p>
+
+      <section class="feature-section">
+        <h2>What It Is</h2>
+        <p>
+          Varve's typography system provides multi-line layout, text decoration, overflow handling, list styles, letter spacing, vertical alignment, and text case transforms. It supports font-defined OpenType features, variable font axes, point and area text, text placed along arbitrary paths, bounded non-destructive deformation, and a logical Unicode source model designed to keep shaping, editing, and export aligned.
+        </p>
+        <p>
+          Vertical writing is a real text-flow setting, not a rotated layer. Choose <code>vertical-rl</code> or <code>vertical-lr</code> for column progression, then choose Mixed, Upright, or Sideways character orientation. The logical text, rich runs, transform, and text-frame geometry stay intact while the content reflows on the vertical inline axis.
+        </p>
+        <p>
+          For native Figma <code>.fig</code>, REST, or plugin-export JSON imports, Varve also treats fonts as document dependencies. It detects missing families in ordinary text, rich-text runs, and reusable text styles; checks the shipped Fontsource catalog for the requested face; ranks installed candidates; and keeps the original family reference in the saved document manifest. You can continue editing locally without keeping Figma open.
+        </p>
+        <p>
+          The catalog ships with Varve, so font discovery works offline and does not require a Google Fonts key or runtime metadata request. The full browser offers an explicit local-font permission or refresh action and reports when it falls back to the compatibility list. On desktop, installing a result is an explicit action that retrieves one exact, version-pinned Fontsource artifact, stores it locally under its artifact and face identity, and only then makes it available to the document. If a font is still unavailable after reopening, the missing-font workflow helps you review a replacement. Same-name files and collection members remain distinct in storage; native GUI restart evidence is still being collected. The browser demo can browse the catalog but does not download additional font files.
+        </p>
+      </section>
+
+      <section class="feature-section feature-callout">
+        <p class="feature-callout__eyebrow">Import with confidence</p>
+        <h2>Missing fonts are a reviewable decision, not silent damage</h2>
+        <p>
+          Install a matching Fontsource face when the catalog offers the requested family and style, or choose a substitute and apply it across the document in one undoable action. Varve shows the requested weight, style, and license before installation; labels compatible and fallback replacements; updates rich text without flattening it; and warns when new metrics may reflow the design.
+        </p>
+        <div class="feature-callout__links">
+          <a href={sitePath('/docs/tools/typography')}>Read the typography workflow</a>
+          <a href={sitePath('/docs/file-formats')}>See supported Figma acquisition paths</a>
+        </div>
+      </section>
+
+      <section class="feature-section semantic-discovery">
+        <p class="feature-callout__eyebrow">Search by intent</p>
+        <h2>Describe the type you need</h2>
+        <p>
+          The local catalog understands design language as a set of reviewable signals. Try “friendly rounded sans for UI”, “editorial serif with Vietnamese”, or “similar to Inter”. Hard requirements stay hard; softer preferences improve ranking, and each result can explain which local fact or reviewed annotation contributed.
+        </p>
+        <div class="semantic-query-grid">
+          <div><code>friendly rounded sans for UI</code><span>construction + tone + use</span></div>
+          <div><code>editorial serif with Vietnamese</code><span>preferred role + hard coverage</span></div>
+          <div><code>similar to Inter</code><span>similarity lane, not a pairing claim</span></div>
+        </div>
+        <p class="semantic-discovery__note">Verified coverage and font-table facts are labeled separately from inferred or curated descriptors. Unknown metadata stays unknown.</p>
+      </section>
+
+      <section class="feature-section font-browser-discovery">
+        <p class="feature-callout__eyebrow">Browse before you commit</p>
+        <h2>Inspect the type, then make the decision</h2>
+        <p>
+          Browse fonts keeps search and inspection side by side. Select a family to review its source, license, styles, weights, script coverage, personal tags, and related families without losing your place in the catalog. Installed and bundled families can render a specimen; catalog-only families remain metadata-only until an explicit desktop install.
+        </p>
+        <p>
+          Font details keep technical embedding declarations separate: the base OS/2 permission, no-subsetting, and bitmap-only flags are shown independently, while unknown license provenance stays unknown. Export choices are withheld when the available evidence cannot support live embedding or subsetting.
+        </p>
+        <p>
+          Variable families expose only the axes declared by the selected face. Preview weight, width, optical size, or slant in the specimen, reset to the font's defaults, and apply the chosen values explicitly with <strong>Use face</strong>. The regular weight control stays coupled to <code>wght</code> while other authored axes and the exact face reference remain intact.
+        </p>
+        <div class="font-browser-capabilities">
+          <div><strong>Exact name search</strong><span>“gothic” returns Gothic families, not unrelated catalog filler.</span></div>
+          <div><strong>Live specimen</strong><span>Replace the sample text while inspecting an installed or bundled family.</span></div>
+          <div><strong>Explainable results</strong><span>See why semantic terms, coverage, or similarity affected a result.</span></div>
+          <div><strong>Local-first control</strong><span>Review metadata before an explicit, version-pinned install.</span></div>
+        </div>
+      </section>
+
+      <section class="feature-section document-fonts-workflow">
+        <p class="feature-callout__eyebrow">Audit the document</p>
+        <h2>See which faces your text actually uses</h2>
+        <p>
+          The Fonts panel opens on <strong>Document fonts</strong>, scoped to the active page. It groups exact artifact faces and family-only requests separately, shows character counts and page locations, keeps linked story frames together, and excludes hidden or locked content from the working list. Choose <strong>Entire document</strong> for a broader audit, then select every matching text layer in one action before making a replacement decision.
+        </p>
+        <p>
+          Unused text styles remain visible in their own disclosure, while <strong>Browse all fonts</strong> opens the full local-first catalog without changing the document. A family-only request stays visibly unresolved until an exact face is installed or deliberately replaced.
+        </p>
+      </section>
+
+      <div class="feature-visual feature-visual--pair">
+        <figure>
+          <img
+            src={sitePath('/screenshots/typography-light.png')}
+            alt="A type specimen in Varve showing a display character, a character set, a subhead and a body paragraph"
+            width="832"
+            height="620"
+            loading="lazy"
+          />
+          <figcaption>A type hierarchy set on the canvas</figcaption>
+        </figure>
+        <figure>
+          <img
+            src={sitePath('/screenshots/typography-panel-light.png')}
+            alt="The Varve properties inspector showing typography controls: font family, weight, size, line height and letter spacing"
+            width="320"
+            height="620"
+            loading="lazy"
+          />
+          <figcaption>Type controls for the selected text</figcaption>
+        </figure>
+      </div>
+
+      <section class="feature-section">
+        <h2>Key Capabilities</h2>
+        <ul>
+          <li><strong>Text rendering:</strong> Multi-line with line height, paragraph spacing, text decoration (underline, strikethrough), text overflow (clip, ellipsis)</li>
+          <li><strong>Vertical writing:</strong> Editable vertical-rl and vertical-lr flows with Mixed, Upright, and Sideways orientation policies; vertical columns remain distinct from object rotation and vertical alignment</li>
+          <li><strong>Inline editing:</strong> Native caret, IME, clipboard, and grapheme-safe selection input while the canvas preserves the text's authored appearance</li>
+          <li><strong>Rich text:</strong> Paragraph-aware replacement and range formatting that preserves unaffected runs instead of flattening them</li>
+          <li><strong>Editable appearance:</strong> Gradients, strokes, shadows, glows, and supported layer effects remain visible while text is being edited; alpha-aware effects follow glyph counters and transparent backgrounds</li>
+          <li><strong>Glyph-aware strokes:</strong> Text outlines follow the rendered glyphs, counters, and antialiased edges instead of tracing the text layer's rectangular bounds</li>
+          <li><strong>Predictable layer names:</strong> Content-derived labels follow automatic text layers; manual names persist until you explicitly restore automatic naming</li>
+          <li><strong>OpenType features:</strong> Face-aware controls for Boolean, indexed, and (where byte-backed shaping is available) ranged values, including ligatures, alternates, swashes, stylistic sets, small caps, numerals, and fractions; required script-shaping features are protected</li>
+          <li><strong>Variable fonts:</strong> Per-axis slider control with min/max/default from font metadata</li>
+          <li><strong>Alternate feature browser:</strong> Search and preview the selected face's available feature choices with keyboard navigation, cancellable hover previews, and one undoable apply action; feature choices are not presented as universal Unicode glyphs</li>
+          <li><strong>Artistic text:</strong> Point/area text, cluster-safe offset/rotation/scale/baseline controls, and bounded arc/bend/wave deformation remain editable until you explicitly outline</li>
+          <li><strong>Text on path:</strong> Place shaped source clusters along circle, bezier, rectangle, polygon, or star paths with offset, side, flip, reversal, and detach controls; this positions text on a baseline rather than bending glyph outlines</li>
+          <li><strong>Text to outlines:</strong> Convert supported monochrome text using the actual shaped glyph IDs, counters, feature values, axes, and source-range provenance; invalid or unavailable font data leaves the editable source intact</li>
+          <li><strong>CJK support:</strong> Line breaking via Intl.Segmenter for Chinese, Japanese, and Korean text</li>
+          <li><strong>Unicode foundations:</strong> Explicit UTF-16, code-point, grapheme, shaping-cluster, and visual-caret mappings</li>
+          <li><strong>BiDi foundations:</strong> UAX #9 embedding levels, per-line visual run ordering, mirrored punctuation, and cluster-safe caret geometry in the engine</li>
+          <li><strong>Paragraph layout:</strong> Script/language itemization, word-level line breaking that never splits a grapheme, and RTL-safe wrapping</li>
+          <li><strong>Font system:</strong> Offline semantic catalog, local-first search, @fontsource runtime loading, CSS fallback chains, and explicit version-pinned desktop installs</li>
+          <li><strong>Font discovery:</strong> Natural-language intent, coverage and feature constraints, personal tags, similarity, alternatives, pairings, and explainable result reasons</li>
+          <li><strong>Missing-font replacement:</strong> Ranked local candidates, rich-text-aware Replace All, and manifest provenance across save/reopen</li>
+          <li><strong>Quick text toolbar:</strong> Compact 32px controls share the editor palette's spacing and surface tokens; expand a family to choose a registered face or named variable instance without losing its exact identity; family and face hover previews stay outside history until chosen; alignment and lists live in More text formatting, with keyboard dismissal for the font picker</li>
+          <li><strong>Typography inspector:</strong> Font family, weight, style, size, line height, letter spacing, alignment, OpenType features</li>
+          <li><strong>Image font identification:</strong> Bounded local image analysis, optional local OCR text capture with editable review, installed-font comparison, and explicit Use for new text or Apply to target actions</li>
+        </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Technical Depth</h2>
+        <p>
+          The FontRegistry manages font loading, CSS fallback chains, font revisions, and variable font axis discovery. The engine has a typed HarfBuzz-compatible shaping seam, a canonical derived layout snapshot, bounded cache identity, and explicit Unicode source maps. A paragraph-aware layout pipeline resolves UAX #9 base direction and embedding levels per paragraph, itemizes script and language runs, breaks lines at word boundaries without ever splitting an extended grapheme cluster, and derives line-level visual run order after wrapping — so wrapped RTL paragraphs reorder correctly. Vertical writing uses the same snapshot with a physical-height inline constraint, right-to-left or left-to-right column progression, and grapheme-cluster orientation policy. Cluster-safe caret stops, hit testing, and selection geometry come from the same snapshot. Live browser paint uses Canvas2D source-run shaping; when a local CSS face source is inspectable, whole-run feature values and custom axes are attached through a process-local FontFace descriptor alias. Exact glyph IDs are supplied by the byte-backed HarfBuzz path for outlining, and the desktop outline path prefers the native rustybuzz adapter when Tauri is available.
+        </p>
+        <p>
+          SVG export includes multi-line and rich text support. Typography preflight checks font availability and CSS generation.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Limitations</h2>
+        <div class="limitations">
+          <p><strong>Current limitations:</strong></p>
+          <ul>
+            <li>Live Canvas2D and SVG text are delegated to the browser's font engine; whole-run feature values and custom axes can use a process-local FontFace descriptor when the local CSS source is inspectable, while exact glyph-ID shaping and UTF-16-ranged features require accessible font bytes and a compatible face</li>
+            <li>The native desktop shaper is reachable for text-to-outlines, but the live renderer remains Canvas2D and the native PDF writer does not yet consume the shared shaped glyph stream</li>
+            <li>Native PDF vertical text and exact vertical font-table/vertical-alternate fidelity are not yet proven end to end; HTML/CSS and SVG retain semantic writing-mode data, while unsupported targets require an explicit outline or raster fallback</li>
+            <li>Collection faces with a non-zero face index and COLR/CPAL colour glyphs are refused by the exact outline converter; they are not replaced with a misleading monochrome or placeholder shape</li>
+            <li>PDF preflight rasterizes path text, complex/non-Latin text, rich runs, ligature-sensitive strings, explicit features/axes/ranges, tracking, and manual cluster edits through the live renderer. This preserves appearance but loses PDF text searchability for those nodes</li>
+            <li>Direct cluster manipulation is intentionally limited around required shaping and likely active standard Latin ligatures; turn Standard ligatures off before moving inside fi, ff, ffi, ffl, or fl</li>
+            <li>Font substitution preserves editability and provenance, but a compatible or category fallback can change text metrics; scoped restore-to-original replacement actions remain under integration</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <h2>Status</h2>
+        <div class="status-badge built">
+          <span class="badge-text">Built</span>
+          <p>Core text controls, face-aware OpenType settings, variable fonts, cluster-safe artistic adjustments, text-on-path, bounded deformation, exact monochrome text-to-outlines, inline editing, horizontal and vertical writing modes, Mixed/Upright/Sideways orientation, Unicode indexing, UAX #9 BiDi, canonical paragraph layout, rich-text transactions, and local-first missing-font replacement are functional in the beta. Browser live paint remains Canvas2D; native PDF text shaping and collection/color-font outlining remain limited as described above.</p>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <h2>Current font workflow limits</h2>
+        <p>
+          The compact toolbar, contextual bar, and Inspector use the active
+          text range or caret when one exists, and otherwise format selected
+          text objects. Family and exact-face hover previews are presentation
+          only; choosing a result commits one undoable change, while Escape
+          restores the previous formatting. Registered exact-face selection is
+          available from the expanded browser rows; the Logo wordmark panel
+          shares that browser and exposes weight and style controls. Recovery of an imported collection face, scoped
+          Select by Font replacement with layout preview, arbitrary image-region crop/overlay selection,
+          and applying an identified face to an existing text target are still
+          being integrated. Text-to-outlines is available from the Typography inspector for supported monochrome, byte-backed faces; it creates an explicit destructive conversion with source-range/font provenance and undo recovery. Browser
+          local-font enumeration is available only through the explicit action
+          in the full browser and remains subject to the browser's permission
+          policy.
+        </p>
+        <p>
+          Document Fonts indexes the effective text on the current canvas,
+          including component instances and inherited rich runs, while hiding
+          locked or invisible content. Review the source license before distributing a font file. Technical
+          embedding flags do not describe every license term, and absent
+          metadata remains unknown. See the{' '}
+          <a href={sitePath('/docs/tools/typography')}>typography guide</a>{' '}
+          for the available controls and current limitations.
+        </p>
+      </section>
+
+      <div class="feature-visual">
+        <figure>
+          <img
+            src={sitePath('/screenshots/font-toolbar-light.png')}
+            alt="The compact text toolbar with the font family menu open while editing text"
+            width="1440"
+            height="900"
+            loading="lazy"
+          />
+          <figcaption>Choose a family from the compact text toolbar</figcaption>
+        </figure>
+      </div>
+      <div class="feature-visual">
+        <figure>
+          <img
+            src={sitePath('/screenshots/font-browser-light.png')}
+            alt="Browse fonts with a family list, editable specimen, and source details"
+            width="1440"
+            height="900"
+            loading="lazy"
+          />
+          <figcaption>Inspect a local family specimen before applying it</figcaption>
+        </figure>
+      </div>
+
+      <section class="feature-section feature-faq">
+        <h2>Common questions</h2>
+        <h3>Do effects disappear while I edit text?</h3>
+        <p>No. The native input surface captures typing and selection, while the canvas remains the appearance authority for supported fills, strokes, shadows, glows, and other layer effects.</p>
+        <h3>Will editing a rich-text range flatten its formatting?</h3>
+        <p>No. When rich text is present, Varve keeps its paragraphs and runs canonical and replaces only the changed range. Effects remain whole-layer appearance; range styling belongs to rich-text formatting.</p>
+        <h3>What happens to a text layer's name?</h3>
+        <p>New text uses a content-derived automatic label. A manual Layers rename becomes custom and persists through later content or style changes. Typography includes an explicit action to restore automatic naming.</p>
+        <h3>What happens when an imported design uses a missing font?</h3>
+        <p>Varve identifies the family and checks the shipped catalog for the requested Fontsource face. You can explicitly install a matching catalog family and style, browse semantic alternatives, or choose an installed replacement. A family name alone cannot identify the original font file or revision. The source family remains available as provenance in the document manifest.</p>
+        <h3>Can I replace a font everywhere?</h3>
+        <p>Yes. Replace All covers node-level text, mixed rich-text runs, and shared text styles as one undoable operation.</p>
+        <h3>Does replacement upload my document or fonts?</h3>
+        <p>No. Core replacement uses Varve's local font catalog and is local-first; it does not require Figma credentials or uploading the document. Optional font providers remain separate and user-controlled.</p>
+        <h3>Will replacement alter layout?</h3>
+        <p>It can. Font metrics affect wrapping and bounds, so Varve shows the match quality and asks you to review reflow before delivery.</p>
+        <h3>Can I preview a font before applying it?</h3>
+        <p>Yes. Hover or use the arrow keys in the compact family picker to preview an installed or bundled face without changing document history; choose it to commit one change, or press Escape to restore the previous formatting. Catalog-only results show metadata until you explicitly install the exact desktop artifact; browsing never starts a remote request.</p>
+        <h3>How do I see which faces are used in a document?</h3>
+        <p>Open the Fonts panel's Document fonts view. It starts on the active page, separates exact faces from family-only requests, excludes hidden and locked content, and lets you select every matching text layer. Choose Entire document when you need a broader audit; Browse all fonts keeps discovery separate from the document.</p>
+        <h3>Is vertical text just rotated text?</h3>
+        <p>No. Vertical-rl and vertical-lr are logical writing modes with their own column progression and grapheme orientation. Rotation remains an independent object transform, and vertical alignment remains a text-frame alignment setting.</p>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Ready to design with type?</h2>
+        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .breadcrumb a {
+    color: var(--text-secondary);
+  }
+  
+  .feature-page h1 {
+    font-size: clamp(2rem, 5vw, 2.5rem);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.015em;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+  
+  .feature-intro {
+    font-size: 1.25rem;
+    color: var(--text-secondary);
+    margin-bottom: 3rem;
+  }
+  
+  .feature-section {
+    margin-bottom: 3rem;
+  }
+  
+  .feature-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+  
+  .feature-section p {
+    color: var(--text-secondary);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+
+  .feature-section p code {
+    white-space: nowrap;
+  }
+  
+  .feature-section ul {
+    list-style: none;
+  }
+  
+  .feature-section li {
+    margin-bottom: 0.75rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--text-secondary);
+  }
+  
+  .feature-section li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--text-link-hover);
+  }
+  
+  .feature-section strong {
+    color: var(--text-primary);
+  }
+
+  .feature-callout {
+    padding: 1.5rem;
+    border: 1px solid var(--border-accent);
+    border-radius: var(--website-radius-card);
+    background: var(--surface-muted);
+  }
+
+  .feature-callout__eyebrow {
+    margin-bottom: 0.5rem !important;
+    color: var(--text-link-hover) !important;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .feature-callout__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .feature-callout__links a {
+    color: var(--text-link);
+    font-weight: 600;
+  }
+
+  .semantic-discovery {
+    padding: 1.5rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    background: var(--surface-card);
+  }
+
+  .semantic-query-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 1.25rem 0;
+  }
+
+  .semantic-query-grid > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+    padding: 0.875rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-control-compact);
+    background: var(--surface-muted);
+  }
+
+  .semantic-query-grid code {
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    line-height: 1.45;
+  }
+
+  .semantic-query-grid span,
+  .semantic-discovery__note {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+
+  .semantic-discovery__note {
+    margin: 0 !important;
+  }
+
+  .font-browser-discovery {
+    padding: 1.5rem;
+    border: 1px solid var(--border-accent);
+    border-radius: var(--website-radius-card);
+    background: var(--surface-muted);
+  }
+
+  .font-browser-capabilities {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+  }
+
+  .font-browser-capabilities > div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.875rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-control-compact);
+    background: var(--surface-card);
+  }
+
+  .font-browser-capabilities strong {
+    color: var(--text-primary);
+    font-size: 0.9rem;
+  }
+
+  .font-browser-capabilities span {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+
+  .feature-faq h3 {
+    margin-top: 1.5rem;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+  }
+
+  .feature-visual {
+    margin: -1rem 0 3rem;
+  }
+
+  .feature-visual--pair {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 1rem;
+  }
+
+  .feature-visual figure {
+    margin: 0;
+  }
+
+  .feature-visual img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    box-shadow: var(--elevation-shadow-raised);
+  }
+
+  .feature-visual figcaption {
+    margin-top: 0.75rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  @media (max-width: 640px) {
+    .feature-visual--pair {
+      grid-template-columns: 1fr;
+    }
+
+    .semantic-query-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .font-browser-capabilities {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .limitations {
+    background: var(--surface-muted);
+    border-radius: var(--website-radius-card);
+    padding: 1.5rem;
+  }
+  
+  .limitations p {
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+  }
+  
+  .status-badge {
+    background: var(--surface-warning);
+    border: 1px solid var(--border-warning);
+    border-radius: var(--website-radius-card);
+    padding: 1.5rem;
+  }
+  
+  .status-badge.in-development {
+    background: var(--surface-warning);
+    border-color: var(--border-warning);
+  }
+  
+  .badge-text {
+    display: inline-block;
+    background: var(--status-dev);
+    color: var(--text-on-status);
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--website-radius-control-compact);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+  }
+  
+  .status-badge p {
+    color: var(--text-secondary);
+    margin: 0;
+  }
+  
+  .feature-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--border-default);
+  }
+  
+  .feature-cta h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+  }
+</style>

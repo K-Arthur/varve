@@ -1,0 +1,108 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import StatusPill from '../../components/StatusPill.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="RAW & HDR Photo"
+  description="Develop a verified subset of DNG sensor data and merge exposure brackets in Varve's existing photo editing surfaces."
+>
+  <div class="container-custom">
+    <main class="photo-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / RAW &amp; HDR Photo
+      </nav>
+
+      <header class="page-hero">
+        <StatusPill status="partial" label="Verified subset" />
+        <h1>Keep the source, the range, and the decisions visible.</h1>
+        <p>
+          Varve adds genuine sensor development and reviewed bracket merging to the existing Photo/Image
+          Tuning surface. It keeps the original bytes and recipe available instead of turning a thumbnail
+          into a claim of RAW support.
+        </p>
+      </header>
+
+      <section class="workflow" aria-labelledby="workflow-title">
+        <p class="eyebrow">One editor, explicit stages</p>
+        <h2 id="workflow-title">From sensor data to a considered image.</h2>
+        <div class="pipeline" aria-label="Photo processing stages">
+          <div><span>01</span><strong>Source</strong><small>Immutable DNG or reviewed bracket</small></div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div class="accent"><span>02</span><strong>Develop / merge</strong><small>Linear working data and bounded alignment</small></div>
+          <div class="arrow" aria-hidden="true">→</div>
+          <div><span>03</span><strong>Review / export</strong><small>SDR rendition plus range-bearing master</small></div>
+        </div>
+      </section>
+
+      <section class="content-grid" aria-labelledby="available-title">
+        <div>
+          <p class="eyebrow">Available in the verified subset</p>
+          <h2 id="available-title">Useful controls without invented camera support.</h2>
+          <ul>
+            <li>Classic uncompressed Bayer or monochrome DNG, with packed 8/10/12/14/16-bit sensor samples.</li>
+            <li>As-shot or custom white balance, camera-matrix or explicit sRGB fallback, exposure, black/white, highlights, shadows, crop, and orientation.</li>
+            <li>Reviewed bracket selection, reference frame, exposure entry, bounded translation alignment, conservative deghosting, and separate radiance/fusion semantics.</li>
+            <li>Float32 scene-linear computation, SDR preview, and single-part uncompressed OpenEXR float16/float32 master export.</li>
+            <li>Ultra HDR gain-map JPEG sharing: the stored SDR rendition becomes the base image and a separate per-channel recovery map carries the extended range, so an SDR viewer shows exactly the rendition you reviewed.</li>
+            <li>Reopen a supported range-bearing OpenEXR on an SDR-only runtime, adjust the SDR output transform, and keep the master unchanged.</li>
+            <li>Persistent clone, heal, spot-heal, and patch repairs on the existing raster-layer target.</li>
+          </ul>
+        </div>
+        <aside class="limits" aria-labelledby="limits-title">
+          <h2 id="limits-title">What this does not claim</h2>
+          <p>
+            This is not universal camera RAW support. Compressed proprietary RAW, X-Trans, multi-shot,
+            unsupported DNG opcodes, and missing lens profiles are reported or deferred. Rendered JPEG/PNG
+            brackets are exposure-fused, not calibrated radiance. PQ/HLG display encoding and physical HDR
+            display presentation remain unverified. Gain-map JPEG export is verified for scene-linear masters;
+            display-linear fusion output has no extra headroom to encode and is reported as such. OpenEXR
+            support is the verified single-part uncompressed RGB(A) subset, not a promise for every EXR variant.
+          </p>
+        </aside>
+      </section>
+
+      <aside class="honesty">
+        <h2>A range-bearing master is not a bright screenshot.</h2>
+        <p>
+          The connected monitor does not decide whether Varve can calculate or save the master. On SDR-only
+          runtimes, Varve shows a deliberate SDR rendition and retains the OpenEXR range. Display-HDR status
+          is reported separately and is not inferred from WebGPU, a browser media query, or a screenshot.
+        </p>
+        <p>
+          When Varve writes a gain-map JPEG, the SDR base image is the stored rendition you reviewed — it is
+          never silently re-rendered from the master. If you change HDR settings without applying them, export
+          is blocked rather than letting the SDR fallback drift.
+        </p>
+        <a href={sitePath('/docs/tools/raw-hdr-photo')}>Read the RAW &amp; HDR Photo guide →</a>
+      </aside>
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .photo-page { max-width: 900px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { font-size: .875rem; margin-bottom: 2.5rem; color: var(--text-secondary); }
+  .breadcrumb a { color: var(--text-secondary); }
+  .page-hero { max-width: 720px; margin-bottom: 4rem; }
+  .page-hero h1 { margin: 1rem 0; font: 700 clamp(2.3rem, 6vw, 4rem)/1.05 var(--font-editorial); color: var(--text-primary); letter-spacing: -.025em; }
+  .page-hero p { color: var(--text-secondary); font-size: 1.2rem; line-height: 1.7; }
+  .eyebrow { color: var(--accent-primary); font-size: .75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  .workflow, .honesty, .limits { border: 1px solid var(--border-default); border-radius: var(--website-radius-card); background: var(--surface-card); padding: clamp(1.5rem, 4vw, 3rem); }
+  .workflow h2, .content-grid h2, .honesty h2 { color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2.3rem); margin: .5rem 0 1rem; }
+  .workflow p, .content-grid p, .honesty p, .content-grid li { color: var(--text-secondary); line-height: 1.75; }
+  .pipeline { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: stretch; gap: .75rem; margin-top: 2rem; }
+  .pipeline > div:not(.arrow) { display: flex; flex-direction: column; gap: .45rem; padding: 1rem; border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); }
+  .pipeline .accent { border-color: var(--border-accent); background: var(--surface-accent-soft); }
+  .pipeline span { color: var(--text-tertiary); font-size: .7rem; }
+  .pipeline strong { color: var(--text-primary); }
+  .pipeline small { color: var(--text-secondary); line-height: 1.4; }
+  .arrow { align-self: center; color: var(--accent-primary); font-size: 1.25rem; }
+  .content-grid { display: grid; grid-template-columns: 1.2fr .8fr; gap: 2rem; padding: 4rem 0; }
+  .content-grid ul { padding-left: 1.2rem; }
+  .content-grid li { margin-bottom: .75rem; }
+  .limits { align-self: start; border-left: 3px solid var(--accent-primary); }
+  .honesty a { color: var(--text-link); font-weight: 600; }
+  @media (max-width: 680px) { .pipeline, .content-grid { grid-template-columns: 1fr; } .arrow { transform: rotate(90deg); justify-self: center; } }
+</style>

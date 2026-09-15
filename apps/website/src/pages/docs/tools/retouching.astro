@@ -1,0 +1,128 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout
+  title="Frequency Separation & Liquify — Varve Docs"
+  description="Use Varve's source-preserving Frequency Separation and Liquify workflows for tone, texture, and raster deformation."
+>
+  <div class="container-custom">
+    <main class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Docs</a> / Tools / Retouching
+      </nav>
+
+      <h1>Retouch tone, texture, and shape with pixels you can still edit.</h1>
+      <p class="docs-intro">
+        Frequency Separation and Liquify share Varve's raster pipeline. They keep the source pixels
+        authoritative, put authored changes in the document model, and make the limits visible.
+        Nothing in these workflows needs a model download or a cloud connection.
+      </p>
+
+      <section class="docs-section" aria-labelledby="frequency-title">
+        <h2 id="frequency-title">Frequency Separation</h2>
+        <p>
+          Select a raster layer and choose <strong>Frequency Separation</strong> from the command
+          palette. The dialog shows <strong>Before</strong>, <strong>Combined</strong>,
+          <strong>Tone</strong>, and <strong>Detail</strong> views before anything is committed.
+          Radius is Gaussian sigma in layer pixels, so zoom, device-pixel ratio, preview size, and
+          export resolution do not change the authored split.
+        </p>
+        <ol>
+          <li>Review the measured reconstruction error and choose the radius that matches the material's texture scale.</li>
+          <li>Apply to create a linked group containing ordinary <strong>Tone</strong> and <strong>Detail</strong> raster layers.</li>
+          <li>Retouch the selected component with paint, clone, heal, blur, masks, or effects. A detail value of 128 is neutral; it means “leave this texture unchanged,” not “paint gray into the photograph.”</li>
+          <li>Choose the group and run the command again to re-split the current composite at a different radius. Existing edits are read first and are not silently thrown away.</li>
+          <li>Use <strong>Flatten Frequency Separation</strong> only when you intentionally want one raster layer.</li>
+        </ol>
+        <p>
+          The current implementation is an 8-bit sRGB two-band split. RGB residuals are signed
+          internally and stored with a neutral 128 encoding; alpha remains source coverage and is
+          not added to the residual equation. Reconstruction is bounded to at most one channel
+          step for an unedited split. Gaussian is the supported method today; nonlinear median,
+          bilateral, and multiscale wavelet variants are not presented as if they had the same
+          reconstruction contract.
+        </p>
+      </section>
+
+      <section class="docs-section" aria-labelledby="liquify-title">
+        <h2 id="liquify-title">Liquify</h2>
+        <p>
+          Select one editable raster and press <strong>Y</strong>, or choose Liquify from the Photo
+          tools. The options panel shows the actual target, brush mode, size, strength, falloff,
+          pressure mapping, protection, and grid controls.
+        </p>
+        <ul>
+          <li><strong>Push</strong> follows the pointer; Expand, Contract, Twirl, Restore, and Smooth are local deformation operations.</li>
+          <li>Pointer samples are coalesced in order, predictions are preview-only, and the release sample is committed once. A stationary Push does not drift from event-rate or timer changes.</li>
+          <li>The field is output-to-source and the original raster remains the sampling source. Previewing, undoing, re-entering, and exporting do not repeatedly warp an already warped bitmap.</li>
+          <li>Freeze and Thaw are raster protection controls. A Frequency Separation group can receive a shared deformation, but group-level freeze is explicitly unavailable; select Tone or Detail for an advanced component-only field.</li>
+          <li>Reset clears the visible target's field. Resetting a selected band does not unexpectedly remove its sibling's deformation.</li>
+        </ul>
+        <p>
+          Vector, text, and arbitrary groups are not silently rasterized by Liquify. Select a raster
+          target or use the explicit guidance in the panel. Geometry-level vector liquify remains a
+          separate capability because it needs curve adaptation, hit testing, and export semantics.
+        </p>
+      </section>
+
+      <section class="docs-section" aria-labelledby="combined-title">
+        <h2 id="combined-title">Using both tools</h2>
+        <p>
+          The order matters because nonlinear spatial deformation and frequency decomposition do
+          not commute. Liquify first when the shape correction should be the source for a new split.
+          Retouch the linked Tone/Detail group first when the deformation should move the finished
+          composite. Deforming only one band is intentionally marked as an advanced operation and
+          can create a different result than a shared group deformation.
+        </p>
+        <p>
+          The group marker links stable node IDs rather than layer names. Renaming, duplication,
+          save/reopen, undo, and export preserve that relationship; a missing or malformed link
+          falls back to ordinary group rendering instead of decoding unrelated pixels.
+        </p>
+      </section>
+
+      <section class="docs-section" aria-labelledby="review-title">
+        <h2 id="review-title">Save, reopen, and export</h2>
+        <ol>
+          <li>Commit the stroke or separation and wait for the normal <strong>Saved</strong> state.</li>
+          <li>Reload or reopen the document from Home. The Tone/Detail IDs, residual tiles, deformation field, and protection mask are document data, not a temporary canvas or blob URL.</li>
+          <li>Export from the normal Export panel. PNG and other raster outputs use the committed source plus field at the requested resolution, not the viewport preview.</li>
+        </ol>
+        <p>
+          Inspect the written file when delivery matters. An export event alone does not prove that
+          a deformed or separated result was encoded. SVG/PDF retain unaffected vector and text
+          structure; a raster dependency is rasterized only where the target format cannot represent
+          the effect.
+        </p>
+      </section>
+
+      <aside class="docs-callout">
+        <strong>Further reading</strong>
+        <p>
+          <a href={sitePath('/features/retouching')}>Retouching feature overview</a> ·
+          <a href="https://github.com/K-Arthur/varve/blob/main/docs/architecture/frequency-separation-liquify.md">engine contract and verification</a> ·
+          <a href={sitePath('/docs/tools/export')}>Export &amp; Code Generation</a>
+        </p>
+      </aside>
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .docs-page { max-width: 860px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { font-size: .875rem; margin-bottom: 2.5rem; color: var(--text-secondary); }
+  .breadcrumb a { color: var(--text-secondary); }
+  .docs-page h1 { max-width: 760px; margin-bottom: 1rem; font: 700 clamp(2.3rem, 6vw, 4rem)/1.05 var(--font-editorial); color: var(--text-primary); letter-spacing: -.025em; }
+  .docs-intro { max-width: 720px; margin-bottom: 3.5rem; color: var(--text-secondary); font-size: 1.2rem; line-height: 1.7; }
+  .docs-section { margin-bottom: 3.5rem; }
+  .docs-section h2 { margin-bottom: 1rem; color: var(--text-primary); font-size: 1.65rem; }
+  .docs-section p, .docs-section li { color: var(--text-secondary); line-height: 1.75; }
+  .docs-section p { margin-bottom: 1rem; }
+  .docs-section ol, .docs-section ul { padding-left: 1.4rem; }
+  .docs-section li { margin-bottom: .65rem; }
+  .docs-section a, .docs-callout a { color: var(--text-link); }
+  .docs-callout { border-left: 3px solid var(--border-accent); padding: 1rem 1.25rem; background: var(--surface-accent-soft); color: var(--text-secondary); }
+  .docs-callout p { margin: .5rem 0 0; line-height: 1.7; }
+</style>

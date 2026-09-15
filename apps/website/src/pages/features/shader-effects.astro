@@ -1,0 +1,100 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+import StatusPill from '../../components/StatusPill.astro';
+---
+
+<Layout
+  title="Shader Effects"
+  description="Use curated, editable effects in Varve with optional GPU compute, deterministic controls, CPU fallback, and honest export behavior."
+>
+  <div class="container-custom">
+    <main class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Shader Effects
+      </nav>
+
+      <header class="page-hero">
+        <div class="eyebrow"><StatusPill status="available" /> <span>Curated effects with optional GPU compute</span></div>
+        <h1>Give pixels a point of view. Keep the design editable.</h1>
+        <p>
+          Varve’s shader effects turn print screens, optical bloom, analog signal, refracted light,
+          and other treatments into ordinary editable effect entries. Tune the result on the
+          selected object, then keep the recipe, order, mask, blend mode, and source content intact.
+        </p>
+      </header>
+
+      <section class="feature-section feature-section--highlight" aria-labelledby="workflow-title">
+        <p class="eyebrow">A creative workflow, not a shader playground</p>
+        <h2 id="workflow-title">Choose a treatment. Adjust it. Ship the same idea.</h2>
+        <div class="workflow-grid">
+          <article><span>01</span><h3>Select</h3><p>Pick a shape, image, text object, or group and add a curated effect from the existing Effect Studio and Object Filters surfaces.</p></article>
+          <article><span>02</span><h3>Author</h3><p>Use meaningful controls for scale, angle, origin, colors, intensity, seed, and quality. Before/After comparison keeps experiments reversible.</p></article>
+          <article><span>03</span><h3>Export</h3><p>Export uses the committed document recipe and requested bounds. The authoritative software path remains available when an optional accelerator cannot complete.</p></article>
+        </div>
+      </section>
+
+      <section class="feature-section" aria-labelledby="families-title">
+        <h2 id="families-title">Effects for texture, optics, and signal.</h2>
+        <div class="card-grid">
+          <article><h3>Print and palette</h3><p>Palette Snap and the halftone family help build screen-printed, newsprint, riso, and reduced-color looks while retaining the source.</p></article>
+          <article><h3>Light and lens</h3><p>Bloom, Light Shafts, Lens Flare, Light Leak, and Caustics provide controllable atmosphere with explicit intensity and spatial parameters.</p></article>
+          <article><h3>Analog signal</h3><p>CRT, VHS, and RGB Split keep seeds and frame parameters stable, so a repaint, pan, or reopened document does not invent a new look.</p></article>
+          <article><h3>Stack and mask</h3><p>Effects participate in the normal order, opacity, blend, scope, mask, history, and duplication workflows. Vector and text editability remains separate from the rendered treatment.</p></article>
+        </div>
+      </section>
+
+      <section class="feature-section feature-section--highlight" aria-labelledby="trust-title">
+        <h2 id="trust-title">Acceleration is optional. The result is not.</h2>
+        <dl class="trust-list">
+          <div><dt>WebGPU or native compute</dt><dd>Available to explicit asynchronous effect consumers only after the device, shader contract, and request are usable. The current interactive preview and export replay stay on the authoritative software path; diagnostics distinguish actual execution from API availability.</dd></div>
+          <div><dt>Software fallback</dt><dd>CPU kernels remain the compatibility path for Linux WebKitGTK, older browsers, software adapters, and device loss. The document is never held hostage by a GPU.</dd></div>
+          <div><dt>Honest export</dt><dd>Effects are evaluated at export quality and correct bounds. SVG/PDF preserve unaffected vector and text content, rasterizing only the dependency region that cannot be represented structurally.</dd></div>
+          <div><dt>Offline-first</dt><dd>Ordinary effects require no cloud compiler, model download, hidden network request, or arbitrary code execution.</dd></div>
+        </dl>
+      </section>
+
+      <section class="feature-section">
+        <h2>Why this feels different from “turn on GPU acceleration.”</h2>
+        <p>
+          Creative tools have taught users to distrust GPU switches that cause flicker, blank
+          canvases, corrupted color, or a frozen export. Varve keeps acceleration per operation,
+          observes compilation and device errors, bounds its resources, and returns to the tested
+          software implementation when a device cannot complete the request. A fallback is visible
+          in diagnostics; it is not a silent change to the authored parameters.
+        </p>
+        <p><a href={sitePath('/docs/tools/shader-effects')}>Read the Shader Effects guide</a> or <a href={sitePath('/features/effect-studio')}>explore Effect Studio</a>.</p>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Make the effect yours, then keep editing.</h2>
+        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
+      </div>
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 860px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { color: var(--text-secondary); font-size: .875rem; margin-bottom: 2.5rem; }
+  .breadcrumb a, .feature-section a { color: var(--text-link); }
+  .page-hero { max-width: 720px; margin-bottom: 4rem; }
+  .eyebrow { align-items: center; color: var(--accent-primary); display: flex; font-size: .75rem; font-weight: 700; gap: .65rem; letter-spacing: .12em; text-transform: uppercase; }
+  .page-hero h1 { color: var(--text-primary); font: 700 clamp(2.3rem, 6vw, 4rem)/1.05 var(--font-editorial); letter-spacing: -.025em; margin: 1rem 0; }
+  .page-hero p, .feature-section p, .trust-list dd { color: var(--text-secondary); font-size: 1.05rem; line-height: 1.75; }
+  .feature-section { margin: 0 0 4rem; }
+  .feature-section h2 { color: var(--text-primary); font-size: clamp(1.6rem, 3vw, 2.3rem); margin: .5rem 0 1rem; }
+  .feature-section h3 { color: var(--text-primary); margin: .65rem 0 .45rem; }
+  .feature-section--highlight { background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--website-radius-card); padding: clamp(1.5rem, 4vw, 3rem); }
+  .workflow-grid, .card-grid { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 1.75rem; }
+  .workflow-grid article, .card-grid article { border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); padding: 1rem; }
+  .workflow-grid span { color: var(--accent-primary); font-size: .75rem; font-variant-numeric: tabular-nums; }
+  .workflow-grid p, .card-grid p { font-size: .95rem; margin: 0; }
+  .trust-list { display: grid; gap: .85rem; margin: 1.5rem 0 0; }
+  .trust-list div { border-left: 2px solid var(--border-accent); padding-left: 1rem; }
+  .trust-list dt { color: var(--text-primary); font-weight: 700; }
+  .trust-list dd { margin: .2rem 0 0; }
+  .feature-cta { border-top: 1px solid var(--border-default); padding-top: 2.5rem; text-align: center; }
+  .feature-cta h2 { color: var(--text-primary); font-size: 1.35rem; margin-bottom: 1rem; }
+  @media (max-width: 680px) { .workflow-grid, .card-grid { grid-template-columns: 1fr; } .feature-page { padding-top: 2rem; } }
+</style>

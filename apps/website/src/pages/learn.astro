@@ -1,0 +1,123 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { sitePath } from '../lib/siteUrl';
+---
+
+<Layout title="Learn" description="Tutorials, examples, and community resources to help you get started with Varve — a free, local-first design suite for vector, layout, motion, and print.">
+  <div class="container-custom">
+    <div class="learn-page">
+      <h1>Learn</h1>
+      <p class="learn-intro">
+        Walkthroughs, real captures from the app, and community resources for
+        learning Varve.
+      </p>
+
+      <div class="learn-grid site-card-grid">
+        <a href={sitePath('/learn/tutorials')} class="learn-card site-card site-card--interactive">
+          <h2>Tutorials</h2>
+          <p>Step-by-step tutorials to get started with Varve</p>
+        </a>
+
+        <a href={sitePath('/learn/examples')} class="learn-card site-card site-card--interactive">
+          <h2>Examples</h2>
+          <p>Example files and projects to learn from</p>
+        </a>
+
+        <a href={sitePath('/learn/community')} class="learn-card site-card site-card--interactive">
+          <h2>Community</h2>
+          <p>Connect with the Varve community</p>
+        </a>
+      </div>
+
+      <div class="learn-status">
+        <h3>What exists today</h3>
+        <p>Dedicated tutorials are still being written. In the meantime, the <a href={sitePath('/docs')}>documentation</a> has getting-started guides and per-tool references.</p>
+        <p>Want to help create learning resources? See the <a href={sitePath('/contribute')}>contribution guidelines</a>.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .learn-page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .learn-page h1 {
+    font-size: clamp(2rem, 5vw, 2.5rem);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.015em;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+  
+  .learn-intro {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    margin-bottom: 3rem;
+  }
+  
+  .learn-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
+    gap: var(--space-6);
+    margin-bottom: 3rem;
+  }
+  
+  .learn-card {
+    background: var(--surface-card);
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    padding: 2rem;
+    transition:
+      background-color var(--duration-fast) var(--ease-default),
+      border-color var(--duration-fast) var(--ease-default),
+      color var(--duration-fast) var(--ease-default),
+      transform var(--duration-fast) var(--ease-default);
+    text-decoration: none;
+    display: block;
+  }
+  
+  .learn-card:hover {
+    border-color: var(--border-accent);
+    transform: translateY(-2px);
+  }
+  
+  .learn-card h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+  
+  .learn-card p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+  
+  .learn-status {
+    background: var(--surface-muted);
+    border-radius: var(--website-radius-card);
+    padding: 1.5rem;
+  }
+  
+  .learn-status h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+  
+  .learn-status p {
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+  }
+  
+  .learn-status a {
+    color: var(--text-link);
+  }
+</style>

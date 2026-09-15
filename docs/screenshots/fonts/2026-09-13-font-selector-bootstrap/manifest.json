@@ -1,0 +1,29 @@
+{
+  "evidenceType": "inspected visual observation",
+  "headAtCollection": "3a407b2c7",
+  "command": "VARVE_E2E_PORT=1678 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-toolbar-selector-20260913 npx playwright test tests/e2e/canvas/font-toolbar-visual.spec.ts --project=chromium -g 'DPR 1' --reporter=list --timeout=180000",
+  "result": "1 passed",
+  "captures": [
+    {
+      "file": "light-open.png",
+      "theme": "light",
+      "state": "open",
+      "sha256": "d9f55f3f87e2080a1da5880085a1d2374113b7de9e0448df3f0c7ed13fb6a625",
+      "inspected": true
+    },
+    {
+      "file": "dark-narrow.png",
+      "theme": "dark",
+      "state": "narrow",
+      "sha256": "050d0e535c94a2932e157b99c718eeb86a8dc9a5e260b3b77fc39ea100ba1b26",
+      "inspected": true
+    },
+    {
+      "file": "high-contrast-closed.png",
+      "theme": "high-contrast",
+      "state": "closed",
+      "sha256": "956e6b5663a8256b894500aa770fe9a281d62b02db98a235cb43460b325c81a3",
+      "inspected": true
+    }
+  ]
+}

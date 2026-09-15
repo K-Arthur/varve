@@ -1,0 +1,26 @@
+{
+  "name": "@varve/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Cross-cutting types, geometry primitives, and fractional-index ordering.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./verticalText": {
+      "types": "./src/verticalText.ts",
+      "default": "./src/verticalText.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "cd ../.. && vitest run packages/shared"
+  },
+  "dependencies": {
+    "fractional-indexing": "^4.0.0"
+  },
+  "license": "FSL-1.1-MIT"
+}

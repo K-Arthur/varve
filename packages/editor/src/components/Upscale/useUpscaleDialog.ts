@@ -1,0 +1,139 @@
+/**
+ * useUpscaleDialog — manages the upscale dialog lifecycle.
+ *
+ * Provides open/close state, source image loading, and wires the dialog
+ * to the document model via upscaleSelectedImage.
+ */
+
+import type {
+  DenoiseStrength,
+  PixelArtAlgorithm,
+  RestorationOperation,
+  RestorationStageState,
+  UpscaleModeId,
+  UpscaleProgressFn,
+} from '@varve/engine';
+import { useCallback, useState } from 'react';
+import { useEditor } from '../../context';
+
+export interface UpscaleDialogOpenOptions {
+  mode?: UpscaleModeId;
+  replaceSource?: boolean;
+}
+
+interface UpscaleDialogState {
+  open: boolean;
+  sourceWidth: number;
+  sourceHeight: number;
+  sourceDataUrl: string;
+  initialMode: UpscaleModeId;
+  initialReplaceSource: boolean;
+}
+
+interface UseUpscaleDialogReturn {
+  dialogState: UpscaleDialogState;
+  openUpscaleDialog: (options?: UpscaleDialogOpenOptions) => void;
+  closeUpscaleDialog: () => void;
+  handleDialogApply: (options: {
+    operation: RestorationOperation;
+    mode: UpscaleModeId;
+    scale: number;
+    output: 'new-layer' | 'replace-source' | 'non-destructive';
+    qualityPolicy: 'faithful' | 'balanced';
+    denoiseStrength: DenoiseStrength;
+    deblurStrength?: number;
+    pixelArtAlgorithm?: PixelArtAlgorithm;
+    onProgress: UpscaleProgressFn;
+    onStageChange: (stages: RestorationStageState[]) => void;
+    /** Explicit target node for batch enhancement. */
+    nodeId?: string;
+  }) => Promise<void>;
+}
+
+const INITIAL_STATE: UpscaleDialogState = {
+  open: false,
+  sourceWidth: 0,
+  sourceHeight: 0,
+  sourceDataUrl: '',
+  initialMode: 'quality',
+  initialReplaceSource: false,
+};
+
+export function useUpscaleDialog(): UseUpscaleDialogReturn {
+  const { upscaleSelectedImage } = useEditor();
+  const [dialogState, setDialogState] = useState<UpscaleDialogState>(INITIAL_STATE);
+
+  const openUpscaleDialog = useCallback((options: UpscaleDialogOpenOptions = {}) => {
+    setDialogState({
+      open: true,
+      sourceWidth: 0,
+      sourceHeight: 0,
+      sourceDataUrl: '',
+      initialMode: options.mode ?? 'quality',
+      initialReplaceSource: options.replaceSource ?? false,
+    });
+  }, []);
+
+  const closeUpscaleDialog = useCallback(() => {
+    setDialogState(INITIAL_STATE);
+  }, []);
+
+  const handleDialogApply = useCallback(
+    async (options: {
+      operation: RestorationOperation;
+      mode: UpscaleModeId;
+      scale: number;
+      output: 'new-layer' | 'replace-source' | 'non-destructive';
+      qualityPolicy: 'faithful' | 'balanced';
+      denoiseStrength: DenoiseStrength;
+      deblurStrength?: number;
+      pixelArtAlgorithm?: PixelArtAlgorithm;
+      onProgress: UpscaleProgressFn;
+      onStageChange: (stages: RestorationStageState[]) => void;
+      /** Explicit target node for batch enhancement. */
+      nodeId?: string;
+    }) => {
+      const method =
+        options.mode === 'ai-enhance' || options.mode === 'illustration'
+          ? 'ai'
+          : options.mode === 'pixel-art'
+            ? 'nearest'
+            : options.mode === 'fast'
+              ? 'bilinear'
+              : options.mode === 'balanced'
+                ? 'bicubic'
+                : 'lanczos3';
+      // Illustration mode uses the validated anime-optimized model with
+      // a pinned SHA-256 hash and corpus evidence (upscale-realesrgan-anime).
+      const modelId =
+        options.mode === 'illustration'
+          ? 'upscale-realesrgan-anime'
+          : options.mode === 'ai-enhance'
+            ? 'upscale-realesr-general'
+            : undefined;
+      await upscaleSelectedImage({
+        operation: options.operation,
+        scale: options.scale,
+        method,
+        modelId,
+        denoiseStrength: options.denoiseStrength,
+        deblurStrength: options.deblurStrength,
+        pixelArtAlgorithm: options.pixelArtAlgorithm,
+        output: options.output,
+        qualityPolicy: options.qualityPolicy,
+        onProgress: options.onProgress,
+        onStageChange: options.onStageChange,
+        replaceSource: options.output === 'replace-source',
+        nodeId: options.nodeId,
+      });
+    },
+    [upscaleSelectedImage],
+  );
+
+  return {
+    dialogState,
+    openUpscaleDialog,
+    closeUpscaleDialog,
+    handleDialogApply,
+  };
+}

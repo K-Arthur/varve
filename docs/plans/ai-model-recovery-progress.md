@@ -1,0 +1,270 @@
+# AI Model Recovery — Implementation Progress
+
+> **Status note (2026-08-21):** phase statuses below are a point-in-time
+> snapshot from 2026-07-27 and lag master. The 2026-08-20 branch triage
+> (`docs/plans/branch-consolidation.md` §12.3) found the `feat/ai-model-recovery`
+> branch contributed zero unique commits — the shipped work landed on master
+> through other sessions (font detection, colourisation fallbacks). Verify
+> against the codebase before treating any "pending" row as open work.
+
+> **Current verification (2026-09-14):** the DDColor adapter, the official
+> export contract, and the exported artifacts are now verified. Both models
+> were converted from the official Apache-2.0 checkpoints at DDColor
+> `2adb63f2` with `tools/ddcolor-export/export_ddcolor.py`: ONNX checker and
+> shape inference pass, zero missing/unexpected keys, ONNX Runtime 1.30 CPU
+> smoke matches PyTorch (mean absolute difference below 1e-4), and the
+> SHA-256 values are pinned in the catalog and manifest. The artifacts are
+> published to the `models-v1` release and staged in `models-source/`.
+> GitHub release assets send no CORS headers, so the desktop app uses the
+> native `download_inference_model` command while the web build needs the
+> HuggingFace mirror produced by `tools/ddcolor-export/mirror-to-hf.sh`
+> (pending an HF write token). Deterministic tint/recolor, palette, and
+> reference workflows do not depend on any of this.
+
+> Scoped implementation plan for restoring colourisation and font-identification
+> capabilities that are currently disabled due to unavailable model artifacts.
+
+Started: 2026-07-27
+Branch: master (commit f0669631)
+
+---
+
+## Phase 0 — Baseline
+
+| Check | Result | Pre-existing |
+|-------|--------|-------------|
+| `pnpm --filter @varve/engine test` | 13 failed / 2812 passed | Yes — 12 contractVersion-undefined + 1 BiRefNet-SHA mismatch in `manifestContracts.test.ts` |
+| Git status | 13 modified files + 1 untracked (unrelated concurrent work) | Preserved |
+
+Pre-existing failures:
+- `manifestContracts.test.ts`: 11 models fail "has consistent validation fields" because `contractVersion` is undefined despite `contractVerified: true`
+- `manifestContracts.test.ts`: "BiRefNet Full has no SHA-256" fails because it now HAS a SHA-256
+- `bundledModel.test.ts`: 1 failure
+
+---
+
+## Phase 1 — Architecture Map
+
+### Colourisation capability (historical baseline)
+
+| Layer | File | Status |
+|-------|------|--------|
+| UI entry | `packages/editor/src/components/Inspector/sections/ColorizeSection.tsx` | Exposes photo colorization plus four deterministic workflows; required inputs are real controls. |
+| UI settings | `packages/editor/src/components/Settings/ColorizationModelsTab.tsx` | Filters catalog for `ddcolor`/`ddcolor-tiny`, shows "Unavailable" |
+| Pipeline dispatch | `packages/engine/src/colorization/pipelineDispatch.ts` | Routes classical synchronously, photo-colorize through ONNX worker |
+| Classical algorithms | `recolor.ts`, `transfer.ts`, `harmonize.ts`, `pipeline.ts` | Fully implemented, no model needed |
+| DDColor ONNX path | `runtimeResolver.ts` → `ddcolorRuntime.ts` → `dispatchOnnxWorker` → `inferenceWorker.ts` | Adapter is wired; execution is gated by loader readiness and artifact verification |
+| DDColor model code | `packages/engine/src/inference/models/ddcolor.ts` | Tensor spec + decode implemented |
+| Worker registration | `inferenceWorker.ts:200-204` | `ddcolor` registered with 512x512 input |
+| Catalog | `modelCatalog.ts` FALLBACK_ENTRIES | ddcolor/ddcolor-tiny present with explicit `export-pending` acquisition state |
+| Manifest | `apps/desktop/public/models/manifest.json:1316-1451` | Both entries are non-bundled, checksum-listed, but contract/integrity/inference remain unverified; release assets are currently 404 |
+
+### Font detection capability
+
+| Layer | File | Status |
+|-------|------|--------|
+| UI entry | — | **NONE** — no inspector section, no menu, no command |
+| Model code | `packages/engine/src/inference/models/fontDetect.ts` | Stub: preprocessing + ink-density heuristic, no ONNX inference |
+| Worker registration | `inferenceWorker.ts` | **NOT registered** — `font-detect` not in `WorkerModelType` union |
+| Catalog | `modelCatalog.ts` | NOT present |
+| Manifest | `manifest.json:846-859` | `remoteUrl: ""`, `sha256: null` |
+| Exports | `packages/engine/src/index.ts` | Re-exports fontDetect helpers (dead code) |
+
+### Key insight
+
+The colourisation feature already has 4 functional classical (non-ML) workflows. The DDColor
+ONNX path is fully implemented but unreachable. Font detection is an unwired scaffold with no UI,
+no worker registration, and a stub model module that never runs real inference.
+
+---
+
+## Phase 2 — Research Matrix
+
+### Colourisation candidates
+
+| Candidate | Source | License | ONNX | Verdict |
+|-----------|--------|---------|------|---------|
+| DDColor official (piddnad/ddcolor_modelscope) | piddnad/DDColor (ICCV 2023) | Apache-2.0 | PyTorch only, official export script exists | **PRIMARY — reproducible conversion path** |
+| DDColor official (piddnad/ddcolor_paper_tiny) | piddnad/DDColor | Apache-2.0 | PyTorch only | Tiny variant |
+| Diogo122333/ddcolor-512-fp16-v6.onnx | Community upload | **None stated** | Yes (112MB) | **REJECT** — no model card, no license, no provenance |
+| Faridzar/manga-colorization-v2-onnx | Community upload | Unknown | Yes | REJECT — manga-only, untrusted |
+| Classical algorithms (existing) | Strata | — | N/A | **ALWAYS AVAILABLE — no model needed** |
+
+**Decision**: DDColor via reproducible conversion from official weights. The official
+`scripts/export_onnx.py` (opset 12) is verified — input "input" [1,3,H,W], output "output" [1,2,H,W].
+Apache-2.0 permits redistribution with attribution. Classical workflows remain as the always-available
+default.
+
+### Font detection candidates
+
+| Candidate | Source | License | Classes | Size | Verdict |
+|-----------|--------|---------|---------|------|---------|
+| storia/font-classify-onnx | Storia AI (HuggingFace) | MIT | 3473 (Google Fonts) | 64.1 MB | **PRIMARY** — ready ONNX, fonts_mapping.yaml |
+| font-detect-resnet (original) | Unknown | Unknown | — | — | **REJECT** — no public source, no ONNX |
+
+**Decision**: storia/font-classify-onnx. EfficientNet B3, MIT licensed, complete with font file
+mapping. 3473 Google Fonts classes covers the vast majority of use cases.
+
+---
+
+## Phase 3 — Registry Schema Redesign
+
+Redesign `ModelManifestEntry` to use an explicit acquisition discriminator.
+
+Status: **complete**
+
+Changes:
+- Added `ModelAcquisition` discriminated union to `inference/types.ts` (5 variants: bundled, remote, generated, manual-import, unavailable)
+- Added `ModelSource`, `ModelUnavailableReason` types
+- Added `acquisition?` field to both `ModelManifestEntry` types (inference + core)
+- Added `deriveAcquisition()` and `resolveAcquisition()` helpers in `core/types.ts`
+- Added `deriveAcquisition()` in `manifest.ts` for raw manifest normalization
+- Exported all new types from `inference/index.ts` and engine root index
+
+---
+
+## Phase 4 — DDColor Conversion
+
+Status: **blocked pending artifact verification**
+
+| Model | Size | Input | Output | SHA-256 |
+|-------|------|-------|--------|---------|
+| ddcolor-tiny | expected ~220 MB | 256x256 | [1,2,256,256] | listed, not verified |
+| ddcolor | expected ~980 MB | 512x512 | [1,2,512,512] | listed, not verified |
+
+- Source: piddnad/ddcolor_modelscope + ddcolor_paper_tiny (Apache-2.0)
+- Export: official `scripts/export_onnx.py` (opset 12) via `tools/ddcolor-export/` recipe
+- Contract: input/output shape and RGB [0,1] normalization are documented from the official exporter
+- Remaining: produce/acquire exact bytes, verify SHA-256, run ONNX checker and ORT worker smoke test
+- Storage: runtime model storage/IndexedDB after an explicit verified download; no binaries in this checkout
+
+---
+
+## Phase 5 — Colourisation Fallbacks
+
+Classical workflows are now the primary always-available path: tint/selective
+recolor, palette mapping, reference transfer, and harmonization are exposed
+through the unified Colorize inspector and share the contract-aware dispatcher.
+
+Status: **complete for deterministic workflows**
+
+The remaining DDColor artifact acquisition and runtime smoke verification stays
+in Phase 4 and is intentionally not represented as a deterministic fallback.
+
+---
+
+## Phase 6 — Font Detection Pipeline
+
+Complete pipeline built by concurrent agent + this session.
+
+Status: **complete**
+
+- `packages/engine/src/fontDetection/` — full pipeline (classifier, local-match, hybrid)
+- `FontDetectSection.tsx` — Inspector UI entry point
+- `storia/font-classify-onnx` — MIT model, 3473 classes, 320x320 input, SHA-256 pinned
+- Tests: `fontDetectionPipeline.test.ts` (9 tests)
+
+---
+
+## Phase 7 — Frontend UX
+
+Model cards, state display, colorization/font UI states.
+
+Status: **complete for Colorize (2026-09-13)**
+
+- One task-oriented Inspector surface with mode-specific controls only.
+- Real mask/reference file inputs, document-swatch palette selection, and an
+  explicit whole-image scope.
+- Quality maps to the preview model size; preview and apply agree.
+- Split-view comparator against the original source, real progress phases,
+  cancellation, stale-preview invalidation, and actionable errors.
+- Photo mode is disabled with a named readiness state until a verified model
+  is installed; deterministic modes never require a model or account.
+- Font detection has its own section (Phase 6).
+
+---
+
+## Phase 8 — Security
+
+Integrity verification, HTTPS-only, hash validation.
+
+Status: **complete for the model loader path**
+
+- Model bytes are verified against the manifest SHA-256 before use; corrupt
+  IndexedDB blobs are deleted and reported as unavailable.
+- Model acquisition remains `unavailable` until verified release assets exist;
+  no community checkpoint or empty/dummy artifact is substituted.
+- Photo inference runs locally; no image upload fallback exists.
+- Model binaries stay in IndexedDB/model storage, never localStorage.
+
+---
+
+## Phase 9 — Quality Validation
+
+Fixture corpus + benchmarks.
+
+Status: **partial (deterministic complete; photo blocked on the artifact)**
+
+- Deterministic CPU baseline: `packages/engine/src/colorization/colorization.bench.ts`.
+- Unit/integration coverage for tint, palette, transfer, harmonize, mask
+  resampling, alpha handling, DDColor preprocessing geometry, and cached-chroma
+  reconstruction.
+- Production Playwright workflow covers preview, comparator, apply, undo/redo,
+  and PNG export; the marketing page has its own browser checks.
+- DDColor visual/numerical parity against upstream PyTorch remains blocked
+  until a verified artifact exists.
+
+---
+
+## Phase 10 — Tests
+
+Registry, acquisition, inference, workflow tests.
+
+Status: **complete for the implemented scope**
+
+- Engine: contract validation, stale identity, dispatch, algorithms, tensor
+  geometry, and reconstruction tests.
+- Editor: commit/staleness helper and ColorizeSection control tests.
+- E2E: `tests/e2e/canvas/colorize.spec.ts` runs the production workflow and
+  exported-file checks. Model-dependent integration tests remain gated.
+
+---
+
+## Phase 11 — Documentation
+
+Update model registry docs, architecture docs, attributions.
+
+Status: **complete**
+
+- `docs/architecture/colorization-system.md` records controls, contracts,
+  research decisions, failure-informed choices, and verification status.
+- `tools/ddcolor-export/README.md` and `models-source/README.md` record the
+  official conversion route and the current artifact state.
+- Website feature/docs pages describe the deterministic workflows and the
+  honest photo-model boundary.
+
+---
+
+## Phase 12 — Progressive Commits
+
+Milestone-based commits and pushes.
+
+Status: **in progress (master; model-gated lane still blocked)**
+
+- `e0d2ccf66` engine consolidation; `b9074c159` editor workflow;
+  `a08fc2e0a` docs/website; `3de2103b2` DDColor input contract and approved
+  chroma reuse; `bf38dc91e` comparator coverage and changelog.
+- No push of model assets: none are verified.
+
+---
+
+## Files Changed
+
+See the commits above and `git log -- packages/engine/src/colorization`.
+
+## Risks
+
+1. DDColor conversion requires Python/PyTorch — cannot be done in-browser, must be pre-generated
+2. storia model is 64MB — needs memory gating
+3. Font detection is a net-new feature — significant surface area
+4. Pre-existing test failures must not be made worse

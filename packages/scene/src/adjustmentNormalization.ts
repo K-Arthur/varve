@@ -1,0 +1,587 @@
+/**
+ * Persistence-boundary normalization for the shared Adjustment union.
+ *
+ * Adjustments are intentionally defined by @varve/engine because they feed
+ * FilterIR, but serialized scene data is untrusted. This module is the scene
+ * boundary that fills fields added by newer/older documents, clamps values
+ * that could create invalid pixels or unbounded raster work, and preserves
+ * unknown entries as non-executing forward-compatible placeholders.
+ */
+
+import {
+  type Adjustment,
+  type AdjustmentBlendMode,
+  type AdjustmentKind,
+  adjustmentDefaults,
+  imageTreatmentParameter,
+  isImageTreatmentKind,
+  isKnownAdjustmentKind,
+  type StudioTreatmentInstanceMetadata,
+} from '@varve/engine';
+
+const BLEND_MODES: readonly AdjustmentBlendMode[] = [
+  'normal',
+  'multiply',
+  'screen',
+  'overlay',
+  'softLight',
+  'hardLight',
+  'colorDodge',
+  'colorBurn',
+  'darken',
+  'lighten',
+  'difference',
+  'exclusion',
+  'hue',
+  'saturation',
+  'color',
+  'luminosity',
+  'passThrough',
+];
+
+const ENUMS: Record<string, readonly string[]> = {
+  channel: ['rgb', 'red', 'green', 'blue'],
+  pattern: ['dot', 'line', 'cross', 'circle'],
+  dotShape: ['round', 'elliptical', 'square', 'diamond', 'line', 'cross', 'circle'],
+  method: ['am', 'fm'],
+  fmAlgorithm: ['blue-noise', 'bayer', 'error-diffusion'],
+  blackGeneration: ['none', 'gcr', 'ucr'],
+  alphaMode: ['preserve', 'screen'],
+  previewChannel: ['composite', 'c', 'm', 'y', 'k'],
+  outputChannel: ['red', 'green', 'blue'],
+  colorRange: [
+    'reds',
+    'yellows',
+    'greens',
+    'cyans',
+    'blues',
+    'magentas',
+    'whites',
+    'neutrals',
+    'blacks',
+  ],
+  interpolation: ['nearest', 'trilinear', 'tetrahedral', 'smoothstep', 'linear'],
+  inputSpace: [
+    'sRGB',
+    'linear',
+    'rec709',
+    'rec2020',
+    'displayP3',
+    'adobeRGB',
+    'aces2065-1',
+    'acescg',
+    'acescct',
+    'arriLogC3',
+    'arriLogC4',
+    'sonySLog3',
+    'redLog3G10',
+    'panasonicVLog',
+    'canonCLog2',
+    'canonCLog3',
+    'nconlog',
+    'davinciWideGamut',
+    'custom',
+  ],
+  quality: ['auto', 'interactive', 'draft', 'normal', 'high', 'final', 'export'],
+  paletteMode: ['none', 'levels', 'custom'],
+  metric: ['rgb', 'linear-rgb', 'lab', 'oklab'],
+  algorithm: [
+    'floyd-steinberg',
+    'atkinson',
+    'jarvis-judice-ninke',
+    'stucki',
+    'sierra',
+    'bayer',
+    'blue-noise',
+  ],
+  ditherAlgorithm: [
+    'floyd-steinberg',
+    'atkinson',
+    'jarvis-judice-ninke',
+    'stucki',
+    'sierra',
+    'bayer',
+    'blue-noise',
+  ],
+  mode: ['offset', 'radial'],
+  borderMode: ['transparent', 'clamp', 'mirror', 'wrap'],
+  composite: ['screen', 'add'],
+  phosphorMask: ['none', 'rgb-stripe', 'bgr-stripe', 'aperture-grille', 'shadow-mask'],
+  occlusionSource: ['luminance', 'alpha'],
+  output: ['combined', 'lighting', 'refraction'],
+};
+
+const KIND_NUMERIC_RANGES: Record<string, Record<string, [number, number]>> = {
+  brightness: { value: [-100, 100] },
+  contrast: { value: [-100, 100] },
+  saturation: { value: [-100, 100] },
+  vibrance: { value: [-100, 100] },
+  hueRotate: { value: [-180, 180] },
+  hueSaturation: { hue: [-180, 180], saturation: [-100, 100], lightness: [-100, 100] },
+  sepia: { value: [0, 100] },
+  grayscale: { value: [0, 100] },
+  invert: { value: [0, 100] },
+  opacity: { value: [0, 100] },
+  exposure: { value: [-32, 32], offset: [-1, 1], gammaCorrection: [0.01, 10] },
+  blur: { radius: [0, 4096] },
+  motionBlur: { distance: [0, 128], angle: [-180, 180] },
+  mosaic: { blockSize: [2, 128], originX: [-128, 128], originY: [-128, 128] },
+  surfaceSmooth: { radius: [0, 8], sensitivity: [1, 128] },
+  edgeInk: { radius: [1, 8], threshold: [0, 1], softness: [0, 1] },
+  sharpen: { amount: [0, 4096], radius: [0, 4096], threshold: [0, 255] },
+  temperature: { value: [-100, 100] },
+  tint: { value: [-100, 100] },
+  levels: {
+    inputShadows: [0, 255],
+    inputMidtones: [0.01, 10],
+    inputHighlights: [0, 255],
+    outputShadows: [0, 255],
+    outputHighlights: [0, 255],
+  },
+  posterize: { levels: [2, 256] },
+  gradientMap: {
+    intensity: [0, 1],
+    ditherSize: [4, 8],
+    algorithmVersion: [1, 2],
+  },
+  threshold: { level: [0, 255], algorithmVersion: [1, 1] },
+  lut: { intensity: [0, 1] },
+  shadowHighlight: {
+    shadows: [0, 100],
+    highlights: [0, 100],
+    tonalWidth: [0, 100],
+    midpoint: [0, 100],
+  },
+  colorBalance: {
+    cyanRed: [-100, 100],
+    magentaGreen: [-100, 100],
+    yellowBlue: [-100, 100],
+    algorithmVersion: [1, 1],
+  },
+  halftone: {
+    frequency: [1, 1000],
+    angle: [0, 360],
+    threshold: [0, 255],
+    intensity: [0, 1],
+    softness: [0, 1],
+    tacLimit: [0, 1],
+    gcrStrength: [0, 1],
+    dotGain: [0, 1],
+    algorithmVersion: [1, 2],
+  },
+  colorHalftone: {
+    screenSize: [1, 200],
+    angle: [0, 360],
+    intensity: [0, 1],
+    algorithmVersion: [1, 2],
+  },
+};
+
+/** Per-channel degree overrides: only known inks, finite, clamped. */
+function normalizeChannelAngles(value: unknown): Record<string, number> | undefined {
+  if (!isRecord(value)) return undefined;
+  const result: Record<string, number> = {};
+  for (const key of ['c', 'm', 'y', 'k']) {
+    if (value[key] !== undefined) result[key] = finiteNumber(value[key], 0, 0, 360);
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/** Per-channel registration offsets in document px. */
+function normalizeRegistrationOffset(value: unknown): Record<string, [number, number]> | undefined {
+  if (!isRecord(value)) return undefined;
+  const result: Record<string, [number, number]> = {};
+  for (const key of ['c', 'm', 'y', 'k']) {
+    const entry = value[key];
+    if (Array.isArray(entry)) {
+      result[key] = [
+        finiteNumber(entry[0], 0, -4096, 4096),
+        finiteNumber(entry[1], 0, -4096, 4096),
+      ];
+    }
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function finiteNumber(value: unknown, fallback: number, min = -4096, max = 4096): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeStudioTreatmentMetadata(
+  value: unknown,
+): StudioTreatmentInstanceMetadata | undefined {
+  if (!isRecord(value)) return undefined;
+  const treatmentId = value.treatmentId;
+  const instanceId = value.instanceId;
+  const effectIndex = value.effectIndex;
+  if (
+    typeof treatmentId !== 'string' ||
+    treatmentId.length === 0 ||
+    treatmentId.length > 160 ||
+    typeof instanceId !== 'string' ||
+    instanceId.length === 0 ||
+    instanceId.length > 160 ||
+    typeof effectIndex !== 'number' ||
+    !Number.isInteger(effectIndex) ||
+    effectIndex < 0 ||
+    effectIndex > 64
+  ) {
+    return undefined;
+  }
+  const rawControls = isRecord(value.controls) ? value.controls : {};
+  const controls = Object.fromEntries(
+    Object.entries(rawControls)
+      .filter(([key, control]) => key.length > 0 && key.length <= 80 && typeof control === 'number')
+      .slice(0, 24)
+      .map(([key, control]) => [key, finiteNumber(control, 0)]),
+  );
+  return {
+    treatmentId,
+    instanceId,
+    effectIndex,
+    controls,
+    ...(value.customized === true ? { customized: true } : {}),
+  };
+}
+
+function numberRange(kind: AdjustmentKind, key: string): [number, number] {
+  if (key === 'opacity') return [0, 1];
+  if (key === 'id') return [0, 0];
+  if (key === 'seed') return [0, 4294967295];
+  if (isImageTreatmentKind(kind)) {
+    const parameter = imageTreatmentParameter(kind, key);
+    if (parameter) return [parameter.min, parameter.max];
+  }
+  return KIND_NUMERIC_RANGES[kind]?.[key] ?? [-4096, 4096];
+}
+
+function normalizeColor(value: unknown, fallback: unknown): unknown {
+  const source = Array.isArray(value) ? value : Array.isArray(fallback) ? fallback : [];
+  const base = Array.isArray(fallback) ? fallback : [];
+  return source.map((channel, index) =>
+    finiteNumber(channel, finiteNumber(base[index], 0, 0, 255), 0, 255),
+  );
+}
+
+function normalizedStopId(value: unknown, fallback: string, used: Set<string>): string {
+  const base =
+    typeof value === 'string' && value.length > 0 && value.length <= 160 ? value : fallback;
+  let id = base;
+  let suffix = 2;
+  while (used.has(id)) id = `${base}-${suffix++}`;
+  used.add(id);
+  return id;
+}
+
+function normalizeStops(value: unknown, fallback: unknown, idPrefix = 'gradient-stop'): unknown[] {
+  const source = Array.isArray(value) ? value : [];
+  const defaultStops = Array.isArray(fallback) ? fallback : [];
+  const stops = source.length > 0 ? source : defaultStops;
+  const usedIds = new Set<string>();
+  return stops.filter(isRecord).map((stop, index) => {
+    const defaultStop = isRecord(defaultStops[index]) ? defaultStops[index] : {};
+    const position = finiteNumber(
+      stop.position,
+      finiteNumber(defaultStop.position, index / Math.max(1, stops.length - 1), 0, 1),
+      0,
+      1,
+    );
+    const color = normalizeColor(stop.color, defaultStop.color ?? [0, 0, 0, 255]);
+    const result: Record<string, unknown> = {
+      ...stop,
+      id: normalizedStopId(stop.id, `${idPrefix}-${index + 1}`, usedIds),
+      position,
+      color,
+    };
+    if ('opacity' in stop || 'opacity' in defaultStop) {
+      result.opacity = finiteNumber(stop.opacity, finiteNumber(defaultStop.opacity, 1, 0, 1), 0, 1);
+    }
+    if ('midpoint' in stop || 'midpoint' in defaultStop) {
+      result.midpoint = finiteNumber(
+        stop.midpoint,
+        finiteNumber(defaultStop.midpoint, 0.5, 0, 1),
+        0,
+        1,
+      );
+    }
+    return result;
+  });
+}
+
+function normalizeOpacityStops(value: unknown, fallback: unknown): unknown[] {
+  const source = Array.isArray(value) ? value : [];
+  const defaultStops = Array.isArray(fallback) ? fallback : [];
+  const stops = source.length > 0 ? source : defaultStops;
+  const usedIds = new Set<string>();
+  return stops.filter(isRecord).map((stop, index) => {
+    const defaultStop = isRecord(defaultStops[index]) ? defaultStops[index] : {};
+    return {
+      ...stop,
+      id: normalizedStopId(stop.id, `opacity-stop-${index + 1}`, usedIds),
+      position: finiteNumber(
+        stop.position,
+        finiteNumber(defaultStop.position, index / Math.max(1, stops.length - 1), 0, 1),
+        0,
+        1,
+      ),
+      opacity: finiteNumber(stop.opacity, finiteNumber(defaultStop.opacity, 1, 0, 1), 0, 1),
+      ...(stop.midpoint !== undefined || defaultStop.midpoint !== undefined
+        ? {
+            midpoint: finiteNumber(
+              stop.midpoint,
+              finiteNumber(defaultStop.midpoint, 0.5, 0, 1),
+              0,
+              1,
+            ),
+          }
+        : {}),
+    };
+  });
+}
+
+function normalizeCurvePoints(value: unknown): Array<{ input: number; output: number }> {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).map((point) => ({
+    input: finiteNumber(point.input ?? point.x, 0, 0, 255),
+    output: finiteNumber(point.output ?? point.y, 0, 0, 255),
+  }));
+}
+
+function normalizeEnum(
+  kind: AdjustmentKind,
+  key: string,
+  value: unknown,
+  fallback: string,
+): unknown {
+  const allowed =
+    kind === 'halftone' && key === 'channel'
+      ? ['k', 'c', 'm', 'y', 'cmyk']
+      : kind === 'gradientMap' && key === 'interpolation'
+        ? ['srgb', 'linear-srgb', 'oklab', 'oklch', 'hsl']
+        : kind === 'gradientMap' && key === 'luminanceMode'
+          ? [
+              'relative-luminance',
+              'perceptual-lightness',
+              'average-rgb',
+              'max-channel',
+              'alpha',
+              'red',
+              'green',
+              'blue',
+              'compatibility',
+            ]
+          : kind === 'gradientMap' && key === 'mode'
+            ? ['luminance', 'channel']
+            : ENUMS[key];
+  return allowed?.includes(value as string) ? value : fallback;
+}
+
+/** Palette entries are RGB triples, not the channels of one colour. */
+function normalizePalette(value: unknown, fallback: unknown): number[][] {
+  const source = Array.isArray(value) ? value : Array.isArray(fallback) ? fallback : [];
+  return source
+    .filter((entry) => Array.isArray(entry) && entry.length >= 3)
+    .slice(0, 256)
+    .map((entry) =>
+      [0, 1, 2].map((channel) => Math.round(finiteNumber(entry[channel], 0, 0, 255))),
+    );
+}
+
+function normalizeValue(
+  kind: AdjustmentKind,
+  key: string,
+  value: unknown,
+  fallback: unknown,
+): unknown {
+  if (value === undefined && fallback === undefined) return undefined;
+  if (key === 'colors') return normalizePalette(value, fallback);
+  if (key === 'seed') return Math.round(finiteNumber(value, Number(fallback) || 0, 0, 4294967295));
+  if (key === 'points') return normalizeCurvePoints(value);
+  if (key === 'stops') return normalizeStops(value, fallback, 'gradient-stop');
+  if (key === 'opacityStops') return normalizeOpacityStops(value, fallback);
+  if (key === 'channelStops' && isRecord(value)) {
+    const fallbackRecord = isRecord(fallback) ? fallback : {};
+    return Object.fromEntries(
+      ['r', 'g', 'b'].map((channel) => [
+        channel,
+        normalizeStops(value[channel], fallbackRecord[channel], `${channel}-stop`),
+      ]),
+    );
+  }
+  if (key === 'color' || key === 'tintColor' || key.endsWith('Color')) {
+    return normalizeColor(value, fallback);
+  }
+  if (kind === 'gradientMap' && key === 'ditherSize') {
+    return value === 4 || value === 8 ? value : fallback;
+  }
+  if (typeof fallback === 'number') {
+    const [min, max] = numberRange(kind, key);
+    return finiteNumber(value, fallback, min, max);
+  }
+  if (typeof fallback === 'boolean') return typeof value === 'boolean' ? value : fallback;
+  if (typeof fallback === 'string') {
+    return normalizeEnum(kind, key, value, fallback);
+  }
+  if (Array.isArray(fallback)) return normalizeColor(value, fallback);
+  if (isRecord(fallback)) {
+    const source = isRecord(value) ? value : {};
+    const result: Record<string, unknown> = { ...source };
+    for (const [childKey, childFallback] of Object.entries(fallback)) {
+      result[childKey] = normalizeValue(kind, childKey, source[childKey], childFallback);
+    }
+    return result;
+  }
+  return value === undefined ? fallback : value;
+}
+
+export interface NormalizedAdjustmentStack {
+  adjustments: Adjustment[];
+  changed: boolean;
+  dropped: number;
+  /** Unknown effect kinds preserved for forward-compatible pass-through. */
+  unknown: number;
+}
+
+/** Normalize an adjustment or smart-filter stack without mutating its input. */
+export function normalizeAdjustmentStack(
+  value: unknown,
+  ownerId: string,
+): NormalizedAdjustmentStack {
+  if (!Array.isArray(value)) {
+    return { adjustments: [], changed: value !== undefined, dropped: 0, unknown: 0 };
+  }
+
+  let changed = false;
+  let dropped = 0;
+  let unknown = 0;
+  const adjustments: Adjustment[] = [];
+  value.forEach((raw, index) => {
+    if (!isRecord(raw)) {
+      dropped++;
+      changed = true;
+      return;
+    }
+
+    // Keep object-shaped future effects in their original stack position.
+    // adjustmentToFilter() and the renderers ignore unknown kinds, so this is
+    // a safe pass-through placeholder rather than an executable payload. It
+    // lets a newer document make a round trip through an older Varve build
+    // without silently deleting an effect the older build cannot understand.
+    if (!isKnownAdjustmentKind(raw.kind)) {
+      unknown++;
+      const preserved: Record<string, unknown> = { ...raw };
+      preserved.id =
+        typeof raw.id === 'string' && raw.id.length > 0 ? raw.id : `effect-${ownerId}-${index + 1}`;
+      preserved.kind = typeof raw.kind === 'string' && raw.kind.length > 0 ? raw.kind : 'unknown';
+      preserved.visible = typeof raw.visible === 'boolean' ? raw.visible : false;
+      preserved.opacity = finiteNumber(raw.opacity, 1, 0, 1);
+      preserved.blendMode = BLEND_MODES.includes(raw.blendMode as AdjustmentBlendMode)
+        ? raw.blendMode
+        : 'normal';
+      if (JSON.stringify(preserved) !== JSON.stringify(raw)) changed = true;
+      adjustments.push(preserved as unknown as Adjustment);
+      return;
+    }
+
+    const kind = raw.kind as AdjustmentKind;
+    const defaults = adjustmentDefaults(kind) as Record<string, unknown>;
+    const normalized: Record<string, unknown> = { ...raw };
+    normalized.id =
+      typeof raw.id === 'string' && raw.id.length > 0 ? raw.id : `adj-${ownerId}-${index + 1}`;
+    normalized.kind = kind;
+    normalized.visible =
+      typeof raw.visible === 'boolean' ? raw.visible : (defaults.visible ?? true);
+    normalized.opacity = finiteNumber(raw.opacity, finiteNumber(defaults.opacity, 1, 0, 1), 0, 1);
+    normalized.blendMode = BLEND_MODES.includes(raw.blendMode as AdjustmentBlendMode)
+      ? raw.blendMode
+      : (defaults.blendMode ?? 'normal');
+
+    if (raw.studioTreatment !== undefined) {
+      const studioTreatment = normalizeStudioTreatmentMetadata(raw.studioTreatment);
+      if (studioTreatment) normalized.studioTreatment = studioTreatment;
+      else delete normalized.studioTreatment;
+    }
+
+    for (const [key, fallback] of Object.entries(defaults)) {
+      if (key === 'visible' || key === 'opacity' || key === 'blendMode') continue;
+      normalized[key] = normalizeValue(kind, key, raw[key], fallback);
+    }
+
+    // Optional ramps are not present in every adjustment's defaults. Keep
+    // their normalization independent of the default object so malformed
+    // persisted opacity stops cannot bypass the boundary clamp.
+    if (raw.opacityStops !== undefined) {
+      normalized.opacityStops = normalizeOpacityStops(raw.opacityStops, undefined);
+    }
+
+    // Several gradient-map controls are optional so old documents can omit
+    // them. Normalize them when present even though they are absent from the
+    // default object used above.
+    if (kind === 'halftone') {
+      // Compatibility contract: documents written before these fields existed
+      // were authored against the legacy screen geometry and the Bayer FM
+      // preview. Pin version 1 / Bayer for them instead of reinterpreting
+      // their artwork. New adjustments are created with version 2.
+      normalized.algorithmVersion = raw.algorithmVersion === 2 ? 2 : 1;
+      normalized.fmAlgorithm =
+        raw.fmAlgorithm === 'blue-noise' || raw.fmAlgorithm === 'error-diffusion'
+          ? raw.fmAlgorithm
+          : 'bayer';
+      if (raw.channelAngles !== undefined) {
+        const angles = normalizeChannelAngles(raw.channelAngles);
+        if (angles) normalized.channelAngles = angles;
+        else delete normalized.channelAngles;
+      }
+      if (raw.registrationOffset !== undefined) {
+        const offsets = normalizeRegistrationOffset(raw.registrationOffset);
+        if (offsets) normalized.registrationOffset = offsets;
+        else delete normalized.registrationOffset;
+      }
+    }
+
+    if (kind === 'colorHalftone') {
+      normalized.algorithmVersion = raw.algorithmVersion === 2 ? 2 : 1;
+    }
+
+    if (kind === 'gradientMap') {
+      if (raw.channelStops !== undefined) {
+        normalized.channelStops = normalizeValue(kind, 'channelStops', raw.channelStops, {});
+      }
+      if (raw.intensity !== undefined) normalized.intensity = finiteNumber(raw.intensity, 1, 0, 1);
+      if (raw.lutSize !== undefined) normalized.lutSize = finiteNumber(raw.lutSize, 256, 2, 4096);
+      if (raw.ditherSize !== undefined)
+        normalized.ditherSize = raw.ditherSize === 4 || raw.ditherSize === 8 ? raw.ditherSize : 8;
+      if (raw.algorithmVersion !== undefined)
+        normalized.algorithmVersion = raw.algorithmVersion === 2 ? 2 : 1;
+      if (raw.reverse !== undefined) normalized.reverse = raw.reverse === true;
+      if (raw.preserveSourceAlpha !== undefined)
+        normalized.preserveSourceAlpha = raw.preserveSourceAlpha === true;
+      if (raw.luminanceMode !== undefined) {
+        const luminanceModes = [
+          'relative-luminance',
+          'perceptual-lightness',
+          'average-rgb',
+          'max-channel',
+          'alpha',
+          'red',
+          'green',
+          'blue',
+          'compatibility',
+        ];
+        normalized.luminanceMode = luminanceModes.includes(raw.luminanceMode as string)
+          ? raw.luminanceMode
+          : 'relative-luminance';
+      }
+    }
+
+    if (JSON.stringify(normalized) !== JSON.stringify(raw)) changed = true;
+    adjustments.push(normalized as unknown as Adjustment);
+  });
+
+  return { adjustments, changed, dropped, unknown };
+}

@@ -1,0 +1,257 @@
+.file-drop-zone {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-inline-size: 0;
+  padding: var(--space-4);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  margin: 0;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard);
+}
+
+.file-drop-zone--large {
+  min-block-size: 8.5rem;
+}
+
+.file-drop-zone--compact {
+  padding: var(--space-2) var(--space-3);
+  gap: var(--space-2);
+}
+
+.file-drop-zone__icon {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  color: var(--color-interactive-default);
+}
+
+.file-drop-zone__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.file-drop-zone__label,
+.file-drop-zone__description,
+.file-drop-zone__state {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-drop-zone__label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.file-drop-zone__description,
+.file-drop-zone__state {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.file-drop-zone__state {
+  grid-column: 2 / -1;
+}
+
+.file-drop-zone[data-state="drag-active"] {
+  border-color: var(--color-interactive-default);
+  background: var(--color-accent-subtle);
+}
+
+.file-drop-zone[data-state="accepted"] {
+  border-color: var(--color-feedback-success);
+}
+
+.file-drop-zone[data-state="rejected"] {
+  border-color: var(--color-feedback-danger);
+  background: color-mix(in srgb, var(--color-feedback-danger) 8%, var(--color-surface-raised));
+}
+
+.file-drop-zone[data-state="processing"],
+.file-drop-zone[data-state="disabled"] {
+  border-style: solid;
+}
+
+.file-drop-zone[data-state="disabled"] {
+  color: var(--color-text-muted);
+  background: var(--color-surface-sunken);
+}
+
+.file-drop-zone[data-state="disabled"] .file-drop-zone__icon {
+  color: var(--color-text-muted);
+}
+
+.file-queue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.file-queue__summary {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.file-queue__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-block-size: 15rem;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.file-queue__item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-raised);
+}
+
+.file-queue__status-icon {
+  margin-block-start: 0.15rem;
+  color: var(--color-text-muted);
+}
+
+.file-queue__item--processing .file-queue__status-icon {
+  color: var(--color-interactive-default);
+}
+
+.file-queue__item--complete .file-queue__status-icon {
+  color: var(--color-feedback-success);
+}
+
+.file-queue__item--failed .file-queue__status-icon {
+  color: var(--color-feedback-danger);
+}
+
+.file-queue__details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.file-queue__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+}
+
+.file-queue__meta {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-queue__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.file-queue__progress {
+  block-size: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+}
+
+.file-queue__progress span {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--color-interactive-default);
+  transition: width var(--duration-base) var(--ease-standard);
+}
+
+.file-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-inline-start: 3px solid var(--color-feedback-danger);
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-feedback-danger) 8%, var(--color-surface-raised));
+}
+
+.file-error--compact {
+  padding: var(--space-1) var(--space-2);
+  border-inline-start-width: 2px;
+}
+
+.file-error__icon {
+  flex: 0 0 auto;
+  color: var(--color-feedback-danger);
+}
+
+.file-error__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  font-size: var(--font-size-xs);
+}
+
+.file-error__copy span {
+  overflow-wrap: anywhere;
+  color: var(--color-text-secondary);
+}
+
+.file-error__action {
+  margin-inline-start: auto;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 30rem) {
+  .file-drop-zone {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .file-drop-zone .varve-btn {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .file-drop-zone__state {
+    grid-column: 2;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .file-drop-zone,
+  .file-queue__progress span {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .file-drop-zone,
+  .file-queue__item,
+  .file-error {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+  }
+}

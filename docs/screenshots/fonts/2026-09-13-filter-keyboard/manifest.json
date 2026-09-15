@@ -1,0 +1,27 @@
+{
+  "feature": "font-browser-filter-reset-and-keyboard-tabs",
+  "capturedAt": "2026-09-13",
+  "launchSha": "1c902fb4d3b63da1db2dcfe6a82ca7141cdc177a",
+  "completionSha": "1c902fb4d3b63da1db2dcfe6a82ca7141cdc177a",
+  "viewport": { "width": 540, "height": 640, "deviceScaleFactor": 1 },
+  "command": "TMPDIR=/home/kevina/CodingProjects/varve/.tmp VARVE_E2E_PORT=1667 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-browser-filters-keyboard-20260913 npx playwright test tests/e2e/canvas/font-browser-filters.spec.ts --project=chromium --reporter=list --timeout=120000",
+  "result": "1 passed (1.1m)",
+  "screenshots": [
+    {
+      "path": "filtered-narrow.png",
+      "sha256": "a7b76ce85b816a6c7513af97b0a4520a67b76c1cf310c1700e66bf25db6d2d83",
+      "inspection": "The combined query, Favorites source tab, and Variable semantic filter remain readable in the stacked narrow layout with Reset filters spanning the controls."
+    },
+    {
+      "path": "reset-narrow.png",
+      "sha256": "4c9b6b8dc4a56ebd435ef35c3f633650105a47b02ed9c1ad13903a9379842822",
+      "inspection": "After reset, All is selected and focused, the reset action is gone, and the selected-family details remain contained; keyboard navigation leaves no clipped focus target."
+    }
+  ],
+  "keyboardAssertions": [
+    "ArrowRight from All selects and focuses System",
+    "End selects and focuses Favorites",
+    "Home returns selection and focus to All",
+    "Only the active source tab has tabIndex 0"
+  ]
+}

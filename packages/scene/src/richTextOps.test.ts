@@ -1,0 +1,301 @@
+import { describe, expect, it } from 'vitest';
+import {
+  applyFormatToSelection,
+  characterFormatValue,
+  mergeAdjacentRuns,
+  promoteToRichText,
+  removeCharacterFormat,
+  replaceRichTextContent,
+  replaceRichTextRange,
+  replaceTextInParagraph,
+  splitRunAt,
+} from './richTextOps';
+import type { RichText, TextRun } from './typography';
+
+function rich(...runs: TextRun[]): RichText {
+  return { paragraphs: [{ runs }] };
+}
+
+describe('richTextOps', () => {
+  it('keeps inherited style links on both sides of a range formatting change', () => {
+    const source = rich({
+      text: 'Headline',
+      characterStyleId: 'heading-style',
+      format: { fontSize: 24, language: 'en' },
+    });
+    const next = applyFormatToSelection(
+      source,
+      { start: { paragraphIndex: 0, offset: 2 }, end: { paragraphIndex: 0, offset: 5 } },
+      { fontWeight: 700 },
+    );
+    expect(next.paragraphs[0]?.runs).toEqual([
+      { text: 'He', characterStyleId: 'heading-style', format: { fontSize: 24, language: 'en' } },
+      {
+        text: 'adl',
+        characterStyleId: 'heading-style',
+        format: { fontSize: 24, language: 'en', fontWeight: 700 },
+      },
+      { text: 'ine', characterStyleId: 'heading-style', format: { fontSize: 24, language: 'en' } },
+    ]);
+    expect(source.paragraphs[0]?.runs).toHaveLength(1);
+  });
+
+  it('preserves unrelated runs when replacing within a styled paragraph', () => {
+    const source = rich(
+      { text: 'One ', characterStyleId: 'first', format: { fontWeight: 700 } },
+      { text: 'two ', characterStyleId: 'middle', format: { fontStyle: 'italic' } },
+      { text: 'three', characterStyleId: 'last', format: { fontSize: 32 } },
+    );
+    const next = replaceTextInParagraph(source, 0, 5, 6, 'W', { fontStyle: 'normal' });
+    expect(next.paragraphs[0]?.runs).toEqual([
+      source.paragraphs[0]?.runs[0],
+      { text: 't', characterStyleId: 'middle', format: { fontStyle: 'italic' } },
+      { text: 'W', characterStyleId: 'middle', format: { fontStyle: 'normal' } },
+      { text: 'o ', characterStyleId: 'middle', format: { fontStyle: 'italic' } },
+      source.paragraphs[0]?.runs[2],
+    ]);
+  });
+
+  it('inherits character styles through typing, paragraph insertion and empty text', () => {
+    const run = { text: 'Hi', characterStyleId: 'body', format: { fontSize: 20 } };
+    const source = rich(run);
+    const typed = replaceRichTextContent(source, 'Hi!');
+    expect(typed.paragraphs[0]?.runs).toEqual([{ ...run, text: 'Hi!' }]);
+    const split = replaceRichTextRange(typed, 2, 2, '\n');
+    expect(split.paragraphs.map((p) => p.runs)).toEqual([
+      [{ ...run, text: 'Hi' }],
+      [{ ...run, text: '!' }],
+    ]);
+    const cleared = replaceRichTextContent(source, '');
+    expect(cleared.paragraphs[0]?.runs).toEqual([{ ...run, text: '' }]);
+    const resumed = replaceRichTextContent(cleared, 'Again');
+    expect(resumed.paragraphs[0]?.runs).toEqual([{ ...run, text: 'Again' }]);
+  });
+
+  describe('splitRunAt', () => {
+    it('splits a run at the given offset', () => {
+      const [a, b] = splitRunAt({ text: 'Hello', format: { fontWeight: 400 } }, 2);
+      expect(a.text).toBe('He');
+      expect(b.text).toBe('llo');
+      expect(a.format).toEqual({ fontWeight: 400 });
+      expect(b.format).toEqual({ fontWeight: 400 });
+    });
+
+    it('clamps offset to bounds', () => {
+      const [a, b] = splitRunAt({ text: 'Hi' }, 99);
+      expect(a.text).toBe('Hi');
+      expect(b.text).toBe('');
+    });
+
+    it('does not split an extended grapheme cluster', () => {
+      const family = '\u{1f468}\u{200d}\u{1f469}\u{200d}\u{1f467}\u{200d}\u{1f466}';
+      const [a, b] = splitRunAt({ text: `A${family}B` }, 3);
+      expect(a.text).toBe('A');
+      expect(b.text).toBe(`${family}B`);
+    });
+  });
+
+  describe('mergeAdjacentRuns', () => {
+    it('merges adjacent runs with identical format', () => {
+      const para = mergeAdjacentRuns({
+        runs: [
+          { text: 'He', format: { fontWeight: 400 } },
+          { text: 'llo', format: { fontWeight: 400 } },
+        ],
+      });
+      expect(para.runs).toHaveLength(1);
+      expect(para.runs[0]!.text).toBe('Hello');
+    });
+
+    it('keeps runs with different format separate', () => {
+      const para = mergeAdjacentRuns({
+        runs: [
+          { text: 'He', format: { fontWeight: 400 } },
+          { text: 'llo', format: { fontWeight: 700 } },
+        ],
+      });
+      expect(para.runs).toHaveLength(2);
+    });
+  });
+
+  describe('applyFormatToSelection', () => {
+    it('applies bold to a selected range within a single run', () => {
+      const result = applyFormatToSelection(
+        rich({ text: 'Hello World' }),
+        { start: { paragraphIndex: 0, offset: 6 }, end: { paragraphIndex: 0, offset: 11 } },
+        { fontWeight: 700 },
+      );
+      expect(result.paragraphs[0]!.runs).toEqual([
+        { text: 'Hello ' },
+        { text: 'World', format: { fontWeight: 700 } },
+      ]);
+    });
+
+    it('handles selection spanning multiple runs', () => {
+      // After the format is applied, the merge step collapses adjacent runs
+      // that share the same format into a single run.
+      const result = applyFormatToSelection(
+        rich(
+          { text: 'Hello ', format: { fontWeight: 400 } },
+          { text: 'World', format: { fontWeight: 400 } },
+        ),
+        { start: { paragraphIndex: 0, offset: 3 }, end: { paragraphIndex: 0, offset: 8 } },
+        { fontWeight: 700 },
+      );
+      const runs = result.paragraphs[0]!.runs;
+      expect(runs).toHaveLength(3);
+      expect(runs[0]!.text).toBe('Hel');
+      expect(runs[0]!.format).toEqual({ fontWeight: 400 });
+      expect(runs[1]!.text).toBe('lo Wo');
+      expect(runs[1]!.format).toEqual({ fontWeight: 700 });
+      expect(runs[2]!.text).toBe('rld');
+      expect(runs[2]!.format).toEqual({ fontWeight: 400 });
+    });
+
+    it('normalizes reversed selection', () => {
+      const result = applyFormatToSelection(
+        rich({ text: 'Hello' }),
+        { start: { paragraphIndex: 0, offset: 4 }, end: { paragraphIndex: 0, offset: 1 } },
+        { fontWeight: 700 },
+      );
+      expect(result.paragraphs[0]!.runs[0]!.text).toBe('H');
+      expect(result.paragraphs[0]!.runs[1]!.text).toBe('ell');
+      expect(result.paragraphs[0]!.runs[1]!.format).toEqual({ fontWeight: 700 });
+    });
+
+    it('expands a selection that lands inside a ZWJ grapheme', () => {
+      const family = '\u{1f468}\u{200d}\u{1f469}\u{200d}\u{1f467}\u{200d}\u{1f466}';
+      const result = applyFormatToSelection(
+        rich({ text: `A${family}B` }),
+        { start: { paragraphIndex: 0, offset: 3 }, end: { paragraphIndex: 0, offset: 4 } },
+        { fontWeight: 700 },
+      );
+      expect(result.paragraphs[0]!.runs).toEqual([
+        { text: 'A' },
+        { text: family, format: { fontWeight: 700 } },
+        { text: 'B' },
+      ]);
+    });
+  });
+
+  describe('promoteToRichText', () => {
+    it('creates a single-paragraph rich text from plain text', () => {
+      const r = promoteToRichText(undefined, 'Hello');
+      expect(r.paragraphs).toHaveLength(1);
+      expect(r.paragraphs[0]!.runs[0]!.text).toBe('Hello');
+    });
+
+    it('splits on newlines into paragraphs', () => {
+      const r = promoteToRichText(undefined, 'Line 1\nLine 2');
+      expect(r.paragraphs).toHaveLength(2);
+      expect(r.paragraphs[0]!.runs[0]!.text).toBe('Line 1');
+      expect(r.paragraphs[1]!.runs[0]!.text).toBe('Line 2');
+    });
+
+    it('returns existing rich text unchanged', () => {
+      const existing = rich({ text: 'Existing' });
+      expect(promoteToRichText(existing, 'New')).toBe(existing);
+    });
+  });
+
+  it('removes only requested character properties from a selection', () => {
+    const rich = {
+      paragraphs: [{ runs: [{ text: 'Hello', format: { fontWeight: 700, fontSize: 20 } }] }],
+    };
+    const next = removeCharacterFormat(
+      rich,
+      { start: { paragraphIndex: 0, offset: 1 }, end: { paragraphIndex: 0, offset: 4 } },
+      ['fontWeight'],
+    );
+    expect(next.paragraphs[0]?.runs).toEqual([
+      { text: 'H', format: { fontWeight: 700, fontSize: 20 } },
+      { text: 'ell', format: { fontSize: 20 } },
+      { text: 'o', format: { fontWeight: 700, fontSize: 20 } },
+    ]);
+  });
+
+  it('reports mixed character values across selected runs', () => {
+    const richText = rich(
+      { text: 'A', format: { fontSize: 12 } },
+      { text: 'B', format: { fontSize: 24 } },
+    );
+    expect(
+      characterFormatValue(
+        richText,
+        { start: { paragraphIndex: 0, offset: 0 }, end: { paragraphIndex: 0, offset: 2 } },
+        'fontSize',
+      ),
+    ).toEqual({
+      value: 12,
+      mixed: true,
+    });
+  });
+
+  it('replaces text at grapheme boundaries and inherits the range style', () => {
+    const rich = { paragraphs: [{ runs: [{ text: 'a\u0301b', format: { fontSize: 20 } }] }] };
+    const next = replaceTextInParagraph(rich, 0, 1, 2, 'X');
+    expect(next.paragraphs[0]?.runs).toEqual([{ text: 'Xb', format: { fontSize: 20 } }]);
+  });
+
+  it('replaces across paragraphs without flattening unaffected run styles', () => {
+    const source: RichText = {
+      paragraphs: [
+        {
+          runs: [
+            { text: 'Hello ', format: { fontWeight: 400 } },
+            { text: 'world', format: { fontWeight: 700 } },
+          ],
+        },
+        { runs: [{ text: 'Second line', format: { fontStyle: 'italic' } }] },
+      ],
+    };
+    const next = replaceRichTextRange(source, 3, 12, 'new\n');
+    expect(next.paragraphs.map((p) => p.runs.map((r) => r.text).join(''))).toEqual([
+      'Helnew',
+      'Second line',
+    ]);
+    expect(next.paragraphs[0]?.runs[0]).toEqual({ text: 'Helnew', format: { fontWeight: 400 } });
+    expect(next.paragraphs[1]?.runs[0]).toEqual({
+      text: 'Second line',
+      format: { fontStyle: 'italic' },
+    });
+  });
+
+  it('updates the smallest changed content range and preserves a trailing paragraph', () => {
+    const source: RichText = {
+      paragraphs: [
+        { runs: [{ text: 'One', format: { fontWeight: 700 } }] },
+        { runs: [{ text: 'Two', format: { fontStyle: 'italic' } }] },
+      ],
+    };
+    const next = replaceRichTextContent(source, 'One\nThree');
+    expect(next.paragraphs.map((p) => p.runs.map((r) => r.text).join(''))).toEqual([
+      'One',
+      'Three',
+    ]);
+    expect(next.paragraphs[0]?.runs[0]?.format).toEqual({ fontWeight: 700 });
+    expect(next.paragraphs[1]?.runs[0]?.format).toEqual({ fontStyle: 'italic' });
+  });
+
+  it('applies pending formatting only to newly inserted content', () => {
+    const source: RichText = {
+      paragraphs: [
+        {
+          runs: [
+            { text: 'Hello ', format: { fontWeight: 400 } },
+            { text: 'world', format: { fontStyle: 'italic' } },
+          ],
+        },
+      ],
+    };
+    const next = replaceRichTextContent(source, 'Hello brave world', {
+      fontWeight: 700,
+    });
+
+    expect(next.paragraphs[0]?.runs).toEqual([
+      { text: 'Hello ', format: { fontWeight: 400 } },
+      { text: 'brave ', format: { fontWeight: 700 } },
+      { text: 'world', format: { fontStyle: 'italic' } },
+    ]);
+  });
+});

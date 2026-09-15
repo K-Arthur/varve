@@ -1,0 +1,83 @@
+# ADR-0237: Native GPU compute and truthful accelerator capability model
+
+- **Status:** Accepted (implemented in this change set)
+- **Date:** 2026-09-13
+- **Related:** ADR-0001, ADR-0003, `docs/architecture/native-acceleration.md`,
+  `docs/audits/gpu-npu-native-support-audit-2026-09-13.md`
+
+## Context
+
+Varve runs native scene processing and emits render IR that the webview
+replays (ADR-0001). ADR-0003 deferred a native GPU overlay and kept Canvas2D
+authoritative. Neither decision created a native *compute* path: the workspace
+had no `wgpu` dependency, live-effect kernels are CPU-only
+(`crates/varve-effects`), and the shipped ONNX Runtime exports only the CPU
+execution provider. At the same time, measured CPU costs at export resolution
+are seconds per effect (LightShafts 4.3 s, Bloom 1.9 s at 2048×2048), and the
+browser-side WebGPU effect provider has no production caller.
+
+Users also report the opposite failure pattern across the industry:
+whole-application GPU acceleration without per-feature fallback (Photoshop
+canvas corruption, Figma blank canvases) and vendor NPU stacks that are
+"split-state" on Linux (AMD XDNA firmware/driver coupling, ONNX Runtime Vitis
+AI build failures, Intel NPU's narrow validated OS matrix). The capability
+model must therefore never conflate *advertised* with *usable*.
+
+## Decision
+
+1. Add `crates/varve-accel`, a native acceleration crate with one capability
+   model and two implementations:
+   - device discovery and a bounded self-test via `wgpu` (Vulkan/Metal/D3D12),
+     independent of `navigator.gpu`;
+   - offscreen compute kernels for live effects, with parity tests against the
+     CPU reference in `crates/varve-effects`.
+2. Track accelerators through explicit stages — `unknown → discovered →
+   runtimeLoadable → deviceUsable → executionVerified → unavailable` — with a
+   typed reason (`driverMissing`, `runtimeMissing`, `artifactMissing`,
+   `softwareOnly`, …) instead of one boolean. Software adapters are discovered
+   and reported, never selected.
+3. Keep presentation unchanged: the webview still replays IR.
+   `packages/compositor` remains the presentation path; native compute only
+   produces pixels for workloads that explicitly request them.
+4. Inference reports what the loaded runtime plus registered plugin providers
+   actually provide. The core ONNX Runtime artifact is CPU-only; accelerated
+   inference arrives through the native WebGPU plugin EP
+   (`onnxruntime_providers_webgpu`, MIT), registered at runtime and attached
+   to sessions under an explicit `auto`/`cpu`/`gpu` policy. `auto` prefers
+   WebGPU only when registration and a real device succeeded, and always
+   falls back to CPU. Results report the provider that produced them
+   (`native-webgpu`/`native-cpu`); placement claims require observed
+   execution, never registration alone.
+5. Do not reintroduce async effect dispatch into export flattening. The
+   current export path replays the real pipeline by design; the earlier
+   `flattenForExport.ts` dispatch was removed because it produced wrong
+   output. Async GPU effects remain available through the provider contract
+   for an explicit end-to-end consumer, but the current editor preview/export
+   paths do not call that provider. Native GPU resampling is the integrated
+   desktop image-processing consumer in this milestone.
+
+## Consequences
+
+- Positive: real, measured native GPU paths (RGB split parity is byte-exact;
+  resampling includes upload/dispatch/synchronization/readback), a capability
+  report that can explain *why* something is unavailable, and a bounded
+  self-test that proves execution instead of inferring it.
+- Positive: no new runtime artifacts or vendor SDKs ship in the base app;
+  `wgpu` is compiled in and uses the system graphics stack.
+- Negative: a new heavyweight build dependency (`wgpu`) and a new workspace
+  crate that must stay green across Linux, Windows, and macOS. The engine must
+  handle device loss, bounded readback, and fall back to the CPU kernels.
+- Deferred: canvas presentation on a native surface (ADR-0003 still holds)
+  and NPU execution. GPU inference is implemented and hardware-verified for
+  one segmentation model (u2netp: 1468/1468 nodes on WebGPU, parity 2e-6,
+  1999 ms CPU vs 336 ms GPU); other models and platforms remain on the CPU
+  policy until measured.
+
+## Verification
+
+- `cargo test -p varve-accel` — capability, discovery, software-adapter refusal,
+  self-test, and RGB-split parity (byte-exact on the reference corpus).
+- `cargo run --release -p varve-accel --example gpu_effect_bench` — end-to-end
+  CPU vs GPU including upload/readback.
+- `cargo run --release -p varve-effects --example effect_cost` — CPU baseline
+  table used for selection policy.

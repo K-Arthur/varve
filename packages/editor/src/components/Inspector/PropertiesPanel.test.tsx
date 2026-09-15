@@ -1,0 +1,604 @@
+// @vitest-environment jsdom
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import React from 'react';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { EditorProvider, useEditor } from '../../context';
+import { resetPanelLocalStateForTest } from '../../workspace/panelLocalState';
+import { PropertiesPanel } from './PropertiesPanel';
+
+beforeEach(() => resetPanelLocalStateForTest());
+afterEach(() => resetPanelLocalStateForTest());
+
+function renderPanel() {
+  // Mock clientWidth so the overflow logic doesn't trigger in jsdom
+  // (jsdom has no layout engine, so clientWidth defaults to 0, which would
+  // cause all movable tabs to overflow and prevent tab switching).
+  Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+    configurable: true,
+    value: 800,
+  });
+  return render(
+    <EditorProvider>
+      <PropertiesPanel />
+    </EditorProvider>,
+  );
+}
+
+/** Renders PropertiesPanel with one real rect node selected via the actual
+ * editor context (not a mocked useEditor), so section-registry gating runs
+ * through its real call path rather than being bypassed by a test double. */
+async function renderPanelWithSelectedRect(locked = false, visible = true) {
+  const { createDocument, makeShapeNode, addChild } = await import('@varve/scene');
+  let doc = createDocument('selection-test');
+  const rect = makeShapeNode(
+    'r1',
+    { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+    { name: 'Rect1', transform: [1, 0, 0, 1, 0, 0], locked, visible },
+  );
+  doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, rect);
+
+  let ctx: ReturnType<typeof useEditor> | undefined;
+  function Selector() {
+    ctx = useEditor();
+    React.useEffect(() => {
+      ctx?.setSelection('r1');
+    }, []);
+    return null;
+  }
+
+  const utils = render(
+    <EditorProvider initialDocumentJson={JSON.stringify(doc)}>
+      <Selector />
+      <PropertiesPanel />
+    </EditorProvider>,
+  );
+  await waitFor(() => expect(ctx?.state.selection).toEqual(['r1']));
+  return utils;
+}
+
+/** Same as the rect helper, but selects a frame to verify screen selection. */
+async function renderPanelWithSelectedFrame() {
+  const { createDocument, makeFrameNode, addChild } = await import('@varve/scene');
+  let doc = createDocument('frame-selection-test');
+  const frame = makeFrameNode('f1', { name: 'Frame1', transform: [1, 0, 0, 1, 0, 0] });
+  doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, frame);
+
+  let ctx: ReturnType<typeof useEditor> | undefined;
+  function Selector() {
+    ctx = useEditor();
+    React.useEffect(() => {
+      ctx?.setSelection('f1');
+    }, []);
+    return null;
+  }
+
+  const utils = render(
+    <EditorProvider initialDocumentJson={JSON.stringify(doc)}>
+      <Selector />
+      <PropertiesPanel />
+    </EditorProvider>,
+  );
+  await waitFor(() => expect(ctx?.state.selection).toEqual(['f1']));
+  return utils;
+}
+
+/** Renders a real inspector selection with multiple nodes. This deliberately
+ * drives the public selection API so contextual tab eligibility is tested at
+ * the same boundary used by pointer multi-select in the editor. */
+async function renderPanelWithSelectedNodes(docJson: string, ids: string[]) {
+  let ctx: ReturnType<typeof useEditor> | undefined;
+  function Selector() {
+    ctx = useEditor();
+    React.useEffect(() => {
+      const [first, ...rest] = ids;
+      if (!first) return;
+      ctx?.setSelection(first);
+      for (const id of rest) ctx?.toggleSelection(id, true);
+    }, []);
+    return null;
+  }
+
+  const utils = render(
+    <EditorProvider initialDocumentJson={docJson}>
+      <Selector />
+      <PropertiesPanel />
+    </EditorProvider>,
+  );
+  await waitFor(() => expect(ctx?.state.selection).toEqual(ids));
+  return utils;
+}
+
+describe('PropertiesPanel canvas settings', () => {
+  it('uses the grouped workspace tabs and omits legacy document and spec tabs', () => {
+    renderPanel();
+
+    const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent?.trim());
+    const tabLabels = tabs.filter(Boolean);
+    // Appearance and Audit are merged into the Design tab (single
+    // context-adaptive surface, Figma-style). Prototype and Fonts are
+    // contextual — they appear for a frame and a text selection
+    // respectively, so an empty selection shows neither.
+    expect(tabLabels).toEqual(['Design', 'Export']);
+    expect(screen.queryByRole('tab', { name: 'Appearance' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Audit' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Prototype' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Fonts' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Document' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Inspect' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Score' })).toBeNull();
+  });
+
+  it('implements APG roving focus for arrow, Home, and End keys across the tab row', () => {
+    renderPanel();
+    // Derived from what actually renders: the tab row is contextual, and the
+    // roving-focus contract applies to whichever tabs are present. With
+    // Appearance and Audit merged into Design, an empty selection shows two
+    // tabs (Design, Export), so every arrow press wraps.
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.length).toBeGreaterThanOrEqual(2);
+    const first = tabs[0]!;
+    const second = tabs[1]!;
+    const last = tabs[tabs.length - 1]!;
+
+    second.focus();
+    fireEvent.keyDown(second, { key: 'ArrowRight' });
+    expect(first).toHaveFocus();
+
+    fireEvent.keyDown(first, { key: 'End' });
+    expect(last).toHaveFocus();
+
+    fireEvent.keyDown(last, { key: 'Home' });
+    expect(first).toHaveFocus();
+
+    fireEvent.keyDown(first, { key: 'ArrowLeft' });
+    expect(last).toHaveFocus();
+  });
+
+  it('renders canvas settings inline in the Properties empty state', async () => {
+    renderPanel();
+    expect(screen.getByLabelText(/Inspector context: (Document|Canvas)/)).toBeInTheDocument();
+    // DocumentPanel is lazy-loaded; the generous timeout absorbs slow workers.
+    expect(await screen.findByRole('button', { name: 'Canvas' }, { timeout: 15000 })).toBeTruthy();
+    expect(await screen.findByText(/^Background$/)).toBeTruthy();
+  });
+
+  it('renders real document colour settings without exposing storage-root node counts', async () => {
+    renderPanel();
+    expect(await screen.findByRole('radio', { name: 'RGB' }, { timeout: 15000 })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(screen.getByRole('radio', { name: 'CMYK' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Grayscale' })).toBeTruthy();
+    expect(screen.queryByText(/nodes?/i)).toBeNull();
+  });
+});
+
+describe('PropertiesPanel section gating for a real single selection', () => {
+  it('exposes live Boolean Pathfinder operation, operand isolation, and expansion controls', async () => {
+    const { addChild, createDocument, createLiveBooleanDoc, makeShapeNode } = await import(
+      '@varve/scene'
+    );
+    let doc = createDocument('pathfinder-test');
+    const first = makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 }, { name: 'First' });
+    const second = makeShapeNode(
+      'b',
+      { kind: 'rect', x: 25, y: 25, w: 50, h: 50 },
+      { name: 'Second' },
+    );
+    const third = makeShapeNode(
+      'c',
+      { kind: 'rect', x: 100, y: 0, w: 25, h: 25 },
+      { name: 'Third' },
+    );
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, first);
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, second);
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, third);
+    const live = createLiveBooleanDoc(doc, ['a', 'b'], 'union');
+    expect(live).not.toBeNull();
+    if (!live) return;
+    const liveDoc = live;
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Selector() {
+      ctx = useEditor();
+      React.useEffect(() => {
+        ctx?.setSelection(liveDoc.nodeId);
+      }, []);
+      return null;
+    }
+
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(liveDoc.doc)}>
+        <Selector />
+        <PropertiesPanel />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(ctx?.state.selection).toEqual([liveDoc.nodeId]));
+    expect(screen.getByRole('button', { name: 'Pathfinder' })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Boolean operation' })).toHaveValue('union');
+    expect(screen.getByRole('button', { name: /Edit operand 1/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Edit operand 2/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Edit Boolean operands' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Expand Boolean' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Add operand Third' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add operand Third' }));
+    await waitFor(() =>
+      expect(ctx?.state.document.nodes[liveDoc.nodeId]).toMatchObject({
+        children: ['a', 'b', 'c'],
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Remove operand Third' }));
+    await waitFor(() =>
+      expect(ctx?.state.document.nodes[liveDoc.nodeId]).toMatchObject({ children: ['a', 'b'] }),
+    );
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Boolean operation' }), {
+      target: { value: 'subtract' },
+    });
+    await waitFor(() =>
+      expect(ctx?.state.document.nodes[liveDoc.nodeId]).toMatchObject({
+        boolean: { operation: 'subtract' },
+      }),
+    );
+  });
+
+  it('makes selection workflows read-only when any selected node is locked', async () => {
+    await renderPanelWithSelectedRect(true);
+
+    expect(screen.getByText(/selection is locked/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Position & Size' }).closest('[inert]')).toBeTruthy();
+  });
+
+  it('explains the full scope when a mixed selection contains a locked node', async () => {
+    const { addChild, createDocument, makeShapeNode } = await import('@varve/scene');
+    let doc = createDocument('partial-lock-test');
+    const rootId = doc.pages?.[0]?.contentRoot as string;
+    const locked = makeShapeNode(
+      'locked',
+      { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+      { name: 'Locked shape', locked: true },
+    );
+    const editable = makeShapeNode(
+      'editable',
+      { kind: 'rect', x: 60, y: 0, w: 50, h: 50 },
+      { name: 'Editable shape' },
+    );
+    doc = addChild(doc, rootId, locked);
+    doc = addChild(doc, rootId, editable);
+
+    await renderPanelWithSelectedNodes(JSON.stringify(doc), ['locked', 'editable']);
+
+    expect(screen.getByText(/1 of 2 selected layers are locked/i)).toBeTruthy();
+    expect(screen.getByText(/disabled until all selected layers are unlocked/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Position & Size' }).closest('[inert]')).toBeTruthy();
+  });
+
+  it('keeps a hidden selection inspectable and explains the missing canvas feedback', async () => {
+    await renderPanelWithSelectedRect(false, false);
+
+    expect(screen.getByText(/selection is hidden by Rect1/i)).toBeTruthy();
+    expect(screen.getByText(/canvas feedback is unavailable/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Position & Size' }).closest('[inert]')).toBeNull();
+  });
+
+  it('honors section-manager visibility for optional Properties sections', async () => {
+    await renderPanelWithSelectedRect();
+    expect(screen.getByRole('button', { name: 'Corner Radius' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Customize sections' }));
+    fireEvent.click(screen.getByLabelText('Corner Radius'));
+
+    expect(screen.queryByRole('button', { name: 'Corner Radius' })).toBeNull();
+  });
+
+  it('moves Prototype Interactions to the dedicated Prototype surface', async () => {
+    await renderPanelWithSelectedRect();
+    expect(screen.queryByRole('button', { name: 'Prototype Interactions' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Prototype' }));
+    expect(await screen.findByRole('button', { name: 'Prototype Interactions' })).toBeTruthy();
+  });
+
+  it('shows Prototype for a selected frame screen', async () => {
+    await renderPanelWithSelectedFrame();
+    expect(screen.getByRole('tab', { name: 'Prototype' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Align & distribute' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Align to page' })).toBeEnabled();
+  });
+
+  it('exposes page alignment for a selected object and enables it when requested', async () => {
+    await renderPanelWithSelectedRect();
+    const alignLeft = screen.getByRole('button', { name: 'Align left edges' });
+    expect(alignLeft).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Align to page' }));
+    await waitFor(() => expect(alignLeft).toBeEnabled());
+  });
+
+  it('surfaces child layout controls for multiple flow children in one auto-layout frame', async () => {
+    const { addChild, createDocument, makeFrameNode, makeShapeNode } = await import('@varve/scene');
+    let doc = createDocument('multi-layout-child-test');
+    const rootId = doc.pages?.[0]?.contentRoot as string;
+    const frame = makeFrameNode('frame', {
+      name: 'Auto Layout Frame',
+      w: 300,
+      h: 120,
+      layoutStyle: {
+        mode: 'flex',
+        direction: 'row',
+        gap: 16,
+        wrap: false,
+        padding: [8, 8, 8, 8],
+        grow: 0,
+        shrink: 1,
+      },
+    });
+    const first = makeShapeNode('first', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 });
+    const second = makeShapeNode('second', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 });
+    doc = addChild(doc, rootId, frame);
+    doc = addChild(doc, frame.id, first);
+    doc = addChild(doc, frame.id, second);
+
+    await renderPanelWithSelectedNodes(JSON.stringify(doc), [first.id, second.id]);
+
+    expect(screen.getByRole('button', { name: 'Layout child' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Layout position' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Child width sizing' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('combobox', { name: 'Child cross-axis alignment override' }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps inert Selection Sources out and puts the section customizer in the header row', async () => {
+    await renderPanelWithSelectedRect();
+    // A plain rectangle has no pixel selection, saved selections, closed
+    // path, or image, so every Selection Sources command would be disabled.
+    expect(screen.queryByRole('button', { name: 'Selection Sources' })).toBeNull();
+    const header = document.querySelector('.insp-panel__node-header');
+    expect(header?.querySelector('[aria-label^="Customize sections"]')).not.toBeNull();
+    expect(document.querySelector('.insp-panel > .insp-panel__header')).toBeNull();
+  });
+
+  it('does not mount image-only AI sections for a non-image rect selection', async () => {
+    await renderPanelWithSelectedRect();
+    for (const title of ['AI Denoise', 'Lens Blur', 'Line Art', 'Frame Interpolation']) {
+      expect(screen.queryByRole('button', { name: title })).toBeNull();
+    }
+  });
+
+  it('hosts Object Filter editing in the merged Design surface without the Studio gallery', async () => {
+    await renderPanelWithSelectedRect();
+
+    // Appearance content — including Object Filters — is merged into the
+    // single context-adaptive Design tab. The Effect Studio gallery opens from
+    // Object → Open Effect Studio or the Adjustments entry, not Properties
+    // (docs/architecture/effect-studio.md). The merged panels are
+    // lazy-loaded; the generous timeout absorbs slow CI workers.
+    expect(
+      await screen.findByRole('button', { name: 'Object Filters' }, { timeout: 15000 }),
+    ).toBeTruthy();
+    expect(screen.queryByTestId('open-effect-studio')).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Adjustments' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Appearance' })).toBeNull();
+  });
+
+  it('does not render the State Machine section inline (moved to its own panel)', async () => {
+    // State machines are document-wide (document.stateMachines), not tied to
+    // the current selection — it previously rendered unconditionally at the
+    // bottom of every properties-tab view regardless of selection. It now
+    // lives in its own dialog, opened via toggleStateMachinePanel.
+    await renderPanelWithSelectedRect();
+    expect(screen.queryByRole('button', { name: 'State Machine' })).toBeNull();
+  });
+});
+
+describe('PropertiesPanel image-treatment tab gating', () => {
+  it('shows Adjustments for a batch selection of image shapes', async () => {
+    const { addChild, createDocument, makeImageShapeNode } = await import('@varve/scene');
+    let doc = createDocument('image-batch-selection-test');
+    const first = makeImageShapeNode('image-1', { src: 'data:image/png;base64,AA==' });
+    const second = makeImageShapeNode('image-2', { src: 'data:image/png;base64,AA==' });
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, first);
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, second);
+
+    await renderPanelWithSelectedNodes(JSON.stringify(doc), ['image-1', 'image-2']);
+
+    expect(screen.getByRole('tab', { name: 'Adjustments' })).toBeInTheDocument();
+    expect(screen.getAllByRole('tab').map((tab) => tab.textContent?.trim())).toEqual([
+      'Design',
+      'Adjustments',
+      'Export',
+    ]);
+  });
+
+  it('does not show Adjustments for a mixed image and non-image selection', async () => {
+    const { addChild, createDocument, makeImageShapeNode, makeShapeNode } = await import(
+      '@varve/scene'
+    );
+    let doc = createDocument('mixed-image-selection-test');
+    const image = makeImageShapeNode('image-1', { src: 'data:image/png;base64,AA==' });
+    const rect = makeShapeNode('rect-1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, image);
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, rect);
+
+    await renderPanelWithSelectedNodes(JSON.stringify(doc), ['image-1', 'rect-1']);
+
+    expect(screen.queryByRole('tab', { name: 'Adjustments' })).toBeNull();
+  });
+});
+
+describe('PropertiesPanel export tab has merged export and code', () => {
+  it('renders the export tab with Format and Code sub-tabs when a node is selected', async () => {
+    const { makeShapeNode, addChild, createDocument } = await import('@varve/scene');
+    let doc = createDocument('export-test');
+    const rect = makeShapeNode('r1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, rect);
+
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(doc)}>
+        <PropertiesPanel />
+      </EditorProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Export' }));
+    expect(screen.getByRole('tab', { name: 'Format' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Code' })).toBeTruthy();
+  });
+
+  it('shows the empty state hint in the Export tab when nothing is selected', () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole('tab', { name: 'Export' }));
+    expect(screen.getByText(/Select a node to export/i)).toBeTruthy();
+  });
+});
+
+describe('PropertiesPanel empty selection', () => {
+  it('does not present document settings while an active tool owns the context', async () => {
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function ToolSelector() {
+      ctx = useEditor();
+      React.useEffect(() => {
+        ctx?.setTool('paint');
+      }, []);
+      return null;
+    }
+
+    render(
+      <EditorProvider>
+        <ToolSelector />
+        <PropertiesPanel />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(ctx?.state.tool).toBe('paint'));
+    expect(screen.getByLabelText('Inspector context: Active tool')).toBeInTheDocument();
+    expect(screen.getByText(/paint brush settings open beside the toolbar/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Show paint brush options' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Canvas' })).toBeNull();
+  });
+
+  it('shows frame presets in place of object properties while the Frame tool is active', async () => {
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function ToolSelector() {
+      ctx = useEditor();
+      React.useEffect(() => {
+        ctx?.setTool('frame');
+      }, []);
+      return null;
+    }
+
+    render(
+      <EditorProvider>
+        <ToolSelector />
+        <PropertiesPanel />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(ctx?.state.tool).toBe('frame'));
+    expect(screen.getByLabelText('Inspector context: Active tool')).toHaveTextContent('Frame');
+    expect(screen.getByRole('button', { name: 'Frame Presets' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    expect(screen.queryByText(/no selection/i)).toBeNull();
+    expect(screen.queryByRole('button', { name: /show .* options/i })).toBeNull();
+  });
+
+  it('shows Page Print above document settings while the Page tool is active', async () => {
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function ToolSelector() {
+      ctx = useEditor();
+      React.useEffect(() => {
+        ctx?.setTool('page');
+      }, []);
+      return null;
+    }
+
+    const { createDocument } = await import('@varve/scene');
+    const paged = createDocument('Paged', {
+      physicalWidth: 210,
+      physicalHeight: 297,
+      documentUnit: 'mm',
+    });
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(paged)}>
+        <ToolSelector />
+        <PropertiesPanel />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(ctx?.state.tool).toBe('page'));
+    // DocumentPanel is lazy-loaded; the generous timeout absorbs slow workers.
+    expect(
+      await screen.findByRole('button', { name: 'Page Print' }, { timeout: 15000 }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Canvas' })).toBeInTheDocument();
+  });
+
+  it('keeps document settings for tools without settings of their own', async () => {
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function ToolSelector() {
+      ctx = useEditor();
+      React.useEffect(() => {
+        ctx?.setTool('rect');
+      }, []);
+      return null;
+    }
+
+    render(
+      <EditorProvider>
+        <ToolSelector />
+        <PropertiesPanel />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(ctx?.state.tool).toBe('rect'));
+    expect(screen.queryByLabelText('Inspector context: Active tool')).toBeNull();
+    expect(
+      await screen.findByRole('button', { name: 'Canvas' }, { timeout: 15000 }),
+    ).toBeInTheDocument();
+  });
+
+  it('does not render the State Machine section inline', () => {
+    renderPanel();
+    expect(screen.queryByRole('button', { name: 'State Machine' })).toBeNull();
+  });
+});
+
+describe('PropertiesPanel export sub-tabs keyboard', () => {
+  it('uses roving tabindex and arrow keys with automatic activation', () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole('tab', { name: 'Export' }));
+    const formatTab = screen.getByRole('tab', { name: 'Format' });
+    const codeTab = screen.getByRole('tab', { name: 'Code' });
+
+    // Roving: only the active sub-tab is in the tab order.
+    expect(formatTab).toHaveAttribute('tabindex', '0');
+    expect(codeTab).toHaveAttribute('tabindex', '-1');
+
+    // ArrowRight activates and focuses Code; roving index follows.
+    fireEvent.keyDown(formatTab, { key: 'ArrowRight' });
+    expect(codeTab).toHaveAttribute('tabindex', '0');
+    expect(formatTab).toHaveAttribute('tabindex', '-1');
+    expect(screen.getByText(/Select a node to export/i)).toBeTruthy();
+
+    // ArrowLeft wraps back to Format.
+    fireEvent.keyDown(codeTab, { key: 'ArrowLeft' });
+    expect(formatTab).toHaveAttribute('tabindex', '0');
+  });
+
+  it('Home/End jump to first/last sub-tab', () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole('tab', { name: 'Export' }));
+    const formatTab = screen.getByRole('tab', { name: 'Format' });
+    const codeTab = screen.getByRole('tab', { name: 'Code' });
+
+    fireEvent.keyDown(formatTab, { key: 'End' });
+    expect(codeTab).toHaveAttribute('tabindex', '0');
+    fireEvent.keyDown(codeTab, { key: 'Home' });
+    expect(formatTab).toHaveAttribute('tabindex', '0');
+  });
+});

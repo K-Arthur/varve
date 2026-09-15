@@ -1,0 +1,915 @@
+/**
+ * FontDetectSection — "Identify Font": detects the font family used in a
+ * selected text region of an image.
+ *
+ * Modes:
+ *   - Classifier (default): uses the font-classify EfficientNet model to
+ *     predict font families from the image crop. Requires model download.
+ *   - Local match: renders the recognized text using installed fonts and
+ *     compares visually. Works without any model download.
+ *
+ * Results are presented as ranked candidates with honest confidence language.
+ * Applying a result always names an explicit destination: new text or one of
+ * the document's existing text layers.
+ */
+
+import type { FontCandidate, FontDetectionResult, OcrResult, OcrWord } from '@varve/engine';
+import {
+  createFontCatalogFromRegistry,
+  detectFont,
+  fontReferenceFromIdentity,
+  getFontRegistry,
+  getModelLoader,
+  loadFullLabelMap,
+  renderAndCompare,
+} from '@varve/engine';
+import type { SceneNode, TextNode } from '@varve/scene';
+import { getImageFill, imageShapeSrc, isImageShape, richTextToPlainText } from '@varve/scene';
+import { Button } from '@varve/ui';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEditor } from '../../../context';
+import { DisclosureSection } from '../controls/DisclosureSection';
+import { FONT_DETECT_MAX_EDGE, loadFontDetectionImage } from './fontDetectImage';
+import {
+  averageOcrConfidence,
+  type FontOcrProgress,
+  hasLocalFontOcr,
+  recognizeFontTextLocally,
+  textFromOcrResult,
+} from './fontOcr';
+import './FontDetectSection.css';
+
+const MODEL_ID = 'font-classify';
+interface FontDetectState {
+  status: 'idle' | 'downloading' | 'detecting' | 'error';
+  errorMessage: string | null;
+  progress: number;
+  result: FontDetectionResult | null;
+}
+
+interface DetectionPreview {
+  url: string;
+  width: number;
+  height: number;
+}
+
+function previewFromImageData(imageData: ImageData): DetectionPreview | null {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = imageData.width;
+    canvas.height = imageData.height;
+    const context = canvas.getContext('2d');
+    if (!context || typeof context.putImageData !== 'function') return null;
+    context.putImageData(imageData, 0, 0);
+    return { url: canvas.toDataURL('image/png'), width: imageData.width, height: imageData.height };
+  } catch {
+    // Preview is a convenience; unsupported canvas encoders must not block detection.
+    return null;
+  }
+}
+
+function selectedOcrText(words: OcrWord[], selectedIndexes: number[]): string {
+  const selected = new Set(selectedIndexes);
+  return words
+    .filter((_, index) => selected.has(index))
+    .map((word) => word.text.trim())
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+}
+
+function detectionCandidateKey(candidate: FontCandidate): string {
+  return `${candidate.family}|${candidate.style}|${candidate.rank}`;
+}
+
+function candidateNeedsReview(candidate: FontCandidate): boolean {
+  return (
+    candidate.confidenceCategory === 'low-confidence' ||
+    candidate.confidenceCategory === 'insufficient-quality' ||
+    candidate.confidenceCategory === 'out-of-catalogue'
+  );
+}
+
+export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
+  const editor = useEditor();
+  const { announce } = editor;
+  const node = nodes[0];
+  const abortRef = useRef<AbortController | null>(null);
+  const downloadAbortRef = useRef<AbortController | null>(null);
+  const ocrAbortRef = useRef<AbortController | null>(null);
+  const [modelAvailable, setModelAvailable] = useState(false);
+  const [ocrAvailable, setOcrAvailable] = useState(false);
+  const [ocrStatus, setOcrStatus] = useState<'idle' | 'checking' | 'processing' | 'error'>(
+    'checking',
+  );
+  const [ocrProgress, setOcrProgress] = useState<FontOcrProgress | null>(null);
+  const [ocrError, setOcrError] = useState<string | null>(null);
+  const [ocrResult, setOcrResult] = useState<OcrResult | null>(null);
+  const [selectedOcrWordIndexes, setSelectedOcrWordIndexes] = useState<number[]>([]);
+  const [detectionPreview, setDetectionPreview] = useState<DetectionPreview | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [recognizedText, setRecognizedText] = useState('');
+  const [targetId, setTargetId] = useState('');
+  const [reviewedCandidateKey, setReviewedCandidateKey] = useState<string | null>(null);
+
+  /**
+   * Keep the output target explicit. The image is the source of the
+   * identification request, while an existing text layer is an independent
+   * destination. Never infer that destination from the current image
+   * selection or mutate the first text node implicitly.
+   */
+  const textTargets = useMemo(() => {
+    const entries = [...editor.walkNodes().values()];
+    const entriesById = new Map(entries.map((entry) => [entry.nodeId, entry]));
+    const isVisibleAndUnlocked = (entry: (typeof entries)[number]) => {
+      let current: (typeof entries)[number] | undefined = entry;
+      const visited = new Set<string>();
+      while (current && !visited.has(current.nodeId)) {
+        visited.add(current.nodeId);
+        if (current.node.visible === false || current.node.locked === true) return false;
+        current = current.parentId ? entriesById.get(current.parentId) : undefined;
+      }
+      return true;
+    };
+    const targets: Array<{ id: string; label: string; preview: string; node: TextNode }> = [];
+    for (const entry of entries) {
+      if (entry.node.kind !== 'text' || !isVisibleAndUnlocked(entry)) continue;
+      const node = entry.node;
+      const preview = (node.richText ? richTextToPlainText(node.richText) : node.text)
+        .replace(/\s+/g, ' ')
+        .trim();
+      targets.push({
+        id: node.id,
+        label: node.name || 'Text layer',
+        preview: preview.length > 36 ? `${preview.slice(0, 36)}…` : preview,
+        node,
+      });
+    }
+    return targets;
+  }, [editor]);
+
+  useEffect(() => {
+    if (targetId && !textTargets.some((target) => target.id === targetId)) setTargetId('');
+  }, [targetId, textTargets]);
+
+  const [detect, setDetect] = useState<FontDetectState>({
+    status: 'idle',
+    errorMessage: null,
+    progress: 0,
+    result: null,
+  });
+
+  const isImage = Boolean(node && isImageShape(node));
+  const typedNode = isImage ? (node as import('@varve/scene').ShapeNode) : null;
+  const imageSrc = typedNode ? imageShapeSrc(typedNode) : '';
+  const image = typedNode ? getImageFill(typedNode)?.image : undefined;
+  const visibleCrop = image?.crop;
+  const [analyzeVisibleCrop, setAnalyzeVisibleCrop] = useState(Boolean(visibleCrop));
+
+  useEffect(() => {
+    setAnalyzeVisibleCrop(Boolean(visibleCrop));
+  }, [imageSrc, visibleCrop?.x, visibleCrop?.y, visibleCrop?.w, visibleCrop?.h]);
+
+  useEffect(() => {
+    if (!isImage) return;
+    let cancelled = false;
+    setOcrStatus('checking');
+    (async () => {
+      const [classifierResult, , ocrResult] = await Promise.allSettled([
+        getModelLoader().isModelAvailable(MODEL_ID),
+        loadFullLabelMap(),
+        hasLocalFontOcr(),
+      ]);
+      if (!cancelled) {
+        setModelAvailable(
+          classifierResult.status === 'fulfilled' && classifierResult.value === true,
+        );
+        setOcrAvailable(ocrResult.status === 'fulfilled' && ocrResult.value === true);
+        setOcrStatus('idle');
+      }
+    })();
+    return () => {
+      cancelled = true;
+      ocrAbortRef.current?.abort();
+    };
+  }, [isImage]);
+
+  useEffect(() => {
+    abortRef.current?.abort();
+    downloadAbortRef.current?.abort();
+    ocrAbortRef.current?.abort();
+    abortRef.current = null;
+    downloadAbortRef.current = null;
+    ocrAbortRef.current = null;
+    setOcrStatus('idle');
+    setOcrProgress(null);
+    setOcrError(null);
+    setOcrResult(null);
+    setSelectedOcrWordIndexes([]);
+    setDetectionPreview(null);
+    setReviewedCandidateKey(null);
+    setDetect((prev) => ({ ...prev, status: 'idle', errorMessage: null, result: null }));
+  }, [imageSrc, visibleCrop?.x, visibleCrop?.y, visibleCrop?.w, visibleCrop?.h]);
+
+  const handleDownload = useCallback(async () => {
+    setDetect((prev) => ({ ...prev, status: 'downloading', errorMessage: null }));
+    setDownloadProgress(0);
+    const controller = new AbortController();
+    downloadAbortRef.current = controller;
+    try {
+      const loader = getModelLoader();
+      await loader.downloadModel(
+        MODEL_ID,
+        (loaded, total) => {
+          setDownloadProgress(total > 0 ? Math.round((loaded / total) * 100) : 0);
+        },
+        controller.signal,
+      );
+      setDetect((prev) => ({ ...prev, status: 'idle' }));
+      setModelAvailable(true);
+      announce('Font detection model downloaded');
+    } catch (err) {
+      if (controller.signal.aborted) {
+        setDetect((prev) => ({ ...prev, status: 'idle' }));
+        return;
+      }
+      const message = err instanceof Error ? err.message : 'Download failed';
+      setDetect((prev) => ({ ...prev, status: 'error', errorMessage: message }));
+    } finally {
+      downloadAbortRef.current = null;
+    }
+  }, [announce]);
+
+  const handleCancelDownload = useCallback(() => {
+    downloadAbortRef.current?.abort();
+  }, []);
+
+  const handleRecognizeText = useCallback(async () => {
+    if (!ocrAvailable) return;
+    ocrAbortRef.current?.abort();
+    const controller = new AbortController();
+    ocrAbortRef.current = controller;
+    setOcrStatus('processing');
+    setOcrProgress(null);
+    setOcrError(null);
+    setOcrResult(null);
+
+    try {
+      if (!imageSrc) throw new Error('No image selected');
+      const imageData = await loadFontDetectionImage(imageSrc, {
+        crop: analyzeVisibleCrop ? visibleCrop : undefined,
+        rotation: image?.rotation,
+        flipH: image?.flipH,
+        flipV: image?.flipV,
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) throw new Error('cancelled');
+      setDetectionPreview(previewFromImageData(imageData));
+      const result = await recognizeFontTextLocally(imageData, controller.signal, setOcrProgress);
+      if (controller.signal.aborted) throw new Error('cancelled');
+      const text = textFromOcrResult(result);
+      setRecognizedText(text);
+      setOcrResult(result);
+      setSelectedOcrWordIndexes(
+        result.words
+          .map((word, index) => (word.text.trim() ? index : -1))
+          .filter((index) => index >= 0),
+      );
+      setOcrStatus('idle');
+      setOcrProgress({ phase: 'done', completed: 1, total: 1 });
+      announce(
+        text
+          ? `Local OCR recognized ${result.words.length} text region${result.words.length === 1 ? '' : 's'}`
+          : 'Local OCR found no readable text; enter it manually',
+      );
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      setOcrStatus('error');
+      setOcrError(err instanceof Error ? err.message : 'Local OCR failed');
+    } finally {
+      if (ocrAbortRef.current === controller) ocrAbortRef.current = null;
+    }
+  }, [analyzeVisibleCrop, announce, image, imageSrc, ocrAvailable, visibleCrop]);
+
+  const handleCancelOcr = useCallback(() => {
+    ocrAbortRef.current?.abort();
+    setOcrStatus('idle');
+    setOcrProgress(null);
+  }, []);
+
+  const handleDetect = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setDetect((prev) => ({ ...prev, status: 'detecting', errorMessage: null, result: null }));
+
+    try {
+      if (!imageSrc) throw new Error('No image selected');
+      const imageData = await loadFontDetectionImage(imageSrc, {
+        crop: analyzeVisibleCrop ? visibleCrop : undefined,
+        rotation: image?.rotation,
+        flipH: image?.flipH,
+        flipV: image?.flipV,
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted) throw new Error('cancelled');
+      setDetectionPreview(previewFromImageData(imageData));
+
+      const registry = getFontRegistry();
+      const fontCatalog = createFontCatalogFromRegistry(registry);
+
+      const result = await detectFont(
+        {
+          imageData,
+          mode: 'hybrid',
+          recognizedText: recognizedText.trim() || undefined,
+          maxCandidates: 5,
+          signal: controller.signal,
+        },
+        {
+          fontCatalog,
+          renderCompare: async (imageData, families, text) =>
+            (
+              await renderAndCompare({
+                sourceImageData: imageData,
+                families,
+                recognizedText: text,
+                signal: controller.signal,
+              })
+            ).scores,
+        },
+      );
+
+      if (controller.signal.aborted) throw new Error('cancelled');
+
+      setDetect({
+        status: 'idle',
+        errorMessage: null,
+        progress: 100,
+        result,
+      });
+
+      const candidateCount = result.candidates.length;
+      announce(
+        candidateCount > 0
+          ? `Found ${candidateCount} font candidate${candidateCount === 1 ? '' : 's'}`
+          : 'No font candidates found',
+      );
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      const message = err instanceof Error ? err.message : 'Font detection failed';
+      setDetect((prev) => ({ ...prev, status: 'error', errorMessage: message }));
+    }
+  }, [analyzeVisibleCrop, announce, image, imageSrc, recognizedText, visibleCrop]);
+
+  const handleCancel = useCallback(() => {
+    abortRef.current?.abort();
+    setDetect((prev) => ({ ...prev, status: 'idle' }));
+  }, []);
+
+  const handleDismissResult = useCallback(() => {
+    setDetect((prev) => ({ ...prev, result: null }));
+    setReviewedCandidateKey(null);
+  }, []);
+
+  const handleToggleOcrWord = useCallback(
+    (index: number) => {
+      if (!ocrResult) return;
+      setSelectedOcrWordIndexes((current) => {
+        const next = current.includes(index)
+          ? current.filter((item) => item !== index)
+          : [...current, index].sort((a, b) => a - b);
+        setRecognizedText(selectedOcrText(ocrResult.words, next));
+        announce(
+          next.includes(index)
+            ? `Included OCR region ${index + 1}`
+            : `Excluded OCR region ${index + 1}`,
+        );
+        return next;
+      });
+    },
+    [announce, ocrResult],
+  );
+
+  const useCandidateForNewText = useCallback(
+    (candidate: FontCandidate) => {
+      const reference = candidate.catalogEntry
+        ? fontReferenceFromIdentity(candidate.catalogEntry.identity)
+        : undefined;
+      editor.setPendingFormat({
+        fontFamily: candidate.family,
+        ...(reference ? { fontReference: reference } : {}),
+      });
+      editor.setTool('text');
+      announce(
+        candidate.isAvailable
+          ? `Font selected for new text: ${candidate.family}`
+          : `Font request queued for new text: ${candidate.family}`,
+      );
+    },
+    [announce, editor],
+  );
+
+  const applyCandidateToTarget = useCallback(
+    (candidate: FontCandidate) => {
+      const target = textTargets.find((item) => item.id === targetId);
+      if (!target) return;
+      if (
+        candidateNeedsReview(candidate) &&
+        reviewedCandidateKey !== detectionCandidateKey(candidate)
+      ) {
+        announce('Review the low-confidence preview before applying this font');
+        return;
+      }
+      const reference = candidate.catalogEntry
+        ? fontReferenceFromIdentity(candidate.catalogEntry.identity)
+        : undefined;
+      editor.groupCompoundOperation('Apply identified font', () => {
+        editor.updateNode(target.id, (current) => {
+          if (current.kind !== 'text') return current;
+          return {
+            ...current,
+            // An unavailable classifier result deliberately clears any old
+            // exact reference, leaving the resolver to report a family-only
+            // fallback instead of silently retaining the wrong face.
+            fontFamily: candidate.family,
+            fontReference: reference,
+          };
+        });
+      });
+      editor.setSelection(target.id);
+      announce(`Applied ${candidate.family} to ${target.label}`);
+    },
+    [announce, editor, reviewedCandidateKey, targetId, textTargets],
+  );
+
+  const selectedTarget = textTargets.find((target) => target.id === targetId);
+
+  if (!isImage || !typedNode) return null;
+
+  const isProcessing = detect.status === 'detecting';
+  const needsDownload = !modelAvailable && detect.status !== 'downloading';
+
+  return (
+    <DisclosureSection title="Identify Font" sectionId="font-detect">
+      <div className="insp-field-group">
+        <p className="insp-hint">
+          Identifies the font family used in the selected image region. The source is bounded to a{' '}
+          {FONT_DETECT_MAX_EDGE}px edge and all comparison work stays local. Select a clear,
+          high-contrast text region for best results.
+        </p>
+
+        <section className="font-detect-region" aria-label="Font detection region">
+          <div className="font-detect-region__header">
+            <span className="insp-subsection__label">Analysis region</span>
+            {visibleCrop ? (
+              <span className="font-detect-region__dimensions">
+                {Math.round(visibleCrop.w)} x {Math.round(visibleCrop.h)} px
+              </span>
+            ) : (
+              <span className="font-detect-region__dimensions">Full image</span>
+            )}
+          </div>
+          <label className="font-detect-region__toggle">
+            <input
+              type="checkbox"
+              checked={Boolean(visibleCrop) && analyzeVisibleCrop}
+              disabled={!visibleCrop}
+              onChange={(event) => setAnalyzeVisibleCrop(event.target.checked)}
+            />
+            <span>Analyze visible crop</span>
+          </label>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              editor.setTool('crop');
+              announce('Crop tool active. Select the text region, then return to Identify Font.');
+            }}
+          >
+            Select region on canvas
+          </Button>
+          {(image?.rotation || image?.flipH || image?.flipV) && (
+            <p className="insp-hint">
+              Detection follows the image transform
+              {image.rotation ? ` (${Math.round(image.rotation)}°)` : ''}
+              {image.flipH ? ' and horizontal flip' : ''}
+              {image.flipV ? ' and vertical flip' : ''}.
+            </p>
+          )}
+        </section>
+
+        <label className="font-detect-text-field">
+          <span className="insp-subsection__label">Text in image (optional)</span>
+          <input
+            type="text"
+            className="font-detect-text-input"
+            value={recognizedText}
+            onChange={(event) => setRecognizedText(event.target.value)}
+            placeholder="Type the visible text for local comparison"
+            aria-label="Text in image (optional)"
+          />
+          <span className="insp-hint">
+            Type text manually, or use local OCR when its models are already installed.
+          </span>
+          {ocrAvailable ? (
+            <div className="font-detect-ocr-actions">
+              {ocrStatus === 'processing' ? (
+                <>
+                  <span className="insp-hint" aria-live="polite">
+                    Reading text locally
+                    {ocrProgress?.phase ? ` · ${ocrProgress.phase}` : ''}
+                    {ocrProgress && ocrProgress.total > 0
+                      ? ` (${ocrProgress.completed}/${ocrProgress.total})`
+                      : ''}
+                    …
+                  </span>
+                  <Button type="button" variant="ghost" size="sm" onClick={handleCancelOcr}>
+                    Cancel OCR
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRecognizeText}
+                  aria-label="Recognize text locally"
+                >
+                  Read text with local OCR
+                </Button>
+              )}
+            </div>
+          ) : (
+            <span className="insp-hint">Local OCR models are unavailable in this runtime.</span>
+          )}
+          {ocrResult && (
+            <>
+              <OcrRegionPreview
+                preview={detectionPreview}
+                words={ocrResult.words}
+                selectedIndexes={selectedOcrWordIndexes}
+                onToggle={handleToggleOcrWord}
+              />
+              <p className="insp-hint" role="status">
+                OCR found {ocrResult.words.length} region{ocrResult.words.length === 1 ? '' : 's'}
+                {averageOcrConfidence(ocrResult) === undefined
+                  ? ''
+                  : ` · average confidence ${Math.round(averageOcrConfidence(ocrResult)! * 100)}%`}
+                {ocrResult.recognitionModelId ? ` · ${ocrResult.recognitionModelId}` : ''}. Select
+                regions above to limit the comparison text.
+              </p>
+            </>
+          )}
+          {ocrStatus === 'error' && ocrError && (
+            <p className="insp-hint insp-hint--error" role="alert">
+              {ocrError}. Enter the text manually or try again.
+            </p>
+          )}
+        </label>
+
+        {textTargets.length > 0 && (
+          <label className="font-detect-target-field">
+            <span className="insp-subsection__label">Apply result to</span>
+            <select
+              className="font-detect-target-select"
+              value={targetId}
+              onChange={(event) => setTargetId(event.target.value)}
+              aria-label="Existing text target"
+            >
+              <option value="">New text (choose below)</option>
+              {textTargets.map((target) => (
+                <option key={target.id} value={target.id}>
+                  {target.label}
+                  {target.preview ? ` — ${target.preview}` : ''}
+                </option>
+              ))}
+            </select>
+            <span className="insp-hint">
+              Applying a candidate edits only this layer and creates one undo step.
+            </span>
+          </label>
+        )}
+
+        {needsDownload && (
+          <div className="insp-actions">
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              onClick={handleDownload}
+              aria-label="Download font classifier model (~64 MB)"
+            >
+              Download AI Model
+            </Button>
+            <p className="insp-hint">
+              Requires a one-time ~64 MB download. Stored locally on this device.
+            </p>
+          </div>
+        )}
+
+        {detect.status === 'downloading' && (
+          <div className="insp-actions">
+            <div
+              className="insp-progress-bar"
+              role="progressbar"
+              aria-valuenow={downloadProgress}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div className="insp-progress-bar__fill" style={{ width: `${downloadProgress}%` }} />
+            </div>
+            <p className="insp-hint" aria-live="polite">
+              Downloading… {downloadProgress}%
+            </p>
+            <Button type="button" variant="ghost" size="sm" onClick={handleCancelDownload}>
+              Cancel
+            </Button>
+          </div>
+        )}
+
+        {detect.result && (
+          <section className="insp-nested-panel" aria-label="Font detection results">
+            <ResultsList
+              result={detect.result}
+              specimenText={recognizedText}
+              target={selectedTarget}
+              reviewedCandidateKey={reviewedCandidateKey}
+              onReviewCandidate={setReviewedCandidateKey}
+              onUseForNewText={useCandidateForNewText}
+              onApplyToTarget={applyCandidateToTarget}
+            />
+            <div className="insp-actions">
+              <Button type="button" variant="ghost" size="sm" onClick={handleDismissResult}>
+                Dismiss
+              </Button>
+            </div>
+          </section>
+        )}
+
+        <div className="insp-actions">
+          {isProcessing ? (
+            <>
+              <span className="insp-hint" aria-live="polite">
+                Identifying font…
+              </span>
+              <Button type="button" variant="ghost" size="sm" onClick={handleCancel}>
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleDetect}
+              aria-label="Identify font in image"
+            >
+              Identify Font
+            </Button>
+          )}
+        </div>
+
+        {detect.status === 'error' && detect.errorMessage && (
+          <p className="insp-hint insp-hint--error" role="alert">
+            {detect.errorMessage}
+          </p>
+        )}
+      </div>
+    </DisclosureSection>
+  );
+}
+
+function OcrRegionPreview({
+  preview,
+  words,
+  selectedIndexes,
+  onToggle,
+}: {
+  preview: DetectionPreview | null;
+  words: OcrWord[];
+  selectedIndexes: number[];
+  onToggle: (index: number) => void;
+}) {
+  const selected = new Set(selectedIndexes);
+  const width = preview?.width ?? Math.max(1, ...words.map((word) => word.x + word.width));
+  const height = preview?.height ?? Math.max(1, ...words.map((word) => word.y + word.height));
+  return (
+    <figure className="font-detect-ocr-preview" aria-label="OCR region selection">
+      <div
+        className="font-detect-ocr-preview__canvas"
+        style={
+          preview
+            ? {
+                aspectRatio: `${width} / ${height}`,
+                backgroundImage: `url(${preview.url})`,
+              }
+            : { aspectRatio: `${width} / ${height}` }
+        }
+      >
+        {words.map((word, index) => {
+          const isSelected = selected.has(index);
+          return (
+            <button
+              key={`${word.x}:${word.y}:${word.width}:${word.height}:${word.text}`}
+              type="button"
+              className={`font-detect-ocr-preview__box${isSelected ? ' is-selected' : ''}`}
+              style={{
+                left: `${(word.x / width) * 100}%`,
+                top: `${(word.y / height) * 100}%`,
+                width: `${(word.width / width) * 100}%`,
+                height: `${(word.height / height) * 100}%`,
+              }}
+              aria-label={`OCR region ${index + 1}: ${word.text || 'unreadable'} (${Math.round(word.confidence * 100)}% confidence)`}
+              aria-pressed={isSelected}
+              onClick={() => onToggle(index)}
+            />
+          );
+        })}
+      </div>
+      <figcaption className="font-detect-ocr-preview__caption">
+        <span>OCR regions</span>
+        <span>
+          {selectedIndexes.length}/{words.length} selected · click a box to include or exclude it
+        </span>
+      </figcaption>
+    </figure>
+  );
+}
+
+function ResultsList({
+  result,
+  specimenText,
+  target,
+  reviewedCandidateKey,
+  onReviewCandidate,
+  onUseForNewText,
+  onApplyToTarget,
+}: {
+  result: FontDetectionResult;
+  specimenText: string;
+  target?: { label: string; preview: string };
+  reviewedCandidateKey: string | null;
+  onReviewCandidate: (key: string | null) => void;
+  onUseForNewText?: (candidate: FontCandidate) => void;
+  onApplyToTarget?: (candidate: FontCandidate) => void;
+}) {
+  if (result.candidates.length === 0) {
+    return (
+      <div className="insp-hint" role="status">
+        <p>{result.message}</p>
+        {result.qualityWarnings.length > 0 && (
+          <ul style={{ marginTop: 4, paddingLeft: 16 }}>
+            {result.qualityWarnings.map((w) => (
+              <li key={w.code}>{w.message}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p className="insp-subsection__label">
+        {result.candidates.length} candidate{result.candidates.length === 1 ? '' : 's'}
+      </p>
+      <ul className="font-detect-results" aria-label="Font candidates ranked by confidence">
+        {result.candidates.map((candidate) => {
+          const key = detectionCandidateKey(candidate);
+          const needsReview = candidateNeedsReview(candidate);
+          const reviewed = reviewedCandidateKey === key;
+          return (
+            <li key={key} className="font-detect-candidate">
+              <div className="font-detect-candidate__header">
+                <span className="font-detect-candidate__family">{candidate.family}</span>
+                <ConfidenceBadge category={candidate.confidenceCategory} />
+              </div>
+              <span className="font-detect-candidate__style">{candidate.style}</span>
+              <div
+                className="font-detect-candidate__preview"
+                role="img"
+                aria-label={`Preview ${candidate.family}`}
+                style={
+                  candidate.isAvailable
+                    ? {
+                        fontFamily: `"${candidate.family.replaceAll('"', '')}", sans-serif`,
+                        fontStyle: /italic|oblique/i.test(candidate.style) ? 'italic' : 'normal',
+                        fontWeight: /bold|black|heavy/i.test(candidate.style) ? 700 : 400,
+                      }
+                    : undefined
+                }
+              >
+                {(specimenText.trim() || candidate.previewText?.trim() || 'Aa — 0123').slice(0, 96)}
+              </div>
+              {target && (
+                <div className="font-detect-candidate__target-preview">
+                  <span className="font-detect-candidate__target-label">
+                    Preview on {target.label}
+                  </span>
+                  <span
+                    style={
+                      candidate.isAvailable
+                        ? {
+                            fontFamily: `"${candidate.family.replaceAll('"', '')}", sans-serif`,
+                            fontStyle: /italic|oblique/i.test(candidate.style)
+                              ? 'italic'
+                              : 'normal',
+                            fontWeight: /bold|black|heavy/i.test(candidate.style) ? 700 : 400,
+                          }
+                        : undefined
+                    }
+                  >
+                    {target.preview || specimenText.trim() || 'Aa — 0123'}
+                  </span>
+                </div>
+              )}
+              {target && needsReview && (
+                <div className="font-detect-candidate__review">
+                  <span className="insp-hint insp-hint--warning">
+                    Confidence is low. Review this target preview before applying.
+                  </span>
+                  <Button
+                    type="button"
+                    variant={reviewed ? 'secondary' : 'ghost'}
+                    size="sm"
+                    aria-pressed={reviewed}
+                    onClick={() => onReviewCandidate(reviewed ? null : key)}
+                  >
+                    {reviewed ? 'Preview reviewed' : 'Review preview'}
+                  </Button>
+                </div>
+              )}
+              <div className="font-detect-candidate__meta">
+                {candidate.isAvailable && (
+                  <span className="font-detect-candidate__available">Installed</span>
+                )}
+                <span className="font-detect-candidate__source">{candidate.source}</span>
+              </div>
+              <div className="insp-actions" style={{ marginTop: 4 }}>
+                {target && (
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    disabled={needsReview && !reviewed}
+                    onClick={() => onApplyToTarget?.(candidate)}
+                    aria-label={`Apply ${candidate.family} to existing text target`}
+                  >
+                    Apply to target
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onUseForNewText?.(candidate)}
+                  aria-label={`Use ${candidate.family} for new text`}
+                >
+                  Use for new text
+                </Button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      {result.qualityWarnings.length > 0 && (
+        <div className="insp-hint insp-hint--warning" role="note">
+          {result.qualityWarnings.map((w) => (
+            <p key={w.code}>{w.message}</p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ConfidenceBadge({ category }: { category: string }) {
+  const label = confidenceLabel(category);
+  const className = `font-detect-badge font-detect-badge--${category}`;
+  return (
+    <span className={className} role="status" aria-label={`Confidence: ${label}`}>
+      {label}
+    </span>
+  );
+}
+
+function confidenceLabel(category: string): string {
+  switch (category) {
+    case 'likely-match':
+      return 'Likely match';
+    case 'plausible-match':
+      return 'Plausible match';
+    case 'similar-candidate':
+      return 'Similar';
+    case 'low-confidence':
+      return 'Low confidence';
+    case 'out-of-catalogue':
+      return 'Not in catalogue';
+    case 'insufficient-quality':
+      return 'Low quality';
+    default:
+      return category;
+  }
+}

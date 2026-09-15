@@ -1,0 +1,96 @@
+.liquify-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 240px;
+}
+
+.liquify-options__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.liquify-options__target {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+.liquify-options__field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.liquify-options__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.liquify-options__slider {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.liquify-options__slider input[type="range"] {
+  width: 100%;
+  accent-color: var(--color-interactive-default);
+}
+
+.liquify-options__check {
+  font-size: var(--font-size-sm);
+}
+
+.liquify-options__reset {
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-control);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--elevation-surface-default);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  min-height: 32px;
+}
+
+.liquify-options__reset:hover:not(:disabled) {
+  background: var(--color-surface-sunken);
+}
+
+.liquify-options__reset:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.liquify-options__reset:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+.liquify-options__hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.liquify-options__warning {
+  margin: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-warning, var(--color-border-subtle));
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+}

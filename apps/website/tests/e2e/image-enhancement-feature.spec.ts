@@ -1,0 +1,42 @@
+import { expect, test } from '@playwright/test';
+
+test('image enhancement feature page explains the shipped workflow', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
+  await page.goto('/features/image-enhancement');
+
+  await expect(
+    page.getByRole('heading', { name: /enhance images without leaving the canvas/i }),
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Denoise' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Deblur' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Restore + Upscale' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Presets that stay editable' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Auto / Recommended' })).toBeVisible();
+  await expect(page.getByText(/qualitative signal label/i)).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'The useful path is selected per workload.' }),
+  ).toBeVisible();
+  await expect(page.getByText(/current release does not ship a vendor NPU runtime/i)).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Inspect the pixels before you commit.' }),
+  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Choose the detail' })).toBeVisible();
+  // Honest boundary: JPEG artifact removal stays unadvertised.
+  await expect(page.getByText(/JPEG artifact removal is not offered/i)).toBeVisible();
+  await expect(page.locator('.pipeline')).toBeVisible();
+});
+
+test('image enhancement documentation is linked and readable', async ({ page }) => {
+  await page.goto('/docs/tools/image-enhancement');
+  await expect(page.getByRole('heading', { name: 'Image Enhance' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Honest capabilities' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Choose the task' })).toBeVisible();
+  await expect(page.getByText(/presets cover Auto, CPU and AI photo work/i)).toBeVisible();
+  await expect(page.getByText(/untouched source crop/i)).toBeVisible();
+  await expect(page.getByText(/Generate AI preview/i)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Which accelerator ran?' })).toBeVisible();
+  await expect(
+    page.getByText(/Provider status is evidence about the completed workload/i),
+  ).toBeVisible();
+});

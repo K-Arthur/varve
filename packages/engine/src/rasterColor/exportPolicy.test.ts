@@ -1,0 +1,238 @@
+/**
+ * Export colour policy: real conversion of the rendered composite (never a
+ * relabel), out-of-gamut preservation, and profile embedding gating.
+ */
+
+import { convertEncodedRgb } from '@varve/shared';
+import { describe, expect, it } from 'vitest';
+import {
+  convertExportImageData,
+  createExportTransform,
+  DEFAULT_RASTER_EXPORT_SOURCE_ENCODING,
+  exportProfileBytes,
+  resolveExportEncoding,
+} from './exportPolicy';
+import {
+  allocatePixelBuffer,
+  convertPixelBufferFormat,
+  isWithinPixelBudget,
+  pixelBufferBytes,
+  rgba16fToRgba32f,
+  rgba32fToRgba8,
+  rgba32fToRgba16f,
+} from './pixelBuffer';
+import { buildMatrixProfile, parseIccHeader } from './profiles';
+
+function imageData1x1(r: number, g: number, b: number, a = 255): ImageData {
+  return new ImageData(new Uint8ClampedArray([r, g, b, a]), 1, 1);
+}
+
+describe('convertExportImageData', () => {
+  it('leaves sRGB policy untouched', async () => {
+    const pixels = imageData1x1(10, 200, 30);
+    const warnings = await convertExportImageData(pixels, { destination: 'srgb' });
+    expect(warnings).toEqual([]);
+    expect(Array.from(pixels.data)).toEqual([10, 200, 30, 255]);
+  });
+
+  it('converts sRGB green to Display P3 (engine-verified values)', async () => {
+    const pixels = imageData1x1(0, 255, 0);
+    const warnings = await convertExportImageData(pixels, { destination: 'display-p3' });
+    expect(warnings.some((w) => w.includes('converted'))).toBe(true);
+    // sRGB (0,1,0) → display-p3 (sRGB transfer) ≈ (0.458, 0.985, 0.298) —
+    // consistent with the CSS Color 4 leaf goldens verified in @varve/shared.
+    const [r, g, b] = Array.from(pixels.data);
+    expect(r).toBeCloseTo(117, 1);
+    expect(g).toBeCloseTo(251, 1);
+    expect(b).toBeCloseTo(76, 1);
+  });
+
+  it('converts Adobe RGB to sRGB semantics (channel-preserving check)', async () => {
+    // Destination Adobe RGB from an sRGB composite: a neutral grey stays
+    // neutral; saturated sRGB red maps inside Adobe's wider gamut.
+    const pixels = imageData1x1(255, 0, 0);
+    await convertExportImageData(pixels, { destination: 'adobe-rgb' });
+    const [r, g, b] = Array.from(pixels.data);
+    expect(r).toBeGreaterThan(200);
+    expect(g).toBeLessThan(40);
+    expect(b).toBeLessThan(40);
+  });
+
+  it('converts a declared Display P3 source to the default sRGB destination', async () => {
+    const pixels = imageData1x1(255, 128, 0);
+    const displayP3Source = {
+      ...DEFAULT_RASTER_EXPORT_SOURCE_ENCODING,
+      primaries: 'display-p3' as const,
+      provenance: 'embedded-icc' as const,
+    };
+
+    const warnings = await convertExportImageData(pixels, undefined, undefined, displayP3Source);
+
+    const expected = convertEncodedRgb(
+      { primaries: 'display-p3', transfer: 'srgb' },
+      { primaries: 'srgb', transfer: 'srgb' },
+      [1, 128 / 255, 0],
+    )!;
+    expect(warnings).toEqual([expect.stringContaining('converted composite from display-p3')]);
+    expect(Array.from(pixels.data)).toEqual([
+      Math.round(Math.max(0, Math.min(1, expected[0])) * 255),
+      Math.round(Math.max(0, Math.min(1, expected[1])) * 255),
+      Math.round(Math.max(0, Math.min(1, expected[2])) * 255),
+      255,
+    ]);
+  });
+
+  it('is cancellable mid-conversion', async () => {
+    const pixels = imageData1x1(0, 255, 0);
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      convertExportImageData(pixels, { destination: 'display-p3' }, controller.signal),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('reports an honest warning for unsupported destinations instead of converting', async () => {
+    const pixels = imageData1x1(0, 255, 0);
+    const warnings = await convertExportImageData(pixels, {
+      destination: 'display-p3',
+      transfer: 'pq',
+    });
+    expect(warnings.some((w) => w.includes('cannot analytically convert'))).toBe(true);
+    expect(Array.from(pixels.data)).toEqual([0, 255, 0, 255]);
+  });
+});
+
+describe('createExportTransform', () => {
+  it('builds a transform for convertible policies and null otherwise', () => {
+    expect(createExportTransform({ destination: 'display-p3' })).not.toBeNull();
+    expect(createExportTransform({})).not.toBeNull(); // identity srgb
+    expect(createExportTransform({ destination: 'display-p3', transfer: 'hlg' })).toBeNull();
+    expect(
+      createExportTransform(
+        { destination: 'srgb' },
+        { model: 'rgb', primaries: 'unknown', provenance: 'embedded-icc' },
+      ),
+    ).toBeNull();
+  });
+});
+
+describe('resolveExportEncoding + profile bytes', () => {
+  it('defaults to sRGB when no destination is given', () => {
+    expect(resolveExportEncoding().primaries).toBe('srgb');
+    expect(resolveExportEncoding(undefined).provenance).toBe('user-assigned');
+  });
+
+  it('embeds an authored profile when requested', () => {
+    const bytes = exportProfileBytes({ destination: 'display-p3', embedProfile: true });
+    expect(bytes).not.toBeNull();
+    if (!bytes) return;
+    const header = parseIccHeader(bytes);
+    expect(header.description).toBe('Varve Display P3');
+  });
+
+  it('returns null when embedProfile is not set', () => {
+    expect(exportProfileBytes({ destination: 'display-p3' })).toBeNull();
+    expect(exportProfileBytes(undefined)).toBeNull();
+  });
+
+  it('profile bytes are valid input for buildMatrixProfile round-trip', () => {
+    const bytes = exportProfileBytes({ destination: 'pro-photo', embedProfile: true });
+    expect(bytes).not.toBeNull();
+    if (!bytes) return;
+    expect(parseIccHeader(bytes).profileClass).toBe('mntr');
+    const rebuilt = buildMatrixProfile('pro-photo');
+    expect(bytes).toEqual(rebuilt);
+  });
+});
+
+describe('pixelBuffer accounting', () => {
+  it('computes byte sizes per format', () => {
+    expect(pixelBufferBytes(100, 100, 'rgba8')).toBe(40000);
+    expect(pixelBufferBytes(100, 100, 'rgba32f')).toBe(160000);
+    expect(isWithinPixelBudget(100, 100, 'rgba8', 40000)).toBe(true);
+    expect(isWithinPixelBudget(100, 100, 'rgba8', 39999)).toBe(false);
+  });
+
+  it('round-trips rgba32f → rgba8 with clamping', () => {
+    const source = new Float32Array([0, 0.5, 1, 0.25, 1.5, -0.5, 0.999, 1]);
+    const target = new Uint8ClampedArray(8);
+    rgba32fToRgba8(source, target);
+    expect(Array.from(target)).toEqual([0, 128, 255, 64, 255, 0, 255, 255]);
+  });
+
+  it('allocates typed storage for a bounded half-float surface', () => {
+    const surface = allocatePixelBuffer(
+      {
+        width: 2,
+        height: 1,
+        format: 'rgba16f',
+        colorEncoding: {
+          model: 'rgb',
+          primaries: 'srgb',
+          transfer: 'linear',
+          bitDepth: 'float16',
+          provenance: 'named',
+        },
+        alphaMode: 'straight',
+      },
+      16,
+    );
+    expect(surface.data).toBeInstanceOf(Uint16Array);
+    expect(surface.data.byteLength).toBe(16);
+  });
+
+  it('round-trips half-float channels within half precision', () => {
+    const source = new Float32Array([0, 0.5, 1, 0.25, 1.5, -0.5, 0.1234, 1]);
+    const half = new Uint16Array(source.length);
+    const result = new Float32Array(source.length);
+    rgba32fToRgba16f(source, half);
+    rgba16fToRgba32f(half, result);
+    expect(result[0]).toBe(0);
+    expect(result[1]).toBe(0.5);
+    expect(result[2]).toBe(1);
+    expect(result[4]).toBe(1.5);
+    expect(result[5]).toBe(-0.5);
+    expect(result[6]).toBeCloseTo(0.1234, 3);
+  });
+
+  it('rejects allocations beyond the explicit byte budget', () => {
+    expect(() =>
+      allocatePixelBuffer(
+        {
+          width: 100,
+          height: 100,
+          format: 'rgba32f',
+          colorEncoding: { model: 'rgb', provenance: 'named' },
+          alphaMode: 'straight',
+        },
+        100,
+      ),
+    ).toThrow(/budget/);
+  });
+
+  it('quantizes only when copying into an explicit target storage format', () => {
+    const source = allocatePixelBuffer({
+      width: 1,
+      height: 1,
+      format: 'rgba32f',
+      colorEncoding: { model: 'rgb', provenance: 'named' },
+      alphaMode: 'straight',
+    });
+    source.data.set([0.1234, 0.1235, 0.5, 1]);
+    const rgba8 = convertPixelBufferFormat(source, 'rgba8');
+    const rgba16 = convertPixelBufferFormat(source, 'rgba16');
+
+    expect(Array.from(rgba8.data)).toEqual([31, 31, 128, 255]);
+    expect(Array.from(rgba16.data)).toEqual([
+      Math.round(0.1234 * 65535),
+      Math.round(0.1235 * 65535),
+      32768,
+      65535,
+    ]);
+    expect(Array.from(source.data)[0]).toBeCloseTo(0.1234, 6);
+    expect(Array.from(source.data)[1]).toBeCloseTo(0.1235, 6);
+    expect(Array.from(source.data).slice(2)).toEqual([0.5, 1]);
+    expect(rgba8.descriptor.format).toBe('rgba8');
+    expect(rgba16.descriptor.format).toBe('rgba16');
+  });
+});

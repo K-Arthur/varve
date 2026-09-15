@@ -1,0 +1,101 @@
+[
+  {
+    "package": "@fontsource-variable/geist",
+    "packageVersion": "5.3.0",
+    "file": "geist/geist-latin-wght-normal.woff2",
+    "license": "geist/LICENSE",
+    "sha256": "19f9c92546aa300c312235e3125af1b81394d8db9a4bc4a425cd5b641d2d54e1",
+    "expected": {
+      "xHeight": 530,
+      "capHeight": 710
+    }
+  },
+  {
+    "package": "@fontsource-variable/ibm-plex-sans",
+    "packageVersion": "5.3.0",
+    "file": "ibm-plex-sans/ibm-plex-sans-latin-wght-normal.woff2",
+    "license": "ibm-plex-sans/LICENSE",
+    "sha256": "e2291e842cf5af167122a22881a740c7f2dda7716f1e8cd76680264f4a859470",
+    "expected": {
+      "xHeight": 516,
+      "capHeight": 698
+    }
+  },
+  {
+    "package": "@fontsource-variable/fraunces",
+    "packageVersion": "5.3.0",
+    "file": "fraunces/fraunces-latin-opsz-normal.woff2",
+    "license": "fraunces/LICENSE",
+    "sha256": "7234ed860a9cc83045413c4faee63c960a8f2d1917adcf728119307d56e0d783",
+    "expected": {
+      "xHeight": 964,
+      "capHeight": 1400
+    }
+  },
+  {
+    "package": "ttf-liberation",
+    "packageVersion": "2.1.5-2",
+    "file": "liberation-sans/LiberationSans-Regular.ttf",
+    "license": "liberation-sans/LICENSE",
+    "sha256": "baccc64becc3eb7d104b7c84d99f5314a0a1f896e2b3ea6c2f22fc08d2003bee",
+    "expected": {
+      "format": "ttf",
+      "family": "Liberation Sans",
+      "subfamily": "Regular",
+      "coverage": [65]
+    }
+  },
+  {
+    "package": "ttf-liberation",
+    "packageVersion": "2.1.5-2",
+    "file": "liberation-collection/liberation-sans-serif.ttc",
+    "license": "liberation-collection/LICENSE",
+    "derivedFrom": [
+      "LiberationSans-Regular.ttf",
+      "LiberationSerif-Regular.ttf"
+    ],
+    "sha256": "0ea773b2354098ccac1972147993c4d52c6b3cd1338e8bd56ebd0f5cbcd3eefd",
+    "expected": {
+      "format": "ttc",
+      "members": [
+        { "collectionIndex": 0, "family": "Liberation Sans" },
+        { "collectionIndex": 1, "family": "Liberation Serif" }
+      ]
+    }
+  },
+  {
+    "package": "noto-fonts",
+    "packageVersion": "system package",
+    "file": "noto-arabic/NotoSansArabic-Regular.ttf",
+    "license": "noto-arabic/LICENSE",
+    "sha256": "bdff3e5659d67e67def05b33f749683b9376ae819d65d3dd62ac4640b3aaef48",
+    "expected": { "format": "ttf", "script": "arab", "codePoint": "U+0627" }
+  },
+  {
+    "package": "noto-fonts",
+    "packageVersion": "system package",
+    "file": "noto-devanagari/NotoSansDevanagari-Regular.ttf",
+    "license": "noto-devanagari/LICENSE",
+    "sha256": "306b53ecfb182a504dd8a7446093c316387d2fd8dc350d0792ed1753fe0996cd",
+    "expected": { "format": "ttf", "script": "deva", "codePoint": "U+0915" }
+  },
+  {
+    "package": "@fontsource/noto-sans-jp",
+    "packageVersion": "5.3.0",
+    "file": "noto-cjk/noto-sans-jp-japanese-400-normal.woff2",
+    "license": "noto-cjk/LICENSE",
+    "sha256": "4a7b928d4d75e7fc0bace614030664a7ea7eb7d2f754fd2b2da9c3c0ed350570",
+    "expected": { "format": "woff2", "familyPrefix": "Noto Sans JP", "codePoint": "U+65E5" }
+  },
+  {
+    "package": "noto-fonts",
+    "packageVersion": "system package",
+    "file": "noto-color/NotoZnamennyMusicalNotation-Regular.ttf",
+    "license": "noto-color/LICENSE",
+    "sha256": "b6ed2a11d2a653e14137a35e4c6fdaf5093434ac12964791ee195270828e7508",
+    "expected": {
+      "format": "ttf",
+      "colorFormats": ["colr0", "cpal"]
+    }
+  }
+]

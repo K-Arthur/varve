@@ -44,10 +44,7 @@ apps/website/
     ├── data/
     │   └── release-manifest.json    GENERATED — never hand-edited
     ├── lib/siteUrl.ts               ONE URL system: sitePath/siteUrl/canonical
-    ├── lib/search/                  pure search: extract, rank, types
-    ├── scripts/search-index.mjs     build hook: anchors + search-index.json
     ├── layouts/Layout.astro         meta, OG, CSP, consent surface, active nav
-    ├── components/SearchDialog.astro  native <dialog> combobox search
     ├── lib/analytics.ts              normalized routes + explicit Plausible adapter
     ├── pages/
     │   ├── download.astro           renders from src/data/release-manifest.json
@@ -57,37 +54,6 @@ apps/website/
     │   └── … remaining routes
     └── test/                        guards manifest honesty + URL rules
 ```
-
-### Site search and section anchors
-
-`astro.config.mjs` registers a local integration that runs in
-`astro:build:done`, so the custom-domain build and the GitHub Pages project
-build produce identical artifacts:
-
-- **Section anchors.** Every `h2`/`h3` inside `<main>` gets a stable `id`
-  (1,021 anchors across 101 pages). Hand-written ids are preserved and
-  generated ids never collide with an existing document id. This is what
-  makes section deep links and result-to-section navigation possible.
-  `global.css` already reserves `scroll-padding-top: 5.5rem` for the sticky
-  header.
-- **`search-index.json`.** A versioned, compact JSON index of page titles,
-  descriptions, and heading-delimited section text (626 KB on disk). It is
-  fetched lazily the first time search opens or prefetched during idle time;
-  visitors who never search download none of it. The build fails below five
-  indexed pages and logs any undecoded HTML entity left in indexed text.
-
-The index and ranking code is dependency-free (`src/lib/search/`), because
-the site's CSP (`script-src 'self' 'unsafe-inline'`, no `wasm-unsafe-eval`,
-no `worker-src blob:`) deliberately rules out WASM indexers such as
-Pagefind. The client is a native `<dialog>` with an ARIA 1.2 combobox input
-and a listbox of results; `/` and Ctrl/Cmd+K open it, Escape closes it, and
-focus returns to the invoking control. The full research record, rejected
-alternatives, and verification evidence live in
-[`docs/audits/website-search-and-section-links-2026-09-14.md`](../audits/website-search-and-section-links-2026-09-14.md).
-
-Editor-facing content changes in the search index (titles, descriptions,
-headings) are covered by `pnpm test:website` and the search spec in
-`apps/website/tests/e2e/search.spec.ts`.
 
 ### The download manifest flow
 

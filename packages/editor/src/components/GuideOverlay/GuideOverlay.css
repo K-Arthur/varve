@@ -1,0 +1,50 @@
+.guide-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: calc(var(--z-raised, 50) - 2);
+  overflow: hidden;
+  /* Only the per-guide 8px hit-strips (pointerEvents: 'auto' inline) should
+   * be interactive — without this, whenever any guide exists, this full-
+   * canvas-sized container silently eats every pointer event outside those
+   * thin strips, since none of its other (pointer-events:none) descendants
+   * are hit-testable and the browser falls back to testing this box. */
+  pointer-events: none;
+}
+
+.guide-overlay__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.guide-overlay__line {
+  pointer-events: none;
+}
+
+.guide-overlay__line--locked {
+  opacity: 0.6;
+}
+
+.guide-overlay__hit-area {
+  cursor: grab;
+}
+
+.guide-overlay__hit-area:active {
+  cursor: grabbing;
+}
+
+.guide-overlay__handle {
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.guide-overlay__handle--active {
+  opacity: 1;
+}
+
+.guide-overlay__tooltip {
+  pointer-events: none;
+  user-select: none;
+}

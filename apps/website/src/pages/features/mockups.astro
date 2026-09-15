@@ -1,0 +1,96 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout title="Mockups" description="Place editable artwork on mobile, apparel, signage, stationery, and packaging mockup surfaces, author photo templates, and export the composed presentation.">
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Mockups
+      </nav>
+
+      <h1>Mockups</h1>
+      <p class="feature-intro">
+        A mockup is a real object in your document, not a flattened picture. Place artwork on a
+        replaceable surface, keep editing the original design, and export the composed
+        presentation at full resolution.
+      </p>
+
+      <section class="feature-section">
+        <h2>Linked surfaces, not frozen pictures</h2>
+        <ul>
+          <li>Apply a built-in mobile, browser, poster, card, tee, billboard, envelope, or packaging template to the current selection.</li>
+          <li>Keep the source live: editing the original updates every surface bound to it.</li>
+          <li>Freeze a surface into an embedded snapshot when it should stop following edits.</li>
+          <li>Replace artwork on any surface without losing its geometry, fit, masks, or appearance.</li>
+        </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Made for real production subjects</h2>
+        <p>
+          Use the same document workflow for mobile screens, desktop windows, front/back
+          stationery, apparel and tees, outdoor billboards, boxes, and product labels. Planar
+          surfaces stay projectively mapped, while the product-label template provides a bounded
+          front-facing cylindrical arc with an explicit wrap, seam, and crop policy. Multiple
+          surfaces can use independent sources or intentionally share one linked source.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Author your own photo templates</h2>
+        <p>
+          Turn a product or signage photo into a reusable template: the photo becomes an untouched
+          base plate, you define the replaceable area on the canvas or numerically, and clip and
+          foreground-occluder masks keep hands, straps, bezels, and folds in front of the artwork.
+          Templates are embedded in the document, survive save and reopen, and export as bound
+          <code>.varve-mockup.json</code> bundles without any bound client artwork.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Perspective you can trust</h2>
+        <p>
+          Angled surfaces use a true projective mapping: drag the four corners and the content is
+          resampled from the original source, so straight lines stay straight. Export re-renders
+          the source at the requested output scale instead of enlarging a preview, and a missing
+          source is reported as a missing source rather than silently showing an old result. A
+          bounded cylinder uses a separate curved remap; it is never mislabeled as perspective or
+          full 3D.
+        </p>
+      </section>
+
+      <section class="feature-section note">
+        <h2>Set the right expectation</h2>
+        <p>
+          Mockups place artwork on planar, four-corner, or bounded front-facing cylindrical
+          surfaces. Full 3D cameras, mesh wrapping, calibrated displacement maps, and Photoshop
+          smart-object re-rendering are not available; unsupported cases are rejected instead of
+          being approximated silently. PSD import brings supported layers and masks in as pixels.
+          Homography and cylindrical geometry are not a 3D renderer.
+        </p>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Present the design in context</h2>
+        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .feature-page h1 { font-size: clamp(2rem, 5vw, 2.5rem); font-family: var(--font-editorial); margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-intro { font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 3rem; }
+  .feature-section { margin-bottom: 3rem; }
+  .feature-section h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-primary); }
+  .feature-section p, .feature-section li { color: var(--text-secondary); line-height: 1.7; }
+  .feature-section li + li { margin-top: 0.65rem; }
+  .note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
+  .feature-cta { border-top: 1px solid var(--border-default); padding-top: 2rem; }
+  .feature-cta h2 { color: var(--text-primary); margin-bottom: 1rem; }
+</style>

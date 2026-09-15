@@ -1,0 +1,9 @@
+{
+  "provider": "wasm.",
+  "model": "u2netp",
+  "modelSha256": "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8",
+  "inputSha256": "ba47ffa59a548b137050727632c5e69840b1b345520cbcd4418b4c60d4591e39",
+  "outputSha256": "2c8210b73286c3b39b5a018b320fd38ef5dbb013a77ccca7714ff19d9d50d656",
+  "runtimeVersion": "onnxruntime-web 1.27.0 (workspace lockfile)",
+  "backend": "wasm."
+}

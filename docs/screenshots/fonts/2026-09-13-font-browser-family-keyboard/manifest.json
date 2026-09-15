@@ -1,0 +1,26 @@
+{
+  "capturedAt": "2026-09-13",
+  "commit": "9dc213d9da7e82d0ca5196057e1277828596e5d9",
+  "viewport": { "width": 540, "height": 640, "deviceScaleFactor": 1 },
+  "browser": "Chromium",
+  "platform": "Linux",
+  "command": "TMPDIR=$(mktemp -d /tmp/varve-font-browser-keyboard-XXXXXX) VARVE_E2E_PORT=1669 VARVE_E2E_WORKERS=1 VARVE_DISABLE_HMR=1 VARVE_E2E_OUTPUT_DIR=font-browser-family-keyboard-20260913 npx playwright test tests/e2e/canvas/font-browser-filters.spec.ts --project=chromium --reporter=list --timeout=120000",
+  "result": "1 passed (54.0s)",
+  "captures": [
+    {
+      "file": "filtered-narrow.png",
+      "sha256": "a7b76ce85b816a6c7513af97b0a4520a67b76c1cf310c1700e66bf25db6d2d83",
+      "state": "combined search, Favorites source filter, Variable semantic filter"
+    },
+    {
+      "file": "reset-narrow.png",
+      "sha256": "55ce64985676a687463973596356774a6abcaf9e3eed0fd0ad3ffdbb9692a60c2",
+      "state": "reset filters, keyboard Home focus on first family row"
+    }
+  ],
+  "inspection": [
+    "540px narrow layout contained the filter controls and details pane",
+    "source tabs remained readable",
+    "first, next, and last family rows retained active keyboard focus"
+  ]
+}

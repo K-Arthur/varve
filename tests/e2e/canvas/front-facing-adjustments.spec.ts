@@ -1,0 +1,308 @@
+import { mkdirSync } from 'node:fs';
+import path from 'node:path';
+import AxeBuilder from '@axe-core/playwright';
+import { expect, test } from '@playwright/test';
+import { dragOnCanvas, navigateToEditor } from '../shared';
+
+const REVIEW_DIR = path.resolve('reports/ui-review/front-facing-adjustments');
+const IMAGE_FIXTURE = path.resolve('tests/e2e/fixtures/test-image.png');
+
+async function navigateToAdjustmentEditor(page: import('@playwright/test').Page) {
+  // A prior crash can leave the local test profile on Varve's explicit safe
+  // mode screen. Recover through the product control before using the normal
+  // shared editor navigation; this keeps the visual test about adjustments,
+  // not a stale browser profile.
+  await page.goto('/');
+  const continueNormal = page.getByRole('button', { name: /continue normal startup/i });
+  await continueNormal
+    .waitFor({ state: 'visible', timeout: 5000 })
+    .then(() => continueNormal.click())
+    .catch(() => undefined);
+  await navigateToEditor(page);
+}
+
+async function createAdjustmentLayer(page: import('@playwright/test').Page) {
+  await page.getByRole('menuitem', { name: /^Object$/i }).click();
+  await page.getByRole('menuitem', { name: /new adjustment layer/i }).click();
+  await expect(page.locator('.adj-panel__header-name')).toHaveText('Adjustment Filters');
+  await expect(page.locator('.adj-panel__header-context')).toHaveText('Adjustment Layer');
+}
+
+async function addAdjustment(page: import('@playwright/test').Page, name: string) {
+  await page.getByRole('button', { name: /add adjustment/i }).click();
+  await page.getByRole('menuitem', { name: new RegExp(`^${name}$`, 'i') }).click();
+  await expect(page.getByText(name, { exact: true }).last()).toBeVisible();
+}
+
+test.describe('front-facing adjustment and canvas controls', () => {
+  test('exposes hue ranges, channel histograms, curves histogram, and auto controls', async ({
+    page,
+  }) => {
+    test.setTimeout(120000);
+    mkdirSync(REVIEW_DIR, { recursive: true });
+    await navigateToAdjustmentEditor(page);
+
+    await page.locator('#file-import-input').setInputFiles(IMAGE_FIXTURE);
+    await expect(page.getByRole('treeitem')).toHaveCount(1);
+    await createAdjustmentLayer(page);
+
+    const autoWhiteBalance = page.getByRole('button', { name: 'Auto White Balance' });
+    await expect(autoWhiteBalance).toBeVisible();
+    await expect(autoWhiteBalance).toBeEnabled();
+    await autoWhiteBalance.click();
+    await expect(page.getByText('Color Balance', { exact: true }).last()).toBeVisible();
+
+    await addAdjustment(page, 'Hue / Saturation');
+    const range = page.getByRole('combobox', { name: 'Hue/Saturation range' });
+    await expect(range).toBeVisible();
+    await range.click();
+    await page.getByRole('option', { name: 'Reds' }).click();
+    await expect(page.getByRole('slider', { name: 'Hue reds' })).toBeVisible();
+    await page.getByRole('slider', { name: 'Hue reds' }).press('ArrowRight');
+    await page.screenshot({ path: path.join(REVIEW_DIR, '01-hue-saturation.png') });
+
+    await addAdjustment(page, 'Levels');
+    const redChannel = page.locator('.histogram-widget__channels label').filter({ hasText: /^R$/ });
+    await expect(redChannel).toBeVisible();
+    await redChannel.click();
+    await expect(redChannel.locator('input')).toBeChecked();
+    await expect(page.getByRole('button', { name: 'Auto Contrast' })).toBeVisible();
+    await page.getByRole('button', { name: 'Auto Contrast' }).click();
+    await page.screenshot({ path: path.join(REVIEW_DIR, '02-levels-red-auto-contrast.png') });
+
+    await addAdjustment(page, 'Curves');
+    const curve = page.getByRole('img', { name: /Curve editor/i });
+    await expect(curve).toBeVisible();
+    await expect(curve.locator('xpath=preceding-sibling::canvas')).toHaveCount(1);
+    await expect(page.getByText('Histogram: Input to Curves', { exact: true })).toBeVisible();
+    await page.screenshot({ path: path.join(REVIEW_DIR, '03-curves-histogram.png') });
+  });
+
+  test('keeps a newly-created layer inactive when nothing is selected', async ({ page }) => {
+    test.setTimeout(120000);
+    mkdirSync(REVIEW_DIR, { recursive: true });
+    await navigateToAdjustmentEditor(page);
+
+    await createAdjustmentLayer(page);
+    await expect(page.getByText('Affected targets', { exact: true })).toBeVisible();
+    const affectedTargetsField = page.locator('.insp-field').filter({
+      hasText: 'Affected targets',
+    });
+    await expect(affectedTargetsField.locator('.insp-field__value')).toHaveText('0');
+    await expect(
+      page.getByText('No targets selected; this adjustment is currently inactive', { exact: true }),
+    ).toBeVisible();
+    await page.screenshot({ path: path.join(REVIEW_DIR, '01-empty-adjustment-scope.png') });
+  });
+
+  test('reaches Pixel Info and the soft-proof/gamut controls from the canvas shell', async ({
+    page,
+  }) => {
+    test.setTimeout(120000);
+    mkdirSync(REVIEW_DIR, { recursive: true });
+    await navigateToEditor(page);
+
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('content canvas is not measurable');
+
+    await expect(page.locator('[data-tool="pixelProbe"]')).toBeVisible();
+    await page.locator('[data-tool="pixelProbe"]').click();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(page.getByTestId('pixel-probe-overlay')).toBeVisible();
+    await expect(page.getByTestId('pixel-probe-overlay')).toContainText('Pixel Info');
+    await page.screenshot({ path: path.join(REVIEW_DIR, '04-pixel-info.png') });
+
+    // Pixel Info owns the inspector while active. Return to Select so the
+    // document-wide Soft Proof disclosure is available in the Design tab.
+    await page.locator('[data-tool="select"]').click();
+    const softProof = page.getByRole('button', { name: 'Soft Proof', exact: true });
+    await expect(softProof).toBeVisible();
+    await softProof.click();
+    await expect(page.getByRole('switch', { name: 'Simulate output condition' })).toBeVisible();
+    await expect(page.getByRole('switch', { name: 'Show out-of-gamut colors' })).toBeVisible();
+    await page.getByRole('switch', { name: 'Simulate output condition' }).check();
+    await page.getByRole('switch', { name: 'Show out-of-gamut colors' }).check();
+    await page.screenshot({ path: path.join(REVIEW_DIR, '05-soft-proof-gamut.png') });
+  });
+
+  test('shows and moves a spatial filter control on the canvas', async ({ page }) => {
+    test.setTimeout(120000);
+    mkdirSync(REVIEW_DIR, { recursive: true });
+    await navigateToEditor(page);
+
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 180, 160, 460, 380);
+    await page.getByRole('tab', { name: 'Design' }).click();
+    const objectFiltersDisclosure = page.getByRole('button', {
+      name: 'Object Filters',
+      exact: true,
+    });
+    if ((await objectFiltersDisclosure.getAttribute('aria-expanded')) !== 'true') {
+      await objectFiltersDisclosure.click();
+    }
+    const addFilter = page.getByRole('combobox', { name: 'Add Object Filter' });
+    await addFilter.click();
+    await page.getByRole('option', { name: 'RGB Split', exact: true }).click();
+
+    const mode = page.getByRole('combobox', { name: 'RGB split mode' });
+    await mode.click();
+    await page.getByRole('option', { name: 'Radial (lens fringe)' }).click();
+    const control = page.getByTestId('spatial-filter-control');
+    await expect(control).toBeVisible();
+    const before = await control.boundingBox();
+    if (!before) throw new Error('spatial filter control is not measurable');
+    await control.dragTo(page.locator('canvas.editor-canvas__content-layer'), {
+      targetPosition: { x: 360, y: 260 },
+    });
+    const after = await control.boundingBox();
+    if (!after) throw new Error('spatial filter control disappeared after drag');
+    expect(Math.abs(after.x - before.x) + Math.abs(after.y - before.y)).toBeGreaterThan(1);
+    await page.screenshot({ path: path.join(REVIEW_DIR, '06-spatial-filter-control.png') });
+  });
+
+  test('keeps adjustment labels and controls separated in a narrow inspector', async ({ page }) => {
+    test.setTimeout(120000);
+    mkdirSync(REVIEW_DIR, { recursive: true });
+    await navigateToEditor(page);
+
+    await page.locator('#file-import-input').setInputFiles(IMAGE_FIXTURE);
+    await expect(page.getByRole('treeitem')).toHaveCount(1);
+    await createAdjustmentLayer(page);
+    await page.evaluate(() => {
+      document
+        .querySelector<HTMLElement>('.editor-shell')
+        ?.style.setProperty('--inspector-width', '280px');
+    });
+    await expect(page.locator('.editor-shell')).toHaveCSS('--inspector-width', '280px');
+
+    for (const name of ['Channel Mixer', 'Halftone', 'Color Balance', 'Shadow / Highlight']) {
+      await addAdjustment(page, name);
+      const panel = page.locator('.adj-panel__header').locator('..');
+      await expect(panel).toBeVisible();
+      const layout = await panel.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        let maxRight = rect.right;
+        for (const child of element.querySelectorAll<HTMLElement>('*')) {
+          maxRight = Math.max(maxRight, child.getBoundingClientRect().right);
+        }
+        return {
+          clientWidth: element.clientWidth,
+          scrollWidth: element.scrollWidth,
+          right: rect.right,
+          maxRight,
+        };
+      });
+      expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth + 1);
+      expect(layout.maxRight).toBeLessThanOrEqual(layout.right + 1);
+      const overlap = await panel.evaluate((panel) => {
+        const issues: string[] = [];
+        const rows = panel.querySelectorAll<HTMLElement>(
+          '.adj-editor__row, .adj-editor__color-row',
+        );
+        for (const row of rows) {
+          const label = row.querySelector<HTMLElement>(':scope > .adj-editor__label');
+          if (!label) continue;
+          const labelRect = label.getBoundingClientRect();
+          for (const control of Array.from(row.children).filter(
+            (child): child is HTMLElement => child instanceof HTMLElement && child !== label,
+          )) {
+            const controlRect = control.getBoundingClientRect();
+            if (controlRect.width === 0 || controlRect.height === 0) continue;
+            if (labelRect.right > controlRect.left + 1) {
+              issues.push(`${label.textContent?.trim() ?? 'label'} overlaps ${control.className}`);
+            }
+          }
+        }
+        return issues;
+      });
+      expect(overlap, `${name} label/control overlap`).toEqual([]);
+    }
+
+    await page.screenshot({ path: path.join(REVIEW_DIR, '08-narrow-adjustment-panel.png') });
+
+    for (const theme of ['dark', 'high-contrast'] as const) {
+      await page.evaluate((nextTheme) => {
+        document.documentElement.dataset.theme = nextTheme;
+        document.documentElement.dataset.themeMode = nextTheme;
+      }, theme);
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+
+      const themedLayout = await page.locator('.adj-panel').evaluate((element) => ({
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+        right: element.getBoundingClientRect().right,
+        maxRight: Math.max(
+          element.getBoundingClientRect().right,
+          ...Array.from(element.querySelectorAll<HTMLElement>('*')).map(
+            (child) => child.getBoundingClientRect().right,
+          ),
+        ),
+      }));
+      expect(themedLayout.scrollWidth).toBeLessThanOrEqual(themedLayout.clientWidth + 1);
+      expect(themedLayout.maxRight).toBeLessThanOrEqual(themedLayout.right + 1);
+
+      const contrast = await new AxeBuilder({ page })
+        .include('.adj-panel')
+        .withRules(['color-contrast'])
+        .analyze();
+      expect(contrast.violations, `${theme} adjustment panel contrast`).toHaveLength(0);
+      await page.screenshot({
+        path: path.join(REVIEW_DIR, `08-narrow-adjustment-panel-${theme}.png`),
+      });
+    }
+  });
+
+  test('reorders object filters with drag while keeping keyboard chevrons available', async ({
+    page,
+  }) => {
+    test.setTimeout(120000);
+    mkdirSync(REVIEW_DIR, { recursive: true });
+    await navigateToEditor(page);
+
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 160, 140, 430, 340);
+    await page.getByRole('tab', { name: 'Design' }).click();
+    const objectFiltersDisclosure = page.getByRole('button', {
+      name: 'Object Filters',
+      exact: true,
+    });
+    if ((await objectFiltersDisclosure.getAttribute('aria-expanded')) !== 'true') {
+      await objectFiltersDisclosure.click();
+    }
+
+    const addFilter = page.getByRole('combobox', { name: 'Add Object Filter' });
+    await addFilter.click();
+    await page.getByRole('option', { name: 'Brightness', exact: true }).click();
+    await addFilter.click();
+    await page.getByRole('option', { name: 'Contrast', exact: true }).click();
+    const rows = page.locator('ul[aria-label="Object Filter stack"] > li.smart-filters__row');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.nth(0)).toContainText('Brightness');
+    await expect(rows.nth(1)).toContainText('Contrast');
+    await expect(page.getByRole('button', { name: 'Move Contrast up' })).toBeVisible();
+
+    const sourceHandle = rows.nth(1).locator('.smart-filters__drag-handle');
+    const sourceBox = await sourceHandle.boundingBox();
+    if (!sourceBox) throw new Error('Object Filter drag handle is not measurable');
+    const startX = sourceBox.x + sourceBox.width / 2;
+    const startY = sourceBox.y + sourceBox.height / 2;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX, startY - 12);
+    const targetBox = await rows.nth(0).boundingBox();
+    if (!targetBox) throw new Error('Object Filter target is not measurable');
+    await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, {
+      steps: 6,
+    });
+    await page.mouse.up();
+    await expect(rows.nth(0)).toContainText('Contrast');
+    await expect(rows.nth(1)).toContainText('Brightness');
+    const moveBrightnessUp = page.getByRole('button', { name: 'Move Brightness up' });
+    await moveBrightnessUp.focus();
+    await page.keyboard.press('Enter');
+    await expect(rows.nth(0)).toContainText('Brightness');
+    await expect(rows.nth(1)).toContainText('Contrast');
+    await page.screenshot({ path: path.join(REVIEW_DIR, '07-filter-stack-reordered.png') });
+  });
+});

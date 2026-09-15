@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "task": "replace",
+  "sourceFixture": "../../real-life-landscape.jpg",
+  "sourceTransform": "auto-orient, center-crop to 1224x1224, resize to 512x512",
+  "sourcePage": "https://commons.wikimedia.org/wiki/File:Landscape_picture.JPG",
+  "creator": "Michae2109",
+  "license": "Public domain",
+  "workingFrame": {
+    "width": 512,
+    "height": 512,
+    "coordinateSpace": "source-image-pixels"
+  },
+  "prompt": "a small red canoe floating on the lake, natural dusk light, realistic photograph",
+  "negativePrompt": "text, watermark, blurry, distorted, duplicate objects",
+  "seed": 271828,
+  "steps": 20,
+  "guidanceScale": 7,
+  "strength": 0.75,
+  "mask": "white edit rectangle x=196..316, y=196..316; black preserves the source",
+  "model": {
+    "name": "official Stable Diffusion 1.5 Inpainting F16 components",
+    "artifactSha256": "6edcc106d27eaef5bb024b1ff6270b61f0c8fc6bc4c78b6b7afafaf9336a8c8f",
+    "artifactBytes": 2132613536,
+    "runtime": "stable-diffusion.cpp 6b3edaa diagnostic conversion build",
+    "backend": "cpu",
+    "threads": 4
+  },
+  "timing": {
+    "elapsedSeconds": 1323,
+    "encodingSeconds": 153.43,
+    "samplingSeconds": 1023.51,
+    "decodingSeconds": 143.25
+  },
+  "artifacts": [
+    "official-reconverted-f16-cpu-512.png",
+    "official-reconverted-f16-cpu-512-composited.png",
+    "official-reconverted-f16-cpu-512-difference.png",
+    "official-reconverted-f16-cpu-512-boundary.png"
+  ],
+  "qualificationDiagnostic": {
+    "workingFrame": [256, 256],
+    "steps": 4,
+    "effectiveSteps": 3,
+    "elapsedSeconds": 138,
+    "artifact": "official-reconverted-f16-qualification-256.png",
+    "artifactSha256": "87e64af5ab050c738d335f9dccca0c60d231da3cd9347615bcd7ebb070a55275",
+    "outcome": "failed-semantic-quality",
+    "observation": "The candidate was essentially blank/unchanged and did not depict the requested red ceramic apple."
+  },
+  "protectedRegionCheck": {
+    "outsideMeanAbsoluteDifference": 0,
+    "outsideMaximumAbsoluteDifference": 0,
+    "comparison": "four crops covering every pixel outside the hard mask"
+  },
+  "visualReview": {
+    "fullFrame": "failed-semantic-quality",
+    "boundary100Percent": "failed-semantic-quality",
+    "observation": "The masked region became a blurred gray/red-edged rectangle rather than a red canoe or a coherent continuation of the scene."
+  },
+  "qualification": {
+    "releaseQualified": false,
+    "reason": "The artifact is runtime-compatible, but the real-photograph candidate fails prompt adherence and visual plausibility."
+  }
+}

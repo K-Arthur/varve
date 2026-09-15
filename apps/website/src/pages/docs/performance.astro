@@ -1,0 +1,288 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="Performance on lower-memory devices — Varve Docs"
+  description="How Varve adapts on Chromebooks and 4–8 GB devices: what the adaptive profile changes, what it never changes, practical workload guidance, and the honest limits of current evidence."
+>
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Performance on lower-memory devices
+      </nav>
+
+      <h1>Performance on lower-memory devices</h1>
+      <p class="docs-intro">
+        This page describes how Varve behaves on Chromebooks and other 4–8 GB devices,
+        what the adaptive profile actually changes, and which numbers have been measured
+        versus not measured at all.
+      </p>
+
+      <aside class="docs-note">
+        <strong>Evidence status:</strong> the adaptive behavior is implemented and
+        regression-tested in a headless browser. <strong>No frame-rate, memory, or battery
+        figures for the Lenovo Chromebook Duet or any other physical Chromebook are
+        published</strong>, because none were measured. Treat every budget below as a
+        target, not a device result.
+      </aside>
+
+      <section class="docs-section">
+        <h2>What the adaptive profile changes</h2>
+        <p>
+          Varve watches the duration of real animation frames and moves between four tiers:
+          <strong>quality</strong>, <strong>balanced</strong>, <strong>performance</strong>,
+          and <strong>constrained</strong>. A tier must be observed for ten frames before a
+          switch, with a thirty-frame cooldown, so the interface does not oscillate between
+          settings.
+        </p>
+        <table class="perf-table">
+          <thead>
+            <tr>
+              <th>Tier</th>
+              <th>Interactive preview scale</th>
+              <th>Cache budget</th>
+              <th>Render worker</th>
+              <th>Partial redraw</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Quality</td><td>100%</td><td>2× baseline</td><td>Yes</td><td>Yes</td></tr>
+            <tr><td>Balanced</td><td>100%</td><td>1× baseline</td><td>Yes</td><td>Yes</td></tr>
+            <tr><td>Performance</td><td>75% while interacting</td><td>0.5× baseline</td><td>No (main thread)</td><td>Yes</td></tr>
+            <tr><td>Constrained</td><td>50% while interacting</td><td>0.25× baseline</td><td>No (main thread)</td><td>No</td></tr>
+          </tbody>
+        </table>
+        <p>
+          The preview scale applies <strong>only while a drag, pinch, or wheel burst is
+          open</strong>. When the interaction settles, the frame returns to full
+          device-pixel resolution. Exports, print output, saved originals, hit testing,
+          text, and selection overlays always use document coordinates and full fidelity.
+          The preview is a live render at lower resolution — never a stretched copy of an
+          old frame.
+        </p>
+        <p>
+          Device-memory hints can raise the floor before any frame is measured: a browser
+          reporting 2 GB or less with a substantial document starts in{' '}
+          <em>constrained</em>; 4 GB or less with a very large document starts in{' '}
+          <em>performance</em>. These hints are coarse, browser-provided values. They are
+          never treated as the amount of RAM available to the tab.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>What it does not change</h2>
+        <ul>
+          <li><strong>Settled and exported output:</strong> a blurred or scaled preview never becomes the file. Saved documents, exports, and print output render at full fidelity.</li>
+          <li><strong>Your document:</strong> the profile changes rendering cost, not geometry, text, effects, or undo history.</li>
+          <li><strong>Presentation and compute are separate:</strong> Canvas2D remains authoritative for the canvas. Browser WebGPU and native desktop GPU compute are used only after an adapter or device probe succeeds; native compute is limited to offscreen resampling and explicit asynchronous effect consumers, plus AI inference through a verified GPU execution provider on supported models. The current interactive effect preview and export replay remain on the software reference path. Background removal reports which provider actually ran and keeps a CPU fallback. The current release does not select an NPU: a product specification, host device, browser request, or Linux device node is not enough. A future NPU route must have a compatible provider runtime, driver, model, and observed execution on the actual process path.</li>
+          <li><strong>Manual quality control:</strong> the Performance tab offers Automatic or Full resolution for interactive navigation; it does not expose a render-scale slider. Selection is measured from actual frame time, while Full resolution is an explicit fidelity choice rather than a promise of a fixed frame rate.</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Practical workload guidance</h2>
+        <ul>
+          <li><strong>Comfortable without special care:</strong> a few hundred nodes of shapes and text, a handful of images at screen resolution, and normal layer structures — the same scale as the built-in sample document.</li>
+          <li><strong>Expect adaptation:</strong> documents around a thousand mixed nodes, several large images, or concentrated effects will push the profile toward performance tiers. The canvas stays interactive; settled frames take the time they take.</li>
+          <li><strong>Treat as stress, one at a time:</strong> dozens of 4096×4096 images, tens of thousands of path points, or long effect stacks. These are deliberate worst cases, not everyday documents, and combining them multiplies cost.</li>
+          <li><strong>Browser-local limits:</strong> on the deployed demo host, multi-threaded WASM is unavailable because the page is not cross-origin isolated. Large documents are therefore slower in the browser than in the native desktop application.</li>
+          <li><strong>Background work yields:</strong> thumbnails, raster pyramids, and semantic indexing are bounded, cancellable, and paused while the page is hidden or frozen. Chrome can discard a tab — including an installed web app on ChromeOS — without firing an unload event, so recovery points are written while you edit and an explicit save remains the durable copy.</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Failure modes Varve deliberately avoids</h2>
+        <p>
+          These are the behaviors users of browser design tools most often report as
+          losses, and what Varve does instead. They describe implemented, regression-tested
+          behavior — not device measurements.
+        </p>
+        <ul>
+          <li><strong>A preview that never sharpens:</strong> reduced render scale exists only while an interaction is open; settled frames, hit testing, overlays, and exports return to full device resolution.</li>
+          <li><strong>Full-resolution decode of offscreen images:</strong> visible images are bucketed to power-of-two proxies governed by a decoded-byte budget, so one oversized image cannot pin the working set at full resolution.</li>
+          <li><strong>Background rewrites of unchanged data:</strong> automatic backups are skipped when the document JSON matches the last backup, duplicate untitled recovery writes were removed, recovery storage is byte-capped, and permanently deleting a file or version reclaims its content-addressed JSON.</li>
+          <li><strong>Work loss on tab discard:</strong> Chrome documents that no event fires on discard; recovery points are written while you edit, and a reload or discard restores the latest point. An explicit save is still the durable copy.</li>
+          <li><strong>Silent model downloads or cloud fallback:</strong> optional models are downloaded only after you start the operation, with download/storage size and an estimated peak working memory shown; images are never uploaded to a paid endpoint behind the capability gate.</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Optional AI model costs</h2>
+        <p>
+          Core editing never depends on a model download. Optional on-device features are
+          capability-gated, and the model dialogs report the download/storage size and an
+          estimated peak working memory separately. Those memory numbers are estimates with
+          a visible caveat, not device measurements. The largest optional models are
+          roughly a gigabyte each; they are downloaded explicitly, never bundled into the
+          editor's first screen, and should be treated as the single most expensive
+          background operation on a 4–8 GB device.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Multitasking, storage, and power</h2>
+        <ul>
+          <li><strong>Memory is shared:</strong> on a Chromebook, ChromeOS, Android, the browser, and the Linux container draw from the same installed RAM. Closing unused tabs and applications is the most effective single action.</li>
+          <li><strong>Storage affects behavior:</strong> recovery copies and the offline app copy consume browser storage. Use <strong>Settings → Storage &amp; Offline</strong> to see estimates and to clear disposable offline copies; never clear recovery copies while a document has unsaved edits.</li>
+          <li><strong>Power:</strong> sustained inference, large effects, and long pans use more CPU/GPU time and therefore more battery. No battery-duration figure is published for Varve; the reference device's 29 Wh battery is not a runtime promise.</li>
+          <li><strong>Updates and motion:</strong> updates are user-approved and never restart over unsaved work. Reduced-motion preferences are honored; decorative animation is paused when the page is hidden.</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Settings worth knowing</h2>
+        <ul>
+          <li><strong>Settings → Performance:</strong> shows the current tier and frame diagnostics, and honors reduced motion.</li>
+          <li><strong>Settings → Storage &amp; Offline:</strong> storage estimates, persistence request, recovery-copy count, and safe cleanup of offline app copies.</li>
+          <li><strong>Platform capability report:</strong> Settings → Performance → Platform capability report runs bounded local checks (graphics, worker, WASM, storage, files) and can be downloaded as JSON for a bug report. It is produced on demand and never uploaded.</li>
+        </ul>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Related information</h2>
+        <p>
+          <a href={sitePath('/docs/chromebook')}>Varve on Chromebook</a> ·
+          <a href={sitePath('/docs/browser-demo')}>Browser Demo &amp; Offline</a> ·
+          <a href={sitePath('/support/known-issues')}>Known issues</a> ·
+          <a href={sitePath('/support/troubleshooting')}>Troubleshooting</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .breadcrumb a,
+  .docs-section a,
+  .docs-cta a,
+  .docs-note a {
+    color: var(--text-link);
+  }
+
+  .docs-page h1 {
+    font-size: clamp(2rem, 5vw, 2.5rem);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.015em;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    margin-bottom: 3rem;
+  }
+
+  .docs-note {
+    margin: -1rem 0 3rem;
+    padding: 1rem 1.25rem;
+    border-left: 3px solid var(--accent-primary);
+    background: var(--surface-muted);
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+
+  .docs-note strong {
+    color: var(--text-primary);
+  }
+
+  .docs-section {
+    margin-bottom: 3rem;
+  }
+
+  .docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+
+  .docs-section p,
+  .docs-section li,
+  .docs-section td {
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+
+  .docs-section p {
+    margin-bottom: 1rem;
+  }
+
+  .docs-section ul {
+    margin: 0 0 1rem;
+    padding-left: 1.5rem;
+  }
+
+  .docs-section li {
+    margin-bottom: 0.6rem;
+  }
+
+  .docs-section strong {
+    color: var(--text-primary);
+  }
+
+  .perf-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .perf-table th,
+  .perf-table td {
+    text-align: left;
+    vertical-align: top;
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .perf-table th {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .perf-table td:first-child {
+    color: var(--text-primary);
+  }
+
+  .docs-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--border-default);
+  }
+
+  .docs-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+
+  .docs-cta p {
+    color: var(--text-secondary);
+    line-height: 1.9;
+  }
+
+  @media (max-width: 700px) {
+    .perf-table {
+      display: block;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+  }
+</style>

@@ -1,0 +1,80 @@
+{
+  "mdi": {
+    "name": "Material Design Icons",
+    "total": 7447,
+    "author": { "name": "Pictogrammers", "url": "https://github.com/Templarian/MaterialDesign" },
+    "license": {
+      "title": "Apache 2.0",
+      "spdx": "Apache-2.0",
+      "url": "https://github.com/Templarian/MaterialDesign/blob/master/LICENSE"
+    },
+    "samples": [
+      "account-check",
+      "bell-alert-outline",
+      "calendar-edit",
+      "skip-previous",
+      "home-variant",
+      "lock-open-outline"
+    ],
+    "height": 24,
+    "category": "Material",
+    "tags": ["Precise Shapes", "Has Padding"],
+    "palette": false
+  },
+  "lucide": {
+    "name": "Lucide",
+    "total": 1756,
+    "author": { "name": "Lucide Contributors", "url": "https://github.com/lucide-icons/lucide" },
+    "license": {
+      "title": "ISC",
+      "spdx": "ISC",
+      "url": "https://github.com/lucide-icons/lucide/blob/main/LICENSE"
+    },
+    "samples": ["circle-check", "award", "house", "check", "mountain", "chevron-up"],
+    "height": 24,
+    "category": "UI 24px",
+    "tags": ["Precise Shapes", "Has Padding", "Uses Stroke"],
+    "palette": false
+  },
+  "ph": {
+    "name": "Phosphor",
+    "total": 9072,
+    "version": "2.1.1",
+    "author": { "name": "Phosphor Icons", "url": "https://github.com/phosphor-icons/core" },
+    "license": {
+      "title": "MIT",
+      "spdx": "MIT",
+      "url": "https://github.com/phosphor-icons/core/blob/main/LICENSE"
+    },
+    "samples": [
+      "folder-open-duotone",
+      "check-square-offset-thin",
+      "pencil-line-fill",
+      "check-thin",
+      "browser-duotone",
+      "thermometer-simple-fill"
+    ],
+    "height": 24,
+    "category": "UI Other / Mixed Grid",
+    "tags": ["Has Padding"],
+    "palette": false
+  },
+  "simple-icons": {
+    "name": "Simple Icons",
+    "total": 3453,
+    "version": "16.28.0",
+    "author": {
+      "name": "Simple Icons Collaborators",
+      "url": "https://github.com/simple-icons/simple-icons"
+    },
+    "license": {
+      "title": "CC0 1.0",
+      "spdx": "CC0-1.0",
+      "url": "https://github.com/simple-icons/simple-icons/blob/develop/LICENSE.md"
+    },
+    "samples": ["wise", "framer", "vuetify", "unsplash", "stackblitz", "mitsubishi"],
+    "height": 24,
+    "category": "Logos",
+    "palette": false
+  }
+}

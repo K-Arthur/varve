@@ -1,0 +1,210 @@
+# Loading System Decision Framework
+
+This document establishes the official patterns for loading and perceived performance in Varve.
+
+The current implementation audit is recorded in
+[`docs/audits/loading-system-audit-2026-08-31.md`](../audits/loading-system-audit-2026-08-31.md).
+That audit is the migration checklist for existing surfaces; this document is the
+durable component and state contract.
+
+## The Principle
+> **Loading UI should communicate unavoidable latency, not advertise architectural inefficiency.**
+
+## Decision Matrix
+
+| Category | Duration | Pattern | Varve Implementation |
+| --- | --- | --- | --- |
+| **A. Near-Instant** | < 1s | No loader | Immediate transition / Optimistic UI |
+| **B. Brief Activity** | 1s – 3s | Indeterminate | `Spinner`, `LoadingLabel`, or `RegionLoader` (debounced 300ms) |
+| **C. Structured Data** | 1s – 5s | Skeleton | `ContentSkeleton` (matches final layout) |
+| **D. Long Task** | 3s – 10s | Determinate | `DeterminateProgress` (with actual data) |
+| **E. Background Task** | > 10s | Non-blocking | Status bar / Toast / Activity center |
+| **F. Initialization** | Startup | Branded Loader | `StartupLoader` (white logo + chromatic aberration) |
+| **G. Failure** | Error | Failure State | Explicit error message + Retry action |
+
+## Deployment Targets
+
+Startup is **asymmetric by design** — each target covers the latency it actually controls.
+
+### Tauri desktop (primary dev: CachyOS / WebKitGTK)
+
+| Stage | What the user sees | When it ends |
+| --- | --- | --- |
+| **Native splash** | `splashscreen.html` — standalone HTML, white symbolic logo + chromatic aberration (CSS only, no JS) | `close_splashscreen` IPC when home data is ready |
+| **Main window (hidden)** | React mounts; `StartupLoader` runs inside hidden main webview | `revealMainWindow()` shows main + closes splash |
+| **In-app loader exit** | `StartupLoader` fade-out (`ready` from `HomeShell.onReady`) | 250ms CSS transition |
+
+Config: `apps/desktop/src-tauri/tauri.conf.json` — `main.visible: false`, `splashscreen` window → `splashscreen.html`.
+
+Research: [Tauri 2 splashscreen guide](https://v2.tauri.app/learn/splashscreen/) (accessed 2026-07-13).
+
+**Stuck-splash failure mode:** If the frontend never calls `close_splashscreen`, the splash remains visible. Mitigations: `useStartup` 30s timeout → error UI with retry; `revealMainWindow` is invoked from `handleHomeReady`.
+
+### Browser (Vite dev / static build)
+
+| Stage | What the user sees | When it ends |
+| --- | --- | --- |
+| **Pre-JS fallback** | Inline `#varve-boot-fallback` in `index.html` (static SVG + CSS, no network) | `dismissBootFallback()` in `main.tsx` before React mount |
+| **In-app loader** | `StartupLoader` via `useStartup` | `HomeShell.onReady` |
+
+Cold-cache latency (bundle download) is dominated by network; the pre-JS fallback covers the gap before JS executes. Warm reload skips the branded loader via `sessionStorage` `varve-session-started`.
+
+### Reduced motion per engine
+
+| Engine | `prefers-reduced-motion` | Notes |
+| --- | --- | --- |
+| Chromium / Firefox / Safari | Supported | CSS `@media` in `StartupLoader.css` + `splashscreen.html` |
+| WebKitGTK 2.41.4+ | Supported | Forwards GTK setting into web content ([release notes](https://webkitgtk.org/releases/webkitgtk-2.41.4.tar.xz.news), 2026-07-13) |
+| WebView2 / WKWebView | Supported | Standard media query |
+
+`checkStartupCapabilities()` also sets `shouldSimplify` when reduced-motion is active or WebGL probe score &lt; 0.4.
+
+### Chromatic aberration implementation
+
+**Single white SVG + layered `drop-shadow`** (not WebGPU, not RGB underlay ghosts). Thin cyan/rose channel split + soft white bloom. Mark size **160px** (boot fallback 136px). Quiet ambient luminosity pulse only.
+
+**Theme policy (locked):** Startup is **brand-fixed dark** (`#10151f` + white mark) on every surface — native splash, pre-JS boot fallback, and `StartupLoader`. It intentionally does **not** follow light / dark / high-contrast `[data-theme]`. Same Cursor-style identity moment on every cold start. `color-scheme: dark` is set on those surfaces so OS/browser chrome cannot lighten them.
+
+## Boot Sequence
+
+The startup follows a two-phase state machine:
+
+```
+init → home_ready → editor_ready
+```
+
+### States
+
+| State | Meaning | Loader visible? |
+|---|---|---|
+| `init` | App mounted, home data loading | Yes |
+| `home_ready` | Home screen is interactive | No |
+| `editor_ready` | Editor session is active | No |
+| `error` | Fatal startup error | Yes (with error message + retry) |
+
+### Transitions
+
+1. **App mount** (`init`): `useStartup` creates `BootManager`, records `performance.mark('app_mount')`. `StartupLoader` displays (unless warm restart or feature flag off).
+2. **Tauri:** Native `splashscreen.html` visible until home ready; then `close_splashscreen` + main show.
+3. **Browser:** `#varve-boot-fallback` removed in `main.tsx`; `StartupLoader` takes over.
+4. **HomeShell fires `onReady`** (`init → home_ready`): Called once `useHomeView` completes its first data fetch. Loader begins exit animation (250ms fade-out).
+5. **File open** (`home_ready → editor_ready`): Called when `App.handleOpenFile` resolves. Marks total startup via `performance.measure('varve-startup')`.
+6. **Error** (`any → error`): Fatal boot error or 30s timeout. Loader shows error message + retry (`BootManager.reset()` + `retryCount` remounts `HomeShell`).
+
+### Warm restart
+
+When `sessionStorage` already contains `varve-session-started` (e.g. browser dev reload, hot restart), the branded loader is skipped entirely and the boot transitions directly to `home_ready`.
+
+## Feature Flag
+
+The branded startup loader can be disabled via `EditorSettings.startup.showBrandedLoader`:
+
+```
+localStorage.setItem('varve-editor-settings', JSON.stringify({
+  startup: { showBrandedLoader: false }
+}))
+```
+
+When disabled, the app transitions directly to `home_ready` with no loader.
+
+## Component Guidelines
+
+### 1. StartupLoader
+- **Use:** Initial app boot ONLY.
+- **Trigger:** Hooked to `useHomeView` readiness via `HomeShell.onReady`.
+- **Motion:** White logo + static cyan/amber/rose spectral fringe; soft 4s luminosity breathe (`opacity`/`scale` + radial glow) — compositor-friendly. No filter-keyframe loops.
+- **A11y:** Static mark if `prefers-reduced-motion`. `role="status"`, `aria-live="polite"`.
+- **Props:** `error`, `onRetry`, `ready`, `simplified`, `onExited`, `exitDuration`.
+- **Graceful degradation:** `simplified` prop hides chromatic-aberration layers. Set automatically when `checkStartupCapabilities().shouldSimplify` is true (reduced-motion OR GPU score < 0.4).
+
+### 2. Spinner and LoadingLabel
+- **Use:** `Spinner` is the visual primitive for a known indeterminate operation. Use
+  `LoadingLabel` when concise task text should be visible and announced.
+- **Visual:** `xs` (12px), `sm` (16px), `md` (24px), or `lg` (32px). Use the smallest
+  size that establishes the loading hierarchy.
+- **Semantics:** A labelled standalone `Spinner` exposes an accessible name. A
+  `LoadingLabel` owns one polite, atomic status region and keeps its spinner decorative.
+- **Motion:** CSS/SVG only, `currentColor`, no timers, injected styles, or Motion
+  dependency. Reduced-motion mode renders a static arc.
+- **Compatibility:** `InlineActivityIndicator` remains as a size-compatible wrapper for
+  existing consumers; new code should choose `Spinner` or `LoadingLabel` directly.
+
+### 3. Button and IconButton activity
+- **Use:** Pass `loading` to a button or icon button when the action is pending.
+- **Behavior:** The shared controls set `aria-busy` immediately, prevent duplicate
+  activation, preserve focus, and keep the control's layout stable while the spinner is
+  visible. The visual spinner is delayed by 150ms so a fast response does not flash an
+  indicator; the operation itself is never delayed.
+- **Naming:** Provide `loadingLabel` when the pending action needs a more specific name;
+  otherwise the existing action label remains the accessible name.
+- **Constraint:** Loading is not a disabled/error state. The active control stays focusable
+  while repeat activation is guarded.
+
+### 4. RegionLoader
+- **Use:** Panel-level loading (e.g. Layers, Assets, model status).
+- **Behavior:** Debounce appearance by 300ms to avoid flicker.
+- **A11y:** `aria-busy="true"` on the region; the delayed `LoadingLabel` announces the
+  operation only when it survives the debounce.
+- **Constraint:** Keep the existing content visible but subdued while the region loads;
+  do not add blur filters or block unrelated application areas.
+
+### 5. DeterminateProgress
+- **Use:** Export, Import, Model Download.
+- **Requirement:** Must show real percentage/count; include "Cancel" if applicable.
+- **Avoid:** Fake progress bars.
+
+### 6. ContentSkeleton
+- **Use:** Placeholder shimmer for structured content (file grids, asset lists, sidebars).
+- **Variants:** `list` (rows), `grid` (matrix of cells), `card` (icon+title+desc), `inline` (text-sized).
+- **A11y:** `role="status"` with `aria-label`.
+- **Reduced motion:** Shimmer animation disabled, static 50% opacity.
+
+## Capability Detection
+
+`checkStartupCapabilities()` detects at boot time:
+
+- **`canAnimate`** — Respects `prefers-reduced-motion: reduce`
+- **`gpuScore`** — 0.0–1.0 based on WebGL context availability
+- **`canvasAvailable`** — Whether `HTMLCanvasElement` is defined (always true in modern browsers)
+- **`shouldSimplify`** — True when reduced-motion OR gpuScore < 0.4
+
+These are read once at mount and used to adjust the loader visual complexity.
+
+## Anti-Patterns
+- **Spinner Overload:** Do not show multiple spinners in the same view.
+- **Fake Delays:** Never add artificial timers to "show off" animations.
+- **Blocking Overlays:** Do not block the whole app for a panel-local operation.
+- **Infinite Spinners:** Always have a timeout or explicit failure state.
+- **Ad-hoc loading text:** Use `LoadingLabel` for concise visible activity, `Spinner` when
+  surrounding copy already names the operation, `ContentSkeleton` for structured content,
+  or `RegionLoader` for a panel-scoped transition. Never leave a bare "Loading..." state
+  without an appropriate visual and semantic contract.
+- **Wrong progress model:** Do not use an indeterminate spinner for measurable downloads,
+  imports, exports, or indexing. Those surfaces must expose real progress and cancellation
+  where cancellation is supported.
+- **Stale activity:** Clear the spinner on success, failure, cancellation, and empty states;
+  pair failures with an actionable message or retry path.
+
+## Design Tokens
+
+### Motion
+- `--loader-spin-duration`: 0.8s (linear; shared `Spinner` fallback)
+- `--loader-fade-in`: 0.2s (ease-out)
+- `--loader-debounce`: 300ms
+- `--skeleton-shimmer-duration`: 1.5s (ease-in-out)
+
+### Colors
+- `--loader-primary`: `var(--color-interactive-default)`
+- `--loader-muted`: `var(--color-text-muted)`
+- `--startup-bg`: **removed / unused** — splash is brand-fixed `#10151f`, not theme tokens
+- `--startup-logo`: white `#FFFFFF` (fixed; not theme-relative)
+- `--skeleton-bg-color`: `var(--color-surface-raised)`
+- `--skeleton-shimmer-color`: `var(--color-surface-overlay)`
+
+## Performance Budget
+
+| Metric | Target | Degradation |
+|---|---|---|
+| Max loader overhead | 50ms beyond init | Disable branded loader |
+| Animation frame rate | 60 fps | Static logo if < 30 fps |
+| Total cold start | < 1200ms | Flag regression in CI |

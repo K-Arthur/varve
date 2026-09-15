@@ -1,0 +1,206 @@
+import type { ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ResizableHandle } from './ResizableHandle';
+
+export interface PanelProps {
+  children: ReactNode;
+  storageKey: string;
+  defaultWidth?: number;
+  minWidth?: number;
+  maxWidth?: number;
+  side?: 'left' | 'right';
+  collapsed?: boolean;
+  onCollapse?: () => void;
+  label: string;
+}
+
+const STORAGE_PREFIX = 'varve-panel-';
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+export function Panel({
+  children,
+  storageKey,
+  defaultWidth = 256,
+  minWidth = 192,
+  maxWidth = 576,
+  side = 'left',
+  collapsed = false,
+  onCollapse,
+  label,
+}: PanelProps) {
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReducedMotion(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  const initialWidth = (() => {
+    const stored = localStorage.getItem(STORAGE_PREFIX + storageKey);
+    if (stored) {
+      const parsed = Number(stored);
+      if (!Number.isNaN(parsed)) return clamp(parsed, minWidth, maxWidth);
+    }
+    return clamp(defaultWidth, minWidth, maxWidth);
+  })();
+
+  const [width, setWidth] = useState(initialWidth);
+  const [isDragging, setIsDragging] = useState(false);
+  const startXRef = useRef(0);
+  const startWidthRef = useRef(width);
+  const latestWidthRef = useRef(width);
+
+  const prevCollapsedRef = useRef(collapsed);
+  useEffect(() => {
+    if (collapsed !== prevCollapsedRef.current) {
+      prevCollapsedRef.current = collapsed;
+      if (collapsed && onCollapse) {
+        onCollapse();
+      }
+    }
+  }, [collapsed, onCollapse]);
+
+  const persistWidth = useCallback(
+    (w: number) => {
+      localStorage.setItem(STORAGE_PREFIX + storageKey, String(w));
+    },
+    [storageKey],
+  );
+
+  const commitWidth = useCallback(
+    (w: number) => {
+      const clamped = clamp(w, minWidth, maxWidth);
+      setWidth(clamped);
+      persistWidth(clamped);
+    },
+    [minWidth, maxWidth, persistWidth],
+  );
+
+  const finishDrag = useCallback(
+    (persist: boolean) => {
+      if (!isDragging) return;
+      setIsDragging(false);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      if (persist) commitWidth(latestWidthRef.current);
+    },
+    [commitWidth, isDragging],
+  );
+
+  useEffect(() => {
+    return () => {
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+  }, []);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const step = e.shiftKey ? 40 : 10;
+      let newWidth = width;
+
+      switch (e.key) {
+        case 'ArrowLeft': {
+          e.preventDefault();
+          newWidth = side === 'left' ? width - step : width + step;
+          break;
+        }
+        case 'ArrowRight': {
+          e.preventDefault();
+          newWidth = side === 'left' ? width + step : width - step;
+          break;
+        }
+        case 'Home': {
+          e.preventDefault();
+          newWidth = minWidth;
+          break;
+        }
+        case 'End': {
+          e.preventDefault();
+          newWidth = maxWidth;
+          break;
+        }
+        default:
+          return;
+      }
+
+      commitWidth(newWidth);
+    },
+    [width, minWidth, maxWidth, side, commitWidth],
+  );
+
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      setIsDragging(true);
+      startXRef.current = e.clientX;
+      startWidthRef.current = width;
+      latestWidthRef.current = width;
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'col-resize';
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    },
+    [width],
+  );
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!isDragging) return;
+      const delta = e.clientX - startXRef.current;
+      const newWidth =
+        side === 'left' ? startWidthRef.current + delta : startWidthRef.current - delta;
+      const next = clamp(newWidth, minWidth, maxWidth);
+      latestWidthRef.current = next;
+      setWidth(next);
+    },
+    [isDragging, minWidth, maxWidth, side],
+  );
+
+  const handlePointerUp = useCallback(
+    (e: React.PointerEvent) => {
+      if (!isDragging) return;
+      (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+      finishDrag(true);
+    },
+    [finishDrag, isDragging],
+  );
+
+  const panelClasses = [
+    'varve-panel',
+    collapsed ? 'varve-panel--collapsed' : '',
+    reducedMotion ? 'varve-panel--reduced-motion' : '',
+    side === 'left' ? 'varve-panel--left' : 'varve-panel--right',
+    isDragging ? 'varve-panel--dragging' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <div className={panelClasses} style={{ '--panel-width': `${width}px` } as React.CSSProperties}>
+      <div className="varve-panel__content">{children}</div>
+      <ResizableHandle
+        role="separator"
+        aria-orientation="vertical"
+        aria-valuenow={width}
+        aria-valuemin={minWidth}
+        aria-valuemax={maxWidth}
+        aria-label={label}
+        tabIndex={0}
+        className="varve-panel__handle"
+        active={isDragging}
+        onKeyDown={handleKeyDown}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={() => finishDrag(false)}
+        onLostPointerCapture={() => finishDrag(true)}
+      />
+    </div>
+  );
+}

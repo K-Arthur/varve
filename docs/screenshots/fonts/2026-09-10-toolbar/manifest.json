@@ -1,0 +1,278 @@
+{
+  "kind": "working-tree-observation",
+  "baseSha": "5163786f35da9e0546ba159091313b254e4d1421",
+  "scope": "Toolbar/picker visual evidence only; not full font-system certification",
+  "captures": [
+    {
+      "file": "before-toolbar-overflow.png",
+      "source": "test-results/run-736585-1494/canvas-typography-editing--8ef88-and-keeps-its-toolbar-alive-chromium/point-text-active-editor.png",
+      "sha256": "41e53e4c27923496abe6a1321bcf1af47aec6027310f3372a9a7978150a387c3",
+      "inspected": true
+    },
+    {
+      "file": "before-empty-menu.png",
+      "source": "test-results/run-736585-1494/canvas-typography-editing--8ef88-and-keeps-its-toolbar-alive-chromium/text-toolbar-font-menu.png",
+      "sha256": "f78a26012ff861ea5d00ec92d3099a7951b1515704d597f15668f7101da34e38",
+      "inspected": true
+    },
+    {
+      "file": "before-density.png",
+      "source": "test-results/run-755542-1599/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/light-open.png",
+      "width": 1280,
+      "height": 800,
+      "dpr": 1,
+      "sha256": "e93f75b07636bf5ec08a21c91cd9402758d3ec44d1d5d1e09b3eb86b24a76caa",
+      "inspected": true
+    },
+    {
+      "file": "dpr-1-light-closed.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/light-closed.png",
+      "width": 1280,
+      "height": 800,
+      "dpr": 1,
+      "sha256": "c0a0870331e50a6ea6532d923cb8022f19506f3a94328e59ea40baf3d492ba10",
+      "inspected": true
+    },
+    {
+      "file": "dpr-1-light-open.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/light-open.png",
+      "width": 1280,
+      "height": 800,
+      "dpr": 1,
+      "sha256": "589b8c8953bdf3f13e9d23d181a18fd52711ab551678545007eeafebc4ebd7e8",
+      "inspected": true
+    },
+    {
+      "file": "dpr-1-light-narrow.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/light-narrow.png",
+      "width": 640,
+      "height": 640,
+      "dpr": 1,
+      "sha256": "c22da9671a9102929cf7f74501fe89d431bea0616a23084eddbd06dc645adb2b",
+      "inspected": true
+    },
+    {
+      "file": "dpr-1-dark-closed.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/dark-closed.png",
+      "width": 1280,
+      "height": 800,
+      "dpr": 1,
+      "sha256": "81c33eb5c987ffe2d833a9b675ed6835a3955d5e695711f1db728d6ceddae9c0",
+      "inspected": true
+    },
+    {
+      "file": "dpr-1-dark-open.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/dark-open.png",
+      "width": 1280,
+      "height": 800,
+      "dpr": 1,
+      "sha256": "24af8e06b032acc594a9968da8704ef8b1582cfbbd33aecaf502f8893a0a121d",
+      "inspected": true
+    },
+    {
+      "file": "dpr-1-dark-narrow.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/dark-narrow.png",
+      "width": 640,
+      "height": 640,
+      "dpr": 1,
+      "sha256": "595ecadd96752d2f638c359da81664a1d856a2f1ff0b154155c1fb6b8dc835e9",
+      "inspected": true
+    },
+    {
+      "file": "dpr-1-high-contrast-closed.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/high-contrast-closed.png",
+      "width": 1280,
+      "height": 800,
+      "dpr": 1,
+      "sha256": "4aea66319ebda82b1b6e96767f7a71ac56c7b9bcbe49cd40a011b5730c5cd067",
+      "inspected": true
+    },
+    {
+      "file": "dpr-1-high-contrast-open.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/high-contrast-open.png",
+      "width": 1280,
+      "height": 800,
+      "dpr": 1,
+      "sha256": "c4015e0463f6253fd140996033977614bce9b2d40783b884c823d5d40df9f421",
+      "inspected": true
+    },
+    {
+      "file": "dpr-1-high-contrast-narrow.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/high-contrast-narrow.png",
+      "width": 640,
+      "height": 640,
+      "dpr": 1,
+      "sha256": "4bd4d0491e4cd065aab8fa611215e695627c0b33563ff1649bd97bd487bb7977",
+      "inspected": true
+    },
+    {
+      "file": "dpr-2-light-closed.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/light-closed.png",
+      "width": 2560,
+      "height": 1600,
+      "dpr": 2,
+      "sha256": "506aed9dd4dd565440ecaf7060587bab166cdc5adb0d7edf4e567cbba5813bfe",
+      "inspected": true
+    },
+    {
+      "file": "dpr-2-light-open.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/light-open.png",
+      "width": 2560,
+      "height": 1600,
+      "dpr": 2,
+      "sha256": "62c72892ae9ac7164cacd87cb413821fa1388a454c83797fd8cee293507237bc",
+      "inspected": true
+    },
+    {
+      "file": "dpr-2-light-narrow.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/light-narrow.png",
+      "width": 1280,
+      "height": 1280,
+      "dpr": 2,
+      "sha256": "a87b3af6e87fbf40ba3df76881a59cb9e8f0b165e96b4aa532b1d9c864d232f6",
+      "inspected": true
+    },
+    {
+      "file": "dpr-2-dark-closed.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/dark-closed.png",
+      "width": 2560,
+      "height": 1600,
+      "dpr": 2,
+      "sha256": "faad5bd4b7d5afd1f26e948bdb96d65d4a3c0ae11946b68f5c4549e19875cb80",
+      "inspected": true
+    },
+    {
+      "file": "dpr-2-dark-open.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/dark-open.png",
+      "width": 2560,
+      "height": 1600,
+      "dpr": 2,
+      "sha256": "fff4c109b1d0f4265c952c3c5c4ef6c8aee67149b18fc88d54e84aaaa436304c",
+      "inspected": true
+    },
+    {
+      "file": "dpr-2-dark-narrow.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/dark-narrow.png",
+      "width": 1280,
+      "height": 1280,
+      "dpr": 2,
+      "sha256": "da6de774bfdf1671c5ba067cd4da9ed5fcd0c5a1749118d6107c090a0641bffa",
+      "inspected": true
+    },
+    {
+      "file": "dpr-2-high-contrast-closed.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/high-contrast-closed.png",
+      "width": 2560,
+      "height": 1600,
+      "dpr": 2,
+      "sha256": "4635e57998c1627faf58bcf4a029668833005d2f58c0ad80291dd10c6f144faf",
+      "inspected": true
+    },
+    {
+      "file": "dpr-2-high-contrast-open.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/high-contrast-open.png",
+      "width": 2560,
+      "height": 1600,
+      "dpr": 2,
+      "sha256": "d09444a54468b3a4a95169405a3c7bac51bd81b47dd57ffbe7e6cccfbfe72f2c",
+      "inspected": true
+    },
+    {
+      "file": "dpr-2-high-contrast-narrow.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-c70f7-adable-menus-in-every-theme-chromium/high-contrast-narrow.png",
+      "width": 1280,
+      "height": 1280,
+      "dpr": 2,
+      "sha256": "dc38428d5e1d4d6aee660d20fd35be91ba793d5ced49ce1fab8516f944f0e8f6",
+      "inspected": true
+    },
+    {
+      "file": "dpr-3-light-closed.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/light-closed.png",
+      "width": 3840,
+      "height": 2400,
+      "dpr": 3,
+      "sha256": "26c28d791f1c849eee152ecd26a763a5ed228e2d86154b8933dd808f42ce260c",
+      "inspected": true
+    },
+    {
+      "file": "dpr-3-light-open.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/light-open.png",
+      "width": 3840,
+      "height": 2400,
+      "dpr": 3,
+      "sha256": "75ffe3ccad357a3a4708496ca637fbffe18779218f333d217d26b97ae20fa58a",
+      "inspected": true
+    },
+    {
+      "file": "dpr-3-light-narrow.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/light-narrow.png",
+      "width": 1920,
+      "height": 1920,
+      "dpr": 3,
+      "sha256": "3e93ecb110aa4d216ef6b983c601714749a52f4d85b6c546e04036d48354721a",
+      "inspected": true
+    },
+    {
+      "file": "dpr-3-dark-closed.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/dark-closed.png",
+      "width": 3840,
+      "height": 2400,
+      "dpr": 3,
+      "sha256": "a4528a9c8ec58d67e68ca3998ea0be868e1008d26d1006be027526f4d42ec6c6",
+      "inspected": true
+    },
+    {
+      "file": "dpr-3-dark-open.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/dark-open.png",
+      "width": 3840,
+      "height": 2400,
+      "dpr": 3,
+      "sha256": "478468929bf15f43e4b8e80275382b9bd0d1f2f6c783840c9b8726d89ffe459f",
+      "inspected": true
+    },
+    {
+      "file": "dpr-3-dark-narrow.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/dark-narrow.png",
+      "width": 1920,
+      "height": 1920,
+      "dpr": 3,
+      "sha256": "bc75cd4a16338636ec1101a43f6ea23d4a17b8f0e1701b07d286818dddc845be",
+      "inspected": true
+    },
+    {
+      "file": "dpr-3-high-contrast-closed.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/high-contrast-closed.png",
+      "width": 3840,
+      "height": 2400,
+      "dpr": 3,
+      "sha256": "5c9d39134b71cf20ca903cca10ab1cbafa9fcb11d34c558906464d3cc5a21d73",
+      "inspected": true
+    },
+    {
+      "file": "dpr-3-high-contrast-open.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/high-contrast-open.png",
+      "width": 3840,
+      "height": 2400,
+      "dpr": 3,
+      "sha256": "00db01f188daefa5e6f4c311cb95c1cdc9cb399e7e1017e251ee339f3d275ed0",
+      "inspected": true
+    },
+    {
+      "file": "dpr-3-high-contrast-narrow.png",
+      "source": "test-results/run-783896-1608/canvas-font-toolbar-visual-cbecb-adable-menus-in-every-theme-chromium/high-contrast-narrow.png",
+      "width": 1920,
+      "height": 1920,
+      "dpr": 3,
+      "sha256": "1665eac68b64734f3e5771794eb8904fe55eb164a72ddedaedb8a2c1b5fddf07",
+      "inspected": true
+    }
+  ],
+  "metricsSource": "test-results/run-786015-1609",
+  "metrics": [
+    "light-toolbar-metrics.json",
+    "dark-toolbar-metrics.json",
+    "high-contrast-toolbar-metrics.json"
+  ],
+  "archiveHead": "e22c4592d18cdebb13eabc49359243a46dd0ab51"
+}

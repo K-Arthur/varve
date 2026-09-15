@@ -1,0 +1,131 @@
+import { createDocument, makeShapeNode } from '@varve/scene';
+import { describe, expect, it } from 'vitest';
+import {
+  marqueeGeometryHit,
+  marqueeGeometryHitInCanvasSpace,
+  marqueeRectContainsRect,
+  marqueeRectsIntersect,
+  normalizeMarqueeRect,
+} from './marqueeGeometry';
+
+describe('marquee geometry', () => {
+  it('normalizes reverse drags without rounding world coordinates', () => {
+    expect(normalizeMarqueeRect({ x: 10.25, y: 30.5 }, { x: -2.75, y: 4.5 })).toEqual({
+      x: -2.75,
+      y: 4.5,
+      w: 13,
+      h: 26,
+    });
+  });
+
+  it('treats boundary contact as intersection but keeps negative sizes invalid', () => {
+    expect(marqueeRectsIntersect({ x: 0, y: 0, w: 10, h: 10 }, { x: 10, y: 10, w: 5, h: 5 })).toBe(
+      true,
+    );
+    expect(marqueeRectsIntersect({ x: 0, y: 0, w: -1, h: 10 }, { x: 0, y: 0, w: 5, h: 5 })).toBe(
+      false,
+    );
+  });
+
+  it('uses closed containment and handles fractional edges', () => {
+    expect(
+      marqueeRectContainsRect({ x: 0, y: 0, w: 10, h: 10 }, { x: 0.25, y: 0.5, w: 9.75, h: 9.5 }),
+    ).toBe(true);
+    expect(
+      marqueeRectContainsRect(
+        { x: 0, y: 0, w: 10, h: 10 },
+        { x: -Number.EPSILON, y: 0, w: 10, h: 10 },
+      ),
+    ).toBe(false);
+  });
+
+  it('rejects corrupt coordinates before geometry can leak NaN', () => {
+    expect(normalizeMarqueeRect({ x: Number.NaN, y: 0 }, { x: 1, y: 1 })).toBeNull();
+    expect(
+      marqueeRectsIntersect(
+        { x: Number.POSITIVE_INFINITY, y: 0, w: 1, h: 1 },
+        { x: 0, y: 0, w: 1, h: 1 },
+      ),
+    ).toBe(false);
+  });
+
+  it('rejects a marquee that touches only the AABB corner of a rotated rectangle', () => {
+    const base = createDocument('rotated');
+    const doc = {
+      ...base,
+      nodes: {
+        ...base.nodes,
+        rotated: makeShapeNode(
+          'rotated',
+          {
+            kind: 'rect',
+            x: 0,
+            y: 0,
+            w: 10,
+            h: 2,
+          },
+          { transform: [Math.SQRT1_2, Math.SQRT1_2, -Math.SQRT1_2, Math.SQRT1_2, 0, 0] },
+        ),
+      },
+    };
+    expect(marqueeGeometryHit(doc, 'rotated', { x: 5.8, y: 0, w: 1, h: 1 }, false)).toBe(false);
+    expect(marqueeGeometryHit(doc, 'rotated', { x: 5.8, y: 6.5, w: 1, h: 1 }, false)).toBe(true);
+  });
+
+  it('accepts placed-world geometry callbacks for projected sources', () => {
+    const doc = createDocument('placed-source');
+    const source = makeShapeNode('source', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+    const placed = { x: 100, y: 50, w: 10, h: 10 };
+    const transform = [1, 0, 0, 1, 100, 50] as const;
+    const withSource = { ...doc, nodes: { ...doc.nodes, source } };
+
+    expect(
+      marqueeGeometryHit(
+        withSource,
+        source.id,
+        { x: 100, y: 50, w: 10, h: 10 },
+        true,
+        undefined,
+        () => transform,
+        () => placed,
+      ),
+    ).toBe(true);
+  });
+
+  it('keeps the marquee axis-aligned in screen space under camera rotation', () => {
+    const doc = createDocument('rotated-camera');
+    const node = makeShapeNode('rect', { kind: 'rect', x: 0, y: 0, w: 10, h: 2 });
+    const withNode = { ...doc, nodes: { ...doc.nodes, rect: node } };
+    const quarterTurn = (point: { x: number; y: number }) => ({
+      x: -point.y,
+      y: point.x,
+    });
+    const worldTransform = () => [1, 0, 0, 1, 0, 0] as const;
+    const worldBounds = () => ({ x: 0, y: 0, w: 10, h: 2 });
+
+    expect(
+      marqueeGeometryHitInCanvasSpace(
+        withNode,
+        node.id,
+        { x: -2, y: 8, w: 1, h: 1 },
+        false,
+        quarterTurn,
+        undefined,
+        worldTransform,
+        worldBounds,
+      ),
+    ).toBe(true);
+    expect(
+      marqueeGeometryHitInCanvasSpace(
+        withNode,
+        node.id,
+        { x: 0.1, y: 5, w: 1, h: 1 },
+        false,
+        quarterTurn,
+        undefined,
+        worldTransform,
+        worldBounds,
+      ),
+    ).toBe(false);
+  });
+});

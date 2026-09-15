@@ -1,0 +1,595 @@
+import {
+  afterFirstVisiblePaint,
+  CrashCenter,
+  configureDesktopAnalytics,
+  currentDocumentSchemaVersion,
+  getDesktopAnalytics,
+  installCrashTestHooks,
+  installPageLifecycleAdmission,
+  KeyboardInsetPublisher,
+  type OpenFileRequest,
+  renderProjectThumbnailNow,
+  SettingsDialog,
+  SettingsProvider,
+  Shell,
+  startDesktopFlushTimer,
+  stopDesktopFlushTimer,
+  TabletBackDismiss,
+  UpdateCoordinatorProvider,
+  useStartup,
+} from '@varve/editor';
+import { HomeShell } from '@varve/home';
+import {
+  adoptBrowserFileHandle,
+  contentHash,
+  createWebPlatform,
+  detectPlatform,
+  displayNameFromPath,
+  type FileEntry,
+  upsertPreservingMeta,
+} from '@varve/platform';
+import { DocumentCodec } from '@varve/scene';
+import { StartupLoader, TooltipProvider } from '@varve/ui';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { TitleBar } from './chrome/TitleBar';
+import { DemoBanner } from './demo/DemoBanner';
+import { useDemoEntry } from './demo/useDemoEntry';
+import { installNativeLifecycleBridge } from './lifecycle/nativeLifecycleBridge';
+import { armBrowserFileLaunch, type LaunchedBrowserFile } from './startup/browserFileLaunch';
+import { armOsFileOpen } from './startup/osFileOpen';
+import { revealMainWindow } from './startup/revealMainWindow';
+import { TauriUpdateProvider } from './updates/tauriUpdateProvider';
+
+const viteEnv = (
+  import.meta as ImportMeta & {
+    env?: {
+      VITE_VARVE_ANALYTICS_ENDPOINT?: string;
+      VITE_VARVE_ANALYTICS_DOMAIN?: string;
+    };
+  }
+).env;
+
+const desktopAnalytics = configureDesktopAnalytics({
+  platform: 'unknown',
+  endpoint: viteEnv?.VITE_VARVE_ANALYTICS_ENDPOINT ?? null,
+  domain: viteEnv?.VITE_VARVE_ANALYTICS_DOMAIN ?? null,
+});
+
+const bootPlatform = detectPlatform();
+
+export function App() {
+  const [view, setView] = useState<'home' | 'editor'>('home');
+  const [editorMounted, setEditorMounted] = useState(false);
+  const [editorReady, setEditorReady] = useState(false);
+  const [openRequest, setOpenRequest] = useState<OpenFileRequest | null>(null);
+  const [homeReady, setHomeReady] = useState(false);
+  const [homeSettingsOpen, setHomeSettingsOpen] = useState(false);
+  const pendingHomeMilestone = useRef<(() => void) | null>(null);
+  const pendingEditorMilestone = useRef<(() => void) | null>(null);
+
+  useEffect(() => installPageLifecycleAdmission(), []);
+
+  useEffect(() => {
+    desktopAnalytics.track('app_launched', { surface: 'desktop' });
+    void desktopAnalytics.flush();
+    startDesktopFlushTimer();
+    return () => {
+      stopDesktopFlushTimer();
+      void getDesktopAnalytics().shutdown();
+    };
+  }, []);
+
+  // In a plain browser the synchronous boot platform is the in-memory
+  // fallback; upgrade to the real IndexedDB + File System Access backend as
+  // soon as it resolves (it is async to construct by design). The browser
+  // build must not silently run on a no-op storage backend.
+  const [platform, setPlatform] = useState(bootPlatform);
+  // True when the real storage backend could not be constructed and the app is
+  // running on in-memory storage. Surfaced to the user: silently continuing
+  // meant work could be lost on reload with no warning.
+  const [storageIsEphemeral, setStorageIsEphemeral] = useState(false);
+  useEffect(() => {
+    if (bootPlatform.kind !== 'memory') return;
+    let cancelled = false;
+    void createWebPlatform()
+      .then((web) => {
+        if (!cancelled) {
+          setPlatform(web);
+          setStorageIsEphemeral(false);
+        }
+      })
+      .catch(() => {
+        // No IndexedDB (rare, e.g. strict privacy modes): keep the fallback,
+        // but tell the user their work will not persist.
+        if (!cancelled) setStorageIsEphemeral(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const {
+    showLoader,
+    bootError,
+    onRetry,
+    retryCount,
+    capabilities,
+    markHomeDataReady,
+    markEditorStateInitialized,
+    onHomeReady,
+    onEditorReady,
+  } = useStartup({});
+
+  const measure = useCallback((name: string, startMark: string) => {
+    try {
+      performance.measure(name, startMark);
+    } catch {
+      // User Timing can be unavailable or disabled without blocking startup.
+    }
+  }, []);
+
+  const handleHomeReady = useCallback(() => {
+    markHomeDataReady();
+    // Native windows start hidden. Reveal the data-complete surface so RAF can
+    // advance, then record readiness only after a paint opportunity.
+    void revealMainWindow();
+    pendingHomeMilestone.current?.();
+    pendingHomeMilestone.current = afterFirstVisiblePaint('.varve-home', () => {
+      setHomeReady(true);
+      onHomeReady();
+      measure('varve-startup', 'app_mount');
+      window.dispatchEvent(new CustomEvent('varve:ready', { detail: { mode: 'home' } }));
+    });
+  }, [markHomeDataReady, measure, onHomeReady]);
+
+  // Hand off from the native splash as soon as React is mounted, rather than
+  // waiting for Home's data to finish loading.
+  //
+  // The native splash window can only be closed from here, so gating it on data
+  // readiness meant any failure in that load — an exception, a hung IPC call,
+  // a slow first run — left the user on an unclosable splash with no error and
+  // nothing to report. Once React is up, `StartupLoader` takes over: it shows
+  // branded progress, has its own timeout, and can surface an error with a
+  // retry button. That is strictly better than an opaque native window, and it
+  // keeps the splash doing the one job it is good at — covering the gap before
+  // the webview has painted anything.
+  useEffect(() => {
+    void revealMainWindow();
+  }, []);
+
+  // A boot error must never be invisible. `showLoader` renders the error state,
+  // but only if the window is actually on screen.
+  useEffect(() => {
+    if (bootError) void revealMainWindow();
+  }, [bootError]);
+
+  // Native termination bridge: routes CloseRequested/ExitRequested through
+  // the coordinator and approves native close/exit at commit (ADR-0216 D5).
+  useEffect(() => installNativeLifecycleBridge(), []);
+
+  useEffect(
+    () => () => {
+      pendingHomeMilestone.current?.();
+      pendingEditorMilestone.current?.();
+    },
+    [],
+  );
+
+  /** Guard against duplicate open requests for the same file. */
+  const lastOpenIdRef = useRef<string | null>(null);
+
+  /** Dedupe OS "Open With" intake by path: startup drain and the live event
+   *  can both deliver the same file, and each ingest creates a fresh entry
+   *  id, so the open-request latch above cannot catch the duplicate. */
+  const lastOpenPathRef = useRef<string | null>(null);
+
+  /**
+   * Re-link a Home entry whose physical file was moved or renamed.
+   * The user picks a candidate; it is only rebound when it is a valid Varve
+   * document AND (when we have cached content) shares the same document
+   * identity — filenames alone never rebind. The library id stays stable, so
+   * version history, projects, tags and recents all survive the rebind.
+   * Returns true when the entry was rebound.
+   */
+  const handleLocateFile = useCallback(
+    async (entry: FileEntry): Promise<boolean> => {
+      const picked = await platform.openDocumentFromDisk();
+      if (!picked) return false; // picker cancelled — nothing changes
+
+      const decode = (json: string) => {
+        try {
+          const d = DocumentCodec.decode(json);
+          return d.ok ? d.document : null;
+        } catch {
+          return null;
+        }
+      };
+      const pickedDoc = decode(picked.documentJson);
+      if (!pickedDoc) {
+        window.alert('That file is not a valid Varve document.');
+        return false;
+      }
+      const cachedJson = await platform.readFile(entry.id).catch(() => null);
+      const cachedDoc = cachedJson ? decode(cachedJson) : null;
+      if (cachedDoc && cachedDoc.id !== pickedDoc.id) {
+        window.alert(
+          'That file does not appear to be the same document. Varve only rebinds files that share the same document identity.',
+        );
+        return false;
+      }
+
+      const name = displayNameFromPath(picked.filePath ?? picked.entry.name);
+      await upsertPreservingMeta(platform, entry.id, name, picked.documentJson, {
+        filePath: picked.filePath,
+      });
+      await Promise.all([
+        platform.touchFile(entry.id).catch(() => undefined),
+        platform.touchRecentFile(entry.id, name).catch(() => undefined),
+      ]);
+      return true;
+    },
+    [platform],
+  );
+
+  const handleOpenFile = useCallback(
+    async (entry: FileEntry) => {
+      // Dedup: reject rapid duplicate requests for the same file.
+      if (lastOpenIdRef.current === entry.id) return;
+      lastOpenIdRef.current = entry.id;
+
+      // Validate file existence on desktop before attempting open.
+      if (entry.filePath && platform.kind !== 'web') {
+        const exists = await platform.fileExists(entry.filePath).catch(() => true);
+        if (!exists) {
+          // File was moved or deleted. Attempt to read from storage anyway
+          // (the document JSON may still be cached).
+          const json = await platform.readFile(entry.id).catch(() => null);
+          if (!json) {
+            // File is truly gone — record the missing state so Home and the
+            // Recent rail can surface it, and abort.
+            void platform
+              .patchRecentFile(entry.id, { name: entry.name, missing: true })
+              .catch(() => undefined);
+            // Activating a file must never look like a no-op: the missing
+            // badge only appears after Home refreshes, so state alone left the
+            // user with no feedback (WCAG 3.3.1).
+            window.alert(
+              `"${entry.name}" could not be opened because the file is no longer at its saved location, and no cached copy is available.`,
+            );
+            // Clear the dedupe latch so the user can retry this file (e.g.
+            // after reconnecting a drive) instead of it silently no-opping.
+            lastOpenIdRef.current = null;
+            return;
+          }
+          // We have cached content but the file is missing on disk.
+          // Still allow opening so the user can Save As.
+          void platform.readFile(entry.id).then(async (json) => {
+            if (!json) return;
+            await Promise.all([
+              platform.touchFile(entry.id).catch(() => undefined),
+              platform.touchRecentFile(entry.id, entry.name).catch(() => undefined),
+            ]);
+            setOpenRequest((prev) => ({
+              id: entry.id,
+              name: entry.name,
+              json,
+              filePath: entry.filePath,
+              libraryStorage: !entry.filePath,
+              seq: (prev?.seq ?? 0) + 1,
+            }));
+            markEditorStateInitialized();
+            setEditorMounted(true);
+            setView('editor');
+          });
+          return;
+        }
+      }
+
+      // Normal open: read from storage.
+      const json = await platform.readFile(entry.id).catch(() => null);
+      if (!json) {
+        // Content not found — record the missing state for the Recent rail.
+        void platform
+          .patchRecentFile(entry.id, { name: entry.name, missing: true })
+          .catch(() => undefined);
+        window.alert(
+          `"${entry.name}" could not be opened because its contents are missing from local storage.`,
+        );
+        lastOpenIdRef.current = null;
+        return;
+      }
+
+      // Update timestamps only after successful read.
+      await Promise.all([
+        platform.touchFile(entry.id).catch(() => undefined),
+        platform.touchRecentFile(entry.id, entry.name).catch(() => undefined),
+      ]);
+
+      setOpenRequest((prev) => ({
+        id: entry.id,
+        name: entry.name,
+        json,
+        filePath: entry.filePath,
+        libraryStorage: !entry.filePath,
+        seq: (prev?.seq ?? 0) + 1,
+      }));
+      markEditorStateInitialized();
+      setEditorMounted(true);
+      setEditorReady(false);
+      setView('editor');
+      pendingEditorMilestone.current?.();
+      pendingEditorMilestone.current = afterFirstVisiblePaint(
+        '.editor-canvas__content-layer',
+        () => {
+          onEditorReady();
+          setEditorReady(true);
+          measure('varve-editor-first-visible-canvas', 'editor_state_initialized');
+          window.dispatchEvent(new CustomEvent('varve:ready', { detail: { mode: 'editor' } }));
+        },
+      );
+    },
+    [markEditorStateInitialized, measure, onEditorReady, platform],
+  );
+
+  /**
+   * OS file-association intake (.varve / .strata double-click, "Open With").
+   * Mirrors the File → Open flow: read the physical file, persist a store
+   * copy with the resolved disk path (so Save writes back to the original),
+   * then open it through the normal entry path.
+   */
+  const handleOsFileOpen = useCallback(
+    async (path: string) => {
+      if (path === lastOpenPathRef.current) return;
+      lastOpenPathRef.current = path;
+
+      const result = await platform.openDocumentFromPath(path).catch(() => null);
+      if (!result) {
+        // The Rust intake only forwards existing .varve/.strata files, so a
+        // failure here means genuinely unreadable content — say so (WCAG
+        // 3.3.1: an activation that looks like a no-op must not be silent).
+        window.alert(`"${displayNameFromPath(path)}" could not be opened.`);
+        return;
+      }
+      const entry = result.entry;
+      if (result.filePath) entry.filePath = result.filePath;
+      await platform.upsertFile(entry, result.documentJson).catch(() => undefined);
+      await handleOpenFile(entry);
+    },
+    [handleOpenFile, platform],
+  );
+
+  useEffect(() => {
+    let dispose: (() => void) | undefined;
+    void armOsFileOpen(handleOsFileOpen).then((disposeOpen) => {
+      dispose = disposeOpen;
+    });
+    return () => dispose?.();
+  }, [handleOsFileOpen]);
+
+  const handleBackToHome = useCallback(() => {
+    setEditorReady(false);
+    setView('home');
+  }, []);
+
+  // Commit an open with content already in hand (shared by the normal open
+  // path and the demo's direct path) so editor-mount and startup milestones
+  // are identical everywhere. `binding` carries a browser file-handle
+  // destination when the open came from a stored/launched handle.
+  const commitOpen = useCallback(
+    (
+      entry: { id: string; name: string },
+      json: string,
+      binding?: { saveHandleId: string; saveHandleName?: string; diskContentHash?: string },
+    ) => {
+      setOpenRequest((prev) => ({
+        id: entry.id,
+        name: entry.name,
+        json,
+        ...(binding ?? {}),
+        seq: (prev?.seq ?? 0) + 1,
+      }));
+      markEditorStateInitialized();
+      setEditorMounted(true);
+      setEditorReady(false);
+      setView('editor');
+      pendingEditorMilestone.current?.();
+      pendingEditorMilestone.current = afterFirstVisiblePaint(
+        '.editor-canvas__content-layer',
+        () => {
+          onEditorReady();
+          setEditorReady(true);
+          measure('varve-editor-first-visible-canvas', 'editor_state_initialized');
+          window.dispatchEvent(new CustomEvent('varve:ready', { detail: { mode: 'editor' } }));
+        },
+      );
+    },
+    [markEditorStateInitialized, measure, onEditorReady],
+  );
+
+  /**
+   * Browser/PWA file-association intake (`file_handlers`). When the installed
+   * app is chosen to open a `.varve`/`.strata` file, adopt the handle as the
+   * session's save destination (with a content-hash baseline) and open the
+   * document through the normal entry path. Unsupported browsers and the
+   * uninstalled page never reach the handler.
+   */
+  const handleBrowserFileLaunch = useCallback(
+    async (file: LaunchedBrowserFile) => {
+      const name = file.name.replace(/\.(varve|strata)$/i, '') || file.name;
+      let binding:
+        | { saveHandleId: string; saveHandleName?: string; diskContentHash?: string }
+        | undefined;
+      try {
+        binding = {
+          saveHandleId: await adoptBrowserFileHandle(file.handle, file.name),
+          saveHandleName: file.name,
+          diskContentHash: contentHash(file.text),
+        };
+      } catch {
+        // The document still opens; the first save asks for a location.
+      }
+      commitOpen({ id: crypto.randomUUID(), name }, file.text, binding);
+    },
+    [commitOpen],
+  );
+
+  useEffect(() => {
+    let dispose: (() => void) | undefined;
+    void armBrowserFileLaunch(handleBrowserFileLaunch).then((disposeLaunch) => {
+      dispose = disposeLaunch;
+    });
+    return () => dispose?.();
+  }, [handleBrowserFileLaunch]);
+
+  // Browser-demo entry (/try): seed the sample document and open it directly
+  // instead of the Home-first boot. Desktop and non-demo URLs are no-ops.
+  const demo = useDemoEntry(platform, storageIsEphemeral, {
+    onOpenFile: (entry) => void handleOpenFile(entry),
+    onOpenDirect: commitOpen,
+  });
+
+  // Keep the title honest in the demo.
+  useEffect(() => {
+    if (demo.config.active) document.title = 'Varve — Try in browser';
+  }, [demo.config.active]);
+
+  const handleResumeEditing = useCallback(() => {
+    setEditorReady(true);
+    setView('editor');
+    onEditorReady();
+  }, [onEditorReady]);
+
+  // Home can repair a missing/discarded thumbnail for an older file without
+  // making the Home package depend on the editor renderer. The original
+  // FileEntry hash is retained as the cache revision because decoding may
+  // normalize a legacy document before rendering it.
+  const handleGenerateThumbnail = useCallback(
+    async (entry: FileEntry): Promise<string | null> => {
+      if (entry.isMissing) return null;
+      const json = await platform.readFile(entry.id);
+      if (!json) return null;
+      const decoded = DocumentCodec.decode(json);
+      if (!decoded.ok) return null;
+      const preview = await renderProjectThumbnailNow(platform, decoded.document, {
+        fileId: entry.id,
+        preference: entry.thumbnailPreference,
+        revisionHash: entry.contentHash,
+      });
+      return preview?.dataUrl ?? null;
+    },
+    [platform],
+  );
+
+  const surfaceStyle = (visible: boolean): React.CSSProperties => ({
+    display: visible ? 'flex' : 'none',
+    flexDirection: 'column',
+    flex: 1,
+    minHeight: 0,
+  });
+
+  // Move focus to the newly visible surface on view switch so keyboard and
+  // screen-reader users are not dropped to <body> (WCAG 2.4.3 Focus Order).
+  useEffect(() => {
+    if (!editorMounted) return;
+    requestAnimationFrame(() => {
+      const target =
+        view === 'editor'
+          ? document.getElementById('editor-main')
+          : document.getElementById('home-main');
+      target?.focus();
+    });
+  }, [view, editorMounted]);
+
+  const updateProvider = useMemo(() => (isTauriRuntime() ? new TauriUpdateProvider() : null), []);
+
+  const appContent = (
+    <TooltipProvider>
+      <KeyboardInsetPublisher />
+      <TabletBackDismiss />
+      {showLoader && (
+        <StartupLoader
+          error={bootError}
+          onRetry={bootError ? onRetry : undefined}
+          ready={bootError ? false : homeReady}
+          simplified={capabilities.shouldSimplify}
+        />
+      )}
+      <CrashCenter
+        platformKind={platform.kind}
+        readUncleanShutdown={() => localStorage.getItem('strata-clean-shutdown') !== 'true'}
+        documentSchemaVersion={currentDocumentSchemaVersion()}
+        onControllerReady={(controller) => {
+          installCrashTestHooks(controller);
+        }}
+      />
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          width: '100dvw',
+          height: '100dvh',
+          overflow: 'hidden',
+        }}
+      >
+        <TitleBar />
+        {demo.config.active && <DemoBanner config={demo.config} />}
+        {storageIsEphemeral && (
+          <div role="alert" className="varve-ephemeral-storage-banner">
+            Local storage is unavailable, so documents are kept in memory only and will be lost when
+            this window closes. Save your work to a file, or check your browser's storage
+            permissions.
+          </div>
+        )}
+        <div style={surfaceStyle(view === 'home')}>
+          <SettingsProvider>
+            <HomeShell
+              key={retryCount}
+              platform={platform}
+              onOpenFile={handleOpenFile}
+              onGenerateThumbnail={handleGenerateThumbnail}
+              onLocateFile={handleLocateFile}
+              onResumeEditing={editorMounted ? handleResumeEditing : undefined}
+              onReady={handleHomeReady}
+              active={view === 'home'}
+              onOpenSettings={() => setHomeSettingsOpen(true)}
+            />
+            {view === 'home' && (
+              <SettingsDialog open={homeSettingsOpen} onClose={() => setHomeSettingsOpen(false)} />
+            )}
+          </SettingsProvider>
+        </div>
+        {editorMounted && (
+          <div
+            style={surfaceStyle(view === 'editor')}
+            data-varve-editor-ready={editorReady ? 'true' : undefined}
+          >
+            <Shell
+              onBackToHome={handleBackToHome}
+              openFile={openRequest}
+              documentJson={openRequest?.json ?? undefined}
+              documentName={openRequest?.name ?? undefined}
+              documentFileId={openRequest?.id ?? undefined}
+              documentFilePath={openRequest?.filePath ?? undefined}
+              documentLibraryStorage={openRequest?.libraryStorage}
+              platform={platform}
+              active={view === 'editor'}
+              // The demo opens a poster its visitor has never seen; at 100%
+              // zoom they would meet its top-left corner.
+              fitOnOpen={demo.config.active}
+            />
+          </div>
+        )}
+      </div>
+    </TooltipProvider>
+  );
+
+  return updateProvider ? (
+    <UpdateCoordinatorProvider provider={updateProvider}>{appContent}</UpdateCoordinatorProvider>
+  ) : (
+    appContent
+  );
+}
+
+function isTauriRuntime(): boolean {
+  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+}

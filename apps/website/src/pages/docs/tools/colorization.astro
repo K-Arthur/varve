@@ -1,0 +1,144 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout
+  title="Colorize Workflow Guide"
+  description="Use Varve's tint, selective recolor, palette, reference transfer, harmonize, and model-gated photo colorization workflows."
+>
+  <div class="container-custom">
+    <main class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Docs</a> / <a href={sitePath('/docs/tools/color')}>Color &amp; Effects</a> / Colorize
+      </nav>
+      <h1>Colorize with an explicit source and scope.</h1>
+      <p class="docs-intro">
+        Select an image and open Adjustments → Colorize. Choose the operation that matches your
+        intent; the controls and required inputs change with the mode.
+      </p>
+
+      <section class="docs-section" aria-labelledby="choose-title">
+        <h2 id="choose-title">Choose the workflow</h2>
+        <div class="mode-table">
+          <article><h3>Tint / Selective Recolor</h3><p>Set an absolute hue or rotate existing hue. Whole image is an explicit scope; mask image limits coverage.</p><span>Offline · no model</span></article>
+          <article><h3>Palette Colorize</h3><p>Select document swatches, then choose shaded influence or strict palette bytes.</p><span>Offline · no model</span></article>
+          <article><h3>Line art (color hints)</h3><p>Paint hints on the drawing. Color spreads to the linework, gaps can be sealed, and unfilled regions stay transparent.</p><span>Offline · no model</span></article>
+          <article><h3>Reference Transfer</h3><p>Choose a separate reference image to transfer its global color distribution. This is not object matching.</p><span>Offline · reference required</span></article>
+          <article><h3>Harmonize</h3><p>Move target chroma toward a reference distribution while retaining target structure and source lightness.</p><span>Offline · reference required</span></article>
+          <article><h3>Photo Colorization</h3><p>Use local DDColor only when a verified model is installed. It proposes plausible colors, not historical truth.</p><span>Model-gated · artifact status is visible</span></article>
+        </div>
+      </section>
+
+      <section class="docs-section" aria-labelledby="recolor-title">
+        <h2 id="recolor-title">Tint and recolor</h2>
+        <ol>
+          <li>Choose <strong>Tint / Selective Recolor</strong>.</li>
+          <li>Use <strong>Whole image</strong> for an intentional full-image tint, or choose <strong>Mask image</strong> and provide a real grayscale/alpha mask.</li>
+          <li>Choose <strong>Set absolute hue</strong> when the target hue should be stable regardless of the source hue. Choose <strong>Rotate existing hue</strong> for a relative shift.</li>
+          <li>Adjust Saturation, Lightness, Chroma, Blend, and the conservative protection switches. Zero Blend or zero coverage leaves the source unchanged.</li>
+          <li>Preview, inspect the result, then Apply. Apply creates a new embedded result layer; the source remains available.</li>
+        </ol>
+        <p>
+          Lightness is source CIELAB L* preservation. It is not HSL lightness and does not promise
+          calibrated linear-luminance preservation across arbitrary output profiles. Out-of-gamut
+          target colors are clipped at the browser's sRGB RGBA8 boundary.
+        </p>
+      </section>
+
+      <section class="docs-section" aria-labelledby="palette-title">
+        <h2 id="palette-title">Palette colorize</h2>
+        <p>
+          Select one or more document swatches. One color is valid for a tonal map. Shaded mapping
+          keeps source lightness and can create tonal shades that are not literal swatch bytes.
+          Strict mapping reaches only the selected sRGB colors at 100% adherence; at lower
+          adherence it intentionally blends toward them and is no longer a strict constraint.
+        </p>
+      </section>
+
+      <section class="docs-section" aria-labelledby="lineart-title">
+        <h2 id="lineart-title">Line art from color hints</h2>
+        <ol>
+          <li>Choose <strong>Line art (color hints)</strong>.</li>
+          <li>Paint color scribbles on a copy of the drawing and choose it as the hint image. Hints can be a different resolution; every hint pixel above its alpha threshold is a seed.</li>
+          <li>Set the <strong>Line threshold</strong> so the strokes become barriers, and raise <strong>Gap closing</strong> if color leaks through a thin break in the linework.</li>
+          <li>Preview. The report shows how much of the reachable area was filled and how many hint pixels were used. Unhinted or unreachable regions stay transparent, so the result layers under other work.</li>
+          <li>Apply. Strokes and antialiased edges are preserved over the fills.</li>
+        </ol>
+        <p>
+          This is a deterministic fill, not semantic region detection. It cannot know that a
+          region is an eye or a shirt, and a gap wider than the gap-closing radius still leaks.
+        </p>
+      </section>
+
+      <section class="docs-section" aria-labelledby="reference-title">
+        <h2 id="reference-title">Reference transfer and harmonize</h2>
+        <p>
+          Choose a separate image file. Varve passes both the reference identity and decoded pixels
+          to the engine, validates empty/transparent references, ignores transparent border pixels
+          in the statistics, and supports different source/reference dimensions. The result is a
+          global color-distribution transfer; it does not know that a shirt in one image is the
+          same object as a shirt in another.
+        </p>
+      </section>
+
+      <section class="docs-section docs-section--note" aria-labelledby="photo-title">
+        <h2 id="photo-title">Photo colorization readiness</h2>
+        <p>
+          Photo Colorization is disabled until Settings → Models reports a verified DDColor model.
+          The current release includes the adapter, quality-mapped preview, tensor validation,
+          and the official upstream input contract (grayscale-derived RGB, square model input)
+          plus full-resolution reconstruction that combines predicted chroma with the original
+          source detail and alpha. It does not ship an unverified checkpoint.
+        </p>
+        <p>
+          If the model is unavailable, use Tint / Selective Recolor for deterministic work. Varve
+          does not silently substitute a tint and label it photo AI, and it does not upload the
+          source image as a fallback.
+        </p>
+      </section>
+
+      <section class="docs-section" aria-labelledby="review-title">
+        <h2 id="review-title">Review, save, and export</h2>
+        <ul>
+          <li>Preview runs at the quality mode's model resolution; Apply rebuilds the approved predicted colors over the full-resolution source, so the committed colors match the preview.</li>
+          <li>The preview includes a split-view comparator against the original, so changes can be inspected before committing.</li>
+          <li>A changed source or input revision makes an asynchronous result stale instead of replacing unrelated edits.</li>
+          <li>Apply stores accepted result bytes in the document's embedded asset table, so save/reopen/export does not require the model again.</li>
+          <li>The current result is materialized and source-preserving. Re-editable Colorize recipes and persistent painted hints are planned, not implied by the duplicate layer.</li>
+        </ul>
+      </section>
+
+      <aside class="docs-callout">
+        <strong>Further reading</strong>
+        <p><a href={sitePath('/features/colorization')}>Colorize &amp; Recolor feature overview</a> · <a href={sitePath('/docs/tools/color')}>Color &amp; Effects reference</a> · <a href="https://github.com/K-Arthur/varve/blob/main/docs/architecture/colorization-system.md">Engine contract and verification record</a></p>
+      </aside>
+    </main>
+  </div>
+</Layout>
+
+<style>
+  .docs-page { max-width: 860px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { font-size: .875rem; margin-bottom: 2.5rem; color: var(--text-secondary); }
+  .breadcrumb a { color: var(--text-secondary); }
+  .docs-page h1 { max-width: 760px; margin-bottom: 1rem; font: 700 clamp(2.3rem, 6vw, 4rem)/1.05 var(--font-editorial); color: var(--text-primary); letter-spacing: -.025em; }
+  .docs-intro { max-width: 700px; margin-bottom: 3.5rem; color: var(--text-secondary); font-size: 1.2rem; line-height: 1.7; }
+  .docs-section { margin-bottom: 3.5rem; }
+  .docs-section h2 { margin-bottom: 1rem; color: var(--text-primary); font-size: 1.65rem; }
+  .docs-section h3 { margin-bottom: .5rem; color: var(--text-primary); font-size: 1.1rem; }
+  .docs-section p, .docs-section li { color: var(--text-secondary); line-height: 1.75; }
+  .docs-section p { margin-bottom: 1rem; }
+  .docs-section ol, .docs-section ul { padding-left: 1.4rem; }
+  .docs-section li { margin-bottom: .65rem; }
+  .mode-table { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+  .mode-table article { padding: 1.25rem; border: 1px solid var(--border-default); border-radius: var(--website-radius-card); background: var(--surface-card); }
+  .mode-table article:first-child { border-color: var(--border-accent); background: var(--surface-accent-soft); }
+  .mode-table p { margin-bottom: .8rem; }
+  .mode-table span { color: var(--text-tertiary); font-size: .82rem; }
+  .docs-section--note { border-left: 3px solid var(--accent-primary); padding: 1.25rem 0 1.25rem 1.25rem; }
+  .docs-callout { padding: 1.5rem; border: 1px solid var(--border-default); border-radius: var(--website-radius-card); background: var(--surface-muted); }
+  .docs-callout strong { color: var(--text-primary); }
+  .docs-callout p { margin: .5rem 0 0; color: var(--text-secondary); line-height: 1.7; }
+  .docs-callout a { color: var(--text-link); }
+  @media (max-width: 640px) { .mode-table { grid-template-columns: 1fr; } }
+</style>

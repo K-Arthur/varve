@@ -1,0 +1,616 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout title="Canvas & Rendering" description="Varve's canvas: infinite canvas with culling, sticky snap, rulers, guides, grids, view rotation, multi-page documents, and a live minimap, rendered by a native Rust engine.">
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Canvas & Rendering
+      </nav>
+
+      <h1>Canvas & Rendering</h1>
+      <p class="feature-intro">
+        Responsive IR-replay rendering with an infinite canvas, a clear starting surface, precision tools, and native Rust performance.
+      </p>
+
+      <section class="feature-section">
+        <h2>What It Is</h2>
+        <p>
+          Varve's canvas system uses IR-replay architecture: the Rust engine computes the scene and emits a compact intermediate representation (~42 KB/frame for 600 shapes), which the webview replays to canvas2D. A historical Wayland fixture measured 86fps with this approach, compared with 8.5fps for the pixel-pushing comparison; actual performance depends on the document, renderer, and device.
+        </p>
+      </section>
+
+      <section class="feature-section responsive-contract" data-testid="canvas-responsiveness-contract">
+        <h2>Responsive under the hand</h2>
+        <p>
+          Panels opening, windows resizing, browser chrome moving, and display scale changes update the drawable canvas geometry without changing the document. The camera preserves the world point under the viewport centre, or under the user's active pointer when a gesture is in progress, so the artwork does not jump away from the hand.
+        </p>
+        <div class="responsive-contract__grid">
+          <article>
+            <h3>Stable coordinates</h3>
+            <p>Pointer and wheel input use the latest client-space canvas position before converting to world space.</p>
+          </article>
+          <article>
+            <h3>Continuous interaction</h3>
+            <p>Resize observation is coalesced, while pointer capture, blur, and cancellation paths clear stale gesture state.</p>
+          </article>
+          <article>
+            <h3>Honest rendering</h3>
+            <p>Fast paths remain optional. If a fresh worker frame is not available, the authoritative replay path is used instead of showing stale pixels.</p>
+          </article>
+        </div>
+        <p>
+          Plain wheel input pans the canvas, while Ctrl/Cmd+wheel and pinch zoom around the
+          pointer. The Hand tool also supports Arrow and Shift+Arrow for precise keyboard
+          traversal without taking those keys away from object editing or text fields. Finger
+          drawing versus one-finger navigation, wheel sensitivity, and the optional mouse-wheel
+          continuation are available in the existing Settings panel.
+        </p>
+        <p class="responsive-contract__evidence">
+          This contract is exercised by the canvas browser regressions and documented in the <a href="https://github.com/K-Arthur/varve/blob/main/docs/audits/canvas-responsiveness-2026-09-08.md">canvas responsiveness audit</a>. Performance figures remain fixture-specific rather than a promise for every document or device.
+        </p>
+      </section>
+
+      <section class="feature-section surface-state-contract" data-testid="canvas-empty-surface-contract">
+        <p class="eyebrow">Surface states</p>
+        <h2>A clear first frame</h2>
+        <p>
+          A new Design Canvas is not an unexplained blank viewport. When it has no authored
+          artwork, the editor keeps the work surface calm and shows a compact, keyboard-first
+          starting guide in the active canvas. The guide is scoped to that canvas and disappears
+          as soon as artwork exists, so it never competes with the design itself.
+        </p>
+        <div class="surface-state-contract__facts" aria-label="Empty canvas behavior">
+          <span>Scoped to the active canvas</span>
+          <span>Keyboard shortcuts stay visible</span>
+          <span>Pointer-transparent guidance</span>
+        </div>
+      </section>
+
+      <section class="feature-section" data-testid="canvas-label-scope">
+        <h2>Labels follow the surface</h2>
+        <p>
+          Canvas names and object labels belong to the Design Canvas you are viewing. Switch
+          canvases and the labels, accessibility names, minimap, selection, and hit targets switch
+          with the artwork — a nearby canvas with the same coordinates or a duplicate name cannot
+          leak into the current view.
+        </p>
+        <p>
+          Print uses a separate publishing-scene policy: page number and name bands describe
+          placed pages, while Design Canvas content stays out of the print pasteboard. These
+          editing labels are derived interface chrome, so they do not become document nodes or
+          appear in PNG, SVG, PDF, video, clipboard, or other exports.
+        </p>
+      </section>
+
+      <section class="feature-section" data-testid="canvas-precision-movement">
+        <h2>Precision movement</h2>
+        <p>
+          Nudge frames and objects from the keyboard without changing tools: once the canvas has
+          focus, Arrow and Shift+Arrow use your configured small and big document-unit amounts.
+          Movement stays aligned to world axes through zoom, camera rotation, and transformed
+          parents, while focused fields and editing widgets keep their own Arrow-key behavior.
+        </p>
+        <p>
+          Pointer dragging shares the same hierarchy-safe movement roots, keeps multi-selection
+          rigid, and retains snapping and intentional drag reparenting as separate behaviors.
+          Use Ctrl/Cmd to bypass snapping or Ctrl/Cmd+Shift to preserve the current parent.
+        </p>
+      </section>
+
+      <section class="feature-section" data-testid="canvas-grid-systems">
+        <div class="grid-systems__header">
+          <div>
+            <p class="eyebrow">Grid systems</p>
+            <h2>Guidance that stays distinct.</h2>
+          </div>
+          <a class="grid-systems__link" href={sitePath('/docs/tools/grids')}>Read the Grid Systems guide <span aria-hidden="true">→</span></a>
+        </div>
+        <p class="grid-systems__lede">
+          The canvas gives alignment, inspection, typography, and composition each their own
+          language. Turn on the right guide for the decision in front of you, then turn it off when
+          the work is ready to judge.
+        </p>
+        <div class="grid-systems__showcase" aria-label="Grid systems overview">
+          <div class="grid-systems__canvas">
+            <span class="grid-systems__canvas-label">Canvas 1 / 100%</span>
+            <div class="grid-systems__document-grid"></div>
+            <div class="grid-systems__frame">
+              <i></i><i></i><i></i><i></i>
+              <span>Frame layout guide</span>
+            </div>
+          </div>
+          <div class="grid-systems__legend">
+            <div><span class="grid-systems__marker grid-systems__marker--document"></span><div><strong>Document grid</strong><small>Saved alignment lattice</small></div></div>
+            <div><span class="grid-systems__marker grid-systems__marker--pixel"></span><div><strong>Pixel grid</strong><small>High-zoom inspection</small></div></div>
+            <div><span class="grid-systems__marker grid-systems__marker--guide"></span><div><strong>Frame guides</strong><small>Composition boundaries</small></div></div>
+          </div>
+        </div>
+        <div class="grid-systems__principles">
+          <article><span>01</span><h3>Align</h3><p>Independent X/Y spacing, subdivisions, offsets, and rotation.</p></article>
+          <article><span>02</span><h3>Inspect</h3><p>Pixel display and snap-to-pixel stay separate at high zoom.</p></article>
+          <article><span>03</span><h3>Compose</h3><p>Multiple frame guides show structure without arranging children.</p></article>
+        </div>
+      </section>
+
+      <section class="feature-section" data-testid="canvas-auto-layout-link">
+        <p class="eyebrow">Responsive composition</p>
+        <h2>Stacks and guides stay distinct.</h2>
+        <p>
+          Use a frame's Stack / Grid controls for child relationships and the canvas grid overlays
+          for visual alignment. <a href={sitePath('/features/auto-layout')}>Auto Layout</a> keeps
+          percentages, wrapping, signed spacing, borders, and overlap semantics available as the
+          frame changes size.
+        </p>
+      </section>
+
+      <section class="feature-section arrangement-contract" data-testid="canvas-arrangement-contract">
+        <p class="eyebrow">Spatial arrangement</p>
+        <h2>Make spacing intentional without flattening the document.</h2>
+        <p>
+          Align edges or centers against the selection, a shared frame, or the active page. Set an
+          exact visible gap between two objects, equalize edge gaps across a sequence, or distribute
+          reference points when object sizes differ. Every command keeps parent transforms and
+          hierarchy intact.
+        </p>
+        <div class="arrangement-contract__grid">
+          <article>
+            <h3>One-time geometry</h3>
+            <p>Align, distribute, and Tidy Up are undoable transforms. Tidy Up exposes columns plus independent row and column gaps, preserves the selection anchor, and never creates auto layout.</p>
+          </article>
+          <article>
+            <h3>Live spacing handles</h3>
+            <p>Gap handles preview from the original geometry, accept keyboard input, and restore the exact document on Escape.</p>
+          </article>
+          <article>
+            <h3>Order stays separate</h3>
+            <p>Bring Forward and Send Back change sibling paint order only; they never masquerade as spatial distribution.</p>
+          </article>
+        </div>
+        <p class="arrangement-contract__evidence">
+          Read the <a href="https://github.com/K-Arthur/varve/blob/main/docs/architecture/arrangement-system.md">spatial arrangement contract</a> for bounds, transforms, eligibility, and supported boundaries.
+        </p>
+      </section>
+
+      <section class="feature-section" data-testid="canvas-floating-containers">
+        <p class="eyebrow">Workplace ergonomics</p>
+        <h2>Streamlined central canvas with collapsible floating containers</h2>
+        <p>
+          Reclaim maximum screen real estate whenever focus demands it. Both the Layers and
+          Inspector sidebars are elevated, 100% opaque floating containers that can be collapsed
+          instantly via dedicated header buttons or keyboard shortcuts (<code>Ctrl+B</code> and <code>Ctrl+Shift+B</code>).
+        </p>
+        <p>
+          When collapsed, floating direct-manipulation edge restore pills appear on the canvas margin,
+          allowing instant one-click panel restoration without menu navigation. Side splitters feature
+          an expanded 14px hit target for effortless drag adjustments on mouse and trackpad.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Images stay local and editable</h2>
+        <p>
+          Embedded images are stored once in the document and shared by every placement. Crops, fit, rotation, flips, masks, and treatments remain per-use edits, while the canvas resolves the same source through its local decode cache on desktop and web. Payload-free asset references are repaired at document and render boundaries, so reopening or switching workspace does not turn an image into a grey placeholder. Home previews use that same canonical scene pipeline and can rebuild their disposable cache from the saved document when an older preview is missing.
+        </p>
+      </section>
+
+      <figure class="feature-visual">
+        <img
+          src={sitePath('/screenshots/layout-light.png')}
+          alt="Two pages of a Varve document side by side on the canvas, with page labels and ruler guides showing precise positioning"
+          width="1440"
+          height="900"
+          loading="lazy"
+        />
+        <figcaption>Multiple pages, rulers, and precision tools on one infinite canvas</figcaption>
+      </figure>
+
+      <section class="feature-section">
+        <h2>Key Capabilities</h2>
+        <ul>
+          <li><strong>Infinite canvas:</strong> Floating origin camera system for unlimited workspace</li>
+          <li><strong>Canvas guidance:</strong> A scoped empty-surface guide explains the first useful actions without covering the work area</li>
+          <li><strong>Viewport culling:</strong> Only render what's visible for performance at scale</li>
+          <li><strong>Dirty-rect redraw:</strong> Minimize redraws to changed regions</li>
+          <li><strong>Precision tools:</strong> Sticky snap, numerical precision, sub-pixel accuracy</li>
+          <li><strong>Keyboard nudging:</strong> Configurable small/big movement amounts with world-axis semantics and active-tool fallback</li>
+          <li><strong>Spatial arrangement:</strong> Align to selection, frame, or page; equalize visible gaps or centers; and Tidy Up with explicit grid spacing without reparenting</li>
+          <li><strong>Interactive spacing:</strong> Canvas gap handles with numeric entry, keyboard access, preview, and Escape cancellation</li>
+          <li><strong>Independent paint order:</strong> Bring forward, send backward, front, and back preserve sibling semantics</li>
+          <li><strong>Multi-page support:</strong> Work with multiple artboards/pages in one document</li>
+          <li><strong>Live minimap:</strong> See the active design canvas or publishing pasteboard, then click or drag to navigate without changing your artwork</li>
+          <li><strong>Surface-aware labels:</strong> Keep frame names readable and local to the active canvas, with accessible names and safe long-name handling</li>
+          <li><strong>Rulers and guides:</strong> Visual guides for alignment and measurement</li>
+          <li><strong>Grid systems:</strong> Document, pixel, baseline, isometric, and multi-guide frame overlays with explicit visibility and snapping controls</li>
+          <li><strong>Local image assets:</strong> Embedded image sources stay in the document, decode progressively, and remain editable through crop, fit, masks, and treatments</li>
+        </ul>
+      </section>
+
+      <section class="feature-section">
+        <h2>Technical Depth</h2>
+        <p>
+          The rendering pipeline is built on IR-replay (ADR-0001), validated empirically on Wayland Linux. The engine uses viewport culling, dirty-rect redraw, and spatial indexing for fast hit testing. The SubtreeReplayCache optimizes repeated rendering of unchanged subtrees. The minimap reuses the same world bounds, page placement, camera rotation, and live canvas dimensions as the main surface, so navigation remains an honest overview rather than a second approximation of the document.
+        </p>
+        <p>
+          The same facade works on desktop (native Rust via Tauri IPC) and web (WASM), with the browser-side renderer retaining an authoritative replay fallback when an accelerated or worker path cannot provide a fresh frame.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Limitations</h2>
+        <div class="limitations">
+          <p><strong>Current limitations:</strong></p>
+          <ul>
+            <li>Some legacy integrations still expose world-space values; use the artboard-local conversion helpers for page-aware tools and exports</li>
+            <li>Collaboration features are UI scaffolding only (no transport or wire protocol)</li>
+            <li>Responsive behavior is validated in automated Chromium viewports; physical display scaling, compositor scheduling, and unusually large documents can change the observed frame time</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <h2>Related Documentation</h2>
+        <ul>
+          <li><a href={sitePath('/docs/architecture')}>Architecture Overview</a> - IR-replay architecture details</li>
+          <li><a href={sitePath('/docs/rendering')}>Rendering Pipeline</a> - Canvas system internals</li>
+          <li><a href={sitePath('/docs/tools/vector')}>Vector Tools</a> - Selection and movement controls</li>
+          <li><a href="https://github.com/K-Arthur/varve/blob/main/docs/architecture/render-pipeline.md">Render Pipeline Documentation</a></li>
+        </ul>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Ready to try it?</h2>
+        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  .breadcrumb a {
+    color: var(--text-secondary);
+  }
+  
+  .feature-page h1 {
+    font-size: clamp(2rem, 5vw, 2.5rem);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.015em;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+  
+  .feature-intro {
+    font-size: 1.25rem;
+    color: var(--text-secondary);
+    margin-bottom: 3rem;
+  }
+  
+  .feature-section {
+    margin-bottom: 3rem;
+  }
+
+  .surface-state-contract {
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-default);
+  }
+
+  .surface-state-contract__facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .surface-state-contract__facts span {
+    padding: 0.45rem 0.7rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-surface);
+    background: var(--surface-card);
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+  }
+
+  .arrangement-contract {
+    padding: clamp(1.5rem, 4vw, 3rem);
+    border: 1px solid var(--border-accent);
+    border-radius: var(--website-radius-card);
+    background: var(--surface-accent-soft);
+  }
+
+  .arrangement-contract__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin: 2rem 0;
+  }
+
+  .arrangement-contract__grid article {
+    min-width: 0;
+    padding: 1.25rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-surface);
+    background: var(--surface-card);
+  }
+
+  .arrangement-contract__grid h3 { margin: 0 0 .5rem; color: var(--text-primary); }
+  .arrangement-contract__grid p { margin: 0; color: var(--text-secondary); line-height: 1.65; }
+  .arrangement-contract__evidence { margin-bottom: 0; font-size: .9375rem; }
+  .arrangement-contract a { color: var(--text-link); font-weight: 600; }
+  
+  .feature-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+  
+  .feature-section p {
+    color: var(--text-secondary);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  
+  .feature-section ul {
+    list-style: none;
+  }
+  
+  .feature-section li {
+    margin-bottom: 0.75rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--text-secondary);
+  }
+  
+  .feature-section li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--text-link-hover);
+  }
+  
+  .feature-section strong {
+    color: var(--text-primary);
+  }
+
+  .responsive-contract {
+    padding: 1.5rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    background: var(--surface-muted);
+  }
+
+  .responsive-contract__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .responsive-contract__grid article {
+    min-width: 0;
+    padding: 1rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    background: var(--surface-card);
+  }
+
+  .responsive-contract__grid h3 {
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+    font-size: 1rem;
+  }
+
+  .responsive-contract__grid p {
+    margin-bottom: 0;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+
+  .responsive-contract__evidence {
+    margin-bottom: 0;
+    font-size: 0.9375rem;
+  }
+
+  .grid-systems {
+    padding: clamp(1.5rem, 4vw, 3rem);
+    border: 1px solid var(--border-accent);
+    border-radius: var(--website-radius-card);
+    background: linear-gradient(135deg, var(--surface-accent-soft), var(--surface-card));
+  }
+
+  .grid-systems__header {
+    align-items: end;
+    display: flex;
+    gap: 1.5rem;
+    justify-content: space-between;
+  }
+
+  .grid-systems__header h2 { margin-bottom: 0; }
+
+  .grid-systems__link {
+    color: var(--text-link);
+    flex-shrink: 0;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .grid-systems__link span { display: inline-block; margin-left: .2rem; transition: transform .2s ease; }
+  .grid-systems__link:hover span { transform: translateX(3px); }
+
+  .grid-systems__lede {
+    color: var(--text-secondary);
+    line-height: 1.75;
+    margin: 1.25rem 0 2rem;
+    max-width: 680px;
+  }
+
+  .grid-systems__showcase {
+    align-items: stretch;
+    background: #172126;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-surface);
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(0, 1fr) minmax(150px, .48fr);
+    overflow: hidden;
+    padding: 1rem;
+  }
+
+  .grid-systems__canvas {
+    background: #e6edf0;
+    border-radius: var(--website-radius-control-compact);
+    min-height: 220px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .grid-systems__canvas-label {
+    color: #66777c;
+    font: 700 .6rem/1 var(--font-ui);
+    left: 1rem;
+    position: absolute;
+    top: .85rem;
+    z-index: 2;
+  }
+
+  .grid-systems__document-grid {
+    background-image: linear-gradient(to right, rgba(19, 103, 101, .2) 1px, transparent 1px), linear-gradient(to bottom, rgba(19, 103, 101, .2) 1px, transparent 1px);
+    background-size: 24px 24px;
+    inset: 1.75rem .75rem .75rem;
+    position: absolute;
+    transform: rotate(-3deg) scale(1.08);
+  }
+
+  .grid-systems__frame {
+    background: #fff;
+    box-shadow: 0 12px 24px rgba(20, 50, 58, .2);
+    height: 145px;
+    left: 22%;
+    position: absolute;
+    top: 26%;
+    transform: rotate(2deg);
+    width: 58%;
+  }
+
+  .grid-systems__frame i { border-left: 2px solid #e27c63; bottom: 0; position: absolute; top: 0; }
+  .grid-systems__frame i:nth-child(1) { left: 20%; }
+  .grid-systems__frame i:nth-child(2) { left: 40%; }
+  .grid-systems__frame i:nth-child(3) { left: 60%; }
+  .grid-systems__frame i:nth-child(4) { left: 80%; }
+  .grid-systems__frame span { bottom: .5rem; color: #de765d; font: 700 .55rem/1 var(--font-ui); position: absolute; right: .5rem; }
+
+  .grid-systems__legend { display: grid; gap: 1rem; padding: .5rem; }
+  .grid-systems__legend > div { align-items: flex-start; display: flex; gap: .65rem; }
+  .grid-systems__legend strong, .grid-systems__legend small { display: block; }
+  .grid-systems__legend strong { color: #eef8f8; font-size: .8rem; margin-bottom: .25rem; }
+  .grid-systems__legend small { color: #aebfc2; font-size: .7rem; line-height: 1.45; }
+  .grid-systems__marker { border-radius: 50%; flex-shrink: 0; height: .65rem; margin-top: .15rem; width: .65rem; }
+  .grid-systems__marker--document { background: #4dc8bd; }
+  .grid-systems__marker--pixel { background: #e99c63; }
+  .grid-systems__marker--guide { background: #dd6d62; }
+
+  .grid-systems__principles { display: grid; gap: 1rem; grid-template-columns: repeat(3, 1fr); margin-top: 1rem; }
+  .grid-systems__principles article { border-top: 2px solid var(--border-accent); padding-top: .9rem; }
+  .grid-systems__principles span { color: var(--accent-primary); font: 700 .68rem/1 monospace; }
+  .grid-systems__principles h3 { color: var(--text-primary); font-size: 1rem; margin: .5rem 0 .35rem; }
+  .grid-systems__principles p { color: var(--text-secondary); font-size: .875rem; line-height: 1.55; margin: 0; }
+
+  .feature-visual {
+    margin: -1rem 0 3rem;
+  }
+
+  .feature-visual img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    box-shadow: var(--elevation-shadow-raised);
+  }
+
+  .feature-visual figcaption {
+    margin-top: 0.75rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    text-align: center;
+  }
+
+  .limitations {
+    background: var(--surface-muted);
+    border-radius: var(--website-radius-card);
+    padding: 1.5rem;
+  }
+  
+  .limitations p {
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+  }
+  
+  .feature-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--border-default);
+  }
+  
+  .feature-cta h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    color: var(--text-primary);
+  }
+
+  @media (max-width: 640px) {
+    .feature-page {
+      padding: 2rem 0;
+    }
+
+    .responsive-contract {
+      padding: 1rem;
+    }
+
+    .responsive-contract__grid {
+      grid-template-columns: 1fr;
+    }
+
+    .grid-systems__header {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: .75rem;
+    }
+
+    .grid-systems__showcase {
+      grid-template-columns: 1fr;
+    }
+
+    .grid-systems__legend { grid-template-columns: repeat(3, 1fr); }
+
+    .arrangement-contract__grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 440px) {
+    .grid-systems { padding: 1rem; }
+    .grid-systems__canvas { min-height: 175px; }
+    .grid-systems__frame { height: 110px; }
+    .grid-systems__legend { grid-template-columns: 1fr; }
+    .grid-systems__principles { grid-template-columns: 1fr; }
+  }
+</style>

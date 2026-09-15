@@ -1,0 +1,96 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout title="Generative Editing — Varve Docs" description="Use Varve's local, mask-guided workflow for Fill, Remove / Generative Subtract, and photographic Expand, with desktop prompt modes gated by model qualification.">
+  <div class="container-custom">
+    <article class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb"><a href={sitePath('/docs')}>Documentation</a> / Tools / Generative Editing</nav>
+      <h1>Generative Editing</h1>
+      <p class="docs-intro">A mask-guided, local-first workflow for reconstructing image regions or extending photographic bounds while keeping an immutable source snapshot and an editable accepted result.</p>
+
+      <section class="docs-section">
+        <h2>Open the tool</h2>
+        <p>Select exactly one image layer and open <strong>Generative Edit</strong> from the image inspector's Adjustments section, the Crop &amp; Bounds inspector's <strong>Generative Expand</strong> action, the Layers or canvas context menu, Object → Generative Edit…, or the command palette. All entry points open the same workflow. Mixed or multi-layer selections are rejected so the mask always has one unambiguous raster source.</p>
+        <p>White means <strong>edit</strong>; black means <strong>preserve</strong>. Clear Paint resets the mask without changing the source image. Use Fit for an overview and 1:1 when checking fine edges.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Build and refine the mask</h2>
+        <p>Paint directly over the source with the Brush control, or reuse an existing mask:</p>
+        <ul>
+          <li><strong>Use Pixel Selection</strong> imports the current document pixel selection.</li>
+          <li><strong>Use Layer Mask</strong> imports the selected image's raster layer mask.</li>
+          <li><strong>Use Image Alpha</strong> imports the source alpha channel, preserving semitransparent coverage.</li>
+          <li><strong>Use Object Selection</strong> imports the confirmed candidate from the shared Object Selection tool. It remains editable here, so brush refinement does not alter the original segmentation session.</li>
+          <li>If there is no candidate yet and you have not painted a mask, choose <strong>Start Object Selection</strong>. Varve closes the modal, activates the canvas tool for a point or box prompt, and lets you reopen Generative Edit after confirming the candidate; the handoff stays disabled when an in-progress mask would otherwise be lost.</li>
+          <li><strong>Invert</strong> swaps edit and preserve coverage. <strong>Show mask overlay</strong> lets you inspect the boundary before generating.</li>
+        </ul>
+        <p>Choose Replace, Add, Subtract, or Intersect when combining another mask source. Expand mask grows the edit region to catch edge contamination; a negative value shrinks it. Feather softens the final composite edge. Context controls how much surrounding source imagery is supplied to the local reconstruction. These controls operate in source-image pixels and changing any of them clears the candidate, requiring a fresh preview.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Available modes</h2>
+        <table>
+          <thead><tr><th>Mode</th><th>Meaning</th><th>Availability</th></tr></thead>
+          <tbody>
+            <tr><td>Fill</td><td>Reconstruct painted pixels from nearby context.</td><td>Local, available</td></tr>
+            <tr><td>Remove / Generative Subtract</td><td>Rebuild the background after painting an unwanted object; it does not delete the source layer or make the region transparent.</td><td>Local, available</td></tr>
+            <tr><td>Replace</td><td>Replace a region from a text instruction.</td><td>Desktop only after a local model passes qualification</td></tr>
+            <tr><td>Expand</td><td>Generate pixels beyond the current image bounds. The retained source is copied through unchanged and only the new border is synthesized.</td><td>Desktop local reconstruction only within the reviewed photographic boundary; browser generation is unavailable until a qualified outpainting provider exists</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="docs-section">
+        <h2>Quality and providers</h2>
+        <ul>
+          <li><strong>Fast / Quick Cleanup</strong> uses the offline PatchMatch heuristic in a worker when the runtime supports workers and needs no model download. It is the fallback for constrained-memory devices and simple dust, blemish, and background cleanup; cancelling it does not leave a matching job running in the editor.</li>
+          <li>For Fill and Remove, the editor decodes only the painted source rectangle. The working raster is aspect-preserving and capped at 1 MP on constrained devices, 4 MP on standard devices, 8 MP on high-memory devices, and 2 MP when browser memory is unknown. The editable mask is persisted at source dimensions through a row-by-row grayscale PNG encoder, while acceptance stores a bounded transparent patch above the original pixels.</li>
+          <li><strong>AI</strong> uses the optional LaMa inpainting model. Download it explicitly; the model is kept in local model storage.</li>
+          <li><strong>Expand</strong> takes integer margins for each side and shows the original boundary while you set them. You can also choose a target aspect ratio or output size and anchor the new frame to a side or corner; the source is placed at the requested offset without resampling. On desktop, the whole new border including corners is generated, and the retained rectangle is restored byte-for-byte after inference, so provider changes inside the original never reach the document. LaMa synthesizes the border at a bounded resolution and enlarges it to the output size, so fine detail in new areas is approximate; the review step states the effective resolution. If the device budget is too small to preserve any generated border at the working scale, Varve rejects the request with an actionable message instead of returning an unchanged frame. Browser Expand is currently unavailable because the real-photo Fast fallback produced visible edge striping; this is kept out of the browser capability surface until an outpainting provider passes review. On a measured Linux x86_64 CPU, a 1024-pixel source with 120 to 160-pixel margins took about 20 seconds warm (about 60 seconds including the first cold model load).</li>
+          <li>LaMa is image-conditioned, not text-conditioned. Prompt-conditioned Fill, Replace, and Expand require an explicitly imported safe-format model that passes the desktop validation run. The browser has no silent remote fallback.</li>
+          <li>Desktop model setup is deliberately two-step: download the allowlisted Stable Diffusion 1.5 Inpainting Q4_0 candidate or import a safe-format artifact, then choose <strong>Validate Model</strong>. A non-empty model file is not treated as compatible until the production helper completes a masked test.</li>
+          <li>The current 1.75 GB candidate needs about 6 GB of available memory and is licensed CreativeML OpenRAIL-M. It failed Varve's 2026-09-12 real-photograph semantic/runtime qualification, so its prompt-conditioned modes remain disabled. A model checksum and reviewed result are required before any prompt mode is enabled.</li>
+          <li>On desktop, the native runtime measures available memory and reports the architecture/backend before loading diffusion. For native background removal it checks source dimensions before the webview allocates a full-resolution canvas, then repeats the check immediately before inference. If a native target cannot provide a trustworthy memory measurement, model-backed work stays unavailable instead of risking an unbounded allocation; the message identifies the platform/architecture and keeps Quick Cleanup available. ChromeOS browser sessions and ARM browser sessions report their best-effort platform/tier and retain the bounded local lightweight Fill/Remove paths; Object Selection and browser AI background removal account for the resident source plus temporary working buffers before allocating them, and send large requests to the brush/Fast fallback with prompts preserved. Browser Expand is also unavailable until a qualified browser outpainting provider exists. Prompt-conditioned generation is not advertised unless a qualified desktop provider is present. Browser memory hints are advisory, not a hardware guarantee.</li>
+          <li>There is no silent remote fallback. A future remote provider must state what it uploads and ask for consent immediately before transmission.</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Review and accept</h2>
+        <p>Use Original and Result to compare the source with the generated image. Fit, 1:1, zoom, and Center support both composition review and edge inspection. Regenerate creates new candidates and keeps a bounded session history, including the candidate that was active before regeneration; each candidate retains its own seed and provider metadata. Selecting a variation changes the candidate without writing document history, and unwanted candidates can be deleted before Apply. The final remaining candidate is protected.</p>
+        <p>Apply updates the existing image layer in one undoable transaction and preserves its id, ordering, layout, transforms, effects, and relationships. The document retains an immutable source snapshot and records the mask assets, provider/runtime, quality, seed, accepted variation, and placement/output frame. Bounded patches follow the image's crop, uniform fit, rotation, and flip placement; tiled, perspective-warped, cropped-out, and non-uniformly stretched placements are refused with an explanation instead of being applied at an incorrect location. From the Adjustments inspector, <strong>Duplicate as Layer</strong> creates a separate editable copy of the accepted result. Rendering, reopening, and exporting the accepted result do not require the model to remain installed.</p>
+        <p>Undo and redo operate on the embedded scene data and do not run inference again. Reopening the Generative Edit dialog restores the accepted recipe, mask, output frame, and retained candidates without rerunning inference. Choose <strong>Edit mask</strong> to refine the saved mask while keeping the prompt and candidates; a new generation is required before Apply can create a new edit. Save/reopen, Layers, the inspector, clipboard, and export therefore see the same accepted result.</p>
+      </section>
+
+      <section class="docs-section docs-note">
+        <h2>When a result becomes stale</h2>
+        <p>If the source image, placement, mask, settings, output frame, target, or document identity changes while a job is running, the result is discarded instead of being applied to the wrong pixels. Unrelated document edits do not invalidate it. Cancel also leaves the document unchanged. Generate again after making edits to the source.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>What this tool does not promise</h2>
+        <p>PatchMatch and LaMa can produce useful reconstructions, but they do not understand semantic instructions, guarantee repeating patterns, or solve every transparent, reflective, or highly structured image. Expansion continues what is already near the boundary; it does not invent requested objects, recover information that was never photographed, or make a sharp new subject out of a soft generated border. Text, logos, diagrams, pixel art, and screenshots are not supported expansion targets. Inspect the result at 1:1 and keep the source layer until the edit is approved.</p>
+      </section>
+    </article>
+  </div>
+</Layout>
+
+<style>
+  .docs-page { max-width: 800px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { color: var(--text-secondary); font-size: .875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  h1 { color: var(--text-primary); font: 700 clamp(2rem, 5vw, 2.8rem)/1.1 var(--font-editorial); margin-bottom: 1rem; }
+  .docs-intro { color: var(--text-secondary); font-size: 1.15rem; margin-bottom: 3rem; line-height: 1.7; }
+  .docs-section { margin-bottom: 2.5rem; }
+  .docs-section h2 { border-bottom: 2px solid var(--border-accent); color: var(--text-primary); font-size: 1.45rem; margin-bottom: 1rem; padding-bottom: .5rem; }
+  .docs-section p, .docs-section li, td, th { color: var(--text-secondary); line-height: 1.8; }
+  .docs-section li { margin-bottom: .5rem; }
+  table { width: 100%; border-collapse: collapse; margin: 1.25rem 0; }
+  th, td { border-bottom: 1px solid var(--border-default); padding: .75rem .5rem; text-align: left; vertical-align: top; }
+  th { color: var(--text-primary); font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; }
+  .docs-note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
+  @media (max-width: 620px) { table { font-size: .9rem; } th, td { padding: .6rem .3rem; } }
+</style>

@@ -1,0 +1,83 @@
+.alignment-handle-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  /* Must clear the opaque canvas content/overlay layers (z-index 2/3) — see
+   * CANVAS_INTERACTIVE_OVERLAY_Z_INDEX in canvas/overlayZIndex.ts. */
+  z-index: 10;
+}
+
+.alignment-handle__bar {
+  stroke: var(--color-interactive-default);
+  stroke-width: 2;
+  fill: none;
+}
+
+.alignment-handle__bar:hover,
+.alignment-handle__bar--active {
+  stroke-width: 3;
+}
+
+.alignment-handle__dot {
+  fill: var(--color-interactive-default);
+  cursor: ew-resize;
+  pointer-events: auto;
+}
+
+.alignment-handle__dot--vertical {
+  cursor: ew-resize;
+}
+
+.alignment-handle__dot--horizontal {
+  cursor: ns-resize;
+}
+
+.alignment-handle__dot:hover {
+  r: 6;
+}
+
+.alignment-handle__label {
+  fill: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  font-family: var(--font-mono, monospace);
+  pointer-events: none;
+}
+
+.alignment-guide-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+  /* Must clear the opaque canvas content/overlay layers (z-index 2/3) — see
+   * CANVAS_INTERACTIVE_OVERLAY_Z_INDEX in canvas/overlayZIndex.ts. */
+  z-index: 10;
+}
+
+.alignment-guide__line {
+  stroke: var(--color-interactive-default);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+  opacity: 0.6;
+}
+
+.alignment-guide__line--fade {
+  opacity: 0;
+  transition: opacity 0.8s ease-out;
+}
+
+.alignment-guide__label {
+  fill: var(--color-interactive-default);
+  font-size: var(--font-size-2xs);
+  font-family: var(--font-mono, monospace);
+  opacity: 0.6;
+}
+
+.alignment-guide__label--fade {
+  opacity: 0;
+  transition: opacity 0.8s ease-out;
+}

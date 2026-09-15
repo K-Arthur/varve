@@ -1,0 +1,49 @@
+/**
+ * Auxiliary window entry point (M6).
+ *
+ * Loaded by Tauri when creating a new panel window. Reads window identity
+ * from URL params, bootstraps a minimal provider tree, and renders the
+ * hosted panel(s).
+ *
+ * Does NOT load: canvas, renderer, models, collaboration, full editor.
+ */
+
+import './global.css';
+import '@varve/ui/tokens.css';
+import '@fontsource-variable/geist/index.css';
+import '@fontsource-variable/ibm-plex-sans/index.css';
+
+import { ErrorBoundary, restoreStoredFonts } from '@varve/editor';
+import { AuxiliaryRoot } from '@varve/editor/auxiliary';
+import { initializeThemeLifecycle } from '@varve/ui/tokens';
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { dismissBootFallback } from './startup/revealMainWindow';
+
+initializeThemeLifecycle();
+
+async function bootstrapAuxiliary() {
+  // Keep auxiliary panels in the same font-ready state as the main window.
+  // Missing-font scans must not run before persisted Fontsource faces are
+  // re-registered in this webview.
+  try {
+    await restoreStoredFonts();
+  } catch (error) {
+    console.warn('[fonts] Could not restore stored fonts:', error);
+  }
+
+  dismissBootFallback();
+
+  const root = document.getElementById('root');
+  if (!root) throw new Error('Root element not found');
+
+  createRoot(root).render(
+    <StrictMode>
+      <ErrorBoundary>
+        <AuxiliaryRoot />
+      </ErrorBoundary>
+    </StrictMode>,
+  );
+}
+
+void bootstrapAuxiliary();

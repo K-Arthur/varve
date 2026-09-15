@@ -1,0 +1,86 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout title="Image Enhance — Varve Docs" description="Use Varve's local-first image enhancement workflow for denoising, deblurring, and upscaling.">
+  <div class="container-custom">
+    <article class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb"><a href={sitePath('/docs')}>Documentation</a> / Tools / Image Enhance</nav>
+      <h1>Image Enhance</h1>
+      <p class="docs-intro">Clean up and enlarge a selected image without leaving the canvas.</p>
+
+      <section class="docs-section">
+        <h2>Choose the task</h2>
+        <p>Open the image enhancement command for a selected image and choose a preset or the operation that matches the source problem. Presets cover Auto, CPU and AI photo work, illustration, pixel art, denoise, deblur, and combined restoration. Changing an individual processing setting switches the dialog to Custom; output behavior remains unchanged. Auto / Recommended runs a quick local analysis (noise, blur, compression, resolution) and suggests a task with a qualitative signal label — you can always override it. The label is a heuristic, not a calibrated probability.</p>
+        <ul>
+          <li><strong>Denoise</strong> reduces sensor noise and grain using the task-specific SCUNet model. The dialog verifies that the graph and external weights are installed before enabling Apply; choose <strong>None</strong> for an explicit no-op.</li>
+          <li><strong>Deblur</strong> reduces motion and defocus blur with a validated NAFNet checkpoint. Restoration is bounded: the model runs on a cropped preview first, and full-resolution work tiles adaptively so memory stays within budget.</li>
+          <li><strong>Upscale</strong> enlarges with CPU, pixel-art, or the available local AI super-resolution path.</li>
+          <li><strong>Restore + Upscale</strong> and <strong>Deblur + Upscale</strong> compose restoration before enlargement so noise or blur is not simply made larger. The apply action names the selected operation instead of always saying “Apply recommended.”</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Review before applying</h2>
+        <p>The dialog previews a bounded representative crop and provides a draggable before/after comparison. The left side is the untouched source crop; the right side is the actual generated result for the selected operation and settings. This avoids comparing the output with a second resampled copy of the source.</p>
+        <ul>
+          <li><strong>Inspect</strong> uses a 3×3 picker to move the crop to the center, edges, or corners of the source.</li>
+          <li><strong>Fit</strong> fills the available review area, while <strong>100%</strong> shows output pixels at their native size. Use 100% for text, logos, thin lines, transparency, and edge transitions.</li>
+          <li>The comparison slider supports dragging and the left/right arrow keys. Auto resolves its recommendation before generating a CPU preview; AI modes wait for <strong>Generate AI preview</strong> so model work is explicit.</li>
+        </ul>
+        <p class="docs-callout">A preview is a bounded review crop, not a full-resolution final result. Changing the operation, mode, scale, focus, or quality policy discards the old preview before the new one is generated.</p>
+        <p class="docs-callout">The default CPU mode is <strong>Quality</strong> (Lanczos-3) so edges stay inspectable in the preview. <strong>Balanced</strong> (bicubic) is still available when a smoother photographic result is preferable.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Output behavior</h2>
+        <p><strong>New layer</strong> is the default and preserves the source. <strong>Replace source</strong> commits the derived pixels atomically and remains undoable. Use the output options only when their semantics suit the document; enhancement results are materialized pixels and do not silently become re-editable model operations.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Models and memory</h2>
+        <p>General Real-ESRGAN x4 is bundled for local AI upscaling. SCUNet denoising and NAFNet deblurring are optional, explicit downloads; split models are not considered ready until both the ONNX graph and external weights are present and the graph checksum verifies. Missing models keep Apply disabled and offer Download model.</p>
+        <p>The output panel reports a conservative peak-memory estimate that includes decoded frames, model runtime peaks, AI's fixed 4× intermediate, and any final resize staging. It is an admission estimate rather than a promise about exact allocator usage.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Which accelerator ran?</h2>
+        <p>
+          The installed desktop app keeps presentation, GPU compute, and model inference as
+          separate capabilities. CPU resampling remains the baseline; supported non-AI resampling
+          can use a native GPU only after device creation and a bounded self-test succeed. Native
+          AI sessions prefer the optional ONNX Runtime WebGPU provider in Automatic mode when the
+          staged plugin and model are compatible, and otherwise use native CPU inference. A GPU
+          provider is not an NPU provider.
+        </p>
+        <p>
+          The current release does not bundle a vendor NPU runtime, so the desktop settings panel
+          reports NPU providers as unavailable rather than presenting a misleading enabled switch.
+          Browser WebGPU and WebNN are independent browser capabilities and do not certify a Tauri
+          WebView or a desktop NPU. Provider status is evidence about the completed workload, not
+          a promise based on a device list.
+        </p>
+      </section>
+
+      <section class="docs-section docs-note">
+        <h2>Honest capabilities</h2>
+        <p>JPEG artifact removal is not offered as an operation: no model has passed Varve's design-content quality corpus for that task (denoising models smear 1px lines and UI text, and the JPEG-trained candidates were rejected on provenance or shape safety). Varve does not relabel a denoiser as a compression-restoration model, and it does not substitute an unrelated fallback when a requested task cannot run. Model quality and conversion evidence are published in the benchmark report.</p>
+      </section>
+    </article>
+  </div>
+</Layout>
+
+<style>
+  .docs-page { max-width: 800px; margin: 0 auto; padding: 3rem 0 5rem; }
+  .breadcrumb { color: var(--text-secondary); font-size: .875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  h1 { color: var(--text-primary); font: 700 clamp(2rem, 5vw, 2.8rem)/1.1 var(--font-editorial); margin-bottom: 1rem; }
+  .docs-intro { color: var(--text-secondary); font-size: 1.15rem; margin-bottom: 3rem; }
+  .docs-section { margin-bottom: 2.5rem; }
+  .docs-section h2 { border-bottom: 2px solid var(--border-accent); color: var(--text-primary); font-size: 1.45rem; margin-bottom: 1rem; padding-bottom: .5rem; }
+  .docs-section p, .docs-section li { color: var(--text-secondary); line-height: 1.8; }
+  .docs-section li { margin-bottom: .5rem; }
+  .docs-note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
+  .docs-callout { border-left: 3px solid var(--border-accent); padding-left: 1rem; }
+</style>

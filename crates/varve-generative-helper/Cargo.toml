@@ -1,0 +1,22 @@
+[package]
+name = "varve-generative-helper"
+description = "Isolated local diffusion helper for Varve generative image edits."
+version.workspace = true
+edition.workspace = true
+license = "FSL-1.1-MIT"
+authors.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+vulkan = ["diffusion-rs/vulkan"]
+metal = ["diffusion-rs/metal"]
+
+[dependencies]
+diffusion-rs = "=0.1.20"
+image = "0.25"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[lints]
+workspace = true

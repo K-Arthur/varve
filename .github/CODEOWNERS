@@ -1,0 +1,39 @@
+# Varve code owners.
+#
+# Single-maintainer repository: CODEOWNERS is advisory ownership visibility,
+# NOT enforced review (enabling "require review from code owners" would lock
+# the sole maintainer out of their own repository). Every change touching
+# security-critical paths must still go through the local pre-commit hooks
+# and the CI policy gates (scripts/validate-workflows.mjs,
+# scripts/security/workflow-policy.mjs).
+
+# CI/CD and supply chain
+/.github/                          @K-Arthur
+/.github/workflows/                @K-Arthur
+/.github/CODEOWNERS                @K-Arthur
+/.github/dependabot.yml            @K-Arthur
+/.github/hooks/                    @K-Arthur
+/.gitleaks.toml                    @K-Arthur
+
+# Release pipeline and signing policy
+/scripts/release/                  @K-Arthur
+/scripts/security/                 @K-Arthur
+/scripts/pin-github-actions.mjs    @K-Arthur
+/scripts/validate-workflows.mjs    @K-Arthur
+/scripts/secret-scan.mjs           @K-Arthur
+
+# Desktop application (Tauri + Rust signing surface)
+/apps/desktop/src-tauri/           @K-Arthur
+/apps/desktop/build-icons.sh       @K-Arthur
+
+# Security and release documentation
+/SECURITY.md                       @K-Arthur
+/docs/release/                     @K-Arthur
+/docs/security/                    @K-Arthur
+
+# Dependency manifests
+/package.json                      @K-Arthur
+/pnpm-lock.yaml                    @K-Arthur
+/Cargo.toml                        @K-Arthur
+/Cargo.lock                        @K-Arthur
+/pnpm-workspace.yaml               @K-Arthur

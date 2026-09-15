@@ -1,0 +1,229 @@
+# Motion System Architecture
+
+Motion is a first-class document capability in Varve. Animation data lives on `Document`; playback and prototype runtime are editor facades that sample timelines without mutating undo history.
+
+Framework evaluation and adoption boundaries are documented in
+[`motion-framework-evaluation.md`](./motion-framework-evaluation.md). Varve
+borrows GSAP's sequencing/lifecycle ideas and Remotion's deterministic
+frame-addressable rendering contract without adding either as a required
+runtime dependency.
+
+## Document Model (v1.6)
+
+```
+Document
+  ├── timelines: Record<string, Timeline>
+  ├── activeTimelineId?: string
+  ├── interactions: Record<NodeId, DocumentInteraction[]>   (v1.6)
+  ├── motionPresets?: Record<string, MotionPreset>
+  ├── motionExtensions?: Record<string, MotionExtension>    (Phase 5+ types only)
+  ├── stateMachines?: Record<string, StateMachine>
+  └── variableStore?: VariableStore
+```
+
+### Timeline
+
+- **Tracks** target `nodeId` + dot-notation `property` paths
+- **Keyframes** use `progress` (0–1), typed `value`, per-keyframe `easing`, optional `spatialTangents`
+- **Playback defaults**: fill mode, direction, iterations, autoReverse (WAAPI-aligned)
+- **Markers**: `TimelineMarker[]` for named progress points on the ruler
+- **Composite ops**: `replace` | `add` | `accumulate` when multiple tracks target one property
+
+### Interactions (v1.6)
+
+Persisted prototype wiring in `packages/scene/src/interactions.ts`. Structurally compatible with `@varve/prototype` `Interaction` at runtime. Loaded via `createRuntimeFromDocument()`.
+
+### Motion Presets
+
+Reusable motion styles captured from timelines (`createMotionPreset` / `removeMotionPreset` in `motion.ts`). Parallel to `TextStyle` / `EffectStyle`. The timeline panel exposes a preset dropdown with 9 built-in presets (Fade In, Slide Up/Down/Left/Right, Scale In, Rotate, Bounce In, Fade + Slide Up) when no user presets exist, and user presets when saved.
+
+### State Machines
+
+`SMState.timelineId` links interactive states to document timelines. Editor RAF loop advances `SMRuntime` via `advanceSMTransition` and syncs `activeTimelineId` when the bound timeline changes.
+
+## Editor Architecture
+
+```
+MotionFacade
+  ├── TimelineEngine (RAF)
+  ├── TimelineSampler → property overrides (Oklab colors, path morph, composite)
+  └── callbacks → patch motion.currentTime + canvas redraw
+
+CanvasArea.drawContent
+  └── sampleTimelineAt(doc, activeTimelineId, currentTime)
+      └── applyPropertyPath → buildIr → replayIr
+
+PrototypePresenter
+  └── PrototypeScreenView (hotspots + hit-test nodeId)
+      └── createRuntimeFromDocument(doc)
+      └── usePrototypeTransition — dissolve/slide/push/smart-animate screen transitions
+      └── smartAnimateBridge on navigate (layer name matching)
+
+Inspector (prototype mode)
+  ├── InteractionSection — per-node interaction CRUD
+  └── PrototypeFlowView — BFS flow graph of frame screens
+```
+
+## Key Files
+
+| Layer | Path |
+|---|---|
+| Types | `packages/scene/src/motion-types.ts` |
+| CRUD | `packages/scene/src/motion.ts` |
+| Interactions | `packages/scene/src/interactions.ts` |
+| Sampler | `packages/editor/src/timeline/TimelineSampler.ts` |
+| Playback | `packages/editor/src/timeline/TimelineEngine.ts` |
+| Facade | `packages/editor/src/motion/MotionFacade.ts` |
+| Prototype bridge | `packages/editor/src/motion/prototypeRuntime.ts` |
+| Smart Animate | `packages/prototype/src/smartAnimate.ts`, `editor/motion/smartAnimateBridge.ts` |
+| SM bridge | `packages/editor/src/motion/stateMachineBridge.ts` |
+| Motion path overlay | `packages/editor/src/components/MotionPathOverlay.tsx` |
+| Graph editor | `packages/editor/src/timeline/GraphEditor.tsx` |
+| Export (CSS/Lottie) | `packages/codegen/src/animation-*.ts` |
+| Export (UI) | `packages/editor/src/components/Export/ExportDialog.tsx` |
+| Video export (UI) | `packages/editor/src/components/Export/ExportDialog.tsx` |
+| Video export bridge | `packages/editor/src/motion/videoExportBridge.ts` |
+| Interactive export | `packages/codegen/src/animation-interactive.ts` |
+| Prototype transitions | `packages/editor/src/components/Prototype/usePrototypeTransition.ts` |
+| Benchmark | `packages/engine/src/motion.bench.test.ts` |
+
+## Rendering Integration
+
+Overrides are applied to flattened engine nodes **before** `buildIr` (ADR-0001). `motion.currentTime`, `motion.isPlaying`, and `motion.activeTimelineId` are `drawContent` dependencies for live playback.
+
+Sampler cache: `invalidateSamplerCache()` is called on timeline mutations; keyframe segment cache keys include track fingerprint to avoid stale reads.
+
+## Onion skin rendering
+
+`OnionSkinOverlay` draws previous/next-frame ghosts while the workspace is in `'motion'` mode:
+
+- Reads onion-skin state from `state.motion` (`onionSkinEnabled`, `onionSkinBeforeCount`, `onionSkinAfterCount`, `onionSkinOpacity`).
+- For each ghost time, `sampleTimeline` produces `Map<nodeId, Map<property, value>>` overrides.
+- `sceneNodeToEngineNode` converts scene nodes to the engine's `SceneNode` contract; overrides and the computed world transform are applied.
+- `await createEngine('stub')` + `buildIr` produce render IR, which is replayed through a tinted `ReplayTarget` for translucent before/after frames.
+
+## Interpolation (Phase 3)
+
+| Strategy | Implementation |
+|---|---|
+| Color | Oklab (`interpolateColorOklch` in `@varve/shared/interpolation.ts`) |
+| Affine | 6-element array lerp |
+| Path | `ensureVertexMatch` + `interpolatePath` when `interpolation: 'path'` (now creatable via `addTrack` opts) |
+| Text | String discrete midpoint on `text` / `text.*` property paths |
+| Spatial | `spatialTangents` + `interpolateSpatialBezier` |
+
+### Solo/Muted Tracks
+
+The sampler respects `track.muted` and `track.solo`: if any track in a timeline is solo, only solo tracks are evaluated. Muted tracks are always skipped.
+
+### Nested Timelines
+
+Nested timeline evaluation during playback passes the full `Document` to `sampleTimeline`, enabling nested timeline resolution in the playback path (not just static sampling).
+
+### Duration-0 Safety
+
+`TimelineEngine._advanceTime` returns immediately when `duration <= 0`, preventing infinite loops on empty timelines.
+
+## Export (Phase 4)
+
+- **ExportDialog** exposes per-timeline CSS keyframes, Lottie JSON, SVG animate, and MP4/WebM video (WebCodecs + `mp4-muxer` / `webm-muxer`).
+- **videoExport.ts** — `exportTimelineToVideo()` with injected frame renderer; `videoExportBridge.ts` wires `sampleTimelineAt` → `buildIr` → `replayIr` on OffscreenCanvas.
+- **animation-interactive.ts** — exports `Document.interactions` to a self-contained HTML prototype with embedded CSS + JS runtime.
+- Reduced-motion video export: single final frame when `prefers-reduced-motion` is active.
+- **Lottie fill/stroke color** — track properties `fill`/`fill.*` and `stroke`/`stroke.*` export as animated `fc`/`sc` keyframes with RGB conversion (RGBA 0-255 → Lottie 0-1) and per-keyframe bezier easing.
+
+## Video export (complete)
+
+- **WebCodecs path**: `exportTimelineToVideo()` in `packages/engine/src/videoExport.ts` encodes frames via `VideoEncoder`, muxes with `mp4-muxer` / `webm-muxer`.
+- **Frame renderer**: `videoExportBridge.ts` samples timeline → `buildIr` → `replayIr` on OffscreenCanvas per frame.
+- **UI**: ExportDialog motion section lists per-timeline MP4/WebM buttons when timelines exist and WebCodecs is available.
+- **E2E**: `tests/e2e/motion/video-export.spec.ts` (skipped when `VideoEncoder` unavailable).
+
+Video export is frame-addressable: frame `i` at `fps` is sampled at
+`i * 1000 / fps` milliseconds. The sample time is not derived from the final
+frame count, so the renderer and encoder share one deterministic clock.
+
+## Prototype screen transitions (complete)
+
+- **usePrototypeTransition** — hook coordinating transition kind, duration, easing, and Smart Animate layer overrides between prototype screens.
+- Wired in `PrototypePresenter` / `PrototypeScreenView` for present mode navigation.
+- Per-layer Smart Animate via `computeSmartAnimateHotspotOverrides` + `smartAnimateBridge`.
+
+## Extension Points (Phase 5 — types only)
+
+Reserved in `motion-types.ts`, not yet implemented:
+
+| Type | Purpose |
+|---|---|
+| `MotionExtension` / `MotionExtensionKind` | skeleton, bone, IK, mesh deform, path constraint |
+| `NestedTimelineRef` | Lottie pre-comp style nested timelines — **proof slice implemented** |
+| `AudioSyncTrack` | Timeline-aligned audio |
+| `CollaborativeKeyframeLock` | Multiplayer keyframe editing stub |
+
+## Deprecated
+
+`@varve/prototype/animation.ts` standalone timeline model — use `Document.timelines` instead.
+
+## Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+Alt+T` | Toggle timeline panel |
+
+## Phase C — Timeline UX (complete)
+
+- Marker CRUD on ruler (double-click add, context menu rename/delete)
+- Motion preset save/apply from timeline panel
+- Auto-keyframe toggle (Diamond icon) inserts keyframes at playhead during playback
+- Spec panel motion summary with export hash
+- **Timeline virtualization** — native position-based track virtualization: only visible tracks (±5 overscan) are rendered in the DOM. Container uses absolute positioning with scroll-based visibility culling. Activates for lists with >20 tracks.
+
+## Graph Editor
+
+`GraphEditor` renders a 2D SVG canvas where X axis is time (0–1 progress) and Y axis is property value. Each property track becomes a colored curve with draggable keyframe dots.
+
+- **Tangent handles**: When a keyframe has `spatialTangents`, tangent-in and tangent-out arms are rendered as lines with control-point circles. These visualize the spatial bezier curve.
+- **Easing cycle**: Shift+click on a keyframe cycles through easing types (linear → ease → easeIn → easeOut → easeInOut) via `onUpdateEasing`.
+- **Keyboard**: ArrowLeft/ArrowRight nudges keyframe progress (0.02 step, 0.1 with Shift). Delete key sends a delete signal via `onMoveKeyframe` with progress -1.
+- **Accessible**: Hidden `<button>` elements overlay each keyframe dot for screen reader access.
+
+## Motion Path Editing
+
+`MotionPathOverlay` renders the trajectory of animated position/transform tracks as a visible dashed curve on the canvas. Keyframe points are displayed as draggable circles:
+
+- **Pointer events** on keyframe circles start a drag interaction via `setPointerCapture`.
+- **Screen→world conversion** uses `editorScreenToWorld` from `cameraState.ts` with the editor's viewport, zoom, pan, and rotation.
+- **Drag commitment** calls `moveKeyframe` on the editor context, updating the keyframe's progress in the document model.
+- **Cursor feedback** changes between `grab` (idle) and `grabbing` (dragging).
+
+## Prototype Click-Through Tests
+
+E2E tests in `tests/e2e/prototype/prototype-clickthrough.spec.ts` verify the core prototype workflow: workspace switching, timeline creation, and motion workspace layout. The prototype runtime tests (`packages/prototype/src/*.test.ts`) cover trigger matching, action execution, variable evaluation, conditions, and state machine transitions.
+
+## Tests
+
+| Area | File |
+|---|---|
+| MotionFacade | `packages/editor/src/motion/MotionFacade.test.ts` |
+| Playback integration | `packages/editor/src/motion/playback-integration.test.ts` |
+| Prototype wiring | `packages/editor/src/motion/prototype-integration.test.ts` |
+| Smart Animate | `packages/prototype/src/smartAnimate.test.ts` |
+| Interactions CRUD | `packages/scene/src/interactions.test.ts` |
+| Motion presets | `packages/scene/src/motion-presets.test.ts` |
+| Sampler | `packages/editor/src/timeline/TimelineSampler.test.ts` |
+| Shell timeline | `packages/editor/src/Shell.motion.test.tsx` |
+| Auto-keyframe | `packages/editor/src/motion/autoKeyframe.test.ts` |
+| Timeline ruler | `packages/editor/src/timeline/TimelineRuler.test.tsx` |
+| Timeline panel | `packages/editor/src/timeline/TimelinePanel.test.tsx` |
+| Graph editor | `packages/editor/src/timeline/GraphEditor.test.tsx` |
+| Motion path overlay | `packages/editor/src/components/__tests__/MotionPathOverlay.test.tsx` |
+| Interaction section | `packages/editor/src/components/Inspector/sections/InteractionSection.test.ts` |
+| Lottie export | `packages/codegen/src/animation-lottie.test.ts` |
+| CSS export | `packages/codegen/src/animation-css.test.ts` |
+| SVG export | `packages/codegen/src/animation-svg.test.ts` |
+| Interactive export | `packages/codegen/src/animation-interactive.test.ts` |
+| E2E playback | `tests/e2e/motion/timeline-playback.spec.ts` |
+| E2E motion mode | `tests/e2e/canvas/motion-mode.spec.ts` |
+| E2E prototype | `tests/e2e/prototype/prototype-clickthrough.spec.ts` |
+| E2E video export | `tests/e2e/motion/video-export.spec.ts` |
+| Benchmark | `packages/engine/src/motion.bench.test.ts` |

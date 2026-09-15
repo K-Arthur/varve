@@ -1,0 +1,9 @@
+.page-layout-overlay__usable {
+  stroke: var(--color-interactive-default);
+  opacity: 0.7;
+}
+
+.page-layout-overlay__column {
+  stroke: var(--color-accent-primary);
+  opacity: 0.38;
+}

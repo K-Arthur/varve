@@ -1,0 +1,103 @@
+/**
+ * Global setup — warm the vite dev server before any test runs.
+ *
+ * The editor's module graph takes ~90-100s to transform on a cold cache
+ * (measured on this machine; CI runners are slower). Without this warm-up,
+ * the first test of every run died in navigateToEditor's page.goto or
+ * .layers-panel wait even though the dev server itself was healthy.
+ *
+ * The warm-up runs once per `playwright test` invocation (before any spec),
+ * loads the app in a real browser, and waits until the editor's home screen
+ * is interactive. By the time the first test starts, vite has already
+ * transformed the full module graph, so navigateToEditor's generous timeouts
+ * are never exercised against a cold cache.
+ *
+ * The webServer (`pnpm --filter @varve/desktop exec vite`) is started by
+ * Playwright before globalSetup runs. If it is not reachable, fail fast with
+ * a clear message instead of letting every spec die with opaque timeouts.
+ */
+import type { FullConfig } from '@playwright/test';
+import { type Browser, chromium } from '@playwright/test';
+
+const PORT = Number(process.env.VARVE_E2E_PORT ?? '1420');
+const BASE_URL = `http://localhost:${PORT}`;
+
+async function waitForServer(timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(`${BASE_URL}/`);
+      if (res.ok) return;
+    } catch {
+      /* server not up yet */
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  throw new Error(
+    `Warm-up: dev server not reachable at ${BASE_URL} after ${timeoutMs}ms. ` +
+      'Check the webServer command in playwright.config.ts.',
+  );
+}
+
+export default async function globalSetup(_config: FullConfig): Promise<void> {
+  // The replay visual projects load visual-harness.html, which intentionally
+  // bypasses the editor application. Warming the full editor graph for those
+  // projects adds no coverage and can turn an unrelated editor-only module
+  // problem into a false visual-harness failure. The visual scripts opt into
+  // this narrow path explicitly; full-editor projects retain the warm-up.
+  if (process.env.VARVE_VISUAL_HARNESS_ONLY === '1') return;
+
+  await waitForServer(60_000);
+
+  let browser: Browser | null = null;
+  try {
+    browser = await chromium.launch();
+    const page = await browser.newPage();
+    // 300s: under several concurrent agent suites, domcontentloaded has been
+    // observed at 90-200s on this machine, so the previous 180s budget failed
+    // before the warm-up even reached the editor. Shared navigation uses the
+    // same ceiling.
+    await page.goto(BASE_URL, { timeout: 300_000, waitUntil: 'domcontentloaded' });
+    // Handle safe mode dialog if present (from a previous crash)
+    const continueBtn = page.getByRole('button', { name: /continue normal startup/i });
+    if (await continueBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await continueBtn.click({ timeout: 5000 });
+      await page.waitForTimeout(1000);
+    }
+    // The editor's module graph (Menubar, CanvasArea, inspector, ...) is
+    // lazy: vite only transforms it when the editor actually mounts. Waiting
+    // for the home screen's New button alone leaves the expensive part
+    // untouched. Click through to a real editor so the full graph is
+    // transformed before any spec runs.
+    await page.getByRole('button', { name: /^new$/i }).waitFor({
+      state: 'visible',
+      timeout: 180_000,
+    });
+    await page.getByRole('button', { name: /^new$/i }).click({ timeout: 30_000 });
+    // The primary action is labelled "Create design" in some builds and plain
+    // "Create" in others; match either, exactly as navigateToEditor does.
+    const createInDialog = page
+      .locator('dialog[open]')
+      .getByRole('button', { name: /^create(\s+design)?$/i })
+      .first();
+    if (!(await createInDialog.isVisible({ timeout: 30_000 }).catch(() => false))) {
+      // On a profile with no documents the file browser leads with "Create
+      // your first design" instead of opening the dialog from New. Without
+      // this branch the warm-up throws on any fresh profile and every spec in
+      // the run dies before its own body executes.
+      await page
+        .getByRole('button', { name: /create your first design/i })
+        .first()
+        .click({ timeout: 30_000 });
+      await createInDialog.waitFor({ timeout: 30_000 });
+    }
+    await createInDialog.click({ timeout: 30_000 });
+    await page
+      .locator('.editor__layers-panel, .layers-panel')
+      .first()
+      .waitFor({ timeout: 180_000 });
+    await page.close();
+  } finally {
+    await browser?.close();
+  }
+}

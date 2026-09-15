@@ -1,0 +1,530 @@
+import type { FrameNode, SceneNode } from '@varve/scene';
+import { describe, expect, it } from 'vitest';
+import { computeFlexLayout } from '../computeFlexLayout';
+
+function makeFrame(layoutStyle: FrameNode['layoutStyle']): FrameNode {
+  return {
+    id: 'frame1',
+    name: 'Frame',
+    kind: 'frame',
+    transform: [1, 0, 0, 1, 0, 0],
+    w: 400,
+    h: 200,
+    children: ['c1', 'c2'],
+    layoutStyle,
+    fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 1 },
+    index: 0,
+    order: 'a0',
+    visible: true,
+    locked: false,
+    opacity: 1,
+    blendMode: 'normal',
+    rotation: 0,
+    strokes: [],
+    effects: [],
+  };
+}
+
+function makeChild(id: string, x: number, y: number, w: number, h: number): SceneNode {
+  return {
+    id,
+    name: id,
+    kind: 'shape',
+    transform: [1, 0, 0, 1, x, y],
+    shape: { kind: 'rect', x: 0, y: 0, w, h },
+    fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 1 },
+    index: 0,
+    order: 'a0',
+    visible: true,
+    locked: false,
+    opacity: 1,
+    blendMode: 'normal',
+    rotation: 0,
+    fills: [],
+    strokes: [],
+    effects: [],
+    cornerRadius: 0,
+  };
+}
+
+describe('computeFlexLayout', () => {
+  it('lays out row children sequentially with gap', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    const children: SceneNode[] = [makeChild('c1', 0, 0, 100, 100), makeChild('c2', 0, 0, 80, 100)];
+    const results = computeFlexLayout(frame, children);
+    expect(results).toHaveLength(2);
+    expect(results[0]).toMatchObject({ id: 'c1', x: 0, y: 0 });
+    expect(results[1]).toMatchObject({ id: 'c2', x: 110, y: 0 });
+  });
+
+  it('lays out column children sequentially with gap', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'column',
+      gap: 8,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    const children: SceneNode[] = [makeChild('c1', 0, 0, 100, 60), makeChild('c2', 0, 0, 100, 40)];
+    const results = computeFlexLayout(frame, children);
+    expect(results[0]).toMatchObject({ id: 'c1', y: 0 });
+    expect(results[1]).toMatchObject({ id: 'c2', y: 68 });
+  });
+
+  it('respects padding in row layout', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [5, 5, 5, 10],
+      grow: 0,
+      shrink: 0,
+    });
+    const children: SceneNode[] = [makeChild('c1', 0, 0, 100, 100)];
+    const results = computeFlexLayout(frame, children);
+    expect(results[0]).toMatchObject({ id: 'c1', x: 10, y: 5 });
+  });
+
+  it('returns empty array for frame with no layoutStyle', () => {
+    const frame = makeFrame(undefined);
+    const results = computeFlexLayout(frame, [makeChild('c1', 0, 0, 100, 100)]);
+    expect(results).toHaveLength(0);
+  });
+
+  it('wraps to next row when children exceed frame width', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: true,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    // Two 250-wide children don't fit in 400-wide frame → second wraps
+    const children: SceneNode[] = [makeChild('c1', 0, 0, 250, 50), makeChild('c2', 0, 0, 250, 50)];
+    const results = computeFlexLayout(frame, children);
+    expect(results).toHaveLength(2);
+    expect(results[0]).toMatchObject({ id: 'c1', x: 0, y: 0 });
+    expect(results[1]).toMatchObject({ id: 'c2', x: 0, y: 50 });
+  });
+
+  it('alignItems center centers children on cross axis', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+      alignItems: 'center',
+    });
+    const children: SceneNode[] = [makeChild('c1', 0, 0, 100, 40)];
+    const results = computeFlexLayout(frame, children);
+    // Frame is 200h, child is 40h → center at (200-40)/2 = 80
+    expect(results[0]).toMatchObject({ id: 'c1', y: 80 });
+  });
+
+  it('justifyContent center centers children on primary axis', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+      justifyContent: 'center',
+    });
+    const children: SceneNode[] = [makeChild('c1', 0, 0, 100, 50)];
+    const results = computeFlexLayout(frame, children);
+    // Frame is 400w, child is 100w → center at (400-100)/2 = 150
+    expect(results[0]).toMatchObject({ id: 'c1', x: 150 });
+  });
+
+  it('uses font-size-based text sizing instead of hardcoded 120x32', () => {
+    const textNode: SceneNode = {
+      id: 't1',
+      name: 'Text',
+      kind: 'text',
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 1 },
+      index: 0,
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal',
+      rotation: 0,
+      text: 'Hello World',
+      fontSize: 24,
+      fontFamily: 'Inter',
+      fontWeight: 400,
+      fontStyle: 'normal',
+      strokes: [],
+      effects: [],
+    };
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    const results = computeFlexLayout(frame, [textNode]);
+    // fontSize 24 * text length 11 * 0.6 ≈ 158
+    expect(results[0]?.w).toBeGreaterThan(100);
+    expect(results[0]?.h).toBeCloseTo(24 * 1.4, 0);
+  });
+
+  it('layoutSizing fill distributes remaining space proportionally', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    const child1 = makeChild('c1', 0, 0, 100, 50);
+    child1.layoutSizing = 'fill';
+    const child2 = makeChild('c2', 0, 0, 100, 50);
+    child2.layoutSizing = 'fill';
+    const results = computeFlexLayout(frame, [child1, child2]);
+    // Two fill children in 400px → each gets 200px
+    expect(results[0]?.w).toBe(200);
+    expect(results[1]?.w).toBe(200);
+  });
+
+  it('returns empty array for empty children list', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    const results = computeFlexLayout(frame, []);
+    expect(results).toHaveLength(0);
+  });
+
+  it('does not wrap when wrap is false, even if children overflow', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    const results = computeFlexLayout(frame, [
+      makeChild('c1', 0, 0, 250, 50),
+      makeChild('c2', 0, 0, 250, 50),
+    ]);
+    expect(results[1]).toMatchObject({ x: 250, y: 0 });
+  });
+
+  it('fill child gets remaining space after fixed siblings (not equal split)', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    const fixed = makeChild('fixed', 0, 0, 100, 40);
+    const fill = makeChild('fill', 0, 0, 10, 40);
+    fill.layoutSizing = 'fill';
+    const results = computeFlexLayout(frame, [fixed, fill]);
+    expect(results[0]).toMatchObject({ x: 0, w: 100 });
+    expect(results[1]).toMatchObject({ x: 110, w: 290 });
+  });
+
+  it('supports independent per-axis sizing (width fill, height fixed)', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+      alignItems: 'start',
+    });
+    const child = makeChild('child', 0, 0, 80, 30);
+    child.layoutSizingWidth = 'fill';
+    child.layoutSizingHeight = 'fixed';
+    const results = computeFlexLayout(frame, [child]);
+    expect(results[0]).toMatchObject({ w: 400, h: 30 });
+  });
+
+  it('filters hidden and absolute-positioned children out of flow', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    const hidden = makeChild('hidden', 0, 0, 100, 20);
+    hidden.visible = false;
+    const absolute = makeChild('absolute', 20, 30, 100, 20);
+    absolute.layoutPosition = 'absolute';
+    const flow = makeChild('flow', 0, 0, 50, 20);
+    const results = computeFlexLayout(frame, [hidden, absolute, flow]);
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({ id: 'flow', x: 0, y: 0 });
+  });
+
+  it('clamps fill children to minWidth/maxWidth constraints', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    const child = makeChild('child', 0, 0, 20, 20);
+    child.layoutSizing = 'fill';
+    child.minWidth = 120;
+    child.maxWidth = 180;
+    const results = computeFlexLayout(frame, [child]);
+    expect(results[0]?.w).toBe(180);
+  });
+
+  it('clamps a hug (intrinsic) child to minWidth even without fill', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    const child = makeChild('child', 0, 0, 20, 20);
+    child.minWidth = 60;
+    const results = computeFlexLayout(frame, [child]);
+    expect(results[0]?.w).toBe(60);
+  });
+
+  it('redistributes space released by a capped fill child', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 20,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 300;
+    const first = makeChild('first', 0, 0, 20, 40);
+    first.layoutSizing = 'fill';
+    first.maxWidth = 80;
+    const second = makeChild('second', 0, 0, 20, 40);
+    second.layoutSizing = 'fill';
+    const results = computeFlexLayout(frame, [first, second]);
+    expect(results.map((result) => result.w)).toEqual([80, 200]);
+  });
+
+  it('preserves flexible minima when the container cannot fit them', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 100;
+    const first = makeChild('first', 0, 0, 20, 40);
+    first.layoutSizing = 'fill';
+    first.minWidth = 60;
+    const second = makeChild('second', 0, 0, 20, 40);
+    second.layoutSizing = 'fill';
+    second.minWidth = 60;
+    const results = computeFlexLayout(frame, [first, second]);
+    expect(results.map((result) => result.w)).toEqual([60, 60]);
+  });
+
+  it('aligns a capped cross-axis fill item using its final size', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+      alignItems: 'center',
+    });
+    frame.h = 100;
+    const child = makeChild('child', 0, 0, 20, 80);
+    child.layoutSizingWidth = 'fill';
+    child.layoutSizingHeight = 'hug';
+    child.maxHeight = 40;
+    const [result] = computeFlexLayout(frame, [child]);
+    expect(result).toMatchObject({ y: 30, h: 40 });
+  });
+
+  it('keeps the occupied extent of strongly overlapping items finite', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: -60,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    const children = [
+      makeChild('a', 0, 0, 40, 20),
+      makeChild('b', 0, 0, 40, 20),
+      makeChild('c', 0, 0, 40, 20),
+    ];
+    const results = computeFlexLayout(frame, children);
+    expect(results.map((result) => result.x)).toEqual([0, -20, -40]);
+    expect(
+      Math.max(...results.map((result) => result.x + result.w)) -
+        Math.min(...results.map((result) => result.x)),
+    ).toBe(80);
+  });
+
+  it('keeps fixed geometry and inactive bounds while placing siblings', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 220;
+    const fixed = makeChild('fixed', 0, 0, 100, 40);
+    fixed.layoutSizing = 'fixed';
+    fixed.maxWidth = 40;
+    const sibling = makeChild('sibling', 0, 0, 40, 40);
+    const results = computeFlexLayout(frame, [fixed, sibling]);
+    expect(results[0]).toMatchObject({ x: 0, w: 100 });
+    expect(results[1]).toMatchObject({ x: 110, w: 40 });
+  });
+
+  it('keeps relative percentages literal and gives capped space to fill', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+    });
+    frame.w = 300;
+    const relative = makeChild('relative', 0, 0, 20, 40);
+    relative.layoutSizing = 'relative';
+    relative.layoutRelativeWidth = 25;
+    relative.maxWidth = 40;
+    const fill = makeChild('fill', 0, 0, 20, 40);
+    fill.layoutSizing = 'fill';
+    const results = computeFlexLayout(frame, [relative, fill]);
+    expect(results.map((result) => result.w)).toEqual([40, 250]);
+  });
+
+  it('a child cross-axis sizing set to hug is never stretched by parent alignItems', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+      alignItems: 'stretch',
+    });
+    const child = makeChild('child', 0, 0, 50, 30);
+    child.layoutSizingHeight = 'hug';
+    const results = computeFlexLayout(frame, [child]);
+    expect(results[0]?.h).toBe(30);
+  });
+
+  it('justifyContent spaceEvenly distributes equal gaps including outer edges', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 0,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+      justifyContent: 'spaceEvenly',
+    });
+    // Two 50px children in a 400px frame: 3 equal gaps of 100 → 100, 250
+    const results = computeFlexLayout(frame, [
+      makeChild('c1', 0, 0, 50, 50),
+      makeChild('c2', 0, 0, 50, 50),
+    ]);
+    expect(results[0]?.x).toBeCloseTo(100);
+    expect(results[1]?.x).toBeCloseTo(250);
+  });
+
+  it('includes visible outside borders in occupied layout footprints when enabled', () => {
+    const frame = makeFrame({
+      mode: 'flex',
+      direction: 'row',
+      gap: 10,
+      wrap: false,
+      padding: [0, 0, 0, 0],
+      grow: 0,
+      shrink: 0,
+      includeBordersInLayout: true,
+    });
+    const bordered = makeChild('c1', 0, 0, 100, 40);
+    if (bordered.kind === 'shape') {
+      bordered.strokes = [
+        {
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 1 },
+          weight: 4,
+          align: 'outside',
+          dashPattern: [],
+          dashOffset: 0,
+          cap: 'butt',
+          join: 'miter',
+          miterLimit: 4,
+          visible: true,
+        },
+      ];
+    }
+    const results = computeFlexLayout(frame, [bordered, makeChild('c2', 0, 0, 20, 40)]);
+    // Geometry remains 100px; the 4px outside stroke contributes to the
+    // occupied footprint used for spacing.
+    expect(results[0]).toMatchObject({ w: 100, occupiedW: 108 });
+    expect(results[1]).toMatchObject({ x: 118 });
+  });
+});

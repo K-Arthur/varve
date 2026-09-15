@@ -1,0 +1,337 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout title="Settings & Preferences — Varve Docs" description="Varve settings: theme, units, snapping, performance options, shortcuts, and per-platform preferences.">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Settings & Preferences
+      </nav>
+
+      <h1>Settings & Preferences</h1>
+      <p class="docs-intro">
+        Varve's settings panel allows you to customize the editor behavior, appearance, export defaults, and auto-save configuration. Settings are persisted to localStorage and sync across sessions.
+      </p>
+
+      <section class="docs-section">
+        <h2>Opening Settings</h2>
+        <p>
+          Access settings from the menubar: <strong>File &gt; Settings</strong> (or press the keyboard shortcut if configured). The settings dialog has several focused sections:
+        </p>
+        <ul>
+          <li><strong>Appearance</strong> — Theme, grid, and snap preferences</li>
+          <li><strong>Drawing Input</strong> — Finger ownership, wheel policy, sensitivity, and optional mouse-wheel continuation</li>
+          <li><strong>Performance</strong> — Interactive preview quality, diagnostics, and platform capability checks</li>
+          <li><strong>Export</strong> — Default export format, scale, ICC profile, bleed, and text outlining</li>
+          <li><strong>Updates</strong> — Update consent, channel, and install-on-quit preferences on supported desktop builds</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Updates</h2>
+        <p>
+          The Updates section controls whether Varve checks for newer desktop releases. Choose
+          <strong>Manual</strong> to check only when you ask, <strong>Automatically check and
+          notify me</strong> to receive availability notices, or automatic downloads when you
+          explicitly want verified update files downloaded in the background. Installation and
+          restart remain separate actions.
+        </p>
+        <p>
+          These controls do not override package ownership. Debian/RPM installs, development
+          builds, unsupported architectures, and read-only or translocated app copies remain
+          manual-only. See the <a href={sitePath('/docs/updates')}>Updates guide</a> for the
+          package matrix and privacy details.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Appearance Settings</h2>
+
+        <h3>Theme</h3>
+        <p>
+          Varve ships with Light and Dark themes, each audited for WCAG AA contrast compliance. The
+          website and editor present these as peer choices rather than an on/off switch. The
+          desktop editor also includes High Contrast for accessibility.
+        </p>
+        <ul>
+          <li><strong>Light</strong> — Clean white-based interface with teal accent</li>
+          <li><strong>Dark</strong> — Dark background with lighter-on-dark hierarchy (front-lit: higher surfaces are brighter)</li>
+          <li><strong>High Contrast</strong> — Maximum contrast mode for accessibility, with distinctive colors per layer type (e.g., purple for image layers)</li>
+        </ul>
+        <p>
+          All themes use OKLCH color space for perceptually uniform color ramps. The 12-step neutral and teal ramps ensure consistent contrast across every surface and text combination.
+        </p>
+
+        <h3>Canvas Grid</h3>
+        <ul>
+          <li><strong>Pixel Grid</strong> — Toggle the pixel-level grid overlay on the canvas</li>
+          <li><strong>Layout Grid</strong> — Toggle layout grid overlay for alignment reference</li>
+        </ul>
+
+        <h3>Pointer snapping (Inspector → Document → Snapping)</h3>
+        <p>
+          Pointer-snap preferences live with the editor viewport, not in the document file. Open
+          the Inspector's <strong>Document</strong> panel and expand <strong>Snapping</strong> to
+          change them without changing the artwork.
+        </p>
+        <ul>
+          <li><strong>Enable snapping</strong> — Turn magnetic pointer assistance on or off for eligible canvas tools</li>
+          <li><strong>Tolerance</strong> — Set magnetic acquisition distance from 1–32 CSS pixels; zoom does not change the size of the hand movement</li>
+          <li><strong>Object geometry</strong> — Include visible object edges and centers in the active editing scope</li>
+          <li><strong>Pages and frames</strong> — Include page and containing-frame bounds</li>
+          <li><strong>Guides</strong> — Include ruler and authored layout guides</li>
+          <li><strong>Reset snapping</strong> — Restore these viewport preferences without changing document geometry</li>
+        </ul>
+        <p>
+          Document-grid snap and integer pixel snap remain explicit controls in the separate
+          <strong>Document Grid</strong> section. They are not substitutes for magnetic pointer
+          snapping, and Arrow-key nudges never use the magnetic tolerance.
+        </p>
+
+        <h3>Nudging &amp; Movement</h3>
+        <p>
+          Set independent <strong>Small nudge</strong> and <strong>Big nudge</strong> amounts. Arrow
+          uses the small amount and Shift+Arrow uses the big amount. Values may be positive
+          fractions, are stored in canonical geometry units, and are displayed using the General
+          unit preference. Reset restores the factory defaults without changing document geometry.
+          Keyboard nudges are exact and do not invoke magnetic snapping or reparenting.
+        </p>
+
+        <h3>Alignment &amp; distribution</h3>
+        <p>
+          The Align &amp; Distribute bar keeps the reference and mode explicit. Choose selection
+          bounds, a containing frame, a page, or a key object; then choose equal gaps, equal
+          centers, fixed gap, or Tidy Up. Fixed gap is available for two eligible objects, while
+          automatic equal-gap and equal-center distribution require three. See the
+          <a href={sitePath('/docs/tools/precision-placement')}>Precision Placement guide</a> for
+          the exact geometry contracts.
+        </p>
+
+        <h3>Canvas Mode</h3>
+        <p>
+          The default canvas mode on startup: Full (all fills and effects), Outline (structure-only), or Preview (clean display).
+        </p>
+      </section>
+
+      <section class="docs-section" data-testid="navigation-settings-help">
+        <h2>Navigation and rendering settings</h2>
+        <h3>Drawing Input</h3>
+        <p>
+          The default wheel policy uses an unmodified wheel for canvas pan and
+          Ctrl/Cmd+wheel for pointer-centred zoom. Choose <strong>Always pan</strong> or
+          <strong>Always zoom</strong> when your mouse, trackpad, or WebView reports a gesture
+          differently. The sensitivity control changes the normalized CSS-pixel travel and
+          accepts fractional values from 0.25&times; to 4&times;.
+        </p>
+        <p>
+          Optional detented mouse-wheel continuation is deliberately separate from trackpad
+          momentum. Trackpad and ambiguous pixel streams remain direct-only so the editor does
+          not add a second momentum tail. These preferences affect the view only: they never
+          change artwork, selection, dirty state, or undo history.
+        </p>
+
+        <h3>Performance</h3>
+        <p>
+          <strong>Automatic</strong> interactive preview lets the renderer choose a bounded
+          movement quality from observed frame pressure and restores authoritative resolution
+          after the gesture settles. <strong>Full resolution</strong> keeps navigation at the
+          full device-pixel target when the document and hardware can sustain it. Neither choice
+          changes saved artwork, hit testing, export, or print output.
+        </p>
+        <p>
+          The diagnostics and platform capability report are opt-in and local. They show the
+          active backend, frame age/cadence, queue state, preview tier, and fallback reason
+          without collecting artwork or persistent hardware identifiers.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>How binary settings behave</h2>
+        <p>
+          A compact switch is reserved for a setting that is genuinely on or off, such as Show
+          guides, Enable snapping, or Use GPU acceleration. The positive label describes what
+          checked means, and supporting copy appears beside the control when a setting has a
+          consequence or dependency.
+        </p>
+        <p>
+          Peer choices such as theme, color space, and canvas mode use a radio group, segmented
+          control, or select. Checkboxes remain for multi-select lists and mixed values. Settings
+          keep their existing persistence scope, and staged dialog changes still wait for Apply or
+          Save.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Export Settings</h2>
+
+        <h3>Default Format</h3>
+        <p>
+          Choose the default export format: PNG, SVG, or PDF. This preselected option appears first in the Export dialog.
+        </p>
+
+        <h3>Scale</h3>
+        <p>
+          Default raster export scale: 1x, 2x, or 3x. Higher scales produce larger images suitable for Retina/HiDPI displays.
+        </p>
+
+        <h3>PDF Export Defaults</h3>
+        <ul>
+          <li><strong>ICC Profile</strong> — Default color profile for PDF output (sRGB, Adobe RGB, Fogra39, GRACoL, SWOP)</li>
+          <li><strong>Bleed</strong> — Default bleed width in mm for print documents</li>
+          <li><strong>Outline Text</strong> — Whether to convert text to vector paths by default in PDF output</li>
+          <li><strong>Rendering Intent</strong> — Perceptual, Relative Colorimetric, Absolute Colorimetric, or Saturation</li>
+          <li><strong>Color Profile</strong> — Document color space for PDF (RGB or CMYK)</li>
+        </ul>
+
+        <h3>Naming</h3>
+        <p>
+          Configure the output file naming template. Use variables like <code>&lcub;name&rcub;</code>, <code>&lcub;format&rcub;</code>, <code>&lcub;scale&rcub;</code> to create consistent naming patterns.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Auto-Save Configuration</h2>
+        <p>
+          Varve includes a robust auto-save system that protects your work:
+        </p>
+        <ul>
+          <li><strong>Interval</strong> — How often auto-save runs (default: 5 minutes, configurable 1-30 minutes)</li>
+          <li><strong>Save on visibility change</strong> — Auto-saves when you switch tabs or minimize the window</li>
+          <li><strong>Save on page hide</strong> — Last-chance save before the page unloads</li>
+          <li><strong>Recovery points</strong> — Automatic recovery snapshots created periodically, kept for up to 7 days</li>
+        </ul>
+        <p>
+          The auto-save service uses an idle-driven architecture: it debounces rapid edits and only saves when the document has actually changed. A concurrency guard prevents overlapping save operations, and retry with exponential backoff handles transient failures gracefully. The service state machine transitions between idle, saving, and error states.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Loading and Task Feedback</h2>
+        <p>
+          Varve keeps feedback proportional to the work. Short actions use a small
+          indeterminate indicator with a concise task label, while structured lists and
+          grids preserve their shape with skeleton placeholders. Downloads, imports,
+          exports, and other measurable operations show real progress and offer cancellation
+          where supported.
+        </p>
+        <ul>
+          <li><strong>Save and auto-save</strong> — Stay quiet during normal background work; a failure is surfaced with a clear recovery path.</li>
+          <li><strong>Model and asset downloads</strong> — Show actual progress rather than an endless spinner.</li>
+          <li><strong>Panel refreshes</strong> — Keep the existing content in place and use a contextual loading state instead of blocking the whole editor.</li>
+          <li><strong>Startup</strong> — The branded startup loader is separate from in-editor task feedback and exits when the home surface is ready.</li>
+        </ul>
+        <p>
+          These choices are especially important for Varve's local-first workflow: offline
+          editing should feel immediate, fast actions should not flash a loader, and optional
+          network or on-device model work should make its state and progress explicit.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Resetting Settings</h2>
+        <p>
+          If you need to start fresh, the settings dialog includes a "Reset to Defaults" button. This restores all settings to their factory defaults without affecting your documents.
+        </p>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Related Guides</h2>
+        <p>See <a href={sitePath('/docs/file-formats')}>File Formats</a> for export format details, or <a href={sitePath('/docs/getting-started/interface')}>Interface Overview</a> for editor layout.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    color: var(--text-secondary);
+  }
+  .docs-page h1 {
+    font-size: clamp(2rem, 5vw, 2.5rem);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.015em;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    margin-bottom: 3rem;
+  }
+  .docs-section {
+    margin-bottom: 3rem;
+  }
+  .docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--border-accent);
+    padding-bottom: 0.5rem;
+  }
+  .docs-section h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+  .docs-section p {
+    color: var(--text-secondary);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  .docs-section ul {
+    list-style: none;
+    margin-bottom: 1rem;
+  }
+  .docs-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--text-secondary);
+  }
+  .docs-section ul li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--text-link-hover);
+  }
+  .docs-section code:not(.code-block) {
+    background: var(--surface-muted);
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--website-radius-control-compact);
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+  .docs-section a {
+    color: var(--text-link);
+  }
+  .docs-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--border-default);
+  }
+  .docs-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+  .docs-cta p {
+    color: var(--text-secondary);
+  }
+</style>

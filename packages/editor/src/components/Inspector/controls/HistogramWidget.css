@@ -1,0 +1,9 @@
+.histogram-widget__clipping {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin: 0;
+  font-size: var(--font-size-2xs);
+  line-height: 1.35;
+  color: var(--color-feedback-warning-strong);
+}

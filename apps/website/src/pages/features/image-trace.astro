@@ -1,0 +1,172 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { sitePath } from '../../lib/siteUrl';
+import StatusPill from '../../components/StatusPill.astro';
+import FeatureVisual from '../../components/FeatureVisual.astro';
+---
+
+<Layout
+  title="Image Trace — Editable Vectors from Raster Artwork"
+  description="Trace logos, line art, flat colour, pixel art, and silhouettes into editable Varve paths with an honest local-first preview."
+>
+  <div class="container-custom">
+    <div class="feature-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Image trace
+      </nav>
+
+      <div class="feature-kicker"><StatusPill status="available" /></div>
+      <h1>Trace the shape you need. Keep the editability you need.</h1>
+      <p class="feature-intro">
+        Turn a local raster asset into ordinary editable paths without sending the artwork away.
+        Choose the tracing intent, prepare the source, inspect the result, and apply only when the
+        preview is useful.
+      </p>
+
+      <FeatureVisual
+        scene="vectorize"
+        caption="The Vectorize workflow previews the prepared source, the trace overlay, and the actual fitted vector result before Apply."
+      />
+
+      <section class="workflow-band" aria-label="Image trace workflow">
+        <div>
+          <span class="workflow-label">01 · Intent</span>
+          <strong>Choose a mode</strong>
+          <span>Silhouette, line art, colour, pixel art, or desktop centerline.</span>
+        </div>
+        <span class="workflow-arrow" aria-hidden="true">&rarr;</span>
+        <div>
+          <span class="workflow-label">02 · Review</span>
+          <strong>Prepare and compare</strong>
+          <span>Use Source, Prepared, Overlay, Vector, anchors, and 1:1 inspection.</span>
+        </div>
+        <span class="workflow-arrow" aria-hidden="true">&rarr;</span>
+        <div>
+          <span class="workflow-label">03 · Edit</span>
+          <strong>Apply ordinary paths</strong>
+          <span>Keep the source, edit nodes, undo once, or re-trace from saved provenance.</span>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <h2>Start with the artwork’s job</h2>
+        <div class="mode-grid" aria-label="Tracing intents">
+          <article class="mode-card mode-card--accent">
+            <span class="mode-card__number">01</span>
+            <h3>Logos and silhouettes</h3>
+            <p>Filled contours, retained counters, useful corners, and compact curves for marks that need node editing.</p>
+            <span class="mode-card__meta">Monochrome · cutout holes</span>
+          </article>
+          <article class="mode-card">
+            <span class="mode-card__number">02</span>
+            <h3>Scans and line art</h3>
+            <p>Optional grayscale, denoise, fixed threshold, or adaptive threshold for uneven paper and light ink.</p>
+            <span class="mode-card__meta">Reversible preparation</span>
+          </article>
+          <article class="mode-card">
+            <span class="mode-card__number">03</span>
+            <h3>Flat colour</h3>
+            <p>Bounded palette quantization with separate fills. Use stacked output when independently simplified colour edges need cover.</p>
+            <span class="mode-card__meta">Colour count · cutout or stacked</span>
+          </article>
+          <article class="mode-card">
+            <span class="mode-card__number">04</span>
+            <h3>Pixel art</h3>
+            <p>Nearest-neighbour preparation and hard pixel-aligned regions, with no curve smoothing or anti-alias promise.</p>
+            <span class="mode-card__meta">Exact within the declared budget</span>
+          </article>
+          <article class="mode-card">
+            <span class="mode-card__number">05</span>
+            <h3>Centerlines</h3>
+            <p>Recover editable strokes with endpoints, branches, loops, and a measured stroke width instead of pretending an outline is a centerline.</p>
+            <span class="mode-card__meta">Desktop native provider</span>
+          </article>
+          <article class="mode-card">
+            <span class="mode-card__number">06</span>
+            <h3>Photos and gradients</h3>
+            <p>Use colour tracing as a bounded stylization. The result is an editable approximation, not recovered semantic objects or a reconstructed gradient.</p>
+            <span class="mode-card__meta">Inspect complexity before Apply</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <h2>A preview you can trust</h2>
+        <p>
+          The preview is built from the same fitted curves, handles, holes, fills, and stroke
+          semantics that are inserted into the document. It does not replace the committed artwork
+          with a screenshot. Switch between the original source, prepared source, overlay, and
+          vector result without tracing again; turn on anchors and use Fit or 1:1 when a narrow gap
+          matters.
+        </p>
+        <p>
+          Diagnostics expose path and anchor counts, holes, omitted regions, effective processing
+          dimensions, provider, complexity, and downsampling. A draft preview is labelled when the
+          final run can use a larger bounded raster.
+        </p>
+      </section>
+
+      <section class="feature-section feature-section--note">
+        <h2>Local-first, with honest boundaries</h2>
+        <p>
+          Ordinary tracing runs locally through the native desktop engine or bounded web fallbacks.
+          It does not require an account, paid API, model download, GPU, or internet connection.
+          Optional image models are not silently added to tracing, and the source asset is kept
+          available for comparison and later editing.
+        </p>
+        <p>
+          Tracing currently reads source pixels, not the selected image’s visible composited
+          appearance. Masks, crops, adjustments, effects, and backdrop-dependent blending are
+          called out in the workflow instead of being approximated silently. Shared-boundary
+          cutout simplification, editable gradient recovery, and semantic text recognition are not
+          promised. See the <a href={sitePath('/docs/tools/image-trace')}>image trace guide</a> for
+          the complete capability boundary.
+        </p>
+      </section>
+
+      <div class="feature-cta">
+        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
+        <a href={sitePath('/docs/tools/image-trace')} class="btn-secondary">Read the image trace guide</a>
+        <a href={sitePath('/features/vector-tools')} class="btn-secondary">Explore vector tools</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .feature-page { max-width: 900px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 2rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .feature-kicker { margin-bottom: 1rem; }
+  .feature-page h1 { max-width: 780px; font-size: clamp(2.5rem, 6vw, 4.5rem); line-height: 1.02; font-family: var(--font-editorial); color: var(--text-primary); margin-bottom: 1.25rem; }
+  .feature-intro { max-width: 700px; font-size: 1.25rem; line-height: 1.7; color: var(--text-secondary); margin-bottom: 3rem; }
+  .workflow-band { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 1rem; margin-bottom: 4rem; padding: 1.5rem; border: 1px solid var(--border-default); border-radius: var(--website-radius-card); background: var(--surface-muted); }
+  .workflow-band div { display: grid; gap: 0.4rem; }
+  .workflow-label, .mode-card__number { color: var(--text-tertiary); font: 0.75rem var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; }
+  .workflow-band strong, .mode-card h3 { color: var(--text-primary); }
+  .workflow-band span:last-child { color: var(--text-secondary); line-height: 1.5; }
+  .workflow-arrow { color: var(--accent-primary); font-size: 1.4rem; }
+  .feature-section { margin-bottom: 3rem; }
+  .feature-section h2 { color: var(--text-primary); font-size: 1.6rem; margin-bottom: 0.9rem; }
+  .feature-section p { color: var(--text-secondary); line-height: 1.8; }
+  .mode-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  .mode-card { min-height: 220px; padding: 1.25rem; border: 1px solid var(--border-default); border-radius: var(--website-radius-card); background: var(--surface-card); }
+  .mode-card--accent { border-color: var(--border-accent); background: var(--surface-accent-soft); }
+  .mode-card h3 { margin: 2rem 0 0.65rem; font-size: 1.1rem; }
+  .mode-card p { color: var(--text-secondary); line-height: 1.6; }
+  .mode-card__meta { display: block; margin-top: 1.25rem; color: var(--text-tertiary); font-size: 0.8rem; }
+  .feature-section--note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
+  .feature-section a { color: var(--text-link); }
+  .feature-cta { display: flex; flex-wrap: wrap; gap: 0.75rem; border-top: 1px solid var(--border-default); padding-top: 2rem; }
+  .btn-secondary { display: inline-flex; align-items: center; padding: 0.7rem 1.1rem; border: 1px solid var(--border-default); border-radius: var(--website-radius-control); color: var(--text-primary); text-decoration: none; }
+  @media (max-width: 760px) {
+    .workflow-band { grid-template-columns: 1fr; }
+    .workflow-arrow { transform: rotate(90deg); justify-self: start; }
+    .mode-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 520px) {
+    .mode-grid { grid-template-columns: 1fr; }
+    .mode-card { min-height: auto; }
+    .mode-card h3 { margin-top: 1.25rem; }
+  }
+</style>

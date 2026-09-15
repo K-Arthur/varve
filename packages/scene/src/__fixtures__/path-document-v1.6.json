@@ -1,0 +1,87 @@
+{
+  "formatVersion": "1.6",
+  "name": "Path Test Document",
+  "rootChildren": ["root-group"],
+  "nodes": {
+    "root-group": {
+      "id": "root-group",
+      "kind": "group",
+      "name": "Page 1 content",
+      "transform": [1, 0, 0, 1, 0, 0],
+      "fills": [],
+      "strokes": [],
+      "effects": [],
+      "children": ["path-1", "bezier-path-1", "closed-path-1"]
+    },
+    "path-1": {
+      "id": "path-1",
+      "kind": "shape",
+      "name": "Straight Path",
+      "transform": [1, 0, 0, 1, 50, 50],
+      "fills": [{ "space": "rgb", "r": 30, "g": 150, "b": 200, "a": 255 }],
+      "strokes": [{ "color": { "space": "rgb", "r": 0, "g": 0, "b": 0, "a": 255 }, "weight": 2 }],
+      "effects": [],
+      "shape": {
+        "kind": "path",
+        "points": [
+          { "x": 0, "y": 0, "handleIn": null, "handleOut": null },
+          { "x": 100, "y": 0, "handleIn": null, "handleOut": null },
+          { "x": 200, "y": 50, "handleIn": null, "handleOut": null }
+        ],
+        "closed": false,
+        "tolerance": 3
+      }
+    },
+    "bezier-path-1": {
+      "id": "bezier-path-1",
+      "kind": "shape",
+      "name": "Bezier Curved Path",
+      "transform": [1, 0, 0, 1, 50, 150],
+      "fills": [{ "space": "rgb", "r": 200, "g": 50, "b": 50, "a": 255 }],
+      "strokes": [],
+      "effects": [],
+      "shape": {
+        "kind": "path",
+        "points": [
+          { "x": 0, "y": 0, "handleIn": null, "handleOut": [30, -20] },
+          { "x": 100, "y": 0, "handleIn": [-30, 20], "handleOut": null },
+          { "x": 200, "y": -50, "handleIn": null, "handleOut": [20, 10] },
+          { "x": 300, "y": 0, "handleIn": [-20, -10], "handleOut": null }
+        ],
+        "closed": false,
+        "tolerance": 3
+      }
+    },
+    "closed-path-1": {
+      "id": "closed-path-1",
+      "kind": "shape",
+      "name": "Closed Triangle",
+      "transform": [1, 0, 0, 1, 50, 300],
+      "fills": [{ "space": "rgb", "r": 50, "g": 200, "b": 100, "a": 255 }],
+      "strokes": [{ "color": { "space": "rgb", "r": 0, "g": 0, "b": 0, "a": 255 }, "weight": 1 }],
+      "effects": [],
+      "shape": {
+        "kind": "path",
+        "points": [
+          { "x": 0, "y": 0, "handleIn": null, "handleOut": null },
+          { "x": 100, "y": 80, "handleIn": null, "handleOut": null },
+          { "x": 50, "y": 160, "handleIn": null, "handleOut": null },
+          { "x": 0, "y": 0, "handleIn": null, "handleOut": null }
+        ],
+        "closed": true,
+        "tolerance": 3
+      }
+    }
+  },
+  "activePageId": "page-1",
+  "pages": [
+    {
+      "id": "page-1",
+      "name": "Page 1",
+      "width": 1920,
+      "height": 1080,
+      "contentRoot": "root-group",
+      "backgrounds": []
+    }
+  ]
+}

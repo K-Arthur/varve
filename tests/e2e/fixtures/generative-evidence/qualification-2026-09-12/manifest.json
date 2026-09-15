@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "task": "replace",
+  "sourceFixture": "../../real-life-landscape.jpg",
+  "sourceTransform": "center-crop to 512x512 PNG for the model context",
+  "sourcePage": "https://commons.wikimedia.org/wiki/File:Landscape_picture.JPG",
+  "creator": "Michae2109",
+  "license": "Public domain",
+  "workingFrame": {
+    "width": 512,
+    "height": 512,
+    "coordinateSpace": "source-image-pixels"
+  },
+  "prompt": "a small red canoe floating on the lake, natural dusk light, realistic photograph",
+  "negativePrompt": "text, watermark, blurry, distorted, duplicate objects",
+  "seed": 417,
+  "steps": 20,
+  "guidanceScale": 7,
+  "strength": 0.75,
+  "masks": {
+    "primary": "the existing sd15-q4_0-landscape-replace/mask.png: white rectangle x=196..316, y=196..316",
+    "diagnosticLakeMask": "temporary white rectangle x=150..360, y=126..190; used only for the 256px diagnostic run"
+  },
+  "artifacts": [
+    {
+      "file": "diffusion-rs-gpustack-q4-cpu-512.png",
+      "runtime": "diffusion-rs 0.1.20 / Varve helper / native-cpu",
+      "model": "GPUStack SD 1.5 Inpainting Q4_0",
+      "modelSha256": "d157ce24483f0c999062da140eacebe8f3ed015e652723e31f6d39119b800c16",
+      "dimensions": [512, 512],
+      "sha256": "b55777901aaafddc312f878dfe8385163dd8f0da344eb9de91f80be21e99d420",
+      "outcome": "failed-semantic-quality"
+    },
+    {
+      "file": "llama-box-gpustack-q4-vulkan-512.png",
+      "runtime": "llama-box v0.0.171 / Vulkan",
+      "model": "GPUStack SD 1.5 Inpainting Q4_0",
+      "modelSha256": "d157ce24483f0c999062da140eacebe8f3ed015e652723e31f6d39119b800c16",
+      "dimensions": [512, 512],
+      "sha256": "9c34edec1469dde1372ad05f563fd335bba756763f6a2131f150d3c5fc76c733",
+      "outcome": "failed-runtime-integrity"
+    },
+    {
+      "file": "llama-box-gpustack-q8-vulkan-512.png",
+      "runtime": "llama-box v0.0.171 / Vulkan",
+      "model": "GPUStack SD 1.5 Inpainting Q8_0",
+      "modelSha256": "2301f1a0712de3dc2ff16181e1023865aa837922216e439491b98b00d12eb5fc",
+      "dimensions": [512, 512],
+      "sha256": "e27202690b6182e66029220fa455599bc99860d2bed2799073e46ef6f3f18c3d",
+      "outcome": "failed-runtime-integrity"
+    },
+    {
+      "file": "llama-box-standard-q4-vulkan-512.png",
+      "runtime": "llama-box v0.0.171 / Vulkan",
+      "model": "standard SD 1.5 Inpainting Q4_0",
+      "modelSha256": "ababf34dbf33f8b23d1401afeaa719167ff6a95b16389c61a08d83e8503a1b4d",
+      "dimensions": [512, 512],
+      "sha256": "b502d1366e9929ef26b7997a5952182fa4f8da5a8c5da5d03916438184366cce",
+      "outcome": "failed-runtime-integrity"
+    },
+    {
+      "file": "sdcpp-standard-q4-vulkan-full-mask-256.png",
+      "runtime": "stable-diffusion.cpp 7f410a3 / Vulkan",
+      "model": "standard SD 1.5 Inpainting Q4_0",
+      "modelSha256": "ababf34dbf33f8b23d1401afeaa719167ff6a95b16389c61a08d83e8503a1b4d",
+      "dimensions": [256, 256],
+      "sha256": "e140dafcbd874f9c02dde3d13685291b15fb42ba707eff1887c2b6eb6a072160",
+      "outcome": "failed-semantic-quality-smoke"
+    },
+    {
+      "file": "sdcpp-standard-q4-vulkan-lake-mask-256.png",
+      "runtime": "stable-diffusion.cpp 7f410a3 / Vulkan",
+      "model": "standard SD 1.5 Inpainting Q4_0",
+      "modelSha256": "ababf34dbf33f8b23d1401afeaa719167ff6a95b16389c61a08d83e8503a1b4d",
+      "dimensions": [256, 256],
+      "sha256": "1bb71011a12f0cb4ff4972359b77867ec8d8bddbf6734b250a3b6fa969161ea6",
+      "outcome": "failed-semantic-quality-smoke"
+    }
+  ],
+  "qualification": {
+    "releaseQualified": false,
+    "reviewedAt": "2026-09-12",
+    "reason": "No candidate met prompt adherence and visual plausibility; the required corpus and platform gates remain outstanding."
+  }
+}

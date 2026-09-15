@@ -1,0 +1,88 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout title="Object Selection — Varve Docs" description="How to select, refine, apply, and reuse image masks in Varve.">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Tools / Object Selection
+      </nav>
+      <h1>Object Selection</h1>
+      <p class="docs-intro">Create an editable image mask from a canvas prompt, or use the result as a temporary pixel selection for downstream edits and export.</p>
+
+      <section class="docs-section">
+        <h2>Workflow</h2>
+        <ol>
+          <li>Select an image and activate <strong>Select Object</strong>.</li>
+          <li>Choose <strong>Points</strong> for include/exclude prompts, or <strong>Box hint</strong> when a coarse region is easier to identify than a point.</li>
+          <li>Set <strong>Prompt polarity</strong> explicitly. <strong>Shift</strong> remains a temporary exclude override for a point; it is not the same as subtracting an accepted selection.</li>
+          <li>In Box hint mode, tap two opposite corners or drag a box. The box guides segmentation; it is not silently treated as a hard clipping boundary.</li>
+          <li>Add more prompts to refine the temporary preview. Tap a marker to remove it, drag a marker to move it, or press <strong>Backspace</strong> to remove the last one. <strong>Escape</strong> or <strong>Clear prompts</strong> discards the preview.</li>
+          <li>Review candidate masks, then choose a <strong>Selection combination</strong> (replace, add, subtract, or intersect) if using <strong>Use as selection</strong>. <strong>Apply as mask</strong> always commits the reviewed candidate as an editable document mask. Neither output runs inference again.</li>
+        </ol>
+      </section>
+
+      <section class="docs-section">
+        <h2>What candidates mean</h2>
+        <p>Candidate masks are alternative interpretations of the same prompts. They are not a list of separately discovered object instances. Multiple positive points can still describe one object, and a disconnected object or a hole is not automatically discarded or filled. Use separate prompt sessions when you intend to select separate objects, then combine their accepted pixel selections deliberately.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Select subject without a prompt</h2>
+        <p><strong>Selection Sources &gt; Select subject</strong> proposes a foreground region for images with an obvious main subject. Choose an estimate quality first. <strong>Fast</strong> is the default and runs the bundled U²-Net Light model with no download, no account, and no GPU. <strong>Balanced</strong> prefers an installed IS-Net model, and <strong>High quality</strong> prefers an installed BiRefNet Lite model; when one is missing, the panel offers its download size explicitly and says which model actually ran. Varve shows the proposals for review first; only an explicit confirmation turns the reviewed candidate into a pixel selection or editable mask, and every alternative remains one click away.</p>
+        <p>The estimate is deliberately conservative about what it claims. Scores are shown as estimate scores rather than semantic confidence, and it never labels what an object is. A model-backed estimate works best when the subject stands out from its surroundings; a fully offline machine with no model falls back to the model-free heuristic, and the panel says so. Enclosed background-coloured regions stay inside a proposal rather than being punched out automatically, and the refine tools can remove them. For a specific object, use Object Selection with points or a box.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Model preference and honest fallbacks</h2>
+        <p><strong>Auto</strong> chooses only a validated, installed prompted provider that fits the current runtime and working-set budget. <strong>Faster local</strong> selects the optional MobileSAM split provider explicitly; it returns four candidates and is useful for testing a smaller download, but its real-photo browser gate found boundary-click ambiguity and its Node gate reached about 1.15&nbsp;GB RSS on a 1920&times;2560 photograph. It is therefore experimental and is not silently selected by Auto. <strong>Higher detail</strong> selects the SAM2 Tiny workflow explicitly.</p>
+        <p>If the requested provider cannot run, Varve explains why and keeps the prompts available. It does not silently replace prompted object selection with a foreground estimate. Model downloads are explicit, checksum-verified, and local.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Refine a mask or pixel selection</h2>
+        <p>Open an image with a mask and choose <strong>Refine Mask</strong> in the Background Removal section or the Mask inspector. The brush has three explicit intents &mdash; <strong>Add / reveal</strong>, <strong>Subtract / hide</strong>, and <strong>Restore original</strong> &mdash; selectable in the inspector or with <strong>1</strong>/<strong>2</strong>/<strong>3</strong>, with <strong>Alt</strong> as a hold-to-subtract shortcut. Brush size is measured in image pixels, and fast strokes are interpolated so no gaps appear between pointer samples.</p>
+        <p>Strokes are <em>not</em> clipped to the current pixel selection unless you enable <strong>Clip strokes to selection</strong>. That default exists because a refinement brush that can only paint inside the selection it is trying to grow cannot recover missing hair or foreground outside it.</p>
+        <p><strong>Refine edges</strong> starts with <strong>Matting (binary-safe)</strong>, because imported and segmented masks are often only 0/255. It solves a closed-form matting system over a spatial unknown band and can recover thin structures the current mask missed. <strong>Guided (already-soft edges)</strong> is an edge-aware smoother for masks that already carry partial coverage; it deliberately does not invent an alpha band from a hard boundary. If a solve is declined (for example, an extremely large unknown region on a constrained device), Varve says so and applies guided smoothing instead of committing a corrupt matte.</p>
+        <p>For difficult edges, <strong>Edit trimap</strong> paints categorical foreground, unknown, and background constraints. Unknown is a label, not 50% opacity; the matting solve estimates fractional coverage inside it. Manual constraints are preserved across re-solves, and your previous mask is used as a warm start and fallback.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Refine selection coverage</h2>
+        <p>The Selection Sources inspector (and the Pixel Selection menu) refines area coverage without touching layer selection. Feather creates a Gaussian transition, Smooth reshapes the boundary, Grow and Shrink move it by a distance, Harden (contrast) steepens or flattens coverage, Threshold hardens it at a coverage cut, Antialias adds a one-pixel transition, Border selects a band inside, outside, or centered on the boundary, Shift edge translates a soft transition without flattening it, and Cleanup removes small islands or fills small enclosed holes.</p>
+        <p>Every operation is computed from the current selection and commits as a single undoable step. Marching ants trace the 50% coverage contour; feathered pixels beyond the outline are still partially selected, which is why paint and fill tools can appear to act slightly outside the visible boundary.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Models and privacy</h2>
+        <p>The optional local model pair is downloaded explicitly from Settings &gt; Offline Models, verified with its manifest checksums, and loaded lazily. Images are not uploaded by this workflow. Embeddings are temporary session data and are not stored in the document.</p>
+        <p>After applying, the document stores a normal raster mask resource, so reopening the document does not require the model to be installed.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>For a tighter frame</h2>
+        <p><strong>Trim to Subject</strong> is a separate Crop &amp; Bounds workflow. Its optional DETR model returns object rectangles only. Review the suggested bounds, choose a candidate when there is more than one, and apply them as a non-destructive crop. Use Object Selection when you need an editable mask or a temporary pixel selection.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Limitations</h2>
+        <p>Object Selection is promptable segmentation, not semantic recognition. A click tells the model which region to segment; it does not guarantee that an arbitrary automatic result is the subject. A point near a textured object/background boundary can produce competing candidates, so review the candidate and add an exclude point or box before accepting it. Hair, fur, glass, smoke, shadows, and translucent edges may need brush or trimap refinement.</p>
+        <p>The <strong>Select subject</strong> estimate is a foreground proposal, not semantic recognition. The Fast level uses the bundled U²-Net Light model, optional higher-quality levels use installed IS-Net or BiRefNet Lite, and the model-free fallback (used when no model is available) is weakest on landscape or texture scenes. None of them labels what an object is, so Magic Wand and Object Selection remain the precise paths.</p>
+      </section>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .docs-page h1 { font-size: clamp(2rem, 5vw, 2.5rem); font-family: var(--font-editorial); margin-bottom: 1rem; color: var(--text-primary); }
+  .docs-intro, .docs-section p, .docs-section li { color: var(--text-secondary); line-height: 1.7; }
+  .docs-intro { font-size: 1.2rem; margin-bottom: 2.5rem; }
+  .docs-section { margin-bottom: 2.5rem; }
+  .docs-section h2 { color: var(--text-primary); margin-bottom: 1rem; }
+  .docs-section li + li { margin-top: 0.65rem; }
+</style>

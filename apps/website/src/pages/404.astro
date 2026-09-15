@@ -1,0 +1,82 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { sitePath } from '../lib/siteUrl';
+---
+
+<Layout title="Page Not Found" noindex description="The page you're looking for doesn't exist or has been moved.">
+  <div class="container-custom">
+    <div class="error-page">
+      <span class="error-code" aria-hidden="true">404</span>
+      <h1 class="error-title">Page Not Found</h1>
+      <p class="error-text">The page you're looking for doesn't exist or has been moved.</p>
+      <div class="error-actions">
+        <a href={sitePath('/')} class="btn btn-default">Go Home</a>
+        <a href={sitePath('/docs')} class="btn btn-secondary">Documentation</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .error-page {
+    text-align: center;
+    padding: 8rem 0;
+    position: relative;
+  }
+
+  .error-code {
+    display: block;
+    font-family: var(--font-editorial);
+    font-size: clamp(6rem, 15vw, 12rem);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.04em;
+    line-height: 0.85;
+    /* Decorative watermark, but axe requires 3:1 for large text even when
+       aria-hidden. --text-subtle clears 3:1 on both themes (4.71:1 light,
+       4.00:1 dark) while staying muted behind the title. */
+    color: var(--text-subtle);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -65%);
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .error-title {
+    font-family: var(--font-editorial);
+    font-size: clamp(1.75rem, 4vw + 0.5rem, 2.75rem);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    margin-bottom: 0.75rem;
+    position: relative;
+  }
+
+  .error-text {
+    color: var(--text-secondary);
+    font-size: 1.125rem;
+    margin-bottom: 2rem;
+    position: relative;
+  }
+
+  .error-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    position: relative;
+    /* WCAG 1.4.10 Reflow: at 320px the container leaves ~272px of content
+       width, which the two full-padding buttons plus a fixed 1rem gap can
+       exceed. Wrapping keeps them inside the viewport. */
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 400px) {
+    .error-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+</style>

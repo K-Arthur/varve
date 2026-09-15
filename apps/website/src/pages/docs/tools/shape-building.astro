@@ -1,0 +1,101 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout title="Shape Builder — Varve Docs" description="Select, merge, erase, extract, create, and divide editable vector regions in Varve without guessing at whole-object booleans.">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / <a href={sitePath('/docs/tools/vector')}>Tools</a> / Shape Builder
+      </nav>
+
+      <h1>Shape Builder</h1>
+      <p class="docs-intro">
+        Choose the regions you can see, then decide what they should become. Shape Builder works on the actual intersections between selected vector paths, not on object rectangles or a hidden raster fill.
+      </p>
+
+      <section class="docs-section">
+        <h2>A predictable staged workflow</h2>
+        <ol>
+          <li>Select one or more editable filled shapes or closed paths.</li>
+          <li>Enter <strong>Shape Builder</strong> from the vector toolbar, or press <code>Shift+B</code>.</li>
+          <li>Click a region or sweep across several regions. The document stays unchanged while you preview.</li>
+          <li>Choose Merge, Erase, Extract, Create, or Divide. Apply commits one undoable operation.</li>
+        </ol>
+        <p>
+          Fast sweeps test the faces crossed between pointer samples, and revisiting a face during a toggle gesture is idempotent. Hover an action to see teal output and amber source remainders before applying it. Escape cancels the active sweep first, then clears the staged selection, then exits the tool.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Strokes, open paths, and gaps</h2>
+        <p>
+          Shape Builder operates on filled areas, not on stroke centerlines. A source with a visible stroke is blocked with the reason shown in the panel; when outlining is the right fix, the panel offers <strong>Outline strokes and retry</strong>, which runs the same stroke-to-outline conversion as Object → Expand Stroke and then rebuilds the regions. Open paths are dividers rather than filled operands, so close or outline them first. Varve never silently outlines text, detaches an instance, or replaces a stroke with its bounding box.
+        </p>
+        <p>
+          Gaps are handled honestly. Varve does not silently weld a nearly-missed boundary or apply a hidden epsilon: a small mismatch stays visible as a thin, finite region that you can select, merge, or erase like any other. Alignment stays in your hands (snapping, align, or a deliberate merge), and the construction tolerance is derived from the artwork scale after the complete transform, so a tiny legitimate feature inside a very large operand is not discarded.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>What each action means</h2>
+        <div class="action-grid">
+          <article><h3>Merge</h3><p>Combines only the regions you selected and removes their internal boundaries. Unselected source areas remain.</p></article>
+          <article><h3>Erase</h3><p>Removes selected areas from their participating artwork without deleting unrelated regions.</p></article>
+          <article><h3>Extract</h3><p>Creates an editable result from the chosen connected regions while keeping unrelated source areas according to the remainder policy.</p></article>
+          <article><h3>Create</h3><p>Creates a new editable result and retains the original sources. The new result overlaps them by design; it is not a live Boolean recipe.</p></article>
+          <article><h3>Divide</h3><p>Creates separate editable components for the chosen regions. Disconnected components stay disconnected—Varve does not invent connector edges.</p></article>
+        </div>
+        <p>Whole-object Union, Subtract, Intersect, and Exclude remain separate commands when you want an operation over complete operands.</p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Holes, islands, and boundaries</h2>
+        <p>
+          Donuts, nested islands, compound paths, self-intersections, shared edges, and transformed shapes are decomposed into selectable faces. Holes remain holes. The unbounded outside is never offered as a giant region. A bounded empty face—a hole or an enclosed area no shape fills—can be selected and filled with Create, which leaves every source untouched; Merge, Erase, Extract, and Divide say that they need a filled region instead of silently ignoring it.
+        </p>
+        <p>
+          Ordinary rounded rectangles use the rendered rounded boundary, including per-corner radii and negative-direction geometry. Inline gradients keep their world placement; continuous/smoothed corners, open paths, visible strokes, image or pattern paints, shared gradient paints, masks, effects, instances, locked ancestors, and live Boolean groups are reported as unsupported. Convert or outline them explicitly when you need those semantics; Varve does not silently flatten or shift your source. Stretch, tangency, shared or coincident edges, and self-intersecting paths are decomposed deterministically with the authored even-odd or non-zero fill rule applied per source.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>After you apply</h2>
+        <p>
+          The result is an ordinary editable path: it appears in Layers, can be opened in Node Edit, and follows the existing save, reopen, SVG, and PDF routes. Disconnected result components remain separate objects; holes remain compound contours. Shape Builder's arrangement is derived preview state and is not stored as a second document authority.
+        </p>
+        <p>
+          The Create action is source-retaining and reversible through Undo. Merge, Erase, Extract, and Divide rebuild the affected sources in one atomic transaction so an error cannot leave half-deleted artwork.
+        </p>
+      </section>
+
+      <div class="docs-note">
+        <h2>Related guides</h2>
+        <p><a href={sitePath('/docs/tools/vector')}>Vector tools</a> explains primitives, node editing, and ordinary booleans. See <a href={sitePath('/docs/tools/strokes')}>strokes</a> when you need explicit stroke outlining.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
+  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
+  .breadcrumb a { color: var(--text-secondary); }
+  .docs-page h1 { font-size: clamp(2rem, 5vw, 2.5rem); font-family: var(--font-editorial); font-weight: 700; letter-spacing: -0.015em; margin-bottom: 1rem; color: var(--text-primary); }
+  .docs-intro { font-size: 1.125rem; color: var(--text-secondary); margin-bottom: 3rem; line-height: 1.7; }
+  .docs-section { margin-bottom: 3rem; }
+  .docs-section h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-primary); }
+  .docs-section h3 { font-size: 1.05rem; margin-bottom: 0.5rem; color: var(--text-primary); }
+  .docs-section p, .docs-section li { color: var(--text-secondary); line-height: 1.75; }
+  .docs-section ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  .docs-section li { margin-bottom: 0.5rem; }
+  .action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+  .action-grid article { border: 1px solid var(--border-default); border-radius: var(--website-radius-card); padding: 1rem; background: var(--surface-card); }
+  .action-grid p { margin: 0; }
+  .docs-note { padding: 1.5rem; border-radius: var(--website-radius-card); background: var(--surface-muted); }
+  .docs-note h2 { color: var(--text-primary); margin-bottom: 0.5rem; }
+  .docs-note p { color: var(--text-secondary); line-height: 1.7; margin: 0; }
+  a { color: var(--text-link); }
+  @media (max-width: 640px) { .action-grid { grid-template-columns: 1fr; } }
+</style>

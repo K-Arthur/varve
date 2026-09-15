@@ -1,0 +1,206 @@
+name: Build + Package
+
+permissions:
+  contents: read
+  actions: read
+  checks: read
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-wasm:
+    name: Build WASM engine (base + SIMD)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.97.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+      - name: Install just
+        uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026
+        with:
+          tool: just@1.54.0
+      - name: Install wasm-pack
+        run: |
+          if ! command -v wasm-pack >/dev/null 2>&1; then
+            curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+          fi
+      - name: wasm build (base + simd)
+        run: just wasm-build-all
+      - name: Upload wasm artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-wasm-release
+          path: apps/desktop/public/wasm/
+
+  # Which runners this event is allowed to use.
+  #
+  # The repository is public (2026-08-04), so GitHub-hosted runners are free and
+  # unmetered — this is no longer about the bill. It is kept because a full
+  # three-OS Tauri build on every PR costs 30-60 minutes of wall-clock feedback
+  # for signal that a Linux build already gives, and because macOS and Windows
+  # runners are a shared, queue-limited resource.
+  #
+  # Pull requests get the Linux gate only. The other runners are reserved for
+  # pushes to the default branch and manual dispatch. Feature-branch pushes are
+  # covered by the PR run, avoiding a duplicate three-OS build. Release artifacts
+  # come from release.yml, not here.
+  plan:
+    name: Plan runners
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.pick.outputs.matrix }}
+    steps:
+      - id: pick
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo 'matrix={"os":["ubuntu-latest"]}' >> "$GITHUB_OUTPUT"
+          else
+            echo 'matrix={"os":["ubuntu-latest","macos-latest","windows-latest"]}' >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: Build (${{ matrix.os }})
+    needs: [build-wasm, plan]
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      # Limit simultaneous runner acquisitions: firing all three OS cells at
+      # once is what starves the hosted runner pool during Actions incidents.
+      max-parallel: 2
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: 11.9.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
+        with:
+          toolchain: 1.97.1
+          components: rustfmt, clippy
+
+      - name: Install Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev \
+            libfontconfig1-dev libglib2.0-dev libsoup-3.0-dev \
+            libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
+            cmake pkg-config patchelf
+
+      - name: Install macOS Rust targets
+        if: runner.os == 'macOS'
+        run: |
+          rustup target add x86_64-apple-darwin aarch64-apple-darwin
+
+      - name: Install Windows Rust target
+        if: runner.os == 'Windows'
+        run: rustup target add x86_64-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint (JS)
+        run: pnpm lint
+
+      - name: Lint (Rust)
+        run: node scripts/cargo-with-generative-bindgen.mjs clippy --workspace --all-targets -- -D warnings
+
+      - name: JS tests
+        run: pnpm test
+
+      - name: Rust tests
+        run: node scripts/cargo-with-generative-bindgen.mjs test --workspace --all-targets
+
+      - name: Token gate
+        if: runner.os == 'Linux'
+        run: pnpm audit:tokens
+
+      - name: Emoji gate
+        if: runner.os == 'Linux'
+        run: pnpm audit:emoji
+
+      - name: Download wasm artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: varve-wasm-release
+          path: apps/desktop/public/wasm/
+
+      - name: Build frontend
+        run: pnpm build
+        working-directory: apps/desktop
+
+      # Must run after "Build frontend". Anything that compiles the desktop
+      # crate expands `tauri::generate_context!()`, which reads tauri.conf.json
+      # and hard-fails if `frontendDist` ("../dist") is absent:
+      #
+      #   error: proc macro panicked
+      #     = help: message: The `frontendDist` configuration is set to
+      #             `"../dist"` but this path doesn't exist
+      #
+      # This step used to sit above the frontend build and failed on all three
+      # runners for that reason. It went unnoticed because earlier steps in the
+      # job errored first, so the ordering was never actually exercised.
+      - name: Rust tests (desktop)
+        run: node scripts/cargo-with-generative-bindgen.mjs test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol
+
+      # Compile-and-link check, not a packaging run. `--no-bundle` skips the
+      # installer generation (AppImage tooling download, WiX, DMG staging),
+      # which is the slow half and is not what this workflow is for — release
+      # artifacts are built by release.yml from a tag. This keeps the signal
+      # that the Rust side still compiles and links on every OS, at roughly
+      # half the runner minutes.
+      - name: Tauri build (release, no bundle)
+        run: pnpm tauri build --ci --no-bundle --features custom-protocol
+        working-directory: apps/desktop
+
+      - name: Build test binary (debug + wdio features)
+        if: runner.os == 'Linux'
+        working-directory: apps/desktop
+        run: pnpm tauri build --debug --no-bundle --config src-tauri/tauri.test.conf.json --features wdio,custom-protocol
+
+      - name: Automated failure debug
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
+
+      - name: Upload debug report
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: varve-debug-${{ matrix.os }}-${{ github.run_id }}
+          path: ci-debug-report.md
+          if-no-files-found: ignore
+
+      # No bundle directory is produced here any more (see --no-bundle above);
+      # this workflow proves the build compiles, release.yml produces the
+      # installers. Nothing to upload.

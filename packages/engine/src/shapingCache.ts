@@ -1,0 +1,141 @@
+/**
+ * LRU cache for TextShaping results.
+ *
+ * Shaping is deterministic for a given source, face revision, style, feature,
+ * variation, and layout-policy tuple. The cache caps both entry count and
+ * estimated memory, evicting the least-recently-used entry first.
+ *
+ * Research basis: browser text-measurement caching, Figma render cache.
+ */
+
+import type { TextShaping } from './types';
+
+const DEFAULT_MAX = 500;
+const DEFAULT_MAX_BYTES = 16 * 1024 * 1024;
+
+export interface ShapingCacheKeyOptions {
+  /** Exact face/content revision; changes invalidate old geometry. */
+  fontRevision?: string;
+  /** PostScript/content identity when family names are ambiguous. */
+  faceId?: string;
+  /** Canonicalized OpenType feature settings. */
+  featureKey?: string;
+  /** Canonicalized variation-axis settings. */
+  variationKey?: string;
+  /** Width/layout policy when the shaping result is used for wrapping. */
+  maxWidth?: number;
+  layoutMode?: string;
+}
+
+interface CacheEntry {
+  value: TextShaping;
+  bytes: number;
+}
+
+export class ShapingCache {
+  private map = new Map<string, CacheEntry>();
+  private access = new Map<string, number>();
+  private clock = 0;
+  private totalBytes = 0;
+
+  constructor(
+    private max = DEFAULT_MAX,
+    private maxBytes = DEFAULT_MAX_BYTES,
+  ) {}
+
+  private key(
+    text: string,
+    fontFamily: string,
+    fontSize: number,
+    direction: string,
+    language: string,
+    options?: ShapingCacheKeyOptions,
+  ): string {
+    return JSON.stringify([
+      text,
+      fontFamily,
+      fontSize,
+      direction,
+      language,
+      options?.fontRevision ?? '',
+      options?.faceId ?? '',
+      options?.featureKey ?? '',
+      options?.variationKey ?? '',
+      options?.maxWidth ?? null,
+      options?.layoutMode ?? '',
+    ]);
+  }
+
+  private estimateBytes(key: string, value: TextShaping): number {
+    const glyphCount = value.runs.reduce((sum, run) => sum + run.glyphs.length, 0);
+    return key.length * 2 + 256 + glyphCount * 48;
+  }
+
+  get(
+    text: string,
+    fontFamily: string,
+    fontSize: number,
+    direction: string,
+    language: string,
+    options?: ShapingCacheKeyOptions,
+  ): TextShaping | undefined {
+    const k = this.key(text, fontFamily, fontSize, direction, language, options);
+    const entry = this.map.get(k);
+    if (entry !== undefined) {
+      this.access.set(k, ++this.clock);
+    }
+    return entry?.value;
+  }
+
+  set(
+    text: string,
+    fontFamily: string,
+    fontSize: number,
+    direction: string,
+    language: string,
+    value: TextShaping,
+    options?: ShapingCacheKeyOptions,
+  ): void {
+    const k = this.key(text, fontFamily, fontSize, direction, language, options);
+    const bytes = this.estimateBytes(k, value);
+    const previous = this.map.get(k);
+    if (previous) this.totalBytes -= previous.bytes;
+    this.map.set(k, { value, bytes });
+    this.totalBytes += bytes;
+    this.access.set(k, ++this.clock);
+    while (this.map.size > this.max || this.totalBytes > this.maxBytes) {
+      // Evict LRU
+      let oldestKey: string | null = null;
+      let oldestTime = Infinity;
+      for (const [key, time] of this.access) {
+        if (time < oldestTime) {
+          oldestTime = time;
+          oldestKey = key;
+        }
+      }
+      if (oldestKey !== null) {
+        const evicted = this.map.get(oldestKey);
+        this.map.delete(oldestKey);
+        this.access.delete(oldestKey);
+        if (evicted) this.totalBytes -= evicted.bytes;
+      }
+    }
+  }
+
+  clear(): void {
+    this.map.clear();
+    this.access.clear();
+    this.totalBytes = 0;
+  }
+
+  get size(): number {
+    return this.map.size;
+  }
+
+  get bytes(): number {
+    return this.totalBytes;
+  }
+}
+
+/** Module-level singleton — shared across the engine. */
+export const shapingCache = new ShapingCache();

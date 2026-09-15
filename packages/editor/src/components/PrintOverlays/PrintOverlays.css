@@ -1,0 +1,32 @@
+/**
+ * Print overlay guide styling — theme-aware through design tokens.
+ * Guides are differentiated by line style (dash pattern) AND hue so they
+ * remain legible in light, dark and high-contrast themes and for
+ * colour-blind users.
+ */
+.print-bleed-guide {
+  stroke: color-mix(in oklab, var(--color-accent-primary) 70%, transparent);
+}
+
+/* The content and draft canvases paint opaque surfaces at z-index 2/3.
+ * Keep this passive production overlay above those surfaces, while the
+ * interactive canvas overlays use z-index 10 and remain visually on top. */
+.print-overlays {
+  z-index: 5;
+}
+
+.print-bleed-band {
+  fill: color-mix(in oklab, var(--color-accent-primary) 6%, transparent);
+}
+
+.print-safe-area-guide {
+  stroke: color-mix(in oklab, var(--color-feedback-success) 75%, transparent);
+}
+
+.print-slug-guide {
+  stroke: color-mix(in oklab, var(--color-feedback-info) 75%, transparent);
+}
+
+.print-trim-mark {
+  stroke: var(--color-text-subtle);
+}

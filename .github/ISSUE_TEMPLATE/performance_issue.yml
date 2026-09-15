@@ -1,0 +1,49 @@
+name: Performance problem
+description: Varve is slow, stutters, or uses excessive memory.
+labels: ["performance"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Varve version
+    validations:
+      required: true
+
+  - type: input
+    id: os-hardware
+    attributes:
+      label: OS and hardware
+      placeholder: "e.g. Windows 11, Ryzen 7 7800X3D, RTX 4070, 32 GB RAM"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Rendering backend (if known)
+      options:
+        - "Not sure"
+        - Canvas2D
+        - WebGPU
+
+  - type: textarea
+    id: document
+    attributes:
+      label: Document complexity
+      description: Approximate node/layer count, canvas size, number of pages, effects used.
+      placeholder: "e.g. ~2,000 nodes, 4 pages, 3000x2000px canvas, several blur/bloom effects"
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce the slowdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: measurement
+    attributes:
+      label: What you measured
+      description: FPS, frame time, memory usage, or a profile/trace if you captured one. Approximate numbers are fine.

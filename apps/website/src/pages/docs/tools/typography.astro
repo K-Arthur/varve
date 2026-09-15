@@ -1,0 +1,463 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { sitePath } from '../../../lib/siteUrl';
+---
+
+<Layout title="Typography & Font Replacement — Varve Docs" description="Set type in Varve with Unicode-aware text, rich text, variable fonts, and local-first missing-font replacement for imported designs.">
+  <div class="container-custom">
+    <div class="docs-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/docs')}>Documentation</a> / Tools / Typography
+      </nav>
+
+      <h1>Typography</h1>
+      <p class="docs-intro">
+        Create and edit text, choose fonts, adjust spacing, and format individual words with Rich Text. This guide covers the available controls and the current font-access and export limitations.
+      </p>
+
+      <section class="docs-section">
+        <h2>Creating Text</h2>
+        <p>
+          Press <code>T</code> to select the Text tool. Click anywhere on the canvas to create a text node at that position. Start typing immediately — the text appears on canvas as you type. Press <code>Escape</code> or click elsewhere to finish editing.
+        </p>
+        <p>
+          The text box expands as you type. To create a fixed-width text area, click and drag to define its bounds.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Editing Text</h2>
+        <p>
+          There are two ways to edit existing text:
+        </p>
+        <ul>
+          <li><strong>Double-click</strong> the text with the Select tool to edit it directly on the canvas. Mixed-direction caret behavior remains under active integration.</li>
+          <li><strong>Edit in Inspector</strong> — Select a text node and find the text content field in the Typography section of the Inspector. This is useful for longer text passages.</li>
+        </ul>
+        <p>
+          Press <code>Escape</code> or click away to exit edit mode. If the
+          compact font picker is open, the first <code>Escape</code> closes the
+          picker; press it again to leave text editing.
+        </p>
+        <p>
+          The floating text toolbar provides font family, weight, bold, italic,
+          size, and color controls. Open <strong>More text formatting</strong> for
+          alignment and lists. Font size changes apply when you press <code>Enter</code> or
+          leave the size field; <code>Escape</code> discards
+          an unfinished size edit. Hovering or arrowing through a family or face
+          is a temporary preview in the floating toolbar, contextual bar, and
+          Inspector; it creates no undo entry. Choose a result to commit one
+          formatting change, or press <code>Escape</code> to restore the prior
+          formatting. Undo reverses that committed change separately from the
+          typing that preceded it.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Rich text, selection, and appearance</h2>
+        <p>
+          The native editing surface owns typing, caret movement, IME composition, selection, and clipboard input. Varve's canvas remains the appearance authority while you edit, so gradients, strokes, shadows, glows, and other supported text effects do not disappear or get painted twice. Their alpha sources are rebuilt from the current glyphs, including counters and transparent backgrounds.
+        </p>
+        <p>
+          When a text node has rich content, its paragraphs and styled runs are canonical; the plain <code>text</code> value is kept as a synchronized projection. Native UTF-16 offsets are mapped to paragraph-local ranges and snapped to grapheme boundaries, so editing across paragraphs preserves unaffected formatting. Use the <strong>Rich Text</strong> switch in Typography to apply character formatting to the current range. The Inspector, contextual bar, and floating toolbar all use that active range or caret when one exists; with no text range they apply to the selected text objects.
+        </p>
+        <p>
+          Layer effects are whole-object appearance. Selecting a word does not make a shadow or glow range-local; use rich-text formatting for range-level styling and the Layer Effects section for the complete text layer.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Text layer names</h2>
+        <p>
+          New text layers receive a content-derived label such as <code>Text: Summer sale</code>. While that label is automatic, accepted content edits keep it in sync with the canonical text, including rich-text paragraphs and Unicode content. Renaming a layer in Layers makes the name custom, so later text, style, and effect changes leave it alone. Choose <strong>Use text as name</strong> in Typography to restore automatic naming explicitly.
+        </p>
+        <p>
+          Older documents without naming metadata are left unchanged until you opt into automatic naming. Labels are display names: line breaks and whitespace are normalized and long names are shortened at safe grapheme boundaries without changing the artwork.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Unicode and text direction</h2>
+        <p>
+          Varve keeps document text in logical Unicode order. The engine distinguishes UTF-16 offsets used by browser editing from code-point, grapheme, shaping-cluster, glyph, and visual-caret positions. Rich-text ranges snap to extended grapheme boundaries so combining sequences and joined emoji are not split accidentally.
+        </p>
+        <p>
+          The engine resolves paragraph direction and mixed LTR/RTL runs through a UAX #9 adapter, including embedding levels, visual mappings, and mirrored punctuation. A paragraph layout pipeline now derives per-line visual run order, word-level line breaks that never split a grapheme, cluster-safe caret stops, and selection geometry from one canonical snapshot. The inline editor, pointer tools, and export consumers are still being migrated to that snapshot, so complex mixed-direction text should be validated in the final export.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Vertical writing</h2>
+        <p>
+          Vertical text is a logical writing mode, not a rotated text layer. Select the Text tool, open <strong>Tool options</strong>, and choose <strong>Vertical — right to left</strong> or <strong>Vertical — left to right</strong> before creating the next text layer. To convert existing text, select it and use <strong>Writing mode</strong> in Typography. The operation keeps the logical string, rich-text runs, object transform, and fixed frame geometry intact.
+        </p>
+        <p>
+          <strong>Mixed</strong> follows Unicode vertical orientation conventions at grapheme boundaries: CJK and pictographic clusters stay upright while Latin-like clusters are sideways. <strong>Upright</strong> and <strong>Sideways</strong> are explicit presentation choices. These controls are separate from Text direction, Vertical alignment, and object rotation.
+        </p>
+        <p>
+          In a fixed area, wrapping consumes the physical height of the frame as the vertical inline extent. New columns progress leftward for vertical-rl and rightward for vertical-lr; authored line breaks remain authored breaks. The browser renderer uses a stable measured fallback when font bytes are unavailable, and native ttb shaping remains a separate runtime capability. HTML/CSS and SVG exports preserve writing-mode semantics; native PDF vertical text is currently reported as a target limitation rather than silently rotated.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Text Properties</h2>
+        <p>
+          The Typography section in the Inspector provides controls for every text property:
+        </p>
+
+        <h3>Font Selection</h3>
+        <p>
+          Varve's Font Registry manages font loading and fallback chains. You can use:
+        </p>
+        <ul>
+          <li><strong>System fonts</strong> — Availability depends on the operating system and browser; a family name alone does not confirm that its file is accessible</li>
+          <li><strong>Bundled fonts</strong> — Open-source fonts included with Varve via @fontsource packages</li>
+          <li><strong>Shipped semantic catalog</strong> — Search family names, design language, coverage, features, availability, and personal tags offline</li>
+          <li><strong>Explicit desktop installs</strong> — When enabled, retrieve one exact, version-pinned Fontsource artifact after reviewing the result and its license metadata</li>
+        </ul>
+        <p>
+          The compact font family selector shows installed fonts only and never starts a download. Open Browse fonts for semantic discovery, coverage and license inspection. In the full browser, use <strong>Allow local fonts</strong> (or <strong>Refresh local fonts</strong> on desktop) to deliberately enumerate local faces; the status explains whether permission, native enumeration, or the compatibility list supplied the result. The public browser demo keeps search local-first and does not make remote provider requests; desktop installation is a separate explicit action. Missing fonts open a recovery dialog that uses the same shipped catalog and install boundary.
+        </p>
+        <p>
+          Downloads are stored locally under an artifact hash and collection-member face key. If a font is still reported missing after reopening, review the requested family and exact face before choosing a replacement. Collection members and different files with the same family name remain distinct; a family match does not prove that the original file was restored.
+        </p>
+
+        <h3>Browse fonts</h3>
+        <p>
+          Browse fonts keeps the results and inspection panes visible together. Search by family, foundry, style, or design language; use the source tabs for System, Bundled, Project, Recent, or Favorites; and use the semantic filter for categories such as Sans serif, Serif, Variable, or script coverage.
+        </p>
+        <ol>
+          <li><strong>Search:</strong> A plain term such as <code>gothic</code> returns only matching catalog families. Natural-language queries remain ranked and show the interpreted terms.</li>
+          <li><strong>Inspect:</strong> Select a family to keep the list in place while reviewing a custom specimen rendered with the available family, source, license, styles, weights, script coverage, tags, and related families.</li>
+          <li><strong>Expand exact faces:</strong> Open a family row in Browse fonts or the compact text toolbar to see only registered faces. Known PostScript names and portable collection-member identities are shown; unavailable weight/style combinations are not invented. Choose <strong>Use face</strong> to apply the registered weight, style, and exact font reference together.</li>
+          <li><strong>Decide:</strong> Use an installed family explicitly, or install a catalog-only family after reviewing its metadata. Selecting a result alone never changes the document.</li>
+        </ol>
+        <p>
+          Search and inspection are local-first and work with the shipped catalog without provider metadata requests. Specimens render for installed or bundled families; catalog-only families show metadata until an explicit desktop install. The browser adapts to compact widths and follows Varve's light, dark, and high-contrast theme tokens. Installed file details are available for local faces when the registry exposes them.
+        </p>
+        <p>
+          Font details distinguish the OS/2 base embedding permission from the separate no-subsetting and bitmap-only declarations. These technical flags do not prove a license grant. If license provenance is unknown, Varve keeps the state visible and does not offer redistribution or live font embedding until you verify the source terms.
+        </p>
+
+        <h3 id="document-fonts">Document Fonts</h3>
+        <p>
+          Open the Fonts panel to review the faces the document actually uses. The panel starts on the active page and lets you switch to <strong>Entire document</strong>. Exact artifact and collection-member faces stay separate from family-only requests; each row shows the face label, character count, and page locations. Linked story frames are kept together, while hidden and locked content is excluded from the working list.
+        </p>
+        <p>
+          Select a row to select every matching text layer in one action. Unused text styles appear separately so cleanup does not look like missing artwork. Use <strong>Browse all fonts</strong> to return to discovery; browsing a catalog family does not change the document or start a provider request.
+        </p>
+
+        <h3>Semantic discovery</h3>
+        <p>
+          Queries such as <code>friendly rounded sans for UI</code>, <code>editorial serif with Vietnamese</code>, and <code>similar to Inter</code> are parsed into explainable constraints and preferences. “With” coverage and feature requirements are hard; words such as “friendly” and “editorial” are ranking preferences unless the query is clarified. Results distinguish verified facts, measured metrics, curated observations, and unknown metadata. Similarity, alternatives, and pairings are separate recommendation lanes.
+        </p>
+        <p>
+          Personal tags are stored in a versioned local user layer and never overwrite provider facts. Legacy face-level <code>FontCatalogEntry.tags</code> are grouped by family during migration. Search remains available if local storage is unavailable or incomplete.
+        </p>
+
+        <h3 id="missing-font-replacement">Missing-font replacement after import</h3>
+        <p>
+          When an imported design references a family that is not available locally, Varve opens a reviewable replacement workflow instead of silently changing the design. It checks ordinary text, mixed rich-text runs, and reusable text styles, then ranks local candidates by identity, compatibility, and script/category fallback.
+        </p>
+        <ol>
+          <li><strong>Review the source:</strong> See the original family, affected text count, and candidate match quality.</li>
+          <li><strong>Recover the requested face:</strong> When the shipped catalog has a matching family and style, review the offered weight, style, and license, then explicitly install the version-pinned artifact. An imported family name cannot identify the original font file or revision.</li>
+          <li><strong>Browse alternatives:</strong> Open the full semantic font browser when there is no exact catalog match or the design calls for a different direction.</li>
+          <li><strong>Choose a local candidate:</strong> Select an installed or bundled font that fits the design and script.</li>
+          <li><strong>Apply once:</strong> Replace All updates matching nodes, rich-text runs, and shared styles in one undoable transaction.</li>
+          <li><strong>Keep provenance:</strong> The original family and substitute remain recorded in the document font manifest for save/reopen diagnostics.</li>
+        </ol>
+        <p>
+          Replacement preserves editable text rather than outlining or rasterizing it. Because font metrics can change wrapping and bounds, Varve reports the substitution and asks you to review layout before delivery. See <a href={sitePath('/docs/file-formats')}>Figma acquisition and import support</a> for source-format boundaries.
+        </p>
+
+        <h3>Size and Weight</h3>
+        <ul>
+          <li><strong>Font Size</strong> — Numeric input with drag-to-scrub</li>
+          <li><strong>Font Weight</strong> — Numeric request from 100 to 900; availability depends on the selected font</li>
+          <li><strong>Font Style</strong> — Normal or Italic</li>
+        </ul>
+
+        <h3>Alignment and Spacing</h3>
+        <ul>
+          <li><strong>Text Align</strong> — Left, Center, Right, Justify</li>
+          <li><strong>Text Align Vertical</strong> — Top, Middle, Bottom</li>
+          <li><strong>Line Height</strong> — Percentage of the font size (for example, 150%)</li>
+          <li><strong>Letter Spacing</strong> — Per-glyph spacing in pixels</li>
+          <li><strong>Paragraph Spacing</strong> — Additional space between paragraphs</li>
+        </ul>
+
+        <h3>Case and Decoration</h3>
+        <ul>
+          <li><strong>Text Case</strong> — Uppercase, Lowercase, Capitalize (Title Case), or Normal</li>
+          <li><strong>Text Decoration</strong> — Underline, Line-through, or None</li>
+          <li><strong>Text Overflow</strong> — Clip (hide overflow) or Ellipsis (show "...")</li>
+        </ul>
+
+        <h3>Lists</h3>
+        <p>
+          Text nodes can render as lists with <strong>List Style</strong> options: Disc, Decimal, Circle, or Square. Varve handles list item numbering and bullet rendering automatically.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>OpenType Features</h2>
+        <p>
+          Open the <strong>Advanced typography</strong> disclosure in the Typography inspector. Varve reads the selected face's feature metadata; it does not fabricate a feature that the font does not declare. Whole-run values can be Boolean or numeric/indexed, while byte-backed shaping also accepts UTF-16 source ranges. Unset/inherit, explicit off, and a selected numeric value remain distinct in the document.
+        </p>
+        <ul>
+          <li><code>liga</code> — Standard ligatures</li>
+          <li><code>dlig</code>, <code>hlig</code> — Discretionary and historical ligatures</li>
+          <li><code>calt</code>, <code>swsh</code>, <code>cswh</code>, <code>titl</code>, <code>salt</code> — Contextual alternates, swashes, and titling forms</li>
+          <li><code>kern</code> — Kerning</li>
+          <li><code>ss01</code> through <code>ss20</code> and <code>cv01</code> through <code>cv99</code> — Font-defined stylistic sets and character variants</li>
+          <li><code>smcp</code>, <code>c2sc</code>, <code>frac</code>, <code>afrc</code>, <code>numr</code>, <code>dnom</code>, <code>onum</code>, <code>lnum</code>, <code>pnum</code>, <code>tnum</code>, <code>zero</code> — Small caps, fractions, numeral styles, and slashed zero where declared by the face</li>
+        </ul>
+        <p>
+          Required script-shaping features are protected from a generic “turn ligatures off” action. The alternate browser previews available feature choices for the current face; it is a feature browser, not a universal glyph-insertion palette. Applying a choice changes the real canvas artwork and creates one history entry. Hover previews are cancellable and do not create history entries; Escape or selection changes restore the previous value.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Variable Fonts</h2>
+        <p>
+          Varve exposes registered variable-font axes. When a variable font is selected, the Typography section and the full Browse fonts inspector show a <strong>Variable Axes</strong> panel with range sliders for each registered axis (e.g., weight, width, optical size, slant). The available axes, bounds, and defaults are determined by the selected face's <code>fvar</code> table. Adjustments preview live and stay a draft until you choose <strong>Use face</strong>; <strong>Reset</strong> returns to the font's defaults without changing the document.
+        </p>
+        <p>
+          Axis values are applied once to the resolved face and are included in layout, outline, and export identity. Browser whole-run axes use the Canvas2D/FontFace route when the selected face has an inspectable local source; custom-axis support remains browser- and font-dependent, while exact outlines use the font-byte/native path. A zoom change never changes optical sizing. If a face or runtime cannot honor an axis, the control reports that state instead of pretending the preview is authoritative.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Artistic text and custom lettering</h2>
+        <p>
+          Point text grows with its content; area text wraps inside its frame. Changing a frame changes wrapping, changing font size changes type metrics, and an object transform changes placement. These are separate operations and remain undoable.
+        </p>
+        <p>
+          Select a plain, single-line LTR wordmark and use <strong>Glyph adjustments</strong> for cluster offset, rotation, scale, baseline movement, or pair spacing. Adjustments stay attached to logical grapheme/source indices and are cleared when the source text, font, features, or shaping context changes. Combining marks and required script clusters are kept together. For an ordinary Latin ligature, turn <strong>Standard ligatures</strong> off before moving inside <code>fi</code>, <code>ff</code>, <code>ffi</code>, <code>ffl</code>, or <code>fl</code>; use <strong>Reset</strong> to remove the adjustments.
+        </p>
+        <p>
+          Use <strong>Text on path</strong> for baseline placement. The renderer positions shaped source clusters along the curve and supports start/end offset, baseline offset, side, flip, reversal, fit, detach, and live path edits. It does not bend the actual glyph outlines. If the path is deleted or unavailable, reset the path settings to return to ordinary editable text.
+        </p>
+        <p>
+          The existing deformation controls provide bounded arc/bend/wave-style effects while preserving source text and parameters. Edit the source text through the normal text editor; expand a live deformation before outlining so the final geometry is intentional and recoverable.
+        </p>
+        <p>
+          Choose <strong>Convert to outlines</strong> only when you accept destructive text conversion. Varve uses the actual shaped glyph IDs, contours, counters, feature values, axes, and source ranges for supported monochrome faces, stores provenance on the resulting group, and keeps the original available through undo. Missing/corrupt fonts, collection faces, color glyphs, path text, case transforms, and live warps are refused or require the documented detach/expand step; no placeholder rectangles are presented as success.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Export behavior</h2>
+        <p>
+          SVG keeps editable text, feature settings, variable-axis settings, and native <code>textPath</code> semantics where the SVG viewer supports them. Browser PDF is a local raster PDF. Desktop PDF preserves simple eligible text through the native print path, but shaping-sensitive text—ligatures, non-Latin/script text, rich runs, feature values/ranges, axes, tracking, manual cluster edits, and path text—is rasterized from the live renderer so it cannot silently change shape. This preserves appearance but means that node is not searchable/editable text in the PDF. Convert to outlines when vector geometry is more important than PDF text semantics, and inspect the exported artifact before delivery.
+        </p>
+        <p>
+          A native package export includes an editable font file only after the
+          requested artifact and collection member are verified by SHA-256 and
+          the technical embedding policy permits it. Legacy text that stores a
+          family name without an exact face remains listed in the manifest but
+          does not cause the first same-family file to be embedded; choose the
+          exact face in the font browser before sharing the package.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Font access and licensing</h2>
+        <p>
+          The browser demo does not download catalog fonts. Browsers may also
+          limit access to fonts installed on your computer. In the full browser,
+          choose <strong>Allow local fonts</strong> before enumerating installed
+          faces; on desktop, <strong>Refresh local fonts</strong> uses the native
+          discovery path. Collection members can be imported explicitly, and a
+          denied or unsupported permission leaves the bundled catalog available
+          without silently downloading a replacement.
+        </p>
+        <p>
+          Font names and technical embedding flags do not establish the full
+          license terms. Review the source license before sharing font files.
+          Missing license metadata means the terms are unknown. Keep the
+          original font source so recipients can obtain the appropriate file.
+        </p>
+        <p>
+          The <strong>Identify Font</strong> panel accepts a selected image,
+          bounds decoded data to a 2048px edge, and can use optional recognized
+          text for local render comparison against the installed catalog. When
+          the detector and TrOCR assets are already installed, <strong>Read text
+          with local OCR</strong> fills an editable field and reports the model
+          and average confidence; opening the panel never downloads OCR assets,
+          and manual entry remains available when they are missing. A
+          candidate's <strong>Use for new text</strong> action queues its family
+          (and known exact reference) for the next text layer and activates the
+          Text tool, while <strong>Apply to target</strong> updates only an
+          explicitly chosen existing text layer in one undo step. Arbitrary
+          transformed crop selection, OCR-assisted region overlays, and richer
+          candidate target previews remain under integration. Document Fonts is available from the Fonts panel;
+          its current-page view includes effective rich runs, linked stories,
+          inherited styles, and component-instance text while excluding hidden
+          or locked content. Scoped Select by Font replacement with layout
+          preview remains under integration.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Figma acquisition note</h2>
+        <p>
+          Varve's semantic Figma import path accepts native <code>.fig</code> archives, official REST file JSON, and compatible plugin-export JSON. Native archives are decoded locally before the same semantic conversion builds editable pages, frames, text runs, components, styles, variables, and layout semantics where Varve has an equivalent model. The local-first result does not require Figma to remain open after import.
+        </p>
+        <p>
+          Native <code>.fig</code> support is schema-version dependent. If a source resource or semantic feature is unavailable, Varve keeps the supported artwork editable and surfaces the limitation in the Import Report. Use an authorized JSON/plugin export when the file's REST resource maps are needed, or use SVG/PDF when visual fallback is the priority; neither fallback preserves Figma's higher-level semantics.
+        </p>
+      </section>
+
+      <section class="docs-section">
+        <h2>Text on Path</h2>
+        <p>
+          Text can be placed along any vector path. This feature uses adaptive Simpson integration to compute arc-length parameters for cubic bezier curves and consumes shaped source clusters rather than measuring isolated characters. To use text on path:
+        </p>
+        <ol>
+          <li>Create a path using the Pen or Pencil tool</li>
+          <li>Create a text node</li>
+          <li>In the Typography section, select the path node as the <strong>Path Shape</strong> reference</li>
+          <li>The text renders along the baseline with cluster-aware positioning and rotation; bending the outlines is a separate deformation operation</li>
+        </ol>
+      </section>
+
+      <section class="docs-section">
+        <h2>Text Measurement</h2>
+        <p>
+          Varve uses canvas <code>measureText()</code> as the current browser fallback for text metrics, falling back to content-length estimation only in non-DOM environments. A canonical paragraph layout pipeline (itemization, line breaking, per-line visual ordering, caret stops, hit testing, selection geometry) and a HarfBuzz-compatible shaping backend contract are in place so glyph clusters, caret geometry, bounds, and exports can share one authority; the live canvas consumes a derived snapshot for plain text, with measured fallbacks for rich text. The current fallback powers:
+        </p>
+        <ul>
+          <li>Auto-sizing text boxes</li>
+          <li>Multi-line text wrapping with line height and paragraph spacing</li>
+          <li>Ellipsis overflow detection</li>
+          <li>Vertical alignment calculations</li>
+          <li>CJK line breaking via <code>Intl.Segmenter</code> for word-boundary-aware wrapping</li>
+        </ul>
+      </section>
+
+      <div class="docs-cta">
+        <h2>Related Guides</h2>
+        <p>See <a href={sitePath('/docs/tools/color')}>Color & Effects</a> for styling text with fills and effects, or <a href={sitePath('/docs/tools/export')}>Export</a> for generating code with typography preserved.</p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .docs-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 3rem 0;
+  }
+  .breadcrumb {
+    font-size: 0.875rem;
+    margin-bottom: 1.5rem;
+  }
+  .breadcrumb a {
+    color: var(--text-secondary);
+  }
+  .docs-page h1 {
+    font-size: clamp(2rem, 5vw, 2.5rem);
+    font-family: var(--font-editorial);
+    font-weight: 700;
+    font-variation-settings: 'opsz' 144;
+    letter-spacing: -0.015em;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+  }
+  .docs-intro {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    margin-bottom: 3rem;
+  }
+  .docs-section {
+    margin-bottom: 3rem;
+  }
+  .docs-section h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--border-accent);
+    padding-bottom: 0.5rem;
+  }
+  .docs-section h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+  .docs-section p {
+    color: var(--text-secondary);
+    line-height: 1.8;
+    margin-bottom: 1rem;
+  }
+  .docs-section p code {
+    white-space: nowrap;
+  }
+  .docs-section ul, .docs-section ol {
+    margin-bottom: 1rem;
+  }
+  .docs-section li {
+    margin-bottom: 0.5rem;
+    padding-left: 1.5rem;
+    position: relative;
+    color: var(--text-secondary);
+  }
+  .docs-section ul li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: var(--text-link-hover);
+  }
+  .docs-section ol {
+    list-style: none;
+    counter-reset: item;
+  }
+  .docs-section ol li {
+    counter-increment: item;
+    padding-left: 2.5rem;
+  }
+  .docs-section ol li::before {
+    content: counter(item);
+    position: absolute;
+    left: 0;
+    width: 1.5rem;
+    height: 1.5rem;
+    background: var(--status-built);
+    color: var(--text-on-status);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .docs-section code:not(.code-block) {
+    background: var(--surface-muted);
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--website-radius-control-compact);
+    font-family: monospace;
+    font-size: 0.875rem;
+  }
+  .docs-section a {
+    color: var(--text-link);
+  }
+  .docs-cta {
+    text-align: center;
+    padding: 3rem 0;
+    border-top: 1px solid var(--border-default);
+  }
+  .docs-cta h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-primary);
+  }
+  .docs-cta p {
+    color: var(--text-secondary);
+  }
+</style>

@@ -1,0 +1,27 @@
+{
+  "date": "2026-09-10",
+  "environment": "Linux Chromium, Light, 1280x720, DPR 1",
+  "source": "Shared working tree based on 0a5b059fd; concurrent commits continued. No frozen-SHA certification.",
+  "test": "tests/e2e/canvas/font-toolbar-history.spec.ts",
+  "scope": "Focused undo/redo workflow; earlier theme/DPR density evidence remains separate.",
+  "images": [
+    {
+      "file": "before-undo.png",
+      "sha256": "53e0779f4135d05933ba2dcfe7b8068d8bfad35e2c3d36ffd27f597476f809b2",
+      "inspected": true,
+      "note": "Before: Undo removes the layer; the paused renderer still contains old ink."
+    },
+    {
+      "file": "after-undo.png",
+      "sha256": "97924a0a819efc728512da79e21558440696e69e272129a156f84057b2193242",
+      "inspected": true,
+      "note": "After: Undo retains the text and restores weight 400; rendering resumed before capture."
+    },
+    {
+      "file": "after-redo.png",
+      "sha256": "2560a0dfdd695406dcdd8ef5c301754a8a679fb0c1d8910d93ce38dd5cfc1f60",
+      "inspected": true,
+      "note": "After: Redo restores weight 700 and the wider text bounds."
+    }
+  ]
+}

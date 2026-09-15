@@ -1,0 +1,155 @@
+import path from 'node:path';
+import { expect, test } from '@playwright/test';
+import { navigateToEditor } from '../shared';
+
+/**
+ * Find Similar workflow (Intelligence panel -> Similar tab).
+ *
+ * The populated-results path uses the deterministic test seam
+ * (window.__varveSimilarityTest.mockEmbed) so the UI layout is covered
+ * without running real inference. Real-model coverage belongs to the
+ * release corpus; model-quality specs cover the no-model state.
+ */
+
+async function importImages(page: import('@playwright/test').Page, names: string[]) {
+  await page
+    .locator('#file-import-input')
+    .setInputFiles(names.map((name) => path.resolve('tests/e2e/fixtures', name)));
+  await expect(page.getByRole('treeitem')).toHaveCount(names.length, { timeout: 15000 });
+}
+
+async function openSimilarTab(page: import('@playwright/test').Page) {
+  const inspector = page.locator('.editor-inspector');
+  await inspector.getByRole('tab', { name: 'Design', exact: true }).click();
+  const insights = inspector.getByRole('button', { name: 'Insights' });
+  await expect(insights).toBeVisible({ timeout: 15000 });
+  if ((await insights.getAttribute('aria-expanded')) !== 'true') {
+    await insights.click();
+  }
+  const intelligence = page.locator('.intelligence-panel');
+  await intelligence.getByRole('tab', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitem', { name: /similar$/i }).click();
+  await expect(page.getByRole('button', { name: /Find similar/i }).first()).toBeVisible({
+    timeout: 10000,
+  });
+}
+
+function mockEmbedScript(): string {
+  return `(() => {
+    const dim = 384;
+    const vectorFor = (src) => {
+      let h = 0;
+      for (let i = 0; i < src.length; i++) h = (h * 31 + src.charCodeAt(i)) | 0;
+      const values = new Float32Array(dim);
+      let seed = h >>> 0;
+      let sumSq = 0;
+      for (let i = 0; i < dim; i++) {
+        seed = (seed + 0x6d2b79f5) | 0;
+        let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        const v = ((t ^ (t >>> 14)) >>> 0) / 4294967296 * 2 - 1;
+        // Keep every pair positively correlated so the semantic lane's
+        // score>=0 contract produces deterministic result cards.
+        values[i] = 1 + v * 0.05;
+        sumSq += values[i] * values[i];
+      }
+      const norm = Math.sqrt(sumSq) || 1;
+      for (let i = 0; i < dim; i++) values[i] /= norm;
+      return {
+        modelId: 'dinov2-small',
+        modelRevision: 'xenova-onnx-2026-08-13',
+        embeddingSpaceVersion: 'dinov2-small-cls-v1',
+        preprocessingVersion: 'dinov2-rgb-center-crop-v1',
+        dimension: dim,
+        dtype: 'fp32',
+        normalized: true,
+        values,
+      };
+    };
+    window.__varveSimilarityTest = { mockEmbed: (src) => Promise.resolve(vectorFor(src)) };
+  })()`;
+}
+
+test.describe('Find Similar workflow', () => {
+  test('shows a download requirement when no model is installed', async ({ page }) => {
+    await navigateToEditor(page);
+    await importImages(page, ['test-image.png', 'subject-photo.png', 'photo-fixture.jpg']);
+    // Select the first image in the layers panel.
+    await page.getByRole('treeitem').first().click();
+    await openSimilarTab(page);
+
+    await expect(page.getByRole('button', { name: /Download AI Model/i })).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page.getByRole('button', { name: /Find similar/i }).first()).toBeDisabled();
+  });
+
+  test('explains the empty state for a non-image selection', async ({ page }) => {
+    await navigateToEditor(page);
+    await importImages(page, ['test-image.png']);
+    // Import selects the new asset; use the public Select None shortcut before
+    // checking the empty state so this tests the non-image-selection contract.
+    await page.keyboard.press('Control+Shift+a');
+    await openSimilarTab(page);
+    await expect(page.getByText(/Select an image or enter a description/i)).toBeVisible({
+      timeout: 10000,
+    });
+  });
+
+  test('ranks and renders results with deterministic mocked embeddings', async ({
+    page,
+  }, testInfo) => {
+    await navigateToEditor(page);
+    await importImages(page, ['test-image.png', 'subject-photo.png', 'photo-fixture.jpg']);
+    // Select the first image in the layers panel.
+    await page.getByRole('treeitem').first().click();
+    await page.evaluate(mockEmbedScript());
+    await openSimilarTab(page);
+
+    await page
+      .getByRole('button', { name: /Find similar/i })
+      .first()
+      .click();
+
+    await expect(page.getByText(/Found \d+ similar images/i)).toBeVisible({ timeout: 15000 });
+    const results = page.locator('.similarity-result');
+    await expect(results).toHaveCount(2);
+    await expect(results.first().locator('img')).toHaveAttribute('src', /.+/);
+
+    // Selecting a result keeps the document usable.
+    await results.first().click();
+    await expect(page.getByRole('treeitem')).toHaveCount(3);
+
+    await testInfo.attach('similarity-results', {
+      body: await page.locator('.intelligence-tab-content').screenshot(),
+      contentType: 'image/png',
+    });
+  });
+
+  test('mode picker switches between Similar and Near duplicates', async ({ page }) => {
+    await navigateToEditor(page);
+    await importImages(page, ['test-image.png', 'subject-photo.png', 'photo-fixture.jpg']);
+    await page.getByRole('treeitem').first().click();
+    await page.evaluate(mockEmbedScript());
+    await openSimilarTab(page);
+    await page
+      .getByRole('button', { name: /Find similar/i })
+      .first()
+      .click();
+    await expect(page.locator('.similarity-result')).toHaveCount(2, { timeout: 15000 });
+
+    const similar = page.getByRole('radio', { name: 'Similar' });
+    const nearDuplicates = page.getByRole('radio', { name: 'Near duplicates' });
+    await expect(similar).toBeChecked();
+    await similar.press('ArrowRight');
+    await expect(nearDuplicates).toBeChecked();
+    await page.mouse.move(0, 0);
+    await page.getByText('Near duplicates', { exact: true }).click();
+    await expect(nearDuplicates).toBeChecked();
+    await page
+      .getByRole('button', { name: /Find similar/i })
+      .first()
+      .click();
+    await expect(page.locator('.similarity-result')).toHaveCount(2, { timeout: 15000 });
+  });
+});
