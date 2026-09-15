@@ -277,6 +277,7 @@ The current automated and manual accessibility evidence matrix is in
 | `architecture/background-removal-system.md` | Background-removal system contract and local-first workflow |
 | `architecture/blend-evaluation-policy.md` | Blend evaluation policy and compositing operations |
 | `architecture/visual-awareness-system.md` | Demand-driven face, hand, pose, object, and segmentation capability boundary |
+| `audits/face-detection-refinement-2026-09-15.md` | Face detection parity/recovery evidence, upstream references, and the seven per-category acceptance rows (including the categories that remain manual-only) |
 | `architecture/masking-system.md` | Clipping/alpha/luminance mask model and compositing contract |
 | `architecture/mockup-system.md` | Non-destructive mockup system (Level 1+2, photo templates, bounded cylinder) |
 | `architecture/alpha-aware-shadows.md` | Alpha-aware shadow rendering |

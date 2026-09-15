@@ -15,7 +15,7 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
         <a href={sitePath('/features')}>Features</a> / Visual awareness
       </nav>
 
-      <div class="feature-kicker"><StatusPill status="planned" label="In development" /></div>
+      <div class="feature-kicker"><StatusPill status="partial" label="Face crop available" /></div>
       <h1>Visual awareness, on the designer's terms.</h1>
       <p class="feature-intro">
         Varve is building task-specific visual tools that help with real design decisions without
@@ -52,8 +52,18 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
           </a>
         </div>
         <p class="feature-note">
-          <strong>Protect Faces</strong> is available in crop mode: a small bundled local model keeps
-          detected faces in frame with a non-destructive crop.
+          <strong>Protect Faces</strong> is available in crop mode: a small bundled local model
+          (233 KB, MIT) keeps detected faces in frame with a non-destructive source crop. It runs
+          a whole-image pass plus bounded native-resolution windows, so faces down to roughly
+          10&nbsp;px are still found on large photographs — the same three faces a whole-image
+          downscale missed on our own test facade are detected again with the windows.
+        </p>
+        <p class="feature-note">
+          A detected box is an approximate face bound for framing, not a face, hair, or person
+          mask, and there is no identity recognition. For a precise cutout use Object Selection or
+          Background Removal, which are separate local paths. Detection is confidence-gated:
+          &ldquo;no faces detected&rdquo; means none were retained above the floor, not that a
+          photograph has no faces, and it never disables the manual matting tools.
         </p>
       </section>
 

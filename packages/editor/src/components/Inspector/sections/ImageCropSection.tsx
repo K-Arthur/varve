@@ -509,7 +509,9 @@ function FaceCropControls({
       }
       const applied = await applyFaceAwareCrop({ safetyMargin: 0.35 });
       if (!applied) {
-        setDetectError('No faces detected in this image.');
+        setDetectError(
+          'No faces detected above the confidence threshold. This is not proof the image has no faces — adjust the crop by hand, or use Object Selection or Background Removal for a precise mask.',
+        );
       }
     } catch (err) {
       setDetectError(err instanceof Error ? err.message : 'Face detection failed');
@@ -524,7 +526,8 @@ function FaceCropControls({
       <div className="insp-field-group">
         <p className="insp-hint">
           Reposition the crop window to keep faces in frame
-          {modelAvailable ? '' : ' (downloads a small ~233 KB AI model on first use)'}.
+          {modelAvailable ? '' : ' (downloads a small ~233 KB AI model on first use)'}. Detected
+          boxes are approximate face bounds for framing, not a face, hair, or person mask.
         </p>
         <div className="insp-actions">
           <Button

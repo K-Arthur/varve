@@ -1,7 +1,9 @@
 # Demand-driven visual awareness
 
-Status: foundation implemented, task-specific face/hand/pose backends remain a
-release-gated follow-up (2026-08-13).
+Status: foundation implemented; the face backend (YuNet `FACE_BOUNDS` +
+`FACE_KEYPOINTS`) ships with verified preprocessing, decoding, and bounded
+native-scale windows. Hand/pose adapters and automatic material/boundary
+discovery remain release-gated follow-ups (2026-09-15).
 
 Varve's visual-awareness subsystem is capability-driven. Editor workflows ask
 for a result such as `FACE_BOUNDS`, `FACE_KEYPOINTS`, or `PERSON_MASK`; they do
@@ -89,6 +91,31 @@ download path entirely, so `Protect Faces` works offline and in CI without a
 network dependency. The bundling precedent is u2netp/Real-ESRGAN; larger vision
 models must not be silently bundled.
 
+### Preprocessing and postprocessing contract (verified 2026-09-15)
+
+- The pinned graph has a **fixed** `[1,3,640,640]` input; a different spatial size
+  is rejected by the runtime. Detection therefore runs a bounded two-tier pass:
+  a whole-image letterbox plus native-scale windows (see
+  `packages/engine/src/vision/faceWindows.ts`). Windows are skipped when the
+  whole-image pass already runs at ≥ 75 % of native pixels.
+- Input packing is **BGR**, raw [0,255], no mean subtraction — the order the
+  upstream `blobFromImage(pad_image)` reference uses. `TensorSpec.channelOrder`
+  records this per model and advances the manifest preprocessing version.
+- Decoding matches the upstream predictor: `sqrt(clamp(cls)·clamp(obj))`, a
+  strict `>` score gate inside suppression, `topK` as a **pre-suppression**
+  candidate cap, candidate boxes truncated toward zero, greedy suppression with
+  `overlap <= nmsThreshold`, and determinant tie handling. A missing, short,
+  mis-shaped, or non-finite tensor is a typed failure, never a "no faces" result.
+- Detections are clipped to the source frame by true intersection; degenerate
+  boxes are dropped. Landmarks outside the frame keep their estimated coordinates
+  and are reported with `presence: 0` rather than clamped to the border.
+- The merged result favours the whole-image tier on overlap, so a native-scale
+  window fragment can never displace an intact large-face box.
+
+Measured parity and recall evidence, the seven per-category acceptance rows, and
+the categories that remain manual-only are recorded in
+[`docs/audits/face-detection-refinement-2026-09-15.md`](../audits/face-detection-refinement-2026-09-15.md).
+
 ## Model and storage policy
 
 The current manifest already supports composite artifacts, SHA-256, source
@@ -113,6 +140,9 @@ verification path.
   inference itself is local.
 - Auto-crop stores the resolved crop, not raw detector output, unless a future
   feature needs a persisted anchor.
+- Raw analysis (tensors, candidate lists, embeddings) is ephemeral. Only the
+  accepted editing intent — a crop rectangle or an accepted mask resource — is
+  persisted, so a document renders and exports with no model installed.
 - Editable person/effect masks store the existing mask resource, not a hidden
   model dependency. Reopening a document must not download a model or rerun
   inference to render it.
@@ -122,15 +152,23 @@ verification path.
 
 ## Planned vertical slices
 
-1. Add and benchmark a task-specific `FACE_BOUNDS` backend against the service. *(Done: YuNet FACE_BOUNDS + FACE_KEYPOINTS via the shared ONNX worker; decode verified bit-for-bit against OpenCV FaceDetectorYN.)*
+1. Add and benchmark a task-specific `FACE_BOUNDS` backend against the service. *(Done: YuNet FACE_BOUNDS + FACE_KEYPOINTS via the shared ONNX worker; preprocessing, model, and decode verified against OpenCV FaceDetectorYN on identical pixels — 0.0001 px box agreement.)*
 2. Connect `Protect Faces` to the existing crop inspector with explicit model,
-   analyzing, no-face, unsupported, and download-failure states. *(Done: the model is bundled, so the state is always available; no-face and analyzing states remain.)*
+   analyzing, no-face, unsupported, and download-failure states. *(Done: the model is bundled, so the state is always available; no-face and analyzing states are implemented; failure states distinguish download, worker, and malformed-output errors.)*
+2b. Recover small faces the fixed 640 input loses. *(Done: bounded native-scale
+   window tier; portrait 0.50 → 1.00, group scene 0.75 → 1.00, facade 0.00 → 0.67
+   recovery against the upstream native reference, no false positives on the
+   landscape control.)*
 3. Add a landmark backend and semantic anchor resolver for static images.
 4. Add precise face-protection masks and compare them with the existing mask
-   and background-removal quality corpus.
+   and background-removal quality corpus. *(Still open. A face box must not be
+   presented as a face/hair/person mask; manual matting remains the precise path.)*
 5. Reuse the existing segmentation boundary for `PERSON_MASK`; do not market
    face detection as person selection.
 6. Add hand/pose/object adapters only when an editor workflow consumes them.
+7. Automatic hair, fur, glass, smoke, translucency, and motion-blur region
+   discovery remain unimplemented and must not be claimed; the refinement and
+   manual-constraint paths for them are documented in the audit above.
 
 Until those slices have a verified backend and browser/native E2E coverage,
 the website must describe visual awareness as in development and must not
