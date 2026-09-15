@@ -8,7 +8,7 @@ import {
   useRef,
 } from 'react';
 import { Button } from './Button';
-import { useNestedOverlayRef } from './NestedOverlayContext';
+import { NestedOverlayProvider, useNestedOverlayRegistry } from './NestedOverlayContext';
 
 // A consumer opts out of the internal dismissal behavior by calling
 // preventDefault in its own handler. Whether the event was ALREADY
@@ -147,7 +147,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
     [dismissible, onClose, consumerOnClick],
   );
 
-  const nestedOverlayRef = useNestedOverlayRef();
+  const nestedOverlays = useNestedOverlayRegistry();
 
   const handleBackdropKey = useCallback(
     (e: React.KeyboardEvent<HTMLDialogElement>) => {
@@ -155,55 +155,57 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
       if (dismissible && e.key === 'Escape') {
         // Don't close the dialog when a nested overlay (Select, Popover,
         // etc.) is open — that overlay should consume the Escape first.
-        if (nestedOverlayRef.current) return;
+        if (nestedOverlays.hasOpenOverlayRef.current) return;
         onClose();
       }
     },
-    [dismissible, onClose, nestedOverlayRef, consumerOnKeyDown],
+    [dismissible, onClose, nestedOverlays, consumerOnKeyDown],
   );
 
   return (
-    <dialog
-      ref={handleRef}
-      aria-labelledby={titleId}
-      onCancel={handleCancel}
-      onPointerDown={handleBackdropPointerDown}
-      onPointerUp={handleBackdropPointerUp}
-      onPointerCancel={handleBackdropPointerCancel}
-      onClick={handleBackdrop}
-      onKeyDown={handleBackdropKey}
-      className={`varve-dialog${size !== 'sm' ? ` varve-dialog--${size}` : ''} ${className}`.trim()}
-      {...rest}
-    >
-      <div className="varve-dialog__header">
-        <h2 id={titleId} className="varve-dialog__title">
-          {title}
-        </h2>
-        <button
-          type="button"
-          className="varve-dialog__close"
-          aria-label="Close dialog"
-          onClick={onClose}
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
+    <NestedOverlayProvider registry={nestedOverlays}>
+      <dialog
+        ref={handleRef}
+        aria-labelledby={titleId}
+        onCancel={handleCancel}
+        onPointerDown={handleBackdropPointerDown}
+        onPointerUp={handleBackdropPointerUp}
+        onPointerCancel={handleBackdropPointerCancel}
+        onClick={handleBackdrop}
+        onKeyDown={handleBackdropKey}
+        className={`varve-dialog${size !== 'sm' ? ` varve-dialog--${size}` : ''} ${className}`.trim()}
+        {...rest}
+      >
+        <div className="varve-dialog__header">
+          <h2 id={titleId} className="varve-dialog__title">
+            {title}
+          </h2>
+          <button
+            type="button"
+            className="varve-dialog__close"
+            aria-label="Close dialog"
+            onClick={onClose}
           >
-            <path d="M18 6 6 18" />
-            <path d="m6 6 12 12" />
-          </svg>
-        </button>
-      </div>
-      <div className="varve-dialog__body">{open ? children : null}</div>
-      {footer != null && <div className="varve-dialog__footer">{footer}</div>}
-    </dialog>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="varve-dialog__body">{open ? children : null}</div>
+        {footer != null && <div className="varve-dialog__footer">{footer}</div>}
+      </dialog>
+    </NestedOverlayProvider>
   );
 });
 

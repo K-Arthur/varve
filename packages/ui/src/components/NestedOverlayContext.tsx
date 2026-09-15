@@ -8,7 +8,7 @@
  */
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useRef } from 'react';
 
-interface NestedOverlayContextValue {
+export interface NestedOverlayRegistry {
   /** Register an overlay as open. Returns an unregister function. */
   register: () => () => void;
   /**
@@ -23,12 +23,19 @@ interface NestedOverlayContextValue {
   hasOpenOverlayRef: React.RefObject<boolean>;
 }
 
+type NestedOverlayContextValue = NestedOverlayRegistry;
+
 const Ctx = createContext<NestedOverlayContextValue | null>(null);
 
 /**
- * Provider that tracks nested overlay count. Intended to wrap a Dialog.
+ * Create a nested-overlay registry.
+ *
+ * Use this when the same component must both provide the registry to its
+ * children and read it itself (a dialog with its own Escape handling):
+ * `useContext` only sees providers *above* the component, so a component
+ * cannot read a provider it renders itself.
  */
-export function NestedOverlayProvider({ children }: { children: ReactNode }) {
+export function useNestedOverlayRegistry(): NestedOverlayRegistry {
   const countRef = useRef(0);
   // Mutable ref (not state) — we never want re-renders from overlay count changes.
   const hasOpen = useRef(false);
@@ -45,11 +52,26 @@ export function NestedOverlayProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const value = useMemo<NestedOverlayContextValue>(
+  return useMemo<NestedOverlayRegistry>(
     () => ({ register, hasOpenOverlayRef: hasOpen }),
     [register],
   );
+}
 
+/**
+ * Provider that tracks nested overlay count. Intended to wrap a Dialog.
+ * Pass `registry` from `useNestedOverlayRegistry()` when the owner also
+ * needs to read the ref.
+ */
+export function NestedOverlayProvider({
+  children,
+  registry,
+}: {
+  children: ReactNode;
+  registry?: NestedOverlayRegistry;
+}) {
+  const own = useNestedOverlayRegistry();
+  const value = registry ?? own;
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

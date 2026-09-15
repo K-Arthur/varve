@@ -142,10 +142,12 @@ export type {
   SubmenuItem,
 } from './Menu';
 export { ContextMenu, Menu, MenuButton, useContextMenu } from './Menu';
+export type { NestedOverlayRegistry } from './NestedOverlayContext';
 export {
   NestedOverlayProvider,
   useNestedOverlayRef,
   useNestedOverlayRegistration,
+  useNestedOverlayRegistry,
 } from './NestedOverlayContext';
 export type { NumberInputProps } from './NumberInput';
 export { NumberInput } from './NumberInput';

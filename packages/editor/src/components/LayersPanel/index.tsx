@@ -51,6 +51,7 @@ import { type LayersSettingsStore, loadSettings, updateSettings } from '../../se
 import { applyThumbnailPreference } from '../../thumbnail/thumbnailCommands';
 import { openThumbnailPicker } from '../../thumbnail/thumbnailPickerBridge';
 import { usePanelLocalState } from '../../workspace/panelLocalState';
+import { BatchRenameDialog } from '../BatchRename/BatchRenameDialog';
 import { PanelDetachButton, PanelDragHandle } from '../PanelDragHandle';
 import { LayerBulkBar } from './LayerBulkBar';
 import { LayerFilterBar } from './LayerFilterBar';
@@ -65,6 +66,7 @@ import { DEFAULT_FILTER, isFiltering, nodeMatchesFilter } from './layerFilterTyp
 import './layers.css';
 import type { LayerColorPickerValue } from './LayerColorTagPicker';
 import { SelectionSetsSection } from './SelectionSetsSection';
+import { flattenTree } from './useFlatTree';
 
 interface EffectStackClipboard {
   sourceId: NodeId;
@@ -140,6 +142,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
   const [effectStackClipboard, setEffectStackClipboard] = useState<EffectStackClipboard | null>(
     null,
   );
+  const [batchRenameOpen, setBatchRenameOpen] = useState(false);
   // Viewport-edge clamping handled by shared ContextMenu component.
 
   // Parent index cache for O(1) lookups
@@ -235,6 +238,28 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       closeMenu();
     }
   }, [contextMenu, dndRef, closeMenu]);
+
+  const handleBatchRenameFromMenu = useCallback(() => {
+    closeMenu();
+    setBatchRenameOpen(true);
+  }, [closeMenu]);
+
+  // Every named layer on the active surface, in tree order, for the rename
+  // preview. Computed only while the dialog is open: the walk is O(nodes).
+  const allLayerNames = useMemo(() => {
+    if (!batchRenameOpen) return [];
+    const expanded = new Set(Object.keys(state.document.nodes));
+    return flattenTree(
+      state.document,
+      expanded,
+      DEFAULT_FILTER,
+      undefined,
+      state.document.activePageId,
+      undefined,
+      undefined,
+      designCanvasId,
+    ).map((entry) => ({ nodeId: entry.node.id, name: entry.node.name }));
+  }, [batchRenameOpen, state.document, designCanvasId]);
 
   const handleDeleteFromMenu = useCallback(() => {
     const selection = contextMenu?.selection ?? state.selection;
@@ -782,6 +807,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             selection: contextSelection,
             documentNodes: state.document.nodes,
             handleRenameFromMenu,
+            handleBatchRenameFromMenu,
             handleDeleteFromMenu,
             handleCopy,
             handleCut,
@@ -845,6 +871,13 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
         />
       )}
 
+      <BatchRenameDialog
+        open={batchRenameOpen}
+        onClose={() => setBatchRenameOpen(false)}
+        scopeNodeIds={state.selection}
+        allNodeNames={allLayerNames}
+      />
+
       <SelectionSetsSection />
     </div>
   );
@@ -863,6 +896,7 @@ interface BuildLayerMenuItemsArgs {
   selection: string[];
   documentNodes: Record<string, SceneNode>;
   handleRenameFromMenu: () => void;
+  handleBatchRenameFromMenu: () => void;
   handleDeleteFromMenu: () => void;
   handleCopy: () => void;
   handleCut: () => void;
@@ -921,6 +955,7 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
     selection,
     documentNodes,
     handleRenameFromMenu,
+    handleBatchRenameFromMenu,
     handleDeleteFromMenu,
     handleCopy,
     handleCut,
@@ -964,6 +999,12 @@ function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] 
   const items: MenuEntry[] = [
     { id: 'layer-label', label: 'Layer', type: 'label' },
     { id: 'rename', label: 'Rename', icon: 'Pencil', badge: 'F2', onAction: handleRenameFromMenu },
+    {
+      id: 'batch-rename',
+      label: 'Batch Rename\u2026',
+      description: 'Find and replace across layer names',
+      onAction: handleBatchRenameFromMenu,
+    },
     {
       id: 'delete',
       label: 'Delete',

@@ -160,6 +160,7 @@ export function SettingsDialog({
         onClose={onClose}
         title="Settings"
         dismissible
+        focusFirstControl
         className="varve-dialog--settings"
       >
         <div className="settings-dialog__layout">
@@ -183,6 +184,9 @@ export function SettingsDialog({
                 aria-selected={activeSection === sec.id}
                 aria-controls="settings-tabpanel"
                 tabIndex={activeSection === sec.id ? 0 : -1}
+                // Initial focus lands on the section the user was last in,
+                // not on the header Close button (see Dialog.focusFirstControl).
+                data-autofocus={activeSection === sec.id ? '' : undefined}
                 className={`settings-dialog__tab${activeSection === sec.id ? ' settings-dialog__tab--active' : ''}`}
                 onClick={() => setActiveSection(sec.id)}
               >

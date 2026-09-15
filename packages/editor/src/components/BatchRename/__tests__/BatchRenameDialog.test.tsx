@@ -48,9 +48,10 @@ describe('BatchRenameDialog', () => {
     expect(screen.getByText('Batch Rename')).toBeTruthy();
   });
 
-  it('does not render when closed', () => {
+  it('does not render its body when closed', () => {
     renderDialog({ open: false });
-    expect(screen.queryByRole('dialog', { name: /batch rename/i })).toBeNull();
+    expect(screen.queryByLabelText('Find')).toBeNull();
+    expect(screen.queryByPlaceholderText(/Text to find/)).toBeNull();
   });
 
   it('shows match count', () => {
@@ -84,15 +85,32 @@ describe('BatchRenameDialog', () => {
 
   it('calls onClose on Escape', () => {
     const { onClose } = renderDialog();
-    fireEvent.keyDown(window, { key: 'Escape' });
+    const dialog = document.querySelector('dialog') as HTMLDialogElement;
+    fireEvent.keyDown(dialog, { key: 'Escape' });
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('calls onClose on overlay click', () => {
+  it('moves initial focus to the find field', () => {
+    renderDialog();
+    expect(screen.getByPlaceholderText(/Text to find/)).toHaveFocus();
+  });
+
+  it('calls onClose on a backdrop press and release', () => {
     const { onClose } = renderDialog();
-    const overlay = document.querySelector('.batch-rename-overlay')!;
-    fireEvent.click(overlay);
+    const dialog = document.querySelector('dialog') as HTMLDialogElement;
+    fireEvent.pointerDown(dialog);
+    fireEvent.pointerUp(dialog);
+    fireEvent.click(dialog);
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('does not close when a press inside the dialog is released on the backdrop', () => {
+    const { onClose } = renderDialog();
+    const dialog = document.querySelector('dialog') as HTMLDialogElement;
+    fireEvent.pointerDown(screen.getByPlaceholderText(/Text to find/));
+    fireEvent.pointerUp(dialog);
+    fireEvent.click(dialog);
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('rename button is disabled when no matches', () => {

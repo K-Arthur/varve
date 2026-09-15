@@ -1,5 +1,5 @@
 import type { NodeId } from '@varve/scene';
-import { Switch, Tooltip } from '@varve/ui';
+import { Button, Dialog, Switch, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import {
@@ -88,18 +88,6 @@ export function BatchRenameDialog({
     setAnnounceMsg('');
   }, [open, defaultAll]);
 
-  useEffect(() => {
-    if (!open) return;
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        onClose();
-      }
-    }
-    window.addEventListener('keydown', handleKey, true);
-    return () => window.removeEventListener('keydown', handleKey, true);
-  }, [open, onClose]);
-
   const canRename = changedCount > 0 && (!useRegex || !regexError);
 
   const handleRename = useCallback(() => {
@@ -111,186 +99,147 @@ export function BatchRenameDialog({
     onClose();
   }, [canRename, changedPreviews, options, updateDoc, changedCount, onClose]);
 
-  if (!open) return null;
-
   return (
-    <div
-      className="batch-rename-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Batch Rename"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose();
-      }}
-    >
-      <div className="batch-rename-dialog">
-        <div className="batch-rename-dialog__header">
-          <h2 className="batch-rename-dialog__title">Batch Rename</h2>
-          <button
-            type="button"
-            className="batch-rename-dialog__close"
-            aria-label="Close"
-            onClick={onClose}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-              aria-hidden="true"
-            >
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-          </button>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Batch Rename"
+      // The rename pattern is the reason the dialog was opened; land focus
+      // there instead of on the header Close button.
+      focusFirstControl
+      footer={
+        <div className="batch-rename-dialog__footer">
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="default" onClick={handleRename} disabled={!canRename}>
+            Rename{changedCount > 0 ? ` All (${changedCount})` : ''}
+          </Button>
         </div>
-
-        <div className="batch-rename-dialog__body">
-          <div className="batch-rename-dialog__section">
-            <label className="batch-rename-dialog__label" htmlFor="batch-rename-find">
-              Find
-            </label>
-            <input
-              id="batch-rename-find"
-              className={`batch-rename-dialog__input${regexError ? ' batch-rename-dialog__input--error' : ''}`}
-              type="text"
-              value={find}
-              onChange={(e) => handleFindChange(e.target.value)}
-              placeholder="Text to find\u2026"
-            />
-            {regexError && (
-              <div className="batch-rename-dialog__error" role="alert">
-                {regexError}
-              </div>
-            )}
-          </div>
-
-          <div className="batch-rename-dialog__section">
-            <label className="batch-rename-dialog__label" htmlFor="batch-rename-replace">
-              Replace
-            </label>
-            <input
-              id="batch-rename-replace"
-              className="batch-rename-dialog__input"
-              type="text"
-              value={replace}
-              onChange={(e) => setReplace(e.target.value)}
-              placeholder="Replacement text\u2026"
-            />
-          </div>
-
-          <div className="batch-rename-dialog__toggles">
-            <Switch
-              className="batch-rename-dialog__checkbox"
-              label="Regex"
-              checked={useRegex}
-              onChange={(e) => setUseRegex(e.target.checked)}
-            />
-            <Switch
-              className="batch-rename-dialog__checkbox"
-              label="Case sensitive"
-              checked={caseSensitive}
-              onChange={(e) => setCaseSensitive(e.target.checked)}
-            />
-            <Switch
-              className="batch-rename-dialog__checkbox"
-              label="Whole word"
-              checked={wholeWord}
-              onChange={(e) => setWholeWord(e.target.checked)}
-            />
-          </div>
-
-          {scopeNodeIds && scopeNodeIds.length > 0 && (
-            <div className="batch-rename-dialog__section">
-              <span className="batch-rename-dialog__label">Scope</span>
-              <div className="batch-rename-dialog__scope">
-                <label>
-                  <input
-                    type="radio"
-                    name="batch-rename-scope"
-                    checked={!scopeAll}
-                    onChange={() => setScopeAll(false)}
-                  />
-                  <span>Selection ({scopeNodeIds.length})</span>
-                </label>
-                <label>
-                  <input
-                    type="radio"
-                    name="batch-rename-scope"
-                    checked={scopeAll}
-                    onChange={() => setScopeAll(true)}
-                  />
-                  <span>All layers ({allNodeNames.length})</span>
-                </label>
-              </div>
+      }
+    >
+      <div className="batch-rename-dialog__body">
+        <div className="batch-rename-dialog__section">
+          <label className="batch-rename-dialog__label" htmlFor="batch-rename-find">
+            Find
+          </label>
+          <input
+            id="batch-rename-find"
+            data-autofocus
+            className={`batch-rename-dialog__input${regexError ? ' batch-rename-dialog__input--error' : ''}`}
+            type="text"
+            value={find}
+            onChange={(e) => handleFindChange(e.target.value)}
+            placeholder="Text to find\u2026"
+          />
+          {regexError && (
+            <div className="batch-rename-dialog__error" role="alert">
+              {regexError}
             </div>
           )}
+        </div>
 
-          <div className="batch-rename-dialog__match-count">
-            <strong className={changedCount > 0 ? 'changed' : ''}>{changedCount}</strong> match
-            {changedCount !== 1 ? 'es' : ''} in <strong>{effectiveNodeNames.length}</strong> layer
-            {effectiveNodeNames.length !== 1 ? 's' : ''}
+        <div className="batch-rename-dialog__section">
+          <label className="batch-rename-dialog__label" htmlFor="batch-rename-replace">
+            Replace
+          </label>
+          <input
+            id="batch-rename-replace"
+            className="batch-rename-dialog__input"
+            type="text"
+            value={replace}
+            onChange={(e) => setReplace(e.target.value)}
+            placeholder="Replacement text\u2026"
+          />
+        </div>
+
+        <div className="batch-rename-dialog__toggles">
+          <Switch
+            className="batch-rename-dialog__checkbox"
+            label="Regex"
+            checked={useRegex}
+            onChange={(e) => setUseRegex(e.target.checked)}
+          />
+          <Switch
+            className="batch-rename-dialog__checkbox"
+            label="Case sensitive"
+            checked={caseSensitive}
+            onChange={(e) => setCaseSensitive(e.target.checked)}
+          />
+          <Switch
+            className="batch-rename-dialog__checkbox"
+            label="Whole word"
+            checked={wholeWord}
+            onChange={(e) => setWholeWord(e.target.checked)}
+          />
+        </div>
+
+        {scopeNodeIds && scopeNodeIds.length > 0 && (
+          <div className="batch-rename-dialog__section">
+            <span className="batch-rename-dialog__label">Scope</span>
+            <div className="batch-rename-dialog__scope">
+              <label>
+                <input
+                  type="radio"
+                  name="batch-rename-scope"
+                  checked={!scopeAll}
+                  onChange={() => setScopeAll(false)}
+                />
+                <span>Selection ({scopeNodeIds.length})</span>
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="batch-rename-scope"
+                  checked={scopeAll}
+                  onChange={() => setScopeAll(true)}
+                />
+                <span>All layers ({allNodeNames.length})</span>
+              </label>
+            </div>
           </div>
+        )}
 
-          {previews.length > 0 && (
-            <ul className="batch-rename-dialog__preview" aria-label="Rename preview">
-              {previews.map((p) => (
-                <li
-                  key={p.nodeId}
-                  className={`batch-rename-dialog__preview-item${!p.changed ? ' batch-rename-dialog__preview-item--unchanged' : ''}`}
-                >
-                  {p.changed && (
-                    <span className="batch-rename-dialog__preview-icon" aria-hidden="true">
-                      {'\u279C'}
+        <div className="batch-rename-dialog__match-count">
+          <strong className={changedCount > 0 ? 'changed' : ''}>{changedCount}</strong> match
+          {changedCount !== 1 ? 'es' : ''} in <strong>{effectiveNodeNames.length}</strong> layer
+          {effectiveNodeNames.length !== 1 ? 's' : ''}
+        </div>
+
+        {previews.length > 0 && (
+          <ul className="batch-rename-dialog__preview" aria-label="Rename preview">
+            {previews.map((p) => (
+              <li
+                key={p.nodeId}
+                className={`batch-rename-dialog__preview-item${!p.changed ? ' batch-rename-dialog__preview-item--unchanged' : ''}`}
+              >
+                {p.changed && (
+                  <span className="batch-rename-dialog__preview-icon" aria-hidden="true">
+                    {'\u279C'}
+                  </span>
+                )}
+                <Tooltip label={p.originalName} truncationOnly>
+                  <span className="batch-rename-dialog__preview-old">{p.originalName}</span>
+                </Tooltip>
+                {p.changed && (
+                  <>
+                    <span className="batch-rename-dialog__preview-arrow" aria-hidden="true">
+                      {'\u2192'}
                     </span>
-                  )}
-                  <Tooltip label={p.originalName} truncationOnly>
-                    <span className="batch-rename-dialog__preview-old">{p.originalName}</span>
-                  </Tooltip>
-                  {p.changed && (
-                    <>
-                      <span className="batch-rename-dialog__preview-arrow" aria-hidden="true">
-                        {'\u2192'}
-                      </span>
-                      <Tooltip label={p.newName} truncationOnly>
-                        <span className="batch-rename-dialog__preview-new">{p.newName}</span>
-                      </Tooltip>
-                    </>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <div className="batch-rename-dialog__footer">
-          <button
-            type="button"
-            className="batch-rename-dialog__btn batch-rename-dialog__btn--secondary"
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="batch-rename-dialog__btn batch-rename-dialog__btn--primary"
-            disabled={!canRename}
-            onClick={handleRename}
-          >
-            Rename{changedCount > 0 ? ` All (${changedCount})` : ''}
-          </button>
-        </div>
-
-        <div role="status" aria-live="polite" className="varve-visually-hidden">
-          {announceMsg}
-        </div>
+                    <Tooltip label={p.newName} truncationOnly>
+                      <span className="batch-rename-dialog__preview-new">{p.newName}</span>
+                    </Tooltip>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
-    </div>
+
+      <div role="status" aria-live="polite" className="varve-visually-hidden">
+        {announceMsg}
+      </div>
+    </Dialog>
   );
 }
