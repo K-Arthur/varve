@@ -63,7 +63,8 @@ layout. These remain separate from the shared Field system because:
 
 - Inspector labels also act as scrub handles for numeric controls
 - Inspector labels use `ew-resize` cursor for drag-to-scrub
-- Inspector labels use `user-select: none`
+- Inspector labels use `user-select: none` and `touch-action: pan-y` (vertical
+  inspector scrolling stays with the browser; horizontal drags scrub)
 - The inspector needs minimum vertical height (2rem) for pointer precision
 
 The row grammar is responsive rather than fixed-width: the label column uses a
@@ -228,7 +229,7 @@ ensuring CSS selectors `[aria-invalid="true"]` work correctly.
 | Home `FilterDropdown` | ✅ OK | Wrapping `<label>` for checkboxes, proper a11y |
 | Editor `FieldRow` | ✅ Standardized | Responsive label/control row with bounded tracks |
 | Editor `InspectorFieldGroup` | ✅ Added | Responsive paired/triple/action grid with narrow-panel stacking |
-| Editor `NumberField` | ✅ Retained | Specialized for scrub/undo/wheel |
+| Editor `NumberField` | ✅ Retained | Specialized for scrub/undo/wheel; gesture contract documented below |
 | Editor `RangeValueControl` | ✅ Standardized | Slider plus direct precision entry, including normalized percentage scaling |
 | Marketing website | ✅ Updated | Feature copy explains precision controls and responsive inspector behavior |
 
@@ -268,7 +269,23 @@ their compact appearance in the filter popover.
 
 The editor's `NumberField` uses its label as a drag-to-scrub handle. This dual
 purpose (accessible name + interaction handle) is unique to the inspector and does
-not generalize to the shared Field system.
+not generalize to the shared Field system. The input itself keeps the normal text
+cursor: dragging inside it selects text. Clicking the field selects its whole
+value so typing replaces it; clicking again places the caret for a partial edit.
+
+The gesture contract (evidence: `docs/research/numeric-input-interaction-research-2026-09-14.md`):
+
+- One completed wheel gesture or scrub is exactly one undoable transaction; a
+  gesture that cannot change the value creates no history entry.
+- Escape, `pointercancel`, window blur, or unmount cancels and restores the
+  starting value.
+- A Shift/Alt change mid-drag rebases the accumulator instead of multiplying
+  travel that already happened; scrub values are not quantized to a fixed grid
+  (binary float residue is stripped instead), so fine steps survive.
+- Wheel-to-change applies only while the field is focused and uses a native
+  non-passive listener, so the panel never scrolls underneath the gesture.
+- Home/End move the caret (standard single-line editing); PageUp/PageDown step
+  by at least ten base steps.
 
 ### Inspector FieldRow Responsive Label Column
 
