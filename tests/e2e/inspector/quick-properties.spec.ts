@@ -25,7 +25,12 @@ test.describe('Inspector canonical properties', () => {
     await expect(page.getByRole('spinbutton', { name: 'Opacity (%)', exact: true })).toHaveCount(1);
     const fills = page.locator('button.insp-disclosure__trigger').filter({ hasText: /^Fill$/ });
     if ((await fills.getAttribute('aria-expanded')) !== 'true') await fills.click();
-    await expect(page.getByRole('button', { name: 'Fill colour' })).toBeVisible();
+    // Scope to the Inspector's Fill section: the selection-following context
+    // bar also exposes a "Fill colour" swatch, so an unscoped role query is
+    // ambiguous once that toolbar is visible.
+    await expect(
+      page.getByRole('group', { name: 'Fill' }).getByRole('button', { name: 'Fill colour' }),
+    ).toBeVisible();
 
     const x = position.getByRole('spinbutton', { name: 'X (px)' });
     await x.fill('300');

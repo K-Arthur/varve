@@ -14,7 +14,7 @@ export const PANELS: Record<string, HelpArticle> = {
     id: 'panel:inspector',
     title: 'Inspector Panel',
     summary: 'Edit properties of selected objects.',
-    body: 'The Inspector shows editable properties for the selected object. The Properties tab includes position, size, rotation, corner radius, fill, stroke, effects, and typography settings. The Export tab shows export options for the selected node. The Spec tab shows design specifications for handoff. The Intelligence tab provides design guidance including WCAG contrast audits, spacing harmonization, and auto-naming suggestions.',
+    body: 'The Inspector is the complete editor for the selected object. The Design tab covers position, size, rotation and skew, corner radius, appearance, fills, stroke, effects, typography, masking, and image controls. Sections follow the selection: text layers lead with Typography, and images lead with Image Placement and Crop & Bounds. Expand, collapse, hide, or reorder sections from the section manager, and remember that the order is yours — once you reorder sections, your layout wins over the contextual default. Numeric fields accept typed values and arithmetic such as 120/2, and dragging a field label scrubs its value. The Export tab shows export options for the selected node, and the Fonts tab manages document fonts.',
     keywords: ['inspector', 'properties', 'edit', 'fill', 'stroke', 'transform', 'position'],
     category: 'Panels',
     related: ['tool:select', 'panel:layers', 'export:overview'],
