@@ -33,7 +33,9 @@ import { MenubarSubmenu } from './menu/menubarSubmenu';
 import { labelWithFallback, type RecentEntry, useRecentFiles } from './recentFiles';
 import { loadSettings } from './settings';
 import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from './shortcuts';
+import { useEffectiveWorkspaceConfig } from './workspace/useWorkspaceConfig';
 import type { WorkspaceMode } from './workspace/workspaceTypes';
+import { resolveToolbarPlacement } from './workspace/workspaceTypes';
 
 type MenuId = 'File' | 'Edit' | 'Text' | 'View' | 'Object' | 'Arrange' | 'Page' | 'Help';
 
@@ -1102,6 +1104,17 @@ function buildMenus(
           action: 'manageWorkspaceLayouts',
         },
         { label: '---' },
+        // Toolbar placement. Radio pair: one position is always selected, and
+        // the choice persists per workspace (workspace preference store).
+        {
+          label: 'Toolbar at Bottom',
+          action: 'viewToolbarBottom',
+        },
+        {
+          label: 'Toolbar at Top',
+          action: 'viewToolbarTop',
+        },
+        { label: '---' },
         // Focus modes
         {
           label: 'Distraction-Free Mode',
@@ -1663,6 +1676,8 @@ function itemRole(item: MenuItem): string {
     return 'menuitemcheckbox';
   if (item.action?.startsWith('colorBlindness')) return 'menuitemradio';
   if (item.action?.startsWith('workspace')) return 'menuitemradio';
+  if (item.action === 'viewToolbarTop' || item.action === 'viewToolbarBottom')
+    return 'menuitemradio';
   if (item.action === 'toggleLogoPanel') return 'menuitemcheckbox';
   if (item.action === 'rulerModeArtboard' || item.action === 'rulerModeGlobal')
     return 'menuitemradio';
@@ -1690,7 +1705,10 @@ function itemAriaChecked(
     logoPanelVisible: boolean;
     document?: { activePageId?: string; pages?: Array<{ id: string; masterPageId?: string }> };
   },
+  toolbarPlacement: 'bottom' | 'top' = 'bottom',
 ): boolean | undefined {
+  if (item.action === 'viewToolbarTop') return toolbarPlacement === 'top';
+  if (item.action === 'viewToolbarBottom') return toolbarPlacement === 'bottom';
   if (item.action === 'toggleLogoPanel') return state.logoPanelVisible;
   if (item.action?.startsWith('theme:')) {
     return getThemePreference() === item.action.slice(6);
@@ -1869,6 +1887,13 @@ export function Menubar({
       return false;
     }
   }, []);
+
+  // Toolbar placement drives the View radio pair's checked state. Resolved
+  // through the effective workspace config so the menu agrees with the
+  // palette and survives reloads (workspace preference store).
+  const toolbarPlacement = resolveToolbarPlacement(
+    useEffectiveWorkspaceConfig(state.workspaceMode as WorkspaceMode),
+  );
 
   const isMac = useMemo(() => {
     try {
@@ -2498,7 +2523,7 @@ export function Menubar({
                     focusableIdx += 1;
                     const itemFocusableIdx = focusableIdx;
                     const role = itemRole(item);
-                    const isChecked = itemAriaChecked(item, state);
+                    const isChecked = itemAriaChecked(item, state, toolbarPlacement);
                     const isActive =
                       (item.action?.startsWith('theme:') &&
                         currentTheme === item.action.slice(6)) ||

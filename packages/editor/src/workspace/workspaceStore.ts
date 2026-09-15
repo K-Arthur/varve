@@ -30,6 +30,7 @@ import {
   type PanelConfig,
   type PanelId,
   type StatusSectionId,
+  type ToolbarPlacement,
   WORKSPACE_CONFIG_VERSION,
   type WorkspaceConfig,
   type WorkspaceMode,
@@ -182,6 +183,11 @@ function sanitizePreference(
     }
   }
 
+  // Sanitize the toolbar placement override — only the two supported values.
+  const placement = pref.toolbarPlacement;
+  const cleanPlacement: ToolbarPlacement | undefined =
+    placement === 'top' || placement === 'bottom' ? placement : undefined;
+
   return {
     ...(clean && Object.keys(clean).length > 0 ? { panelOverrides: clean } : {}),
     ...(cleanTabs && Object.keys(cleanTabs).length > 0 ? { inspectorTabOverrides: cleanTabs } : {}),
@@ -193,6 +199,7 @@ function sanitizePreference(
       : {}),
     ...(cleanWidths && Object.keys(cleanWidths).length > 0 ? { panelWidths: cleanWidths } : {}),
     ...(Object.keys(cleanChrome).length > 0 ? { chromeOverrides: cleanChrome } : {}),
+    ...(cleanPlacement ? { toolbarPlacement: cleanPlacement } : {}),
     customized: pref.customized === true,
     ...(typeof pref.lastCustomized === 'number' ? { lastCustomized: pref.lastCustomized } : {}),
     ...(typeof pref.clearedAt === 'number' ? { clearedAt: pref.clearedAt } : {}),
@@ -530,6 +537,12 @@ export function getEffectiveWorkspaceConfig(
     if (Object.keys(patch).length > 0) result = { ...result, ...patch };
   }
 
+  // Toolbar placement override. The built-in default is 'bottom' and the
+  // field is optional, so an absent override needs no patch.
+  if (modePrefs.toolbarPlacement) {
+    result = { ...result, toolbarPlacement: modePrefs.toolbarPlacement };
+  }
+
   return result;
 }
 
@@ -659,6 +672,31 @@ export function setChromeOverride(
   const updated = { ...prefs };
   const nextMode = { ...updated[mode] };
   nextMode.chromeOverrides = { ...(nextMode.chromeOverrides ?? {}), [key]: visible };
+  nextMode.customized = true;
+  nextMode.lastCustomized = Date.now();
+  updated[mode] = nextMode;
+  return updated;
+}
+
+/** Set the floating toolbar's vertical placement for a workspace. */
+export function setToolbarPlacementOverride(
+  prefs: WorkspacePreferences,
+  mode: WorkspaceMode,
+  placement: ToolbarPlacement,
+): WorkspacePreferences {
+  const modePrefs = prefs[mode];
+  // Sparse storage: 'bottom' is the built-in default, so storing it would
+  // freeze the preference against any future default change.
+  if (placement === 'bottom') {
+    if (!modePrefs?.toolbarPlacement) return prefs;
+    const nextMode = { ...modePrefs, customized: true, lastCustomized: Date.now() };
+    delete nextMode.toolbarPlacement;
+    return { ...prefs, [mode]: nextMode };
+  }
+  if (modePrefs?.toolbarPlacement === placement) return prefs;
+  const updated = { ...prefs };
+  const nextMode = { ...updated[mode] };
+  nextMode.toolbarPlacement = placement;
   nextMode.customized = true;
   nextMode.lastCustomized = Date.now();
   updated[mode] = nextMode;

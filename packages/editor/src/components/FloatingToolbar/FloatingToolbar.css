@@ -25,6 +25,18 @@
   pointer-events: auto;
 }
 
+/*
+ * User-selected top placement (View > Toolbar at Top). Anchors the palette to
+ * the canvas cell's top edge so platform chrome (macOS Dock, a laptop display
+ * edge) cannot hide it and the controls sit nearer the menubar/context bar.
+ * Row order is unchanged — a palette that opens upward does not reverse its
+ * controls. Bottom remains the built-in default (see toolbar-system.md).
+ */
+.floating-toolbar--top {
+  bottom: auto;
+  top: var(--space-3);
+}
+
 .floating-toolbar [role="toolbar"] {
   display: flex;
   align-items: center;

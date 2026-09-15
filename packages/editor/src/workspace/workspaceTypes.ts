@@ -90,6 +90,27 @@ export interface ToolbarConfig {
   }[];
 }
 
+/**
+ * Vertical placement of the floating tool palette inside the canvas cell.
+ *
+ * `bottom` is the built-in default. `top` is the user-selected alternative:
+ * the external evidence (Figma's UI3 threads) is that a bottom-centre palette
+ * is hidden by platform chrome (macOS Dock, laptop displays) and sits far from
+ * the work on large screens, and users ask for a top option that persists
+ * (see docs/research/toolbar-followup-2026-09-15.md).
+ */
+export type ToolbarPlacement = 'bottom' | 'top';
+
+/** Built-in toolbar placement when a config/override does not name one. */
+export const DEFAULT_TOOLBAR_PLACEMENT: ToolbarPlacement = 'bottom';
+
+/** Resolve the effective placement from a (possibly partial) config. */
+export function resolveToolbarPlacement(config: {
+  toolbarPlacement?: ToolbarPlacement;
+}): ToolbarPlacement {
+  return config.toolbarPlacement ?? DEFAULT_TOOLBAR_PLACEMENT;
+}
+
 // ---------------------------------------------------------------------------
 // Inspector tab configuration
 // ---------------------------------------------------------------------------
@@ -248,6 +269,12 @@ export interface WorkspaceConfig {
   onboarding: OnboardingConfig;
   /** Show the floating toolbar. */
   floatingToolbar: boolean;
+  /**
+   * Vertical placement of the floating toolbar palette. Optional: absent
+   * means the built-in default ('bottom'), so existing built-in configs and
+   * persisted payloads need no migration.
+   */
+  toolbarPlacement?: ToolbarPlacement;
   /** Show the status bar. */
   statusBar: boolean;
   /** Show the menubar tab strip (multi-doc tabs). */
@@ -290,6 +317,8 @@ export interface WorkspacePreference {
   toolbarToolOverrides?: Partial<Record<string, boolean>>;
   /** Mode-specific editor chrome visibility overrides. */
   chromeOverrides?: Partial<ChromeConfig>;
+  /** Mode-specific toolbar placement override (only stored when not 'bottom'). */
+  toolbarPlacement?: ToolbarPlacement;
   /**
    * When the user reset this mode to defaults.
    *

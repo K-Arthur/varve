@@ -56,6 +56,10 @@ import {
 } from '../tools/selectionPathConversion';
 import { TOOL_REGISTRY } from '../tools/toolRegistry';
 import { expandWarpAppearance } from '../warp/warpActions';
+import {
+  setToolbarPlacementOverride,
+  updateWorkspacePreferences,
+} from '../workspace/workspaceStore';
 
 const TOOL_LABELS: Record<string, string> = Object.fromEntries(
   TOOL_REGISTRY.map((t) => [t.id, t.label]),
@@ -1181,6 +1185,14 @@ export function createActionHandlers(
     workspaceEmail: () => e.requestWorkspaceSwitch('email'),
     resetWorkspace: () => e.resetWorkspaceToDefault(),
     resetAllWorkspaces: () => e.resetAllWorkspacesToDefaults(),
+    viewToolbarTop: () =>
+      updateWorkspacePreferences((prefs) =>
+        setToolbarPlacementOverride(prefs, e.state.workspaceMode, 'top'),
+      ),
+    viewToolbarBottom: () =>
+      updateWorkspacePreferences((prefs) =>
+        setToolbarPlacementOverride(prefs, e.state.workspaceMode, 'bottom'),
+      ),
     canvasModeOutline: () => e.setCanvasMode('outline'),
     canvasModePreview: () => e.setCanvasMode('preview'),
     canvasModeFull: () => {

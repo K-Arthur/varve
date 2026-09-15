@@ -161,6 +161,8 @@ export function registerEditorActions(
     ['resetAllWorkspaces', 'Reset All Workspaces', 'view'],
     ['customizeWorkspace', 'Customize Workspace', 'view'],
     ['manageWorkspaceLayouts', 'Manage Layouts', 'view'],
+    ['viewToolbarTop', 'Place Toolbar at Top', 'view'],
+    ['viewToolbarBottom', 'Place Toolbar at Bottom', 'view'],
     ['contentAwareFill', 'Generative Edit…', 'object'],
     ['frequencySeparation', 'Frequency Separation…', 'object'],
     ['flattenFrequencySeparation', 'Flatten Frequency Separation', 'object'],

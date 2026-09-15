@@ -26,6 +26,7 @@ import {
   toolbarSlotKey,
 } from '../../workspace/toolbarComposition';
 import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig';
+import { resolveToolbarPlacement } from '../../workspace/workspaceTypes';
 import { ToolOptionsPopover } from './ToolOptionsPopover';
 import './FloatingToolbar.css';
 import { toolIconName, toolLabel } from '../../workspace/toolLabels';
@@ -380,6 +381,11 @@ export function FloatingToolbar() {
   // future mode id silently removed the entire toolbar. The resolver falls
   // back to Design and merges the user's overrides.
   const config = useEffectiveWorkspaceConfig(workspaceMode);
+  // Placement is part of the effective workspace config (persisted per mode
+  // through the workspace preference store). Resolve it once so the palette
+  // and the crop-mode options entry share the same position.
+  const placement = resolveToolbarPlacement(config);
+  const placementClass = placement === 'top' ? ' floating-toolbar--top' : '';
   // Keep composition and responsive grouping derived from the same effective
   // config. The hook intentionally runs before the early returns so switching
   // into/out of a modal tool cannot change hook ordering.
@@ -424,7 +430,10 @@ export function FloatingToolbar() {
     // The old early return removed ToolOptionsPopover together with the main
     // palette, leaving those actions inaccessible in crop mode.
     return (
-      <div className="floating-toolbar floating-toolbar--modal-options">
+      <div
+        className={`floating-toolbar floating-toolbar--modal-options${placementClass}`}
+        data-placement={placement}
+      >
         <ToolOptionsPopover />
       </div>
     );
@@ -465,7 +474,12 @@ export function FloatingToolbar() {
 
   return (
     <>
-      <div ref={rootRef} className="floating-toolbar" data-testid="toolbar">
+      <div
+        ref={rootRef}
+        className={`floating-toolbar${placementClass}`}
+        data-placement={placement}
+        data-testid="toolbar"
+      >
         <TooltipProvider>
           <div className="floating-toolbar__row">
             <Toolbar label="Drawing tools">

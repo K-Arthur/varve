@@ -5,6 +5,11 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { useEffect } from 'react';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../../context';
+import {
+  getWorkspacePreferences,
+  setToolbarPlacementOverride,
+  updateWorkspacePreferences,
+} from '../../workspace/workspaceStore';
 import type { WorkspaceMode } from '../../workspace/workspaceTypes';
 import { FloatingToolbar } from './FloatingToolbar';
 
@@ -132,5 +137,25 @@ describe('FloatingToolbar — per-mode tool adaptation', () => {
 
     fireEvent.click(chevron);
     expect(screen.queryByRole('menu', { name: 'Boolean operations' })).not.toBeInTheDocument();
+  });
+
+  it('renders at the built-in bottom placement by default', async () => {
+    renderInMode('design');
+    const palette = await screen.findByTestId('toolbar');
+    expect(palette).toHaveAttribute('data-placement', 'bottom');
+    expect(palette).not.toHaveClass('floating-toolbar--top');
+  });
+
+  it('renders at the persisted top placement for the active workspace', async () => {
+    updateWorkspacePreferences((prefs) => setToolbarPlacementOverride(prefs, 'design', 'top'));
+    renderInMode('design');
+    const palette = await screen.findByTestId('toolbar');
+    await waitFor(() => expect(palette).toHaveAttribute('data-placement', 'top'));
+    expect(palette).toHaveClass('floating-toolbar--top');
+    // Sparse storage decision: switching back stores nothing, so the default
+    // remains free to change in a future release.
+    updateWorkspacePreferences((prefs) => setToolbarPlacementOverride(prefs, 'design', 'bottom'));
+    await waitFor(() => expect(palette).toHaveAttribute('data-placement', 'bottom'));
+    expect(getWorkspacePreferences().design.toolbarPlacement).toBeUndefined();
   });
 });

@@ -18,12 +18,13 @@ import {
   saveWorkspacePreferences,
   setChromeOverride,
   setPanelOverride,
+  setToolbarPlacementOverride,
   setToolbarToolOverride,
   setWorkspacePreferences,
   subscribeWorkspacePreferences,
   updateWorkspacePreferences,
 } from './workspaceStore';
-import { WORKSPACE_CONFIGS } from './workspaceTypes';
+import { resolveToolbarPlacement, WORKSPACE_CONFIGS } from './workspaceTypes';
 
 const STORAGE_KEY = 'varve-workspace-preferences';
 const LEGACY_STORAGE_KEY = 'strata-workspace-preferences';
@@ -477,5 +478,57 @@ describe('workspaceStore — panel widths', () => {
     const cleared = clearPanelWidths(base, 'design', ['library']);
     expect(cleared.design.panelWidths).toBeUndefined();
     expect(cleared.design.customized).toBe(false);
+  });
+});
+
+describe('workspaceStore — toolbar placement', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    resetWorkspacePreferenceCache();
+  });
+
+  it('resolves an absent config field to the built-in bottom default', () => {
+    expect(resolveToolbarPlacement({})).toBe('bottom');
+    expect(resolveToolbarPlacement({ toolbarPlacement: 'top' })).toBe('top');
+  });
+
+  it('merges a stored top override into the effective config', () => {
+    let prefs = getWorkspacePreferences();
+    prefs = setToolbarPlacementOverride(prefs, 'design', 'top');
+    expect(getEffectiveWorkspaceConfig('design', prefs).toolbarPlacement).toBe('top');
+    expect(prefs.design.customized).toBe(true);
+  });
+
+  it('keeps bottom sparse so a future default change still flows through', () => {
+    let prefs = setToolbarPlacementOverride(getWorkspacePreferences(), 'design', 'top');
+    prefs = setToolbarPlacementOverride(prefs, 'design', 'bottom');
+    expect(prefs.design.toolbarPlacement).toBeUndefined();
+    expect(getEffectiveWorkspaceConfig('design', prefs).toolbarPlacement).toBeUndefined();
+  });
+
+  it('does not mark an unchanged mode customized', () => {
+    const prefs = getWorkspacePreferences();
+    expect(setToolbarPlacementOverride(prefs, 'design', 'bottom')).toBe(prefs);
+  });
+
+  it('round-trips through storage and rejects invalid stored values', () => {
+    const prefs = setToolbarPlacementOverride(getWorkspacePreferences(), 'design', 'top');
+    saveWorkspacePreferences(prefs);
+    resetWorkspacePreferenceCache();
+    expect(loadWorkspacePreferences().design.toolbarPlacement).toBe('top');
+
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ design: { customized: true, toolbarPlacement: 'left' } }),
+    );
+    resetWorkspacePreferenceCache();
+    expect(loadWorkspacePreferences().design.toolbarPlacement).toBeUndefined();
+  });
+
+  it('is cleared by the per-mode reset', () => {
+    let prefs = setToolbarPlacementOverride(getWorkspacePreferences(), 'design', 'top');
+    prefs = resetModePreferences(prefs, 'design');
+    expect(prefs.design.toolbarPlacement).toBeUndefined();
+    expect(getEffectiveWorkspaceConfig('design', prefs).toolbarPlacement).toBeUndefined();
   });
 });
