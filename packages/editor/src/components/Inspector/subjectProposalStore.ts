@@ -42,7 +42,7 @@ export interface SubjectProposalProviderInfo {
 }
 
 export interface SubjectProposalInstallOffer {
-  modelId: 'isnet-general-use' | 'birefnet-general-lite';
+  modelId: 'isnet-general-use' | 'birefnet-general-lite' | 'modnet-portrait';
   displayName: string;
   downloadBytes: number;
 }

@@ -216,6 +216,18 @@ coverage from silently becoming selected pixels while preserving useful
 anti-aliased coverage for nondestructive masks. Automatic foreground output
 that covers 99.5% or more of the source is treated as an ambiguous whole-frame
 failure and routes the user to prompted Object Selection or manual tools.
+Portrait intent is an explicit exception to the general foreground-quality
+levels: the optional MODNet Portrait model is used only for photographic people,
+is retained as `portrait` provenance, and never falls back to a generic model or
+heuristic. If it is unavailable, the user receives the install offer or an
+actionable failure rather than a plausible-looking wrong selection. This is a
+reviewed portrait matte, not proof of a particular person's identity: the
+2026-09-15 real-photo review rejected MODNet on the framed braided portrait
+because it retained the dark oval background. When one person or object inside
+a complex image is the intended edit target, the workflow must use prompted
+Object Selection or manual paint/trimap refinement and pass that target's
+reviewed mask into generation. See
+`docs/audits/subject-selection-portrait-model-2026-09-15.md`.
 
 Expand exposes the four independent source-pixel margins as the authoritative
 frame controls. It also provides common target aspect ratios, explicit output

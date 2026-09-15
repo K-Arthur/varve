@@ -12,8 +12,11 @@ vi.mock('../backgroundRemoval', () => ({
 import {
   decideSubjectRouting,
   isBundledSubjectModel,
+  methodForSubjectModel,
+  modelForSubjectQuality,
   proposalSetFromAlpha,
   proposeSubjects,
+  SubjectProposalUnavailableError,
   type SubjectRoutingRequest,
   subjectModelLabel,
 } from './subjectProposal';
@@ -133,6 +136,33 @@ describe('subject proposal routing', () => {
   it('keeps explicit model-free fallback out for bundled-only routes', () => {
     expect(subjectModelLabel('model-free')).toBe('Model-free estimate');
   });
+
+  it('routes portrait intent only to the portrait specialist', () => {
+    const plan = decideSubjectRouting({
+      ...BASE_ROUTING,
+      quality: 'portrait',
+      installedModelIds: ['u2netp', 'modnet-portrait'],
+    });
+
+    expect(modelForSubjectQuality('portrait')).toBe('modnet-portrait');
+    expect(plan.attempts.map((attempt) => attempt.modelId)).toEqual(['modnet-portrait']);
+    expect(plan.attempts[0]).toMatchObject({ native: false, steppedDown: false });
+    expect(plan.install).toBeUndefined();
+    expect(methodForSubjectModel('modnet-portrait')).toBe('portrait');
+    expect(subjectModelLabel('modnet-portrait')).toBe('MODNet Portrait');
+  });
+
+  it('does not plan a general-model step-down when the portrait specialist is missing', () => {
+    const plan = decideSubjectRouting({ ...BASE_ROUTING, quality: 'portrait' });
+
+    expect(plan.attempts).toHaveLength(0);
+    expect(plan.fallbackSource).toBe('model-free');
+    expect(plan.install).toMatchObject({
+      modelId: 'modnet-portrait',
+      displayName: 'MODNet Portrait',
+    });
+    expect(plan.rejected).toEqual([{ modelId: 'modnet-portrait', reason: 'not installed' }]);
+  });
 });
 
 describe('proposalSetFromAlpha', () => {
@@ -225,6 +255,74 @@ describe('proposeSubjects', () => {
       expect.objectContaining({ method: 'ai-balanced', modelId: 'u2netp' }),
       undefined,
     );
+  });
+
+  it('uses the portrait removal method and exact model id for portrait intent', async () => {
+    mockRemoveBackground.mockReset().mockResolvedValue({
+      maskDataUrl: 'data:image/png;base64,x',
+      confidence: 0.9,
+      method: 'portrait',
+      processingTimeMs: 5,
+      width: 32,
+      height: 32,
+      rawMask: alphaWithCircles(32, 32, [{ cx: 10, cy: 10, r: 5 }]),
+    });
+
+    const result = await proposeSubjects({
+      ...BASE_ROUTING,
+      quality: 'portrait',
+      installedModelIds: ['u2netp', 'modnet-portrait'],
+      sourceWidth: 32,
+      sourceHeight: 32,
+      imageData: imageData(32, 32),
+      allowModelFreeFallback: false,
+    });
+
+    expect(result.source).toBe('modnet-portrait');
+    expect(result.modelId).toBe('modnet-portrait');
+    expect(mockRemoveBackground).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ method: 'portrait', modelId: 'modnet-portrait' }),
+      undefined,
+    );
+  });
+
+  it('retains the portrait install plan when strict routing has no model', async () => {
+    mockRemoveBackground.mockReset();
+    await expect(
+      proposeSubjects({
+        ...BASE_ROUTING,
+        quality: 'portrait',
+        sourceWidth: 32,
+        sourceHeight: 32,
+        imageData: imageData(32, 32),
+        allowModelFreeFallback: false,
+      }),
+    ).rejects.toMatchObject({
+      name: 'SubjectProposalUnavailableError',
+      plan: {
+        install: { modelId: 'modnet-portrait' },
+      },
+    });
+    expect(mockRemoveBackground).not.toHaveBeenCalled();
+    expect(SubjectProposalUnavailableError).toBeDefined();
+  });
+
+  it('keeps portrait intent fail-closed when the fallback flag is omitted', async () => {
+    mockRemoveBackground.mockReset();
+    await expect(
+      proposeSubjects({
+        ...BASE_ROUTING,
+        quality: 'portrait',
+        sourceWidth: 32,
+        sourceHeight: 32,
+        imageData: imageData(32, 32),
+      }),
+    ).rejects.toMatchObject({
+      name: 'SubjectProposalUnavailableError',
+      plan: { install: { modelId: 'modnet-portrait' } },
+    });
+    expect(mockRemoveBackground).not.toHaveBeenCalled();
   });
 
   it('falls back to the model-free estimator with the failure recorded when a model fails', async () => {

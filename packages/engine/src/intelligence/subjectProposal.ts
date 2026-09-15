@@ -4,7 +4,8 @@
  * This is the automatic-foreground capability family: a plausible foreground
  * region, not semantic recognition and not prompted selection. It reuses the
  * background-removal models Varve already ships (`u2netp` bundled,
- * `isnet-general-use` and `birefnet-general-lite` optional) through the shared
+ * `isnet-general-use`, `birefnet-general-lite`, and the portrait-only MODNet
+ * model optional) through the shared
  * model manager, the provider chain, and the existing memory preflight.
  *
  * Routing is capability- and measurement-based, never a silent substitution:
@@ -12,6 +13,8 @@
  * - `fast` requests the bundled U²-Net Light and never downloads or upgrades.
  * - `balanced` prefers IS-Net when it is installed and admissible.
  * - `high` prefers BiRefNet Lite, then IS-Net, then the bundled model.
+ * - `portrait` runs MODNet Portrait only. It is for photographic people and
+ *   never steps down to a general foreground model.
  * - An inadmissible or missing model is recorded with its reason and its
  *   download size; the result reports what actually ran.
  * - The model-free estimator is the fallback when no model can run at all,
@@ -35,10 +38,14 @@ import {
   proposeForegroundSubjects,
 } from './foregroundSelect';
 
-export type SubjectProposalQuality = 'fast' | 'balanced' | 'high';
+export type SubjectProposalQuality = 'fast' | 'balanced' | 'high' | 'portrait';
 
 /** Models a model-backed automatic proposal may run. */
-export type ModelSubjectSource = 'u2netp' | 'isnet-general-use' | 'birefnet-general-lite';
+export type ModelSubjectSource =
+  | 'u2netp'
+  | 'isnet-general-use'
+  | 'birefnet-general-lite'
+  | 'modnet-portrait';
 
 /** Model-backed provider, or the model-free estimator. */
 export type SubjectProposalSource = ModelSubjectSource | 'model-free';
@@ -47,6 +54,7 @@ const QUALITY_MODEL: Record<SubjectProposalQuality, ModelSubjectSource> = {
   fast: 'u2netp',
   balanced: 'isnet-general-use',
   high: 'birefnet-general-lite',
+  portrait: 'modnet-portrait',
 };
 
 /** Models that native (Tauri) execution can run for a given method. */
@@ -79,6 +87,7 @@ export function modelForSubjectQuality(quality: SubjectProposalQuality): ModelSu
 }
 
 export function methodForSubjectModel(modelId: ModelSubjectSource): RemovalMethod {
+  if (modelId === 'modnet-portrait') return 'portrait';
   return modelId === 'birefnet-general-lite' ? 'ai-quality' : 'ai-balanced';
 }
 
@@ -90,6 +99,8 @@ export function subjectModelLabel(source: SubjectProposalSource): string {
       return 'IS-Net';
     case 'birefnet-general-lite':
       return 'BiRefNet Lite';
+    case 'modnet-portrait':
+      return 'MODNet Portrait';
     case 'model-free':
       return 'Model-free estimate';
   }
@@ -158,6 +169,11 @@ function fallbackOrder(quality: SubjectProposalQuality): ModelSubjectSource[] {
       return ['isnet-general-use', 'u2netp'];
     case 'high':
       return ['birefnet-general-lite', 'isnet-general-use', 'u2netp'];
+    case 'portrait':
+      // Portrait intent is a model contract, not a generic foreground
+      // estimate. A step-down would make the UI appear to select people while
+      // actually running an unrelated model or heuristic.
+      return ['modnet-portrait'];
   }
 }
 
@@ -276,6 +292,23 @@ export interface SubjectProposalResult {
   plan: SubjectRoutingPlan;
   attempts: SubjectProposalAttemptResult[];
   elapsedMs: number;
+}
+
+/**
+ * Raised when a caller deliberately disallows heuristic fallback and no
+ * requested model could run. The routing plan is retained so the UI can offer
+ * the exact missing model instead of losing the actionable install reason.
+ */
+export class SubjectProposalUnavailableError extends Error {
+  readonly plan: SubjectRoutingPlan;
+
+  constructor(plan: SubjectRoutingPlan, message?: string) {
+    super(
+      message ?? plan.fallbackReason ?? 'No automatic foreground model could run on this device.',
+    );
+    this.name = 'SubjectProposalUnavailableError';
+    this.plan = plan;
+  }
 }
 
 /**
@@ -487,10 +520,18 @@ export async function proposeSubjects(
     }
   }
 
-  if (request.allowModelFreeFallback === false) {
-    throw new Error(
-      plan.fallbackReason ?? 'No automatic foreground model could run on this device.',
-    );
+  const fallbackReason =
+    plan.fallbackReason ??
+    (attempts.length > 0
+      ? `No model produced a proposal: ${attempts.map((a) => `${a.modelId} (${a.reason ?? a.outcome})`).join('; ')}`
+      : undefined);
+  // Portrait is an explicit model contract. Even a caller that omits the
+  // optional flag must not turn a missing/failed MODNet run into a generic
+  // foreground estimate that can select a different object or background.
+  const allowModelFreeFallback =
+    request.quality !== 'portrait' && request.allowModelFreeFallback !== false;
+  if (!allowModelFreeFallback) {
+    throw new SubjectProposalUnavailableError(plan, fallbackReason);
   }
 
   const heuristic = proposeForegroundSubjects({
@@ -498,11 +539,6 @@ export async function proposeSubjects(
     width: request.imageData.width,
     height: request.imageData.height,
   });
-  const fallbackReason =
-    plan.fallbackReason ??
-    (attempts.length > 0
-      ? `No model produced a proposal: ${attempts.map((a) => `${a.modelId} (${a.reason ?? a.outcome})`).join('; ')}`
-      : undefined);
   attempts.push({ modelId: 'model-free', outcome: 'used', reason: fallbackReason });
   return {
     source: 'model-free',

@@ -16,6 +16,7 @@ describe('MODEL_CONTRACTS', () => {
       'isnet-general-use',
       'birefnet-general-lite',
       'birefnet-general',
+      'modnet-portrait',
     ];
     for (const id of expectedIds) {
       expect(MODEL_CONTRACTS[id]).toBeDefined();

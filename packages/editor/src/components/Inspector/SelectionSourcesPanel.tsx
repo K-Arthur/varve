@@ -1,6 +1,7 @@
 import {
   type AreaSelectionRefineOperation,
   combineAreaSelections,
+  getImageCache,
   MAX_REFINE_RADIUS,
   maskArrayToDataUrl,
 } from '@varve/engine';
@@ -27,6 +28,7 @@ import { Icon, Select, Tooltip } from '@varve/ui';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { getActionRegistry } from '../../actions/ActionRegistry';
 import { commitRasterMask } from '../../backgroundRemoval/commitRasterMask';
+import { warmMaskRenderCache } from '../../backgroundRemoval/maskRenderCache';
 import { getToolManager } from '../../canvas/toolDispatcher';
 import { type ToolId, useEditor } from '../../context';
 import { fingerprintImageData } from '../../context/imageFingerprint';
@@ -41,6 +43,7 @@ import { RangeValueControl } from './controls/RangeValueControl';
 import { applySelectionRefine, SELECTION_REFINE_OPERATIONS } from './selectionRefineApply';
 import {
   getSubjectProposalState,
+  type SubjectProposalInstallOffer,
   setSubjectProposalState,
   subscribeSubjectProposals,
 } from './subjectProposalStore';
@@ -67,12 +70,20 @@ const SUBJECT_QUALITY_OPTIONS = [
   { value: 'fast', label: 'Fast (bundled)' },
   { value: 'balanced', label: 'Balanced' },
   { value: 'high', label: 'High quality' },
+  { value: 'portrait', label: 'Portrait (MODNet)' },
 ];
 
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return '';
   if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   return `${Math.round(bytes / (1024 * 1024))} MB`;
+}
+
+function installOfferFromProposalError(error: unknown): SubjectProposalInstallOffer | null {
+  if (!error || typeof error !== 'object') return null;
+  const plan = (error as { plan?: { install?: unknown } }).plan;
+  const install = plan?.install;
+  return install && typeof install === 'object' ? (install as SubjectProposalInstallOffer) : null;
 }
 
 function runAction(id: string): void {
@@ -531,7 +542,11 @@ export function SelectionSourcesPanel() {
         sourceHeight,
         installedModelIds,
         runtime,
-        allowModelFreeFallback: true,
+        // Portrait is an explicit model intent. A generic heuristic or U²-Net
+        // result can select the wrong thing (or background) while still
+        // looking like a successful foreground proposal, so keep this route
+        // fail-closed until MODNet is actually available.
+        allowModelFreeFallback: subjectQuality !== 'portrait',
         signal: runController.signal,
       });
       if (runController.signal.aborted) return;
@@ -603,7 +618,12 @@ export function SelectionSourcesPanel() {
       if (runController.signal.aborted) return;
       const message =
         error instanceof Error ? error.message : 'Subject selection could not complete';
-      setSubjectProposalState({ busy: false, stage: 'idle', error: message });
+      setSubjectProposalState({
+        busy: false,
+        stage: 'idle',
+        install: installOfferFromProposalError(error),
+        error: message,
+      });
       announce(message);
     } finally {
       if (subjectRunRef.current === runController) subjectRunRef.current = null;
@@ -724,13 +744,21 @@ export function SelectionSourcesPanel() {
     const provider = getSubjectProposalState().provider;
     const nodeId = selectedNode.id;
     const modelId = provider?.modelId ?? 'foreground-estimate';
-    const method: 'quick' | 'ai-balanced' | 'ai-quality' =
-      provider?.source === 'birefnet-general-lite'
-        ? 'ai-quality'
-        : provider && provider.source !== 'model-free'
-          ? 'ai-balanced'
-          : 'quick';
+    const method: 'quick' | 'ai-balanced' | 'ai-quality' | 'portrait' =
+      provider?.source === 'modnet-portrait'
+        ? 'portrait'
+        : provider?.source === 'birefnet-general-lite'
+          ? 'ai-quality'
+          : provider && provider.source !== 'model-free'
+            ? 'ai-balanced'
+            : 'quick';
     const dataUrl = maskArrayToDataUrl(sourceMask, result.width, result.height);
+    // The mask is source-bound and is committed in the same document update as
+    // the provenance. Warm the renderer's bounded cache before announcing the
+    // commit so the canvas cannot show an unmasked frame while the new asset is
+    // still decoding. The authoritative full-resolution data URL remains in
+    // the document for persistence and export.
+    await warmMaskRenderCache(getImageCache(), dataUrl, result.width, result.height);
     const sourceLocator = imageShapeSrc(selectedNode);
     // Mirror the reviewed-candidate Object Selection commit with one document
     // updater. The editor's mutation boundary records this as one edit.
@@ -1068,12 +1096,14 @@ export function SelectionSourcesPanel() {
         {subjectState.install && subjectState.stage !== 'downloading' && (
           <section className="insp-selection-sources__session" aria-label="Optional subject model">
             <span className="insp-selection-sources__session-label">
-              Higher-quality estimates need an optional local model
+              This estimate needs an optional local model
             </span>
             <p className="insp-field__hint">
               {subjectState.install.displayName} ({formatBytes(subjectState.install.downloadBytes)})
-              downloads once, is verified against its checksum, and stays on this device. The
-              bundled fast model still works without it.
+              downloads once, is verified against its checksum, and stays on this device.{' '}
+              {subjectQuality === 'portrait'
+                ? 'Portrait estimates require this model; use Select specific object or manual selection if you do not want to download it.'
+                : 'The bundled fast model still works without it.'}
             </p>
             <div className="insp-selection-sources__session-actions">
               <button
@@ -1123,9 +1153,11 @@ export function SelectionSourcesPanel() {
               <p className="insp-field__hint">
                 {subjectState.provider.source === 'model-free'
                   ? 'The model-free estimate uses border and centre contrast. It cannot recognise what an object is; use Object Selection for a prompted mask.'
-                  : subjectState.provider.steppedDown
-                    ? `The requested ${subjectState.provider.quality} model could not run; this proposal came from ${subjectState.provider.label} instead.`
-                    : `On-device ${subjectState.provider.quality} estimate from ${subjectState.provider.label}. Review it before applying.`}
+                  : subjectState.provider.source === 'modnet-portrait'
+                    ? 'MODNet is a portrait-only matte for photographic people. It may include more than one person; use Object Selection when one specific person or object is the target.'
+                    : subjectState.provider.steppedDown
+                      ? `The requested ${subjectState.provider.quality} model could not run; this proposal came from ${subjectState.provider.label} instead.`
+                      : `On-device ${subjectState.provider.quality} estimate from ${subjectState.provider.label}. Review it before applying.`}
                 {subjectState.provider.failed.length > 0 &&
                   ` Skipped: ${subjectState.provider.failed
                     .map((failure) => `${failure.modelId} (${failure.reason})`)

@@ -61,12 +61,13 @@ import StatusPill from '../../components/StatusPill.astro';
           The public checkpoint is a small research model, and its published limits are real: fine
           or low-contrast strands, strong backlighting, motion blur, similar foreground and
           background colours, and challenging poses or costumes can still be wrong. It may also
-          include more than one person in frame, so for a single subject select that person first
-          with Object Selection or Select subject; the reviewed constraint then excludes the
-          neighbouring person without darkening the subject's own edge. In our own real-photo run
-          the matte also happened to cover a large animal well, which is exactly why the mode is
-          presented as a portrait intent rather than a promise about what the model can and cannot
-          see.
+          include more than one person in frame. For a single target inside a complex or framed
+          photograph, select that person first with prompted Object Selection; Select subject is a
+          foreground estimate, not a semantic target picker. The reviewed constraint then excludes
+          the neighbouring person without darkening the subject's own edge. In our own real-photo
+          review, MODNet retained the dark oval background in a framed portrait, so that output is
+          not presented as a successful one-person selection. The model remains a portrait intent,
+          not a promise about what it can and cannot see.
         </p>
       </section>
 

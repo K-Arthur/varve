@@ -10,6 +10,7 @@ const {
   mockListInstalled,
   mockRuntime,
   mockDownload,
+  mockWarmMaskRenderCache,
   mockMaskToDataUrl,
   mockDecodeMask,
 } = vi.hoisted(() => ({
@@ -17,6 +18,7 @@ const {
   mockListInstalled: vi.fn(),
   mockRuntime: vi.fn(),
   mockDownload: vi.fn(),
+  mockWarmMaskRenderCache: vi.fn().mockResolvedValue(undefined),
   mockMaskToDataUrl: vi.fn(
     () =>
       'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==',
@@ -36,7 +38,9 @@ vi.mock('@varve/engine/subjectProposal', () => ({
         ? 'IS-Net'
         : source === 'birefnet-general-lite'
           ? 'BiRefNet Lite'
-          : 'Model-free estimate',
+          : source === 'modnet-portrait'
+            ? 'MODNet Portrait'
+            : 'Model-free estimate',
 }));
 
 vi.mock('@varve/engine', async (importOriginal) => {
@@ -56,6 +60,10 @@ vi.mock('../../tools/selectionMask', async (importOriginal) => {
     decodeRasterMaskDataUrl: mockDecodeMask,
   };
 });
+
+vi.mock('../../backgroundRemoval/maskRenderCache', () => ({
+  warmMaskRenderCache: mockWarmMaskRenderCache,
+}));
 
 afterEach(() => cleanup());
 
@@ -214,6 +222,7 @@ describe('SelectionSourcesPanel subject proposals', () => {
       .mockReset()
       .mockResolvedValue({ isTauri: false, nativeReady: false, safePeakBytes: 4_000_000_000 });
     mockDownload.mockReset().mockResolvedValue(undefined);
+    mockWarmMaskRenderCache.mockReset().mockResolvedValue(undefined);
     mockDecodeMask.mockReset().mockImplementation(async () => ({
       data: new Uint8ClampedArray(16 * 16 * 4),
       width: 16,
@@ -228,6 +237,69 @@ describe('SelectionSourcesPanel subject proposals', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Select specific object' }));
 
     await waitFor(() => expect(editor.current?.state.tool).toBe('sam2Segment'));
+  });
+
+  it('runs the explicit portrait specialist without silently stepping down', async () => {
+    mockListInstalled.mockResolvedValue(['u2netp', 'modnet-portrait']);
+    mockProposeSubjects.mockResolvedValue(
+      proposalResult({
+        source: 'modnet-portrait',
+        quality: 'portrait',
+        modelId: 'modnet-portrait',
+        plan: {
+          quality: 'portrait',
+          attempts: [
+            {
+              modelId: 'modnet-portrait',
+              estimatedPeakBytes: 400_000_000,
+              reason: 'fits the runtime memory budget',
+              native: false,
+              steppedDown: false,
+            },
+          ],
+          fallbackSource: null,
+          install: undefined,
+          rejected: [],
+        },
+        attempts: [{ modelId: 'modnet-portrait', outcome: 'used' }],
+      }),
+    );
+    const editor = await renderPanel();
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Subject estimate quality' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Portrait (MODNet)' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Select subject$/ }));
+
+    await screen.findByRole('button', { name: /^All foreground/ });
+    expect(mockProposeSubjects).toHaveBeenCalledWith(
+      expect.objectContaining({
+        quality: 'portrait',
+        installedModelIds: ['u2netp', 'modnet-portrait'],
+        allowModelFreeFallback: false,
+      }),
+    );
+    expect(screen.getByText(/MODNet Portrait estimate/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /^All foreground/ }));
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'I reviewed the highlighted subject before applying',
+      }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Apply as mask' }));
+    await waitFor(() => {
+      const node = editor.current?.state.document.nodes.photo;
+      expect(node?.kind).toBe('shape');
+      if (node?.kind !== 'shape') return;
+      expect(node.mask?.rasterMask?.provenance?.method).toBe('portrait');
+      expect(node.mask?.rasterMask?.provenance?.modelId).toBe('modnet-portrait');
+    });
+    expect(mockWarmMaskRenderCache).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.stringContaining('data:image/png;base64,'),
+      1,
+      1,
+    );
   });
 
   it('runs the estimate, labels the provider, and applies the active candidate as a mask', async () => {

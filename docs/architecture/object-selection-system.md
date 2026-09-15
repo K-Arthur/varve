@@ -121,7 +121,12 @@ semantic recognition. Two implementation families produce its candidates:
   ships, through the shared model catalog, provider chain, and memory
   preflight: `u2netp` (bundled, the default Fast level), `isnet-general-use`
   (Balanced when installed), and `birefnet-general-lite` (High quality when
-  installed and admissible). The routing decision
+  installed and admissible). `modnet-portrait` is an explicit Portrait level
+  for photographic people; it produces a soft matte and never steps down to a
+  general foreground model. It is still a matte, not a semantic single-person
+  selector: on the framed `real-life-braided-portrait.jpg` photograph the
+  model retains the dark oval portrait background, so that result is rejected
+  for a one-person target. The routing decision
   (`@varve/engine/subjectProposal`) records the model that ran, any step-down,
   and every rejected alternative; an explicit model request is never silently
   substituted, and an optional model is only downloaded after an explicit
@@ -155,7 +160,8 @@ coverage, and the provider/platform is stated in words rather than as a
 probability.
 
 The Selection Sources panel exposes both intents side by side. `Select subject`
-is the foreground-estimate path; `Select specific object` activates the same
+is the foreground-estimate path; its `Portrait (MODNet)` level is limited to
+people and its missing-model state is fail-closed. `Select specific object` activates the same
 prompted Object Selection tool used by the Background Removal and Generative
 Edit surfaces. The latter requires an include point or box, supports explicit
 exclude prompts, keeps competing candidates visible, and still requires review
@@ -210,13 +216,14 @@ exported graph, OpenCV `INTER_AREA` resize semantics) and the worker returns a
 source-aligned fractional alpha. It is never a fallback for other modes, and a
 reviewed coarse constraint fuses with the matte by forcing excluded background
 to zero rather than multiplying two soft estimates, which would darken every
-edge. Real-photo evidence: three repository portraits produced fractional
-hair-edge coverage (7-8% of pixels fractional in the strongest cases), and an
-out-of-domain animal photograph also produced a plausible matte, so the mode is
-documented as a portrait intent rather than a guarantee about what the model
-can see. Fine/low-contrast strands, backlighting, motion blur, and similar
-foreground/background colours remain measured limits; portrait video matting is
-out of scope.
+edge. The 2026-09-15 real-photo review accepted the ordinary
+`real-life-katharine-hepburn.jpg` workflow, but rejected the framed
+`real-life-braided-portrait.jpg` output for person selection because the dark
+oval background remained in the matte. Fine/low-contrast strands, backlighting,
+motion blur, and similar foreground/background colours remain measured limits;
+portrait video matting is out of scope. See
+`docs/audits/subject-selection-portrait-model-2026-09-15.md` for the evidence
+and explicit routing boundary.
 
 ## Coordinates
 
@@ -403,6 +410,11 @@ the release-gate procedure) for the required benchmark matrix.
   levels are substantially stronger than the model-free heuristic on
   photographic subjects, but they still fail on cluttered or low-contrast
   scenes, and no level identifies *which* object the user intends.
+- The `Portrait (MODNet)` level is a specialist matte for photographic people,
+  not a general object selector. It can include multiple people and requires
+  Object Selection when one specific person or object is intended. The framed
+  braided-portrait review is a known failure for that narrower intent: the
+  dark oval background is selected with the person.
 - The model-free estimator is weakest on landscape or texture scenes and is
   used only when no model runs; the panel always names the source.
 - Text discovery is open-vocabulary detection, not understanding: it can return

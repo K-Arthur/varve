@@ -91,6 +91,7 @@ introduced.
 | `isnet-general-use` | Balanced automatic foreground proposal | Optional download (179 MB) | Apache-2.0 (DIS); 1024x1024; 0.5/1.0 normalization; native execution preferred on desktop. |
 | `birefnet-general-lite` | High-quality cutout/refinement proposal | Optional download (224 MB) | MIT; 1024x1024; logits with in-app sigmoid; deliberately native-preferred because bare-WASM can exceed the wasm32 ceiling. |
 | `birefnet-general` | High-quality cutout (larger variant) | Optional download (928 MB) | Not offered on constrained devices. |
+| `modnet-portrait` | Explicit portrait subject matte | Optional download (26 MB) | Apache-2.0; 512-edge reference contract; fractional alpha for hair/clothing; not a general object selector and no automatic step-down. |
 | SAM2-Hiera-Tiny | Prompted object selection | Optional download (155 MB) | Current baseline provider. |
 | MobileSAM | Smaller-download prompted selection (experimental) | Optional download (44.7 MB) | See sections 2 and 9; the file size is not a low-memory guarantee. |
 
@@ -142,16 +143,20 @@ concrete Varve behaviour this work ships or preserves.
    `Select subject` proposals: `u2netp` (fast, bundled), `isnet-general-use`
    (balanced, optional), `birefnet-general-lite` (high quality, optional,
    native-preferred). No new model manager, no new download path.
-2. **Keep the model-free estimator** as the no-model fallback and never
+2. **Use MODNet as an explicit portrait-only route**, with its existing
+   checksum-pinned model-manager entry and browser worker implementation. It
+   must not be used as a fallback for arbitrary objects, and portrait intent
+   must not fall back to a generic foreground model when MODNet is unavailable.
+3. **Keep the model-free estimator** as the no-model fallback and never
    present it as semantic recognition.
-3. **Accept MobileSAM as an explicit smaller-download prompted provider**, with
+4. **Accept MobileSAM as an explicit smaller-download prompted provider**, with
    the Acly split export, pinned checksums, MIT/Apache-2.0 provenance, and a
    documented real-photo browser gate. Its ~1.15 GB Node RSS evidence and
    boundary-click ambiguity keep it out of automatic routing.
-4. **Reject EdgeSAM** under its current license; **defer EfficientSAM** to an
+5. **Reject EdgeSAM** under its current license; **defer EfficientSAM** to an
    A-B experiment; **do not add EfficientViT-SAM**; keep MODNet portrait-only
    and Grounding DINO optional/future.
-5. **No silent capability substitution**: a provider that cannot run its
+6. **No silent capability substitution**: a provider that cannot run its
    requested model reports that, with the download size when a model is the
    answer, and routes to a clearly different capability only with user
    consent or explicit fallback labelling.
@@ -181,3 +186,27 @@ The exact real-model command and screenshot names are recorded in
 `docs/quality/object-selection-parity.md`. Captures are local temporary
 validation artifacts; pixels, prompts, filenames, and embeddings are not sent
 to analytics or crash reporting.
+
+## 10. MODNet portrait review (2026-09-15)
+
+The pinned `modnet-portrait` graph was also run through the native contract
+harness and the actual Chromium Selection Sources workflow. The numeric
+contract passed, and the browser test passed against
+`real-life-katharine-hepburn.jpg` with a persisted 1280 × 1696 mask: the
+person interior contained 236,181 hard pixels and the clear upper-background
+window contained zero. The browser path warms the bounded mask-render cache
+before announcing the mask commit, so its screenshot is not an unmasked
+transient frame.
+
+The same model was inspected on `real-life-braided-portrait.jpg`. Its 33.89%
+hard coverage looked plausible numerically, but the matte included the dark
+oval background surrounding the person. That is a concrete semantic failure,
+not a renderer failure. It is retained as a rejected real-photo output in
+`docs/audits/subject-selection-portrait-model-2026-09-15.md`.
+
+This result tightens the provider decision: MODNet is a reviewed portrait
+matte for suitable photographic portraits, never a guarantee of a single
+person or object. The UI must direct a user who intends one item inside a
+complex or framed photograph to prompted Object Selection or manual paint /
+trimap refinement. A model score, coverage percentage, or fractional alpha
+edge does not establish target identity.

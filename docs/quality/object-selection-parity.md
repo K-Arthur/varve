@@ -242,6 +242,7 @@ ships; the routing policy and the artifact research are recorded in
 | Fast (default) | `u2netp` (MIT, 4.7 MB, bundled) | none | Browser/WASM or native; catalog working set 330 MB |
 | Balanced | `isnet-general-use` when installed, else Fast | optional 179 MB | Native preferred; browser/WASM needs the catalog 1.3 GB peak to fit the safe budget |
 | High quality | `birefnet-general-lite` when installed and admissible, then Balanced | optional 224 MB | Native preferred; bare-WASM runs are rejected unless the multiple-GB working set fits |
+| Portrait | `modnet-portrait` (Apache-2.0, 26 MB) | optional 26 MB | Browser/WASM worker only; photographic people; no general-model or heuristic step-down |
 | No model | model-free `foregroundSelect` estimator | none | Always available; the panel labels it |
 
 Routing is capability- and measurement-based. The decision function records,
@@ -261,15 +262,20 @@ catalog working set. The `u2netp-int8` variant is also mapped to its real
 320 px u2netp-family spec instead of the 1024 BiRefNet fall-through.
 
 **Real-photo review.** `tests/e2e/canvas/subject-proposal.spec.ts` runs the
-shipped Fast level on the licensed photographic corpus (still life, portrait
-with hair, interior) through the real worker path and exports the preview,
-applied-selection, and applied-mask screenshots plus the candidate coverage
-labels for inspection. Each candidate is overlaid before an explicit
-"I reviewed the highlighted subject before applying" confirmation; changing a
-candidate clears that confirmation. Those captures are workflow and
-visual-review evidence; a real photograph has no binary ground truth here, so
-the parity corpus above remains the quantitative gate and this review covers
-photographic reality.
+shipped Fast level and the explicit Portrait level on licensed photographic
+fixtures (still life, portrait with hair, interior) through the real worker
+path and exports the preview, applied-selection, and applied-mask screenshots
+plus candidate coverage labels for inspection. The Portrait lane also
+serializes and decodes the persisted source-sized mask: on
+`real-life-katharine-hepburn.jpg` the person interior is covered and a clear
+upper-background window remains at zero. Each candidate is overlaid before an
+explicit "I reviewed the highlighted subject before applying" confirmation;
+changing a candidate clears that confirmation. A separate 2026-09-15 review
+found that MODNet retains the dark oval background in
+`real-life-braided-portrait.jpg`, so that output is recorded as a rejected
+one-person selection in
+`docs/audits/subject-selection-portrait-model-2026-09-15.md`. Portrait
+matting remains a reviewed matte capability, not semantic target proof.
 
 ## Model acquisition and hosting (2026-09-14)
 
@@ -424,6 +430,7 @@ preflight message without pretending that a model ran.
 | user intent | validated default | explicit alternative | unavailable/failure behaviour |
 | --- | --- | --- | --- |
 | Automatic subject estimate | bundled U²-Net Fast proposal, or the requested installed higher-quality foreground model | IS-Net / BiRefNet through the existing explicit quality controls | explain the model-free estimate or install offer; never call it semantic recognition |
+| Portrait subject matte | explicit MODNet Portrait proposal for suitable photographic people, with persisted-mask pixel evidence | manual refinement or prompted Object Selection for one specific target; the framed braided portrait is a known rejection | missing/failed MODNet is fail-closed; never substitute a generic foreground model |
 | Prompted point/box object selection | SAM2 Hiera Tiny when installed, WASM-compatible, and within the measured working-set budget | MobileSAM split ONNX, only after the user chooses Faster local model | explain the exact provider failure; never silently substitute a foreground estimate |
 | Soft edge / hair refinement | existing brush, trimap, and closed-form matting tools | BiRefNet only in its explicit high-quality cutout/refinement role | preserve binary-safe/manual refinement; do not call a hard mask an alpha matte |
 | Text discovery | Grounding DINO Tiny (INT8) explicit local download, phrase-attributed boxes, automatic routing never downloads | reviewed box → same prompted segmenter candidate path | detection never commits a mask; scores are model similarity, not proof of presence; no match is an honest empty state |

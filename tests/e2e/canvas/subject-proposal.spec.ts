@@ -1,18 +1,166 @@
 import { writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
+const requireFromEngine = createRequire(path.resolve('packages/engine/package.json'));
+const { PNG } = requireFromEngine('pngjs') as {
+  PNG: {
+    sync: {
+      read(input: Buffer): { width: number; height: number; data: Buffer };
+    };
+  };
+};
+
+type SubjectDocumentFiber = {
+  memoizedProps?: { value?: unknown };
+  child?: SubjectDocumentFiber | null;
+  sibling?: SubjectDocumentFiber | null;
+};
+
+type SubjectSerializedDocument = {
+  nodes?: Record<string, { mask?: { rasterMask?: { assetId?: string } } }>;
+  rasterMaskAssets?: Record<string, { dataUrl?: string; width?: number; height?: number }>;
+};
+
+type PortraitMaskReport = {
+  width: number;
+  height: number;
+  hardPixels: number;
+  componentCount: number;
+  personInteriorHardPixels: number;
+  backgroundHardPixels: number;
+};
+
+const HARD_MASK_THRESHOLD = 127;
+
+async function serializeEditorDocument(page: import('@playwright/test').Page): Promise<string> {
+  return page.evaluate(() => {
+    const root = document.getElementById('root');
+    if (!root) throw new Error('Missing editor root');
+    const property = Object.keys(root).find(
+      (key) => key.startsWith('__reactContainer$') || key.startsWith('__reactFiber$'),
+    );
+    if (!property) throw new Error('Missing editor React container');
+    const findEditor = (
+      fiber: SubjectDocumentFiber | null | undefined,
+    ): Record<string, unknown> | null => {
+      if (!fiber) return null;
+      const value = fiber.memoizedProps?.value;
+      if (value && typeof value === 'object' && 'serializeDocument' in value) {
+        const editor = value as Record<string, unknown>;
+        if (typeof editor.serializeDocument === 'function') return editor;
+      }
+      return findEditor(fiber.child) ?? findEditor(fiber.sibling);
+    };
+    const editor = findEditor(
+      (root as unknown as Record<string, unknown>)[property] as SubjectDocumentFiber,
+    );
+    if (!editor || typeof editor.serializeDocument !== 'function') {
+      throw new Error('Missing editor serialization method');
+    }
+    return String(editor.serializeDocument());
+  });
+}
+
+function countHardPixelsInRect(
+  data: Buffer,
+  width: number,
+  rect: { minX: number; minY: number; maxX: number; maxY: number },
+): number {
+  let count = 0;
+  for (let y = Math.max(0, Math.floor(rect.minY)); y <= rect.maxY; y += 1) {
+    for (let x = Math.max(0, Math.floor(rect.minX)); x <= rect.maxX; x += 1) {
+      if ((data[(y * width + x) * 4 + 3] ?? 0) > HARD_MASK_THRESHOLD) count += 1;
+    }
+  }
+  return count;
+}
+
+function countHardComponents(data: Buffer, width: number, height: number): number {
+  const visited = new Uint8Array(width * height);
+  const queue = new Int32Array(width * height);
+  let components = 0;
+  for (let start = 0; start < visited.length; start += 1) {
+    if (visited[start] !== 0 || (data[start * 4 + 3] ?? 0) <= HARD_MASK_THRESHOLD) continue;
+    components += 1;
+    let head = 0;
+    let tail = 0;
+    queue[tail++] = start;
+    visited[start] = 1;
+    while (head < tail) {
+      const current = queue[head++]!;
+      const x = current % width;
+      const y = Math.floor(current / width);
+      for (const [dx, dy] of [
+        [-1, 0],
+        [1, 0],
+        [0, -1],
+        [0, 1],
+      ] as const) {
+        const nextX = x + dx;
+        const nextY = y + dy;
+        if (nextX < 0 || nextY < 0 || nextX >= width || nextY >= height) continue;
+        const next = nextY * width + nextX;
+        if (visited[next] !== 0 || (data[next * 4 + 3] ?? 0) <= HARD_MASK_THRESHOLD) continue;
+        visited[next] = 1;
+        queue[tail++] = next;
+      }
+    }
+  }
+  return components;
+}
+
+function inspectPortraitMask(serialized: string): PortraitMaskReport {
+  const document = JSON.parse(serialized) as SubjectSerializedDocument;
+  const node = Object.values(document.nodes ?? {}).find((candidate) => candidate.mask?.rasterMask);
+  const assetId = node?.mask?.rasterMask?.assetId;
+  const asset = assetId ? document.rasterMaskAssets?.[assetId] : undefined;
+  if (!asset?.dataUrl || !asset.width || !asset.height) {
+    throw new Error('The portrait mask was not persisted');
+  }
+  const payload = asset.dataUrl.split(',')[1];
+  if (!payload) throw new Error('The portrait mask is not a data URL');
+  const png = PNG.sync.read(Buffer.from(payload, 'base64'));
+  let hardPixels = 0;
+  for (let index = 3; index < png.data.length; index += 4) {
+    if ((png.data[index] ?? 0) > HARD_MASK_THRESHOLD) hardPixels += 1;
+  }
+  return {
+    width: png.width,
+    height: png.height,
+    hardPixels,
+    componentCount: countHardComponents(png.data, png.width, png.height),
+    // Ground-truth review windows for real-life-katharine-hepburn.jpg: the
+    // face/hair interior must be selected, while the clear upper background
+    // must remain untouched. These windows deliberately avoid the soft hair
+    // boundary and the frame edges.
+    personInteriorHardPixels: countHardPixelsInRect(png.data, png.width, {
+      minX: 430,
+      minY: 420,
+      maxX: 850,
+      maxY: 980,
+    }),
+    backgroundHardPixels: countHardPixelsInRect(png.data, png.width, {
+      minX: 560,
+      minY: 20,
+      maxX: 720,
+      maxY: 90,
+    }),
+  };
+}
+
 /**
  * Real-photo coverage for the model-backed automatic subject estimate.
  *
- * The bundled U2-Net Light model runs through the real worker/WASM path (no
- * download), so these tests exercise the shipped Fast quality level on
- * photographic content: a still life on a plain background, a portrait with
- * hair, and an interior scene where a foreground estimate is expected to be
- * weak. Assertions are structural plus exported screenshots; the masks are
- * reviewed by eye at the recorded output paths, because a synthetic fixture
- * cannot establish cutout quality.
+ * The bundled U2-Net Light and optional MODNet models run through the real
+ * worker/WASM path, so these tests exercise automatic foreground proposals on
+ * photographic content: a still life, a portrait with hair, and an interior
+ * scene where a foreground estimate is expected to be weak. The specialist
+ * portrait lane also decodes the persisted mask and checks target/background
+ * review windows; screenshots are retained for visual inspection because a
+ * synthetic fixture cannot establish cutout quality.
  */
 
 async function importPhoto(page: import('@playwright/test').Page, fixture: string) {
@@ -191,6 +339,84 @@ test.describe('Automatic subject estimate on real photographs', () => {
       contentType: 'image/png',
     });
     await expect(canvas).toBeVisible();
+  });
+
+  test('portrait specialist: MODNet selects the person and preserves background', async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(180_000);
+    await resetPhotoGateStartup(page);
+    await navigateToEditor(page, '/', { startupTimeout: 180000 });
+    await importPhoto(page, 'real-life-katharine-hepburn.jpg');
+    const inspector = await openSelectionSources(page);
+
+    const quality = inspector.getByRole('combobox', { name: 'Subject estimate quality' });
+    await quality.click();
+    await page.getByRole('option', { name: 'Portrait (MODNet)' }).click();
+    await inspector.getByRole('button', { name: /^Select subject$/ }).click();
+
+    const proposals = inspector.getByLabel('Subject proposals');
+    await expect(proposals).toBeVisible({ timeout: 120_000 });
+    await expect(proposals.getByText(/MODNet Portrait estimate/)).toBeVisible();
+    await expect(proposals.getByText(/portrait-only matte/i)).toBeVisible();
+    await expect(proposals.getByText(/Model-free estimate/i)).toHaveCount(0);
+
+    const candidate = proposals.locator('button[aria-label$="percent"]').first();
+    await candidate.click();
+    await expect(
+      inspector.getByRole('checkbox', {
+        name: 'I reviewed the highlighted subject before applying',
+      }),
+    ).toBeEnabled();
+    await inspector
+      .getByRole('checkbox', { name: 'I reviewed the highlighted subject before applying' })
+      .check();
+
+    const canvas = page.getByTestId('editor-canvas');
+    await page.getByRole('button', { name: 'Fit sel' }).click();
+    await page.waitForTimeout(400);
+    await canvas.screenshot({ path: testInfo.outputPath('subject-portrait-modnet-preview.png') });
+    await testInfo.attach('subject-portrait-modnet-preview', {
+      body: await canvas.screenshot(),
+      contentType: 'image/png',
+    });
+
+    await inspector.getByRole('button', { name: 'Apply as mask' }).click();
+    await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
+      /applied as a mask/i,
+      { timeout: 10_000 },
+    );
+    await expect
+      .poll(
+        async () => {
+          try {
+            const report = inspectPortraitMask(await serializeEditorDocument(page));
+            return report.hardPixels > 0;
+          } catch {
+            return false;
+          }
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(true);
+    const maskReport = inspectPortraitMask(await serializeEditorDocument(page));
+    writeFileSync(
+      testInfo.outputPath('subject-portrait-modnet-mask-metrics.json'),
+      JSON.stringify(maskReport, null, 2),
+    );
+    await testInfo.attach('subject-portrait-modnet-mask-metrics', {
+      body: JSON.stringify(maskReport, null, 2),
+      contentType: 'application/json',
+    });
+    expect(maskReport.width).toBe(1280);
+    expect(maskReport.height).toBe(1696);
+    expect(maskReport.personInteriorHardPixels).toBeGreaterThan(20_000);
+    expect(maskReport.backgroundHardPixels).toBe(0);
+    await canvas.screenshot({ path: testInfo.outputPath('subject-portrait-modnet-mask.png') });
+    await testInfo.attach('subject-portrait-modnet-mask', {
+      body: await canvas.screenshot(),
+      contentType: 'image/png',
+    });
   });
 
   test('interior scene: the estimate stays reviewable and honest about its limits', async ({

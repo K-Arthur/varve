@@ -229,4 +229,15 @@ export const AVAILABLE_MODELS: ModelMetadata[] = [
       'https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx',
     checksum: '',
   },
+  {
+    id: 'modnet-portrait',
+    name: 'MODNet Portrait Matting',
+    description:
+      '26 MB — portrait-specific fractional matte for people, hair, clothing, and accessories; never a general-object fallback',
+    size: 25_888_640,
+    quality: 4.5,
+    remoteUrl:
+      'https://huggingface.co/Xenova/modnet/resolve/fa2fa546052fba4c08921230a26cc69a333fca12/onnx/model.onnx',
+    checksum: '07c308cf0fc7e6e8b2065a12ed7fc07e1de8febb7dc7839d7b7f15dd66584df9',
+  },
 ];

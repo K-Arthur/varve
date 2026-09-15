@@ -145,6 +145,22 @@ const EXTENDED_MODEL_META: Record<
   },
 };
 
+/**
+ * Models owned by the Rust background-removal store. MODNet is deliberately
+ * absent: it is a browser-worker model today, while desktop uses the generic
+ * inference store for an optional download and then runs the same worker path.
+ */
+const NATIVE_BACKGROUND_MODEL_IDS = new Set([
+  'u2netp',
+  'isnet-general-use',
+  'birefnet-general-lite',
+  'birefnet-general',
+]);
+
+function usesNativeBackgroundModelStore(modelId: string): boolean {
+  return NATIVE_BACKGROUND_MODEL_IDS.has(modelId);
+}
+
 function modelMeta(
   modelId: string,
 ): { remoteUrl: string; name?: string; size: number; checksum?: string } | undefined {
@@ -435,7 +451,7 @@ class ModelLoader {
    * model-path resolution that covers all model types (scunet, depth, sam2, …).
    */
   async isModelAvailable(modelId: string, signal?: AbortSignal): Promise<boolean> {
-    if (AVAILABLE_MODELS.some((model) => model.id === modelId)) {
+    if (usesNativeBackgroundModelStore(modelId)) {
       const { getNativeBackgroundRemovalModelStatus } = await import('./providers/tauriProvider');
       const native = await getNativeBackgroundRemovalModelStatus(modelId);
       if (native?.runtimeReady && native.installed) return true;
@@ -550,7 +566,7 @@ class ModelLoader {
         source = 'downloaded';
       }
 
-      if (!installed && AVAILABLE_MODELS.some((candidate) => candidate.id === model.id)) {
+      if (!installed && usesNativeBackgroundModelStore(model.id)) {
         const { getNativeBackgroundRemovalModelStatus } = await import('./providers/tauriProvider');
         const native = await getNativeBackgroundRemovalModelStatus(model.id);
         if (native?.installed) {
@@ -571,7 +587,7 @@ class ModelLoader {
   }
 
   async deleteModel(modelId: string): Promise<void> {
-    if (AVAILABLE_MODELS.some((model) => model.id === modelId)) {
+    if (usesNativeBackgroundModelStore(modelId)) {
       const { deleteNativeBackgroundRemovalModel } = await import('./providers/tauriProvider');
       await deleteNativeBackgroundRemovalModel(modelId);
     } else {
@@ -750,7 +766,7 @@ class ModelLoader {
     let storedEtag: string | null = null;
 
     try {
-      if (AVAILABLE_MODELS.some((candidate) => candidate.id === modelId)) {
+      if (usesNativeBackgroundModelStore(modelId)) {
         const { downloadNativeBackgroundRemovalModel, isTauriRuntime } = await import(
           './providers/tauriProvider'
         );
@@ -780,7 +796,7 @@ class ModelLoader {
         throw new Error(
           `Model ${modelId} has no SHA-256 checksum and cannot be verified. ` +
             'This model is not available for download until its integrity metadata is published. ' +
-            'Use a supported model (u2netp, isnet-general-use, birefnet-general-lite) instead.',
+            'Use a supported model (u2netp, isnet-general-use, birefnet-general-lite, modnet-portrait) instead.',
         );
       }
 
