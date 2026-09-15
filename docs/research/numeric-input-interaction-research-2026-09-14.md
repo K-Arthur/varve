@@ -54,8 +54,8 @@ sourced from published guidance and public user reports.
 | NF-8 | Home/End set min/max instead of moving the caret; screen-reader and editing expectations diverge (APG #3377). | W3C APG issue #3377 (#2). | Adopted the APG guidance that the Task Force is removing. | Medium — caret navigation broken in an editable field; AT expectation mismatch. | Fixed (Home/End restored to editing; PageUp/PageDown added) |
 | NF-9 | Keystrokes and drags step from the **model** value while the field displays an uncommitted draft, so the visible text and the value move out of sync. | Source inspection; unit test added. | `onChange(clamp(value + …))` used the prop, not the draft. | Medium — "200" on screen can become 201 in the document while still reading 200 until blur. | Fixed (valid drafts step from the draft and clear it; invalid drafts are left alone for the user to correct) |
 | NF-12 | After a drag-scrub on the label, focus lands in the input, which the shortcut manager treats as a text-editing target — so Ctrl+Z (and other global shortcuts) are ignored immediately after an accidental scrub. | Reproduced in the app: the undo step test failed while the field was `[active]`; `shouldIgnoreShortcutTarget` returns true for `input` elements. | The label's post-drag `click` (retargeted by pointer capture) activated the associated input. | Medium — the most natural recovery gesture after an accidental value change was blocked. | Fixed (`pointerdown` on the scrub handle owns the default action; a no-movement click still focuses and selects the field explicitly) |
-| NF-10 | Scrubbing a **mixed** multi-selection (X/Y) collapses every selected object onto one absolute coordinate. | Verified: `PositionSizeSection` passes `mixed` with `value = 0`; `NumberField` scrubs from that prop; `setSelectedX` sets the same absolute X on every selected node. | Relative (delta) editing has no channel in the field contract; the scrub reuses the absolute setter. | High when multi-editing position, but the fix touches `PositionSizeSection.tsx`, which has uncommitted changes from another workstream (frame preset/orientation). | **Not fixed this session** — recommended fix recorded below. |
-| NF-11 | `inputMode="decimal"` presents a keypad without a minus sign on some mobile keyboards, blocking negative coordinates. | Platform behaviour; not reproduced on this machine (no mobile runtime available). | `inputMode` choice. | Low on desktop; Medium for the browser demo on touch devices. | Open — listed under remaining work. |
+| NF-10 | Scrubbing a **mixed** multi-selection (X/Y) collapses every selected object onto one absolute coordinate. | Verified: `PositionSizeSection` passes `mixed` with `value = 0`; `NumberField` scrubs from that prop; `setSelectedX` sets the same absolute X on every selected node. | Relative (delta) editing had no channel in the field contract; the scrub reused the absolute setter. | High when multi-editing position. | Fixed (second pass): `NumberField` gained an optional `onDelta(increment)` channel used by scrub, arrow/Page steps, and wheel; `PositionSizeSection` applies it as a functional `editor.updateDoc` translation inside one transaction, so typing an absolute value still sets all objects while gestures move every object by the same delta. Verified end-to-end on two real photos: a +35 scrub produced 100→135 and 200→235. |
+| NF-11 | `inputMode="decimal"` presents a keypad without a minus sign on some mobile keyboards, blocking negative coordinates. | Platform behaviour; not reproduced on this machine (no mobile runtime available). | `inputMode` choice. | Low on desktop; Medium for the browser demo on touch devices. | Fixed (second pass): the field uses `inputMode="text"` so minus signs, unit math (`120/2`), and `{alias}` expressions are typeable; a decimal pad omits every non-digit token. Not verified on a physical device — reported untested. |
 
 ## Deliberate decisions and qualifications
 
@@ -100,6 +100,24 @@ the wheel test failed because the panel scrolled and the wheel event then
 targeted a different element, the modifier test returned `start + 300` instead
 of `start + 120`, and the Escape test returned `-269` instead of `-299`.
 
+### Second pass (2026-09-15)
+
+| Change | Where | Evidence |
+|--------|-------|----------|
+| `NumberField.onDelta` relative edit channel for gestures; typed commits stay absolute | `NumberField.tsx` | 43/43 unit tests (scrub increments `[10, 20]`, arrow/Page deltas, mixed selection keeps typing absolute) |
+| Relative multi-selection move for X/Y using a functional document updater (stale-closure-proof) inside one transaction | `PositionSizeSection.tsx` | E2E "scrubbing a mixed X selection moves every object by the same delta" (two real photos, 100→135 / 200→235) |
+| `@varve/ui` `NumberInput` brought onto the same contract: Pointer Events, modifier rebase, residue-only precision, no-op suppression, Escape/blur/unmount cancel with value restore, reference-counted cursor/user-select release, `touch-action: pan-y` | `NumberInput.tsx`, `NumberInput.test.tsx`, `components.css` | 12/12 unit tests (modifier rebase, fine steps, no-op, Escape restore, pointer identity, residue) |
+| Duplicate `X (px)`/`Y (px)` accessible names in Image Placement removed | `ImagePlacementSection.tsx` (`label="Offset X" displayLabel="X"`) | 13/13 `sections.test.tsx`, 9/9 `controls.test.tsx` |
+| Developer-local screenshot paths removed from the inspector E2E spec | `tests/e2e/inspector/inspector.spec.ts` | All three now use `testInfo.outputPath(...)`; no `/home/kevina` references remain under `tests/` |
+| Field keyboard contract: `inputMode="text"` (see NF-11) | `NumberField.tsx` | Unit assertion on the rendered attribute |
+
+Automated audit coverage run for the deferred 6C/6D surfaces (all passing):
+menu command integrity, capabilities, localization, renderer, live-boolean
+context menu, nudge capability, flat-tree semantics, tree keyboard navigation,
+tree focus, drop resolution, and drag moves — 123/123 tests. Accelerators in
+`menu/defs.ts` are resolved from `SHORTCUT_DEFS` (the live registry), which is
+the contract the master brief requires.
+
 ## Verification results
 
 - **Unit**: `npx vitest run packages/editor/src/components/Inspector/controls/NumberField.test.tsx` — 40/40 pass (includes new coverage for modifier rebasing, fine-step precision, no-op transactions, Escape cancel, pointer identity, draft-aware stepping, PageUp/PageDown, caret-preserving Home/End, residue stripping).
@@ -109,42 +127,24 @@ of `start + 120`, and the Escape test returned `-269` instead of `-299`.
 
 ### Remaining work
 
-1. **NF-10 mixed-selection scrub (recommended fix).** Add an optional
-   `onDelta(delta)` channel to `NumberField` used by scrub/arrow/wheel when
-   present; in `PositionSizeSection` pass a delta that moves every selected node
-   by the same amount (typing stays an absolute set). Do this in the same
-   commit as the pending `PositionSizeSection` changes to avoid clobbering the
-   in-flight frame-preset work. Verified today: the mixed state itself renders
-   correctly and is exposed as `aria-valuetext="Mixed values"`.
-2. **NF-11 mobile minus key.** Evaluate `inputMode="text"` fallback or a custom
-   numeric keypad affordance for the browser demo; needs a real mobile runtime.
-3. **Shared `NumberInput` (`@varve/ui`, Home dialogs)** carries the same class
-   of defects: it quantizes to 0.01 (`Math.round(x * 100) / 100`), multiplies
-   earlier travel when Shift is pressed mid-drag, has no touch/pen support, and
-   if the mouse is released outside the window its `mousemove`/`mouseup`
-   listeners and the global `user-select: none` override persist until the next
-   click. It is not part of this session's slice; fix it with the same
-   accumulator/cancel contract.
-4. **Duplicate accessible names.** The Inspector exposes two `X (px)`/`Y (px)`
-   fields when an image is selected (Position & Size and Image Placement); the
-   Image Placement pair is disabled, but the duplication forced the E2E to
-   scope by group. Consider distinct accessible names for placement metadata.
-5. **Menus, layers tree, panel density (Sections 6A/6C/6D).** Not audited this
-   session. Existing infrastructure is substantial (`useFlatTree`,
-   `SortableVirtualRow`, `menubarKeynav`, `menubarFocus`, grace handling in
-   `menubarSubmenu`); a follow-up session should run the master brief's menu and
-   hierarchy audits against them rather than re-implementing.
-6. **Test hygiene.** `tests/e2e/inspector/inspector.spec.ts` writes screenshots
-   to a hardcoded `/home/kevina/.gemini/...` path in two places; that is
-   developer-local and not portable to CI or other machines. Replace with
-   `testInfo.outputPath(...)` (the third test already does this).
-7. **Pre-commit blocker (not ours).** `pnpm verify:commit` fails for every
-   `tests/e2e/**` commit while
-   `tests/e2e/caf/object-selection-mask-source.spec.ts` (another workstream,
-   modified in the working tree) casts away `fills`; the e2e commit used the
-   hook's documented `CI` bypass for pre-commit only (commit-msg still ran).
-8. **Website follow-up (not changed this session).** `docs/architecture/label-field-system.md`
-   lists marketing copy that explains "precision controls". If the numeric-field
-   behaviour changes described here reach the website's feature descriptions
-   (e.g. Home/End behaviour, wheel behaviour), `apps/website` copy and any
-   screenshots must be re-checked in a dedicated website session.
+1. **NF-11 on-device verification (open, low risk).** `inputMode="text"` cannot
+   be exercised without a physical iOS/Android device; confirm the on-screen
+   keyboard exposes `-`, `/`, `.` and that tap-to-focus still opens it.
+2. **Menus, layers tree, panel density (Sections 6A/6C/6D).** Sampled this
+   session: the automated suites listed above pass, accelerators come from the
+   live shortcut registry, and the three previously-recorded defects (canvas
+   context-menu live booleans, nudge capability, role-based menu queries) are
+   fixed. Still unaudited against the master brief's per-criterion checklists:
+   submenu pointer-grace geometry under flip/shift, disabled-item focus
+   semantics, menu close-reason focus handoff, tree `aria-posinset`/`setsize`
+   accuracy under virtualization, and density/measurement invalidation after
+   font-size changes. Each needs criterion-specific evidence; none of them can
+   be claimed from unit suites alone.
+3. **Pre-commit blocker (not ours).** Re-check whether
+   `tests/e2e/caf/object-selection-mask-source.spec.ts` still fails
+   `pnpm verify:commit` once that workstream commits.
+4. **Website follow-up (not changed this session).** If the numeric-field
+   behaviour changes reach the website's feature descriptions (scrolling,
+   keyboard, mobile entry), re-check `apps/website` copy and screenshots in a
+   dedicated website session. The app is the source of truth; no website claim
+   was edited here.
