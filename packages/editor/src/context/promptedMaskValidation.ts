@@ -546,24 +546,21 @@ function analyzePromptedMaskDiagnostics(
     if (component !== null) anchored[component] = 1;
   }
   if (box) {
-    for (let index = 0; index < gridPixels; index += 1) {
-      const component = labels[index];
-      if (component === undefined || component < 0) continue;
-      const x = index % gridWidth;
-      const y = Math.floor(index / gridWidth);
-      const cellMinX = Math.floor((x * width) / gridWidth);
-      const cellMaxX = Math.ceil(((x + 1) * width) / gridWidth) - 1;
-      const cellMinY = Math.floor((y * height) / gridHeight);
-      const cellMaxY = Math.ceil(((y + 1) * height) / gridHeight) - 1;
-      if (
-        cellMaxX >= box.minX &&
-        cellMinX <= box.maxX &&
-        cellMaxY >= box.minY &&
-        cellMinY <= box.maxY
-      ) {
-        anchored[component] = 1;
-      }
-    }
+    // A box is a location hint, not proof that every disconnected region
+    // inside it belongs to one object. Anchor only the largest component
+    // supported by the box; separate parts must receive their own positive
+    // point instead of silently importing a neighbouring object.
+    const primaryComponent = primaryBoxComponent(
+      labels,
+      gridWeights,
+      componentWeights,
+      gridWidth,
+      gridHeight,
+      width,
+      height,
+      box,
+    );
+    if (primaryComponent !== null) anchored[primaryComponent] = 1;
   }
 
   let anchoredPixels = 0;
@@ -646,6 +643,52 @@ function nearestComponent(
     if (best !== null) return best;
   }
   return null;
+}
+
+function primaryBoxComponent(
+  labels: Int32Array,
+  gridWeights: Uint32Array,
+  componentWeights: readonly number[],
+  gridWidth: number,
+  gridHeight: number,
+  width: number,
+  height: number,
+  box: DiagnosticBox,
+): number | null {
+  const boxWeights = new Uint32Array(componentWeights.length);
+  for (let index = 0; index < labels.length; index += 1) {
+    const component = labels[index];
+    if (component === undefined || component < 0) continue;
+    const x = index % gridWidth;
+    const y = Math.floor(index / gridWidth);
+    const cellMinX = Math.floor((x * width) / gridWidth);
+    const cellMaxX = Math.ceil(((x + 1) * width) / gridWidth) - 1;
+    const cellMinY = Math.floor((y * height) / gridHeight);
+    const cellMaxY = Math.ceil(((y + 1) * height) / gridHeight) - 1;
+    if (
+      cellMaxX >= box.minX &&
+      cellMinX <= box.maxX &&
+      cellMaxY >= box.minY &&
+      cellMinY <= box.maxY
+    ) {
+      boxWeights[component] = (boxWeights[component] ?? 0) + (gridWeights[index] ?? 0);
+    }
+  }
+
+  let primary: number | null = null;
+  for (let component = 0; component < boxWeights.length; component += 1) {
+    const weight = boxWeights[component] ?? 0;
+    if (weight === 0) continue;
+    if (
+      primary === null ||
+      weight > (boxWeights[primary] ?? 0) ||
+      (weight === (boxWeights[primary] ?? 0) &&
+        (componentWeights[component] ?? 0) > (componentWeights[primary] ?? 0))
+    ) {
+      primary = component;
+    }
+  }
+  return primary;
 }
 
 function pointCovered(

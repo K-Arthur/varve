@@ -272,4 +272,30 @@ describe('prompted mask validation', () => {
     expect(malformed.valid).toBe(false);
     expect(malformed.reason).toBe('invalid-geometry');
   });
+
+  it('treats a broad box as a hint instead of endorsing adjacent disconnected objects', () => {
+    const pixels: Array<[number, number]> = [];
+    for (let y = 3; y <= 7; y += 1) {
+      for (let x = 3; x <= 7; x += 1) pixels.push([x, y]);
+    }
+    for (let y = 0; y <= 1; y += 1) {
+      for (let x = 0; x <= 1; x += 1) pixels.push([x, y]);
+    }
+    const result = rankPromptedMaskCandidates(
+      [candidate(10, 10, pixels, 0.9)],
+      { box: { x1: 0, y1: 0, x2: 1, y2: 1 } },
+      10,
+      10,
+    );
+
+    expect(result.rejectedCount).toBe(0);
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0]?.mask[5 * 10 + 5]).toBe(255);
+    expect(result.candidates[0]?.mask[10]).toBe(0);
+    expect(result.candidates[0]?.promptDiagnostics).toMatchObject({
+      componentCount: 1,
+      anchoredComponentCount: 1,
+      anchoredCoverage: 1,
+    });
+  });
 });

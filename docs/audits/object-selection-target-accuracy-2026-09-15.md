@@ -53,6 +53,86 @@ applied view retains only the apple-shaped mask; the mug and flowers remain
 outside the persisted mask. The test also exercises the review confirmation,
 mask application, and source-resolution document persistence path.
 
+## Selection-to-generation synchronization
+
+Command:
+
+```text
+TMPDIR=/tmp VARVE_SAM2_REAL_MODEL=1 \
+VARVE_SAM2_PROFILE_DIR=/home/kevina/varve-sam2-selection-profile-generative-20260915-final \
+VARVE_E2E_PORT=1639 VARVE_E2E_WORKERS=1 VARVE_HEAVY_TASK_PARALLELISM=0 \
+VARVE_E2E_OUTPUT_DIR=selection-generative-20260915-final \
+pnpm exec playwright test tests/e2e/canvas/object-selection-real-model.spec.ts \
+  --project=chromium --workers=1 \
+  --grep "passes the reviewed real-object mask into Generative Edit before Remove" \
+  --reporter=list
+```
+
+Result: **1 passed** (1 minute 6 seconds).
+
+The reviewed candidate was imported into the Content-Aware Fill dialog at the
+original 1280 × 960 dimensions. The generation-context review remained
+required: `Remove && Fill` was disabled until the second review checkbox was
+confirmed. The local promptless Remove completed in 2 seconds and Apply
+persisted a `remove` generative-edit record with the same source node and mask
+topology:
+
+| Check | Observed |
+| --- | ---: |
+| Imported hard mask pixels | 51,584 |
+| Imported apple review window | 45,084 pixels |
+| Imported mug review window | 0 pixels |
+| Imported flower review window | 0 pixels |
+| Persisted hard mask pixels | 51,584 |
+| Persisted apple review window | 45,084 pixels |
+| Persisted mug review window | 0 pixels |
+| Persisted flower review window | 0 pixels |
+| Persisted connected components | 1 |
+
+The E2E assertion compares those imported and persisted measurements directly,
+so a stale, resampled, or different candidate cannot pass this lane. The
+reviewed full-dialog and applied-canvas artifacts are retained at:
+
+- `test-results/selection-generative-20260915-final/canvas-object-selection-re-dac48-nerative-Edit-before-Remove-chromium/real-object-remove-result.png`
+- `test-results/selection-generative-20260915-final/canvas-object-selection-re-dac48-nerative-Edit-before-Remove-chromium/real-object-remove-applied.png`
+
+This validates data flow and review gating, not semantic removal quality. The
+point-only mask visibly captured only the upper portion of this edge-hugging
+apple; the Remove result retained a lower/right apple crescent. A point is not
+enough evidence for an object whose visible extent reaches an image boundary.
+The user must review the overlay and use a box hint or additional positive
+points before generation.
+
+## Edge-object box recovery and adjacent-object rejection
+
+The first real box run exposed a separate selection bug. A broad box around
+the edge apple produced four disconnected components and incorrectly included
+8,430 hard pixels from the nearby mug. The validator had treated every
+component intersecting a box as endorsed by the user. That was unsafe for
+object-specific editing.
+
+Prompted-mask validation now treats a box as a location hint: it anchors only
+the largest supported connected component. Smaller disconnected regions must
+be supported by their own positive prompt or are pruned/rejected. The focused
+unit regression test covers this ambiguity, and the real-photo rerun passed:
+
+```text
+BOX OBJECT MASK: width=1280 height=960 hardPixels=85882
+componentCount=1 appleHardPixels=72242 appleInteriorHardPixels=28724
+mugHardPixels=0 flowerHardPixels=0 bounds=minX:1007 minY:555 maxX:1279 maxY:959
+```
+
+The box preview and applied mask were visually inspected and are retained at:
+
+- `test-results/selection-box-20260915-fixed/canvas-object-selection-re-dc7a9-real-object-before-applying-chromium/real-still-life-box-preview.png`
+- `test-results/selection-box-20260915-fixed/canvas-object-selection-re-dc7a9-real-object-before-applying-chromium/real-still-life-box-applied.png`
+
+Together these lanes show that selection prompts are mapped to the actual
+placed artwork, reviewed before mutation, transferred without changing the
+source-sized mask, and protected against a broad-box adjacent-object leak.
+They do not replace the required multi-photo qualification for hair,
+transparency, reflections, boundaries, perspective, or other difficult cases.
+
 Prompt geometry is validated immediately after decoding the source dimensions
 and before local model lookup, memory probing, or full-resolution pixel
 allocation. An off-image or unmappable point/box therefore fails as an input
