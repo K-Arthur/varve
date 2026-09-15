@@ -12,6 +12,13 @@ export interface ManagedSession {
   session: unknown;
   executionProvider: string;
   loadedAt: number;
+  /** True when release() failed and the session may still be resident. */
+  releaseFailed?: boolean;
+}
+
+export interface SessionReleaseOutcome {
+  status: 'released' | 'absent' | 'failed';
+  message?: string;
 }
 
 type OrtInferenceSession = {
@@ -47,6 +54,7 @@ async function defaultLoadOrt(): Promise<OrtModule> {
 
 export class SessionManager {
   private sessions = new Map<string, ManagedSession>();
+  private pending = new Map<string, Promise<ManagedSession>>();
   private ortModule: OrtModule | null = null;
   private ortPromise: Promise<OrtModule> | null = null;
   private maxSessions: number;
@@ -133,44 +141,64 @@ export class SessionManager {
     const cached = this.sessions.get(modelPath);
     if (cached) return cached;
 
-    // Evict oldest if at capacity
-    if (this.sessions.size >= this.maxSessions) {
-      const oldest = this.sessions.entries().next().value;
-      if (oldest) {
-        await this.release(oldest[0]);
-      }
-    }
+    // Single-flight: concurrent callers for the same path share one creation,
+    // so a second caller cannot create (and then leak) a duplicate session.
+    const pending = this.pending.get(modelPath);
+    if (pending) return pending;
 
-    const { session, executionProvider } = await this.createSession(modelPath, modelId);
-    const managed: ManagedSession = {
-      modelId,
-      session,
-      executionProvider,
-      loadedAt: Date.now(),
-    };
-    this.sessions.set(modelPath, managed);
-    return managed;
+    const creation = (async () => {
+      // Evict oldest idle entry if at capacity. A failed release keeps its
+      // entry and the cache may exceed the soft cap rather than pretending the
+      // bytes were reclaimed.
+      if (this.sessions.size >= this.maxSessions) {
+        const oldest = this.sessions.keys().next().value;
+        if (oldest) await this.release(oldest);
+      }
+      const { session, executionProvider } = await this.createSession(modelPath, modelId);
+      const managed: ManagedSession = {
+        modelId,
+        session,
+        executionProvider,
+        loadedAt: Date.now(),
+      };
+      this.sessions.set(modelPath, managed);
+      return managed;
+    })();
+    this.pending.set(modelPath, creation);
+    try {
+      return await creation;
+    } finally {
+      if (this.pending.get(modelPath) === creation) this.pending.delete(modelPath);
+    }
   }
 
-  /** Release a cached session. */
-  async release(modelPath: string): Promise<void> {
+  /**
+   * Release a cached session. The entry is removed only after the underlying
+   * release resolves; a failure keeps the entry (and its residency) accounted.
+   */
+  async release(modelPath: string): Promise<SessionReleaseOutcome> {
     const managed = this.sessions.get(modelPath);
-    if (!managed) return;
-    this.sessions.delete(modelPath);
+    if (!managed) return { status: 'absent' };
     try {
       const s = managed.session as OrtInferenceSession;
       if (typeof s.release === 'function') {
         await s.release();
       }
-    } catch {
-      // best-effort release
+    } catch (error) {
+      managed.releaseFailed = true;
+      return {
+        status: 'failed',
+        message: error instanceof Error ? error.message : String(error),
+      };
     }
+    this.sessions.delete(modelPath);
+    return { status: 'released' };
   }
 
-  /** Release all cached sessions. */
-  async releaseAll(): Promise<void> {
+  /** Release all cached sessions and report each outcome. */
+  async releaseAll(): Promise<SessionReleaseOutcome[]> {
     const paths = Array.from(this.sessions.keys());
-    await Promise.all(paths.map((p) => this.release(p)));
+    return Promise.all(paths.map((p) => this.release(p)));
   }
 
   /** Number of currently cached sessions. */

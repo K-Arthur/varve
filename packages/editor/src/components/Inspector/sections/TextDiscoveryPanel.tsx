@@ -11,10 +11,12 @@
 
 import {
   bertTokenize,
-  buildGroundingDinoInputs,
+  buildGroundingDinoInputsFromModelImage,
   decodeGroundingDinoOutput,
   estimateInferenceReservation,
+  GROUNDING_DINO_INPUT_SIZE,
   GROUNDING_DINO_MODEL_ID,
+  GROUNDING_DINO_MODEL_IMAGE_PREPROCESSING_VERSION,
   GROUNDING_DINO_TOKENIZER_ID,
   type GroundingDetection,
   getImageCache,
@@ -24,11 +26,24 @@ import {
   locatePhraseSpans,
   normalizeGroundingQuery,
   parseBertVocab,
+  type WorkerInferTimings,
 } from '@varve/engine';
 import { Button, Select } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 type PanelState = 'checking' | 'missing' | 'downloading' | 'running' | 'ready' | 'empty' | 'error';
+
+/** Measured stage breakdown for the last completed discovery run. */
+interface DiscoveryTimings {
+  sourceMs: number;
+  sessionMs: number;
+  preprocessMs: number;
+  inferMs: number;
+  postprocessMs: number;
+  releaseMs: number;
+  releaseStatus: 'released' | 'recycled' | 'unchanged' | 'failed' | 'busy';
+  releaseDetail: string;
+}
 
 const THRESHOLD_OPTIONS = [
   { value: 0.2, label: 'Loose — more regions' },
@@ -61,8 +76,18 @@ export function TextDiscoveryPanel({
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState<'preparing' | 'loading' | 'detecting' | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [timings, setTimings] = useState<DiscoveryTimings | null>(null);
+  const [fromCache, setFromCache] = useState(false);
+  const [releaseNote, setReleaseNote] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const timedOutRef = useRef(false);
+  /**
+   * Compact detections are cached per exact source + query + threshold. Editing
+   * the review order or choosing another detected box must not rerun the
+   * detector, and a repeated identical search within the session should not
+   * pay the tens-of-seconds inference cost again.
+   */
+  const detectionCacheRef = useRef(new Map<string, GroundingDetection[]>());
 
   /**
    * Browser WASM inference for this graph is a background-scale operation:
@@ -163,6 +188,25 @@ export function TextDiscoveryPanel({
       setState('error');
       return;
     }
+    const cacheKey = `${source}|${normalized.normalized}|${threshold}|${GROUNDING_DINO_MODEL_IMAGE_PREPROCESSING_VERSION}`;
+    const cachedDetections = detectionCacheRef.current.get(cacheKey);
+    if (cachedDetections) {
+      setState(cachedDetections.length > 0 ? 'ready' : 'empty');
+      setDetections(cachedDetections);
+      setSelectedId(cachedDetections[0]?.id ?? null);
+      setReviewedDetectionId(null);
+      setError(null);
+      setFromCache(true);
+      setTimings(null);
+      setReleaseNote(null);
+      announce(
+        cachedDetections.length === 0
+          ? `No region matched "${normalized.normalized}" earlier in this session; no new model run.`
+          : `Loaded ${cachedDetections.length} cached detection${cachedDetections.length === 1 ? '' : 's'} from this session; the detector was not run again.`,
+      );
+      return;
+    }
+
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -177,6 +221,17 @@ export function TextDiscoveryPanel({
     setDetections([]);
     setSelectedId(null);
     setReviewedDetectionId(null);
+    setFromCache(false);
+    setTimings(null);
+    setReleaseNote(null);
+    const detectorPeakBytes =
+      getModelById(GROUNDING_DINO_MODEL_ID)?.peakMemoryBytes ?? 2_600_000_000;
+    const sourceStarted = performance.now();
+    let sourceMs = 0;
+    let workerTimings: WorkerInferTimings | null = null;
+    let releaseMs = 0;
+    let releaseStatus: DiscoveryTimings['releaseStatus'] = 'unchanged';
+    let releaseDetail = '';
     try {
       const loader = await getModelLoaderReady();
       const graphPath = await loader.getModelPath(GROUNDING_DINO_MODEL_ID, controller.signal);
@@ -200,16 +255,30 @@ export function TextDiscoveryPanel({
         typeof HTMLImageElement !== 'undefined' && image instanceof HTMLImageElement
           ? image.naturalHeight || image.height
           : image.height;
+      // Draw straight to the model resolution instead of reading the full
+      // source into an ImageData copy and resampling in JS. The stretch is the
+      // reference preprocessing (no aspect preservation), and the browser's
+      // smoothing is closer to the reference antialiased resize than the
+      // previous nearest-neighbour sample. A 24 MP photo now copies 2.6 MB
+      // instead of ~96 MB before inference starts.
       const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
+      canvas.width = GROUNDING_DINO_INPUT_SIZE;
+      canvas.height = GROUNDING_DINO_INPUT_SIZE;
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Canvas context unavailable for discovery.');
-      ctx.drawImage(image, 0, 0, width, height);
-      const imageData = ctx.getImageData(0, 0, width, height);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(image, 0, 0, GROUNDING_DINO_INPUT_SIZE, GROUNDING_DINO_INPUT_SIZE);
+      const modelImage = ctx.getImageData(
+        0,
+        0,
+        GROUNDING_DINO_INPUT_SIZE,
+        GROUNDING_DINO_INPUT_SIZE,
+      );
       if (controller.signal.aborted) return;
 
-      const inputs = buildGroundingDinoInputs(imageData, tokenization);
+      const inputs = buildGroundingDinoInputsFromModelImage(modelImage, tokenization);
+      sourceMs = performance.now() - sourceStarted;
       setStage('loading');
       const host = getInferenceWorkerHost();
       const result = await host.infer(
@@ -220,6 +289,9 @@ export function TextDiscoveryPanel({
           modelId: GROUNDING_DINO_MODEL_ID,
           tensors: inputs,
           reuseSession: true,
+          // Recorded on the cached session so release diagnostics can report
+          // residency instead of equating cache removal with reclaimed memory.
+          sessionPeakBytes: detectorPeakBytes,
         },
         {
           signal: controller.signal,
@@ -230,10 +302,11 @@ export function TextDiscoveryPanel({
             // 194 MB graph: the text tower, fusion decoder, and 900x256 logits
             // dominate peak memory. A low-memory session must be refused here,
             // before the 194 MB download is spent, rather than OOMing mid-run.
-            modelBytes: getModelById(GROUNDING_DINO_MODEL_ID)?.peakMemoryBytes ?? 2_600_000_000,
+            modelBytes: detectorPeakBytes,
           }),
         },
       );
+      workerTimings = result.timings ?? null;
       if (controller.signal.aborted) return;
       setStage('detecting');
       const outputs = result.outputs as Record<string, unknown>;
@@ -250,6 +323,64 @@ export function TextDiscoveryPanel({
         height,
         { boxThreshold: threshold, textThreshold: threshold, phraseSpans: spans },
       );
+
+      // Materialize compact detections before releasing anything: the array
+      // below owns source-space boxes and phrase associations and holds no
+      // reference to the worker's output tensors.
+      const cache = detectionCacheRef.current;
+      cache.set(cacheKey, decoded);
+      while (cache.size > 8) {
+        const oldest = cache.keys().next().value;
+        if (oldest === undefined) break;
+        cache.delete(oldest);
+      }
+      setDetections(decoded);
+      setSelectedId(decoded[0]?.id ?? null);
+      setReviewedDetectionId(null);
+
+      // Detection is finished; release the detector before segmentation
+      // admission so the segmenter is not loaded on top of a resident
+      // 2.6 GB-scale graph. A failed release stays accounted and is re-reserved
+      // by the host for the next heavy stage unless the idle worker was
+      // recycled.
+      const releaseStarted = performance.now();
+      try {
+        const report = await host.releaseModel('grounding-dino', graphPath);
+        if (report.failed.length > 0) {
+          releaseStatus = 'failed';
+          releaseDetail = `Detector session release was not confirmed; about ${Math.round((report.possiblyResidentBytes || detectorPeakBytes) / 1_000_000)} MB stays reserved for the next step.`;
+          if (host.recycleWorkerIfIdle()) {
+            releaseStatus = 'recycled';
+            releaseDetail =
+              'Detector session release failed, so the idle inference worker was recycled to return its memory.';
+          }
+        } else if (report.inUse.length > 0) {
+          releaseStatus = 'busy';
+          releaseDetail =
+            'The detector session is still finishing another request; it stays cached for now.';
+        } else if (report.released.length > 0) {
+          releaseStatus = 'released';
+          releaseDetail = `Detector session released (about ${Math.round(detectorPeakBytes / 1_000_000)} MB working set; the runtime may retain allocator capacity).`;
+        }
+      } catch (releaseError) {
+        releaseStatus = 'failed';
+        releaseDetail = `Detector session release failed: ${
+          releaseError instanceof Error ? releaseError.message : String(releaseError)
+        }`;
+      }
+      releaseMs = performance.now() - releaseStarted;
+      setTimings({
+        sourceMs,
+        sessionMs: workerTimings?.sessionMs ?? 0,
+        preprocessMs: workerTimings?.preprocessMs ?? 0,
+        inferMs: workerTimings?.inferMs ?? 0,
+        postprocessMs: workerTimings?.postprocessMs ?? 0,
+        releaseMs,
+        releaseStatus,
+        releaseDetail,
+      });
+      setReleaseNote(releaseDetail || null);
+
       if (decoded.length === 0) {
         setState('empty');
         announce(
@@ -257,9 +388,6 @@ export function TextDiscoveryPanel({
         );
         return;
       }
-      setDetections(decoded);
-      setSelectedId(decoded[0]!.id);
-      setReviewedDetectionId(null);
       setState('ready');
       announce(
         `Found ${decoded.length} matching region${decoded.length === 1 ? '' : 's'}. Review one, then segment it.`,
@@ -396,6 +524,28 @@ export function TextDiscoveryPanel({
       {state === 'empty' && !error && (
         <p className="insp-hint" role="status">
           No region matched this description. Try a looser setting or a different phrase.
+        </p>
+      )}
+
+      {fromCache && detections.length > 0 && (
+        <p className="insp-field__hint" role="status">
+          Cached from this session — the detector did not run again.
+        </p>
+      )}
+
+      {timings && (
+        <p className="insp-field__hint" role="status" data-testid="text-discovery-timings">
+          Last run:{' '}
+          {timings.sessionMs === 0
+            ? 'warm session'
+            : `model load ${(timings.sessionMs / 1000).toFixed(1)}s`}{' '}
+          · preprocess {(timings.preprocessMs / 1000).toFixed(1)}s · detection{' '}
+          {(timings.inferMs / 1000).toFixed(1)}s · release {(timings.releaseMs / 1000).toFixed(1)}s
+        </p>
+      )}
+      {releaseNote && (
+        <p className="insp-field__hint" data-testid="text-discovery-release">
+          {releaseNote}
         </p>
       )}
 

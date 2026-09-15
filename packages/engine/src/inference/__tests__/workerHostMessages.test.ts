@@ -126,4 +126,107 @@ describe('InferenceWorkerHost message handling', () => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
+
+  it('correlates a release request and records honest residency evidence', async () => {
+    const h = makeHost();
+    const pending = h.host.releaseModel('grounding-dino', '/models/gd.onnx');
+    const request = h.worker.posted[0] as { type: string; requestId: string; keys: string[] };
+    expect(request.type).toBe('release');
+    expect(request.keys).toEqual(['grounding-dino:/models/gd.onnx']);
+
+    const report = {
+      type: 'released' as const,
+      requestId: request.requestId,
+      released: ['grounding-dino:/models/gd.onnx'],
+      failed: [],
+      inUse: [],
+      possiblyResidentBytes: 0,
+      remaining: 0,
+      snapshot: {
+        cached: 0,
+        inUse: 0,
+        unresolvedKeys: [],
+        unresolvedBytes: 0,
+        retainedCapacityBytes: 0,
+        highWaterBytes: 2_600_000_000,
+      },
+    };
+    h.worker.emit(report);
+    await expect(pending).resolves.toMatchObject({ released: request.keys });
+    const diagnostics = h.host.getResidencyDiagnostics();
+    expect(diagnostics.releasedSessions).toBe(1);
+    expect(diagnostics.failedReleases).toBe(0);
+    // High-water bytes are diagnostic; unresolved bytes stay zero on success.
+    expect(diagnostics.unresolvedBytes).toBe(0);
+
+    // A failed release keeps the bytes accounted for the next admission.
+    const failing = h.host.releaseModels(['sam2-encoder:/big.onnx']);
+    const failingRequest = h.worker.posted[1] as { requestId: string };
+    h.worker.emit({
+      type: 'released',
+      requestId: failingRequest.requestId,
+      released: [],
+      failed: [{ key: 'sam2-encoder:/big.onnx', message: 'device lost' }],
+      inUse: [],
+      possiblyResidentBytes: 154_902_201,
+      remaining: 1,
+      snapshot: {
+        cached: 1,
+        inUse: 0,
+        unresolvedKeys: ['sam2-encoder:/big.onnx'],
+        unresolvedBytes: 154_902_201,
+        retainedCapacityBytes: 154_902_201,
+        highWaterBytes: 154_902_201,
+      },
+    });
+    await failing;
+    const afterFailure = h.host.getResidencyDiagnostics();
+    expect(afterFailure.failedReleases).toBe(1);
+    expect(afterFailure.unresolvedBytes).toBe(154_902_201);
+    vi.unstubAllGlobals();
+  });
+
+  it('recycles only an idle worker and clears unresolved residency on recycle', async () => {
+    const h = makeHost();
+    const pendingInfer = h.host.infer(
+      { type: 'infer', modelType: 'scunet', modelPath: '/m.onnx', modelId: 'scunet' } as never,
+      { timeoutMs: 5000 },
+    );
+    expect(h.host.recycleWorkerIfIdle()).toBe(false);
+
+    const firstWorker = h.worker;
+    h.worker.emit({
+      type: 'result',
+      requestId: requestIdOf(firstWorker),
+      outputs: { done: true },
+    });
+    await pendingInfer;
+
+    const failing = h.host.releaseModels();
+    const releaseRequest = firstWorker.posted.at(-1) as { requestId: string };
+    firstWorker.emit({
+      type: 'released',
+      requestId: releaseRequest.requestId,
+      released: [],
+      failed: [{ key: 'x', message: 'stuck' }],
+      inUse: [],
+      possiblyResidentBytes: 10,
+      remaining: 1,
+      snapshot: {
+        cached: 1,
+        inUse: 0,
+        unresolvedKeys: ['x'],
+        unresolvedBytes: 10,
+        retainedCapacityBytes: 10,
+        highWaterBytes: 10,
+      },
+    });
+    await failing;
+    expect(h.host.getResidencyDiagnostics().unresolvedBytes).toBe(10);
+
+    expect(h.host.recycleWorkerIfIdle()).toBe(true);
+    expect(firstWorker.terminated).toBe(true);
+    expect(h.host.getResidencyDiagnostics().unresolvedBytes).toBe(0);
+    vi.unstubAllGlobals();
+  });
 });

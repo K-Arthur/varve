@@ -9,11 +9,13 @@ export {
   basicTokenize,
   bertTokenize,
   buildGroundingDinoInputs,
+  buildGroundingDinoInputsFromModelImage,
   decodeGroundingDinoOutput,
   GROUNDING_DINO_INPUT_SIZE,
   GROUNDING_DINO_MAX_DETECTIONS,
   GROUNDING_DINO_MAX_TEXT_LEN,
   GROUNDING_DINO_MODEL_ID,
+  GROUNDING_DINO_MODEL_IMAGE_PREPROCESSING_VERSION,
   GROUNDING_DINO_NUM_QUERIES,
   GROUNDING_DINO_NUM_TEXT_TOKENS,
   GROUNDING_DINO_PREPROCESSING_VERSION,
@@ -22,6 +24,7 @@ export {
   normalizeGroundingQuery,
   parseBertVocab,
   preprocessGroundingDinoImage,
+  preprocessGroundingDinoModelImage,
   suppressDuplicateDetections,
   wordPiece,
 } from '../discovery/groundingDino';
@@ -142,7 +145,13 @@ export type {
   UserQualityMode,
 } from './core/types';
 export { deriveAcquisition, resolveAcquisition } from './core/types';
-export type { WorkerInferRequest, WorkerInferResult, WorkerModelType } from './inferenceWorker';
+export type {
+  WorkerInferRequest,
+  WorkerInferResult,
+  WorkerInferTimings,
+  WorkerModelType,
+  WorkerReleaseResponse,
+} from './inferenceWorker';
 export {
   disposeInferenceWorkerHost,
   getInferenceWorkerHost,
@@ -253,6 +262,9 @@ export type { ImageInferenceResourceAssessment } from './resourcePolicy';
 export { assessImageInferenceResources } from './resourcePolicy';
 export type { ManagedSession } from './SessionManager';
 export { SessionManager } from './SessionManager';
+export { workerSessionKey } from './sessionKeys';
+export type { SessionRegistrySnapshot, SessionReleaseReport } from './sessionRegistry';
+export { InferenceSessionRegistry } from './sessionRegistry';
 export type {
   InferenceEvents,
   InferenceProvider,

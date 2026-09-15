@@ -53,6 +53,12 @@ import { encodeSam2Prompts, SAM2_INPUT_SIZE, SAM2_TENSOR_SPEC } from './models/s
 import { SCUNET_INPUT_SIZE, SCUNET_TENSOR_SPEC } from './models/scunet';
 import { SIGLIP_IMAGE_SIZE, SIGLIP_IMAGE_TENSOR_SPEC, siglipConstantFeeds } from './models/siglip';
 import { TROCR_INPUT_SIZE, TROCR_TENSOR_SPEC } from './models/trocr';
+import { workerSessionKey } from './sessionKeys';
+import {
+  InferenceSessionRegistry,
+  type SessionRegistrySnapshot,
+  type SessionReleaseReport,
+} from './sessionRegistry';
 
 export type WorkerModelType =
   | 'sam2'
@@ -124,6 +130,20 @@ export interface WorkerInferRequest {
   /** Target output dimensions (for resize after inference). */
   targetWidth?: number;
   targetHeight?: number;
+  /**
+   * Conservative working-set estimate for this session, recorded so release
+   * diagnostics can reason about residency instead of equating a cache
+   * removal with reclaimed memory.
+   */
+  sessionPeakBytes?: number;
+}
+
+export interface WorkerInferTimings {
+  /** Session creation wall time; 0 when a cached session was reused. */
+  sessionMs: number;
+  preprocessMs: number;
+  inferMs: number;
+  postprocessMs: number;
 }
 
 export interface WorkerInferResult {
@@ -131,6 +151,7 @@ export interface WorkerInferResult {
   requestId: string;
   modelType: WorkerModelType;
   outputs: Record<string, unknown>;
+  timings?: WorkerInferTimings;
 }
 
 export interface WorkerInferError {
@@ -143,8 +164,30 @@ export interface WorkerReady {
   type: 'ready';
 }
 
-export type WorkerRequest = WorkerInferRequest;
-export type WorkerResponse = WorkerInferResult | WorkerInferError | WorkerReady;
+/**
+ * Release cached sessions before the next memory-heavy stage. Entries are
+ * removed only after their underlying release resolves; failures are reported
+ * as possibly-resident bytes rather than as reclaimed memory.
+ */
+export interface WorkerReleaseRequest {
+  type: 'release';
+  requestId: string;
+  /** Cache keys (`modelType:modelPath`); omit to release every idle session. */
+  keys?: string[];
+}
+
+export interface WorkerReleaseResponse extends SessionReleaseReport {
+  type: 'released';
+  requestId: string;
+  snapshot: SessionRegistrySnapshot;
+}
+
+export type WorkerRequest = WorkerInferRequest | WorkerReleaseRequest;
+export type WorkerResponse =
+  | WorkerInferResult
+  | WorkerInferError
+  | WorkerReady
+  | WorkerReleaseResponse;
 
 /** Describes a second image input fed alongside the primary image. */
 interface AuxImageSpec {
@@ -468,14 +511,11 @@ registerModelType('font-classify', {
   hasImageInput: true,
 });
 
-interface CachedSession {
-  session: unknown;
-  executionProvider: string;
-  loadedAt: number;
-  modelType: WorkerModelType;
-}
-
-const sessionCache = new Map<string, CachedSession>();
+/**
+ * The single production session cache. It is refcounted and its release path
+ * is honest about failure; see sessionRegistry.ts for the contracts.
+ */
+const sessionRegistry = new InferenceSessionRegistry(3);
 let preferredOnnxProviders: string[] | null = null;
 
 const PROVIDER_PROBE_TIMEOUT = 15_000;
@@ -550,97 +590,115 @@ async function loadOrt(): Promise<OrtModule> {
   return ortModulePromise;
 }
 
+/** Result of resolving a session for one inference request. */
+interface ResolvedSession {
+  session: unknown;
+  executionProvider: string;
+  cacheKey: string;
+  created: boolean;
+  sessionMs: number;
+}
+
 async function getSession(
   modelPath: string,
   modelId: string,
   modelType: WorkerModelType,
-  externalData?: ExternalDataSpec,
-): Promise<{ session: unknown; executionProvider: string }> {
-  const cacheKey = `${modelType}:${modelPath}`;
-  const cached = sessionCache.get(cacheKey);
-  if (cached) return { session: cached.session, executionProvider: cached.executionProvider };
+  externalData: ExternalDataSpec | undefined,
+  sessionPeakBytes: number | undefined,
+): Promise<ResolvedSession> {
+  const cacheKey = workerSessionKey(modelType, modelPath);
+  const creation = await sessionRegistry.getOrCreate(cacheKey, async () => {
+    const ort = await loadOrt();
+    const providers = await getPreferredProviders(modelId);
+    // Weights kept outside the graph must be handed to the runtime under the
+    // exact filename the graph references, or session creation fails resolving
+    // the missing tensor data.
+    const externalDataOption = externalData
+      ? { externalData: [{ path: externalData.path, data: externalData.url }] }
+      : {};
 
-  if (sessionCache.size >= 3) {
-    const oldest = sessionCache.keys().next().value;
-    if (oldest) {
-      const old = sessionCache.get(oldest);
-      if (old) {
-        try {
-          const s = old.session as { release: () => Promise<void> };
-          if (typeof s.release === 'function') await s.release();
-        } catch {
-          /* best-effort */
-        }
+    let lastError: Error | null = null;
+    for (const provider of providers) {
+      if (provider === 'wasm') continue;
+      try {
+        const session = await withTimeout(
+          ort.InferenceSession.create(modelPath, {
+            executionProviders: [provider],
+            ...externalDataOption,
+          }),
+          ACCELERATED_SESSION_TIMEOUT,
+          `ONNX ${provider} session creation`,
+        );
+        return {
+          session: session as { release?: () => Promise<void> },
+          executionProvider: provider,
+          modelType,
+          estimateBytes: sessionPeakBytes ?? 0,
+        };
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
       }
-      sessionCache.delete(oldest);
     }
-  }
 
-  const ort = await loadOrt();
-  const providers = await getPreferredProviders(modelId);
-  // Weights kept outside the graph must be handed to the runtime under the
-  // exact filename the graph references, or session creation fails resolving
-  // the missing tensor data.
-  const externalDataOption = externalData
-    ? { externalData: [{ path: externalData.path, data: externalData.url }] }
-    : {};
-
-  let lastError: Error | null = null;
-  for (const provider of providers) {
-    if (provider === 'wasm') continue;
     try {
-      const session = await withTimeout(
-        ort.InferenceSession.create(modelPath, {
-          executionProviders: [provider],
-          ...externalDataOption,
-        }),
-        ACCELERATED_SESSION_TIMEOUT,
-        `ONNX ${provider} session creation`,
-      );
-      const cachedSession: CachedSession = {
-        session,
-        executionProvider: provider,
-        loadedAt: Date.now(),
-        modelType,
-      };
-      sessionCache.set(cacheKey, cachedSession);
-      return { session, executionProvider: provider };
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-    }
-  }
-
-  try {
-    const { isWasmModelSafe } = await import('../backgroundRemoval/environmentCapabilities');
-    if (!(await isWasmModelSafe(modelId))) {
-      throw new Error(
-        `Model exceeds safe WASM memory limit. ${lastError ? `Accelerated backend also failed: ${lastError.message}` : ''}`.trim(),
-      );
-    }
-  } catch (gateErr) {
-    throw gateErr instanceof Error && gateErr.message.includes('safe WASM')
-      ? gateErr
-      : new Error(
+      const { isWasmModelSafe } = await import('../backgroundRemoval/environmentCapabilities');
+      if (!(await isWasmModelSafe(modelId))) {
+        throw new Error(
           `Model exceeds safe WASM memory limit. ${lastError ? `Accelerated backend also failed: ${lastError.message}` : ''}`.trim(),
         );
-  }
+      }
+    } catch (gateErr) {
+      throw gateErr instanceof Error && gateErr.message.includes('safe WASM')
+        ? gateErr
+        : new Error(
+            `Model exceeds safe WASM memory limit. ${lastError ? `Accelerated backend also failed: ${lastError.message}` : ''}`.trim(),
+          );
+    }
 
-  const session = await withTimeout(
-    ort.InferenceSession.create(modelPath, {
-      executionProviders: ['wasm'],
-      ...externalDataOption,
-    }),
-    WASM_SESSION_TIMEOUT,
-    'ONNX WASM session creation',
-  );
-  const cachedSession: CachedSession = {
-    session,
-    executionProvider: 'wasm',
-    loadedAt: Date.now(),
-    modelType,
+    const session = await withTimeout(
+      ort.InferenceSession.create(modelPath, {
+        executionProviders: ['wasm'],
+        ...externalDataOption,
+      }),
+      WASM_SESSION_TIMEOUT,
+      'ONNX WASM session creation',
+    );
+    return {
+      session: session as { release?: () => Promise<void> },
+      executionProvider: 'wasm',
+      modelType,
+      estimateBytes: sessionPeakBytes ?? 0,
+    };
+  });
+
+  if (creation.created) {
+    // Respect the cache cap without touching a session some other job is
+    // still using; over-capacity is allowed transiently and re-checked after
+    // every run.
+    await sessionRegistry.evictIdleToCapacity();
+  }
+  return {
+    session: creation.entry.session,
+    executionProvider: creation.entry.executionProvider,
+    cacheKey,
+    created: creation.created,
+    sessionMs: creation.sessionMs,
   };
-  sessionCache.set(cacheKey, cachedSession);
-  return { session, executionProvider: 'wasm' };
+}
+
+/**
+ * Hand a declared release request to the registry and answer with the actual
+ * outcome. In-flight runs are never released; failed releases stay accounted.
+ */
+async function handleRelease(request: WorkerReleaseRequest): Promise<void> {
+  const report = await sessionRegistry.release(request.keys, { idleOnly: true });
+  const response: WorkerReleaseResponse = {
+    type: 'released',
+    requestId: request.requestId,
+    snapshot: sessionRegistry.snapshot(),
+    ...report,
+  };
+  self.postMessage(response);
 }
 
 interface OrtModule {
@@ -785,6 +843,23 @@ function preprocessImage(
  */
 self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   const data = e.data;
+  if (data?.type === 'release') {
+    try {
+      await handleRelease(data);
+    } catch (error) {
+      self.postMessage({
+        type: 'released',
+        requestId: data.requestId,
+        released: [],
+        failed: [{ key: '*', message: error instanceof Error ? error.message : String(error) }],
+        inUse: [],
+        possiblyResidentBytes: 0,
+        remaining: sessionRegistry.size,
+        snapshot: sessionRegistry.snapshot(),
+      } satisfies WorkerReleaseResponse);
+    }
+    return;
+  }
   if (data?.type !== 'infer') return;
 
   const {
@@ -800,8 +875,11 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     targetWidth,
     targetHeight,
     externalData,
+    sessionPeakBytes,
   } = data;
 
+  let runHeld = false;
+  let runCacheKey: string | null = null;
   try {
     const modelPre = modelRegistry.get(modelType);
     if (!modelPre) {
@@ -809,18 +887,28 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     }
 
     const ort = await loadOrt();
-    const cacheKey = `${modelType}:${modelPath}`;
-    const cached = sessionCache.get(cacheKey);
-    const hadSession = !!cached && cached.session;
+    const cacheKey = workerSessionKey(modelType, modelPath);
+    const cached = sessionRegistry.get(cacheKey);
 
-    const { session, executionProvider } =
-      reuseSession && hadSession
-        ? { session: cached!.session, executionProvider: cached!.executionProvider }
-        : await getSession(modelPath, modelId, modelType, externalData);
+    const resolved =
+      reuseSession && cached
+        ? {
+            session: cached.session,
+            executionProvider: cached.executionProvider,
+            cacheKey,
+            created: false,
+            sessionMs: 0,
+          }
+        : await getSession(modelPath, modelId, modelType, externalData, sessionPeakBytes);
+    const { session, executionProvider } = resolved;
 
-    if (!hadSession) {
+    if (!cached || resolved.created) {
       self.postMessage({ type: 'ready' } satisfies WorkerReady);
     }
+    sessionRegistry.beginRun(resolved.cacheKey);
+    runHeld = true;
+    runCacheKey = resolved.cacheKey;
+    const preprocessStarted = performance.now();
 
     const inputNames = (session as OrtSession).inputNames;
     const feeds: Record<string, unknown> = {};
@@ -943,7 +1031,11 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
       }
     }
 
+    const preprocessMs = performance.now() - preprocessStarted;
+    const inferStarted = performance.now();
     const results = await (session as OrtSession).run(feeds);
+    const inferMs = performance.now() - inferStarted;
+    const postprocessStarted = performance.now();
     const outputNames = (session as OrtSession).outputNames;
     const outputs: Record<string, unknown> = { executionProvider };
 
@@ -976,7 +1068,18 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
       }
     }
 
-    self.postMessage({ type: 'result', requestId, modelType, outputs } satisfies WorkerInferResult);
+    self.postMessage({
+      type: 'result',
+      requestId,
+      modelType,
+      outputs,
+      timings: {
+        sessionMs: resolved.sessionMs,
+        preprocessMs,
+        inferMs,
+        postprocessMs: performance.now() - postprocessStarted,
+      },
+    } satisfies WorkerInferResult);
   } catch (err) {
     const error: WorkerInferError = {
       type: 'error',
@@ -984,6 +1087,11 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
       message: err instanceof Error ? err.message : String(err),
     };
     self.postMessage(error);
+  } finally {
+    if (runHeld && runCacheKey) {
+      sessionRegistry.endRun(runCacheKey);
+      await sessionRegistry.evictIdleToCapacity();
+    }
   }
 };
 
@@ -996,6 +1104,6 @@ if (typeof self.postMessage === 'function') {
 }
 
 export function __resetSessionCache(): void {
-  sessionCache.clear();
+  sessionRegistry.clear();
   preferredOnnxProviders = null;
 }

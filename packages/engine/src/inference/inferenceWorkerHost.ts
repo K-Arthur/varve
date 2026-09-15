@@ -10,9 +10,12 @@ import { InferenceError } from './core/InferenceError';
 import type {
   WorkerInferRequest,
   WorkerInferResult,
+  WorkerReleaseRequest,
+  WorkerReleaseResponse,
   WorkerResponse,
   WorkerTensor,
 } from './inferenceWorker';
+import { workerSessionKey } from './sessionKeys';
 
 export interface InferenceJobOptions {
   signal?: AbortSignal;
@@ -38,10 +41,28 @@ const MODEL_TIMEOUT_MS: Partial<Record<WorkerInferRequest['modelType'], number>>
   detr: 120_000,
 };
 const DEFAULT_TIMEOUT_MS = 120_000;
+/** Release confirmation deadline; shorter than inference, longer than a JS turn. */
+const RELEASE_TIMEOUT_MS = 30_000;
 
 export class InferenceWorkerHost {
   private worker: Worker | null = null;
   private pendingJobs = new Map<string, PendingJob>();
+  private pendingReleases = new Map<
+    string,
+    {
+      resolve: (response: WorkerReleaseResponse) => void;
+      reject: (error: Error) => void;
+      timer: ReturnType<typeof setTimeout>;
+    }
+  >();
+  /** Accumulated release evidence; never treats a cache miss as reclaimed bytes. */
+  private residency = {
+    releasedSessions: 0,
+    failedReleases: 0,
+    /** Bytes whose release could not be confirmed in the current worker. */
+    unresolvedBytes: 0,
+    lastReport: null as WorkerReleaseResponse | null,
+  };
   /** Requests whose caller stopped caring while the graph is still running. */
   private discardedRequestIds = new Set<string>();
   private nextRequestId = 0;
@@ -81,6 +102,19 @@ export class InferenceWorkerHost {
   private handleMessage(msg: WorkerResponse): void {
     if (msg.type === 'ready') {
       this.workerReady = true;
+      return;
+    }
+
+    if (msg.type === 'released') {
+      const pending = this.pendingReleases.get(msg.requestId);
+      if (!pending) return;
+      clearTimeout(pending.timer);
+      this.pendingReleases.delete(msg.requestId);
+      this.residency.lastReport = msg;
+      this.residency.releasedSessions += msg.released.length;
+      this.residency.failedReleases += msg.failed.length;
+      this.residency.unresolvedBytes = msg.snapshot.unresolvedBytes;
+      pending.resolve(msg);
       return;
     }
 
@@ -130,6 +164,15 @@ export class InferenceWorkerHost {
       this.pendingJobs.delete(id);
       job.reject(reason);
     }
+    for (const [id, pending] of this.pendingReleases) {
+      clearTimeout(pending.timer);
+      this.pendingReleases.delete(id);
+      pending.reject(reason);
+    }
+    // The worker process is gone, so its wasm heap and GPU resources are
+    // reclaimed by the platform. This is the one case where accounting may
+    // return to zero without a successful release call.
+    this.residency.unresolvedBytes = 0;
     this.discardedRequestIds.clear();
   }
 
@@ -164,7 +207,11 @@ export class InferenceWorkerHost {
   ): Promise<WorkerInferResult> {
     const admissionRequest = {
       kind: 'worker' as const,
-      reservationBytes: options.reservationBytes ?? estimateWorkerReservation(request),
+      // Unresolved residency from a failed release cannot be proven reclaimed,
+      // so the next expensive stage reserves it again until a recycle clears it.
+      reservationBytes:
+        (options.reservationBytes ?? estimateWorkerReservation(request)) +
+        this.residency.unresolvedBytes,
       signal: options.signal,
       label: `${request.modelType} inference`,
     };
@@ -241,6 +288,85 @@ export class InferenceWorkerHost {
     }
   }
 
+  /**
+   * Release a specific model session (or every idle session) before another
+   * memory-heavy stage. Returns the worker's actual outcome; callers must use
+   * it to decide the next admission step instead of assuming memory returned.
+   */
+  async releaseModels(
+    keys?: readonly string[],
+    options: { timeoutMs?: number } = {},
+  ): Promise<WorkerReleaseResponse> {
+    const worker = this.ensureWorker();
+    const requestId = `rel_${++this.nextRequestId}_${Date.now().toString(36)}`;
+    const request: WorkerReleaseRequest = {
+      type: 'release',
+      requestId,
+      ...(keys ? { keys: [...keys] } : {}),
+    };
+    const timeout = options.timeoutMs ?? RELEASE_TIMEOUT_MS;
+    return new Promise<WorkerReleaseResponse>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingReleases.delete(requestId);
+        reject(
+          new InferenceError('inference_timeout', undefined, {
+            message: `Session release timed out after ${timeout}ms`,
+            technical: 'The worker did not confirm release; residency stays accounted.',
+          }),
+        );
+      }, timeout);
+      this.pendingReleases.set(requestId, { resolve, reject, timer });
+      try {
+        worker.postMessage(request);
+      } catch (error) {
+        clearTimeout(timer);
+        this.pendingReleases.delete(requestId);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  }
+
+  /** Release one model identified by the same key the worker cached it under. */
+  async releaseModel(
+    modelType: WorkerInferRequest['modelType'],
+    modelPath: string,
+  ): Promise<WorkerReleaseResponse> {
+    return this.releaseModels([workerSessionKey(modelType, modelPath)]);
+  }
+
+  /** Release evidence for diagnostics and admission decisions. */
+  getResidencyDiagnostics(): {
+    releasedSessions: number;
+    failedReleases: number;
+    unresolvedBytes: number;
+    pendingReleases: number;
+    lastReport: WorkerReleaseResponse | null;
+  } {
+    return {
+      releasedSessions: this.residency.releasedSessions,
+      failedReleases: this.residency.failedReleases,
+      unresolvedBytes: this.residency.unresolvedBytes,
+      pendingReleases: this.pendingReleases.size,
+      lastReport: this.residency.lastReport,
+    };
+  }
+
+  /**
+   * Terminate and lazily recreate the worker, but only when nothing is in
+   * flight. This is the bounded fallback when a release failed and the
+   * runtime cannot confirm reclamation: worker termination is the only way to
+   * return a grown WASM heap, and recycling an idle shared host is safe.
+   */
+  recycleWorkerIfIdle(): boolean {
+    if (this.pendingJobs.size > 0 || this.pendingReleases.size > 0) return false;
+    if (!this.worker) return true;
+    this.worker.terminate();
+    this.worker = null;
+    this.workerReady = false;
+    this.residency.unresolvedBytes = 0;
+    return true;
+  }
+
   /** Cancel all pending jobs and terminate the worker */
   dispose(): void {
     for (const [id, job] of this.pendingJobs) {
@@ -249,11 +375,17 @@ export class InferenceWorkerHost {
       job.reject(new Error('Worker disposed'));
       this.pendingJobs.delete(id);
     }
+    for (const [id, pending] of this.pendingReleases) {
+      clearTimeout(pending.timer);
+      this.pendingReleases.delete(id);
+      pending.reject(new Error('Worker disposed'));
+    }
     if (this.worker) {
       this.worker.terminate();
       this.worker = null;
     }
     this.workerReady = false;
+    this.residency.unresolvedBytes = 0;
     this.discardedRequestIds.clear();
   }
 
