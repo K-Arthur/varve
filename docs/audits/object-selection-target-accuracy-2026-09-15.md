@@ -186,6 +186,39 @@ These runs validate the new selection safety behavior on a licensed photograph;
 they do not qualify SAM2 for all categories and do not establish that semantic
 generative Fill, Replace, or Expand quality is complete.
 
+## Revalidation after source-mask reopen fix (commit `38513841c`)
+
+The source-mask handoff was revalidated against a second licensed photograph
+from the Pexels portrait corpus (`tests/fixtures/bg-removal-corpus/human.jpg`).
+The prompt was an off-centre point on the shirt rather than the image centre,
+so the visual check exercises the actual placed artwork and the candidate's
+boundary. The real model returned three candidates, and the reviewed candidate
+was applied through the normal undo/redo path:
+
+```text
+VARVE_SAM2_REAL_MODEL=1 VARVE_SAM2_PROFILE_DIR=/home/kevina/varve-sam2-selection-profile-real-20260915d \
+VARVE_E2E_PORT=1663 VARVE_E2E_WORKERS=1 VARVE_HEAVY_TASK_PARALLELISM=0 \
+VARVE_E2E_OUTPUT_DIR=selection-real-20260915d \
+pnpm exec playwright test tests/e2e/canvas/object-selection-real-model.spec.ts \
+  --project=chromium --workers=1 \
+  --grep "clicks an object, gets a real mask preview" --reporter=list
+```
+
+Result: **1 passed** (55.8 seconds). The status reported a real predicted-IoU
+score of `0.55`, prompt match `100%`, and three candidate masks. The selected
+and applied screenshots were inspected at:
+
+- `test-results/selection-real-20260915d/canvas-object-selection-re-592e1-s-it-and-survives-undo-redo-chromium/real-model-selection.png`
+- `test-results/selection-real-20260915d/canvas-object-selection-re-592e1-s-it-and-survives-undo-redo-chromium/real-model-preview.png`
+- `test-results/selection-real-20260915d/canvas-object-selection-re-592e1-s-it-and-survives-undo-redo-chromium/real-model-applied.png`
+
+The reviewed result shows the blue shirt region selected and applied without
+the surrounding wall or the rest of the portrait being included in the mask.
+This is a visual selection check, not proof of semantic intent for every point
+or photograph. The source-mask reopen path itself remains covered by the
+source-frame/unit contract; a high-resolution model-quality run is still
+required before the overall generative-editing release gate can pass.
+
 Prompt geometry is validated immediately after decoding the source dimensions
 and before local model lookup, memory probing, or full-resolution pixel
 allocation. An off-image or unmappable point/box therefore fails as an input
