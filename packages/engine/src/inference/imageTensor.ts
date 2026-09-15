@@ -10,6 +10,12 @@ export interface TensorSpec {
   mean: [number, number, number];
   std: [number, number, number];
   paddingRgb: [number, number, number];
+  /**
+   * Plane order written by the packers. 'rgb' (default) writes R,G,B planes.
+   * 'bgr' writes B,G,R — required by models whose reference implementation
+   * feeds OpenCV `blobFromImage` output (swapRB=false), e.g. YuNet.
+   */
+  channelOrder?: 'rgb' | 'bgr';
 }
 
 export interface LetterboxTransform {
@@ -91,22 +97,29 @@ function createImageBitmapFromCanvas(canvas: OffscreenCanvas): ImageBitmap {
 
 /**
  * Pack RGBA ImageData into NCHW Float32Array with normalization.
- * Output layout: [R plane, G plane, B plane], each plane is H×W.
+ * Output layout: three H×W planes in the spec's channel order (default R,G,B).
  */
 export function packNchwTensor(imageData: ImageData, spec: TensorSpec): Float32Array {
   const pixelCount = imageData.width * imageData.height;
   const result = new Float32Array(pixelCount * 3);
   const mean = spec.mean;
   const std = spec.std;
+  const bgr = spec.channelOrder === 'bgr';
 
   for (let i = 0; i < pixelCount; i++) {
     const offset = i * 4;
     const r = (imageData.data[offset] ?? 0) / 255;
     const g = (imageData.data[offset + 1] ?? 0) / 255;
     const b = (imageData.data[offset + 2] ?? 0) / 255;
-    result[i] = (r - mean[0]!) / std[0]!;
-    result[pixelCount + i] = (g - mean[1]!) / std[1]!;
-    result[pixelCount * 2 + i] = (b - mean[2]!) / std[2]!;
+    if (bgr) {
+      result[i] = (b - mean[0]!) / std[0]!;
+      result[pixelCount + i] = (g - mean[1]!) / std[1]!;
+      result[pixelCount * 2 + i] = (r - mean[2]!) / std[2]!;
+    } else {
+      result[i] = (r - mean[0]!) / std[0]!;
+      result[pixelCount + i] = (g - mean[1]!) / std[1]!;
+      result[pixelCount * 2 + i] = (b - mean[2]!) / std[2]!;
+    }
   }
 
   return result;

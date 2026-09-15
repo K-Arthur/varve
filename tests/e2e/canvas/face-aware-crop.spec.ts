@@ -133,4 +133,35 @@ test.describe('Face-aware crop — Protect Faces', () => {
       }
     }
   });
+
+  /**
+   * The checked-in facade photograph has three faces 11-15 px wide. A single
+   * whole-image letterbox into the model's fixed 640 input loses all three
+   * (upstream OpenCV agrees: 0 detections on the same letterboxed pixels), so
+   * this is the case the bounded native-scale window tier exists for. Before
+   * that tier the UI reported "No faces detected" here.
+   */
+  test('recovers small faces on a large image via the native-scale window tier', async ({
+    page,
+  }) => {
+    test.setTimeout(300000);
+    await importAndSelectSquare(page, 'tests/e2e/fixtures/real-life-smithsonian.jpg');
+
+    // Large imports are centred on the canvas and keep their top-left when
+    // resized, which can leave the node (and its selection quick bar) outside
+    // the visible viewport. Fit the selection so the quick bar is reachable.
+    await page.getByRole('button', { name: 'Fit selection to viewport' }).click();
+    await page.waitForTimeout(300);
+
+    const action = await openProtectFacesControls(page);
+    await action.click();
+
+    const errorAlert = page.locator('.insp-hint--error[role="alert"]');
+    await expect(errorAlert).toHaveCount(0, { timeout: 120000 });
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+    const cropDims = page.locator('.insp-image-fill__crop-dims');
+    await expect(cropDims).toBeVisible({ timeout: 5000 });
+  });
 });

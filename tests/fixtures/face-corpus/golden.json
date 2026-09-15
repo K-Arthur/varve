@@ -1,0 +1,184 @@
+{
+  "generated": "2026-09-15",
+  "generator": "scripts/bench/face-golden/generate_face_golden.py",
+  "note": "Detections come from the upstream OpenCV predictor (cv2.FaceDetectorYN) on the checked-in letterboxed PNG. The TypeScript gate feeds the same PNG through onnxruntime-node + the production preprocessor/decoder and must reproduce these values within the documented tolerances.",
+  "model": {
+    "id": "yunet-face-detect",
+    "sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4",
+    "source": "opencv/face_detection_yunet 2023mar (MIT)"
+  },
+  "predictor": {
+    "opencv": "5.0.0",
+    "scoreThreshold": 0.5,
+    "nmsThreshold": 0.3,
+    "topK": 5000
+  },
+  "cases": {
+    "portrait": {
+      "description": "horizontal letterbox padding; two faces, one the 640 pass loses",
+      "sourceFixture": "real-life-braided-portrait.jpg",
+      "sourceWidth": 1920,
+      "sourceHeight": 2383,
+      "provenance": "tests/e2e/fixtures/PROVENANCE.md",
+      "letterbox": {
+        "scale": 0.26856903063365506,
+        "contentWidth": 516,
+        "contentHeight": 640,
+        "offsetX": 62,
+        "offsetY": 0
+      },
+      "letterboxPng": "letterbox-portrait.png",
+      "letterboxPngSha256": "bd84efe94b76c0880f88b29902913eb1d451e5175be0d681a15d40e2d60e931e",
+      "detections": [
+        {
+          "box": [217.9858, 177.5616, 95.6187, 152.6575],
+          "landmarks": [
+            [238.4693, 238.0656],
+            [241.5041, 245.455],
+            [215.2278, 275.9648],
+            [232.9634, 294.8699],
+            [239.5929, 299.6256]
+          ],
+          "score": 0.909596
+        }
+      ],
+      "nativeReference": [
+        {
+          "box": [557.283, 744.71, 369.686, 529.407],
+          "score": 0.840245,
+          "size": 529
+        },
+        {
+          "box": [894.278, 866.203, 152.042, 196.398],
+          "score": 0.725961,
+          "size": 196
+        }
+      ]
+    },
+    "ocean": {
+      "description": "vertical letterbox padding; four small faces",
+      "sourceFixture": "real-life-ocean-acidification.jpg",
+      "sourceWidth": 1280,
+      "sourceHeight": 960,
+      "provenance": "tests/e2e/fixtures/PROVENANCE.md",
+      "letterbox": {
+        "scale": 0.5,
+        "contentWidth": 640,
+        "contentHeight": 480,
+        "offsetX": 0,
+        "offsetY": 80
+      },
+      "letterboxPng": "letterbox-ocean.png",
+      "letterboxPngSha256": "80bbfb4ab103c964d70d9102b0c5d5172620cbf76a922b27f81c8bda8ab48d20",
+      "detections": [
+        {
+          "box": [184.932, 252.43, 31.4247, 39.0719],
+          "landmarks": [
+            [194.2886, 266.7206],
+            [209.8336, 266.7354],
+            [202.7278, 274.5233],
+            [195.4276, 281.1848],
+            [207.54, 281.1901]
+          ],
+          "score": 0.909795
+        },
+        {
+          "box": [529.5378, 184.038, 52.2093, 83.4785],
+          "landmarks": [
+            [537.9454, 214.0268],
+            [546.9626, 214.2736],
+            [533.0853, 228.1422],
+            [540.0839, 245.2858],
+            [547.5933, 244.6136]
+          ],
+          "score": 0.862569
+        },
+        {
+          "box": [389.8719, 271.8375, 35.8188, 49.3208],
+          "landmarks": [
+            [396.0033, 290.1064],
+            [403.5892, 290.6075],
+            [394.0256, 298.7237],
+            [397.9439, 307.9448],
+            [402.3441, 308.3864]
+          ],
+          "score": 0.83182
+        }
+      ],
+      "nativeReference": [
+        {
+          "box": [366.566, 342.053, 66.487, 84.576],
+          "score": 0.930446,
+          "size": 85
+        },
+        {
+          "box": [782.023, 380.053, 64.535, 94.795],
+          "score": 0.85854,
+          "size": 95
+        },
+        {
+          "box": [1062.102, 222.268, 98.741, 150.991],
+          "score": 0.851828,
+          "size": 151
+        },
+        {
+          "box": [531.968, 319.311, 67.611, 101.924],
+          "score": 0.520918,
+          "size": 102
+        }
+      ]
+    },
+    "smithsonian": {
+      "description": "three 11-15 px faces the 640 pass loses entirely",
+      "sourceFixture": "real-life-smithsonian.jpg",
+      "sourceWidth": 1920,
+      "sourceHeight": 1159,
+      "provenance": "tests/e2e/fixtures/PROVENANCE.md",
+      "letterbox": {
+        "scale": 0.3333333333333333,
+        "contentWidth": 640,
+        "contentHeight": 386,
+        "offsetX": 0,
+        "offsetY": 127
+      },
+      "letterboxPng": "letterbox-smithsonian.png",
+      "letterboxPngSha256": "220ba879c984820dcc615c71d3271f3579272d9c861c69dffd44680196de5b0b",
+      "detections": [],
+      "nativeReference": [
+        {
+          "box": [1662.772, 1023.807, 11.812, 15.252],
+          "score": 0.713261,
+          "size": 15
+        },
+        {
+          "box": [220.655, 1117.716, 9.937, 11.471],
+          "score": 0.648603,
+          "size": 11
+        },
+        {
+          "box": [1667.642, 1020.046, 10.446, 13.676],
+          "score": 0.534796,
+          "size": 14
+        }
+      ]
+    },
+    "landscape": {
+      "description": "no faces; false-positive control",
+      "sourceFixture": "real-life-landscape.jpg",
+      "sourceWidth": 1632,
+      "sourceHeight": 1224,
+      "provenance": "tests/e2e/fixtures/PROVENANCE.md",
+      "letterbox": {
+        "scale": 0.39215686274509803,
+        "contentWidth": 640,
+        "contentHeight": 480,
+        "offsetX": 0,
+        "offsetY": 80
+      },
+      "letterboxPng": "letterbox-landscape.png",
+      "letterboxPngSha256": "6ca5882281bce4c47bdbbf609b4eaef4c85643f69a6d94614123410f4c46c280",
+      "detections": [],
+      "nativeReference": []
+    }
+  }
+}

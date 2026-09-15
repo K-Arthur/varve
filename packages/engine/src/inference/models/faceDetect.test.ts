@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  clipFaceDetectionToFrame,
   decodeFaceDetections,
+  FaceDecodeError,
   YU_NET_INPUT_SIZE,
   YU_NET_LANDMARK_NAMES,
   YU_NET_STRIDES,
@@ -215,5 +217,158 @@ describe('faceDetect (YuNet 2023mar)', () => {
   it('returns an empty array for all-zero outputs', () => {
     const outputs = buildOutputs();
     expect(decodeFaceDetections(outputs, 640, 640)).toHaveLength(0);
+  });
+
+  it('packs the BGR plane order the reference predictor uses', () => {
+    expect(YU_NET_TENSOR_SPEC.channelOrder).toBe('bgr');
+  });
+
+  describe('OpenCV parity for the topK candidate cap', () => {
+    it('applies topK before suppression, not after', () => {
+      const outputs = buildOutputs();
+      // A (score 1.0) and B (score 0.9) overlap (24 px boxes on adjacent
+      // cells: IoU 0.5); C (0.8) is far away.
+      const wide = [0, 0, Math.log(3), Math.log(3)] as [number, number, number, number];
+      plantFace(outputs, 8, 3, 5, { cls: 1, obj: 1, bbox: wide });
+      plantFace(outputs, 8, 3, 6, { cls: 0.9, obj: 0.9, bbox: wide });
+      plantFace(outputs, 8, 3, 35, { cls: 0.8, obj: 0.8, bbox: wide });
+
+      // topK = 2 truncates the candidate list to {A, B} before NMS, so B is
+      // suppressed and nothing else is considered: exactly one face.
+      // A post-suppression cap would have returned A and C.
+      const capped = decodeFaceDetections(outputs, 640, 640, undefined, { topK: 2 });
+      expect(capped).toHaveLength(1);
+      expect(capped[0]!.score).toBeCloseTo(1, 3);
+
+      const uncapped = decodeFaceDetections(outputs, 640, 640, undefined, { topK: 5000 });
+      expect(uncapped).toHaveLength(2);
+    });
+
+    it('drops a candidate whose score equals the threshold (strict > inside NMS)', () => {
+      const outputs = buildOutputs();
+      plantFace(outputs, 8, 3, 5, { cls: 0.5, obj: 0.5 }); // score == 0.5 exactly
+      expect(
+        decodeFaceDetections(outputs, 640, 640, undefined, { scoreThreshold: 0.5 }),
+      ).toHaveLength(0);
+      expect(
+        decodeFaceDetections(outputs, 640, 640, undefined, { scoreThreshold: 0.4 }),
+      ).toHaveLength(1);
+    });
+
+    it('reports untruncated coordinates; int truncation is suppression-only', () => {
+      const outputs = buildOutputs();
+      plantFace(outputs, 8, 3, 5, { cls: 1, obj: 1, bbox: [0.7, 0, 0, 0] });
+      const faces = decodeFaceDetections(outputs, 640, 640);
+      expect(faces).toHaveLength(1);
+      // cx = (5 + 0.7) * 8 = 45.6 -> x = 41.6 in the reported box.
+      expect(faces[0]!.box.x).toBeCloseTo(41.6, 3);
+    });
+  });
+
+  describe('malformed output is a typed failure, never a silent "no faces"', () => {
+    it('rejects a missing tensor', () => {
+      const outputs = buildOutputs();
+      outputs.cls_16 = undefined as never;
+      expect(() => decodeFaceDetections(outputs, 640, 640)).toThrow(FaceDecodeError);
+      try {
+        decodeFaceDetections(outputs, 640, 640);
+      } catch (error) {
+        expect((error as FaceDecodeError).code).toBe('FACE_OUTPUT_MALFORMED');
+        expect((error as Error).message).toContain('cls_16');
+      }
+    });
+
+    it('rejects a short data array instead of reading undefined', () => {
+      const outputs = buildOutputs();
+      outputs.kps_8 = { data: new Float32Array(10), dims: [1, 6400, 10] };
+      expect(() => decodeFaceDetections(outputs, 640, 640)).toThrow(/expected 64000/);
+    });
+
+    it('rejects mis-shaped dims', () => {
+      const outputs = buildOutputs();
+      outputs.bbox_32 = { data: new Float32Array(400 * 4), dims: [400, 4] };
+      expect(() => decodeFaceDetections(outputs, 640, 640)).toThrow(/expected \[1,400,4\]/);
+    });
+
+    it('rejects non-finite scores anywhere in the class/object maps', () => {
+      const outputs = buildOutputs();
+      outputs.obj_32!.data[123] = Number.NaN;
+      expect(() => decodeFaceDetections(outputs, 640, 640)).toThrow(/non-finite class\/object/);
+    });
+
+    it('rejects a non-finite box regression on a candidate that passes the threshold', () => {
+      const outputs = buildOutputs();
+      plantFace(outputs, 8, 3, 5, { bbox: [0, 0, Number.NaN, 0] });
+      expect(() => decodeFaceDetections(outputs, 640, 640)).toThrow(/non-finite box regression/);
+    });
+
+    it('rejects an exponential box-size overflow', () => {
+      const outputs = buildOutputs();
+      plantFace(outputs, 8, 3, 5, { bbox: [0, 0, 1000, 0] });
+      expect(() => decodeFaceDetections(outputs, 640, 640)).toThrow(/box size overflowed/);
+    });
+
+    it('rejects non-finite landmarks on a passing candidate', () => {
+      const outputs = buildOutputs();
+      plantFace(outputs, 8, 3, 5, { kps: [Number.POSITIVE_INFINITY, 0, 0, 0, 0, 0, 0, 0, 0, 0] });
+      expect(() => decodeFaceDetections(outputs, 640, 640)).toThrow(/non-finite landmark/);
+    });
+
+    it('rejects a zero or non-finite source size', () => {
+      const outputs = buildOutputs();
+      expect(() => decodeFaceDetections(outputs, 0, 640)).toThrow(FaceDecodeError);
+      expect(() => decodeFaceDetections(outputs, 640, Number.NaN)).toThrow(/positive finite/);
+    });
+
+    it('rejects a letterbox that leaves no usable content area', () => {
+      const outputs = buildOutputs();
+      expect(() => decodeFaceDetections(outputs, 640, 640, { offsetX: 320, offsetY: 0 })).toThrow(
+        /no usable content area/,
+      );
+      expect(() =>
+        decodeFaceDetections(outputs, 640, 640, { offsetX: Number.NaN, offsetY: 0 }),
+      ).toThrow(/no usable content area/);
+    });
+  });
+
+  describe('source-frame clipping is a true intersection', () => {
+    it('clips a partially off-image box to the visible extent', () => {
+      const outputs = buildOutputs();
+      // A 320 px source letterboxed into 640 (160 px pad each side, scale 1).
+      // cx = (0 + 60) * 8 = 480 in model space -> 316 .. 324 in source space.
+      plantFace(outputs, 8, 0, 0, { bbox: [60, 20, 0, 0] });
+      const faces = decodeFaceDetections(outputs, 320, 320, { offsetX: 160, offsetY: 160 });
+      expect(faces).toHaveLength(1);
+      expect(faces[0]!.box.x).toBeCloseTo(316, 3);
+      expect(faces[0]!.box.width).toBeCloseTo(4, 3);
+    });
+
+    it('drops a fully off-image candidate instead of shrinking it to the border', () => {
+      const outputs = buildOutputs();
+      plantFace(outputs, 8, 0, 0, { bbox: [200, 10, 0, 0] }); // cx = 1600
+      expect(decodeFaceDetections(outputs, 320, 320)).toHaveLength(0);
+    });
+
+    it('marks out-of-frame landmarks without clamping their coordinates', () => {
+      const outputs = buildOutputs();
+      // Landmark 0 far outside the frame; box centred inside. Square 640
+      // source so model pixels map 1:1.
+      plantFace(outputs, 8, 3, 5, { kps: [500, 500, 0, 0, 0, 0, 0, 0, 0, 0] });
+      const faces = decodeFaceDetections(outputs, 640, 640);
+      expect(faces).toHaveLength(1);
+      expect(faces[0]!.landmarks[0]!.x).toBeCloseTo((500 + 5) * 8, 3);
+      expect(faces[0]!.landmarksInFrame[0]).toBe(false);
+      expect(faces[0]!.landmarksInFrame[1]).toBe(true);
+    });
+
+    it('clipFaceDetectionToFrame returns null for a degenerate intersection', () => {
+      const detection = {
+        box: { x: 500, y: 500, width: 10, height: 10 },
+        landmarks: [],
+        landmarksInFrame: [],
+        score: 0.9,
+      };
+      expect(clipFaceDetectionToFrame(detection, 320, 320)).toBeNull();
+    });
   });
 });

@@ -314,8 +314,8 @@
       "modelVersion": "2023mar",
       "sourceRevision": "opencv/face_detection_yunet 2023mar",
       "sourceLicense": "MIT",
-      "preprocessingVersion": 1,
-      "postprocessingVersion": 1,
+      "preprocessingVersion": 2,
+      "postprocessingVersion": 2,
       "supportedProviders": [
         "wasm",
         "webgpu",
@@ -472,7 +472,7 @@
         "inferenceVerifiedAt": "2026-08-13T00:00:00Z",
         "validationSummary": "SHA-256 pinned from verified download. Tensor contract (input -> cls/obj/bbox/kps at strides 8/16/32) verified against the ONNX graph; decode verified bit-for-bit against OpenCV FaceDetectorYN (max |score| 2.2e-9, max |box| 1.06e-5 px)."
       },
-      "notes": "YuNet face detection (opencv/face_detection_yunet 2023mar, MIT). Detects faces with bounding boxes and five keypoints each — powers face-aware crop ('Protect Faces'), person selection anchors, and face keypoints. 233 KB, bundled with the app."
+      "notes": "YuNet face detection (opencv/face_detection_yunet 2023mar, MIT). Detects faces with bounding boxes and five keypoints each — powers face-aware crop ('Protect Faces'), person selection anchors, and face keypoints. 233 KB, bundled with the app. Preprocessing v2 packs the BGR plane order the upstream OpenCV predictor uses (measured: fewer borderline false positives on textured content); postprocessing v2 matches OpenCV's pre-suppression topK, strict score gate, and true frame intersection, and the backend runs a bounded native-scale window tier to recover small faces the fixed 640 input loses (docs/audits/face-detection-refinement-2026-09-15.md)."
     },
     {
       "id": "birefnet-general",

@@ -78,6 +78,26 @@ describe('imageTensor', () => {
       const expectedR = (0 - TEST_SPEC.mean[0]) / TEST_SPEC.std[0];
       expect(tensor[0]).toBeCloseTo(expectedR, 5);
     });
+
+    it('packs B,G,R planes when the spec declares the bgr channel order', () => {
+      // One pixel, pure red: planes must be [B, G, R] = [0, 0, 1].
+      const data = new Uint8ClampedArray([255, 0, 0, 255]);
+      const imageData = { data, width: 1, height: 1 } as unknown as ImageData;
+      const bgrSpec: TensorSpec = {
+        inputWidth: 1,
+        inputHeight: 1,
+        mean: [0, 0, 0],
+        std: [1, 1, 1],
+        paddingRgb: [0, 0, 0],
+        channelOrder: 'bgr',
+      };
+      const tensor = packNchwTensor(imageData, bgrSpec);
+      expect(Array.from(tensor)).toEqual([0, 0, 1]);
+
+      // The default (rgb) order keeps R first for the same pixel.
+      const rgbTensor = packNchwTensor(imageData, { ...bgrSpec, channelOrder: 'rgb' });
+      expect(Array.from(rgbTensor)).toEqual([1, 0, 0]);
+    });
   });
 
   describe('packNchwTensorRgb', () => {
