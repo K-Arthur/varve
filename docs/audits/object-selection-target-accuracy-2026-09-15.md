@@ -133,6 +133,59 @@ source-sized mask, and protected against a broad-box adjacent-object leak.
 They do not replace the required multi-photo qualification for hair,
 transparency, reflections, boundaries, perspective, or other difficult cases.
 
+## Revalidation after interior-anchor guard (commit `edd484862`)
+
+The selection validator now measures hard-mask support in a bounded
+neighbourhood around each positive point. A point-only candidate whose only
+include point is on or near the proposed boundary remains visible but cannot be
+applied or handed into Generative Edit until the user adds a deeper include
+point or a box. Candidate ranking also prefers a candidate without this
+refinement requirement over a higher-scoring boundary candidate.
+
+The real-photo edge guard was rerun after the change:
+
+```text
+TMPDIR=/home/kevina/varve-selection-validation-PGtrW4 \
+VARVE_SAM2_REAL_MODEL=1 \
+VARVE_SAM2_PROFILE_DIR=/home/kevina/varve-sam2-selection-profile-edge-20260915c \
+VARVE_E2E_PORT=1661 VARVE_E2E_WORKERS=1 VARVE_HEAVY_TASK_PARALLELISM=0 \
+VARVE_E2E_OUTPUT_DIR=selection-edge-20260915c \
+pnpm exec playwright test tests/e2e/canvas/object-selection-real-model.spec.ts \
+  --project=chromium --workers=1 \
+  --grep "blocks an under-specified edge-object prompt" --reporter=list
+```
+
+Result: **1 passed** (45.5 seconds). The full-composition screenshots were
+inspected at:
+
+- `test-results/selection-edge-20260915c/canvas-object-selection-re-381f9-t-before-it-reaches-an-edit-chromium/real-still-life-apple-preview.png`
+- `test-results/selection-edge-20260915c/canvas-object-selection-re-381f9-t-before-it-reaches-an-edit-chromium/real-still-life-apple-blocked.png`
+
+The complementary box recovery lane was rerun with the same model and source:
+
+```text
+TMPDIR=/home/kevina/varve-selection-validation-EJ5fiP \
+VARVE_SAM2_REAL_MODEL=1 \
+VARVE_SAM2_PROFILE_DIR=/home/kevina/varve-sam2-selection-profile-box-20260915b \
+VARVE_E2E_PORT=1662 VARVE_E2E_WORKERS=1 VARVE_HEAVY_TASK_PARALLELISM=0 \
+VARVE_E2E_OUTPUT_DIR=selection-box-edd484862 \
+pnpm exec playwright test tests/e2e/canvas/object-selection-real-model.spec.ts \
+  --project=chromium --workers=1 \
+  --grep "uses a box hint to capture an edge-hugging real object" --reporter=list
+```
+
+Result: **1 passed** (50.1 seconds). The production mask report was
+`1280 × 960`, `85882` hard pixels, one connected component, `72242` pixels in
+the apple review window, and zero pixels in both the mug and flower windows.
+The inspected artifacts are:
+
+- `test-results/selection-box-edd484862/canvas-object-selection-re-dc7a9-real-object-before-applying-chromium/real-still-life-box-preview.png`
+- `test-results/selection-box-edd484862/canvas-object-selection-re-dc7a9-real-object-before-applying-chromium/real-still-life-box-applied.png`
+
+These runs validate the new selection safety behavior on a licensed photograph;
+they do not qualify SAM2 for all categories and do not establish that semantic
+generative Fill, Replace, or Expand quality is complete.
+
 Prompt geometry is validated immediately after decoding the source dimensions
 and before local model lookup, memory probing, or full-resolution pixel
 allocation. An off-image or unmappable point/box therefore fails as an input
