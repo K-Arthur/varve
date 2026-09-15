@@ -92,16 +92,18 @@ node scripts/quality/heavy-lease.mjs website-e2e -- pnpm test:website:e2e
 pnpm --filter @varve/website typecheck                      # pre-existing error below
 ```
 
-Full-suite state at this revision (`npx playwright test -c
-playwright.website.config.ts`, both the GitHub Pages and custom-domain
-projects):
+Full-suite certification (`TMPDIR=<writable dir> npx playwright test -c
+playwright.website.config.ts --workers=2`, both the GitHub Pages and
+custom-domain projects): **544 passed, 0 failed**, including the 12 search
+tests, every visual baseline, contrast/visibility, reflow at 320 px and
+200% text, touch targets, and axe scans.
 
-- 540 passed; the only failures were 4 pre-existing content assertions in
-  `depth-aware-effects-feature.spec.ts` that still expected copy from before
-  those pages were rewritten by the depth-aware work already on `master`.
-- After aligning those assertions with the committed copy and regenerating
-  their two snapshots, all 4 pass (verified in isolation across both
-  projects). The visual suite is green on a full run.
+Earlier in the session the same run reported 540 passed / 4 failed: two
+stale content assertions in `depth-aware-effects-feature.spec.ts` (copy
+rewritten by the depth-aware work already on `master`) and two long-capture
+snapshot crashes under a full `/tmp` tmpfs. Both causes are documented
+below; the assertions were aligned with the committed copy and all
+baselines were regenerated and inspected.
 
 Real-corpus query check (built index, Node 22, this machine): 20 queries
 including `cmyk`, `print pdf`, `background removal`, `variable fonts`,
@@ -156,17 +158,42 @@ differently the baseline will need a refresh by its owner.
 
 | Commit | Contents |
 |---|---|
-| `feat(website)`: search index and section anchors | `src/lib/search/*`, `scripts/search-index.mjs`, `astro.config.mjs`, 34 unit tests |
-| `feat(website)`: accessible site search | `SearchDialog.astro`, header triggers, Layout include |
-| `test(website)`: search/anchor E2E | 12 Playwright tests |
-| `test(website)`: stale feature assertions | depth-aware copy + snapshots, tone-rotation count |
-| `test(website)`: visual baselines | 16 regenerated snapshots |
-| `fix(website)`: undefined tokens | `--surface-raised`, `--font-ui` in three pages |
-| `docs(website)`: this record | README, website architecture doc, audit |
+| `76389639a` feat(website): search index and section anchors | `src/lib/search/*`, `scripts/search-index.mjs`, `astro.config.mjs`, 34 unit tests |
+| `4947cbae0` feat(website): accessible site search | `SearchDialog.astro`, header triggers, Layout include |
+| `ae4e98379` test(website): search/anchor E2E | 12 Playwright tests |
+| `b7417f7cc` + `11db54720` test(website): stale feature assertions | depth-aware copy + snapshots, tone-rotation count |
+| `a3e128a8f` test(website): visual baselines | 16 regenerated snapshots |
+| `d618545af` + `f259776f6` fix(website): undefined tokens | `--surface-raised`, `--font-ui` in three pages |
+| `16f33f06e` test(website): typography baseline | font-preview content from `f614c8048` |
+| `a7e1e6785` docs(website): this record | README, website architecture doc, audit |
 
 Each commit was staged through an isolated temporary index because the
 shared index contained other agents' staged work; commits contain only the
 paths listed above, and the shared index was left as found.
+
+### Incident and repair (2026-09-14)
+
+`/tmp` is a 12 GiB tmpfs and filled up during concurrent agent work. One of
+this session's commits (`075bdcfe1`) was created from a truncated temporary
+index at the moment `/tmp` hit ENOSPC and recorded a repository-wide
+deletion. Another agent reverted it as `95337561c` within minutes; the
+working tree was never modified, no file content was lost, and all earlier
+commits in this series remain ancestors of `master`. The revert also
+restored pre-change copies of two of this session's files, which were
+re-applied in `f259776f6` and `11db54720`. Subsequent staging used an index
+on the root filesystem instead of `/tmp`.
+
+### Environment note for long visual captures
+
+Two full-page snapshot tests (`typography page light`, `download page dark`)
+failed in a full run with Chromium `Page.captureScreenshot` crashes
+(`GPU process exited unexpectedly`). Playwright launches Chromium with
+`--disable-dev-shm-usage`, so shared memory falls back to `$TMPDIR`; with
+`/tmp` full, the very tall captures (typography is ~11,600 px) crash the
+renderer. Re-running with `TMPDIR` pointed at a writable directory and
+`--workers=1` passed. The typography baseline itself was stale for a
+separate reason: `f614c8048` changed that page at 11:48, after the previous
+baseline capture.
 
 ## 4. Deliberate decisions and qualifications
 
