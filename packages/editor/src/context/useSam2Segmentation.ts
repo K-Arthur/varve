@@ -435,6 +435,35 @@ export function useSam2Segmentation(
             );
             return null;
           }
+          const currentMapper = prepareImageMaskMapper({
+            document: currentDoc,
+            node,
+            sourceWidth: previousSession.width,
+            sourceHeight: previousSession.height,
+          });
+          if (
+            !previousSession.mappingFingerprint ||
+            !currentMapper ||
+            currentMapper.fingerprint !== previousSession.mappingFingerprint
+          ) {
+            const live = stateRef.current.objectSelectionSession;
+            if (generation === generationRef.current && live?.nodeId === nodeId) {
+              writeTransientSession({
+                ...live,
+                status: 'error',
+                error: {
+                  code: 'mapping_changed',
+                  message:
+                    'The image placement changed after the preview. Create a new preview before applying it.',
+                  retryable: true,
+                },
+              });
+            }
+            announcerRef.current?.announce(
+              'The image placement changed after the preview. Create a new preview before applying it.',
+            );
+            return null;
+          }
           const hasPromptConstraints =
             previousSession.points.length > 0 || previousSession.box !== null;
           if (hasPromptConstraints && candidate.promptContainment !== 1) {
@@ -1030,6 +1059,52 @@ export function useSam2Segmentation(
           signal: combinedSignal,
           reservationBytes: resourceAssessment.estimatedPeakBytes,
         });
+        if (generation !== generationRef.current || combinedSignal.aborted) return null;
+
+        // A long encoder/decoder run can outlive a source replacement or an
+        // image transform change. Do not publish a preview for a mapping that
+        // no longer describes the live node, even though the request itself
+        // was not explicitly cancelled yet.
+        const liveDocument = stateRef.current.document;
+        const liveNodeAfterInference = liveDocument.nodes[nodeId];
+        const liveMapperAfterInference =
+          liveNodeAfterInference?.kind === 'shape'
+            ? prepareImageMaskMapper({
+                document: liveDocument,
+                node: liveNodeAfterInference,
+                sourceWidth: naturalW,
+                sourceHeight: naturalH,
+              })
+            : null;
+        if (
+          liveDocument.id !== currentDoc.id ||
+          !liveMapperAfterInference ||
+          liveMapperAfterInference.fingerprint !== imageMapper.fingerprint
+        ) {
+          markFailure({
+            code: 'mapping_changed',
+            message:
+              'The image placement changed while processing. Create a new preview and try again.',
+            retryable: true,
+          });
+          return null;
+        }
+        const freshSourceAfterInference = await readImageSourceIdentity(src);
+        if (
+          generation !== generationRef.current ||
+          combinedSignal.aborted ||
+          !freshSourceAfterInference ||
+          freshSourceAfterInference.width !== naturalW ||
+          freshSourceAfterInference.height !== naturalH ||
+          freshSourceAfterInference.fingerprint !== sourceFingerprint
+        ) {
+          markFailure({
+            code: 'source_changed',
+            message: 'The image changed while processing. Create a new preview and try again.',
+            retryable: true,
+          });
+          return null;
+        }
         if (!cachedEmbedding) {
           embeddingCache.set(cacheKey, {
             nodeId,
@@ -1136,6 +1211,7 @@ export function useSam2Segmentation(
                 routingRejections: decision.rejected,
                 sourceLocator: src,
                 sourceFingerprint,
+                mappingFingerprint: imageMapper.fingerprint,
                 startedAt: promptSession.startedAt,
                 slow: false,
                 stageTimingsMs: {

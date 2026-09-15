@@ -30,8 +30,11 @@ Before inference, the editor now:
 - maps every point and all four box corners through the image-placement inverse;
 - fails closed when a prompt is outside the visible source image or a box has no
   positive area;
-- retains source dimensions and a decoded-pixel fingerprint for the request and
-  rechecks them before applying a reviewed mask;
+- retains source dimensions, a decoded-pixel fingerprint, and the canonical
+  source-pixel-to-world mapping fingerprint for the request;
+- rechecks source pixels and mapping geometry after inference and before
+  applying a reviewed mask, so a crop, flip, rotation, node transform, or
+  ancestor transform cannot reuse an old candidate;
 - rejects a reviewed candidate whose mask buffer no longer matches the retained
   source dimensions before converting it to a document mask or area selection.
 
@@ -49,7 +52,7 @@ labelled with a low score. The remaining candidate with the highest finite model
 score is selected, and the session records how many candidates were rejected.
 The inspector reports prompt match separately from predicted IoU. Apply and
 Use as selection can only consume a candidate that was in this reviewed list,
-and source identity is checked again at commit time.
+and source identity plus mapping identity are checked again at commit time.
 
 ## What this does and does not prove
 
@@ -79,13 +82,20 @@ The provider-independent gate is covered by:
   exclude points, box overlap, malformed dimensions, and higher-scoring wrong
   candidates;
 - `packages/editor/src/context/useSam2Segmentation.test.tsx` — out-of-bounds
-  prompts fail before inference; and
+  prompts fail before inference, stale mask geometry is rejected, and a changed
+  source-to-world mapping cannot commit a reviewed candidate; and
 - `packages/editor/src/tools/sam2PromptCoordinates.test.ts` — transformed,
-  rotated, and partially visible prompt geometry.
+  rotated, and partially visible prompt geometry; the mapper tests also cover
+  the canonical transformed-coordinate path.
 
 The focused validation run for this slice passed the mask-validation,
-segmentation-hook, and provider-adapter suites (14 tests), the touched-file
-Biome check, and the editor typecheck. The repository-wide affected planner
-still escalates because unrelated concurrent workspace changes touch native,
-website, schema, and validation surfaces; that escalation is recorded in the
-handoff rather than hidden by a partial run.
+segmentation-hook, provider-adapter, and prompt-coordinate suites (18 tests),
+followed by the segmentation-hook and mapper suites after the mapping guard
+was added (20 tests). The touched-file Biome check passed. `pnpm
+verify:affected` stopped at its escalation guard because unrelated concurrent
+workspace changes touch native, website, schema, and validation surfaces; the
+editor typecheck was attempted but reported unrelated pre-existing worktree
+errors. Real-photo browser reruns did not reach a valid assertion: the native
+model run timed out during startup and the deterministic photographic run hit
+a Chromium target crash while `/tmp` was full. Neither run is counted as a
+visual pass.

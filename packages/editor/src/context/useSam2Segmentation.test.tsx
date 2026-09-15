@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { addNode, createDocument, type Document, makeImageShapeNode } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { prepareImageMaskMapper } from '../tools/imageMaskCoordinates';
 import { fingerprintImageData } from './imageFingerprint';
 import type { EditorState, ObjectSelectionSession } from './types';
 import { useSam2Segmentation } from './useSam2Segmentation';
@@ -59,6 +60,13 @@ async function sessionFor(options: SetupOptions = {}): Promise<{
     }),
   );
   const fingerprint = await fingerprintImageData(new ImageData(size, size));
+  const mappingFingerprint = prepareImageMaskMapper({
+    document: doc,
+    node: doc.nodes.image!,
+    sourceWidth: size,
+    sourceHeight: size,
+  })?.fingerprint;
+  if (!mappingFingerprint) throw new Error('expected image mapping');
   controls.load.mockResolvedValue({ width: size, height: size });
   const candidates = [{ mask, confidence: 0.9, promptContainment: 1 }];
   if (options.alternateMask) {
@@ -78,6 +86,7 @@ async function sessionFor(options: SetupOptions = {}): Promise<{
       box: null,
       sourceLocator: 'source',
       sourceFingerprint: fingerprint,
+      mappingFingerprint,
       confidence: 0.9,
       confidenceSource: 'model-iou',
       status: 'ready',
@@ -255,6 +264,35 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
     expect(setAreaSelection).not.toHaveBeenCalled();
     expect(stateRef.current.objectSelectionSession?.status).toBe('error');
     expect(stateRef.current.objectSelectionSession?.error?.code).toBe('invalid_mask_geometry');
+  });
+
+  it('refuses a reviewed candidate after the image mapping changes', async () => {
+    const { doc, session } = await sessionFor();
+    const { result, stateRef, setAreaSelection } = setup(session, doc);
+    const image = stateRef.current.document.nodes.image!;
+    stateRef.current.document = {
+      ...stateRef.current.document,
+      nodes: {
+        ...stateRef.current.document.nodes,
+        image: {
+          ...image,
+          transform: [1, 0, 0, 1, 2, 0],
+        },
+      },
+    };
+
+    await act(async () => {
+      await result.current.applySam2Segmentation({
+        nodeId: 'image',
+        prompts: { points: session.points },
+        operation: 'selection',
+      });
+    });
+
+    expect(controls.infer).not.toHaveBeenCalled();
+    expect(setAreaSelection).not.toHaveBeenCalled();
+    expect(stateRef.current.objectSelectionSession?.status).toBe('error');
+    expect(stateRef.current.objectSelectionSession?.error?.code).toBe('mapping_changed');
   });
 
   it('refuses a reviewed candidate that does not honor the prompts', async () => {

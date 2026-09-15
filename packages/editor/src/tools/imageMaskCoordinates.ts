@@ -30,6 +30,8 @@ export interface PrepareImageMaskMapperOptions {
 
 export interface PreparedImageMaskMapper {
   readonly placement: ImagePlacement;
+  /** Stable identity of the source-to-world mapping used for this session. */
+  readonly fingerprint: string;
   mapWorldPoint(worldPoint: { x: number; y: number }): { x: number; y: number } | null;
   /** Map a source-image pixel back into document space for selection clipping. */
   mapSourcePixelToWorld(sourcePoint: { x: number; y: number }): { x: number; y: number } | null;
@@ -84,6 +86,12 @@ export function prepareImageMaskMapper(
   if (!inverseWorld) return null;
   return {
     placement,
+    // Keep the fingerprint at the same canonical boundary as the mapper.
+    // Source pixels can remain identical while a crop, image transform, or
+    // ancestor transform changes where a reviewed mask belongs in the
+    // document. JSON is sufficient here because both values are validated
+    // finite geometry records and this is a transient identity, not a hash.
+    fingerprint: JSON.stringify({ placement, worldTransform }),
     mapWorldPoint(worldPoint) {
       const [x, y] = applyAffine(inverseWorld, [worldPoint.x, worldPoint.y]);
       return localToSourcePixel(placement, { x, y });

@@ -34,6 +34,8 @@ export interface ObjectSelectionSession {
   sourceLocator?: string;
   /** SHA-256 (or deterministic fallback) of the decoded source RGBA pixels. */
   sourceFingerprint?: string;
+  /** Identity of the source-pixel to document-world mapping used for preview. */
+  mappingFingerprint?: string;
   /** Point/box currently being drawn; never sent to the model until pointer-up. */
   draftPoint?: { x: number; y: number; label: 0 | 1 } | null;
   draftBox?: { x1: number; y1: number; x2: number; y2: number } | null;
