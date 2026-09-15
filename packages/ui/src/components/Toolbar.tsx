@@ -32,11 +32,19 @@ export interface ToolbarProps {
   children?: ReactNode;
   /** Whether arrow navigation wraps from last to first. Defaults to true. */
   wrap?: boolean;
+  /**
+   * Replaces the default `varve-toolbar` class. Surfaces that already own
+   * their full chrome styling (the context bar, the floating text bar) pass
+   * their own class so a shared layout rule cannot half-override them.
+   */
+  className?: string;
 }
 
 const BUTTON_SELECTOR = 'button, a[href]';
+const ARROW_OWNING_SELECTOR =
+  'input, textarea, select, [role="combobox"], [role="textbox"], [role="spinbutton"], [contenteditable="true"]';
 
-export function Toolbar({ label, children, wrap = true }: ToolbarProps) {
+export function Toolbar({ label, children, wrap = true, className }: ToolbarProps) {
   const [focusIdx, setFocusIdx] = useState(0);
   const toolbarRef = useRef<HTMLDivElement>(null);
 
@@ -132,6 +140,12 @@ export function Toolbar({ label, children, wrap = true }: ToolbarProps) {
 
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
+      // Composite widgets inside the toolbar own their arrow keys: stepping a
+      // number field, moving the caret in a text box, or navigating an open
+      // select must not be hijacked into toolbar focus movement (APG: the
+      // toolbar pattern yields to widgets that consume keys themselves).
+      const target = e.target as HTMLElement | null;
+      if (target?.closest(ARROW_OWNING_SELECTOR)) return;
       const count = getButtons().length;
       switch (e.key) {
         case 'ArrowRight':
@@ -179,7 +193,7 @@ export function Toolbar({ label, children, wrap = true }: ToolbarProps) {
   return (
     <div
       ref={toolbarRef}
-      className="varve-toolbar"
+      className={className ?? 'varve-toolbar'}
       role="toolbar"
       aria-label={label}
       onKeyDown={handleKey}

@@ -4,6 +4,7 @@ import { defaultStroke, makeShapeNode, makeTextNode } from '@varve/scene';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEditor } from '../../context';
+import { publishTextEditSession } from '../../context/textEditSession';
 import { ContextControlBar } from './ContextControlBar';
 
 vi.mock('../../context', () => ({
@@ -43,6 +44,19 @@ vi.mock('@varve/ui', () => ({
   Icon: () => <span aria-hidden="true" />,
   FloatingPortal: ({ children }: { children: ReactNode }) => <>{children}</>,
   FocusTrap: ({ children }: { children: ReactNode }) => <>{children}</>,
+  Toolbar: ({
+    label,
+    children,
+    className,
+  }: {
+    label: string;
+    children: ReactNode;
+    className?: string;
+  }) => (
+    <div className={className} role="toolbar" aria-label={label}>
+      {children}
+    </div>
+  ),
   Select: ({
     label,
     value,
@@ -116,6 +130,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.clearAllMocks();
+  publishTextEditSession(null);
 });
 
 describe('ContextControlBar typography controls', () => {
@@ -161,6 +176,22 @@ describe('ContextControlBar typography controls', () => {
 
     expect(bold).not.toBeDisabled();
     expect(bold).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('stops duplicating typography controls while the canvas edit session is active', () => {
+    // Regression: with a text edit session running, the context bar rendered
+    // the same font/weight/bold/italic/size controls as the floating text bar
+    // at the same time. The canvas bar (beside the work) owns formatting; the
+    // context row states where the controls are instead of duplicating them.
+    publishTextEditSession(node.id);
+    try {
+      render(<ContextControlBar />);
+      expect(screen.queryByRole('button', { name: 'Bold' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('textbox', { name: 'Font family' })).not.toBeInTheDocument();
+      expect(screen.getByText(/editing on canvas/i)).toBeInTheDocument();
+    } finally {
+      publishTextEditSession(null);
+    }
   });
 
   it('applies a real bold face from the contextual toolbar', () => {

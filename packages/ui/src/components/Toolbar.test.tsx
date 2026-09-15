@@ -137,4 +137,35 @@ describe('Toolbar', () => {
     );
     expect(zero).toHaveLength(1);
   });
+
+  it('yields arrow keys to a text-entry widget inside the toolbar', async () => {
+    // The quick bars embed composite widgets (a font-size field, a weight
+    // select). Arrow keys there must edit the widget, not hop to another
+    // toolbar control — APG: the toolbar yields to keys a widget owns.
+    const user = userEvent.setup();
+    render(
+      <Toolbar label="mixed">
+        <button type="button" aria-label="Bold" />
+        <input type="number" aria-label="Font size" defaultValue={12} />
+        <button type="button" aria-label="Italic" />
+      </Toolbar>,
+    );
+    const input = screen.getByRole('spinbutton', { name: 'Font size' });
+    await user.click(input);
+    await user.keyboard('{ArrowUp}');
+    expect(input).toHaveFocus();
+    await user.keyboard('{ArrowDown}');
+    expect(input).toHaveFocus();
+  });
+
+  it('lets a consumer class replace the default surface class', () => {
+    render(
+      <Toolbar label="custom" className="my-bar">
+        <button type="button" aria-label="A" />
+      </Toolbar>,
+    );
+    const bar = screen.getByRole('toolbar', { name: 'custom' });
+    expect(bar).toHaveClass('my-bar');
+    expect(bar).not.toHaveClass('varve-toolbar');
+  });
 });

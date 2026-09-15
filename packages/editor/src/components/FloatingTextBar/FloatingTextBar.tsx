@@ -10,9 +10,11 @@ import {
   SegmentedControl,
   Select,
   ToggleButton,
+  Toolbar,
   viewportPoint,
 } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { publishTextEditSession } from '../../context/textEditSession';
 import { FontSelector } from '../FontBrowser/FontSelector';
 import {
   fontFamilyChanges,
@@ -114,6 +116,13 @@ export function FloatingTextBar({
     () => pointAnchor(viewportPoint(textScreenRect.x, textScreenRect.y), document),
     [textScreenRect.x, textScreenRect.y],
   );
+
+  // This bar is mounted exactly while the in-canvas text edit session is
+  // active, so it owns the session flag other command surfaces subscribe to.
+  useEffect(() => {
+    publishTextEditSession(node.id);
+    return () => publishTextEditSession(null);
+  }, [node.id]);
 
   const applyTypography = useCallback(
     (changes: Partial<TextNode>) => onUpdate(node.id, changes),
@@ -248,7 +257,7 @@ export function FloatingTextBar({
       }}
       className="floating-text-bar__layer"
     >
-      <div className="floating-text-bar" role="toolbar" aria-label="Text formatting">
+      <Toolbar label="Text formatting" className="floating-text-bar">
         <FontSelector
           value={displayNode.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY}
           fontReference={displayNode.fontReference}
@@ -345,6 +354,8 @@ export function FloatingTextBar({
           className="floating-text-bar__more-layer"
           dismissOnEscape
           dismissOnPointerDown
+          initialFocus
+          yieldTabToAnchor
           onClose={(reason) => {
             setMoreOpen(false);
             if (reason === 'escape') moreRef.current?.focus();
@@ -377,7 +388,7 @@ export function FloatingTextBar({
             />
           </div>
         </FloatingPortal>
-      </div>
+      </Toolbar>
     </FloatingPortal>
   );
 }

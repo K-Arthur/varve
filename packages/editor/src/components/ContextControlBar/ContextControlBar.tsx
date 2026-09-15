@@ -24,9 +24,10 @@
 import type { FrameNode, SceneNode, TextNode } from '@varve/scene';
 import { isExportRegion, isImageShape } from '@varve/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from '@varve/shared';
-import { Icon, Select, Tooltip } from '@varve/ui';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Icon, Select, Toolbar, Tooltip } from '@varve/ui';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { type ToolId, useEditor } from '../../context';
+import { getTextEditSessionNodeId, subscribeTextEditSession } from '../../context/textEditSession';
 import { type FontFaceSelection, FontSelector } from '../FontBrowser/FontSelector';
 import {
   fontFamilyChanges,
@@ -470,6 +471,16 @@ export function ContextControlBar() {
   const sel = state.selection;
   const doc = state.document;
 
+  // While the in-canvas text editor is active, the floating text bar (mounted
+  // beside the work) is the typography surface. Rendering the same controls
+  // here as well duplicated every button in two places at once; keep the row
+  // honest about where the controls are instead.
+  const textEditNodeId = useSyncExternalStore(
+    subscribeTextEditSession,
+    getTextEditSessionNodeId,
+    () => null,
+  );
+
   const typographySurface = useMemo<TypographyCommandSurface>(
     () => ({
       selectedIds: state.selection,
@@ -530,6 +541,16 @@ export function ContextControlBar() {
     }
 
     if (node.kind === 'text') {
+      if (textEditNodeId === node.id) {
+        return (
+          <>
+            <span className="ccb__label">Text</span>
+            <span className="ccb__hint">
+              Editing on canvas — formatting is on the floating text bar
+            </span>
+          </>
+        );
+      }
       return <TextSection node={node as TextNode} typographySurface={typographySurface} />;
     }
 
@@ -572,11 +593,12 @@ export function ContextControlBar() {
     alignSelected,
     booleanOp,
     typographySurface,
+    textEditNodeId,
   ]);
 
   return (
-    <div className="context-control-bar" role="toolbar" aria-label="Contextual properties">
+    <Toolbar label="Contextual properties" className="context-control-bar">
       {content}
-    </div>
+    </Toolbar>
   );
 }
