@@ -123,11 +123,25 @@ export function patchMatchFill(
     return { imageData: result, filledBounds: { x: 0, y: 0, w: 0, h: 0 } };
   }
 
+  // Do not spread a real photographic mask into Math.min/Math.max. A user
+  // can select tens of thousands of pixels, which exceeds the JavaScript
+  // argument stack and turns an otherwise valid Remove into a call-stack
+  // error. The linear scan is allocation-free and has the same result.
+  let minX = w;
+  let minY = h;
+  let maxX = -1;
+  let maxY = -1;
+  for (const pixel of fillPixels) {
+    minX = Math.min(minX, pixel.x);
+    minY = Math.min(minY, pixel.y);
+    maxX = Math.max(maxX, pixel.x);
+    maxY = Math.max(maxY, pixel.y);
+  }
   const filledBounds = {
-    x: Math.min(...fillPixels.map((p) => p.x)),
-    y: Math.min(...fillPixels.map((p) => p.y)),
-    w: Math.max(...fillPixels.map((p) => p.x)) - Math.min(...fillPixels.map((p) => p.x)) + 1,
-    h: Math.max(...fillPixels.map((p) => p.y)) - Math.min(...fillPixels.map((p) => p.y)) + 1,
+    x: minX,
+    y: minY,
+    w: maxX - minX + 1,
+    h: maxY - minY + 1,
   };
 
   // Scores are keyed by the target's image index. The previous

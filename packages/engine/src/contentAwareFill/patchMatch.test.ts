@@ -55,4 +55,19 @@ describe('PatchMatch source safety', () => {
 
     expect(Array.from(result.data)).toEqual(Array.from(source.data));
   });
+
+  it('computes bounds for a large real-photo selection without spreading arguments', () => {
+    const width = 400;
+    const height = 400;
+    const source = makeImage(width, height, [80, 90, 100]);
+    const mask = new Uint8Array(width * height);
+    for (let y = 40; y < 360; y += 1) {
+      mask.fill(255, y * width + 40, y * width + 360);
+    }
+    const controller = new AbortController();
+    controller.abort();
+
+    const result = patchMatchFill(source, mask, width, height, 0, 0, controller.signal);
+    expect(result.filledBounds).toEqual({ x: 40, y: 40, w: 320, h: 320 });
+  });
 });
