@@ -192,6 +192,12 @@ removed (~1.5 GB). No repository artifact, evidence directory, or model file
 was deleted. Heavy model runs were serialized one provider at a time so the
 harness stayed at 0.9–1.4 GB peak instead of the ~3.1 GB all-providers peak.
 
+`CHANGELOG.md` carried another writer's in-progress edits (36+/9− uncommitted)
+throughout this session. No changelog entry was added, deliberately: committing
+the file would have swept their work and staging only this task's hunk would
+have made the next commit of theirs appear to revert a released file. This
+ledger and the two quality docs are the release-note source for this scope.
+
 ## Validation summary
 
 Commands actually run (all from the repo root):
