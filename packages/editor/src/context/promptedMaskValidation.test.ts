@@ -123,7 +123,7 @@ describe('prompted mask validation', () => {
     expect(result.reason).toBe('positive-anchor-required');
   });
 
-  it('reports disconnected coverage that is not supported by the prompt', () => {
+  it('rejects a candidate dominated by an unprompted disconnected region', () => {
     const pixels: Array<[number, number]> = [];
     for (let y = 0; y < 2; y += 1) {
       for (let x = 0; x < 2; x += 1) pixels.push([x + 8, y + 8]);
@@ -138,7 +138,8 @@ describe('prompted mask validation', () => {
       10,
     );
 
-    expect(result.valid).toBe(true);
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe('ambiguous-unanchored-region');
     expect(result.diagnostics).toMatchObject({
       componentCount: 2,
       anchoredComponentCount: 1,
@@ -146,6 +147,30 @@ describe('prompted mask validation', () => {
     });
     expect(result.diagnostics?.anchoredCoverage).toBeLessThan(0.5);
     expect(result.diagnostics?.warnings[1]).toContain('connected to the prompt');
+  });
+
+  it('prunes a small disconnected island when the prompted target is dominant', () => {
+    const pixels: Array<[number, number]> = [];
+    for (let y = 1; y < 7; y += 1) {
+      for (let x = 1; x < 7; x += 1) pixels.push([x, y]);
+    }
+    for (let y = 8; y < 10; y += 1) {
+      for (let x = 8; x < 10; x += 1) pixels.push([x, y]);
+    }
+    const result = rankPromptedMaskCandidates(
+      [candidate(10, 10, pixels, 0.9)],
+      { points: [{ x: 3 / 9, y: 3 / 9, label: 1 }] },
+      10,
+      10,
+    );
+
+    expect(result.rejectedCount).toBe(0);
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0]?.mask[3 * 10 + 3]).toBe(255);
+    expect(result.candidates[0]?.mask[8 * 10 + 8]).toBe(0);
+    expect(result.candidates[0]?.promptDiagnostics?.warnings[0]).toContain(
+      'Removed 4% unprompted disconnected coverage',
+    );
   });
 
   it('rejects a positive prompt in a transparent image hole', () => {

@@ -95,11 +95,9 @@ change regression; E2E typechecking passed.
 
 The real SAM2 target gate was also run against the licensed
 `real-life-still-life.jpg` photograph with a prompt inside the right-hand
-apple. It passed with a 100% prompt-match report, and the inspected preview
-and applied captures show the apple isolated from the sunflower, bouquet,
-mug, and dark background. The occluded left edge is visibly imperfect, so the
-result remains reviewable/refinable rather than being treated as pixel-perfect
-evidence:
+apple. The first run passed with a 100% prompt-match report and visually
+appeared isolated, but it did not inspect the persisted source-resolution mask.
+That visual-only result is superseded by the persisted-mask follow-up below.
 
 ```text
 TMPDIR=/home/kevina/varve-selection-validation-bXqjQq \
@@ -113,6 +111,43 @@ pnpm exec playwright test tests/e2e/canvas/object-selection-real-model.spec.ts \
 
 The run passed in 1.7 minutes. Captures are retained under the ignored
 `test-results/selection-specific-target-20260915-apple-fresh/` directory.
-This is evidence for prompted target selection and placement integrity; it is
+This remains evidence for the prompted interaction and placement integrity,
 not a claim that foreground estimation or every model/provider is semantically
 correct on arbitrary photographs.
+
+## Target anchoring and persisted-mask follow-up — 2026-09-15
+
+The source photograph exposed the failure mode this gate is intended to catch:
+the raw SAM2 candidate with the highest score included the apple and a
+disconnected region inside the mug. The prompt-validation layer now measures
+which connected regions are anchored by the positive prompt. When the prompted
+region is dominant, it removes only disconnected unanchored islands and carries
+the normalized mask through preview, candidate review, area-selection creation,
+and mask persistence. If the unanchored coverage is substantial, it fails
+closed and asks for another include/exclude prompt instead of guessing.
+
+The real-photo E2E test now parses the accepted PNG mask from the serialized
+document after Apply. It asserts source dimensions of 1280×960, exactly one
+hard connected region, non-zero coverage in the apple review window, and zero
+hard coverage in the independent mug window. The run passed and the inspected
+preview shows the apple highlighted while the applied capture shows only the
+apple on the editor background; the occluded left edge remains visibly
+imperfect and is intentionally still reviewable/refinable.
+
+```text
+TMPDIR=/home/kevina/varve-selection-validation-bXqjQq \
+VARVE_SAM2_REAL_MODEL=1 \
+VARVE_SAM2_PROFILE_DIR=/home/kevina/varve-sam2-selection-profile-apple-anchored-20260915 \
+VARVE_E2E_PORT=1543 VARVE_E2E_WORKERS=1 VARVE_HEAVY_TASK_PARALLELISM=0 \
+VARVE_E2E_OUTPUT_DIR=selection-specific-target-20260915-apple-verified \
+pnpm exec playwright test tests/e2e/canvas/object-selection-real-model.spec.ts \
+  --project=chromium --workers=1 --grep "prompted apple" --reporter=list
+```
+
+Result: 1 passed in approximately 2 minutes. The retained captures are under
+`test-results/selection-specific-target-20260915-apple-verified/`.
+
+One earlier cold-profile retry crashed the Chromium target while waiting for
+the preview and produced no model result. It is retained as a low-memory /
+runtime-stability observation; it did not count as a quality pass. The
+successful retry used a warmed profile, one worker, and the heavy-task lease.

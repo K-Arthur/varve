@@ -255,8 +255,10 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
 
   it('pins the candidate index supplied by the output action', async () => {
     const strong = new Uint8Array(64);
-    strong[0] = 255;
     strong[4 * 8 + 4] = 255;
+    strong[4 * 8 + 5] = 255;
+    strong[5 * 8 + 4] = 255;
+    strong[5 * 8 + 5] = 255;
     const weak = new Uint8Array(64);
     weak[4 * 8 + 4] = 128;
     const { doc, session } = await sessionFor({
@@ -284,7 +286,9 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
       expression: { kind: string; shape?: { data?: Uint8Array } };
     };
     expect(selection.expression.kind).toBe('shape');
-    expect(selection.expression.shape?.data?.[0]).toBe(255);
+    expect(
+      Array.from(selection.expression.shape?.data ?? []).filter((value) => value > 0),
+    ).toHaveLength(4);
   });
 
   it('refuses to commit when the source pixels changed after the preview', async () => {

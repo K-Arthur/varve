@@ -1,5 +1,174 @@
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { test as base, chromium, expect } from '@playwright/test';
+
+const requireFromEngine = createRequire(path.resolve('packages/engine/package.json'));
+const { PNG } = requireFromEngine('pngjs') as {
+  PNG: {
+    sync: {
+      read(input: Buffer): {
+        width: number;
+        height: number;
+        data: Buffer;
+      };
+    };
+  };
+};
+
+type SerializedFiber = {
+  memoizedProps?: { value?: unknown };
+  child?: SerializedFiber | null;
+  sibling?: SerializedFiber | null;
+};
+
+type SerializedDocument = {
+  nodes?: Record<
+    string,
+    {
+      kind?: string;
+      mask?: { rasterMask?: { assetId?: string } };
+    }
+  >;
+  rasterMaskAssets?: Record<string, { dataUrl?: string; width?: number; height?: number }>;
+};
+
+type MaskReport = {
+  width: number;
+  height: number;
+  hardPixels: number;
+  componentCount: number;
+  appleHardPixels: number;
+  mugHardPixels: number;
+};
+
+const HARD_MASK_THRESHOLD = 127;
+const COMPONENT_NEIGHBOURS: ReadonlyArray<readonly [number, number]> = [
+  [-1, -1],
+  [0, -1],
+  [1, -1],
+  [-1, 0],
+  [1, 0],
+  [-1, 1],
+  [0, 1],
+  [1, 1],
+];
+
+async function serializeEditorDocument(page: import('@playwright/test').Page): Promise<string> {
+  return page.evaluate(() => {
+    const root = document.getElementById('root');
+    if (!root) throw new Error('Missing editor root');
+    const property = Object.keys(root).find(
+      (key) => key.startsWith('__reactContainer$') || key.startsWith('__reactFiber$'),
+    );
+    if (!property) throw new Error('Missing editor React container');
+    const findEditor = (
+      fiber: SerializedFiber | null | undefined,
+    ): Record<string, unknown> | null => {
+      if (!fiber) return null;
+      const value = fiber.memoizedProps?.value;
+      if (value && typeof value === 'object' && 'serializeDocument' in value) {
+        const candidate = value as Record<string, unknown>;
+        if (typeof candidate.serializeDocument === 'function') return candidate;
+      }
+      return findEditor(fiber.child) ?? findEditor(fiber.sibling);
+    };
+    const editor = findEditor(
+      (root as unknown as Record<string, unknown>)[property] as SerializedFiber,
+    );
+    if (!editor || typeof editor.serializeDocument !== 'function') {
+      throw new Error('Missing editor serialization method');
+    }
+    return String(editor.serializeDocument());
+  });
+}
+
+function maskPixelsInRect(
+  data: Buffer,
+  width: number,
+  rect: { minX: number; minY: number; maxX: number; maxY: number },
+): number {
+  let count = 0;
+  const minX = Math.max(0, Math.floor(rect.minX));
+  const minY = Math.max(0, Math.floor(rect.minY));
+  const maxX = Math.min(width - 1, Math.floor(rect.maxX));
+  const maxY = Math.floor(rect.maxY);
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) {
+      if ((data[(y * width + x) * 4 + 3] ?? 0) > HARD_MASK_THRESHOLD) count += 1;
+    }
+  }
+  return count;
+}
+
+function countHardMaskComponents(data: Buffer, width: number, height: number): number {
+  const pixels = width * height;
+  const visited = new Uint8Array(pixels);
+  const queue = new Int32Array(pixels);
+  let components = 0;
+  for (let start = 0; start < pixels; start += 1) {
+    if (visited[start] !== 0 || (data[start * 4 + 3] ?? 0) <= HARD_MASK_THRESHOLD) continue;
+    components += 1;
+    let head = 0;
+    let tail = 0;
+    queue[tail++] = start;
+    visited[start] = 1;
+    while (head < tail) {
+      const current = queue[head++]!;
+      const x = current % width;
+      const y = Math.floor(current / width);
+      for (const [dx, dy] of COMPONENT_NEIGHBOURS) {
+        const nextX = x + dx;
+        const nextY = y + dy;
+        if (nextX < 0 || nextY < 0 || nextX >= width || nextY >= height) continue;
+        const next = nextY * width + nextX;
+        if (visited[next] !== 0 || (data[next * 4 + 3] ?? 0) <= HARD_MASK_THRESHOLD) continue;
+        visited[next] = 1;
+        queue[tail++] = next;
+      }
+    }
+  }
+  return components;
+}
+
+function inspectAcceptedMask(serialized: string): MaskReport {
+  const document = JSON.parse(serialized) as SerializedDocument;
+  const maskedNode = Object.values(document.nodes ?? {}).find(
+    (node) => node.mask?.rasterMask?.assetId,
+  );
+  const assetId = maskedNode?.mask?.rasterMask?.assetId;
+  const asset = assetId ? document.rasterMaskAssets?.[assetId] : undefined;
+  if (!asset?.dataUrl || !asset.width || !asset.height) {
+    throw new Error('The accepted object-selection mask was not persisted');
+  }
+  const payload = asset.dataUrl.split(',')[1];
+  if (!payload) throw new Error('The accepted object-selection mask is not a data URL');
+  const png = PNG.sync.read(Buffer.from(payload, 'base64'));
+  let hardPixels = 0;
+  for (let index = 3; index < png.data.length; index += 4) {
+    if ((png.data[index] ?? 0) > HARD_MASK_THRESHOLD) hardPixels += 1;
+  }
+  return {
+    width: png.width,
+    height: png.height,
+    hardPixels,
+    componentCount: countHardMaskComponents(png.data, png.width, png.height),
+    // Ground-truth review windows for the licensed still-life fixture: the
+    // apple occupies the right edge; this interior window is the mug and must
+    // stay outside a specific-apple selection.
+    appleHardPixels: maskPixelsInRect(png.data, png.width, {
+      minX: 1040,
+      minY: 580,
+      maxX: 1270,
+      maxY: 940,
+    }),
+    mugHardPixels: maskPixelsInRect(png.data, png.width, {
+      minX: 925,
+      minY: 790,
+      maxX: 995,
+      maxY: 930,
+    }),
+  };
+}
 
 /**
  * Real-model Object Selection gate.
@@ -300,6 +469,10 @@ test.describe('Object Selection real-model gate', () => {
       /Preview ready · predicted IoU score [\d.]+ · prompt match 100% · \d+ candidate masks?/i,
     );
     await canvas.screenshot({ path: testInfo.outputPath('real-still-life-apple-preview.png') });
+    const targetEvidence = inspector.getByText(/target evidence \d+% anchored/i).first();
+    await expect(targetEvidence).toBeVisible();
+    const targetEvidenceText = (await targetEvidence.textContent()) ?? '';
+    expect(targetEvidenceText).toMatch(/target evidence 100% anchored/i);
     await testInfo.attach('real-still-life-apple-preview', {
       body: await canvas.screenshot(),
       contentType: 'image/png',
@@ -320,5 +493,19 @@ test.describe('Object Selection real-model gate', () => {
       body: await canvas.screenshot(),
       contentType: 'image/png',
     });
+
+    // Inspect the persisted source-resolution mask, not only the rendered
+    // screenshot or the diagnostic label. A successful specific-object
+    // selection must contain one hard connected region, retain apple pixels,
+    // and exclude the independently visible mug interior. This catches a
+    // regression where the preview was correct but Apply wrote a raw model
+    // candidate containing an unrelated disconnected island.
+    const maskReport = inspectAcceptedMask(await serializeEditorDocument(page));
+    expect(maskReport.width).toBe(1280);
+    expect(maskReport.height).toBe(960);
+    expect(maskReport.hardPixels).toBeGreaterThan(0);
+    expect(maskReport.componentCount).toBe(1);
+    expect(maskReport.appleHardPixels).toBeGreaterThan(0);
+    expect(maskReport.mugHardPixels).toBe(0);
   });
 });

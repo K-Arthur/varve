@@ -25,14 +25,20 @@ Transient ObjectSelectionSession
         └── Use as selection
             transient analytical AreaSelection```
 
-The current editor path calls the generic worker bridge and uses the verified
-split ONNX encoder/decoder adapter in `@varve/engine`; it does not instantiate
-`SegmentationBackend` directly yet. The contract remains the provider-neutral
-seam for a future adapter, while backend-specific preprocessing and
-execution-provider selection stay in `@varve/engine`. This distinction is
-intentional: the current implementation is integrated and tested, but the
-provider-neutral interface is not being claimed as a completed runtime
-abstraction.
+The current editor path calls the generic worker bridge and uses verified
+split ONNX encoder/decoder adapters in `@varve/engine`: SAM2 Tiny and MobileSAM
+for routed and explicit prompted selection, plus an explicit experimental
+EfficientSAM-Ti adapter that automatic routing never selects (measured
+quality-equivalent to MobileSAM with a larger peak working set, and its decoder
+has no mask-input tensor). Multi-component models are downloaded per component,
+verified against pinned revisions and SHA-256 checksums, and executed through
+the same worker, admission, cancellation, and embedding-cache lifecycle.
+Backend-specific preprocessing and execution-provider selection stay in
+`@varve/engine`. The provider-neutral `SegmentationBackend` contract remains
+the seam behind these adapters; it is not instantiated directly by the editor.
+Grounding DINO Tiny adds a discovery stage that produces reviewed boxes which
+then enter the same prompted-segmentation session; detection never commits a
+mask on its own.
 
 ## Live session lifecycle
 
@@ -157,6 +163,50 @@ placement (fit, crop, offset, scale, rotation, and flips) and committed as a
 non-destructive crop. A failed or ambiguous detection never changes the
 document.
 
+## Text-conditioned discovery
+
+`Find by description` in the Object Selection section runs Grounding DINO Tiny
+locally as an optional, explicit download (194 MB INT8, pinned
+`onnx-community/grounding-dino-tiny-ONNX` revision). The engine implements the
+verified five-feed contract (`pixel_values` plus int64 `input_ids`,
+`token_type_ids`, `attention_mask`, `pixel_mask`), a BERT uncased WordPiece
+tokenizer parity-checked against the reference token ids, the reference
+thresholded phrase extraction with phrase-span attribution, and center/size to
+source-pixel box conversion. Near-identical boxes for the same phrase are
+deduplicated; overlapping boxes for different phrases are kept, because two
+people standing together are two instances.
+
+The detected boxes are reviewable proposals. Choosing one sends its box into
+the existing prompted-segmentation candidate path, where the ordinary
+review/candidate/Apply gate still applies; detection alone never commits a
+mask, never auto-accepts the top score, and never unions every box. The UI
+states that scores are model similarity rather than proof the object is
+present: a measured control prompted `dog` on an elephant photograph returned a
+0.71 box around the elephant, which is the documented early-fusion
+false-positive behaviour of open-vocabulary detectors. Descriptions must be
+concrete visual language; negation, counting, and relational instructions are
+not parsed. Peak working set measured about 3 GB on 1-2K photographs, so
+low-memory sessions are refused with an explanation instead of risking a
+crash.
+
+## Portrait matting route
+
+Background Removal's `Portrait matting (MODNet)` mode is a portrait-specific
+route over the same mask system. The engine implements the official public
+checkpoint contract (512-edge aspect-preserving reference size floored to
+multiples of 32, `[-1,1]` normalization, single activation applied by the
+exported graph, OpenCV `INTER_AREA` resize semantics) and the worker returns a
+source-aligned fractional alpha. It is never a fallback for other modes, and a
+reviewed coarse constraint fuses with the matte by forcing excluded background
+to zero rather than multiplying two soft estimates, which would darken every
+edge. Real-photo evidence: three repository portraits produced fractional
+hair-edge coverage (7-8% of pixels fractional in the strongest cases), and an
+out-of-domain animal photograph also produced a plausible matte, so the mode is
+documented as a portrait intent rather than a guarantee about what the model
+can see. Fine/low-contrast strands, backlighting, motion blur, and similar
+foreground/background colours remain measured limits; portrait video matting is
+out of scope.
+
 ## Coordinates
 
 Pointer coordinates follow the canonical path:
@@ -197,13 +247,15 @@ reviewed candidate. Coverage and bounds are measured against the full
 source-sized mask; connected-region topology is measured on a bounded,
 max-pooled review grid so a 33-megapixel image does not require a second full
 resolution label buffer. A region is considered anchored only when it touches
-an include point or the box hint. If a sizeable disconnected region is not
-anchored, the Inspector reports the ambiguity and asks for another include
-point, an exclude point, or paint/refine work. The candidate is not silently
-trimmed: disconnected subjects can be intentional, and the user must decide
-which visible regions belong to the target before applying it. This evidence
-is a review aid, not semantic object recognition or a replacement for the
-mask overlay at fit and 1:1.
+an include point or the box hint. When the prompted target owns at least half
+of the hard coverage, a bounded target-anchoring pass removes disconnected
+source pixels that have no prompt support and reports that cleanup in the
+review warning. Holes and separate parts supported by additional include
+points or the box remain available. If unanchored coverage is too large to
+identify the target safely, the candidate is rejected and the Inspector asks
+for another include point, an exclude point, or paint/refine work rather than
+guessing. This evidence is a review aid, not semantic object recognition or a
+replacement for the mask overlay at fit and 1:1.
 
 Generative Edit also checks the effective mask immediately before inference.
 Fill, Remove, and Replace warn at 90% coverage and fail closed at 99.5% or
@@ -288,7 +340,9 @@ the release-gate procedure) for the required benchmark matrix.
 ## Known limitations
 
 - Candidate masks can be cycled in the Inspector before Apply; the selected
-  candidate is the mask committed to the document.
+  candidate is the mask committed to the document. Under-specified clicks are
+  genuinely ambiguous (part, whole, or group), which is why alternatives are
+  shown instead of an automatic best-guess.
 - The current SAM2 graph is promptable, not a semantic subject detector.
 - Automatic subject estimates are foreground proposals. The model-backed
   levels are substantially stronger than the model-free heuristic on
@@ -296,6 +350,17 @@ the release-gate procedure) for the required benchmark matrix.
   scenes, and no level identifies *which* object the user intends.
 - The model-free estimator is weakest on landscape or texture scenes and is
   used only when no model runs; the panel always names the source.
+- Text discovery is open-vocabulary detection, not understanding: it can return
+  a confident box for an absent object, does not parse negation/counting/
+  relational language, and needs about 3 GB at 1-2K. It is an explicit
+  download and never runs automatically.
+- EfficientSAM-Ti is an explicit experimental provider only: quality-equivalent
+  to MobileSAM in the shared A/B, no mask prompts, int64/WASM-only decoder, and
+  a larger measured peak working set.
+- Portrait matting (MODNet) is scoped to photographic people. It can include
+  more than one person, is not a general segmenter, and remains limited on
+  fine/low-contrast strands, backlighting, motion blur, and similar
+  foreground/background colours.
 - Hair, fur, glass, smoke, and other fractional-transparency cases need the
   existing matting/refinement tools and visual review.
 - A fresh model download and frontend integration run is recorded in the

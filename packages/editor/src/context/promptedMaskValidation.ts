@@ -53,7 +53,10 @@ export interface PromptedMaskValidation {
     | 'exclude-point-covered'
     | 'box-overlap-too-small'
     | 'mask-too-broad'
+    | 'ambiguous-unanchored-region'
     | null;
+  /** Sanitized source mask when unprompted islands were safely removed. */
+  normalizedMask?: Uint8Array;
 }
 
 export interface PromptedMaskDiagnostics {
@@ -88,6 +91,12 @@ const MAX_PROMPT_TOLERANCE_PIXELS = 8;
 const MIN_BOX_MASK_FRACTION = 0.2;
 /** An almost-full-frame mask is not a useful object-selection result. */
 const MAX_ACCEPTED_MASK_COVERAGE = 0.995;
+/**
+ * Only prune disconnected coverage when the prompted target owns most of the
+ * candidate. If it does not, fail closed instead of guessing which object the
+ * user intended.
+ */
+const MIN_ANCHORED_COVERAGE_FOR_PRUNING = 0.5;
 /** Keep review diagnostics cheap on 33 MP photographs and constrained devices. */
 const MAX_DIAGNOSTIC_DIMENSION = 384;
 const DIAGNOSTIC_COMPONENT_CONNECTIVITY: ReadonlyArray<readonly [number, number]> = [
@@ -152,7 +161,7 @@ export function validatePromptedMaskCandidate(
 
   const box = hasBox ? pixelBox(prompts.box!, sourceWidth, sourceHeight) : null;
   if (hasBox && !box) return invalid('invalid-geometry', 0);
-  const diagnostics = analyzePromptedMaskDiagnostics(
+  const initialDiagnostics = analyzePromptedMaskDiagnostics(
     candidate.mask,
     sourceWidth,
     sourceHeight,
@@ -171,7 +180,7 @@ export function validatePromptedMaskCandidate(
     satisfied += 1;
   }
 
-  const coveredPixels = diagnostics.hardPixels;
+  const coveredPixels = initialDiagnostics.hardPixels;
 
   // A one-pixel source has no meaningful boundary to review; keep this
   // degenerate case usable for callers that operate on tiny raster assets.
@@ -179,24 +188,73 @@ export function validatePromptedMaskCandidate(
     sourceWidth * sourceHeight > 1 &&
     coveredPixels / (sourceWidth * sourceHeight) >= MAX_ACCEPTED_MASK_COVERAGE
   ) {
-    return invalid('mask-too-broad', satisfied / constraintCount, diagnostics);
+    return invalid(
+      'mask-too-broad',
+      satisfied / constraintCount,
+      toPublicDiagnostics(initialDiagnostics),
+    );
   }
 
   if (box) {
-    const boxFraction = diagnostics.boxOverlapFraction ?? 0;
+    const boxFraction = initialDiagnostics.boxOverlapFraction ?? 0;
     if (
-      diagnostics.boxCoveredPixels === 0 ||
+      initialDiagnostics.boxCoveredPixels === 0 ||
       boxFraction < MIN_BOX_MASK_FRACTION ||
-      diagnostics.boxCentroidInside !== true
+      initialDiagnostics.boxCentroidInside !== true
     ) {
-      return invalid('box-overlap-too-small', satisfied / constraintCount, diagnostics);
+      return invalid(
+        'box-overlap-too-small',
+        satisfied / constraintCount,
+        toPublicDiagnostics(initialDiagnostics),
+      );
     }
     satisfied += 1;
   }
 
+  // A prompted mask can contain the requested object and an unrelated
+  // disconnected island. Never let a small positive click implicitly accept
+  // all of that coverage. When the prompted target is dominant, remove only
+  // unsupported components and preserve the cleaned mask for both preview and
+  // commit. If the unsupported coverage is substantial, fail closed and ask
+  // for another include/exclude prompt rather than guessing.
+  const hasUnanchoredComponents =
+    initialDiagnostics.componentCount > initialDiagnostics.anchoredComponentCount &&
+    initialDiagnostics.unanchoredCoverage > 0;
+  if (hasUnanchoredComponents) {
+    const publicDiagnostics = toPublicDiagnostics(initialDiagnostics);
+    if (initialDiagnostics.anchoredCoverage < MIN_ANCHORED_COVERAGE_FOR_PRUNING) {
+      return invalid('ambiguous-unanchored-region', satisfied / constraintCount, publicDiagnostics);
+    }
+    const pruned = pruneUnanchoredComponents(
+      candidate.mask,
+      sourceWidth,
+      sourceHeight,
+      initialDiagnostics,
+    );
+    if (pruned.removedPixels > 0) {
+      const sanitizedDiagnostics = toPublicDiagnostics(
+        analyzePromptedMaskDiagnostics(pruned.mask, sourceWidth, sourceHeight, points, box),
+      );
+      const removedCoverage = pruned.removedPixels / (sourceWidth * sourceHeight);
+      const removedPercent =
+        removedCoverage >= 0.01 ? `${Math.round(removedCoverage * 100)}%` : '<1%';
+      sanitizedDiagnostics.warnings = [
+        `Removed ${removedPercent} unprompted disconnected coverage; add an include point for any separate part that belongs to the target.`,
+        ...sanitizedDiagnostics.warnings,
+      ];
+      return {
+        promptContainment: satisfied / constraintCount,
+        diagnostics: sanitizedDiagnostics,
+        valid: true,
+        reason: null,
+        normalizedMask: pruned.mask,
+      };
+    }
+  }
+
   return {
     promptContainment: satisfied / constraintCount,
-    diagnostics,
+    diagnostics: toPublicDiagnostics(initialDiagnostics),
     valid: true,
     reason: null,
   };
@@ -230,6 +288,7 @@ export function rankPromptedMaskCandidates<T extends PromptedMaskCandidateLike>(
     }
     return {
       ...candidate,
+      ...(validation.normalizedMask ? { mask: validation.normalizedMask } : {}),
       promptContainment: validation.promptContainment,
       promptDiagnostics: validation.diagnostics,
     };
@@ -248,6 +307,55 @@ function invalid(
   diagnostics?: PromptedMaskDiagnostics,
 ): PromptedMaskValidation {
   return { promptContainment, diagnostics, valid: false, reason };
+}
+
+function toPublicDiagnostics(
+  diagnostics: InternalPromptedMaskDiagnostics,
+): PromptedMaskDiagnostics {
+  const {
+    anchoredGrid: _anchoredGrid,
+    gridWidth: _gridWidth,
+    gridHeight: _gridHeight,
+    boxCoveredPixels: _boxCoveredPixels,
+    boxOverlapFraction: _boxOverlapFraction,
+    boxCentroidInside: _boxCentroidInside,
+    ...publicDiagnostics
+  } = diagnostics;
+  return publicDiagnostics;
+}
+
+/**
+ * Remove source pixels that belong to a bounded-grid component with no
+ * positive prompt or box support. This keeps the memory cost bounded for
+ * large photographs and is deliberately conservative: callers only invoke
+ * it after the target owns at least half of the hard candidate coverage.
+ */
+function pruneUnanchoredComponents(
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  diagnostics: InternalPromptedMaskDiagnostics,
+): { mask: Uint8Array; removedPixels: number } {
+  const normalized = new Uint8Array(mask);
+  let removedPixels = 0;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = y * width + x;
+      if ((normalized[index] ?? 0) === 0) continue;
+      const gridX = Math.min(
+        diagnostics.gridWidth - 1,
+        Math.floor((x * diagnostics.gridWidth) / width),
+      );
+      const gridY = Math.min(
+        diagnostics.gridHeight - 1,
+        Math.floor((y * diagnostics.gridHeight) / height),
+      );
+      if (diagnostics.anchoredGrid[gridY * diagnostics.gridWidth + gridX] !== 0) continue;
+      normalized[index] = 0;
+      removedPixels += 1;
+    }
+  }
+  return { mask: normalized, removedPixels };
 }
 
 /**
@@ -327,6 +435,9 @@ interface InternalPromptedMaskDiagnostics extends PromptedMaskDiagnostics {
   boxCoveredPixels: number;
   boxOverlapFraction?: number;
   boxCentroidInside?: boolean;
+  anchoredGrid: Uint8Array;
+  gridWidth: number;
+  gridHeight: number;
 }
 
 /**
@@ -473,6 +584,11 @@ function analyzePromptedMaskDiagnostics(
       sumX / hardPixels <= box.maxX + boxCentroidMargin &&
       sumY / hardPixels >= box.minY - boxCentroidMargin &&
       sumY / hardPixels <= box.maxY + boxCentroidMargin);
+  const anchoredGrid = new Uint8Array(gridPixels);
+  for (let index = 0; index < gridPixels; index += 1) {
+    const component = labels[index];
+    if (component >= 0 && anchored[component] !== 0) anchoredGrid[index] = 1;
+  }
   return {
     hardPixels,
     hardCoverage: hardPixels / pixelCount,
@@ -486,6 +602,9 @@ function analyzePromptedMaskDiagnostics(
     boxCoveredPixels,
     boxOverlapFraction: hardPixels > 0 ? boxCoveredPixels / hardPixels : 0,
     boxCentroidInside,
+    anchoredGrid,
+    gridWidth,
+    gridHeight,
   };
 }
 

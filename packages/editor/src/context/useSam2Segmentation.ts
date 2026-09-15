@@ -7,6 +7,11 @@ import type {
 import {
   assessImageInferenceResources,
   cachedImageDims,
+  EFFICIENT_SAM_CAPABILITIES,
+  EFFICIENT_SAM_DECODER_ID,
+  EFFICIENT_SAM_ENCODER_ID,
+  EFFICIENT_SAM_PROVIDER_ID,
+  EFFICIENT_SAM_QUALITY_VALIDATION,
   EmbeddingCache,
   getImageCache,
   getInferenceWorkerHost,
@@ -14,11 +19,6 @@ import {
   getModelLoader,
   getNativeGenerativeModelStatus,
   getRuntimeCapabilitiesSync,
-  EFFICIENT_SAM_CAPABILITIES,
-  EFFICIENT_SAM_DECODER_ID,
-  EFFICIENT_SAM_ENCODER_ID,
-  EFFICIENT_SAM_PROVIDER_ID,
-  EFFICIENT_SAM_QUALITY_VALIDATION,
   MOBILE_SAM_CAPABILITIES,
   MOBILE_SAM_DECODER_ID,
   MOBILE_SAM_ENCODER_ID,
@@ -606,8 +606,6 @@ export function useSam2Segmentation(
           );
           return null;
         }
-        const hasPromptConstraints =
-          previousSession.points.length > 0 || previousSession.box !== null;
         if (!maskMatchesDimensions(candidate.mask, previousSession.width, previousSession.height)) {
           const live = stateRef.current.objectSelectionSession;
           if (generation === generationRef.current && live?.nodeId === nodeId) {
@@ -660,12 +658,14 @@ export function useSam2Segmentation(
           previousSession.width,
           previousSession.height,
         );
-        if (hasPromptConstraints && !reviewedCandidateValidation.valid) {
+        if (!reviewedCandidateValidation.valid) {
           const live = stateRef.current.objectSelectionSession;
           const message =
             reviewedCandidateValidation.reason === 'positive-anchor-required'
               ? 'Add an include point or a box before applying this selection; exclude points only refine an identified object.'
-              : 'This candidate does not honor the reviewed prompts. Create a new preview before applying it.';
+              : reviewedCandidateValidation.reason === 'ambiguous-unanchored-region'
+                ? 'This candidate contains disconnected coverage that is not anchored to the target. Add an include point on the intended object or exclude the extra region before applying it.'
+                : 'This candidate does not honor the reviewed prompts. Create a new preview before applying it.';
           if (generation === generationRef.current && live?.nodeId === nodeId) {
             writeTransientSession({
               ...live,
@@ -680,6 +680,32 @@ export function useSam2Segmentation(
           announcerRef.current?.announce(message);
           return null;
         }
+        const normalizedReviewedCandidate = rankPromptedMaskCandidates(
+          [
+            {
+              mask: candidate.mask,
+              width: previousSession.width,
+              height: previousSession.height,
+              score: candidate.confidence,
+            },
+          ],
+          {
+            points: reviewedPrompts.points,
+            box: reviewedPrompts.box,
+          },
+          previousSession.width,
+          previousSession.height,
+        ).candidates[0];
+        if (!normalizedReviewedCandidate) {
+          announcerRef.current?.announce(
+            'The reviewed candidate is no longer a focused match for the prompts. Create a new preview before applying it.',
+          );
+          return null;
+        }
+        const candidateToCommit =
+          normalizedReviewedCandidate.mask === candidate.mask
+            ? candidate
+            : { ...candidate, mask: normalizedReviewedCandidate.mask };
         abortRef.current?.abort();
         abortRef.current = null;
         generationRef.current += 1;
@@ -692,7 +718,7 @@ export function useSam2Segmentation(
           const areaSelection = areaSelectionFromMaskCoverage(
             currentDoc,
             nodeId,
-            candidate.mask,
+            candidateToCommit.mask,
             previousSession.width,
             previousSession.height,
             'source-image-pixels',
@@ -706,18 +732,18 @@ export function useSam2Segmentation(
           setAreaSelection(areaSelection);
           writeTransientSession(null, { maskPreviewMode: 'none' });
           announcerRef.current?.announce(
-            `Selected subject (${formatSelectionScore(candidate.confidence, candidate.scoreSource ?? previousSession.confidenceSource)})`,
+            `Selected subject (${formatSelectionScore(candidateToCommit.confidence, candidateToCommit.scoreSource ?? previousSession.confidenceSource)})`,
           );
           return {
-            mask: candidate.mask,
+            mask: candidateToCommit.mask,
             width: previousSession.width,
             height: previousSession.height,
-            confidence: candidate.confidence,
+            confidence: candidateToCommit.confidence,
           };
         }
 
         const maskDataUrl = await maskToDataUrl(
-          candidate.mask,
+          candidateToCommit.mask,
           previousSession.width,
           previousSession.height,
         );
@@ -737,8 +763,8 @@ export function useSam2Segmentation(
             height: previousSession.height,
             method: 'ai-quality',
             modelId: previousSession.modelId || 'sam2-hiera-tiny',
-            score: candidate.confidence,
-            scoreSource: candidate.scoreSource ?? previousSession.confidenceSource,
+            score: candidateToCommit.confidence,
+            scoreSource: candidateToCommit.scoreSource ?? previousSession.confidenceSource,
             generatedAt: Date.now(),
             sourceLocator: src,
           });
@@ -759,13 +785,13 @@ export function useSam2Segmentation(
             ),
           });
           announcerRef.current?.announce(
-            `Selection applied as a mask (${formatSelectionScore(candidate.confidence, candidate.scoreSource ?? previousSession.confidenceSource)})`,
+            `Selection applied as a mask (${formatSelectionScore(candidateToCommit.confidence, candidateToCommit.scoreSource ?? previousSession.confidenceSource)})`,
           );
           return {
-            mask: candidate.mask,
+            mask: candidateToCommit.mask,
             width: previousSession.width,
             height: previousSession.height,
-            confidence: candidate.confidence,
+            confidence: candidateToCommit.confidence,
           };
         }
         return null;
@@ -1321,7 +1347,7 @@ export function useSam2Segmentation(
           markFailure({
             code: 'prompt_not_honored',
             message:
-              'No candidate honored every include/exclude point and enough of the requested box. Adjust the prompts and try again.',
+              'No candidate produced a focused mask that honors the prompts. Add an include point on the target and exclude any extra object or region, then try again.',
             retryable: true,
           });
           return null;
@@ -1365,7 +1391,7 @@ export function useSam2Segmentation(
           markFailure({
             code: 'prompt_not_honored',
             message:
-              'The selected candidate did not honor the supplied prompts. Adjust the prompts and create a new preview.',
+              'The selected candidate did not produce a focused mask for the supplied prompts. Add an include point on the target and exclude any extra region before creating a new preview.',
             retryable: true,
           });
           return null;
