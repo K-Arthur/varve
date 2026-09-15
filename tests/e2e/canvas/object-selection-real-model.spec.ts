@@ -249,4 +249,76 @@ test.describe('Object Selection real-model gate', () => {
     });
     await canvas.screenshot({ path: testInfo.outputPath('real-model-selection.png') });
   });
+
+  test('keeps a prompted apple separate from other objects in a real still life', async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(1_200_000);
+    await navigateToEditorSlow(page);
+    await page
+      .locator('#file-import-input')
+      .setInputFiles(path.resolve('tests/e2e/fixtures/real-life-still-life.jpg'));
+    await expect(page.getByRole('treeitem').first()).toBeVisible({ timeout: 120000 });
+    await page.getByRole('treeitem').first().click();
+
+    const inspector = page.locator('.editor__inspector-panel');
+    await inspector.getByRole('tab', { name: 'Adjustments' }).click();
+    await inspector.getByRole('button', { name: 'Object Selection' }).click();
+    const modelPreference = inspector.getByRole('combobox', {
+      name: 'Object Selection model preference',
+    });
+    await modelPreference.click();
+    await page.getByRole('option', { name: /Higher detail — SAM2 Tiny/i }).click();
+    const installModel = inspector.getByRole('button', {
+      name: /Install higher-detail Object Selection model|Retry Higher-detail local model/i,
+    });
+    if (await installModel.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await installModel.click();
+      await expect(inspector.getByText(/Object Selection model ready/i)).toBeVisible({
+        timeout: 900000,
+      });
+    }
+    await inspector.getByRole('button', { name: 'Select Object' }).click();
+    await page.getByRole('button', { name: 'Fit sel' }).click();
+    await page.waitForTimeout(400);
+    const canvas = page.getByTestId('editor-canvas');
+    const bounds = await canvas.boundingBox();
+    expect(bounds).not.toBeNull();
+
+    // The source is 1280×960. The apple is the right-hand object; the point
+    // is deliberately well inside its body, away from the handle, flowers,
+    // and the dark background. The screenshot is the visual target evidence.
+    const applePoint = {
+      x: bounds!.x + bounds!.width * 0.86,
+      y: bounds!.y + bounds!.height * 0.72,
+    };
+    await page.mouse.click(applePoint.x, applePoint.y);
+    const preview = inspector.getByText(/Preview ready/).first();
+    await preview.waitFor({ timeout: 600000 });
+    const previewText = (await preview.textContent()) ?? '';
+    expect(previewText).toMatch(
+      /Preview ready · predicted IoU score [\d.]+ · prompt match 100% · \d+ candidate masks?/i,
+    );
+    await canvas.screenshot({ path: testInfo.outputPath('real-still-life-apple-preview.png') });
+    await testInfo.attach('real-still-life-apple-preview', {
+      body: await canvas.screenshot(),
+      contentType: 'image/png',
+    });
+
+    await inspector
+      .getByRole('checkbox', { name: 'I reviewed the highlighted target before applying' })
+      .check();
+    await inspector.getByRole('button', { name: 'Apply as mask' }).click();
+    await expect(
+      inspector.getByRole('button', { name: 'Background Removal', exact: true }),
+    ).toHaveAttribute('aria-expanded', 'true');
+    await expect(inspector.getByText(/(?:predicted IoU score|mask score)/i).first()).toBeVisible({
+      timeout: 120000,
+    });
+    await canvas.screenshot({ path: testInfo.outputPath('real-still-life-apple-applied.png') });
+    await testInfo.attach('real-still-life-apple-applied', {
+      body: await canvas.screenshot(),
+      contentType: 'image/png',
+    });
+  });
 });

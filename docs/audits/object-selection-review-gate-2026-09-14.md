@@ -73,3 +73,46 @@ The run passed (1 test, 31.7 s). The inspected capture is
 `test-results/selection-specific-entry-20260915-visual/canvas-select-subject-Sele-edeff-object-on-a-real-photograph-chromium/specific-object-selection-entry.png`;
 it shows the two distinct entry points, the target-selection guidance, and
 the active Object Selection tool after activation.
+
+## Placement-integrity follow-up — 2026-09-15
+
+Automatic foreground proposals now retain the canonical source-pixel-to-world
+mapping fingerprint used for their review overlay. A crop, image offset,
+content rotation/flip, node transform, or ancestor transform change withdraws
+the stale overlay and disables candidate acceptance until `Select subject` is
+run again. This closes the gap where the source pixels were unchanged but the
+reviewed mask would have been displayed against a new placement.
+
+Focused checks:
+
+```text
+TMPDIR=/home/kevina/varve-selection-validation-bXqjQq pnpm exec vitest run packages/editor/src/components/Inspector/SelectionSourcesPanel.subject.test.tsx --reporter=dot
+pnpm typecheck:e2e
+```
+
+Both passed. The focused Vitest file passed 9 tests, including the transform-
+change regression; E2E typechecking passed.
+
+The real SAM2 target gate was also run against the licensed
+`real-life-still-life.jpg` photograph with a prompt inside the right-hand
+apple. It passed with a 100% prompt-match report, and the inspected preview
+and applied captures show the apple isolated from the sunflower, bouquet,
+mug, and dark background. The occluded left edge is visibly imperfect, so the
+result remains reviewable/refinable rather than being treated as pixel-perfect
+evidence:
+
+```text
+TMPDIR=/home/kevina/varve-selection-validation-bXqjQq \
+VARVE_SAM2_REAL_MODEL=1 \
+VARVE_SAM2_PROFILE_DIR=/home/kevina/varve-sam2-selection-profile-apple-fresh-20260915 \
+VARVE_E2E_PORT=1523 VARVE_E2E_WORKERS=1 \
+VARVE_E2E_OUTPUT_DIR=selection-specific-target-20260915-apple-fresh \
+pnpm exec playwright test tests/e2e/canvas/object-selection-real-model.spec.ts \
+  --project=chromium --grep "prompted apple" --reporter=list
+```
+
+The run passed in 1.7 minutes. Captures are retained under the ignored
+`test-results/selection-specific-target-20260915-apple-fresh/` directory.
+This is evidence for prompted target selection and placement integrity; it is
+not a claim that foreground estimation or every model/provider is semantically
+correct on arbitrary photographs.

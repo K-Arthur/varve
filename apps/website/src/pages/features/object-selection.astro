@@ -60,10 +60,16 @@ import { sitePath } from '../../lib/siteUrl';
         <p>
           Use a subject estimate for a quick foreground proposal, or choose <strong>Select specific object</strong>{' '}
           in Selection Sources when you can point to the object you mean. Object Selection then
-          uses the same canvas prompts from every entry point, and Improve edges is available when the boundary needs care. The normal
-          workflow stays simple; advanced settings can prefer speed or detail when an optional
-          local model is installed. A smaller download is not a promise of smaller memory use, so
-          Varve explains unavailable routes instead of silently switching capabilities.
+          uses the same canvas prompts from every entry point, and Improve edges is available when the boundary needs care.
+        </p>
+        <p>
+          <strong>Auto</strong> picks the best-validated local segmentation model that your device can
+          safely afford: capable providers are checked against the measured working-set budget before
+          quality is compared, and a provider that cannot fit is refused with an explanation instead
+          of risking a crash or a silent downgrade. Faster or higher-detail providers are explicit
+          advanced choices, not surprises, and model names stay out of the normal workflow. The
+          candidate you review is the candidate that gets committed, and the result becomes an
+          ordinary mask — reopening the document never requires the model again.
         </p>
       </section>
 

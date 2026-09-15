@@ -44,6 +44,7 @@ import {
   setSubjectProposalState,
   subscribeSubjectProposals,
 } from './subjectProposalStore';
+import { subjectProposalMappingFingerprint } from './subjectProposalTarget';
 
 import './selectionSources.css';
 
@@ -152,13 +153,27 @@ export function SelectionSourcesPanel() {
     documentId: string;
     nodeId: string;
     sourceLocator: string;
+    mappingFingerprint?: string;
   } | null>(null);
+  const subjectTargetMatchesCurrentImage =
+    subjectState.target?.documentId === state.document.id &&
+    subjectState.target.nodeId === selectedNode?.id &&
+    subjectState.target.sourceLocator === selectedSourceLocator;
+  const currentSubjectMappingFingerprint = subjectTargetMatchesCurrentImage
+    ? subjectProposalMappingFingerprint(
+        state.document,
+        selectedNode,
+        subjectState.target?.sourceWidth,
+        subjectState.target?.sourceHeight,
+      )
+    : null;
   subjectTargetRef.current =
     selectedNode && selectedSourceLocator
       ? {
           documentId: state.document.id,
           nodeId: selectedNode.id,
           sourceLocator: selectedSourceLocator,
+          mappingFingerprint: currentSubjectMappingFingerprint ?? undefined,
         }
       : null;
   const hasClosedPath =
@@ -189,6 +204,15 @@ export function SelectionSourcesPanel() {
     subjectState.target.sourceLocator === subjectTarget.sourceLocator
       ? subjectState.proposals
       : null;
+  const subjectProposalPlacementReady = Boolean(
+    subjectProposalSet &&
+      subjectState.target?.mappingFingerprint &&
+      currentSubjectMappingFingerprint &&
+      subjectState.target.mappingFingerprint === currentSubjectMappingFingerprint,
+  );
+  const subjectProposalPlacementStale = Boolean(
+    subjectProposalSet && !subjectProposalPlacementReady,
+  );
   const subjectProposalBusy = subjectState.busy && subjectTarget !== null;
 
   useEffect(() => {
@@ -341,7 +365,10 @@ export function SelectionSourcesPanel() {
       liveTarget.documentId !== target.documentId ||
       liveTarget.nodeId !== target.nodeId ||
       liveTarget.sourceLocator !== target.sourceLocator ||
+      !target.mappingFingerprint ||
+      liveTarget.mappingFingerprint !== target.mappingFingerprint ||
       latestState.target?.sourceLocator !== target.sourceLocator ||
+      latestState.target?.mappingFingerprint !== target.mappingFingerprint ||
       latestState.activeCandidate !== index ||
       latestState.reviewedCandidate !== index
     ) {
@@ -427,12 +454,26 @@ export function SelectionSourcesPanel() {
       const sourceHeight = decoded.sourceHeight ?? decoded.height;
       const sourceFingerprint = await fingerprintImageData(imageData);
       if (runController.signal.aborted) return;
+      const mappingFingerprint = subjectProposalMappingFingerprint(
+        state.document,
+        selectedNode,
+        sourceWidth,
+        sourceHeight,
+      );
+      if (!mappingFingerprint) {
+        const message =
+          'The image placement could not be resolved safely. Keep the image unchanged and run Select subject again.';
+        setSubjectProposalState({ busy: false, stage: 'idle', error: message });
+        announce(message);
+        return;
+      }
       setSubjectProposalState({
         target: {
           ...target,
           sourceWidth,
           sourceHeight,
           sourceFingerprint,
+          mappingFingerprint,
         },
       });
       const [runtime, installedModelIds] = await Promise.all([
@@ -458,7 +499,8 @@ export function SelectionSourcesPanel() {
         !liveTarget ||
         liveTarget.documentId !== target.documentId ||
         liveTarget.nodeId !== target.nodeId ||
-        liveTarget.sourceLocator !== target.sourceLocator
+        liveTarget.sourceLocator !== target.sourceLocator ||
+        liveTarget.mappingFingerprint !== mappingFingerprint
       ) {
         setSubjectProposalState({ busy: false, stage: 'idle' });
         return;
@@ -598,6 +640,8 @@ export function SelectionSourcesPanel() {
       liveTarget.documentId !== target.documentId ||
       liveTarget.nodeId !== target.nodeId ||
       liveTarget.sourceLocator !== target.sourceLocator ||
+      !target.mappingFingerprint ||
+      liveTarget.mappingFingerprint !== target.mappingFingerprint ||
       latestState.target?.sourceLocator !== target.sourceLocator ||
       latestState.activeCandidate !== activeCandidate ||
       latestState.reviewedCandidate !== activeCandidate
@@ -1037,6 +1081,7 @@ export function SelectionSourcesPanel() {
                   }`}
                   aria-pressed={index === subjectState.activeCandidate}
                   aria-label={`${candidate.label ?? `Subject ${index + 1}`}, covers ${Math.round(candidate.coverage * 100)} percent`}
+                  disabled={!subjectProposalPlacementReady}
                   onClick={() => previewSubjectCandidate(subjectProposalSet, index)}
                 >
                   {candidate.label ?? `Subject ${index + 1}`} ·{' '}
@@ -1047,6 +1092,7 @@ export function SelectionSourcesPanel() {
                 <button
                   type="button"
                   className="insp-selection-sources__button"
+                  disabled={!subjectProposalPlacementReady}
                   onClick={applyAllSubjectProposals}
                 >
                   Preview all subjects
@@ -1059,6 +1105,7 @@ export function SelectionSourcesPanel() {
                   type="checkbox"
                   aria-label="I reviewed the highlighted subject before applying"
                   checked={subjectState.reviewedCandidate === subjectState.activeCandidate}
+                  disabled={!subjectProposalPlacementReady}
                   onChange={(event) => reviewActiveSubjectCandidate(event.target.checked)}
                 />
                 <span>I reviewed the highlighted subject before applying</span>
@@ -1068,7 +1115,10 @@ export function SelectionSourcesPanel() {
               <button
                 type="button"
                 className="insp-selection-sources__button insp-selection-sources__button--primary"
-                disabled={subjectState.reviewedCandidate !== subjectState.activeCandidate}
+                disabled={
+                  !subjectProposalPlacementReady ||
+                  subjectState.reviewedCandidate !== subjectState.activeCandidate
+                }
                 onClick={() =>
                   void applySubjectCandidate(subjectProposalSet, subjectState.activeCandidate)
                 }
@@ -1078,7 +1128,10 @@ export function SelectionSourcesPanel() {
               <button
                 type="button"
                 className="insp-selection-sources__button insp-selection-sources__button--primary"
-                disabled={subjectState.reviewedCandidate !== subjectState.activeCandidate}
+                disabled={
+                  !subjectProposalPlacementReady ||
+                  subjectState.reviewedCandidate !== subjectState.activeCandidate
+                }
                 onClick={() => void applySubjectAsMask()}
               >
                 Apply as mask
@@ -1101,6 +1154,12 @@ export function SelectionSourcesPanel() {
               </button>
             </div>
             <p className="insp-field__hint">
+              {subjectProposalPlacementStale && (
+                <>
+                  Image placement changed after this estimate; run Select subject again before
+                  reviewing or applying it.{' '}
+                </>
+              )}
               {subjectState.target?.sourceFingerprint
                 ? `Source verified at ${subjectState.target.sourceWidth ?? subjectProposalSet.width} x ${subjectState.target.sourceHeight ?? subjectProposalSet.height}px. `
                 : 'Source identity is unavailable. Run Select subject again. '}

@@ -227,6 +227,14 @@ inference. A click in a fully transparent image hole is rejected because its
 RGB values do not identify an object; exclude prompts may still be placed on
 transparent pixels while refining an already anchored target.
 
+Automatic foreground proposals additionally record the canonical
+source-pixel-to-world placement fingerprint used for their review overlay.
+Changing the crop, image offset, content rotation, flip, node transform, or an
+ancestor transform invalidates that proposal: the overlay is withdrawn and
+Apply/Use remain disabled until a fresh estimate is reviewed. A source-pixel
+checksum alone is insufficient because identical pixels can occupy a different
+place in the document.
+
 ## Mask persistence
 
 The preview mask is a `Uint8Array` in transient editor state. It is not

@@ -406,6 +406,42 @@ describe('SelectionSourcesPanel subject proposals', () => {
     expect(editor.current?.state.areaSelection ?? null).toBeNull();
   });
 
+  it('requires a fresh proposal when image placement changes after review', async () => {
+    mockProposeSubjects.mockResolvedValue(proposalResult());
+    const editor = await renderPanel();
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Select subject$/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /^All foreground/ }));
+    const review = screen.getByRole('checkbox', {
+      name: 'I reviewed the highlighted subject before applying',
+    });
+    fireEvent.click(review);
+    expect(screen.getByRole('button', { name: 'Use selected candidate' })).toBeEnabled();
+
+    await act(async () => {
+      editor.current?.beginTransaction();
+      editor.current?.updateDoc((document) => {
+        const node = document.nodes.photo;
+        if (node?.kind !== 'shape') return document;
+        return {
+          ...document,
+          nodes: {
+            ...document.nodes,
+            photo: { ...node, transform: [1, 0, 0, 1, 12, 0] },
+          },
+        };
+      });
+      editor.current?.commitTransaction();
+    });
+
+    expect(
+      screen.getByText(/Image placement changed after this estimate; run Select subject again/i),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Use selected candidate' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Apply as mask' })).toBeDisabled();
+    expect(editor.current?.state.areaSelection ?? null).toBeNull();
+  });
+
   it('shows the model-free fallback honestly when no model ran', async () => {
     mockProposeSubjects.mockResolvedValue(
       proposalResult({

@@ -26,6 +26,8 @@ export interface SubjectProposalTarget {
   sourceHeight?: number;
   /** Exact decoded RGBA fingerprint captured before inference began. */
   sourceFingerprint?: string;
+  /** Canonical source-pixel to document-world mapping used by the proposal. */
+  mappingFingerprint?: string;
 }
 
 export interface SubjectProposalProviderInfo {

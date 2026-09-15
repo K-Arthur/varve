@@ -37,6 +37,7 @@ import {
   getSubjectProposalState,
   subscribeSubjectProposals,
 } from '../components/Inspector/subjectProposalStore';
+import { subjectProposalMappingFingerprint } from '../components/Inspector/subjectProposalTarget';
 import type { EditorState } from '../context/types';
 import type { TransformCache } from '../scene/transformCache';
 import {
@@ -582,6 +583,15 @@ export function useOverlayDraw({
     const foregroundTarget = subjectProposalState.target;
     const foregroundSet = subjectProposalState.proposals;
     const foregroundNode = foregroundTarget ? doc.nodes[foregroundTarget.nodeId] : undefined;
+    const foregroundMappingFingerprint =
+      foregroundTarget && foregroundNode
+        ? subjectProposalMappingFingerprint(
+            doc,
+            foregroundNode,
+            foregroundTarget.sourceWidth,
+            foregroundTarget.sourceHeight,
+          )
+        : null;
     if (
       foregroundTarget &&
       foregroundSet &&
@@ -590,7 +600,9 @@ export function useOverlayDraw({
       foregroundNode?.kind === 'shape' &&
       isImageShape(foregroundNode) &&
       foregroundTarget.documentId === doc.id &&
-      foregroundTarget.sourceLocator === resolvedImageSourceLocator(doc, foregroundNode)
+      foregroundTarget.sourceLocator === resolvedImageSourceLocator(doc, foregroundNode) &&
+      foregroundTarget.mappingFingerprint &&
+      foregroundMappingFingerprint === foregroundTarget.mappingFingerprint
     ) {
       const foregroundTransform = getCachedWorldTransform(cache, doc, foregroundNode.id);
       if (foregroundTransform) {
