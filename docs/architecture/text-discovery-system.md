@@ -77,6 +77,23 @@ follows provider changes instead of hardcoding a segmenter.
 * No background analysis: discovery runs once per explicit query on the
   selected image.
 
+### Observed browser memory behavior (2026-09-15)
+
+* Single-threaded WASM (no cross-origin isolation): the runtime's safe peak is
+  1.2 GB on a 16 GB-tier device, below the model's 2.6 GB reservation, so
+  discovery is refused in ~18 s with the point/box fallback message. This is
+  the intended behavior without `SharedArrayBuffer`.
+* Threaded WASM (cross-origin isolated, 3.0 GB safe peak): the model runs and
+  returned the expected real-photo detection ("apple" → one 310×382 px box at
+  76%) inside the editor.
+* Under external system memory pressure the threaded headless renderer
+  OOM-crashed: a 22 GB machine with only ~2.3 GB available because other
+  processes held ~20 GB. The admission gate sizes itself from
+  `navigator.deviceMemory`, so it cannot see memory held by other
+  applications; this is an inherent browser limitation. The feature must stay
+  optional, the copy stays honest, and point/box selection always remains
+  available.
+
 ## Scores are not one number
 
 | Score | Provenance | Meaning |

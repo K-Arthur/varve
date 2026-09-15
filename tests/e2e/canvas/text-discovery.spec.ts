@@ -126,7 +126,11 @@ test.describe('Text discovery real-model gate', () => {
     console.log('DISCOVERY RUNNING (measured ~40 s single-threaded WASM)');
 
     const regions = discovery.getByRole('radiogroup', { name: 'Discovered regions' });
-    await expect(regions).toBeVisible({ timeout: 900000 });
+    const discoveryError = discovery.locator('[role="alert"]');
+    await expect(regions.or(discoveryError)).toBeVisible({ timeout: 900000 });
+    if (await discoveryError.isVisible().catch(() => false)) {
+      throw new Error(`Discovery refused: ${await discoveryError.textContent()}`);
+    }
     const radios = regions.getByRole('radio');
     const count = await radios.count();
     const labels = await regions.locator('span').allTextContents();
@@ -150,11 +154,12 @@ test.describe('Text discovery real-model gate', () => {
 
     await discovery.getByRole('button', { name: 'Segment selected region' }).click();
 
-    // The selected box goes through the normal promptable router.
+    // The selected box goes through the normal promptable router. Auto may
+    // resolve to either provider, so match the install offer for both labels.
     const installSam = inspector.getByRole('button', {
-      name: /Install higher-detail Object Selection model|Retry Higher-detail local model/i,
+      name: /Install (?:higher-detail )?Object Selection model|Retry (?:higher-detail )?local model/i,
     });
-    if (await installSam.isVisible({ timeout: 3000 }).catch(() => false)) {
+    if (await installSam.isVisible({ timeout: 5000 }).catch(() => false)) {
       await installSam.click();
       await expect(inspector.getByText(/Object Selection model ready/i)).toBeVisible({
         timeout: 900000,
@@ -162,7 +167,13 @@ test.describe('Text discovery real-model gate', () => {
     }
 
     const preview = inspector.getByText(/Preview ready/).first();
-    await preview.waitFor({ timeout: 900000 });
+    const previewFailure = inspector
+      .getByText(/(?:needs an optional local model|needs more memory|could not allocate)/i)
+      .first();
+    await expect(preview.or(previewFailure)).toBeVisible({ timeout: 900000 });
+    if (await previewFailure.isVisible().catch(() => false)) {
+      throw new Error(`Segmentation failed: ${await previewFailure.textContent()}`);
+    }
     const previewText = (await preview.textContent()) ?? '';
     console.log('TEXT->MASK PREVIEW:', previewText);
     expect(previewText).toMatch(
