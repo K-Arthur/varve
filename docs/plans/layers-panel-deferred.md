@@ -200,6 +200,33 @@ follow-up work):
   affects native-render/export fidelity for complex hierarchies, not the
   Layers Panel UI itself; out of scope here.
 
+## 2026-09-15 review pass — command parity, semantics, targets, imported names
+
+Full-panel review against real imported documents (authored SVG fixtures +
+a real photograph) rather than one-rectangle seeds. Fixes, each verified
+with unit tests and/or browser evidence (see
+`docs/audits/layers-panel-review-2026-09-15.md`):
+
+- Context menu: Hide/Show and Lock/Unlock are state-aware (a keyboard user
+  reaches these only through this menu); Bring Forward / Send Backward added
+  as single-pointer non-drag arrange alternatives sharing `arrangeSelected`.
+- Filter chips: every attribute state is labelled (the inverted state used
+  to render an empty button), and the fake listbox/option wrappers became
+  labelled toggle-button groups.
+- Selection sets: invalid option-wrapped interactive controls became plain
+  list items; rename icon and accessible names corrected.
+- CSS: undefined `--accent` / `--color-accent-secondary` references
+  repaired; dead legacy filter rules removed; denied drop-root state fixed;
+  24×24 pointer targets (WCAG 2.2 SC 2.5.8) and `:focus-visible` rings across
+  panel, bulk bar, selection sets, and layer states.
+- Import: SVG layer names come from authored attributes (`aria-label`,
+  `inkscape:label`, `data-name`, meaningful `id`) instead of element types.
+
+Still open from this pass: the stale `.layers-row__media-badge` rule in
+`editor.css` (the panel now overrides it; the old rule should be deleted
+once that file has a single owner), and the pre-existing useFlatTree
+diff-duplication and long-jump focus retry noted above.
+
 ## Test strategy note
 
 Every fix above followed TDD: a test was written (or an existing test was

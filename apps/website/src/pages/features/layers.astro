@@ -125,7 +125,7 @@ import { sitePath } from '../../lib/siteUrl';
         <div class="feature-grid" style="margin-top: var(--space-4);">
           <article>
             <h3>Deep-nesting legibility</h3>
-            <p>Indented structures preserve readable label widths with horizontal overflow-scroll and persistent hierarchy tooltips on every row.</p>
+            <p>Indented structures stay readable at every depth: names scroll horizontally when they outrun the rail, and truncated labels reveal their full text on hover or keyboard focus.</p>
           </article>
           <article>
             <h3>Collapsible floating containers</h3>
@@ -162,6 +162,12 @@ import { sitePath } from '../../lib/siteUrl';
             <p>SVG and PDF keep supported structure and label regions that are appearance-only raster output.</p>
           </article>
         </div>
+        <p>
+          Imported SVG layers keep the names their author wrote. Figma, Sketch, Inkscape, and web
+          exports are read from their label attributes, so the Layers panel stays navigable instead
+          of turning into a wall of identical “Rectangle” rows. Exports that carry only generated
+          ids fall back to an honest element name rather than inventing one.
+        </p>
         <p>
           Missing fonts, linked assets, unsupported masks, and format-specific behavior stay visible
           at the workflow boundary. A screenshot that looks right is not presented as proof that
@@ -237,9 +243,12 @@ import { sitePath } from '../../lib/siteUrl';
         <h2 id="layers-access-title">Keyboard-ready and honest about boundaries.</h2>
         <p>
           Tree navigation, selection, expand/collapse, and move commands remain available from the
-          keyboard. Locked, cyclic, stale, or unavailable destinations are rejected instead of
-          pretending that a drop succeeded. External files are imported only by their eligible
-          canvas surface, and native desktop drops retain their platform-specific limits.
+          keyboard. The layer context menu is state-aware: a hidden layer offers Show, a locked
+          layer offers Unlock, and Bring Forward / Send Backward give a row-by-row arrange
+          alternative that needs no grip drag. Every row control keeps a 24×24 pointer target.
+          Locked, cyclic, stale, or unavailable destinations are rejected instead of pretending
+          that a drop succeeded. External files are imported only by their eligible canvas surface,
+          and native desktop drops retain their platform-specific limits.
         </p>
       </section>
 

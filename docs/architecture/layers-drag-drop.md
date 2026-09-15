@@ -235,6 +235,15 @@ grip owns the activator ref/listeners/attributes and carries the accessible
 selection target. A row-body drag therefore cannot reorder text by accident;
 it selects the visible range and never changes structural order.
 
+Grip dragging is never the only way to change order (WCAG 2.5.7). The layer
+context menu's Arrange group exposes Bring to Front, Bring Forward, Send
+Backward, and Send to Back; all four call the same `arrangeSelected`
+transaction as the Ctrl+[ / Ctrl+] / Ctrl+Shift+[ / Ctrl+Shift+] shortcuts,
+so pointer-only, keyboard-only, and drag paths commit identical, undoable
+hierarchy changes. The Layers panel previously reimplemented front/back as a
+per-id reparent loop against a captured document; that duplicate path is
+gone.
+
 A completed drag also produces a synthetic `click` on the dropped row, which
 would run the row's ordinary click handler and replace the selection the user
 just moved. Drag end installs a one-shot capturing `click` listener to swallow
