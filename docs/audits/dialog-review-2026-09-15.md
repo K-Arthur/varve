@@ -146,29 +146,36 @@ before the Select could consume Escape.
   the only div-based modal that was safe to keep nested before it too became
   a native dialog; its consent action receives initial focus.
 
-## Verification limitations (2026-09-15 afternoon)
+## Verification record (final)
 
-The machine ran ~14 concurrent agent processes; RAM (22 GiB) and swap were
-exhausted and the 12 GiB `/tmp` tmpfs filled to 100%. Under that pressure
-Chromium renderers crashed mid-journey (`page.goto: Page crashed`, pages
-reloading to the loading splash), so the browser suite could not be re-run
-end to end after the last two migrations. Verified at the time of writing:
-
-- **Unit** (all passing): Dialog/Select/MultiSelect/Combobox, Export (22),
+- **Unit, all passing**: Dialog/Select/MultiSelect/Combobox; Export (22),
   Model Download (9), Image Resize (3), Batch Rename (12), Create Table from
   Data (5, including the active-surface regression), plus the 566-test
-  affected closure for the earlier slices.
-- **E2E** (passing before the pressure): the full
-  `tests/e2e/dialogs/dialog-system.spec.ts` at 8/8, and after the Export and
-  Create-Table migrations the nested-Select Escape journey and the full
-  Create-Table journey (toolbar → paste → create → layer appears).
-- **Visual**: Batch Rename, Settings, and Export at light and dark themes.
-- **Not re-verified under crash-free conditions**: the Batch Rename axe scan
-  and the visual capture refresh that now includes Export. (The Batch Rename
-  focus-fallback assertion added with F8 has since been verified: focus lands
-  on the selected row inside the tree.) Re-run
-  `tests/e2e/dialogs/dialog-system.spec.ts` on an unloaded machine to close
-  these out.
+  affected closure for the earlier slices and a 66-test re-run of the
+  migrated dialog families at the end of the session.
+- **E2E, `tests/e2e/dialogs/dialog-system.spec.ts`**: 9 journeys covering
+  Escape layering (Export + nested Select), Settings initial focus / focus
+  restoration / drag-out / backdrop click, Export at 900x560, Create Table
+  from Data end to end (toolbar → paste → create → layer in the tree), Batch
+  Rename with undo, focus fallback to the selected tree row, an axe scan, and
+  light/dark captures. The suite passed 8/9 in one run and the remaining
+  axe test passed immediately on retry; the lone failure was the mouse-driven
+  `seedLayers` helper not producing a treeitem within its 5s wait under
+  machine load, not an app assertion.
+- **Machine conditions**: the afternoon ran ~14 concurrent agent processes;
+  RAM/swap were exhausted at times and the 12 GiB `/tmp` tmpfs hit 100%,
+  which crashed Chromium renderers mid-journey. Browser runs were done with
+  `TMPDIR=/var/tmp/...` to avoid the full tmpfs.
+- **Concurrent-regression repairs (not dialog work, but found here)**: the
+  context-menu extraction left `isVisualMaskTarget` unimported in
+  `LayersPanel/index.tsx`, crashing every layer right-click into the error
+  boundary; three untracked e2e/engine files carried type errors that
+  blocked the shared commit gate. All fixed minimally.
+
+### Still open
+
+- Native Tauri/WebKitGTK runtime verification of the migrated dialogs — the
+  evidence above is Chromium in the web build.
 
 ## Remaining work (explicitly not done)
 
