@@ -14,6 +14,43 @@ distractors. The pointer coordinates are derived from the selected artwork's
 actual screen bounds, so the test does not confuse the canvas viewport with the
 image placement.
 
+## Complete real-photo interaction rerun
+
+The complete production interaction lane was rerun after the source-mask and
+candidate-review fixes, using the same licensed portrait and still-life
+photographs and the real SAM2 Tiny model:
+
+```text
+VARVE_SAM2_REAL_MODEL=1 \
+VARVE_SAM2_PROFILE_DIR=/home/kevina/varve-sam2-selection-profile-box-edd484862 \
+VARVE_E2E_PORT=1681 VARVE_E2E_WORKERS=1 VARVE_HEAVY_TASK_PARALLELISM=0 \
+VARVE_E2E_OUTPUT_DIR=selection-accuracy-full-20260915 \
+pnpm exec playwright test tests/e2e/canvas/object-selection-real-model.spec.ts \
+  --project=chromium --workers=1 --reporter=list
+```
+
+Result: **4 passed** (3.1 minutes). The run covered the click-selected
+portrait, an under-specified edge prompt that must remain blocked, the reviewed
+Object Selection → Remove handoff, and a box hint for the edge-hugging apple.
+The handoff reported `85,882` hard mask pixels in one component, with `72,242`
+inside the apple review window and zero in the mug or flower windows. After
+Remove and Apply, `28,723` pixels in the reviewed apple interior changed
+(`94.6%`), while both protected neighboring windows remained at exactly zero
+changed pixels. The box candidate reached the lower image edge (`maxY=959`)
+without admitting the mug or flowers.
+
+The full-composition artifacts were visually inspected, including the mask
+overlay, the generated Remove result, and the box-assisted candidate:
+
+- `test-results/selection-accuracy-full-20260915/canvas-object-selection-re-592e1-s-it-and-survives-undo-redo-chromium/real-model-selection.png`
+- `test-results/selection-accuracy-full-20260915/canvas-object-selection-re-dac48-nerative-Edit-before-Remove-chromium/real-object-remove-result.png`
+- `test-results/selection-accuracy-full-20260915/canvas-object-selection-re-dc7a9-real-object-before-applying-chromium/real-still-life-box-preview.png`
+
+This is stronger evidence that the selected subject is the one passed to the
+procedure, but it is not a universal semantic-selection qualification. The
+workflow still requires visible candidate review and exposes box/add/subtract
+refinement for ambiguous objects.
+
 ## Result
 
 Command:
