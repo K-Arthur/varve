@@ -54,8 +54,11 @@ pnpm exec vitest run \
   packages/editor/src/commands/__tests__/isometricPlaneCommands.test.ts
 ```
 
-Result: **6 files, 87 tests, all passed** (24.2 s). The numerical suite is
-genuinely independent of the implementation where it matters:
+Result: **6 files, 87 tests, all passed** (24.2 s). The complete
+`@varve/scene` package suite also passes on the same tree — **201 files /
+3059 tests** (85.9 s) — so the grid contract changes did not regress the wider
+scene model. The numerical suite is genuinely independent of the
+implementation where it matters:
 
 | Check | Evidence |
 | --- | --- |
