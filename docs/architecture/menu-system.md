@@ -21,7 +21,7 @@ small and semantic: it does not turn every floating control into a menu.
 | Context menu | Actions for the invocation target at a pointer/keyboard location | `ContextMenu` |
 | Select/listbox | Choosing a value, not invoking a command | `Select`/listbox primitive |
 | Combobox | Filtering or entering a value | `Combobox` |
-| Popover | A form, inspector, colour editor, binding editor, or other rich control | `Popover`/`FloatingPortal` |
+| Popover | A form, inspector, colour editor, binding editor, or other rich control | `Popover`/`FloatingPortal` (contract: `docs/architecture/popover-system.md`) |
 | Dialog | A modal task or confirmation that needs a larger focus boundary | `Dialog` |
 
 Use a menu when the user is choosing an operation. Use a select or combobox
