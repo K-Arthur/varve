@@ -287,6 +287,7 @@ export {
   computeFillOffset,
   computeMaskBounds,
   extractBoundedContext,
+  fitBoundedContextRegionToAspectRatio,
   mapMaskThroughTransform,
   patchMatchFill,
   QUALITY_DESCRIPTIONS,

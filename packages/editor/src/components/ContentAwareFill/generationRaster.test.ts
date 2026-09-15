@@ -6,6 +6,7 @@ import {
   deriveGeneratedOverlay,
   encodeMaskCoverageAtSourceSize,
   encodePreviewMaskAtSourceSize,
+  fitSourceRegionToAspectRatio,
   mapSourceRegionToProxy,
   sampleMaskCoverageToRegion,
   samplePreviewMaskToRegion,
@@ -79,6 +80,12 @@ describe('bounded generative raster planning', () => {
     expect(workingRasterDimensions(region, 2_000_000)).toEqual({ width: 2000, height: 1000 });
     expect(workingPixelBudgetForTier('constrained')).toBe(1_048_576);
     expect(workingPixelBudgetForTier('unknown')).toBe(2_000_000);
+  });
+
+  it('fits the decoded model context without cropping the selected source region', () => {
+    expect(
+      fitSourceRegionToAspectRatio({ x: 40, y: 38, width: 20, height: 6 }, 100, 80, 1),
+    ).toEqual({ x: 40, y: 31, width: 20, height: 20 });
   });
 
   it('maps a bounded source region to the decoded proxy without stretching axes', () => {

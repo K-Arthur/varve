@@ -9,7 +9,7 @@ const MAX_CONTEXT_PADDING = 256;
  * containing operation: the mask stays at the same source coordinates and a
  * context that cannot fit remains letterboxed by the model-frame adapter.
  */
-function fitContextToAspectRatio(
+export function fitBoundedContextRegionToAspectRatio(
   region: BoundedContextRegion,
   imageWidth: number,
   imageHeight: number,
@@ -237,7 +237,7 @@ export function computeBoundedContextRegion(
   const bounds = computeMaskBounds(mask, maskWidth, maskHeight);
 
   if (!bounds) {
-    return fitContextToAspectRatio(
+    return fitBoundedContextRegionToAspectRatio(
       { offsetX: 0, offsetY: 0, width: maskWidth, height: maskHeight },
       imageWidth,
       imageHeight,
@@ -253,7 +253,7 @@ export function computeBoundedContextRegion(
   const srcH = Math.min(imageHeight - srcY, bounds.h + clamped * 2);
 
   if (srcW <= 0 || srcH <= 0) {
-    return fitContextToAspectRatio(
+    return fitBoundedContextRegionToAspectRatio(
       { offsetX: 0, offsetY: 0, width: maskWidth, height: maskHeight },
       imageWidth,
       imageHeight,
@@ -261,7 +261,7 @@ export function computeBoundedContextRegion(
     );
   }
 
-  return fitContextToAspectRatio(
+  return fitBoundedContextRegionToAspectRatio(
     { offsetX: srcX, offsetY: srcY, width: srcW, height: srcH },
     imageWidth,
     imageHeight,

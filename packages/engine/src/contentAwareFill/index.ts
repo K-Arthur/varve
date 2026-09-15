@@ -7,6 +7,7 @@ export {
   computeBoundedContextRegion,
   computeMaskBounds,
   extractBoundedContext,
+  fitBoundedContextRegionToAspectRatio,
   validateMaskFrameGeometry,
 } from './contextExtraction';
 export {

@@ -1,6 +1,6 @@
 import type { GenerativeEditResult } from '@varve/engine';
 
-import { computeMaskBounds } from '@varve/engine';
+import { computeMaskBounds, fitBoundedContextRegionToAspectRatio } from '@varve/engine';
 
 export interface SourceImageRegion {
   x: number;
@@ -12,6 +12,37 @@ export interface SourceImageRegion {
 export interface WorkingRasterDimensions {
   width: number;
   height: number;
+}
+
+/**
+ * Expand a source region toward a model's preferred aspect ratio while keeping
+ * its existing contents and source-image coordinate frame intact. The engine
+ * uses the same calculation immediately before provider inference; keeping
+ * this adapter here makes the dialog's decoded context match that frame.
+ */
+export function fitSourceRegionToAspectRatio(
+  region: SourceImageRegion,
+  sourceWidth: number,
+  sourceHeight: number,
+  targetAspectRatio: number,
+): SourceImageRegion {
+  const fitted = fitBoundedContextRegionToAspectRatio(
+    {
+      offsetX: region.x,
+      offsetY: region.y,
+      width: region.width,
+      height: region.height,
+    },
+    sourceWidth,
+    sourceHeight,
+    targetAspectRatio,
+  );
+  return {
+    x: fitted.offsetX,
+    y: fitted.offsetY,
+    width: fitted.width,
+    height: fitted.height,
+  };
 }
 
 const MAX_CONTEXT_PADDING = 256;

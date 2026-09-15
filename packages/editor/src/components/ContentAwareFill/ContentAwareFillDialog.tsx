@@ -72,6 +72,7 @@ import {
   computeSourceRegionFromPreviewMask,
   encodeMaskCoverageAtSourceSize,
   encodePreviewMaskAtSourceSize,
+  fitSourceRegionToAspectRatio,
   loadImageRegionToImageData,
   mapSourceRegionToProxy,
   renderGeneratedRegionToPatchCanvas,
@@ -2168,6 +2169,12 @@ export function ContentAwareFillDialog({
           'The source image dimensions are unavailable.',
         );
       }
+      const needsDiffusion =
+        mode === 'replace' || ((mode === 'fill' || mode === 'expand') && prompt.trim().length > 0);
+      const targetModelAspectRatio = needsDiffusion
+        ? NATIVE_GENERATIVE_MODEL_PROFILE.frameContract.frameWidth /
+          NATIVE_GENERATIVE_MODEL_PROFILE.frameContract.frameHeight
+        : undefined;
       if (!isCurrentJob()) {
         throw new GenerativeEditError('stale', 'The source changed before generation completed.');
       }
@@ -2342,12 +2349,21 @@ export function ContentAwareFillDialog({
             contextPadding,
             Math.abs(Math.round(maskExpansion)) + Math.round(maskFeather),
           );
-          const maskRegion = computeSourceRegionFromMaskBounds(
+          const decodedMaskRegion = computeSourceRegionFromMaskBounds(
             exactSourceMask.bounds,
             sourceWidth,
             sourceHeight,
             decodePadding,
           );
+          const maskRegion =
+            decodedMaskRegion && targetModelAspectRatio
+              ? fitSourceRegionToAspectRatio(
+                  decodedMaskRegion,
+                  sourceWidth,
+                  sourceHeight,
+                  targetModelAspectRatio,
+                )
+              : decodedMaskRegion;
           if (!maskRegion) {
             throw new GenerativeEditError(
               'invalid-mask',
@@ -2385,7 +2401,7 @@ export function ContentAwareFillDialog({
             region: maskRegion,
           };
         }
-        const region = effectiveSourceMask
+        const baseRegion = effectiveSourceMask
           ? computeSourceRegionFromMaskCoverage(
               effectiveSourceMask,
               sourceWidth,
@@ -2402,6 +2418,15 @@ export function ContentAwareFillDialog({
                 sourceHeight,
                 contextPadding,
               );
+        const region =
+          baseRegion && targetModelAspectRatio
+            ? fitSourceRegionToAspectRatio(
+                baseRegion,
+                sourceWidth,
+                sourceHeight,
+                targetModelAspectRatio,
+              )
+            : baseRegion;
         if (!region) {
           throw new GenerativeEditError('empty-mask', 'Mask refinement removed the edit region.');
         }
@@ -2492,12 +2517,6 @@ export function ContentAwareFillDialog({
         };
       }
       const inferenceMaskDataUrl = maskCoverageDataUrl(mask, maskWidth, maskHeight);
-      const needsDiffusion =
-        mode === 'replace' || ((mode === 'fill' || mode === 'expand') && prompt.trim().length > 0);
-      const targetModelAspectRatio = needsDiffusion
-        ? NATIVE_GENERATIVE_MODEL_PROFILE.frameContract.frameWidth /
-          NATIVE_GENERATIVE_MODEL_PROFILE.frameContract.frameHeight
-        : undefined;
       const preparedContext = extractBoundedContext(
         generationImage,
         mask,
