@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import type { GenerativeEditError } from '../generativeEdit/types';
 import { QUICK_CLEANUP_PROVIDER, runQuickCleanup } from './quickCleanup';
 
 function makeImage(width: number, height: number): ImageData {
@@ -64,7 +63,7 @@ describe('runQuickCleanup', () => {
         maskWidth: 2,
         maskHeight: 2,
       }),
-    ).rejects.toMatchObject<GenerativeEditError>({ code: 'invalid-mask' });
+    ).rejects.toMatchObject({ code: 'invalid-mask' });
   });
 
   it('rejects an empty cleanup mask', async () => {
@@ -75,6 +74,20 @@ describe('runQuickCleanup', () => {
         maskWidth: 8,
         maskHeight: 8,
       }),
-    ).rejects.toMatchObject<GenerativeEditError>({ code: 'empty-mask' });
+    ).rejects.toMatchObject({ code: 'empty-mask' });
+  });
+
+  it('rejects a cleanup mask that is partially outside the source image', async () => {
+    const mask = new Uint8Array(2 * 2).fill(255);
+    await expect(
+      runQuickCleanup({
+        imageData: makeImage(8, 8),
+        mask,
+        maskWidth: 2,
+        maskHeight: 2,
+        maskOffsetX: 7,
+        maskOffsetY: 0,
+      }),
+    ).rejects.toMatchObject({ code: 'invalid-mask' });
   });
 });

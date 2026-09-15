@@ -212,6 +212,21 @@ describe('generative edit capabilities', () => {
     });
   });
 
+  it('rejects a mask frame that would be silently clipped onto another image region', async () => {
+    const mask = new Uint8Array(2 * 2).fill(255);
+    await expect(
+      runGenerativeEdit(
+        request({
+          mask,
+          maskWidth: 2,
+          maskHeight: 2,
+          maskOffsetX: 11,
+          maskOffsetY: 0,
+        }),
+      ),
+    ).rejects.toMatchObject({ code: 'invalid-mask' });
+  });
+
   it('returns a local deterministic result and keeps prompt usage explicit', async () => {
     const first = await runGenerativeEdit(request({ prompt: 'a red chair' }));
     const second = await runGenerativeEdit(request({ prompt: 'a blue chair' }));

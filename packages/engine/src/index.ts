@@ -276,6 +276,8 @@ export type {
   ContentAwareFillQuality,
   ContentAwareFillResult,
   FillTransform,
+  MaskFrameGeometryErrorCode,
+  MaskFrameGeometryValidation,
   QuickCleanupOptions,
   QuickCleanupResult,
 } from './contentAwareFill';
@@ -294,6 +296,7 @@ export {
   runLaMaInference,
   runQuickCleanup,
   unmapFillResult,
+  validateMaskFrameGeometry,
 } from './contentAwareFill';
 export type {
   DenoiseOptions,

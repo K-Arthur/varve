@@ -14,6 +14,90 @@ export interface BoundedContextRegion {
   height: number;
 }
 
+export type MaskFrameGeometryErrorCode =
+  | 'invalid-image-dimensions'
+  | 'invalid-mask-dimensions'
+  | 'invalid-mask-offset'
+  | 'mask-length-mismatch'
+  | 'mask-out-of-bounds';
+
+export type MaskFrameGeometryValidation =
+  | { valid: true; right: number; bottom: number }
+  | { valid: false; code: MaskFrameGeometryErrorCode; message: string };
+
+/**
+ * Validate the coordinate frame shared by selection, inference, and
+ * compositing. A mask is a finite source-image frame; silently clipping a
+ * partially out-of-bounds frame changes which pixels the user's selection
+ * refers to and can make a valid-looking preview edit the wrong object.
+ */
+export function validateMaskFrameGeometry(
+  imageWidth: number,
+  imageHeight: number,
+  mask: Uint8Array,
+  maskWidth: number,
+  maskHeight: number,
+  maskOffsetX = 0,
+  maskOffsetY = 0,
+): MaskFrameGeometryValidation {
+  if (
+    !Number.isSafeInteger(imageWidth) ||
+    !Number.isSafeInteger(imageHeight) ||
+    imageWidth <= 0 ||
+    imageHeight <= 0
+  ) {
+    return {
+      valid: false,
+      code: 'invalid-image-dimensions',
+      message: 'The source image dimensions are invalid.',
+    };
+  }
+  if (
+    !Number.isSafeInteger(maskWidth) ||
+    !Number.isSafeInteger(maskHeight) ||
+    maskWidth <= 0 ||
+    maskHeight <= 0 ||
+    !Number.isSafeInteger(maskWidth * maskHeight)
+  ) {
+    return {
+      valid: false,
+      code: 'invalid-mask-dimensions',
+      message: 'The edit mask dimensions are invalid.',
+    };
+  }
+  if (mask.length !== maskWidth * maskHeight) {
+    return {
+      valid: false,
+      code: 'mask-length-mismatch',
+      message: 'The edit mask dimensions do not match its pixels.',
+    };
+  }
+  if (!Number.isSafeInteger(maskOffsetX) || !Number.isSafeInteger(maskOffsetY)) {
+    return {
+      valid: false,
+      code: 'invalid-mask-offset',
+      message: 'The edit mask origin is invalid.',
+    };
+  }
+  const right = maskOffsetX + maskWidth;
+  const bottom = maskOffsetY + maskHeight;
+  if (
+    !Number.isSafeInteger(right) ||
+    !Number.isSafeInteger(bottom) ||
+    maskOffsetX < 0 ||
+    maskOffsetY < 0 ||
+    right > imageWidth ||
+    bottom > imageHeight
+  ) {
+    return {
+      valid: false,
+      code: 'mask-out-of-bounds',
+      message: `The edit mask frame (${maskOffsetX}, ${maskOffsetY}, ${maskWidth} × ${maskHeight}) must be fully inside the ${imageWidth} × ${imageHeight} source image. Recreate the selection on the current image.`,
+    };
+  }
+  return { valid: true, right, bottom };
+}
+
 function estimateContextPadding(maskWidth: number, maskHeight: number): number {
   const maxDim = Math.max(maskWidth, maskHeight);
   if (maxDim <= 64) return Math.max(AUTO_MIN_CONTEXT_PADDING, maxDim);
@@ -28,6 +112,16 @@ export function computeMaskBounds(
   width: number,
   height: number,
 ): { x: number; y: number; w: number; h: number } | null {
+  if (
+    !Number.isSafeInteger(width) ||
+    !Number.isSafeInteger(height) ||
+    width <= 0 ||
+    height <= 0 ||
+    !Number.isSafeInteger(width * height) ||
+    mask.length !== width * height
+  ) {
+    throw new Error('Mask dimensions do not match its pixels.');
+  }
   let minX = width;
   let minY = height;
   let maxX = -1;
@@ -66,6 +160,16 @@ export function computeBoundedContextRegion(
   maskOffsetY: number,
   contextPadding?: number,
 ): BoundedContextRegion {
+  const geometry = validateMaskFrameGeometry(
+    imageWidth,
+    imageHeight,
+    mask,
+    maskWidth,
+    maskHeight,
+    maskOffsetX,
+    maskOffsetY,
+  );
+  if (!geometry.valid) throw new Error(geometry.message);
   const bounds = computeMaskBounds(mask, maskWidth, maskHeight);
 
   if (!bounds) {

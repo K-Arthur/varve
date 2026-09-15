@@ -4,6 +4,7 @@ import {
   computeBoundedContextRegion,
   computeMaskBounds,
   extractBoundedContext,
+  validateMaskFrameGeometry,
 } from './contextExtraction';
 import { applyFillTransform, mapMaskThroughTransform } from './coordinateMapping';
 import type { FillTransform } from './types';
@@ -58,6 +59,37 @@ describe('computeMaskBounds', () => {
     mask[24] = 255;
     const result = computeMaskBounds(mask, 10, 5);
     expect(result).toEqual({ x: 4, y: 2, w: 1, h: 1 });
+  });
+});
+
+describe('validateMaskFrameGeometry', () => {
+  it('accepts a bounded mask fully inside the source frame', () => {
+    expect(validateMaskFrameGeometry(20, 16, new Uint8Array(4 * 3), 4, 3, 8, 6)).toEqual({
+      valid: true,
+      right: 12,
+      bottom: 9,
+    });
+  });
+
+  it('rejects a partially out-of-bounds mask instead of clipping it', () => {
+    expect(validateMaskFrameGeometry(20, 16, new Uint8Array(4 * 3), 4, 3, 18, 6)).toMatchObject({
+      valid: false,
+      code: 'mask-out-of-bounds',
+    });
+  });
+
+  it('rejects a mask whose origin is outside the source frame', () => {
+    expect(validateMaskFrameGeometry(20, 16, new Uint8Array(4 * 3), 4, 3, -1, 6)).toMatchObject({
+      valid: false,
+      code: 'mask-out-of-bounds',
+    });
+  });
+
+  it('rejects a mask with a mismatched pixel buffer before any bounds scan', () => {
+    expect(validateMaskFrameGeometry(20, 16, new Uint8Array(2), 4, 3)).toMatchObject({
+      valid: false,
+      code: 'mask-length-mismatch',
+    });
   });
 });
 
@@ -282,6 +314,12 @@ describe('extractBoundedContext', () => {
       width: 17,
       height: 17,
     });
+  });
+
+  it('does not fall back to an unrelated region for an out-of-bounds frame', () => {
+    const mask = new Uint8Array(4);
+    mask[0] = 255;
+    expect(() => computeBoundedContextRegion(10, 10, mask, 2, 2, 9, 0, 2)).toThrow(/fully inside/i);
   });
 });
 

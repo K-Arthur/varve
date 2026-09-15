@@ -1,8 +1,13 @@
+export type {
+  MaskFrameGeometryErrorCode,
+  MaskFrameGeometryValidation,
+} from './contextExtraction';
 export {
   compositeFillResult,
   computeBoundedContextRegion,
   computeMaskBounds,
   extractBoundedContext,
+  validateMaskFrameGeometry,
 } from './contextExtraction';
 export {
   applyFillTransform,

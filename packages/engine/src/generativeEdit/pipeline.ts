@@ -8,6 +8,7 @@ import {
   compositeFillResult,
   computeBoundedContextRegion,
   extractBoundedContext,
+  validateMaskFrameGeometry,
 } from '../contentAwareFill/contextExtraction';
 import { prepareDiffusionFrame } from './diffusionFrame';
 import { runDeterministicExpandFallback } from './expandFallback';
@@ -154,22 +155,16 @@ function assertUsableRequest(request: GenerativeEditRequest): void {
   if (request.imageData.width <= 0 || request.imageData.height <= 0) {
     throw new GenerativeEditError('invalid-image', 'The source image is empty.');
   }
-  if (
-    request.maskWidth <= 0 ||
-    request.maskHeight <= 0 ||
-    request.mask.length !== request.maskWidth * request.maskHeight
-  ) {
-    throw new GenerativeEditError(
-      'invalid-mask',
-      'The edit mask dimensions do not match its pixels.',
-    );
-  }
-  if (
-    (request.maskOffsetX !== undefined && !Number.isSafeInteger(request.maskOffsetX)) ||
-    (request.maskOffsetY !== undefined && !Number.isSafeInteger(request.maskOffsetY))
-  ) {
-    throw new GenerativeEditError('invalid-mask', 'The edit mask offset is invalid.');
-  }
+  const geometry = validateMaskFrameGeometry(
+    request.imageData.width,
+    request.imageData.height,
+    request.mask,
+    request.maskWidth,
+    request.maskHeight,
+    request.maskOffsetX ?? 0,
+    request.maskOffsetY ?? 0,
+  );
+  if (!geometry.valid) throw new GenerativeEditError('invalid-mask', geometry.message);
   if (!request.mask.some((value) => value > 0)) {
     throw new GenerativeEditError('empty-mask', 'Paint an area to edit before generating.');
   }

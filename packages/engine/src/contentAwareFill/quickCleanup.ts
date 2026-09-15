@@ -1,4 +1,5 @@
 import { GenerativeEditError } from '../generativeEdit/types';
+import { validateMaskFrameGeometry } from './contextExtraction';
 import { runContentAwareFillPipeline } from './pipeline';
 
 /** The deterministic provider used for small repairs on constrained devices. */
@@ -48,24 +49,16 @@ function validateOptions(options: QuickCleanupOptions): void {
   ) {
     throw new GenerativeEditError('invalid-image', 'The cleanup source image is invalid.');
   }
-  if (
-    !Number.isSafeInteger(maskWidth) ||
-    !Number.isSafeInteger(maskHeight) ||
-    maskWidth <= 0 ||
-    maskHeight <= 0 ||
-    mask.length !== maskWidth * maskHeight
-  ) {
-    throw new GenerativeEditError(
-      'invalid-mask',
-      'The cleanup mask dimensions do not match its pixels.',
-    );
-  }
-  if (
-    (options.maskOffsetX !== undefined && !Number.isSafeInteger(options.maskOffsetX)) ||
-    (options.maskOffsetY !== undefined && !Number.isSafeInteger(options.maskOffsetY))
-  ) {
-    throw new GenerativeEditError('invalid-mask', 'The cleanup mask origin is invalid.');
-  }
+  const geometry = validateMaskFrameGeometry(
+    imageData.width,
+    imageData.height,
+    mask,
+    maskWidth,
+    maskHeight,
+    options.maskOffsetX ?? 0,
+    options.maskOffsetY ?? 0,
+  );
+  if (!geometry.valid) throw new GenerativeEditError('invalid-mask', geometry.message);
   if (!mask.some((value) => value > 0)) {
     throw new GenerativeEditError('empty-mask', 'Paint an area to clean up before running it.');
   }
