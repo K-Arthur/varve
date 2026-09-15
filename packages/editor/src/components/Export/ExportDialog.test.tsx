@@ -99,11 +99,11 @@ describe('ExportDialog', () => {
         onExport={async () => {}}
       />,
     );
-    expect(container.querySelector('.export-dialog-overlay')).toBeTruthy();
+    expect(container.querySelector('dialog.export-dialog')).toBeTruthy();
     expect(screen.getByText('Export')).toBeTruthy();
   });
 
-  it('does not render when isOpen is false', () => {
+  it('does not mount its body when isOpen is false', () => {
     const { container } = render(
       <ExportDialog
         isOpen={false}
@@ -112,12 +112,15 @@ describe('ExportDialog', () => {
         onExport={async () => {}}
       />,
     );
-    expect(container.querySelector('.export-dialog-overlay')).toBeNull();
+    // The native dialog element stays mounted (so close() can restore
+    // focus) but is not open and does not mount its expensive body.
+    expect(container.querySelector('dialog.export-dialog')?.hasAttribute('open')).toBe(false);
+    expect(screen.queryByText('Files to export')).toBeNull();
   });
 
   it('closes on Escape key', () => {
     const onClose = vi.fn();
-    render(
+    const { container } = render(
       <ExportDialog
         isOpen={true}
         onClose={onClose}
@@ -125,12 +128,12 @@ describe('ExportDialog', () => {
         onExport={async () => {}}
       />,
     );
-    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.keyDown(container.querySelector('dialog') as HTMLDialogElement, { key: 'Escape' });
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('has correct aria attributes', () => {
-    const { container } = render(
+  it('exposes the dialog with its accessible name', () => {
+    render(
       <ExportDialog
         isOpen={true}
         onClose={() => {}}
@@ -138,13 +141,10 @@ describe('ExportDialog', () => {
         onExport={async () => {}}
       />,
     );
-    const overlay = container.querySelector('.export-dialog-overlay');
-    expect(overlay?.getAttribute('role')).toBe('dialog');
-    expect(overlay?.getAttribute('aria-modal')).toBe('true');
-    expect(overlay?.getAttribute('aria-label')).toBe('Export');
+    expect(screen.getByRole('dialog', { name: 'Export' })).toBeTruthy();
   });
 
-  it('closes on overlay click', () => {
+  it('closes on a real backdrop press and release', () => {
     const onClose = vi.fn();
     const { container } = render(
       <ExportDialog
@@ -154,8 +154,10 @@ describe('ExportDialog', () => {
         onExport={async () => {}}
       />,
     );
-    const overlay = container.querySelector('.export-dialog-overlay')!;
-    fireEvent.click(overlay);
+    const dialog = container.querySelector('dialog.export-dialog') as HTMLDialogElement;
+    fireEvent.pointerDown(dialog);
+    fireEvent.pointerUp(dialog);
+    fireEvent.click(dialog);
     expect(onClose).toHaveBeenCalled();
   });
 

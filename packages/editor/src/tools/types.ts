@@ -13,7 +13,10 @@
 import type { AreaSelection, AreaSelectionSettings, Engine, PathPoint } from '@varve/engine';
 import type { Document, NodeId, SceneNode } from '@varve/scene';
 import type { Affine, Camera } from '@varve/shared';
-import type { ObjectSelectionSession } from '../context/objectSelectionTypes';
+import type {
+  ObjectSelectionSession,
+  ObjectSelectionSourcePrompts,
+} from '../context/objectSelectionTypes';
 import type { TableEditState } from '../context/tableEditState';
 import type { HitTestPolicyName } from '../hitTest/policyTypes';
 import type { NormalizedInputEvent } from './inputNormalizer';
@@ -432,6 +435,7 @@ export interface ToolContext {
       points?: Array<{ x: number; y: number; label: 0 | 1 }>;
       box?: { x1: number; y1: number; x2: number; y2: number };
     };
+    sourcePrompts?: ObjectSelectionSourcePrompts;
     signal?: AbortSignal;
     operation: 'preview' | 'mask' | 'selection';
     candidateIndex?: number;

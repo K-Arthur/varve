@@ -36,6 +36,8 @@ const THRESHOLD_OPTIONS = [
   { value: 0.45, label: 'Strict — fewer regions' },
 ] as const;
 
+type NormalizedSourceBox = { x1: number; y1: number; x2: number; y2: number };
+
 export function TextDiscoveryPanel({
   source,
   onSegmentBox,
@@ -44,7 +46,8 @@ export function TextDiscoveryPanel({
 }: {
   /** Resolved source URL for the single selected image layer. */
   source: string | null;
-  onSegmentBox: (box: { x1: number; y1: number; x2: number; y2: number }) => void;
+  /** Receives normalized source-image coordinates, not document/world units. */
+  onSegmentBox: (box: NormalizedSourceBox) => void;
   announce: (message: string) => void;
   disabled?: boolean;
 }) {
@@ -476,7 +479,10 @@ export function TextDiscoveryPanel({
               disabled={!selected || disabled || reviewedDetectionId !== selected?.id}
               onClick={() => {
                 if (!selected) return;
-                onSegmentBox(selected.box);
+                // Keep the detector's normalized source geometry. The parent
+                // maps it separately for the world-space canvas prompt and
+                // passes this exact box to the model.
+                onSegmentBox(selected.normalizedBox);
                 announce(
                   'Detection sent to Object Selection. Review the candidate mask before applying it.',
                 );

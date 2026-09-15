@@ -247,6 +247,15 @@ inference and commit validators map those markers through the current canonical
 image mapper before comparing them with source-image mask pixels; they never
 compare world values directly with normalized model coordinates.
 
+Automated detector prompts are the exception in representation, not in
+validation: Grounding DINO boxes enter the session as immutable normalized
+source-image geometry. The canvas receives a separately mapped world-space
+envelope for display, while the segmenter and the Generative Edit handoff use
+the original source box. This prevents an unscaled/unrotated layout from being
+the accidental requirement for correct text-driven selection, and avoids
+silently widening a rotated or cropped detector box during a world-space
+round-trip.
+
 Prompt normalization is fail-closed. Every include/exclude point must map to a
 visible source-image pixel, and all four corners of a box hint must map before
 the source-space box is constructed. If a point or corner falls outside the

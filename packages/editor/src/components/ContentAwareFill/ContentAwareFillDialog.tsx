@@ -50,6 +50,7 @@ import { replaceImageShapeContent } from '../../imageOperations';
 import { prepareImageMaskMapper } from '../../tools/imageMaskCoordinates';
 import {
   normalizeSam2Prompts,
+  normalizeSourceSam2Prompts,
   type Sam2NormalizedPrompts,
 } from '../../tools/sam2PromptCoordinates';
 import {
@@ -2969,15 +2970,17 @@ export function ContentAwareFillDialog({
             'The image placement changed after Object Selection. Create a new preview.',
           );
         }
-        normalizedSelectionPrompts = normalizeSam2Prompts(
-          {
-            points: objectSelection.points,
-            box: objectSelection.box ?? undefined,
-          },
-          mapper,
-          sourceWidth,
-          sourceHeight,
-        );
+        normalizedSelectionPrompts = objectSelection.sourcePrompts
+          ? normalizeSourceSam2Prompts(objectSelection.sourcePrompts)
+          : normalizeSam2Prompts(
+              {
+                points: objectSelection.points,
+                box: objectSelection.box ?? undefined,
+              },
+              mapper,
+              sourceWidth,
+              sourceHeight,
+            );
         if (
           normalizedSelectionPrompts.unmappedPointCount > 0 ||
           normalizedSelectionPrompts.unmappedBoxCornerCount > 0

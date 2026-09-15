@@ -38,11 +38,17 @@ import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
 import { setCollapsed } from '../components/Inspector/sectionState';
 import { prepareImageMaskMapper } from '../tools/imageMaskCoordinates';
-import { normalizeSam2Prompts } from '../tools/sam2PromptCoordinates';
+import {
+  mergeSam2NormalizedPrompts,
+  normalizeSam2Prompts,
+  normalizeSourceSam2Prompts,
+  type Sam2SourcePrompts,
+} from '../tools/sam2PromptCoordinates';
 import { areaSelectionFromMaskCoverage } from '../tools/selectionMask';
 import { fingerprintImageData } from './imageFingerprint';
 import {
   type ObjectSelectionSession,
+  type ObjectSelectionSourcePrompts,
   objectSelectionCandidateMaskFingerprint,
   objectSelectionCandidateReviewKey,
 } from './objectSelectionTypes';
@@ -231,6 +237,8 @@ export interface Sam2SegmentationAPI {
       points?: Array<{ x: number; y: number; label: 0 | 1 }>;
       box?: { x1: number; y1: number; x2: number; y2: number };
     };
+    /** Optional exact source-space prompts supplied by an automated detector. */
+    sourcePrompts?: Sam2SourcePrompts;
     signal?: AbortSignal;
     operation: 'preview' | 'mask' | 'selection';
     candidateIndex?: number;
@@ -410,6 +418,7 @@ export function useSam2Segmentation(
     async ({
       nodeId,
       prompts,
+      sourcePrompts,
       signal: externalSignal,
       operation,
       candidateIndex,
@@ -419,6 +428,7 @@ export function useSam2Segmentation(
         points?: Array<{ x: number; y: number; label: 0 | 1 }>;
         box?: { x1: number; y1: number; x2: number; y2: number };
       };
+      sourcePrompts?: Sam2SourcePrompts;
       signal?: AbortSignal;
       operation: 'preview' | 'mask' | 'selection';
       candidateIndex?: number;
@@ -622,15 +632,17 @@ export function useSam2Segmentation(
           );
           return null;
         }
-        const reviewedPrompts = normalizeSam2Prompts(
-          {
-            points: previousSession.points,
-            box: previousSession.box ?? undefined,
-          },
-          currentMapper,
-          previousSession.width,
-          previousSession.height,
-        );
+        const reviewedPrompts = previousSession.sourcePrompts
+          ? normalizeSourceSam2Prompts(previousSession.sourcePrompts)
+          : normalizeSam2Prompts(
+              {
+                points: previousSession.points,
+                box: previousSession.box ?? undefined,
+              },
+              currentMapper,
+              previousSession.width,
+              previousSession.height,
+            );
         if (reviewedPrompts.unmappedPointCount > 0 || reviewedPrompts.unmappedBoxCornerCount > 0) {
           const live = stateRef.current.objectSelectionSession;
           if (generation === generationRef.current && live?.nodeId === nodeId) {
@@ -888,6 +900,7 @@ export function useSam2Segmentation(
         selectedCandidate: sameSessionTarget ? (previousSession?.selectedCandidate ?? 0) : 0,
         points: prompts.points ?? [],
         box: prompts.box ?? null,
+        sourcePrompts: sourcePrompts ? cloneSourcePrompts(sourcePrompts) : undefined,
         draftPoint: null,
         draftBox: null,
         confidence: sameSessionTarget ? (previousSession?.confidence ?? 0) : 0,
@@ -1007,7 +1020,26 @@ export function useSam2Segmentation(
         });
         return null;
       }
-      const normPrompts = normalizeSam2Prompts(prompts, imageMapper, naturalW, naturalH);
+      const sourceNormalizedPrompts = sourcePrompts
+        ? normalizeSourceSam2Prompts(sourcePrompts)
+        : null;
+      if (
+        sourceNormalizedPrompts &&
+        (sourceNormalizedPrompts.unmappedPointCount > 0 ||
+          sourceNormalizedPrompts.unmappedBoxCornerCount > 0)
+      ) {
+        markFailure({
+          code: 'invalid_prompt_geometry',
+          message:
+            'The automated selection prompt has invalid source-image geometry. Run discovery again.',
+          retryable: true,
+        });
+        return null;
+      }
+      const mappedPrompts = normalizeSam2Prompts(prompts, imageMapper, naturalW, naturalH);
+      const normPrompts = sourceNormalizedPrompts
+        ? mergeSam2NormalizedPrompts(sourceNormalizedPrompts, mappedPrompts)
+        : mappedPrompts;
       if (normPrompts.unmappedPointCount > 0 || normPrompts.unmappedBoxCornerCount > 0) {
         const unmappedParts = [
           normPrompts.unmappedPointCount > 0
@@ -1516,6 +1548,7 @@ export function useSam2Segmentation(
                 reviewedCandidateAt: undefined,
                 points: prompts.points ?? [],
                 box: prompts.box ?? null,
+                sourcePrompts: sourcePrompts ? cloneSourcePrompts(sourcePrompts) : undefined,
                 draftPoint: null,
                 draftBox: null,
                 confidence: selectedConfidence,
@@ -1893,6 +1926,13 @@ export function mapPromptedRoutingFailure(decision: {
     code: 'provider_unavailable',
     message: rejection?.reason ?? decision.reason,
     retryable: true,
+  };
+}
+
+function cloneSourcePrompts(prompts: Sam2SourcePrompts): ObjectSelectionSourcePrompts {
+  return {
+    ...(prompts.points ? { points: prompts.points.map((point) => ({ ...point })) } : {}),
+    ...(prompts.box ? { box: { ...prompts.box } } : {}),
   };
 }
 

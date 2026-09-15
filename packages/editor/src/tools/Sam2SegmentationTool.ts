@@ -344,6 +344,7 @@ export class Sam2SegmentationTool extends BaseTool {
     const previous =
       ctx.objectSelectionSession?.nodeId === nodeId ? ctx.objectSelectionSession : undefined;
     const invalidatePreview = options.invalidatePreview === true;
+    const sourcePrompts = this.retainedSourcePrompts(ctx, nodeId);
     ctx.patchEditorState({
       objectSelectionSession: {
         nodeId,
@@ -354,6 +355,7 @@ export class Sam2SegmentationTool extends BaseTool {
         selectedCandidate: invalidatePreview ? 0 : (previous?.selectedCandidate ?? 0),
         points: this.points.map((point) => ({ ...point })),
         box: this.box ? { ...this.box } : null,
+        ...(sourcePrompts && Object.keys(sourcePrompts).length > 0 ? { sourcePrompts } : {}),
         draftPoint: options.draftPoint ?? null,
         draftBox: options.draftBox ?? null,
         confidence: invalidatePreview ? 0 : (previous?.confidence ?? 0),
@@ -385,7 +387,12 @@ export class Sam2SegmentationTool extends BaseTool {
     const nodeId = ctx.selection?.[0];
     if (!nodeId) return;
 
-    await ctx.applySam2Segmentation({ nodeId, prompts, operation: 'preview' });
+    await ctx.applySam2Segmentation({
+      nodeId,
+      prompts,
+      sourcePrompts: this.retainedSourcePrompts(ctx, nodeId),
+      operation: 'preview',
+    });
   }
 
   /** Commit the visible candidate as a non-destructive mask (Enter key). */
@@ -397,6 +404,7 @@ export class Sam2SegmentationTool extends BaseTool {
     const result = await ctx.applySam2Segmentation({
       nodeId,
       prompts,
+      sourcePrompts: this.retainedSourcePrompts(ctx, nodeId),
       operation: 'mask',
       candidateIndex: ctx.objectSelectionSession?.selectedCandidate,
     });
@@ -416,6 +424,21 @@ export class Sam2SegmentationTool extends BaseTool {
   clearPrompts(): void {
     this.clearLocalPrompts();
   }
+
+  private retainedSourcePrompts(
+    ctx: ToolContext,
+    nodeId: string,
+  ): NonNullable<NonNullable<ToolContext['objectSelectionSession']>['sourcePrompts']> | undefined {
+    const previous =
+      ctx.objectSelectionSession?.nodeId === nodeId ? ctx.objectSelectionSession : undefined;
+    if (!previous?.sourcePrompts || !sameSegmentationBox(previous.box, this.box)) return undefined;
+    return {
+      ...(sameSegmentationPoints(previous.points, this.points) && previous.sourcePrompts.points
+        ? { points: previous.sourcePrompts.points.map((point) => ({ ...point })) }
+        : {}),
+      ...(previous.sourcePrompts.box ? { box: { ...previous.sourcePrompts.box } } : {}),
+    };
+  }
 }
 
 function normalizedBox(box: SegmentationBox): SegmentationBox {
@@ -425,4 +448,29 @@ function normalizedBox(box: SegmentationBox): SegmentationBox {
     x2: Math.max(box.x1, box.x2),
     y2: Math.max(box.y1, box.y2),
   };
+}
+
+function sameSegmentationBox(left: SegmentationBox | null, right: SegmentationBox | null): boolean {
+  if (left === null || right === null) return left === right;
+  return (
+    left.x1 === right.x1 && left.y1 === right.y1 && left.x2 === right.x2 && left.y2 === right.y2
+  );
+}
+
+function sameSegmentationPoints(
+  left: readonly SegmentationPoint[],
+  right: readonly SegmentationPoint[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((point, index) => {
+      const candidate = right[index];
+      return (
+        candidate !== undefined &&
+        point.x === candidate.x &&
+        point.y === candidate.y &&
+        point.label === candidate.label
+      );
+    })
+  );
 }

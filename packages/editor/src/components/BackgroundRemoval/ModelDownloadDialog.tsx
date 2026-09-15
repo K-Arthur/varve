@@ -1,11 +1,11 @@
 import { AVAILABLE_MODELS, getModelById, getModelLoader, UPSCALE_MODELS } from '@varve/engine';
+import { Button, Dialog } from '@varve/ui';
 import { useCallback, useRef, useState } from 'react';
 import {
   type NormalizedModelDownloadError,
   normalizeModelDownloadError,
 } from '../../backgroundRemoval/normalizeModelDownloadError';
 import { modelRequirementLabel } from '../../modelRequirements';
-import { FocusTrap } from '../../onboard/FocusTrap';
 import './ModelDownloadDialog.css';
 
 interface ModelDownloadDialogProps {
@@ -112,136 +112,118 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
       ? 'image denoising'
       : 'image upscaling';
   return (
-    <div
-      className="model-download-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Download AI Model"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) handleCancel();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') handleCancel();
-      }}
+    <Dialog
+      open
+      onClose={handleCancel}
+      title="Download AI Model"
+      className="model-download-dialog"
+      // Land focus on the explicit consent action: this dialog exists to
+      // explain a network download before anything starts.
+      focusFirstControl
     >
-      <FocusTrap onClose={handleCancel}>
-        <div className="model-download-dialog">
-          <h2>Download AI Model</h2>
+      {status === 'confirm' && (
+        <>
+          <p className="model-download__desc">
+            {model ? `${model.name} — ~${sizeMB} MB` : 'This model'} will be downloaded from{' '}
+            <strong>{sourceHost}</strong> and stored on this device for offline local {purpose}. It
+            is only used on this machine — no images are uploaded. This is a one-time download.
+          </p>
+          <p className="model-download__requirements">
+            {modelRequirementLabel(model?.size ?? 0, peakMemoryBytes)}. The working-memory figure is
+            an estimate; actual usage depends on the image and execution provider.
+          </p>
+          <div className="model-download__actions">
+            <Button variant="ghost" onClick={handleCancel}>
+              Cancel
+            </Button>
+            <Button variant="default" onClick={handleDownload} data-autofocus>
+              Download
+            </Button>
+          </div>
+        </>
+      )}
 
-          {status === 'confirm' && (
-            <>
-              <p className="model-download__desc">
-                {model ? `${model.name} — ~${sizeMB} MB` : 'This model'} will be downloaded from{' '}
-                <strong>{sourceHost}</strong> and stored on this device for offline local {purpose}.
-                It is only used on this machine — no images are uploaded. This is a one-time
-                download.
-              </p>
-              <p className="model-download__requirements">
-                {modelRequirementLabel(model?.size ?? 0, peakMemoryBytes)}. The working-memory
-                figure is an estimate; actual usage depends on the image and execution provider.
-              </p>
-              <div className="model-download__actions">
-                <button type="button" className="varve-btn varve-btn--ghost" onClick={handleCancel}>
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="varve-btn varve-btn--primary"
-                  onClick={handleDownload}
-                >
-                  Download
-                </button>
-              </div>
-            </>
-          )}
+      {status !== 'confirm' && model && (
+        <p className="model-download__desc">
+          {model.name} — ~{sizeMB} MB
+        </p>
+      )}
 
-          {status !== 'confirm' && model && (
-            <p className="model-download__desc">
-              {model.name} — ~{sizeMB} MB
-            </p>
-          )}
+      {status === 'connecting' && (
+        <p className="model-download__status" role="status" aria-live="polite">
+          Connecting to {sourceHost}…
+        </p>
+      )}
 
-          {status === 'connecting' && (
-            <p className="model-download__status" role="status" aria-live="polite">
-              Connecting to {sourceHost}…
-            </p>
-          )}
+      {status === 'downloading' && (
+        <div className="model-download__progress" aria-live="polite">
+          <div className="model-download__bar">
+            <div className="model-download__fill" style={{ width: `${progress}%` }} />
+          </div>
+          <span className="model-download__pct">{progress}%</span>
+        </div>
+      )}
 
-          {status === 'downloading' && (
-            <div className="model-download__progress" aria-live="polite">
-              <div className="model-download__bar">
-                <div className="model-download__fill" style={{ width: `${progress}%` }} />
-              </div>
-              <span className="model-download__pct">{progress}%</span>
-            </div>
-          )}
+      {status === 'verifying' && (
+        <p className="model-download__status" role="status" aria-live="polite">
+          Verifying the downloaded file…
+        </p>
+      )}
 
-          {status === 'verifying' && (
-            <p className="model-download__status" role="status" aria-live="polite">
-              Verifying the downloaded file…
-            </p>
-          )}
+      {status === 'installing' && (
+        <p className="model-download__status" role="status" aria-live="polite">
+          Installing the model…
+        </p>
+      )}
 
-          {status === 'installing' && (
-            <p className="model-download__status" role="status" aria-live="polite">
-              Installing the model…
-            </p>
-          )}
+      {status === 'ready' && <p className="model-download__done">Model ready!</p>}
 
-          {status === 'ready' && <p className="model-download__done">Model ready!</p>}
+      {status === 'cancelled' && (
+        <p className="model-download__status" role="status" aria-live="polite">
+          Download cancelled. Nothing was installed.
+        </p>
+      )}
 
-          {status === 'cancelled' && (
-            <p className="model-download__status" role="status" aria-live="polite">
-              Download cancelled. Nothing was installed.
-            </p>
-          )}
-
-          {status === 'error' && error && (
-            <div className="model-download__error">
-              <p className="model-download__error-title">{error.userMessage}</p>
-              <p className="model-download__error-detail">{error.detail}</p>
-              <button
-                type="button"
-                className="model-download__details-toggle"
-                onClick={() => setDetailsOpen((open) => !open)}
-                aria-expanded={detailsOpen}
-              >
-                {detailsOpen ? 'Hide details' : 'Details'}
-              </button>
-              {detailsOpen && (
-                <details open className="model-download__details">
-                  <summary className="sr-only">Technical details</summary>
-                  <dl>
-                    <dt>Model</dt>
-                    <dd>{modelId}</dd>
-                    <dt>Error</dt>
-                    <dd>{error.technicalMessage || 'No error details were provided.'}</dd>
-                  </dl>
-                </details>
-              )}
-            </div>
-          )}
-
-          {status !== 'confirm' && (
-            <div className="model-download__actions">
-              <button type="button" className="varve-btn varve-btn--ghost" onClick={handleCancel}>
-                {status === 'ready' || status === 'cancelled' || status === 'error'
-                  ? 'Close'
-                  : 'Cancel'}
-              </button>
-              {status === 'error' && error?.retryable !== false && (
-                <button
-                  type="button"
-                  className="varve-btn varve-btn--primary"
-                  onClick={handleDownload}
-                >
-                  Retry
-                </button>
-              )}
-            </div>
+      {status === 'error' && error && (
+        <div className="model-download__error">
+          <p className="model-download__error-title">{error.userMessage}</p>
+          <p className="model-download__error-detail">{error.detail}</p>
+          <button
+            type="button"
+            className="model-download__details-toggle"
+            onClick={() => setDetailsOpen((open) => !open)}
+            aria-expanded={detailsOpen}
+          >
+            {detailsOpen ? 'Hide details' : 'Details'}
+          </button>
+          {detailsOpen && (
+            <details open className="model-download__details">
+              <summary className="sr-only">Technical details</summary>
+              <dl>
+                <dt>Model</dt>
+                <dd>{modelId}</dd>
+                <dt>Error</dt>
+                <dd>{error.technicalMessage || 'No error details were provided.'}</dd>
+              </dl>
+            </details>
           )}
         </div>
-      </FocusTrap>
-    </div>
+      )}
+
+      {status !== 'confirm' && (
+        <div className="model-download__actions">
+          <Button variant="ghost" onClick={handleCancel}>
+            {status === 'ready' || status === 'cancelled' || status === 'error'
+              ? 'Close'
+              : 'Cancel'}
+          </Button>
+          {status === 'error' && error?.retryable !== false && (
+            <Button variant="default" onClick={handleDownload}>
+              Retry
+            </Button>
+          )}
+        </div>
+      )}
+    </Dialog>
   );
 }

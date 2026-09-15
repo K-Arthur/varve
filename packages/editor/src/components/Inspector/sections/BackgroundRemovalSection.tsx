@@ -35,11 +35,13 @@ import { getToolManager } from '../../../canvas/toolDispatcher';
 import { isCapabilityRestricted } from '../../../capabilities/restrictions';
 import { useEditor } from '../../../context';
 import { objectSelectionCandidateReviewKey } from '../../../context/objectSelectionTypes';
+import { prepareImageMaskMapper } from '../../../tools/imageMaskCoordinates';
 import type {
   Sam2PromptMode,
   Sam2PromptPolarity,
   Sam2SegmentationTool,
 } from '../../../tools/Sam2SegmentationTool';
+import { mapSourceSam2PromptsToWorld } from '../../../tools/sam2PromptCoordinates';
 import { areaSelectionFromMaskCoverage } from '../../../tools/selectionMask';
 import { ModelDownloadDialog } from '../../BackgroundRemoval/ModelDownloadDialog';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -526,6 +528,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
         points: objectSelection.points,
         box: objectSelection.box ?? undefined,
       },
+      sourcePrompts: objectSelection.sourcePrompts,
       operation: 'mask',
       candidateIndex: objectSelection.selectedCandidate,
     });
@@ -562,6 +565,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
         points: objectSelection.points,
         box: objectSelection.box ?? undefined,
       },
+      sourcePrompts: objectSelection.sourcePrompts,
       operation: 'selection',
       candidateIndex: objectSelection.selectedCandidate,
     });
@@ -608,6 +612,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
         points: objectSelection.points,
         box: objectSelection.box ?? undefined,
       },
+      sourcePrompts: objectSelection.sourcePrompts,
       operation: 'preview',
     });
   }, [applySam2Segmentation, node, objectSelection]);
@@ -884,9 +889,32 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
               source={node ? previewSource || null : null}
               onSegmentBox={(box) => {
                 if (!node) return;
+                const sourceNode = state.document.nodes[node.id];
+                const mapper =
+                  sourceNode && previewSourceWidth > 0 && previewSourceHeight > 0
+                    ? prepareImageMaskMapper({
+                        document: state.document,
+                        node: sourceNode,
+                        sourceWidth: previewSourceWidth,
+                        sourceHeight: previewSourceHeight,
+                      })
+                    : null;
+                const worldPrompts = mapSourceSam2PromptsToWorld(
+                  { box },
+                  mapper,
+                  previewSourceWidth,
+                  previewSourceHeight,
+                );
+                if (!worldPrompts?.box) {
+                  announce(
+                    'The detected region could not be mapped to the visible image placement. Run discovery again.',
+                  );
+                  return;
+                }
                 void applySam2Segmentation({
                   nodeId: node.id,
-                  prompts: { box },
+                  prompts: worldPrompts,
+                  sourcePrompts: { box },
                   operation: 'preview',
                 });
               }}

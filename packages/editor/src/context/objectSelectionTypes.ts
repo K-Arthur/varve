@@ -13,6 +13,12 @@ export type ObjectSelectionScoreSource =
   | 'model-iou'
   | 'activation-heuristic';
 
+/** Automated prompts retained in normalized source-image coordinates. */
+export interface ObjectSelectionSourcePrompts {
+  points?: Array<{ x: number; y: number; label: 0 | 1 }>;
+  box?: { x1: number; y1: number; x2: number; y2: number };
+}
+
 /** Transient Object Selection state. Never serialized or added to history. */
 export interface ObjectSelectionSession {
   /** Document identity guards async results and prompt overlays. */
@@ -44,6 +50,8 @@ export interface ObjectSelectionSession {
   points: Array<{ x: number; y: number; label: 0 | 1 }>;
   /** Box hint in document/world coordinates for the canvas overlay. */
   box: { x1: number; y1: number; x2: number; y2: number } | null;
+  /** Exact automated prompt geometry in normalized source-image coordinates. */
+  sourcePrompts?: ObjectSelectionSourcePrompts;
   sourceLocator?: string;
   /** SHA-256 (or deterministic fallback) of the decoded source RGBA pixels. */
   sourceFingerprint?: string;

@@ -54,7 +54,7 @@ import type { MotionState } from '../state/motion-state';
 import type { MagicWandSettings } from '../tools/magicWandSettings';
 import type { DraftShape, MaskPreviewMode, ToolId } from '../tools/types';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
-import type { ObjectSelectionSession } from './objectSelectionTypes';
+import type { ObjectSelectionSession, ObjectSelectionSourcePrompts } from './objectSelectionTypes';
 import type { SelectionMode, SelectionOrigin } from './selectionState';
 import type { TableEditState } from './tableEditState';
 
@@ -1357,6 +1357,7 @@ export interface EditorContextValue {
       points?: Array<{ x: number; y: number; label: 0 | 1 }>;
       box?: { x1: number; y1: number; x2: number; y2: number };
     };
+    sourcePrompts?: ObjectSelectionSourcePrompts;
     signal?: AbortSignal;
     operation: 'preview' | 'mask' | 'selection';
     candidateIndex?: number;

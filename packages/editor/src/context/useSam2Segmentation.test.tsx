@@ -209,6 +209,33 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
     expect(stateRef.current.objectSelectionSession).toBeNull();
   });
 
+  it('uses the exact source-space box retained from automated discovery during commit', async () => {
+    const mask = new Uint8Array(8 * 8);
+    for (const y of [3, 4]) {
+      for (const x of [3, 4]) mask[y * 8 + x] = 255;
+    }
+    const { doc, session } = await sessionFor({ mask });
+    // Deliberately make the display/world prompt disagree with the source
+    // detector box. A regression that re-normalizes the world marker would
+    // reject this candidate at (0, 0); the source-space contract must use the
+    // box that the detector produced and the user reviewed.
+    session.points = [{ x: 0, y: 0, label: 1 }];
+    session.sourcePrompts = { box: { x1: 0.35, y1: 0.35, x2: 0.75, y2: 0.75 } };
+    const { result, stateRef, setAreaSelection } = setup(session, doc);
+
+    await act(async () => {
+      await result.current.applySam2Segmentation({
+        nodeId: 'image',
+        prompts: { points: session.points },
+        operation: 'selection',
+      });
+    });
+
+    expect(controls.infer).not.toHaveBeenCalled();
+    expect(setAreaSelection).toHaveBeenCalledTimes(1);
+    expect(stateRef.current.objectSelectionSession).toBeNull();
+  });
+
   it('commits the reviewed candidate as a mask without running inference', async () => {
     const { doc, session } = await sessionFor({ size: 1 });
     const { result, stateRef } = setup(session, doc);

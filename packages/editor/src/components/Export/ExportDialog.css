@@ -1,64 +1,10 @@
-.export-dialog-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-overlay, 500);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--elevation-scrim);
-}
-.export-dialog {
-  width: min(720px, 90vw);
-  max-height: 85vh;
+/* The shared Dialog owns the shell: top-layer placement, surface, width
+   (size="lg"), the header/close button, scrollable body, sticky footer,
+   backdrop, Escape, and focus containment. These rules style only the
+   export-specific content. */
+.export-dialog__body {
   display: flex;
   flex-direction: column;
-  background: var(--elevation-surface-overlay);
-  border-radius: var(--radius-card);
-  box-shadow: var(--elevation-shadow-overlay);
-  overflow: hidden;
-}
-.export-dialog__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-3) var(--space-4);
-  border-bottom: var(--border-micro);
-}
-.export-dialog__title {
-  margin: 0;
-  font-size: var(--font-size-lg);
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-.export-dialog__close {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  min-height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-control);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition:
-    background var(--duration-quick) var(--ease-standard),
-    color var(--duration-quick) var(--ease-standard);
-}
-.export-dialog__close:hover {
-  background: var(--elevation-surface-sunken);
-  color: var(--color-text-primary);
-}
-.export-dialog__close:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 2px;
-}
-.export-dialog__body {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-3) var(--space-4);
 }
 .export-dialog__section {
   margin-bottom: var(--space-3);
@@ -74,13 +20,12 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
+/* The shared .varve-dialog__footer provides padding and the top border. */
 .export-dialog__footer {
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  border-top: var(--border-micro);
 }
 .export-dialog__btn {
   display: inline-flex;
@@ -158,9 +103,6 @@
 /* ── High-contrast overrides ──────────────────────────── */
 [data-theme="high-contrast"] .export-dialog {
   border: 1px solid var(--color-border-strong);
-}
-[data-theme="high-contrast"] .export-dialog__header {
-  border-bottom: 1px solid var(--color-border-strong);
 }
 [data-theme="high-contrast"] .export-dialog__footer {
   border-top: 1px solid var(--color-border-strong);

@@ -1665,6 +1665,7 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
       points?: Array<{ x: number; y: number; label: 0 | 1 }>;
       box?: { x1: number; y1: number; x2: number; y2: number };
     };
+    sourcePrompts?: import('./context/objectSelectionTypes').ObjectSelectionSourcePrompts;
     signal?: AbortSignal;
     operation: 'preview' | 'mask' | 'selection';
     candidateIndex?: number;

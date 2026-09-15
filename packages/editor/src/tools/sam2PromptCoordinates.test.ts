@@ -1,11 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeSam2Prompts } from './sam2PromptCoordinates';
+import {
+  mapSourceSam2PromptsToWorld,
+  mergeSam2NormalizedPrompts,
+  normalizeSam2Prompts,
+  normalizeSourceSam2Prompts,
+} from './sam2PromptCoordinates';
 
 function mapper(points: Record<string, { x: number; y: number }>) {
   return {
     mapWorldPoint(point: { x: number; y: number }) {
       return points[`${point.x},${point.y}`] ?? null;
     },
+  };
+}
+
+function sourceMapper(
+  transform: (point: { x: number; y: number }) => { x: number; y: number } | null,
+) {
+  return {
+    mapSourcePixelToWorld: transform,
   };
 }
 
@@ -69,5 +82,68 @@ describe('normalizeSam2Prompts', () => {
     expect(result.points).toEqual([]);
     expect(result.unmappedPointCount).toBe(1);
     expect(result.unmappedBoxCornerCount).toBe(0);
+  });
+});
+
+describe('source-space prompted selection', () => {
+  it('keeps the exact detector box while adding manually mapped points', () => {
+    expect(
+      mergeSam2NormalizedPrompts(
+        {
+          box: { x1: 0.2, y1: 0.2, x2: 0.8, y2: 0.8 },
+          unmappedPointCount: 0,
+          unmappedBoxCornerCount: 0,
+        },
+        {
+          points: [{ x: 0.4, y: 0.5, label: 0 }],
+          box: { x1: 0.1, y1: 0.1, x2: 0.9, y2: 0.9 },
+          unmappedPointCount: 0,
+          unmappedBoxCornerCount: 0,
+        },
+      ),
+    ).toEqual({
+      points: [{ x: 0.4, y: 0.5, label: 0 }],
+      box: { x1: 0.2, y1: 0.2, x2: 0.8, y2: 0.8 },
+      unmappedPointCount: 0,
+      unmappedBoxCornerCount: 0,
+    });
+  });
+
+  it('preserves a detector box without treating normalized coordinates as world units', () => {
+    const result = normalizeSourceSam2Prompts({
+      box: { x1: 0.25, y1: 0.1, x2: 0.75, y2: 0.8 },
+    });
+    expect(result).toEqual({
+      box: { x1: 0.25, y1: 0.1, x2: 0.75, y2: 0.8 },
+      unmappedPointCount: 0,
+      unmappedBoxCornerCount: 0,
+    });
+  });
+
+  it('maps source detector geometry to a display envelope while retaining source accuracy', () => {
+    const result = mapSourceSam2PromptsToWorld(
+      { box: { x1: 0.25, y1: 0.1, x2: 0.75, y2: 0.8 } },
+      sourceMapper((point) => ({ x: point.x * 2 + 100, y: point.y * 3 - 40 })),
+      101,
+      201,
+    );
+    expect(result).toEqual({
+      box: { x1: 150, y1: 20, x2: 250, y2: 440 },
+    });
+  });
+
+  it('rejects malformed or unmappable automated geometry instead of guessing', () => {
+    expect(
+      normalizeSourceSam2Prompts({ box: { x1: 0.2, y1: 0.2, x2: 1.1, y2: 0.8 } })
+        .unmappedBoxCornerCount,
+    ).toBe(4);
+    expect(
+      mapSourceSam2PromptsToWorld(
+        { box: { x1: 0, y1: 0, x2: 1, y2: 1 } },
+        sourceMapper(() => null),
+        100,
+        100,
+      ),
+    ).toBeNull();
   });
 });

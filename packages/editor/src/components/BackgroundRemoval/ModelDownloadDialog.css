@@ -1,26 +1,8 @@
-.model-download-overlay {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--elevation-scrim);
-  z-index: var(--z-modal, 1000);
-}
-.model-download-dialog {
-  background: var(--elevation-surface-default);
-  border: var(--border-micro);
-  border-radius: var(--radius-floating);
-  padding: var(--space-6);
-  width: min(90vw, 360px);
+/* The shared Dialog owns the shell (surface, width, padding, title, close,
+   focus containment, Escape); these rules style the dialog's content.
+   `dialog.` beats the base .varve-dialog width rule regardless of load order. */
+dialog.model-download-dialog {
   max-width: 440px;
-  box-shadow: var(--elevation-shadow-overlay);
-}
-.model-download-dialog h2 {
-  margin: 0 0 var(--space-2);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
 }
 .model-download__desc {
   margin: 0 0 var(--space-4);
@@ -119,21 +101,6 @@
   display: flex;
   justify-content: flex-end;
   gap: var(--space-2);
-}
-.model-download__actions button:not(.varve-btn) {
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-control);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  border: none;
-  transition:
-    background var(--duration-quick) var(--ease-default),
-    opacity var(--duration-quick) var(--ease-default);
-}
-.model-download__actions button:not(.varve-btn):focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {

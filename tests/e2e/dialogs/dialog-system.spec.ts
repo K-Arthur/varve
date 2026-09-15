@@ -25,7 +25,7 @@ test.describe('Escape layers', () => {
       .first()
       .click();
 
-    const exportDialog = page.locator('.export-dialog-overlay');
+    const exportDialog = page.locator('dialog.export-dialog');
     await expect(exportDialog).toBeVisible({ timeout: 10000 });
 
     const toggle = exportDialog.getByRole('switch', {
@@ -118,16 +118,27 @@ test.describe('Export dialog at a short viewport', () => {
 
     const exportDialog = page.locator('.export-dialog');
     await expect(exportDialog).toBeVisible({ timeout: 10000 });
+    // The shared dialog fades/scales in over --duration-base; measure the
+    // settled surface, not a mid-animation frame.
+    await expect(exportDialog).toHaveCSS('opacity', '1');
 
     const geometry = await exportDialog.evaluate((el) => {
       const rect = el.getBoundingClientRect();
       const footer = el.querySelector('[class*="footer"]');
       const body = el.querySelector('[class*="body"]');
+      const bodyStyle = body ? getComputedStyle(body) : null;
+      const bodyOverflows = body ? body.scrollHeight > body.clientHeight + 1 : false;
       return {
         rect: { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right },
         viewport: { width: window.innerWidth, height: window.innerHeight },
         hasFooter: footer !== null,
-        bodyScrolls: body !== null && body.scrollHeight > body.clientHeight,
+        // A body that overflows must scroll (overflow-y auto/scroll); if the
+        // content fits, no scrolling is required. Clipping is the regression.
+        bodyClips:
+          bodyOverflows &&
+          bodyStyle !== null &&
+          bodyStyle.overflowY !== 'auto' &&
+          bodyStyle.overflowY !== 'scroll',
       };
     });
 
@@ -136,7 +147,7 @@ test.describe('Export dialog at a short viewport', () => {
     expect(geometry.rect.left).toBeGreaterThanOrEqual(0);
     expect(geometry.rect.right).toBeLessThanOrEqual(geometry.viewport.width);
     expect(geometry.hasFooter).toBe(true);
-    expect(geometry.bodyScrolls).toBe(true);
+    expect(geometry.bodyClips).toBe(false);
   });
 });
 
@@ -231,5 +242,24 @@ test.describe('visual evidence', () => {
     });
     await page.waitForTimeout(250);
     await page.screenshot({ path: 'reports/dialog-audit/settings-light.png' });
+
+    await page.keyboard.press('Escape');
+    await expect(settings).not.toHaveAttribute('open', '');
+
+    await page.getByRole('menuitem', { name: 'File', exact: true }).click();
+    await page
+      .getByRole('menuitem', { name: /^Export\u2026/ })
+      .first()
+      .click();
+    const exportDialog = page.locator('dialog.export-dialog');
+    await expect(exportDialog).toBeVisible({ timeout: 10000 });
+    await expect(exportDialog).toHaveCSS('opacity', '1');
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: 'reports/dialog-audit/export-light.png' });
+    await page.evaluate(() => {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    });
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: 'reports/dialog-audit/export-dark.png' });
   });
 });

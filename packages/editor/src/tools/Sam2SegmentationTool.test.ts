@@ -232,6 +232,42 @@ describe('Sam2SegmentationTool', () => {
     expect(ctx.objectSelectionSession?.box).toEqual({ x1: 20, y1: 20, x2: 100, y2: 80 });
   });
 
+  it('retains a reviewed detector box through manual point refinement', () => {
+    const tool = new Sam2SegmentationTool();
+    const ctx = statefulMockCtx();
+    ctx.objectSelectionSession = {
+      nodeId: 'image-1',
+      documentId: 'doc-1',
+      width: 100,
+      height: 100,
+      candidates: [],
+      selectedCandidate: 0,
+      points: [],
+      box: { x1: 20, y1: 20, x2: 80, y2: 80 },
+      sourcePrompts: { box: { x1: 0.2, y1: 0.2, x2: 0.8, y2: 0.8 } },
+      draftPoint: null,
+      draftBox: null,
+      confidence: 0,
+      status: 'ready',
+      modelId: 'sam2-hiera-tiny',
+    };
+
+    tap(tool, ctx, 50, 50);
+
+    expect(ctx.objectSelectionSession?.sourcePrompts).toEqual({
+      box: { x1: 0.2, y1: 0.2, x2: 0.8, y2: 0.8 },
+    });
+    expect(ctx.applySam2Segmentation).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        sourcePrompts: { box: { x1: 0.2, y1: 0.2, x2: 0.8, y2: 0.8 } },
+        prompts: {
+          points: [{ x: 50, y: 50, label: 1 }],
+          box: { x1: 20, y1: 20, x2: 80, y2: 80 },
+        },
+      }),
+    );
+  });
+
   it('cancels the transient session when the tool deactivates', () => {
     const tool = new Sam2SegmentationTool();
     const ctx = statefulMockCtx();
