@@ -173,9 +173,57 @@ unsupported-runtime requests, and the explicit-selection path that:
 | `tests/e2e/canvas/inference-platform-probe.spec.ts` (new) | **2 passed** (port 1606/1607). Recorded facts: `crossOriginIsolated: false`, `sharedArrayBuffer: false`, `hardwareConcurrency: 8`, `deviceMemory: 16`, WebGPU API present, **no adapter available** in headless Chromium. Durable evidence: `reports/inference-platform/facts-1607.json` (gitignored) — no platform cell was promoted from it. |
 | `tests/e2e/canvas/text-discovery.spec.ts` with `VARVE_TEXT_DISCOVERY_REAL_MODEL=1` | Not attempted; the prior session recorded the engine Node gate as authoritative and the browser gate as incomplete (no console error, no completion in 15 minutes). The new stage timings and release behavior are unit-covered and visible in the panel; the browser detector run remains the open G5 item. |
 
+## G1–G6 acceptance status
+
+| Gate | Status | Evidence / residual |
+| --- | --- | --- |
+| G1 Validation integrity | **Met** | Canonical validator; provider records derived from the archived observation; routing re-verifies and rejects stale/contradictory records; per-metric worst categories; 26 negative tests |
+| G2 Candidate ranking | **Met with residual failures reported** | Real-model frozen sets measured for MobileSAM and SAM2 with a dev/held-out split; default kept because the guarded policy shows no held-out gain; worst-case regret 0.267/0.395 is generation-side and named; human-annotated real-photo sets still pending |
+| G3 Memory handoff | **Implemented; partial measurement** | Registry/protocol/host/panel contracts unit-verified (coalescing, refcounts, release-before-remove, unresolved accounting, idle-only recycle, terminal release); the byte-level transition peak trace is not measured because the browser detector run could not execute on this machine |
+| G4 Platform evidence | **Met as explicit status** | Grounding DINO WebGPU unsupported; threaded WASM unverified (worker pins `numThreads = 1`, unit-verified); SAM2 WebGPU unverified; browser probe recorded isolation/thread facts and no WebGPU adapter |
+| G5 Discovery usability/performance | **Implemented; partial measurement** | Measured stage timings, warm/cold labeling, detection caching, release-after-detection, model-resolution preprocessing; no browser detector run, so no latency/parity numbers are claimed |
+| G6 Experimental boundaries | **Met** | 8 routing-path tests plus discovery memory gates; MobileSAM/EfficientSAM explicit-only |
+
 ## Resource notes
 
 During this session `/tmp` (12 GB tmpfs) reached 98% and turned Vitest runs
 into `ENOSPC` failures. Ten stale scratch directories from 2026-09-12 were
 removed (~1.5 GB). No repository artifact, evidence directory, or model file
-was deleted.
+was deleted. Heavy model runs were serialized one provider at a time so the
+harness stayed at 0.9–1.4 GB peak instead of the ~3.1 GB all-providers peak.
+
+## Validation summary
+
+Commands actually run (all from the repo root):
+
+| Command | Result |
+| --- | --- |
+| `pnpm exec vitest run packages/engine/src/validation/measurementRecord.test.ts` | 15 passed |
+| `pnpm exec vitest run packages/engine/src/segmentation/providerValidation.test.ts` | 7 passed |
+| `pnpm exec vitest run packages/engine/src/segmentation` | 60 passed, 4 gated skips |
+| `pnpm exec vitest run packages/engine/src/segmentation/candidateRanking.test.ts` | 14 passed |
+| `pnpm exec vitest run packages/engine/src/segmentation/experimentalPolicy.test.ts` | 8 passed |
+| `pnpm exec vitest run packages/engine/src/inference/platformEvidence.test.ts` | 4 passed |
+| `pnpm exec vitest run packages/engine/src/inference/sessionRegistry.test.ts` | 6 passed |
+| `pnpm exec vitest run packages/engine/src/inference/__tests__/workerHostMessages.test.ts` | 6 passed |
+| `pnpm exec vitest run packages/engine/src/inference/SessionManager.test.ts` | 6 passed |
+| `pnpm exec vitest run packages/engine/src/backgroundRemoval/__tests__/ortRuntimeAssets.test.ts` | 4 passed |
+| `pnpm exec vitest run packages/engine/src/discovery/groundingDino.test.ts` | 14 passed |
+| `pnpm exec vitest run packages/editor/src/context/promptedMaskValidation.test.ts` | 14 passed |
+| `pnpm exec vitest run packages/editor/src/context/promptedRankingEvaluation.test.ts` | 4 passed |
+| `pnpm exec vitest run packages/editor/src/tools/Sam2SegmentationTool.test.ts` | 21 passed |
+| `pnpm exec vitest run packages/editor/src/context/useSam2Segmentation.test.tsx …promptedSegmentationProvider.test.ts` | 40 passed |
+| `VARVE_MOBILE_SAM_MODEL_DIR=… pnpm exec vitest run …/providerAb.test.ts` | 1 passed (real MobileSAM, 25 s, 865 MB peak) |
+| `VARVE_SAM2_REAL_MODEL_DIR=… pnpm exec vitest run …/providerAb.test.ts` | 1 passed (real SAM2, 41 s, 1.4 GB peak) |
+| `VARVE_RANKING_FIXTURE=… pnpm exec vitest run …/promptedRankingRealEvidence.test.ts` | 1 passed (real frozen sets, dev/held-out) |
+| `npx playwright test …/object-selection-mobile-real-model.spec.ts` (isolated port, isolation on) | 1 passed (1.0 m); screenshots inspected |
+| `npx playwright test …/object-selection.spec.ts` (isolated port, isolation on) | 3 passed, 1 failed for a run-config mismatch (see the table above) |
+| `npx playwright test …/inference-platform-probe.spec.ts` | 2 passed; facts written to `reports/inference-platform/` |
+| `pnpm audit:docs` / `pnpm audit:emoji` / `pnpm audit:tokens` | clean / clean / 153 pairs pass |
+| `pnpm typecheck:e2e`, `tsc -p packages/engine|editor` | clean for changed files (pre-existing LUT test errors remain) |
+| `pnpm verify:plan` | **FULL-SUITE ESCALATION: YES** — reason: "workspace/toolchain/validation-infrastructure change", triggered by other writers' uncommitted workspace-level changes in the shared tree, not by this task's files. The full gate was not run; per-slice commit checkpoints (format/lint on staged paths, emoji, secret scan, health baseline, import boundaries, docs audit) did run and pass. |
+
+Skipped deliberately: `pnpm verify:full` (shared tree + no release checkpoint);
+SAM2 browser gate (MobileSAM gate covered the workflow); text-discovery browser
+gate (prior session recorded it as incomplete; engine Node gate remains
+authoritative); human-annotated ranking sets (not yet created).
