@@ -219,4 +219,53 @@ describe('prompted segmentation provider adapter', () => {
     expect(result.scoreSource).toBe('heuristic');
     expect(result.candidates[0]!.scoreSource).toBe('heuristic');
   });
+
+  it('crops SAM2 decoder padding before mapping a non-square image mask', async () => {
+    const infer = vi.fn().mockResolvedValueOnce({
+      outputs: {
+        masks: {
+          // The first and last rows represent padded rows in the 1024-square
+          // decoder frame. Only the middle two rows belong to this 4x2 source.
+          data: new Float32Array([
+            1, 1, 1, 1,
+            -1, 1, 1, -1,
+            -1, 1, 1, -1,
+            1, 1, 1, 1,
+          ]),
+          dims: [1, 1, 4, 4],
+        },
+        executionProvider: 'wasm',
+      },
+    });
+    const host = { infer } as unknown as Parameters<typeof runPromptedSegmentation>[0]['host'];
+    const embedding = {
+      providerId: SAM2_PROVIDER_ID,
+      tensors: {
+        image_embed: { data: new Float32Array(1), dims: [1, 1, 1, 1] },
+        high_res_feats_0: { data: new Float32Array(1), dims: [1, 1, 1, 1] },
+        high_res_feats_1: { data: new Float32Array(1), dims: [1, 1, 1, 1] },
+      },
+      // A 4:2 source letterboxed into the 1024-square has 256px of top/bottom
+      // padding. The adapter must use this exact transform while decoding.
+      letterbox: { offsetX: 0, offsetY: 256, contentWidth: 1024, contentHeight: 512 },
+    };
+
+    const result = await runPromptedSegmentation({
+      host,
+      decision: decision(SAM2_PROVIDER_ID),
+      encoderPath: 'sam2-encoder.onnx',
+      decoderPath: 'sam2-decoder.onnx',
+      imageData: new ImageData(new Uint8ClampedArray(4 * 2 * 4), 4, 2),
+      sourceWidth: 4,
+      sourceHeight: 2,
+      points: [{ x: 0.5, y: 0.5, label: 1 }],
+      embedding,
+      signal: new AbortController().signal,
+      reservationBytes: 1024,
+    });
+
+    expect(result.candidates[0]?.mask).toEqual(
+      new Uint8Array([0, 255, 255, 0, 0, 255, 255, 0]),
+    );
+  });
 });
