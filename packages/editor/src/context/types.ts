@@ -4,6 +4,7 @@ import type {
   AreaSelectionSettings,
   BlendMode,
   PathPoint,
+  PromptedProviderPreference,
 } from '@varve/engine';
 import type { Platform } from '@varve/platform';
 import type { PrototypeData, PrototypeDebugConsole, PrototypeRuntime } from '@varve/prototype';
@@ -1232,6 +1233,22 @@ export interface EditorContextValue {
   setSnapGrid: (v: number) => void;
   setDocumentGrid: (settings: DocumentGridSettings) => void;
   setIsometricGrid: (grid: import('@varve/scene').IsometricGrid) => void;
+  /**
+   * Set the active construction plane for new geometry. Never transforms
+   * existing artwork; use `fitSelectionToPlane` for that deliberately.
+   */
+  setActiveIsometricPlane: (planeId: import('@varve/scene').IsometricPlaneId) => void;
+  /**
+   * Explicitly map the selection onto a construction plane with one
+   * world-space affine. `inverse: true` applies the plane's exact inverse
+   * (unproject) around the same pivot.
+   */
+  fitSelectionToPlane: (
+    planeId: import('@varve/scene').IsometricPlaneId,
+    options?: { inverse?: boolean; pivot?: { x: number; y: number } },
+  ) => void;
+  /** Explicitly convert the construction grid into bounded editable vector artwork. */
+  createIsometricGridArtwork: (options?: { maxLines?: number }) => void;
   isSnapExcluded?: (id: string) => boolean;
 
   // Export
@@ -1343,6 +1360,9 @@ export interface EditorContextValue {
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation: () => void;
   selectSam2Candidate: (index: number) => void;
+  /** Explicit model choice for Object Selection; `auto` is the measured route. */
+  promptedProviderPreference: PromptedProviderPreference;
+  setPromptedProviderPreference: (preference: PromptedProviderPreference) => void;
 
   // Prototype
   setPrototypeMode: (active: boolean) => void;

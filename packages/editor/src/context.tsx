@@ -163,6 +163,7 @@ import {
   clearLiveTrace as clearLiveTraceDoc,
   clearSlot as clearSlotDoc,
   cloneSmartFilters,
+  constructionPlaneFromGeometry,
   convertDocumentColors as convertDocumentColorsDoc,
   createClippingMask as createClippingMaskDoc,
   createComponent,
@@ -273,7 +274,9 @@ import {
   replaceNodesWithFlattened,
   resetInstanceOverrides as resetInstanceOverridesDoc,
   resolve,
+  resolveActiveIsometricGrid,
   resolveGuidePageId,
+  resolveIsometricGeometry,
   resolveNodeFills,
   resolveVariantPropertiesForNode as resolveVariantPropertiesForNodeDoc,
   type SafeAreaConfig,
@@ -392,6 +395,13 @@ import {
   type TransferRequest,
   writeClipboardOutcome,
 } from './clipboard';
+import {
+  applyPlaneFitPlan,
+  planeFitAffine,
+  planGridArtwork,
+  planWorldAffineTransform,
+  selectionWorldCentre,
+} from './commands/isometricPlaneCommands';
 import type { SectionId } from './components/Inspector/sectionRegistry';
 import {
   hideOptionalSections as hideAllOptional,
@@ -1661,6 +1671,10 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation: () => void;
   selectSam2Candidate: (index: number) => void;
+  promptedProviderPreference: import('@varve/engine').PromptedProviderPreference;
+  setPromptedProviderPreference: (
+    preference: import('@varve/engine').PromptedProviderPreference,
+  ) => void;
 
   /** Enlarge the selected image into a new editable image layer. */
   upscaleSelectedImage: (options: import('@varve/engine').UpscaleOptions) => Promise<void>;
@@ -2228,9 +2242,7 @@ function restoreViewportFields(
   const v = normalizeSavedViewport(raw);
   const initialized = sceneInitializeGridSettings(doc);
   const grid = initialized.gridSettings?.documentGrid ?? createDefaultDocumentGridSettings();
-  const isoGrid =
-    Object.values(initialized.gridSettings?.isometricGrids ?? {})[0] ??
-    createDefaultIsometricGrid();
+  const isoGrid = resolveActiveIsometricGrid(initialized) ?? createDefaultIsometricGrid();
   return {
     zoom: v.zoom,
     pan: v.pan,
@@ -2651,8 +2663,7 @@ export function EditorProvider({
     }
     doc = sceneInitializeGridSettings(doc);
     const docGrid = doc.gridSettings?.documentGrid ?? createDefaultDocumentGridSettings();
-    const isoGrid =
-      Object.values(doc.gridSettings?.isometricGrids ?? {})[0] ?? createDefaultIsometricGrid();
+    const isoGrid = resolveActiveIsometricGrid(doc) ?? createDefaultIsometricGrid();
     const settingsDefaults = loadSettings();
     const vpDefaults = settingsDefaults.viewport;
     return {
@@ -3229,9 +3240,7 @@ export function EditorProvider({
   function editorGridFromDoc(doc: Document) {
     const initialized = sceneInitializeGridSettings(doc);
     const dg = initialized.gridSettings?.documentGrid ?? createDefaultDocumentGridSettings();
-    const ig =
-      Object.values(initialized.gridSettings?.isometricGrids ?? {})[0] ??
-      createDefaultIsometricGrid();
+    const ig = resolveActiveIsometricGrid(initialized) ?? createDefaultIsometricGrid();
     return { documentGrid: dg, isometricGrid: ig };
   }
 
@@ -8221,7 +8230,11 @@ export function EditorProvider({
         // (cross-platform, no Wayland permission issues), falls back to
         // navigator.clipboard.read() for menu-triggered pastes, then to a
         // native OS clipboard read on Tauri for WebKitGTK/Wayland.
-        const unified = await readClipboardUnifiedWithFallback(platform, request);
+        const unified = await readClipboardUnifiedWithFallback(
+          platform,
+          request,
+          invocation.document.id,
+        );
         const varveData = unified.varveData;
 
         const importInputs = (varveData ? [] : unified.importItems).map((item): ImportFileInput => {
@@ -8528,6 +8541,104 @@ export function EditorProvider({
         const g = { ...grid, id: grid.id ?? 'grid-isometric-default', type: 'isometric' as const };
         updateDoc((doc) => sceneSetIsometricGrid(doc, g.id, g));
         patch({ isometricGrid: g });
+      },
+      setActiveIsometricPlane: (planeId) => {
+        const current = stateRef.current;
+        const grid = current.isometricGrid;
+        const g = {
+          ...grid,
+          id: grid.id ?? 'grid-isometric-default',
+          type: 'isometric' as const,
+          activePlaneId: planeId,
+        };
+        updateDoc((doc) => sceneSetIsometricGrid(doc, g.id, g));
+        patch({ isometricGrid: g });
+      },
+      fitSelectionToPlane: (planeId, options) => {
+        const current = stateRef.current;
+        const selection = current.selection;
+        if (selection.length === 0) return;
+        const geometry = resolveIsometricGeometry({
+          originX: current.isometricGrid.originX,
+          originY: current.isometricGrid.originY,
+          spacing: current.isometricGrid.spacing,
+          rotation: current.isometricGrid.rotation,
+          axes: current.isometricGrid.axes,
+        });
+        if (!geometry) {
+          announcerRef.current?.announceOperation(
+            'Fit to plane',
+            'The isometric grid configuration is invalid.',
+          );
+          return;
+        }
+        const plane = constructionPlaneFromGeometry(geometry, planeId);
+        if (!plane) {
+          announcerRef.current?.announceOperation(
+            'Fit to plane',
+            `The ${planeId} plane needs two visible grid axes.`,
+          );
+          return;
+        }
+        const pivot = options?.pivot ?? selectionWorldCentre(current.document, selection);
+        if (!pivot) return;
+        const affine = planeFitAffine(pivot, plane, options?.inverse === true);
+        if (!affine) {
+          announcerRef.current?.announceOperation(
+            'Fit to plane',
+            'This plane has no valid inverse.',
+          );
+          return;
+        }
+        let applied = 0;
+        updateDoc((doc) => {
+          const plan = planWorldAffineTransform(doc, selection, affine);
+          applied = plan.transforms.length;
+          return applyPlaneFitPlan(doc, plan);
+        });
+        if (applied === 0) {
+          announcerRef.current?.announceOperation(
+            'Fit to plane',
+            'Nothing to transform (locked or already aligned).',
+          );
+        } else {
+          announcerRef.current?.announceOperation(
+            options?.inverse ? 'Unproject from plane' : 'Fit to plane',
+            `${applied} object${applied === 1 ? '' : 's'} on the ${planeId} plane.`,
+          );
+        }
+      },
+      createIsometricGridArtwork: (options) => {
+        const current = stateRef.current;
+        const grid = current.isometricGrid;
+        const activePage = current.document.pages?.find(
+          (page) => page.id === current.document.activePageId,
+        );
+        const bounds = activePage
+          ? { x: 0, y: 0, w: activePage.width, h: activePage.height }
+          : {
+              x: 0,
+              y: 0,
+              w: current.document.canvasWidth ?? 1440,
+              h: current.document.canvasHeight ?? 1024,
+            };
+        const plan = planGridArtwork(current.document, grid, {
+          bounds,
+          maxLines: options?.maxLines,
+        });
+        if (!plan) {
+          announcerRef.current?.announceOperation(
+            'Create grid artwork',
+            'The grid could not be resolved into bounded geometry.',
+          );
+          return;
+        }
+        updateDoc(() => plan.doc);
+        patch({ selection: plan.groupId ? [plan.groupId] : plan.nodeIds });
+        announcerRef.current?.announceOperation(
+          'Create grid artwork',
+          `${plan.lineCount} lines (step ${plan.displayStep}) as editable vector geometry.`,
+        );
       },
       setCanvasMode: (mode) => patch({ canvasMode: mode }),
       setCameraRotation: (radians) => patch({ cameraRotation: radians }),
@@ -9894,6 +10005,8 @@ export function EditorProvider({
       applySam2Segmentation: sam2Seg.applySam2Segmentation,
       cancelSam2Segmentation: sam2Seg.cancelSam2Segmentation,
       selectSam2Candidate: sam2Seg.selectSam2Candidate,
+      promptedProviderPreference: sam2Seg.promptedProviderPreference,
+      setPromptedProviderPreference: sam2Seg.setPromptedProviderPreference,
 
       ...(protoValue ?? PROTO_NOOP),
 
@@ -10214,6 +10327,30 @@ export function EditorProvider({
       closeTab: (id, force = false) => {
         const sess = state.sessions.find((s) => s.id === id);
         if (sess?.dirty && !force) return false;
+        const closingDocumentId =
+          id === state.activeId ? state.document.id : sessionStoreRef.current.get(id)?.document.id;
+        const hasOtherOpenSession = closingDocumentId
+          ? state.sessions.some((candidate) => {
+              if (candidate.id === id) return false;
+              const candidateDocumentId =
+                candidate.id === state.activeId
+                  ? state.document.id
+                  : sessionStoreRef.current.get(candidate.id)?.document.id;
+              return candidateDocumentId === closingDocumentId;
+            })
+          : false;
+        if (
+          closingDocumentId &&
+          !hasOtherOpenSession &&
+          typeof window !== 'undefined' &&
+          typeof window.dispatchEvent === 'function'
+        ) {
+          window.dispatchEvent(
+            new CustomEvent('varve:document-fonts-closed', {
+              detail: { documentId: closingDocumentId },
+            }),
+          );
+        }
         setState((s) => {
           const remaining = s.sessions.filter((sess) => sess.id !== id);
           sessionStoreRef.current.delete(id);

@@ -24,6 +24,7 @@ import type { Document, NodeId } from '@varve/scene';
 import {
   canonicalHistoryHash,
   createDefaultIsometricGrid,
+  resolveActiveIsometricGrid,
   initializeDefaultGridSettings as sceneInitializeGridSettings,
 } from '@varve/scene';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
@@ -83,9 +84,7 @@ function syncGridFromDocument(document: Document) {
   const initialized = sceneInitializeGridSettings(document);
   const documentGrid =
     initialized.gridSettings?.documentGrid ?? createDefaultDocumentGridSettings();
-  const isometricGrid =
-    Object.values(initialized.gridSettings?.isometricGrids ?? {})[0] ??
-    createDefaultIsometricGrid();
+  const isometricGrid = resolveActiveIsometricGrid(initialized) ?? createDefaultIsometricGrid();
   return { documentGrid, isometricGrid };
 }
 

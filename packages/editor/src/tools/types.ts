@@ -296,6 +296,15 @@ export interface ToolContext {
   getNode: (id: NodeId) => SceneNode | undefined;
 
   canvasToWorld: (cx: number, cy: number) => { x: number; y: number };
+  /**
+   * Active isometric construction plane for new geometry. `null` when no
+   * isometric grid is active; ordinary 2-D drawing then applies unchanged.
+   */
+  activeConstructionPlane?: import('@varve/scene').ConstructionPlane | null;
+  /** Document point → active-plane coordinates, or null when unprojectable. */
+  worldToPlane?: (world: { x: number; y: number }) => { u: number; v: number } | null;
+  /** Active-plane coordinates → document point. */
+  planeToWorld?: (uv: { u: number; v: number }) => { x: number; y: number } | null;
   /** Convert client coordinates to the canvas's viewport-local screen space. */
   pointerToCanvas?: (clientX: number, clientY: number) => { x: number; y: number };
   worldToCanvas: (wx: number, wy: number) => { x: number; y: number };

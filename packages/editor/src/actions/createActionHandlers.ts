@@ -30,13 +30,14 @@ import {
   type ClipboardSelectionSnapshot,
   createTransferRequest,
   getClipboardSnapshot,
+  orderClipboardRoots,
   readClipboardUnifiedWithFallback,
   writeClipboardRepresentation,
 } from '../clipboard';
 import { applyNudgePlan, getNudgeStep, type NudgeDirection, planNudge } from '../commands/nudge';
 import type { EditorContextValue, ToolId } from '../context';
 import { startTextEditing } from '../context';
-import { publishImportReport } from '../context/sessionGlobals';
+import { importReportHasIssues, publishImportReport } from '../context/sessionGlobals';
 import { preparedFragmentFromRootSets } from '../dropUtils';
 import { harmonizeSpacing as applyHarmonize } from '../intelligence/spacingHarmonizer';
 import { getLifecycleCoordinator } from '../lifecycle';
@@ -121,7 +122,7 @@ export interface ActionHandlerCallbacks {
 const MAX_DIRECT_CLIPBOARD_TEXT = 2_000_000;
 
 function selectedClipboardNodes(editor: EditorContextValue): SceneNode[] {
-  return editor.state.selection
+  return orderClipboardRoots(editor.state.document, editor.state.selection)
     .map((id) => editor.state.document.nodes[id])
     .filter((node): node is SceneNode => Boolean(node));
 }
@@ -149,17 +150,7 @@ function pasteScopeIsCurrent(
 }
 
 function importReportNeedsFeedback(report: import('@varve/import').ImportReport): boolean {
-  return (
-    report.partialCount > 0 ||
-    report.failureCount > 0 ||
-    report.warnings.length > 0 ||
-    report.files.some(
-      (file) =>
-        file.status !== 'success' ||
-        file.warnings.length > 0 ||
-        file.unsupportedFeatures.length > 0,
-    )
-  );
+  return importReportHasIssues(report);
 }
 
 function stripSvgEnvelope(markup: string): string {
@@ -326,7 +317,6 @@ export function createActionHandlers(
     const next = transformAreaSelection(sel, matrix);
     if (next) commitAreaSelectionChange(next);
   };
-
   const commitAreaSelectionChange = (selection: AreaSelection): void => {
     if (e.commitAreaSelection) {
       e.commitAreaSelection(selection);
@@ -717,7 +707,7 @@ export function createActionHandlers(
               importItems: [],
               plainText: text,
             }))
-          : readClipboardUnifiedWithFallback(e.platform, request);
+          : readClipboardUnifiedWithFallback(e.platform, request, e.state.document.id);
       void clipboardRead
         .then(async (clipboard) => {
           let text = clipboard.plainText ?? '';
@@ -1112,8 +1102,20 @@ export function createActionHandlers(
     rulerModeGlobal: () => e.setRulerMode('global'),
     gridOverlayBaseline: () =>
       e.setGridOverlayMode(e.state.gridOverlayMode === 'baseline' ? 'none' : 'baseline'),
-    gridOverlayIsometric: () =>
-      e.setGridOverlayMode(e.state.gridOverlayMode === 'isometric' ? 'none' : 'isometric'),
+    gridOverlayIsometric: () => {
+      const enabling = e.state.gridOverlayMode !== 'isometric';
+      e.setGridOverlayMode(enabling ? 'isometric' : 'none');
+      // One authoritative behavior: the command that shows the grid also
+      // makes the active grid visible, so the overlay mode and the authored
+      // visibility flag cannot disagree about whether the user asked for it.
+      if (enabling && !e.state.isometricGrid.visible) {
+        e.setIsometricGrid({
+          ...e.state.isometricGrid,
+          visible: true,
+          version: e.state.isometricGrid.version + 1,
+        });
+      }
+    },
     toggleSnap: () => e.setSnapEnabled(!e.state.snapEnabled),
     toggleMarqueeContainment: () => {
       const next = !loadSettings().layers.marqueeContainment;

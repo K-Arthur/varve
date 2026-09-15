@@ -3,13 +3,17 @@ import type {
   ColorMode,
   GradientInterpolationSpace,
   IsometricAxis,
+  IsometricPlaneId,
   ManagedColor,
   WorkingSpace,
 } from '@varve/scene';
 import {
+  axisAngleToRatio,
   CMYK_PROFILES,
+  ISOMETRIC_PLANES,
   ISOMETRIC_PRESETS,
   normaliseAngle,
+  ratioToAxisAngleDegrees,
   validateIsometricAxes,
 } from '@varve/scene';
 import {
@@ -667,9 +671,18 @@ export function DocumentPanel() {
 }
 
 function IsometricGridSection() {
-  const { state, setIsometricGrid, documentColorMode } = useEditor();
+  const {
+    state,
+    setIsometricGrid,
+    setActiveIsometricPlane,
+    fitSelectionToPlane,
+    createIsometricGridArtwork,
+    documentColorMode,
+  } = useEditor();
   const grid = state.isometricGrid;
   const presetId = grid.preset;
+  const selectionCount = state.selection.length;
+  const [ratioInput, setRatioInput] = useState('');
 
   const axisValidation = useMemo(() => validateIsometricAxes(grid.axes), [grid.axes]);
 
@@ -683,7 +696,7 @@ function IsometricGridSection() {
   const updateAxis = useCallback(
     (index: number, patch: Partial<IsometricAxis>) => {
       const nextAxes = grid.axes.map((a, i) => (i === index ? { ...a, ...patch } : a));
-      updateGrid({ axes: nextAxes, preset: 'custom' });
+      updateGrid({ axes: nextAxes, customAxes: nextAxes, preset: 'custom' });
     },
     [grid.axes, updateGrid],
   );
@@ -711,18 +724,23 @@ function IsometricGridSection() {
   const handlePresetChange = useCallback(
     (value: string) => {
       if (value === 'custom') {
-        updateGrid({ preset: 'custom' });
+        // Restore the user's last custom axes instead of discarding them when
+        // a preset was visited. Falls back to the current axes if none saved.
+        const restored =
+          grid.customAxes && grid.customAxes.length >= 2 ? grid.customAxes : grid.axes;
+        updateGrid({ preset: 'custom', axes: restored.map((a) => ({ ...a })) });
       } else {
         const preset = ISOMETRIC_PRESETS.find((p) => p.id === value);
         if (preset) {
           updateGrid({
             preset: value as typeof grid.preset,
             axes: preset.axes.map((a) => ({ ...a })),
+            ...(grid.preset === 'custom' ? { customAxes: grid.axes.map((a) => ({ ...a })) } : {}),
           });
         }
       }
     },
-    [updateGrid],
+    [grid.axes, grid.customAxes, grid.preset, updateGrid],
   );
 
   const axisColorManaged = useMemo(() => {
@@ -774,13 +792,121 @@ function IsometricGridSection() {
               ...(presetId === 'custom' ? [{ value: 'custom', label: 'Custom' }] : []),
             ]}
           />
+          {(() => {
+            const preset = ISOMETRIC_PRESETS.find((p) => p.id === presetId);
+            return preset ? (
+              <p
+                className="insp-field__hint"
+                style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.75, margin: '2px 0 0' }}
+              >
+                {preset.description}
+              </p>
+            ) : null;
+          })()}
         </div>
+
+        <div className="insp-field">
+          <span className="insp-field__label">Construction plane</span>
+          <div
+            className="insp-field__control"
+            style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+          >
+            <SegmentedControl
+              label="Active construction plane"
+              value={grid.activePlaneId ?? 'top'}
+              options={ISOMETRIC_PLANES.map((plane) => ({
+                value: plane.id,
+                label: plane.label,
+              }))}
+              onChange={(value) => setActiveIsometricPlane(value as IsometricPlaneId)}
+            />
+            <span style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.75 }}>
+              {ISOMETRIC_PLANES.find((plane) => plane.id === (grid.activePlaneId ?? 'top'))
+                ?.description ?? ''}{' '}
+              New shapes follow this plane; existing artwork is not transformed.
+            </span>
+          </div>
+        </div>
+
+        <div className="insp-field">
+          <span className="insp-field__label">Fit existing artwork</span>
+          <div
+            className="insp-field__control"
+            style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}
+          >
+            <button
+              type="button"
+              className="insp-btn"
+              disabled={selectionCount === 0}
+              onClick={() => fitSelectionToPlane(grid.activePlaneId ?? 'top')}
+              aria-label="Fit selection to the active plane"
+            >
+              Fit to plane
+            </button>
+            <button
+              type="button"
+              className="insp-btn"
+              disabled={selectionCount === 0}
+              onClick={() => fitSelectionToPlane(grid.activePlaneId ?? 'top', { inverse: true })}
+              aria-label="Unproject selection from the active plane"
+            >
+              Unproject
+            </button>
+          </div>
+        </div>
+
+        <div className="insp-field">
+          <span className="insp-field__label">Grid artwork</span>
+          <div className="insp-field__control">
+            <button
+              type="button"
+              className="insp-btn"
+              onClick={() => createIsometricGridArtwork({ maxLines: 1200 })}
+              aria-label="Create editable grid artwork from the isometric grid"
+            >
+              Create grid artwork
+            </button>
+          </div>
+        </div>
+
+        {presetId === 'custom' && (
+          <div className="insp-field">
+            <span className="insp-field__label">Ratio to angle</span>
+            <div className="insp-field__control" style={{ display: 'flex', gap: 6 }}>
+              <input
+                type="text"
+                value={ratioInput}
+                placeholder="2:1"
+                onChange={(e) => setRatioInput(e.target.value)}
+                className="insp-num__input"
+                style={{ width: 70 }}
+                aria-label="Aspect ratio for the first axis, for example 2:1"
+              />
+              <button
+                type="button"
+                className="insp-btn"
+                onClick={() => {
+                  const match = ratioInput.match(/^\s*(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)\s*$/);
+                  if (!match) return;
+                  const height = Number.parseFloat(match[1]!);
+                  const width = Number.parseFloat(match[2]!);
+                  if (!(height > 0) || !(width > 0)) return;
+                  const angle = ratioToAxisAngleDegrees(height, width);
+                  updateAxis(0, { angle });
+                }}
+                aria-label="Apply ratio to axis 1 angle"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        )}
 
         {presetId === 'custom' && (
           <>
             {grid.axes.map((axis, index) => (
               <div
-                key={`axis-${axis.angle}`}
+                key={`axis-${index}`}
                 className="insp-field"
                 style={{
                   borderBottom: '1px solid var(--color-border-subtle)',
@@ -811,6 +937,19 @@ function IsometricGridSection() {
                       aria-label={`Axis ${index + 1} angle ${axis.angle} degrees`}
                     />
                     <span style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.7 }}>deg</span>
+                    {index === 0 && Number.isFinite(axis.angle)
+                      ? (() => {
+                          const ratio = axisAngleToRatio(axis.angle);
+                          return ratio ? (
+                            <span
+                              style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.7 }}
+                              aria-label={`Axis 1 ratio ${ratio.height} to ${ratio.width}`}
+                            >
+                              {ratio.height}:{ratio.width}
+                            </span>
+                          ) : null;
+                        })()
+                      : null}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <Switch
@@ -895,12 +1034,15 @@ function IsometricGridSection() {
         )}
 
         <div className="insp-field">
-          <span className="insp-field__label">Spacing</span>
-          <div className="insp-field__control">
+          <span className="insp-field__label">Spacing (axis step)</span>
+          <div
+            className="insp-field__control"
+            style={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+          >
             <input
               type="number"
-              min="1"
-              max="10000"
+              min="0.01"
+              max="100000"
               value={grid.spacing}
               onChange={(e) => {
                 const v = parseFloat(e.target.value);
@@ -908,6 +1050,28 @@ function IsometricGridSection() {
               }}
               className="insp-num__input"
               aria-label={`Isometric grid spacing ${grid.spacing}`}
+            />
+            <span style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.75 }}>
+              Projected length of one step along each grid axis; line separations are derived from
+              it.
+            </span>
+          </div>
+        </div>
+        <div className="insp-field">
+          <span className="insp-field__label">Major line every</span>
+          <div className="insp-field__control">
+            <input
+              type="number"
+              min="1"
+              max="64"
+              step="1"
+              value={grid.majorEvery ?? 4}
+              onChange={(e) => {
+                const v = parseInt(e.target.value, 10);
+                if (Number.isInteger(v) && v >= 1 && v <= 64) updateGrid({ majorEvery: v });
+              }}
+              className="insp-num__input"
+              aria-label={`Major line every ${grid.majorEvery ?? 4} grid steps`}
             />
           </div>
         </div>
@@ -938,6 +1102,40 @@ function IsometricGridSection() {
               }}
               className="insp-num__input"
               aria-label={`Isometric grid origin Y ${grid.originY}`}
+            />
+          </div>
+        </div>
+        <div className="insp-field">
+          <span className="insp-field__label">Origin</span>
+          <div className="insp-field__control" style={{ display: 'flex', gap: 6 }}>
+            <button
+              type="button"
+              className="insp-btn"
+              onClick={() => updateGrid({ originX: 0, originY: 0 })}
+              aria-label="Reset isometric grid origin to zero"
+            >
+              Reset origin
+            </button>
+            <span style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.75, alignSelf: 'center' }}>
+              Grid origin only; rulers and artwork are unaffected.
+            </span>
+          </div>
+        </div>
+        <div className="insp-field">
+          <span className="insp-field__label">Snap targets</span>
+          <div
+            className="insp-field__control"
+            style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+          >
+            <Switch
+              label="Snap to lattice intersections"
+              checked={grid.snapToSubdivisions !== false}
+              onChange={(e) => updateGrid({ snapToSubdivisions: e.target.checked })}
+            />
+            <Switch
+              label="Snap to grid lines"
+              checked={grid.snapToLines === true}
+              onChange={(e) => updateGrid({ snapToLines: e.target.checked })}
             />
           </div>
         </div>

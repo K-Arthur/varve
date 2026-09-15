@@ -4,16 +4,19 @@ import {
   addChild,
   addNode,
   buildParentIndexMap,
+  constructionPlaneFromGeometry,
   designCanvasContentRoot,
   getGuidesForPage,
   makeRasterLayerNode,
   type NodeId,
   nextNodeId,
+  planeToWorld,
   resolveActiveIsometricGrid,
   resolveEditorSceneScope,
   resolveIsometricGeometry,
   type SceneNode,
   walkNodes,
+  worldToPlane,
 } from '@varve/scene';
 import type { Camera } from '@varve/shared';
 import { applyAffine } from '@varve/shared';
@@ -119,6 +122,36 @@ export function buildToolContext(
   const drawingInput = getDrawingInputSettings();
   const effectiveDesignCanvasId =
     s.document.activeDesignCanvasId ?? s.document.designCanvases?.[0]?.id ?? null;
+
+  // Active construction plane for new geometry. Resolved from the same
+  // explicit active-grid helper as snapping and display so all three agree;
+  // the plane never transforms existing artwork by itself.
+  const activeConstructionPlane: import('@varve/scene').ConstructionPlane | null = (() => {
+    const isometricGrid = resolveActiveIsometricGrid(s.document);
+    if (!isometricGrid) return null;
+    const geometry = resolveIsometricGeometry({
+      originX: isometricGrid.originX,
+      originY: isometricGrid.originY,
+      spacing: isometricGrid.spacing,
+      rotation: isometricGrid.rotation,
+      axes: isometricGrid.axes,
+    });
+    if (!geometry) return null;
+    return constructionPlaneFromGeometry(geometry, isometricGrid.activePlaneId ?? 'top');
+  })();
+  const planeWorldToPlane = activeConstructionPlane
+    ? (world: { x: number; y: number }) => {
+        const uv = worldToPlane(activeConstructionPlane, [world.x, world.y]);
+        return uv ? { u: uv[0], v: uv[1] } : null;
+      }
+    : undefined;
+  const planeToWorldPoint = activeConstructionPlane
+    ? (uv: { u: number; v: number }) => {
+        const p = planeToWorld(activeConstructionPlane, [uv.u, uv.v]);
+        return { x: p[0], y: p[1] };
+      }
+    : undefined;
+
   return {
     document: s.document,
     selection: s.selection,
@@ -230,6 +263,9 @@ export function buildToolContext(
     },
     worldToCanvas: (wx, wy) => e.worldToCanvas(wx, wy),
     canvasDeltaToWorld: (dx, dy) => e.canvasDeltaToWorld(dx, dy),
+    activeConstructionPlane,
+    worldToPlane: planeWorldToPlane,
+    planeToWorld: planeToWorldPoint,
     getWorldTransform: (id) => e.getWorldTransform(id),
     queryMarqueeCandidates: (rect) => {
       const sceneScope = resolveEditorSceneScope(s.document, {

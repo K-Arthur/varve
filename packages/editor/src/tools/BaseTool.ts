@@ -206,6 +206,156 @@ export abstract class BaseTool implements Tool {
     return { x, y, w, h };
   }
 
+  /**
+   * Plane-space drag extents with modifiers applied. Returns `null` when no
+   * construction plane is active.
+   */
+  protected computePlaneDrag(ctx: ToolContext): {
+    u0: number;
+    v0: number;
+    u1: number;
+    v1: number;
+    du: number;
+    dv: number;
+    centreU: number;
+    centreV: number;
+  } | null {
+    const toPlane = ctx.worldToPlane;
+    if (!ctx.activeConstructionPlane || !toPlane) return null;
+    const start = toPlane(this.drag.startWorld);
+    const current = toPlane(this.drag.currentWorld);
+    if (!start || !current) return null;
+    let du = current.u - start.u;
+    let dv = current.v - start.v;
+    if (ctx.shiftKey) {
+      const size = Math.max(Math.abs(du), Math.abs(dv));
+      du = size * Math.sign(du) || du;
+      dv = size * Math.sign(dv) || dv;
+    }
+    if (ctx.altKey) {
+      return {
+        u0: start.u - du,
+        v0: start.v - dv,
+        u1: start.u + du,
+        v1: start.v + dv,
+        du: Math.abs(du) * 2,
+        dv: Math.abs(dv) * 2,
+        centreU: start.u,
+        centreV: start.v,
+      };
+    }
+    return {
+      u0: Math.min(start.u, start.u + du),
+      v0: Math.min(start.v, start.v + dv),
+      u1: Math.max(start.u, start.u + du),
+      v1: Math.max(start.v, start.v + dv),
+      du: Math.abs(du),
+      dv: Math.abs(dv),
+      centreU: start.u + du / 2,
+      centreV: start.v + dv / 2,
+    };
+  }
+
+  /**
+   * Plane-aware drag rectangle. Shift equalises *plane* extents (a square in
+   * plane coordinates), Alt drags from the centre; the four corners are then
+   * mapped back to document space through the plane basis.
+   */
+  protected computePlaneDragQuad(ctx: ToolContext): {
+    corners: Array<{ x: number; y: number }>;
+    origin: { x: number; y: number };
+    du: number;
+    dv: number;
+  } | null {
+    const drag = this.computePlaneDrag(ctx);
+    const toWorld = ctx.planeToWorld;
+    if (!drag || !toWorld) return null;
+    const mapped = [
+      toWorld({ u: drag.u0, v: drag.v0 }),
+      toWorld({ u: drag.u1, v: drag.v0 }),
+      toWorld({ u: drag.u1, v: drag.v1 }),
+      toWorld({ u: drag.u0, v: drag.v1 }),
+    ];
+    if (mapped.some((corner) => corner === null)) return null;
+    const corners = mapped as Array<{ x: number; y: number }>;
+    return { corners, origin: corners[0]!, du: drag.du, dv: drag.dv };
+  }
+
+  /**
+   * Plane-aware circle/ellipse outline, as the exact affine image of a cubic
+   * circle approximation: four cubic Bézier segments of a circle in plane
+   * coordinates are mapped through the plane basis, so the result is a true
+   * projected ellipse (not a screen-space ellipse that merely looks right).
+   * The standard control constant keeps the approximation error below
+   * ~2.7e-4 of the radius, and an affine map preserves that relative bound.
+   */
+  protected computePlaneEllipsePoints(ctx: ToolContext): {
+    points: Array<{
+      x: number;
+      y: number;
+      handleIn: [number, number] | null;
+      handleOut: [number, number] | null;
+    }>;
+    origin: { x: number; y: number };
+    rx: number;
+    ry: number;
+  } | null {
+    const drag = this.computePlaneDrag(ctx);
+    const toWorld = ctx.planeToWorld;
+    if (!drag || !toWorld) return null;
+    const rx = drag.du / 2;
+    const ry = drag.dv / 2;
+    if (!(rx > 0) || !(ry > 0)) return null;
+    const k = 0.5522847498307936;
+    // Circle of radius 1 in plane space, centred on the origin, as four
+    // cubic segments; scale by rx/ry and translate to the centre.
+    const circlePoints: Array<{
+      x: number;
+      y: number;
+      inDir: [number, number];
+      outDir: [number, number];
+    }> = [
+      { x: 1, y: 0, inDir: [0, -k], outDir: [0, k] },
+      { x: 0, y: 1, inDir: [k, 0], outDir: [-k, 0] },
+      { x: -1, y: 0, inDir: [0, k], outDir: [0, -k] },
+      { x: 0, y: -1, inDir: [-k, 0], outDir: [k, 0] },
+    ];
+    const points = circlePoints.map((point) => {
+      const u = drag.centreU + point.x * rx;
+      const v = drag.centreV + point.y * ry;
+      const world = toWorld({ u, v });
+      const handleInWorld = toWorld({
+        u: u + point.inDir[0] * rx,
+        v: v + point.inDir[1] * ry,
+      });
+      const handleOutWorld = toWorld({
+        u: u + point.outDir[0] * rx,
+        v: v + point.outDir[1] * ry,
+      });
+      if (!world || !handleInWorld || !handleOutWorld) return null;
+      return {
+        x: world.x,
+        y: world.y,
+        handleIn: [handleInWorld.x - world.x, handleInWorld.y - world.y] as [number, number],
+        handleOut: [handleOutWorld.x - world.x, handleOutWorld.y - world.y] as [number, number],
+      };
+    });
+    if (points.some((point) => point === null)) return null;
+    const first = toWorld({ u: drag.centreU, v: drag.centreV });
+    if (!first) return null;
+    return {
+      points: points as Array<{
+        x: number;
+        y: number;
+        handleIn: [number, number] | null;
+        handleOut: [number, number] | null;
+      }>,
+      origin: first,
+      rx,
+      ry,
+    };
+  }
+
   protected computeDragLine(ctx: ToolContext): { x1: number; y1: number; x2: number; y2: number } {
     const start = this.drag.startWorld;
     const current = this.drag.currentWorld;

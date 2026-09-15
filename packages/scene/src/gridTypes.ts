@@ -146,6 +146,11 @@ export interface IsometricGrid extends GridBase {
   snapToSubdivisions?: boolean;
   /** v2.28+: snap to the grid's line families, not only intersections. */
   snapToLines?: boolean;
+  /**
+   * v2.28+: last authored custom axis set. Switching to a preset and back to
+   * Custom restores it instead of discarding the user's configuration.
+   */
+  customAxes?: IsometricAxis[];
   version: number;
 }
 
@@ -539,6 +544,16 @@ export function sanitizeIsometricGrid(grid: IsometricGrid): IsometricGrid {
   };
   if (sanitized.axes.length < 2) {
     sanitized.axes = createStandardIsometricAxes();
+  }
+  if (grid.customAxes !== undefined) {
+    const custom = (Array.isArray(grid.customAxes) ? grid.customAxes : [])
+      .slice(0, 3)
+      .map((axis) => ({
+        ...axis,
+        angle: normaliseAngle(axis?.angle ?? 0),
+        visible: axis?.visible !== false,
+      }));
+    sanitized.customAxes = custom.length >= 2 ? custom : undefined;
   }
   return sanitized;
 }

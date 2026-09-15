@@ -1,5 +1,9 @@
 /**
- * LineTool — drag start→end, Shift=45° increments.
+ * LineTool — drag start→end, Shift=45° increments, Alt=from-center.
+ *
+ * With an active isometric construction plane, Shift constrains the angle to
+ * 45° multiples **in plane coordinates** (so a line can follow a plane axis
+ * exactly), and Alt mirrors through the start point as usual.
  *
  * Research basis: Figma Line (L), Illustrator Line Segment (\).
  */
@@ -15,7 +19,7 @@ export class LineTool extends BaseTool {
   }
 
   override onDragMove(ctx: ToolContext): void {
-    const line = this.computeDragLine(ctx);
+    const line = this.resolvedLine(ctx);
     const dx = line.x2 - line.x1;
     const dy = line.y2 - line.y1;
     const len = Math.sqrt(dx * dx + dy * dy);
@@ -32,7 +36,7 @@ export class LineTool extends BaseTool {
 
   override onDragEnd(ctx: ToolContext): void {
     ctx.setDraft(null);
-    const line = this.computeDragLine(ctx);
+    const line = this.resolvedLine(ctx);
     const parentId = this.commitToParent({ x: line.x1, y: line.y1 }, ctx);
 
     if (this.isBelowThreshold(ctx)) {
@@ -48,5 +52,44 @@ export class LineTool extends BaseTool {
 
   override onDragCancel(ctx: ToolContext): void {
     ctx.setDraft(null);
+  }
+
+  /**
+   * The drag line, resolved in plane coordinates when the plane changes the
+   * constraint result. Falls back to the base implementation otherwise.
+   */
+  private resolvedLine(ctx: ToolContext): { x1: number; y1: number; x2: number; y2: number } {
+    const toPlane = ctx.worldToPlane;
+    const toWorld = ctx.planeToWorld;
+    if (!ctx.activeConstructionPlane || !toPlane || !toWorld || (!ctx.shiftKey && !ctx.altKey)) {
+      return this.computeDragLine(ctx);
+    }
+    const start = toPlane(this.drag.startWorld);
+    const current = toPlane(this.drag.currentWorld);
+    if (!start || !current) return this.computeDragLine(ctx);
+
+    let u = current.u;
+    let v = current.v;
+    if (ctx.shiftKey) {
+      const angle = Math.atan2(v - start.v, u - start.u);
+      const snapped = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+      const length = Math.hypot(u - start.u, v - start.v);
+      u = start.u + length * Math.cos(snapped);
+      v = start.v + length * Math.sin(snapped);
+    }
+    const startWorld = toWorld({ u: start.u, v: start.v });
+    const endWorld = toWorld({ u, v });
+    if (!startWorld || !endWorld) return this.computeDragLine(ctx);
+    if (ctx.altKey) {
+      const dx = endWorld.x - startWorld.x;
+      const dy = endWorld.y - startWorld.y;
+      return {
+        x1: startWorld.x - dx,
+        y1: startWorld.y - dy,
+        x2: startWorld.x + dx,
+        y2: startWorld.y + dy,
+      };
+    }
+    return { x1: startWorld.x, y1: startWorld.y, x2: endWorld.x, y2: endWorld.y };
   }
 }
