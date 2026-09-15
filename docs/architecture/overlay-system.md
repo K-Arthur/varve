@@ -230,10 +230,12 @@ consumers do not re-implement them:
   element, which is the header Close button; dialogs whose purpose is a
   specific control opt into `focusFirstControl` + `data-autofocus`, and
   `AlertDialog` focuses its cancel (least destructive) action.
-- **Focus restoration is the platform's, with one known gap.** Native
+- **Focus restoration is the platform's, with a marked fallback.** Native
   `close()` restores focus to the pre-open element; if that element unmounted
-  (a context-menu item), focus falls to `<body>` — a fallback contract for
-  that case is still open (see `docs/audits/dialog-review-2026-09-15.md`).
+  (a context-menu item), `Dialog` focuses the first
+  `[data-dialog-focus-fallback]` in the document instead of leaving focus on
+  `<body>`. The Layers tree marks itself for this; hierarchy surfaces that
+  host dialogs should do the same.
 
 ## Layering policy
 

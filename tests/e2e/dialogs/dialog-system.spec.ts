@@ -178,6 +178,10 @@ test.describe('Batch Rename workflow', () => {
 
     await expect(dialog).toBeHidden();
     await expect(page.getByRole('treeitem', { name: /Card/ }).first()).toBeVisible();
+    // The context-menu item that opened the dialog unmounted with the menu,
+    // so the platform has no invoker to restore focus to; the layer tree is
+    // the marked fallback instead of the document body.
+    await expect(page.getByRole('tree', { name: 'Layers' }).first()).toBeFocused();
     const namesAfter = await page.getByRole('treeitem').allTextContents();
     expect(namesAfter.join('|')).not.toBe(namesBefore.join('|'));
 

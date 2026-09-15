@@ -1069,6 +1069,9 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       // tabindex for arrow navigation, but keyboard users must have a
       // reliable way to reach the panel without guessing its Tab position.
       tabIndex={hasTreeItems ? 0 : undefined}
+      // Stable focus target when a dialog opened from this panel closes and
+      // its invoker (a context-menu item) no longer exists.
+      data-dialog-focus-fallback={hasTreeItems ? '' : undefined}
       onFocus={hasTreeItems ? handleTreeFocus : undefined}
       onKeyDown={hasTreeItems ? handleKeyDown : undefined}
       onContextMenu={hasTreeItems ? handleContextMenu : undefined}

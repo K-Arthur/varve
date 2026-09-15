@@ -100,6 +100,17 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
       }
     } else if (!open && el.open) {
       el.close();
+      // Native close() restores focus to the element that was focused before
+      // showModal(). When that element unmounted (a context-menu item, a row
+      // that was deleted), the platform has nowhere to put focus and it
+      // lands on <body>. Surfaces that own a stable hierarchy mark it with
+      // `data-dialog-focus-fallback`; focus there instead of stranding the
+      // user at the top of the document.
+      const ownerDocument = el.ownerDocument;
+      const active = ownerDocument.activeElement;
+      if (!active || active === ownerDocument.body) {
+        ownerDocument.querySelector<HTMLElement>('[data-dialog-focus-fallback]')?.focus();
+      }
     }
   }, [open, focusFirstControl]);
 

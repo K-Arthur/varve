@@ -2,6 +2,7 @@
 
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AlertDialog, Dialog } from './Dialog';
 import { NestedOverlayProvider } from './NestedOverlayContext';
@@ -235,6 +236,39 @@ describe('Dialog', () => {
 
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  // A context menu item that opened a dialog unmounts when the menu closes,
+  // so native close() has no invoker to restore focus to and the browser
+  // leaves focus on <body>. A surface that owns a stable hierarchy marks it
+  // with data-dialog-focus-fallback.
+  it('focuses the marked fallback when the invoker is gone at close', () => {
+    const fallback = document.createElement('div');
+    fallback.setAttribute('data-dialog-focus-fallback', '');
+    fallback.tabIndex = 0;
+    document.body.appendChild(fallback);
+
+    function Fixture() {
+      const [open, setOpen] = useState(true);
+      return (
+        <Dialog open={open} onClose={() => setOpen(false)} title="Batch Rename">
+          <button type="button">focusable</button>
+        </Dialog>
+      );
+    }
+
+    render(<Fixture />);
+    const inside = screen.getByRole('button', { name: 'focusable' });
+    inside.focus();
+    expect(inside).toHaveFocus();
+    // The real failure mode: nothing holds focus when the dialog closes.
+    inside.blur();
+
+    const dialog = document.querySelector('dialog') as HTMLDialogElement;
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+
+    expect(fallback).toHaveFocus();
+    fallback.remove();
   });
 });
 
