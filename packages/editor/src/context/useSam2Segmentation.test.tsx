@@ -3,6 +3,7 @@ import { addNode, createDocument, type Document, makeImageShapeNode } from '@var
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { prepareImageMaskMapper } from '../tools/imageMaskCoordinates';
 import { fingerprintImageData } from './imageFingerprint';
+import { objectSelectionCandidateReviewKey } from './objectSelectionTypes';
 import type { EditorState, ObjectSelectionSession } from './types';
 import { useSam2Segmentation } from './useSam2Segmentation';
 
@@ -76,29 +77,34 @@ async function sessionFor(options: SetupOptions = {}): Promise<{
   if (options.alternateMask) {
     candidates.push({ mask: options.alternateMask, confidence: 0.5, promptContainment: 1 });
   }
+  const session: ObjectSelectionSession = {
+    nodeId: 'image',
+    documentId: doc.id,
+    candidateSetId: 'candidate-set-1',
+    width: size,
+    height: size,
+    candidates,
+    selectedCandidate: options.selectedCandidate ?? 0,
+    // Sessions retain world-space prompt markers so the canvas can draw and
+    // edit them. The commit path must map these through the image mapper
+    // before applying source-space validation.
+    points: [{ x: anchorX, y: anchorY, label: 1 }],
+    box: null,
+    sourceLocator: 'source',
+    sourceFingerprint: fingerprint,
+    mappingFingerprint,
+    confidence: 0.9,
+    confidenceSource: 'model-iou',
+    status: 'ready',
+    modelId: 'sam2-hiera-tiny',
+  };
+  const reviewKey = objectSelectionCandidateReviewKey(session, session.selectedCandidate);
+  if (!reviewKey) throw new Error('expected candidate review key');
+  session.reviewedCandidateKey = reviewKey;
   return {
     doc,
     fingerprint,
-    session: {
-      nodeId: 'image',
-      documentId: doc.id,
-      width: size,
-      height: size,
-      candidates,
-      selectedCandidate: options.selectedCandidate ?? 0,
-      // Sessions retain world-space prompt markers so the canvas can draw and
-      // edit them. The commit path must map these through the image mapper
-      // before applying source-space validation.
-      points: [{ x: anchorX, y: anchorY, label: 1 }],
-      box: null,
-      sourceLocator: 'source',
-      sourceFingerprint: fingerprint,
-      mappingFingerprint,
-      confidence: 0.9,
-      confidenceSource: 'model-iou',
-      status: 'ready',
-      modelId: 'sam2-hiera-tiny',
-    },
+    session,
   };
 }
 
@@ -197,6 +203,38 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
     expect(stateRef.current.objectSelectionSession).toBeNull();
   });
 
+  it('does not apply a ready candidate until the visible target is reviewed', async () => {
+    const { doc, session } = await sessionFor();
+    session.reviewedCandidateKey = undefined;
+    const { result, stateRef, setAreaSelection, announce } = setup(session, doc);
+
+    await act(async () => {
+      await result.current.applySam2Segmentation({
+        nodeId: 'image',
+        prompts: { points: session.points },
+        operation: 'selection',
+      });
+    });
+
+    expect(controls.infer).not.toHaveBeenCalled();
+    expect(setAreaSelection).not.toHaveBeenCalled();
+    expect(stateRef.current.objectSelectionSession?.status).toBe('ready');
+    expect(announce).toHaveBeenCalledWith(expect.stringContaining('Review the highlighted'));
+
+    await act(async () => {
+      result.current.reviewSam2Candidate(true);
+    });
+    await act(async () => {
+      await result.current.applySam2Segmentation({
+        nodeId: 'image',
+        prompts: { points: session.points },
+        operation: 'selection',
+      });
+    });
+
+    expect(setAreaSelection).toHaveBeenCalledTimes(1);
+  });
+
   it('pins the candidate index supplied by the output action', async () => {
     const strong = new Uint8Array(64);
     strong[0] = 255;
@@ -209,6 +247,11 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
       selectedCandidate: 1,
     });
     const { result, setAreaSelection } = setup(session, doc);
+
+    await act(async () => {
+      result.current.selectSam2Candidate(0);
+      result.current.reviewSam2Candidate(true);
+    });
 
     await act(async () => {
       await result.current.applySam2Segmentation({
@@ -243,6 +286,25 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
     expect(setAreaSelection).not.toHaveBeenCalled();
     expect(stateRef.current.objectSelectionSession?.status).toBe('error');
     expect(stateRef.current.objectSelectionSession?.error?.code).toBe('source_changed');
+  });
+
+  it('refuses to commit when the selected image changes after the preview', async () => {
+    const { doc, session } = await sessionFor();
+    const { result, stateRef, setAreaSelection, announce } = setup(session, doc);
+    stateRef.current.selection = ['another-node'];
+
+    await act(async () => {
+      await result.current.applySam2Segmentation({
+        nodeId: 'image',
+        prompts: { points: session.points },
+        operation: 'selection',
+      });
+    });
+
+    expect(controls.infer).not.toHaveBeenCalled();
+    expect(setAreaSelection).not.toHaveBeenCalled();
+    expect(stateRef.current.objectSelectionSession?.status).toBe('ready');
+    expect(announce).toHaveBeenCalledWith(expect.stringContaining('selected image changed'));
   });
 
   it('refuses to commit an empty reviewed candidate', async () => {

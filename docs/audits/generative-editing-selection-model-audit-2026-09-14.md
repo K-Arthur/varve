@@ -58,10 +58,13 @@ candidate whose prompt-containment score is zero.
 The Generative Edit handoff now requires an explicit review confirmation for
 every imported Object Selection candidate, not only candidates whose topology
 diagnostics are ambiguous. The confirmation is keyed to the source fingerprint,
-candidate index, score, and target-evidence summary, so cycling candidates or
-changing the source invalidates it. Painting, clearing, or inverting the mask
-also leaves the model-candidate trust state and returns control to the editable
-mask workflow. This is the product safety boundary for the remaining semantic
+current image mapping, model, candidate-set identity, and candidate index, so
+cycling candidates, changing the source/placement, or changing the selected
+node invalidates it. The direct Inspector/keyboard Apply path uses the same
+identity, and a ready session cannot fall through to a new inference when the
+review is absent or incomplete. Painting, clearing, or inverting the mask also
+leaves the model-candidate trust state and returns control to the editable mask
+workflow. This is the product safety boundary for the remaining semantic
 uncertainty: a prompt-valid mask can still describe the wrong connected object,
 and successful inference cannot prove user intent.
 

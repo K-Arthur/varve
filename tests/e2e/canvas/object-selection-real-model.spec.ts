@@ -169,6 +169,14 @@ test.describe('Object Selection real-model gate', () => {
       console.log('CANDIDATE CYCLE:', before, '->', after, '(wrapped)');
     }
 
+    // Candidate cycling invalidates review. Confirm the exact visible target
+    // before applying so this gate exercises the same safety contract as a user.
+    const targetReview = inspector.getByRole('checkbox', {
+      name: 'I reviewed the highlighted target before applying',
+    });
+    await expect(targetReview).toBeVisible();
+    await targetReview.check();
+
     // Apply as mask -> one undoable document operation; the apply path reveals
     // the Background Removal disclosure so provenance is immediately visible.
     await inspector.getByRole('button', { name: 'Apply as mask' }).click();
@@ -212,6 +220,8 @@ test.describe('Object Selection real-model gate', () => {
     const warmLatency = Date.now() - t1;
     console.log('WARM PREVIEW:', warmText, '| latency:', `${Math.round(warmLatency / 1000)}s`);
     expect(warmLatency).toBeLessThan(60000);
+    await expect(targetReview).toBeVisible();
+    await targetReview.check();
 
     // Use as selection must commit the reviewed candidate without another
     // encode/decode: the announcement exposes the score provenance and the

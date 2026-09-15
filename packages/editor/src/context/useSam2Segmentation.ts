@@ -37,6 +37,10 @@ import { normalizeSam2Prompts } from '../tools/sam2PromptCoordinates';
 import { areaSelectionFromMaskCoverage } from '../tools/selectionMask';
 import { fingerprintImageData } from './imageFingerprint';
 import {
+  type ObjectSelectionSession,
+  objectSelectionCandidateReviewKey,
+} from './objectSelectionTypes';
+import {
   rankPromptedMaskCandidates,
   validatePromptedImageAnchors,
   validatePromptedMaskCandidate,
@@ -47,7 +51,7 @@ import {
   type PromptedWorkerTensor,
   runPromptedSegmentation,
 } from './promptedSegmentationProvider';
-import type { EditorState, ObjectSelectionSession } from './types';
+import type { EditorState } from './types';
 
 const SAM2_SOFT_DEADLINE_MS = 15_000;
 const EMBEDDING_CACHE_MAX_BYTES = 512 * 1024 * 1024;
@@ -197,6 +201,8 @@ export interface Sam2SegmentationAPI {
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation: () => void;
   selectSam2Candidate: (index: number) => void;
+  /** Mark the currently selected model candidate as reviewed or unreviewed. */
+  reviewSam2Candidate: (reviewed: boolean) => void;
   promptedProviderPreference: PromptedProviderPreference;
   setPromptedProviderPreference: (preference: PromptedProviderPreference) => void;
 }
@@ -305,9 +311,32 @@ export function useSam2Segmentation(
         ...session,
         selectedCandidate: index,
         confidence: candidate.confidence,
+        reviewedCandidateKey: undefined,
       });
     },
     [stateRef, writeTransientSession],
+  );
+
+  const reviewSam2Candidate = useCallback(
+    (reviewed: boolean) => {
+      const session = stateRef.current.objectSelectionSession;
+      if (session?.status !== 'ready') return;
+      const candidateKey = objectSelectionCandidateReviewKey(session, session.selectedCandidate);
+      if (reviewed && !candidateKey) {
+        announcerRef.current?.announce(
+          'This Object Selection preview is too old to review safely. Create a new preview first.',
+        );
+        return;
+      }
+      writeTransientSession({
+        ...session,
+        reviewedCandidateKey: reviewed ? (candidateKey ?? undefined) : undefined,
+      });
+      announcerRef.current?.announce(
+        reviewed ? 'Object Selection target reviewed' : 'Object Selection target review cleared',
+      );
+    },
+    [announcerRef, stateRef, writeTransientSession],
   );
 
   useEffect(() => {
@@ -399,266 +428,312 @@ export function useSam2Segmentation(
       // run. This makes Apply/Enter and Use as selection deterministic and
       // keeps the exact mask the user inspected as the committed output.
       const isCommitOperation = operation === 'mask' || operation === 'selection';
-      if (
-        isCommitOperation &&
-        sameSessionTarget &&
-        previousSession.status === 'ready' &&
-        previousSession.sourceFingerprint &&
-        previousSession.width > 0 &&
-        previousSession.height > 0
-      ) {
+      if (isCommitOperation && sameSessionTarget && previousSession?.status === 'ready') {
+        // A ready session is a visible, user-reviewable candidate set. Never
+        // fall through to a fresh inference for an Apply/Use action: doing so
+        // could commit a different mask than the one the user inspected, or
+        // bypass review entirely when the preview metadata is incomplete.
+        if (
+          !previousSession.sourceFingerprint ||
+          previousSession.width <= 0 ||
+          previousSession.height <= 0
+        ) {
+          announcerRef.current?.announce(
+            'This Object Selection preview is incomplete. Create a new preview before applying it.',
+          );
+          return null;
+        }
         const selectedCandidate = candidateIndex ?? previousSession.selectedCandidate;
         const candidate = previousSession.candidates[selectedCandidate];
-        if (candidate) {
-          const freshSource = await readImageSourceIdentity(src);
-          if (generation !== generationRef.current || externalSignal?.aborted) return null;
-          if (
-            !freshSource ||
-            freshSource.width !== previousSession.width ||
-            freshSource.height !== previousSession.height ||
-            freshSource.fingerprint !== previousSession.sourceFingerprint
-          ) {
-            const live = stateRef.current.objectSelectionSession;
-            if (generation === generationRef.current && live?.nodeId === nodeId) {
-              writeTransientSession({
-                ...live,
-                width: 0,
-                height: 0,
-                candidates: [],
-                status: 'error',
-                error: {
-                  code: 'source_changed',
-                  message:
-                    'The image changed after the preview. Create a new preview before applying it.',
-                  retryable: true,
-                },
-              });
-            }
-            announcerRef.current?.announce(
-              'The image changed after the preview. Create a new preview before applying it.',
-            );
-            return null;
-          }
-          const currentMapper = prepareImageMaskMapper({
-            document: currentDoc,
-            node,
-            sourceWidth: previousSession.width,
-            sourceHeight: previousSession.height,
-          });
-          if (
-            !previousSession.mappingFingerprint ||
-            !currentMapper ||
-            currentMapper.fingerprint !== previousSession.mappingFingerprint
-          ) {
-            const live = stateRef.current.objectSelectionSession;
-            if (generation === generationRef.current && live?.nodeId === nodeId) {
-              writeTransientSession({
-                ...live,
-                status: 'error',
-                error: {
-                  code: 'mapping_changed',
-                  message:
-                    'The image placement changed after the preview. Create a new preview before applying it.',
-                  retryable: true,
-                },
-              });
-            }
-            announcerRef.current?.announce(
-              'The image placement changed after the preview. Create a new preview before applying it.',
-            );
-            return null;
-          }
-          const reviewedPrompts = normalizeSam2Prompts(
-            {
-              points: previousSession.points,
-              box: previousSession.box ?? undefined,
-            },
-            currentMapper,
-            previousSession.width,
-            previousSession.height,
+        if (!candidate) {
+          announcerRef.current?.announce(
+            'The selected Object Selection candidate is unavailable. Create a new preview before applying it.',
           );
-          if (
-            reviewedPrompts.unmappedPointCount > 0 ||
-            reviewedPrompts.unmappedBoxCornerCount > 0
-          ) {
-            const live = stateRef.current.objectSelectionSession;
-            if (generation === generationRef.current && live?.nodeId === nodeId) {
-              writeTransientSession({
-                ...live,
-                status: 'error',
-                error: {
-                  code: 'prompt_out_of_bounds',
-                  message:
-                    'The reviewed prompt geometry is no longer inside the image. Create a new preview before applying it.',
-                  retryable: true,
-                },
-              });
-            }
-            announcerRef.current?.announce(
-              'The reviewed prompt geometry is no longer inside the image. Create a new preview before applying it.',
-            );
-            return null;
+          return null;
+        }
+        const requiredReviewKey = objectSelectionCandidateReviewKey(
+          previousSession,
+          selectedCandidate,
+        );
+        if (!requiredReviewKey || previousSession.reviewedCandidateKey !== requiredReviewKey) {
+          const message =
+            'Review the highlighted Object Selection target before applying it. Choose the candidate you want, inspect the overlay, then confirm the review.';
+          announcerRef.current?.announce(message);
+          return null;
+        }
+        const freshSource = await readImageSourceIdentity(src);
+        if (generation !== generationRef.current || externalSignal?.aborted) return null;
+        if (!isCurrentSelectionTarget(stateRef, currentDoc.id, nodeId, node)) {
+          const live = stateRef.current;
+          const sameSelectedNodeSlot =
+            live.document.id === currentDoc.id &&
+            live.selection.length === 1 &&
+            live.selection[0] === nodeId &&
+            live.document.nodes[nodeId] !== node;
+          if (sameSelectedNodeSlot && live.objectSelectionSession?.nodeId === nodeId) {
+            writeTransientSession({
+              ...live.objectSelectionSession,
+              status: 'error',
+              error: {
+                code: 'mapping_changed',
+                message:
+                  'The image placement changed after the preview. Create a new preview before applying it.',
+                retryable: true,
+              },
+            });
           }
-          const hasPromptConstraints =
-            previousSession.points.length > 0 || previousSession.box !== null;
-          if (
-            !maskMatchesDimensions(candidate.mask, previousSession.width, previousSession.height)
-          ) {
-            const live = stateRef.current.objectSelectionSession;
-            if (generation === generationRef.current && live?.nodeId === nodeId) {
-              writeTransientSession({
-                ...live,
-                status: 'error',
-                error: {
-                  code: 'invalid_mask_geometry',
-                  message:
-                    'The reviewed mask no longer matches the image dimensions. Create a new preview before applying it.',
-                  retryable: true,
-                },
-              });
-            }
-            announcerRef.current?.announce(
-              'The reviewed mask no longer matches the image dimensions. Create a new preview before applying it.',
-            );
-            return null;
-          }
-          if (countMaskCoverage(candidate.mask) === 0) {
-            const live = stateRef.current.objectSelectionSession;
-            if (generation === generationRef.current && live?.nodeId === nodeId) {
-              writeTransientSession({
-                ...live,
-                status: 'error',
-                error: {
-                  code: 'empty_result',
-                  message:
-                    'The reviewed candidate contains no pixels. Adjust or remove prompts and create a new preview.',
-                  retryable: true,
-                },
-              });
-            }
-            announcerRef.current?.announce(
-              'The reviewed candidate contains no pixels. Adjust the prompts and try again.',
-            );
-            return null;
-          }
-          const reviewedCandidateValidation = validatePromptedMaskCandidate(
-            {
-              mask: candidate.mask,
-              width: previousSession.width,
-              height: previousSession.height,
-              score: candidate.confidence,
-            },
-            {
-              points: reviewedPrompts.points,
-              box: reviewedPrompts.box,
-            },
-            previousSession.width,
-            previousSession.height,
+          announcerRef.current?.announce(
+            'The selected image changed after the preview. Create a new preview before applying it.',
           );
-          if (hasPromptConstraints && !reviewedCandidateValidation.valid) {
-            const live = stateRef.current.objectSelectionSession;
-            const message =
-              reviewedCandidateValidation.reason === 'positive-anchor-required'
-                ? 'Add an include point or a box before applying this selection; exclude points only refine an identified object.'
-                : 'This candidate does not honor the reviewed prompts. Create a new preview before applying it.';
-            if (generation === generationRef.current && live?.nodeId === nodeId) {
-              writeTransientSession({
-                ...live,
-                status: 'error',
-                error: {
-                  code: 'prompt_not_honored',
-                  message,
-                  retryable: true,
-                },
-              });
-            }
-            announcerRef.current?.announce(message);
-            return null;
+          return null;
+        }
+        if (
+          !freshSource ||
+          freshSource.width !== previousSession.width ||
+          freshSource.height !== previousSession.height ||
+          freshSource.fingerprint !== previousSession.sourceFingerprint
+        ) {
+          const live = stateRef.current.objectSelectionSession;
+          if (generation === generationRef.current && live?.nodeId === nodeId) {
+            writeTransientSession({
+              ...live,
+              width: 0,
+              height: 0,
+              candidates: [],
+              status: 'error',
+              error: {
+                code: 'source_changed',
+                message:
+                  'The image changed after the preview. Create a new preview before applying it.',
+                retryable: true,
+              },
+            });
           }
-          abortRef.current?.abort();
-          abortRef.current = null;
-          generationRef.current += 1;
-          if (softDeadlineRef.current !== null) {
-            clearTimeout(softDeadlineRef.current);
-            softDeadlineRef.current = null;
+          announcerRef.current?.announce(
+            'The image changed after the preview. Create a new preview before applying it.',
+          );
+          return null;
+        }
+        const currentMapper = prepareImageMaskMapper({
+          document: stateRef.current.document,
+          node,
+          sourceWidth: previousSession.width,
+          sourceHeight: previousSession.height,
+        });
+        if (
+          !previousSession.mappingFingerprint ||
+          !currentMapper ||
+          currentMapper.fingerprint !== previousSession.mappingFingerprint
+        ) {
+          const live = stateRef.current.objectSelectionSession;
+          if (generation === generationRef.current && live?.nodeId === nodeId) {
+            writeTransientSession({
+              ...live,
+              status: 'error',
+              error: {
+                code: 'mapping_changed',
+                message:
+                  'The image placement changed after the preview. Create a new preview before applying it.',
+                retryable: true,
+              },
+            });
           }
+          announcerRef.current?.announce(
+            'The image placement changed after the preview. Create a new preview before applying it.',
+          );
+          return null;
+        }
+        const reviewedPrompts = normalizeSam2Prompts(
+          {
+            points: previousSession.points,
+            box: previousSession.box ?? undefined,
+          },
+          currentMapper,
+          previousSession.width,
+          previousSession.height,
+        );
+        if (reviewedPrompts.unmappedPointCount > 0 || reviewedPrompts.unmappedBoxCornerCount > 0) {
+          const live = stateRef.current.objectSelectionSession;
+          if (generation === generationRef.current && live?.nodeId === nodeId) {
+            writeTransientSession({
+              ...live,
+              status: 'error',
+              error: {
+                code: 'prompt_out_of_bounds',
+                message:
+                  'The reviewed prompt geometry is no longer inside the image. Create a new preview before applying it.',
+                retryable: true,
+              },
+            });
+          }
+          announcerRef.current?.announce(
+            'The reviewed prompt geometry is no longer inside the image. Create a new preview before applying it.',
+          );
+          return null;
+        }
+        const hasPromptConstraints =
+          previousSession.points.length > 0 || previousSession.box !== null;
+        if (!maskMatchesDimensions(candidate.mask, previousSession.width, previousSession.height)) {
+          const live = stateRef.current.objectSelectionSession;
+          if (generation === generationRef.current && live?.nodeId === nodeId) {
+            writeTransientSession({
+              ...live,
+              status: 'error',
+              error: {
+                code: 'invalid_mask_geometry',
+                message:
+                  'The reviewed mask no longer matches the image dimensions. Create a new preview before applying it.',
+                retryable: true,
+              },
+            });
+          }
+          announcerRef.current?.announce(
+            'The reviewed mask no longer matches the image dimensions. Create a new preview before applying it.',
+          );
+          return null;
+        }
+        if (countMaskCoverage(candidate.mask) === 0) {
+          const live = stateRef.current.objectSelectionSession;
+          if (generation === generationRef.current && live?.nodeId === nodeId) {
+            writeTransientSession({
+              ...live,
+              status: 'error',
+              error: {
+                code: 'empty_result',
+                message:
+                  'The reviewed candidate contains no pixels. Adjust or remove prompts and create a new preview.',
+                retryable: true,
+              },
+            });
+          }
+          announcerRef.current?.announce(
+            'The reviewed candidate contains no pixels. Adjust the prompts and try again.',
+          );
+          return null;
+        }
+        const reviewedCandidateValidation = validatePromptedMaskCandidate(
+          {
+            mask: candidate.mask,
+            width: previousSession.width,
+            height: previousSession.height,
+            score: candidate.confidence,
+          },
+          {
+            points: reviewedPrompts.points,
+            box: reviewedPrompts.box,
+          },
+          previousSession.width,
+          previousSession.height,
+        );
+        if (hasPromptConstraints && !reviewedCandidateValidation.valid) {
+          const live = stateRef.current.objectSelectionSession;
+          const message =
+            reviewedCandidateValidation.reason === 'positive-anchor-required'
+              ? 'Add an include point or a box before applying this selection; exclude points only refine an identified object.'
+              : 'This candidate does not honor the reviewed prompts. Create a new preview before applying it.';
+          if (generation === generationRef.current && live?.nodeId === nodeId) {
+            writeTransientSession({
+              ...live,
+              status: 'error',
+              error: {
+                code: 'prompt_not_honored',
+                message,
+                retryable: true,
+              },
+            });
+          }
+          announcerRef.current?.announce(message);
+          return null;
+        }
+        abortRef.current?.abort();
+        abortRef.current = null;
+        generationRef.current += 1;
+        if (softDeadlineRef.current !== null) {
+          clearTimeout(softDeadlineRef.current);
+          softDeadlineRef.current = null;
+        }
 
-          if (operation === 'selection') {
-            const areaSelection = areaSelectionFromMaskCoverage(
-              currentDoc,
-              nodeId,
-              candidate.mask,
-              previousSession.width,
-              previousSession.height,
-              'source-image-pixels',
-            );
-            if (!areaSelection || !setAreaSelection) {
-              announcerRef.current?.announce(
-                'The subject mask could not be converted into a pixel selection.',
-              );
-              return null;
-            }
-            setAreaSelection(areaSelection);
-            writeTransientSession(null, { maskPreviewMode: 'none' });
-            announcerRef.current?.announce(
-              `Selected subject (${formatSelectionScore(candidate.confidence, candidate.scoreSource ?? previousSession.confidenceSource)})`,
-            );
-            return {
-              mask: candidate.mask,
-              width: previousSession.width,
-              height: previousSession.height,
-              confidence: candidate.confidence,
-            };
-          }
-
-          const maskDataUrl = await maskToDataUrl(
+        if (operation === 'selection') {
+          const areaSelection = areaSelectionFromMaskCoverage(
+            currentDoc,
+            nodeId,
             candidate.mask,
             previousSession.width,
             previousSession.height,
+            'source-image-pixels',
           );
-          let committed = false;
-          updateDoc((doc) => {
-            const liveNode = doc.nodes[nodeId];
-            if (doc.id !== currentDoc.id || liveNode !== node) return doc;
-            const updated = commitRasterMask(doc, nodeId, {
-              dataUrl: maskDataUrl,
-              width: previousSession.width,
-              height: previousSession.height,
-              method: 'ai-quality',
-              modelId: previousSession.modelId || 'sam2-hiera-tiny',
-              score: candidate.confidence,
-              scoreSource: candidate.scoreSource ?? previousSession.confidenceSource,
-              generatedAt: Date.now(),
-              sourceLocator: src,
-            });
-            committed = updated !== doc;
-            return updated;
-          });
-          if (committed) {
-            // The committed confidence and method are rendered in the
-            // Background Removal disclosure. Reveal it when Object Selection
-            // applies a mask so the result is immediately reviewable from
-            // every entry point (toolbar, inspector, or keyboard).
-            writeTransientSession(null, {
-              maskPreviewMode: 'none',
-              sectionVisibility: setCollapsed(
-                stateRef.current.sectionVisibility,
-                'background-removal',
-                false,
-              ),
-            });
+          if (!areaSelection || !setAreaSelection) {
             announcerRef.current?.announce(
-              `Selection applied as a mask (${formatSelectionScore(candidate.confidence, candidate.scoreSource ?? previousSession.confidenceSource)})`,
+              'The subject mask could not be converted into a pixel selection.',
             );
-            return {
-              mask: candidate.mask,
-              width: previousSession.width,
-              height: previousSession.height,
-              confidence: candidate.confidence,
-            };
+            return null;
           }
+          setAreaSelection(areaSelection);
+          writeTransientSession(null, { maskPreviewMode: 'none' });
+          announcerRef.current?.announce(
+            `Selected subject (${formatSelectionScore(candidate.confidence, candidate.scoreSource ?? previousSession.confidenceSource)})`,
+          );
+          return {
+            mask: candidate.mask,
+            width: previousSession.width,
+            height: previousSession.height,
+            confidence: candidate.confidence,
+          };
+        }
+
+        const maskDataUrl = await maskToDataUrl(
+          candidate.mask,
+          previousSession.width,
+          previousSession.height,
+        );
+        if (!isCurrentSelectionTarget(stateRef, currentDoc.id, nodeId, node)) {
+          announcerRef.current?.announce(
+            'The selected image changed after the preview. Create a new preview before applying it.',
+          );
           return null;
         }
+        let committed = false;
+        updateDoc((doc) => {
+          const liveNode = doc.nodes[nodeId];
+          if (doc.id !== currentDoc.id || liveNode !== node) return doc;
+          const updated = commitRasterMask(doc, nodeId, {
+            dataUrl: maskDataUrl,
+            width: previousSession.width,
+            height: previousSession.height,
+            method: 'ai-quality',
+            modelId: previousSession.modelId || 'sam2-hiera-tiny',
+            score: candidate.confidence,
+            scoreSource: candidate.scoreSource ?? previousSession.confidenceSource,
+            generatedAt: Date.now(),
+            sourceLocator: src,
+          });
+          committed = updated !== doc;
+          return updated;
+        });
+        if (committed) {
+          // The committed confidence and method are rendered in the
+          // Background Removal disclosure. Reveal it when Object Selection
+          // applies a mask so the result is immediately reviewable from
+          // every entry point (toolbar, inspector, or keyboard).
+          writeTransientSession(null, {
+            maskPreviewMode: 'none',
+            sectionVisibility: setCollapsed(
+              stateRef.current.sectionVisibility,
+              'background-removal',
+              false,
+            ),
+          });
+          announcerRef.current?.announce(
+            `Selection applied as a mask (${formatSelectionScore(candidate.confidence, candidate.scoreSource ?? previousSession.confidenceSource)})`,
+          );
+          return {
+            mask: candidate.mask,
+            width: previousSession.width,
+            height: previousSession.height,
+            confidence: candidate.confidence,
+          };
+        }
+        return null;
       }
 
       abortRef.current?.abort();
@@ -678,6 +753,7 @@ export function useSam2Segmentation(
         ...(sameSessionTarget ? previousSession : null),
         nodeId,
         documentId: currentDoc.id,
+        candidateSetId: `${currentDoc.id}:${nodeId}:${generation}`,
         width: 0,
         height: 0,
         candidates: [],
@@ -1274,6 +1350,7 @@ export function useSam2Segmentation(
                 })),
                 rejectedCandidateCount: ranked.rejectedCount,
                 selectedCandidate,
+                reviewedCandidateKey: undefined,
                 points: prompts.points ?? [],
                 box: prompts.box ?? null,
                 draftPoint: null,
@@ -1442,6 +1519,7 @@ export function useSam2Segmentation(
     applySam2Segmentation,
     cancelSam2Segmentation,
     selectSam2Candidate,
+    reviewSam2Candidate,
     promptedProviderPreference,
     setPromptedProviderPreference,
   };
@@ -1461,6 +1539,21 @@ function combineAbortSignals(...signals: AbortSignal[]): AbortSignal {
 
 function currentNodeSource(node: import('@varve/scene').SceneNode | undefined): string {
   return node?.kind === 'shape' ? imageShapeSrc(node) : '';
+}
+
+function isCurrentSelectionTarget(
+  stateRef: React.MutableRefObject<EditorState>,
+  documentId: string,
+  nodeId: NodeId,
+  node: import('@varve/scene').ShapeNode,
+): boolean {
+  const live = stateRef.current;
+  return (
+    live.document.id === documentId &&
+    live.selection.length === 1 &&
+    live.selection[0] === nodeId &&
+    live.document.nodes[nodeId] === node
+  );
 }
 
 async function readImageSourceIdentity(

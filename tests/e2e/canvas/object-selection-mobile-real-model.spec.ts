@@ -194,6 +194,12 @@ test.describe('Object Selection MobileSAM real-model gate', () => {
     )?.[0];
     expect(reviewedScore).toBeTruthy();
 
+    const targetReview = inspector.getByRole('checkbox', {
+      name: 'I reviewed the highlighted target before applying',
+    });
+    await expect(targetReview).toBeVisible();
+    await targetReview.check();
+
     await inspector.getByRole('button', { name: 'Apply as mask' }).click();
     await expect(
       inspector.getByRole('button', { name: 'Background Removal', exact: true }),

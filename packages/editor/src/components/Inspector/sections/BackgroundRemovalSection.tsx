@@ -33,6 +33,7 @@ import { removeRasterMaskFromNode } from '../../../backgroundRemoval/commitRaste
 import { getToolManager } from '../../../canvas/toolDispatcher';
 import { isCapabilityRestricted } from '../../../capabilities/restrictions';
 import { useEditor } from '../../../context';
+import { objectSelectionCandidateReviewKey } from '../../../context/objectSelectionTypes';
 import type {
   Sam2PromptMode,
   Sam2PromptPolarity,
@@ -194,6 +195,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     applySam2Segmentation,
     cancelSam2Segmentation,
     selectSam2Candidate,
+    reviewSam2Candidate = () => {},
     promptedProviderPreference = 'auto',
     setPromptedProviderPreference = () => {},
     removeBackgroundWithOptions,
@@ -244,6 +246,15 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const eligible = hasMask;
   const objectSelection =
     node && state.objectSelectionSession?.nodeId === node.id ? state.objectSelectionSession : null;
+  const selectedObjectSelectionCandidate = objectSelection
+    ? objectSelection.candidates[objectSelection.selectedCandidate]
+    : undefined;
+  const objectSelectionReviewKey = objectSelection
+    ? objectSelectionCandidateReviewKey(objectSelection, objectSelection.selectedCandidate)
+    : null;
+  const objectSelectionReviewed =
+    objectSelectionReviewKey !== null &&
+    objectSelection?.reviewedCandidateKey === objectSelectionReviewKey;
 
   const [method, setMethod] = useState<RemovalMethod>(
     (maskProvenance as { method?: RemovalMethod })?.method ?? 'quick',
@@ -463,6 +474,10 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
 
   const applyObjectSelectionMask = useCallback(() => {
     if (!node || !objectSelection) return;
+    if (!objectSelectionReviewed) {
+      announce('Review the highlighted Object Selection target before applying it.');
+      return;
+    }
     void applySam2Segmentation({
       nodeId: node.id,
       prompts: {
@@ -472,10 +487,14 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       operation: 'mask',
       candidateIndex: objectSelection.selectedCandidate,
     });
-  }, [applySam2Segmentation, node, objectSelection]);
+  }, [announce, applySam2Segmentation, node, objectSelection, objectSelectionReviewed]);
 
   const applyObjectSelectionAsSelection = useCallback(async () => {
     if (!node || !objectSelection) return;
+    if (!objectSelectionReviewed) {
+      announce('Review the highlighted Object Selection target before applying it.');
+      return;
+    }
     const commitCombinedSelection = setAreaSelection;
     if (objectSelectionCombination !== 'replace' && !commitCombinedSelection) {
       announce('Pixel selection combination is unavailable in this editor surface.');
@@ -518,6 +537,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     applySam2Segmentation,
     node,
     objectSelection,
+    objectSelectionReviewed,
     objectSelectionCombination,
     setAreaSelection,
     state.areaSelection,
@@ -989,6 +1009,28 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                     {objectSelection.error.message}
                   </p>
                 )}
+                {objectSelection.status === 'ready' && selectedObjectSelectionCandidate && (
+                  <>
+                    <label className="insp-check" htmlFor="object-selection-review-confirmation">
+                      <input
+                        id="object-selection-review-confirmation"
+                        className="insp-checkbox"
+                        type="checkbox"
+                        checked={objectSelectionReviewed}
+                        disabled={objectSelectionReviewKey === null}
+                        onChange={(event) => reviewSam2Candidate(event.currentTarget.checked)}
+                      />
+                      I reviewed the highlighted target before applying
+                    </label>
+                    {!objectSelectionReviewed && (
+                      <p className="insp-field__hint" role="status" aria-live="polite">
+                        {objectSelectionReviewKey === null
+                          ? 'This preview cannot be verified safely. Create a new preview before applying it.'
+                          : 'Inspect the highlighted overlay, then confirm the target you want to apply.'}
+                      </p>
+                    )}
+                  </>
+                )}
                 {objectSelection.candidates.length > 1 && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-1)' }}>
                     <button
@@ -1031,7 +1073,9 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                     className="insp-btn-sm"
                     onClick={applyObjectSelectionMask}
                     disabled={
-                      objectSelection.status !== 'ready' || objectSelection.candidates.length === 0
+                      objectSelection.status !== 'ready' ||
+                      objectSelection.candidates.length === 0 ||
+                      !objectSelectionReviewed
                     }
                   >
                     Apply as mask
@@ -1041,7 +1085,9 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                     className="insp-btn-sm"
                     onClick={applyObjectSelectionAsSelection}
                     disabled={
-                      objectSelection.status !== 'ready' || objectSelection.candidates.length === 0
+                      objectSelection.status !== 'ready' ||
+                      objectSelection.candidates.length === 0 ||
+                      !objectSelectionReviewed
                     }
                   >
                     Use as selection

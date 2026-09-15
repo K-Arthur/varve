@@ -45,6 +45,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { computePlacementRevision } from '../../backgroundRemoval/SubjectIsolationService';
 import { useEditor } from '../../context';
 import { fingerprintImageData } from '../../context/imageFingerprint';
+import { objectSelectionCandidateReviewKey } from '../../context/objectSelectionTypes';
 import { replaceImageShapeContent } from '../../imageOperations';
 import { decodeRasterMaskDataUrl, rasterizeAreaSelectionForNode } from '../../tools/selectionMask';
 import type { ExpandPadding } from './expandCanvas';
@@ -679,13 +680,7 @@ export function ContentAwareFillDialog({
     : undefined;
   const objectSelectionReviewKey =
     objectSelection && objectSelectionCandidate
-      ? [
-          objectSelection.sourceFingerprint ?? '',
-          objectSelection.selectedCandidate,
-          objectSelectionCandidate.confidence,
-          objectSelectionCandidate.promptDiagnostics?.anchoredCoverage ?? 'unknown',
-          objectSelectionCandidate.promptDiagnostics?.componentCount ?? 'unknown',
-        ].join(':')
+      ? objectSelectionCandidateReviewKey(objectSelection, objectSelection.selectedCandidate)
       : null;
   const objectSelectionNeedsReview =
     maskOrigin === 'object-selection' &&
@@ -1520,6 +1515,12 @@ export function ContentAwareFillDialog({
       announce('The selected Object Selection candidate is not available');
       return;
     }
+    if (!objectSelectionReviewKey) {
+      announce(
+        'This Object Selection preview cannot be verified safely; create a new preview before using it.',
+      );
+      return;
+    }
     const sourceHasImmutableLocator = /^(?:data|blob):/i.test(imageSrc);
     const currentSource = sourceHasImmutableLocator
       ? {
@@ -1558,7 +1559,7 @@ export function ContentAwareFillDialog({
       // generation context before any pixels can be changed.
       setReviewedObjectSelectionKey(null);
     }
-  }, [announce, applyMaskCoverage, imageSrc, objectSelection]);
+  }, [announce, applyMaskCoverage, imageSrc, objectSelection, objectSelectionReviewKey]);
 
   const handleStartObjectSelection = useCallback(() => {
     if (!nodeId) {
@@ -3239,11 +3240,15 @@ export function ContentAwareFillDialog({
                   or clear and recreate the selection.
                 </span>
               )}
-              {maskOrigin === 'object-selection' && objectSelectionReviewKey && (
+              {maskOrigin === 'object-selection' && objectSelectionCandidate && (
                 <label className="caf-dialog__checkbox">
                   <input
                     type="checkbox"
-                    checked={reviewedObjectSelectionKey === objectSelectionReviewKey}
+                    checked={
+                      objectSelectionReviewKey !== null &&
+                      reviewedObjectSelectionKey === objectSelectionReviewKey
+                    }
+                    disabled={objectSelectionReviewKey === null}
                     onChange={(event) =>
                       setReviewedObjectSelectionKey(
                         event.target.checked ? objectSelectionReviewKey : null,
@@ -3257,6 +3262,14 @@ export function ContentAwareFillDialog({
                   </span>
                 </label>
               )}
+              {maskOrigin === 'object-selection' &&
+                objectSelectionCandidate &&
+                !objectSelectionReviewKey && (
+                  <span className="caf-dialog__mask-health-error">
+                    This Object Selection preview is too old to verify. Create a new preview before
+                    generating.
+                  </span>
+                )}
             </div>
           </div>
 

@@ -1361,6 +1361,8 @@ export interface EditorContextValue {
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation: () => void;
   selectSam2Candidate: (index: number) => void;
+  /** Confirm that the visible Object Selection candidate was inspected. */
+  reviewSam2Candidate: (reviewed: boolean) => void;
   /** Explicit model choice for Object Selection; `auto` is the measured route. */
   promptedProviderPreference: PromptedProviderPreference;
   setPromptedProviderPreference: (preference: PromptedProviderPreference) => void;

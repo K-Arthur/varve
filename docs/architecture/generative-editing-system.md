@@ -139,6 +139,13 @@ be applied, even when its model score is high, and is not exposed as a review
 candidate. This is prompt adherence, not semantic object recognition, so the
 overlay and candidate review remain mandatory.
 
+The review is an explicit session state, not just a visual convention. The
+Inspector and keyboard Apply path store a review key for the currently visible
+candidate, and the Generative Edit handoff recomputes that same key from the
+source fingerprint, image mapping, model, candidate set, and candidate index.
+Changing candidates, source pixels, placement, or the selected node therefore
+invalidates review before a downstream mask or generation can consume it.
+
 Expand exposes the four independent source-pixel margins as the authoritative
 frame controls. It also provides common target aspect ratios, explicit output
 width and height, and nine source anchors (center, sides, and corners). The

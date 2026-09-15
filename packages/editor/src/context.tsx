@@ -1671,6 +1671,8 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation: () => void;
   selectSam2Candidate: (index: number) => void;
+  /** Confirm that the visible Object Selection candidate was inspected. */
+  reviewSam2Candidate: (reviewed: boolean) => void;
   promptedProviderPreference: import('@varve/engine').PromptedProviderPreference;
   setPromptedProviderPreference: (
     preference: import('@varve/engine').PromptedProviderPreference,
@@ -10015,6 +10017,7 @@ export function EditorProvider({
       applySam2Segmentation: sam2Seg.applySam2Segmentation,
       cancelSam2Segmentation: sam2Seg.cancelSam2Segmentation,
       selectSam2Candidate: sam2Seg.selectSam2Candidate,
+      reviewSam2Candidate: sam2Seg.reviewSam2Candidate,
       promptedProviderPreference: sam2Seg.promptedProviderPreference,
       setPromptedProviderPreference: sam2Seg.setPromptedProviderPreference,
 

@@ -61,6 +61,16 @@ document `RasterMaskAsset` or a transient analytical `AreaSelection`. An
 empty smart-selection result is never committed silently; the session stays
 open so prompts can be corrected.
 
+A ready candidate is not implicitly trusted. The Inspector exposes the
+highlighted overlay and requires an explicit review confirmation. That
+confirmation is keyed to the decoded source fingerprint, current image mapping,
+model, candidate-set identity, and candidate index; cycling candidates clears
+it. Apply and Enter fail closed when the confirmation is absent, stale, or the
+selected image/node changed while the source was being revalidated. The
+Generative Edit dialog uses the same key before importing a candidate into its
+editable mask, so direct Object Selection, keyboard Apply, and CAF all agree on
+which reviewed pixels may flow into the next procedure.
+
 ## Interaction contract
 
 - Point mode creates one positive point per click; Shift-click or the visible

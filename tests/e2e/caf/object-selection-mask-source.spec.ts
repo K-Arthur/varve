@@ -92,6 +92,7 @@ async function seedReadyObjectSelectionAndOpenCaf(
       objectSelectionSession: {
         documentId: previous.document.id,
         nodeId: imageNodeId,
+        candidateSetId: 'caf-object-selection-candidate-set',
         width,
         height,
         candidates: [{ mask, confidence: 0.99, scoreSource: 'model-iou' }],
