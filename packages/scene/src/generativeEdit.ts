@@ -104,6 +104,8 @@ export interface GenerativeEditSettings {
   steps?: number;
   /** Classifier-free guidance for providers that expose it. */
   guidanceScale?: number;
+  /** Separate image-conditioning guidance for inpainting providers. */
+  imageGuidanceScale?: number;
 }
 
 export interface GenerativeEditMaskSet {
@@ -270,7 +272,12 @@ function validSettings(value: unknown): value is GenerativeEditSettings {
       (typeof settings.guidanceScale === 'number' &&
         Number.isFinite(settings.guidanceScale) &&
         settings.guidanceScale >= 0 &&
-        settings.guidanceScale <= 50))
+        settings.guidanceScale <= 50)) &&
+    (settings.imageGuidanceScale === undefined ||
+      (typeof settings.imageGuidanceScale === 'number' &&
+        Number.isFinite(settings.imageGuidanceScale) &&
+        settings.imageGuidanceScale >= 0 &&
+        settings.imageGuidanceScale <= 50))
   );
 }
 

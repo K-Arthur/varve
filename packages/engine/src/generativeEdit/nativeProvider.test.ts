@@ -73,12 +73,30 @@ describe('nativeGenerativeProvider', () => {
         strength: 0.85,
         steps: 28,
         guidance_scale: 6.5,
+        image_guidance_scale: 1,
         output_w: 8,
         output_h: 6,
       }),
     });
     expect(invoke.mock.calls[0]?.[1]?.options).not.toHaveProperty('model_path');
     expect(result.executionProvider).toBe('native-cpu');
+  });
+
+  it('forwards an explicit image-conditioning guidance setting', async () => {
+    invoke.mockResolvedValue({
+      png_base64: btoa('png'),
+      width: 8,
+      height: 6,
+      execution_backend: 'native-cpu',
+      processing_time_ms: 42,
+      warnings: [],
+    });
+
+    await nativeGenerativeProvider.infer(request({ imageGuidanceScale: 2.25 }));
+
+    expect(invoke.mock.calls[0]?.[1]?.options).toEqual(
+      expect.objectContaining({ image_guidance_scale: 2.25 }),
+    );
   });
 
   it('preserves typed native setup errors', async () => {
@@ -98,6 +116,24 @@ describe('nativeGenerativeProvider', () => {
     await expect(nativeGenerativeProvider.infer(request())).rejects.toMatchObject({
       code: 'missing-model',
       message: expect.stringContaining('qualification'),
+    });
+  });
+
+  it.each([
+    ['The diffusion helper supports Fill, Replace, and Expand only', 'unsupported-mode'],
+    ['A prompt is required for prompt-capable generation', 'prompt-unavailable'],
+    ['Generation mask dimensions must match the output working frame', 'invalid-mask'],
+    ['Generation source image buffer does not match its declared dimensions', 'invalid-image'],
+    ['The packaged local diffusion helper is unavailable', 'unsupported-runtime'],
+    ['The generation request does not fit this device memory budget', 'insufficient-memory'],
+    ['Vulkan device lost while running the diffusion helper', 'device-loss'],
+    ['The source changed while generation was running', 'stale'],
+  ] as const)('classifies native failure %s as %s', async (message, code) => {
+    invoke.mockRejectedValue(new Error(message));
+
+    await expect(nativeGenerativeProvider.infer(request())).rejects.toMatchObject({
+      code,
+      message,
     });
   });
 

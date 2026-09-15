@@ -68,6 +68,7 @@ function localCapabilities(): GenerativeEditCapabilities {
     'strength',
     'steps',
     'guidanceScale',
+    'imageGuidanceScale',
     'variations',
     'contextPadding',
     'maskExpansion',

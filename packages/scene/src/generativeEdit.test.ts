@@ -48,6 +48,7 @@ function fixture(): GenerativeEditRecord {
       feather: 2,
       seed: 7,
       prompt: 'a red ceramic mug',
+      imageGuidanceScale: 1,
     },
     provider: {
       kind: 'local',
@@ -71,6 +72,7 @@ function fixture(): GenerativeEditRecord {
           feather: 2,
           seed: 7,
           prompt: 'a red ceramic mug',
+          imageGuidanceScale: 1,
         },
         outputFrame: {
           x: 0,
@@ -186,5 +188,11 @@ describe('generative edit document contract', () => {
     const invalid = fixture();
     invalid.variations[0]!.thumbnailAssetId = '';
     expect(validateGenerativeEdit(invalid)).toContain('variations');
+  });
+
+  it('rejects an out-of-range image guidance scale', () => {
+    const invalid = fixture();
+    invalid.settings.imageGuidanceScale = 51;
+    expect(validateGenerativeEdit(invalid)).toContain('settings');
   });
 });

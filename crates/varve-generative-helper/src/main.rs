@@ -6,7 +6,10 @@
 //! request file plus a result file; model weights never cross the JSON/JS IPC
 //! boundary.
 
-use diffusion_rs::api::{BackendDevice, ConfigBuilder, ModelConfigBuilder, Module, gen_img};
+use diffusion_rs::api::{
+    gen_img, BackendDevice, ConfigBuilder, ModelConfigBuilder, Module, RngFunction, SampleMethod,
+    Scheduler,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
@@ -28,12 +31,18 @@ struct Request {
     steps: u32,
     #[serde(default = "default_guidance_scale")]
     guidance_scale: f32,
+    #[serde(default = "default_image_guidance_scale")]
+    image_guidance_scale: f32,
     seed: i64,
     strength: f32,
 }
 
 fn default_guidance_scale() -> f32 {
     7.0
+}
+
+fn default_image_guidance_scale() -> f32 {
+    1.0
 }
 
 #[derive(Debug, Serialize)]
@@ -126,6 +135,11 @@ fn validate_request(request: &Request) -> Result<(), String> {
     if !request.guidance_scale.is_finite() || !(0.0..=50.0).contains(&request.guidance_scale) {
         return Err("Generation guidance scale must be between 0 and 50".into());
     }
+    if !request.image_guidance_scale.is_finite()
+        || !(0.0..=50.0).contains(&request.image_guidance_scale)
+    {
+        return Err("Generation image guidance scale must be between 0 and 50".into());
+    }
     Ok(())
 }
 
@@ -158,7 +172,17 @@ fn run(request: Request) -> Result<Response, String> {
     model
         .model(request.model_path)
         .enable_mmap(true)
-        .n_threads(0);
+        .n_threads(0)
+        // The library defaults to CUDA RNG even for a CPU model. That makes
+        // the same request depend on backend availability and can silently
+        // diverge from the qualification/runtime probe. CPU is the reference
+        // path, so keep both random streams deterministic and portable.
+        .rng(RngFunction::CPU_RNG)
+        .sampler_rng_type(RngFunction::CPU_RNG)
+        // Inpainting quality is sensitive to the denoiser schedule. Pin the
+        // reference schedule instead of inheriting a model/runtime default
+        // that may change when the helper is rebuilt.
+        .scheduler(Scheduler::KARRAS_SCHEDULER);
     let mut model = model
         .build()
         .map_err(|error| format!("Diffusion model configuration failed: {error}"))?;
@@ -172,8 +196,10 @@ fn run(request: Request) -> Result<Response, String> {
         .prompt(request.prompt)
         .negative_prompt(request.negative_prompt)
         .cfg_scale(request.guidance_scale)
+        .image_cfg_scale(request.image_guidance_scale)
         .width(request.width as i32)
         .height(request.height as i32)
+        .sampling_method(SampleMethod::EULER_A_SAMPLE_METHOD)
         .steps(request.steps as i32)
         .seed(request.seed)
         .strength(request.strength)
@@ -224,7 +250,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{Request, validate_request};
+    use super::{validate_request, Request};
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -257,6 +283,7 @@ mod tests {
                 height: 512,
                 steps: 24,
                 guidance_scale: 7.0,
+                image_guidance_scale: 1.0,
                 seed: 4,
                 strength: 0.75,
             },
@@ -277,6 +304,9 @@ mod tests {
         request.width = 512;
         request.guidance_scale = 51.0;
         assert!(validate_request(&request).is_err());
+        request.guidance_scale = 7.0;
+        request.image_guidance_scale = 51.0;
+        assert!(validate_request(&request).is_err());
 
         fs::remove_dir_all(root).expect("remove test directory");
     }
@@ -286,21 +316,17 @@ mod tests {
         let (mut request, root) = valid_request();
 
         request.width = 256;
-        assert!(
-            validate_request(&request)
-                .expect_err("a resized working frame must not be guessed")
-                .contains("source artifact dimensions")
-        );
+        assert!(validate_request(&request)
+            .expect_err("a resized working frame must not be guessed")
+            .contains("source artifact dimensions"));
 
         request.width = 512;
         image::GrayImage::from_pixel(256, 512, image::Luma([255]))
             .save(&request.mask_path)
             .expect("write mismatched mask");
-        assert!(
-            validate_request(&request)
-                .expect_err("a mismatched mask must be rejected")
-                .contains("mask artifact dimensions")
-        );
+        assert!(validate_request(&request)
+            .expect_err("a mismatched mask must be rejected")
+            .contains("mask artifact dimensions"));
 
         fs::remove_dir_all(root).expect("remove test directory");
     }

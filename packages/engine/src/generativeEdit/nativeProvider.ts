@@ -74,28 +74,83 @@ function nativeFailure(error: unknown): GenerativeEditError {
   if (error instanceof GenerativeEditError) return error;
   const message = error instanceof Error ? error.message : String(error);
   const normalized = message.toLowerCase();
+
+  const containsAny = (...needles: string[]) =>
+    needles.some((needle) => normalized.includes(needle));
+
   if (normalized.includes('cancel')) return new GenerativeEditError('cancelled', message);
   if (normalized.includes('timed out') || normalized.includes('timeout')) {
     return new GenerativeEditError('timeout', message);
+  }
+  if (containsAny('source changed', 'stale source', 'superseded generation')) {
+    return new GenerativeEditError('stale', message);
+  }
+  if (containsAny('supports fill, replace, and expand only', 'unsupported mode')) {
+    return new GenerativeEditError('unsupported-mode', message);
+  }
+  if (containsAny('prompt is required', 'prompt conditioning requires', 'prompt unavailable')) {
+    return new GenerativeEditError('prompt-unavailable', message);
+  }
+  if (containsAny('mask dimensions', 'mask buffer', 'mask artifact', 'invalid mask')) {
+    return new GenerativeEditError('invalid-mask', message);
+  }
+  if (
+    containsAny(
+      'source image',
+      'source dimensions',
+      'image dimensions',
+      'image decode',
+      'invalid image',
+      'output image',
+      'png data',
+    )
+  ) {
+    return new GenerativeEditError('invalid-image', message);
   }
   if (
     normalized.includes('not installed') ||
     normalized.includes('not passed') ||
     normalized.includes('unqualified') ||
-    normalized.includes('qualification')
+    normalized.includes('qualification') ||
+    normalized.includes('model handle') ||
+    normalized.includes('model is no longer available')
   ) {
     return new GenerativeEditError('missing-model', message);
   }
-  if (normalized.includes('out of memory') || normalized.includes('allocation')) {
+  if (
+    containsAny(
+      'out of memory',
+      'allocation',
+      'memory budget',
+      'insufficient memory',
+      'does not fit this device',
+    )
+  ) {
     return new GenerativeEditError('insufficient-memory', message);
   }
   if (
-    normalized.includes('device') ||
-    normalized.includes('vulkan') ||
-    normalized.includes('metal') ||
-    normalized.includes('cuda')
+    containsAny(
+      'device lost',
+      'device loss',
+      'vulkan device',
+      'metal device',
+      'cuda device',
+      'gpu device',
+    )
   ) {
     return new GenerativeEditError('device-loss', message);
+  }
+  if (
+    containsAny(
+      'helper is unavailable',
+      'helper unavailable',
+      'built without',
+      'unsupported backend',
+      'requires the desktop app',
+      'desktop provider',
+    )
+  ) {
+    return new GenerativeEditError('unsupported-runtime', message);
   }
   return new GenerativeEditError('runtime-failure', message);
 }
@@ -179,6 +234,7 @@ export const nativeGenerativeProvider = {
                 output_h: request.outputHeight ?? request.imageData.height,
                 steps: request.steps ?? (request.quality === 'draft' ? 12 : 24),
                 guidance_scale: request.guidanceScale ?? 7,
+                image_guidance_scale: request.imageGuidanceScale ?? 1,
                 seed: request.seed ?? -1,
                 strength: request.strength ?? (request.mode === 'replace' ? 0.85 : 0.75),
               },
