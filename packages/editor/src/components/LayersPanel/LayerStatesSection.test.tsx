@@ -85,6 +85,21 @@ describe('LayerStatesSection', () => {
     expect(handlers.renameLayerState).toHaveBeenCalledWith('s1', 'Final');
   });
 
+  it('exposes layer states as a list, not a listbox wrapping nested controls', () => {
+    const existing: LayerState = {
+      id: 's1',
+      name: 'Wireframe',
+      categories: ['visibility'],
+      captured: { visibility: { a: true } },
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+    setState([existing], ['a']);
+    render(<LayerStatesSection />);
+    expect(screen.getByRole('list', { name: 'Layer states' })).toBeTruthy();
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(screen.queryByRole('option')).toBeNull();
+  });
+
   it('surfaces a conflict notice when a state references deleted nodes', () => {
     const existing: LayerState = {
       id: 's1',

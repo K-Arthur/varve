@@ -102,15 +102,16 @@ export function LayerStatesSection() {
         )}
       </div>
       {!collapsed && (
-        <div className="layer-states__list" role="listbox" aria-label="Layer states">
+        <div className="layer-states__list" role="list" aria-label="Layer states">
           {states.map((ls) => {
             const isEditing = editingId === ls.id;
             return (
-              <div key={ls.id} className="layer-states__item" role="option" tabIndex={0}>
+              <div key={ls.id} className="layer-states__item" role="listitem">
                 {isEditing ? (
                   <input
                     type="text"
                     value={editingName}
+                    aria-label={`Rename layer state ${ls.name}`}
                     onChange={(e) => setEditingName(e.target.value)}
                     onBlur={() => handleRenameCommit(ls.id)}
                     onKeyDown={(e) => {
@@ -120,7 +121,7 @@ export function LayerStatesSection() {
                     className="layer-states__name-input"
                   />
                 ) : (
-                  <Tooltip label="Apply state">
+                  <Tooltip label={`Apply state: ${ls.name}`}>
                     <button
                       type="button"
                       className="layer-states__name-btn"
@@ -145,7 +146,7 @@ export function LayerStatesSection() {
                       onClick={() => handleRenameStart(ls.id, ls.name)}
                       aria-label={`Rename ${ls.name}`}
                     >
-                      <SolidIcon name={SOLID_CHROME_ICONS.fileText} size="0.7em" />
+                      <SolidIcon name={SOLID_CHROME_ICONS.pencil} size="0.7em" />
                     </button>
                   </Tooltip>
                   <Tooltip label="Recapture from selection">
