@@ -1357,12 +1357,15 @@ input[type="number"] {
 }
 
 /* Status-bar badges are interactive controls too (debt report, layout score,
- * save state). Hold the 24px minimum inside the bar without changing how the
- * same components render in other, denser contexts. */
+ * save state). Hold the 24px minimum in both axes inside the bar without
+ * changing how the same components render in other, denser contexts. The
+ * layout-score badge measured 23px wide at 1024px before this. */
 .editor-status .debt-badge,
 .editor-status .editor-status__score-badge,
 .editor-status .save-status {
   min-height: var(--space-6);
+  min-width: var(--space-6);
+  justify-content: center;
 }
 .editor-status__fit-btn:hover {
   background: var(--color-surface-raised);

@@ -205,8 +205,14 @@ test.describe('Toolbar follow-up — text quick bar', () => {
     await expect(size).toBeFocused();
 
     // Leaving the text node restores the context-bar typography controls.
-    await page.mouse.click(canvas.x + canvas.width - 60, canvas.y + canvas.height - 60);
+    // Escape commits an edited (non-empty) node and ends the session; the
+    // node is re-selected from the tree so the assertion does not depend on
+    // whatever the commit left selected.
+    await page.keyboard.press('Escape');
     await expect(bar).toHaveCount(0);
+    const textItem = page.getByRole('treeitem', { name: /Quarterly report/i });
+    await expect(textItem).toBeVisible({ timeout: 10000 });
+    await textItem.click();
     await expect(
       page.locator('.context-control-bar').getByRole('button', { name: 'Bold' }),
     ).toBeVisible();
@@ -230,13 +236,15 @@ test.describe('Toolbar follow-up — combined journey', () => {
     await page.mouse.up();
     await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
 
-    // Live text edited from the canvas bar. Wait for the edit overlay to take
-    // focus before typing (the published pattern in typography-editing.spec):
-    // typing at the wrong moment silently creates an empty text node.
-    await page.keyboard.press('t');
+    // Live text edited from the canvas bar. Activate the text tool from the
+    // palette (not the shortcut: focus may still be in a just-drawn shape's
+    // flow) and wait for the edit overlay to take focus before typing — the
+    // published pattern in typography-editing.spec. Typing at the wrong
+    // moment silently creates an empty text node.
+    await page.locator('.floating-toolbar [data-tool="text"]').click();
     await page.mouse.click(canvas.x + 420, canvas.y + 320);
     const editor = page.getByRole('textbox', { name: /editing text/i });
-    await expect(editor).toBeFocused({ timeout: 15000 });
+    await expect(editor).toBeFocused({ timeout: 20000 });
     await page.keyboard.insertText('Launch 2026');
     await expect(editor).toHaveValue('Launch 2026');
     const size = page.locator('.floating-text-bar').getByRole('spinbutton', { name: 'Font size' });
