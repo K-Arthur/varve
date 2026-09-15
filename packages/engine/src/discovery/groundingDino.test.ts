@@ -4,13 +4,13 @@ import {
   bertTokenize,
   buildGroundingDinoInputs,
   decodeGroundingDinoOutput,
+  type GroundingDetection,
   locatePhraseSpans,
   normalizeGroundingQuery,
   parseBertVocab,
   preprocessGroundingDinoImage,
   suppressDuplicateDetections,
   wordPiece,
-  type GroundingDetection,
 } from './groundingDino';
 
 const VOCAB_TEXT = [

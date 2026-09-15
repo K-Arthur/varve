@@ -122,7 +122,9 @@ describe('decodeModnetAlpha', () => {
 describe('constrainPortraitAlpha', () => {
   const expectClose = (actual: Float32Array, expected: number[]) => {
     expect(actual.length).toBe(expected.length);
-    expected.forEach((value, index) => expect(actual[index]).toBeCloseTo(value, 6));
+    for (const [index, value] of expected.entries()) {
+      expect(actual[index]).toBeCloseTo(value, 6);
+    }
   };
 
   it('preserves fractional coverage inside the support and zeroes outside it', () => {
