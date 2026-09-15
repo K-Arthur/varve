@@ -293,7 +293,11 @@ export function Select({
           selectHighlighted();
           break;
         case 'Escape':
+          // One Escape dismisses one layer. Without stopPropagation the
+          // surrounding dialog's own keydown handler also sees this event
+          // and closes the dialog on the same key press.
           event.preventDefault();
+          event.stopPropagation();
           closeListbox();
           break;
         case 'Tab':

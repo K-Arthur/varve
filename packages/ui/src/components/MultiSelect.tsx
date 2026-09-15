@@ -260,7 +260,10 @@ export function MultiSelect({
           activateHighlighted();
           break;
         case 'Escape':
+          // One Escape dismisses one layer — keep the surrounding dialog's
+          // keydown handler from closing the dialog on the same key press.
           event.preventDefault();
+          event.stopPropagation();
           close();
           break;
         case 'Tab':

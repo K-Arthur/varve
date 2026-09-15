@@ -137,6 +137,105 @@ describe('Dialog', () => {
     expect(onKeyDown).toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('dismisses when the press and release both happen on the backdrop', () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <Dialog open title="Settings" onClose={onClose}>
+        <p>content</p>
+      </Dialog>,
+    );
+    const dialog = container.querySelector('dialog') as HTMLDialogElement;
+
+    fireEvent.pointerDown(dialog);
+    fireEvent.pointerUp(dialog);
+    fireEvent.click(dialog);
+
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  // Regression: a press that begins inside the dialog and is released over
+  // the backdrop (text selection, a drag past the edge) dispatches its click
+  // on the dialog element — the press/release common ancestor. Treating that
+  // as a backdrop click closed the dialog mid-interaction.
+  it('does not dismiss when a press inside the content is released on the backdrop', () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <Dialog open title="Settings" onClose={onClose}>
+        <input aria-label="field" />
+      </Dialog>,
+    );
+    const dialog = container.querySelector('dialog') as HTMLDialogElement;
+
+    fireEvent.pointerDown(screen.getByLabelText('field'));
+    fireEvent.pointerUp(dialog);
+    fireEvent.click(dialog);
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('does not dismiss when a press on the backdrop is released inside the content', () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <Dialog open title="Settings" onClose={onClose}>
+        <input aria-label="field" />
+      </Dialog>,
+    );
+    const dialog = container.querySelector('dialog') as HTMLDialogElement;
+
+    fireEvent.pointerDown(dialog);
+    fireEvent.pointerUp(screen.getByLabelText('field'));
+    fireEvent.click(dialog);
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('clears a pending backdrop press when the pointer is cancelled', () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <Dialog open title="Settings" onClose={onClose}>
+        <p>content</p>
+      </Dialog>,
+    );
+    const dialog = container.querySelector('dialog') as HTMLDialogElement;
+
+    fireEvent.pointerDown(dialog);
+    fireEvent.pointerCancel(dialog);
+    fireEvent.pointerUp(dialog);
+    fireEvent.click(dialog);
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  // Regression: only Settings and EffectStudio wrapped their Dialog in a
+  // NestedOverlayProvider, so every other dialog closed on the same Escape
+  // that dismissed a nested Select. Escape now stops at the layer it closes.
+  it('does not close when Escape dismisses a nested Select without a provider', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    render(
+      <Dialog open title="Export" onClose={onClose}>
+        <Select
+          label="Units"
+          value=""
+          onChange={() => {}}
+          options={[
+            { value: 'px', label: 'Pixels' },
+            { value: 'pt', label: 'Points' },
+          ]}
+        />
+      </Dialog>,
+    );
+
+    await user.click(screen.getByRole('combobox'));
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });
 
 describe('AlertDialog', () => {
@@ -172,5 +271,23 @@ describe('AlertDialog', () => {
     if (!confirmBtn) throw new Error('confirmBtn not found');
     fireEvent.click(confirmBtn);
     expect(onConfirm).toHaveBeenCalledOnce();
+  });
+
+  // APG alertdialog guidance: initial focus belongs on the least destructive
+  // action. It previously landed on the header Close button, so an immediate
+  // Enter would confirm the destructive action.
+  it('moves initial focus to the cancel action', () => {
+    render(
+      <AlertDialog
+        open
+        title="Delete layer?"
+        description="This cannot be undone."
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        confirmLabel="Delete"
+        variant="destructive"
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
   });
 });

@@ -148,7 +148,10 @@ export function Combobox({
           break;
         }
         case 'Escape':
+          // One Escape dismisses one layer — keep the surrounding dialog's
+          // keydown handler from closing the dialog on the same key press.
           e.preventDefault();
+          e.stopPropagation();
           close();
           break;
         case 'Tab':

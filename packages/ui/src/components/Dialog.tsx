@@ -49,6 +49,22 @@ export interface DialogProps extends DialogHTMLAttributes<HTMLDialogElement> {
   focusFirstControl?: boolean;
 }
 
+/**
+ * A press that starts inside the dialog and is released over the backdrop
+ * (selecting text, dragging a scrub gesture, releasing past the edge) is
+ * dispatched as a click on the dialog element itself, because the element is
+ * the nearest common ancestor of the press and release targets. Dismissing on
+ * that click closes the dialog mid-interaction. Backdrop dismissal therefore
+ * requires both the press and the release to have happened on the dialog's
+ * own backdrop area — tracked separately from the click event.
+ */
+interface BackdropPress {
+  down: boolean;
+  up: boolean;
+}
+
+const CLEARED_PRESS: BackdropPress = { down: false, up: false };
+
 export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog(
   {
     open,
@@ -69,6 +85,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
 ) {
   const innerRef = useRef<HTMLDialogElement | null>(null);
   const titleId = useId();
+  const backdropPressRef = useRef<BackdropPress>(CLEARED_PRESS);
 
   useEffect(() => {
     const el = innerRef.current;
@@ -108,10 +125,24 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
     [dismissible, onClose, consumerOnCancel],
   );
 
+  const handleBackdropPointerDown = useCallback((e: React.PointerEvent<HTMLDialogElement>) => {
+    backdropPressRef.current = { down: e.target === innerRef.current, up: false };
+  }, []);
+
+  const handleBackdropPointerUp = useCallback((e: React.PointerEvent<HTMLDialogElement>) => {
+    backdropPressRef.current.up = e.target === innerRef.current;
+  }, []);
+
+  const handleBackdropPointerCancel = useCallback(() => {
+    backdropPressRef.current = CLEARED_PRESS;
+  }, []);
+
   const handleBackdrop = useCallback(
     (e: React.MouseEvent<HTMLDialogElement>) => {
       if (consumerOptedOut(e, consumerOnClick)) return;
-      if (dismissible && e.target === innerRef.current) onClose();
+      const press = backdropPressRef.current;
+      backdropPressRef.current = CLEARED_PRESS;
+      if (dismissible && e.target === innerRef.current && press.down && press.up) onClose();
     },
     [dismissible, onClose, consumerOnClick],
   );
@@ -136,6 +167,9 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
       ref={handleRef}
       aria-labelledby={titleId}
       onCancel={handleCancel}
+      onPointerDown={handleBackdropPointerDown}
+      onPointerUp={handleBackdropPointerUp}
+      onPointerCancel={handleBackdropPointerCancel}
       onClick={handleBackdrop}
       onKeyDown={handleBackdropKey}
       className={`varve-dialog${size !== 'sm' ? ` varve-dialog--${size}` : ''} ${className}`.trim()}
@@ -204,6 +238,10 @@ export function AlertDialog({
       // backdrop click — an accidental tap could discard a destructive
       // confirmation. Esc still cancels via the handler below.
       dismissible={false}
+      // Focus the least destructive action, not the header Close button or
+      // the confirm action: APG's alertdialog guidance, and it prevents an
+      // immediate Enter from destroying data.
+      focusFirstControl
       role="alertdialog"
       aria-describedby={descriptionId}
       onKeyDown={(e) => {
@@ -214,7 +252,7 @@ export function AlertDialog({
         {description}
       </p>
       <div className="varve-dialog__actions">
-        <Button variant="ghost" onClick={onClose}>
+        <Button variant="ghost" onClick={onClose} data-autofocus>
           {cancelLabel}
         </Button>
         <Button

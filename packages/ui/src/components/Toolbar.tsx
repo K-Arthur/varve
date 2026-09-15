@@ -25,7 +25,11 @@ import { nextEnabledIndex } from '../utils/focusMovement';
 
 export interface ToolbarProps {
   label: string;
-  children: ReactNode;
+  /**
+   * Optional: the floating palette mounts before the workspace config
+   * hydrates, so a toolbar can legitimately commit once with no children.
+   */
+  children?: ReactNode;
   /** Whether arrow navigation wraps from last to first. Defaults to true. */
   wrap?: boolean;
 }
