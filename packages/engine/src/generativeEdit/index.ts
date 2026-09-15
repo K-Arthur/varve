@@ -62,6 +62,7 @@ export {
   GenerativeEditError,
   type GenerativeEditErrorCode,
   type GenerativeEditExecutionBackend,
+  type GenerativeEditInputFrame,
   type GenerativeEditMode,
   type GenerativeEditModeCapabilities,
   type GenerativeEditProgress,

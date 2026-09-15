@@ -97,6 +97,33 @@ describe('generative edit document contract', () => {
     expect(validateGenerativeEdit(fixture())).toBeNull();
   });
 
+  it('retains and validates the model input-frame provenance', () => {
+    const base = fixture();
+    const withFrame = {
+      ...base,
+      provider: {
+        ...base.provider,
+        modelId: 'sd15-inpainting-q4_0-v1',
+        inputFrame: {
+          contractId: 'sd15-inpainting-512-square-v1',
+          preprocessingVersion: 'varve-diffusion-letterbox-linear-srgb-v1',
+          width: 512,
+          height: 512,
+        },
+      },
+    };
+    expect(validateGenerativeEdit(withFrame)).toBeNull();
+    expect(
+      validateGenerativeEdit({
+        ...withFrame,
+        provider: {
+          ...withFrame.provider,
+          inputFrame: { ...withFrame.provider.inputFrame, width: 0 },
+        },
+      }),
+    ).toContain('provider');
+  });
+
   it('accepts reviewed object-selection evidence and rejects incomplete provenance', () => {
     const evidence = {
       schemaVersion: 1 as const,

@@ -367,6 +367,12 @@ export async function runGenerativeEdit(
               modelChecksum: NATIVE_GENERATIVE_MODEL_PROFILE.sha256,
             }
           : {}),
+        inputFrame: {
+          contractId: diffusionFrame.contractId,
+          preprocessingVersion: diffusionFrame.preprocessingVersion,
+          width: diffusionFrame.width,
+          height: diffusionFrame.height,
+        },
       },
       processingTimeMs: performance.now() - startTime,
       warnings,

@@ -19,6 +19,14 @@ export type GenerativeEditRuntime =
   | 'native-accelerated'
   | 'remote';
 
+/** Exact model input frame used after aspect-ratio preparation. */
+export interface GenerativeEditInputFrame {
+  contractId: string;
+  preprocessingVersion: string;
+  width: number;
+  height: number;
+}
+
 export interface GenerativeEditProvider {
   kind: GenerativeEditProviderKind;
   id: string;
@@ -26,6 +34,8 @@ export interface GenerativeEditProvider {
   modelVersion?: string;
   modelChecksum?: string;
   runtime: GenerativeEditRuntime;
+  /** Optional for reconstruction/legacy providers; present for diffusion results. */
+  inputFrame?: GenerativeEditInputFrame;
 }
 
 /**
@@ -241,11 +251,27 @@ function finiteBetween(value: unknown, minimum: number, maximum: number): value 
 function validProvider(value: unknown): value is GenerativeEditProvider {
   if (!value || typeof value !== 'object') return false;
   const provider = value as Partial<GenerativeEditProvider>;
+  const inputFrame = provider.inputFrame;
+  const validInputFrame =
+    inputFrame === undefined ||
+    (inputFrame !== null &&
+      typeof inputFrame === 'object' &&
+      typeof inputFrame.contractId === 'string' &&
+      inputFrame.contractId.length > 0 &&
+      typeof inputFrame.preprocessingVersion === 'string' &&
+      inputFrame.preprocessingVersion.length > 0 &&
+      Number.isSafeInteger(inputFrame.width) &&
+      inputFrame.width > 0 &&
+      inputFrame.width <= 4096 &&
+      Number.isSafeInteger(inputFrame.height) &&
+      inputFrame.height > 0 &&
+      inputFrame.height <= 4096);
   return (
     PROVIDER_KINDS.has(provider.kind as GenerativeEditProviderKind) &&
     typeof provider.id === 'string' &&
     provider.id.length > 0 &&
-    RUNTIMES.has(provider.runtime as GenerativeEditRuntime)
+    RUNTIMES.has(provider.runtime as GenerativeEditRuntime) &&
+    validInputFrame
   );
 }
 

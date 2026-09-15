@@ -45,6 +45,15 @@ fn default_image_guidance_scale() -> f32 {
     1.0
 }
 
+// The packaged Varve profile is SD 1.5 inpainting. Its latent/configuration
+// contract is a 512px square, so the renderer must perform the aspect-
+// preserving letterbox conversion before this process is started. Keeping
+// the guard here as well prevents stale or malformed callers from silently
+// sending an arbitrary rectangle to the model.
+const SD15_INPAINTING_FRAME_WIDTH: u32 = 512;
+const SD15_INPAINTING_FRAME_HEIGHT: u32 = 512;
+const SD15_INPAINTING_DIMENSION_MULTIPLE: u32 = 64;
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Response {
@@ -118,6 +127,18 @@ fn validate_request(request: &Request) -> Result<(), String> {
     }
     if request.width == 0 || request.height == 0 || request.width > 2048 || request.height > 2048 {
         return Err("Generation dimensions must be between 1 and 2048 pixels".into());
+    }
+    if request.width != SD15_INPAINTING_FRAME_WIDTH
+        || request.height != SD15_INPAINTING_FRAME_HEIGHT
+        || request.width % SD15_INPAINTING_DIMENSION_MULTIPLE != 0
+        || request.height % SD15_INPAINTING_DIMENSION_MULTIPLE != 0
+    {
+        return Err(format!(
+            "The SD 1.5 inpainting profile requires a {}x{} working frame ({}px dimension multiple); convert the source with the Varve aspect-preserving frame adapter before processing",
+            SD15_INPAINTING_FRAME_WIDTH,
+            SD15_INPAINTING_FRAME_HEIGHT,
+            SD15_INPAINTING_DIMENSION_MULTIPLE,
+        ));
     }
     validate_image_dimensions(
         &request.init_image_path,
@@ -327,6 +348,18 @@ mod tests {
         assert!(validate_request(&request)
             .expect_err("a mismatched mask must be rejected")
             .contains("mask artifact dimensions"));
+
+        fs::remove_dir_all(root).expect("remove test directory");
+    }
+
+    #[test]
+    fn rejects_frames_that_do_not_match_the_packaged_model_contract() {
+        let (mut request, root) = valid_request();
+
+        request.width = 768;
+        assert!(validate_request(&request)
+            .expect_err("a non-contract frame must be adapted before inference")
+            .contains("requires a 512x512 working frame"));
 
         fs::remove_dir_all(root).expect("remove test directory");
     }

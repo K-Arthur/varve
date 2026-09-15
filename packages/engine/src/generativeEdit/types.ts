@@ -20,6 +20,14 @@ export type GenerativeEditRuntime =
 export type GenerativeEditResourceTier = 'constrained' | 'standard' | 'high' | 'unknown';
 export type GenerativeEditExecutionBackend = 'native' | 'webgpu' | 'wasm' | 'unknown';
 
+/** Exact model input frame used after aspect-ratio preparation. */
+export interface GenerativeEditInputFrame {
+  contractId: string;
+  preprocessingVersion: string;
+  width: number;
+  height: number;
+}
+
 export interface GenerativeEditResourceProfile {
   /** Conservative device tier used for local preflight and UI copy. */
   tier: GenerativeEditResourceTier;
@@ -46,6 +54,8 @@ export interface GenerativeEditProvider {
   modelVersion?: string;
   modelChecksum?: string;
   runtime: GenerativeEditRuntime;
+  /** Optional for reconstruction/legacy providers; required for diffusion results. */
+  inputFrame?: GenerativeEditInputFrame;
 }
 
 export type GenerativeEditCapabilityParameter =

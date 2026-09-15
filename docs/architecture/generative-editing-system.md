@@ -504,13 +504,22 @@ mode can be executable in principle but not ready until its local model has
 passed qualification; the UI combines both signals and reports the actual
 setup action or blocker.
 
+When a prompt-capable result is accepted, its provider provenance also records
+the exact input-frame contract and preprocessing revision (including the model
+frame dimensions). This keeps a saved candidate tied to the same
+aspect-ratio conversion used during inference; reopening or comparing a
+candidate never has to infer those values from the document preview.
+
 The native diffusion provider runs in a supervised helper process. The renderer
 receives an opaque qualified model handle, never a model filesystem path or
 model bytes. Imported safe-format artifacts are hashed and must pass an actual
 masked helper run before prompt modes are enabled. The helper validates that
 the decoded source and mask dimensions match the declared working frame before
-loading weights, so it never guesses at resampling or mask alignment. The
-desktop command repeats this boundary before resource/model lookup: it rejects
+loading weights, so it never guesses at resampling or mask alignment. For the
+currently packaged SD 1.5 profile, that helper boundary additionally requires
+the exact 512 × 512 frame and its 64-pixel granularity; non-square source
+images must already have passed the shared aspect-preserving letterbox adapter.
+The desktop command repeats this boundary before resource/model lookup: it rejects
 unsupported modes, non-finite or out-of-range strength/guidance values, steps
 outside 1–100, prompts over 16,384 characters, and source/mask buffers whose
 byte lengths or working-frame dimensions do not match the request. These
