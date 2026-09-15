@@ -1986,6 +1986,9 @@
   font: inherit;
   font-size: var(--font-size-sm);
   cursor: ew-resize;
+  /* Horizontal drags scrub; vertical panning stays with the browser so a
+     scrollable dialog can still be scrolled from the field. */
+  touch-action: pan-y;
   outline: none;
 }
 .varve-number-input:focus {
