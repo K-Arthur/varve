@@ -29,7 +29,7 @@ The initial incomplete behavior came from four boundaries:
 | Object removal | Painted, selection, or layer-mask source + bounded context | PatchMatch or LaMa | `GenerativeEdit` job + source-safe composite | Generative Edit dialog, inspector/action/menu/palette | Source-pixel mask; invert, expansion, feather, context | One transaction; accepted layer selected | Result/mask assets + provenance record | Fast yes; LaMa after download | Worker path | Native LaMa | Ordinary image asset | Unit + real-photo E2E | Mask fidelity, memory | implemented locally |
 | Generative Fill | Same mask workflow; prompt visibly marked non-conditioning locally | PatchMatch or LaMa | Mode-aware generative job | Fill/Remove/Replace/Expand tabs with capability gating | Painted, pixel-selection, or layer-mask input | One transaction; source untouched | Edit record links source, mask, variations, result | Fast yes; LaMa after download | Yes | Yes | Yes | Unit + real-photo visual E2E | Semantic quality | implemented locally |
 | Generative Replace | Contract and disabled UI state | No verified prompt provider | Mode is represented; Generate gated | Prompt control plus honest provider note | Shared mask contract ready | No apply until provider capability | Schema supports mode/provenance | No provider | N/A | N/A | N/A | Gating assertions | Licensing/model gap | staged |
-| Generative Expand | Contract and disabled UI state | No verified outpaint provider | Mode is represented; bounds adapter not shipped | Expand tab only | Shared mask contract ready | No apply until provider capability | Schema supports mode/provenance | No provider | N/A | N/A | N/A | Gating assertions | Spatial semantics | staged |
+| Generative Expand | Contract, target-frame/aspect/anchor adapter, and disabled semantic path | LaMa/PatchMatch promptless reconstruction; no verified semantic outpaint provider | Mode, bounded plan, and source-preserving acceptance are implemented | Expand controls plus honest provider note | Shared mask contract ready | Promptless apply is transactional; semantic apply remains gated | Schema supports mode/provenance | Local promptless path only | Browser provider gated | Desktop limited path | Ordinary image export | Unit + real-photo boundary/qualification evidence | Semantic quality and platform evidence | limited local; semantic staged |
 | Variations | Up to four transient candidates; deterministic seed advances per generation | Current local provider returns one candidate per job | Variation identity and accepted id recorded | Gallery, active candidate, Original/Result review | Same source mask/settings | Preview does not write history; selected candidate applies once | Accepted/all generated candidates embedded on apply | Yes | Yes | Yes | Yes | E2E apply/selection checks | Asset bloat | implemented locally |
 | Job orchestration | Cancellable controller with source/session freshness checks | Worker/native calls | Typed error and capability contract | Generating, progress, cancel, stale/error states | Mask/settings changes invalidate candidate | Cancel/stale leave document unchanged | Accepted result is recoverable data | Local only | Yes | Yes | N/A | Unit + E2E | Stale results | implemented locally |
 | Model lifecycle | Verified manifest + IndexedDB partials | ONNX models | Background-removal model store | Download dialog | N/A | N/A | Model not document data | Explicit download | Yes | Yes | N/A | Manifest/store tests | Quota/large model | complete for existing models |
@@ -73,3 +73,25 @@ Replace and Expand remain intentionally unavailable until the provider and
 quality evidence described by ADR-0232 exist. The UI exposes their contract
 and explains the boundary rather than presenting a non-functional prompt or
 outpainting claim as shipped capability.
+
+## Current-state addendum — 2026-09-15
+
+The original matrix above records the baseline implementation slice. Since
+then, the Expand geometry is implemented and tested independently of provider
+quality: target aspect ratios, explicit output dimensions, source anchors, and
+four-sided margins resolve to one non-cropping output frame. The retained
+source is never rescaled, and a working frame is reduced aspect-preservingly
+only when the device budget requires it. Prompt-model input now uses an
+immutable model contract (the retained SD 1.5 diagnostic profile is exactly
+512 × 512 at a 64-pixel granularity); non-square contexts are uniformly scaled
+and letterboxed, with the mask transformed by the same mapping and the result
+restored to the original context dimensions.
+
+The shipped capability remains intentionally conservative: browser Fill/Remove
+and the measured desktop promptless reconstruction path are usable, while
+prompt-conditioned Replace/Fill/Expand remain unavailable until a model and
+runtime pass the real-photograph quality gate. Desktop helper availability is
+not treated as model readiness; only a qualified model handle enables the
+prompt route. The focused readiness and real-landscape browser tests passed on
+2026-09-15; semantic diffusion qualification, cross-platform native evidence,
+and the full 24-photo/32-task release gate remain outstanding.

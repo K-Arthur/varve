@@ -1,6 +1,6 @@
 # Generative editing system
 
-Status: current-state contract, 2026-09-14. See [ADR-0232](../adr/0232-generative-editing-semantics.md).
+Status: current-state contract, 2026-09-15. See [ADR-0232](../adr/0232-generative-editing-semantics.md).
 
 Varve's generative editing surface is a non-destructive layer over the
 existing scene, selection, raster-mask, asset, inference, history, and export
@@ -182,6 +182,16 @@ qualification, but the tested SDXL artifact remains unavailable until it
 passes semantic quality, memory, cancellation, and platform gates. A model
 profile's contract is part of its qualification identity, so changing frame
 size, padding, resampling, or mask encoding invalidates prior evidence.
+
+The capability resolver distinguishes provider availability from readiness. A
+desktop helper can be installed in the application before a model has passed
+the masked qualification probe; in that state prompt controls remain
+explainable, but prompt-conditioned generation is disabled and the mode is
+reported as `model-required`. The dialog passes the qualified opaque model
+handle back into the resolver, so Replace and prompted Fill/Expand cannot be
+enabled merely because the user is running the desktop shell. This readiness
+state is covered by the native-runtime capability tests and the real-photo
+browser boundary test.
 
 Prompted Object Selection has a second, provider-independent gate after model
 decoding. It ranks candidates by model score only among masks that contain each
