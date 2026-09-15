@@ -23,6 +23,11 @@ import { dirname, join } from 'node:path';
 import type { Tensor } from 'onnxruntime-node';
 import { describe, expect, it } from 'vitest';
 import {
+  decodeEfficientSamDecoderOutput,
+  encodeEfficientSamPrompts,
+  preprocessEfficientSamImageData,
+} from '../../inference/models/efficientSam';
+import {
   decodeMobileSamDecoderOutput,
   encodeMobileSamPrompts,
   preprocessMobileSamImageData,
@@ -52,6 +57,7 @@ if (typeof globalThis.ImageData === 'undefined') {
 
 const SAM2_DIR = process.env.VARVE_SAM2_REAL_MODEL_DIR ?? '';
 const MOBILE_DIR = process.env.VARVE_MOBILE_SAM_MODEL_DIR ?? '';
+const EFFICIENT_DIR = process.env.VARVE_EFFICIENT_SAM_MODEL_DIR ?? '';
 const RESULTS_PATH =
   process.env.VARVE_PROVIDER_AB_RESULTS_PATH ?? '/tmp/opencode/provider-ab-results.json';
 
@@ -59,6 +65,7 @@ type OrtModule = typeof import('onnxruntime-node');
 
 type ProviderResult = {
   selected: { mask: Uint8Array; score: number };
+  candidateMasks: Uint8Array[];
   candidateCount: number;
   selectedIndex: number;
   scores: number[];
@@ -201,6 +208,7 @@ async function loadSam2Provider(ort: OrtModule): Promise<Provider> {
       const selected = decoded.masks[decoded.selectedIndex]!;
       return {
         selected: { mask: selected.mask, score: selected.iouScore },
+        candidateMasks: decoded.masks.map((candidate) => candidate.mask),
         candidateCount: decoded.masks.length,
         selectedIndex: decoded.selectedIndex,
         scores: decoded.masks.map((candidate) => candidate.iouScore),
@@ -299,6 +307,94 @@ async function loadMobileSamProvider(ort: OrtModule): Promise<Provider> {
       const selected = decoded.masks[decoded.selectedIndex]!;
       return {
         selected: { mask: selected.mask, score: selected.score },
+        candidateMasks: decoded.masks.map((candidate) => candidate.mask),
+        candidateCount: decoded.masks.length,
+        selectedIndex: decoded.selectedIndex,
+        scores: decoded.masks.map((candidate) => candidate.score),
+        encoderMs,
+        decoderMs,
+        rssBytes: process.memoryUsage().rss,
+      };
+    },
+  };
+}
+
+async function loadEfficientSamProvider(ort: OrtModule): Promise<Provider> {
+  const coldStart = performance.now();
+  const enc = await ort.InferenceSession.create(
+    join(EFFICIENT_DIR, 'efficientsam_ti_encoder.onnx'),
+    { executionProviders: ['cpu'], graphOptimizationLevel: 'all' },
+  );
+  const dec = await ort.InferenceSession.create(
+    join(EFFICIENT_DIR, 'efficientsam_ti_decoder.onnx'),
+    { executionProviders: ['cpu'], graphOptimizationLevel: 'all' },
+  );
+  const coldStartMs = performance.now() - coldStart;
+  return {
+    id: 'efficient-sam-ti',
+    coldStartMs,
+    prepare: async (fixture) => {
+      const input = preprocessEfficientSamImageData(fixture.image);
+      const encoderStarted = performance.now();
+      const encoderOutputs = (await enc.run({
+        [enc.inputNames[0]!]: new ort.Tensor('float32', input.tensor, [
+          1,
+          3,
+          input.height,
+          input.width,
+        ]),
+      })) as unknown as Record<string, Tensor>;
+      const encoderMs = performance.now() - encoderStarted;
+      const embedding = encoderOutputs.image_embeddings!;
+      const encoded = encodeEfficientSamPrompts(
+        {
+          points: fixture.prompts.points.map((point) => ({
+            x: point.x / fixture.width,
+            y: point.y / fixture.height,
+            label: point.label,
+          })),
+          box: fixture.prompts.box
+            ? {
+                x1: fixture.prompts.box.x1 / fixture.width,
+                y1: fixture.prompts.box.y1 / fixture.height,
+                x2: fixture.prompts.box.x2 / fixture.width,
+                y2: fixture.prompts.box.y2 / fixture.height,
+              }
+            : undefined,
+        },
+        fixture.width,
+        fixture.height,
+      );
+      const decoderStarted = performance.now();
+      const outputs = (await dec.run({
+        image_embeddings: embedding,
+        batched_point_coords: new ort.Tensor(
+          'float32',
+          encoded.batched_point_coords.data,
+          encoded.batched_point_coords.dims,
+        ),
+        batched_point_labels: new ort.Tensor(
+          'float32',
+          encoded.batched_point_labels.data,
+          encoded.batched_point_labels.dims,
+        ),
+        orig_im_size: new ort.Tensor('int64', encoded.orig_im_size.data, encoded.orig_im_size.dims),
+      })) as unknown as Record<string, Tensor>;
+      const decoderMs = performance.now() - decoderStarted;
+      const masks = outputs.output_masks!;
+      const scores = outputs.iou_predictions!;
+      const decoded = decodeEfficientSamDecoderOutput(
+        masks.data as Float32Array,
+        [...masks.dims],
+        scores.data as Float32Array,
+        [...scores.dims],
+        fixture.width,
+        fixture.height,
+      );
+      const selected = decoded.masks[decoded.selectedIndex]!;
+      return {
+        selected: { mask: selected.mask, score: selected.score },
+        candidateMasks: decoded.masks.map((candidate) => candidate.mask),
         candidateCount: decoded.masks.length,
         selectedIndex: decoded.selectedIndex,
         scores: decoded.masks.map((candidate) => candidate.score),
@@ -317,7 +413,11 @@ describe('promptable provider A/B (gated)', () => {
     MOBILE_DIR.length > 0 &&
     existsSync(join(MOBILE_DIR, 'mobile_sam_image_encoder.onnx')) &&
     existsSync(join(MOBILE_DIR, 'sam_mask_decoder_multi.onnx'));
-  it.skipIf(!hasSam2 && !hasMobile)(
+  const hasEfficient =
+    EFFICIENT_DIR.length > 0 &&
+    existsSync(join(EFFICIENT_DIR, 'efficientsam_ti_encoder.onnx')) &&
+    existsSync(join(EFFICIENT_DIR, 'efficientsam_ti_decoder.onnx'));
+  it.skipIf(!hasSam2 && !hasMobile && !hasEfficient)(
     'runs the shared corpus through every available provider and records metrics',
     async () => {
       const { SEGMENTATION_CORPUS } = await import('./corpus');
@@ -327,6 +427,7 @@ describe('promptable provider A/B (gated)', () => {
       const providers: Provider[] = [];
       if (hasSam2) providers.push(await loadSam2Provider(ort));
       if (hasMobile) providers.push(await loadMobileSamProvider(ort));
+      if (hasEfficient) providers.push(await loadEfficientSamProvider(ort));
 
       const payload: Record<string, unknown> = {
         corpusVersion: 'object-selection-corpus-v1',
@@ -346,12 +447,21 @@ describe('promptable provider A/B (gated)', () => {
             fixture.width,
             fixture.height,
           );
+          const candidateIoUs = result.candidateMasks.map(
+            (mask) =>
+              computeSegmentationQuality(mask, fixture.oracleMask, fixture.width, fixture.height)
+                .iou,
+          );
+          const oracleBestIndex = candidateIoUs.indexOf(Math.max(...candidateIoUs));
           rows.push({
             caseId: fixture.id,
             category: fixture.category,
             width: fixture.width,
             height: fixture.height,
             metrics,
+            candidateIoUs,
+            oracleBestIndex,
+            rankingMatchesOracle: result.selectedIndex === oracleBestIndex,
             selectedIndex: result.selectedIndex,
             candidateCount: result.candidateCount,
             scores: result.scores,
@@ -378,9 +488,20 @@ describe('promptable provider A/B (gated)', () => {
           meanEncoderMs: mean((row) => row.encoderMs as number),
           meanDecoderMs: mean((row) => row.decoderMs as number),
           peakRssBytes: Math.max(...rows.map((row) => row.rssBytes as number)),
+          // Candidate-ranking calibration: does the provider's own top pick
+          // match the oracle-best candidate, and how much IoU does a mismatch
+          // cost? This is evidence about predicted-IoU reliability, not a
+          // cross-provider score comparison.
+          topCandidateAccuracy:
+            rows.filter((row) => row.rankingMatchesOracle === true).length / rows.length,
+          meanSelectedMinusBestIou: mean((row) => {
+            const ious = row.candidateIoUs as number[];
+            const selected = row.selectedIndex as number;
+            return Math.max(...ious) - ious[selected]!;
+          }),
         };
         console.log(
-          `AB SUMMARY ${provider.id} cold ${Math.round(summary.coldStartMs)}ms meanIoU ${summary.meanIou.toFixed(3)} meanBF ${summary.meanBoundaryF.toFixed(3)} worstIoU ${summary.worstIou.toFixed(3)} worstBF ${summary.worstBoundaryF.toFixed(3)} enc ${Math.round(summary.meanEncoderMs)}ms dec ${Math.round(summary.meanDecoderMs)}ms rss ${Math.round(summary.peakRssBytes / 1e6)}MB`,
+          `AB SUMMARY ${provider.id} cold ${Math.round(summary.coldStartMs)}ms meanIoU ${summary.meanIou.toFixed(3)} meanBF ${summary.meanBoundaryF.toFixed(3)} worstIoU ${summary.worstIou.toFixed(3)} worstBF ${summary.worstBoundaryF.toFixed(3)} enc ${Math.round(summary.meanEncoderMs)}ms dec ${Math.round(summary.meanDecoderMs)}ms rss ${Math.round(summary.peakRssBytes / 1e6)}MB topCand ${(summary.topCandidateAccuracy * 100).toFixed(0)}% rankGap ${summary.meanSelectedMinusBestIou.toFixed(3)}`,
         );
         providerRows.push({ ...summary, rows });
       }

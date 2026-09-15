@@ -352,8 +352,8 @@ describe('prompted selection routing — quality-first auto', () => {
   });
 
   it('resolves identical quality and performance deterministically by stable provider id', () => {
-    const twinA = provider({ id: 'alpha-provider' as PromptedProviderFact['id'] });
-    const twinB = provider({ id: 'beta-provider' as PromptedProviderFact['id'] });
+    const twinA = provider({ id: 'alpha-provider' });
+    const twinB = provider({ id: 'beta-provider' });
     const forward = routePromptedSelection({
       ...base,
       preference: 'auto',
