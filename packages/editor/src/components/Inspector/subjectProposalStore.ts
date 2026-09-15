@@ -21,6 +21,11 @@ export interface SubjectProposalTarget {
   nodeId: NodeId;
   /** Resolved source locator captured before inference began. */
   sourceLocator: string;
+  /** Natural source dimensions captured with the reviewed proposal. */
+  sourceWidth?: number;
+  sourceHeight?: number;
+  /** Exact decoded RGBA fingerprint captured before inference began. */
+  sourceFingerprint?: string;
 }
 
 export interface SubjectProposalProviderInfo {

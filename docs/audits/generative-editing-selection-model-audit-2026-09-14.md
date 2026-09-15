@@ -181,3 +181,10 @@ Candidate review, explicit confirmation, mask-health warnings, and brush
 refinement are still required before generation. Semantic Fill, Replace, and
 Expand remain unqualified until a capable local model passes the real-photo
 quality gates.
+
+The automatic proposal path also captures the decoded source dimensions and
+pixel fingerprint before inference. Applying a reviewed proposal rechecks that
+identity for mutable URL sources and fails closed when the same URL now serves
+different pixels; literal data/blob sources are immutable and avoid a redundant
+full-resolution decode. This closes the remaining same-node/same-URL race
+without claiming that a foreground model understands the user's object intent.

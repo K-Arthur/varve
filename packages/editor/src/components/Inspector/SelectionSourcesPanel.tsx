@@ -29,6 +29,7 @@ import { getActionRegistry } from '../../actions/ActionRegistry';
 import { commitRasterMask } from '../../backgroundRemoval/commitRasterMask';
 import { getToolManager } from '../../canvas/toolDispatcher';
 import { type ToolId, useEditor } from '../../context';
+import { fingerprintImageData } from '../../context/imageFingerprint';
 import { nodeWorldTransform } from '../../scene/world';
 import type { SelectionPaintTool } from '../../tools/SelectionPaintTool';
 import { deserializeAreaSelection, serializeAreaSelection } from '../../tools/savedAreaSelections';
@@ -72,6 +73,26 @@ function formatBytes(bytes: number): string {
 
 function runAction(id: string): void {
   getActionRegistry().get(id)?.handler(undefined);
+}
+
+const IMMUTABLE_SOURCE_LOCATOR = /^(?:data|blob):/i;
+
+async function readProposalSourceIdentity(
+  source: string,
+): Promise<{ width: number; height: number; fingerprint: string } | null> {
+  const decoded = await decodeRasterMaskDataUrl(source);
+  if (!decoded) return null;
+  const width = decoded.sourceWidth ?? decoded.width;
+  const height = decoded.sourceHeight ?? decoded.height;
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
+    return null;
+  }
+  const imageData = new ImageData(
+    new Uint8ClampedArray(decoded.data),
+    decoded.width,
+    decoded.height,
+  );
+  return { width, height, fingerprint: await fingerprintImageData(imageData) };
 }
 
 export function SelectionSourcesPanel() {
@@ -264,12 +285,51 @@ export function SelectionSourcesPanel() {
     );
   };
 
-  const applySubjectCandidate = (result: ForegroundProposalSet, index: number) => {
+  const verifyProposalSource = async (
+    target: NonNullable<ReturnType<typeof getSubjectProposalState>['target']>,
+  ): Promise<boolean> => {
+    if (!target.sourceFingerprint) {
+      announce('This subject estimate has no source fingerprint; run Select subject again');
+      return false;
+    }
+    // Data and blob URLs identify immutable bytes. Re-decoding them here would
+    // only add peak memory after the user already reviewed the exact source.
+    if (IMMUTABLE_SOURCE_LOCATOR.test(target.sourceLocator)) return true;
+    const current = await readProposalSourceIdentity(target.sourceLocator);
+    if (
+      !current ||
+      (target.sourceWidth !== undefined && current.width !== target.sourceWidth) ||
+      (target.sourceHeight !== undefined && current.height !== target.sourceHeight) ||
+      current.fingerprint !== target.sourceFingerprint
+    ) {
+      announce('The image changed after the estimate; run Select subject again');
+      return false;
+    }
+    return true;
+  };
+
+  const applySubjectCandidate = async (result: ForegroundProposalSet, index: number) => {
     const candidate = result.candidates[index];
     if (!candidate || selectedNode?.kind !== 'shape' || !isImageShape(selectedNode)) return;
     const proposalState = getSubjectProposalState();
     if (proposalState.reviewedCandidate !== index || proposalState.activeCandidate !== index) {
       announce('Preview and verify a candidate before using it as a selection');
+      return;
+    }
+    const target = proposalState.target;
+    if (!target || !(await verifyProposalSource(target))) return;
+    const liveTarget = subjectTargetRef.current;
+    const latestState = getSubjectProposalState();
+    if (
+      !liveTarget ||
+      liveTarget.documentId !== target.documentId ||
+      liveTarget.nodeId !== target.nodeId ||
+      liveTarget.sourceLocator !== target.sourceLocator ||
+      latestState.target?.sourceLocator !== target.sourceLocator ||
+      latestState.activeCandidate !== index ||
+      latestState.reviewedCandidate !== index
+    ) {
+      announce('The image or reviewed candidate changed; choose a fresh subject estimate');
       return;
     }
     const sourceMask = mapProposalMaskToSource(
@@ -342,21 +402,33 @@ export function SelectionSourcesPanel() {
         announce(message);
         return;
       }
-      const [runtime, installedModelIds] = await Promise.all([
-        resolveSubjectRuntimeCapabilities(),
-        listInstalledSubjectModels(),
-      ]);
-      if (runController.signal.aborted) return;
       const imageData = new ImageData(
         new Uint8ClampedArray(decoded.data),
         decoded.width,
         decoded.height,
       );
+      const sourceWidth = decoded.sourceWidth ?? decoded.width;
+      const sourceHeight = decoded.sourceHeight ?? decoded.height;
+      const sourceFingerprint = await fingerprintImageData(imageData);
+      if (runController.signal.aborted) return;
+      setSubjectProposalState({
+        target: {
+          ...target,
+          sourceWidth,
+          sourceHeight,
+          sourceFingerprint,
+        },
+      });
+      const [runtime, installedModelIds] = await Promise.all([
+        resolveSubjectRuntimeCapabilities(),
+        listInstalledSubjectModels(),
+      ]);
+      if (runController.signal.aborted) return;
       const result = await proposeSubjects({
         quality: subjectQuality,
         imageData,
-        sourceWidth: decoded.width,
-        sourceHeight: decoded.height,
+        sourceWidth,
+        sourceHeight,
         installedModelIds,
         runtime,
         allowModelFreeFallback: true,
@@ -481,13 +553,29 @@ export function SelectionSourcesPanel() {
     subjectDownloadRef.current?.abort();
   };
 
-  const applySubjectAsMask = () => {
+  const applySubjectAsMask = async () => {
     const result = subjectProposalSet;
     if (!result || selectedNode?.kind !== 'shape' || !isImageShape(selectedNode)) return;
     const proposalState = getSubjectProposalState();
     const activeCandidate = proposalState.activeCandidate;
     if (proposalState.reviewedCandidate !== activeCandidate) {
       announce('Preview and verify a candidate before applying it as a mask');
+      return;
+    }
+    const target = proposalState.target;
+    if (!target || !(await verifyProposalSource(target))) return;
+    const liveTarget = subjectTargetRef.current;
+    const latestState = getSubjectProposalState();
+    if (
+      !liveTarget ||
+      liveTarget.documentId !== target.documentId ||
+      liveTarget.nodeId !== target.nodeId ||
+      liveTarget.sourceLocator !== target.sourceLocator ||
+      latestState.target?.sourceLocator !== target.sourceLocator ||
+      latestState.activeCandidate !== activeCandidate ||
+      latestState.reviewedCandidate !== activeCandidate
+    ) {
+      announce('The image or reviewed candidate changed; choose a fresh subject estimate');
       return;
     }
     const candidate = result.candidates[activeCandidate];
@@ -926,7 +1014,7 @@ export function SelectionSourcesPanel() {
                 className="insp-selection-sources__button insp-selection-sources__button--primary"
                 disabled={subjectState.reviewedCandidate !== subjectState.activeCandidate}
                 onClick={() =>
-                  applySubjectCandidate(subjectProposalSet, subjectState.activeCandidate)
+                  void applySubjectCandidate(subjectProposalSet, subjectState.activeCandidate)
                 }
               >
                 Use selected candidate
@@ -935,7 +1023,7 @@ export function SelectionSourcesPanel() {
                 type="button"
                 className="insp-selection-sources__button insp-selection-sources__button--primary"
                 disabled={subjectState.reviewedCandidate !== subjectState.activeCandidate}
-                onClick={applySubjectAsMask}
+                onClick={() => void applySubjectAsMask()}
               >
                 Apply as mask
               </button>
@@ -957,6 +1045,9 @@ export function SelectionSourcesPanel() {
               </button>
             </div>
             <p className="insp-field__hint">
+              {subjectState.target?.sourceFingerprint
+                ? `Source verified at ${subjectState.target.sourceWidth ?? subjectProposalSet.width} x ${subjectState.target.sourceHeight ?? subjectProposalSet.height}px. `
+                : 'Source identity is unavailable. Run Select subject again. '}
               Candidate buttons only change the review target. Confirm with Use selected candidate
               or Apply as mask; refine the confirmed selection below. Estimates are proposals, not
               semantic recognition.

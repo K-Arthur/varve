@@ -5,17 +5,24 @@ import { addNode, createDocument, makeImageShapeNode } from '@varve/scene';
 import { useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockProposeSubjects, mockListInstalled, mockRuntime, mockDownload, mockMaskToDataUrl } =
-  vi.hoisted(() => ({
-    mockProposeSubjects: vi.fn(),
-    mockListInstalled: vi.fn(),
-    mockRuntime: vi.fn(),
-    mockDownload: vi.fn(),
-    mockMaskToDataUrl: vi.fn(
-      () =>
-        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==',
-    ),
-  }));
+const {
+  mockProposeSubjects,
+  mockListInstalled,
+  mockRuntime,
+  mockDownload,
+  mockMaskToDataUrl,
+  mockDecodeMask,
+} = vi.hoisted(() => ({
+  mockProposeSubjects: vi.fn(),
+  mockListInstalled: vi.fn(),
+  mockRuntime: vi.fn(),
+  mockDownload: vi.fn(),
+  mockMaskToDataUrl: vi.fn(
+    () =>
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==',
+  ),
+  mockDecodeMask: vi.fn(),
+}));
 
 vi.mock('@varve/engine/subjectProposal', () => ({
   proposeSubjects: mockProposeSubjects,
@@ -46,11 +53,7 @@ vi.mock('../../tools/selectionMask', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../tools/selectionMask')>();
   return {
     ...actual,
-    decodeRasterMaskDataUrl: vi.fn(async () => ({
-      data: new Uint8ClampedArray(16 * 16 * 4),
-      width: 16,
-      height: 16,
-    })),
+    decodeRasterMaskDataUrl: mockDecodeMask,
   };
 });
 
@@ -158,12 +161,12 @@ function SubjectSetup() {
   return null;
 }
 
-async function renderPanel() {
+async function renderPanel(source = 'data:image/png;base64,mock') {
   let document = createDocument('subject-panel');
   document = addNode(
     document,
     makeImageShapeNode('photo', {
-      src: 'data:image/png;base64,mock',
+      src: source,
       w: 64,
       h: 64,
       imageWidth: 1,
@@ -211,6 +214,11 @@ describe('SelectionSourcesPanel subject proposals', () => {
       .mockReset()
       .mockResolvedValue({ isTauri: false, nativeReady: false, safePeakBytes: 4_000_000_000 });
     mockDownload.mockReset().mockResolvedValue(undefined);
+    mockDecodeMask.mockReset().mockImplementation(async () => ({
+      data: new Uint8ClampedArray(16 * 16 * 4),
+      width: 16,
+      height: 16,
+    }));
   });
 
   it('runs the estimate, labels the provider, and applies the active candidate as a mask', async () => {
@@ -351,6 +359,25 @@ describe('SelectionSourcesPanel subject proposals', () => {
 
     expect(editor.current?.state.areaSelection ?? null).toBeNull();
     expect(screen.queryByLabelText('Subject proposals')).toBeNull();
+  });
+
+  it('rejects a reviewed proposal when a remote source changes at the same URL', async () => {
+    let decodeCount = 0;
+    mockDecodeMask.mockImplementation(async () => {
+      decodeCount += 1;
+      const data = new Uint8ClampedArray(16 * 16 * 4);
+      if (decodeCount > 1) data[0] = 255;
+      return { data, width: 16, height: 16 };
+    });
+    mockProposeSubjects.mockResolvedValue(proposalResult());
+    const editor = await renderPanel('https://example.test/photo.png');
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Select subject$/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /^All foreground/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Use selected candidate' }));
+
+    await waitFor(() => expect(mockDecodeMask).toHaveBeenCalledTimes(2));
+    expect(editor.current?.state.areaSelection ?? null).toBeNull();
   });
 
   it('shows the model-free fallback honestly when no model ran', async () => {
