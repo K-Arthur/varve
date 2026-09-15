@@ -542,6 +542,8 @@ export {
 } from './fontRegistry';
 export * from './frequencySeparation';
 export type {
+  DiffusionFrame,
+  DiffusionFrameContract,
   ExpandedFrame,
   ExpandGenerationEstimate,
   ExpandLimits,
@@ -591,9 +593,13 @@ export {
   NATIVE_GENERATIVE_MODEL_PROFILE,
   normalizeExpandMargins,
   planExpandWorkingFrame,
+  prepareDiffusionFrame,
   qualifyNativeGenerativeModel,
   restoreProtectedPixels,
   runGenerativeEdit,
+  SD15_INPAINTING_FRAME_CONTRACT,
+  SD15_INPAINTING_FRAME_SIZE,
+  SDXL_INPAINTING_FRAME_CONTRACT,
 } from './generativeEdit';
 export * from './geometry';
 export type {
@@ -819,6 +825,7 @@ export {
   assessImageInferenceResources,
   bertTokenize,
   buildGroundingDinoInputs,
+  buildGroundingDinoInputsFromModelImage,
   createDiagnosticsLabel,
   DownloadManager,
   decodeEfficientSamDecoderOutput,
@@ -842,6 +849,7 @@ export {
   GROUNDING_DINO_MAX_DETECTIONS,
   GROUNDING_DINO_MAX_TEXT_LEN,
   GROUNDING_DINO_MODEL_ID,
+  GROUNDING_DINO_MODEL_IMAGE_PREPROCESSING_VERSION,
   GROUNDING_DINO_PREPROCESSING_VERSION,
   GROUNDING_DINO_TOKENIZER_ID,
   getInferenceAdmission,
@@ -873,6 +881,7 @@ export {
   parseBertVocab,
   preprocessEfficientSamImageData,
   preprocessGroundingDinoImage,
+  preprocessGroundingDinoModelImage,
   resetInferenceAdmission,
   resetRuntimeCapabilities,
   resizeEfficientSamDimensions,
@@ -890,7 +899,9 @@ export { clampImageToMaxDimension } from './inference/imageTensor';
 export type {
   WorkerInferRequest,
   WorkerInferResult,
+  WorkerInferTimings,
   WorkerModelType,
+  WorkerReleaseResponse,
 } from './inference/inferenceWorker';
 export {
   DD_COLOR_INPUT_SIZE,
@@ -987,6 +998,8 @@ export {
   TROCR_TENSOR_SPEC,
   validateTrOcrInput,
 } from './inference/models/trocr';
+export { workerSessionKey } from './inference/sessionKeys';
+export { InferenceSessionRegistry } from './inference/sessionRegistry';
 export type {
   ContrastPair,
   HarmonyPalette,
@@ -1347,6 +1360,25 @@ export {
   spotHeal,
 } from './retouch';
 export * from './richTextLayout';
+export type {
+  CandidateRankingCase,
+  CandidateRankingEvaluation,
+  CandidateRankingFeatures,
+  CandidateRankingPolicyId,
+  CandidateRankingPolicyOptions,
+  CandidateRankingPrompts,
+} from './segmentation/candidateRanking';
+export {
+  CANDIDATE_ACCEPTABLE_REGRET,
+  CANDIDATE_RANKING_DEFAULT_SCORE_BAND,
+  CANDIDATE_RANKING_MIN_BOX_OVERLAP,
+  computeCandidateRankingFeatures,
+  evaluateRankingPolicy,
+  evaluateRankingPolicyByCategory,
+  rankCandidateIndices,
+} from './segmentation/candidateRanking';
+// Candidate-ranking evidence: mask transport for frozen candidate sets.
+export { decodeMaskRle, encodeMaskRle } from './segmentation/quality/evidenceRecord';
 export * from './semanticSimilarity';
 export {
   applyAlphaSpread,

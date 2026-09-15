@@ -1,0 +1,19 @@
+{
+  "fixtureVersion": 1,
+  "note": "Byte-identity verification for the archived 2026-09-14 provider A/B run. Hashes were recomputed from the measurement-time artifact copies and compared with apps/desktop/public/models/manifest.json on 2026-09-15; every value matched.",
+  "verifiedAt": "2026-09-15",
+  "artifacts": {
+    "sam2-hiera-tiny": {
+      "encoder": "b4cfd6c8bec2ef3674536419d731e61d15840367bd004d65095ae6a2b88b41cf",
+      "decoder": "f5a4bd656c143899fb7f52d64ed81e6f6aeb37d477a0b6da50146ac7cf2187bf"
+    },
+    "mobile-sam": {
+      "encoder": "580f5fb648ea1062c0aabc26217aed56921985f03f0cbbd852bba81d760cc749",
+      "decoder": "8976b90a87ba50a6a72217a5ff994f7d25ce16f2229fcc1ed259e1294c622ffe"
+    },
+    "efficient-sam-ti": {
+      "encoder": "84ed466ffcc5c1f8d08409bc34a23bb364ab2c15e402cb12d4335a42be0e0951",
+      "decoder": "a62f8fa5ea080447c0689418d69e58f1e83e0b7adf9c142e2bd9bcc8045c0b11"
+    }
+  }
+}

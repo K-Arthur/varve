@@ -546,6 +546,9 @@ export function validateMeasurementRecord(
     worstCritical[declaration.name] = worst;
     const declared = record.declared.worstCritical[declaration.name];
     if (!declared) {
+      // Reference metrics (e.g. the oracle best-available candidate) are
+      // evaluation baselines, not routing claims; they need no declaration.
+      if (declaration.role === 'reference') continue;
       diagnostics.push({
         code: 'unverified-worst-category',
         field: `declared.worstCritical.${declaration.name}`,

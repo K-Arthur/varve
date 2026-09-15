@@ -33,6 +33,12 @@ export const GROUNDING_DINO_NUM_QUERIES = 900;
 export const GROUNDING_DINO_NUM_TEXT_TOKENS = 256;
 export const GROUNDING_DINO_MAX_DETECTIONS = 64;
 export const GROUNDING_DINO_PREPROCESSING_VERSION = 'grounding-dino-tiny-800-stretch-imagenet-v1';
+/**
+ * Identity for the model-resolution canvas path. Detections cached against one
+ * preprocessing identity must not be replayed as if produced by the other.
+ */
+export const GROUNDING_DINO_MODEL_IMAGE_PREPROCESSING_VERSION =
+  'grounding-dino-tiny-800-canvas-bilinear-v2';
 
 export const GROUNDING_DINO_SPECIAL_TOKENS = {
   pad: 0,
@@ -271,6 +277,44 @@ export function preprocessGroundingDinoImage(imageData: {
   return { tensor, width: size, height: size };
 }
 
+/**
+ * Normalize an already-model-sized (800x800) image without resampling.
+ *
+ * The browser panel draws the source photo directly into an 800x800 canvas, so
+ * the expensive full-resolution `getImageData` copy never happens and the
+ * browser's smoothing (bilinear/box) replaces the previous nearest-neighbour
+ * sample of a downscaled source. The reference Grounding DINO processor also
+ * resizes with antialiasing, so this is closer to the reference than the
+ * nearest-neighbour path.
+ */
+export function preprocessGroundingDinoModelImage(imageData: {
+  data: Uint8ClampedArray | Uint8Array;
+  width: number;
+  height: number;
+}): GroundingDinoPreprocessedImage {
+  const size = GROUNDING_DINO_INPUT_SIZE;
+  if (imageData.width !== size || imageData.height !== size) {
+    throw new Error(
+      `Grounding DINO model-resolution image must be ${size}x${size}, got ${imageData.width}x${imageData.height}`,
+    );
+  }
+  if (imageData.data.length < size * size * 4) {
+    throw new Error('Grounding DINO model-resolution image is missing pixel data.');
+  }
+  const plane = size * size;
+  const tensor = new Float32Array(plane * 3);
+  const mean = [0.485, 0.456, 0.406];
+  const std = [0.229, 0.224, 0.225];
+  for (let index = 0; index < plane; index += 1) {
+    const at = index * 4;
+    for (let channel = 0; channel < 3; channel += 1) {
+      const value = (imageData.data[at + channel] ?? 0) / 255;
+      tensor[channel * plane + index] = (value - mean[channel]!) / std[channel]!;
+    }
+  }
+  return { tensor, width: size, height: size };
+}
+
 export interface GroundingDinoWorkerTensor {
   data: Float32Array | BigInt64Array;
   dims: number[];
@@ -293,6 +337,46 @@ export function buildGroundingDinoInputs(
   }
   const maskPixels = GROUNDING_DINO_INPUT_SIZE * GROUNDING_DINO_INPUT_SIZE;
   const pixelMask = new BigInt64Array(maskPixels).fill(1n);
+  return {
+    pixel_values: {
+      data: preprocessed.tensor,
+      dims: [1, 3, preprocessed.height, preprocessed.width],
+    },
+    input_ids: { data: ids, dims: [1, maxLength], dtype: 'int64' },
+    token_type_ids: { data: tokenTypes, dims: [1, maxLength], dtype: 'int64' },
+    attention_mask: { data: attention, dims: [1, maxLength], dtype: 'int64' },
+    pixel_mask: {
+      data: pixelMask,
+      dims: [1, GROUNDING_DINO_INPUT_SIZE, GROUNDING_DINO_INPUT_SIZE],
+      dtype: 'int64',
+    },
+  };
+}
+
+/**
+ * Build every graph feed from an 800x800 model-resolution image.
+ *
+ * Use this from the browser when the source has already been drawn into an
+ * 800x800 canvas: it avoids the full-resolution ImageData copy and uses the
+ * browser's downscale filtering, which is closer to the reference
+ * antialiased resize than nearest-neighbour sampling.
+ */
+export function buildGroundingDinoInputsFromModelImage(
+  modelImage: { data: Uint8ClampedArray | Uint8Array; width: number; height: number },
+  tokenization: BertTokenization,
+  maxLength = GROUNDING_DINO_MAX_TEXT_LEN,
+): Record<string, GroundingDinoWorkerTensor> {
+  const preprocessed = preprocessGroundingDinoModelImage(modelImage);
+  const ids = new BigInt64Array(maxLength);
+  const attention = new BigInt64Array(maxLength);
+  const tokenTypes = new BigInt64Array(maxLength);
+  for (let index = 0; index < tokenization.ids.length && index < maxLength; index += 1) {
+    ids[index] = BigInt(tokenization.ids[index]!);
+    attention[index] = 1n;
+  }
+  const pixelMask = new BigInt64Array(GROUNDING_DINO_INPUT_SIZE * GROUNDING_DINO_INPUT_SIZE).fill(
+    1n,
+  );
   return {
     pixel_values: {
       data: preprocessed.tensor,

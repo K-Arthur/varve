@@ -1,0 +1,685 @@
+{
+  "corpusVersion": "object-selection-corpus-v1",
+  "ortVersion": "1.27.0",
+  "generatedAt": "2026-09-15T00:50:02.545Z",
+  "providers": [
+    {
+      "providerId": "sam2-hiera-tiny",
+      "coldStartMs": 1332.71533,
+      "meanIou": 0.6537538403931646,
+      "meanDice": 0.7270928595644778,
+      "meanBoundaryF": 0.6535164034008085,
+      "worstIou": 0,
+      "worstBoundaryF": 0,
+      "meanEncoderMs": 9506.6143958,
+      "meanDecoderMs": 363.8008762000001,
+      "peakRssBytes": 1541111808,
+      "topCandidateAccuracy": 0.4,
+      "meanSelectedMinusBestIou": 0.06669669956171059,
+      "rows": [
+        {
+          "caseId": "circle-plain",
+          "category": "plain-background",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.9944367176634215,
+            "dice": 0.99721059972106,
+            "boundaryF": 1
+          },
+          "candidateIoUs": [0.359729172799529, 0.10885572139303483, 0.9944367176634215],
+          "oracleBestIndex": 2,
+          "rankingMatchesOracle": true,
+          "selectedIndex": 2,
+          "candidateCount": 3,
+          "scores": [0.5583149194717407, 0.35308533906936646, 0.993019700050354],
+          "encoderMs": 10058.673248,
+          "decoderMs": 316.6599160000005,
+          "rssBytes": 1205829632
+        },
+        {
+          "caseId": "fuzzy-edge",
+          "category": "hair-fur",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.9097502014504432,
+            "dice": 0.9527426160337553,
+            "boundaryF": 0.6766450615085622
+          },
+          "candidateIoUs": [0.5514900662251656, 0.9221693231215069, 0.9097502014504432],
+          "oracleBestIndex": 1,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 2,
+          "candidateCount": 3,
+          "scores": [0.866573691368103, 0.9269258975982666, 0.9521490335464478],
+          "encoderMs": 8557.614036,
+          "decoderMs": 254.38323200000013,
+          "rssBytes": 1520533504
+        },
+        {
+          "caseId": "thin-geometry",
+          "category": "thin-geometry",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.993421052631579,
+            "dice": 0.9966996699669967,
+            "boundaryF": 1
+          },
+          "candidateIoUs": [0.30268697848886167, 0.5277845777233782, 0.993421052631579],
+          "oracleBestIndex": 2,
+          "rankingMatchesOracle": true,
+          "selectedIndex": 2,
+          "candidateCount": 3,
+          "scores": [0.595439076423645, 0.7444437742233276, 0.9919759035110474],
+          "encoderMs": 10387.987930999996,
+          "decoderMs": 313.2750840000008,
+          "rssBytes": 1537572864
+        },
+        {
+          "caseId": "overlapping",
+          "category": "overlapping",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.620589375727026,
+            "dice": 0.7658810862543366,
+            "boundaryF": 0.5970449966420416
+          },
+          "candidateIoUs": [0.20224573245927177, 0.7034682080924856, 0.620589375727026],
+          "oracleBestIndex": 1,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 2,
+          "candidateCount": 3,
+          "scores": [0.40049660205841064, 0.5441238880157471, 0.9931533336639404],
+          "encoderMs": 9377.38119,
+          "decoderMs": 437.02637900000263,
+          "rssBytes": 1537572864
+        },
+        {
+          "caseId": "tiny-object",
+          "category": "tiny-object",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.8711340206185567,
+            "dice": 0.931129476584022,
+            "boundaryF": 1
+          },
+          "candidateIoUs": [0.014492753623188406, 0.8711340206185567, 0.8666666666666667],
+          "oracleBestIndex": 1,
+          "rankingMatchesOracle": true,
+          "selectedIndex": 1,
+          "candidateCount": 3,
+          "scores": [0.08085530996322632, 0.9581892490386963, 0.9468573927879333],
+          "encoderMs": 8288.555487999998,
+          "decoderMs": 453.6922510000004,
+          "rssBytes": 1537572864
+        },
+        {
+          "caseId": "touches-edge",
+          "category": "touches-edge",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.5515751575157516,
+            "dice": 0.7109873535212902,
+            "boundaryF": 0.6928104575163399
+          },
+          "candidateIoUs": [0.8258203005213125, 0.5515751575157516, 0.9467146714671467],
+          "oracleBestIndex": 2,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 1,
+          "candidateCount": 3,
+          "scores": [0.3825039863586426, 0.9709769487380981, 0.6036504507064819],
+          "encoderMs": 9464.343828999998,
+          "decoderMs": 357.750089000001,
+          "rssBytes": 1537572864
+        },
+        {
+          "caseId": "low-contrast",
+          "category": "low-contrast",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.9856573705179282,
+            "dice": 0.992776886035313,
+            "boundaryF": 1
+          },
+          "candidateIoUs": [0.32221642083278945, 0.049471374426491126, 0.9856573705179282],
+          "oracleBestIndex": 2,
+          "rankingMatchesOracle": true,
+          "selectedIndex": 2,
+          "candidateCount": 3,
+          "scores": [0.34205442667007446, 0.14287111163139343, 0.990703284740448],
+          "encoderMs": 10055.763673000001,
+          "decoderMs": 274.747252000001,
+          "rssBytes": 1537572864
+        },
+        {
+          "caseId": "soft-alpha",
+          "category": "glass-translucency",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.2222427262102479,
+            "dice": 0.36366381479617516,
+            "boundaryF": 0
+          },
+          "candidateIoUs": [0.2222427262102479, 0.021035150844173817, 0.2534036012296882],
+          "oracleBestIndex": 2,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 0,
+          "candidateCount": 3,
+          "scores": [0.9843320250511169, 0.01016080379486084, 0.602397084236145],
+          "encoderMs": 8992.593420999998,
+          "decoderMs": 419.0281099999993,
+          "rssBytes": 1537703936
+        },
+        {
+          "caseId": "multiple-similar",
+          "category": "multiple-similar",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.38873178159669347,
+            "dice": 0.5598370927318296,
+            "boundaryF": 0.3535353535353535
+          },
+          "candidateIoUs": [0.2006413192853871, 0.5259285213735109, 0.38873178159669347],
+          "oracleBestIndex": 1,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 2,
+          "candidateCount": 3,
+          "scores": [0.8102154731750488, 0.4576163589954376, 0.9845477342605591],
+          "encoderMs": 10487.25421900001,
+          "decoderMs": 405.82322799999383,
+          "rssBytes": 1541111808
+        },
+        {
+          "caseId": "foliage-like",
+          "category": "foliage",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0,
+            "dice": 0,
+            "boundaryF": 0.2151281648057871
+          },
+          "candidateIoUs": [0, 0, 0.008171912832929782],
+          "oracleBestIndex": 2,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 1,
+          "candidateCount": 3,
+          "scores": [0.31709301471710205, 0.631404459476471, 0.6243089437484741],
+          "encoderMs": 9395.976922999995,
+          "decoderMs": 405.62322100000165,
+          "rssBytes": 1541111808
+        }
+      ]
+    },
+    {
+      "providerId": "mobile-sam",
+      "coldStartMs": 990.320475,
+      "meanIou": 0.7473992210931208,
+      "meanDice": 0.8233394669611973,
+      "meanBoundaryF": 0.7140833591574276,
+      "worstIou": 0.22052001953125,
+      "worstBoundaryF": 0,
+      "meanEncoderMs": 4174.410871600002,
+      "meanDecoderMs": 465.3103121999986,
+      "peakRssBytes": 2088230912,
+      "topCandidateAccuracy": 0.2,
+      "meanSelectedMinusBestIou": 0.04293505892094068,
+      "rows": [
+        {
+          "caseId": "circle-plain",
+          "category": "plain-background",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.9886567164179104,
+            "dice": 0.9942960072050435,
+            "boundaryF": 1
+          },
+          "candidateIoUs": [
+            0.9940298507462687, 0.9886567164179104, 0.9956218905472637, 0.3972018022290728
+          ],
+          "oracleBestIndex": 2,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 1,
+          "candidateCount": 4,
+          "scores": [0.9956954717636108, 1.017426609992981, 1.0130289793014526, 0.9890244007110596],
+          "encoderMs": 4609.648765999998,
+          "decoderMs": 489.46387700000196,
+          "rssBytes": 1835786240
+        },
+        {
+          "caseId": "fuzzy-edge",
+          "category": "hair-fur",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.9271754782966468,
+            "dice": 0.9622117847993168,
+            "boundaryF": 0.7341115434500648
+          },
+          "candidateIoUs": [
+            0.9176829268292683, 0.9306334371754933, 0.9271754782966468, 0.9180561203741359
+          ],
+          "oracleBestIndex": 1,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 2,
+          "candidateCount": 4,
+          "scores": [0.9751518964767456, 0.9827905893325806, 0.9886271953582764, 0.981484055519104],
+          "encoderMs": 3868.6687470000033,
+          "decoderMs": 422.23317300000053,
+          "rssBytes": 2075779072
+        },
+        {
+          "caseId": "thin-geometry",
+          "category": "thin-geometry",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.9921664626682987,
+            "dice": 0.9960678299336446,
+            "boundaryF": 1
+          },
+          "candidateIoUs": [
+            0.997062423500612, 0.9921664626682987, 0.9975520195838433, 0.347718760640109
+          ],
+          "oracleBestIndex": 2,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 1,
+          "candidateCount": 4,
+          "scores": [0.9959022402763367, 1.016616702079773, 1.0132172107696533, 0.9886419773101807],
+          "encoderMs": 4193.5250150000065,
+          "decoderMs": 552.8602549999923,
+          "rssBytes": 2088099840
+        },
+        {
+          "caseId": "overlapping",
+          "category": "overlapping",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.6219797349961029,
+            "dice": 0.766938971648246,
+            "boundaryF": 0.5970449966420416
+          },
+          "candidateIoUs": [
+            0.6212121212121212, 0.6219797349961029, 0.6210444573869152, 0.2909865796155241
+          ],
+          "oracleBestIndex": 1,
+          "rankingMatchesOracle": true,
+          "selectedIndex": 1,
+          "candidateCount": 4,
+          "scores": [
+            0.9939958453178406, 1.0161999464035034, 1.0115642547607422, 0.9868849515914917
+          ],
+          "encoderMs": 4356.767160000003,
+          "decoderMs": 533.705295000007,
+          "rssBytes": 2088099840
+        },
+        {
+          "caseId": "tiny-object",
+          "category": "tiny-object",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 1,
+            "dice": 1,
+            "boundaryF": 1
+          },
+          "candidateIoUs": [1, 1, 1, 0.01589242053789731],
+          "oracleBestIndex": 0,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 1,
+          "candidateCount": 4,
+          "scores": [
+            0.9709444642066956, 1.0019569396972656, 0.9957085847854614, 0.9367808103561401
+          ],
+          "encoderMs": 3753.630075000008,
+          "decoderMs": 546.3054039999843,
+          "rssBytes": 2088099840
+        },
+        {
+          "caseId": "touches-edge",
+          "category": "touches-edge",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.5494149414941494,
+            "dice": 0.7091901940281167,
+            "boundaryF": 0.6928104575163399
+          },
+          "candidateIoUs": [
+            0.549054905490549, 0.5494149414941494, 0.49282373810675695, 0.8162960752126548
+          ],
+          "oracleBestIndex": 3,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 1,
+          "candidateCount": 4,
+          "scores": [
+            0.9736626744270325, 1.0098621845245361, 0.9501298666000366, 0.7940992116928101
+          ],
+          "encoderMs": 3976.1667749999906,
+          "decoderMs": 515.4558050000051,
+          "rssBytes": 2088099840
+        },
+        {
+          "caseId": "low-contrast",
+          "category": "low-contrast",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.9630959505286256,
+            "dice": 0.9812010974494462,
+            "boundaryF": 1
+          },
+          "candidateIoUs": [
+            0.985836824256932, 0.9630959505286256, 0.9854378615599442, 0.30598791430141
+          ],
+          "oracleBestIndex": 0,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 1,
+          "candidateCount": 4,
+          "scores": [0.9785104393959045, 1.0126807689666748, 1.0030016899108887, 0.898693323135376],
+          "encoderMs": 4846.022369000013,
+          "decoderMs": 470.9107110000041,
+          "rssBytes": 2088099840
+        },
+        {
+          "caseId": "soft-alpha",
+          "category": "glass-translucency",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.22052001953125,
+            "dice": 0.36135420313046956,
+            "boundaryF": 0
+          },
+          "candidateIoUs": [
+            0.22052001953125, 0.05847361093532464, 0.22062774792379092, 0.22052001953125
+          ],
+          "oracleBestIndex": 2,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 3,
+          "candidateCount": 4,
+          "scores": [
+            0.9884431958198547, 0.6727280020713806, 1.0005443096160889, 1.0079227685928345
+          ],
+          "encoderMs": 3092.5256679999875,
+          "decoderMs": 392.96763599998667,
+          "rssBytes": 2088099840
+        },
+        {
+          "caseId": "multiple-similar",
+          "category": "multiple-similar",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.38836649901596326,
+            "dice": 0.5594581823909277,
+            "boundaryF": 0.35714285714285715
+          },
+          "candidateIoUs": [
+            0.38830715532286214, 0.38836649901596326, 0.3881019830028329, 0.182567966602179
+          ],
+          "oracleBestIndex": 1,
+          "rankingMatchesOracle": true,
+          "selectedIndex": 1,
+          "candidateCount": 4,
+          "scores": [
+            0.9898555874824524, 1.0113035440444946, 1.0079642534255981, 0.9666346311569214
+          ],
+          "encoderMs": 4666.134749999997,
+          "decoderMs": 383.4231870000076,
+          "rssBytes": 2088099840
+        },
+        {
+          "caseId": "foliage-like",
+          "category": "foliage",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.8226164079822617,
+            "dice": 0.902676399026764,
+            "boundaryF": 0.7597237368229734
+          },
+          "candidateIoUs": [
+            0.8688524590163934, 0.9464285714285714, 0.8993939393939394, 0.8226164079822617
+          ],
+          "oracleBestIndex": 1,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 3,
+          "candidateCount": 4,
+          "scores": [
+            0.9394754767417908, 0.9689943194389343, 0.9692560434341431, 0.9712053537368774
+          ],
+          "encoderMs": 4381.019391000009,
+          "decoderMs": 345.77777899999637,
+          "rssBytes": 2088230912
+        }
+      ]
+    },
+    {
+      "providerId": "efficient-sam-ti",
+      "coldStartMs": 749.3615350000005,
+      "meanIou": 0.7226654819927264,
+      "meanDice": 0.8091738660110271,
+      "meanBoundaryF": 0.6886998919385714,
+      "worstIou": 0.22225639763779528,
+      "worstBoundaryF": 0,
+      "meanEncoderMs": 6623.971938499989,
+      "meanDecoderMs": 390.35317890000294,
+      "peakRssBytes": 3108405248,
+      "topCandidateAccuracy": 0.4,
+      "meanSelectedMinusBestIou": 0.05264513392165985,
+      "rows": [
+        {
+          "caseId": "circle-plain",
+          "category": "plain-background",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.9807844690966719,
+            "dice": 0.9902990299029903,
+            "boundaryF": 1
+          },
+          "candidateIoUs": [0.979768218424671, 0.9757310523174856, 0.9807844690966719],
+          "oracleBestIndex": 2,
+          "rankingMatchesOracle": true,
+          "selectedIndex": 2,
+          "candidateCount": 3,
+          "scores": [0.8653049468994141, 0.8999620676040649, 0.9860978126525879],
+          "encoderMs": 7851.704270999995,
+          "decoderMs": 483.35786000001826,
+          "rssBytes": 2580971520
+        },
+        {
+          "caseId": "fuzzy-edge",
+          "category": "hair-fur",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.9094583670169766,
+            "dice": 0.9525825571549534,
+            "boundaryF": 0.6648199445983379
+          },
+          "candidateIoUs": [0.9194672131147541, 0.9321962518424931, 0.9094583670169766],
+          "oracleBestIndex": 1,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 2,
+          "candidateCount": 3,
+          "scores": [0.9493434429168701, 0.9207683205604553, 0.9585694670677185],
+          "encoderMs": 7752.642309999996,
+          "decoderMs": 408.9631010000012,
+          "rssBytes": 3070656512
+        },
+        {
+          "caseId": "thin-geometry",
+          "category": "thin-geometry",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.9785575048732943,
+            "dice": 0.9891625615763546,
+            "boundaryF": 1
+          },
+          "candidateIoUs": [0.9779927448609431, 0.9745969711773327, 0.9785575048732943],
+          "oracleBestIndex": 2,
+          "rankingMatchesOracle": true,
+          "selectedIndex": 2,
+          "candidateCount": 3,
+          "scores": [0.8162967562675476, 0.9445688724517822, 0.9892192482948303],
+          "encoderMs": 6854.345711000002,
+          "decoderMs": 559.7329570000002,
+          "rssBytes": 3095953408
+        },
+        {
+          "caseId": "overlapping",
+          "category": "overlapping",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.6107772824190735,
+            "dice": 0.7583634175691938,
+            "boundaryF": 0.5943396226415094
+          },
+          "candidateIoUs": [0.5893387815750372, 0.609713282621416, 0.6107772824190735],
+          "oracleBestIndex": 2,
+          "rankingMatchesOracle": true,
+          "selectedIndex": 2,
+          "candidateCount": 3,
+          "scores": [0.7934345602989197, 0.9632700681686401, 0.9817140102386475],
+          "encoderMs": 5627.771997999982,
+          "decoderMs": 365.4086580000003,
+          "rssBytes": 3108405248
+        },
+        {
+          "caseId": "tiny-object",
+          "category": "tiny-object",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.8756476683937824,
+            "dice": 0.9337016574585635,
+            "boundaryF": 1
+          },
+          "candidateIoUs": [0.8666666666666667, 0.9230769230769231, 0.8756476683937824],
+          "oracleBestIndex": 1,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 2,
+          "candidateCount": 3,
+          "scores": [0.29943233728408813, 0.8982373476028442, 0.9534500241279602],
+          "encoderMs": 5773.911438999989,
+          "decoderMs": 324.2603549999767,
+          "rssBytes": 3108405248
+        },
+        {
+          "caseId": "touches-edge",
+          "category": "touches-edge",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.55098003956123,
+            "dice": 0.7104927536231884,
+            "boundaryF": 0.6928104575163399
+          },
+          "candidateIoUs": [0.8964654884961654, 0.55098003956123, 0.4971687429218573],
+          "oracleBestIndex": 0,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 1,
+          "candidateCount": 3,
+          "scores": [0.40287795662879944, 0.9254657626152039, 0.8792533278465271],
+          "encoderMs": 6437.683333999972,
+          "decoderMs": 282.4850349999906,
+          "rssBytes": 3108216832
+        },
+        {
+          "caseId": "low-contrast",
+          "category": "low-contrast",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.9781094527363184,
+            "dice": 0.9889336016096579,
+            "boundaryF": 1
+          },
+          "candidateIoUs": [0.764896573016363, 0.9716792979656961, 0.9781094527363184],
+          "oracleBestIndex": 2,
+          "rankingMatchesOracle": true,
+          "selectedIndex": 2,
+          "candidateCount": 3,
+          "scores": [0.6681047677993774, 0.9184020757675171, 0.9824406504631042],
+          "encoderMs": 6893.0465319999785,
+          "decoderMs": 313.91491800002404,
+          "rssBytes": 3107037184
+        },
+        {
+          "caseId": "soft-alpha",
+          "category": "glass-translucency",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.22225639763779528,
+            "dice": 0.363682117872062,
+            "boundaryF": 0
+          },
+          "candidateIoUs": [0.22225639763779528, 0.05258787711043454, 0.2225027712772509],
+          "oracleBestIndex": 2,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 0,
+          "candidateCount": 3,
+          "scores": [0.9595919251441956, 0.4474163055419922, 0.9122189283370972],
+          "encoderMs": 6876.154862999974,
+          "decoderMs": 373.5168180000037,
+          "rssBytes": 3107168256
+        },
+        {
+          "caseId": "multiple-similar",
+          "category": "multiple-similar",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.3883282141290039,
+            "dice": 0.5594184576485461,
+            "boundaryF": 0.3536404160475483
+          },
+          "candidateIoUs": [0.385146804835924, 0.39155555555555555, 0.3883282141290039],
+          "oracleBestIndex": 1,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 2,
+          "candidateCount": 3,
+          "scores": [0.7396725416183472, 0.9492160081863403, 0.9497219920158386],
+          "encoderMs": 5833.576750000007,
+          "decoderMs": 398.6755940000003,
+          "rssBytes": 3107168256
+        },
+        {
+          "caseId": "foliage-like",
+          "category": "foliage",
+          "width": 128,
+          "height": 128,
+          "metrics": {
+            "iou": 0.7317554240631163,
+            "dice": 0.8451025056947609,
+            "boundaryF": 0.5813884785819793
+          },
+          "candidateIoUs": [0.7317554240631163, 0.8390804597701149, 0.7525458248472505],
+          "oracleBestIndex": 1,
+          "rankingMatchesOracle": false,
+          "selectedIndex": 0,
+          "candidateCount": 3,
+          "scores": [0.8873621225357056, 0.8354200124740601, 0.8838464617729187],
+          "encoderMs": 6338.882176999992,
+          "decoderMs": 393.21649300001445,
+          "rssBytes": 3107299328
+        }
+      ]
+    }
+  ]
+}

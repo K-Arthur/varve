@@ -67,6 +67,25 @@ export const PROMPTED_MIN_CRITICAL_BOUNDARY_F = 0.5;
  */
 export const PROMPTED_QUALITY_EQUIVALENCE_BAND = 0.03;
 
+/**
+ * Corpus identity that version-2 quality records must match. A record measured
+ * against a different corpus is stale evidence: it cannot authorize routing.
+ */
+export const PROMPTED_QUALITY_CORPUS_VERSION = 'object-selection-corpus-v1';
+
+/**
+ * Critical categories are the classes where a single bad mask is a product
+ * failure — thin geometry, tiny objects, edge-touching subjects, and hair/fur —
+ * and where users report "it selected the wrong thing" even when average
+ * metrics look fine. Average IoU cannot hide a failure in these.
+ */
+export const PROMPTED_CRITICAL_CATEGORIES = [
+  'thin-geometry',
+  'tiny-object',
+  'touches-edge',
+  'hair-fur',
+] as const;
+
 /** Relative weights for the `balanced` normalized score (documented policy). */
 export const PROMPTED_BALANCED_MAX_LATENCY_PENALTY = 0.15;
 export const PROMPTED_BALANCED_MAX_MEMORY_PENALTY = 0.1;
@@ -82,6 +101,15 @@ export type PromptedRequiredCapabilities = Partial<PromptedProviderCapabilities>
 
 export interface PromptedQualityValidation {
   validated: true;
+  /**
+   * Present on records produced through the canonical measurement-record
+   * validator. Version 2 records carry per-category boundary F and routing
+   * re-verifies them before any floor or ranking claim; version 1 records are
+   * legacy transcriptions kept only for harness compatibility.
+   */
+  evidenceVersion?: number;
+  /** Verifier status at record-creation time; re-checked at routing time. */
+  evidenceStatus?: 'verified' | 'unverified' | 'mismatch' | 'invalid';
   /** Version of the corpus and acceptance meaning the numbers were measured against. */
   corpusVersion: string;
   /** Runtime/host the measurement was taken on, never a claim about other hosts. */
@@ -90,9 +118,15 @@ export interface PromptedQualityValidation {
   meanIoU: number;
   meanBoundaryF: number;
   categoryIoU: Readonly<Record<string, number>>;
+  /** Per-category boundary F; required for evidenceVersion 2. */
+  categoryBoundaryF?: Readonly<Record<string, number>>;
   criticalCategories: readonly string[];
   worstCriticalIoU: number;
+  /** Recomputed worst-category name for the IoU metric. */
+  worstCriticalIoUCategory?: string | null;
   worstCriticalBoundaryF: number;
+  /** Recomputed worst-category name for the boundary-F metric. */
+  worstCriticalBoundaryFCategory?: string | null;
 }
 
 export interface PromptedProviderFact {
@@ -151,6 +185,8 @@ export type PromptedRoutingRejectionCode =
   | 'exceeds-hard-budget'
   | 'experimental-provider'
   | 'unvalidated'
+  | 'unverified-evidence'
+  | 'evidence-mismatch'
   | 'below-quality-floor';
 
 export interface PromptedRoutingRejection {
@@ -437,6 +473,109 @@ function checkBudget(
   };
 }
 
+/**
+ * Re-verify a version-2 quality record at the routing boundary.
+ *
+ * Record creation already ran the canonical validator; this check repeats the
+ * arithmetic that decision-making depends on and fails closed on stale corpora,
+ * missing per-category data, or a declared worst value that disagrees with the
+ * per-category observations.
+ */
+export function verifyPromptedQualityEvidence(validation: PromptedQualityValidation): {
+  status: 'verified' | 'unverified' | 'mismatch';
+  reasons: string[];
+} {
+  if (validation.evidenceVersion !== 2) {
+    // Legacy records are accepted only by the legacy floor path.
+    return { status: 'verified', reasons: [] };
+  }
+  const reasons: string[] = [];
+  if (validation.evidenceStatus !== 'verified') {
+    reasons.push(`record creation status was '${validation.evidenceStatus ?? 'unknown'}'`);
+  }
+  if (validation.corpusVersion !== PROMPTED_QUALITY_CORPUS_VERSION) {
+    reasons.push(
+      `corpus '${validation.corpusVersion}' is not the current '${PROMPTED_QUALITY_CORPUS_VERSION}'`,
+    );
+  }
+  if (!validation.categoryBoundaryF) {
+    reasons.push('per-category boundary F is missing');
+  }
+  const recompute = (
+    values: Readonly<Record<string, number>> | undefined,
+    direction: 'min' | 'max',
+  ): { value: number; category: string | null; tied: string[] } | null => {
+    if (!values) return null;
+    const pairs = validation.criticalCategories
+      .map((category) => ({ category, value: values[category] }))
+      .filter((pair): pair is { category: string; value: number } => Number.isFinite(pair.value))
+      .sort((left, right) => left.category.localeCompare(right.category));
+    if (pairs.length === 0) return null;
+    let worst = pairs[0]!;
+    for (const pair of pairs.slice(1)) {
+      const isWorse = direction === 'min' ? pair.value < worst.value : pair.value > worst.value;
+      if (isWorse) worst = pair;
+    }
+    const tied = pairs.filter((pair) => pair.value === worst.value).map((pair) => pair.category);
+    return { value: worst.value, category: tied[0] ?? null, tied };
+  };
+  const iou = recompute(validation.categoryIoU, 'min');
+  const boundary = recompute(validation.categoryBoundaryF, 'min');
+  if (!iou) {
+    reasons.push('no critical-category IoU values');
+  } else {
+    if (Math.abs(iou.value - validation.worstCriticalIoU) > 1e-9) {
+      return {
+        status: 'mismatch',
+        reasons: [
+          ...reasons,
+          `declared worst IoU ${validation.worstCriticalIoU} != recomputed ${iou.value}`,
+        ],
+      };
+    }
+    if (
+      validation.worstCriticalIoUCategory !== undefined &&
+      validation.worstCriticalIoUCategory !== null &&
+      !iou.tied.includes(validation.worstCriticalIoUCategory)
+    ) {
+      return {
+        status: 'mismatch',
+        reasons: [
+          ...reasons,
+          `declared worst IoU category '${validation.worstCriticalIoUCategory}' is not in [${iou.tied.join(', ')}]`,
+        ],
+      };
+    }
+  }
+  if (!boundary) {
+    reasons.push('no critical-category boundary-F values');
+  } else {
+    if (Math.abs(boundary.value - validation.worstCriticalBoundaryF) > 1e-9) {
+      return {
+        status: 'mismatch',
+        reasons: [
+          ...reasons,
+          `declared worst boundary F ${validation.worstCriticalBoundaryF} != recomputed ${boundary.value}`,
+        ],
+      };
+    }
+    if (
+      validation.worstCriticalBoundaryFCategory !== undefined &&
+      validation.worstCriticalBoundaryFCategory !== null &&
+      !boundary.tied.includes(validation.worstCriticalBoundaryFCategory)
+    ) {
+      return {
+        status: 'mismatch',
+        reasons: [
+          ...reasons,
+          `declared worst boundary-F category '${validation.worstCriticalBoundaryFCategory}' is not in [${boundary.tied.join(', ')}]`,
+        ],
+      };
+    }
+  }
+  return { status: reasons.length === 0 ? 'verified' : 'unverified', reasons };
+}
+
 function checkValidation(
   provider: PromptedProviderFact,
   allowExperimental: boolean,
@@ -454,6 +593,21 @@ function checkValidation(
       reason: `${provider.label} has no measured object-selection validation record, so it cannot outrank a validated provider automatically.`,
     };
   }
+  if (validation.evidenceVersion === 2) {
+    const verification = verifyPromptedQualityEvidence(validation);
+    if (verification.status === 'mismatch') {
+      return {
+        code: 'evidence-mismatch',
+        reason: `${provider.label}'s quality record contradicts its own per-category data (${verification.reasons.join('; ')}). Re-run the A/B harness instead of relaxing the claim.`,
+      };
+    }
+    if (verification.status === 'unverified') {
+      return {
+        code: 'unverified-evidence',
+        reason: `${provider.label}'s quality evidence is not verifiable (${verification.reasons.join('; ')}), so it cannot win automatic routing.`,
+      };
+    }
+  }
   if (validation.meanIoU < PROMPTED_MIN_MEAN_IOU) {
     return {
       code: 'below-quality-floor',
@@ -469,23 +623,41 @@ function checkValidation(
   if (validation.worstCriticalIoU < PROMPTED_MIN_CRITICAL_IOU) {
     return {
       code: 'below-quality-floor',
-      reason: `${provider.label} measured IoU ${formatQuality(validation.worstCriticalIoU)} on ${worstCriticalCategory(validation) ?? 'a critical category'}, below the ${PROMPTED_MIN_CRITICAL_IOU.toFixed(2)} critical-category floor.`,
+      reason: `${provider.label} measured IoU ${formatQuality(validation.worstCriticalIoU)} on ${worstCriticalCategory(validation, 'iou') ?? 'a critical category'}, below the ${PROMPTED_MIN_CRITICAL_IOU.toFixed(2)} critical-category floor.`,
     };
   }
   if (validation.worstCriticalBoundaryF < PROMPTED_MIN_CRITICAL_BOUNDARY_F) {
     return {
       code: 'below-quality-floor',
-      reason: `${provider.label} measured boundary F ${formatQuality(validation.worstCriticalBoundaryF)} on ${worstCriticalCategory(validation) ?? 'a critical category'}, below the ${PROMPTED_MIN_CRITICAL_BOUNDARY_F.toFixed(2)} critical-category floor.`,
+      reason: `${provider.label} measured boundary F ${formatQuality(validation.worstCriticalBoundaryF)} on ${worstCriticalCategory(validation, 'boundaryF') ?? 'a critical category'}, below the ${PROMPTED_MIN_CRITICAL_BOUNDARY_F.toFixed(2)} critical-category floor.`,
     };
   }
   return null;
 }
 
-function worstCriticalCategory(validation: PromptedQualityValidation): string | null {
+/**
+ * Name the worst critical category for a specific metric. The IoU and
+ * boundary-F worst categories are not interchangeable: a provider can be
+ * weakest on hair/fur for boundary accuracy while its worst IoU is an
+ * edge-touching subject.
+ */
+function worstCriticalCategory(
+  validation: PromptedQualityValidation,
+  metric: 'iou' | 'boundaryF',
+): string | null {
+  if (metric === 'iou') {
+    if (validation.worstCriticalIoUCategory !== undefined) {
+      return validation.worstCriticalIoUCategory;
+    }
+  } else if (validation.worstCriticalBoundaryFCategory !== undefined) {
+    return validation.worstCriticalBoundaryFCategory;
+  }
+  const values = metric === 'iou' ? validation.categoryIoU : validation.categoryBoundaryF;
+  if (!values) return null;
   let worst: string | null = null;
   let worstValue = Number.POSITIVE_INFINITY;
   for (const category of validation.criticalCategories) {
-    const value = validation.categoryIoU[category];
+    const value = values[category];
     if (value != null && value < worstValue) {
       worst = category;
       worstValue = value;

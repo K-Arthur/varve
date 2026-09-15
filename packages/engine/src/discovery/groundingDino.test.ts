@@ -3,12 +3,15 @@ import {
   basicTokenize,
   bertTokenize,
   buildGroundingDinoInputs,
+  buildGroundingDinoInputsFromModelImage,
   decodeGroundingDinoOutput,
+  GROUNDING_DINO_INPUT_SIZE,
   type GroundingDetection,
   locatePhraseSpans,
   normalizeGroundingQuery,
   parseBertVocab,
   preprocessGroundingDinoImage,
+  preprocessGroundingDinoModelImage,
   suppressDuplicateDetections,
   wordPiece,
 } from './groundingDino';
@@ -125,6 +128,41 @@ describe('grounding preprocessing and inputs', () => {
     expect(inputs.pixel_mask?.dims).toEqual([1, 800, 800]);
     expect(inputs.pixel_mask?.dtype).toBe('int64');
     expect((inputs.pixel_mask!.data as BigInt64Array)[0]).toBe(1n);
+  });
+
+  it('normalizes a model-resolution image without resampling', () => {
+    const size = GROUNDING_DINO_INPUT_SIZE;
+    const data = new Uint8ClampedArray(size * size * 4);
+    for (let index = 0; index < size * size; index += 1) {
+      data[index * 4] = 255;
+      data[index * 4 + 1] = 128;
+      data[index * 4 + 2] = 0;
+      data[index * 4 + 3] = 255;
+    }
+    const preprocessed = preprocessGroundingDinoModelImage({ data, width: size, height: size });
+    expect(preprocessed.width).toBe(size);
+    expect(preprocessed.height).toBe(size);
+    const plane = size * size;
+    expect(preprocessed.tensor[0]).toBeCloseTo((1 - 0.485) / 0.229, 5);
+    expect(preprocessed.tensor[plane]).toBeCloseTo((128 / 255 - 0.456) / 0.224, 5);
+    expect(preprocessed.tensor[plane * 2]).toBeCloseTo((0 - 0.406) / 0.225, 5);
+    // The final pixel must also be normalized (no uninitialized tail).
+    expect(preprocessed.tensor[plane - 1]).toBeCloseTo((1 - 0.485) / 0.229, 5);
+
+    const tokenization = bertTokenize('cat', VOCAB);
+    const inputs = buildGroundingDinoInputsFromModelImage(
+      { data, width: size, height: size },
+      tokenization,
+    );
+    expect(inputs.pixel_values?.dims).toEqual([1, 3, size, size]);
+    expect(inputs.pixel_mask?.dims).toEqual([1, size, size]);
+    expect((inputs.input_ids!.data as BigInt64Array)[0]).toBe(2n);
+  });
+
+  it('rejects a model-resolution image with the wrong dimensions', () => {
+    expect(() =>
+      preprocessGroundingDinoModelImage({ data: new Uint8ClampedArray(4), width: 1, height: 1 }),
+    ).toThrow(/800x800/);
   });
 });
 

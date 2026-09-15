@@ -17,7 +17,9 @@
  *
  * Results default to /tmp/opencode/provider-ab-results.json.
  */
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import type { Tensor } from 'onnxruntime-node';
@@ -38,7 +40,23 @@ import {
   SAM2_INPUT_SIZE,
   SAM2_TENSOR_SPEC,
 } from '../../inference/models/sam2';
+import { validateMeasurementRecord } from '../../validation/measurementRecord';
+import {
+  type CandidateRankingCase,
+  type CandidateRankingPolicyId,
+  computeCandidateRankingFeatures,
+  evaluateRankingPolicy,
+  evaluateRankingPolicyByCategory,
+} from '../candidateRanking';
+import { PROMPTED_CRITICAL_CATEGORIES } from '../promptedRouting';
 import type { SegmentationCorpusFixture } from './corpus';
+import {
+  buildProviderQualityRecord,
+  derivePromptedQualityValidation,
+  encodeMaskRle,
+  type ProviderAbEvidence,
+  type ProviderCategoryMeasurement,
+} from './evidenceRecord';
 import { computeSegmentationQuality, type SegmentationQualityMetrics } from './metrics';
 
 if (typeof globalThis.ImageData === 'undefined') {
@@ -60,6 +78,10 @@ const MOBILE_DIR = process.env.VARVE_MOBILE_SAM_MODEL_DIR ?? '';
 const EFFICIENT_DIR = process.env.VARVE_EFFICIENT_SAM_MODEL_DIR ?? '';
 const RESULTS_PATH =
   process.env.VARVE_PROVIDER_AB_RESULTS_PATH ?? '/tmp/opencode/provider-ab-results.json';
+const EVIDENCE_FIXTURE_PATH =
+  process.env.VARVE_PROVIDER_AB_EVIDENCE_PATH ?? '/tmp/opencode/provider-ab-evidence.json';
+const RANKING_FIXTURE_PATH =
+  process.env.VARVE_RANKING_FIXTURE_PATH ?? '/tmp/opencode/ranking-candidates.json';
 
 type OrtModule = typeof import('onnxruntime-node');
 
@@ -76,9 +98,48 @@ type ProviderResult = {
 
 type Provider = {
   id: string;
+  label: string;
   coldStartMs: number;
+  /** Artifact files that define this provider's byte identity. */
+  artifacts: Record<string, string>;
   prepare: (fixture: SegmentationCorpusFixture) => Promise<ProviderResult>;
 };
+
+function sha256File(path: string): string {
+  return createHash('sha256').update(readFileSync(path)).digest('hex');
+}
+
+function normalizedFixturePrompts(fixture: SegmentationCorpusFixture): {
+  points: Array<{ x: number; y: number; label: 0 | 1 }>;
+  box?: { x1: number; y1: number; x2: number; y2: number };
+} {
+  return {
+    points: fixture.prompts.points.map((point) => ({
+      x: point.x / fixture.width,
+      y: point.y / fixture.height,
+      label: point.label,
+    })),
+    ...(fixture.prompts.box
+      ? {
+          box: {
+            x1: fixture.prompts.box.x1 / fixture.width,
+            y1: fixture.prompts.box.y1 / fixture.height,
+            x2: fixture.prompts.box.x2 / fixture.width,
+            y2: fixture.prompts.box.y2 / fixture.height,
+          },
+        }
+      : {}),
+  };
+}
+
+function currentCodeRevision(): string {
+  if (process.env.VARVE_AB_CODE_REVISION) return process.env.VARVE_AB_CODE_REVISION;
+  try {
+    return execSync('git rev-parse HEAD', { cwd: process.cwd() }).toString().trim();
+  } catch {
+    return 'unknown-revision';
+  }
+}
 
 function letterboxNchw(imageData: ImageData): {
   data: Float32Array;
@@ -147,6 +208,11 @@ async function loadSam2Provider(ort: OrtModule): Promise<Provider> {
   const coldStartMs = performance.now() - coldStart;
   return {
     id: 'sam2-hiera-tiny',
+    label: 'SAM2 Hiera Tiny',
+    artifacts: {
+      encoder: join(SAM2_DIR, 'sam2_hiera_tiny.encoder.repaired.onnx'),
+      decoder: join(SAM2_DIR, 'sam2_hiera_tiny.decoder.onnx'),
+    },
     coldStartMs,
     prepare: async (fixture) => {
       const { data, offsetX, offsetY } = letterboxNchw(fixture.image);
@@ -233,6 +299,11 @@ async function loadMobileSamProvider(ort: OrtModule): Promise<Provider> {
   const coldStartMs = performance.now() - coldStart;
   return {
     id: 'mobile-sam',
+    label: 'MobileSAM',
+    artifacts: {
+      encoder: join(MOBILE_DIR, 'mobile_sam_image_encoder.onnx'),
+      decoder: join(MOBILE_DIR, 'sam_mask_decoder_multi.onnx'),
+    },
     coldStartMs,
     prepare: async (fixture) => {
       const input = preprocessMobileSamImageData(fixture.image);
@@ -332,6 +403,11 @@ async function loadEfficientSamProvider(ort: OrtModule): Promise<Provider> {
   const coldStartMs = performance.now() - coldStart;
   return {
     id: 'efficient-sam-ti',
+    label: 'EfficientSAM-Ti',
+    artifacts: {
+      encoder: join(EFFICIENT_DIR, 'efficientsam_ti_encoder.onnx'),
+      decoder: join(EFFICIENT_DIR, 'efficientsam_ti_decoder.onnx'),
+    },
     coldStartMs,
     prepare: async (fixture) => {
       const input = preprocessEfficientSamImageData(fixture.image);
@@ -428,6 +504,9 @@ describe('promptable provider A/B (gated)', () => {
       if (hasSam2) providers.push(await loadSam2Provider(ort));
       if (hasMobile) providers.push(await loadMobileSamProvider(ort));
       if (hasEfficient) providers.push(await loadEfficientSamProvider(ort));
+      const codeRevision = currentCodeRevision();
+      const evidenceProviderFixtures: Array<Record<string, unknown>> = [];
+      const rankingProviderFixtures: Array<Record<string, unknown>> = [];
 
       const payload: Record<string, unknown> = {
         corpusVersion: 'object-selection-corpus-v1',
@@ -439,6 +518,9 @@ describe('promptable provider A/B (gated)', () => {
 
       for (const provider of providers) {
         const rows: Array<Record<string, unknown>> = [];
+        const evidenceRows: ProviderCategoryMeasurement[] = [];
+        const rankingCases: CandidateRankingCase[] = [];
+        const rankingCaseFixtures: Array<Record<string, unknown>> = [];
         for (const fixture of SEGMENTATION_CORPUS) {
           const result = await provider.prepare(fixture);
           const metrics = computeSegmentationQuality(
@@ -453,6 +535,50 @@ describe('promptable provider A/B (gated)', () => {
                 .iou,
           );
           const oracleBestIndex = candidateIoUs.indexOf(Math.max(...candidateIoUs));
+          const prompts = normalizedFixturePrompts(fixture);
+          const candidateFeatures = result.candidateMasks.map((mask, index) => {
+            const score = result.scores[index];
+            if (score === undefined || !Number.isFinite(score)) {
+              throw new Error(
+                `Provider '${provider.id}' returned candidate ${index} without a finite score.`,
+              );
+            }
+            return computeCandidateRankingFeatures(
+              mask,
+              fixture.width,
+              fixture.height,
+              prompts,
+              score,
+            );
+          });
+          const selectedIoU = candidateIoUs[result.selectedIndex] ?? 0;
+          const bestAvailableIou = Math.max(...candidateIoUs);
+          rankingCases.push({
+            caseId: fixture.id,
+            category: fixture.category,
+            features: candidateFeatures,
+            candidateIoU: candidateIoUs,
+            providerSelectedIndex: result.selectedIndex,
+          });
+          rankingCaseFixtures.push({
+            caseId: fixture.id,
+            category: fixture.category,
+            width: fixture.width,
+            height: fixture.height,
+            prompts,
+            scores: result.scores,
+            candidateIoUs,
+            providerSelectedIndex: result.selectedIndex,
+            candidateRle: result.candidateMasks.map((mask) => encodeMaskRle(mask)),
+          });
+          evidenceRows.push({
+            category: fixture.category,
+            iou: metrics.iou,
+            boundaryF: metrics.boundaryF,
+            bestAvailableIou,
+            regret: bestAvailableIou - selectedIoU,
+            rankingMatch: result.selectedIndex === oracleBestIndex ? 1 : 0,
+          });
           rows.push({
             caseId: fixture.id,
             category: fixture.category,
@@ -504,12 +630,96 @@ describe('promptable provider A/B (gated)', () => {
           `AB SUMMARY ${provider.id} cold ${Math.round(summary.coldStartMs)}ms meanIoU ${summary.meanIou.toFixed(3)} meanBF ${summary.meanBoundaryF.toFixed(3)} worstIoU ${summary.worstIou.toFixed(3)} worstBF ${summary.worstBoundaryF.toFixed(3)} enc ${Math.round(summary.meanEncoderMs)}ms dec ${Math.round(summary.meanDecoderMs)}ms rss ${Math.round(summary.peakRssBytes / 1e6)}MB topCand ${(summary.topCandidateAccuracy * 100).toFixed(0)}% rankGap ${summary.meanSelectedMinusBestIou.toFixed(3)}`,
         );
         providerRows.push({ ...summary, rows });
+
+        const policies: CandidateRankingPolicyId[] = [
+          'provider',
+          'score',
+          'guarded-band-box',
+          'guarded-band-area',
+        ];
+        const evaluations = Object.fromEntries(
+          policies.map((policy) => [policy, evaluateRankingPolicy(rankingCases, policy)]),
+        );
+        const evaluationsByCategory = Object.fromEntries(
+          policies.map((policy) => [policy, evaluateRankingPolicyByCategory(rankingCases, policy)]),
+        );
+        for (const policy of policies) {
+          const evaluation = evaluations[policy]!;
+          console.log(
+            `AB RANKING ${provider.id.padEnd(16)} ${policy.padEnd(18)} top1 ${evaluation.meanTop1IoU.toFixed(3)} best ${evaluation.meanBestAvailableIoU.toFixed(3)} regret ${evaluation.meanRegret.toFixed(4)} worst ${evaluation.worstRegret.toFixed(4)} accept ${(evaluation.top1AcceptableRate * 100).toFixed(0)}% coverage ${(evaluation.coverageRate * 100).toFixed(0)}%`,
+          );
+        }
+
+        const artifactChecksums = Object.fromEntries(
+          Object.entries(provider.artifacts).map(([name, path]) => {
+            if (!existsSync(path)) {
+              throw new Error(`Artifact '${name}' for ${provider.id} is missing: ${path}`);
+            }
+            return [name, sha256File(path)];
+          }),
+        );
+        const evidence: ProviderAbEvidence = {
+          providerId: provider.id,
+          label: provider.label,
+          runtimeEnvironment: `onnxruntime-node ${ortVersion} · CPU · ${process.platform} ${process.arch} · ${SEGMENTATION_CORPUS.length} fixtures · onnxruntime-node default intra-op threads (recorded as unspecified)`,
+          measuredAt: payload.generatedAt as string,
+          codeRevision,
+          artifactChecksums,
+          requiredCategories: [...new Set(rankingCases.map((item) => item.category))].sort(),
+          criticalCategories: PROMPTED_CRITICAL_CATEGORIES,
+          rows: evidenceRows,
+          caseIds: rankingCases.map((item) => item.caseId),
+        };
+        const record = buildProviderQualityRecord(evidence);
+        const verified = validateMeasurementRecord(record);
+        expect(verified.status).toBe('verified');
+        const validation = derivePromptedQualityValidation(evidence, record, verified);
+        evidenceProviderFixtures.push({
+          ...evidence,
+          validation,
+          recordSummary: verified.summary,
+          recordWorstCritical: verified.worstCritical,
+        });
+        rankingProviderFixtures.push({
+          providerId: provider.id,
+          label: provider.label,
+          runtimeEnvironment: evidence.runtimeEnvironment,
+          artifactChecksums,
+          evaluatedAt: evidence.measuredAt,
+          codeRevision,
+          cases: rankingCaseFixtures,
+          evaluations,
+          evaluationsByCategory,
+        });
       }
       payload.providers = providerRows;
 
+      const corpusHash = sha256File(join(dirname(new URL(import.meta.url).pathname), 'corpus.ts'));
+      const evidencePayload = {
+        fixtureVersion: 1,
+        corpusVersion: 'object-selection-corpus-v1',
+        corpusHash,
+        ortVersion,
+        nodeVersion: process.version,
+        codeRevision,
+        generatedAt: payload.generatedAt,
+        providers: evidenceProviderFixtures,
+      };
+      const rankingPayload = {
+        fixtureVersion: 1,
+        corpusVersion: 'object-selection-corpus-v1',
+        corpusHash,
+        codeRevision,
+        generatedAt: payload.generatedAt,
+        providers: rankingProviderFixtures,
+      };
+
       mkdirSync(dirname(RESULTS_PATH), { recursive: true });
       writeFileSync(RESULTS_PATH, JSON.stringify(payload, null, 2));
+      writeFileSync(EVIDENCE_FIXTURE_PATH, JSON.stringify(evidencePayload, null, 2));
+      writeFileSync(RANKING_FIXTURE_PATH, JSON.stringify(rankingPayload, null, 2));
       expect(providerRows.length).toBeGreaterThan(0);
+      expect(evidenceProviderFixtures.length).toBeGreaterThan(0);
     },
     1_800_000,
   );
