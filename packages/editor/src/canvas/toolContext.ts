@@ -9,7 +9,9 @@ import {
   makeRasterLayerNode,
   type NodeId,
   nextNodeId,
+  resolveActiveIsometricGrid,
   resolveEditorSceneScope,
+  resolveIsometricGeometry,
   type SceneNode,
   walkNodes,
 } from '@varve/scene';
@@ -34,6 +36,7 @@ import type { DraftShape, PixelProbe, ToolContext } from '../tools';
 import { getDrawingInputSettings } from '../tools/drawingInputRuntime';
 import type { collectSourceEvents } from '../tools/inputNormalizer';
 import { classifyPointerType } from '../tools/inputPolicy';
+import type { IsometricSnapLock, IsometricSnapTarget } from '../tools/isometricSnapping';
 import {
   createSnapSession,
   filterSnapTargetEntries,
@@ -81,6 +84,8 @@ export interface ToolContextDeps {
   frameIndexRef: React.MutableRefObject<FrameSpatialIndex | null>;
   transformCacheRef: React.MutableRefObject<TransformCache>;
   snapSessionRef: React.MutableRefObject<SnapSession>;
+  /** Sticky lock for isometric lattice snapping (2-D, owned by the grid). */
+  isometricSnapLockRef: React.MutableRefObject<IsometricSnapLock | null>;
   snapIndexRef: React.MutableRefObject<SnapIndexEntry | null>;
   marqueeIndexRef: React.MutableRefObject<SpatialIndex | null>;
   pendingAutoTextEditRef: React.MutableRefObject<boolean>;
@@ -467,6 +472,46 @@ export function buildToolContext(
           }))
         : [];
       const gridConfig = s.snapEnabled && s.documentGrid?.snapEnabled ? s.documentGrid : undefined;
+
+      // Isometric lattice snapping is independent of display visibility:
+      // `snapEnabled` owns snapping, `visible` owns drawing. The grid is
+      // resolved explicitly (never by map order) and only participates when
+      // its authored axes form a stable lattice.
+      let isometricTarget: IsometricSnapTarget | undefined;
+      const isometricGrid = resolveActiveIsometricGrid(doc);
+      if (s.snapEnabled && isometricGrid?.snapEnabled) {
+        const geometry = resolveIsometricGeometry({
+          originX: isometricGrid.originX,
+          originY: isometricGrid.originY,
+          spacing: isometricGrid.spacing,
+          rotation: isometricGrid.rotation,
+          axes: isometricGrid.axes,
+        });
+        if (geometry && geometry.latticeValid && geometry.families.length > 0) {
+          const tolerancePx = snapPreferences.snapTolerancePx ?? 8;
+          const targetId = [
+            isometricGrid.id,
+            isometricGrid.spacing,
+            isometricGrid.rotation,
+            isometricGrid.originX,
+            isometricGrid.originY,
+            isometricGrid.axes.map((axis) => axis.angle).join(','),
+          ].join(':');
+          const previousLock = deps.isometricSnapLockRef.current;
+          isometricTarget = {
+            id: targetId,
+            origin: geometry.origin,
+            basis: geometry.basis,
+            families: geometry.families,
+            intersections: isometricGrid.snapToSubdivisions !== false,
+            lines: isometricGrid.snapToLines === true,
+            maxDistance: tolerancePx / s.zoom,
+            releaseDistance: (tolerancePx * 2.5) / s.zoom,
+            previous: previousLock && previousLock.targetId === targetId ? previousLock : null,
+          };
+        }
+      }
+
       const finishSnapEvaluate = beginInteractionSpan('snap.evaluate');
       const result = snapPosition(
         bounds.x,
@@ -483,9 +528,11 @@ export function buildToolContext(
           guideTargets,
           layoutGridTargets: snapPreferences.snapToGuides ? layoutGridTargets : [],
           pixelGridSnap: s.snapEnabled && s.pixelGridSnapEnabled,
+          isometric: isometricTarget,
         },
       );
       deps.snapSessionRef.current = result.session;
+      deps.isometricSnapLockRef.current = result.isometricLock ?? null;
       // A fresh array identity on every sample forces the SnapGuidesOverlay
       // re-render even when nothing snapped. Most drag samples produce no
       // guides; reuse the stable empty array so those renders are skipped.

@@ -1,4 +1,5 @@
 import type { Viewport } from '@varve/shared';
+import { worldToScreen } from '@varve/shared';
 import { getEditorViewport } from '../canvas/cameraState';
 import { resolveCanvasColor } from '../canvas/gridRenderer';
 import { guideLineScreenEndpoints } from '../canvas/guideGeometry';
@@ -36,12 +37,25 @@ export function SnapGuidesOverlay({
   const lineFor = (axis: 'vertical' | 'horizontal', position: number) =>
     guideLineScreenEndpoints({ axis, position }, camState, viewport);
 
+  const screenForPoint = (point: { x: number; y: number }) =>
+    worldToScreen({ zoom, pan, rotation: cameraRotation }, point.x, point.y, viewport);
+
   return (
     <svg className="snap-guides-overlay" aria-hidden>
       <title>Snap guides overlay</title>
       {guides.map((g) => {
-        const line = lineFor(g.axis, g.position);
         const color = guideColor(g.type);
+        if (g.point) {
+          const [cx, cy] = screenForPoint(g.point);
+          return (
+            <g key={`p:${g.targetId ?? ''}:${g.point.x}:${g.point.y}`}>
+              <line x1={cx - 5} y1={cy} x2={cx + 5} y2={cy} stroke={color} strokeWidth={1} />
+              <line x1={cx} y1={cy - 5} x2={cx} y2={cy + 5} stroke={color} strokeWidth={1} />
+              <circle cx={cx} cy={cy} r={2.5} fill="none" stroke={color} strokeWidth={1} />
+            </g>
+          );
+        }
+        const line = lineFor(g.axis, g.position);
         return (
           <line
             key={`${g.axis}:${g.position}`}
@@ -58,15 +72,21 @@ export function SnapGuidesOverlay({
       {guides
         .filter((g) => g.label)
         .map((g) => {
-          const line = lineFor(g.axis, g.position);
           const color = guideColor(g.type);
-          const midX = (line.x1 + line.x2) / 2;
-          const midY = (line.y1 + line.y2) / 2;
+          const anchor = g.point
+            ? (() => {
+                const [px, py] = screenForPoint(g.point);
+                return { midX: px, midY: py };
+              })()
+            : (() => {
+                const line = lineFor(g.axis, g.position);
+                return { midX: (line.x1 + line.x2) / 2, midY: (line.y1 + line.y2) / 2 };
+              })();
           return (
             <text
-              key={`l:${g.axis}:${g.position}`}
-              x={midX + 4}
-              y={midY - 4}
+              key={`l:${g.axis}:${g.position}:${g.label}`}
+              x={anchor.midX + 6}
+              y={anchor.midY - 6}
               fontSize={10}
               fill={color}
             >
@@ -75,7 +95,7 @@ export function SnapGuidesOverlay({
           );
         })}
       {guides
-        .filter((g) => g.distance !== undefined)
+        .filter((g) => g.distance !== undefined && !g.point)
         .map((g) => {
           const line = lineFor(g.axis, g.position);
           const color = guideColor(g.type);

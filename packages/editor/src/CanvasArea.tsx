@@ -102,7 +102,12 @@ import type { DraftShape, PixelProbe, ToolContext } from './tools';
 import type { CropTool } from './tools/CropTool';
 import type { collectSourceEvents } from './tools/inputNormalizer';
 import type { PerspectiveTool } from './tools/PerspectiveTool';
-import { createSnapSession, type SnapGuide, type SnapSession } from './tools/snapping';
+import {
+  createSnapSession,
+  type IsometricSnapLock,
+  type SnapGuide,
+  type SnapSession,
+} from './tools/snapping';
 import { useToolManagerSync } from './tools/useToolManagerSync';
 
 /**
@@ -481,6 +486,7 @@ export function CanvasArea({
 
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
   const snapSessionRef = useRef<SnapSession>(createSnapSession());
+  const isometricSnapLockRef = useRef<IsometricSnapLock | null>(null);
 
   const collab = useCollabPresence(state.activeId, state.cursorPos, state.pan);
   const [nodeEditTargetId, setNodeEditTargetId] = useState<string | null>(null);
@@ -783,6 +789,7 @@ export function CanvasArea({
         frameIndexRef,
         transformCacheRef,
         snapSessionRef,
+        isometricSnapLockRef,
         snapIndexRef,
         marqueeIndexRef,
         pendingAutoTextEditRef,

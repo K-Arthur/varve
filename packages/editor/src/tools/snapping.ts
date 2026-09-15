@@ -1,5 +1,13 @@
 import { pageBoundsInWorld } from '@varve/scene';
 import type { ResizeHandle, SelectionBox } from '@varve/shared';
+import {
+  boxSourceFeatures,
+  findIsometricSnap,
+  type IsometricSnapLock,
+  type IsometricSnapTarget,
+} from './isometricSnapping';
+
+export type { IsometricSnapLock, IsometricSnapTarget } from './isometricSnapping';
 
 export interface SnapGuide {
   axis: 'horizontal' | 'vertical';
@@ -15,6 +23,12 @@ export interface SnapGuide {
   referenceSpace?: 'world';
   /** Signed movement correction applied to the raw proposal on this axis. */
   correction?: number;
+  /**
+   * World position of a point-target snap (isometric lattice intersections).
+   * When present, overlays render a crosshair at this point instead of an
+   * axis-aligned line; `axis`/`position` remain a legacy fallback.
+   */
+  point?: { x: number; y: number };
   type?:
     | 'guide'
     | 'layout-grid'
@@ -120,6 +134,13 @@ export interface SnapOptions {
   layoutGridTargets?: Array<{ axis: 'horizontal' | 'vertical'; position: number; id?: string }>;
   /** Pixel grid snapping (snaps to integer pixel coordinates). */
   pixelGridSnap?: boolean;
+  /**
+   * Isometric lattice snapping. Applied as one joint 2-D translation so a
+   * multi-object selection keeps its internal arrangement. Competes with the
+   * winning Cartesian/guide/object candidates by distance; the closer target
+   * wins and exact ties prefer the isometric grid.
+   */
+  isometric?: IsometricSnapTarget;
 }
 
 export const SNAP_RANGE_PX = 200;
@@ -603,7 +624,7 @@ export function snapPosition(
   grid?: number | GridSnapConfig,
   snapExcludedIds?: Set<string>,
   options: SnapOptions = {},
-): SnapResult & { session: SnapSession } {
+): SnapResult & { session: SnapSession; isometricLock?: IsometricSnapLock | null } {
   const zoom = options.zoom ?? 1;
   const sticky = options.sticky !== false;
   const thresh = thresholdWorld(zoom, options.tolerancePx);
@@ -644,6 +665,8 @@ export function snapPosition(
   let bestYSnap = y;
   let bestYGuide: SnapGuide | null = null;
   let bestYPriority = -1;
+  let isoGuide: SnapGuide | null = null;
+  let isoLock: IsometricSnapLock | null = null;
 
   // C1: Grid snap (highest priority)
   if (grid !== undefined && grid !== null) {
@@ -1001,6 +1024,47 @@ export function snapPosition(
     }
   }
 
+  // C3: Isometric lattice snap (joint 2-D candidate).
+  //
+  // An oblique lattice cannot be snapped by correcting X and Y independently:
+  // the nearest intersection is a property of the pair. The solver returns a
+  // single translation for the whole selection; it competes with the winning
+  // axis candidates by distance (see SnapOptions.isometric).
+  if (options.isometric) {
+    const iso = findIsometricSnap(boxSourceFeatures({ x, y, w, h }), options.isometric);
+    if (iso) {
+      const hasAxisCandidate = Number.isFinite(bestXDiff) || Number.isFinite(bestYDiff);
+      const competing = Math.hypot(
+        Number.isFinite(bestXDiff) ? bestXDiff : 0,
+        Number.isFinite(bestYDiff) ? bestYDiff : 0,
+      );
+      if (!hasAxisCandidate || iso.distance <= competing + 1e-9) {
+        snappedX = x + iso.translation.x;
+        snappedY = y + iso.translation.y;
+        // Isometric locks are 2-D and own both axes for this sample; clear any
+        // axis lock so its correction is never re-applied on top.
+        session = { stickyX: null, stickyY: null };
+        bestXGuide = null;
+        bestYGuide = null;
+        bestXDiff = Infinity;
+        bestYDiff = Infinity;
+        isoGuide = {
+          axis: 'vertical',
+          position: snappedX,
+          label: iso.kind === 'intersection' ? 'iso' : 'iso line',
+          type: 'edge',
+          targetId: `isometric:${options.isometric.id}`,
+          sourceFeature: 'corner',
+          targetFeature: iso.kind,
+          referenceSpace: 'world',
+          correction: iso.translation.x,
+          point: { x: iso.snappedPoint[0], y: iso.snappedPoint[1] },
+        };
+        isoLock = iso.lock;
+      }
+    }
+  }
+
   if (bestXGuide) {
     const stickyResult = tryStickyAxis(x, bestXSnap, bestXGuide, session.stickyX, release, sticky);
     snappedX = stickyResult.coord;
@@ -1028,6 +1092,10 @@ export function snapPosition(
   } else if (sticky && session.stickyY) {
     session = { ...session, stickyY: null };
   }
+
+  // The isometric guide is pushed after the axis machinery so an axis lock
+  // (now cleared) can never add a conflicting line for the same sample.
+  if (isoGuide) guides.push(isoGuide);
 
   // C4: Spacing distribution (lowest priority). The canonical evaluation is
   // O(k²) over every ordered pair (a,b) with a.right < cx < b.left. Because
@@ -1157,13 +1225,14 @@ export function snapPosition(
 
   const matches = guides.flatMap((guide) => {
     if (!guide.targetId || !guide.sourceFeature || !guide.targetFeature) return [];
+    const pointCorrection = guide.point ? { x: snappedX - x, y: snappedY - y } : null;
     return [
       {
         targetId: guide.targetId,
         sourceFeature: guide.sourceFeature,
         targetFeature: guide.targetFeature,
         referenceSpace: 'world' as const,
-        correction: {
+        correction: pointCorrection ?? {
           x: guide.axis === 'vertical' ? (guide.correction ?? snappedX - x) : 0,
           y: guide.axis === 'horizontal' ? (guide.correction ?? snappedY - y) : 0,
         },
@@ -1177,6 +1246,7 @@ export function snapPosition(
     guides,
     matches: matches.length > 0 ? matches : undefined,
     session,
+    isometricLock: isoLock,
   };
 }
 
