@@ -9,17 +9,51 @@ export interface ExportSuggestion {
   reason: string;
 }
 
-function nodeHasImageSource(node: SceneNode): { src: string | undefined; isJpeg: boolean } {
-  if (node.kind !== 'shape') return { src: undefined, isJpeg: false };
+interface ImageFillInfo {
+  src: string | undefined;
+  isJpeg: boolean;
+  isPng: boolean;
+  isSvg: boolean;
+  /** A placed raster (anything that is not an SVG source) — never a vector. */
+  isRaster: boolean;
+}
+
+const DATA_URL_MIME = /^data:(image\/[a-z0-9.+-]+)[;,]/i;
+
+function extensionOf(src: string): string | null {
+  const match = /\.([a-z0-9]+)(?:[?#].*)?$/i.exec(src);
+  return match?.[1]?.toLowerCase() ?? null;
+}
+
+/**
+ * Classify the first visible image fill on a node.
+ *
+ * Imported artwork carries a data URL (`data:image/jpeg;base64,…`) rather than
+ * a file path, so extension-only detection silently misread a placed photo as
+ * a vector shape and advised "Vector path exports losslessly as SVG" for it.
+ * Both encodings are checked here.
+ */
+function nodeHasImageSource(node: SceneNode): ImageFillInfo {
+  const none: ImageFillInfo = {
+    src: undefined,
+    isJpeg: false,
+    isPng: false,
+    isSvg: false,
+    isRaster: false,
+  };
+  if (node.kind !== 'shape') return none;
   const fills = resolveNodeFills(node);
   for (const fill of fills) {
-    if (fill.visible && fill.type === 'image' && fill.image?.src) {
-      const src = fill.image.src;
-      const isJpeg = /\.jpe?g$/i.test(src);
-      return { src, isJpeg };
-    }
+    if (!fill.visible || fill.type !== 'image' || !fill.image?.src) continue;
+    const src = fill.image.src;
+    const mime = DATA_URL_MIME.exec(src)?.[1]?.toLowerCase() ?? null;
+    const extension = extensionOf(src);
+    const isJpeg = mime === 'image/jpeg' || extension === 'jpg' || extension === 'jpeg';
+    const isPng = mime === 'image/png' || extension === 'png';
+    const isSvg = mime === 'image/svg+xml' || extension === 'svg';
+    return { src, isJpeg, isPng, isSvg, isRaster: !isSvg };
   }
-  return { src: undefined, isJpeg: false };
+  return none;
 }
 
 function isVectorNode(node: SceneNode): boolean {
@@ -64,20 +98,36 @@ function getShapeSize(node: SceneNode): { w: number; h: number } | null {
 }
 
 export function suggestExportFormat(node: SceneNode, doc: Document): ExportSuggestion {
-  const { src, isJpeg } = nodeHasImageSource(node);
+  const image = nodeHasImageSource(node);
   const size = getShapeSize(node);
 
-  if (src && isJpeg) {
-    return {
-      format: 'image/jpeg',
-      scale: 1,
-      quality: 85,
-      reason: 'Source is JPEG; re-encoding preserves format',
-    };
-  }
-
-  if (src?.endsWith('.png')) {
-    return { format: 'image/png', scale: 2, reason: 'PNG source with potential transparency' };
+  if (image.src) {
+    if (image.isJpeg) {
+      return {
+        format: 'image/jpeg',
+        scale: 1,
+        quality: 85,
+        reason: 'Source is JPEG; re-encoding preserves format',
+      };
+    }
+    if (image.isPng) {
+      return { format: 'image/png', scale: 2, reason: 'PNG source with potential transparency' };
+    }
+    if (image.isSvg) {
+      return { format: 'svg', scale: 1, reason: 'SVG source exports losslessly as SVG' };
+    }
+    // A placed raster whose container format is unknown (WebP, GIF, a
+    // data-URL without a recognizable mime): raster output is still the right
+    // default. Never advise SVG for it.
+    if (size && size.w > 2000) {
+      return {
+        format: 'image/jpeg',
+        scale: 1,
+        quality: 80,
+        reason: 'Large placed image benefits from JPEG compression',
+      };
+    }
+    return { format: 'image/png', scale: 2, reason: 'Placed image exports as PNG by default' };
   }
 
   if (size && size.w > 2000) {
