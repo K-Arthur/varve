@@ -7,9 +7,9 @@ test('depth-aware effects page communicates the local-first workflow', async ({ 
   await page.goto('/features/depth-aware-effects');
 
   await expect(page.getByRole('heading', { name: 'Depth-aware effects' })).toBeVisible();
-  await expect(page.getByText(/reusable relative DepthMap locally/i)).toBeVisible();
+  await expect(page.getByText(/Local-first: the optional depth model/i)).toBeVisible();
   await expect(page.getByText(/non-destructive/i).first()).toBeVisible();
-  await expect(page.getByText(/relative depth, not calibrated camera distance/i)).toBeVisible();
+  await expect(page.getByText(/relative, not calibrated metres/i)).toBeVisible();
   await expect(page).toHaveScreenshot('depth-aware-effects-feature-light.png', {
     fullPage: true,
     maxDiffPixelRatio: 0.02,
@@ -23,7 +23,7 @@ test('depth blur docs page covers generation, masks, and regeneration', async ({
   await page.goto('/docs/tools/depth-blur');
 
   await expect(page.getByRole('heading', { name: 'Depth Blur' })).toBeVisible();
-  await expect(page.getByText(/Depth Range Mask/i)).toBeVisible();
+  await expect(page.getByText(/range masks/i)).toBeVisible();
   await expect(page.getByText(/regenerate depth map/i).first()).toBeVisible();
   await expect(page.getByText(/relative, not metric/i)).toBeVisible();
 });
