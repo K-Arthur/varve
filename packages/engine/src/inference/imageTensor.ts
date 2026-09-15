@@ -4,6 +4,8 @@
  * Provides letterbox resize, NCHW tensor packing, normalization, and
  * color-space conversion used by all model-specific preprocessors.
  */
+import { computeLetterboxGeometry } from './letterboxGeometry';
+
 export interface TensorSpec {
   inputWidth: number;
   inputHeight: number;
@@ -23,6 +25,8 @@ export interface LetterboxTransform {
   scaleY: number;
   offsetX: number;
   offsetY: number;
+  contentWidth: number;
+  contentHeight: number;
 }
 
 /**
@@ -35,12 +39,15 @@ export function computeLetterboxTransform(
   targetWidth: number,
   targetHeight: number,
 ): LetterboxTransform {
-  const scale = Math.min(targetWidth / srcWidth, targetHeight / srcHeight);
-  const scaleX = scale;
-  const scaleY = scale;
-  const offsetX = (targetWidth - srcWidth * scale) / 2;
-  const offsetY = (targetHeight - srcHeight * scale) / 2;
-  return { scaleX, scaleY, offsetX, offsetY };
+  const geometry = computeLetterboxGeometry(srcWidth, srcHeight, targetWidth, targetHeight);
+  return {
+    scaleX: geometry.contentWidth / srcWidth,
+    scaleY: geometry.contentHeight / srcHeight,
+    offsetX: geometry.offsetX,
+    offsetY: geometry.offsetY,
+    contentWidth: geometry.contentWidth,
+    contentHeight: geometry.contentHeight,
+  };
 }
 
 /**
@@ -74,8 +81,8 @@ export function letterboxResize(
     imageBitmap,
     transform.offsetX,
     transform.offsetY,
-    imageData.width * transform.scaleX,
-    imageData.height * transform.scaleY,
+    transform.contentWidth,
+    transform.contentHeight,
   );
 
   const resized = ctx.getImageData(0, 0, targetWidth, targetHeight);

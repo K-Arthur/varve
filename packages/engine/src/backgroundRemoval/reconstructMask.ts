@@ -1,3 +1,4 @@
+import { computeLetterboxGeometry } from '../inference/letterboxGeometry';
 import { refineHairMatting } from './refineHairMatting';
 
 export interface Rect {
@@ -12,6 +13,9 @@ export interface ModelToSourceTransform {
   offsetY: number;
   scaleX: number;
   scaleY: number;
+  /** Integer raster bounds occupied by the source inside the model frame. */
+  contentWidth: number;
+  contentHeight: number;
   sourceWidth: number;
   sourceHeight: number;
   modelWidth: number;
@@ -31,19 +35,15 @@ export function computeLetterboxTransform(
   modelW: number,
   modelH: number,
 ): ModelToSourceTransform {
-  if (sourceW <= 0 || sourceH <= 0 || modelW <= 0 || modelH <= 0) {
-    throw new Error('All dimensions must be positive');
-  }
-
-  const contentScale = Math.min(modelW / sourceW, modelH / sourceH);
-  const contentW = sourceW * contentScale;
-  const contentH = sourceH * contentScale;
+  const geometry = computeLetterboxGeometry(sourceW, sourceH, modelW, modelH);
 
   return {
-    offsetX: (modelW - contentW) / 2,
-    offsetY: (modelH - contentH) / 2,
-    scaleX: contentScale,
-    scaleY: contentScale,
+    offsetX: geometry.offsetX,
+    offsetY: geometry.offsetY,
+    scaleX: geometry.contentWidth / sourceW,
+    scaleY: geometry.contentHeight / sourceH,
+    contentWidth: geometry.contentWidth,
+    contentHeight: geometry.contentHeight,
     sourceWidth: sourceW,
     sourceHeight: sourceH,
     modelWidth: modelW,
@@ -57,7 +57,16 @@ export function reconstructModelMask(
   modelH: number,
   transform: ModelToSourceTransform,
 ): ReconstructionResult {
-  const { sourceWidth, sourceHeight, offsetX, offsetY, scaleX, scaleY } = transform;
+  const {
+    sourceWidth,
+    sourceHeight,
+    offsetX,
+    offsetY,
+    scaleX,
+    scaleY,
+    contentWidth,
+    contentHeight,
+  } = transform;
 
   if (modelAlpha.length !== modelW * modelH) {
     throw new Error('modelAlpha length does not match modelW * modelH');
@@ -69,6 +78,20 @@ export function reconstructModelMask(
       height: 0,
       transform,
     };
+  }
+  if (
+    !Number.isSafeInteger(contentWidth) ||
+    !Number.isSafeInteger(contentHeight) ||
+    contentWidth <= 0 ||
+    contentHeight <= 0 ||
+    !Number.isSafeInteger(offsetX) ||
+    !Number.isSafeInteger(offsetY) ||
+    offsetX < 0 ||
+    offsetY < 0 ||
+    offsetX + contentWidth > modelW ||
+    offsetY + contentHeight > modelH
+  ) {
+    throw new Error('Letterbox content bounds are invalid');
   }
 
   const result = new Uint8Array(sourceWidth * sourceHeight);

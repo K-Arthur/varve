@@ -100,8 +100,8 @@ function letterboxImageDataToModelInput(
     tempCanvas,
     transform.offsetX,
     transform.offsetY,
-    src.width * transform.scaleX,
-    src.height * transform.scaleY,
+    transform.contentWidth,
+    transform.contentHeight,
   );
   return ctx.getImageData(0, 0, targetW, targetH);
 }

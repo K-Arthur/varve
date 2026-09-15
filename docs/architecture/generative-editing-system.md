@@ -191,7 +191,12 @@ reconstruction path. Its decoder consumes the worker's recorded content
 rectangle (`offsetX`, `offsetY`, `contentWidth`, and `contentHeight`) rather
 than deriving symmetric padding from rounded offsets. This keeps odd-sized
 non-square contexts aligned when the model result is restored to the source
-image.
+image. Automated subject/background-removal providers use the same integer
+rectangle for both their input image and reconstructed alpha mask; they do not
+maintain a second fractional letterbox implementation. This is important
+because a one-pixel mask displacement can make a reviewed object selection
+include a neighbouring object even when the model's coarse prediction looks
+plausible.
 
 The capability resolver distinguishes provider availability from readiness. A
 desktop helper can be installed in the application before a model has passed

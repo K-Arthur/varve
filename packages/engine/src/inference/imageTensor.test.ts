@@ -43,6 +43,18 @@ describe('imageTensor', () => {
       expect(t.offsetX).toBe(80);
       expect(t.offsetY).toBe(0);
     });
+
+    it('uses integer content bounds for odd-sized letterbox padding', () => {
+      const t = computeLetterboxTransform(3, 2, 512, 512);
+
+      expect(t.offsetX).toBe(0);
+      expect(t.offsetY).toBe(85);
+      expect(t.contentWidth).toBe(512);
+      expect(t.contentHeight).toBe(341);
+      expect(t.scaleX).toBe(512 / 3);
+      expect(t.scaleY).toBe(341 / 2);
+      expect(t.offsetY + t.contentHeight).toBeLessThanOrEqual(512);
+    });
   });
 
   describe('packNchwTensor', () => {

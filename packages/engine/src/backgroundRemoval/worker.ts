@@ -281,8 +281,8 @@ self.onmessage = async (e: MessageEvent<unknown>) => {
         imageBitmap,
         inputTransform.offsetX,
         inputTransform.offsetY,
-        sourceImage.width * inputTransform.scaleX,
-        sourceImage.height * inputTransform.scaleY,
+        inputTransform.contentWidth,
+        inputTransform.contentHeight,
       );
       imageBitmap.close();
       const resizedData = resizedCtx.getImageData(0, 0, inputSize, inputSize);

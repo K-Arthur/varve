@@ -21,6 +21,8 @@ describe('computeLetterboxTransform', () => {
     expect(t.sourceHeight).toBe(800);
     expect(t.modelWidth).toBe(320);
     expect(t.modelHeight).toBe(320);
+    expect(t.contentWidth).toBe(240);
+    expect(t.contentHeight).toBe(320);
   });
 
   it('computes zero offset for exact-fit source', () => {
@@ -38,6 +40,18 @@ describe('computeLetterboxTransform', () => {
     // offsetY = (320 - 600*0.4)/2 = 40 (content centered vertically)
     expect(t.offsetX).toBe(0);
     expect(t.offsetY).toBeCloseTo(40);
+    expect(t.contentWidth).toBe(320);
+    expect(t.contentHeight).toBe(240);
+  });
+
+  it('uses integer content bounds shared by image and mask for odd padding', () => {
+    const t = computeLetterboxTransform(3, 2, 512, 512);
+
+    expect(t.offsetX).toBe(0);
+    expect(t.offsetY).toBe(85);
+    expect(t.contentWidth).toBe(512);
+    expect(t.contentHeight).toBe(341);
+    expect(t.offsetY + t.contentHeight).toBeLessThanOrEqual(t.modelHeight);
   });
 
   it('throws on zero dimensions', () => {
@@ -94,6 +108,8 @@ describe('reconstructModelMask', () => {
       offsetY: 0,
       scaleX: 0,
       scaleY: 0,
+      contentWidth: 0,
+      contentHeight: 0,
       sourceWidth: 0,
       sourceHeight: 0,
       modelWidth: 320,
