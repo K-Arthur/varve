@@ -441,12 +441,22 @@ EfficientSAM-Ti was evaluated through the same corpus and the same production
 encode/decode functions, plus a split-vs-combined ONNX parity gate on real
 photos. It produced identical predictions to the official combined export
 (bit-identical mask and IoU logits) and cleared every critical-category floor,
-but it is quality-equivalent to MobileSAM (mean IoU 0.723 vs 0.747, inside the
-0.03 equivalence band), has a larger measured peak working set (731 MB vs
+but it is quality-equivalent to MobileSAM (mean IoU 0.7227 vs 0.7474, inside
+the 0.03 equivalence band), has a larger measured peak working set (731 MB vs
 574 MB), has no mask-prompt capability, and its decoder requires an int64
 `orig_im_size` that the WebGPU execution provider cannot host. It was
 therefore rejected for automatic routing and remains **explicit-only**: the
 routing fact carries `experimental: true` and Auto never selects it.
+
+Since 2026-09-15 every provider record is derived from the archived per-category
+observation through the canonical validator
+(`docs/quality/validation-record-integrity.md`). The validator corrected two
+transcription defects: the SAM2 worst boundary-F category is `hair-fur`
+(0.6766), not the IoU-worst `touches-edge`, and the EfficientSAM worst
+boundary-F value is the recomputed 0.6648 (previously a rounded 0.665 with no
+per-category data behind it). Routing now re-verifies records at decision time
+and rejects a record that contradicts its own data (`evidence-mismatch`) or
+cites a stale corpus (`unverified-evidence`).
 
 On 2026-09-15 the verified adapter became reachable from the ordinary editor
 workflow as the explicit "Experimental — EfficientSAM-Ti" model preference.

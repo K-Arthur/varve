@@ -232,9 +232,12 @@ export function TextDiscoveryPanel({
     let releaseMs = 0;
     let releaseStatus: DiscoveryTimings['releaseStatus'] = 'unchanged';
     let releaseDetail = '';
+    let resolvedGraphPath: string | null = null;
+    let detectorReleased = false;
     try {
       const loader = await getModelLoaderReady();
       const graphPath = await loader.getModelPath(GROUNDING_DINO_MODEL_ID, controller.signal);
+      resolvedGraphPath = graphPath;
       const vocabPath = await loader.getModelPath(GROUNDING_DINO_TOKENIZER_ID, controller.signal);
       if (!graphPath || !vocabPath) {
         setState('missing');
@@ -368,6 +371,7 @@ export function TextDiscoveryPanel({
           releaseError instanceof Error ? releaseError.message : String(releaseError)
         }`;
       }
+      detectorReleased = releaseStatus !== 'failed';
       releaseMs = performance.now() - releaseStarted;
       setTimings({
         sourceMs,
@@ -413,6 +417,15 @@ export function TextDiscoveryPanel({
       window.clearTimeout(deadline);
       setStage(null);
       if (abortRef.current === controller) abortRef.current = null;
+      // A failed terminal path must not leave the 2.6 GB-scale detector
+      // resident just because the UI moved on. This is an idle-only release:
+      // if a graph is still finishing, the worker reports it as in-use and the
+      // session stays accounted rather than being force-freed.
+      if (!detectorReleased && resolvedGraphPath && !controller.signal.aborted) {
+        void getInferenceWorkerHost()
+          .releaseModel('grounding-dino', resolvedGraphPath)
+          .catch(() => undefined);
+      }
     }
   }, [announce, source, query, threshold]);
 

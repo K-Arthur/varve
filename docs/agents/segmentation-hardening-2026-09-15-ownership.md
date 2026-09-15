@@ -53,3 +53,31 @@ touch because another writer was active in them at claim time.
 Every commit uses an explicit path list of files this task owns. Unrelated
 staged/unstaged files are never restaged, reverted, or reformatted. Commits
 are authored by the maintainer with no AI attribution trailers.
+
+## Handoff state (2026-09-15, final)
+
+| Commit | Content |
+| --- | --- |
+| `194e6222f` | Measurement-record validator (schema, aggregation, negative tests) |
+| `4f62dda47` | Session registry, worker/host release protocol, SessionManager, discovery panel handoff |
+| `c05c28525` | Provider records from primary observations, candidate ranking engine, platform matrix, experimental tests, discovery preprocessing |
+| `3782a611c` | Editor ranker policy hook, frozen-set evaluation, keyboard candidate cycling |
+| docs commit | `docs/quality/validation-record-integrity.md`, `docs/quality/candidate-ranking-evaluation.md`, architecture updates, `docs/audits/segmentation-hardening-2026-09-15.md` |
+
+Two shared-tree incidents are recorded for the next writer:
+
+1. The first documentation draft was swept into a concurrent writer's commit
+   `080b58d88` because it was staged while that writer committed. Content is
+   intact; the later docs commit carries the same files. Staging and committing
+   in one short window (or using the lock-waiting helper in
+   `/tmp/opencode/commit-when-free.sh`) avoids the race.
+2. Two e2e specs owned by other writers (`export-tab.spec.ts`,
+   `popover-contract.spec.ts`) temporarily failed the repository-wide e2e
+   typecheck, which blocks every commit gate. They were left untouched and the
+   other writers repaired them.
+
+Unverified items carried forward: real-model ranking corpus run, browser
+detection parity for the v2 preprocessing path, threaded-WASM probe, and the
+timestamped detection→segmentation peak trace. See the audit ledger for exact
+commands and reasons.
+
