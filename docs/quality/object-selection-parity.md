@@ -427,3 +427,22 @@ adapter and gated tests remain as an offline benchmark. Full evidence:
 detector gate is recorded in
 `docs/research/text-object-discovery-feasibility-2026-09-14.md` and remains
 deferred on artifact reproducibility and browser-memory grounds.
+
+## Chromium real-model E2E evidence (2026-09-15)
+
+`tests/e2e/canvas/object-selection-real-model.spec.ts` was run end to end
+against the committed pipeline with `VARVE_SAM2_REAL_MODEL=1` on headless
+Chromium (`--project=chromium`, fresh persistent profile, isolated dev-server
+port), serving the pinned repaired encoder and decoder from `/models/`:
+
+| Case | Prompt | Cold preview | Warm preview | Use as selection | Result |
+| --- | --- | --- | --- | --- | --- |
+| `tests/fixtures/bg-removal-corpus/human.jpg` (320×483 portrait) | torso point | 31 s · predicted IoU 0.91 · prompt match 100% · 3 candidates | 6 s (cached embedding) | 1 s, no re-inference | Apply → provenance shown → undo/redo; mask keeps hair, crossed arms, and watch |
+| `tests/e2e/fixtures/real-life-still-life.jpg` (1280×960) | point on the right-hand apple | passed (same 3-candidate flow) | — | — | Apple isolated with its stem; flowers and background removed |
+
+Candidate cycling wraps and invalidates review; the applied mask records
+`predicted IoU score 0.91` and `Use as selection` commits the reviewed
+candidate in one second with no further inference. Screenshots are attached
+to each Playwright run under `test-results/`. These are single-machine Linux
+x86_64 browser WASM numbers: the 31 s cold path is dominated by the first
+session compile and encoder run and is not a cross-platform guarantee.
