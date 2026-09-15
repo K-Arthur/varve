@@ -2,22 +2,32 @@
  * CreateTableFromDataDialog — paste TSV/CSV/Markdown, preview, commit as a
  * native table (ADR-0016 §17/§19). One undoable insertion; empty cells and
  * ragged rows are preserved; a first-row header toggle maps to headerRoles.
+ *
+ * Built on @varve/ui's Dialog: native showModal() owns the top layer, the
+ * inert background, focus containment/restoration, Escape, and the nested
+ * overlay guard for the format Select; the paste workflow owns only its own
+ * content.
  */
 
 import { parseDelimitedText, parseMarkdownTable } from '@varve/import';
 import { makeTableNode, nextNodeId } from '@varve/scene';
-import { FocusTrap, Icon, Select } from '@varve/ui';
-import { useEffect, useId, useMemo, useState } from 'react';
+import { Button, Dialog, Select } from '@varve/ui';
+import { useMemo, useState } from 'react';
 import { useEditor } from '../context';
+import { addNodeToActiveWorkspace } from '../scene/activeWorkspace';
+import './CreateTableFromDataDialog.css';
 
-export function CreateTableFromDataDialog() {
+export interface CreateTableFromDataDialogProps {
+  open: boolean;
+}
+
+export function CreateTableFromDataDialog({ open }: CreateTableFromDataDialogProps) {
   const editor = useEditor();
   const [input, setInput] = useState('');
   const [delimiter, setDelimiter] = useState<'auto' | ',' | '\t' | ';' | 'markdown'>('auto');
   const [headerRow, setHeaderRow] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [commitError, setCommitError] = useState<string | null>(null);
-  const titleId = useId();
 
   const parsed = useMemo(() => {
     if (!input.trim()) return { rows: [] as string[][], warnings: [] as string[] };
@@ -49,243 +59,156 @@ export function CreateTableFromDataDialog() {
   const previewRows = rows.slice(0, 8);
   const truncated = rows.length > 8;
 
+  const close = (): void => {
+    editor.patch({ createTableFromDataOpen: false });
+  };
+
   const commit = (): void => {
     if (rows.length === 0) {
       setCommitError('Nothing to create — paste some data first.');
       return;
     }
     setCommitError(null);
-    const { id, doc: d2 } = nextNodeId(editor.state.document);
-    const table = makeTableNode(id, {
-      name: 'Table',
-      rows: rows.length,
-      columns: cols,
-      headerRows: headerRow ? 1 : 0,
-      w: Math.max(320, cols * 96),
-      h: Math.max(120, rows.length * 32),
-      columnSizing: { kind: 'fraction', value: 1 },
-    });
-    // Fill cell content row-major.
-    let next = table;
-    rows.forEach((row, r) => {
-      row.forEach((text, c) => {
-        const cellId = next.table.cellIndex[`${r},${c}`];
-        if (!cellId) return;
-        next = {
-          ...next,
-          table: {
-            ...next.table,
-            cells: {
-              ...next.table.cells,
-              [cellId]: { ...next.table.cells[cellId]!, content: { kind: 'text', text } },
-            },
-          },
-        };
-      });
-    });
-
+    const rowData = rows;
+    const colCount = cols;
+    const headerRows = headerRow ? 1 : 0;
+    let createdId: string | null = null;
     editor.updateDoc((doc) => {
-      const rootChildren = [...doc.rootChildren, id];
-      return { ...doc, rootChildren, nodes: { ...doc.nodes, [id]: next }, nextId: d2.nextId };
+      const { id, doc: withId } = nextNodeId(doc);
+      createdId = id;
+      let table = makeTableNode(id, {
+        name: 'Table',
+        rows: rowData.length,
+        columns: colCount,
+        headerRows,
+        w: Math.max(320, colCount * 96),
+        h: Math.max(120, rowData.length * 32),
+        columnSizing: { kind: 'fraction', value: 1 },
+      });
+      // Fill cell content row-major.
+      rowData.forEach((row, r) => {
+        row.forEach((text, c) => {
+          const cellId = table.table.cellIndex[`${r},${c}`];
+          if (!cellId) return;
+          table = {
+            ...table,
+            table: {
+              ...table.table,
+              cells: {
+                ...table.table.cells,
+                [cellId]: { ...table.table.cells[cellId]!, content: { kind: 'text', text } },
+              },
+            },
+          };
+        });
+      });
+      // Editor-created layers belong to the active surface (design canvas or
+      // publishing page), not the raw document root: appending to
+      // rootChildren left the table out of the Layers panel and the pages it
+      // belongs to.
+      return addNodeToActiveWorkspace(withId, table, editor.state.workspaceMode);
     });
-    editor.setSelection(id);
+    if (createdId) editor.setSelection(createdId);
     editor.announce(`Created table with ${rows.length} rows and ${cols} columns`);
     setInput('');
-    editor.patch({ createTableFromDataOpen: false });
+    close();
   };
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') editor.patch({ createTableFromDataOpen: false });
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [editor]);
-
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.35)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 2000,
-      }}
-      onPointerDown={(e) => {
-        if (e.target === e.currentTarget) editor.patch({ createTableFromDataOpen: false });
-      }}
+    <Dialog
+      open={open}
+      onClose={close}
+      title="Create table from data"
+      // The paste area is the reason the dialog exists.
+      focusFirstControl
+      footer={
+        <div className="create-table-dialog__actions">
+          <Button variant="ghost" onClick={close}>
+            Cancel
+          </Button>
+          <Button variant="default" onClick={commit} disabled={rows.length === 0}>
+            Create table
+          </Button>
+        </div>
+      }
     >
-      {/* Focus containment + restoration; Escape is handled by the window
-          listener above, which FocusTrap's onClose mirrors for parity. */}
-      <FocusTrap active onClose={() => editor.patch({ createTableFromDataOpen: false })}>
-        <div
-          className="varve-dialog"
-          style={{
-            background: 'var(--color-surface-raised, #fff)',
-            borderRadius: 'var(--radius-surface)',
-            padding: 16,
-            width: 560,
-            maxWidth: '92vw',
-            maxHeight: '84vh',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 12,
-            boxShadow: '0 16px 48px rgba(0,0,0,0.25)',
-          }}
-        >
-          <div className="insp-field-row__split" style={{ justifyContent: 'space-between' }}>
-            <h2 id={titleId} style={{ margin: 0, fontSize: 16 }}>
-              Create table from data
-            </h2>
-            <button
-              type="button"
-              className="insp-inline-btn"
-              aria-label="Close"
-              onClick={() => editor.patch({ createTableFromDataOpen: false })}
-            >
-              <Icon name="X" label={undefined} size="1em" />
-            </button>
-          </div>
+      <div className="create-table-dialog">
+        <textarea
+          data-autofocus
+          aria-label="Paste CSV, TSV, or Markdown table"
+          className="create-table-dialog__input"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder={'Paste spreadsheet data (tab or comma separated) or a Markdown table…'}
+          rows={6}
+        />
 
-          <textarea
-            aria-label="Paste CSV, TSV, or Markdown table"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={'Paste spreadsheet data (tab or comma separated) or a Markdown table…'}
-            rows={6}
-            style={{ fontFamily: 'monospace', fontSize: 'var(--font-size-xs)', resize: 'vertical' }}
-          />
+        <div className="create-table-dialog__row">
+          <span className="create-table-dialog__field">
+            Format
+            <Select
+              label="Input format"
+              value={delimiter}
+              options={[
+                { value: 'auto', label: 'Auto-detect' },
+                { value: '\t', label: 'Tab (TSV)' },
+                { value: ',', label: 'Comma (CSV)' },
+                { value: ';', label: 'Semicolon' },
+                { value: 'markdown', label: 'Markdown' },
+              ]}
+              onChange={(v) => setDelimiter(v as typeof delimiter)}
+            />
+          </span>
+          <label className="create-table-dialog__checkbox">
+            <input
+              type="checkbox"
+              checked={headerRow}
+              onChange={(e) => setHeaderRow(e.target.checked)}
+            />{' '}
+            First row is a header
+          </label>
+          <span className="create-table-dialog__meta">
+            {rows.length} rows x {cols} columns
+          </span>
+        </div>
 
-          <div className="insp-field-row__split" style={{ gap: 12, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 'var(--font-size-xs)' }}>
-              Format
-              <Select
-                label="Input format"
-                value={delimiter}
-                options={[
-                  { value: 'auto', label: 'Auto-detect' },
-                  { value: '\t', label: 'Tab (TSV)' },
-                  { value: ',', label: 'Comma (CSV)' },
-                  { value: ';', label: 'Semicolon' },
-                  { value: 'markdown', label: 'Markdown' },
-                ]}
-                onChange={(v) => setDelimiter(v as typeof delimiter)}
-              />
-            </span>
-            <label style={{ fontSize: 'var(--font-size-xs)' }}>
-              <input
-                type="checkbox"
-                checked={headerRow}
-                onChange={(e) => setHeaderRow(e.target.checked)}
-              />{' '}
-              First row is a header
-            </label>
-            <span style={{ fontSize: 'var(--font-size-xs)', opacity: 0.7 }}>
-              {rows.length} rows x {cols} columns
-            </span>
-          </div>
+        {error && <div className="create-table-dialog__error">{error}</div>}
+        {commitError && <div className="create-table-dialog__error">{commitError}</div>}
+        {parsed.warnings.length > 0 && (
+          <div className="create-table-dialog__warnings">{parsed.warnings.join('; ')}</div>
+        )}
 
-          {error && (
-            <div
-              style={{
-                color: 'var(--color-feedback-danger, #d64545)',
-                fontSize: 'var(--font-size-xs)',
-              }}
-            >
-              {error}
-            </div>
-          )}
-          {commitError && (
-            <div
-              style={{
-                color: 'var(--color-feedback-danger, #d64545)',
-                fontSize: 'var(--font-size-xs)',
-              }}
-            >
-              {commitError}
-            </div>
-          )}
-          {parsed.warnings.length > 0 && (
-            <div style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.7 }}>
-              {parsed.warnings.join('; ')}
-            </div>
-          )}
-
-          {rows.length > 0 && (
-            <div
-              style={{
-                overflow: 'auto',
-                border: '1px solid var(--color-border-subtle, #cdd3de)',
-                borderRadius: 'var(--radius-control)',
-              }}
-            >
-              <table className="varve-preview-table" aria-label="Preview">
-                <thead>
-                  <tr>
+        {rows.length > 0 && (
+          <div className="create-table-dialog__preview">
+            <table className="varve-preview-table" aria-label="Preview">
+              <thead>
+                <tr>
+                  {Array.from({ length: cols }, (_, c) => (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: preview columns are stateless; header labels can repeat
+                    <th key={c}>{headerRow && rows[0]?.[c] ? rows[0][c] : `C${c + 1}`}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {previewRows.slice(headerRow ? 1 : 0).map((r, ri) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: preview rows are stateless; cell content repeats across the table
+                  <tr key={ri}>
                     {Array.from({ length: cols }, (_, c) => (
-                      // biome-ignore lint/suspicious/noArrayIndexKey: preview columns are stateless; header labels can repeat
-                      <th
-                        key={c}
-                        style={{
-                          fontSize: 'var(--font-size-2xs)',
-                          padding: '2px 6px',
-                          textAlign: 'left',
-                        }}
-                      >
-                        {headerRow && rows[0]?.[c] ? rows[0][c] : `C${c + 1}`}
-                      </th>
+                      // biome-ignore lint/suspicious/noArrayIndexKey: preview cells are stateless; content repeats across the table
+                      <td key={c}>{r[c] ?? ''}</td>
                     ))}
                   </tr>
-                </thead>
-                <tbody>
-                  {previewRows.slice(headerRow ? 1 : 0).map((r, ri) => (
-                    // biome-ignore lint/suspicious/noArrayIndexKey: preview rows are stateless; cell content repeats across the table
-                    <tr key={ri}>
-                      {Array.from({ length: cols }, (_, c) => (
-                        // biome-ignore lint/suspicious/noArrayIndexKey: preview cells are stateless; content repeats across the table
-                        <td
-                          key={c}
-                          style={{ fontSize: 'var(--font-size-2xs)', padding: '2px 6px' }}
-                        >
-                          {r[c] ?? ''}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {truncated && (
-                <div style={{ fontSize: 'var(--font-size-2xs)', padding: 4, opacity: 0.7 }}>
-                  … and {rows.length - previewRows.length} more rows
-                </div>
-              )}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button
-              type="button"
-              className="insp-inline-btn"
-              onClick={() => editor.patch({ createTableFromDataOpen: false })}
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="insp-add-btn"
-              onClick={commit}
-              disabled={rows.length === 0}
-            >
-              Create table
-            </button>
+                ))}
+              </tbody>
+            </table>
+            {truncated && (
+              <div className="create-table-dialog__more">
+                … and {rows.length - previewRows.length} more rows
+              </div>
+            )}
           </div>
-        </div>
-      </FocusTrap>
-    </div>
+        )}
+      </div>
+    </Dialog>
   );
 }

@@ -209,6 +209,34 @@ test.describe('Batch Rename workflow', () => {
   });
 });
 
+test.describe('Create table from data', () => {
+  test('pastes data and creates a table through the toolbar', async ({ page }) => {
+    await navigateToEditor(page);
+
+    // Activate the Table tool (it may be collapsed into More tools).
+    if ((await page.locator('[data-tool="table"]').count()) === 0) {
+      await page.getByRole('button', { name: /more tools/i }).click();
+    }
+    await page.locator('[data-tool="table"]').first().click();
+
+    const fromData = page.locator('[data-tool="tableFromData"]');
+    await expect(fromData).toBeVisible({ timeout: 5000 });
+    await fromData.click();
+
+    const dialog = page.locator('dialog[open]').filter({ hasText: 'Create table from data' });
+    await expect(dialog).toBeVisible();
+
+    const paste = dialog.getByLabel(/paste csv/i);
+    await expect(paste).toBeFocused();
+    await paste.fill('name,qty\nWidget,4\nGadget,7');
+    await expect(dialog.getByText('3 rows x 2 columns')).toBeVisible();
+
+    await dialog.getByRole('button', { name: /create table/i }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('treeitem', { name: /Table/ }).first()).toBeVisible();
+  });
+});
+
 test.describe('visual evidence', () => {
   test('captures Batch Rename and Settings in light and dark themes', async ({ page }) => {
     await navigateToEditor(page);

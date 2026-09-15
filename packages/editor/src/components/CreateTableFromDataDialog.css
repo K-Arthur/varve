@@ -1,0 +1,73 @@
+.create-table-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.create-table-dialog__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-2);
+  background: var(--color-surface-default);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-xs);
+  resize: vertical;
+}
+
+.create-table-dialog__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.create-table-dialog__field,
+.create-table-dialog__checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+}
+
+.create-table-dialog__meta {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.create-table-dialog__error {
+  color: var(--color-feedback-danger);
+  font-size: var(--font-size-xs);
+}
+
+.create-table-dialog__warnings {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-secondary);
+}
+
+.create-table-dialog__preview {
+  overflow: auto;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+}
+
+.create-table-dialog__preview th,
+.create-table-dialog__preview td {
+  font-size: var(--font-size-2xs);
+  padding: 2px 6px;
+  text-align: left;
+}
+
+.create-table-dialog__more {
+  font-size: var(--font-size-2xs);
+  padding: var(--space-1);
+  color: var(--color-text-secondary);
+}
+
+.create-table-dialog__actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}

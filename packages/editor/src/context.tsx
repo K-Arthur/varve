@@ -556,6 +556,7 @@ import {
   hasPaintProperties,
   setPropertyClipboard,
 } from './propertyClipboard';
+import { activeWorkspaceContentRoot, addNodeToActiveWorkspace } from './scene/activeWorkspace';
 import { findContainingFrameInDoc } from './scene/findContainingFrame';
 import {
   getOrCreateParentCache,
@@ -883,21 +884,6 @@ function insertImportedSubtree(
       nodes: { ...targetDoc.nodes, ...nodes },
     },
   };
-}
-
-/**
- * Resolve the content owner for editor-created layers. Design Canvas content
- * is intentionally unavailable to Print workspace commands; Print commands
- * target the active publishing Page instead.
- */
-function activeWorkspaceContentRoot(doc: Document, workspaceMode: string): NodeId | null {
-  if (workspaceMode !== 'print') return designCanvasContentRoot(doc);
-  return doc.pages?.find((page) => page.id === doc.activePageId)?.contentRoot ?? null;
-}
-
-function addNodeToActiveWorkspace(doc: Document, node: SceneNode, workspaceMode: string): Document {
-  const rootId = activeWorkspaceContentRoot(doc, workspaceMode);
-  return rootId && doc.nodes[rootId] ? addChild(doc, rootId, node) : addNode(doc, node);
 }
 
 /**
