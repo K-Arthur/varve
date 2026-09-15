@@ -1512,6 +1512,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* WCAG 2.2 SC 2.5.8: the icon is 14px, so the target is padded to 24px
+     instead of relying on the pointer-precision exception. */
+  min-width: 1.5rem;
+  min-height: 1.5rem;
   margin: 0;
   padding: var(--space-1);
   cursor: pointer;
@@ -1523,7 +1527,21 @@
   color: var(--color-text-primary);
 }
 
-.insp-proportion-lock:focus-visible {
+/* The checkbox stays focusable and named; the label box it lives in paints
+   the focus ring, because a 0x0 input cannot show one. */
+.insp-proportion-lock__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.insp-proportion-lock:has(.insp-proportion-lock__input:focus-visible) {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
@@ -2027,6 +2045,7 @@
 .insp-panel
   input[type="checkbox"]:not(
     .insp-checkbox--icon-only,
+    .insp-proportion-lock__input,
     .varve-switch__input,
     .varve-checkbox__input
   ) {
@@ -2046,6 +2065,7 @@
 .insp-panel
   input[type="checkbox"]:not(
     .insp-checkbox--icon-only,
+    .insp-proportion-lock__input,
     .varve-switch__input,
     .varve-checkbox__input
   ):checked {
@@ -2059,6 +2079,7 @@
 .insp-panel
   input[type="checkbox"]:not(
     .insp-checkbox--icon-only,
+    .insp-proportion-lock__input,
     .varve-switch__input,
     .varve-checkbox__input
   ):focus-visible {
@@ -2078,6 +2099,7 @@
   .insp-panel
   input[type="checkbox"]:not(
     .insp-checkbox--icon-only,
+    .insp-proportion-lock__input,
     .varve-switch__input,
     .varve-checkbox__input
   ) {
@@ -5724,4 +5746,77 @@ fieldset.insp-canvas-props,
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
   background: var(--color-surface-sunken);
+}
+
+/* ── Pathfinder (live Boolean) ─────────────────────────────────────────
+ * Operand rows are identity-bearing list items: the name is the primary
+ * target that isolates the operand, and Remove is the only secondary.
+ * Buttons come from @varve/ui so focus rings and themes are shared. */
+.insp-boolean__operands {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.insp-boolean__operand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-05);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+}
+
+.editor-inspector .insp-boolean__operand-name {
+  flex: 1 1 0;
+  justify-content: flex-start;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.insp-boolean__operand-name > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.insp-boolean__add {
+  margin-top: var(--space-2);
+}
+
+.insp-boolean__add-label {
+  display: block;
+  color: var(--color-text-muted);
+  font-family: var(--type-interface-label-family);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.insp-boolean__add-list {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.editor-inspector .insp-boolean__add-btn {
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.insp-boolean__add-btn > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.insp-boolean__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
 }

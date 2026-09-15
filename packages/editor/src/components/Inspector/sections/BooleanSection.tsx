@@ -6,8 +6,10 @@ import {
   removeNode,
   type SceneNode,
 } from '@varve/scene';
+import { Button, Select } from '@varve/ui';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
+import { FieldRow } from '../controls/FieldRow';
 
 const OPERATIONS: readonly { value: LiveBooleanOperation; label: string }[] = [
   { value: 'union', label: 'Union' },
@@ -70,102 +72,71 @@ export function BooleanSection({ node }: { node: GroupNode }) {
 
   return (
     <DisclosureSection title="Pathfinder" id="pathfinder-boolean">
-      <div className="insp-field">
-        <label className="insp-field__label" htmlFor={`pathfinder-operation-${node.id}`}>
-          Operation
-        </label>
-        <div className="insp-field__control">
-          <select
-            id={`pathfinder-operation-${node.id}`}
-            aria-label="Boolean operation"
-            value={node.boolean.operation}
-            onChange={(event) => setOperation(event.target.value as LiveBooleanOperation)}
-          >
-            {OPERATIONS.map((operation) => (
-              <option key={operation.value} value={operation.value}>
-                {operation.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <FieldRow label="Operation">
+        <Select
+          label="Boolean operation"
+          value={node.boolean.operation}
+          options={OPERATIONS.map((operation) => ({
+            value: operation.value,
+            label: operation.label,
+          }))}
+          onChange={(next) => setOperation(next as LiveBooleanOperation)}
+        />
+      </FieldRow>
 
-      <ol
-        aria-label="Boolean operands"
-        style={{
-          display: 'grid',
-          gap: 'var(--space-1)',
-          margin: 'var(--space-2) 0 0',
-          padding: 0,
-          listStyle: 'none',
-        }}
-      >
+      <ol className="insp-boolean__operands" aria-label="Boolean operands">
         {operands.map((operand, index) => (
-          <li
-            key={operand.id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-1)',
-              padding: 'var(--space-1)',
-              background: 'var(--color-surface-sunken)',
-              border: '1px solid var(--color-border-subtle)',
-              borderRadius: 'var(--radius-control-compact)',
-            }}
-          >
-            <button
-              type="button"
+          <li key={operand.id} className="insp-boolean__operand">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="insp-boolean__operand-name"
               onClick={() => {
                 editor.enterIsolation(node.id);
                 editor.toggleSelection(operand.id, false);
               }}
-              style={{
-                flex: 1,
-                minWidth: 0,
-                overflow: 'hidden',
-                textAlign: 'left',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                color: 'var(--color-text-primary)',
-              }}
               aria-label={`Edit operand ${index + 1}: ${operand.name}`}
             >
               {index + 1}. {operand.name}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => removeOperand(operand.id)}
               disabled={operands.length <= 2}
               aria-label={`Remove operand ${operand.name}`}
               title={operands.length <= 2 ? 'A Boolean needs at least two operands' : undefined}
             >
               Remove
-            </button>
+            </Button>
           </li>
         ))}
       </ol>
 
       {availableOperands.length > 0 && (
-        <div style={{ marginTop: 'var(--space-2)' }}>
-          <span className="insp-field__label">Add operand</span>
-          <div style={{ display: 'grid', gap: 'var(--space-1)', marginTop: 'var(--space-1)' }}>
+        <div className="insp-boolean__add">
+          <span className="insp-boolean__add-label">Add operand</span>
+          <div className="insp-boolean__add-list">
             {availableOperands.slice(0, 8).map((candidate) => (
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="sm"
                 key={candidate.id}
+                className="insp-boolean__add-btn"
                 onClick={() => addOperand(candidate.id)}
                 aria-label={`Add operand ${candidate.name}`}
               >
                 + {candidate.name}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 'var(--space-1)', marginTop: 'var(--space-2)' }}>
-        <button
-          type="button"
+      <div className="insp-boolean__actions">
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={() => {
             editor.enterIsolation(node.id);
             editor.selectChildren();
@@ -173,10 +144,10 @@ export function BooleanSection({ node }: { node: GroupNode }) {
           aria-label="Edit Boolean operands"
         >
           Edit operands
-        </button>
-        <button type="button" onClick={() => editor.ungroupSelected()}>
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => editor.ungroupSelected()}>
           Expand Boolean
-        </button>
+        </Button>
       </div>
     </DisclosureSection>
   );

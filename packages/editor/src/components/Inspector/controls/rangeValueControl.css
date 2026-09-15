@@ -27,7 +27,12 @@
 
 .range-value-control__number .insp-field__control {
   align-items: center;
-  display: block;
+  /* The unit must sit beside the value: with display:block the unit wrapped
+     onto its own line and "%" floated under the input, detached from the
+     number it describes. */
+  display: flex;
+  gap: var(--space-1);
+  min-inline-size: 0;
 }
 
 .range-value-control__number .insp-num__input {
@@ -40,8 +45,9 @@
   font-feature-settings: "tnum";
   /* Match every other inspector number field (was --space-6 ≈ 27px). */
   font-size: var(--font-size-xs);
+  flex: 1 1 0;
+  inline-size: auto;
   height: var(--component-compact-height);
-  inline-size: 100%;
   min-inline-size: 0;
   outline: none;
   padding: 0 var(--space-2);

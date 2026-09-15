@@ -429,19 +429,13 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 fieldName="width"
                 onShiftClick={() => editor.setBindingField('width')}
               />
-              <label aria-label="Constrain proportions" className="insp-proportion-lock">
+              <label className="insp-proportion-lock">
                 <input
                   type="checkbox"
-                  className="insp-checkbox--icon-only"
+                  className="insp-proportion-lock__input"
                   checked={locked}
                   onChange={() => setLocked((p) => !p)}
-                  style={{
-                    width: 0,
-                    height: 0,
-                    opacity: 0,
-                    position: 'absolute',
-                    pointerEvents: 'none',
-                  }}
+                  aria-label="Constrain proportions"
                 />
                 <svg
                   width="14"
@@ -452,14 +446,12 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  role="img"
-                  aria-label="Constrain proportions"
+                  aria-hidden="true"
                   className="insp-proportion-icon"
                   style={{
                     color: locked ? 'var(--color-interactive-default)' : 'var(--color-text-muted)',
                   }}
                 >
-                  <title>Constrain proportions</title>
                   <path d="M12 3v18" />
                   <path d="M8 21h8" />
                   <circle cx="12" cy="12" r="3" />

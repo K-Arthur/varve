@@ -217,7 +217,9 @@ describe('PropertiesPanel section gating for a real single selection', () => {
 
     await waitFor(() => expect(ctx?.state.selection).toEqual([liveDoc.nodeId]));
     expect(screen.getByRole('button', { name: 'Pathfinder' })).toBeTruthy();
-    expect(screen.getByRole('combobox', { name: 'Boolean operation' })).toHaveValue('union');
+    // Operation is the shared Select (the repo forbids native <select>), so
+    // the trigger is a combobox whose label is the visible option text.
+    expect(screen.getByRole('combobox', { name: 'Boolean operation' })).toHaveTextContent('Union');
     expect(screen.getByRole('button', { name: /Edit operand 1/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Edit operand 2/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Edit Boolean operands' })).toBeTruthy();
@@ -235,9 +237,10 @@ describe('PropertiesPanel section gating for a real single selection', () => {
       expect(ctx?.state.document.nodes[liveDoc.nodeId]).toMatchObject({ children: ['a', 'b'] }),
     );
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Boolean operation' }), {
-      target: { value: 'subtract' },
-    });
+    // Choosing a different operation must reach the document, not just the
+    // trigger label: open the listbox and activate the option.
+    fireEvent.click(screen.getByRole('combobox', { name: 'Boolean operation' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Subtract' }));
     await waitFor(() =>
       expect(ctx?.state.document.nodes[liveDoc.nodeId]).toMatchObject({
         boolean: { operation: 'subtract' },
