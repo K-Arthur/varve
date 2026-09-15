@@ -398,6 +398,9 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
   it('refuses a reviewed candidate whose mask no longer matches the source dimensions', async () => {
     const { doc, session } = await sessionFor();
     session.candidates[0]!.mask = new Uint8Array(1).fill(255);
+    // Recompute the review token to exercise geometry validation itself. A
+    // real mutation after review must fail earlier because the token is stale.
+    session.reviewedCandidateKey = objectSelectionCandidateReviewKey(session, 0) ?? undefined;
     const { result, stateRef, setAreaSelection } = setup(session, doc);
 
     await act(async () => {
@@ -509,6 +512,9 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
     const { doc, session } = await sessionFor();
     session.candidates[0]!.mask.fill(0);
     session.candidates[0]!.mask[0] = 255;
+    // Treat this as a freshly reviewed candidate so the test reaches prompt
+    // validation; a post-review mutation is covered by the review-key test.
+    session.reviewedCandidateKey = objectSelectionCandidateReviewKey(session, 0) ?? undefined;
     const { result, stateRef, setAreaSelection } = setup(session, doc);
 
     await act(async () => {

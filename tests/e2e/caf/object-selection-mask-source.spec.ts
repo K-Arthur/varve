@@ -86,11 +86,37 @@ async function seedReadyObjectSelectionAndOpenCaf(
     for (let y = top; y < bottom; y += 1) {
       mask.fill(255, y * width + left, y * width + right);
     }
+    let maskHash1 = 0x811c9dc5;
+    let maskHash2 = 0x9e3779b9;
+    const mixMaskByte = (value: number) => {
+      maskHash1 = Math.imul(maskHash1 ^ value, 0x01000193);
+      maskHash2 = Math.imul(maskHash2 ^ value, 0x85ebca6b);
+    };
+    const mixMaskUint32 = (value: number) => {
+      mixMaskByte(value & 0xff);
+      mixMaskByte((value >>> 8) & 0xff);
+      mixMaskByte((value >>> 16) & 0xff);
+      mixMaskByte((value >>> 24) & 0xff);
+    };
+    mixMaskUint32(width);
+    mixMaskUint32(height);
+    mixMaskUint32(mask.length);
+    for (const byte of mask) mixMaskByte(byte);
+    const maskFingerprint = `${(maskHash1 >>> 0).toString(16).padStart(8, '0')}${(maskHash2 >>> 0)
+      .toString(16)
+      .padStart(8, '0')}`;
     const candidateSetId = 'caf-object-selection-candidate-set';
     // This fixture represents the candidate after the same explicit review
     // checkbox used by the production Object Selection panel. Without this
     // token the CAF import control must remain disabled.
-    const reviewedCandidateKey = [sourceFingerprint, '', 'sam2-hiera-tiny', candidateSetId, 0]
+    const reviewedCandidateKey = [
+      sourceFingerprint,
+      '',
+      'sam2-hiera-tiny',
+      candidateSetId,
+      0,
+      maskFingerprint,
+    ]
       .map((part) => encodeURIComponent(String(part)))
       .join('|');
     dispatch((previous: any) => ({

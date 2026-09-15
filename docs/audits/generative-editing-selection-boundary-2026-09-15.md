@@ -26,6 +26,10 @@ a different region from the one shown in the review surface.
   non-negative, and the complete mask rectangle must lie within the source
   image. Invalid frames fail with an actionable `invalid-mask` error instead
   of being clipped or guessed.
+- Candidate review identity includes a synchronous fingerprint of the complete
+  source-resolution candidate mask, in addition to source, placement, model,
+  candidate-set, and candidate-index identities. A changed candidate raster
+  therefore loses review even when its surrounding session metadata is stale.
 - Provider masks remain separate from the user mask and final composite mask.
   The composite starts from an exact source clone, so pixels outside effective
   coverage cannot be changed by provider output.

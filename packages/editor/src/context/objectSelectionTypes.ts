@@ -70,13 +70,54 @@ export interface ObjectSelectionSession {
 }
 
 /**
+ * Return a stable, synchronous fingerprint of one decoded source-space mask.
+ * This is a review identity, not an integrity or security hash. The two-lane
+ * byte hash avoids turning a full-resolution mask into a large temporary
+ * string while still binding review to every mask byte and its frame shape.
+ */
+export function objectSelectionCandidateMaskFingerprint(
+  session: Pick<ObjectSelectionSession, 'width' | 'height' | 'candidates'>,
+  candidateIndex: number,
+): string | null {
+  const candidate = session.candidates[candidateIndex];
+  if (
+    !candidate ||
+    !Number.isSafeInteger(candidateIndex) ||
+    candidateIndex < 0 ||
+    !(candidate.mask instanceof Uint8Array)
+  ) {
+    return null;
+  }
+
+  let h1 = 0x811c9dc5;
+  let h2 = 0x9e3779b9;
+  const mix = (value: number) => {
+    h1 = Math.imul(h1 ^ value, 0x01000193);
+    h2 = Math.imul(h2 ^ value, 0x85ebca6b);
+  };
+  const mixUint32 = (value: number) => {
+    mix(value & 0xff);
+    mix((value >>> 8) & 0xff);
+    mix((value >>> 16) & 0xff);
+    mix((value >>> 24) & 0xff);
+  };
+
+  mixUint32(session.width);
+  mixUint32(session.height);
+  mixUint32(candidate.mask.length);
+  for (const byte of candidate.mask) mix(byte);
+  return `${(h1 >>> 0).toString(16).padStart(8, '0')}${(h2 >>> 0).toString(16).padStart(8, '0')}`;
+}
+
+/**
  * Return a stable, transient identity for the candidate currently shown to a
  * user. The source and mapping identities are deliberately part of the key:
  * reviewing a mask is not transferable across a changed image placement, even
- * when the candidate index happens to be the same. Candidate-set identity is
- * intentionally the only candidate-local input: confidence and diagnostic
- * fields may be refreshed while the same decoded mask remains on screen, and
- * that refresh must not silently revoke an otherwise valid review.
+ * when the candidate index happens to be the same. The exact candidate mask
+ * is also part of the key, so a refreshed or mutated raster cannot inherit
+ * approval from the pixels the user previously inspected. Confidence and
+ * diagnostic fields may be refreshed while the same decoded mask remains on
+ * screen, and that refresh alone does not revoke an otherwise valid review.
  */
 export function objectSelectionCandidateReviewKey(
   session: Pick<
@@ -86,6 +127,8 @@ export function objectSelectionCandidateReviewKey(
     | 'sourceFingerprint'
     | 'mappingFingerprint'
     | 'modelId'
+    | 'width'
+    | 'height'
     | 'candidates'
   >,
   candidateIndex: number,
@@ -94,12 +137,15 @@ export function objectSelectionCandidateReviewKey(
   if (!candidate || !Number.isSafeInteger(candidateIndex) || candidateIndex < 0) return null;
   const candidateSetId = session.candidateSetId ?? session.startedAt;
   if (!session.sourceFingerprint || candidateSetId == null) return null;
+  const maskFingerprint = objectSelectionCandidateMaskFingerprint(session, candidateIndex);
+  if (!maskFingerprint) return null;
   return [
     session.sourceFingerprint,
     session.mappingFingerprint ?? '',
     session.modelId,
     candidateSetId,
     candidateIndex,
+    maskFingerprint,
   ]
     .map((part) => encodeURIComponent(String(part)))
     .join('|');

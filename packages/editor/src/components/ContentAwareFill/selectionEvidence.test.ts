@@ -112,4 +112,14 @@ describe('generative edit selection evidence', () => {
       verification: 'carried-forward',
     });
   });
+
+  it('revokes a candidate review when the reviewed mask bytes change', () => {
+    const session = objectSession();
+    const reviewedKey = objectSelectionCandidateReviewKey(session, 0);
+    expect(reviewedKey).toBeTruthy();
+
+    session.candidates[0]!.mask[50 * session.width + 50] = 255;
+
+    expect(objectSelectionCandidateReviewKey(session, 0)).not.toBe(reviewedKey);
+  });
 });
