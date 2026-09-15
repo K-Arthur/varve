@@ -22,6 +22,17 @@ async function importPhoto(page: import('@playwright/test').Page, fixture: strin
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 15000 });
 }
 
+async function resetPhotoGateStartup(page: import('@playwright/test').Page) {
+  // A previous real-model or image-processing run can leave the shared app's
+  // crash-loop markers behind. This only resets startup flags for this fresh
+  // Playwright context; it does not touch documents, models, or the profile.
+  await page.addInitScript(() => {
+    localStorage.setItem('strata-clean-shutdown', 'true');
+    localStorage.removeItem('varve:crash-loop');
+    localStorage.removeItem('varve:safe-mode');
+  });
+}
+
 async function openSelectionSources(page: import('@playwright/test').Page) {
   const inspector = page.locator('.editor__inspector-panel');
   // Selection Sources sits on the Properties tab (the default), not on the
@@ -47,7 +58,8 @@ test.describe('Automatic subject estimate on real photographs', () => {
   test('still life: Fast estimate previews, applies as selection, and applies as a mask', async ({
     page,
   }, testInfo) => {
-    await navigateToEditor(page);
+    await resetPhotoGateStartup(page);
+    await navigateToEditor(page, '/', { startupTimeout: 180000 });
     await importPhoto(page, 'real-life-still-life.jpg');
     const inspector = await openSelectionSources(page);
 
@@ -89,10 +101,23 @@ test.describe('Automatic subject estimate on real photographs', () => {
       contentType: 'image/png',
     });
 
-    // Review the highlighted proposal before committing it. The refine
-    // controls appear only after the explicit selection/mask confirmation.
+    // Review the highlighted proposal before committing it. A proposal is not
+    // an area selection until the user explicitly confirms this action.
+    await inspector.getByRole('button', { name: 'Use selected candidate' }).click();
+    await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
+      /selected \(U²-Net Light estimate\)/i,
+      { timeout: 10000 },
+    );
     await expect(inspector.getByText('Refine selection')).toBeVisible({ timeout: 10000 });
+    await expect(inspector.getByRole('button', { name: 'Save selection' })).toBeEnabled();
 
+    // Re-review the same candidate before creating the separate persistent
+    // mask output. The two commit paths must not share a hidden auto-apply.
+    await inspector
+      .getByLabel('Subject proposals')
+      .locator('button[aria-label$="percent"]')
+      .first()
+      .click();
     await inspector.getByRole('button', { name: 'Apply as mask' }).click();
     await expect(
       page
@@ -111,7 +136,8 @@ test.describe('Automatic subject estimate on real photographs', () => {
   test('portrait with hair: Fast estimate produces a reviewable proposal and mask', async ({
     page,
   }, testInfo) => {
-    await navigateToEditor(page);
+    await resetPhotoGateStartup(page);
+    await navigateToEditor(page, '/', { startupTimeout: 180000 });
     await importPhoto(page, 'real-life-braided-portrait.jpg');
     const inspector = await openSelectionSources(page);
 
@@ -150,7 +176,8 @@ test.describe('Automatic subject estimate on real photographs', () => {
   test('interior scene: the estimate stays reviewable and honest about its limits', async ({
     page,
   }, testInfo) => {
-    await navigateToEditor(page);
+    await resetPhotoGateStartup(page);
+    await navigateToEditor(page, '/', { startupTimeout: 180000 });
     await importPhoto(page, 'real-life-interior-room.jpg');
     const inspector = await openSelectionSources(page);
 
