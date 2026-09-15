@@ -96,8 +96,16 @@ migrates isometric grids to the canonical spacing contract described above and a
 - Grid overlays are non-exporting interface guidance and do not enter the scene graph.
 - Custom axis sets that do not form a lattice are still shown, but only lattice families are
   snap candidates: the app does not promise plane transformations for inconsistent guides.
+- Grid visibility authored in the document is a normal undoable edit; the transient overlay
+  mode toggle (`Alt+Shift+I`) is view state and never enters history. Display visibility and
+  snapping remain independent (`visible` draws, `snapEnabled` snaps).
+- `IsometricAxis.spacing` is deprecated and inert: per-family line spacing is derived from the
+  basis, and an independent authored value could make the three families disagree.
 
 The follow-up audit and implementation tracker are in
 [`docs/audits/grid-system-audit-2026-09-09.md`](../audits/grid-system-audit-2026-09-09.md);
 the isometric research record and capability matrix are in
-[`docs/audits/isometric-grid-research-2026-09-14.md`](../audits/isometric-grid-research-2026-09-14.md).
+[`docs/audits/isometric-grid-research-2026-09-14.md`](../audits/isometric-grid-research-2026-09-14.md);
+the independent real-editor verification (including the cube, multi-object move, and
+hide/undo scenarios) is in
+[`docs/audits/isometric-grid-audit-2026-09-15.md`](../audits/isometric-grid-audit-2026-09-15.md).

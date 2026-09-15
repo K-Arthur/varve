@@ -116,6 +116,12 @@ export interface IsometricAxis {
   visible: boolean;
   color?: string;
   opacity?: number;
+  /**
+   * @deprecated Not consumed. Per-family line spacing is derived from the
+   * lattice basis (`s·sin θ`); storing an independent value here would let the
+   * three families disagree. Retained only so authored legacy data is not
+   * dropped during sanitization/migration.
+   */
   spacing?: number;
   label?: string;
 }
