@@ -373,7 +373,7 @@ function LayoutGuidesSection({ node }: { node: FrameNode }) {
           Visual frame guides do not arrange children. Use Auto layout above to change child
           arrangement.
         </p>
-        <button type="button" className="insp-btn" onClick={addGuide}>
+        <button type="button" className="insp-btn insp-btn--compact" onClick={addGuide}>
           Add layout guide
         </button>
         {guides.map((guide, index) => (
@@ -711,6 +711,7 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
           value={isMixed(gridColStartRaw) ? 0 : (gridColStartRaw ?? 0)}
           mixed={isMixed(gridColStartRaw)}
           min={0}
+          labelWrap
           onChange={(v) => patchGrid({ gridColumnStart: v || undefined })}
         />
         <NumberField
@@ -718,6 +719,7 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
           value={isMixed(gridColEndRaw) ? 0 : (gridColEndRaw ?? 0)}
           mixed={isMixed(gridColEndRaw)}
           min={0}
+          labelWrap
           onChange={(v) => patchGrid({ gridColumnEnd: v || undefined })}
         />
       </div>
@@ -727,6 +729,7 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
           value={isMixed(gridRowStartRaw) ? 0 : (gridRowStartRaw ?? 0)}
           mixed={isMixed(gridRowStartRaw)}
           min={0}
+          labelWrap
           onChange={(v) => patchGrid({ gridRowStart: v || undefined })}
         />
         <NumberField
@@ -734,6 +737,7 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
           value={isMixed(gridRowEndRaw) ? 0 : (gridRowEndRaw ?? 0)}
           mixed={isMixed(gridRowEndRaw)}
           min={0}
+          labelWrap
           onChange={(v) => patchGrid({ gridRowEnd: v || undefined })}
         />
       </div>

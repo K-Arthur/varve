@@ -478,7 +478,7 @@
   border: none;
   color: var(--color-text-secondary);
   font: inherit;
-  font-size: var(--font-size-xs);
+  font-size: var(--insp-value-size, var(--font-size-xs));
   font-weight: var(--font-weight-bold, 700);
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
@@ -886,7 +886,7 @@
   min-height: 2rem;
   height: 2rem;
   padding: 0 var(--space-2);
-  font-size: var(--font-size-xs);
+  font-size: var(--insp-value-size, var(--font-size-xs));
   border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
@@ -1065,11 +1065,19 @@
 
 /* Long labels (e.g. "Distribute columns", "Responsive rules"): wrap inside
  * the label column instead of overflowing into the control and overlapping
- * the adjacent buttons. */
-.insp-field__label--wrap {
+ * the adjacent buttons. `overflow-wrap: anywhere` (not `break-word`) so the
+ * label's min-content width can shrink inside the 38% grid track; with
+ * `break-word` the flex item still reported an overflowing scrollWidth and
+ * clipped long words such as "Effective resolution".
+ *
+ * The doubled class is deliberate: the base `.insp-field__label` rule later
+ * in this file (the responsive field grammar section) sets `white-space:
+ * nowrap` and `line-height` at equal specificity, so this modifier was dead
+ * for wrapping before 2026-09-15 — it only ever changed `overflow-wrap`. */
+.insp-field__label.insp-field__label--wrap {
   white-space: normal;
+  overflow-wrap: anywhere;
   line-height: 1.25;
-  overflow-wrap: break-word;
 }
 .insp-field__label--disabled {
   cursor: default;
@@ -1137,7 +1145,7 @@
   border-radius: var(--radius-control-compact);
   color: var(--color-text-primary);
   font-family: var(--type-data-numeric-family);
-  font-size: var(--font-size-xs);
+  font-size: var(--insp-value-size, var(--font-size-xs));
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
   cursor: text;
@@ -1160,12 +1168,12 @@
   border-color: var(--color-feedback-danger);
 }
 .insp-num__unit {
-  font-size: var(--font-size-xs);
+  font-size: var(--insp-value-size, var(--font-size-xs));
   color: var(--color-text-muted);
   flex-shrink: 0;
 }
 .insp-num__error {
-  font-size: var(--font-size-xs);
+  font-size: var(--insp-value-size, var(--font-size-xs));
   color: var(--color-feedback-danger);
   margin-top: var(--space-1);
 }
@@ -1186,7 +1194,7 @@
   flex: 1 0 100%;
   min-width: 0;
   color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
+  font-size: var(--insp-value-size, var(--font-size-xs));
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
@@ -2382,7 +2390,12 @@ fieldset.insp-canvas-props,
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  white-space: nowrap;
+  /* Inline switch/checkbox rows carry full sentences ("Enable magnetic
+   * pointer snapping"). `nowrap` clipped them in the value column at every
+   * label size (measured 137px client vs 234px text), so let them wrap. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-width: 0;
 }
 
 .insp-layout-guide-card {
@@ -5100,7 +5113,7 @@ fieldset.insp-canvas-props,
   min-height: 2rem;
   color: var(--color-text-muted);
   font-family: var(--type-interface-label-family);
-  font-size: var(--font-size-2xs);
+  font-size: var(--insp-label-size, var(--font-size-2xs));
   font-weight: var(--font-weight-semibold);
   line-height: var(--type-interface-label-line-height);
   white-space: nowrap;
@@ -5819,4 +5832,62 @@ fieldset.insp-canvas-props,
   flex-wrap: wrap;
   gap: var(--space-1);
   margin-top: var(--space-2);
+}
+
+/* ── Inspector type scale ─────────────────────────────────────────────
+ * Role-based dense-panel sizes. Rendered measurements on 2026-09-15 showed
+ * the Inspector at 10.43px field labels and 12.48px values — below every
+ * reference dense scale consulted (Carbon caption 12px / productive 14px,
+ * Nubisco utility 11px, Blender ~11-12px). These bounded, root-relative
+ * sizes raise legibility without inflating the panel on wide windows or
+ * shrinking it on a narrow rail. The tokens are scoped to the Inspector;
+ * global type tokens are untouched, and every consumer falls back to the
+ * previous size outside this scope.
+ *   label: 11px @360 → 12px @1280
+ *   value: 12px @360 → 13px @1280
+ * Evidence: docs/research/inspector-design-tab-review-2026-09-15.md.
+ */
+.editor-inspector {
+  --insp-label-size: clamp(0.6875rem, calc(0.663rem + 0.1087vw), 0.75rem);
+  --insp-value-size: clamp(0.75rem, calc(0.7255rem + 0.1087vw), 0.8125rem);
+}
+
+/* ── Shared compact inspector buttons ──────────────────────────────────
+ * `.insp-btn`/`--primary`/`--secondary` moved here from
+ * components/AdjustmentLayer/adjustment.css on 2026-09-15: twelve Inspector
+ * sections use them, but that stylesheet only loads when an adjustment
+ * component mounts, so button chrome depended on session history.
+ * `--compact` previously matched no rule at all. */
+.insp-btn {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-control-compact);
+  border: 1px solid var(--color-border-subtle);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.insp-btn--primary {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  border-color: var(--color-interactive-default);
+}
+
+.insp-btn--secondary {
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+}
+
+.insp-btn--compact {
+  /* WCAG 2.2 SC 2.5.8: the UA-default height measured 23.98px. */
+  box-sizing: border-box;
+  min-height: 1.5rem;
+}
+
+.insp-btn:hover {
+  border-color: var(--color-border-strong);
+}
+
+.insp-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
 }

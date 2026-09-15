@@ -336,6 +336,7 @@ function TrimControls({
             step={1}
             onChange={setPadding}
             unit="px"
+            labelWrap
           />
         </FieldRow>
         {!hasMask && (
@@ -601,6 +602,7 @@ function ExpandControls({
             step={1}
             onChange={setPadding}
             unit="px"
+            labelWrap
           />
         </FieldRow>
         <FieldRow label="From Center">

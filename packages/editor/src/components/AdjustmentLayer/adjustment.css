@@ -1151,24 +1151,11 @@
   margin-top: var(--space-3);
 }
 
-.insp-btn {
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-control-compact);
-  border: 1px solid var(--color-border-subtle);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-
-.insp-btn--primary {
-  background: var(--color-interactive-default);
-  color: var(--color-text-on-accent);
-  border-color: var(--color-interactive-default);
-}
-
-.insp-btn--secondary {
-  background: var(--color-surface-base);
-  color: var(--color-text-primary);
-}
+/* Shared compact inspector buttons live in
+ * components/Inspector/inspector.css (`.insp-btn`). They moved there on
+ * 2026-09-15: twelve Inspector sections use them, but this stylesheet is only
+ * loaded when an adjustment component mounts, so button chrome previously
+ * depended on session history. Do not re-declare them here. */
 
 /* ── Gradient Map: opacity bar + new controls ─────────────────────────── */
 

@@ -102,6 +102,7 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
             step={0.1}
             onChange={handleScale}
             unit="x"
+            labelWrap
             disabled={placementLocked}
           />
         </FieldRow>

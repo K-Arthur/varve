@@ -43,8 +43,10 @@
   color: var(--color-text-primary);
   font: inherit;
   font-feature-settings: "tnum";
-  /* Match every other inspector number field (was --space-6 ≈ 27px). */
-  font-size: var(--font-size-xs);
+  /* Match every other inspector number field (was --space-6 ≈ 27px). The
+     inspector-scoped value token raises the old 12.48px floor; outside the
+     inspector the previous size is the fallback. */
+  font-size: var(--insp-value-size, var(--font-size-xs));
   flex: 1 1 0;
   inline-size: auto;
   height: var(--component-compact-height);
@@ -72,7 +74,8 @@
 .range-value-control__number .insp-num__unit {
   color: var(--color-text-muted);
   flex: 0 0 auto;
-  font-size: var(--font-size-xs);
+  font-size: var(--insp-value-size, var(--font-size-xs));
+  white-space: nowrap;
 }
 
 .range-value-control__number .insp-num__error {

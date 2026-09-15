@@ -164,7 +164,7 @@ export function DocumentPanel() {
             </div>
           </div>
           <div className="insp-field">
-            <span className="insp-field__label">Object geometry</span>
+            <span className="insp-field__label insp-field__label--wrap">Object geometry</span>
             <div className="insp-field__control insp-field__control--inline">
               <Switch
                 label="Edges and centers"
@@ -174,7 +174,7 @@ export function DocumentPanel() {
             </div>
           </div>
           <div className="insp-field">
-            <span className="insp-field__label">Pages and frames</span>
+            <span className="insp-field__label insp-field__label--wrap">Pages and frames</span>
             <div className="insp-field__control insp-field__control--inline">
               <Switch
                 label="Page and frame bounds"

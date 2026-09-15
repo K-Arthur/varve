@@ -93,6 +93,8 @@ export interface NumberFieldProps {
   unit?: string;
   /** Optional compact visual label while preserving the full accessible name. */
   displayLabel?: string;
+  /** Let the visible label wrap inside its column instead of truncating. */
+  labelWrap?: boolean;
   /** Optional display formatter; editing and stored values remain full precision. */
   formatValue?: (value: number) => string;
   /** Keep the associated label available to assistive technology but hide it visually. */
@@ -164,6 +166,7 @@ export function NumberField({
   max = Infinity,
   unit,
   displayLabel,
+  labelWrap = false,
   formatValue,
   hideLabel = false,
   aliases = {},
@@ -642,7 +645,7 @@ export function NumberField({
         className={
           hideLabel
             ? 'varve-visually-hidden'
-            : `insp-field__label${disabled ? ' insp-field__label--disabled' : ''}${isReadOnly ? ' insp-field__label--readonly' : ''}`
+            : `insp-field__label${labelWrap ? ' insp-field__label--wrap' : ''}${disabled ? ' insp-field__label--disabled' : ''}${isReadOnly ? ' insp-field__label--readonly' : ''}`
         }
         onPointerDown={disabled || hideLabel ? undefined : handleLabelPointerDown}
       >
