@@ -142,7 +142,7 @@ Chromium-based.
 | `packages/editor/src/canvas/__tests__/isometricOverlayGeometry.test.ts` | 8 passed (independent camera projection under rotation, clipping, guide role, malformed config) |
 | `packages/editor/src/tools/__tests__/isometricSnapping.test.ts` | 15 passed (oblique counterexample through the snap API, sticky release/invalidations, geometry anchors, deterministic ties, no-op regression) |
 | `packages/editor/src/commands/__tests__/isometricPlaneCommands.test.ts` | 11 passed (pivot fixpoint, inverse round-trip, nested hierarchy single transform, locked/no-op, bounded artwork, step coarsening) |
-| `tests/e2e/canvas/isometric-grid.spec.ts` | 6/6 scenarios passed (one Home-navigation harness flake, green on isolated rerun). Captures: `docs/audits/isometric-evidence-2026-09-14/` |
+| `tests/e2e/canvas/isometric-grid.spec.ts` | 6/6 scenarios passed in a single run (a cold dev server can swallow the first gesture; the spec now waits for canvas readiness and retries the same gesture once). Captures: `docs/audits/isometric-evidence-2026-09-14/` |
 | Editor `tsc` | No new errors; two pre-existing errors in `snapping.ts` (lines ~306/591) reproduced with this work stashed |
 
 Screenshots inspected in this session: lattice overlay and panned coverage

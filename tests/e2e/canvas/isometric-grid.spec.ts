@@ -64,6 +64,51 @@ async function enableIsometricWorkspace(page: Page) {
   await expect(page.locator('.document-grid-overlay path').first()).toBeVisible({ timeout: 5000 });
 }
 
+/** Wait until the canvas surface accepts pointer input (cold dev-server safe). */
+async function waitForCanvasReady(page: Page) {
+  await page.locator('.editor-canvas').waitFor({ state: 'visible', timeout: 30000 });
+  await page.waitForFunction(
+    () => document.querySelectorAll('.editor-canvas canvas').length > 0,
+    undefined,
+    { timeout: 30000 },
+  );
+  // One animation frame of settle so the first pointerdown is not swallowed by
+  // a still-mounting surface.
+  await page.waitForTimeout(300);
+}
+
+/**
+ * Draw a rectangle with the rect tool and wait until exactly one shape is
+ * selected. A cold dev server can accept the drag before the canvas surface is
+ * interactive; retrying once keeps the workflow test honest without hiding a
+ * real product failure (the retry only re-issues the same user gesture).
+ */
+async function drawRectangle(
+  page: Page,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await waitForCanvasReady(page);
+    await page.keyboard.press('r');
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 10 });
+    await page.mouse.up();
+    await page.keyboard.press('v');
+    try {
+      await expect
+        .poll(async () => page.evaluate(() => window.__varveIsoTest?.getSelection().length ?? 0), {
+          timeout: 8000,
+        })
+        .toBe(1);
+      return;
+    } catch (error) {
+      if (attempt === 1) throw error;
+    }
+  }
+}
+
 async function enterIsometricWorkspace(page: Page) {
   await navigateToEditor(page, '/?isoTest=1');
   await enableIsometricWorkspace(page);
@@ -237,12 +282,7 @@ test.describe('Isometric construction workflow (real editor)', () => {
     const snapshot = await grid(page);
     expect(snapshot.activePlaneId).toBe('top');
 
-    await page.keyboard.press('r');
-    await page.mouse.move(520, 300);
-    await page.mouse.down();
-    await page.mouse.move(760, 430, { steps: 12 });
-    await page.mouse.up();
-    await page.keyboard.press('v');
+    await drawRectangle(page, { x: 520, y: 300 }, { x: 760, y: 430 });
     await page.waitForTimeout(200);
 
     const selected = await page.evaluate(() => window.__varveIsoTest?.getSelectionGeometry() ?? []);
@@ -281,12 +321,7 @@ test.describe('Isometric construction workflow (real editor)', () => {
     const snapshot = await grid(page);
     expect(snapshot.snapEnabled).toBe(true);
 
-    await page.keyboard.press('r');
-    await page.mouse.move(520, 300);
-    await page.mouse.down();
-    await page.mouse.move(640, 370, { steps: 10 });
-    await page.mouse.up();
-    await page.keyboard.press('v');
+    await drawRectangle(page, { x: 520, y: 300 }, { x: 640, y: 370 });
     await page.waitForTimeout(150);
 
     const before = (
@@ -331,12 +366,7 @@ test.describe('Isometric construction workflow (real editor)', () => {
     // Draw flat artwork *before* any isometric grid exists: no plane is
     // applied, so the rect keeps document-axis edges.
     await navigateToEditor(page, '/?isoTest=1');
-    await page.keyboard.press('r');
-    await page.mouse.move(480, 320);
-    await page.mouse.down();
-    await page.mouse.move(620, 400, { steps: 10 });
-    await page.mouse.up();
-    await page.keyboard.press('v');
+    await drawRectangle(page, { x: 480, y: 320 }, { x: 620, y: 400 });
     await page.waitForTimeout(150);
     const flat = (
       await page.evaluate(() => window.__varveIsoTest?.getSelectionGeometry() ?? [])
