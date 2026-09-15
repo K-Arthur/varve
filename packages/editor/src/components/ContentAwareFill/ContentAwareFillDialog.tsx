@@ -651,7 +651,9 @@ export function ContentAwareFillDialog({
     status === 'generating' ||
     status === 'applying';
   const hasResult = !isRefiningMask && previewDataUrl != null && result != null;
-  const capabilities = getGenerativeEditCapabilities();
+  const capabilities = getGenerativeEditCapabilities('local', {
+    nativeModelReady: diffusionModelHandle != null,
+  });
   const modeCapability = capabilities.modes[mode];
   const resourceProfile = capabilities.resourceProfile;
   const resourceLabel = [
@@ -698,6 +700,7 @@ export function ContentAwareFillDialog({
   }, [capabilities.resourceProfile.tier, expandPlanPreview, mode]);
   const modeAvailable =
     modeCapability.available &&
+    (!usesDiffusion || modeCapability.ready) &&
     !modeMissingModel &&
     diffusionMemoryFits &&
     (mode !== 'expand' ||

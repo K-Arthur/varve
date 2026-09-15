@@ -17,6 +17,7 @@ import { nativeGenerativeProvider } from './nativeProvider';
 import { assessGenerativeEditResources, getGenerativeEditResourceProfile } from './resourcePolicy';
 import {
   type GenerativeEditCapabilities,
+  type GenerativeEditCapabilityContext,
   type GenerativeEditCapabilityParameter,
   GenerativeEditError,
   type GenerativeEditModeCapabilities,
@@ -52,8 +53,11 @@ function modeCapabilities(
   };
 }
 
-function localCapabilities(): GenerativeEditCapabilities {
+function localCapabilities(
+  context: GenerativeEditCapabilityContext = {},
+): GenerativeEditCapabilities {
   const promptCapable = nativeGenerativeProvider.isAvailable();
+  const promptReady = promptCapable && context.nativeModelReady === true;
   const resourceProfile = getGenerativeEditResourceProfile();
   const reconstructionParameters: readonly GenerativeEditCapabilityParameter[] = [
     'seed',
@@ -108,7 +112,7 @@ function localCapabilities(): GenerativeEditCapabilities {
       }),
       replace: modeCapabilities({
         available: promptCapable,
-        ready: false,
+        ready: promptReady,
         prompt: promptCapable,
         variations: promptCapable,
         supportedParameters: promptCapable ? diffusionParameters : [],
@@ -122,7 +126,7 @@ function localCapabilities(): GenerativeEditCapabilities {
         // deliberately unavailable until its photographic quality is
         // qualified; do not expose a heuristic result as outpainting.
         available: promptCapable,
-        ready: promptCapable,
+        ready: promptReady,
         prompt: promptCapable,
         variations: promptCapable,
         supportedParameters: promptCapable ? diffusionParameters : [],
@@ -136,14 +140,17 @@ function localCapabilities(): GenerativeEditCapabilities {
   };
 }
 
-export function getGenerativeEditCapabilities(provider: 'local' | 'remote' = 'local') {
+export function getGenerativeEditCapabilities(
+  provider: 'local' | 'remote' = 'local',
+  context: GenerativeEditCapabilityContext = {},
+) {
   if (provider === 'remote') {
     return {
-      ...localCapabilities(),
+      ...localCapabilities(context),
       reason: 'No remote provider is configured for this local-first build.',
     };
   }
-  return localCapabilities();
+  return localCapabilities(context);
 }
 
 function assertUsableRequest(request: GenerativeEditRequest): void {

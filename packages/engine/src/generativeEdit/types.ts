@@ -47,6 +47,18 @@ export interface GenerativeEditResourceProfile {
   summary: string;
 }
 
+/**
+ * Runtime state supplied by the UI when resolving local capabilities.
+ *
+ * A desktop runtime can expose the native helper before a model has been
+ * installed and qualified. Keeping that distinction in the capability
+ * resolver prevents prompt controls from advertising an executable route
+ * prematurely.
+ */
+export interface GenerativeEditCapabilityContext {
+  nativeModelReady?: boolean;
+}
+
 export interface GenerativeEditProvider {
   kind: GenerativeEditProviderKind;
   id: string;

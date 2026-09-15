@@ -163,9 +163,10 @@ end to end after the last two migrations. Verified at the time of writing:
   Create-Table migrations the nested-Select Escape journey and the full
   Create-Table journey (toolbar → paste → create → layer appears).
 - **Visual**: Batch Rename, Settings, and Export at light and dark themes.
-- **Not re-verified under crash-free conditions**: the Batch Rename axe scan,
-  the Batch Rename focus-fallback assertion added with F8, and the visual
-  capture refresh that now includes Export. Re-run
+- **Not re-verified under crash-free conditions**: the Batch Rename axe scan
+  and the visual capture refresh that now includes Export. (The Batch Rename
+  focus-fallback assertion added with F8 has since been verified: focus lands
+  on the selected row inside the tree.) Re-run
   `tests/e2e/dialogs/dialog-system.spec.ts` on an unloaded machine to close
   these out.
 

@@ -15,6 +15,7 @@ import {
   type EffectStackKind,
   type EffectStackPayload,
   isContainer,
+  isVisualMaskTarget,
   LAYER_COLOR_LABELS,
   LAYER_COLORS,
   type LayerColor,

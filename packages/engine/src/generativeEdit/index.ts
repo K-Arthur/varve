@@ -57,6 +57,7 @@ export {
 } from './resourcePolicy';
 export {
   type GenerativeEditCapabilities,
+  type GenerativeEditCapabilityContext,
   type GenerativeEditCapabilityParameter,
   type GenerativeEditCapabilityReasonCode,
   GenerativeEditError,

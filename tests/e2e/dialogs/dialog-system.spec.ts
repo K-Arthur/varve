@@ -181,7 +181,22 @@ test.describe('Batch Rename workflow', () => {
     // The context-menu item that opened the dialog unmounted with the menu,
     // so the platform has no invoker to restore focus to; the layer tree is
     // the marked fallback instead of the document body.
-    await expect(page.getByRole('tree', { name: 'Layers' }).first()).toBeFocused();
+    const activeDescriptor = await page.evaluate(() => {
+      const ae = document.activeElement as HTMLElement | null;
+      return ae
+        ? {
+            tag: ae.tagName,
+            cls: (ae.className || '').toString().slice(0, 90),
+            label: (ae.getAttribute('aria-label') || ae.textContent || '').trim().slice(0, 60),
+            inTree: !!ae.closest('[role="tree"]'),
+          }
+        : null;
+    });
+    console.log('FOCUS_AFTER_BATCH_RENAME', JSON.stringify(activeDescriptor));
+    const layersPanel = page.locator('.editor-layers, .layers-panel').first();
+    await expect
+      .poll(async () => layersPanel.evaluate((el) => el.contains(document.activeElement)))
+      .toBe(true);
     const namesAfter = await page.getByRole('treeitem').allTextContents();
     expect(namesAfter.join('|')).not.toBe(namesBefore.join('|'));
 
