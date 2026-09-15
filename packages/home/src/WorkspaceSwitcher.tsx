@@ -1,5 +1,6 @@
 import { Popover, SemanticIcon } from '@varve/ui';
-import { type KeyboardEvent, useCallback, useState } from 'react';
+import { useState } from 'react';
+import { handleListboxKeyDown } from './listboxKeyboard';
 
 export interface WorkspaceSwitcherProps {
   workspaces: Array<{ id: string; name: string; kind: string }>;
@@ -9,20 +10,11 @@ export interface WorkspaceSwitcherProps {
 
 export function WorkspaceSwitcher({ workspaces, activeId, onSwitch }: WorkspaceSwitcherProps) {
   const [open, setOpen] = useState(false);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
 
   const activeWorkspace = workspaces.find((w) => w.id === activeId);
   const label = activeWorkspace?.name ?? 'Personal';
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent, id: string) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        onSwitch(id);
-        setOpen(false);
-      }
-    },
-    [onSwitch],
-  );
+  const rovingId = focusedId ?? activeId;
 
   const popover = (
     <div className="workspace-switcher__dropdown" role="listbox" aria-label="Workspaces">
@@ -41,9 +33,16 @@ export function WorkspaceSwitcher({ workspaces, activeId, onSwitch }: WorkspaceS
                 onSwitch(w.id);
                 setOpen(false);
               }}
-              onKeyDown={(e) => handleKeyDown(e, w.id)}
+              onFocus={() => setFocusedId(w.id)}
+              onKeyDown={(event) =>
+                handleListboxKeyDown(event, () => {
+                  onSwitch(w.id);
+                  setOpen(false);
+                })
+              }
               role="option"
               aria-selected={isActive}
+              tabIndex={rovingId === w.id ? 0 : -1}
             >
               <span className="workspace-switcher__item-icon">
                 <SemanticIcon name={w.kind === 'team' ? 'Team' : 'User'} size="sm" />
@@ -60,7 +59,13 @@ export function WorkspaceSwitcher({ workspaces, activeId, onSwitch }: WorkspaceS
   );
 
   return (
-    <Popover popover={popover} placement="bottom" open={open} onOpenChange={setOpen}>
+    <Popover
+      popover={popover}
+      placement="bottom"
+      open={open}
+      onOpenChange={setOpen}
+      openOnArrowKeys
+    >
       <button
         type="button"
         className="workspace-switcher"

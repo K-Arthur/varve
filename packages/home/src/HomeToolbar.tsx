@@ -17,6 +17,7 @@ import {
 } from '@varve/ui';
 import { type RefObject, useCallback, useState } from 'react';
 import { FilterDropdown } from './FilterDropdown';
+import { handleListboxKeyDown } from './listboxKeyboard';
 
 const WORKSPACE_FILTER_OPTIONS: { value: RecentWorkspaceFilter['mode']; label: string }[] = [
   { value: 'all', label: 'All Recent' },
@@ -79,6 +80,9 @@ export function HomeToolbar({
   onRecentWorkspaceFilterChange,
 }: HomeToolbarProps) {
   const [wsFilterOpen, setWsFilterOpen] = useState(false);
+  const [focusedWsFilter, setFocusedWsFilter] = useState<RecentWorkspaceFilter['mode'] | null>(
+    null,
+  );
   const viewModeOptions = [
     { value: 'grid' as ViewMode, label: 'Grid', icon: SOLID_CHROME_ICONS.layoutGrid },
     { value: 'list' as ViewMode, label: 'List', icon: SOLID_CHROME_ICONS.list },
@@ -128,32 +132,43 @@ export function HomeToolbar({
           <Popover
             open={wsFilterOpen}
             onOpenChange={setWsFilterOpen}
+            openOnArrowKeys
             popover={
               <div
                 className="varve-home__ws-filter-dropdown"
                 role="listbox"
                 aria-label="Workspace filter"
               >
-                {WORKSPACE_FILTER_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    role="option"
-                    aria-selected={(recentWorkspaceFilter?.mode ?? 'all') === opt.value}
-                    className={`varve-home__ws-filter-option ${
-                      (recentWorkspaceFilter?.mode ?? 'all') === opt.value
-                        ? 'varve-home__ws-filter-option--active'
-                        : ''
-                    }`}
-                    onClick={() => handleWsFilterSelect(opt.value)}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+                {WORKSPACE_FILTER_OPTIONS.map((opt) => {
+                  const isActive = (recentWorkspaceFilter?.mode ?? 'all') === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="option"
+                      aria-selected={isActive}
+                      tabIndex={
+                        (focusedWsFilter ?? recentWorkspaceFilter?.mode ?? 'all') === opt.value
+                          ? 0
+                          : -1
+                      }
+                      onFocus={() => setFocusedWsFilter(opt.value)}
+                      onKeyDown={(event) =>
+                        handleListboxKeyDown(event, () => handleWsFilterSelect(opt.value))
+                      }
+                      className={`varve-home__ws-filter-option ${
+                        isActive ? 'varve-home__ws-filter-option--active' : ''
+                      }`}
+                      onClick={() => handleWsFilterSelect(opt.value)}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
               </div>
             }
           >
-            <Button variant="ghost" aria-label="Workspace filter">
+            <Button variant="ghost" aria-label="Workspace filter" aria-haspopup="listbox">
               <SemanticIcon name="Filter" size="sm" />
               {currentWsFilterLabel}
             </Button>
