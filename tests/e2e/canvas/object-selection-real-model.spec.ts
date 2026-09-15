@@ -22,6 +22,14 @@ type SerializedFiber = {
 };
 
 type SerializedDocument = {
+  assets?: Record<
+    string,
+    {
+      dataUrl?: string;
+      naturalWidth?: number;
+      naturalHeight?: number;
+    }
+  >;
   nodes?: Record<
     string,
     {
@@ -35,7 +43,31 @@ type SerializedDocument = {
     {
       mode?: string;
       sourceNodeId?: string;
+      sourceSnapshotAssetId?: string;
       masks?: { userMaskAssetId?: string; width?: number; height?: number };
+      acceptedVariationId?: string;
+      activeVariationId?: string;
+      outputFrame?: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        sourceWidth: number;
+        sourceHeight: number;
+      };
+      variations?: Array<{
+        id?: string;
+        assetId?: string;
+        assetKind?: 'full-output' | 'region-overlay';
+        outputFrame?: {
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+          sourceWidth: number;
+          sourceHeight: number;
+        };
+      }>;
       selectionEvidence?: {
         source?: string;
         verification?: string;
@@ -325,6 +357,134 @@ function inspectLatestGenerativeEditMask(serialized: string): {
     mask: inspectMaskAsset(assetId, asset),
     selectionEvidence: edit.selectionEvidence,
   };
+}
+
+type AcceptedPhotoResultReport = {
+  sourceWidth: number;
+  sourceHeight: number;
+  assetKind: 'full-output' | 'region-overlay';
+  frame: { x: number; y: number; width: number; height: number };
+  target: { changedPixels: number; changedFraction: number };
+  mug: { changedPixels: number };
+  flowers: { changedPixels: number };
+};
+
+/**
+ * Compare the persisted accepted overlay with its immutable source snapshot.
+ * This is intentionally a browser decode so the check covers the same JPEG /
+ * PNG decoding path used by the editor, rather than treating an asset URL or
+ * a screenshot as proof that the accepted result changed the intended object.
+ */
+async function inspectAcceptedPhotoResult(
+  page: import('@playwright/test').Page,
+  serialized: string,
+): Promise<AcceptedPhotoResultReport> {
+  const serializedDocument = JSON.parse(serialized) as SerializedDocument;
+  const edit = Object.values(serializedDocument.generativeEdits ?? {}).at(-1);
+  const acceptedVariationId = edit?.acceptedVariationId ?? edit?.activeVariationId;
+  const variation = edit?.variations?.find((candidate) => candidate.id === acceptedVariationId);
+  const sourceAsset = edit?.sourceSnapshotAssetId
+    ? serializedDocument.assets?.[edit.sourceSnapshotAssetId]
+    : undefined;
+  const resultAsset = variation?.assetId
+    ? serializedDocument.assets?.[variation.assetId]
+    : undefined;
+  const frame = variation?.outputFrame ?? edit?.outputFrame;
+  if (!sourceAsset?.dataUrl || !resultAsset?.dataUrl || !frame || !variation?.assetKind) {
+    throw new Error('The accepted generative photo assets were not persisted');
+  }
+  return page.evaluate(
+    async ({ sourceUrl, resultUrl, frame, assetKind }) => {
+      const decode = (url: string): Promise<ImageData> =>
+        new Promise((resolve, reject) => {
+          const image = new Image();
+          image.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = image.naturalWidth;
+            canvas.height = image.naturalHeight;
+            const context = canvas.getContext('2d');
+            if (!context) {
+              reject(new Error('accepted-result comparison canvas is unavailable'));
+              return;
+            }
+            context.drawImage(image, 0, 0);
+            resolve(context.getImageData(0, 0, canvas.width, canvas.height));
+          };
+          image.onerror = () => reject(new Error('accepted-result image decode failed'));
+          image.src = url;
+        });
+      const source = await decode(sourceUrl);
+      const resultImage = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error('accepted result image decode failed'));
+        image.src = resultUrl;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = source.width;
+      canvas.height = source.height;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('accepted-result composite canvas is unavailable');
+      context.putImageData(source, 0, 0);
+      if (assetKind === 'region-overlay') {
+        context.drawImage(resultImage, frame.x, frame.y, frame.width, frame.height);
+      } else {
+        context.drawImage(resultImage, 0, 0, source.width, source.height);
+      }
+      const composite = context.getImageData(0, 0, source.width, source.height);
+      const changed = (x: number, y: number): boolean => {
+        const offset = (y * source.width + x) * 4;
+        const delta =
+          Math.abs(composite.data[offset]! - source.data[offset]!) +
+          Math.abs(composite.data[offset + 1]! - source.data[offset + 1]!) +
+          Math.abs(composite.data[offset + 2]! - source.data[offset + 2]!);
+        return delta >= 12;
+      };
+      const inspect = (rect: { minX: number; minY: number; maxX: number; maxY: number }) => {
+        const minX = Math.max(0, Math.floor(rect.minX));
+        const minY = Math.max(0, Math.floor(rect.minY));
+        const maxX = Math.min(source.width - 1, Math.floor(rect.maxX));
+        const maxY = Math.min(source.height - 1, Math.floor(rect.maxY));
+        let changedPixels = 0;
+        let totalPixels = 0;
+        for (let y = minY; y <= maxY; y += 1) {
+          for (let x = minX; x <= maxX; x += 1) {
+            totalPixels += 1;
+            if (changed(x, y)) changedPixels += 1;
+          }
+        }
+        return { changedPixels, changedFraction: totalPixels ? changedPixels / totalPixels : 0 };
+      };
+      return {
+        sourceWidth: source.width,
+        sourceHeight: source.height,
+        assetKind,
+        frame: { x: frame.x, y: frame.y, width: frame.width, height: frame.height },
+        // The interior is deliberately away from the apple's edge and the
+        // adjacent cup; it must be affected by an accepted apple removal.
+        target: inspect({ minX: 1080, minY: 650, maxX: 1230, maxY: 850 }),
+        // These windows are outside the reviewed apple mask and are used as
+        // exact preservation sentinels for neighboring subjects.
+        mug: {
+          changedPixels: inspect({ minX: 925, minY: 790, maxX: 995, maxY: 930 }).changedPixels,
+        },
+        flowers: {
+          changedPixels: inspect({ minX: 430, minY: 340, maxX: 880, maxY: 700 }).changedPixels,
+        },
+      };
+    },
+    {
+      sourceUrl: sourceAsset.dataUrl,
+      resultUrl: resultAsset.dataUrl,
+      frame: {
+        x: frame.x,
+        y: frame.y,
+        width: frame.width,
+        height: frame.height,
+      },
+      assetKind: variation.assetKind,
+    },
+  );
 }
 
 async function inspectDialogMask(page: import('@playwright/test').Page): Promise<{
@@ -817,7 +977,8 @@ test.describe('Object Selection real-model gate', () => {
       contentType: 'image/png',
     });
 
-    const applied = inspectLatestGenerativeEditMask(await serializeEditorDocument(page));
+    const acceptedDocument = await serializeEditorDocument(page);
+    const applied = inspectLatestGenerativeEditMask(acceptedDocument);
     expect(applied.mode).toBe('remove');
     expect(applied.sourceNodeId).toBeTruthy();
     expect(applied.mask.width).toBe(1280);
@@ -855,6 +1016,16 @@ test.describe('Object Selection real-model gate', () => {
     expect(applied.selectionEvidence.reviewedAt).toBeGreaterThanOrEqual(
       applied.selectionEvidence.candidateReviewedAt!,
     );
+
+    const resultPixels = await inspectAcceptedPhotoResult(page, acceptedDocument);
+    console.log('ACCEPTED OBJECT RESULT PIXELS:', resultPixels);
+    expect(resultPixels.sourceWidth).toBe(1280);
+    expect(resultPixels.sourceHeight).toBe(960);
+    expect(resultPixels.assetKind).toBe('region-overlay');
+    expect(resultPixels.target.changedPixels).toBeGreaterThan(1_000);
+    expect(resultPixels.target.changedFraction).toBeGreaterThan(0.05);
+    expect(resultPixels.mug.changedPixels).toBe(0);
+    expect(resultPixels.flowers.changedPixels).toBe(0);
   });
 
   test('uses a box hint to capture an edge-hugging real object before applying', async ({
