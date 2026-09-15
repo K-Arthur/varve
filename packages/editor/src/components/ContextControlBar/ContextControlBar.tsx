@@ -5,16 +5,20 @@
  * depending on the active selection:
  *
  *   - Nothing selected  → quick-access tool buttons (Frame, Rect, Text, Pen)
- *   - Image selected    → Crop, Remove BG, separator, Opacity
+ *   - Image selected    → Crop, Remove BG, Vectorize
  *   - Shape/Vector      → Fill swatch, Stroke swatch, Stroke width, Flip H/V
- *   - Text layer        → Font family, Weight, and Size controls
- *   - Frame             → Preset label, Orientation swap, Clip toggle
- *   - Multi-select      → Group, Align H center, Align V center, Boolean Union
+ *   - Text layer        → Font family, Weight, Bold/Italic, Size
+ *   - Frame             → Orientation swap, Clip toggle
+ *   - Multi-select      → Group, Align H center, Boolean Union
  *
- * Each control uses existing @varve/ui primitives (Icon, Tooltip) and reads
- * from useEditor() — no new context, no new provider, no new imports in hub
- * files (ContextControlBar is re-exported from the Menubar barrel so Shell
- * can import it on the same line without adding a new import statement).
+ * Each control uses existing @varve/ui primitives and the editor's existing
+ * commands — no new context, no new provider, no new imports in hub files
+ * (ContextControlBar is re-exported from the Menubar barrel so Shell can
+ * import it on the same line without adding a new import statement).
+ *
+ * Scope note: this bar is a *convenience* surface. Anything it does not
+ * expose (gradients, layered fills, stroke alignment/caps, per-side weights,
+ * corner radius) stays in the Inspector, which remains the complete editor.
  */
 
 import type { FrameNode, SceneNode, TextNode } from '@varve/scene';
@@ -38,6 +42,7 @@ import {
   typographyDisplayValues,
 } from '../Typography/typographyCommand';
 import { useTypographyPreview } from '../Typography/useTypographyPreview';
+import { ShapeQuickControls } from './ShapeQuickControls';
 import './ContextControlBar.css';
 
 /* ── Small helpers ───────────────────────────────────────────────── */
@@ -370,41 +375,6 @@ function TextSizeControl({
   );
 }
 
-function ShapeSection({
-  setSelectedFlipH,
-  setSelectedFlipV,
-}: {
-  setSelectedFlipH: () => void;
-  setSelectedFlipV: () => void;
-}) {
-  return (
-    <>
-      <span className="ccb__label">Shape</span>
-      <Divider />
-      <Tooltip label="Flip horizontal">
-        <button
-          type="button"
-          className="ccb__btn"
-          aria-label="Flip horizontal"
-          onClick={setSelectedFlipH}
-        >
-          <Icon name="FlipHorizontal2" size={14} />
-        </button>
-      </Tooltip>
-      <Tooltip label="Flip vertical">
-        <button
-          type="button"
-          className="ccb__btn"
-          aria-label="Flip vertical"
-          onClick={setSelectedFlipV}
-        >
-          <Icon name="FlipVertical2" size={14} />
-        </button>
-      </Tooltip>
-    </>
-  );
-}
-
 function FrameSection({
   node,
   applyFramePreset,
@@ -575,7 +545,11 @@ export function ContextControlBar() {
 
     if (node.kind === 'shape' || node.kind === 'path') {
       return (
-        <ShapeSection setSelectedFlipH={setSelectedFlipH} setSelectedFlipV={setSelectedFlipV} />
+        <ShapeQuickControls
+          node={node}
+          setSelectedFlipH={setSelectedFlipH}
+          setSelectedFlipV={setSelectedFlipV}
+        />
       );
     }
 
