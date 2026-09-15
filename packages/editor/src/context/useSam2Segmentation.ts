@@ -347,6 +347,7 @@ export function useSam2Segmentation(
         selectedCandidate: index,
         confidence: candidate.confidence,
         reviewedCandidateKey: undefined,
+        reviewedCandidateAt: undefined,
       });
     },
     [stateRef, writeTransientSession],
@@ -366,6 +367,7 @@ export function useSam2Segmentation(
       writeTransientSession({
         ...session,
         reviewedCandidateKey: reviewed ? (candidateKey ?? undefined) : undefined,
+        reviewedCandidateAt: reviewed ? Date.now() : undefined,
       });
       announcerRef.current?.announce(
         reviewed ? 'Object Selection target reviewed' : 'Object Selection target review cleared',
@@ -1450,6 +1452,7 @@ export function useSam2Segmentation(
                 rejectedCandidateCount: ranked.rejectedCount,
                 selectedCandidate,
                 reviewedCandidateKey: undefined,
+                reviewedCandidateAt: undefined,
                 points: prompts.points ?? [],
                 box: prompts.box ?? null,
                 draftPoint: null,

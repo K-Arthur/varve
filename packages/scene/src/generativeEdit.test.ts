@@ -95,6 +95,46 @@ describe('generative edit document contract', () => {
     expect(validateGenerativeEdit(fixture())).toBeNull();
   });
 
+  it('accepts reviewed object-selection evidence and rejects incomplete provenance', () => {
+    const evidence = {
+      schemaVersion: 1 as const,
+      source: 'object-selection' as const,
+      verification: 'object-selection-reviewed' as const,
+      maskFingerprint: 'mask-fingerprint',
+      reviewedAt: 30,
+      sourceFingerprint: 'sha256:source',
+      mappingFingerprint: 'mapping-fingerprint',
+      candidateReviewKey: 'candidate-review-key',
+      candidateSetId: 'candidate-set',
+      candidateIndex: 0,
+      candidateCount: 2,
+      rejectedCandidateCount: 1,
+      candidateScore: 0.94,
+      candidateScoreSource: 'predicted-iou',
+      promptContainment: 1,
+      promptCoordinateSpace: 'source-image-normalized' as const,
+      promptPoints: [{ x: 0.5, y: 0.5, label: 1 as const }],
+      candidateReviewedAt: 20,
+      diagnostics: {
+        hardPixels: 1200,
+        hardCoverage: 0.15,
+        bounds: { x: 120, y: 80, width: 160, height: 140 },
+        componentCount: 1,
+        anchoredComponentCount: 1,
+        anchoredCoverage: 1,
+        unanchoredCoverage: 0,
+        ambiguous: false,
+      },
+    };
+    expect(validateGenerativeEdit({ ...fixture(), selectionEvidence: evidence })).toBeNull();
+    expect(
+      validateGenerativeEdit({
+        ...fixture(),
+        selectionEvidence: { ...evidence, mappingFingerprint: '' },
+      }),
+    ).toContain('selection evidence');
+  });
+
   it('accepts repeated-edit lineage and rejects self-parenting records', () => {
     expect(validateGenerativeEdit({ ...fixture(), parentEditId: 'gen-0' })).toBeNull();
     expect(validateGenerativeEdit({ ...fixture(), parentEditId: 'gen-1' })).toContain(

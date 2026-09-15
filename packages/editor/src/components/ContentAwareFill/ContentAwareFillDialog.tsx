@@ -49,6 +49,10 @@ import { objectSelectionCandidateReviewKey } from '../../context/objectSelection
 import { replaceImageShapeContent } from '../../imageOperations';
 import { prepareImageMaskMapper } from '../../tools/imageMaskCoordinates';
 import {
+  normalizeSam2Prompts,
+  type Sam2NormalizedPrompts,
+} from '../../tools/sam2PromptCoordinates';
+import {
   decodeRasterMaskDataUrl,
   decodeRasterMaskRegionDataUrl,
   rasterizeAreaSelectionForNode,
@@ -86,6 +90,7 @@ import {
   refineGenerativeMask,
   resizeMaskCoverage,
 } from './maskOperations';
+import { buildGenerativeEditSelectionEvidence } from './selectionEvidence';
 import {
   analyzeSelectionHealth,
   emptySelectionHealth,
@@ -621,6 +626,7 @@ export function ContentAwareFillDialog({
   const [maskHealth, setMaskHealth] = useState<SelectionHealth>(() => emptySelectionHealth());
   const [maskRevision, setMaskRevision] = useState(0);
   const [reviewedObjectSelectionKey, setReviewedObjectSelectionKey] = useState<string | null>(null);
+  const [reviewedObjectSelectionAt, setReviewedObjectSelectionAt] = useState<number | null>(null);
   const [isRefiningMask, setIsRefiningMask] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
   const [previewZoom, setPreviewZoom] = useState<'fit' | 'custom'>('fit');
@@ -709,6 +715,20 @@ export function ContentAwareFillDialog({
     objectSelection && objectSelectionCandidate
       ? objectSelectionCandidateReviewKey(objectSelection, objectSelection.selectedCandidate)
       : null;
+  const objectSelectionMappingMatchesCurrent = useMemo(() => {
+    // Older transient sessions did not carry a mapping fingerprint and are
+    // still accepted for compatibility. Every current production session has
+    // one; when present, it must match the live source-to-world transform.
+    if (!objectSelection?.mappingFingerprint) return true;
+    if (!typedNode || objectSelection.width <= 0 || objectSelection.height <= 0) return false;
+    const mapper = prepareImageMaskMapper({
+      document: state.document,
+      node: typedNode,
+      sourceWidth: objectSelection.width,
+      sourceHeight: objectSelection.height,
+    });
+    return mapper?.fingerprint === objectSelection.mappingFingerprint;
+  }, [objectSelection, state.document, typedNode]);
   const objectSelectionInitialReviewMissing =
     objectSelection?.status === 'ready' &&
     (objectSelectionReviewKey === null ||
@@ -721,6 +741,8 @@ export function ContentAwareFillDialog({
     maskOrigin === 'object-selection' &&
     (!objectSelectionCandidate ||
       !objectSelectionReviewKey ||
+      objectSelectionInitialReviewMissing ||
+      !objectSelectionMappingMatchesCurrent ||
       reviewedObjectSelectionKey !== objectSelectionReviewKey ||
       objectSelectionNeedsRefinement);
   const canGenerate =
@@ -938,6 +960,7 @@ export function ContentAwareFillDialog({
     setMaskOrigin('brush');
     setMaskOperation('replace');
     setReviewedObjectSelectionKey(null);
+    setReviewedObjectSelectionAt(null);
     maskRevisionRef.current = 0;
     setMaskRevision(0);
     setModelAvailable(false);
@@ -1022,6 +1045,7 @@ export function ContentAwareFillDialog({
       invalidatePreview();
       editableSourceMaskRef.current = null;
       setReviewedObjectSelectionKey(null);
+      setReviewedObjectSelectionAt(null);
       setErrorMessage('The source image changed. Review the mask and generate again.');
       sessionSourceSignatureRef.current = sourceSignature;
     }
@@ -1510,6 +1534,7 @@ export function ContentAwareFillDialog({
     setMaskOrigin('brush');
     editableSourceMaskRef.current = null;
     setReviewedObjectSelectionKey(null);
+    setReviewedObjectSelectionAt(null);
     bumpMaskRevision();
     invalidatePreview();
   }, [bumpMaskRevision, invalidatePreview]);
@@ -1703,6 +1728,7 @@ export function ContentAwareFillDialog({
       // satisfied prompt geometry; the user must review the overlay in the
       // generation context before any pixels can be changed.
       setReviewedObjectSelectionKey(null);
+      setReviewedObjectSelectionAt(null);
     }
   }, [
     announce,
@@ -1866,6 +1892,7 @@ export function ContentAwareFillDialog({
     setMaskHealth(analyzeSelectionHealth(coverage, canvas.width, canvas.height, mode));
     setMaskOrigin('brush');
     setReviewedObjectSelectionKey(null);
+    setReviewedObjectSelectionAt(null);
     bumpMaskRevision();
     invalidatePreview();
   }, [bumpMaskRevision, hasMaskStrokes, invalidatePreview, mode]);
@@ -2855,6 +2882,65 @@ export function ContentAwareFillDialog({
         ...(usesDiffusion ? { strength, steps, guidanceScale } : {}),
         ...(usesDiffusion ? { imageGuidanceScale } : {}),
       };
+      let normalizedSelectionPrompts: Sam2NormalizedPrompts | undefined;
+      if (maskOrigin === 'object-selection') {
+        if (
+          !objectSelection ||
+          objectSelection.width !== sourceWidth ||
+          objectSelection.height !== sourceHeight
+        ) {
+          throw new GenerativeEditError(
+            'stale',
+            'The reviewed Object Selection no longer matches the source image. Create a new preview.',
+          );
+        }
+        const mapper = prepareImageMaskMapper({
+          document: currentDoc,
+          node: sourceNode,
+          sourceWidth,
+          sourceHeight,
+        });
+        if (!mapper || mapper.fingerprint !== objectSelection.mappingFingerprint) {
+          throw new GenerativeEditError(
+            'stale',
+            'The image placement changed after Object Selection. Create a new preview.',
+          );
+        }
+        normalizedSelectionPrompts = normalizeSam2Prompts(
+          {
+            points: objectSelection.points,
+            box: objectSelection.box ?? undefined,
+          },
+          mapper,
+          sourceWidth,
+          sourceHeight,
+        );
+        if (
+          normalizedSelectionPrompts.unmappedPointCount > 0 ||
+          normalizedSelectionPrompts.unmappedBoxCornerCount > 0
+        ) {
+          throw new GenerativeEditError(
+            'stale',
+            'The reviewed Object Selection prompt is no longer inside the image. Create a new preview.',
+          );
+        }
+      }
+      const selectionEvidence = buildGenerativeEditSelectionEvidence({
+        source: maskOrigin,
+        maskFingerprint: hashContent(generationRef.current.userMaskDataUrl),
+        reviewedAt: now,
+        objectSelection,
+        objectSelectionReviewKey,
+        generationReviewKey: reviewedObjectSelectionKey,
+        generationReviewedAt: reviewedObjectSelectionAt,
+        normalizedPrompts: normalizedSelectionPrompts,
+      });
+      if (!selectionEvidence) {
+        throw new GenerativeEditError(
+          'invalid-mask',
+          'The selected object was not reviewed in the current image context. Review the highlighted mask and try again.',
+        );
+      }
       const outputFrame = {
         ...generatedFrame,
         sourceWidth,
@@ -2891,6 +2977,7 @@ export function ContentAwareFillDialog({
             ? { userBounds: generationRef.current.userMaskBounds }
             : {}),
         },
+        selectionEvidence,
         outputFrame,
         maskAssetId: userMaskAsset.id,
         maskWidth: generationRef.current.userMaskWidth,
@@ -3035,6 +3122,11 @@ export function ContentAwareFillDialog({
     guidanceScale,
     imageGuidanceScale,
     usesDiffusion,
+    maskOrigin,
+    objectSelection,
+    objectSelectionReviewKey,
+    reviewedObjectSelectionKey,
+    reviewedObjectSelectionAt,
   ]);
 
   const handleDeleteVariation = useCallback(
@@ -3408,6 +3500,7 @@ export function ContentAwareFillDialog({
                 disabled={
                   objectSelection?.status !== 'ready' ||
                   objectSelectionInitialReviewMissing ||
+                  !objectSelectionMappingMatchesCurrent ||
                   objectSelectionCandidateNeedsRefinement ||
                   hasResult ||
                   isProcessing
@@ -3418,6 +3511,12 @@ export function ContentAwareFillDialog({
               {objectSelection?.status === 'ready' && objectSelectionInitialReviewMissing && (
                 <span className="caf-dialog__hint" role="status">
                   Review the highlighted target in Object Selection before importing this mask.
+                </span>
+              )}
+              {objectSelection?.status === 'ready' && !objectSelectionMappingMatchesCurrent && (
+                <span className="caf-dialog__hint" role="status">
+                  The image placement changed after Object Selection. Recreate the preview before
+                  importing this mask.
                 </span>
               )}
               {objectSelection?.status !== 'ready' && (
@@ -3581,12 +3680,17 @@ export function ContentAwareFillDialog({
                       objectSelectionReviewKey !== null &&
                       reviewedObjectSelectionKey === objectSelectionReviewKey
                     }
-                    disabled={objectSelectionReviewKey === null || objectSelectionNeedsRefinement}
-                    onChange={(event) =>
+                    disabled={
+                      objectSelectionReviewKey === null ||
+                      objectSelectionNeedsRefinement ||
+                      !objectSelectionMappingMatchesCurrent
+                    }
+                    onChange={(event) => {
                       setReviewedObjectSelectionKey(
                         event.target.checked ? objectSelectionReviewKey : null,
-                      )
-                    }
+                      );
+                      setReviewedObjectSelectionAt(event.target.checked ? Date.now() : null);
+                    }}
                   />
                   <span>
                     {objectSelectionNeedsRefinement

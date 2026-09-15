@@ -28,6 +28,67 @@ export interface GenerativeEditProvider {
   runtime: GenerativeEditRuntime;
 }
 
+/**
+ * The source of the editable mask recorded with a generative edit. This is
+ * provenance, not a claim that an automated proposal understood a semantic
+ * object name; prompted proposals still require the user's visible review.
+ */
+export type GenerativeEditSelectionSource =
+  | 'brush'
+  | 'pixel-selection'
+  | 'layer-mask'
+  | 'background-removal'
+  | 'image-alpha'
+  | 'object-selection'
+  | 'persisted';
+
+export type GenerativeEditSelectionVerification =
+  | 'explicit-user-review'
+  | 'object-selection-reviewed'
+  | 'carried-forward';
+
+export interface GenerativeEditSelectionDiagnostics {
+  hardPixels: number;
+  hardCoverage: number;
+  bounds: { x: number; y: number; width: number; height: number } | null;
+  componentCount: number;
+  anchoredComponentCount: number;
+  anchoredCoverage: number;
+  unanchoredCoverage: number;
+  ambiguous: boolean;
+}
+
+/**
+ * Auditable selection evidence. The actual source mask remains the raster
+ * mask asset referenced by `masks`; this compact record explains how that
+ * mask entered the workflow and which reviewed prompted candidate it came
+ * from, when applicable.
+ */
+export interface GenerativeEditSelectionEvidence {
+  schemaVersion: 1;
+  source: GenerativeEditSelectionSource;
+  verification: GenerativeEditSelectionVerification;
+  /** Deterministic identity of the final persisted user-mask data URL. */
+  maskFingerprint: string;
+  /** Time of the final review/apply checkpoint, in epoch milliseconds. */
+  reviewedAt: number;
+  sourceFingerprint?: string;
+  mappingFingerprint?: string;
+  candidateReviewKey?: string;
+  candidateSetId?: string;
+  candidateIndex?: number;
+  candidateCount?: number;
+  rejectedCandidateCount?: number;
+  candidateScore?: number;
+  candidateScoreSource?: string;
+  promptContainment?: number;
+  promptCoordinateSpace?: 'source-image-normalized';
+  promptPoints?: Array<{ x: number; y: number; label: 0 | 1 }>;
+  promptBox?: { x1: number; y1: number; x2: number; y2: number };
+  candidateReviewedAt?: number;
+  diagnostics?: GenerativeEditSelectionDiagnostics;
+}
+
 export interface GenerativeEditSettings {
   prompt?: string;
   negativePrompt?: string;
@@ -121,6 +182,8 @@ export interface GenerativeEditRecord {
   sourceRevision: number;
   placementRevision: string;
   masks: GenerativeEditMaskSet;
+  /** Optional for legacy records; new edits record how the mask was selected. */
+  selectionEvidence?: GenerativeEditSelectionEvidence;
   outputFrame: GenerativeEditOutputFrame;
   /** Compatibility alias retained for readers of the first record shape. */
   maskAssetId: string;
@@ -147,6 +210,20 @@ const RUNTIMES = new Set<GenerativeEditRuntime>([
   'native-cpu',
   'native-accelerated',
   'remote',
+]);
+const SELECTION_SOURCES = new Set<GenerativeEditSelectionSource>([
+  'brush',
+  'pixel-selection',
+  'layer-mask',
+  'background-removal',
+  'image-alpha',
+  'object-selection',
+  'persisted',
+]);
+const SELECTION_VERIFICATIONS = new Set<GenerativeEditSelectionVerification>([
+  'explicit-user-review',
+  'object-selection-reviewed',
+  'carried-forward',
 ]);
 
 function finiteNonNegative(value: unknown): value is number {
@@ -251,6 +328,117 @@ function validMaskSet(value: unknown): value is GenerativeEditMaskSet {
   );
 }
 
+function validSelectionEvidence(value: unknown): value is GenerativeEditSelectionEvidence {
+  if (!value || typeof value !== 'object') return false;
+  const evidence = value as Partial<GenerativeEditSelectionEvidence>;
+  const validBounds = (bounds: unknown): boolean => {
+    if (bounds === undefined) return true;
+    if (!bounds || typeof bounds !== 'object') return false;
+    const candidate = bounds as Record<string, unknown>;
+    return (
+      Number.isSafeInteger(candidate.x) &&
+      Number.isSafeInteger(candidate.y) &&
+      Number.isSafeInteger(candidate.width) &&
+      Number.isSafeInteger(candidate.height) &&
+      (candidate.width as number) > 0 &&
+      (candidate.height as number) > 0
+    );
+  };
+  const validPoints =
+    evidence.promptPoints === undefined ||
+    (Array.isArray(evidence.promptPoints) &&
+      evidence.promptPoints.every(
+        (point) =>
+          point !== null &&
+          typeof point === 'object' &&
+          finiteBetween(point.x, 0, 1) &&
+          finiteBetween(point.y, 0, 1) &&
+          (point.label === 0 || point.label === 1),
+      ));
+  const validBox =
+    evidence.promptBox === undefined ||
+    (evidence.promptBox !== null &&
+      typeof evidence.promptBox === 'object' &&
+      finiteBetween(evidence.promptBox.x1, 0, 1) &&
+      finiteBetween(evidence.promptBox.y1, 0, 1) &&
+      finiteBetween(evidence.promptBox.x2, 0, 1) &&
+      finiteBetween(evidence.promptBox.y2, 0, 1) &&
+      evidence.promptBox.x2 > evidence.promptBox.x1 &&
+      evidence.promptBox.y2 > evidence.promptBox.y1);
+  const diagnostics = evidence.diagnostics;
+  const validDiagnostics =
+    diagnostics === undefined ||
+    (diagnostics !== null &&
+      typeof diagnostics === 'object' &&
+      Number.isSafeInteger(diagnostics.hardPixels) &&
+      (diagnostics.hardPixels ?? -1) >= 0 &&
+      finiteBetween(diagnostics.hardCoverage, 0, 1) &&
+      validBounds(diagnostics.bounds) &&
+      Number.isSafeInteger(diagnostics.componentCount) &&
+      (diagnostics.componentCount ?? -1) >= 0 &&
+      Number.isSafeInteger(diagnostics.anchoredComponentCount) &&
+      (diagnostics.anchoredComponentCount ?? -1) >= 0 &&
+      finiteBetween(diagnostics.anchoredCoverage, 0, 1) &&
+      finiteBetween(diagnostics.unanchoredCoverage, 0, 1) &&
+      typeof diagnostics.ambiguous === 'boolean');
+  const candidateFieldsAreValid =
+    (evidence.candidateReviewKey === undefined ||
+      (typeof evidence.candidateReviewKey === 'string' &&
+        evidence.candidateReviewKey.length > 0)) &&
+    (evidence.candidateSetId === undefined ||
+      (typeof evidence.candidateSetId === 'string' && evidence.candidateSetId.length > 0)) &&
+    (evidence.candidateIndex === undefined ||
+      (Number.isSafeInteger(evidence.candidateIndex) && evidence.candidateIndex >= 0)) &&
+    (evidence.candidateCount === undefined ||
+      (Number.isSafeInteger(evidence.candidateCount) && evidence.candidateCount > 0)) &&
+    (evidence.rejectedCandidateCount === undefined ||
+      (Number.isSafeInteger(evidence.rejectedCandidateCount) &&
+        evidence.rejectedCandidateCount >= 0)) &&
+    (evidence.candidateScore === undefined || Number.isFinite(evidence.candidateScore)) &&
+    (evidence.candidateScoreSource === undefined ||
+      (typeof evidence.candidateScoreSource === 'string' &&
+        evidence.candidateScoreSource.length > 0)) &&
+    (evidence.candidateReviewedAt === undefined || finiteNonNegative(evidence.candidateReviewedAt));
+  const isObjectSelection = evidence.source === 'object-selection';
+  return (
+    evidence.schemaVersion === 1 &&
+    SELECTION_SOURCES.has(evidence.source as GenerativeEditSelectionSource) &&
+    SELECTION_VERIFICATIONS.has(evidence.verification as GenerativeEditSelectionVerification) &&
+    typeof evidence.maskFingerprint === 'string' &&
+    evidence.maskFingerprint.length > 0 &&
+    finiteNonNegative(evidence.reviewedAt) &&
+    (evidence.sourceFingerprint === undefined ||
+      (typeof evidence.sourceFingerprint === 'string' && evidence.sourceFingerprint.length > 0)) &&
+    (evidence.mappingFingerprint === undefined ||
+      (typeof evidence.mappingFingerprint === 'string' &&
+        evidence.mappingFingerprint.length > 0)) &&
+    (evidence.promptCoordinateSpace === undefined ||
+      evidence.promptCoordinateSpace === 'source-image-normalized') &&
+    (evidence.promptPoints === undefined || evidence.promptCoordinateSpace !== undefined) &&
+    (evidence.promptBox === undefined || evidence.promptCoordinateSpace !== undefined) &&
+    (evidence.promptContainment === undefined || finiteBetween(evidence.promptContainment, 0, 1)) &&
+    validPoints &&
+    validBox &&
+    validDiagnostics &&
+    candidateFieldsAreValid &&
+    (!isObjectSelection ||
+      (evidence.verification === 'object-selection-reviewed' &&
+        typeof evidence.sourceFingerprint === 'string' &&
+        evidence.sourceFingerprint.length > 0 &&
+        typeof evidence.mappingFingerprint === 'string' &&
+        evidence.mappingFingerprint.length > 0 &&
+        typeof evidence.candidateReviewKey === 'string' &&
+        evidence.candidateReviewKey.length > 0 &&
+        typeof evidence.candidateSetId === 'string' &&
+        evidence.candidateSetId.length > 0 &&
+        Number.isSafeInteger(evidence.candidateIndex) &&
+        (evidence.candidateIndex ?? -1) >= 0 &&
+        Number.isSafeInteger(evidence.candidateCount) &&
+        (evidence.candidateCount ?? 0) > 0 &&
+        finiteNonNegative(evidence.candidateReviewedAt)))
+  );
+}
+
 function validOutputFrame(value: unknown): value is GenerativeEditOutputFrame {
   if (!value || typeof value !== 'object') return false;
   const frame = value as Partial<GenerativeEditOutputFrame>;
@@ -330,6 +518,9 @@ export function validateGenerativeEdit(value: unknown): string | null {
     return 'Generative edit placementRevision is required';
   }
   if (!validMaskSet(edit.masks)) return 'Generative edit masks are invalid';
+  if (edit.selectionEvidence !== undefined && !validSelectionEvidence(edit.selectionEvidence)) {
+    return 'Generative edit selection evidence is invalid';
+  }
   if (!validOutputFrame(edit.outputFrame)) return 'Generative edit outputFrame is invalid';
   if (
     edit.sourceSnapshotAssetId !== undefined &&

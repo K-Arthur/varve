@@ -36,6 +36,8 @@ export interface ObjectSelectionSession {
   selectedCandidate: number;
   /** Exact candidate key that the user reviewed in the visible overlay. */
   reviewedCandidateKey?: string;
+  /** When the visible candidate review was confirmed, for audit/provenance. */
+  reviewedCandidateAt?: number;
   /** Prompt markers in document/world coordinates for the canvas overlay. */
   points: Array<{ x: number; y: number; label: 0 | 1 }>;
   /** Box hint in document/world coordinates for the canvas overlay. */

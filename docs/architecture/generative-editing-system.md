@@ -1,6 +1,6 @@
 # Generative editing system
 
-Status: current-state contract, 2026-09-13. See [ADR-0232](../adr/0232-generative-editing-semantics.md).
+Status: current-state contract, 2026-09-14. See [ADR-0232](../adr/0232-generative-editing-semantics.md).
 
 Varve's generative editing surface is a non-destructive layer over the
 existing scene, selection, raster-mask, asset, inference, history, and export
@@ -125,6 +125,16 @@ captures its starting mask and operation; Replace, Add, Subtract, and Intersect
 therefore apply to the complete stroke even when the browser coalesces or
 drops intermediate events.
 
+When an accepted object-selection mask is reopened, its source-resolution PNG
+and persisted non-zero bounds remain authoritative. The session decodes only
+that bounded source region for the next generation, including the margin
+needed for explicit grow/shrink or feather settings. This prevents a large
+photograph from silently replacing a reviewed thin or edge-touching selection
+with the downsampled dialog preview. Painting, inversion, or a compound mask
+operation revokes the lazy source reference and makes the visible edited
+preview authoritative again; a malformed or dimension-mismatched persisted
+mask blocks generation rather than guessing.
+
 Provider contracts are explicit: promptless repair routes to PatchMatch or
 LaMa, while a prompt is sent only to a provider that advertises and consumes
 semantic conditioning. Inpainting preparation uses aspect-preserving context
@@ -151,6 +161,16 @@ candidate, and the Generative Edit handoff recomputes that same key from the
 source fingerprint, image mapping, model, candidate set, and candidate index.
 Changing candidates, source pixels, placement, or the selected node therefore
 invalidates review before a downstream mask or generation can consume it.
+When an edit is accepted, `selectionEvidence` records the final mask
+fingerprint, selection source, review timestamps, source and placement
+fingerprints, and—when Object Selection supplied the mask—the reviewed
+candidate set/index, prompt geometry in normalized source coordinates, rejected
+candidate count, score provenance, and bounded topology diagnostics. The
+object-selection record is only valid after both the Object Selection review
+and the Generative Edit compositing-context review; a brush or compound edit is
+recorded as user-authored mask input instead of inventing model provenance.
+Legacy records may omit this optional evidence, but their persisted mask and
+accepted pixels remain valid.
 
 Expand exposes the four independent source-pixel margins as the authoritative
 frame controls. It also provides common target aspect ratios, explicit output
@@ -183,6 +203,8 @@ invoke inference.
 - source node and source asset id;
 - source revision and placement fingerprint;
 - a source-pixel mask asset and its dimensions;
+- optional selection evidence describing the reviewed mask source and, for
+  Object Selection, the candidate and prompt geometry that produced it;
 - operation (`fill`, `remove`, `replace`, or `expand`);
 - optional provider-consumed prompt, negative prompt, seed, quality, context
   padding, and mask refinement settings. Prompt text is persisted only when
@@ -415,6 +437,17 @@ model bytes. Imported safe-format artifacts are hashed and must pass an actual
 masked helper run before prompt modes are enabled. The helper validates that
 the decoded source and mask dimensions match the declared working frame before
 loading weights, so it never guesses at resampling or mask alignment. The
+desktop command repeats this boundary before resource/model lookup: it rejects
+unsupported modes, non-finite or out-of-range strength/guidance values, steps
+outside 1–100, prompts over 16,384 characters, and source/mask buffers whose
+byte lengths or working-frame dimensions do not match the request. These
+checks protect the native process from malformed IPC payloads; they do not
+make an unqualified model ready. The renderer maps native failures into the
+shared error codes as well: input and mask contract failures are separated from
+unsupported runtime, missing model, memory, device-loss, timeout, cancellation,
+and stale-source failures. This keeps a failed setup or backend from being
+reported as a generic generation error and lets the UI offer the correct
+recovery path. The
 desktop workflow supports an explicit, allowlisted download or user import,
 then validation; downloads resume through a native partial file, verify the
 pinned SHA-256, and install atomically. There is no silent model download.

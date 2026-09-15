@@ -36,6 +36,22 @@ type SerializedDocument = {
       mode?: string;
       sourceNodeId?: string;
       masks?: { userMaskAssetId?: string; width?: number; height?: number };
+      selectionEvidence?: {
+        source?: string;
+        verification?: string;
+        maskFingerprint?: string;
+        sourceFingerprint?: string;
+        mappingFingerprint?: string;
+        candidateReviewKey?: string;
+        candidateSetId?: string;
+        candidateIndex?: number;
+        candidateCount?: number;
+        candidateReviewedAt?: number;
+        reviewedAt?: number;
+        promptCoordinateSpace?: string;
+        promptPoints?: Array<{ x: number; y: number; label: 0 | 1 }>;
+        promptBox?: { x1: number; y1: number; x2: number; y2: number };
+      };
     }
   >;
 };
@@ -292,18 +308,22 @@ function inspectLatestGenerativeEditMask(serialized: string): {
   mode: string;
   sourceNodeId: string;
   mask: MaskReport;
+  selectionEvidence: NonNullable<
+    NonNullable<SerializedDocument['generativeEdits']>[string]['selectionEvidence']
+  >;
 } {
   const document = JSON.parse(serialized) as SerializedDocument;
   const edit = Object.values(document.generativeEdits ?? {}).at(-1);
   const assetId = edit?.masks?.userMaskAssetId;
   const asset = assetId ? document.rasterMaskAssets?.[assetId] : undefined;
-  if (!edit?.mode || !edit.sourceNodeId || !assetId || !asset) {
+  if (!edit?.mode || !edit.sourceNodeId || !assetId || !asset || !edit.selectionEvidence) {
     throw new Error('The generative edit did not retain its object-selection mask provenance');
   }
   return {
     mode: edit.mode,
     sourceNodeId: edit.sourceNodeId,
     mask: inspectMaskAsset(assetId, asset),
+    selectionEvidence: edit.selectionEvidence,
   };
 }
 
@@ -815,6 +835,26 @@ test.describe('Object Selection real-model gate', () => {
     expect(applied.mask.appleHardPixels).toBe(importedMask.appleHardPixels);
     expect(applied.mask.mugHardPixels).toBe(importedMask.mugHardPixels);
     expect(applied.mask.flowerHardPixels).toBe(importedMask.flowerHardPixels);
+    expect(applied.selectionEvidence).toMatchObject({
+      source: 'object-selection',
+      verification: 'object-selection-reviewed',
+      promptCoordinateSpace: 'source-image-normalized',
+    });
+    expect(applied.selectionEvidence.candidateCount).toBeGreaterThan(0);
+    expect(applied.selectionEvidence.candidateIndex).toBeGreaterThanOrEqual(0);
+    expect(applied.selectionEvidence.candidateIndex).toBeLessThan(
+      applied.selectionEvidence.candidateCount!,
+    );
+    expect(applied.selectionEvidence.maskFingerprint).toMatch(/^[0-9a-f]{16}$/);
+    expect(applied.selectionEvidence.sourceFingerprint).toMatch(/^sha256:/);
+    expect(applied.selectionEvidence.mappingFingerprint).toBeTruthy();
+    expect(decodeURIComponent(applied.selectionEvidence.candidateReviewKey!)).toContain(
+      applied.selectionEvidence.candidateSetId,
+    );
+    expect(applied.selectionEvidence.candidateReviewedAt).toBeGreaterThan(0);
+    expect(applied.selectionEvidence.reviewedAt).toBeGreaterThanOrEqual(
+      applied.selectionEvidence.candidateReviewedAt!,
+    );
   });
 
   test('uses a box hint to capture an edge-hugging real object before applying', async ({
