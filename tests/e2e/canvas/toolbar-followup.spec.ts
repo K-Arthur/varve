@@ -117,7 +117,12 @@ test.describe('Toolbar follow-up — status bar', () => {
           .filter((value) => Number.isFinite(value));
         const statusRow = rows[rows.length - 1] ?? 0;
         const buttons = Array.from(bar.querySelectorAll('button')).filter(
-          (button) => getComputedStyle(button).display !== 'none',
+          (button) =>
+            getComputedStyle(button).display !== 'none' &&
+            // Skip controls hidden by an ancestor (the priority tiers hide the
+            // fit group / zoom chip below their breakpoints): a hidden
+            // ancestor still leaves the button's own display computed.
+            button.getClientRects().length > 0,
         );
         const clipped: string[] = [];
         const undersized: Array<{ label: string; w: number; h: number }> = [];
@@ -178,19 +183,19 @@ test.describe('Toolbar follow-up — text quick bar', () => {
     await expect(contextBar.getByRole('textbox', { name: 'Font family' })).toHaveCount(0);
 
     // Exactly one roving tab stop among the bar's buttons; arrows move it.
-    // Use the plain Bold/Italic toggles: a combobox trigger (the weight
-    // select) correctly keeps its own arrow keys, so it cannot demonstrate
-    // toolbar focus movement.
+    // Use the colour swatch and More: the default artwork font has no real
+    // italic face, so Italic is legitimately disabled and must be skipped by
+    // arrow navigation (covered by the Toolbar unit tests).
     const tabStops = await bar.evaluate((element) =>
       Array.from(element.querySelectorAll('button'))
         .filter((button) => button.tabIndex >= 0)
         .map((button) => button.getAttribute('aria-label') ?? button.textContent?.trim() ?? ''),
     );
     expect(tabStops).toHaveLength(1);
-    const bold = bar.getByRole('button', { name: 'Bold' });
-    await bold.focus();
+    const colorSwatch = bar.getByRole('button', { name: 'Text color' });
+    await colorSwatch.focus();
     await page.keyboard.press('ArrowRight');
-    await expect(bar.getByRole('button', { name: 'Italic' })).toBeFocused();
+    await expect(bar.getByRole('button', { name: 'More text formatting' })).toBeFocused();
     await expect(bar.locator('button[tabindex="0"]')).toBeFocused();
 
     // The size field keeps native arrow-key stepping (focus must not hop).
@@ -225,16 +230,28 @@ test.describe('Toolbar follow-up — combined journey', () => {
     await page.mouse.up();
     await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
 
-    // Live text edited from the canvas bar.
+    // Live text edited from the canvas bar. Wait for the edit overlay to take
+    // focus before typing (the published pattern in typography-editing.spec):
+    // typing at the wrong moment silently creates an empty text node.
     await page.keyboard.press('t');
     await page.mouse.click(canvas.x + 420, canvas.y + 320);
-    await page.keyboard.type('Launch 2026');
+    const editor = page.getByRole('textbox', { name: /editing text/i });
+    await expect(editor).toBeFocused({ timeout: 15000 });
+    await page.keyboard.insertText('Launch 2026');
+    await expect(editor).toHaveValue('Launch 2026');
     const size = page.locator('.floating-text-bar').getByRole('spinbutton', { name: 'Font size' });
     await size.fill('28');
     await size.press('Enter');
+    await expect(editor).toBeVisible();
     await page.mouse.click(canvas.x + canvas.width - 60, canvas.y + canvas.height - 60);
     await expect(page.locator('.floating-text-bar')).toHaveCount(0);
     await expect(page.getByRole('treeitem')).toHaveCount(3, { timeout: 10000 });
+    // The committed node carries the authored content (layer names are
+    // content-derived), so a lost keystroke would fail here rather than pass
+    // as an accidental empty text node.
+    await expect(page.getByRole('treeitem', { name: /Text: Launch 2026/i })).toBeVisible({
+      timeout: 10000,
+    });
 
     // Switch placement, then verify document undo/redo does not disturb it.
     await openMenu(page, 'View');
