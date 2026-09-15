@@ -65,8 +65,8 @@ system and menu audits.
 | F3 | Medium | `AlertDialog` put initial focus on the header Close button, so an immediate Enter could activate the focused default and confirm a destructive action. | Native `showModal()` focuses the first focusable element; the shared AlertDialog never opted into deliberate initial focus. | **Fixed** (focus moves to the cancel action; unit-tested) |
 | F4 | Medium | Settings opened with focus on "Close dialog"; screen readers announced the close affordance rather than the dialog's purpose. | `Dialog`'s `focusFirstControl` is opt-in and Settings had not adopted it. | **Fixed** (focus lands on the active section tab; e2e-verified) |
 | F5 | High | **Batch Rename was unreachable.** `BatchRenameDialog` and its logic were complete and unit-tested but no component rendered it. | The dialog was never wired into the Layers context menu or any command. | **Fixed** (context-menu entry, migrated to the shared Dialog; full workflow + undo + axe covered in e2e) |
-| F6 | Medium | Family C modals keep the background in the accessibility tree; screen-reader users can browse content that is visually blocked. | `role="dialog"` + `aria-modal` on a `div` does not remove background content from the a11y tree the way a native `showModal()` does. | **Open** — migrate Family C to the shared Dialog; Export is the highest-value next migration |
-| F7 | Medium | Capture-phase window Escape handlers in other bespoke modals (`BatchBgRemoveDialog`, `FontBrowserDialog`, `DocumentFontsPanel`, `TableEditOverlay`) can still dismiss a layer underneath an open nested overlay — same class as F1, different components. | Ad-hoc per-component Escape listeners instead of the shared nested-overlay contract. | **Open** — adopt the registry or migrate to shared Dialog |
+| F6 | Medium | Family C modals keep the background in the accessibility tree; screen-reader users can browse content that is visually blocked. | `role="dialog"` + `aria-modal` on a `div` does not remove background content from the a11y tree the way a native `showModal()` does. | **Partially fixed** — Image Resize migrated to the shared Dialog; Export, Upscale, Create Table, Batch Background Removal, Model Download, Missing Fonts remain |
+| F7 | Medium | Capture-phase window Escape handlers in bespoke modals can dismiss a layer underneath an open nested overlay — same class as F1, different components. | Ad-hoc per-component Escape listeners instead of the shared nested-overlay contract. | **Open for `FontBrowserDialog` / `DocumentFontsPanel`** (both mid-edit by another agent during this review, deliberately untouched); `BatchBgRemoveDialog` and `TableEditOverlay` were checked and hold no nested Select/Combobox/Popover, so their capture handlers cannot race one |
 | F8 | Low | When the invoking element is gone (a context-menu item that unmounted), native focus restoration has nowhere to go and focus falls to `<body>`; there is no fallback contract. | The platform restores focus to the element that had it before `showModal()`; it cannot invent a survivor. | **Open** — needs a documented fallback (e.g. `data-focus-fallback`) |
 | F9 | Low | Long dialogs have no in-dialog search or grouping review at the ≥15-item threshold (Settings sections, font/icon browsers). | No search affordance; settings nav relies on scanning. | **Open** — review trigger, not a defect |
 | F10 | Info | `pnpm typecheck` failed on `master` before any dialog work (`ToolbarProps.children` required while the toolbar legitimately mounts empty; an untracked e2e spec used `Element.tabIndex`) and blocked the commit gate. | Missing optionality and a narrow element type. | **Fixed** (drive-by, both one-liners) |
@@ -129,13 +129,20 @@ before the Select could consume Escape.
   initial focus.
 - `packages/editor/src/components/ContentAwareFill/ContentAwareFillDialog.tsx`
   — same press/release rule for its custom backdrop.
+- `packages/editor/src/components/ImageResizeDialog.{tsx,css}` — migrated to
+  the shared Dialog (native top layer, inert background, focus containment,
+  Escape, restoration); the hand-rolled tab trap, backdrop button, window
+  Escape listener, and dead CSS are gone, and the error text uses the
+  `--color-feedback-danger` token instead of a hardcoded fallback.
 
 ## Remaining work (explicitly not done)
 
-1. Migrate Family C modals (F6) to the shared Dialog, starting with Export.
+1. Migrate the remaining Family C modals (F6) to the shared Dialog: Export,
+   Upscale, Create Table from Data, Batch Background Removal, Model Download,
+   Missing Fonts.
 2. Apply the nested-overlay guard to the remaining capture-phase Escape
-   handlers (F7): `BatchBgRemoveDialog`, `FontBrowserDialog`,
-   `DocumentFontsPanel`, `TableEditOverlay`.
+   handlers (F7) once `FontBrowserDialog` / `DocumentFontsPanel` are no
+   longer mid-edit.
 3. Define a focus fallback for a removed invoker (F8).
 4. Review in-dialog search for the longest dialogs (F9).
 5. Adopt `focusFirstControl` in the remaining large shared dialogs whose

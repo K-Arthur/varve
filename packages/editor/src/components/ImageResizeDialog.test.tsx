@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ImageFillData } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -36,5 +36,18 @@ describe('ImageResizeDialog', () => {
         workingSpace: 'linear-srgb',
       }),
     );
+  });
+
+  it('moves initial focus to the width field', () => {
+    render(<ImageResizeDialog nodeId="photo" fill={fill} onClose={() => {}} onApply={vi.fn()} />);
+    expect(screen.getByLabelText('Width')).toHaveFocus();
+  });
+
+  it('closes on Escape', () => {
+    const onClose = vi.fn();
+    render(<ImageResizeDialog nodeId="photo" fill={fill} onClose={onClose} onApply={vi.fn()} />);
+    const dialog = document.querySelector('dialog') as HTMLDialogElement;
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalled();
   });
 });
