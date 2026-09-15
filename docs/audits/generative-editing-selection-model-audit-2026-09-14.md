@@ -188,3 +188,10 @@ identity for mutable URL sources and fails closed when the same URL now serves
 different pixels; literal data/blob sources are immutable and avoid a redundant
 full-resolution decode. This closes the remaining same-node/same-URL race
 without claiming that a foreground model understands the user's object intent.
+
+The prompted adapter also now carries the encoder's exact SAM2 letterbox frame
+through decoding. Non-square source images are cropped back out of the padded
+decoder square before the mask is resized to source pixels; otherwise a valid
+prompt can produce a confidently shifted or squeezed selection. The adapter
+regression test covers a non-square source with positive padding rows. This is
+an invariant check for source geometry, not a broad model-quality claim.
