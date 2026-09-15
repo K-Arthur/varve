@@ -1140,7 +1140,7 @@
   font-size: var(--font-size-xs);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
-  cursor: ew-resize;
+  cursor: text;
   outline: none;
   text-align: right;
   transition:

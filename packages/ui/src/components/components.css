@@ -1899,6 +1899,9 @@
   color: var(--color-text-muted);
   cursor: ew-resize;
   user-select: none;
+  /* The label is the scrub handle: vertical panning stays with the browser so
+     the inspector still scrolls; horizontal drags reach pointermove. */
+  touch-action: pan-y;
 }
 .insp-field__control {
   flex: 1;
@@ -1920,7 +1923,7 @@
   color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-sm);
-  cursor: ew-resize;
+  cursor: text;
   outline: none;
 }
 .insp-num__input:focus-visible {

@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EditorContextValue } from '../../../context/types';
 import { EditorCtx } from '../../../context/types';
-import { formatRestingValue, NumberField } from './NumberField';
+import { formatRestingValue, NumberField, stripFloatResidue } from './NumberField';
 
 afterEach(cleanup);
 
@@ -300,13 +300,159 @@ describe('NumberField', () => {
     expect(onUnbind).toHaveBeenCalledTimes(1);
   });
 
-  it('is keyboard-operable as a control (Home/End jump to min/max)', () => {
+  it('leaves Home and End to native caret movement (APG spinbutton clarification)', () => {
     let val = 50;
     render(<NumberField label="X" value={val} min={0} max={100} onChange={(v) => (val = v)} />);
-    fireEvent.keyDown(screen.getByLabelText('X'), { key: 'Home' });
-    expect(val).toBe(0);
-    fireEvent.keyDown(screen.getByLabelText('X'), { key: 'End' });
-    expect(val).toBe(100);
+    const input = screen.getByLabelText('X');
+    // Not default-prevented: the browser still moves the caret to line start/end.
+    expect(fireEvent.keyDown(input, { key: 'Home' })).toBe(true);
+    expect(val).toBe(50);
+    expect(fireEvent.keyDown(input, { key: 'End' })).toBe(true);
+    expect(val).toBe(50);
+  });
+
+  it('steps by at least ten base steps on PageUp/PageDown', () => {
+    render(<Holder label="X" initial={0} min={0} max={100} />);
+    const input = screen.getByLabelText('X') as HTMLInputElement;
+    fireEvent.keyDown(input, { key: 'PageUp' });
+    expect(input.value).toBe('10');
+    fireEvent.keyDown(input, { key: 'PageDown' });
+    expect(input.value).toBe('0');
+    fireEvent.keyDown(input, { key: 'PageUp' });
+    fireEvent.keyDown(input, { key: 'PageUp' });
+    expect(input.value).toBe('20');
+  });
+
+  it('rebases the scrub accumulator when a modifier is pressed mid-drag', () => {
+    let val = 0;
+    render(<NumberField label="X" value={0} onChange={(v) => (val = v)} />);
+    fireEvent.pointerDown(screen.getByText('X'), { button: 0, clientX: 0 });
+    fireEvent.pointerMove(window, { clientX: 20 }); // +20 at x1
+    fireEvent.keyDown(window, { key: 'Shift', shiftKey: true });
+    fireEvent.pointerMove(window, { clientX: 30 }); // +10 at x10
+    fireEvent.pointerUp(window);
+    fireEvent.keyUp(window, { key: 'Shift' });
+    // Pre-fix this was 30 x 10 = 300; travel before the modifier keeps its factor.
+    expect(val).toBe(120);
+  });
+
+  it('does not quantize a fine-step scrub to a 0.01 grid', () => {
+    let val = 0;
+    render(<NumberField label="X" value={0.12345} step={0.001} onChange={(v) => (val = v)} />);
+    fireEvent.pointerDown(screen.getByText('X'), { button: 0, clientX: 0 });
+    fireEvent.pointerMove(window, { clientX: 10 });
+    expect(val).toBeCloseTo(0.13345, 6);
+  });
+
+  it('steps from a valid draft instead of the stale model value', () => {
+    render(<Holder label="X" initial={10} />);
+    const input = screen.getByLabelText('X') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '200' } });
+    fireEvent.keyDown(input, { key: 'ArrowUp' });
+    expect(input.value).toBe('201');
+  });
+
+  it('leaves an invalid draft alone when stepping', () => {
+    render(<Holder label="X" initial={10} />);
+    const input = screen.getByLabelText('X') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'abc' } });
+    fireEvent.keyDown(input, { key: 'ArrowUp' });
+    expect(input.value).toBe('abc');
+  });
+
+  it('does not change the value on wheel when the field is not focused', () => {
+    const onChange = vi.fn();
+    render(<NumberField label="X" value={10} onChange={onChange} />);
+    fireEvent.wheel(screen.getByLabelText('X'), { deltaY: -1 });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('opens no transaction when stepping cannot change the value', () => {
+    vi.useFakeTimers();
+    try {
+      const beginTransaction = vi.fn();
+      const commitTransaction = vi.fn();
+      const value = {
+        beginTransaction,
+        commitTransaction,
+        abortTransaction: vi.fn(),
+      } as unknown as EditorContextValue;
+      render(
+        <EditorCtx.Provider value={value}>
+          <Holder label="X" initial={100} min={0} max={100} />
+        </EditorCtx.Provider>,
+      );
+      const input = screen.getByLabelText('X') as HTMLInputElement;
+      fireEvent.keyDown(input, { key: 'ArrowUp' });
+      fireEvent.keyUp(window, { key: 'ArrowUp' });
+      input.focus();
+      fireEvent.wheel(input, { deltaY: -1 });
+      fireEvent.blur(input);
+      vi.advanceTimersByTime(250);
+      expect(beginTransaction).not.toHaveBeenCalled();
+      expect(commitTransaction).not.toHaveBeenCalled();
+      expect(input.value).toBe('100');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('opens no transaction when a scrub is clamped at its bound', () => {
+    const beginTransaction = vi.fn();
+    const commitTransaction = vi.fn();
+    const value = {
+      beginTransaction,
+      commitTransaction,
+      abortTransaction: vi.fn(),
+    } as unknown as EditorContextValue;
+    render(
+      <EditorCtx.Provider value={value}>
+        <Holder label="X" initial={100} min={0} max={100} />
+      </EditorCtx.Provider>,
+    );
+    fireEvent.pointerDown(screen.getByText('X'), { button: 0, clientX: 0 });
+    fireEvent.pointerMove(window, { clientX: 40 });
+    fireEvent.pointerUp(window);
+    expect(beginTransaction).not.toHaveBeenCalled();
+    expect(commitTransaction).not.toHaveBeenCalled();
+    expect((screen.getByLabelText('X') as HTMLInputElement).value).toBe('100');
+  });
+
+  it('cancels a scrub on Escape and restores the starting value', () => {
+    const abortTransaction = vi.fn();
+    const commitTransaction = vi.fn();
+    const value = {
+      beginTransaction: vi.fn(),
+      commitTransaction,
+      abortTransaction,
+    } as unknown as EditorContextValue;
+    function ScrubHolder() {
+      const [current, setCurrent] = useState(10);
+      return <NumberField label="X" value={current} onChange={setCurrent} />;
+    }
+    render(
+      <EditorCtx.Provider value={value}>
+        <ScrubHolder />
+      </EditorCtx.Provider>,
+    );
+    fireEvent.pointerDown(screen.getByText('X'), { button: 0, clientX: 0 });
+    fireEvent.pointerMove(window, { clientX: 30 });
+    expect((screen.getByLabelText('X') as HTMLInputElement).value).toBe('40');
+    fireEvent.keyDown(window, { key: 'Escape' });
+    // The store restores the document on abort (E2E asserts the rendered
+    // value); here the mocked context only proves the cancel was signalled.
+    expect(abortTransaction).toHaveBeenCalledTimes(1);
+    fireEvent.pointerUp(window);
+    expect(commitTransaction).not.toHaveBeenCalled();
+  });
+
+  it('ignores pointer events from a different pointer id', () => {
+    const onChange = vi.fn();
+    render(<NumberField label="X" value={10} onChange={onChange} />);
+    fireEvent.pointerDown(screen.getByText('X'), { button: 0, clientX: 0, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 30, pointerId: 2 });
+    fireEvent.pointerUp(window, { pointerId: 2 });
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it('coalesces focused wheel changes into one transaction after 200ms idle', () => {
@@ -405,5 +551,15 @@ describe('NumberField', () => {
     expect(beginTransaction).toHaveBeenCalledTimes(1);
     expect(commitTransaction).toHaveBeenCalledTimes(1);
     expect(abortTransaction).not.toHaveBeenCalled();
+  });
+});
+
+describe('stripFloatResidue', () => {
+  it('removes binary residue without imposing a decimal grid', () => {
+    expect(stripFloatResidue(270.40000000000003)).toBe(270.4);
+    expect(stripFloatResidue(0.1 + 0.2)).toBe(0.3);
+    expect(stripFloatResidue(0.13345000000000002)).toBeCloseTo(0.13345, 9);
+    expect(Object.is(stripFloatResidue(-0), 0)).toBe(true);
+    expect(stripFloatResidue(Number.POSITIVE_INFINITY)).toBe(Number.POSITIVE_INFINITY);
   });
 });
