@@ -407,3 +407,20 @@ local temporary evidence and are not part of the document or model cache.
 | Prompted point/box object selection | SAM2 Hiera Tiny when installed, WASM-compatible, and within the measured working-set budget | MobileSAM split ONNX, only after the user chooses Faster local model | explain the exact provider failure; never silently substitute a foreground estimate |
 | Soft edge / hair refinement | existing brush, trimap, and closed-form matting tools | BiRefNet only in its explicit high-quality cutout/refinement role | preserve binary-safe/manual refinement; do not call a hard mask an alpha matte |
 | Text discovery | not shipped | future detector → reviewed box → prompted segmenter | no detector download or background discovery on Object Selection open |
+
+## EfficientSAM-Ti challenger (rejected, 2026-09-14)
+
+EfficientSAM-Ti was evaluated through the same corpus and the same production
+encode/decode functions, plus a split-vs-combined ONNX parity gate on real
+photos. It produced identical predictions to the official combined export
+(bit-identical mask and IoU logits) and cleared every critical-category floor,
+but it is quality-equivalent to MobileSAM (mean IoU 0.723 vs 0.747, inside the
+0.03 equivalence band), has a larger measured peak working set (731 MB vs
+574 MB), has no mask-prompt capability, and its decoder requires an int64
+`orig_im_size` that the WebGPU execution provider cannot host. It is **not
+registered in the model catalog and cannot win or be chosen in routing**; the
+adapter and gated tests remain as an offline benchmark. Full evidence:
+`docs/audits/efficient-sam-ti-ab-evaluation-2026-09-14.md`. Text discovery's
+detector gate is recorded in
+`docs/research/text-object-discovery-feasibility-2026-09-14.md` and remains
+deferred on artifact reproducibility and browser-memory grounds.
