@@ -41,6 +41,33 @@ import StatusPill from '../../components/StatusPill.astro';
           <p>BiRefNet Lite for difficult boundaries, with native execution preferred for heavier work.</p>
           <span class="mode-card__meta">Local · optional 224 MB model</span>
         </article>
+        <article class="mode-card mode-card--accent">
+          <span class="mode-card__number">04</span>
+          <h2>Portrait</h2>
+          <p>MODNet portrait matting for people photos, with genuinely fractional hair and clothing edges.</p>
+          <span class="mode-card__meta">Local · optional 26 MB model</span>
+        </article>
+      </section>
+
+      <section class="feature-section">
+        <h2>Portrait matting, when the subject is a person</h2>
+        <p>
+          Portrait is an explicit mode for photographic people, not a general segmenter and never a
+          fallback for the other modes. It runs MODNet from the official public checkpoint at a
+          512-edge reference resolution and returns true fractional alpha, so hair strands and soft
+          clothing edges keep partial coverage instead of becoming a hard cutout.
+        </p>
+        <p>
+          The public checkpoint is a small research model, and its published limits are real: fine
+          or low-contrast strands, strong backlighting, motion blur, similar foreground and
+          background colours, and challenging poses or costumes can still be wrong. It may also
+          include more than one person in frame, so for a single subject select that person first
+          with Object Selection or Select subject; the reviewed constraint then excludes the
+          neighbouring person without darkening the subject's own edge. In our own real-photo run
+          the matte also happened to cover a large animal well, which is exactly why the mode is
+          presented as a portrait intent rather than a promise about what the model can and cannot
+          see.
+        </p>
       </section>
 
       <section class="feature-section">

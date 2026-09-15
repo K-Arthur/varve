@@ -136,10 +136,51 @@ describe('Grounding DINO Tiny real-model gate (gated)', () => {
       });
 
       const cases = [
-        { id: 'elephant', image: 'real-life-elephant.jpg', query: 'elephant.' },
-        { id: 'still-life', image: 'real-life-still-life.jpg', query: 'sunflower.' },
-        { id: 'portrait', image: 'real-life-portrait.jpg', query: 'person.' },
-        { id: 'multi', image: 'real-life-elephant.jpg', query: 'elephant. tree.' },
+        {
+          id: 'elephant',
+          image: 'real-life-elephant.jpg',
+          query: 'elephant.',
+          kind: 'present' as const,
+        },
+        {
+          id: 'still-life',
+          image: 'real-life-still-life.jpg',
+          query: 'sunflower.',
+          kind: 'present' as const,
+        },
+        {
+          id: 'portrait',
+          image: 'real-life-portrait.jpg',
+          query: 'person.',
+          kind: 'present' as const,
+        },
+        {
+          id: 'hepburn',
+          image: 'real-life-katharine-hepburn.jpg',
+          query: 'person.',
+          kind: 'present' as const,
+        },
+        {
+          id: 'multi',
+          image: 'real-life-elephant.jpg',
+          query: 'elephant. tree.',
+          kind: 'present' as const,
+        },
+        // Background-only / absent-object controls. Open-vocabulary detectors
+        // are known to hallucinate confident boxes when the prompted class is
+        // absent; recording the real behaviour keeps the UI copy honest.
+        {
+          id: 'absent-dog',
+          image: 'real-life-elephant.jpg',
+          query: 'dog.',
+          kind: 'absent' as const,
+        },
+        {
+          id: 'glass',
+          image: 'real-life-glass-reflection.jpg',
+          query: 'glass.',
+          kind: 'present' as const,
+        },
       ];
       const results: Array<Record<string, unknown>> = [];
       let rssBytes = 0;
@@ -171,15 +212,19 @@ describe('Grounding DINO Tiny real-model gate (gated)', () => {
           photo.height,
           { phraseSpans: spans },
         );
-        expect(detections.length).toBeGreaterThan(0);
-        const top = detections[0]!;
-        expect(top.score).toBeGreaterThan(0.3);
-        expect(top.box.x2).toBeGreaterThan(top.box.x1);
-        expect(top.box.y2).toBeGreaterThan(top.box.y1);
-        expect(top.box.x1).toBeGreaterThanOrEqual(0);
-        expect(top.box.y1).toBeGreaterThanOrEqual(0);
-        expect(top.box.x2).toBeLessThanOrEqual(photo.width);
-        expect(top.box.y2).toBeLessThanOrEqual(photo.height);
+        if (testCase.kind === 'present') {
+          expect(detections.length).toBeGreaterThan(0);
+          expect(detections[0]!.score).toBeGreaterThan(0.3);
+        }
+        const top = detections[0];
+        if (top) {
+          expect(top.box.x2).toBeGreaterThan(top.box.x1);
+          expect(top.box.y2).toBeGreaterThan(top.box.y1);
+          expect(top.box.x1).toBeGreaterThanOrEqual(0);
+          expect(top.box.y1).toBeGreaterThanOrEqual(0);
+          expect(top.box.x2).toBeLessThanOrEqual(photo.width);
+          expect(top.box.y2).toBeLessThanOrEqual(photo.height);
+        }
 
         const evidencePath = join(EVIDENCE_DIR, `${testCase.id}-detections.png`);
         writeOverlay(
@@ -189,9 +234,11 @@ describe('Grounding DINO Tiny real-model gate (gated)', () => {
         );
         results.push({
           case: testCase.id,
+          kind: testCase.kind,
           query: testCase.query,
           phrases: query.phrases,
           tokens: tokenization.ids.length,
+          detectionCount: detections.length,
           detections: detections.slice(0, 8).map((item) => ({
             phrase: item.phrase,
             phraseIndex: item.phraseIndex,

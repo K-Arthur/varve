@@ -31,9 +31,30 @@ import { sitePath } from '../../lib/siteUrl';
         <h2>Prompts are not object discovery</h2>
         <p>
           Candidate masks are alternative readings of the same prompt, not separate detected
-          instances. Multiple points may describe one object, and Varve keeps disconnected pieces
-          and holes instead of silently keeping only the largest component. Use a new prompt session
-          when you mean a different object, then combine the accepted selections intentionally.
+          instances. A single click is genuinely ambiguous &mdash; the same point can mean a part,
+          the whole object, or a group &mdash; so Varve keeps the competing readings and lets you
+          choose, with the reviewed candidate pinned for Apply. Multiple points may still describe
+          one object, and Varve keeps disconnected pieces and holes instead of silently keeping only
+          the largest component. Use a new prompt session when you mean a different object, then
+          combine the accepted selections intentionally.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Describe it in words</h2>
+        <p>
+          Find by description runs a local text-conditioned detector (Grounding DINO Tiny) on the
+          selected image. Type a concrete description such as <em>red mug</em> or
+          <em>person. dog.</em>, review the returned boxes, and send the one you mean into the same
+          candidate-review path. Detection is a discovery stage: it never applies a mask by itself,
+          and the box is only a prompt for the segmentation model.
+        </p>
+        <p>
+          It is an explicit optional download and runs fully on-device. Be precise with wording:
+          open-vocabulary detection is grounded in visual language, and a measured control showed
+          it can return a confident box even when the described object is absent &mdash; so scores
+          are model similarity, not proof, and the highlighted region must be verified. No match
+          shows an honest empty result instead of a fabricated rectangle.
         </p>
       </section>
 
@@ -67,9 +88,12 @@ import { sitePath } from '../../lib/siteUrl';
           safely afford: capable providers are checked against the measured working-set budget before
           quality is compared, and a provider that cannot fit is refused with an explanation instead
           of risking a crash or a silent downgrade. Faster or higher-detail providers are explicit
-          advanced choices, not surprises, and model names stay out of the normal workflow. The
-          candidate you review is the candidate that gets committed, and the result becomes an
-          ordinary mask — reopening the document never requires the model again.
+          advanced choices, not surprises, and model names stay out of the normal workflow. An
+          experimental EfficientSAM-Ti option exists for benchmark comparisons; it measured
+          quality-equivalent to MobileSAM with a larger working set and cannot take mask prompts,
+          so Auto never selects it. The candidate you review is the candidate that gets committed,
+          and the result becomes an ordinary mask &mdash; reopening the document never requires the
+          model again.
         </p>
       </section>
 

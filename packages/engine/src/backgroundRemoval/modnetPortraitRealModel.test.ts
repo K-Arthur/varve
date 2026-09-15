@@ -80,6 +80,49 @@ function writeAlphaPng(path: string, alpha: Float32Array, width: number, height:
   writeFileSync(path, PNG.sync.write(png));
 }
 
+/**
+ * Composite the source over four review backgrounds using the model alpha, the
+ * way a designer checks a cutout: black, white, a saturated colour, and a
+ * checkerboard. These reveal halos and missing strands that a checkerboard
+ * alone can hide.
+ */
+function writeCompositePng(
+  path: string,
+  photo: DecodedPhoto,
+  alpha: Float32Array,
+  width: number,
+  height: number,
+): void {
+  const png = new PNG({ width, height });
+  for (let index = 0; index < width * height; index += 1) {
+    const sourceX = Math.min(photo.width - 1, Math.floor((index % width) * (photo.width / width)));
+    const sourceY = Math.min(
+      photo.height - 1,
+      Math.floor(Math.floor(index / width) * (photo.height / height)),
+    );
+    const at = (sourceY * photo.width + sourceX) * 4;
+    const a = Math.max(0, Math.min(1, alpha[index] ?? 0));
+    const checker =
+      (Math.floor((index % width) / 16) + Math.floor(Math.floor(index / width) / 16)) % 2 === 0
+        ? 180
+        : 120;
+    const backgrounds = [
+      { r: 0, g: 0, b: 0 },
+      { r: 255, g: 255, b: 255 },
+      { r: 214, g: 32, b: 32 },
+      { r: checker, g: checker, b: checker },
+    ];
+    const quad = index % 4;
+    const background = backgrounds[quad]!;
+    png.data[index * 4] = Math.round((photo.data[at] ?? 0) * a + background.r * (1 - a));
+    png.data[index * 4 + 1] = Math.round((photo.data[at + 1] ?? 0) * a + background.g * (1 - a));
+    png.data[index * 4 + 2] = Math.round((photo.data[at + 2] ?? 0) * a + background.b * (1 - a));
+    png.data[index * 4 + 3] = 255;
+  }
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, PNG.sync.write(png));
+}
+
 describe('MODNet portrait real-model gate (gated)', () => {
   it.skipIf(!enabled)(
     'produces a fractional portrait matte and honours a reviewed constraint',
@@ -92,9 +135,26 @@ describe('MODNet portrait real-model gate (gated)', () => {
       expect(session.outputNames).toContain('output');
 
       const cases = [
-        { id: 'portrait', image: 'real-life-portrait.jpg' },
-        { id: 'braided-portrait', image: 'real-life-braided-portrait.jpg' },
-        { id: 'bearded-man', image: 'real-life-bearded-man.jpg' },
+        { id: 'portrait', image: 'real-life-portrait.jpg', domain: 'portrait' as const },
+        {
+          id: 'braided-portrait',
+          image: 'real-life-braided-portrait.jpg',
+          domain: 'portrait' as const,
+        },
+        { id: 'bearded-man', image: 'real-life-bearded-man.jpg', domain: 'portrait' as const },
+        {
+          id: 'katharine-hepburn',
+          image: 'real-life-katharine-hepburn.jpg',
+          domain: 'portrait' as const,
+        },
+        // Out-of-domain controls: a portrait-only model must not be presented
+        // as a general segmenter. These cases record what actually happens.
+        { id: 'elephant', image: 'real-life-elephant.jpg', domain: 'out-of-domain' as const },
+        {
+          id: 'beech-forest',
+          image: 'real-life-beech-forest.jpg',
+          domain: 'out-of-domain' as const,
+        },
       ];
       const results: Array<Record<string, unknown>> = [];
 
@@ -128,11 +188,17 @@ describe('MODNet portrait real-model gate (gated)', () => {
         const pixels = decoded.alpha.length;
         const coverage = covered / pixels;
         const fractionalFraction = fractional / pixels;
-        // Portraits occupy a plausible share of the frame and the matte must be
-        // soft, not a thresholded binary silhouette.
-        expect(coverage).toBeGreaterThan(0.02);
-        expect(coverage).toBeLessThan(0.98);
-        expect(fractionalFraction).toBeGreaterThan(0.001);
+        if (testCase.domain === 'portrait') {
+          // Portraits occupy a plausible share of the frame and the matte must
+          // be soft, not a thresholded binary silhouette.
+          expect(coverage).toBeGreaterThan(0.02);
+          expect(coverage).toBeLessThan(0.98);
+          expect(fractionalFraction).toBeGreaterThan(0.001);
+        } else {
+          // Out-of-domain: record the honest outcome. The model is not a
+          // general segmenter, and this gate exists to keep the docs honest.
+          expect(Number.isFinite(coverage)).toBe(true);
+        }
 
         const fullAlpha = resizeAlphaArea(
           decoded.alpha,
@@ -169,8 +235,11 @@ describe('MODNet portrait real-model gate (gated)', () => {
 
         const evidencePath = join(EVIDENCE_DIR, `${testCase.id}-matte.png`);
         writeAlphaPng(evidencePath, decoded.alpha, decoded.width, decoded.height);
+        const compositePath = join(EVIDENCE_DIR, `${testCase.id}-backgrounds.png`);
+        writeCompositePng(compositePath, photo, fullAlpha, photo.width, photo.height);
         results.push({
           case: testCase.id,
+          domain: testCase.domain,
           source: `${photo.width}x${photo.height}`,
           modelInput: `${width}x${height}`,
           inferenceMs: Math.round(inferenceMs),
@@ -179,6 +248,7 @@ describe('MODNet portrait real-model gate (gated)', () => {
           min: Number(min.toFixed(4)),
           max: Number(max.toFixed(4)),
           evidence: evidencePath,
+          composite: compositePath,
         });
       }
 

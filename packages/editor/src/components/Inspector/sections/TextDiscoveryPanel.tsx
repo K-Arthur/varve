@@ -252,6 +252,9 @@ export function TextDiscoveryPanel({
       <p className="insp-field__hint">
         Local text-conditioned discovery (Grounding DINO). Finds regions matching a description;
         detection does not commit anything — you still review the candidate mask before applying it.
+        Scores are model similarity, not proof the object is present: measured controls show a
+        confident box can appear even when the described object is absent, so verify the highlighted
+        region before segmenting it.
       </p>
       {state === 'missing' || state === 'downloading' ? (
         <div className="insp-actions">

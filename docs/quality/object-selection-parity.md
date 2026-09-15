@@ -409,9 +409,9 @@ local temporary evidence and are not part of the document or model cache.
 | Automatic subject estimate | bundled U²-Net Fast proposal, or the requested installed higher-quality foreground model | IS-Net / BiRefNet through the existing explicit quality controls | explain the model-free estimate or install offer; never call it semantic recognition |
 | Prompted point/box object selection | SAM2 Hiera Tiny when installed, WASM-compatible, and within the measured working-set budget | MobileSAM split ONNX, only after the user chooses Faster local model | explain the exact provider failure; never silently substitute a foreground estimate |
 | Soft edge / hair refinement | existing brush, trimap, and closed-form matting tools | BiRefNet only in its explicit high-quality cutout/refinement role | preserve binary-safe/manual refinement; do not call a hard mask an alpha matte |
-| Text discovery | not shipped | future detector → reviewed box → prompted segmenter | no detector download or background discovery on Object Selection open |
+| Text discovery | Grounding DINO Tiny (INT8) explicit local download, phrase-attributed boxes, automatic routing never downloads | reviewed box → same prompted segmenter candidate path | detection never commits a mask; scores are model similarity, not proof of presence; no match is an honest empty state |
 
-## EfficientSAM-Ti challenger (rejected, 2026-09-14)
+## EfficientSAM-Ti challenger (explicit-only production route, 2026-09-15)
 
 EfficientSAM-Ti was evaluated through the same corpus and the same production
 encode/decode functions, plus a split-vs-combined ONNX parity gate on real
@@ -420,13 +420,27 @@ photos. It produced identical predictions to the official combined export
 but it is quality-equivalent to MobileSAM (mean IoU 0.723 vs 0.747, inside the
 0.03 equivalence band), has a larger measured peak working set (731 MB vs
 574 MB), has no mask-prompt capability, and its decoder requires an int64
-`orig_im_size` that the WebGPU execution provider cannot host. It is **not
-registered in the model catalog and cannot win or be chosen in routing**; the
-adapter and gated tests remain as an offline benchmark. Full evidence:
-`docs/audits/efficient-sam-ti-ab-evaluation-2026-09-14.md`. Text discovery's
-detector gate is recorded in
-`docs/research/text-object-discovery-feasibility-2026-09-14.md` and remains
-deferred on artifact reproducibility and browser-memory grounds.
+`orig_im_size` that the WebGPU execution provider cannot host. It was
+therefore rejected for automatic routing and remains **explicit-only**: the
+routing fact carries `experimental: true` and Auto never selects it.
+
+On 2026-09-15 the verified adapter became reachable from the ordinary editor
+workflow as the explicit "Experimental — EfficientSAM-Ti" model preference.
+The graphs are registered in the generic inference worker
+(`efficient-sam-encoder` / `efficient-sam-decoder`), embeddings are cached by
+artifact checksum and provider, and prompt feeds respect the decoder's int64
+`orig_im_size`. A production-dispatch unit test
+(`packages/editor/src/context/promptedSegmentationProvider.test.ts`) asserts
+the graph names, the pre-packed 1024-longest-edge `batched_images` tensor, the
+three source-sized candidates, and that no mask input is sent. Full evidence:
+`docs/audits/efficient-sam-ti-ab-evaluation-2026-09-14.md` and
+`docs/audits/selection-ai-routing-real-world-2026-09-15.md`.
+
+Text discovery is now implemented rather than deferred: Grounding DINO Tiny
+runs locally, returns phrase-attributed reviewed boxes, and feeds the same
+prompted-segmentation candidate path. Its artifact, tokenizer parity, and the
+measured absent-object false-positive control are recorded in
+`docs/audits/selection-ai-routing-real-world-2026-09-15.md`.
 
 ## Chromium real-model E2E evidence (2026-09-15)
 
