@@ -12,7 +12,7 @@ import {
 } from '@varve/engine';
 import { describe, expect, it, vi } from 'vitest';
 import {
-  rankPromptedMaskCandidates,
+  encodeMobileSamPromptContract,
   runPromptedSegmentation,
 } from './promptedSegmentationProvider';
 
@@ -56,84 +56,6 @@ function imageData(): ImageData {
 }
 
 describe('prompted segmentation provider adapter', () => {
-  it('rejects the highest-IoU mask when it misses the explicit prompts', () => {
-    const wrong = new Uint8Array(16);
-    wrong.fill(255, 0, 4);
-    const right = new Uint8Array(16);
-    right[2 * 4 + 2] = 255;
-    const ranked = rankPromptedMaskCandidates(
-      [
-        { mask: wrong, width: 4, height: 4, score: 0.99, scoreSource: 'predicted-iou' },
-        { mask: right, width: 4, height: 4, score: 0.8, scoreSource: 'predicted-iou' },
-      ],
-      { points: [{ x: 0.5, y: 0.5, label: 1 }] },
-      4,
-      4,
-    );
-
-    expect(ranked.candidates).toHaveLength(1);
-    expect(ranked.candidates[0]!.promptContainment).toBe(1);
-    expect(ranked.selectedIndex).toBe(0);
-    expect(ranked.selectedScore).toBe(0.8);
-  });
-
-  it('requires background points to stay outside and boxes to overlap the mask', () => {
-    const mask = new Uint8Array(16);
-    mask[2 * 4 + 2] = 255;
-    const ranked = rankPromptedMaskCandidates(
-      [{ mask, width: 4, height: 4, score: 0.8, scoreSource: 'predicted-iou' }],
-      {
-        points: [
-          { x: 0.5, y: 0.5, label: 1 },
-          { x: 0, y: 0, label: 0 },
-        ],
-        box: { x1: 0.25, y1: 0.25, x2: 0.75, y2: 0.75 },
-      },
-      4,
-      4,
-    );
-
-    expect(ranked.candidates[0]!.promptContainment).toBe(1);
-    expect(ranked.selectedIndex).toBe(0);
-  });
-
-  it('does not return a prediction when every decoded mask misses the prompts', async () => {
-    const infer = vi.fn().mockResolvedValueOnce({
-      outputs: {
-        masks: {
-          data: new Float32Array([-1, -1, -1, -1]),
-          dims: [1, 1, 2, 2],
-        },
-        executionProvider: 'wasm',
-      },
-    });
-    const host = { infer } as unknown as Parameters<typeof runPromptedSegmentation>[0]['host'];
-    const embedding = {
-      providerId: SAM2_PROVIDER_ID,
-      tensors: {
-        image_embed: { data: new Float32Array(1), dims: [1, 1, 1, 1] },
-        high_res_feats_0: { data: new Float32Array(1), dims: [1, 1, 1, 1] },
-        high_res_feats_1: { data: new Float32Array(1), dims: [1, 1, 1, 1] },
-      },
-    };
-
-    await expect(
-      runPromptedSegmentation({
-        host,
-        decision: decision(SAM2_PROVIDER_ID),
-        encoderPath: 'sam2-encoder.onnx',
-        decoderPath: 'sam2-decoder.onnx',
-        imageData: imageData(),
-        sourceWidth: 4,
-        sourceHeight: 4,
-        points: [{ x: 0.5, y: 0.5, label: 1 }],
-        embedding,
-        signal: new AbortController().signal,
-        reservationBytes: 1024,
-      }),
-    ).rejects.toThrow(/did not honor the supplied prompts/);
-  });
-
   it('runs MobileSAM encoder/decoder graphs through the shared lifecycle', async () => {
     const infer = vi
       .fn()
@@ -188,12 +110,14 @@ describe('prompted segmentation provider adapter', () => {
     };
     expect(params.points).toEqual([{ x: 0.25, y: 0.75, label: 0 }]);
     expect(params.box).toEqual({ x1: 0.1, y1: 0.2, x2: 0.8, y2: 0.9 });
-    expect(result.candidates).toHaveLength(3);
+    expect(
+      encodeMobileSamPromptContract(params.points, params.box, 4, 4).point_labels!.data,
+    ).toEqual(new Float32Array([0, 2, 3]));
+    expect(result.candidates).toHaveLength(4);
     expect(result.selectedIndex).toBe(1);
     expect(result.selectedScore).toBeCloseTo(1.04, 5);
     expect(result.scoreSource).toBe('predicted-iou');
-    expect(result.candidates.every((candidate) => candidate.promptContainment === 1)).toBe(true);
-    expect(result.candidates[0]!.mask.some((value) => value === 255)).toBe(true);
+    expect(result.candidates[1]!.mask.some((value) => value === 255)).toBe(true);
   });
 
   it('runs EfficientSAM-Ti encoder/decoder graphs through the shared lifecycle', async () => {

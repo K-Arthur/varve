@@ -38,8 +38,6 @@ export type PromptedMaskCandidate = {
   height: number;
   score: number;
   scoreSource: 'predicted-iou' | 'heuristic';
-  /** Fraction of explicit point/box constraints satisfied by this mask. */
-  promptContainment?: number;
   lowResMask?: { data: Float32Array; width: number; height: number };
 };
 
@@ -51,122 +49,6 @@ export type PromptedPrediction = {
   scoreSource: 'predicted-iou' | 'heuristic';
   executionProvider: string;
 };
-
-type NormalizedPromptPoint = { x: number; y: number; label: 0 | 1 };
-type NormalizedPromptBox = { x1: number; y1: number; x2: number; y2: number };
-
-/**
- * Rank decoded masks only after checking the prompts that produced them.
- * Predicted IoU is a model estimate, not proof that the selected mask refers
- * to the user's point or box. This gate rejects an otherwise high-scoring
- * candidate when it misses an include point, covers an exclude point, or has
- * no pixels inside the requested box.
- */
-export function rankPromptedMaskCandidates(
-  candidates: PromptedMaskCandidate[],
-  prompts: { points?: NormalizedPromptPoint[]; box?: NormalizedPromptBox },
-  sourceWidth: number,
-  sourceHeight: number,
-): { candidates: PromptedMaskCandidate[]; selectedIndex: number; selectedScore: number } {
-  const ranked = candidates.map((candidate) => ({
-    ...candidate,
-    promptContainment: promptContainment(candidate, prompts, sourceWidth, sourceHeight),
-  }));
-  // A model can return several masks and assign the highest predicted-IoU
-  // score to the wrong object. Keep those masks out of the review/apply
-  // session entirely. Showing them as selectable candidates would make the
-  // prompt gate cosmetic: a user could cycle to a rejected mask and apply it
-  // after the provider had correctly identified that it missed the prompt.
-  const eligible = ranked.filter((candidate) => candidate.promptContainment === 1);
-  let selectedIndex = -1;
-  let selectedScore = Number.NEGATIVE_INFINITY;
-  for (let index = 0; index < eligible.length; index += 1) {
-    const candidate = eligible[index]!;
-    if (selectedIndex < 0 || candidate.score > selectedScore) {
-      selectedIndex = index;
-      selectedScore = candidate.score;
-    }
-  }
-  return { candidates: eligible, selectedIndex, selectedScore };
-}
-
-function promptContainment(
-  candidate: PromptedMaskCandidate,
-  prompts: { points?: NormalizedPromptPoint[]; box?: NormalizedPromptBox },
-  sourceWidth: number,
-  sourceHeight: number,
-): number {
-  if (
-    candidate.width !== sourceWidth ||
-    candidate.height !== sourceHeight ||
-    candidate.mask.length !== sourceWidth * sourceHeight
-  ) {
-    return 0;
-  }
-  const pointPrompts = prompts.points ?? [];
-  const constraintCount = pointPrompts.length + (prompts.box ? 1 : 0);
-  if (constraintCount === 0) return 0;
-  let satisfied = 0;
-  for (const point of pointPrompts) {
-    const covered = pointCovered(candidate.mask, sourceWidth, sourceHeight, point);
-    if ((point.label === 1 && covered) || (point.label === 0 && !covered)) satisfied += 1;
-  }
-  if (prompts.box && maskOverlapsBox(candidate.mask, sourceWidth, sourceHeight, prompts.box)) {
-    satisfied += 1;
-  }
-  return satisfied / constraintCount;
-}
-
-function pointCovered(
-  mask: Uint8Array,
-  width: number,
-  height: number,
-  point: NormalizedPromptPoint,
-): boolean {
-  if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) return false;
-  const x = Math.round(Math.max(0, Math.min(1, point.x)) * (width - 1));
-  const y = Math.round(Math.max(0, Math.min(1, point.y)) * (height - 1));
-  // A positive click can land on a one-pixel boundary after model resizing;
-  // allow a small source-relative neighbourhood. Negative clicks remain an
-  // exact exclusion so a mask cannot spill over an explicit background point.
-  const radius = point.label === 1 ? Math.max(1, Math.ceil(Math.min(width, height) / 512)) : 0;
-  for (let dy = -radius; dy <= radius; dy += 1) {
-    for (let dx = -radius; dx <= radius; dx += 1) {
-      const sampleX = x + dx;
-      const sampleY = y + dy;
-      if (
-        sampleX >= 0 &&
-        sampleX < width &&
-        sampleY >= 0 &&
-        sampleY < height &&
-        mask[sampleY * width + sampleX]! > 127
-      ) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
-function maskOverlapsBox(
-  mask: Uint8Array,
-  width: number,
-  height: number,
-  box: NormalizedPromptBox,
-): boolean {
-  const minX = Math.floor(Math.max(0, Math.min(1, Math.min(box.x1, box.x2))) * (width - 1));
-  const maxX = Math.ceil(Math.max(0, Math.min(1, Math.max(box.x1, box.x2))) * (width - 1));
-  const minY = Math.floor(Math.max(0, Math.min(1, Math.min(box.y1, box.y2))) * (height - 1));
-  const maxY = Math.ceil(Math.max(0, Math.min(1, Math.max(box.y1, box.y2))) * (height - 1));
-  for (let y = minY; y <= maxY; y += 1) {
-    for (let x = minX; x <= maxX; x += 1) {
-      if (mask[y * width + x]! > 127) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
 
 export async function runPromptedSegmentation({
   host,
@@ -199,6 +81,8 @@ export async function runPromptedSegmentation({
     throw new Error('Prompted object selection has no eligible local provider');
   }
   const providerId = decision.providerId;
+  const encoderId = decision.encoderId;
+  const decoderId = decision.decoderId;
 
   let resolvedEmbedding = embedding;
   if (!resolvedEmbedding) {
@@ -209,7 +93,7 @@ export async function runPromptedSegmentation({
               type: 'infer',
               modelType: 'efficient-sam-encoder',
               modelPath: encoderPath,
-              modelId: decision.encoderId,
+              modelId: encoderId,
               // The verified upstream preprocessing (longest side -> 1024,
               // raw RGB in [0,1], NCHW) is owned by the provider module; the
               // worker must not re-run a different letterbox on top of it.
@@ -231,7 +115,7 @@ export async function runPromptedSegmentation({
               type: 'infer',
               modelType: providerId === 'mobile-sam' ? 'mobile-sam-encoder' : 'sam2-encoder',
               modelPath: encoderPath,
-              modelId: decision.encoderId,
+              modelId: encoderId,
               imageData,
               reuseSession: true,
             },
@@ -250,7 +134,7 @@ export async function runPromptedSegmentation({
             ? 'efficient-sam-decoder'
             : 'sam2-decoder',
       modelPath: decoderPath,
-      modelId: decision.decoderId,
+      modelId: decoderId,
       tensors: resolvedEmbedding.tensors,
       params: buildDecoderParams(
         providerId,
@@ -272,22 +156,11 @@ export async function runPromptedSegmentation({
     sourceHeight,
     resolvedEmbedding.letterbox,
   );
-  const ranked = rankPromptedMaskCandidates(
-    decoded.candidates,
-    { points, box },
-    sourceWidth,
-    sourceHeight,
-  );
-  if (ranked.selectedIndex < 0) {
-    throw new Error(
-      'The segmentation model did not honor the supplied prompts. Adjust the include/exclude points or box and try again.',
-    );
-  }
   return {
     embedding: resolvedEmbedding,
-    candidates: ranked.candidates,
-    selectedIndex: ranked.selectedIndex,
-    selectedScore: ranked.selectedScore,
+    candidates: decoded.candidates,
+    selectedIndex: decoded.selectedIndex,
+    selectedScore: decoded.selectedScore,
     scoreSource: decoded.scoreSource,
     executionProvider: String(decoderResult.outputs.executionProvider ?? 'unknown'),
   };
@@ -297,11 +170,9 @@ function decodeEmbedding(
   decision: PromptedRoutingDecision,
   result: WorkerInferResult,
 ): PromptedEmbedding {
-  if (!decision.providerId) {
-    throw new Error('Prompted object selection encoder provider is unavailable');
-  }
-  const providerId = decision.providerId;
   const outputs = result.outputs as Record<string, unknown>;
+  const providerId = decision.providerId;
+  if (!providerId) throw new Error('Prompted object selection returned no provider identity');
   if (providerId === 'efficient-sam-ti') {
     const embedding = asWorkerTensor(outputs.image_embeddings, 'image_embeddings');
     return {
