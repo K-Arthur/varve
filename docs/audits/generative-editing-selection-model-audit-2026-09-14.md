@@ -155,3 +155,29 @@ The correct completion rule is therefore: the mask is visibly reviewed and
 geometrically validated, the provider is capable of the requested intent, the
 result is acceptable on the real-photo task, and the accepted candidate remains
 correct after undo/redo, reopen, export, cancellation, and source deletion.
+
+## Post-audit interaction and memory verification
+
+The selection-to-CAF boundary was rechecked after the initial audit. The brush
+path now rasterizes the segment between pointer samples, so a coalesced fast
+drag cannot collapse into two endpoint dots. The focused mask suite covers both
+single-dab and continuous-segment coverage. Isolated Chromium runs on the
+licensed still-life and landscape photographs exercised the actual CAF dialog;
+the resulting frames were non-empty and the landscape edit retained the source
+layer in place. These are reconstruction and interaction checks, not semantic
+object-removal qualification.
+
+The Object Selection wiring lane now uses the real braided-portrait fixture and
+checks the persisted source dimensions and fingerprint before importing the
+confirmed candidate into CAF. This keeps the difficult hair-boundary case in
+the browser lane without allocating a second full-resolution mask for the
+33-megapixel portrait. Mutable URL sources above the 16-megapixel identity
+verification limit fail closed and ask for a fresh selection; immutable data or
+blob sources retain their exact captured identity without a duplicate decode.
+
+The selection system remains deliberately conservative: automatic foreground
+proposals and model-free unions are estimates, not proof of object intent.
+Candidate review, explicit confirmation, mask-health warnings, and brush
+refinement are still required before generation. Semantic Fill, Replace, and
+Expand remain unqualified until a capable local model passes the real-photo
+quality gates.

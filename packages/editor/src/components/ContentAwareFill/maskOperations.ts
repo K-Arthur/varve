@@ -11,6 +11,11 @@ export interface MaskDimensions {
   height: number;
 }
 
+export interface MaskPoint {
+  x: number;
+  y: number;
+}
+
 function validDimensions({ width, height }: MaskDimensions): boolean {
   return (
     Number.isSafeInteger(width) &&
@@ -19,6 +24,98 @@ function validDimensions({ width, height }: MaskDimensions): boolean {
     height > 0 &&
     width * height <= 16_777_216
   );
+}
+
+/**
+ * A source mask may be larger than the bounded interactive preview. Resizing
+ * samples it directly and does not allocate another source-sized buffer, so
+ * the preview allocation limit must not reject an otherwise valid source
+ * mask. The exact typed-array length check below remains the memory boundary.
+ */
+function validSourceDimensions({ width, height }: MaskDimensions): boolean {
+  return (
+    Number.isSafeInteger(width) &&
+    Number.isSafeInteger(height) &&
+    width > 0 &&
+    height > 0 &&
+    Number.isSafeInteger(width * height)
+  );
+}
+
+function distanceSquaredToSegment(point: MaskPoint, start: MaskPoint, end: MaskPoint): number {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+  if (lengthSquared <= Number.EPSILON) {
+    const offsetX = point.x - start.x;
+    const offsetY = point.y - start.y;
+    return offsetX * offsetX + offsetY * offsetY;
+  }
+  const t = Math.max(
+    0,
+    Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared),
+  );
+  const nearestX = start.x + t * dx;
+  const nearestY = start.y + t * dy;
+  const offsetX = point.x - nearestX;
+  const offsetY = point.y - nearestY;
+  return offsetX * offsetX + offsetY * offsetY;
+}
+
+/**
+ * Rasterize one hard brush dab or the continuous segment between two pointer
+ * samples. Pointer events are allowed to be coalesced by the browser, so a
+ * UI that only paints at event coordinates can silently turn a fast drag into
+ * two unrelated dots and send the wrong edit region to inference.
+ */
+export function rasterizeMaskStroke(
+  dimensions: MaskDimensions,
+  start: MaskPoint | null,
+  end: MaskPoint,
+  brushRadius: number,
+): Uint8Array {
+  if (!validDimensions(dimensions)) throw new Error('Generative mask dimensions are invalid');
+  if (
+    !Number.isFinite(end.x) ||
+    !Number.isFinite(end.y) ||
+    (start && (!Number.isFinite(start.x) || !Number.isFinite(start.y)))
+  ) {
+    throw new Error('Generative mask coordinates are invalid');
+  }
+  if (!Number.isFinite(brushRadius) || brushRadius <= 0) {
+    throw new Error('Generative brush radius is invalid');
+  }
+
+  const { width, height } = dimensions;
+  const clampedEnd = {
+    x: Math.max(0, Math.min(width - 1, end.x)),
+    y: Math.max(0, Math.min(height - 1, end.y)),
+  };
+  const clampedStart = start
+    ? {
+        x: Math.max(0, Math.min(width - 1, start.x)),
+        y: Math.max(0, Math.min(height - 1, start.y)),
+      }
+    : clampedEnd;
+  const radius = Math.max(0.5, brushRadius);
+  const coverage = new Uint8Array(width * height);
+  const minX = Math.max(0, Math.floor(Math.min(clampedStart.x, clampedEnd.x) - radius));
+  const maxX = Math.min(width - 1, Math.ceil(Math.max(clampedStart.x, clampedEnd.x) + radius));
+  const minY = Math.max(0, Math.floor(Math.min(clampedStart.y, clampedEnd.y) - radius));
+  const maxY = Math.min(height - 1, Math.ceil(Math.max(clampedStart.y, clampedEnd.y) + radius));
+  const radiusSquared = radius * radius;
+
+  for (let y = minY; y <= maxY; y += 1) {
+    for (let x = minX; x <= maxX; x += 1) {
+      if (
+        distanceSquaredToSegment({ x: x + 0.5, y: y + 0.5 }, clampedStart, clampedEnd) <=
+        radiusSquared
+      ) {
+        coverage[y * width + x] = 255;
+      }
+    }
+  }
+  return coverage;
 }
 
 function maxFilterRows(
@@ -281,7 +378,7 @@ export function resizeMaskCoverage(
   target: MaskDimensions,
 ): Uint8Array {
   if (
-    !validDimensions(source) ||
+    !validSourceDimensions(source) ||
     !validDimensions(target) ||
     coverage.length !== source.width * source.height
   ) {

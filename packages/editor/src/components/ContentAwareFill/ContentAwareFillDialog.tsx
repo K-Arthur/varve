@@ -44,6 +44,7 @@ import { Button, Switch } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { computePlacementRevision } from '../../backgroundRemoval/SubjectIsolationService';
 import { useEditor } from '../../context';
+import { fingerprintImageData } from '../../context/imageFingerprint';
 import { replaceImageShapeContent } from '../../imageOperations';
 import { decodeRasterMaskDataUrl, rasterizeAreaSelectionForNode } from '../../tools/selectionMask';
 import type { ExpandPadding } from './expandCanvas';
@@ -71,9 +72,16 @@ import {
   type MaskCombineOperation,
   maskCoverageFromRgba,
   putMaskCoverage,
+  rasterizeMaskStroke,
   refineGenerativeMask,
   resizeMaskCoverage,
 } from './maskOperations';
+import {
+  analyzeSelectionHealth,
+  emptySelectionHealth,
+  maskMatchesSourceGeometry,
+  type SelectionHealth,
+} from './selectionHealth';
 import { mergeGenerativeVariations } from './variationSession';
 import './ContentAwareFillDialog.css';
 
@@ -84,6 +92,7 @@ const MAX_RETAINED_VARIATIONS = 8;
 const MAX_PREVIEW_PIXELS = 2_000_000;
 const MAX_VARIATION_THUMBNAIL_DIMENSION = 256;
 const MAX_SOURCE_PROXY_DIMENSION = 1536;
+const MAX_SOURCE_IDENTITY_PIXELS = 16_777_216;
 
 function previewRasterDimensions(width: number, height: number): { width: number; height: number } {
   const scale = Math.min(1, Math.sqrt(MAX_PREVIEW_PIXELS / Math.max(1, width * height)));
@@ -315,6 +324,44 @@ async function loadImageToImageData(
   return context.getImageData(0, 0, canvas.width, canvas.height);
 }
 
+/** Read the current source pixels for a last-mile Object Selection freshness check. */
+async function readCurrentSourceIdentity(
+  src: string,
+): Promise<{ width: number; height: number; fingerprint: string } | null> {
+  if (typeof document === 'undefined' || !src) return null;
+  try {
+    const cache = getImageCache();
+    cache.evict(src);
+    const image = await cache.load(src);
+    const { width, height } = cachedImageDims(image);
+    if (
+      !Number.isSafeInteger(width) ||
+      !Number.isSafeInteger(height) ||
+      width <= 0 ||
+      height <= 0
+    ) {
+      return null;
+    }
+    // Identity verification itself must not defeat the image-inference memory
+    // guard. Embedded/blob sources are handled without this read below; this
+    // limit protects mutable URL sources from a second full-resolution buffer.
+    if (width * height > MAX_SOURCE_IDENTITY_PIXELS) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) return null;
+    context.drawImage(image, 0, 0, width, height);
+    return {
+      width,
+      height,
+      fingerprint: await fingerprintImageData(context.getImageData(0, 0, width, height)),
+    };
+  } catch {
+    return null;
+  }
+}
+
 /** Rehydrate a persisted candidate for comparison without rerunning inference. */
 function persistedVariationResult(
   edit: GenerativeEditRecord,
@@ -543,6 +590,7 @@ export function ContentAwareFillDialog({
   >([]);
   const [activeVariationId, setActiveVariationId] = useState<string | null>(null);
   const [hasMaskStrokes, setHasMaskStrokes] = useState(false);
+  const [maskHealth, setMaskHealth] = useState<SelectionHealth>(() => emptySelectionHealth());
   const [maskRevision, setMaskRevision] = useState(0);
   const [isRefiningMask, setIsRefiningMask] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
@@ -553,6 +601,7 @@ export function ContentAwareFillDialog({
   const [previewViewport, setPreviewViewport] = useState({ width: 0, height: 0 });
   const [generationProgress, setGenerationProgress] = useState(0);
   const [generationStage, setGenerationStage] = useState('Preparing');
+  const lastPaintPointRef = useRef<{ x: number; y: number } | null>(null);
   const isProcessing =
     status === 'downloading' ||
     status === 'qualifying' ||
@@ -613,7 +662,8 @@ export function ContentAwareFillDialog({
   const canGenerate =
     (hasMaskStrokes || (mode === 'expand' && hasExpandPadding)) &&
     (mode !== 'replace' || prompt.trim().length > 0) &&
-    (mode !== 'expand' || modeAvailable);
+    (mode !== 'expand' || modeAvailable) &&
+    (mode === 'expand' || !maskHealth.blockingReason);
   const modeUnavailableReason =
     mode === 'expand' && expandWorkingPlanPreview && !expandWorkingPlanPreview.ok
       ? expandWorkingPlanPreview.message
@@ -631,7 +681,8 @@ export function ContentAwareFillDialog({
     typedNode &&
     state.objectSelectionSession?.nodeId === typedNode.id &&
     (!state.objectSelectionSession.documentId ||
-      state.objectSelectionSession.documentId === state.document.id)
+      state.objectSelectionSession.documentId === state.document.id) &&
+    state.objectSelectionSession.sourceLocator === imageSrc
       ? state.objectSelectionSession
       : null;
 
@@ -851,6 +902,8 @@ export function ContentAwareFillDialog({
     setActiveVariationId(null);
     generationRef.current = null;
     setHasMaskStrokes(false);
+    lastPaintPointRef.current = null;
+    setMaskHealth(emptySelectionHealth());
     setIsRefiningMask(false);
     setShowOriginal(false);
     setPreviewZoom('fit');
@@ -1046,6 +1099,14 @@ export function ContentAwareFillDialog({
           if (mctx) {
             mctx.fillStyle = 'black';
             mctx.fillRect(0, 0, preview.width, preview.height);
+            setMaskHealth(
+              analyzeSelectionHealth(
+                new Uint8Array(preview.width * preview.height),
+                preview.width,
+                preview.height,
+                'remove',
+              ),
+            );
           }
         }
         setHasMaskStrokes(false);
@@ -1068,6 +1129,9 @@ export function ContentAwareFillDialog({
               height: preview.height,
             });
             setHasMaskStrokes(coverage.some((value) => value > 0));
+            setMaskHealth(
+              analyzeSelectionHealth(coverage, preview.width, preview.height, 'remove'),
+            );
             setMaskOrigin('persisted');
             maskRevisionRef.current = 1;
             setMaskRevision(1);
@@ -1265,19 +1329,18 @@ export function ContentAwareFillDialog({
       const current = maskCoverageFromRgba(
         ctx.getImageData(0, 0, canvas.width, canvas.height).data,
       );
-      const incoming = new Uint8Array(current.length);
       const radius = brushSize / 2;
-      const minX = Math.max(0, Math.floor(x - radius));
-      const maxX = Math.min(canvas.width - 1, Math.ceil(x + radius));
-      const minY = Math.max(0, Math.floor(y - radius));
-      const maxY = Math.min(canvas.height - 1, Math.ceil(y + radius));
-      for (let py = minY; py <= maxY; py += 1) {
-        for (let px = minX; px <= maxX; px += 1) {
-          if (Math.hypot(px + 0.5 - x, py + 0.5 - y) <= radius) {
-            incoming[py * canvas.width + px] = 255;
-          }
-        }
-      }
+      const point = {
+        x: Math.max(0, Math.min(canvas.width - 1, x)),
+        y: Math.max(0, Math.min(canvas.height - 1, y)),
+      };
+      const incoming = rasterizeMaskStroke(
+        { width: canvas.width, height: canvas.height },
+        lastPaintPointRef.current,
+        point,
+        radius,
+      );
+      lastPaintPointRef.current = point;
       const combined = combineMaskCoverage(current, incoming, maskOperation);
       putMaskCoverage(ctx, combined, {
         width: canvas.width,
@@ -1286,15 +1349,17 @@ export function ContentAwareFillDialog({
       if (hasMaskStrokes !== combined.some((value) => value > 0)) {
         setHasMaskStrokes(combined.some((value) => value > 0));
       }
+      setMaskHealth(analyzeSelectionHealth(combined, canvas.width, canvas.height, mode));
       bumpMaskRevision();
     },
-    [brushSize, bumpMaskRevision, hasMaskStrokes, maskOperation],
+    [brushSize, bumpMaskRevision, hasMaskStrokes, maskOperation, mode],
   );
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (isProcessing) return;
       isPaintingRef.current = true;
+      lastPaintPointRef.current = null;
       setMaskOrigin('brush');
       e.currentTarget.setPointerCapture(e.pointerId);
       paintAt(e.clientX, e.clientY);
@@ -1312,6 +1377,7 @@ export function ContentAwareFillDialog({
 
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     isPaintingRef.current = false;
+    lastPaintPointRef.current = null;
     e.currentTarget.releasePointerCapture(e.pointerId);
   }, []);
 
@@ -1320,9 +1386,11 @@ export function ContentAwareFillDialog({
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    lastPaintPointRef.current = null;
     ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     setHasMaskStrokes(false);
+    setMaskHealth(emptySelectionHealth());
     setMaskOrigin('brush');
     bumpMaskRevision();
     invalidatePreview();
@@ -1342,10 +1410,31 @@ export function ContentAwareFillDialog({
     ): boolean => {
       const canvas = maskCanvasRef.current;
       if (!canvas || naturalSize.w <= 0 || naturalSize.h <= 0) {
+        console.warn('[CAF] mask source unavailable', {
+          canvas: Boolean(canvas),
+          naturalSize,
+          width,
+          height,
+          coverageLength: coverage.length,
+        });
         announce('The source image is still loading; try again in a moment');
         return false;
       }
       try {
+        if (
+          !Number.isInteger(width) ||
+          !Number.isInteger(height) ||
+          width <= 0 ||
+          height <= 0 ||
+          coverage.length !== width * height
+        ) {
+          throw new Error('The selected mask has invalid dimensions. Choose the source again.');
+        }
+        if (!maskMatchesSourceGeometry(width, height, naturalSize.w, naturalSize.h)) {
+          throw new Error(
+            'The selected mask does not match this image geometry. Recreate the selection on the current source.',
+          );
+        }
         const resized = resizeMaskCoverage(
           coverage,
           { width, height },
@@ -1359,17 +1448,27 @@ export function ContentAwareFillDialog({
         const combined = combineMaskCoverage(current, resized, maskOperation);
         putMaskCoverage(context, combined, { width: canvas.width, height: canvas.height });
         setHasMaskStrokes(combined.some((value) => value > 0));
+        setMaskHealth(analyzeSelectionHealth(combined, canvas.width, canvas.height, mode));
         setMaskOrigin(origin);
         bumpMaskRevision();
         invalidatePreview();
         setErrorMessage(null);
         return true;
       } catch (err) {
+        console.warn('[CAF] mask application failed', err);
         announce(err instanceof Error ? err.message : 'The mask could not be loaded');
         return false;
       }
     },
-    [announce, bumpMaskRevision, invalidatePreview, maskOperation, naturalSize.h, naturalSize.w],
+    [
+      announce,
+      bumpMaskRevision,
+      invalidatePreview,
+      maskOperation,
+      mode,
+      naturalSize.h,
+      naturalSize.w,
+    ],
   );
 
   const handleUsePixelSelection = useCallback(() => {
@@ -1385,14 +1484,43 @@ export function ContentAwareFillDialog({
     applyMaskCoverage(raster.data, raster.width, raster.height, 'pixel-selection');
   }, [announce, applyMaskCoverage, areaSelection, nodeId, state.document]);
 
-  const handleUseObjectSelection = useCallback(() => {
+  const handleUseObjectSelection = useCallback(async () => {
     if (objectSelection?.status !== 'ready') {
       announce('Run Object Selection and choose a candidate before using it as the edit mask');
+      return;
+    }
+    if (!objectSelection.sourceFingerprint) {
+      announce('This Object Selection is from an older session; create a new preview first');
       return;
     }
     const candidate = objectSelection.candidates[objectSelection.selectedCandidate];
     if (!candidate || objectSelection.width <= 0 || objectSelection.height <= 0) {
       announce('The selected Object Selection candidate is not available');
+      return;
+    }
+    const sourceHasImmutableLocator = /^(?:data|blob):/i.test(imageSrc);
+    const currentSource = sourceHasImmutableLocator
+      ? {
+          width: objectSelection.width,
+          height: objectSelection.height,
+          fingerprint: objectSelection.sourceFingerprint,
+        }
+      : await readCurrentSourceIdentity(imageSrc);
+    if (
+      !currentSource ||
+      currentSource.width !== objectSelection.width ||
+      currentSource.height !== objectSelection.height ||
+      currentSource.fingerprint !== objectSelection.sourceFingerprint
+    ) {
+      console.warn('[CAF] stale Object Selection candidate', {
+        currentSource,
+        candidate: {
+          width: objectSelection.width,
+          height: objectSelection.height,
+          fingerprint: objectSelection.sourceFingerprint,
+        },
+      });
+      announce('The image changed after Object Selection; create a new preview before using it');
       return;
     }
     applyMaskCoverage(
@@ -1401,7 +1529,7 @@ export function ContentAwareFillDialog({
       objectSelection.height,
       'object-selection',
     );
-  }, [announce, applyMaskCoverage, objectSelection]);
+  }, [announce, applyMaskCoverage, imageSrc, objectSelection]);
 
   const handleStartObjectSelection = useCallback(() => {
     if (!nodeId) {
@@ -1541,9 +1669,10 @@ export function ContentAwareFillDialog({
     for (let i = 0; i < coverage.length; i += 1) coverage[i] = 255 - coverage[i]!;
     putMaskCoverage(context, coverage, { width: canvas.width, height: canvas.height });
     setHasMaskStrokes(coverage.some((value) => value > 0));
+    setMaskHealth(analyzeSelectionHealth(coverage, canvas.width, canvas.height, mode));
     bumpMaskRevision();
     invalidatePreview();
-  }, [bumpMaskRevision, hasMaskStrokes, invalidatePreview]);
+  }, [bumpMaskRevision, hasMaskStrokes, invalidatePreview, mode]);
 
   const handleDownload = useCallback(async () => {
     setStatus('downloading');
@@ -1756,6 +1885,16 @@ export function ContentAwareFillDialog({
       const previewHeight = maskCanvas.height;
       if (previewWidth <= 0 || previewHeight <= 0) {
         throw new GenerativeEditError('invalid-mask', 'The mask is unavailable.');
+      }
+      const currentMaskHealth = analyzeSelectionHealth(
+        previewMask,
+        previewWidth,
+        previewHeight,
+        mode,
+      );
+      setMaskHealth(currentMaskHealth);
+      if (mode !== 'expand' && currentMaskHealth.blockingReason) {
+        throw new GenerativeEditError('invalid-mask', currentMaskHealth.blockingReason);
       }
 
       let generationImage: ImageData;
@@ -3008,6 +3147,31 @@ export function ContentAwareFillDialog({
                           ? 'Using the accepted edit mask.'
                           : 'Paint directly on the source to define the edit region.'}
             </p>
+            <div className="caf-dialog__mask-health" role="status" aria-live="polite">
+              {mode === 'expand' ? (
+                <span>
+                  Expansion uses the output padding below; the source image remains protected.
+                </span>
+              ) : maskHealth.coveredPixels === 0 ? (
+                <span>No pixels selected.</span>
+              ) : (
+                <span>
+                  {Math.round(maskHealth.coverage * 100)}% selected · {maskHealth.componentCount}{' '}
+                  {maskHealth.componentCount === 1 ? 'region' : 'regions'} ·{' '}
+                  {maskHealth.bounds
+                    ? `${maskHealth.bounds.width} x ${maskHealth.bounds.height} px bounds`
+                    : 'no bounds'}
+                </span>
+              )}
+              {maskHealth.blockingReason && mode !== 'expand' && (
+                <span className="caf-dialog__mask-health-error">{maskHealth.blockingReason}</span>
+              )}
+              {maskHealth.warnings.map((warning) => (
+                <span key={warning} className="caf-dialog__mask-health-warning">
+                  {warning}
+                </span>
+              ))}
+            </div>
           </div>
 
           {mode === 'expand' && (

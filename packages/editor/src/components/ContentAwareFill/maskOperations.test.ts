@@ -3,6 +3,7 @@ import {
   combineMaskCoverage,
   maskCoverageFromRgba,
   putMaskCoverage,
+  rasterizeMaskStroke,
   refineGenerativeMask,
 } from './maskOperations';
 
@@ -78,5 +79,23 @@ describe('generative mask operations', () => {
       0,
       0,
     );
+  });
+
+  it('fills the path between coalesced pointer samples', () => {
+    const point = rasterizeMaskStroke({ width: 32, height: 16 }, null, { x: 3, y: 8 }, 2);
+    const segment = rasterizeMaskStroke(
+      { width: 32, height: 16 },
+      { x: 3, y: 8 },
+      { x: 20, y: 8 },
+      2,
+    );
+
+    expect(point.some((value) => value > 0)).toBe(true);
+    expect(segment.filter((value) => value > 0).length).toBeGreaterThan(
+      point.filter((value) => value > 0).length,
+    );
+    for (let x = 3; x <= 20; x += 1) {
+      expect(segment[8 * 32 + x]).toBe(255);
+    }
   });
 });

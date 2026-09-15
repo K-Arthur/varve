@@ -5,8 +5,9 @@ import { navigateToEditor } from '../shared';
 /**
  * This is a workflow-wiring test, not model-quality evidence. It seeds the
  * same transient ready-candidate shape produced by the real Object Selection
- * provider, then drives the actual CAF dialog and mask canvas. The real-model
- * qualification lane remains responsible for SAM2 quality.
+ * provider, including source dimensions and a source fingerprint, then drives
+ * the actual CAF dialog and mask canvas. The real-model qualification lane
+ * remains responsible for SAM2 quality.
  */
 async function seedReadyObjectSelectionAndOpenCaf(
   page: import('@playwright/test').Page,
@@ -38,7 +39,7 @@ async function seedReadyObjectSelectionAndOpenCaf(
                 }
               | undefined;
             if (imageNode) {
-              const imageFill = imageNode.fills?.find((fill) => fill.type === 'image');
+              const imageFill = imageNode.fills?.find((fill: any) => fill.type === 'image');
               imageSource = imageFill?.image?.src ?? '';
               imageNodeId = imageNode.id;
               dispatch = hook.queue.dispatch;
@@ -203,10 +204,16 @@ async function seedBackgroundRemovalPreviewAndOpenCaf(
 }
 
 test('uses a confirmed Object Selection candidate as an editable CAF mask', async ({ page }) => {
+  page.on('console', (message) => {
+    if (message.type() === 'warning') console.log(`[browser warning] ${message.text()}`);
+  });
   await navigateToEditor(page);
   await page
     .locator('#file-import-input')
-    .setInputFiles(path.resolve('tests/e2e/fixtures/real-life-portrait.jpg'));
+    // Keep this wiring lane on a real difficult-boundary portrait without
+    // allocating a second 33 MP mask in the browser. The dedicated CAF
+    // bounded-memory lane covers the larger portrait separately.
+    .setInputFiles(path.resolve('tests/e2e/fixtures/real-life-braided-portrait.jpg'));
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 30_000 });
 
   await seedReadyObjectSelectionAndOpenCaf(page);

@@ -188,6 +188,24 @@
   color: var(--color-text-primary);
 }
 
+.caf-dialog__mask-health {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.35;
+}
+
+.caf-dialog__mask-health-warning {
+  color: var(--color-feedback-warning);
+}
+
+.caf-dialog__mask-health-error {
+  color: var(--color-feedback-error);
+  font-weight: 600;
+}
+
 .caf-dialog__refinement-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
