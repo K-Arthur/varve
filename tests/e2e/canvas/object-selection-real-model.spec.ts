@@ -103,8 +103,13 @@ test.describe('Object Selection real-model gate', () => {
     const inspector = page.locator('.editor__inspector-panel');
     await inspector.getByRole('tab', { name: 'Adjustments' }).click();
     await inspector.getByRole('button', { name: 'Object Selection' }).click();
+    const modelPreference = inspector.getByRole('combobox', {
+      name: 'Object Selection model preference',
+    });
+    await modelPreference.click();
+    await page.getByRole('option', { name: /Higher detail — SAM2 Tiny/i }).click();
     const installModel = inspector.getByRole('button', {
-      name: /Install Object Selection model|Retry Object Selection model/i,
+      name: /Install higher-detail Object Selection model|Retry Higher-detail local model/i,
     });
     if (await installModel.isVisible({ timeout: 3000 }).catch(() => false)) {
       await installModel.click();

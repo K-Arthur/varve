@@ -592,6 +592,7 @@ export function ContentAwareFillDialog({
   const [hasMaskStrokes, setHasMaskStrokes] = useState(false);
   const [maskHealth, setMaskHealth] = useState<SelectionHealth>(() => emptySelectionHealth());
   const [maskRevision, setMaskRevision] = useState(0);
+  const [reviewedObjectSelectionKey, setReviewedObjectSelectionKey] = useState<string | null>(null);
   const [isRefiningMask, setIsRefiningMask] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
   const [previewZoom, setPreviewZoom] = useState<'fit' | 'custom'>('fit');
@@ -659,18 +660,6 @@ export function ContentAwareFillDialog({
     diffusionMemoryFits &&
     (mode !== 'expand' ||
       (expandPlanPreview?.ok === true && expandWorkingPlanPreview?.ok === true));
-  const canGenerate =
-    (hasMaskStrokes || (mode === 'expand' && hasExpandPadding)) &&
-    (mode !== 'replace' || prompt.trim().length > 0) &&
-    (mode !== 'expand' || modeAvailable) &&
-    (mode === 'expand' || !maskHealth.blockingReason);
-  const modeUnavailableReason =
-    mode === 'expand' && expandWorkingPlanPreview && !expandWorkingPlanPreview.ok
-      ? expandWorkingPlanPreview.message
-      : mode === 'expand' && expandPlanPreview && !expandPlanPreview.ok
-        ? expandPlanPreview.error.message
-        : (modeCapability.reason ?? null);
-
   const node = nodeId ? state.document.nodes[nodeId] : undefined;
   const isImage = Boolean(node && isImageShape(node));
   const typedNode = isImage ? (node as import('@varve/scene').ShapeNode) : null;
@@ -685,6 +674,35 @@ export function ContentAwareFillDialog({
     state.objectSelectionSession.sourceLocator === imageSrc
       ? state.objectSelectionSession
       : null;
+  const objectSelectionCandidate = objectSelection
+    ? objectSelection.candidates[objectSelection.selectedCandidate]
+    : undefined;
+  const objectSelectionReviewKey =
+    objectSelection && objectSelectionCandidate
+      ? [
+          objectSelection.sourceFingerprint ?? '',
+          objectSelection.selectedCandidate,
+          objectSelectionCandidate.confidence,
+          objectSelectionCandidate.promptDiagnostics?.anchoredCoverage ?? 'unknown',
+          objectSelectionCandidate.promptDiagnostics?.componentCount ?? 'unknown',
+        ].join(':')
+      : null;
+  const objectSelectionNeedsReview =
+    maskOrigin === 'object-selection' &&
+    objectSelectionCandidate?.promptDiagnostics?.ambiguous === true &&
+    reviewedObjectSelectionKey !== objectSelectionReviewKey;
+  const canGenerate =
+    (hasMaskStrokes || (mode === 'expand' && hasExpandPadding)) &&
+    (mode !== 'replace' || prompt.trim().length > 0) &&
+    (mode !== 'expand' || modeAvailable) &&
+    !objectSelectionNeedsReview &&
+    (mode === 'expand' || !maskHealth.blockingReason);
+  const modeUnavailableReason =
+    mode === 'expand' && expandWorkingPlanPreview && !expandWorkingPlanPreview.ok
+      ? expandWorkingPlanPreview.message
+      : mode === 'expand' && expandPlanPreview && !expandPlanPreview.ok
+        ? expandPlanPreview.error.message
+        : (modeCapability.reason ?? null);
 
   const sourceSignature = typedNode
     ? JSON.stringify({
@@ -886,6 +904,7 @@ export function ContentAwareFillDialog({
     setContextPadding(32);
     setMaskOrigin('brush');
     setMaskOperation('replace');
+    setReviewedObjectSelectionKey(null);
     maskRevisionRef.current = 0;
     setMaskRevision(0);
     setModelAvailable(false);
@@ -968,6 +987,7 @@ export function ContentAwareFillDialog({
     const previous = sessionSourceSignatureRef.current;
     if (previous && previous !== sourceSignature) {
       invalidatePreview();
+      setReviewedObjectSelectionKey(null);
       setErrorMessage('The source image changed. Review the mask and generate again.');
       sessionSourceSignatureRef.current = sourceSignature;
     }
@@ -1392,6 +1412,7 @@ export function ContentAwareFillDialog({
     setHasMaskStrokes(false);
     setMaskHealth(emptySelectionHealth());
     setMaskOrigin('brush');
+    setReviewedObjectSelectionKey(null);
     bumpMaskRevision();
     invalidatePreview();
   }, [bumpMaskRevision, invalidatePreview]);
@@ -1523,13 +1544,18 @@ export function ContentAwareFillDialog({
       announce('The image changed after Object Selection; create a new preview before using it');
       return;
     }
-    applyMaskCoverage(
+    const applied = applyMaskCoverage(
       candidate.mask,
       objectSelection.width,
       objectSelection.height,
       'object-selection',
     );
-  }, [announce, applyMaskCoverage, imageSrc, objectSelection]);
+    if (applied) {
+      setReviewedObjectSelectionKey(
+        candidate.promptDiagnostics?.ambiguous ? null : objectSelectionReviewKey,
+      );
+    }
+  }, [announce, applyMaskCoverage, imageSrc, objectSelection, objectSelectionReviewKey]);
 
   const handleStartObjectSelection = useCallback(() => {
     if (!nodeId) {
@@ -1840,6 +1866,13 @@ export function ContentAwareFillDialog({
   }, []);
 
   const handleGenerate = useCallback(async () => {
+    if (objectSelectionNeedsReview) {
+      const message =
+        'Review every highlighted Object Selection region before generating. Confirm the target or refine the mask first.';
+      setErrorMessage(message);
+      announce(message);
+      return;
+    }
     if (!imageSrc || !modeAvailable || !canGenerate) return;
     const jobSnapshot = currentJobSnapshotRef.current;
     if (!jobSnapshot) return;
@@ -2347,6 +2380,7 @@ export function ContentAwareFillDialog({
       setErrorMessage(msg);
     }
   }, [
+    announce,
     contextPadding,
     canGenerate,
     diffusionModelHandle,
@@ -2370,6 +2404,7 @@ export function ContentAwareFillDialog({
     guidanceScale,
     imageGuidanceScale,
     variationCount,
+    objectSelectionNeedsReview,
   ]);
 
   const handleApply = useCallback(async () => {
@@ -3171,6 +3206,44 @@ export function ContentAwareFillDialog({
                   {warning}
                 </span>
               ))}
+              {maskOrigin === 'object-selection' && objectSelectionCandidate?.promptDiagnostics && (
+                <>
+                  <span>
+                    Target evidence{' '}
+                    {Math.round(
+                      Math.max(
+                        0,
+                        Math.min(1, objectSelectionCandidate.promptDiagnostics.anchoredCoverage),
+                      ) * 100,
+                    )}
+                    % anchored · {objectSelectionCandidate.promptDiagnostics.componentCount}{' '}
+                    {objectSelectionCandidate.promptDiagnostics.componentCount === 1
+                      ? 'connected region'
+                      : 'connected regions'}
+                  </span>
+                  {objectSelectionCandidate.promptDiagnostics.warnings.map((warning) => (
+                    <span key={warning} className="caf-dialog__mask-health-warning">
+                      {warning}
+                    </span>
+                  ))}
+                </>
+              )}
+              {maskOrigin === 'object-selection' &&
+                objectSelectionCandidate?.promptDiagnostics?.ambiguous === true &&
+                objectSelectionReviewKey && (
+                  <label className="caf-dialog__checkbox">
+                    <input
+                      type="checkbox"
+                      checked={reviewedObjectSelectionKey === objectSelectionReviewKey}
+                      onChange={(event) =>
+                        setReviewedObjectSelectionKey(
+                          event.target.checked ? objectSelectionReviewKey : null,
+                        )
+                      }
+                    />
+                    <span>I reviewed every highlighted target region before generating</span>
+                  </label>
+                )}
             </div>
           </div>
 

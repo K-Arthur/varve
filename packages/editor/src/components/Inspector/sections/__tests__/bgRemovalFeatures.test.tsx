@@ -660,7 +660,23 @@ describe('BackgroundRemovalSection - Object Selection', () => {
             nodeId: 'n1',
             width: 200,
             height: 160,
-            candidates: [{ mask: new Uint8Array(200 * 160), confidence: 0.9 }],
+            candidates: [
+              {
+                mask: new Uint8Array(200 * 160),
+                confidence: 0.9,
+                promptDiagnostics: {
+                  hardPixels: 1200,
+                  hardCoverage: 0.0375,
+                  bounds: { x: 40, y: 30, width: 80, height: 90 },
+                  componentCount: 1,
+                  anchoredComponentCount: 1,
+                  anchoredCoverage: 1,
+                  unanchoredCoverage: 0,
+                  ambiguous: false,
+                  warnings: [],
+                },
+              },
+            ],
             selectedCandidate: 0,
             points: [{ x: 100, y: 80, label: 1 }],
             box: null,
@@ -675,6 +691,7 @@ describe('BackgroundRemovalSection - Object Selection', () => {
     render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
     expect(screen.getByText(/preview ready/i)).toBeTruthy();
     expect(screen.getByText(/1 candidate mask/)).toBeTruthy();
+    expect(screen.getByText(/target evidence 100% anchored/i)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Apply as mask' }));
     expect(applySam2Segmentation).toHaveBeenCalledWith(
       expect.objectContaining({ nodeId: 'n1', operation: 'mask' }),

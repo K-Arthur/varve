@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   rankPromptedMaskCandidates,
+  validatePromptedImageAnchors,
   validatePromptedMaskCandidate,
 } from './promptedMaskValidation';
 
@@ -120,6 +121,56 @@ describe('prompted mask validation', () => {
 
     expect(result.valid).toBe(false);
     expect(result.reason).toBe('positive-anchor-required');
+  });
+
+  it('reports disconnected coverage that is not supported by the prompt', () => {
+    const pixels: Array<[number, number]> = [];
+    for (let y = 0; y < 2; y += 1) {
+      for (let x = 0; x < 2; x += 1) pixels.push([x + 8, y + 8]);
+    }
+    for (let y = 0; y < 6; y += 1) {
+      for (let x = 0; x < 6; x += 1) pixels.push([x, y]);
+    }
+    const result = validatePromptedMaskCandidate(
+      candidate(10, 10, pixels, 0.8),
+      { points: [{ x: 8 / 9, y: 8 / 9, label: 1 }] },
+      10,
+      10,
+    );
+
+    expect(result.valid).toBe(true);
+    expect(result.diagnostics).toMatchObject({
+      componentCount: 2,
+      anchoredComponentCount: 1,
+      ambiguous: true,
+    });
+    expect(result.diagnostics?.anchoredCoverage).toBeLessThan(0.5);
+    expect(result.diagnostics?.warnings[1]).toContain('connected to the prompt');
+  });
+
+  it('rejects a positive prompt in a transparent image hole', () => {
+    const imageData = new ImageData(8, 8);
+    for (let index = 3; index < imageData.data.length; index += 4) imageData.data[index] = 255;
+    for (let y = 3; y <= 5; y += 1) {
+      for (let x = 3; x <= 5; x += 1) imageData.data[(y * 8 + x) * 4 + 3] = 0;
+    }
+
+    expect(validatePromptedImageAnchors(imageData, [{ x: 4 / 7, y: 4 / 7, label: 1 }])).toEqual({
+      valid: false,
+      pointIndex: 0,
+    });
+    expect(validatePromptedImageAnchors(imageData, [{ x: 0, y: 0, label: 1 }])).toEqual({
+      valid: true,
+    });
+  });
+
+  it('rejects non-normalized image-anchor prompts instead of clamping them', () => {
+    const imageData = new ImageData(2, 2);
+    for (let index = 3; index < imageData.data.length; index += 4) imageData.data[index] = 255;
+    expect(validatePromptedImageAnchors(imageData, [{ x: -0.1, y: 0.5, label: 1 }])).toEqual({
+      valid: false,
+      pointIndex: 0,
+    });
   });
 
   it('rejects a one-pixel box overlap from a broad wrong mask', () => {

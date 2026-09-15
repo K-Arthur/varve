@@ -38,6 +38,7 @@ import { areaSelectionFromMaskCoverage } from '../tools/selectionMask';
 import { fingerprintImageData } from './imageFingerprint';
 import {
   rankPromptedMaskCandidates,
+  validatePromptedImageAnchors,
   validatePromptedMaskCandidate,
 } from './promptedMaskValidation';
 import {
@@ -1064,6 +1065,16 @@ export function useSam2Segmentation(
         });
         return null;
       }
+      const imageAnchors = validatePromptedImageAnchors(imageData, normPrompts.points);
+      if (!imageAnchors.valid) {
+        markFailure({
+          code: 'prompt_on_transparent',
+          message:
+            'The include point is on a fully transparent part of the image. Place it on the visible object or use a box hint, then try again.',
+          retryable: true,
+        });
+        return null;
+      }
       try {
         const host = getInferenceWorkerHost();
         const encoderArtifact = getModelById(encoderId)?.checksum || resolvedEncoderPath;
@@ -1195,13 +1206,19 @@ export function useSam2Segmentation(
         }
         const decoded = {
           masks: ranked.candidates.map(
-            (candidate: PromptedMaskCandidate & { promptContainment: number }) => ({
+            (
+              candidate: PromptedMaskCandidate & {
+                promptContainment: number;
+                promptDiagnostics?: import('./promptedMaskValidation').PromptedMaskDiagnostics;
+              },
+            ) => ({
               mask: candidate.mask,
               width: candidate.width,
               height: candidate.height,
               iouScore: candidate.score,
               scoreSource: candidate.scoreSource,
               promptContainment: candidate.promptContainment,
+              promptDiagnostics: candidate.promptDiagnostics,
               confidenceSource:
                 candidate.scoreSource === 'predicted-iou'
                   ? ('predicted-iou' as const)
@@ -1253,6 +1270,7 @@ export function useSam2Segmentation(
                   confidence: candidate.iouScore,
                   scoreSource: candidate.scoreSource,
                   promptContainment: candidate.promptContainment,
+                  promptDiagnostics: candidate.promptDiagnostics,
                 })),
                 rejectedCandidateCount: ranked.rejectedCount,
                 selectedCandidate,

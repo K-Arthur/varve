@@ -195,3 +195,19 @@ decoder square before the mask is resized to source pixels; otherwise a valid
 prompt can produce a confidently shifted or squeezed selection. The adapter
 regression test covers a non-square source with positive padding rows. This is
 an invariant check for source geometry, not a broad model-quality claim.
+
+The latest selection guard adds two further checks before a reviewed result is
+trusted. Positive prompts must land on visible source alpha, so a transparent
+hole cannot become an arbitrary object anchor. Each eligible candidate also
+reports full-resolution coverage/bounds and bounded 8-connected component
+evidence: regions touched by an include point or box are marked anchored, and
+sizeable unanchored coverage is shown as an ambiguity warning. The workflow
+preserves those regions rather than silently pruning legitimate disconnected
+subjects; the explicit review step remains responsible for adding prompts or
+refining the mask. When such a candidate is imported into Generative Edit, the
+Generate action is disabled until the user confirms that every highlighted
+region is intentional or paints a refinement. Focused validation covers the
+new cases (18 tests across the prompt validator and SAM2 session); this is a
+deterministic safety gate, not a new claim of broad semantic-selection
+quality. The real-photo browser qualification and cross-platform model gates
+listed above remain open.

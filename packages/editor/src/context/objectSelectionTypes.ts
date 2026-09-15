@@ -1,4 +1,5 @@
 import type { NodeId } from '@varve/scene';
+import type { PromptedMaskDiagnostics } from './promptedMaskValidation';
 
 /**
  * Score provenance shown in diagnostics and the preview status. Legacy names
@@ -25,6 +26,8 @@ export interface ObjectSelectionSession {
     scoreSource?: ObjectSelectionScoreSource;
     /** Fraction of explicit point/box prompts satisfied, separate from IoU. */
     promptContainment?: number;
+    /** Bounded topology/anchor evidence shown before the user applies a mask. */
+    promptDiagnostics?: PromptedMaskDiagnostics;
   }>;
   /** Number of decoded masks rejected for failing explicit prompt geometry. */
   rejectedCandidateCount?: number;

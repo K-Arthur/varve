@@ -172,6 +172,31 @@ candidate's actual source-sized mask and the session's retained prompts. It
 does not trust a cached percentage, so a mutated, stale, or mismatched mask
 cannot inherit a previous candidate's “prompt match” status.
 
+Candidate target evidence is also calculated after decode and shown beside the
+reviewed candidate. Coverage and bounds are measured against the full
+source-sized mask; connected-region topology is measured on a bounded,
+max-pooled review grid so a 33-megapixel image does not require a second full
+resolution label buffer. A region is considered anchored only when it touches
+an include point or the box hint. If a sizeable disconnected region is not
+anchored, the Inspector reports the ambiguity and asks for another include
+point, an exclude point, or paint/refine work. The candidate is not silently
+trimmed: disconnected subjects can be intentional, and the user must decide
+which visible regions belong to the target before applying it. This evidence
+is a review aid, not semantic object recognition or a replacement for the
+mask overlay at fit and 1:1.
+
+When the candidate is imported into Generative Edit, an ambiguous candidate
+also disables generation until the user reviews the highlighted regions and
+explicitly confirms the target, or paints a refinement that changes the mask
+origin. This is an intentional human-in-the-loop gate: it prevents a known
+wrong-target signal from flowing into Fill, Remove, or Replace while still
+allowing legitimate disconnected subjects after review.
+
+Positive prompts are also checked against the decoded source alpha before
+inference. A click in a fully transparent image hole is rejected because its
+RGB values do not identify an object; exclude prompts may still be placed on
+transparent pixels while refining an already anchored target.
+
 ## Mask persistence
 
 The preview mask is a `Uint8Array` in transient editor state. It is not

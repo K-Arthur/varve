@@ -63,7 +63,7 @@ async function sessionFor(options: SetupOptions = {}): Promise<{
       imageHeight: size,
     }),
   );
-  const fingerprint = await fingerprintImageData(new ImageData(size, size));
+  const fingerprint = await fingerprintImageData(opaqueImageData(size, size));
   const mappingFingerprint = prepareImageMaskMapper({
     document: doc,
     node: doc.nodes.image!,
@@ -100,6 +100,12 @@ async function sessionFor(options: SetupOptions = {}): Promise<{
       modelId: 'sam2-hiera-tiny',
     },
   };
+}
+
+function opaqueImageData(width: number, height: number): ImageData {
+  const imageData = new ImageData(width, height);
+  for (let index = 3; index < imageData.data.length; index += 4) imageData.data[index] = 255;
+  return imageData;
 }
 
 function setup(session: ObjectSelectionSession | null, doc: Document) {
@@ -146,7 +152,7 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
     controls.evict.mockReset();
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
       drawImage: vi.fn(),
-      getImageData: (_x: number, _y: number, w: number, h: number) => new ImageData(w, h),
+      getImageData: (_x: number, _y: number, w: number, h: number) => opaqueImageData(w, h),
       createImageData: (w: number, h: number) => new ImageData(w, h),
       putImageData: vi.fn(),
     } as unknown as ReturnType<HTMLCanvasElement['getContext']>);

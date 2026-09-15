@@ -123,6 +123,18 @@ function formatPromptContainment(value: number | undefined): string {
     : `prompt match ${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
 }
 
+function formatPromptDiagnostics(
+  diagnostics:
+    | {
+        anchoredCoverage: number;
+        componentCount: number;
+      }
+    | undefined,
+): string | null {
+  if (!diagnostics) return null;
+  return `target evidence ${Math.round(Math.max(0, Math.min(1, diagnostics.anchoredCoverage)) * 100)}% anchored · ${diagnostics.componentCount} connected region${diagnostics.componentCount === 1 ? '' : 's'}`;
+}
+
 function formatPersistedMaskScore(provenance: {
   confidence?: number;
   score?: number;
@@ -869,7 +881,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
               runtime; a concrete choice is honored exactly and never silently replaced. No image
               leaves this device.
             </p>
-            <div className="insp-field-group">
+            <fieldset className="insp-field-group" aria-label="Object Selection model choices">
               {(Object.keys(PROMPTED_MODEL_OPTIONS) as PromptedModelOption[]).map((providerId) => {
                 const option = PROMPTED_MODEL_OPTIONS[providerId];
                 const providerState =
@@ -909,7 +921,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                   {objectSelectionError}
                 </p>
               )}
-            </div>
+            </fieldset>
             {objectSelectionDownloadProvider && (
               <div className="insp-actions">
                 <span className="insp-field__hint" role="status" aria-live="polite">
@@ -943,7 +955,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                   {objectSelection.slow
                     ? 'Taking longer than expected… Cancel remains available.'
                     : objectSelection.status === 'ready'
-                      ? `Preview ready · ${formatObjectSelectionScore(objectSelection.confidence, objectSelection.confidenceSource)} · ${formatPromptContainment(objectSelection.candidates[objectSelection.selectedCandidate]?.promptContainment)} · ${objectSelection.candidates.length} candidate mask${objectSelection.candidates.length === 1 ? '' : 's'}`
+                      ? `Preview ready · ${formatObjectSelectionScore(objectSelection.confidence, objectSelection.confidenceSource)} · ${formatPromptContainment(objectSelection.candidates[objectSelection.selectedCandidate]?.promptContainment)} · ${objectSelection.candidates.length} candidate mask${objectSelection.candidates.length === 1 ? '' : 's'}${objectSelection.rejectedCandidateCount ? ` · ${objectSelection.rejectedCandidateCount} rejected by prompt checks` : ''}`
                       : objectSelection.status === 'error'
                         ? 'Object selection failed — your prompts are still available.'
                         : objectSelection.status === 'drawing'
@@ -954,6 +966,24 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                               ? 'Calculating candidate masks…'
                               : 'Preparing object selection…'}
                 </span>
+                {(() => {
+                  const candidate = objectSelection.candidates[objectSelection.selectedCandidate];
+                  const diagnostics = candidate?.promptDiagnostics;
+                  const summary = formatPromptDiagnostics(diagnostics);
+                  if (!summary) return null;
+                  return (
+                    <span className="insp-field__hint" role="status">
+                      {summary}
+                    </span>
+                  );
+                })()}
+                {objectSelection.candidates[
+                  objectSelection.selectedCandidate
+                ]?.promptDiagnostics?.warnings.map((warning) => (
+                  <p className="insp-field__hint insp-hint--warn" role="status" key={warning}>
+                    {warning}
+                  </p>
+                ))}
                 {objectSelection.status === 'error' && objectSelection.error && (
                   <p className="insp-field__hint insp-hint--error" role="alert">
                     {objectSelection.error.message}
