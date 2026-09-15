@@ -19,7 +19,7 @@ interface DocumentGridOverlayProps {
   baselineStep?: number;
   offset?: number;
   isometricGrid?: IsometricGrid | null;
-  activePlaneId?: IsometricPlaneId;
+  activePlaneId?: IsometricPlaneId | 'none';
 }
 
 export function DocumentGridOverlay({

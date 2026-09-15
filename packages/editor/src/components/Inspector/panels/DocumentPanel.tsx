@@ -683,6 +683,8 @@ function IsometricGridSection() {
   const presetId = grid.preset;
   const selectionCount = state.selection.length;
   const [ratioInput, setRatioInput] = useState('');
+  const activePlaneForCommands: IsometricPlaneId | null =
+    grid.activePlaneId && grid.activePlaneId !== 'none' ? grid.activePlaneId : null;
 
   const axisValidation = useMemo(() => validateIsometricAxes(grid.axes), [grid.axes]);
 
@@ -789,7 +791,7 @@ function IsometricGridSection() {
             onChange={handlePresetChange}
             options={[
               ...ISOMETRIC_PRESETS.map((p) => ({ value: p.id, label: p.label })),
-              ...(presetId === 'custom' ? [{ value: 'custom', label: 'Custom' }] : []),
+              { value: 'custom', label: 'Custom' },
             ]}
           />
           {(() => {
@@ -814,11 +816,16 @@ function IsometricGridSection() {
             <SegmentedControl
               label="Active construction plane"
               value={grid.activePlaneId ?? 'top'}
-              options={ISOMETRIC_PLANES.map((plane) => ({
-                value: plane.id,
-                label: plane.label,
-              }))}
-              onChange={(value) => setActiveIsometricPlane(value as IsometricPlaneId)}
+              options={[
+                { value: 'none' as const, label: 'Off' },
+                ...ISOMETRIC_PLANES.map((plane) => ({
+                  value: plane.id,
+                  label: plane.label,
+                })),
+              ]}
+              onChange={(value) =>
+                setActiveIsometricPlane(value === 'none' ? 'none' : (value as IsometricPlaneId))
+              }
             />
             <span style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.75 }}>
               {ISOMETRIC_PLANES.find((plane) => plane.id === (grid.activePlaneId ?? 'top'))
@@ -837,8 +844,8 @@ function IsometricGridSection() {
             <button
               type="button"
               className="insp-btn"
-              disabled={selectionCount === 0}
-              onClick={() => fitSelectionToPlane(grid.activePlaneId ?? 'top')}
+              disabled={selectionCount === 0 || activePlaneForCommands === null}
+              onClick={() => activePlaneForCommands && fitSelectionToPlane(activePlaneForCommands)}
               aria-label="Fit selection to the active plane"
             >
               Fit to plane
@@ -846,8 +853,11 @@ function IsometricGridSection() {
             <button
               type="button"
               className="insp-btn"
-              disabled={selectionCount === 0}
-              onClick={() => fitSelectionToPlane(grid.activePlaneId ?? 'top', { inverse: true })}
+              disabled={selectionCount === 0 || activePlaneForCommands === null}
+              onClick={() =>
+                activePlaneForCommands &&
+                fitSelectionToPlane(activePlaneForCommands, { inverse: true })
+              }
               aria-label="Unproject selection from the active plane"
             >
               Unproject

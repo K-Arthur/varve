@@ -138,8 +138,8 @@ export interface IsometricGrid extends GridBase {
   spacing: number;
   /** v2.28+: records which spacing convention the stored value uses. */
   spacingMode?: 'axis-step';
-  /** v2.28+: active construction plane for new geometry. */
-  activePlaneId?: import('./isometricGeometry').IsometricPlaneId;
+  /** v2.28+: active construction plane for new geometry. `none` keeps ordinary 2-D drawing. */
+  activePlaneId?: import('./isometricGeometry').IsometricPlaneId | 'none';
   /** v2.28+: major line interval in lattice steps (>=1). */
   majorEvery?: number;
   /** v2.28+: snap to all lattice intersections vs displayed lines only. */
@@ -475,6 +475,7 @@ export function validateIsometricGrid(grid: IsometricGrid): boolean {
     (grid.majorEvery === undefined ||
       (Number.isInteger(grid.majorEvery) && grid.majorEvery >= 1 && grid.majorEvery <= 64)) &&
     (grid.activePlaneId === undefined ||
+      grid.activePlaneId === 'none' ||
       grid.activePlaneId === 'top' ||
       grid.activePlaneId === 'front' ||
       grid.activePlaneId === 'side') &&
@@ -527,7 +528,11 @@ export function sanitizeIsometricGrid(grid: IsometricGrid): IsometricGrid {
     originY: clampFinite(grid.originY, -1e7, 1e7, 0),
     rotation: Number.isFinite(grid.rotation) ? ((grid.rotation % 360) + 360) % 360 : 0,
     activePlaneId:
-      grid.activePlaneId === 'front' || grid.activePlaneId === 'side' ? grid.activePlaneId : 'top',
+      grid.activePlaneId === 'none' ||
+      grid.activePlaneId === 'front' ||
+      grid.activePlaneId === 'side'
+        ? grid.activePlaneId
+        : 'top',
     majorEvery: Number.isInteger(grid.majorEvery)
       ? Math.max(1, Math.min(64, grid.majorEvery as number))
       : 4,

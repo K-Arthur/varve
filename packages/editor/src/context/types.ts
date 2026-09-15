@@ -1234,10 +1234,11 @@ export interface EditorContextValue {
   setDocumentGrid: (settings: DocumentGridSettings) => void;
   setIsometricGrid: (grid: import('@varve/scene').IsometricGrid) => void;
   /**
-   * Set the active construction plane for new geometry. Never transforms
-   * existing artwork; use `fitSelectionToPlane` for that deliberately.
+   * Set the active construction plane for new geometry (`none` keeps ordinary
+   * 2-D drawing). Never transforms existing artwork; use
+   * `fitSelectionToPlane` for that deliberately.
    */
-  setActiveIsometricPlane: (planeId: import('@varve/scene').IsometricPlaneId) => void;
+  setActiveIsometricPlane: (planeId: import('@varve/scene').IsometricPlaneId | 'none') => void;
   /**
    * Explicitly map the selection onto a construction plane with one
    * world-space affine. `inverse: true` applies the plane's exact inverse
