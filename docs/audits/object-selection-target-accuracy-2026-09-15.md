@@ -262,6 +262,40 @@ allocation. An off-image or unmappable point/box therefore fails as an input
 error without starting segmentation work; the focused hook test asserts that
 no model path is requested in that case.
 
+## Revalidation after exact candidate-mask review identity (`00d57edb2`)
+
+The review token now includes a synchronous fingerprint of the complete
+source-resolution candidate mask. This prevents a stale or mutated candidate
+from inheriting approval merely because its source, placement, model,
+candidate-set, and index still look unchanged. The production browser handoff
+was rerun with the bundled SAM2 artifacts and the same licensed still-life
+photograph:
+
+```text
+VARVE_VISUAL_HARNESS_ONLY=1 VARVE_SAM2_REAL_MODEL=1 \
+VARVE_SAM2_PROFILE_DIR=/tmp/varve-sam2-selection-review-20260915 \
+VARVE_E2E_PORT=18443 VARVE_E2E_WORKERS=1 VARVE_HEAVY_TASK_PARALLELISM=0 \
+VARVE_E2E_OUTPUT_DIR=run-selection-real-18443 \
+pnpm exec playwright test tests/e2e/canvas/object-selection-real-model.spec.ts \
+  --project=chromium --workers=1 \
+  --grep "passes the reviewed real-object mask into Generative Edit before Remove" \
+  --reporter=list
+```
+
+Result: **1 passed** (1.2 minutes). The reviewed candidate remained source-sized
+at 1280 × 960 with 85,882 hard pixels; 72,242 were inside the apple review
+window, while the mug and flower windows contained 0 pixels. Local Remove then
+changed 28,723 pixels in the reviewed apple interior (94.6%) and 0 pixels in
+both protected distractor windows. The full-composition result and applied
+canvas were visually inspected at:
+
+- `test-results/run-selection-real-18443/canvas-object-selection-re-dac48-nerative-Edit-before-Remove-chromium/real-object-remove-result.png`
+- `test-results/run-selection-real-18443/canvas-object-selection-re-dac48-nerative-Edit-before-Remove-chromium/real-object-remove-applied.png`
+
+This rerun validates exact review-to-generation synchronization on a real
+photograph. It does not establish universal semantic intent, nor does it
+qualify the unavailable prompt-conditioned generative modes.
+
 ## Failure that led to the fix
 
 The first corrected-coordinate run selected the right apple and excluded the
