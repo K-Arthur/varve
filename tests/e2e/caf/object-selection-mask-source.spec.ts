@@ -129,7 +129,7 @@ async function seedReadyObjectSelectionAndOpenCaf(
         candidateSetId,
         width,
         height,
-        candidates: [{ mask, confidence: 0.99, scoreSource: 'model-iou' }],
+        candidates: [{ mask, maskFingerprint, confidence: 0.99, scoreSource: 'model-iou' }],
         selectedCandidate: 0,
         points: [{ x: width * 0.5, y: height * 0.5, label: 1 }],
         box: null,

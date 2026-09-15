@@ -182,10 +182,14 @@ The review is an explicit session state, not just a visual convention. The
 Inspector and keyboard Apply path store a review key for the currently visible
 candidate, and the Generative Edit handoff recomputes that same key from the
 source fingerprint, image mapping, model, candidate set, candidate index, and
-the complete source-resolution candidate-mask bytes. Changing candidates,
-source pixels, placement, or the selected node therefore invalidates review
-before a downstream mask or generation can consume it; a stale or mutated
-candidate cannot inherit approval from a different visible raster.
+the complete source-resolution candidate-mask bytes. The byte fingerprint is
+computed once when inference publishes a candidate, rather than during every
+render, so the safety check does not stall large-photo editors. Review
+confirmation and the final Apply boundary can request an exact byte reread;
+therefore changing candidates, source pixels, placement, or the selected node
+invalidates review before a downstream mask or generation can consume it, and
+a stale or mutated candidate cannot inherit approval from a different visible
+raster.
 When an edit is accepted, `selectionEvidence` records the final mask
 fingerprint, selection source, review timestamps, source and placement
 fingerprints, and—when Object Selection supplied the mask—the reviewed

@@ -24,6 +24,8 @@ export interface ObjectSelectionSession {
   height: number;
   candidates: Array<{
     mask: Uint8Array;
+    /** Computed once when the candidate is published; masks are then immutable. */
+    maskFingerprint?: string;
     confidence: number;
     scoreSource?: ObjectSelectionScoreSource;
     /** Fraction of explicit point/box prompts satisfied, separate from IoU. */
@@ -109,6 +111,11 @@ export function objectSelectionCandidateMaskFingerprint(
   return `${(h1 >>> 0).toString(16).padStart(8, '0')}${(h2 >>> 0).toString(16).padStart(8, '0')}`;
 }
 
+export interface ObjectSelectionCandidateReviewKeyOptions {
+  /** Re-read every current mask byte instead of trusting its publication identity. */
+  verifyMask?: boolean;
+}
+
 /**
  * Return a stable, transient identity for the candidate currently shown to a
  * user. The source and mapping identities are deliberately part of the key:
@@ -132,12 +139,16 @@ export function objectSelectionCandidateReviewKey(
     | 'candidates'
   >,
   candidateIndex: number,
+  options: ObjectSelectionCandidateReviewKeyOptions = {},
 ): string | null {
   const candidate = session.candidates[candidateIndex];
   if (!candidate || !Number.isSafeInteger(candidateIndex) || candidateIndex < 0) return null;
   const candidateSetId = session.candidateSetId ?? session.startedAt;
   if (!session.sourceFingerprint || candidateSetId == null) return null;
-  const maskFingerprint = objectSelectionCandidateMaskFingerprint(session, candidateIndex);
+  const maskFingerprint = options.verifyMask
+    ? objectSelectionCandidateMaskFingerprint(session, candidateIndex)
+    : (candidate.maskFingerprint ??
+      objectSelectionCandidateMaskFingerprint(session, candidateIndex));
   if (!maskFingerprint) return null;
   return [
     session.sourceFingerprint,

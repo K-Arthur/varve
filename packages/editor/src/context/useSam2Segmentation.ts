@@ -43,6 +43,7 @@ import { areaSelectionFromMaskCoverage } from '../tools/selectionMask';
 import { fingerprintImageData } from './imageFingerprint';
 import {
   type ObjectSelectionSession,
+  objectSelectionCandidateMaskFingerprint,
   objectSelectionCandidateReviewKey,
 } from './objectSelectionTypes';
 import {
@@ -357,7 +358,9 @@ export function useSam2Segmentation(
     (reviewed: boolean) => {
       const session = stateRef.current.objectSelectionSession;
       if (session?.status !== 'ready') return;
-      const candidateKey = objectSelectionCandidateReviewKey(session, session.selectedCandidate);
+      const candidateKey = objectSelectionCandidateReviewKey(session, session.selectedCandidate, {
+        verifyMask: true,
+      });
       if (reviewed && !candidateKey) {
         announcerRef.current?.announce(
           'This Object Selection preview is too old to review safely. Create a new preview first.',
@@ -491,11 +494,50 @@ export function useSam2Segmentation(
         const requiredReviewKey = objectSelectionCandidateReviewKey(
           previousSession,
           selectedCandidate,
+          { verifyMask: true },
         );
-        if (!requiredReviewKey || previousSession.reviewedCandidateKey !== requiredReviewKey) {
+        if (!requiredReviewKey) {
+          const live = stateRef.current.objectSelectionSession;
+          if (generation === generationRef.current && live?.nodeId === nodeId) {
+            writeTransientSession({
+              ...live,
+              status: 'error',
+              error: {
+                code: 'candidate_changed',
+                message:
+                  'The reviewed Object Selection candidate changed after it was inspected. Create a new preview before applying it.',
+                retryable: true,
+              },
+            });
+          }
           const message =
-            'Review the highlighted Object Selection target before applying it. Choose the candidate you want, inspect the overlay, then confirm the review.';
+            'The reviewed Object Selection candidate is invalid. Create a new preview before applying it.';
           announcerRef.current?.announce(message);
+          return null;
+        }
+        if (!previousSession.reviewedCandidateKey) {
+          announcerRef.current?.announce(
+            'Review the highlighted Object Selection target before applying it. Choose the candidate you want, inspect the overlay, then confirm the review.',
+          );
+          return null;
+        }
+        if (previousSession.reviewedCandidateKey !== requiredReviewKey) {
+          const live = stateRef.current.objectSelectionSession;
+          if (generation === generationRef.current && live?.nodeId === nodeId) {
+            writeTransientSession({
+              ...live,
+              status: 'error',
+              error: {
+                code: 'candidate_changed',
+                message:
+                  'The reviewed Object Selection candidate changed after it was inspected. Create a new preview before applying it.',
+                retryable: true,
+              },
+            });
+          }
+          announcerRef.current?.announce(
+            'The reviewed Object Selection candidate changed after it was inspected. Create a new preview before applying it.',
+          );
           return null;
         }
         const freshSource = await readImageSourceIdentity(src);
@@ -1407,6 +1449,31 @@ export function useSam2Segmentation(
           confidenceSource: prediction.scoreSource,
         };
 
+        // Hash each source-resolution candidate once at publication time.
+        // Review-key checks run during ordinary React renders, so re-scanning
+        // a large photograph there would make the safety guard itself block
+        // the editor. Production candidates are immutable after this point;
+        // legacy/test sessions without this metadata use the exact fallback
+        // in objectSelectionCandidateReviewKey.
+        const publishedCandidates = decoded.masks.map((candidate) => ({
+          mask: candidate.mask,
+          confidence: candidate.iouScore,
+          scoreSource: candidate.scoreSource,
+          promptContainment: candidate.promptContainment,
+          promptDiagnostics: candidate.promptDiagnostics,
+        }));
+        const candidateFingerprintSession = {
+          width: naturalW,
+          height: naturalH,
+          candidates: publishedCandidates,
+        };
+        const publishedCandidatesWithIdentity = publishedCandidates.map((candidate, index) => ({
+          ...candidate,
+          maskFingerprint:
+            objectSelectionCandidateMaskFingerprint(candidateFingerprintSession, index) ??
+            undefined,
+        }));
+
         if (generation !== generationRef.current || combinedSignal.aborted) return null;
 
         const selectedCandidate = Math.max(
@@ -1442,13 +1509,7 @@ export function useSam2Segmentation(
                 nodeId,
                 width: naturalW,
                 height: naturalH,
-                candidates: decoded.masks.map((candidate) => ({
-                  mask: candidate.mask,
-                  confidence: candidate.iouScore,
-                  scoreSource: candidate.scoreSource,
-                  promptContainment: candidate.promptContainment,
-                  promptDiagnostics: candidate.promptDiagnostics,
-                })),
+                candidates: publishedCandidatesWithIdentity,
                 rejectedCandidateCount: ranked.rejectedCount,
                 selectedCandidate,
                 reviewedCandidateKey: undefined,

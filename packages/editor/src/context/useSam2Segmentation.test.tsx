@@ -3,7 +3,10 @@ import { addNode, createDocument, type Document, makeImageShapeNode } from '@var
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { prepareImageMaskMapper } from '../tools/imageMaskCoordinates';
 import { fingerprintImageData } from './imageFingerprint';
-import { objectSelectionCandidateReviewKey } from './objectSelectionTypes';
+import {
+  objectSelectionCandidateMaskFingerprint,
+  objectSelectionCandidateReviewKey,
+} from './objectSelectionTypes';
 import type { EditorState, ObjectSelectionSession } from './types';
 import { mapPromptedRoutingFailure, useSam2Segmentation } from './useSam2Segmentation';
 
@@ -299,6 +302,30 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
     });
 
     expect(setAreaSelection).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a published candidate that changes after review', async () => {
+    const { doc, session } = await sessionFor();
+    session.candidates[0]!.maskFingerprint = objectSelectionCandidateMaskFingerprint(session, 0)!;
+    session.reviewedCandidateKey = objectSelectionCandidateReviewKey(session, 0)!;
+    session.candidates[0]!.mask[4 * session.width + 4] = 128;
+    const { result, stateRef, setAreaSelection, announce } = setup(session, doc);
+
+    await act(async () => {
+      await result.current.applySam2Segmentation({
+        nodeId: 'image',
+        prompts: { points: session.points },
+        operation: 'selection',
+      });
+    });
+
+    expect(controls.infer).not.toHaveBeenCalled();
+    expect(setAreaSelection).not.toHaveBeenCalled();
+    expect(stateRef.current.objectSelectionSession?.status).toBe('error');
+    expect(stateRef.current.objectSelectionSession?.error?.code).toBe('candidate_changed');
+    expect(announce).toHaveBeenCalledWith(
+      expect.stringContaining('changed after it was inspected'),
+    );
   });
 
   it('pins the candidate index supplied by the output action', async () => {
