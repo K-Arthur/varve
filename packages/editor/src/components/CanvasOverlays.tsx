@@ -16,6 +16,7 @@ import {
   nodeLocalBounds,
   plainTextToRichText,
   replaceRichTextContent,
+  resolveActiveIsometricGrid,
   resolveAdjustmentScope,
   resolveEditorSceneScope,
   richTextToPlainText,
@@ -227,16 +228,21 @@ export function CanvasOverlays({
     if (gridOverlayMode !== 'isometric') return null;
     const grids = doc.gridSettings?.isometricGrids;
     if (!grids) return null;
-    const entries = Object.values(grids);
-    return (
-      entries.find(
-        (grid) =>
-          grid.visible !== false &&
-          (grid.scope === 'document' ||
-            grid.pageId === undefined ||
-            grid.pageId === doc.activePageId),
-      ) ?? null
-    );
+    const inScope = (grid: IsometricGrid) =>
+      grid.scope === 'document' || grid.pageId === undefined || grid.pageId === doc.activePageId;
+    // Explicit active grid wins. A hidden active grid still participates in
+    // snapping policy elsewhere; for display, fall back to the first visible
+    // grid in stable id order so a visible grid is never silently ignored.
+    const active = resolveActiveIsometricGrid(doc);
+    if (active && active.visible !== false && inScope(active)) return active;
+    const fallbackId = Object.keys(grids)
+      .sort()
+      .find((id) => {
+        const grid = grids[id];
+        return grid ? grid.visible !== false && inScope(grid) : false;
+      });
+    if (fallbackId) return grids[fallbackId]!;
+    return active ?? null;
   })();
 
   const showColorBlindness = colorBlindnessView !== 'none';
@@ -610,6 +616,7 @@ export function CanvasOverlays({
           baselineStep={baselineGrid?.baselineStep}
           offset={baselineGrid?.offset}
           isometricGrid={isometricGrid}
+          activePlaneId={isometricGrid?.activePlaneId}
         />
       )}
       {showColorBlindness && (

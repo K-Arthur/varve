@@ -1420,19 +1420,59 @@ export function removePixelGrid(doc: Document): Document {
 }
 
 /**
+ * Resolve the active isometric grid without relying on object-iteration
+ * order. Precedence:
+ *   1. `gridSettings.activeIsometricGridId` when it names an existing grid.
+ *   2. The well-known default id when it exists.
+ *   3. The lexicographically smallest id (stable across sessions and
+ *      independent of insertion order).
+ */
+export function resolveActiveIsometricGrid(doc: Document): IsometricGrid | undefined {
+  const grids = doc.gridSettings?.isometricGrids;
+  if (!grids) return undefined;
+  const explicit = doc.gridSettings?.activeIsometricGridId;
+  if (explicit && grids[explicit]) return grids[explicit];
+  if (grids['grid-isometric-default']) return grids['grid-isometric-default'];
+  const ids = Object.keys(grids).sort();
+  return ids.length > 0 ? grids[ids[0]!] : undefined;
+}
+
+/**
+ * Set the explicit active isometric grid. No-op when the id is unknown.
+ */
+export function setActiveIsometricGrid(doc: Document, gridId: string): Document {
+  const grids = doc.gridSettings?.isometricGrids;
+  if (!grids || !(gridId in grids)) return doc;
+  if (doc.gridSettings?.activeIsometricGridId === gridId) return doc;
+  return {
+    ...doc,
+    gridSettings: {
+      ...getOrCreateGridSettings(doc),
+      activeIsometricGridId: gridId,
+    },
+  };
+}
+
+/**
  * Set an isometric grid configuration.
+ *
+ * When this creates the document's first isometric grid, it also becomes the
+ * explicitly active grid so the choice is stable rather than incidental.
  */
 export function setIsometricGrid(doc: Document, gridId: string, grid: IsometricGrid): Document {
   const sanitized = sanitizeGrid(grid) as IsometricGrid;
   if (!validateIsometricGrid(sanitized)) return doc;
+  const existing = getOrCreateGridSettings(doc).isometricGrids;
+  const isFirst = !existing || Object.keys(existing).length === 0;
   return {
     ...doc,
     gridSettings: {
       ...getOrCreateGridSettings(doc),
       isometricGrids: {
-        ...getOrCreateGridSettings(doc).isometricGrids,
+        ...existing,
         [gridId]: sanitized,
       },
+      ...(isFirst ? { activeIsometricGridId: gridId } : {}),
     },
   };
 }

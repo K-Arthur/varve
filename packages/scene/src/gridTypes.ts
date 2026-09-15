@@ -298,6 +298,11 @@ export interface DocumentGridSettings {
   pixelGrid?: PixelGrid;
   /** Isometric grids keyed by ID. */
   isometricGrids?: Record<string, IsometricGrid>;
+  /**
+   * v2.28+: explicit active isometric grid. Absence must never be resolved by
+   * object-iteration order; use `resolveActiveIsometricGrid`.
+   */
+  activeIsometricGridId?: string;
 }
 
 /**
