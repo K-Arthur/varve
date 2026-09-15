@@ -114,7 +114,12 @@ export function CodeGenView({ node, doc, variableStore }: CodeGenViewProps) {
                 </div>
               )}
             </div>
-            <section className="spec-codegen__pre" aria-label={`${tab.label} generated code`}>
+            <section
+              className="spec-codegen__pre"
+              aria-label={`${tab.label} generated code`}
+              // biome-ignore lint/a11y/noNoninteractiveTabindex: keyboard-scrollable code region (WCAG 2.1.1); the CSS already carries a focus-visible ring for this tab stop
+              tabIndex={0}
+            >
               <pre>
                 <code>
                   {highlightedLines.map((html, i) => (

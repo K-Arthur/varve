@@ -316,6 +316,34 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
   overflow: hidden;
+  min-width: 0;
+}
+
+/* Container-driven layout for the narrow inspector column. The panel declares
+   `container-name: inspector`; below ~22rem the label stacks above its control
+   so the segmented groups keep full width instead of clipping. */
+@container inspector (max-width: 22rem) {
+  .spec-export__row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-1);
+  }
+  .spec-export__row > .spec-row__label {
+    width: auto;
+  }
+  .spec-export__group {
+    width: 100%;
+    /* Wrapping keeps every format/scale reachable at the 240px column and at
+       enlarged text sizes instead of clipping the tail of the row. */
+    flex-wrap: wrap;
+  }
+  .spec-export__btn {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .spec-export__input {
+    flex: 1 1 5em;
+  }
 }
 .spec-export__btn {
   padding: var(--space-1) var(--space-2);
@@ -402,6 +430,55 @@
   color: var(--color-text-muted);
 }
 
+/* Invalid custom scale: the message explains the bound and why the primary
+   action is unavailable, instead of leaving a silently disabled button. */
+.spec-export__scale-error {
+  margin: 0 0 var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-micro);
+  border-radius: var(--radius-control-compact);
+  background: color-mix(in oklab, var(--color-feedback-warning) 16%, transparent);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+/* Multi-selection: this tab writes one object; say which one and offer the
+   batch route instead of exporting the first selection silently. */
+.spec-export__selection-note {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-sunken);
+}
+.spec-export__selection-note p {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+.spec-export__selection-note-action {
+  align-self: flex-start;
+  min-height: 24px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  color: var(--color-interactive-default);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.spec-export__selection-note-action:hover {
+  background: var(--color-surface-default);
+}
+.spec-export__selection-note-action:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
 /* ── Per-node export settings (canonical config list) ───── */
 .spec-export__presets {
   margin-top: var(--space-4);
@@ -440,6 +517,11 @@
 .spec-export__preset-enabled {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  /* 24x24 minimum activation area (WCAG 2.2 SC 2.5.8) for the checkbox and
+     its label, which is the real pointer target. */
+  min-width: 24px;
+  min-height: 24px;
 }
 .spec-export__preset-info {
   display: flex;
@@ -454,7 +536,7 @@
 }
 .spec-export__preset-file {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -464,8 +546,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: none;
   border-radius: var(--radius-control-compact);
@@ -568,7 +650,7 @@
 }
 .spec-export__preset-unavailable {
   margin: var(--space-1) 0 0;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 .spec-export__preset-suffix {
@@ -580,7 +662,11 @@
   background: var(--color-surface-default);
   color: var(--color-text-primary);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
+  /* Keeps the field's own hit area at the compact minimum even in the dense
+     preset row. */
+  min-height: 24px;
+  box-sizing: border-box;
 }
 .spec-export__preset-suffix:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);

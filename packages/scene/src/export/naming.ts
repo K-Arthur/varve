@@ -78,6 +78,57 @@ function isInvalidFilenameChar(char: string): boolean {
   return INVALID_FILENAME_CHARS.has(char) || char.charCodeAt(0) < 0x20;
 }
 
+/**
+ * Extensions that identify a *source asset* rather than part of a name. An
+ * imported layer is commonly named after its file (`hero.jpg`,
+ * `photo.final.png`), and that extension must not leak into the exported
+ * filename as `hero.jpg@2x.png`. Only known media/document extensions are
+ * stripped, so a name like `my.design` or `v1.2` keeps its trailing token.
+ */
+const SOURCE_ASSET_EXTENSIONS = new Set([
+  'png',
+  'jpg',
+  'jpeg',
+  'jpe',
+  'webp',
+  'avif',
+  'gif',
+  'bmp',
+  'tif',
+  'tiff',
+  'svg',
+  'psd',
+  'psb',
+  'ai',
+  'eps',
+  'sketch',
+  'fig',
+  'pdf',
+  'heic',
+  'heif',
+  'dng',
+  'cr2',
+  'nef',
+  'arw',
+  'mp4',
+  'mov',
+  'webm',
+]);
+
+/**
+ * Drop a trailing source-asset extension from a layer/page name before it is
+ * rendered into a `{name}` filename token. Sanitization alone would either
+ * keep the unrelated extension (`hero.jpg@2x.png`) or, in the legacy
+ * sanitizer, mangle it into the stem (`herojpg.png`).
+ */
+export function stripSourceExtension(name: string): string {
+  const trimmed = name.trim();
+  const match = /\.([A-Za-z0-9]{1,5})$/.exec(trimmed);
+  if (!match?.[1]) return name;
+  if (!SOURCE_ASSET_EXTENSIONS.has(match[1].toLowerCase())) return name;
+  return trimmed.slice(0, trimmed.length - match[0].length);
+}
+
 export interface SanitizeOptions {
   /** Replace invalid chars with this (default '_'). */
   replacement?: string;
@@ -205,7 +256,7 @@ export function formatFileName(template: string, ctx: FileNameContext): string {
   const extension = (ctx.ext ?? extensionForFormat(ctx.format)).replace(/^\./, '');
 
   const values: Record<string, string> = {
-    name: ctx.name,
+    name: stripSourceExtension(ctx.name),
     suffix: ctx.suffix ?? '',
     ext: extension,
     format: ctx.format,

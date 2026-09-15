@@ -13,7 +13,7 @@ import {
   solidFill,
 } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { assertExportFontData, exportNodeAsPdf, exportNodeAsRaster } from './export';
+import { assertExportFontData, buildFilename, exportNodeAsPdf, exportNodeAsRaster } from './export';
 
 const { imageLoad, imageState, resetImageState } = vi.hoisted(() => {
   const loaded = new Set<string>();
@@ -88,6 +88,34 @@ describe('font export preflight', () => {
         ],
       ),
     ).not.toThrow();
+  });
+});
+
+describe('buildFilename', () => {
+  it('drops a source-asset extension instead of mangling it into the stem', () => {
+    expect(buildFilename('real-life-architecture.jpg', 'png')).toBe('real-life-architecture.png');
+    expect(buildFilename('hero.jpeg', 'png', '@2x')).toBe('hero@2x.png');
+  });
+
+  it('preserves Unicode names and guards reserved Windows device names', () => {
+    expect(buildFilename('Café menü', 'png')).toBe('Café menü.png');
+    expect(buildFilename('CON', 'png')).toBe('_CON.png');
+    expect(buildFilename('con.png', 'png')).toBe('_con.png');
+  });
+
+  it('encodes a non-1x scale so repeated exports do not collide', () => {
+    expect(buildFilename('Logo', 'png')).toBe('Logo.png');
+    expect(buildFilename('Logo', 'png', '@2x')).toBe('Logo@2x.png');
+    expect(buildFilename('Logo', 'png', '@2.5x')).toBe('Logo@2.5x.png');
+  });
+
+  it('falls back to "export" for a blank name and sanitizes an all-invalid one', () => {
+    expect(buildFilename('///', 'png')).toBe('___.png');
+    expect(buildFilename('   ', 'svg')).toBe('export.svg');
+  });
+
+  it('keeps interior dots that are part of the name', () => {
+    expect(buildFilename('release.v1.2', 'png')).toBe('release.v1.2.png');
   });
 });
 

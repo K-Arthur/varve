@@ -53,7 +53,7 @@ test.describe('Export panel — browser download path', () => {
 
     const msg = await getExportMessage(page);
     await expect(msg).toBeVisible({ timeout: 15000 });
-    await expect(msg).toHaveText(/exported/i, { timeout: 15000 });
+    await expect(msg).toHaveText(/exported|downloaded/i, { timeout: 15000 });
     await expect(msg).not.toHaveText(/failed/i);
   });
 
@@ -69,7 +69,7 @@ test.describe('Export panel — browser download path', () => {
 
     const msg = await getExportMessage(page);
     await expect(msg).toBeVisible({ timeout: 15000 });
-    await expect(msg).toHaveText(/exported/i, { timeout: 15000 });
+    await expect(msg).toHaveText(/exported|downloaded/i, { timeout: 15000 });
     await expect(msg).not.toHaveText(/failed/i);
   });
 
@@ -82,7 +82,7 @@ test.describe('Export panel — browser download path', () => {
 
     const msg = await getExportMessage(page);
     await expect(msg).toBeVisible({ timeout: 15000 });
-    await expect(msg).toHaveText(/exported/i, { timeout: 15000 });
+    await expect(msg).toHaveText(/exported|downloaded/i, { timeout: 15000 });
     await expect(msg).not.toHaveText(/failed/i);
   });
 
@@ -95,7 +95,7 @@ test.describe('Export panel — browser download path', () => {
 
     const msg = await getExportMessage(page);
     await expect(msg).toBeVisible({ timeout: 15000 });
-    await expect(msg).toHaveText(/exported/i, { timeout: 15000 });
+    await expect(msg).toHaveText(/exported|downloaded/i, { timeout: 15000 });
     await expect(msg).not.toHaveText(/failed/i);
   });
 
@@ -112,13 +112,13 @@ test.describe('Export panel — browser download path', () => {
     await page.getByRole('button', { name: /download/i }).click();
     let msg = await getExportMessage(page);
     await expect(msg).toBeVisible({ timeout: 15000 });
-    await expect(msg).toHaveText(/exported.*PNG at 1x/i, { timeout: 15000 });
+    await expect(msg).toHaveText(/(exported|downloaded).*PNG at 1x/i, { timeout: 15000 });
 
     await page.getByRole('button', { name: /^2x$/i }).click();
     await page.getByRole('button', { name: /download/i }).click();
     msg = await getExportMessage(page);
     await expect(msg).toBeVisible({ timeout: 15000 });
-    await expect(msg).toHaveText(/exported.*PNG at 2x/i, { timeout: 15000 });
+    await expect(msg).toHaveText(/(exported|downloaded).*PNG at 2x/i, { timeout: 15000 });
   });
 
   test('Export message shows for a newly created shape node', async ({ page }) => {

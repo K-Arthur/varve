@@ -1,4 +1,3 @@
-import { exportNodeToSvg } from '@varve/codegen';
 import { createEngine, type Engine } from '@varve/engine';
 import type { Platform } from '@varve/platform';
 import type {
@@ -24,9 +23,8 @@ import {
   type PlatformKind,
 } from '@varve/scene/export';
 import { CopyButton, Icon, Select, Tooltip } from '@varve/ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { isCapabilityRestricted } from '../../capabilities/restrictions';
-import { composeFlattenedRasterAssetsForNode } from '../../export/compositor';
 import { runBatchPreflight } from '../../exportService';
 import { suggestExportFormat } from '../../intelligence/exportAdvisor';
 import { buildJobs } from '../Export/ExportDialog';
@@ -35,6 +33,7 @@ import {
   downloadBlob,
   exportNodeAsPdf,
   exportNodeAsRaster,
+  exportNodeToSvgMarkup,
   type RasterFormat,
 } from './export';
 
@@ -47,9 +46,17 @@ export interface AssetExportControlsProps {
   platform?: Platform;
   /** Present in the live Inspector (node-mutation allowed). */
   onAddPreset?: (preset: ExportPreset) => void;
+  /** Add several configurations as one undo step (catalog bundles). */
+  onAddPresets?: (presets: ExportPreset[]) => void;
   onUpdatePreset?: (preset: ExportPreset) => void;
   onRemovePreset?: (presetId: string) => void;
   onOpenAdvancedExport?: () => void;
+  /**
+   * Number of selected nodes in the editor. This tab exports `node` only;
+   * when more nodes are selected the surface says so instead of letting a user
+   * assume the whole selection was written.
+   */
+  selectedCount?: number;
 }
 
 /** Quick-export formats this surface can produce today. */
@@ -78,6 +85,40 @@ function availableQuickFormats(): typeof QUICK_FORMATS {
 }
 
 const SCALES = [1, 2, 3];
+
+/**
+ * Quick-export scale contract. The custom field declares 0.1–10 as its bounds;
+ * typed values outside that range are rejected with a visible explanation
+ * rather than silently clamped, and non-finite input (`1e999`) can never reach
+ * the rasterizer as `Infinity`.
+ */
+const MIN_EXPORT_SCALE = 0.1;
+const MAX_EXPORT_SCALE = 10;
+
+interface CustomScaleValidation {
+  /** Parsed scale, or null when the draft is empty/invalid. */
+  value: number | null;
+  error: string | null;
+}
+
+function validateCustomScale(raw: string): CustomScaleValidation {
+  const trimmed = raw.trim();
+  if (trimmed === '') return { value: null, error: null };
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed)) {
+    return {
+      value: null,
+      error: `Enter a number between ${MIN_EXPORT_SCALE} and ${MAX_EXPORT_SCALE}.`,
+    };
+  }
+  if (parsed <= 0 || parsed < MIN_EXPORT_SCALE) {
+    return { value: null, error: `Minimum scale is ${MIN_EXPORT_SCALE}x.` };
+  }
+  if (parsed > MAX_EXPORT_SCALE) {
+    return { value: null, error: `Maximum scale is ${MAX_EXPORT_SCALE}x.` };
+  }
+  return { value: parsed, error: null };
+}
 
 /**
  * Every format a per-node export setting can hold, grouped the way the export
@@ -251,9 +292,11 @@ export function AssetExportControls({
   engine: _engine,
   platform,
   onAddPreset,
+  onAddPresets,
   onUpdatePreset,
   onRemovePreset,
   onOpenAdvancedExport,
+  selectedCount,
 }: AssetExportControlsProps) {
   const suggestion = useMemo(() => suggestExportFormat(node, doc), [node, doc]);
   const [engine, setEngine] = useState<Engine | null>(null);
@@ -265,8 +308,15 @@ export function AssetExportControls({
   const [presetFormat, setPresetFormat] = useState<LegacyExportFormat>(() =>
     quickToLegacyFormat(advisorFormatToQuick(suggestion.format)),
   );
+  // The SVG save and the SVG copy must write the same bytes. Both read this
+  // one markup string, computed async because SVG cannot express effects and
+  // composite gradients natively — those become raster fallbacks.
+  const [svgMarkup, setSvgMarkup] = useState<string | null>(null);
+  const [svgPreparing, setSvgPreparing] = useState(false);
   const liveRef = useRef<HTMLDivElement>(null);
   const suggestedForNodeRef = useRef(node.id);
+  const scaleInputId = useId();
+  const scaleErrorId = `${scaleInputId}-error`;
 
   // Capability-driven format availability for the active platform.
   const platformKindValue = platformKind(platform);
@@ -305,10 +355,25 @@ export function AssetExportControls({
       setPresetFormat(quickToLegacyFormat(suggested));
       setScale(suggestion.scale);
       setCustomScale('');
+      // A receipt for the previously selected object must not appear to
+      // describe this one.
+      setMessage('');
     }
   }, [node.id, suggestion]);
 
-  const effectiveScale = customScale ? Number.parseFloat(customScale) : scale;
+  const customScaleValidation = useMemo(() => validateCustomScale(customScale), [customScale]);
+  const usingCustomScale = customScale.trim() !== '';
+  const scaleUnsupported =
+    format !== 'svg' &&
+    format !== 'pdf' &&
+    (!usingCustomScale
+      ? !Number.isFinite(scale) || scale <= 0
+      : customScaleValidation.value === null);
+  const effectiveScale = usingCustomScale
+    ? customScaleValidation.value
+    : Number.isFinite(scale)
+      ? scale
+      : null;
   const isTauri = isTauriPlatform(platform);
 
   useEffect(() => {
@@ -319,22 +384,51 @@ export function AssetExportControls({
     }
   }, [_engine]);
 
+  // Resolve the exact SVG markup the save would write, so the copy action
+  // cannot silently omit effect/gradient fallbacks.
+  useEffect(() => {
+    if (format !== 'svg') {
+      setSvgMarkup(null);
+      setSvgPreparing(false);
+      return;
+    }
+    let cancelled = false;
+    setSvgPreparing(true);
+    exportNodeToSvgMarkup(node, doc, engine ?? undefined)
+      .then((markup) => {
+        if (cancelled) return;
+        setSvgMarkup(markup);
+        setSvgPreparing(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setSvgMarkup(null);
+        setSvgPreparing(false);
+        setMessage(
+          `Could not build SVG markup: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [format, node, doc, engine]);
+
   const handleExport = useCallback(async () => {
     const eng = engine;
     if (!eng && format !== 'svg') {
       setMessage('Engine not ready');
       return;
     }
+    if (scaleUnsupported || (effectiveScale !== null && effectiveScale <= 0)) {
+      setMessage(customScaleValidation.error ?? 'Enter a valid export scale.');
+      return;
+    }
+    const exportScale = effectiveScale ?? 1;
     setExporting(true);
     setMessage('');
     try {
       if (format === 'pdf') {
-        const { bytes, filename } = await exportNodeAsPdf(
-          node,
-          doc,
-          effectiveScale,
-          eng ?? undefined,
-        );
+        const { bytes, filename } = await exportNodeAsPdf(node, doc, exportScale, eng ?? undefined);
         if (platform) {
           const saved = await platform.saveBinaryFile(filename, bytes, 'application/pdf', '.pdf');
           setMessage(saved ? `Exported ${node.name} as PDF` : 'Export cancelled');
@@ -345,24 +439,16 @@ export function AssetExportControls({
           setMessage(`Downloaded ${node.name} as PDF`);
         }
       } else if (format === 'svg') {
-        const rasterAssets = await composeFlattenedRasterAssetsForNode(node, doc, 'svg', {
-          scale: 1,
-          engine: eng ?? undefined,
-        });
-        const svg = exportNodeToSvg(node, doc, { rasterAssets });
+        const svg = svgMarkup ?? (await exportNodeToSvgMarkup(node, doc, eng ?? undefined));
+        const filename = buildFilename(node.name, 'svg');
         if (isTauri && platform) {
           const bytes = new TextEncoder().encode(svg);
-          await platform.saveBinaryFile(
-            buildFilename(node.name, 'svg'),
-            bytes,
-            'image/svg+xml',
-            '.svg',
-          );
-          setMessage(`Exported ${node.name} as SVG`);
+          const saved = await platform.saveBinaryFile(filename, bytes, 'image/svg+xml', '.svg');
+          setMessage(saved ? `Exported ${node.name} as SVG` : 'Export cancelled');
         } else {
           const blob = new Blob([svg], { type: 'image/svg+xml' });
-          downloadBlob(blob, buildFilename(node.name, 'svg'));
-          setMessage(`Exported ${node.name} as SVG`);
+          downloadBlob(blob, filename);
+          setMessage(`Downloaded ${node.name} as SVG`);
         }
       } else {
         if (!eng) {
@@ -372,21 +458,27 @@ export function AssetExportControls({
         const mime = QUICK_FORMATS.find((f) => f.value === format)?.mime ?? 'image/png';
         const { blob, warnings } = await exportNodeAsRaster(node, doc, eng, {
           format: mime,
-          scale: effectiveScale,
+          scale: exportScale,
           quality: format === 'jpeg' ? 0.92 : undefined,
         });
         const ext = format === 'png' ? 'png' : format === 'jpeg' ? 'jpg' : 'webp';
+        // Encode the scale in the filename (1x stays bare) so exporting the
+        // same object at 1x and 2x does not silently overwrite one file.
+        const scaleSuffix = exportScale !== 1 ? `@${formatScaleNumber(exportScale)}x` : '';
+        const filename = buildFilename(node.name, ext, scaleSuffix);
         const warningSuffix = warnings.length > 0 ? ` \u2014 ${warnings.join(' ')}` : '';
         if (isTauri && platform) {
           const bytes = await blobToBytes(blob);
-          await platform.saveBinaryFile(buildFilename(node.name, ext), bytes, blob.type, `.${ext}`);
+          const saved = await platform.saveBinaryFile(filename, bytes, blob.type, `.${ext}`);
           setMessage(
-            `Exported ${node.name} as ${ext.toUpperCase()} at ${effectiveScale}x${warningSuffix}`,
+            saved
+              ? `Exported ${node.name} as ${ext.toUpperCase()} at ${formatScaleNumber(exportScale)}x${warningSuffix}`
+              : 'Export cancelled',
           );
         } else {
-          downloadBlob(blob, buildFilename(node.name, ext));
+          downloadBlob(blob, filename);
           setMessage(
-            `Exported ${node.name} as ${ext.toUpperCase()} at ${effectiveScale}x${warningSuffix}`,
+            `Downloaded ${node.name} as ${ext.toUpperCase()} at ${formatScaleNumber(exportScale)}x${warningSuffix}`,
           );
         }
       }
@@ -395,7 +487,18 @@ export function AssetExportControls({
     } finally {
       setExporting(false);
     }
-  }, [node, doc, engine, format, effectiveScale, isTauri, platform]);
+  }, [
+    node,
+    doc,
+    engine,
+    format,
+    effectiveScale,
+    scaleUnsupported,
+    customScaleValidation.error,
+    svgMarkup,
+    isTauri,
+    platform,
+  ]);
 
   // Availability of each preset format on the active platform, resolved from
   // the canonical capability contract (never a hardcoded list).
@@ -478,8 +581,9 @@ export function AssetExportControls({
 
   const handleApplyCatalogEntry = useCallback(
     (selection: string) => {
-      if (!onAddPreset || !selection) return;
+      if ((!onAddPreset && !onAddPresets) || !selection) return;
       const stamp = Date.now();
+      const collected: ExportPreset[] = [];
 
       if (selection.startsWith('bundle:')) {
         const bundle = builtinBundleList().find((b) => b.id === selection.slice(7));
@@ -488,23 +592,31 @@ export function AssetExportControls({
           const preset = getBuiltinPreset(presetId);
           if (!preset || !formatSupportedOnPlatform(preset.format, platformKindValue)) return;
           const legacy = builtinPresetToLegacy(preset, node.id, `preset-${stamp}-${index}`);
-          if (legacy) onAddPreset(legacy);
+          if (legacy) collected.push(legacy);
         });
-        return;
+      } else {
+        const preset = getBuiltinPreset(selection.slice(7));
+        if (!preset || !formatSupportedOnPlatform(preset.format, platformKindValue)) return;
+        const legacy = builtinPresetToLegacy(preset, node.id, `preset-${stamp}`);
+        if (legacy) collected.push(legacy);
       }
 
-      const preset = getBuiltinPreset(selection.slice(7));
-      if (!preset || !formatSupportedOnPlatform(preset.format, platformKindValue)) return;
-      const legacy = builtinPresetToLegacy(preset, node.id, `preset-${stamp}`);
-      if (legacy) onAddPreset(legacy);
+      if (collected.length === 0) return;
+      // A bundle is one user action; it must be one undo step, not one per
+      // member preset.
+      if (onAddPresets) {
+        onAddPresets(collected);
+        return;
+      }
+      for (const preset of collected) onAddPreset?.(preset);
     },
-    [onAddPreset, platformKindValue, node.id],
+    [onAddPreset, onAddPresets, platformKindValue, node.id],
   );
 
   const handleAddPreset = useCallback(() => {
     if (!onAddPreset || !presetFormatAvailable(presetFormat)) return;
     const scaled = !UNSCALED_PRESET_FORMATS.has(presetFormat);
-    const scaleValue = scaled ? effectiveScale : 1;
+    const scaleValue = scaled ? (effectiveScale ?? 1) : 1;
     const suffix =
       scaled && Number.isFinite(scaleValue) && scaleValue !== 1
         ? `@${formatScaleNumber(scaleValue)}x`
@@ -524,6 +636,24 @@ export function AssetExportControls({
         <h3 id="spec-export-heading">Quick export</h3>
         <p>Export this {nodeLabel(node)} once with the settings below.</p>
       </div>
+
+      {selectedCount !== undefined && selectedCount > 1 && (
+        <div className="spec-export__selection-note" data-export-selection-note role="note">
+          <p>
+            This tab exports one object at a time — only <strong>{node.name}</strong> will export.{' '}
+            {selectedCount} layers are selected.
+          </p>
+          {onOpenAdvancedExport && (
+            <button
+              type="button"
+              className="spec-export__selection-note-action"
+              onClick={onOpenAdvancedExport}
+            >
+              Export all {selectedCount} selected layers…
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="spec-export__row">
         <span className="spec-row__label">
@@ -568,8 +698,8 @@ export function AssetExportControls({
               <button
                 key={s}
                 type="button"
-                className={`spec-export__btn${effectiveScale === s && !customScale ? ' spec-export__btn--active' : ''}`}
-                aria-pressed={effectiveScale === s && !customScale}
+                className={`spec-export__btn${!usingCustomScale && effectiveScale === s ? ' spec-export__btn--active' : ''}`}
+                aria-pressed={!usingCustomScale && effectiveScale === s}
                 onClick={() => {
                   setScale(s);
                   setCustomScale('');
@@ -579,25 +709,35 @@ export function AssetExportControls({
               </button>
             ))}
             <input
+              id={scaleInputId}
               type="number"
               className="spec-export__input"
               placeholder="custom"
-              min={0.1}
-              max={10}
+              min={MIN_EXPORT_SCALE}
+              max={MAX_EXPORT_SCALE}
               step={0.5}
               value={customScale}
               onChange={(e) => setCustomScale(e.target.value)}
-              aria-label="Custom scale multiplier"
+              aria-label={`Custom scale multiplier, ${MIN_EXPORT_SCALE} to ${MAX_EXPORT_SCALE}`}
+              aria-invalid={customScaleValidation.error ? true : undefined}
+              aria-describedby={customScaleValidation.error ? scaleErrorId : undefined}
             />
           </div>
         </div>
+      )}
+
+      {customScaleValidation.error && (
+        <p id={scaleErrorId} className="spec-export__scale-error" role="note">
+          {customScaleValidation.error} Nothing will be exported until the scale is valid.
+        </p>
       )}
 
       <div className="spec-export__actions">
         <button
           type="button"
           className="spec-export__download"
-          disabled={exporting || !effectiveScale || effectiveScale <= 0}
+          disabled={exporting || scaleUnsupported}
+          aria-describedby={customScaleValidation.error ? scaleErrorId : undefined}
           onClick={handleExport}
         >
           <Icon name="Download" size={14} label={undefined} />
@@ -607,9 +747,10 @@ export function AssetExportControls({
         </button>
         {format === 'svg' && (
           <CopyButton
-            value={exportNodeToSvg(node, doc)}
+            value={svgMarkup ?? ''}
             label="SVG markup"
             className="spec-row__copy"
+            disabled={svgPreparing || svgMarkup === null}
           />
         )}
       </div>
@@ -638,42 +779,15 @@ export function AssetExportControls({
               No saved configurations yet. Add a preset or create a custom configuration below.
             </p>
           )}
-          {presets.map((preset) => {
-            const fileName = presetFileName(node.name, preset);
-            return (
-              <div key={preset.id} className="spec-export__preset-row">
-                <label className="spec-export__preset-enabled">
-                  <input
-                    type="checkbox"
-                    checked={preset.enabled}
-                    onChange={() => onUpdatePreset?.({ ...preset, enabled: !preset.enabled })}
-                    aria-label={`Enable ${fileName} export`}
-                  />
-                  <span className="varve-visually-hidden">Enabled</span>
-                </label>
-                <div className="spec-export__preset-info">
-                  <span className="spec-export__preset-summary">{presetSummary(preset)}</span>
-                  <code className="spec-export__preset-file">{fileName}</code>
-                  <input
-                    type="text"
-                    className="spec-export__preset-suffix"
-                    value={preset.suffix}
-                    placeholder="suffix"
-                    aria-label={`Filename suffix for ${fileName}`}
-                    onChange={(e) => onUpdatePreset?.({ ...preset, suffix: e.target.value })}
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="spec-export__preset-remove"
-                  aria-label={`Remove ${fileName} export`}
-                  onClick={() => onRemovePreset?.(preset.id)}
-                >
-                  <Icon name="X" size={12} label={undefined} />
-                </button>
-              </div>
-            );
-          })}
+          {presets.map((preset) => (
+            <PresetRow
+              key={preset.id}
+              nodeName={node.name}
+              preset={preset}
+              onUpdatePreset={onUpdatePreset}
+              onRemovePreset={onRemovePreset}
+            />
+          ))}
           <fieldset className="spec-export__preset-add">
             <legend>Add configuration</legend>
             <span className="spec-export__field-label">Quick presets</span>
@@ -768,6 +882,85 @@ function nodeLabel(node: SceneNode): string {
     default:
       return 'object';
   }
+}
+
+/**
+ * One saved export configuration.
+ *
+ * The suffix is a *draft*: it is committed on blur or Enter (Escape reverts),
+ * so typing "social" is one undo step and one document mutation instead of six.
+ * The visible filename preview follows the draft; the accessible name keeps the
+ * committed filename so it does not change under the user while they type.
+ */
+function PresetRow({
+  nodeName,
+  preset,
+  onUpdatePreset,
+  onRemovePreset,
+}: {
+  nodeName: string;
+  preset: ExportPreset;
+  onUpdatePreset?: (preset: ExportPreset) => void;
+  onRemovePreset?: (presetId: string) => void;
+}) {
+  const [suffixDraft, setSuffixDraft] = useState(preset.suffix);
+  const displayFileName = presetFileName(nodeName, { ...preset, suffix: suffixDraft });
+  const committedFileName = presetFileName(nodeName, preset);
+
+  // Re-sync when another surface changes the preset (or the node is renamed).
+  useEffect(() => {
+    setSuffixDraft(preset.suffix);
+  }, [preset.id, preset.suffix]);
+
+  const commitSuffix = useCallback(() => {
+    if (suffixDraft === preset.suffix) return;
+    onUpdatePreset?.({ ...preset, suffix: suffixDraft });
+  }, [onUpdatePreset, preset, suffixDraft]);
+
+  return (
+    <div className="spec-export__preset-row">
+      <label className="spec-export__preset-enabled">
+        <input
+          type="checkbox"
+          checked={preset.enabled}
+          onChange={() => onUpdatePreset?.({ ...preset, enabled: !preset.enabled })}
+          aria-label={`Enable ${committedFileName} export`}
+        />
+        <span className="varve-visually-hidden">Enabled</span>
+      </label>
+      <div className="spec-export__preset-info">
+        <span className="spec-export__preset-summary">{presetSummary(preset)}</span>
+        <code className="spec-export__preset-file">{displayFileName}</code>
+        <input
+          type="text"
+          className="spec-export__preset-suffix"
+          value={suffixDraft}
+          placeholder="suffix"
+          aria-label={`Filename suffix for ${committedFileName}`}
+          onChange={(e) => setSuffixDraft(e.target.value)}
+          onBlur={commitSuffix}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commitSuffix();
+              e.currentTarget.blur();
+            } else if (e.key === 'Escape') {
+              setSuffixDraft(preset.suffix);
+              e.currentTarget.blur();
+            }
+          }}
+        />
+      </div>
+      <button
+        type="button"
+        className="spec-export__preset-remove"
+        aria-label={`Remove ${committedFileName} export`}
+        onClick={() => onRemovePreset?.(preset.id)}
+      >
+        <Icon name="X" size={12} label={undefined} />
+      </button>
+    </div>
+  );
 }
 
 function formatScaleNumber(value: number): string {

@@ -7,6 +7,7 @@ import {
   sanitizeFileName,
   sanitizeSegment,
   scaleToken,
+  stripSourceExtension,
 } from './naming';
 
 describe('sanitizeSegment', () => {
@@ -155,6 +156,53 @@ describe('formatFileName', () => {
       scale: { mode: 'multiplier', value: 1 },
     });
     expect(name).toBe('my.design.png');
+  });
+
+  it('drops a source-asset extension from the name token', () => {
+    // Imported layers are named after their file; the export must not become
+    // `hero.jpg@2x.png` or `herojpg@2x.png`.
+    const photo = formatFileName('{name}{suffix}.{ext}', {
+      ...base,
+      name: 'hero.jpg',
+      suffix: '@2x',
+    });
+    expect(photo).toBe('hero@2x.png');
+
+    const doc = formatFileName('{name}.{ext}', {
+      ...base,
+      name: 'my.final.svg',
+      scale: { mode: 'multiplier', value: 1 },
+    });
+    expect(doc).toBe('my.final.png');
+  });
+
+  it('keeps late dots that are part of the name, not an extension', () => {
+    const name = formatFileName('{name}.{ext}', {
+      ...base,
+      name: 'budget.v1.2',
+      scale: { mode: 'multiplier', value: 1 },
+    });
+    expect(name).toBe('budget.v1.2.png');
+  });
+});
+
+describe('stripSourceExtension', () => {
+  it('strips known media and document extensions case-insensitively', () => {
+    expect(stripSourceExtension('photo.jpg')).toBe('photo');
+    expect(stripSourceExtension('photo.JPEG')).toBe('photo');
+    expect(stripSourceExtension('mark.svg')).toBe('mark');
+    expect(stripSourceExtension('print.pdf')).toBe('print');
+  });
+
+  it('preserves names whose trailing token is not a source extension', () => {
+    expect(stripSourceExtension('my.design')).toBe('my.design');
+    expect(stripSourceExtension('v1.2')).toBe('v1.2');
+    expect(stripSourceExtension('Logo')).toBe('Logo');
+    expect(stripSourceExtension('release.notes')).toBe('release.notes');
+  });
+
+  it('does not strip a word that merely ends in an extension without a dot', () => {
+    expect(stripSourceExtension('jpeg')).toBe('jpeg');
   });
 });
 

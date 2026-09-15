@@ -14,6 +14,7 @@
 import {
   canHaveLayerEffects,
   canHaveSmartFilters,
+  type ExportPreset,
   isExportRegion,
   isImageShape,
   type SceneNode,
@@ -116,7 +117,8 @@ type ExportSubTab = 'format' | 'code';
 
 export function PropertiesPanel() {
   const { selectedNodes, state, platform, toggleVariablesPanel, toggleRightPanel } = useEditor();
-  const { addPreset, updatePreset, removePreset, setShowExportDialog } = useEditor();
+  const { addPreset, updatePreset, removePreset, setShowExportDialog, groupCompoundOperation } =
+    useEditor();
   const effectiveConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
   const selNodes = selectedNodes();
   const summary = summarize(selNodes);
@@ -284,6 +286,43 @@ export function PropertiesPanel() {
   useEffect(() => {
     if (state.tool === 'inspect') setExportSubTab('code');
   }, [state.tool]);
+
+  // Export-setting mutations are document edits: give each user action one
+  // labeled undo step (a bundle add is one action, not one per member preset).
+  const exportTargetId = selNodes[0]?.id;
+  const handleAddExportPreset = useCallback(
+    (preset: ExportPreset) => {
+      if (!exportTargetId) return;
+      groupCompoundOperation('Add export setting', () => addPreset(exportTargetId, preset));
+    },
+    [exportTargetId, groupCompoundOperation, addPreset],
+  );
+  const handleAddExportPresets = useCallback(
+    (presets: ExportPreset[]) => {
+      if (!exportTargetId || presets.length === 0) return;
+      groupCompoundOperation(
+        presets.length === 1 ? 'Add export setting' : `Add ${presets.length} export settings`,
+        () => {
+          for (const preset of presets) addPreset(exportTargetId, preset);
+        },
+      );
+    },
+    [exportTargetId, groupCompoundOperation, addPreset],
+  );
+  const handleUpdateExportPreset = useCallback(
+    (preset: ExportPreset) => {
+      if (!exportTargetId) return;
+      groupCompoundOperation('Update export setting', () => updatePreset(exportTargetId, preset));
+    },
+    [exportTargetId, groupCompoundOperation, updatePreset],
+  );
+  const handleRemoveExportPreset = useCallback(
+    (presetId: string) => {
+      if (!exportTargetId) return;
+      groupCompoundOperation('Remove export setting', () => removePreset(exportTargetId, presetId));
+    },
+    [exportTargetId, groupCompoundOperation, removePreset],
+  );
 
   const activateTab = (nextTab: InspectorTabConfig['id']) => {
     if (configuredTabs.some((tabConfig) => tabConfig.id === nextTab)) setRequestedTab(null);
@@ -482,9 +521,11 @@ export function PropertiesPanel() {
                 node={selNodes[0] as SceneNode}
                 doc={state.document}
                 platform={platform}
-                onAddPreset={(preset) => addPreset((selNodes[0] as SceneNode).id, preset)}
-                onUpdatePreset={(preset) => updatePreset((selNodes[0] as SceneNode).id, preset)}
-                onRemovePreset={(presetId) => removePreset((selNodes[0] as SceneNode).id, presetId)}
+                selectedCount={selNodes.length}
+                onAddPreset={handleAddExportPreset}
+                onAddPresets={handleAddExportPresets}
+                onUpdatePreset={handleUpdateExportPreset}
+                onRemovePreset={handleRemoveExportPreset}
                 onOpenAdvancedExport={() => setShowExportDialog(true)}
               />
             ) : exportSubTab === 'code' && selNodes.length > 0 ? (

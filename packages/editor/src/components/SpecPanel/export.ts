@@ -38,7 +38,7 @@ import {
 import type { Document as SceneDocument, SceneNode, ShapeNode } from '@varve/scene';
 import { effectPadding, imageFill } from '@varve/scene';
 import type { MetadataPolicy } from '@varve/scene/export';
-import { capabilitiesForFormat } from '@varve/scene/export';
+import { capabilitiesForFormat, sanitizeFileName, stripSourceExtension } from '@varve/scene/export';
 import { DEFAULT_ARTWORK_FONT_FAMILY, transformRect } from '@varve/shared';
 import { appearancePaddingWorld, expandRect } from '../../canvas/visualBounds';
 import {
@@ -576,17 +576,31 @@ export async function exportNodeAsRaster(
   return { blob, warnings, resourceFailures };
 }
 
+/**
+ * SVG markup for one node, including the rasterized fallbacks SVG cannot
+ * express natively (effects, composite gradients, mockups). This is the single
+ * source of truth for both the Quick-export save and the copy action: calling
+ * `exportNodeToSvg` without these assets silently drops the node's effect from
+ * the copied markup while the saved file keeps it.
+ */
+export async function exportNodeToSvgMarkup(
+  node: SceneNode,
+  doc: SceneDocument,
+  eng?: Engine,
+): Promise<string> {
+  const rasterAssets = await composeFlattenedRasterAssetsForNode(node, doc, 'svg', {
+    scale: 1,
+    engine: eng,
+  });
+  return exportNodeToSvg(node, doc, { rasterAssets });
+}
+
 export async function exportNodeAsSvg(
   node: SceneNode,
   doc: SceneDocument,
   eng?: Engine,
 ): Promise<Blob> {
-  const rasterAssets = await composeFlattenedRasterAssetsForNode(node, doc, 'svg', {
-    scale: 1,
-    engine: eng,
-  });
-  const svg = exportNodeToSvg(node, doc, { rasterAssets });
-  return new Blob([svg], { type: 'image/svg+xml' });
+  return new Blob([await exportNodeToSvgMarkup(node, doc, eng)], { type: 'image/svg+xml' });
 }
 
 export function downloadBlob(blob: Blob, filename: string): void {
@@ -600,9 +614,21 @@ export function downloadBlob(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-export function buildFilename(nodeName: string, ext: string): string {
-  const safe = nodeName.replace(/[^a-zA-Z0-9-_\s]/g, '').trim() || 'export';
-  return `${safe}.${ext}`;
+/**
+ * Filename for a quick export.
+ *
+ * Uses the canonical cross-platform sanitizer (`sanitizeSegment` /
+ * `sanitizeFileName` in `@varve/scene/export`): Unicode is preserved, Windows
+ * reserved device names are guarded, and a source-asset extension carried by
+ * an imported layer name (`hero.jpg`) is dropped instead of being mangled into
+ * the stem. `suffix` carries the scale token (`@2x`) so two quick exports of
+ * the same object at different scales do not collide in the download folder.
+ */
+export function buildFilename(nodeName: string, ext: string, suffix = ''): string {
+  const base = stripSourceExtension(nodeName).trim() || 'export';
+  // keepDots matches the canonical template path (`formatFileName`), so a name
+  // like `release.v1.2` reads the same in both export routes.
+  return sanitizeFileName(`${base}${suffix}`, ext, { keepDots: true });
 }
 
 /**
@@ -896,6 +922,7 @@ export async function exportNodeAsPdf(
   );
   const fontRecords = await collectFontData(fontDataRequests, {
     fetchBundled: true,
+    failOnTimeout: true,
     signal: undefined,
   });
   assertExportFontData(fontRequests, fontRecords);
@@ -988,6 +1015,7 @@ export async function exportNodeAsPdfX(
   );
   const fontRecords = await collectFontData(fontDataRequests, {
     fetchBundled: true,
+    failOnTimeout: true,
     signal: undefined,
   });
   assertExportFontData(fontRequests, fontRecords);

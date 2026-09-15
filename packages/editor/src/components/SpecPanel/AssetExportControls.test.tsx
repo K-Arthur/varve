@@ -385,7 +385,7 @@ describe('AssetExportControls', () => {
       expect(labels.some((l) => /PNG 1\u00d7/.test(l))).toBe(true);
     });
 
-    it('edits a preset suffix', () => {
+    it('commits a preset suffix edit once, on blur', () => {
       const doc = createDocument('Export', true);
       const onUpdatePreset = vi.fn();
       render(
@@ -397,12 +397,55 @@ describe('AssetExportControls', () => {
         />,
       );
 
-      fireEvent.change(screen.getByLabelText('Filename suffix for Logo@2x.png'), {
-        target: { value: '@3x' },
-      });
+      const input = screen.getByLabelText('Filename suffix for Logo@2x.png');
+      fireEvent.change(input, { target: { value: '@3x' } });
+      // Typing must not write the document per keystroke.
+      expect(onUpdatePreset).not.toHaveBeenCalled();
+      fireEvent.blur(input);
+      expect(onUpdatePreset).toHaveBeenCalledTimes(1);
       expect(onUpdatePreset).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'p1', suffix: '@3x' }),
       );
+    });
+
+    it('reverts a suffix draft on Escape and commits nothing', () => {
+      const doc = createDocument('Export', true);
+      const onUpdatePreset = vi.fn();
+      render(
+        <AssetExportControls
+          node={nodeWithPresets()}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: nodeWithPresets() } }}
+          onAddPreset={() => {}}
+          onUpdatePreset={onUpdatePreset}
+        />,
+      );
+
+      const input = screen.getByLabelText('Filename suffix for Logo@2x.png');
+      fireEvent.change(input, { target: { value: '-draft' } });
+      fireEvent.keyDown(input, { key: 'Escape' });
+      expect(onUpdatePreset).not.toHaveBeenCalled();
+      expect(input).toHaveValue('@2x');
+    });
+
+    it('adds a catalog bundle through the single grouped callback', async () => {
+      const doc = createDocument('Export', true);
+      const onAddPreset = vi.fn();
+      const onAddPresets = vi.fn();
+      render(
+        <AssetExportControls
+          node={makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }, { name: 'Logo' })}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: nodeWithPresets() } }}
+          onAddPreset={onAddPreset}
+          onAddPresets={onAddPresets}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('combobox', { name: /Add from preset/i }));
+      fireEvent.click(await screen.findByRole('option', { name: /Web asset set/ }));
+
+      expect(onAddPresets).toHaveBeenCalledTimes(1);
+      expect(onAddPresets.mock.calls[0]?.[0]).toHaveLength(3);
+      expect(onAddPreset).not.toHaveBeenCalled();
     });
 
     it('adds a PDF preset using the legacy pdf-screen format', async () => {
@@ -523,6 +566,85 @@ describe('AssetExportControls', () => {
 
       expect(screen.getByText(/preflight warning/)).toBeInTheDocument();
       expect(screen.getByText('Output dimensions were limited')).toBeInTheDocument();
+    });
+  });
+
+  describe('quick export guards', () => {
+    function bannerNode(): SceneNode {
+      return makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 3000, h: 2000 },
+        { name: 'Banner' },
+      );
+    }
+
+    it('rejects out-of-range custom scales and explains the bound', () => {
+      const doc = createDocument('Export', true);
+      const node = bannerNode();
+      render(
+        <AssetExportControls
+          node={node}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: node } }}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'PNG' }));
+      const input = screen.getByLabelText(/Custom scale multiplier, 0.1 to 10/i);
+      const download = screen.getByRole('button', { name: 'Download PNG' });
+
+      fireEvent.change(input, { target: { value: '0' } });
+      expect(download).toBeDisabled();
+      expect(input).toHaveAttribute('aria-invalid', 'true');
+      expect(screen.getByText(/Minimum scale is 0.1x/i)).toBeInTheDocument();
+
+      fireEvent.change(input, { target: { value: '-5' } });
+      expect(download).toBeDisabled();
+      expect(screen.getByText(/Minimum scale is 0.1x/i)).toBeInTheDocument();
+
+      fireEvent.change(input, { target: { value: '999999' } });
+      expect(download).toBeDisabled();
+      expect(screen.getByText(/Maximum scale is 10x/i)).toBeInTheDocument();
+
+      fireEvent.change(input, { target: { value: '2.5' } });
+      expect(download).toBeEnabled();
+      expect(input).not.toHaveAttribute('aria-invalid');
+      expect(screen.queryByText(/Minimum scale|Maximum scale|between 0.1/)).not.toBeInTheDocument();
+    });
+
+    it('names the exported object and offers the batch workspace for multi-selection', () => {
+      const doc = createDocument('Export', true);
+      const node = bannerNode();
+      const onOpenAdvancedExport = vi.fn();
+      render(
+        <AssetExportControls
+          node={node}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: node } }}
+          selectedCount={3}
+          onOpenAdvancedExport={onOpenAdvancedExport}
+        />,
+      );
+
+      const note = screen.getByRole('note');
+      expect(note).toHaveTextContent(/exports one object at a time/i);
+      expect(note).toHaveTextContent('Banner');
+      expect(note).toHaveTextContent('3 layers are selected');
+
+      fireEvent.click(screen.getByRole('button', { name: /Export all 3 selected layers/ }));
+      expect(onOpenAdvancedExport).toHaveBeenCalledOnce();
+    });
+
+    it('does not claim a batch when only one layer is selected', () => {
+      const doc = createDocument('Export', true);
+      const node = bannerNode();
+      render(
+        <AssetExportControls
+          node={node}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: node } }}
+          selectedCount={1}
+          onOpenAdvancedExport={vi.fn()}
+        />,
+      );
+      expect(screen.queryByRole('note')).not.toBeInTheDocument();
     });
   });
 });

@@ -522,7 +522,7 @@ test.describe('Halftone visual verification', () => {
 
     const msg = page.locator('.spec-export__message');
     await expect(msg).toBeVisible({ timeout: 20000 });
-    await expect(msg).toHaveText(/exported/i, { timeout: 20000 });
+    await expect(msg).toHaveText(/exported|downloaded/i, { timeout: 20000 });
     await expect(msg).not.toHaveText(/failed/i);
     await page.screenshot({ path: `${SHOT_DIR}/17-export-png-message.png` });
 
@@ -702,7 +702,7 @@ test.describe('Halftone visual verification', () => {
 
     const msg = page.locator('.spec-export__message');
     await expect(msg).toBeVisible({ timeout: 20000 });
-    await expect(msg).toHaveText(/exported/i, { timeout: 20000 });
+    await expect(msg).toHaveText(/exported|downloaded/i, { timeout: 20000 });
     await expect(msg).not.toHaveText(/failed/i);
     await page.screenshot({ path: `${SHOT_DIR}/23-export-svg-message.png` });
 
@@ -735,7 +735,7 @@ test.describe('Halftone visual verification', () => {
 
     const msg = page.locator('.spec-export__message');
     await expect(msg).toBeVisible({ timeout: 20000 });
-    await expect(msg).toHaveText(/exported/i, { timeout: 20000 });
+    await expect(msg).toHaveText(/exported|downloaded/i, { timeout: 20000 });
     await expect(msg).not.toHaveText(/failed/i);
     await page.screenshot({ path: `${SHOT_DIR}/24-export-jpeg-message.png` });
 
