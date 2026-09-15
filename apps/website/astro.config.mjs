@@ -1,5 +1,31 @@
+import { fileURLToPath } from 'node:url';
 import tailwind from '@astrojs/tailwind';
 import { defineConfig } from 'astro/config';
+import { buildSearchIndex } from './scripts/search-index.mjs';
+
+/**
+ * Search index + heading anchors (see scripts/search-index.mjs).
+ *
+ * A local integration rather than a post-build shell step so every build
+ * path gets it: `astro build`, `--outDir dist-pages`, and CI. The hook
+ * receives the real output directory and the configured base path, so the
+ * index routes match whichever host the build targets.
+ */
+function searchIndexIntegration() {
+  return {
+    name: 'varve-search-index',
+    hooks: {
+      'astro:build:done': async ({ dir, logger }) => {
+        const stats = await buildSearchIndex({
+          dir: fileURLToPath(dir),
+          base: SITE_BASE,
+          log: (message) => logger.info(message),
+        });
+        logger.info(`indexed ${stats.pages} pages`);
+      },
+    },
+  };
+}
 
 /**
  * Site URL and base path are environment-driven.
@@ -21,7 +47,7 @@ const SITE_URL = process.env.SITE_URL ?? 'https://varve.studio';
 const SITE_BASE = process.env.SITE_BASE ?? '/';
 
 export default defineConfig({
-  integrations: [tailwind()],
+  integrations: [tailwind(), searchIndexIntegration()],
   site: SITE_URL,
   base: SITE_BASE,
   trailingSlash: 'ignore',
