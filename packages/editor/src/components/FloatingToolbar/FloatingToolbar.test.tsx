@@ -67,16 +67,33 @@ describe('FloatingToolbar — per-mode tool adaptation', () => {
     fireEvent.click(screen.getByLabelText('Paint Brush'));
 
     const options = screen.getByRole('button', { name: 'Tool options' });
-    // Brush tools auto-open the popover for discoverability.
+    // Brush tools auto-open the popover for discoverability, but the implicit
+    // open must not take focus off the tool/canvas the user just engaged.
     expect(options).toHaveAttribute('aria-expanded', 'true');
-    expect(await screen.findByRole('dialog', { name: 'paint tool options' })).toBeInTheDocument();
-    const brushButton = await screen.findByRole('button', { name: 'Brush' }, { timeout: 5000 });
-    await waitFor(() => expect(brushButton).toHaveFocus());
+    const dialog = await screen.findByRole('dialog', { name: 'Paint Brush tool options' });
+    expect(dialog).toBeInTheDocument();
+    expect(dialog.contains(document.activeElement)).toBe(false);
 
+    // Escape owns dismissal even with focus still on the trigger, and returns
+    // focus to the trigger.
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.queryByRole('dialog', { name: 'paint tool options' })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('dialog', { name: 'Paint Brush tool options' }),
+      ).not.toBeInTheDocument();
+    });
     expect(options).toHaveAttribute('aria-expanded', 'false');
     expect(options).toHaveFocus();
+
+    // An explicit keyboard activation is a navigation intent: focus moves to
+    // the first control so the panel is operable without a pointer. A real
+    // browser fires keydown before the synthesized click; jsdom needs both.
+    options.focus();
+    fireEvent.keyDown(options, { key: 'Enter' });
+    fireEvent.click(options);
+    const brushButton = await screen.findByRole('button', { name: 'Brush' }, { timeout: 5000 });
+    await waitFor(() => expect(brushButton).toHaveFocus());
+    expect(options).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('Image mode hides the frame tool and boolean ops, keeps retouch tools', async () => {

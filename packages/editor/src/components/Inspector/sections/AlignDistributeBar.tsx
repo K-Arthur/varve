@@ -544,6 +544,8 @@ export function AlignDistributeBar() {
               fallbackPlacements={['top-end', 'bottom-start', 'top-start']}
               onClose={() => setShowDistributionMenu(false)}
               dismissOnEscape
+              initialFocus
+              yieldTabToAnchor
               className="varve-floating-layer"
             >
               <div
@@ -706,6 +708,8 @@ export function AlignDistributeBar() {
                 fallbackPlacements={['top-end', 'bottom-start', 'top-start']}
                 onClose={() => setShowTidyMenu(false)}
                 dismissOnEscape
+                initialFocus
+                yieldTabToAnchor
                 className="varve-floating-layer"
               >
                 <TidyUpPopover onApply={handleTidyUp} onClose={() => setShowTidyMenu(false)} />

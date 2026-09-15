@@ -117,6 +117,7 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
         maxHeight={400}
         kind="popover"
         dismissOnEscape
+        yieldTabToAnchor
         onClose={(reason) => {
           setOpen(false);
           if (reason === 'escape') buttonRef.current?.focus();

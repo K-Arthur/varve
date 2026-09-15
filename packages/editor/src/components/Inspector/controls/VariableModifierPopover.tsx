@@ -16,6 +16,7 @@ import type { AlphaModifier, AlphaModifierOperation, ManagedColor } from '@varve
 import { alphaModifierLabel, normalizedAlpha } from '@varve/scene';
 import {
   FloatingPortal,
+  FocusTrap,
   Icon,
   InputGroup,
   InputGroupAddon,
@@ -99,142 +100,144 @@ export function VariableModifierPopover({
       onClose={() => onClose()}
       className="varve-modifier-popover"
     >
-      <div
-        role="dialog"
-        aria-label="Alpha modifier"
-        style={{
-          minWidth: 240,
-          maxWidth: 300,
-          background: 'var(--color-surface-raised, #fff)',
-          border: '1px solid var(--color-border-strong, #cdd3de)',
-          borderRadius: 'var(--radius-surface)',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.16)',
-          padding: 12,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
-        }}
-      >
-        <div className="insp-field-row__split" style={{ justifyContent: 'space-between' }}>
-          <strong style={{ fontSize: 12 }}>Alpha modifier</strong>
-          <button type="button" className="insp-inline-btn" aria-label="Close" onClick={onClose}>
-            <Icon name="X" label={undefined} size="0.9em" />
-          </button>
-        </div>
-
-        <fieldset
+      <FocusTrap active onClose={onClose}>
+        <div
+          role="dialog"
+          aria-label="Alpha modifier"
           style={{
+            minWidth: 240,
+            maxWidth: 300,
+            background: 'var(--color-surface-raised, #fff)',
+            border: '1px solid var(--color-border-strong, #cdd3de)',
+            borderRadius: 'var(--radius-surface)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.16)',
+            padding: 12,
             display: 'flex',
-            gap: 4,
-            margin: 0,
-            padding: 0,
-            border: 'none',
-            minInlineSize: 0,
+            flexDirection: 'column',
+            gap: 10,
           }}
         >
-          <legend className="varve-visually-hidden">Operation</legend>
-          {OPERATIONS.map((op) => (
-            <button
-              key={op.value}
-              type="button"
-              className="insp-inline-btn"
-              aria-pressed={operation === op.value}
-              style={{
-                fontWeight: operation === op.value ? 700 : 400,
-                borderBottom:
-                  operation === op.value
-                    ? '2px solid var(--color-accent-primary, #39d0c6)'
-                    : '2px solid transparent',
-              }}
-              onClick={() => setOperation(op.value)}
-            >
-              {op.label}
+          <div className="insp-field-row__split" style={{ justifyContent: 'space-between' }}>
+            <strong style={{ fontSize: 12 }}>Alpha modifier</strong>
+            <button type="button" className="insp-inline-btn" aria-label="Close" onClick={onClose}>
+              <Icon name="X" label={undefined} size="0.9em" />
             </button>
-          ))}
-        </fieldset>
+          </div>
 
-        <label style={{ fontSize: 12 }}>
-          {operation === 'multiply'
-            ? 'Factor (%)'
-            : operation === 'set'
-              ? 'Alpha (%)'
-              : 'Delta (percentage points)'}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input
-              type="range"
-              aria-label="Modifier value"
-              min={sliderMin}
-              max={sliderMax}
-              step={1}
-              value={displayValue}
-              onChange={(e) => setValue(Number(e.target.value) / 100)}
-              style={{ flex: 1 }}
-            />
-            <InputGroup style={{ flex: '0 1 92px', minWidth: 0 }}>
-              <InputGroupInput
-                type="number"
+          <fieldset
+            style={{
+              display: 'flex',
+              gap: 4,
+              margin: 0,
+              padding: 0,
+              border: 'none',
+              minInlineSize: 0,
+            }}
+          >
+            <legend className="varve-visually-hidden">Operation</legend>
+            {OPERATIONS.map((op) => (
+              <button
+                key={op.value}
+                type="button"
+                className="insp-inline-btn"
+                aria-pressed={operation === op.value}
+                style={{
+                  fontWeight: operation === op.value ? 700 : 400,
+                  borderBottom:
+                    operation === op.value
+                      ? '2px solid var(--color-accent-primary, #39d0c6)'
+                      : '2px solid transparent',
+                }}
+                onClick={() => setOperation(op.value)}
+              >
+                {op.label}
+              </button>
+            ))}
+          </fieldset>
+
+          <label style={{ fontSize: 12 }}>
+            {operation === 'multiply'
+              ? 'Factor (%)'
+              : operation === 'set'
+                ? 'Alpha (%)'
+                : 'Delta (percentage points)'}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <input
+                type="range"
                 aria-label="Modifier value"
                 min={sliderMin}
                 max={sliderMax}
                 step={1}
-                value={Math.round(displayValue * 10) / 10}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  if (Number.isFinite(n)) setValue(n / 100);
-                }}
+                value={displayValue}
+                onChange={(e) => setValue(Number(e.target.value) / 100)}
+                style={{ flex: 1 }}
               />
-              <InputGroupAddon align="inline-end">
-                <InputGroupText>%</InputGroupText>
-              </InputGroupAddon>
-            </InputGroup>
-          </div>
-        </label>
+              <InputGroup style={{ flex: '0 1 92px', minWidth: 0 }}>
+                <InputGroupInput
+                  type="number"
+                  aria-label="Modifier value"
+                  min={sliderMin}
+                  max={sliderMax}
+                  step={1}
+                  value={Math.round(displayValue * 10) / 10}
+                  onChange={(e) => {
+                    const n = Number(e.target.value);
+                    if (Number.isFinite(n)) setValue(n / 100);
+                  }}
+                />
+                <InputGroupAddon align="inline-end">
+                  <InputGroupText>%</InputGroupText>
+                </InputGroupAddon>
+              </InputGroup>
+            </div>
+          </label>
 
-        <div style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span>
-            Token alpha: <strong>{Math.round(tokenAlpha * 100)}%</strong>
-          </span>
-          <span>
-            Effective alpha: <strong>{Math.round(effectiveAlpha * 100)}%</strong>
-          </span>
-          {operation === 'multiply' && (
-            <span className="insp-empty-message" style={{ fontSize: 11 }}>
-              Relative: follows the variable when its alpha changes
+          <div style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span>
+              Token alpha: <strong>{Math.round(tokenAlpha * 100)}%</strong>
+            </span>
+            <span>
+              Effective alpha: <strong>{Math.round(effectiveAlpha * 100)}%</strong>
+            </span>
+            {operation === 'multiply' && (
+              <span className="insp-empty-message" style={{ fontSize: 11 }}>
+                Relative: follows the variable when its alpha changes
+              </span>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              className="insp-inline-btn"
+              disabled={currentModifiers.length === 0}
+              onClick={() => commit(undefined)}
+            >
+              Reset
+            </button>
+            <button
+              type="button"
+              className="insp-add-btn"
+              onClick={() =>
+                commit([
+                  {
+                    kind: 'alpha',
+                    operation,
+                    value,
+                  },
+                ])
+              }
+            >
+              Apply
+            </button>
+          </div>
+          {currentModifiers.length > 0 && (
+            <span style={{ fontSize: 11 }}>
+              Current: {currentModifiers.map((m) => alphaModifierLabel(m)).join(', ')}
             </span>
           )}
         </div>
-
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button
-            type="button"
-            className="insp-inline-btn"
-            disabled={currentModifiers.length === 0}
-            onClick={() => commit(undefined)}
-          >
-            Reset
-          </button>
-          <button
-            type="button"
-            className="insp-add-btn"
-            onClick={() =>
-              commit([
-                {
-                  kind: 'alpha',
-                  operation,
-                  value,
-                },
-              ])
-            }
-          >
-            Apply
-          </button>
-        </div>
-        {currentModifiers.length > 0 && (
-          <span style={{ fontSize: 11 }}>
-            Current: {currentModifiers.map((m) => alphaModifierLabel(m)).join(', ')}
-          </span>
-        )}
-      </div>
+      </FocusTrap>
     </FloatingPortal>
   );
 }

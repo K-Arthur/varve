@@ -300,17 +300,26 @@ export function ToolOptionsPopover() {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  // Why the surface is open decides focus policy: a tool change or a pointer
+  // click must not pull focus off the canvas; an explicit keyboard/command
+  // activation is a navigation intent and moves focus into the panel.
+  const openSourceRef = useRef<'tool-change' | 'pointer' | 'keyboard' | 'command'>('tool-change');
+  const keyboardTriggerRef = useRef(false);
   // One map decides which tools have options here; the Inspector reads the
   // same map, so it only offers "Show … options" when this popover has content.
   const supportsOptions = hasToolOptions(state.tool);
 
   useEffect(() => {
     if (!supportsOptions) return;
-    setToolOptionsHandler(() => setOpen(true));
+    setToolOptionsHandler(() => {
+      openSourceRef.current = 'command';
+      setOpen(true);
+    });
     return () => setToolOptionsHandler(null);
   }, [supportsOptions]);
 
   useEffect(() => {
+    openSourceRef.current = 'tool-change';
     setOpen(
       BRUSH_TOOLS.has(state.tool) ||
         MARQUEE_TOOLS.has(state.tool) ||
@@ -323,6 +332,8 @@ export function ToolOptionsPopover() {
 
   useEffect(() => {
     if (!open) return;
+    const source = openSourceRef.current;
+    if (source === 'tool-change' || source === 'pointer') return;
     const ownerDocument = triggerRef.current?.ownerDocument;
     const ownerWindow = ownerDocument?.defaultView;
     const focusFirstControl = () => {
@@ -367,7 +378,17 @@ export function ToolOptionsPopover() {
         icon="SlidersHorizontal"
         label="Tool options"
         pressed={open}
-        onPressedChange={setOpen}
+        onPressedChange={(pressed) => {
+          openSourceRef.current = keyboardTriggerRef.current ? 'keyboard' : 'pointer';
+          keyboardTriggerRef.current = false;
+          setOpen(pressed);
+        }}
+        onKeyDownCapture={() => {
+          keyboardTriggerRef.current = true;
+        }}
+        onBlur={() => {
+          keyboardTriggerRef.current = false;
+        }}
         className={`floating-toolbar__btn${open ? ' floating-toolbar__btn--active' : ''}`}
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -379,6 +400,7 @@ export function ToolOptionsPopover() {
         maxHeight={640}
         kind="popover"
         dismissOnEscape
+        yieldTabToAnchor
         onClose={(reason) => {
           setOpen(false);
           if (reason === 'escape') triggerRef.current?.focus();
