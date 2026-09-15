@@ -7,7 +7,7 @@
  * Research basis: Figma layer panel options, VS Code panel header menus.
  */
 import { FloatingPortal, Icon, Tooltip } from '@varve/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { FEATURE_OWNERSHIP, type InspectorSurface } from './featureOwnership';
 import {
@@ -31,9 +31,6 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const firstActionRef = useCallback((control: HTMLButtonElement | null) => {
-    control?.focus();
-  }, []);
   const surfaceIds = new Set<SectionId>(
     Object.entries(FEATURE_OWNERSHIP)
       .filter(([, ownership]) => ownership.surface === surface)
@@ -41,40 +38,6 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
   );
   const hiddenIds = getHiddenSectionIds(state.sectionVisibility).filter((id) => surfaceIds.has(id));
   const hiddenCount = hiddenIds.length;
-
-  useEffect(() => {
-    if (!open) return;
-    const focusFirst = () => {
-      const control = panelRef.current?.querySelector<HTMLElement>(
-        'button:not([disabled]), input:not([disabled])',
-      );
-      if (!control) return false;
-      control.focus();
-      return true;
-    };
-    const ownerDocument = buttonRef.current?.ownerDocument;
-    const OwnerMutationObserver = ownerDocument?.defaultView?.MutationObserver;
-    let focusObserver: MutationObserver | null = null;
-    const tryFocus = () => {
-      if (focusFirst()) {
-        focusObserver?.disconnect();
-        return;
-      }
-      // The measured portal is mounted after this effect's first pass. Watch
-      // only until the first control is available; this keeps focus handoff
-      // deterministic without a timer tied to an assumed render delay.
-      if (focusObserver && ownerDocument?.body) {
-        focusObserver.observe(ownerDocument.body, { childList: true, subtree: true });
-      }
-    };
-    if (OwnerMutationObserver) {
-      focusObserver = new OwnerMutationObserver(tryFocus);
-    }
-    tryFocus();
-    return () => {
-      focusObserver?.disconnect();
-    };
-  }, [open]);
 
   const orderedSectionIds = getOrderedSectionIds(state.sectionVisibility, [...surfaceIds]);
   const allSections = orderedSectionIds
@@ -117,6 +80,7 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
         maxHeight={400}
         kind="popover"
         dismissOnEscape
+        initialFocus
         yieldTabToAnchor
         onClose={(reason) => {
           setOpen(false);
@@ -132,7 +96,6 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
         >
           <div className="insp-section-manager__actions">
             <button
-              ref={firstActionRef}
               type="button"
               className="insp-section-manager__action"
               onClick={() => {

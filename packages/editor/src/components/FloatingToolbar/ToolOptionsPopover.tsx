@@ -1,5 +1,11 @@
 import type { AreaSelectionSettings, AreaSelectionStyle } from '@varve/engine';
-import { FloatingPortal, NativeSelect, Switch, ToggleButton } from '@varve/ui';
+import {
+  FloatingPortal,
+  getFocusableElements,
+  NativeSelect,
+  Switch,
+  ToggleButton,
+} from '@varve/ui';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import { setToolOptionsHandler } from '../../context/toolOptionsBridge';
@@ -336,13 +342,17 @@ export function ToolOptionsPopover() {
     if (source === 'tool-change' || source === 'pointer') return;
     const ownerDocument = triggerRef.current?.ownerDocument;
     const ownerWindow = ownerDocument?.defaultView;
+    // The focus attempt only counts as successful when the control actually
+    // received focus. Before FloatingPortal's placement makes the layer
+    // visible, `focus()` is a silent no-op — the old check returned true for
+    // "found a control" and stranded focus on the trigger.
     const focusFirstControl = () => {
-      const control = popoverRef.current?.querySelector<HTMLElement>(
-        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      );
+      const container = popoverRef.current;
+      if (!container) return false;
+      const control = getFocusableElements(container)[0];
       if (!control) return false;
       control.focus();
-      return true;
+      return control === control.ownerDocument.activeElement;
     };
     const OwnerMutationObserver = ownerWindow?.MutationObserver;
     let focusObserver: MutationObserver | null = null;
@@ -351,12 +361,16 @@ export function ToolOptionsPopover() {
         focusObserver?.disconnect();
         return;
       }
-      // FloatingPortal mounts its measured layer after this effect runs, and
-      // the brush controls may arrive later through Suspense. Observe the
-      // owner document's body only until the first real control is focusable;
-      // this avoids a timing guess while still cleaning the observer promptly.
+      // Watch the owner body until the layer becomes visible or its lazy
+      // controls arrive; style/attribute changes matter because placement
+      // flips visibility without replacing nodes.
       if (focusObserver && ownerDocument?.body) {
-        focusObserver.observe(ownerDocument.body, { childList: true, subtree: true });
+        focusObserver.observe(ownerDocument.body, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['style', 'class', 'hidden'],
+        });
       }
     };
     if (OwnerMutationObserver) {

@@ -74,16 +74,28 @@ export function FocusTrap({
       initialTarget = focusable[0] ?? null;
     }
 
-    const focusTimer =
-      ownerWindow?.requestAnimationFrame(() => {
-        if (initialTarget) {
-          initialTarget.focus({ preventScroll: true });
-        } else {
-          container.setAttribute('tabindex', '-1');
-          container.focus({ preventScroll: true });
-          container.removeAttribute('tabindex');
-        }
-      }) ?? 0;
+    // A portaled trap can mount before its floating layer is visible, and a
+    // hidden element cannot take focus. Retry on animation frames until the
+    // target or the container has focus, then stop — once any focus is inside
+    // the trap, the user's own navigation is never overridden.
+    let focusTimer = 0;
+    let focusAttempts = 0;
+    const focusInside = () => container.contains(ownerDocument.activeElement);
+    const applyInitialFocus = () => {
+      if (focusInside()) return;
+      if (initialTarget) {
+        initialTarget.focus({ preventScroll: true });
+      } else {
+        container.setAttribute('tabindex', '-1');
+        container.focus({ preventScroll: true });
+        container.removeAttribute('tabindex');
+      }
+      focusAttempts += 1;
+      if (!focusInside() && focusAttempts < 60) {
+        focusTimer = ownerWindow?.requestAnimationFrame(applyInitialFocus) ?? 0;
+      }
+    };
+    focusTimer = ownerWindow?.requestAnimationFrame(applyInitialFocus) ?? 0;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && onCloseRef.current) {
