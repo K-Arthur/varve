@@ -14,6 +14,6 @@ export {
   shortcutFromEvent,
 } from './ShortcutManager';
 export { ShortcutPalette } from './ShortcutPalette';
-export { toolShortcutLabel } from './toolShortcutLabel';
+export { toolAriaKeyShortcut, toolShortcutLabel } from './toolShortcutLabel';
 export type { KeymapExport, ShortcutBinding, ShortcutDef, ShortcutEntry } from './types';
 export { useShortcuts } from './useShortcuts';

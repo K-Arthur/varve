@@ -66,6 +66,15 @@ export function getToolbarSlotToolIds(slot: ToolbarSlot): ToolId[] {
 }
 
 /**
+ * Stable identity for a slot across re-renders and recompositions. Used by the
+ * responsive collapse state so a collapsed slot cannot accidentally match a
+ * different slot after the composition changes.
+ */
+export function toolbarSlotKey(slot: ToolbarSlot): string {
+  return slot.kind === 'tool' ? `tool:${slot.toolId}` : `flyout:${slot.id}`;
+}
+
+/**
  * Preserve workspace-declared group boundaries for responsive composition.
  * This deliberately does not assign categories or visibility; those remain
  * registry and effective-config concerns respectively.

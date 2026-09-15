@@ -17,6 +17,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
@@ -50,43 +51,63 @@ export function Toolbar({ label, children, wrap = true }: ToolbarProps) {
   );
 
   // Apply the roving tabindex to the current item and clear it elsewhere.
-  // Runs on focusIdx changes; getButtons reads the live DOM so child-set
-  // changes are picked up without a children dependency.
-  useEffect(() => {
-    getButtons().forEach((el, i) => {
-      if (i === focusIdx && !el.hasAttribute('disabled')) {
+  //
+  // This runs on every render, not only when `focusIdx` changes, because the
+  // button set is owned by arbitrary children and can appear or change *after*
+  // the first commit (workspace config hydration, conditional rows, mode
+  // switches). A focusIdx-only effect silently skipped those commits and left
+  // every button at the browser default `tabIndex = 0` — 15 tab stops instead
+  // of one. Reading the live DOM keeps the invariant true regardless of when
+  // the children arrive.
+  //
+  // Layout timing (not passive) so the attributes are in place before paint
+  // and before any focus can move; the work is a handful of setAttribute
+  // calls on the rendered row.
+  const applyRovingTabindex = useCallback(() => {
+    const buttons = getButtons();
+    if (buttons.length === 0) return;
+    // Shrunk list: land on the last enabled item rather than a wrapped index.
+    // Otherwise keep the current item, or advance past a disabled one so the
+    // roving stop is never on a control the user cannot activate.
+    let active = Math.min(focusIdx, buttons.length - 1);
+    if (isDisabledAt(active)) {
+      active = nextEnabledIndex(buttons.length, active, 1, isDisabledAt);
+    }
+    buttons.forEach((el, i) => {
+      if (i === active && !el.hasAttribute('disabled')) {
         el.setAttribute('tabindex', '0');
       } else {
         el.setAttribute('tabindex', '-1');
       }
     });
-  }, [focusIdx, getButtons]);
+    if (active !== focusIdx) setFocusIdx(active);
+  }, [focusIdx, getButtons, isDisabledAt]);
 
-  // Clamp the index when the tool set shrinks.
+  useLayoutEffect(() => {
+    applyRovingTabindex();
+  });
+
+  // Children can also mutate without a Toolbar re-render (a portal, an async
+  // icon, a child that owns its own list). Watch the subtree so the one-tab-
+  // stop invariant is restored rather than silently broken.
   useEffect(() => {
-    const count = getButtons().length;
-    if (count > 0 && focusIdx >= count) setFocusIdx(count - 1);
-  }, [focusIdx, getButtons]);
+    const container = toolbarRef.current;
+    if (!container || typeof MutationObserver === 'undefined') return;
+    const observer = new MutationObserver(() => applyRovingTabindex());
+    observer.observe(container, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [applyRovingTabindex]);
 
   // Move focus within the toolbar only when focus is already inside it —
-  // never steal focus from the document flow on mount. If the current item
-  // became disabled, jump to the next enabled one instead.
+  // never steal focus from the document flow on mount.
   useEffect(() => {
-    const buttons = getButtons();
-    if (buttons[focusIdx]?.hasAttribute('disabled')) {
-      const next = nextEnabledIndex(buttons.length, focusIdx, 1, isDisabledAt);
-      if (next !== focusIdx) {
-        setFocusIdx(next);
-        return;
-      }
-    }
     const container = toolbarRef.current;
     if (!container?.contains(document.activeElement)) return;
-    const target = buttons[focusIdx];
+    const target = getButtons()[focusIdx];
     if (target && !target.hasAttribute('disabled')) {
       target.focus({ preventScroll: true });
     }
-  }, [focusIdx, getButtons, isDisabledAt]);
+  }, [focusIdx, getButtons]);
 
   const navigate = useCallback(
     (dir: 1 | -1) => {

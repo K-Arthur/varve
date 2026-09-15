@@ -16,19 +16,20 @@ import {
 } from '@varve/ui';
 import { useLayoutEffect, useMemo, useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
-import { toolShortcutLabel } from '../../shortcuts';
+import { toolAriaKeyShortcut, toolShortcutLabel } from '../../shortcuts';
 import { getToolDefinition } from '../../tools/toolRegistry';
 import {
   composeToolbar,
   getToolbarSlotToolIds,
   type ToolbarFlyoutSlot,
-  type ToolbarGroup,
   type ToolbarSlot,
+  toolbarSlotKey,
 } from '../../workspace/toolbarComposition';
 import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig';
 import { ToolOptionsPopover } from './ToolOptionsPopover';
 import './FloatingToolbar.css';
 import { toolIconName, toolLabel } from '../../workspace/toolLabels';
+import { useHasTouchInput } from './useHasTouchInput';
 import { useToolbarOverflow } from './useToolbarOverflow';
 
 const TOUCH_MULTISELECT_ACTIVE_CLASS = 'floating-toolbar__touch-multi--active';
@@ -57,6 +58,7 @@ function ToolButton({ id, groupStart }: ToolButtonProps) {
   const { state, setTool } = useEditor();
   const label = toolLabel(id);
   const shortcut = toolShortcutLabel(id);
+  const ariaShortcut = toolAriaKeyShortcut(id);
   return (
     <Tooltip label={label} shortcut={shortcut}>
       <ToggleButton
@@ -67,6 +69,7 @@ function ToolButton({ id, groupStart }: ToolButtonProps) {
         onPressedChange={() => setTool(id)}
         className={`floating-toolbar__btn${state.tool === id ? ' floating-toolbar__btn--active' : ''}${groupStart ? ' floating-toolbar__btn--group-start' : ''}`}
         data-tool={id}
+        aria-keyshortcuts={ariaShortcut}
       />
     </Tooltip>
   );
@@ -122,6 +125,7 @@ function FlyoutButton({
         onPressedChange={() => onActivate(current)}
         className={`floating-toolbar__btn${pressed ? ' floating-toolbar__btn--active' : ''}${slot.groupStart ? ' floating-toolbar__btn--group-start' : ''}`}
         data-tool={current}
+        aria-keyshortcuts={toolAriaKeyShortcut(current)}
       />
     );
   return (
@@ -193,30 +197,28 @@ function categoryLabel(category: string): string {
 }
 
 function getOverflowMenuItems(
-  groups: ToolbarGroup[],
+  slots: ToolbarSlot[],
   canBoolean: boolean,
   onActivate: (flyoutId: string, toolId: ToolId) => void,
   onClose: () => void,
 ): MenuEntry[] {
   const byCategory = new Map<string, MenuEntry[]>();
 
-  for (const group of groups) {
-    for (const slot of group.slots) {
-      const sourceId = slot.kind === 'flyout' ? slot.id : 'tool';
-      for (const toolId of getToolbarSlotToolIds(slot)) {
-        const category = getToolDefinition(toolId)?.category ?? 'other';
-        const entries = byCategory.get(category) ?? [];
-        entries.push({
-          id: `${RESPONSIVE_MORE_ID}-${sourceId}-${toolId}`,
-          label: toolLabel(toolId),
-          disabled: sourceId === ACTION_FLYOUT_ID && !canBoolean,
-          onAction: () => {
-            onActivate(sourceId, toolId);
-            onClose();
-          },
-        });
-        byCategory.set(category, entries);
-      }
+  for (const slot of slots) {
+    const sourceId = slot.kind === 'flyout' ? slot.id : 'tool';
+    for (const toolId of getToolbarSlotToolIds(slot)) {
+      const category = getToolDefinition(toolId)?.category ?? 'other';
+      const entries = byCategory.get(category) ?? [];
+      entries.push({
+        id: `${RESPONSIVE_MORE_ID}-${sourceId}-${toolId}`,
+        label: toolLabel(toolId),
+        disabled: sourceId === ACTION_FLYOUT_ID && !canBoolean,
+        onAction: () => {
+          onActivate(sourceId, toolId);
+          onClose();
+        },
+      });
+      byCategory.set(category, entries);
     }
   }
 
@@ -230,17 +232,22 @@ function getOverflowMenuItems(
 
 interface MoreToolsButtonProps {
   expanded: boolean;
+  hiddenCount: number;
   onToggle: (element: HTMLElement) => void;
 }
 
-function MoreToolsButton({ expanded, onToggle }: MoreToolsButtonProps) {
+function MoreToolsButton({ expanded, hiddenCount, onToggle }: MoreToolsButtonProps) {
+  // Name the consequence, not the icon: "More tools" alone does not tell a
+  // screen-reader or first-time user that tools are missing from the row.
+  const label =
+    hiddenCount > 0 ? `More tools (${hiddenCount} hidden by window width)` : 'More tools';
   return (
     <Tooltip label="More tools">
       <IconButton
         variant="toolbar"
         size="icon-sm"
         icon="Ellipsis"
-        label="More tools"
+        label={label}
         className="floating-toolbar__btn floating-toolbar__more"
         aria-haspopup="menu"
         aria-expanded={expanded}
@@ -377,10 +384,8 @@ export function FloatingToolbar() {
   // config. The hook intentionally runs before the early returns so switching
   // into/out of a modal tool cannot change hook ordering.
   const slots = useMemo(() => composeToolbar(config.toolbar), [config.toolbar]);
-  const { rootRef, visibleGroups, collapsedGroups } = useToolbarOverflow(
-    slots,
-    state.tool as ToolId,
-  );
+  const { rootRef, visibleSlots, collapsedSlots } = useToolbarOverflow(slots, state.tool as ToolId);
+  const hasTouchInput = useHasTouchInput();
 
   // Publish the palette's rendered height so bottom-anchored chrome (the
   // responsive drawer FABs) can clear it in every workspace, including
@@ -452,7 +457,7 @@ export function FloatingToolbar() {
     },
   }));
   const isMoreToolsOpen = openMenu?.id === RESPONSIVE_MORE_ID;
-  const overflowMenuItems = getOverflowMenuItems(collapsedGroups, canBoolean, activate, () =>
+  const overflowMenuItems = getOverflowMenuItems(collapsedSlots, canBoolean, activate, () =>
     setOpenMenu(null),
   );
   const contextMenuItems = isMoreToolsOpen ? overflowMenuItems : menuItems;
@@ -478,9 +483,31 @@ export function FloatingToolbar() {
                   </Button>
                 </Tooltip>
               )}
-              {collapsedGroups.length > 0 && (
+              {visibleSlots.map((slot) => (
+                <ToolbarSlotView
+                  key={toolbarSlotKey(slot)}
+                  slot={slot}
+                  activeTool={state.tool as ToolId}
+                  canBoolean={canBoolean}
+                  onActivate={activate}
+                  onToggleMenu={(id, element) =>
+                    setOpenMenu((prev) =>
+                      prev?.id === id ? null : { id, anchor: elementAnchor(element) },
+                    )
+                  }
+                />
+              ))}
+              {/* Overflow control sits at the trailing edge, where the missing
+               * tools would have been. It stays pinned to the scrollport end
+               * while the row scrolls so it can never be scrolled out of
+               * reach (see `.floating-toolbar__more`). */}
+              {collapsedSlots.length > 0 && (
                 <MoreToolsButton
                   expanded={isMoreToolsOpen}
+                  hiddenCount={collapsedSlots.reduce(
+                    (count, slot) => count + getToolbarSlotToolIds(slot).length,
+                    0,
+                  )}
                   onToggle={(element) =>
                     setOpenMenu((prev) =>
                       prev?.id === RESPONSIVE_MORE_ID
@@ -490,63 +517,34 @@ export function FloatingToolbar() {
                   }
                 />
               )}
-              {visibleGroups.map((group) =>
-                group.slots.map((slot) => (
-                  <ToolbarSlotView
-                    key={slot.kind === 'tool' ? slot.toolId : slot.id}
-                    slot={slot}
-                    activeTool={state.tool as ToolId}
-                    canBoolean={canBoolean}
-                    onActivate={activate}
-                    onToggleMenu={(id, element) =>
-                      setOpenMenu((prev) =>
-                        prev?.id === id ? null : { id, anchor: elementAnchor(element) },
-                      )
-                    }
-                  />
-                )),
-              )}
             </Toolbar>
             <div className="floating-toolbar__actions">
               <ToolOptionsPopover />
-              <Tooltip
-                label={
-                  state.touchMultiSelect.active
-                    ? 'Multi-select active (tap to toggle)'
-                    : 'Touch multi-select'
-                }
-              >
-                <ToggleButton
-                  size="sm"
-                  pressed={state.touchMultiSelect.active}
-                  onPressedChange={setTouchMultiSelect}
+              {(hasTouchInput || state.touchMultiSelect.active) && (
+                <Tooltip
                   label={
                     state.touchMultiSelect.active
-                      ? 'Disable touch multi-select'
-                      : 'Enable touch multi-select'
+                      ? 'Touch multi-select is on: tapping adds to the selection. Select to turn off.'
+                      : 'Touch multi-select: tapping adds to the selection instead of replacing it'
                   }
-                  className={`floating-toolbar__btn floating-toolbar__touch-multi${state.touchMultiSelect.active ? ` ${TOUCH_MULTISELECT_ACTIVE_CLASS}` : ''}`}
-                  data-testid="touch-multiselect-toggle"
                 >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
+                  <ToggleButton
+                    size="sm"
+                    pressed={state.touchMultiSelect.active}
+                    onPressedChange={setTouchMultiSelect}
+                    label={
+                      state.touchMultiSelect.active
+                        ? 'Disable touch multi-select'
+                        : 'Enable touch multi-select'
+                    }
+                    className={`floating-toolbar__btn floating-toolbar__touch-multi${state.touchMultiSelect.active ? ` ${TOUCH_MULTISELECT_ACTIVE_CLASS}` : ''}`}
+                    data-testid="touch-multiselect-toggle"
+                    icon="SquareDashedMousePointer"
                   >
-                    <path d="M9 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                    <path d="M21 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                    <path d="M15 19a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                    <line x1="9" y1="5" x2="15" y2="19" />
-                    <line x1="21" y1="5" x2="15" y2="19" />
-                  </svg>
-                </ToggleButton>
-              </Tooltip>
+                    <span className="floating-toolbar__touch-multi-label">Multi-select</span>
+                  </ToggleButton>
+                </Tooltip>
+              )}
             </div>
           </div>
         </TooltipProvider>

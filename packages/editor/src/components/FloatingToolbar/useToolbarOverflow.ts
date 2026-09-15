@@ -4,71 +4,56 @@ import type { ToolId } from '../../tools/types';
 import {
   getToolbarSlotToolIds,
   groupToolbarSlots,
-  type ToolbarGroup,
   type ToolbarSlot,
+  toolbarSlotKey,
 } from '../../workspace/toolbarComposition';
+import { nextSlotToCollapse } from '../../workspace/toolbarRetention';
 
-/**
- * Keep the workspace's primary action groups in the row at normal desktop
- * widths without making those tools non-customizable. The registry's
- * `essential` flag is reserved for recovery/navigation tools; these are a
- * responsive presentation floor only.
- */
-const FRONT_FACING_TOOL_IDS = new Set<ToolId>([
-  'paint',
-  'cloneStamp',
-  'booleanUnion',
-  'booleanSubtract',
-  'booleanIntersect',
-  'booleanExclude',
-  'shapeBuilder',
-]);
-
-interface ResponsiveToolbarGroups {
+interface ResponsiveToolbar {
   rootRef: RefObject<HTMLDivElement | null>;
-  visibleGroups: ToolbarGroup[];
-  collapsedGroups: ToolbarGroup[];
+  visibleSlots: ToolbarSlot[];
+  collapsedSlots: ToolbarSlot[];
 }
 
 /**
- * Collapse declared toolbar groups only when their rendered row overflows.
- * Essential recovery groups and the active tool's group remain in the row;
- * the rest can be discovered through the category-based More menu.
+ * Collapse individual toolbar slots only when the rendered row overflows, in
+ * ascending retention order (see `toolbarRetention.ts`). Essential recovery
+ * tools and the active tool's slot are never candidates; everything else can
+ * be discovered through the category-based More menu.
+ *
+ * Collapse granularity is the *slot*, not the declared group. Group-level
+ * collapse was too coarse: the Select group also declares Slice, Pixel Info,
+ * Scale, and Inspect, so pinning the group to keep Select in the row also
+ * pinned four measurement tools — and at 1280x720 with both panels open the
+ * palette still had to give up Text, Frame, Table, Pen, Knife and Shape
+ * Builder to make room for them.
+ *
+ * Collapse is one-way until the container resizes or the composition changes:
+ * re-expanding as soon as the row happens to fit would oscillate between
+ * "all visible → overflow → collapse one → fits → expand" on every pass.
  */
-export function useToolbarOverflow(
-  slots: ToolbarSlot[],
-  activeTool: ToolId,
-): ResponsiveToolbarGroups {
+export function useToolbarOverflow(slots: ToolbarSlot[], activeTool: ToolId): ResponsiveToolbar {
   const rootRef = useRef<HTMLDivElement>(null);
-  const groups = useMemo(() => groupToolbarSlots(slots), [slots]);
-  const pinnedGroupIds = useMemo(() => {
-    const pinned = new Set<string>();
-    for (const group of groups) {
-      const ids = group.slots.flatMap(getToolbarSlotToolIds);
-      if (
-        ids.some(
-          (id) => ESSENTIAL_TOOL_IDS.has(id) || FRONT_FACING_TOOL_IDS.has(id) || id === activeTool,
-        )
-      ) {
-        pinned.add(group.id);
-      }
-    }
-    return pinned;
-  }, [activeTool, groups]);
-  const candidates = useMemo(
-    () => groups.filter((group) => !pinnedGroupIds.has(group.id)),
-    [groups, pinnedGroupIds],
-  );
-  const [collapsedGroupIds, setCollapsedGroupIds] = useState<string[]>([]);
+  const [collapsedSlotIds, setCollapsedSlotIds] = useState<string[]>([]);
   const [layoutVersion, setLayoutVersion] = useState(0);
   const lastContainerSize = useRef<{ height: number; width: number } | null>(null);
   const previousGroupKey = useRef<string | null>(null);
-  const groupKey = groups
-    .map(
-      (group) =>
-        `${group.id}:${group.slots.map((slot) => getToolbarSlotToolIds(slot).join(',')).join('|')}`,
-    )
-    .join(';');
+
+  const slotKey = useMemo(
+    () =>
+      slots
+        .map((slot) => `${toolbarSlotKey(slot)}:${getToolbarSlotToolIds(slot).join(',')}`)
+        .join('|'),
+    [slots],
+  );
+  const candidates = useMemo(
+    () => slots.filter((slot) => !isPinnedSlot(slot, activeTool)),
+    [slots, activeTool],
+  );
+  const candidateIdSet = useMemo(
+    () => new Set(candidates.map((slot) => toolbarSlotKey(slot))),
+    [candidates],
+  );
 
   useLayoutEffect(() => {
     const toolbar = rootRef.current;
@@ -79,7 +64,7 @@ export function useToolbarOverflow(
       const previous = lastContainerSize.current;
       if (previous?.width === width && previous.height === height) return;
       lastContainerSize.current = { width, height };
-      setCollapsedGroupIds((collapsed) => (collapsed.length === 0 ? collapsed : []));
+      setCollapsedSlotIds((collapsed) => (collapsed.length === 0 ? collapsed : []));
       setLayoutVersion((version) => version + 1);
     };
 
@@ -93,7 +78,7 @@ export function useToolbarOverflow(
 
     if (typeof window === 'undefined') return;
     const onWindowResize = () => {
-      setCollapsedGroupIds((collapsed) => (collapsed.length === 0 ? collapsed : []));
+      setCollapsedSlotIds((collapsed) => (collapsed.length === 0 ? collapsed : []));
       setLayoutVersion((version) => version + 1);
     };
     window.addEventListener('resize', onWindowResize);
@@ -103,32 +88,57 @@ export function useToolbarOverflow(
   useLayoutEffect(() => {
     const row = rootRef.current?.querySelector<HTMLElement>('[role="toolbar"]');
     if (!row) return;
-    if (groupKey !== previousGroupKey.current) {
-      previousGroupKey.current = groupKey;
-      setCollapsedGroupIds((previous) => (previous.length === 0 ? previous : []));
+    if (slotKey !== previousGroupKey.current) {
+      previousGroupKey.current = slotKey;
+      setCollapsedSlotIds((previous) => (previous.length === 0 ? previous : []));
       return;
     }
-    const candidateIds = new Set(candidates.map((group) => group.id));
     const overflowing = row.scrollWidth > row.clientWidth + 1;
 
-    setCollapsedGroupIds((previous) => {
-      const valid = previous.filter((id) => candidateIds.has(id));
+    setCollapsedSlotIds((previous) => {
+      const valid = previous.filter((id) => candidateIdSet.has(id));
       if (overflowing) {
-        for (let index = candidates.length - 1; index >= 0; index -= 1) {
-          const candidate = candidates[index];
-          if (!candidate) continue;
-          if (!valid.includes(candidate.id)) return [...valid, candidate.id];
-        }
+        const next = nextSlotToCollapse(candidates, valid);
+        if (next) return [...valid, toolbarSlotKey(next)];
         return valid.length === previous.length ? previous : valid;
       }
       return valid.length === previous.length ? previous : valid;
     });
-  }, [candidates, collapsedGroupIds, groupKey, layoutVersion]);
+  }, [candidateIdSet, candidates, collapsedSlotIds, slotKey, layoutVersion]);
 
-  const collapsed = new Set(collapsedGroupIds);
+  const collapsedSet = new Set(collapsedSlotIds);
+  const visibleSlots = promoteGroupStarts(
+    slots.filter((slot) => !collapsedSet.has(toolbarSlotKey(slot))),
+    slots,
+  );
   return {
     rootRef,
-    visibleGroups: groups.filter((group) => !collapsed.has(group.id)),
-    collapsedGroups: groups.filter((group) => collapsed.has(group.id)),
+    visibleSlots,
+    collapsedSlots: slots.filter((slot) => collapsedSet.has(toolbarSlotKey(slot))),
   };
+}
+
+/** Stable identity for a slot across re-renders. */
+function isPinnedSlot(slot: ToolbarSlot, activeTool: ToolId): boolean {
+  return getToolbarSlotToolIds(slot).some((id) => ESSENTIAL_TOOL_IDS.has(id) || id === activeTool);
+}
+
+/**
+ * Keep a separator at the start of each declared group's first surviving slot.
+ * Without this, removing the first slot of a group merges its remaining tools
+ * into the previous group and the palette loses the visual boundaries the
+ * workspace declared.
+ */
+function promoteGroupStarts(visible: ToolbarSlot[], declared: ToolbarSlot[]): ToolbarSlot[] {
+  const groups = groupToolbarSlots(declared);
+  const promoted = new Set<ToolbarSlot>();
+  for (const group of groups) {
+    const firstVisible = group.slots.find((slot) => visible.includes(slot));
+    if (firstVisible) promoted.add(firstVisible);
+  }
+  return visible.map((slot) => {
+    if (promoted.has(slot) && !slot.groupStart) return { ...slot, groupStart: true };
+    if (!promoted.has(slot) && slot.groupStart) return { ...slot, groupStart: false };
+    return slot;
+  });
 }

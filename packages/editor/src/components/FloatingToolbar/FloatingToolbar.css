@@ -138,6 +138,20 @@
   padding-left: var(--space-1);
 }
 
+/* The overflow control is the last child of the scrollable tool row. Sticky
+ * keeps it at the scrollport's trailing edge so it cannot be scrolled out of
+ * reach when the row becomes a horizontal strip (narrow canvas cell, small
+ * viewport). The solid surface hides tools scrolling underneath it. */
+.floating-toolbar__more {
+  position: sticky;
+  inset-inline-end: 0;
+  z-index: 1;
+  background: var(--elevation-surface-raised);
+}
+.floating-toolbar__more:hover {
+  background: var(--color-interactive-hover-surface);
+}
+
 .floating-toolbar__chevron {
   display: flex;
   align-items: center;
@@ -197,6 +211,19 @@
   border-left: 1px solid var(--color-border-subtle);
   margin-left: var(--space-2);
   padding-left: var(--space-2);
+  gap: var(--space-1);
+  width: auto;
+  padding-inline: var(--space-2);
+}
+
+/* Touch multi-select is a touch-only modifier substitute, so it is rendered
+ * only when the device reports touch input (see useHasTouchInput). On those
+ * devices there is no hover, so the control carries a visible label instead of
+ * relying on a tooltip the user cannot summon. */
+.floating-toolbar__touch-multi-label {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
 }
 
 .floating-toolbar__touch-multi:hover {

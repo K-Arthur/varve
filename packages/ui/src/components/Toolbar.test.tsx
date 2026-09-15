@@ -97,4 +97,44 @@ describe('Toolbar', () => {
     await user.keyboard('{ArrowRight}');
     expect(screen.getByRole('button', { name: 'B' })).toHaveFocus();
   });
+
+  it('applies the roving tabindex when children arrive after the first commit', () => {
+    // The floating palette mounts before the workspace config hydrates, so its
+    // buttons appear in a later commit than the Toolbar itself. The old
+    // focusIdx-only effect never re-ran for that commit and every button kept
+    // the browser default tabIndex=0 — 15 tab stops instead of one.
+    const { rerender } = render(<Toolbar label="late" />);
+    expect(document.querySelectorAll('[tabindex="0"]')).toHaveLength(0);
+    rerender(
+      <Toolbar label="late">
+        <button type="button" aria-label="Select" />
+        <button type="button" aria-label="Rect" />
+        <button type="button" aria-label="Pen" />
+      </Toolbar>,
+    );
+    const zero = Array.from(document.querySelectorAll('[aria-label]')).filter(
+      (b) => b.getAttribute('tabindex') === '0',
+    );
+    expect(zero).toHaveLength(1);
+    expect(zero[0]).toHaveAccessibleName('Select');
+  });
+
+  it('restores one tab stop when a child mutates the subtree without a re-render', async () => {
+    render(
+      <Toolbar label="mutating">
+        <button type="button" aria-label="Select" />
+        <button type="button" aria-label="Rect" />
+      </Toolbar>,
+    );
+    const toolbar = document.querySelector('.varve-toolbar');
+    if (!toolbar) throw new Error('toolbar missing');
+    const late = document.createElement('button');
+    late.setAttribute('aria-label', 'Late');
+    toolbar.appendChild(late);
+    await Promise.resolve();
+    const zero = Array.from(toolbar.querySelectorAll('button')).filter(
+      (b) => b.getAttribute('tabindex') === '0',
+    );
+    expect(zero).toHaveLength(1);
+  });
 });
