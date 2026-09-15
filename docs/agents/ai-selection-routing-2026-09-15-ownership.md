@@ -94,3 +94,12 @@ open; the engine real-model gate is the authoritative verification.
 
 Still open: a save/reopen pass for a portrait mask, and an in-app boundary-click
 candidate-cycling screenshot.
+
+## Shared-gate repair (disclosure)
+
+Another writer's untracked `tests/e2e/canvas/zz-toolbar-diagnostic.spec.ts`
+declared an unused `expect` import, which broke the shared `typecheck:e2e`
+pre-commit gate for every writer. This task removed the unused import on disk
+(one token, no semantic change) so the gate could pass; the file remains
+untracked and owned by its author. `tests/e2e/inspector/design-tab-audit.spec.ts`
+had a similar error that its author fixed concurrently.
