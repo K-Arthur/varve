@@ -12,7 +12,12 @@ interface SnapGuidesOverlayProps {
   cameraRotation?: number;
 }
 
-function guideColor(type?: string): string {
+function guideColor(type?: string, targetId?: string): string {
+  if (targetId?.startsWith('isometric:')) {
+    // The isometric lattice target is the primary construction aid: render it
+    // in the accent colour so the winning relationship is unmistakable.
+    return resolveCanvasColor('var(--color-accent-primary, #3b82f6)');
+  }
   switch (type) {
     case 'midpoint':
       return resolveCanvasColor('var(--color-feedback-success, #22c55e)');
@@ -44,7 +49,7 @@ export function SnapGuidesOverlay({
     <svg className="snap-guides-overlay" aria-hidden>
       <title>Snap guides overlay</title>
       {guides.map((g) => {
-        const color = guideColor(g.type);
+        const color = guideColor(g.type, g.targetId);
         if (g.point) {
           const [cx, cy] = screenForPoint(g.point);
           return (
@@ -72,7 +77,7 @@ export function SnapGuidesOverlay({
       {guides
         .filter((g) => g.label)
         .map((g) => {
-          const color = guideColor(g.type);
+          const color = guideColor(g.type, g.targetId);
           const anchor = g.point
             ? (() => {
                 const [px, py] = screenForPoint(g.point);
@@ -98,7 +103,7 @@ export function SnapGuidesOverlay({
         .filter((g) => g.distance !== undefined && !g.point)
         .map((g) => {
           const line = lineFor(g.axis, g.position);
-          const color = guideColor(g.type);
+          const color = guideColor(g.type, g.targetId);
           const midX = (line.x1 + line.x2) / 2;
           const midY = (line.y1 + line.y2) / 2;
           return (

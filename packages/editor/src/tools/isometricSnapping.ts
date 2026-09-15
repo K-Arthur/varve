@@ -220,3 +220,114 @@ export function boxSourceFeatures(box: { x: number; y: number; w: number; h: num
     [midX, midY],
   ];
 }
+
+/**
+ * Explicit source features for an object on an oblique plane.
+ *
+ * A world-axis-aligned bounding-box corner is a poor snap reference for a
+ * projected parallelogram: the AABB corner is not a point of the artwork, so
+ * snapping it to a lattice intersection leaves every real corner off-lattice.
+ * This returns the node's own anchors (path anchors, rect corners, ellipse
+ * extrema, line endpoints, polygon/star vertices) in world space, bounded and
+ * deterministic. Returns `null` when the node has no useful geometry, in
+ * which case the caller falls back to the selection box.
+ */
+export function nodeGeometryFeatures(
+  node: { kind?: string; shape?: unknown },
+  world: import('@varve/shared').Affine,
+  maxFeatures = 16,
+): Vec2[] | null {
+  const shape = node.shape as
+    | {
+        kind: string;
+        points?: Array<{ x: number; y: number }> | number;
+        x?: number;
+        y?: number;
+        w?: number;
+        h?: number;
+        cx?: number;
+        cy?: number;
+        rx?: number;
+        ry?: number;
+        r?: number;
+        from?: readonly [number, number];
+        to?: readonly [number, number];
+        radius?: number;
+        sides?: number;
+        outerRadius?: number;
+        rotation?: number;
+      }
+    | undefined;
+  if (!shape || typeof shape.kind !== 'string') return null;
+  const toWorld = (p: readonly [number, number]): Vec2 => [
+    world[0] * p[0] + world[2] * p[1] + world[4],
+    world[1] * p[0] + world[3] * p[1] + world[5],
+  ];
+
+  let local: Array<readonly [number, number]> = [];
+  switch (shape.kind) {
+    case 'path':
+      local = Array.isArray(shape.points)
+        ? shape.points.map((point) => [point.x, point.y] as const)
+        : [];
+      break;
+    case 'rect': {
+      const { x = 0, y = 0, w = 0, h = 0 } = shape;
+      local = [
+        [x, y],
+        [x + w, y],
+        [x + w, y + h],
+        [x, y + h],
+      ];
+      break;
+    }
+    case 'ellipse': {
+      const { cx = 0, cy = 0, rx = 0, ry = 0 } = shape;
+      local = [
+        [cx - rx, cy],
+        [cx + rx, cy],
+        [cx, cy - ry],
+        [cx, cy + ry],
+      ];
+      break;
+    }
+    case 'circle': {
+      const { cx = 0, cy = 0, r = 0 } = shape;
+      local = [
+        [cx - r, cy],
+        [cx + r, cy],
+        [cx, cy - r],
+        [cx, cy + r],
+      ];
+      break;
+    }
+    case 'line':
+    case 'arrow':
+      if (shape.from && shape.to) local = [shape.from, shape.to];
+      break;
+    case 'polygon': {
+      const count = Math.max(3, Math.min(12, shape.sides ?? 3));
+      const { cx = 0, cy = 0, radius = 0, rotation = 0 } = shape;
+      local = Array.from({ length: count }, (_, i) => {
+        const angle = rotation + (i / count) * Math.PI * 2;
+        return [cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius] as const;
+      });
+      break;
+    }
+    case 'star': {
+      const declared = typeof shape.points === 'number' ? shape.points : 5;
+      const count = Math.max(5, Math.min(12, declared));
+      const { cx = 0, cy = 0, outerRadius = 0, rotation = 0 } = shape;
+      local = Array.from({ length: count }, (_, i) => {
+        const angle = rotation + (i / count) * Math.PI * 2;
+        return [cx + Math.cos(angle) * outerRadius, cy + Math.sin(angle) * outerRadius] as const;
+      });
+      break;
+    }
+    default:
+      return null;
+  }
+  if (local.length === 0) return null;
+  const features = local.slice(0, maxFeatures).map(toWorld);
+  return features.length > 0 ? features : null;
+}

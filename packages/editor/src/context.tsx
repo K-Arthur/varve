@@ -8626,18 +8626,28 @@ export function EditorProvider({
           bounds,
           maxLines: options?.maxLines,
         });
-        if (!plan) {
+        if (!plan || !plan.groupId) {
           announcerRef.current?.announceOperation(
             'Create grid artwork',
             'The grid could not be resolved into bounded geometry.',
           );
           return;
         }
-        updateDoc(() => plan.doc);
-        patch({ selection: plan.groupId ? [plan.groupId] : plan.nodeIds });
+        const groupId = plan.groupId;
+        const lineCount = plan.lineCount;
+        const displayStep = plan.displayStep;
+        // Re-home the group into the same content root every other created
+        // layer uses, so it appears in the Layers panel and page/canvas
+        // scoping instead of only in rootChildren.
+        updateDoc(() => {
+          const group = plan.doc.nodes[groupId];
+          if (!group) return plan.doc;
+          return addNodeToActiveWorkspace(plan.doc, group, current.workspaceMode);
+        });
+        patch({ selection: [groupId] });
         announcerRef.current?.announceOperation(
           'Create grid artwork',
-          `${plan.lineCount} lines (step ${plan.displayStep}) as editable vector geometry.`,
+          `${lineCount} lines (step ${displayStep}) as editable vector geometry.`,
         );
       },
       setCanvasMode: (mode) => patch({ canvasMode: mode }),

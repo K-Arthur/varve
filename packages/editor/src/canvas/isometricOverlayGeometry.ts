@@ -34,7 +34,7 @@ export interface IsometricOverlayInput {
   grid: IsometricGrid;
   camera: Camera;
   viewport: { width: number; height: number };
-  activePlaneId?: IsometricPlaneId;
+  activePlaneId?: IsometricPlaneId | 'none';
   /** Previously selected display multiplier, for hysteresis. */
   previousDisplayStep?: number;
   minScreenPx?: number;
@@ -97,9 +97,10 @@ export function computeIsometricOverlayLines(input: IsometricOverlayInput): Isom
     maxLinesPerFamily: input.maxLinesPerFamily ?? 4096,
   });
 
-  const activeFamilies = input.activePlaneId
-    ? familiesForPlane(geometry, input.activePlaneId)
-    : null;
+  const activeFamilies =
+    input.activePlaneId && input.activePlaneId !== 'none'
+      ? familiesForPlane(geometry, input.activePlaneId)
+      : null;
   const activeIndices = new Set(activeFamilies ? activeFamilies.map((family) => family.index) : []);
 
   const familyById = new Map(geometry.families.map((family) => [family.index, family]));
@@ -120,6 +121,10 @@ export function computeIsometricOverlayLines(input: IsometricOverlayInput): Isom
     // Clip again in screen space so the overlay paints exactly the viewport.
     const clipped = clipSegmentToViewport(x1, y1, x2, y2, viewport.width, viewport.height);
     if (!clipped) continue;
+    // A line touching the viewport corner can clip to a zero-length sliver;
+    // emitting it produces meaningless segment directions in consumers that
+    // measure the rendered path (and a pointless draw call).
+    if (Math.hypot(clipped[2] - clipped[0], clipped[3] - clipped[1]) < 0.5) continue;
     const family = familyById.get(segment.familyIndex);
     lines.push({
       x1: clipped[0],

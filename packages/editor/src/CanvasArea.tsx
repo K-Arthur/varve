@@ -38,6 +38,7 @@ import { DirtyRegionRecorder, type PaintedSurfaceIdentity } from './canvas/dirty
 import { EngineNodeMemo } from './canvas/engineNodeMemo';
 import { useCanvasInputs } from './canvas/inputPipeline';
 import { computeInvalidationPlan } from './canvas/invalidationPlan';
+import { installIsoTestHooks } from './canvas/isoTestHooks';
 import { useOverlayDraw } from './canvas/overlayManager';
 import {
   cancelCanvasFrame,
@@ -499,6 +500,10 @@ export function CanvasArea({
   useEffect(() => {
     setStartTextEditingHandler((nodeId: string) => setTextEditTargetId(nodeId));
     return () => setStartTextEditingHandler(null);
+  }, []);
+  // Read-only E2E inspection hook, installed only under `?isoTest=1`.
+  useEffect(() => {
+    installIsoTestHooks(() => stateRef.current);
   }, []);
   const pendingAutoTextEditRef = useRef(false);
   const [hoveredNode, setHoveredNode] = useState<SceneNode | null>(null);

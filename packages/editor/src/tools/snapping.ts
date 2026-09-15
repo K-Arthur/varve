@@ -141,6 +141,12 @@ export interface SnapOptions {
    * wins and exact ties prefer the isometric grid.
    */
   isometric?: IsometricSnapTarget;
+  /**
+   * Explicit source features for isometric snapping, in world space. Callers
+   * pass the object's own anchors (path anchors, corners, line endpoints);
+   * when absent the selection box corners/edges/centre are used.
+   */
+  snapFeatures?: readonly import('@varve/scene').Vec2[];
 }
 
 export const SNAP_RANGE_PX = 200;
@@ -1031,7 +1037,11 @@ export function snapPosition(
   // single translation for the whole selection; it competes with the winning
   // axis candidates by distance (see SnapOptions.isometric).
   if (options.isometric) {
-    const iso = findIsometricSnap(boxSourceFeatures({ x, y, w, h }), options.isometric);
+    const features =
+      options.snapFeatures && options.snapFeatures.length > 0
+        ? options.snapFeatures
+        : boxSourceFeatures({ x, y, w, h });
+    const iso = findIsometricSnap(features, options.isometric);
     if (iso) {
       const hasAxisCandidate = Number.isFinite(bestXDiff) || Number.isFinite(bestYDiff);
       const competing = Math.hypot(

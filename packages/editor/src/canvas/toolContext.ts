@@ -40,6 +40,7 @@ import { getDrawingInputSettings } from '../tools/drawingInputRuntime';
 import type { collectSourceEvents } from '../tools/inputNormalizer';
 import { classifyPointerType } from '../tools/inputPolicy';
 import type { IsometricSnapLock, IsometricSnapTarget } from '../tools/isometricSnapping';
+import { nodeGeometryFeatures } from '../tools/isometricSnapping';
 import {
   createSnapSession,
   filterSnapTargetEntries,
@@ -129,6 +130,9 @@ export function buildToolContext(
   const activeConstructionPlane: import('@varve/scene').ConstructionPlane | null = (() => {
     const isometricGrid = resolveActiveIsometricGrid(s.document);
     if (!isometricGrid) return null;
+    // `none` keeps ordinary 2-D drawing even while the grid is visible and
+    // snapping: display/snap and construction are separate concerns.
+    if (isometricGrid.activePlaneId === 'none') return null;
     const geometry = resolveIsometricGeometry({
       originX: isometricGrid.originX,
       originY: isometricGrid.originY,
@@ -549,6 +553,40 @@ export function buildToolContext(
       }
 
       const finishSnapEvaluate = beginInteractionSpan('snap.evaluate');
+      // Explicit geometry features: snap the artwork's own anchors rather
+      // than a world AABB corner (which is not a point of oblique artwork).
+      //
+      // Features are read from the live node (which may already carry the
+      // previous sample's snap correction) and then shifted by the delta
+      // between the raw proposal (`bounds`, derived from the pointer-down
+      // snapshot + total movement) and the node's current bounds. The solver
+      // therefore always sees unsnapped intent and cannot feed its own
+      // correction back into the lock.
+      const primaryNode = draggedId ? doc.nodes[draggedId] : undefined;
+      let geometryFeatures: import('@varve/scene').Vec2[] | undefined;
+      if (primaryNode) {
+        const features = nodeGeometryFeatures(
+          primaryNode,
+          getCachedWorldTransform(deps.transformCacheRef.current, doc, draggedId),
+        );
+        if (features) {
+          const currentBounds = getCachedWorldBounds(
+            deps.transformCacheRef.current,
+            doc,
+            draggedId,
+          );
+          if (currentBounds) {
+            const dx = bounds.x - currentBounds.x;
+            const dy = bounds.y - currentBounds.y;
+            geometryFeatures =
+              Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9
+                ? features
+                : features.map((point) => [point[0] + dx, point[1] + dy] as const);
+          } else {
+            geometryFeatures = features;
+          }
+        }
+      }
       const result = snapPosition(
         bounds.x,
         bounds.y,
@@ -565,6 +603,7 @@ export function buildToolContext(
           layoutGridTargets: snapPreferences.snapToGuides ? layoutGridTargets : [],
           pixelGridSnap: s.snapEnabled && s.pixelGridSnapEnabled,
           isometric: isometricTarget,
+          snapFeatures: geometryFeatures,
         },
       );
       deps.snapSessionRef.current = result.session;

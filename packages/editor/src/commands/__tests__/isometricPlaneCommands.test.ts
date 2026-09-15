@@ -60,8 +60,9 @@ describe('planeFitAffine', () => {
     const s0 = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
     const s1 = Math.hypot(p2[0] - p0[0], p2[1] - p0[1]);
     // Equal projected axis lengths: 10 plane units → 10·s world units.
-    expect(s0).toBeCloseTo(10 * 24, 9);
-    expect(s1).toBeCloseTo(10 * 24, 9);
+    // Unit-scale projection: 10 plane units → 10 document units per axis.
+    expect(s0).toBeCloseTo(10, 9);
+    expect(s1).toBeCloseTo(10, 9);
     const dot = (p1[0] - p0[0]) * (p2[0] - p0[0]) + (p1[1] - p0[1]) * (p2[1] - p0[1]);
     const angle = (Math.acos(dot / (s0 * s1)) * 180) / Math.PI;
     expect(angle).toBeCloseTo(120, 9);

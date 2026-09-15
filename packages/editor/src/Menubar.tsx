@@ -226,6 +226,7 @@ function buildMenus(
     rulerMode: string;
     snapEnabled: boolean;
     bleedGuidesVisible: boolean;
+    alignToPage: boolean;
   },
   recentEntries: RecentEntry[],
   caps: ReadonlySet<string>,
@@ -351,6 +352,9 @@ function buildMenus(
       case 'alignTop':
       case 'alignCenterV':
       case 'alignBottom':
+        // Relative alignment needs two roots; page alignment remains valid for
+        // one object when the explicit page reference is active.
+        return state.alignToPage ? !hasSelection : !hasMultipleSelection;
       case 'tidySelected':
         return !hasMultipleSelection;
       case 'distributeHorizontal':
@@ -1196,6 +1200,21 @@ function buildMenus(
           action: 'resizeImage',
           disabled: dis('resizeImage'),
         },
+        {
+          label: 'Fit to Plane',
+          action: 'fitSelectionToPlane',
+          disabled: !hasSelection,
+        },
+        {
+          label: 'Unproject from Plane',
+          action: 'unprojectSelectionFromPlane',
+          disabled: !hasSelection,
+        },
+        {
+          label: 'Create Isometric Grid Artwork…',
+          action: 'createIsometricGridArtwork',
+          disabled: false,
+        },
         { label: '---' },
         {
           label: 'Open Effect Studio…',
@@ -1890,6 +1909,7 @@ export function Menubar({
       state.beforeAfterCompare,
       state.rulerMode,
       state.snapEnabled,
+      state.alignToPage,
       recentEntries,
       caps,
       nudgeCapability.canNudge,

@@ -11,6 +11,7 @@ import {
   findIsometricSnap,
   type IsometricSnapTarget,
   isometricCandidatesForPoint,
+  nodeGeometryFeatures,
 } from '../isometricSnapping';
 import { snapPosition } from '../snapping';
 
@@ -281,6 +282,64 @@ describe('snapPosition integration', () => {
     const rawCorner = [box.x + box.w, box.y + box.h] as const;
     expect(movedCorner[0] - rawCorner[0]).toBeCloseTo(dx, 12);
     expect(movedCorner[1] - rawCorner[1]).toBeCloseTo(dy, 12);
+  });
+});
+
+describe('explicit geometry features', () => {
+  it('snaps the artwork’s own anchor where the world AABB corner would not', () => {
+    const target = standardTarget({ maxDistance: 2 });
+    const basis = target.basis;
+    // Place the first artwork anchor 0.75 units from a known lattice point.
+    const latticePoint: [number, number] = [
+      target.origin[0] + 3 * basis[0] + 2 * basis[2],
+      target.origin[1] + 3 * basis[1] + 2 * basis[3],
+    ];
+    const anchor: [number, number] = [latticePoint[0] + 0.75, latticePoint[1]];
+    const localCorners = [
+      [0, 0],
+      [60, 0],
+      [60, 40],
+      [0, 40],
+    ] as const;
+    const points = localCorners.map(([x, y]) => ({
+      x: anchor[0] + basis[0] * x + basis[2] * y,
+      y: anchor[1] + basis[1] * x + basis[3] * y,
+    }));
+    const node = { kind: 'shape', shape: { kind: 'path', points } };
+    const features = nodeGeometryFeatures(node, [1, 0, 0, 1, 0, 0])!;
+    // The features are the artwork's own anchors, not AABB corners: each one
+    // equals a transformed path point.
+    expect(features.length).toBe(4);
+    for (const [index, feature] of features.entries()) {
+      expect(feature[0]).toBeCloseTo(points[index]!.x, 9);
+      expect(feature[1]).toBeCloseTo(points[index]!.y, 9);
+    }
+
+    // Setup precondition: the first artwork anchor is within range.
+    expect(
+      nearestLatticePoint(features[0]!, basis, { origin: target.origin })!.distance,
+    ).toBeLessThan(2);
+
+    const result = findIsometricSnap(features, target);
+    expect(result).not.toBeNull();
+    const moved: Array<[number, number]> = features.map((p) => [
+      p[0] + result!.translation.x,
+      p[1] + result!.translation.y,
+    ]);
+    const onLattice = moved.some(
+      (p) => nearestLatticePoint(p, basis, { origin: target.origin })!.distance < 1e-6,
+    );
+    expect(onLattice).toBe(true);
+  });
+
+  it('falls back to the selection box for nodes without usable geometry', () => {
+    expect(nodeGeometryFeatures({ kind: 'text' }, [1, 0, 0, 1, 0, 0])).toBeNull();
+    expect(
+      nodeGeometryFeatures(
+        { kind: 'shape', shape: { kind: 'rect', x: 0, y: 0, w: 10, h: 5 } },
+        [1, 0, 0, 1, 2, 3],
+      )!.length,
+    ).toBe(4);
   });
 });
 

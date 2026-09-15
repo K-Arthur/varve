@@ -513,6 +513,19 @@ export function registerEditorActions(
     'object',
     handlers.toggleFacingPages ?? (() => {}),
   );
+  reg('fitSelectionToPlane', 'Fit to Plane', 'object', handlers.fitSelectionToPlane ?? (() => {}));
+  reg(
+    'unprojectSelectionFromPlane',
+    'Unproject from Plane',
+    'object',
+    handlers.unprojectSelectionFromPlane ?? (() => {}),
+  );
+  reg(
+    'createIsometricGridArtwork',
+    'Create Isometric Grid Artwork',
+    'object',
+    handlers.createIsometricGridArtwork ?? (() => {}),
+  );
   reg('nudgeUp', 'Nudge Up', 'object', handlers.nudgeUp ?? (() => {}));
   reg('nudgeDown', 'Nudge Down', 'object', handlers.nudgeDown ?? (() => {}));
   reg('nudgeLeft', 'Nudge Left', 'object', handlers.nudgeLeft ?? (() => {}));

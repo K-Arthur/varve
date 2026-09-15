@@ -547,6 +547,32 @@ function normaliseVec(v: Vec2): Vec2 {
   return [v[0] / length, v[1] / length];
 }
 
+/** Axis families that span a named plane, in `u, v` order. */
+export function familiesForPlane(
+  geometry: IsometricGridGeometry,
+  planeId: IsometricPlaneId,
+): readonly [AxisFamily, AxisFamily] | null {
+  const findFamily = (targetAngle: number): AxisFamily | undefined =>
+    geometry.families.find((family) => axisSeparationDegrees(family.angleDeg, targetAngle) < 15);
+  let uFamily: AxisFamily | undefined;
+  let vFamily: AxisFamily | undefined;
+  switch (planeId) {
+    case 'top':
+      uFamily = findFamily(30);
+      vFamily = findFamily(150);
+      break;
+    case 'front':
+      uFamily = findFamily(30);
+      vFamily = findFamily(90);
+      break;
+    case 'side':
+      uFamily = findFamily(150);
+      vFamily = findFamily(90);
+      break;
+  }
+  return uFamily && vFamily ? [uFamily, vFamily] : null;
+}
+
 /** Build a plane from resolved geometry. `origin` defaults to the grid origin. */
 export function constructionPlaneFromGeometry(
   geometry: IsometricGridGeometry,
@@ -554,30 +580,13 @@ export function constructionPlaneFromGeometry(
   origin?: Vec2,
 ): ConstructionPlane | null {
   const info = isometricPlaneInfo(planeId);
-  const axes = geometry.families;
-  const findFamily = (predicate: (family: AxisFamily) => boolean) => axes.find(predicate);
-
-  let uFamily: AxisFamily | undefined;
-  let vFamily: AxisFamily | undefined;
-  switch (planeId) {
-    case 'top':
-      uFamily = findFamily((family) => axisSeparationDegrees(family.angleDeg, 30) < 15);
-      vFamily = findFamily((family) => axisSeparationDegrees(family.angleDeg, 150) < 15);
-      break;
-    case 'front':
-      uFamily = findFamily((family) => axisSeparationDegrees(family.angleDeg, 30) < 15);
-      vFamily = findFamily((family) => axisSeparationDegrees(family.angleDeg, 90) < 15);
-      break;
-    case 'side':
-      uFamily = findFamily((family) => axisSeparationDegrees(family.angleDeg, 150) < 15);
-      vFamily = findFamily((family) => axisSeparationDegrees(family.angleDeg, 90) < 15);
-      break;
-  }
-  if (!uFamily || !vFamily) return null;
-  const basis = basisFromColumns(
-    scaleVec(uFamily.direction, geometry.spacing),
-    scaleVec(vFamily.direction, geometry.spacing),
-  );
+  const pair = familiesForPlane(geometry, planeId);
+  if (!pair) return null;
+  const [uFamily, vFamily] = pair;
+  // Unit-scale basis: one plane unit is one document unit along the axis
+  // direction. Grid spacing scales lattice *indices*, not the projection, so
+  // fitting artwork must not resize it by the spacing.
+  const basis = basisFromColumns(uFamily.direction, vFamily.direction);
   if (!(basisConditioning(basis) > 0)) return null;
   return {
     id: planeId,
@@ -587,10 +596,6 @@ export function constructionPlaneFromGeometry(
     uAxisLabel: info.axes[0],
     vAxisLabel: info.axes[1],
   };
-}
-
-function scaleVec(v: Vec2, s: number): Vec2 {
-  return [v[0] * s, v[1] * s];
 }
 
 export interface ConstructionPlane {

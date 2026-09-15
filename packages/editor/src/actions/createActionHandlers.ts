@@ -1116,6 +1116,23 @@ export function createActionHandlers(
         });
       }
     },
+    fitSelectionToPlane: () => {
+      const planeId = e.state.isometricGrid.activePlaneId;
+      if (!planeId || planeId === 'none') {
+        e.announce('Choose an isometric construction plane first (Inspector → Isometric Grid).');
+        return;
+      }
+      e.fitSelectionToPlane(planeId);
+    },
+    unprojectSelectionFromPlane: () => {
+      const planeId = e.state.isometricGrid.activePlaneId;
+      if (!planeId || planeId === 'none') {
+        e.announce('Choose an isometric construction plane first (Inspector → Isometric Grid).');
+        return;
+      }
+      e.fitSelectionToPlane(planeId, { inverse: true });
+    },
+    createIsometricGridArtwork: () => e.createIsometricGridArtwork({ maxLines: 1200 }),
     toggleSnap: () => e.setSnapEnabled(!e.state.snapEnabled),
     toggleMarqueeContainment: () => {
       const next = !loadSettings().layers.marqueeContainment;
