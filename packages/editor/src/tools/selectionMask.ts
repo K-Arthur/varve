@@ -49,6 +49,13 @@ export interface RasterMaskDecodeTarget {
   height: number;
 }
 
+export interface RasterMaskDecodeRegion {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 function sampleDecodedAlpha(pixels: DecodedMaskPixels, x: number, y: number): number {
   if (x < 0 || y < 0 || x >= pixels.width || y >= pixels.height) return 0;
   const x0 = Math.floor(x);
@@ -375,6 +382,104 @@ export function decodeRasterMaskDataUrl(
       }
     };
     image.onerror = () => resolve(null);
+    image.src = dataUrl;
+  });
+}
+
+/**
+ * Decode only a bounded source rectangle from a persisted mask asset.
+ *
+ * A generative edit mask may be source-resolution even when the review canvas
+ * is deliberately downsampled. Drawing the source rectangle directly avoids
+ * allocating a full-resolution ImageData buffer when reopening a large
+ * photograph. The encoded image still has to be decoded by the browser, but
+ * the pixels handed to the editor stay bounded to the requested region.
+ */
+export function decodeRasterMaskRegionDataUrl(
+  dataUrl: string,
+  sourceWidth: number,
+  sourceHeight: number,
+  region: RasterMaskDecodeRegion,
+  target?: RasterMaskDecodeTarget,
+  signal?: AbortSignal,
+): Promise<DecodedMaskPixels | null> {
+  const width = target?.width ?? region.width;
+  const height = target?.height ?? region.height;
+  const validSourceDimensions =
+    Number.isSafeInteger(sourceWidth) &&
+    Number.isSafeInteger(sourceHeight) &&
+    sourceWidth > 0 &&
+    sourceHeight > 0;
+  const validRegion =
+    Number.isSafeInteger(region.x) &&
+    Number.isSafeInteger(region.y) &&
+    Number.isSafeInteger(region.width) &&
+    Number.isSafeInteger(region.height) &&
+    region.x >= 0 &&
+    region.y >= 0 &&
+    region.width > 0 &&
+    region.height > 0 &&
+    region.x + region.width <= sourceWidth &&
+    region.y + region.height <= sourceHeight;
+  if (
+    typeof Image === 'undefined' ||
+    typeof document === 'undefined' ||
+    !validSourceDimensions ||
+    !validRegion ||
+    !dimensionsAllowed(width, height) ||
+    signal?.aborted
+  ) {
+    return Promise.resolve(null);
+  }
+  return new Promise((resolve) => {
+    const image = new Image();
+    let settled = false;
+    const finish = (value: DecodedMaskPixels | null) => {
+      if (settled) return;
+      settled = true;
+      signal?.removeEventListener('abort', abort);
+      resolve(value);
+    };
+    const abort = () => {
+      image.src = '';
+      finish(null);
+    };
+    signal?.addEventListener('abort', abort, { once: true });
+    image.onload = () => {
+      if (signal?.aborted) return finish(null);
+      try {
+        if (image.naturalWidth !== sourceWidth || image.naturalHeight !== sourceHeight) {
+          return finish(null);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        if (!context || canvas.width <= 0 || canvas.height <= 0) return finish(null);
+        context.drawImage(
+          image,
+          region.x,
+          region.y,
+          region.width,
+          region.height,
+          0,
+          0,
+          width,
+          height,
+        );
+        const result = context.getImageData(0, 0, canvas.width, canvas.height);
+        finish({
+          data: result.data,
+          width: result.width,
+          height: result.height,
+          sourceWidth: image.naturalWidth,
+          sourceHeight: image.naturalHeight,
+        });
+      } catch {
+        finish(null);
+      }
+    };
+    image.onerror = () => finish(null);
     image.src = dataUrl;
   });
 }

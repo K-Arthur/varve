@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  computeSourceRegionFromMaskBounds,
   computeSourceRegionFromMaskCoverage,
   computeSourceRegionFromPreviewMask,
   deriveGeneratedOverlay,
@@ -59,6 +60,18 @@ describe('bounded generative raster planning', () => {
         return x >= 1 && x < 4 && y >= 1 && y < 5 ? 255 : 0;
       }),
     );
+  });
+
+  it('plans a bounded decode from persisted source-mask bounds', () => {
+    expect(
+      computeSourceRegionFromMaskBounds({ x: 880, y: 400, width: 120, height: 80 }, 1000, 600, 32),
+    ).toEqual({ x: 848, y: 368, width: 152, height: 144 });
+    expect(() =>
+      computeSourceRegionFromMaskBounds({ x: 800, y: 400, width: 100, height: 80 }, 1000, 600, 32),
+    ).not.toThrow();
+    expect(() =>
+      computeSourceRegionFromMaskBounds({ x: 950, y: 400, width: 100, height: 81 }, 1000, 600, 32),
+    ).toThrow('Persisted mask bounds are invalid');
   });
 
   it('keeps the working raster bounded and preserves the region aspect ratio', () => {

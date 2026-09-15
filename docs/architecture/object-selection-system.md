@@ -315,6 +315,15 @@ same crop, rotation, flip, and ancestor transform as the renderer. A brush edit
 or compound operation intentionally revokes that exact handoff and makes the
 visible editable mask the authority.
 
+Accepted generative edits persist the source mask's non-zero bounds alongside
+the PNG asset. Reopening therefore keeps the source-sized mask as a lazy
+reference and decodes only the bounded source region needed for the next
+generation, rather than rebuilding the selection from the reduced review
+canvas. Legacy records without bounds are recovered exactly only within the
+source-mask memory ceiling; larger legacy records remain preview-authored and
+must be reviewed before use. A malformed bound or dimension mismatch is a
+hard mask error, never an inferred selection.
+
 Automatic foreground proposals additionally record the canonical
 source-pixel-to-world placement fingerprint used for their review overlay.
 Changing the crop, image offset, content rotation, flip, node transform, or an

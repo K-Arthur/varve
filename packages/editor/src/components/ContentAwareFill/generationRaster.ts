@@ -100,6 +100,38 @@ export function computeSourceRegionFromMaskCoverage(
   return { x, y, width: right - x, height: bottom - y };
 }
 
+/**
+ * Plan from persisted mask bounds without decoding the entire source mask.
+ * Bounds are stored in source-image pixels and are validated before they are
+ * allowed to influence a generation frame.
+ */
+export function computeSourceRegionFromMaskBounds(
+  bounds: SourceImageRegion,
+  sourceWidth: number,
+  sourceHeight: number,
+  contextPadding = 32,
+): SourceImageRegion | null {
+  if (
+    !validPixelCount(sourceWidth, sourceHeight) ||
+    !Number.isSafeInteger(bounds.x) ||
+    !Number.isSafeInteger(bounds.y) ||
+    !validPixelCount(bounds.width, bounds.height) ||
+    bounds.x < 0 ||
+    bounds.y < 0 ||
+    bounds.x + bounds.width > sourceWidth ||
+    bounds.y + bounds.height > sourceHeight
+  ) {
+    throw new Error('Persisted mask bounds are invalid');
+  }
+  const padding = Math.max(0, Math.min(MAX_CONTEXT_PADDING, Math.round(contextPadding)));
+  const x = Math.max(0, bounds.x - padding);
+  const y = Math.max(0, bounds.y - padding);
+  const right = Math.min(sourceWidth, bounds.x + bounds.width + padding);
+  const bottom = Math.min(sourceHeight, bounds.y + bounds.height + padding);
+  if (right <= x || bottom <= y) return null;
+  return { x, y, width: right - x, height: bottom - y };
+}
+
 /** Cap a source rectangle without changing its aspect ratio. */
 export function workingRasterDimensions(
   region: SourceImageRegion,
@@ -348,16 +380,10 @@ export async function encodePreviewMaskAtSourceSize(
     sourceWidth,
     sourceHeight,
     (_y, row) => {
-      const sourceY = Math.min(
-        previewHeight - 1,
-        Math.floor(((_y + 0.5) * previewHeight) / sourceHeight),
-      );
+      const sourceY = Math.min(previewHeight - 1, Math.floor((_y * previewHeight) / sourceHeight));
       const previewRow = sourceY * previewWidth;
       for (let x = 0; x < sourceWidth; x += 1) {
-        const previewX = Math.min(
-          previewWidth - 1,
-          Math.floor(((x + 0.5) * previewWidth) / sourceWidth),
-        );
+        const previewX = Math.min(previewWidth - 1, Math.floor((x * previewWidth) / sourceWidth));
         row[x + 1] = previewMask[previewRow + previewX] ?? 0;
       }
     },

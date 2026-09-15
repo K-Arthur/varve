@@ -62,6 +62,17 @@ export interface GenerativeEditMaskSet {
   userHeight?: number;
   userOffsetX?: number;
   userOffsetY?: number;
+  /**
+   * Exact non-zero bounds of the persisted user mask in source pixels.
+   * Reopening can decode this bounded region instead of trusting a reduced
+   * review preview, which matters for thin or edge-touching selections.
+   */
+  userBounds?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
 }
 
 export interface GenerativeEditOutputFrame {
@@ -189,6 +200,33 @@ function validSettings(value: unknown): value is GenerativeEditSettings {
 function validMaskSet(value: unknown): value is GenerativeEditMaskSet {
   if (!value || typeof value !== 'object') return false;
   const masks = value as Partial<GenerativeEditMaskSet>;
+  const userWidth =
+    typeof masks.userWidth === 'number'
+      ? masks.userWidth
+      : typeof masks.width === 'number'
+        ? masks.width
+        : 0;
+  const userHeight =
+    typeof masks.userHeight === 'number'
+      ? masks.userHeight
+      : typeof masks.height === 'number'
+        ? masks.height
+        : 0;
+  const userBounds = masks.userBounds;
+  const validUserBounds =
+    userBounds === undefined ||
+    (typeof userBounds === 'object' &&
+      userBounds !== null &&
+      Number.isSafeInteger(userBounds.x) &&
+      Number.isSafeInteger(userBounds.y) &&
+      Number.isSafeInteger(userBounds.width) &&
+      Number.isSafeInteger(userBounds.height) &&
+      userBounds.x >= 0 &&
+      userBounds.y >= 0 &&
+      userBounds.width > 0 &&
+      userBounds.height > 0 &&
+      userBounds.x + userBounds.width <= userWidth &&
+      userBounds.y + userBounds.height <= userHeight);
   return (
     typeof masks.userMaskAssetId === 'string' &&
     masks.userMaskAssetId.length > 0 &&
@@ -208,7 +246,8 @@ function validMaskSet(value: unknown): value is GenerativeEditMaskSet {
     (masks.userHeight === undefined ||
       (Number.isSafeInteger(masks.userHeight) && (masks.userHeight ?? 0) > 0)) &&
     (masks.userOffsetX === undefined || Number.isSafeInteger(masks.userOffsetX)) &&
-    (masks.userOffsetY === undefined || Number.isSafeInteger(masks.userOffsetY))
+    (masks.userOffsetY === undefined || Number.isSafeInteger(masks.userOffsetY)) &&
+    validUserBounds
   );
 }
 

@@ -24,6 +24,9 @@ function fixture(): GenerativeEditRecord {
       offsetX: 0,
       offsetY: 0,
       coordinateSpace: 'source-image-pixels',
+      userWidth: 640,
+      userHeight: 480,
+      userBounds: { x: 120, y: 80, width: 160, height: 140 },
     },
     outputFrame: {
       x: 0,
@@ -103,6 +106,18 @@ describe('generative edit document contract', () => {
     expect(validateGenerativeEdit({ ...fixture(), activeVariationId: 'missing' })).toContain(
       'active variation',
     );
+  });
+
+  it('rejects persisted user bounds outside the source mask frame', () => {
+    expect(
+      validateGenerativeEdit({
+        ...fixture(),
+        masks: {
+          ...fixture().masks,
+          userBounds: { x: 600, y: 400, width: 80, height: 80 },
+        },
+      }),
+    ).toContain('masks');
   });
 
   it('normalizes malformed records without blocking document load', () => {
