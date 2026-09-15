@@ -33,6 +33,7 @@ import {
 } from '@varve/scene';
 import { applyAffine } from '@varve/shared';
 import { type MutableRefObject, useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
+import { resizeMaskCoverage } from '../components/ContentAwareFill/maskOperations';
 import {
   getSubjectProposalState,
   subscribeSubjectProposals,
@@ -165,6 +166,75 @@ function drawAreaSelectionBoundary(
 
 const floatingPreviewCache = new WeakMap<FloatingRasterSelection, HTMLCanvasElement>();
 
+/**
+ * Object-selection masks can be the size of a 33 MP photograph. The overlay
+ * is a review surface, not the source of truth, so it must never allocate a
+ * second full-resolution RGBA canvas just to tint the candidate on screen.
+ * Keep the bounded canvas cached by the immutable mask buffer; Apply and the
+ * persisted raster-mask asset continue to use the original source mask.
+ */
+const MASK_PREVIEW_MAX_DIMENSION = 1536;
+const MASK_PREVIEW_MAX_PIXELS = 2_000_000;
+const objectMaskPreviewCache = new WeakMap<
+  Uint8Array,
+  { sourceWidth: number; sourceHeight: number; canvas: HTMLCanvasElement }
+>();
+
+function boundedMaskPreviewCanvas(
+  mask: Uint8Array,
+  sourceWidth: number,
+  sourceHeight: number,
+  color: readonly [number, number, number],
+): HTMLCanvasElement | null {
+  if (
+    !Number.isSafeInteger(sourceWidth) ||
+    !Number.isSafeInteger(sourceHeight) ||
+    sourceWidth <= 0 ||
+    sourceHeight <= 0 ||
+    mask.length !== sourceWidth * sourceHeight
+  ) {
+    return null;
+  }
+  const cached = objectMaskPreviewCache.get(mask);
+  if (
+    cached?.sourceWidth === sourceWidth &&
+    cached.sourceHeight === sourceHeight &&
+    cached.canvas.dataset.maskColor === color.join(',')
+  ) {
+    return cached.canvas;
+  }
+  const scale = Math.min(
+    1,
+    MASK_PREVIEW_MAX_DIMENSION / Math.max(sourceWidth, sourceHeight),
+    Math.sqrt(MASK_PREVIEW_MAX_PIXELS / Math.max(1, sourceWidth * sourceHeight)),
+  );
+  const width = Math.max(1, Math.round(sourceWidth * scale));
+  const height = Math.max(1, Math.round(sourceHeight * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  canvas.dataset.maskColor = color.join(',');
+  const context = canvas.getContext('2d');
+  if (!context) return null;
+  const resizedMask = resizeMaskCoverage(
+    mask,
+    { width: sourceWidth, height: sourceHeight },
+    { width, height },
+  );
+  const pixels = context.createImageData(width, height);
+  for (let index = 0; index < resizedMask.length; index += 1) {
+    const coverage = resizedMask[index] ?? 0;
+    const offset = index * 4;
+    pixels.data[offset] = color[0]!;
+    pixels.data[offset + 1] = color[1]!;
+    pixels.data[offset + 2] = color[2]!;
+    pixels.data[offset + 3] = Math.round(coverage * 0.42);
+  }
+  context.putImageData(pixels, 0, 0);
+  objectMaskPreviewCache.set(mask, { sourceWidth, sourceHeight, canvas });
+  return canvas;
+}
+
 function floatingPreviewCanvas(floating: FloatingRasterSelection): HTMLCanvasElement | null {
   const cached = floatingPreviewCache.get(floating);
   if (cached) return cached;
@@ -258,24 +328,14 @@ function drawImageMaskPreview(
   });
   if (!placement) return;
 
-  const maskCanvas = document.createElement('canvas');
-  maskCanvas.width = width;
-  maskCanvas.height = height;
-  const maskCtx = maskCanvas.getContext('2d');
-  if (!maskCtx) return;
-  const pixels = maskCtx.createImageData(width, height);
-  for (let i = 0; i < mask.length; i += 1) {
-    const alpha = Math.round(mask[i]! * 0.42);
-    pixels.data[i * 4] = color[0]!;
-    pixels.data[i * 4 + 1] = color[1]!;
-    pixels.data[i * 4 + 2] = color[2]!;
-    pixels.data[i * 4 + 3] = alpha;
-  }
-  maskCtx.putImageData(pixels, 0, 0);
+  const maskCanvas = boundedMaskPreviewCanvas(mask, width, height, color);
+  if (!maskCanvas) return;
 
   const [a, b, c, d, e, f] = worldTransform;
   const source = placement.sourceRect;
   const destination = placement.sampleDrawRect;
+  const sourceScaleX = maskCanvas.width / width;
+  const sourceScaleY = maskCanvas.height / height;
   ctx.save();
   ctx.transform(a, b, c, d, e, f);
   const transformed = placement.rotation !== 0 || placement.flipH || placement.flipV;
@@ -288,10 +348,10 @@ function drawImageMaskPreview(
     ctx.scale(placement.flipH ? -1 : 1, placement.flipV ? -1 : 1);
     ctx.drawImage(
       maskCanvas,
-      source.x,
-      source.y,
-      source.w,
-      source.h,
+      source.x * sourceScaleX,
+      source.y * sourceScaleY,
+      source.w * sourceScaleX,
+      source.h * sourceScaleY,
       destination.x - centerX,
       destination.y - centerY,
       destination.w,
@@ -301,10 +361,10 @@ function drawImageMaskPreview(
   } else {
     ctx.drawImage(
       maskCanvas,
-      source.x,
-      source.y,
-      source.w,
-      source.h,
+      source.x * sourceScaleX,
+      source.y * sourceScaleY,
+      source.w * sourceScaleX,
+      source.h * sourceScaleY,
       destination.x,
       destination.y,
       destination.w,

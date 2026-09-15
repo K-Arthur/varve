@@ -279,6 +279,14 @@ inference. A click in a fully transparent image hole is rejected because its
 RGB values do not identify an object; exclude prompts may still be placed on
 transparent pixels while refining an already anchored target.
 
+The canvas review overlay is deliberately not another source-of-truth mask.
+It resizes the candidate into a cached preview capped at 1536 px on the long
+edge and 2 megapixels, while Apply, the topology checks, and the persisted
+raster asset retain the source-resolution coverage. This prevents a large
+photograph from allocating a second full-resolution RGBA buffer on every
+overlay redraw and keeps the visible target aligned through the same crop,
+rotation, flip, and ancestor transform as the renderer.
+
 Automatic foreground proposals additionally record the canonical
 source-pixel-to-world placement fingerprint used for their review overlay.
 Changing the crop, image offset, content rotation, flip, node transform, or an

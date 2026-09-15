@@ -402,6 +402,16 @@ The real-photo run is visual evidence rather than a hidden benchmark: no image
 pixels, screenshots, or filenames are sent to telemetry. The captures are
 local temporary evidence and are not part of the document or model cache.
 
+A repeat of the MobileSAM scenario on 2026-09-15 was refused before model
+allocation because the active browser/native working-set budget was about
+1.1 GiB and the conservative MobileSAM estimate was also about 1.1 GiB. The
+failure was classified as an expected `insufficient-memory` capacity result,
+not as a successful model-quality run; the E2E lane now skips only for that
+explicit reason and still fails on model, graph, decode, or mask errors. The
+low-memory real-photo fallback remains covered by
+`tests/e2e/canvas/object-selection.spec.ts`, which asserts the actionable
+preflight message without pretending that a model ran.
+
 ## Routing decision after the gate
 
 | user intent | validated default | explicit alternative | unavailable/failure behaviour |
