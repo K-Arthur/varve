@@ -712,6 +712,62 @@ export function collectDefs(el: ParsedElement): Map<string, ParsedElement> {
   return defs;
 }
 
+// ─── Imported layer naming ──────────────────────────────────────────────────
+
+function decodeXmlEntities(value: string): string {
+  return value
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) =>
+      String.fromCodePoint(Number.parseInt(hex, 16)),
+    )
+    .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(Number.parseInt(dec, 10)));
+}
+
+/**
+ * True when an SVG attribute value reads as an authored layer name rather
+ * than a machine identifier. Design tools export names into different
+ * attributes (Figma/Sketch `id` + `data-name`, Inkscape `inkscape:label`,
+ * web SVGs `aria-label`); exporters that have no name fall back to generated
+ * ids such as `path1234`, `paint0_linear`, or bare GUIDs, which are worse
+ * than the element-type fallback.
+ */
+export function isMeaningfulLayerName(value: string): boolean {
+  if (!value || value.length > 120) return false;
+  if (/^\d+$/.test(value)) return false;
+  if (/^[0-9a-f]{8,}$/i.test(value)) return false;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) return false;
+  // Type names as emitted by exporters: `path1234`, `rect_12`, `XMLID_000000`.
+  // A space (e.g. "Group 2") reads as an authored name and is kept.
+  if (
+    /^(svg|g|rect|circle|ellipse|line|polyline|polygon|path|text|tspan|image|use|defs|clipPath|mask|pattern|linearGradient|radialGradient|filter|layer|shape|group|XMLID)[-_]?\d*$/i.test(
+      value,
+    )
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Derive a human layer name for an imported element, falling back to the
+ * element type when the export carries no authored name. Before this,
+ * every imported rectangle was called "Rectangle" and every group "Group",
+ * so a real design file produced a Layers panel of indistinguishable rows.
+ */
+export function svgLayerName(el: ParsedElement, fallback: string): string {
+  for (const key of ['aria-label', 'inkscape:label', 'data-name', 'id', 'xml:id']) {
+    const raw = el.attrs[key];
+    if (!raw) continue;
+    const decoded = decodeXmlEntities(raw).trim();
+    if (isMeaningfulLayerName(decoded)) return decoded;
+  }
+  return fallback;
+}
+
 // ─── XML parser (string-based, no DOMParser) ────────────────────────────────
 
 function nextTagInfo(

@@ -31,6 +31,7 @@ import {
   parsePoints,
   parseSvgColor,
   parseUrlReference,
+  svgLayerName,
 } from './shared';
 
 function convertRect(
@@ -50,7 +51,7 @@ function convertRect(
   const cornerRadius = rx > 0 || ry > 0 ? (Math.max(rx, ry) as number) : undefined;
 
   const node = makeShapeNode('', shape, {
-    name: 'Rectangle',
+    name: svgLayerName(el, 'Rectangle'),
     transform: composeWithOffset(transform, x, y),
     fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
     cornerRadius: cornerRadius
@@ -73,7 +74,7 @@ function convertCircle(
   const transform = composeTransforms(transforms);
 
   const node = makeShapeNode('', shape, {
-    name: 'Circle',
+    name: svgLayerName(el, 'Circle'),
     transform: composeWithOffset(transform, cx, cy),
   });
   return { node, warnings: [] };
@@ -93,7 +94,7 @@ function convertEllipse(
   const transform = composeTransforms(transforms);
 
   const node = makeShapeNode('', shape, {
-    name: 'Ellipse',
+    name: svgLayerName(el, 'Ellipse'),
     transform: composeWithOffset(transform, cx, cy),
   });
   return { node, warnings: [] };
@@ -113,7 +114,7 @@ function convertLine(
   const transform = composeTransforms(transforms);
 
   const node = makeShapeNode('', shape, {
-    name: 'Line',
+    name: svgLayerName(el, 'Line'),
     transform: composeWithOffset(transform, x1, y1),
   });
   return { node, warnings: [] };
@@ -128,7 +129,11 @@ function convertPolygon(
   const points = parsePoints(pointsStr, opts.scale);
 
   if (points.length === 0) {
-    const node = makeShapeNode('', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Polygon' });
+    const node = makeShapeNode(
+      '',
+      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+      { name: svgLayerName(el, 'Polygon') },
+    );
     return { node, warnings: ['Empty polygon'] };
   }
 
@@ -144,7 +149,7 @@ function convertPolygon(
   const transform = composeTransforms(transforms);
 
   const node = makeShapeNode('', shape, {
-    name: 'Polygon',
+    name: svgLayerName(el, 'Polygon'),
     transform: composeWithOffset(transform, cx, cy),
   });
   return { node, warnings: [] };
@@ -159,7 +164,11 @@ function convertPolyline(
   const pts = parsePoints(pointsStr, opts.scale);
 
   if (pts.length === 0) {
-    const node = makeShapeNode('', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Path' });
+    const node = makeShapeNode(
+      '',
+      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+      { name: svgLayerName(el, 'Path') },
+    );
     return { node, warnings: ['Empty polyline'] };
   }
 
@@ -182,7 +191,7 @@ function convertPolyline(
   const transform = composeTransforms(transforms);
 
   const node = makeShapeNode('', shape, {
-    name: 'Path',
+    name: svgLayerName(el, 'Path'),
     transform: composeWithOffset(transform, minX, minY),
   });
   return { node, warnings: [] };
@@ -201,7 +210,11 @@ function convertPath(
   const outer = contours[0];
 
   if (!outer || outer.points.length < 2) {
-    const node = makeShapeNode('', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Path' });
+    const node = makeShapeNode(
+      '',
+      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+      { name: svgLayerName(el, 'Path') },
+    );
     return { node, warnings: ['Path too short'] };
   }
 
@@ -225,7 +238,7 @@ function convertPath(
   const transform = composeTransforms(transforms);
 
   const node = makeShapeNode('', shape, {
-    name: 'Path',
+    name: svgLayerName(el, 'Path'),
     transform,
   });
   return { node, warnings: [] };
@@ -252,7 +265,7 @@ function convertText(
   const transform = composeTransforms(transforms);
 
   const node = makeTextNode('', text, {
-    name: 'Text',
+    name: svgLayerName(el, 'Text'),
     transform: composeWithOffset(transform, x, y),
     fontSize,
     fontFamily,
@@ -287,7 +300,7 @@ function convertImage(
       '',
       { kind: 'rect', x: 0, y: 0, w, h },
       {
-        name: 'Image',
+        name: svgLayerName(el, 'Image'),
         transform: composeWithOffset(transform, x, y),
         fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
       },
@@ -859,7 +872,7 @@ export function convertElement(
       const { x, y, w, h } = computeGroupBounds(gDoc, gIds);
       const groupNode: FrameNode = {
         ...makeFrameNode(id, {
-          name: 'Group',
+          name: svgLayerName(el, 'Group'),
           children: gIds,
           w,
           h,
