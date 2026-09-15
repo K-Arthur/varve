@@ -209,6 +209,14 @@ recomputed from the current typed-array bytes at both “Use selected candidate�
 and “Apply as mask”; replacing or mutating a proposal therefore clears review
 instead of transferring it to a different highlighted region.
 
+The two proposal channels have different contracts: area selection receives a
+hard-thresholded binary mask, while a document mask and its review overlay may
+use the provider's retained soft alpha. This prevents uncertain model edge
+coverage from silently becoming selected pixels while preserving useful
+anti-aliased coverage for nondestructive masks. Automatic foreground output
+that covers 99.5% or more of the source is treated as an ambiguous whole-frame
+failure and routes the user to prompted Object Selection or manual tools.
+
 Expand exposes the four independent source-pixel margins as the authoritative
 frame controls. It also provides common target aspect ratios, explicit output
 width and height, and nine source anchors (center, sides, and corners). The

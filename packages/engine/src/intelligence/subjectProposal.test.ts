@@ -148,9 +148,28 @@ describe('proposalSetFromAlpha', () => {
     // Region masks are binary and disjoint.
     const region1 = set.candidates[1]!.mask;
     const region2 = set.candidates[2]!.mask;
+    expect(set.candidates[1]?.alpha).toBeDefined();
     for (let index = 0; index < region1.length; index += 1) {
       expect((region1[index] ?? 0) === 0 || (region2[index] ?? 0) === 0).toBe(true);
     }
+  });
+
+  it('keeps region selections binary while retaining the provider soft edge separately', () => {
+    const alpha = new Uint8Array(32 * 32);
+    for (let y = 8; y < 24; y += 1) {
+      for (let x = 8; x < 16; x += 1) alpha[y * 32 + x] = 255;
+      for (let x = 20; x < 28; x += 1) alpha[y * 32 + x] = 255;
+    }
+    // This soft value belongs to the first hard component. It must remain
+    // available to Apply as mask without turning the selection candidate into
+    // a soft mask.
+    alpha[16 * 32 + 8] = 192;
+
+    const set = proposalSetFromAlpha(alpha, 32, 32);
+    const firstRegion = set.candidates[1];
+    expect(firstRegion?.alpha?.[16 * 32 + 8]).toBe(192);
+    expect(firstRegion?.mask[16 * 32 + 8]).toBe(255);
+    expect(firstRegion?.mask.some((value) => value !== 0 && value !== 255)).toBe(false);
   });
 
   it('does not duplicate the union when there is one component', () => {
@@ -163,6 +182,14 @@ describe('proposalSetFromAlpha', () => {
     const set = proposalSetFromAlpha(new Uint8Array(16 * 16), 16, 16);
     expect(set.candidates).toHaveLength(0);
     expect(set.emptyReason).toBe('no-subject');
+  });
+
+  it('rejects a near-full-frame model result instead of offering the whole image as a subject', () => {
+    const alpha = new Uint8Array(32 * 32).fill(255);
+    alpha[0] = 0;
+    const set = proposalSetFromAlpha(alpha, 32, 32);
+    expect(set.candidates).toHaveLength(0);
+    expect(set.emptyReason).toBe('ambiguous-subject');
   });
 });
 

@@ -406,7 +406,7 @@ function drawForegroundProposalPreview(
   const candidate = proposalSet.candidates[candidateIndex];
   if (!candidate) return;
   const mask = mapProposalMaskToSource(
-    candidate.mask,
+    candidate.alpha ?? candidate.mask,
     proposalSet.analysisWidth,
     proposalSet.analysisHeight,
     proposalSet.width,

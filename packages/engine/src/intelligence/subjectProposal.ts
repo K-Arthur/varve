@@ -60,6 +60,14 @@ const MIN_COMPONENT_FRACTION = 0.001;
 /** Alpha level that separates proposed foreground from background. */
 const FOREGROUND_THRESHOLD = 128;
 /**
+ * A foreground model that marks essentially every pixel has not identified a
+ * useful subject. Do not turn that failure into an apparently valid
+ * whole-image selection: it would make a later Remove/Fill operation touch
+ * the entire photograph. A close-up that genuinely fills the frame can still
+ * be handled with Object Selection, a box, or the manual selection tools.
+ */
+const MAX_ACCEPTED_FOREGROUND_COVERAGE = 0.995;
+/**
  * Above this source size, only the union candidate is offered. Region
  * candidates are full source-resolution buffers, and a large photo must not
  * hold several of them at once.
@@ -273,9 +281,11 @@ export interface SubjectProposalResult {
 /**
  * Derive reviewable candidates from a model alpha mask.
  *
- * The union candidate keeps the soft coverage. Region candidates are binary:
- * they name one significant connected component so users can pick between
- * subjects without a second model run.
+ * The union candidate keeps the soft coverage. Region candidates expose a
+ * binary selection mask plus the provider's soft alpha for that same
+ * component: the former is used by pixel-selection commands, while the latter
+ * is used by mask output and review so a soft model edge is not mistaken for
+ * an object-selection hit.
  */
 export function proposalSetFromAlpha(
   alpha: Uint8Array,
@@ -323,6 +333,16 @@ export function proposalSetFromAlpha(
   }
 
   const coverage = foregroundPixels / total;
+  if (coverage >= MAX_ACCEPTED_FOREGROUND_COVERAGE && total > 1) {
+    return {
+      width,
+      height,
+      analysisWidth: width,
+      analysisHeight: height,
+      candidates: [],
+      emptyReason: 'ambiguous-subject',
+    };
+  }
   const unionCandidate: ForegroundProposal = {
     mask: binary,
     alpha,
@@ -352,23 +372,31 @@ export function proposalSetFromAlpha(
     };
   }
 
-  const regionCandidates: ForegroundProposal[] = components.map((component, index) => ({
-    mask: filterMaskByComponents(
+  const regionCandidates: ForegroundProposal[] = components.map((component, index) => {
+    const regionAlpha = filterMaskByComponents(
       alpha,
       width,
       height,
       new Set([component.id]),
       FOREGROUND_THRESHOLD,
-    ),
-    label: `Region ${index + 1}`,
-    coverage: component.pixelCount / total,
-    score: Math.max(0, Math.min(1, component.pixelCount / total / 0.25)),
-    centroid: {
-      x: component.centerOfMass.x / width,
-      y: component.centerOfMass.y / height,
-    },
-    edgeAlignment: 0,
-  }));
+    );
+    const regionMask = new Uint8Array(regionAlpha.length);
+    for (let pixel = 0; pixel < regionAlpha.length; pixel += 1) {
+      if ((regionAlpha[pixel] ?? 0) >= FOREGROUND_THRESHOLD) regionMask[pixel] = 255;
+    }
+    return {
+      mask: regionMask,
+      alpha: regionAlpha,
+      label: `Region ${index + 1}`,
+      coverage: component.pixelCount / total,
+      score: Math.max(0, Math.min(1, component.pixelCount / total / 0.25)),
+      centroid: {
+        x: component.centerOfMass.x / width,
+        y: component.centerOfMass.y / height,
+      },
+      edgeAlignment: 0,
+    };
+  });
 
   return {
     width,

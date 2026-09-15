@@ -74,7 +74,7 @@ export interface ForegroundProposalSet {
   analysisHeight: number;
   candidates: ForegroundProposal[];
   /** Present when `candidates` is empty, so callers can explain why. */
-  emptyReason?: 'unsupported-source' | 'all-transparent' | 'no-subject';
+  emptyReason?: 'unsupported-source' | 'all-transparent' | 'no-subject' | 'ambiguous-subject';
 }
 
 const MIN_SAMPLE_ALPHA = 16;

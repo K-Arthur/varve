@@ -127,7 +127,14 @@ semantic recognition. Two implementation families produce its candidates:
   substituted, and an optional model is only downloaded after an explicit
   confirmation that shows its size. Model candidates keep the soft coverage
   the provider produced for mask output, and derive per-region binary
-  alternatives from significant connected components.
+  alternatives from significant connected components. The binary selection
+  channel is hard-thresholded independently from that alpha channel, so
+  “Use as selection” cannot accidentally treat a model's uncertain edge as a
+  confirmed object pixel; “Apply as mask” and the review overlay retain the
+  soft values where the provider supplied them. A model result covering at
+  least 99.5% of the source is rejected as an ambiguous whole-frame result
+  rather than offered as a subject that could make a later edit touch the
+  photograph.
 - **The model-free estimator** (`@varve/engine/foregroundSelect`) remains the
   no-model fallback: a border flood through colour-continuous pixels plus a
   centre flood, ranked by `0.55·coverage + 0.25·centrality + 0.20·edgeAlignment`,

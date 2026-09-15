@@ -222,6 +222,13 @@ quality decision remains unchanged.
   for the maintainer. No quality threshold in this document was changed to
   make this run pass.
 
+Model-backed foreground candidates keep separate channels for selection and
+masking: binary hard coverage is used for pixel selections, while the
+provider's soft alpha is retained for mask output and the review overlay. A
+near-whole-frame result (at least 99.5% hard coverage) is rejected as an
+ambiguous foreground failure instead of being allowed to turn a later edit
+into a full-photograph operation.
+
 ## Automatic foreground proposals (2026-09-14)
 
 `Select subject` moved from a model-free-only estimate to an explicitly

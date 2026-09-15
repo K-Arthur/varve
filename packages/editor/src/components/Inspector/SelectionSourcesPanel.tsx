@@ -552,7 +552,9 @@ export function SelectionSourcesPanel() {
         const message =
           result.set.emptyReason === 'all-transparent'
             ? 'The image has no visible pixels to select'
-            : 'No prominent foreground subject was found; use Magic Wand or Object Selection instead';
+            : result.set.emptyReason === 'ambiguous-subject'
+              ? 'The foreground model covered almost the whole image, so no subject was accepted; use Object Selection or a manual selection instead'
+              : 'No prominent foreground subject was found; use Magic Wand or Object Selection instead';
         setSubjectProposalState({
           proposals: null,
           provider: null,
