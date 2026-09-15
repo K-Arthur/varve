@@ -73,6 +73,24 @@ implementation where it matters:
 | Nested power-of-two LOD with a hysteresis dead band | "display density ladder" |
 | Near-parallel rejection by conditioning, 180°-equivalent duplicate detection, guide-vs-lattice third axis | "validation" |
 
+### Performance spot-check (Node 22, CachyOS, single core)
+
+Throwaway harness over the canonical primitives (not committed): 200
+iterations per configuration, random-query throughput over 20k points.
+
+| Workload | Result |
+| --- | --- |
+| `gridLinesForViewport` + `selectDisplayStep` | 0.002–1.02 ms/op across zoom 0.05–16, spacing 0.05–24, viewports 1280×800 and 2560×1440. Worst case: spacing 0.05, zoom 0.25, 2560×1440 → 5,496 segments in 1.02 ms. |
+| `nearestLatticePoint` (oblique, exact) | ≈ 280,000 queries/s (≈ 0.0036 ms/query) |
+| `nearestLatticeLine` | ≈ 1,070,000 queries/s |
+
+Interpretation: at a 120 Hz pointer rate (8.3 ms budget) the snap query costs
+~0.004 ms and line generation stays under ~1 ms in the worst measured
+configuration, with output bounded by visible lines (LOD ladder, 4,096/family
+cap) rather than canvas area or object count. This is a Node measurement of the
+pure geometry only: browser paint cost, the editor's render loop, and
+WebKitGTK/Chromebook hardware were not measured here.
+
 ## 3. Real-UI verification (new, independent spec)
 
 File: `tests/e2e/canvas/isometric-construction-workflow.spec.ts`
