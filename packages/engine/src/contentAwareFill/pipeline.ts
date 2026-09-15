@@ -1,4 +1,5 @@
 import { decodeLamaOutput, getInferenceWorkerHost } from '../inference';
+import type { LamaLetterbox } from '../inference/models/lama';
 import { compositeFillResult, extractBoundedContext } from './contextExtraction';
 import { nativeLaMaProvider } from './nativeProvider';
 import { runPatchMatchInWorker } from './patchMatchWorkerHost';
@@ -102,7 +103,7 @@ export async function runLaMaInference(
   // composites.
   const { width: outputW, height: outputH } = getLaMaOutputDimensions(output.dims);
 
-  const letterbox = rawOutputs.letterbox as { offsetX: number; offsetY: number } | undefined;
+  const letterbox = rawOutputs.letterbox as LamaLetterbox | undefined;
 
   const decoded = decodeLamaOutput(
     output.data,

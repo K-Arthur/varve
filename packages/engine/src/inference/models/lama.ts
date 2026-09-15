@@ -31,6 +31,14 @@ export const LAMA_TENSOR_SPEC: TensorSpec = {
   paddingRgb: [0, 0, 0],
 };
 
+export interface LamaLetterbox {
+  offsetX: number;
+  offsetY: number;
+  /** Exact rasterized content extent reported by the worker. */
+  contentWidth?: number;
+  contentHeight?: number;
+}
+
 /**
  * Decode LaMa's already-0-255-scaled output into an ImageData, resizing
  * from the model's fixed 512x512 back to the target resolution. Like
@@ -44,19 +52,59 @@ export function decodeLamaOutput(
   outputHeight: number,
   targetWidth: number,
   targetHeight: number,
-  letterbox?: { offsetX: number; offsetY: number },
+  letterbox?: LamaLetterbox,
 ): ImageData {
+  if (
+    !Number.isSafeInteger(outputWidth) ||
+    !Number.isSafeInteger(outputHeight) ||
+    outputWidth <= 0 ||
+    outputHeight <= 0 ||
+    !Number.isSafeInteger(targetWidth) ||
+    !Number.isSafeInteger(targetHeight) ||
+    targetWidth <= 0 ||
+    targetHeight <= 0
+  ) {
+    throw new Error('LaMa output and target dimensions must be positive integers');
+  }
   const pixelCount = outputWidth * outputHeight;
+  if (data.length !== pixelCount * 3) {
+    throw new Error(
+      `LaMa output length ${data.length} does not match [3, ${outputHeight}, ${outputWidth}]`,
+    );
+  }
   let srcW = outputWidth;
   let srcH = outputHeight;
   let cropX = 0;
   let cropY = 0;
 
-  if (letterbox && (letterbox.offsetX > 0 || letterbox.offsetY > 0)) {
+  if (letterbox) {
+    if (!Number.isFinite(letterbox.offsetX) || !Number.isFinite(letterbox.offsetY)) {
+      throw new Error('LaMa letterbox offsets must be finite');
+    }
     cropX = Math.round(letterbox.offsetX);
     cropY = Math.round(letterbox.offsetY);
-    srcW = Math.round(outputWidth - 2 * letterbox.offsetX);
-    srcH = Math.round(outputHeight - 2 * letterbox.offsetY);
+    srcW =
+      letterbox.contentWidth !== undefined
+        ? Math.round(letterbox.contentWidth)
+        : Math.round(outputWidth - 2 * letterbox.offsetX);
+    srcH =
+      letterbox.contentHeight !== undefined
+        ? Math.round(letterbox.contentHeight)
+        : Math.round(outputHeight - 2 * letterbox.offsetY);
+    if (
+      !Number.isSafeInteger(cropX) ||
+      !Number.isSafeInteger(cropY) ||
+      !Number.isSafeInteger(srcW) ||
+      !Number.isSafeInteger(srcH) ||
+      cropX < 0 ||
+      cropY < 0 ||
+      srcW <= 0 ||
+      srcH <= 0 ||
+      cropX + srcW > outputWidth ||
+      cropY + srcH > outputHeight
+    ) {
+      throw new Error('LaMa letterbox crop is outside the model output');
+    }
   }
 
   const xRatio = srcW / targetWidth;

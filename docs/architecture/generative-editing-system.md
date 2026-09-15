@@ -183,6 +183,13 @@ passes semantic quality, memory, cancellation, and platform gates. A model
 profile's contract is part of its qualification identity, so changing frame
 size, padding, resampling, or mask encoding invalidates prior evidence.
 
+The same rule applies to the fixed 512-pixel LaMa worker used by the local
+reconstruction path. Its decoder consumes the worker's recorded content
+rectangle (`offsetX`, `offsetY`, `contentWidth`, and `contentHeight`) rather
+than deriving symmetric padding from rounded offsets. This keeps odd-sized
+non-square contexts aligned when the model result is restored to the source
+image.
+
 The capability resolver distinguishes provider availability from readiness. A
 desktop helper can be installed in the application before a model has passed
 the masked qualification probe; in that state prompt controls remain

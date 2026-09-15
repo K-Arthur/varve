@@ -64,5 +64,48 @@ describe('lama', () => {
       const withoutParam = decodeLamaOutput(data, 2, 2, 2, 2);
       expect(Array.from(withZeroOffset.data)).toEqual(Array.from(withoutParam.data));
     });
+
+    it('uses the worker-reported content extent for odd non-square frames', () => {
+      const outputWidth = 10;
+      const outputHeight = 10;
+      const contentX = 2;
+      const contentY = 2;
+      const contentWidth = 8;
+      const contentHeight = 7;
+      const pixelCount = outputWidth * outputHeight;
+      const data = new Float32Array(pixelCount * 3);
+      for (let y = contentY; y < contentY + contentHeight; y += 1) {
+        for (let x = contentX; x < contentX + contentWidth; x += 1) {
+          const index = y * outputWidth + x;
+          data[index] = 200;
+          data[pixelCount + index] = 100;
+          data[pixelCount * 2 + index] = 50;
+        }
+      }
+
+      const result = decodeLamaOutput(
+        data,
+        outputWidth,
+        outputHeight,
+        contentWidth,
+        contentHeight,
+        { offsetX: 1.5, offsetY: 1.5, contentWidth, contentHeight },
+      );
+
+      expect(result.width).toBe(contentWidth);
+      expect(result.height).toBe(contentHeight);
+      expect(
+        Array.from(result.data).every((value, index) => {
+          if (index % 4 === 0) return value === 200;
+          if (index % 4 === 1) return value === 100;
+          if (index % 4 === 2) return value === 50;
+          return value === 255;
+        }),
+      ).toBe(true);
+    });
+
+    it('rejects an output buffer whose planar channels are incomplete', () => {
+      expect(() => decodeLamaOutput(new Float32Array(2), 1, 1, 1, 1)).toThrow('does not match');
+    });
   });
 });
