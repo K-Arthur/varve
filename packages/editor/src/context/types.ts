@@ -982,10 +982,12 @@ export interface EditorContextValue {
     options?: import('../imageCrop').TrimToSubjectOptions,
   ) => Promise<void>;
   /** Position the crop window to keep detected faces in frame. Returns true
-   * when a face-aware crop was applied. */
+   * when a face-aware crop was applied. Accepts a reviewed face selection. */
   applyFaceAwareCrop: (options?: {
     safetyMargin?: number;
     minimumConfidence?: number;
+    selectedFaceIds?: readonly string[];
+    excludedFaceIds?: readonly string[];
   }) => Promise<boolean>;
   /** Expand image bounds by adding transparent space around the content. */
   expandImageBounds: (

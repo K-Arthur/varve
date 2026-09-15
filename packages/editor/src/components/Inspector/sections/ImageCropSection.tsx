@@ -20,7 +20,12 @@ import { getImageFill, isImageShape } from '@varve/scene';
 import { Button, Icon, Switch, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
-import { sourceBoundsToViewportCrop, type TrimToSubjectOptions } from '../../../imageCrop';
+import {
+  analyzeFaceAwareCrop,
+  type FaceCropAnalysis,
+  sourceBoundsToViewportCrop,
+  type TrimToSubjectOptions,
+} from '../../../imageCrop';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
@@ -53,6 +58,13 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
   } = useEditor();
   const node = nodes[0];
 
+  // Analysis reads the document and never mutates it; the reviewed result is
+  // committed by applyFaceAwareCrop so one apply is one undo step.
+  const handleAnalyzeFaces = useCallback(
+    (): Promise<FaceCropAnalysis | null> => analyzeFaceAwareCrop(state.document, state.selection),
+    [state.document, state.selection],
+  );
+
   if (!node || nodes.length !== 1 || !isImageShape(node)) return null;
   const shapeNode = node as ShapeNode;
   const imageFill = getImageFill(shapeNode);
@@ -75,7 +87,10 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
         />
 
         {/* Protect Faces */}
-        <FaceCropControls applyFaceAwareCrop={applyFaceAwareCrop} />
+        <FaceCropControls
+          applyFaceAwareCrop={applyFaceAwareCrop}
+          analyzeFaceAwareCrop={handleAnalyzeFaces}
+        />
 
         {/* Expand Bounds */}
         <ExpandControls
@@ -472,16 +487,25 @@ function mapDetectionFailure(error: unknown): string {
 
 function FaceCropControls({
   applyFaceAwareCrop,
+  analyzeFaceAwareCrop,
 }: {
   applyFaceAwareCrop: (options?: {
     safetyMargin?: number;
     minimumConfidence?: number;
+    selectedFaceIds?: readonly string[];
+    excludedFaceIds?: readonly string[];
   }) => Promise<boolean>;
+  analyzeFaceAwareCrop: () => Promise<FaceCropAnalysis | null>;
 }) {
   const [detecting, setDetecting] = useState(false);
+  const [applying, setApplying] = useState(false);
   const [detectError, setDetectError] = useState<string | null>(null);
   const [modelAvailable, setModelAvailable] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
+  const [analysis, setAnalysis] = useState<FaceCropAnalysis | null>(null);
+  const [excludedIds, setExcludedIds] = useState<ReadonlySet<string>>(new Set());
+  /** Protection margin as a percentage of the larger face dimension. */
+  const [marginPercent, setMarginPercent] = useState(35);
 
   useEffect(() => {
     let cancelled = false;
@@ -494,9 +518,11 @@ function FaceCropControls({
     };
   }, []);
 
-  const handleProtectFaces = useCallback(async () => {
+  const handleAnalyze = useCallback(async () => {
     setDetecting(true);
     setDetectError(null);
+    setAnalysis(null);
+    setExcludedIds(new Set());
     try {
       const loader = getModelLoader();
       if (!(await loader.isModelAvailable(YU_NET_MODEL_ID))) {
@@ -507,11 +533,13 @@ function FaceCropControls({
         setModelAvailable(true);
         setDownloadProgress(null);
       }
-      const applied = await applyFaceAwareCrop({ safetyMargin: 0.35 });
-      if (!applied) {
+      const result = await analyzeFaceAwareCrop();
+      if (!result) {
         setDetectError(
           'No faces detected above the confidence threshold. This is not proof the image has no faces — adjust the crop by hand, or use Object Selection or Background Removal for a precise mask.',
         );
+      } else {
+        setAnalysis(result);
       }
     } catch (err) {
       setDetectError(err instanceof Error ? err.message : 'Face detection failed');
@@ -519,7 +547,38 @@ function FaceCropControls({
       setDetecting(false);
       setDownloadProgress(null);
     }
-  }, [applyFaceAwareCrop]);
+  }, [analyzeFaceAwareCrop]);
+
+  const handleApply = useCallback(async () => {
+    if (!analysis) return;
+    setApplying(true);
+    setDetectError(null);
+    try {
+      const applied = await applyFaceAwareCrop({
+        safetyMargin: marginPercent / 100,
+        excludedFaceIds: [...excludedIds],
+      });
+      if (applied) {
+        setAnalysis(null);
+        setExcludedIds(new Set());
+      } else {
+        setDetectError('All detected faces were excluded — nothing was applied.');
+      }
+    } catch (err) {
+      setDetectError(err instanceof Error ? err.message : 'Face detection failed');
+    } finally {
+      setApplying(false);
+    }
+  }, [analysis, applyFaceAwareCrop, excludedIds, marginPercent]);
+
+  const toggleFace = useCallback((id: string) => {
+    setExcludedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   return (
     <DisclosureSection title="Protect Faces" defaultExpanded={false}>
@@ -534,18 +593,87 @@ function FaceCropControls({
             type="button"
             variant="secondary"
             size="sm"
-            onClick={handleProtectFaces}
+            onClick={handleAnalyze}
             loading={detecting}
-            disabled={detecting}
+            disabled={detecting || applying}
             aria-label="Detect faces and reposition the crop to keep them in frame"
           >
-            Protect Faces
+            Detect Faces
           </Button>
         </div>
         {downloadProgress !== null && (
           <p className="insp-hint" aria-live="polite">
             Downloading model… {downloadProgress}%
           </p>
+        )}
+        {analysis && (
+          <div className="insp-field-group">
+            <p className="insp-hint" aria-live="polite">
+              {analysis.faces.length === 1
+                ? '1 face detected'
+                : `${analysis.faces.length} faces detected`}
+              . Uncheck any face the crop should not protect, then apply.
+            </p>
+            <ul className="insp-reviewed-faces">
+              {analysis.faces.map((face, index) => {
+                const included = !excludedIds.has(face.id);
+                return (
+                  <li key={face.id}>
+                    <label className="insp-reviewed-face">
+                      <input
+                        type="checkbox"
+                        checked={included}
+                        onChange={() => toggleFace(face.id)}
+                        aria-label={`Protect face ${index + 1} (confidence ${Math.round(face.confidence * 100)}%)`}
+                      />
+                      <span>
+                        Face {index + 1} · {Math.round(face.confidence * 100)}% ·{' '}
+                        {Math.round(face.box.width)}x{Math.round(face.box.height)} px
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+            <label className="insp-field-label" htmlFor="face-protect-margin">
+              Protection margin (% of face size)
+            </label>
+            <input
+              id="face-protect-margin"
+              className="insp-num__input"
+              type="number"
+              min={0}
+              max={200}
+              step={5}
+              value={marginPercent}
+              onChange={(event) => setMarginPercent(Number(event.target.value))}
+              aria-label="Protection margin as a percentage of face size"
+            />
+            <div className="insp-actions">
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={handleApply}
+                loading={applying}
+                disabled={applying || excludedIds.size >= analysis.faces.length}
+              >
+                Apply Crop
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setAnalysis(null);
+                  setExcludedIds(new Set());
+                }}
+                disabled={applying}
+              >
+                Discard
+              </Button>
+            </div>
+          </div>
         )}
         {detectError && (
           <p className="insp-hint insp-hint--error" role="alert">

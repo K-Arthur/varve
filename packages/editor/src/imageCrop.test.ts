@@ -11,6 +11,7 @@ import {
   commitImageCropExtended,
   commitSourceImageCrop,
   resetImageCrop,
+  selectReviewedFaces,
   setImageFlip,
   setImageRotation,
   sourceBoundsToViewportCrop,
@@ -655,5 +656,41 @@ describe('setImageFlip', () => {
     doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
     const next = setImageFlip(doc, 'i1', 'vertical');
     expect(next.nodes.i1?.fills?.[0]?.image?.flipV).toBe(true);
+  });
+});
+
+describe('selectReviewedFaces', () => {
+  const faces = [
+    { id: 'a', confidence: 0.9, box: { x: 0, y: 0, width: 10, height: 10, score: 0.9 } },
+    { id: 'b', confidence: 0.6, box: { x: 20, y: 0, width: 10, height: 10, score: 0.6 } },
+    { id: 'c', confidence: 0.5, box: { x: 40, y: 0, width: 10, height: 10, score: 0.5 } },
+  ] as unknown as Parameters<typeof selectReviewedFaces>[0];
+
+  it('keeps every detected face when the reviewer expressed no preference', () => {
+    expect(selectReviewedFaces(faces).map((face) => face.id)).toEqual(['a', 'b', 'c']);
+    // A fresh array, so callers cannot mutate a shared detection list.
+    expect(selectReviewedFaces(faces)).not.toBe(faces);
+  });
+
+  it('keeps only explicitly selected faces', () => {
+    expect(
+      selectReviewedFaces(faces, { selectedFaceIds: ['c', 'a'] }).map((face) => face.id),
+    ).toEqual(['a', 'c']);
+  });
+
+  it('drops rejected faces and lets rejection win over a stale inclusion list', () => {
+    expect(selectReviewedFaces(faces, { excludedFaceIds: ['b'] }).map((f) => f.id)).toEqual([
+      'a',
+      'c',
+    ]);
+    expect(
+      selectReviewedFaces(faces, { selectedFaceIds: ['a', 'b'], excludedFaceIds: ['b'] }).map(
+        (face) => face.id,
+      ),
+    ).toEqual(['a']);
+  });
+
+  it('returns nothing when every face is rejected', () => {
+    expect(selectReviewedFaces(faces, { excludedFaceIds: ['a', 'b', 'c'] })).toHaveLength(0);
   });
 });

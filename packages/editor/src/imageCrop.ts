@@ -15,6 +15,7 @@
 import {
   type Affine,
   computeImagePlacement,
+  type FaceAwareCropSuggestion,
   type FaceDetection,
   localToSourcePixel,
   sourcePixelToLocal,
@@ -157,19 +158,65 @@ export function commitSourceImageCrop(
 export interface FaceAwareCropOptions {
   safetyMargin?: number;
   minimumConfidence?: number;
+  /**
+   * Restrict the crop to these reviewed face ids (from `analyzeFaceAwareCrop`).
+   * Omit to use every detected face.
+   */
+  selectedFaceIds?: readonly string[];
+  /** Reviewed faces the user rejected; takes precedence over selectedFaceIds. */
+  excludedFaceIds?: readonly string[];
+}
+
+/** A reviewed detection, in source pixels, safe to show in the UI. */
+export interface ReviewedFaceBox {
+  id: string;
+  confidence: number;
+  box: { x: number; y: number; width: number; height: number };
+}
+
+export interface FaceCropAnalysis {
+  faces: readonly ReviewedFaceBox[];
+  /** Crop suggestion for the faces currently selected for protection. */
+  suggestion: FaceAwareCropSuggestion;
+  sourceWidth: number;
+  sourceHeight: number;
+}
+
+/**
+ * Apply the reviewer's selection to a detection list: include-only when a
+ * selection list is given, then drop rejected faces. Both filters are applied
+ * (intersection), so a stale inclusion list can never resurrect a face the
+ * reviewer unchecked. Pure and exported for direct testing.
+ */
+export function selectReviewedFaces(
+  faces: readonly FaceDetection[],
+  options: Pick<FaceAwareCropOptions, 'selectedFaceIds' | 'excludedFaceIds'> = {},
+): FaceDetection[] {
+  let result = [...faces];
+  if (options.selectedFaceIds) {
+    const wanted = new Set(options.selectedFaceIds);
+    result = result.filter((face) => wanted.has(face.id));
+  }
+  if (options.excludedFaceIds && options.excludedFaceIds.length > 0) {
+    const rejected = new Set(options.excludedFaceIds);
+    result = result.filter((face) => !rejected.has(face.id));
+  }
+  return result;
 }
 
 /**
  * Run YuNet face detection on the selected image shape's source pixels and
- * commit a source-space crop suggestion that keeps faces in frame. Pure:
- * returns the next document (or null when not applicable / no faces), so
- * callers own the history transaction.
+ * return the reviewed detections plus the crop suggestion for the current
+ * selection. Pure with respect to the document: **no artwork is changed** —
+ * the caller reviews the faces (and may exclude some) before committing with
+ * `applyFaceAwareCropToDocument`. Returns null when the shape is not a single
+ * image or no face is retained.
  */
-export async function applyFaceAwareCropToDocument(
+export async function analyzeFaceAwareCrop(
   doc: Document,
   selection: NodeId[],
   options: FaceAwareCropOptions = {},
-): Promise<Document | null> {
+): Promise<FaceCropAnalysis | null> {
   const node = selection.length === 1 ? doc.nodes[selection[0]!] : undefined;
   if (node?.kind !== 'shape' || !isImageShape(node)) return null;
   const shapeNode = node as ShapeNode;
@@ -212,7 +259,8 @@ export async function applyFaceAwareCropToDocument(
     consumer: 'crop:protect-faces',
     input: imageData,
   });
-  const faces = result.FACE_BOUNDS?.kind === 'FACE_BOUNDS' ? result.FACE_BOUNDS.faces : [];
+  const detected = result.FACE_BOUNDS?.kind === 'FACE_BOUNDS' ? result.FACE_BOUNDS.faces : [];
+  const faces = selectReviewedFaces(detected, options);
   if (faces.length === 0) return null;
 
   // Target the node's on-canvas aspect ratio so the committed crop keeps
@@ -224,16 +272,49 @@ export async function applyFaceAwareCropToDocument(
       height: node.shape.kind === 'rect' ? node.shape.h : sourceHeight,
     },
     faces as unknown as FaceDetection[],
-    { safetyMargin: options.safetyMargin, minimumConfidence: options.minimumConfidence },
+    {
+      safetyMargin: options.safetyMargin,
+      minimumConfidence: options.minimumConfidence,
+    },
   );
+
+  return {
+    faces: faces.map((face) => ({
+      id: face.id,
+      confidence: face.confidence,
+      box: {
+        x: face.box.x,
+        y: face.box.y,
+        width: face.box.width,
+        height: face.box.height,
+      },
+    })),
+    suggestion,
+    sourceWidth,
+    sourceHeight,
+  };
+}
+
+/**
+ * Commit the reviewed face-aware crop. Returns the next document (or null when
+ * not applicable / no face is retained), so callers own the history
+ * transaction: one apply is one undo step.
+ */
+export async function applyFaceAwareCropToDocument(
+  doc: Document,
+  selection: NodeId[],
+  options: FaceAwareCropOptions = {},
+): Promise<Document | null> {
+  const analysis = await analyzeFaceAwareCrop(doc, selection, options);
+  if (!analysis) return null;
 
   let next = doc;
   for (const id of selection) {
     next = commitSourceImageCrop(next, id, {
-      x: suggestion.crop.x,
-      y: suggestion.crop.y,
-      w: suggestion.crop.width,
-      h: suggestion.crop.height,
+      x: analysis.suggestion.crop.x,
+      y: analysis.suggestion.crop.y,
+      w: analysis.suggestion.crop.width,
+      h: analysis.suggestion.crop.height,
     });
   }
   return next;

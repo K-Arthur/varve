@@ -83,6 +83,18 @@ async function openProtectFacesControls(page: import('@playwright/test').Page) {
   return action;
 }
 
+/**
+ * Analyze faces, wait for the reviewed result, then apply it. Analysis alone
+ * must never change the document: the review step is where the crop commits.
+ */
+async function analyzeAndApplyProtectFaces(page: import('@playwright/test').Page) {
+  const analyze = await openProtectFacesControls(page);
+  await analyze.click();
+  const apply = page.getByRole('button', { name: /apply crop/i });
+  await expect(apply).toBeVisible({ timeout: 120000 });
+  await apply.click();
+}
+
 test.describe('Face-aware crop — Protect Faces', () => {
   test.describe.configure({ mode: 'serial' });
 
@@ -94,9 +106,9 @@ test.describe('Face-aware crop — Protect Faces', () => {
     test.setTimeout(240000);
     await importAndSelectSquare(page, 'tests/fixtures/bg-removal-corpus/human.jpg');
 
-    // Trigger the face-aware crop through the tool options popover.
-    const action = await openProtectFacesControls(page);
-    await action.click();
+    // Trigger the face-aware crop through the tool options popover: analyze,
+    // review, then apply.
+    await analyzeAndApplyProtectFaces(page);
 
     // No error alert (a face was detected and a crop was committed).
     const errorAlert = page.locator('.insp-hint--error[role="alert"]');
@@ -153,8 +165,7 @@ test.describe('Face-aware crop — Protect Faces', () => {
     await page.getByRole('button', { name: 'Fit selection to viewport' }).click();
     await page.waitForTimeout(300);
 
-    const action = await openProtectFacesControls(page);
-    await action.click();
+    await analyzeAndApplyProtectFaces(page);
 
     const errorAlert = page.locator('.insp-hint--error[role="alert"]');
     await expect(errorAlert).toHaveCount(0, { timeout: 120000 });

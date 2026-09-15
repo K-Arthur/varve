@@ -150,6 +150,8 @@ box.
 | [`packages/engine/src/inference/imageTensor.ts`](../../packages/engine/src/inference/imageTensor.ts) | Optional `channelOrder` on `TensorSpec`, honoured by `packNchwTensor` |
 | [`packages/engine/src/vision/faceWindows.ts`](../../packages/engine/src/vision/faceWindows.ts) | Pure window planner (tile/overlap/budget, native-scale unless the budget forces a downscale), direct RGBA window crop, source mapping, and tier-priority + containment merge |
 | [`packages/engine/src/vision/backends/onnxFaceBackend.ts`](../../packages/engine/src/vision/backends/onnxFaceBackend.ts) | Two-tier detection; window tier skipped when the whole-image pass already runs at ≥ 75 % of native pixels or a single window adds nothing; no full-resolution canvas duplicate at scale 1; cancellation checked between windows |
+| [`packages/editor/src/imageCrop.ts`](../../packages/editor/src/imageCrop.ts) | Split **analyze** from **apply**: `analyzeFaceAwareCrop` returns reviewed detections plus the crop suggestion and never mutates the document; `applyFaceAwareCropToDocument` commits one reviewed result. `selectReviewedFaces` applies the reviewer's include-then-exclude selection |
+| [`packages/editor/src/components/Inspector/sections/ImageCropSection.tsx`](../../packages/editor/src/components/Inspector/sections/ImageCropSection.tsx) | Two-step review surface: *Detect Faces* shows the reviewed faces (confidence, box size, per-face include/exclude) and a protection margin in real units (% of face size); *Apply Crop* commits; *Discard* leaves the artwork untouched |
 | [`apps/desktop/public/models/manifest.json`](../../apps/desktop/public/models/manifest.json) | `preprocessingVersion`/`postprocessingVersion` 2 with the reason recorded |
 
 Design rules encoded:
@@ -171,7 +173,8 @@ Design rules encoded:
 | Decoder parity with upstream on identical pixels | `pnpm vitest run packages/engine/src/vision/backends/onnxFaceBackendRealModel.test.ts` | Box/landmark agreement **0.0001 px**, score agreement **0.000000** on all four golden cases |
 | Window-tier recovery | same file, second test | Portrait 0.50 → **1.00**, ocean 0.75 → **1.00**, smithsonian 0.00 → **0.67**, landscape 0 → 0 (no false positives) |
 | Decoder/window/merge unit tests | `pnpm vitest run packages/engine/src/vision packages/engine/src/inference/models/faceDetect.test.ts packages/engine/src/inference/imageTensor.test.ts` | **80 passed** |
-| Real editor workflow (Chromium) | `VARVE_E2E_PORT=1527 npx playwright test tests/e2e/canvas/face-aware-crop.spec.ts --project=chromium` | Existing real-inference crop test **passed**; new window-tier test **passed** (21 s, 12 window inferences, committed crop) |
+| Real editor workflow (Chromium) | `VARVE_E2E_PORT=1527 npx playwright test tests/e2e/canvas/face-aware-crop.spec.ts --project=chromium` | Existing real-inference crop test **passed** (19.3 s through the review flow); new window-tier test **passed** (23.9 s, 12 window inferences, committed crop) |
+| Review-flow unit/engine tests | `pnpm vitest run packages/editor/src/imageCrop.test.ts packages/editor/src/components/Inspector/sections/__tests__/faceCropProtect.test.tsx` | **42 passed** — analysis does not commit, exclusion filters the reviewed set, margin maps to the solver option, discard is inert |
 
 ### Residual smithsonian 0.67 — root-caused, not waved away
 
@@ -209,9 +212,14 @@ exists.**
   Removal.
 - **Measured quality**: see §5. Parity with upstream on identical pixels; recall table
   above; zero false positives on the landscape control.
-- **Frontend**: Inspector → crop → `Protect Faces`; disabled for non-image or multi-select;
-  real progress through the shared inference worker; error surface distinguishes
-  "no faces detected" from failures.
+- **Frontend**: Inspector → crop → `Protect Faces`. **Analyze and apply are
+  separate**: *Detect Faces* runs the analysis and shows a review list (per-face
+  confidence, box size, include/exclude) plus a protection margin in real units
+  (% of the larger face dimension); *Apply Crop* commits one undoable crop;
+  *Discard* closes the review without touching the artwork. No-crop-on-analysis is
+  asserted in unit and E2E tests. Detection is disabled for non-image or
+  multi-select, and the error surface distinguishes "no faces above the
+  confidence threshold" from download/worker/malformed-output failures.
 - **Save/reopen/export**: the committed result is an ordinary `ImageFillData.crop` on the
   image fill — no model is needed to reopen, render, or export it.
 - **Remaining limitations**: boxes are approximate; profile/rotated/occluded faces rely on
