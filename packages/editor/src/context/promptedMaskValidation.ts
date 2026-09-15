@@ -9,6 +9,12 @@
  * topology evidence for human review.
  */
 
+import {
+  type CandidateRankingPolicyId,
+  computeCandidateRankingFeatures,
+  rankCandidateIndices,
+} from '@varve/engine';
+
 export interface PromptedMaskCandidateLike {
   mask: Uint8Array;
   width: number;
@@ -312,12 +318,25 @@ export function validatePromptedMaskCandidate(
  * user evidence. Keeping this decision after decoding prevents a model from
  * silently selecting a high-IoU mask for the wrong object or an
  * under-specified boundary candidate when a safer alternative is available.
+ *
+ * `policy` lets evaluation harnesses run the same candidate set through a
+ * declared alternative ordering (see `promptedRankingEvaluation.ts`). The
+ * default preserves the reviewed-score behaviour exactly.
  */
+export type PromptedCandidateRankingPolicy = CandidateRankingPolicyId | 'reviewed-score';
+
+export interface RankPromptedMaskOptions {
+  policy?: PromptedCandidateRankingPolicy;
+  /** Tie band for the guarded-* policies; forwarded to the engine ranker. */
+  scoreBand?: number;
+}
+
 export function rankPromptedMaskCandidates<T extends PromptedMaskCandidateLike>(
   candidates: readonly T[],
   prompts: PromptedMaskConstraints,
   sourceWidth: number,
   sourceHeight: number,
+  options: RankPromptedMaskOptions = {},
 ): RankedPromptedMasks<T> {
   const evaluated = candidates.map((candidate) => {
     const validation = validatePromptedMaskCandidate(candidate, prompts, sourceWidth, sourceHeight);
@@ -334,19 +353,43 @@ export function rankPromptedMaskCandidates<T extends PromptedMaskCandidateLike>(
   });
   let selectedIndex = -1;
   let selectedScore = Number.NEGATIVE_INFINITY;
-  for (let index = 0; index < ranked.length; index += 1) {
-    const candidate = ranked[index]!;
-    const diagnostics = candidate.promptDiagnostics;
-    const needsRefinement = diagnostics?.requiresRefinement === true;
-    const selected = ranked[selectedIndex];
-    const selectedNeedsRefinement = selected?.promptDiagnostics?.requiresRefinement === true;
-    if (
-      selectedIndex < 0 ||
-      (selectedNeedsRefinement && !needsRefinement) ||
-      (selectedNeedsRefinement === needsRefinement && candidate.score > selectedScore)
-    ) {
-      selectedIndex = index;
-      selectedScore = candidate.score;
+  const policy = options.policy ?? 'reviewed-score';
+  if (policy !== 'reviewed-score' && ranked.length > 0) {
+    const features = ranked.map((candidate) =>
+      computeCandidateRankingFeatures(
+        candidate.mask,
+        sourceWidth,
+        sourceHeight,
+        {
+          points: prompts.points,
+          ...(prompts.box ? { box: prompts.box } : {}),
+        },
+        candidate.score,
+      ),
+    );
+    const order = rankCandidateIndices(features, policy, {
+      ...(options.scoreBand !== undefined ? { scoreBand: options.scoreBand } : {}),
+    });
+    selectedIndex = order[0] ?? -1;
+    selectedScore =
+      selectedIndex >= 0
+        ? (ranked[selectedIndex]?.score ?? Number.NEGATIVE_INFINITY)
+        : Number.NEGATIVE_INFINITY;
+  } else {
+    for (let index = 0; index < ranked.length; index += 1) {
+      const candidate = ranked[index]!;
+      const diagnostics = candidate.promptDiagnostics;
+      const needsRefinement = diagnostics?.requiresRefinement === true;
+      const selected = ranked[selectedIndex];
+      const selectedNeedsRefinement = selected?.promptDiagnostics?.requiresRefinement === true;
+      if (
+        selectedIndex < 0 ||
+        (selectedNeedsRefinement && !needsRefinement) ||
+        (selectedNeedsRefinement === needsRefinement && candidate.score > selectedScore)
+      ) {
+        selectedIndex = index;
+        selectedScore = candidate.score;
+      }
     }
   }
   return {

@@ -268,6 +268,26 @@ export class Sam2SegmentationTool extends BaseTool {
       return true;
     }
 
+    // Bracket cycling: the reviewed candidate identity is the commit identity,
+    // so a keyboard-only path to inspect every returned mask is required. The
+    // selection update is the same one the panel's arrows use; prompts and the
+    // candidate list are untouched, and Apply commits the visible candidate.
+    if (
+      (e.key === '[' || e.key === ']') &&
+      ctx.objectSelectionSession &&
+      ctx.objectSelectionSession.status === 'ready' &&
+      ctx.objectSelectionSession.candidates.length > 1 &&
+      typeof ctx.selectSam2Candidate === 'function'
+    ) {
+      const count = ctx.objectSelectionSession.candidates.length;
+      const current = ctx.objectSelectionSession.selectedCandidate;
+      const delta = e.key === ']' ? 1 : -1;
+      const next = (current + delta + count) % count;
+      ctx.selectSam2Candidate(next);
+      ctx.announce(`Candidate ${next + 1} of ${count}`);
+      return true;
+    }
+
     if (e.key === 'Backspace' || e.key === 'Delete') {
       if (this.pendingBox) {
         this.pendingBox = null;

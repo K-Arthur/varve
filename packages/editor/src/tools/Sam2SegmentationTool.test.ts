@@ -283,6 +283,66 @@ describe('Sam2SegmentationTool', () => {
     expect(tool.getPrompts()).toEqual({ points: [], box: null });
   });
 
+  it('cycles reviewed candidates with bracket keys and wraps deterministically', () => {
+    const tool = new Sam2SegmentationTool();
+    const ctx = statefulMockCtx();
+    ctx.objectSelectionSession = {
+      nodeId: 'image-1',
+      documentId: 'doc-1',
+      width: 100,
+      height: 100,
+      candidates: [
+        { mask: new Uint8Array(100 * 100), confidence: 0.8 },
+        { mask: new Uint8Array(100 * 100), confidence: 0.7 },
+        { mask: new Uint8Array(100 * 100), confidence: 0.6 },
+      ],
+      selectedCandidate: 0,
+      points: [],
+      box: null,
+      draftPoint: null,
+      draftBox: null,
+      confidence: 0,
+      status: 'ready',
+      modelId: 'sam2-hiera-tiny',
+    };
+
+    expect(tool.onKeyDown(new KeyboardEvent('keydown', { key: ']' }), ctx)).toBe(true);
+    expect(ctx.objectSelectionSession.selectedCandidate).toBe(1);
+    expect(ctx.announce).toHaveBeenLastCalledWith('Candidate 2 of 3');
+
+    tool.onKeyDown(new KeyboardEvent('keydown', { key: ']' }), ctx);
+    tool.onKeyDown(new KeyboardEvent('keydown', { key: ']' }), ctx);
+    expect(ctx.objectSelectionSession.selectedCandidate).toBe(0);
+
+    tool.onKeyDown(new KeyboardEvent('keydown', { key: '[' }), ctx);
+    expect(ctx.objectSelectionSession.selectedCandidate).toBe(2);
+    // Prompt geometry is untouched by candidate review.
+    expect(ctx.objectSelectionSession.points).toEqual([]);
+    expect(ctx.objectSelectionSession.box).toBeNull();
+  });
+
+  it('leaves bracket keys alone without a multi-candidate session', () => {
+    const tool = new Sam2SegmentationTool();
+    const ctx = statefulMockCtx();
+    expect(tool.onKeyDown(new KeyboardEvent('keydown', { key: ']' }), ctx)).toBe(false);
+
+    ctx.objectSelectionSession = {
+      nodeId: 'image-1',
+      width: 100,
+      height: 100,
+      candidates: [{ mask: new Uint8Array(100 * 100), confidence: 0.8 }],
+      selectedCandidate: 0,
+      points: [],
+      box: null,
+      draftPoint: null,
+      draftBox: null,
+      confidence: 0,
+      status: 'ready',
+      modelId: 'sam2-hiera-tiny',
+    };
+    expect(tool.onKeyDown(new KeyboardEvent('keydown', { key: ']' }), ctx)).toBe(false);
+  });
+
   it('removes a specific prompt when its marker is tapped', () => {
     const tool = new Sam2SegmentationTool();
     const ctx = statefulMockCtx();
@@ -382,6 +442,9 @@ function statefulMockCtx() {
     }),
     applySam2Segmentation: vi.fn().mockResolvedValue(null),
     cancelSam2Segmentation: vi.fn(),
+    selectSam2Candidate: vi.fn((index: number) => {
+      if (ctx.objectSelectionSession) ctx.objectSelectionSession.selectedCandidate = index;
+    }),
   } as unknown as import('./types').ToolContext & {
     objectSelectionSession: import('../context/types').ObjectSelectionSession | null;
   };
