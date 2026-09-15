@@ -862,6 +862,33 @@ selection properties, the Inspector remains the complete editor.
 - **Capability gating**: touch-only affordances render only when the device
   reports touch input and carry a visible label (no hover on touch).
 
+## Popover System
+
+Canonical doc: `docs/architecture/popover-system.md`. Review evidence:
+`docs/audits/popover-review-2026-09-15.md`.
+
+A popover is a transient, anchored, non-modal rich surface — not a menu, a
+select, or a dialog. Shared primitive: `@varve/ui` `Popover` (native Popover
+API + Floating UI) on top of `FloatingPortal`/`OverlayRegistry`.
+
+- **Escape always closes an open popover**, including when focus is still on
+  the trigger; the overlay registry owns this because native `popover=auto`
+  only handles Escape with focus inside the panel.
+- **Pointer opens never move focus; keyboard opens move it into the panel**
+  (first control, or the listbox option). Never make an implicit open (a tool
+  change, a background update) steal focus from the canvas.
+- **Tab past the last control closes and continues around the trigger.**
+  `FloatingPortal` offers `initialFocus` and `yieldTabToAnchor`; do not
+  reimplement them per consumer.
+- **Respect the trigger's declared `aria-haspopup`** (a listbox trigger must
+  not announce dialog) and drive listboxes with arrows, Home/End, type-ahead,
+  and a roving tabIndex.
+- A control inside a not-yet-visible floating layer cannot take focus: focus
+  handoffs must verify the focused element, not just that a control exists.
+- Nested rich surfaces inside a native popover must be registered
+  `FloatingPortal` descendants; a raw portal child can be light-dismissed by
+  the browser as "outside".
+
 ## Masking System
 
 Canonical doc: `docs/architecture/masking-system.md` — model, invariants,
