@@ -146,6 +146,29 @@ before the Select could consume Escape.
   the only div-based modal that was safe to keep nested before it too became
   a native dialog; its consent action receives initial focus.
 
+## Verification limitations (2026-09-15 afternoon)
+
+The machine ran ~14 concurrent agent processes; RAM (22 GiB) and swap were
+exhausted and the 12 GiB `/tmp` tmpfs filled to 100%. Under that pressure
+Chromium renderers crashed mid-journey (`page.goto: Page crashed`, pages
+reloading to the loading splash), so the browser suite could not be re-run
+end to end after the last two migrations. Verified at the time of writing:
+
+- **Unit** (all passing): Dialog/Select/MultiSelect/Combobox, Export (22),
+  Model Download (9), Image Resize (3), Batch Rename (12), Create Table from
+  Data (5, including the active-surface regression), plus the 566-test
+  affected closure for the earlier slices.
+- **E2E** (passing before the pressure): the full
+  `tests/e2e/dialogs/dialog-system.spec.ts` at 8/8, and after the Export and
+  Create-Table migrations the nested-Select Escape journey and the full
+  Create-Table journey (toolbar → paste → create → layer appears).
+- **Visual**: Batch Rename, Settings, and Export at light and dark themes.
+- **Not re-verified under crash-free conditions**: the Batch Rename axe scan,
+  the Batch Rename focus-fallback assertion added with F8, and the visual
+  capture refresh that now includes Export. Re-run
+  `tests/e2e/dialogs/dialog-system.spec.ts` on an unloaded machine to close
+  these out.
+
 ## Remaining work (explicitly not done)
 
 1. Migrate the remaining Family C modals (F6) to the shared Dialog: Upscale,
