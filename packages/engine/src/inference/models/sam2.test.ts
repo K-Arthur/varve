@@ -78,6 +78,31 @@ describe('sam2', () => {
       expect(result.pointCoords.data[3]).toBeCloseTo(800); // offsetY + 1*576 = 800
     });
 
+    it("uses the worker rasterizer's rounded content extent for prompts", () => {
+      const result = encodeSam2Prompts(
+        { points: [{ x: 0.5, y: 1, label: 1 }] },
+        {
+          offsetX: 0,
+          offsetY: 170.25,
+          contentWidth: 1024,
+          contentHeight: 683,
+        },
+      );
+      // The worker draws the fitted image into [170.25, 853.25); using the
+      // unrounded 683.5px remainder would move the prompt by half a pixel.
+      expect(result.pointCoords.data[0]).toBeCloseTo(512);
+      expect(result.pointCoords.data[1]).toBeCloseTo(853.25);
+    });
+
+    it('rejects impossible letterbox metadata instead of guessing', () => {
+      expect(() =>
+        encodeSam2Prompts(
+          { points: [{ x: 0.5, y: 0.5, label: 1 }] },
+          { offsetX: 700, offsetY: 0, contentWidth: 400, contentHeight: 1024 },
+        ),
+      ).toThrow(/letterbox content extent/);
+    });
+
     it('combines points and box into a single point batch', () => {
       const result = encodeSam2Prompts({
         points: [{ x: 0.5, y: 0.5, label: 1 }],

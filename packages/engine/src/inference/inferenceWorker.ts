@@ -845,7 +845,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
           ? modelPre.transformInput(imageData)
           : imageData;
         const primary = modelPre.resizeLongestSideHwc
-          ? preprocessMobileSamImageData(primarySource)
+          ? preprocessMobileSamImageData(primarySource, inputSize)
           : preprocessImage(primarySource, inputSize, modelPre.tensorSpec, {
               channelsLast: modelPre.channelsLast,
               stretch: modelPre.stretchInput,

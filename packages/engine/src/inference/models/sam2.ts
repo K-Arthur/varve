@@ -142,12 +142,17 @@ export function encodeSam2Prompts(
 } {
   const offsetX = letterbox?.offsetX ?? 0;
   const offsetY = letterbox?.offsetY ?? 0;
+  const contentWidth = resolveLetterboxContent(offsetX, letterbox?.contentWidth, 'width');
+  const contentHeight = resolveLetterboxContent(offsetY, letterbox?.contentHeight, 'height');
   // scaledWidth = SAM2_INPUT_SIZE - 2*offsetX (centered padding), so a
   // point normalized 0-1 across the *original* image maps to
   // offset + norm * scaledDimension in 1024-space, without needing the
   // original width/height or scale factor separately.
-  const scaledW = SAM2_INPUT_SIZE - 2 * offsetX;
-  const scaledH = SAM2_INPUT_SIZE - 2 * offsetY;
+  // The worker rasterizes the fitted content at rounded dimensions. Prefer
+  // those returned dimensions over the mathematical remainder so prompts
+  // land in the same pixels as the actual encoder input.
+  const scaledW = contentWidth;
+  const scaledH = contentHeight;
 
   const points = prompts.points ?? [];
   const hasBox = !!prompts.box;
@@ -207,6 +212,21 @@ export function encodeSam2Prompts(
     maskInput: { data: maskInputData, dims: [NUM_LABELS, 1, MASK_INPUT_SIZE, MASK_INPUT_SIZE] },
     hasMaskInput: { data: new Float32Array([hasMaskInputValue]), dims: [NUM_LABELS] },
   };
+}
+
+function resolveLetterboxContent(
+  offset: number,
+  explicit: number | undefined,
+  axis: 'width' | 'height',
+): number {
+  if (!Number.isFinite(offset) || offset < 0 || offset > SAM2_INPUT_SIZE) {
+    throw new Error(`Invalid SAM2 ${axis} letterbox offset`);
+  }
+  const content = explicit ?? SAM2_INPUT_SIZE - 2 * offset;
+  if (!Number.isFinite(content) || content <= 0 || offset + content > SAM2_INPUT_SIZE + 1) {
+    throw new Error(`Invalid SAM2 ${axis} letterbox content extent`);
+  }
+  return content;
 }
 
 function resizeMaskNearest(
@@ -334,27 +354,22 @@ function cropSam2Letterbox(
   maskHeight: number,
   letterbox: Sam2Letterbox | undefined,
 ): { data: Float32Array; width: number; height: number } {
-  if (!letterbox || (letterbox.offsetX === 0 && letterbox.offsetY === 0)) {
+  if (!letterbox) {
     return { data: rawMask, width: maskWidth, height: maskHeight };
   }
 
   const offsetX = letterbox.offsetX;
   const offsetY = letterbox.offsetY;
-  const contentWidth = letterbox.contentWidth ?? SAM2_INPUT_SIZE - offsetX * 2;
-  const contentHeight = letterbox.contentHeight ?? SAM2_INPUT_SIZE - offsetY * 2;
+  const contentWidth = resolveLetterboxContent(offsetX, letterbox.contentWidth, 'width');
+  const contentHeight = resolveLetterboxContent(offsetY, letterbox.contentHeight, 'height');
+
   if (
-    !Number.isFinite(offsetX) ||
-    !Number.isFinite(offsetY) ||
-    !Number.isFinite(contentWidth) ||
-    !Number.isFinite(contentHeight) ||
-    offsetX < 0 ||
-    offsetY < 0 ||
-    contentWidth <= 0 ||
-    contentHeight <= 0 ||
-    offsetX + contentWidth > SAM2_INPUT_SIZE + 1 ||
-    offsetY + contentHeight > SAM2_INPUT_SIZE + 1
+    offsetX === 0 &&
+    offsetY === 0 &&
+    contentWidth === SAM2_INPUT_SIZE &&
+    contentHeight === SAM2_INPUT_SIZE
   ) {
-    throw new Error('Invalid SAM2 decoder letterbox geometry');
+    return { data: rawMask, width: maskWidth, height: maskHeight };
   }
 
   const left = Math.max(

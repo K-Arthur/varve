@@ -40,6 +40,15 @@ Grounding DINO Tiny adds a discovery stage that produces reviewed boxes which
 then enter the same prompted-segmentation session; detection never commits a
 mask on its own.
 
+Each model keeps its own aspect-ratio contract. SAM2 letterboxes the source
+into its 1024-square input and carries the worker's rounded content extent and
+offset through prompt encoding and mask restoration. MobileSAM and
+EfficientSAM use their documented longest-side preprocessing (MobileSAM's
+encoder pads on the right/bottom; EfficientSAM's graph performs its square
+stretch), while Grounding DINO uses its verified 800×800 stretch. The editor
+never reuses one provider's resize math for another provider, and a missing or
+impossible transform fails before model execution.
+
 ## Live session lifecycle
 
 `EditorState.objectSelectionSession` is the single transient owner for prompt

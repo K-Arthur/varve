@@ -251,6 +251,52 @@ describe('prompted segmentation provider adapter', () => {
     expect(result.candidates[0]!.scoreSource).toBe('heuristic');
   });
 
+  it("forwards the encoder's rounded SAM2 content extent with a cold embedding", async () => {
+    const letterbox = {
+      offsetX: 0,
+      offsetY: 170.25,
+      contentWidth: 1024,
+      contentHeight: 683,
+    };
+    const infer = vi
+      .fn()
+      .mockResolvedValueOnce({
+        outputs: {
+          image_embed: { data: new Float32Array(1), dims: [1, 1, 1, 1] },
+          high_res_feats_0: { data: new Float32Array(1), dims: [1, 1, 1, 1] },
+          high_res_feats_1: { data: new Float32Array(1), dims: [1, 1, 1, 1] },
+          letterbox,
+          executionProvider: 'wasm',
+        },
+      })
+      .mockResolvedValueOnce({
+        outputs: {
+          masks: {
+            data: new Float32Array([1, -1, -1, 1]),
+            dims: [1, 1, 2, 2],
+          },
+          executionProvider: 'wasm',
+        },
+      });
+    const host = { infer } as unknown as Parameters<typeof runPromptedSegmentation>[0]['host'];
+
+    const result = await runPromptedSegmentation({
+      host,
+      decision: decision(SAM2_PROVIDER_ID),
+      encoderPath: 'sam2-encoder.onnx',
+      decoderPath: 'sam2-decoder.onnx',
+      imageData: new ImageData(new Uint8ClampedArray(4 * 2 * 4), 4, 2),
+      sourceWidth: 4,
+      sourceHeight: 2,
+      points: [{ x: 0.5, y: 1, label: 1 }],
+      signal: new AbortController().signal,
+      reservationBytes: 1024,
+    });
+
+    expect(infer.mock.calls[1]![0].params).toMatchObject({ letterbox });
+    expect(result.embedding.letterbox).toEqual(letterbox);
+  });
+
   it('crops SAM2 decoder padding before mapping a non-square image mask', async () => {
     const infer = vi.fn().mockResolvedValueOnce({
       outputs: {

@@ -3,6 +3,7 @@ import type {
   PromptedProviderFact,
   PromptedProviderPreference,
   PromptedSelectionExecutionProvider,
+  Sam2Letterbox,
 } from '@varve/engine';
 import {
   assessImageInferenceResources,
@@ -273,7 +274,7 @@ export function useSam2Segmentation(
     // Prompt encoding must reuse this exact transform — see sam2.ts — so
     // it's cached alongside the embeddings it was computed from, not
     // recomputed from the image dimensions independently.
-    letterbox?: { offsetX: number; offsetY: number };
+    letterbox?: Sam2Letterbox;
     naturalW: number;
     naturalH: number;
     sourceFingerprint: string;
@@ -289,7 +290,7 @@ export function useSam2Segmentation(
       // Prompt encoding must reuse this exact transform — see sam2.ts — so
       // it's cached alongside the embeddings it was computed from, not
       // recomputed from the image dimensions independently.
-      letterbox?: { offsetX: number; offsetY: number };
+      letterbox?: Sam2Letterbox;
       naturalW: number;
       naturalH: number;
       sourceFingerprint: string;
