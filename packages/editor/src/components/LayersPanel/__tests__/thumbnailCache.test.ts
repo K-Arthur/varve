@@ -46,13 +46,23 @@ describe('ThumbnailCache', () => {
     expect(cache.get('d')).toBe('url-d');
   });
 
-  it('invalidate removes entries for node ID', () => {
+  it('invalidate removes entries for a node across documents (doc-scoped keys)', () => {
+    // Real keys are `${docId}:${nodeId}:...`; the bridge carries only the
+    // node id, so invalidation must match the node segment.
+    cache.set(thumbnailCacheKey({ id: 'node1', kind: 'rect' }, 'doc-a'), 'url-1');
+    cache.set(thumbnailCacheKey({ id: 'node1', kind: 'ellipse' }, 'doc-b'), 'url-2');
+    cache.set(thumbnailCacheKey({ id: 'node2', kind: 'rect' }, 'doc-a'), 'url-3');
+    cache.invalidate('node1');
+    expect(cache.get(thumbnailCacheKey({ id: 'node1', kind: 'rect' }, 'doc-a'))).toBeUndefined();
+    expect(cache.get(thumbnailCacheKey({ id: 'node1', kind: 'ellipse' }, 'doc-b'))).toBeUndefined();
+    expect(cache.get(thumbnailCacheKey({ id: 'node2', kind: 'rect' }, 'doc-a'))).toBe('url-3');
+  });
+
+  it('invalidate still removes legacy keys without a document scope', () => {
     cache.set('node1:rect:123', 'url-1');
-    cache.set('node1:ellipse:456', 'url-2');
     cache.set('node2:rect:789', 'url-3');
     cache.invalidate('node1');
     expect(cache.get('node1:rect:123')).toBeUndefined();
-    expect(cache.get('node1:ellipse:456')).toBeUndefined();
     expect(cache.get('node2:rect:789')).toBe('url-3');
   });
 
@@ -192,6 +202,37 @@ describe('thumbnailCacheKey', () => {
     const k1 = thumbnailCacheKey({ id: 'n1', kind: 'rect' });
     const k2 = thumbnailCacheKey({ id: 'n1', kind: 'rect', w: undefined, h: undefined });
     expect(k1).toBe(k2);
+  });
+
+  it('produces different key when strokes change', () => {
+    const base = { id: 'n1', kind: 'rect', fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } };
+    const k1 = thumbnailCacheKey(base);
+    const k2 = thumbnailCacheKey({
+      ...base,
+      strokes: [{ color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 }, width: 4 }],
+    });
+    expect(k1).not.toBe(k2);
+  });
+
+  it('produces different key when opacity changes', () => {
+    const base = { id: 'n1', kind: 'rect' };
+    expect(thumbnailCacheKey({ ...base, opacity: 1 })).not.toBe(
+      thumbnailCacheKey({ ...base, opacity: 0.5 }),
+    );
+  });
+
+  it('produces different key when rotation changes', () => {
+    const base = { id: 'n1', kind: 'rect' };
+    expect(thumbnailCacheKey({ ...base, rotation: 0 })).not.toBe(
+      thumbnailCacheKey({ ...base, rotation: 45 }),
+    );
+  });
+
+  it('produces different key when corner radius changes', () => {
+    const base = { id: 'n1', kind: 'rect' };
+    expect(thumbnailCacheKey({ ...base, cornerRadius: 0 })).not.toBe(
+      thumbnailCacheKey({ ...base, cornerRadius: 12 }),
+    );
   });
 });
 

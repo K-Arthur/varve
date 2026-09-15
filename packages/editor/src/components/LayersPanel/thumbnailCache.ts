@@ -67,10 +67,18 @@ export class ThumbnailCache {
 
   /**
    * Remove entries for a specific node ID.
+   *
+   * Keys are `${docId}:${nodeId}:...` (see `thumbnailCacheKey`), and the
+   * invalidation bridge carries no document id, so the node id is matched as
+   * the second key segment. A same-named node in another document is evicted
+   * too; that costs one regeneration and is better than a match that never
+   * fires. The bare `${nodeId}:` form is kept for callers that build keys
+   * without a document scope.
    */
   invalidate(nodeId: string): void {
+    const bare = `${nodeId}:`;
     for (const [key] of this.cache) {
-      if (key.startsWith(`${nodeId}:`)) {
+      if (key.startsWith(bare) || key.split(':', 3)[1] === nodeId) {
         this.cache.delete(key);
       }
     }
@@ -125,6 +133,10 @@ function stableHash(input: string): number {
  *   would leave a stale thumbnail after a resize/reshape that didn't also
  *   touch the fill.
  * - mask `editRevision`, so editing a raster mask invalidates the thumbnail.
+ * - strokes, corner radius, opacity, and rotation, because the renderer draws
+ *   all four: a stroke or opacity edit that only reached the dead invalidation
+ *   bridge (or no bridge at all) used to keep the old thumbnail until LRU
+ *   eviction.
  */
 export function thumbnailCacheKey(
   node: {
@@ -133,6 +145,10 @@ export function thumbnailCacheKey(
     fill?: unknown;
     shape?: unknown;
     fills?: Array<{ type: string; image?: { src: string } }>;
+    strokes?: unknown;
+    cornerRadius?: unknown;
+    opacity?: number;
+    rotation?: number;
     mask?: { rasterMask?: { editRevision?: number }; visible?: boolean };
     w?: number;
     h?: number;
@@ -146,12 +162,16 @@ export function thumbnailCacheKey(
 ): string {
   const fillHash = stableHash(node.fill ? JSON.stringify(node.fill) : 'none');
   const shapeHash = stableHash(node.shape ? JSON.stringify(node.shape) : 'none');
+  const strokeHash = stableHash(node.strokes ? JSON.stringify(node.strokes) : 'none');
+  const cornerHash = stableHash(
+    node.cornerRadius !== undefined ? JSON.stringify(node.cornerRadius) : 'none',
+  );
   const imageSrcHash = stableHash(
     node.fills?.find((f) => f.type === 'image' && f.image?.src)?.image?.src ?? 'none',
   );
   const maskRev = node.mask?.rasterMask?.editRevision ?? 0;
   const dims = node.w !== undefined && node.h !== undefined ? `${node.w}x${node.h}` : '';
-  return `${docId ?? ''}:${node.id}:${node.kind}:${fillHash}:${shapeHash}:${imageSrcHash}:mask${maskRev}:${dims}:${textIdentity(node)}`;
+  return `${docId ?? ''}:${node.id}:${node.kind}:${fillHash}:${shapeHash}:${imageSrcHash}:stroke${strokeHash}:corner${cornerHash}:opacity${node.opacity ?? 1}:rotation${node.rotation ?? 0}:mask${maskRev}:${dims}:${textIdentity(node)}`;
 }
 
 /**
