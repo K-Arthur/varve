@@ -272,6 +272,8 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const selectedObjectSelectionCandidate = objectSelection
     ? objectSelection.candidates[objectSelection.selectedCandidate]
     : undefined;
+  const objectSelectionNeedsRefinement =
+    selectedObjectSelectionCandidate?.promptDiagnostics?.requiresRefinement === true;
   const objectSelectionReviewKey = objectSelection
     ? objectSelectionCandidateReviewKey(objectSelection, objectSelection.selectedCandidate)
     : null;
@@ -500,6 +502,12 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
 
   const applyObjectSelectionMask = useCallback(() => {
     if (!node || !objectSelection) return;
+    if (objectSelectionNeedsRefinement) {
+      announce(
+        'The highlighted selection reaches an unsupported image edge. Add an include point on that extent or draw a box around the full target before applying it.',
+      );
+      return;
+    }
     if (!objectSelectionReviewed) {
       announce('Review the highlighted Object Selection target before applying it.');
       return;
@@ -513,10 +521,23 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       operation: 'mask',
       candidateIndex: objectSelection.selectedCandidate,
     });
-  }, [announce, applySam2Segmentation, node, objectSelection, objectSelectionReviewed]);
+  }, [
+    announce,
+    applySam2Segmentation,
+    node,
+    objectSelection,
+    objectSelectionNeedsRefinement,
+    objectSelectionReviewed,
+  ]);
 
   const applyObjectSelectionAsSelection = useCallback(async () => {
     if (!node || !objectSelection) return;
+    if (objectSelectionNeedsRefinement) {
+      announce(
+        'The highlighted selection reaches an unsupported image edge. Add an include point on that extent or draw a box around the full target before using it.',
+      );
+      return;
+    }
     if (!objectSelectionReviewed) {
       announce('Review the highlighted Object Selection target before applying it.');
       return;
@@ -563,6 +584,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     applySam2Segmentation,
     node,
     objectSelection,
+    objectSelectionNeedsRefinement,
     objectSelectionReviewed,
     objectSelectionCombination,
     setAreaSelection,
@@ -1057,16 +1079,20 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                         className="insp-checkbox"
                         type="checkbox"
                         checked={objectSelectionReviewed}
-                        disabled={objectSelectionReviewKey === null}
+                        disabled={
+                          objectSelectionReviewKey === null || objectSelectionNeedsRefinement
+                        }
                         onChange={(event) => reviewSam2Candidate(event.currentTarget.checked)}
                       />
                       I reviewed the highlighted target before applying
                     </label>
                     {!objectSelectionReviewed && (
                       <p className="insp-field__hint" role="status" aria-live="polite">
-                        {objectSelectionReviewKey === null
-                          ? 'This preview cannot be verified safely. Create a new preview before applying it.'
-                          : 'Inspect the highlighted overlay, then confirm the target you want to apply.'}
+                        {objectSelectionNeedsRefinement
+                          ? 'Refine the highlighted edge extent with another include point or a box before applying it.'
+                          : objectSelectionReviewKey === null
+                            ? 'This preview cannot be verified safely. Create a new preview before applying it.'
+                            : 'Inspect the highlighted overlay, then confirm the target you want to apply.'}
                       </p>
                     )}
                   </>
@@ -1115,6 +1141,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                     disabled={
                       objectSelection.status !== 'ready' ||
                       objectSelection.candidates.length === 0 ||
+                      objectSelectionNeedsRefinement ||
                       !objectSelectionReviewed
                     }
                   >
@@ -1127,6 +1154,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                     disabled={
                       objectSelection.status !== 'ready' ||
                       objectSelection.candidates.length === 0 ||
+                      objectSelectionNeedsRefinement ||
                       !objectSelectionReviewed
                     }
                   >

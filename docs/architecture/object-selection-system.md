@@ -185,8 +185,9 @@ present: a measured control prompted `dog` on an elephant photograph returned a
 0.71 box around the elephant, which is the documented early-fusion
 false-positive behaviour of open-vocabulary detectors. Descriptions must be
 concrete visual language; negation, counting, and relational instructions are
-not parsed. Peak working set measured about 3 GB on 1-2K photographs, so
-low-memory sessions are refused with an explanation instead of risking a
+not parsed. Peak working set measured about 2.4 GB in the browser WASM
+runtime (2.6 GB budgeted); Node process RSS was ~4 GB, which is not the wasm
+heap. Low-memory sessions are refused with an explanation instead of risking a
 crash.
 
 ## Portrait matting route
@@ -256,6 +257,17 @@ identify the target safely, the candidate is rejected and the Inspector asks
 for another include point, an exclude point, or paint/refine work rather than
 guessing. This evidence is a review aid, not semantic object recognition or a
 replacement for the mask overlay at fit and 1:1.
+
+The validator also separates prompt containment from extent evidence. If hard
+coverage reaches a source-image edge that no include point or box edge
+supports, the candidate remains visible for inspection but is marked
+`requiresRefinement`; Apply as mask, Use as selection, and the Generative Edit
+handoff are blocked. The user must add an include point on the missing extent
+or draw a box reaching that edge. This catches the observed failure where a
+single point on an edge-hugging object selected only its upper portion while
+still satisfying the point prompt. An edge-reaching box is still a hint, not a
+hard crop: adjacent disconnected components are independently checked and
+unsupported islands are pruned or rejected.
 
 Generative Edit also checks the effective mask immediately before inference.
 Fill, Remove, and Replace warn at 90% coverage and fail closed at 99.5% or

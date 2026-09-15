@@ -682,11 +682,16 @@ export function ContentAwareFillDialog({
     objectSelection && objectSelectionCandidate
       ? objectSelectionCandidateReviewKey(objectSelection, objectSelection.selectedCandidate)
       : null;
+  const objectSelectionCandidateNeedsRefinement =
+    objectSelectionCandidate?.promptDiagnostics?.requiresRefinement === true;
+  const objectSelectionNeedsRefinement =
+    maskOrigin === 'object-selection' && objectSelectionCandidateNeedsRefinement;
   const objectSelectionNeedsReview =
     maskOrigin === 'object-selection' &&
     (!objectSelectionCandidate ||
       !objectSelectionReviewKey ||
-      reviewedObjectSelectionKey !== objectSelectionReviewKey);
+      reviewedObjectSelectionKey !== objectSelectionReviewKey ||
+      objectSelectionNeedsRefinement);
   const canGenerate =
     (hasMaskStrokes || (mode === 'expand' && hasExpandPadding)) &&
     (mode !== 'replace' || prompt.trim().length > 0) &&
@@ -1515,6 +1520,12 @@ export function ContentAwareFillDialog({
       announce('The selected Object Selection candidate is not available');
       return;
     }
+    if (candidate.promptDiagnostics?.requiresRefinement) {
+      announce(
+        'The highlighted selection reaches an unsupported image edge. Add an include point on that extent or draw a box around the full target before using it for generation.',
+      );
+      return;
+    }
     if (!objectSelectionReviewKey) {
       announce(
         'This Object Selection preview cannot be verified safely; create a new preview before using it.',
@@ -1872,6 +1883,13 @@ export function ContentAwareFillDialog({
   }, []);
 
   const handleGenerate = useCallback(async () => {
+    if (objectSelectionNeedsRefinement) {
+      const message =
+        'Refine the highlighted Object Selection extent with an include point on the missing edge or a box around the full target before generating.';
+      setErrorMessage(message);
+      announce(message);
+      return;
+    }
     if (objectSelectionNeedsReview) {
       const message =
         'Review every highlighted Object Selection region before generating. Confirm the target or refine the mask first.';
@@ -2411,6 +2429,7 @@ export function ContentAwareFillDialog({
     imageGuidanceScale,
     variationCount,
     objectSelectionNeedsReview,
+    objectSelectionNeedsRefinement,
   ]);
 
   const handleApply = useCallback(async () => {
@@ -3090,7 +3109,12 @@ export function ContentAwareFillDialog({
                 variant="ghost"
                 size="sm"
                 onClick={handleUseObjectSelection}
-                disabled={objectSelection?.status !== 'ready' || hasResult || isProcessing}
+                disabled={
+                  objectSelection?.status !== 'ready' ||
+                  objectSelectionCandidateNeedsRefinement ||
+                  hasResult ||
+                  isProcessing
+                }
               >
                 Use Object Selection
               </Button>
@@ -3148,6 +3172,13 @@ export function ContentAwareFillDialog({
                 Invert
               </Button>
             </div>
+            {objectSelectionCandidateNeedsRefinement && (
+              <p className="caf-dialog__mask-health-warning" role="status">
+                This Object Selection candidate reaches an image edge without an extent prompt.
+                Refine it with an include point on that edge or a box around the full target before
+                using it for generation.
+              </p>
+            )}
             <fieldset className="caf-dialog__mask-operations">
               <legend className="caf-dialog__label">Mask operation</legend>
               {(
@@ -3248,7 +3279,7 @@ export function ContentAwareFillDialog({
                       objectSelectionReviewKey !== null &&
                       reviewedObjectSelectionKey === objectSelectionReviewKey
                     }
-                    disabled={objectSelectionReviewKey === null}
+                    disabled={objectSelectionReviewKey === null || objectSelectionNeedsRefinement}
                     onChange={(event) =>
                       setReviewedObjectSelectionKey(
                         event.target.checked ? objectSelectionReviewKey : null,
@@ -3256,9 +3287,11 @@ export function ContentAwareFillDialog({
                     }
                   />
                   <span>
-                    {objectSelectionCandidate?.promptDiagnostics?.ambiguous === true
-                      ? 'I reviewed every highlighted target region before generating'
-                      : 'I reviewed the highlighted target before generating'}
+                    {objectSelectionNeedsRefinement
+                      ? 'Refine the highlighted edge extent before generating'
+                      : objectSelectionCandidate?.promptDiagnostics?.ambiguous === true
+                        ? 'I reviewed every highlighted target region before generating'
+                        : 'I reviewed the highlighted target before generating'}
                   </span>
                 </label>
               )}

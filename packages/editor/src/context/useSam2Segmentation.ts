@@ -680,6 +680,27 @@ export function useSam2Segmentation(
           announcerRef.current?.announce(message);
           return null;
         }
+        if (reviewedCandidateValidation.diagnostics?.requiresRefinement) {
+          const message =
+            reviewedCandidateValidation.diagnostics.warnings.find((warning) =>
+              warning.includes('extent prompt'),
+            ) ??
+            'Refine the highlighted Object Selection extent with another include point or a box before applying it.';
+          const live = stateRef.current.objectSelectionSession;
+          if (generation === generationRef.current && live?.nodeId === nodeId) {
+            writeTransientSession({
+              ...live,
+              status: 'error',
+              error: {
+                code: 'prompt_needs_refinement',
+                message,
+                retryable: true,
+              },
+            });
+          }
+          announcerRef.current?.announce(message);
+          return null;
+        }
         const normalizedReviewedCandidate = rankPromptedMaskCandidates(
           [
             {

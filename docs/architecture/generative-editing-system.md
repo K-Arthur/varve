@@ -108,8 +108,11 @@ proposal.
 The dialog reports the current mask's covered percentage, pixel bounds,
 connected-region count, edge contact, and soft-only coverage. Empty and
 four-pixel-or-smaller masks are blocked for Fill, Remove, and Replace. Broad,
-disconnected, edge-touching, and soft masks remain possible but are explicitly
-warned about so the user can verify the overlay. Imported masks must have a
+disconnected, and soft masks remain possible but are explicitly warned about
+so the user can verify the overlay. A prompted Object Selection candidate that
+reaches a source-image edge without an include point or box edge on that extent
+remains previewable but is marked for refinement; it cannot be applied or
+handed into generation until the extent is explicitly prompted. Imported masks must have a
 valid byte count and a source-compatible aspect ratio; they are never silently
 stretched from an unrelated frame. The editable user mask, provider inference
 mask, and final composite mask remain separate representations. Brush input is

@@ -72,6 +72,10 @@ export interface PromptedMaskDiagnostics {
   unanchoredCoverage: number;
   /** True when a sizeable disconnected region is not supported by a prompt. */
   ambiguous: boolean;
+  /** Hard coverage touches an image edge that the prompts did not support. */
+  edgeContact?: { top: boolean; right: boolean; bottom: boolean; left: boolean };
+  /** True when the candidate needs an extent prompt before it can be applied. */
+  requiresRefinement?: boolean;
   warnings: string[];
 }
 
@@ -97,6 +101,8 @@ const MAX_ACCEPTED_MASK_COVERAGE = 0.995;
  * user intended.
  */
 const MIN_ANCHORED_COVERAGE_FOR_PRUNING = 0.5;
+/** A point must be deliberately placed on an image extent to support edge contact. */
+const MAX_EDGE_PROMPT_SUPPORT_PIXELS = 8;
 /**
  * Keep review diagnostics bounded on 33 MP photographs and constrained
  * devices, while retaining enough spatial resolution to see small islands in
@@ -221,6 +227,8 @@ export function validatePromptedMaskCandidate(
     satisfied += 1;
   }
 
+  annotateEdgeRefinement(initialDiagnostics, points, box, sourceWidth, sourceHeight);
+
   // A prompted mask can contain the requested object and an unrelated
   // disconnected island. Never let a small positive click implicitly accept
   // all of that coverage. When the prompted target is dominant, remove only
@@ -245,6 +253,7 @@ export function validatePromptedMaskCandidate(
       const sanitizedDiagnostics = toPublicDiagnostics(
         analyzePromptedMaskDiagnostics(pruned.mask, sourceWidth, sourceHeight, points, box),
       );
+      annotateEdgeRefinement(sanitizedDiagnostics, points, box, sourceWidth, sourceHeight);
       const removedCoverage = pruned.removedPixels / (sourceWidth * sourceHeight);
       const removedPercent =
         removedCoverage >= 0.01 ? `${Math.round(removedCoverage * 100)}%` : '<1%';
@@ -596,7 +605,7 @@ function analyzePromptedMaskDiagnostics(
       sumY / hardPixels <= box.maxY + boxCentroidMargin);
   const anchoredGrid = new Uint8Array(gridPixels);
   for (let index = 0; index < gridPixels; index += 1) {
-    const component = labels[index];
+    const component = labels[index] ?? -1;
     if (component >= 0 && anchored[component] !== 0) anchoredGrid[index] = 1;
   }
   return {
@@ -609,6 +618,12 @@ function analyzePromptedMaskDiagnostics(
     unanchoredCoverage,
     ambiguous,
     warnings,
+    edgeContact: {
+      top: maxY >= 0 && minY === 0,
+      right: maxX >= 0 && maxX === width - 1,
+      bottom: maxY >= 0 && maxY === height - 1,
+      left: maxX >= 0 && minX === 0,
+    },
     boxCoveredPixels,
     boxOverlapFraction: hardPixels > 0 ? boxCoveredPixels / hardPixels : 0,
     boxCentroidInside,
@@ -616,6 +631,69 @@ function analyzePromptedMaskDiagnostics(
     gridWidth,
     gridHeight,
   };
+}
+
+/**
+ * A prompt can prove that a candidate contains the clicked region without
+ * proving that it contains the complete object. Edge contact is the common
+ * under-selection case for objects cropped by the source frame: require an
+ * explicit prompt on that extent (or a box reaching it) before any operation
+ * can mutate pixels. The candidate remains previewable so the user can see
+ * exactly what needs refinement.
+ */
+function annotateEdgeRefinement(
+  diagnostics: PromptedMaskDiagnostics,
+  points: readonly PromptedMaskPoint[],
+  box: DiagnosticBox | null,
+  width: number,
+  height: number,
+): void {
+  const edgeContact = diagnostics.edgeContact;
+  if (!edgeContact) return;
+  const tolerance = Math.max(
+    1,
+    Math.min(MAX_EDGE_PROMPT_SUPPORT_PIXELS, Math.ceil(Math.min(width, height) * 0.02)),
+  );
+  const supported = {
+    top: edgePromptSupported('top', points, box, width, height, tolerance),
+    right: edgePromptSupported('right', points, box, width, height, tolerance),
+    bottom: edgePromptSupported('bottom', points, box, width, height, tolerance),
+    left: edgePromptSupported('left', points, box, width, height, tolerance),
+  };
+  const unsupportedEdges = (['top', 'right', 'bottom', 'left'] as const).filter(
+    (edge) => edgeContact[edge] && !supported[edge],
+  );
+  if (unsupportedEdges.length === 0) return;
+  diagnostics.requiresRefinement = true;
+  const labels = unsupportedEdges.map((edge) => `${edge} image edge`);
+  diagnostics.warnings.push(
+    `The candidate reaches the ${labels.join(' and ')} without an extent prompt. Add an include point on the missing extent or draw a box around the full target before applying it; this prevents a partial edge object from being edited.`,
+  );
+}
+
+function edgePromptSupported(
+  edge: 'top' | 'right' | 'bottom' | 'left',
+  points: readonly PromptedMaskPoint[],
+  box: DiagnosticBox | null,
+  width: number,
+  height: number,
+  tolerance: number,
+): boolean {
+  if (box) {
+    if (edge === 'top' && box.minY <= tolerance) return true;
+    if (edge === 'right' && box.maxX >= width - 1 - tolerance) return true;
+    if (edge === 'bottom' && box.maxY >= height - 1 - tolerance) return true;
+    if (edge === 'left' && box.minX <= tolerance) return true;
+  }
+  return points.some((point) => {
+    if (point.label !== 1) return false;
+    const x = point.x * (width - 1);
+    const y = point.y * (height - 1);
+    if (edge === 'top') return y <= tolerance;
+    if (edge === 'right') return x >= width - 1 - tolerance;
+    if (edge === 'bottom') return y >= height - 1 - tolerance;
+    return x <= tolerance;
+  });
 }
 
 function nearestComponent(

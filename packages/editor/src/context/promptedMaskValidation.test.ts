@@ -298,4 +298,32 @@ describe('prompted mask validation', () => {
       anchoredCoverage: 1,
     });
   });
+
+  it('keeps an edge-touching candidate previewable but requires an extent prompt before apply', () => {
+    const pixels: Array<[number, number]> = [];
+    for (let y = 3; y <= 6; y += 1) {
+      for (let x = 7; x <= 9; x += 1) pixels.push([x, y]);
+    }
+    const pointOnly = validatePromptedMaskCandidate(
+      candidate(10, 10, pixels, 0.9),
+      { points: [{ x: 6 / 9, y: 4 / 9, label: 1 }] },
+      10,
+      10,
+    );
+    expect(pointOnly.valid).toBe(true);
+    expect(pointOnly.diagnostics).toMatchObject({
+      edgeContact: { right: true },
+      requiresRefinement: true,
+    });
+    expect(pointOnly.diagnostics?.warnings.at(-1)).toContain('extent prompt');
+
+    const boxed = validatePromptedMaskCandidate(
+      candidate(10, 10, pixels, 0.9),
+      { box: { x1: 0.6, y1: 0.2, x2: 1, y2: 0.8 } },
+      10,
+      10,
+    );
+    expect(boxed.valid).toBe(true);
+    expect(boxed.diagnostics?.requiresRefinement).not.toBe(true);
+  });
 });

@@ -613,7 +613,7 @@ test.describe('Object Selection real-model gate', () => {
     await canvas.screenshot({ path: testInfo.outputPath('real-model-selection.png') });
   });
 
-  test('keeps a prompted apple separate from other objects in a real still life', async ({
+  test('blocks an under-specified edge-object prompt before it reaches an edit', async ({
     page,
   }, testInfo) => {
     test.setTimeout(1_200_000);
@@ -674,50 +674,20 @@ test.describe('Object Selection real-model gate', () => {
     await expect(targetEvidence).toBeVisible();
     const targetEvidenceText = (await targetEvidence.textContent()) ?? '';
     expect(targetEvidenceText).toMatch(/target evidence 100% anchored/i);
+    await expect(
+      inspector.getByText(/candidate reaches the right image edge without an extent prompt/i),
+    ).toBeVisible();
+    await expect(inspector.getByRole('button', { name: 'Apply as mask' })).toBeDisabled();
+    await expect(inspector.getByRole('button', { name: 'Use as selection' })).toBeDisabled();
     await testInfo.attach('real-still-life-apple-preview', {
       body: await canvas.screenshot(),
       contentType: 'image/png',
     });
-
-    await inspector
-      .getByRole('checkbox', { name: 'I reviewed the highlighted target before applying' })
-      .check();
-    await inspector.getByRole('button', { name: 'Apply as mask' }).click();
-    await expect(
-      inspector.getByRole('button', { name: 'Background Removal', exact: true }),
-    ).toHaveAttribute('aria-expanded', 'true');
-    await expect(inspector.getByText(/(?:predicted IoU score|mask score)/i).first()).toBeVisible({
-      timeout: 120000,
-    });
-    await canvas.screenshot({ path: testInfo.outputPath('real-still-life-apple-applied.png') });
-    await testInfo.attach('real-still-life-apple-applied', {
+    await canvas.screenshot({ path: testInfo.outputPath('real-still-life-apple-blocked.png') });
+    await testInfo.attach('real-still-life-apple-blocked', {
       body: await canvas.screenshot(),
       contentType: 'image/png',
     });
-
-    // Inspect the persisted source-resolution mask, not only the rendered
-    // screenshot or the diagnostic label. A successful specific-object
-    // selection must contain one hard connected region, retain apple pixels,
-    // and exclude the independently visible mug interior. This catches a
-    // regression where the preview was correct but Apply wrote a raw model
-    // candidate containing an unrelated disconnected island.
-    const maskReport = inspectAcceptedMask(await serializeEditorDocument(page));
-    expect(maskReport.width).toBe(1280);
-    expect(maskReport.height).toBe(960);
-    expect(maskReport.hardPixels).toBeGreaterThan(0);
-    expect(maskReport.componentCount).toBe(1);
-    expect(maskReport.appleHardPixels).toBeGreaterThan(10_000);
-    expect(maskReport.appleInteriorHardPixels).toBeGreaterThan(1_000);
-    expect(maskReport.mugHardPixels).toBe(0);
-    expect(maskReport.flowerHardPixels).toBe(0);
-    expect(maskReport.bounds).toMatchObject({
-      minX: expect.any(Number),
-      minY: expect.any(Number),
-      maxX: expect.any(Number),
-      maxY: expect.any(Number),
-    });
-    expect(maskReport.bounds!.maxX - maskReport.bounds!.minX).toBeGreaterThan(100);
-    expect(maskReport.bounds!.maxY - maskReport.bounds!.minY).toBeGreaterThan(100);
   });
 
   test('passes the reviewed real-object mask into Generative Edit before Remove', async ({
@@ -748,23 +718,25 @@ test.describe('Object Selection real-model gate', () => {
         timeout: 900000,
       });
     }
+    await inspector.getByRole('combobox', { name: 'Object Selection prompt input' }).click();
+    await page.getByRole('option', { name: /Box hint — two taps or drag/i }).click();
     await inspector.getByRole('button', { name: 'Select Object' }).click();
     await page.getByRole('button', { name: 'Fit sel' }).click();
     await page.waitForTimeout(400);
     const bounds = await selectedArtworkBounds(page);
     const canvas = page.getByTestId('editor-canvas');
-    const applePoint = {
-      x: bounds.x + bounds.width * (1150 / 1280),
-      y: bounds.y + bounds.height * (760 / 960),
+    const boxStart = {
+      x: bounds.x + bounds.width * (900 / 1280),
+      y: bounds.y + bounds.height * (520 / 960),
     };
-    const mugPoint = {
-      x: bounds.x + bounds.width * (960 / 1280),
-      y: bounds.y + bounds.height * (850 / 960),
+    const boxEnd = {
+      x: bounds.x + bounds.width * (1279 / 1280),
+      y: bounds.y + bounds.height * (959 / 960),
     };
-    await page.mouse.click(applePoint.x, applePoint.y);
-    await page.keyboard.down('Shift');
-    await page.mouse.click(mugPoint.x, mugPoint.y);
-    await page.keyboard.up('Shift');
+    await page.mouse.move(boxStart.x, boxStart.y);
+    await page.mouse.down();
+    await page.mouse.move(boxEnd.x, boxEnd.y, { steps: 8 });
+    await page.mouse.up();
     await expect(inspector.getByText(/Preview ready/).first()).toBeVisible({ timeout: 600000 });
     const selectionReview = inspector.getByRole('checkbox', {
       name: 'I reviewed the highlighted target before applying',

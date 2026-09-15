@@ -223,6 +223,29 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
     expect(stateRef.current.objectSelectionSession).toBeNull();
   });
 
+  it('does not commit a reviewed edge candidate until its missing extent is prompted', async () => {
+    const edgeMask = new Uint8Array(10 * 10);
+    for (let y = 4; y <= 6; y += 1) {
+      for (let x = 4; x < 10; x += 1) edgeMask[y * 10 + x] = 255;
+    }
+    const { doc, session } = await sessionFor({ size: 10, mask: edgeMask });
+    const { result, stateRef, setAreaSelection, announce } = setup(session, doc);
+
+    await act(async () => {
+      await result.current.applySam2Segmentation({
+        nodeId: 'image',
+        prompts: { points: session.points },
+        operation: 'selection',
+      });
+    });
+
+    expect(controls.infer).not.toHaveBeenCalled();
+    expect(setAreaSelection).not.toHaveBeenCalled();
+    expect(stateRef.current.objectSelectionSession?.status).toBe('error');
+    expect(stateRef.current.objectSelectionSession?.error?.code).toBe('prompt_needs_refinement');
+    expect(announce).toHaveBeenCalledWith(expect.stringContaining('extent prompt'));
+  });
+
   it('does not apply a ready candidate until the visible target is reviewed', async () => {
     const { doc, session } = await sessionFor();
     session.reviewedCandidateKey = undefined;
