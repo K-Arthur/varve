@@ -55,6 +55,16 @@ containment is rejected as stale review data. The real-photo run above showed
 the positive path; the unit suite also covers rejection of a reviewed
 candidate whose prompt-containment score is zero.
 
+The Generative Edit handoff now requires an explicit review confirmation for
+every imported Object Selection candidate, not only candidates whose topology
+diagnostics are ambiguous. The confirmation is keyed to the source fingerprint,
+candidate index, score, and target-evidence summary, so cycling candidates or
+changing the source invalidates it. Painting, clearing, or inverting the mask
+also leaves the model-candidate trust state and returns control to the editable
+mask workflow. This is the product safety boundary for the remaining semantic
+uncertainty: a prompt-valid mask can still describe the wrong connected object,
+and successful inference cannot prove user intent.
+
 The real-photo CAF removal lane also exposed a client-side selection failure:
 the first fast drag produced only a 92 × 92 endpoint region at the right side
 of the landscape instead of the intended horizontal stroke. After continuous

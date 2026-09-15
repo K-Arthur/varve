@@ -689,8 +689,9 @@ export function ContentAwareFillDialog({
       : null;
   const objectSelectionNeedsReview =
     maskOrigin === 'object-selection' &&
-    objectSelectionCandidate?.promptDiagnostics?.ambiguous === true &&
-    reviewedObjectSelectionKey !== objectSelectionReviewKey;
+    (!objectSelectionCandidate ||
+      !objectSelectionReviewKey ||
+      reviewedObjectSelectionKey !== objectSelectionReviewKey);
   const canGenerate =
     (hasMaskStrokes || (mode === 'expand' && hasExpandPadding)) &&
     (mode !== 'replace' || prompt.trim().length > 0) &&
@@ -1551,11 +1552,13 @@ export function ContentAwareFillDialog({
       'object-selection',
     );
     if (applied) {
-      setReviewedObjectSelectionKey(
-        candidate.promptDiagnostics?.ambiguous ? null : objectSelectionReviewKey,
-      );
+      // Importing the candidate into the edit mask is not the same as
+      // confirming that it is the intended object. The model has only
+      // satisfied prompt geometry; the user must review the overlay in the
+      // generation context before any pixels can be changed.
+      setReviewedObjectSelectionKey(null);
     }
-  }, [announce, applyMaskCoverage, imageSrc, objectSelection, objectSelectionReviewKey]);
+  }, [announce, applyMaskCoverage, imageSrc, objectSelection]);
 
   const handleStartObjectSelection = useCallback(() => {
     if (!nodeId) {
@@ -1696,6 +1699,8 @@ export function ContentAwareFillDialog({
     putMaskCoverage(context, coverage, { width: canvas.width, height: canvas.height });
     setHasMaskStrokes(coverage.some((value) => value > 0));
     setMaskHealth(analyzeSelectionHealth(coverage, canvas.width, canvas.height, mode));
+    setMaskOrigin('brush');
+    setReviewedObjectSelectionKey(null);
     bumpMaskRevision();
     invalidatePreview();
   }, [bumpMaskRevision, hasMaskStrokes, invalidatePreview, mode]);
@@ -3228,22 +3233,30 @@ export function ContentAwareFillDialog({
                   ))}
                 </>
               )}
-              {maskOrigin === 'object-selection' &&
-                objectSelectionCandidate?.promptDiagnostics?.ambiguous === true &&
-                objectSelectionReviewKey && (
-                  <label className="caf-dialog__checkbox">
-                    <input
-                      type="checkbox"
-                      checked={reviewedObjectSelectionKey === objectSelectionReviewKey}
-                      onChange={(event) =>
-                        setReviewedObjectSelectionKey(
-                          event.target.checked ? objectSelectionReviewKey : null,
-                        )
-                      }
-                    />
-                    <span>I reviewed every highlighted target region before generating</span>
-                  </label>
-                )}
+              {maskOrigin === 'object-selection' && !objectSelectionCandidate && (
+                <span className="caf-dialog__mask-health-error">
+                  The Object Selection candidate is no longer available. Choose another mask source
+                  or clear and recreate the selection.
+                </span>
+              )}
+              {maskOrigin === 'object-selection' && objectSelectionReviewKey && (
+                <label className="caf-dialog__checkbox">
+                  <input
+                    type="checkbox"
+                    checked={reviewedObjectSelectionKey === objectSelectionReviewKey}
+                    onChange={(event) =>
+                      setReviewedObjectSelectionKey(
+                        event.target.checked ? objectSelectionReviewKey : null,
+                      )
+                    }
+                  />
+                  <span>
+                    {objectSelectionCandidate?.promptDiagnostics?.ambiguous === true
+                      ? 'I reviewed every highlighted target region before generating'
+                      : 'I reviewed the highlighted target before generating'}
+                  </span>
+                </label>
+              )}
             </div>
           </div>
 

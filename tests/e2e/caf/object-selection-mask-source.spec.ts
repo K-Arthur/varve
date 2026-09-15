@@ -225,7 +225,14 @@ test('uses a confirmed Object Selection candidate as an editable CAF mask', asyn
     'Using the confirmed Object Selection candidate; refine it with the brush.',
   );
   await expect(dialog.getByRole('button', { name: /clear paint/i })).toBeEnabled();
-  await expect(dialog.getByRole('button', { name: /remove && fill/i })).toBeEnabled();
+  const generate = dialog.getByRole('button', { name: /remove && fill/i });
+  await expect(generate).toBeDisabled();
+  const review = dialog.getByRole('checkbox', {
+    name: /reviewed the highlighted target before generating/i,
+  });
+  await expect(review).toBeVisible();
+  await review.check();
+  await expect(generate).toBeEnabled();
   await dialog.getByRole('button', { name: /^cancel$/i }).click();
   await expect(dialog).not.toBeVisible();
 });

@@ -185,12 +185,14 @@ which visible regions belong to the target before applying it. This evidence
 is a review aid, not semantic object recognition or a replacement for the
 mask overlay at fit and 1:1.
 
-When the candidate is imported into Generative Edit, an ambiguous candidate
-also disables generation until the user reviews the highlighted regions and
-explicitly confirms the target, or paints a refinement that changes the mask
-origin. This is an intentional human-in-the-loop gate: it prevents a known
-wrong-target signal from flowing into Fill, Remove, or Replace while still
-allowing legitimate disconnected subjects after review.
+When the candidate is imported into Generative Edit, generation stays disabled
+until the user explicitly reviews the highlighted target and confirms it, or
+paints a refinement that changes the mask origin. An ambiguous candidate uses
+stronger wording that asks the user to review every highlighted region. This is
+an intentional human-in-the-loop gate: prompt geometry and model confidence
+cannot establish semantic intent, so no model-derived target flows into Fill,
+Remove, or Replace without a visible review action. Legitimate disconnected
+subjects remain possible after review.
 
 Positive prompts are also checked against the decoded source alpha before
 inference. A click in a fully transparent image hole is rejected because its
