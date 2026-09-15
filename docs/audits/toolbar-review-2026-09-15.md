@@ -1,5 +1,12 @@
 # Toolbar review — diagnosis, repair, and verification (2026-09-15)
 
+> Follow-up session B (same day) completed items 2–4 of "Remaining work"
+> below and investigated item 3's duplication: palette top/bottom placement,
+> the grouped View menu, the status-bar token/target repair, and the
+> single-formatting-surface rule. See
+> `docs/audits/toolbar-followup-2026-09-15.md` and
+> `docs/research/toolbar-followup-2026-09-15.md`.
+
 Scope: every command surface the editor presents as a toolbar — the floating
 tool palette, the selection-following context bar, the menubar's own tool
 cluster, and the overflow/flyout behaviour that connects them. Evidence lives

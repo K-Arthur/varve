@@ -307,6 +307,12 @@ input[type="number"] {
    * whatever real content sits below the "canvas" row (pagenav/selinfo/
    * status) instead of being confined to it. */
   position: relative;
+  /* The status bar's own controls are 24px targets (WCAG 2.2 SC 2.5.8) plus
+   * its top border, so the shared clamp's 24px floor is too short for them.
+   * Floor the token inside the shell so the grid row and the bar itself
+   * always agree; the bar previously hard-coded 28px against a 24.8-28px
+   * row and was silently clipped at narrow widths. */
+  --statusbar-height: max(1.625rem, clamp(1.5rem, 1.45rem + 0.25vw, 1.75rem));
   grid-template-areas:
     "menubar  menubar   menubar   logoarea"
     "tabs     tabs      tabs      logoarea"
@@ -1047,10 +1053,18 @@ input[type="number"] {
   align-items: center;
   gap: var(--space-3);
   padding: 0 var(--space-4);
-  height: 28px;
+  /* Same token as the shell row — never a taller literal, or the shell's
+   * overflow:hidden clips the bottom of the bar (and its focus rings). */
+  height: var(--statusbar-height);
   background: var(--elevation-surface-sunken);
   border-top: var(--border-micro);
-  overflow: hidden;
+  /* Informational text ellipsizes and priority tiers drop segments first;
+   * if enlarged text or an unusually narrow window still exceeds the row,
+   * horizontal scrolling keeps every control reachable instead of silently
+   * clipping it (the failure mode Photoshop's options bar shipped with). */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   /* A status bar is a single line of instrumentation. Segments truncate or
@@ -1207,7 +1221,9 @@ input[type="number"] {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 2px var(--space-2);
+  /* No vertical padding: the 24px targets set the chip height so it fits
+   * inside the status row at every supported width. */
+  padding: 0 var(--space-2);
   background: var(--elevation-surface-default);
   border: var(--border-micro);
   border-radius: var(--radius-control-compact);
@@ -1216,6 +1232,9 @@ input[type="number"] {
 
 .editor-status__zoom-value {
   width: 3rem;
+  /* Text-entry target: keep the box at the 24px minimum so the field is not
+   * the one undersized control in the chrome. */
+  min-height: var(--space-6);
   text-align: right;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -1247,8 +1266,8 @@ input[type="number"] {
   width: auto;
 }
 .editor-status .varve-select__trigger {
-  min-height: 22px;
-  height: 22px;
+  min-height: var(--space-6);
+  height: var(--space-6);
   padding: 0 var(--space-2);
   font-size: var(--font-size-xs);
   border-radius: var(--radius-control-compact);
@@ -1271,8 +1290,10 @@ input[type="number"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: var(--space-5);
-  height: var(--space-5);
+  /* 24px target minimum (WCAG 2.2 SC 2.5.8). The 20px control this replaces
+   * passed only via the spacing exception and still felt like a pixel hunt. */
+  min-width: var(--space-6);
+  height: var(--space-6);
   padding: 0 var(--space-1);
   background: none;
   border: none;
@@ -1311,10 +1332,10 @@ input[type="number"] {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -1px;
 }
-/* Zoom chip toggles (smaller, borderless, inline) */
+/* Zoom chip toggles (inline, but still 24px targets) */
 .editor-status__zoom-chip .editor-status__toggle {
-  width: var(--space-4);
-  height: var(--space-4);
+  width: var(--space-6);
+  height: var(--space-6);
   border-radius: var(--radius-control-compact);
 }
 
@@ -1325,12 +1346,23 @@ input[type="number"] {
   cursor: pointer;
   font: inherit;
   font-size: var(--font-size-xs);
+  /* Interactive control: same 24px minimum as the icon toggles. */
+  min-height: var(--space-6);
   padding: 2px var(--space-2);
   border-radius: var(--radius-control-compact);
   white-space: nowrap;
   transition:
     background var(--duration-quick) var(--ease-standard),
     color var(--duration-quick) var(--ease-standard);
+}
+
+/* Status-bar badges are interactive controls too (debt report, layout score,
+ * save state). Hold the 24px minimum inside the bar without changing how the
+ * same components render in other, denser contexts. */
+.editor-status .debt-badge,
+.editor-status .editor-status__score-badge,
+.editor-status .save-status {
+  min-height: var(--space-6);
 }
 .editor-status__fit-btn:hover {
   background: var(--color-surface-raised);

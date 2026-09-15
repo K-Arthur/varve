@@ -41,6 +41,48 @@ display strings come from `workspace/toolLabels.ts` and
 `shortcuts/toolShortcutLabel.ts`. Never hard-code a label or a shortcut in the
 palette — remapped keybindings must flow through `getEffectiveBinding`.
 
+## Placement
+
+The palette is anchored to the canvas cell's bottom edge by default. A user
+who finds that position hidden (macOS Dock, a laptop display edge) or too far
+from the action can move it to the top:
+
+- `View > Toolbar at Top` / `Toolbar at Bottom` are a radio pair at the root
+  of the View menu, always visible and never nested.
+- The choice is a **workspace preference** (`toolbarPlacement` in
+  `WorkspacePreference`, merged by `getEffectiveWorkspaceConfig`) and is
+  persisted through the same store as panel widths and chrome toggles, so it
+  survives restarts and stays out of the document/undo history.
+- `bottom` is the built-in default and is stored sparsely (absent means
+  bottom), so a future default change still flows through for users who never
+  chose top.
+- The palette keeps `grid-area: canvas` in both positions; workspace switches
+  re-resolve the effective config. Row order never reverses — a palette that
+  opens upward keeps its declared order.
+
+Research basis and the external failure evidence (Figma's UI3 docking
+threads, the "Click This!" placement study) live in
+`docs/research/toolbar-followup-2026-09-15.md`.
+
+## Status bar
+
+The status bar is tiered instrumentation, not a toolbar: `StatusBar.tsx`
+renders sections chosen by `getVisibleStatusSections`, and `editor.css` drops
+low-priority segments at narrow widths (diagnostic < 1180px, fit cluster <
+980px, AI label and snap grid < 860px, score badge, unit select and cursor
+readout < 700px).
+
+- The bar's height is `var(--statusbar-height)`, the same token the shell
+  grid row uses (floored to 26px inside `.editor-shell` so 24px controls
+  fit). A separate literal (the old `28px`) let the shell's `overflow: hidden`
+  clip the bottom of the bar at every width below 1920px.
+- Interactive controls are a **24px minimum** (WCAG 2.2 SC 2.5.8): status
+  toggles, zoom steps, and the unit select are `var(--space-6)`. The zoom chip
+  has no vertical padding so its 24px targets define its height.
+- If content still exceeds the row (very narrow windows, enlarged text), the
+  bar scrolls horizontally instead of silently clipping a control.
+  Informational text ellipsizes first.
+
 ## Responsive overflow
 
 When the palette's canvas cell is too narrow for every declared slot, the row
@@ -94,6 +136,23 @@ The palette is an APG toolbar (`@varve/ui`'s `Toolbar`):
 - **Buttons name the consequence.** Icon-only controls carry an `aria-label`
   that describes the action, not the glyph.
 
+The context bar and the floating text bar are toolbars too, and use the same
+`@varve/ui` `Toolbar` primitive:
+
+- **One tab stop** across their buttons, arrows move between them, and the
+  roving stop never rests on a disabled control.
+- **Arrow keys yield to composite widgets.** The shared primitive skips its
+  arrow handling when the event target is an input, textarea, select, or a
+  combobox/textbox/spinbutton role, so the font-size field keeps native
+  stepping and an open select keeps its own navigation (APG: a toolbar does
+  not steal keys a contained widget owns). The size field is therefore a
+  separate tab stop; that is deliberate and tested.
+- **One formatting surface during a text edit session.** While the in-canvas
+  editor is active, the floating text bar owns typography; the context bar
+  shows a short pointer to it instead of rendering a second copy of the same
+  controls (`context/textEditSession.ts` publishes the session; the selection
+  quick bar suppresses itself from the same signal).
+
 ## Capability gating
 
 Touch-only affordances are gated rather than permanently rendered: the
@@ -146,15 +205,24 @@ trusting its anchor:
 ## Verification
 
 - Unit: `packages/ui/src/components/Toolbar.test.tsx` (roving tabindex
-  including late-arriving children), `workspace/toolbarRetention.test.ts`
+  including late-arriving children, arrow yielding to text-entry widgets,
+  consumer class name), `workspace/toolbarRetention.test.ts`
   (retention ordering and per-slot collapse),
+  `workspace/workspaceStore.test.ts` (toolbar placement default, merge, sparse
+  storage, persistence, reset),
   `components/FloatingToolbar/FloatingToolbar.test.tsx` (per-workspace
-  composition), `components/ContextControlBar/ContextControlBar.test.tsx`
-  (shape fill/stroke transactions),
+  composition, placement class), `components/ContextControlBar/ContextControlBar.test.tsx`
+  (shape fill/stroke transactions, text-edit duplication suppression),
+  `components/FloatingTextBar/FloatingTextBar.test.tsx` (text formatting),
+  `StatusBar.test.tsx` (tier visibility and status behavior),
   `components/SelectionQuickBar/selectionQuickBarPosition.test.ts` and
   `SelectionQuickBar.test.tsx` (edge clamp, palette-band reserve, flip).
 - Browser: `tests/e2e/canvas/toolbar-layout.spec.ts` (chrome overlap),
-  `toolbar-per-mode.spec.ts`, `workspace-toolbar-visual.spec.ts`
-  (per-workspace rendering), `font-toolbar-visual.spec.ts` (text quick bar),
+  `toolbar-per-mode.spec.ts`, `toolbar-followup.spec.ts` (placement radio pair
+  and persistence, status-bar row/target geometry across widths, quick-bar
+  keyboard contract and duplication, combined real-world journey),
+  `workspace-toolbar-visual.spec.ts` (per-workspace rendering),
+  `font-toolbar-visual.spec.ts` (text quick bar),
   `selection-quick-bar.spec.ts` (leading action reachable and palette-clear at
-  the canvas's left edge).
+  the canvas's left edge), and `tests/e2e/menus/visual-integrity.spec.ts`
+  (grouped View root fits without internal scrolling).
