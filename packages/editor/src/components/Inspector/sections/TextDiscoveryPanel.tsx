@@ -53,6 +53,7 @@ export function TextDiscoveryPanel({
   const [threshold, setThreshold] = useState<number>(0.3);
   const [detections, setDetections] = useState<GroundingDetection[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [reviewedDetectionId, setReviewedDetectionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState<'preparing' | 'loading' | 'detecting' | null>(null);
@@ -172,6 +173,7 @@ export function TextDiscoveryPanel({
     setError(null);
     setDetections([]);
     setSelectedId(null);
+    setReviewedDetectionId(null);
     try {
       const loader = await getModelLoaderReady();
       const graphPath = await loader.getModelPath(GROUNDING_DINO_MODEL_ID, controller.signal);
@@ -254,6 +256,7 @@ export function TextDiscoveryPanel({
       }
       setDetections(decoded);
       setSelectedId(decoded[0]!.id);
+      setReviewedDetectionId(null);
       setState('ready');
       announce(
         `Found ${decoded.length} matching region${decoded.length === 1 ? '' : 's'}. Review one, then segment it.`,
@@ -415,7 +418,10 @@ export function TextDiscoveryPanel({
                   type="radio"
                   name="text-discovery-region"
                   checked={detection.id === selectedId}
-                  onChange={() => setSelectedId(detection.id)}
+                  onChange={() => {
+                    setSelectedId(detection.id);
+                    setReviewedDetectionId(null);
+                  }}
                 />
                 <span>
                   {detection.phrase || 'region'} · {Math.round(detection.score * 100)}% ·{' '}
@@ -426,12 +432,48 @@ export function TextDiscoveryPanel({
               </label>
             ))}
           </div>
+          {selected && (
+            <>
+              <div
+                className="insp-text-discovery-preview"
+                data-testid="text-discovery-selection-preview"
+                role="img"
+                aria-label={`Selected ${selected.phrase || 'region'} detection preview`}
+              >
+                <img src={source ?? undefined} alt="" />
+                <span
+                  className="insp-text-discovery-preview__box"
+                  style={{
+                    left: `${selected.normalizedBox.x1 * 100}%`,
+                    top: `${selected.normalizedBox.y1 * 100}%`,
+                    width: `${(selected.normalizedBox.x2 - selected.normalizedBox.x1) * 100}%`,
+                    height: `${(selected.normalizedBox.y2 - selected.normalizedBox.y1) * 100}%`,
+                  }}
+                />
+              </div>
+              <p className="insp-field__hint">
+                The outline is the exact region that will be sent as the segmentation hint. Verify
+                it is on the object you mean; detector scores are not proof of object identity.
+              </p>
+              <label className="insp-check">
+                <input
+                  type="checkbox"
+                  checked={reviewedDetectionId === selected.id}
+                  onChange={(event) =>
+                    setReviewedDetectionId(event.currentTarget.checked ? selected.id : null)
+                  }
+                  disabled={disabled}
+                />
+                I verified the highlighted region is the intended object
+              </label>
+            </>
+          )}
           <div className="insp-actions">
             <Button
               type="button"
               variant="default"
               size="sm"
-              disabled={!selected || disabled}
+              disabled={!selected || disabled || reviewedDetectionId !== selected?.id}
               onClick={() => {
                 if (!selected) return;
                 onSegmentBox(selected.box);

@@ -3791,6 +3791,30 @@ fieldset.insp-canvas-props,
   font-size: var(--font-size-xs);
 }
 
+.insp-text-discovery-preview {
+  position: relative;
+  inline-size: 100%;
+  overflow: hidden;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+}
+.insp-text-discovery-preview img {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+}
+.insp-text-discovery-preview__box {
+  position: absolute;
+  display: block;
+  border: 2px solid var(--color-interactive-default);
+  border-radius: var(--radius-control-compact);
+  box-shadow:
+    0 0 0 1px var(--color-surface-raised),
+    var(--elevation-shadow-raised);
+  pointer-events: none;
+}
+
 @media (pointer: coarse) {
   .insp-actions .varve-btn--sm {
     min-height: 44px;

@@ -433,7 +433,7 @@ preflight message without pretending that a model ran.
 | Portrait subject matte | explicit MODNet Portrait proposal for suitable photographic people, with persisted-mask pixel evidence | manual refinement or prompted Object Selection for one specific target; the framed braided portrait is a known rejection | missing/failed MODNet is fail-closed; never substitute a generic foreground model |
 | Prompted point/box object selection | SAM2 Hiera Tiny when installed, WASM-compatible, and within the measured working-set budget | MobileSAM split ONNX, only after the user chooses Faster local model | explain the exact provider failure; never silently substitute a foreground estimate |
 | Soft edge / hair refinement | existing brush, trimap, and closed-form matting tools | BiRefNet only in its explicit high-quality cutout/refinement role | preserve binary-safe/manual refinement; do not call a hard mask an alpha matte |
-| Text discovery | Grounding DINO Tiny (INT8) explicit local download, phrase-attributed boxes, automatic routing never downloads | reviewed box → same prompted segmenter candidate path | detection never commits a mask; scores are model similarity, not proof of presence; no match is an honest empty state |
+| Text discovery | Grounding DINO Tiny (INT8) explicit local download, phrase-attributed boxes, automatic routing never downloads | image-backed reviewed box → same prompted segmenter candidate path | detection never commits a mask; the selected box must be explicitly confirmed against the source image; scores are model similarity, not proof of presence; no match is an honest empty state |
 
 ## EfficientSAM-Ti challenger (explicit-only production route, 2026-09-15)
 
@@ -462,7 +462,9 @@ three source-sized candidates, and that no mask input is sent. Full evidence:
 
 Text discovery is now implemented rather than deferred: Grounding DINO Tiny
 runs locally, returns phrase-attributed reviewed boxes, and feeds the same
-prompted-segmentation candidate path. Its artifact, tokenizer parity, and the
+prompted-segmentation candidate path. The panel renders the selected box over
+the source image and requires explicit confirmation before segmentation; changing
+the detection clears that confirmation. Its artifact, tokenizer parity, and the
 measured absent-object false-positive control are recorded in
 `docs/audits/selection-ai-routing-real-world-2026-09-15.md`.
 

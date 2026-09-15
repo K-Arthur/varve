@@ -195,7 +195,10 @@ people standing together are two instances.
 The detected boxes are reviewable proposals. Choosing one sends its box into
 the existing prompted-segmentation candidate path, where the ordinary
 review/candidate/Apply gate still applies; detection alone never commits a
-mask, never auto-accepts the top score, and never unions every box. The UI
+mask, never auto-accepts the top score, and never unions every box. The panel
+renders the selected box over the actual source image and requires an explicit
+confirmation before handing that box to segmentation; changing the detection
+clears the confirmation. The UI
 states that scores are model similarity rather than proof the object is
 present: a measured control prompted `dog` on an elephant photograph returned a
 0.71 box around the elephant, which is the documented early-fusion

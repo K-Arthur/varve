@@ -45,9 +45,9 @@ import { sitePath } from '../../lib/siteUrl';
         <p>
           Find by description runs a local text-conditioned detector (Grounding DINO Tiny) on the
           selected image. Type a concrete description such as <em>red mug</em> or
-          <em>person. dog.</em>, review the returned boxes, and send the one you mean into the same
-          candidate-review path. Detection is a discovery stage: it never applies a mask by itself,
-          and the box is only a prompt for the segmentation model.
+          <em>person. dog.</em>, inspect the image-backed highlight, confirm the region you mean,
+          and send that box into the same candidate-review path. Detection is a discovery stage: it
+          never applies a mask by itself, and the box is only a prompt for the segmentation model.
         </p>
         <p>
           It is an explicit optional download and runs fully on-device. Be precise with wording:

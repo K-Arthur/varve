@@ -148,6 +148,13 @@ test.describe('Text discovery real-model gate', () => {
     // Choose the best apple-labelled detection; the list is ranked by score.
     const appleIndex = labels.findIndex((label) => /apple/i.test(label));
     await radios.nth(Math.max(0, appleIndex)).check();
+    await expect(discovery.getByTestId('text-discovery-selection-preview')).toBeVisible();
+    const detectionReview = discovery.getByRole('checkbox', {
+      name: 'I verified the highlighted region is the intended object',
+    });
+    await expect(detectionReview).toBeVisible();
+    await expect(discovery.getByRole('button', { name: 'Segment selected region' })).toBeDisabled();
+    await detectionReview.check();
 
     // The detector must not have committed a mask: no Apply action exists yet.
     await expect(inspector.getByRole('button', { name: 'Apply as mask' })).toHaveCount(0);
