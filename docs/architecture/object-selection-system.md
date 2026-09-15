@@ -195,6 +195,14 @@ which visible regions belong to the target before applying it. This evidence
 is a review aid, not semantic object recognition or a replacement for the
 mask overlay at fit and 1:1.
 
+Generative Edit also checks the effective mask immediately before inference.
+Fill, Remove, and Replace warn at 90% coverage and fail closed at 99.5% or
+more, because a near-full edit region leaves too little source context to
+reconstruct reliably. Expand is exempt because its edit region is the
+explicitly generated output padding rather than a request to replace the
+source frame. This guard catches accidental over-selection without trimming
+disconnected regions or claiming that coverage alone proves object identity.
+
 When the candidate is imported into Generative Edit, generation stays disabled
 until the user explicitly reviews the highlighted target and confirms it, or
 paints a refinement that changes the mask origin. An ambiguous candidate uses

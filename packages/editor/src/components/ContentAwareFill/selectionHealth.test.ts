@@ -40,16 +40,32 @@ describe('analyzeSelectionHealth', () => {
 
   it('warns on broad and soft masks without blocking valid coverage', () => {
     const mask = new Uint8Array(4 * 4).fill(64);
+    mask[0] = 0;
     const health = analyzeSelectionHealth(mask, 4, 4, 'fill');
 
     expect(health.blockingReason).toBeNull();
-    expect(health.coverage).toBe(1);
+    expect(health.coverage).toBe(15 / 16);
     expect(health.hardPixels).toBe(0);
     expect(health.warnings).toContain(
       'The mask covers almost the entire image; the model has little surrounding context.',
     );
     expect(health.warnings).toContain(
       'The mask contains only soft coverage; verify the visible overlay before generating.',
+    );
+  });
+
+  it('blocks a near-full edit region so inference retains usable context', () => {
+    const mask = new Uint8Array(20 * 20).fill(255);
+    mask[0] = 0;
+
+    const health = analyzeSelectionHealth(mask, 20, 20, 'remove');
+
+    expect(health.coverage).toBe(399 / 400);
+    expect(health.blockingReason).toBe(
+      'The edit region covers nearly the entire image; leave surrounding context or use Expand.',
+    );
+    expect(health.warnings).toContain(
+      'The mask covers almost the entire image; the model has little surrounding context.',
     );
   });
 

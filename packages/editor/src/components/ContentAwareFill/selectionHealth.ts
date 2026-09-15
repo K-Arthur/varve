@@ -27,6 +27,7 @@ export interface SelectionHealth {
 const HARD_THRESHOLD = 128;
 const MIN_EDIT_PIXELS = 4;
 const BROAD_SELECTION_COVERAGE = 0.9;
+const NEAR_FULL_SELECTION_COVERAGE = 0.995;
 
 /**
  * Return whether a source-sized mask can be resized into the current preview
@@ -166,6 +167,9 @@ export function analyzeSelectionHealth(
   } else if (mode !== 'expand' && coveredPixels < MIN_EDIT_PIXELS) {
     blockingReason =
       'The edit region is too small; select at least four pixels or paint a larger area.';
+  } else if (mode !== 'expand' && coverage >= NEAR_FULL_SELECTION_COVERAGE) {
+    blockingReason =
+      'The edit region covers nearly the entire image; leave surrounding context or use Expand.';
   }
   if (mode !== 'expand' && coverage >= BROAD_SELECTION_COVERAGE) {
     warnings.push(
