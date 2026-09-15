@@ -429,7 +429,16 @@ function FontSizeInput({
         onKeyDown={(event) => {
           if (event.key === 'Enter') {
             event.preventDefault();
-            event.currentTarget.blur();
+            // Return focus to the in-canvas editor rather than blurring to
+            // <body>. The editor samples document.activeElement shortly after
+            // the textarea blur to decide whether the session continues; a
+            // body-focused sample used to commit and unmount the session
+            // mid-formatting, so confirming a size discarded it and there was
+            // no surface left to type into. Focusing the editor commits this
+            // draft exactly once (its blur handler) and keeps editing alive.
+            const surface = document.querySelector<HTMLElement>('[data-text-edit-surface="true"]');
+            if (surface) surface.focus({ preventScroll: true });
+            else event.currentTarget.blur();
           } else if (event.key === 'Escape' && draft !== String(value)) {
             event.preventDefault();
             event.stopPropagation();

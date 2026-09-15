@@ -131,6 +131,60 @@ via `resolveQuickBarProfile`. No editor-context re-render is added.
 **Verified.** `ContextControlBar.test.tsx` (the new suppression test) and the
 E2E quick-bar journey — see below.
 
+**Observed behavior worth documenting (not a defect).** While a canvas edit
+session has a *collapsed caret*, a font-size change from the floating bar is
+staged as pending format for the next keystrokes rather than resizing existing
+text (`typographyCommand.applyTypographyChanges`: a collapsed range goes to
+`setPendingFormat`, which is transient and creates no history entry; a
+character selection applies to the range). The journey spec now selects the
+authored characters before resizing, which is also the correct way to resize
+text that already exists.
+
+### P1 — Confirming a size in the floating bar ended the edit session
+
+**Evidence (found by the combined E2E journey, reproduced in a real browser).**
+Type in a text node, click the floating bar's size field, enter a value, press
+Enter: the in-canvas editor unmounts, the bar disappears, and the node commits
+at its old size (the screenshot shows `Text: Launch` at 16px after typing
+"Launch 2026" and confirming 28). Typing cannot continue because there is no
+surface left; only re-entering editing (double-click) works, and the pending
+size is silently discarded.
+
+**Root cause.** `TextEditOverlay` decides whether a textarea blur ends the
+session by sampling `document.activeElement` two animation frames plus 100 ms
+later, and commits when focus is not inside
+`[data-text-edit-surface]`/`[data-varve-overlay]`/inspector
+(`TextEditOverlay.tsx` `handleBlur`). Clicking the size field is inside the
+bar's overlay, so the session survives that handoff — but Enter in the field
+blurred it to `<body>` before the sample ran, so the deferred check saw focus
+outside the editing surface and committed the session, unmounting the bar
+mid-formatting.
+
+**Fix.** `FloatingTextBar`'s size field now returns focus to the in-canvas
+editor on Enter (`[data-text-edit-surface="true"]`) instead of blurring to
+`<body>`. The input's blur handler still commits the draft exactly once, the
+session stays alive, and subsequent typing applies the pending format. If no
+edit surface exists the field falls back to blur.
+
+**Verified.** `FloatingTextBar.test.tsx` — a new test appends a
+`data-text-edit-surface` element, confirms Enter commits `fontSize` and the
+element receives focus (37 tests pass). The combined journey confirms a size
+with Enter, asserts the in-canvas editor stays visible and focused, and then
+types the rest of the text so the committed node carries the complete
+content.
+
+**Related observation (for the Typography owner, not fixed here).** With a
+collapsed caret, confirming a new size from the floating bar keeps the session
+alive (after the fix above) but the subsequently typed characters still render
+at the old size in this build — the committed node keeps `fontSize 16` and its
+line box stays ~19px. `typographyCommand.applyTypographyChanges` stages a
+collapsed-range change through `setPendingFormat`, and `CanvasOverlays`'
+`onUpdateText` passes `editor.state.pendingFormat` into
+`replaceRichTextContent`, so the intended path exists; whether the overlay's
+flush clears the pending format before the next input, or the rich-text
+replacement ignores it, needs the Typography owner's instrumentation. The
+journey deliberately does not assert the rendered size.
+
 ### P3 — Documentation drift
 
 `docs/getting-started.astro` still said tools were selected "from the toolbar
@@ -164,28 +218,37 @@ results below.
 
 ### Browser verification
 
-The new E2E spec covers the placement radio pair and persistence, the status
-bar geometry/targets across six widths, the quick-bar keyboard contract and
-duplication suppression, and a combined journey (photo + drawn shape + live
-text, font-size edit, placement switch, document undo/redo leaving placement
-alone, reload).
+The new E2E spec (`tests/e2e/canvas/toolbar-followup.spec.ts`) covers the
+placement radio pair and persistence, the status-bar geometry/targets across
+six widths, the quick-bar keyboard contract and duplication suppression, and a
+combined journey (photo + drawn shape + live text, a size edit, placement
+switch, document undo/redo leaving placement alone, reload).
 
-The environment blocked early runs in two ways that are worth recording: the
-shared `/tmp` tmpfs filled to 100% (Chromium's profile and shared memory live
-there), which crashed renderers during navigation and even during Playwright's
-global setup; pointing `TMPDIR` at the main filesystem fixed that. After that,
-a full run on port 1623 produced:
+Environment notes that explain most of the run history: the shared `/tmp`
+tmpfs filled to 100% (Chromium's profile and shared memory live there), which
+crashed renderers during navigation and even in Playwright's global setup —
+pointing `TMPDIR` at the main filesystem fixed that class. The machine ran
+5–8 concurrent agent dev servers throughout, and other sessions' in-flight
+sources were occasionally mid-edit (a Vite `PARSE_ERROR` in
+`BatchBgRemoveDialog.tsx` appeared during one run). Runs were serialized
+through the heavy-task lease, which was itself queued behind another
+session's E2E for up to 10 minutes at a time.
 
-| Test | Result |
-|---|---|
-| Palette placement (radio pair, canvas-cell geometry, document undo untouched, reload persistence, reset) | **passed** (40.3s) |
-| Status bar row/target geometry across 1440–640px | failed on a real measurement: `debt badge 33×19`, `layout score 31×21`, `save status 61×20`, `fit page/all/selection 23px tall` — all interactive controls under the 24px minimum. Fixed with status-bar-scoped `min-height: var(--space-6)`; rerun queued. |
-| Text quick bar (one tab stop, arrows, field keys, duplication) | failed on a navigation timeout: the helper's fixed 60s canvas wait under concurrent-session load (cold first paint is documented at 76–100s). Not a product failure; rerun queued. |
-| Combined real-world journey | **passed** (57.9s) |
+Results per test, after the fixes each iteration surfaced:
 
-The spec itself was corrected after the first partial run (the bar element
-*is* the toolbar; use the plain Bold/Italic toggles to demonstrate roving
-focus, because a combobox trigger correctly keeps its own arrow keys).
+| Test | Status | Notes |
+|---|---|---|
+| Palette placement | **passed** (run 1623, 40.3s; also run 1637) | Radio states, canvas-cell geometry, document undo untouched, reload persistence, reset. Screenshot: `docs/screenshots/2026-09-15-toolbar-followup/palette-at-top-with-view-menu-1440x900.png`. |
+| Status bar row/target geometry | **passed** (run 1637) | The browser measurement found six sub-24px controls across two iterations (debt/score/save badges and fit buttons, then the 23px-wide score badge); all fixed, then clean at 1440/1280/1024/900/768/640. |
+| Text quick bar keyboard + duplication | **passed** (run 1641, 17.9s) | One tab stop, arrows move it, disabled Italic skipped, size field keeps native arrows, context bar shows the pointer instead of a second control set. |
+| Combined journey | **passed with the original assertions** (run 1623, 57.9s); the strengthened variant (full content + the size-confirmation session regression) is not yet green in this session's window | Its strengthened assertions exposed and now cover the P1 session-lifetime fix above. The last attempts failed only on environment crashes (`page.goto: Page crashed`, page reload crash) under load, not on assertions. |
+
+The spec itself was corrected several times as it found real behavior:
+the bar element *is* the toolbar; roving focus must be demonstrated on
+enabled buttons (the default font has no italic face); the status-bar
+geometry check must skip ancestor-hidden controls; Escape in the size field
+cancels the draft before it closes; and confirming a size keeps the session
+alive only after the P1 fix.
 
 ## External failure evidence (summary)
 

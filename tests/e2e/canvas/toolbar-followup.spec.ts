@@ -205,9 +205,11 @@ test.describe('Toolbar follow-up — text quick bar', () => {
     await expect(size).toBeFocused();
 
     // Leaving the text node restores the context-bar typography controls.
-    // Escape commits an edited (non-empty) node and ends the session; the
-    // node is re-selected from the tree so the assertion does not depend on
-    // whatever the commit left selected.
+    // The first Escape cancels the size-field draft (the field stops
+    // propagation so a typing Escape does not kill the session); the second
+    // reaches the bar and ends the edit. The node is then re-selected from
+    // the tree so the assertion does not depend on the commit's selection.
+    await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
     await expect(bar).toHaveCount(0);
     const textItem = page.getByRole('treeitem', { name: /Quarterly report/i });
@@ -245,12 +247,23 @@ test.describe('Toolbar follow-up — combined journey', () => {
     await page.mouse.click(canvas.x + 420, canvas.y + 320);
     const editor = page.getByRole('textbox', { name: /editing text/i });
     await expect(editor).toBeFocused({ timeout: 20000 });
-    await page.keyboard.insertText('Launch 2026');
-    await expect(editor).toHaveValue('Launch 2026');
+    await page.keyboard.insertText('Launch');
+    await expect(editor).toHaveValue('Launch');
+    // With a collapsed caret a size change from the bar is staged as pending
+    // format for the next keystrokes (typographyCommand.applyTypographyChanges).
+    // Confirming with Enter must keep the session alive and return focus to
+    // the canvas editor — that is the regression this journey covers.
     const size = page.locator('.floating-text-bar').getByRole('spinbutton', { name: 'Font size' });
     await size.fill('28');
     await size.press('Enter');
-    await expect(editor).toBeVisible();
+    await expect(editor).toBeVisible({ timeout: 10000 });
+    await expect(editor).toBeFocused();
+    await page.keyboard.insertText(' 2026');
+    await expect(editor).toHaveValue('Launch 2026');
+    await size.fill('28');
+    await size.press('Enter');
+    // Committing the size blurs the in-canvas overlay (it hides on blur while
+    // the session stays live), so end the session with an outside click.
     await page.mouse.click(canvas.x + canvas.width - 60, canvas.y + canvas.height - 60);
     await expect(page.locator('.floating-text-bar')).toHaveCount(0);
     await expect(page.getByRole('treeitem')).toHaveCount(3, { timeout: 10000 });

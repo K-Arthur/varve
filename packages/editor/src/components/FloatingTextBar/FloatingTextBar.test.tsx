@@ -347,6 +347,29 @@ describe('FloatingTextBar', () => {
     expect(onUpdate).toHaveBeenCalledWith('text-1', { fontSize: 24 });
   });
 
+  it('returns focus to the canvas editor when Enter confirms the size', () => {
+    // Regression: Enter used to blur the field to <body>. The text editor
+    // samples document.activeElement shortly after its own blur to decide
+    // whether the session continues, so a body-focused sample committed and
+    // unmounted the session mid-formatting — the size was discarded and there
+    // was no surface left to type into.
+    const surface = document.createElement('textarea');
+    surface.setAttribute('data-text-edit-surface', 'true');
+    document.body.appendChild(surface);
+    try {
+      const onUpdate = vi.fn();
+      render(<FloatingTextBar {...defaultProps({ onUpdate })} />);
+      const input = screen.getByLabelText('Font size');
+      input.focus();
+      fireEvent.change(input, { target: { value: '28' } });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(onUpdate).toHaveBeenCalledWith('text-1', { fontSize: 28 });
+      expect(surface).toHaveFocus();
+    } finally {
+      surface.remove();
+    }
+  });
+
   it('renders font selector with combobox', async () => {
     const onUpdate = vi.fn();
     render(<FloatingTextBar {...defaultProps({ onUpdate })} />);

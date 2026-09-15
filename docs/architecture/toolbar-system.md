@@ -152,6 +152,10 @@ The context bar and the floating text bar are toolbars too, and use the same
   shows a short pointer to it instead of rendering a second copy of the same
   controls (`context/textEditSession.ts` publishes the session; the selection
   quick bar suppresses itself from the same signal).
+- **Confirming a field returns to the text.** Enter in the size field commits
+  the value and focuses the in-canvas editor again, so editing continues.
+  Blurring to `<body>` previously let the editor's deferred blur handoff
+  commit and unmount the session mid-formatting, discarding the pending size.
 
 ## Capability gating
 
