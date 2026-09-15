@@ -834,6 +834,34 @@ privacy policy + deterministic cache identity.
 - Layers 28×28 node previews are a documented simplified node profile (not
   document covers).
 
+## Toolbar System
+
+Canonical doc: `docs/architecture/toolbar-system.md`. Review evidence:
+`docs/audits/toolbar-review-2026-09-15.md`.
+
+Command surfaces: menubar, context bar (selection-following), floating tool
+palette, text quick bar, selection quick bar, status bar. Each has one job —
+the palette carries tools and tool options, the context bar carries
+selection properties, the Inspector remains the complete editor.
+
+- **Composition** is single-sourced: `WorkspaceConfig.toolbar` →
+  `workspace/toolbarComposition.ts#composeToolbar` → slots. Never hard-code a
+  label, icon, order, or shortcut in the palette; go through
+  `tools/toolRegistry.ts` and `shortcuts/toolShortcutLabel.ts`.
+- **Responsive overflow** follows `workspace/toolbarRetention.ts`: essential
+  recovery tools and the active tool never collapse; everything else yields in
+  ascending retention order (creation > editing > measurement > commands/AI).
+  Collapse is per *slot*, not per declared group, and the More control is
+  trailing + sticky with a hidden-count accessible name. Do not reintroduce
+  group-level pinning: it dragged four measurement tools into the pinned set
+  and pushed Rect/Text/Frame behind three interactions.
+- **Keyboard** is the APG toolbar contract: exactly one tab stop (re-applied on
+  every commit *and* via a subtree MutationObserver — children can arrive after
+  the first commit), arrows + Home/End, focus never stolen, tool buttons expose
+  `aria-keyshortcuts` from the effective binding.
+- **Capability gating**: touch-only affordances render only when the device
+  reports touch input and carry a visible label (no hover on touch).
+
 ## Masking System
 
 Canonical doc: `docs/architecture/masking-system.md` — model, invariants,
