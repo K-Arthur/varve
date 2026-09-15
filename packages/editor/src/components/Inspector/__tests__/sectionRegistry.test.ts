@@ -828,4 +828,35 @@ describe('contextual section order', () => {
     };
     expect(hasCustomSectionOrder(reordered)).toBe(true);
   });
+
+  it('leads with image placement and crop for image selections', () => {
+    const placement = getSectionDefinition('image-placement')!;
+    const crop = getSectionDefinition('image-crop')!;
+    const appearance = getSectionDefinition('appearance')!;
+    const effect = getSectionDefinition('effects')!;
+    const imageCtx = baseCtx({ selectedNodes: [makeImageNode()] });
+
+    // Both image sections must follow Position & Size and precede Appearance,
+    // so the real-photo audit no longer scrolls past eleven generic sections
+    // to reach Crop & Bounds.
+    expect(resolveSectionOrder(placement, imageCtx)).toBeGreaterThan(
+      getSectionDefinition('position-size')!.order,
+    );
+    expect(resolveSectionOrder(placement, imageCtx)).toBeLessThan(
+      resolveSectionOrder(appearance, imageCtx),
+    );
+    expect(resolveSectionOrder(crop, imageCtx)).toBeLessThan(resolveSectionOrder(effect, imageCtx));
+
+    // Read-outs and rare operations keep their advanced tail position.
+    expect(resolveSectionOrder(getSectionDefinition('image-resolution')!, imageCtx)).toBe(
+      getSectionDefinition('image-resolution')!.order,
+    );
+    expect(resolveSectionOrder(getSectionDefinition('image-perspective')!, imageCtx)).toBe(
+      getSectionDefinition('image-perspective')!.order,
+    );
+
+    // A mixed selection has no single primary content, so registry order wins.
+    const mixedCtx = baseCtx({ selectedNodes: [makeImageNode(), makeNode({ id: 'shape-2' })] });
+    expect(resolveSectionOrder(placement, mixedCtx)).toBe(placement.order);
+  });
 });

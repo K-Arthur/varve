@@ -989,13 +989,30 @@ const TEXT_SELECTION_ORDER: Partial<Record<SectionId, number>> = {
   'text-on-path': 206,
 };
 
+/**
+ * Contextual order for image selections. A selected bitmap leads with the
+ * controls that place and crop it (fit, flip, crop bounds) instead of
+ * trailing eleven generic appearance sections — the 2026-09-15 real-photo
+ * audit had to scroll past Mask, Paint Library, Object Filters and Layer
+ * Effects to reach Crop & Bounds. Resolution and perspective deliberately
+ * stay in the advanced tail: they are read-outs and rare operations, not
+ * per-selection tasks. A user's saved order still wins.
+ */
+const IMAGE_SELECTION_ORDER: Partial<Record<SectionId, number>> = {
+  'image-placement': 111,
+  'image-crop': 112,
+};
+
 export function resolveSectionOrder(
   def: SectionDefinition,
   ctx: SectionAvailabilityContext,
 ): number {
   const textOnly =
     ctx.selectedNodes.length > 0 && ctx.selectedNodes.every((node) => node.kind === 'text');
-  return (textOnly ? TEXT_SELECTION_ORDER[def.id] : undefined) ?? def.order;
+  if (textOnly) return TEXT_SELECTION_ORDER[def.id] ?? def.order;
+  const imageOnly = ctx.selectedNodes.length > 0 && isImageNode(ctx.selectedNodes);
+  if (imageOnly) return IMAGE_SELECTION_ORDER[def.id] ?? def.order;
+  return def.order;
 }
 
 export function getSectionDefinition(id: SectionId): SectionDefinition | undefined {
