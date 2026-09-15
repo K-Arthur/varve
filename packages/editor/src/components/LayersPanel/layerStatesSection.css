@@ -23,8 +23,8 @@
   align-items: center;
   justify-content: center;
   /* WCAG 2.5.8: keep the glyph small but give it a 24x24 pointer target. */
-  width: 24px;
-  height: 24px;
+  width: var(--target-min-compact);
+  height: var(--target-min-compact);
   padding: 0;
   color: var(--color-text-muted);
   background: transparent;
@@ -36,6 +36,23 @@
 .layer-states__create-btn:hover {
   color: var(--color-interactive-default);
   background: var(--elevation-surface-raised);
+}
+
+.layer-states__create-btn:focus-visible,
+.layer-states__name-btn:focus-visible,
+.layer-states__action-btn:focus-visible,
+.layer-states__conflict-dismiss:focus-visible,
+.layer-states__name-input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.layer-states__name-btn:disabled,
+.layer-states__action-btn:disabled,
+.layer-states__create-btn:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .layer-states__list {
@@ -57,6 +74,7 @@
   align-items: center;
   justify-content: space-between;
   min-width: 0;
+  min-height: var(--target-min-compact);
   padding: var(--space-1) var(--space-1);
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
@@ -96,6 +114,7 @@
 .layer-states__name-input {
   flex: 1 1 auto;
   padding: var(--space-1);
+  min-height: var(--target-min-compact);
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
   background: var(--elevation-surface-raised);
@@ -105,9 +124,9 @@
 
 .layer-states__actions {
   display: flex;
-  gap: 2px;
+  gap: var(--space-05);
   opacity: 0;
-  transition: opacity 120ms ease;
+  transition: opacity var(--duration-quick) var(--ease-standard);
 }
 
 .layer-states__item:hover .layer-states__actions,
@@ -121,6 +140,8 @@
   justify-content: center;
   width: var(--space-5);
   height: var(--space-5);
+  min-width: var(--target-min-compact);
+  min-height: var(--target-min-compact);
   padding: 0;
   color: var(--color-text-muted);
   background: transparent;
@@ -144,7 +165,7 @@
   gap: var(--space-2);
   margin: var(--space-2) var(--space-3) 0;
   padding: var(--space-1) var(--space-2);
-  font-size: 0.72rem;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   background: color-mix(in srgb, var(--color-feedback-warning) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-feedback-warning) 40%, transparent);
@@ -156,8 +177,8 @@
   align-items: center;
   justify-content: center;
   margin-left: auto;
-  width: 16px;
-  height: 16px;
+  min-width: var(--target-min-compact);
+  min-height: var(--target-min-compact);
   padding: 0;
   color: var(--color-text-muted);
   background: transparent;

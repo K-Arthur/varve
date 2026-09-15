@@ -106,6 +106,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  min-width: var(--target-min-compact);
+  min-height: var(--target-min-compact);
   width: var(--space-6);
   height: var(--space-6);
   border: 1px solid transparent;
@@ -142,8 +144,8 @@
 .layers-panel__header-actions > .panel-detach-btn {
   width: var(--space-6);
   height: var(--space-6);
-  min-width: var(--space-6);
-  min-height: var(--space-6);
+  min-width: max(var(--space-6), var(--target-min-compact));
+  min-height: max(var(--space-6), var(--target-min-compact));
 }
 
 .layers-panel__isolation-breadcrumb {
@@ -174,6 +176,7 @@
   border-radius: var(--radius-control-compact);
   padding: var(--space-1) var(--space-2);
   font-size: var(--font-size-xs);
+  min-height: var(--target-min-compact);
   cursor: pointer;
 }
 
@@ -181,79 +184,30 @@
   background: var(--color-surface-hover);
 }
 
+.layers-panel__isolation-breadcrumb button:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
 .layers-panel__solo-exit-btn {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent-primary) 50%, transparent);
+  background: color-mix(in srgb, var(--color-accent-primary) 12%, transparent);
+  color: var(--color-accent-primary);
   cursor: pointer;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-control-compact);
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
+  min-height: var(--target-min-compact);
 }
 
 .layers-panel__solo-exit-btn:hover {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  background: color-mix(in srgb, var(--color-accent-primary) 20%, transparent);
 }
 
-/* ─── Filter — compact search field ──────────────────────────── */
-.layers-panel__filter {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  margin: var(--space-1) var(--space-2) var(--space-1);
-  padding: 0 var(--space-2);
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  transition: border-color var(--duration-quick) var(--ease-standard);
-}
-.layers-panel__filter:focus-within {
-  border-color: var(--color-border-focus);
-}
-[data-theme="high-contrast"] .layers-panel__filter {
-  border-color: var(--color-border-subtle);
-}
-
-.layers-panel__filter-input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
-  outline: none;
-  padding: var(--space-1) 0;
-}
-
-.layers-panel__filter-input::placeholder {
-  color: var(--color-text-muted);
-}
-
-.layers-panel__filter-clear {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--space-5);
-  min-height: var(--space-5);
-  width: var(--space-5);
-  height: var(--space-5);
-  border: none;
-  background: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 0;
-  border-radius: var(--radius-control-compact);
-  flex-shrink: 0;
-}
-
-.layers-panel__filter-clear:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-sunken);
-}
-
-.layers-panel__filter-clear:focus-visible {
+.layers-panel__solo-exit-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -1px;
 }
@@ -527,7 +481,7 @@
 }
 
 .layers-row--soloed {
-  background-color: color-mix(in srgb, var(--accent) 14%, transparent);
+  background-color: color-mix(in srgb, var(--color-accent-primary) 14%, transparent);
 }
 
 /* ─── Disclosure ────────────────────────────────────────────── */
@@ -535,8 +489,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1em;
-  height: 1em;
+  /* WCAG 2.2 SC 2.5.8: a real 24x24 target. The glyph stays small; the
+   * button is the hit area. The row's indentation absorbs the extra width
+   * so the disclosure still reads as part of the depth rail. */
+  width: var(--target-min-compact);
+  height: var(--target-min-compact);
   flex-shrink: 0;
   border: none;
   background: none;
@@ -586,8 +543,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: var(--target-min-compact);
+  height: var(--target-min-compact);
   flex-shrink: 0;
   cursor: pointer;
   /* Explicit reset: this is a real <button>. Without these the browser's UA
@@ -784,6 +741,10 @@
 
 /* Derived stack identity: the persisted layer name stays user-editable while
  * this second line reflects the ordered adjustments currently on the layer. */
+/* Inline-text control: sits in the layer name's line box next to the name.
+   WCAG 2.5.8's inline exception applies (its size is constrained by the
+   surrounding line-height), so it is not forced to a 24px block — that
+   would grow every adjustment row. */
 .layers-row__adjustment-summary {
   display: block;
   max-width: 100%;
@@ -886,6 +847,38 @@
   flex-shrink: 0;
   margin-right: var(--space-1);
   opacity: 0.8;
+}
+
+/* ─── Grid layout indicator (frame with grid layout) ─────── */
+.layers-row__grid-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-interactive-default);
+  flex-shrink: 0;
+  margin-right: var(--space-1);
+  opacity: 0.8;
+}
+
+/* ─── Animated-media badge ───────────────────────────────── */
+/* The original rule lives in editor.css with hardcoded 6px/4px/9px values
+ * and an #14b8a6 fallback — outside this panel's token and density
+ * contracts. editor.css is owned by another in-flight change right now, so
+ * the panel's version is scoped to the panel root to win the cascade
+ * reliably; the stale editor.css rule is a documented follow-up removal. */
+.layers-panel .layers-row__media-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-right: var(--space-1);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-control-compact);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  color: var(--color-accent-primary);
+  background: color-mix(in srgb, var(--color-accent-primary) 12%, transparent);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* ─── Adjustment type badge ──────────────────────────────── */
@@ -1007,13 +1000,9 @@
 
 /* ─── Effects badge (drop shadow, blur, glow, etc.) ───────── */
 .layers-row__effects-badge {
-  background: color-mix(
-    in oklab,
-    var(--color-accent-secondary, var(--color-accent)) 14%,
-    transparent
-  );
+  background: color-mix(in oklab, var(--color-accent-primary) 14%, transparent);
   border-radius: var(--radius-control-compact);
-  color: var(--color-accent-secondary, var(--color-accent));
+  color: var(--color-accent-primary);
   flex-shrink: 0;
   font-size: var(--font-size-2xs);
   padding: 0 var(--space-1);
@@ -1071,8 +1060,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-5);
-  height: var(--space-5);
+  min-width: var(--target-min-compact);
+  min-height: var(--target-min-compact);
   flex-shrink: 0;
   border: none;
   background: none;
@@ -1220,46 +1209,12 @@
   border-color: var(--color-border-subtle);
 }
 
-.layers-filter-bar__input {
-  flex: 1;
-  border: none;
-  background: transparent;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
-  outline: none;
-  padding: var(--space-1) 0;
-}
-.layers-filter-bar__input:focus-visible,
-.layers-panel__filter-input:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -2px;
-}
-.layers-filter-bar__input::placeholder {
-  color: var(--color-text-muted);
-}
-
-.layers-filter-bar__clear-search {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-4);
-  height: var(--space-4);
-  border: none;
-  background: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 0;
-  border-radius: var(--radius-control-compact);
-}
-.layers-filter-bar__clear-search:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-sunken);
-}
-
 .layers-filter-bar__toggle-advanced {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-width: var(--target-min-compact);
+  min-height: var(--target-min-compact);
   width: var(--space-6);
   height: var(--space-6);
   border: 1px solid transparent;
@@ -1273,6 +1228,13 @@
 .layers-filter-bar__toggle-advanced:hover {
   color: var(--color-text-primary);
   background: var(--color-surface-hover);
+}
+.layers-filter-bar__toggle-advanced:focus-visible,
+.layers-filter-bar__clear-all:focus-visible,
+.layers-filter-bar__chip:focus-visible,
+.layers-filter-bar__clear-tag:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
 }
 
 .layers-filter-bar__toggle-advanced--active {
@@ -1288,6 +1250,7 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   padding: 0 var(--space-1);
+  min-height: var(--target-min-compact);
   cursor: pointer;
   white-space: nowrap;
   flex-shrink: 0;
@@ -1332,6 +1295,7 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   padding: var(--space-05) var(--space-1);
+  min-height: var(--target-min-compact);
   cursor: pointer;
   transition:
     background var(--duration-quick) var(--ease-standard),
@@ -1384,11 +1348,15 @@
   appearance: none;
   border: 1px solid transparent;
   border-radius: 50%;
-  box-sizing: content-box;
+  /* border-box keeps the visible swatch inside the 24px activation area
+     instead of inflating it by the transparent focus border. */
+  box-sizing: border-box;
   cursor: pointer;
   display: inline-flex;
   flex: 0 0 auto;
-  height: var(--space-2);
+  min-width: var(--target-min-compact);
+  min-height: var(--target-min-compact);
+  height: var(--target-min-compact);
   justify-content: center;
   padding: var(--space-1);
   transition:
@@ -1460,12 +1428,15 @@
 
 .layers-filter-bar__clear-tag {
   align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
   background: none;
   border: 0;
   color: var(--color-text-muted);
   cursor: pointer;
   font-size: var(--font-size-2xs);
   padding: 0;
+  min-height: var(--target-min-compact);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -1591,12 +1562,15 @@
   background: color-mix(in srgb, var(--color-interactive-default) 22%, var(--color-surface-base));
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   pointer-events: none;
 }
 
+/* The base rule draws its top accent with an inset shadow, not a border, so
+   re-colouring `border-top-color` here changed nothing and the denied state
+   kept the accept accent. */
 .layers-panel__drop-root--invalid {
-  border-top-color: var(--color-interactive-drop-denied-border);
+  box-shadow: inset 0 3px 0 -1px var(--color-interactive-drop-denied-border);
   background: var(--color-interactive-drop-denied-surface);
 }
 
@@ -1631,7 +1605,7 @@
   border-radius: var(--radius-control-compact);
   color: var(--color-text-primary-on-default, var(--color-text-primary));
   font-size: var(--font-size-2xs);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   max-width: 60%;
   overflow: hidden;
   padding: 2px var(--space-1);
@@ -1663,7 +1637,7 @@
   background: var(--color-interactive-default);
   color: var(--color-text-primary-on-default, var(--color-text-primary));
   font-size: var(--font-size-xs);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   pointer-events: none;
   white-space: nowrap;
   max-width: 60%;
@@ -1734,6 +1708,9 @@
   width: var(--space-4);
   height: var(--space-4);
   border-radius: 50%;
+  /* Deliberate optical exception: a single initial inside an 11-14px circle.
+     It is decorative (the participant name is the aria-label), so it does not
+     use the type scale — the token floor would overflow the circle. */
   font-size: 8px;
   font-weight: var(--font-weight-bold);
   color: var(--color-text-on-accent);
@@ -1811,6 +1788,8 @@
   justify-content: center;
   width: var(--space-5);
   height: var(--space-5);
+  min-width: var(--target-min-compact);
+  min-height: var(--target-min-compact);
   border: none;
   background: none;
   color: var(--color-text-secondary);
@@ -1826,6 +1805,11 @@
 .layers-bulk-bar__btn:hover {
   color: var(--color-text-primary);
   background: var(--color-surface-hover);
+}
+
+.layers-bulk-bar__btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
 }
 
 .layers-bulk-bar__btn--delete:hover {

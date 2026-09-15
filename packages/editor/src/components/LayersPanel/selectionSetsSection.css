@@ -27,6 +27,8 @@
   justify-content: center;
   width: var(--space-5);
   height: var(--space-5);
+  min-width: var(--target-min-compact);
+  min-height: var(--target-min-compact);
   padding: 0;
   color: var(--color-text-muted);
   background: transparent;
@@ -38,6 +40,21 @@
 .selection-sets__create-btn:hover {
   color: var(--color-interactive-default);
   background: var(--elevation-surface-raised);
+}
+
+.selection-sets__create-btn:focus-visible,
+.selection-sets__name-btn:focus-visible,
+.selection-sets__action-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.selection-sets__name-btn:disabled,
+.selection-sets__action-btn:disabled,
+.selection-sets__create-btn:disabled {
+  color: var(--color-text-disabled, var(--color-text-muted));
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .selection-sets__list {
@@ -59,6 +76,7 @@
   align-items: center;
   justify-content: space-between;
   min-width: 0;
+  min-height: var(--target-min-compact);
   padding: var(--space-1) var(--space-1);
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
@@ -89,6 +107,7 @@
 .selection-sets__name-input {
   flex: 1 1 auto;
   padding: var(--space-1);
+  min-height: var(--target-min-compact);
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
   background: var(--elevation-surface-raised);
@@ -96,11 +115,16 @@
   border-radius: var(--radius-control-compact);
 }
 
+.selection-sets__name-input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
 .selection-sets__actions {
   display: flex;
-  gap: 2px;
+  gap: var(--space-05);
   opacity: 0;
-  transition: opacity 120ms ease;
+  transition: opacity var(--duration-quick) var(--ease-standard);
 }
 
 .selection-sets__item:hover .selection-sets__actions,
@@ -122,6 +146,8 @@
   justify-content: center;
   width: var(--space-5);
   height: var(--space-5);
+  min-width: var(--target-min-compact);
+  min-height: var(--target-min-compact);
   padding: 0;
   color: var(--color-text-muted);
   background: transparent;

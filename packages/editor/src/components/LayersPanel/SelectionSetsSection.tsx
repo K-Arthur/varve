@@ -98,17 +98,18 @@ export function SelectionSetsSection() {
         )}
       </div>
       {!collapsed && (
-        <div className="selection-sets__list" role="listbox" aria-label="Selection sets">
+        <div className="selection-sets__list" role="list" aria-label="Selection sets">
           {sets.map((set) => {
             const isEditing = editingId === set.id;
             const memberCount = setMembership.get(set.id) ?? 0;
             const totalCount = set.nodeIds.length;
             return (
-              <div key={set.id} className="selection-sets__item" role="option" tabIndex={0}>
+              <div key={set.id} className="selection-sets__item" role="listitem">
                 {isEditing ? (
                   <input
                     type="text"
                     value={editingName}
+                    aria-label={`Rename selection set ${set.name}`}
                     onChange={(e) => setEditingName(e.target.value)}
                     onBlur={() => handleRenameCommit(set.id)}
                     onKeyDown={(e) => {
@@ -118,7 +119,9 @@ export function SelectionSetsSection() {
                     className="selection-sets__name-input"
                   />
                 ) : (
-                  <Tooltip label={`Select ${totalCount} member(s)`}>
+                  <Tooltip
+                    label={`${set.name}: select ${totalCount} member${totalCount === 1 ? '' : 's'}`}
+                  >
                     <button
                       type="button"
                       className="selection-sets__name-btn"
@@ -176,7 +179,7 @@ export function SelectionSetsSection() {
                       onClick={() => handleRenameStart(set.id, set.name)}
                       aria-label={`Rename ${set.name}`}
                     >
-                      <SolidIcon name={SOLID_CHROME_ICONS.fileText} size="0.7em" />
+                      <SolidIcon name={SOLID_CHROME_ICONS.pencil} size="0.7em" />
                     </button>
                   </Tooltip>
                   <Tooltip label="Duplicate">
