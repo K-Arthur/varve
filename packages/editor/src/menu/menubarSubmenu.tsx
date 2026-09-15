@@ -130,45 +130,57 @@ export function MenubarSubmenu({
           onKeyDown(event);
         }}
       >
-        {items.map((subItem, subItemIdx) => {
-          if (subItem.label === '---') {
+        {/* activeSubmenuIndex counts only focusable items (separators
+            excluded), matching menubarKeynav and the MENU_ITEM_SELECTOR
+            NodeList it focuses through. Comparing it against the raw config
+            index put tabIndex=0 on the wrong item — or on no item at all —
+            as soon as a separator preceded the active one. Track the
+            focusable index alongside the config index, as the parent
+            dropdown already does. */}
+        {(() => {
+          let focusableIdx = -1;
+          return items.map((subItem) => {
+            if (subItem.label === '---') {
+              return (
+                <hr
+                  key={separatorKey(items, subItem, parentLabel)}
+                  className="editor-menubar__menu-sep"
+                  tabIndex={-1}
+                />
+              );
+            }
+            focusableIdx += 1;
+            const subFocusableIdx = focusableIdx;
+            const subRole = itemRole(subItem);
+            const subChecked = itemAriaChecked(subItem, state, currentTheme);
+            const subActive =
+              (subItem.action?.startsWith('theme:') && currentTheme === subItem.action.slice(6)) ||
+              subChecked;
             return (
-              <hr
-                key={separatorKey(items, subItem, parentLabel)}
-                className="editor-menubar__menu-sep"
-                tabIndex={-1}
-              />
+              // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is emitted only when the runtime role is menuitemradio/menuitemcheckbox
+              <button
+                key={subItem.label}
+                role={subRole}
+                type="button"
+                aria-checked={
+                  subRole === 'menuitemradio' || subRole === 'menuitemcheckbox'
+                    ? subChecked
+                    : undefined
+                }
+                aria-keyshortcuts={subItem.ariaKeyshortcut}
+                disabled={subItem.disabled}
+                tabIndex={activeSubmenuIndex === subFocusableIdx ? 0 : -1}
+                className={`editor-menubar__menu-item${subActive ? ' editor-menubar__menu-item--active' : ''}`}
+                onClick={() => handleAction(subItem.action ?? '')}
+              >
+                <span className="editor-menubar__menu-label">{subItem.label}</span>
+                {subItem.shortcut && (
+                  <span className="editor-menubar__menu-shortcut">{subItem.shortcut}</span>
+                )}
+              </button>
             );
-          }
-          const subRole = itemRole(subItem);
-          const subChecked = itemAriaChecked(subItem, state, currentTheme);
-          const subActive =
-            (subItem.action?.startsWith('theme:') && currentTheme === subItem.action.slice(6)) ||
-            subChecked;
-          return (
-            // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is emitted only when the runtime role is menuitemradio/menuitemcheckbox
-            <button
-              key={subItem.label}
-              role={subRole}
-              type="button"
-              aria-checked={
-                subRole === 'menuitemradio' || subRole === 'menuitemcheckbox'
-                  ? subChecked
-                  : undefined
-              }
-              aria-keyshortcuts={subItem.ariaKeyshortcut}
-              disabled={subItem.disabled}
-              tabIndex={activeSubmenuIndex === subItemIdx ? 0 : -1}
-              className={`editor-menubar__menu-item${subActive ? ' editor-menubar__menu-item--active' : ''}`}
-              onClick={() => handleAction(subItem.action ?? '')}
-            >
-              <span className="editor-menubar__menu-label">{subItem.label}</span>
-              {subItem.shortcut && (
-                <span className="editor-menubar__menu-shortcut">{subItem.shortcut}</span>
-              )}
-            </button>
-          );
-        })}
+          });
+        })()}
       </div>
     </FloatingPortal>
   );

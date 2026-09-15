@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { addNode, createDocument, makeShapeNode } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -533,6 +533,57 @@ describe('Menubar disabled states', () => {
     );
     const menu = await screen.findByRole('menu', { name: 'Arrange' });
     expect(within(menu).getByRole('menuitem', { name: /Nudge Right/ })).toBeDisabled();
+  });
+
+  it('hovering a plain command closes an open submenu', async () => {
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(
+      within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Arrange' }),
+    );
+    const menu = await screen.findByRole('menu', { name: 'Arrange' });
+    await user.hover(within(menu).getByRole('menuitem', { name: 'Align' }));
+    expect(await screen.findByRole('menu', { name: 'Align' })).toBeInTheDocument();
+
+    await user.hover(within(menu).getByRole('menuitem', { name: /Harmonize Spacing/ }));
+    expect(screen.queryByRole('menu', { name: 'Align' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the submenu roving tabindex on the focused item across separators', async () => {
+    const nodes = ['s1', 's2', 's3'].map((id, index) =>
+      makeShapeNode(id, { kind: 'rect', x: index * 20, y: 0, w: 10, h: 10 }),
+    );
+    mockDocument = nodes.reduce((doc, node) => addNode(doc, node), mockDocument);
+    mockSelection = nodes.map((node) => node.id);
+
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(
+      within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Arrange' }),
+    );
+    const menu = await screen.findByRole('menu', { name: 'Arrange' });
+    await user.hover(within(menu).getByRole('menuitem', { name: 'Align' }));
+    const submenu = await screen.findByRole('menu', { name: 'Align' });
+
+    const first = within(submenu).getByRole('menuitem', { name: /^Align Left/ });
+    expect(first).toBeEnabled();
+    first.focus();
+
+    const visited: string[] = [];
+    for (let step = 0; step < 4; step += 1) {
+      await user.keyboard('{ArrowDown}');
+      await waitFor(() => {
+        const tabbable = within(submenu)
+          .getAllByRole('menuitem')
+          .find((element) => element.getAttribute('tabindex') === '0');
+        expect(tabbable).toBe(document.activeElement);
+      });
+      visited.push(document.activeElement?.textContent?.trim() ?? '');
+    }
+
+    // The fourth step crosses the first separator; focus must have reached
+    // the second group, and the tabindex must have followed it.
+    expect(visited.some((name) => name.startsWith('Align Top'))).toBe(true);
   });
 
   it('disables withheld demo workspaces and background removal', async () => {

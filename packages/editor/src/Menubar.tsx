@@ -2524,6 +2524,12 @@ export function Menubar({
                             setActiveItemIndex(itemFocusableIdx);
                             setOpenSubmenu(itemIdx);
                             setActiveSubmenuIndex(0);
+                          } else {
+                            // A plain command row closes any open flyout.
+                            // Previously the child stayed open over an
+                            // unrelated row until an outside click or Escape,
+                            // which read as a stuck menu.
+                            setOpenSubmenu(null);
                           }
                         }}
                       >
@@ -2554,7 +2560,9 @@ export function Menubar({
                         >
                           <span className="editor-menubar__menu-label">{item.label}</span>
                           {hasSubmenu && (
-                            <span className="editor-menubar__menu-submenu-arrow">&#9654;</span>
+                            <span className="editor-menubar__menu-submenu-arrow" aria-hidden="true">
+                              &#9654;
+                            </span>
                           )}
                           {!hasSubmenu && item.shortcut && (
                             <span className="editor-menubar__menu-shortcut">{item.shortcut}</span>
