@@ -1,5 +1,14 @@
 # Text/object discovery feasibility gate — 2026-09-14
 
+> **Superseded on 2026-09-15:** the gate was subsequently passed with the
+> pinned `onnx-community/grounding-dino-tiny-ONNX` int8 export after
+> onnxruntime-web WASM execution was verified (session 5.7 s, one 800x800 pass
+> 41.9 s single-threaded, peak 2.4 GB) and the reservation was tied to the
+> catalog's measured 3.2 GB peak. The shipped system, its verified behavior,
+> and its limitations are documented in
+> `docs/architecture/text-discovery-system.md`. This document remains as the
+> research record that defined the gate.
+
 Status: **deferred** — detector research complete, runtime/model gate does not
 yet pass. Ordinary point/box Object Selection is unaffected and text discovery
 is not required by any existing workflow.

@@ -38,7 +38,7 @@ not create a second AI-selection subsystem.
 | P2 | MobileSAM adapter (smaller-download prompted provider) behind the provider seam, gated on corpus and real-photo evidence | Adapter, pinned artifact, contract tests, and Chromium WASM workflow shipped 2026-09-14; remains explicit experimental and is not in Auto routing |
 | P3 | Refinement handoff from proposals (existing refine section is the handoff) | Shipped via selection→refine path |
 | P4 | EfficientSAM A-B | Deferred (adapter-only, not shipped) |
-| P5 | Text/object discovery (Grounding DINO → promptable segmenter) | Deferred, research only |
+| P5 | Text/object discovery (Grounding DINO → promptable segmenter) | Shipped experimental 2026-09-15; evidence and limits in `docs/architecture/text-discovery-system.md` |
 
 ### P0/P1 implementation notes (2026-09-14)
 
@@ -94,7 +94,7 @@ Rules:
 | --- | --- | --- | --- | --- | --- |
 | Automatic foreground | model-free heuristic | U²-NetP | IS-Net (installed) | BiRefNet Lite (installed, native-preferred) | existing selection refine + hair/trimap matting |
 | Prompted object | — (explicit unavailable state) | — | SAM2-Hiera-Tiny (installed, validated, and within the measured budget) | MobileSAM only when explicitly chosen; the 44.7 MB download still reached ~1.15 GB RSS in the real-photo Node gate, so it is not treated as a low-memory guarantee | existing selection refine |
-| Text discovery | — | — | — | — | not shipped |
+| Text discovery | — | Grounding DINO Tiny INT8: explicit 194 MB download, measured ~2.4 GB peak in browser WASM (refused on low-memory sessions) | reviewed detection box enters the same prompted router | reviewed box → SAM2 candidate review; detection never commits a mask | not a mask generator; no auto-download; absent-object false positives measured |
 
 ## Acceptance criteria for this plan
 
