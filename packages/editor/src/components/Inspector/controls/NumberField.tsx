@@ -73,6 +73,17 @@ export interface NumberFieldProps {
   label: string;
   value: number;
   onChange: (value: number) => void;
+  /**
+   * Relative edit channel for gestures (scrub, arrow/Page steps, wheel).
+   *
+   * When provided, gestures call `onDelta(increment)` instead of
+   * `onChange(absoluteValue)` so a multi-selection can apply the same delta to
+   * every object (relative move) while typing an absolute value still sets all
+   * objects to that value. The increment is in this field's display units and
+   * is applied on top of whatever the parent already has; the parent owns
+   * bounds and clamping for relative edits.
+   */
+  onDelta?: (delta: number) => void;
   step?: number;
   shiftStep?: number;
   altStep?: number;
@@ -145,6 +156,7 @@ export function NumberField({
   label,
   value,
   onChange,
+  onDelta,
   step = 1,
   shiftStep = 10,
   altStep = 0.1,
@@ -364,8 +376,11 @@ export function NumberField({
               ? altStep
               : step;
       const dir = e.key === 'ArrowUp' || e.key === 'PageUp' ? 1 : -1;
-      const next = stepFrom(dir * magnitude);
-      if (next === null) return;
+      const delta = dir * magnitude;
+      // Relative channel: the parent applies the increment to every selected
+      // object, so there is no absolute target to test for a no-op.
+      const next = onDelta ? null : stepFrom(delta);
+      if (next === null && !onDelta) return;
       if (ctx && !e.repeat && !arrowTransaction.current) {
         // Coalesce rapid repeats into a single undo step: begin on first
         // press, commit on key up (or abort if the window loses focus).
@@ -382,7 +397,15 @@ export function NumberField({
         window.addEventListener('keyup', onKeyUp);
         window.addEventListener('blur', onWindowBlur);
       }
-      applySteppedValue(next);
+      if (onDelta) {
+        if (dirty !== null) {
+          setDirty(null);
+          setError(null);
+        }
+        onDelta(delta);
+      } else if (next !== null) {
+        applySteppedValue(next);
+      }
     },
     [
       altStep,
@@ -395,6 +418,7 @@ export function NumberField({
       finishArrowTransaction,
       finishWheelTransaction,
       isReadOnly,
+      onDelta,
       shiftStep,
       step,
       stepFrom,
@@ -456,8 +480,10 @@ export function NumberField({
             if (scrub.current) scrub.current.transactionOpen = true;
           }
         }
+        const increment = next - current;
         current = next;
-        onChange(next);
+        if (onDelta) onDelta(increment);
+        else onChange(next);
       };
       const onUp = () => finishScrub(false);
       const onCancel = () => finishScrub(true);
@@ -520,6 +546,7 @@ export function NumberField({
       draftKey,
       finishScrub,
       isReadOnly,
+      onDelta,
       onChange,
       onShiftClick,
       shiftStep,
@@ -533,36 +560,50 @@ export function NumberField({
   // so preventDefault inside React's onWheel is a no-op — the panel scrolls,
   // the field slides out from under the pointer, and the gesture can change a
   // different field. Attach a native non-passive listener instead.
+  const beginWheelStepTransaction = () => {
+    if (!ctx) return;
+    const session = wheelTransaction.current;
+    if (!session || session.draftKey !== draftKey) {
+      finishWheelTransaction(true);
+      ctx.beginTransaction();
+      const cleanup = () => window.clearTimeout(wheelTransaction.current?.timer);
+      wheelTransaction.current = { draftKey, timer: 0, cleanup };
+    } else {
+      window.clearTimeout(session.timer);
+    }
+    const currentSession = wheelTransaction.current;
+    if (currentSession) {
+      currentSession.timer = window.setTimeout(
+        () => finishWheelTransaction(false),
+        WHEEL_IDLE_COMMIT_MS,
+      );
+    }
+  };
+
   const wheelHandlerRef = useRef<(e: WheelEvent) => void>(() => {});
   wheelHandlerRef.current = (e: WheelEvent) => {
     if (isReadOnly || e.deltaY === 0) return;
     const el = inputRef.current;
     if (!el || document.activeElement !== el) return;
     const session = wheelTransaction.current;
+    const dir = e.deltaY < 0 ? 1 : -1;
+    if (onDelta) {
+      e.preventDefault();
+      beginWheelStepTransaction();
+      if (dirty !== null) {
+        setDirty(null);
+        setError(null);
+      }
+      onDelta(dir * step);
+      return;
+    }
     const base = session ? wheelValueRef.current : stepBase();
     if (base === null) return;
-    const dir = e.deltaY < 0 ? 1 : -1;
     const next = clamp(stripFloatResidue(base + dir * step));
     // At a bound, leave the wheel to scroll the panel rather than trapping it.
     if (next === base) return;
     e.preventDefault();
-    if (ctx) {
-      if (!session || session.draftKey !== draftKey) {
-        finishWheelTransaction(true);
-        ctx.beginTransaction();
-        const cleanup = () => window.clearTimeout(wheelTransaction.current?.timer);
-        wheelTransaction.current = { draftKey, timer: 0, cleanup };
-      } else {
-        window.clearTimeout(session.timer);
-      }
-      const currentSession = wheelTransaction.current;
-      if (currentSession) {
-        currentSession.timer = window.setTimeout(
-          () => finishWheelTransaction(false),
-          WHEEL_IDLE_COMMIT_MS,
-        );
-      }
-    }
+    beginWheelStepTransaction();
     wheelValueRef.current = next;
     if (dirty !== null) {
       setDirty(null);
@@ -612,7 +653,11 @@ export function NumberField({
           ref={inputRef}
           id={inputId}
           type="text"
-          inputMode="decimal"
+          // A full text keyboard keeps signed values (-40), unit math (120/2)
+          // and {alias} expressions typeable. iOS decimal pads omit the minus
+          // key, so negative coordinates are untypeable with inputMode="decimal"
+          // (research record NF-11; not verifiable without a physical device).
+          inputMode="text"
           role="spinbutton"
           className={`insp-num__input${visualMixed ? ' insp-num__input--mixed' : ''}${isReadOnly ? ' insp-num__input--readonly' : ''}`}
           value={displayed}

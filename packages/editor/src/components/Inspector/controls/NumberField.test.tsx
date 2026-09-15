@@ -554,11 +554,50 @@ describe('NumberField', () => {
   });
 });
 
+describe('NumberField relative edits (onDelta)', () => {
+  it('scrubs through onDelta with increments while typing still commits absolute values', () => {
+    const onChange = vi.fn();
+    const onDelta = vi.fn();
+    render(<NumberField label="X" value={0} mixed onChange={onChange} onDelta={onDelta} />);
+    fireEvent.pointerDown(screen.getByText('X'), { button: 0, clientX: 0 });
+    fireEvent.pointerMove(window, { clientX: 10 });
+    fireEvent.pointerMove(window, { clientX: 30 });
+    fireEvent.pointerUp(window);
+    expect(onDelta.mock.calls.map(([delta]) => delta)).toEqual([10, 20]);
+    expect(onChange).not.toHaveBeenCalled();
+
+    const input = screen.getByLabelText('X') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '42' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onChange).toHaveBeenCalledWith(42);
+  });
+
+  it('steps through onDelta on arrow and page keys', () => {
+    const onDelta = vi.fn();
+    render(<NumberField label="X" value={0} onChange={() => {}} onDelta={onDelta} />);
+    const input = screen.getByLabelText('X');
+    fireEvent.keyDown(input, { key: 'ArrowUp' });
+    fireEvent.keyUp(window, { key: 'ArrowUp' });
+    expect(onDelta).toHaveBeenLastCalledWith(1);
+    fireEvent.keyDown(input, { key: 'ArrowDown', shiftKey: true });
+    fireEvent.keyUp(window, { key: 'ArrowDown' });
+    expect(onDelta).toHaveBeenLastCalledWith(-10);
+    fireEvent.keyDown(input, { key: 'PageUp' });
+    fireEvent.keyUp(window, { key: 'PageUp' });
+    expect(onDelta).toHaveBeenLastCalledWith(10);
+  });
+
+  it('exposes a text keyboard so signed values and expressions are typeable', () => {
+    render(<NumberField label="X" value={-40} min={-100} onChange={() => {}} />);
+    expect(screen.getByLabelText('X').getAttribute('inputmode')).toBe('text');
+  });
+});
+
 describe('stripFloatResidue', () => {
   it('removes binary residue without imposing a decimal grid', () => {
     expect(stripFloatResidue(270.40000000000003)).toBe(270.4);
     expect(stripFloatResidue(0.1 + 0.2)).toBe(0.3);
-    expect(stripFloatResidue(0.13345000000000002)).toBeCloseTo(0.13345, 9);
+    expect(stripFloatResidue(Number('0.13345000000000002'))).toBeCloseTo(0.13345, 9);
     expect(Object.is(stripFloatResidue(-0), 0)).toBe(true);
     expect(stripFloatResidue(Number.POSITIVE_INFINITY)).toBe(Number.POSITIVE_INFINITY);
   });

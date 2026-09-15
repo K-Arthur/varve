@@ -112,7 +112,8 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
           </span>
           <div className="insp-field__control">
             <NumberField
-              label="X"
+              label="Offset X"
+              displayLabel="X"
               value={img.x ?? 0}
               step={1}
               onChange={handleOffsetX}
@@ -120,7 +121,8 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
               disabled={placementLocked}
             />
             <NumberField
-              label="Y"
+              label="Offset Y"
+              displayLabel="Y"
               value={img.y ?? 0}
               step={1}
               onChange={handleOffsetY}

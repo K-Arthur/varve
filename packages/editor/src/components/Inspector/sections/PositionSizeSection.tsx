@@ -17,7 +17,7 @@
  */
 
 import type { FrameNode, SceneNode } from '@varve/scene';
-import { getParent } from '@varve/scene';
+import { getParent, isExportRegion } from '@varve/scene';
 import { decomposeAffineFull, formatCoordForRuler } from '@varve/shared';
 import { Tooltip, TooltipProvider } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -28,6 +28,7 @@ import { deriveNumericBindingPresentation } from '../boundPropertyState';
 import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { InspectorFieldGroup } from '../controls/FieldRow';
+import { FramePresetDropdown } from '../controls/FramePresetDropdown';
 import { NumberField } from '../controls/NumberField';
 import { classifySelectionProperty } from '../propertyState';
 import { commonValue, isMixed, type MaybeMixed } from '../selection/selectionState';
@@ -273,8 +274,69 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
     [editor, locked, aspectRatio, nodes],
   );
 
+  const isSingleFrame =
+    nodes.length === 1 && nodes[0]!.kind === 'frame' && !isExportRegion(nodes[0]!);
+
+  const handleSwapOrientation = useCallback(() => {
+    if (nodes.length === 0 || wRaw === null || hRaw === null || isMixed(wRaw) || isMixed(hRaw))
+      return;
+    editor.beginTransaction();
+    editor.setSelectedW(hRaw);
+    editor.setSelectedH(wRaw);
+    editor.commitTransaction();
+  }, [editor, nodes, wRaw, hRaw]);
+
+  /**
+   * Relative move channel for gestures on X/Y. Typing an absolute value still
+   * sets every selected object to that value (`setSelectedX/Y`); scrubbing,
+   * arrow steps, and wheel deltas move each object by the same amount so a
+   * mixed multi-selection keeps its relative layout instead of collapsing onto
+   * one coordinate. The document updater form reads the live document, so a
+   * long gesture never writes against a stale node list.
+   */
+  const translateSelectionBy = useCallback(
+    (dx: number, dy: number) => {
+      if (nodes.length === 0 || (dx === 0 && dy === 0)) return;
+      const ids = nodes.map((n) => n.id);
+      editor.beginTransaction();
+      editor.updateDoc((doc) => {
+        let changed = false;
+        const nextNodes = { ...doc.nodes };
+        for (const id of ids) {
+          const node = nextNodes[id];
+          if (!node) continue;
+          nextNodes[id] = {
+            ...node,
+            transform: [
+              node.transform[0],
+              node.transform[1],
+              node.transform[2],
+              node.transform[3],
+              (node.transform[4] ?? 0) + dx,
+              (node.transform[5] ?? 0) + dy,
+            ] as SceneNode['transform'],
+          } as SceneNode;
+          changed = true;
+        }
+        return changed ? { ...doc, nodes: nextNodes } : doc;
+      });
+      editor.commitTransaction();
+    },
+    [editor, nodes],
+  );
+
+  const handleDeltaX = useCallback(
+    (delta: number) => translateSelectionBy(delta, 0),
+    [translateSelectionBy],
+  );
+  const handleDeltaY = useCallback(
+    (delta: number) => translateSelectionBy(0, delta),
+    [translateSelectionBy],
+  );
+
   return (
     <DisclosureSection title="Position & Size" sectionId="position-size">
+      {isSingleFrame && <FramePresetDropdown frame={nodes[0] as FrameNode} />}
       {useArtboardCoords && (
         <p className="insp-panel__empty-hint">Coordinates shown relative to active artboard</p>
       )}
@@ -295,6 +357,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           }
           draftKey={draftKey}
           onChange={(v) => editor.setSelectedX(fromDisplayX(v))}
+          onDelta={handleDeltaX}
           fieldName="x"
           onShiftClick={() => editor.setBindingField('x')}
         />
@@ -311,6 +374,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           }
           draftKey={draftKey}
           onChange={(v) => editor.setSelectedY(fromDisplayY(v))}
+          onDelta={handleDeltaY}
           fieldName="y"
           onShiftClick={() => editor.setBindingField('y')}
         />
@@ -412,6 +476,33 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 fieldName="height"
                 onShiftClick={() => editor.setBindingField('height')}
               />
+              {isSingleFrame && (
+                <Tooltip label="Swap orientation (Portrait / Landscape)">
+                  <button
+                    type="button"
+                    className="insp-orientation-btn"
+                    onClick={handleSwapOrientation}
+                    aria-label="Swap orientation"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M8 3 4 7l4 4" />
+                      <path d="M4 7h16" />
+                      <path d="m16 21 4-4-4-4" />
+                      <path d="M20 17H4" />
+                    </svg>
+                  </button>
+                </Tooltip>
+              )}
             </InspectorFieldGroup>
           )}
         </InspectorFieldGroup>
