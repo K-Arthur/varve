@@ -1,4 +1,5 @@
 import { resampleImageData } from '../exportPipeline/resample';
+import { computeLetterboxGeometry } from '../inference/letterboxGeometry';
 
 /**
  * The input-frame contract for one diffusion inpainting profile.
@@ -197,11 +198,17 @@ export function prepareDiffusionFrame(
     throw new Error('Diffusion mask must use source-context dimensions');
   }
 
-  const scale = Math.min(contract.frameWidth / source.width, contract.frameHeight / source.height);
-  const contentWidth = Math.max(1, Math.round(source.width * scale));
-  const contentHeight = Math.max(1, Math.round(source.height * scale));
-  const contentX = Math.floor((contract.frameWidth - contentWidth) / 2);
-  const contentY = Math.floor((contract.frameHeight - contentHeight) / 2);
+  const {
+    contentWidth,
+    contentHeight,
+    offsetX: contentX,
+    offsetY: contentY,
+  } = computeLetterboxGeometry(
+    source.width,
+    source.height,
+    contract.frameWidth,
+    contract.frameHeight,
+  );
 
   const resized =
     contentWidth === source.width && contentHeight === source.height

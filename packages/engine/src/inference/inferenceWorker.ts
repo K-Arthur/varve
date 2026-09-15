@@ -19,6 +19,7 @@ import {
 } from '../semanticSimilarity/preprocess';
 import type { TensorSpec } from './imageTensor';
 import { packNchwTensor, packNhwcTensor } from './imageTensor';
+import { computeLetterboxGeometry } from './letterboxGeometry';
 import {
   DD_COLOR_INPUT_SIZE,
   DD_COLOR_TENSOR_SPEC,
@@ -795,11 +796,16 @@ function preprocessImage(
     contentWidth = inputSize;
     contentHeight = inputSize;
   } else {
-    const scale = Math.min(inputSize / imageData.width, inputSize / imageData.height);
-    offsetX = (inputSize - imageData.width * scale) / 2;
-    offsetY = (inputSize - imageData.height * scale) / 2;
-    contentWidth = Math.max(1, Math.round(imageData.width * scale));
-    contentHeight = Math.max(1, Math.round(imageData.height * scale));
+    const geometry = computeLetterboxGeometry(
+      imageData.width,
+      imageData.height,
+      inputSize,
+      inputSize,
+    );
+    offsetX = geometry.offsetX;
+    offsetY = geometry.offsetY;
+    contentWidth = geometry.contentWidth;
+    contentHeight = geometry.contentHeight;
     ctx.drawImage(srcCanvas, offsetX, offsetY, contentWidth, contentHeight);
   }
   const resizedData = ctx.getImageData(0, 0, inputSize, inputSize);

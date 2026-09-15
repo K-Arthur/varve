@@ -172,7 +172,10 @@ contract identifies the preprocessing revision, exact model-frame dimensions,
 and required dimension multiple; the pipeline validates it before allocating
 the provider frame. The source context and its mask are uniformly scaled by
 one factor to fit that frame and centered into neutral, opaque letterbox
-padding. The mask uses the identical scale and offset, and the generated
+padding. The rasterized content rectangle and its padding offsets are integer
+coordinates shared by the image and mask; fractional canvas placement is not
+allowed because it can make decode crop a different row or column. The mask
+uses the identical scale and offset, and the generated
 letterbox is cropped and resampled back to the original context before
 compositing. This means a portrait, panorama, or other non-square photograph
 is never stretched into a square and the padding can never alter document

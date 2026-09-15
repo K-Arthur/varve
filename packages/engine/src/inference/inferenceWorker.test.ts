@@ -5,6 +5,7 @@
  * registered and can be dispatched without "Unknown model type" errors.
  */
 import { describe, expect, it } from 'vitest';
+import { computeLetterboxGeometry } from './letterboxGeometry';
 
 const mockSelf = { onmessage: null as ((e: MessageEvent) => void) | null };
 (globalThis as Record<string, unknown>).self = mockSelf;
@@ -12,6 +13,23 @@ const mockSelf = { onmessage: null as ((e: MessageEvent) => void) | null };
 const { registerModelType } = await import('./inferenceWorker');
 
 describe('inference worker model registry', () => {
+  it('uses the exact integer content rectangle for odd non-square inputs', () => {
+    const geometry = computeLetterboxGeometry(3, 2, 512, 512);
+
+    expect(geometry).toEqual({
+      offsetX: 0,
+      offsetY: 85,
+      contentWidth: 512,
+      contentHeight: 341,
+    });
+    expect(geometry.contentWidth / geometry.contentHeight).toBeCloseTo(3 / 2, 2);
+    expect(geometry.offsetY + geometry.contentHeight).toBeLessThanOrEqual(512);
+  });
+
+  it('rejects invalid source or model dimensions before allocating a canvas', () => {
+    expect(() => computeLetterboxGeometry(0, 100, 512, 512)).toThrow('positive integers');
+  });
+
   it('exports registerModelType as a function', () => {
     expect(typeof registerModelType).toBe('function');
   });
