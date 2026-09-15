@@ -20,15 +20,19 @@ import {
 import {
   type CSSProperties,
   createContext,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   type RefObject,
+  useCallback,
   useContext,
+  useEffect,
   useId,
   useLayoutEffect,
   useRef,
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { FOCUSABLE_SELECTOR, focusAdjacentTabbable, getFocusableElements } from './focusOrder';
 import {
   type OverlayCloseReason,
   type OverlayKind,
@@ -103,6 +107,17 @@ export interface FloatingPortalProps {
   dismissOnEscape?: boolean;
   /** Close transient surfaces when their owner window loses activation. */
   dismissOnWindowBlur?: boolean;
+  /**
+   * Move focus to the first control (or the surface) once it is visibly
+   * placed. Use for rich dialog-style popovers whose content is otherwise
+   * unreachable by keyboard because the portal sits at the end of the body.
+   */
+  initialFocus?: boolean;
+  /**
+   * Yield Tab from the first/last control back to the page around the anchor
+   * and close. Prevents focus from jumping to the portaled body end.
+   */
+  yieldTabToAnchor?: boolean;
   /** Development/test geometry trace hook. */
   onPositionChange?: (result: FloatingPositionResult) => void;
 }
@@ -203,6 +218,8 @@ export function FloatingPortal({
   dismissOnEscape = false,
   dismissOnWindowBlur,
   onPositionChange,
+  initialFocus = false,
+  yieldTabToAnchor = false,
 }: FloatingPortalProps) {
   const generatedId = useId();
   const inheritedParentId = useContext(OverlayParentContext);
@@ -589,6 +606,55 @@ export function FloatingPortal({
     parentId,
   ]);
 
+  // ── Focus entry / Tab handoff (opt-in) ───────────────────────────────────
+
+  useEffect(() => {
+    if (!open || !initialFocus) return;
+    const floating = floatingRef.current;
+    if (!floating || posStyle.visibility !== 'visible') return;
+    const view = floating.ownerDocument.defaultView;
+    const frame = view?.requestAnimationFrame(() => {
+      const first = getFocusableElements(floating)[0];
+      if (first) {
+        first.focus({ preventScroll: true });
+        return;
+      }
+      floating.tabIndex = -1;
+      floating.focus({ preventScroll: true });
+      floating.removeAttribute('tabindex');
+    });
+    return () => {
+      if (frame !== undefined) view?.cancelAnimationFrame(frame);
+    };
+  }, [open, initialFocus, posStyle]);
+
+  const handleTabExit = useCallback(
+    (event: ReactKeyboardEvent) => {
+      if (!yieldTabToAnchor || event.key !== 'Tab') return;
+      const floating = floatingRef.current;
+      if (!floating) return;
+      const focusables = getFocusableElements(floating);
+      if (focusables.length === 0) return;
+      const active = floating.ownerDocument.activeElement;
+      const leaving = event.shiftKey
+        ? active === focusables[0]
+        : active === focusables[focusables.length - 1];
+      if (!leaving) return;
+      event.preventDefault();
+      const currentAnchor = resolveAnchor(explicitAnchor, anchorRef);
+      const anchorElement =
+        currentAnchor?.kind === 'element' ? currentAnchor.element : currentAnchor?.contextElement;
+      const anchorTarget = anchorElement
+        ? anchorElement.matches(FOCUSABLE_SELECTOR) && anchorElement.tabIndex >= 0
+          ? anchorElement
+          : getFocusableElements(anchorElement)[0]
+        : null;
+      closeRef.current?.('tab');
+      focusAdjacentTabbable(anchorTarget, event.shiftKey ? -1 : 1, floating);
+    },
+    [anchorRef, explicitAnchor, yieldTabToAnchor],
+  );
+
   // Keep the generated overlay mounted only while open. The placement effect
   // resets visibility before the browser can paint a stale position.
   const renderPortalRoot =
@@ -606,6 +672,7 @@ export function FloatingPortal({
         data-overlay-id={overlayId}
         data-overlay-kind={kind}
         data-overlay-state={posStyle.visibility === 'visible' ? 'visible' : 'measuring'}
+        onKeyDown={handleTabExit}
       >
         {children}
       </div>

@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FloatingPortal } from './FloatingPortal';
@@ -126,5 +126,68 @@ describe('FloatingPortal positioning', () => {
       },
       { timeout: 2000 },
     );
+  });
+});
+
+describe('FloatingPortal focus helpers', () => {
+  it('initialFocus moves focus to the first control once visible', async () => {
+    function FocusFixture() {
+      const anchorRef = useRef<HTMLButtonElement>(null);
+      return (
+        <>
+          <button type="button" ref={anchorRef}>
+            Anchor
+          </button>
+          <FloatingPortal anchorRef={anchorRef} open initialFocus className="focus-float">
+            <button type="button">First action</button>
+          </FloatingPortal>
+        </>
+      );
+    }
+
+    render(<FocusFixture />);
+    await vi.waitFor(
+      () => {
+        expect(screen.getByRole('button', { name: 'First action' })).toHaveFocus();
+      },
+      { timeout: 2000 },
+    );
+  });
+
+  it('yieldTabToAnchor closes and continues focus after the anchor', async () => {
+    const onClose = vi.fn();
+    function TabFixture() {
+      const anchorRef = useRef<HTMLButtonElement>(null);
+      return (
+        <>
+          <button type="button" ref={anchorRef}>
+            Anchor
+          </button>
+          <button type="button">After anchor</button>
+          <FloatingPortal
+            anchorRef={anchorRef}
+            open
+            initialFocus
+            yieldTabToAnchor
+            onClose={onClose}
+            className="tab-float"
+          >
+            <button type="button">Only control</button>
+          </FloatingPortal>
+        </>
+      );
+    }
+
+    render(<TabFixture />);
+    const only = await screen.findByRole('button', { name: 'Only control' });
+    await vi.waitFor(
+      () => {
+        expect(only).toHaveFocus();
+      },
+      { timeout: 2000 },
+    );
+    fireEvent.keyDown(only, { key: 'Tab' });
+    expect(onClose).toHaveBeenCalledWith('tab');
+    expect(screen.getByRole('button', { name: 'After anchor' })).toHaveFocus();
   });
 });
