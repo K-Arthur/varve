@@ -30,6 +30,11 @@ a different region from the one shown in the review surface.
   source-resolution candidate mask, in addition to source, placement, model,
   candidate-set, and candidate-index identities. A changed candidate raster
   therefore loses review even when its surrounding session metadata is stale.
+- Automatic foreground proposals use the same fail-closed boundary: their
+  review token includes the exact analysis mask and optional soft alpha as well
+  as source, placement, provider, dimensions, and candidate index. Mutating a
+  foreground proposal after the overlay was reviewed clears approval before
+  either selection or raster-mask commit.
 - Provider masks remain separate from the user mask and final composite mask.
   The composite starts from an exact source clone, so pixels outside effective
   coverage cannot be changed by provider output.

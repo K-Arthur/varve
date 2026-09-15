@@ -44,7 +44,10 @@ import {
   setSubjectProposalState,
   subscribeSubjectProposals,
 } from './subjectProposalStore';
-import { subjectProposalMappingFingerprint } from './subjectProposalTarget';
+import {
+  subjectProposalCandidateReviewKey,
+  subjectProposalMappingFingerprint,
+} from './subjectProposalTarget';
 
 import './selectionSources.css';
 
@@ -306,7 +309,11 @@ export function SelectionSourcesPanel() {
     // Selecting a candidate only opens its review overlay. It must not count
     // as confirmation: a foreground estimate can still include the wrong
     // object, background, or an unintended disconnected region.
-    setSubjectProposalState({ activeCandidate: index, reviewedCandidate: null });
+    setSubjectProposalState({
+      activeCandidate: index,
+      reviewedCandidate: null,
+      reviewedCandidateKey: null,
+    });
     announce(
       `${candidate.label ?? `Subject ${index + 1}`} previewed; verify the highlighted pixels before applying it`,
     );
@@ -315,8 +322,26 @@ export function SelectionSourcesPanel() {
   const reviewActiveSubjectCandidate = (reviewed: boolean) => {
     const proposalState = getSubjectProposalState();
     if (proposalState.activeCandidate < 0) return;
+    const reviewKey = reviewed
+      ? proposalState.proposals && proposalState.target
+        ? subjectProposalCandidateReviewKey(
+            proposalState.target,
+            proposalState.proposals,
+            proposalState.activeCandidate,
+            proposalState.provider
+              ? `${proposalState.provider.source}:${proposalState.provider.modelId ?? 'none'}`
+              : null,
+          )
+        : null
+      : null;
+    if (reviewed && !reviewKey) {
+      setSubjectProposalState({ reviewedCandidate: null, reviewedCandidateKey: null });
+      announce('The highlighted subject could not be verified; choose a fresh estimate');
+      return;
+    }
     setSubjectProposalState({
       reviewedCandidate: reviewed ? proposalState.activeCandidate : null,
+      reviewedCandidateKey: reviewKey,
     });
     announce(
       reviewed
@@ -342,6 +367,7 @@ export function SelectionSourcesPanel() {
       (target.sourceHeight !== undefined && current.height !== target.sourceHeight) ||
       current.fingerprint !== target.sourceFingerprint
     ) {
+      setSubjectProposalState({ reviewedCandidate: null, reviewedCandidateKey: null });
       announce('The image changed after the estimate; run Select subject again');
       return false;
     }
@@ -360,6 +386,14 @@ export function SelectionSourcesPanel() {
     if (!target || !(await verifyProposalSource(target))) return;
     const liveTarget = subjectTargetRef.current;
     const latestState = getSubjectProposalState();
+    const exactReviewKey = subjectProposalCandidateReviewKey(
+      target,
+      result,
+      index,
+      latestState.provider
+        ? `${latestState.provider.source}:${latestState.provider.modelId ?? 'none'}`
+        : null,
+    );
     if (
       !liveTarget ||
       liveTarget.documentId !== target.documentId ||
@@ -370,8 +404,11 @@ export function SelectionSourcesPanel() {
       latestState.target?.sourceLocator !== target.sourceLocator ||
       latestState.target?.mappingFingerprint !== target.mappingFingerprint ||
       latestState.activeCandidate !== index ||
-      latestState.reviewedCandidate !== index
+      latestState.reviewedCandidate !== index ||
+      !exactReviewKey ||
+      latestState.reviewedCandidateKey !== exactReviewKey
     ) {
+      setSubjectProposalState({ reviewedCandidate: null, reviewedCandidateKey: null });
       announce('The image or reviewed candidate changed; choose a fresh subject estimate');
       return;
     }
@@ -399,7 +436,11 @@ export function SelectionSourcesPanel() {
       return;
     }
     setAreaSelection?.(selection);
-    setSubjectProposalState({ reviewedCandidate: null, activeCandidate: -1 });
+    setSubjectProposalState({
+      reviewedCandidate: null,
+      reviewedCandidateKey: null,
+      activeCandidate: -1,
+    });
     const providerLabel = getSubjectProposalState().provider?.label ?? 'Foreground';
     announce(`${candidate.label ?? `Subject ${index + 1}`} selected (${providerLabel} estimate)`);
   };
@@ -434,6 +475,8 @@ export function SelectionSourcesPanel() {
       stage: 'preparing',
       error: null,
       downloadProgress: null,
+      reviewedCandidate: null,
+      reviewedCandidateKey: null,
     });
     try {
       setSubjectProposalState({ stage: 'estimating' });
@@ -517,6 +560,8 @@ export function SelectionSourcesPanel() {
           busy: false,
           stage: 'idle',
           error: message,
+          reviewedCandidate: null,
+          reviewedCandidateKey: null,
         });
         announce(message);
         return;
@@ -544,6 +589,7 @@ export function SelectionSourcesPanel() {
         error: null,
         activeCandidate: -1,
         reviewedCandidate: null,
+        reviewedCandidateKey: null,
       });
       // Automatic foreground estimation is not semantic recognition. Do not
       // mutate the document selection from an unreviewed top-ranked candidate;
@@ -635,6 +681,14 @@ export function SelectionSourcesPanel() {
     if (!target || !(await verifyProposalSource(target))) return;
     const liveTarget = subjectTargetRef.current;
     const latestState = getSubjectProposalState();
+    const exactReviewKey = subjectProposalCandidateReviewKey(
+      target,
+      result,
+      activeCandidate,
+      latestState.provider
+        ? `${latestState.provider.source}:${latestState.provider.modelId ?? 'none'}`
+        : null,
+    );
     if (
       !liveTarget ||
       liveTarget.documentId !== target.documentId ||
@@ -644,8 +698,11 @@ export function SelectionSourcesPanel() {
       liveTarget.mappingFingerprint !== target.mappingFingerprint ||
       latestState.target?.sourceLocator !== target.sourceLocator ||
       latestState.activeCandidate !== activeCandidate ||
-      latestState.reviewedCandidate !== activeCandidate
+      latestState.reviewedCandidate !== activeCandidate ||
+      !exactReviewKey ||
+      latestState.reviewedCandidateKey !== exactReviewKey
     ) {
+      setSubjectProposalState({ reviewedCandidate: null, reviewedCandidateKey: null });
       announce('The image or reviewed candidate changed; choose a fresh subject estimate');
       return;
     }
@@ -692,7 +749,11 @@ export function SelectionSourcesPanel() {
         });
       });
       commitTransaction();
-      setSubjectProposalState({ reviewedCandidate: null, activeCandidate: -1 });
+      setSubjectProposalState({
+        reviewedCandidate: null,
+        reviewedCandidateKey: null,
+        activeCandidate: -1,
+      });
       announce(`${candidate.label ?? 'Subject'} applied as a mask`);
     } catch (error) {
       abortTransaction();
@@ -1104,7 +1165,10 @@ export function SelectionSourcesPanel() {
                 <input
                   type="checkbox"
                   aria-label="I reviewed the highlighted subject before applying"
-                  checked={subjectState.reviewedCandidate === subjectState.activeCandidate}
+                  checked={
+                    subjectState.reviewedCandidate === subjectState.activeCandidate &&
+                    subjectState.reviewedCandidateKey !== null
+                  }
                   disabled={!subjectProposalPlacementReady}
                   onChange={(event) => reviewActiveSubjectCandidate(event.target.checked)}
                 />
@@ -1117,7 +1181,8 @@ export function SelectionSourcesPanel() {
                 className="insp-selection-sources__button insp-selection-sources__button--primary"
                 disabled={
                   !subjectProposalPlacementReady ||
-                  subjectState.reviewedCandidate !== subjectState.activeCandidate
+                  subjectState.reviewedCandidate !== subjectState.activeCandidate ||
+                  subjectState.reviewedCandidateKey === null
                 }
                 onClick={() =>
                   void applySubjectCandidate(subjectProposalSet, subjectState.activeCandidate)
@@ -1130,7 +1195,8 @@ export function SelectionSourcesPanel() {
                 className="insp-selection-sources__button insp-selection-sources__button--primary"
                 disabled={
                   !subjectProposalPlacementReady ||
-                  subjectState.reviewedCandidate !== subjectState.activeCandidate
+                  subjectState.reviewedCandidate !== subjectState.activeCandidate ||
+                  subjectState.reviewedCandidateKey === null
                 }
                 onClick={() => void applySubjectAsMask()}
               >
@@ -1146,6 +1212,7 @@ export function SelectionSourcesPanel() {
                     install: null,
                     activeCandidate: -1,
                     reviewedCandidate: null,
+                    reviewedCandidateKey: null,
                     error: null,
                   })
                 }

@@ -271,6 +271,55 @@ describe('SelectionSourcesPanel subject proposals', () => {
     });
   });
 
+  it('rejects a reviewed candidate when its mask changes before commit', async () => {
+    const result = proposalResult();
+    mockProposeSubjects.mockResolvedValue(result);
+    const editor = await renderPanel();
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Select subject$/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /^All foreground/ }));
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'I reviewed the highlighted subject before applying',
+      }),
+    );
+    expect(getSubjectProposalState().reviewedCandidateKey).not.toBeNull();
+
+    // Simulate a provider/refinement buffer being replaced after the visible
+    // candidate was reviewed. The old approval must not transfer to the new
+    // pixels merely because the candidate index stayed the same.
+    result.set.candidates[0]!.mask[0] = 0;
+    fireEvent.click(screen.getByRole('button', { name: 'Use selected candidate' }));
+
+    await waitFor(() => {
+      expect(getSubjectProposalState().reviewedCandidate).toBeNull();
+      expect(getSubjectProposalState().reviewedCandidateKey).toBeNull();
+    });
+    expect(editor.current?.state.areaSelection ?? null).toBeNull();
+  });
+
+  it('rejects a reviewed candidate when its soft alpha changes before mask commit', async () => {
+    const result = proposalResult();
+    mockProposeSubjects.mockResolvedValue(result);
+    const editor = await renderPanel();
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Select subject$/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /^All foreground/ }));
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'I reviewed the highlighted subject before applying',
+      }),
+    );
+    result.set.candidates[0]!.alpha![0] = 0;
+    fireEvent.click(screen.getByRole('button', { name: 'Apply as mask' }));
+
+    await waitFor(() => {
+      expect(getSubjectProposalState().reviewedCandidate).toBeNull();
+      expect(getSubjectProposalState().reviewedCandidateKey).toBeNull();
+    });
+    expect(editor.current?.state.document.nodes.photo?.mask).toBeUndefined();
+  });
+
   it('offers an explicit optional-model download and retries after install', async () => {
     mockProposeSubjects
       .mockResolvedValueOnce(

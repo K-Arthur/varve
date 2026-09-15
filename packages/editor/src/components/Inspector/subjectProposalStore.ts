@@ -56,6 +56,8 @@ export interface SubjectProposalState {
   activeCandidate: number;
   /** Candidate explicitly reviewed by the user, or null before review. */
   reviewedCandidate: number | null;
+  /** Exact source/mapping/candidate-pixel identity approved by the user. */
+  reviewedCandidateKey: string | null;
   busy: boolean;
   /** Coarse stage for user-facing progress copy. */
   stage: 'idle' | 'preparing' | 'estimating' | 'downloading';
@@ -71,6 +73,7 @@ let state: SubjectProposalState = {
   install: null,
   activeCandidate: -1,
   reviewedCandidate: null,
+  reviewedCandidateKey: null,
   busy: false,
   stage: 'idle',
   downloadProgress: null,
@@ -104,6 +107,7 @@ export function resetSubjectProposals(): void {
     install: null,
     activeCandidate: -1,
     reviewedCandidate: null,
+    reviewedCandidateKey: null,
     busy: false,
     stage: 'idle',
     downloadProgress: null,

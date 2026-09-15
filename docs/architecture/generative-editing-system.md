@@ -201,6 +201,14 @@ recorded as user-authored mask input instead of inventing model provenance.
 Legacy records may omit this optional evidence, but their persisted mask and
 accepted pixels remain valid.
 
+Automatic foreground proposals use the same review boundary even though they
+are not prompted Object Selection. Their approval stores a transient key over
+the source and placement fingerprints, provider identity, candidate geometry,
+candidate index, binary proposal mask, and any soft alpha. The approval is
+recomputed from the current typed-array bytes at both “Use selected candidate”
+and “Apply as mask”; replacing or mutating a proposal therefore clears review
+instead of transferring it to a different highlighted region.
+
 Expand exposes the four independent source-pixel margins as the authoritative
 frame controls. It also provides common target aspect ratios, explicit output
 width and height, and nine source anchors (center, sides, and corners). The
