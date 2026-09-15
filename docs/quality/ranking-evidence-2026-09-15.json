@@ -1,0 +1,697 @@
+{
+  "generatedAt": "2026-09-15T23:12:57.222Z",
+  "splitRule": "sorted categories; odd zero-based indexes are held out",
+  "acceptableRegret": 0.1,
+  "providers": [
+    {
+      "providerId": "mobile-sam",
+      "artifacts": {
+        "encoder": "580f5fb648ea1062c0aabc26217aed56921985f03f0cbbd852bba81d760cc749",
+        "decoder": "8976b90a87ba50a6a72217a5ff994f7d25ce16f2229fcc1ed259e1294c622ffe"
+      },
+      "developmentCategories": [
+        "plain-background",
+        "hair-fur",
+        "tiny-object",
+        "multiple-similar",
+        "foliage"
+      ],
+      "heldOutCategories": [
+        "thin-geometry",
+        "overlapping",
+        "touches-edge",
+        "low-contrast",
+        "glass-translucency"
+      ],
+      "dev": [
+        {
+          "policy": "reviewed-score",
+          "cases": 5,
+          "meanTop1IoU": 0.8253630203425564,
+          "meanBestAvailableIoU": 0.8522100796334582,
+          "meanRegret": 0.0268470592909019,
+          "worstRegret": 0.12381216344630974,
+          "top1AcceptableRate": 0.8,
+          "coverageRate": 1,
+          "acceptableAtK": [4, 1, 0, 0],
+          "acceptableNonOracle": 1,
+          "rejectedCandidates": 0,
+          "perCategory": {
+            "plain-background": {
+              "cases": 1,
+              "meanTop1IoU": 0.9886567164179104,
+              "top1AcceptableRate": 1
+            },
+            "hair-fur": {
+              "cases": 1,
+              "meanTop1IoU": 0.9271754782966468,
+              "top1AcceptableRate": 1
+            },
+            "tiny-object": {
+              "cases": 1,
+              "meanTop1IoU": 1,
+              "top1AcceptableRate": 1
+            },
+            "multiple-similar": {
+              "cases": 1,
+              "meanTop1IoU": 0.38836649901596326,
+              "top1AcceptableRate": 1
+            },
+            "foliage": {
+              "cases": 1,
+              "meanTop1IoU": 0.8226164079822617,
+              "top1AcceptableRate": 0
+            }
+          }
+        },
+        {
+          "policy": "score",
+          "cases": 5,
+          "meanTop1IoU": 0.8253630203425564,
+          "meanBestAvailableIoU": 0.8522100796334582,
+          "meanRegret": 0.0268470592909019,
+          "worstRegret": 0.12381216344630974,
+          "top1AcceptableRate": 0.8,
+          "coverageRate": 1,
+          "acceptableAtK": [4, 1, 0, 0],
+          "acceptableNonOracle": 1,
+          "rejectedCandidates": 0,
+          "perCategory": {
+            "plain-background": {
+              "cases": 1,
+              "meanTop1IoU": 0.9886567164179104,
+              "top1AcceptableRate": 1
+            },
+            "hair-fur": {
+              "cases": 1,
+              "meanTop1IoU": 0.9271754782966468,
+              "top1AcceptableRate": 1
+            },
+            "tiny-object": {
+              "cases": 1,
+              "meanTop1IoU": 1,
+              "top1AcceptableRate": 1
+            },
+            "multiple-similar": {
+              "cases": 1,
+              "meanTop1IoU": 0.38836649901596326,
+              "top1AcceptableRate": 1
+            },
+            "foliage": {
+              "cases": 1,
+              "meanTop1IoU": 0.8226164079822617,
+              "top1AcceptableRate": 0
+            }
+          }
+        },
+        {
+          "policy": "guarded-band-box",
+          "cases": 5,
+          "meanTop1IoU": 0.8482269427383426,
+          "meanBestAvailableIoU": 0.8522100796334582,
+          "meanRegret": 0.0039831368951156465,
+          "worstRegret": 0.012950510346224964,
+          "top1AcceptableRate": 1,
+          "coverageRate": 1,
+          "acceptableAtK": [5, 0, 0, 0],
+          "acceptableNonOracle": 0,
+          "rejectedCandidates": 0,
+          "perCategory": {
+            "plain-background": {
+              "cases": 1,
+              "meanTop1IoU": 0.9886567164179104,
+              "top1AcceptableRate": 1
+            },
+            "hair-fur": {
+              "cases": 1,
+              "meanTop1IoU": 0.9176829268292683,
+              "top1AcceptableRate": 1
+            },
+            "tiny-object": {
+              "cases": 1,
+              "meanTop1IoU": 1,
+              "top1AcceptableRate": 1
+            },
+            "multiple-similar": {
+              "cases": 1,
+              "meanTop1IoU": 0.38836649901596326,
+              "top1AcceptableRate": 1
+            },
+            "foliage": {
+              "cases": 1,
+              "meanTop1IoU": 0.9464285714285714,
+              "top1AcceptableRate": 1
+            }
+          }
+        },
+        {
+          "policy": "guarded-band-area",
+          "cases": 5,
+          "meanTop1IoU": 0.8248046416723251,
+          "meanBestAvailableIoU": 0.8522100796334582,
+          "meanRegret": 0.027405437961133018,
+          "worstRegret": 0.12381216344630974,
+          "top1AcceptableRate": 0.8,
+          "coverageRate": 1,
+          "acceptableAtK": [4, 1, 0, 0],
+          "acceptableNonOracle": 1,
+          "rejectedCandidates": 0,
+          "perCategory": {
+            "plain-background": {
+              "cases": 1,
+              "meanTop1IoU": 0.9956218905472637,
+              "top1AcceptableRate": 1
+            },
+            "hair-fur": {
+              "cases": 1,
+              "meanTop1IoU": 0.9176829268292683,
+              "top1AcceptableRate": 1
+            },
+            "tiny-object": {
+              "cases": 1,
+              "meanTop1IoU": 1,
+              "top1AcceptableRate": 1
+            },
+            "multiple-similar": {
+              "cases": 1,
+              "meanTop1IoU": 0.3881019830028329,
+              "top1AcceptableRate": 1
+            },
+            "foliage": {
+              "cases": 1,
+              "meanTop1IoU": 0.8226164079822617,
+              "top1AcceptableRate": 0
+            }
+          }
+        }
+      ],
+      "heldOut": [
+        {
+          "policy": "reviewed-score",
+          "cases": 5,
+          "meanTop1IoU": 0.6253314179374353,
+          "meanBestAvailableIoU": 0.7284584803946648,
+          "meanRegret": 0.10312706245722947,
+          "worstRegret": 0.2668811337185054,
+          "top1AcceptableRate": 0.6,
+          "coverageRate": 1,
+          "acceptableAtK": [3, 0, 0, 1],
+          "acceptableNonOracle": 1,
+          "rejectedCandidates": 5,
+          "perCategory": {
+            "thin-geometry": {
+              "cases": 1,
+              "meanTop1IoU": 0.9921664626682987,
+              "top1AcceptableRate": 1
+            },
+            "overlapping": {
+              "cases": 1,
+              "meanTop1IoU": 0.6219797349961029,
+              "top1AcceptableRate": 1
+            },
+            "touches-edge": {
+              "cases": 1,
+              "meanTop1IoU": 0.5494149414941494,
+              "top1AcceptableRate": 0
+            },
+            "low-contrast": {
+              "cases": 1,
+              "meanTop1IoU": 0.9630959505286256,
+              "top1AcceptableRate": 1
+            },
+            "glass-translucency": {
+              "cases": 1,
+              "meanTop1IoU": 0,
+              "top1AcceptableRate": 0
+            }
+          }
+        },
+        {
+          "policy": "score",
+          "cases": 5,
+          "meanTop1IoU": 0.6253314179374353,
+          "meanBestAvailableIoU": 0.7284584803946648,
+          "meanRegret": 0.10312706245722947,
+          "worstRegret": 0.2668811337185054,
+          "top1AcceptableRate": 0.6,
+          "coverageRate": 1,
+          "acceptableAtK": [3, 0, 0, 1],
+          "acceptableNonOracle": 1,
+          "rejectedCandidates": 5,
+          "perCategory": {
+            "thin-geometry": {
+              "cases": 1,
+              "meanTop1IoU": 0.9921664626682987,
+              "top1AcceptableRate": 1
+            },
+            "overlapping": {
+              "cases": 1,
+              "meanTop1IoU": 0.6219797349961029,
+              "top1AcceptableRate": 1
+            },
+            "touches-edge": {
+              "cases": 1,
+              "meanTop1IoU": 0.5494149414941494,
+              "top1AcceptableRate": 0
+            },
+            "low-contrast": {
+              "cases": 1,
+              "meanTop1IoU": 0.9630959505286256,
+              "top1AcceptableRate": 1
+            },
+            "glass-translucency": {
+              "cases": 1,
+              "meanTop1IoU": 0,
+              "top1AcceptableRate": 0
+            }
+          }
+        },
+        {
+          "policy": "guarded-band-box",
+          "cases": 5,
+          "meanTop1IoU": 0.6253314179374353,
+          "meanBestAvailableIoU": 0.7284584803946648,
+          "meanRegret": 0.10312706245722947,
+          "worstRegret": 0.2668811337185054,
+          "top1AcceptableRate": 0.6,
+          "coverageRate": 1,
+          "acceptableAtK": [3, 0, 0, 1],
+          "acceptableNonOracle": 1,
+          "rejectedCandidates": 5,
+          "perCategory": {
+            "thin-geometry": {
+              "cases": 1,
+              "meanTop1IoU": 0.9921664626682987,
+              "top1AcceptableRate": 1
+            },
+            "overlapping": {
+              "cases": 1,
+              "meanTop1IoU": 0.6219797349961029,
+              "top1AcceptableRate": 1
+            },
+            "touches-edge": {
+              "cases": 1,
+              "meanTop1IoU": 0.5494149414941494,
+              "top1AcceptableRate": 0
+            },
+            "low-contrast": {
+              "cases": 1,
+              "meanTop1IoU": 0.9630959505286256,
+              "top1AcceptableRate": 1
+            },
+            "glass-translucency": {
+              "cases": 1,
+              "meanTop1IoU": 0,
+              "top1AcceptableRate": 0
+            }
+          }
+        },
+        {
+          "policy": "guarded-band-area",
+          "cases": 5,
+          "meanTop1IoU": 0.6306898560049705,
+          "meanBestAvailableIoU": 0.7284584803946648,
+          "meanRegret": 0.09776862438969439,
+          "worstRegret": 0.2668811337185054,
+          "top1AcceptableRate": 0.6,
+          "coverageRate": 1,
+          "acceptableAtK": [3, 0, 0, 1],
+          "acceptableNonOracle": 1,
+          "rejectedCandidates": 5,
+          "perCategory": {
+            "thin-geometry": {
+              "cases": 1,
+              "meanTop1IoU": 0.9975520195838433,
+              "top1AcceptableRate": 1
+            },
+            "overlapping": {
+              "cases": 1,
+              "meanTop1IoU": 0.6210444573869152,
+              "top1AcceptableRate": 1
+            },
+            "touches-edge": {
+              "cases": 1,
+              "meanTop1IoU": 0.5494149414941494,
+              "top1AcceptableRate": 0
+            },
+            "low-contrast": {
+              "cases": 1,
+              "meanTop1IoU": 0.9854378615599442,
+              "top1AcceptableRate": 1
+            },
+            "glass-translucency": {
+              "cases": 1,
+              "meanTop1IoU": 0,
+              "top1AcceptableRate": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "providerId": "sam2-hiera-tiny",
+      "artifacts": {
+        "encoder": "b4cfd6c8bec2ef3674536419d731e61d15840367bd004d65095ae6a2b88b41cf",
+        "decoder": "f5a4bd656c143899fb7f52d64ed81e6f6aeb37d477a0b6da50146ac7cf2187bf"
+      },
+      "developmentCategories": [
+        "plain-background",
+        "hair-fur",
+        "tiny-object",
+        "multiple-similar",
+        "foliage"
+      ],
+      "heldOutCategories": [
+        "thin-geometry",
+        "overlapping",
+        "touches-edge",
+        "low-contrast",
+        "glass-translucency"
+      ],
+      "dev": [
+        {
+          "policy": "reviewed-score",
+          "cases": 5,
+          "meanTop1IoU": 0.6344449268324089,
+          "meanBestAvailableIoU": 0.6643680991219851,
+          "meanRegret": 0.02992317228957623,
+          "worstRegret": 0.1371967397768174,
+          "top1AcceptableRate": 0.8,
+          "coverageRate": 1,
+          "acceptableAtK": [4, 0, 1],
+          "acceptableNonOracle": 1,
+          "rejectedCandidates": 3,
+          "perCategory": {
+            "plain-background": {
+              "cases": 1,
+              "meanTop1IoU": 0.9944367176634215,
+              "top1AcceptableRate": 1
+            },
+            "hair-fur": {
+              "cases": 1,
+              "meanTop1IoU": 0.9097502014504432,
+              "top1AcceptableRate": 1
+            },
+            "tiny-object": {
+              "cases": 1,
+              "meanTop1IoU": 0.8711340206185567,
+              "top1AcceptableRate": 1
+            },
+            "multiple-similar": {
+              "cases": 1,
+              "meanTop1IoU": 0.38873178159669347,
+              "top1AcceptableRate": 0
+            },
+            "foliage": {
+              "cases": 1,
+              "meanTop1IoU": 0.008171912832929782,
+              "top1AcceptableRate": 1
+            }
+          }
+        },
+        {
+          "policy": "score",
+          "cases": 5,
+          "meanTop1IoU": 0.6344449268324089,
+          "meanBestAvailableIoU": 0.6643680991219851,
+          "meanRegret": 0.02992317228957623,
+          "worstRegret": 0.1371967397768174,
+          "top1AcceptableRate": 0.8,
+          "coverageRate": 1,
+          "acceptableAtK": [4, 0, 1],
+          "acceptableNonOracle": 1,
+          "rejectedCandidates": 3,
+          "perCategory": {
+            "plain-background": {
+              "cases": 1,
+              "meanTop1IoU": 0.9944367176634215,
+              "top1AcceptableRate": 1
+            },
+            "hair-fur": {
+              "cases": 1,
+              "meanTop1IoU": 0.9097502014504432,
+              "top1AcceptableRate": 1
+            },
+            "tiny-object": {
+              "cases": 1,
+              "meanTop1IoU": 0.8711340206185567,
+              "top1AcceptableRate": 1
+            },
+            "multiple-similar": {
+              "cases": 1,
+              "meanTop1IoU": 0.38873178159669347,
+              "top1AcceptableRate": 0
+            },
+            "foliage": {
+              "cases": 1,
+              "meanTop1IoU": 0.008171912832929782,
+              "top1AcceptableRate": 1
+            }
+          }
+        },
+        {
+          "policy": "guarded-band-box",
+          "cases": 5,
+          "meanTop1IoU": 0.6344449268324089,
+          "meanBestAvailableIoU": 0.6643680991219851,
+          "meanRegret": 0.02992317228957623,
+          "worstRegret": 0.1371967397768174,
+          "top1AcceptableRate": 0.8,
+          "coverageRate": 1,
+          "acceptableAtK": [4, 0, 1],
+          "acceptableNonOracle": 1,
+          "rejectedCandidates": 3,
+          "perCategory": {
+            "plain-background": {
+              "cases": 1,
+              "meanTop1IoU": 0.9944367176634215,
+              "top1AcceptableRate": 1
+            },
+            "hair-fur": {
+              "cases": 1,
+              "meanTop1IoU": 0.9097502014504432,
+              "top1AcceptableRate": 1
+            },
+            "tiny-object": {
+              "cases": 1,
+              "meanTop1IoU": 0.8711340206185567,
+              "top1AcceptableRate": 1
+            },
+            "multiple-similar": {
+              "cases": 1,
+              "meanTop1IoU": 0.38873178159669347,
+              "top1AcceptableRate": 0
+            },
+            "foliage": {
+              "cases": 1,
+              "meanTop1IoU": 0.008171912832929782,
+              "top1AcceptableRate": 1
+            }
+          }
+        },
+        {
+          "policy": "guarded-band-area",
+          "cases": 5,
+          "meanTop1IoU": 0.6335514560420309,
+          "meanBestAvailableIoU": 0.6643680991219851,
+          "meanRegret": 0.030816643079954232,
+          "worstRegret": 0.1371967397768174,
+          "top1AcceptableRate": 0.8,
+          "coverageRate": 1,
+          "acceptableAtK": [4, 0, 1],
+          "acceptableNonOracle": 1,
+          "rejectedCandidates": 3,
+          "perCategory": {
+            "plain-background": {
+              "cases": 1,
+              "meanTop1IoU": 0.9944367176634215,
+              "top1AcceptableRate": 1
+            },
+            "hair-fur": {
+              "cases": 1,
+              "meanTop1IoU": 0.9097502014504432,
+              "top1AcceptableRate": 1
+            },
+            "tiny-object": {
+              "cases": 1,
+              "meanTop1IoU": 0.8666666666666667,
+              "top1AcceptableRate": 1
+            },
+            "multiple-similar": {
+              "cases": 1,
+              "meanTop1IoU": 0.38873178159669347,
+              "top1AcceptableRate": 0
+            },
+            "foliage": {
+              "cases": 1,
+              "meanTop1IoU": 0.008171912832929782,
+              "top1AcceptableRate": 1
+            }
+          }
+        }
+      ],
+      "heldOut": [
+        {
+          "policy": "reviewed-score",
+          "cases": 5,
+          "meanTop1IoU": 0.6809293115243946,
+          "meanBestAvailableIoU": 0.7765329807877656,
+          "meanRegret": 0.09560366926337094,
+          "worstRegret": 0.3951395139513951,
+          "top1AcceptableRate": 0.8,
+          "coverageRate": 1,
+          "acceptableAtK": [4, 1, 0],
+          "acceptableNonOracle": 1,
+          "rejectedCandidates": 1,
+          "perCategory": {
+            "thin-geometry": {
+              "cases": 1,
+              "meanTop1IoU": 0.993421052631579,
+              "top1AcceptableRate": 1
+            },
+            "overlapping": {
+              "cases": 1,
+              "meanTop1IoU": 0.620589375727026,
+              "top1AcceptableRate": 1
+            },
+            "touches-edge": {
+              "cases": 1,
+              "meanTop1IoU": 0.5515751575157516,
+              "top1AcceptableRate": 0
+            },
+            "low-contrast": {
+              "cases": 1,
+              "meanTop1IoU": 0.9856573705179282,
+              "top1AcceptableRate": 1
+            },
+            "glass-translucency": {
+              "cases": 1,
+              "meanTop1IoU": 0.2534036012296882,
+              "top1AcceptableRate": 1
+            }
+          }
+        },
+        {
+          "policy": "score",
+          "cases": 5,
+          "meanTop1IoU": 0.6746971365205066,
+          "meanBestAvailableIoU": 0.7765329807877656,
+          "meanRegret": 0.101835844267259,
+          "worstRegret": 0.3951395139513951,
+          "top1AcceptableRate": 0.8,
+          "coverageRate": 1,
+          "acceptableAtK": [4, 1, 0],
+          "acceptableNonOracle": 1,
+          "rejectedCandidates": 1,
+          "perCategory": {
+            "thin-geometry": {
+              "cases": 1,
+              "meanTop1IoU": 0.993421052631579,
+              "top1AcceptableRate": 1
+            },
+            "overlapping": {
+              "cases": 1,
+              "meanTop1IoU": 0.620589375727026,
+              "top1AcceptableRate": 1
+            },
+            "touches-edge": {
+              "cases": 1,
+              "meanTop1IoU": 0.5515751575157516,
+              "top1AcceptableRate": 0
+            },
+            "low-contrast": {
+              "cases": 1,
+              "meanTop1IoU": 0.9856573705179282,
+              "top1AcceptableRate": 1
+            },
+            "glass-translucency": {
+              "cases": 1,
+              "meanTop1IoU": 0.2222427262102479,
+              "top1AcceptableRate": 1
+            }
+          }
+        },
+        {
+          "policy": "guarded-band-box",
+          "cases": 5,
+          "meanTop1IoU": 0.6746971365205066,
+          "meanBestAvailableIoU": 0.7765329807877656,
+          "meanRegret": 0.101835844267259,
+          "worstRegret": 0.3951395139513951,
+          "top1AcceptableRate": 0.8,
+          "coverageRate": 1,
+          "acceptableAtK": [4, 1, 0],
+          "acceptableNonOracle": 1,
+          "rejectedCandidates": 1,
+          "perCategory": {
+            "thin-geometry": {
+              "cases": 1,
+              "meanTop1IoU": 0.993421052631579,
+              "top1AcceptableRate": 1
+            },
+            "overlapping": {
+              "cases": 1,
+              "meanTop1IoU": 0.620589375727026,
+              "top1AcceptableRate": 1
+            },
+            "touches-edge": {
+              "cases": 1,
+              "meanTop1IoU": 0.5515751575157516,
+              "top1AcceptableRate": 0
+            },
+            "low-contrast": {
+              "cases": 1,
+              "meanTop1IoU": 0.9856573705179282,
+              "top1AcceptableRate": 1
+            },
+            "glass-translucency": {
+              "cases": 1,
+              "meanTop1IoU": 0.2222427262102479,
+              "top1AcceptableRate": 1
+            }
+          }
+        },
+        {
+          "policy": "guarded-band-area",
+          "cases": 5,
+          "meanTop1IoU": 0.6746971365205066,
+          "meanBestAvailableIoU": 0.7765329807877656,
+          "meanRegret": 0.101835844267259,
+          "worstRegret": 0.3951395139513951,
+          "top1AcceptableRate": 0.8,
+          "coverageRate": 1,
+          "acceptableAtK": [4, 1, 0],
+          "acceptableNonOracle": 1,
+          "rejectedCandidates": 1,
+          "perCategory": {
+            "thin-geometry": {
+              "cases": 1,
+              "meanTop1IoU": 0.993421052631579,
+              "top1AcceptableRate": 1
+            },
+            "overlapping": {
+              "cases": 1,
+              "meanTop1IoU": 0.620589375727026,
+              "top1AcceptableRate": 1
+            },
+            "touches-edge": {
+              "cases": 1,
+              "meanTop1IoU": 0.5515751575157516,
+              "top1AcceptableRate": 0
+            },
+            "low-contrast": {
+              "cases": 1,
+              "meanTop1IoU": 0.9856573705179282,
+              "top1AcceptableRate": 1
+            },
+            "glass-translucency": {
+              "cases": 1,
+              "meanTop1IoU": 0.2222427262102479,
+              "top1AcceptableRate": 1
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

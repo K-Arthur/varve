@@ -51,36 +51,41 @@ pnpm exec vitest run packages/engine/src/segmentation/promptedRouting.test.ts   
 
 **Measured baseline (archived A/B run, 2026-09-14, real artifacts):** the
 provider's own top candidate matched the oracle-best candidate in 40% of SAM2
-cases, 20% of MobileSAM cases, and 40% of EfficientSAM cases; mean IoU regret
-was 0.0667 / 0.0429 / 0.0526. This is a *provider selection* measurement, not
-the editor ranker.
+cases and 20% of MobileSAM cases (EfficientSAM 40%); mean IoU regret was
+0.0667 / 0.0429 / 0.0526. This is a *provider selection* measurement, not the
+editor ranker.
 
-**Implemented:** bounded per-candidate features (prompt coverage, box support,
-topology, edge contact), three declared ordering policies plus the existing
-default, and a frozen-set evaluator that replays sets through the real ranker
-with top-1/oracle/regret/top-k/click metrics and per-category tails.
+**Measured on 2026-09-15 (real-model frozen sets regenerated on this machine;
+MobileSAM 25 s / 865 MB peak, SAM2 41 s / 1.4 GB peak):**
 
-**Verified mechanics:** `candidateRanking.test.ts` (14 tests) and
-`promptedRankingEvaluation.test.ts` (4 tests) including a part-vs-whole case
-where the default selects a 0.6-IoU mask and `guarded-band-box` selects the
-0.9-IoU one without dropping coverage. Order/selection agreement with the real
-ranker is asserted per policy.
+| Provider / split | policy | top-1 IoU | regret | acceptance | coverage |
+| --- | --- | ---: | ---: | ---: | ---: |
+| MobileSAM dev | score | 0.8254 | 0.0268 | 80% | 100% |
+| MobileSAM dev | guarded-band-box | **0.8482** | **0.0040** | **100%** | 100% |
+| MobileSAM held-out | score | 0.6253 | 0.1031 | 60% | 100% |
+| MobileSAM held-out | guarded-band-box | 0.6253 | 0.1031 | 60% | 100% |
+| SAM2 dev | score | 0.6344 | 0.0299 | 80% | 100% |
+| SAM2 held-out | reviewed-score (default) | **0.6809** | **0.0956** | 80% | 100% |
+| SAM2 held-out | guarded-band-box | 0.6747 | 0.1018 | 80% | 100% |
 
-**Pending:** the real-model frozen corpus. The harness extension exists
-(`providerAb.test.ts` now emits RLE candidate masks, scores, oracle IoU,
-features, policy evaluations, and validator-checked records), but the bounded
-run could not execute on this machine state: `/tmp` was a 12 GB tmpfs at 98%
-and system RAM had 0–2 GB available with other agents' Playwright/model jobs
-active; the harness peaks at ~3.1 GB RSS (EfficientSAM).
+Decision: **the default stays `reviewed-score`** — the guarded policy helps
+the MobileSAM development half but shows no held-out gain, and the promotion
+criteria require held-out improvement without coverage loss. Residual failures
+are generation-side (worst regret 0.267 MobileSAM / 0.395 SAM2 on
+glass/translucency and edge-touching subjects). Full report:
+`docs/quality/ranking-evidence-2026-09-15.json`.
 
-```bash
-VARVE_SAM2_REAL_MODEL_DIR=/tmp/opencode/sam2 \
-VARVE_MOBILE_SAM_MODEL_DIR=/tmp/opencode/acly \
-VARVE_EFFICIENT_SAM_MODEL_DIR=/tmp/opencode/efficientsam \
-  pnpm exec vitest run packages/engine/src/segmentation/quality/providerAb.test.ts
-```
+**Implemented:** bounded per-candidate features, three declared ordering
+policies plus the existing default, and a frozen-set evaluator that replays
+sets through the real ranker with top-1/oracle/regret/top-k/click metrics and
+per-category tails.
 
-No default ranking change was made, so no ranking-quality claim is made.
+**Verified mechanics:** `candidateRanking.test.ts` (14 tests),
+`promptedRankingEvaluation.test.ts` (4 tests), and the gated
+`promptedRankingRealEvidence.test.ts` (1 test) which fails if a guarded policy
+regresses on a held-out half.
+
+**Still pending:** human-annotated real-photograph acceptable/best sets.
 
 ## G3 — Memory handoff
 
@@ -163,10 +168,10 @@ unsupported-runtime requests, and the explicit-selection path that:
 | --- | --- |
 | `tests/e2e/canvas/object-selection.spec.ts` (port 1601, COOP/COEP, no model) | **3 passed, 1 failed.** Passed: promptable surface usable without a model; draft box and pointer path; clean-install messaging. Failed: the `deviceMemory = 2` low-memory case asserted a budget-refusal message that cannot appear when cross-origin isolation raises the budget to 1.5 GB — the run configuration was wrong for that test, not the product. |
 | `…object-selection.spec.ts -g "keeps a real photo usable when the browser reports 2 GB"` (port 1602, no isolation, correct config) | **Failed: browser target crashed** (`Target crashed` at `boundingBox`) under host memory pressure (≈2 GB available, other agents' Chromium/model jobs active). The same assertion had previously failed cleanly on the budget message, so this was an environment crash, not a reproduced product defect. |
-| `tests/e2e/canvas/object-selection-mobile-real-model.spec.ts` (port 1603, isolation, MobileSAM artifacts staged in the gitignored models dir) | see the final Agent Validation Report |
-| `tests/e2e/canvas/object-selection-real-model.spec.ts` with `VARVE_SAM2_REAL_MODEL=1` | not attempted: the SAM2 browser gate needs the same host capacity and the MobileSAM gate exercises the same candidate-review path with a smaller model |
-| `tests/e2e/canvas/inference-platform-probe.spec.ts` (new) | see the final Agent Validation Report |
-| `tests/e2e/canvas/text-discovery.spec.ts` with `VARVE_TEXT_DISCOVERY_REAL_MODEL=1` | not attempted; the prior session recorded the engine Node gate as authoritative and the browser gate as incomplete (no console error, no completion in 15 minutes) |
+| `tests/e2e/canvas/object-selection-mobile-real-model.spec.ts` (port 1603, isolation, MobileSAM artifacts staged in the gitignored models dir) | **Passed (1.0 m).** Real 1280×853 elephant photograph, real 44 MB MobileSAM in the Chromium worker (`crossOriginIsolated: true`, ORT 1.27.0): interior click, negative grass correction, four candidates reviewed via the panel, reviewed candidate applied. Screenshots inspected: mask overlay covers the elephant; the applied mask renders the isolated cutout. |
+| `tests/e2e/canvas/object-selection-real-model.spec.ts` with `VARVE_SAM2_REAL_MODEL=1` | Not run: the SAM2 browser gate exercises the same candidate-review path with a larger model; the MobileSAM gate passed on the identical workflow and the machine had limited headroom. |
+| `tests/e2e/canvas/inference-platform-probe.spec.ts` (new) | **2 passed** (port 1606/1607). Recorded facts: `crossOriginIsolated: false`, `sharedArrayBuffer: false`, `hardwareConcurrency: 8`, `deviceMemory: 16`, WebGPU API present, **no adapter available** in headless Chromium. Durable evidence: `reports/inference-platform/facts-1607.json` (gitignored) — no platform cell was promoted from it. |
+| `tests/e2e/canvas/text-discovery.spec.ts` with `VARVE_TEXT_DISCOVERY_REAL_MODEL=1` | Not attempted; the prior session recorded the engine Node gate as authoritative and the browser gate as incomplete (no console error, no completion in 15 minutes). The new stage timings and release behavior are unit-covered and visible in the panel; the browser detector run remains the open G5 item. |
 
 ## Resource notes
 
