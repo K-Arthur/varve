@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  computeSourceRegionFromMaskCoverage,
   computeSourceRegionFromPreviewMask,
   deriveGeneratedOverlay,
+  encodeMaskCoverageAtSourceSize,
   encodePreviewMaskAtSourceSize,
   mapSourceRegionToProxy,
+  sampleMaskCoverageToRegion,
   samplePreviewMaskToRegion,
   workingPixelBudgetForTier,
   workingRasterDimensions,
@@ -24,6 +27,37 @@ describe('bounded generative raster planning', () => {
     });
     expect(computeSourceRegionFromPreviewMask(new Uint8Array(100 * 50), 100, 50, 1000, 500)).toBe(
       null,
+    );
+  });
+
+  it('plans directly from a source-sized mask without preview rounding', () => {
+    const sourceMask = new Uint8Array(12 * 8);
+    for (let y = 2; y < 6; y += 1) {
+      for (let x = 7; x < 10; x += 1) sourceMask[y * 12 + x] = 255;
+    }
+
+    expect(computeSourceRegionFromMaskCoverage(sourceMask, 12, 8, 1)).toEqual({
+      x: 6,
+      y: 1,
+      width: 5,
+      height: 6,
+    });
+    expect(
+      sampleMaskCoverageToRegion(
+        sourceMask,
+        12,
+        8,
+        12,
+        8,
+        { x: 6, y: 1, width: 5, height: 6 },
+        { width: 5, height: 6 },
+      ),
+    ).toEqual(
+      Uint8Array.from({ length: 30 }, (_, index) => {
+        const x = index % 5;
+        const y = Math.floor(index / 5);
+        return x >= 1 && x < 4 && y >= 1 && y < 5 ? 255 : 0;
+      }),
     );
   });
 
@@ -61,6 +95,13 @@ describe('bounded generative raster planning', () => {
     expect(header.getUint32(16)).toBe(4);
     expect(header.getUint32(20)).toBe(2);
     expect(bytes[25]).toBe(0); // grayscale PNG
+  });
+
+  it('encodes an existing source-sized mask without changing its rows', async () => {
+    const coverage = Uint8Array.from([0, 64, 128, 255, 255, 128, 64, 0]);
+    const exact = await encodeMaskCoverageAtSourceSize(coverage, 4, 2);
+    const sameSizePreview = await encodePreviewMaskAtSourceSize(coverage, 4, 2, 4, 2);
+    expect(exact).toBe(sameSizePreview);
   });
 
   it('honours cancellation before another source-resolution scanline', async () => {

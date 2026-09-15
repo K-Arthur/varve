@@ -74,6 +74,32 @@ export function computeSourceRegionFromPreviewMask(
   return { x, y, width: right - x, height: bottom - y };
 }
 
+/**
+ * Find a padded source rectangle from a mask that already uses source-image
+ * pixels. This is intentionally separate from the preview mapper: a model
+ * candidate may contain thin or edge-touching details that disappear when it
+ * is first reduced to the dialog preview.
+ */
+export function computeSourceRegionFromMaskCoverage(
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  contextPadding = 32,
+): SourceImageRegion | null {
+  if (!validPixelCount(width, height) || mask.length !== width * height) {
+    throw new Error('Source mask or dimensions are invalid');
+  }
+  const bounds = computeMaskBounds(mask, width, height);
+  if (!bounds) return null;
+  const padding = Math.max(0, Math.min(MAX_CONTEXT_PADDING, Math.round(contextPadding)));
+  const x = Math.max(0, bounds.x - padding);
+  const y = Math.max(0, bounds.y - padding);
+  const right = Math.min(width, bounds.x + bounds.w + padding);
+  const bottom = Math.min(height, bounds.y + bounds.h + padding);
+  if (right <= x || bottom <= y) return null;
+  return { x, y, width: right - x, height: bottom - y };
+}
+
 /** Cap a source rectangle without changing its aspect ratio. */
 export function workingRasterDimensions(
   region: SourceImageRegion,
@@ -108,8 +134,8 @@ function maskSample(mask: Uint8Array, width: number, height: number, x: number, 
 }
 
 /** Resample only the selected source rectangle; never creates a full source mask. */
-export function samplePreviewMaskToRegion(
-  previewMask: Uint8Array,
+export function sampleMaskCoverageToRegion(
+  sourceMask: Uint8Array,
   previewWidth: number,
   previewHeight: number,
   sourceWidth: number,
@@ -118,7 +144,7 @@ export function samplePreviewMaskToRegion(
   target: WorkingRasterDimensions,
 ): Uint8Array {
   if (
-    previewMask.length !== previewWidth * previewHeight ||
+    sourceMask.length !== previewWidth * previewHeight ||
     !validPixelCount(previewWidth, previewHeight) ||
     !validPixelCount(sourceWidth, sourceHeight) ||
     !validPixelCount(region.width, region.height) ||
@@ -134,12 +160,15 @@ export function samplePreviewMaskToRegion(
       const sourceX = region.x + ((x + 0.5) * region.width) / target.width - 0.5;
       const previewX = ((sourceX + 0.5) * previewWidth) / sourceWidth - 0.5;
       sampled[y * target.width + x] = clampByte(
-        maskSample(previewMask, previewWidth, previewHeight, previewX, previewY),
+        maskSample(sourceMask, previewWidth, previewHeight, previewX, previewY),
       );
     }
   }
   return sampled;
 }
+
+/** Backwards-compatible name for callers whose mask is the bounded preview. */
+export const samplePreviewMaskToRegion = sampleMaskCoverageToRegion;
 
 /** Decode just a source rectangle into a bounded ImageData working raster. */
 export function loadImageRegionToImageData(
@@ -221,6 +250,76 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+async function encodeMaskRowsAsPng(
+  width: number,
+  height: number,
+  writeCoverageRow: (y: number, row: Uint8Array) => void,
+  signal?: AbortSignal,
+): Promise<string> {
+  if (!validPixelCount(width, height) || width > 0xffffffff || height > 0xffffffff) {
+    throw new Error('Mask encoding dimensions are invalid');
+  }
+  if (typeof CompressionStream === 'undefined') {
+    throw new Error(
+      'This runtime cannot persist a full-resolution generative mask. Update the desktop runtime or use a current browser.',
+    );
+  }
+
+  const stream = new CompressionStream('deflate');
+  const writer = stream.writable.getWriter();
+  const compressedPromise = new Response(stream.readable).arrayBuffer();
+  try {
+    const row = new Uint8Array(width + 1);
+    row[0] = 0; // PNG filter: None. Each row is independently generated.
+    for (let y = 0; y < height; y += 1) {
+      if (signal?.aborted) throw new Error('Generative mask encoding was cancelled.');
+      writeCoverageRow(y, row);
+      await writer.write(row);
+    }
+    await writer.close();
+    const compressed = new Uint8Array(await compressedPromise);
+    const signature = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]);
+    const header = new Uint8Array(13);
+    const headerView = new DataView(header.buffer);
+    headerView.setUint32(0, width);
+    headerView.setUint32(4, height);
+    header[8] = 8; // bit depth
+    header[9] = 0; // grayscale
+    header[10] = 0; // compression method
+    header[11] = 0; // filter method
+    header[12] = 0; // no interlace
+    const png = concatenateBytes([
+      signature,
+      pngChunk('IHDR', header),
+      pngChunk('IDAT', compressed),
+      pngChunk('IEND', new Uint8Array()),
+    ]);
+    return `data:image/png;base64,${bytesToBase64(png)}`;
+  } catch (error) {
+    await writer.abort(error).catch(() => undefined);
+    await compressedPromise.catch(() => undefined);
+    throw error;
+  }
+}
+
+/** Encode an already source-sized mask without resampling it through a preview. */
+export function encodeMaskCoverageAtSourceSize(
+  coverage: Uint8Array,
+  width: number,
+  height: number,
+  signal?: AbortSignal,
+): Promise<string> {
+  if (!validPixelCount(width, height) || coverage.length !== width * height) {
+    return Promise.reject(new Error('Mask encoding dimensions are invalid'));
+  }
+  return encodeMaskRowsAsPng(
+    width,
+    height,
+    (y, row) => row.set(coverage.subarray(y * width, (y + 1) * width), 1),
+    signal,
+  );
+}
+
 /**
  * Persist a source-resolution mask without first creating a source-resolution
  * Uint8Array or ImageData. The preview mask is the editable representation;
@@ -245,25 +344,15 @@ export async function encodePreviewMaskAtSourceSize(
   ) {
     throw new Error('Mask encoding dimensions are invalid');
   }
-  if (typeof CompressionStream === 'undefined') {
-    throw new Error(
-      'This runtime cannot persist a full-resolution generative mask. Update the desktop runtime or use a current browser.',
-    );
-  }
-
-  const stream = new CompressionStream('deflate');
-  const writer = stream.writable.getWriter();
-  const compressedPromise = new Response(stream.readable).arrayBuffer();
-  try {
-    const row = new Uint8Array(sourceWidth + 1);
-    row[0] = 0; // PNG filter: None. Each row is independently generated.
-    for (let y = 0; y < sourceHeight; y += 1) {
-      if (signal?.aborted) throw new Error('Generative mask encoding was cancelled.');
-      const previewY = Math.min(
+  return encodeMaskRowsAsPng(
+    sourceWidth,
+    sourceHeight,
+    (_y, row) => {
+      const sourceY = Math.min(
         previewHeight - 1,
-        Math.floor(((y + 0.5) * previewHeight) / sourceHeight),
+        Math.floor(((_y + 0.5) * previewHeight) / sourceHeight),
       );
-      const previewRow = previewY * previewWidth;
+      const previewRow = sourceY * previewWidth;
       for (let x = 0; x < sourceWidth; x += 1) {
         const previewX = Math.min(
           previewWidth - 1,
@@ -271,32 +360,9 @@ export async function encodePreviewMaskAtSourceSize(
         );
         row[x + 1] = previewMask[previewRow + previewX] ?? 0;
       }
-      await writer.write(row);
-    }
-    await writer.close();
-    const compressed = new Uint8Array(await compressedPromise);
-    const signature = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]);
-    const header = new Uint8Array(13);
-    const headerView = new DataView(header.buffer);
-    headerView.setUint32(0, sourceWidth);
-    headerView.setUint32(4, sourceHeight);
-    header[8] = 8; // bit depth
-    header[9] = 0; // grayscale
-    header[10] = 0; // compression method
-    header[11] = 0; // filter method
-    header[12] = 0; // no interlace
-    const png = concatenateBytes([
-      signature,
-      pngChunk('IHDR', header),
-      pngChunk('IDAT', compressed),
-      pngChunk('IEND', new Uint8Array()),
-    ]);
-    return `data:image/png;base64,${bytesToBase64(png)}`;
-  } catch (error) {
-    await writer.abort(error).catch(() => undefined);
-    await compressedPromise.catch(() => undefined);
-    throw error;
-  }
+    },
+    signal,
+  );
 }
 
 /**

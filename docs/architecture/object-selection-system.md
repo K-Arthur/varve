@@ -305,10 +305,15 @@ transparent pixels while refining an already anchored target.
 The canvas review overlay is deliberately not another source-of-truth mask.
 It resizes the candidate into a cached preview capped at 1536 px on the long
 edge and 2 megapixels, while Apply, the topology checks, and the persisted
-raster asset retain the source-resolution coverage. This prevents a large
-photograph from allocating a second full-resolution RGBA buffer on every
-overlay redraw and keeps the visible target aligned through the same crop,
-rotation, flip, and ancestor transform as the renderer.
+raster asset retain the source-resolution coverage. When that candidate is
+handed to Generative Edit without brush or compound-mask changes, the same
+source-resolution coverage remains authoritative for context bounds, inference
+sampling, and persistence; it is not reconstructed from the preview canvas.
+This prevents a large photograph from allocating a second full-resolution RGBA
+buffer on every overlay redraw and keeps the visible target aligned through the
+same crop, rotation, flip, and ancestor transform as the renderer. A brush edit
+or compound operation intentionally revokes that exact handoff and makes the
+visible editable mask the authority.
 
 Automatic foreground proposals additionally record the canonical
 source-pixel-to-world placement fingerprint used for their review overlay.

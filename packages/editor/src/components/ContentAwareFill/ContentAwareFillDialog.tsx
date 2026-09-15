@@ -57,13 +57,16 @@ import {
   expandPaddingForOutputSize,
 } from './expandControls';
 import {
+  computeSourceRegionFromMaskCoverage,
   computeSourceRegionFromPreviewMask,
+  encodeMaskCoverageAtSourceSize,
   encodePreviewMaskAtSourceSize,
   loadImageRegionToImageData,
   mapSourceRegionToProxy,
   renderGeneratedRegionToPatchCanvas,
   renderGeneratedRegionToPreviewCanvas,
   type SourceImageRegion,
+  sampleMaskCoverageToRegion,
   samplePreviewMaskToRegion,
   workingPixelBudgetForTier,
   workingRasterDimensions,
@@ -94,6 +97,7 @@ const MAX_PREVIEW_PIXELS = 2_000_000;
 const MAX_VARIATION_THUMBNAIL_DIMENSION = 256;
 const MAX_SOURCE_PROXY_DIMENSION = 1536;
 const MAX_SOURCE_IDENTITY_PIXELS = 16_777_216;
+const MAX_SOURCE_MASK_REFINEMENT_PIXELS = 16_777_216;
 
 function previewRasterDimensions(width: number, height: number): { width: number; height: number } {
   const scale = Math.min(1, Math.sqrt(MAX_PREVIEW_PIXELS / Math.max(1, width * height)));
@@ -517,6 +521,16 @@ export function ContentAwareFillDialog({
     null,
   );
   const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  /**
+   * Source-sized masks supplied by an analytical/object-selection provider.
+   * The review canvas is intentionally bounded, so it cannot be the source of
+   * truth for an untouched high-resolution candidate.
+   */
+  const editableSourceMaskRef = useRef<{
+    coverage: Uint8Array;
+    width: number;
+    height: number;
+  } | null>(null);
   const previewAreaRef = useRef<HTMLDivElement | null>(null);
 
   const [quality, setQuality] = useState<ContentAwareFillQuality>('fast');
@@ -887,6 +901,7 @@ export function ContentAwareFillDialog({
   useEffect(() => {
     if (!isOpen) return;
     jobControllerRef.current.cancel();
+    editableSourceMaskRef.current = null;
     qualificationRunRef.current += 1;
     sessionSourceSignatureRef.current = sourceSignature;
     setQuality('fast');
@@ -988,6 +1003,7 @@ export function ContentAwareFillDialog({
     const previous = sessionSourceSignatureRef.current;
     if (previous && previous !== sourceSignature) {
       invalidatePreview();
+      editableSourceMaskRef.current = null;
       setReviewedObjectSelectionKey(null);
       setErrorMessage('The source image changed. Review the mask and generate again.');
       sessionSourceSignatureRef.current = sourceSignature;
@@ -1367,6 +1383,11 @@ export function ContentAwareFillDialog({
         width: canvas.width,
         height: canvas.height,
       });
+      // A brush edit is authored in preview pixels. Once the user paints, the
+      // previous source-resolution provider mask is no longer an exact
+      // description of the editable mask, so generation must use the visible
+      // canvas representation rather than mixing two coordinate frames.
+      editableSourceMaskRef.current = null;
       if (hasMaskStrokes !== combined.some((value) => value > 0)) {
         setHasMaskStrokes(combined.some((value) => value > 0));
       }
@@ -1413,6 +1434,7 @@ export function ContentAwareFillDialog({
     setHasMaskStrokes(false);
     setMaskHealth(emptySelectionHealth());
     setMaskOrigin('brush');
+    editableSourceMaskRef.current = null;
     setReviewedObjectSelectionKey(null);
     bumpMaskRevision();
     invalidatePreview();
@@ -1469,6 +1491,15 @@ export function ContentAwareFillDialog({
         );
         const combined = combineMaskCoverage(current, resized, maskOperation);
         putMaskCoverage(context, combined, { width: canvas.width, height: canvas.height });
+        // Replace is the only operation that gives us an authoritative source
+        // mask without having to reconstruct the existing preview mask. Keep
+        // that exact candidate for high-resolution generation; compound
+        // operations are deliberately treated as preview-authored until they
+        // are implemented at source resolution.
+        editableSourceMaskRef.current =
+          maskOperation === 'replace' && width === naturalSize.w && height === naturalSize.h
+            ? { coverage: coverage.slice(), width, height }
+            : null;
         setHasMaskStrokes(combined.some((value) => value > 0));
         setMaskHealth(analyzeSelectionHealth(combined, canvas.width, canvas.height, mode));
         setMaskOrigin(origin);
@@ -1709,6 +1740,12 @@ export function ContentAwareFillDialog({
     const coverage = maskCoverageFromRgba(imageData.data);
     for (let i = 0; i < coverage.length; i += 1) coverage[i] = 255 - coverage[i]!;
     putMaskCoverage(context, coverage, { width: canvas.width, height: canvas.height });
+    if (editableSourceMaskRef.current) {
+      for (let i = 0; i < editableSourceMaskRef.current.coverage.length; i += 1) {
+        editableSourceMaskRef.current.coverage[i] =
+          255 - editableSourceMaskRef.current.coverage[i]!;
+      }
+    }
     setHasMaskStrokes(coverage.some((value) => value > 0));
     setMaskHealth(analyzeSelectionHealth(coverage, canvas.width, canvas.height, mode));
     setMaskOrigin('brush');
@@ -1968,6 +2005,11 @@ export function ContentAwareFillDialog({
         sourceWidth: number;
         sourceHeight: number;
       };
+      let sourceMaskForPersistence: {
+        coverage: Uint8Array;
+        width: number;
+        height: number;
+      } | null = null;
       let expandContext: {
         fullPlan: ExpandPlan;
         working: ExpandWorkingFrame;
@@ -2038,17 +2080,6 @@ export function ContentAwareFillDialog({
         }
         outputFrame = expandPlanOutputFrame(fullPlan);
       } else {
-        const rawBounds = computeSourceRegionFromPreviewMask(
-          previewMask,
-          previewWidth,
-          previewHeight,
-          sourceWidth,
-          sourceHeight,
-          contextPadding,
-        );
-        if (!rawBounds) {
-          throw new GenerativeEditError('empty-mask', 'Paint an area to edit before generating.');
-        }
         const previewScaleX = previewWidth / sourceWidth;
         const previewScaleY = previewHeight / sourceHeight;
         const refinedPreviewMask = refineGenerativeMask(
@@ -2059,14 +2090,51 @@ export function ContentAwareFillDialog({
             feather: Math.round(maskFeather * Math.min(previewScaleX, previewScaleY)),
           },
         );
-        const region = computeSourceRegionFromPreviewMask(
-          refinedPreviewMask,
-          previewWidth,
-          previewHeight,
-          sourceWidth,
-          sourceHeight,
-          contextPadding,
-        );
+        const exactSourceMask = editableSourceMaskRef.current;
+        const hasExactSourceMask =
+          exactSourceMask?.width === sourceWidth && exactSourceMask.height === sourceHeight;
+        let effectiveSourceMask: Uint8Array | null = null;
+        if (hasExactSourceMask && exactSourceMask) {
+          sourceMaskForPersistence = exactSourceMask;
+          if (
+            (maskExpansion !== 0 || maskFeather !== 0) &&
+            sourceWidth * sourceHeight > MAX_SOURCE_MASK_REFINEMENT_PIXELS
+          ) {
+            throw new GenerativeEditError(
+              'insufficient-memory',
+              'This source mask is too large for exact grow/shrink or feather refinement on this device. Reduce the image size or use the visible preview mask.',
+            );
+          }
+          effectiveSourceMask =
+            maskExpansion !== 0 || maskFeather !== 0
+              ? refineGenerativeMask(
+                  exactSourceMask.coverage,
+                  {
+                    width: sourceWidth,
+                    height: sourceHeight,
+                  },
+                  {
+                    expansion: Math.round(maskExpansion),
+                    feather: Math.round(maskFeather),
+                  },
+                )
+              : exactSourceMask.coverage;
+        }
+        const region = effectiveSourceMask
+          ? computeSourceRegionFromMaskCoverage(
+              effectiveSourceMask,
+              sourceWidth,
+              sourceHeight,
+              contextPadding,
+            )
+          : computeSourceRegionFromPreviewMask(
+              refinedPreviewMask,
+              previewWidth,
+              previewHeight,
+              sourceWidth,
+              sourceHeight,
+              contextPadding,
+            );
         if (!region) {
           throw new GenerativeEditError('empty-mask', 'Mask refinement removed the edit region.');
         }
@@ -2091,15 +2159,25 @@ export function ContentAwareFillDialog({
           proxyDimensions.height,
         );
         generationImage = loadImageRegionToImageData(sourceProxy, proxyRegion, working);
-        mask = samplePreviewMaskToRegion(
-          refinedPreviewMask,
-          previewWidth,
-          previewHeight,
-          sourceWidth,
-          sourceHeight,
-          region,
-          working,
-        );
+        mask = effectiveSourceMask
+          ? sampleMaskCoverageToRegion(
+              effectiveSourceMask,
+              sourceWidth,
+              sourceHeight,
+              sourceWidth,
+              sourceHeight,
+              region,
+              working,
+            )
+          : samplePreviewMaskToRegion(
+              refinedPreviewMask,
+              previewWidth,
+              previewHeight,
+              sourceWidth,
+              sourceHeight,
+              region,
+              working,
+            );
         if (!mask.some((value) => value > 0)) {
           throw new GenerativeEditError('empty-mask', 'Mask refinement removed the edit region.');
         }
@@ -2333,14 +2411,21 @@ export function ContentAwareFillDialog({
         throw new GenerativeEditError('stale', 'The source changed while generation was running.');
       }
       if (mode !== 'expand') {
-        userMaskDataUrl = await encodePreviewMaskAtSourceSize(
-          previewMask,
-          previewWidth,
-          previewHeight,
-          sourceWidth,
-          sourceHeight,
-          token.signal,
-        );
+        userMaskDataUrl = sourceMaskForPersistence
+          ? await encodeMaskCoverageAtSourceSize(
+              sourceMaskForPersistence.coverage,
+              sourceMaskForPersistence.width,
+              sourceMaskForPersistence.height,
+              token.signal,
+            )
+          : await encodePreviewMaskAtSourceSize(
+              previewMask,
+              previewWidth,
+              previewHeight,
+              sourceWidth,
+              sourceHeight,
+              token.signal,
+            );
       }
       if (!isCurrentJob()) {
         throw new GenerativeEditError('stale', 'The source changed while saving the edit mask.');
