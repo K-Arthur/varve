@@ -10,6 +10,8 @@
  * All grid settings are persisted in the Document model, not localStorage.
  */
 
+import { axisSeparationDegrees, DIMETRIC_2_1_ANGLE_DEG } from './isometricGeometry';
+
 /**
  * Grid scope determines where a grid applies.
  */
@@ -124,29 +126,75 @@ export interface IsometricGrid extends GridBase {
   axes: IsometricAxis[];
   originX: number;
   originY: number;
+  /** Grid rotation about the origin, degrees. */
   rotation: number;
+  /**
+   * Projected length of one lattice step along each axis (lattice constant).
+   *
+   * v2.28+: this is an **axis step**. Legacy documents (formatVersion ≤ 2.27)
+   * stored a per-family perpendicular line gap; `migrateV227ToV228` converts
+   * it by dividing by `sin θ` so the drawn grid does not move.
+   */
   spacing: number;
+  /** v2.28+: records which spacing convention the stored value uses. */
+  spacingMode?: 'axis-step';
+  /** v2.28+: active construction plane for new geometry. */
+  activePlaneId?: import('./isometricGeometry').IsometricPlaneId;
+  /** v2.28+: major line interval in lattice steps (>=1). */
+  majorEvery?: number;
+  /** v2.28+: snap to all lattice intersections vs displayed lines only. */
+  snapToSubdivisions?: boolean;
+  /** v2.28+: snap to the grid's line families, not only intersections. */
+  snapToLines?: boolean;
   version: number;
 }
 
+/**
+ * Validate axis directions with numerical conditioning, not just duplicate
+ * equality: two axes 0.5° apart are distinct but useless as a lattice basis.
+ */
 export function validateIsometricAxes(axes: IsometricAxis[]): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   if (axes.length < 2 || axes.length > 3) {
     errors.push(`Isometric grid requires 2-3 axes, got ${axes.length}`);
     return { valid: false, errors };
   }
-  for (let i = 0; i < axes.length; i++) {
-    const a = axes[i];
-    for (let j = i + 1; j < axes.length; j++) {
-      const b = axes[j];
-      const diff = Math.abs((((a!.angle % 360) + 360) % 360) - (((b!.angle % 360) + 360) % 360));
-      if (diff < 0.1 || diff > 359.9) errors.push(`Axis ${i} and ${j} are duplicates`);
+  for (const [index, axis] of axes.entries()) {
+    if (!Number.isFinite(axis.angle)) {
+      errors.push(`Axis ${index + 1} angle must be finite`);
+    }
+    if (
+      axis.opacity !== undefined &&
+      (!Number.isFinite(axis.opacity) || axis.opacity < 0 || axis.opacity > 1)
+    ) {
+      errors.push(`Axis ${index + 1} opacity must be within 0-1`);
+    }
+  }
+  if (errors.length > 0) return { valid: false, errors };
+
+  const visible = axes.filter((axis) => axis.visible !== false);
+  if (visible.length >= 2) {
+    for (let i = 0; i < axes.length; i++) {
+      for (let j = i + 1; j < axes.length; j++) {
+        if (axisSeparationDegrees(axes[i]!.angle, axes[j]!.angle) < 1e-3) {
+          errors.push(`Axis ${i + 1} and ${j + 1} are duplicates`);
+        }
+      }
+    }
+    if (errors.length === 0) {
+      const separation = axisSeparationDegrees(visible[0]!.angle, visible[1]!.angle);
+      if (separation < 5) {
+        errors.push(
+          `Axis 1 and 2 are only ${separation.toFixed(2)}° apart; a stable lattice needs at least 5°`,
+        );
+      }
     }
   }
   return { valid: errors.length === 0, errors };
 }
 
 export function normaliseAngle(angle: number): number {
+  if (!Number.isFinite(angle)) return 0;
   return ((angle % 360) + 360) % 360;
 }
 
@@ -161,27 +209,38 @@ export function createStandardIsometricAxes(): IsometricAxis[] {
 export interface IsometricPresetDef {
   id: IsometricPreset;
   label: string;
+  /** Honest one-line description of what the preset does and does not claim. */
+  description: string;
+  /** Exact rhombus ratio when the preset is ratio-derived (`height:width`). */
+  ratio?: { height: number; width: number };
   axes: IsometricAxis[];
 }
 
 export const ISOMETRIC_PRESETS: IsometricPresetDef[] = [
   {
     id: 'standard',
-    label: 'Standard Isometric (30\u00b0)',
+    label: 'True isometric (30°)',
+    description:
+      'Exact equal-axis 30° projection: both ground axes are 30° from horizontal and all three projected axes share one scale.',
     axes: createStandardIsometricAxes(),
   },
   {
     id: 'dimetric',
-    label: 'Dimetric (arctan(1/2))',
+    label: 'Dimetric 2:1 (26.565°)',
+    description:
+      'Exact ratio-derived 2:1 game-art projection (slope 1:2). The angle is computed as atan2(1, 2), not rounded.',
+    ratio: { height: 1, width: 2 },
     axes: [
-      { angle: 26.565, visible: true, label: 'Right' },
-      { angle: 153.435, visible: true, label: 'Left' },
+      { angle: DIMETRIC_2_1_ANGLE_DEG, visible: true, label: 'Right' },
+      { angle: 180 - DIMETRIC_2_1_ANGLE_DEG, visible: true, label: 'Left' },
       { angle: 90, visible: true, label: 'Vertical' },
     ],
   },
   {
     id: 'trimetric',
-    label: 'Trimetric (15\u00b0/45\u00b0/75\u00b0)',
+    label: 'Trimetric-style (15° / 75°)',
+    description:
+      'Illustrative three-angle guide, not a measured trimetric projection: use it as directional construction guides.',
     axes: [
       { angle: 15, visible: true, label: 'Right' },
       { angle: 135, visible: true, label: 'Left' },
@@ -211,7 +270,12 @@ export function createDefaultIsometricGrid(): IsometricGrid {
     originY: 0,
     rotation: 0,
     spacing: 24,
-    version: 2,
+    spacingMode: 'axis-step',
+    activePlaneId: 'top',
+    majorEvery: 4,
+    snapToSubdivisions: true,
+    snapToLines: false,
+    version: 3,
   };
 }
 
@@ -398,6 +462,12 @@ export function validateIsometricGrid(grid: IsometricGrid): boolean {
     Number.isFinite(grid.originX) &&
     Number.isFinite(grid.originY) &&
     Number.isFinite(grid.rotation) &&
+    (grid.majorEvery === undefined ||
+      (Number.isInteger(grid.majorEvery) && grid.majorEvery >= 1 && grid.majorEvery <= 64)) &&
+    (grid.activePlaneId === undefined ||
+      grid.activePlaneId === 'top' ||
+      grid.activePlaneId === 'front' ||
+      grid.activePlaneId === 'side') &&
     validateIsometricAxes(grid.axes).valid
   );
 }
@@ -423,54 +493,91 @@ export function validateGrid(grid: GridDefinition): boolean {
 }
 
 /**
+ * Clamp a possibly non-finite value into `[min, max]`. `Math.min`/`Math.max`
+ * propagate NaN, which is how malformed saved grids used to poison the model;
+ * this returns the fallback instead.
+ */
+function clampFinite(value: unknown, min: number, max: number, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(max, value));
+}
+
+/**
+ * Sanitize an isometric grid. Handles NaN and Infinity explicitly (rather
+ * than clamping them through), preserves the last valid identity, and
+ * normalises optional v2.28 fields with defaults.
+ */
+export function sanitizeIsometricGrid(grid: IsometricGrid): IsometricGrid {
+  const sanitized: IsometricGrid = {
+    ...grid,
+    opacity: clampFinite(grid.opacity, 0, 1, 0.2),
+    spacing: clampFinite(grid.spacing, 0.01, 100000, 24),
+    spacingMode: 'axis-step',
+    originX: clampFinite(grid.originX, -1e7, 1e7, 0),
+    originY: clampFinite(grid.originY, -1e7, 1e7, 0),
+    rotation: Number.isFinite(grid.rotation) ? ((grid.rotation % 360) + 360) % 360 : 0,
+    activePlaneId:
+      grid.activePlaneId === 'front' || grid.activePlaneId === 'side' ? grid.activePlaneId : 'top',
+    majorEvery: Number.isInteger(grid.majorEvery)
+      ? Math.max(1, Math.min(64, grid.majorEvery as number))
+      : 4,
+    snapToSubdivisions: grid.snapToSubdivisions !== false,
+    snapToLines: grid.snapToLines === true,
+    axes: (Array.isArray(grid.axes) ? grid.axes : []).slice(0, 3).map((axis) => ({
+      ...axis,
+      angle: normaliseAngle(axis?.angle ?? 0),
+      visible: axis?.visible !== false,
+      opacity: axis?.opacity === undefined ? undefined : clampFinite(axis.opacity, 0, 1, 1),
+      spacing:
+        axis?.spacing === undefined ? undefined : clampFinite(axis.spacing, 0.01, 100000, 24),
+    })),
+  };
+  if (sanitized.axes.length < 2) {
+    sanitized.axes = createStandardIsometricAxes();
+  }
+  return sanitized;
+}
+
+/**
  * Sanitize a grid definition by clamping values to valid ranges.
  */
 export function sanitizeGrid(grid: GridDefinition): GridDefinition {
   const sanitized = { ...grid };
 
   // Clamp opacity
-  sanitized.opacity = Math.max(0, Math.min(1, sanitized.opacity));
+  sanitized.opacity = clampFinite(sanitized.opacity, 0, 1, 0.4);
 
   // Type-specific sanitization
   if (sanitized.type === 'document') {
-    sanitized.spacingX = Math.max(1, Math.min(10000, sanitized.spacingX));
-    sanitized.spacingY = Math.max(1, Math.min(10000, sanitized.spacingY));
-    sanitized.subdivisions = Math.max(1, Math.min(100, sanitized.subdivisions));
-    sanitized.offsetX = Math.max(-10000, Math.min(10000, sanitized.offsetX));
-    sanitized.offsetY = Math.max(-10000, Math.min(10000, sanitized.offsetY));
+    sanitized.spacingX = clampFinite(sanitized.spacingX, 1, 10000, 8);
+    sanitized.spacingY = clampFinite(sanitized.spacingY, 1, 10000, 8);
+    sanitized.subdivisions = clampFinite(sanitized.subdivisions, 1, 100, 4);
+    sanitized.offsetX = clampFinite(sanitized.offsetX, -10000, 10000, 0);
+    sanitized.offsetY = clampFinite(sanitized.offsetY, -10000, 10000, 0);
   } else if (sanitized.type === 'layout') {
-    sanitized.gutter = Math.max(0, Math.min(1000, sanitized.gutter));
-    sanitized.margin = sanitized.margin.map((m) => Math.max(0, Math.min(1000, m))) as [
-      number,
-      number,
-      number,
-      number,
-    ];
+    sanitized.gutter = clampFinite(sanitized.gutter, 0, 1000, 0);
+    sanitized.margin = (Array.isArray(sanitized.margin) ? sanitized.margin : [0, 0, 0, 0]).map(
+      (m) => clampFinite(m, 0, 1000, 0),
+    ) as [number, number, number, number];
     if (sanitized.columnCount !== undefined) {
-      sanitized.columnCount = Math.max(1, Math.min(100, Math.round(sanitized.columnCount)));
+      sanitized.columnCount = Math.round(clampFinite(sanitized.columnCount, 1, 100, 1));
     }
     if (sanitized.rowCount !== undefined) {
-      sanitized.rowCount = Math.max(1, Math.min(100, Math.round(sanitized.rowCount)));
+      sanitized.rowCount = Math.round(clampFinite(sanitized.rowCount, 1, 100, 1));
     }
     if (sanitized.columnWidth !== undefined) {
-      sanitized.columnWidth = Math.max(1, Math.min(100000, sanitized.columnWidth));
+      sanitized.columnWidth = clampFinite(sanitized.columnWidth, 1, 100000, 1);
     }
     if (sanitized.rowHeight !== undefined) {
-      sanitized.rowHeight = Math.max(1, Math.min(100000, sanitized.rowHeight));
+      sanitized.rowHeight = clampFinite(sanitized.rowHeight, 1, 100000, 1);
     }
   } else if (sanitized.type === 'baseline') {
-    sanitized.baselineStep = Math.max(1, Math.min(10000, sanitized.baselineStep));
-    sanitized.offset = Math.max(-10000, Math.min(10000, sanitized.offset));
+    sanitized.baselineStep = clampFinite(sanitized.baselineStep, 1, 10000, 24);
+    sanitized.offset = clampFinite(sanitized.offset, -10000, 10000, 0);
   } else if (sanitized.type === 'pixel') {
-    sanitized.zoomThreshold = Math.max(1, Math.min(100, sanitized.zoomThreshold));
+    sanitized.zoomThreshold = clampFinite(sanitized.zoomThreshold, 1, 100, 4);
   } else if (sanitized.type === 'isometric') {
-    sanitized.spacing = Math.max(1, Math.min(10000, sanitized.spacing));
-    sanitized.originX = Math.max(-100000, Math.min(100000, sanitized.originX));
-    sanitized.originY = Math.max(-100000, Math.min(100000, sanitized.originY));
-    sanitized.rotation = ((sanitized.rotation % 360) + 360) % 360;
-    sanitized.axes = sanitized.axes
-      .slice(0, 3)
-      .map((a) => ({ ...a, angle: ((a.angle % 360) + 360) % 360, visible: a.visible !== false }));
+    return sanitizeIsometricGrid(sanitized);
   }
 
   return sanitized;

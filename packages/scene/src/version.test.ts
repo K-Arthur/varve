@@ -14,7 +14,7 @@ import {
 
 describe('Document Versioning', () => {
   it('uses the native raster-mask schema version', () => {
-    expect(CURRENT_DOCUMENT_VERSION).toBe('2.27');
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.28');
     expect(SUPPORTED_VERSIONS).toContain('2.4');
   });
 
