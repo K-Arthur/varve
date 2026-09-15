@@ -495,6 +495,10 @@ export function ContentAwareFillDialog({
     setTool,
   } = useEditor();
   const dialogRef = useRef<HTMLDialogElement | null>(null);
+  // Backdrop dismissal requires the press and the release to happen on the
+  // dialog element itself; a click dispatched on the dialog because a drag
+  // began inside the content and ended on the backdrop must not close it.
+  const backdropPressRef = useRef({ down: false, up: false });
   const jobControllerRef = useRef(new GenerativeJobController());
   const downloadAbortRef = useRef<AbortController | null>(null);
   const diffusionDownloadAbortRef = useRef<AbortController | null>(null);
@@ -578,6 +582,7 @@ export function ContentAwareFillDialog({
   const [modelAvailable, setModelAvailable] = useState(false);
   const [modelFitsMemory, setModelFitsMemory] = useState<boolean | null>(null);
   const [diffusionModelInstalled, setDiffusionModelInstalled] = useState(false);
+  const [diffusionModelDownloadAvailable, setDiffusionModelDownloadAvailable] = useState(false);
   const [diffusionModelHandle, setDiffusionModelHandle] = useState<string | null>(null);
   const [diffusionModelSize, setDiffusionModelSize] = useState(0);
   const [diffusionModelReason, setDiffusionModelReason] = useState<string | null>(null);
@@ -966,6 +971,7 @@ export function ContentAwareFillDialog({
     setModelAvailable(false);
     setModelFitsMemory(null);
     setDiffusionModelInstalled(false);
+    setDiffusionModelDownloadAvailable(false);
     setDiffusionModelHandle(null);
     setDiffusionModelSize(0);
     setDiffusionModelReason(null);
@@ -1097,6 +1103,7 @@ export function ContentAwareFillDialog({
     void getNativeGenerativeModelStatus().then((available) => {
       if (cancelled) return;
       setDiffusionModelInstalled(available.installed);
+      setDiffusionModelDownloadAvailable(available.downloadAvailable);
       setDiffusionModelHandle(available.ready ? available.modelHandle : null);
       setDiffusionModelSize(available.sizeBytes);
       setDiffusionModelReason(available.reason);
@@ -1952,6 +1959,7 @@ export function ContentAwareFillDialog({
         );
       }, controller.signal);
       setDiffusionModelInstalled(downloaded.installed);
+      setDiffusionModelDownloadAvailable(downloaded.downloadAvailable);
       setDiffusionModelHandle(downloaded.ready ? downloaded.modelHandle : null);
       setDiffusionModelSize(downloaded.sizeBytes);
       setDiffusionModelReason(downloaded.reason);
@@ -2003,6 +2011,7 @@ export function ContentAwareFillDialog({
       if (!selected) return;
       const imported = await importNativeGenerativeModel(selected);
       setDiffusionModelInstalled(imported.installed);
+      setDiffusionModelDownloadAvailable(imported.downloadAvailable);
       setDiffusionModelHandle(imported.ready ? imported.modelHandle : null);
       setDiffusionModelSize(imported.sizeBytes);
       setDiffusionModelReason(imported.reason);
@@ -2037,6 +2046,7 @@ export function ContentAwareFillDialog({
       const qualified = await qualifyNativeGenerativeModel(controller.signal);
       if (!isCurrentQualification()) return;
       setDiffusionModelInstalled(qualified.installed);
+      setDiffusionModelDownloadAvailable(qualified.downloadAvailable);
       setDiffusionModelHandle(qualified.ready ? qualified.modelHandle : null);
       setDiffusionModelSize(qualified.sizeBytes);
       setDiffusionModelReason(qualified.reason);
@@ -3171,8 +3181,19 @@ export function ContentAwareFillDialog({
         e.preventDefault();
         if (!isProcessing) onClose();
       }}
+      onPointerDown={(e) => {
+        backdropPressRef.current = { down: e.target === e.currentTarget, up: false };
+      }}
+      onPointerUp={(e) => {
+        backdropPressRef.current.up = e.target === e.currentTarget;
+      }}
+      onPointerCancel={() => {
+        backdropPressRef.current = { down: false, up: false };
+      }}
       onClick={(e) => {
-        if (e.target === e.currentTarget && !isProcessing) onClose();
+        const press = backdropPressRef.current;
+        backdropPressRef.current = { down: false, up: false };
+        if (e.target === e.currentTarget && press.down && press.up && !isProcessing) onClose();
       }}
       onKeyDown={(e) => {
         if (e.key === 'Escape' && !isProcessing) onClose();
@@ -3327,18 +3348,21 @@ export function ContentAwareFillDialog({
 
           {usesDiffusion && (
             <div className="caf-dialog__section">
-              {!diffusionModelInstalled && capabilities.prompt && status !== 'downloading' && (
-                <Button
-                  type="button"
-                  variant="default"
-                  size="sm"
-                  onClick={() => void handleDownloadDiffusionModel()}
-                  disabled={isProcessing}
-                >
-                  Download {Math.round(NATIVE_GENERATIVE_MODEL_PROFILE.sizeBytes / 1_000_000)} MB
-                  model
-                </Button>
-              )}
+              {!diffusionModelInstalled &&
+                diffusionModelDownloadAvailable &&
+                capabilities.prompt &&
+                status !== 'downloading' && (
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    onClick={() => void handleDownloadDiffusionModel()}
+                    disabled={isProcessing}
+                  >
+                    Download {Math.round(NATIVE_GENERATIVE_MODEL_PROFILE.sizeBytes / 1_000_000)} MB
+                    model
+                  </Button>
+                )}
               {status === 'downloading' && (
                 <Button type="button" variant="ghost" size="sm" onClick={handleCancelDownload}>
                   Cancel download
@@ -3392,7 +3416,9 @@ export function ContentAwareFillDialog({
                   : diffusionModelInstalled
                     ? (diffusionModelReason ??
                       'Run validation before using prompt-capable generation.')
-                    : 'Select a safe-format SD 1.5/SDXL inpainting model. Legacy checkpoint files are rejected. Browser generation is unavailable.'}
+                    : diffusionModelDownloadAvailable
+                      ? 'Select a safe-format SD 1.5/SDXL inpainting model. Legacy checkpoint files are rejected. Browser generation is unavailable.'
+                      : 'No compatible quality-certified prompt model is packaged for this runtime. Import and validate a compatible local model, or use Quick Cleanup/LaMa. Browser generation is unavailable.'}
               </p>
             </div>
           )}

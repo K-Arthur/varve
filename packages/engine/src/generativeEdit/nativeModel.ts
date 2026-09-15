@@ -20,6 +20,8 @@ export interface NativeGenerativeModelDownloadProgress {
 export interface NativeGenerativeModelStatus {
   installed: boolean;
   ready: boolean;
+  /** True only when Varve has a pinned artifact it can execute and qualify. */
+  downloadAvailable: boolean;
   modelHandle: string | null;
   profileId: string | null;
   checksumSha256: string | null;
@@ -50,6 +52,7 @@ export async function getNativeGenerativeModelStatus(): Promise<NativeGenerative
     return {
       installed: false,
       ready: false,
+      downloadAvailable: false,
       modelHandle: null,
       profileId: null,
       checksumSha256: null,
@@ -71,6 +74,7 @@ export async function getNativeGenerativeModelStatus(): Promise<NativeGenerative
     return {
       installed: false,
       ready: false,
+      downloadAvailable: false,
       modelHandle: null,
       profileId: null,
       checksumSha256: null,

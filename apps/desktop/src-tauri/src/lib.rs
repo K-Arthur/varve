@@ -2045,6 +2045,12 @@ const GENERATIVE_MODEL_DOWNLOAD_URL: &str = "https://huggingface.co/gpustack/sta
 const GENERATIVE_MODEL_DOWNLOAD_SIZE: u64 = 1_747_219_584;
 const GENERATIVE_MODEL_DOWNLOAD_SHA256: &str =
     "d157ce24483f0c999062da140eacebe8f3ed015e652723e31f6d39119b800c16";
+// The pinned artifact above is an experimental GGUF published for a patched
+// llama-box/stable-diffusion.cpp build. Varve's diffusion-rs helper does not
+// contain that patch, and real-photograph probes under the current runtime
+// produced rejected semantic results. Keep the URL and hash for provenance,
+// but do not offer an artifact we cannot honestly execute or qualify.
+const GENERATIVE_MODEL_DOWNLOAD_AVAILABLE: bool = false;
 
 // A model may only become usable after the frozen real-photograph corpus has
 // been reviewed and its exact artifact hash has been intentionally promoted
@@ -2084,6 +2090,7 @@ struct GenerativeModelMetadata {
 struct GenerativeModelStatus {
     installed: bool,
     ready: bool,
+    download_available: bool,
     model_handle: Option<String>,
     profile_id: Option<String>,
     checksum_sha256: Option<String>,
@@ -2098,6 +2105,10 @@ struct GenerativeModelStatus {
     architecture: String,
 }
 
+fn generative_model_artifact_is_known_incompatible(checksum_sha256: &str) -> bool {
+    checksum_sha256 == GENERATIVE_MODEL_DOWNLOAD_SHA256
+}
+
 fn generative_model_record_is_ready(
     record: &GenerativeModelMetadata,
     size_bytes: u64,
@@ -2106,6 +2117,7 @@ fn generative_model_record_is_ready(
 ) -> bool {
     generative_model_record_matches_runtime(record, size_bytes, checksum_sha256, resource)
         && record.preflight_qualified
+        && !generative_model_artifact_is_known_incompatible(&record.checksum_sha256)
         && GENERATIVE_MODEL_QUALITY_CERTIFIED_CHECKSUMS
             .iter()
             .any(|certified| *certified == record.checksum_sha256)
@@ -2196,7 +2208,11 @@ fn model_status_blocking(app: &tauri::AppHandle) -> Result<GenerativeModelStatus
                 let ready = record.as_ref().is_some_and(|record| {
                     generative_model_is_ready(record, size_bytes, &checksum_sha256, &resource)
                 });
-                let reason = if ready {
+                let known_incompatible =
+                    generative_model_artifact_is_known_incompatible(&checksum_sha256);
+                let reason = if known_incompatible {
+                    Some("This packaged Q4 artifact is documented for a patched llama-box runtime and is not compatible with Varve's diffusion-rs helper. Prompt-conditioned generation remains unavailable; import a separately qualified compatible model or use Quick Cleanup/LaMa.".into())
+                } else if ready {
                     Some("The local model passed Varve's masked inpainting qualification.".into())
                 } else if record_matches_runtime
                     && record
@@ -2243,6 +2259,7 @@ fn model_status_blocking(app: &tauri::AppHandle) -> Result<GenerativeModelStatus
                 return Ok(GenerativeModelStatus {
                     installed: true,
                     ready,
+                    download_available: GENERATIVE_MODEL_DOWNLOAD_AVAILABLE,
                     model_handle: record
                         .as_ref()
                         .filter(|record| ready && record.model_handle == GENERATIVE_MODEL_HANDLE)
@@ -2274,15 +2291,13 @@ fn model_status_blocking(app: &tauri::AppHandle) -> Result<GenerativeModelStatus
     Ok(GenerativeModelStatus {
         installed: false,
         ready: false,
+        download_available: GENERATIVE_MODEL_DOWNLOAD_AVAILABLE,
         model_handle: None,
         profile_id: None,
         checksum_sha256: None,
         size_bytes: 0,
         partial_bytes,
-        reason: Some(
-            "Download or import a safe-format SD 1.5 inpainting model, then validate it before generation."
-                .into(),
-        ),
+        reason: Some("No quality-certified prompt model is packaged. The configured Q4 artifact requires a patched llama-box runtime and is not offered by Varve; import a compatible safe-format model and validate it, or use Quick Cleanup/LaMa.".into()),
         memory_available_bytes: resource.available_memory_bytes,
         memory_required_bytes: resource.required_memory_bytes,
         resource_tier: resource.resource_tier.into(),
@@ -2577,6 +2592,9 @@ async fn download_generative_edit_model(
 ) -> Result<GenerativeModelStatus, String> {
     if !valid_download_request_id(&request_id) {
         return Err("Invalid model-download request id".into());
+    }
+    if !GENERATIVE_MODEL_DOWNLOAD_AVAILABLE {
+        return Err("No quality-certified prompt model is packaged. The configured Q4 artifact requires a patched llama-box runtime and is not compatible with Varve's diffusion-rs helper; import a separately qualified compatible model or use Quick Cleanup/LaMa.".into());
     }
     begin_generative_model_download(&request_id)?;
 
@@ -5980,6 +5998,48 @@ mod tests {
             42,
             "hash",
             &windows_resource
+        ));
+    }
+
+    #[test]
+    fn packaged_q4_artifact_is_rejected_as_incompatible_with_varve_runtime() {
+        let resource = generative_resources::NativeResourceSnapshot {
+            available_memory_bytes: Some(8 * 1024 * 1024 * 1024),
+            required_memory_bytes: 6 * 1024 * 1024 * 1024,
+            resource_tier: "high",
+            execution_backend: "native-cpu",
+            platform: "linux",
+            architecture: "x86_64",
+        };
+        let record = GenerativeModelMetadata {
+            schema_version: GENERATIVE_MODEL_METADATA_SCHEMA_VERSION,
+            model_handle: GENERATIVE_MODEL_HANDLE.into(),
+            profile_id: GENERATIVE_MODEL_PROFILE.into(),
+            size_bytes: GENERATIVE_MODEL_DOWNLOAD_SIZE,
+            checksum_sha256: GENERATIVE_MODEL_DOWNLOAD_SHA256.into(),
+            runtime_id: GENERATIVE_MODEL_RUNTIME_ID.into(),
+            execution_backend: "native-cpu".into(),
+            platform: "linux".into(),
+            architecture: "x86_64".into(),
+            preflight_qualified: true,
+            preflight_qualified_at: Some(1),
+        };
+
+        assert!(!GENERATIVE_MODEL_DOWNLOAD_AVAILABLE);
+        assert!(generative_model_artifact_is_known_incompatible(
+            GENERATIVE_MODEL_DOWNLOAD_SHA256
+        ));
+        assert!(generative_model_record_matches_runtime(
+            &record,
+            GENERATIVE_MODEL_DOWNLOAD_SIZE,
+            GENERATIVE_MODEL_DOWNLOAD_SHA256,
+            &resource
+        ));
+        assert!(!generative_model_record_is_ready(
+            &record,
+            GENERATIVE_MODEL_DOWNLOAD_SIZE,
+            GENERATIVE_MODEL_DOWNLOAD_SHA256,
+            &resource
         ));
     }
 

@@ -43,6 +43,29 @@ real-photo Fast output showed visible edge striping. See [the Expand
 qualification](../audits/generative-expand-qualification-2026-09-13.md) and the
 rejected browser evidence recorded there.
 
+### Prompt-model compatibility boundary
+
+Prompt-conditioned Fill, Replace, and Expand remain unavailable in the shipped
+desktop build. The previously pinned SD 1.5 Q4 artifact is retained as
+diagnostic provenance, but it is not a supported Varve download: its publisher
+documents that GGUF as experimental and supported only by a patched
+`llama-box`/`stable-diffusion.cpp` runtime, while Varve executes it through the
+unpatched `diffusion-rs` helper. A valid GGUF file and a successful helper exit
+are therefore insufficient evidence of compatibility. The profile is rejected
+by checksum and cannot become ready even if stale metadata says that its cheap
+probe passed.
+
+The model-card mask convention is verified end to end: white coverage means
+“generate” and black coverage means “preserve.” A controlled polarity run with
+the same photograph, prompt, seed, dimensions, and runtime changed the output
+only when the white region moved, so the current rejected semantic results are
+not explained by an inverted mask or an accidental full-frame selection. The
+remaining prompt-model gate is semantic quality, runtime compatibility, memory,
+cancellation, and platform qualification. Importing a separately qualified
+safe-format model remains explicit and local; no network fallback is implied.
+See the [native prompt-generation probe](../audits/generative-editing-native-probe-2026-09-14.md)
+and the [artifact compatibility notice](https://huggingface.co/gpustack/stable-diffusion-v1-5-inpainting-GGUF).
+
 ## Tool surface and synchronization
 
 Generative Edit is available from all of the image-oriented entry points that
