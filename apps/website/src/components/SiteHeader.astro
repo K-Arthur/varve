@@ -130,6 +130,13 @@ const versionLabel = release.hasRelease && release.version
     </ul>
 
     <div class="nav-actions">
+      <button class="nav-search-trigger" type="button" data-search-open>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M11 4a7 7 0 1 0 4.2 12.6l4.1 4.1a1 1 0 0 0 1.4-1.4l-4.1-4.1A7 7 0 0 0 11 4Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"></path>
+        </svg>
+        <span class="nav-search-trigger__label">Search</span>
+        <span class="nav-search-trigger__hint" aria-hidden="true">/</span>
+      </button>
       <ThemeToggle />
       <a
         href={sitePath('/try/')}
@@ -185,6 +192,12 @@ const versionLabel = release.hasRelease && release.version
         </div>
       </div>
       <nav class="mobile-nav-links" aria-label="Mobile navigation">
+        <button class="mobile-nav-link mobile-nav-search" type="button" data-search-open>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M11 4a7 7 0 1 0 4.2 12.6l4.1 4.1a1 1 0 0 0 1.4-1.4l-4.1-4.1A7 7 0 0 0 11 4Zm0 2a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"></path>
+          </svg>
+          <span>Search docs</span>
+        </button>
         {navItems.map((item) => (
           <a
             href={sitePath(item.href)}
@@ -656,6 +669,55 @@ const versionLabel = release.hasRelease && release.version
     flex: 0 0 auto;
   }
 
+  /* Search trigger. Hidden until the SearchDialog script marks the document
+     ready, so a failed script never leaves a dead control in the header. */
+  .nav-search-trigger {
+    display: none;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0 var(--space-3);
+    min-block-size: 2rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-control-compact);
+    background: var(--surface-muted);
+    color: var(--text-secondary);
+    font-family: var(--font-interface);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition:
+      color var(--duration-quick) var(--ease-default),
+      background-color var(--duration-quick) var(--ease-default);
+  }
+
+  @media (min-width: 961px) {
+    :global(html[data-search-ready]) .nav-search-trigger {
+      display: inline-flex;
+    }
+  }
+
+  .nav-search-trigger:hover,
+  .nav-search-trigger:focus-visible {
+    color: var(--text-primary);
+    background: var(--surface-card-hover);
+  }
+
+  .nav-search-trigger__hint {
+    padding: 0 0.28rem;
+    border: 1px solid var(--border-default);
+    border-radius: 4px;
+    background: var(--surface-card);
+    color: var(--text-subtle);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    line-height: 1.5;
+  }
+
+  @media (pointer: coarse), (any-pointer: coarse) {
+    .nav-search-trigger {
+      min-block-size: var(--touch-target-min);
+    }
+  }
+
   :global(.nav-download-cta) {
     padding: var(--space-2) var(--space-3);
     font-size: 0.875rem;
@@ -939,6 +1001,23 @@ const versionLabel = release.hasRelease && release.version
       color: var(--text-primary);
       background: var(--surface-selected);
       font-weight: 600;
+    }
+
+    /* The search row is a button, not a link; it closes the sheet (via the
+       shared .mobile-nav-link click handler) and opens the search dialog.
+       Hidden until the search script is ready so a failed script cannot
+       leave a dead row behind. */
+    .mobile-nav-search {
+      display: none;
+      width: 100%;
+      border: 0;
+      font-family: inherit;
+      text-align: start;
+      cursor: pointer;
+    }
+
+    :global(html[data-search-ready]) .mobile-nav-search {
+      display: flex;
     }
 
     .mobile-nav-footer {

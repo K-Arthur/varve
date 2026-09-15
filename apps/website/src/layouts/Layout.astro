@@ -2,6 +2,7 @@
 import '../styles/global.css';
 import SiteHeader from '../components/SiteHeader.astro';
 import SiteFooter from '../components/SiteFooter.astro';
+import SearchDialog from '../components/SearchDialog.astro';
 import { CONTACTS } from '@varve/shared';
 import { canonicalUrl as canonicalUrlOf, ogImageUrl as ogImageUrlOf, siteOrigin as siteOriginOf, sitePath, siteUrl } from '../lib/siteUrl';
 
@@ -408,6 +409,7 @@ const csp = [
     </main>
 
     <SiteFooter />
+    <SearchDialog />
   </body>
 </html>
 
