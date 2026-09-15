@@ -56,6 +56,34 @@ function makeSubjectPng(width: number, height: number, withSubject = true): Buff
 }
 
 test.describe('Select subject — model-free foreground estimate', () => {
+  test('exposes prompted selection for a specific object on a real photograph', async ({
+    page,
+  }, testInfo) => {
+    await navigateToEditor(page);
+    await page
+      .locator('#file-import-input')
+      .setInputFiles(path.resolve('tests/e2e/fixtures/real-life-still-life.jpg'));
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 15000 });
+
+    const inspector = page.locator('.editor__inspector-panel');
+    await inspector.getByRole('button', { name: 'Selection Sources' }).click();
+    await inspector.getByRole('button', { name: 'Select specific object' }).click();
+
+    await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
+      /Specific Object Selection active.*review the highlighted candidate/i,
+    );
+    await expect(
+      page.getByTestId('toolbar').getByRole('button', { name: 'Object Selection' }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    await testInfo.attach('specific-object-selection-entry', {
+      body: await inspector.screenshot(),
+      contentType: 'image/png',
+    });
+    await inspector.screenshot({
+      path: testInfo.outputPath('specific-object-selection-entry.png'),
+    });
+  });
+
   test('reviews a foreground proposal on a licensed real photograph', async ({
     page,
   }, testInfo) => {

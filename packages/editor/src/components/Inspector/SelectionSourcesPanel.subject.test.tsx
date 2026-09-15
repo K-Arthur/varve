@@ -221,6 +221,15 @@ describe('SelectionSourcesPanel subject proposals', () => {
     }));
   });
 
+  it('opens prompted Object Selection when one specific image object is the target', async () => {
+    const editor = await renderPanel();
+
+    expect(screen.getByRole('button', { name: 'Select specific object' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Select specific object' }));
+
+    await waitFor(() => expect(editor.current?.state.tool).toBe('sam2Segment'));
+  });
+
   it('runs the estimate, labels the provider, and applies the active candidate as a mask', async () => {
     mockProposeSubjects.mockResolvedValue(proposalResult());
     const editor = await renderPanel();

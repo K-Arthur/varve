@@ -520,6 +520,17 @@ export function SelectionSourcesPanel() {
     }
   };
 
+  const selectSpecificObject = () => {
+    if (!hasImage) {
+      announce('Select one image to choose a specific object');
+      return;
+    }
+    setTool('sam2Segment');
+    announce(
+      'Specific Object Selection active. Click inside the target, Shift-click background to exclude it, or use a box hint; review the highlighted candidate before applying it.',
+    );
+  };
+
   const installProposalModel = async () => {
     const offer = getSubjectProposalState().install;
     if (!offer) return;
@@ -903,6 +914,24 @@ export function SelectionSourcesPanel() {
                       : 'Select subject'}
             </button>
           </Tooltip>
+          <Tooltip
+            label="Object Selection (prompted target)"
+            disabledReason={!hasImage ? 'Select one image to use this command' : undefined}
+          >
+            <button
+              type="button"
+              className="insp-selection-sources__button insp-selection-sources__button--primary"
+              disabled={!hasImage}
+              onClick={selectSpecificObject}
+            >
+              Select specific object
+            </button>
+          </Tooltip>
+          <p className="insp-selection-sources__hint">
+            <strong>Select subject</strong> estimates the foreground. Use{' '}
+            <strong>Select specific object</strong> when one object is the target; prompt it on the
+            canvas, inspect the highlighted mask, and confirm before using it.
+          </p>
           <FieldRow label="Estimate quality">
             <Select
               label="Subject estimate quality"

@@ -24,6 +24,11 @@ the appropriate path when the user needs one particular object.
 - Source/document identity checks remain in force while the proposal is
   running, so a result for a replaced image is discarded.
 - `object-selection-system.md` records the review and acceptance contract.
+- `Selection Sources` now exposes `Select specific object` beside the
+  foreground-only `Select subject` command. It activates the canonical
+  prompted tool and announces the include, exclude, box-hint, and review
+  sequence so a foreground estimate is not the only visible route when a
+  photograph contains multiple possible targets.
 
 ## Evidence
 
@@ -52,3 +57,19 @@ review/acceptance interaction and one real photograph; it does not qualify
 automatic foreground quality across the full corpus. The broader SAM2 and
 MobileSAM quality gates remain separate and must continue to report their
 category failures rather than being hidden by this interaction gate.
+
+The specific-target entry was additionally checked on the licensed still-life
+photograph with:
+
+```text
+TMPDIR=/home/kevina/varve-selection-validation-bXqjQq \
+VARVE_E2E_PORT=1501 VARVE_E2E_WORKERS=1 \
+VARVE_E2E_OUTPUT_DIR=selection-specific-entry-20260915-visual \
+pnpm exec playwright test tests/e2e/canvas/select-subject.spec.ts \
+  --project=chromium --grep "specific object" --reporter=list
+```
+
+The run passed (1 test, 31.7 s). The inspected capture is
+`test-results/selection-specific-entry-20260915-visual/canvas-select-subject-Sele-edeff-object-on-a-real-photograph-chromium/specific-object-selection-entry.png`;
+it shows the two distinct entry points, the target-selection guidance, and
+the active Object Selection tool after activation.

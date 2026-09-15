@@ -138,6 +138,13 @@ model-backed estimate never mixes confidence semantics: candidate labels report
 coverage, and the provider/platform is stated in words rather than as a
 probability.
 
+The Selection Sources panel exposes both intents side by side. `Select subject`
+is the foreground-estimate path; `Select specific object` activates the same
+prompted Object Selection tool used by the Background Removal and Generative
+Edit surfaces. The latter requires an include point or box, supports explicit
+exclude prompts, keeps competing candidates visible, and still requires review
+of the highlighted target before a mask or pixel selection can be consumed.
+
 ## Automatic trim boundary
 
 `Trim to Subject` is a separate bounds-only workflow. Its optional DETR path

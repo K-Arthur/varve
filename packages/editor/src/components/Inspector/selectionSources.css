@@ -6,10 +6,16 @@
 
 .insp-selection-sources__description,
 .insp-selection-sources__empty,
+.insp-selection-sources__hint,
 .insp-selection-sources__saved-title {
   color: var(--color-text-secondary);
   font-size: 11px;
   line-height: 1.4;
+  margin: 0;
+}
+
+.insp-selection-sources__hint {
+  grid-column: 1 / -1;
   margin: 0;
 }
 
