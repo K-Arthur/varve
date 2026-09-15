@@ -51,7 +51,7 @@ the user starts a job.
 | Prompt-conditioned Replace | Unavailable by design | Candidate adapter exists, but no model is qualified after the 2026-09-12 real-photo run | Not verified | [Runtime qualification report](../audits/generative-editing-runtime-qualification-2026-09-12.md) |
 | Prompt-conditioned Expand | Unavailable by design | Contract and candidate adapter exist, but no model is qualified after the 2026-09-12 real-photo run; the promptless local path is a separate row | Not verified | `packages/editor/src/components/ContentAwareFill/expandCanvas.test.ts`; [runtime qualification report](../audits/generative-editing-runtime-qualification-2026-09-12.md) |
 | Mask editing and refinement | Implemented; automatically verified, including Edit mask on reopen and Background Removal preview import on a 33 MP photograph. The dialog now reports coverage, bounds, connected regions, edge contact, and soft-only coverage; empty/tiny masks and source-geometry mismatches are blocked before inference. Brush strokes interpolate between sparse pointer events and preserve the selected mask operation across the complete gesture. | Shared implementation | Shared implementation | `packages/editor/src/components/ContentAwareFill/maskOperations.test.ts`, `packages/editor/src/components/ContentAwareFill/selectionHealth.test.ts`, `tests/e2e/caf/object-selection-mask-source.spec.ts`, `tests/e2e/caf/caf.spec.ts` real-photo Remove lane |
-| Object Selection → Generative Edit mask | Implemented; workflow-wired and automatically verified; full-resolution SAM2 allocation is safe-peak preflighted. Candidates are source-locator guarded, remain reviewable, and stale proposals are discarded when the image changes in place. The decoder removes encoder letterbox padding before restoring source geometry. After decoding, candidates must contain include points, exclude background points, and overlap a supplied box; rejected candidates are removed from cycling and the separate prompt-match score is shown alongside predicted IoU. | Shared implementation; confirmed candidate only; native OS/cgroup snapshot used when available, package qualification pending | Shared implementation; confirmed candidate only; package qualification pending | `tests/e2e/caf/object-selection-mask-source.spec.ts`, `tests/e2e/canvas/object-selection-real-model.spec.ts`, `packages/editor/src/context/promptedSegmentationProvider.test.ts`, `packages/editor/src/context/useSam2Segmentation.test.tsx`, `packages/editor/src/components/Inspector/SelectionSourcesPanel.subject.test.tsx`, `packages/engine/src/inference/resourcePolicy.test.ts`; [selection/model audit](../audits/generative-editing-selection-model-audit-2026-09-14.md); SAM2 quality remains a separate real-model gate |
+| Object Selection → Generative Edit mask | Implemented; workflow-wired and automatically verified; full-resolution SAM2 allocation is safe-peak preflighted. Candidates are source-locator guarded, remain reviewable, and stale proposals are discarded when the image changes in place. Automatic foreground proposals now keep the overlay visible after candidate preview but require an explicit review confirmation; switching candidates clears it. The decoder removes encoder letterbox padding before restoring source geometry. After decoding, candidates must contain include points, exclude background points, and overlap a supplied box; rejected candidates are removed from cycling and the separate prompt-match score is shown alongside predicted IoU. | Shared implementation; confirmed candidate only; native OS/cgroup snapshot used when available, package qualification pending | Shared implementation; confirmed candidate only; package qualification pending | `tests/e2e/caf/object-selection-mask-source.spec.ts`, `tests/e2e/canvas/object-selection-real-model.spec.ts`, `packages/editor/src/context/promptedSegmentationProvider.test.ts`, `packages/editor/src/context/useSam2Segmentation.test.tsx`, `packages/editor/src/components/Inspector/SelectionSourcesPanel.subject.test.tsx`, `packages/engine/src/inference/resourcePolicy.test.ts`; [selection/model audit](../audits/generative-editing-selection-model-audit-2026-09-14.md); SAM2 quality remains a separate real-model gate |
 | Native low-memory preflight | Browser hints only; provider safe-peak gate remains required | Dimensions-only preflight before renderer canvas/PNG allocation, then OS-level available-memory check before runtime/model loading and repeated before native session checkout for diffusion and ONNX LaMa/background removal/denoise, including Linux cgroup/Crostini limits; measured native peaks and one-session admission; unknown native memory is refused closed with an architecture/platform-specific recovery message | Windows/ARM and macOS/Apple Silicon code paths compile-targeted; package qualification pending | `apps/desktop/src-tauri/src/generative_resources.rs`, `apps/desktop/src-tauri/src/lib.rs`, `crates/varve-bgremove/src/model.rs`, `crates/varve-bgremove/src/session_pool.rs`, `packages/engine/src/backgroundRemoval/__tests__/tauriProvider.test.ts`; desktop package matrix pending |
 | Browser source-buffer preflight | Implemented; automatically verified | The browser/WebView safe peak includes resident source and temporary preparation buffers before AI background-removal allocation; an unready native model deliberately falls through this same gate; explicit hints refine the tier, while unknown hints use the conservative runtime budget and Quick fallback | Shared browser path; physical Chromebook/ARM package qualification pending | `packages/engine/src/backgroundRemoval/__tests__/sourceMemoryPreflight.test.ts`, `packages/engine/src/inference/resourcePolicy.test.ts`, `packages/engine/src/generativeEdit/resourcePolicy.test.ts` |
 | Region-first source preparation | Bounded preview, source-rectangle decode, tiered working-pixel cap, source-resolution streaming mask persistence, and transparent bounded overlay acceptance | Shared browser/desktop adapter for Fill/Remove; Expand uses the validated full-frame plan with an exact protected-source restore | Expand uses its own full-frame plan with output-frame acceptance and exact source protection; effective generated resolution is disclosed | `packages/editor/src/components/ContentAwareFill/generationRaster.test.ts`, `packages/engine/src/generativeEdit/expandPlan.test.ts`; `tests/e2e/caf/caf.spec.ts` (33 MP portrait), `tests/e2e/caf/expand-real-photo.spec.ts` |
@@ -91,9 +91,16 @@ execution backend, and CPU architecture. A model qualified on x86_64 is not
 treated as ready on ARM64, Windows, macOS, ChromeOS Linux, or a changed helper
 build until that target runs its own masked qualification.
 
-The pinned Rust binding is `diffusion-rs = 0.1.20`. The helper is supervised in
-a separate process, and the webview receives only an opaque qualified handle.
-Weights are not stored in the repository or in portable documents.
+The pinned Rust binding is `diffusion-rs = 0.1.20`, vendored with Varve's safe
+separate-image-guidance field and identified at runtime as
+`diffusion-rs-0.1.20-varve-image-cfg-v1`. The helper is supervised in a
+separate process, and the webview receives only an opaque qualified handle.
+Weights are not stored in the repository or in portable documents. The
+[native boundary probe](../audits/generative-editing-native-probe-2026-09-14.md)
+confirms that the corrected image CFG value reaches the production helper, but
+both locally tested semantic candidates remain rejected by visual review. This
+fixes the request/runtime configuration boundary; it does not promote a
+model-quality candidate.
 
 ## Evidence state
 
@@ -111,6 +118,9 @@ Weights are not stored in the repository or in portable documents.
   all retained outputs and hashes are listed in the [qualification report](../audits/generative-editing-runtime-qualification-2026-09-12.md).
   The full task corpus is not yet run, so the prompt modes remain gated for
   release claims.
+- A corrected production-helper rerun on a real coastal photograph also
+  rejected the SD 1.5 Q4_0 and SD 2 F16 candidates after confirming image CFG
+  provenance. See the [native boundary probe](../audits/generative-editing-native-probe-2026-09-14.md).
 - Vulkan on Linux/Windows, Metal on macOS, constrained 4-GB behaviour, cold and
   warm timings, cancellation latency, and package-level reopening evidence
   remain outstanding.
@@ -125,8 +135,10 @@ synthetic canvases:
   retained overlay. The result was inspected at the dialog scale.
 - The real-photo Remove/in-place case used `real-life-landscape.jpg` and
   checked the retained source recipe, source-layer identity, and applied
-  result. The 33 MP portrait case exercised bounded source preparation and
-  was inspected after Apply.
+  result. A fast pointer drag initially exposed a 92 × 92 endpoint-only mask;
+  after stroke interpolation the same interaction produced a 748 × 92 frame
+  and passed the substantive-output colour-diversity gate. The 33 MP portrait
+  case exercised bounded source preparation and was inspected after Apply.
 - The browser Expand case used the same landscape photograph and was checked
   at the real dialog surface. The previous browser output was inspected at
   full composition and 100% output/export scale and showed repeated/striped

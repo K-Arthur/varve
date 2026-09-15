@@ -50,7 +50,7 @@ export interface SubjectProposalState {
   proposals: ForegroundProposalSet | null;
   provider: SubjectProposalProviderInfo | null;
   install: SubjectProposalInstallOffer | null;
-  /** Candidate currently shown in the canvas review overlay. */
+  /** Candidate currently shown in the canvas review overlay, or -1 before preview. */
   activeCandidate: number;
   /** Candidate explicitly reviewed by the user, or null before review. */
   reviewedCandidate: number | null;
@@ -67,7 +67,7 @@ let state: SubjectProposalState = {
   proposals: null,
   provider: null,
   install: null,
-  activeCandidate: 0,
+  activeCandidate: -1,
   reviewedCandidate: null,
   busy: false,
   stage: 'idle',
@@ -100,7 +100,7 @@ export function resetSubjectProposals(): void {
     proposals: null,
     provider: null,
     install: null,
-    activeCandidate: 0,
+    activeCandidate: -1,
     reviewedCandidate: null,
     busy: false,
     stage: 'idle',

@@ -90,6 +90,19 @@ test.describe('Automatic subject estimate on real photographs', () => {
     const canvas = page.getByTestId('editor-canvas');
     const firstProposal = proposals.locator('button[aria-label$="percent"]').first();
     await firstProposal.click();
+    await expect(inspector.getByRole('button', { name: 'Apply as mask' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Fit sel' }).click();
+    await page.waitForTimeout(400);
+    await canvas.screenshot({
+      path: testInfo.outputPath('subject-still-life-unconfirmed-preview.png'),
+    });
+    await testInfo.attach('subject-still-life-unconfirmed-preview', {
+      body: await canvas.screenshot(),
+      contentType: 'image/png',
+    });
+    await inspector
+      .getByRole('checkbox', { name: 'I reviewed the highlighted subject before applying' })
+      .check();
     await expect(inspector.getByRole('button', { name: 'Apply as mask' })).toBeEnabled();
     await page.getByRole('button', { name: 'Fit sel' }).click();
     await page.waitForTimeout(400);
@@ -118,6 +131,9 @@ test.describe('Automatic subject estimate on real photographs', () => {
       .locator('button[aria-label$="percent"]')
       .first()
       .click();
+    await inspector
+      .getByRole('checkbox', { name: 'I reviewed the highlighted subject before applying' })
+      .check();
     await inspector.getByRole('button', { name: 'Apply as mask' }).click();
     await expect(
       page
@@ -146,6 +162,10 @@ test.describe('Automatic subject estimate on real photographs', () => {
     await expect(proposals).toBeVisible({ timeout: 120000 });
     await expect(proposals.getByText(/U²-Net Light estimate/)).toBeVisible();
     await proposals.locator('button[aria-label$="percent"]').first().click();
+    await expect(inspector.getByRole('button', { name: 'Apply as mask' })).toBeDisabled();
+    await inspector
+      .getByRole('checkbox', { name: 'I reviewed the highlighted subject before applying' })
+      .check();
     await expect(inspector.getByRole('button', { name: 'Apply as mask' })).toBeEnabled();
 
     const canvas = page.getByTestId('editor-canvas');

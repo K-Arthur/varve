@@ -239,6 +239,18 @@ describe('SelectionSourcesPanel subject proposals', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /^All foreground/ }));
     await waitFor(() => expect(editor.current?.state.areaSelection ?? null).toBeNull());
+    expect(
+      screen.getByRole('checkbox', {
+        name: 'I reviewed the highlighted subject before applying',
+      }),
+    ).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Use selected candidate' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Apply as mask' })).toBeDisabled();
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'I reviewed the highlighted subject before applying',
+      }),
+    );
     expect(screen.getByRole('button', { name: 'Use selected candidate' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Apply as mask' })).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: 'Apply as mask' }));
@@ -374,6 +386,11 @@ describe('SelectionSourcesPanel subject proposals', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /^Select subject$/ }));
     fireEvent.click(await screen.findByRole('button', { name: /^All foreground/ }));
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'I reviewed the highlighted subject before applying',
+      }),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Use selected candidate' }));
 
     await waitFor(() => expect(mockDecodeMask).toHaveBeenCalledTimes(2));
@@ -425,10 +442,23 @@ describe('SelectionSourcesPanel subject proposals', () => {
 
     await waitFor(() => {
       const proposalState = getSubjectProposalState();
-      expect(proposalState.reviewedCandidate).toBe(0);
+      expect(proposalState.activeCandidate).toBe(0);
+      expect(proposalState.reviewedCandidate).toBeNull();
       expect(proposalState.proposals?.candidates[proposalState.activeCandidate]?.label).toBe(
         'All foreground',
       );
     });
+    const review = screen.getByRole('checkbox', {
+      name: 'I reviewed the highlighted subject before applying',
+    });
+    expect(review).not.toBeChecked();
+    fireEvent.click(review);
+    expect(review).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: /Region 1, covers 50 percent/ }));
+    await waitFor(() => {
+      expect(getSubjectProposalState().activeCandidate).toBe(1);
+      expect(getSubjectProposalState().reviewedCandidate).toBeNull();
+    });
+    expect(screen.getByRole('button', { name: 'Use selected candidate' })).toBeDisabled();
   });
 });

@@ -257,9 +257,12 @@ catalog working set. The `u2netp-int8` variant is also mapped to its real
 shipped Fast level on the licensed photographic corpus (still life, portrait
 with hair, interior) through the real worker path and exports the preview,
 applied-selection, and applied-mask screenshots plus the candidate coverage
-labels for inspection. Those captures are workflow and visual-review evidence;
-a real photograph has no binary ground truth here, so the parity corpus above
-remains the quantitative gate and this review covers photographic reality.
+labels for inspection. Each candidate is overlaid before an explicit
+"I reviewed the highlighted subject before applying" confirmation; changing a
+candidate clears that confirmation. Those captures are workflow and
+visual-review evidence; a real photograph has no binary ground truth here, so
+the parity corpus above remains the quantitative gate and this review covers
+photographic reality.
 
 ## Model acquisition and hosting (2026-09-14)
 

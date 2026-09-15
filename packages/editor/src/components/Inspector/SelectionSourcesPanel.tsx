@@ -279,9 +279,25 @@ export function SelectionSourcesPanel() {
     // state. Downstream commands must not consume a proposal until the user
     // explicitly confirms it, and switching Inspector scope must not reset the
     // candidate that was inspected.
-    setSubjectProposalState({ activeCandidate: index, reviewedCandidate: index });
+    // Selecting a candidate only opens its review overlay. It must not count
+    // as confirmation: a foreground estimate can still include the wrong
+    // object, background, or an unintended disconnected region.
+    setSubjectProposalState({ activeCandidate: index, reviewedCandidate: null });
     announce(
       `${candidate.label ?? `Subject ${index + 1}`} previewed; verify the highlighted pixels before applying it`,
+    );
+  };
+
+  const reviewActiveSubjectCandidate = (reviewed: boolean) => {
+    const proposalState = getSubjectProposalState();
+    if (proposalState.activeCandidate < 0) return;
+    setSubjectProposalState({
+      reviewedCandidate: reviewed ? proposalState.activeCandidate : null,
+    });
+    announce(
+      reviewed
+        ? 'Highlighted subject target confirmed'
+        : 'Highlighted subject target review cleared',
     );
   };
 
@@ -356,7 +372,7 @@ export function SelectionSourcesPanel() {
       return;
     }
     setAreaSelection?.(selection);
-    setSubjectProposalState({ reviewedCandidate: null, activeCandidate: index });
+    setSubjectProposalState({ reviewedCandidate: null, activeCandidate: -1 });
     const providerLabel = getSubjectProposalState().provider?.label ?? 'Foreground';
     announce(`${candidate.label ?? `Subject ${index + 1}`} selected (${providerLabel} estimate)`);
   };
@@ -484,7 +500,7 @@ export function SelectionSourcesPanel() {
         stage: 'idle',
         downloadProgress: null,
         error: null,
-        activeCandidate: 0,
+        activeCandidate: -1,
         reviewedCandidate: null,
       });
       // Automatic foreground estimation is not semantic recognition. Do not
@@ -621,7 +637,7 @@ export function SelectionSourcesPanel() {
         });
       });
       commitTransaction();
-      setSubjectProposalState({ reviewedCandidate: null });
+      setSubjectProposalState({ reviewedCandidate: null, activeCandidate: -1 });
       announce(`${candidate.label ?? 'Subject'} applied as a mask`);
     } catch (error) {
       abortTransaction();
@@ -1008,6 +1024,17 @@ export function SelectionSourcesPanel() {
                 </button>
               )}
             </div>
+            {subjectState.activeCandidate >= 0 && (
+              <label className="insp-selection-sources__review">
+                <input
+                  type="checkbox"
+                  aria-label="I reviewed the highlighted subject before applying"
+                  checked={subjectState.reviewedCandidate === subjectState.activeCandidate}
+                  onChange={(event) => reviewActiveSubjectCandidate(event.target.checked)}
+                />
+                <span>I reviewed the highlighted subject before applying</span>
+              </label>
+            )}
             <div className="insp-selection-sources__session-actions">
               <button
                 type="button"
@@ -1035,7 +1062,7 @@ export function SelectionSourcesPanel() {
                     proposals: null,
                     provider: null,
                     install: null,
-                    activeCandidate: 0,
+                    activeCandidate: -1,
                     reviewedCandidate: null,
                     error: null,
                   })

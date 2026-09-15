@@ -85,6 +85,10 @@ test.describe('Select subject — model-free foreground estimate', () => {
       /(?:Subject \d+|All foreground) previewed/,
     );
     await expect(inspector.getByRole('button', { name: 'Save selection' })).toBeDisabled();
+    await expect(inspector.getByRole('button', { name: 'Use selected candidate' })).toBeDisabled();
+    await inspector
+      .getByRole('checkbox', { name: 'I reviewed the highlighted subject before applying' })
+      .check();
     await expect(inspector.getByRole('button', { name: 'Use selected candidate' })).toBeEnabled();
     await testInfo.attach('select-subject-real-review', {
       body: await page.getByTestId('editor-canvas').screenshot(),
@@ -105,6 +109,9 @@ test.describe('Select subject — model-free foreground estimate', () => {
     await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
       /(?:Subject \d+|All foreground) previewed/,
     );
+    await inspector
+      .getByRole('checkbox', { name: 'I reviewed the highlighted subject before applying' })
+      .check();
     await inspector.getByRole('button', { name: 'Apply as mask' }).click();
     await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
       /(?:Subject \d+|All foreground) applied as a mask/,
@@ -151,6 +158,10 @@ test.describe('Select subject — model-free foreground estimate', () => {
     await expect(inspector.getByRole('button', { name: 'Save selection' })).toBeDisabled();
     await candidate.click();
     await expect(inspector.getByRole('button', { name: 'Save selection' })).toBeDisabled();
+    await expect(inspector.getByRole('button', { name: 'Use selected candidate' })).toBeDisabled();
+    await inspector
+      .getByRole('checkbox', { name: 'I reviewed the highlighted subject before applying' })
+      .check();
     await inspector.getByRole('button', { name: 'Use selected candidate' }).click();
     await expect(page.locator('#strata-canvas-announcer-polite')).toContainText(
       'All foreground selected',

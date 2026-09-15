@@ -94,6 +94,20 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.insp-selection-sources__review {
+  align-items: flex-start;
+  color: var(--color-text-secondary);
+  display: flex;
+  font-size: 11px;
+  gap: 6px;
+  line-height: 1.4;
+}
+
+.insp-selection-sources__review input {
+  flex: 0 0 auto;
+  margin: 1px 0 0;
+}
+
 .insp-selection-sources__refine-grid {
   display: grid;
   gap: 6px;

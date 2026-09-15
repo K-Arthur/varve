@@ -127,13 +127,16 @@ semantic recognition. Two implementation families produce its candidates:
   set does not fit this device), and the panel says so.
 
 The panel never applies the top-ranked proposal automatically. Estimation only
-publishes reviewable candidates; clicking a candidate previews its highlighted
-pixels, and an explicit "Use selected candidate" or "Apply as mask" action is
-required before another selection-dependent procedure can consume it. The mask
-action commits the active candidate (soft alpha when the provider produced one)
-as an ordinary document mask. A model-backed estimate never mixes confidence
-semantics: candidate labels report coverage, and the provider/platform is
-stated in words rather than as a probability.
+publishes reviewable candidates; clicking a candidate opens its highlighted
+pixels in the overlay but does not count as review. The user must explicitly
+confirm the visible target with the review checkbox, then choose "Use selected
+candidate" or "Apply as mask" before another selection-dependent procedure can
+consume it. Switching candidates clears that confirmation, and a successful
+commit clears the active preview. The mask action commits the active candidate
+(soft alpha when the provider produced one) as an ordinary document mask. A
+model-backed estimate never mixes confidence semantics: candidate labels report
+coverage, and the provider/platform is stated in words rather than as a
+probability.
 
 ## Automatic trim boundary
 

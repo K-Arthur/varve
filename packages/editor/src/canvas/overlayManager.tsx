@@ -585,7 +585,8 @@ export function useOverlayDraw({
     if (
       foregroundTarget &&
       foregroundSet &&
-      subjectProposalState.reviewedCandidate === subjectProposalState.activeCandidate &&
+      subjectProposalState.activeCandidate >= 0 &&
+      subjectProposalState.activeCandidate < foregroundSet.candidates.length &&
       foregroundNode?.kind === 'shape' &&
       isImageShape(foregroundNode) &&
       foregroundTarget.documentId === doc.id &&
