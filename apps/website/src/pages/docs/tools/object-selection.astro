@@ -20,7 +20,7 @@ import { sitePath } from '../../../lib/siteUrl';
           <li>Set <strong>Prompt polarity</strong> explicitly. <strong>Shift</strong> remains a temporary exclude override for a point; it is not the same as subtracting an accepted selection.</li>
           <li>In Box hint mode, tap two opposite corners or drag a box. The box guides segmentation; it is not silently treated as a hard clipping boundary.</li>
           <li>Add more prompts to refine the temporary preview. If the candidate reaches an image edge without an extent prompt, Varve leaves it visible for inspection but blocks applying it; add an include point on that edge or draw a box around the full target. Tap a marker to remove it, drag a marker to move it, or press <strong>Backspace</strong> to remove the last one. <strong>Escape</strong> or <strong>Clear prompts</strong> discards the preview.</li>
-          <li>Review candidate masks, then choose a <strong>Selection combination</strong> (replace, add, subtract, or intersect) if using <strong>Use as selection</strong>. <strong>Apply as mask</strong> always commits the reviewed candidate as an editable document mask. Neither output runs inference again.</li>
+          <li>Review the highlighted candidate and confirm it before choosing a <strong>Selection combination</strong> (replace, add, subtract, or intersect) if using <strong>Use as selection</strong>. <strong>Apply as mask</strong> always commits the reviewed candidate as an editable document mask. If you send the candidate to Generative Edit, Varve requires that first review and a second review in the compositing context; a moved image requires a fresh preview. Neither output runs inference again.</li>
         </ol>
       </section>
 

@@ -73,9 +73,12 @@ confirmation is keyed to the decoded source fingerprint, current image mapping,
 model, candidate-set identity, and candidate index; cycling candidates clears
 it. Apply and Enter fail closed when the confirmation is absent, stale, or the
 selected image/node changed while the source was being revalidated. The
-Generative Edit dialog uses the same key before importing a candidate into its
-editable mask, so direct Object Selection, keyboard Apply, and CAF all agree on
-which reviewed pixels may flow into the next procedure.
+Generative Edit dialog requires that review token before importing a candidate
+into its editable mask, then requires a second review in the compositing
+context. It also rechecks the current image-placement fingerprint when the
+candidate is imported. Direct Object Selection, keyboard Apply, and CAF
+therefore agree on which reviewed pixels may flow into the next procedure; an
+unreviewed candidate or a candidate from a moved image is not silently reused.
 
 ## Interaction contract
 

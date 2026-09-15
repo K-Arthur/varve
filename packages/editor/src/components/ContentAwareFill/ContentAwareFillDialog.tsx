@@ -47,6 +47,7 @@ import { useEditor } from '../../context';
 import { fingerprintImageData } from '../../context/imageFingerprint';
 import { objectSelectionCandidateReviewKey } from '../../context/objectSelectionTypes';
 import { replaceImageShapeContent } from '../../imageOperations';
+import { prepareImageMaskMapper } from '../../tools/imageMaskCoordinates';
 import {
   decodeRasterMaskDataUrl,
   decodeRasterMaskRegionDataUrl,
@@ -708,6 +709,10 @@ export function ContentAwareFillDialog({
     objectSelection && objectSelectionCandidate
       ? objectSelectionCandidateReviewKey(objectSelection, objectSelection.selectedCandidate)
       : null;
+  const objectSelectionInitialReviewMissing =
+    objectSelection?.status === 'ready' &&
+    (objectSelectionReviewKey === null ||
+      objectSelection.reviewedCandidateKey !== objectSelectionReviewKey);
   const objectSelectionCandidateNeedsRefinement =
     objectSelectionCandidate?.promptDiagnostics?.requiresRefinement === true;
   const objectSelectionNeedsRefinement =
@@ -1615,6 +1620,15 @@ export function ContentAwareFillDialog({
       announce('Run Object Selection and choose a candidate before using it as the edit mask');
       return;
     }
+    if (
+      !objectSelectionReviewKey ||
+      objectSelection.reviewedCandidateKey !== objectSelectionReviewKey
+    ) {
+      announce(
+        'Review the highlighted Object Selection target in the Object Selection panel before importing it into Generative Edit.',
+      );
+      return;
+    }
     if (!objectSelection.sourceFingerprint) {
       announce('This Object Selection is from an older session; create a new preview first');
       return;
@@ -1661,6 +1675,22 @@ export function ContentAwareFillDialog({
       announce('The image changed after Object Selection; create a new preview before using it');
       return;
     }
+    if (objectSelection.mappingFingerprint) {
+      const currentMapper =
+        typedNode &&
+        prepareImageMaskMapper({
+          document: state.document,
+          node: typedNode,
+          sourceWidth: objectSelection.width,
+          sourceHeight: objectSelection.height,
+        });
+      if (!currentMapper || currentMapper.fingerprint !== objectSelection.mappingFingerprint) {
+        announce(
+          'The image placement changed after Object Selection; create a new preview before using it',
+        );
+        return;
+      }
+    }
     const applied = applyMaskCoverage(
       candidate.mask,
       objectSelection.width,
@@ -1674,7 +1704,15 @@ export function ContentAwareFillDialog({
       // generation context before any pixels can be changed.
       setReviewedObjectSelectionKey(null);
     }
-  }, [announce, applyMaskCoverage, imageSrc, objectSelection, objectSelectionReviewKey]);
+  }, [
+    announce,
+    applyMaskCoverage,
+    imageSrc,
+    objectSelection,
+    objectSelectionReviewKey,
+    state.document,
+    typedNode,
+  ]);
 
   const handleStartObjectSelection = useCallback(() => {
     if (!nodeId) {
@@ -3369,6 +3407,7 @@ export function ContentAwareFillDialog({
                 onClick={handleUseObjectSelection}
                 disabled={
                   objectSelection?.status !== 'ready' ||
+                  objectSelectionInitialReviewMissing ||
                   objectSelectionCandidateNeedsRefinement ||
                   hasResult ||
                   isProcessing
@@ -3376,6 +3415,11 @@ export function ContentAwareFillDialog({
               >
                 Use Object Selection
               </Button>
+              {objectSelection?.status === 'ready' && objectSelectionInitialReviewMissing && (
+                <span className="caf-dialog__hint" role="status">
+                  Review the highlighted target in Object Selection before importing this mask.
+                </span>
+              )}
               {objectSelection?.status !== 'ready' && (
                 <Button
                   type="button"

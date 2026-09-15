@@ -11,8 +11,9 @@ import { navigateToEditor } from '../shared';
  */
 async function seedReadyObjectSelectionAndOpenCaf(
   page: import('@playwright/test').Page,
+  options: { reviewed?: boolean } = {},
 ): Promise<void> {
-  await page.evaluate(async () => {
+  await page.evaluate(async (reviewed) => {
     const root = document.querySelector('#root > *') as any;
     if (!root) throw new Error('editor root not found');
     const fiberKey = Object.keys(root).find((key) => key.startsWith('__reactFiber$'));
@@ -85,6 +86,13 @@ async function seedReadyObjectSelectionAndOpenCaf(
     for (let y = top; y < bottom; y += 1) {
       mask.fill(255, y * width + left, y * width + right);
     }
+    const candidateSetId = 'caf-object-selection-candidate-set';
+    // This fixture represents the candidate after the same explicit review
+    // checkbox used by the production Object Selection panel. Without this
+    // token the CAF import control must remain disabled.
+    const reviewedCandidateKey = [sourceFingerprint, '', 'sam2-hiera-tiny', candidateSetId, 0]
+      .map((part) => encodeURIComponent(String(part)))
+      .join('|');
     dispatch((previous: any) => ({
       ...previous,
       selection: [imageNodeId],
@@ -92,7 +100,7 @@ async function seedReadyObjectSelectionAndOpenCaf(
       objectSelectionSession: {
         documentId: previous.document.id,
         nodeId: imageNodeId,
-        candidateSetId: 'caf-object-selection-candidate-set',
+        candidateSetId,
         width,
         height,
         candidates: [{ mask, confidence: 0.99, scoreSource: 'model-iou' }],
@@ -103,11 +111,12 @@ async function seedReadyObjectSelectionAndOpenCaf(
         confidenceSource: 'model-iou',
         sourceLocator: imageSource,
         sourceFingerprint,
+        ...(reviewed ? { reviewedCandidateKey } : {}),
         status: 'ready',
         modelId: 'sam2-hiera-tiny',
       },
     }));
-  });
+  }, options.reviewed ?? true);
   const dialog = page.locator('dialog.varve-dialog--caf[open]');
   await expect(dialog).toBeVisible();
 }
@@ -203,6 +212,22 @@ async function seedBackgroundRemovalPreviewAndOpenCaf(
   const dialog = page.locator('dialog.varve-dialog--caf[open]');
   await expect(dialog).toBeVisible();
 }
+
+test('does not import an unreviewed Object Selection candidate into CAF', async ({ page }) => {
+  await navigateToEditor(page);
+  await page
+    .locator('#file-import-input')
+    .setInputFiles(path.resolve('tests/e2e/fixtures/real-life-braided-portrait.jpg'));
+  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 30_000 });
+
+  await seedReadyObjectSelectionAndOpenCaf(page, { reviewed: false });
+  const dialog = page.locator('dialog.varve-dialog--caf[open]');
+  const objectSelection = dialog.getByRole('button', { name: 'Use Object Selection' });
+  await expect(objectSelection).toBeDisabled();
+  await expect(dialog).toContainText(
+    'Review the highlighted target in Object Selection before importing this mask.',
+  );
+});
 
 test('uses a confirmed Object Selection candidate as an editable CAF mask', async ({ page }) => {
   page.on('console', (message) => {
