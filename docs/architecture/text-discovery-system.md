@@ -53,14 +53,38 @@ follows provider changes instead of hardcoding a segmenter.
   same wasm binary in Node): session creation 5.7 s, one 800x800 forward pass
   **41.9 s single-threaded**, peak RSS **2.4 GB**. The WASM path accepts the
   int64 feeds.
+* **The editor worker is single-threaded by policy.** `configureOrtRuntime`
+  pins `ort.env.wasm.numThreads = 1` inside workers (a documented
+  headless/AMD deadlock workaround; see
+  `ortRuntimeAssets.test.ts`). Cross-origin isolation raises the admission
+  budget (1.2 GB → 3.0 GB on an 8 GB tier) but does not enable threads.
+  Threaded execution of this graph is therefore **unverified**, not merely
+  untested; the support matrix in
+  `packages/engine/src/inference/platformEvidence.ts` records it.
+* **Browser preprocessing is the 800x800 canvas path (v2).** The panel draws
+  the source directly into an 800x800 canvas (stretch, high smoothing) and
+  normalizes without resampling, so a 24 MP photo copies 2.6 MB instead of
+  ~96 MB before inference. The reference processor resizes with antialiasing;
+  the previous path sampled the downscaled source with nearest-neighbour. The
+  Node harness keeps the v1 nearest path, and the detection cache key includes
+  the preprocessing identity so the two are never mixed.
+* **Measured stage timings are shown.** The worker reports session creation,
+  preprocessing, inference, and postprocessing wall times; the panel adds
+  source load and the detector release. A warm session is labeled as such.
+* **Detector release before segmentation.** After the detections are
+  materialized as plain source-space boxes, the detector session is released
+  and the release outcome is surfaced; a failed release stays conservatively
+  accounted and the next heavy stage re-reserves it unless the idle worker was
+  recycled. Identical query/source/threshold searches reuse the in-session
+  compact detection cache and do not re-run the model.
 * **onnxruntime-node 1.27.0 CPU**: real-photo gate (four repository
   photographs) produced phrase-attributed detections — elephant 0.979,
   person 0.906/0.845, sunflower 0.715 top-box — in ~10-16 s per query, peak
   RSS ~3.95 GB. Evidence: `/tmp/varve-grounding-dino-evidence`.
-* **WebGPU is unverified.** Four of the five inputs are int64; ORT-web's
-  WebGPU EP registers int64 kernels only for a small op allowlist (and fully
-  only under graph capture). The catalog keeps the graph downloadable and the
-  execution path requests WASM; no browser-WebGPU claim is made.
+* **WebGPU is unsupported for this graph.** Four of the five inputs are int64;
+  ORT-web's WebGPU EP registers int64 kernels only for a small op allowlist (and
+  fully only under graph capture). The catalog keeps the graph downloadable and
+  the execution path requests WASM; no browser-WebGPU claim is made.
 
 ## Budget and gating
 
@@ -83,9 +107,9 @@ follows provider changes instead of hardcoding a segmenter.
   1.2 GB on a 16 GB-tier device, below the model's 2.6 GB reservation, so
   discovery is refused in ~18 s with the point/box fallback message. This is
   the intended behavior without `SharedArrayBuffer`.
-* Threaded WASM (cross-origin isolated, 3.0 GB safe peak): the model runs and
+* Cross-origin isolated (3.0 GB safe peak): the model runs single-threaded and
   returned the expected real-photo detection ("apple" → one 310×382 px box at
-  76%) inside the editor.
+  76%) inside the editor. Isolation raised the budget; it did not add threads.
 * Under external system memory pressure the threaded headless renderer
   OOM-crashed: a 22 GB machine with only ~2.3 GB available because other
   processes held ~20 GB. The admission gate sizes itself from

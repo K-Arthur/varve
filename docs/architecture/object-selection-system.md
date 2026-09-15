@@ -408,6 +408,25 @@ when installing it is the answer) instead of substituting another model, and
 the browser preflight assesses the requested model's working set rather than a
 single conservative default.
 
+## Quality evidence and candidate ranking
+
+Provider quality records are validator-checked measurement records, not
+hand-transcribed summaries (`docs/quality/validation-record-integrity.md`). The
+archived provider A/B run is the primary observation; production records are
+derived from it at module load, and routing refuses a record that contradicts
+its own per-category data (`evidence-mismatch`) or was measured against a
+different corpus (`unverified-evidence`). Worst IoU and worst boundary-F
+categories are tracked per metric, so a boundary claim never cites the
+IoU-worst category.
+
+Candidates are reviewed, not guessed. The candidate list can be walked with the
+panel arrows or with `[` / `]` while the Object Selection tool is active; the
+selection is validated against the prompts before it becomes selectable, and
+Apply commits exactly the visible accepted candidate without re-running
+inference. Ranking policies, the frozen-set evaluation method, and the
+evidence required before changing the default are documented in
+`docs/quality/candidate-ranking-evaluation.md`.
+
 ## Runtime decision status
 
 The current implementation retains the existing ONNX worker path because it
@@ -422,8 +441,9 @@ the release-gate procedure) for the required benchmark matrix.
 
 ## Known limitations
 
-- Candidate masks can be cycled in the Inspector before Apply; the selected
-  candidate is the mask committed to the document. Under-specified clicks are
+- Candidate masks can be cycled in the Inspector before Apply (arrows, or
+  `[` / `]` while the tool is active); the selected candidate is the mask
+  committed to the document. Under-specified clicks are
   genuinely ambiguous (part, whole, or group), which is why alternatives are
   shown instead of an automatic best-guess.
 - The current SAM2 graph is promptable, not a semantic subject detector.
