@@ -176,6 +176,42 @@ test.describe('Inspector numeric field integrity (real photo)', () => {
     await expect.poll(async () => readValue(field), { timeout: 5000 }).toBe(start);
   });
 
+  test('scrubbing a mixed X selection moves every object by the same delta', async ({ page }) => {
+    await navigateToEditor(page);
+    await importRealPhoto(page);
+    const field = xField(page);
+    await field.fill('100');
+    await page.keyboard.press('Enter');
+
+    await page.locator('#file-import-input').setInputFiles(REAL_PHOTO);
+    await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 15000 });
+    const secondX = positionSizeGroup(page).getByLabel('X (px)');
+    await secondX.fill('200');
+    await page.keyboard.press('Enter');
+    await page.evaluate(() => (document.activeElement as HTMLElement)?.blur?.());
+
+    await page.keyboard.press('Control+a');
+    await expect(secondX).toHaveAttribute('aria-valuetext', 'Mixed values', { timeout: 5000 });
+
+    const box = await xLabel(page).boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.move(box!.x + 10, box!.y + box!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box!.x + 45, box!.y + box!.height / 2, { steps: 7 });
+    await page.mouse.up();
+
+    // Each object moves by the same +35 delta: 100 → 135 and 200 → 235, in an
+    // order-independent check (layer stacking may list either photo first).
+    const rows = page.getByRole('treeitem');
+    await rows.nth(0).click();
+    const firstAfter = await readValue(xField(page));
+    await rows.nth(1).click();
+    const secondAfter = await readValue(xField(page));
+    const sorted = [firstAfter, secondAfter].sort((a, b) => a - b);
+    expect(sorted[0]).toBeCloseTo(135, 3);
+    expect(sorted[1]).toBeCloseTo(235, 3);
+  });
+
   test('visual states for the numeric field on a real photo', async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1180, height: 800 });
     await navigateToEditor(page);
