@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "kind": "real-photo-model-qualification-probe",
+  "capturedAt": "2026-09-15",
+  "decision": "rejected-semantic-quality",
+  "scope": "Direct isolated helper probe; no product profile or marketing claim",
+  "source": {
+    "fixture": "tests/e2e/fixtures/real-life-tsitsikamma-coast.jpg",
+    "sourcePage": "https://commons.wikimedia.org/wiki/File:Tsitsikamma_National_Park_(ZA),_Kanus_an_der_Küste_--_2024_--_1990.jpg",
+    "creator": "Dietmar Rabich",
+    "license": "CC BY-SA 4.0",
+    "derivativeTransform": "center crop to a 512x512 square; no retouching",
+    "file": "source.png",
+    "sha256": "11a7216c1251f436b68636d0a45911e5ce817d86eb6c71427fdb5ecd84c5af54",
+    "width": 512,
+    "height": 512
+  },
+  "mask": {
+    "file": "mask.png",
+    "sha256": "95eec116204dec2dab6634729b4b2a095e6c87ff9653c8ee1f297e334bbef3c6",
+    "polarity": "white-edit-black-preserve",
+    "bounds": { "x": 360, "y": 250, "width": 116, "height": 96 },
+    "hardPixels": 11136
+  },
+  "model": {
+    "family": "Stable Diffusion XL Inpainting 0.1",
+    "sourceRepository": "https://huggingface.co/diffusers/stable-diffusion-xl-1.0-inpainting-0.1",
+    "artifactRepository": "https://huggingface.co/wangqyqq/sd_xl_base_1.0_inpainting_0.1.safetensors",
+    "revision": "d3803f2",
+    "artifact": "sd_xl_base_1.0_inpainting_0.1.safetensors",
+    "sizeBytes": 6938069944,
+    "sha256": "fe1b97fe6544814eb6fc8ce53f04ad8d339ec6946b58b0afd566fcc47813fa8a",
+    "license": "CreativeML Open RAIL++-M",
+    "storedInRepository": false
+  },
+  "runtime": {
+    "name": "varve-generative-helper",
+    "binding": "diffusion-rs 0.1.20 / diffusion-rs-0.1.20-varve-image-cfg-v1",
+    "backend": "native-cpu",
+    "host": "Linux x86_64; AMD Ryzen 3 5300U with integrated Radeon graphics",
+    "labDirectory": "/home/kevina/varve-model-lab-20260915/sdxl-inpaint",
+    "productProfileEnabled": false
+  },
+  "contextPreparation": {
+    "sourceRegion": { "x": 325, "y": 215, "width": 187, "height": 166 },
+    "paddingPixels": 35,
+    "modelFrame": { "width": 512, "height": 512 },
+    "letterboxedContent": { "x": 0, "y": 28, "width": 512, "height": 455 },
+    "note": "This reproduces the production crop, aspect-preserving resize, and restore geometry."
+  },
+  "requests": [
+    {
+      "label": "prepared-context-4step",
+      "prompt": "a small blue fishing boat floating on the ocean, realistic photography",
+      "negativePrompt": "text, logo, watermark, blurry, deformed, duplicated boat",
+      "seed": 417,
+      "width": 512,
+      "height": 512,
+      "steps": 4,
+      "guidanceScale": 6,
+      "imageGuidanceScale": 1,
+      "strength": 0.8,
+      "result": "prepared-context-4step-result.png",
+      "sha256": "85998101603b02fdf341422b88db6144be01e98526fb57fab807e987fcb70e3e"
+    },
+    {
+      "label": "prepared-context-8step",
+      "prompt": "a small blue fishing boat floating on the ocean, realistic photography",
+      "negativePrompt": "text, logo, watermark, blurry, deformed, duplicated boat",
+      "seed": 417,
+      "width": 512,
+      "height": 512,
+      "steps": 8,
+      "guidanceScale": 7,
+      "imageGuidanceScale": 1,
+      "strength": 1,
+      "result": "prepared-context-8step-result.png",
+      "sha256": "d6662879bb95918d1c46c520f6dedfa7b91c606821ccc4204d177b8131807a06"
+    }
+  ],
+  "artifacts": {
+    "source": "source.png",
+    "mask": "mask.png",
+    "preparedContext": "prepared-context-4step.png",
+    "preparedMask": "prepared-mask-4step.png",
+    "fullFrameDiagnostic": "full-frame-4step.png",
+    "fullFrameDifference": "full-frame-4step-difference.png",
+    "restoredContext": "restored-context-8step-result.png",
+    "compositedResult": "composited-8step-result.png",
+    "compositedResultSha256": "139f504ad96007dd6bd48dac4e91c6cfe4fd51c6f4a4ff0c5075228ac334c7bc"
+  },
+  "compositingCheck": {
+    "outsideMaskChangedPixels": 0,
+    "insideMaskPixels": 11136,
+    "insideMaskChangedPixels": 11126,
+    "method": "Exact decoded RGB comparison against source; generated pixels are clipped to the effective mask."
+  },
+  "runtimeObservation": {
+    "peakResidentMemoryApproxGiB": 6.7,
+    "memoryNote": "The run created substantial swap pressure on the development host. This is not evidence for 4GB, Chromebook, ARM, or default desktop support.",
+    "qualityFinding": "The output was a coherent ocean/wave reconstruction but did not depict the requested blue fishing boat.",
+    "promptAdherenceScore": 0,
+    "qualified": false
+  },
+  "conclusion": "The exact source/mask geometry and compositing boundary passed, while semantic content failed. Do not promote this checkpoint/runtime pair or enable prompt-conditioned Fill, Replace, or Expand."
+}
