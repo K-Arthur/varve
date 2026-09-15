@@ -126,6 +126,31 @@ import { sitePath } from '../../../lib/siteUrl';
       </section>
 
       <section class="docs-section">
+        <h2>Inspector export tab</h2>
+        <p>
+          The <strong>Export</strong> tab in the Inspector handles single-object
+          output without leaving the canvas. It has two sub-tabs:
+        </p>
+        <ul>
+          <li><strong>Format</strong> — Quick export with an advised starting format (PNG, JPEG, WebP, SVG, or PDF), a 1x/2x/3x or custom scale for raster formats, and one primary action. On the desktop app the button reads <em>Export</em> and writes through the native save dialog; in the browser it reads <em>Download</em>. SVG output also offers a copy action that produces the exact markup the save would write.</li>
+          <li><strong>Code</strong> — generated SVG, CSS, Tailwind, CSS Modules, Flutter, and SwiftUI for the selected object, with copy-to-clipboard and a change indicator when the object is edited. The code view is keyboard-scrollable.</li>
+        </ul>
+        <p>
+          <strong>Export configurations</strong> are the saved outputs that run whenever the object is batch exported: enable or disable each one, edit its filename suffix, and add new ones from quick presets, the built-in preset library (including bundles such as a web asset set), or a custom format — including PDF/X print standards and code targets. Formats a deployment cannot encode (for example PDF/X in the browser) are shown disabled with the reason instead of being silently accepted.
+        </p>
+        <p>
+          The tab exports one object at a time. When several layers are selected it names the object that will be exported and offers a route to the <strong>export workspace</strong> for the batch path, which also carries destination, naming-template, and per-run resolution options.
+        </p>
+        <p>
+          Preflight findings for the saved configurations appear above the list
+          before you export (oversized output, missing fonts, format or platform
+          mismatches), and every export reports its result — including a
+          cancelled save dialog — in a status line that is also announced to
+          assistive technology.
+        </p>
+      </section>
+
+      <section class="docs-section">
         <h2>Export Settings</h2>
         <p>
           Configure default export preferences in Settings:

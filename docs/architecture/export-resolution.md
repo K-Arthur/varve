@@ -68,6 +68,39 @@ translation. DPR belongs to an interactive display backing store, not a
 requested export bitmap; a half-pixel adjustment is only valid for a specific
 primitive/raster API convention and is not part of this general mapping.
 
+## Inspector quick export (Export tab)
+
+The Inspector's Export tab writes one object at a time. Its contract is the
+narrowest path to a correct file, and it must agree with the batch workspace:
+
+- **Naming.** Quick exports use the canonical naming module
+  (`packages/scene/src/export/naming.ts`), not a local sanitizer: Unicode is
+  preserved, Windows reserved device names are guarded, and a source-asset
+  extension carried by an imported layer name (`hero.jpg`) is dropped before
+  the target extension is appended. A raster export above 1x encodes its scale
+  in the filename (`Logo@2x.png`) so exporting the same object at 1x and 2x
+  does not silently overwrite one file or produce indistinguishable downloads.
+- **Scale.** Quick export offers 1x/2x/3x plus a custom multiplier in the
+  declared range 0.1–10. Typed values outside the range, zero, negatives, and
+  non-finite drafts are rejected with a visible, `aria-describedby`-linked
+  explanation and a disabled primary action — they are never silently clamped
+  or coerced to the nearest bound. The raster safety policy still applies
+  underneath: an in-range scale whose pixel dimensions exceed the portable
+  raster budget is fitted down with an explicit warning in the result message.
+- **SVG parity.** The saved SVG and the copy-to-clipboard markup come from one
+  builder (`exportNodeToSvgMarkup`), so rasterized fallbacks for effects,
+  composite gradients, and mockups cannot appear in one and vanish from the
+  other.
+- **Save feedback.** On desktop, a cancelled native save dialog reports
+  "Export cancelled" instead of a success message. Browser downloads report
+  "Downloaded …".
+- **Undo.** Each configuration add (including a multi-preset bundle), suffix
+  commit, enable toggle, and removal is one labeled history transaction.
+  Suffix typing keeps a local draft and commits on blur or Enter (Escape
+  reverts), so a word typed into the field is one undo step.
+- **Selection honesty.** With several layers selected, the tab states which
+  single object will export and offers the batch workspace for the rest.
+
 ## Batch export
 
 The export dialog shows resolved pixel dimensions before execution. Its
