@@ -36,6 +36,7 @@ import { prepareImageMaskMapper } from '../tools/imageMaskCoordinates';
 import { normalizeSam2Prompts } from '../tools/sam2PromptCoordinates';
 import { areaSelectionFromMaskCoverage } from '../tools/selectionMask';
 import { fingerprintImageData } from './imageFingerprint';
+import { rankPromptedMaskCandidates } from './promptedMaskValidation';
 import {
   type PromptedEmbedding,
   type PromptedMaskCandidate,
@@ -580,6 +581,7 @@ export function useSam2Segmentation(
         width: 0,
         height: 0,
         candidates: [],
+        rejectedCandidateCount: undefined,
         selectedCandidate: sameSessionTarget ? (previousSession?.selectedCandidate ?? 0) : 0,
         points: prompts.points ?? [],
         box: prompts.box ?? null,
@@ -941,6 +943,19 @@ export function useSam2Segmentation(
         });
         return null;
       }
+      if (
+        !normPrompts.points?.length &&
+        (!normPrompts.box ||
+          normPrompts.box.x2 <= normPrompts.box.x1 ||
+          normPrompts.box.y2 <= normPrompts.box.y1)
+      ) {
+        markFailure({
+          code: 'invalid_prompt_geometry',
+          message: 'Object Selection needs a point or a box with positive area.',
+          retryable: true,
+        });
+        return null;
+      }
       try {
         const host = getInferenceWorkerHost();
         const encoderArtifact = getModelById(encoderId)?.checksum || resolvedEncoderPath;
@@ -1009,21 +1024,38 @@ export function useSam2Segmentation(
 
         if (generation !== generationRef.current || combinedSignal.aborted) return null;
 
+        const ranked = rankPromptedMaskCandidates(
+          prediction.candidates,
+          { points: normPrompts.points, box: normPrompts.box },
+          naturalW,
+          naturalH,
+        );
+        if (ranked.selectedIndex < 0) {
+          markFailure({
+            code: 'prompt_not_honored',
+            message:
+              'No candidate honored every include/exclude point and enough of the requested box. Adjust the prompts and try again.',
+            retryable: true,
+          });
+          return null;
+        }
         const decoded = {
-          masks: prediction.candidates.map((candidate: PromptedMaskCandidate) => ({
-            mask: candidate.mask,
-            width: candidate.width,
-            height: candidate.height,
-            iouScore: candidate.score,
-            scoreSource: candidate.scoreSource,
-            promptContainment: candidate.promptContainment,
-            confidenceSource:
-              candidate.scoreSource === 'predicted-iou'
-                ? ('predicted-iou' as const)
-                : ('heuristic' as const),
-          })),
-          selectedIndex: prediction.selectedIndex,
-          confidence: prediction.selectedScore,
+          masks: ranked.candidates.map(
+            (candidate: PromptedMaskCandidate & { promptContainment: number }) => ({
+              mask: candidate.mask,
+              width: candidate.width,
+              height: candidate.height,
+              iouScore: candidate.score,
+              scoreSource: candidate.scoreSource,
+              promptContainment: candidate.promptContainment,
+              confidenceSource:
+                candidate.scoreSource === 'predicted-iou'
+                  ? ('predicted-iou' as const)
+                  : ('heuristic' as const),
+            }),
+          ),
+          selectedIndex: ranked.selectedIndex,
+          confidence: ranked.selectedScore,
           confidenceSource: prediction.scoreSource,
         };
 
@@ -1068,6 +1100,7 @@ export function useSam2Segmentation(
                   scoreSource: candidate.scoreSource,
                   promptContainment: candidate.promptContainment,
                 })),
+                rejectedCandidateCount: ranked.rejectedCount,
                 selectedCandidate,
                 points: prompts.points ?? [],
                 box: prompts.box ?? null,

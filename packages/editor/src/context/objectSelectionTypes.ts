@@ -26,6 +26,8 @@ export interface ObjectSelectionSession {
     /** Fraction of explicit point/box prompts satisfied, separate from IoU. */
     promptContainment?: number;
   }>;
+  /** Number of decoded masks rejected for failing explicit prompt geometry. */
+  rejectedCandidateCount?: number;
   selectedCandidate: number;
   points: Array<{ x: number; y: number; label: 0 | 1 }>;
   box: { x1: number; y1: number; x2: number; y2: number } | null;

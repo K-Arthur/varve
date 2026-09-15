@@ -86,14 +86,14 @@ async function sessionFor(options: SetupOptions = {}): Promise<{
   };
 }
 
-function setup(session: ObjectSelectionSession, doc: Document) {
+function setup(session: ObjectSelectionSession | null, doc: Document) {
   const setAreaSelection = vi.fn();
   const announce = vi.fn();
   const stateRef = {
     current: {
       document: doc,
       selection: ['image'],
-      objectSelectionSession: session,
+      objectSelectionSession: session ?? undefined,
       sectionVisibility: {},
     } as unknown as EditorState,
   };
@@ -255,5 +255,32 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
     expect(setAreaSelection).not.toHaveBeenCalled();
     expect(stateRef.current.objectSelectionSession?.status).toBe('error');
     expect(stateRef.current.objectSelectionSession?.error?.code).toBe('prompt_not_honored');
+  });
+
+  it('fails closed when a fresh prompt is outside the visible image', async () => {
+    const size = 8;
+    const doc = addNode(
+      createDocument('Selection mapping test', true),
+      makeImageShapeNode('image', {
+        src: 'source',
+        w: size,
+        h: size,
+        imageWidth: size,
+        imageHeight: size,
+      }),
+    );
+    const { result, stateRef, announce } = setup(null, doc);
+
+    await act(async () => {
+      await result.current.applySam2Segmentation({
+        nodeId: 'image',
+        prompts: { points: [{ x: -1, y: size / 2, label: 1 }] },
+        operation: 'preview',
+      });
+    });
+
+    expect(controls.infer).not.toHaveBeenCalled();
+    expect(stateRef.current.objectSelectionSession?.error?.code).toBe('prompt_out_of_bounds');
+    expect(announce).toHaveBeenCalledWith(expect.stringContaining('1 point'));
   });
 });
