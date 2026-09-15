@@ -5,7 +5,7 @@ import { prepareImageMaskMapper } from '../tools/imageMaskCoordinates';
 import { fingerprintImageData } from './imageFingerprint';
 import { objectSelectionCandidateReviewKey } from './objectSelectionTypes';
 import type { EditorState, ObjectSelectionSession } from './types';
-import { useSam2Segmentation } from './useSam2Segmentation';
+import { mapPromptedRoutingFailure, useSam2Segmentation } from './useSam2Segmentation';
 
 const controls = vi.hoisted(() => ({
   infer: vi.fn(),
@@ -165,6 +165,24 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue(MASK_DATA_URL);
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it.each([
+    ['exceeds-hard-budget', 'out_of_memory', true],
+    ['not-installed', 'model_not_installed', true],
+    ['unsupported-runtime', 'unsupported_runtime', false],
+    ['below-quality-floor', 'provider_unavailable', true],
+  ] as const)('preserves the actionable routing failure for %s', (code, expected, retryable) => {
+    expect(
+      mapPromptedRoutingFailure({
+        reason: 'fallback routing reason',
+        rejected: [{ code, reason: `provider rejected: ${code}` }],
+      }),
+    ).toEqual({
+      code: expected,
+      message: `provider rejected: ${code}`,
+      retryable,
+    });
+  });
 
   it('commits the reviewed candidate as a selection without running inference', async () => {
     const { doc, session } = await sessionFor();

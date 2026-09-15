@@ -916,11 +916,15 @@ export function useSam2Segmentation(
         providers,
       });
       if (!decision.providerId || !decision.encoderId || !decision.decoderId) {
-        markFailure({
-          code: 'provider_unavailable',
-          message: decision.reason,
-          retryable: true,
-        });
+        const liveSession = stateRef.current.objectSelectionSession;
+        if (liveSession?.nodeId === nodeId && stateRef.current.document.id === currentDoc.id) {
+          writeTransientSession({
+            ...liveSession,
+            routingReason: decision.reason,
+            routingRejections: decision.rejected,
+          });
+        }
+        markFailure(mapPromptedRoutingFailure(decision));
         return null;
       }
       let providerId: string = decision.providerId;
@@ -1692,6 +1696,43 @@ function mapSegmentationFailure(raw: string): {
   return {
     code: 'unknown',
     message: 'Object selection could not complete. Check the AI model installation and try again.',
+    retryable: true,
+  };
+}
+
+export function mapPromptedRoutingFailure(decision: {
+  reason: string;
+  rejected: ReadonlyArray<{ code: string; reason: string }>;
+}): {
+  code: string;
+  message: string;
+  retryable: boolean;
+} {
+  const rejection = decision.rejected[0];
+  if (rejection?.code === 'exceeds-hard-budget') {
+    return {
+      code: 'out_of_memory',
+      message: rejection.reason,
+      retryable: true,
+    };
+  }
+  if (rejection?.code === 'not-installed') {
+    return {
+      code: 'model_not_installed',
+      message: rejection.reason,
+      retryable: true,
+    };
+  }
+  if (rejection?.code === 'unsupported-runtime') {
+    return {
+      code: 'unsupported_runtime',
+      message: rejection.reason,
+      retryable: false,
+    };
+  }
+  return {
+    code: 'provider_unavailable',
+    message: rejection?.reason ?? decision.reason,
     retryable: true,
   };
 }
