@@ -15,11 +15,16 @@ import {
   resolveActiveIsometricGrid,
   resolveIsometricGeometry,
 } from '@varve/scene';
+import { screenToWorld, worldToScreen } from '@varve/shared';
 import type { EditorState } from '../context';
 import { nodeWorldTransform } from '../scene/world';
 
 export interface IsoTestHooks {
   getGridOverlayMode: () => string;
+  /** Project a document-space point to canvas-area CSS pixels. */
+  worldToScreen: (x: number, y: number) => { x: number; y: number };
+  /** Unproject canvas-area CSS pixels to document space. */
+  screenToWorld: (x: number, y: number) => { x: number; y: number };
   getGrid: () => {
     id: string;
     visible: boolean;
@@ -90,8 +95,35 @@ export function installIsoTestHooks(getState: () => EditorState): void {
   if (typeof window === 'undefined') return;
   if (!window.location.search.includes('isoTest=1')) return;
   const target = window as unknown as { __varveIsoTest?: IsoTestHooks };
+  const viewport = () => {
+    const el = document.querySelector<HTMLElement>('.editor-canvas');
+    return {
+      width: el?.clientWidth && el.clientWidth > 0 ? el.clientWidth : window.innerWidth,
+      height: el?.clientHeight && el.clientHeight > 0 ? el.clientHeight : window.innerHeight,
+    };
+  };
   target.__varveIsoTest = {
     getGridOverlayMode: () => getState().gridOverlayMode,
+    worldToScreen: (x, y) => {
+      const state = getState();
+      const [sx, sy] = worldToScreen(
+        { zoom: state.zoom, pan: state.pan, rotation: state.cameraRotation },
+        x,
+        y,
+        viewport(),
+      );
+      return { x: sx, y: sy };
+    },
+    screenToWorld: (x, y) => {
+      const state = getState();
+      const [wx, wy] = screenToWorld(
+        { zoom: state.zoom, pan: state.pan, rotation: state.cameraRotation },
+        x,
+        y,
+        viewport(),
+      );
+      return { x: wx, y: wy };
+    },
     getGrid: () => {
       const grid = resolveActiveIsometricGrid(getState().document);
       return grid ? summarizeGrid(grid) : null;

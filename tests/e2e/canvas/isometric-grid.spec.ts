@@ -46,6 +46,8 @@ declare global {
   interface Window {
     __varveIsoTest?: {
       getGridOverlayMode: () => string;
+      worldToScreen: (x: number, y: number) => { x: number; y: number };
+      screenToWorld: (x: number, y: number) => { x: number; y: number };
       getGrid: () => GridSnapshot | null;
       getSelection: () => string[];
       getSelectionGeometry: () => SelectionGeometry[];
