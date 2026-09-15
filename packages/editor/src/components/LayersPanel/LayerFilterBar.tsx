@@ -19,18 +19,24 @@ const KIND_CHIPS: { value: LayerFilterSpec['kinds'][number]; label: string }[] =
   { value: 'adjustment', label: 'Adjustment' },
 ];
 
+/**
+ * Attribute chips cycle through three states: unset → require the attribute →
+ * require its absence. Every state needs a visible label; a chip without a
+ * `falseLabel` would render as an empty, invisible button on its second click
+ * (the state still filtered the tree, but nothing on screen said so).
+ */
 const ATTRIBUTE_CHIPS: {
   value: keyof NonNullable<LayerFilterSpec['attributes']>;
   label: string;
-  trueLabel?: string;
-  falseLabel?: string;
+  trueLabel: string;
+  falseLabel: string;
 }[] = [
-  { value: 'locked', label: 'Locked', trueLabel: 'Locked' },
+  { value: 'locked', label: 'Locked', trueLabel: 'Locked', falseLabel: 'Unlocked' },
   { value: 'visible', label: 'Visible', trueLabel: 'Visible', falseLabel: 'Hidden' },
-  { value: 'hasChildren', label: 'Has Children', trueLabel: 'Children' },
-  { value: 'hasEffects', label: 'Has Effects', trueLabel: 'Effects' },
-  { value: 'isMasked', label: 'Is Masked', trueLabel: 'Masked' },
-  { value: 'isComponent', label: 'Component', trueLabel: 'Component' },
+  { value: 'hasChildren', label: 'Has Children', trueLabel: 'Children', falseLabel: 'No Children' },
+  { value: 'hasEffects', label: 'Has Effects', trueLabel: 'Effects', falseLabel: 'No Effects' },
+  { value: 'isMasked', label: 'Is Masked', trueLabel: 'Masked', falseLabel: 'Not Masked' },
+  { value: 'isComponent', label: 'Component', trueLabel: 'Component', falseLabel: 'Not Component' },
 ];
 
 const BLEND_CHIPS: { value: BlendMode; label: string }[] = [
@@ -153,20 +159,18 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
         >
           <div className="layers-filter-bar__section">
             <span className="layers-filter-bar__section-label">Type</span>
-            <div
-              className="layers-filter-bar__chips"
-              role="listbox"
-              aria-label="Filter by type"
-              aria-multiselectable="true"
-            >
+            {/* Toggle buttons in a labelled group, not a listbox: each chip is
+                independently focusable and pressing it toggles, which is the
+                button/aria-pressed contract. A listbox would require option
+                children, a roving tab stop, and arrow-key handling. */}
+            <fieldset className="layers-filter-bar__chips" aria-label="Filter by type">
               {KIND_CHIPS.map((chip) => {
                 const active = filter.kinds.includes(chip.value);
                 return (
                   <button
                     key={chip.value}
                     type="button"
-                    role="option"
-                    aria-selected={active}
+                    aria-pressed={active}
                     className={`layers-filter-bar__chip${active ? ' layers-filter-bar__chip--active' : ''}`}
                     onClick={() => toggleKind(chip.value)}
                   >
@@ -174,7 +178,7 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
                   </button>
                 );
               })}
-            </div>
+            </fieldset>
           </div>
 
           <div className="layers-filter-bar__section">
@@ -202,20 +206,14 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
 
           <div className="layers-filter-bar__section">
             <span className="layers-filter-bar__section-label">Blend</span>
-            <div
-              className="layers-filter-bar__chips"
-              role="listbox"
-              aria-label="Filter by blend mode"
-              aria-multiselectable="true"
-            >
+            <fieldset className="layers-filter-bar__chips" aria-label="Filter by blend mode">
               {BLEND_CHIPS.map((chip) => {
                 const active = filter.blendModes.includes(chip.value);
                 return (
                   <button
                     key={chip.value}
                     type="button"
-                    role="option"
-                    aria-selected={active}
+                    aria-pressed={active}
                     className={`layers-filter-bar__chip${active ? ' layers-filter-bar__chip--active' : ''}`}
                     onClick={() => toggleBlendMode(chip.value)}
                   >
@@ -223,7 +221,7 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
                   </button>
                 );
               })}
-            </div>
+            </fieldset>
           </div>
 
           <div className="layers-filter-bar__section">
