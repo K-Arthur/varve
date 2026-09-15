@@ -29,6 +29,16 @@ test.describe('canvas feature page', () => {
     await expect(arrangement).toContainText('Make spacing intentional');
     await expect(arrangement).toContainText('independent row and column gaps');
     await expect(arrangement.locator('article')).toHaveCount(3);
+    const isometric = page.getByTestId('canvas-isometric-construction');
+    await isometric.scrollIntoViewIfNeeded();
+    await expect(isometric).toBeVisible();
+    await expect(isometric).toContainText('Draw on a plane');
+    await expect(isometric).toContainText('ratio-derived 2:1');
+    await expect(isometric).toContainText('directional construction guides');
+    await expect(isometric.locator('article')).toHaveCount(3);
+    await isometric.screenshot({
+      path: testInfo.outputPath('canvas-isometric-construction.png'),
+    });
     await page.screenshot({
       path: testInfo.outputPath('canvas-feature-desktop.png'),
       fullPage: false,
@@ -49,6 +59,9 @@ test.describe('canvas feature page', () => {
     const mobileArrangement = page.getByTestId('canvas-arrangement-contract');
     await expect(mobileArrangement).toBeVisible();
     await expect(mobileArrangement.locator('article')).toHaveCount(3);
+    const mobileIsometric = page.getByTestId('canvas-isometric-construction');
+    await expect(mobileIsometric).toBeVisible();
+    await expect(mobileIsometric.locator('article')).toHaveCount(3);
     await expect(emptySurface).toBeVisible();
     await expect(emptySurface.locator('.surface-state-contract__facts span')).toHaveCount(3);
     await page.screenshot({

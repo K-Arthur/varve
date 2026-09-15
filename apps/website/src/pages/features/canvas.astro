@@ -126,6 +126,7 @@ import { sitePath } from '../../lib/siteUrl';
             <div><span class="grid-systems__marker grid-systems__marker--document"></span><div><strong>Document grid</strong><small>Saved alignment lattice</small></div></div>
             <div><span class="grid-systems__marker grid-systems__marker--pixel"></span><div><strong>Pixel grid</strong><small>High-zoom inspection</small></div></div>
             <div><span class="grid-systems__marker grid-systems__marker--guide"></span><div><strong>Frame guides</strong><small>Composition boundaries</small></div></div>
+            <div><span class="grid-systems__marker grid-systems__marker--isometric"></span><div><strong>Isometric construction</strong><small>Planes that interpret the pointer</small></div></div>
           </div>
         </div>
         <div class="grid-systems__principles">
@@ -133,6 +134,28 @@ import { sitePath } from '../../lib/siteUrl';
           <article><span>02</span><h3>Inspect</h3><p>Pixel display and snap-to-pixel stay separate at high zoom.</p></article>
           <article><span>03</span><h3>Compose</h3><p>Multiple frame guides show structure without arranging children.</p></article>
         </div>
+      </section>
+
+      <section class="feature-section" data-testid="canvas-isometric-construction">
+        <p class="eyebrow">Isometric construction</p>
+        <h2>Draw on a plane. Transform on purpose.</h2>
+        <p>
+          The isometric grid is a construction aid, not a filter. Choose a preset — 30° true isometric
+          or the ratio-derived 2:1 game-art angle — then pick the plane you are building on. New
+          shapes are drawn in that plane: a rectangle comes out as a projected quad, and a circle
+          becomes the exact affine image of a plane circle. Existing artwork is left alone until you
+          deliberately fit it.
+        </p>
+        <div class="grid-systems__principles">
+          <article><span>01</span><h3>Planes</h3><p>Top, Front, Side — or Off. Changing the plane affects new construction only, and switching back restores ordinary 2-D drawing.</p></article>
+          <article><span>02</span><h3>Snapping that agrees</h3><p>The nearest intersection is resolved as a two-dimensional problem, so a real artwork anchor lands on the lattice instead of rounded coordinates. Line snapping is a separate, opt-in mode.</p></article>
+          <article><span>03</span><h3>Explicit transforms</h3><p>Fit to Plane and Unproject are deliberate commands that apply one transform to the whole selection and keep geometry editable. Create Grid Artwork is a separate, bounded step.</p></article>
+        </div>
+        <p class="construction-note">
+          Honest limits: 2:1 is exact as a ratio, but pixel-perfect output also depends on integer
+          origin, spacing, and raster density. Arbitrary three-angle sets are drawn as directional
+          construction guides — they are not claimed to be a physically valid trimetric projection.
+        </p>
       </section>
 
       <section class="feature-section" data-testid="canvas-auto-layout-link">
@@ -524,6 +547,8 @@ import { sitePath } from '../../lib/siteUrl';
   .grid-systems__marker--document { background: #4dc8bd; }
   .grid-systems__marker--pixel { background: #e99c63; }
   .grid-systems__marker--guide { background: #dd6d62; }
+  .grid-systems__marker--isometric { background: #8f8ce7; }
+  .construction-note { border-left: 2px solid var(--border-subtle); color: var(--text-secondary); font-size: .82rem; line-height: 1.6; margin-top: 1.1rem; padding-left: .9rem; }
 
   .grid-systems__principles { display: grid; gap: 1rem; grid-template-columns: repeat(3, 1fr); margin-top: 1rem; }
   .grid-systems__principles article { border-top: 2px solid var(--border-accent); padding-top: .9rem; }
