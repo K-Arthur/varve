@@ -150,6 +150,12 @@ The same image placement mapping is used by brush mask editing. Prompt
 coordinates are never derived from an axis-aligned world bounding box, because
 that fails for rotated, cropped, flipped, or nested image nodes.
 
+The transient session retains point and box markers in document/world
+coordinates because the overlay and prompt-edit gestures use that space. The
+inference and commit validators map those markers through the current canonical
+image mapper before comparing them with source-image mask pixels; they never
+compare world values directly with normalized model coordinates.
+
 Prompt normalization is fail-closed. Every include/exclude point must map to a
 visible source-image pixel, and all four corners of a box hint must map before
 the source-space box is constructed. If a point or corner falls outside the

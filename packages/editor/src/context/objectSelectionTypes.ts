@@ -29,7 +29,9 @@ export interface ObjectSelectionSession {
   /** Number of decoded masks rejected for failing explicit prompt geometry. */
   rejectedCandidateCount?: number;
   selectedCandidate: number;
+  /** Prompt markers in document/world coordinates for the canvas overlay. */
   points: Array<{ x: number; y: number; label: 0 | 1 }>;
+  /** Box hint in document/world coordinates for the canvas overlay. */
   box: { x1: number; y1: number; x2: number; y2: number } | null;
   sourceLocator?: string;
   /** SHA-256 (or deterministic fallback) of the decoded source RGBA pixels. */

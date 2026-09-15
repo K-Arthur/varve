@@ -467,6 +467,37 @@ export function useSam2Segmentation(
             );
             return null;
           }
+          const reviewedPrompts = normalizeSam2Prompts(
+            {
+              points: previousSession.points,
+              box: previousSession.box ?? undefined,
+            },
+            currentMapper,
+            previousSession.width,
+            previousSession.height,
+          );
+          if (
+            reviewedPrompts.unmappedPointCount > 0 ||
+            reviewedPrompts.unmappedBoxCornerCount > 0
+          ) {
+            const live = stateRef.current.objectSelectionSession;
+            if (generation === generationRef.current && live?.nodeId === nodeId) {
+              writeTransientSession({
+                ...live,
+                status: 'error',
+                error: {
+                  code: 'prompt_out_of_bounds',
+                  message:
+                    'The reviewed prompt geometry is no longer inside the image. Create a new preview before applying it.',
+                  retryable: true,
+                },
+              });
+            }
+            announcerRef.current?.announce(
+              'The reviewed prompt geometry is no longer inside the image. Create a new preview before applying it.',
+            );
+            return null;
+          }
           const hasPromptConstraints =
             previousSession.points.length > 0 || previousSession.box !== null;
           if (
@@ -517,8 +548,8 @@ export function useSam2Segmentation(
               score: candidate.confidence,
             },
             {
-              points: previousSession.points,
-              box: previousSession.box ?? undefined,
+              points: reviewedPrompts.points,
+              box: reviewedPrompts.box,
             },
             previousSession.width,
             previousSession.height,

@@ -49,8 +49,8 @@ async function sessionFor(options: SetupOptions = {}): Promise<{
 }> {
   const size = options.size ?? 8;
   const defaultMask = new Uint8Array(size * size);
-  const anchorX = Math.min(size - 1, Math.max(0, Math.round((4 / 7) * (size - 1))));
-  const anchorY = Math.min(size - 1, Math.max(0, Math.round((4 / 7) * (size - 1))));
+  const anchorX = Math.min(size - 1, 4);
+  const anchorY = Math.min(size - 1, 4);
   defaultMask[anchorY * size + anchorX] = 255;
   const mask = options.mask ?? defaultMask;
   const doc = addNode(
@@ -86,7 +86,10 @@ async function sessionFor(options: SetupOptions = {}): Promise<{
       height: size,
       candidates,
       selectedCandidate: options.selectedCandidate ?? 0,
-      points: [{ x: 4 / 7, y: 4 / 7, label: 1 }],
+      // Sessions retain world-space prompt markers so the canvas can draw and
+      // edit them. The commit path must map these through the image mapper
+      // before applying source-space validation.
+      points: [{ x: anchorX, y: anchorY, label: 1 }],
       box: null,
       sourceLocator: 'source',
       sourceFingerprint: fingerprint,
