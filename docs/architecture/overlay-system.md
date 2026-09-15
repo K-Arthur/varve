@@ -30,7 +30,7 @@ Semantic primitives retain their own behavior:
 | Select/listbox | Value highlight, disabled options, `aria-activedescendant`, selection commit | Menu close-before-action policy |
 | Combobox | Text input, filtering, editable-value commit | Menu roles for its options |
 | Popover | Modal/nonmodal choice, native Popover API compatibility, optional focus trap | Menu keyboard behavior |
-| Dialog | Native dialog/top-layer semantics, modal backdrop, dialog focus policy | Light-dismiss semantics of a nonmodal popover |
+| Dialog | Native dialog/top-layer semantics, modal backdrop, dialog focus policy, its own nested-overlay registry | Light-dismiss semantics of a nonmodal popover |
 | Tooltip | Noninteractive hover/focus disclosure | Pointer dismissal or focus trapping |
 | Rich toolbar/editor | Toolbar/form semantics and editing transactions | `role="menu"` or menu item navigation |
 
@@ -207,6 +207,33 @@ roles. Rich color, binding, section-management, and tool-option surfaces use
 dialog/popover/form semantics. Nonmodal popovers do not inert the application;
 modal popovers opt into focus containment/inert behavior. Tooltips remain
 noninteractive and are below active menus in the z policy.
+
+### Dialog dismissal and focus contract
+
+The shared `Dialog` (native `<dialog>` + `showModal()`) owns these rules so
+consumers do not re-implement them:
+
+- **One Escape per layer.** A `Select`/`MultiSelect`/`Combobox` dismisses
+  itself with `preventDefault()` *and* `stopPropagation()`, and `Dialog`
+  provides its own nested-overlay registry (a `Select` inside any dialog
+  registers with that dialog, not with an ancestor provider). A bespoke
+  dialog that closes on Escape outside the shared primitive must consult the
+  same registry — see `ExportDialog` for the reference implementation.
+- **Escape never closes a layer underneath a top-layer modal.** A bespoke
+  dialog's Escape handler must ignore the key while any `dialog[open]` is
+  above it (an in-dialog confirm, for example).
+- **Backdrop dismissal requires both the press and the release on the
+  backdrop.** A press that starts inside the dialog and ends on the backdrop
+  produces a click whose target is the dialog element (the press/release
+  common ancestor); that must not dismiss.
+- **Initial focus is deliberate.** `showModal()` focuses the first focusable
+  element, which is the header Close button; dialogs whose purpose is a
+  specific control opt into `focusFirstControl` + `data-autofocus`, and
+  `AlertDialog` focuses its cancel (least destructive) action.
+- **Focus restoration is the platform's, with one known gap.** Native
+  `close()` restores focus to the pre-open element; if that element unmounted
+  (a context-menu item), focus falls to `<body>` — a fallback contract for
+  that case is still open (see `docs/audits/dialog-review-2026-09-15.md`).
 
 ## Layering policy
 
