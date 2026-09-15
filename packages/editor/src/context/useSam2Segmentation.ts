@@ -922,6 +922,65 @@ export function useSam2Segmentation(
         return null;
       }
 
+      // Validate the user's geometry against the canonical image-placement
+      // inverse before model lookup, memory probing, or a full-resolution
+      // source allocation. A pointer outside the visible image is an input
+      // error, not a reason to spend device resources and then fail late.
+      const imageMapper = prepareImageMaskMapper({
+        document: currentDoc,
+        node,
+        sourceWidth: naturalW,
+        sourceHeight: naturalH,
+      });
+      if (!imageMapper) {
+        markFailure({
+          code: 'placement_invalid',
+          message:
+            'The image placement is not valid for object selection. Reset the image bounds and try again.',
+          retryable: true,
+        });
+        return null;
+      }
+      const normPrompts = normalizeSam2Prompts(prompts, imageMapper, naturalW, naturalH);
+      if (normPrompts.unmappedPointCount > 0 || normPrompts.unmappedBoxCornerCount > 0) {
+        const unmappedParts = [
+          normPrompts.unmappedPointCount > 0
+            ? `${normPrompts.unmappedPointCount} point${normPrompts.unmappedPointCount === 1 ? '' : 's'}`
+            : null,
+          normPrompts.unmappedBoxCornerCount > 0
+            ? `${normPrompts.unmappedBoxCornerCount} box corner${normPrompts.unmappedBoxCornerCount === 1 ? '' : 's'}`
+            : null,
+        ].filter((part): part is string => part !== null);
+        markFailure({
+          code: 'prompt_out_of_bounds',
+          message: `Object Selection could not map ${unmappedParts.join(' and ')} to visible image pixels. Place every prompt inside the image and try again.`,
+          retryable: true,
+        });
+        return null;
+      }
+      if (
+        !normPrompts.points?.length &&
+        (!normPrompts.box ||
+          normPrompts.box.x2 <= normPrompts.box.x1 ||
+          normPrompts.box.y2 <= normPrompts.box.y1)
+      ) {
+        markFailure({
+          code: 'invalid_prompt_geometry',
+          message: 'Object Selection needs a point or a box with positive area.',
+          retryable: true,
+        });
+        return null;
+      }
+      if (!normPrompts.box && !(normPrompts.points ?? []).some((point) => point.label === 1)) {
+        markFailure({
+          code: 'positive_prompt_required',
+          message:
+            'Add an include point or a box before running Object Selection; exclude points only refine an identified object.',
+          retryable: true,
+        });
+        return null;
+      }
+
       const loader = getModelLoader();
       const modelIds = [
         MOBILE_SAM_ENCODER_ID,
@@ -1159,60 +1218,6 @@ export function useSam2Segmentation(
         return null;
       }
 
-      const imageMapper = prepareImageMaskMapper({
-        document: currentDoc,
-        node,
-        sourceWidth: naturalW,
-        sourceHeight: naturalH,
-      });
-      if (!imageMapper) {
-        markFailure({
-          code: 'placement_invalid',
-          message:
-            'The image placement is not valid for object selection. Reset the image bounds and try again.',
-          retryable: true,
-        });
-        return null;
-      }
-      const normPrompts = normalizeSam2Prompts(prompts, imageMapper, naturalW, naturalH);
-      if (normPrompts.unmappedPointCount > 0 || normPrompts.unmappedBoxCornerCount > 0) {
-        const unmappedParts = [
-          normPrompts.unmappedPointCount > 0
-            ? `${normPrompts.unmappedPointCount} point${normPrompts.unmappedPointCount === 1 ? '' : 's'}`
-            : null,
-          normPrompts.unmappedBoxCornerCount > 0
-            ? `${normPrompts.unmappedBoxCornerCount} box corner${normPrompts.unmappedBoxCornerCount === 1 ? '' : 's'}`
-            : null,
-        ].filter((part): part is string => part !== null);
-        markFailure({
-          code: 'prompt_out_of_bounds',
-          message: `Object Selection could not map ${unmappedParts.join(' and ')} to visible image pixels. Place every prompt inside the image and try again.`,
-          retryable: true,
-        });
-        return null;
-      }
-      if (
-        !normPrompts.points?.length &&
-        (!normPrompts.box ||
-          normPrompts.box.x2 <= normPrompts.box.x1 ||
-          normPrompts.box.y2 <= normPrompts.box.y1)
-      ) {
-        markFailure({
-          code: 'invalid_prompt_geometry',
-          message: 'Object Selection needs a point or a box with positive area.',
-          retryable: true,
-        });
-        return null;
-      }
-      if (!normPrompts.box && !(normPrompts.points ?? []).some((point) => point.label === 1)) {
-        markFailure({
-          code: 'positive_prompt_required',
-          message:
-            'Add an include point or a box before running Object Selection; exclude points only refine an identified object.',
-          retryable: true,
-        });
-        return null;
-      }
       const imageAnchors = validatePromptedImageAnchors(imageData, normPrompts.points);
       if (!imageAnchors.valid) {
         markFailure({

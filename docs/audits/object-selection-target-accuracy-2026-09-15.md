@@ -53,6 +53,12 @@ applied view retains only the apple-shaped mask; the mug and flowers remain
 outside the persisted mask. The test also exercises the review confirmation,
 mask application, and source-resolution document persistence path.
 
+Prompt geometry is validated immediately after decoding the source dimensions
+and before local model lookup, memory probing, or full-resolution pixel
+allocation. An off-image or unmappable point/box therefore fails as an input
+error without starting segmentation work; the focused hook test asserts that
+no model path is requested in that case.
+
 ## Failure that led to the fix
 
 The first corrected-coordinate run selected the right apple and excluded the

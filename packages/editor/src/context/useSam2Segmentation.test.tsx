@@ -9,6 +9,7 @@ import { mapPromptedRoutingFailure, useSam2Segmentation } from './useSam2Segment
 
 const controls = vi.hoisted(() => ({
   infer: vi.fn(),
+  getModelPath: vi.fn(),
   load: vi.fn(),
   evict: vi.fn(),
 }));
@@ -26,7 +27,7 @@ vi.mock('@varve/engine', async (importOriginal) => ({
     height: image.naturalHeight ?? image.height ?? 0,
   }),
   getInferenceWorkerHost: () => ({ infer: controls.infer }),
-  getModelLoader: () => ({ getModelPath: vi.fn(async () => 'model.onnx') }),
+  getModelLoader: () => ({ getModelPath: controls.getModelPath }),
   getRuntimeCapabilitiesSync: () => ({ wasmSafePeakBytes: 4 * 1024 * 1024 * 1024, isTauri: false }),
   assessImageInferenceResources: () => ({ allowed: true, estimatedPeakBytes: 1 }),
   getModelById: () => ({ peakMemoryBytes: 1 }),
@@ -154,6 +155,7 @@ function setup(session: ObjectSelectionSession | null, doc: Document) {
 describe('useSam2Segmentation reviewed-candidate commit', () => {
   beforeEach(() => {
     controls.infer.mockReset();
+    controls.getModelPath.mockReset().mockResolvedValue('model.onnx');
     controls.load.mockReset().mockResolvedValue({ width: 8, height: 8 });
     controls.evict.mockReset();
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
@@ -436,6 +438,7 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
     });
 
     expect(controls.infer).not.toHaveBeenCalled();
+    expect(controls.getModelPath).not.toHaveBeenCalled();
     expect(stateRef.current.objectSelectionSession?.error?.code).toBe('prompt_out_of_bounds');
     expect(announce).toHaveBeenCalledWith(expect.stringContaining('1 point'));
   });
