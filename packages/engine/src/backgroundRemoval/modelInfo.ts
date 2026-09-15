@@ -71,10 +71,30 @@ export const AI_QUALITY_MODEL_INFO: ModelInfo = {
   wasmSafe: false,
 };
 
+/**
+ * MODNet portrait matting. 26 MB download, runs a 512-edge dynamic-shape
+ * graph; the measured Node CPU run on the portrait fixtures took ~0.4 s per
+ * image, so the peak figure is an estimate for the WASM working set, not a
+ * measured RSS. It is the only mode explicitly scoped to human portraits.
+ */
+export const PORTRAIT_MODEL_INFO: ModelInfo = {
+  label: 'Portrait',
+  description: 'MODNet portrait matting for people photos — soft hair and clothing edges.',
+  diskSizeBytes: 25_888_640,
+  estimatedPeakRamBytes: 400_000_000,
+  peakRamDisplay: '~400 MB RAM (estimated)',
+  diskSizeDisplay: '26 MB optional',
+  quality: 'Portrait-specialist',
+  requiresDownload: true,
+  gpuRecommended: false,
+  wasmSafe: true,
+};
+
 export const MODEL_INFO_MAP: Record<string, ModelInfo> = {
   quick: QUICK_MODEL_INFO,
   'ai-balanced': AI_BALANCED_MODEL_INFO,
   'ai-quality': AI_QUALITY_MODEL_INFO,
+  portrait: PORTRAIT_MODEL_INFO,
 };
 
 export function getModelInfo(method: string): ModelInfo | undefined {

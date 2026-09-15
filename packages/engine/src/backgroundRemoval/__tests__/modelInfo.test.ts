@@ -30,12 +30,21 @@ describe('modelInfo', () => {
     expect(info!.gpuRecommended).toBe(true);
   });
 
+  it('returns info for portrait mode', () => {
+    const info = getModelInfo('portrait');
+    expect(info).toBeDefined();
+    expect(info!.diskSizeBytes).toBe(25_888_640);
+    expect(info!.requiresDownload).toBe(true);
+    expect(info!.wasmSafe).toBe(true);
+    expect(info!.description).toContain('portrait');
+  });
+
   it('returns undefined for unknown method', () => {
     expect(getModelInfo('unknown')).toBeUndefined();
   });
 
-  it('has all three modes in the map', () => {
-    expect(Object.keys(MODEL_INFO_MAP)).toEqual(['quick', 'ai-balanced', 'ai-quality']);
+  it('has all four modes in the map', () => {
+    expect(Object.keys(MODEL_INFO_MAP)).toEqual(['quick', 'ai-balanced', 'ai-quality', 'portrait']);
   });
 
   it('peak RAM is larger than disk for AI models', () => {

@@ -24,7 +24,7 @@ export const STALE_REASONS = [
   'source-changed',
   'legacy-preview-resolution',
 ] as const;
-export const PROVENANCE_METHODS = ['quick', 'ai-balanced', 'ai-quality'] as const;
+export const PROVENANCE_METHODS = ['quick', 'ai-balanced', 'ai-quality', 'portrait'] as const;
 export const PROVENANCE_RUNTIMES = [
   'typescript',
   'wasm',

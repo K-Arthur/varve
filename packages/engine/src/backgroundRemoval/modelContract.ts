@@ -85,6 +85,12 @@ export const MODEL_CONTRACTS: Record<string, ModelContract> = {
     inputs: [{ name: 'input.1', dims: [1, 3, 1024, 1024], dtype: 'float32' }],
     outputs: [{ name: 'output.1', dims: [1, 1, 1024, 1024], dtype: 'float32' }],
   },
+  'modnet-portrait': {
+    // Official export contract: dynamic [N,3,H,W] -> [N,1,H,W]; H/W must be
+    // multiples of 32 because the backbone downsamples by 32.
+    inputs: [{ name: 'input', dims: [1, 3, -1, -1], dtype: 'float32' }],
+    outputs: [{ name: 'output', dims: [1, 1, -1, -1], dtype: 'float32' }],
+  },
 };
 
 export interface ContractViolation {

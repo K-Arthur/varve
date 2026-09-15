@@ -123,7 +123,7 @@ export interface VectorMaskData {
 
 /** Reproducibility metadata for an automatically generated subject mask. */
 export interface BackgroundRemovalProvenance {
-  method: 'quick' | 'ai-balanced' | 'ai-quality';
+  method: 'quick' | 'ai-balanced' | 'ai-quality' | 'portrait';
   modelId?: string;
   modelVersion?: string;
   modelChecksum?: string;
@@ -1812,7 +1812,7 @@ export interface TableNode extends NodeBase {
 
 // ── Background Removal Types ─────────────────────────────────────────────────
 
-export type BackgroundRemovalMethod = 'quick' | 'ai-balanced' | 'ai-quality';
+export type BackgroundRemovalMethod = 'quick' | 'ai-balanced' | 'ai-quality' | 'portrait';
 
 export interface BackgroundRemovalState {
   maskDataUrl: string;

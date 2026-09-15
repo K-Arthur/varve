@@ -14,6 +14,12 @@ import {
 } from './maskOps';
 import { validateModelContract } from './modelContract';
 import { getSegmentationModelSpec, packModelInput } from './modelSpec';
+import {
+  decodeModnetAlpha,
+  modnetInputDimensions,
+  preprocessModnetImageData,
+  resizeAlphaArea,
+} from './modnetPortrait';
 import { configureOrtRuntime } from './ortRuntimeAssets';
 import { downscaleImageData } from './previewDownscale';
 import { computeLetterboxTransform, reconstructModelMask } from './reconstructMask';
@@ -24,8 +30,13 @@ interface WorkerCommand {
   requestId: string;
   imageData: ImageData;
   modelPath: string;
-  modelId: 'u2netp' | 'isnet-general-use' | 'birefnet-general-lite' | 'birefnet-general';
-  method: 'ai-balanced' | 'ai-quality';
+  modelId:
+    | 'u2netp'
+    | 'isnet-general-use'
+    | 'birefnet-general-lite'
+    | 'birefnet-general'
+    | 'modnet-portrait';
+  method: 'ai-balanced' | 'ai-quality' | 'portrait';
   reuseSession?: boolean;
   feather?: number;
   decontaminate?: boolean;
@@ -196,71 +207,123 @@ self.onmessage = async (e: MessageEvent<unknown>) => {
 
     const ort = await import('onnxruntime-web');
 
-    const spec = getSegmentationModelSpec(modelId);
-    const inputSize = spec.inputSize;
-
     const sourceImage =
       previewMaxDimension && previewMaxDimension > 0
         ? downscaleImageData(imageData, previewMaxDimension)
         : imageData;
 
-    const resizedCanvas = new OffscreenCanvas(inputSize, inputSize);
-    const resizedCtx = resizedCanvas.getContext('2d')!;
-    const inputTransform = computeLetterboxTransform(
-      sourceImage.width,
-      sourceImage.height,
-      inputSize,
-      inputSize,
-    );
-    resizedCtx.fillStyle = `rgb(${spec.paddingRgb[0]} ${spec.paddingRgb[1]} ${spec.paddingRgb[2]})`;
-    resizedCtx.fillRect(0, 0, inputSize, inputSize);
+    let mask: Uint8Array;
+    let previewMask: Uint8Array;
 
-    const imageBitmap = await createImageBitmap(sourceImage);
-    resizedCtx.drawImage(
-      imageBitmap,
-      inputTransform.offsetX,
-      inputTransform.offsetY,
-      sourceImage.width * inputTransform.scaleX,
-      sourceImage.height * inputTransform.scaleY,
-    );
-    imageBitmap.close();
-    const resizedData = resizedCtx.getImageData(0, 0, inputSize, inputSize);
+    if (modelId === 'modnet-portrait') {
+      // MODNet portrait matting: aspect-preserving reference-512 preprocessing
+      // (see modnetPortrait.ts) instead of the square letterbox used by the
+      // rembg segmentation models. The graph output is already source-sized
+      // alpha in [0,1]; the upstream predictor resizes it back with
+      // INTER_AREA, which resizeAlphaArea reproduces.
+      const dimensions = modnetInputDimensions(sourceImage.width, sourceImage.height);
+      const { tensor } = preprocessModnetImageData(sourceImage, dimensions);
+      const inputName = session.inputNames[0]!;
+      const inputTensor = new ort.Tensor('float32', tensor, [
+        1,
+        3,
+        dimensions.height,
+        dimensions.width,
+      ]);
+      let outputs: Awaited<ReturnType<typeof session.run>>;
+      try {
+        outputs = await session.run({ [inputName]: inputTensor } as Parameters<
+          typeof session.run
+        >[0]);
+      } finally {
+        inputTensor.dispose();
+      }
+      const outputName = session.outputNames[0]!;
+      const outputTensor = outputs[outputName];
+      const outputData = outputTensor?.data as Float32Array;
+      if (!outputTensor || !outputData || outputData.length === 0) {
+        throw new Error('MODNet returned an empty matte tensor');
+      }
+      const decoded = decodeModnetAlpha(outputData, [...(outputTensor.dims ?? [])]);
+      outputTensor.dispose();
+      const fullAlpha = resizeAlphaArea(
+        decoded.alpha,
+        decoded.width,
+        decoded.height,
+        sourceImage.width,
+        sourceImage.height,
+      );
+      previewMask = new Uint8Array(fullAlpha.length);
+      for (let i = 0; i < fullAlpha.length; i += 1) {
+        previewMask[i] = Math.max(0, Math.min(255, Math.round(fullAlpha[i]! * 255)));
+      }
+      mask = new Uint8Array(decoded.alpha.length);
+      for (let i = 0; i < decoded.alpha.length; i += 1) {
+        mask[i] = Math.max(0, Math.min(255, Math.round(decoded.alpha[i]! * 255)));
+      }
+    } else {
+      const spec = getSegmentationModelSpec(modelId);
+      const inputSize = spec.inputSize;
 
-    const floatData = packModelInput(resizedData, spec);
+      const resizedCanvas = new OffscreenCanvas(inputSize, inputSize);
+      const resizedCtx = resizedCanvas.getContext('2d')!;
+      const inputTransform = computeLetterboxTransform(
+        sourceImage.width,
+        sourceImage.height,
+        inputSize,
+        inputSize,
+      );
+      resizedCtx.fillStyle = `rgb(${spec.paddingRgb[0]} ${spec.paddingRgb[1]} ${spec.paddingRgb[2]})`;
+      resizedCtx.fillRect(0, 0, inputSize, inputSize);
 
-    const inputName = session.inputNames[0]!;
-    const feeds: Record<string, Tensor> = {};
-    const inputTensor = new ort.Tensor('float32', floatData, [1, 3, inputSize, inputSize]);
-    feeds[inputName] = inputTensor;
+      const imageBitmap = await createImageBitmap(sourceImage);
+      resizedCtx.drawImage(
+        imageBitmap,
+        inputTransform.offsetX,
+        inputTransform.offsetY,
+        sourceImage.width * inputTransform.scaleX,
+        sourceImage.height * inputTransform.scaleY,
+      );
+      imageBitmap.close();
+      const resizedData = resizedCtx.getImageData(0, 0, inputSize, inputSize);
 
-    let results: Awaited<ReturnType<typeof session.run>>;
-    try {
-      results = await session.run(feeds as Parameters<typeof session.run>[0]);
-    } finally {
-      inputTensor.dispose();
+      const floatData = packModelInput(resizedData, spec);
+
+      const inputName = session.inputNames[0]!;
+      const feeds: Record<string, Tensor> = {};
+      const inputTensor = new ort.Tensor('float32', floatData, [1, 3, inputSize, inputSize]);
+      feeds[inputName] = inputTensor;
+
+      let results: Awaited<ReturnType<typeof session.run>>;
+      try {
+        results = await session.run(feeds as Parameters<typeof session.run>[0]);
+      } finally {
+        inputTensor.dispose();
+      }
+      const outputName = session.outputNames[0]!;
+      const outputTensor = results[outputName];
+      const outputData = outputTensor?.data as Float32Array;
+      if (!outputTensor || !outputData || outputData.length === 0) {
+        throw new Error('ONNX inference returned an empty segmentation tensor');
+      }
+
+      const dims = outputTensor.dims;
+      const maskW = dims?.[3] ?? inputSize;
+      const maskH = dims?.[2] ?? inputSize;
+      mask = normalizeSegmentationOutput(outputData, spec.applySigmoid);
+      outputTensor.dispose();
+
+      // Cap upsample to previewMax as defense-in-depth; the engine entry already
+      // caps imageData to this dimension before dispatch.
+      const outputTransform = computeLetterboxTransform(
+        sourceImage.width,
+        sourceImage.height,
+        maskW,
+        maskH,
+      );
+      previewMask = reconstructModelMask(mask, maskW, maskH, outputTransform).alpha;
     }
-    const outputName = session.outputNames[0]!;
-    const outputTensor = results[outputName];
-    const outputData = outputTensor?.data as Float32Array;
-    if (!outputTensor || !outputData || outputData.length === 0) {
-      throw new Error('ONNX inference returned an empty segmentation tensor');
-    }
 
-    const dims = outputTensor.dims;
-    const maskW = dims?.[3] ?? inputSize;
-    const maskH = dims?.[2] ?? inputSize;
-    const mask = normalizeSegmentationOutput(outputData, spec.applySigmoid);
-    outputTensor.dispose();
-
-    // Cap upsample to previewMax as defense-in-depth; the engine entry already
-    // caps imageData to this dimension before dispatch.
-    const outputTransform = computeLetterboxTransform(
-      sourceImage.width,
-      sourceImage.height,
-      maskW,
-      maskH,
-    );
-    const previewMask = reconstructModelMask(mask, maskW, maskH, outputTransform).alpha;
     const upsampleW = imageData.width;
     const upsampleH = imageData.height;
     let fullMask =

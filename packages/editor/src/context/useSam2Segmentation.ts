@@ -14,6 +14,11 @@ import {
   getModelLoader,
   getNativeGenerativeModelStatus,
   getRuntimeCapabilitiesSync,
+  EFFICIENT_SAM_CAPABILITIES,
+  EFFICIENT_SAM_DECODER_ID,
+  EFFICIENT_SAM_ENCODER_ID,
+  EFFICIENT_SAM_PROVIDER_ID,
+  EFFICIENT_SAM_QUALITY_VALIDATION,
   MOBILE_SAM_CAPABILITIES,
   MOBILE_SAM_DECODER_ID,
   MOBILE_SAM_ENCODER_ID,
@@ -57,11 +62,16 @@ const SAM2_SOFT_DEADLINE_MS = 15_000;
 const EMBEDDING_CACHE_MAX_BYTES = 512 * 1024 * 1024;
 const EMBEDDING_CACHE_MIN_BYTES = 16 * 1024 * 1024;
 const MOBILE_SAM_FALLBACK_PEAK_BYTES = 1_200_000_000;
+const EFFICIENT_SAM_FALLBACK_PEAK_BYTES = 760_000_000;
 
 function promptedEncoderPeakBytes(encoderId: string): number {
   return (
     getModelById(encoderId)?.peakMemoryBytes ??
-    (encoderId === MOBILE_SAM_ENCODER_ID ? MOBILE_SAM_FALLBACK_PEAK_BYTES : 600_000_000)
+    (encoderId === MOBILE_SAM_ENCODER_ID
+      ? MOBILE_SAM_FALLBACK_PEAK_BYTES
+      : encoderId === EFFICIENT_SAM_ENCODER_ID
+        ? EFFICIENT_SAM_FALLBACK_PEAK_BYTES
+        : 600_000_000)
   );
 }
 
@@ -95,9 +105,11 @@ function promptedExecutionProvider(
 function promptedProviderFacts(
   mobileInstalled: boolean,
   sam2Installed: boolean,
+  efficientSamInstalled = false,
 ): PromptedProviderFact[] {
   const mobileLatency = PROMPTED_PROVIDER_LATENCY_PROXY[MOBILE_SAM_PROVIDER_ID];
   const sam2Latency = PROMPTED_PROVIDER_LATENCY_PROXY[SAM2_PROVIDER_ID];
+  const efficientSamLatency = PROMPTED_PROVIDER_LATENCY_PROXY[EFFICIENT_SAM_PROVIDER_ID];
   return [
     {
       id: MOBILE_SAM_PROVIDER_ID,
@@ -130,6 +142,25 @@ function promptedProviderFacts(
       warmPromptP95Source: sam2Latency?.source ?? 'estimated',
       capabilities: SAM2_CAPABILITIES,
       validation: SAM2_QUALITY_VALIDATION,
+      supportedExecutionProviders: ['wasm'],
+    },
+    {
+      id: EFFICIENT_SAM_PROVIDER_ID,
+      label: 'Lightweight experimental selection',
+      encoderId: EFFICIENT_SAM_ENCODER_ID,
+      decoderId: EFFICIENT_SAM_DECODER_ID,
+      installed: efficientSamInstalled,
+      workingSetBytes: promptedEncoderPeakBytes(EFFICIENT_SAM_ENCODER_ID),
+      warmPromptP50Ms: efficientSamLatency?.p50Ms,
+      warmPromptP95Ms: efficientSamLatency?.p95Ms,
+      warmPromptP95Source: efficientSamLatency?.source ?? 'estimated',
+      // The 2026-09-14 A/B measured quality equivalent to MobileSAM with a
+      // larger peak working set and no mask-prompt input. It stays
+      // explicit-only: automatic routing must never pick it, and selecting it
+      // says so in the UI.
+      experimental: true,
+      capabilities: EFFICIENT_SAM_CAPABILITIES,
+      validation: EFFICIENT_SAM_QUALITY_VALIDATION,
       supportedExecutionProviders: ['wasm'],
     },
   ];
@@ -182,7 +213,11 @@ function promptedEmbeddingCacheKey({
     encoderArtifact,
     decoderId,
     decoderArtifact,
-    providerId === MOBILE_SAM_PROVIDER_ID ? 'mobilesam-acly-v1' : 'sam2-v1',
+    providerId === MOBILE_SAM_PROVIDER_ID
+      ? 'mobilesam-acly-v1'
+      : providerId === EFFICIENT_SAM_PROVIDER_ID
+        ? 'efficientsam-ti-yunyangx-v1'
+        : 'sam2-v1',
   ]
     .map((part) => encodeURIComponent(String(part)))
     .join('|');
@@ -867,6 +902,8 @@ export function useSam2Segmentation(
         MOBILE_SAM_DECODER_ID,
         SAM2_ENCODER_ID,
         SAM2_DECODER_ID,
+        EFFICIENT_SAM_ENCODER_ID,
+        EFFICIENT_SAM_DECODER_ID,
       ] as const;
       let paths: Array<string | null>;
       try {
@@ -882,6 +919,7 @@ export function useSam2Segmentation(
 
       const mobileInstalled = Boolean(paths[0] && paths[1]);
       const sam2Installed = Boolean(paths[2] && paths[3]);
+      const efficientSamInstalled = Boolean(paths[4] && paths[5]);
       const runtime = getRuntimeCapabilitiesSync();
       let safePeakBytes = runtime.wasmSafePeakBytes;
       if (runtime.isTauri) {
@@ -897,7 +935,11 @@ export function useSam2Segmentation(
         }
       }
       const executionProvider = promptedExecutionProvider(runtime);
-      const providers = promptedProviderFacts(mobileInstalled, sam2Installed);
+      const providers = promptedProviderFacts(
+        mobileInstalled,
+        sam2Installed,
+        efficientSamInstalled,
+      );
       const embeddingCache = embeddingCacheRef.current;
       if (!embeddingCache) return null;
       // Route once from dimensions before allocating a full-resolution source

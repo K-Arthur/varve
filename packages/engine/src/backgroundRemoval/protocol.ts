@@ -27,7 +27,7 @@ export interface ProtocolCommand {
   imageData: ImageData;
   modelPath: string;
   modelId: WorkerModelId;
-  method: 'ai-balanced' | 'ai-quality';
+  method: 'ai-balanced' | 'ai-quality' | 'portrait';
   feather?: number;
   decontaminate?: boolean;
   previewMaxDimension?: number;

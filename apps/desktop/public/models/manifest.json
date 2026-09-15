@@ -2526,6 +2526,249 @@
         "contractVersion": 1
       },
       "notes": "Select Subject — prompt decoder (runs per click/drag). ~21MB. Verified source: vietanhdev/segment-anything-2-onnx-models (HuggingFace, Apache-2.0). Same architecture as sam2-hiera-tiny-decoder."
+    },
+    {
+      "id": "modnet-portrait",
+      "filename": "model.onnx",
+      "localPath": "/models/modnet-portrait/model.onnx",
+      "sha256": "07c308cf0fc7e6e8b2065a12ed7fc07e1de8febb7dc7839d7b7f15dd66584df9",
+      "bundled": false,
+      "remoteUrl": "https://huggingface.co/Xenova/modnet/resolve/fa2fa546052fba4c08921230a26cc69a333fca12/onnx/model.onnx",
+      "precision": "fp32",
+      "modelVersion": "1.0.0",
+      "sourceRevision": "Xenova/modnet @ fa2fa546052fba4c08921230a26cc69a333fca12 (official ZHKKKe/MODNet checkpoint)",
+      "sourceLicense": "Apache-2.0",
+      "preprocessingVersion": 1,
+      "postprocessingVersion": 1,
+      "supportedProviders": ["wasm"],
+      "tensorContract": {
+        "version": 1,
+        "inputs": [
+          {
+            "name": "input",
+            "dims": [1, 3, -1, -1],
+            "dtype": "float32"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "output",
+            "dims": [1, 1, -1, -1],
+            "dtype": "float32"
+          }
+        ],
+        "normalization": {
+          "mean": [0.5, 0.5, 0.5],
+          "std": [0.5, 0.5, 0.5],
+          "channelOrder": "rgb"
+        },
+        "outputActivation": "none",
+        "peakMemoryBytes": 400000000
+      },
+      "validation": {
+        "contractVerified": true,
+        "contractVerifiedAt": "2026-09-15T00:00:00Z",
+        "contractVersion": 1,
+        "integrityVerified": true,
+        "integrityVerifiedAt": "2026-09-15T00:00:00Z",
+        "provenanceStatus": "verified",
+        "inferenceVerified": true,
+        "inferenceVerifiedAt": "2026-09-15T00:00:00Z",
+        "validationSummary": "SHA-256 and dynamic [1,3,H,W] -> [1,1,H,W] contract verified against the pinned Xenova/modnet revision. Real-model Node CPU run (2026-09-15) produced portrait mattes with fractional hair-edge coverage on three repository fixtures."
+      },
+      "notes": "Portrait-specific MODNet matting (26 MB). Optional download; never a fallback for other methods."
+    },
+    {
+      "id": "efficient-sam-ti",
+      "filename": "",
+      "localPath": "",
+      "sha256": null,
+      "bundled": false,
+      "remoteUrl": "",
+      "precision": "fp32",
+      "modelVersion": "efficientsam-ti-2026-09-14",
+      "sourceRevision": "yunyangx/EfficientSAM@1cf49585c39567bfc49e991ab8eb31f491ad4877",
+      "sourceLicense": "Apache-2.0",
+      "preprocessingVersion": 1,
+      "postprocessingVersion": 1,
+      "supportedProviders": ["wasm"],
+      "notes": "Experimental prompted object selection using the upstream-sanctioned EfficientSAM-Ti split ONNX export. Measured quality-equivalent to MobileSAM on the shared corpus with a larger measured peak working set; the decoder has no mask-input tensor and needs int64 inputs, so it is WASM/native only. Explicit selection only; automatic routing never chooses it.",
+      "components": [
+        {
+          "id": "efficient-sam-ti-encoder",
+          "filename": "efficientsam_ti_encoder.onnx",
+          "localPath": "/models/efficient-sam-ti/efficientsam_ti_encoder.onnx",
+          "remoteUrl": "https://huggingface.co/yunyangx/EfficientSAM/resolve/1cf49585c39567bfc49e991ab8eb31f491ad4877/efficientsam_ti_encoder.onnx",
+          "role": "encoder",
+          "checksum": "84ed466ffcc5c1f8d08409bc34a23bb364ab2c15e402cb12d4335a42be0e0951",
+          "sizeBytes": 24799761
+        },
+        {
+          "id": "efficient-sam-ti-decoder",
+          "filename": "efficientsam_ti_decoder.onnx",
+          "localPath": "/models/efficient-sam-ti/efficientsam_ti_decoder.onnx",
+          "remoteUrl": "https://huggingface.co/yunyangx/EfficientSAM/resolve/1cf49585c39567bfc49e991ab8eb31f491ad4877/efficientsam_ti_decoder.onnx",
+          "role": "decoder",
+          "checksum": "a62f8fa5ea080447c0689418d69e58f1e83e0b7adf9c142e2bd9bcc8045c0b11",
+          "sizeBytes": 16565728
+        }
+      ]
+    },
+    {
+      "id": "efficient-sam-ti-encoder",
+      "filename": "efficientsam_ti_encoder.onnx",
+      "localPath": "/models/efficient-sam-ti/efficientsam_ti_encoder.onnx",
+      "sha256": "84ed466ffcc5c1f8d08409bc34a23bb364ab2c15e402cb12d4335a42be0e0951",
+      "bundled": false,
+      "remoteUrl": "https://huggingface.co/yunyangx/EfficientSAM/resolve/1cf49585c39567bfc49e991ab8eb31f491ad4877/efficientsam_ti_encoder.onnx",
+      "precision": "fp32",
+      "modelVersion": "efficientsam-ti-2026-09-14",
+      "sourceRevision": "yunyangx/EfficientSAM@1cf49585c39567bfc49e991ab8eb31f491ad4877",
+      "sourceLicense": "Apache-2.0",
+      "preprocessingVersion": 1,
+      "postprocessingVersion": 1,
+      "supportedProviders": ["wasm"],
+      "tensorContract": {
+        "version": 1,
+        "inputs": [{ "name": "batched_images", "dims": [1, 3, -1, -1], "dtype": "float32" }],
+        "outputs": [{ "name": "image_embeddings", "dims": [1, 256, 64, 64], "dtype": "float32" }],
+        "normalization": {
+          "mean": [0, 0, 0],
+          "std": [1, 1, 1],
+          "channelOrder": "rgb"
+        },
+        "outputActivation": "none",
+        "peakMemoryBytes": 760000000
+      },
+      "validation": {
+        "contractVerified": true,
+        "contractVerifiedAt": "2026-09-14T00:00:00Z",
+        "contractVersion": 1,
+        "integrityVerified": true,
+        "integrityVerifiedAt": "2026-09-14T00:00:00Z",
+        "provenanceStatus": "verified",
+        "inferenceVerified": true,
+        "inferenceVerifiedAt": "2026-09-14T00:00:00Z",
+        "validationSummary": "SHA-256 pinned from the upstream-sanctioned export. Split-vs-combined parity measured bit-identical on four real photographs (encoder/decoder match the official combined graph)."
+      },
+      "notes": "EfficientSAM-Ti image encoder. Raw RGB [1,3,H,W] in [0,1] at a 1024-longest-edge geometry; the graph stretches and normalizes internally."
+    },
+    {
+      "id": "efficient-sam-ti-decoder",
+      "filename": "efficientsam_ti_decoder.onnx",
+      "localPath": "/models/efficient-sam-ti/efficientsam_ti_decoder.onnx",
+      "sha256": "a62f8fa5ea080447c0689418d69e58f1e83e0b7adf9c142e2bd9bcc8045c0b11",
+      "bundled": false,
+      "remoteUrl": "https://huggingface.co/yunyangx/EfficientSAM/resolve/1cf49585c39567bfc49e991ab8eb31f491ad4877/efficientsam_ti_decoder.onnx",
+      "precision": "fp32",
+      "modelVersion": "efficientsam-ti-2026-09-14",
+      "sourceRevision": "yunyangx/EfficientSAM@1cf49585c39567bfc49e991ab8eb31f491ad4877",
+      "sourceLicense": "Apache-2.0",
+      "preprocessingVersion": 1,
+      "postprocessingVersion": 1,
+      "supportedProviders": ["wasm"],
+      "tensorContract": {
+        "version": 1,
+        "inputs": [
+          { "name": "image_embeddings", "dims": [1, 256, 64, 64], "dtype": "float32" },
+          { "name": "batched_point_coords", "dims": [1, 1, 6, 2], "dtype": "float32" },
+          { "name": "batched_point_labels", "dims": [1, 1, 6], "dtype": "float32" },
+          { "name": "orig_im_size", "dims": [2], "dtype": "int64" }
+        ],
+        "outputs": [
+          { "name": "output_masks", "dims": [1, 1, 3, -1, -1], "dtype": "float32" },
+          { "name": "iou_predictions", "dims": [1, 1, 3], "dtype": "float32" }
+        ],
+        "outputActivation": "none",
+        "peakMemoryBytes": 90000000
+      },
+      "validation": {
+        "contractVerified": true,
+        "contractVerifiedAt": "2026-09-14T00:00:00Z",
+        "contractVersion": 1,
+        "integrityVerified": true,
+        "integrityVerifiedAt": "2026-09-14T00:00:00Z",
+        "provenanceStatus": "verified",
+        "inferenceVerified": true,
+        "inferenceVerifiedAt": "2026-09-14T00:00:00Z",
+        "validationSummary": "SHA-256 pinned. Decoder outputs three source-sized mask logits and raw predicted-IoU logits; mask threshold is 0.0 (sigmoid >= 0.5). int64 orig_im_size makes WebGPU unsuitable."
+      },
+      "notes": "EfficientSAM-Ti prompt decoder. Point labels 0/1, box corners 2/3, padded to six with (-1,-1)/-1; no mask-input tensor."
+    },
+    {
+      "id": "grounding-dino-tiny",
+      "filename": "model_int8.onnx",
+      "localPath": "/models/grounding-dino/model_int8.onnx",
+      "sha256": "3bff430de583461ab3c1e8b99b19508f4fb238bf0fea0cde2c45f840a0082a26",
+      "bundled": false,
+      "remoteUrl": "https://huggingface.co/onnx-community/grounding-dino-tiny-ONNX/resolve/ff690b0a8050566c290287545bd059350f3e9096/onnx/model_int8.onnx",
+      "precision": "int8",
+      "modelVersion": "grounding-dino-tiny-2026-09-15",
+      "sourceRevision": "onnx-community/grounding-dino-tiny-ONNX@ff690b0a8050566c290287545bd059350f3e9096",
+      "sourceLicense": "Apache-2.0",
+      "preprocessingVersion": 1,
+      "postprocessingVersion": 1,
+      "supportedProviders": ["wasm", "webgpu"],
+      "tensorContract": {
+        "version": 1,
+        "inputs": [
+          { "name": "pixel_values", "dims": [1, 3, 800, 800], "dtype": "float32" },
+          { "name": "input_ids", "dims": [1, 256], "dtype": "int64" },
+          { "name": "token_type_ids", "dims": [1, 256], "dtype": "int64" },
+          { "name": "attention_mask", "dims": [1, 256], "dtype": "int64" },
+          { "name": "pixel_mask", "dims": [1, 800, 800], "dtype": "int64" }
+        ],
+        "outputs": [
+          { "name": "logits", "dims": [1, 900, 256], "dtype": "float32" },
+          { "name": "pred_boxes", "dims": [1, 900, 4], "dtype": "float32" }
+        ],
+        "normalization": {
+          "mean": [0.485, 0.456, 0.406],
+          "std": [0.229, 0.224, 0.225],
+          "channelOrder": "rgb"
+        },
+        "outputActivation": "none",
+        "peakMemoryBytes": 3200000000
+      },
+      "validation": {
+        "contractVerified": true,
+        "contractVerifiedAt": "2026-09-15T00:00:00Z",
+        "contractVersion": 1,
+        "integrityVerified": true,
+        "integrityVerifiedAt": "2026-09-15T00:00:00Z",
+        "provenanceStatus": "verified",
+        "inferenceVerified": true,
+        "inferenceVerifiedAt": "2026-09-15T00:00:00Z",
+        "validationSummary": "SHA-256 and five-feed contract verified against the pinned revision. Real-model Node CPU run (2026-09-15) returned phrase-attributed detections on four repository photographs (elephant 0.979, person 0.907, sunflower 0.715)."
+      },
+      "notes": "Grounding DINO Tiny (INT8) — text-conditioned object discovery, local only, explicit download. Detects regions matching a description; it is not OCR and not a general-purpose language model."
+    },
+    {
+      "id": "grounding-dino-tokenizer",
+      "filename": "vocab.txt",
+      "localPath": "/models/grounding-dino/vocab.txt",
+      "sha256": "07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3",
+      "bundled": false,
+      "remoteUrl": "https://huggingface.co/onnx-community/grounding-dino-tiny-ONNX/resolve/ff690b0a8050566c290287545bd059350f3e9096/vocab.txt",
+      "precision": "fp32",
+      "modelVersion": "grounding-dino-tiny-2026-09-15",
+      "sourceRevision": "onnx-community/grounding-dino-tiny-ONNX@ff690b0a8050566c290287545bd059350f3e9096",
+      "sourceLicense": "Apache-2.0",
+      "preprocessingVersion": 1,
+      "postprocessingVersion": 1,
+      "supportedProviders": ["wasm"],
+      "validation": {
+        "contractVerified": true,
+        "contractVerifiedAt": "2026-09-15T00:00:00Z",
+        "contractVersion": 1,
+        "integrityVerified": true,
+        "integrityVerifiedAt": "2026-09-15T00:00:00Z",
+        "provenanceStatus": "verified",
+        "inferenceVerified": true,
+        "inferenceVerifiedAt": "2026-09-15T00:00:00Z",
+        "validationSummary": "BERT uncased WordPiece vocabulary pinned by SHA-256. Tokenizer ids parity-checked against the reference transformers.js tokenizer for the documented query convention."
+      },
+      "notes": "Grounding DINO text tokenizer vocabulary (BERT uncased WordPiece)."
     }
   ]
 }

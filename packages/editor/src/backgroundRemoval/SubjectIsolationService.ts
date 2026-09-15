@@ -24,7 +24,7 @@ export interface SubjectIsolationRequest {
   sourceHeight: number;
   imageData: ImageData;
   options: {
-    method: 'quick' | 'ai-balanced' | 'ai-quality';
+    method: 'quick' | 'ai-balanced' | 'ai-quality' | 'portrait';
     feather: number;
     decontaminate: boolean;
   };

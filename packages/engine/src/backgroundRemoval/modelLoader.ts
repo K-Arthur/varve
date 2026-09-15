@@ -90,6 +90,54 @@ const EXTENDED_MODEL_META: Record<
     size: 16_496_559,
     checksum: '8976b90a87ba50a6a72217a5ff994f7d25ce16f2229fcc1ed259e1294c622ffe',
   },
+  'modnet-portrait': {
+    // Verified 2026-09-15: Xenova/modnet @ fa2fa546052fba4c08921230a26cc69a333fca12,
+    // ONNX export of the official ZHKKKe/MODNet photographic-portrait
+    // checkpoint (Apache-2.0). Dynamic [1,3,H,W] -> [1,1,H,W] alpha.
+    remoteUrl:
+      'https://huggingface.co/Xenova/modnet/resolve/fa2fa546052fba4c08921230a26cc69a333fca12/onnx/model.onnx',
+    name: 'MODNet Portrait Matting',
+    size: 25_888_640,
+    checksum: '07c308cf0fc7e6e8b2065a12ed7fc07e1de8febb7dc7839d7b7f15dd66584df9',
+  },
+  'efficient-sam-ti': {
+    remoteUrl: '',
+    name: 'EfficientSAM-Ti (Experimental)',
+    size: 41_365_489,
+  },
+  'efficient-sam-ti-encoder': {
+    // Verified 2026-09-14: yunyangx/EfficientSAM @ 1cf49585c39567bfc49e991ab8eb31f491ad4877,
+    // upstream-sanctioned ONNX export of yformer/EfficientSAM Ti/Ti (Apache-2.0).
+    remoteUrl:
+      'https://huggingface.co/yunyangx/EfficientSAM/resolve/1cf49585c39567bfc49e991ab8eb31f491ad4877/efficientsam_ti_encoder.onnx',
+    name: 'EfficientSAM-Ti — Image Encoder',
+    size: 24_799_761,
+    checksum: '84ed466ffcc5c1f8d08409bc34a23bb364ab2c15e402cb12d4335a42be0e0951',
+  },
+  'efficient-sam-ti-decoder': {
+    remoteUrl:
+      'https://huggingface.co/yunyangx/EfficientSAM/resolve/1cf49585c39567bfc49e991ab8eb31f491ad4877/efficientsam_ti_decoder.onnx',
+    name: 'EfficientSAM-Ti — Prompt Decoder',
+    size: 16_565_728,
+    checksum: 'a62f8fa5ea080447c0689418d69e58f1e83e0b7adf9c142e2bd9bcc8045c0b11',
+  },
+  'grounding-dino-tiny': {
+    // Verified 2026-09-15: onnx-community/grounding-dino-tiny-ONNX @
+    // ff690b0a8050566c290287545bd059350f3e9096 (Apache-2.0), INT8 export of
+    // IDEA-Research/grounding-dino-tiny. Five feeds, logits + pred_boxes out.
+    remoteUrl:
+      'https://huggingface.co/onnx-community/grounding-dino-tiny-ONNX/resolve/ff690b0a8050566c290287545bd059350f3e9096/onnx/model_int8.onnx',
+    name: 'Find Objects by Description (Grounding DINO Tiny)',
+    size: 203_824_481,
+    checksum: '3bff430de583461ab3c1e8b99b19508f4fb238bf0fea0cde2c45f840a0082a26',
+  },
+  'grounding-dino-tokenizer': {
+    remoteUrl:
+      'https://huggingface.co/onnx-community/grounding-dino-tiny-ONNX/resolve/ff690b0a8050566c290287545bd059350f3e9096/vocab.txt',
+    name: 'Grounding DINO Text Tokenizer',
+    size: 231_508,
+    checksum: '07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3',
+  },
   'tr-ocr-base-printed': {
     remoteUrl: '',
     name: 'TrOCR (Printed Text)',

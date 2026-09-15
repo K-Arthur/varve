@@ -81,7 +81,7 @@ const PNG_CRC_TABLE = Uint32Array.from({ length: 256 }, (_, value) => {
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const ASSET_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:%-]{0,255}$/;
 const STALE_REASONS = ['source-replaced', 'source-changed', 'legacy-preview-resolution'] as const;
-const PROVENANCE_METHODS = ['quick', 'ai-balanced', 'ai-quality'] as const;
+const PROVENANCE_METHODS = ['quick', 'ai-balanced', 'ai-quality', 'portrait'] as const;
 const PROVENANCE_RUNTIMES = [
   'typescript',
   'wasm',

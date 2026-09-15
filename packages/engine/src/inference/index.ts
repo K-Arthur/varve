@@ -1,3 +1,30 @@
+export type {
+  BertTokenization,
+  GroundingDetection,
+  GroundingDinoDecodeOptions,
+  GroundingDinoPreprocessedImage,
+  GroundingDinoWorkerTensor,
+} from '../discovery/groundingDino';
+export {
+  basicTokenize,
+  bertTokenize,
+  buildGroundingDinoInputs,
+  decodeGroundingDinoOutput,
+  GROUNDING_DINO_INPUT_SIZE,
+  GROUNDING_DINO_MAX_DETECTIONS,
+  GROUNDING_DINO_MAX_TEXT_LEN,
+  GROUNDING_DINO_MODEL_ID,
+  GROUNDING_DINO_NUM_QUERIES,
+  GROUNDING_DINO_NUM_TEXT_TOKENS,
+  GROUNDING_DINO_PREPROCESSING_VERSION,
+  GROUNDING_DINO_TOKENIZER_ID,
+  locatePhraseSpans,
+  normalizeGroundingQuery,
+  parseBertVocab,
+  preprocessGroundingDinoImage,
+  suppressDuplicateDetections,
+  wordPiece,
+} from '../discovery/groundingDino';
 export type { EmbeddingCacheOptions } from '../segmentation/embeddingCache';
 export { EmbeddingCache } from '../segmentation/embeddingCache';
 export type { AlphaMask, MaskCombineMode } from '../segmentation/maskAlgebra';
@@ -17,6 +44,9 @@ export type {
   PromptedSelectionPreference,
 } from '../segmentation/promptedRouting';
 export {
+  EFFICIENT_SAM_DECODER_ID,
+  EFFICIENT_SAM_ENCODER_ID,
+  EFFICIENT_SAM_PROVIDER_ID,
   MOBILE_SAM_DECODER_ID,
   MOBILE_SAM_ENCODER_ID,
   MOBILE_SAM_PROVIDER_ID,
@@ -33,6 +63,8 @@ export {
   SAM2_PROVIDER_ID,
 } from '../segmentation/promptedRouting';
 export {
+  EFFICIENT_SAM_CAPABILITIES,
+  EFFICIENT_SAM_QUALITY_VALIDATION,
   MOBILE_SAM_CAPABILITIES,
   MOBILE_SAM_QUALITY_VALIDATION,
   measuredCapabilities,
@@ -118,6 +150,27 @@ export {
 } from './inferenceWorkerHost';
 export { ModelRegistry } from './ModelRegistry';
 export { getModelById, listAllModels } from './modelCatalog';
+export type {
+  EfficientSamDecoderOutput,
+  EfficientSamMaskCandidate,
+  EfficientSamPoint,
+  EfficientSamPreprocessedImage,
+  EfficientSamPrompt,
+  EfficientSamTensor,
+} from './models/efficientSam';
+export {
+  decodeEfficientSamDecoderOutput,
+  EFFICIENT_SAM_INPUT_SIZE,
+  EFFICIENT_SAM_MAX_CANDIDATES,
+  EFFICIENT_SAM_MAX_INPUT_POINTS,
+  EFFICIENT_SAM_PREPROCESSING_VERSION,
+  EFFICIENT_SAM_TENSOR_SPEC,
+  encodeEfficientSamPrompts,
+  preprocessEfficientSamImageData,
+  resizeEfficientSamDimensions,
+  resizeMaskBilinear as resizeEfficientSamMaskBilinear,
+  validateEfficientSamPrompts,
+} from './models/efficientSam';
 export {
   decodeFontClassifyOutput,
   FONT_CLASSIFY_INPUT_SIZE,

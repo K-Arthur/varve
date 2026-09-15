@@ -15,6 +15,7 @@ import type {
 import {
   combineAreaSelections,
   DEFAULT_PREVIEW_MAX_DIMENSION,
+  EFFICIENT_SAM_PROVIDER_ID,
   getEnvironmentCapabilities,
   getModelInfo,
   getModelLoaderReady,
@@ -45,6 +46,7 @@ import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { RangeValueControl } from '../controls/RangeValueControl';
 import { BoundedImagePreview } from './ImageFillControls';
+import { TextDiscoveryPanel } from './TextDiscoveryPanel';
 
 function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
   const message = e instanceof Error ? e.message : String(e);
@@ -172,6 +174,16 @@ const METHOD_GUIDANCE: Record<
     bestFor: 'Hair, fur, foliage, thin objects, and visually complex scenes.',
     tradeoff: 'Uses more memory and is slower than the other modes.',
   },
+  portrait: {
+    title: 'Portrait matting (MODNet)',
+    description:
+      'Portrait-specific matting for people in photographs. Produces fractional alpha (soft strands, ' +
+      'translucent cloth edges) at a 512-edge reference resolution.',
+    bestFor: 'Headshots and people photos where hair and clothing edges matter.',
+    tradeoff:
+      'Not a general object segmenter: it may matte more than one person in frame. Use Object Selection ' +
+      'or Select subject first when you need one specific person, then refine.',
+  },
 };
 
 const PROMPTED_MODEL_OPTIONS = {
@@ -185,9 +197,20 @@ const PROMPTED_MODEL_OPTIONS = {
     detail: 'SAM2 Tiny · about 155 MB download · more memory and detail',
     ids: ['sam2-hiera-tiny-encoder', 'sam2-hiera-tiny-decoder'] as const,
   },
+  'efficient-sam-ti': {
+    label: 'Lightweight experimental model',
+    detail: 'EfficientSAM-Ti · about 41 MB · benchmark adapter, explicit only',
+    ids: ['efficient-sam-ti-encoder', 'efficient-sam-ti-decoder'] as const,
+  },
 } as const;
 type PromptedModelOption = keyof typeof PROMPTED_MODEL_OPTIONS;
 type PromptedModelState = 'checking' | 'missing' | 'partial' | 'downloading' | 'ready' | 'error';
+
+const INITIAL_PROMPTED_MODEL_STATES: Record<PromptedModelOption, PromptedModelState> = {
+  'mobile-sam': 'checking',
+  sam2: 'checking',
+  'efficient-sam-ti': 'checking',
+};
 
 export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const {
@@ -288,8 +311,9 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const [modelState, setModelState] = useState<'unavailable' | 'downloading' | 'ready' | 'error'>(
     'unavailable',
   );
-  const [mobileSamModelState, setMobileSamModelState] = useState<PromptedModelState>('checking');
-  const [sam2ModelState, setSam2ModelState] = useState<PromptedModelState>('checking');
+  const [promptedModelStates, setPromptedModelStates] = useState<
+    Record<PromptedModelOption, PromptedModelState>
+  >(INITIAL_PROMPTED_MODEL_STATES);
   const [objectSelectionDownloadProgress, setObjectSelectionDownloadProgress] = useState<
     number | null
   >(null);
@@ -463,10 +487,12 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       setPromptedProviderPreference(preference);
       announce(
         preference === 'auto'
-          ? 'Object Selection will choose the best validated local provider that fits this image and runtime.'
+          ? 'Object Selection will choose the best validated local provider that fits the image and runtime.'
           : preference === MOBILE_SAM_PROVIDER_ID
-            ? 'Faster local Object Selection chosen. MobileSAM is experimental; review its candidate masks before applying.'
-            : 'Higher-detail local Object Selection chosen. The model will not be replaced silently if it cannot run.',
+            ? 'Faster local Object Selection chosen. MobileSAM is experimental; review candidate masks before applying.'
+            : preference === EFFICIENT_SAM_PROVIDER_ID
+              ? 'EfficientSAM-Ti chosen for benchmarking. It is experimental, has no mask-refinement prompts, and is never selected automatically.'
+              : 'Higher-detail local Object Selection chosen. The model will not be replaced silently if it cannot run.',
       );
     },
     [announce, setPromptedProviderPreference],
@@ -586,8 +612,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       }),
     );
     for (const entry of entries) {
-      if (entry.providerId === 'mobile-sam') setMobileSamModelState(entry.state);
-      else setSam2ModelState(entry.state);
+      setPromptedModelStates((previous) => ({ ...previous, [entry.providerId]: entry.state }));
     }
   }, []);
 
@@ -727,8 +752,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       const controller = new AbortController();
       objectSelectionDownloadAbortRef.current = controller;
       setObjectSelectionDownloadProvider(providerId);
-      if (providerId === 'mobile-sam') setMobileSamModelState('downloading');
-      else setSam2ModelState('downloading');
+      setPromptedModelStates((previous) => ({ ...previous, [providerId]: 'downloading' }));
       setObjectSelectionError(null);
       setObjectSelectionDownloadProgress(0);
       const modelIds = PROMPTED_MODEL_OPTIONS[providerId].ids;
@@ -751,13 +775,11 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
           );
         }
         setObjectSelectionDownloadProgress(100);
-        if (providerId === 'mobile-sam') setMobileSamModelState('ready');
-        else setSam2ModelState('ready');
+        setPromptedModelStates((previous) => ({ ...previous, [providerId]: 'ready' }));
         await refreshObjectSelectionModelStatus();
       } catch (error) {
         if (!controller.signal.aborted) {
-          if (providerId === 'mobile-sam') setMobileSamModelState('error');
-          else setSam2ModelState('error');
+          setPromptedModelStates((previous) => ({ ...previous, [providerId]: 'error' }));
           setObjectSelectionError(normalizeObjectSelectionDownloadError(error));
         }
       } finally {
@@ -828,6 +850,19 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
               Select an object on the image, then refine it with more points or a box. The preview
               is temporary until you use it as a selection or apply it as a mask.
             </p>
+            <TextDiscoveryPanel
+              source={node ? previewSource || null : null}
+              onSegmentBox={(box) => {
+                if (!node) return;
+                void applySam2Segmentation({
+                  nodeId: node.id,
+                  prompts: { box },
+                  operation: 'preview',
+                });
+              }}
+              announce={announce}
+              disabled={!node}
+            />
             <FieldRow label="Prompt input">
               <Select
                 label="Object Selection prompt input"
@@ -889,6 +924,12 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                     label: 'Higher detail — SAM2 Tiny',
                     description: 'Larger local model with the current higher-detail workflow.',
                   },
+                  {
+                    value: EFFICIENT_SAM_PROVIDER_ID,
+                    label: 'Experimental — EfficientSAM-Ti',
+                    description:
+                      'Benchmark adapter; no mask refinement prompts and never auto-selected.',
+                  },
                 ]}
                 onChange={handleObjectSelectionProvider}
               />
@@ -897,15 +938,14 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
               {objectSelection ? 'Continue Object Selection' : 'Select Object'}
             </button>
             <p className="insp-field__hint">
-              Object Selection stays local. Auto uses only validated providers that fit the current
-              runtime; a concrete choice is honored exactly and never silently replaced. No image
-              leaves this device.
+              Object Selection stays local and chooses between installed prompt models. Explicit
+              choices are honored without silent fallback; EfficientSAM-Ti is an experimental
+              benchmark adapter. No image leaves this device.
             </p>
             <fieldset className="insp-field-group" aria-label="Object Selection model choices">
               {(Object.keys(PROMPTED_MODEL_OPTIONS) as PromptedModelOption[]).map((providerId) => {
                 const option = PROMPTED_MODEL_OPTIONS[providerId];
-                const providerState =
-                  providerId === 'mobile-sam' ? mobileSamModelState : sam2ModelState;
+                const providerState = promptedModelStates[providerId];
                 const isDownloading = objectSelectionDownloadProvider === providerId;
                 return (
                   <div className="insp-actions" key={providerId}>
@@ -1146,6 +1186,12 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                     !aiAvailable ? ' (download required)' : ''
                   }${!wasmModelSafe && !hasGpuAccel && !aiAvailable ? ' — may need GPU' : ''}`,
                 },
+                {
+                  value: 'portrait',
+                  label: `Portrait matting — people photos (MODNet)${
+                    !aiAvailable ? ' (download required)' : ''
+                  }`,
+                },
               ]}
               onChange={(v) => setMethod(v as RemovalMethod)}
             />
@@ -1153,7 +1199,8 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
           <span id="bg-method-desc" className="sr-only">
             Fast uses a local heuristic. Auto uses IS-Net General Use when installed and falls back
             to bundled U²-Net Light. High quality uses BiRefNet Lite where the available provider is
-            safe.
+            safe. Portrait uses MODNet, a portrait-specific matting model, and never runs as a
+            fallback for other modes.
           </span>
 
           <section className="insp-nested-panel" aria-label={`${methodGuidance.title} guidance`}>

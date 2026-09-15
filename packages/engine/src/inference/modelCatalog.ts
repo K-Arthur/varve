@@ -143,6 +143,46 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     // ~973MB download; measured retained RSS ~8.5GB (native CPU, FP32). Use with caution on <16GB systems.
   },
   {
+    id: 'modnet-portrait',
+    name: 'MODNet Portrait Matting',
+    description:
+      'Portrait-specific matting for people in photographs. Produces fractional alpha for hair, ' +
+      'clothing, and accessories at a 512-edge reference resolution. Optional download, never a ' +
+      'fallback for arbitrary objects. Verified against the official export contract (dynamic ' +
+      '[1,3,H,W] -> [1,1,H,W], [-1,1] normalization, area resize).',
+    sizeBytes: 25_888_640,
+    remoteUrl:
+      'https://huggingface.co/Xenova/modnet/resolve/fa2fa546052fba4c08921230a26cc69a333fca12/onnx/model.onnx',
+    checksum: '07c308cf0fc7e6e8b2065a12ed7fc07e1de8febb7dc7839d7b7f15dd66584df9',
+    bundled: false,
+    inputSpec: null,
+    quality: 4.5,
+    precision: 'fp32',
+    category: 'segmentation',
+    peakMemoryBytes: 400_000_000,
+    gpuRecommended: false,
+    source:
+      'Xenova/modnet @ fa2fa546052fba4c08921230a26cc69a333fca12 (official ZHKKKe/MODNet checkpoint)',
+    sourceLicense: 'Apache-2.0',
+    tensorContract: {
+      version: 1,
+      inputs: [{ name: 'input', dims: [1, 3, -1, -1], dtype: 'float32' }],
+      outputs: [{ name: 'output', dims: [1, 1, -1, -1], dtype: 'float32' }],
+      normalization: { mean: [0.5, 0.5, 0.5], std: [0.5, 0.5, 0.5], channelOrder: 'rgb' },
+      outputActivation: 'none',
+    },
+    acquisition: {
+      kind: 'remote',
+      sources: [
+        {
+          url: 'https://huggingface.co/Xenova/modnet/resolve/fa2fa546052fba4c08921230a26cc69a333fca12/onnx/model.onnx',
+          sha256: '07c308cf0fc7e6e8b2065a12ed7fc07e1de8febb7dc7839d7b7f15dd66584df9',
+        },
+      ],
+      sha256: '07c308cf0fc7e6e8b2065a12ed7fc07e1de8febb7dc7839d7b7f15dd66584df9',
+    },
+  },
+  {
     id: 'upscale-realesr-general',
     name: 'Real-ESRGAN x4 (FP32)',
     description: 'Real-ESRGAN general-purpose x4 upscaling. Bundled.',
@@ -495,6 +535,83 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     ],
   },
   {
+    id: 'efficient-sam-ti',
+    name: 'EfficientSAM-Ti (Experimental)',
+    description:
+      'EfficientSAM-Ti split ONNX provider for point and box object selection. Measured quality-equivalent to MobileSAM on the shared corpus, with a larger measured peak working set and no mask-prompt input, so it is an explicit-only experimental choice and can never win automatic routing. Its decoder needs int64 inputs, so it runs on WASM/native only.',
+    sizeBytes: 41_365_489,
+    remoteUrl: '',
+    checksum: '',
+    bundled: false,
+    inputSpec: null,
+    quality: 3.5,
+    precision: 'fp32',
+    category: 'segmentation',
+    peakMemoryBytes: 760_000_000,
+    gpuRecommended: false,
+    multiComponent: true,
+    source: 'yformer/EfficientSAM (Apache-2.0) via yunyangx/EfficientSAM ONNX export',
+    sourceLicense: 'Apache-2.0',
+    components: [
+      {
+        id: 'efficient-sam-ti-encoder',
+        role: 'encoder',
+        filename: 'efficientsam_ti_encoder.onnx',
+        sizeBytes: 24_799_761,
+        remoteUrl:
+          'https://huggingface.co/yunyangx/EfficientSAM/resolve/1cf49585c39567bfc49e991ab8eb31f491ad4877/efficientsam_ti_encoder.onnx',
+        checksum: '84ed466ffcc5c1f8d08409bc34a23bb364ab2c15e402cb12d4335a42be0e0951',
+      },
+      {
+        id: 'efficient-sam-ti-decoder',
+        role: 'decoder',
+        filename: 'efficientsam_ti_decoder.onnx',
+        sizeBytes: 16_565_728,
+        remoteUrl:
+          'https://huggingface.co/yunyangx/EfficientSAM/resolve/1cf49585c39567bfc49e991ab8eb31f491ad4877/efficientsam_ti_decoder.onnx',
+        checksum: 'a62f8fa5ea080447c0689418d69e58f1e83e0b7adf9c142e2bd9bcc8045c0b11',
+      },
+    ],
+  },
+  {
+    id: 'efficient-sam-ti-encoder',
+    name: 'EfficientSAM-Ti — Image Encoder',
+    description:
+      'EfficientSAM-Ti image encoder. Accepts raw RGB [1,3,H,W] in [0,1], resized to a 1024-longest-edge geometry; the graph stretches to 1024x1024 and normalizes internally. Apache-2.0, yunyangx/EfficientSAM pinned revision.',
+    sizeBytes: 24_799_761,
+    remoteUrl:
+      'https://huggingface.co/yunyangx/EfficientSAM/resolve/1cf49585c39567bfc49e991ab8eb31f491ad4877/efficientsam_ti_encoder.onnx',
+    checksum: '84ed466ffcc5c1f8d08409bc34a23bb364ab2c15e402cb12d4335a42be0e0951',
+    bundled: false,
+    inputSpec: null,
+    quality: 3.5,
+    precision: 'fp32',
+    category: 'segmentation',
+    peakMemoryBytes: 760_000_000,
+    gpuRecommended: false,
+    source: 'yunyangx/EfficientSAM @ 1cf49585c39567bfc49e991ab8eb31f491ad4877',
+    sourceLicense: 'Apache-2.0',
+  },
+  {
+    id: 'efficient-sam-ti-decoder',
+    name: 'EfficientSAM-Ti — Prompt Decoder',
+    description:
+      'EfficientSAM-Ti prompt decoder. Takes the 256x64x64 embedding, six point/box slots (labels 0/1 points, 2/3 box corners), and an int64 source size; returns three source-sized mask candidates plus raw predicted-IoU logits. No mask-input tensor exists, so mask prompts are unsupported.',
+    sizeBytes: 16_565_728,
+    remoteUrl:
+      'https://huggingface.co/yunyangx/EfficientSAM/resolve/1cf49585c39567bfc49e991ab8eb31f491ad4877/efficientsam_ti_decoder.onnx',
+    checksum: 'a62f8fa5ea080447c0689418d69e58f1e83e0b7adf9c142e2bd9bcc8045c0b11',
+    bundled: false,
+    inputSpec: null,
+    quality: 3.5,
+    precision: 'fp32',
+    category: 'segmentation',
+    peakMemoryBytes: 90_000_000,
+    gpuRecommended: false,
+    source: 'yunyangx/EfficientSAM @ 1cf49585c39567bfc49e991ab8eb31f491ad4877',
+    sourceLicense: 'Apache-2.0',
+  },
+  {
     id: 'sam2-hiera-small-encoder',
     name: 'Select Subject — Image Encoder (SAM2 Small)',
     description:
@@ -640,6 +757,76 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     category: 'detection',
     peakMemoryBytes: 180_000_000,
     gpuRecommended: false,
+  },
+  {
+    id: 'grounding-dino-tiny',
+    name: 'Find Objects by Description (Grounding DINO Tiny, Experimental)',
+    description:
+      'Text-conditioned open-vocabulary object detection. Type a description ("red mug", "person. dog.") and get reviewable boxes for the regions that match, which then flow into prompted segmentation. Local only, explicit 194 MB download; measured ~3 GB peak RSS on real 1-2K photos at the 800x800 input. It finds regions matching a description — it does not read printed text and is not a general-purpose language model.',
+    sizeBytes: 203_824_481,
+    remoteUrl:
+      'https://huggingface.co/onnx-community/grounding-dino-tiny-ONNX/resolve/ff690b0a8050566c290287545bd059350f3e9096/onnx/model_int8.onnx',
+    checksum: '3bff430de583461ab3c1e8b99b19508f4fb238bf0fea0cde2c45f840a0082a26',
+    bundled: false,
+    inputSpec: null,
+    quality: 4,
+    precision: 'int8',
+    category: 'detection',
+    peakMemoryBytes: 3_200_000_000,
+    gpuRecommended: true,
+    source:
+      'onnx-community/grounding-dino-tiny-ONNX @ ff690b0a8050566c290287545bd059350f3e9096 (IDEA-Research/grounding-dino-tiny)',
+    sourceLicense: 'Apache-2.0',
+    tensorContract: {
+      version: 1,
+      inputs: [
+        { name: 'pixel_values', dims: [1, 3, 800, 800], dtype: 'float32' },
+        { name: 'input_ids', dims: [1, 256], dtype: 'int64' },
+        { name: 'token_type_ids', dims: [1, 256], dtype: 'int64' },
+        { name: 'attention_mask', dims: [1, 256], dtype: 'int64' },
+        { name: 'pixel_mask', dims: [1, 800, 800], dtype: 'int64' },
+      ],
+      outputs: [
+        { name: 'logits', dims: [1, 900, 256], dtype: 'float32' },
+        { name: 'pred_boxes', dims: [1, 900, 4], dtype: 'float32' },
+      ],
+      normalization: {
+        mean: [0.485, 0.456, 0.406],
+        std: [0.229, 0.224, 0.225],
+        channelOrder: 'rgb',
+      },
+      outputActivation: 'none',
+    },
+    components: [
+      {
+        id: 'grounding-dino-tokenizer',
+        role: 'tokenizer',
+        filename: 'vocab.txt',
+        sizeBytes: 231_508,
+        remoteUrl:
+          'https://huggingface.co/onnx-community/grounding-dino-tiny-ONNX/resolve/ff690b0a8050566c290287545bd059350f3e9096/vocab.txt',
+        checksum: '07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3',
+      },
+    ],
+  },
+  {
+    id: 'grounding-dino-tokenizer',
+    name: 'Grounding DINO Text Tokenizer',
+    description:
+      'BERT uncased WordPiece vocabulary for Grounding DINO text queries. The TypeScript tokenizer reproduces the reference lowercase/accent-stripping/punctuation pipeline and is parity-tested against the pinned token vocabulary.',
+    sizeBytes: 231_508,
+    remoteUrl:
+      'https://huggingface.co/onnx-community/grounding-dino-tiny-ONNX/resolve/ff690b0a8050566c290287545bd059350f3e9096/vocab.txt',
+    checksum: '07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3',
+    bundled: false,
+    inputSpec: null,
+    quality: 4,
+    precision: 'fp32',
+    category: 'embedding',
+    peakMemoryBytes: 20_000_000,
+    gpuRecommended: false,
+    source: 'onnx-community/grounding-dino-tiny-ONNX @ ff690b0a8050566c290287545bd059350f3e9096',
+    sourceLicense: 'Apache-2.0',
   },
   {
     id: 'yunet-face-detect',

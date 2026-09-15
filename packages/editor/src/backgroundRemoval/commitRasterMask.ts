@@ -94,7 +94,7 @@ function dataUrlByteLength(dataUrl: string): number {
 function makeProvenance(fields: RasterMaskCommitFields): BackgroundRemovalProvenance | undefined {
   if (!fields.method && !fields.generatedAt) return undefined;
   return {
-    method: (fields.method ?? 'quick') as 'quick' | 'ai-balanced' | 'ai-quality',
+    method: (fields.method ?? 'quick') as 'quick' | 'ai-balanced' | 'ai-quality' | 'portrait',
     runtime: fields.runtime ?? 'typescript',
     generatedAt: fields.generatedAt ?? Date.now(),
     origin: 'native',

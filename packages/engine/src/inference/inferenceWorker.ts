@@ -28,6 +28,11 @@ import {
 import { DEPTH_ANYTHING_INPUT_SIZE, DEPTH_ANYTHING_TENSOR_SPEC } from './models/depth';
 import { DETR_INPUT_SIZE, DETR_TENSOR_SPEC } from './models/detr';
 import { EFFICIENTNET_INPUT_SIZE, EFFICIENTNET_TENSOR_SPEC } from './models/efficientnet';
+import {
+  EFFICIENT_SAM_TENSOR_SPEC,
+  type EfficientSamPrompt,
+  encodeEfficientSamPrompts,
+} from './models/efficientSam';
 import { YU_NET_INPUT_SIZE, YU_NET_TENSOR_SPEC } from './models/faceDetect';
 import { FONT_CLASSIFY_INPUT_SIZE, FONT_CLASSIFY_TENSOR_SPEC } from './models/fontClassify';
 import { LAMA_INPUT_SIZE, LAMA_TENSOR_SPEC } from './models/lama';
@@ -55,6 +60,9 @@ export type WorkerModelType =
   | 'sam2-decoder'
   | 'mobile-sam-encoder'
   | 'mobile-sam-decoder'
+  | 'efficient-sam-encoder'
+  | 'efficient-sam-decoder'
+  | 'grounding-dino'
   | 'scunet'
   | 'nafnet'
   | 'depth'
@@ -265,6 +273,49 @@ registerModelType('mobile-sam-decoder', {
     };
     return encodeMobileSamPrompts(prompt, Number(params.sourceWidth), Number(params.sourceHeight));
   },
+});
+
+// EfficientSAM-Ti's official split export. The encoder graph accepts raw
+// [1,3,H,W] RGB in [0,1] (dynamic H/W, longest side 1024) and normalizes
+// internally; the decoder needs the embedding, point/box tensors, and an
+// int64 `orig_im_size`. The decoder has no mask-input tensor, so a mask prompt
+// is rejected by the routing capability check rather than fed here.
+registerModelType('efficient-sam-encoder', {
+  tensorSpec: EFFICIENT_SAM_TENSOR_SPEC,
+  getInputSize: () => 0,
+  hasImageInput: true,
+});
+
+registerModelType('efficient-sam-decoder', {
+  tensorSpec: EFFICIENT_SAM_TENSOR_SPEC,
+  getInputSize: () => 0,
+  hasImageInput: false,
+  encodePrompts: (params: Record<string, unknown>) => {
+    const prompt: EfficientSamPrompt = {
+      points: params.points as EfficientSamPrompt['points'],
+      box: params.box as EfficientSamPrompt['box'],
+    };
+    return encodeEfficientSamPrompts(
+      prompt,
+      Number(params.sourceWidth),
+      Number(params.sourceHeight),
+    );
+  },
+});
+
+// Grounding DINO Tiny's exported graph takes five pre-built feeds
+// (pixel_values + four int64 text/mask tensors), so the client owns
+// preprocessing/tokenization and the worker only executes the graph.
+registerModelType('grounding-dino', {
+  tensorSpec: {
+    inputWidth: 0,
+    inputHeight: 0,
+    mean: [0, 0, 0],
+    std: [1, 1, 1],
+    paddingRgb: [0, 0, 0],
+  },
+  getInputSize: () => 0,
+  hasImageInput: false,
 });
 
 registerModelType('scunet', {
@@ -887,7 +938,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
           ? key
           : inputNames.find((n) => n.toLowerCase() === key.toLowerCase());
         if (match) {
-          feeds[match] = new ort.Tensor('float32', tensor.data, tensor.dims);
+          feeds[match] = new ort.Tensor(tensor.dtype ?? 'float32', tensor.data, tensor.dims);
         }
       }
     }

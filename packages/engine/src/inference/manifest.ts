@@ -54,7 +54,10 @@ function inferCategory(id: string): string {
   if (id.startsWith('upscale-')) return 'upscaling';
   if (id.startsWith('birefnet-') || id.startsWith('u2netp') || id.startsWith('isnet-'))
     return 'segmentation';
-  if (id.startsWith('sam2-') || id.startsWith('mobile-sam')) return 'segmentation';
+  if (id.startsWith('modnet')) return 'segmentation';
+  if (id.startsWith('sam2-') || id.startsWith('mobile-sam') || id.startsWith('efficient-sam'))
+    return 'segmentation';
+  if (id.startsWith('grounding-dino')) return 'detection';
   if (id.startsWith('ddcolor')) return 'colorization';
   if (id === 'scunet') return 'denoising';
   if (id.startsWith('depth-')) return 'depth';
@@ -75,6 +78,7 @@ const KNOWN_SIZES: Record<string, number> = {
   'isnet-general-use': 178_648_008,
   'birefnet-general-lite': 224_005_088,
   'birefnet-general': 972_666_916,
+  'modnet-portrait': 25_888_640,
   'upscale-realesr-general': 4_866_438,
   'upscale-realesr-general-int8': 1_300_000,
   'upscale-realesrgan-anime': 17_906_556,
@@ -84,6 +88,11 @@ const KNOWN_SIZES: Record<string, number> = {
   'mobile-sam': 44_653_652,
   'mobile-sam-encoder': 28_157_093,
   'mobile-sam-decoder': 16_496_559,
+  'efficient-sam-ti': 41_365_489,
+  'efficient-sam-ti-encoder': 24_799_761,
+  'efficient-sam-ti-decoder': 16_565_728,
+  'grounding-dino-tiny': 203_824_481,
+  'grounding-dino-tokenizer': 231_508,
   'tr-ocr-base-printed': 340_000_000,
   'depth-anything-v2-small': 27_258_801,
   'dinov2-small': 88_459_888,
@@ -118,6 +127,8 @@ function entryDescription(id: string, notes?: string): string {
     return 'High quality, handles complex edges including hair and fur.';
   if (id === 'birefnet-general')
     return 'Best quality, handles hair, fur, transparency, and fine detail.';
+  if (id === 'modnet-portrait')
+    return 'MODNet — portrait-specific matting for people in photographs. Produces fractional edge coverage for hair and clothing; it is not a general object segmenter and stays an explicit choice. Optional download.';
   if (id === 'upscale-realesr-general' || id === 'upscale-realesr-general-int8')
     return 'Real-ESRGAN x4 general-purpose upscaling for photos and illustrations. Bundled with the app.';
   if (id === 'upscale-realesrgan-anime')
@@ -128,6 +139,16 @@ function entryDescription(id: string, notes?: string): string {
     return 'SAM2 — interactive object segmentation via point, box, or mask prompts. Click foreground/background, drag box, iteratively refine.';
   if (id === 'mobile-sam')
     return 'MobileSAM — lower-working-set interactive object segmentation via point or box prompts. Returns multiple candidates for review; it is not an automatic foreground or semantic detector.';
+  if (id === 'efficient-sam-ti')
+    return 'EfficientSAM-Ti — experimental interactive object segmentation via point or box prompts. Measured quality-equivalent to MobileSAM with a larger peak working set and no mask prompts; explicit selection only.';
+  if (id === 'efficient-sam-ti-encoder')
+    return 'EfficientSAM-Ti image encoder — runs once per image for interactive selection. Apache-2.0, pinned upstream export.';
+  if (id === 'efficient-sam-ti-decoder')
+    return 'EfficientSAM-Ti prompt decoder — three source-sized candidates per prompt. No mask-prompt input. Apache-2.0, pinned upstream export.';
+  if (id === 'grounding-dino-tiny')
+    return 'Grounding DINO Tiny (INT8) — text-conditioned object discovery. Type a description and review matching boxes, which then flow into prompted segmentation. Local only; measured ~3 GB peak RSS at the 800x800 input.';
+  if (id === 'grounding-dino-tokenizer')
+    return 'BERT uncased WordPiece vocabulary used by the Grounding DINO text query path. Parity-tested against the pinned token vocabulary.';
   if (id === 'tr-ocr-base-printed')
     return 'TrOCR — printed Latin text recognition from images. Produces structured text with confidence scores.';
 
@@ -260,6 +281,7 @@ function modelDisplayName(id: string): string {
     'isnet-general-use': 'IS-Net General Use',
     'birefnet-general-lite': 'BiRefNet Lite',
     'birefnet-general': 'BiRefNet Full',
+    'modnet-portrait': 'MODNet Portrait Matting',
     'upscale-realesr-general': 'Real-ESRGAN x4 (FP32)',
     'upscale-realesr-general-int8': 'Real-ESRGAN x4 (INT8)',
     scunet: 'SCUNet Denoise',
@@ -268,6 +290,11 @@ function modelDisplayName(id: string): string {
     'mobile-sam': 'Faster Prompted Selection (MobileSAM)',
     'mobile-sam-encoder': 'Faster Prompted Selection — Image Encoder',
     'mobile-sam-decoder': 'Faster Prompted Selection — Multi-mask Decoder',
+    'efficient-sam-ti': 'EfficientSAM-Ti (Experimental)',
+    'efficient-sam-ti-encoder': 'EfficientSAM-Ti — Image Encoder',
+    'efficient-sam-ti-decoder': 'EfficientSAM-Ti — Prompt Decoder',
+    'grounding-dino-tiny': 'Find Objects by Description (Grounding DINO)',
+    'grounding-dino-tokenizer': 'Grounding DINO Text Tokenizer',
     'tr-ocr-base-printed': 'TrOCR (Printed Text)',
     'depth-anything-v2-small': 'Depth-Anything-V2 Small',
     'dinov2-small': 'Find Similar Images (DINOv2)',
@@ -284,6 +311,7 @@ function modelQuality(id: string): number {
     'isnet-general-use': 4,
     'birefnet-general-lite': 4.5,
     'birefnet-general': 5,
+    'modnet-portrait': 4.5,
     'upscale-realesr-general': 4,
     'upscale-realesr-general-int8': 3.5,
     scunet: 4,
@@ -292,6 +320,11 @@ function modelQuality(id: string): number {
     'mobile-sam': 3,
     'mobile-sam-encoder': 3,
     'mobile-sam-decoder': 3,
+    'efficient-sam-ti': 3.5,
+    'efficient-sam-ti-encoder': 3.5,
+    'efficient-sam-ti-decoder': 3.5,
+    'grounding-dino-tiny': 4,
+    'grounding-dino-tokenizer': 4,
     'tr-ocr-base-printed': 4,
     'depth-anything-v2-small': 4.5,
     'dinov2-small': 4,

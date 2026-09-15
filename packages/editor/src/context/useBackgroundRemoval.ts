@@ -226,7 +226,11 @@ export function useBackgroundRemoval(
         const engineResult = {
           maskDataUrl: isoResult.maskDataUrl,
           confidence: isoResult.confidence,
-          method: isoResult.provenance.method as 'quick' | 'ai-balanced' | 'ai-quality',
+          method: isoResult.provenance.method as
+            | 'quick'
+            | 'ai-balanced'
+            | 'ai-quality'
+            | 'portrait',
           processingTimeMs: parseInt(isoResult.provenance.runtime, 10) || 0,
           width: isoResult.maskWidth,
           height: isoResult.maskHeight,

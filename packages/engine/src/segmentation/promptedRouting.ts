@@ -19,17 +19,21 @@
 
 export const MOBILE_SAM_PROVIDER_ID = 'mobile-sam';
 export const SAM2_PROVIDER_ID = 'sam2-hiera-tiny';
+export const EFFICIENT_SAM_PROVIDER_ID = 'efficient-sam-ti';
 
 export const MOBILE_SAM_ENCODER_ID = 'mobile-sam-encoder';
 export const MOBILE_SAM_DECODER_ID = 'mobile-sam-decoder';
 export const SAM2_ENCODER_ID = 'sam2-hiera-tiny-encoder';
 export const SAM2_DECODER_ID = 'sam2-hiera-tiny-decoder';
+export const EFFICIENT_SAM_ENCODER_ID = 'efficient-sam-ti-encoder';
+export const EFFICIENT_SAM_DECODER_ID = 'efficient-sam-ti-decoder';
 
 /** User-visible provider choice. `auto` is the only value that enables routing. */
 export type PromptedProviderPreference =
   | 'auto'
   | typeof MOBILE_SAM_PROVIDER_ID
-  | typeof SAM2_PROVIDER_ID;
+  | typeof SAM2_PROVIDER_ID
+  | typeof EFFICIENT_SAM_PROVIDER_ID;
 
 export type PromptedSelectionPreference = 'auto' | 'fast' | 'balanced' | 'quality';
 export type PromptedSelectionExecutionProvider = 'wasm' | 'webgpu' | 'native' | 'cpu';

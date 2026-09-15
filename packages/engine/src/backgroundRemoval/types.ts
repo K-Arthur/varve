@@ -1,7 +1,7 @@
 /** Default downscale cap for AI inference (mask is upscaled to source dimensions). */
 export const DEFAULT_PREVIEW_MAX_DIMENSION = 2048;
 
-export type RemovalMethod = 'quick' | 'ai-balanced' | 'ai-quality';
+export type RemovalMethod = 'quick' | 'ai-balanced' | 'ai-quality' | 'portrait';
 
 /** User-facing precision preference for AI inference.
  *  Controls whether INT8 quantized model variants are preferred over FP32.
@@ -134,7 +134,8 @@ export type WorkerModelId =
   | 'u2netp-int8'
   | 'isnet-general-use'
   | 'birefnet-general-lite'
-  | 'birefnet-general';
+  | 'birefnet-general'
+  | 'modnet-portrait';
 
 /** Best installed model for a method. Balanced falls back to bundled U2-Net Light. */
 export function preferredWorkerModelIdForMethod(method: RemovalMethod): WorkerModelId | null {
@@ -145,6 +146,8 @@ export function preferredWorkerModelIdForMethod(method: RemovalMethod): WorkerMo
       return 'isnet-general-use';
     case 'ai-quality':
       return 'birefnet-general-lite';
+    case 'portrait':
+      return 'modnet-portrait';
   }
 }
 
@@ -152,6 +155,8 @@ export function preferredWorkerModelIdForMethod(method: RemovalMethod): WorkerMo
  *
  * `'ai-balanced'` uses the bundled `u2netp` (4.5 MB, zero-download) so it
  * works out of the box. `'ai-quality'` requires an explicit BiRefNet download.
+ * `'portrait'` is the optional MODNet photographic-portrait route (26 MB) and
+ * is never a fallback for arbitrary objects.
  */
 export function workerModelIdForMethod(method: RemovalMethod): WorkerModelId | null {
   switch (method) {
@@ -161,6 +166,8 @@ export function workerModelIdForMethod(method: RemovalMethod): WorkerModelId | n
       return 'u2netp';
     case 'ai-quality':
       return 'birefnet-general-lite';
+    case 'portrait':
+      return 'modnet-portrait';
   }
 }
 
@@ -171,7 +178,7 @@ export interface WorkerCommand {
   imageData: ImageData;
   modelPath: string;
   modelId: WorkerModelId;
-  method: 'ai-balanced' | 'ai-quality';
+  method: 'ai-balanced' | 'ai-quality' | 'portrait';
   /** Gaussian feather radius (px) applied to the upscaled mask before encoding. */
   feather?: number;
   /** Choke the semi-transparent edge halo to reduce background color spill. */

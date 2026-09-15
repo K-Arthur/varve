@@ -7,7 +7,7 @@ import type {
   RemovalMethod,
   WorkerModelId,
 } from './types';
-import { preferredWorkerModelIdForMethod, workerModelIdForMethod } from './types';
+import { int8VariantId, preferredWorkerModelIdForMethod, workerModelIdForMethod } from './types';
 
 export interface ResolvedWebModel {
   modelId: WorkerModelId;
@@ -33,7 +33,6 @@ export async function resolveWebModel(
   const preferred = preferredWorkerModelIdForMethod(method);
   const fallback = workerModelIdForMethod(method);
   if (!fallback) return null;
-
   const pref = qualityPreference ?? 'automatic';
 
   // Check for user-downloaded preferred model (always FP32, user explicit choice)
@@ -64,16 +63,22 @@ export async function resolveWebModel(
   }
 
   if (pref === 'performance' && int8Faster) {
-    const int8ModelId = `${fallback}-int8` as WorkerModelId;
-    const int8Path = await loader.getModelPath(int8ModelId, signal);
-    if (int8Path) {
-      return {
-        modelId: int8ModelId,
-        modelPath: int8Path,
-        precision: 'int8',
-        precisionAdjusted: true,
-        selectionReason: `Performance preference, INT8 faster on this CPU: INT8 variant of ${fallback}`,
-      };
+    const int8ModelId = int8VariantId(fallback);
+    if (!int8ModelId) {
+      // No quantized variant exists for this model (e.g. MODNet portrait);
+      // continue to the FP32 fallback below instead of requesting a
+      // non-existent '<model>-int8' artifact.
+    } else {
+      const int8Path = await loader.getModelPath(int8ModelId, signal);
+      if (int8Path) {
+        return {
+          modelId: int8ModelId,
+          modelPath: int8Path,
+          precision: 'int8',
+          precisionAdjusted: true,
+          selectionReason: `Performance preference, INT8 faster on this CPU: INT8 variant of ${fallback}`,
+        };
+      }
     }
   }
 

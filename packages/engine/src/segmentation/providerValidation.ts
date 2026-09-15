@@ -17,7 +17,11 @@
  */
 
 import type { PromptedProviderCapabilities, PromptedQualityValidation } from './promptedRouting';
-import { MOBILE_SAM_PROVIDER_ID, SAM2_PROVIDER_ID } from './promptedRouting';
+import {
+  EFFICIENT_SAM_PROVIDER_ID,
+  MOBILE_SAM_PROVIDER_ID,
+  SAM2_PROVIDER_ID,
+} from './promptedRouting';
 
 export const PROMPTED_SELECTION_CORPUS_VERSION = 'object-selection-corpus-v1';
 
@@ -109,6 +113,50 @@ export const SAM2_CAPABILITIES: PromptedProviderCapabilities = {
 };
 
 /**
+ * EfficientSAM-Ti's official split decoder has no mask-input tensor, so it
+ * cannot satisfy a mask prompt or a refinement round-trip. Keeping that gap in
+ * the capability record makes the router reject mask-prompt requests instead
+ * of silently feeding an incompatible tensor.
+ */
+export const EFFICIENT_SAM_CAPABILITIES: PromptedProviderCapabilities = {
+  pointPrompts: true,
+  boxPrompts: true,
+  maskPrompts: false,
+  multipleCandidates: true,
+};
+
+/**
+ * EfficientSAM-Ti measured record from the 2026-09-14 A/B run
+ * (`docs/audits/efficient-sam-ti-ab-evaluation-2026-09-14.md`). Only the
+ * categories reported in that document are listed; the record is deliberately
+ * never eligible for automatic routing (the provider is experimental), so
+ * these numbers are used only to gate an explicit, informed selection.
+ */
+export const EFFICIENT_SAM_MEASURED_CATEGORY_IOU: Readonly<Record<string, number>> = {
+  'hair-fur': 0.909,
+  'thin-geometry': 0.979,
+  'tiny-object': 0.876,
+  'touches-edge': 0.551,
+  foliage: 0.732,
+  'glass-translucency': 0.222,
+};
+
+export const EFFICIENT_SAM_QUALITY_VALIDATION: PromptedQualityValidation = {
+  validated: true,
+  corpusVersion: PROMPTED_SELECTION_CORPUS_VERSION,
+  runtimeEnvironment: PROMPTED_VALIDATION_ENVIRONMENT,
+  validatedAt: '2026-09-14T18:00:00.000Z',
+  meanIoU: 0.723,
+  meanBoundaryF: 0.689,
+  categoryIoU: EFFICIENT_SAM_MEASURED_CATEGORY_IOU,
+  criticalCategories: PROMPTED_CRITICAL_CATEGORIES,
+  worstCriticalIoU: 0.551,
+  // Documented minimum across the measured critical categories is the
+  // hair/fur boundary F (0.665); see the audit's critical-category table.
+  worstCriticalBoundaryF: 0.665,
+};
+
+/**
  * Warm prompt p95 proxies measured on the same Node CPU run (decoder only,
  * embedding resident). The real Chromium gate exercises the WASM worker and
  * visual commit path, but it does not yet provide a controlled browser timing
@@ -120,6 +168,10 @@ export const PROMPTED_PROVIDER_LATENCY_PROXY: Readonly<
 > = {
   [SAM2_PROVIDER_ID]: { p50Ms: 496, p95Ms: 1068, source: 'estimated' },
   [MOBILE_SAM_PROVIDER_ID]: { p50Ms: 326, p95Ms: 485, source: 'estimated' },
+  // Isolated Node CPU run in the EfficientSAM A/B: 548 ms cold load and
+  // 2 900 ms encode+decode at 1280x853. Peak working set measured higher than
+  // MobileSAM, which is why this provider is explicit-only.
+  [EFFICIENT_SAM_PROVIDER_ID]: { p50Ms: 900, p95Ms: 2900, source: 'estimated' },
 };
 
 /**
@@ -132,11 +184,13 @@ export function measuredQualityValidation(
 ): PromptedQualityValidation | undefined {
   if (providerId === SAM2_PROVIDER_ID) return SAM2_QUALITY_VALIDATION;
   if (providerId === MOBILE_SAM_PROVIDER_ID) return MOBILE_SAM_QUALITY_VALIDATION;
+  if (providerId === EFFICIENT_SAM_PROVIDER_ID) return EFFICIENT_SAM_QUALITY_VALIDATION;
   return undefined;
 }
 
 export function measuredCapabilities(providerId: string): PromptedProviderCapabilities | undefined {
   if (providerId === SAM2_PROVIDER_ID) return SAM2_CAPABILITIES;
   if (providerId === MOBILE_SAM_PROVIDER_ID) return MOBILE_SAM_CAPABILITIES;
+  if (providerId === EFFICIENT_SAM_PROVIDER_ID) return EFFICIENT_SAM_CAPABILITIES;
   return undefined;
 }

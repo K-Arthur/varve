@@ -15,10 +15,12 @@ import type {
   WorkerInferResult,
 } from '@varve/engine';
 import {
+  decodeEfficientSamDecoderOutput,
   decodeMobileSamDecoderOutput,
   decodeSam2DecoderOutput,
   encodeMobileSamPrompts,
   encodeSam2Prompts,
+  preprocessEfficientSamImageData,
 } from '@varve/engine';
 
 export type PromptedWorkerTensor = { data: Float32Array; dims: number[] };
@@ -200,24 +202,53 @@ export async function runPromptedSegmentation({
 
   let resolvedEmbedding = embedding;
   if (!resolvedEmbedding) {
-    const encoderResult = await host.infer(
-      {
-        type: 'infer',
-        modelType: providerId === 'mobile-sam' ? 'mobile-sam-encoder' : 'sam2-encoder',
-        modelPath: encoderPath,
-        modelId: decision.encoderId,
-        imageData,
-        reuseSession: true,
-      },
-      { signal, reservationBytes },
-    );
+    const encoderResult =
+      providerId === 'efficient-sam-ti'
+        ? await host.infer(
+            {
+              type: 'infer',
+              modelType: 'efficient-sam-encoder',
+              modelPath: encoderPath,
+              modelId: decision.encoderId,
+              // The verified upstream preprocessing (longest side -> 1024,
+              // raw RGB in [0,1], NCHW) is owned by the provider module; the
+              // worker must not re-run a different letterbox on top of it.
+              tensors: (() => {
+                const preprocessed = preprocessEfficientSamImageData(imageData);
+                return {
+                  batched_images: {
+                    data: preprocessed.tensor,
+                    dims: [1, 3, preprocessed.height, preprocessed.width],
+                  },
+                };
+              })(),
+              reuseSession: true,
+            },
+            { signal, reservationBytes },
+          )
+        : await host.infer(
+            {
+              type: 'infer',
+              modelType: providerId === 'mobile-sam' ? 'mobile-sam-encoder' : 'sam2-encoder',
+              modelPath: encoderPath,
+              modelId: decision.encoderId,
+              imageData,
+              reuseSession: true,
+            },
+            { signal, reservationBytes },
+          );
     resolvedEmbedding = decodeEmbedding({ ...decision, providerId }, encoderResult);
   }
 
   const decoderResult = await host.infer(
     {
       type: 'infer',
-      modelType: providerId === 'mobile-sam' ? 'mobile-sam-decoder' : 'sam2-decoder',
+      modelType:
+        providerId === 'mobile-sam'
+          ? 'mobile-sam-decoder'
+          : providerId === 'efficient-sam-ti'
+            ? 'efficient-sam-decoder'
+            : 'sam2-decoder',
       modelPath: decoderPath,
       modelId: decision.decoderId,
       tensors: resolvedEmbedding.tensors,
@@ -271,6 +302,14 @@ function decodeEmbedding(
   }
   const providerId = decision.providerId;
   const outputs = result.outputs as Record<string, unknown>;
+  if (providerId === 'efficient-sam-ti') {
+    const embedding = asWorkerTensor(outputs.image_embeddings, 'image_embeddings');
+    return {
+      providerId,
+      tensors: { image_embeddings: embedding },
+      executionProvider: String(outputs.executionProvider ?? 'unknown'),
+    };
+  }
   if (providerId === 'mobile-sam') {
     const embedding = asWorkerTensor(outputs.image_embeddings, 'image_embeddings');
     return {
@@ -311,6 +350,9 @@ function buildDecoderParams(
       sourceHeight,
     };
   }
+  if (providerId === 'efficient-sam-ti') {
+    return { points, box, sourceWidth, sourceHeight };
+  }
   return { points, box, letterbox };
 }
 
@@ -331,6 +373,29 @@ function decodePrediction(
   const scores = outputs.iou_predictions
     ? asWorkerTensor(outputs.iou_predictions, 'iou_predictions')
     : undefined;
+  if (providerId === 'efficient-sam-ti') {
+    if (!scores) throw new Error('EfficientSAM decoder did not return predicted-IoU scores');
+    const decoded = decodeEfficientSamDecoderOutput(
+      masks.data,
+      masks.dims,
+      scores.data,
+      scores.dims,
+      sourceWidth,
+      sourceHeight,
+    );
+    return {
+      candidates: decoded.masks.map((candidate) => ({
+        mask: candidate.mask,
+        width: candidate.width,
+        height: candidate.height,
+        score: candidate.score,
+        scoreSource: 'predicted-iou' as const,
+      })),
+      selectedIndex: decoded.selectedIndex,
+      selectedScore: decoded.selectedScore,
+      scoreSource: 'predicted-iou' as const,
+    };
+  }
   if (providerId === 'mobile-sam') {
     if (!scores) throw new Error('MobileSAM decoder did not return predicted-IoU scores');
     const lowRes = outputs.low_res_masks

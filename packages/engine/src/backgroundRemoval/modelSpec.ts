@@ -23,6 +23,12 @@ function isU2NetLightFamily(modelId: WorkerModelId): boolean {
 
 /** Exact preprocessing/output conventions for the supported rembg models. */
 export function getSegmentationModelSpec(modelId: WorkerModelId): SegmentationModelSpec {
+  if (modelId === 'modnet-portrait') {
+    // MODNet uses the aspect-preserving 512-edge/div-32 preprocessor in
+    // modnetPortrait.ts, not a square letterbox. The worker branches before
+    // this function for that model; calling it here is a programming error.
+    throw new Error('MODNet portrait preprocessing is handled by the dedicated portrait path');
+  }
   if (modelId === 'isnet-general-use') {
     return {
       inputSize: 1024,

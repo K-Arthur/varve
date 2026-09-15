@@ -61,6 +61,12 @@ async function getProviderOrder(
   deadline: number,
   signal?: AbortSignal,
 ): Promise<RemovalProvider[]> {
+  // MODNet portrait matting is a web-worker-only local path: there is no
+  // native bridge model for it and it must never silently become a cloud or
+  // heuristic run. A single-provider chain keeps the failure honest.
+  if (options.method === 'portrait') {
+    return [workerRemovalProvider];
+  }
   const nativeReady = await withTimeout(
     () => isNativeAiReady(),
     Math.max(0, Math.min(5_000, deadline - performance.now())),
@@ -276,6 +282,13 @@ async function dispatchBackgroundRemovalAdmitted(
     throw new Error(
       `The requested local model (${options.modelId}) could not run on this device. ` +
         'Choose another quality level, or manage local models in Settings, Offline Models.',
+    );
+  }
+
+  if (options.method === 'portrait') {
+    throw new Error(
+      'Portrait matting (MODNet) could not run in this browser session. Install the 26 MB ' +
+        'MODNet model from this panel, or use Auto/High quality segmentation with manual edge refinement.',
     );
   }
 

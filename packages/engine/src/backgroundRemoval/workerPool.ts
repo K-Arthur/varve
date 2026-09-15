@@ -35,7 +35,7 @@ interface PoolJob {
   imageData: ImageData;
   modelPath: string;
   modelId: WorkerModelId;
-  method: 'ai-balanced' | 'ai-quality';
+  method: 'ai-balanced' | 'ai-quality' | 'portrait';
   feather?: number;
   decontaminate?: boolean;
   previewMaxDimension?: number;
@@ -364,7 +364,12 @@ export async function runPooledInference(
       imageData,
       modelPath,
       modelId,
-      method: options.method === 'ai-quality' ? 'ai-quality' : 'ai-balanced',
+      method:
+        options.method === 'ai-quality'
+          ? 'ai-quality'
+          : options.method === 'portrait'
+            ? 'portrait'
+            : 'ai-balanced',
       feather: options.feather,
       decontaminate: options.decontaminate,
       previewMaxDimension: options.previewMaxDimension,
