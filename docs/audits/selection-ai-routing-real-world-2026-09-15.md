@@ -148,9 +148,37 @@ explicit-only and Auto never selects it.
 | G1 ambiguous clicks | Implemented; verified at unit/real-model level | Candidate cycling/commit identity tests, MobileSAM real-photo gate, part/whole copy | In-app browser screenshot of cycling on a boundary click |
 | G2 difficult boundaries | Implemented; real-model verified | Closed-form matting with spatial unknown band at source resolution; four-background composites | Numeric ground-truth alpha metrics on a licensed matting set |
 | G3 multiple subjects | Implemented for proposals; unchanged promptable session | Existing subject-proposal picker + candidate ownership | Detector-assisted instance separation in the text path is proposal-only |
-| G4 Grounding DINO | Implemented; real-model verified | Phrase-attributed detections on real photographs; absent-object control; UI panel | In-app end-to-end text query screenshot review |
+| G4 Grounding DINO | Engine + real-model verified; **in-app browser gate unverified** | Phrase-attributed detections on real photographs; absent-object control; UI panel presence E2E | Browser WASM did not finish in 15 min on the reference machine (no console error); see below |
 | G5 EfficientSAM production | Implemented; adapter + real-model verified | Production dispatch test + split-vs-combined parity | Browser worker run on a real photo |
-| G6 MODNet portrait | Implemented; real-model verified | Contract tests + four-background composites + constraint fusion | Browser E2E apply/reopen visual pass |
+| G6 MODNet portrait | Implemented; engine + **browser E2E verified** | Contract tests + four-background composites + constraint fusion + in-app apply/undo gate | Save/reopen screenshot pass |
+
+## Browser validation (headless Chromium, real photographs)
+
+`tests/e2e/canvas/portrait-matting.spec.ts` passed twice (25.5 s and earlier
+15-26 s runs) with the real 26 MB MODNet artifact served from
+`/models/modnet-portrait/model.onnx`:
+
+- Importing `real-life-katharine-hepburn.jpg`, selecting the Portrait method,
+  and running the model in the browser worker produced a review, and
+  `Apply result` committed an ordinary raster alpha mask on the layer
+  (accessibility tree: "raster alpha mask"; panel provenance: `mask score 97%`,
+  `portrait`). Show Original comparison was available, and Ctrl+Z removed the
+  mask with no further model run.
+- The Find-by-description panel renders its honest caveat and either its
+  install affordance or query controls depending on whether the detector is
+  mounted.
+- `tests/e2e/canvas/text-discovery.spec.ts` is env-gated
+  (`VARVE_TEXT_DISCOVERY_REAL_MODEL=1`). On the reference Linux machine the
+  INT8 browser WASM run did not produce a reviewable region within 15 minutes,
+  with no browser console error and no panel error — a real performance
+  limitation for this graph on CPU WASM. As a result the panel now has a soft
+  eight-minute deadline that aborts with an actionable message and a visible
+  stage/elapsed status ("Preparing image" / "Loading detector model (first run
+  can take minutes)" / "Detecting regions"). The engine Node gate remains the
+  authoritative G4 verification; the in-app gate stays open.
+
+Evidence screenshots are written under `test-results/run-*/canvas-portrait-*`
+for each Playwright run and are not repository assets.
 
 ## Resource and performance measurements
 

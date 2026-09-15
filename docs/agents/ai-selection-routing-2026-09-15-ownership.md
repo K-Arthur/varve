@@ -76,9 +76,21 @@ VARVE_GROUNDING_DINO_VOCAB=/path/to/vocab.txt \
 VARVE_EFFICIENT_SAM_MODEL_DIR=/path/to/efficientsam \
 VARVE_EFFICIENT_SAM_COMBINED_MODEL=/path/to/efficientsam_ti.onnx \
   pnpm exec vitest run packages/engine/src/segmentation/quality/efficientSamRealModel.test.ts
+
+# Browser gates (model artifacts mounted under apps/desktop/public/models/)
+VARVE_E2E_PORT=1597 pnpm exec playwright test tests/e2e/canvas/portrait-matting.spec.ts \
+  --project=chromium --reporter=list
+VARVE_TEXT_DISCOVERY_REAL_MODEL=1 VARVE_E2E_PORT=1598 \
+  pnpm exec playwright test tests/e2e/canvas/text-discovery.spec.ts \
+  --project=chromium --reporter=list
 ```
 
-Browser gates still to run: a Playwright pass that applies a Portrait mask and
-reopens the document, cycles candidates on a boundary click, and runs one
-in-app text query through the Find-by-description panel with a screenshot
-review.
+Browser status: `portrait-matting.spec.ts` passed (real MODNet in the editor
+worker; apply → alpha mask → undo). `text-discovery.spec.ts` is env-gated and
+**did not complete on the reference machine** — the INT8 graph did not finish
+in 15 minutes of browser WASM with no console error, so the panel now aborts
+after eight minutes with a progress-staged message. That in-app G4 gate stays
+open; the engine real-model gate is the authoritative verification.
+
+Still open: a save/reopen pass for a portrait mask, and an in-app boundary-click
+candidate-cycling screenshot.

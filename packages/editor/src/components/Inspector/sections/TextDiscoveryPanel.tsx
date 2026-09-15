@@ -19,12 +19,13 @@ import {
   type GroundingDetection,
   getImageCache,
   getInferenceWorkerHost,
+  getModelById,
   getModelLoaderReady,
   locatePhraseSpans,
   normalizeGroundingQuery,
   parseBertVocab,
 } from '@varve/engine';
-import { Button } from '@varve/ui';
+import { Button, Select } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 type PanelState = 'checking' | 'missing' | 'downloading' | 'running' | 'ready' | 'empty' | 'error';
@@ -54,7 +55,30 @@ export function TextDiscoveryPanel({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  const [stage, setStage] = useState<'preparing' | 'loading' | 'detecting' | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
+  const timedOutRef = useRef(false);
+
+  /**
+   * Browser WASM inference for this graph is a background-scale operation:
+   * measured Node CPU runs take 16-31 s, and WASM adds a large multiplier. A
+   * hung session compile must not leave the panel "searching" forever, so the
+   * job has a soft deadline and the failure message points at the fast paths.
+   */
+  const TEXT_DISCOVERY_SOFT_DEADLINE_MS = 8 * 60_000;
+
+  useEffect(() => {
+    if (state !== 'running') {
+      setElapsedSeconds(0);
+      return;
+    }
+    const started = Date.now();
+    const timer = window.setInterval(() => {
+      setElapsedSeconds(Math.round((Date.now() - started) / 1000));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [state]);
 
   const refreshModelState = useCallback(async () => {
     const loader = await getModelLoaderReady();
@@ -138,7 +162,13 @@ export function TextDiscoveryPanel({
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
+    timedOutRef.current = false;
+    const deadline = window.setTimeout(() => {
+      timedOutRef.current = true;
+      controller.abort();
+    }, TEXT_DISCOVERY_SOFT_DEADLINE_MS);
     setState('running');
+    setStage('preparing');
     setError(null);
     setDetections([]);
     setSelectedId(null);
@@ -175,6 +205,7 @@ export function TextDiscoveryPanel({
       if (controller.signal.aborted) return;
 
       const inputs = buildGroundingDinoInputs(imageData, tokenization);
+      setStage('loading');
       const host = getInferenceWorkerHost();
       const result = await host.infer(
         {
@@ -190,11 +221,16 @@ export function TextDiscoveryPanel({
           reservationBytes: estimateInferenceReservation({
             width,
             height,
-            modelBytes: 768 * 1024 * 1024,
+            // Reserve the catalog's measured working set (3.2 GB), not just the
+            // 194 MB graph: the text tower, fusion decoder, and 900x256 logits
+            // dominate peak memory. A low-memory session must be refused here,
+            // before the 194 MB download is spent, rather than OOMing mid-run.
+            modelBytes: getModelById(GROUNDING_DINO_MODEL_ID)?.peakMemoryBytes ?? 3_200_000_000,
           }),
         },
       );
       if (controller.signal.aborted) return;
+      setStage('detecting');
       const outputs = result.outputs as Record<string, unknown>;
       const logits = outputs.logits as { data: Float32Array; dims: number[] } | undefined;
       const boxes = outputs.pred_boxes as { data: Float32Array; dims: number[] } | undefined;
@@ -223,6 +259,13 @@ export function TextDiscoveryPanel({
         `Found ${decoded.length} matching region${decoded.length === 1 ? '' : 's'}. Review one, then segment it.`,
       );
     } catch (discoveryError) {
+      if (timedOutRef.current) {
+        setState('error');
+        setError(
+          `Text discovery did not finish within ${Math.round(TEXT_DISCOVERY_SOFT_DEADLINE_MS / 60_000)} minutes on this device. The detector is a background-scale model; use point or box Object Selection for an immediate result.`,
+        );
+        return;
+      }
       if (controller.signal.aborted) return;
       const message =
         discoveryError instanceof Error ? discoveryError.message : String(discoveryError);
@@ -233,6 +276,8 @@ export function TextDiscoveryPanel({
           : `Text discovery failed: ${message}`,
       );
     } finally {
+      window.clearTimeout(deadline);
+      setStage(null);
       if (abortRef.current === controller) abortRef.current = null;
     }
   }, [announce, source, query, threshold]);
@@ -296,24 +341,16 @@ export function TextDiscoveryPanel({
             </div>
           </div>
           <div className="insp-field">
-            <label className="insp-field__label" htmlFor="text-discovery-threshold">
-              Match strictness
-            </label>
-            <div className="insp-field__control">
-              <select
-                id="text-discovery-threshold"
-                className="insp-select"
-                value={threshold}
-                onChange={(event) => setThreshold(Number(event.target.value))}
-                disabled={state === 'running' || disabled}
-              >
-                {THRESHOLD_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <Select
+              label="Match strictness"
+              value={String(threshold)}
+              options={THRESHOLD_OPTIONS.map((option) => ({
+                value: String(option.value),
+                label: option.label,
+              }))}
+              onChange={(value) => setThreshold(Number(value))}
+              disabled={state === 'running' || disabled}
+            />
           </div>
           <div className="insp-actions">
             <Button
@@ -326,9 +363,19 @@ export function TextDiscoveryPanel({
               {state === 'running' ? 'Searching…' : 'Find regions'}
             </Button>
             {state === 'running' && (
-              <button type="button" className="insp-btn-sm" onClick={cancel}>
-                Cancel
-              </button>
+              <>
+                <span className="insp-field__hint" role="status" aria-live="polite">
+                  {stage === 'preparing'
+                    ? 'Preparing image'
+                    : stage === 'loading'
+                      ? 'Loading detector model (first run can take minutes)'
+                      : 'Detecting regions'}{' '}
+                  · {elapsedSeconds}s
+                </span>
+                <button type="button" className="insp-btn-sm" onClick={cancel}>
+                  Cancel
+                </button>
+              </>
             )}
           </div>
         </>

@@ -165,6 +165,8 @@ apps/desktop/public/models/*.onnx
 # MODNet portrait is a runtime download (26 MB), served from a per-model
 # directory so a local download cache cannot be committed accidentally.
 apps/desktop/public/models/modnet-portrait/
+# Grounding DINO Tiny is a 194 MB runtime download with a tokenizer sidecar.
+apps/desktop/public/models/grounding-dino/
 # YuNet is a bundled, checksum-pinned model used by face-aware crop and must
 # remain in the release payload; all other top-level ONNX files are downloads.
 !apps/desktop/public/models/yunet-face-detect.onnx
