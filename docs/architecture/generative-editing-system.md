@@ -112,7 +112,10 @@ disconnected, and soft masks remain possible but are explicitly warned about
 so the user can verify the overlay. A prompted Object Selection candidate that
 reaches a source-image edge without an include point or box edge on that extent
 remains previewable but is marked for refinement; it cannot be applied or
-handed into generation until the extent is explicitly prompted. Imported masks must have a
+handed into generation until the extent is explicitly prompted. A point-only
+candidate whose include click lands on or near its proposed boundary is held
+to the same refinement gate; add a deeper include point or a box before using
+it. Imported masks must have a
 valid byte count and a source-compatible aspect ratio; they are never silently
 stretched from an unrelated frame. The editable user mask, provider inference
 mask, and final composite mask remain separate representations. Brush input is

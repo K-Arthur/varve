@@ -74,6 +74,12 @@ export interface PromptedMaskDiagnostics {
   ambiguous: boolean;
   /** Hard coverage touches an image edge that the prompts did not support. */
   edgeContact?: { top: boolean; right: boolean; bottom: boolean; left: boolean };
+  /**
+   * Fraction of a bounded neighbourhood covered around each positive prompt.
+   * A low value means the click landed on or immediately beside the proposed
+   * boundary; it is evidence that a point-only prompt is underspecified.
+   */
+  positiveAnchorSupport?: Array<{ pointIndex: number; coveredFraction: number }>;
   /** True when the candidate needs an extent prompt before it can be applied. */
   requiresRefinement?: boolean;
   warnings: string[];
@@ -103,6 +109,11 @@ const MAX_ACCEPTED_MASK_COVERAGE = 0.995;
 const MIN_ANCHORED_COVERAGE_FOR_PRUNING = 0.5;
 /** A point must be deliberately placed on an image extent to support edge contact. */
 const MAX_EDGE_PROMPT_SUPPORT_PIXELS = 8;
+/** Do not accept a boundary-only point as sufficient object identity. */
+const MIN_POSITIVE_ANCHOR_SUPPORT = 0.75;
+/** Keep tiny raster fixtures usable; real photographs are much larger. */
+const MIN_ANCHOR_REVIEW_DIMENSION = 32;
+const MIN_ANCHOR_REVIEW_PIXELS = 16;
 /**
  * Keep review diagnostics bounded on 33 MP photographs and constrained
  * devices, while retaining enough spatial resolution to see small islands in
@@ -228,6 +239,14 @@ export function validatePromptedMaskCandidate(
   }
 
   annotateEdgeRefinement(initialDiagnostics, points, box, sourceWidth, sourceHeight);
+  annotateAnchorRefinement(
+    initialDiagnostics,
+    candidate.mask,
+    points,
+    box,
+    sourceWidth,
+    sourceHeight,
+  );
 
   // A prompted mask can contain the requested object and an unrelated
   // disconnected island. Never let a small positive click implicitly accept
@@ -254,6 +273,14 @@ export function validatePromptedMaskCandidate(
         analyzePromptedMaskDiagnostics(pruned.mask, sourceWidth, sourceHeight, points, box),
       );
       annotateEdgeRefinement(sanitizedDiagnostics, points, box, sourceWidth, sourceHeight);
+      annotateAnchorRefinement(
+        sanitizedDiagnostics,
+        pruned.mask,
+        points,
+        box,
+        sourceWidth,
+        sourceHeight,
+      );
       const removedCoverage = pruned.removedPixels / (sourceWidth * sourceHeight);
       const removedPercent =
         removedCoverage >= 0.01 ? `${Math.round(removedCoverage * 100)}%` : '<1%';
@@ -281,8 +308,10 @@ export function validatePromptedMaskCandidate(
 
 /**
  * Remove prompt-invalid candidates and choose the highest model score among
- * the remaining masks. Keeping this decision after decoding prevents a model
- * from silently selecting a high-IoU mask for the wrong object.
+ * the remaining masks, preferring a candidate that does not need additional
+ * user evidence. Keeping this decision after decoding prevents a model from
+ * silently selecting a high-IoU mask for the wrong object or an
+ * under-specified boundary candidate when a safer alternative is available.
  */
 export function rankPromptedMaskCandidates<T extends PromptedMaskCandidateLike>(
   candidates: readonly T[],
@@ -295,16 +324,7 @@ export function rankPromptedMaskCandidates<T extends PromptedMaskCandidateLike>(
     return { candidate, validation };
   });
   const eligible = evaluated.filter(({ validation }) => validation.valid);
-  let selectedIndex = -1;
-  let selectedScore = Number.NEGATIVE_INFINITY;
-  const ranked = eligible.map(({ candidate, validation }, index) => {
-    if (
-      selectedIndex < 0 ||
-      (Number.isFinite(candidate.score) && candidate.score > selectedScore)
-    ) {
-      selectedIndex = index;
-      selectedScore = candidate.score;
-    }
+  const ranked = eligible.map(({ candidate, validation }) => {
     return {
       ...candidate,
       ...(validation.normalizedMask ? { mask: validation.normalizedMask } : {}),
@@ -312,6 +332,23 @@ export function rankPromptedMaskCandidates<T extends PromptedMaskCandidateLike>(
       promptDiagnostics: validation.diagnostics,
     };
   });
+  let selectedIndex = -1;
+  let selectedScore = Number.NEGATIVE_INFINITY;
+  for (let index = 0; index < ranked.length; index += 1) {
+    const candidate = ranked[index]!;
+    const diagnostics = candidate.promptDiagnostics;
+    const needsRefinement = diagnostics?.requiresRefinement === true;
+    const selected = ranked[selectedIndex];
+    const selectedNeedsRefinement = selected?.promptDiagnostics?.requiresRefinement === true;
+    if (
+      selectedIndex < 0 ||
+      (selectedNeedsRefinement && !needsRefinement) ||
+      (selectedNeedsRefinement === needsRefinement && candidate.score > selectedScore)
+    ) {
+      selectedIndex = index;
+      selectedScore = candidate.score;
+    }
+  }
   return {
     candidates: ranked,
     selectedIndex,
@@ -669,6 +706,74 @@ function annotateEdgeRefinement(
   diagnostics.warnings.push(
     `The candidate reaches the ${labels.join(' and ')} without an extent prompt. Add an include point on the missing extent or draw a box around the full target before applying it; this prevents a partial edge object from being edited.`,
   );
+}
+
+/**
+ * A positive point on a mask boundary is not enough evidence for the extent
+ * of an object. SAM-style promptable segmenters can legitimately return a
+ * small region containing such a point, even when the user meant the whole
+ * object. Keep the candidate visible, but require a deeper include point or a
+ * box for real-image editing. A box is already an explicit extent cue, so the
+ * check is intentionally limited to point-only requests.
+ */
+function annotateAnchorRefinement(
+  diagnostics: PromptedMaskDiagnostics,
+  mask: Uint8Array,
+  points: readonly PromptedMaskPoint[],
+  box: DiagnosticBox | null,
+  width: number,
+  height: number,
+): void {
+  const positivePoints = points
+    .map((point, pointIndex) => ({ point, pointIndex }))
+    .filter(({ point }) => point.label === 1);
+  if (positivePoints.length === 0) return;
+
+  const supportRadius = Math.max(1, Math.min(16, Math.ceil(Math.min(width, height) / 64)));
+  diagnostics.positiveAnchorSupport = positivePoints.map(({ point, pointIndex }) => ({
+    pointIndex,
+    coveredFraction: positivePointSupport(mask, point, width, height, supportRadius),
+  }));
+
+  if (
+    box ||
+    Math.min(width, height) < MIN_ANCHOR_REVIEW_DIMENSION ||
+    diagnostics.hardPixels < MIN_ANCHOR_REVIEW_PIXELS ||
+    diagnostics.positiveAnchorSupport.some(
+      ({ coveredFraction }) => coveredFraction >= MIN_POSITIVE_ANCHOR_SUPPORT,
+    )
+  ) {
+    return;
+  }
+
+  diagnostics.requiresRefinement = true;
+  diagnostics.warnings.push(
+    'The include point is on or near the candidate boundary. Add another include point deeper inside the intended object or draw a box before applying it; a boundary click cannot establish the object extent.',
+  );
+}
+
+function positivePointSupport(
+  mask: Uint8Array,
+  point: PromptedMaskPoint,
+  width: number,
+  height: number,
+  radius: number,
+): number {
+  let covered = 0;
+  let samples = 0;
+  const centerX = Math.round(point.x * (width - 1));
+  const centerY = Math.round(point.y * (height - 1));
+  for (let dy = -radius; dy <= radius; dy += 1) {
+    for (let dx = -radius; dx <= radius; dx += 1) {
+      if (dx * dx + dy * dy > radius * radius) continue;
+      const sampleX = centerX + dx;
+      const sampleY = centerY + dy;
+      if (sampleX < 0 || sampleX >= width || sampleY < 0 || sampleY >= height) continue;
+      samples += 1;
+      if ((mask[sampleY * width + sampleX] ?? 0) > HARD_MASK_THRESHOLD) covered += 1;
+    }
+  }
+  return samples > 0 ? covered / samples : 0;
 }
 
 function edgePromptSupported(

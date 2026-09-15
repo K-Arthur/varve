@@ -326,4 +326,54 @@ describe('prompted mask validation', () => {
     expect(boxed.valid).toBe(true);
     expect(boxed.diagnostics?.requiresRefinement).not.toBe(true);
   });
+
+  it('requires interior evidence when a point-only prompt lands on a candidate boundary', () => {
+    const boundaryPixels: Array<[number, number]> = [];
+    for (let y = 20; y <= 60; y += 1) {
+      for (let x = 20; x <= 60; x += 1) boundaryPixels.push([x, y]);
+    }
+    const boundary = validatePromptedMaskCandidate(
+      candidate(128, 128, boundaryPixels, 0.95),
+      { points: [{ x: 20 / 127, y: 40 / 127, label: 1 }] },
+      128,
+      128,
+    );
+    expect(boundary.valid).toBe(true);
+    expect(boundary.diagnostics?.positiveAnchorSupport?.[0]?.coveredFraction).toBeLessThan(0.75);
+    expect(boundary.diagnostics?.requiresRefinement).toBe(true);
+    expect(boundary.diagnostics?.warnings.at(-1)).toContain('candidate boundary');
+
+    const interior = validatePromptedMaskCandidate(
+      candidate(128, 128, boundaryPixels, 0.95),
+      { points: [{ x: 40 / 127, y: 40 / 127, label: 1 }] },
+      128,
+      128,
+    );
+    expect(interior.valid).toBe(true);
+    expect(interior.diagnostics?.positiveAnchorSupport?.[0]?.coveredFraction).toBe(1);
+    expect(interior.diagnostics?.requiresRefinement).not.toBe(true);
+  });
+
+  it('defaults to a safe candidate when a higher-scoring alternative needs prompt refinement', () => {
+    const boundaryPixels: Array<[number, number]> = [];
+    const expandedPixels: Array<[number, number]> = [];
+    for (let y = 20; y <= 60; y += 1) {
+      for (let x = 20; x <= 60; x += 1) boundaryPixels.push([x, y]);
+    }
+    for (let y = 18; y <= 65; y += 1) {
+      for (let x = 18; x <= 65; x += 1) expandedPixels.push([x, y]);
+    }
+    const result = rankPromptedMaskCandidates(
+      [candidate(128, 128, boundaryPixels, 0.99), candidate(128, 128, expandedPixels, 0.5)],
+      { points: [{ x: 20 / 127, y: 40 / 127, label: 1 }] },
+      128,
+      128,
+    );
+
+    expect(result.candidates).toHaveLength(2);
+    expect(result.selectedIndex).toBe(1);
+    expect(result.selectedScore).toBe(0.5);
+    expect(result.candidates[0]?.promptDiagnostics?.requiresRefinement).toBe(true);
+    expect(result.candidates[1]?.promptDiagnostics?.requiresRefinement).not.toBe(true);
+  });
 });

@@ -682,8 +682,9 @@ export function useSam2Segmentation(
         }
         if (reviewedCandidateValidation.diagnostics?.requiresRefinement) {
           const message =
-            reviewedCandidateValidation.diagnostics.warnings.find((warning) =>
-              warning.includes('extent prompt'),
+            reviewedCandidateValidation.diagnostics.warnings.find(
+              (warning) =>
+                warning.includes('extent prompt') || warning.includes('candidate boundary'),
             ) ??
             'Refine the highlighted Object Selection extent with another include point or a box before applying it.';
           const live = stateRef.current.objectSelectionSession;

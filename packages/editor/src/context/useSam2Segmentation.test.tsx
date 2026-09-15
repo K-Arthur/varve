@@ -246,6 +246,29 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
     expect(announce).toHaveBeenCalledWith(expect.stringContaining('extent prompt'));
   });
 
+  it('does not commit a reviewed point candidate whose only anchor is on its boundary', async () => {
+    const boundaryMask = new Uint8Array(64 * 64);
+    for (let y = 4; y <= 32; y += 1) {
+      for (let x = 4; x <= 32; x += 1) boundaryMask[y * 64 + x] = 255;
+    }
+    const { doc, session } = await sessionFor({ size: 64, mask: boundaryMask });
+    const { result, stateRef, setAreaSelection, announce } = setup(session, doc);
+
+    await act(async () => {
+      await result.current.applySam2Segmentation({
+        nodeId: 'image',
+        prompts: { points: session.points },
+        operation: 'selection',
+      });
+    });
+
+    expect(controls.infer).not.toHaveBeenCalled();
+    expect(setAreaSelection).not.toHaveBeenCalled();
+    expect(stateRef.current.objectSelectionSession?.status).toBe('error');
+    expect(stateRef.current.objectSelectionSession?.error?.code).toBe('prompt_needs_refinement');
+    expect(announce).toHaveBeenCalledWith(expect.stringContaining('candidate boundary'));
+  });
+
   it('does not apply a ready candidate until the visible target is reviewed', async () => {
     const { doc, session } = await sessionFor();
     session.reviewedCandidateKey = undefined;

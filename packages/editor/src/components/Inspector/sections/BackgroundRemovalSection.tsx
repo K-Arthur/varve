@@ -131,11 +131,19 @@ function formatPromptDiagnostics(
     | {
         anchoredCoverage: number;
         componentCount: number;
+        positiveAnchorSupport?: Array<{ coveredFraction: number }>;
       }
     | undefined,
 ): string | null {
   if (!diagnostics) return null;
-  return `target evidence ${Math.round(Math.max(0, Math.min(1, diagnostics.anchoredCoverage)) * 100)}% anchored · ${diagnostics.componentCount} connected region${diagnostics.componentCount === 1 ? '' : 's'}`;
+  const anchorSupport = diagnostics.positiveAnchorSupport?.length
+    ? Math.min(...diagnostics.positiveAnchorSupport.map(({ coveredFraction }) => coveredFraction))
+    : null;
+  const anchorSummary =
+    anchorSupport == null
+      ? ''
+      : ` · include support ${Math.round(Math.max(0, Math.min(1, anchorSupport)) * 100)}%`;
+  return `target evidence ${Math.round(Math.max(0, Math.min(1, diagnostics.anchoredCoverage)) * 100)}% anchored · ${diagnostics.componentCount} connected region${diagnostics.componentCount === 1 ? '' : 's'}${anchorSummary}`;
 }
 
 function formatPersistedMaskScore(provenance: {

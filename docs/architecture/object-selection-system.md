@@ -269,6 +269,17 @@ still satisfying the point prompt. An edge-reaching box is still a hint, not a
 hard crop: adjacent disconnected components are independently checked and
 unsupported islands are pruned or rejected.
 
+The same gate checks the local support around every positive point. A point that
+lands on or immediately beside the proposed mask boundary can satisfy point
+containment while identifying only a fragment of a larger object. On normal
+photographic dimensions, a point-only candidate with no sufficiently supported
+interior include point remains previewable but is marked `requiresRefinement`;
+the user must add an include point deeper inside the object or draw a box. When
+several model candidates are available, the default candidate prefers one with
+robust point support over a higher-scoring candidate that needs this refinement.
+The support percentage is diagnostic evidence, not semantic confidence, and a
+box prompt supplies the explicit extent evidence for this particular check.
+
 Generative Edit also checks the effective mask immediately before inference.
 Fill, Remove, and Replace warn at 90% coverage and fail closed at 99.5% or
 more, because a near-full edit region leaves too little source context to
