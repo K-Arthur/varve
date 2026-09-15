@@ -36,7 +36,10 @@ import { prepareImageMaskMapper } from '../tools/imageMaskCoordinates';
 import { normalizeSam2Prompts } from '../tools/sam2PromptCoordinates';
 import { areaSelectionFromMaskCoverage } from '../tools/selectionMask';
 import { fingerprintImageData } from './imageFingerprint';
-import { rankPromptedMaskCandidates } from './promptedMaskValidation';
+import {
+  rankPromptedMaskCandidates,
+  validatePromptedMaskCandidate,
+} from './promptedMaskValidation';
 import {
   type PromptedEmbedding,
   type PromptedMaskCandidate,
@@ -466,25 +469,6 @@ export function useSam2Segmentation(
           }
           const hasPromptConstraints =
             previousSession.points.length > 0 || previousSession.box !== null;
-          if (hasPromptConstraints && candidate.promptContainment !== 1) {
-            const live = stateRef.current.objectSelectionSession;
-            if (generation === generationRef.current && live?.nodeId === nodeId) {
-              writeTransientSession({
-                ...live,
-                status: 'error',
-                error: {
-                  code: 'prompt_not_honored',
-                  message:
-                    'This candidate does not honor the reviewed prompts. Create a new preview before applying it.',
-                  retryable: true,
-                },
-              });
-            }
-            announcerRef.current?.announce(
-              'This candidate does not honor the reviewed prompts. Create a new preview before applying it.',
-            );
-            return null;
-          }
           if (
             !maskMatchesDimensions(candidate.mask, previousSession.width, previousSession.height)
           ) {
@@ -523,6 +507,40 @@ export function useSam2Segmentation(
             announcerRef.current?.announce(
               'The reviewed candidate contains no pixels. Adjust the prompts and try again.',
             );
+            return null;
+          }
+          const reviewedCandidateValidation = validatePromptedMaskCandidate(
+            {
+              mask: candidate.mask,
+              width: previousSession.width,
+              height: previousSession.height,
+              score: candidate.confidence,
+            },
+            {
+              points: previousSession.points,
+              box: previousSession.box ?? undefined,
+            },
+            previousSession.width,
+            previousSession.height,
+          );
+          if (hasPromptConstraints && !reviewedCandidateValidation.valid) {
+            const live = stateRef.current.objectSelectionSession;
+            const message =
+              reviewedCandidateValidation.reason === 'positive-anchor-required'
+                ? 'Add an include point or a box before applying this selection; exclude points only refine an identified object.'
+                : 'This candidate does not honor the reviewed prompts. Create a new preview before applying it.';
+            if (generation === generationRef.current && live?.nodeId === nodeId) {
+              writeTransientSession({
+                ...live,
+                status: 'error',
+                error: {
+                  code: 'prompt_not_honored',
+                  message,
+                  retryable: true,
+                },
+              });
+            }
+            announcerRef.current?.announce(message);
             return null;
           }
           abortRef.current?.abort();
@@ -1002,6 +1020,15 @@ export function useSam2Segmentation(
         markFailure({
           code: 'invalid_prompt_geometry',
           message: 'Object Selection needs a point or a box with positive area.',
+          retryable: true,
+        });
+        return null;
+      }
+      if (!normPrompts.box && !(normPrompts.points ?? []).some((point) => point.label === 1)) {
+        markFailure({
+          code: 'positive_prompt_required',
+          message:
+            'Add an include point or a box before running Object Selection; exclude points only refine an identified object.',
           retryable: true,
         });
         return null;

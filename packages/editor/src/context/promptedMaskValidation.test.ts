@@ -100,6 +100,28 @@ describe('prompted mask validation', () => {
     expect(rejected.reason).toBe('exclude-point-covered');
   });
 
+  it('rejects a point-only request that has no positive object anchor', () => {
+    const result = validatePromptedMaskCandidate(
+      candidate(
+        8,
+        8,
+        [
+          [4, 4],
+          [4, 5],
+          [5, 4],
+          [5, 5],
+        ],
+        0.99,
+      ),
+      { points: [{ x: 4 / 7, y: 4 / 7, label: 0 }] },
+      8,
+      8,
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.reason).toBe('positive-anchor-required');
+  });
+
   it('rejects a one-pixel box overlap from a broad wrong mask', () => {
     const result = validatePromptedMaskCandidate(
       candidate(

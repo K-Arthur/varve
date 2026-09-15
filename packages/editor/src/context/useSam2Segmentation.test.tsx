@@ -48,7 +48,11 @@ async function sessionFor(options: SetupOptions = {}): Promise<{
   fingerprint: string;
 }> {
   const size = options.size ?? 8;
-  const mask = options.mask ?? new Uint8Array(size * size).fill(255);
+  const defaultMask = new Uint8Array(size * size);
+  const anchorX = Math.min(size - 1, Math.max(0, Math.round((4 / 7) * (size - 1))));
+  const anchorY = Math.min(size - 1, Math.max(0, Math.round((4 / 7) * (size - 1))));
+  defaultMask[anchorY * size + anchorX] = 255;
+  const mask = options.mask ?? defaultMask;
   const doc = addNode(
     createDocument('Selection test', true),
     makeImageShapeNode('image', {
@@ -82,7 +86,7 @@ async function sessionFor(options: SetupOptions = {}): Promise<{
       height: size,
       candidates,
       selectedCandidate: options.selectedCandidate ?? 0,
-      points: [{ x: 4, y: 4, label: 1 }],
+      points: [{ x: 4 / 7, y: 4 / 7, label: 1 }],
       box: null,
       sourceLocator: 'source',
       sourceFingerprint: fingerprint,
@@ -185,8 +189,11 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
   });
 
   it('pins the candidate index supplied by the output action', async () => {
-    const strong = new Uint8Array(64).fill(255);
-    const weak = new Uint8Array(64).fill(128);
+    const strong = new Uint8Array(64);
+    strong[0] = 255;
+    strong[4 * 8 + 4] = 255;
+    const weak = new Uint8Array(64);
+    weak[4 * 8 + 4] = 128;
     const { doc, session } = await sessionFor({
       mask: strong,
       alternateMask: weak,
@@ -295,7 +302,7 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
     expect(stateRef.current.objectSelectionSession?.error?.code).toBe('mapping_changed');
   });
 
-  it('refuses a reviewed candidate that does not honor the prompts', async () => {
+  it('uses the actual reviewed mask instead of stale prompt metadata', async () => {
     const { doc, session } = await sessionFor();
     session.candidates[0]!.promptContainment = 0;
     const { result, stateRef, setAreaSelection } = setup(session, doc);
@@ -309,9 +316,8 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
     });
 
     expect(controls.infer).not.toHaveBeenCalled();
-    expect(setAreaSelection).not.toHaveBeenCalled();
-    expect(stateRef.current.objectSelectionSession?.status).toBe('error');
-    expect(stateRef.current.objectSelectionSession?.error?.code).toBe('prompt_not_honored');
+    expect(setAreaSelection).toHaveBeenCalledTimes(1);
+    expect(stateRef.current.objectSelectionSession).toBeNull();
   });
 
   it('fails closed when a fresh prompt is outside the visible image', async () => {
@@ -339,5 +345,41 @@ describe('useSam2Segmentation reviewed-candidate commit', () => {
     expect(controls.infer).not.toHaveBeenCalled();
     expect(stateRef.current.objectSelectionSession?.error?.code).toBe('prompt_out_of_bounds');
     expect(announce).toHaveBeenCalledWith(expect.stringContaining('1 point'));
+  });
+
+  it('does not run inference for an exclude-only point request', async () => {
+    const { doc } = await sessionFor();
+    const { result, stateRef } = setup(null, doc);
+
+    await act(async () => {
+      await result.current.applySam2Segmentation({
+        nodeId: 'image',
+        prompts: { points: [{ x: 4 / 7, y: 4 / 7, label: 0 }] },
+        operation: 'preview',
+      });
+    });
+
+    expect(controls.infer).not.toHaveBeenCalled();
+    expect(stateRef.current.objectSelectionSession?.error?.code).toBe('positive_prompt_required');
+  });
+
+  it('rechecks the actual reviewed mask instead of trusting stored prompt metadata', async () => {
+    const { doc, session } = await sessionFor();
+    session.candidates[0]!.mask.fill(0);
+    session.candidates[0]!.mask[0] = 255;
+    const { result, stateRef, setAreaSelection } = setup(session, doc);
+
+    await act(async () => {
+      await result.current.applySam2Segmentation({
+        nodeId: 'image',
+        prompts: { points: session.points },
+        operation: 'selection',
+      });
+    });
+
+    expect(controls.infer).not.toHaveBeenCalled();
+    expect(setAreaSelection).not.toHaveBeenCalled();
+    expect(stateRef.current.objectSelectionSession?.status).toBe('error');
+    expect(stateRef.current.objectSelectionSession?.error?.code).toBe('prompt_not_honored');
   });
 });

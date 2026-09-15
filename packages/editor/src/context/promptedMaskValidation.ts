@@ -42,6 +42,7 @@ export interface PromptedMaskValidation {
   reason:
     | 'invalid-geometry'
     | 'no-prompts'
+    | 'positive-anchor-required'
     | 'include-point-missed'
     | 'exclude-point-covered'
     | 'box-overlap-too-small'
@@ -94,6 +95,12 @@ export function validatePromptedMaskCandidate(
   const hasBox = prompts.box !== undefined;
   const constraintCount = points.length + (hasBox ? 1 : 0);
   if (constraintCount === 0) return invalid('no-prompts');
+  // Negative points refine an identified object; by themselves they do not
+  // identify one. A point-only request without an include anchor would leave
+  // the model free to return an arbitrary foreground region.
+  if (!hasBox && !points.some((point) => point.label === 1)) {
+    return invalid('positive-anchor-required');
+  }
   if (
     points.some(
       (point) =>
@@ -138,7 +145,12 @@ export function validatePromptedMaskCandidate(
     }
   }
 
-  if (coveredPixels / (sourceWidth * sourceHeight) >= MAX_ACCEPTED_MASK_COVERAGE) {
+  // A one-pixel source has no meaningful boundary to review; keep this
+  // degenerate case usable for callers that operate on tiny raster assets.
+  if (
+    sourceWidth * sourceHeight > 1 &&
+    coveredPixels / (sourceWidth * sourceHeight) >= MAX_ACCEPTED_MASK_COVERAGE
+  ) {
     return invalid('mask-too-broad', satisfied / constraintCount);
   }
 

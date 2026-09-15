@@ -158,6 +158,14 @@ out-of-bounds message; it is never silently dropped or replaced with a box
 made from the remaining corners. This keeps a partial gesture from becoming a
 different object-selection request.
 
+A point-only request must contain at least one include point. Exclude points
+are refinements to an identified object, not an object identity by themselves;
+an exclude-only request stops before model inference with an actionable error.
+When a candidate is applied, the editor recomputes prompt containment from the
+candidate's actual source-sized mask and the session's retained prompts. It
+does not trust a cached percentage, so a mutated, stale, or mismatched mask
+cannot inherit a previous candidate's “prompt match” status.
+
 ## Mask persistence
 
 The preview mask is a `Uint8Array` in transient editor state. It is not
