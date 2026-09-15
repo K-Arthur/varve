@@ -106,6 +106,7 @@ export type { FloatingPortalProps, FloatingPositionResult } from './FloatingPort
 export { FloatingPortal } from './FloatingPortal';
 export type { FocusTrapProps } from './FocusTrap';
 export { FocusTrap } from './FocusTrap';
+export { FOCUSABLE_SELECTOR, focusAdjacentTabbable, getFocusableElements } from './focusOrder';
 export type { IconButtonProps } from './IconButton';
 export { IconButton } from './IconButton';
 export type { InlineActivityIndicatorProps } from './InlineActivityIndicator';

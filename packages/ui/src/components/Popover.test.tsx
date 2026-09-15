@@ -4,6 +4,18 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Popover } from './Popover';
 
+// jsdom implements `showPopover`/`hidePopover` but not the popover UA styles
+// (`:popover-open` still computes `display: none`). Delete the API before the
+// component module captures its feature flag so these tests exercise the
+// registry-backed path — the same path non-native browsers use — and the
+// Chromium spec covers the native path.
+vi.hoisted(() => {
+  const proto = HTMLElement.prototype as unknown as Record<string, unknown>;
+  delete proto.showPopover;
+  delete proto.hidePopover;
+  delete proto.togglePopover;
+});
+
 afterEach(cleanup);
 
 vi.mock('@floating-ui/dom', () => ({
@@ -22,12 +34,6 @@ vi.mock('@floating-ui/dom', () => ({
   size: vi.fn(),
   arrow: vi.fn(),
 }));
-
-function getPopoverEl() {
-  const el = document.querySelector('[popover]');
-  if (!el) throw new Error('popover element not found');
-  return el as HTMLElement;
-}
 
 function getTriggerWrapper() {
   const button = screen.getByRole('button', { name: /^open$/i });
@@ -49,20 +55,99 @@ describe('Popover', () => {
     expect(wrapper).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('closes on Escape', async () => {
+  it('closes on Escape while focus is still on the trigger', async () => {
+    // Regression: a pointer-opened native popover leaves focus on the trigger,
+    // and the browser only handles Escape while focus is inside the panel, so
+    // the surface used to stay open for the most common dismissal path.
     render(<Popover popover={<div>content</div>}>Open</Popover>);
     const button = screen.getByRole('button', { name: 'Open' });
+    button.focus();
     fireEvent.click(button);
     const wrapper = getTriggerWrapper();
     expect(wrapper).toHaveAttribute('aria-expanded', 'true');
 
-    const popoverEl = getPopoverEl();
     await act(async () => {
-      popoverEl.hidePopover();
+      fireEvent.keyDown(document, { key: 'Escape' });
     });
     await waitFor(() => {
       expect(wrapper).toHaveAttribute('aria-expanded', 'false');
     });
+    expect(button).toHaveFocus();
+  });
+
+  it('closes on outside pointerdown and keeps focus on the pressed target', async () => {
+    render(
+      <div>
+        <Popover popover={<div>content</div>}>Open</Popover>
+        <button type="button" data-testid="outside">
+          Outside
+        </button>
+      </div>,
+    );
+    const button = screen.getByRole('button', { name: 'Open' });
+    button.focus();
+    fireEvent.click(button);
+    const wrapper = getTriggerWrapper();
+    expect(wrapper).toHaveAttribute('aria-expanded', 'true');
+
+    const outside = screen.getByTestId('outside');
+    outside.focus();
+    await act(async () => {
+      fireEvent.pointerDown(outside);
+    });
+    await waitFor(() => {
+      expect(wrapper).toHaveAttribute('aria-expanded', 'false');
+    });
+    expect(outside).toHaveFocus();
+  });
+
+  it('does not close when pointerdown lands inside the panel', async () => {
+    render(<Popover popover={<button type="button">Inside</button>}>Open</Popover>);
+    const button = screen.getByRole('button', { name: 'Open' });
+    fireEvent.click(button);
+    const wrapper = getTriggerWrapper();
+    expect(wrapper).toHaveAttribute('aria-expanded', 'true');
+    const inside = await screen.findByRole('button', { name: 'Inside' });
+
+    await act(async () => {
+      fireEvent.pointerDown(inside);
+    });
+    expect(wrapper).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('moves focus into the panel when opened from the keyboard', async () => {
+    render(<Popover popover={<button type="button">First action</button>}>Open</Popover>);
+    const button = screen.getByRole('button', { name: 'Open' });
+    button.focus();
+    fireEvent.keyDown(button, { key: 'Enter' });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'First action' })).toHaveFocus();
+    });
+  });
+
+  it('does not steal focus when opened with a pointer', async () => {
+    render(<Popover popover={<button type="button">First action</button>}>Open</Popover>);
+    const button = screen.getByRole('button', { name: 'Open' });
+    button.focus();
+    fireEvent.click(button);
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    });
+    expect(button).toHaveFocus();
+  });
+
+  it('respects a consumer-declared aria-haspopup instead of forcing dialog', () => {
+    render(
+      <Popover popover={<div role="listbox" aria-label="Choices" />}>
+        <button type="button" aria-haspopup="listbox">
+          Open
+        </button>
+      </Popover>,
+    );
+    expect(screen.getByRole('button', { name: 'Open' })).toHaveAttribute(
+      'aria-haspopup',
+      'listbox',
+    );
   });
 
   it('has correct placement (default bottom)', async () => {
@@ -87,22 +172,13 @@ describe('Popover', () => {
     expect(screen.getByText('Popover content')).toBeInTheDocument();
   });
 
-  it('closes on outside click', async () => {
-    render(
-      <div>
-        <Popover popover={<div>content</div>}>Open</Popover>
-        <div>Outside</div>
-      </div>,
-    );
+  it('closes when the trigger is activated a second time', async () => {
+    render(<Popover popover={<div>content</div>}>Open</Popover>);
     const button = screen.getByRole('button', { name: 'Open' });
     fireEvent.click(button);
     const wrapper = getTriggerWrapper();
     expect(wrapper).toHaveAttribute('aria-expanded', 'true');
-
-    const popoverEl = getPopoverEl();
-    await act(async () => {
-      popoverEl.hidePopover();
-    });
+    fireEvent.click(button);
     await waitFor(() => {
       expect(wrapper).toHaveAttribute('aria-expanded', 'false');
     });
