@@ -1674,6 +1674,25 @@ export function ContentAwareFillDialog({
       announce('The selected Object Selection candidate is not available');
       return;
     }
+    // The render-time review key uses the publication fingerprint so it does
+    // not rescan a large photograph on every React render. Re-read the mask
+    // once at this handoff boundary as well: a candidate that changed after
+    // review must not become the editable generation mask under old approval.
+    const exactObjectSelectionReviewKey = objectSelectionCandidateReviewKey(
+      objectSelection,
+      objectSelection.selectedCandidate,
+      { verifyMask: true },
+    );
+    if (
+      !exactObjectSelectionReviewKey ||
+      exactObjectSelectionReviewKey !== objectSelectionReviewKey ||
+      exactObjectSelectionReviewKey !== objectSelection.reviewedCandidateKey
+    ) {
+      announce(
+        'The reviewed Object Selection changed after inspection. Create a new preview and review it again before using it for generation.',
+      );
+      return;
+    }
     if (candidate.promptDiagnostics?.requiresRefinement) {
       announce(
         'The highlighted selection reaches an unsupported image edge. Add an include point on that extent or draw a box around the full target before using it for generation.',
@@ -2095,6 +2114,29 @@ export function ContentAwareFillDialog({
       return;
     }
     if (!imageSrc || !modeAvailable || !canGenerate) return;
+    if (maskOrigin === 'object-selection') {
+      // This is the last guard before a potentially long native job. The
+      // visible key is publication-cached for render performance; generation
+      // must use an exact mask reread so a mutated candidate cannot silently
+      // become the procedure's target.
+      const exactObjectSelectionReviewKey = objectSelection
+        ? objectSelectionCandidateReviewKey(objectSelection, objectSelection.selectedCandidate, {
+            verifyMask: true,
+          })
+        : null;
+      if (
+        !exactObjectSelectionReviewKey ||
+        exactObjectSelectionReviewKey !== objectSelectionReviewKey ||
+        exactObjectSelectionReviewKey !== objectSelection?.reviewedCandidateKey ||
+        exactObjectSelectionReviewKey !== reviewedObjectSelectionKey
+      ) {
+        const message =
+          'The reviewed Object Selection changed after inspection. Create a new preview and review it again before generating.';
+        setErrorMessage(message);
+        announce(message);
+        return;
+      }
+    }
     const jobSnapshot = currentJobSnapshotRef.current;
     if (!jobSnapshot) return;
     const token = jobControllerRef.current.start(jobSnapshot);
@@ -2767,6 +2809,10 @@ export function ContentAwareFillDialog({
     variationCount,
     objectSelectionNeedsReview,
     objectSelectionNeedsRefinement,
+    maskOrigin,
+    objectSelection,
+    objectSelectionReviewKey,
+    reviewedObjectSelectionKey,
   ]);
 
   const handleApply = useCallback(async () => {

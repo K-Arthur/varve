@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { ObjectSelectionSession } from '../../context/objectSelectionTypes';
-import { objectSelectionCandidateReviewKey } from '../../context/objectSelectionTypes';
+import {
+  objectSelectionCandidateMaskFingerprint,
+  objectSelectionCandidateReviewKey,
+} from '../../context/objectSelectionTypes';
 import type { Sam2NormalizedPrompts } from '../../tools/sam2PromptCoordinates';
 import { buildGenerativeEditSelectionEvidence } from './selectionEvidence';
 
@@ -121,5 +124,20 @@ describe('generative edit selection evidence', () => {
     session.candidates[0]!.mask[50 * session.width + 50] = 255;
 
     expect(objectSelectionCandidateReviewKey(session, 0)).not.toBe(reviewedKey);
+  });
+
+  it('uses an exact mask reread at the generation handoff', () => {
+    const session = objectSession();
+    session.candidates[0]!.maskFingerprint = objectSelectionCandidateMaskFingerprint(session, 0)!;
+    const reviewedKey = objectSelectionCandidateReviewKey(session, 0)!;
+
+    // Normal renders trust the publication fingerprint. The destructive
+    // handoff opts into an exact reread and must detect this mutation.
+    session.candidates[0]!.mask[0] = 255;
+
+    expect(objectSelectionCandidateReviewKey(session, 0)).toBe(reviewedKey);
+    expect(objectSelectionCandidateReviewKey(session, 0, { verifyMask: true })).not.toBe(
+      reviewedKey,
+    );
   });
 });
