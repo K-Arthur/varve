@@ -72,7 +72,7 @@ test.describe('workspace toolbar visual QA', () => {
     await toolbar.screenshot({ path: testInfo.outputPath('toolbar-design-narrow.png') });
   });
 
-  test('collapses whole category groups into More tools when the canvas is tight', async ({
+  test('keeps primary tools in the row and routes low-priority tools through More tools when the canvas is tight', async ({
     page,
   }, testInfo) => {
     await page.setViewportSize({ width: 480, height: 700 });
@@ -80,10 +80,12 @@ test.describe('workspace toolbar visual QA', () => {
 
     const toolbar = page.locator('[data-testid="toolbar"]');
     await expect(toolbar).toBeVisible();
+    // Recovery/navigation tools and the active tool never yield, at any width.
     await expect(toolbar.locator('[data-tool="select"]')).toBeVisible();
 
-    const more = toolbar.getByRole('button', { name: 'More tools' });
+    const more = toolbar.getByRole('button', { name: /More tools/ });
     await expect(more).toBeVisible();
+    await expect(more).toHaveAttribute('aria-label', /hidden by window width/);
     await more.click();
 
     const menu = page.locator('.varve-ctxmenu');
@@ -91,12 +93,16 @@ test.describe('workspace toolbar visual QA', () => {
     await expect(menu.getByRole('menuitem', { name: 'Vector' })).toBeVisible();
     await expect(menu.getByRole('menuitem', { name: 'Layout' })).toBeVisible();
 
+    // Warp is an advanced vector helper: it is the kind of tool the retention
+    // policy sends to More, while creation tools keep their row slot.
     await menu.getByRole('menuitem', { name: 'Vector' }).click();
     const vectorMenu = page.getByRole('menu', { name: 'Vector submenu' });
-    await expect(vectorMenu.getByRole('menuitem', { name: 'Pen' })).toBeVisible();
-    await vectorMenu.getByRole('menuitem', { name: 'Pen' }).click();
-    await expect(toolbar.locator('[data-tool="pen"]')).toBeVisible();
-    await expect(toolbar.locator('[data-tool="pen"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(vectorMenu.getByRole('menuitem', { name: 'Warp' })).toBeVisible();
+    await vectorMenu.getByRole('menuitem', { name: 'Warp' }).click();
+
+    // Activating a hidden tool pulls it back into the row and marks it active.
+    await expect(toolbar.locator('[data-tool="warp"]')).toBeVisible();
+    await expect(toolbar.locator('[data-tool="warp"]')).toHaveAttribute('aria-pressed', 'true');
 
     await toolbar.screenshot({ path: testInfo.outputPath('toolbar-category-overflow.png') });
     await page.screenshot({ path: testInfo.outputPath('toolbar-category-menu.png') });
@@ -108,7 +114,16 @@ test.describe('workspace toolbar visual QA', () => {
     await page.setViewportSize(VIEWPORT);
     await navigateToEditor(page);
     await page.getByRole('menuitem', { name: 'View' }).click();
-    await page.getByRole('menuitem', { name: /Customize Workspace/ }).click();
+    // The View menu is taller than the viewport at this size (workspace
+    // switcher + reset commands + focus modes + colour-blindness modes), and
+    // it scrolls inside its own clamped portal surface. Pointer clicks on an
+    // item below the fold need that nested scroll to be driven explicitly;
+    // keyboard activation reaches the item without depending on hit-testing
+    // an off-screen row.
+    const customizeItem = page.getByRole('menuitem', { name: /Customize Workspace/ });
+    await customizeItem.focus();
+    await expect(customizeItem).toBeFocused();
+    await page.keyboard.press('Enter');
 
     const dialog = page.getByRole('dialog', { name: /Customize Design workspace/i });
     await expect(dialog).toBeVisible();

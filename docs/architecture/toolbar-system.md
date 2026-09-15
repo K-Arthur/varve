@@ -1,0 +1,127 @@
+# Toolbar system
+
+Canonical contract for the editor's command surfaces: what each bar is for, how
+its contents are composed, how it behaves when space runs out, and how it is
+operated without a pointer. Related docs: `workspace-system.md` (per-mode
+configuration and overrides), `spacing-system.md` and
+`interface-sizing-system.md` (tokens), `menu-system.md` (the flyout and
+overflow menus themselves), `focus-navigation.md` (region order).
+
+## Surfaces and ownership
+
+| Surface | Component | Job |
+|---|---|---|
+| Menubar | `Menubar.tsx` | Document/application commands; also hosts the workspace switcher, undo/redo, and zoom |
+| Context bar | `components/ContextControlBar/` | Selection-following properties directly under the menubar |
+| Toolbar (palette) | `components/FloatingToolbar/` | Tool switching, tool options, flyout groups, responsive overflow |
+| Text quick bar | `components/FloatingTextBar/` | In-canvas typography while a text edit session is active |
+| Selection quick bar | `components/SelectionQuickBar/` | Selection-anchored actions (group, boolean, image operations) |
+| Status bar | `StatusBar.tsx` | Instrumentation and view controls, priority-tiered |
+
+The palette is deliberately **not** a second Inspector. It carries tools and
+their options; property editing belongs to the context bar (single selection)
+and the Inspector (complete editor). When a control exists in both, both write
+through the same editor command, so they cannot disagree.
+
+## Composition
+
+`WorkspaceConfig.toolbar` declares order, group separators, and flyouts.
+`workspace/toolbarComposition.ts#composeToolbar` is the single translator from
+declared config to rendered slots:
+
+- first declaration of a tool wins; duplicates are dropped;
+- a tool claimed by a flyout renders once, as the flyout anchored at its first
+  declared member, inheriting that member's `groupStart`;
+- flyouts whose members are not in the main row (boolean operations) are
+  appended so they stay reachable;
+- an empty flyout is not rendered.
+
+Tool identity, label, icon, and shortcut come from `tools/toolRegistry.ts`;
+display strings come from `workspace/toolLabels.ts` and
+`shortcuts/toolShortcutLabel.ts`. Never hard-code a label or a shortcut in the
+palette — remapped keybindings must flow through `getEffectiveBinding`.
+
+## Responsive overflow
+
+When the palette's canvas cell is too narrow for every declared slot, the row
+collapses slots until it fits. The policy lives in
+`workspace/toolbarRetention.ts` and is enforced in
+`components/FloatingToolbar/useToolbarOverflow.ts`:
+
+1. **Never collapsed:** slots containing an essential recovery tool
+   (`select`, `hand`, `zoom`) or the active tool.
+2. **Everything else is scored** by retention — higher survives longer.
+   Category defaults rank navigation > creation (shapes, typography, layout) >
+   editing (vector, drawing, selection) > raster > inspection > AI; explicit
+   overrides cover tools whose category does not describe reachability
+   (Slice, Scale, Warp, and the boolean commands at score 0).
+3. **Collapse is per slot, not per declared group.** Group-level collapse was
+   too coarse: pinning the Select group to keep Select also pinned Slice, Pixel
+   Info, Scale, and Inspect, which forced Text, Frame, Table, Pen, Knife, and
+   Shape Builder out of the row at the default window size.
+4. **The More control sits at the trailing edge** of the row and is `sticky`
+   to the scrollport, so it cannot be scrolled out of reach. Its accessible
+   name reports how many tools are hidden.
+5. **The More menu** (`getOverflowMenuItems`) lists only the collapsed tools,
+   grouped by registry category, and routes through the same `activate()`
+   path as the row.
+6. **Collapse is one-way until the composition or container size changes.**
+   Re-expanding as soon as the row happens to fit oscillates between "all
+   visible → overflow → collapse one → fits → expand" on every layout pass.
+   A container resize resets the collapsed set and the next pass re-collapses
+   from scratch.
+
+Surviving slots inherit a `groupStart` when the first slot of their declared
+group was collapsed, so separators keep expressing the declared grouping.
+
+## Keyboard and accessibility contract
+
+The palette is an APG toolbar (`@varve/ui`'s `Toolbar`):
+
+- **One tab stop.** Exactly one rendered button carries `tabindex="0"`; all
+  others are `-1`. The roving index is re-applied on every commit and via a
+  subtree `MutationObserver`, because the button set can appear or change after
+  the first commit (workspace-config hydration, mode switches, responsive
+  collapse). A focus-index-only effect silently skipped those commits and left
+  every button at the browser default `tabIndex = 0`.
+- **Arrows move focus** (Left/Right and Up/Down), wrapping at the ends;
+  `Home`/`End` jump to the first/last enabled tool. Disabled flyout primaries
+  are skipped, and the roving stop never rests on a disabled control.
+- **Focus is never stolen.** Focus moves only while the toolbar already
+  contains it.
+- **Shortcuts are exposed** through `aria-keyshortcuts` derived from the same
+  effective binding as the tooltip, and the tooltip carries the display label.
+- **Buttons name the consequence.** Icon-only controls carry an `aria-label`
+  that describes the action, not the glyph.
+
+## Capability gating
+
+Touch-only affordances are gated rather than permanently rendered: the
+"Multi-select" modifier substitute (tap to add to selection) appears only when
+the device reports touch input (`useHasTouchInput`) or when it is already on,
+and carries a visible label because touch devices have no hover. On a
+mouse-only device it is inert chrome.
+
+## Target and density rules
+
+- Compact controls are 32×32 CSS px for fine pointers, promoted to
+  `--touch-target-min` (44px) under `(any-pointer: coarse)`. This satisfies
+  WCAG 2.2 SC 2.5.8 (minimum 24×24) with headroom and reaches the enhanced
+  44×44 target on touch.
+- Toolbar spacing uses `--space-toolbar` / `--space-toolbar-item`; the palette,
+  context bar, text bar, and quick bar share one rhythm so switching surfaces
+  never moves the control centreline.
+- Colours resolve to semantic roles (`--elevation-surface-raised`,
+  `--color-interactive-*`); no raw hex or one-off spacing literals.
+
+## Verification
+
+- Unit: `packages/ui/src/components/Toolbar.test.tsx` (roving tabindex
+  including late-arriving children), `workspace/toolbarRetention.test.ts`
+  (retention ordering and per-slot collapse),
+  `components/FloatingToolbar/FloatingToolbar.test.tsx` (per-workspace
+  composition), `components/ContextControlBar/ContextControlBar.test.tsx`
+  (shape fill/stroke transactions).
+- Browser: `tests/e2e/canvas/toolbar-layout.spec.ts` (chrome overlap),
+  `toolbar-per-mode.spec.ts`, `workspace-toolbar-visual.spec.ts`
+  (per-workspace rendering), `font-toolbar-visual.spec.ts` (text quick bar).

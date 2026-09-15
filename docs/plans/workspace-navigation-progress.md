@@ -37,7 +37,9 @@ decisions). Milestones landed 2026-08-05.
 ## Deferred (reasons in architecture doc §9)
 
 - [ ] Viewport back/forward history (side buttons use selection history).
-- [ ] Toolbar composition driven by `WorkspaceConfig.toolbar`.
+- [x] Toolbar composition driven by `WorkspaceConfig.toolbar` — live via
+      `workspace/toolbarComposition.ts#composeToolbar` (see
+      `docs/architecture/toolbar-system.md`); the §9 deferral note is stale.
 - [ ] Panel collapse/ordering state engine.
 - [ ] Persist open tabs across restart.
 - [ ] Page rename + delete confirmation UI.

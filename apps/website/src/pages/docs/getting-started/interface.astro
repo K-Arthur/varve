@@ -22,7 +22,8 @@ import { sitePath } from '../../../lib/siteUrl';
         </p>
         <ul>
           <li><strong>Menubar</strong> — the top bar with File, Edit, View, Object, and other menus, alongside document renaming and <strong>dynamic context-aware shortcuts</strong> tailored to the current selection</li>
-          <li><strong>Toolbar</strong> — the floating bar at the bottom of the canvas with drawing and selection tools, plus <strong>Tool options</strong> for tools that have settings</li>
+          <li><strong>Context bar</strong> — the thin strip directly under the menubar that follows the selection: nothing selected shows quick tool pills, an image shows Crop / Remove BG / Vectorize, a shape shows fill, stroke, and stroke width, a text layer shows font controls, a frame shows orientation and clip, and a multi-selection shows group, align, and boolean actions</li>
+          <li><strong>Toolbar</strong> — the floating palette centred at the bottom of the canvas, holding the tools the active workspace declares (with flyout groups such as Shapes), a <strong>More tools</strong> control for anything that no longer fits, and <strong>Tool options</strong> for tools that have settings</li>
           <li><strong>Design Canvas navigator</strong> — the surface list above Layers for creating, naming, and switching open-ended design canvases</li>
           <li><strong>Design canvas</strong> — the central workspace where you create and edit your design, streamlined with hairline boundaries and direct-manipulation edge restore pills when panels are collapsed</li>
           <li><strong>Layers Panel</strong> — an elevated, collapsible floating container showing artwork on the active canvas (Ctrl+B) with a bespoke SVG collapse toggle and 14px splitter drag handle</li>
@@ -82,7 +83,9 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Toolbar</h2>
         <p>
-          The toolbar on the left side of the editor contains all of Varve's tools. Each tool has a keyboard shortcut for quick switching:
+          The floating toolbar sits at the bottom centre of the canvas and contains the
+          tools the active workspace declares. Each tool has a keyboard shortcut for
+          quick switching:
         </p>
         <ul>
           <li><code>V</code> — Select tool (move, resize, rotate)</li>
@@ -96,6 +99,23 @@ import { sitePath } from '../../../lib/siteUrl';
           <li><code>H</code> — Hand tool (pan canvas)</li>
           <li><code>Z</code> — Zoom tool</li>
         </ul>
+        <h3>Keyboard access</h3>
+        <p>
+          The toolbar is a single tab stop. Press <code>Tab</code> to enter it, then
+          move between tools with the <strong>arrow keys</strong>; <code>Home</code> and
+          <code>End</code> jump to the first and last tool. A tooltip shows each tool's
+          name and current shortcut, and shortcuts you remap are reflected in both.
+        </p>
+        <h3>Groups, flyouts, and overflow</h3>
+        <p>
+          Related tools are grouped by separators, and a tool with a chevron opens a
+          <strong>flyout</strong> menu — Shapes holds rectangle, ellipse, polygon, and
+          star. When the window is too narrow for every tool, the palette keeps the
+          tools you reach for most (creation first, then selection, editing, and
+          navigation) and moves the rest behind the <strong>More tools</strong>
+          control at the end of the row, which names how many tools it holds. The More
+          menu groups the hidden tools by category, so nothing becomes unreachable.
+        </p>
         <p>See the <a href={sitePath('/docs/keyboard-shortcuts')}>full keyboard shortcuts reference</a> and <a href={sitePath('/docs/tools/vector')}>Vector Tools</a> for detailed usage.</p>
       </section>
 
@@ -230,8 +250,8 @@ import { sitePath } from '../../../lib/siteUrl';
         </p>
         <p>
           The toolbar itself is composed per workspace: tools, their order, and flyout
-          groups all come from the workspace's configuration, so the same vertical
-          strip leads with the tools each task actually needs. See the
+          groups all come from the workspace's configuration, so the same horizontal
+          palette leads with the tools each task actually needs. See the
           <a href={sitePath('/docs/workspaces')}>Workspaces guide</a> for the full mode table.
         </p>
       </section>

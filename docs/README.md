@@ -236,6 +236,7 @@ The current automated and manual accessibility evidence matrix is in
 | `architecture/shine-border-system.md` | Restrained decorative emphasis contract, semantic allowlist, fallbacks, and production ceiling |
 | `architecture/button-action-system.md` | Semantic button taxonomy, canonical action variants, state behavior, and validation contract |
 | `architecture/workspace-system.md` | Workspace mode contract, resolution, and persistence |
+| `architecture/toolbar-system.md` | Command-surface ownership, toolbar composition, responsive overflow retention, keyboard/target contract, capability gating |
 | `architecture/overlay-system.md` | Shared floating geometry, owner-document, overlay-tree, dismissal, and focus contracts |
 | `architecture/menu-system.md` | Shared menu taxonomy, visual contract, metadata, interaction, and validation |
 | `architecture/lifecycle-system.md` | Quit/close/exit lifecycle and shutdown architecture |

@@ -55,6 +55,28 @@ const TOOL_RETENTION_OVERRIDES: Partial<Record<ToolId, number>> = {
   arrow: 82,
   table: 70,
   page: 70,
+  // Modal image tools that a raster workspace leads with.
+  crop: 85,
+  perspective: 70,
+  // Retouch brushes are the headline capability of the raster workspaces that
+  // declare them, and they are absent from the compositions that do not.
+  cloneStamp: 75,
+  healBrush: 75,
+  spotHeal: 75,
+  patch: 75,
+  refineMask: 62,
+  trimapEdit: 62,
+  smudge: 66,
+  liquify: 60,
+  // Secondary selection tools live inside flyouts; they should survive longer
+  // than measurement, which is what users can afford to fetch from More.
+  marquee: 62,
+  ellipseMarquee: 62,
+  pixelLasso: 62,
+  magicWand: 62,
+  selectionPaint: 62,
+  floatingTransform: 55,
+  selectionBoundary: 55,
   // Measurement surfaces that live in `layout`/`selection` categories.
   slice: 40,
   scale: 55,
@@ -65,9 +87,9 @@ const TOOL_RETENTION_OVERRIDES: Partial<Record<ToolId, number>> = {
   warp: 30,
   sam2Segment: 20,
   // Boolean operations are selection commands, not tools: they are disabled
-  // unless two or more closed vector shapes are selected. They are also
-  // reachable from the context bar and the selection quick bar, so the
-  // palette should give up its slot before any selectable tool does.
+  // unless two or more closed vector shapes are selected, and they are also
+  // reachable from the context bar and the selection quick bar. They are the
+  // first slot to yield so a selectable tool keeps the row.
   booleanUnion: 0,
   booleanSubtract: 0,
   booleanIntersect: 0,

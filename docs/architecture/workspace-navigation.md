@@ -282,9 +282,11 @@ see the progress tracker.
 1. **Viewport back/forward history** — no existing store; would need a
    bounded camera snapshot stack with coalescing. Side buttons are wired
    to selection history instead, which exists and is tested.
-2. **Toolbar composition from config** — FloatingToolbar predates the
-   config; rewiring risks a visual regression across 7 modes; tracked as
-   tool-registry work.
+2. **Toolbar composition from config** — shipped 2026-09: `composeToolbar`
+   now translates `WorkspaceConfig.toolbar` (order, `groupStart`, flyout
+   membership) into rendered slots, and responsive overflow follows the
+   retention policy in `toolbarRetention.ts`. See
+   `docs/architecture/toolbar-system.md`.
 3. **Panel collapse/ordering state** — requires a panel layout engine in
    the shell grid; the `collapsed`/`order` fields stay declarative.
 4. **Persist open tabs across restart** — crash-recovery exists; tab
