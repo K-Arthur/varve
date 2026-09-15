@@ -2492,6 +2492,12 @@ export function ContentAwareFillDialog({
         };
       }
       const inferenceMaskDataUrl = maskCoverageDataUrl(mask, maskWidth, maskHeight);
+      const needsDiffusion =
+        mode === 'replace' || ((mode === 'fill' || mode === 'expand') && prompt.trim().length > 0);
+      const targetModelAspectRatio = needsDiffusion
+        ? NATIVE_GENERATIVE_MODEL_PROFILE.frameContract.frameWidth /
+          NATIVE_GENERATIVE_MODEL_PROFILE.frameContract.frameHeight
+        : undefined;
       const preparedContext = extractBoundedContext(
         generationImage,
         mask,
@@ -2500,11 +2506,10 @@ export function ContentAwareFillDialog({
         0,
         0,
         contextPadding,
+        targetModelAspectRatio,
       );
       const contextDataUrl = imageDataDataUrl(preparedContext.imageData);
       const generationSeed = seed ?? jobSnapshot.sourceRevision + variationSequenceRef.current;
-      const needsDiffusion =
-        mode === 'replace' || ((mode === 'fill' || mode === 'expand') && prompt.trim().length > 0);
       let modelPath: string | undefined;
       if (needsDiffusion) {
         if (!diffusionModelHandle) {

@@ -3,6 +3,68 @@ import type { BoundedContext } from './types';
 const AUTO_MIN_CONTEXT_PADDING = 16;
 const MAX_CONTEXT_PADDING = 256;
 
+/**
+ * Expand a bounded context toward the model's preferred aspect ratio without
+ * changing which source pixels it represents. This is deliberately a
+ * containing operation: the mask stays at the same source coordinates and a
+ * context that cannot fit remains letterboxed by the model-frame adapter.
+ */
+function fitContextToAspectRatio(
+  region: BoundedContextRegion,
+  imageWidth: number,
+  imageHeight: number,
+  targetAspectRatio: number | undefined,
+): BoundedContextRegion {
+  if (targetAspectRatio === undefined) return region;
+  if (!Number.isFinite(targetAspectRatio) || targetAspectRatio <= 0) {
+    throw new Error('Model context aspect ratio must be a finite number greater than zero.');
+  }
+
+  let width = region.width;
+  let height = region.height;
+  const currentAspectRatio = width / height;
+  if (currentAspectRatio < targetAspectRatio) {
+    const targetWidth = Math.max(width, Math.round(height * targetAspectRatio));
+    if (targetWidth <= imageWidth) {
+      width = targetWidth;
+    } else {
+      // The source is too narrow to contain an exact target-ratio rectangle.
+      // Use every available source column and the closest possible height.
+      width = imageWidth;
+      height = Math.min(imageHeight, Math.max(height, Math.round(width / targetAspectRatio)));
+    }
+  } else if (currentAspectRatio > targetAspectRatio) {
+    const targetHeight = Math.max(height, Math.round(width / targetAspectRatio));
+    if (targetHeight <= imageHeight) {
+      height = targetHeight;
+    } else {
+      // The source is too short to contain an exact target-ratio rectangle.
+      // Use every available source row and the closest possible width.
+      height = imageHeight;
+      width = Math.min(imageWidth, Math.max(width, Math.round(height * targetAspectRatio)));
+    }
+  }
+
+  const centeredOrigin = (
+    origin: number,
+    length: number,
+    containerLength: number,
+    fittedLength: number,
+  ): number => {
+    const minimum = Math.max(0, origin + length - fittedLength);
+    const maximum = Math.min(origin, containerLength - fittedLength);
+    const centered = Math.round(origin + (length - fittedLength) / 2);
+    return Math.max(minimum, Math.min(maximum, centered));
+  };
+
+  return {
+    offsetX: centeredOrigin(region.offsetX, region.width, imageWidth, width),
+    offsetY: centeredOrigin(region.offsetY, region.height, imageHeight, height),
+    width,
+    height,
+  };
+}
+
 export interface BoundedContextRegion {
   /** X offset of the region within the source image. */
   offsetX: number;
@@ -159,6 +221,8 @@ export function computeBoundedContextRegion(
   maskOffsetX: number,
   maskOffsetY: number,
   contextPadding?: number,
+  /** Optional model ratio to approach before the fixed-frame conversion. */
+  targetAspectRatio?: number,
 ): BoundedContextRegion {
   const geometry = validateMaskFrameGeometry(
     imageWidth,
@@ -173,7 +237,12 @@ export function computeBoundedContextRegion(
   const bounds = computeMaskBounds(mask, maskWidth, maskHeight);
 
   if (!bounds) {
-    return { offsetX: 0, offsetY: 0, width: maskWidth, height: maskHeight };
+    return fitContextToAspectRatio(
+      { offsetX: 0, offsetY: 0, width: maskWidth, height: maskHeight },
+      imageWidth,
+      imageHeight,
+      targetAspectRatio,
+    );
   }
 
   const padding = contextPadding ?? estimateContextPadding(bounds.w, bounds.h);
@@ -184,10 +253,20 @@ export function computeBoundedContextRegion(
   const srcH = Math.min(imageHeight - srcY, bounds.h + clamped * 2);
 
   if (srcW <= 0 || srcH <= 0) {
-    return { offsetX: 0, offsetY: 0, width: maskWidth, height: maskHeight };
+    return fitContextToAspectRatio(
+      { offsetX: 0, offsetY: 0, width: maskWidth, height: maskHeight },
+      imageWidth,
+      imageHeight,
+      targetAspectRatio,
+    );
   }
 
-  return { offsetX: srcX, offsetY: srcY, width: srcW, height: srcH };
+  return fitContextToAspectRatio(
+    { offsetX: srcX, offsetY: srcY, width: srcW, height: srcH },
+    imageWidth,
+    imageHeight,
+    targetAspectRatio,
+  );
 }
 
 export function extractBoundedContext(
@@ -198,6 +277,7 @@ export function extractBoundedContext(
   maskOffsetX: number,
   maskOffsetY: number,
   contextPadding?: number,
+  targetAspectRatio?: number,
 ): BoundedContext {
   const region = computeBoundedContextRegion(
     imageData.width,
@@ -208,6 +288,7 @@ export function extractBoundedContext(
     maskOffsetX,
     maskOffsetY,
     contextPadding,
+    targetAspectRatio,
   );
   const { offsetX: srcX, offsetY: srcY, width: srcW, height: srcH } = region;
 

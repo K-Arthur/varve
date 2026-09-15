@@ -234,6 +234,12 @@ export async function runGenerativeEdit(
     request.mode === 'replace' ||
     (request.mode === 'expand' && promptRequested) ||
     (request.mode === 'fill' && promptRequested);
+  const diffusionFrameContract = requiresDiffusion
+    ? NATIVE_GENERATIVE_MODEL_PROFILE.frameContract
+    : undefined;
+  const targetModelAspectRatio = diffusionFrameContract
+    ? diffusionFrameContract.frameWidth / diffusionFrameContract.frameHeight
+    : undefined;
   const workingRegion = computeBoundedContextRegion(
     request.imageData.width,
     request.imageData.height,
@@ -243,6 +249,7 @@ export async function runGenerativeEdit(
     request.maskOffsetX ?? 0,
     request.maskOffsetY ?? 0,
     request.contextPadding,
+    targetModelAspectRatio,
   );
   const resourceAssessment = assessGenerativeEditResources({
     mode: request.mode,
@@ -313,13 +320,14 @@ export async function runGenerativeEdit(
       request.maskOffsetX ?? 0,
       request.maskOffsetY ?? 0,
       request.contextPadding,
+      targetModelAspectRatio,
     );
     const diffusionFrame = prepareDiffusionFrame(
       context.imageData,
       context.mask,
       context.width,
       context.height,
-      NATIVE_GENERATIVE_MODEL_PROFILE.frameContract,
+      diffusionFrameContract ?? NATIVE_GENERATIVE_MODEL_PROFILE.frameContract,
     );
     const nativeResult = await nativeGenerativeProvider.infer({
       ...request,

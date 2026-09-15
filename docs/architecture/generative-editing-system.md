@@ -160,10 +160,15 @@ mask blocks generation rather than guessing.
 
 Provider contracts are explicit: promptless repair routes to PatchMatch or
 LaMa, while a prompt is sent only to a provider that advertises and consumes
-semantic conditioning. Inpainting preparation uses aspect-preserving context
-padding and the provider's documented mask polarity. The model cannot repair a
-wrong selection, and a reconstruction provider cannot infer a requested
-object; both limitations are surfaced in the capability and review UI. See the
+semantic conditioning. Inpainting preparation first expands the bounded
+context toward the provider frame's aspect ratio when the source contains
+enough surrounding pixels; this is a containing, integer-coordinate operation,
+not a crop. If the image edge prevents that fit, the shared adapter uses
+aspect-preserving letterbox padding. The source and mask therefore reach the
+model at its required dimensions without stretching the selected object, and
+the same transform is used for restoration. The model cannot repair a wrong
+selection, and a reconstruction provider cannot infer a requested object; both
+limitations are surfaced in the capability and review UI. See the
 [selection and model audit](../audits/generative-editing-selection-model-audit-2026-09-14.md)
 for the evidence ledger and real-photograph qualification status.
 

@@ -316,6 +316,38 @@ describe('extractBoundedContext', () => {
     });
   });
 
+  it('expands a narrow selection toward the model aspect ratio without cropping it', () => {
+    const mask = new Uint8Array(100 * 80);
+    for (let y = 38; y < 42; y += 1) {
+      for (let x = 40; x < 60; x += 1) mask[y * 100 + x] = 255;
+    }
+
+    const region = computeBoundedContextRegion(100, 80, mask, 100, 80, 0, 0, 0, 1);
+
+    expect(region).toEqual({ offsetX: 39, offsetY: 29, width: 22, height: 22 });
+    expect(region.width / region.height).toBe(1);
+  });
+
+  it('uses the closest source-bounded ratio when an exact model frame cannot fit', () => {
+    const mask = new Uint8Array(50 * 20);
+    for (let y = 8; y < 12; y += 1) {
+      for (let x = 0; x < 50; x += 1) mask[y * 50 + x] = 255;
+    }
+
+    const region = computeBoundedContextRegion(50, 20, mask, 50, 20, 0, 0, 0, 1);
+
+    expect(region).toEqual({ offsetX: 0, offsetY: 0, width: 50, height: 20 });
+    expect(region.width / region.height).toBe(2.5);
+  });
+
+  it('rejects an invalid model aspect ratio instead of guessing', () => {
+    const mask = new Uint8Array(10 * 10).fill(255);
+
+    expect(() => computeBoundedContextRegion(10, 10, mask, 10, 10, 0, 0, 0, 0)).toThrow(
+      /aspect ratio/i,
+    );
+  });
+
   it('does not fall back to an unrelated region for an out-of-bounds frame', () => {
     const mask = new Uint8Array(4);
     mask[0] = 255;
