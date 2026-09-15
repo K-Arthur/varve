@@ -7,6 +7,9 @@ documentation, downloads, and community.
 
 - **Framework**: Astro 7 with static output (`astro build`)
 - **Content**: `src/pages/` (69 routes), `src/components/`, `src/data/`
+- **Search**: build-time index + heading anchors via the
+  `varve-search-index` integration (`scripts/search-index.mjs`); client-side
+  ranking in `src/lib/search/` with no runtime dependency
 - **Deployment**: GitHub Pages via `.github/workflows/website-deploy.yml`
 - **Testing**: Vitest unit tests (`src/test/`), Playwright E2E (`tests/e2e/`)
 
@@ -22,6 +25,28 @@ For the GitHub Pages build (with base path):
 ```bash
 pnpm build:website:pages
 ```
+
+## Site search
+
+Search and section anchors are produced by the build, not by a service:
+
+- Every `astro build` injects `id`s on `h2`/`h3` inside `<main>` and writes
+  `search-index.json` to the output root (`scripts/search-index.mjs`,
+  registered in `astro.config.mjs` as `astro:build:done`). The build fails if
+  fewer than five pages index.
+- `src/lib/search/extract.ts` and `src/lib/search/rank.ts` are pure and
+  unit-tested; `src/components/SearchDialog.astro` owns the UI and the lazy
+  index fetch.
+- `/` or Ctrl/Cmd+K opens search. The header control and the mobile-sheet
+  row are hidden until the script marks the document ready, so a script
+  failure cannot leave a dead control.
+- No third-party search service and no CSP relaxation. The rationale and the
+  rejected alternatives are recorded in
+  `docs/audits/website-search-and-section-links-2026-09-14.md`.
+
+Search only exists in built output: `astro dev` does not run the
+`astro:build:done` hook, so use `pnpm build` + `pnpm preview` (or the E2E
+suite) when testing search or section anchors.
 
 ## Testing
 
@@ -50,11 +75,12 @@ default to `type="button"`, and all action transitions honor reduced motion.
 | Path | Purpose |
 |------|---------|
 | `src/pages/` | Astro page components (69 routes, including generated sitemap/robots/security endpoints) |
-| `src/components/` | Shared Astro components (header, footer, CTA) |
+| `src/components/` | Shared Astro components (header, footer, CTA, search dialog) |
 | `src/data/` | Release manifest, structured data |
+| `src/lib/search/` | Pure search index extraction and ranking |
 | `src/test/` | Vitest unit tests |
-| `tests/e2e/` | Playwright E2E specs (navigation, theme, visual) |
-| `scripts/` | Theme audit (`audit-theme.mjs`), color migration (`migrate-colors.mjs`), dist serving (`serve-dist.mjs`) |
+| `tests/e2e/` | Playwright E2E specs (navigation, theme, visual, search) |
+| `scripts/` | Theme audit (`audit-theme.mjs`), search index (`search-index.mjs`), color migration (`migrate-colors.mjs`), dist serving (`serve-dist.mjs`) |
 | `scripts/website/` (repo root) | Post-deploy smoke tests (`smoke-pages.mjs`) |
 
 ## Key docs
