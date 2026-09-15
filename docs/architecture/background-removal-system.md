@@ -32,10 +32,23 @@ The labels describe user intent, not implementation jargon:
 | Fast | Quick local heuristic for simple, colour-consistent backgrounds | No | Manual mask/trimap editing |
 | Auto | IS-Net General Use when installed; bundled U²-NetP when it is not | Optional | Actual model/provider is recorded |
 | High quality | BiRefNet General Lite, preferred through native ONNX on desktop | 224 MB | Auto result only with an explicit reduced-quality status |
+| Portrait | MODNet photographic-portrait matting; explicit choice only | 26 MB | Never substituted; use Object Selection or the trimap/refine tools |
 
 BiRefNet Full remains an advanced, native-only catalogue entry. Its roughly
 928 MB artifact and multi-gigabyte peak-memory estimate do not justify making
 it an automatic default without a separate held-out quality/performance study.
+
+Portrait matting is a distinct route rather than a quality tier. The engine
+implements the official public MODNet checkpoint contract in
+`packages/engine/src/backgroundRemoval/modnetPortrait.ts`: aspect-preserving
+512-edge reference size floored to multiples of 32, `[-1,1]` normalization, one
+activation applied by the exported graph, and OpenCV `INTER_AREA` resize
+semantics going back to source resolution. The worker returns a source-aligned
+fractional alpha. A reviewed coarse constraint fuses with the matte by forcing
+excluded background to zero instead of multiplying two soft estimates, which
+would darken every hair edge. The mode never becomes a fallback for another
+method, and its measured browser and real-photo behaviour is recorded in
+`docs/audits/selection-ai-routing-real-world-2026-09-15.md`.
 
 The browser path refuses unsafe bare-WASM allocations before creating a session.
 That is a safety decision, not a claim that every browser GPU provider is
@@ -131,6 +144,14 @@ user-authored trimap. A binary foreground estimate cannot honestly promise
 physical alpha separation for those cases. The synthetic `synth-glass` fixture
 is the regression target for this limit (u2netp/IS-Net/BiRefNet all score it
 low against the ground-truth matte; see the audit tables).
+
+Portrait matting is trained for photographic people and can include more than
+one person. It remains limited on fine or low-contrast strands, backlighting,
+motion blur, and similar foreground/background colours; its public checkpoint
+is smaller than the unpublished model used by the upstream online demo, and no
+such size or quality is promised. A real-photo control also produced a
+plausible matte on a large animal, so the mode is documented as a portrait
+intent, not as a claim about what the model cannot see.
 
 
 ## Coverage and asynchronous review contract
