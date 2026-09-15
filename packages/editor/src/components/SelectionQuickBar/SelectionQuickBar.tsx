@@ -9,7 +9,19 @@
 import { Icon, type IconName, Menu, type MenuEntry, Tooltip } from '@varve/ui';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { QuickBarAction, QuickBarActionId, QuickBarProfile } from './resolveQuickBarProfile';
+import {
+  clampQuickBarLeft,
+  padReserveFromRects,
+  QUICK_BAR_EDGE_MARGIN,
+  type QuickBarPadReserve,
+  resolveQuickBarTop,
+} from './selectionQuickBarPosition';
 import './SelectionQuickBar.css';
+
+/** The floating tool palette; the bar must not place itself under it. */
+const FLOATING_PALETTE_SELECTOR = '[data-testid="toolbar"].floating-toolbar';
+
+export { FLOATING_PALETTE_SELECTOR };
 
 export interface SelectionQuickBarProps {
   profile: QuickBarProfile;
@@ -17,6 +29,8 @@ export interface SelectionQuickBarProps {
   screenBounds: { x: number; y: number; w: number; h: number };
   /** Canvas's own rendered height (CSS px), for clamping the bar on-screen. */
   containerHeight: number;
+  /** Canvas's own rendered width (CSS px), for clamping the bar on-screen. */
+  containerWidth: number;
   onAction: (id: QuickBarActionId) => void;
   /** Action ids currently processing (buttons disabled). */
   pendingActionIds?: readonly QuickBarActionId[];
@@ -64,7 +78,7 @@ const SHORT_LABELS: Partial<Record<QuickBarActionId, string>> = {
 
 const ICON_ONLY = new Set<QuickBarActionId>(['flipH', 'flipV']);
 
-const PADDING = 8;
+const PADDING = QUICK_BAR_EDGE_MARGIN;
 /** Conservative estimate used before the bar's real height is measured. */
 const ESTIMATED_BAR_HEIGHT = 44;
 
@@ -91,6 +105,7 @@ export function SelectionQuickBar({
   profile,
   screenBounds,
   containerHeight,
+  containerWidth,
   onAction,
   pendingActionIds = [],
   activeActionIds = [],
@@ -99,6 +114,8 @@ export function SelectionQuickBar({
   const moreTriggerRef = useRef<HTMLButtonElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const [barHeight, setBarHeight] = useState(ESTIMATED_BAR_HEIGHT);
+  const [barWidth, setBarWidth] = useState(0);
+  const [padReserve, setPadReserve] = useState<QuickBarPadReserve>({ top: 0, bottom: 0 });
   const pending = useMemo(() => new Set(pendingActionIds), [pendingActionIds]);
   const active = useMemo(() => new Set(activeActionIds), [activeActionIds]);
   const moreActions = profile.moreActions ?? [];
@@ -106,25 +123,57 @@ export function SelectionQuickBar({
   useLayoutEffect(() => {
     const el = barRef.current;
     if (!el) return;
-    const measure = () => setBarHeight(el.getBoundingClientRect().height || ESTIMATED_BAR_HEIGHT);
+    const measure = () => {
+      const rect = el.getBoundingClientRect();
+      setBarHeight(rect.height || ESTIMATED_BAR_HEIGHT);
+      setBarWidth(rect.width);
+      // The palette is pinned to a canvas edge and holds a higher z-level, so
+      // its band is space the bar cannot use. Measured, not hard-coded: the
+      // palette height changes with touch targets, responsive overflow, and the
+      // user's View > Toolbar at Top preference. It is a Shell-grid sibling of
+      // `.editor-canvas` (not a descendant), so the lookup is document-scoped;
+      // the band is derived from viewport rects, which is correct regardless of
+      // where either element sits in the tree.
+      const canvas = el.closest('.editor-canvas');
+      const palette = document.querySelector(FLOATING_PALETTE_SELECTOR);
+      setPadReserve(
+        padReserveFromRects(
+          canvas?.getBoundingClientRect() ?? null,
+          palette?.getBoundingClientRect() ?? null,
+        ),
+      );
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(el);
+    const palette = document.querySelector(FLOATING_PALETTE_SELECTOR);
+    if (palette) observer.observe(palette);
     return () => observer.disconnect();
   }, []);
 
+  const maxBarWidth = useMemo(() => {
+    if (!Number.isFinite(containerWidth) || containerWidth <= 0) return undefined;
+    return Math.max(0, containerWidth - 2 * PADDING);
+  }, [containerWidth]);
+
   const { left, top } = useMemo(() => {
-    const belowTop = screenBounds.y + screenBounds.h + PADDING;
     const centeredLeft = screenBounds.x + screenBounds.w / 2;
-    // The canvas paints an opaque page background across its full bounds and
-    // whatever sits below it (page tabs, selection info, status bar) is a
-    // separate sibling — rendering past the canvas's own bottom edge means
-    // overlapping that chrome instead of being clipped by it. Flip above the
-    // selection when there isn't room below.
-    const fitsBelow = belowTop + barHeight <= containerHeight;
-    const top = fitsBelow ? belowTop : Math.max(PADDING, screenBounds.y - PADDING - barHeight);
-    return { left: centeredLeft, top };
-  }, [screenBounds, containerHeight, barHeight]);
+    const placement = resolveQuickBarTop({
+      selectionTop: screenBounds.y,
+      selectionBottom: screenBounds.y + screenBounds.h,
+      barHeight,
+      containerHeight,
+      reservedTop: padReserve.top,
+      reservedBottom: padReserve.bottom,
+      margin: PADDING,
+    });
+    // The canvas is the clipping box (`overflow: hidden`), so the bar must stay
+    // inside it horizontally or its leading actions are unreachable.
+    return {
+      left: clampQuickBarLeft(centeredLeft, barWidth, containerWidth, PADDING),
+      top: placement.top,
+    };
+  }, [screenBounds, containerHeight, containerWidth, barHeight, barWidth, padReserve]);
 
   const handleAction = useCallback(
     (id: QuickBarActionId) => {
@@ -150,7 +199,14 @@ export function SelectionQuickBar({
     <div
       ref={barRef}
       className="selection-quick-bar"
-      style={{ left, top }}
+      style={
+        {
+          left,
+          top,
+          '--selection-quick-bar-max-width':
+            maxBarWidth === undefined ? undefined : `${maxBarWidth}px`,
+        } as React.CSSProperties
+      }
       data-kind={profile.kind}
       data-testid="selection-quick-bar"
     >

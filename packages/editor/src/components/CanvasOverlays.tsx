@@ -866,8 +866,9 @@ export function CanvasOverlays({
         setTextEditTargetId={setTextEditTargetId}
         setNodeEditTargetId={setNodeEditTargetId}
         containerHeight={canvasSize.height}
+        containerWidth={canvasSize.width}
       />
-      {editor.state.createTableFromDataOpen && <CreateTableFromDataDialog />}
+      <CreateTableFromDataDialog open={editor.state.createTableFromDataOpen} />
       {editor.state.tableEdit?.editingCellId && (
         <TableCellEditor
           cellId={editor.state.tableEdit.editingCellId}

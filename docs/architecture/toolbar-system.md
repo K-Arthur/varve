@@ -114,6 +114,35 @@ mouse-only device it is inert chrome.
 - Colours resolve to semantic roles (`--elevation-surface-raised`,
   `--color-interactive-*`); no raw hex or one-off spacing literals.
 
+## Floating-surface placement rules
+
+The canvas is the clipping box (`overflow: hidden`), so every surface anchored
+inside it must resolve its own position against the canvas box rather than
+trusting its anchor:
+
+- **Horizontal clamp.** The selection quick bar is centred on the selection
+  (`translateX(-50%)`). Its centre is clamped so both edges stay inside the
+  canvas minus `QUICK_BAR_EDGE_MARGIN`
+  (`components/SelectionQuickBar/selectionQuickBarPosition.ts`). Without the
+  clamp, a selection at the canvas's left edge pushed the bar's *leading*
+  actions — Crop first — outside the clipping canvas, where they were present in
+  the DOM but unclickable, silently blocking the crop workflow.
+- **Edge-band reserve.** The palette is pinned to a canvas edge
+  (`bottom: var(--space-3)`, or the top when the user selects *View > Toolbar at
+  Top*) at `z-index: calc(var(--elevation-z-raised) + 1)` so workflow panels
+  cannot cover the tool surface. The quick bar therefore *yields*: it measures
+  the palette's band from real rects — deriving which edge is occupied from the
+  rects rather than assuming, so top and bottom placement both work — and places
+  itself below the selection, then above it, then as high as the band allows,
+  never inside a reserved band. The palette keeps priority; a bar that covered
+  the palette would be the worse trade.
+- **Bounded width.** The quick bar's `max-width` comes from the canvas width via
+  `--selection-quick-bar-max-width`, so a long action profile scrolls inside its
+  own strip instead of overflowing the canvas.
+- Overlay surfaces that draw over artwork in the canvas (selection overlays,
+  guides, warp handles) follow the same rule with the camera transform — see the
+  screen-space/world-space note in `AGENTS.md`.
+
 ## Verification
 
 - Unit: `packages/ui/src/components/Toolbar.test.tsx` (roving tabindex
@@ -121,7 +150,11 @@ mouse-only device it is inert chrome.
   (retention ordering and per-slot collapse),
   `components/FloatingToolbar/FloatingToolbar.test.tsx` (per-workspace
   composition), `components/ContextControlBar/ContextControlBar.test.tsx`
-  (shape fill/stroke transactions).
+  (shape fill/stroke transactions),
+  `components/SelectionQuickBar/selectionQuickBarPosition.test.ts` and
+  `SelectionQuickBar.test.tsx` (edge clamp, palette-band reserve, flip).
 - Browser: `tests/e2e/canvas/toolbar-layout.spec.ts` (chrome overlap),
   `toolbar-per-mode.spec.ts`, `workspace-toolbar-visual.spec.ts`
-  (per-workspace rendering), `font-toolbar-visual.spec.ts` (text quick bar).
+  (per-workspace rendering), `font-toolbar-visual.spec.ts` (text quick bar),
+  `selection-quick-bar.spec.ts` (leading action reachable and palette-clear at
+  the canvas's left edge).

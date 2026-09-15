@@ -11,7 +11,10 @@
   transform: translateX(-50%);
   pointer-events: none;
   width: max-content;
-  max-width: calc(100vw - var(--space-4));
+  /* Bounded by the canvas box (set by SelectionQuickBar from containerWidth) so
+     a long action profile scrolls in the inner strip instead of overflowing the
+     clipping canvas. Falls back to the viewport for detached renders. */
+  max-width: var(--selection-quick-bar-max-width, calc(100vw - var(--space-4)));
   height: max-content;
   margin: 0;
   font-family: var(--type-interface-control-family);

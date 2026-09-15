@@ -161,8 +161,14 @@ test.describe('Face-aware crop — Protect Faces', () => {
 
     // Large imports are centred on the canvas and keep their top-left when
     // resized, which can leave the node (and its selection quick bar) outside
-    // the visible viewport. Fit the selection so the quick bar is reachable.
-    await page.getByRole('button', { name: 'Fit selection to viewport' }).click();
+    // the visible viewport. Anchor it at the canvas origin instead: the quick
+    // bar must stay reachable there (see selection-quick-bar.spec.ts).
+    const xField = page.getByRole('spinbutton', { name: 'X (px)', exact: true });
+    await xField.fill('0');
+    await xField.press('Enter');
+    const yField = page.getByRole('spinbutton', { name: 'Y (px)', exact: true });
+    await yField.fill('0');
+    await yField.press('Enter');
     await page.waitForTimeout(300);
 
     await analyzeAndApplyProtectFaces(page);
