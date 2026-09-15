@@ -291,15 +291,20 @@ path.
 ### Memory-bounded source preparation
 
 The dialog preview is capped at two million pixels. For Fill and Remove, the
-preview mask is used to calculate a source-image rectangle around the refined
-selection (with source-pixel context padding capped at 256 pixels). Only that
-rectangle is decoded into explicit `ImageData`; the source image and mask are
-not first expanded into full-resolution JavaScript buffers. The working raster
-is aspect-preserving and is capped at 1,048,576 pixels for a constrained tier,
-4,000,000 for a standard tier, 8,000,000 for a high tier, and 2,000,000 when a
-browser cannot establish a tier. A downsampled working raster keeps its source
-rectangle and mask mapping, so the result is never mistaken for a new source
-frame.
+editable mask is used to calculate a source-image rectangle around the refined
+selection (with source-pixel context padding capped at 256 pixels). An
+untouched source-sized mask supplied by Object Selection or another canonical
+mask source remains authoritative for that calculation, working-mask sampling,
+and persistence; the bounded preview is only the review surface. Once the user
+paints or uses a compound operation, the mask is explicitly treated as
+preview-authored rather than mixing two coordinate frames. Only the selected
+source rectangle is decoded into explicit `ImageData`; the source image and
+mask are not first expanded into full-resolution JavaScript buffers. The
+working raster is aspect-preserving and is capped at 1,048,576 pixels for a
+constrained tier, 4,000,000 for a standard tier, 8,000,000 for a high tier, and
+2,000,000 when a browser cannot establish a tier. A downsampled working raster
+keeps its source rectangle and mask mapping, so the result is never mistaken
+for a new source frame.
 
 The user mask is encoded back into the source-image coordinate frame as a
 source-resolution grayscale PNG. `CompressionStream` receives one scanline at
