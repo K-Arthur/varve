@@ -5,23 +5,35 @@ function ssd(
   ay: number,
   bx: number,
   by: number,
-  _pw: number,
-  _ph: number,
   stride: number,
   padSize: number,
+  knownTarget: Uint8Array,
 ): number {
   let sum = 0;
+  let compared = 0;
   for (let dy = -padSize; dy <= padSize; dy++) {
     for (let dx = -padSize; dx <= padSize; dx++) {
+      const targetX = bx + dx;
+      const targetY = by + dy;
+      if (
+        targetX < 0 ||
+        targetX >= stride ||
+        targetY < 0 ||
+        targetY * stride + targetX >= knownTarget.length ||
+        knownTarget[targetY * stride + targetX] === 0
+      ) {
+        continue;
+      }
       const ai = ((ay + dy) * stride + (ax + dx)) * 4;
-      const bi = ((by + dy) * stride + (bx + dx)) * 4;
+      const bi = (targetY * stride + targetX) * 4;
       const dr = (a[ai] ?? 0) - (b[bi] ?? 0);
       const dg = (a[ai + 1] ?? 0) - (b[bi + 1] ?? 0);
       const db = (a[ai + 2] ?? 0) - (b[bi + 2] ?? 0);
       sum += dr * dr + dg * dg + db * db;
+      compared += 1;
     }
   }
-  return sum;
+  return compared > 0 ? sum / compared : Number.POSITIVE_INFINITY;
 }
 
 export interface PatchMatchResult {
@@ -91,7 +103,6 @@ export function patchMatchFill(
   const src = imageData.data;
 
   const PATCH_RADIUS = 3;
-  const PATCH_SIZE = PATCH_RADIUS * 2 + 1;
   const PAD = PATCH_RADIUS;
 
   const searchRadius = Math.max(w, h);
@@ -144,11 +155,31 @@ export function patchMatchFill(
     h: maxY - minY + 1,
   };
 
-  // Scores are keyed by the target's image index. The previous
-  // fill-pixel-index array reused a score for a different target whenever an
-  // iteration traversed the pixels in reverse order, making the result
-  // depend on traversal direction.
-  const bestScores = new Float64Array(w * h).fill(Infinity);
+  // A pixel inside the edit mask still contains the source object in `rd`
+  // until PatchMatch replaces it. Treating that pixel as known makes the
+  // object itself part of the nearest-neighbour query and can reproduce it
+  // in another part of the hole. The known map grows as masked pixels are
+  // filled, which lets large holes propagate from their real boundary.
+  const knownTarget = new Uint8Array(w * h);
+  for (let y = 0; y < h; y += 1) {
+    for (let x = 0; x < w; x += 1) {
+      const mx = x - maskOffsetX;
+      const my = y - maskOffsetY;
+      const masked =
+        mx >= 0 &&
+        mx < maskWidth &&
+        my >= 0 &&
+        my < maskHeight &&
+        (mask[my * maskWidth + mx] ?? 0) > 128;
+      knownTarget[y * w + x] = masked ? 0 : 1;
+    }
+  }
+
+  // Keep the best source centre for each target pixel so propagation can
+  // move a coherent patch across the hole instead of using one arbitrary
+  // diagonal candidate for every target.
+  const bestSourceX = new Int32Array(w * h).fill(-1);
+  const bestSourceY = new Int32Array(w * h).fill(-1);
   const fallbackCenters = [
     [PAD, PAD],
     [w - PAD - 1, PAD],
@@ -157,7 +188,10 @@ export function patchMatchFill(
     [Math.floor(w / 2), Math.floor(h / 2)],
   ] as const;
 
-  const iterations = Math.max(1, Math.min(5, Math.round(searchRadius / 100)));
+  // One pass is not enough to grow known pixels through a bounded context.
+  // Keep the cap deliberately small because this function also has a direct
+  // main-thread fallback when a worker is unavailable.
+  const iterations = Math.max(2, Math.min(5, Math.ceil(searchRadius / 100)));
 
   const checkAborted = () => signal?.aborted;
 
@@ -171,45 +205,15 @@ export function patchMatchFill(
 
       const { x, y } = order[i]!;
       const targetIndex = y * w + x;
-      let bestScore = bestScores[targetIndex]!;
-      let bestSx = x;
-      let bestSy = y;
+      let bestScore = Number.POSITIVE_INFINITY;
+      let bestSx = bestSourceX[targetIndex]!;
+      let bestSy = bestSourceY[targetIndex]!;
 
-      if (iter > 0) {
-        const prevDist = 1;
-        const px = x + prevDist;
-        const py = y + prevDist;
-        if (
-          isPatchSourceUsable(
-            px,
-            py,
-            w,
-            h,
-            mask,
-            maskWidth,
-            maskHeight,
-            maskOffsetX,
-            maskOffsetY,
-            PAD,
-          )
-        ) {
-          const ps = ssd(src, rd, px, py, x, y, PATCH_SIZE, PATCH_SIZE, w, PAD);
-          if (ps < bestScore) {
-            bestScore = ps;
-            bestSx = px;
-            bestSy = py;
-          }
-        }
-      }
-
-      const r = searchRadius >> iter;
-      for (let attempt = 0; attempt < 8; attempt++) {
-        const rx = x + Math.round((random() * 2 - 1) * r);
-        const ry = y + Math.round((random() * 2 - 1) * r);
+      const consider = (candidateX: number, candidateY: number) => {
         if (
           !isPatchSourceUsable(
-            rx,
-            ry,
+            candidateX,
+            candidateY,
             w,
             h,
             mask,
@@ -220,14 +224,45 @@ export function patchMatchFill(
             PAD,
           )
         ) {
-          continue;
+          return;
         }
-        const ps = ssd(src, rd, rx, ry, x, y, PATCH_SIZE, PATCH_SIZE, w, PAD);
-        if (ps < bestScore) {
-          bestScore = ps;
-          bestSx = rx;
-          bestSy = ry;
+        const score = ssd(src, rd, candidateX, candidateY, x, y, w, PAD, knownTarget);
+        if (score < bestScore) {
+          bestScore = score;
+          bestSx = candidateX;
+          bestSy = candidateY;
         }
+      };
+
+      if (bestSx >= 0 && bestSy >= 0) consider(bestSx, bestSy);
+
+      // Propagate a neighbouring nearest-neighbour field. Forward scans use
+      // left/up; reverse scans use right/down. The source centre shifts with
+      // the target so texture direction is preserved across the hole.
+      const neighbours: ReadonlyArray<readonly [number, number, number, number]> =
+        iter % 2 === 0
+          ? [
+              [x - 1, y, 1, 0],
+              [x, y - 1, 0, 1],
+            ]
+          : [
+              [x + 1, y, -1, 0],
+              [x, y + 1, 0, -1],
+            ];
+      for (const [nx, ny, shiftX, shiftY] of neighbours) {
+        if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+        const neighbourIndex = ny * w + nx;
+        const neighbourSx = bestSourceX[neighbourIndex]!;
+        const neighbourSy = bestSourceY[neighbourIndex]!;
+        if (neighbourSx < 0 || neighbourSy < 0) continue;
+        consider(neighbourSx + shiftX, neighbourSy + shiftY);
+      }
+
+      const r = Math.max(1, Math.floor(searchRadius / 2 ** iter));
+      for (let attempt = 0; attempt < 16; attempt++) {
+        const rx = x + Math.round((random() * 2 - 1) * r);
+        const ry = y + Math.round((random() * 2 - 1) * r);
+        consider(rx, ry);
       }
 
       // Random search is useful for larger images, but it is not a
@@ -236,32 +271,12 @@ export function patchMatchFill(
       // up so a valid small cleanup never intermittently becomes a no-op.
       if (!Number.isFinite(bestScore)) {
         for (const [candidateX, candidateY] of fallbackCenters) {
-          if (
-            !isPatchSourceUsable(
-              candidateX,
-              candidateY,
-              w,
-              h,
-              mask,
-              maskWidth,
-              maskHeight,
-              maskOffsetX,
-              maskOffsetY,
-              PAD,
-            )
-          ) {
-            continue;
-          }
-          const ps = ssd(src, rd, candidateX, candidateY, x, y, PATCH_SIZE, PATCH_SIZE, w, PAD);
-          if (ps < bestScore) {
-            bestScore = ps;
-            bestSx = candidateX;
-            bestSy = candidateY;
-          }
+          consider(candidateX, candidateY);
         }
       }
 
-      bestScores[targetIndex] = bestScore;
+      bestSourceX[targetIndex] = bestSx;
+      bestSourceY[targetIndex] = bestSy;
 
       // A fully masked or too-small context has no valid source patch. Keep
       // the source clone intact and let the caller report the unchanged
@@ -287,6 +302,7 @@ export function patchMatchFill(
           rd[di + 1] = src[si + 1]!;
           rd[di + 2] = src[si + 2]!;
           rd[di + 3] = 255;
+          knownTarget[ti * w + tj] = 1;
         }
       }
     }
