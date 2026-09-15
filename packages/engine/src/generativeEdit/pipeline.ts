@@ -312,6 +312,7 @@ export async function runGenerativeEdit(
       context.mask,
       context.width,
       context.height,
+      NATIVE_GENERATIVE_MODEL_PROFILE.frameContract,
     );
     const nativeResult = await nativeGenerativeProvider.infer({
       ...request,

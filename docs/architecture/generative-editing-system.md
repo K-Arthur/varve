@@ -167,6 +167,22 @@ object; both limitations are surfaced in the capability and review UI. See the
 [selection and model audit](../audits/generative-editing-selection-model-audit-2026-09-14.md)
 for the evidence ledger and real-photograph qualification status.
 
+Prompt-capable models also publish an immutable input-frame contract. The
+contract identifies the preprocessing revision, exact model-frame dimensions,
+and required dimension multiple; the pipeline validates it before allocating
+the provider frame. The source context and its mask are uniformly scaled by
+one factor to fit that frame and centered into neutral, opaque letterbox
+padding. The mask uses the identical scale and offset, and the generated
+letterbox is cropped and resampled back to the original context before
+compositing. This means a portrait, panorama, or other non-square photograph
+is never stretched into a square and the padding can never alter document
+pixels. The currently retained SD 1.5 diagnostic contract is 512 × 512 at a
+64-pixel granularity. A 1024 × 1024 SDXL contract is implemented for future
+qualification, but the tested SDXL artifact remains unavailable until it
+passes semantic quality, memory, cancellation, and platform gates. A model
+profile's contract is part of its qualification identity, so changing frame
+size, padding, resampling, or mask encoding invalidates prior evidence.
+
 Prompted Object Selection has a second, provider-independent gate after model
 decoding. It ranks candidates by model score only among masks that contain each
 include point, exclude each background point, and overlap a supplied box. The

@@ -1,3 +1,10 @@
+export type { DiffusionFrame, DiffusionFrameContract } from './diffusionFrame';
+export {
+  prepareDiffusionFrame,
+  SD15_INPAINTING_FRAME_CONTRACT,
+  SD15_INPAINTING_FRAME_SIZE,
+  SDXL_INPAINTING_FRAME_CONTRACT,
+} from './diffusionFrame';
 export {
   chooseExpandGenerationStrategy,
   type ExpandGenerationStrategy,

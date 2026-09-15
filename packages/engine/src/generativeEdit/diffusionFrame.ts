@@ -1,13 +1,59 @@
 import { resampleImageData } from '../exportPipeline/resample';
 
+/**
+ * The input-frame contract for one diffusion inpainting profile.
+ *
+ * Diffusion checkpoints do not all share a working resolution. Some are
+ * trained around a square 512px frame, while newer profiles commonly use a
+ * square 1024px frame or a runtime-approved rectangular frame. Keeping this
+ * contract beside the frame transform makes the model's requirement explicit
+ * and prevents callers from silently stretching a photograph into whatever
+ * dimensions happen to be convenient for the UI.
+ */
+export interface DiffusionFrameContract {
+  /** Stable preprocessing identity recorded with model qualification. */
+  id: string;
+  /** Explicit revision for resize, padding, mask, and color handling. */
+  preprocessingVersion: string;
+  /** Exact frame dimensions sent to the provider. */
+  frameWidth: number;
+  frameHeight: number;
+  /** Required model-dimension granularity, usually 8 or 64. */
+  dimensionMultiple?: number;
+}
+
 /** SD 1.5 inpainting's reference working frame. */
 export const SD15_INPAINTING_FRAME_SIZE = 512;
+export const SD15_INPAINTING_FRAME_CONTRACT = {
+  id: 'sd15-inpainting-512-square-v1',
+  preprocessingVersion: 'varve-diffusion-letterbox-linear-srgb-v1',
+  frameWidth: SD15_INPAINTING_FRAME_SIZE,
+  frameHeight: SD15_INPAINTING_FRAME_SIZE,
+  dimensionMultiple: 64,
+} as const satisfies DiffusionFrameContract;
+
+/**
+ * Reference contract for a future SDXL inpainting profile.
+ *
+ * This is a transform contract only. The current SDXL candidate has not
+ * passed Varve's semantic, memory, cancellation, and platform qualification
+ * gates and is therefore not exposed as an installed provider.
+ */
+export const SDXL_INPAINTING_FRAME_CONTRACT = {
+  id: 'sdxl-inpainting-1024-square-v1',
+  preprocessingVersion: 'varve-diffusion-letterbox-linear-srgb-v1',
+  frameWidth: 1024,
+  frameHeight: 1024,
+  dimensionMultiple: 64,
+} as const satisfies DiffusionFrameContract;
 
 export interface DiffusionFrame {
   imageData: ImageData;
   mask: Uint8Array;
   width: number;
   height: number;
+  contractId: string;
+  preprocessingVersion: string;
   contentX: number;
   contentY: number;
   contentWidth: number;
@@ -19,6 +65,32 @@ export interface DiffusionFrame {
 function assertDimensions(width: number, height: number, label: string): void {
   if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width <= 0 || height <= 0) {
     throw new Error(`${label} dimensions are invalid`);
+  }
+}
+
+function validateContract(contract: DiffusionFrameContract): void {
+  if (typeof contract.id !== 'string' || contract.id.trim().length === 0) {
+    throw new Error('Diffusion frame contract must have a stable id');
+  }
+  if (
+    typeof contract.preprocessingVersion !== 'string' ||
+    contract.preprocessingVersion.trim().length === 0
+  ) {
+    throw new Error('Diffusion frame contract must have a preprocessing version');
+  }
+  assertDimensions(contract.frameWidth, contract.frameHeight, 'Diffusion model frame');
+  if (contract.frameWidth > 4096 || contract.frameHeight > 4096) {
+    throw new Error('Diffusion model frame exceeds the supported working limit');
+  }
+  if (contract.dimensionMultiple !== undefined) {
+    if (
+      !Number.isSafeInteger(contract.dimensionMultiple) ||
+      contract.dimensionMultiple <= 0 ||
+      contract.frameWidth % contract.dimensionMultiple !== 0 ||
+      contract.frameHeight % contract.dimensionMultiple !== 0
+    ) {
+      throw new Error('Diffusion model frame does not satisfy its dimension multiple');
+    }
   }
 }
 
@@ -78,11 +150,12 @@ function copyMaskIntoLetterbox(
   source: Uint8Array,
   sourceWidth: number,
   sourceHeight: number,
+  targetWidth: number,
   offsetX: number,
   offsetY: number,
 ): void {
   for (let y = 0; y < sourceHeight; y += 1) {
-    const targetOffset = (offsetY + y) * SD15_INPAINTING_FRAME_SIZE + offsetX;
+    const targetOffset = (offsetY + y) * targetWidth + offsetX;
     target.set(source.subarray(y * sourceWidth, (y + 1) * sourceWidth), targetOffset);
   }
 }
@@ -100,21 +173,23 @@ function fillLetterbox(imageData: ImageData): void {
 }
 
 /**
- * Prepare a bounded context for the SD 1.5 inpainting profile.
+ * Prepare a bounded context for a diffusion inpainting profile.
  *
- * The context is uniformly scaled into a 512px square. The editable mask is
- * transformed by the same mapping, and `restore` crops the letterbox and
- * resamples the generated frame back to the exact context dimensions. This
- * is deliberately a frame transform rather than a stretch into a square.
+ * The context is uniformly scaled into the contract's frame. The editable
+ * mask is transformed by the same mapping, and `restore` crops the letterbox
+ * and resamples the generated frame back to the exact context dimensions.
+ * This is deliberately a frame transform rather than a stretch into a square.
  */
 export function prepareDiffusionFrame(
   source: ImageData,
   mask: Uint8Array,
   maskWidth: number,
   maskHeight: number,
+  contract: DiffusionFrameContract = SD15_INPAINTING_FRAME_CONTRACT,
 ): DiffusionFrame {
   assertDimensions(source.width, source.height, 'Diffusion source');
   assertDimensions(maskWidth, maskHeight, 'Diffusion mask');
+  validateContract(contract);
   if (mask.length !== maskWidth * maskHeight) {
     throw new Error('Diffusion mask dimensions do not match its pixels');
   }
@@ -122,14 +197,11 @@ export function prepareDiffusionFrame(
     throw new Error('Diffusion mask must use source-context dimensions');
   }
 
-  const scale = Math.min(
-    SD15_INPAINTING_FRAME_SIZE / source.width,
-    SD15_INPAINTING_FRAME_SIZE / source.height,
-  );
+  const scale = Math.min(contract.frameWidth / source.width, contract.frameHeight / source.height);
   const contentWidth = Math.max(1, Math.round(source.width * scale));
   const contentHeight = Math.max(1, Math.round(source.height * scale));
-  const contentX = Math.floor((SD15_INPAINTING_FRAME_SIZE - contentWidth) / 2);
-  const contentY = Math.floor((SD15_INPAINTING_FRAME_SIZE - contentHeight) / 2);
+  const contentX = Math.floor((contract.frameWidth - contentWidth) / 2);
+  const contentY = Math.floor((contract.frameHeight - contentHeight) / 2);
 
   const resized =
     contentWidth === source.width && contentHeight === source.height
@@ -143,26 +215,33 @@ export function prepareDiffusionFrame(
       ? new Uint8Array(mask)
       : resizeMaskBilinear(mask, maskWidth, maskHeight, contentWidth, contentHeight);
 
-  const modelImage = new ImageData(SD15_INPAINTING_FRAME_SIZE, SD15_INPAINTING_FRAME_SIZE);
+  const modelImage = new ImageData(contract.frameWidth, contract.frameHeight);
   fillLetterbox(modelImage);
   copyIntoLetterbox(modelImage, resized, contentX, contentY);
-  const modelMask = new Uint8Array(SD15_INPAINTING_FRAME_SIZE * SD15_INPAINTING_FRAME_SIZE);
-  copyMaskIntoLetterbox(modelMask, resizedMask, contentWidth, contentHeight, contentX, contentY);
+  const modelMask = new Uint8Array(contract.frameWidth * contract.frameHeight);
+  copyMaskIntoLetterbox(
+    modelMask,
+    resizedMask,
+    contentWidth,
+    contentHeight,
+    contract.frameWidth,
+    contentX,
+    contentY,
+  );
 
   return {
     imageData: modelImage,
     mask: modelMask,
-    width: SD15_INPAINTING_FRAME_SIZE,
-    height: SD15_INPAINTING_FRAME_SIZE,
+    width: contract.frameWidth,
+    height: contract.frameHeight,
+    contractId: contract.id,
+    preprocessingVersion: contract.preprocessingVersion,
     contentX,
     contentY,
     contentWidth,
     contentHeight,
     restore(imageData: ImageData): ImageData {
-      if (
-        imageData.width !== SD15_INPAINTING_FRAME_SIZE ||
-        imageData.height !== SD15_INPAINTING_FRAME_SIZE
-      ) {
+      if (imageData.width !== contract.frameWidth || imageData.height !== contract.frameHeight) {
         throw new Error('Diffusion output does not match the model frame');
       }
       const cropped = new ImageData(contentWidth, contentHeight);

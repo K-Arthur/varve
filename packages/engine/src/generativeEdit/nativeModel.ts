@@ -1,4 +1,5 @@
 import { isTauriRuntime } from '@varve/platform';
+import { SD15_INPAINTING_FRAME_CONTRACT } from './diffusionFrame';
 
 export const NATIVE_GENERATIVE_MODEL_PROFILE = {
   id: 'sd15-inpainting-q4_0-v1',
@@ -9,6 +10,8 @@ export const NATIVE_GENERATIVE_MODEL_PROFILE = {
   revision: '21491e4',
   minimumMemoryBytes: 6 * 1024 * 1024 * 1024,
   license: 'CreativeML OpenRAIL-M',
+  /** The helper must receive the model's declared working-frame contract. */
+  frameContract: SD15_INPAINTING_FRAME_CONTRACT,
 } as const;
 
 export interface NativeGenerativeModelDownloadProgress {
