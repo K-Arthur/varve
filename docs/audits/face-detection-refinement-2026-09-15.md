@@ -313,14 +313,20 @@ exists.**
   `FloatingToolbar.tsx`, `commitRasterMask.ts`, `BackgroundRemovalSection.tsx`,
   `modelLoader.ts`, and several docs. **No file outside this change's ownership was
   modified.**
-- **Handoff — floating toolbar / selection quick bar**: while running the E2E, the
-  selection quick bar's `Crop` button was repeatedly unclickable. Two distinct causes were
-  observed with screenshots: (a) a large imported node can sit outside the viewport so the
-  bar is out of frame; (b) when the selection is near the canvas's left edge, the bar is
-  **clipped by the left sidebar**, leaving `Crop` unreachable (only `…move BG / Enhance /
-  Vectorize / More` visible). This is in the toolbar/context-bar ownership area and was not
-  patched from here. The workaround used in the E2E is `Fit selection to viewport` before
-  clicking.
+- **Resolved — floating toolbar / selection quick bar**: while running the E2E, the
+  selection quick bar's `Crop` button was repeatedly unclickable, which blocked the
+  face-aware-crop workflow from the quick bar. Two distinct placement bugs were found with
+  screenshots and real-app measurements and are now fixed (commit `9b29bb4c8`):
+  (a) the bar is centred on the selection and was never horizontally clamped, so at the
+  canvas's left edge the leading actions (`Crop` first) were laid out beyond the
+  `overflow: hidden` canvas box and were unclickable; (b) with a selection filling most of
+  the canvas, "below the selection" landed inside the floating palette's band (measured:
+  canvas 682x543, palette band 487-534, bar placed at 491) where the palette, one z-level
+  above, swallowed the click. The bar now clamps inside the canvas, derives its max width
+  from the canvas, and yields to the palette's measured edge band (top or bottom, so the
+  `View > Toolbar at Top` placement is respected). Invariants and evidence are in
+  `docs/architecture/toolbar-system.md`; the E2E no longer needs its `Fit selection to
+  viewport` workaround and now asserts reachability directly.
 - **Pre-existing typecheck failures** in `packages/engine/src/lut/lut.test.ts` and
   `lut-edge.test.ts` (`Property 'size' does not exist on type 'Shaper3D'`) exist on `HEAD`
   and are unrelated to this change.
