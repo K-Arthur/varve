@@ -173,6 +173,32 @@ describe('prompted mask validation', () => {
     );
   });
 
+  it('keeps high-resolution photographic specks from merging into the target component', () => {
+    const width = 1280;
+    const height = 960;
+    const pixels = new Uint8Array(width * height);
+    for (let y = 200; y <= 700; y += 1) {
+      for (let x = 200; x <= 800; x += 1) pixels[y * width + x] = 255;
+    }
+    // Leave a one-source-pixel gap. A coarse review grid can collapse this
+    // gap and incorrectly treat the noise as part of the prompted object.
+    for (let y = 500; y <= 519; y += 1) {
+      for (let x = 802; x <= 820; x += 1) pixels[y * width + x] = 255;
+    }
+
+    const result = rankPromptedMaskCandidates(
+      [{ mask: pixels, width, height, score: 0.9 }],
+      { points: [{ x: 500 / (width - 1), y: 450 / (height - 1), label: 1 }] },
+      width,
+      height,
+    );
+
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0]?.mask[450 * width + 500]).toBe(255);
+    expect(result.candidates[0]?.mask[510 * width + 810]).toBe(0);
+    expect(result.candidates[0]?.promptDiagnostics?.componentCount).toBe(1);
+  });
+
   it('rejects a positive prompt in a transparent image hole', () => {
     const imageData = new ImageData(8, 8);
     for (let index = 3; index < imageData.data.length; index += 4) imageData.data[index] = 255;

@@ -97,8 +97,18 @@ const MAX_ACCEPTED_MASK_COVERAGE = 0.995;
  * user intended.
  */
 const MIN_ANCHORED_COVERAGE_FOR_PRUNING = 0.5;
-/** Keep review diagnostics cheap on 33 MP photographs and constrained devices. */
-const MAX_DIAGNOSTIC_DIMENSION = 384;
+/**
+ * Keep review diagnostics bounded on 33 MP photographs and constrained
+ * devices, while retaining enough spatial resolution to see small islands in
+ * ordinary photographs. Sources up to 2 MP use exact topology; larger
+ * sources use a 1024-pixel review grid so several-pixel noise is less likely
+ * to merge into the prompted object's component. The grid is still only a
+ * bounded review allocation; full-resolution source masks remain the only
+ * persisted/editable data.
+ */
+const MAX_DIAGNOSTIC_DIMENSION = 1024;
+/** Exact topology is affordable for the common <=2 MP photograph path. */
+const MAX_EXACT_DIAGNOSTIC_PIXELS = 2_000_000;
 const DIAGNOSTIC_COMPONENT_CONNECTIVITY: ReadonlyArray<readonly [number, number]> = [
   [-1, -1],
   [0, -1],
@@ -456,7 +466,10 @@ function analyzePromptedMaskDiagnostics(
   box: DiagnosticBox | null,
 ): InternalPromptedMaskDiagnostics {
   const pixelCount = width * height;
-  const gridScale = Math.min(1, MAX_DIAGNOSTIC_DIMENSION / Math.max(width, height));
+  const gridScale =
+    pixelCount <= MAX_EXACT_DIAGNOSTIC_PIXELS
+      ? 1
+      : Math.min(1, MAX_DIAGNOSTIC_DIMENSION / Math.max(width, height));
   const gridWidth = Math.max(1, Math.round(width * gridScale));
   const gridHeight = Math.max(1, Math.round(height * gridScale));
   const gridPixels = gridWidth * gridHeight;

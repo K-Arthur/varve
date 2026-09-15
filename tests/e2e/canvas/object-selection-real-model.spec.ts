@@ -38,7 +38,10 @@ type MaskReport = {
   hardPixels: number;
   componentCount: number;
   appleHardPixels: number;
+  appleInteriorHardPixels: number;
   mugHardPixels: number;
+  flowerHardPixels: number;
+  bounds: { minX: number; minY: number; maxX: number; maxY: number } | null;
 };
 
 const HARD_MASK_THRESHOLD = 127;
@@ -80,6 +83,30 @@ async function serializeEditorDocument(page: import('@playwright/test').Page): P
     }
     return String(editor.serializeDocument());
   });
+}
+
+async function selectedArtworkBounds(
+  page: import('@playwright/test').Page,
+): Promise<{ x: number; y: number; width: number; height: number }> {
+  const candidates = await page
+    .locator('section[aria-label="Canvas"] > svg[role="presentation"] > rect')
+    .evaluateAll((elements) =>
+      elements
+        .map((element) => {
+          const rect = element.getBoundingClientRect();
+          return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+        })
+        .filter((rect) => rect.width > 100 && rect.height > 100),
+    );
+  const artwork = candidates.sort((left, right) => {
+    const leftArea = left.width * left.height;
+    const rightArea = right.width * right.height;
+    return rightArea - leftArea;
+  })[0];
+  if (!artwork) {
+    throw new Error('Could not locate the selected artwork bounds in the canvas overlay');
+  }
+  return artwork;
 }
 
 function maskPixelsInRect(
@@ -130,6 +157,27 @@ function countHardMaskComponents(data: Buffer, width: number, height: number): n
   return components;
 }
 
+function hardMaskBounds(
+  data: Buffer,
+  width: number,
+  height: number,
+): { minX: number; minY: number; maxX: number; maxY: number } | null {
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if ((data[(y * width + x) * 4 + 3] ?? 0) <= HARD_MASK_THRESHOLD) continue;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+  return maxX >= minX && maxY >= minY ? { minX, minY, maxX, maxY } : null;
+}
+
 function inspectAcceptedMask(serialized: string): MaskReport {
   const document = JSON.parse(serialized) as SerializedDocument;
   const maskedNode = Object.values(document.nodes ?? {}).find(
@@ -161,12 +209,28 @@ function inspectAcceptedMask(serialized: string): MaskReport {
       maxX: 1270,
       maxY: 940,
     }),
+    // Requiring coverage in an interior window prevents a tiny prompted
+    // speck from being reported as a successful apple selection.
+    appleInteriorHardPixels: maskPixelsInRect(png.data, png.width, {
+      minX: 1080,
+      minY: 650,
+      maxX: 1230,
+      maxY: 850,
+    }),
     mugHardPixels: maskPixelsInRect(png.data, png.width, {
       minX: 925,
       minY: 790,
       maxX: 995,
       maxY: 930,
     }),
+    // The left/middle flowers are a separate, high-contrast distractor.
+    flowerHardPixels: maskPixelsInRect(png.data, png.width, {
+      minX: 430,
+      minY: 340,
+      maxX: 900,
+      maxY: 700,
+    }),
+    bounds: hardMaskBounds(png.data, png.width, png.height),
   };
 }
 
@@ -450,18 +514,25 @@ test.describe('Object Selection real-model gate', () => {
     await inspector.getByRole('button', { name: 'Select Object' }).click();
     await page.getByRole('button', { name: 'Fit sel' }).click();
     await page.waitForTimeout(400);
+    const bounds = await selectedArtworkBounds(page);
     const canvas = page.getByTestId('editor-canvas');
-    const bounds = await canvas.boundingBox();
-    expect(bounds).not.toBeNull();
 
-    // The source is 1280×960. The apple is the right-hand object; the point
-    // is deliberately well inside its body, away from the handle, flowers,
-    // and the dark background. The screenshot is the visual target evidence.
+    // The source is 1280×960. The apple is the right-hand object; the include
+    // point is deliberately well inside its body, away from the handle,
+    // flowers, and the dark background. The exclude point exercises the
+    // user's explicit way to reject a nearby distractor before generation.
     const applePoint = {
-      x: bounds!.x + bounds!.width * 0.86,
-      y: bounds!.y + bounds!.height * 0.72,
+      x: bounds.x + bounds.width * (1150 / 1280),
+      y: bounds.y + bounds.height * (760 / 960),
+    };
+    const mugPoint = {
+      x: bounds.x + bounds.width * (960 / 1280),
+      y: bounds.y + bounds.height * (850 / 960),
     };
     await page.mouse.click(applePoint.x, applePoint.y);
+    await page.keyboard.down('Shift');
+    await page.mouse.click(mugPoint.x, mugPoint.y);
+    await page.keyboard.up('Shift');
     const preview = inspector.getByText(/Preview ready/).first();
     await preview.waitFor({ timeout: 600000 });
     const previewText = (await preview.textContent()) ?? '';
@@ -505,7 +576,17 @@ test.describe('Object Selection real-model gate', () => {
     expect(maskReport.height).toBe(960);
     expect(maskReport.hardPixels).toBeGreaterThan(0);
     expect(maskReport.componentCount).toBe(1);
-    expect(maskReport.appleHardPixels).toBeGreaterThan(0);
+    expect(maskReport.appleHardPixels).toBeGreaterThan(10_000);
+    expect(maskReport.appleInteriorHardPixels).toBeGreaterThan(1_000);
     expect(maskReport.mugHardPixels).toBe(0);
+    expect(maskReport.flowerHardPixels).toBe(0);
+    expect(maskReport.bounds).toMatchObject({
+      minX: expect.any(Number),
+      minY: expect.any(Number),
+      maxX: expect.any(Number),
+      maxY: expect.any(Number),
+    });
+    expect(maskReport.bounds!.maxX - maskReport.bounds!.minX).toBeGreaterThan(100);
+    expect(maskReport.bounds!.maxY - maskReport.bounds!.minY).toBeGreaterThan(100);
   });
 });
