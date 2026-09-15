@@ -221,11 +221,11 @@ export function TextDiscoveryPanel({
           reservationBytes: estimateInferenceReservation({
             width,
             height,
-            // Reserve the catalog's measured working set (3.2 GB), not just the
+            // Reserve the catalog's measured working set (2.6 GB), not just the
             // 194 MB graph: the text tower, fusion decoder, and 900x256 logits
             // dominate peak memory. A low-memory session must be refused here,
             // before the 194 MB download is spent, rather than OOMing mid-run.
-            modelBytes: getModelById(GROUNDING_DINO_MODEL_ID)?.peakMemoryBytes ?? 3_200_000_000,
+            modelBytes: getModelById(GROUNDING_DINO_MODEL_ID)?.peakMemoryBytes ?? 2_600_000_000,
           }),
         },
       );
@@ -315,8 +315,8 @@ export function TextDiscoveryPanel({
               : 'Install text discovery model (204 MB)'}
           </Button>
           <p className="insp-field__hint">
-            One-time download stored on this device. Needs about 3 GB of free memory while running;
-            unavailable on low-memory sessions.
+            One-time download stored on this device. Needs about 2.6 GB of free memory while
+            running; unavailable on low-memory sessions.
           </p>
         </div>
       ) : (

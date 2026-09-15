@@ -64,11 +64,15 @@ follows provider changes instead of hardcoding a segmenter.
 
 ## Budget and gating
 
-* The catalog declares `peakMemoryBytes: 3_200_000_000` from the measured runs.
-* The panel's inference reservation uses that catalog peak, so a low-memory
-  session is refused **before** the 194 MiB download is spent, with a message
-  pointing back to point/box selection.
-* The panel copy states the measured ~3 GB working set and that the feature is
+* The catalog declares `peakMemoryBytes: 2_600_000_000`: the 2.4 GB measured
+  browser-WASM peak plus ~200 MB headroom. Node's ~4 GB process RSS is not the
+  wasm heap and is not used as the browser budget.
+* The panel's inference reservation uses that catalog peak, so the total
+  reservation (model + source frame) stays under the runtime's
+  `wasmSafePeakBytes` (3.0 GB on a cross-origin-isolated 8 GB-tier browser)
+  while a low-memory session is refused **before** the 194 MiB download is
+  spent, with a message pointing back to point/box selection.
+* The panel copy states the ~2.6 GB working set and that the feature is
   unavailable on low-memory sessions.
 * No background analysis: discovery runs once per explicit query on the
   selected image.

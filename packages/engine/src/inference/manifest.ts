@@ -146,7 +146,7 @@ function entryDescription(id: string, notes?: string): string {
   if (id === 'efficient-sam-ti-decoder')
     return 'EfficientSAM-Ti prompt decoder — three source-sized candidates per prompt. No mask-prompt input. Apache-2.0, pinned upstream export.';
   if (id === 'grounding-dino-tiny')
-    return 'Grounding DINO Tiny (INT8) — text-conditioned object discovery. Type a description and review matching boxes, which then flow into prompted segmentation. Local only; measured ~3 GB peak RSS at the 800x800 input.';
+    return 'Grounding DINO Tiny (INT8) — text-conditioned object discovery. Type a description and review matching boxes, which then flow into prompted segmentation. Local only; measured 2.4 GB peak in the browser WASM runtime (2.6 GB budgeted).';
   if (id === 'grounding-dino-tokenizer')
     return 'BERT uncased WordPiece vocabulary used by the Grounding DINO text query path. Parity-tested against the pinned token vocabulary.';
   if (id === 'tr-ocr-base-printed')

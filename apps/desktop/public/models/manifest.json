@@ -2708,7 +2708,7 @@
       "sourceLicense": "Apache-2.0",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "supportedProviders": ["wasm", "webgpu"],
+      "supportedProviders": ["wasm"],
       "tensorContract": {
         "version": 1,
         "inputs": [
@@ -2728,7 +2728,7 @@
           "channelOrder": "rgb"
         },
         "outputActivation": "none",
-        "peakMemoryBytes": 3200000000
+        "peakMemoryBytes": 2600000000
       },
       "validation": {
         "contractVerified": true,

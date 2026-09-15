@@ -125,8 +125,11 @@ packages/engine/src/backgroundRemoval/modnetPortraitRealModel.test.ts`
 Tokenizer ids were parity-checked against the reference transformers.js
 tokenizer (`a cat.` -> 101,1037,4937,1012,102; `café table.` -> 101,7668,2795,1012,102;
 `person. dog.` -> 101,2711,1012,3899,1012,102). Peak process RSS for the
-seven-case run was ~3.9 GB (memory is not returned between runs); the catalog
-budget is 3.2 GB for admission. Reproduce with `VARVE_GROUNDING_DINO_MODEL` and
+seven-case run was ~3.9 GB (memory is not returned between runs). Correction
+(2026-09-15): that RSS is the Node process, not the wasm heap; the browser
+runtime measured 2.4 GB peak under onnxruntime-web WASM, and the catalog
+budget was corrected from 3.2 GB to 2.6 GB so the model can pass its own
+admission gate. Reproduce with `VARVE_GROUNDING_DINO_MODEL` and
 `VARVE_GROUNDING_DINO_VOCAB`; results land in
 `/tmp/varve-grounding-dino-results.json` with overlay evidence per case.
 

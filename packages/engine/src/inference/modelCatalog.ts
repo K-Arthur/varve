@@ -762,7 +762,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'grounding-dino-tiny',
     name: 'Find Objects by Description (Grounding DINO Tiny, Experimental)',
     description:
-      'Text-conditioned open-vocabulary object detection. Type a description ("red mug", "person. dog.") and get reviewable boxes for the regions that match, which then flow into prompted segmentation. Local only, explicit 194 MB download; measured ~3 GB peak RSS on real 1-2K photos at the 800x800 input. It finds regions matching a description — it does not read printed text and is not a general-purpose language model.',
+      'Text-conditioned open-vocabulary object detection. Type a description ("red mug", "person. dog.") and get reviewable boxes for the regions that match, which then flow into prompted segmentation. Local only, explicit 194 MB download; measured 2.4 GB peak in the browser WASM runtime (2.6 GB budgeted for headroom), ~4 GB RSS under Node CPU. It finds regions matching a description — it does not read printed text and is not a general-purpose language model.',
     sizeBytes: 203_824_481,
     remoteUrl:
       'https://huggingface.co/onnx-community/grounding-dino-tiny-ONNX/resolve/ff690b0a8050566c290287545bd059350f3e9096/onnx/model_int8.onnx',
@@ -772,8 +772,8 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     quality: 4,
     precision: 'int8',
     category: 'detection',
-    peakMemoryBytes: 3_200_000_000,
-    gpuRecommended: true,
+    peakMemoryBytes: 2_600_000_000,
+    gpuRecommended: false,
     source:
       'onnx-community/grounding-dino-tiny-ONNX @ ff690b0a8050566c290287545bd059350f3e9096 (IDEA-Research/grounding-dino-tiny)',
     sourceLicense: 'Apache-2.0',
