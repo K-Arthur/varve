@@ -75,10 +75,13 @@ function itemAriaChecked(
   if (item.action === 'canvasModePreview') return state.canvasMode === 'preview';
   if (item.action === 'canvasModeFull') return state.canvasMode === 'full';
   if (item.action?.startsWith('colorBlindness')) {
-    return state.colorBlindnessView === item.action.slice('colorBlindness'.length);
+    return state.colorBlindnessView === item.action.slice('colorBlindness'.length).toLowerCase();
   }
   if (item.action?.startsWith('workspace')) {
-    return state.workspaceMode === item.action.slice('workspace'.length);
+    // Action ids are camelCase (workspaceDesign); state values are lowercase
+    // (design). Without normalizing, every workspace radio in a submenu
+    // rendered aria-checked="false" even for the active mode.
+    return state.workspaceMode === item.action.slice('workspace'.length).toLowerCase();
   }
   if (item.action === 'rulerModeArtboard') return state.rulerMode === 'artboard';
   if (item.action === 'rulerModeGlobal') return state.rulerMode === 'global';

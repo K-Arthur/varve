@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openSubmenu } from '../helpers/menu-helpers';
 import { navigateToEditor } from '../shared';
 
 test.describe('Document fonts panel', () => {
@@ -35,8 +36,10 @@ test.describe('Document fonts panel', () => {
       await page.getByRole('menubar').waitFor({ state: 'visible', timeout: 60000 });
     }
     await expect(page.getByRole('menubar')).toBeVisible({ timeout: 10000 });
-    await page.getByRole('menubar').getByRole('menuitem', { name: 'View', exact: true }).click();
-    await page.getByRole('menuitem', { name: /^Fonts Panel/ }).click();
+    // The panel toggles live in the View > Panels submenu now that the View
+    // root is grouped to fit one screen.
+    const panels = await openSubmenu(page, 'View', 'Panels');
+    await panels.getByRole('menuitem', { name: /^Fonts Panel/ }).click();
     const panel = page.locator('.document-fonts-panel').first();
     await expect(panel).toBeVisible({ timeout: 10000 });
 

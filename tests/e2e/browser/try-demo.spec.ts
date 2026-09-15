@@ -329,14 +329,18 @@ test.describe('browser demo (/try)', () => {
     }
     await page.getByRole('menuitem', { name: 'View' }).click();
     const viewMenu = page.locator('.editor-menubar__menu');
+    // Workspace radios live in the Workspace submenu now that the View root
+    // is grouped to fit one screen.
+    await viewMenu.getByRole('menuitem', { name: 'Workspace' }).hover();
+    const workspaceMenu = page.locator('[role="menu"][aria-label="Workspace"]');
     for (const mode of ['Print', 'Motion', 'Codegen', 'Logo', 'Email']) {
       await expect(
-        viewMenu.getByRole('menuitemradio', { name: `Workspace: ${mode}` }),
+        workspaceMenu.getByRole('menuitemradio', { name: `Workspace: ${mode}` }),
       ).toBeDisabled();
     }
     for (const mode of ['Design', 'Draw', 'Photo']) {
       await expect(
-        viewMenu.getByRole('menuitemradio', { name: `Workspace: ${mode}` }),
+        workspaceMenu.getByRole('menuitemradio', { name: `Workspace: ${mode}` }),
       ).not.toBeDisabled();
     }
   });

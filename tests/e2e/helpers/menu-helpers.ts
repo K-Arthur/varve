@@ -27,6 +27,22 @@ export async function openMenu(page: Page, name: string) {
   return item;
 }
 
+/**
+ * Open a top-level menu and hover one of its submenu entries.
+ *
+ * The View menu groups its bulk into submenus (the flat list measured taller
+ * than a 1280x800 viewport). Submenus open on pointer hover, matching the
+ * component's own mouse-intent handling.
+ */
+export async function openSubmenu(page: Page, menuName: string, submenuLabel: string) {
+  await openMenu(page, menuName);
+  const parent = page.locator(`[role="menu"][aria-label="${menuName}"]`);
+  await parent.locator('[role="menuitem"]', { hasText: submenuLabel }).hover();
+  const submenu = page.locator(`[role="menu"][aria-label="${submenuLabel}"]`);
+  await expect(submenu).toBeVisible();
+  return submenu;
+}
+
 export async function closeMenu(page: Page) {
   await page.keyboard.press('Escape');
   await expect(page.locator('[role="menu"]')).toHaveCount(0, { timeout: 2000 });

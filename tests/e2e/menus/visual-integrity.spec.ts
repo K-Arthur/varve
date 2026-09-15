@@ -34,7 +34,13 @@ test.describe('Menubar visual integrity', () => {
     await page.getByRole('menubar').getByRole('menuitem', { name: 'View' }).hover();
     const menuLayer = page.locator('.editor-menubar__menu');
     const menu = menuLayer.getByRole('menu', { name: 'View' });
-    const activeWorkspace = menu.getByRole('menuitemradio', { name: 'Workspace: Design' });
+    // Workspace radios live in the Workspace submenu now that the View root
+    // is grouped to fit one screen.
+    await menu.getByRole('menuitem', { name: 'Workspace' }).hover();
+    const workspaceMenu = page.locator('[role="menu"][aria-label="Workspace"]');
+    const activeWorkspace = workspaceMenu.getByRole('menuitemradio', {
+      name: 'Workspace: Design',
+    });
 
     await expect(activeWorkspace).toHaveAttribute('aria-checked', 'true');
     await expect(activeWorkspace).toBeEnabled();
@@ -52,6 +58,10 @@ test.describe('Menubar visual integrity', () => {
     expect(geometry.bottom).toBeLessThanOrEqual(1080);
     expect(geometry.right).toBeLessThanOrEqual(1920);
     expect(geometry.scrollTop).toBe(0);
+    // The grouped root must fit: before the restructure the flat View list
+    // measured 1984px tall and only the clamped scroll surface made the final
+    // entries reachable at all.
+    expect(geometry.scrollHeight).toBeLessThanOrEqual(geometry.clientHeight + 1);
     await expectReadableMenuLabels(menuLayer);
 
     const results = await new AxeBuilder({ page })

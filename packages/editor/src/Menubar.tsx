@@ -851,257 +851,289 @@ function buildMenus(
     {
       id: 'View',
       items: [
-        // Theme
-        ...THEMES.map((t) => ({
-          label: t.label,
-          action: `theme:${t.id}`,
-        })),
-        { label: '---' },
-        // Zoom
+        // Grouped into submenus so the View root fits on one screen: as a
+        // flat list it measured 1984px tall at 1280x800 and forced pointer
+        // users to wheel-scroll a menu (external evidence: Fluent UI #32311,
+        // Atlassian JRASERVER-33935, Wikimedia T344776). The placement pair
+        // and focus-mode commands stay at the root because they are the
+        // entries users reach for directly.
         {
-          label: 'Zoom to 100%',
-          shortcut: formatShortcut(SHORTCUT_DEFS.zoomReset.binding),
-          ariaKeyshortcut: ks('zoomReset'),
-          action: 'zoomReset',
+          label: 'Theme',
+          items: THEMES.map((t) => ({
+            label: t.label,
+            action: `theme:${t.id}`,
+          })),
         },
         {
-          label: 'Zoom In',
-          shortcut: formatShortcut(SHORTCUT_DEFS.zoomIn.binding),
-          ariaKeyshortcut: ks('zoomIn'),
-          action: 'zoomIn',
+          label: 'Zoom',
+          items: [
+            {
+              label: 'Zoom to 100%',
+              shortcut: formatShortcut(SHORTCUT_DEFS.zoomReset.binding),
+              ariaKeyshortcut: ks('zoomReset'),
+              action: 'zoomReset',
+            },
+            {
+              label: 'Zoom In',
+              shortcut: formatShortcut(SHORTCUT_DEFS.zoomIn.binding),
+              ariaKeyshortcut: ks('zoomIn'),
+              action: 'zoomIn',
+            },
+            {
+              label: 'Zoom Out',
+              shortcut: formatShortcut(SHORTCUT_DEFS.zoomOut.binding),
+              ariaKeyshortcut: ks('zoomOut'),
+              action: 'zoomOut',
+            },
+          ],
         },
         {
-          label: 'Zoom Out',
-          shortcut: formatShortcut(SHORTCUT_DEFS.zoomOut.binding),
-          ariaKeyshortcut: ks('zoomOut'),
-          action: 'zoomOut',
-        },
-        { label: '---' },
-        // Canvas Mode
-        {
-          label: 'Full Render Mode',
-          shortcut: formatShortcut(SHORTCUT_DEFS.canvasModeFull.binding),
-          ariaKeyshortcut: ks('canvasModeFull'),
-          action: 'canvasModeFull',
-        },
-        {
-          label: 'Outline Mode',
-          shortcut: formatShortcut(SHORTCUT_DEFS.canvasModeOutline.binding),
-          ariaKeyshortcut: ks('canvasModeOutline'),
-          action: 'canvasModeOutline',
-        },
-        {
-          label: 'Preview Mode',
-          shortcut: formatShortcut(SHORTCUT_DEFS.canvasModePreview.binding),
-          ariaKeyshortcut: ks('canvasModePreview'),
-          action: 'canvasModePreview',
-        },
-        {
-          label: 'Inspect Mode',
-          shortcut: formatShortcut(SHORTCUT_DEFS.toolInspect.binding),
-          ariaKeyshortcut: ks('toolInspect'),
-          action: 'inspectMode',
-        },
-        {
-          label: 'Present\u2026',
-          shortcut: formatShortcut(SHORTCUT_DEFS.present.binding),
-          ariaKeyshortcut: ks('present'),
-          action: 'present',
-        },
-        { label: '---' },
-        // Viewport
-        {
-          label: 'Fit Active Page',
-          shortcut: formatShortcut(SHORTCUT_DEFS.fitActivePage.binding),
-          ariaKeyshortcut: ks('fitActivePage'),
-          action: 'fitActivePage',
+          label: 'Canvas Mode',
+          items: [
+            {
+              label: 'Full Render Mode',
+              shortcut: formatShortcut(SHORTCUT_DEFS.canvasModeFull.binding),
+              ariaKeyshortcut: ks('canvasModeFull'),
+              action: 'canvasModeFull',
+            },
+            {
+              label: 'Outline Mode',
+              shortcut: formatShortcut(SHORTCUT_DEFS.canvasModeOutline.binding),
+              ariaKeyshortcut: ks('canvasModeOutline'),
+              action: 'canvasModeOutline',
+            },
+            {
+              label: 'Preview Mode',
+              shortcut: formatShortcut(SHORTCUT_DEFS.canvasModePreview.binding),
+              ariaKeyshortcut: ks('canvasModePreview'),
+              action: 'canvasModePreview',
+            },
+            {
+              label: 'Inspect Mode',
+              shortcut: formatShortcut(SHORTCUT_DEFS.toolInspect.binding),
+              ariaKeyshortcut: ks('toolInspect'),
+              action: 'inspectMode',
+            },
+            {
+              label: 'Present\u2026',
+              shortcut: formatShortcut(SHORTCUT_DEFS.present.binding),
+              ariaKeyshortcut: ks('present'),
+              action: 'present',
+            },
+          ],
         },
         {
-          label: 'Fit Active Frame',
-          shortcut: formatShortcut(SHORTCUT_DEFS.fitActiveFrame.binding),
-          ariaKeyshortcut: ks('fitActiveFrame'),
-          action: 'fitActiveFrame',
+          label: 'Viewport',
+          items: [
+            {
+              label: 'Fit Active Page',
+              shortcut: formatShortcut(SHORTCUT_DEFS.fitActivePage.binding),
+              ariaKeyshortcut: ks('fitActivePage'),
+              action: 'fitActivePage',
+            },
+            {
+              label: 'Fit Active Frame',
+              shortcut: formatShortcut(SHORTCUT_DEFS.fitActiveFrame.binding),
+              ariaKeyshortcut: ks('fitActiveFrame'),
+              action: 'fitActiveFrame',
+            },
+            {
+              label: 'Reset View Rotation',
+              shortcut: formatShortcut(SHORTCUT_DEFS.resetViewRotation.binding),
+              ariaKeyshortcut: ks('resetViewRotation'),
+              action: 'resetViewRotation',
+            },
+            {
+              label: 'Rotate View Clockwise',
+              shortcut: formatShortcut(SHORTCUT_DEFS.rotateViewCW.binding),
+              ariaKeyshortcut: ks('rotateViewCW'),
+              action: 'rotateViewCW',
+            },
+            {
+              label: 'Rotate View Counter-clockwise',
+              shortcut: formatShortcut(SHORTCUT_DEFS.rotateViewCCW.binding),
+              ariaKeyshortcut: ks('rotateViewCCW'),
+              action: 'rotateViewCCW',
+            },
+          ],
         },
         {
-          label: 'Reset View Rotation',
-          shortcut: formatShortcut(SHORTCUT_DEFS.resetViewRotation.binding),
-          ariaKeyshortcut: ks('resetViewRotation'),
-          action: 'resetViewRotation',
+          label: 'Rulers & Grids',
+          items: [
+            {
+              label: 'Artboard Ruler Origin',
+              action: 'rulerModeArtboard',
+              disabled: state.rulerMode === 'artboard',
+            },
+            {
+              label: 'Global Ruler Origin',
+              action: 'rulerModeGlobal',
+              disabled: state.rulerMode === 'global',
+            },
+            {
+              label: 'Baseline Grid Overlay',
+              shortcut: formatShortcut(SHORTCUT_DEFS.gridOverlayBaseline.binding),
+              ariaKeyshortcut: ks('gridOverlayBaseline'),
+              action: 'gridOverlayBaseline',
+            },
+            {
+              label: 'Isometric Grid Overlay',
+              shortcut: formatShortcut(SHORTCUT_DEFS.gridOverlayIsometric.binding),
+              ariaKeyshortcut: ks('gridOverlayIsometric'),
+              action: 'gridOverlayIsometric',
+            },
+          ],
         },
         {
-          label: 'Rotate View Clockwise',
-          shortcut: formatShortcut(SHORTCUT_DEFS.rotateViewCW.binding),
-          ariaKeyshortcut: ks('rotateViewCW'),
-          action: 'rotateViewCW',
+          label: 'Guides',
+          items: [
+            {
+              label: 'Toggle Snap',
+              shortcut: formatShortcut(SHORTCUT_DEFS.toggleSnap.binding),
+              ariaKeyshortcut: ks('toggleSnap'),
+              action: 'toggleSnap',
+            },
+            {
+              label: state.guidesVisible ? 'Hide Guides' : 'Show Guides',
+              shortcut: formatShortcut(SHORTCUT_DEFS.toggleGuidesVisible.binding),
+              ariaKeyshortcut: ks('toggleGuidesVisible'),
+              action: 'toggleGuidesVisible',
+            },
+            {
+              label: 'Lock All Guides',
+              shortcut: formatShortcut(SHORTCUT_DEFS.lockAllGuides.binding),
+              ariaKeyshortcut: ks('lockAllGuides'),
+              action: 'lockAllGuides',
+            },
+            {
+              label: 'Clear All Guides',
+              action: 'clearGuides',
+            },
+          ],
         },
         {
-          label: 'Rotate View Counter-clockwise',
-          shortcut: formatShortcut(SHORTCUT_DEFS.rotateViewCCW.binding),
-          ariaKeyshortcut: ks('rotateViewCCW'),
-          action: 'rotateViewCCW',
-        },
-        { label: '---' },
-        // Rulers & Grids
-        {
-          label: 'Artboard Ruler Origin',
-          action: 'rulerModeArtboard',
-          disabled: state.rulerMode === 'artboard',
-        },
-        {
-          label: 'Global Ruler Origin',
-          action: 'rulerModeGlobal',
-          disabled: state.rulerMode === 'global',
-        },
-        {
-          label: 'Baseline Grid Overlay',
-          shortcut: formatShortcut(SHORTCUT_DEFS.gridOverlayBaseline.binding),
-          ariaKeyshortcut: ks('gridOverlayBaseline'),
-          action: 'gridOverlayBaseline',
+          label: 'Print',
+          items: [
+            {
+              label: 'Facing Pages',
+              action: 'toggleFacingPages',
+            },
+            {
+              label: state.bleedGuidesVisible ? 'Hide Bleed Guides' : 'Show Bleed Guides',
+              action: 'toggleBleedGuides',
+            },
+            {
+              label: 'Soft Proofing',
+              shortcut: formatShortcut(SHORTCUT_DEFS.softProof.binding),
+              ariaKeyshortcut: ks('softProof'),
+              action: 'softProof',
+            },
+          ],
         },
         {
-          label: 'Isometric Grid Overlay',
-          shortcut: formatShortcut(SHORTCUT_DEFS.gridOverlayIsometric.binding),
-          ariaKeyshortcut: ks('gridOverlayIsometric'),
-          action: 'gridOverlayIsometric',
-        },
-        { label: '---' },
-        // Guides
-        {
-          label: 'Toggle Snap',
-          shortcut: formatShortcut(SHORTCUT_DEFS.toggleSnap.binding),
-          ariaKeyshortcut: ks('toggleSnap'),
-          action: 'toggleSnap',
-        },
-        {
-          label: state.guidesVisible ? 'Hide Guides' : 'Show Guides',
-          shortcut: formatShortcut(SHORTCUT_DEFS.toggleGuidesVisible.binding),
-          ariaKeyshortcut: ks('toggleGuidesVisible'),
-          action: 'toggleGuidesVisible',
-        },
-        {
-          label: 'Lock All Guides',
-          shortcut: formatShortcut(SHORTCUT_DEFS.lockAllGuides.binding),
-          ariaKeyshortcut: ks('lockAllGuides'),
-          action: 'lockAllGuides',
-        },
-        {
-          label: 'Clear All Guides',
-          action: 'clearGuides',
-        },
-        { label: '---' },
-        // Print-specific
-        {
-          label: 'Facing Pages',
-          action: 'toggleFacingPages',
-        },
-        {
-          label: state.bleedGuidesVisible ? 'Hide Bleed Guides' : 'Show Bleed Guides',
-          action: 'toggleBleedGuides',
-        },
-        {
-          label: 'Soft Proofing',
-          shortcut: formatShortcut(SHORTCUT_DEFS.softProof.binding),
-          ariaKeyshortcut: ks('softProof'),
-          action: 'softProof',
-        },
-        { label: '---' },
-        // Panels
-        {
-          label: 'Timeline Panel',
-          shortcut: formatShortcut(SHORTCUT_DEFS.toggleTimelinePanel.binding),
-          ariaKeyshortcut: ks('toggleTimelinePanel'),
-          action: 'toggleTimelinePanel',
+          label: 'Panels',
+          items: [
+            {
+              label: 'Timeline Panel',
+              shortcut: formatShortcut(SHORTCUT_DEFS.toggleTimelinePanel.binding),
+              ariaKeyshortcut: ks('toggleTimelinePanel'),
+              action: 'toggleTimelinePanel',
+            },
+            {
+              label: 'Graph Editor',
+              shortcut: formatShortcut(SHORTCUT_DEFS.toggleGraphEditor.binding),
+              ariaKeyshortcut: ks('toggleGraphEditor'),
+              action: 'toggleGraphEditor',
+            },
+            {
+              label: 'State Machine Panel',
+              shortcut: formatShortcut(SHORTCUT_DEFS.toggleStateMachinePanel.binding),
+              ariaKeyshortcut: ks('toggleStateMachinePanel'),
+              action: 'toggleStateMachinePanel',
+            },
+            {
+              label: 'Fonts Panel',
+              shortcut: formatShortcut(SHORTCUT_DEFS.openFontsPanel.binding),
+              ariaKeyshortcut: ks('openFontsPanel'),
+              action: 'openFontsPanel',
+            },
+            {
+              label: 'Logo Panel',
+              shortcut: formatShortcut(SHORTCUT_DEFS.toggleLogoPanel.binding),
+              ariaKeyshortcut: ks('toggleLogoPanel'),
+              action: 'toggleLogoPanel',
+            },
+            {
+              label: 'History Panel',
+              action: 'toggleHistoryPanel',
+            },
+            { label: '---' },
+            {
+              label: 'Show All Panels',
+              action: 'restoreAllPanels',
+            },
+          ],
         },
         {
-          label: 'Graph Editor',
-          shortcut: formatShortcut(SHORTCUT_DEFS.toggleGraphEditor.binding),
-          ariaKeyshortcut: ks('toggleGraphEditor'),
-          action: 'toggleGraphEditor',
-        },
-        {
-          label: 'State Machine Panel',
-          shortcut: formatShortcut(SHORTCUT_DEFS.toggleStateMachinePanel.binding),
-          ariaKeyshortcut: ks('toggleStateMachinePanel'),
-          action: 'toggleStateMachinePanel',
-        },
-        {
-          label: 'Fonts Panel',
-          shortcut: formatShortcut(SHORTCUT_DEFS.openFontsPanel.binding),
-          ariaKeyshortcut: ks('openFontsPanel'),
-          action: 'openFontsPanel',
-        },
-        {
-          label: 'Logo Panel',
-          shortcut: formatShortcut(SHORTCUT_DEFS.toggleLogoPanel.binding),
-          ariaKeyshortcut: ks('toggleLogoPanel'),
-          action: 'toggleLogoPanel',
-        },
-        {
-          label: 'History Panel',
-          action: 'toggleHistoryPanel',
-        },
-        { label: '---' },
-        {
-          label: 'Show All Panels',
-          action: 'restoreAllPanels',
-        },
-        { label: '---' },
-        // Workspace
-        {
-          label: 'Workspace: Design',
-          action: 'workspaceDesign',
-          disabled: dis('workspaceDesign'),
-        },
-        {
-          label: 'Workspace: Print',
-          action: 'workspacePrint',
-          disabled: dis('workspacePrint'),
-        },
-        {
-          label: 'Workspace: Draw',
-          action: 'workspaceDrawing',
-          disabled: dis('workspaceDrawing'),
-        },
-        {
-          label: 'Workspace: Photo',
-          action: 'workspaceImage',
-          disabled: dis('workspaceImage'),
-        },
-        {
-          label: 'Workspace: Motion',
-          action: 'workspaceMotion',
-          disabled: dis('workspaceMotion'),
-        },
-        {
-          label: 'Workspace: Logo',
-          action: 'workspaceLogo',
-          disabled: dis('workspaceLogo'),
-        },
-        {
-          label: 'Workspace: Email',
-          action: 'workspaceEmail',
-          disabled: dis('workspaceEmail'),
-        },
-        {
-          label: 'Workspace: Codegen',
-          action: 'workspaceCodegen',
-          disabled: dis('workspaceCodegen'),
-        },
-        {
-          label: 'Reset Workspace to Default',
-          action: 'resetWorkspace',
-        },
-        {
-          label: 'Reset All Workspaces to Default',
-          action: 'resetAllWorkspaces',
-        },
-        {
-          label: 'Customize Workspace\u2026',
-          action: 'customizeWorkspace',
-        },
-        {
-          label: 'Manage Layouts\u2026',
-          action: 'manageWorkspaceLayouts',
+          label: 'Workspace',
+          items: [
+            {
+              label: 'Workspace: Design',
+              action: 'workspaceDesign',
+              disabled: dis('workspaceDesign'),
+            },
+            {
+              label: 'Workspace: Print',
+              action: 'workspacePrint',
+              disabled: dis('workspacePrint'),
+            },
+            {
+              label: 'Workspace: Draw',
+              action: 'workspaceDrawing',
+              disabled: dis('workspaceDrawing'),
+            },
+            {
+              label: 'Workspace: Photo',
+              action: 'workspaceImage',
+              disabled: dis('workspaceImage'),
+            },
+            {
+              label: 'Workspace: Motion',
+              action: 'workspaceMotion',
+              disabled: dis('workspaceMotion'),
+            },
+            {
+              label: 'Workspace: Logo',
+              action: 'workspaceLogo',
+              disabled: dis('workspaceLogo'),
+            },
+            {
+              label: 'Workspace: Email',
+              action: 'workspaceEmail',
+              disabled: dis('workspaceEmail'),
+            },
+            {
+              label: 'Workspace: Codegen',
+              action: 'workspaceCodegen',
+              disabled: dis('workspaceCodegen'),
+            },
+            {
+              label: 'Reset Workspace to Default',
+              action: 'resetWorkspace',
+            },
+            {
+              label: 'Reset All Workspaces to Default',
+              action: 'resetAllWorkspaces',
+            },
+            {
+              label: 'Customize Workspace\u2026',
+              action: 'customizeWorkspace',
+            },
+            {
+              label: 'Manage Layouts\u2026',
+              action: 'manageWorkspaceLayouts',
+            },
+          ],
         },
         { label: '---' },
         // Toolbar placement. Radio pair: one position is always selected, and
@@ -1136,30 +1168,34 @@ function buildMenus(
           disabled: dis('logoPreview'),
         },
         { label: '---' },
-        // Color Blindness
         {
-          label: 'Color Blindness: None',
-          action: 'colorBlindnessNone',
-          shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessNone.binding),
-          ariaKeyshortcut: ks('colorBlindnessNone'),
-        },
-        {
-          label: 'Color Blindness: Protanopia (red)',
-          action: 'colorBlindnessProtanopia',
-          shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessProtanopia.binding),
-          ariaKeyshortcut: ks('colorBlindnessProtanopia'),
-        },
-        {
-          label: 'Color Blindness: Deuteranopia (green)',
-          action: 'colorBlindnessDeuteranopia',
-          shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessDeuteranopia.binding),
-          ariaKeyshortcut: ks('colorBlindnessDeuteranopia'),
-        },
-        {
-          label: 'Color Blindness: Tritanopia (blue)',
-          action: 'colorBlindnessTritanopia',
-          shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessTritanopia.binding),
-          ariaKeyshortcut: ks('colorBlindnessTritanopia'),
+          label: 'Color Blindness',
+          items: [
+            {
+              label: 'Color Blindness: None',
+              action: 'colorBlindnessNone',
+              shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessNone.binding),
+              ariaKeyshortcut: ks('colorBlindnessNone'),
+            },
+            {
+              label: 'Color Blindness: Protanopia (red)',
+              action: 'colorBlindnessProtanopia',
+              shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessProtanopia.binding),
+              ariaKeyshortcut: ks('colorBlindnessProtanopia'),
+            },
+            {
+              label: 'Color Blindness: Deuteranopia (green)',
+              action: 'colorBlindnessDeuteranopia',
+              shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessDeuteranopia.binding),
+              ariaKeyshortcut: ks('colorBlindnessDeuteranopia'),
+            },
+            {
+              label: 'Color Blindness: Tritanopia (blue)',
+              action: 'colorBlindnessTritanopia',
+              shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessTritanopia.binding),
+              ariaKeyshortcut: ks('colorBlindnessTritanopia'),
+            },
+          ],
         },
         { label: '---' },
         {
@@ -1808,15 +1844,41 @@ function filterMenusByWorkspace(
     return allowed.includes(workspace);
   }
 
-  function filterItems(items: MenuItem[]): MenuItem[] {
-    return items.filter((item) => {
-      if (item.label === '---') return true;
-      if (!shouldKeep(item.action)) return false;
-      if (item.items) {
-        item.items = filterItems(item.items);
+  /** Drop leading/trailing/consecutive separators after filtering. */
+  function normalizeSeparators(items: MenuItem[]): MenuItem[] {
+    const out: MenuItem[] = [];
+    for (const item of items) {
+      if (item.label === '---') {
+        if (out.length === 0 || out[out.length - 1]?.label === '---') continue;
+        out.push(item);
+        continue;
       }
-      return true;
-    });
+      out.push(item);
+    }
+    while (out.length > 0 && out[out.length - 1]?.label === '---') out.pop();
+    return out;
+  }
+
+  function filterItems(items: MenuItem[]): MenuItem[] {
+    const filtered: MenuItem[] = [];
+    for (const item of items) {
+      if (item.label === '---') {
+        filtered.push(item);
+        continue;
+      }
+      if (!shouldKeep(item.action)) continue;
+      if (item.items) {
+        // Recurse without mutating the memoized menu definitions, drop a
+        // submenu whose children were all filtered out (an empty flyout is a
+        // dead end), and re-normalize separators at this level.
+        const children = normalizeSeparators(filterItems(item.items));
+        if (children.length === 0) continue;
+        filtered.push({ ...item, items: children });
+        continue;
+      }
+      filtered.push(item);
+    }
+    return normalizeSeparators(filtered);
   }
 
   return menus

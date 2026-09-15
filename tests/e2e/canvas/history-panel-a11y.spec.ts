@@ -7,6 +7,7 @@
  */
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
+import { openSubmenu } from '../helpers/menu-helpers';
 
 async function navigateToEditor(page: Page) {
   await page.goto('/');
@@ -40,9 +41,10 @@ async function drawRect(page: Page) {
 }
 
 async function openHistoryPanel(page: Page) {
-  await page.getByRole('menuitem', { name: 'View' }).click();
-  await page.waitForTimeout(500);
-  await page.locator('[role="menuitem"]', { hasText: 'History Panel' }).click();
+  // The panel toggles live in the View > Panels submenu now that the View
+  // root is grouped to fit one screen.
+  const panels = await openSubmenu(page, 'View', 'Panels');
+  await panels.getByRole('menuitem', { name: /History Panel/ }).click();
   await page.locator('.editor__history-panel').waitFor({ timeout: 10000 });
 }
 

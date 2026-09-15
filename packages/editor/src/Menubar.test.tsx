@@ -392,12 +392,16 @@ describe('Menubar menu structure', () => {
     const viewMenuItems = async (): Promise<string[]> => {
       render(<Menubar />);
       await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
-      // The logo toggle renders as menuitemcheckbox; match all item roles.
+      // The panel toggles live in the Panels submenu now that the View root
+      // is grouped to fit one screen.
       const menu = await screen.findByRole('menu', { name: 'View' });
-      const labels = within(menu)
+      await user.hover(within(menu).getByRole('menuitem', { name: 'Panels' }));
+      const panels = await screen.findByRole('menu', { name: 'Panels' });
+      // The logo toggle renders as menuitemcheckbox; match all item roles.
+      const labels = within(panels)
         .getAllByRole('menuitem')
-        .concat(within(menu).queryAllByRole('menuitemcheckbox'))
-        .concat(within(menu).queryAllByRole('menuitemradio'))
+        .concat(within(panels).queryAllByRole('menuitemcheckbox'))
+        .concat(within(panels).queryAllByRole('menuitemradio'))
         .map((el) => el.textContent ?? '');
       cleanup();
       return labels;
@@ -598,14 +602,16 @@ describe('Menubar disabled states', () => {
 
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
     const viewMenu = await screen.findByRole('menu', { name: 'View' });
+    await user.hover(within(viewMenu).getByRole('menuitem', { name: 'Workspace' }));
+    const workspaceMenu = await screen.findByRole('menu', { name: 'Workspace' });
     expect(
-      within(viewMenu).getByRole('menuitemradio', { name: /Workspace: Design/ }),
+      within(workspaceMenu).getByRole('menuitemradio', { name: /Workspace: Design/ }),
     ).not.toBeDisabled();
     expect(
-      within(viewMenu).getByRole('menuitemradio', { name: /Workspace: Print/ }),
+      within(workspaceMenu).getByRole('menuitemradio', { name: /Workspace: Print/ }),
     ).toBeDisabled();
     expect(
-      within(viewMenu).getByRole('menuitemradio', { name: /Workspace: Motion/ }),
+      within(workspaceMenu).getByRole('menuitemradio', { name: /Workspace: Motion/ }),
     ).toBeDisabled();
 
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
@@ -621,7 +627,11 @@ describe('Menubar ARIA attributes', () => {
     render(<Menubar />);
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
     const menu = await screen.findByRole('menu', { name: 'View' });
-    const designItem = within(menu).getByRole('menuitemradio', { name: /Workspace: Design/ });
+    await user.hover(within(menu).getByRole('menuitem', { name: 'Workspace' }));
+    const workspaceMenu = await screen.findByRole('menu', { name: 'Workspace' });
+    const designItem = within(workspaceMenu).getByRole('menuitemradio', {
+      name: /Workspace: Design/,
+    });
     expect(designItem).toBeTruthy();
     expect(designItem).toHaveAttribute('aria-checked', 'true');
     expect(designItem).not.toBeDisabled();
@@ -632,7 +642,9 @@ describe('Menubar ARIA attributes', () => {
     render(<Menubar />);
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
     const menu = await screen.findByRole('menu', { name: 'View' });
-    const lightItem = within(menu).getByRole('menuitemradio', { name: 'Light' });
+    await user.hover(within(menu).getByRole('menuitem', { name: 'Theme' }));
+    const themeMenu = await screen.findByRole('menu', { name: 'Theme' });
+    const lightItem = within(themeMenu).getByRole('menuitemradio', { name: 'Light' });
     expect(lightItem).toBeTruthy();
   });
 
@@ -641,7 +653,9 @@ describe('Menubar ARIA attributes', () => {
     render(<Menubar />);
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
     const menu = await screen.findByRole('menu', { name: 'View' });
-    const outlineItem = within(menu).getByRole('menuitemcheckbox', { name: /Outline Mode/ });
+    await user.hover(within(menu).getByRole('menuitem', { name: 'Canvas Mode' }));
+    const canvasMenu = await screen.findByRole('menu', { name: 'Canvas Mode' });
+    const outlineItem = within(canvasMenu).getByRole('menuitemcheckbox', { name: /Outline Mode/ });
     expect(outlineItem).toBeTruthy();
   });
 

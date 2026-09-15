@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openSubmenu } from '../helpers/menu-helpers';
 import { navigateToEditor } from '../shared';
 
 /**
@@ -25,18 +26,27 @@ test.describe('Logo panel', () => {
   });
 
   test('View menu shows the Logo Panel item only in the Logo workspace', async ({ page }) => {
-    const logoItem = page.getByRole('menuitemcheckbox', { name: /Logo Panel/i });
-    // Design workspace: the item must be absent from the View menu.
-    await page.getByRole('menuitem', { name: /^View/i }).click();
-    await expect(page.getByRole('menuitem', { name: 'Fonts Panel' })).toBeVisible();
-    await expect(logoItem).toHaveCount(0);
+    // The panel toggles live in the View > Panels submenu now that the View
+    // root is grouped to fit one screen.
+    const openPanels = async () => {
+      const panels = await openSubmenu(page, 'View', 'Panels');
+      return panels;
+    };
+
+    // Design workspace: the item must be absent from the Panels submenu.
+    const designPanels = await openPanels();
+    await expect(designPanels.getByRole('menuitem', { name: 'Fonts Panel' })).toBeVisible();
+    await expect(designPanels.getByRole('menuitemcheckbox', { name: /Logo Panel/i })).toHaveCount(
+      0,
+    );
     await page.keyboard.press('Escape');
-    await expect(page.getByRole('menuitem', { name: 'Fonts Panel' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
 
     // Switch via the workspace radio (deterministic), then reopen View.
     await page.getByRole('radio', { name: 'Logo workspace', exact: true }).click({ force: true });
     await expect(page.getByTestId('logo-panel')).toBeVisible({ timeout: 15000 });
-    await page.getByRole('menuitem', { name: /^View/i }).click();
+    const logoPanels = await openPanels();
+    const logoItem = logoPanels.getByRole('menuitemcheckbox', { name: /Logo Panel/i });
     await expect(logoItem).toBeVisible();
     await expect(logoItem).toHaveAttribute('aria-checked', 'true');
     await logoItem.click();
