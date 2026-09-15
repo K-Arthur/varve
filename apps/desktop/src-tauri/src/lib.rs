@@ -2051,6 +2051,8 @@ const GENERATIVE_MODEL_DOWNLOAD_SHA256: &str =
 // produced rejected semantic results. Keep the URL and hash for provenance,
 // but do not offer an artifact we cannot honestly execute or qualify.
 const GENERATIVE_MODEL_DOWNLOAD_AVAILABLE: bool = false;
+const GENERATIVE_MODEL_INCOMPATIBLE_REASON: &str = "This packaged Q4 artifact is documented for a patched llama-box runtime and is not compatible with Varve's diffusion-rs helper. Prompt-conditioned generation remains unavailable; import a separately qualified compatible model or use Quick Cleanup/LaMa.";
+const GENERATIVE_MODEL_UNAVAILABLE_REASON: &str = "No quality-certified prompt model is packaged. The configured Q4 artifact requires a patched llama-box runtime and is not offered by Varve; import a compatible safe-format model and validate it, or use Quick Cleanup/LaMa.";
 
 // A model may only become usable after the frozen real-photograph corpus has
 // been reviewed and its exact artifact hash has been intentionally promoted
@@ -2091,6 +2093,7 @@ struct GenerativeModelStatus {
     installed: bool,
     ready: bool,
     download_available: bool,
+    qualification_available: bool,
     model_handle: Option<String>,
     profile_id: Option<String>,
     checksum_sha256: Option<String>,
@@ -2211,7 +2214,7 @@ fn model_status_blocking(app: &tauri::AppHandle) -> Result<GenerativeModelStatus
                 let known_incompatible =
                     generative_model_artifact_is_known_incompatible(&checksum_sha256);
                 let reason = if known_incompatible {
-                    Some("This packaged Q4 artifact is documented for a patched llama-box runtime and is not compatible with Varve's diffusion-rs helper. Prompt-conditioned generation remains unavailable; import a separately qualified compatible model or use Quick Cleanup/LaMa.".into())
+                    Some(GENERATIVE_MODEL_INCOMPATIBLE_REASON.into())
                 } else if ready {
                     Some("The local model passed Varve's masked inpainting qualification.".into())
                 } else if record_matches_runtime
@@ -2260,6 +2263,7 @@ fn model_status_blocking(app: &tauri::AppHandle) -> Result<GenerativeModelStatus
                     installed: true,
                     ready,
                     download_available: GENERATIVE_MODEL_DOWNLOAD_AVAILABLE,
+                    qualification_available: !known_incompatible,
                     model_handle: record
                         .as_ref()
                         .filter(|record| ready && record.model_handle == GENERATIVE_MODEL_HANDLE)
@@ -2292,12 +2296,13 @@ fn model_status_blocking(app: &tauri::AppHandle) -> Result<GenerativeModelStatus
         installed: false,
         ready: false,
         download_available: GENERATIVE_MODEL_DOWNLOAD_AVAILABLE,
+        qualification_available: false,
         model_handle: None,
         profile_id: None,
         checksum_sha256: None,
         size_bytes: 0,
         partial_bytes,
-        reason: Some("No quality-certified prompt model is packaged. The configured Q4 artifact requires a patched llama-box runtime and is not offered by Varve; import a compatible safe-format model and validate it, or use Quick Cleanup/LaMa.".into()),
+        reason: Some(GENERATIVE_MODEL_UNAVAILABLE_REASON.into()),
         memory_available_bytes: resource.available_memory_bytes,
         memory_required_bytes: resource.required_memory_bytes,
         resource_tier: resource.resource_tier.into(),
@@ -2594,7 +2599,7 @@ async fn download_generative_edit_model(
         return Err("Invalid model-download request id".into());
     }
     if !GENERATIVE_MODEL_DOWNLOAD_AVAILABLE {
-        return Err("No quality-certified prompt model is packaged. The configured Q4 artifact requires a patched llama-box runtime and is not compatible with Varve's diffusion-rs helper; import a separately qualified compatible model or use Quick Cleanup/LaMa.".into());
+        return Err(GENERATIVE_MODEL_UNAVAILABLE_REASON.into());
     }
     begin_generative_model_download(&request_id)?;
 
@@ -2812,6 +2817,13 @@ fn resolve_generative_model_for_run(
     let status = model_status_blocking(app)?;
     if !status.installed {
         return Err("The local diffusion model is not installed".into());
+    }
+    if generative_model_artifact_is_known_incompatible(
+        status.checksum_sha256.as_deref().unwrap_or_default(),
+    ) {
+        return Err(status
+            .reason
+            .unwrap_or_else(|| GENERATIVE_MODEL_INCOMPATIBLE_REASON.into()));
     }
     if require_qualified && !status.ready {
         return Err(status.reason.unwrap_or_else(|| {

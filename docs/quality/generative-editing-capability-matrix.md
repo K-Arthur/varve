@@ -6,7 +6,7 @@ verified” means a repeatable repository check passed. “Visually reviewed” 
 reserved for an inspected output from the production provider; interface
 screenshots and mocks do not qualify.
 
-Last updated: 2026-09-14.
+Last updated: 2026-09-15.
 
 The frozen input gate can be checked offline with:
 
@@ -66,10 +66,10 @@ download rejects immediately while forwarding the native cancellation command.
 This is renderer lifecycle evidence; native cancellation latency and the
 post-download install race still require desktop-package evidence.
 
-## Pinned desktop model profile
+## Historical desktop model profile
 
-The explicit download profile is Stable Diffusion 1.5 Inpainting Q4_0 from
-the `gpustack/stable-diffusion-v1-5-inpainting-GGUF` repository. The artifact is
+The historical candidate is Stable Diffusion 1.5 Inpainting Q4_0 from the
+`gpustack/stable-diffusion-v1-5-inpainting-GGUF` repository. The artifact is
 pinned to the `21491e4` repository revision, is 1,747,219,584 bytes, and has
 SHA-256:
 
@@ -81,7 +81,12 @@ The model card identifies the artifact as CreativeML OpenRAIL-M and warns that
 the GGUF is experimental for a patched runtime. Varve therefore performs a
 masked production-helper qualification after installation; a matching file
 hash alone does not make the provider ready. The pinned candidate failed the
-2026-09-12 semantic/runtime inspection and remains unqualified. See the
+2026-09-12 semantic/runtime inspection and remains unqualified. It is retained
+for diagnostic provenance but is no longer offered as a download because the
+published runtime requirement does not match Varve's `diffusion-rs` helper.
+Users may still import a separately obtained safe-format model, but it must
+pass the same runtime, real-photo, memory, cancellation, and platform gates
+before prompt modes can become ready. See the
 [model card](https://huggingface.co/gpustack/stable-diffusion-v1-5-inpainting-GGUF),
 [stable-diffusion.cpp runtime](https://github.com/leejet/stable-diffusion.cpp),
 and [qualification report](../audits/generative-editing-runtime-qualification-2026-09-12.md).

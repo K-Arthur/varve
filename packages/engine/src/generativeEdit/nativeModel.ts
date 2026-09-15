@@ -22,6 +22,8 @@ export interface NativeGenerativeModelStatus {
   ready: boolean;
   /** True only when Varve has a pinned artifact it can execute and qualify. */
   downloadAvailable: boolean;
+  /** False for artifacts known to be incompatible before a probe is started. */
+  qualificationAvailable: boolean;
   modelHandle: string | null;
   profileId: string | null;
   checksumSha256: string | null;
@@ -53,6 +55,7 @@ export async function getNativeGenerativeModelStatus(): Promise<NativeGenerative
       installed: false,
       ready: false,
       downloadAvailable: false,
+      qualificationAvailable: false,
       modelHandle: null,
       profileId: null,
       checksumSha256: null,
@@ -75,6 +78,7 @@ export async function getNativeGenerativeModelStatus(): Promise<NativeGenerative
       installed: false,
       ready: false,
       downloadAvailable: false,
+      qualificationAvailable: false,
       modelHandle: null,
       profileId: null,
       checksumSha256: null,

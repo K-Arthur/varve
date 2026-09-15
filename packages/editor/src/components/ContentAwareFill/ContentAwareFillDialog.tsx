@@ -583,6 +583,8 @@ export function ContentAwareFillDialog({
   const [modelFitsMemory, setModelFitsMemory] = useState<boolean | null>(null);
   const [diffusionModelInstalled, setDiffusionModelInstalled] = useState(false);
   const [diffusionModelDownloadAvailable, setDiffusionModelDownloadAvailable] = useState(false);
+  const [diffusionModelQualificationAvailable, setDiffusionModelQualificationAvailable] =
+    useState(false);
   const [diffusionModelHandle, setDiffusionModelHandle] = useState<string | null>(null);
   const [diffusionModelSize, setDiffusionModelSize] = useState(0);
   const [diffusionModelReason, setDiffusionModelReason] = useState<string | null>(null);
@@ -972,6 +974,7 @@ export function ContentAwareFillDialog({
     setModelFitsMemory(null);
     setDiffusionModelInstalled(false);
     setDiffusionModelDownloadAvailable(false);
+    setDiffusionModelQualificationAvailable(false);
     setDiffusionModelHandle(null);
     setDiffusionModelSize(0);
     setDiffusionModelReason(null);
@@ -1104,6 +1107,7 @@ export function ContentAwareFillDialog({
       if (cancelled) return;
       setDiffusionModelInstalled(available.installed);
       setDiffusionModelDownloadAvailable(available.downloadAvailable);
+      setDiffusionModelQualificationAvailable(available.qualificationAvailable);
       setDiffusionModelHandle(available.ready ? available.modelHandle : null);
       setDiffusionModelSize(available.sizeBytes);
       setDiffusionModelReason(available.reason);
@@ -1960,6 +1964,7 @@ export function ContentAwareFillDialog({
       }, controller.signal);
       setDiffusionModelInstalled(downloaded.installed);
       setDiffusionModelDownloadAvailable(downloaded.downloadAvailable);
+      setDiffusionModelQualificationAvailable(downloaded.qualificationAvailable);
       setDiffusionModelHandle(downloaded.ready ? downloaded.modelHandle : null);
       setDiffusionModelSize(downloaded.sizeBytes);
       setDiffusionModelReason(downloaded.reason);
@@ -2012,6 +2017,7 @@ export function ContentAwareFillDialog({
       const imported = await importNativeGenerativeModel(selected);
       setDiffusionModelInstalled(imported.installed);
       setDiffusionModelDownloadAvailable(imported.downloadAvailable);
+      setDiffusionModelQualificationAvailable(imported.qualificationAvailable);
       setDiffusionModelHandle(imported.ready ? imported.modelHandle : null);
       setDiffusionModelSize(imported.sizeBytes);
       setDiffusionModelReason(imported.reason);
@@ -2047,6 +2053,7 @@ export function ContentAwareFillDialog({
       if (!isCurrentQualification()) return;
       setDiffusionModelInstalled(qualified.installed);
       setDiffusionModelDownloadAvailable(qualified.downloadAvailable);
+      setDiffusionModelQualificationAvailable(qualified.qualificationAvailable);
       setDiffusionModelHandle(qualified.ready ? qualified.modelHandle : null);
       setDiffusionModelSize(qualified.sizeBytes);
       setDiffusionModelReason(qualified.reason);
@@ -3332,7 +3339,9 @@ export function ContentAwareFillDialog({
                   ? diffusionModelHandle
                     ? `Diffusion · ${Math.round(diffusionModelSize / 1_000_000)} MB · qualified local${diffusionResource ? ` · ${diffusionResource.backend}/${diffusionResource.platform}/${diffusionResource.architecture}` : ''}`
                     : diffusionModelInstalled
-                      ? 'Diffusion model installed · validation required'
+                      ? diffusionModelQualificationAvailable
+                        ? 'Diffusion model installed · validation required'
+                        : 'Diffusion model installed · incompatible with this runtime'
                       : 'Diffusion model required · local only'
                   : quality === 'fast'
                     ? 'Quick Cleanup · no download'
@@ -3382,17 +3391,19 @@ export function ContentAwareFillDialog({
                   Downloading local model… {downloadProgress}%
                 </p>
               )}
-              {diffusionModelInstalled && !diffusionModelHandle && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void handleQualifyDiffusionModel()}
-                  disabled={isProcessing}
-                >
-                  Validate Model
-                </Button>
-              )}
+              {diffusionModelInstalled &&
+                diffusionModelQualificationAvailable &&
+                !diffusionModelHandle && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void handleQualifyDiffusionModel()}
+                    disabled={isProcessing}
+                  >
+                    Validate Model
+                  </Button>
+                )}
               <p className="caf-dialog__hint">
                 {diffusionResource?.availableBytes != null &&
                   diffusionResource.availableBytes < diffusionResource.requiredBytes && (

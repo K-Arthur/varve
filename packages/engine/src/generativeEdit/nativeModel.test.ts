@@ -52,6 +52,7 @@ describe('downloadNativeGenerativeModel', () => {
       installed: true,
       ready: false,
       downloadAvailable: false,
+      qualificationAvailable: false,
       modelHandle: null,
       profileId: 'sd15-inpainting-q4_0-v1',
       checksumSha256: null,
