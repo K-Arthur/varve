@@ -101,11 +101,57 @@ via Playwright, viewport 1280×800.
 
 ## 5. Capability matrix after repair
 
-Tracked in `docs/architecture/grid-system.md` § Isometric as the authoritative
-current-state matrix; this audit records the *baseline* matrix in §1 only so
-that the two documents cannot drift.
+Implementation status as of 2026-09-14 (commit series on `master`; see
+`docs/architecture/grid-system.md` for the authoritative contracts). The
+baseline matrix in §1 is retained only so the two documents cannot drift.
 
-## 6. Open questions / uncertainty
+| Capability | State | Evidence |
+| --- | --- | --- |
+| Canonical isometric geometry (exact presets, planes, conditioning, plane inverses) | Working | `packages/scene/src/isometricGeometry.ts`; 33 independent numerical tests |
+| Exact 2:1 dimetric (`atan2(1,2)`) and ratio input | Working | preset tests + Inspector ratio field |
+| Grid origin / rotation / per-axis visibility, colour, opacity | Working | overlay consumes canonical geometry; Inspector controls |
+| Per-axis spacing | Removed by design (derived) | spacing is the axis step; family gaps derive from the basis |
+| Viewport-driven, phase-stable rendering with nested LOD | Working | `gridLinesForViewport`, `selectDisplayStep`; overlay + E2E lattice check |
+| Active grid resolved explicitly | Working | `resolveActiveIsometricGrid`; scene tests + E2E |
+| Snap to isometric intersections (exact, oblique-safe) | Working | `nearestLatticePoint` + `isometricSnapping`; unit + E2E (artwork corner on lattice) |
+| Snap to grid lines | Working (opt-in) | `nearestLatticeLine`; Inspector `snapToLines` |
+| Single translation for multi-object moves | Working | solver applies one vector; unit tests |
+| Artwork-anchored snap features | Working | `nodeGeometryFeatures`; unit + E2E |
+| Plane-aware rectangle / ellipse / line + `Off` plane | Working | tool implementations; 10 unit tests + E2E projected-rect check |
+| Fit to Plane / Unproject (one affine per root, editable, invertible) | Working | `isometricPlaneCommands`; 11 unit tests + E2E round-trip |
+| Create Grid Artwork (bounded, undoable, independent of view) | Working | 4 unit tests + E2E (226-line group in Layers) |
+| Custom axes survive preset visits; stable axis keys | Working | Inspector `customAxes`; E2E |
+| NaN-safe sanitization and explicit v2.28 migration | Working | `sanitizeIsometricGrid`, `migrateV227ToV228`; 20 tests |
+| Export excludes the construction grid | Verified at DOM/document level | E2E: toggling the overlay changes no node; overlay is a sibling SVG, not scene graph. Full export-dialog lane not run in this session |
+| Axis-direction movement constraint | Not implemented | Bypass/axis-lock remains an explicit future item |
+| Plane-relative rotate/flip/duplicate/align | Not implemented | Deliberately deferred |
+| Pen/node plane-aware handle transforms | Partial | Anchor positions follow the plane and snapping; handle-vector plane semantics are not yet transformed |
+
+## 6. Validation evidence (2026-09-14)
+
+Environment: Linux (CachyOS), Chromium via Playwright (desktop Chrome
+device profile), viewport 1280×800, device scale 1. Desktop WebKitGTK and
+Chromebook hardware were not available in this session; findings are
+Chromium-based.
+
+| Lane | Result |
+| --- | --- |
+| `packages/scene/src/isometricGeometry.test.ts` | 33 passed (trig fixtures, brute-force CVP cross-check, rounding counterexample, plane round-trips, phase, LOD, invalid bases) |
+| `packages/scene/src/gridTypes.test.ts` | 24 passed (migration preserves `×2/√3`; NaN/Infinity defaults; preset honesty) |
+| `packages/scene/src/gridDocument.test.ts` | 8 passed (active-grid precedence, first-grid activation, sanitization) |
+| `packages/editor/src/canvas/__tests__/isometricOverlayGeometry.test.ts` | 8 passed (independent camera projection under rotation, clipping, guide role, malformed config) |
+| `packages/editor/src/tools/__tests__/isometricSnapping.test.ts` | 15 passed (oblique counterexample through the snap API, sticky release/invalidations, geometry anchors, deterministic ties, no-op regression) |
+| `packages/editor/src/commands/__tests__/isometricPlaneCommands.test.ts` | 11 passed (pivot fixpoint, inverse round-trip, nested hierarchy single transform, locked/no-op, bounded artwork, step coarsening) |
+| `tests/e2e/canvas/isometric-grid.spec.ts` | 6/6 scenarios passed (one Home-navigation harness flake, green on isolated rerun). Captures: `docs/audits/isometric-evidence-2026-09-14/` |
+| Editor `tsc` | No new errors; two pre-existing errors in `snapping.ts` (lines ~306/591) reproduced with this work stashed |
+
+Screenshots inspected in this session: lattice overlay and panned coverage
+(`01-lattice-and-pan.png`), projected rectangle drawn on the Top plane
+(`02-projected-rect.png`), mid-drag snap crosshair (`03-snap-crosshair.png`),
+fit/unproject result (`05-fit-unproject.png`), and the generated 226-line grid
+artwork group in the Layers panel (`06-grid-artwork.png`).
+
+## 7. Open questions / uncertainty
 
 - **U1.** Exact Affinity plane naming for the left/right bases differs by
   document orientation; Varve will publish its own mapping (D3) rather than

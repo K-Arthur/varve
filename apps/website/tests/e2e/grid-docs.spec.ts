@@ -38,4 +38,24 @@ test.describe('Grid systems marketing documentation', () => {
     await page.getByTestId('canvas-grid-systems').scrollIntoViewIfNeeded();
     await page.screenshot({ path: 'test-results/canvas-grid-systems.png', fullPage: false });
   });
+
+  test('documents exact isometric construction and its separate commands', async ({ page }) => {
+    await page.goto('/docs/tools/grids');
+    await expect(
+      page.getByRole('heading', { name: 'Isometric and axonometric construction', level: 2 }),
+    ).toBeVisible();
+    await expect(page.getByText('atan2(1, 2)', { exact: false })).toBeVisible();
+    await expect(page.getByText('Construction plane', { exact: true })).toBeVisible();
+    await expect(page.getByText('Fit to plane · Unproject', { exact: true })).toBeVisible();
+    // The page must distinguish the aid from an automatic transform.
+    await expect(
+      page.getByText('Turning the grid on never transforms anything by itself.', {
+        exact: false,
+      }),
+    ).toBeVisible();
+    await page
+      .getByRole('heading', { name: 'Isometric and axonometric construction', level: 2 })
+      .scrollIntoViewIfNeeded();
+    await page.screenshot({ path: 'test-results/grid-docs-isometric.png', fullPage: false });
+  });
 });

@@ -14,6 +14,23 @@ update, not for someone reading the commit log.
 
 ### Added
 
+- **Isometric construction that matches its grid** — The isometric grid is now a real
+  construction system rather than a static overlay. True isometric (30°), exact 2:1
+  dimetric (`atan2(1, 2)`, with ratio-to-angle entry), and an explicitly illustrative
+  three-angle guide are available; spacing is the projected step along each axis, so the
+  three line families meet at true lattice intersections. Choose a Top, Front, or Side
+  construction plane — or turn plane-aware drawing Off — and draw projected rectangles,
+  exact ellipse projections, and plane-constrained lines; the active plane never transforms
+  existing artwork. Snapping resolves to the nearest lattice intersection with an exact
+  2-D search (not independently rounded coordinates) and moves a multi-object selection by
+  one translation, so relative arrangement is preserved. `Fit to Plane` and `Unproject`
+  are deliberate, invertible commands that keep text, images, and paths editable, and
+  `Create Grid Artwork` converts the grid into bounded editable vector lines on demand.
+  Hiding the grid never changes artwork, and exports never include the construction aid.
+  Isometric grids persist with an explicit active grid and active plane; documents saved
+  before 2.28 are migrated explicitly (their drawn grid is preserved) and custom axes
+  survive visiting a preset.
+
 - **Trustworthy image tracing** — Image Trace previews now render the exact
   curves, holes, fills, and strokes that Apply commits: cubic handles are
   drawn (not polylines), every hole subpath closes, and artwork paint no

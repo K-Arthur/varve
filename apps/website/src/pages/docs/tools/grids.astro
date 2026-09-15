@@ -76,8 +76,8 @@ import { sitePath } from '../../../lib/siteUrl';
           <article class="grid-family__card grid-family__card--type">
             <span class="grid-family__number">03</span>
             <h3>Baseline and isometric</h3>
-            <p>Use document-authored rhythm and axes when type or perspective needs a visual check.</p>
-            <span class="grid-family__tag">Typography / axes</span>
+            <p>Author typographic rhythm and exact axonometric axes for plane-aware construction.</p>
+            <span class="grid-family__tag">Typography / construction</span>
           </article>
           <article class="grid-family__card grid-family__card--layout">
             <span class="grid-family__number">04</span>
@@ -139,6 +139,45 @@ import { sitePath } from '../../../lib/siteUrl';
         </div>
       </section>
 
+      <section class="grid-detail grid-detail--isometric" aria-labelledby="isometric-grid-title">
+        <div class="grid-detail__copy">
+          <p class="eyebrow">02b / Construction</p>
+          <h2 id="isometric-grid-title">Isometric and axonometric construction</h2>
+          <p>
+            The isometric grid is a precise construction aid, not a filter. Pick a preset or enter
+            an exact ratio — true isometric is 30°, and the 2:1 game-art preset stores
+            <code>atan2(1, 2)</code> rather than a rounded degree value — then choose the plane you
+            are building on: Top, Front, or Side. Drawing stays ordinary 2D work; the plane only
+            interprets the pointer.
+          </p>
+          <p>
+            Spacing is the projected length of one step along each axis. Line separations are
+            derived from that single number, so the three families always meet at real
+            intersections instead of drifting apart.
+          </p>
+          <p>
+            <strong>Snapping</strong> resolves to the nearest lattice intersection, not to
+            independently rounded coordinates, so dragging artwork onto the grid lands a real
+            anchor on the grid. <strong>Fit to Plane</strong> is a deliberate, separate command for
+            existing artwork, and <strong>Unproject</strong> applies the exact inverse. Turning the
+            grid on never transforms anything by itself.
+          </p>
+        </div>
+        <div class="control-card" aria-label="Isometric grid controls">
+          <div class="control-card__header">
+            <span class="control-card__title">Isometric Grid</span>
+            <span class="control-card__badge">Saved in document</span>
+          </div>
+          <div class="control-card__row"><span>Show isometric grid</span><span class="fake-switch fake-switch--on" aria-hidden="true"></span></div>
+          <div class="control-card__row"><span>Snap to isometric grid</span><span class="fake-switch fake-switch--on" aria-hidden="true"></span></div>
+          <div class="control-card__row control-card__row--values"><span>Preset</span><strong>Dimetric 2:1 (26.565°)</strong></div>
+          <div class="control-card__row control-card__row--values"><span>Construction plane</span><strong>Top · Front · Side · Off</strong></div>
+          <div class="control-card__row control-card__row--values"><span>Spacing (axis step)</span><strong>24 px</strong></div>
+          <div class="control-card__row control-card__row--values"><span>Origin / rotation</span><strong>0, 0 · 0°</strong></div>
+          <div class="control-card__row control-card__row--values"><span>Fit existing artwork</span><strong>Fit to plane · Unproject</strong></div>
+        </div>
+      </section>
+
       <section class="layout-guide-section" aria-labelledby="layout-guide-title">
         <div class="layout-guide-section__intro">
           <p class="eyebrow">03 / Composition</p>
@@ -173,6 +212,7 @@ import { sitePath } from '../../../lib/siteUrl';
           <li><span>02</span><div><strong>Check the local switch.</strong><p>The frame and each authored guide can be hidden independently.</p></div></li>
           <li><span>03</span><div><strong>Check the active scope.</strong><p>Guides outside the active page, canvas, master, or isolation scope stay out of view.</p></div></li>
           <li><span>04</span><div><strong>Check the geometry.</strong><p>Margins, count, fixed size, and gutter must fit inside the owning frame.</p></div></li>
+          <li><span>05</span><div><strong>Isometric grid shows but nothing snaps.</strong><p>Check the global magnetic-snap switch, the grid's Snap to isometric grid toggle, and whether a custom third axis is drawn dashed — dashed directions are construction guides and are not snap targets.</p></div></li>
         </ol>
       </section>
 
@@ -254,6 +294,7 @@ import { sitePath } from '../../../lib/siteUrl';
   .fake-switch--on { background: var(--accent-primary); border-color: var(--accent-primary); }
   .fake-switch--on::after { background: #fff; left: 1.05rem; }
   .grid-detail--pixel { grid-template-columns: minmax(320px, 1.1fr) minmax(0, .9fr); }
+  .grid-detail--isometric { background: var(--surface-muted); border: 1px solid var(--border-default); border-radius: var(--website-radius-card); grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr); padding: clamp(2rem, 5vw, 4rem); }
   .pixel-preview { background: #172126; border: 1px solid var(--border-default); border-radius: var(--website-radius-card); box-shadow: var(--elevation-shadow-raised); padding: 1.25rem; }
   .pixel-preview__zoom { color: #88d8d0; font: 700 .7rem/1 monospace; letter-spacing: .08em; margin-bottom: 1rem; text-align: right; }
   .pixel-preview__art { aspect-ratio: 1.5; background-color: #edf4f4; background-image: linear-gradient(rgba(17, 111, 112, .26) 1px, transparent 1px), linear-gradient(90deg, rgba(17, 111, 112, .26) 1px, transparent 1px); background-size: 10% 10%; display: grid; grid-template-columns: repeat(6, 1fr); overflow: hidden; }
