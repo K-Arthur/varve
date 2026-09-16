@@ -61,7 +61,7 @@ export function useEffectiveWorkspaceConfig(mode: WorkspaceMode): WorkspaceConfi
 
 /**
  * Reactive per-mode customization flags. Returns a map from mode → boolean
- * so workspace tabs can show a "customized" dot without each tab subscribing
+ * so the workspace switcher can show a "customized" dot without each tab subscribing
  * independently.
  */
 export function useWorkspaceCustomizations(): Record<WorkspaceMode, boolean> {

@@ -1170,7 +1170,7 @@ export const ALL_WORKSPACE_MODES: readonly WorkspaceMode[] = [
 ] as const;
 
 /**
- * Top-bar display order for workspace tabs — data-driven, single source of
+ * Top-bar display order for the workspace switcher — data-driven, single source of
  * truth for how many modes the menubar shows at any width. Order reflects
  * product intent: the primary modes (Design, Draw, Photo) stay on screen;
  * Print, Motion, Codegen, and Logo are the first to move into the "More"

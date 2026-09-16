@@ -103,27 +103,30 @@ UI action (New button / empty state / Ctrl+N / palette)
 
 ## Responsive top bar
 
-The menubar is a flex chain — `[home][menus][title][workspace tabs][undo/redo/zoom]` —
-so items can never overlap. The title truncates with an ellipsis (`min-width: 0`).
-Workspace tabs are data-driven:
+The menubar is a flex chain —
+`[home][menus][title][workspace switcher][undo/redo/zoom]` — so items can never
+overlap. The title truncates with an ellipsis (`min-width: 0`).
+The switcher (`.workspace-dock`, `WorkspaceTabs.tsx`) is data-driven:
 
-- `WORKSPACE_OVERFLOW_ORDER` (display order): Design, Draw, Photo, Print, Motion,
-  Codegen & Audit, Logo.
+- `WORKSPACE_OVERFLOW_ORDER` (display order): Design, Draw, Photo, Print,
+  Motion, Codegen, Email, Logo.
 - `WORKSPACE_OVERFLOW_PRIORITY`: Design never overflows; Logo/Codegen overflow
   first.
 - `computeWorkspaceLayout` (pure, unit-tested) decides visible vs. overflow
-  tabs from measured widths; the active mode is always visible (a lower-priority
-  tab is evicted to the "More" menu if needed).
-- Below 900px tabs become icon-only; at very narrow widths only the active tab
-  stays on screen — every mode remains reachable via the overflow menu,
-  keyboard shortcuts, and the command palette.
+  tabs from measured widths plus the measured inter-tab `column-gap`; the
+  active mode is always visible and named (a lower-priority tab is evicted to
+  the "More" menu if needed). Below 900px tabs become icon-only; below 210px
+  the active pill compacts to its icon.
+- At very narrow widths only the active tab stays on screen — every mode
+  remains reachable via the overflow menu, keyboard shortcuts, and the command
+  palette. The switcher contract lives in `docs/architecture/workspace-system.md`.
 
 ## Accessibility notes
 
 - The dialog: native `<dialog>` focus trap, focus restored to the trigger on
   close, Enter creates (never while a text input or the preset listbox owns
   Enter), Escape closes, radios carry accessible names including icon-only
-  workspace tabs.
+  workspace switcher tabs.
 - Dark/light/high-contrast all trace to semantic tokens; the modal overlay fix
   (display:flex scoped to `[open]`) also restored correct closed-dialog
   behavior.

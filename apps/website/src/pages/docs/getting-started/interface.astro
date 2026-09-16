@@ -74,7 +74,7 @@ import { sitePath } from '../../../lib/siteUrl';
         <ul>
           <li><strong>File</strong> — New document, Open, Save (Ctrl+S), Save As (Ctrl+Shift+S), Import (Ctrl+I), Export (Ctrl+E)</li>
           <li><strong>Edit</strong> — Undo (Ctrl+Z), Redo (Ctrl+Shift+Z), Cut (Ctrl+X), Copy (Ctrl+C), Paste (Ctrl+V), Duplicate (Ctrl+D)</li>
-          <li><strong>View</strong> — Zoom controls, toggle snap, toggle pixel grid, toggle panels, canvas mode switching</li>
+          <li><strong>View</strong> — Zoom controls, toggle snap, toggle pixel grid, toggle panels, canvas mode switching, and the <strong>Workspace</strong> submenu (every mode, Reset, Customize, Manage Layouts)</li>
           <li><strong>Object</strong> — Group (Ctrl+G), Ungroup (Ctrl+Shift+G), Arrange (bring forward/send backward), Lock, boolean operations</li>
           <li><strong>Tools</strong> — Quick access to all drawing and editing tools</li>
         </ul>
@@ -246,10 +246,12 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Workspace Modes</h2>
         <p>
-          Above the canvas modes sit the eight task-focused <a href={sitePath('/docs/workspaces')}>workspaces</a>:
-          Design, Print, Draw, Photo, Motion, Logo, Email, and Codegen. Each workspace curates
-          the toolbar and workflow for its task, and every mode edits the same document
-          with the same selection, viewport, and undo history — switch with
+          The menubar carries the eight task-focused <a href={sitePath('/docs/workspaces')}>workspaces</a>
+          as a switcher: Design, Print, Draw, Photo, Motion, Logo, Email, and Codegen. The active
+          workspace is always named in its accent pill; the others are icons, and any mode that no
+          longer fits moves into the switcher's overflow menu rather than disappearing. Each
+          workspace curates the toolbar and workflow for its task, and every mode edits the same
+          document with the same selection, viewport, and undo history — switch with
           <code>Ctrl+Shift+1</code> through <code>Ctrl+Shift+7</code>, and
           <code>Ctrl+Shift+9</code> for Codegen.
         </p>

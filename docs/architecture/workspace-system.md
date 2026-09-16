@@ -434,6 +434,48 @@ resolver (ignoring the modal that initiated it) before replacing the
 arrangement. The public return remains `Promise<boolean>`; the typed plan is
 what the hook executes, and a blocked transition announces why.
 
+### Switcher surface (`WorkspaceTabs`)
+
+The switcher in the menubar is the primary pointer surface for
+`requestWorkspaceSwitch`; it owns no state beyond layout and focus. Its
+contract (review: `docs/audits/workspace-switcher-review-2026-09-15.md`):
+
+- **One radiogroup, one accent.** The control is an APG radiogroup whose
+  children are only radios; the overflow trigger and divider are siblings of
+  the group. Color comes from the shared semantic tokens — the active mode is
+  a `--color-interactive-default` pill with `--color-text-on-accent`, inactive
+  modes are `--color-text-secondary` icons. Mode identity is the icon shape,
+  never a hue: per-mode colors bypassed `audit:tokens` and failed rendered
+  contrast checks.
+- **The active mode is always visible and named.** `computeWorkspaceLayout`
+  evicts a lower-priority tab rather than the active one; the active pill
+  keeps its label down to `WORKSPACE_ACTIVE_LABEL_MIN_WIDTH`, below which it
+  compacts to its icon and the name stays in the tooltip/accessible name.
+- **Labels come from `WORKSPACE_LABELS` and must equal the command label.**
+  The ShortcutManager label (`Workspace: Codegen`), the View menu item, and
+  the switcher must use the same words; a panel may title itself more
+  descriptively (the Code panel reads "Codegen & Audit").
+- **The overflow math measures; it never assumes.** Tab widths are read from
+  rendered boxes and the inter-tab gap is read from the resolved `column-gap`,
+  so a spacing-token change flows into the calculation. `tabWidths` never
+  include the gap. Every mode is reachable from the visible strip or the
+  overflow menu at every width.
+- **Focus contract.** Pointer activation never moves focus; keyboard
+  activation moves the roving focus to the activated radio; activating from
+  the overflow menu focuses the newly visible tab, and dismissal without a
+  selection returns focus to the trigger. A relayout that pushes the focused
+  tab into overflow moves focus to the active tab.
+- **Text enlargement.** The bar and its items use `min-height`, and the bar is
+  observed alongside the flex wrapper, so a user font-size preference grows
+  the chrome and re-runs the overflow math instead of clipping text or
+  leaving stale measurements.
+- **Hover is CSS-only.** A slight in-place scale on the pointed icon, disabled
+  under `prefers-reduced-motion`. Hit targets never move or resize — the
+  macOS-Dock-style fisheye spring that wrote icon dimensions every frame was
+  removed: fisheye magnification anchored to the cursor has no motor-space
+  benefit and is associated with hunting/distraction (Zhai et al., CHI 2005;
+  Cockburn & Firth, *Improving the Acquisition of Small Targets*).
+
 ## Limitations
 
 These are known gaps, not settled design:
