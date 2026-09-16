@@ -220,12 +220,32 @@ the panel), and after that was fixed, because the taller controls exceeded a
 squeezed panel whose tree held a hard `min-height` floor — the panel clips
 with `overflow: hidden`, so the bulk actions became unreachable.
 
-**Fix (two parts):** the swatch picker no longer wraps inside the bulk bar
-(the bar and the narrow-container lane already own horizontal scrolling), and
-the tree's `min-height` floor is now a preference —
-`min(clamp(96px, 18vh, 160px), 15%)` — so a short panel yields the tree
-height to the contextual actions instead of pushing them out of the clipped
-box. The existing spec passes again (`layers-panel-visual.spec.ts`, 2/2).
+**First attempt (reverted) and what it taught:** the swatch picker no longer
+wraps inside the bulk bar (the bar and the narrow-container lane already own
+horizontal scrolling), and the tree floor was first changed to
+`min(clamp(96px, 18vh, 160px), 15%)`. That percentage floor resolved against
+an indefinite height in this flex context and silently collapsed the tree in
+some layouts — rows unmounted mid-drag and the whole DnD invariant suite
+regressed (`dropIndicator: null`). The bisect is recorded here because the
+"fix" looked harmless and made the visual spec pass for the wrong reason.
+
+**Final fix:** the tree keeps its hard `clamp(96px, 18vh, 160px)` floor, and
+`.layers-panel` uses `min-height: min-content` so a short panel grows to its
+sections' minimum and the rail scrolls (the rail-scroll contract already
+documented in `editor.css`) instead of clipping the bulk bar. The four
+invariant tests the percentage floor broke now pass.
+
+**Pre-existing condition discovered while verifying:**
+`layers-panel-visual.spec.ts`'s `bulkBottom <= asideBottom` assertion fails
+at a 720 px window because the rail's sibling stack above Layers is 288 px
+and the panel's content minimum is ~320 px; the rail scrolls (documented)
+but the assertion measures boxes without scrolling. The same assertion
+fails with the pre-review `layers.css` restored, so it is not caused by this
+change set — it belongs to the rail composition owned elsewhere. Likewise
+`layers-dnd-invariant.spec.ts`'s "fast drag across many rows" (target row
+off-viewport in a 130 px tree) and two `layers-drag-drop.spec.ts` tests
+("multi-selection drag", "auto-scrolls … 43 layers") fail with the
+pre-review CSS too — recorded as pre-existing, not regressions.
 
 ### F16 — Marketing overclaim
 

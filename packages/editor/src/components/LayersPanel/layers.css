@@ -6,7 +6,11 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  min-height: 0;
+  /* Never clip the contextual actions: if header + filter + tree floor +
+     bulk bar + selection sets cannot fit the height the rail offered, grow
+     to the content's minimum and let the rail scroll rather than hiding the
+     bulk bar outside this box (the tree keeps its own floor above). */
+  min-height: min-content;
 }
 
 /* Panel header: a quiet title row with a compact document count. */
@@ -218,14 +222,15 @@
  * which is bounded and scrolls internally. The previous 80px floor let those
  * sections squeeze it to roughly two rows.
  *
- * The 15% arm keeps the floor a preference: when the panel itself is short
- * (the rail squeezed it and the header/filter/bulk-bar/selection-set minima
- * already exceed it), a hard 96px floor pushed the contextual bulk actions
- * outside the panel's clipped box, where they were unreachable. Above roughly
- * a 640px panel the 96-160px floor is what applies, unchanged. */
+ * Do NOT weaken this floor to a percentage: `min(..., 15%)` resolved against
+ * an indefinite height in this flex context and silently collapsed the tree,
+ * unmounting rows mid-drag (the DnD invariant suite caught it — the drop
+ * indicator never resolved because the source row unmounted). When the panel
+ * cannot fit its own sections, the panel's `min-height: min-content` below
+ * grows it and the rail scrolls instead. */
 .layers-panel__tree {
   flex: 1 1 0;
-  min-height: min(clamp(96px, 18vh, 160px), 15%);
+  min-height: clamp(96px, 18vh, 160px);
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
