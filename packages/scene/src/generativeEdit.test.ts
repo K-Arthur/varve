@@ -109,6 +109,12 @@ describe('generative edit document contract', () => {
           preprocessingVersion: 'varve-diffusion-letterbox-linear-srgb-v1',
           width: 512,
           height: 512,
+          sourceWidth: 512,
+          sourceHeight: 341,
+          contentX: 0,
+          contentY: 85,
+          contentWidth: 512,
+          contentHeight: 341,
         },
       },
     };
@@ -119,6 +125,30 @@ describe('generative edit document contract', () => {
         provider: {
           ...withFrame.provider,
           inputFrame: { ...withFrame.provider.inputFrame, width: 0 },
+        },
+      }),
+    ).toContain('provider');
+  });
+
+  it('rejects an input-frame content rectangle that falls outside the model frame', () => {
+    const base = fixture();
+    expect(
+      validateGenerativeEdit({
+        ...base,
+        provider: {
+          ...base.provider,
+          inputFrame: {
+            contractId: 'sd15-inpainting-512-square-v1',
+            preprocessingVersion: 'varve-diffusion-letterbox-linear-srgb-v1',
+            width: 512,
+            height: 512,
+            sourceWidth: 800,
+            sourceHeight: 400,
+            contentX: 0,
+            contentY: 400,
+            contentWidth: 512,
+            contentHeight: 200,
+          },
         },
       }),
     ).toContain('provider');

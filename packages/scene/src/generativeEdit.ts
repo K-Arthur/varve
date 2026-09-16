@@ -25,6 +25,14 @@ export interface GenerativeEditInputFrame {
   preprocessingVersion: string;
   width: number;
   height: number;
+  /** Dimensions of the context before it was mapped into the model frame. */
+  sourceWidth?: number;
+  sourceHeight?: number;
+  /** Integer content rectangle inside the model frame after letterboxing. */
+  contentX?: number;
+  contentY?: number;
+  contentWidth?: number;
+  contentHeight?: number;
 }
 
 export interface GenerativeEditProvider {
@@ -252,6 +260,36 @@ function validProvider(value: unknown): value is GenerativeEditProvider {
   if (!value || typeof value !== 'object') return false;
   const provider = value as Partial<GenerativeEditProvider>;
   const inputFrame = provider.inputFrame;
+  const hasInputFrameGeometry =
+    inputFrame !== undefined &&
+    [
+      inputFrame?.sourceWidth,
+      inputFrame?.sourceHeight,
+      inputFrame?.contentX,
+      inputFrame?.contentY,
+      inputFrame?.contentWidth,
+      inputFrame?.contentHeight,
+    ].some((field) => field !== undefined);
+  const validInputFrameGeometry =
+    !hasInputFrameGeometry ||
+    (inputFrame !== null &&
+      typeof inputFrame === 'object' &&
+      Number.isSafeInteger(inputFrame.sourceWidth) &&
+      inputFrame.sourceWidth > 0 &&
+      inputFrame.sourceWidth <= 16_777_216 &&
+      Number.isSafeInteger(inputFrame.sourceHeight) &&
+      inputFrame.sourceHeight > 0 &&
+      inputFrame.sourceHeight <= 16_777_216 &&
+      Number.isSafeInteger(inputFrame.contentX) &&
+      inputFrame.contentX >= 0 &&
+      Number.isSafeInteger(inputFrame.contentY) &&
+      inputFrame.contentY >= 0 &&
+      Number.isSafeInteger(inputFrame.contentWidth) &&
+      inputFrame.contentWidth > 0 &&
+      Number.isSafeInteger(inputFrame.contentHeight) &&
+      inputFrame.contentHeight > 0 &&
+      inputFrame.contentX + inputFrame.contentWidth <= inputFrame.width &&
+      inputFrame.contentY + inputFrame.contentHeight <= inputFrame.height);
   const validInputFrame =
     inputFrame === undefined ||
     (inputFrame !== null &&
@@ -265,7 +303,8 @@ function validProvider(value: unknown): value is GenerativeEditProvider {
       inputFrame.width <= 4096 &&
       Number.isSafeInteger(inputFrame.height) &&
       inputFrame.height > 0 &&
-      inputFrame.height <= 4096);
+      inputFrame.height <= 4096 &&
+      validInputFrameGeometry);
   return (
     PROVIDER_KINDS.has(provider.kind as GenerativeEditProviderKind) &&
     typeof provider.id === 'string' &&

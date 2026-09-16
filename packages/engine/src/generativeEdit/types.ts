@@ -26,6 +26,14 @@ export interface GenerativeEditInputFrame {
   preprocessingVersion: string;
   width: number;
   height: number;
+  /** Dimensions of the context before it was mapped into the model frame. */
+  sourceWidth?: number;
+  sourceHeight?: number;
+  /** Integer content rectangle inside the model frame after letterboxing. */
+  contentX?: number;
+  contentY?: number;
+  contentWidth?: number;
+  contentHeight?: number;
 }
 
 export interface GenerativeEditResourceProfile {
