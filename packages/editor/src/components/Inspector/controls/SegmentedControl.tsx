@@ -16,6 +16,8 @@ export interface SegmentedOption<T extends string> {
   value: T;
   label: string;
   icon?: IconName;
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 export interface SegmentedControlProps<T extends string> {
@@ -38,12 +40,22 @@ export function SegmentedControl<T extends string>({
 }: SegmentedControlProps<T>) {
   const groupId = useId();
   const checkedIndex = options.findIndex((o) => o.value === value);
-  const focusIndex = checkedIndex >= 0 ? checkedIndex : 0;
+  const focusIndex =
+    checkedIndex >= 0 && !options[checkedIndex]?.disabled
+      ? checkedIndex
+      : Math.max(
+          0,
+          options.findIndex((option) => !option.disabled),
+        );
 
   function move(from: number, delta: number) {
-    if (options.length === 0) return;
+    if (options.length === 0 || options.every((option) => option.disabled)) return;
     const n = options.length;
-    const next = (((from + delta) % n) + n) % n;
+    let next = from;
+    for (let step = 0; step < n; step += 1) {
+      next = (((next + delta) % n) + n) % n;
+      if (!options[next]?.disabled) break;
+    }
     const opt = options[next];
     if (opt) {
       onChange(opt.value);
@@ -93,7 +105,8 @@ export function SegmentedControl<T extends string>({
             role="radio"
             aria-checked={checked}
             tabIndex={i === focusIndex ? 0 : -1}
-            disabled={disabled}
+            disabled={disabled || opt.disabled}
+            title={opt.disabled ? opt.disabledReason : undefined}
             className="insp-segmented__btn"
             onClick={() => onChange(opt.value)}
             onKeyDown={(e) => onKeyDown(e, i)}
