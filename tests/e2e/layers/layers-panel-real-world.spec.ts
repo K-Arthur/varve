@@ -373,15 +373,25 @@ test.describe('Layers Panel — real-world document', () => {
     await page.keyboard.press('Escape');
     await expect(menu).not.toBeVisible();
 
-    // Keyboard-triggered menu on the focused row.
+    // Keyboard-triggered menu on the focused row. Capture the focused row's
+    // box BEFORE opening: APG menu-button behaviour moves focus into the
+    // menu, so no treeitem is focused once the menu is open.
     const tree = page.getByRole('tree', { name: /layers/i });
     await tree.focus();
     await page.keyboard.press('ArrowDown');
+    const focusedRowBox = await page.locator('[role="treeitem"]:focus').boundingBox();
     await page.keyboard.press('Shift+F10');
     await expect(menu).toBeVisible();
     const keyboardMenuBox = await menu.boundingBox();
-    const focusedRowBox = await page.locator('[role="treeitem"]:focus').boundingBox();
     record('context-menu-keyboard-anchor.json', { keyboardMenuBox, focusedRowBox });
+    expect(focusedRowBox).not.toBeNull();
+    expect(keyboardMenuBox).not.toBeNull();
+    // The keyboard menu must be anchored to the focused row's vicinity, not
+    // to stale pointer coordinates: its box must overlap or sit adjacent to
+    // the row's vertical band.
+    const rowMid = focusedRowBox!.y + focusedRowBox!.height / 2;
+    expect(keyboardMenuBox!.y).toBeLessThanOrEqual(rowMid);
+    expect(keyboardMenuBox!.y + keyboardMenuBox!.height).toBeGreaterThanOrEqual(rowMid);
     await page.keyboard.press('Escape');
   });
 
