@@ -61,7 +61,7 @@ export function AlignmentHandleOverlay() {
   const camera = toCamera({ zoom, pan, cameraRotation: state.cameraRotation });
 
   const computeData = useCallback(() => {
-    const capabilities = getAlignmentCapabilities(doc, sel);
+    const capabilities = getAlignmentCapabilities(doc, sel, state.workspaceMode);
     if (capabilities.movableRootCount < 2) return null;
     const eligible = new Set(capabilities.eligibleRootIds);
 
@@ -91,7 +91,7 @@ export function AlignmentHandleOverlay() {
     }
 
     return { items, sortedH, sortedV, gapsH, gapsV };
-  }, [sel, doc]);
+  }, [sel, doc, state.workspaceMode]);
 
   const data = computeData();
 

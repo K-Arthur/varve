@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import {
   type AlignmentReference,
+  alignmentSurfaceLabel,
   getAlignmentCapabilities,
 } from '../../../scene/selectionArrangement';
 
@@ -344,7 +345,13 @@ export function AlignDistributeBar() {
   const [distributionGap, setDistributionGap] = useState(0);
   const tidyBtnRef = useRef<HTMLButtonElement>(null);
   const distributionBtnRef = useRef<HTMLButtonElement>(null);
-  const capabilities = getAlignmentCapabilities(state.document, state.selection);
+  const capabilities = getAlignmentCapabilities(
+    state.document,
+    state.selection,
+    state.workspaceMode,
+  );
+  const surfaceLabel = alignmentSurfaceLabel(capabilities.surfaceKind);
+  const surfaceKind = capabilities.surfaceKind;
   const effectiveKeyObjectId =
     keyObjectId && capabilities.eligibleRootIds.includes(keyObjectId) ? keyObjectId : null;
   const gapUnit: DocumentUnit = state.document.documentUnit ?? 'px';
@@ -356,7 +363,7 @@ export function AlignDistributeBar() {
   // "dead toolbar" complaint from the 2026-09-15 competitor research).
   const showSelectionTarget = capabilities.canAlign;
   const showContainerTarget = capabilities.canAlignToContainer;
-  const showPageTarget = capabilities.canAlignToPage;
+  const showSurfaceTarget = capabilities.canAlignToSurface;
   const showDistributionCluster = capabilities.canSetGap;
   const showKeyObject = state.selection.length >= 2 && capabilities.canAlign;
   const showTidy = capabilities.canTidy;
@@ -370,9 +377,9 @@ export function AlignDistributeBar() {
       return capabilities.canAlignToContainer ? 'container' : 'page';
     }
     if (alignmentReference === 'container' && !capabilities.canAlignToContainer) {
-      return capabilities.canAlignToPage ? 'page' : 'selection';
+      return capabilities.canAlignToSurface ? 'page' : 'selection';
     }
-    if (alignmentReference === 'page' && !capabilities.canAlignToPage) {
+    if (alignmentReference === 'page' && !capabilities.canAlignToSurface) {
       return capabilities.canAlignToContainer ? 'container' : 'selection';
     }
     return alignmentReference;
@@ -380,12 +387,12 @@ export function AlignDistributeBar() {
     alignmentReference,
     capabilities.canAlign,
     capabilities.canAlignToContainer,
-    capabilities.canAlignToPage,
+    capabilities.canAlignToSurface,
   ]);
 
   const canAlign =
     effectiveReference === 'page'
-      ? capabilities.canAlignToPage
+      ? capabilities.canAlignToSurface
       : effectiveReference === 'container'
         ? capabilities.canAlignToContainer
         : capabilities.canAlign;
@@ -397,7 +404,7 @@ export function AlignDistributeBar() {
     effectiveReference === 'container'
       ? 'parent frame'
       : effectiveReference === 'page'
-        ? 'page'
+        ? surfaceLabel.toLowerCase()
         : 'selection';
   const alignLabels = {
     left: `Align left edges to ${targetName}`,
@@ -474,7 +481,7 @@ export function AlignDistributeBar() {
   // A locked/hidden node or a flow-managed auto-layout child has no manual
   // position to change. Its Properties controls explain the governing state;
   // an all-disabled alignment toolbar would imply a command is merely blocked.
-  if (!capabilities.canAlignToPage) return null;
+  if (capabilities.movableRootCount < 1) return null;
 
   return (
     <section className="insp-align-section" aria-labelledby="align-distribute-heading">
@@ -771,30 +778,40 @@ export function AlignDistributeBar() {
               </Tooltip>
               <Tooltip
                 label={
-                  showPageTarget
-                    ? 'Align to active page / canvas bounds'
-                    : 'Unavailable for this selection'
+                  showSurfaceTarget
+                    ? surfaceKind === 'canvas'
+                      ? 'Align to active design canvas content bounds'
+                      : 'Align to active page bounds'
+                    : surfaceKind === 'canvas'
+                      ? 'Unavailable — the active design canvas has no content'
+                      : 'Unavailable for this selection'
                 }
               >
                 <button
                   type="button"
                   className={`pill-group__btn ${effectiveReference === 'page' ? 'pill-group__btn--active' : ''}`}
                   aria-label={
-                    effectiveReference === 'page' ? 'Align to page (active)' : 'Align to page'
+                    effectiveReference === 'page'
+                      ? `Align to ${surfaceLabel.toLowerCase()} (active)`
+                      : `Align to ${surfaceLabel.toLowerCase()}`
                   }
                   aria-pressed={effectiveReference === 'page'}
-                  aria-disabled={!showPageTarget || undefined}
+                  aria-disabled={!showSurfaceTarget || undefined}
                   title={
-                    showPageTarget
-                      ? 'Align to active page / canvas bounds'
-                      : 'Aligning to the page is unavailable for this selection'
+                    showSurfaceTarget
+                      ? surfaceKind === 'canvas'
+                        ? 'Align to active design canvas content bounds'
+                        : 'Align to active page bounds'
+                      : surfaceKind === 'canvas'
+                        ? 'The active design canvas has no content to align to'
+                        : 'Aligning to the page is unavailable for this selection'
                   }
                   onClick={() => {
-                    if (showPageTarget) chooseAlignmentReference('page');
+                    if (showSurfaceTarget) chooseAlignmentReference('page');
                   }}
                 >
                   <PageIcon />
-                  <span className="insp-align-target-label">Page</span>
+                  <span className="insp-align-target-label">{surfaceLabel}</span>
                 </button>
               </Tooltip>
             </div>

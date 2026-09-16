@@ -314,7 +314,7 @@ describe('PropertiesPanel section gating for a real single selection', () => {
 
   it('exposes page alignment for a selected object and enables it when requested', async () => {
     await renderPanelWithSelectedRect();
-    const alignLeft = screen.getByRole('button', { name: 'Align left edges' });
+    const alignLeft = screen.getByRole('button', { name: 'Align left edges to page' });
     expect(alignLeft).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Align to page (active)' })).toBeEnabled();
   });

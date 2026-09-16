@@ -445,7 +445,7 @@ import { isReducedMotion } from './context/reducedMotionManager';
 import {
   addMaskForSelection,
   alignmentFeedbackForResult,
-  alignmentPageBounds,
+  alignmentSurfaceKindFor,
   alignSelectionInDocument,
   alignSelectionWithObbInDocument,
   applyKnifeCutOutcome,
@@ -455,6 +455,7 @@ import {
   distributionFeedbackForResult,
   makeDrawingFrameNode,
   resizeSceneNode,
+  resolveAlignmentSurface,
   runKnifeCut,
   runOwnedTransaction,
   shapeForTool,
@@ -6055,7 +6056,11 @@ export function EditorProvider({
         const options = {
           reference,
           keyObjectId: state.keyObjectId,
-          pageBounds: reference === 'page' ? alignmentPageBounds(before) : null,
+          pageBounds:
+            reference === 'page'
+              ? resolveAlignmentSurface(before, state.workspaceMode).bounds
+              : null,
+          surfaceKind: alignmentSurfaceKindFor(before, state.workspaceMode),
           containerBounds:
             reference === 'container' ? commonAlignmentContainerBounds(before, sel) : null,
         } as const;
@@ -6107,7 +6112,11 @@ export function EditorProvider({
         const options = {
           reference,
           keyObjectId: state.keyObjectId,
-          pageBounds: reference === 'page' ? alignmentPageBounds(before) : null,
+          pageBounds:
+            reference === 'page'
+              ? resolveAlignmentSurface(before, state.workspaceMode).bounds
+              : null,
+          surfaceKind: alignmentSurfaceKindFor(before, state.workspaceMode),
           containerBounds:
             reference === 'container' ? commonAlignmentContainerBounds(before, sel) : null,
         } as const;

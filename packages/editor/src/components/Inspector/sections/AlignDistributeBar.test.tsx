@@ -1,7 +1,15 @@
 // @vitest-environment jsdom
 
 import { fireEvent, render, screen } from '@testing-library/react';
-import { addChild, addNode, createDocument, makeFrameNode, makeShapeNode } from '@varve/scene';
+import {
+  addChild,
+  addNode,
+  createDesignCanvas,
+  createDocument,
+  designCanvasContentRoot,
+  makeFrameNode,
+  makeShapeNode,
+} from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ useEditor: vi.fn() }));
@@ -20,6 +28,7 @@ function editorForSelection(
   alignToPage = false,
   lockedA = false,
   primaryId = selection[0] ?? null,
+  workspaceMode = 'design',
 ) {
   let document = createDocument('align controls');
   for (const id of ['a', 'b', 'c']) {
@@ -33,7 +42,7 @@ function editorForSelection(
     );
   }
   return {
-    state: { document, selection, primaryId },
+    state: { document, selection, primaryId, workspaceMode },
     alignSelected: vi.fn(),
     obbAlignSelected: vi.fn(),
     distributeSelected: vi.fn(),
@@ -82,6 +91,40 @@ describe('AlignDistributeBar', () => {
     expect(screen.queryByRole('button', { name: 'Distribute horizontal spacing' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Distribution options' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Tidy up grid' })).toBeNull();
+  });
+
+  it('names the surface Canvas and aligns to its content in design workspaces', () => {
+    const editor = editorForSelection(['a']);
+    let document = createDesignCanvas(createDocument('canvas align controls'));
+    const rootId = designCanvasContentRoot(document);
+    if (!rootId) throw new Error('Expected a design canvas content root');
+    document = addChild(
+      document,
+      rootId,
+      makeShapeNode(
+        'a',
+        { kind: 'rect', x: 0, y: 0, w: 20, h: 20 },
+        { name: 'a', transform: [1, 0, 0, 1, 10, 15] },
+      ),
+    );
+    editor.state.document = document;
+    editor.state.workspaceMode = 'design';
+    mocks.useEditor.mockReturnValue(editor);
+    render(<AlignDistributeBar />);
+
+    expect(screen.getByRole('button', { name: 'Align to canvas (active)' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Align left edges to canvas' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Align left edges to canvas' }));
+    expect(editor.alignSelected).toHaveBeenCalledWith('left', 'page');
+  });
+
+  it('keeps Page as the surface in print workspaces', () => {
+    const editor = editorForSelection(['a'], false, false, 'a', 'print');
+    mocks.useEditor.mockReturnValue(editor);
+    render(<AlignDistributeBar />);
+
+    expect(screen.getByRole('button', { name: 'Align to page (active)' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Align left edges to page' })).toBeEnabled();
   });
 
   it('uses the explicit primary node when setting a key object', () => {

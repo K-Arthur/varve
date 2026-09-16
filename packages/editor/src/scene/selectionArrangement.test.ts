@@ -1,8 +1,10 @@
 import {
   addChild,
   addNode,
+  createDesignCanvas,
   createDocument,
   type Document,
+  designCanvasContentRoot,
   getParent,
   makeFrameNode,
   makeImageShapeNode,
@@ -11,13 +13,17 @@ import {
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
+  alignmentCanvasBounds,
+  alignmentCanvasHasContent,
   alignmentFeedbackForResult,
+  alignmentSurfaceKindFor,
   alignSelectionInDocument,
   commonAlignmentContainerBounds,
   distributeSelectionInDocument,
   distributionFeedbackForResult,
   getAlignmentCapabilities,
   planManualWorldTranslationFromOrigins,
+  resolveAlignmentSurface,
   tidySelectionInDocument,
 } from './selectionArrangement';
 import { nodeWorldBounds } from './world';
@@ -235,7 +241,7 @@ describe('selectionArrangement', () => {
     const next = alignSelectionInDocument(doc, [flow.id, locked.id], 'left');
 
     expect(capabilities.canAlign).toBe(false);
-    expect(capabilities.canAlignToPage).toBe(false);
+    expect(capabilities.canAlignToSurface).toBe(false);
     expect(capabilities.hasLayoutManagedSelection).toBe(true);
     expect(capabilities.hasLockedOrHiddenSelection).toBe(true);
     expect(next).toBe(doc);
@@ -263,8 +269,69 @@ describe('selectionArrangement', () => {
     });
 
     expect(capabilities.canAlign).toBe(false);
-    expect(capabilities.canAlignToPage).toBe(true);
+    expect(capabilities.canAlignToSurface).toBe(true);
     expect(bounds(next, a.id)).toMatchObject({ x: 280, y: 20, w: 40, h: 30 });
+  });
+
+  it('resolves the active design canvas content extents as the align surface in design workspaces', () => {
+    let doc = createDesignCanvas(createDocument('canvas alignment'));
+    const rootId = designCanvasContentRoot(doc);
+    if (!rootId) throw new Error('Expected a design canvas content root');
+    const a = rect('a', 10, 20, 40, 30);
+    const b = rect('b', 100, 60, 20, 10);
+    doc = addChild(doc, rootId, a);
+    doc = addChild(doc, rootId, b);
+
+    expect(alignmentSurfaceKindFor(doc, 'design')).toBe('canvas');
+    expect(alignmentSurfaceKindFor(doc, 'print')).toBe('page');
+
+    const surface = resolveAlignmentSurface(doc, 'design');
+    expect(surface.kind).toBe('canvas');
+    expect(surface.label).toBe('Canvas');
+    expect(surface.bounds).toEqual({ x: 10, y: 20, w: 110, h: 50 });
+
+    const capabilities = getAlignmentCapabilities(doc, [a.id], 'design');
+    expect(capabilities.canAlignToSurface).toBe(true);
+    expect(capabilities.surfaceKind).toBe('canvas');
+
+    // A subset aligns to extents the surface owns beyond the selection
+    // itself, and the feedback names the canvas, not a page.
+    const surfaceOptions = {
+      reference: 'page' as const,
+      pageBounds: surface.bounds,
+      surfaceKind: 'canvas' as const,
+    };
+    const next = alignSelectionInDocument(doc, [a.id], 'right', surfaceOptions);
+    expect(bounds(next, a.id)).toMatchObject({ x: 80, y: 20, w: 40, h: 30 });
+    const feedback = alignmentFeedbackForResult(doc, next, [a.id], 'right', surfaceOptions);
+    expect(feedback?.lines[0]?.label).toBe('Right edge · Canvas');
+  });
+
+  it('disables the surface target when the active design canvas is empty', () => {
+    let doc = createDesignCanvas(createDocument('empty canvas'));
+    const a = rect('a', 10, 20, 40, 30);
+    doc = addNode(doc, a);
+
+    expect(alignmentCanvasBounds(doc)).toBeNull();
+    expect(alignmentCanvasHasContent(doc)).toBe(false);
+
+    const capabilities = getAlignmentCapabilities(doc, [a.id], 'design');
+    expect(capabilities.canAlignToSurface).toBe(false);
+  });
+
+  it('keeps the page trim as the align surface in print workspaces', () => {
+    let doc = createDocument('print alignment');
+    const a = rect('a', 35, 20, 40, 30);
+    doc = addNode(doc, a);
+
+    const surface = resolveAlignmentSurface(doc, 'print');
+    expect(surface.kind).toBe('page');
+    expect(surface.label).toBe('Page');
+    expect(surface.bounds).toMatchObject({ w: 1920, h: 1080 });
+
+    const capabilities = getAlignmentCapabilities(doc, [a.id], 'print');
+    expect(capabilities.canAlignToSurface).toBe(true);
+    expect(capabilities.surfaceKind).toBe('page');
   });
 
   it('reports the applied page relationship for single-object alignment', () => {

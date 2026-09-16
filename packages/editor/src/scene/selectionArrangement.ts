@@ -10,6 +10,7 @@
 import {
   buildParentIndexMap,
   type Document,
+  designCanvasContentRoot,
   type NodeId,
   pageBoundsInWorld,
   type SceneNode,
@@ -32,7 +33,7 @@ import {
   type TidyLayoutOptions,
   tryInvertAffine,
 } from '@varve/shared';
-import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './world';
+import { groupWorldBounds, nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './world';
 
 const POSITION_EPSILON = 1e-9;
 
@@ -43,8 +44,13 @@ export interface AlignmentCapabilities {
   eligibleRootIds: ReadonlyArray<NodeId>;
   /** Alignment against the collective selection or a key object. */
   canAlign: boolean;
-  /** Alignment against explicit page/canvas bounds. */
-  canAlignToPage: boolean;
+  /**
+   * Alignment against the explicit workspace surface bounds: the active page
+   * trim in Print, the active Design Canvas content extents elsewhere.
+   */
+  canAlignToSurface: boolean;
+  /** Which surface the explicit reference resolves to in this workspace. */
+  surfaceKind: AlignmentSurfaceKind;
   /** Alignment against the nearest common frame ancestor. */
   canAlignToContainer: boolean;
   canDistribute: boolean;
@@ -64,9 +70,40 @@ export interface AlignSelectionOptions {
   pageBounds?: BBox | null;
   /** Bounds of the nearest common frame/container, when one exists. */
   containerBounds?: BBox | null;
+  /** Which surface `pageBounds` came from, for truthful feedback labels. */
+  surfaceKind?: AlignmentSurfaceKind;
 }
 
 export type AlignmentReference = 'selection' | 'container' | 'page';
+
+/** The explicit alignment surface a workspace aligns against. */
+export type AlignmentSurfaceKind = 'page' | 'canvas';
+
+export interface AlignmentSurface {
+  kind: AlignmentSurfaceKind;
+  /** Human-readable target name used in labels and feedback. */
+  label: 'Page' | 'Canvas';
+  /** Surface bounds, or null when the surface has no content to align to. */
+  bounds: BBox | null;
+}
+
+/**
+ * Print documents align to a publishing Page. Design-family workspaces align
+ * to the active Design Canvas when the document has one; legacy documents
+ * without canvases keep the page reference so the target never vanishes on
+ * old files.
+ */
+export function alignmentSurfaceKindFor(
+  doc: Document,
+  workspaceMode: string,
+): AlignmentSurfaceKind {
+  if (workspaceMode === 'print') return 'page';
+  return (doc.designCanvases?.length ?? 0) > 0 ? 'canvas' : 'page';
+}
+
+export function alignmentSurfaceLabel(kind: AlignmentSurfaceKind): 'Page' | 'Canvas' {
+  return kind === 'page' ? 'Page' : 'Canvas';
+}
 
 export interface AlignmentGuideLine {
   axis: 'vertical' | 'horizontal';
@@ -147,15 +184,19 @@ export interface ManualWorldTranslationPlan {
 export function getAlignmentCapabilities(
   doc: Document,
   selection: readonly NodeId[],
+  workspaceMode = 'design',
 ): AlignmentCapabilities {
   const collected = collectSelection(doc, selection);
   const containerBounds = commonAlignmentContainerBounds(doc, selection);
+  const surfaceKind = alignmentSurfaceKindFor(doc, workspaceMode);
+  const surfaceAvailable = surfaceKind === 'page' ? true : alignmentCanvasHasContent(doc);
   return {
     rootCount: collected.rootCount,
     movableRootCount: collected.items.length,
     eligibleRootIds: collected.items.map((item) => item.id),
     canAlign: collected.items.length >= 2,
-    canAlignToPage: collected.items.length >= 1,
+    canAlignToSurface: collected.items.length >= 1 && surfaceAvailable,
+    surfaceKind,
     canAlignToContainer: collected.items.length >= 1 && containerBounds !== null,
     canDistribute: collected.items.length >= 3,
     canSetGap: collected.items.length >= 2,
@@ -206,6 +247,62 @@ export function alignmentPageBounds(doc: Document): BBox {
     y: 0,
     w: legacy.canvasWidth ?? 1920,
     h: legacy.canvasHeight ?? 1080,
+  };
+}
+
+function unionBounds(rects: ReadonlyArray<BBox | null>): BBox | null {
+  let union: BBox | null = null;
+  for (const rect of rects) {
+    if (!rect) continue;
+    if (!union) {
+      union = { x: rect.x, y: rect.y, w: rect.w, h: rect.h };
+      continue;
+    }
+    const minX = Math.min(union.x, rect.x);
+    const minY = Math.min(union.y, rect.y);
+    const maxX = Math.max(union.x + union.w, rect.x + rect.w);
+    const maxY = Math.max(union.y + union.h, rect.y + rect.h);
+    union = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  }
+  return union;
+}
+
+/**
+ * Content extents of the active Design Canvas: the union of the canvas
+ * content root's children. A canvas is intentionally unbounded, so unlike a
+ * page trim there is no fixed rectangle — the surface extents are its
+ * content. Legacy flat documents without canvases use the union of the
+ * document root instead.
+ */
+export function alignmentCanvasBounds(doc: Document, canvasId?: NodeId | null): BBox | null {
+  const rootId = designCanvasContentRoot(doc, canvasId);
+  if (!rootId) return unionBounds(doc.rootChildren.map((id) => nodeWorldBounds(doc, id)));
+  const root = doc.nodes[rootId];
+  if (root?.kind === 'group') return groupWorldBounds(doc, rootId);
+  return nodeWorldBounds(doc, rootId);
+}
+
+/** Cheap content-exists probe so capabilities do not walk the whole canvas. */
+export function alignmentCanvasHasContent(doc: Document, canvasId?: NodeId | null): boolean {
+  const rootId = designCanvasContentRoot(doc, canvasId);
+  if (!rootId) return doc.rootChildren.length > 0;
+  const root = doc.nodes[rootId];
+  return root?.kind === 'group' ? root.children.length > 0 : Boolean(root);
+}
+
+/**
+ * Resolve the explicit alignment surface for a workspace. Print aligns to the
+ * active page trim (legacy flat-canvas fallback preserved). Design-family
+ * workspaces align to the active Design Canvas content extents when the
+ * document has canvases; legacy documents without canvases keep the page
+ * reference so the target never vanishes on old files.
+ */
+export function resolveAlignmentSurface(doc: Document, workspaceMode: string): AlignmentSurface {
+  const kind = alignmentSurfaceKindFor(doc, workspaceMode);
+  return {
+    kind,
+    label: alignmentSurfaceLabel(kind),
+    bounds: kind === 'page' ? alignmentPageBounds(doc) : alignmentCanvasBounds(doc),
   };
 }
 
@@ -485,7 +582,7 @@ export function alignmentFeedbackForResult(
   const referenceLabel = keyIsValid
     ? 'Key object'
     : reference === 'page'
-      ? 'Page'
+      ? alignmentSurfaceLabel(options.surfaceKind ?? 'page')
       : reference === 'container'
         ? 'Frame'
         : 'Selection';
