@@ -141,7 +141,7 @@ All results below were produced on 2026-09-16 against the committed state on
 | **smartFilterCatalog unit tests** | taxonomy completeness (all 52 kinds reachable), icons, blend labels, unassigned-kind fallback | 5/5 passed | **PASS** |
 | **SmartFiltersSection unit tests** | 15 tests: history transactions, range gesture, quick actions, presets, flat-fill hint, image exclusion, compact editor, recipe customization, unavailable future effects, curated collapse, badges, empty state | 15/15 passed | **PASS** |
 | **PropertiesPanel Object Filters integration** | Object Filters hosted in the merged Design surface without the Studio gallery | passed | **PASS** |
-| **Playwright E2E (`tests/e2e/canvas/smart-filters.spec.ts`)** | 12 scenarios: invert lifecycle (add/toggle/bypass/remove/undo), multi-filter stack, pointer drag reorder, frame filters, real-world vector composition, real photograph workflow (catalog search, 65% + Multiply badges, Grain stack, full-canvas fingerprint bypass oracle, three-theme captures) | 12/12 passed | **PASS** |
+| **Playwright E2E (`tests/e2e/canvas/smart-filters.spec.ts`)** | 17 scenarios: invert lifecycle (add/toggle/bypass/remove/undo), multi-filter stack, pointer drag reorder, frame filters, redesign-surface behaviour (catalog grouping/search/no-match, compositing Reset/Duplicate on a real photo, all three Object Finishing quick actions, chevron reveal contract, curated Effect Studio recipe collapse), real-world vector composition, real photograph workflow (catalog search, 65% + Multiply badges, Grain stack, full-canvas fingerprint bypass oracle, three-theme captures) | 17/17 passed | **PASS** |
 | **Design System Tokens (`audit:tokens`)** | 201 color contrast pairs across light, dark, and high-contrast themes | 201/201 passed (WCAG 2.2 AA) | **PASS** |
 | **Zero Emoji Gate (`audit:emoji`)** | 0 emoji or unauthorized pictograms across source code and styles | 0 violations (4,833 files scanned) | **PASS** |
 | **Documentation Integrity (`audit:docs`)** | 0 broken links, naming drift, or unregistered ADRs | 964 docs, 527 links, 174 ADRs clean | **PASS** |
@@ -178,3 +178,19 @@ Known capture limitation: the Object Filters section is taller than the
 inspector viewport, so element screenshots are stitched by Playwright and may
 include neighbouring inspector content at the top of tall captures; the panel
 region itself is correct in every artifact.
+
+Functional contracts asserted directly by the same suite (not just pixels):
+
+- The catalog renders all five group labels, narrows to the matching family on
+  a query (`vign` hides `Blur & Detail` and the Blur option), and reports
+  "No matching options" for a miss.
+- **Reset** restores the parameter to its neutral default and the untreated
+  photo pixels while keeping the row; **Duplicate** clones the entry in place
+  without disturbing the original.
+- Each of the three Object Finishing quick actions produces an immediately
+  visible pixel change and removes cleanly back to the baseline.
+- The reorder chevrons compute to `opacity: 0` at rest and `opacity: 1` on row
+  hover and on keyboard focus, and the revealed control still reorders.
+- An Effect Studio recipe shows the count and provenance notice, starts with
+  the raw stack collapsed, and its named members stay toggleable — toggling
+  one flips its provenance line to "customized recipe".
