@@ -116,6 +116,10 @@ with the same accessible names.
    corner fields keep visible short labels but full unit-suffixed accessible
    names ("Top left (px)"). The spec now asserts both the visible label and the
    accessible name.
+6. **Dangling `aria-controls` while collapsed.** The parameter panel is
+   portaled and unmounted while collapsed, so the disclosure trigger declared a
+   relationship to a node that did not exist. `aria-controls` is now set only
+   while the panel is expanded.
 
 ---
 
