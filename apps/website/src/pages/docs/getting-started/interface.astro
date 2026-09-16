@@ -276,13 +276,38 @@ import { sitePath } from '../../../lib/siteUrl';
           is a danger-styled trash button; a collapsed Mask section still shows the active mask type
           beside its header so an enabled mask is never invisible.
         </p>
+        <h3>Fill &amp; Stroke</h3>
+        <p>
+          A paint row states its own value: the swatch carries a readout — <code>#4A90E2</code> for
+          solids, the paint type otherwise, and <em>Mixed</em> when the selected layers disagree —
+          so checking a fill no longer requires opening a picker. The compact type button beside
+          the swatch switches Solid, Gradient, Image, and Pattern from one menu while keeping the
+          current paint's data. Stacked fills get direct reorder and remove controls; opacity and
+          the per-fill blend chip sit on the row's second line whenever a stack or mixed selection
+          needs the horizontal room, keeping the value legible. Fills are gated to layers whose
+          renderer actually paints them — group layers and line primitives hide the section rather
+          than offering controls that cannot change the canvas. The colour popover is shared by
+          fills, strokes, and gradient stops, and a linear or angular gradient exposes its numeric
+          rotation inline as a scrubbable field.
+        </p>
+        <p>
+          Strokes follow the same grammar. The collapsed <strong>Advanced</strong> row summarises
+          every non-default setting — "Dashed · Square caps · Arrowheads" — so a customised stroke
+          is never mistaken for a plain one. Inside, dash style is a preset list (Solid, Dashed,
+          Dotted, Dash-dot) with the exact pattern field under Custom; the miter limit appears only
+          for miter joins and dash phase only while dashed; both arrowheads share one row for lines
+          and open paths; and per-side widths are a switch with <strong>Use one width</strong> to
+          return to a uniform outline. A zero-width stroke is flagged as invisible, new strokes
+          copy the layer's previous stroke style, and stacked strokes can be reordered or removed
+          directly.
+        </p>
         <h3>Selection Colors</h3>
         <p>
           Selection Colors summarizes every colour in the selection — fills, strokes, gradient
           stops, table paints, and text ranges — with a swatch, monospace hex value, its role, a
           use count when a colour is shared, a copy-value button, and a
           <strong>select matching layers</strong> crosshair that targets every layer using that
-          colour. To avoid duplicating the Fills section, it stays hidden when a single object's
+          colour. To avoid duplicating the Fill section, it stays hidden when a single object's
           only colour is already editable one row below, and appears whenever a selection holds two
           or more colours or layers.
         </p>

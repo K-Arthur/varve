@@ -9,9 +9,20 @@ test suite.
 
 Single selection uses the canonical sections directly. Position & Size owns
 X, Y, W, H, rotation, and sizing controls; Appearance owns opacity and blend
-mode; Fills owns paint rows and the primary color editor. There is no duplicate
-Quick properties surface. Empty and mixed selections retain their existing
-selection-aware section semantics.
+mode; Fill owns paint rows and the primary color editor; Stroke owns stroke
+rows and its advanced geometry. There is no duplicate Quick properties surface.
+Empty and mixed selections retain their existing selection-aware section
+semantics.
+
+Paint rows are capability-gated: a node whose renderer never reads its paint
+stack (groups, line/arrow primitives) is excluded from the Fill section and
+from every fill operation, so a mixed selection cannot accumulate invisible
+fills. A row states its own value — `#hex`, the paint type, or `Mixed` — and
+its type trigger names the current type. Stacked fills and mixed selections
+move opacity onto the row's properties line so the value readout stays legible;
+the collapsed Stroke "Advanced" toggle carries a summary of non-default state
+(dash style, caps, joins, arrowheads, per-side widths) and miter limit, dash
+offset, arrowheads, and per-side widths render only where they apply.
 
 ## Canonical Design composition
 

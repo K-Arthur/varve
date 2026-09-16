@@ -101,3 +101,27 @@ Evidence, source-checked competitor failures, and the measurements that found
 the regressions: `docs/research/inspector-design-tab-followup-2026-09-16.md`.
 The full `docs/agents/inspector-design-tab-2026-09-15-ownership.md` handoff
 remains the ownership record.
+
+## Status addendum (2026-09-16, fill/stroke pass)
+
+A third pass reviewed the two paint sections with fresh competitor research
+(`docs/research/inspector-fill-stroke-research-2026-09-16.md`) and rendered
+validation on the real-world audit document:
+
+| Area | Before | After |
+|---|---|---|
+| Fill type | Full-width `Select` on every row | Compact named trigger + radio menu; value pill prints hex/type/Mixed |
+| Mixed fills | First layer's swatch shown as if shared | "Mixed" on the row, in the accessible name, and a dashed type icon |
+| Unpaintable nodes | Fill section edited groups and line primitives (state no renderer reads) | `canPaintFills()` gates section and registry; paint ops skip those nodes |
+| Single-fill remove | Menu action silently no-opped | Disabled with a "last fill" badge; direct remove only for stacks |
+| Row density | Hex absent on stacked fills; "Mixed" clipped | Opacity moves to the properties line when a stack or mixed state needs the width |
+| Stroke dash | Raw comma-separated field only | Solid/Dashed/Dotted/Dash-dot presets + Custom exact pattern |
+| Stroke advanced | Unlabelled "Advanced" toggle; miter shown for round joins | Summary of non-default state; contextual miter/offset; one-row arrowheads; per-side switch with "Use one width" |
+| Stroke memory | Add Stroke reset to 1px black | Copies the layer's last stroke |
+| Gradient angle | Inside the Gradient options disclosure | Inline scrubbable Rotation field for linear/angular |
+| Zero-width strokes | Not flagged | "Zero width — this stroke is invisible" note |
+
+E2E: `tests/e2e/inspector/design-tab-audit.spec.ts` → "Design tab paint rows
+(fill / stroke pass)" (5 scenarios, screenshots in
+`reports/inspector-review/paint-rows/`). Unit contract:
+`packages/editor/src/components/Inspector/sections/__tests__/paintRows.test.tsx`.

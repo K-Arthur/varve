@@ -248,3 +248,15 @@ In `TableSection.tsx`, 8 full-width single-value rows were paired into 4 two-col
 This clusters related horizontal/vertical tabular dimensions together as standard desktop controls,
 cutting vertical inspector height in half while preserving all labels and validation.
 
+## 7. Follow-up: dedicated Fill & Stroke pass
+
+The Fill items in §5 were extended the same day by a paint-section pass with
+its own external research, capability gating, and rendered audit —
+see `docs/research/inspector-fill-stroke-research-2026-09-16.md`. Summary:
+fill type becomes a named compact trigger with a value pill (`#hex` / type /
+Mixed), mixed selections are labelled instead of impersonating the first
+layer, fills are gated to nodes whose renderer reads them, stacked/mixed rows
+move opacity to the properties line to keep the value legible, stroke dashes
+gain presets, the collapsed Stroke "Advanced" toggle summarises non-default
+state, and inline gradient rotation for linear/angular fills.
+

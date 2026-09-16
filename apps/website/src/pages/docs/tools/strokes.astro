@@ -39,10 +39,12 @@ import { sitePath } from '../../../lib/siteUrl';
         <ol>
           <li>Select a supported layer and open <strong>Stroke</strong> in the Inspector.</li>
           <li>Set paint, width, visibility, and alignment in the compact row.</li>
-          <li>Open <strong>Advanced</strong> for gradient paint, per-side rectangle widths, endpoint markers, caps, joins, miter limits, dashes, and dash phase.</li>
-          <li>Use the up/down controls to change stroke paint order. Reordering keeps each stroke instance's identity.</li>
+          <li>The collapsed <strong>Advanced</strong> toggle names every non-default setting ("Advanced · Dashed · Per-side"), so a customised stroke never reads as plain.</li>
+          <li>Open <strong>Advanced</strong> for dash presets, caps, joins, per-side rectangle widths, endpoint markers, gradient paint, and dash phase. Controls that do not apply are omitted rather than disabled: miter limit appears only for miter joins, dash phase only while dashed, arrowheads only for lines and open paths, and per-side widths behind a switch that offers <strong>Use one width</strong> to return to a uniform outline.</li>
+          <li>Use the up/down controls to change stroke paint order, or the direct controls on stacked strokes. Reordering keeps each stroke instance's identity.</li>
+          <li><strong>Add Stroke</strong> copies the layer's previous stroke — colour, width, dash, and caps — so a repeated outline does not restart from the 1px black default.</li>
         </ol>
-        <p>Dash input accepts comma- or space-separated non-negative numbers. Clear the field to return to a solid stroke; malformed values are rejected instead of partially applied.</p>
+        <p>Dash style offers Solid, Dashed, Dotted, and Dash-dot presets in absolute canvas units. Choose <strong>Custom</strong> to enter an exact comma- or space-separated pattern; malformed values are rejected instead of partially applied. A zero-width stroke is flagged as invisible on its row.</p>
       </section>
 
       <section class="docs-section">
