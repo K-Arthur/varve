@@ -134,7 +134,7 @@ c00a7c27354f7e88fa7c27f17ab85f23339840961e51b5066214aa55de96af24  tests/e2e/menu
 | `c8c4b1f2b` | fix(menubar): retry the menu focus handoff until the portal layer is focusable (other session; reviewed here) |
 | `ac804fdcb` | test(toolbar): scroll the focused menu row into view (other session; reviewed here) |
 | `c0f2ebbd6` | fix(menubar): complete the submenu keyboard and availability contract (this session: keynav, e2e specs, retry coverage, docs) |
-| snapshot refresh commit | test(menus): refresh the declarative menu snapshot baseline |
+| `908f1b602` | test(menus): refresh the declarative menu snapshot baseline (this session; reviewed additive delta) |
 
 With `c0f2ebbd6`, HEAD contains `submenuRef` in `MenubarKeyContext` and the
 intermediate type inconsistency is resolved. The `menuSnapshot.test.ts`
@@ -145,7 +145,16 @@ still present in the new baseline.
 
 ## Remaining menu work (not in this session)
 
-- Enabled `reason` strings computed by the declarative model are still not
-  rendered by the HTML menubar (the two renderers remain separate; see the
-  audit for why this is a deliberate boundary rather than a quick patch).
+- **Enabled `reason` strings are computed and discarded by every consumer.**
+  `menu/types.ts:97` allows `enabled: (ctx) => true | { reason }`,
+  `defs.ts` supplies reasons, and `renderer.ts:180` (`resolveEnabled`)
+  evaluates them — but no consumer reads the reason: the declarative
+  renderer, `nativeAdapter.ts`, and the HTML menubar all use only the boolean
+  disabled state. Surfacing reasons correctly needs **one source** for
+  disabled state and reason per command; the HTML menubar computes its own
+  `dis(action)` logic today, so patching reasons into it per command would
+  risk showing an explanation that contradicts the actual disabled state.
+  The correct slice is either (a) migrate `buildMenus` onto the declarative
+  model and render its reason as an accessible description, or (b) keep both
+  and add no reasons. Do not half-implement it.
 - `nativeAdapter.test.ts.snap` remains another session's uncommitted work.
