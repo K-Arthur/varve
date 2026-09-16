@@ -158,6 +158,7 @@ import {
   type ContainerNode,
   canBeClipMaskSource,
   canHaveSmartFilters,
+  canPaintFills,
   captureLayerState as captureLayerStateDoc,
   clearGuides,
   clearLiveTrace as clearLiveTraceDoc,
@@ -5410,6 +5411,10 @@ export function EditorProvider({
           for (const id of sel) {
             const node = d.nodes[id];
             if (!node) continue;
+            // Never write paint state into nodes whose renderer ignores it
+            // (groups, line/arrow primitives) — a mixed selection must not
+            // accumulate invisible fills.
+            if (!canPaintFills(node)) continue;
             const current = resolveNodeFills(node);
             const next = [...current];
             if (index >= 0 && index < next.length) {
@@ -5446,6 +5451,7 @@ export function EditorProvider({
           for (const id of sel) {
             const node = nodes[id];
             if (!node) continue;
+            if (!canPaintFills(node)) continue;
             const current = resolveNodeFills(node);
             const next = [...current];
             if (index >= 0 && index < next.length) {
@@ -5483,6 +5489,7 @@ export function EditorProvider({
           for (const id of sel) {
             const node = nodes[id];
             if (!node) continue;
+            if (!canPaintFills(node)) continue;
             const current = resolveNodeFills(node);
             nodes[id] = { ...node, fills: [...current, fill] } as SceneNode;
           }
@@ -5498,6 +5505,7 @@ export function EditorProvider({
           for (const id of sel) {
             const node = nodes[id];
             if (!node) continue;
+            if (!canPaintFills(node)) continue;
             const current = resolveNodeFills(node);
             if (current.length <= 1) continue; // keep at least one fill
             const next = current.filter((_, i) => i !== index);
@@ -5515,6 +5523,7 @@ export function EditorProvider({
           for (const id of sel) {
             const node = nodes[id];
             if (!node) continue;
+            if (!canPaintFills(node)) continue;
             const current = [...resolveNodeFills(node)];
             if (from < 0 || from >= current.length || to < 0 || to >= current.length) continue;
             const [item] = current.splice(from, 1);

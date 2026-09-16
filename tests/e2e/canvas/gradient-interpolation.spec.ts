@@ -9,6 +9,7 @@
  * NOT native <select>. Interactions use click-to-open → click-option.
  */
 import { expect, test } from '@playwright/test';
+import { selectFillType } from '../helpers/editor-helpers';
 import { navigateToCleanEditor } from '../helpers/nav';
 
 async function createRectWithGradient(page: import('@playwright/test').Page) {
@@ -32,18 +33,12 @@ async function createRectWithGradient(page: import('@playwright/test').Page) {
 }
 
 /**
- * Switch the fill type via the custom Select component.
- * Click the combobox → wait for listbox → click the option.
+ * Switch the fill type through the Fill section's compact type menu.
  */
 async function switchFillToGradient(page: import('@playwright/test').Page) {
-  const fillTypeSelect = page.getByRole('combobox', { name: /fill type/i });
-  if (await fillTypeSelect.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await fillTypeSelect.click();
-    await page.waitForTimeout(200);
-    // The listbox should appear; click the "Gradient" option
-    const gradOption = page.getByRole('option', { name: /^Gradient$/i });
-    await expect(gradOption).toBeVisible({ timeout: 3000 });
-    await gradOption.click();
+  const typeTrigger = page.getByRole('button', { name: /^Fill type:/i }).first();
+  if (await typeTrigger.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await selectFillType(page, 'Gradient');
     await page.waitForTimeout(500);
   }
 }

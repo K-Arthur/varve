@@ -69,6 +69,59 @@ const ARROW_OPTIONS: { value: ArrowheadStyle; label: string }[] = [
   { value: 'diamond', label: 'Diamond' },
 ];
 
+const CAP_LABELS: Record<StrokeCap, string> = {
+  butt: 'Butt',
+  round: 'Round',
+  square: 'Square',
+};
+
+const JOIN_LABELS: Record<StrokeJoin, string> = {
+  miter: 'Miter',
+  round: 'Round',
+  bevel: 'Bevel',
+};
+
+/** Clockwise, matching the canvas: the box edge order authors read. */
+const PER_SIDE_LABELS = ['Top', 'Right', 'Bottom', 'Left'] as const;
+
+/**
+ * Dash presets in absolute (canvas) units — the same units `setLineDash`
+ * consumes. The previous UI offered only a raw comma-separated text field,
+ * which is the Affinity/Illustrator "four mystery numbers" failure: precise
+ * but undiscoverable. Presets make the common patterns one click; the text
+ * field stays for precision under Custom.
+ */
+const DASH_PRESETS: readonly { id: string; label: string; pattern: number[] }[] = [
+  { id: 'solid', label: 'Solid', pattern: [] },
+  { id: 'dashed', label: 'Dashed', pattern: [8, 4] },
+  { id: 'dotted', label: 'Dotted', pattern: [1, 2] },
+  { id: 'dash-dot', label: 'Dash-dot', pattern: [8, 4, 2, 4] },
+];
+
+const CUSTOM_DASH_ID = 'custom';
+
+const DASH_STYLE_OPTIONS: { value: string; label: string }[] = [
+  ...DASH_PRESETS.map((preset) => ({ value: preset.id, label: preset.label })),
+  { value: CUSTOM_DASH_ID, label: 'Custom…' },
+];
+
+function dashPatternsEqual(a: readonly number[], b: readonly number[]): boolean {
+  return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
+/** Preset id for a stored pattern; 'custom' when no preset matches. */
+function dashPresetFor(pattern: readonly number[]): string {
+  if (pattern.length === 0) return 'solid';
+  const preset = DASH_PRESETS.find(
+    (candidate) => candidate.pattern.length > 0 && dashPatternsEqual(candidate.pattern, pattern),
+  );
+  return preset?.id ?? CUSTOM_DASH_ID;
+}
+
+function dashStyleLabel(styleId: string): string {
+  return DASH_STYLE_OPTIONS.find((option) => option.value === styleId)?.label ?? 'Custom';
+}
+
 function hasStrokes(n: SceneNode): n is StrokeNode {
   return n.kind === 'shape' || n.kind === 'text' || n.kind === 'frame';
 }
@@ -177,7 +230,16 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
   );
 
   const addStroke = useCallback(() => {
-    batchUpdate((strokes) => [...strokes, { ...defaultStroke(), id: createStrokeId() }]);
+    // New strokes copy the layer's last stroke (Illustrator-style style
+    // memory) so weight, colour, dash and arrows do not have to be rebuilt
+    // from the 1px black default on every add.
+    batchUpdate((strokes) => {
+      const template = strokes[strokes.length - 1];
+      return [
+        ...strokes,
+        { ...(template ?? defaultStroke()), id: createStrokeId(), visible: true },
+      ];
+    });
     announce('Stroke added');
   }, [batchUpdate, announce]);
 
@@ -228,6 +290,7 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
             key={strokeRowId(strokeNodes[0]!, i)}
             rowId={strokeRowId(strokeNodes[0]!, i)}
             index={i}
+            totalStrokes={minStrokes}
             nodes={strokeNodes}
             expanded={expandedRows.has(strokeRowId(strokeNodes[0]!, i))}
             onToggle={() => toggleRow(strokeRowId(strokeNodes[0]!, i))}
@@ -240,7 +303,9 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
         ))
       )}
       {countMixed && minStrokes > 0 && (
-        <div className="insp-empty-message">Some selected nodes have additional strokes</div>
+        <div className="insp-empty-message">
+          Some selected layers have extra strokes beyond these
+        </div>
       )}
     </DisclosureSection>
   );
@@ -249,6 +314,7 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
 interface StrokeRowProps {
   rowId: string;
   index: number;
+  totalStrokes: number;
   nodes: StrokeNode[];
   expanded: boolean;
   onToggle: () => void;
@@ -262,6 +328,7 @@ interface StrokeRowProps {
 function StrokeRow({
   rowId,
   index,
+  totalStrokes,
   nodes,
   expanded,
   onToggle,
@@ -318,6 +385,64 @@ function StrokeRow({
   const swatchBackground = gradient ? gradientSwatchBg(gradient) : swatchBg;
 
   const visibility = isMixed(visibleRaw) ? true : visibleRaw;
+
+  // ── Advanced-state summary ──
+  // The collapsed row must be able to say "this stroke is dashed" or "has
+  // arrowheads" without being expanded; otherwise hidden state reads as
+  // default state (the Affinity dash-fields complaint, generalised).
+  const dashPattern = isMixed(dashPatternRaw) ? null : (dashPatternRaw as number[]);
+  const dashStyleMixed = dashPattern === null;
+  const dashStyle = dashPattern === null ? CUSTOM_DASH_ID : dashPresetFor(dashPattern);
+  // Choosing "Custom…" while the stored pattern still matches a preset must
+  // keep the pattern editor open (the value alone cannot carry that intent).
+  const [customDashOpen, setCustomDashOpen] = useState(false);
+  const weight = isMixed(weightRaw) ? 1 : weightRaw;
+  const perSideActive = Array.isArray(perSideRaw) && perSideRaw.length === 4;
+  const perSideValues: [number, number, number, number] = perSideActive
+    ? (perSideRaw as [number, number, number, number])
+    : [weight, weight, weight, weight];
+  const join = isMixed(joinRaw) ? 'miter' : joinRaw;
+  const arrowStart = isMixed(arrowStartRaw) ? 'none' : arrowStartRaw;
+  const arrowEnd = isMixed(arrowEndRaw) ? 'none' : arrowEndRaw;
+  const zeroWidth = !perSideActive && !isMixed(weightRaw) && weightRaw === 0;
+  const advancedParts: string[] = [];
+  if (gradient) advancedParts.push('Gradient');
+  if (!dashStyleMixed && dashStyle !== 'solid') advancedParts.push(dashStyleLabel(dashStyle));
+  if (!isMixed(dashOffsetRaw) && dashOffsetRaw !== 0) advancedParts.push(`Offset ${dashOffsetRaw}`);
+  if (perSideActive) advancedParts.push('Per-side');
+  if (arrowStart !== 'none' || arrowEnd !== 'none') advancedParts.push('Arrowheads');
+  if (!isMixed(capRaw) && capRaw !== 'round') advancedParts.push(`${CAP_LABELS[capRaw]} caps`);
+  if (!isMixed(joinRaw) && joinRaw !== 'miter') advancedParts.push(`${JOIN_LABELS[joinRaw]} joins`);
+  if (!isMixed(miterLimitRaw) && join === 'miter' && miterLimitRaw !== 4) {
+    advancedParts.push(`Miter ${miterLimitRaw}`);
+  }
+
+  const setPerSideEnabled = useCallback(
+    (enabled: boolean) => {
+      if (enabled) {
+        onChange((s) => ({ ...s, perSideWeights: [s.weight, s.weight, s.weight, s.weight] }));
+      } else {
+        onChange((s) => {
+          const { perSideWeights: _drop, ...rest } = s;
+          return rest as Stroke;
+        });
+      }
+    },
+    [onChange],
+  );
+
+  const setPerSideValue = useCallback(
+    (side: number, value: number) => {
+      onChange((s) => {
+        const current = s.perSideWeights ?? [s.weight, s.weight, s.weight, s.weight];
+        const next = [...current] as [number, number, number, number];
+        next[side] = value;
+        return { ...s, perSideWeights: next };
+      });
+    },
+    [onChange],
+  );
+
   const [actionsOpen, setActionsOpen] = useState(false);
   const actionsTriggerRef = useRef<HTMLButtonElement>(null);
   const actionItems = useMemo<readonly MenuEntry[]>(
@@ -410,6 +535,44 @@ function StrokeRow({
             placeholder="Mixed"
           />
         </div>
+        {/* Multi-stroke stacks get the same direct reorder/remove affordances
+            as multi-fill stacks; a single stroke keeps the row quiet and uses
+            the actions menu. */}
+        {totalStrokes > 1 && (
+          <div className="insp-paint-row__reorder">
+            <button
+              type="button"
+              className="insp-paint-row__reorder-btn"
+              aria-label={`Move ${label.toLowerCase()} up`}
+              title={`Move ${label.toLowerCase()} up`}
+              disabled={!canMoveUp}
+              onClick={() => onReorder(-1)}
+            >
+              <Icon name="ChevronUp" size="0.75em" />
+            </button>
+            <button
+              type="button"
+              className="insp-paint-row__reorder-btn"
+              aria-label={`Move ${label.toLowerCase()} down`}
+              title={`Move ${label.toLowerCase()} down`}
+              disabled={!canMoveDown}
+              onClick={() => onReorder(1)}
+            >
+              <Icon name="ChevronDown" size="0.75em" />
+            </button>
+          </div>
+        )}
+        {totalStrokes > 1 && (
+          <button
+            type="button"
+            className="insp-paint-row__remove-btn"
+            aria-label={`Remove ${label.toLowerCase()}`}
+            title={`Remove ${label.toLowerCase()}`}
+            onClick={onRemove}
+          >
+            <Icon name="X" size="0.75em" />
+          </button>
+        )}
         <button
           type="button"
           ref={actionsTriggerRef}
@@ -430,7 +593,17 @@ function StrokeRow({
           size="compact"
         />
       </div>
-      <button type="button" className="insp-advanced-btn" onClick={onToggle}>
+      <button
+        type="button"
+        className="insp-advanced-btn"
+        aria-expanded={expanded}
+        title={
+          advancedParts.length > 0
+            ? `Advanced stroke settings: ${advancedParts.join(', ')}`
+            : 'Advanced stroke settings'
+        }
+        onClick={onToggle}
+      >
         <Icon
           name="ChevronRight"
           label={undefined}
@@ -441,17 +614,161 @@ function StrokeRow({
           }}
         />
         <span>Advanced</span>
+        {advancedParts.length > 0 && (
+          <span className="insp-advanced-btn__summary">{advancedParts.join(' · ')}</span>
+        )}
       </button>
       {expanded && (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-1)',
-            paddingLeft: 'var(--space-4)',
-          }}
-        >
-          {/* Stroke type: solid vs gradient */}
+        <div className="insp-paint-advanced">
+          {/* Dash: one-click presets, exact values under Custom. */}
+          <FieldRow label="Dash">
+            <Select
+              label={`${label} dash style`}
+              value={dashStyleMixed ? '' : dashStyle}
+              options={[
+                ...(dashStyleMixed ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+                ...DASH_STYLE_OPTIONS,
+              ]}
+              onChange={(v) => {
+                if (!v) return;
+                if (v === CUSTOM_DASH_ID) {
+                  // Keep the current values; just reveal the exact editor.
+                  setCustomDashOpen(true);
+                  return;
+                }
+                setCustomDashOpen(false);
+                const preset = DASH_PRESETS.find((candidate) => candidate.id === v);
+                if (preset) onChange((s) => ({ ...s, dashPattern: [...preset.pattern] }));
+              }}
+            />
+          </FieldRow>
+          {(dashStyle === CUSTOM_DASH_ID || dashStyleMixed || customDashOpen) && (
+            <FieldRow label="Pattern">
+              <input
+                type="text"
+                className="insp-num__input"
+                aria-label={`${label} dash pattern`}
+                value={dashDraft}
+                onChange={(e) => setDashDraft(e.target.value)}
+                onBlur={(e) => {
+                  const pattern = parseDashPattern(e.target.value);
+                  if (pattern) {
+                    onChange((s) => ({ ...s, dashPattern: pattern }));
+                    setDashDraft(formatDashPattern(pattern));
+                  } else {
+                    setDashDraft(dashInputValue);
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.currentTarget.blur();
+                }}
+                placeholder="e.g. 4, 2"
+              />
+            </FieldRow>
+          )}
+          {!dashStyleMixed && dashStyle !== 'solid' && (
+            <NumberField
+              label="Dash offset"
+              value={isMixed(dashOffsetRaw) ? 0 : dashOffsetRaw}
+              mixed={isMixed(dashOffsetRaw)}
+              step={1}
+              onChange={(v) => onChange((s) => ({ ...s, dashOffset: v }))}
+            />
+          )}
+          <FieldRow label="Cap">
+            <SegmentedControl
+              label={`${label} cap`}
+              value={isMixed(capRaw) ? 'round' : capRaw}
+              options={CAP_OPTIONS}
+              onChange={(v) => onChange((s) => ({ ...s, cap: v }))}
+            />
+          </FieldRow>
+          <FieldRow label="Join">
+            <SegmentedControl
+              label={`${label} join`}
+              value={isMixed(joinRaw) ? 'miter' : joinRaw}
+              options={JOIN_OPTIONS}
+              onChange={(v) => onChange((s) => ({ ...s, join: v }))}
+            />
+          </FieldRow>
+          {/* Miter limit only means something for miter joins. */}
+          {join === 'miter' && (
+            <NumberField
+              label="Miter limit"
+              value={isMixed(miterLimitRaw) ? 4 : miterLimitRaw}
+              mixed={isMixed(miterLimitRaw)}
+              step={0.5}
+              min={1}
+              onChange={(v) => onChange((s) => ({ ...s, miterLimit: v }))}
+            />
+          )}
+          {/* Arrowheads for lines/paths — both ends on one row. */}
+          {hasLineOrPath && (
+            <FieldRow label="Arrowheads">
+              <div className="insp-paint-advanced__pair">
+                <div className="insp-paint-advanced__cell">
+                  <span className="insp-paint-advanced__caption">Start</span>
+                  <Select
+                    label={`${label} arrowhead start`}
+                    value={isMixed(arrowStartRaw) ? 'none' : arrowStartRaw}
+                    options={ARROW_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                    onChange={(v) => onChange((s) => ({ ...s, arrowStart: v as ArrowheadStyle }))}
+                  />
+                </div>
+                <div className="insp-paint-advanced__cell">
+                  <span className="insp-paint-advanced__caption">End</span>
+                  <Select
+                    label={`${label} arrowhead end`}
+                    value={isMixed(arrowEndRaw) ? 'none' : arrowEndRaw}
+                    options={ARROW_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                    onChange={(v) => onChange((s) => ({ ...s, arrowEnd: v as ArrowheadStyle }))}
+                  />
+                </div>
+              </div>
+            </FieldRow>
+          )}
+          {/* Per-side widths are a mode, not four loose fields: the switch
+              creates the quadrille, the text action returns to one width. */}
+          {hasRectLike && (
+            <>
+              <FieldRow label="Per-side">
+                <div className="insp-paint-advanced__actions">
+                  <Switch
+                    aria-label={`${label} per-side widths`}
+                    checked={perSideActive}
+                    onChange={() => setPerSideEnabled(!perSideActive)}
+                  />
+                  {perSideActive && (
+                    <button
+                      type="button"
+                      className="insp-text-btn"
+                      onClick={() => setPerSideEnabled(false)}
+                    >
+                      Use one width
+                    </button>
+                  )}
+                </div>
+              </FieldRow>
+              {perSideActive && (
+                <fieldset className="insp-quad-grid">
+                  <legend className="sr-only">{label} per-side widths</legend>
+                  {PER_SIDE_LABELS.map((side, i) => (
+                    <NumberField
+                      key={side}
+                      label={side}
+                      displayLabel={side.slice(0, 2)}
+                      unit="px"
+                      value={perSideValues[i] ?? 0}
+                      min={0}
+                      step={0.5}
+                      onChange={(v) => setPerSideValue(i, v)}
+                    />
+                  ))}
+                </fieldset>
+              )}
+            </>
+          )}
+          {/* Stroke paint type: solid vs gradient */}
           <FieldRow label="Type">
             <Select
               label={`${label} paint type`}
@@ -489,121 +806,12 @@ function StrokeRow({
               }}
             />
           </FieldRow>
-          {/* Per-side weights for rects/frames */}
-          {hasRectLike && (
-            <FieldRow label="Per-side">
-              <div className="insp-per-side-grid" style={{ gap: 'var(--space-1)', flex: 1 }}>
-                {(['T', 'R', 'B', 'L'] as const).map((side, i) => (
-                  <input
-                    key={side}
-                    type="number"
-                    aria-label={`${label} ${side} weight`}
-                    value={
-                      !isMixed(perSideRaw) && perSideRaw
-                        ? (perSideRaw as [number, number, number, number])[i]
-                        : isMixed(weightRaw)
-                          ? 0
-                          : weightRaw
-                    }
-                    step={0.5}
-                    min={0}
-                    onChange={(e) => {
-                      const base =
-                        !isMixed(perSideRaw) && perSideRaw
-                          ? [...(perSideRaw as [number, number, number, number])]
-                          : [
-                              isMixed(weightRaw) ? 0 : weightRaw,
-                              isMixed(weightRaw) ? 0 : weightRaw,
-                              isMixed(weightRaw) ? 0 : weightRaw,
-                              isMixed(weightRaw) ? 0 : weightRaw,
-                            ];
-                      base[i] = Number(e.target.value) || 0;
-                      onChange((s) => ({
-                        ...s,
-                        perSideWeights: base as [number, number, number, number],
-                      }));
-                    }}
-                    className="insp-per-side"
-                  />
-                ))}
-              </div>
-            </FieldRow>
-          )}
-          {/* Arrowheads for lines/paths */}
-          {hasLineOrPath && (
-            <>
-              <FieldRow label="Start">
-                <Select
-                  label={`${label} arrowhead start`}
-                  value={isMixed(arrowStartRaw) ? 'none' : arrowStartRaw}
-                  options={ARROW_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-                  onChange={(v) => onChange((s) => ({ ...s, arrowStart: v as ArrowheadStyle }))}
-                />
-              </FieldRow>
-              <FieldRow label="End">
-                <Select
-                  label={`${label} arrowhead end`}
-                  value={isMixed(arrowEndRaw) ? 'none' : arrowEndRaw}
-                  options={ARROW_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-                  onChange={(v) => onChange((s) => ({ ...s, arrowEnd: v as ArrowheadStyle }))}
-                />
-              </FieldRow>
-            </>
-          )}
-          <FieldRow label="Cap">
-            <SegmentedControl
-              label={`${label} cap`}
-              value={isMixed(capRaw) ? 'round' : capRaw}
-              options={CAP_OPTIONS}
-              onChange={(v) => onChange((s) => ({ ...s, cap: v }))}
-            />
-          </FieldRow>
-          <FieldRow label="Join">
-            <SegmentedControl
-              label={`${label} join`}
-              value={isMixed(joinRaw) ? 'miter' : joinRaw}
-              options={JOIN_OPTIONS}
-              onChange={(v) => onChange((s) => ({ ...s, join: v }))}
-            />
-          </FieldRow>
-          <NumberField
-            label="Miter limit"
-            value={isMixed(miterLimitRaw) ? 4 : miterLimitRaw}
-            mixed={isMixed(miterLimitRaw)}
-            step={0.5}
-            min={1}
-            onChange={(v) => onChange((s) => ({ ...s, miterLimit: v }))}
-          />
-          <FieldRow label="Dash pattern">
-            <input
-              type="text"
-              className="insp-num__input"
-              aria-label={`${label} dash pattern`}
-              value={dashDraft}
-              onChange={(e) => setDashDraft(e.target.value)}
-              onBlur={(e) => {
-                const pattern = parseDashPattern(e.target.value);
-                if (pattern) {
-                  onChange((s) => ({ ...s, dashPattern: pattern }));
-                  setDashDraft(formatDashPattern(pattern));
-                } else {
-                  setDashDraft(dashInputValue);
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') e.currentTarget.blur();
-              }}
-              placeholder="e.g. 4, 2"
-            />
-          </FieldRow>
-          <NumberField
-            label="Dash offset"
-            value={isMixed(dashOffsetRaw) ? 0 : dashOffsetRaw}
-            mixed={isMixed(dashOffsetRaw)}
-            step={1}
-            onChange={(v) => onChange((s) => ({ ...s, dashOffset: v }))}
-          />
         </div>
+      )}
+      {zeroWidth && (
+        <p className="insp-paint-note" role="note">
+          Zero width — this stroke is invisible on the canvas.
+        </p>
       )}
     </div>
   );

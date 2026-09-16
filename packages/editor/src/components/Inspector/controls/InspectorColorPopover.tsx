@@ -69,6 +69,13 @@ export interface InspectorColorPopoverProps {
   };
   /** Swatch face styles (background / gradient). */
   swatchStyle?: React.CSSProperties;
+  /**
+   * Optional value readout rendered beside the swatch inside the trigger
+   * ("#4A90E2", "Gradient", "Mixed"). When set, the trigger grows into a
+   * labelled pill so the row summarises its paint without opening the picker;
+   * the swatch face keeps `swatchStyle` and stays 24px.
+   */
+  valueText?: string;
   /** Optional class on the trigger button. */
   className?: string;
   /** Optional accessible hover/focus tooltip for the actual swatch trigger. */
@@ -93,6 +100,7 @@ export function InspectorColorPopover({
   value,
   onChange,
   swatchStyle,
+  valueText,
   className = 'insp-swatch',
   tooltipLabel,
   tooltipDisabledReason,
@@ -196,36 +204,38 @@ export function InspectorColorPopover({
     onEditEnd?.();
   }, [onEditEnd]);
 
+  // With `valueText` the swatch becomes the leading face of a labelled pill;
+  // the button keeps the accessible name while the face carries swatchStyle.
+  const trigger = (
+    <button
+      ref={triggerRef}
+      type="button"
+      className={valueText ? `${className} insp-swatch--valued` : className}
+      aria-label={label}
+      aria-haspopup="dialog"
+      aria-expanded={open}
+      aria-controls={open ? dialogId : undefined}
+      disabled={disabled}
+      onClick={toggle}
+      style={valueText ? undefined : swatchStyle}
+    >
+      {valueText ? (
+        <>
+          <span className="insp-swatch__face" style={swatchStyle} aria-hidden="true" />
+          <span className="insp-swatch__value">{valueText}</span>
+        </>
+      ) : null}
+    </button>
+  );
+
   return (
     <>
       {tooltipLabel ? (
         <Tooltip label={tooltipLabel} disabledReason={tooltipDisabledReason} maxWidth={280}>
-          <button
-            ref={triggerRef}
-            type="button"
-            className={className}
-            aria-label={label}
-            aria-haspopup="dialog"
-            aria-expanded={open}
-            aria-controls={open ? dialogId : undefined}
-            disabled={disabled}
-            onClick={toggle}
-            style={swatchStyle}
-          />
+          {trigger}
         </Tooltip>
       ) : (
-        <button
-          ref={triggerRef}
-          type="button"
-          className={className}
-          aria-label={label}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          aria-controls={open ? dialogId : undefined}
-          disabled={disabled}
-          onClick={toggle}
-          style={swatchStyle}
-        />
+        trigger
       )}
       <FloatingPortal
         anchorRef={triggerRef}

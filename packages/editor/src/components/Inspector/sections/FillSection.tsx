@@ -25,6 +25,7 @@ import type {
 } from '@varve/scene';
 import {
   alphaModifierLabel,
+  canPaintFills,
   createEmbeddedAsset,
   gradientFill,
   imageFill,
@@ -34,8 +35,9 @@ import {
   resolveNodeFills,
   solidFill,
 } from '@varve/scene';
-import { managedColorToRgba } from '@varve/shared';
-import { Icon, Menu, type MenuEntry, Select, Switch } from '@varve/ui';
+import { managedColorKey, managedColorToRgba } from '@varve/shared';
+import { Icon, type IconName, Menu, type MenuEntry, Switch } from '@varve/ui';
+import { rgbToHex } from '@varve/ui/components/ColorPicker';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
@@ -47,7 +49,7 @@ import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { NumberField } from '../controls/NumberField';
-import type { SegmentedOption } from '../controls/SegmentedControl';
+
 import { VariableModifierPopover } from '../controls/VariableModifierPopover';
 import { commonValue, isMixed } from '../selection/selectionState';
 import { FillContrastIndicator } from './FillContrastIndicator';
@@ -88,12 +90,24 @@ const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
   { value: 'passThrough', label: 'Pass Through' },
 ];
 
-const FILL_TYPE_OPTIONS: SegmentedOption<FillType>[] = [
-  { value: 'solid', label: 'Solid' },
-  { value: 'gradient', label: 'Gradient' },
-  { value: 'image', label: 'Image' },
-  { value: 'pattern', label: 'Pattern' },
-];
+/**
+ * Paint-type trigger metadata. The row no longer spends a full-width Select on
+ * the type: the swatch already shows what kind of paint this is, and the
+ * compact trigger opens the same four choices (with icons) while naming the
+ * current type in its accessible name and tooltip.
+ */
+const FILL_TYPE_META: Record<FillType, { label: string; icon: IconName }> = {
+  solid: { label: 'Solid', icon: 'Square' },
+  gradient: { label: 'Gradient', icon: 'Blend' },
+  image: { label: 'Image', icon: 'Image' },
+  pattern: { label: 'Pattern', icon: 'LayoutGrid' },
+};
+
+/** Hex readout for a managed colour (8-bit projection, like the picker swatch). */
+function managedColorToHex(color: ManagedColor): string {
+  const [r, g, b] = managedColorToRgba(color);
+  return rgbToHex(r, g, b).toUpperCase();
+}
 
 type AddFillKind = 'solid' | 'linear' | 'radial' | 'image' | 'pattern';
 
@@ -213,14 +227,22 @@ export function FillSection({ nodes }: FillSectionProps) {
   const bindingTriggerRef = useRef<HTMLDivElement>(null);
   const addTriggerRef = useRef<HTMLButtonElement>(null);
 
+  // Only nodes whose renderer reads `fills` participate. A mixed selection
+  // containing a group would otherwise show rows and write fill state that the
+  // group can never paint.
+  const fillNodes = useMemo(() => nodes.filter(canPaintFills), [nodes]);
+
   const fills = useMemo(() => {
-    const all = nodes.map((n) => resolveNodeFills(n));
+    const all = fillNodes.map((n) => resolveNodeFills(n));
     if (all.length === 0) return [];
     const minLen = Math.min(...all.map((f) => f.length));
     return Array.from({ length: minLen }, (_, i) => all[0]?.[i] ?? all[0]?.[0]) as Fill[];
-  }, [nodes]);
+  }, [fillNodes]);
 
-  const countMixed = nodes.some((n) => resolveNodeFills(n).length !== fills.length);
+  const countMixed = fillNodes.some((n) => resolveNodeFills(n).length !== fills.length);
+  // The paint model keeps at least one fill per node; removal is only real
+  // when a stack exists on some selected layer.
+  const canRemoveFill = fills.length > 1 || countMixed;
 
   const updateFill = useCallback(
     (index: number, fill: Fill) => {
@@ -270,6 +292,11 @@ export function FillSection({ nodes }: FillSectionProps) {
     [addFill],
   );
 
+  // No paintable node in the selection (e.g. a group): the registry hides the
+  // section, and this guard keeps standalone renders (tests, future hosts) from
+  // rendering dead rows.
+  if (fillNodes.length === 0) return null;
+
   return (
     <DisclosureSection
       title="Fill"
@@ -306,8 +333,9 @@ export function FillSection({ nodes }: FillSectionProps) {
             key={i}
             index={i}
             totalFills={fills.length}
+            canRemove={canRemoveFill}
             fill={fill}
-            nodes={nodes}
+            nodes={fillNodes}
             onChange={(f) => updateFill(i, f)}
             onRemove={() => removeFill(i)}
             onReorder={(dir) => reorderFill(i, i + dir)}
@@ -317,7 +345,9 @@ export function FillSection({ nodes }: FillSectionProps) {
             onEditEnd={commitTransaction}
             binding={
               i === 0
-                ? (nodes[0]?.bindings?.fill as import('@varve/scene').PropertyBinding | undefined)
+                ? (fillNodes[0]?.bindings?.fill as
+                    | import('@varve/scene').PropertyBinding
+                    | undefined)
                 : undefined
             }
             modifierAnchorRef={modifierAnchorRef}
@@ -342,7 +372,7 @@ export function FillSection({ nodes }: FillSectionProps) {
         ))}
       </div>
       {countMixed && fills.length > 0 && (
-        <div className="insp-empty-message">Some selected nodes have additional fills</div>
+        <div className="insp-empty-message">Some selected layers have extra fills beyond these</div>
       )}
       {editor.bindingField === 'fill' && (
         <BindingMenu
@@ -381,6 +411,8 @@ export function FillSection({ nodes }: FillSectionProps) {
 interface FillRowProps {
   index: number;
   totalFills: number;
+  /** False when every selected layer has exactly one fill (removal is a no-op). */
+  canRemove: boolean;
   fill: Fill;
   nodes: SceneNode[];
   onChange: (fill: Fill) => void;
@@ -399,6 +431,7 @@ interface FillRowProps {
 function FillRow({
   index,
   totalFills,
+  canRemove,
   fill,
   nodes,
   onChange,
@@ -427,6 +460,25 @@ function FillRow({
   const typeRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.type ?? 'solid');
   const opacityRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.opacity ?? 1);
   const blendRaw = commonValue(nodes, (n) => resolveNodeFills(n)[index]?.blendMode ?? 'normal');
+
+  // Paint identity across the selection: the same kind and, for solids, the
+  // same canonical colour. Previously the swatch showed the first node's
+  // colour as if it were shared; a mixed selection now says so on the row and
+  // in the trigger's accessible name (editing still broadcasts to all).
+  const paintKeyRaw = commonValue(nodes, (n) => {
+    const f = resolveNodeFills(n)[index];
+    if (!f) return 'missing';
+    if (f.type === 'solid' && f.color) return `solid:${managedColorKey(f.color)}`;
+    return f.type;
+  });
+  const typeIsMixed = isMixed(typeRaw);
+  const paintMixed = isMixed(paintKeyRaw) || typeIsMixed;
+  const fillType: FillType = typeIsMixed ? 'solid' : (typeRaw as FillType);
+  const valueText = paintMixed
+    ? 'Mixed'
+    : fill.type === 'solid' && fill.color
+      ? managedColorToHex(fill.color)
+      : FILL_TYPE_META[fill.type].label;
   const documentGradientInterpolation =
     editor.state.document.colorConfig?.defaultGradientInterpolation ?? 'oklab';
   const draftKey = `${nodes
@@ -520,8 +572,23 @@ function FillRow({
   // effect rows) instead of a strip of unlabelled icons beside the swatch.
   const [actionsOpen, setActionsOpen] = useState(false);
   const [blendMenuOpen, setBlendMenuOpen] = useState(false);
+  const [typeMenuOpen, setTypeMenuOpen] = useState(false);
   const actionsTriggerRef = useRef<HTMLButtonElement>(null);
   const blendTriggerRef = useRef<HTMLButtonElement>(null);
+  const typeTriggerRef = useRef<HTMLButtonElement>(null);
+  const typeMenuItems = useMemo<readonly MenuEntry[]>(
+    () =>
+      (Object.keys(FILL_TYPE_META) as FillType[]).map((fillType) => ({
+        id: `fill-type-${fillType}`,
+        label: FILL_TYPE_META[fillType].label,
+        icon: FILL_TYPE_META[fillType].icon,
+        type: 'radio' as const,
+        group: 'fill-type',
+        checked: !typeIsMixed && typeRaw === fillType,
+        onToggle: () => setFillType(fillType),
+      })),
+    [setFillType, typeIsMixed, typeRaw],
+  );
   const harmonySource = fill.type === 'solid' && fill.color?.space === 'rgb' ? fill.color : null;
   const blendIsMixed = isMixed(blendRaw);
   const blendValue = blendIsMixed ? 'normal' : (blendRaw as BlendMode);
@@ -591,6 +658,10 @@ function FillRow({
         id: 'remove',
         label: `Remove ${label.toLowerCase()}`,
         onAction: onRemove,
+        // A node always keeps one fill, so a single-fill row explains the
+        // no-op instead of closing the menu on a silent failure.
+        disabled: !canRemove,
+        badge: canRemove ? undefined : 'last fill',
         destructive: true,
         icon: 'X',
       },
@@ -601,6 +672,7 @@ function FillRow({
       blendMenuItems,
       canMoveDown,
       canMoveUp,
+      canRemove,
       editor,
       harmonySource,
       label,
@@ -621,9 +693,15 @@ function FillRow({
         />
         {fill.type === 'solid' && fill.color ? (
           <InspectorColorPopover
-            label={`${label} colour`}
+            // Mixed selections say so in the name; editing broadcasts to all.
+            label={
+              paintMixed
+                ? `${label} colour (mixed across selection — editing applies to all)`
+                : `${label} colour`
+            }
             value={fill.color}
             onChange={(c) => patch({ color: c })}
+            valueText={valueText}
             swatchStyle={{
               background: swatchBg,
               border: '2px solid var(--color-border-strong)',
@@ -634,7 +712,11 @@ function FillRow({
           />
         ) : fill.type === 'gradient' && representativeGradient ? (
           <InspectorColorPopover
-            label={`${label} gradient`}
+            label={
+              paintMixed
+                ? `${label} gradient (mixed across selection — editing applies to all)`
+                : `${label} gradient`
+            }
             value={
               representativeGradient.stops[0]?.color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }
             }
@@ -647,6 +729,7 @@ function FillRow({
               mixedHue: gradientHueMixed,
               gradientBounds: gradientBounds ?? undefined,
             }}
+            valueText={valueText}
             swatchStyle={{
               background: swatchBg,
               border: '2px solid var(--color-border-strong)',
@@ -658,14 +741,17 @@ function FillRow({
         ) : (
           <button
             type="button"
-            className="insp-swatch"
-            aria-label={`${label} preview`}
+            className="insp-swatch insp-swatch--valued"
+            aria-label={paintMixed ? `${label} preview (mixed)` : `${label} preview`}
             disabled
-            style={{
-              background: swatchBg,
-              border: '2px solid var(--color-border-strong)',
-            }}
-          />
+          >
+            <span
+              className="insp-swatch__face"
+              style={{ background: swatchBg }}
+              aria-hidden="true"
+            />
+            <span className="insp-swatch__value">{valueText}</span>
+          </button>
         )}
         {fill.type === 'solid' && fill.color && (
           <FillContrastIndicator
@@ -729,20 +815,34 @@ function FillRow({
             {!bindingValid && <span>(invalid)</span>}
           </button>
         )}
-        <div className="insp-paint-row__type">
-          <Select
-            label={`${label} type`}
-            value={isMixed(typeRaw) ? '' : typeRaw}
-            options={[
-              ...(isMixed(typeRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
-              ...FILL_TYPE_OPTIONS,
-            ]}
-            onChange={(v) => {
-              if (v) setFillType(v as FillType);
-            }}
-            placeholder="Mixed"
-          />
-        </div>
+        <button
+          type="button"
+          ref={typeTriggerRef}
+          className="insp-inline-btn insp-paint-row__type-trigger"
+          aria-label={
+            typeIsMixed
+              ? `${label} type: Mixed`
+              : `${label} type: ${FILL_TYPE_META[fillType].label}`
+          }
+          aria-haspopup="menu"
+          aria-expanded={typeMenuOpen}
+          title={
+            typeIsMixed
+              ? `${label} type — mixed; choosing one applies to all`
+              : `${label} type: ${FILL_TYPE_META[fillType].label}`
+          }
+          onClick={() => setTypeMenuOpen((open) => !open)}
+        >
+          <Icon name={typeIsMixed ? 'CircleDashed' : FILL_TYPE_META[fillType].icon} size="0.85em" />
+        </button>
+        <Menu
+          triggerRef={typeTriggerRef}
+          open={typeMenuOpen}
+          onClose={() => setTypeMenuOpen(false)}
+          label={`${label} type`}
+          items={typeMenuItems}
+          size="compact"
+        />
         <div className="insp-paint-row__opacity">
           {/* Stored as 0–1 like every paint in the engine; shown as a
               percentage like layer opacity. Convert only at this boundary. */}
@@ -783,7 +883,7 @@ function FillRow({
             </button>
           </div>
         )}
-        {totalFills > 1 && (
+        {canRemove && (
           <button
             type="button"
             className="insp-paint-row__remove-btn"

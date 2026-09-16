@@ -16,6 +16,7 @@
 
 import { deflateSync } from 'node:zlib';
 import { expect, type Page, test } from '@playwright/test';
+import { selectFillType } from '../helpers/editor-helpers';
 import { navigateToCleanEditor } from '../helpers/nav';
 
 // ── deterministic fixture PNGs (no binary fixtures in the repo) ─────────────
@@ -176,10 +177,7 @@ async function addFill(page: Page, label: string): Promise<void> {
 }
 
 async function switchFillType(page: Page, label: string): Promise<void> {
-  const combo = page.getByRole('combobox', { name: /fill type/i }).first();
-  await combo.click();
-  await page.waitForTimeout(250);
-  await page.getByRole('option', { name: new RegExp(`^${label}$`, 'i') }).click();
+  await selectFillType(page, label);
   await page.waitForTimeout(700);
 }
 

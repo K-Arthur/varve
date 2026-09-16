@@ -5,6 +5,7 @@
  * hide a layout, focus, or disclosure-state regression.
  */
 import { expect, type Page, test } from '@playwright/test';
+import { selectFillType } from '../helpers/editor-helpers';
 import { navigateToCleanEditor } from '../helpers/nav';
 
 async function createAndSelectRect(page: Page): Promise<void> {
@@ -70,11 +71,7 @@ test.describe('Selection Colors inspector', () => {
     await setTheme(page, 'dark');
     await expect(section).toHaveScreenshot('selection-colors-dark.png', { maxDiffPixels: 80 });
 
-    await page
-      .getByRole('combobox', { name: /fill type/i })
-      .first()
-      .click();
-    await page.getByRole('option', { name: /^image$/i }).click();
+    await selectFillType(page, 'Image');
     await expect(colors).toContainText('1 image fill — not sampled as editable vector colors.');
     await expect(colors.getByRole('button', { name: /paint use/i })).toHaveCount(0);
   });

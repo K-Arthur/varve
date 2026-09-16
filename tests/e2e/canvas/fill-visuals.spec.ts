@@ -12,6 +12,7 @@
 import path from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { expect, type Page, test } from '@playwright/test';
+import { selectFillType } from '../helpers/editor-helpers';
 import { navigateToCleanEditor } from '../helpers/nav';
 
 const PHOTO_FIXTURE = path.resolve('tests/e2e/fixtures/photo-fixture.jpg');
@@ -117,12 +118,7 @@ test('fill visual evidence set', async ({ page }) => {
   // Undo the added gradient; convert the existing fill to Image (empty)
   await page.keyboard.press('Control+z');
   await page.waitForTimeout(500);
-  await page
-    .getByRole('combobox', { name: /fill type/i })
-    .first()
-    .click();
-  await page.waitForTimeout(250);
-  await page.getByRole('option', { name: /^Image$/i }).click();
+  await selectFillType(page, 'Image');
   await page.waitForTimeout(800);
   await page.locator('.insp-image-fill__empty-hint').scrollIntoViewIfNeeded();
   await page.waitForTimeout(300);
@@ -137,12 +133,7 @@ test('fill visual evidence set', async ({ page }) => {
   await page.screenshot({ path: 'test-results/fill-visuals/04-image-after.png' });
 
   // Convert to Pattern and choose a tile
-  await page
-    .getByRole('combobox', { name: /fill type/i })
-    .first()
-    .click();
-  await page.waitForTimeout(250);
-  await page.getByRole('option', { name: /^Pattern$/i }).click();
+  await selectFillType(page, 'Pattern');
   await page.waitForTimeout(700);
   const tileChooserPromise = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: /choose tile/i }).click();

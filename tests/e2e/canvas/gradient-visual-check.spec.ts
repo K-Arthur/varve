@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+import { selectFillType } from '../helpers/editor-helpers';
 import { navigateToCleanEditor } from '../helpers/nav';
 
 test('hue slider interactive', async ({ page }) => {
@@ -18,11 +19,9 @@ test('hue slider interactive', async ({ page }) => {
   await page.waitForTimeout(500);
 
   // Switch to Gradient
-  const ft = page.getByRole('combobox', { name: /fill type/i });
+  const ft = page.getByRole('button', { name: /^Fill type:/i }).first();
   if (await ft.isVisible({ timeout: 3000 }).catch(() => false)) {
-    await ft.click();
-    await page.waitForTimeout(200);
-    await page.getByRole('option', { name: /^Gradient$/i }).click();
+    await selectFillType(page, 'Gradient');
     await page.waitForTimeout(500);
   }
 

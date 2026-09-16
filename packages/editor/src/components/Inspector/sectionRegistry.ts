@@ -11,6 +11,7 @@
  * Research basis: Figma section visibility, Sketch Inspector组织, APG Disclosure.
  */
 import {
+  canPaintFills,
   isAdjustmentEligible,
   isAnimatedMediaNode,
   isImageShape,
@@ -339,14 +340,20 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     isAvailable: (ctx) => hasNodes(ctx),
   },
   {
+    // The rendered section title is "Fill" (Figma's singular paint name with
+    // stacked rows); the registry title matches so the Section Manager, the
+    // collapsed header and the `fieldset` legend all say the same word.
     id: 'fills',
-    title: 'Fills',
+    title: 'Fill',
     defaultExpanded: true,
     canHide: false,
     essential: true,
     order: 220,
     category: 'appearance',
-    isAvailable: (ctx) => hasNodes(ctx),
+    // Only nodes whose renderer reads `fills` (shape/text/frame). Groups and
+    // legacy line/arrow primitives never paint a fill, so showing the section
+    // there produced an "Add fill" control that could not change the canvas.
+    isAvailable: (ctx) => ctx.selectedNodes.some(canPaintFills),
   },
   {
     id: 'paint-library',

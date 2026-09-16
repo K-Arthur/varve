@@ -168,6 +168,20 @@ export function resolveNodeFills(node: { fill: ManagedColor; fills?: Fill[] }): 
 }
 
 /**
+ * True when the node actually paints its own fill stack.
+ *
+ * Containers composite their children and the renderer never draws a group's
+ * `fills`; the engine's line and arrow primitives are stroke-only. Editing
+ * fills on those nodes writes document state no renderer reads, so the Fill
+ * inspector hides itself and the registry excludes them from availability.
+ */
+export function canPaintFills(node: SceneNode): boolean {
+  if (node.kind === 'text' || node.kind === 'frame') return true;
+  if (node.kind !== 'shape') return false;
+  return node.shape.kind !== 'line' && node.shape.kind !== 'arrow';
+}
+
+/**
  * Convert a Fill to a flat ManagedColor.
  * For gradient fills, returns the first stop color.
  * For image/pattern fills, returns transparent black.
