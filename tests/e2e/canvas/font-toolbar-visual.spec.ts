@@ -128,7 +128,7 @@ async function measureToolbarConsistency(page: Page, toolbar: Locator) {
 async function measureContextFontControls(
   page: Page,
   contextBar: Locator,
-  floatingToolbar: Locator,
+  referenceToolbar: Locator,
 ) {
   const paletteHeight = await page
     .locator('.floating-toolbar__row')
@@ -152,7 +152,7 @@ async function measureContextFontControls(
         ?.getBoundingClientRect().width,
     };
   });
-  const floatingStyle = await floatingToolbar.evaluate((element) => {
+  const floatingStyle = await referenceToolbar.evaluate((element) => {
     const style = getComputedStyle(element);
     return { gap: style.gap, fontFamily: style.fontFamily, fontSize: style.fontSize };
   });
@@ -182,6 +182,27 @@ for (const dpr of [1, 2, 3]) {
       const toolbar = await startText(page);
       const contextBar = page.getByRole('toolbar', { name: 'Contextual properties' });
       await expect(contextBar).toBeVisible();
+
+      // Measure the context bar's typography while the text node is selected
+      // but NOT editing. During an edit session the floating text bar owns
+      // formatting and the context bar deliberately points to it instead of
+      // rendering a second copy of the same controls (toolbar-system.md).
+      await page.keyboard.press('Escape');
+      await expect(toolbar).toHaveCount(0);
+      await page.getByRole('treeitem', { name: /Typography in context/i }).click();
+      const paletteToolbar = page.locator('.floating-toolbar [role="toolbar"]');
+      for (const theme of ['light', 'dark', 'high-contrast']) {
+        await page.evaluate((theme) => {
+          document.documentElement.dataset.theme = theme;
+        }, theme);
+        await page.setViewportSize({ width: 1280, height: 800 });
+        await measureContextFontControls(page, contextBar, paletteToolbar);
+      }
+
+      // Re-enter editing for the floating-bar measurements below.
+      await page.getByRole('button', { name: 'Edit text', exact: true }).first().click();
+      await expect(toolbar).toBeVisible({ timeout: 15000 });
+
       for (const theme of ['light', 'dark', 'high-contrast']) {
         await page.evaluate((theme) => {
           document.documentElement.dataset.theme = theme;
@@ -193,7 +214,6 @@ for (const dpr of [1, 2, 3]) {
         await page.setViewportSize({ width: 1280, height: 800 });
         await containedInViewport(page, toolbar);
         const consistency = await measureToolbarConsistency(page, toolbar);
-        await measureContextFontControls(page, contextBar, toolbar);
         await writeFile(
           testInfo.outputPath(`${theme}-toolbar-metrics.json`),
           JSON.stringify(consistency, null, 2),

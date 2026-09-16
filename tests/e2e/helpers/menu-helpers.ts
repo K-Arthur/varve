@@ -20,6 +20,13 @@ export async function focusMenubar(page: Page) {
 }
 
 export async function openMenu(page: Page, name: string) {
+  // A menu left open by an earlier step turns the trigger click into a
+  // toggle-close. Normalize first (Escape closes the submenu, then the
+  // parent menu, so allow more than one press).
+  for (let attempt = 0; attempt < 3 && (await page.getByRole('menu').count()) > 0; attempt += 1) {
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(50);
+  }
   const menubar = page.locator('[role="menubar"]');
   const item = menubar.locator('[role="menuitem"]', { hasText: name });
   await item.click();

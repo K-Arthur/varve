@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openSubmenu } from '../helpers/menu-helpers';
 import { navigateToEditor } from '../shared';
 
 const VIEWPORT = { width: 1280, height: 800 };
@@ -113,14 +114,11 @@ test.describe('workspace toolbar visual QA', () => {
   }, testInfo) => {
     await page.setViewportSize(VIEWPORT);
     await navigateToEditor(page);
-    await page.getByRole('menuitem', { name: 'View' }).click();
-    // The View menu is taller than the viewport at this size (workspace
-    // switcher + reset commands + focus modes + colour-blindness modes), and
-    // it scrolls inside its own clamped portal surface. Pointer clicks on an
-    // item below the fold need that nested scroll to be driven explicitly;
-    // keyboard activation reaches the item without depending on hit-testing
-    // an off-screen row.
-    const customizeItem = page.getByRole('menuitem', { name: /Customize Workspace/ });
+    // Customize Workspace lives in View > Workspace now that the View root is
+    // grouped to fit one screen. Keyboard activation still avoids depending on
+    // hit-testing an off-screen row.
+    const workspaceMenu = await openSubmenu(page, 'View', 'Workspace');
+    const customizeItem = workspaceMenu.getByRole('menuitem', { name: /Customize Workspace/ });
     await customizeItem.focus();
     await expect(customizeItem).toBeFocused();
     await page.keyboard.press('Enter');

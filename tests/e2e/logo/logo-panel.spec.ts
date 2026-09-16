@@ -41,6 +41,7 @@ test.describe('Logo panel', () => {
     );
     await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
+    await expect(page.getByRole('menu')).toHaveCount(0);
 
     // Switch via the workspace radio (deterministic), then reopen View.
     await page.getByRole('radio', { name: 'Logo workspace', exact: true }).click({ force: true });

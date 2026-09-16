@@ -214,7 +214,7 @@ results below.
 | `pnpm typecheck:e2e` | clean at the time of the last self-run; the shared gate is intermittently broken by other sessions' in-flight files |
 | `node scripts/audit-docs.mjs` / `audit-emoji.mjs` | clean |
 | `pnpm audit:tokens` | 153/153 pairs pass, 3 themes |
-| `tests/e2e/canvas/toolbar-followup.spec.ts` (new, 4 tests) | written; see browser note |
+| `tests/e2e/canvas/toolbar-followup.spec.ts` (new, 4 tests) | 4/4 passed in the clean run (2.3m); details in the browser note |
 
 ### Browser verification
 
@@ -268,9 +268,13 @@ screen-reader or physical-touch pass was performed in this session.
 
 ## Remaining work and recommendations
 
-1. **Finish the browser run** on a quiet machine (`VARVE_E2E_PORT=<free>`,
-   heavy lease) and record the measured status-bar/placement results, then
-   copy reviewed screenshots to `docs/screenshots/2026-09-15-toolbar-followup/`.
+1. **Visual baselines for full-editor screenshots** (`full-editor-*`,
+   `email-full-editor-*`) need regeneration now that the status-bar chrome
+   changed; not regenerated here because the shared tree still carries other
+   sessions' uncommitted UI, which would bake foreign screens into the
+   baselines (the same reason the Inspector session documented). Command:
+   `pnpm screenshots:product`-style scene runs or the affected visual specs,
+   after the tree is clean.
 2. **Palette docking beyond top/bottom** (drag, left/right, hide-when-idle):
    still the larger shell-grid feature the first review deferred. Left/right
    placement measured fastest in the placement study but interacts with the
@@ -283,11 +287,6 @@ screen-reader or physical-touch pass was performed in this session.
    menubar and the action registry; adding them to `menu/defs.ts` requires
    updating the native-adapter snapshot, which another session had in flight
    at the time of writing.
-5. **Visual baselines** for full-editor screenshots (`full-editor-*`,
-   `email-full-editor-*`) need regeneration once foreign uncommitted UI in the
-   shared tree lands; the status-bar height and target changes alter chrome
-   pixels. Not regenerated here for the same reason the Inspector session
-   documented.
-6. Not performed: screen readers (NVDA/VoiceOver/Orca), forced-colors
+5. Not performed: screen readers (NVDA/VoiceOver/Orca), forced-colors
    rendering of the new targets, physical touch/pen verification, and
    left-to-right mirroring checks for the placement radio group.
