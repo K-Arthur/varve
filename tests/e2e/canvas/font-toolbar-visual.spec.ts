@@ -186,6 +186,22 @@ for (const dpr of [1, 2, 3]) {
       const contextBar = page.getByRole('toolbar', { name: 'Contextual properties' });
       await expect(contextBar).toBeVisible();
 
+      // The document hand-off can briefly return to Home between steps;
+      // make sure the editor is mounted before measuring (startText documents
+      // the same race).
+      if (
+        !(await page
+          .locator('.editor-shell')
+          .isVisible({ timeout: 1500 })
+          .catch(() => false))
+      ) {
+        const recentFile = page.getByRole('gridcell').first();
+        if (await recentFile.isVisible({ timeout: 1500 }).catch(() => false)) {
+          await recentFile.click({ timeout: 10000 });
+        }
+      }
+      await expect(page.locator('.editor-shell')).toBeVisible({ timeout: 60000 });
+
       // Measure the context bar's typography while the text node is selected
       // but NOT editing. During an edit session the floating text bar owns
       // formatting and the context bar deliberately points to it instead of

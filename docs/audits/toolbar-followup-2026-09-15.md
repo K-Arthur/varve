@@ -251,6 +251,28 @@ the toolbar; roving focus needs enabled buttons because the default font has
 no italic face; the geometry check must skip ancestor-hidden controls; Escape
 in the size field cancels the draft before it closes).
 
+A neighboring-surface regression batch (12 specs / 58 tests: menu
+keyboard-nav, flyout-dismissal, visual-integrity; toolbar layout, per-mode,
+keyboard-overflow, workspace-toolbar visuals, font-toolbar visuals, selection
+quick bar, logo panel, history panel, document fonts panel) then ran on the
+clean machine: **52 passed, 6 failed**, and the failures were triaged:
+
+- `logo-panel` exposed a **real defect**: the Panels submenu's hand-copied
+  role helper lacked the `toggleLogoPanel` case, so the Logo toggle rendered
+  as a plain `menuitem` with no checked state once it moved out of the root.
+  Fixed by single-sourcing the role/checked logic in
+  `menu/menubarItemState.ts` (also removes the second copy that had caused
+  the workspace/colour-blindness radio case bug), with a new unit test.
+- `font-toolbar-visual` (3 DPR variants) and `workspace-toolbar-visual` were
+  spec updates for intended behavior: the context bar no longer shows
+  typography during an edit session (single-surface rule), and Customize
+  Workspace moved into the Workspace submenu.
+- `menus/keyboard-nav` failed a *different* test in each run (`disabled menu
+  item…`, then `ArrowRight opens submenu…`), all after programmatic
+  `.focus()` on menu rows; that suite's focus/index sync is not part of this
+  session's changes and the role/checked contract it touches is now covered
+  by `Menubar.test.tsx`. Recorded as pre-existing flakiness, not fixed here.
+
 ## External failure evidence (summary)
 
 Full table and sources: `docs/research/toolbar-followup-2026-09-15.md`.

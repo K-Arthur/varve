@@ -39,8 +39,10 @@ test.describe('Logo panel', () => {
     await expect(designPanels.getByRole('menuitemcheckbox', { name: /Logo Panel/i })).toHaveCount(
       0,
     );
-    await page.keyboard.press('Escape');
-    await page.keyboard.press('Escape');
+    // Close the open View > Panels menus by toggling the trigger; Escape from
+    // menubar focus did not reliably close both layers (the submenu owns its
+    // own dismiss policy).
+    await page.getByRole('menubar').getByRole('menuitem', { name: /^View/ }).click();
     await expect(page.getByRole('menu')).toHaveCount(0);
 
     // Switch via the workspace radio (deterministic), then reopen View.
