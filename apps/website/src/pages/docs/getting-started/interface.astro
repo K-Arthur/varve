@@ -224,14 +224,17 @@ import { sitePath } from '../../../lib/siteUrl';
         </p>
         <h3>Align &amp; Distribute</h3>
         <p>
-          The Align bar adapts to what the selection can actually do. With one layer selected the
-          six align buttons are live and target the nearest frame (or the page), and the
-          relative-only clusters — distribute, fixed gap, key object, tidy up, and oriented
-          bounding boxes — do not appear at all, so the bar never shows a row of permanently
-          disabled buttons. Select two or more layers and they return, including the
-          <strong>Selection / Frame / Page</strong> reference control that names what the buttons
-          align <em>to</em>. Every omitted command stays reachable from the Object menu and its
-          keyboard shortcut.
+          The Align bar adapts to what the selection can actually do. The reference control always
+          shows all three targets — <strong>Selection</strong>, <strong>Frame</strong>, and
+          <strong>Page</strong> — with the active one highlighted; options that do not apply to the
+          current selection stay visible but dimmed, and hovering explains why (for example,
+          aligning to the selection bounds needs two or more layers). Every align button names its
+          live target in its tooltip and accessible name ("Align left edges to parent frame"), so
+          the commands never silently change meaning when the selection changes. With one layer
+          selected the reference resolves to the nearest frame or the page; relative-only clusters
+          — distribute, fixed gap, key object, tidy up, and oriented bounding boxes — appear once
+          two or more layers are selected, and every one of those commands also stays reachable
+          from the Object menu and its keyboard shortcut.
         </p>
         <h3>Position &amp; Size</h3>
         <p>

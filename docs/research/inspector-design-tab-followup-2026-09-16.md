@@ -61,6 +61,26 @@ toolbar whenever two or more layers are selected. An `sr-only` note states the
 availability rule in the accessibility tree, so assistive-technology users are
 not left guessing why controls are absent.
 
+A first attempt also removed the *reference* options themselves when they were
+unavailable (no "Selection" with one layer, no "Frame" without a containing
+frame). Rendered review rejected that: reviewers read the missing chips as
+missing functionality ("where is align to selection / align to frame?"), and
+more importantly the align buttons then silently meant something different
+after a selection change with nothing on screen naming the target. Final
+rule, applied in both code and tests:
+
+- **All three references stay visible at all times** — `Selection`, `Frame`,
+  `Page` — with unavailable options carrying `aria-disabled`, a non-activating
+  click guard, reduced opacity, and a hover/`title` reason ("Select two or more
+  layers to align to the selection bounds", "This selection has no shared
+  containing frame"). `aria-disabled` rather than `disabled` keeps the option
+  in the accessibility tree and focus order so the reason is discoverable.
+- **Every align command names its live target in its accessible name and
+  tooltip** — "Align left edges to page" / "…to parent frame" / "…to
+  selection" — so the command can never silently change meaning. This follows
+  the same principle as the earlier finding that Figma's greyed-out alignment
+  without explanation generated a recurring complaint thread.
+
 ### 1.3 The 2x2 corner grid never rendered as a grid
 
 `.insp-quad-grid` declared `display: grid` with two columns, but
@@ -157,6 +177,8 @@ active mask type so an enabled mask cannot be invisible.
   disclosure but auto-surfaces whenever a layer actually carries skew.
 - No command was removed. Distribute/gap/tidy keep Menubar and keyboard
   routes; key object and OBB are rendered whenever their prerequisites hold.
+  Alignment *references* are never removed at all — only marked unavailable
+  (see §1.2), because the reference is the mode the buttons operate in.
 - Selection Colors keeps its full editor popover, its "select matching
   layers" action and its expand-more pagination.
 - Crop & Bounds keeps all five aspect presets plus its Trim/Protect/Expand

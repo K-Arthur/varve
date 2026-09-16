@@ -89,7 +89,7 @@ pass corrected them:
 
 | Step | Shipped 2026-09-15 | Corrected 2026-09-16 |
 |---|---|---|
-| 1 Align & Distribute | Full two-row toolbar for every selection; reference control 523px wide from a misused section token | Single selection omits relative-only clusters and resolves its reference to frame/page; live 24px target segments |
+| 1 Align & Distribute | Full two-row toolbar for every selection; reference control 523px wide from a misused section token | Single selection omits relative-only clusters and resolves its reference to frame/page; live 24px target segments; all three references stay visible (dimmed + reason when unavailable) and every align command names its live target |
 | 2 Position & Size | Skew disclosure wrapped alone under the rotation row | R + flip H + flip V + skew disclosure in one row; Link2/Link2Off lock icon |
 | 3 Corner Radius | Quad grid rendered as a single column (`display:flex` override); bare `Radius` label | True 2x2 grid; px units; long-form accessible corner names |
 | 4 Image Placement | Five fit modes wrapped 3+2 inside an auto-fit grid | One equal-width five-up track; offset/scale hidden for Stretch with a reason; mixed values |

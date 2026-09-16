@@ -1794,12 +1794,15 @@
   padding-inline: var(--space-2);
   font-size: var(--font-size-2xs);
 }
-/* With exactly one meaningful target the bordered radiogroup is noise: show
-   the single option as a plain toggle pill (single selection → page/frame). */
-.insp-align-targets--single {
-  padding: 0;
-  border-color: transparent;
+/* Unavailable reference options stay visible (the mode is never a hidden
+   state) but must read as unavailable at a glance and on hover. */
+.insp-align-bar .insp-align-targets .pill-group__btn[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.insp-align-bar .insp-align-targets .pill-group__btn[aria-disabled="true"]:hover {
   background: transparent;
+  color: var(--color-text-secondary);
 }
 .insp-align-target-label {
   margin-inline-start: var(--space-1);

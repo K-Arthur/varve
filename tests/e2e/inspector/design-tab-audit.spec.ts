@@ -395,9 +395,9 @@ test.describe('Design tab real-world audit', () => {
     const alignSection = page.locator('.insp-align-section');
     await expect(alignSection).toBeVisible({ timeout: 10_000 });
 
-    // Single selection: align buttons are live (frame/page target) and the
-    // relative-only clusters are omitted rather than rendered disabled.
-    await expect(alignSection.getByRole('button', { name: 'Align left edges' })).toBeEnabled();
+    // Single selection: align buttons are live and name their active target,
+    // while the relative-only clusters are omitted rather than rendered dead.
+    await expect(alignSection.getByRole('button', { name: /^Align left edges/ })).toBeEnabled();
     await expect(
       alignSection.getByRole('button', { name: 'Distribute horizontal spacing' }),
     ).toHaveCount(0);
@@ -405,11 +405,53 @@ test.describe('Design tab real-world audit', () => {
     await expect(
       alignSection.getByRole('button', { name: 'Set key object from selection' }),
     ).toHaveCount(0);
+    // All three references are always visible; unavailable ones are marked.
     await expect(alignSection.locator('.insp-align-targets')).toBeVisible();
+    await expect(
+      alignSection.getByRole('button', { name: 'Align to selection bounds' }),
+    ).toHaveAttribute('aria-disabled', 'true');
+    await expect(
+      alignSection.getByRole('button', { name: 'Align to parent frame' }),
+    ).toHaveAttribute('aria-disabled', 'true');
+    await expect(
+      alignSection.getByRole('button', { name: 'Align to page (active)' }),
+    ).toBeVisible();
 
     // The capability rule stays in the accessibility tree for screen readers.
     const hint = await alignSection.locator('p.sr-only').textContent();
     expect(hint).toContain('two or more selected layers');
+  });
+
+  test('align commands name the active reference', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await seedRealWorldDocument(page);
+    await selectRectangleLayer(page);
+    await openDesignTab(page);
+
+    const alignSection = page.locator('.insp-align-section');
+    await expect(alignSection).toBeVisible({ timeout: 10_000 });
+    // All three reference options exist even when only one applies.
+    await expect(alignSection.getByRole('button', { name: 'Align to parent frame' })).toHaveCount(
+      1,
+    );
+    await expect(
+      alignSection.getByRole('button', { name: 'Align to selection bounds' }),
+    ).toHaveCount(1);
+    // The align command names the same target the reference control reports.
+    const activeTarget = await alignSection
+      .locator('.insp-align-targets .pill-group__btn[aria-pressed="true"]')
+      .first()
+      .getAttribute('aria-label');
+    expect(activeTarget).toBeTruthy();
+    const alignLeftName =
+      (await alignSection
+        .getByRole('button', { name: /^Align left edges/ })
+        .getAttribute('aria-label')) ?? '';
+    const targetWords = activeTarget!
+      .replace(/^Align to /, '')
+      .replace(/ \(active\)$/, '')
+      .toLowerCase();
+    expect(alignLeftName.toLowerCase()).toContain(targetWords.split(' ')[0]!);
   });
 
   test('Align & Distribute returns its full toolbar on multi-select', async ({ page }) => {

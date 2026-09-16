@@ -52,7 +52,8 @@ describe('AlignDistributeBar', () => {
     mocks.useEditor.mockReturnValue(editorForSelection(['a', 'b']));
     render(<AlignDistributeBar />);
 
-    expect(screen.getByRole('button', { name: 'Align left edges' })).toBeEnabled();
+    // The align commands name the live reference in their accessible name.
+    expect(screen.getByRole('button', { name: 'Align left edges to selection' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Distribute horizontal spacing' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Set key object from selection' })).toBeEnabled();
   });
@@ -64,8 +65,18 @@ describe('AlignDistributeBar', () => {
     expect(screen.getByRole('heading', { name: 'Align & distribute' })).toBeVisible();
     // Single root selection has exactly one meaningful target (the page), so
     // the align commands are live rather than rendering a dead toolbar.
-    expect(screen.getByRole('button', { name: 'Align left edges' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Align left edges to page' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Align to page (active)' })).toBeEnabled();
+    // The other references stay visible but announce themselves unavailable,
+    // so the alignment mode is never a hidden state.
+    expect(screen.getByRole('button', { name: 'Align to selection bounds' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'Align to parent frame' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     // Key object, distribute, gap, tidy and OBB need 2+ layers: omitted.
     expect(screen.queryByRole('button', { name: 'Set key object from selection' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Distribute horizontal spacing' })).toBeNull();
@@ -87,7 +98,7 @@ describe('AlignDistributeBar', () => {
     mocks.useEditor.mockReturnValue(editorForSelection(['a'], true));
     render(<AlignDistributeBar />);
 
-    expect(screen.getByRole('button', { name: 'Align left edges' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Align left edges to page' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Distribute horizontal spacing' })).toBeNull();
   });
 
@@ -102,7 +113,11 @@ describe('AlignDistributeBar', () => {
     // The only sensible target for one child is its frame, so it is active
     // immediately and relative-only commands are not rendered at all.
     expect(screen.getByRole('button', { name: 'Align to parent frame (active)' })).toBeEnabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Align left edges' }));
+    expect(screen.getByRole('button', { name: 'Align to selection bounds' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Align left edges to parent frame' }));
     expect(editor.alignSelected).toHaveBeenCalledWith('left', 'container');
     expect(screen.queryByRole('button', { name: 'Set key object from selection' })).toBeNull();
   });
