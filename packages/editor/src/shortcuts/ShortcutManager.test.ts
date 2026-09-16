@@ -4,6 +4,7 @@ import {
   detectCollisions,
   formatShortcut,
   isMac,
+  isNativeActivationKeyTarget,
   SHORTCUT_DEFS,
   shortcutFromEvent,
   shouldIgnoreShortcutTarget,
@@ -56,6 +57,27 @@ describe('shouldIgnoreShortcutTarget', () => {
     document.body.innerHTML = `<canvas id="c"></canvas>`;
     expect(shouldIgnoreShortcutTarget(document.getElementById('c'))).toBe(false);
     expect(shouldIgnoreShortcutTarget(document.body)).toBe(false);
+  });
+});
+
+describe('isNativeActivationKeyTarget', () => {
+  it('recognises controls whose native activation uses Space', () => {
+    document.body.innerHTML = `
+      <button id="btn">Toggle</button>
+      <details><summary id="sum">Question</summary><p>Answer</p></details>
+      <div role="switch" id="switch"><span id="switch-inner">On</span></div>
+      <div role="checkbox" id="check"><span id="check-inner">Checked</span></div>
+    `;
+    for (const id of ['btn', 'sum', 'switch', 'switch-inner', 'check', 'check-inner']) {
+      expect(isNativeActivationKeyTarget(document.getElementById(id)), `#${id}`).toBe(true);
+    }
+  });
+
+  it('leaves canvas and body targets alone so Play/Pause still works there', () => {
+    document.body.innerHTML = `<canvas id="c"></canvas>`;
+    expect(isNativeActivationKeyTarget(document.getElementById('c'))).toBe(false);
+    expect(isNativeActivationKeyTarget(document.body)).toBe(false);
+    expect(isNativeActivationKeyTarget(null)).toBe(false);
   });
 });
 

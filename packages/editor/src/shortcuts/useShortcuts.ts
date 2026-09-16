@@ -5,6 +5,7 @@ import type { EditorContextValue } from '../context';
 import {
   bindingMatchesEvent,
   getEffectiveBinding,
+  isNativeActivationKeyTarget,
   SHORTCUT_DEFS,
   shouldIgnoreShortcutTarget,
 } from './ShortcutManager';
@@ -150,6 +151,18 @@ export function useShortcuts(
         if ('context' in def && def.context === 'canvas') continue;
         const binding = getEffectiveBinding(id);
         if (!binding?.key || !bindingMatchesEvent(e, binding)) continue;
+        // Bare Space activates a focused button/summary natively. Global
+        // bindings (Play/Pause) must not swallow that activation; modified
+        // Space chords still dispatch normally.
+        if (
+          binding.key === ' ' &&
+          !binding.ctrl &&
+          !binding.shift &&
+          !binding.alt &&
+          isNativeActivationKeyTarget(e.target as Element | null)
+        ) {
+          continue;
+        }
         if (id === 'paste') {
           // Don't run the action or preventDefault here: letting the
           // browser deliver a `paste` ClipboardEvent gives the most

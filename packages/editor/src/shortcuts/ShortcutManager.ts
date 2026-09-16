@@ -898,6 +898,20 @@ export function shouldIgnoreShortcutTarget(target: Element | null): boolean {
 }
 
 /**
+ * Controls whose native activation uses the Space key. A global Space binding
+ * (Varve uses Space for Play/Pause) must not `preventDefault()` that
+ * activation while one of these has focus — APG requires Enter and Space to
+ * activate a focused button, and a global binding would silently break every
+ * inspector section header, sidebar toggle, and switch in the app.
+ */
+const NATIVE_ACTIVATION_SELECTOR =
+  'button, summary, a[href], [role="button"], [role="switch"], [role="checkbox"], [role="menuitem"], [role="menuitemcheckbox"]';
+
+export function isNativeActivationKeyTarget(target: Element | null): boolean {
+  return Boolean(target?.closest?.(NATIVE_ACTIVATION_SELECTOR));
+}
+
+/**
  * Check if the active element is in IME composition mode.
  * On some platforms (especially Linux/IBus), the composition event fires
  * but isComposing may not be set. We also check for a visible composition
