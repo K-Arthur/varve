@@ -120,3 +120,24 @@
     animation: none;
   }
 }
+
+/*
+ * Forced-colors mode reverts background images (including gradients) and
+ * replaces background channels unless the value is a system color keyword.
+ * The solid/dashed variants survive through the forced-colors token remap in
+ * tokens.css; the gradient-based fade variant has no background to survive, so
+ * it is redrawn as a solid system-color rule.
+ */
+@media (forced-colors: active) {
+  .varve-separator--fade {
+    background: none;
+    border-color: CanvasText;
+    border-style: solid;
+  }
+  .varve-separator--horizontal.varve-separator--fade {
+    border-width: var(--separator-thickness) 0 0;
+  }
+  .varve-separator--vertical.varve-separator--fade {
+    border-width: 0 0 0 var(--separator-thickness);
+  }
+}

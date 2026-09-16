@@ -394,6 +394,25 @@ ${SURFACE_ALIASES}
   }
 }
 
+/*
+ * Rule/separator channels must survive forced-colors in EVERY app theme.
+ * The high-contrast theme keeps its author palette by design (see the
+ * :root:not([data-theme="high-contrast"]) block above), but background
+ * channels are replaced by the user agent unless the author supplies a system
+ * color keyword. Backgrounds drawn with CanvasText/Highlight are honored, so
+ * separators and rule recipes stay visible instead of silently disappearing.
+ */
+@media (forced-colors: active) {
+  :root {
+    --color-separator-subtle: CanvasText;
+    --color-separator-default: CanvasText;
+    --color-separator-strong: CanvasText;
+    --color-separator-accent: Highlight;
+    --color-border-subtle: CanvasText;
+    --color-border-strong: CanvasText;
+  }
+}
+
 /* Reduced motion: collapse all motion durations to 0 (Strata plan §4.1). */
 @media (prefers-reduced-motion: reduce) {
   :root {
