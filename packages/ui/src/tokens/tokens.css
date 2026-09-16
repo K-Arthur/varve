@@ -90,6 +90,22 @@
   --color-layer-tag-blue: oklch(0.6164 0.132 248.02);
   --color-layer-tag-purple: oklch(0.58 0.16 300);
   --color-layer-tag-gray: oklch(0.6 0.02 0);
+  --color-workspace-accent-design: oklch(0.5063 0.1332 255.23);
+  --color-workspace-icon-design: oklch(0.6415 0.1247 249.76);
+  --color-workspace-accent-drawing: oklch(0.5052 0.1304 148.06);
+  --color-workspace-icon-drawing: oklch(0.5804 0.147 147.97);
+  --color-workspace-accent-image: oklch(0.5129 0.1428 272);
+  --color-workspace-icon-image: oklch(0.5843 0.1408 272);
+  --color-workspace-accent-print: oklch(0.5129 0.1428 294.74);
+  --color-workspace-icon-print: oklch(0.5843 0.1408 298.31);
+  --color-workspace-accent-motion: oklch(0.5555 0.1187 50);
+  --color-workspace-icon-motion: oklch(0.6274 0.1306 50);
+  --color-workspace-accent-codegen: oklch(0.5843 0.169 12);
+  --color-workspace-icon-codegen: oklch(0.6585 0.158 12);
+  --color-workspace-accent-logo: oklch(0.5555 0.1032 85.92);
+  --color-workspace-icon-logo: oklch(0.6274 0.1136 84.68);
+  --color-workspace-accent-email: oklch(0.5449 0.0866 189.77);
+  --color-workspace-icon-email: oklch(0.5449 0.0866 189.77);
   --color-text-primary-on-default: oklch(0.1956 0.0217 263.87);
   --color-text-secondary-on-default: oklch(0.3123 0.0293 262.83);
   --color-text-primary-on-raised: oklch(0.1956 0.0217 263.87);
@@ -163,6 +179,8 @@
   --separator-min-length: var(--space-4);
 
   /* --- Typography --- */
+  /* Wrapped to stay biome-format-clean: the emitted file must pass
+   * biome check unchanged, or every tokens:generate run re-dirties it. */
   --font-display:
     "Geist Variable", "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     sans-serif;
@@ -291,10 +309,6 @@
   --menu-rich-width: 22rem;
   --menu-viewport-gutter: var(--space-4);
   --tab-min-height: 36px;
-  /* WCAG 2.2 SC 2.5.8 Target Size (Minimum): dense pointer layouts must
-   * still provide a 24x24 CSS px activation area. Use for fine-pointer
-   * controls that opt into the compact exception; touch layouts use
-   * --touch-target-min / --icon-touch-target instead. */
   --target-min-compact: 24px;
   --touch-target-min: 44px;
   --resize-handle-visual: 2px;
@@ -506,6 +520,22 @@
   --color-layer-tag-blue: oklch(0.6164 0.132 248.02);
   --color-layer-tag-purple: oklch(0.58 0.16 300);
   --color-layer-tag-gray: oklch(0.6 0.02 0);
+  --color-workspace-accent-design: oklch(0.6415 0.1247 249.76);
+  --color-workspace-icon-design: oklch(0.7977 0.0761 251.19);
+  --color-workspace-accent-drawing: oklch(0.7324 0.1579 148.62);
+  --color-workspace-icon-drawing: oklch(0.8476 0.0954 149.86);
+  --color-workspace-accent-image: oklch(0.6585 0.1317 272);
+  --color-workspace-icon-image: oklch(0.8141 0.0799 272);
+  --color-workspace-accent-print: oklch(0.6585 0.1317 301.2);
+  --color-workspace-icon-print: oklch(0.8141 0.0799 303.75);
+  --color-workspace-accent-motion: oklch(0.6997 0.1377 50);
+  --color-workspace-icon-motion: oklch(0.8306 0.0888 50);
+  --color-workspace-accent-codegen: oklch(0.6585 0.158 12);
+  --color-workspace-icon-codegen: oklch(0.8141 0.0909 12);
+  --color-workspace-accent-logo: oklch(0.7748 0.123 84.68);
+  --color-workspace-icon-logo: oklch(0.8306 0.1069 86.46);
+  --color-workspace-accent-email: oklch(0.779 0.1229 188.31);
+  --color-workspace-icon-email: oklch(0.8387 0.0977 187.29);
   --color-text-primary-on-default: oklch(0.9755 0.0045 258.32);
   --color-text-secondary-on-default: oklch(0.8948 0.0145 254.61);
   --color-text-primary-on-raised: oklch(0.9755 0.0045 258.32);
@@ -693,6 +723,22 @@
   --color-layer-tag-blue: oklch(0.6164 0.132 248.02);
   --color-layer-tag-purple: oklch(0.58 0.16 300);
   --color-layer-tag-gray: oklch(0.6 0.02 0);
+  --color-workspace-accent-design: oklch(0.9519 0.2924 111.62);
+  --color-workspace-icon-design: oklch(1 0 0);
+  --color-workspace-accent-drawing: oklch(0.9519 0.2924 111.62);
+  --color-workspace-icon-drawing: oklch(1 0 0);
+  --color-workspace-accent-image: oklch(0.9519 0.2924 111.62);
+  --color-workspace-icon-image: oklch(1 0 0);
+  --color-workspace-accent-print: oklch(0.9519 0.2924 111.62);
+  --color-workspace-icon-print: oklch(1 0 0);
+  --color-workspace-accent-motion: oklch(0.9519 0.2924 111.62);
+  --color-workspace-icon-motion: oklch(1 0 0);
+  --color-workspace-accent-codegen: oklch(0.9519 0.2924 111.62);
+  --color-workspace-icon-codegen: oklch(1 0 0);
+  --color-workspace-accent-logo: oklch(0.9519 0.2924 111.62);
+  --color-workspace-icon-logo: oklch(1 0 0);
+  --color-workspace-accent-email: oklch(0.9519 0.2924 111.62);
+  --color-workspace-icon-email: oklch(1 0 0);
   --color-text-primary-on-default: oklch(1 0 0);
   --color-text-secondary-on-default: oklch(0.92 0 0);
   --color-text-primary-on-raised: oklch(1 0 0);
@@ -882,6 +928,22 @@
     --color-layer-tag-blue: oklch(0.6164 0.132 248.02);
     --color-layer-tag-purple: oklch(0.58 0.16 300);
     --color-layer-tag-gray: oklch(0.6 0.02 0);
+    --color-workspace-accent-design: oklch(0.6415 0.1247 249.76);
+    --color-workspace-icon-design: oklch(0.7977 0.0761 251.19);
+    --color-workspace-accent-drawing: oklch(0.7324 0.1579 148.62);
+    --color-workspace-icon-drawing: oklch(0.8476 0.0954 149.86);
+    --color-workspace-accent-image: oklch(0.6585 0.1317 272);
+    --color-workspace-icon-image: oklch(0.8141 0.0799 272);
+    --color-workspace-accent-print: oklch(0.6585 0.1317 301.2);
+    --color-workspace-icon-print: oklch(0.8141 0.0799 303.75);
+    --color-workspace-accent-motion: oklch(0.6997 0.1377 50);
+    --color-workspace-icon-motion: oklch(0.8306 0.0888 50);
+    --color-workspace-accent-codegen: oklch(0.6585 0.158 12);
+    --color-workspace-icon-codegen: oklch(0.8141 0.0909 12);
+    --color-workspace-accent-logo: oklch(0.7748 0.123 84.68);
+    --color-workspace-icon-logo: oklch(0.8306 0.1069 86.46);
+    --color-workspace-accent-email: oklch(0.779 0.1229 188.31);
+    --color-workspace-icon-email: oklch(0.8387 0.0977 187.29);
     --color-text-primary-on-default: oklch(0.9755 0.0045 258.32);
     --color-text-secondary-on-default: oklch(0.8948 0.0145 254.61);
     --color-text-primary-on-raised: oklch(0.9755 0.0045 258.32);
@@ -1074,6 +1136,22 @@
     --color-layer-tag-blue: oklch(0.6164 0.132 248.02);
     --color-layer-tag-purple: oklch(0.58 0.16 300);
     --color-layer-tag-gray: oklch(0.6 0.02 0);
+    --color-workspace-accent-design: oklch(0.9519 0.2924 111.62);
+    --color-workspace-icon-design: oklch(1 0 0);
+    --color-workspace-accent-drawing: oklch(0.9519 0.2924 111.62);
+    --color-workspace-icon-drawing: oklch(1 0 0);
+    --color-workspace-accent-image: oklch(0.9519 0.2924 111.62);
+    --color-workspace-icon-image: oklch(1 0 0);
+    --color-workspace-accent-print: oklch(0.9519 0.2924 111.62);
+    --color-workspace-icon-print: oklch(1 0 0);
+    --color-workspace-accent-motion: oklch(0.9519 0.2924 111.62);
+    --color-workspace-icon-motion: oklch(1 0 0);
+    --color-workspace-accent-codegen: oklch(0.9519 0.2924 111.62);
+    --color-workspace-icon-codegen: oklch(1 0 0);
+    --color-workspace-accent-logo: oklch(0.9519 0.2924 111.62);
+    --color-workspace-icon-logo: oklch(1 0 0);
+    --color-workspace-accent-email: oklch(0.9519 0.2924 111.62);
+    --color-workspace-icon-email: oklch(1 0 0);
     --color-text-primary-on-default: oklch(1 0 0);
     --color-text-secondary-on-default: oklch(0.92 0 0);
     --color-text-primary-on-raised: oklch(1 0 0);

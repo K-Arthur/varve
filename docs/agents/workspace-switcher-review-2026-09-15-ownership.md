@@ -71,6 +71,27 @@ reverted, or reformatted.
 | `c8ef7150e` | Forced-colors / 480px / enlarged-text verification + production-bundle build record |
 | `14cf5f59e` | `min-height` + bar observation so enlarged text grows the chrome and re-runs the math |
 
+## Follow-up (same session, after user review)
+
+The single-accent palette shipped in `0bed515ba` was reviewed against the
+user's intent: per-mode color identity was wanted, and the dark accents
+rendered as muted tints. Restored per-mode hues as audited tokens
+(`--color-workspace-accent-*` / `--color-workspace-icon-*`) built from new
+ORANGE/ROSE/INDIGO ramps, maximized dark-accent chroma inside AA, reduced the
+dock's roundness to the shared radius API, and unified the menubar family's
+vertical group rules. Owned paths extended to
+`packages/ui/src/tokens/color.ts`, `packages/ui/src/tokens/tokens.css`
+(generated), `packages/ui/scripts/generate-token-css.ts` (format-stable
+output; its first regeneration after this change rewrote generator formatting
+drift with no token-name removals, verified by set diff),
+`docs/architecture/separator-system.md`, and the menubar divider recipes in
+`packages/editor/src/editor.css`.
+
+Coordination note: another session's commit `741020645` swept this session's
+temporary diagnostic spec (`tests/e2e/workspace/zz-menubar-spacing-probe.spec.ts`)
+into its change set; the file is deleted here because it was a throwaway probe,
+never a test.
+
 ## Applicability decisions (prompt Sections 6A–6D)
 
 - **6A dense chrome: applied.** Typography (2xs → xs), single-accent token

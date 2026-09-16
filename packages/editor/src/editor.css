@@ -453,11 +453,16 @@ input[type="number"] {
   height: auto;
 }
 
-/* Divider between home icon and menu items */
+/* ── Vertical group rule (menubar family) ──
+ * One recipe for the menubar's group boundaries: the home/menu divider, the
+ * two zoom rules, and the workspace dock's overflow divider. Previously these
+ * were three different heights and the zoom rules were literal `|` glyphs
+ * sized by their inherited font (5px × 22px next to a 4px × 19px sibling).
+ * Semantic separator tokens keep them visible under forced colors. */
 .editor-menubar__divider {
-  width: 1px;
+  width: var(--separator-thickness);
   height: var(--space-4);
-  background: var(--color-border-subtle);
+  background: var(--color-separator-subtle);
   margin: 0 var(--space-1);
   flex-shrink: 0;
 }
@@ -1713,7 +1718,10 @@ input[type="number"] {
   gap: var(--dock-tab-gap);
   background: var(--elevation-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-pill);
+  /* Same surface family as the floating toolbar (--radius-floating) with
+   * --radius-control-compact members inside it, matching how every other
+   * segmented control in the product handles its edges. */
+  border-radius: var(--radius-floating);
   padding: var(--dock-inset-block) var(--dock-inset-inline);
   box-sizing: border-box;
   /* min-height, not height: with a user font-size preference the rem-based
@@ -1736,6 +1744,45 @@ input[type="number"] {
   min-width: 0;
 }
 
+/* ── Per-mode identity ──
+ * Every mode owns two tokens: the accent that hosts text-on-accent in the
+ * active pill, and the icon tint for the inactive state. Both are audited
+ * pairs in every theme (light/dark/high-contrast) by audit:tokens, so a hue
+ * can never silently ship below contrast again. High Contrast collapses all
+ * eight modes onto the single HC accent. */
+.workspace-dock__item[data-mode="design"] {
+  --workspace-mode-accent: var(--color-workspace-accent-design);
+  --workspace-mode-icon: var(--color-workspace-icon-design);
+}
+.workspace-dock__item[data-mode="drawing"] {
+  --workspace-mode-accent: var(--color-workspace-accent-drawing);
+  --workspace-mode-icon: var(--color-workspace-icon-drawing);
+}
+.workspace-dock__item[data-mode="image"] {
+  --workspace-mode-accent: var(--color-workspace-accent-image);
+  --workspace-mode-icon: var(--color-workspace-icon-image);
+}
+.workspace-dock__item[data-mode="print"] {
+  --workspace-mode-accent: var(--color-workspace-accent-print);
+  --workspace-mode-icon: var(--color-workspace-icon-print);
+}
+.workspace-dock__item[data-mode="motion"] {
+  --workspace-mode-accent: var(--color-workspace-accent-motion);
+  --workspace-mode-icon: var(--color-workspace-icon-motion);
+}
+.workspace-dock__item[data-mode="codegen"] {
+  --workspace-mode-accent: var(--color-workspace-accent-codegen);
+  --workspace-mode-icon: var(--color-workspace-icon-codegen);
+}
+.workspace-dock__item[data-mode="logo"] {
+  --workspace-mode-accent: var(--color-workspace-accent-logo);
+  --workspace-mode-icon: var(--color-workspace-icon-logo);
+}
+.workspace-dock__item[data-mode="email"] {
+  --workspace-mode-accent: var(--color-workspace-accent-email);
+  --workspace-mode-icon: var(--color-workspace-icon-email);
+}
+
 /* ── Dock item ── */
 .workspace-dock__item {
   display: flex;
@@ -1750,9 +1797,9 @@ input[type="number"] {
   width: var(--dock-item-size);
   padding: 0;
   border: none;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control-compact);
   background: none;
-  color: var(--color-text-secondary);
+  color: var(--workspace-mode-icon, var(--color-text-secondary));
   cursor: pointer;
   white-space: nowrap;
   overflow: visible;
@@ -1795,16 +1842,14 @@ input[type="number"] {
   transform: scale(1.08);
 }
 
-/* ── Active pill — expands to fit its label ── */
+/* ── Active pill — expands to fit its label ──
+ * The active mode is already selected, so hovering it changes nothing and the
+ * fill stays put (clicking it is a no-op switch). That also means the pill's
+ * audited contrast pair is the only rendered state to reason about. */
 .workspace-dock__item--active {
   width: auto;
   padding: 0 var(--space-3);
-  background: var(--color-interactive-default);
-  color: var(--color-text-on-accent);
-}
-
-.workspace-dock__item--active:hover {
-  background: var(--color-interactive-hover);
+  background: var(--workspace-mode-accent, var(--color-interactive-default));
   color: var(--color-text-on-accent);
 }
 
@@ -1836,10 +1881,14 @@ input[type="number"] {
   outline-offset: 2px;
 }
 
-/* ── Overflow divider ── */
+/* ── Overflow divider ──
+ * Same vertical group rule as the menubar dividers (see
+ * `.editor-menubar__divider`). Its --space-1 margins plus the rail gap give
+ * the elevated dock bar the same 2 × --space-1 clearance from the zoom rule
+ * and undo/redo that its own items keep from each other. */
 .workspace-dock__divider {
-  width: 1px;
-  height: 1rem;
+  width: var(--separator-thickness);
+  height: var(--space-4);
   background: var(--color-separator-subtle);
   flex-shrink: 0;
   margin: 0 var(--space-1);
@@ -1854,7 +1903,8 @@ input[type="number"] {
   height: var(--dock-item-size);
   padding: 0;
   border: none;
-  border-radius: var(--radius-full);
+  /* Compact control family, like the toolbar's own controls. */
+  border-radius: var(--radius-control-compact);
   background: none;
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -1982,7 +2032,19 @@ input[type="number"] {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
-.editor-menubar__zoom-divider,
+.editor-menubar__zoom-divider {
+  /* The span still carries a "|" for no-JS/no-style fallbacks; the rule is
+   * the divider, so the glyph is clipped instead of setting the geometry. */
+  width: var(--separator-thickness);
+  height: var(--space-4);
+  background: var(--color-separator-subtle);
+  margin: 0 var(--space-1);
+  overflow: hidden;
+  color: transparent;
+  flex-shrink: 0;
+  user-select: none;
+}
+
 .editor-menubar__zoom-unit {
   color: var(--color-text-muted);
   user-select: none;

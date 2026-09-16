@@ -143,13 +143,16 @@ test.describe('Workspace switcher contract', () => {
   test('rendered label contrast passes AA for every mode in every theme', async ({ page }) => {
     const group = await workspaceGroup(page);
     const failures: string[] = [];
+    const pillBgByTheme: Record<string, Record<string, string>> = {};
     for (const theme of THEMES) {
       await setTheme(page, theme);
+      pillBgByTheme[theme] = {};
       for (const [mode, label] of MODES) {
         await group.getByRole('radio', { name: `${label} workspace` }).click();
         await page.waitForTimeout(120);
         await installContrastProbe(page);
         const m = await page.evaluate(() => window.__switcherContrast());
+        pillBgByTheme[theme]![mode] = m.pillBg;
         if (m.pillContrast < 4.5) {
           failures.push(
             `${theme}/${mode}: pill label contrast ${m.pillContrast.toFixed(2)}:1 ` +
@@ -166,6 +169,16 @@ test.describe('Workspace switcher contract', () => {
         }
       }
     }
+    // Wiring guard: each mode must resolve its own accent, not seven aliases
+    // of one token. High Contrast intentionally collapses to the single HC
+    // accent, so distinctness is only required where hue carries identity.
+    for (const theme of ['light', 'dark'] as const) {
+      const distinct = new Set(Object.values(pillBgByTheme[theme]!)).size;
+      expect(distinct, `${theme}: expected 8 distinct mode accents, saw ${distinct}`).toBe(
+        MODES.length,
+      );
+    }
+    expect(new Set(Object.values(pillBgByTheme['high-contrast']!)).size).toBe(1);
     expect(failures, `Contrast failures:\n${failures.join('\n')}`).toEqual([]);
   });
 
@@ -387,6 +400,43 @@ test.describe('Workspace switcher contract', () => {
     await page.evaluate(() => {
       document.documentElement.style.fontSize = '';
     });
+  });
+
+  test('menubar group rules and dock clearance share one rhythm', async ({ page }) => {
+    const m = await page.evaluate(() => {
+      const round = (v: number) => Math.round(v * 10) / 10;
+      const dividers = [...document.querySelectorAll('.editor-menubar__zoom-divider')].map((el) => {
+        const r = el.getBoundingClientRect();
+        const cs = getComputedStyle(el as HTMLElement);
+        return { w: round(r.width), h: round(r.height), bg: cs.backgroundColor };
+      });
+      const dockItems = [...document.querySelectorAll('.workspace-dock__item')];
+      const first = dockItems[0]?.getBoundingClientRect();
+      const second = dockItems[1]?.getBoundingClientRect();
+      const bar = document.querySelector('.workspace-dock__bar')?.getBoundingClientRect();
+      const divider = document
+        .querySelector('.editor-menubar__zoom-divider')
+        ?.getBoundingClientRect();
+      const controls = document.querySelector('.editor-menubar__controls');
+      const undo = controls?.querySelector('.varve-btn')?.getBoundingClientRect();
+      return {
+        dividers,
+        itemGap: first && second ? round(second.x - first.right) : null,
+        clearanceBefore: bar && divider ? round(divider.left - bar.right) : null,
+        clearanceAfter: divider && undo ? round(undo.left - divider.right) : null,
+      };
+    });
+
+    // The literal `|` glyphs used to render at 5×22.1 and 4×18.7 because each
+    // inherited a different font size; both rules must now be identical.
+    expect(m.dividers).toHaveLength(2);
+    expect(m.dividers[0]).toEqual(m.dividers[1]);
+    expect(m.dividers[0]!.w).toBeLessThanOrEqual(2);
+    // The elevated dock bar must clear its neighbours by at least the gap its
+    // own items keep from each other, or the bar reads as part of undo/redo.
+    expect(m.itemGap).not.toBeNull();
+    expect(m.clearanceBefore).toBeGreaterThanOrEqual((m.itemGap ?? 0) - 0.6);
+    expect(m.clearanceAfter).toBeGreaterThanOrEqual((m.itemGap ?? 0) - 0.6);
   });
 
   test('forced colors and a 480px viewport keep the switcher usable', async ({ page }) => {

@@ -82,14 +82,21 @@ visual recipe now uses the shared separator thickness and subtle color tokens.
 - Add a production use of `SeparatorWithContent` only when a real labeled
   grouping needs it. The current gallery intentionally exercises the API
   without adding decorative density to the editor.
-- Unify the vertical group-rule recipes in the toolbar family
-  (`.editor-menubar__divider`, `.workspace-dock__divider`, `.insp-separator`,
-  `.ccb__divider`, `.selection-quick-bar__separator`,
-  `.floating-text-bar__separator`, `.crop-toolbar__separator`): seven
-  heights/margins for one role; `FindReplaceBar.css` uses a space token
-  (~2.4–3.2px) instead of `--separator-thickness`.
-- Reconcile `tokens.css` with `generate-token-css.ts` so `tokens:generate` is a
-  no-op again (see the 2026-09-15 audit; the live-token deletion risk is fixed).
+- Unify the vertical group-rule recipes in the toolbar family.
+  ~~Menubar half~~ Done 2026-09-15: `.editor-menubar__divider`,
+  `.editor-menubar__zoom-divider` (both), and `.workspace-dock__divider` now
+  share one recipe (`--separator-thickness` × `--space-4`,
+  `--color-separator-subtle`, `margin: 0 var(--space-1)`); the zoom rules were
+  literal `|` glyphs sized by their inherited font (5×22.1px vs 4×18.7px).
+  Still open: `.insp-separator`, `.ccb__divider`,
+  `.selection-quick-bar__separator`, `.floating-text-bar__separator`,
+  `.crop-toolbar__separator`, and `FindReplaceBar.css`'s space-token width.
+- ~~Reconcile `tokens.css` with `generate-token-css.ts` so `tokens:generate` is
+  a no-op again~~ Done 2026-09-15: the generator now emits biome-format-stable
+  output (wrapped font stacks, normalized numeric literals, indented
+  media-query blocks, no trailing blank lines), `tokens:generate` is verified
+  idempotent, and a token-name set diff confirmed no existing token was
+  removed by the reconciliation.
 - Re-run the affected validation gate after the existing `ScrollArea.tsx`
   formatting failure and long-running package checks are resolved.
 - Recheck bundle and style recalculation impact if animated separators are

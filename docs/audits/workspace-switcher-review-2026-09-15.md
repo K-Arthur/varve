@@ -132,11 +132,34 @@ against the old CSS for exactly this case.
 
 ## Decisions and deliberate exceptions
 
-- **Single accent instead of the per-mode rainbow.** Mode identity is carried
-  by eight distinct icon shapes. The rainbow was not tokenized (hard rule:
-  no hardcoded color values), contradicted the single-accent product identity
-  (ADR-0002), and failed F1–F3. Exceptions to "preserve existing appearance"
-  are recorded here because the previous appearance was not accessible.
+- **Per-mode identity, tokenized (supersedes the first-pass single accent).**
+  The first pass replaced the rainbow with one product accent; the follow-up
+  restored per-mode hues as real tokens (`--color-workspace-accent-*`,
+  `--color-workspace-icon-*`) built from the ramps, because the original
+  problem was never hue itself — it was 16 untokenized hex values with no
+  audit. The eight modes are now contrast pairs in `CONTRAST_PAIRS`, so
+  `audit:tokens` covers 201 pairs across three themes (was 153), and the
+  real-app spec additionally proves the eight accents resolve to eight
+  distinct rendered colors in light and dark, and to one HC accent in high
+  contrast. The old palette failed because a *fixed* step is not a *fixed*
+  contrast: light pills now use steps 7–9 (white text 4.6–6.0:1 vs the old
+  3.25–5.42) and icons use steps 6–8 (3.2–4.6:1 vs the old 2.86 fail).
+- **Dark accents maximize chroma inside AA.** Step-4 tints (L≈0.8) rendered
+  as "muted" on the dark bar; the shipped dark accents use steps 6–7 with
+  roughly double the chroma (C 0.12–0.16) while *improving* the dark-text
+  margin to 5.4–9.6:1. Light-tint icon roles are unchanged (8.2–9.8:1).
+- **One vertical group rule for the menubar family.** The menubar's two `|`
+  rules rendered at 5×22.1px and 4×18.7px because each was a text glyph sized
+  by its inherited font; both now use the same recipe as the dock overflow
+  divider (`--separator-thickness` × `--space-4`, `--color-separator-subtle`,
+  `--space-1` margins). That also gives the elevated dock bar 2 × `--space-1`
+  clearance from the zoom rule and undo/redo — the same distance its own items
+  keep from each other. Covered by a new spec case, and it completes the
+  menubar/dock half of the separator system's "seven heights for one role"
+  remaining item.
+- **High Contrast collapses all eight modes to the single HC accent** (one
+  `ok(0.9519, 0.2924, 111.62)` accent, white icons): hue must not be a state
+  cue in a theme built for maximum separation.
 - **Magnification removed, not made optional.** Research record above; the
   hit targets never changed, so nothing is lost, and a preference for a
   negative-value effect would add state for no task gain.
@@ -166,7 +189,7 @@ against the old CSS for exactly this case.
 | `WORKSPACE_LABELS.codegen = 'Codegen'` with the naming rule documented | `packages/editor/src/workspace/workspaceTypes.ts` |
 | Switcher contract | `docs/architecture/workspace-system.md` §Switcher surface |
 | Switcher copy and canonical mode name | `apps/website/src/pages/docs/workspaces.astro`, `docs/getting-started/interface.astro`, `features/workspaces.astro` |
-| Real-app contract spec (9 tests) | `tests/e2e/workspace/switcher-review.spec.ts` |
+| Real-app contract spec (10 tests) | `tests/e2e/workspace/switcher-review.spec.ts` |
 | Unit tests: ARIA ownership, gap input, roving focus | `WorkspaceTabs.test.tsx`, `workspaceOverflow.test.ts` |
 | Reviewed visual baselines | `tests/e2e/workspace/visual.spec.ts-snapshots/workspace-tabs-*.png` |
 
@@ -182,7 +205,9 @@ themes.
 | `npx vitest run packages/editor/src/workspace` (42 files) | 645 passed |
 | `npx vitest run packages/help` | 31 passed (help copy changed) |
 | `pnpm --filter @varve/website exec astro check` | 0 errors, 0 warnings (website pages changed) |
-| `npx playwright test tests/e2e/workspace/switcher-review.spec.ts --project=chromium` | 9 passed |
+| `npx playwright test tests/e2e/workspace/switcher-review.spec.ts --project=chromium` | 10 passed |
+| `pnpm audit:tokens` | 201 pairs pass across 3 themes (was 153) |
+| `pnpm --filter @varve/ui tokens:generate` | `tokens.css` regenerated (65,752 bytes) |
 | `pnpm --filter @varve/desktop exec vite build` (production bundle) | built in 16.4s |
 | `npx playwright test tests/e2e/editor/workspace-nav.spec.ts --project=chromium` | 4 passed |
 | `npx playwright test tests/e2e/canvas/workspace-toolbar-visual.spec.ts` + `tests/e2e/workspace/visual.spec.ts -g "workspace tabs"` | passed; 3 baselines regenerated and visually reviewed |
@@ -203,6 +228,10 @@ What the real-app spec verifies:
   painted onto a canvas and measured from the resulting sRGB bytes. 8 modes ×
   3 themes × (active label ≥ 4.5:1, every inactive icon ≥ 3:1, no label
   truncation) — 24 mode/theme combinations.
+- **Mode-identity wiring**: eight distinct rendered accents in light and dark,
+  exactly one in High Contrast (guards against one token aliasing another).
+- **Menubar rhythm**: both zoom group rules render identically and the
+  elevated dock bar clears its neighbours by at least its internal item gap.
 - **ARIA ownership**: every `[role]` child of the radiogroup is a radio; the
   overflow trigger is outside it and reports `More workspaces (N hidden)`.
 - **Overflow**: hidden modes are all present in the menu; selecting one

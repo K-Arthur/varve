@@ -440,17 +440,22 @@ The switcher in the menubar is the primary pointer surface for
 `requestWorkspaceSwitch`; it owns no state beyond layout and focus. Its
 contract (review: `docs/audits/workspace-switcher-review-2026-09-15.md`):
 
-- **One radiogroup, one accent.** The control is an APG radiogroup whose
-  children are only radios; the overflow trigger and divider are siblings of
-  the group. Color comes from the shared semantic tokens — the active mode is
-  a `--color-interactive-default` pill with `--color-text-on-accent`, inactive
-  modes are `--color-text-secondary` icons. Mode identity is the icon shape,
-  never a hue: per-mode colors bypassed `audit:tokens` and failed rendered
-  contrast checks.
+- **One radiogroup, two tokens per mode.** The control is an APG radiogroup
+  whose children are only radios; the overflow trigger and divider are
+  siblings of the group. Every mode owns `--color-workspace-accent-<mode>`
+  (the active pill, hosting `text-on-accent`) and
+  `--color-workspace-icon-<mode>` (the inactive icon). Both are generated from
+  the token ramps and are contrast pairs in `audit:tokens` for every theme, so
+  a hue cannot ship below AA/3:1. High Contrast defines all eight modes as the
+  single HC accent — hue is never a state cue there.
 - **The active mode is always visible and named.** `computeWorkspaceLayout`
   evicts a lower-priority tab rather than the active one; the active pill
   keeps its label down to `WORKSPACE_ACTIVE_LABEL_MIN_WIDTH`, below which it
   compacts to its icon and the name stays in the tooltip/accessible name.
+- **Edges come from the shared radius API.** The bar is a floating surface
+  (`--radius-floating`, like the toolbar) with `--radius-control-compact`
+  members — not a pill container. The overflow divider uses the menubar
+  family's single vertical group rule (see `docs/architecture/separator-system.md`).
 - **Labels come from `WORKSPACE_LABELS` and must equal the command label.**
   The ShortcutManager label (`Workspace: Codegen`), the View menu item, and
   the switcher must use the same words; a panel may title itself more

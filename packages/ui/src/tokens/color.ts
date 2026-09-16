@@ -123,6 +123,68 @@ export const TEAL: readonly Oklch[] = [
   ok(0.2472, 0.0341, 195.17), // 12
 ];
 
+/**
+ * 12-step orange ramp (1 lightest → 12 darkest). Derived from the amber
+ * light curve at hue 50; every step is in sRGB gamut (chroma at each step is
+ * 0.85 × the maximum in-gamut chroma, capped at the amber chroma × 1.15).
+ * Added for the workspace-mode identity palette (motion).
+ */
+export const ORANGE: readonly Oklch[] = [
+  ok(0.981, 0.0088, 50),
+  ok(0.9549, 0.0214, 50),
+  ok(0.9238, 0.037, 50),
+  ok(0.8811, 0.0597, 50),
+  ok(0.8306, 0.0888, 50),
+  ok(0.7748, 0.1242, 50),
+  ok(0.6997, 0.1377, 50),
+  ok(0.6274, 0.1306, 50),
+  ok(0.5555, 0.1187, 50),
+  ok(0.4883, 0.1053, 50),
+  ok(0.4118, 0.0884, 50),
+  ok(0.3192, 0.0675, 50),
+];
+
+/**
+ * 12-step rose ramp (1 lightest → 12 darkest). Derived from the violet light
+ * curve at hue 12; chroma is 0.85 × the maximum in-gamut chroma, capped at
+ * the violet chroma × 1.2. Added for the workspace-mode identity palette
+ * (codegen).
+ */
+export const ROSE: readonly Oklch[] = [
+  ok(0.9633, 0.0156, 12),
+  ok(0.9251, 0.0329, 12),
+  ok(0.8767, 0.0566, 12),
+  ok(0.8141, 0.0909, 12),
+  ok(0.7419, 0.126, 12),
+  ok(0.6585, 0.158, 12),
+  ok(0.5843, 0.169, 12),
+  ok(0.5129, 0.1714, 12),
+  ok(0.4444, 0.151, 12),
+  ok(0.3806, 0.1293, 12),
+  ok(0.3125, 0.1062, 12),
+  ok(0.241, 0.0819, 12),
+];
+
+/**
+ * 12-step indigo ramp (1 lightest → 12 darkest). Derived from the violet
+ * light curve at hue 272; chroma is 0.9 × the maximum in-gamut chroma.
+ * Added for the workspace-mode identity palette (photo).
+ */
+export const INDIGO: readonly Oklch[] = [
+  ok(0.9633, 0.0155, 272),
+  ok(0.9251, 0.0322, 272),
+  ok(0.8767, 0.054, 272),
+  ok(0.8141, 0.0799, 272),
+  ok(0.7419, 0.105, 272),
+  ok(0.6585, 0.1317, 272),
+  ok(0.5843, 0.1408, 272),
+  ok(0.5129, 0.1428, 272),
+  ok(0.4444, 0.1381, 272),
+  ok(0.3806, 0.1289, 272),
+  ok(0.3125, 0.1109, 272),
+  ok(0.241, 0.089, 272),
+];
+
 /** Feedback hues (single base value per hue). */
 export const SUCCESS: Oklch = ok(0.6342, 0.1283, 156.2);
 export const WARNING: Oklch = ok(0.6399, 0.1261, 79.82);
@@ -224,6 +286,28 @@ export type SemanticToken =
   | 'feedback-success-strong'
   | 'feedback-warning-strong'
   | 'text-on-feedback'
+  /* Workspace-mode identity (2026-09-15). Two roles per mode: the accent
+   * hosts text-on-accent in the active switcher pill (AA), and the icon
+   * tints the inactive state against the menubar surface (UI 3:1). High
+   * Contrast collapses every mode onto the single HC accent — hue is not a
+   * state cue there. Steps are per-hue because a fixed step is not a fixed
+   * contrast (see docs/audits/workspace-switcher-review-2026-09-15.md). */
+  | 'workspace-accent-design'
+  | 'workspace-icon-design'
+  | 'workspace-accent-drawing'
+  | 'workspace-icon-drawing'
+  | 'workspace-accent-image'
+  | 'workspace-icon-image'
+  | 'workspace-accent-print'
+  | 'workspace-icon-print'
+  | 'workspace-accent-motion'
+  | 'workspace-icon-motion'
+  | 'workspace-accent-codegen'
+  | 'workspace-icon-codegen'
+  | 'workspace-accent-logo'
+  | 'workspace-icon-logo'
+  | 'workspace-accent-email'
+  | 'workspace-icon-email'
   | 'tree-row'
   | 'tree-row-hover'
   | 'tree-row-selected'
@@ -278,6 +362,9 @@ const B = (i: number): Oklch => BLUE[i - 1] as Oklch;
 const V = (i: number): Oklch => VIOLET[i - 1] as Oklch;
 const A = (i: number): Oklch => AMBER[i - 1] as Oklch;
 const G = (i: number): Oklch => GREEN[i - 1] as Oklch;
+const O = (i: number): Oklch => ORANGE[i - 1] as Oklch;
+const R = (i: number): Oklch => ROSE[i - 1] as Oklch;
+const I = (i: number): Oklch => INDIGO[i - 1] as Oklch;
 
 /** Semantic value per theme. Each token maps to a concrete OKLCH value. */
 export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
@@ -371,6 +458,22 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'layer-tag-blue': LAYER_TAG_BLUE,
     'layer-tag-purple': LAYER_TAG_PURPLE,
     'layer-tag-gray': LAYER_TAG_GRAY,
+    'workspace-accent-design': B(8),
+    'workspace-icon-design': B(6),
+    'workspace-accent-drawing': G(9),
+    'workspace-icon-drawing': G(8),
+    'workspace-accent-image': I(8),
+    'workspace-icon-image': I(7),
+    'workspace-accent-print': V(8),
+    'workspace-icon-print': V(7),
+    'workspace-accent-motion': O(9),
+    'workspace-icon-motion': O(8),
+    'workspace-accent-codegen': R(7),
+    'workspace-icon-codegen': R(6),
+    'workspace-accent-logo': A(9),
+    'workspace-icon-logo': A(8),
+    'workspace-accent-email': T(8),
+    'workspace-icon-email': T(8),
     'text-primary-on-default': N(12),
     'text-secondary-on-default': N(10),
     'text-primary-on-raised': N(12),
@@ -473,6 +576,25 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'layer-tag-blue': LAYER_TAG_BLUE,
     'layer-tag-purple': LAYER_TAG_PURPLE,
     'layer-tag-gray': LAYER_TAG_GRAY,
+    /* Dark accents maximize chroma subject to dark-text AA with margin
+     * (5.4-9.6:1). Step 4 tints read as muted on the dark bar; step 6/7
+     * keeps the mode hue legible while the pill still hosts dark text. */
+    'workspace-accent-design': B(6),
+    'workspace-icon-design': B(4),
+    'workspace-accent-drawing': G(6),
+    'workspace-icon-drawing': G(4),
+    'workspace-accent-image': I(6),
+    'workspace-icon-image': I(4),
+    'workspace-accent-print': V(6),
+    'workspace-icon-print': V(4),
+    'workspace-accent-motion': O(7),
+    'workspace-icon-motion': O(5),
+    'workspace-accent-codegen': R(6),
+    'workspace-icon-codegen': R(4),
+    'workspace-accent-logo': A(6),
+    'workspace-icon-logo': A(5),
+    'workspace-accent-email': T(6),
+    'workspace-icon-email': T(4),
     'text-primary-on-default': N(2),
     'text-secondary-on-default': N(4),
     'text-primary-on-raised': N(2),
@@ -575,6 +697,23 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'layer-tag-blue': LAYER_TAG_BLUE,
     'layer-tag-purple': LAYER_TAG_PURPLE,
     'layer-tag-gray': LAYER_TAG_GRAY,
+    /* High Contrast is one accent: mode identity must not rely on hue. */
+    'workspace-accent-design': ok(0.9519, 0.2924, 111.62),
+    'workspace-icon-design': ok(1.0, 0.0, 0),
+    'workspace-accent-drawing': ok(0.9519, 0.2924, 111.62),
+    'workspace-icon-drawing': ok(1.0, 0.0, 0),
+    'workspace-accent-image': ok(0.9519, 0.2924, 111.62),
+    'workspace-icon-image': ok(1.0, 0.0, 0),
+    'workspace-accent-print': ok(0.9519, 0.2924, 111.62),
+    'workspace-icon-print': ok(1.0, 0.0, 0),
+    'workspace-accent-motion': ok(0.9519, 0.2924, 111.62),
+    'workspace-icon-motion': ok(1.0, 0.0, 0),
+    'workspace-accent-codegen': ok(0.9519, 0.2924, 111.62),
+    'workspace-icon-codegen': ok(1.0, 0.0, 0),
+    'workspace-accent-logo': ok(0.9519, 0.2924, 111.62),
+    'workspace-icon-logo': ok(1.0, 0.0, 0),
+    'workspace-accent-email': ok(0.9519, 0.2924, 111.62),
+    'workspace-icon-email': ok(1.0, 0.0, 0),
     'text-primary-on-default': ok(1.0, 0.0, 0),
     'text-secondary-on-default': ok(0.92, 0.0, 0),
     'text-primary-on-raised': ok(1.0, 0.0, 0),
@@ -603,7 +742,43 @@ export interface ContrastPair {
   grade: ContrastGrade;
 }
 
+/**
+ * Workspace-mode identity pairs (2026-09-15). Every mode must host
+ * `text-on-accent` on its pill (AA) and clear non-text contrast as an
+ * inactive icon against the menubar surface (UI). Generators keep the
+ * eight modes identical in shape so a wiring mistake in one mode cannot
+ * silently pass the audit.
+ */
+const WORKSPACE_MODE_KEYS = [
+  'design',
+  'drawing',
+  'image',
+  'print',
+  'motion',
+  'codegen',
+  'logo',
+  'email',
+] as const;
+
+const WORKSPACE_MODE_CONTRAST_PAIRS: readonly ContrastPair[] = WORKSPACE_MODE_KEYS.flatMap(
+  (mode): ContrastPair[] => [
+    {
+      name: `text-on-accent on workspace-accent-${mode}`,
+      fg: 'text-on-accent',
+      bg: `workspace-accent-${mode}`,
+      grade: 'AA',
+    },
+    {
+      name: `workspace-icon-${mode} on surface-raised`,
+      fg: `workspace-icon-${mode}`,
+      bg: 'surface-raised',
+      grade: 'UI',
+    },
+  ],
+);
+
 export const CONTRAST_PAIRS: readonly ContrastPair[] = [
+  ...WORKSPACE_MODE_CONTRAST_PAIRS,
   { name: 'text-primary on surface-app', fg: 'text-primary', bg: 'surface-app', grade: 'AA' },
   { name: 'text-secondary on surface-app', fg: 'text-secondary', bg: 'surface-app', grade: 'AA' },
   { name: 'text-muted on surface-app', fg: 'text-muted', bg: 'surface-app', grade: 'AA' },
