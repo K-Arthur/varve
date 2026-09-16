@@ -214,7 +214,7 @@ results below.
 | `pnpm typecheck:e2e` | clean at the time of the last self-run; the shared gate is intermittently broken by other sessions' in-flight files |
 | `node scripts/audit-docs.mjs` / `audit-emoji.mjs` | clean |
 | `pnpm audit:tokens` | 153/153 pairs pass, 3 themes |
-| `tests/e2e/canvas/toolbar-followup.spec.ts` (new, 4 tests) | 4/4 passed in the clean run (2.3m); details in the browser note |
+| `tests/e2e/canvas/toolbar-followup.spec.ts` (new, 6 tests) | 6/6 passed: the four journey checks plus forced-colors and 200%-text adverse-rendering checks; details in the browser note |
 
 ### Browser verification
 
@@ -224,12 +224,15 @@ six widths, the quick-bar keyboard contract and duplication suppression, and a
 combined journey (photo + drawn shape + live text, a size edit, placement
 switch, Edit-menu undo/redo round-trip, reload).
 
-**Final clean run (2026-09-15 18:20, port 1673, one worker): 4 passed in
-2.3 minutes** — palette placement 37.7s, status bar 17.7s, quick bar 16.2s,
-combined journey 40.2s. A follow-up single-test run confirmed the journey's
-deterministic history step (Edit menu Undo → Redo restores the typed content;
-the keyboard chord after a menubar click was not reliably handled from menu
-focus, which had made an earlier version of that step vacuous).
+**Final results (2026-09-15, ports 1673–1697, one worker):** the four
+journey tests passed together in 2.3 minutes; the adverse-rendering pair then
+passed — forced colors on the first run, and 200% text after the focus
+handoff was taught to scroll the active row into view (5/6 → 6/6, the last
+one re-verified in isolation). A follow-up single-test run confirmed the
+journey's deterministic history step (Edit menu Undo → Redo restores the
+typed content; the keyboard chord after a menubar click was not reliably
+handled from menu focus, which had made an earlier version of that step
+vacuous).
 
 Evidence:
 `docs/screenshots/2026-09-15-toolbar-followup/palette-at-top-with-view-menu-1440x900.png`
@@ -278,7 +281,9 @@ clean machine: **52 passed, 6 failed**, and the failures were triaged:
   `menu/menubarFocus.ts` with a bounded retry that only runs while focus is
   still body/trigger/dropdown, so a deliberate destination is never stolen
   back. The full spec — arrows, Enter, type-ahead, Escape restoration,
-  disabled items, axe — now passes 27/27.
+  disabled items, axe — now passes 27/27. The handoff also scrolls the active
+  row into view (`block: 'nearest'`), which is what keeps the final row
+  reachable when 200% text makes the menu taller than the viewport.
 
 ## External failure evidence (summary)
 
@@ -316,6 +321,9 @@ screen-reader or physical-touch pass was performed in this session.
    menubar and the action registry; adding them to `menu/defs.ts` requires
    updating the native-adapter snapshot, which another session had in flight
    at the time of writing.
-5. Not performed: screen readers (NVDA/VoiceOver/Orca), forced-colors
-   rendering of the new targets, physical touch/pen verification, and
-   left-to-right mirroring checks for the placement radio group.
+5. Not performed: screen readers (NVDA/VoiceOver/Orca), physical touch/pen
+   verification, and left-to-right mirroring checks for the placement radio
+   group. Forced-colors rendering and 200% text scaling of the toolbar
+   surfaces are now covered by `toolbar-followup.spec.ts`; that is a
+   Chromium/Playwright check, not certification for other engines or the
+   native webview.

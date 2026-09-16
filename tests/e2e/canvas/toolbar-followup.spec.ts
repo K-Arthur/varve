@@ -304,3 +304,129 @@ test.describe('Toolbar follow-up — combined journey', () => {
     await expect(page.locator('.editor-status')).toBeVisible();
   });
 });
+
+/**
+ * Adverse-rendering checks. These are the two accessibility verifications the
+ * first toolbar review listed as not performed: forced-colors rendering and
+ * enlarged text. They assert structural survival (real boxes, visible
+ * surfaces, reachable rows), not colour conformance, which forced colors
+ * deliberately overrides.
+ */
+test.describe('Toolbar follow-up — adverse rendering', () => {
+  test('palette, View menu, and status bar keep real boxes under forced colors', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ forcedColors: 'active' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await navigateToEditor(page, '/', { startupTimeout: 120000 });
+
+    const paletteButtons = await page
+      .locator('.floating-toolbar [role="toolbar"] button')
+      .evaluateAll((buttons) =>
+        buttons
+          .filter((button) => button.getClientRects().length > 0)
+          .map((button) => {
+            const rect = button.getBoundingClientRect();
+            return { w: rect.width, h: rect.height };
+          }),
+      );
+    expect(paletteButtons.length).toBeGreaterThan(5);
+    for (const button of paletteButtons) {
+      expect(button.w).toBeGreaterThanOrEqual(23.5);
+      expect(button.h).toBeGreaterThanOrEqual(23.5);
+    }
+
+    await openMenu(page, 'View');
+    const menu = page.locator(VIEW_MENU);
+    await expect(menu).toBeVisible();
+    const menuBackground = await menu.evaluate(
+      (element) => getComputedStyle(element).backgroundColor,
+    );
+    expect(menuBackground).not.toBe('rgba(0, 0, 0, 0)');
+    const rowHeights = await menu
+      .getByRole('menuitem')
+      .evaluateAll((items) => items.map((item) => item.getBoundingClientRect().height));
+    expect(rowHeights.length).toBeGreaterThan(5);
+    for (const height of rowHeights) expect(height).toBeGreaterThan(20);
+    await page.keyboard.press('Escape');
+
+    const statusButtons = await page.locator('.editor-status').evaluate((bar) =>
+      Array.from(bar.querySelectorAll('button'))
+        .filter((button) => button.getClientRects().length > 0)
+        .map((button) => button.getBoundingClientRect().height),
+    );
+    expect(statusButtons.length).toBeGreaterThan(3);
+    for (const height of statusButtons) expect(height).toBeGreaterThanOrEqual(23.5);
+  });
+
+  test('status bar and grouped menu stay operable at 200% text size', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await navigateToEditor(page, '/', { startupTimeout: 120000 });
+
+    // 200% text scaling of a 16px root. This is a text-size stand-in, not
+    // browser zoom, and the audit records that distinction.
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '32px';
+    });
+    await page.waitForTimeout(300);
+
+    const report = await page.locator('.editor-status').evaluate((bar) => {
+      const barRect = bar.getBoundingClientRect();
+      const buttons = Array.from(bar.querySelectorAll('button')).filter(
+        (button) => button.getClientRects().length > 0,
+      );
+      return {
+        overflowX: getComputedStyle(bar).overflowX,
+        scrollWidth: bar.scrollWidth,
+        clientWidth: bar.clientWidth,
+        buttons: buttons.map((button) => {
+          const rect = button.getBoundingClientRect();
+          return {
+            w: rect.width,
+            h: rect.height,
+            clippedVertically: rect.bottom > barRect.bottom + 0.5,
+            clippedHorizontally: rect.right > barRect.right + 0.5,
+          };
+        }),
+      };
+    });
+    expect(report.overflowX).toBe('auto');
+    expect(report.buttons.length).toBeGreaterThan(3);
+    for (const button of report.buttons) {
+      expect(button.w).toBeGreaterThan(0);
+      expect(button.h).toBeGreaterThan(0);
+      expect(button.clippedVertically, 'no control may clip vertically').toBe(false);
+    }
+    // Horizontal overflow is allowed only as a scroll surface: whatever is
+    // past the edge must be reachable by scrolling, and something must fit.
+    if (report.scrollWidth > report.clientWidth + 1) {
+      await page.locator('.editor-status').evaluate((bar) => {
+        bar.scrollLeft = bar.scrollWidth;
+      });
+      const lastButtonReachable = await page.locator('.editor-status').evaluate((bar) => {
+        const barRect = bar.getBoundingClientRect();
+        const buttons = Array.from(bar.querySelectorAll('button')).filter(
+          (button) => button.getClientRects().length > 0,
+        );
+        const last = buttons[buttons.length - 1];
+        if (!last) return false;
+        const rect = last.getBoundingClientRect();
+        return rect.left >= barRect.left - 0.5 && rect.right <= barRect.right + 0.5;
+      });
+      expect(lastButtonReachable).toBe(true);
+    }
+
+    // The grouped View root may exceed the viewport at 200% text; the final
+    // row must still be reachable with the real keyboard path (End moves the
+    // active row, which scrolls it into view) — not just present in the DOM.
+    await openMenu(page, 'View');
+    await page.keyboard.press('End');
+    const home = page.locator(VIEW_MENU).getByRole('menuitem', { name: 'Home' });
+    await expect(home).toBeFocused();
+    const visible = await home.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.height > 0 && rect.top >= 0 && rect.bottom <= window.innerHeight;
+    });
+    expect(visible).toBe(true);
+  });
+});

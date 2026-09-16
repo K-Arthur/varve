@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EditorContextValue } from '../context';
+import {
+  getWorkspacePreferences,
+  resetWorkspacePreferenceCache,
+} from '../workspace/workspaceStore';
 import { getActionRegistry, resetActionRegistryForTesting } from './ActionRegistry';
 import { openVarveContact, registerEditorActions } from './registerAll';
 
@@ -101,12 +105,35 @@ describe('registerEditorActions — intelligence commands', () => {
     registerEditorActions(editor, { onFindReplace });
 
     const registry = getActionRegistry();
-    for (const id of ['findReplace', 'textBold', 'inspectMode', 'resetWorkspace', 'about']) {
+    for (const id of [
+      'findReplace',
+      'textBold',
+      'inspectMode',
+      'resetWorkspace',
+      'about',
+      'viewToolbarTop',
+      'viewToolbarBottom',
+    ]) {
       expect(registry.has(id), id).toBe(true);
     }
 
     registry.get('findReplace')?.handler(undefined);
     expect(onFindReplace).toHaveBeenCalledOnce();
+  });
+
+  it('registers toolbar placement commands that persist the active workspace preference', () => {
+    resetWorkspacePreferenceCache();
+    const editor = makeEditorMock({
+      state: { selection: [], pixelGridEnabled: false, workspaceMode: 'design' },
+    });
+    registerEditorActions(editor);
+    const registry = getActionRegistry();
+
+    registry.get('viewToolbarTop')?.handler(undefined);
+    expect(getWorkspacePreferences().design.toolbarPlacement).toBe('top');
+
+    registry.get('viewToolbarBottom')?.handler(undefined);
+    expect(getWorkspacePreferences().design.toolbarPlacement).toBeUndefined();
   });
 
   it('registers Generative Edit as a searchable object action', () => {

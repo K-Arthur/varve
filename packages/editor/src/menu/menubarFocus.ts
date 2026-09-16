@@ -193,6 +193,11 @@ export function useMenubarFocusEffects(deps: MenubarFocusDeps): void {
       // state this open owns (body, the trigger, or the dropdown); a
       // deliberate move elsewhere must not be stolen back.
       target.focus({ preventScroll: true });
+      // Focusing a row inside the clamped, scrollable menu must bring it into
+      // view even when the menu is taller than the viewport (200% text
+      // scaling). preventScroll above keeps the document still, so scroll the
+      // row's own scroll ancestors minimally.
+      target.scrollIntoView({ block: 'nearest' });
       const active = ownerDocument.activeElement;
       const stillOurHandoff =
         active === ownerDocument.body ||
@@ -244,6 +249,7 @@ export function useMenubarFocusEffects(deps: MenubarFocusDeps): void {
       // Same bounded retry as the dropdown: the submenu's portal layer can
       // still be hidden under load when the first focus attempt lands.
       target.focus({ preventScroll: true });
+      target.scrollIntoView({ block: 'nearest' });
       const focused = ownerDocument.activeElement;
       const stillOurHandoff =
         focused === ownerDocument.body ||
