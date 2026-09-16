@@ -247,6 +247,26 @@ off-viewport in a 130 px tree) and two `layers-drag-drop.spec.ts` tests
 ("multi-selection drag", "auto-scrolls … 43 layers") fail with the
 pre-review CSS too — recorded as pre-existing, not regressions.
 
+### F15c — Self-inflicted regression caught by another session (fixed)
+
+**Evidence:** the context-menu extraction removed `isVisualMaskTarget` from
+`LayersPanel/index.tsx`'s imports while the component still computed
+`contextMenuIsVisualLeaf` with it. Every right-click on a layer threw
+`isVisualMaskTarget is not defined` and the error boundary replaced the
+editor with its reload screen. Another session hit it in the dialog suite
+and restored the import in `a6c65a582` before this review noticed.
+
+**Follow-up in this review:** my `layerContextMenu.test.ts` helpers also
+assumed `MenuEntry` was a flat record; they now narrow the union
+(`'type' in item`, `'onAction' in item`) so the test typechecks against the
+current menu contract. The extraction now typechecks clean in isolation.
+
+**Lesson recorded:** the affected-checks plan ran `vitest` for the changed
+files but the workspace `tsc` runs are what would have caught the missing
+symbol; the commit checkpoint's `typecheck:e2e` does not cover editor
+sources. A pre-commit editor typecheck on changed packages is worth
+considering (outside this review's scope).
+
 ### F16 — Marketing overclaim
 
 **Evidence:** the Layers feature page claimed “persistent hierarchy tooltips

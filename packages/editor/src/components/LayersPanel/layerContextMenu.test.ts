@@ -1,5 +1,5 @@
 import type { LayerColorName, SceneNode } from '@varve/scene';
-import type { MenuEntry } from '@varve/ui';
+import type { MenuEntry, MenuItem } from '@varve/ui';
 import { describe, expect, it, vi } from 'vitest';
 import {
   type BuildLayerMenuItemsArgs,
@@ -113,15 +113,22 @@ function baseArgs(
   };
 }
 
-function findItem(items: MenuEntry[], id: string): MenuEntry | undefined {
+function findItem(items: readonly MenuEntry[], id: string): MenuEntry | undefined {
   for (const item of items) {
     if (item.id === id) return item;
-    if (item.type === 'submenu' && item.submenu) {
+    // Only SubmenuItem carries `type`; narrow before reading `submenu`.
+    if ('type' in item && item.type === 'submenu') {
       const nested = findItem(item.submenu, id);
       if (nested) return nested;
     }
   }
   return undefined;
+}
+
+/** The command entry for an id (only MenuItem has `onAction`). */
+function findAction(items: readonly MenuEntry[], id: string): MenuItem | undefined {
+  const entry = findItem(items, id);
+  return entry && 'onAction' in entry ? entry : undefined;
 }
 
 describe('buildLayerContextMenuItems — state-aware commands', () => {
@@ -132,24 +139,24 @@ describe('buildLayerContextMenuItems — state-aware commands', () => {
     const visibleItems = buildLayerContextMenuItems(baseArgs(visible));
     const hiddenItems = buildLayerContextMenuItems(baseArgs(hidden));
 
-    expect(findItem(visibleItems, 'hide')?.label).toBe('Hide');
-    expect(findItem(hiddenItems, 'hide')?.label).toBe('Show');
+    expect(findAction(visibleItems, 'hide')?.label).toBe('Hide');
+    expect(findAction(hiddenItems, 'hide')?.label).toBe('Show');
   });
 
   it('offers Unlock on an own-locked layer and Lock otherwise', () => {
     const unlocked = makeNode('n1', 'Unlocked');
     const locked = makeNode('n2', 'Locked', 'shape', { locked: true });
 
-    expect(findItem(buildLayerContextMenuItems(baseArgs(unlocked)), 'lock')?.label).toBe('Lock');
+    expect(findAction(buildLayerContextMenuItems(baseArgs(unlocked)), 'lock')?.label).toBe('Lock');
     const lockedItems = buildLayerContextMenuItems(baseArgs(locked));
-    expect(findItem(lockedItems, 'lock')?.label).toBe('Unlock');
-    expect(findItem(lockedItems, 'lock')?.disabled).not.toBe(true);
+    expect(findAction(lockedItems, 'lock')?.label).toBe('Unlock');
+    expect(findAction(lockedItems, 'lock')?.disabled).not.toBe(true);
   });
 
   it('keeps Lock disabled with an ancestor explanation when the layer is effectively locked by a parent', () => {
     const child = makeNode('n1', 'Child');
     const items = buildLayerContextMenuItems(baseArgs(child, { isEffectivelyLocked: () => true }));
-    const lock = findItem(items, 'lock');
+    const lock = findAction(items, 'lock');
     expect(lock?.label).toBe('Lock');
     expect(lock?.disabled).toBe(true);
     expect(lock?.description).toMatch(/ancestor/i);
@@ -159,7 +166,7 @@ describe('buildLayerContextMenuItems — state-aware commands', () => {
     const hidden = makeNode('n1', 'Hidden', 'shape', { visible: false });
     const handleVisibilityFromMenu = vi.fn();
     const items = buildLayerContextMenuItems(baseArgs(hidden, { handleVisibilityFromMenu }));
-    findItem(items, 'hide')?.onAction?.();
+    findAction(items, 'hide')?.onAction?.();
     expect(handleVisibilityFromMenu).toHaveBeenCalledWith(true);
   });
 
@@ -167,7 +174,7 @@ describe('buildLayerContextMenuItems — state-aware commands', () => {
     const locked = makeNode('n1', 'Locked', 'shape', { locked: true });
     const handleLockFromMenu = vi.fn();
     const items = buildLayerContextMenuItems(baseArgs(locked, { handleLockFromMenu }));
-    findItem(items, 'lock')?.onAction?.();
+    findAction(items, 'lock')?.onAction?.();
     expect(handleLockFromMenu).toHaveBeenCalledWith(false);
   });
 });
@@ -183,11 +190,13 @@ describe('buildLayerContextMenuItems — arrange alternatives (WCAG 2.5.7)', () 
     };
     const items = buildLayerContextMenuItems(baseArgs(node, handlers));
 
-    const order = ['front', 'forward', 'backward', 'back'].map((id) => findItem(items, id)?.label);
+    const order = ['front', 'forward', 'backward', 'back'].map(
+      (id) => findAction(items, id)?.label,
+    );
     expect(order).toEqual(['Bring to Front', 'Bring Forward', 'Send Backward', 'Send to Back']);
 
     for (const id of ['front', 'forward', 'backward', 'back']) {
-      findItem(items, id)?.onAction?.();
+      findAction(items, id)?.onAction?.();
     }
     expect(handlers.handleMoveToFront).toHaveBeenCalledTimes(1);
     expect(handlers.handleBringForward).toHaveBeenCalledTimes(1);
@@ -197,8 +206,8 @@ describe('buildLayerContextMenuItems — arrange alternatives (WCAG 2.5.7)', () 
 
   it('shows the real shortcut badges for stepwise arrange', () => {
     const items = buildLayerContextMenuItems(baseArgs(makeNode('n1', 'Layer')));
-    expect(findItem(items, 'forward')?.badge).toBe('Ctrl+]');
-    expect(findItem(items, 'backward')?.badge).toBe('Ctrl+[');
+    expect(findAction(items, 'forward')?.badge).toBe('Ctrl+]');
+    expect(findAction(items, 'backward')?.badge).toBe('Ctrl+[');
   });
 });
 
