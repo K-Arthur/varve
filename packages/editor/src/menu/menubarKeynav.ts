@@ -31,6 +31,7 @@ export interface MenuItemDef {
 export interface MenubarKeyContext<MenuIdDef extends string = string> {
   menuRef: React.RefObject<HTMLDivElement | null>;
   dropdownMenuRef: React.RefObject<HTMLDivElement | null>;
+  submenuRef: React.RefObject<HTMLDivElement | null>;
   topLevelRefs: React.MutableRefObject<(HTMLButtonElement | null)[]>;
   openMenu: MenuIdDef | null;
   openSubmenu: number | null;
@@ -75,6 +76,7 @@ export function handleMenubarKey<MenuIdDef extends string = string>(
   const {
     menuRef,
     dropdownMenuRef,
+    submenuRef,
     topLevelRefs,
     openMenu,
     openSubmenu,
@@ -105,10 +107,55 @@ export function handleMenubarKey<MenuIdDef extends string = string>(
 
   const openIdx = openMenu ? menus.findIndex((m) => m.id === openMenu) : -1;
 
+  // Shared by the dropdown and the submenu: a type-ahead buffer belongs to one
+  // menu level and expires when the user stops typing.
+  const resetTypeahead = () => {
+    typeaheadRef.current = '';
+    if (typeaheadTimerRef.current !== null) {
+      clearTimeout(typeaheadTimerRef.current);
+      typeaheadTimerRef.current = null;
+    }
+  };
+
   if (openSubmenu !== null) {
     // Submenu is open
     const subItems = currentSubmenuItems.filter((i) => i.label !== '---');
     const subDisabledAt = (i: number) => !!subItems[i]?.disabled;
+
+    // Printable-prefix type-ahead, mirroring the dropdown (APG menu pattern:
+    // "any key that corresponds to a printable character moves focus to the
+    // next item whose label begins with that character").
+    if (shouldTypeAhead(e, typeaheadRef.current)) {
+      clearTimeout(typeaheadTimerRef.current ?? undefined);
+      typeaheadRef.current += e.key;
+      typeaheadTimerRef.current = setTimeout(() => {
+        typeaheadRef.current = '';
+      }, getTypeAheadResetMs());
+
+      const matchIdx = matchMenuTypeAhead(
+        typeaheadRef.current,
+        subItems.map((item) => ({
+          label: item.label,
+          disabled: item.disabled ?? false,
+        })),
+        activeSubmenuIndex,
+      );
+      if (matchIdx !== null) {
+        e.preventDefault();
+        setActiveSubmenuIndex(matchIdx);
+        setTimeout(() => {
+          const menuEl = submenuRef.current;
+          if (!menuEl) return;
+          const targetItems = menuEl.querySelectorAll<HTMLButtonElement>(MENU_ITEM_SELECTOR);
+          targetItems[matchIdx]?.scrollIntoView({ block: 'nearest' });
+        }, 0);
+      }
+      return;
+    }
+
+    if (isResetKey(e)) {
+      resetTypeahead();
+    }
 
     switch (e.key) {
       case 'ArrowDown':
@@ -125,6 +172,26 @@ export function handleMenubarKey<MenuIdDef extends string = string>(
         e.preventDefault();
         const item = subItems[activeSubmenuIndex];
         if (item?.action && !item.disabled) handleAction(item.action);
+        return;
+      }
+      case 'Home': {
+        e.preventDefault();
+        setActiveSubmenuIndex((prev) => {
+          for (let k = 0; k < subItems.length; k += 1) {
+            if (!subDisabledAt(k)) return k;
+          }
+          return prev;
+        });
+        return;
+      }
+      case 'End': {
+        e.preventDefault();
+        setActiveSubmenuIndex((prev) => {
+          for (let k = subItems.length - 1; k >= 0; k -= 1) {
+            if (!subDisabledAt(k)) return k;
+          }
+          return prev;
+        });
         return;
       }
       case 'ArrowLeft':
@@ -156,14 +223,6 @@ export function handleMenubarKey<MenuIdDef extends string = string>(
     const menu = menus[openIdx];
     if (!menu) return;
     const items = menu.items.filter((i) => i.label !== '---');
-
-    function resetTypeahead() {
-      typeaheadRef.current = '';
-      if (typeaheadTimerRef.current !== null) {
-        clearTimeout(typeaheadTimerRef.current);
-        typeaheadTimerRef.current = null;
-      }
-    }
 
     if (shouldTypeAhead(e, typeaheadRef.current)) {
       clearTimeout(typeaheadTimerRef.current ?? undefined);
@@ -211,7 +270,10 @@ export function handleMenubarKey<MenuIdDef extends string = string>(
       case ' ': {
         e.preventDefault();
         const item = items[activeItemIndex];
-        if (item?.items) {
+        // A disabled submenu parent stays focusable-reachable in the roving
+        // model only while it is skipped by navigation; if availability
+        // changed under the pointer, activation must not open it either.
+        if (item?.items && !item.disabled) {
           setOpenSubmenu(filteredToConfigIndex(menu.items, activeItemIndex));
           setActiveSubmenuIndex(0);
         } else if (item?.action && !item.disabled) {
@@ -223,6 +285,9 @@ export function handleMenubarKey<MenuIdDef extends string = string>(
         e.preventDefault();
         const item = items[activeItemIndex];
         if (item?.items) {
+          // A disabled parent has no reachable child menu; do not fall
+          // through to "next top-level menu" as if it had no submenu.
+          if (item.disabled) return;
           setOpenSubmenu(filteredToConfigIndex(menu.items, activeItemIndex));
           setActiveSubmenuIndex(0);
         } else {

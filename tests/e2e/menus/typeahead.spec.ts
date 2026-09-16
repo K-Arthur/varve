@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { openMenu } from '../helpers/menu-helpers';
+import { navigateToEditor, seedLayers } from '../shared';
 
 test.describe('Menu type-ahead', () => {
   test.beforeEach(async ({ page }) => {
@@ -122,6 +123,38 @@ test.describe('Menu type-ahead', () => {
 
     const focused = page.locator('[role="menu"] [role="menuitem"]:focus');
     await expect(focused).toContainText('Save');
+  });
+
+  test('submenu supports type-ahead and Home/End', async ({ page }) => {
+    await seedLayers(page, 3);
+    await page.keyboard.press('ControlOrMeta+a');
+    await openMenu(page, 'Arrange');
+
+    const activeName = () => page.evaluate(() => document.activeElement?.textContent?.trim() ?? '');
+    await expect.poll(activeName, { timeout: 5000 }).toMatch(/^Bring to Front/);
+    for (let step = 0; step < 8; step += 1) {
+      if ((await activeName()).startsWith('Align')) break;
+      await page.keyboard.press('ArrowDown');
+      await page.waitForTimeout(60);
+    }
+    expect((await activeName()).startsWith('Align')).toBe(true);
+
+    await page.keyboard.press('ArrowRight');
+    const submenu = page
+      .locator('[data-overlay-kind="submenu"]')
+      .getByRole('menu', { name: 'Align', exact: true });
+    await expect(submenu).toBeVisible();
+    await expect.poll(activeName, { timeout: 5000 }).toMatch(/^Align Left/);
+
+    // Printable prefix moves focus to the matching item in the submenu.
+    await page.keyboard.press('d');
+    await expect.poll(activeName, { timeout: 5000 }).toMatch(/^Distribute Horizontally/);
+
+    await page.keyboard.press('End');
+    await expect.poll(activeName, { timeout: 5000 }).toMatch(/^Tidy Up/);
+
+    await page.keyboard.press('Home');
+    await expect.poll(activeName, { timeout: 5000 }).toMatch(/^Align Left/);
   });
 
   test('type-ahead with diacritics (collator)', async ({ page }) => {

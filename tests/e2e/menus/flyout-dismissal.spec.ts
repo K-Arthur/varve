@@ -52,6 +52,31 @@ test.describe('Menubar flyout dismissal', () => {
     await expect(submenu).toHaveCount(0);
   });
 
+  test('a disabled submenu parent does not open a flyout', async ({ page }) => {
+    // With nothing selected, Align cannot run (relative alignment needs two
+    // objects). The row is disabled like any other unavailable command and
+    // must not open a flyout of commands that cannot execute.
+    await openMenu(page, 'Arrange');
+    const arrangeMenu = page
+      .locator('.editor-menubar__menu')
+      .getByRole('menu', { name: 'Arrange', exact: true });
+    const alignItem = arrangeMenu.getByRole('menuitem', { name: 'Align', exact: true });
+    await expect(alignItem).toBeDisabled();
+
+    // Raw mouse move: Playwright's hover actionability gates on enabled, but
+    // this must still dispatch real pointer events over the disabled row.
+    const box = await alignItem.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await page.waitForTimeout(100);
+
+    await expect(
+      page
+        .locator('[data-overlay-kind="submenu"]')
+        .getByRole('menu', { name: 'Align', exact: true }),
+    ).toHaveCount(0);
+  });
+
   test('submenu roving tabindex follows focus across a separator', async ({ page }) => {
     await seedLayers(page, 2);
     await page.keyboard.press('ControlOrMeta+a');

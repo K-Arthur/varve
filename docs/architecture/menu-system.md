@@ -120,6 +120,26 @@ ArrowRight/Left submenu traversal, Escape, and Tab exit. Checkbox and radio
 items retain their menu roles and `aria-checked`; submenu triggers expose
 `aria-haspopup="menu"` and `aria-expanded`.
 
+Submenus implement the same keyboard contract as dropdowns, as one machine in
+`menu/menubarKeynav.ts`: ArrowUp/Down with disabled-item skipping, Home/End to
+the first/last enabled item, printable-prefix type-ahead through the shared
+`@varve/ui` matcher, ArrowLeft/Escape returning focus to the parent item, and
+Tab exiting the tree. The type-ahead buffer belongs to one menu level and is
+reset when a level opens, switches, or closes.
+
+A submenu parent that is unavailable is rendered disabled and cannot open by
+any route: pointer hover, click, Enter/Space, or ArrowRight. This follows the
+repository's existing disabled-item convention (DOM `disabled` plus navigation
+skipping, documented in `menu/menubarFocus.ts`) rather than the APG's optional
+focusable-disabled variant; leaf commands and submenu parents now behave the
+same way. If the parent becomes unavailable while its flyout is open, the
+flyout closes instead of leaving stale commands on screen.
+
+Visible shortcut text comes from the effective binding
+(`getEffectiveBinding(id)`, user keymap overrides included), the same resolver
+used for `aria-keyshortcuts`, so the displayed key is always one that executes
+and the sighted and announced values agree.
+
 `FloatingPortal` owns fixed positioning, owner-document resolution, collision
 handling, portal roots, and overlay registration. It does not provide menu
 keyboard semantics. Submenus anchor to their rendered parent item. Context
