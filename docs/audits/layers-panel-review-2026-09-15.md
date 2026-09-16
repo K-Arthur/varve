@@ -237,6 +237,10 @@ state-aware menu, and 24×24 targets (`0f1be321c`).
 
 ### Demonstrated in the running app (real fixtures)
 
+`tests/e2e/layers/layers-panel-real-world.spec.ts` — 13 tests, each passing
+(one full-file run reached 12/13 with the last probe fixed and re-run green;
+the shared working tree reloads under it, see the note below):
+
 | Check | Result |
 | --- | --- |
 | Realistic SVG + real photo import; every section present (header, filter bar, tree, selection sets) | Pass — `section-inventory.json` |
@@ -258,6 +262,13 @@ Two spec-robustness repairs were required by pre-existing ambiguity, not by
 behavior changes: `context-menu.spec.ts` used `has-text("Rename")`, which
 also matched “Batch Rename…”, and `layers.spec.ts` used an unscoped
 `[data-node-id]` locator that also matched the canvas accessibility mirror.
+
+Environment note: the E2E runs shared one working tree with several other
+agent sessions, whose continuous edits reload the dev server mid-test. Runs
+were therefore executed test-group by test-group with retries; failures were
+always navigation/`page.goto` timeouts or renderer OOM during memory
+pressure, never an assertion failure in the panel's behavior once the page
+was up. The harness was made resilient (non-serial, warmed page, retries).
 
 Text enlargement probes (mechanism recorded, not asserted as equivalent to
 real browser zoom): at CSS `zoom: 2` the panel's controls double (48 px
@@ -310,10 +321,11 @@ the integration checkpoint once the panel is frozen.
   toggle 24×24); the panel was not separately driven to its absolute 180 px
   minimum in the harness (the existing
   `layers-row-badge-overflow.spec.ts` covers ≤190 px and passes).
-- The remaining affected specs (`layers-panel-visual.spec.ts`,
-  `effect-stack-transfer.spec.ts`, the DnD specs, `layer-workflows.spec.ts`)
-  were not re-run in this pass; they are selected by the affected plan and
-  should ride the integration checkpoint.
+- `effect-stack-transfer.spec.ts`'s remaining behavioural tests did not run
+  after its stale snapshot failure (serial mode in that spec); the DnD
+  specs and `layer-workflows.spec.ts` were next on the list when the session
+  closed. They are selected by the affected plan and should ride the
+  integration checkpoint.
 
 ---
 
@@ -337,8 +349,45 @@ the integration checkpoint once the panel is frozen.
 
 1. Delete the stale `.layers-row__media-badge` rule from `editor.css` once
    that file has a single owner (the panel’s scoped rule already wins).
-2. Re-run the outstanding browser checks (F13 target sizes, context menu,
-   selection sets, enlargement) on an idle machine and update §3.
-3. Known pre-existing items not addressed: `useFlatTree`’s duplicated
+2. Refresh the `effect-stack-transfer` hover baseline at the integration
+   checkpoint, when the panel’s other in-flight redesigns are frozen.
+3. Run the remaining affected specs (DnD trio, `layer-workflows.spec.ts`,
+   the rest of `effect-stack-transfer.spec.ts`) as part of the combined
+   gate.
+4. Known pre-existing items not addressed: `useFlatTree`’s duplicated
    diff computation, and the Home/End long-jump focus retry documented in
    `docs/plans/layers-panel-deferred.md`.
+
+---
+
+## Agent Validation Report
+
+```text
+Changed scope: packages/editor/src/components/LayersPanel/** (index, new
+  layerContextMenu module, LayersRow/FilterBar/BulkBar/SelectionSets/
+  LayerStates CSS+TSX), packages/import/src/svg/{shared,elements}.ts,
+  packages/ui/src/components/{Menu.tsx,components.css},
+  packages/ui/src/tokens/tokens.css, tests/e2e/layers/** (new real-world
+  harness + fixtures + two locator repairs), apps/website layers page,
+  docs/audits + docs/plans + docs/architecture.
+Validation plan: pnpm verify:plan — escalated to full suite because the
+  shared working tree carries 219 changed files from other sessions;
+  scoped closure used instead (see below).
+Commands actually run: pnpm --filter @varve/editor typecheck;
+  npx vitest run packages/editor/src/components/LayersPanel
+  --maxWorkers=1 (29 files, 353 tests); npx vitest run
+  packages/import/src/svg-naming.test.ts + svg/svg-clipmask/svg-color/
+  svg-security (68 tests); npx vitest run packages/ui/src/components/
+  Menu.test.tsx (42); pnpm audit:tokens; pnpm --filter @varve/website
+  typecheck (astro check 0 errors); npx playwright test (local config,
+  warmed server) for: layers-panel-real-world.spec.ts (13 tests),
+  context-menu.spec.ts, layers.spec.ts, axe.spec.ts,
+  layers-row-badge-overflow.spec.ts, layers-header-solo-overflow.spec.ts,
+  layers-selection-sets-visual.spec.ts, layers-panel-visual.spec.ts.
+Passed: all of the above except the two noted baseline/serial items.
+Skipped as unrelated: other sessions' affected closure (font pipeline,
+  generative edit, inference, toolbar) — not this change set.
+Escalations: full suite deferred to the integration checkpoint (reason:
+  concurrent uncommitted workspace changes by other sessions).
+Full suite run: no.
+```
