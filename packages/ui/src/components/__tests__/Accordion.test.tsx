@@ -108,6 +108,86 @@ describe('Accordion', () => {
       await user.click(screen.getByRole('button', { name: 'First Section' }));
       expect(screen.queryByText('Content 1')).not.toBeInTheDocument();
     });
+
+    it('reports aria-disabled on the open header when collapsing is not permitted', async () => {
+      const user = userEvent.setup();
+      render(<AccordionExample mode="single" defaultValue="item-1" />);
+
+      const openHeader = screen.getByRole('button', { name: 'First Section' });
+      expect(openHeader).toHaveAttribute('aria-disabled', 'true');
+      expect(openHeader).toHaveAttribute('data-non-collapsible', 'true');
+      expect(screen.getByRole('button', { name: 'Second Section' })).not.toHaveAttribute(
+        'aria-disabled',
+      );
+
+      await user.click(openHeader);
+      expect(screen.getByText('Content 1')).toBeInTheDocument();
+    });
+
+    it('keeps the open header keyboard focusable when collapsing is not permitted', () => {
+      render(<AccordionExample mode="single" defaultValue="item-1" />);
+      const openHeader = screen.getByRole('button', { name: 'First Section' });
+      expect(openHeader).not.toBeDisabled();
+      openHeader.focus();
+      expect(openHeader).toHaveFocus();
+    });
+
+    it('does not mark headers aria-disabled when collapsing is permitted', () => {
+      render(<AccordionExample mode="single" collapsible defaultValue="item-1" />);
+      expect(screen.getByRole('button', { name: 'First Section' })).not.toHaveAttribute(
+        'aria-disabled',
+      );
+    });
+  });
+
+  describe('focus management', () => {
+    it('returns focus to an item trigger when that item closes under the focused control', async () => {
+      const user = userEvent.setup();
+      const view = render(
+        <Accordion value="item-1">
+          <AccordionItem value="item-1">
+            <AccordionTrigger>First Section</AccordionTrigger>
+            <AccordionContent>
+              <button type="button">Inside one</button>
+            </AccordionContent>
+          </AccordionItem>
+          <AccordionItem value="item-2">
+            <AccordionTrigger>Second Section</AccordionTrigger>
+            <AccordionContent>Content 2</AccordionContent>
+          </AccordionItem>
+        </Accordion>,
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Inside one' }));
+      expect(screen.getByRole('button', { name: 'Inside one' })).toHaveFocus();
+
+      view.rerender(
+        <Accordion value="item-2">
+          <AccordionItem value="item-1">
+            <AccordionTrigger>First Section</AccordionTrigger>
+            <AccordionContent>
+              <button type="button">Inside one</button>
+            </AccordionContent>
+          </AccordionItem>
+          <AccordionItem value="item-2">
+            <AccordionTrigger>Second Section</AccordionTrigger>
+            <AccordionContent>Content 2</AccordionContent>
+          </AccordionItem>
+        </Accordion>,
+      );
+
+      expect(screen.getByRole('button', { name: 'First Section' })).toHaveFocus();
+    });
+
+    it('does not steal focus from the newly activated item', async () => {
+      const user = userEvent.setup();
+      render(<AccordionExample mode="single" collapsible defaultValue="item-1" />);
+
+      await user.click(screen.getByRole('button', { name: 'Second Section' }));
+      expect(screen.getByRole('button', { name: 'Second Section' })).toHaveFocus();
+      expect(screen.queryByText('Content 1')).not.toBeInTheDocument();
+      expect(screen.getByText('Content 2')).toBeInTheDocument();
+    });
   });
 
   describe('controlled', () => {

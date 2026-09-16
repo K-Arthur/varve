@@ -8,18 +8,94 @@
  *
  * Supports controlled and uncontrolled operation, compact/standard density
  * variants, leading icons, header actions, and status indicators.
+ *
+ * Keyboard handling is native: the trigger is a real <button>, so Enter and
+ * Space activate it without extra key handlers (APG accordion/disclosure
+ * keyboard contract). A manual keydown handler must not be added back — it
+ * would run alongside native activation and can double-toggle with assistive
+ * technology.
  */
 import {
   createContext,
+  type FocusEventHandler,
   forwardRef,
-  type KeyboardEvent,
   type ReactNode,
   useCallback,
   useContext,
+  useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
 } from 'react';
+
+// ---------------------------------------------------------------------------
+// Focus restore
+// ---------------------------------------------------------------------------
+
+/**
+ * Keeps focus from being dropped on <body> when a disclosure panel closes
+ * while focus is inside it.
+ *
+ * Real-world failure this prevents: a keyboard user has focus on a control in
+ * an open section and the section collapses (via a command, the section
+ * manager, an accordion sibling, or a recycled row). The focused element is
+ * removed from the DOM and the browser silently moves focus to <body>, so the
+ * user loses their place with no announcement.
+ *
+ * The hook only restores focus when focus was genuinely lost — it never
+ * steals focus from a deliberate destination (another control, another
+ * accordion item, an outside click).
+ */
+export function useDisclosureFocusRestore({
+  open,
+  rootRef,
+  triggerRef,
+}: {
+  open: boolean;
+  rootRef: React.RefObject<HTMLElement | null>;
+  triggerRef?: React.RefObject<HTMLElement | null>;
+}): { onFocus: FocusEventHandler<HTMLElement>; onBlur: FocusEventHandler<HTMLElement> } {
+  const hadFocusInsideRef = useRef(false);
+
+  const onFocus = useCallback<FocusEventHandler<HTMLElement>>(() => {
+    hadFocusInsideRef.current = true;
+  }, []);
+
+  const onBlur = useCallback<FocusEventHandler<HTMLElement>>(
+    (event) => {
+      const next = event.relatedTarget as Node | null;
+      const root = rootRef.current;
+      if (!next || !root?.contains(next)) {
+        hadFocusInsideRef.current = false;
+      }
+    },
+    [rootRef],
+  );
+
+  useEffect(() => {
+    if (open || !hadFocusInsideRef.current) return;
+    hadFocusInsideRef.current = false;
+
+    const root = rootRef.current;
+    const ownerDocument = root?.ownerDocument;
+    const active = ownerDocument?.activeElement ?? null;
+    const trigger =
+      triggerRef?.current ?? root?.querySelector<HTMLElement>('.varve-disclosure__trigger') ?? null;
+
+    // Focus was dropped to <body> when the panel unmounted, or it is still on
+    // an element inside this disclosure that is no longer on screen. Anything
+    // else is a deliberate destination and is left alone.
+    const focusDropped = !active || active === ownerDocument?.body;
+    const strandedInside = Boolean(active) && Boolean(root?.contains(active)) && active !== trigger;
+
+    if (focusDropped || strandedInside) {
+      trigger?.focus();
+    }
+  }, [open, rootRef, triggerRef]);
+
+  return { onFocus, onBlur };
+}
 
 // ---------------------------------------------------------------------------
 // Context
@@ -75,6 +151,7 @@ export function Disclosure({
   const isControlled = controlledOpen !== undefined;
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
   const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const toggle = useCallback(() => {
     if (disabled) return;
@@ -82,6 +159,8 @@ export function Disclosure({
     if (!isControlled) setUncontrolledOpen(next);
     onOpenChange?.(next);
   }, [disabled, open, isControlled, onOpenChange]);
+
+  const focusRestore = useDisclosureFocusRestore({ open, rootRef });
 
   const ctx = useMemo<DisclosureContextValue>(
     () => ({ open, toggle, contentId, disabled }),
@@ -91,6 +170,8 @@ export function Disclosure({
   return (
     <DisclosureContext.Provider value={ctx}>
       <div
+        ref={rootRef}
+        {...focusRestore}
         data-variant={variant}
         data-state={open ? 'open' : 'closed'}
         data-disabled={disabled || undefined}
@@ -145,16 +226,6 @@ export const DisclosureTrigger = forwardRef<HTMLButtonElement, DisclosureTrigger
   ) {
     const { open, toggle, contentId, disabled } = useDisclosureContext('DisclosureTrigger');
 
-    const handleKeyDown = useCallback(
-      (e: KeyboardEvent<HTMLButtonElement>) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          toggle();
-        }
-      },
-      [toggle],
-    );
-
     const renderedIndicator = hideIndicator ? null : (indicator ?? DEFAULT_CHEVRON);
 
     return (
@@ -168,7 +239,6 @@ export const DisclosureTrigger = forwardRef<HTMLButtonElement, DisclosureTrigger
         className={`varve-disclosure__trigger ${className}`.trim()}
         disabled={disabled}
         onClick={toggle}
-        onKeyDown={handleKeyDown}
       >
         {leadingIcon && (
           <span className="varve-disclosure__leading-icon" aria-hidden="true">

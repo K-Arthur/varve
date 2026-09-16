@@ -7,6 +7,11 @@
  *
  * Each AccordionItem wraps a DisclosureTrigger + DisclosureContent pair.
  * The Accordion root handles state; items delegate to it via context.
+ *
+ * Keyboard handling is native: each trigger is a real <button>. In
+ * non-collapsible single mode the open header keeps its panel visible and
+ * reports `aria-disabled`, matching APG ("if the accordion does not permit the
+ * panel to be collapsed, the header button has aria-disabled set to true").
  */
 import {
   createContext,
@@ -15,8 +20,10 @@ import {
   useContext,
   useId,
   useMemo,
+  useRef,
   useState,
 } from 'react';
+import { useDisclosureFocusRestore } from './Disclosure';
 
 // ---------------------------------------------------------------------------
 // Accordion context
@@ -29,6 +36,11 @@ interface AccordionContextValue {
   toggle: (value: string) => void;
   /** Base ID for generating unique content IDs. */
   baseId: string;
+  /**
+   * True when an open item cannot be collapsed (single mode without
+   * `collapsible`). The open header then reports aria-disabled per APG.
+   */
+  singleNonCollapsible: boolean;
 }
 
 const AccordionContext = createContext<AccordionContextValue | null>(null);
@@ -136,9 +148,11 @@ export function Accordion({
     [openValues, mode, collapsible, isControlled, onValueChange],
   );
 
+  const singleNonCollapsible = mode === 'single' && !collapsible;
+
   const ctx = useMemo<AccordionContextValue>(
-    () => ({ isOpen, toggle, baseId }),
-    [isOpen, toggle, baseId],
+    () => ({ isOpen, toggle, baseId, singleNonCollapsible }),
+    [isOpen, toggle, baseId, singleNonCollapsible],
   );
 
   return (
@@ -188,12 +202,16 @@ export function AccordionItem({
 }: AccordionItemProps) {
   const { isOpen } = useAccordionContext('AccordionItem');
   const open = isOpen(value);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const itemCtx = useMemo(() => ({ value, disabled }), [value, disabled]);
+  const focusRestore = useDisclosureFocusRestore({ open, rootRef });
 
   return (
     <ItemContext.Provider value={itemCtx}>
       <div
+        ref={rootRef}
+        {...focusRestore}
         data-state={open ? 'open' : 'closed'}
         data-disabled={disabled || undefined}
         className={`varve-accordion__item ${className}`.trim()}
@@ -247,10 +265,13 @@ export function AccordionTrigger({
   indicator,
   hideIndicator = false,
 }: AccordionTriggerProps) {
-  const { isOpen, toggle, baseId } = useAccordionContext('AccordionTrigger');
+  const { isOpen, toggle, baseId, singleNonCollapsible } = useAccordionContext('AccordionTrigger');
   const { value, disabled } = useAccordionItemContext('AccordionTrigger');
   const open = isOpen(value);
   const contentId = `${baseId}-content-${value}`;
+  // The open header in a non-collapsible single accordion cannot collapse its
+  // panel; keep it focusable but report the state rather than silently no-op.
+  const nonCollapsibleOpen = open && singleNonCollapsible;
 
   const renderedIndicator = hideIndicator ? null : (indicator ?? DEFAULT_CHEVRON);
 
@@ -259,8 +280,9 @@ export function AccordionTrigger({
       type="button"
       aria-expanded={open}
       aria-controls={contentId}
-      aria-disabled={disabled || undefined}
+      aria-disabled={disabled || nonCollapsibleOpen || undefined}
       data-state={open ? 'open' : 'closed'}
+      data-non-collapsible={nonCollapsibleOpen || undefined}
       className={`varve-disclosure__trigger varve-accordion__trigger ${className}`.trim()}
       disabled={disabled}
       onClick={() => toggle(value)}

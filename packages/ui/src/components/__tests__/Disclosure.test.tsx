@@ -165,6 +165,108 @@ describe('Disclosure', () => {
     });
   });
 
+  describe('keyboard activation', () => {
+    it('activates exactly once per Enter and Space press', async () => {
+      const user = userEvent.setup();
+      const onOpenChange = vi.fn();
+      render(<DisclosureExample open={false} onOpenChange={onOpenChange} />);
+      const trigger = screen.getByRole('button', { name: 'Section Title' });
+
+      trigger.focus();
+      await user.keyboard('{Enter}');
+      expect(onOpenChange).toHaveBeenCalledTimes(1);
+
+      await user.keyboard(' ');
+      expect(onOpenChange).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('focus management', () => {
+    it('returns focus to the trigger when a close removes the focused control', async () => {
+      const user = userEvent.setup();
+      const view = render(
+        <Disclosure open>
+          <DisclosureTrigger>Section Title</DisclosureTrigger>
+          <DisclosureContent>
+            <button type="button">Inside control</button>
+          </DisclosureContent>
+        </Disclosure>,
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Inside control' }));
+      expect(screen.getByRole('button', { name: 'Inside control' })).toHaveFocus();
+
+      view.rerender(
+        <Disclosure open={false}>
+          <DisclosureTrigger>Section Title</DisclosureTrigger>
+          <DisclosureContent>
+            <button type="button">Inside control</button>
+          </DisclosureContent>
+        </Disclosure>,
+      );
+
+      expect(screen.getByRole('button', { name: 'Section Title' })).toHaveFocus();
+    });
+
+    it('does not steal focus when the close happens while focus is elsewhere', async () => {
+      const user = userEvent.setup();
+      const view = render(
+        <>
+          <button type="button">Outside control</button>
+          <Disclosure open>
+            <DisclosureTrigger>Section Title</DisclosureTrigger>
+            <DisclosureContent>
+              <button type="button">Inside control</button>
+            </DisclosureContent>
+          </Disclosure>
+        </>,
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Inside control' }));
+      await user.click(screen.getByRole('button', { name: 'Outside control' }));
+
+      view.rerender(
+        <>
+          <button type="button">Outside control</button>
+          <Disclosure open={false}>
+            <DisclosureTrigger>Section Title</DisclosureTrigger>
+            <DisclosureContent>
+              <button type="button">Inside control</button>
+            </DisclosureContent>
+          </Disclosure>
+        </>,
+      );
+
+      expect(screen.getByRole('button', { name: 'Outside control' })).toHaveFocus();
+    });
+
+    it('returns focus to the trigger when keepMounted content hides under focus', async () => {
+      const user = userEvent.setup();
+      const view = render(
+        <Disclosure open>
+          <DisclosureTrigger>Section Title</DisclosureTrigger>
+          <DisclosureContent keepMounted>
+            <button type="button">Inside control</button>
+          </DisclosureContent>
+        </Disclosure>,
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Inside control' }));
+      expect(screen.getByRole('button', { name: 'Inside control' })).toHaveFocus();
+
+      view.rerender(
+        <Disclosure open={false}>
+          <DisclosureTrigger>Section Title</DisclosureTrigger>
+          <DisclosureContent keepMounted>
+            <button type="button">Inside control</button>
+          </DisclosureContent>
+        </Disclosure>,
+      );
+
+      expect(screen.getByRole('button', { name: 'Section Title' })).toHaveFocus();
+    });
+  });
+
   describe('data attributes', () => {
     it('sets data-state on root when closed', () => {
       render(<DisclosureExample />);

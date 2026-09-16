@@ -76,7 +76,12 @@ export type {
   DisclosureProps,
   DisclosureTriggerProps,
 } from './Disclosure';
-export { Disclosure, DisclosureContent, DisclosureTrigger } from './Disclosure';
+export {
+  Disclosure,
+  DisclosureContent,
+  DisclosureTrigger,
+  useDisclosureFocusRestore,
+} from './Disclosure';
 export type { EmptyStateProps } from './EmptyState';
 export { EmptyState } from './EmptyState';
 export type {
