@@ -722,3 +722,165 @@ test.describe('Design tab follow-up (2026-09-16)', () => {
     await expect(page.locator('.insp-blend-chip')).toContainText('Multiply');
   });
 });
+
+/** Screenshot evidence lands beside the other inspector review runs. */
+const PAINT_EVIDENCE_DIR = 'reports/inspector-review/paint-rows';
+
+test.describe('Design tab paint rows (fill / stroke pass)', () => {
+  test.describe.configure({ retries: 1 });
+
+  test('Fill row states its value and changes type without a full-width select', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await seedRealWorldDocument(page);
+    await selectRectangleLayer(page);
+    await openDesignTab(page);
+
+    // Value pill: swatch + hex, no "Fill type" combobox on the row.
+    const valuePill = page.locator('.insp-swatch--valued').first();
+    await expect(valuePill).toBeVisible({ timeout: 10_000 });
+    await expect(valuePill.locator('.insp-swatch__value')).toHaveText(/^#[0-9A-F]{6}$/);
+    await expect(page.getByRole('combobox', { name: 'Fill type' })).toHaveCount(0);
+
+    // Type trigger names the current paint and converts to Gradient.
+    const typeTrigger = page.getByRole('button', { name: 'Fill type: Solid' });
+    await expect(typeTrigger).toBeVisible();
+    await typeTrigger.click();
+    await page.getByRole('menuitemradio', { name: 'Gradient' }).click();
+
+    // The gradient swatch keeps the value pill and opens the gradient editor.
+    await expect(page.getByRole('button', { name: 'Fill gradient' })).toBeVisible();
+    await page.getByRole('button', { name: 'Fill gradient' }).click();
+    const dialog = page.getByRole('dialog', { name: /fill gradient/i });
+    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    await expect(dialog.getByRole('spinbutton', { name: 'Rotation (deg)' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    // Focus returns to the trigger that opened the picker.
+    await expect(page.getByRole('button', { name: 'Fill gradient' })).toBeFocused();
+
+    await page.screenshot({ path: `${PAINT_EVIDENCE_DIR}/fill-gradient-row.png` });
+  });
+
+  test('Mixed fill selection is named on the row instead of impersonating one layer', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await seedRealWorldDocument(page);
+    await selectRectangleLayer(page);
+    await openDesignTab(page);
+
+    // Make the rectangle a gradient, then select everything: the rectangle and
+    // the photo disagree with the other layers' solid fills.
+    await page.getByRole('button', { name: 'Fill type: Solid' }).click();
+    await page.getByRole('menuitemradio', { name: 'Gradient' }).click();
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('ControlOrMeta+a');
+    await openDesignTab(page);
+
+    const mixedSwatch = page.getByRole('button', {
+      name: /Fill colour \(mixed across selection/,
+    });
+    await expect(mixedSwatch).toBeVisible({ timeout: 10_000 });
+    const mixedValue = mixedSwatch.locator('.insp-swatch__value');
+    await expect(mixedValue).toHaveText('Mixed');
+    // The whole point is that "Mixed" is legible — not clipped to "Mi…".
+    const clipped = await mixedValue.evaluate((el) => el.scrollWidth > el.clientWidth + 1);
+    expect(clipped, 'the mixed value label must not be truncated').toBe(false);
+    await page.screenshot({ path: `${PAINT_EVIDENCE_DIR}/fill-mixed-selection.png` });
+  });
+
+  test('Fill section is absent for a group, whose renderer never paints fills', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await navigateToEditor(page);
+    await createFrame(page);
+    await drawRect(page);
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.press('ControlOrMeta+g');
+    await expect(page.getByRole('treeitem').filter({ hasText: /Group/ }).first()).toBeVisible({
+      timeout: 10_000,
+    });
+    await openDesignTab(page);
+
+    const fillTrigger = page.locator('.insp-disclosure__trigger', { hasText: 'Fill' });
+    await expect(fillTrigger).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Add fill' })).toHaveCount(0);
+    // Groups still expose geometry and appearance.
+    await expect(page.locator('.insp-disclosure__trigger', { hasText: 'Appearance' })).toHaveCount(
+      1,
+    );
+  });
+
+  test('Fill rows and stroke advanced controls stay on one line without overflow', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await seedRealWorldDocument(page);
+    await selectRectangleLayer(page);
+    await openDesignTab(page);
+
+    // Multi-fill stack: add a second fill, then measure every row. (Two rows
+    // is the stress case: both get reorder + remove controls, and each row
+    // must still state its value.)
+    await page.getByRole('button', { name: 'Add fill' }).click();
+    await page.getByRole('menuitem', { name: 'Linear gradient' }).click();
+    const fillRows = page.locator('.insp-fill-row');
+    await expect(fillRows).toHaveCount(2);
+
+    for (const row of await fillRows.all()) {
+      const value = row.locator('.insp-swatch__value');
+      await expect(value).toBeVisible();
+      await expect(value).toHaveText(/^(#[0-9A-F]{6}|Gradient)$/);
+      const metrics = await row.locator('.insp-paint-row').evaluate((paintRow) => ({
+        scrollWidth: paintRow.scrollWidth,
+        clientWidth: paintRow.clientWidth,
+      }));
+      expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth + 1);
+    }
+
+    // Stroke advanced: presets, one-row arrowheads hidden for a rect, and a
+    // per-side toggle that produces a quadrille.
+    const strokeSection = page
+      .locator('.insp-disclosure')
+      .filter({ has: page.locator('.insp-disclosure__trigger', { hasText: 'Stroke' }) });
+    // Drawn rectangles start with no stroke: add one to reach the row.
+    await strokeSection.getByRole('button', { name: 'Add Stroke', exact: true }).click();
+    const advanced = strokeSection.getByRole('button', { name: /^Advanced/ });
+    await advanced.click();
+    const dashSelect = strokeSection.getByRole('combobox', { name: 'Stroke dash style' });
+    await dashSelect.click();
+    await page.getByRole('option', { name: 'Dashed' }).click();
+    // Collapsed summary names the hidden state.
+    await expect(strokeSection.getByRole('button', { name: /^Advanced/ })).toContainText('Dashed');
+    await expect(strokeSection.getByRole('spinbutton', { name: 'Miter limit' })).toBeVisible();
+
+    const perSide = strokeSection.getByRole('switch', { name: 'Stroke per-side widths' });
+    await perSide.click();
+    await expect(strokeSection.locator('.insp-quad-grid')).toBeVisible();
+    await expect(strokeSection.getByRole('button', { name: 'Use one width' })).toBeVisible();
+
+    await page.screenshot({ path: `${PAINT_EVIDENCE_DIR}/stroke-advanced.png` });
+  });
+
+  test('A zero-width stroke is flagged as invisible on the row', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await seedRealWorldDocument(page);
+    await selectRectangleLayer(page);
+    await openDesignTab(page);
+
+    // Add a stroke, then set its width to zero through the visible field.
+    // (exact: the context bar also carries an "Add stroke" affordance.)
+    await page.getByRole('button', { name: 'Add Stroke', exact: true }).click();
+    const weight = page.getByRole('spinbutton', { name: 'Stroke weight (px)' });
+    await weight.fill('0');
+    await weight.press('Enter');
+
+    const note = page.locator('.insp-paint-note');
+    await expect(note).toBeVisible({ timeout: 5_000 });
+    await expect(note).toHaveText(/zero width/i);
+    await page.screenshot({ path: `${PAINT_EVIDENCE_DIR}/stroke-zero-width.png` });
+  });
+});

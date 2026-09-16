@@ -682,6 +682,31 @@ function FillRow({
     ],
   );
 
+  // Stacked fills add reorder and remove controls to the row, and a mixed
+  // selection needs its full "Mixed" label; moving opacity to the properties
+  // line in both cases keeps the value readout visible instead of letting it
+  // ellipsize away. Uniform single fills keep opacity inline.
+  const opacityOnPropertiesLine = totalFills > 1 || paintMixed;
+  const showPropertiesLine = opacityOnPropertiesLine || blendIsMixed || blendValue !== 'normal';
+  const opacityField = (
+    <div className="insp-paint-row__opacity">
+      {/* Stored as 0–1 like every paint in the engine; shown as a
+          percentage like layer opacity. Convert only at this boundary. */}
+      <NumberField
+        label={`${label} opacity`}
+        displayLabel="Op"
+        value={isMixed(opacityRaw) ? 100 : Math.round(opacityRaw * 1000) / 10}
+        mixed={isMixed(opacityRaw)}
+        unit="%"
+        step={1}
+        min={0}
+        max={100}
+        draftKey={`${draftKey}:opacity`}
+        onChange={(v) => patch({ opacity: Math.min(1, Math.max(0, v / 100)) })}
+      />
+    </div>
+  );
+
   return (
     <div className="insp-fill-row">
       <div className="insp-paint-row">
@@ -843,22 +868,7 @@ function FillRow({
           items={typeMenuItems}
           size="compact"
         />
-        <div className="insp-paint-row__opacity">
-          {/* Stored as 0–1 like every paint in the engine; shown as a
-              percentage like layer opacity. Convert only at this boundary. */}
-          <NumberField
-            label={`${label} opacity`}
-            displayLabel="Op"
-            value={isMixed(opacityRaw) ? 100 : Math.round(opacityRaw * 1000) / 10}
-            mixed={isMixed(opacityRaw)}
-            unit="%"
-            step={1}
-            min={0}
-            max={100}
-            draftKey={`${draftKey}:opacity`}
-            onChange={(v) => patch({ opacity: Math.min(1, Math.max(0, v / 100)) })}
-          />
-        </div>
+        {!opacityOnPropertiesLine && opacityField}
         {totalFills > 1 && (
           <div className="insp-paint-row__reorder">
             <button
@@ -972,8 +982,9 @@ function FillRow({
       {/* A per-fill blend mode duplicates the layer-level Appearance row when
           it is the default for a single fill. When multiple fills exist, or when
           the blend differs from normal, surface a compact chip for 1-click access. */}
-      {(totalFills > 1 || blendIsMixed || blendValue !== 'normal') && (
+      {showPropertiesLine && (
         <div className="insp-fill-row__properties">
+          {opacityOnPropertiesLine && opacityField}
           <button
             ref={blendTriggerRef}
             type="button"

@@ -2421,10 +2421,12 @@
   padding-top: var(--space-1);
 }
 
-/* Fill row properties */
+/* Fill row properties: opacity (stacked fills only) plus the blend chip.
+ * Wraps instead of stacking so the pair shares the row's height. */
 .insp-fill-row__properties {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
   padding-left: var(--space-4);
 }
