@@ -384,20 +384,35 @@ test.describe('Design tab real-world audit', () => {
     await expect(checkbox).toBeChecked({ checked: !checkedBefore });
   });
 
-  test('Align & Distribute is hidden for single-layer selection', async ({ page }) => {
+  test('Align & Distribute hides relative-only clusters for a single selection', async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await navigateToEditor(page);
     await createFrame(page);
     await openDesignTab(page);
 
-    // With only one layer (the frame), the align section must be absent.
-    const alignTrigger = page.locator('.insp-disclosure__trigger', {
-      hasText: 'Align & Distribute',
-    });
-    await expect(alignTrigger).not.toBeVisible();
+    const alignSection = page.locator('.insp-align-section');
+    await expect(alignSection).toBeVisible({ timeout: 10_000 });
+
+    // Single selection: align buttons are live (frame/page target) and the
+    // relative-only clusters are omitted rather than rendered disabled.
+    await expect(alignSection.getByRole('button', { name: 'Align left edges' })).toBeEnabled();
+    await expect(
+      alignSection.getByRole('button', { name: 'Distribute horizontal spacing' }),
+    ).toHaveCount(0);
+    await expect(alignSection.getByRole('button', { name: 'Distribution options' })).toHaveCount(0);
+    await expect(
+      alignSection.getByRole('button', { name: 'Set key object from selection' }),
+    ).toHaveCount(0);
+    await expect(alignSection.locator('.insp-align-targets')).toBeVisible();
+
+    // The capability rule stays in the accessibility tree for screen readers.
+    const hint = await alignSection.locator('p.sr-only').textContent();
+    expect(hint).toContain('two or more selected layers');
   });
 
-  test('Align & Distribute appears and shows reference chip on multi-select', async ({ page }) => {
+  test('Align & Distribute returns its full toolbar on multi-select', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await seedRealWorldDocument(page);
 
@@ -409,19 +424,32 @@ test.describe('Design tab real-world audit', () => {
 
     await openDesignTab(page);
 
-    // Align section must appear.
-    const alignTrigger = page.locator('.insp-disclosure__trigger', { hasText: 'Align' });
-    await expect(alignTrigger).toBeVisible({ timeout: 10_000 });
+    const alignSection = page.locator('.insp-align-section');
+    await expect(alignSection).toBeVisible({ timeout: 10_000 });
+    await expect(
+      alignSection.getByRole('button', { name: 'Distribute horizontal spacing' }),
+    ).toBeVisible();
+    await expect(alignSection.getByRole('button', { name: 'Distribution options' })).toBeVisible();
+    await expect(
+      alignSection.getByRole('button', { name: 'Set key object from selection' }),
+    ).toBeVisible();
+    // The reference control names every available target.
+    await expect(
+      alignSection.getByRole('button', { name: 'Align to selection bounds (active)' }),
+    ).toBeVisible();
+  });
 
-    // Reference chip is present (shows "To Frame" or similar label).
-    const chip = page.locator('.insp-align-section__target-badge');
-    // Chip is optional — only visible when aligning to a non-selection target.
-    // What we assert: when it IS visible, it has readable text.
-    const chipVisible = await chip.isVisible().catch(() => false);
-    if (chipVisible) {
-      const chipText = await chip.textContent();
-      expect(chipText?.trim().length).toBeGreaterThan(0);
-    }
+  test('Align reference targets meet the 24px target minimum', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await navigateToEditor(page);
+    await createFrame(page);
+    await openDesignTab(page);
+
+    const target = page.locator('.insp-align-targets .pill-group__btn').first();
+    await expect(target).toBeVisible();
+    const box = await target.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.height).toBeGreaterThanOrEqual(24);
   });
 
   test('Crop & Bounds aspect ratio presets are visible and clickable', async ({ page }) => {
@@ -512,10 +540,143 @@ test.describe('Design tab real-world audit', () => {
         const hexText = await hexLabel.textContent();
         expect(hexText).toMatch(/#?[0-9a-fA-F]{6}/);
 
-        // Target button must be present.
-        const targetBtn = colorItems.first().locator('.selection-colors__target-btn');
-        await expect(targetBtn).toBeVisible();
+        // Target and copy actions must be present.
+        await expect(colorItems.first().locator('.selection-colors__target-btn')).toBeVisible();
+        await expect(colorItems.first().locator('.selection-colors__copy-btn')).toBeVisible();
       }
     }
+  });
+});
+
+test.describe('Design tab follow-up (2026-09-16)', () => {
+  test.describe.configure({ retries: 1 });
+
+  test('Selection Colors stays hidden for a single object with one colour', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await seedRealWorldDocument(page);
+    await selectRectangleLayer(page);
+    await openDesignTab(page);
+
+    // One rectangle, one default fill: the Fills row already edits it.
+    await expect(page.locator('[data-testid="selection-colors"]')).toHaveCount(0);
+  });
+
+  test('Selection Colors lists colours for a multi-layer selection', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await seedRealWorldDocument(page);
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await canvas.click({ position: { x: 640, y: 380 } });
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('ControlOrMeta+a');
+    await openDesignTab(page);
+
+    const colorsTrigger = page.locator('.insp-disclosure__trigger', {
+      hasText: 'Selection Colors',
+    });
+    await colorsTrigger.scrollIntoViewIfNeeded();
+    await expect(colorsTrigger).toBeVisible({ timeout: 10_000 });
+    if ((await colorsTrigger.getAttribute('aria-expanded')) !== 'true') {
+      await colorsTrigger.click();
+    }
+    await expect(page.locator('[data-testid="selection-colors"]')).toBeVisible();
+    const items = page.locator('.selection-colors__item');
+    expect(await items.count()).toBeGreaterThanOrEqual(1);
+  });
+
+  test('Image fit modes occupy one row and Stretch hides offset/scale', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await seedRealWorldDocument(page);
+    const photoRow = page
+      .getByRole('treeitem')
+      .filter({ hasText: /real-life-still-life/ })
+      .first();
+    await photoRow.click();
+    await openDesignTab(page);
+
+    const fitTrack = page.locator('.insp-segmented--fit');
+    await expect(fitTrack).toBeVisible({ timeout: 10_000 });
+    const buttons = fitTrack.locator('button');
+    await expect(buttons).toHaveCount(5);
+    const ys = await buttons.evaluateAll((els) =>
+      els.map((el) => Math.round(el.getBoundingClientRect().top)),
+    );
+    expect(new Set(ys).size, `fit modes wrapped onto ${new Set(ys).size} rows`).toBe(1);
+
+    // The imported photo defaults to Stretch: offset/scale are not rendered.
+    await expect(page.getByLabel('Offset X (px)')).toHaveCount(0);
+    await expect(fitTrack.getByRole('radio', { name: 'Fill' })).toBeVisible();
+    await fitTrack.getByRole('radio', { name: 'Fill' }).click();
+    await expect(page.getByLabel('Offset X (px)')).toBeVisible();
+  });
+
+  test('Per-corner radius renders as a 2x2 grid', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await seedRealWorldDocument(page);
+    await selectRectangleLayer(page);
+    await openDesignTab(page);
+
+    const cornerTrigger = page.locator('.insp-disclosure__trigger', { hasText: 'Corner Radius' });
+    await expect(cornerTrigger).toBeVisible({ timeout: 10_000 });
+    if ((await cornerTrigger.getAttribute('aria-expanded')) !== 'true') {
+      await cornerTrigger.click();
+    }
+    await page.getByRole('button', { name: 'Edit individual corners' }).click();
+
+    const grid = page.locator('.insp-quad-grid');
+    await expect(grid).toBeVisible();
+    const cells = grid.locator('.insp-icon-field');
+    await expect(cells).toHaveCount(4);
+    const boxes = await cells.evaluateAll((els) =>
+      els.map((el) => {
+        const r = el.getBoundingClientRect();
+        return { x: Math.round(r.left), y: Math.round(r.top) };
+      }),
+    );
+    // Top-left/top-right share a row; bottom-left/bottom-right share the next.
+    expect(boxes[0]!.y).toBe(boxes[1]!.y);
+    expect(boxes[2]!.y).toBe(boxes[3]!.y);
+    expect(boxes[0]!.y).not.toBe(boxes[2]!.y);
+    expect(boxes[0]!.x).not.toBe(boxes[1]!.x);
+  });
+
+  test('Mask header badge reports the active mask while collapsed', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await seedRealWorldDocument(page);
+    await selectRectangleLayer(page);
+    await openDesignTab(page);
+
+    const maskTrigger = page.locator('.insp-disclosure__trigger', { hasText: 'Mask' });
+    await expect(maskTrigger).toBeVisible({ timeout: 10_000 });
+    if ((await maskTrigger.getAttribute('aria-expanded')) !== 'true') {
+      await maskTrigger.click();
+    }
+    await page.getByRole('button', { name: 'Add vector mask' }).click();
+    await expect(page.locator('.insp-mask-card')).toBeVisible();
+
+    // Collapse again: the type must stay visible beside the header.
+    await maskTrigger.click();
+    await expect(page.locator('.insp-mask-header-badge')).toBeVisible();
+    await expect(page.locator('.insp-mask-header-badge')).toHaveText(/alpha|clip|luminance/i);
+  });
+
+  test('Per-fill blend mode appears as a chip only when it differs from Normal', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await seedRealWorldDocument(page);
+    await selectRectangleLayer(page);
+    await openDesignTab(page);
+
+    // Default fill: no duplicate blend row, and the row menu still owns it.
+    await expect(page.locator('.insp-blend-chip')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Fill actions' }).click();
+    const blendItem = page.getByRole('menuitem', { name: 'Blend mode' });
+    await expect(blendItem).toBeVisible();
+    await blendItem.click();
+    await page.getByRole('menuitemradio', { name: 'Multiply' }).click();
+
+    // Non-normal fill blend: compact chip names the mode.
+    await expect(page.locator('.insp-blend-chip')).toBeVisible();
+    await expect(page.locator('.insp-blend-chip')).toContainText('Multiply');
   });
 });

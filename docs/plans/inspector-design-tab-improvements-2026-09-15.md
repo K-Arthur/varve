@@ -76,3 +76,28 @@ Each section must follow:
 - Unit tests: `AlignDistributeBar.test.tsx`, `PositionSizeSection.test.tsx`, `CornerRadiusSection.test.tsx`, `SelectionColorsSection.test.tsx`, `ImagePlacementSection.test.tsx`, `MaskSection.test.tsx`.
 - Playwright E2E audit: `tests/e2e/inspector/design-tab-audit.spec.ts`.
 - Audits: `pnpm audit:tokens`, `pnpm audit:emoji`, `pnpm audit:docs`.
+
+---
+
+## Status addendum (2026-09-16)
+
+The 2026-09-15 implementation shipped as commits `61ccd8fa3` (redesign),
+`318e9e786` (regression repair + de-cluttering) and `e4cd0d5b3` (fills,
+placement, corners, selection colours). A rendered follow-up review found that
+parts of Step 1–7 were only partially true in the shipped panel; the second
+pass corrected them:
+
+| Step | Shipped 2026-09-15 | Corrected 2026-09-16 |
+|---|---|---|
+| 1 Align & Distribute | Full two-row toolbar for every selection; reference control 523px wide from a misused section token | Single selection omits relative-only clusters and resolves its reference to frame/page; live 24px target segments |
+| 2 Position & Size | Skew disclosure wrapped alone under the rotation row | R + flip H + flip V + skew disclosure in one row; Link2/Link2Off lock icon |
+| 3 Corner Radius | Quad grid rendered as a single column (`display:flex` override); bare `Radius` label | True 2x2 grid; px units; long-form accessible corner names |
+| 4 Image Placement | Five fit modes wrapped 3+2 inside an auto-fit grid | One equal-width five-up track; offset/scale hidden for Stretch with a reason; mixed values |
+| 5 Crops & Bounds | Presets wrapped into two rows | Single six-up strip |
+| 6 Masks | 240px button padding from the same token bug; one action rendered an empty icon span | Token fixed; labelled Type/Source rows, switches, icon actions, collapsed-header type badge |
+| 7 Selection Colors | Always rendered, duplicating Fills on a single-colour object | Suppressed when redundant; copy-hex; compact role + use count |
+
+Evidence, source-checked competitor failures, and the measurements that found
+the regressions: `docs/research/inspector-design-tab-followup-2026-09-16.md`.
+The full `docs/agents/inspector-design-tab-2026-09-15-ownership.md` handoff
+remains the ownership record.

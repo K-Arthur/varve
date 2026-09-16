@@ -224,48 +224,93 @@ import { sitePath } from '../../../lib/siteUrl';
         </p>
         <h3>Align &amp; Distribute</h3>
         <p>
-          The Align bar shows only when two or more layers are selected (single-layer alignment is a
-          no-op). A <strong>reference chip</strong> beside the section title names the active
-          alignment target — <em>To Frame</em>, <em>To Page</em>, or nothing when aligning to the
-          selection itself — so you always know what the buttons will align <em>to</em> without
-          opening a menu.
+          The Align bar adapts to what the selection can actually do. With one layer selected the
+          six align buttons are live and target the nearest frame (or the page), and the
+          relative-only clusters — distribute, fixed gap, key object, tidy up, and oriented
+          bounding boxes — do not appear at all, so the bar never shows a row of permanently
+          disabled buttons. Select two or more layers and they return, including the
+          <strong>Selection / Frame / Page</strong> reference control that names what the buttons
+          align <em>to</em>. Every omitted command stays reachable from the Object menu and its
+          keyboard shortcut.
         </p>
         <h3>Position &amp; Size</h3>
         <p>
-          The proportion lock uses a chain-link icon that breaks open when unlocked, matching the
-          mental model used across design tools. A <strong>More transforms</strong> toggle
-          progressively reveals skew controls so the section stays compact for the common case.
+          W/H carry a proportion lock built from the standard linked/unlinked chain pair, so the
+          locked state is unmistakable. The rotation row keeps R, flip H, flip V, and the skew
+          disclosure on one line; skew fields auto-surface when a layer already carries shear and
+          otherwise wait behind the diamond toggle.
         </p>
         <h3>Corner Radius</h3>
         <p>
-          The corner radius section shows a single <strong>Radius</strong> field for uniform
-          rounding, with an inline icon button to switch to per-corner mode. If a shape already has
-          different radii on each corner (asymmetric), the four-field quad grid opens automatically.
-          A <strong>Smoothing</strong> slider appears below when any rounding exists, giving
-          Figma-style superellipse softening. Corner radius now works in multi-selection when any
-          selected node is a rectangle or frame.
+          A single <strong>Radius</strong> field handles uniform rounding with an inline icon button
+          to switch to per-corner mode. Independent corners render as a true <strong>2x2 grid</strong>
+          — top-left and top-right above bottom-left and bottom-right, each beside its corner icon —
+          so the fields map onto the shape instead of reading as a row of dials. Fields carry their
+          px unit, and screen readers hear the full corner names. If a shape already has different
+          radii per corner, the grid opens automatically. A <strong>Smoothing</strong> slider appears
+          once any rounding exists, and corner radius works in multi-selection when any selected node
+          is a rectangle or frame.
         </p>
         <h3>Image Placement &amp; Cropping</h3>
         <p>
-          Image placement controls (fit mode, position, scale) now work in batch — selecting
-          multiple images applies the change to all of them at once. The Crop &amp; Bounds section
-          includes an <strong>aspect ratio preset strip</strong> (Free, 1:1, 4:3, 16:9, 3:2, 9:16)
-          for common crop constraints with a single click.
+          The five fit modes (Fill, Fit, Crop, Stretch, Tile) sit in one equal-width track. Scale and
+          offset follow the fit mode: they are hidden for <strong>Stretch</strong>, which pins the
+          image to the shape, with a one-line explanation, and reappear for every other mode.
+          Selecting multiple images batches every change, and mixed fit or scale values surface as
+          <em>Mixed</em> rather than silently adopting the first image. The Crop &amp; Bounds section
+          keeps a six-up <strong>aspect ratio strip</strong> (Free, 1:1, 4:3, 16:9, 3:2, 9:16) plus
+          collapsed Trim to Subject, Protect Faces, and Expand Bounds subsections.
         </p>
         <h3>Masks</h3>
         <p>
-          The mask card header shows the mask type and a visibility toggle at a glance. Compact
-          icon buttons replace the previous verbose action list: <strong>Eye / EyeOff</strong>
-          toggles mask visibility, the invert button flips the mask, the link button controls mask
-          source visibility, and the trash icon removes the mask.
+          When an eligible layer has no mask, one compact action group offers the applicable
+          creations — Clip, Alpha, and Luminance for containers, Vector mask for leaves, and a Brush
+          mask action — each with an icon and a tooltip that explains what the matte uses. With a
+          mask active, the card presents a labelled <strong>Type</strong> row and
+          <strong>Source</strong> picker, switches for <strong>Hide source</strong> and
+          <strong>Link transform</strong>, Feather and Density fields, a segmented fill rule, and a
+          vector-path edit trigger. Mask visibility and inversion are 24px icon toggles and removal
+          is a danger-styled trash button; a collapsed Mask section still shows the active mask type
+          beside its header so an enabled mask is never invisible.
         </p>
         <h3>Selection Colors</h3>
         <p>
-          When multiple layers with different fills are selected, Selection Colors lists each unique
-          color as a horizontal row: color swatch, monospace hex value, the number of layers using
-          that color, and a <strong>target-layers</strong> button to select just those layers on the
-          canvas. Selection Colors appears after Effects in the panel order so it never interrupts
-          the fill/stroke/effects paint stack.
+          Selection Colors summarizes every colour in the selection — fills, strokes, gradient
+          stops, table paints, and text ranges — with a swatch, monospace hex value, its role, a
+          use count when a colour is shared, a copy-value button, and a
+          <strong>select matching layers</strong> crosshair that targets every layer using that
+          colour. To avoid duplicating the Fills section, it stays hidden when a single object's
+          only colour is already editable one row below, and appears whenever a selection holds two
+          or more colours or layers.
+        </p>
+        <h3>Typography</h3>
+        <p>
+          The Typography section keeps the everyday controls in one scannable spine: content,
+          font family, weight, style, size, line height, letter spacing, and alignment. Alignment
+          uses the standard icon set with named labels and tooltips instead of single letters, and
+          case uses self-describing labels (None, ABC, abc, Abc). Tracking, paragraph spacing,
+          vertical alignment, direction, writing mode, case, decoration, list style, overflow, and
+          text sizing live in a collapsed <strong>Advanced typography</strong> subsection whose
+          header badge reports how many of those properties the current layer already uses.
+          Vertical alignment appears only for text with a container (area text), and vertical
+          orientation appears only when the writing mode is vertical. OpenType features list only
+          the tags the selected face reports — required shaping features are never offered as
+          disabled rows — use the inspector's shared labelled dropdowns, and show a count of
+          active features while collapsed. Glyph adjustments are a collapsed subsection with a
+          count badge, and the whole section remains hideable from the Section Manager.
+        </p>
+        <h3>Insights</h3>
+        <p>
+          Insights is the document-level review surface, collapsed by default at the end of the
+          Design tab and hideable from the Section Manager like any optional section. Tabs use
+          plain names — Review, Contrast, Spacing, Names, Governance, Design debt, Prototype,
+          Auto layout, Components, Similar layers, and Linter — and are filtered by
+          applicability: Spacing needs two or more layers, Names needs a selection, Auto layout
+          needs a frame, and Prototype needs prototype data, so a tab never opens onto a dead
+          end. Similar layers stays available with nothing selected because its empty state is a
+          working natural-language search field. The Review tab filters findings by category and
+          severity, reports how many findings were suppressed this session with a Restore action,
+          and only shows actions that actually change the document.
         </p>
       </section>
 
