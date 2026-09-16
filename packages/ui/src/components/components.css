@@ -929,11 +929,20 @@
 .varve-search__clear {
   position: absolute;
   right: var(--space-1);
+  /* WCAG 2.2 SC 2.5.8: the glyph stays small, the activation area is 24x24.
+   * The button is absolutely positioned, so this does not affect the field's
+   * layout height. */
+  width: var(--target-min-compact);
+  height: var(--target-min-compact);
+  min-width: var(--target-min-compact);
+  min-height: var(--target-min-compact);
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   cursor: pointer;
   color: var(--color-text-muted);
-  padding: var(--space-1);
+  padding: 0;
   border-radius: var(--radius-control-compact);
   display: flex;
 }

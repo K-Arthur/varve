@@ -1,0 +1,307 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1024" viewBox="0 0 1440 1024">
+<g id="App Board Background"><rect id="Board Surface" x="0" y="0" width="1440" height="1024" fill="#0f172a"/></g>
+<g id="Sidebar">
+<rect id="Sidebar Panel" x="0" y="0" width="360" height="1024" fill="#111827"/>
+<text id="Sidebar Heading" x="16" y="40" font-family="Inter" font-size="18" fill="#e2e8f0">Sidebar</text>
+<g id="Sidebar Row 1">
+<rect id="Sidebar Row 1 Surface" x="16" y="64" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Sidebar Row 1 Icon" cx="44" cy="96" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Sidebar Row 1 Label" x="70" y="92" font-family="Inter" font-size="13" fill="#cbd5e1">Item 1</text>
+<rect id="Sidebar Row 1 Meter" x="70" y="104" width="120" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Sidebar Row 2">
+<rect id="Sidebar Row 2 Surface" x="16" y="140" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Sidebar Row 2 Icon" cx="44" cy="172" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Sidebar Row 2 Label" x="70" y="168" font-family="Inter" font-size="13" fill="#cbd5e1">Item 2</text>
+<rect id="Sidebar Row 2 Meter" x="70" y="180" width="137" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Sidebar Row 3">
+<rect id="Sidebar Row 3 Surface" x="16" y="216" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Sidebar Row 3 Icon" cx="44" cy="248" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Sidebar Row 3 Label" x="70" y="244" font-family="Inter" font-size="13" fill="#cbd5e1">Item 3</text>
+<rect id="Sidebar Row 3 Meter" x="70" y="256" width="154" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Sidebar Row 4">
+<rect id="Sidebar Row 4 Surface" x="16" y="292" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Sidebar Row 4 Icon" cx="44" cy="324" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Sidebar Row 4 Label" x="70" y="320" font-family="Inter" font-size="13" fill="#cbd5e1">Item 4</text>
+<rect id="Sidebar Row 4 Meter" x="70" y="332" width="171" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Sidebar Row 5">
+<rect id="Sidebar Row 5 Surface" x="16" y="368" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Sidebar Row 5 Icon" cx="44" cy="400" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Sidebar Row 5 Label" x="70" y="396" font-family="Inter" font-size="13" fill="#cbd5e1">Item 5</text>
+<rect id="Sidebar Row 5 Meter" x="70" y="408" width="188" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Sidebar Row 6">
+<rect id="Sidebar Row 6 Surface" x="16" y="444" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Sidebar Row 6 Icon" cx="44" cy="476" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Sidebar Row 6 Label" x="70" y="472" font-family="Inter" font-size="13" fill="#cbd5e1">Item 6</text>
+<rect id="Sidebar Row 6 Meter" x="70" y="484" width="205" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Sidebar Row 7">
+<rect id="Sidebar Row 7 Surface" x="16" y="520" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Sidebar Row 7 Icon" cx="44" cy="552" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Sidebar Row 7 Label" x="70" y="548" font-family="Inter" font-size="13" fill="#cbd5e1">Item 7</text>
+<rect id="Sidebar Row 7 Meter" x="70" y="560" width="222" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Sidebar Row 8">
+<rect id="Sidebar Row 8 Surface" x="16" y="596" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Sidebar Row 8 Icon" cx="44" cy="628" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Sidebar Row 8 Label" x="70" y="624" font-family="Inter" font-size="13" fill="#cbd5e1">Item 8</text>
+<rect id="Sidebar Row 8 Meter" x="70" y="636" width="239" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Sidebar Row 9">
+<rect id="Sidebar Row 9 Surface" x="16" y="672" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Sidebar Row 9 Icon" cx="44" cy="704" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Sidebar Row 9 Label" x="70" y="700" font-family="Inter" font-size="13" fill="#cbd5e1">Item 9</text>
+<rect id="Sidebar Row 9 Meter" x="70" y="712" width="256" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Sidebar Row 10">
+<rect id="Sidebar Row 10 Surface" x="16" y="748" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Sidebar Row 10 Icon" cx="44" cy="780" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Sidebar Row 10 Label" x="70" y="776" font-family="Inter" font-size="13" fill="#cbd5e1">Item 10</text>
+<rect id="Sidebar Row 10 Meter" x="70" y="788" width="133" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Sidebar Row 11">
+<rect id="Sidebar Row 11 Surface" x="16" y="824" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Sidebar Row 11 Icon" cx="44" cy="856" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Sidebar Row 11 Label" x="70" y="852" font-family="Inter" font-size="13" fill="#cbd5e1">Item 11</text>
+<rect id="Sidebar Row 11 Meter" x="70" y="864" width="150" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Sidebar Row 12">
+<rect id="Sidebar Row 12 Surface" x="16" y="900" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Sidebar Row 12 Icon" cx="44" cy="932" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Sidebar Row 12 Label" x="70" y="928" font-family="Inter" font-size="13" fill="#cbd5e1">Item 12</text>
+<rect id="Sidebar Row 12 Meter" x="70" y="940" width="167" height="6" rx="3" fill="#475569"/>
+</g>
+</g>
+<g id="Main Content">
+<rect id="Main Content Panel" x="360" y="0" width="360" height="1024" fill="#111827"/>
+<text id="Main Content Heading" x="376" y="40" font-family="Inter" font-size="18" fill="#e2e8f0">Main Content</text>
+<g id="Main Content Row 1">
+<rect id="Main Content Row 1 Surface" x="376" y="64" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Main Content Row 1 Icon" cx="404" cy="96" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Main Content Row 1 Label" x="430" y="92" font-family="Inter" font-size="13" fill="#cbd5e1">Item 1</text>
+<rect id="Main Content Row 1 Meter" x="430" y="104" width="120" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Main Content Row 2">
+<rect id="Main Content Row 2 Surface" x="376" y="140" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Main Content Row 2 Icon" cx="404" cy="172" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Main Content Row 2 Label" x="430" y="168" font-family="Inter" font-size="13" fill="#cbd5e1">Item 2</text>
+<rect id="Main Content Row 2 Meter" x="430" y="180" width="137" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Main Content Row 3">
+<rect id="Main Content Row 3 Surface" x="376" y="216" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Main Content Row 3 Icon" cx="404" cy="248" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Main Content Row 3 Label" x="430" y="244" font-family="Inter" font-size="13" fill="#cbd5e1">Item 3</text>
+<rect id="Main Content Row 3 Meter" x="430" y="256" width="154" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Main Content Row 4">
+<rect id="Main Content Row 4 Surface" x="376" y="292" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Main Content Row 4 Icon" cx="404" cy="324" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Main Content Row 4 Label" x="430" y="320" font-family="Inter" font-size="13" fill="#cbd5e1">Item 4</text>
+<rect id="Main Content Row 4 Meter" x="430" y="332" width="171" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Main Content Row 5">
+<rect id="Main Content Row 5 Surface" x="376" y="368" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Main Content Row 5 Icon" cx="404" cy="400" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Main Content Row 5 Label" x="430" y="396" font-family="Inter" font-size="13" fill="#cbd5e1">Item 5</text>
+<rect id="Main Content Row 5 Meter" x="430" y="408" width="188" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Main Content Row 6">
+<rect id="Main Content Row 6 Surface" x="376" y="444" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Main Content Row 6 Icon" cx="404" cy="476" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Main Content Row 6 Label" x="430" y="472" font-family="Inter" font-size="13" fill="#cbd5e1">Item 6</text>
+<rect id="Main Content Row 6 Meter" x="430" y="484" width="205" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Main Content Row 7">
+<rect id="Main Content Row 7 Surface" x="376" y="520" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Main Content Row 7 Icon" cx="404" cy="552" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Main Content Row 7 Label" x="430" y="548" font-family="Inter" font-size="13" fill="#cbd5e1">Item 7</text>
+<rect id="Main Content Row 7 Meter" x="430" y="560" width="222" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Main Content Row 8">
+<rect id="Main Content Row 8 Surface" x="376" y="596" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Main Content Row 8 Icon" cx="404" cy="628" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Main Content Row 8 Label" x="430" y="624" font-family="Inter" font-size="13" fill="#cbd5e1">Item 8</text>
+<rect id="Main Content Row 8 Meter" x="430" y="636" width="239" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Main Content Row 9">
+<rect id="Main Content Row 9 Surface" x="376" y="672" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Main Content Row 9 Icon" cx="404" cy="704" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Main Content Row 9 Label" x="430" y="700" font-family="Inter" font-size="13" fill="#cbd5e1">Item 9</text>
+<rect id="Main Content Row 9 Meter" x="430" y="712" width="256" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Main Content Row 10">
+<rect id="Main Content Row 10 Surface" x="376" y="748" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Main Content Row 10 Icon" cx="404" cy="780" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Main Content Row 10 Label" x="430" y="776" font-family="Inter" font-size="13" fill="#cbd5e1">Item 10</text>
+<rect id="Main Content Row 10 Meter" x="430" y="788" width="133" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Main Content Row 11">
+<rect id="Main Content Row 11 Surface" x="376" y="824" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Main Content Row 11 Icon" cx="404" cy="856" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Main Content Row 11 Label" x="430" y="852" font-family="Inter" font-size="13" fill="#cbd5e1">Item 11</text>
+<rect id="Main Content Row 11 Meter" x="430" y="864" width="150" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Main Content Row 12">
+<rect id="Main Content Row 12 Surface" x="376" y="900" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Main Content Row 12 Icon" cx="404" cy="932" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Main Content Row 12 Label" x="430" y="928" font-family="Inter" font-size="13" fill="#cbd5e1">Item 12</text>
+<rect id="Main Content Row 12 Meter" x="430" y="940" width="167" height="6" rx="3" fill="#475569"/>
+</g>
+</g>
+<g id="Right Rail">
+<rect id="Right Rail Panel" x="720" y="0" width="360" height="1024" fill="#111827"/>
+<text id="Right Rail Heading" x="736" y="40" font-family="Inter" font-size="18" fill="#e2e8f0">Right Rail</text>
+<g id="Right Rail Row 1">
+<rect id="Right Rail Row 1 Surface" x="736" y="64" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Right Rail Row 1 Icon" cx="764" cy="96" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Right Rail Row 1 Label" x="790" y="92" font-family="Inter" font-size="13" fill="#cbd5e1">Item 1</text>
+<rect id="Right Rail Row 1 Meter" x="790" y="104" width="120" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Right Rail Row 2">
+<rect id="Right Rail Row 2 Surface" x="736" y="140" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Right Rail Row 2 Icon" cx="764" cy="172" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Right Rail Row 2 Label" x="790" y="168" font-family="Inter" font-size="13" fill="#cbd5e1">Item 2</text>
+<rect id="Right Rail Row 2 Meter" x="790" y="180" width="137" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Right Rail Row 3">
+<rect id="Right Rail Row 3 Surface" x="736" y="216" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Right Rail Row 3 Icon" cx="764" cy="248" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Right Rail Row 3 Label" x="790" y="244" font-family="Inter" font-size="13" fill="#cbd5e1">Item 3</text>
+<rect id="Right Rail Row 3 Meter" x="790" y="256" width="154" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Right Rail Row 4">
+<rect id="Right Rail Row 4 Surface" x="736" y="292" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Right Rail Row 4 Icon" cx="764" cy="324" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Right Rail Row 4 Label" x="790" y="320" font-family="Inter" font-size="13" fill="#cbd5e1">Item 4</text>
+<rect id="Right Rail Row 4 Meter" x="790" y="332" width="171" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Right Rail Row 5">
+<rect id="Right Rail Row 5 Surface" x="736" y="368" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Right Rail Row 5 Icon" cx="764" cy="400" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Right Rail Row 5 Label" x="790" y="396" font-family="Inter" font-size="13" fill="#cbd5e1">Item 5</text>
+<rect id="Right Rail Row 5 Meter" x="790" y="408" width="188" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Right Rail Row 6">
+<rect id="Right Rail Row 6 Surface" x="736" y="444" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Right Rail Row 6 Icon" cx="764" cy="476" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Right Rail Row 6 Label" x="790" y="472" font-family="Inter" font-size="13" fill="#cbd5e1">Item 6</text>
+<rect id="Right Rail Row 6 Meter" x="790" y="484" width="205" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Right Rail Row 7">
+<rect id="Right Rail Row 7 Surface" x="736" y="520" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Right Rail Row 7 Icon" cx="764" cy="552" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Right Rail Row 7 Label" x="790" y="548" font-family="Inter" font-size="13" fill="#cbd5e1">Item 7</text>
+<rect id="Right Rail Row 7 Meter" x="790" y="560" width="222" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Right Rail Row 8">
+<rect id="Right Rail Row 8 Surface" x="736" y="596" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Right Rail Row 8 Icon" cx="764" cy="628" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Right Rail Row 8 Label" x="790" y="624" font-family="Inter" font-size="13" fill="#cbd5e1">Item 8</text>
+<rect id="Right Rail Row 8 Meter" x="790" y="636" width="239" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Right Rail Row 9">
+<rect id="Right Rail Row 9 Surface" x="736" y="672" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Right Rail Row 9 Icon" cx="764" cy="704" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Right Rail Row 9 Label" x="790" y="700" font-family="Inter" font-size="13" fill="#cbd5e1">Item 9</text>
+<rect id="Right Rail Row 9 Meter" x="790" y="712" width="256" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Right Rail Row 10">
+<rect id="Right Rail Row 10 Surface" x="736" y="748" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Right Rail Row 10 Icon" cx="764" cy="780" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Right Rail Row 10 Label" x="790" y="776" font-family="Inter" font-size="13" fill="#cbd5e1">Item 10</text>
+<rect id="Right Rail Row 10 Meter" x="790" y="788" width="133" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Right Rail Row 11">
+<rect id="Right Rail Row 11 Surface" x="736" y="824" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Right Rail Row 11 Icon" cx="764" cy="856" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Right Rail Row 11 Label" x="790" y="852" font-family="Inter" font-size="13" fill="#cbd5e1">Item 11</text>
+<rect id="Right Rail Row 11 Meter" x="790" y="864" width="150" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Right Rail Row 12">
+<rect id="Right Rail Row 12 Surface" x="736" y="900" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Right Rail Row 12 Icon" cx="764" cy="932" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Right Rail Row 12 Label" x="790" y="928" font-family="Inter" font-size="13" fill="#cbd5e1">Item 12</text>
+<rect id="Right Rail Row 12 Meter" x="790" y="940" width="167" height="6" rx="3" fill="#475569"/>
+</g>
+</g>
+<g id="Footer">
+<rect id="Footer Panel" x="1080" y="0" width="360" height="1024" fill="#111827"/>
+<text id="Footer Heading" x="1096" y="40" font-family="Inter" font-size="18" fill="#e2e8f0">Footer</text>
+<g id="Footer Row 1">
+<rect id="Footer Row 1 Surface" x="1096" y="64" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Footer Row 1 Icon" cx="1124" cy="96" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Footer Row 1 Label" x="1150" y="92" font-family="Inter" font-size="13" fill="#cbd5e1">Item 1</text>
+<rect id="Footer Row 1 Meter" x="1150" y="104" width="120" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Footer Row 2">
+<rect id="Footer Row 2 Surface" x="1096" y="140" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Footer Row 2 Icon" cx="1124" cy="172" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Footer Row 2 Label" x="1150" y="168" font-family="Inter" font-size="13" fill="#cbd5e1">Item 2</text>
+<rect id="Footer Row 2 Meter" x="1150" y="180" width="137" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Footer Row 3">
+<rect id="Footer Row 3 Surface" x="1096" y="216" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Footer Row 3 Icon" cx="1124" cy="248" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Footer Row 3 Label" x="1150" y="244" font-family="Inter" font-size="13" fill="#cbd5e1">Item 3</text>
+<rect id="Footer Row 3 Meter" x="1150" y="256" width="154" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Footer Row 4">
+<rect id="Footer Row 4 Surface" x="1096" y="292" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Footer Row 4 Icon" cx="1124" cy="324" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Footer Row 4 Label" x="1150" y="320" font-family="Inter" font-size="13" fill="#cbd5e1">Item 4</text>
+<rect id="Footer Row 4 Meter" x="1150" y="332" width="171" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Footer Row 5">
+<rect id="Footer Row 5 Surface" x="1096" y="368" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Footer Row 5 Icon" cx="1124" cy="400" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Footer Row 5 Label" x="1150" y="396" font-family="Inter" font-size="13" fill="#cbd5e1">Item 5</text>
+<rect id="Footer Row 5 Meter" x="1150" y="408" width="188" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Footer Row 6">
+<rect id="Footer Row 6 Surface" x="1096" y="444" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Footer Row 6 Icon" cx="1124" cy="476" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Footer Row 6 Label" x="1150" y="472" font-family="Inter" font-size="13" fill="#cbd5e1">Item 6</text>
+<rect id="Footer Row 6 Meter" x="1150" y="484" width="205" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Footer Row 7">
+<rect id="Footer Row 7 Surface" x="1096" y="520" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Footer Row 7 Icon" cx="1124" cy="552" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Footer Row 7 Label" x="1150" y="548" font-family="Inter" font-size="13" fill="#cbd5e1">Item 7</text>
+<rect id="Footer Row 7 Meter" x="1150" y="560" width="222" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Footer Row 8">
+<rect id="Footer Row 8 Surface" x="1096" y="596" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Footer Row 8 Icon" cx="1124" cy="628" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Footer Row 8 Label" x="1150" y="624" font-family="Inter" font-size="13" fill="#cbd5e1">Item 8</text>
+<rect id="Footer Row 8 Meter" x="1150" y="636" width="239" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Footer Row 9">
+<rect id="Footer Row 9 Surface" x="1096" y="672" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Footer Row 9 Icon" cx="1124" cy="704" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Footer Row 9 Label" x="1150" y="700" font-family="Inter" font-size="13" fill="#cbd5e1">Item 9</text>
+<rect id="Footer Row 9 Meter" x="1150" y="712" width="256" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Footer Row 10">
+<rect id="Footer Row 10 Surface" x="1096" y="748" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Footer Row 10 Icon" cx="1124" cy="780" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Footer Row 10 Label" x="1150" y="776" font-family="Inter" font-size="13" fill="#cbd5e1">Item 10</text>
+<rect id="Footer Row 10 Meter" x="1150" y="788" width="133" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Footer Row 11">
+<rect id="Footer Row 11 Surface" x="1096" y="824" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Footer Row 11 Icon" cx="1124" cy="856" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Footer Row 11 Label" x="1150" y="852" font-family="Inter" font-size="13" fill="#cbd5e1">Item 11</text>
+<rect id="Footer Row 11 Meter" x="1150" y="864" width="150" height="6" rx="3" fill="#475569"/>
+</g>
+<g id="Footer Row 12">
+<rect id="Footer Row 12 Surface" x="1096" y="900" width="328" height="64" rx="10" fill="#1e293b"/>
+<circle id="Footer Row 12 Icon" cx="1124" cy="932" r="14" fill="#38bdf8" opacity="0.8"/>
+<text id="Footer Row 12 Label" x="1150" y="928" font-family="Inter" font-size="13" fill="#cbd5e1">Item 12</text>
+<rect id="Footer Row 12 Meter" x="1150" y="940" width="167" height="6" rx="3" fill="#475569"/>
+</g>
+</g>
+</svg>

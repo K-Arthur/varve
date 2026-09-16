@@ -216,10 +216,16 @@
 /* The tree is the panel's primary content, so it claims space ahead of the
  * optional sections stacked around it (minimap, masters, variables), each of
  * which is bounded and scrolls internally. The previous 80px floor let those
- * sections squeeze it to roughly two rows. */
+ * sections squeeze it to roughly two rows.
+ *
+ * The 15% arm keeps the floor a preference: when the panel itself is short
+ * (the rail squeezed it and the header/filter/bulk-bar/selection-set minima
+ * already exceed it), a hard 96px floor pushed the contextual bulk actions
+ * outside the panel's clipped box, where they were unreachable. Above roughly
+ * a 640px panel the 96-160px floor is what applies, unchanged. */
 .layers-panel__tree {
   flex: 1 1 0;
-  min-height: clamp(96px, 18vh, 160px);
+  min-height: min(clamp(96px, 18vh, 160px), 15%);
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
@@ -1821,6 +1827,11 @@
   border-left: 1px solid var(--color-border-subtle);
   border-right: 1px solid var(--color-border-subtle);
   padding: 0 var(--space-05);
+  /* The swatches are 24px targets now. Without this the picker wraps to a
+     second and third row inside the actions lane, growing the bar past the
+     panel's bottom edge; the bar and the narrow-container lane already own
+     horizontal scrolling, so the picker stays one row. */
+  flex-wrap: nowrap;
 }
 
 /* The editor rail is intentionally narrow. Keep selection feedback and its

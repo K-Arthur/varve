@@ -19,7 +19,9 @@ test.describe('Layers Panel - Context Menu', () => {
     const menu = page.locator('.varve-ctxmenu');
     await expect(menu).toBeVisible();
 
-    const renameItem = menu.locator('button:has-text("Rename")');
+    // Anchored prefix: plain has-text("Rename") also matches "Batch Rename…"
+    // and fails Playwright strict mode.
+    const renameItem = menu.getByRole('menuitem', { name: /^Rename\b/ });
     if ((await renameItem.count()) > 0) {
       // Accept browser prompt since the menu handler uses prompt()
       page.on('dialog', async (dialog) => {

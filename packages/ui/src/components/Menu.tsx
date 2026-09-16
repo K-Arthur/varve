@@ -678,12 +678,18 @@ function MenuInternal({
   const displayItems = shouldLimitItems
     ? normalizedItems.slice(0, maxVisibleItems ?? normalizedItems.length)
     : normalizedItems;
-  const scrollStyle: React.CSSProperties = isTruncatable
-    ? {
-        maxHeight: `${(maxVisibleItems ?? normalizedItems.length) * 32}px`,
-        overflowY: 'auto',
-      }
-    : {};
+  // Every menu is capped to the published visual viewport, not only menus
+  // that opt into maxVisibleItems. The Layers context menu has ~28 rows and
+  // rendered 1096px tall on a 700px window, pushing its last commands off
+  // screen with no way to reach them. Submenus render in their own
+  // FloatingPortal, so this scroll container cannot clip a child menu.
+  const viewportCap = 'calc(var(--visual-viewport-height, 100dvh) - var(--space-8))';
+  const scrollStyle: React.CSSProperties = {
+    maxHeight: isTruncatable
+      ? `min(${(maxVisibleItems ?? normalizedItems.length) * 32}px, ${viewportCap})`
+      : viewportCap,
+    overflowY: 'auto',
+  };
 
   const renderedItems = displayItems.map((entry) => {
     if (isSeparator(entry)) {
@@ -886,7 +892,7 @@ function MenuInternal({
   // rendered item; separators do not consume a slot, so count focusables.
   const showMoreIdx = focusableCounter + 1;
 
-  const containerStyle = isTruncatable ? { ...menuStyle, ...scrollStyle } : menuStyle;
+  const containerStyle = { ...menuStyle, ...scrollStyle };
 
   return (
     <div

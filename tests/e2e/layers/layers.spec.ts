@@ -192,12 +192,15 @@ test.describe('Layers Panel - APG Tree View', () => {
 
     await group.getByRole('button', { name: 'Collapse' }).click();
     await expect(group).toHaveAttribute('aria-expanded', 'false');
-    await expect(page.locator(`[data-node-id="${childId}"]`)).not.toBeVisible();
+    // Scope to the panel: the canvas accessibility mirror also carries
+    // data-node-id, so an unscoped locator is ambiguous (strict mode).
+    const panelRow = page.locator(`.layers-panel [data-node-id="${childId}"]`);
+    await expect(panelRow).not.toBeVisible();
 
     const filter = page.getByRole('searchbox', { name: 'Filter layers by name' });
     await filter.fill(childName!.trim());
 
-    const filteredChild = page.locator(`[data-node-id="${childId}"]`);
+    const filteredChild = panelRow;
     await expect(filteredChild).toBeVisible();
     await expect(group).toHaveAttribute('aria-expanded', 'true');
     await page.getByTestId('layers-panel').screenshot({

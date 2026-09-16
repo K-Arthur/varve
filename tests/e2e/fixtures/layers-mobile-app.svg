@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="375" height="812" viewBox="0 0 375 812">
+  <defs>
+    <linearGradient id="hero-gradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+  <g id="Screen Background">
+    <rect id="Canvas" x="0" y="0" width="375" height="812" fill="#f8fafc"/>
+  </g>
+  <g id="Status Bar">
+    <text id="Clock" x="24" y="28" font-family="Inter" font-size="14" fill="#0f172a">9:41</text>
+    <path id="Signal" d="M300 20 l4 8 h-8 z" fill="#0f172a"/>
+    <rect id="Battery" x="330" y="18" width="22" height="11" rx="2" fill="#0f172a"/>
+  </g>
+  <g id="Header">
+    <path id="Back Arrow" d="M20 60 l-10 10 l10 10" stroke="#0f172a" stroke-width="2" fill="none"/>
+    <text id="Screen Title" x="150" y="75" font-family="Inter" font-size="18" fill="#0f172a">Discover</text>
+    <circle id="Avatar" cx="345" cy="70" r="16" fill="#cbd5e1"/>
+  </g>
+  <g id="Hero Card">
+    <rect id="Hero Background" x="20" y="110" width="335" height="180" rx="16" fill="url(#hero-gradient)"/>
+    <rect id="Hero Artwork" x="36" y="126" width="303" height="96" rx="10" fill="#1e293b" opacity="0.35"/>
+    <text id="Hero Title" x="36" y="248" font-family="Inter" font-size="20" fill="#ffffff">Weekend picks</text>
+    <text id="Hero Subtitle" x="36" y="270" font-family="Inter" font-size="13" fill="#e2e8f0">Curated for you</text>
+    <g id="Hero CTA">
+      <rect id="CTA Background" x="260" y="242" width="80" height="32" rx="16" fill="#ffffff"/>
+      <text id="CTA Label" x="282" y="262" font-family="Inter" font-size="13" fill="#1d4ed8">Explore</text>
+    </g>
+  </g>
+  <g id="Feed">
+    <text id="Feed Heading" x="20" y="330" font-family="Inter" font-size="16" fill="#0f172a">For you</text>
+    <g id="Card 1">
+      <rect id="Card 1 Surface" x="20" y="348" width="335" height="88" rx="12" fill="#ffffff"/>
+      <rect id="Card 1 Thumb" x="32" y="360" width="64" height="64" rx="8" fill="#93c5fd"/>
+      <text id="Card 1 Title" x="112" y="386" font-family="Inter" font-size="15" fill="#0f172a">Morning routine</text>
+      <text id="Card 1 Meta" x="112" y="408" font-family="Inter" font-size="12" fill="#64748b">8 min read</text>
+      <path id="Card 1 Chevron" d="M330 388 l6 6 l-6 6" stroke="#94a3b8" stroke-width="2" fill="none"/>
+    </g>
+    <g id="Card 2">
+      <rect id="Card 2 Surface" x="20" y="448" width="335" height="88" rx="12" fill="#ffffff"/>
+      <rect id="Card 2 Thumb" x="32" y="460" width="64" height="64" rx="8" fill="#86efac"/>
+      <text id="Card 2 Title" x="112" y="486" font-family="Inter" font-size="15" fill="#0f172a">Focus playlist</text>
+      <text id="Card 2 Meta" x="112" y="508" font-family="Inter" font-size="12" fill="#64748b">42 tracks</text>
+      <path id="Card 2 Chevron" d="M330 488 l6 6 l-6 6" stroke="#94a3b8" stroke-width="2" fill="none"/>
+    </g>
+    <g id="Card 3">
+      <rect id="Card 3 Surface" x="20" y="548" width="335" height="88" rx="12" fill="#ffffff"/>
+      <rect id="Card 3 Thumb" x="32" y="560" width="64" height="64" rx="8" fill="#fca5a5"/>
+      <text id="Card 3 Title" x="112" y="586" font-family="Inter" font-size="15" fill="#0f172a">Evening wind-down</text>
+      <text id="Card 3 Meta" x="112" y="608" font-family="Inter" font-size="12" fill="#64748b">5 min read</text>
+      <path id="Card 3 Chevron" d="M330 588 l6 6 l-6 6" stroke="#94a3b8" stroke-width="2" fill="none"/>
+    </g>
+  </g>
+  <g id="Tab Bar">
+    <rect id="Tab Bar Surface" x="0" y="740" width="375" height="72" fill="#ffffff"/>
+    <g id="Home Tab">
+      <path id="Home Icon" d="M40 770 l12 -10 l12 10 v14 h-24 z" fill="#1d4ed8"/>
+      <text id="Home Label" x="36" y="800" font-family="Inter" font-size="11" fill="#1d4ed8">Home</text>
+    </g>
+    <g id="Search Tab">
+      <circle id="Search Icon" cx="134" cy="775" r="9" fill="none" stroke="#94a3b8" stroke-width="2"/>
+      <text id="Search Label" x="124" y="800" font-family="Inter" font-size="11" fill="#94a3b8">Search</text>
+    </g>
+    <g id="Saved Tab">
+      <path id="Saved Icon" d="M222 766 h20 v24 l-10 -8 l-10 8 z" fill="#94a3b8"/>
+      <text id="Saved Label" x="220" y="800" font-family="Inter" font-size="11" fill="#94a3b8">Saved</text>
+    </g>
+    <g id="Profile Tab">
+      <circle id="Profile Icon" cx="314" cy="776" r="10" fill="#94a3b8"/>
+      <text id="Profile Label" x="308" y="800" font-family="Inter" font-size="11" fill="#94a3b8">Profile</text>
+    </g>
+  </g>
+</svg>
