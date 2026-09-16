@@ -36,8 +36,8 @@ describe('local generative model profiles', () => {
     ).toMatchObject({ runnable: false });
   });
 
-  it('does not mistake a smaller quantized or sidecar candidate for a runnable provider', () => {
-    expect(LOCAL_GENERATIVE_MODEL_RESEARCH_PROFILES.length).toBeGreaterThanOrEqual(3);
+  it('does not mistake a research, quantized, or sidecar candidate for a runnable provider', () => {
+    expect(LOCAL_GENERATIVE_MODEL_RESEARCH_PROFILES.length).toBeGreaterThanOrEqual(5);
     for (const profile of LOCAL_GENERATIVE_MODEL_RESEARCH_PROFILES) {
       expect(profile.disposition).toBe('research-only');
       expect(profile.runtime.executionBackends).toEqual([]);
@@ -61,6 +61,16 @@ describe('local generative model profiles', () => {
         frameHeight: 512,
       },
     );
+    const flux2Profile = getLocalGenerativeModelProfile('flux2-klein-4b-reference-research');
+    expect(flux2Profile).toMatchObject({
+      inputKind: 'reference-edit',
+      supportedModes: [],
+      runtime: {
+        minimumVramBytes: 13 * 1024 ** 3,
+        recommendedVramBytes: 16 * 1024 ** 3,
+      },
+    });
+    expect(flux2Profile?.maskConvention).toBeUndefined();
     expect(getLocalGenerativeModelProfile('does-not-exist')).toBeUndefined();
     expect(LOCAL_GENERATIVE_MODEL_PROFILES).toContain(CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE);
   });
@@ -83,6 +93,43 @@ describe('local generative model profiles', () => {
       runnable: false,
       reason:
         'Stable Diffusion 1.5 Inpainting · Q4_0 has no passed local quality qualification evidence.',
+    });
+  });
+
+  it('rejects a reference editor even if a future registry entry misdeclares a mode', () => {
+    const referenceProfile = getLocalGenerativeModelProfile('flux2-klein-4b-reference-research');
+    if (!referenceProfile) throw new Error('reference research profile missing');
+
+    const incorrectlyPromoted = {
+      ...referenceProfile,
+      disposition: 'qualified' as const,
+      supportedModes: ['replace'] as const,
+      qualification: {
+        status: 'passed' as const,
+        evidenceRef: 'docs/audits/example.md',
+        platforms: ['linux-x86_64'],
+      },
+      artifact: { ...referenceProfile.artifact, sha256: '0'.repeat(64) },
+      runtime: {
+        ...referenceProfile.runtime,
+        executionBackends: ['native-cpu'],
+        architectures: ['x86_64'],
+      },
+    };
+
+    expect(
+      isLocalGenerativeModelRunnable(incorrectlyPromoted, {
+        mode: 'replace',
+        executionBackend: 'native-cpu',
+        architecture: 'x86_64',
+        platform: 'linux-x86_64',
+        availableMemoryBytes: 32 * 1024 ** 3,
+        availableVramBytes: 16 * 1024 ** 3,
+      }),
+    ).toEqual({
+      runnable: false,
+      reason:
+        'FLUX.2 Klein 4B · reference editing is a reference editor and cannot run a masked replace edit.',
     });
   });
 
@@ -134,6 +181,56 @@ describe('local generative model profiles', () => {
         architecture: 'x86_64',
         platform: 'linux-x86_64',
         availableMemoryBytes: 8 * 1024 ** 3,
+      }),
+    ).toEqual({ runnable: true });
+  });
+
+  it('requires measured VRAM when a qualified profile declares a GPU budget', () => {
+    const qualifiedProfile = {
+      ...CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE,
+      disposition: 'qualified' as const,
+      artifact: {
+        ...CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE.artifact,
+        sha256: '0'.repeat(64),
+      },
+      runtime: {
+        ...CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE.runtime,
+        architectures: ['x86_64'],
+        minimumVramBytes: 8 * 1024 ** 3,
+      },
+      qualification: {
+        status: 'passed' as const,
+        evidenceRef: 'docs/audits/example.md',
+        platforms: ['linux-x86_64'],
+      },
+    };
+    const request = {
+      mode: 'fill' as const,
+      executionBackend: 'native-cpu',
+      architecture: 'x86_64',
+      platform: 'linux-x86_64',
+      availableMemoryBytes: 32 * 1024 ** 3,
+    };
+
+    expect(isLocalGenerativeModelRunnable(qualifiedProfile, request)).toEqual({
+      runnable: false,
+      reason:
+        'Stable Diffusion 1.5 Inpainting · Q4_0 requires a measured available-GPU-memory value before startup.',
+    });
+    expect(
+      isLocalGenerativeModelRunnable(qualifiedProfile, {
+        ...request,
+        availableVramBytes: 4 * 1024 ** 3,
+      }),
+    ).toEqual({
+      runnable: false,
+      reason:
+        'Stable Diffusion 1.5 Inpainting · Q4_0 needs at least 8 GiB available GPU memory for its qualified working set.',
+    });
+    expect(
+      isLocalGenerativeModelRunnable(qualifiedProfile, {
+        ...request,
+        availableVramBytes: 8 * 1024 ** 3,
       }),
     ).toEqual({ runnable: true });
   });

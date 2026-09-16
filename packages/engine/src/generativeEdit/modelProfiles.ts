@@ -40,6 +40,10 @@ export interface LocalGenerativeModelRuntimeRequirements {
   minimumMemoryBytes?: number;
   /** A target memory budget for setup copy and concurrent editor work. */
   recommendedMemoryBytes?: number;
+  /** A lower bound for measured dedicated or unified GPU memory, when known. */
+  minimumVramBytes?: number;
+  /** A target GPU-memory budget that leaves room for the editor and driver. */
+  recommendedVramBytes?: number;
   /** Whether the runtime requires a discrete GPU rather than CPU fallback. */
   requiresGpu: boolean;
   /** Whether the installed profile remains usable with no network. */
@@ -61,7 +65,8 @@ export interface LocalGenerativeModelProfile {
   disposition: LocalGenerativeModelDisposition;
   supportedModes: readonly GenerativeEditMode[];
   inputKind: DiffusionInputKind;
-  maskConvention: DiffusionMaskConvention;
+  /** Required only for providers that consume an explicit edit mask. */
+  maskConvention?: DiffusionMaskConvention;
   frameContract?: DiffusionFrameContract;
   artifact: LocalGenerativeModelArtifact;
   runtime: LocalGenerativeModelRuntimeRequirements;
@@ -255,6 +260,52 @@ export const LOCAL_GENERATIVE_MODEL_RESEARCH_PROFILES: readonly LocalGenerativeM
     reason:
       'Research-only high-memory comparison; the current desktop and browser profiles must refuse it.',
   },
+  {
+    id: 'flux2-klein-4b-reference-research',
+    name: 'FLUX.2 Klein 4B · reference editing',
+    family: 'flux2-klein-4b',
+    disposition: 'research-only',
+    // This profile intentionally has no generative-edit modes. The published
+    // contract is image-to-image/reference editing, not a hard mask. Listing
+    // it as Fill/Replace/Expand would let a future adapter silently discard
+    // the user's protected-pixel boundary.
+    supportedModes: [],
+    inputKind: 'reference-edit',
+    artifact: {
+      format: 'safetensors',
+      source: 'black-forest-labs/FLUX.2-klein-4B',
+      revision: 'main (pin before install)',
+      license: 'Apache-2.0',
+      requiredComponentRoles: [
+        'flux2-klein-4b-transformer',
+        'qwen3-4b-text-encoder',
+        'flux2-autoencoder',
+        'tokenizer',
+        'scheduler',
+      ],
+    },
+    runtime: {
+      adapterId: 'flux2-klein-reference-sidecar-unimplemented',
+      executionBackends: [],
+      architectures: [],
+      // The Hugging Face card reports ~13 GB VRAM while the official runtime
+      // repository reports ~8 GB for Klein 4B. Until Varve measures the full
+      // component graph, use the conservative card figure and do not infer
+      // Chromebook/ARM suitability from the 4B label or file size.
+      minimumVramBytes: 13 * 1024 ** 3,
+      recommendedVramBytes: 16 * 1024 ** 3,
+      requiresGpu: true,
+      offlineAfterInstall: true,
+    },
+    limitations: [
+      'The published model supports single- and multi-reference image editing, not an explicit hard-mask inpainting or outpainting contract.',
+      'The complete local graph includes the transformer, Qwen3 text encoder, FLUX.2 autoencoder, tokenizer, and scheduler; the transformer file alone is about 7.75 GB.',
+      'The upstream memory estimates conflict (~8 GB versus ~13 GB VRAM), so no Varve memory, backend, ARM, or cancellation qualification exists.',
+      'A future reference-edit command must composite through the same protected-pixel boundary and must not reuse the masked inpainting adapter.',
+    ],
+    reason:
+      'Research-only reference editor; it is not a Fill, Remove, Replace, or Expand provider and must remain unavailable until a separate local adapter and qualification exist.',
+  },
 ];
 
 export const LOCAL_GENERATIVE_MODEL_PROFILES: readonly LocalGenerativeModelProfile[] = [
@@ -276,10 +327,17 @@ export function isLocalGenerativeModelRunnable(
     executionBackend?: string;
     architecture?: string;
     platform?: string;
+    availableVramBytes?: number;
   },
 ): { runnable: true } | { runnable: false; reason: string } {
   if (profile.disposition !== 'qualified') {
     return { runnable: false, reason: profile.reason };
+  }
+  if (profile.inputKind !== 'masked-inpainting') {
+    return {
+      runnable: false,
+      reason: `${profile.name} is a reference editor and cannot run a masked ${options.mode} edit.`,
+    };
   }
   if (!profile.supportedModes.includes(options.mode)) {
     return { runnable: false, reason: `${profile.name} does not support ${options.mode}.` };
@@ -306,7 +364,7 @@ export function isLocalGenerativeModelRunnable(
       reason: `${profile.name} has no complete component manifest.`,
     };
   }
-  if (!profile.runtime.adapterId || !profile.frameContract) {
+  if (!profile.runtime.adapterId || !profile.frameContract || !profile.maskConvention) {
     return {
       runnable: false,
       reason: `${profile.name} has no qualified model adapter and frame contract.`,
@@ -383,6 +441,22 @@ export function isLocalGenerativeModelRunnable(
     return {
       runnable: false,
       reason: `${profile.name} needs at least ${Math.ceil(profile.runtime.minimumMemoryBytes / 1024 ** 3)} GiB available memory for its qualified working set.`,
+    };
+  }
+  if (profile.runtime.minimumVramBytes !== undefined && options.availableVramBytes === undefined) {
+    return {
+      runnable: false,
+      reason: `${profile.name} requires a measured available-GPU-memory value before startup.`,
+    };
+  }
+  if (
+    profile.runtime.minimumVramBytes !== undefined &&
+    options.availableVramBytes !== undefined &&
+    options.availableVramBytes < profile.runtime.minimumVramBytes
+  ) {
+    return {
+      runnable: false,
+      reason: `${profile.name} needs at least ${Math.ceil(profile.runtime.minimumVramBytes / 1024 ** 3)} GiB available GPU memory for its qualified working set.`,
     };
   }
   return { runnable: true };

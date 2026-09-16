@@ -45,6 +45,15 @@ target-specific evidence. The current desktop build also rejects arbitrary
 model imports: a model-specific adapter must identify and validate every
 component and mask/frame contract before a candidate can enter the app.
 
+The review also records **FLUX.2 Klein 4B** as a reference-edit candidate,
+not as another inpainting choice. Its official card demonstrates
+image-to-image editing with a source image and prompt, while the official
+runtime overview lists single- and multi-reference editing rather than an
+explicit editable-mask input. The registry therefore gives it no Fill,
+Remove, Replace, or Expand mode. This distinction is deliberate: a model can
+produce a convincing whole-image edit while still being unsafe for a
+protected-pixel workflow.
+
 ## Important naming correction: FLUX.1.1 versus FLUX Fill
 
 “FLUX dev 1.1” combines two different products:
@@ -62,6 +71,32 @@ component and mask/frame contract before a candidate can enter the app.
 The product must never label the hosted API as a local model or use it as a
 fallback when a local provider fails.
 
+### Quantized FLUX Fill files are not drop-in local profiles
+
+The Hugging Face search also found several quantized `FLUX.1-Fill-dev` uploads.
+They reduce storage size, but they do not remove the adapter and runtime
+qualification work:
+
+- [GPUStack FLUX.1-Fill-dev GGUF](https://huggingface.co/gpustack/FLUX.1-Fill-dev-GGUF)
+  describes its support as experimental and tied to `llama-box` v0.0.98 or
+  newer, using a patched `stable-diffusion.cpp` revision. That is not the
+  vendored `diffusion-rs` runtime in Varve.
+- [GaiaNet FLUX.1-Fill-dev GGUF](https://huggingface.co/gaianet/FLUX.1-Fill-dev-GGUF)
+  lists Q2_K and Q4_0 files in the multi-gigabyte range and identifies a
+  particular `stable-diffusion.cpp` conversion revision. The file size is not
+  evidence that the tensors or runtime are compatible with Varve.
+- [Second State FLUX.1-Fill-dev GGUF](https://huggingface.co/second-state/FLUX.1-Fill-dev-GGUF)
+  notes that the text encoders and VAE are not supplied with the quantized
+  file. Those components must be version-pinned and managed as part of one
+  profile; accepting the single GGUF would create an incomplete provider.
+
+These artifacts therefore remain research inputs, not downloadable or
+importable app profiles. A future FLUX adapter must supervise the exact
+runtime, resolve every required component from opaque managed handles, verify
+the white-edit/black-preserve mask contract, and pass the same real-photo,
+memory, cancellation, and platform gates as every other provider. A smaller
+file alone is not a low-memory qualification.
+
 ## Candidate matrix
 
 “Research-only” means a candidate may be downloaded into a disposable,
@@ -75,7 +110,7 @@ bundled, or used as marketing evidence.
 | `black-forest-labs/FLUX.1-Fill-dev` | Explicit masked Fill and Outpaint; suitable for prompt-conditioned Fill, Replace, and border generation when the mask and output frame are supplied correctly | 12B BF16 Diffusers workflow, gated non-commercial license, large model/runtime, and no proof of compatibility with Varve’s Rust helper. The official reference implementation and Diffusers pipeline must be treated as a new supervised adapter, not as an SD checkpoint. [Model card](https://huggingface.co/black-forest-labs/FLUX.1-Fill-dev) · [Fill implementation](https://github.com/black-forest-labs/flux/blob/main/docs/fill.md) | **Second local qualification candidate; high-memory research-only** |
 | `briaai/Fibo-Edit-1.5-turbo` | Native mask-based editing, structured VGL/JSON controls, and up to four references; useful for precise Replace and reference-guided edits | 8B, four-step distilled pipeline, non-commercial source/weight terms, and a separate prompt-to-JSON example that uses `trust_remote_code` and a Gemini API key. Varve must not use that remote prompt converter or arbitrary remote code; a local hand-authored/validated structured request is required. [Model card](https://huggingface.co/briaai/Fibo-Edit-1.5-turbo) | **Third comparison candidate; research-only pending licensing and safe-runtime review** |
 | `diffusers/stable-diffusion-xl-1.0-inpainting-0.1` | Masked inpainting; a higher-resolution Fill/Remove/Replace baseline and possible outpaint adapter | Diffusers/PyTorch workflow at a substantially larger working frame. Varve’s 2026-09-15 SDXL probe exhausted the available memory budget before producing a semantically acceptable result. It remains a diagnostic comparison, not a product fallback. [Model card](https://huggingface.co/diffusers/stable-diffusion-xl-1.0-inpainting-0.1) · [probe](../audits/generative-editing-sdxl-probe-2026-09-15.md) | Disabled until a smaller, compatible runtime and new evidence exist |
-| `black-forest-labs/FLUX.2-klein-4B` | Reference/image editing, not an explicitly documented mask-conditioned inpainting pipeline | Apache-2.0 4B model with an official estimate of about 13 GB VRAM. It may be useful for a future reference-edit command, but routing it through Fill or Expand would discard the mask contract and risk changing protected pixels. [Model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) | Future reference-edit research; not a Fill provider |
+| `black-forest-labs/FLUX.2-klein-4B` | Reference/image editing, not an explicitly documented mask-conditioned inpainting pipeline | Apache-2.0 4B model. The Hugging Face card reports about 13 GB VRAM, while the official runtime overview reports about 8 GB for Klein 4B; the transformer file alone is about 7.75 GB and the complete graph also needs Qwen3, the FLUX.2 autoencoder, tokenizer, and scheduler. It may be useful for a future reference-edit command, but routing it through Fill or Expand would discard the mask contract and risk changing protected pixels. [Model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B) · [official runtime](https://github.com/black-forest-labs/flux2) | Future reference-edit research; not a Fill provider |
 | `Qwen/Qwen-Image-Edit-2509` | Semantic and multi-image reference editing; the official quick start does not establish Varve’s explicit masked inpainting contract | 20B model, Apache-2.0 card, 40-step example, and high memory/runtime cost. ControlNet depth/edge/keypoint support is not equivalent to a source edit mask. [Model card](https://huggingface.co/Qwen/Qwen-Image-Edit-2509) | Future reference/control-edit research; not a Fill provider |
 | BrushNet | Adapter/dual-branch masked editing technique, not a complete standalone product model | Requires a compatible base diffusion model, BrushNet weights, and a Python/PyTorch/Diffusers stack. Base, adapter, code, and runtime provenance must be qualified separately. [Repository](https://github.com/TencentARC/BrushNet) · [paper](https://arxiv.org/abs/2403.06976) | Boundary-quality research only |
 | `alimama-creative/FLUX.1-dev-Controlnet-Inpainting-Alpha` | Inpainting ControlNet adapter for FLUX.1-dev | The card describes a 768-trained alpha checkpoint and the FLUX.1 dev non-commercial license. It is not a complete standalone provider and its alpha status is not release evidence. [Model card](https://huggingface.co/alimama-creative/FLUX.1-dev-Controlnet-Inpainting-Alpha) | Do not select for the first qualification lane |
@@ -111,6 +146,11 @@ Each candidate gets an isolated, versioned environment outside the renderer:
   unavailable until that parser exists.
 - SDXL and any BrushNet combination: retain base-model, adapter, VAE, text
   encoder, scheduler, and runtime versions as one qualification identity.
+- FLUX.2 Klein 4B: retain the transformer, Qwen3 text encoder, FLUX.2
+  autoencoder, tokenizer, scheduler, official runtime commit, and the
+  measured GPU/system-memory envelope as one reference-edit identity. It must
+  not be installed through the masked inpainting model manager until a
+  separate reference-edit command exists.
 
 The helper protocol must use opaque model and asset handles, not arbitrary
 filesystem paths or model binaries in JSON. It must run in a separate
@@ -137,7 +177,7 @@ controlled machine with enough free memory and capture peak usage.
 | Device situation | Local behaviour | Prompt-model policy |
 | --- | --- | --- |
 | 4 GB RAM, entry Chromebook, or low-memory ARM browser | PatchMatch/OpenCV-style repair; bounded source region; explicit manual mask; unload optional small segmentation sessions | No diffusion. LaMa or segmentation is allowed only after a measured safe-peak check for the exact browser/runtime/model; otherwise use Fast cleanup |
-| 8–16 GB RAM without a discrete GPU | Promptless local repair and bounded LaMa where measured; one heavy session only | PowerPaint/FIBO/SDXL/FLUX remain gated until a real CPU peak and latency result is acceptable; do not infer support from model file size |
+| 8–16 GB RAM without a discrete GPU | Promptless local repair and bounded LaMa where measured; one heavy session only | PowerPaint/FIBO/SDXL/FLUX remain gated; FLUX.2 Klein 4B additionally needs a measured GPU budget and is not a mask provider. Do not infer support from model file size |
 | High-memory desktop with a supported GPU or unified-memory budget | Candidate-specific supervised sidecar, one job at a time, sequential variations, bounded tiles | PowerPaint first, FLUX Fill second, FIBO third; each OS/backend/architecture needs its own evidence |
 | ARM desktop or Apple Silicon | Native deterministic path plus separately built/tested helper | No x86 assumption. Require ARM runtime, instruction-set, backend, memory, cancellation, and real-photo qualification before exposure |
 
@@ -240,7 +280,9 @@ The model review results in these changes to the current work:
   they are not interchangeable with the current `diffusion-rs` SD helper.
 - Qwen Image Edit, FLUX.2 Klein, and Kontext are kept out of Fill/Expand
   routing because their documented reference-edit contracts do not establish
-  hard mask preservation.
+  hard mask preservation. FLUX.2 Klein 4B is registered explicitly as a
+  reference-only research profile with a conservative 13 GiB VRAM floor until
+  the conflicting upstream estimates are measured in Varve's complete graph.
 - Promptless cleanup stays first-class for Chromebooks, ARM devices, and low
   memory sessions. Automatic object selection remains a reviewed mask step,
   not a hidden semantic guarantee.
@@ -258,6 +300,7 @@ The model review results in these changes to the current work:
 - [PowerPaint repository](https://github.com/zhuang2002/PowerPaint)
 - [FIBO-Edit 1.5 Turbo model card](https://huggingface.co/briaai/Fibo-Edit-1.5-turbo)
 - [FLUX.2 Klein 4B model card](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B)
+- [FLUX.2 official runtime repository](https://github.com/black-forest-labs/flux2)
 - [Qwen Image Edit 2509 model card](https://huggingface.co/Qwen/Qwen-Image-Edit-2509)
 - [SDXL Inpainting model card](https://huggingface.co/diffusers/stable-diffusion-xl-1.0-inpainting-0.1)
 - [BrushNet repository](https://github.com/TencentARC/BrushNet)
