@@ -84,6 +84,7 @@ describe('prepareDiffusionFrame', () => {
       preprocessingVersion: 'test-letterbox-v1',
       inputKind: 'masked-inpainting',
       maskConvention: 'white-edit-black-preserve',
+      maskInput: 'image-and-mask',
       frameWidth: 768,
       frameHeight: 512,
       dimensionMultiple: 64,
@@ -92,6 +93,7 @@ describe('prepareDiffusionFrame', () => {
 
     expect(frame.contractId).toBe(contract.id);
     expect(frame.preprocessingVersion).toBe(contract.preprocessingVersion);
+    expect(frame.maskInput).toBe('image-and-mask');
     expect(frame.width).toBe(768);
     expect(frame.height).toBe(512);
     expect(frame.contentWidth).toBe(768);
@@ -134,6 +136,7 @@ describe('prepareDiffusionFrame', () => {
       preprocessingVersion: 'test-letterbox-v1',
       inputKind: 'masked-inpainting',
       maskConvention: 'white-preserve-black-edit',
+      maskInput: 'masked-image-and-mask',
       frameWidth: 4,
       frameHeight: 4,
       dimensionMultiple: 2,
@@ -146,6 +149,35 @@ describe('prepareDiffusionFrame', () => {
     // A canonical preserve value becomes white for this provider.
     expect(frame.mask[frame.contentY * frame.width + 1]).toBe(255);
     expect(frame.maskConvention).toBe('white-preserve-black-edit');
+    expect(frame.maskInput).toBe('masked-image-and-mask');
+  });
+
+  it('requires an explicit mask tensor contract for masked providers', () => {
+    expect(() =>
+      prepareDiffusionFrame(image(2, 2), new Uint8Array(4), 2, 2, {
+        id: 'missing-mask-input-contract',
+        preprocessingVersion: 'test-letterbox-v1',
+        inputKind: 'masked-inpainting',
+        maskConvention: 'white-edit-black-preserve',
+        maskInput: 'none',
+        frameWidth: 2,
+        frameHeight: 2,
+        dimensionMultiple: 2,
+      }),
+    ).toThrow('explicit mask input');
+
+    expect(() =>
+      prepareDiffusionFrame(image(2, 2), new Uint8Array(4), 2, 2, {
+        id: 'reference-with-mask-input-contract',
+        preprocessingVersion: 'test-letterbox-v1',
+        inputKind: 'reference-edit',
+        maskConvention: 'white-edit-black-preserve',
+        maskInput: 'image-and-mask',
+        frameWidth: 2,
+        frameHeight: 2,
+        dimensionMultiple: 2,
+      }),
+    ).toThrow('cannot claim a masked input contract');
   });
 
   it('does not send a reference-only editor through the masked frame path', () => {
@@ -155,6 +187,7 @@ describe('prepareDiffusionFrame', () => {
         preprocessingVersion: 'test-letterbox-v1',
         inputKind: 'reference-edit',
         maskConvention: 'white-edit-black-preserve',
+        maskInput: 'none',
         frameWidth: 2,
         frameHeight: 2,
         dimensionMultiple: 2,
@@ -169,6 +202,7 @@ describe('prepareDiffusionFrame', () => {
         preprocessingVersion: 'test-letterbox-v1',
         inputKind: 'masked-inpainting',
         maskConvention: 'white-edit-black-preserve',
+        maskInput: 'image-and-mask',
         frameWidth: 510,
         frameHeight: 512,
         dimensionMultiple: 64,

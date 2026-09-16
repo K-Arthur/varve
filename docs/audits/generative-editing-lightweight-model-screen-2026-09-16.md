@@ -26,7 +26,7 @@ prompt-conditioned four-mode qualification.
 
 | Candidate | Local contract observed | Resource and runtime considerations | Decision |
 | --- | --- | --- | --- |
-| [Acly/MIGAN-GGUF](https://huggingface.co/Acly/MIGAN-GGUF) | MI-GAN inpainting; 7.37M parameters; official F16 GGUF is 14,758,080 bytes; mask-only, no text encoder | MIT model conversion for [vision.cpp](https://github.com/Acly/vision.cpp); fixed 512 model; upstream conversion performs its own resize and mask processing. Varve has no vision.cpp sidecar or GGUF runtime. | Register as research-only promptless Fill/Remove candidate; do not download or route from ordinary app flows |
+| [Acly/MIGAN-GGUF](https://huggingface.co/Acly/MIGAN-GGUF) | MI-GAN inpainting; 7.37M parameters; official F16 GGUF is 14,758,080 bytes; mask-only, no text encoder. The model tensor uses keep-mask plus masked RGB; the official CLI accepts a white edit mask and flips it at the adapter boundary. | MIT model conversion for [vision.cpp](https://github.com/Acly/vision.cpp); fixed 512 model; upstream conversion performs its own resize and mask processing. An isolated Varve-side CPU build ran, but two real-photo edits failed visual review despite a zero-difference empty-mask control. Varve still has no product vision.cpp sidecar or GGUF runtime. | Register as research-only promptless Fill/Remove candidate; do not route from ordinary app flows |
 | [litert-community/MI-GAN-512-Places2-LiteRT](https://huggingface.co/litert-community/MI-GAN-512-Places2-LiteRT) | Input is `[1,4,512,512] = concat(mask - 0.5, rgb * mask)`; white/one keeps and black/zero erases; output is RGB in `[-1,1]` | MIT; LiteRT/TFLite graph, not an ONNX or `diffusion-rs` artifact. The card reports 16.3 MB fp16 and 393 MB peak on a Raspberry Pi 5 CPU run, but those are upstream runtime measurements, not Varve evidence. | Good reference for a future mobile/ARM adapter; not a current desktop/browser provider |
 | [simonw/Moebius-ONNX](https://huggingface.co/simonw/Moebius-ONNX) | Three static graphs: VAE encoder, UNet, and VAE decoder; 512 × 512; learned embedding table rather than natural-language text; custom DDIM loop | Apache-2.0; approximately 907 MB UNet + 137 MB encoder + 198 MB decoder; custom VAE scale `0.13025`; 19 effective steps in the documented 20-step example. CPU/WebGPU execution is possible in its reference pipeline, but the full graph set and working buffers require a measured memory budget. | Research-only promptless Fill/Remove comparison; no current adapter |
 
@@ -56,11 +56,17 @@ Varve adapter, and was not scored against the frozen 32-task corpus. It must
 not be used as a marketing image, a qualification report, or a reason to
 enable a product route.
 
-The official MI-GAN GGUF was downloaded to temporary storage and hash-checked,
-but it was not promoted. The attempted vision.cpp configuration could not
-start because its `depend/llama/ggml` submodule was absent and its configure
-step began fetching unrelated model assets. The attempt was stopped before a
-runtime result; no product source or model directory was changed.
+The official MI-GAN GGUF was downloaded to temporary storage and hash-checked.
+An isolated CPU build of the pinned vision.cpp revision was completed after
+initializing its required external submodule; no product source or model
+directory was changed. The real landscape run took about 2.67 seconds and
+produced a dark rectangular repair around the selected region. The real
+still-life run took about 2.33 seconds and produced an obvious orange/structural
+artifact. An empty edit-mask control had an exact zero-pixel difference from
+the source. The runtime therefore demonstrated correct mask consumption and
+outside-region preservation, but failed Varve's visual quality bar and remains
+research-only. No peak-memory, ARM64, Vulkan, or package qualification was
+claimed from this disposable run.
 
 ## Adapter requirements before promotion
 
@@ -106,9 +112,10 @@ Commands and inspections for this screen:
   SHA-256 were checked against the profile metadata.
 - ONNX input/output metadata and one real-photograph diagnostic were inspected
   outside the product tree.
-- The native vision.cpp attempt was stopped at configuration because the
-  required submodule was missing; no failed build is treated as a provider
-  qualification.
+- The official vision.cpp CPU build and MI-GAN runs were completed in
+  disposable `/var/tmp` locations. Empty-mask equality passed, while the
+  landscape and still-life outputs failed visual review; no failed build or
+  failed visual result is treated as provider qualification.
 
 The existing browser visual lane remains the authoritative UI evidence. This
 screen adds no screenshot baseline and makes no claim that the prompt models

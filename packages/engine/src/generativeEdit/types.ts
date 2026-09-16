@@ -1,5 +1,9 @@
 import type { ContentAwareFillResult } from '../contentAwareFill/types';
-import type { DiffusionInputKind, DiffusionMaskConvention } from './diffusionFrame';
+import type {
+  DiffusionInputKind,
+  DiffusionMaskConvention,
+  DiffusionMaskInputContract,
+} from './diffusionFrame';
 
 /**
  * `remove` is the persisted operation name for Generative Subtract: the user
@@ -29,6 +33,8 @@ export interface GenerativeEditInputFrame {
   inputKind: DiffusionInputKind;
   /** How canonical Varve coverage is encoded in the provider frame. */
   maskConvention: DiffusionMaskConvention;
+  /** Exact image/mask tensor shape expected by the provider adapter. */
+  maskInput: DiffusionMaskInputContract;
   width: number;
   height: number;
   /** Dimensions of the context before it was mapped into the model frame. */

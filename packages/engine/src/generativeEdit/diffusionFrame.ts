@@ -20,6 +20,13 @@ export interface DiffusionFrameContract {
   inputKind: DiffusionInputKind;
   /** How the provider interprets the mask bytes supplied with the frame. */
   maskConvention: DiffusionMaskConvention;
+  /**
+   * How the provider receives the image/mask conditioning. Polarity does not
+   * describe tensor shape: some high-level pipelines accept image + mask and
+   * derive the masked image internally, while low-level graphs need the
+   * already-masked image (or a concatenated tensor) explicitly.
+   */
+  maskInput: DiffusionMaskInputContract;
   /** Exact frame dimensions sent to the provider. */
   frameWidth: number;
   frameHeight: number;
@@ -33,6 +40,17 @@ export type DiffusionInputKind = 'masked-inpainting' | 'reference-edit';
 /** Canonical Varve coverage is 0 = preserve and 255 = edit. */
 export type DiffusionMaskConvention = 'white-edit-black-preserve' | 'white-preserve-black-edit';
 
+/**
+ * Model-facing mask tensor contract. This is intentionally separate from
+ * `DiffusionMaskConvention`, because two providers can use the same polarity
+ * while requiring different image/mask tensors.
+ */
+export type DiffusionMaskInputContract =
+  | 'image-and-mask'
+  | 'masked-image-and-mask'
+  | 'masked-image-plus-mask'
+  | 'none';
+
 /** SD 1.5 inpainting's reference working frame. */
 export const SD15_INPAINTING_FRAME_SIZE = 512;
 export const SD15_INPAINTING_FRAME_CONTRACT = {
@@ -40,6 +58,9 @@ export const SD15_INPAINTING_FRAME_CONTRACT = {
   preprocessingVersion: 'varve-diffusion-letterbox-linear-srgb-v1',
   inputKind: 'masked-inpainting',
   maskConvention: 'white-edit-black-preserve',
+  // diffusion-rs accepts the source image and mask and builds the masked
+  // image inside its SD inpainting pipeline.
+  maskInput: 'image-and-mask',
   frameWidth: SD15_INPAINTING_FRAME_SIZE,
   frameHeight: SD15_INPAINTING_FRAME_SIZE,
   dimensionMultiple: 64,
@@ -56,6 +77,7 @@ export const SD2_INPAINTING_FRAME_CONTRACT = {
   preprocessingVersion: 'varve-diffusion-letterbox-linear-srgb-v1',
   inputKind: 'masked-inpainting',
   maskConvention: 'white-edit-black-preserve',
+  maskInput: 'image-and-mask',
   frameWidth: 512,
   frameHeight: 512,
   dimensionMultiple: 64,
@@ -73,9 +95,42 @@ export const SDXL_INPAINTING_FRAME_CONTRACT = {
   preprocessingVersion: 'varve-diffusion-letterbox-linear-srgb-v1',
   inputKind: 'masked-inpainting',
   maskConvention: 'white-edit-black-preserve',
+  maskInput: 'image-and-mask',
   frameWidth: 1024,
   frameHeight: 1024,
   dimensionMultiple: 64,
+} as const satisfies DiffusionFrameContract;
+
+/**
+ * MI-GAN's low-level input is `[keepMask, maskedRgb]`. The official
+ * vision.cpp conversion accepts a white edit mask at its CLI boundary and
+ * inverts it before constructing that tensor, so the Varve profile retains
+ * the canonical provider polarity separately from the tensor shape.
+ */
+export const MIGAN_INPAINTING_FRAME_CONTRACT = {
+  id: 'migan-places2-512-square-v1',
+  preprocessingVersion: 'migan-vision-cpp-mask-first-rgb-v1',
+  inputKind: 'masked-inpainting',
+  maskConvention: 'white-preserve-black-edit',
+  maskInput: 'masked-image-plus-mask',
+  frameWidth: 512,
+  frameHeight: 512,
+} as const satisfies DiffusionFrameContract;
+
+/**
+ * Moebius exposes its low-level ONNX denoiser rather than a high-level
+ * pipeline. Its 9-channel latent is `[noisyLatent, mask, maskedImageLatent]`,
+ * so an adapter must zero the edit coverage before VAE encoding.
+ */
+export const MOEBIUS_INPAINTING_FRAME_CONTRACT = {
+  id: 'moebius-512-square-v1',
+  preprocessingVersion: 'moebius-onnx-masked-latent-ddim-v1',
+  inputKind: 'masked-inpainting',
+  maskConvention: 'white-edit-black-preserve',
+  maskInput: 'masked-image-and-mask',
+  frameWidth: 512,
+  frameHeight: 512,
+  dimensionMultiple: 8,
 } as const satisfies DiffusionFrameContract;
 
 export interface DiffusionFrame {
@@ -87,6 +142,7 @@ export interface DiffusionFrame {
   preprocessingVersion: string;
   inputKind: DiffusionInputKind;
   maskConvention: DiffusionMaskConvention;
+  maskInput: DiffusionMaskInputContract;
   contentX: number;
   contentY: number;
   contentWidth: number;
@@ -113,6 +169,20 @@ function validateContract(contract: DiffusionFrameContract): void {
     contract.maskConvention !== 'white-preserve-black-edit'
   ) {
     throw new Error('Diffusion frame contract has an unsupported mask convention');
+  }
+  if (
+    contract.maskInput !== 'image-and-mask' &&
+    contract.maskInput !== 'masked-image-and-mask' &&
+    contract.maskInput !== 'masked-image-plus-mask' &&
+    contract.maskInput !== 'none'
+  ) {
+    throw new Error('Diffusion frame contract has an unsupported mask input contract');
+  }
+  if (contract.inputKind === 'masked-inpainting' && contract.maskInput === 'none') {
+    throw new Error('Masked inpainting contracts must require an explicit mask input');
+  }
+  if (contract.inputKind === 'reference-edit' && contract.maskInput !== 'none') {
+    throw new Error('Reference-edit contracts cannot claim a masked input contract');
   }
   if (
     typeof contract.preprocessingVersion !== 'string' ||
@@ -302,6 +372,7 @@ export function prepareDiffusionFrame(
     preprocessingVersion: contract.preprocessingVersion,
     inputKind: contract.inputKind,
     maskConvention: contract.maskConvention,
+    maskInput: contract.maskInput,
     contentX,
     contentY,
     contentWidth,

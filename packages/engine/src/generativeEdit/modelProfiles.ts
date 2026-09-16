@@ -4,6 +4,8 @@ import type {
   DiffusionMaskConvention,
 } from './diffusionFrame';
 import {
+  MIGAN_INPAINTING_FRAME_CONTRACT,
+  MOEBIUS_INPAINTING_FRAME_CONTRACT,
   SD2_INPAINTING_FRAME_CONTRACT,
   SD15_INPAINTING_FRAME_CONTRACT,
   SDXL_INPAINTING_FRAME_CONTRACT,
@@ -190,6 +192,7 @@ export const LOCAL_GENERATIVE_MODEL_RESEARCH_PROFILES: readonly LocalGenerativeM
     // black/zero coverage. The adapter still has to verify the GGUF metadata
     // and its resize/composite path before this convention can be trusted.
     maskConvention: 'white-preserve-black-edit',
+    frameContract: MIGAN_INPAINTING_FRAME_CONTRACT,
     artifact: {
       format: 'gguf',
       source: 'Acly/MIGAN-GGUF',
@@ -231,6 +234,7 @@ export const LOCAL_GENERATIVE_MODEL_RESEARCH_PROFILES: readonly LocalGenerativeM
     supportedModes: ['fill', 'remove'],
     inputKind: 'masked-inpainting',
     maskConvention: 'white-edit-black-preserve',
+    frameContract: MOEBIUS_INPAINTING_FRAME_CONTRACT,
     artifact: {
       format: 'onnx-components',
       source: 'simonw/Moebius-ONNX',
@@ -501,6 +505,12 @@ export function isLocalGenerativeModelRunnable(
     return {
       runnable: false,
       reason: `${profile.name} has no qualified model adapter and frame contract.`,
+    };
+  }
+  if (profile.frameContract.maskConvention !== profile.maskConvention) {
+    return {
+      runnable: false,
+      reason: `${profile.name} declares conflicting mask polarity between its profile and frame contract.`,
     };
   }
   if (!profile.runtime.offlineAfterInstall) {

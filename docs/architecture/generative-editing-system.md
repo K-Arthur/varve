@@ -534,8 +534,14 @@ resolved through the existing image-placement mapping before rasterization.
 
 Context extraction clamps to source bounds and retains disconnected components
 and holes. Model input uses explicit channel/alpha conventions documented by
-the provider adapter. The composite copies source pixels outside the final
-mask; transparent source RGB is never treated as meaningful context.
+the provider adapter. In addition to mask polarity, each masked model declares
+how conditioning is supplied: `image-and-mask` when the runtime derives the
+masked image, `masked-image-and-mask` when both tensors/graphs are explicit,
+or `masked-image-plus-mask` when a low-level graph expects the already-masked
+RGB input alongside its keep mask. `none` is reserved for reference-edit
+contracts and cannot be used by an inpainting provider. The composite copies
+source pixels outside the final mask; transparent source RGB is never treated
+as meaningful context.
 
 ## Provider and privacy contract
 
@@ -554,10 +560,10 @@ setup action or blocker.
 The renderer-side model registry in
 [`generativeEdit/modelProfiles.ts`](../../packages/engine/src/generativeEdit/modelProfiles.ts)
 keeps the local candidate requirements explicit alongside the provider facade.
-Each profile records its actual masked-input contract, required component roles,
-artifact format and revision, license, adapter identity, offline behaviour,
-backend/architecture qualification, passed/failed evidence reference, target
-platforms, and memory envelope. PowerPaint's published bundle is an SD 1.5
+Each profile records its actual masked-input contract, mask tensor conditioning
+shape, required component roles, artifact format and revision, license, adapter
+identity, offline behaviour, backend/architecture qualification, passed/failed
+evidence reference, target platforms, and memory envelope. PowerPaint's published bundle is an SD 1.5
 base plus a separate BrushNet adapter and therefore uses the 512-pixel SD 1.5
 frame contract; it must not inherit the SDXL transform. A profile cannot be
 runnable merely because it

@@ -405,11 +405,14 @@ function persistedVariationResult(
   // provenance; the baked candidate remains usable without it.
   const persistedInputFrame = persistedProvider.inputFrame;
   const inputFrame =
-    persistedInputFrame?.inputKind !== undefined && persistedInputFrame.maskConvention !== undefined
+    persistedInputFrame?.inputKind !== undefined &&
+    persistedInputFrame.maskConvention !== undefined &&
+    persistedInputFrame.maskInput !== undefined
       ? {
           ...persistedInputFrame,
           inputKind: persistedInputFrame.inputKind,
           maskConvention: persistedInputFrame.maskConvention,
+          maskInput: persistedInputFrame.maskInput,
         }
       : undefined;
   const provider: GenerativeEditProvider = { ...persistedProvider, inputFrame };

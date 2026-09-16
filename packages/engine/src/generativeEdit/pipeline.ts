@@ -408,6 +408,7 @@ export async function runGenerativeEdit(
           preprocessingVersion: diffusionFrame.preprocessingVersion,
           inputKind: diffusionFrame.inputKind,
           maskConvention: diffusionFrame.maskConvention,
+          maskInput: diffusionFrame.maskInput,
           width: diffusionFrame.width,
           height: diffusionFrame.height,
           sourceWidth: context.width,

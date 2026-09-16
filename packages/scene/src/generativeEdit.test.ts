@@ -109,6 +109,7 @@ describe('generative edit document contract', () => {
           preprocessingVersion: 'varve-diffusion-letterbox-linear-srgb-v1',
           inputKind: 'masked-inpainting',
           maskConvention: 'white-edit-black-preserve',
+          maskInput: 'image-and-mask',
           width: 512,
           height: 512,
           sourceWidth: 512,
@@ -139,6 +140,7 @@ describe('generative edit document contract', () => {
       preprocessingVersion: 'varve-diffusion-letterbox-linear-srgb-v1',
       inputKind: 'masked-inpainting' as const,
       maskConvention: 'white-edit-black-preserve' as const,
+      maskInput: 'image-and-mask' as const,
       width: 512,
       height: 512,
     };
@@ -152,6 +154,19 @@ describe('generative edit document contract', () => {
       validateGenerativeEdit({
         ...base,
         provider: { ...base.provider, inputFrame: { ...inputFrame, inputKind: 'reference-edit' } },
+      }),
+    ).toContain('provider');
+    expect(
+      validateGenerativeEdit({
+        ...base,
+        provider: {
+          ...base.provider,
+          inputFrame: {
+            ...inputFrame,
+            inputKind: 'reference-edit',
+            maskInput: 'none',
+          },
+        },
       }),
     ).toBeNull();
   });

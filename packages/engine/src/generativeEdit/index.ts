@@ -3,8 +3,11 @@ export type {
   DiffusionFrameContract,
   DiffusionInputKind,
   DiffusionMaskConvention,
+  DiffusionMaskInputContract,
 } from './diffusionFrame';
 export {
+  MIGAN_INPAINTING_FRAME_CONTRACT,
+  MOEBIUS_INPAINTING_FRAME_CONTRACT,
   prepareDiffusionFrame,
   SD2_INPAINTING_FRAME_CONTRACT,
   SD15_INPAINTING_FRAME_CONTRACT,

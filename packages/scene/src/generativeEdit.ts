@@ -27,6 +27,12 @@ export interface GenerativeEditInputFrame {
   inputKind?: 'masked-inpainting' | 'reference-edit';
   /** Optional on legacy records; records the provider's mask polarity. */
   maskConvention?: 'white-edit-black-preserve' | 'white-preserve-black-edit';
+  /**
+   * Optional on legacy records; records the exact image/mask tensor shape
+   * used by the provider adapter. Polarity alone is not enough to reproduce
+   * a low-level inpainting graph.
+   */
+  maskInput?: 'image-and-mask' | 'masked-image-and-mask' | 'masked-image-plus-mask' | 'none';
   width: number;
   height: number;
   /** Dimensions of the context before it was mapped into the model frame. */
@@ -301,11 +307,21 @@ function validProvider(value: unknown): value is GenerativeEditProvider {
       inputFrame.contentX + inputFrame.contentWidth <= inputFrame.width &&
       inputFrame.contentY + inputFrame.contentHeight <= inputFrame.height);
   const validInputFrameSemantics =
-    (inputFrame?.inputKind === undefined && inputFrame?.maskConvention === undefined) ||
+    (inputFrame?.inputKind === undefined &&
+      inputFrame?.maskConvention === undefined &&
+      inputFrame?.maskInput === undefined) ||
     ((inputFrame?.inputKind === 'masked-inpainting' ||
       inputFrame?.inputKind === 'reference-edit') &&
       (inputFrame?.maskConvention === 'white-edit-black-preserve' ||
-        inputFrame?.maskConvention === 'white-preserve-black-edit'));
+        inputFrame?.maskConvention === 'white-preserve-black-edit') &&
+      (inputFrame?.maskInput === undefined ||
+        inputFrame?.maskInput === 'image-and-mask' ||
+        inputFrame?.maskInput === 'masked-image-and-mask' ||
+        inputFrame?.maskInput === 'masked-image-plus-mask' ||
+        inputFrame?.maskInput === 'none') &&
+      (inputFrame?.maskInput === undefined ||
+        (inputFrame.inputKind === 'masked-inpainting' && inputFrame.maskInput !== 'none') ||
+        (inputFrame.inputKind === 'reference-edit' && inputFrame.maskInput === 'none')));
   const validInputFrame =
     inputFrame === undefined ||
     (inputFrame !== null &&

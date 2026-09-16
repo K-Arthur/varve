@@ -14,7 +14,11 @@ describe('local generative model profiles', () => {
     expect(profile.disposition).toBe('disabled-unqualified');
     expect(profile.inputKind).toBe('masked-inpainting');
     expect(profile.maskConvention).toBe('white-edit-black-preserve');
-    expect(profile.frameContract).toMatchObject({ frameWidth: 512, frameHeight: 512 });
+    expect(profile.frameContract).toMatchObject({
+      frameWidth: 512,
+      frameHeight: 512,
+      maskInput: 'image-and-mask',
+    });
     expect(profile.artifact.requiredComponentRoles).toEqual([
       'sd15-inpainting',
       'clip-vit-l-14',
@@ -78,6 +82,12 @@ describe('local generative model profiles', () => {
       inputKind: 'masked-inpainting',
       maskConvention: 'white-preserve-black-edit',
       supportedModes: ['fill', 'remove'],
+      frameContract: {
+        maskConvention: 'white-preserve-black-edit',
+        maskInput: 'masked-image-plus-mask',
+        frameWidth: 512,
+        frameHeight: 512,
+      },
       artifact: {
         format: 'gguf',
         revision: '6c410de2373fe94080e739642339b3e9f748b034',
@@ -90,6 +100,12 @@ describe('local generative model profiles', () => {
     expect(getLocalGenerativeModelProfile('moebius-onnx-research')).toMatchObject({
       inputKind: 'masked-inpainting',
       supportedModes: ['fill', 'remove'],
+      frameContract: {
+        maskConvention: 'white-edit-black-preserve',
+        maskInput: 'masked-image-and-mask',
+        frameWidth: 512,
+        frameHeight: 512,
+      },
       artifact: {
         format: 'onnx-components',
         revision: '5bf1ef5d2861ec01a727183a3f95dc64f352120e',
@@ -178,6 +194,40 @@ describe('local generative model profiles', () => {
       runnable: false,
       reason:
         'FLUX.2 Klein 4B · reference editing is a reference editor and cannot run a masked replace edit.',
+    });
+  });
+
+  it('rejects a profile whose declared mask polarity differs from its frame contract', () => {
+    const inconsistentProfile = {
+      ...CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE,
+      disposition: 'qualified' as const,
+      frameContract: {
+        ...CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE.frameContract!,
+        maskConvention: 'white-preserve-black-edit' as const,
+      },
+      runtime: {
+        ...CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE.runtime,
+        architectures: ['x86_64'],
+      },
+      qualification: {
+        status: 'passed' as const,
+        evidenceRef: 'docs/audits/example.md',
+        platforms: ['linux-x86_64'],
+      },
+    };
+
+    expect(
+      isLocalGenerativeModelRunnable(inconsistentProfile, {
+        mode: 'fill',
+        executionBackend: 'native-cpu',
+        architecture: 'x86_64',
+        platform: 'linux-x86_64',
+        availableMemoryBytes: 32 * 1024 ** 3,
+      }),
+    ).toEqual({
+      runnable: false,
+      reason:
+        'Stable Diffusion 1.5 Inpainting · Q4_0 declares conflicting mask polarity between its profile and frame contract.',
     });
   });
 

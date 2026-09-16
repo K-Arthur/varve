@@ -83,16 +83,17 @@ removal/fill tier:
   working set are not a 4 GB Chromebook default. It cannot provide natural
   language Replace or Expand.
 
-The real-photograph diagnostic used an untrusted ONNX conversion of MI-GAN
-outside the repository. On `real-life-landscape.jpg`, a CPU run took about
-1.15 s with two threads; after compositing only the requested mask changed,
-the landscape repair looked plausible at the review scale. That is a useful
-directional signal for a small mask-only provider, not product evidence: the
-conversion had no trustworthy model card/provenance for packaging, and it did
-not execute through Varve's production adapter. The official GGUF was not
-enabled after the `vision.cpp` build required an uninitialized native
-submodule and began pulling unrelated model assets. The durable screening
-record is the [lightweight-model screen](../audits/generative-editing-lightweight-model-screen-2026-09-16.md).
+The real-photograph diagnostic included both an untrusted ONNX conversion and
+the official MI-GAN GGUF. The official F16 artifact was hash-checked, then run
+through an isolated CPU build of the pinned `vision.cpp` revision. On the
+landscape photograph the requested edit region became a dark rectangular
+repair; on the still-life photograph the selected apple region contained an
+obvious orange/structural artifact. The empty-mask control produced an exact
+zero-pixel difference. This proves that the official wrapper consumes the mask
+and protects the unselected region, but the reviewed non-empty outputs fail
+Varve's seam/plausibility bar. MI-GAN therefore remains research-only and is
+not a product or marketing result. The durable screening record is the
+[lightweight-model screen](../audits/generative-editing-lightweight-model-screen-2026-09-16.md).
 
 ## Important naming correction: FLUX.1.1 versus FLUX Fill
 
@@ -244,10 +245,40 @@ quality. The canonical pipeline therefore has three distinct masks:
    effective mask are copied from the canonical source representation.
 
 This prevents three common errors: feeding a reference editor as if it were an
-inpainting model, inverting white/black semantics, and allowing a model’s
+inpainting model, inverting white/black semantics, and allowing a model's
 context halo to overwrite neighbouring objects. The implementation is in
 [`diffusionFrame.ts`](../../packages/engine/src/generativeEdit/diffusionFrame.ts)
 and is covered by the opposite-polarity and reference-editor rejection tests.
+
+### Provider mask requirements
+
+The research answers two separate questions for every model: whether an
+explicit mask is required at all, and whether the adapter must construct an
+already-masked image in addition to sending the mask. A model's documented
+mask polarity does not answer the second question.
+
+| Provider family | Explicit mask | Conditioning sent to the model/runtime | Mask polarity at the model boundary | Prompt support |
+| --- | --- | --- | --- | --- |
+| LaMa | Required | Separate RGB image plus `[1,1,H,W]` mask; `1` inpaints and `0` keeps | White/255 edits, black/0 preserves | None; reconstruction only |
+| MI-GAN | Required | Low-level `[keepMask, maskedRgb]`; the official `vision.cpp` CLI accepts the user-facing edit mask and inverts it internally | Model tensor is white/1 keep and black/0 edit | None; reconstruction only |
+| Moebius | Required | Low-level `[noisyLatent, editMask, maskedImageLatent]`; edit pixels must be zeroed before VAE encoding | White/1 edits, black/0 preserves | Learned categories, not free-form text |
+| SD inpainting, PowerPaint, and FLUX.1-Fill-dev | Required | High-level image plus mask; the pipeline derives the masked image/latent internally | White edit and black preserve in the documented Diffusers contracts | SD/PowerPaint/FLUX support text or task conditioning, subject to model profile |
+| FLUX.2/Kontext/Qwen reference editors | No documented hard-mask input | Reference image(s) and instruction/reference conditioning | No protected-pixel mask contract established | Text/reference editing, but not safe bounded inpainting |
+
+The shared `DiffusionFrameContract.maskInput` records this conditioning shape as
+`image-and-mask`, `masked-image-and-mask`, `masked-image-plus-mask`, or `none`.
+Adapters must implement the declared shape; they may not infer it from a file
+extension or only invert the mask bytes. A high-level pipeline can apply the
+mask internally, but it still needs the explicit mask from Varve. A reference
+editor that does not accept a hard mask must never be routed through Fill,
+Remove, Replace, or Expand, even if its whole-image result looks convincing.
+
+The exact source references are the [LaMa repository](https://github.com/advimman/lama),
+[MI-GAN's official research repository](https://github.com/Picsart-AI-Research/MI-GAN),
+the [MI-GAN ICCV paper](https://openaccess.thecvf.com/content/ICCV2023/papers/Sargsyan_MI-GAN_A_Simple_Baseline_for_Image_Inpainting_on_Mobile_Devices_ICCV2023_paper.pdf),
+the [Moebius pipeline walkthrough](https://github.com/simonw/moebius-web/blob/main/understanding.md),
+the [Diffusers inpainting guide](https://github.com/huggingface/diffusers/blob/main/docs/source/en/using-diffusers/inpaint.md),
+and the [FLUX Fill pipeline](https://github.com/huggingface/diffusers/blob/main/src/diffusers/pipelines/flux/pipeline_flux_fill.py).
 
 Before generation, the workflow must show the proposed selection and report
 coverage, bounds, disconnected regions, edge contact, and soft coverage. A
@@ -311,9 +342,14 @@ unavailable with a reason that identifies the missing requirement.
 
 The model review results in these changes to the current work:
 
-- The frame contract now records input kind and mask convention and performs
-  explicit polarity conversion. This prevents a future FLUX/PowerPaint/FIBO
-  adapter from silently reusing the SD mask assumption.
+- The frame contract now records input kind, mask polarity, and the exact mask
+  tensor conditioning shape, and performs explicit polarity conversion. This
+  prevents a future FLUX/PowerPaint/FIBO adapter from silently reusing the SD
+  mask assumption or omitting a required masked-image tensor.
+- The official MI-GAN wrapper was run locally against real landscape and
+  still-life photographs. Its empty-mask control preserved every pixel, but
+  its non-empty outputs failed visual quality review, so the candidate remains
+  disabled rather than being promoted on the strength of mask correctness.
 - The current native profile remains the only executable prompt profile. No
   candidate catalog is presented as a capability list until it is consumed by
   a real adapter and qualification record.
