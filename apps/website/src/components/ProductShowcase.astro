@@ -116,7 +116,8 @@ const DETAILS = ['vector', 'typography', 'layers', 'motion']
 <style>
   .showcase {
     background: var(--surface-sunken);
-    border-bottom: 1px solid var(--border-default);
+    /* No bottom edge: the following band owns the boundary line, so the two
+       adjacent sections do not render a doubled 2px seam. */
     padding: clamp(4rem, 8vh, 6.5rem) 0;
   }
 

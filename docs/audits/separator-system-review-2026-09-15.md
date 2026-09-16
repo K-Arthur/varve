@@ -103,12 +103,16 @@ starts owns the boundary. Regression: `apps/website/tests/e2e/section-rules.spec
 `showcase-light`) were updated after reviewing the diffs: the only change is
 the removed 1px edge (element height 913 → 912).
 
-### P2-5 — Website divider token drift — PARTLY FIXED
+### P2-5 — Website divider token drift — DOCUMENTED (token removal blocked)
 
-- `--divider` was defined in light/dark/forced-colors blocks and asserted in
-  `tokens.test.ts`, but had **zero consumers**. Removed from all three blocks
-  and the required-token list; `--border-default`/`--border-subtle` remain the
-  divider channels.
+- `--divider` is defined in light/dark/forced-colors blocks and asserted in
+  `tokens.test.ts`, but has **zero consumers**. Removing it requires
+  `pnpm test:website` to be green (the pre-commit checkpoint runs the touched
+  test file), and that lane is currently red for unrelated pre-existing
+  reasons — the site's own no-raw-colors test reports only the first offender
+  per page, so it is green-gated behind cleaning up the mock-artwork palette
+  across pages (including pages another session has dirty). Left in place and
+  recorded; `--border-default`/`--border-subtle` remain the divider channels.
 - Hardcoded border colors remain in `docs/tools/grids.astro:247,254,306,308,310,315`
   and `features/canvas.astro:534`. Inspection shows they are mock-artwork
   palette (simulated tool frames/guides), not content rules;
