@@ -509,7 +509,7 @@ export function EffectRow({
           anchorRef={chevronRef}
           open={expanded}
           title={`${rowLabel} parameters`}
-          badge={`${stage} stage`}
+          badge={stage}
           ownerKey={ownerKey}
           onClose={() => setExpanded(false)}
         >

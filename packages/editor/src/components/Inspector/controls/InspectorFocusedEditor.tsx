@@ -63,7 +63,14 @@ export function InspectorFocusedEditor({
         >
           <header className="insp-focused-editor__header">
             <h2 className="insp-focused-editor__title">{title}</h2>
-            {badge && <span className="insp-focused-editor__stage-badge">{badge}</span>}
+            {badge && (
+              <span
+                className="insp-focused-editor__stage-badge"
+                title={`Effects render at the ${badge} stage`}
+              >
+                {badge}
+              </span>
+            )}
             <button type="button" className="insp-focused-editor__close" onClick={onClose}>
               Close
             </button>
