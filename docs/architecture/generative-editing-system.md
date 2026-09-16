@@ -196,12 +196,15 @@ passes semantic quality, memory, cancellation, and platform gates. A model
 profile's contract is part of its qualification identity, so changing frame
 size, padding, resampling, or mask encoding invalidates prior evidence.
 The persisted `provider.inputFrame` repeats the model-frame dimensions together
-with the pre-letterbox context dimensions and the integer content rectangle
-(`contentX`, `contentY`, `contentWidth`, and `contentHeight`). Reopening and
-regeneration can therefore audit the exact ratio conversion instead of
-inferring it from a thumbnail or from rounded source bounds. Older records may
-omit this optional geometry and remain renderable, but they are not treated as
-new frame-conversion evidence.
+with the pre-letterbox context dimensions, the integer content rectangle
+(`contentX`, `contentY`, `contentWidth`, and `contentHeight`), the provider input
+kind, and its mask convention. New diffusion results therefore record both the
+model profile and whether it consumed an explicit masked-inpainting frame;
+the opaque native model handle is never used as the model identity. Reopening
+and regeneration can audit the exact ratio conversion and mask polarity instead
+of inferring either from a thumbnail or rounded source bounds. Older records may
+omit this optional geometry/semantic extension and remain renderable, but they
+are not treated as new frame-conversion evidence.
 
 The same rule applies to the fixed 512-pixel LaMa worker used by the local
 reconstruction path. Its decoder consumes the worker's recorded content

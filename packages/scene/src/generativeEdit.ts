@@ -23,6 +23,10 @@ export type GenerativeEditRuntime =
 export interface GenerativeEditInputFrame {
   contractId: string;
   preprocessingVersion: string;
+  /** Optional on legacy records; required together for new diffusion records. */
+  inputKind?: 'masked-inpainting' | 'reference-edit';
+  /** Optional on legacy records; records the provider's mask polarity. */
+  maskConvention?: 'white-edit-black-preserve' | 'white-preserve-black-edit';
   width: number;
   height: number;
   /** Dimensions of the context before it was mapped into the model frame. */
@@ -296,6 +300,12 @@ function validProvider(value: unknown): value is GenerativeEditProvider {
       inputFrame.contentHeight > 0 &&
       inputFrame.contentX + inputFrame.contentWidth <= inputFrame.width &&
       inputFrame.contentY + inputFrame.contentHeight <= inputFrame.height);
+  const validInputFrameSemantics =
+    (inputFrame?.inputKind === undefined && inputFrame?.maskConvention === undefined) ||
+    ((inputFrame?.inputKind === 'masked-inpainting' ||
+      inputFrame?.inputKind === 'reference-edit') &&
+      (inputFrame?.maskConvention === 'white-edit-black-preserve' ||
+        inputFrame?.maskConvention === 'white-preserve-black-edit'));
   const validInputFrame =
     inputFrame === undefined ||
     (inputFrame !== null &&
@@ -310,7 +320,8 @@ function validProvider(value: unknown): value is GenerativeEditProvider {
       Number.isSafeInteger(inputFrame.height) &&
       inputFrame.height > 0 &&
       inputFrame.height <= 4096 &&
-      validInputFrameGeometry);
+      validInputFrameGeometry &&
+      validInputFrameSemantics);
   return (
     PROVIDER_KINDS.has(provider.kind as GenerativeEditProviderKind) &&
     typeof provider.id === 'string' &&

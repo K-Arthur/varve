@@ -107,6 +107,8 @@ describe('generative edit document contract', () => {
         inputFrame: {
           contractId: 'sd15-inpainting-512-square-v1',
           preprocessingVersion: 'varve-diffusion-letterbox-linear-srgb-v1',
+          inputKind: 'masked-inpainting',
+          maskConvention: 'white-edit-black-preserve',
           width: 512,
           height: 512,
           sourceWidth: 512,
@@ -128,6 +130,30 @@ describe('generative edit document contract', () => {
         },
       }),
     ).toContain('provider');
+  });
+
+  it('rejects incomplete or reference-only model-frame semantics', () => {
+    const base = fixture();
+    const inputFrame = {
+      contractId: 'sd15-inpainting-512-square-v1',
+      preprocessingVersion: 'varve-diffusion-letterbox-linear-srgb-v1',
+      inputKind: 'masked-inpainting' as const,
+      maskConvention: 'white-edit-black-preserve' as const,
+      width: 512,
+      height: 512,
+    };
+    expect(
+      validateGenerativeEdit({
+        ...base,
+        provider: { ...base.provider, inputFrame: { ...inputFrame, maskConvention: undefined } },
+      }),
+    ).toContain('provider');
+    expect(
+      validateGenerativeEdit({
+        ...base,
+        provider: { ...base.provider, inputFrame: { ...inputFrame, inputKind: 'reference-edit' } },
+      }),
+    ).toBeNull();
   });
 
   it('rejects an input-frame content rectangle that falls outside the model frame', () => {

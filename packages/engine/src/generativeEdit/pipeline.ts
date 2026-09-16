@@ -371,20 +371,18 @@ export async function runGenerativeEdit(
         id: 'varve-diffusion-inpainting',
         runtime:
           nativeResult.executionProvider === 'native-cpu' ? 'native-cpu' : 'native-accelerated',
-        ...(request.modelHandle
-          ? { modelId: request.modelHandle }
-          : request.modelId
-            ? { modelId: request.modelId }
-            : {}),
-        ...(request.modelHandle
-          ? {
-              modelVersion: NATIVE_GENERATIVE_MODEL_PROFILE.revision,
-              modelChecksum: NATIVE_GENERATIVE_MODEL_PROFILE.sha256,
-            }
-          : {}),
+        // `modelHandle` is an opaque IPC capability, not model provenance.
+        // Persist the allowlisted profile identity so reopening and audit can
+        // distinguish the actual checkpoint from the native handle used to
+        // access it.
+        modelId: NATIVE_GENERATIVE_MODEL_PROFILE.id,
+        modelVersion: NATIVE_GENERATIVE_MODEL_PROFILE.revision,
+        modelChecksum: NATIVE_GENERATIVE_MODEL_PROFILE.sha256,
         inputFrame: {
           contractId: diffusionFrame.contractId,
           preprocessingVersion: diffusionFrame.preprocessingVersion,
+          inputKind: diffusionFrame.inputKind,
+          maskConvention: diffusionFrame.maskConvention,
           width: diffusionFrame.width,
           height: diffusionFrame.height,
           sourceWidth: context.width,
