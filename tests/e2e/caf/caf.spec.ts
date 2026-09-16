@@ -474,6 +474,11 @@ test.describe('Content-Aware Fill dialog', () => {
       await expect(dialog.getByRole('button', { name: /^expand$/i })).toBeDisabled();
       await expect(dialog).toHaveScreenshot(`generative-edit-${fixture.slug}.png`, {
         animations: 'disabled',
+        // Chromium can vary the final antialiasing samples at the rounded
+        // dialog corners between isolated runs. The real-photo controls and
+        // capability assertions above remain exact; keep this tolerance
+        // below the threshold at which a UI regression could pass unnoticed.
+        maxDiffPixels: 4,
       });
 
       await dialog.getByRole('button', { name: /^cancel$/i }).click();
