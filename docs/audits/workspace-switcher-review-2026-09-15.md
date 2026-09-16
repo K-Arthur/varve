@@ -166,7 +166,7 @@ against the old CSS for exactly this case.
 | `WORKSPACE_LABELS.codegen = 'Codegen'` with the naming rule documented | `packages/editor/src/workspace/workspaceTypes.ts` |
 | Switcher contract | `docs/architecture/workspace-system.md` §Switcher surface |
 | Switcher copy and canonical mode name | `apps/website/src/pages/docs/workspaces.astro`, `docs/getting-started/interface.astro`, `features/workspaces.astro` |
-| Real-app contract spec (8 tests) | `tests/e2e/workspace/switcher-review.spec.ts` |
+| Real-app contract spec (9 tests) | `tests/e2e/workspace/switcher-review.spec.ts` |
 | Unit tests: ARIA ownership, gap input, roving focus | `WorkspaceTabs.test.tsx`, `workspaceOverflow.test.ts` |
 | Reviewed visual baselines | `tests/e2e/workspace/visual.spec.ts-snapshots/workspace-tabs-*.png` |
 
@@ -182,7 +182,8 @@ themes.
 | `npx vitest run packages/editor/src/workspace` (42 files) | 645 passed |
 | `npx vitest run packages/help` | 31 passed (help copy changed) |
 | `pnpm --filter @varve/website exec astro check` | 0 errors, 0 warnings (website pages changed) |
-| `npx playwright test tests/e2e/workspace/switcher-review.spec.ts --project=chromium` | 8 passed |
+| `npx playwright test tests/e2e/workspace/switcher-review.spec.ts --project=chromium` | 9 passed |
+| `pnpm --filter @varve/desktop exec vite build` (production bundle) | built in 16.4s |
 | `npx playwright test tests/e2e/editor/workspace-nav.spec.ts --project=chromium` | 4 passed |
 | `npx playwright test tests/e2e/canvas/workspace-toolbar-visual.spec.ts` + `tests/e2e/workspace/visual.spec.ts -g "workspace tabs"` | passed; 3 baselines regenerated and visually reviewed |
 | `node scripts/audit-docs.mjs` / `node scripts/audit-emoji.mjs` | clean |
@@ -216,11 +217,16 @@ What the real-app spec verifies:
 - **Text enlargement**: at a 32px root the Codegen label is complete and
   unclipped, the pill grows, and every mode stays reachable (visible radios +
   menu = 8).
+- **Forced colors and 480px**: `forcedColors: 'active'` at a 480px viewport
+  keeps the active mode identifiable (boundary ring plus its accessible name),
+  every mode reachable, and no console errors; the rendered state was
+  inspected in `after/forced-colors-480.png`.
 
-Not performed (honest gaps): browser zoom (Ctrl+=) and OS-level text-size
+Not performed (honest gaps): live browser zoom (Ctrl+=) and OS-level text-size
 preferences — the root-font-size mechanism exercises the rem-relative tokens
 but is not the same runtime path; screen-reader runs (NVDA/VoiceOver/Orca);
-physical touch/pen; Safari/Firefox; the native WebKitGTK shell.
+physical touch/pen; Safari/Firefox; the native WebKitGTK shell (the production
+Vite bundle builds, but only the browser/DOM path was exercised).
 
 ## Remaining work
 

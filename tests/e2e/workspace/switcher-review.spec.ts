@@ -324,6 +324,114 @@ test.describe('Workspace switcher contract', () => {
     expect(relevant).toEqual([]);
   });
 
+  test('enlarged text grows the switcher instead of clipping it', async ({ page }) => {
+    // Mechanism: the token scale is rem-based, so raising the root font size
+    // exercises exactly the relative sizing users change through their
+    // browser/OS font-size preference. This is NOT browser zoom (which scales
+    // px too) — that mechanism is recorded as untested in the review doc.
+    const group = await workspaceGroup(page);
+    await group.getByRole('radio', { name: 'Codegen workspace' }).click();
+    await page.waitForTimeout(150);
+    const before = await page.evaluate(() => {
+      const pill = document.querySelector('.workspace-dock__item--active') as HTMLElement;
+      const label = pill.querySelector('.workspace-dock__label') as HTMLElement;
+      return {
+        pillHeight: Math.round(pill.getBoundingClientRect().height),
+        labelHeight: Math.round(label.getBoundingClientRect().height),
+      };
+    });
+
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '32px';
+    });
+    await page.waitForTimeout(400);
+
+    const after = await page.evaluate(() => {
+      const pill = document.querySelector('.workspace-dock__item--active') as HTMLElement;
+      const label = pill.querySelector('.workspace-dock__label') as HTMLElement;
+      const more = document.querySelector('.workspace-dock__more') as HTMLElement | null;
+      return {
+        pillHeight: Math.round(pill.getBoundingClientRect().height),
+        labelHeight: Math.round(label.getBoundingClientRect().height),
+        labelClippedVertically: label.scrollHeight > label.clientHeight + 1,
+        labelClippedHorizontally: label.scrollWidth > label.clientWidth + 1,
+        labelText: label.textContent,
+        moreVisible: more ? more.offsetWidth > 0 : false,
+      };
+    });
+
+    // The text must still be the full name, unclipped, and the pill must have
+    // grown with it rather than cropping it.
+    expect(after.labelText).toBe('Codegen');
+    expect(after.labelClippedVertically).toBe(false);
+    expect(after.labelClippedHorizontally).toBe(false);
+    expect(after.pillHeight).toBeGreaterThanOrEqual(after.labelHeight);
+    expect(after.pillHeight).toBeGreaterThanOrEqual(before.pillHeight);
+
+    // Every mode is still reachable after the text-size change: the visible
+    // radios plus the overflow menu must cover all eight.
+    const visible = await group.evaluate((el) => el.querySelectorAll('[role="radio"]').length);
+    if (after.moreVisible) {
+      await page.getByRole('button', { name: /more workspaces/i }).click();
+      const menu = page.getByRole('menu', { name: 'More workspaces' });
+      await expect(menu).toBeVisible();
+      const inMenu = await menu.getByRole('menuitemradio').count();
+      expect(visible + inMenu).toBe(MODES.length);
+      // The overflow menu must not wrap the Codegen label any more.
+      await expect(menu.getByRole('menuitemradio', { name: 'Codegen' })).toBeVisible();
+      await page.keyboard.press('Escape');
+    } else {
+      expect(visible).toBe(MODES.length);
+    }
+
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '';
+    });
+  });
+
+  test('forced colors and a 480px viewport keep the switcher usable', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+
+    await page.setViewportSize({ width: 480, height: 700 });
+    await page.waitForTimeout(400);
+    const group = await workspaceGroup(page);
+    await expect(page.locator('.workspace-dock__item--active')).toBeVisible();
+    const more = page.getByRole('button', { name: /more workspaces/i });
+    await expect(more).toBeVisible();
+    await more.click();
+    const menu = page.getByRole('menu', { name: 'More workspaces' });
+    await expect(menu).toBeVisible();
+    const visibleCount = await group.evaluate((el) => el.querySelectorAll('[role="radio"]').length);
+    const menuCount = await menu.getByRole('menuitemradio').count();
+    expect(visibleCount + menuCount).toBe(MODES.length);
+    await page.keyboard.press('Escape');
+
+    // Forced colors: hue is gone, so selection must survive as a boundary
+    // plus the visible name, not as an accent fill.
+    await page.emulateMedia({ forcedColors: 'active' });
+    await page.waitForTimeout(250);
+    const forced = await page.evaluate(() => {
+      const active = document.querySelector('.workspace-dock__item--active') as HTMLElement;
+      const cs = getComputedStyle(active);
+      return {
+        borderTopWidth: Number.parseFloat(cs.borderTopWidth),
+        borderStyle: cs.borderTopStyle,
+        // At 480px the pill compacts, so the name lives in the accessible
+        // name rather than a visible label.
+        checkedName: document
+          .querySelector('[role="radio"][aria-checked="true"]')
+          ?.getAttribute('aria-label'),
+      };
+    });
+    expect(forced.checkedName).toBe('Design workspace');
+    expect(forced.borderStyle).not.toBe('none');
+    expect(forced.borderTopWidth).toBeGreaterThanOrEqual(1);
+    await page.screenshot({ path: join(OUT_ROOT, 'forced-colors-480.png') });
+    await page.emulateMedia({ forcedColors: 'none' });
+    expect(errors).toEqual([]);
+  });
+
   test('captures review evidence', async ({ page }) => {
     mkdirSync(OUT_ROOT, { recursive: true });
     const dock = page.locator('.workspace-dock');
