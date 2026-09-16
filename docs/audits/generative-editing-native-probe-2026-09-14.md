@@ -1,9 +1,15 @@
 # Native prompt-generation boundary probe — 2026-09-14
 
-Status: diagnostic evidence only. This probe verifies that the production
-Rust helper receives the corrected image-conditioning setting and records the
-result of two locally available inpainting candidates. It does not qualify a
-model for product use and does not change the model allowlist.
+Status: diagnostic evidence only. This probe verifies that the then-current
+production Rust helper received the corrected image-conditioning setting and
+records the result of two locally available inpainting candidates. It does not
+qualify a model for product use and does not change the model allowlist.
+
+This report records helper identity
+`diffusion-rs-0.1.20-varve-image-cfg-v1`. The current helper identity is
+`diffusion-rs-0.1.20-varve-image-cfg-profile-contract-v2`, which adds a
+model-profile request contract; the old run is not evidence for that newer
+identity and must be rerun before any promotion.
 
 ## Why this probe was run
 
