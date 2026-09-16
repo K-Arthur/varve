@@ -832,7 +832,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
               />
             </FieldRow>
 
-            <FieldRow label="Focal Distance" htmlFor={`${focalDepthId}-range`}>
+            <FieldRow label="Focal Distance" htmlFor={`${focalDepthId}-range`} wrapLabel>
               <RangeValueControl
                 id={focalDepthId}
                 label="Focal Distance"
@@ -847,7 +847,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
               />
             </FieldRow>
 
-            <FieldRow label="Transition Range" htmlFor={`${transitionRangeId}-range`}>
+            <FieldRow label="Transition Range" htmlFor={`${transitionRangeId}-range`} wrapLabel>
               <RangeValueControl
                 id={transitionRangeId}
                 label="Transition Range"

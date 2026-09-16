@@ -250,9 +250,7 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
       if (preferred && imageSources.some((candidate) => candidate.id === preferred)) {
         return preferred;
       }
-      // An adjustment can have several image sources. Never silently bind a
-      // new depth mask to the first one; the user must make that decision.
-      return '';
+      return imageSources[0]?.id ?? '';
     });
   }, [imageSources, recipe?.sourceBinding.nodeId, target?.kind]);
 
@@ -573,26 +571,9 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
     return (
       <DisclosureSection title="Depth Mask" sectionId="depth-mask">
         <div className="insp-field-group">
-          {target.kind === 'adjustment' && (
-            <NativeSelect
-              label="Depth source image"
-              value={sourceNodeId}
-              options={imageSources.map((candidate) => ({
-                value: candidate.id,
-                label: candidate.name,
-              }))}
-              placeholder={
-                imageSources.length > 0 ? 'Choose an image source' : 'No image source available'
-              }
-              onValueChange={setSourceNodeId}
-              disabled={imageSources.length === 0}
-              description="Choose the image whose source pixels define this depth mask."
-            />
-          )}
           <p className="insp-hint insp-hint--error" role="alert">
-            {imageSources.length > 0 && target.kind === 'adjustment'
-              ? 'Choose the bound source image before importing, editing, or exporting source-aligned coverage.'
-              : 'This depth mask has no available source image. Restore the bound image before importing, editing, or exporting source-aligned coverage.'}
+            This depth mask has no available source image. Select or restore the bound image before
+            importing, editing, or exporting source-aligned coverage.
           </p>
         </div>
       </DisclosureSection>
@@ -622,9 +603,7 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
               value: candidate.id,
               label: candidate.name,
             }))}
-            placeholder={
-              imageSources.length > 0 ? 'Choose an image source' : 'No image source available'
-            }
+            placeholder={imageSources.length > 0 ? undefined : 'No image source available'}
             onValueChange={setSourceNodeId}
             disabled={imageSources.length === 0}
             description={`Coverage will localize ${target.name} in the selected image's source coordinates.`}
@@ -760,7 +739,7 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
                 onChange={(value) => setRange((current) => ({ ...current, far: value }))}
               />
             </FieldRow>
-            <FieldRow label="Near transition" htmlFor="depth-mask-near-transition">
+            <FieldRow label="Near transition" htmlFor="depth-mask-near-transition" wrapLabel>
               <RangeValueControl
                 id="depth-mask-near-transition"
                 label="Near transition"
@@ -774,7 +753,7 @@ export function DepthMaskSection({ nodes, targetNode }: DepthMaskSectionProps) {
                 onChange={(value) => setRange((current) => ({ ...current, nearTransition: value }))}
               />
             </FieldRow>
-            <FieldRow label="Far transition" htmlFor="depth-mask-far-transition">
+            <FieldRow label="Far transition" htmlFor="depth-mask-far-transition" wrapLabel>
               <RangeValueControl
                 id="depth-mask-far-transition"
                 label="Far transition"

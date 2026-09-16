@@ -1067,7 +1067,7 @@ export function SelectionSourcesPanel() {
             <strong>Select specific object</strong> when one object is the target; prompt it on the
             canvas, inspect the highlighted mask, and confirm before using it.
           </p>
-          <FieldRow label="Estimate quality">
+          <FieldRow label="Estimate quality" wrapLabel>
             <Select
               label="Subject estimate quality"
               value={subjectQuality}

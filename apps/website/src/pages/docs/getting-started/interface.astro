@@ -203,11 +203,18 @@ import { sitePath } from '../../../lib/siteUrl';
         <p>
           Tabs and sections are contextual. Each property is edited in one canonical section, so
           empty and mixed-selection states can communicate unavailable and mixed values directly.
-          Specialized sections appear only when their owning node or workflow supports them.
+          Specialized sections appear only when their owning node or workflow supports them:
         </p>
+        <ul>
+          <li><strong>Canvas &amp; Snapping</strong> — When nothing is selected, configure canvas background color, color mode, soft proofing, document/isometric grids, and global magnetic pointer snapping with customizable tolerance.</li>
+          <li><strong>Mockups</strong> — For mockup frames, select templates, bind and replace artwork surfaces, tune placement (fit, alignment, rotation), and snapshot or flatten instances.</li>
+          <li><strong>Masks</strong> — Add and tune vector masks, raster masks, and clipping masks with live density, feathering, inversion, and fill-rule controls.</li>
+          <li><strong>Prototype Interactions</strong> — Configure triggers (click, hover, key press, delay), target screens, overlays, and smart animate transitions.</li>
+          <li><strong>Section Customization</strong> — Open the Section Manager to hide, expand, or reorder inspector sections to suit your workflow, with preferences persisted per workspace.</li>
+        </ul>
         <p>
           In Design, <strong>Position &amp; Size</strong> owns geometry and bounds while
-          <strong>Stack / Grid</strong> owns the relationship between children. Fixed bounds remain
+          <strong>Stack / Grid</strong> owns the relationship between children (with collapsible Layout Guides for columns and rows). Fixed bounds remain
           visible but inactive; Relative fields show their authored percentage and reference. Fills,
           strokes, effects, typography, images, components, tables, and export each have one owner.
           Effect details open in a focused editor beside the rail while row actions stay available

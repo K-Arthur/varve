@@ -307,14 +307,9 @@ test.describe('Design tab real-world audit', () => {
       // wrapping label is taken into account (WCAG 2.2 SC 2.5.8).
       expect(metrics.smallTargets, `${kind}: controls below the 24px target minimum`).toEqual([]);
 
-      // Content-bearing labels must not be silently clipped. `Estimate
-      // quality` lives in SelectionSourcesPanel.tsx, which belongs to the
-      // ai-selection-routing task (docs/agents/ai-selection-routing-2026-09-15-ownership.md);
-      // it is the single documented exception until that task wraps it.
-      expect(
-        metrics.truncatedLabels.filter((label) => label !== 'Estimate quality'),
-        `${kind}: labels truncated by the label column`,
-      ).toEqual([]);
+      // Content-bearing labels must not be silently clipped. All multi-word
+      // labels in the 38% label column wrap gracefully without truncation.
+      expect(metrics.truncatedLabels, `${kind}: labels truncated by the label column`).toEqual([]);
     }
 
     // The imported photo must lead with its own controls, not with eleven
