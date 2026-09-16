@@ -308,44 +308,129 @@ export function getRuntimeCapabilitiesSync(): RuntimeCapabilities {
   };
 }
 
-export async function isWasmModelSafe(modelId: string): Promise<boolean> {
-  const caps = await getRuntimeCapabilities();
-  let modelFileSize: number;
-  let peakMultiplier = 3;
+/**
+ * Why a WASM model was admitted or refused.
+ *
+ * The refusal reason is part of the contract: a user who is told "not enough
+ * memory" cannot tell a genuinely small device from a browser session that
+ * simply lacks cross-origin isolation, and the two have different remedies.
+ * The assessment separates the peak the decision was made against, its
+ * provenance, and the session budget.
+ */
+export interface WasmAdmissionAssessment {
+  modelId: string;
+  allowed: boolean;
+  /** Peak working set the decision was made against, in bytes. */
+  peakBytes: number;
+  /** Safe peak budget for this session, in bytes. */
+  budgetBytes: number;
+  peakSource: 'catalog-measurement' | 'file-size-estimate' | 'unlisted-model';
+  crossOriginIsolated: boolean;
+  approximateMemoryMB: number;
+  /** One sentence a person can act on; never a raw byte count alone. */
+  detail: string;
+}
+
+function formatGigabytes(bytes: number): string {
+  return `${(bytes / 1_000_000_000).toFixed(1)} GB`;
+}
+
+/** Pure admission decision, so tests and the worker cannot disagree. */
+export function evaluateWasmAdmission(input: {
+  modelId: string;
+  peakBytes?: number;
+  modelFileSizeBytes?: number;
+  peakSource: WasmAdmissionAssessment['peakSource'];
+  crossOriginIsolated: boolean;
+  approximateMemoryMB: number;
+  wasmSafePeakBytes: number;
+}): WasmAdmissionAssessment {
+  const peakBytes =
+    input.peakSource === 'catalog-measurement'
+      ? (input.peakBytes ?? 0)
+      : input.peakSource === 'file-size-estimate'
+        ? (input.modelFileSizeBytes ?? 0) * (input.modelId === 'u2netp' ? 3 : 4)
+        : 0;
+  const allowed = input.peakSource === 'unlisted-model' || peakBytes <= input.wasmSafePeakBytes;
+
+  let detail: string;
+  if (input.peakSource === 'unlisted-model') {
+    detail = `No admission record for '${input.modelId}'; the session runs with the shared budget checks only.`;
+  } else if (allowed) {
+    detail = `Needs about ${formatGigabytes(peakBytes)}; this session can reserve ${formatGigabytes(input.wasmSafePeakBytes)}.`;
+  } else if (!input.crossOriginIsolated && input.wasmSafePeakBytes < 1_500_000_000) {
+    detail = `Needs about ${formatGigabytes(peakBytes)}, more than this session's ${formatGigabytes(input.wasmSafePeakBytes)} budget. The budget is raised by cross-origin isolation, which this page does not have.`;
+  } else if (input.approximateMemoryMB > 0) {
+    detail = `Needs about ${formatGigabytes(peakBytes)}, more than this session's ${formatGigabytes(input.wasmSafePeakBytes)} budget (browser reports about ${input.approximateMemoryMB} MB of device memory).`;
+  } else {
+    detail = `Needs about ${formatGigabytes(peakBytes)}, more than this session's ${formatGigabytes(input.wasmSafePeakBytes)} budget.`;
+  }
+
+  return {
+    modelId: input.modelId,
+    allowed,
+    peakBytes,
+    budgetBytes: input.wasmSafePeakBytes,
+    peakSource: input.peakSource,
+    crossOriginIsolated: input.crossOriginIsolated,
+    approximateMemoryMB: input.approximateMemoryMB,
+    detail,
+  };
+}
+
+/**
+ * Resolve a model's declared peak (or the legacy file-size estimate) against
+ * the session budget. Prefer this over `isWasmModelSafe` when the caller needs
+ * to explain the decision.
+ */
+export async function assessWasmModelAdmission(
+  modelId: string,
+  caps?: RuntimeCapabilities,
+): Promise<WasmAdmissionAssessment> {
+  const resolved = caps ?? (await getRuntimeCapabilities());
+  let peakBytes: number | undefined;
+  let modelFileSizeBytes: number | undefined;
+  let peakSource: WasmAdmissionAssessment['peakSource'] = 'unlisted-model';
 
   try {
     const { getModelById } = await import('../modelCatalog');
     const entry = getModelById(modelId);
     if (entry) {
       if (entry.peakMemoryBytes) {
-        return entry.peakMemoryBytes <= caps.wasmSafePeakBytes;
+        peakBytes = entry.peakMemoryBytes;
+        peakSource = 'catalog-measurement';
+      } else {
+        modelFileSizeBytes = entry.sizeBytes;
+        peakSource = 'file-size-estimate';
       }
-      modelFileSize = entry.sizeBytes;
-    } else {
-      return true;
     }
   } catch {
-    switch (modelId) {
-      case 'u2netp':
-        modelFileSize = 4_574_861;
-        break;
-      case 'isnet-general-use':
-        modelFileSize = 178_648_008;
-        break;
-      case 'birefnet-general-lite':
-        modelFileSize = 224_000_000;
-        break;
-      case 'birefnet-general':
-        modelFileSize = 972_666_916;
-        break;
-      default:
-        return true;
+    const fallbackSizes: Record<string, number> = {
+      u2netp: 4_574_861,
+      'isnet-general-use': 178_648_008,
+      'birefnet-general-lite': 224_000_000,
+      'birefnet-general': 972_666_916,
+    };
+    const fallback = fallbackSizes[modelId];
+    if (fallback !== undefined) {
+      modelFileSizeBytes = fallback;
+      peakSource = 'file-size-estimate';
     }
   }
 
-  peakMultiplier = modelId === 'u2netp' ? 3 : 4;
-  const estimatedPeakBytes = modelFileSize * peakMultiplier;
-  return estimatedPeakBytes <= caps.wasmSafePeakBytes;
+  return evaluateWasmAdmission({
+    modelId,
+    ...(peakBytes !== undefined ? { peakBytes } : {}),
+    ...(modelFileSizeBytes !== undefined ? { modelFileSizeBytes } : {}),
+    peakSource,
+    crossOriginIsolated: resolved.crossOriginIsolated,
+    approximateMemoryMB: resolved.approximateMemoryMB ?? 0,
+    wasmSafePeakBytes: resolved.wasmSafePeakBytes,
+  });
+}
+
+export async function isWasmModelSafe(modelId: string): Promise<boolean> {
+  return (await assessWasmModelAdmission(modelId)).allowed;
 }
 
 export async function getBestOnnxProviders(): Promise<ExecutionProvider[]> {
