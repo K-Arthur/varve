@@ -222,6 +222,51 @@ import { sitePath } from '../../../lib/siteUrl';
           See the <a href={sitePath('/docs/tools/auto-layout')}>Auto Layout guide</a> for the sizing
           explanations and examples.
         </p>
+        <h3>Align &amp; Distribute</h3>
+        <p>
+          The Align bar shows only when two or more layers are selected (single-layer alignment is a
+          no-op). A <strong>reference chip</strong> beside the section title names the active
+          alignment target — <em>To Frame</em>, <em>To Page</em>, or nothing when aligning to the
+          selection itself — so you always know what the buttons will align <em>to</em> without
+          opening a menu.
+        </p>
+        <h3>Position &amp; Size</h3>
+        <p>
+          The proportion lock uses a chain-link icon that breaks open when unlocked, matching the
+          mental model used across design tools. A <strong>More transforms</strong> toggle
+          progressively reveals skew controls so the section stays compact for the common case.
+        </p>
+        <h3>Corner Radius</h3>
+        <p>
+          The corner radius section shows a single <strong>Radius</strong> field for uniform
+          rounding, with an inline icon button to switch to per-corner mode. If a shape already has
+          different radii on each corner (asymmetric), the four-field quad grid opens automatically.
+          A <strong>Smoothing</strong> slider appears below when any rounding exists, giving
+          Figma-style superellipse softening. Corner radius now works in multi-selection when any
+          selected node is a rectangle or frame.
+        </p>
+        <h3>Image Placement &amp; Cropping</h3>
+        <p>
+          Image placement controls (fit mode, position, scale) now work in batch — selecting
+          multiple images applies the change to all of them at once. The Crop &amp; Bounds section
+          includes an <strong>aspect ratio preset strip</strong> (Free, 1:1, 4:3, 16:9, 3:2, 9:16)
+          for common crop constraints with a single click.
+        </p>
+        <h3>Masks</h3>
+        <p>
+          The mask card header shows the mask type and a visibility toggle at a glance. Compact
+          icon buttons replace the previous verbose action list: <strong>Eye / EyeOff</strong>
+          toggles mask visibility, the invert button flips the mask, the link button controls mask
+          source visibility, and the trash icon removes the mask.
+        </p>
+        <h3>Selection Colors</h3>
+        <p>
+          When multiple layers with different fills are selected, Selection Colors lists each unique
+          color as a horizontal row: color swatch, monospace hex value, the number of layers using
+          that color, and a <strong>target-layers</strong> button to select just those layers on the
+          canvas. Selection Colors appears after Effects in the panel order so it never interrupts
+          the fill/stroke/effects paint stack.
+        </p>
       </section>
 
       <section class="docs-section">
