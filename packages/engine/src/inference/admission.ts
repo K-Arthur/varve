@@ -108,6 +108,7 @@ export class InferenceAdmission {
   private activeCount = 0;
   private reservedBytes = 0;
   private queue: QueueEntry[] = [];
+  private readonly listeners = new Set<() => void>();
 
   constructor(options: InferenceAdmissionOptions = {}) {
     this.maxConcurrent = normalizedLimit(options.maxConcurrent, DEFAULT_MAX_CONCURRENT);
@@ -133,14 +134,32 @@ export class InferenceAdmission {
           if (index < 0) return;
           this.queue.splice(index, 1);
           entry.onAbort = undefined;
+          this.notify();
           reject(cancellationError(request.label));
         };
         entry.onAbort = onAbort;
         request.signal.addEventListener('abort', onAbort, { once: true });
       }
       this.queue.push(entry);
+      this.notify();
       this.drain();
     });
+  }
+
+  /**
+   * Subscribe to active/pending count changes. Returns an unsubscribe
+   * function. Used by UI affordances (e.g. a global "AI busy" indicator) that
+   * must not poll or invent a second activity-tracking mechanism.
+   */
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  private notify(): void {
+    for (const listener of this.listeners) listener();
   }
 
   /**
@@ -201,11 +220,13 @@ export class InferenceAdmission {
         released = true;
         this.activeCount -= 1;
         this.reservedBytes -= entry.reservationBytes;
+        this.notify();
         this.drain();
       },
     };
     entry.request.signal?.removeEventListener('abort', entry.onAbort ?? (() => undefined));
     entry.onAbort = undefined;
+    this.notify();
     return lease;
   }
 

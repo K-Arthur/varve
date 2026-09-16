@@ -69,4 +69,34 @@ describe('InferenceAdmission', () => {
       estimateInferenceReservation({ width: 1, height: 1, workingSetMultiplier: 0.5 }),
     ).toThrow(/multiplier must be at least one/);
   });
+
+  it('notifies subscribers on acquire, queueing, abort, and release, and stops after unsubscribe', async () => {
+    const admission = new InferenceAdmission({ maxConcurrent: 1 });
+    let calls = 0;
+    const unsubscribe = admission.subscribe(() => {
+      calls += 1;
+    });
+
+    const first = admission.tryAcquire({ kind: 'generation', reservationBytes: 1 });
+    expect(calls).toBe(1);
+
+    const controller = new AbortController();
+    const secondPromise = admission.acquire({
+      kind: 'worker',
+      reservationBytes: 1,
+      signal: controller.signal,
+    });
+    expect(calls).toBe(2); // queued
+
+    controller.abort();
+    await expect(secondPromise).rejects.toMatchObject({ code: 'cancelled' });
+    expect(calls).toBe(3); // removed from queue
+
+    first?.release();
+    expect(calls).toBe(4);
+
+    unsubscribe();
+    admission.tryAcquire({ kind: 'other', reservationBytes: 1 })?.release();
+    expect(calls).toBe(4); // no further notifications after unsubscribe
+  });
 });
