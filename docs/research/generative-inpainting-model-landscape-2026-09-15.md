@@ -63,6 +63,37 @@ runtime evidence—not a quality promotion. The SD 1.5 helper now rejects the SD
 2 profile at its private protocol boundary instead of allowing an arbitrary
 checkpoint to inherit the wrong adapter.
 
+Two smaller candidates were screened on 2026-09-16 for the simple local
+removal/fill tier:
+
+- [MI-GAN 512 Places2](https://huggingface.co/Acly/MIGAN-GGUF) is only 7.37M
+  parameters and 14.8 MB in the official MIT GGUF conversion. It is a strong
+  fit for a future promptless magic-eraser path, especially on CPU/Vulkan and
+  ARM-class hardware, but it is not a text-conditioned generator. The official
+  conversion targets [vision.cpp](https://github.com/Acly/vision.cpp), not
+  Varve's current ONNX or `diffusion-rs` runtime. Its model card gives an
+  invocation but does not establish Varve's fixed-resolution, mask-polarity,
+  cancellation, or cross-platform contract, so it remains research-only.
+- [Moebius ONNX](https://huggingface.co/simonw/Moebius-ONNX) is a 0.22B
+  inpainting model exported as separate VAE encoder, UNet, and VAE decoder
+  graphs. It uses learned category embeddings rather than a text encoder and
+  requires a model-specific 512 × 512 pipeline, custom VAE scale (`0.13025`),
+  and DDIM loop. Its Apache-2.0 export is interesting for browser/WebGPU
+  experiments, but the roughly 1.24 GB fp32 graph set and three-session
+  working set are not a 4 GB Chromebook default. It cannot provide natural
+  language Replace or Expand.
+
+The real-photograph diagnostic used an untrusted ONNX conversion of MI-GAN
+outside the repository. On `real-life-landscape.jpg`, a CPU run took about
+1.15 s with two threads; after compositing only the requested mask changed,
+the landscape repair looked plausible at the review scale. That is a useful
+directional signal for a small mask-only provider, not product evidence: the
+conversion had no trustworthy model card/provenance for packaging, and it did
+not execute through Varve's production adapter. The official GGUF was not
+enabled after the `vision.cpp` build required an uninitialized native
+submodule and began pulling unrelated model assets. The durable screening
+record is the [lightweight-model screen](../audits/generative-editing-lightweight-model-screen-2026-09-16.md).
+
 ## Important naming correction: FLUX.1.1 versus FLUX Fill
 
 “FLUX dev 1.1” combines two different products:

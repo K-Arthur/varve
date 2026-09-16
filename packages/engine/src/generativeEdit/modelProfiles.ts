@@ -177,6 +177,94 @@ export const LOCAL_GENERATIVE_MODEL_RESEARCH_PROFILES: readonly LocalGenerativeM
       'Research-only diagnostic candidate; no production SD 2 adapter or real-photograph quality certificate exists.',
   },
   {
+    id: 'migan-512-places2-research',
+    name: 'MI-GAN 512 Places2',
+    family: 'migan',
+    disposition: 'research-only',
+    // MI-GAN is a mask-only image-inpainting model. It is useful for a
+    // promptless magic-eraser tier, but it cannot satisfy prompt-conditioned
+    // Replace or Expand, so those modes are deliberately not listed here.
+    supportedModes: ['fill', 'remove'],
+    inputKind: 'masked-inpainting',
+    // The published MI-GAN conversion keeps white/one coverage and erases
+    // black/zero coverage. The adapter still has to verify the GGUF metadata
+    // and its resize/composite path before this convention can be trusted.
+    maskConvention: 'white-preserve-black-edit',
+    artifact: {
+      format: 'gguf',
+      source: 'Acly/MIGAN-GGUF',
+      revision: '6c410de2373fe94080e739642339b3e9f748b034',
+      sha256: '3e47592bf716d0dc306f8dc02d4476cfcdaf2c055fa3c3c8e0ced4db775eb64',
+      sizeBytes: 14_758_080,
+      license: 'MIT',
+      requiredComponentRoles: ['migan-512-places2', 'vision.cpp-runtime'],
+    },
+    runtime: {
+      adapterId: 'vision-cpp-migan-sidecar-unimplemented',
+      executionBackends: [],
+      architectures: [],
+      requiresGpu: false,
+      offlineAfterInstall: true,
+    },
+    qualification: {
+      status: 'pending',
+      evidenceRef: 'docs/audits/generative-editing-lightweight-model-screen-2026-09-16.md',
+      platforms: [],
+    },
+    limitations: [
+      'Mask-only model with no natural-language conditioning; it cannot implement prompt-conditioned Replace or Expand.',
+      'The official GGUF is converted for vision.cpp; the current Varve ONNX and diffusion-rs runtimes cannot consume it.',
+      'The fixed-resolution preprocessing, mask polarity, alpha handling, and protected-pixel composite require a separate Varve adapter.',
+      'No Varve sidecar, cancellation, ARM/Vulkan/CPU, memory, or real-photograph qualification exists yet.',
+    ],
+    reason:
+      'Research-only low-memory mask-repair candidate; an explicit vision.cpp adapter and real-photograph qualification are required before exposure.',
+  },
+  {
+    id: 'moebius-onnx-research',
+    name: 'Moebius · ONNX inpainting',
+    family: 'moebius',
+    disposition: 'research-only',
+    // Moebius provides learned-category conditioning rather than a text
+    // encoder. It is therefore a possible promptless removal/fill tier, not
+    // a natural-language Replace or Expand provider.
+    supportedModes: ['fill', 'remove'],
+    inputKind: 'masked-inpainting',
+    maskConvention: 'white-edit-black-preserve',
+    artifact: {
+      format: 'onnx-components',
+      source: 'simonw/Moebius-ONNX',
+      revision: '5bf1ef5d2861ec01a727183a3f95dc64f352120e',
+      license: 'Apache-2.0',
+      requiredComponentRoles: [
+        'moebius-unet',
+        'moebius-vae-encoder',
+        'moebius-vae-decoder',
+        'moebius-ddim-sampler',
+      ],
+    },
+    runtime: {
+      adapterId: 'moebius-onnx-ddim-sidecar-unimplemented',
+      executionBackends: [],
+      architectures: [],
+      requiresGpu: false,
+      offlineAfterInstall: true,
+    },
+    qualification: {
+      status: 'pending',
+      evidenceRef: 'docs/audits/generative-editing-lightweight-model-screen-2026-09-16.md',
+      platforms: [],
+    },
+    limitations: [
+      'The ONNX export is three static 512×512 graphs and needs a custom JavaScript DDIM loop plus the model-specific VAE scale of 0.13025.',
+      'Its learned ten-token conditioning table is not natural-language prompting; prompt-conditioned Replace and Expand remain unsupported.',
+      'The roughly 1.24 GB fp32 graph set has no Varve peak-memory, cancellation, browser/WebGPU, ARM, or real-photograph qualification.',
+      'The current letterbox frame helper is not the published Moebius pipeline and must not be reused without numerical parity evidence.',
+    ],
+    reason:
+      'Research-only fixed-resolution mask-repair candidate; the three-graph adapter and memory/platform qualification are not implemented.',
+  },
+  {
     id: 'powerpaint-v2-1-research',
     name: 'PowerPaint v2-1',
     family: 'powerpaint',

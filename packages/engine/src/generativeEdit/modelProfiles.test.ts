@@ -74,6 +74,35 @@ describe('local generative model profiles', () => {
       },
       qualification: { status: 'failed' },
     });
+    expect(getLocalGenerativeModelProfile('migan-512-places2-research')).toMatchObject({
+      inputKind: 'masked-inpainting',
+      maskConvention: 'white-preserve-black-edit',
+      supportedModes: ['fill', 'remove'],
+      artifact: {
+        format: 'gguf',
+        revision: '6c410de2373fe94080e739642339b3e9f748b034',
+        sizeBytes: 14_758_080,
+        sha256: '3e47592bf716d0dc306f8dc02d4476cfcdaf2c055fa3c3c8e0ced4db775eb64',
+      },
+      runtime: { executionBackends: [], architectures: [] },
+      qualification: { status: 'pending' },
+    });
+    expect(getLocalGenerativeModelProfile('moebius-onnx-research')).toMatchObject({
+      inputKind: 'masked-inpainting',
+      supportedModes: ['fill', 'remove'],
+      artifact: {
+        format: 'onnx-components',
+        revision: '5bf1ef5d2861ec01a727183a3f95dc64f352120e',
+        requiredComponentRoles: [
+          'moebius-unet',
+          'moebius-vae-encoder',
+          'moebius-vae-decoder',
+          'moebius-ddim-sampler',
+        ],
+      },
+      runtime: { executionBackends: [], architectures: [] },
+      qualification: { status: 'pending' },
+    });
     expect(getLocalGenerativeModelProfile('sdxl-inpainting-research')).toMatchObject({
       disposition: 'research-only',
       inputKind: 'masked-inpainting',
