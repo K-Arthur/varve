@@ -3,7 +3,11 @@ import type {
   DiffusionInputKind,
   DiffusionMaskConvention,
 } from './diffusionFrame';
-import { SD2_INPAINTING_FRAME_CONTRACT, SD15_INPAINTING_FRAME_CONTRACT } from './diffusionFrame';
+import {
+  SD2_INPAINTING_FRAME_CONTRACT,
+  SD15_INPAINTING_FRAME_CONTRACT,
+  SDXL_INPAINTING_FRAME_CONTRACT,
+} from './diffusionFrame';
 import type { GenerativeEditMode } from './types';
 
 /**
@@ -279,6 +283,7 @@ export const LOCAL_GENERATIVE_MODEL_RESEARCH_PROFILES: readonly LocalGenerativeM
     supportedModes: ALL_INPAINTING_MODES,
     inputKind: 'masked-inpainting',
     maskConvention: 'white-edit-black-preserve',
+    frameContract: SDXL_INPAINTING_FRAME_CONTRACT,
     artifact: {
       format: 'safetensors',
       source: 'diffusers/stable-diffusion-xl-1.0-inpainting-0.1',

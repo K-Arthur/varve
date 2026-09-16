@@ -74,6 +74,12 @@ describe('local generative model profiles', () => {
       },
       qualification: { status: 'failed' },
     });
+    expect(getLocalGenerativeModelProfile('sdxl-inpainting-research')).toMatchObject({
+      disposition: 'research-only',
+      inputKind: 'masked-inpainting',
+      supportedModes: ['fill', 'remove', 'replace', 'expand'],
+      frameContract: { frameWidth: 1024, frameHeight: 1024, dimensionMultiple: 64 },
+    });
     const flux2Profile = getLocalGenerativeModelProfile('flux2-klein-4b-reference-research');
     expect(flux2Profile).toMatchObject({
       inputKind: 'reference-edit',
