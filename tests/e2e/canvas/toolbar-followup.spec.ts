@@ -274,14 +274,25 @@ test.describe('Toolbar follow-up — combined journey', () => {
       timeout: 10000,
     });
 
-    // Switch placement, then verify document undo/redo does not disturb it.
+    // Switch placement, then verify document undo/redo does not disturb it
+    // and that the typed content round-trips. Drive history through the Edit
+    // menu: the keyboard chord after a menubar click is not reliably handled
+    // from menu focus, which made an earlier version of this step vacuous.
     await openMenu(page, 'View');
     await page.locator(VIEW_MENU).getByRole('menuitemradio', { name: 'Toolbar at Top' }).click();
     await expect(page.locator(PALETTE)).toHaveAttribute('data-placement', 'top');
-    await page.keyboard.press('Control+z');
-    await page.keyboard.press('Control+Shift+z');
+
+    const editMenu = '[role="menu"][aria-label="Edit"]';
+    await openMenu(page, 'Edit');
+    await page.locator(editMenu).getByRole('menuitem', { name: /^Undo/ }).click();
+    await openMenu(page, 'Edit');
+    await page.locator(editMenu).getByRole('menuitem', { name: /^Redo/ }).click();
+
     await expect(page.locator(PALETTE)).toHaveAttribute('data-placement', 'top');
     await expect(page.getByRole('treeitem')).toHaveCount(3);
+    await expect(page.getByRole('treeitem', { name: /Text: Launch 2026/i })).toBeVisible({
+      timeout: 10000,
+    });
 
     await page.screenshot({ path: testInfo.outputPath('combined-journey-1440x900.png') });
 

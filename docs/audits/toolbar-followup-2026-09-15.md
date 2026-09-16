@@ -222,33 +222,34 @@ The new E2E spec (`tests/e2e/canvas/toolbar-followup.spec.ts`) covers the
 placement radio pair and persistence, the status-bar geometry/targets across
 six widths, the quick-bar keyboard contract and duplication suppression, and a
 combined journey (photo + drawn shape + live text, a size edit, placement
-switch, document undo/redo leaving placement alone, reload).
+switch, Edit-menu undo/redo round-trip, reload).
 
-Environment notes that explain most of the run history: the shared `/tmp`
-tmpfs filled to 100% (Chromium's profile and shared memory live there), which
-crashed renderers during navigation and even in Playwright's global setup —
-pointing `TMPDIR` at the main filesystem fixed that class. The machine ran
-5–8 concurrent agent dev servers throughout, and other sessions' in-flight
-sources were occasionally mid-edit (a Vite `PARSE_ERROR` in
-`BatchBgRemoveDialog.tsx` appeared during one run). Runs were serialized
-through the heavy-task lease, which was itself queued behind another
-session's E2E for up to 10 minutes at a time.
+**Final clean run (2026-09-15 18:20, port 1673, one worker): 4 passed in
+2.3 minutes** — palette placement 37.7s, status bar 17.7s, quick bar 16.2s,
+combined journey 40.2s. A follow-up single-test run confirmed the journey's
+deterministic history step (Edit menu Undo → Redo restores the typed content;
+the keyboard chord after a menubar click was not reliably handled from menu
+focus, which had made an earlier version of that step vacuous).
 
-Results per test, after the fixes each iteration surfaced:
+Evidence:
+`docs/screenshots/2026-09-15-toolbar-followup/palette-at-top-with-view-menu-1440x900.png`
+(placement, radio state, grouped View root) and `combined-journey-1440x900.png`
+(complete document: photo + rectangle + live text "Launch 2026", palette at
+top, status bar).
 
-| Test | Status | Notes |
-|---|---|---|
-| Palette placement | **passed** (run 1623, 40.3s; also run 1637) | Radio states, canvas-cell geometry, document undo untouched, reload persistence, reset. Screenshot: `docs/screenshots/2026-09-15-toolbar-followup/palette-at-top-with-view-menu-1440x900.png`. |
-| Status bar row/target geometry | **passed** (run 1637) | The browser measurement found six sub-24px controls across two iterations (debt/score/save badges and fit buttons, then the 23px-wide score badge); all fixed, then clean at 1440/1280/1024/900/768/640. |
-| Text quick bar keyboard + duplication | **passed** (run 1641, 17.9s) | One tab stop, arrows move it, disabled Italic skipped, size field keeps native arrows, context bar shows the pointer instead of a second control set. |
-| Combined journey | **passed with the original assertions** (run 1623, 57.9s); the strengthened variant (full content plus the size-confirmation session regression) repeatedly hit renderer crashes on the loaded machine — `page.goto: Page crashed`, a reload crash, and `Target crashed` mid-drag — never an assertion failure. The defect its new assertions cover is unit-tested in `FloatingTextBar.test.tsx`. | Screenshot `combined-journey-1440x900.png` is from the run-1623 pass (before the test-flow corrections); a fresh capture needs one clean machine window. |
-
-The spec itself was corrected several times as it found real behavior:
-the bar element *is* the toolbar; roving focus must be demonstrated on
-enabled buttons (the default font has no italic face); the status-bar
-geometry check must skip ancestor-hidden controls; Escape in the size field
-cancels the draft before it closes; and confirming a size keeps the session
-alive only after the P1 fix.
+Earlier runs (recorded because they explain the fixes): the shared `/tmp`
+tmpfs filled to 100% — Chromium's profile and shared memory live there —
+and crashed renderers during navigation and in Playwright's global setup
+until runs used `TMPDIR` on the main filesystem. Under 5–8 concurrent agent
+dev servers, other sessions' in-flight sources were occasionally mid-edit
+(a Vite `PARSE_ERROR` in `BatchBgRemoveDialog.tsx` appeared during one run),
+and the heavy-task lease was queued behind another session's E2E for up to 10
+minutes. Those runs nevertheless surfaced the real defects now fixed: six
+sub-24px status-bar controls across two iterations, the P1 session-lifetime
+bug in the size field, and four test-flow corrections (the bar element *is*
+the toolbar; roving focus needs enabled buttons because the default font has
+no italic face; the geometry check must skip ancestor-hidden controls; Escape
+in the size field cancels the draft before it closes).
 
 ## External failure evidence (summary)
 
