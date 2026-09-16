@@ -2,15 +2,29 @@
 /**
  * Real-model Grounding DINO Tiny gate (manual).
  *
- * Runs the pinned int8 ONNX graph through the exact production
- * preprocessing/tokenization/decoding functions and records numeric and
- * visual evidence:
+ * Runs the pinned int8 ONNX graph through the production tokenization, decoding,
+ * and *reference* preprocessing functions and records numeric and visual
+ * evidence:
  *
  *   - tokenizer ids match the reference transformers.js tokenizer for the
  *     documented query convention (lowercase, trailing period);
  *   - real photographs produce detections above the published thresholds;
  *   - boxes are converted from normalized center/size to source-pixel corners;
  *   - phrase association survives multi-token words and multiple phrases.
+ *
+ * Preprocessing identity decides how far this evidence travels. This gate uses
+ * `buildGroundingDinoInputs` — the JS resize path, identity
+ * `grounding-dino-tiny-800-stretch-imagenet-v1` (nearest-neighbour sampling).
+ * The browser panel ships `buildGroundingDinoInputsFromModelImage`, identity
+ * `grounding-dino-tiny-800-canvas-bilinear-v2`, where the browser resizes the
+ * source into an 800x800 canvas. The two are not numerically equivalent model
+ * inputs: on a real 1280x853 photograph the mean absolute difference in the
+ * model input domain is 0.31 (normalized), and the browser path is 2.2x closer
+ * to an independent area-average resize (0.128 vs 0.276) — measured by
+ * `tests/e2e/canvas/discovery-preprocess-parity.spec.ts`. Detections recorded
+ * here therefore validate the graph, the tokenizer, the decoder, and this
+ * preprocessing identity; detection parity for the browser identity needs its
+ * own run, which is blocked on the 2.4 GB browser allocation.
  *
  * Enable with:
  *   VARVE_GROUNDING_DINO_MODEL=/path/to/model_int8.onnx

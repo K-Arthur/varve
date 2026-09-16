@@ -201,6 +201,40 @@ Changes in this session:
 Still unmeasured: the browser detector run itself (parity and wall-clock for
 the v2 preprocessing path). The attempt is recorded below.
 
+### Browser preprocessing parity (measured) and detection parity (open)
+
+`tests/e2e/canvas/discovery-preprocess-parity.spec.ts` loads **both real
+engine preprocessing functions** through the dev server's `/@fs/` source route
+— the reference path the Node gate validates
+(`buildGroundingDinoInputs`, identity `…-stretch-imagenet-v1`) and the path the
+panel ships (`buildGroundingDinoInputsFromModelImage`, identity
+`…-canvas-bilinear-v2`) — and compares their `pixel_values` tensors on
+`real-life-elephant.jpg` (1280×853 → 800×800).
+
+| Comparison (normalized model-input domain) | mean abs diff | p99 | values > 0.05 |
+| --- | ---: | ---: | ---: |
+| reference (v1, JS nearest) vs shipped browser (v2, canvas) | **0.3126** | 1.661 | 81.0 % |
+| reference (v1) vs independent area average | 0.2755 | 1.342 | 80.5 % |
+| shipped browser (v2) vs independent area average | **0.1280** | 0.753 | 62.7 % |
+
+Facts this establishes:
+
+* The two preprocessing identities do **not** produce equivalent model inputs
+  on a textured photograph. 81 % of normalized values differ by more than 0.05
+  and the maximum difference is 4.31, which is aliasing: nearest-neighbour
+  sampling picks a different source pixel than an averaged one.
+* The shipped browser path is **2.15× closer** to an independent area average
+  than the reference path it replaces, so the code comment's claim ("the
+  browser's smoothing is closer to the reference antialiased resize") is
+  supported for the resize step.
+* Channel means agree to ≤ 0.003 in both paths, so normalization, mean/std,
+  and channel order are identical; the difference is the filter alone.
+* **Detection parity remains unverified.** A closer resize is not the same as
+  equal detections, and the whole plan (postprocessing, thresholds, dedupe) is
+  unchanged but untested end-to-end on the v2 identity. The platform matrix
+  cell now names the identity of the verified run so the residual is legible
+  from the code, not only from this ledger.
+
 ### Browser detector attempt (not completed)
 
 The real detector artifacts are present locally (`model_int8.onnx` 204 MB,

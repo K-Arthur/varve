@@ -44,7 +44,7 @@ follows provider changes instead of hardcoding a segmenter.
 | Vocab | `vocab.txt`, 231,508 B, SHA-256 `07eced375cec144d27c900241f3e339478dec958f92fddbc551f295c992038a3` |
 | Inputs | `pixel_values` f32 [1,3,800,800]; `input_ids`, `token_type_ids`, `attention_mask` i64 [1,256]; `pixel_mask` i64 [1,800,800] |
 | Outputs | `logits` f32 [1,900,256]; `pred_boxes` f32 [1,900,4] (normalized center/size) |
-| Preprocessing | stretch resize to 800x800, `[0,1]` rescale, ImageNet mean/std, RGB, NCHW |
+| Preprocessing | reference (Node/A-B) identity `grounding-dino-tiny-800-stretch-imagenet-v1`: stretch resize in JS to 800x800, `[0,1]` rescale, ImageNet mean/std, RGB, NCHW. Shipped browser identity `grounding-dino-tiny-800-canvas-bilinear-v2`: the panel draws the source into an 800x800 canvas (browser antialiased filtering) and only normalizes. The two input tensors are **not equivalent**: measured mean absolute difference 0.31 (normalized) on a real 1280x853 photograph, with the browser path 2.2x closer to an independent area-average resize (0.128 vs 0.276). Evidence: `tests/e2e/canvas/discovery-preprocess-parity.spec.ts`, `/tmp`-independent report under `reports/inference-platform/`. Detection parity for the browser identity is **unverified**. |
 | Download | explicit, checksum-verified, never triggered by ordinary Object Selection |
 
 ## Verified runtime behavior
