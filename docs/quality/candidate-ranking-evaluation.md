@@ -1,13 +1,18 @@
 # Candidate-ranking evaluation
 
-Status: **instrumentation and policy mechanics shipped** (2026-09-15); the
-real-model frozen corpus run is **pending** (see "Evidence status").
+Status: **instrumentation, policy mechanics, and the intent-annotated
+real-photograph corpus are shipped** (2026-09-15); the synthetic-corpus
+frozen-set run is complete and the browser real-detector run remains open (see
+"Evidence status").
 
 Canonical modules:
 
 | Module | Role |
 | --- | --- |
-| `packages/engine/src/segmentation/candidateRanking.ts` | Bounded per-candidate features, declared ordering policies, top-1/oracle/regret/top-k metrics |
+| `packages/engine/src/segmentation/candidateRanking.ts` | Bounded per-candidate features, declared ordering policies, top-1/oracle/regret/top-k metrics, and annotation-only per-intent evaluation |
+| `packages/engine/src/segmentation/quality/evidence/annotated-ranking-real-photos-v1.json` | Reviewed intent-annotation corpus (RLE candidates, acceptable/best indices, per-case notes) |
+| `packages/engine/src/segmentation/quality/annotatedRanking.test.ts` | Model-free evaluation of every policy against the annotated corpus, with recorded baselines |
+| `packages/engine/src/segmentation/quality/rankingAnnotationSheet.test.ts` | Gated real-MobileSAM harness that regenerates the corpus and its review sheets |
 | `packages/editor/src/context/promptedMaskValidation.ts` | The real ranker; validation filter plus ordering (`reviewed-score` default, engine policies for evaluation) |
 | `packages/editor/src/context/promptedRankingEvaluation.ts` | Frozen-set evaluation through the real ranker, including human-annotated real-photo sets |
 | `packages/engine/src/segmentation/quality/providerAb.test.ts` | Gated real-model harness that emits frozen candidate sets (RLE masks, scores, oracle IoU, features) |
@@ -40,6 +45,36 @@ A promptable provider can fail in two independent ways:
 No cross-metric composites are used. Human-annotated sets replace the IoU
 band with explicit acceptable/best indices; the evaluator never infers intent
 from a score.
+
+## Intent-annotated real photographs (measured 2026-09-15)
+
+Six cases over four rights-cleared photographs, MobileSAM fp32, single-click
+prompts, reviewed by inspecting the source, every candidate mask, and the
+prompt placement (sheets in
+`docs/screenshots/2026-09-15-ranking-annotation/`).
+
+Two cases deliberately share one prompt: `crab-subject-whole` ("the whole
+crab") and `crab-subject-eye` ("the eye") have identical candidate sets and
+different acceptable sets. A single averaged metric would be wrong for at
+least one of them; that is the point of the corpus.
+
+| Policy | top-1 acceptable | coverage | mean clicks to first acceptable | top-1 == reviewer's best |
+| --- | ---: | ---: | ---: | ---: |
+| `provider` | 67 % | 100 % | 1.67 | 0/6 |
+| `score` | 67 % | 100 % | 1.50 | 4/6 |
+| `guarded-band-box` | 67 % | 100 % | 1.33 | 3/6 |
+| `guarded-band-area` | 50 % | 100 % | 1.67 | 2/6 |
+
+Named residuals (kept as baselines in the fixture, not averaged away):
+
+* `elephant-head-part` — top-1 (score 0.963) is a vegetation band; the only
+  head-localized mask scores 0.807. Ranking failure with an acceptable
+  candidate present.
+* `crab-subject-whole` — top-1 (0.980) is an eye/part mask; the whole animal
+  exists at 0.931, one cycle away. Ranking failure.
+* No policy reaches 100 % on this set. `guarded-band-box` lowers clicks but
+  matches the reviewer's best index less often than `score`, so the default
+  stays `reviewed-score` and no policy is promoted from this corpus alone.
 
 ## Policies
 

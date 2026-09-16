@@ -21,7 +21,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li>Choose point prompts or an explicit box-hint mode; create a box by dragging or by tapping its two corners.</li>
           <li>Set include or exclude polarity visibly. Shift remains a temporary exclude shortcut, separate from selection subtraction.</li>
           <li>Tap a prompt marker to remove just that prompt, drag it to move it, or press Backspace for the last one.</li>
-          <li>Compare candidate masks before applying; the candidate you reviewed is the one that is committed.</li>
+          <li>Compare candidate masks before applying &mdash; with the panel arrows or the <strong>[</strong> / <strong>]</strong> keys while the tool is active; the candidate you reviewed is the one that is committed.</li>
           <li>Preview the result before it becomes part of the document.</li>
           <li>Use replace, add, subtract, or intersect when sending the reviewed candidate to a pixel selection, or apply it as a standalone non-destructive raster mask.</li>
         </ul>
@@ -33,10 +33,13 @@ import { sitePath } from '../../lib/siteUrl';
           Candidate masks are alternative readings of the same prompt, not separate detected
           instances. A single click is genuinely ambiguous &mdash; the same point can mean a part,
           the whole object, or a group &mdash; so Varve keeps the competing readings and lets you
-          choose, with the reviewed candidate pinned for Apply. Multiple points may still describe
-          one object, and Varve keeps disconnected pieces and holes instead of silently keeping only
-          the largest component. Use a new prompt session when you mean a different object, then
-          combine the accepted selections intentionally.
+          choose, with the reviewed candidate pinned for Apply. A reviewed corpus of ambiguous
+          real-photo prompts found the top-ranked candidate was acceptable in about two thirds of
+          cases, with the rest one keyboard cycle away, so the order is a suggestion you can
+          override. Multiple points may still describe one object, and Varve keeps disconnected
+          pieces and holes instead of silently keeping only the largest component. Use a new prompt
+          session when you mean a different object, then combine the accepted selections
+          intentionally.
         </p>
       </section>
 
@@ -54,7 +57,11 @@ import { sitePath } from '../../lib/siteUrl';
           open-vocabulary detection is grounded in visual language, and a measured control showed
           it can return a confident box even when the described object is absent &mdash; so scores
           are model similarity, not proof, and the highlighted region must be verified. No match
-          shows an honest empty result instead of a fabricated rectangle.
+          shows an honest empty result instead of a fabricated rectangle. Treat it as a
+          background-scale task rather than a live filter: Varve runs it once per explicit search,
+          shows measured stage timings and a running clock instead of a fake progress bar, lets you
+          cancel, and releases the detector before segmentation starts. Point and box prompts stay
+          available the whole time and need no download.
         </p>
       </section>
 

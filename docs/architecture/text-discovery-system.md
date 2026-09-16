@@ -53,30 +53,52 @@ follows provider changes instead of hardcoding a segmenter.
   same wasm binary in Node): session creation 5.7 s, one 800x800 forward pass
   **41.9 s single-threaded**, peak RSS **2.4 GB**. The WASM path accepts the
   int64 feeds.
-* **The editor worker is single-threaded by policy.** `configureOrtRuntime`
-  pins `ort.env.wasm.numThreads = 1` inside workers (a documented
-  headless/AMD deadlock workaround; see
-  `ortRuntimeAssets.test.ts`). Cross-origin isolation raises the admission
-  budget (1.2 GB → 3.0 GB on an 8 GB tier) but does not enable threads.
-  Threaded execution of this graph is therefore **unverified**, not merely
-  untested; the support matrix in
-  `packages/engine/src/inference/platformEvidence.ts` records it.
+* **The editor worker is single-threaded by policy, and the policy is now
+  measured.** `configureOrtRuntime` pins `ort.env.wasm.numThreads = 1` inside
+  workers. The 2026-09-15 probe
+  (`tests/e2e/canvas/threaded-wasm-probe.spec.ts`) ran a real shipped graph in
+  a cross-origin isolated page (COOP/COEP set by the probe itself,
+  `crossOriginIsolated` true, `SharedArrayBuffer` present, 8 logical CPUs, 4 GiB
+  of shared `WebAssembly.Memory` reservable): with `numThreads = 1` the session
+  was created in 1283 ms and ran at 156.9 ms/run, while with `numThreads = 2`
+  **session creation never returned** and the worker had to be terminated after
+  120 s. Threaded execution of this graph is therefore unusable on this
+  host/browser/architecture, and the cell stays `unverified` in
+  `packages/engine/src/inference/platformEvidence.ts` because a different
+  runtime build is untested. Cross-origin isolation still raises the admission
+  budget (1.2 GB → 3.0 GB on an 8 GB tier); it is not a threading switch.
 * **Browser preprocessing is the 800x800 canvas path (v2).** The panel draws
   the source directly into an 800x800 canvas (stretch, high smoothing) and
   normalizes without resampling, so a 24 MP photo copies 2.6 MB instead of
   ~96 MB before inference. The reference processor resizes with antialiasing;
   the previous path sampled the downscaled source with nearest-neighbour. The
   Node harness keeps the v1 nearest path, and the detection cache key includes
-  the preprocessing identity so the two are never mixed.
-* **Measured stage timings are shown.** The worker reports session creation,
-  preprocessing, inference, and postprocessing wall times; the panel adds
-  source load and the detector release. A warm session is labeled as such.
+  the preprocessing identity so the two are never mixed. Browser parity for
+  the v2 path is still **unverified**: the real-detector browser run needs a
+  2.4 GB-class allocation that a loaded shared host could not provide
+  (see `docs/audits/segmentation-hardening-followup-2026-09-15.md`).
+* **Measured stage timings are shown, including the total.** The worker reports
+  session creation, preprocessing, inference, and postprocessing wall times;
+  the panel adds image preparation (source load + canvas draw), the detector
+  release, and the total time-to-first-usable-result. A warm session is
+  labeled as such.
 * **Detector release before segmentation.** After the detections are
   materialized as plain source-space boxes, the detector session is released
   and the release outcome is surfaced; a failed release stays conservatively
   accounted and the next heavy stage re-reserves it unless the idle worker was
-  recycled. Identical query/source/threshold searches reuse the in-session
-  compact detection cache and do not re-run the model.
+  recycled. Cancelling a run also releases the detector (idle-only: an
+  in-flight graph is reported as in use, never force-freed). Identical
+  query/source/threshold searches reuse the in-session compact detection cache
+  and do not re-run the model. Measured in Node CPU
+  (`scripts/bench/handoff-peak-trace.ts`): release returned in 4 ms and process
+  RSS fell 139 MB → 124 MB; the strictly sequential handoff peaked at 571 MB
+  against 590 MB for the overlapped ordering. That is a Node-CPU measurement of
+  the lifecycle ordering, not a browser-WASM claim.
+* **A refusal names the constraint.** The WASM admission decision is pure
+  (`evaluateWasmAdmission`) and its detail sentence is shown to the user, e.g.
+  "Needs about 2.6 GB, more than this session's 1.2 GB budget. The budget is
+  raised by cross-origin isolation, which this page does not have." A memory
+  denial is a distinct panel state from a timeout or an inference failure.
 * **onnxruntime-node 1.27.0 CPU**: real-photo gate (four repository
   photographs) produced phrase-attributed detections — elephant 0.979,
   person 0.906/0.845, sunflower 0.715 top-box — in ~10-16 s per query, peak
@@ -88,14 +110,21 @@ follows provider changes instead of hardcoding a segmenter.
 
 ## Budget and gating
 
-* The catalog declares `peakMemoryBytes: 2_600_000_000`: the 2.4 GB measured
-  browser-WASM peak plus ~200 MB headroom. Node's ~4 GB process RSS is not the
-  wasm heap and is not used as the browser budget.
+* **What "2.6 GB" is.** The catalog declares
+  `peakMemoryBytes: 2_600_000_000` — 2.6 × 10⁹ B = **2.42 GiB** — as a
+  *budget*: the measured browser-WASM peak (2.4 GB) plus ~200 MB headroom.
+  It is not a measured process RSS, not a GiB figure, and not a device
+  recommendation. The hard runtime ceiling is separate and was measured: a
+  shared `WebAssembly.Memory` maximum of 65536 pages (4 GiB, the wasm32
+  address limit) is reservable, so the detector budget consumes about 65 % of
+  the address space available to the runtime. Node's ~4 GB process RSS is a
+  different domain and is not used as the browser budget.
 * The panel's inference reservation uses that catalog peak, so the total
   reservation (model + source frame) stays under the runtime's
   `wasmSafePeakBytes` (3.0 GB on a cross-origin-isolated 8 GB-tier browser)
   while a low-memory session is refused **before** the 194 MiB download is
-  spent, with a message pointing back to point/box selection.
+  spent, with a message that names the binding constraint (missing isolation
+  vs device tier) and points back to point/box selection.
 * The panel copy states the ~2.6 GB working set and that the feature is
   unavailable on low-memory sessions.
 * No background analysis: discovery runs once per explicit query on the
