@@ -267,11 +267,18 @@ clean machine: **52 passed, 6 failed**, and the failures were triaged:
   spec updates for intended behavior: the context bar no longer shows
   typography during an edit session (single-surface rule), and Customize
   Workspace moved into the Workspace submenu.
-- `menus/keyboard-nav` failed a *different* test in each run (`disabled menu
-  item…`, then `ArrowRight opens submenu…`), all after programmatic
-  `.focus()` on menu rows; that suite's focus/index sync is not part of this
-  session's changes and the role/checked contract it touches is now covered
-  by `Menubar.test.tsx`. Recorded as pre-existing flakiness, not fixed here.
+- `menus/keyboard-nav` failed a *different* test in each run and reproduced
+  3/3 in isolation: the Object menu opened (trigger `[expanded]`, rows visible
+  in the screenshot) but no row ever received DOM focus, so any locator
+  matching `:focus` inside the menu found nothing. **Root cause:** the
+  dropdown and submenu focus handoffs assumed the portal layer was focusable
+  one animation frame after mount; under load that frame arrives while
+  `FloatingPortal` still keeps the layer `visibility: hidden`, and `focus()`
+  on a hidden element is silently ignored with no retry. **Fixed** in
+  `menu/menubarFocus.ts` with a bounded retry that only runs while focus is
+  still body/trigger/dropdown, so a deliberate destination is never stolen
+  back. The full spec — arrows, Enter, type-ahead, Escape restoration,
+  disabled items, axe — now passes 27/27.
 
 ## External failure evidence (summary)
 

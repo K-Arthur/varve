@@ -148,6 +148,7 @@ export function useMenubarFocusEffects(deps: MenubarFocusDeps): void {
     const ownerWindow = ownerDocument.defaultView;
     let frame: number | undefined;
     let observedMenu: HTMLDivElement | null = null;
+    let focusAttempts = 0;
 
     const handleFocusIn = () => {
       const menu = dropdownMenuRef.current;
@@ -184,8 +185,23 @@ export function useMenubarFocusEffects(deps: MenubarFocusDeps): void {
       }
       if (!target) return;
       // FloatingPortal keeps its layer visibility:hidden until the positioning
-      // effect lands; focus after the portal's first mounted frame.
+      // effect lands; focus after the portal's first mounted frame. Under
+      // load that frame can arrive before the layer is actually visible, and
+      // focus() on a hidden element is silently ignored — so verify the
+      // handoff and retry a bounded number of frames instead of leaving the
+      // menu open with no focused item. Only retry while focus is still in a
+      // state this open owns (body, the trigger, or the dropdown); a
+      // deliberate move elsewhere must not be stolen back.
       target.focus({ preventScroll: true });
+      const active = ownerDocument.activeElement;
+      const stillOurHandoff =
+        active === ownerDocument.body ||
+        menuRef.current?.contains(active) === true ||
+        dropdownMenuRef.current?.contains(active) === true;
+      if (active !== target && stillOurHandoff && focusAttempts < 30) {
+        focusAttempts += 1;
+        frame = ownerWindow?.requestAnimationFrame(focusWhenMounted);
+      }
     };
 
     frame = ownerWindow?.requestAnimationFrame(focusWhenMounted);
@@ -205,6 +221,7 @@ export function useMenubarFocusEffects(deps: MenubarFocusDeps): void {
       submenuRef.current?.ownerDocument ?? dropdownMenuRef.current?.ownerDocument ?? document;
     const ownerWindow = ownerDocument.defaultView;
     let frame: number | undefined;
+    let focusAttempts = 0;
     const focusWhenMounted = () => {
       const menu = submenuRef.current;
       if (!menu) {
@@ -224,7 +241,18 @@ export function useMenubarFocusEffects(deps: MenubarFocusDeps): void {
         return;
       }
       if (!target) return;
+      // Same bounded retry as the dropdown: the submenu's portal layer can
+      // still be hidden under load when the first focus attempt lands.
       target.focus({ preventScroll: true });
+      const focused = ownerDocument.activeElement;
+      const stillOurHandoff =
+        focused === ownerDocument.body ||
+        dropdownMenuRef.current?.contains(focused) === true ||
+        menu.contains(focused);
+      if (focused !== target && stillOurHandoff && focusAttempts < 30) {
+        focusAttempts += 1;
+        frame = ownerWindow?.requestAnimationFrame(focusWhenMounted);
+      }
     };
     frame = ownerWindow?.requestAnimationFrame(focusWhenMounted);
     if (frame === undefined) focusWhenMounted();
