@@ -292,7 +292,20 @@ export function extractBoundedContext(
   );
   const { offsetX: srcX, offsetY: srcY, width: srcW, height: srcH } = region;
 
-  if (srcW === imageData.width && srcH === imageData.height && srcX === 0 && srcY === 0) {
+  // Returning the original mask is only safe when it already describes the
+  // entire source frame. Aspect fitting can expand a smaller, offset mask's
+  // context to the full image; in that case the mask still needs to be
+  // reprojected into the returned full-frame buffer below.
+  if (
+    srcW === imageData.width &&
+    srcH === imageData.height &&
+    srcX === 0 &&
+    srcY === 0 &&
+    maskWidth === imageData.width &&
+    maskHeight === imageData.height &&
+    maskOffsetX === 0 &&
+    maskOffsetY === 0
+  ) {
     return {
       imageData,
       mask,

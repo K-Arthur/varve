@@ -340,6 +340,22 @@ describe('extractBoundedContext', () => {
     expect(region.width / region.height).toBe(2.5);
   });
 
+  it('reprojects an offset mask when aspect fitting expands its context to the full source', () => {
+    const img = makeImage(12, 8);
+    const mask = new Uint8Array(4 * 4);
+    mask[1 * 4 + 1] = 255;
+
+    const ctx = extractBoundedContext(img, mask, 4, 4, 4, 2, 100, 1);
+
+    expect(ctx.width).toBe(12);
+    expect(ctx.height).toBe(8);
+    expect(ctx.offsetX).toBe(0);
+    expect(ctx.offsetY).toBe(0);
+    expect(ctx.mask).toHaveLength(12 * 8);
+    expect(ctx.mask[3 * 12 + 5]).toBe(255);
+    expect(ctx.mask[0]).toBe(0);
+  });
+
   it('rejects an invalid model aspect ratio instead of guessing', () => {
     const mask = new Uint8Array(10 * 10).fill(255);
 
