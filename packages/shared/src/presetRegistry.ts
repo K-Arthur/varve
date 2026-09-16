@@ -12,6 +12,7 @@
  */
 import { simplifyRatio } from './presetAspectRatio';
 import type { Preset, PresetCategory, PresetGroup, PresetOrientation } from './presetTypes';
+import { physicalToPx } from './units';
 
 type PresetInput = Omit<Preset, 'orientation' | 'aspectRatio'> & {
   /** Set false to omit a fixed aspect ratio, e.g. for scrollable web
@@ -241,6 +242,51 @@ const DESKTOP_GROUP: PresetGroup = {
   label: 'Desktop',
   presets: [
     definePreset({
+      id: 'macbook-pro-16',
+      name: 'MacBook Pro 16"',
+      category: 'desktop',
+      width: 1728,
+      height: 1117,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+    definePreset({
+      id: 'macbook-pro-14',
+      name: 'MacBook Pro 14"',
+      category: 'desktop',
+      width: 1512,
+      height: 982,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+    definePreset({
+      id: 'macbook-air-13',
+      name: 'MacBook Air',
+      category: 'desktop',
+      width: 1280,
+      height: 832,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+    definePreset({
+      id: 'desktop-standard',
+      name: 'Desktop',
+      category: 'desktop',
+      width: 1440,
+      height: 1024,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+    definePreset({
+      id: 'desktop-wireframes',
+      name: 'Wireframes',
+      category: 'desktop',
+      width: 1440,
+      height: 1024,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+    definePreset({
       id: 'desktop-hd',
       name: 'Desktop HD',
       category: 'desktop',
@@ -268,20 +314,11 @@ const DESKTOP_GROUP: PresetGroup = {
       colorMode: 'rgb',
     }),
     definePreset({
-      id: 'macbook-pro-16',
-      name: 'MacBook Pro 16"',
-      category: 'desktop',
-      width: 1728,
-      height: 1117,
-      unit: 'px',
-      colorMode: 'rgb',
-    }),
-    definePreset({
-      id: 'macbook-air-13',
-      name: 'MacBook Air 13"',
+      id: 'tv-720p',
+      name: 'TV',
       category: 'desktop',
       width: 1280,
-      height: 832,
+      height: 720,
       unit: 'px',
       colorMode: 'rgb',
     }),
@@ -290,8 +327,80 @@ const DESKTOP_GROUP: PresetGroup = {
 
 const MOBILE_TABLET_GROUP: PresetGroup = {
   category: 'mobile-tablet',
-  label: 'Mobile & Tablet',
+  label: 'Phone & Tablet',
   presets: [
+    definePreset({
+      id: 'iphone-17',
+      name: 'iPhone 17',
+      category: 'mobile-tablet',
+      width: 402,
+      height: 874,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+    definePreset({
+      id: 'iphone-16-17-pro',
+      name: 'iPhone 16 & 17 Pro',
+      category: 'mobile-tablet',
+      width: 402,
+      height: 874,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+    definePreset({
+      id: 'iphone-16',
+      name: 'iPhone 16',
+      category: 'mobile-tablet',
+      width: 393,
+      height: 852,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+    definePreset({
+      id: 'iphone-16-17-pro-max',
+      name: 'iPhone 16 & 17 Pro Max',
+      category: 'mobile-tablet',
+      width: 440,
+      height: 956,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+    definePreset({
+      id: 'iphone-16-plus',
+      name: 'iPhone 16 Plus',
+      category: 'mobile-tablet',
+      width: 430,
+      height: 932,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+    definePreset({
+      id: 'iphone-air',
+      name: 'iPhone Air',
+      category: 'mobile-tablet',
+      width: 420,
+      height: 912,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+    definePreset({
+      id: 'iphone-14-15-pro-max',
+      name: 'iPhone 14 & 15 Pro Max',
+      category: 'mobile-tablet',
+      width: 430,
+      height: 932,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+    definePreset({
+      id: 'iphone-14-15-pro',
+      name: 'iPhone 14 & 15 Pro',
+      category: 'mobile-tablet',
+      width: 393,
+      height: 852,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
     definePreset({
       id: 'iphone-15-pro',
       name: 'iPhone 15 Pro',
@@ -302,11 +411,20 @@ const MOBILE_TABLET_GROUP: PresetGroup = {
       colorMode: 'rgb',
     }),
     definePreset({
-      id: 'iphone-15-pro-max',
-      name: 'iPhone 15 Pro Max',
+      id: 'iphone-13-14',
+      name: 'iPhone 13 & 14',
       category: 'mobile-tablet',
-      width: 430,
-      height: 932,
+      width: 390,
+      height: 844,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+    definePreset({
+      id: 'iphone-14-plus',
+      name: 'iPhone 14 Plus',
+      category: 'mobile-tablet',
+      width: 428,
+      height: 926,
       unit: 'px',
       colorMode: 'rgb',
     }),
@@ -329,6 +447,42 @@ const MOBILE_TABLET_GROUP: PresetGroup = {
       colorMode: 'rgb',
     }),
     definePreset({
+      id: 'android-medium',
+      name: 'Android Medium',
+      category: 'mobile-tablet',
+      width: 700,
+      height: 840,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+    definePreset({
+      id: 'android-expanded',
+      name: 'Android Expanded',
+      category: 'mobile-tablet',
+      width: 1280,
+      height: 800,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+    definePreset({
+      id: 'ipad-mini-8-3',
+      name: 'iPad mini 8.3',
+      category: 'mobile-tablet',
+      width: 744,
+      height: 1133,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+    definePreset({
+      id: 'surface-pro',
+      name: 'Surface Pro 8',
+      category: 'mobile-tablet',
+      width: 1440,
+      height: 960,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+    definePreset({
       id: 'ipad-air',
       name: 'iPad Air',
       category: 'mobile-tablet',
@@ -347,11 +501,45 @@ const MOBILE_TABLET_GROUP: PresetGroup = {
       colorMode: 'rgb',
     }),
     definePreset({
-      id: 'surface-pro',
-      name: 'Surface Pro 8',
+      id: 'ipad-pro-12-9',
+      name: 'iPad Pro 12.9"',
       category: 'mobile-tablet',
-      width: 1440,
-      height: 960,
+      width: 1024,
+      height: 1366,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+  ],
+};
+
+const WATCH_GROUP: PresetGroup = {
+  category: 'watch',
+  label: 'Watch',
+  presets: [
+    definePreset({
+      id: 'apple-watch-45mm',
+      name: 'Apple Watch Series 9/10 (45mm)',
+      category: 'watch',
+      width: 187,
+      height: 223,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+    definePreset({
+      id: 'apple-watch-41mm',
+      name: 'Apple Watch Series 9/10 (41mm)',
+      category: 'watch',
+      width: 176,
+      height: 215,
+      unit: 'px',
+      colorMode: 'rgb',
+    }),
+    definePreset({
+      id: 'apple-watch-ultra',
+      name: 'Apple Watch Ultra (49mm)',
+      category: 'watch',
+      width: 205,
+      height: 251,
       unit: 'px',
       colorMode: 'rgb',
     }),
@@ -788,6 +976,7 @@ export const BUILTIN_PRESET_GROUPS: PresetGroup[] = [
   WEB_GROUP,
   MOBILE_TABLET_GROUP,
   DESKTOP_GROUP,
+  WATCH_GROUP,
   SOCIAL_GROUP,
   VIDEO_MOTION_GROUP,
   PRESENTATION_GROUP,
@@ -811,4 +1000,31 @@ export function findBuiltinPreset(id: string): Preset | undefined {
 /** All categories that currently have at least one built-in group. */
 export function builtinCategories(): PresetCategory[] {
   return BUILTIN_PRESET_GROUPS.map((group) => group.category);
+}
+
+/**
+ * Identify if given pixel dimensions match an existing built-in preset,
+ * checking both standard and transposed (landscape) orientations.
+ */
+export function findMatchingPreset(
+  width: number,
+  height: number,
+): { preset: Preset; isLandscape: boolean } | null {
+  const roundedW = Math.round(width);
+  const roundedH = Math.round(height);
+  if (roundedW <= 0 || roundedH <= 0) return null;
+
+  for (const preset of flattenBuiltinPresets()) {
+    const pw = Math.round(physicalToPx(preset.width, preset.unit));
+    const ph = Math.round(physicalToPx(preset.height, preset.unit));
+    // Exact match
+    if (pw === roundedW && ph === roundedH) {
+      return { preset, isLandscape: false };
+    }
+    // Transposed match
+    if (pw === roundedH && ph === roundedW) {
+      return { preset, isLandscape: true };
+    }
+  }
+  return null;
 }

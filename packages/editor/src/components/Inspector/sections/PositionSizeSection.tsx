@@ -282,8 +282,11 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
     [editor, locked, aspectRatio, nodes],
   );
 
-  const isSingleFrame =
-    nodes.length === 1 && nodes[0]!.kind === 'frame' && !isExportRegion(nodes[0]!);
+  const isFrameSelection =
+    nodes.length > 0 &&
+    nodes.every(
+      (n) => n.kind === 'frame' && !isExportRegion(n) && !('componentId' in n && n.componentId),
+    );
 
   const handleSwapOrientation = useCallback(() => {
     if (nodes.length === 0 || wRaw === null || hRaw === null || isMixed(wRaw) || isMixed(hRaw))
@@ -344,7 +347,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
 
   return (
     <DisclosureSection title="Position & Size" sectionId="position-size">
-      {isSingleFrame && <FramePresetDropdown frame={nodes[0] as FrameNode} />}
+      {isFrameSelection && <FramePresetDropdown frames={nodes as FrameNode[]} />}
       {useArtboardCoords && (
         <p className="insp-panel__empty-hint">Coordinates shown relative to active artboard</p>
       )}
@@ -468,7 +471,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 fieldName="height"
                 onShiftClick={() => editor.setBindingField('height')}
               />
-              {isSingleFrame && (
+              {isFrameSelection && (
                 <Tooltip label="Swap orientation (Portrait / Landscape)">
                   <button
                     type="button"
