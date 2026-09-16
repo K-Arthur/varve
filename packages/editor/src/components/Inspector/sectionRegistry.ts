@@ -8,7 +8,7 @@
  * - SectionManagerDialog (recovery UI for hidden sections)
  * - Workspace-mode-specific defaults
  *
- * Research basis: Figma section visibility, Sketch Inspector组织, APG Disclosure.
+ * Research basis: Figma section visibility, Sketch Inspector organization, APG Disclosure.
  */
 import {
   canPaintFills,

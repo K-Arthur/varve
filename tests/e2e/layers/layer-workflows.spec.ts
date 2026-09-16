@@ -466,6 +466,55 @@ test.describe('layer states (Varve-native, not Photoshop Layer Comps)', () => {
 
     await page.screenshot({ path: SHOT('layer-state-delete'), fullPage: false });
   });
+
+  test('a captured state stays visible and applicable after deselecting everything', async ({
+    page,
+  }) => {
+    // Regression: the Inspector swaps to its empty-selection (document
+    // settings) composition when nothing is selected, and that composition
+    // used to omit Layer States entirely — so a captured state became
+    // impossible to see, apply, rename, or delete the moment the user
+    // clicked empty canvas, even though the data was never lost.
+    await seedLayers(page, 2);
+    const rows = page.getByRole('treeitem');
+    const firstId = await rows.nth(0).getAttribute('data-node-id');
+    expect(firstId).toBeTruthy();
+
+    await rows.nth(0).click();
+    await page.waitForTimeout(150);
+    await callCtx(page, 'captureLayerState', 'Reachable After Deselect');
+    await page.waitForTimeout(200);
+
+    const stateItem = page.locator('.layer-states__item').first();
+    await expect(stateItem).toBeVisible({ timeout: 3000 });
+
+    // Deselect everything (equivalent to the "Select None" command; called
+    // directly so the assertion doesn't depend on which element currently
+    // holds keyboard focus).
+    await callCtx(page, 'setSelection', null);
+    await page.waitForTimeout(200);
+    await expect(page.getByRole('treeitem', { selected: true })).toHaveCount(0);
+
+    // The Inspector now shows its empty-selection composition, but the
+    // captured state must still be present, visible, and operable there.
+    await expect(stateItem).toBeVisible({ timeout: 3000 });
+    await expect(stateItem.locator('.layer-states__name')).toContainText(
+      'Reachable After Deselect',
+    );
+    await page.screenshot({ path: SHOT('layer-state-visible-with-empty-selection') });
+
+    // Hide the layer via the row toggle (still possible with nothing
+    // selected), then apply the state from the empty-selection Inspector to
+    // prove the "apply" action works too, not just visibility.
+    const firstRow = rows.nth(0);
+    await firstRow.locator('.layers-row__toggle--visibility-on').click();
+    await page.waitForTimeout(200);
+    await expect(firstRow).toHaveClass(/layers-row--hidden/);
+
+    await stateItem.locator('.layer-states__name-btn').click();
+    await page.waitForTimeout(200);
+    await expect(firstRow).not.toHaveClass(/layers-row--hidden/);
+  });
 });
 
 test.describe('solo view (non-destructive focus mode)', () => {

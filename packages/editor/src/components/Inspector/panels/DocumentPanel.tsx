@@ -33,6 +33,7 @@ import {
   updateSettings,
   type ViewportSettingsStore,
 } from '../../../settings';
+import { LayerStatesSection } from '../../LayersPanel/LayerStatesSection';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { SegmentedControl } from '../controls/SegmentedControl';
@@ -665,6 +666,14 @@ export function DocumentPanel() {
           </div>
         </fieldset>
       </DisclosureSection>
+      {/* Saved layer states must stay reachable with nothing selected — the
+          selection panels are the only other place this renders, and
+          capturing a new state already requires a selection there. Without
+          this, deselecting everything makes previously captured states
+          impossible to see, apply, rename, or delete. Placed ahead of the
+          Isometric Grid section (by far the longest one here) so reaching it
+          does not require scrolling past that specialist content. */}
+      {!state.sectionVisibility['layer-states']?.hidden && <LayerStatesSection />}
       <IsometricGridSection />
     </>
   );
