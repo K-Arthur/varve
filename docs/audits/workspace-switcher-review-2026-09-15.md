@@ -179,10 +179,22 @@ themes.
 | Command | Result |
 |---|---|
 | `npx vitest run packages/editor/src/components/WorkspaceTabs.test.tsx packages/editor/src/workspace/workspaceOverflow.test.ts` | 20 passed |
+| `npx vitest run packages/editor/src/workspace` (42 files) | 645 passed |
+| `npx vitest run packages/help` | 31 passed (help copy changed) |
+| `pnpm --filter @varve/website exec astro check` | 0 errors, 0 warnings (website pages changed) |
 | `npx playwright test tests/e2e/workspace/switcher-review.spec.ts --project=chromium` | 8 passed |
-| `npx playwright test tests/e2e/workspace/visual.spec.ts -g "workspace tabs" --update-snapshots` | 3 baselines regenerated and visually reviewed |
+| `npx playwright test tests/e2e/editor/workspace-nav.spec.ts --project=chromium` | 4 passed |
+| `npx playwright test tests/e2e/canvas/workspace-toolbar-visual.spec.ts` + `tests/e2e/workspace/visual.spec.ts -g "workspace tabs"` | passed; 3 baselines regenerated and visually reviewed |
+| `node scripts/audit-docs.mjs` / `node scripts/audit-emoji.mjs` | clean |
 | `npx biome check` on every touched file | clean |
 | `npx tsc --noEmit -p packages/editor/tsconfig.json` filtered to touched files | clean (pre-existing errors elsewhere remain; none touched here) |
+
+One pre-existing test defect surfaced and was repaired while running the
+existing specs: `workspace-nav.spec.ts` looked up the overflow entries as
+`role="menuitem"` although the menu has rendered them as `menuitemradio` since
+the control became a radio group; the assertion now matches the real role. The
+product behavior was correct — the menu's ARIA snapshot is recorded in
+`after/aria-snapshot.txt`.
 
 What the real-app spec verifies:
 
@@ -227,6 +239,11 @@ physical touch/pen; Safari/Firefox; the native WebKitGTK shell.
    to it.
 5. **Browser/OS text-size and assistive-technology matrices** remain untested
    for this surface, as listed above.
+6. **CHANGELOG entry deferred.** `CHANGELOG.md` holds another session's
+   uncommitted isometric entries; a pathspec commit would have swept them in.
+   The user-facing change belongs under Unreleased/Changed once that work
+   lands: "the workspace switcher now follows the product accent and passes
+   contrast in every theme; keyboard arrows move focus with the selection".
 
 ## Agent validation report
 

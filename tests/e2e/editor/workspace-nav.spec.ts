@@ -96,7 +96,9 @@ test.describe('Responsive workspace navigation', () => {
       });
       for (const name of ALL_WORKSPACES) {
         if (!hidden.includes(`${name} workspace`)) {
-          await expect(menu.getByRole('menuitem', { name })).toBeVisible();
+          // The overflow entries are radio choices wired to the workspace
+          // group, so they expose role="menuitemradio" — not "menuitem".
+          await expect(menu.getByRole('menuitemradio', { name })).toBeVisible();
         }
       }
     } else {
