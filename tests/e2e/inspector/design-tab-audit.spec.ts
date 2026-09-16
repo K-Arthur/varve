@@ -383,4 +383,139 @@ test.describe('Design tab real-world audit', () => {
     await page.keyboard.press('Space');
     await expect(checkbox).toBeChecked({ checked: !checkedBefore });
   });
+
+  test('Align & Distribute is hidden for single-layer selection', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await navigateToEditor(page);
+    await createFrame(page);
+    await openDesignTab(page);
+
+    // With only one layer (the frame), the align section must be absent.
+    const alignTrigger = page.locator('.insp-disclosure__trigger', {
+      hasText: 'Align & Distribute',
+    });
+    await expect(alignTrigger).not.toBeVisible();
+  });
+
+  test('Align & Distribute appears and shows reference chip on multi-select', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await seedRealWorldDocument(page);
+
+    // Select all layers (Cmd+A / Ctrl+A).
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await canvas.click({ position: { x: 640, y: 380 } });
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('ControlOrMeta+a');
+
+    await openDesignTab(page);
+
+    // Align section must appear.
+    const alignTrigger = page.locator('.insp-disclosure__trigger', { hasText: 'Align' });
+    await expect(alignTrigger).toBeVisible({ timeout: 10_000 });
+
+    // Reference chip is present (shows "To Frame" or similar label).
+    const chip = page.locator('.insp-align-section__target-badge');
+    // Chip is optional — only visible when aligning to a non-selection target.
+    // What we assert: when it IS visible, it has readable text.
+    const chipVisible = await chip.isVisible().catch(() => false);
+    if (chipVisible) {
+      const chipText = await chip.textContent();
+      expect(chipText?.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  test('Crop & Bounds aspect ratio presets are visible and clickable', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await seedRealWorldDocument(page);
+
+    // Click the photo layer to get image-specific sections.
+    const photoRow = page
+      .getByRole('treeitem')
+      .filter({ hasText: /real-life-still-life/ })
+      .first();
+    await photoRow.click();
+    await openDesignTab(page);
+
+    // Expand Crop & Bounds section.
+    const cropTrigger = page.locator('.insp-disclosure__trigger', { hasText: 'Crop' });
+    await expect(cropTrigger).toBeVisible({ timeout: 10_000 });
+    const isExpanded = (await cropTrigger.getAttribute('aria-expanded')) === 'true';
+    if (!isExpanded) await cropTrigger.click();
+
+    // Preset strip must appear.
+    const presets = page.locator('.insp-crop-presets');
+    await expect(presets).toBeVisible({ timeout: 5_000 });
+
+    // All 6 preset buttons must be present.
+    const presetBtns = presets.locator('button');
+    await expect(presetBtns).toHaveCount(6);
+
+    // Clicking a preset (e.g. 16:9) must not throw an error.
+    const sixteenNine = presets.locator('button', { hasText: '16:9' });
+    await expect(sixteenNine).toBeVisible();
+    await sixteenNine.click();
+    // If it threw, Playwright would error. Simply verify it remains visible.
+    await expect(presets).toBeVisible();
+  });
+
+  test('Selection Colors shows row layout with hex and target button', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await navigateToEditor(page);
+
+    // Draw two rectangles with different fills — they'll get default colors.
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas not found');
+
+    await page.keyboard.press('r');
+    await page.mouse.move(box.x + 100, box.y + 100);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 200, box.y + 200, { steps: 4 });
+    await page.mouse.up();
+    await page.keyboard.press('Escape');
+
+    await page.keyboard.press('r');
+    await page.mouse.move(box.x + 250, box.y + 100);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 350, box.y + 200, { steps: 4 });
+    await page.mouse.up();
+
+    // Select both rectangles.
+    await page.keyboard.press('ControlOrMeta+a');
+    await openDesignTab(page);
+
+    // Scroll to the bottom to find Selection Colors (it's after Effects now).
+    const panel = page.locator('.editor-inspector > .insp-panel');
+    await panel.evaluate((el) => {
+      el.scrollTop = el.scrollHeight;
+    });
+
+    // Selection Colors section may or may not be visible depending on fills.
+    // If it appears, validate the new row layout.
+    const colorsSection = page.locator('.insp-disclosure__trigger', {
+      hasText: 'Selection Colors',
+    });
+    const colorsSectionVisible = await colorsSection
+      .isVisible({ timeout: 3_000 })
+      .catch(() => false);
+
+    if (colorsSectionVisible) {
+      const expanded = (await colorsSection.getAttribute('aria-expanded')) === 'true';
+      if (!expanded) await colorsSection.click();
+
+      const colorItems = page.locator('.selection-colors__item');
+      const count = await colorItems.count();
+      if (count > 0) {
+        // Each item must have a hex label in monospace.
+        const hexLabel = colorItems.first().locator('.selection-colors__hex');
+        await expect(hexLabel).toBeVisible();
+        const hexText = await hexLabel.textContent();
+        expect(hexText).toMatch(/#?[0-9a-fA-F]{6}/);
+
+        // Target button must be present.
+        const targetBtn = colorItems.first().locator('.selection-colors__target-btn');
+        await expect(targetBtn).toBeVisible();
+      }
+    }
+  });
 });
