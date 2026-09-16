@@ -413,8 +413,10 @@ test.describe('Design tab real-world audit', () => {
     await expect(
       alignSection.getByRole('button', { name: 'Align to parent frame' }),
     ).toHaveAttribute('aria-disabled', 'true');
+    // Fresh design documents work on a Design Canvas, so the surface target
+    // is the canvas content extents (Print documents keep Page).
     await expect(
-      alignSection.getByRole('button', { name: 'Align to page (active)' }),
+      alignSection.getByRole('button', { name: 'Align to canvas (active)' }),
     ).toBeVisible();
 
     // The capability rule stays in the accessibility tree for screen readers.
@@ -479,6 +481,51 @@ test.describe('Design tab real-world audit', () => {
     await expect(
       alignSection.getByRole('button', { name: 'Align to selection bounds (active)' }),
     ).toBeVisible();
+  });
+
+  test('Align to canvas moves a subset to the canvas content extents', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await navigateToEditor(page);
+
+    // Two side-by-side rectangles on the design canvas. Aligning only the
+    // right one to the canvas must land it on the left rectangle's edge —
+    // proving the target is the canvas content extents, not the selection.
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await canvas.waitFor({ state: 'visible', timeout: 10_000 });
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas not found');
+    await page.keyboard.press('r');
+    for (const [downX, upX] of [
+      [180, 300],
+      [450, 570],
+    ] as const) {
+      // The draw tool returns to Select after each shape, so re-arm it.
+      await page.keyboard.press('r');
+      await page.mouse.move(box.x + downX, box.y + 180);
+      await page.mouse.down();
+      await page.mouse.move(box.x + upX, box.y + 260, { steps: 4 });
+      await page.mouse.up();
+      await page.waitForTimeout(120);
+    }
+    await page.keyboard.press('v');
+
+    const rows = page.getByRole('treeitem').filter({ hasText: /Rectangle/ });
+    await expect(rows).toHaveCount(2, { timeout: 10_000 });
+    await openDesignTab(page);
+    const xField = positionSizeGroup(page).getByRole('spinbutton', { name: 'X (px)' });
+    await rows.nth(0).click();
+    const x0 = Number(await xField.inputValue());
+    await rows.nth(1).click();
+    const x1 = Number(await xField.inputValue());
+    const leftX = Math.min(x0, x1);
+    // Select the right-hand rectangle (whichever row it is).
+    await (x0 <= x1 ? rows.nth(1) : rows.nth(0)).click();
+
+    const alignSection = page.locator('.insp-align-section');
+    await expect(alignSection).toBeVisible({ timeout: 10_000 });
+    await alignSection.getByRole('button', { name: /Align to canvas/ }).click();
+    await alignSection.getByRole('button', { name: /^Align left edges/ }).click();
+    await expect(xField).toHaveValue(String(leftX), { timeout: 10_000 });
   });
 
   test('Align reference targets meet the 24px target minimum', async ({ page }) => {
@@ -863,6 +910,34 @@ test.describe('Design tab paint rows (fill / stroke pass)', () => {
     await expect(strokeSection.getByRole('button', { name: 'Use one width' })).toBeVisible();
 
     await page.screenshot({ path: `${PAINT_EVIDENCE_DIR}/stroke-advanced.png` });
+  });
+
+  test('Fill blend mode is reachable inside the colour popover, not just the row menu', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await seedRealWorldDocument(page);
+    await selectRectangleLayer(page);
+    await openDesignTab(page);
+
+    // The single default fill shows no chip; the popover still owns the control.
+    await expect(page.locator('.insp-blend-chip')).toHaveCount(0);
+    // Scope to the Inspector: the context bar carries its own fill swatch.
+    const fillGroup = page.getByRole('group', { name: 'Fill' });
+    await fillGroup.getByRole('button', { name: 'Fill colour' }).click();
+    const dialog = page.getByRole('dialog', { name: /fill colour/i });
+    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    const blend = dialog.getByRole('combobox', { name: 'Fill blend mode' });
+    await expect(blend).toHaveText('Normal');
+    await blend.click();
+    await page.getByRole('option', { name: 'Multiply' }).click();
+    await page.keyboard.press('Escape');
+
+    // Committing in the popover surfaces the one-click chip on the row.
+    const chip = page.locator('.insp-blend-chip');
+    await expect(chip).toBeVisible({ timeout: 5_000 });
+    await expect(chip).toContainText('Multiply');
+    await page.screenshot({ path: `${PAINT_EVIDENCE_DIR}/fill-blend-popover.png` });
   });
 
   test('A zero-width stroke is flagged as invisible on the row', async ({ page }) => {

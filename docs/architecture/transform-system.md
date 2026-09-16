@@ -123,18 +123,22 @@ under transformed parents to align without reparenting them.
 
 The Inspector exposes three explicit alignment references: **Selection** uses
 the collective bounds (or an active key object), **Frame** uses the nearest
-common frame ancestor, and **Page** uses the active page's placed world bounds.
-The page reference is not a hard-coded origin: it follows the page's position,
-rotation, and scale in the document. A frame reference works for one child,
-sibling roots, and nested selections; if the selected roots do not share a
-frame, that reference is unavailable. A valid key object remains stationary
-only for the Selection reference. Equal-gap distribution sorts by actual
-geometric position, retains the first and last objects, and divides available
-space after accounting for every intervening object's width or height. Equal
-centre distribution is a separate command because it intentionally has a
-different result for unequal object sizes. The Inspector also offers an
-explicit fixed gap, including negative values for intentional overlap, so
-“distribute” does not hide the spacing policy.
+common frame ancestor, and the **workspace surface** uses explicit surface
+bounds. In Print the surface is the **Page** (the active page's placed world
+bounds, which follow the page's position, rotation, and scale in the
+document); in Design-family workspaces it is the **Canvas** (the active Design
+Canvas's content extents — a canvas is unbounded, so its bounds are the union
+of its content, or unavailable when the canvas is empty). Legacy documents
+without design canvases keep the page reference. A frame reference works for
+one child, sibling roots, and nested selections; if the selected roots do not
+share a frame, that reference is unavailable. A valid key object remains
+stationary only for the Selection reference. Equal-gap distribution sorts by
+actual geometric position, retains the first and last objects, and divides
+available space after accounting for every intervening object's width or
+height. Equal centre distribution is a separate command because it
+intentionally has a different result for unequal object sizes. The Inspector
+also offers an explicit fixed gap, including negative values for intentional
+overlap, so “distribute” does not hide the spacing policy.
 
 Key-object and alignment-reference state is editor session state, not document
 content; it is intentionally excluded from export and serialization.
@@ -163,15 +167,15 @@ than pretending every selection supports every command:
 
 | Selection after eligibility filtering | Available manual operation |
 | --- | --- |
-| One item | Page-relative alignment, or nearest-frame alignment when a container exists |
+| One item | Surface-relative alignment (Page in Print, Canvas in Design), or nearest-frame alignment when a container exists |
 | Two or more items | Selection-relative alignment, nearest-frame alignment when shared, and key-object alignment |
 | Three or more items | Horizontal and vertical distribution |
 | Two or more items | Tidy-up grid |
 
 The active reference is shown as a segmented control, with unavailable Frame
-and Page choices disabled rather than silently falling back to Selection. This
+and surface choices disabled rather than silently falling back to Selection. This
 makes the target visible before a command runs and means a single selected
-image or frame can align to its frame or page without making relative
+image or frame can align to its frame or workspace surface without making relative
 distribution appear to work. When every selected item is ineligible, the
 toolbar is absent and the Properties panel reports the governing state (for
 example, a lock or layout control) instead of showing a disabled row of
