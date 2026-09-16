@@ -551,6 +551,19 @@ mode can be executable in principle but not ready until its local model has
 passed qualification; the UI combines both signals and reports the actual
 setup action or blocker.
 
+The renderer-side model registry in
+[`generativeEdit/modelProfiles.ts`](../../packages/engine/src/generativeEdit/modelProfiles.ts)
+keeps the local candidate requirements explicit alongside the provider facade.
+Each profile records its actual masked-input contract, required component roles,
+artifact format and revision, license, adapter identity, offline behaviour,
+backend/architecture qualification, and memory envelope. PowerPaint,
+FLUX.1-Fill, FIBO-Edit, and SDXL are research-only records; their presence in
+the registry does not make them installable or routable. The current SD 1.5
+GGUF remains disabled because its published runtime is patched and its
+real-photograph results failed review. A future profile must be promoted only
+after its complete local component graph and supervised adapter pass the same
+mask, quality, cancellation, memory, and platform gates.
+
 When a prompt-capable result is accepted, its provider provenance also records
 the exact input-frame contract and preprocessing revision (including the model
 frame dimensions). This keeps a saved candidate tied to the same

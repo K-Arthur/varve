@@ -45,6 +45,20 @@ export type {
 } from './job';
 export { createGenerativeJobState, GenerativeJobController } from './job';
 export type {
+  LocalGenerativeModelArtifact,
+  LocalGenerativeModelArtifactFormat,
+  LocalGenerativeModelDisposition,
+  LocalGenerativeModelProfile,
+  LocalGenerativeModelRuntimeRequirements,
+} from './modelProfiles';
+export {
+  CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE,
+  getLocalGenerativeModelProfile,
+  isLocalGenerativeModelRunnable,
+  LOCAL_GENERATIVE_MODEL_PROFILES,
+  LOCAL_GENERATIVE_MODEL_RESEARCH_PROFILES,
+} from './modelProfiles';
+export type {
   NativeGenerativeModelDownloadProgress,
   NativeGenerativeModelStatus,
 } from './nativeModel';

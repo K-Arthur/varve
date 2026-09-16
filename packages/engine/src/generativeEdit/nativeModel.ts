@@ -1,15 +1,21 @@
 import { isTauriRuntime } from '@varve/platform';
 import { SD15_INPAINTING_FRAME_CONTRACT } from './diffusionFrame';
+import { CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE } from './modelProfiles';
 
+/**
+ * Backwards-compatible native helper view of the canonical local profile.
+ * The desktop command independently validates the same identity; this export
+ * is kept for renderer callers that need the frame and memory defaults.
+ */
 export const NATIVE_GENERATIVE_MODEL_PROFILE = {
-  id: 'sd15-inpainting-q4_0-v1',
+  id: CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE.id,
   modelHandle: 'varve-diffusion-inpainting',
-  name: 'Stable Diffusion 1.5 Inpainting · Q4_0',
-  sizeBytes: 1_747_219_584,
-  sha256: 'd157ce24483f0c999062da140eacebe8f3ed015e652723e31f6d39119b800c16',
-  revision: '21491e4',
-  minimumMemoryBytes: 6 * 1024 * 1024 * 1024,
-  license: 'CreativeML OpenRAIL-M',
+  name: CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE.name,
+  sizeBytes: CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE.artifact.sizeBytes ?? 0,
+  sha256: CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE.artifact.sha256 ?? '',
+  revision: CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE.artifact.revision,
+  minimumMemoryBytes: CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE.runtime.minimumMemoryBytes ?? 0,
+  license: CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE.artifact.license,
   /** The helper must receive the model's declared working-frame contract. */
   frameContract: SD15_INPAINTING_FRAME_CONTRACT,
 } as const;
