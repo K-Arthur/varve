@@ -93,12 +93,12 @@ workspace/toolchain files are dirty, not because of this slice).
 
 ## Integration warnings
 
-1. **HEAD is incomplete.** `bb3782ecf` folded this session's `Menubar.tsx`,
-   `Menubar.test.tsx`, and `keyboard-nav.spec.ts` changes into the shared-helper
-   refactor but left `menu/menubarKeynav.ts` uncommitted. HEAD's `Menubar.tsx`
-   passes `submenuRef` into `handleMenubarKey` while HEAD's `MenubarKeyContext`
-   lacks that field, so HEAD does not typecheck that file until the remaining
-   slice is committed. The worktree is consistent and green.
+1. **HEAD was incomplete between `bb3782ecf` and `c0f2ebbd6`.** The earlier
+   commit folded this session's `Menubar.tsx`, `Menubar.test.tsx`, and
+   `keyboard-nav.spec.ts` changes into the shared-helper refactor but left
+   `menu/menubarKeynav.ts` uncommitted, so HEAD passed `submenuRef` into a
+   context type that lacked it. `c0f2ebbd6` closes that gap; HEAD now contains
+   `submenuRef` in `MenubarKeyContext`.
 2. **Stale index snapshot (observed, now reconciled by another session).** At
    review time the index held a pre-`bb3782ecf` snapshot (21 entries,
    including a staged deletion of `menu/menubarItemState.ts` and older copies
@@ -126,29 +126,26 @@ fec7f737c652dab49d2022c2a055c9668cc84e55011e7533b48e5abdb61e0f3e  packages/edito
 c00a7c27354f7e88fa7c27f17ab85f23339840961e51b5066214aa55de96af24  tests/e2e/menus/keyboard-nav.spec.ts
 ```
 
-## Evening re-check (2026-09-15, after the concurrent session's commit)
+## Completion (2026-09-15, final)
 
-- `bb3782ecf` folded this session's `Menubar.tsx`, `Menubar.test.tsx`, and
-  `keyboard-nav.spec.ts` changes into the shared-helper refactor, but left
-  `menu/menubarKeynav.ts` uncommitted. HEAD therefore does not typecheck that
-  file (`Menubar.tsx` passes `submenuRef`; HEAD's `MenubarKeyContext` lacks
-  it). The worktree is consistent: `Menubar.test.tsx` 28/28, flyout-dismissal
-  3/3, typeahead 9/9 (including the new submenu journey), and
-  `overlay-reliability.spec.ts:91` now passes.
-- The previously-red M6 journeys are fixed by the concurrent session's
-  uncommitted focus-retry in `menubarFocus.ts`; this session reviewed it and
-  corrected its own earlier settle-race hypothesis (audit section 6).
-- The stale index and the stale `menuSnapshot.test.ts` baseline remain hazards
-  owned by others (audit section 6, items 3 and 4).
+| Commit | Subject |
+|---|---|
+| `bb3782ecf` | fix(menubar): share one item role/checked helper (other session; includes this session's `Menubar.tsx`, `Menubar.test.tsx`, `keyboard-nav.spec.ts`) |
+| `c8c4b1f2b` | fix(menubar): retry the menu focus handoff until the portal layer is focusable (other session; reviewed here) |
+| `ac804fdcb` | test(toolbar): scroll the focused menu row into view (other session; reviewed here) |
+| `c0f2ebbd6` | fix(menubar): complete the submenu keyboard and availability contract (this session: keynav, e2e specs, retry coverage, docs) |
+| snapshot refresh commit | test(menus): refresh the declarative menu snapshot baseline |
+
+With `c0f2ebbd6`, HEAD contains `submenuRef` in `MenubarKeyContext` and the
+intermediate type inconsistency is resolved. The `menuSnapshot.test.ts`
+baseline was regenerated from the committed model (50/50); its only
+"deletions" were moved entries, verified by confirming the affected labels
+(`Group Selection`, `Select All`, `Intelligence`, arrangement sections) are
+still present in the new baseline.
 
 ## Remaining menu work (not in this session)
 
-- Commit the remaining slice (`menubarKeynav.ts`, `tests/e2e/menus/*.spec.ts`,
-  `docs/architecture/menu-system.md`, and this session's docs) so HEAD
-  typechecks again. This session does not commit; the integration owner should
-  stage those paths from the worktree (see the integration warnings above).
 - Enabled `reason` strings computed by the declarative model are still not
-  rendered by the HTML menubar (the two renderers remain separate).
-- The stale committed `menu/__tests__/__snapshots__/menuSnapshot.test.ts.snap`
-  baseline belongs to the clipboard-menu writer; regenerating it here would
-  capture their in-flight entries.
+  rendered by the HTML menubar (the two renderers remain separate; see the
+  audit for why this is a deliberate boundary rather than a quick patch).
+- `nativeAdapter.test.ts.snap` remains another session's uncommitted work.

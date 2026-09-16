@@ -99,6 +99,8 @@ processes active):
   `packages/editor/src/menu/__tests__/menubarFocusRetry.test.tsx` (2 tests) —
   retries a refused handoff until focus lands and stops once focus moved
   deliberately elsewhere. 2/2 pass; no type errors.
+- Commit anchors: this session's contract work is `c0f2ebbd6`; the reviewed
+  focus fix is `c8c4b1f2b` plus `ac804fdcb` (tall-menu row scroll).
 
 Attribution rule: a failure is attributed to this slice only when its journey
 exercises the repaired behavior. The only observed failures in this batch were
@@ -135,13 +137,14 @@ flakes.
    session did not touch the index. A later check found the menu paths no
    longer staged (6 unrelated generative-edit entries remain), so the hazard
    is resolved.
-4. **`menu/__tests__/menuSnapshot.test.ts`: 36 failed / 14 passed on HEAD.**
-   Pre-existing and independent of this session (the suite renders `defs.ts`
-   through `renderer.ts`, neither touched here); the committed snapshot
-   baseline is stale relative to the committed declarative menu. The clipboard
-   menu writer owns `defs.ts` and the `nativeAdapter` snapshot, so the baseline
-   was not regenerated here — updating it would bake in their in-flight entries
-   without review.
+4. **`menu/__tests__/menuSnapshot.test.ts` baseline refreshed.** It was
+   36 failed / 14 passed on HEAD, independent of this session (the suite
+   renders the committed `defs.ts` through `renderer.ts`). The delta was
+   reviewed before accepting it: purely additive entries for committed
+   commands (clipboard, workspace-management, isometric-plane) plus moved
+   arrangement sections, with no lost labels. After regeneration the suite is
+   50/50. The refresh is its own commit so the baseline change is reviewable
+   in isolation from the contract fix.
 
 ## 7. Rollback
 
