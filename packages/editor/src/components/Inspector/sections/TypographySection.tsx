@@ -234,7 +234,12 @@ function advancedTypographyCount(nodes: TextNode[]): number {
     if ((node.textDecoration ?? 'none') !== 'none') count += 1;
     if ((node.listStyle ?? 'none') !== 'none') count += 1;
     if ((node.textOverflow ?? 'visible') !== 'visible') count += 1;
-    if ((node.textResizing ?? 'fixed') !== 'fixed') count += 1;
+    // Text sizing is only "set" when it differs from the mode's natural
+    // default: point text is auto-width, area/path text keeps its container.
+    // Counting a freshly created point-text layer here made every text layer
+    // report "1 set" for a property the user never touched.
+    const naturalResizing = node.textMode === 'area' ? 'fixed' : 'autoWidth';
+    if ((node.textResizing ?? naturalResizing) !== naturalResizing) count += 1;
     if ((node.direction ?? 'auto') !== 'auto') count += 1;
     if ((node.writingMode ?? 'horizontal-tb') !== 'horizontal-tb') count += 1;
     if ((node.textOrientation ?? 'mixed') !== 'mixed') count += 1;
@@ -435,8 +440,16 @@ export function TypographySection({ nodes }: TypographySectionProps) {
     [italicAvailable],
   );
   // Vertical alignment and text flow only exist once the text has a container;
-  // a point-text layer has no box for either to act on.
-  const isAreaText = textNodes.some((node) => (node.textResizing ?? 'fixed') !== 'autoWidth');
+  // a point-text layer has no box for either to act on. The node's textMode is
+  // the model's own answer (created point text carries textResizing
+  // 'autoWidth'), with textResizing as a fallback for older documents.
+  const isAreaText = textNodes.some((node) => {
+    if (node.textMode === 'area') return true;
+    if (node.textMode === 'path' || node.textMode === 'point') return false;
+    if (node.textResizing === 'autoHeight' || node.textResizing === 'fixed') return true;
+    if (node.textResizing === 'autoWidth') return false;
+    return true;
+  });
   // Orientation only affects a vertical writing mode, so hide it until the
   // selection actually writes vertically (the previous always-on select wrote
   // values the renderer ignored).
@@ -662,8 +675,8 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             onChange={(v) => applyTypographyToSelection({ tracking: v })}
           />
           <p className="insp-field__hint">
-            Tracking scales with the font size (per mille of the em); Letter spacing above stays a
-            fixed pixel offset.
+            Tracking scales with the font size (parts per thousand); Letter spacing above is a fixed
+            pixel offset.
           </p>
           <NumberField
             label="Paragraph spacing"
@@ -704,7 +717,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             />
           </FieldRow>
           {isVerticalWriting && (
-            <FieldRow label="Vertical orientation">
+            <FieldRow label="Vertical orientation" wrapLabel>
               <Select
                 label="Vertical text orientation"
                 value={isMixed(textOrientationRaw) ? 'mixed' : textOrientationRaw}

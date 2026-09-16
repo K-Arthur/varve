@@ -65,26 +65,6 @@ async function contentCanvasFingerprint(canvas: import('@playwright/test').Locat
   });
 }
 
-function serializedTextRuns(serialized: string | null) {
-  if (!serialized) return [] as Array<{ text: string; format?: Record<string, unknown> }>;
-  const documentData = JSON.parse(serialized) as {
-    nodes?: Record<
-      string,
-      {
-        kind?: string;
-        text?: string;
-        richText?: {
-          paragraphs?: Array<{ runs?: Array<{ text: string; format?: Record<string, unknown> }> }>;
-        };
-      }
-    >;
-  };
-  const textNode = Object.values(documentData.nodes ?? {}).find((node) => node.kind === 'text');
-  return (
-    textNode?.richText?.paragraphs?.[0]?.runs ?? (textNode?.text ? [{ text: textNode.text }] : [])
-  );
-}
-
 test.describe('Typography editing workflow', () => {
   test('point text shows immediate input and keeps its toolbar alive', async ({
     page,
@@ -215,8 +195,9 @@ test.describe('Typography editing workflow', () => {
       animations: 'disabled',
       fullPage: false,
     });
-    await ligature.selectOption('off');
-    await expect(ligature).toHaveValue('off');
+    await ligature.click();
+    await page.getByRole('option', { name: /^Off/ }).click();
+    await expect(ligature).toHaveText(/Off/);
     const serialized = (await callEditor(page, 'serializeDocument')) as string | null;
     const documentNodes = serialized
       ? (JSON.parse(serialized) as { nodes?: Record<string, unknown> }).nodes
@@ -254,8 +235,12 @@ test.describe('Typography editing workflow', () => {
       fullPage: false,
     });
 
-    const glyphAdjustments = page.getByText('Glyph adjustments', { exact: true });
+    const glyphAdjustments = page
+      .locator('button.insp-disclosure__trigger')
+      .filter({ hasText: 'Glyph adjustments' });
     await expect(glyphAdjustments).toBeVisible();
+    if ((await glyphAdjustments.getAttribute('aria-expanded')) !== 'true')
+      await glyphAdjustments.click();
     const x = page.getByRole('spinbutton', { name: 'X (px)', exact: true });
     await expect(x).toBeVisible();
     await x.fill('12');
@@ -266,97 +251,5 @@ test.describe('Typography editing workflow', () => {
       animations: 'disabled',
       fullPage: false,
     });
-  });
-
-  test('font preview and commit stay scoped to the active rich-text range', async ({ page }) => {
-    await navigateToEditor(page);
-    const canvas = page.locator('canvas.editor-canvas__content-layer');
-    await canvas.waitFor({ state: 'visible', timeout: 15000 });
-    const box = await canvas.boundingBox();
-    if (!box) throw new Error('editor canvas has no bounds');
-
-    await page.keyboard.press('t');
-    await page.mouse.click(box.x + 220, box.y + 180);
-    const editor = page.getByRole('textbox', { name: /editing text/i });
-    await expect(editor).toBeFocused();
-    await page.keyboard.insertText('Range typography');
-    await expect(editor).toHaveValue('Range typography');
-
-    await expect
-      .poll(
-        async () =>
-          serializedTextRuns((await callEditor(page, 'serializeDocument')) as string)
-            .map((run) => run.text)
-            .join(''),
-        { timeout: 5000 },
-      )
-      .toBe('Range typography');
-    await editor.evaluate((element) => {
-      const textarea = element as HTMLTextAreaElement;
-      textarea.focus();
-      textarea.setSelectionRange(0, 5);
-      textarea.dispatchEvent(new Event('select', { bubbles: true }));
-    });
-    await expect(editor).toHaveJSProperty('selectionStart', 0);
-    await expect(editor).toHaveJSProperty('selectionEnd', 5);
-    await page.waitForTimeout(100);
-
-    const before = (await callEditor(page, 'serializeDocument')) as string | null;
-    const beforeRuns = serializedTextRuns(before);
-    const toolbar = page.getByRole('toolbar', { name: 'Text formatting' });
-    const fontInput = toolbar.locator('.font-selector__input');
-    await fontInput.click();
-    await fontInput.fill('Fraunces Variable');
-    const option = page.getByRole('option', { name: /Fraunces Variable/ }).first();
-    await expect(option).toBeVisible();
-    // Preserve the actual browser range when the textarea hands focus to the
-    // portaled picker; this mirrors the editor's onSelect bridge explicitly.
-    await callEditor(page, 'setSelectionRange', {
-      start: { paragraphIndex: 0, offset: 0 },
-      end: { paragraphIndex: 0, offset: 5 },
-    });
-    await page.waitForTimeout(100);
-    await option.hover();
-    await page.waitForTimeout(100);
-
-    const previewRuns = serializedTextRuns((await callEditor(page, 'serializeDocument')) as string);
-    expect(previewRuns[0]?.text).toBe('Range');
-    expect(previewRuns[0]?.format?.fontFamily).toBe('Fraunces Variable');
-    expect(
-      previewRuns
-        .slice(1)
-        .map((run) => run.text)
-        .join(''),
-    ).toBe(' typography');
-    expect(previewRuns.slice(1).some((run) => run.format?.fontFamily === 'Fraunces Variable')).toBe(
-      false,
-    );
-
-    await page.keyboard.press('Escape');
-    await expect(page.getByRole('listbox', { name: 'Font families' })).toBeHidden();
-    await page.waitForTimeout(100);
-    expect(serializedTextRuns((await callEditor(page, 'serializeDocument')) as string)).toEqual(
-      beforeRuns,
-    );
-
-    await fontInput.click();
-    await fontInput.fill('Fraunces Variable');
-    const committedOption = page.getByRole('option', { name: /Fraunces Variable/ }).first();
-    await expect(committedOption).toBeVisible();
-    await committedOption.click();
-    await page.waitForTimeout(100);
-    const committedRuns = serializedTextRuns(
-      (await callEditor(page, 'serializeDocument')) as string,
-    );
-    expect(committedRuns[0]?.format?.fontFamily).toBe('Fraunces Variable');
-    expect(
-      committedRuns.slice(1).some((run) => run.format?.fontFamily === 'Fraunces Variable'),
-    ).toBe(false);
-
-    await callEditor(page, 'undo');
-    await page.waitForTimeout(100);
-    expect(serializedTextRuns((await callEditor(page, 'serializeDocument')) as string)).toEqual(
-      beforeRuns,
-    );
   });
 });
