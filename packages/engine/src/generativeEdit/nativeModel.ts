@@ -1,6 +1,10 @@
 import { isTauriRuntime } from '@varve/platform';
-import { SD15_INPAINTING_FRAME_CONTRACT } from './diffusionFrame';
 import { CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE } from './modelProfiles';
+
+const currentFrameContract = CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE.frameContract;
+if (!currentFrameContract) {
+  throw new Error('The current local generative model profile has no frame contract');
+}
 
 /**
  * Backwards-compatible native helper view of the canonical local profile.
@@ -17,7 +21,7 @@ export const NATIVE_GENERATIVE_MODEL_PROFILE = {
   minimumMemoryBytes: CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE.runtime.minimumMemoryBytes ?? 0,
   license: CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE.artifact.license,
   /** The helper must receive the model's declared working-frame contract. */
-  frameContract: SD15_INPAINTING_FRAME_CONTRACT,
+  frameContract: currentFrameContract,
 } as const;
 
 export interface NativeGenerativeModelDownloadProgress {

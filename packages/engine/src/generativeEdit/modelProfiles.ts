@@ -103,7 +103,7 @@ export const CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE: LocalGenerativeModelProfile
     requiredComponentRoles: ['sd15-inpainting', 'clip-vit-l-14', 'vae'],
   },
   runtime: {
-    adapterId: 'diffusion-rs-0.1.20-varve-image-cfg-v1',
+    adapterId: 'diffusion-rs-0.1.20-varve-image-cfg-profile-contract-v2',
     executionBackends: ['native-cpu'],
     architectures: [],
     minimumMemoryBytes: 6 * 1024 ** 3,

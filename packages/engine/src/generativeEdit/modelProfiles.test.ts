@@ -21,6 +21,9 @@ describe('local generative model profiles', () => {
       'vae',
     ]);
     expect(profile.runtime.executionBackends).toEqual(['native-cpu']);
+    expect(profile.runtime.adapterId).toBe(
+      'diffusion-rs-0.1.20-varve-image-cfg-profile-contract-v2',
+    );
     expect(profile.qualification).toMatchObject({
       status: 'failed',
       evidenceRef: 'docs/audits/generative-editing-runtime-qualification-2026-09-12.md',

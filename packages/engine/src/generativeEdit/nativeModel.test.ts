@@ -12,9 +12,20 @@ vi.mock('@varve/platform', () => ({ isTauriRuntime: isTauri }));
 
 import {
   downloadNativeGenerativeModel,
+  NATIVE_GENERATIVE_MODEL_PROFILE,
   type NativeGenerativeModelDownloadProgress,
   qualifyNativeGenerativeModel,
 } from './nativeModel';
+
+describe('NATIVE_GENERATIVE_MODEL_PROFILE', () => {
+  it('uses the canonical current profile frame contract', async () => {
+    const { CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE } = await import('./modelProfiles');
+    expect(NATIVE_GENERATIVE_MODEL_PROFILE.id).toBe(CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE.id);
+    expect(NATIVE_GENERATIVE_MODEL_PROFILE.frameContract).toBe(
+      CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE.frameContract,
+    );
+  });
+});
 
 describe('downloadNativeGenerativeModel', () => {
   beforeEach(() => {
