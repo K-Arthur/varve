@@ -86,9 +86,11 @@ hash alone does not make the provider ready. The pinned candidate failed the
 2026-09-12 semantic/runtime inspection and remains unqualified. It is retained
 for diagnostic provenance but is no longer offered as a download because the
 published runtime requirement does not match Varve's `diffusion-rs` helper.
-Users may still import a separately obtained safe-format model, but it must
-pass the same runtime, real-photo, memory, cancellation, and platform gates
-before prompt modes can become ready. See the
+The current desktop build does not import arbitrary model files: its helper has
+no model-specific adapter for identifying tensor layouts, auxiliary components,
+runtime patches, or mask conventions. A future import adapter must pass the
+same runtime, real-photo, memory, cancellation, and platform gates before
+prompt modes can become ready. See the
 [model card](https://huggingface.co/gpustack/stable-diffusion-v1-5-inpainting-GGUF),
 [stable-diffusion.cpp runtime](https://github.com/leejet/stable-diffusion.cpp),
 and [qualification report](../audits/generative-editing-runtime-qualification-2026-09-12.md).

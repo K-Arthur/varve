@@ -41,7 +41,9 @@ qualification adapter; neither can be enabled by changing the current SD
 profile string. FIBO-Edit is a useful third comparison for structured masked
 edits, subject to its non-commercial weight license. None is suitable as the
 default for a 4 GB Chromebook or ARM browser session without measured,
-target-specific evidence.
+target-specific evidence. The current desktop build also rejects arbitrary
+model imports: a model-specific adapter must identify and validate every
+component and mask/frame contract before a candidate can enter the app.
 
 ## Important naming correction: FLUX.1.1 versus FLUX Fill
 

@@ -2051,8 +2051,14 @@ const GENERATIVE_MODEL_DOWNLOAD_SHA256: &str =
 // produced rejected semantic results. Keep the URL and hash for provenance,
 // but do not offer an artifact we cannot honestly execute or qualify.
 const GENERATIVE_MODEL_DOWNLOAD_AVAILABLE: bool = false;
-const GENERATIVE_MODEL_INCOMPATIBLE_REASON: &str = "This packaged Q4 artifact is documented for a patched llama-box runtime and is not compatible with Varve's diffusion-rs helper. Prompt-conditioned generation remains unavailable; import a separately qualified compatible model or use Quick Cleanup/LaMa.";
-const GENERATIVE_MODEL_UNAVAILABLE_REASON: &str = "No quality-certified prompt model is packaged. The configured Q4 artifact requires a patched llama-box runtime and is not offered by Varve; import a compatible safe-format model and validate it, or use Quick Cleanup/LaMa.";
+// The helper currently has one hard-coded SD 1.5 inpainting adapter. A file
+// extension cannot identify the model family, tensor layout, auxiliary
+// components, runtime patch level, or mask polarity, so arbitrary imports are
+// unsafe until a model-specific adapter has been qualified.
+const GENERATIVE_MODEL_IMPORT_AVAILABLE: bool = false;
+const GENERATIVE_MODEL_INCOMPATIBLE_REASON: &str = "This packaged Q4 artifact is documented for a patched llama-box runtime and is not compatible with Varve's diffusion-rs helper. Prompt-conditioned generation remains unavailable in this build; use Quick Cleanup/LaMa.";
+const GENERATIVE_MODEL_IMPORT_UNAVAILABLE_REASON: &str = "Local model import is unavailable because this build has no model-specific adapter for arbitrary checkpoints. Prompt-conditioned generation remains unavailable; use Quick Cleanup/LaMa.";
+const GENERATIVE_MODEL_UNAVAILABLE_REASON: &str = "No quality-certified prompt model is packaged. The configured Q4 artifact requires a patched llama-box runtime and is not offered by Varve; arbitrary model import is unavailable until a model-specific adapter is qualified. Use Quick Cleanup/LaMa.";
 
 // A model may only become usable after the frozen real-photograph corpus has
 // been reviewed and its exact artifact hash has been intentionally promoted
@@ -2093,6 +2099,7 @@ struct GenerativeModelStatus {
     installed: bool,
     ready: bool,
     download_available: bool,
+    import_available: bool,
     qualification_available: bool,
     model_handle: Option<String>,
     profile_id: Option<String>,
@@ -2110,6 +2117,19 @@ struct GenerativeModelStatus {
 
 fn generative_model_artifact_is_known_incompatible(checksum_sha256: &str) -> bool {
     checksum_sha256 == GENERATIVE_MODEL_DOWNLOAD_SHA256
+}
+
+fn generative_model_profile_is_supported(profile_id: &str) -> bool {
+    profile_id == GENERATIVE_MODEL_PROFILE
+        || (GENERATIVE_MODEL_IMPORT_AVAILABLE && profile_id == GENERATIVE_MODEL_CUSTOM_PROFILE)
+}
+
+fn ensure_generative_model_import_supported() -> Result<(), String> {
+    if GENERATIVE_MODEL_IMPORT_AVAILABLE {
+        Ok(())
+    } else {
+        Err(GENERATIVE_MODEL_IMPORT_UNAVAILABLE_REASON.into())
+    }
 }
 
 fn generative_model_record_is_ready(
@@ -2134,10 +2154,7 @@ fn generative_model_record_matches_runtime(
 ) -> bool {
     record.schema_version == GENERATIVE_MODEL_METADATA_SCHEMA_VERSION
         && record.model_handle == GENERATIVE_MODEL_HANDLE
-        && matches!(
-            record.profile_id.as_str(),
-            GENERATIVE_MODEL_PROFILE | GENERATIVE_MODEL_CUSTOM_PROFILE
-        )
+        && generative_model_profile_is_supported(&record.profile_id)
         && record.size_bytes == size_bytes
         && record.checksum_sha256 == checksum_sha256
         && record.runtime_id == GENERATIVE_MODEL_RUNTIME_ID
@@ -2263,7 +2280,11 @@ fn model_status_blocking(app: &tauri::AppHandle) -> Result<GenerativeModelStatus
                     installed: true,
                     ready,
                     download_available: GENERATIVE_MODEL_DOWNLOAD_AVAILABLE,
-                    qualification_available: !known_incompatible,
+                    import_available: GENERATIVE_MODEL_IMPORT_AVAILABLE,
+                    qualification_available: !known_incompatible
+                        && record.as_ref().is_some_and(|record| {
+                            generative_model_profile_is_supported(&record.profile_id)
+                        }),
                     model_handle: record
                         .as_ref()
                         .filter(|record| ready && record.model_handle == GENERATIVE_MODEL_HANDLE)
@@ -2296,6 +2317,7 @@ fn model_status_blocking(app: &tauri::AppHandle) -> Result<GenerativeModelStatus
         installed: false,
         ready: false,
         download_available: GENERATIVE_MODEL_DOWNLOAD_AVAILABLE,
+        import_available: GENERATIVE_MODEL_IMPORT_AVAILABLE,
         qualification_available: false,
         model_handle: None,
         profile_id: None,
@@ -2717,6 +2739,7 @@ fn import_generative_edit_model(
     app: tauri::AppHandle,
     path: String,
 ) -> Result<GenerativeModelStatus, String> {
+    ensure_generative_model_import_supported()?;
     let source = resolve_user_path_approved(&path)?;
     let extension = source
         .extension()
@@ -2824,6 +2847,13 @@ fn resolve_generative_model_for_run(
         return Err(status
             .reason
             .unwrap_or_else(|| GENERATIVE_MODEL_INCOMPATIBLE_REASON.into()));
+    }
+    if !status
+        .profile_id
+        .as_deref()
+        .is_some_and(generative_model_profile_is_supported)
+    {
+        return Err(GENERATIVE_MODEL_IMPORT_UNAVAILABLE_REASON.into());
     }
     if require_qualified && !status.ready {
         return Err(status.reason.unwrap_or_else(|| {
@@ -6052,6 +6082,21 @@ mod tests {
             GENERATIVE_MODEL_DOWNLOAD_SIZE,
             GENERATIVE_MODEL_DOWNLOAD_SHA256,
             &resource
+        ));
+    }
+
+    #[test]
+    fn arbitrary_model_import_is_fail_closed_until_a_model_adapter_is_qualified() {
+        assert!(!GENERATIVE_MODEL_IMPORT_AVAILABLE);
+        assert_eq!(
+            ensure_generative_model_import_supported(),
+            Err(GENERATIVE_MODEL_IMPORT_UNAVAILABLE_REASON.into())
+        );
+        assert!(generative_model_profile_is_supported(
+            GENERATIVE_MODEL_PROFILE
+        ));
+        assert!(!generative_model_profile_is_supported(
+            GENERATIVE_MODEL_CUSTOM_PROFILE
         ));
     }
 

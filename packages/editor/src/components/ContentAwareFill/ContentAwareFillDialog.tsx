@@ -12,6 +12,7 @@ import {
   extractBoundedContext,
   GenerativeEditError,
   type GenerativeEditMode,
+  type GenerativeEditProvider,
   type GenerativeEditResult,
   GenerativeJobController,
   type GenerativeJobSnapshot,
@@ -397,6 +398,21 @@ function persistedVariationResult(
   imageData: ImageData,
 ): GenerativeEditResult {
   const outputFrame = variation.outputFrame ?? edit.outputFrame;
+  const persistedProvider = variation.provider ?? edit.provider;
+  // Legacy records may contain an input frame without the explicit model
+  // semantics added in schema 2. Do not pass that incomplete frame to the
+  // engine result type or accidentally present it as reproducible diffusion
+  // provenance; the baked candidate remains usable without it.
+  const persistedInputFrame = persistedProvider.inputFrame;
+  const inputFrame =
+    persistedInputFrame?.inputKind !== undefined && persistedInputFrame.maskConvention !== undefined
+      ? {
+          ...persistedInputFrame,
+          inputKind: persistedInputFrame.inputKind,
+          maskConvention: persistedInputFrame.maskConvention,
+        }
+      : undefined;
+  const provider: GenerativeEditProvider = { ...persistedProvider, inputFrame };
   return {
     imageData,
     width: variation.width,
@@ -409,7 +425,7 @@ function persistedVariationResult(
     },
     mode: edit.mode,
     quality: variation.settings?.quality ?? edit.settings.quality,
-    provider: variation.provider ?? edit.provider,
+    provider,
     processingTimeMs: 0,
     warnings: [],
   };
@@ -585,6 +601,7 @@ export function ContentAwareFillDialog({
   const [modelFitsMemory, setModelFitsMemory] = useState<boolean | null>(null);
   const [diffusionModelInstalled, setDiffusionModelInstalled] = useState(false);
   const [diffusionModelDownloadAvailable, setDiffusionModelDownloadAvailable] = useState(false);
+  const [diffusionModelImportAvailable, setDiffusionModelImportAvailable] = useState(false);
   const [diffusionModelQualificationAvailable, setDiffusionModelQualificationAvailable] =
     useState(false);
   const [diffusionModelHandle, setDiffusionModelHandle] = useState<string | null>(null);
@@ -1112,6 +1129,7 @@ export function ContentAwareFillDialog({
       if (cancelled) return;
       setDiffusionModelInstalled(available.installed);
       setDiffusionModelDownloadAvailable(available.downloadAvailable);
+      setDiffusionModelImportAvailable(available.importAvailable === true);
       setDiffusionModelQualificationAvailable(available.qualificationAvailable);
       setDiffusionModelHandle(available.ready ? available.modelHandle : null);
       setDiffusionModelSize(available.sizeBytes);
@@ -1988,6 +2006,7 @@ export function ContentAwareFillDialog({
       }, controller.signal);
       setDiffusionModelInstalled(downloaded.installed);
       setDiffusionModelDownloadAvailable(downloaded.downloadAvailable);
+      setDiffusionModelImportAvailable(downloaded.importAvailable === true);
       setDiffusionModelQualificationAvailable(downloaded.qualificationAvailable);
       setDiffusionModelHandle(downloaded.ready ? downloaded.modelHandle : null);
       setDiffusionModelSize(downloaded.sizeBytes);
@@ -2017,6 +2036,12 @@ export function ContentAwareFillDialog({
   }, []);
 
   const handleImportDiffusionModel = useCallback(async () => {
+    if (!diffusionModelImportAvailable) {
+      setErrorMessage(
+        'This build has no model-specific local import adapter. Arbitrary model files are not accepted.',
+      );
+      return;
+    }
     try {
       const tauri = (
         window as Window & {
@@ -2041,6 +2066,7 @@ export function ContentAwareFillDialog({
       const imported = await importNativeGenerativeModel(selected);
       setDiffusionModelInstalled(imported.installed);
       setDiffusionModelDownloadAvailable(imported.downloadAvailable);
+      setDiffusionModelImportAvailable(imported.importAvailable === true);
       setDiffusionModelQualificationAvailable(imported.qualificationAvailable);
       setDiffusionModelHandle(imported.ready ? imported.modelHandle : null);
       setDiffusionModelSize(imported.sizeBytes);
@@ -2061,7 +2087,7 @@ export function ContentAwareFillDialog({
         err instanceof Error ? err.message : 'The diffusion model could not be installed.',
       );
     }
-  }, []);
+  }, [diffusionModelImportAvailable]);
 
   const handleQualifyDiffusionModel = useCallback(async () => {
     const runId = qualificationRunRef.current + 1;
@@ -2077,6 +2103,7 @@ export function ContentAwareFillDialog({
       if (!isCurrentQualification()) return;
       setDiffusionModelInstalled(qualified.installed);
       setDiffusionModelDownloadAvailable(qualified.downloadAvailable);
+      setDiffusionModelImportAvailable(qualified.importAvailable === true);
       setDiffusionModelQualificationAvailable(qualified.qualificationAvailable);
       setDiffusionModelHandle(qualified.ready ? qualified.modelHandle : null);
       setDiffusionModelSize(qualified.sizeBytes);
@@ -3453,15 +3480,17 @@ export function ContentAwareFillDialog({
                   Cancel download
                 </Button>
               )}
-              <Button
-                type="button"
-                variant="default"
-                size="sm"
-                onClick={() => void handleImportDiffusionModel()}
-                disabled={!modeCapability.prompt || isProcessing}
-              >
-                {diffusionModelInstalled ? 'Replace Diffusion Model' : 'Install Diffusion Model'}
-              </Button>
+              {diffusionModelImportAvailable && (
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  onClick={() => void handleImportDiffusionModel()}
+                  disabled={!modeCapability.prompt || isProcessing}
+                >
+                  {diffusionModelInstalled ? 'Replace Diffusion Model' : 'Install Diffusion Model'}
+                </Button>
+              )}
               {status === 'downloading' && (
                 <p className="caf-dialog__hint" aria-live="polite">
                   Downloading local model… {downloadProgress}%
@@ -3505,7 +3534,7 @@ export function ContentAwareFillDialog({
                       'Run validation before using prompt-capable generation.')
                     : diffusionModelDownloadAvailable
                       ? 'Select a safe-format SD 1.5/SDXL inpainting model. Legacy checkpoint files are rejected. Browser generation is unavailable.'
-                      : 'No compatible quality-certified prompt model is packaged for this runtime. Import and validate a compatible local model, or use Quick Cleanup/LaMa. Browser generation is unavailable.'}
+                      : 'No compatible quality-certified prompt model is packaged for this runtime. Model import is unavailable until a model-specific adapter is qualified; use Quick Cleanup/LaMa. Browser generation is unavailable.'}
               </p>
             </div>
           )}

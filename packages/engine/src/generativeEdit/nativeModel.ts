@@ -25,6 +25,13 @@ export interface NativeGenerativeModelStatus {
   ready: boolean;
   /** True only when Varve has a pinned artifact it can execute and qualify. */
   downloadAvailable: boolean;
+  /**
+   * True only when this build has a model-specific import adapter. A file
+   * extension is not enough to establish compatibility with the helper.
+   * Optional for older desktop binaries, which must be treated as false by
+   * callers until they report the capability explicitly.
+   */
+  importAvailable?: boolean;
   /** False for artifacts known to be incompatible before a probe is started. */
   qualificationAvailable: boolean;
   modelHandle: string | null;
@@ -58,6 +65,7 @@ export async function getNativeGenerativeModelStatus(): Promise<NativeGenerative
       installed: false,
       ready: false,
       downloadAvailable: false,
+      importAvailable: false,
       qualificationAvailable: false,
       modelHandle: null,
       profileId: null,
@@ -81,6 +89,7 @@ export async function getNativeGenerativeModelStatus(): Promise<NativeGenerative
       installed: false,
       ready: false,
       downloadAvailable: false,
+      importAvailable: false,
       qualificationAvailable: false,
       modelHandle: null,
       profileId: null,
