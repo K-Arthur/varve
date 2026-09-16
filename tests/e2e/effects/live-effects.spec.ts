@@ -502,7 +502,7 @@ test.describe('Live effects', () => {
       await exportTab.click();
 
       async function downloadPng(): Promise<Buffer> {
-        await page.getByRole('button', { name: 'PNG', exact: true }).click();
+        await page.getByRole('radio', { name: 'PNG', exact: true }).click();
         const downloadPromise = page.waitForEvent('download', { timeout: 20000 });
         await page.getByRole('button', { name: /download/i }).click();
         const download = await downloadPromise;

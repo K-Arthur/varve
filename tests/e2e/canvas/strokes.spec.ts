@@ -43,7 +43,7 @@ test.describe('Stroke workflow', () => {
     await exportTab.click();
     await page
       .locator('.spec-export__group')
-      .getByRole('button', { name: 'SVG', exact: true })
+      .getByRole('radio', { name: 'SVG', exact: true })
       .click();
     const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
     await page.getByRole('button', { name: /download/i }).click();

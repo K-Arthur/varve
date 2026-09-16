@@ -103,7 +103,7 @@ test.describe('PDF text export', () => {
 
     // Open export tab
     await selectExportTab(page);
-    await page.getByRole('button', { name: 'PDF', exact: true }).click();
+    await page.getByRole('radio', { name: 'PDF', exact: true }).click();
 
     // Verify it's a valid PDF
     const summary = await exportPdf(page);
@@ -131,7 +131,7 @@ test.describe('PDF text export', () => {
 
     // Open export tab
     await selectExportTab(page);
-    await page.getByRole('button', { name: 'PDF', exact: true }).click();
+    await page.getByRole('radio', { name: 'PDF', exact: true }).click();
 
     const summary = await exportPdf(page);
     expect(summary.length).toBeGreaterThan(500);
@@ -154,7 +154,7 @@ test.describe('PDF text export', () => {
 
     // Open export tab
     await selectExportTab(page);
-    await page.getByRole('button', { name: 'PDF', exact: true }).click();
+    await page.getByRole('radio', { name: 'PDF', exact: true }).click();
 
     const summary = await exportPdf(page);
     expect(summary.header).toMatch(/^%PDF-1\.[0-9]+$/);
@@ -169,7 +169,7 @@ test.describe('PDF text export', () => {
 
     // Open export tab
     await selectExportTab(page);
-    await page.getByRole('button', { name: 'PDF', exact: true }).click();
+    await page.getByRole('radio', { name: 'PDF', exact: true }).click();
 
     const summary = await exportPdf(page);
     // Repeated glyphs compress extremely well in the browser's raster PDF

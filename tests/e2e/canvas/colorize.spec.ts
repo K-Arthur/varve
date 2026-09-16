@@ -106,7 +106,7 @@ test.describe('Colorize production workflow', () => {
         .click();
     }
     const exportGroup = inspector.locator('.spec-export__group').filter({ hasText: 'PNG' }).first();
-    await exportGroup.getByRole('button', { name: 'PNG', exact: true }).click();
+    await exportGroup.getByRole('radio', { name: 'PNG', exact: true }).click();
     const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
     await inspector.getByRole('button', { name: /download/i }).click();
     const download = await downloadPromise;

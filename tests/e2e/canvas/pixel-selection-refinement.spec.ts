@@ -206,7 +206,7 @@ test.describe('pixel selection refinement', () => {
     });
     await exportTab.click();
     const pngGroup = page.locator('.spec-export__group').filter({ hasText: 'PNG' }).first();
-    await pngGroup.getByRole('button', { name: 'PNG', exact: true }).click();
+    await pngGroup.getByRole('radio', { name: 'PNG', exact: true }).click();
     const exportDownloadPromise = page.waitForEvent('download', { timeout: 180000 });
     await page.getByRole('button', { name: 'Download PNG', exact: true }).click();
     const exportDownload = await exportDownloadPromise;

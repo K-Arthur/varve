@@ -63,13 +63,27 @@ revert, or reformat any of those files. Commits stage only the paths above.
   `tests/e2e/inspector/export-tab.spec.ts` (run locally with
   `--config=playwright.export-inspector.local.config.ts`; see the audit's
   verification section for why that local config exists).
+- 2026-09-15 — advisor misclassification lands as `e7fc6952d`; the regression
+  suite, audit, screenshots, architecture contract, and website page land as
+  `c353f7840`.
+- 2026-09-15 (follow-up) — the recorded remaining work is completed: Format and
+  Scale move to the shared APG radiogroup (`SegmentedControl` with an explicit
+  Custom option), terminology is unified on "export configuration" / "preset
+  library" / "Quick add", preflight findings expand to their description and
+  override policy, the compact drawer is verified in-browser, and quick export
+  resolves its engine with `createEngine('auto')` like every other export
+  surface. The role change was propagated to 22 spec files across the export,
+  effects, canvas, caf, and inspector suites; the `.spec-export__group` hook is
+  retained so their locators keep resolving the control.
 - Environment note: browser verification on this machine ran against a
   shared checkout in which several concurrent sessions were editing
   `packages/engine` and the Inspector controls between runs. Transient Vite
   import/parse errors and a full 12 GB `/tmp` tmpfs (Chromium's shared memory
   is relocated there by Playwright's default `--disable-dev-shm-usage`) caused
   page crashes that are unrelated to this change; every scenario that was
-  re-run once the tree was coherent passed. The audit records exactly which
-  scenarios were verified in-browser and which were blocked.
+  re-run once the tree was coherent passed. Two specs outside this review
+  (`strokes.spec.ts`, `spatial-filters.spec.ts`) fail at steps that precede any
+  export control — the Inspector tab-overflow fragility recorded as D3 — and
+  are reported rather than silently re-scoped.
 
 

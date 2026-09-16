@@ -76,18 +76,17 @@ download (IHDR width/height), compares clipboard markup against the saved SVG
 byte-for-byte, and asserts the disabled/enabled state of the primary action
 for invalid scale drafts.
 
-**Results (2026-09-15).** All nine browser scenarios pass; each was re-run as a
-single invocation because the shared machine (several concurrent agent suites,
-a 12 GB `/tmp` tmpfs at capacity, and other sessions' in-flight edits to
-`packages/engine` and the Inspector controls) repeatedly crashed browser pages
-or broke the dev server mid-run. Scenarios: advised format + real PNG@2x bytes,
-multi-selection notice, scale bounds, suffix undo, 240px reachability,
-stale-message clearing, keyboard-scrollable code, SVG copy/save parity with a
-raster fallback, and 200% text operability. Unit suites: naming 32, spec-panel
-export 30, controls 29, desktop-save feedback 3, export advisor 6; the
+**Results (2026-09-15).** The first pass verified nine browser scenarios and
+was re-run per-invocation because the shared machine (several concurrent agent
+suites, a 12 GB `/tmp` tmpfs at capacity, and other sessions' in-flight edits
+to `packages/engine` and the Inspector controls) repeatedly crashed browser
+pages or broke the dev server mid-run. The follow-up pass adds a tenth
+scenario (compact inspector drawer) and propagates the radiogroup roles across
+the suites that drive these controls. Unit suites: naming 32, spec-panel
+export 30, controls 32, desktop-save feedback 3, export advisor 6; the
 Inspector/component regression batch measured 342 passing tests across 22
-files. The commit checkpoint's direct-unit stage passed for both source
-commits. Full browser matrices and native desktop runs are deferred to the
+files. The commit checkpoint's direct-unit stage passed for each source
+commit. Full browser matrices and native desktop runs are deferred to the
 integration/candidate CI lane, as the repository's validation policy states.
 
 Finding → verification map: F1 browser + unit; F2 browser (filename + bytes) +
@@ -96,7 +95,9 @@ unit; F3 browser + unit; F4 unit (desktop save contract); F5 browser
 the captured screenshots (24×24 rules); F8 browser (tab stop + focus); F9
 browser (240px + 200% overflow measurements) with before/after screenshots;
 F10 browser; F11 reviewed in the captured screenshots; F12 browser (advised
-format) + unit.
+format) + unit; F13 unit (Custom reveal/clear, bounds) + browser (every
+affected export spec); F14 unit + browser + website copy; F15 unit + browser;
+F16 browser (drawer); F17 unit + browser (real downloads).
 
 `playwright.export-inspector.local.config.ts` is an untracked local
 verification config; it differs from the root config only by dropping
@@ -314,37 +315,107 @@ the placed size is large) with no false "vector" reason.
 cases) plus the browser suite's advised-format assertion (JPEG for the imported
 photo).
 
+### F13 (P2 — accessibility) Format and Scale were toggle buttons, not a radiogroup
+
+**Evidence (before).** Both rows announced `aria-pressed` toggle buttons for a
+mutually exclusive choice, and the custom scale field was a permanently visible
+number input beside three preset buttons — a form control with no declared
+relationship to the presets.
+
+**Fix.** Both rows now render the Inspector's shared `SegmentedControl` (APG
+radiogroup: one tab stop, arrow/Home/End traversal, `aria-checked`). Scale is
+`1x / 2x / 3x / Custom`; choosing Custom reveals the numeric field **seeded
+with the scale currently in force** so the output cannot change silently, and
+picking a preset again clears the draft and hides the field. The custom field
+keeps its bounds validation, `aria-invalid`, and linked explanation. The old
+joined-button container is retained as the stable `.spec-export__group` hook so
+other suites' locators keep working; only the roles changed.
+
+**Verified.** Unit: 32 tests including the Custom reveal/clear cycle and the
+out-of-range guards. Browser: the export-tab suite plus the export,
+export-settings, and export-workspace specs across the suite (the role change
+was propagated to every affected locator).
+
+### F14 (P3 — terminology) "Preset", "configuration", and "export setting" mixed in one panel
+
+**Fix.** One term per concept: **export configuration** for a saved output
+(heading, legend, empty state, picker label), **preset library** for the
+catalog it is added from, and **Quick add** for the three one-click buttons
+that create a configuration from a common format/scale. The website export
+page uses the same vocabulary.
+
+### F15 (P2 — feedback) Preflight findings were titles only
+
+**Evidence (before).** The panel listed `finding.title` with no way to read
+the description, severity, or whether the user could proceed.
+
+**Fix.** Each finding is a native `<details>` row: icon + title + explicit
+severity word, expanding to the full description and the override policy
+("You can export anyway…" vs "Resolve this before exporting"). The heading
+summarizes counts by severity ("Preflight: 1 error, 2 warnings"). Severity is
+carried by text, not colour alone.
+
+**Verified.** Unit assertion expands the oversized-output finding and checks
+the policy text; the browser suite renders a real preflight warning in the
+photo-document scenario.
+
+### F16 (P2 — coverage gap) Compact inspector drawer was unverified
+
+**Fix/Verified.** New browser scenario: below 900px the inspector opens as a
+drawer (`role="dialog"`); the Export tab is reachable there, format/scale
+radios operate, the primary action is enabled, and Escape closes the drawer and
+returns focus to its FAB. Evidence:
+`docs/screenshots/2026-09-15-export-inspector/08-compact-drawer.png`.
+
+### F17 (P2 — parity) Quick export used the stub engine unconditionally
+
+**Evidence.** `AssetExportControls` created `createEngine('stub')` while every
+other export surface (`ExportLayer` copy/export SVG, logo packaging, mockup
+capture) uses `createEngine('auto')`, which prefers the native engine on
+desktop, then WASM, then the stub.
+
+**Fix.** Quick export now requests `createEngine('auto')` too, so the IR builder
+used for a quick export matches the canvas and the batch workspace.
+
+**Verified.** Unit suites pass with the auto-resolved engine (the web build
+resolves WASM → stub exactly as the other surfaces do); the browser suite's
+real PNG/SVG downloads continue to produce correct bytes.
+
 ## Deliberate decisions and remaining work
 
-- **D1 — Format/Scale remain `aria-pressed` toggle rows.** They are the
-  Inspector's only single-select controls not using the shared
-  `SegmentedControl` (APG radiogroup). Migration is deferred: that component
-  is being extended with disabled/tooltip support in another session, and a
-  role change touches several export specs at once. Tracked as remaining work,
-  not silently ignored.
+All items from the first pass are now resolved except the two deliberate
+decisions below (D2) and the recorded observation (D3); D6/D7 are retitled
+below as **completed** for the record.
+
+- **D1 — Format/Scale radiogroup migration: done** (F13). The shared
+  `SegmentedControl` now drives both rows; the role change was propagated to
+  every affected locator across the export, effects, canvas, caf, and inspector
+  suites.
 - **D2 — No scrubbing added to the custom scale field.** Section 6B
   applicability: numeric editing applies; drag-scrubbing does not add value to
   a bounded multiplier that is set once per export. The field keeps native
-  number semantics with explicit bounds and validation.
-- **D3 — Export tab in the Inspector overflow menu.** With an image selected at
-  1280px, the contextual Adjustments tab can push Export behind the
-  Inspector's "More" menu (`docs/screenshots/2026-09-15-export-inspector/`).
-  Tab overflow policy is shared workspace configuration; recorded here rather
-  than changed in this pass.
-- **D4 — Terminology.** "Configuration", "export setting", and "preset" all
-  appear in the tab. Harmonizing the copy is deferred to avoid churn across
-  concurrent sessions; the three refer to one concept (a saved per-node output).
-- **D5 — Preflight detail.** The tab lists preflight finding titles only; the
-  advanced workspace shows the full findings. Expanding them inline is
-  remaining work.
-- **D6 — Compact drawer.** The mobile/tablet inspector drawer presentation was
-  not exercised in this pass; the container query is scoped to the panel, so
-  the behavior there follows the same rules but is unverified.
-- **D7 — Engine selection for quick export.** `AssetExportControls` creates a
-  stub engine when the live editor does not pass one, while the other export
-  surfaces (`ExportLayer` copy/export SVG, logo packaging, mockup capture) use
-  `createEngine('auto')` so the native IR builder is preferred on desktop.
-  This pass did not change the engine choice: verifying native/TS IR parity
-  for every node kind is its own workstream, and the browser export path
-  (exercised here end to end) is the stub/WASM side of that comparison.
+  number semantics, explicit bounds, and validation, and is now revealed by the
+  Custom option rather than sitting permanently beside the presets.
+- **D3 — Export tab in the Inspector overflow menu.** With an image or
+  object-filter selection at 1280px, the contextual Adjustments tab can push
+  Export behind the Inspector's "More" menu
+  (`docs/screenshots/2026-09-15-export-inspector/`). Tab overflow policy is
+  shared workspace configuration; recorded here rather than changed in this
+  pass. Consequence for the suite: specs that click
+  `getByRole('tab', { name: 'Export' })` directly fail for those selections
+  while specs that fall back to the More menu (this review's suite) pass.
+  Affected specs already carried this fragility before the role migration —
+  their failures occur at the tab click, before reaching any export control.
+- **D4 — Terminology: done** (F14). One term per concept, documented above and
+  mirrored on the website export page.
+- **D5 — Preflight detail: done** (F15). Findings expand to description and
+  override policy.
+- **D6 — Compact drawer: done** (F16). Verified as a drawer dialog below 900px.
+- **D7 — Engine preference: done** (F17). Quick export uses
+  `createEngine('auto')` like every other export surface; the browser build's
+  WASM → stub fallback chain is unchanged.
+
+Remaining (not this review's scope, recorded honestly): tab-overflow policy for
+the Inspector (D3), and full browser matrices / native desktop runs, which the
+repository's validation policy defers to the integration/candidate lane.
 

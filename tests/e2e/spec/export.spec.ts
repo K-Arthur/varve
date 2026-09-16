@@ -31,14 +31,14 @@ test.describe('Export panel — browser download path', () => {
 
     await expect(page.getByRole('tab', { name: /export/i })).toBeVisible();
     await expect(
-      page.locator('.spec-export__group').first().getByRole('button', { name: 'PNG', exact: true }),
+      page.locator('.spec-export__group').first().getByRole('radio', { name: 'PNG', exact: true }),
     ).toBeVisible();
-    await expect(page.getByRole('button', { name: 'JPEG', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'WebP', exact: true })).toBeVisible();
+    await expect(page.getByRole('radio', { name: 'JPEG', exact: true })).toBeVisible();
+    await expect(page.getByRole('radio', { name: 'WebP', exact: true })).toBeVisible();
     await expect(
-      page.locator('.spec-export__group').first().getByRole('button', { name: 'SVG', exact: true }),
+      page.locator('.spec-export__group').first().getByRole('radio', { name: 'SVG', exact: true }),
     ).toBeVisible();
-    await expect(page.getByRole('button', { name: 'PDF', exact: true })).toBeVisible();
+    await expect(page.getByRole('radio', { name: 'PDF', exact: true })).toBeVisible();
   });
 
   test('SVG export succeeds without error', async ({ page }) => {
@@ -47,7 +47,7 @@ test.describe('Export panel — browser download path', () => {
 
     await page
       .locator('.spec-export__group')
-      .getByRole('button', { name: 'SVG', exact: true })
+      .getByRole('radio', { name: 'SVG', exact: true })
       .click();
     await page.getByRole('button', { name: /download/i }).click();
 
@@ -63,7 +63,7 @@ test.describe('Export panel — browser download path', () => {
 
     await page
       .locator('.spec-export__group')
-      .getByRole('button', { name: 'PNG', exact: true })
+      .getByRole('radio', { name: 'PNG', exact: true })
       .click();
     await page.getByRole('button', { name: /download/i }).click();
 
@@ -77,7 +77,7 @@ test.describe('Export panel — browser download path', () => {
     await createExportableFrame(page);
     await selectExportTab(page);
 
-    await page.getByRole('button', { name: 'JPEG', exact: true }).click();
+    await page.getByRole('radio', { name: 'JPEG', exact: true }).click();
     await page.getByRole('button', { name: /download/i }).click();
 
     const msg = await getExportMessage(page);
@@ -90,7 +90,7 @@ test.describe('Export panel — browser download path', () => {
     await createExportableFrame(page);
     await selectExportTab(page);
 
-    await page.getByRole('button', { name: 'WebP', exact: true }).click();
+    await page.getByRole('radio', { name: 'WebP', exact: true }).click();
     await page.getByRole('button', { name: /download/i }).click();
 
     const msg = await getExportMessage(page);
@@ -105,16 +105,16 @@ test.describe('Export panel — browser download path', () => {
 
     await page
       .locator('.spec-export__group')
-      .getByRole('button', { name: 'PNG', exact: true })
+      .getByRole('radio', { name: 'PNG', exact: true })
       .click();
 
-    await page.getByRole('button', { name: /^1x$/i }).click();
+    await page.getByRole('radio', { name: /^1x$/i }).click();
     await page.getByRole('button', { name: /download/i }).click();
     let msg = await getExportMessage(page);
     await expect(msg).toBeVisible({ timeout: 15000 });
     await expect(msg).toHaveText(/(exported|downloaded).*PNG at 1x/i, { timeout: 15000 });
 
-    await page.getByRole('button', { name: /^2x$/i }).click();
+    await page.getByRole('radio', { name: /^2x$/i }).click();
     await page.getByRole('button', { name: /download/i }).click();
     msg = await getExportMessage(page);
     await expect(msg).toBeVisible({ timeout: 15000 });
@@ -127,7 +127,7 @@ test.describe('Export panel — browser download path', () => {
 
     await page
       .locator('.spec-export__group')
-      .getByRole('button', { name: 'PNG', exact: true })
+      .getByRole('radio', { name: 'PNG', exact: true })
       .click();
     await page.getByRole('button', { name: /download/i }).click();
 

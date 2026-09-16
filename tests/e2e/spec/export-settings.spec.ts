@@ -52,8 +52,8 @@ test.describe('Inspector export settings — per-node configurations', () => {
     await createExportableFrame(page);
     await selectExportTab(page);
 
-    await page.getByRole('button', { name: 'PNG', exact: true }).click();
-    await page.getByRole('button', { name: '2x', exact: true }).click();
+    await page.getByRole('radio', { name: 'PNG', exact: true }).click();
+    await page.getByRole('radio', { name: '2x', exact: true }).click();
     await page.getByRole('button', { name: 'Add configuration' }).click();
 
     // Canonical naming: '@2x' suffix (no '-' separator) with a .png extension.

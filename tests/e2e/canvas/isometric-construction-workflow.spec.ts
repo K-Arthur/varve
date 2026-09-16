@@ -495,7 +495,7 @@ test.describe('Isometric construction workflow — independent verification', ()
     await selectExportTab();
     await page
       .locator('.spec-export__group')
-      .getByRole('button', { name: 'SVG', exact: true })
+      .getByRole('radio', { name: 'SVG', exact: true })
       .click();
     const withGrid = await downloadSvg();
     expect(withGrid).toContain('<svg');

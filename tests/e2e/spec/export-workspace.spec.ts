@@ -61,7 +61,7 @@ test.describe('Export workspace — batch dialog surfaces', () => {
     await selectExportTab(page);
 
     // JPEG flattens a transparent background → a deterministic preflight warning.
-    await page.getByRole('button', { name: 'JPEG', exact: true }).click();
+    await page.getByRole('radio', { name: 'JPEG', exact: true }).click();
     await page.getByRole('button', { name: 'Add configuration' }).click();
     await openAdvancedExport(page);
 
@@ -76,7 +76,7 @@ test.describe('Export workspace — batch dialog surfaces', () => {
     await createExportableFrame(page);
     await selectExportTab(page);
 
-    const formatSelect = page.getByLabel('Format for new export setting');
+    const formatSelect = page.getByLabel('Format for new export configuration');
     await formatSelect.click();
     const pdfxOption = page.getByRole('option', { name: /PDF\/X-1a/i });
     await expect(pdfxOption).toBeVisible();
@@ -87,7 +87,7 @@ test.describe('Export workspace — batch dialog surfaces', () => {
     await createExportableFrame(page);
     await selectExportTab(page);
 
-    await page.getByRole('button', { name: 'PNG', exact: true }).click();
+    await page.getByRole('radio', { name: 'PNG', exact: true }).click();
     await page.getByRole('button', { name: 'Add configuration' }).click();
     await openAdvancedExport(page);
 
@@ -104,7 +104,7 @@ test.describe('Export workspace — batch dialog surfaces', () => {
     await createExportableFrame(page);
     await selectExportTab(page);
 
-    await page.getByRole('button', { name: 'PNG', exact: true }).click();
+    await page.getByRole('radio', { name: 'PNG', exact: true }).click();
     await page.getByRole('button', { name: 'Add configuration' }).click();
     await openAdvancedExport(page);
 

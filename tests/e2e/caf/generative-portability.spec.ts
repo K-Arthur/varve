@@ -446,7 +446,7 @@ test.describe('accepted generative edit portability', () => {
         .getByRole('menuitem', { name: 'Export', exact: true })
         .click();
     }
-    await page.getByRole('button', { name: 'PNG', exact: true }).first().click();
+    await page.getByRole('radio', { name: 'PNG', exact: true }).first().click();
     const exportDownloadPromise = page.waitForEvent('download', { timeout: 60_000 });
     await page.getByRole('button', { name: 'Download PNG', exact: true }).click();
     const exportDownload = await exportDownloadPromise;

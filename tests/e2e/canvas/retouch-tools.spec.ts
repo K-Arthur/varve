@@ -299,7 +299,7 @@ test('Spot Heal and Patch use the persistent raster target and coherent undo', a
   await page.screenshot({ path: path.join(REVIEW_DIR, '03-patch-redone.png') });
 
   await selectExportTab(page);
-  await page.getByRole('button', { name: 'PNG', exact: true }).first().click();
+  await page.getByRole('radio', { name: 'PNG', exact: true }).first().click();
   const exportDownloadPromise = page.waitForEvent('download', { timeout: 180000 });
   await page.getByRole('button', { name: 'Download PNG', exact: true }).click();
   const exportDownload = await exportDownloadPromise;

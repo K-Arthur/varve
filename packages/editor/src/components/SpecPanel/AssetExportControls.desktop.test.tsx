@@ -33,7 +33,9 @@ describe('AssetExportControls — desktop save feedback', () => {
   it('reports a cancelled raster save instead of success', async () => {
     const doc = createDocument('Export', true);
     const engine = await createEngine('stub');
-    const saveBinaryFile = vi.fn(async () => null);
+    const saveBinaryFile = vi.fn(
+      async (_name: string, _bytes: Uint8Array, _mime: string, _ext: string) => null,
+    );
     render(
       <AssetExportControls
         engine={engine}
@@ -43,7 +45,7 @@ describe('AssetExportControls — desktop save feedback', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'PNG' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'PNG' }));
     fireEvent.click(screen.getByRole('button', { name: 'Export PNG' }));
 
     await waitFor(() => expect(saveBinaryFile).toHaveBeenCalledTimes(1));
@@ -54,7 +56,9 @@ describe('AssetExportControls — desktop save feedback', () => {
   it('reports a completed raster save with the scale it used', async () => {
     const doc = createDocument('Export', true);
     const engine = await createEngine('stub');
-    const saveBinaryFile = vi.fn(async () => '/tmp/logo@2x.png');
+    const saveBinaryFile = vi.fn(
+      async (_name: string, _bytes: Uint8Array, _mime: string, _ext: string) => '/tmp/logo@2x.png',
+    );
     render(
       <AssetExportControls
         engine={engine}
@@ -64,8 +68,8 @@ describe('AssetExportControls — desktop save feedback', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'PNG' }));
-    fireEvent.click(screen.getByRole('button', { name: '2x' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'PNG' }));
+    fireEvent.click(screen.getByRole('radio', { name: '2x' }));
     fireEvent.click(screen.getByRole('button', { name: 'Export PNG' }));
 
     await waitFor(() => expect(saveBinaryFile).toHaveBeenCalledTimes(1));
@@ -77,7 +81,9 @@ describe('AssetExportControls — desktop save feedback', () => {
 
   it('reports a cancelled SVG save instead of success', async () => {
     const doc = createDocument('Export', true);
-    const saveBinaryFile = vi.fn(async () => null);
+    const saveBinaryFile = vi.fn(
+      async (_name: string, _bytes: Uint8Array, _mime: string, _ext: string) => null,
+    );
     render(
       <AssetExportControls
         node={node()}
@@ -86,7 +92,7 @@ describe('AssetExportControls — desktop save feedback', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'SVG' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'SVG' }));
     fireEvent.click(screen.getByRole('button', { name: 'Export SVG' }));
 
     await waitFor(() => expect(saveBinaryFile).toHaveBeenCalledTimes(1));

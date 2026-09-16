@@ -94,7 +94,7 @@ async function selectExportTab(page: import('@playwright/test').Page): Promise<v
 
 async function exportPngBuffer(page: import('@playwright/test').Page): Promise<Buffer> {
   await selectExportTab(page);
-  await page.getByRole('button', { name: 'PNG', exact: true }).first().click();
+  await page.getByRole('radio', { name: 'PNG', exact: true }).first().click();
   const downloadPromise = page.waitForEvent('download', { timeout: 180000 });
   await page.getByRole('button', { name: 'Download PNG', exact: true }).click();
   const download = await downloadPromise;

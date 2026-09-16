@@ -26,7 +26,7 @@ describe('AssetExportControls', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'SVG' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'SVG' }));
     fireEvent.click(screen.getByRole('button', { name: 'Export SVG' }));
 
     await waitFor(() => expect(saved).toHaveLength(1));
@@ -48,7 +48,7 @@ describe('AssetExportControls', () => {
     );
 
     // A vector rect shape suggests SVG (see exportAdvisor.ts isVectorNode branch).
-    expect(screen.getByRole('button', { name: 'SVG' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('radio', { name: 'SVG' })).toHaveAttribute('aria-checked', 'true');
   });
 
   it('shows the advisor reason in an accessible tooltip on focus', async () => {
@@ -93,10 +93,10 @@ describe('AssetExportControls', () => {
     };
 
     const { rerender } = render(<AssetExportControls node={vectorNode} doc={fullDoc} />);
-    expect(screen.getByRole('button', { name: 'SVG' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('radio', { name: 'SVG' })).toHaveAttribute('aria-checked', 'true');
 
     rerender(<AssetExportControls node={bigNode} doc={fullDoc} />);
-    expect(screen.getByRole('button', { name: 'JPEG' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('radio', { name: 'JPEG' })).toHaveAttribute('aria-checked', 'true');
   });
 
   it('labels the primary action with the platform verb and selected format', () => {
@@ -107,7 +107,7 @@ describe('AssetExportControls', () => {
     const { rerender } = render(<AssetExportControls node={node} doc={fullDoc} />);
     expect(screen.getByRole('button', { name: 'Download SVG' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'JPEG' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'JPEG' }));
     expect(screen.getByRole('button', { name: 'Download JPEG' })).toBeInTheDocument();
 
     rerender(
@@ -127,7 +127,7 @@ describe('AssetExportControls', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'PDF' })).toBeEnabled();
+    expect(screen.getByRole('radio', { name: 'PDF' })).toBeEnabled();
   });
 
   describe('per-node export settings', () => {
@@ -200,9 +200,11 @@ describe('AssetExportControls', () => {
           onAddPreset={onAddPreset}
         />,
       );
-      fireEvent.click(screen.getByRole('button', { name: 'PNG' }));
-      fireEvent.click(screen.getByRole('button', { name: '2x' }));
-      fireEvent.click(screen.getByRole('combobox', { name: /Format for new export setting/i }));
+      fireEvent.click(screen.getByRole('radio', { name: 'PNG' }));
+      fireEvent.click(screen.getByRole('radio', { name: '2x' }));
+      fireEvent.click(
+        screen.getByRole('combobox', { name: /Format for new export configuration/i }),
+      );
       fireEvent.click(await screen.findByRole('option', { name: 'PNG' }));
       fireEvent.click(screen.getByRole('button', { name: 'Add configuration' }));
 
@@ -230,7 +232,9 @@ describe('AssetExportControls', () => {
         />,
       );
 
-      fireEvent.click(screen.getByRole('combobox', { name: /Format for new export setting/i }));
+      fireEvent.click(
+        screen.getByRole('combobox', { name: /Format for new export configuration/i }),
+      );
       await screen.findByRole('option', { name: 'PDF/X-1a' });
       const options = screen.getAllByRole('option').map((o) => o.textContent);
 
@@ -257,7 +261,9 @@ describe('AssetExportControls', () => {
         />,
       );
 
-      fireEvent.click(screen.getByRole('combobox', { name: /Format for new export setting/i }));
+      fireEvent.click(
+        screen.getByRole('combobox', { name: /Format for new export configuration/i }),
+      );
       const pdfx4 = await screen.findByRole('option', { name: /PDF\/X-4/ });
       expect(pdfx4).toHaveTextContent(/desktop only/i);
       expect(pdfx4).toHaveAttribute('aria-disabled', 'true');
@@ -275,7 +281,9 @@ describe('AssetExportControls', () => {
         />,
       );
 
-      fireEvent.click(screen.getByRole('combobox', { name: /Format for new export setting/i }));
+      fireEvent.click(
+        screen.getByRole('combobox', { name: /Format for new export configuration/i }),
+      );
       fireEvent.click(await screen.findByRole('option', { name: 'PDF/X-4' }));
       fireEvent.click(screen.getByRole('button', { name: 'Add configuration' }));
 
@@ -459,7 +467,9 @@ describe('AssetExportControls', () => {
           onAddPreset={onAddPreset}
         />,
       );
-      fireEvent.click(screen.getByRole('combobox', { name: /Format for new export setting/i }));
+      fireEvent.click(
+        screen.getByRole('combobox', { name: /Format for new export configuration/i }),
+      );
       fireEvent.click(await screen.findByRole('option', { name: 'PDF (screen)' }));
       fireEvent.click(screen.getByRole('button', { name: 'Add configuration' }));
 
@@ -564,8 +574,17 @@ describe('AssetExportControls', () => {
         />,
       );
 
-      expect(screen.getByText(/preflight warning/)).toBeInTheDocument();
+      expect(screen.getByText(/Preflight: 1 warning/)).toBeInTheDocument();
       expect(screen.getByText('Output dimensions were limited')).toBeInTheDocument();
+
+      // The finding expands to its full description plus the override policy,
+      // so a compact row never hides the reason behind a tooltip.
+      const summary = screen.getByText('Output dimensions were limited');
+      const details = summary.closest('details');
+      expect(details?.hasAttribute('open')).toBe(false);
+      fireEvent.click(summary);
+      expect(details?.hasAttribute('open')).toBe(true);
+      expect(screen.getByText(/export anyway/i)).toBeInTheDocument();
     });
   });
 
@@ -588,9 +607,15 @@ describe('AssetExportControls', () => {
         />,
       );
 
-      fireEvent.click(screen.getByRole('button', { name: 'PNG' }));
-      const input = screen.getByLabelText(/Custom scale multiplier, 0.1 to 10/i);
+      fireEvent.click(screen.getByRole('radio', { name: 'PNG' }));
       const download = screen.getByRole('button', { name: 'Download PNG' });
+
+      // The custom field is revealed by choosing the Custom scale option; the
+      // seeded value keeps the current output unchanged.
+      fireEvent.click(screen.getByRole('radio', { name: 'Custom' }));
+      const input = screen.getByLabelText(/Custom scale multiplier, 0.1 to 10/i);
+      expect(input).toHaveValue(1);
+      expect(download).toBeEnabled();
 
       fireEvent.change(input, { target: { value: '0' } });
       expect(download).toBeDisabled();
@@ -609,6 +634,11 @@ describe('AssetExportControls', () => {
       expect(download).toBeEnabled();
       expect(input).not.toHaveAttribute('aria-invalid');
       expect(screen.queryByText(/Minimum scale|Maximum scale|between 0.1/)).not.toBeInTheDocument();
+
+      // Choosing a preset again clears the custom draft and hides the field.
+      fireEvent.click(screen.getByRole('radio', { name: '2x' }));
+      expect(screen.queryByLabelText(/Custom scale multiplier/i)).not.toBeInTheDocument();
+      expect(screen.getByRole('radio', { name: '2x' })).toHaveAttribute('aria-checked', 'true');
     });
 
     it('names the exported object and offers the batch workspace for multi-selection', () => {

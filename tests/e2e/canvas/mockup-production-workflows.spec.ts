@@ -76,7 +76,7 @@ async function openInspectorTab(
 
 async function exportPng(page: import('@playwright/test').Page): Promise<Buffer> {
   await openInspectorTab(page, 'Export');
-  await page.getByRole('button', { name: 'PNG', exact: true }).click();
+  await page.getByRole('radio', { name: 'PNG', exact: true }).click();
   await page.getByRole('button', { name: 'Add configuration' }).click();
   await page.evaluate(() => {
     delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker;

@@ -80,13 +80,17 @@ narrowest path to a correct file, and it must agree with the batch workspace:
   the target extension is appended. A raster export above 1x encodes its scale
   in the filename (`Logo@2x.png`) so exporting the same object at 1x and 2x
   does not silently overwrite one file or produce indistinguishable downloads.
-- **Scale.** Quick export offers 1x/2x/3x plus a custom multiplier in the
-  declared range 0.1–10. Typed values outside the range, zero, negatives, and
-  non-finite drafts are rejected with a visible, `aria-describedby`-linked
-  explanation and a disabled primary action — they are never silently clamped
-  or coerced to the nearest bound. The raster safety policy still applies
-  underneath: an in-range scale whose pixel dimensions exceed the portable
-  raster budget is fitted down with an explicit warning in the result message.
+- **Format and scale are single-select radiogroups.** Both rows use the shared
+  Inspector `SegmentedControl` (APG radiogroup semantics: one tab stop, arrow
+  traversal, `aria-checked`). Scale offers `1x / 2x / 3x / Custom`; choosing
+  Custom reveals the multiplier field seeded with the scale in force, so the
+  output never changes merely by opening the field. Typed values outside the
+  declared 0.1–10 range, zero, negatives, and non-finite drafts are rejected
+  with a visible, `aria-describedby`-linked explanation and a disabled primary
+  action — they are never silently clamped or coerced to the nearest bound. The
+  raster safety policy still applies underneath: an in-range scale whose pixel
+  dimensions exceed the portable raster budget is fitted down with an explicit
+  warning in the result message.
 - **SVG parity.** The saved SVG and the copy-to-clipboard markup come from one
   builder (`exportNodeToSvgMarkup`), so rasterized fallbacks for effects,
   composite gradients, and mockups cannot appear in one and vanish from the
@@ -100,6 +104,15 @@ narrowest path to a correct file, and it must agree with the batch workspace:
   reverts), so a word typed into the field is one undo step.
 - **Selection honesty.** With several layers selected, the tab states which
   single object will export and offers the batch workspace for the rest.
+- **Preflight detail.** Findings for the enabled configurations are summarized
+  by severity and expand in place to the full description and the override
+  policy; severity is text, not colour alone.
+- **Engine.** Quick export requests `createEngine('auto')` (native on desktop →
+  WASM → stub), matching every other export surface, so the IR builder cannot
+  silently diverge from the canvas or the batch workspace.
+- **Vocabulary.** "Export configuration" is one saved output, the "preset
+  library" is the catalog it can be added from, and "Quick add" are the
+  one-click common configurations.
 
 ## Batch export
 

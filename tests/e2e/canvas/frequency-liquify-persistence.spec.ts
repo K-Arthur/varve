@@ -136,7 +136,7 @@ async function selectExportTab(page: Page): Promise<void> {
 
 async function exportPng(page: Page, outputPath: string): Promise<Buffer> {
   await selectExportTab(page);
-  await page.getByRole('button', { name: 'PNG', exact: true }).first().click();
+  await page.getByRole('radio', { name: 'PNG', exact: true }).first().click();
   const downloadPromise = page.waitForEvent('download', { timeout: 180_000 });
   await page.getByRole('button', { name: 'Download PNG', exact: true }).click();
   const download = await downloadPromise;

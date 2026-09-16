@@ -117,7 +117,7 @@ test('source transparency survives cutout reconstruction, history and PNG export
   await page.getByRole('tab', { name: 'Export', exact: true }).click();
   await page
     .locator('.spec-export__group')
-    .getByRole('button', { name: 'PNG', exact: true })
+    .getByRole('radio', { name: 'PNG', exact: true })
     .click();
   const pending = page.waitForEvent('download');
   await page.getByRole('button', { name: /download/i }).click();

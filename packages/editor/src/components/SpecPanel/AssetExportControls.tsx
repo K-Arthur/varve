@@ -14,6 +14,8 @@ import {
   builtinPresetList,
   capabilitiesForFormat,
   configurationToLegacyPreset,
+  type ExportFinding,
+  type ExportFindingSeverity,
   formatFileName,
   formatSupportedOnPlatform,
   getBuiltinPreset,
@@ -22,12 +24,13 @@ import {
   materializePreset,
   type PlatformKind,
 } from '@varve/scene/export';
-import { CopyButton, Icon, Select, Tooltip } from '@varve/ui';
+import { CopyButton, Icon, type IconName, Select, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { isCapabilityRestricted } from '../../capabilities/restrictions';
 import { runBatchPreflight } from '../../exportService';
 import { suggestExportFormat } from '../../intelligence/exportAdvisor';
 import { buildJobs } from '../Export/ExportDialog';
+import { SegmentedControl } from '../Inspector/controls/SegmentedControl';
 import {
   buildFilename,
   downloadBlob,
@@ -84,8 +87,6 @@ function availableQuickFormats(): typeof QUICK_FORMATS {
   return QUICK_FORMATS.filter((f) => f.value !== 'pdf');
 }
 
-const SCALES = [1, 2, 3];
-
 /**
  * Quick-export scale contract. The custom field declares 0.1–10 as its bounds;
  * typed values outside that range are rejected with a visible explanation
@@ -103,7 +104,12 @@ interface CustomScaleValidation {
 
 function validateCustomScale(raw: string): CustomScaleValidation {
   const trimmed = raw.trim();
-  if (trimmed === '') return { value: null, error: null };
+  if (trimmed === '') {
+    return {
+      value: null,
+      error: `Enter a number between ${MIN_EXPORT_SCALE} and ${MAX_EXPORT_SCALE}.`,
+    };
+  }
   const parsed = Number(trimmed);
   if (!Number.isFinite(parsed)) {
     return {
@@ -119,6 +125,17 @@ function validateCustomScale(raw: string): CustomScaleValidation {
   }
   return { value: parsed, error: null };
 }
+
+/** The quick-export scale control is a radiogroup: three presets plus Custom. */
+type ScaleMode = 'preset' | 'custom';
+type ScaleOption = '1' | '2' | '3' | 'custom';
+
+const SCALE_OPTIONS: readonly { value: ScaleOption; label: string }[] = [
+  { value: '1', label: '1x' },
+  { value: '2', label: '2x' },
+  { value: '3', label: '3x' },
+  { value: 'custom', label: 'Custom' },
+];
 
 /**
  * Every format a per-node export setting can hold, grouped the way the export
@@ -302,6 +319,7 @@ export function AssetExportControls({
   const [engine, setEngine] = useState<Engine | null>(null);
   const [format, setFormat] = useState<QuickFormat>(advisorFormatToQuick(suggestion.format));
   const [scale, setScale] = useState(suggestion.scale);
+  const [scaleMode, setScaleMode] = useState<ScaleMode>('preset');
   const [customScale, setCustomScale] = useState('');
   const [exporting, setExporting] = useState(false);
   const [message, setMessage] = useState('');
@@ -317,6 +335,7 @@ export function AssetExportControls({
   const suggestedForNodeRef = useRef(node.id);
   const scaleInputId = useId();
   const scaleErrorId = `${scaleInputId}-error`;
+  const scaleInputRef = useRef<HTMLInputElement>(null);
 
   // Capability-driven format availability for the active platform.
   const platformKindValue = platformKind(platform);
@@ -354,6 +373,7 @@ export function AssetExportControls({
       setFormat(suggested);
       setPresetFormat(quickToLegacyFormat(suggested));
       setScale(suggestion.scale);
+      setScaleMode('preset');
       setCustomScale('');
       // A receipt for the previously selected object must not appear to
       // describe this one.
@@ -362,25 +382,46 @@ export function AssetExportControls({
   }, [node.id, suggestion]);
 
   const customScaleValidation = useMemo(() => validateCustomScale(customScale), [customScale]);
-  const usingCustomScale = customScale.trim() !== '';
+  const customMode = scaleMode === 'custom';
+  const presetScaleValid = Number.isFinite(scale) && scale > 0;
   const scaleUnsupported =
     format !== 'svg' &&
     format !== 'pdf' &&
-    (!usingCustomScale
-      ? !Number.isFinite(scale) || scale <= 0
-      : customScaleValidation.value === null);
-  const effectiveScale = usingCustomScale
-    ? customScaleValidation.value
-    : Number.isFinite(scale)
-      ? scale
-      : null;
+    (customMode ? customScaleValidation.value === null : !presetScaleValid);
+  const effectiveScale = customMode ? customScaleValidation.value : presetScaleValid ? scale : null;
+  // The radio's checked option; Custom covers any non-preset multiplier.
+  const scaleOption: ScaleOption = customMode ? 'custom' : ((String(scale) as ScaleOption) ?? '1');
+
+  const handleScaleOptionChange = useCallback(
+    (next: ScaleOption) => {
+      if (next === 'custom') {
+        // Seed the field with the scale currently in force so choosing Custom
+        // never silently changes the output, then focus it for editing.
+        setCustomScale((current) =>
+          current.trim() === ''
+            ? String(formatScaleNumber(presetScaleValid ? scale : suggestion.scale))
+            : current,
+        );
+        setScaleMode('custom');
+        requestAnimationFrame(() => scaleInputRef.current?.focus());
+        return;
+      }
+      setScale(Number(next));
+      setScaleMode('preset');
+      setCustomScale('');
+    },
+    [presetScaleValid, scale, suggestion.scale],
+  );
   const isTauri = isTauriPlatform(platform);
 
   useEffect(() => {
     if (_engine) {
       setEngine(_engine);
     } else {
-      createEngine('stub').then(setEngine);
+      // `auto` prefers the native engine (desktop), then WASM, then the TS
+      // stub — the same preference every other export surface uses, so quick
+      // export cannot silently diverge from the canvas IR builder.
+      createEngine('auto').then(setEngine);
     }
   }, [_engine]);
 
@@ -616,6 +657,7 @@ export function AssetExportControls({
   const handleAddPreset = useCallback(() => {
     if (!onAddPreset || !presetFormatAvailable(presetFormat)) return;
     const scaled = !UNSCALED_PRESET_FORMATS.has(presetFormat);
+    if (scaled && scaleUnsupported) return;
     const scaleValue = scaled ? (effectiveScale ?? 1) : 1;
     const suffix =
       scaled && Number.isFinite(scaleValue) && scaleValue !== 1
@@ -628,7 +670,7 @@ export function AssetExportControls({
       suffix,
       enabled: true,
     });
-  }, [onAddPreset, presetFormat, effectiveScale, presetFormatAvailable]);
+  }, [onAddPreset, presetFormat, effectiveScale, presetFormatAvailable, scaleUnsupported]);
 
   return (
     <section className="spec-panel__section" aria-labelledby="spec-export-heading">
@@ -669,24 +711,19 @@ export function AssetExportControls({
           </Tooltip>
         </span>
         <div className="spec-export__group">
-          {visibleFormats.map((f) => (
-            <Tooltip key={f.value} label={f.label}>
-              <button
-                type="button"
-                className={`spec-export__btn${format === f.value ? ' spec-export__btn--active' : ''}`}
-                aria-pressed={format === f.value}
-                onClick={() => {
-                  setFormat(f.value);
-                  // Picking a quick format also arms "Add export setting" with
-                  // it; the picker below can still override with a print or
-                  // code format the quick row doesn't carry.
-                  setPresetFormat(quickToLegacyFormat(f.value));
-                }}
-              >
-                {f.label}
-              </button>
-            </Tooltip>
-          ))}
+          <SegmentedControl
+            label="Export format"
+            className="spec-export__segmented"
+            value={format}
+            options={visibleFormats.map((entry) => ({ value: entry.value, label: entry.label }))}
+            onChange={(next) => {
+              setFormat(next);
+              // Picking a quick format also arms "Add configuration" with it;
+              // the picker below can still override with a print or code format
+              // the quick row doesn't carry.
+              setPresetFormat(quickToLegacyFormat(next));
+            }}
+          />
         </div>
       </div>
 
@@ -694,39 +731,35 @@ export function AssetExportControls({
         <div className="spec-export__row">
           <span className="spec-row__label">Scale</span>
           <div className="spec-export__group">
-            {SCALES.map((s) => (
-              <button
-                key={s}
-                type="button"
-                className={`spec-export__btn${!usingCustomScale && effectiveScale === s ? ' spec-export__btn--active' : ''}`}
-                aria-pressed={!usingCustomScale && effectiveScale === s}
-                onClick={() => {
-                  setScale(s);
-                  setCustomScale('');
-                }}
-              >
-                {s}x
-              </button>
-            ))}
-            <input
-              id={scaleInputId}
-              type="number"
-              className="spec-export__input"
-              placeholder="custom"
-              min={MIN_EXPORT_SCALE}
-              max={MAX_EXPORT_SCALE}
-              step={0.5}
-              value={customScale}
-              onChange={(e) => setCustomScale(e.target.value)}
-              aria-label={`Custom scale multiplier, ${MIN_EXPORT_SCALE} to ${MAX_EXPORT_SCALE}`}
-              aria-invalid={customScaleValidation.error ? true : undefined}
-              aria-describedby={customScaleValidation.error ? scaleErrorId : undefined}
+            <SegmentedControl
+              label="Export scale"
+              className="spec-export__segmented"
+              value={scaleOption}
+              options={SCALE_OPTIONS}
+              onChange={handleScaleOptionChange}
             />
+            {customMode && (
+              <input
+                ref={scaleInputRef}
+                id={scaleInputId}
+                type="number"
+                className="spec-export__input"
+                placeholder="custom"
+                min={MIN_EXPORT_SCALE}
+                max={MAX_EXPORT_SCALE}
+                step={0.5}
+                value={customScale}
+                onChange={(e) => setCustomScale(e.target.value)}
+                aria-label={`Custom scale multiplier, ${MIN_EXPORT_SCALE} to ${MAX_EXPORT_SCALE}`}
+                aria-invalid={customScaleValidation.error ? true : undefined}
+                aria-describedby={customScaleValidation.error ? scaleErrorId : undefined}
+              />
+            )}
           </div>
         </div>
       )}
 
-      {customScaleValidation.error && (
+      {customMode && customScaleValidation.error && (
         <p id={scaleErrorId} className="spec-export__scale-error" role="note">
           {customScaleValidation.error} Nothing will be exported until the scale is valid.
         </p>
@@ -737,7 +770,7 @@ export function AssetExportControls({
           type="button"
           className="spec-export__download"
           disabled={exporting || scaleUnsupported}
-          aria-describedby={customScaleValidation.error ? scaleErrorId : undefined}
+          aria-describedby={customMode && customScaleValidation.error ? scaleErrorId : undefined}
           onClick={handleExport}
         >
           <Icon name="Download" size={14} label={undefined} />
@@ -763,20 +796,44 @@ export function AssetExportControls({
           </div>
           {preflightFindings.length > 0 && (
             <div className="spec-export__configs-preflight" role="status">
-              <strong>
-                {preflightFindings.length} preflight{' '}
-                {preflightFindings.length === 1 ? 'warning' : 'warnings'}
-              </strong>
-              <ul>
+              <strong>{preflightSummary(preflightFindings)}</strong>
+              <ul className="spec-export__preflight-list">
                 {preflightFindings.map((finding) => (
-                  <li key={finding.id}>{finding.title}</li>
+                  <li key={finding.id}>
+                    <details
+                      className={`spec-export__preflight-finding spec-export__preflight-finding--${finding.severity}`}
+                    >
+                      <summary>
+                        <Icon
+                          name={severityIconName(finding.severity)}
+                          size={12}
+                          label={undefined}
+                        />
+                        <span>{finding.title}</span>
+                        <span className="spec-export__preflight-severity">
+                          {finding.severity === 'error'
+                            ? 'Error'
+                            : finding.severity === 'warning'
+                              ? 'Warning'
+                              : 'Note'}
+                        </span>
+                      </summary>
+                      <p>{finding.description}</p>
+                      <p className="spec-export__preflight-hint">
+                        {finding.canIgnore
+                          ? 'You can export anyway; the result may not match the intent above.'
+                          : 'Resolve this before exporting.'}
+                      </p>
+                    </details>
+                  </li>
                 ))}
               </ul>
             </div>
           )}
           {presets.length === 0 && (
             <p className="spec-export__presets-empty">
-              No saved configurations yet. Add a preset or create a custom configuration below.
+              No saved configurations yet. Choose one from the preset library or add a custom
+              configuration below.
             </p>
           )}
           {presets.map((preset) => (
@@ -790,7 +847,7 @@ export function AssetExportControls({
           ))}
           <fieldset className="spec-export__preset-add">
             <legend>Add configuration</legend>
-            <span className="spec-export__field-label">Quick presets</span>
+            <span className="spec-export__field-label">Quick add</span>
             <div className="spec-export__configs-quick">
               {QUICK_PRESETS.map((qp) => (
                 <button
@@ -824,7 +881,7 @@ export function AssetExportControls({
             <div className="spec-export__field">
               <span className="spec-export__field-label">Custom format</span>
               <Select
-                label="Format for new export setting"
+                label="Format for new export configuration"
                 value={presetFormat}
                 options={presetFormatOptions}
                 onChange={(next) => setPresetFormat(next as LegacyExportFormat)}
@@ -882,6 +939,31 @@ function nodeLabel(node: SceneNode): string {
     default:
       return 'object';
   }
+}
+
+function severityIconName(severity: ExportFindingSeverity): IconName {
+  switch (severity) {
+    case 'error':
+      return 'TriangleAlert';
+    case 'warning':
+      return 'CircleAlert';
+    case 'info':
+      return 'Info';
+  }
+}
+
+/** Counts by severity for the preflight heading, e.g. "Preflight: 1 error, 2 warnings". */
+function preflightSummary(findings: readonly ExportFinding[]): string {
+  const count = (severity: ExportFindingSeverity) =>
+    findings.filter((finding) => finding.severity === severity).length;
+  const parts: string[] = [];
+  const errors = count('error');
+  const warnings = count('warning');
+  const notes = count('info');
+  if (errors > 0) parts.push(`${errors} ${errors === 1 ? 'error' : 'errors'}`);
+  if (warnings > 0) parts.push(`${warnings} ${warnings === 1 ? 'warning' : 'warnings'}`);
+  if (notes > 0) parts.push(`${notes} ${notes === 1 ? 'note' : 'notes'}`);
+  return parts.length > 0 ? `Preflight: ${parts.join(', ')}` : 'Preflight findings';
 }
 
 /**

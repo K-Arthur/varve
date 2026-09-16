@@ -63,7 +63,12 @@ async function createFrame(
  */
 async function openMockupsPanel(page: import('@playwright/test').Page): Promise<void> {
   const tab = page.getByRole('tab', { name: /mockups/i });
-  if (!(await tab.first().isVisible().catch(() => false))) {
+  if (
+    !(await tab
+      .first()
+      .isVisible()
+      .catch(() => false))
+  ) {
     await page.keyboard.press('Control+Alt+l');
   }
   await tab.first().waitFor({ timeout: 10000 });
@@ -157,7 +162,7 @@ test('mockup workflow: apply, link, update, save/reopen, export, replace, detach
   // 7. Add a PNG export configuration, then open Export and capture the
   // download. The advanced dialog only lists nodes with enabled presets.
   await openInspectorTab(page, 'Export');
-  await page.getByRole('button', { name: 'PNG', exact: true }).click();
+  await page.getByRole('radio', { name: 'PNG', exact: true }).click();
   await page.getByRole('button', { name: 'Add configuration' }).click();
   // Headless Chromium exposes the File System Access picker, which cannot be
   // completed by an E2E worker. Exercise the browser-download fallback used
@@ -167,7 +172,7 @@ test('mockup workflow: apply, link, update, save/reopen, export, replace, detach
   });
   const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
   await page.keyboard.press('Control+e');
-  const exportDialog = page.getByRole("dialog", { name: "Export" });
+  const exportDialog = page.getByRole('dialog', { name: 'Export' });
   await exportDialog.waitFor({ timeout: 8000 });
   const exportBtn = exportDialog.getByRole('button', { name: /^Export \(/ });
   await exportBtn.click({ timeout: 8000 });
@@ -277,7 +282,12 @@ async function openInspectorTab(
   label: string,
 ): Promise<void> {
   const direct = page.getByRole('tab', { name: label, exact: true });
-  if (await direct.first().isVisible().catch(() => false)) {
+  if (
+    await direct
+      .first()
+      .isVisible()
+      .catch(() => false)
+  ) {
     await direct.first().click();
     return;
   }
@@ -289,14 +299,14 @@ async function openInspectorTab(
 /** Configure a PNG export preset, then export and return the PNG bytes. */
 async function exportPng(page: import('@playwright/test').Page): Promise<Buffer> {
   await openInspectorTab(page, 'Export');
-  await page.getByRole('button', { name: 'PNG', exact: true }).click();
+  await page.getByRole('radio', { name: 'PNG', exact: true }).click();
   await page.getByRole('button', { name: 'Add configuration' }).click();
   await page.evaluate(() => {
     delete (window as Window & { showSaveFilePicker?: unknown }).showSaveFilePicker;
   });
   const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
   await page.keyboard.press('Control+e');
-  const exportDialog = page.getByRole("dialog", { name: "Export" });
+  const exportDialog = page.getByRole('dialog', { name: 'Export' });
   await exportDialog.waitFor({ timeout: 8000 });
   await exportDialog.getByRole('button', { name: /^Export \(/ }).click({ timeout: 8000 });
   const download = await downloadPromise;

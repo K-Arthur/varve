@@ -86,13 +86,13 @@ test.describe('Export tab — real-world scenarios', () => {
     await selectExportTab(page);
 
     // The advisor must not default a 1920x1280 JPEG photo to SVG.
-    await expect(page.getByRole('button', { name: 'JPEG', exact: true })).toHaveAttribute(
-      'aria-pressed',
+    await expect(page.getByRole('radio', { name: 'JPEG', exact: true })).toHaveAttribute(
+      'aria-checked',
       'true',
     );
 
-    await page.getByRole('button', { name: 'PNG', exact: true }).click();
-    await page.getByRole('button', { name: /^2x$/i }).click();
+    await page.getByRole('radio', { name: 'PNG', exact: true }).click();
+    await page.getByRole('radio', { name: /^2x$/i }).click();
     await page.getByRole('button', { name: /Add configuration/ }).click();
     await expect(page.locator('.spec-export__preset-row')).toHaveCount(1);
     await expect(page.locator('.spec-export__preset-file')).toContainText(
@@ -150,9 +150,15 @@ test.describe('Export tab — real-world scenarios', () => {
   test('custom scale rejects non-finite and out-of-range values', async ({ page }, testInfo) => {
     await importPhoto(page);
     await selectExportTab(page);
-    const input = page.locator('.spec-export__input');
     const download = page.locator('.spec-export__download');
     const error = page.locator('.spec-export__scale-error');
+
+    // Custom is a scale option; choosing it reveals the field seeded with the
+    // scale currently in force (so the output does not change silently).
+    await page.getByRole('radio', { name: 'Custom', exact: true }).click();
+    const input = page.locator('.spec-export__input');
+    await expect(input).toBeVisible();
+    await expect(download).toBeEnabled();
 
     // Browsers may keep a syntactically valid exponent in a number input; when
     // they do, it must never reach the rasterizer as Infinity.
@@ -181,6 +187,18 @@ test.describe('Export tab — real-world scenarios', () => {
     await input.fill('2.5');
     await expect(download).toBeEnabled();
     await expect(error).toHaveCount(0);
+    await expect(page.getByRole('radio', { name: 'Custom' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await page
+      .locator('.insp-panel')
+      .first()
+      .screenshot({ path: testInfo.outputPath('03b-custom-scale-valid.png') });
+
+    // Returning to a preset clears the draft and hides the field.
+    await page.getByRole('radio', { name: '1x', exact: true }).click();
+    await expect(page.locator('.spec-export__input')).toHaveCount(0);
   });
 
   test('suffix edit is a single undo step, and undo restores the filename', async ({ page }) => {
@@ -264,7 +282,7 @@ test.describe('Export tab — real-world scenarios', () => {
   test('stale export message clears when the selected object changes', async ({ page }) => {
     await importPhoto(page);
     await selectExportTab(page);
-    await page.getByRole('button', { name: /^1x$/i }).click();
+    await page.getByRole('radio', { name: /^1x$/i }).click();
     await page.locator('.spec-export__download').click();
     await expect(page.locator('.spec-export__message')).toContainText(/exported|downloaded/i);
 
@@ -302,7 +320,7 @@ test.describe('Export tab — real-world scenarios', () => {
     await page
       .locator('.spec-export__group')
       .first()
-      .getByRole('button', { name: 'SVG', exact: true })
+      .getByRole('radio', { name: 'SVG', exact: true })
       .click();
 
     const downloadPromise = page.waitForEvent('download', { timeout: 30000 });
@@ -370,5 +388,34 @@ test.describe('Export tab — real-world scenarios', () => {
     });
     expect(overflow.panel).toBeLessThanOrEqual(1);
     expect(overflow.group).toBeLessThanOrEqual(1);
+  });
+
+  test('compact inspector drawer keeps the export controls operable', async ({
+    page,
+  }, testInfo) => {
+    await importPhoto(page);
+    // Below 900px the inspector is a drawer/sheet opened from its FAB. The
+    // Export tab must stay fully usable there, not just in the docked panel.
+    await page.setViewportSize({ width: 640, height: 700 });
+    const fab = page.locator('.editor__fab--inspector');
+    const panel = page.locator('.editor__inspector-panel');
+    await fab.click();
+    await expect(panel).toHaveAttribute('data-visible', 'true');
+    await expect(panel).toHaveAttribute('role', 'dialog');
+
+    await selectExportTab(page);
+    await expect(page.getByRole('radio', { name: 'JPEG', exact: true })).toBeVisible();
+    await page.getByRole('radio', { name: '2x', exact: true }).click();
+
+    const download = page.locator('.spec-export__download');
+    await download.scrollIntoViewIfNeeded();
+    await expect(download).toBeVisible();
+    await expect(download).toBeEnabled();
+    await panel.screenshot({ path: testInfo.outputPath('08-compact-drawer.png') });
+
+    // The drawer's own dismissal contract is unchanged by this tab.
+    await page.keyboard.press('Escape');
+    await expect(panel).not.toHaveAttribute('data-visible');
+    await expect(fab).toBeFocused();
   });
 });

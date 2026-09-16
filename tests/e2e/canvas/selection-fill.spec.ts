@@ -179,7 +179,7 @@ test.describe('selection-to-flats workflow', () => {
     });
     await exportTab.click();
     const pngGroup = page.locator('.spec-export__group').filter({ hasText: 'PNG' }).first();
-    await pngGroup.getByRole('button', { name: 'PNG', exact: true }).click();
+    await pngGroup.getByRole('radio', { name: 'PNG', exact: true }).click();
     // Give the established export compositor time to render this real raster
     // under a shared CPU-bound validation host.
     const exportDownloadPromise = page.waitForEvent('download', { timeout: 180000 });
