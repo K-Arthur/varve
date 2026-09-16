@@ -668,6 +668,7 @@ function SurfaceEditor({
               </button>
               <NumberField
                 label="Occluder feather"
+                labelWrap
                 value={(surface.occlusionMaskOptions ?? surface.maskOptions)?.feather ?? 0}
                 unit="px"
                 onCommit={(value) =>
@@ -803,6 +804,7 @@ function SurfaceEditor({
             <span className="mockups-section__label">Arc</span>
             <NumberField
               label="Cylinder wrap degrees"
+              hideLabel
               value={cylindrical.wrapDegrees}
               unit="°"
               onCommit={(value) =>
@@ -816,6 +818,7 @@ function SurfaceEditor({
             />
             <NumberField
               label="Cylinder seam"
+              hideLabel
               value={cylindrical.seam}
               onCommit={(value) =>
                 patch({ cylindrical: { ...cylindrical, seam: Math.max(0, Math.min(1, value)) } })

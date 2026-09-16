@@ -1054,6 +1054,7 @@ function GlitchDisplacementParams({
     <>
       <NumberField
         label="Block Strength"
+        labelWrap
         value={isMixed(blockStrengthRaw) ? 10 : blockStrengthRaw}
         mixed={isMixed(blockStrengthRaw)}
         step={1}
@@ -1065,7 +1066,7 @@ function GlitchDisplacementParams({
           )
         }
       />
-      <FieldRow label="Channel Shift">
+      <FieldRow label="Channel Shift" wrapLabel>
         <Select
           label="Channel shift mode"
           value={isMixed(modeRaw) ? '' : modeRaw}
@@ -2014,7 +2015,7 @@ function GlowParams({
         }}
       />
       {colorModeRaw === 'gradient' && (
-        <FieldRow label="Gradient colors">
+        <FieldRow label="Gradient colors" wrapLabel>
           <InspectorColorPopover
             label="Glow gradient start"
             value={glowGradientFor(nodes, index).stops[0]!.color}
@@ -2275,6 +2276,7 @@ function SpatialBlurParams({
       <div className="insp-effect-params">
         <NumberField
           label="Maximum pin blur"
+          labelWrap
           value={radius}
           min={0}
           max={4096}
@@ -2561,6 +2563,7 @@ function DepthBlurParams({
       <InspectorFieldGroup columns={2}>
         <NumberField
           label="Edge protection"
+          labelWrap
           value={isMixed(edgeRaw) ? 3.5 : edgeRaw}
           mixed={isMixed(edgeRaw)}
           min={0}

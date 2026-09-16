@@ -293,6 +293,7 @@ function AdaptiveContrastSectionInner({ nodes }: { nodes: TextNode[] }) {
           <FieldRow label="Target Ratio">
             <NumberField
               label="Custom contrast ratio"
+              hideLabel
               value={localCustomRatio}
               onChange={handleCustomRatioChange}
               min={4.5}

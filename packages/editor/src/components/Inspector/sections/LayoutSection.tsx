@@ -301,14 +301,14 @@ export function LayoutSection({ node }: { node: FrameNode }) {
                 className="insp-select"
               />
             </FieldRow>
-            <FieldRow label="Borders in layout">
+            <FieldRow label="Borders in layout" wrapLabel>
               <Switch
                 aria-label="Include visible borders in layout"
                 checked={ls.includeBordersInLayout === true}
                 onChange={(event) => patch({ includeBordersInLayout: event.target.checked })}
               />
             </FieldRow>
-            <FieldRow label="Overlap order">
+            <FieldRow label="Overlap order" wrapLabel>
               <Select
                 label="Overlap paint order"
                 value={ls.overlapOrder ?? 'legacy'}

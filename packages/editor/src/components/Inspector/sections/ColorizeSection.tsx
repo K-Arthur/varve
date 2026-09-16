@@ -1122,7 +1122,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
                 </>
               )}
             </div>
-            <FieldRow label="Line threshold" htmlFor={`${lineThresholdId}-range`}>
+            <FieldRow label="Line threshold" htmlFor={`${lineThresholdId}-range`} wrapLabel>
               <RangeValueControl
                 id={lineThresholdId}
                 label="Line threshold"

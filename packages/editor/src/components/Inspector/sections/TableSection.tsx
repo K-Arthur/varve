@@ -128,6 +128,7 @@ export function TableSection({ node }: Props) {
       />
       <NumberField
         label="Header columns"
+        labelWrap
         value={table.headerColumns}
         step={1}
         min={0}
@@ -136,6 +137,7 @@ export function TableSection({ node }: Props) {
       />
       <NumberField
         label="Frozen rows"
+        labelWrap
         value={table.frozenRows}
         step={1}
         min={0}
@@ -144,6 +146,7 @@ export function TableSection({ node }: Props) {
       />
       <NumberField
         label="Frozen columns"
+        labelWrap
         value={table.frozenColumns}
         step={1}
         min={0}
@@ -158,7 +161,7 @@ export function TableSection({ node }: Props) {
           onChange={(v) => op((t) => setAppearance(t, { density: v }))}
         />
       </FieldRow>
-      <FieldRow label="Zebra stripes">
+      <FieldRow label="Zebra stripes" wrapLabel>
         <Switch
           aria-label="Zebra stripes"
           checked={table.appearance.zebra}

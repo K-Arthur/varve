@@ -75,7 +75,32 @@ All issues have been resolved, verified through direct unit suites and Playwrigh
 - In `LensBlurSection.tsx`, added `wrapLabel` to `Focal Distance` and `Transition Range` rows.
 - In `tests/e2e/inspector/design-tab-audit.spec.ts`, eliminated the filter exception so that `expect(metrics.truncatedLabels).toEqual([])` strictly verifies that zero content-bearing labels truncate.
 
-### 3.3 Website Documentation Alignment
+### 3.4 Integrating Crop & Bounds Subsections into the Section Registry
+- In `sectionRegistry.ts`, added canonical subsections metadata for `id: 'image-crop'`:
+  - `trimToSubject: { defaultExpanded: false }`
+  - `protectFaces: { defaultExpanded: false }`
+  - `expandBounds: { defaultExpanded: false }`
+- In `ImageCropSection.tsx`:
+  - Connected `TrimControls` to `<DisclosureSection title="Trim to Subject" sectionId={sectionId} subsectionId="trimToSubject">`.
+  - Connected `FaceCropControls` to `<DisclosureSection title="Protect Faces" sectionId={sectionId} subsectionId="protectFaces">`.
+  - Connected `ExpandControls` to `<DisclosureSection title="Expand Bounds" sectionId={sectionId} subsectionId="expandBounds">`.
+- This unifies Crop & Bounds under centralized state management and localStorage persistence without losing user collapse preferences.
+
+### 3.5 Systematic Label Wrapping and Double-Label Elimination
+- **Eliminated double-nested labels**:
+  - In `TableCellsSection.tsx`, passed `hideLabel` to `Column width`, `Column percentage`, `Column weight`, and `Row height` inside their respective `FieldRow` wrappers so labels are not rendered redundantly inside the control column.
+  - In `AdaptiveContrastSection.tsx`, passed `hideLabel` to `Custom contrast ratio` inside `<FieldRow label="Target Ratio">`.
+  - In `MockupsSection.tsx`, added `hideLabel` to `Cylinder wrap degrees` and `Cylinder seam` inside `<div className="mockups-section__row">` beside the visible "Arc" row label.
+- **Prevented text clipping with `wrapLabel` / `labelWrap` across specialty sections**:
+  - `LayoutSection.tsx`: `wrapLabel` on `Borders in layout` and `Overlap order`.
+  - `TableSection.tsx`: `labelWrap` on `Header columns`, `Frozen rows`, `Frozen columns`; `wrapLabel` on `Zebra stripes`.
+  - `EffectsSection.tsx`: `labelWrap` on `Block Strength`, `Maximum pin blur`, `Edge protection`; `wrapLabel` on `Channel Shift`, `Gradient colors`.
+  - `ImageEnhancementSection.tsx`: `wrapLabel` on `Alpha threshold` and `Compound holes`.
+  - `ColorizeSection.tsx`: `wrapLabel` on `Line threshold`.
+  - `MockupsSection.tsx`: `labelWrap` on `Occluder feather`.
+  - `TypographySection.tsx`: `labelWrap` on `Letter spacing`.
+
+### 3.6 Website Documentation Alignment
 - In `apps/website/src/pages/docs/getting-started/interface.astro`, documented Canvas & Snapping empty state, Mockups, Masks, Prototype Interactions, and Section Customization via the Section Manager.
 
 ---
@@ -84,33 +109,33 @@ All issues have been resolved, verified through direct unit suites and Playwrigh
 
 ### 4.1 Unit Test Results
 ```bash
-npx vitest run packages/editor/src/components/Inspector/__tests__/sectionRegistry.test.ts \
-  packages/editor/src/components/Inspector/PropertiesPanel.test.tsx \
+npx vitest run \
+  packages/editor/src/components/Inspector/__tests__/sectionRegistry.test.ts \
+  packages/editor/src/components/Inspector/controls/registryDisclosure.test.tsx \
   packages/editor/src/components/Inspector/controls/controls.test.tsx \
-  packages/editor/src/components/Inspector/sections/MockupsSection.test.tsx
+  packages/editor/src/components/Inspector/sections/MockupsSection.test.tsx \
+  packages/editor/src/components/Inspector/PropertiesPanel.test.tsx \
+  packages/editor/src/components/Inspector/sections/__tests__/AdaptiveContrastSection.test.tsx \
+  packages/editor/src/components/Inspector/sections/EffectsSection.test.tsx \
+  packages/editor/src/components/Inspector/sections/LayoutSection.test.tsx
 ```
 **Output:**
 ```text
- ✓ |jsdom| packages/editor/src/components/Inspector/__tests__/sectionRegistry.test.ts (68 tests)
- ✓ |jsdom| packages/editor/src/components/Inspector/controls/controls.test.tsx (10 tests)
- ✓ |jsdom| packages/editor/src/components/Inspector/sections/MockupsSection.test.tsx (4 tests)
- ✓ |jsdom| packages/editor/src/components/Inspector/PropertiesPanel.test.tsx (28 tests)
-
- Test Files  4 passed (4)
-      Tests  110 passed (110)
+ Test Files  8 passed (8)
+      Tests  152 passed (152)
 ```
 
 ### 4.2 End-to-End Audit Spec Results
 ```bash
-VARVE_E2E_PORT=1428 npx playwright test tests/e2e/inspector/design-tab-audit.spec.ts --project=chromium
+VARVE_E2E_PORT=1428 node scripts/quality/heavy-lease.mjs inspector-audit -- npx playwright test tests/e2e/inspector/design-tab-audit.spec.ts --project=chromium
 ```
 **Output:**
 ```text
-  ✓  1 Design section expands, scrolls, and keeps its controls legible (36.9s)
-  ✓  2 a typed edit persists through the document, not just the field (35.5s)
-  ✓  3 Constrain proportions is keyboard-operable with a visible focus ring (34.9s)
+  ✓  1 Design section expands, scrolls, and keeps its controls legible (53.6s)
+  ✓  2 a typed edit persists through the document, not just the field (46.8s)
+  ✓  3 Constrain proportions is keyboard-operable with a visible focus ring (43.5s)
 
-  3 passed (2.3m)
+  3 passed (3.1m)
 ```
 - Real-world document tested: Frame node, Drawn Rectangle node, Live Text node, Imported Photograph node.
 - Metrics across all 4 node kinds:

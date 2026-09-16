@@ -569,6 +569,11 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     id: 'image-crop',
     title: 'Crop & Bounds',
     defaultExpanded: true,
+    subsections: {
+      trimToSubject: { defaultExpanded: false },
+      protectFaces: { defaultExpanded: false },
+      expandBounds: { defaultExpanded: false },
+    },
     canHide: true,
     essential: false,
     order: 275,

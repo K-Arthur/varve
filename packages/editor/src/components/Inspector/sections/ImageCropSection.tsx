@@ -79,6 +79,7 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
       <div className="insp-field-group">
         {/* Trim to Subject */}
         <TrimControls
+          sectionId={sectionId}
           hasMask={hasMask}
           trimToSubject={trimToSubject}
           editorDocument={state.document}
@@ -88,12 +89,14 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
 
         {/* Protect Faces */}
         <FaceCropControls
+          sectionId={sectionId}
           applyFaceAwareCrop={applyFaceAwareCrop}
           analyzeFaceAwareCrop={handleAnalyzeFaces}
         />
 
         {/* Expand Bounds */}
         <ExpandControls
+          sectionId={sectionId}
           isCropMode={isCropMode}
           expandImageBounds={expandImageBounds}
           convertToCropAndExpand={convertToCropAndExpand}
@@ -119,12 +122,14 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
 // ---------------------------------------------------------------------------
 
 function TrimControls({
+  sectionId = 'image-crop',
   hasMask,
   trimToSubject,
   editorDocument,
   nodeId,
   imageSrc,
 }: {
+  sectionId?: SectionId;
   hasMask: boolean;
   trimToSubject: (padding?: number, options?: TrimToSubjectOptions) => Promise<void>;
   editorDocument: Document;
@@ -330,7 +335,7 @@ function TrimControls({
   }, [detections, editorDocument, nodeId, padding, trimToSubject, selectedDetection]);
 
   return (
-    <DisclosureSection title="Trim to Subject" defaultExpanded={false}>
+    <DisclosureSection title="Trim to Subject" sectionId={sectionId} subsectionId="trimToSubject">
       <div className="insp-field-group">
         {hasMask && (
           <FieldRow label="Source">
@@ -486,9 +491,11 @@ function mapDetectionFailure(error: unknown): string {
 // ---------------------------------------------------------------------------
 
 function FaceCropControls({
+  sectionId = 'image-crop',
   applyFaceAwareCrop,
   analyzeFaceAwareCrop,
 }: {
+  sectionId?: SectionId;
   applyFaceAwareCrop: (options?: {
     safetyMargin?: number;
     minimumConfidence?: number;
@@ -581,7 +588,7 @@ function FaceCropControls({
   }, []);
 
   return (
-    <DisclosureSection title="Protect Faces" defaultExpanded={false}>
+    <DisclosureSection title="Protect Faces" sectionId={sectionId} subsectionId="protectFaces">
       <div className="insp-field-group">
         <p className="insp-hint">
           Reposition the crop window to keep faces in frame
@@ -690,11 +697,13 @@ function FaceCropControls({
 // ---------------------------------------------------------------------------
 
 function ExpandControls({
+  sectionId = 'image-crop',
   isCropMode,
   expandImageBounds,
   convertToCropAndExpand,
   openCafDialog,
 }: {
+  sectionId?: SectionId;
   isCropMode: boolean;
   expandImageBounds: (
     padding: number,
@@ -722,7 +731,7 @@ function ExpandControls({
   }, [padding, sides, convertToCropAndExpand]);
 
   return (
-    <DisclosureSection title="Expand Bounds" defaultExpanded={false}>
+    <DisclosureSection title="Expand Bounds" sectionId={sectionId} subsectionId="expandBounds">
       <div className="insp-field-group">
         <FieldRow label="Padding">
           <NumberField

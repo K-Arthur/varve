@@ -335,6 +335,7 @@ export function TableTracksSection({ tableId }: Props) {
         <FieldRow label="Width px">
           <NumberField
             label="Column width"
+            hideLabel
             value={column.sizing.value}
             step={1}
             min={8}
@@ -348,6 +349,7 @@ export function TableTracksSection({ tableId }: Props) {
         <FieldRow label="Width %">
           <NumberField
             label="Column percentage"
+            hideLabel
             unit="%"
             value={column.sizing.value}
             step={0.1}
@@ -364,6 +366,7 @@ export function TableTracksSection({ tableId }: Props) {
         <FieldRow label="Width weight">
           <NumberField
             label="Column weight"
+            hideLabel
             unit="fr"
             value={column.sizing.value}
             step={0.1}
@@ -402,6 +405,7 @@ export function TableTracksSection({ tableId }: Props) {
         <FieldRow label="Height px">
           <NumberField
             label="Row height"
+            hideLabel
             value={row.sizing.value}
             step={1}
             min={8}

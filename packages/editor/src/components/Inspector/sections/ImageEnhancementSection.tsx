@@ -334,7 +334,7 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
                 }
               />
             </FieldRow>
-            <FieldRow label="Alpha threshold" htmlFor={alphaThresholdId}>
+            <FieldRow label="Alpha threshold" htmlFor={alphaThresholdId} wrapLabel>
               <input
                 id={alphaThresholdId}
                 type="number"
@@ -348,7 +348,7 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
                 }
               />
             </FieldRow>
-            <FieldRow label="Compound holes">
+            <FieldRow label="Compound holes" wrapLabel>
               <Switch
                 aria-label="Compound holes"
                 checked={compoundHoles}
