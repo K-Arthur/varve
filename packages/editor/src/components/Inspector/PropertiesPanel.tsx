@@ -536,9 +536,23 @@ export function PropertiesPanel() {
                 variableStore={docVariableStore(state.document)}
               />
             ) : (
-              <p className="insp-panel__empty-hint">
-                Select a node to export it as SVG, PNG, PDF, or generate code.
-              </p>
+              <div className="spec-export__empty-state">
+                <div className="spec-export__empty-icon" aria-hidden="true">
+                  <Icon name="Download" size={24} label={undefined} />
+                </div>
+                <p className="insp-panel__empty-hint">
+                  Select a node to export it as SVG, PNG, PDF, or generate code.
+                </p>
+                <button
+                  type="button"
+                  className="spec-export__empty-action"
+                  onClick={() => setShowExportDialog(true)}
+                  aria-label="Open export workspace"
+                >
+                  <Icon name="SlidersHorizontal" size={14} label={undefined} />
+                  <span>Open Export Workspace</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -787,9 +801,6 @@ function SingleSelectionPanel({
       add('mockups', <MockupsSection node={node as import('@varve/scene').FrameNode} />);
     }
     add('position-size', <PositionSizeSection nodes={nodes} />);
-    if (isFrame && !isComponentInstance) {
-      add('frame-resize', <FramePresetsSection mode="resize" sectionId="frame-resize" />);
-    }
     if (!isFrame) add('layout-child', <LayoutChildSection nodes={nodes} />);
     if (isRect || isFrame) add('corner-radius', <CornerRadiusSection nodes={nodes} />);
     if (isFrame) add('layout', <LayoutSection node={node as import('@varve/scene').FrameNode} />);

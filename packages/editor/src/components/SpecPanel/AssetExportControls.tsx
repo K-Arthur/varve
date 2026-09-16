@@ -681,6 +681,10 @@ export function AssetExportControls({
 
       {selectedCount !== undefined && selectedCount > 1 && (
         <div className="spec-export__selection-note" data-export-selection-note role="note">
+          <div className="spec-export__selection-note-header">
+            <Icon name="Layers" size={14} label={undefined} />
+            <span className="spec-export__selection-note-title">Multiple layers selected</span>
+          </div>
           <p>
             This tab exports one object at a time — only <strong>{node.name}</strong> will export.{' '}
             {selectedCount} layers are selected.
@@ -791,7 +795,12 @@ export function AssetExportControls({
       {onAddPreset && (
         <section className="spec-export__presets" aria-labelledby="spec-export-presets-heading">
           <div className="spec-export__section-heading">
-            <h4 id="spec-export-presets-heading">Export configurations</h4>
+            <div className="spec-export__heading-row">
+              <h4 id="spec-export-presets-heading">Export configurations</h4>
+              {presets.length > 0 && (
+                <span className="spec-export__count-badge">{presets.length}</span>
+              )}
+            </div>
             <p>Saved outputs included whenever this {nodeLabel(node)} is batch exported.</p>
           </div>
           {preflightFindings.length > 0 && (
@@ -847,45 +856,50 @@ export function AssetExportControls({
           ))}
           <fieldset className="spec-export__preset-add">
             <legend>Add configuration</legend>
-            <span className="spec-export__field-label">Quick add</span>
-            <div className="spec-export__configs-quick">
-              {QUICK_PRESETS.map((qp) => (
-                <button
-                  key={qp.label}
-                  type="button"
-                  className="spec-export__configs-quick-btn"
-                  onClick={() =>
-                    onAddPreset({
-                      id: `preset-${Date.now()}-${presets.length}`,
-                      format: qp.format,
-                      scale: { type: 'factor', value: qp.scale },
-                      suffix: qp.suffix,
-                      enabled: true,
-                    })
-                  }
-                >
-                  {qp.label}
-                </button>
-              ))}
-            </div>
             <div className="spec-export__field">
-              <span className="spec-export__field-label">Preset library</span>
-              <Select
-                label="Add from preset"
-                placeholder="Choose a preset…"
-                value=""
-                options={catalogOptions}
-                onChange={handleApplyCatalogEntry}
-              />
+              <span className="spec-export__field-label">Quick add</span>
+              <div className="spec-export__configs-quick">
+                {QUICK_PRESETS.map((qp) => (
+                  <button
+                    key={qp.label}
+                    type="button"
+                    className="spec-export__configs-quick-btn"
+                    onClick={() =>
+                      onAddPreset({
+                        id: `preset-${Date.now()}-${presets.length}`,
+                        format: qp.format,
+                        scale: { type: 'factor', value: qp.scale },
+                        suffix: qp.suffix,
+                        enabled: true,
+                      })
+                    }
+                  >
+                    <Icon name="Plus" size={10} label={undefined} />
+                    <span>{qp.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="spec-export__field">
-              <span className="spec-export__field-label">Custom format</span>
-              <Select
-                label="Format for new export configuration"
-                value={presetFormat}
-                options={presetFormatOptions}
-                onChange={(next) => setPresetFormat(next as LegacyExportFormat)}
-              />
+            <div className="spec-export__add-custom-grid">
+              <div className="spec-export__field">
+                <span className="spec-export__field-label">Preset library</span>
+                <Select
+                  label="Add from preset"
+                  placeholder="Choose a preset…"
+                  value=""
+                  options={catalogOptions}
+                  onChange={handleApplyCatalogEntry}
+                />
+              </div>
+              <div className="spec-export__field">
+                <span className="spec-export__field-label">Custom format</span>
+                <Select
+                  label="Format for new export configuration"
+                  value={presetFormat}
+                  options={presetFormatOptions}
+                  onChange={(next) => setPresetFormat(next as LegacyExportFormat)}
+                />
+              </div>
             </div>
             <button
               type="button"
@@ -1011,27 +1025,34 @@ function PresetRow({
         <span className="varve-visually-hidden">Enabled</span>
       </label>
       <div className="spec-export__preset-info">
-        <span className="spec-export__preset-summary">{presetSummary(preset)}</span>
+        <div className="spec-export__preset-meta-row">
+          <span className={`spec-export__preset-badge spec-export__preset-badge--${preset.format}`}>
+            {preset.format.toUpperCase()}
+          </span>
+          <span className="spec-export__preset-summary">{presetSummary(preset)}</span>
+        </div>
         <code className="spec-export__preset-file">{displayFileName}</code>
-        <input
-          type="text"
-          className="spec-export__preset-suffix"
-          value={suffixDraft}
-          placeholder="suffix"
-          aria-label={`Filename suffix for ${committedFileName}`}
-          onChange={(e) => setSuffixDraft(e.target.value)}
-          onBlur={commitSuffix}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              commitSuffix();
-              e.currentTarget.blur();
-            } else if (e.key === 'Escape') {
-              setSuffixDraft(preset.suffix);
-              e.currentTarget.blur();
-            }
-          }}
-        />
+        <div className="spec-export__preset-suffix-wrap">
+          <input
+            type="text"
+            className="spec-export__preset-suffix"
+            value={suffixDraft}
+            placeholder="suffix"
+            aria-label={`Filename suffix for ${committedFileName}`}
+            onChange={(e) => setSuffixDraft(e.target.value)}
+            onBlur={commitSuffix}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                commitSuffix();
+                e.currentTarget.blur();
+              } else if (e.key === 'Escape') {
+                setSuffixDraft(preset.suffix);
+                e.currentTarget.blur();
+              }
+            }}
+          />
+        </div>
       </div>
       <button
         type="button"

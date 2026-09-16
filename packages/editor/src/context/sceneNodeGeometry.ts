@@ -19,11 +19,13 @@ export type { AlignmentReference } from '../scene/selectionArrangement';
 export {
   alignmentFeedbackForResult,
   alignmentPageBounds,
+  alignmentSurfaceKindFor,
   alignSelectionInDocument,
   alignSelectionWithObbInDocument,
   commonAlignmentContainerBounds,
   distributeSelectionInDocument,
   distributionFeedbackForResult,
+  resolveAlignmentSurface,
   tidySelectionInDocument,
 } from '../scene/selectionArrangement';
 export type { KnifeCutOutcome, KnifeCutState, KnifeSelectionPatch } from './knifeCommand';
