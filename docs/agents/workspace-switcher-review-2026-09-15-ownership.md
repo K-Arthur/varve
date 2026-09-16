@@ -92,6 +92,16 @@ temporary diagnostic spec (`tests/e2e/workspace/zz-menubar-spacing-probe.spec.ts
 into its change set; the file is deleted here because it was a throwaway probe,
 never a test.
 
+### Follow-up 2: menubar submenu affordance
+
+Replaced the `▶` text glyph in the menubar dropdowns and the `›` glyph in the
+shared `Menu` with `<Icon name="ChevronRight" size="1em" />` (centered in the
+arrow lane, `currentColor`). Owned paths extended to `Menubar.tsx`,
+`packages/ui/src/components/Menu.tsx`, `components.css`, and
+`docs/architecture/menu-system.md`. Verified at device scale 3 in the real app
+plus 28 passing menu e2e tests (keyboard-nav, overlay-reliability,
+chrome-integrity, flyout-dismissal) and 42 passing Menu unit tests.
+
 ## Applicability decisions (prompt Sections 6A–6D)
 
 - **6A dense chrome: applied.** Typography (2xs → xs), single-accent token

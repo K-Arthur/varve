@@ -6,6 +6,7 @@ import {
   AlertDialog,
   elementAnchor,
   FloatingPortal,
+  Icon,
   IconButton,
   SOLID_CHROME_ICONS,
   Tooltip,
@@ -2634,8 +2635,13 @@ export function Menubar({
                         >
                           <span className="editor-menubar__menu-label">{item.label}</span>
                           {hasSubmenu && (
+                            /* A right chevron, not a filled "play" triangle:
+                             * the triangle glyph was font-dependent (weight
+                             * and baseline moved with the face), read as a
+                             * media control, and contradicted the stroke-icon
+                             * system. Sized in em so it tracks the item text. */
                             <span className="editor-menubar__menu-submenu-arrow" aria-hidden="true">
-                              &#9654;
+                              <Icon name="ChevronRight" size="1em" />
                             </span>
                           )}
                           {!hasSubmenu && item.shortcut && (

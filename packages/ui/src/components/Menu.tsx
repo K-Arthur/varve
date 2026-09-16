@@ -814,7 +814,10 @@ function MenuInternal({
               entry,
               null,
               <span className="varve-menu__submenu-arrow" aria-hidden="true">
-                ›
+                {/* Same affordance, same icon as the menubar: the shared menu
+                    used a single right angle quote, whose geometry came from
+                    the font rather than the icon system. */}
+                <Icon name="ChevronRight" size="1em" />
               </span>,
             )}
           </button>

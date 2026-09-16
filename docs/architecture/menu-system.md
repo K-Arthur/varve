@@ -59,7 +59,15 @@ Each action entry may provide:
 
 The leading and trailing lanes have reserved space so icons, checkmarks,
 shortcuts, badges, submenu arrows, and dialog ellipses do not make sibling
-labels jump when those lanes are used. Empty lanes collapse for plain command
+labels jump when those lanes are used.
+
+The submenu affordance is a stroked right chevron (`Icon name="ChevronRight"`,
+sized in `em` and centered in its lane) in both the menubar dropdowns and the
+shared `Menu`. It must never be a text glyph: the menubar previously used `▶`
+(BLACK RIGHT-POINTING TRIANGLE) and the shared menu used `›`, so their weight,
+baseline, and optical size came from whichever font happened to be active —
+and `▶` additionally reads as a media-play control rather than "opens a
+submenu". Empty lanes collapse for plain command
 menus so their labels receive the full semantic width; `default` and `rich`
 labels wrap rather than being visually ellipsized when viewport clamping makes
 their available width tight. Labels are presentation headings (`MenuLabel`),

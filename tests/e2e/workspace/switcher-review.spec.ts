@@ -482,6 +482,63 @@ test.describe('Workspace switcher contract', () => {
     expect(errors).toEqual([]);
   });
 
+  test.describe('menubar icon inspection (3x)', () => {
+    test.use({ deviceScaleFactor: 3 });
+
+    test('captures menubar icons at 3x', async ({ page }) => {
+      await page.setViewportSize({ width: 1920, height: 1080 });
+      await navigateToEditor(page);
+      const dock = page.locator('.workspace-dock');
+      await dock.screenshot({ path: join(OUT_ROOT, 'dock-1920-3x.png') });
+      await page.screenshot({
+        path: join(OUT_ROOT, 'menubar-right-3x.png'),
+        clip: { x: 1380, y: 0, width: 540, height: 46 },
+      });
+      await page.screenshot({
+        path: join(OUT_ROOT, 'menubar-full-3x.png'),
+        clip: { x: 0, y: 0, width: 1920, height: 46 },
+      });
+
+      // Submenu affordance: open View and let the "Workspace" flyout open so
+      // the arrow can be judged at device scale.
+      const view = page
+        .getByRole('menubar', { name: 'Application' })
+        .getByRole('menuitem', { name: 'View', exact: true });
+      await view.click();
+      await page.waitForTimeout(200);
+      await page.screenshot({ path: join(OUT_ROOT, 'menu-view-open-3x.png') });
+      const submenuParent = page
+        .getByRole('menu', { name: 'View' })
+        .getByRole('menuitem', { name: /^Workspace/ });
+      await submenuParent.hover();
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: join(OUT_ROOT, 'menu-view-submenu-3x.png') });
+      const arrow = submenuParent.locator('.editor-menubar__menu-submenu-arrow');
+      await arrow.screenshot({ path: join(OUT_ROOT, 'submenu-arrow-3x.png') });
+
+      // The shared Menu primitive (canvas context menu) renders the same
+      // affordance; capture its arrow too so both recipes have evidence.
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(200);
+      const canvas = page.locator('canvas.editor-canvas__content-layer').first();
+      const canvasBox = await canvas.boundingBox();
+      if (canvasBox) {
+        await page.mouse.click(
+          canvasBox.x + canvasBox.width * 0.6,
+          canvasBox.y + canvasBox.height * 0.7,
+          { button: 'right' },
+        );
+        await page.waitForTimeout(350);
+        const contextMenu = page.locator('[role="menu"]').last();
+        const submenuItem = contextMenu.locator('button[aria-haspopup="menu"]').first();
+        if (await submenuItem.isVisible({ timeout: 1500 }).catch(() => false)) {
+          const sharedArrow = submenuItem.locator('.varve-menu__submenu-arrow');
+          await sharedArrow.screenshot({ path: join(OUT_ROOT, 'shared-menu-arrow-3x.png') });
+        }
+      }
+    });
+  });
+
   test('captures review evidence', async ({ page }) => {
     mkdirSync(OUT_ROOT, { recursive: true });
     const dock = page.locator('.workspace-dock');

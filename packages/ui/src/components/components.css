@@ -852,6 +852,11 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-md);
   line-height: 1;
+  /* The chevron is an SVG sized in em; center it in the row's line box rather
+   * than letting font baseline metrics position it. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .varve-menu__label {

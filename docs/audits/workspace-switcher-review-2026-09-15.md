@@ -257,6 +257,29 @@ but is not the same runtime path; screen-reader runs (NVDA/VoiceOver/Orca);
 physical touch/pen; Safari/Firefox; the native WebKitGTK shell (the production
 Vite bundle builds, but only the browser/DOM path was exercised).
 
+## Follow-up (same session): menubar submenu chevron
+
+User review of the open menubar menus flagged the submenu affordance: the
+dropdowns drew a literal `▶` (`&#9654;`) and the shared `Menu` primitive drew
+`›`. Both are text glyphs, so weight, baseline, and optical size came from the
+active font rather than the icon system, and a filled play triangle reads as a
+media control, not "opens a submenu" (the product's own semantic icon map
+already resolves `Next` to `ChevronRight`).
+
+- `Menubar.tsx` and `Menu.tsx` now render `<Icon name="ChevronRight" size="1em" />`
+  inside the arrow lane; both CSS recipes center it with `inline-flex` instead
+  of relying on baseline metrics.
+- Verified in the real app at device scale 3: the arrow is an SVG
+  (`svgSize 14.7×14.7`, `stroke: currentColor` = `--color-text-muted`, no text
+  content) and reads as a chevron consistent with the stroke-icon language.
+  Evidence: `after/menu-view-open-3x.png`, `after/menu-view-submenu-3x.png`,
+  `after/submenu-arrow-3x.png`. The shared-menu arrow uses the same
+  construction; its behavior is covered by `Menu.test.tsx` (42 passing) and by
+  the context-menu/submenu cases in `tests/e2e/menus/overlay-reliability.spec.ts`,
+  which passed after the change (28 tests across the menu specs). A 3x close-up
+  of the shared-menu arrow specifically was blocked by machine contention and
+  is the remaining visual gap.
+
 ## Remaining work
 
 1. **Reset discovery.** F1–F10 are fixed, but a user who lands in an
