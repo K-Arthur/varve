@@ -1,9 +1,11 @@
 /**
- * Batch job list — lists all export jobs with status, select-all, and per-row checkbox.
+ * Batch job list — lists all export jobs with status, select-all, search filter,
+ * format filtering, and per-row checkbox.
  */
 
 import type { ExportJob } from '@varve/scene';
-import { useMemo } from 'react';
+import { Icon } from '@varve/ui';
+import { useMemo, useState } from 'react';
 
 import './BatchJobList.css';
 
@@ -20,16 +22,16 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
-function statusIcon(status: ExportJob['status']): string {
+function StatusIcon({ status }: { status: ExportJob['status'] }) {
   switch (status) {
     case 'pending':
-      return '\u25CB';
+      return <Icon name="Clock" size={13} label="Pending" />;
     case 'running':
-      return '\u25B6';
+      return <Icon name="Loader2" size={13} className="batch-job-row__spin" label="Running" />;
     case 'done':
-      return '\u2713';
+      return <Icon name="Check" size={13} label="Done" />;
     case 'error':
-      return '\u2717';
+      return <Icon name="AlertCircle" size={13} label="Error" />;
   }
 }
 
@@ -50,39 +52,125 @@ function VirtualizedList({ children, itemCount }: VirtualizedListProps) {
 }
 
 export function BatchJobList({ jobs, selectedIds, onToggleJob, onToggleAll }: BatchJobListProps) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFormat, setSelectedFormat] = useState<string | null>(null);
+
   const allSelected = jobs.length > 0 && selectedIds.size === jobs.length;
 
+  const formatCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const job of jobs) {
+      const fmt = job.format.toLowerCase();
+      counts.set(fmt, (counts.get(fmt) ?? 0) + 1);
+    }
+    return Array.from(counts.entries()).map(([format, count]) => ({ format, count }));
+  }, [jobs]);
+
+  const filteredJobs = useMemo(() => {
+    return jobs.filter((job) => {
+      if (selectedFormat && job.format.toLowerCase() !== selectedFormat) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        return job.fileName.toLowerCase().includes(q);
+      }
+      return true;
+    });
+  }, [jobs, selectedFormat, searchQuery]);
+
   const rows = useMemo(() => {
-    return jobs.map((job) => (
-      <div
-        key={`${job.nodeId}-${job.presetId}`}
-        className={`batch-job-row${selectedIds.has(`${job.nodeId}-${job.presetId}`) ? ' batch-job-row--selected' : ''}`}
-      >
-        <label className="batch-job-row__checkbox">
-          <input
-            type="checkbox"
-            checked={selectedIds.has(`${job.nodeId}-${job.presetId}`)}
-            onChange={() => onToggleJob(`${job.nodeId}-${job.presetId}`)}
-            aria-label={`Include ${job.fileName}`}
-          />
-        </label>
-        <span className="batch-job-row__name">{job.fileName}</span>
-        <span className="batch-job-row__format">{job.format}</span>
-        <span className="batch-job-row__dims">
-          {job.dimensions.w}x{job.dimensions.h}
-          {job.outputPpi ? ` · ${Math.round(job.outputPpi)} PPI` : ''}
-        </span>
-        <span className="batch-job-row__size">{formatSize(job.estimatedSize)}</span>
-        <span className={`batch-job-row__status batch-job-row__status--${job.status}`}>
-          {statusIcon(job.status)}
-          <span className="sr-only">{job.status}</span>
-        </span>
-      </div>
-    ));
-  }, [jobs, selectedIds, onToggleJob]);
+    return filteredJobs.map((job) => {
+      const isSelected = selectedIds.has(`${job.nodeId}-${job.presetId}`);
+      const formatKey = job.format.toLowerCase();
+      return (
+        <div
+          key={`${job.nodeId}-${job.presetId}`}
+          className={`batch-job-row${isSelected ? ' batch-job-row--selected' : ''}`}
+        >
+          <label className="batch-job-row__checkbox">
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => onToggleJob(`${job.nodeId}-${job.presetId}`)}
+              aria-label={`Include ${job.fileName}`}
+            />
+          </label>
+          <span className="batch-job-row__name" title={job.fileName}>
+            {job.fileName}
+          </span>
+          <span className="batch-job-row__format">
+            <span
+              className={`batch-job-row__format-badge batch-job-row__format-badge--${formatKey}`}
+            >
+              {job.format}
+            </span>
+          </span>
+          <span className="batch-job-row__dims">
+            {job.dimensions.w}x{job.dimensions.h}
+            {job.outputPpi ? ` · ${Math.round(job.outputPpi)} PPI` : ''}
+          </span>
+          <span className="batch-job-row__size">{formatSize(job.estimatedSize)}</span>
+          <span className={`batch-job-row__status batch-job-row__status--${job.status}`}>
+            <StatusIcon status={job.status} />
+            <span className="sr-only">{job.status}</span>
+          </span>
+        </div>
+      );
+    });
+  }, [filteredJobs, selectedIds, onToggleJob]);
 
   return (
     <fieldset className="batch-job-list" aria-label="Export jobs">
+      {jobs.length > 1 && (
+        <div className="batch-job-list__toolbar">
+          <div className="batch-job-list__search-wrap">
+            <Icon name="Search" size={13} className="batch-job-list__search-icon" />
+            <input
+              type="search"
+              className="batch-job-list__search"
+              placeholder="Filter files..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Filter jobs"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="batch-job-list__clear-search"
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+              >
+                <Icon name="X" size={12} />
+              </button>
+            )}
+          </div>
+          {formatCounts.length > 1 && (
+            <div
+              className="batch-job-list__format-filters"
+              role="toolbar"
+              aria-label="Filter by format"
+            >
+              <button
+                type="button"
+                className={`batch-job-list__filter-btn${selectedFormat === null ? ' batch-job-list__filter-btn--active' : ''}`}
+                onClick={() => setSelectedFormat(null)}
+              >
+                All ({jobs.length})
+              </button>
+              {formatCounts.map(({ format, count }) => (
+                <button
+                  key={format}
+                  type="button"
+                  className={`batch-job-list__filter-btn batch-job-list__filter-btn--${format}${selectedFormat === format ? ' batch-job-list__filter-btn--active' : ''}`}
+                  onClick={() => setSelectedFormat(selectedFormat === format ? null : format)}
+                >
+                  {format.toUpperCase()} ({count})
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="batch-job-list__header">
         <label className="batch-job-list__select-all">
           <input
@@ -98,8 +186,26 @@ export function BatchJobList({ jobs, selectedIds, onToggleJob, onToggleAll }: Ba
         <span className="batch-job-list__col-est">Est.</span>
         <span className="batch-job-list__col-status">Status</span>
       </div>
-      <VirtualizedList itemCount={jobs.length}>{rows}</VirtualizedList>
+
+      <VirtualizedList itemCount={filteredJobs.length}>{rows}</VirtualizedList>
+
       {jobs.length === 0 && <div className="batch-job-list__empty">No export jobs to display.</div>}
+
+      {jobs.length > 0 && filteredJobs.length === 0 && (
+        <div className="batch-job-list__empty">
+          <p>No jobs match "{searchQuery}"</p>
+          <button
+            type="button"
+            className="batch-job-list__clear-filter-btn"
+            onClick={() => {
+              setSearchQuery('');
+              setSelectedFormat(null);
+            }}
+          >
+            Clear filters
+          </button>
+        </div>
+      )}
     </fieldset>
   );
 }

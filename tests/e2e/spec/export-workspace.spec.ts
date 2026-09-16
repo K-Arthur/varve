@@ -40,6 +40,14 @@ test.describe('Export workspace — batch dialog surfaces', () => {
     const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
       hasText: /^export$/i,
     });
+    if ((await exportTab.count()) === 0 || !(await exportTab.isVisible().catch(() => false))) {
+      const moreBtn = page.getByRole('button', { name: /More inspector tabs/i });
+      if (await moreBtn.isVisible().catch(() => false)) {
+        await moreBtn.click();
+        await page.getByRole('menuitem', { name: /^Export$/i }).click();
+        return;
+      }
+    }
     await exportTab.waitFor({ state: 'visible', timeout: 5000 });
     await exportTab.click();
   }
@@ -65,8 +73,9 @@ test.describe('Export workspace — batch dialog surfaces', () => {
     await page.getByRole('button', { name: 'Add configuration' }).click();
     await openAdvancedExport(page);
 
-    await expect(page.getByText(/Preflight:/i)).toBeVisible();
-    await expect(page.locator('.preflight-panel')).toBeVisible();
+    const dialog = page.getByRole('dialog', { name: 'Export' });
+    await expect(dialog.getByText(/Preflight:/i)).toBeVisible();
+    await expect(dialog.locator('.preflight-panel')).toBeVisible();
   });
 
   test('print settings appear when a PDF/X export is configured', async ({ page }) => {

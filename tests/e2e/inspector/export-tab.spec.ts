@@ -418,4 +418,65 @@ test.describe('Export tab — real-world scenarios', () => {
     await expect(panel).not.toHaveAttribute('data-visible');
     await expect(fab).toBeFocused();
   });
+
+  test('export dialog displays redesigned master-detail workspace with search, format filters, and path preview', async ({
+    page,
+  }) => {
+    await importPhoto(page);
+    await selectExportTab(page);
+
+    // Add export configurations
+    await page.getByRole('radio', { name: 'PNG', exact: true }).click();
+    const addConfigBtn = page.getByRole('button', { name: 'Add configuration' });
+    await addConfigBtn.scrollIntoViewIfNeeded();
+    await addConfigBtn.click();
+
+    await page.getByRole('radio', { name: '2x', exact: true }).click();
+    await addConfigBtn.click();
+
+    // Capture inspector export tab screenshot
+    const inspectorPanel = page.locator('.editor__inspector-panel');
+    await inspectorPanel.screenshot({
+      path: 'docs/screenshots/export-redesign/export-tab-inspector.png',
+    });
+
+    // Open batch export workspace
+    const openBtn = page.getByRole('button', { name: /Open advanced export/i });
+    await openBtn.click();
+
+    const dialog = page.locator('dialog.export-dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator('.export-dialog__workspace')).toBeVisible();
+    await expect(dialog.locator('.export-dialog__col-main')).toBeVisible();
+    await expect(dialog.locator('.export-dialog__col-aside')).toBeVisible();
+
+    // Verify search and filter in batch jobs
+    const searchInput = dialog.locator('.batch-job-list__search');
+    await expect(searchInput).toBeVisible();
+
+    // Verify clickable token chips in destination picker
+    const tokenChip = dialog
+      .locator('.destination-picker__token-chip')
+      .filter({ hasText: '+{suffix}' });
+    await expect(tokenChip).toBeVisible();
+
+    // Verify footer summary
+    const footerSummary = dialog.locator('.export-dialog__footer-summary');
+    await expect(footerSummary).toContainText(/selected/i);
+
+    // Capture visual screenshot of the redesigned master-detail dialog
+    await dialog.screenshot({
+      path: 'docs/screenshots/export-redesign/export-dialog-workspace.png',
+    });
+
+    // Test search filter
+    await searchInput.fill('2x');
+    await expect(dialog.locator('.batch-job-row')).toHaveCount(1);
+    await dialog.locator('.batch-job-list__clear-search').click();
+    await expect(dialog.locator('.batch-job-row').first()).toBeVisible();
+
+    // Close dialog
+    await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(dialog).not.toBeVisible();
+  });
 });

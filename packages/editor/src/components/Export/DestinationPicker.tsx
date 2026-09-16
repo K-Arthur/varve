@@ -1,8 +1,10 @@
 /**
- * Destination picker — folder selection and filename template with preview.
+ * Destination picker — folder selection and filename template with clickable
+ * token chips, organize rule selector, and real-time path preview.
  */
 
 import type { ExportBatch, ExportJob } from '@varve/scene';
+import { Icon } from '@varve/ui';
 import { useMemo } from 'react';
 import { applyExportBatchPaths } from '../../exportBatchPaths';
 
@@ -25,6 +27,14 @@ const RULE_OPTIONS: { value: ExportBatch['folderRule']; label: string }[] = [
   { value: 'flat', label: 'Flat' },
   { value: 'by-preset', label: 'By format' },
   { value: 'by-node', label: 'By node' },
+];
+
+const SUGGESTED_TOKENS = [
+  { token: '{name}', label: 'node name' },
+  { token: '{suffix}', label: 'suffix' },
+  { token: '{ext}', label: 'extension' },
+  { token: '{width}', label: 'width' },
+  { token: '{height}', label: 'height' },
 ];
 
 export function DestinationPicker({
@@ -53,6 +63,16 @@ export function DestinationPicker({
       });
   }, [jobs, template, folderRule]);
 
+  const handleAppendToken = (token: string) => {
+    if (template.endsWith(token)) return;
+    if (template.endsWith('.{ext}') && token !== '.{ext}') {
+      const base = template.slice(0, -6);
+      onTemplateChange(`${base}-${token}.{ext}`);
+    } else {
+      onTemplateChange(`${template}${token}`);
+    }
+  };
+
   return (
     <fieldset className="destination-picker" aria-label="Destination settings">
       <div className="destination-picker__row">
@@ -66,8 +86,11 @@ export function DestinationPicker({
             !folderSelectionAvailable ? 'export-destination-browser-hint' : undefined
           }
         >
-          {destinationLabel ||
-            (folderSelectionAvailable ? 'Select folder\u2026' : 'Browser download')}
+          <Icon name="Folder" size={14} className="destination-picker__folder-icon" />
+          <span className="destination-picker__folder-text">
+            {destinationLabel ||
+              (folderSelectionAvailable ? 'Select folder\u2026' : 'Browser download')}
+          </span>
         </button>
       </div>
       {!folderSelectionAvailable && (
@@ -85,6 +108,32 @@ export function DestinationPicker({
           onChange={(e) => onTemplateChange(e.target.value)}
           aria-label="Filename template"
         />
+      </div>
+
+      <div className="destination-picker__tokens-bar">
+        <span className="destination-picker__tokens-label">Tokens:</span>
+        <div className="destination-picker__tokens-list">
+          {SUGGESTED_TOKENS.map(({ token }) => (
+            <button
+              key={token}
+              type="button"
+              className="destination-picker__token-chip"
+              onClick={() => handleAppendToken(token)}
+              title={`Add ${token} to filename template`}
+            >
+              +{token}
+            </button>
+          ))}
+          {template !== '{name}{suffix}.{ext}' && (
+            <button
+              type="button"
+              className="destination-picker__token-reset"
+              onClick={() => onTemplateChange('{name}{suffix}.{ext}')}
+            >
+              Reset
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="destination-picker__hints">
@@ -117,15 +166,22 @@ export function DestinationPicker({
 
       {previews.length > 0 && (
         <div className="destination-picker__preview">
-          <span className="destination-picker__preview-label">Preview:</span>
-          {previews.map((p) => (
-            <div key={p.key} className="destination-picker__preview-file">
-              {p.folder && <span className="destination-picker__preview-folder">{p.folder}</span>}
-              {p.file}
-            </div>
-          ))}
+          <span className="destination-picker__preview-label">Path preview:</span>
+          <div className="destination-picker__preview-list">
+            {previews.map((p) => (
+              <div key={p.key} className="destination-picker__preview-file">
+                {p.folder && (
+                  <span className="destination-picker__preview-folder">
+                    <Icon name="Folder" size={12} />
+                    {p.folder}
+                  </span>
+                )}
+                <span className="destination-picker__preview-name">{p.file}</span>
+              </div>
+            ))}
+          </div>
           {jobs.length > 3 && (
-            <div className="destination-picker__more">+{jobs.length - 3} more</div>
+            <div className="destination-picker__more">+{jobs.length - 3} more files</div>
           )}
         </div>
       )}

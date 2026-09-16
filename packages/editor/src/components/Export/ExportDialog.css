@@ -2,38 +2,112 @@
    (size="lg"), the header/close button, scrollable body, sticky footer,
    backdrop, Escape, and focus containment. These rules style only the
    export-specific content. */
+
+.export-dialog.varve-dialog--lg {
+  width: min(96vw, 64rem);
+  max-width: min(96vw, 64rem);
+}
+
 .export-dialog__body {
   display: flex;
   flex-direction: column;
+  gap: var(--space-3);
+  overflow-x: hidden;
 }
+
+.export-dialog__workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1.28fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .export-dialog__workspace {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+}
+
+.export-dialog__col-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.export-dialog__col-aside {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
 .export-dialog__section {
-  margin-bottom: var(--space-3);
+  margin-bottom: 0;
 }
+
+.export-dialog__section--card {
+  background: var(--elevation-surface-sunken);
+  border: var(--border-micro);
+  border-radius: var(--radius-control);
+  padding: var(--space-3);
+}
+
+.export-dialog__section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
 .export-dialog__section-title {
   margin: 0 0 var(--space-2);
   font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text-primary);
 }
+
+.export-dialog__section-header .export-dialog__section-title {
+  margin: 0;
+}
+
 .export-dialog__batch-summary {
-  margin: 0 0 var(--space-2);
+  margin: 0;
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
+
 /* The shared .varve-dialog__footer provides padding and the top border. */
 .export-dialog__footer {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
+  width: 100%;
   gap: var(--space-2);
 }
+
+.export-dialog__footer-summary {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+}
+
+.export-dialog__footer-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .export-dialog__btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
   height: var(--space-6);
-  min-height: 44px;
+  min-height: 40px;
   padding: 0 var(--space-3);
   border-radius: var(--radius-control);
   font-family: var(--font-body);
@@ -46,30 +120,37 @@
     color var(--duration-quick) var(--ease-standard),
     transform var(--duration-fast) var(--ease-default);
 }
+
 .export-dialog__btn:disabled {
   opacity: 0.5;
   cursor: default;
   pointer-events: none;
 }
+
 .export-dialog__btn:active:not(:disabled) {
   transform: scale(0.97);
 }
+
 .export-dialog__btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
 }
+
 .export-dialog__btn--primary {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   border: none;
 }
+
 .export-dialog__btn--primary:hover:not(:disabled) {
   background: var(--color-interactive-hover);
 }
+
 .export-dialog__btn--secondary {
   background: transparent;
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-strong);
 }
+
 .export-dialog__btn--secondary:hover:not(:disabled) {
   background: var(--elevation-surface-sunken);
 }
@@ -81,10 +162,12 @@
   margin-top: var(--space-2);
   padding-left: calc(var(--space-5) + var(--space-1));
 }
+
 .export-dialog__bg-method label {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
+
 .export-dialog__bg-method select {
   max-width: 16rem;
   padding: var(--space-1) var(--space-2);
@@ -93,6 +176,7 @@
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
 }
+
 .export-dialog__note {
   margin: var(--space-1) 0 0 0;
   font-size: var(--font-size-xs);
@@ -100,30 +184,45 @@
   padding-left: calc(var(--space-5) + var(--space-1));
 }
 
-/* ── High-contrast overrides ──────────────────────────── */
-[data-theme="high-contrast"] .export-dialog {
-  border: 1px solid var(--color-border-strong);
-}
-[data-theme="high-contrast"] .export-dialog__footer {
-  border-top: 1px solid var(--color-border-strong);
-}
-
 .export-dialog__motion-actions {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 .export-dialog__motion-row {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-bottom: var(--border-micro);
+}
+
+.export-dialog__motion-row:last-child {
+  border-bottom: none;
 }
 
 .export-dialog__motion-row > span {
   flex: 1;
   font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
 }
+
 .export-dialog__note--warn {
-  color: var(--color-text-muted);
+  color: var(--color-feedback-warning, #b45309);
+}
+
+/* ── High-contrast overrides ──────────────────────────── */
+[data-theme="high-contrast"] .export-dialog {
+  border: 1px solid var(--color-border-strong);
+}
+
+[data-theme="high-contrast"] .export-dialog__footer {
+  border-top: 1px solid var(--color-border-strong);
+}
+
+[data-theme="high-contrast"] .export-dialog__section--card {
+  border: 1px solid var(--color-border-strong);
 }

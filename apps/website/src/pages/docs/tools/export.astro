@@ -16,15 +16,30 @@ import { sitePath } from '../../../lib/siteUrl';
       </p>
 
       <section class="docs-section">
-        <h2>Export Dialog</h2>
+        <h2>Export Controls in Inspector</h2>
         <p>
-          Press <code>Ctrl+E</code> or go to File &gt; Export to open the Export Dialog. This batch processing interface lets you export multiple nodes in one operation:
+          Selecting any node or frame opens the <strong>Export</strong> tab in the right inspector panel. The tab is organized for zero-clutter, rapid workflows:
         </p>
         <ul>
-          <li><strong>Batch Job List</strong> — Add export jobs for any node or page</li>
-          <li><strong>Export Progress Bar</strong> — Visual progress with cancel support</li>
-          <li><strong>Destination Picker</strong> — Choose target folder</li>
-          <li><strong>Sequential processing</strong> — Jobs process one at a time for reliability</li>
+          <li><strong>Quick-Add Presets</strong> — One-click buttons to instantly arm <code>+ PNG 1x</code>, <code>+ PNG 2x</code>, or <code>+ SVG</code> configurations without opening menus.</li>
+          <li><strong>Format Pill Badges</strong> — Distinct, high-contrast badges for PNG, SVG, JPG, WEBP, and PDF formats with live filename preview and suffix editing.</li>
+          <li><strong>Inline Preflight Diagnostics</strong> — Automatic warnings for low-effective-resolution raster assets and duplicate output path collisions right inside the inspector.</li>
+          <li><strong>Multi-Selection & Empty States</strong> — Clear selection guidance when nothing is selected, and batch counter headers with direct routes to advanced export.</li>
+        </ul>
+      </section>
+
+      <section class="docs-section">
+        <h2>Batch Export Workspace (Export Dialog)</h2>
+        <p>
+          Press <code>Ctrl+E</code>, click <strong>File &gt; Export</strong>, or select <strong>Open advanced export</strong> from the inspector to open the redesigned two-column batch workspace:
+        </p>
+        <ul>
+          <li><strong>Master-Detail Two-Column Layout</strong> — The left column manages the export queue; the right column configures output destinations, naming rules, and format-specific settings.</li>
+          <li><strong>Real-Time Search & Format Filters</strong> — Search jobs by filename or toggle format filter pills (<code>All</code>, <code>PNG</code>, <code>SVG</code>, <code>PDF</code>) to focus on specific deliverables in complex documents.</li>
+          <li><strong>Clickable Template Token Chips</strong> — Insert tokens like <code>+{name}</code>, <code>+{suffix}</code>, <code>+{ext}</code>, <code>+{width}</code>, and <code>+{height}</code> into your filename template with a single click.</li>
+          <li><strong>Real-Time Path Preview</strong> — Visual file and directory tree preview shows exact generated filenames and folders before running the batch, preventing accidental overwrites.</li>
+          <li><strong>Estimated Batch Size</strong> — Live calculation in the dialog footer displays total estimated size for selected outputs before export starts.</li>
+          <li><strong>Specialized Settings Cards</strong> — Collapsible options for PDF/X bleed and crop marks, raster output PPI overrides, on-device AI background removal, and timeline motion export (CSS, Lottie, video).</li>
         </ul>
       </section>
 

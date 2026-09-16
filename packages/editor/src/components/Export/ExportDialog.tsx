@@ -75,6 +75,12 @@ import { PrintSettingsPanel } from './PrintSettingsPanel';
 
 import './ExportDialog.css';
 
+function formatBatchSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export interface ExportDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -487,6 +493,16 @@ export function ExportDialog({
     }
     return { count, largestW, largestH };
   }, [displayJobs]);
+
+  const selectedEstimatedBytes = useMemo(() => {
+    let sum = 0;
+    for (const job of displayJobs) {
+      if (selectedIds.has(`${job.nodeId}-${job.presetId}`)) {
+        sum += job.estimatedSize || 0;
+      }
+    }
+    return sum;
+  }, [displayJobs, selectedIds]);
 
   const findings = useMemo(
     () => preflightFindings(exportBatch, document, platformKind),
@@ -907,270 +923,306 @@ export function ExportDialog({
         dismissible={!(running || videoExporting || packaging)}
         footer={
           <div className="export-dialog__footer">
-            <button
-              type="button"
-              className="export-dialog__btn export-dialog__btn--secondary"
-              onClick={onClose}
-              disabled={running || videoExporting || packaging}
-            >
-              Close
-            </button>
-            {onPackageExport && (
+            <div className="export-dialog__footer-summary">
+              {batchSummary && (
+                <span>
+                  {selectedIds.size} of {batchSummary.count} selected
+                  {selectedEstimatedBytes > 0 && ` · ~${formatBatchSize(selectedEstimatedBytes)}`}
+                </span>
+              )}
+            </div>
+            <div className="export-dialog__footer-actions">
               <button
                 type="button"
                 className="export-dialog__btn export-dialog__btn--secondary"
-                onClick={handlePackageExport}
+                onClick={onClose}
                 disabled={running || videoExporting || packaging}
               >
-                {packaging ? 'Packaging...' : 'Package'}
+                Close
               </button>
-            )}
-            <button
-              type="button"
-              className="export-dialog__btn export-dialog__btn--primary"
-              onClick={handleExport}
-              disabled={running || packaging || selectedIds.size === 0}
-            >
-              {running ? 'Exporting\u2026' : `Export (${selectedIds.size})`}
-            </button>
+              {onPackageExport && (
+                <button
+                  type="button"
+                  className="export-dialog__btn export-dialog__btn--secondary"
+                  onClick={handlePackageExport}
+                  disabled={running || videoExporting || packaging}
+                >
+                  {packaging ? 'Packaging...' : 'Package'}
+                </button>
+              )}
+              <button
+                type="button"
+                className="export-dialog__btn export-dialog__btn--primary"
+                onClick={handleExport}
+                disabled={running || packaging || selectedIds.size === 0}
+              >
+                {running ? 'Exporting\u2026' : `Export (${selectedIds.size})`}
+              </button>
+            </div>
           </div>
         }
       >
         <div className="export-dialog__body">
-          <section className="export-dialog__section" aria-label="Jobs">
-            <h3 className="export-dialog__section-title">Files to export</h3>
-            {batchSummary && (
-              <p className="export-dialog__batch-summary">
-                {batchSummary.count} file{batchSummary.count !== 1 ? 's' : ''}
-                {batchSummary.largestW > 0 &&
-                  ` · Largest: ${batchSummary.largestW} x ${batchSummary.largestH} px`}
-              </p>
-            )}
-            <BatchJobList
-              jobs={displayJobs}
-              selectedIds={selectedIds}
-              onToggleJob={handleToggleJob}
-              onToggleAll={handleToggleAll}
-            />
-          </section>
-
-          {findings.length > 0 && (
-            <section className="export-dialog__section" aria-label="Preflight">
-              <h3 className="export-dialog__section-title">Preflight</h3>
-              <PreflightFindingsPanel findings={findings} />
-            </section>
-          )}
-
-          {hasPdfXJobs && (
-            <section className="export-dialog__section" aria-label="Print settings">
-              <PrintSettingsPanel
-                value={printSettings}
-                onChange={setPrintSettings}
-                standard={
-                  selectedJobs.some((job) => job.format === 'pdf-x1a') ? 'pdf-x1a' : 'pdf-x4'
-                }
-                documentBleedMm={
-                  document?.activePageId
-                    ? pageBleedMm(document, document.activePageId)
-                    : document
-                      ? documentBleedMm(document)
-                      : undefined
-                }
-              />
-            </section>
-          )}
-
-          {hasRasterJobs && document && (
-            <section className="export-dialog__section" aria-label="Output resolution">
-              <OutputResolutionPanel value={resolutionOverride} onChange={setResolutionOverride} />
-            </section>
-          )}
-
-          <section className="export-dialog__section" aria-label="Destination">
-            <h3 className="export-dialog__section-title">Destination</h3>
-            <DestinationPicker
-              template={template}
-              folderRule={folderRule}
-              jobs={jobs}
-              onTemplateChange={setTemplate}
-              onFolderRuleChange={setFolderRule}
-              templateError={templateError}
-              onSelectDestination={() => void handleSelectDestination()}
-              destinationLabel={destinationLabel}
-              folderSelectionAvailable={!!onSelectDestination}
-            />
-          </section>
-
-          <section className="export-dialog__section" aria-label="Background">
-            <h3 className="export-dialog__section-title">Background</h3>
-            <SwitchField
-              label="Remove background before export"
-              description="Preprocesses raster images before the export file is written."
-              checked={removeBgBeforeExport}
-              onChange={(e) => setRemoveBgBeforeExport(e.target.checked)}
-            />
-            {removeBgBeforeExport && (
-              <div className="export-dialog__bg-method">
-                <label htmlFor="export-bg-method">Method</label>
-                <Select
-                  label="Background removal method for export"
-                  value={bgMethod}
-                  options={[
-                    { value: 'quick', label: 'Quick' },
-                    { value: 'ai-balanced', label: 'Balanced' },
-                    { value: 'ai-quality', label: 'High quality' },
-                  ]}
-                  onChange={(next) => {
-                    setBgMethod(next as BackgroundRemovalMethod);
-                    void (async () => {
-                      if (next === 'quick') {
-                        setAiAvailable(true);
-                        return;
-                      }
-                      const modelId = workerModelIdForMethod(next as BackgroundRemovalMethod);
-                      if (!modelId) {
-                        setAiAvailable(true);
-                        return;
-                      }
-                      const loader = await getModelLoaderReady();
-                      setAiAvailable(await loader.isModelAvailable(modelId));
-                    })();
-                  }}
+          <div className="export-dialog__workspace">
+            <div className="export-dialog__col-main">
+              <section
+                className="export-dialog__section export-dialog__section--jobs"
+                aria-label="Jobs"
+              >
+                <div className="export-dialog__section-header">
+                  <h3 className="export-dialog__section-title">Files to export</h3>
+                  {batchSummary && (
+                    <p className="export-dialog__batch-summary">
+                      {batchSummary.count} file{batchSummary.count !== 1 ? 's' : ''}
+                      {batchSummary.largestW > 0 &&
+                        ` · Largest: ${batchSummary.largestW} x ${batchSummary.largestH} px`}
+                    </p>
+                  )}
+                </div>
+                <BatchJobList
+                  jobs={displayJobs}
+                  selectedIds={selectedIds}
+                  onToggleJob={handleToggleJob}
+                  onToggleAll={handleToggleAll}
                 />
-                {bgMethod !== 'quick' && !aiAvailable && (
-                  <button
-                    type="button"
-                    className="export-dialog__btn export-dialog__btn--secondary"
-                    onClick={() => setShowDownloadDialog(true)}
-                  >
-                    Download AI Model
-                  </button>
-                )}
-              </div>
-            )}
-            {removeBgBeforeExport &&
-              (() => {
-                const imageCount = nodes.filter(
-                  (n) =>
-                    n.kind === 'shape' &&
-                    !n.backgroundRemoval &&
-                    !n.mask?.rasterMask &&
-                    (document
-                      ? resolveNodePaints({ fills: n.fills, paintRefs: n.paintRefs }, document)
-                      : (n.fills ?? [])
-                    ).some((fill) => fill.type === 'image' && fill.image),
-                ).length;
-                return imageCount > 0 ? (
-                  <p className="export-dialog__note">
-                    Background removal will be applied to {imageCount} image
-                    {imageCount !== 1 ? 's' : ''}
-                  </p>
-                ) : (
-                  <p className="export-dialog__note">All images already have background removal</p>
-                );
-              })()}
-          </section>
+              </section>
 
-          {timelineList.length > 0 && (onExportMotion || onSaveVideoFile) && (
-            <section className="export-dialog__section" aria-label="Motion export">
-              <h3 className="export-dialog__section-title">Motion Export</h3>
-              <p className="export-dialog__note">
-                Export document timelines as CSS keyframes, Lottie JSON, or video (WebCodecs;
-                Chromium recommended).
-              </p>
-              {!videoSupport.supported && onSaveVideoFile && (
-                <p className="export-dialog__note export-dialog__note--warn" role="status">
-                  Video export unavailable: {videoSupport.reason}
-                </p>
+              {findings.length > 0 && (
+                <section className="export-dialog__section" aria-label="Preflight">
+                  <h3 className="export-dialog__section-title">Preflight</h3>
+                  <PreflightFindingsPanel findings={findings} />
+                </section>
               )}
-              <div className="export-dialog__motion-actions">
-                {timelineList.map((tl) => (
-                  <div key={tl.id} className="export-dialog__motion-row">
-                    <span>{tl.name}</span>
-                    {onExportMotion && (
-                      <>
-                        <button
-                          type="button"
-                          className="export-dialog__btn export-dialog__btn--secondary"
-                          disabled={videoExporting || running}
-                          onClick={() => {
-                            const css = timelineToCSSKeyframes(tl, nodeNames);
-                            onExportMotion('css', `${tl.name}.css`, css);
-                          }}
-                        >
-                          CSS
-                        </button>
-                        <button
-                          type="button"
-                          className="export-dialog__btn export-dialog__btn--secondary"
-                          disabled={videoExporting || running}
-                          onClick={() => {
-                            const lottieDocument =
-                              document ?? ({ nodes: nodeNames } as unknown as Document);
-                            const json = timelineToLottieJSON(tl, lottieDocument);
-                            onExportMotion('lottie', `${tl.name}.json`, json);
-                          }}
-                        >
-                          Lottie
-                        </button>
-                        <button
-                          type="button"
-                          className="export-dialog__btn export-dialog__btn--secondary"
-                          disabled={videoExporting || running}
-                          onClick={() => {
-                            const svg = timelineToSVGAnimations(tl, nodeNames);
-                            onExportMotion('svg', `${tl.name}.svg`, svg);
-                          }}
-                        >
-                          SVG
-                        </button>
-                      </>
-                    )}
-                    {onSaveVideoFile && (
-                      <>
-                        <button
-                          type="button"
-                          className="export-dialog__btn export-dialog__btn--secondary"
-                          disabled={videoExporting || running || !gifSupport.supported}
-                          aria-label={`Export ${tl.name} as GIF`}
-                          onClick={() => void handleGifExport(tl)}
-                        >
-                          GIF
-                        </button>
-                        <button
-                          type="button"
-                          className="export-dialog__btn export-dialog__btn--secondary"
-                          disabled={videoExporting || running || !videoSupport.supported}
-                          aria-label={`Export ${tl.name} as MP4`}
-                          onClick={() => void handleVideoExport(tl, 'mp4')}
-                        >
-                          MP4
-                        </button>
-                        <button
-                          type="button"
-                          className="export-dialog__btn export-dialog__btn--secondary"
-                          disabled={videoExporting || running || !videoSupport.supported}
-                          aria-label={`Export ${tl.name} as WebM`}
-                          onClick={() => void handleVideoExport(tl, 'webm')}
-                        >
-                          WebM
-                        </button>
-                      </>
+            </div>
+
+            <div className="export-dialog__col-aside">
+              <section className="export-dialog__section" aria-label="Destination">
+                <h3 className="export-dialog__section-title">Destination</h3>
+                <DestinationPicker
+                  template={template}
+                  folderRule={folderRule}
+                  jobs={jobs}
+                  onTemplateChange={setTemplate}
+                  onFolderRuleChange={setFolderRule}
+                  templateError={templateError}
+                  onSelectDestination={() => void handleSelectDestination()}
+                  destinationLabel={destinationLabel}
+                  folderSelectionAvailable={!!onSelectDestination}
+                />
+              </section>
+
+              {hasPdfXJobs && (
+                <section className="export-dialog__section" aria-label="Print settings">
+                  <PrintSettingsPanel
+                    value={printSettings}
+                    onChange={setPrintSettings}
+                    standard={
+                      selectedJobs.some((job) => job.format === 'pdf-x1a') ? 'pdf-x1a' : 'pdf-x4'
+                    }
+                    documentBleedMm={
+                      document?.activePageId
+                        ? pageBleedMm(document, document.activePageId)
+                        : document
+                          ? documentBleedMm(document)
+                          : undefined
+                    }
+                  />
+                </section>
+              )}
+
+              {hasRasterJobs && document && (
+                <section className="export-dialog__section" aria-label="Output resolution">
+                  <OutputResolutionPanel
+                    value={resolutionOverride}
+                    onChange={setResolutionOverride}
+                  />
+                </section>
+              )}
+
+              <section
+                className="export-dialog__section export-dialog__section--card"
+                aria-label="Background"
+              >
+                <h3 className="export-dialog__section-title">Background</h3>
+                <SwitchField
+                  label="Remove background before export"
+                  description="Preprocesses raster images before the export file is written."
+                  checked={removeBgBeforeExport}
+                  onChange={(e) => setRemoveBgBeforeExport(e.target.checked)}
+                />
+                {removeBgBeforeExport && (
+                  <div className="export-dialog__bg-method">
+                    <label htmlFor="export-bg-method">Method</label>
+                    <Select
+                      label="Background removal method for export"
+                      value={bgMethod}
+                      options={[
+                        { value: 'quick', label: 'Quick' },
+                        { value: 'ai-balanced', label: 'Balanced' },
+                        { value: 'ai-quality', label: 'High quality' },
+                      ]}
+                      onChange={(next) => {
+                        setBgMethod(next as BackgroundRemovalMethod);
+                        void (async () => {
+                          if (next === 'quick') {
+                            setAiAvailable(true);
+                            return;
+                          }
+                          const modelId = workerModelIdForMethod(next as BackgroundRemovalMethod);
+                          if (!modelId) {
+                            setAiAvailable(true);
+                            return;
+                          }
+                          const loader = await getModelLoaderReady();
+                          setAiAvailable(await loader.isModelAvailable(modelId));
+                        })();
+                      }}
+                    />
+                    {bgMethod !== 'quick' && !aiAvailable && (
+                      <button
+                        type="button"
+                        className="export-dialog__btn export-dialog__btn--secondary"
+                        onClick={() => setShowDownloadDialog(true)}
+                      >
+                        Download AI Model
+                      </button>
                     )}
                   </div>
-                ))}
-              </div>
-              {videoExporting && (
-                <ExportProgressBar
-                  total={videoProgress.total}
-                  done={videoProgress.done}
-                  errors={0}
-                  running={videoExporting}
-                  onCancel={handleCancel}
-                />
+                )}
+                {removeBgBeforeExport &&
+                  (() => {
+                    const imageCount = nodes.filter(
+                      (n) =>
+                        n.kind === 'shape' &&
+                        !n.backgroundRemoval &&
+                        !n.mask?.rasterMask &&
+                        (document
+                          ? resolveNodePaints({ fills: n.fills, paintRefs: n.paintRefs }, document)
+                          : (n.fills ?? [])
+                        ).some((fill) => fill.type === 'image' && fill.image),
+                    ).length;
+                    return imageCount > 0 ? (
+                      <p className="export-dialog__note">
+                        Background removal will be applied to {imageCount} image
+                        {imageCount !== 1 ? 's' : ''}
+                      </p>
+                    ) : (
+                      <p className="export-dialog__note">
+                        All images already have background removal
+                      </p>
+                    );
+                  })()}
+              </section>
+
+              {timelineList.length > 0 && (onExportMotion || onSaveVideoFile) && (
+                <section
+                  className="export-dialog__section export-dialog__section--card"
+                  aria-label="Motion export"
+                >
+                  <h3 className="export-dialog__section-title">Motion Export</h3>
+                  <p className="export-dialog__note" style={{ paddingLeft: 0 }}>
+                    Export document timelines as CSS keyframes, Lottie JSON, or video (WebCodecs;
+                    Chromium recommended).
+                  </p>
+                  {!videoSupport.supported && onSaveVideoFile && (
+                    <p
+                      className="export-dialog__note export-dialog__note--warn"
+                      role="status"
+                      style={{ paddingLeft: 0 }}
+                    >
+                      Video export unavailable: {videoSupport.reason}
+                    </p>
+                  )}
+                  <div className="export-dialog__motion-actions">
+                    {timelineList.map((tl) => (
+                      <div key={tl.id} className="export-dialog__motion-row">
+                        <span>{tl.name}</span>
+                        {onExportMotion && (
+                          <>
+                            <button
+                              type="button"
+                              className="export-dialog__btn export-dialog__btn--secondary"
+                              disabled={videoExporting || running}
+                              onClick={() => {
+                                const css = timelineToCSSKeyframes(tl, nodeNames);
+                                onExportMotion('css', `${tl.name}.css`, css);
+                              }}
+                            >
+                              CSS
+                            </button>
+                            <button
+                              type="button"
+                              className="export-dialog__btn export-dialog__btn--secondary"
+                              disabled={videoExporting || running}
+                              onClick={() => {
+                                const lottieDocument =
+                                  document ?? ({ nodes: nodeNames } as unknown as Document);
+                                const json = timelineToLottieJSON(tl, lottieDocument);
+                                onExportMotion('lottie', `${tl.name}.json`, json);
+                              }}
+                            >
+                              Lottie
+                            </button>
+                            <button
+                              type="button"
+                              className="export-dialog__btn export-dialog__btn--secondary"
+                              disabled={videoExporting || running}
+                              onClick={() => {
+                                const svg = timelineToSVGAnimations(tl, nodeNames);
+                                onExportMotion('svg', `${tl.name}.svg`, svg);
+                              }}
+                            >
+                              SVG
+                            </button>
+                          </>
+                        )}
+                        {onSaveVideoFile && (
+                          <>
+                            <button
+                              type="button"
+                              className="export-dialog__btn export-dialog__btn--secondary"
+                              disabled={videoExporting || running || !gifSupport.supported}
+                              aria-label={`Export ${tl.name} as GIF`}
+                              onClick={() => void handleGifExport(tl)}
+                            >
+                              GIF
+                            </button>
+                            <button
+                              type="button"
+                              className="export-dialog__btn export-dialog__btn--secondary"
+                              disabled={videoExporting || running || !videoSupport.supported}
+                              aria-label={`Export ${tl.name} as MP4`}
+                              onClick={() => void handleVideoExport(tl, 'mp4')}
+                            >
+                              MP4
+                            </button>
+                            <button
+                              type="button"
+                              className="export-dialog__btn export-dialog__btn--secondary"
+                              disabled={videoExporting || running || !videoSupport.supported}
+                              aria-label={`Export ${tl.name} as WebM`}
+                              onClick={() => void handleVideoExport(tl, 'webm')}
+                            >
+                              WebM
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {videoExporting && (
+                    <ExportProgressBar
+                      total={videoProgress.total}
+                      done={videoProgress.done}
+                      errors={0}
+                      running={videoExporting}
+                      onCancel={handleCancel}
+                    />
+                  )}
+                </section>
               )}
-            </section>
-          )}
+            </div>
+          </div>
 
           {(running || progress.done > 0 || progress.errors > 0) && (
             <section className="export-dialog__section" aria-label="Progress">
