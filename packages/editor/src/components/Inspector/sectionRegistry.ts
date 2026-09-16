@@ -82,7 +82,8 @@ export type SectionId =
   | 'table-columns'
   | 'table-rows'
   | 'ai-tools-hint'
-  | 'layer-states';
+  | 'layer-states'
+  | 'snapping';
 
 // ---------------------------------------------------------------------------
 // Section categories for management UI grouping
@@ -281,6 +282,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     id: 'layout',
     title: 'Stack / Grid',
     defaultExpanded: true,
+    subsections: { layoutGuides: { defaultExpanded: false } },
     canHide: true,
     essential: false,
     order: 120,
@@ -404,6 +406,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     id: 'warp',
     title: 'Warp',
     defaultExpanded: true,
+    subsections: { settings: { defaultExpanded: false } },
     canHide: true,
     essential: false,
     order: 255,
@@ -902,6 +905,16 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     canHide: true,
     essential: false,
     order: 600,
+    category: 'canvas',
+    isAvailable: (ctx) => ctx.selectionKind === 'empty',
+  },
+  {
+    id: 'snapping',
+    title: 'Snapping',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 605,
     category: 'canvas',
     isAvailable: (ctx) => ctx.selectionKind === 'empty',
   },

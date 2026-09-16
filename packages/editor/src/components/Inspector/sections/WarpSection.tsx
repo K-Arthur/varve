@@ -335,7 +335,7 @@ export function WarpSection({ nodes, node }: WarpSectionProps) {
         />
       </div>
 
-      <DisclosureSection title="Settings">
+      <DisclosureSection title="Settings" sectionId="warp" subsectionId="settings">
         <div className="warp-section__row">
           <Select
             label="Stroke behavior"

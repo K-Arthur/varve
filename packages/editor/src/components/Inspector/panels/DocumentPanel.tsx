@@ -130,7 +130,7 @@ export function DocumentPanel() {
           </div>
         </div>
       </DisclosureSection>
-      <DisclosureSection title="Snapping" id="snapping" defaultExpanded>
+      <DisclosureSection title="Snapping" sectionId="snapping">
         <fieldset className="insp-canvas-props" aria-label="Pointer snapping settings">
           <div className="insp-field">
             <span className="insp-field__label">Global snap</span>

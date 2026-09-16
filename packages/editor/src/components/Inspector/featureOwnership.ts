@@ -493,6 +493,15 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     rationale:
       'Canvas background applies to the document rather than a selection. Shown inline in Properties empty state.',
   },
+  snapping: {
+    surface: 'properties',
+    scope: 'document',
+    frequency: 'frequent',
+    complexity: 'compact',
+    status: 'functional',
+    rationale:
+      'Global magnetic pointer snapping and tolerance preferences configure canvas interaction. Shown inline in Properties empty state.',
+  },
   'document-color': {
     surface: 'properties',
     scope: 'document',

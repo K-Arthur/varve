@@ -367,7 +367,7 @@ function LayoutGuidesSection({ node }: { node: FrameNode }) {
   };
 
   return (
-    <DisclosureSection title="Layout guides" defaultExpanded={false}>
+    <DisclosureSection title="Layout guides" sectionId="layout" subsectionId="layoutGuides">
       <div className="insp-canvas-props">
         <p className="insp-panel__color-mode-note" role="note">
           Visual frame guides do not arrange children. Use Auto layout above to change child

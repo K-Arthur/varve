@@ -322,7 +322,7 @@ function getSubsectionState(
   sectionId: SectionId,
   subId: string,
 ): SectionState {
-  const stored = state[sectionId]?.subsections?.[subId];
+  const stored = state?.[sectionId]?.subsections?.[subId];
   if (stored) return stored;
   const defaultExpanded =
     getSectionDefinition(sectionId)?.subsections?.[subId]?.defaultExpanded ?? true;
@@ -429,13 +429,13 @@ export function showSubSection(
 
 /** Get the effective visibility for a section. */
 export function isSectionVisible(state: SectionVisibilityState, sectionId: SectionId): boolean {
-  const s = state[sectionId];
+  const s = state?.[sectionId];
   return s ? !s.hidden : true;
 }
 
 /** Get the effective collapsed state for a section. */
 export function isSectionCollapsed(state: SectionVisibilityState, sectionId: SectionId): boolean {
-  const s = state[sectionId];
+  const s = state?.[sectionId];
   return s ? s.collapsed : !(getSectionDefinition(sectionId)?.defaultExpanded ?? true);
 }
 

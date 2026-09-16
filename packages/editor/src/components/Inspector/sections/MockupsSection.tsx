@@ -57,6 +57,8 @@ import {
   subscribeMockupSurfaceSelection,
 } from '../../../mockup/mockupSurfaceSelection';
 import { requestMockupsTab } from '../../../mockup/mockupTabStore';
+import { DisclosureSection } from '../controls/DisclosureSection';
+import type { SectionId } from '../sectionRegistry';
 import { MockupVariantsPanel } from './MockupVariantsPanel';
 import './MockupsSection.css';
 
@@ -72,7 +74,13 @@ const ALIGN_Y: Array<'min' | 'center' | 'max'> = ['min', 'center', 'max'];
 
 type BusyAction = 'snapshot' | 'duplicate-linked' | 'duplicate-independent' | 'flatten' | null;
 
-export function MockupsSection({ node }: { node: FrameNode }): React.ReactElement | null {
+export function MockupsSection({
+  node,
+  sectionId,
+}: {
+  node: FrameNode;
+  sectionId?: SectionId;
+}): React.ReactElement | null {
   const editor = useEditor();
   const mockup = node.mockup as MockupInstanceData | undefined;
   const doc = editor.state.document;
@@ -181,192 +189,194 @@ export function MockupsSection({ node }: { node: FrameNode }): React.ReactElemen
   };
 
   return (
-    <div className="mockups-section">
-      {status && (
-        <p className="mockups-section__status" role="status">
-          {status}
-        </p>
-      )}
+    <DisclosureSection title="Mockup" sectionId={sectionId ?? 'mockups'}>
+      <div className="mockups-section">
+        {status && (
+          <p className="mockups-section__status" role="status">
+            {status}
+          </p>
+        )}
 
-      <div className="mockups-section__row">
-        <span className="mockups-section__label">Template</span>
-        <span className="mockups-section__value">
-          {template?.name ?? 'Missing template'}
-          {template?.library ? ' · library' : ''}
-        </span>
-        <Button size="sm" variant="ghost" onClick={() => setPickerOpen((open) => !open)}>
-          Replace
-        </Button>
-      </div>
-
-      {template?.licence && (
         <div className="mockups-section__row">
-          <span className="mockups-section__label">Licence</span>
-          <span
-            className="mockups-section__value"
-            title={`${template.licence.creator} — ${template.licence.attribution ?? ''}`}
-          >
-            {template.licence.spdx ?? template.licence.title}
+          <span className="mockups-section__label">Template</span>
+          <span className="mockups-section__value">
+            {template?.name ?? 'Missing template'}
+            {template?.library ? ' · library' : ''}
           </span>
+          <Button size="sm" variant="ghost" onClick={() => setPickerOpen((open) => !open)}>
+            Replace
+          </Button>
         </div>
-      )}
 
-      {template && (
-        <div className="mockups-section__actions mockups-section__actions--authoring">
+        {template?.licence && (
+          <div className="mockups-section__row">
+            <span className="mockups-section__label">Licence</span>
+            <span
+              className="mockups-section__value"
+              title={`${template.licence.creator} — ${template.licence.attribution ?? ''}`}
+            >
+              {template.licence.spdx ?? template.licence.title}
+            </span>
+          </div>
+        )}
+
+        {template && (
+          <div className="mockups-section__actions mockups-section__actions--authoring">
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy !== null || !editor.state.selection.some((id) => id !== node.id)}
+              onClick={() => {
+                if (!addTemplateSurfaceFromSelection(editor, node.id)) {
+                  setStatus(
+                    'Select a separate frame, group, image, or vector node to add as a surface.',
+                  );
+                }
+              }}
+              title="Adds a new flat surface from the selected node and links that node as its artwork"
+            >
+              Add surface from selection
+            </Button>
+          </div>
+        )}
+
+        {pickerOpen && (
+          <TemplatePicker
+            doc={doc}
+            frameId={node.id}
+            currentTemplateId={mockup.templateId}
+            onClose={() => setPickerOpen(false)}
+            onStatus={setStatus}
+          />
+        )}
+
+        <ul className="mockups-section__surfaces">
+          {surfaceEntries.map((surface) => {
+            const binding = mockup.surfaceBindings[surface.id];
+            const isMissing =
+              !binding ||
+              (binding.mode === 'live' && !!binding.nodeId && !doc.nodes[binding.nodeId]) ||
+              (binding.mode === 'snapshot' && !!binding.assetId && !doc.assets?.[binding.assetId]);
+            const isSelected = surface.id === selectedSurfaceId;
+            const sourceName =
+              binding?.mode === 'live' && binding.nodeId
+                ? (doc.nodes[binding.nodeId]?.name ?? 'Missing source')
+                : binding?.mode === 'snapshot'
+                  ? isMissing
+                    ? 'Missing snapshot'
+                    : 'Embedded snapshot'
+                  : 'No source';
+            return (
+              <li
+                key={surface.id}
+                className={`mockups-section__surface ${isSelected ? 'mockups-section__surface--active' : ''}`}
+              >
+                <button
+                  type="button"
+                  className="mockups-section__surface-header"
+                  aria-expanded={isSelected}
+                  onClick={() => selectSurface(surface.id)}
+                >
+                  <span className="mockups-section__surface-name">{surface.name}</span>
+                  <span
+                    className={`mockups-section__source ${isMissing ? 'mockups-section__missing' : ''}`}
+                  >
+                    {isMissing ? 'Missing source' : sourceName}
+                  </span>
+                </button>
+                {isSelected && (
+                  <SurfaceEditor
+                    doc={doc}
+                    frameId={node.id}
+                    surface={surface}
+                    mockup={mockup}
+                    busy={busy}
+                    canReplace={editor.state.selection.some((id) => id !== node.id)}
+                    onReplace={() => replaceSource(surface.id)}
+                    onClear={() => clearSource(surface.id)}
+                    onEditSource={() => editSource(surface.id)}
+                    onSnapshot={() =>
+                      runBusy('snapshot', () => snapshotMockupSurface(editor, node.id, surface.id))
+                    }
+                    onReconnect={() => reconnectMockupSurface(editor, node.id, surface.id)}
+                    onDuplicate={() => duplicateTemplateSurface(editor, node.id, surface.id)}
+                    onSelectSurface={() =>
+                      selectMockupSurface({ frameId: node.id, surfaceId: surface.id })
+                    }
+                    onStatus={setStatus}
+                  />
+                )}
+              </li>
+            );
+          })}
+        </ul>
+
+        <div className="mockups-section__actions">
           <Button
             size="sm"
             variant="ghost"
-            disabled={busy !== null || !editor.state.selection.some((id) => id !== node.id)}
-            onClick={() => {
-              if (!addTemplateSurfaceFromSelection(editor, node.id)) {
-                setStatus(
-                  'Select a separate frame, group, image, or vector node to add as a surface.',
-                );
-              }
-            }}
-            title="Adds a new flat surface from the selected node and links that node as its artwork"
+            disabled={busy !== null}
+            onClick={() => setVariantsOpen((open) => !open)}
           >
-            Add surface from selection
+            Export variants…
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busy !== null}
+            onClick={() =>
+              runBusy('duplicate-linked', () =>
+                duplicateMockupInstance(editor, node.id, 'linked').then((id) => id !== null),
+              )
+            }
+          >
+            Duplicate linked
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busy !== null}
+            title="Captures each bound source into an embedded snapshot so edits no longer propagate"
+            onClick={() =>
+              runBusy('duplicate-independent', () =>
+                duplicateMockupInstance(editor, node.id, 'independent').then((id) => id !== null),
+              )
+            }
+          >
+            Duplicate independent
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busy !== null}
+            title="Rasterizes the whole mockup into one image node; vector editability is lost"
+            onClick={() => runBusy('flatten', () => flattenMockupToImage(editor, node.id))}
+          >
+            Flatten to image
           </Button>
         </div>
-      )}
 
-      {pickerOpen && (
-        <TemplatePicker
-          doc={doc}
-          frameId={node.id}
-          currentTemplateId={mockup.templateId}
-          onClose={() => setPickerOpen(false)}
-          onStatus={setStatus}
-        />
-      )}
+        {variantsOpen && (
+          <MockupVariantsPanel frameId={node.id} onClose={() => setVariantsOpen(false)} />
+        )}
 
-      <ul className="mockups-section__surfaces">
-        {surfaceEntries.map((surface) => {
-          const binding = mockup.surfaceBindings[surface.id];
-          const isMissing =
-            !binding ||
-            (binding.mode === 'live' && !!binding.nodeId && !doc.nodes[binding.nodeId]) ||
-            (binding.mode === 'snapshot' && !!binding.assetId && !doc.assets?.[binding.assetId]);
-          const isSelected = surface.id === selectedSurfaceId;
-          const sourceName =
-            binding?.mode === 'live' && binding.nodeId
-              ? (doc.nodes[binding.nodeId]?.name ?? 'Missing source')
-              : binding?.mode === 'snapshot'
-                ? isMissing
-                  ? 'Missing snapshot'
-                  : 'Embedded snapshot'
-                : 'No source';
-          return (
-            <li
-              key={surface.id}
-              className={`mockups-section__surface ${isSelected ? 'mockups-section__surface--active' : ''}`}
-            >
-              <button
-                type="button"
-                className="mockups-section__surface-header"
-                aria-expanded={isSelected}
-                onClick={() => selectSurface(surface.id)}
-              >
-                <span className="mockups-section__surface-name">{surface.name}</span>
-                <span
-                  className={`mockups-section__source ${isMissing ? 'mockups-section__missing' : ''}`}
-                >
-                  {isMissing ? 'Missing source' : sourceName}
-                </span>
-              </button>
-              {isSelected && (
-                <SurfaceEditor
-                  doc={doc}
-                  frameId={node.id}
-                  surface={surface}
-                  mockup={mockup}
-                  busy={busy}
-                  canReplace={editor.state.selection.some((id) => id !== node.id)}
-                  onReplace={() => replaceSource(surface.id)}
-                  onClear={() => clearSource(surface.id)}
-                  onEditSource={() => editSource(surface.id)}
-                  onSnapshot={() =>
-                    runBusy('snapshot', () => snapshotMockupSurface(editor, node.id, surface.id))
-                  }
-                  onReconnect={() => reconnectMockupSurface(editor, node.id, surface.id)}
-                  onDuplicate={() => duplicateTemplateSurface(editor, node.id, surface.id)}
-                  onSelectSurface={() =>
-                    selectMockupSurface({ frameId: node.id, surfaceId: surface.id })
-                  }
-                  onStatus={setStatus}
-                />
-              )}
-            </li>
-          );
-        })}
-      </ul>
+        <div className="mockups-section__actions">
+          <Button size="sm" variant="ghost" onClick={revealInLibrary}>
+            Reveal in library
+          </Button>
+          <Button size="sm" variant="ghost" onClick={removeMockup}>
+            Remove mockup
+          </Button>
+        </div>
 
-      <div className="mockups-section__actions">
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={busy !== null}
-          onClick={() => setVariantsOpen((open) => !open)}
-        >
-          Export variants…
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={busy !== null}
-          onClick={() =>
-            runBusy('duplicate-linked', () =>
-              duplicateMockupInstance(editor, node.id, 'linked').then((id) => id !== null),
-            )
-          }
-        >
-          Duplicate linked
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={busy !== null}
-          title="Captures each bound source into an embedded snapshot so edits no longer propagate"
-          onClick={() =>
-            runBusy('duplicate-independent', () =>
-              duplicateMockupInstance(editor, node.id, 'independent').then((id) => id !== null),
-            )
-          }
-        >
-          Duplicate independent
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          disabled={busy !== null}
-          title="Rasterizes the whole mockup into one image node; vector editability is lost"
-          onClick={() => runBusy('flatten', () => flattenMockupToImage(editor, node.id))}
-        >
-          Flatten to image
-        </Button>
+        <p className="mockups-section__note">
+          Select a surface above to replace its artwork, tune placement, or jump to its outline on
+          the canvas. Replace and mask actions use the current selection besides this mockup: select
+          the artwork node (Shift-click to keep this mockup selected) and press Replace. Editing a
+          linked source updates every surface bound to it.
+        </p>
       </div>
-
-      {variantsOpen && (
-        <MockupVariantsPanel frameId={node.id} onClose={() => setVariantsOpen(false)} />
-      )}
-
-      <div className="mockups-section__actions">
-        <Button size="sm" variant="ghost" onClick={revealInLibrary}>
-          Reveal in library
-        </Button>
-        <Button size="sm" variant="ghost" onClick={removeMockup}>
-          Remove mockup
-        </Button>
-      </div>
-
-      <p className="mockups-section__note">
-        Select a surface above to replace its artwork, tune placement, or jump to its outline on the
-        canvas. Replace and mask actions use the current selection besides this mockup: select the
-        artwork node (Shift-click to keep this mockup selected) and press Replace. Editing a linked
-        source updates every surface bound to it.
-      </p>
-    </div>
+    </DisclosureSection>
   );
 }
 

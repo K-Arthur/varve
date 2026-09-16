@@ -14,11 +14,7 @@ export function AuditPanel({ request }: { request: { subTab?: IntelligenceTab; s
     <>
       {allText && <AdaptiveContrastSection nodes={nodes} />}
       {nodes.length > 0 && (
-        <DisclosureSection
-          title="Cognitive Load"
-          sectionId="cognitive-load"
-          defaultExpanded={false}
-        >
+        <DisclosureSection title="Cognitive Load" sectionId="cognitive-load">
           <CognitiveLoadIndicator
             document={state.document}
             nodeId={nodes.length === 1 ? nodes[0]!.id : null}

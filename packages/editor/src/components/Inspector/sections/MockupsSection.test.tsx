@@ -62,6 +62,7 @@ function mockEditor(doc: Document): Partial<EditorContextValue> {
       document: doc,
       selection: [] as EditorContextValue['state']['selection'],
       libraryPanelVisible: true,
+      sectionVisibility: {},
     } as EditorContextValue['state'],
     updateDoc: vi.fn((fn: (d: Document) => Document) => fn(doc)),
     beginTransaction: vi.fn(),

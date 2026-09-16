@@ -13,8 +13,9 @@ import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
 import { RangeValueControl } from '../controls/RangeValueControl';
+import type { SectionId } from '../sectionRegistry';
 
-export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
+export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionId?: SectionId }) {
   const editor = useEditor();
   const {
     addMaskToSelected,
@@ -196,7 +197,7 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
   if (!canHaveMask) return null;
 
   return (
-    <DisclosureSection title="Mask" defaultExpanded={!!mask}>
+    <DisclosureSection title="Mask" sectionId={sectionId ?? 'mask'}>
       {canAddMask && (
         <div className="insp-field-group">
           <span className="insp-field__label">Add Mask</span>

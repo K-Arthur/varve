@@ -8,6 +8,7 @@ import { Button, Icon, Select, Switch } from '@varve/ui';
 import { useEffect, useRef } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
+import type { SectionId } from '../sectionRegistry';
 
 const TRIGGER_OPTIONS: { value: TriggerKind; label: string }[] = [
   { value: 'onClick', label: 'On click' },
@@ -52,7 +53,7 @@ function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
 }
 
-export function InteractionSection() {
+export function InteractionSection({ sectionId }: { sectionId?: SectionId } = {}) {
   const {
     selectedNodes,
     selectedInteractionId,
@@ -87,7 +88,7 @@ export function InteractionSection() {
   };
 
   return (
-    <DisclosureSection title="Prototype Interactions" defaultExpanded>
+    <DisclosureSection title="Prototype Interactions" sectionId={sectionId ?? 'interaction'}>
       {interactions.length === 0 ? (
         <p className="insp-panel__empty-hint">No interactions on this layer.</p>
       ) : (
