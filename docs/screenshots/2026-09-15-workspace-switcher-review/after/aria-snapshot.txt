@@ -1,0 +1,7 @@
+- radiogroup "Workspace":
+  - radio "Design workspace" [checked]: Design
+  - radio "Draw workspace"
+  - radio "Photo workspace"
+  - radio "Print workspace"
+  - radio "Motion workspace"
+- button "More workspaces (3 hidden)" [expanded]

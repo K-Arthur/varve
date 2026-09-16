@@ -1669,24 +1669,35 @@ input[type="number"] {
 /*
  * ── Workspace dock ──
  *
- * Dock-style workspace switcher with mouse-proximity magnification.
- * Inspired by the macOS Dock: icons spring-scale toward the cursor
- * as the pointer moves across the strip. The active mode expands into
- * an accent-colored pill with its label; inactive modes remain as
- * compact circular icons.
+ * One segmented control: the active workspace renders as an accent pill with
+ * its name; inactive workspaces are 28px icon buttons. Mode identity is
+ * carried by the icon shapes — not by hue. The previous recipe painted a
+ * per-mode rainbow from 16 hardcoded hex values that bypassed `audit:tokens`,
+ * failed WCAG AA text contrast in 5 of 8 modes in the light theme
+ * (logo 3.25:1, email 3.68:1, design 4.01:1, motion 4.28:1, drawing 4.38:1),
+ * and rendered the High Contrast pill as white-on-yellow (~1.1:1) because its
+ * `--ws-mode-fg` override was never consumed. All color now comes from the
+ * shared semantic tokens, so the switcher inherits every theme fix the token
+ * gate already verifies.
  *
- * Mode accent palette (active pill only):
- *   design   = Teal    (190°)
- *   drawing  = Green   (148°)
- *   image    = Violet  (300°)
- *   print    = Blue    (250°)
- *   motion   = Orange  (45°)
- *   codegen  = Rose    (15°)
- *   logo     = Lemon   (95°)
+ * Hover is a CSS-only cue on the pointed icon. The hit targets never move or
+ * resize — see WorkspaceTabs.tsx for why the per-frame fisheye magnification
+ * loop was removed.
  *
- * High-contrast: all active tabs use the single HC accent (green).
+ * Geometry contract (keep in sync with WorkspaceTabs.tsx OVERFLOW_BTN_WIDTH /
+ * DOCK_CHROME_WIDTH and with WORKSPACE_ICON_BUTTON_WIDTH in
+ * workspaceOverflow.ts): bar 36px tall, item 28px, "More" 28px + 6px padding,
+ * bar chrome = 6px inline padding × 2 + 1px border × 2. The inter-tab gap
+ * comes from --space-2 and is measured at runtime by the layout math, so this
+ * token and the overflow calculation cannot drift apart.
  */
 .workspace-dock {
+  --dock-item-size: 28px;
+  --dock-bar-height: 36px;
+  --dock-inset-block: 3px;
+  --dock-inset-inline: 6px;
+  --dock-tab-gap: var(--space-2);
+
   display: flex;
   align-items: center;
   /* flex-basis 0: the wrapper's width is decided by the flex layout (space
@@ -1699,210 +1710,122 @@ input[type="number"] {
 .workspace-dock__bar {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--dock-tab-gap);
   background: var(--elevation-surface-raised);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-pill);
-  padding: 3px 6px;
+  padding: var(--dock-inset-block) var(--dock-inset-inline);
   box-sizing: border-box;
-  height: 36px;
+  height: var(--dock-bar-height);
   flex: 0 0 auto;
   min-width: 0;
   overflow: visible;
   box-shadow: 0 2px 8px oklch(0 0 0 / 0.08);
 }
 
+/* The radiogroup is an inner flex row so the divider and the "More" trigger
+ * can stay siblings of the group. A radiogroup must contain only radios —
+ * previously both controls were children of the role="radiogroup" element,
+ * which violates the role's ownership rules. */
+.workspace-dock__group {
+  display: flex;
+  align-items: center;
+  gap: var(--dock-tab-gap);
+  min-width: 0;
+}
+
 /* ── Dock item ── */
 .workspace-dock__item {
-  --ws-mode-bg: var(--color-interactive-default);
-  --ws-mode-icon: var(--color-text-secondary);
-  --ws-mode-icon-bg: transparent;
-  --ws-mode-hover: var(--color-surface-hover);
-
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  font-size: var(--font-size-2xs);
+  gap: var(--space-2);
+  font-family: var(--font-interface);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  height: 28px;
-  width: 28px;
+  line-height: var(--font-line-control);
+  height: var(--dock-item-size);
+  width: var(--dock-item-size);
   padding: 0;
   border: none;
   border-radius: var(--radius-pill);
   background: none;
-  color: var(--ws-mode-icon);
+  color: var(--color-text-secondary);
   cursor: pointer;
   white-space: nowrap;
   overflow: visible;
   position: relative;
   transition:
-    transform var(--duration-fast) var(--ease-default),
     background var(--duration-fast) var(--ease-default),
-    color var(--duration-fast) var(--ease-default),
-    border-radius var(--duration-normal) var(--ease-default);
+    color var(--duration-fast) var(--ease-default);
 }
 
-/* ── Vibrant per-mode palette (pastel badge + saturated icon + solid active) ── */
-.workspace-dock__item[data-mode="design"] {
-  --ws-mode-bg: oklch(0.58 0.18 240);
-  --ws-mode-icon: #2563eb;
-  --ws-mode-icon-bg: #dbeafe;
-}
-.workspace-dock__item[data-mode="drawing"] {
-  --ws-mode-bg: oklch(0.55 0.18 150);
-  --ws-mode-icon: #16a34a;
-  --ws-mode-icon-bg: #dcfce7;
-}
-.workspace-dock__item[data-mode="image"] {
-  --ws-mode-bg: oklch(0.55 0.2 270);
-  --ws-mode-icon: #4f46e5;
-  --ws-mode-icon-bg: #e0e7ff;
-}
-.workspace-dock__item[data-mode="print"] {
-  --ws-mode-bg: oklch(0.55 0.22 300);
-  --ws-mode-icon: #9333ea;
-  --ws-mode-icon-bg: #f3e8ff;
-}
-.workspace-dock__item[data-mode="motion"] {
-  --ws-mode-bg: oklch(0.6 0.2 45);
-  --ws-mode-icon: #ea580c;
-  --ws-mode-icon-bg: #ffedd5;
-}
-.workspace-dock__item[data-mode="codegen"] {
-  --ws-mode-bg: oklch(0.58 0.22 15);
-  --ws-mode-icon: #e11d48;
-  --ws-mode-icon-bg: #ffe4e6;
-}
-.workspace-dock__item[data-mode="logo"] {
-  --ws-mode-bg: oklch(0.65 0.18 85);
-  --ws-mode-icon: #d97706;
-  --ws-mode-icon-bg: #fef3c7;
-}
-.workspace-dock__item[data-mode="email"] {
-  --ws-mode-bg: oklch(0.58 0.16 185);
-  --ws-mode-icon: #0d9488;
-  --ws-mode-icon-bg: #ccfbf1;
+.workspace-dock__item:hover:not(.workspace-dock__item--active) {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
 }
 
-/* Dark theme overrides for rich pastel contrast */
-[data-theme="dark"] .workspace-dock__item[data-mode="design"] {
-  --ws-mode-icon: #60a5fa;
-  --ws-mode-icon-bg: oklch(0.3 0.1 240 / 0.45);
-}
-[data-theme="dark"] .workspace-dock__item[data-mode="drawing"] {
-  --ws-mode-icon: #4ade80;
-  --ws-mode-icon-bg: oklch(0.3 0.1 150 / 0.45);
-}
-[data-theme="dark"] .workspace-dock__item[data-mode="image"] {
-  --ws-mode-icon: #818cf8;
-  --ws-mode-icon-bg: oklch(0.3 0.1 270 / 0.45);
-}
-[data-theme="dark"] .workspace-dock__item[data-mode="print"] {
-  --ws-mode-icon: #c084fc;
-  --ws-mode-icon-bg: oklch(0.3 0.1 300 / 0.45);
-}
-[data-theme="dark"] .workspace-dock__item[data-mode="motion"] {
-  --ws-mode-icon: #fb923c;
-  --ws-mode-icon-bg: oklch(0.32 0.11 45 / 0.45);
-}
-[data-theme="dark"] .workspace-dock__item[data-mode="codegen"] {
-  --ws-mode-icon: #fb7185;
-  --ws-mode-icon-bg: oklch(0.32 0.11 15 / 0.45);
-}
-[data-theme="dark"] .workspace-dock__item[data-mode="logo"] {
-  --ws-mode-icon: #fbbf24;
-  --ws-mode-icon-bg: oklch(0.32 0.1 85 / 0.45);
-}
-[data-theme="dark"] .workspace-dock__item[data-mode="email"] {
-  --ws-mode-icon: #2dd4bf;
-  --ws-mode-icon-bg: oklch(0.3 0.1 185 / 0.45);
+.workspace-dock__item.workspace-dock__item:active:not(.workspace-dock__item--active) {
+  background: var(--color-interactive-pressed-surface);
 }
 
-/* ── Circular pastel badge on inactive icon wrapper ── */
 .workspace-dock__item .workspace-dock__icon {
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 0;
   pointer-events: none;
-  width: 26px;
-  height: 26px;
-  flex: 0 0 26px;
-  border-radius: 50%;
-  background: var(--ws-mode-icon-bg);
-  color: var(--ws-mode-icon);
-  transition:
-    transform var(--duration-fast) var(--ease-default),
-    box-shadow var(--duration-fast) var(--ease-default);
-}
-
-.workspace-dock__item:not(.workspace-dock__item--active):hover .workspace-dock__icon {
-  transform: translateY(-2px);
-  box-shadow: 0 3px 8px color-mix(in oklch, var(--ws-mode-icon) 35%, transparent);
+  flex: 0 0 auto;
 }
 
 .workspace-dock__item svg {
   display: block;
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   stroke: currentColor;
   shape-rendering: geometricPrecision;
+  transition: transform var(--duration-fast) var(--ease-default);
 }
 
-/* ── Active pill — expands to fit label ── */
+/* CSS-only hover cue: the pointed icon grows in place. No layout writes, no
+ * neighbouring icons move, and the 28px hit target is unchanged. */
+.workspace-dock__item:hover:not(.workspace-dock__item--active) .workspace-dock__icon {
+  transform: scale(1.08);
+}
+
+/* ── Active pill — expands to fit its label ── */
 .workspace-dock__item--active {
   width: auto;
-  height: 28px;
-  padding: 0 12px;
-  border-radius: var(--radius-pill);
-  background: var(--ws-mode-bg);
-  color: #ffffff;
-  box-shadow: 0 2px 10px color-mix(in oklch, var(--ws-mode-bg) 50%, transparent);
-}
-
-.workspace-dock__item--active .workspace-dock__icon {
-  background: transparent;
-  color: #ffffff;
+  padding: 0 var(--space-3);
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
 }
 
 .workspace-dock__item--active:hover {
-  background: var(--ws-mode-bg);
-  color: #ffffff;
-  filter: brightness(1.05);
+  background: var(--color-interactive-hover);
+  color: var(--color-text-on-accent);
 }
 
 /* Compact dock: only when the strip is too narrow even for the active pill
- * does the active workspace compact to a 28px icon. This must match
+ * does the active workspace compact to an icon. This must match
  * WORKSPACE_ACTIVE_LABEL_MIN_WIDTH so the overflow math and the rendered
  * width agree. On desktop strips the active mode keeps its name. */
 .workspace-dock--compact-active .workspace-dock__item--active {
-  width: 28px;
+  width: var(--dock-item-size);
   padding: 0;
 }
 
-.workspace-dock--compact-active .workspace-dock__label {
-  display: none;
-}
-
-/* ── Label (collapsed by default, expanded when active) ── */
+/* ── Label — only the active mode renders one ── */
 .workspace-dock__label {
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 6.5rem;
-  width: 0;
-  opacity: 0;
+  /* Wide enough for the longest built-in name ("Codegen & Audit" needs ~104px
+   * at the smallest type step); the full name is always available through the
+   * tooltip and the radio's accessible name. */
+  max-width: 10rem;
   color: inherit;
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.02em;
-  transition:
-    width var(--duration-normal) var(--ease-default),
-    opacity var(--duration-fast) var(--ease-default);
-}
-
-.workspace-dock__item--active .workspace-dock__label {
-  width: auto;
-  opacity: 1;
+  letter-spacing: var(--tracking-base);
 }
 
 /* ── Focus ring ── */
@@ -1915,9 +1838,9 @@ input[type="number"] {
 .workspace-dock__divider {
   width: 1px;
   height: 1rem;
-  background: var(--color-border-subtle);
+  background: var(--color-separator-subtle);
   flex-shrink: 0;
-  margin: 0 2px;
+  margin: 0 var(--space-1);
 }
 
 /* ── Overflow "More" button ── */
@@ -1925,8 +1848,9 @@ input[type="number"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: var(--dock-item-size);
+  height: var(--dock-item-size);
+  padding: 0;
   border: none;
   border-radius: var(--radius-full);
   background: none;
@@ -1949,22 +1873,28 @@ input[type="number"] {
   outline-offset: -2px;
 }
 
-/* ── HC override: all active tabs use the single HC accent ── */
-[data-theme="high-contrast"] .workspace-dock__item--active {
-  --ws-mode-fg: var(--color-text-on-accent);
-  background: var(--color-interactive-default);
-}
-[data-theme="high-contrast"] .workspace-dock__item:hover:not(.workspace-dock__item--active) {
-  background: color-mix(in oklch, var(--color-interactive-default) 80%, oklch(1 0 0));
+/* ── Forced colors: the token palette is replaced by system colors. Keep the
+ * active pill's boundary so "selected" survives without hue. ── */
+@media (forced-colors: active) {
+  .workspace-dock__bar {
+    border-color: CanvasText;
+  }
+  .workspace-dock__item--active {
+    border: 1px solid ButtonText;
+  }
+  .workspace-dock__divider {
+    background: CanvasText;
+  }
 }
 
-/* ── Reduced motion: disable magnification width/height transitions ── */
+/* ── Reduced motion: no hover scaling ── */
 @media (prefers-reduced-motion: reduce) {
-  .workspace-dock__item {
-    transition:
-      background var(--duration-fast) var(--ease-default),
-      color var(--duration-fast) var(--ease-default);
-    will-change: auto;
+  .workspace-dock__item,
+  .workspace-dock__item svg {
+    transition: none;
+  }
+  .workspace-dock__item:hover:not(.workspace-dock__item--active) .workspace-dock__icon {
+    transform: none;
   }
 }
 

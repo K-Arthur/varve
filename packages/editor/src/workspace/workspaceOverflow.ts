@@ -24,13 +24,23 @@ export interface WorkspaceLayoutInput {
   activeMode: WorkspaceMode;
   /** Pixels available for the tab strip (container width). */
   availableWidth: number;
-  /** Measured or estimated width of each tab, keyed by mode. */
+  /** Measured width of each tab's own box, keyed by mode. The inter-tab gap
+   *  is NOT baked in; `tabGap` is added exactly once by this function so the
+   *  rendered strip and the width math cannot drift. */
   tabWidths: Partial<Record<WorkspaceMode, number>>;
   /** Width of the "More" overflow button when present (px). */
   overflowMenuWidth: number;
   /** Overflow priority per mode — higher values leave the strip first.
    *  Absent modes default to 1. */
   overflowPriority: Partial<Record<WorkspaceMode, number>>;
+  /**
+   * Resolved CSS gap between adjacent tabs (px). The caller measures the
+   * rendered `column-gap` so a token change in CSS flows into the math
+   * instead of being duplicated here (the old implementation carried three
+   * different values for this one distance: a CSS `gap: 5px`, a JS
+   * `TAB_GAP = 6`, and an icon-tab constant that assumed 5).
+   */
+  tabGap?: number;
 }
 
 export interface WorkspaceLayoutResult {
@@ -51,11 +61,20 @@ export interface WorkspaceLayoutResult {
 export const WORKSPACE_ICON_ONLY_THRESHOLD = 900;
 
 /**
- * Rendered width of one icon-only tab: the 28px dock button plus the bar's
- * 5px gap. Using a smaller assumed width makes the computed strip wider than
- * the space the bar actually has, so the bar overflows its wrapper.
+ * Rendered width of one icon-only tab button (px). Matches the dock's
+ * `.workspace-dock__item` width; the inter-tab gap comes from `tabGap`, not
+ * from a second copy of the value. Using a larger assumed width than the CSS
+ * renders makes the computed strip wider than the space the bar actually has,
+ * so the bar overflows its wrapper.
  */
-export const WORKSPACE_ICON_TAB_WIDTH = 33;
+export const WORKSPACE_ICON_BUTTON_WIDTH = 28;
+
+/**
+ * Fallback inter-tab gap (px) for environments that cannot resolve the CSS
+ * `column-gap` (jsdom unit tests, pre-style first paint). Real browsers
+ * measure the rendered value and pass it in.
+ */
+export const WORKSPACE_TAB_GAP_FALLBACK = 5;
 
 /**
  * Minimum strip width that can show the active mode's label pill alongside
@@ -75,8 +94,11 @@ export const WORKSPACE_ACTIVE_PILL_MIN_WIDTH = 104;
 export function computeWorkspaceLayout(input: WorkspaceLayoutInput): WorkspaceLayoutResult {
   const { modes, activeMode, availableWidth, tabWidths, overflowMenuWidth, overflowPriority } =
     input;
+  const gap = input.tabGap ?? WORKSPACE_TAB_GAP_FALLBACK;
 
-  const modeWidth = (m: WorkspaceMode): number => tabWidths[m] ?? 64;
+  /** Fallback width for a tab that has not been measured yet. */
+  const DEFAULT_TAB_WIDTH = 64;
+  const modeWidth = (m: WorkspaceMode): number => (tabWidths[m] ?? DEFAULT_TAB_WIDTH) + gap;
 
   // Icon-only strip: inactive tabs drop their labels. The active tab keeps
   // its name unless the strip is too narrow even for the active pill.
@@ -87,9 +109,9 @@ export function computeWorkspaceLayout(input: WorkspaceLayoutInput): WorkspaceLa
     // measured width (with a safety floor for stale measurements) or the
     // strip overflows and covers the document title.
     if (m === activeMode && !compactActive) {
-      return Math.max(modeWidth(m), WORKSPACE_ACTIVE_PILL_MIN_WIDTH);
+      return Math.max(tabWidths[m] ?? DEFAULT_TAB_WIDTH, WORKSPACE_ACTIVE_PILL_MIN_WIDTH) + gap;
     }
-    return iconOnly ? WORKSPACE_ICON_TAB_WIDTH : modeWidth(m);
+    return iconOnly ? WORKSPACE_ICON_BUTTON_WIDTH + gap : modeWidth(m);
   };
 
   const greedy: WorkspaceMode[] = [];

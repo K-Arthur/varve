@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { computeWorkspaceLayout, WORKSPACE_ICON_ONLY_THRESHOLD } from './workspaceOverflow';
+import {
+  computeWorkspaceLayout,
+  WORKSPACE_ICON_ONLY_THRESHOLD,
+  WORKSPACE_TAB_GAP_FALLBACK,
+} from './workspaceOverflow';
 import { WORKSPACE_OVERFLOW_ORDER, WORKSPACE_OVERFLOW_PRIORITY } from './workspaceTypes';
 
 const modes = WORKSPACE_OVERFLOW_ORDER;
@@ -31,9 +35,10 @@ describe('computeWorkspaceLayout', () => {
   });
 
   it('overflows the lowest-priority modes first in icon-only mode', () => {
-    // Below the icon-only threshold inactive tabs are 33px, but the active
-    // mode keeps its measured label pill (96px): the strip math must account
-    // for that or the bar overflows its wrapper and covers the title.
+    // Below the icon-only threshold inactive tabs are the 28px button plus
+    // the gap, but the active mode keeps its measured label pill (96px): the
+    // strip math must account for that or the bar overflows its wrapper and
+    // covers the title.
     const result = computeWorkspaceLayout({
       modes,
       activeMode: 'design',
@@ -170,5 +175,43 @@ describe('computeWorkspaceLayout', () => {
 
   it('threshold constant matches the CSS breakpoint', () => {
     expect(WORKSPACE_ICON_ONLY_THRESHOLD).toBe(900);
+  });
+
+  it('applies the caller-measured tab gap exactly once per tab', () => {
+    // The gap is a measured input, not a second copy of a CSS value: a larger
+    // rendered gap must move more tabs into overflow.
+    const base = {
+      modes,
+      activeMode: 'design' as const,
+      availableWidth: 300,
+      tabWidths: {},
+      overflowMenuWidth: 36,
+      overflowPriority: WORKSPACE_OVERFLOW_PRIORITY,
+    };
+    const tight = computeWorkspaceLayout({ ...base, tabGap: 4 });
+    const loose = computeWorkspaceLayout({ ...base, tabGap: 20 });
+    expect(loose.visible.length).toBeLessThan(tight.visible.length);
+    expect([...loose.visible, ...loose.overflow].sort()).toEqual([...modes].sort());
+  });
+
+  it('defaults the gap when the caller cannot measure it', () => {
+    const withDefault = computeWorkspaceLayout({
+      modes,
+      activeMode: 'design',
+      availableWidth: 300,
+      tabWidths: {},
+      overflowMenuWidth: 36,
+      overflowPriority: WORKSPACE_OVERFLOW_PRIORITY,
+    });
+    const explicit = computeWorkspaceLayout({
+      modes,
+      activeMode: 'design',
+      availableWidth: 300,
+      tabWidths: {},
+      overflowMenuWidth: 36,
+      overflowPriority: WORKSPACE_OVERFLOW_PRIORITY,
+      tabGap: WORKSPACE_TAB_GAP_FALLBACK,
+    });
+    expect(withDefault).toEqual(explicit);
   });
 });

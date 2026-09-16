@@ -13,7 +13,7 @@ const ALL_WORKSPACES = [
   'Draw',
   'Photo',
   'Motion',
-  'Codegen & Audit',
+  'Codegen',
   'Logo',
   'Email',
 ] as const;
@@ -61,7 +61,7 @@ test.describe('Responsive workspace navigation', () => {
 
   test('switching each workspace updates the editor state', async ({ page }) => {
     const group = await workspaceGroup(page);
-    for (const name of ['Print', 'Draw', 'Photo', 'Motion', 'Codegen & Audit', 'Logo', 'Design']) {
+    for (const name of ['Print', 'Draw', 'Photo', 'Motion', 'Codegen', 'Logo', 'Design']) {
       const radio = group.getByRole('radio', { name: new RegExp(`^${name} workspace$`) });
       await radio.click();
       await expect(radio).toHaveAttribute('aria-checked', 'true');

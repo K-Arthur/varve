@@ -1128,13 +1128,20 @@ export function getWorkspaceConfig(mode: WorkspaceMode): WorkspaceConfig {
   return WORKSPACE_CONFIGS[mode] ?? WORKSPACE_CONFIGS.design;
 }
 
+/**
+ * Navigation labels for the workspace switcher. These are the names users see
+ * in the dock, the overflow menu, and tooltips, so they must match the command
+ * surfaces: `ShortcutManager` labels ("Workspace: Codegen") and the View menu
+ * use the same words. The Code panel may still title itself "Codegen & Audit"
+ * — that names the panel's scope, not the mode.
+ */
 export const WORKSPACE_LABELS: Record<WorkspaceMode, string> = {
   design: 'Design',
   print: 'Print',
   drawing: 'Draw',
   image: 'Photo',
   motion: 'Motion',
-  codegen: 'Codegen & Audit',
+  codegen: 'Codegen',
   logo: 'Logo',
   email: 'Email',
 };

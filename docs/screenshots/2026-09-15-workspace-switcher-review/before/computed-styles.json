@@ -1,0 +1,1086 @@
+{
+  "1920-light": {
+    "tag": "1920-light",
+    "theme": "light",
+    "viewport": {
+      "w": 1920,
+      "h": 1080
+    },
+    "dock": {
+      "tag": "div",
+      "cls": "workspace-dock",
+      "rect": {
+        "x": 1007,
+        "y": 4,
+        "w": 743,
+        "h": 36
+      },
+      "fontSize": "14.72px",
+      "fontWeight": "400",
+      "letterSpacing": "normal",
+      "color": "oklch(0.1956 0.0217 263.87)",
+      "background": "rgba(0, 0, 0, 0)",
+      "borderRadius": "0px",
+      "gap": "normal",
+      "padding": "0px",
+      "outline": "3px none oklch(0.1956 0.0217 263.87)",
+      "border": "0px none oklch(0.1956 0.0217 263.87)",
+      "boxShadow": "none",
+      "overflow": "visible"
+    },
+    "bar": {
+      "tag": "div",
+      "cls": "workspace-dock__bar",
+      "rect": {
+        "x": 1411,
+        "y": 4,
+        "w": 338,
+        "h": 36
+      },
+      "fontSize": "14.72px",
+      "fontWeight": "400",
+      "letterSpacing": "normal",
+      "color": "oklch(0.1956 0.0217 263.87)",
+      "background": "oklch(0.99 0.006 260)",
+      "borderRadius": "9999px",
+      "gap": "5px",
+      "padding": "3px 6px",
+      "outline": "3px none oklch(0.1956 0.0217 263.87)",
+      "border": "1px solid oklch(0.8948 0.0145 254.61)",
+      "boxShadow": "oklch(0 0 0 / 0.08) 0px 2px 8px 0px",
+      "overflow": "visible"
+    },
+    "barRole": "radiogroup",
+    "barChildren": [
+      "button.workspace-dock__item workspace-dock__item--active",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item"
+    ],
+    "activeLabelText": "Design",
+    "activeLabelWidth": 37,
+    "activeLabelScrollWidth": 37,
+    "itemCount": 8,
+    "itemWidths": [93, 28, 28, 28, 28, 28, 28, 28],
+    "items": [
+      {
+        "tag": "button",
+        "cls": "workspace-dock__item workspace-dock__item--active",
+        "rect": {
+          "x": 1418,
+          "y": 8,
+          "w": 93,
+          "h": 28
+        },
+        "fontSize": "10.816px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "color": "rgb(255, 255, 255)",
+        "background": "oklch(0.58 0.18 240)",
+        "borderRadius": "9999px",
+        "gap": "6px",
+        "padding": "0px 12px",
+        "outline": "3px none rgb(255, 255, 255)",
+        "border": "0px none rgb(255, 255, 255)",
+        "boxShadow": "oklch(0.58 0.18 240 / 0.5) 0px 2px 10px 0px",
+        "overflow": "visible"
+      },
+      {
+        "tag": "button",
+        "cls": "workspace-dock__item",
+        "rect": {
+          "x": 1517,
+          "y": 8,
+          "w": 28,
+          "h": 28
+        },
+        "fontSize": "10.816px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "color": "rgb(22, 163, 74)",
+        "background": "rgba(0, 0, 0, 0)",
+        "borderRadius": "9999px",
+        "gap": "6px",
+        "padding": "0px",
+        "outline": "3px none rgb(22, 163, 74)",
+        "border": "0px none rgb(22, 163, 74)",
+        "boxShadow": "none",
+        "overflow": "visible"
+      },
+      {
+        "tag": "button",
+        "cls": "workspace-dock__item",
+        "rect": {
+          "x": 1550,
+          "y": 8,
+          "w": 28,
+          "h": 28
+        },
+        "fontSize": "10.816px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "color": "rgb(79, 70, 229)",
+        "background": "rgba(0, 0, 0, 0)",
+        "borderRadius": "9999px",
+        "gap": "6px",
+        "padding": "0px",
+        "outline": "3px none rgb(79, 70, 229)",
+        "border": "0px none rgb(79, 70, 229)",
+        "boxShadow": "none",
+        "overflow": "visible"
+      }
+    ],
+    "active": {
+      "tag": "button",
+      "cls": "workspace-dock__item workspace-dock__item--active",
+      "rect": {
+        "x": 1418,
+        "y": 8,
+        "w": 93,
+        "h": 28
+      },
+      "fontSize": "10.816px",
+      "fontWeight": "600",
+      "letterSpacing": "normal",
+      "color": "rgb(255, 255, 255)",
+      "background": "oklch(0.58 0.18 240)",
+      "borderRadius": "9999px",
+      "gap": "6px",
+      "padding": "0px 12px",
+      "outline": "3px none rgb(255, 255, 255)",
+      "border": "0px none rgb(255, 255, 255)",
+      "boxShadow": "oklch(0.58 0.18 240 / 0.5) 0px 2px 10px 0px",
+      "overflow": "visible"
+    },
+    "label": {
+      "tag": "span",
+      "cls": "workspace-dock__label",
+      "rect": {
+        "x": 1462,
+        "y": 16,
+        "w": 37,
+        "h": 12
+      },
+      "fontSize": "10.816px",
+      "fontWeight": "600",
+      "letterSpacing": "0.21632px",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgba(0, 0, 0, 0)",
+      "borderRadius": "0px",
+      "gap": "normal",
+      "padding": "0px",
+      "outline": "3px none rgb(255, 255, 255)",
+      "border": "0px none rgb(255, 255, 255)",
+      "boxShadow": "none",
+      "overflow": "hidden"
+    },
+    "icon": {
+      "tag": "span",
+      "cls": "workspace-dock__icon",
+      "rect": {
+        "x": 1518,
+        "y": 9,
+        "w": 26,
+        "h": 26
+      },
+      "fontSize": "10.816px",
+      "fontWeight": "600",
+      "letterSpacing": "normal",
+      "color": "rgb(22, 163, 74)",
+      "background": "rgb(220, 252, 231)",
+      "borderRadius": "50%",
+      "gap": "normal",
+      "padding": "0px",
+      "outline": "3px none rgb(22, 163, 74)",
+      "border": "0px none rgb(22, 163, 74)",
+      "boxShadow": "none",
+      "overflow": "visible"
+    },
+    "more": null,
+    "activeLabelTruncated": false
+  },
+  "1024-light": {
+    "tag": "1024-light",
+    "theme": "light",
+    "viewport": {
+      "w": 1024,
+      "h": 768
+    },
+    "dock": {
+      "tag": "div",
+      "cls": "workspace-dock",
+      "rect": {
+        "x": 559,
+        "y": 3,
+        "w": 308,
+        "h": 36
+      },
+      "fontSize": "14.336px",
+      "fontWeight": "400",
+      "letterSpacing": "normal",
+      "color": "oklch(0.1956 0.0217 263.87)",
+      "background": "rgba(0, 0, 0, 0)",
+      "borderRadius": "0px",
+      "gap": "normal",
+      "padding": "0px",
+      "outline": "3px none oklch(0.1956 0.0217 263.87)",
+      "border": "0px none oklch(0.1956 0.0217 263.87)",
+      "boxShadow": "none",
+      "overflow": "visible"
+    },
+    "bar": {
+      "tag": "div",
+      "cls": "workspace-dock__bar",
+      "rect": {
+        "x": 587,
+        "y": 3,
+        "w": 280,
+        "h": 36
+      },
+      "fontSize": "14.336px",
+      "fontWeight": "400",
+      "letterSpacing": "normal",
+      "color": "oklch(0.1956 0.0217 263.87)",
+      "background": "oklch(0.99 0.006 260)",
+      "borderRadius": "9999px",
+      "gap": "5px",
+      "padding": "3px 6px",
+      "outline": "3px none oklch(0.1956 0.0217 263.87)",
+      "border": "1px solid oklch(0.8948 0.0145 254.61)",
+      "boxShadow": "oklch(0 0 0 / 0.08) 0px 2px 8px 0px",
+      "overflow": "visible"
+    },
+    "barRole": "radiogroup",
+    "barChildren": [
+      "button.workspace-dock__item workspace-dock__item--active",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "span.workspace-dock__divider",
+      "button.workspace-dock__more"
+    ],
+    "activeLabelText": "Design",
+    "activeLabelWidth": 35,
+    "activeLabelScrollWidth": 35,
+    "itemCount": 5,
+    "itemWidths": [91, 28, 28, 28, 28],
+    "items": [
+      {
+        "tag": "button",
+        "cls": "workspace-dock__item workspace-dock__item--active",
+        "rect": {
+          "x": 594,
+          "y": 7,
+          "w": 91,
+          "h": 28
+        },
+        "fontSize": "10.0992px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "color": "rgb(255, 255, 255)",
+        "background": "oklch(0.58 0.18 240)",
+        "borderRadius": "9999px",
+        "gap": "6px",
+        "padding": "0px 12px",
+        "outline": "3px none rgb(255, 255, 255)",
+        "border": "0px none rgb(255, 255, 255)",
+        "boxShadow": "oklch(0.58 0.18 240 / 0.5) 0px 2px 10px 0px",
+        "overflow": "visible"
+      },
+      {
+        "tag": "button",
+        "cls": "workspace-dock__item",
+        "rect": {
+          "x": 690,
+          "y": 7,
+          "w": 28,
+          "h": 28
+        },
+        "fontSize": "10.0992px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "color": "rgb(22, 163, 74)",
+        "background": "rgba(0, 0, 0, 0)",
+        "borderRadius": "9999px",
+        "gap": "6px",
+        "padding": "0px",
+        "outline": "3px none rgb(22, 163, 74)",
+        "border": "0px none rgb(22, 163, 74)",
+        "boxShadow": "none",
+        "overflow": "visible"
+      },
+      {
+        "tag": "button",
+        "cls": "workspace-dock__item",
+        "rect": {
+          "x": 723,
+          "y": 7,
+          "w": 28,
+          "h": 28
+        },
+        "fontSize": "10.0992px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "color": "rgb(79, 70, 229)",
+        "background": "rgba(0, 0, 0, 0)",
+        "borderRadius": "9999px",
+        "gap": "6px",
+        "padding": "0px",
+        "outline": "3px none rgb(79, 70, 229)",
+        "border": "0px none rgb(79, 70, 229)",
+        "boxShadow": "none",
+        "overflow": "visible"
+      }
+    ],
+    "active": {
+      "tag": "button",
+      "cls": "workspace-dock__item workspace-dock__item--active",
+      "rect": {
+        "x": 594,
+        "y": 7,
+        "w": 91,
+        "h": 28
+      },
+      "fontSize": "10.0992px",
+      "fontWeight": "600",
+      "letterSpacing": "normal",
+      "color": "rgb(255, 255, 255)",
+      "background": "oklch(0.58 0.18 240)",
+      "borderRadius": "9999px",
+      "gap": "6px",
+      "padding": "0px 12px",
+      "outline": "3px none rgb(255, 255, 255)",
+      "border": "0px none rgb(255, 255, 255)",
+      "boxShadow": "oklch(0.58 0.18 240 / 0.5) 0px 2px 10px 0px",
+      "overflow": "visible"
+    },
+    "label": {
+      "tag": "span",
+      "cls": "workspace-dock__label",
+      "rect": {
+        "x": 638,
+        "y": 15,
+        "w": 35,
+        "h": 11
+      },
+      "fontSize": "10.0992px",
+      "fontWeight": "600",
+      "letterSpacing": "0.201984px",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgba(0, 0, 0, 0)",
+      "borderRadius": "0px",
+      "gap": "normal",
+      "padding": "0px",
+      "outline": "3px none rgb(255, 255, 255)",
+      "border": "0px none rgb(255, 255, 255)",
+      "boxShadow": "none",
+      "overflow": "hidden"
+    },
+    "icon": {
+      "tag": "span",
+      "cls": "workspace-dock__icon",
+      "rect": {
+        "x": 691,
+        "y": 8,
+        "w": 26,
+        "h": 26
+      },
+      "fontSize": "10.0992px",
+      "fontWeight": "600",
+      "letterSpacing": "normal",
+      "color": "rgb(22, 163, 74)",
+      "background": "rgb(220, 252, 231)",
+      "borderRadius": "50%",
+      "gap": "normal",
+      "padding": "0px",
+      "outline": "3px none rgb(22, 163, 74)",
+      "border": "0px none rgb(22, 163, 74)",
+      "boxShadow": "none",
+      "overflow": "visible"
+    },
+    "more": {
+      "tag": "button",
+      "cls": "workspace-dock__more",
+      "rect": {
+        "x": 832,
+        "y": 7,
+        "w": 28,
+        "h": 28
+      },
+      "fontSize": "13.3333px",
+      "fontWeight": "400",
+      "letterSpacing": "normal",
+      "color": "oklch(0.3123 0.0293 262.83)",
+      "background": "rgba(0, 0, 0, 0)",
+      "borderRadius": "9999px",
+      "gap": "normal",
+      "padding": "1px 6px",
+      "outline": "3px none oklch(0.3123 0.0293 262.83)",
+      "border": "0px none oklch(0.3123 0.0293 262.83)",
+      "boxShadow": "none",
+      "overflow": "visible"
+    },
+    "activeLabelTruncated": false
+  },
+  "overflowMenu": {
+    "items": [
+      {
+        "role": "menuitemradio",
+        "text": "Codegen & AuditCtrl+Shift+9",
+        "checked": "false",
+        "rect": {
+          "w": 238,
+          "h": 41
+        }
+      },
+      {
+        "role": "menuitemradio",
+        "text": "EmailCtrl+Shift+7",
+        "checked": "false",
+        "rect": {
+          "w": 238,
+          "h": 32
+        }
+      },
+      {
+        "role": "menuitemradio",
+        "text": "LogoCtrl+Shift+6",
+        "checked": "false",
+        "rect": {
+          "w": 238,
+          "h": 32
+        }
+      },
+      {
+        "role": "menuitem",
+        "text": "Reset Workspace to Default",
+        "checked": null,
+        "rect": {
+          "w": 238,
+          "h": 41
+        }
+      }
+    ]
+  },
+  "1440-codegen-active": {
+    "tag": "1440-codegen-active",
+    "theme": "light",
+    "viewport": {
+      "w": 1440,
+      "h": 900
+    },
+    "dock": {
+      "tag": "div",
+      "cls": "workspace-dock",
+      "rect": {
+        "x": 767,
+        "y": 3,
+        "w": 509,
+        "h": 36
+      },
+      "fontSize": "14.72px",
+      "fontWeight": "400",
+      "letterSpacing": "normal",
+      "color": "oklch(0.1956 0.0217 263.87)",
+      "background": "rgba(0, 0, 0, 0)",
+      "borderRadius": "0px",
+      "gap": "normal",
+      "padding": "0px",
+      "outline": "3px none oklch(0.1956 0.0217 263.87)",
+      "border": "0px none oklch(0.1956 0.0217 263.87)",
+      "boxShadow": "none",
+      "overflow": "visible"
+    },
+    "bar": {
+      "tag": "div",
+      "cls": "workspace-dock__bar",
+      "rect": {
+        "x": 888,
+        "y": 3,
+        "w": 388,
+        "h": 36
+      },
+      "fontSize": "14.72px",
+      "fontWeight": "400",
+      "letterSpacing": "normal",
+      "color": "oklch(0.1956 0.0217 263.87)",
+      "background": "oklch(0.99 0.006 260)",
+      "borderRadius": "9999px",
+      "gap": "5px",
+      "padding": "3px 6px",
+      "outline": "3px none oklch(0.1956 0.0217 263.87)",
+      "border": "1px solid oklch(0.8948 0.0145 254.61)",
+      "boxShadow": "oklch(0 0 0 / 0.08) 0px 2px 8px 0px",
+      "overflow": "visible"
+    },
+    "barRole": "radiogroup",
+    "barChildren": [
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item workspace-dock__item--active",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item"
+    ],
+    "activeLabelText": "Codegen & Audit",
+    "activeLabelWidth": 87,
+    "activeLabelScrollWidth": 87,
+    "itemCount": 8,
+    "itemWidths": [28, 28, 28, 28, 28, 143, 28, 28],
+    "items": [
+      {
+        "tag": "button",
+        "cls": "workspace-dock__item",
+        "rect": {
+          "x": 895,
+          "y": 7,
+          "w": 28,
+          "h": 28
+        },
+        "fontSize": "10.432px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "color": "rgb(37, 99, 235)",
+        "background": "rgba(0, 0, 0, 0)",
+        "borderRadius": "9999px",
+        "gap": "6px",
+        "padding": "0px",
+        "outline": "3px none rgb(37, 99, 235)",
+        "border": "0px none rgb(37, 99, 235)",
+        "boxShadow": "none",
+        "overflow": "visible"
+      },
+      {
+        "tag": "button",
+        "cls": "workspace-dock__item",
+        "rect": {
+          "x": 928,
+          "y": 7,
+          "w": 28,
+          "h": 28
+        },
+        "fontSize": "10.432px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "color": "rgb(22, 163, 74)",
+        "background": "rgba(0, 0, 0, 0)",
+        "borderRadius": "9999px",
+        "gap": "6px",
+        "padding": "0px",
+        "outline": "3px none rgb(22, 163, 74)",
+        "border": "0px none rgb(22, 163, 74)",
+        "boxShadow": "none",
+        "overflow": "visible"
+      },
+      {
+        "tag": "button",
+        "cls": "workspace-dock__item",
+        "rect": {
+          "x": 961,
+          "y": 7,
+          "w": 28,
+          "h": 28
+        },
+        "fontSize": "10.432px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "color": "rgb(79, 70, 229)",
+        "background": "rgba(0, 0, 0, 0)",
+        "borderRadius": "9999px",
+        "gap": "6px",
+        "padding": "0px",
+        "outline": "3px none rgb(79, 70, 229)",
+        "border": "0px none rgb(79, 70, 229)",
+        "boxShadow": "none",
+        "overflow": "visible"
+      }
+    ],
+    "active": {
+      "tag": "button",
+      "cls": "workspace-dock__item workspace-dock__item--active",
+      "rect": {
+        "x": 1060,
+        "y": 7,
+        "w": 143,
+        "h": 28
+      },
+      "fontSize": "10.432px",
+      "fontWeight": "600",
+      "letterSpacing": "normal",
+      "color": "rgb(255, 255, 255)",
+      "background": "oklch(0.58 0.22 15)",
+      "borderRadius": "9999px",
+      "gap": "6px",
+      "padding": "0px 12px",
+      "outline": "3px none rgb(255, 255, 255)",
+      "border": "0px none rgb(255, 255, 255)",
+      "boxShadow": "oklch(0.58 0.22 15 / 0.5) 0px 2px 10px 0px",
+      "overflow": "visible"
+    },
+    "label": {
+      "tag": "span",
+      "cls": "workspace-dock__label",
+      "rect": {
+        "x": 1104,
+        "y": 16,
+        "w": 87,
+        "h": 11
+      },
+      "fontSize": "10.432px",
+      "fontWeight": "600",
+      "letterSpacing": "0.20864px",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgba(0, 0, 0, 0)",
+      "borderRadius": "0px",
+      "gap": "normal",
+      "padding": "0px",
+      "outline": "3px none rgb(255, 255, 255)",
+      "border": "0px none rgb(255, 255, 255)",
+      "boxShadow": "none",
+      "overflow": "hidden"
+    },
+    "icon": {
+      "tag": "span",
+      "cls": "workspace-dock__icon",
+      "rect": {
+        "x": 896,
+        "y": 8,
+        "w": 26,
+        "h": 26
+      },
+      "fontSize": "10.432px",
+      "fontWeight": "600",
+      "letterSpacing": "normal",
+      "color": "rgb(37, 99, 235)",
+      "background": "rgb(219, 234, 254)",
+      "borderRadius": "50%",
+      "gap": "normal",
+      "padding": "0px",
+      "outline": "3px none rgb(37, 99, 235)",
+      "border": "0px none rgb(37, 99, 235)",
+      "boxShadow": "none",
+      "overflow": "visible"
+    },
+    "more": null,
+    "activeLabelTruncated": false
+  },
+  "1920-dark": {
+    "tag": "1920-dark",
+    "theme": "dark",
+    "viewport": {
+      "w": 1920,
+      "h": 1080
+    },
+    "dock": {
+      "tag": "div",
+      "cls": "workspace-dock",
+      "rect": {
+        "x": 1007,
+        "y": 4,
+        "w": 743,
+        "h": 36
+      },
+      "fontSize": "14.72px",
+      "fontWeight": "400",
+      "letterSpacing": "normal",
+      "color": "oklch(0.9755 0.0045 258.32)",
+      "background": "rgba(0, 0, 0, 0)",
+      "borderRadius": "0px",
+      "gap": "normal",
+      "padding": "0px",
+      "outline": "3px none oklch(0.9755 0.0045 258.32)",
+      "border": "0px none oklch(0.9755 0.0045 258.32)",
+      "boxShadow": "none",
+      "overflow": "visible"
+    },
+    "bar": {
+      "tag": "div",
+      "cls": "workspace-dock__bar",
+      "rect": {
+        "x": 1411,
+        "y": 4,
+        "w": 338,
+        "h": 36
+      },
+      "fontSize": "14.72px",
+      "fontWeight": "400",
+      "letterSpacing": "normal",
+      "color": "oklch(0.9755 0.0045 258.32)",
+      "background": "oklch(0.22 0.006 260)",
+      "borderRadius": "9999px",
+      "gap": "5px",
+      "padding": "3px 6px",
+      "outline": "3px none oklch(0.9755 0.0045 258.32)",
+      "border": "1px solid oklch(0.3123 0.0293 262.83)",
+      "boxShadow": "oklch(0 0 0 / 0.08) 0px 2px 8px 0px",
+      "overflow": "visible"
+    },
+    "barRole": "radiogroup",
+    "barChildren": [
+      "button.workspace-dock__item workspace-dock__item--active",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item"
+    ],
+    "activeLabelText": "Design",
+    "activeLabelWidth": 37,
+    "activeLabelScrollWidth": 37,
+    "itemCount": 8,
+    "itemWidths": [93, 28, 28, 28, 28, 28, 28, 28],
+    "items": [
+      {
+        "tag": "button",
+        "cls": "workspace-dock__item workspace-dock__item--active",
+        "rect": {
+          "x": 1418,
+          "y": 8,
+          "w": 93,
+          "h": 28
+        },
+        "fontSize": "10.816px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "color": "rgb(255, 255, 255)",
+        "background": "oklch(0.58 0.18 240)",
+        "borderRadius": "9999px",
+        "gap": "6px",
+        "padding": "0px 12px",
+        "outline": "3px none rgb(255, 255, 255)",
+        "border": "0px none rgb(255, 255, 255)",
+        "boxShadow": "oklch(0.58 0.18 240 / 0.5) 0px 2px 10px 0px",
+        "overflow": "visible"
+      },
+      {
+        "tag": "button",
+        "cls": "workspace-dock__item",
+        "rect": {
+          "x": 1517,
+          "y": 8,
+          "w": 28,
+          "h": 28
+        },
+        "fontSize": "10.816px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "color": "rgb(74, 222, 128)",
+        "background": "rgba(0, 0, 0, 0)",
+        "borderRadius": "9999px",
+        "gap": "6px",
+        "padding": "0px",
+        "outline": "3px none rgb(74, 222, 128)",
+        "border": "0px none rgb(74, 222, 128)",
+        "boxShadow": "none",
+        "overflow": "visible"
+      },
+      {
+        "tag": "button",
+        "cls": "workspace-dock__item",
+        "rect": {
+          "x": 1550,
+          "y": 8,
+          "w": 28,
+          "h": 28
+        },
+        "fontSize": "10.816px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "color": "rgb(129, 140, 248)",
+        "background": "rgba(0, 0, 0, 0)",
+        "borderRadius": "9999px",
+        "gap": "6px",
+        "padding": "0px",
+        "outline": "3px none rgb(129, 140, 248)",
+        "border": "0px none rgb(129, 140, 248)",
+        "boxShadow": "none",
+        "overflow": "visible"
+      }
+    ],
+    "active": {
+      "tag": "button",
+      "cls": "workspace-dock__item workspace-dock__item--active",
+      "rect": {
+        "x": 1418,
+        "y": 8,
+        "w": 93,
+        "h": 28
+      },
+      "fontSize": "10.816px",
+      "fontWeight": "600",
+      "letterSpacing": "normal",
+      "color": "rgb(255, 255, 255)",
+      "background": "oklch(0.58 0.18 240)",
+      "borderRadius": "9999px",
+      "gap": "6px",
+      "padding": "0px 12px",
+      "outline": "3px none rgb(255, 255, 255)",
+      "border": "0px none rgb(255, 255, 255)",
+      "boxShadow": "oklch(0.58 0.18 240 / 0.5) 0px 2px 10px 0px",
+      "overflow": "visible"
+    },
+    "label": {
+      "tag": "span",
+      "cls": "workspace-dock__label",
+      "rect": {
+        "x": 1462,
+        "y": 16,
+        "w": 37,
+        "h": 12
+      },
+      "fontSize": "10.816px",
+      "fontWeight": "600",
+      "letterSpacing": "0.21632px",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgba(0, 0, 0, 0)",
+      "borderRadius": "0px",
+      "gap": "normal",
+      "padding": "0px",
+      "outline": "3px none rgb(255, 255, 255)",
+      "border": "0px none rgb(255, 255, 255)",
+      "boxShadow": "none",
+      "overflow": "hidden"
+    },
+    "icon": {
+      "tag": "span",
+      "cls": "workspace-dock__icon",
+      "rect": {
+        "x": 1518,
+        "y": 9,
+        "w": 26,
+        "h": 26
+      },
+      "fontSize": "10.816px",
+      "fontWeight": "600",
+      "letterSpacing": "normal",
+      "color": "rgb(74, 222, 128)",
+      "background": "oklch(0.3 0.1 150 / 0.45)",
+      "borderRadius": "50%",
+      "gap": "normal",
+      "padding": "0px",
+      "outline": "3px none rgb(74, 222, 128)",
+      "border": "0px none rgb(74, 222, 128)",
+      "boxShadow": "none",
+      "overflow": "visible"
+    },
+    "more": null,
+    "activeLabelTruncated": false
+  },
+  "1920-high-contrast": {
+    "tag": "1920-high-contrast",
+    "theme": "high-contrast",
+    "viewport": {
+      "w": 1920,
+      "h": 1080
+    },
+    "dock": {
+      "tag": "div",
+      "cls": "workspace-dock",
+      "rect": {
+        "x": 1007,
+        "y": 4,
+        "w": 743,
+        "h": 36
+      },
+      "fontSize": "14.72px",
+      "fontWeight": "400",
+      "letterSpacing": "normal",
+      "color": "oklch(1 0 0)",
+      "background": "rgba(0, 0, 0, 0)",
+      "borderRadius": "0px",
+      "gap": "normal",
+      "padding": "0px",
+      "outline": "3px none oklch(1 0 0)",
+      "border": "0px none oklch(1 0 0)",
+      "boxShadow": "none",
+      "overflow": "visible"
+    },
+    "bar": {
+      "tag": "div",
+      "cls": "workspace-dock__bar",
+      "rect": {
+        "x": 1411,
+        "y": 4,
+        "w": 338,
+        "h": 36
+      },
+      "fontSize": "14.72px",
+      "fontWeight": "400",
+      "letterSpacing": "normal",
+      "color": "oklch(1 0 0)",
+      "background": "oklch(0.15 0 0)",
+      "borderRadius": "9999px",
+      "gap": "5px",
+      "padding": "3px 6px",
+      "outline": "3px none oklch(1 0 0)",
+      "border": "1px solid oklch(1 0 0)",
+      "boxShadow": "oklch(0 0 0 / 0.08) 0px 2px 8px 0px",
+      "overflow": "visible"
+    },
+    "barRole": "radiogroup",
+    "barChildren": [
+      "button.workspace-dock__item workspace-dock__item--active",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item",
+      "button.workspace-dock__item"
+    ],
+    "activeLabelText": "Design",
+    "activeLabelWidth": 37,
+    "activeLabelScrollWidth": 37,
+    "itemCount": 8,
+    "itemWidths": [93, 28, 28, 28, 28, 28, 28, 28],
+    "items": [
+      {
+        "tag": "button",
+        "cls": "workspace-dock__item workspace-dock__item--active",
+        "rect": {
+          "x": 1418,
+          "y": 8,
+          "w": 93,
+          "h": 28
+        },
+        "fontSize": "10.816px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "color": "rgb(255, 255, 255)",
+        "background": "oklch(0.9519 0.2924 111.62)",
+        "borderRadius": "9999px",
+        "gap": "6px",
+        "padding": "0px 12px",
+        "outline": "3px none rgb(255, 255, 255)",
+        "border": "0px none rgb(255, 255, 255)",
+        "boxShadow": "oklch(0.58 0.18 240 / 0.5) 0px 2px 10px 0px",
+        "overflow": "visible"
+      },
+      {
+        "tag": "button",
+        "cls": "workspace-dock__item",
+        "rect": {
+          "x": 1517,
+          "y": 8,
+          "w": 28,
+          "h": 28
+        },
+        "fontSize": "10.816px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "color": "rgb(22, 163, 74)",
+        "background": "rgba(0, 0, 0, 0)",
+        "borderRadius": "9999px",
+        "gap": "6px",
+        "padding": "0px",
+        "outline": "3px none rgb(22, 163, 74)",
+        "border": "0px none rgb(22, 163, 74)",
+        "boxShadow": "none",
+        "overflow": "visible"
+      },
+      {
+        "tag": "button",
+        "cls": "workspace-dock__item",
+        "rect": {
+          "x": 1550,
+          "y": 8,
+          "w": 28,
+          "h": 28
+        },
+        "fontSize": "10.816px",
+        "fontWeight": "600",
+        "letterSpacing": "normal",
+        "color": "rgb(79, 70, 229)",
+        "background": "rgba(0, 0, 0, 0)",
+        "borderRadius": "9999px",
+        "gap": "6px",
+        "padding": "0px",
+        "outline": "3px none rgb(79, 70, 229)",
+        "border": "0px none rgb(79, 70, 229)",
+        "boxShadow": "none",
+        "overflow": "visible"
+      }
+    ],
+    "active": {
+      "tag": "button",
+      "cls": "workspace-dock__item workspace-dock__item--active",
+      "rect": {
+        "x": 1418,
+        "y": 8,
+        "w": 93,
+        "h": 28
+      },
+      "fontSize": "10.816px",
+      "fontWeight": "600",
+      "letterSpacing": "normal",
+      "color": "rgb(255, 255, 255)",
+      "background": "oklch(0.9519 0.2924 111.62)",
+      "borderRadius": "9999px",
+      "gap": "6px",
+      "padding": "0px 12px",
+      "outline": "3px none rgb(255, 255, 255)",
+      "border": "0px none rgb(255, 255, 255)",
+      "boxShadow": "oklch(0.58 0.18 240 / 0.5) 0px 2px 10px 0px",
+      "overflow": "visible"
+    },
+    "label": {
+      "tag": "span",
+      "cls": "workspace-dock__label",
+      "rect": {
+        "x": 1462,
+        "y": 16,
+        "w": 37,
+        "h": 12
+      },
+      "fontSize": "10.816px",
+      "fontWeight": "600",
+      "letterSpacing": "0.21632px",
+      "color": "rgb(255, 255, 255)",
+      "background": "rgba(0, 0, 0, 0)",
+      "borderRadius": "0px",
+      "gap": "normal",
+      "padding": "0px",
+      "outline": "3px none rgb(255, 255, 255)",
+      "border": "0px none rgb(255, 255, 255)",
+      "boxShadow": "none",
+      "overflow": "hidden"
+    },
+    "icon": {
+      "tag": "span",
+      "cls": "workspace-dock__icon",
+      "rect": {
+        "x": 1518,
+        "y": 9,
+        "w": 26,
+        "h": 26
+      },
+      "fontSize": "10.816px",
+      "fontWeight": "600",
+      "letterSpacing": "normal",
+      "color": "rgb(22, 163, 74)",
+      "background": "rgb(220, 252, 231)",
+      "borderRadius": "50%",
+      "gap": "normal",
+      "padding": "0px",
+      "outline": "3px none rgb(22, 163, 74)",
+      "border": "0px none rgb(22, 163, 74)",
+      "boxShadow": "none",
+      "overflow": "visible"
+    },
+    "more": null,
+    "activeLabelTruncated": false
+  },
+  "hover": {
+    "iconSizes": [15, 20, 22, 22, 21, 19, 17, 15]
+  },
+  "ariaSnapshot": "- radiogroup \"Workspace\":\n  - radio \"Design workspace\" [checked]: Design\n  - radio \"Draw workspace\"\n  - radio \"Photo workspace\"\n  - radio \"Print workspace\"\n  - radio \"Motion workspace\"\n  - radio \"Codegen & Audit workspace\"\n  - radio \"Email workspace\"\n  - radio \"Logo workspace\""
+}

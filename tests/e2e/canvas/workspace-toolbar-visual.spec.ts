@@ -9,7 +9,7 @@ const WORKSPACES = [
   ['drawing', 'Draw'],
   ['image', 'Photo'],
   ['motion', 'Motion'],
-  ['codegen', 'Codegen & Audit'],
+  ['codegen', 'Codegen'],
   ['logo', 'Logo'],
 ] as const;
 

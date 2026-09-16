@@ -23,7 +23,7 @@ test.describe('Workspace switcher keyboard contract', () => {
       'tabindex',
       '0',
     );
-    for (const name of ['Print', 'Draw', 'Photo', 'Motion', 'Codegen & Audit', 'Logo']) {
+    for (const name of ['Print', 'Draw', 'Photo', 'Motion', 'Codegen', 'Logo']) {
       await expect(
         group.getByRole('radio', { name: new RegExp(`^${name} workspace$`) }),
       ).toHaveAttribute('tabindex', '-1');
