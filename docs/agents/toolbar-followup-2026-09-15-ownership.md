@@ -47,10 +47,28 @@ task instruction; no branch or worktree created).
 ## Commits
 
 Progressive, docs-first, one commit per coherent slice:
-`8bae3f14e` (ownership + research ledger), `8e54eb924` (palette placement),
-`f256e2052` (View submenus), `b62f98c3e` (quick bars), `83bce5031` (status
-bar + docs + website + E2E spec). Staged paths were always a subset of the
-table above; the pre-commit hook ran the affected closure per commit.
+
+| SHA | Subject |
+|---|---|
+| `8bae3f14e` | docs(toolbar): follow-up ownership and research evidence |
+| `8e54eb924` | feat(toolbar): persisted top/bottom palette placement |
+| `f256e2052` | fix(menubar): group View into submenus so the root fits one screen |
+| `b62f98c3e` | fix(quick-bars): toolbar keyboard contract; stop duplicate text controls |
+| `83bce5031` | fix(status-bar): row/token agreement and the 24px target minimum |
+| `471c679dd` | test(toolbar): spec alignment, ownership/screenshots |
+| `52a3beda5` | fix(status-bar): score-badge width; spec flow hardening |
+| `2e93d1c97` | fix(text-bar): keep the edit session alive when a size is confirmed |
+| `082de695e` | docs(toolbar): final browser results and refreshed evidence |
+| `43dcf70f2` | test(toolbar): affected specs for grouped View/single surface |
+| `bb3782ecf` | fix(menubar): share one item role/checked helper |
+| `39a658609` | test(toolbar): stabilize regression specs; batch triage |
+| `c8c4b1f2b` | fix(menubar): retry the focus handoff until the portal layer is focusable |
+| `ac804fdcb` | test(toolbar): forced colors + 200% text; scroll focused row into view |
+
+Staged paths were always a subset of the table above; the pre-commit hook ran
+the affected closure per commit. The popover review's two additive lines on
+the text bar's More `FloatingPortal` (`initialFocus`, `yieldTabToAnchor`) are
+present in HEAD (committed with the quick-bars slice) as their note requested.
 
 ## Concurrency incident (recorded for the integration pass)
 

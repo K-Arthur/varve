@@ -210,6 +210,7 @@ results below.
 | `npx vitest run packages/editor/src/components/ContextControlBar/ContextControlBar.test.tsx` | 13 passed |
 | `npx vitest run packages/editor/src/components/FloatingTextBar/FloatingTextBar.test.tsx` | 36 passed |
 | `npx vitest run packages/editor/src/StatusBar.test.tsx` | 7 passed |
+| `npx vitest run packages/editor/src/actions/registerAll.test.ts` | 13 passed (placement commands persist the active workspace preference) |
 | `npx biome check --write <touched files>` | clean |
 | `pnpm typecheck:e2e` | clean at the time of the last self-run; the shared gate is intermittently broken by other sessions' in-flight files |
 | `node scripts/audit-docs.mjs` / `audit-emoji.mjs` | clean |

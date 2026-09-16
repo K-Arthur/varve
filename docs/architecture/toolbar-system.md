@@ -219,12 +219,15 @@ trusting its anchor:
   (shape fill/stroke transactions, text-edit duplication suppression),
   `components/FloatingTextBar/FloatingTextBar.test.tsx` (text formatting),
   `StatusBar.test.tsx` (tier visibility and status behavior),
+  `actions/registerAll.test.ts` (placement commands persist the active
+  workspace preference),
   `components/SelectionQuickBar/selectionQuickBarPosition.test.ts` and
   `SelectionQuickBar.test.tsx` (edge clamp, palette-band reserve, flip).
 - Browser: `tests/e2e/canvas/toolbar-layout.spec.ts` (chrome overlap),
   `toolbar-per-mode.spec.ts`, `toolbar-followup.spec.ts` (placement radio pair
   and persistence, status-bar row/target geometry across widths, quick-bar
-  keyboard contract and duplication, combined real-world journey),
+  keyboard contract and duplication, combined real-world journey, and
+  forced-colors / 200%-text adverse rendering),
   `workspace-toolbar-visual.spec.ts` (per-workspace rendering),
   `font-toolbar-visual.spec.ts` (text quick bar),
   `selection-quick-bar.spec.ts` (leading action reachable and palette-clear at
