@@ -933,10 +933,15 @@ test.describe('Design tab paint rows (fill / stroke pass)', () => {
     await page.getByRole('option', { name: 'Multiply' }).click();
     await page.keyboard.press('Escape');
 
-    // Committing in the popover surfaces the one-click chip on the row.
+    // Committing in the popover surfaces the one-click chip on the row, and
+    // the value readout keeps its full hex now that opacity moved down.
     const chip = page.locator('.insp-blend-chip');
     await expect(chip).toBeVisible({ timeout: 5_000 });
     await expect(chip).toContainText('Multiply');
+    const value = page.locator('.insp-fill-row .insp-swatch__value');
+    await expect(value).toHaveText(/^#[0-9A-F]{6}$/);
+    const clipped = await value.evaluate((el) => el.scrollWidth > el.clientWidth + 1);
+    expect(clipped, 'the hex value must not be truncated by the chip').toBe(false);
     await page.screenshot({ path: `${PAINT_EVIDENCE_DIR}/fill-blend-popover.png` });
   });
 

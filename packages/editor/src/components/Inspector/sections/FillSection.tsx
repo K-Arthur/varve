@@ -682,11 +682,13 @@ function FillRow({
     ],
   );
 
-  // Stacked fills add reorder and remove controls to the row, and a mixed
-  // selection needs its full "Mixed" label; moving opacity to the properties
-  // line in both cases keeps the value readout visible instead of letting it
-  // ellipsize away. Uniform single fills keep opacity inline.
-  const opacityOnPropertiesLine = totalFills > 1 || paintMixed;
+  // Stacked fills add reorder and remove controls to the row; a mixed or
+  // non-normal state needs its full label and the blend chip beside it.
+  // Moving opacity to the properties line (which exists in exactly these
+  // cases) keeps the value readout visible instead of letting it ellipsize
+  // away. Uniform normal single fills keep opacity inline.
+  const opacityOnPropertiesLine =
+    totalFills > 1 || paintMixed || blendIsMixed || blendValue !== 'normal';
   const showPropertiesLine = opacityOnPropertiesLine || blendIsMixed || blendValue !== 'normal';
   const opacityField = (
     <div className="insp-paint-row__opacity">

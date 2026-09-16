@@ -222,6 +222,10 @@ describe('Fill row redesign', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /blend mode: multiply/i })).toBeTruthy();
     });
+    // With a non-normal blend the row keeps the full hex: opacity moved to
+    // the properties line beside the chip instead of squeezing the pill.
+    expect(screen.getByText('#1478DC')).toBeTruthy();
+    expect(screen.getByLabelText('Fill opacity (%)')).toBeTruthy();
   });
 
   it('shows a Mixed blend placeholder in the popover for disagreeing layers', async () => {
