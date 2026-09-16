@@ -118,10 +118,10 @@ test.describe('workspace toolbar visual QA', () => {
     // grouped to fit one screen. Keyboard activation still avoids depending on
     // hit-testing an off-screen row.
     const workspaceMenu = await openSubmenu(page, 'View', 'Workspace');
-    const customizeItem = workspaceMenu.getByRole('menuitem', { name: /Customize Workspace/ });
-    await customizeItem.focus();
-    await expect(customizeItem).toBeFocused();
-    await page.keyboard.press('Enter');
+    // The Workspace submenu is short and fully on screen, so a plain click is
+    // both the user action and deterministic (the old focus+Enter path was a
+    // workaround for the flat menu's off-screen rows).
+    await workspaceMenu.getByRole('menuitem', { name: /Customize Workspace/ }).click();
 
     const dialog = page.getByRole('dialog', { name: /Customize Design workspace/i });
     await expect(dialog).toBeVisible();

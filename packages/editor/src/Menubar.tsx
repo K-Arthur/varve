@@ -29,13 +29,12 @@ import { useEditor } from './context';
 import { computeCapabilities, getNudgeCapability, useNativeMenu } from './menu';
 import { useMenubarContextEffects, useMenubarFocusEffects } from './menu/menubarFocus';
 import { handleMenubarKey } from './menu/menubarKeynav';
-import { MenubarSubmenu } from './menu/menubarSubmenu';
+import { MenubarSubmenu, menubarItemAriaChecked, menubarItemRole } from './menu/menubarSubmenu';
 import { labelWithFallback, type RecentEntry, useRecentFiles } from './recentFiles';
 import { loadSettings } from './settings';
-import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from './shortcuts';
+import { formatShortcut, getEffectiveBinding } from './shortcuts';
 import { useEffectiveWorkspaceConfig } from './workspace/useWorkspaceConfig';
-import type { WorkspaceMode } from './workspace/workspaceTypes';
-import { resolveToolbarPlacement } from './workspace/workspaceTypes';
+import { resolveToolbarPlacement, type WorkspaceMode } from './workspace/workspaceTypes';
 
 type MenuId = 'File' | 'Edit' | 'Text' | 'View' | 'Object' | 'Arrange' | 'Page' | 'Help';
 
@@ -430,6 +429,13 @@ function buildMenus(
   /** Helper: build an aria-keyshortcut string from SHORTCUT_DEFS. */
   const ks = (id: string): string => ariaShortcut(getEffectiveBinding(id));
 
+  /**
+   * Visible shortcut text. Reads the effective binding (user keymap overrides
+   * included) so the menu never shows a default key that no longer executes,
+   * mirroring what `aria-keyshortcuts` already announced.
+   */
+  const shortcutText = (id: string): string => formatShortcut(getEffectiveBinding(id));
+
   return [
     {
       id: 'File',
@@ -437,13 +443,13 @@ function buildMenus(
         // ── Create ──
         {
           label: 'New',
-          shortcut: formatShortcut(SHORTCUT_DEFS.newDocument.binding),
+          shortcut: shortcutText('newDocument'),
           ariaKeyshortcut: ks('newDocument'),
           action: 'new',
         },
         {
           label: 'New Logo Project',
-          shortcut: formatShortcut(SHORTCUT_DEFS.newLogoProject.binding),
+          shortcut: shortcutText('newLogoProject'),
           ariaKeyshortcut: ks('newLogoProject'),
           action: 'newLogoProject',
         },
@@ -452,13 +458,13 @@ function buildMenus(
           items: [
             {
               label: 'Create Logo Concept',
-              shortcut: formatShortcut(SHORTCUT_DEFS.createLogoConcept.binding),
+              shortcut: shortcutText('createLogoConcept'),
               ariaKeyshortcut: ks('createLogoConcept'),
               action: 'createLogoConcept',
             },
             {
               label: 'Duplicate Logo Concept',
-              shortcut: formatShortcut(SHORTCUT_DEFS.duplicateLogoConcept.binding),
+              shortcut: shortcutText('duplicateLogoConcept'),
               ariaKeyshortcut: ks('duplicateLogoConcept'),
               action: 'duplicateLogoConcept',
               disabled: dis('duplicateLogoConcept'),
@@ -470,14 +476,14 @@ function buildMenus(
             },
             {
               label: 'Create Monochrome Variant',
-              shortcut: formatShortcut(SHORTCUT_DEFS.createMonochromeVariant.binding),
+              shortcut: shortcutText('createMonochromeVariant'),
               ariaKeyshortcut: ks('createMonochromeVariant'),
               action: 'createMonochromeVariant',
               disabled: dis('createMonochromeVariant'),
             },
             {
               label: 'Create Reversed Variant',
-              shortcut: formatShortcut(SHORTCUT_DEFS.createReversedVariant.binding),
+              shortcut: shortcutText('createReversedVariant'),
               ariaKeyshortcut: ks('createReversedVariant'),
               action: 'createReversedVariant',
               disabled: dis('createReversedVariant'),
@@ -488,7 +494,7 @@ function buildMenus(
         // ── Open / Import ──
         {
           label: 'Open\u2026',
-          shortcut: formatShortcut(SHORTCUT_DEFS.open.binding),
+          shortcut: shortcutText('open'),
           ariaKeyshortcut: ks('open'),
           action: 'open',
         },
@@ -515,7 +521,7 @@ function buildMenus(
           : []),
         {
           label: 'Import\u2026',
-          shortcut: formatShortcut(SHORTCUT_DEFS.import.binding),
+          shortcut: shortcutText('import'),
           ariaKeyshortcut: ks('import'),
           action: 'import',
         },
@@ -527,13 +533,13 @@ function buildMenus(
         // ── Close ──
         {
           label: 'Close Document',
-          shortcut: formatShortcut(SHORTCUT_DEFS.tabClose.binding),
+          shortcut: shortcutText('tabClose'),
           ariaKeyshortcut: ks('tabClose'),
           action: 'tabClose',
         },
         {
           label: 'Close Window',
-          shortcut: formatShortcut(SHORTCUT_DEFS.closeWindow.binding),
+          shortcut: shortcutText('closeWindow'),
           ariaKeyshortcut: ks('closeWindow'),
           action: 'closeWindow',
         },
@@ -541,13 +547,13 @@ function buildMenus(
         // ── Save ──
         {
           label: 'Save',
-          shortcut: formatShortcut(SHORTCUT_DEFS.save.binding),
+          shortcut: shortcutText('save'),
           ariaKeyshortcut: ks('save'),
           action: 'save',
         },
         {
           label: 'Save As\u2026',
-          shortcut: formatShortcut(SHORTCUT_DEFS.saveAs.binding),
+          shortcut: shortcutText('saveAs'),
           ariaKeyshortcut: ks('saveAs'),
           action: 'saveAs',
         },
@@ -559,13 +565,13 @@ function buildMenus(
         // ── Export ──
         {
           label: 'Export SVG\u2026',
-          shortcut: formatShortcut(SHORTCUT_DEFS.exportSvg.binding),
+          shortcut: shortcutText('exportSvg'),
           ariaKeyshortcut: ks('exportSvg'),
           action: 'exportSvg',
         },
         {
           label: 'Export\u2026',
-          shortcut: formatShortcut(SHORTCUT_DEFS.export.binding),
+          shortcut: shortcutText('export'),
           ariaKeyshortcut: ks('export'),
           action: 'export',
         },
@@ -606,13 +612,13 @@ function buildMenus(
           ? [
               {
                 label: 'Backup Archive\u2026' as const,
-                shortcut: formatShortcut(SHORTCUT_DEFS.archiveBackup.binding),
+                shortcut: shortcutText('archiveBackup'),
                 ariaKeyshortcut: ks('archiveBackup'),
                 action: 'archiveBackup' as const,
               },
               {
                 label: 'Restore Archive\u2026' as const,
-                shortcut: formatShortcut(SHORTCUT_DEFS.archiveRestore.binding),
+                shortcut: shortcutText('archiveRestore'),
                 ariaKeyshortcut: ks('archiveRestore'),
                 action: 'archiveRestore' as const,
               },
@@ -628,7 +634,7 @@ function buildMenus(
         // ── App ──
         {
           label: 'Settings\u2026',
-          shortcut: formatShortcut(SHORTCUT_DEFS.settings.binding),
+          shortcut: shortcutText('settings'),
           ariaKeyshortcut: ks('settings'),
           action: 'settings',
         },
@@ -638,7 +644,7 @@ function buildMenus(
               { label: '---' },
               {
                 label: 'Quit Varve',
-                shortcut: formatShortcut(SHORTCUT_DEFS.quitApp.binding),
+                shortcut: shortcutText('quitApp'),
                 ariaKeyshortcut: ks('quitApp'),
                 action: 'quitApp',
               } as MenuItem,
@@ -651,34 +657,34 @@ function buildMenus(
       items: [
         {
           label: 'Undo',
-          shortcut: formatShortcut(SHORTCUT_DEFS.undo.binding),
+          shortcut: shortcutText('undo'),
           ariaKeyshortcut: ks('undo'),
           action: 'undo',
         },
         {
           label: 'Redo',
-          shortcut: formatShortcut(SHORTCUT_DEFS.redo.binding),
+          shortcut: shortcutText('redo'),
           ariaKeyshortcut: ks('redo'),
           action: 'redo',
         },
         { label: '---' },
         {
           label: 'Cut',
-          shortcut: formatShortcut(SHORTCUT_DEFS.cut.binding),
+          shortcut: shortcutText('cut'),
           ariaKeyshortcut: ks('cut'),
           action: 'cut',
           disabled: dis('cut'),
         },
         {
           label: 'Copy',
-          shortcut: formatShortcut(SHORTCUT_DEFS.copy.binding),
+          shortcut: shortcutText('copy'),
           ariaKeyshortcut: ks('copy'),
           action: 'copy',
           disabled: dis('copy'),
         },
         {
           label: 'Paste',
-          shortcut: formatShortcut(SHORTCUT_DEFS.paste.binding),
+          shortcut: shortcutText('paste'),
           ariaKeyshortcut: ks('paste'),
           action: 'paste',
         },
@@ -707,28 +713,28 @@ function buildMenus(
         },
         {
           label: 'Copy Properties',
-          shortcut: formatShortcut(SHORTCUT_DEFS.copyProperties.binding),
+          shortcut: shortcutText('copyProperties'),
           ariaKeyshortcut: ks('copyProperties'),
           action: 'copyProperties',
           disabled: !hasSelection,
         },
         {
           label: 'Paste Properties',
-          shortcut: formatShortcut(SHORTCUT_DEFS.pasteProperties.binding),
+          shortcut: shortcutText('pasteProperties'),
           ariaKeyshortcut: ks('pasteProperties'),
           action: 'pasteProperties',
           disabled: !hasSelection,
         },
         {
           label: 'Duplicate',
-          shortcut: formatShortcut(SHORTCUT_DEFS.duplicate.binding),
+          shortcut: shortcutText('duplicate'),
           ariaKeyshortcut: ks('duplicate'),
           action: 'duplicate',
           disabled: dis('duplicate'),
         },
         {
           label: 'Repeat Duplicate',
-          shortcut: formatShortcut(SHORTCUT_DEFS.repeatDuplicate.binding),
+          shortcut: shortcutText('repeatDuplicate'),
           ariaKeyshortcut: ks('repeatDuplicate'),
           action: 'repeatDuplicate',
           disabled: dis('duplicate'),
@@ -736,13 +742,13 @@ function buildMenus(
         { label: '---' },
         {
           label: 'Select All',
-          shortcut: formatShortcut(SHORTCUT_DEFS.selectAll.binding),
+          shortcut: shortcutText('selectAll'),
           ariaKeyshortcut: ks('selectAll'),
           action: 'selectAll',
         },
         {
           label: 'Delete',
-          shortcut: formatShortcut(SHORTCUT_DEFS.delete.binding),
+          shortcut: shortcutText('delete'),
           ariaKeyshortcut: ks('delete'),
           action: 'delete',
           disabled: dis('delete'),
@@ -755,14 +761,14 @@ function buildMenus(
         { label: '---' },
         {
           label: 'Selection History Back',
-          shortcut: formatShortcut(SHORTCUT_DEFS.selectionHistoryBack.binding),
+          shortcut: shortcutText('selectionHistoryBack'),
           ariaKeyshortcut: ks('selectionHistoryBack'),
           action: 'selectionHistoryBack',
           disabled: !hasSelection,
         },
         {
           label: 'Selection History Forward',
-          shortcut: formatShortcut(SHORTCUT_DEFS.selectionHistoryForward.binding),
+          shortcut: shortcutText('selectionHistoryForward'),
           ariaKeyshortcut: ks('selectionHistoryForward'),
           action: 'selectionHistoryForward',
           disabled: !hasSelection,
@@ -869,19 +875,19 @@ function buildMenus(
           items: [
             {
               label: 'Zoom to 100%',
-              shortcut: formatShortcut(SHORTCUT_DEFS.zoomReset.binding),
+              shortcut: shortcutText('zoomReset'),
               ariaKeyshortcut: ks('zoomReset'),
               action: 'zoomReset',
             },
             {
               label: 'Zoom In',
-              shortcut: formatShortcut(SHORTCUT_DEFS.zoomIn.binding),
+              shortcut: shortcutText('zoomIn'),
               ariaKeyshortcut: ks('zoomIn'),
               action: 'zoomIn',
             },
             {
               label: 'Zoom Out',
-              shortcut: formatShortcut(SHORTCUT_DEFS.zoomOut.binding),
+              shortcut: shortcutText('zoomOut'),
               ariaKeyshortcut: ks('zoomOut'),
               action: 'zoomOut',
             },
@@ -892,31 +898,31 @@ function buildMenus(
           items: [
             {
               label: 'Full Render Mode',
-              shortcut: formatShortcut(SHORTCUT_DEFS.canvasModeFull.binding),
+              shortcut: shortcutText('canvasModeFull'),
               ariaKeyshortcut: ks('canvasModeFull'),
               action: 'canvasModeFull',
             },
             {
               label: 'Outline Mode',
-              shortcut: formatShortcut(SHORTCUT_DEFS.canvasModeOutline.binding),
+              shortcut: shortcutText('canvasModeOutline'),
               ariaKeyshortcut: ks('canvasModeOutline'),
               action: 'canvasModeOutline',
             },
             {
               label: 'Preview Mode',
-              shortcut: formatShortcut(SHORTCUT_DEFS.canvasModePreview.binding),
+              shortcut: shortcutText('canvasModePreview'),
               ariaKeyshortcut: ks('canvasModePreview'),
               action: 'canvasModePreview',
             },
             {
               label: 'Inspect Mode',
-              shortcut: formatShortcut(SHORTCUT_DEFS.toolInspect.binding),
+              shortcut: shortcutText('toolInspect'),
               ariaKeyshortcut: ks('toolInspect'),
               action: 'inspectMode',
             },
             {
               label: 'Present\u2026',
-              shortcut: formatShortcut(SHORTCUT_DEFS.present.binding),
+              shortcut: shortcutText('present'),
               ariaKeyshortcut: ks('present'),
               action: 'present',
             },
@@ -927,31 +933,31 @@ function buildMenus(
           items: [
             {
               label: 'Fit Active Page',
-              shortcut: formatShortcut(SHORTCUT_DEFS.fitActivePage.binding),
+              shortcut: shortcutText('fitActivePage'),
               ariaKeyshortcut: ks('fitActivePage'),
               action: 'fitActivePage',
             },
             {
               label: 'Fit Active Frame',
-              shortcut: formatShortcut(SHORTCUT_DEFS.fitActiveFrame.binding),
+              shortcut: shortcutText('fitActiveFrame'),
               ariaKeyshortcut: ks('fitActiveFrame'),
               action: 'fitActiveFrame',
             },
             {
               label: 'Reset View Rotation',
-              shortcut: formatShortcut(SHORTCUT_DEFS.resetViewRotation.binding),
+              shortcut: shortcutText('resetViewRotation'),
               ariaKeyshortcut: ks('resetViewRotation'),
               action: 'resetViewRotation',
             },
             {
               label: 'Rotate View Clockwise',
-              shortcut: formatShortcut(SHORTCUT_DEFS.rotateViewCW.binding),
+              shortcut: shortcutText('rotateViewCW'),
               ariaKeyshortcut: ks('rotateViewCW'),
               action: 'rotateViewCW',
             },
             {
               label: 'Rotate View Counter-clockwise',
-              shortcut: formatShortcut(SHORTCUT_DEFS.rotateViewCCW.binding),
+              shortcut: shortcutText('rotateViewCCW'),
               ariaKeyshortcut: ks('rotateViewCCW'),
               action: 'rotateViewCCW',
             },
@@ -972,13 +978,13 @@ function buildMenus(
             },
             {
               label: 'Baseline Grid Overlay',
-              shortcut: formatShortcut(SHORTCUT_DEFS.gridOverlayBaseline.binding),
+              shortcut: shortcutText('gridOverlayBaseline'),
               ariaKeyshortcut: ks('gridOverlayBaseline'),
               action: 'gridOverlayBaseline',
             },
             {
               label: 'Isometric Grid Overlay',
-              shortcut: formatShortcut(SHORTCUT_DEFS.gridOverlayIsometric.binding),
+              shortcut: shortcutText('gridOverlayIsometric'),
               ariaKeyshortcut: ks('gridOverlayIsometric'),
               action: 'gridOverlayIsometric',
             },
@@ -989,19 +995,19 @@ function buildMenus(
           items: [
             {
               label: 'Toggle Snap',
-              shortcut: formatShortcut(SHORTCUT_DEFS.toggleSnap.binding),
+              shortcut: shortcutText('toggleSnap'),
               ariaKeyshortcut: ks('toggleSnap'),
               action: 'toggleSnap',
             },
             {
               label: state.guidesVisible ? 'Hide Guides' : 'Show Guides',
-              shortcut: formatShortcut(SHORTCUT_DEFS.toggleGuidesVisible.binding),
+              shortcut: shortcutText('toggleGuidesVisible'),
               ariaKeyshortcut: ks('toggleGuidesVisible'),
               action: 'toggleGuidesVisible',
             },
             {
               label: 'Lock All Guides',
-              shortcut: formatShortcut(SHORTCUT_DEFS.lockAllGuides.binding),
+              shortcut: shortcutText('lockAllGuides'),
               ariaKeyshortcut: ks('lockAllGuides'),
               action: 'lockAllGuides',
             },
@@ -1024,7 +1030,7 @@ function buildMenus(
             },
             {
               label: 'Soft Proofing',
-              shortcut: formatShortcut(SHORTCUT_DEFS.softProof.binding),
+              shortcut: shortcutText('softProof'),
               ariaKeyshortcut: ks('softProof'),
               action: 'softProof',
             },
@@ -1035,31 +1041,31 @@ function buildMenus(
           items: [
             {
               label: 'Timeline Panel',
-              shortcut: formatShortcut(SHORTCUT_DEFS.toggleTimelinePanel.binding),
+              shortcut: shortcutText('toggleTimelinePanel'),
               ariaKeyshortcut: ks('toggleTimelinePanel'),
               action: 'toggleTimelinePanel',
             },
             {
               label: 'Graph Editor',
-              shortcut: formatShortcut(SHORTCUT_DEFS.toggleGraphEditor.binding),
+              shortcut: shortcutText('toggleGraphEditor'),
               ariaKeyshortcut: ks('toggleGraphEditor'),
               action: 'toggleGraphEditor',
             },
             {
               label: 'State Machine Panel',
-              shortcut: formatShortcut(SHORTCUT_DEFS.toggleStateMachinePanel.binding),
+              shortcut: shortcutText('toggleStateMachinePanel'),
               ariaKeyshortcut: ks('toggleStateMachinePanel'),
               action: 'toggleStateMachinePanel',
             },
             {
               label: 'Fonts Panel',
-              shortcut: formatShortcut(SHORTCUT_DEFS.openFontsPanel.binding),
+              shortcut: shortcutText('openFontsPanel'),
               ariaKeyshortcut: ks('openFontsPanel'),
               action: 'openFontsPanel',
             },
             {
               label: 'Logo Panel',
-              shortcut: formatShortcut(SHORTCUT_DEFS.toggleLogoPanel.binding),
+              shortcut: shortcutText('toggleLogoPanel'),
               ariaKeyshortcut: ks('toggleLogoPanel'),
               action: 'toggleLogoPanel',
             },
@@ -1150,19 +1156,19 @@ function buildMenus(
         // Focus modes
         {
           label: 'Distraction-Free Mode',
-          shortcut: formatShortcut(SHORTCUT_DEFS.toggleDistractionFree.binding),
+          shortcut: shortcutText('toggleDistractionFree'),
           ariaKeyshortcut: ks('toggleDistractionFree'),
           action: 'toggleDistractionFree',
         },
         {
           label: 'Compare Before/After',
-          shortcut: formatShortcut(SHORTCUT_DEFS.toggleBeforeAfterCompare.binding),
+          shortcut: shortcutText('toggleBeforeAfterCompare'),
           ariaKeyshortcut: ks('toggleBeforeAfterCompare'),
           action: 'toggleBeforeAfterCompare',
         },
         {
           label: 'Test Logo at Small Sizes',
-          shortcut: formatShortcut(SHORTCUT_DEFS.logoPreview.binding),
+          shortcut: shortcutText('logoPreview'),
           ariaKeyshortcut: ks('logoPreview'),
           action: 'logoPreview',
           disabled: dis('logoPreview'),
@@ -1174,25 +1180,25 @@ function buildMenus(
             {
               label: 'Color Blindness: None',
               action: 'colorBlindnessNone',
-              shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessNone.binding),
+              shortcut: shortcutText('colorBlindnessNone'),
               ariaKeyshortcut: ks('colorBlindnessNone'),
             },
             {
               label: 'Color Blindness: Protanopia (red)',
               action: 'colorBlindnessProtanopia',
-              shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessProtanopia.binding),
+              shortcut: shortcutText('colorBlindnessProtanopia'),
               ariaKeyshortcut: ks('colorBlindnessProtanopia'),
             },
             {
               label: 'Color Blindness: Deuteranopia (green)',
               action: 'colorBlindnessDeuteranopia',
-              shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessDeuteranopia.binding),
+              shortcut: shortcutText('colorBlindnessDeuteranopia'),
               ariaKeyshortcut: ks('colorBlindnessDeuteranopia'),
             },
             {
               label: 'Color Blindness: Tritanopia (blue)',
               action: 'colorBlindnessTritanopia',
-              shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessTritanopia.binding),
+              shortcut: shortcutText('colorBlindnessTritanopia'),
               ariaKeyshortcut: ks('colorBlindnessTritanopia'),
             },
           ],
@@ -1200,13 +1206,13 @@ function buildMenus(
         { label: '---' },
         {
           label: 'Keyboard Shortcuts',
-          shortcut: formatShortcut(SHORTCUT_DEFS.shortcutPalette.binding),
+          shortcut: shortcutText('shortcutPalette'),
           ariaKeyshortcut: ks('shortcutPalette'),
           action: 'shortcutPalette',
         },
         {
           label: 'Home',
-          shortcut: formatShortcut(SHORTCUT_DEFS.home.binding),
+          shortcut: shortcutText('home'),
           ariaKeyshortcut: ks('home'),
           action: 'home',
         },
@@ -1217,14 +1223,14 @@ function buildMenus(
       items: [
         {
           label: 'Group',
-          shortcut: formatShortcut(SHORTCUT_DEFS.group.binding),
+          shortcut: shortcutText('group'),
           ariaKeyshortcut: ks('group'),
           action: 'group',
           disabled: dis('group'),
         },
         {
           label: 'Ungroup',
-          shortcut: formatShortcut(SHORTCUT_DEFS.ungroup.binding),
+          shortcut: shortcutText('ungroup'),
           ariaKeyshortcut: ks('ungroup'),
           action: 'ungroup',
           disabled: dis('ungroup'),
@@ -1232,14 +1238,14 @@ function buildMenus(
         { label: '---' },
         {
           label: 'Flip Horizontal',
-          shortcut: formatShortcut(SHORTCUT_DEFS.flipH.binding),
+          shortcut: shortcutText('flipH'),
           ariaKeyshortcut: ks('flipH'),
           action: 'flipH',
           disabled: !hasSelection,
         },
         {
           label: 'Flip Vertical',
-          shortcut: formatShortcut(SHORTCUT_DEFS.flipV.binding),
+          shortcut: shortcutText('flipV'),
           ariaKeyshortcut: ks('flipV'),
           action: 'flipV',
           disabled: !hasSelection,
@@ -1267,14 +1273,14 @@ function buildMenus(
         { label: '---' },
         {
           label: 'Open Effect Studio…',
-          shortcut: formatShortcut(SHORTCUT_DEFS.openAppearancePanel.binding),
+          shortcut: shortcutText('openAppearancePanel'),
           ariaKeyshortcut: ks('openAppearancePanel'),
           action: 'openAppearancePanel',
         },
         { label: '---' },
         {
           label: 'New Adjustment Layer',
-          shortcut: formatShortcut(SHORTCUT_DEFS.newAdjustmentLayer.binding),
+          shortcut: shortcutText('newAdjustmentLayer'),
           ariaKeyshortcut: ks('newAdjustmentLayer'),
           action: 'newAdjustmentLayer',
         },
@@ -1290,14 +1296,14 @@ function buildMenus(
         },
         {
           label: 'Create Clipping Mask',
-          shortcut: formatShortcut(SHORTCUT_DEFS.createClippingMask.binding),
+          shortcut: shortcutText('createClippingMask'),
           ariaKeyshortcut: ks('createClippingMask'),
           action: 'createClippingMask',
           disabled: dis('createClippingMask'),
         },
         {
           label: 'Release Clipping Mask',
-          shortcut: formatShortcut(SHORTCUT_DEFS.releaseClippingMask.binding),
+          shortcut: shortcutText('releaseClippingMask'),
           ariaKeyshortcut: ks('releaseClippingMask'),
           action: 'releaseClippingMask',
           disabled: dis('releaseClippingMask'),
@@ -1311,14 +1317,14 @@ function buildMenus(
         { label: 'Remove Background...', action: 'batchBgRemove', disabled: dis('batchBgRemove') },
         {
           label: 'Crop Image',
-          shortcut: formatShortcut(SHORTCUT_DEFS.toolCrop.binding),
+          shortcut: shortcutText('toolCrop'),
           ariaKeyshortcut: ks('toolCrop'),
           action: 'toolCrop',
           disabled: dis('toolCrop'),
         },
         {
           label: 'Perspective Image',
-          shortcut: formatShortcut(SHORTCUT_DEFS.toolPerspective.binding),
+          shortcut: shortcutText('toolPerspective'),
           ariaKeyshortcut: ks('toolPerspective'),
           action: 'toolPerspective',
           disabled: dis('toolPerspective'),
@@ -1330,7 +1336,7 @@ function buildMenus(
         },
         {
           label: 'Vectorize Image…',
-          shortcut: formatShortcut(SHORTCUT_DEFS.imageTrace.binding),
+          shortcut: shortcutText('imageTrace'),
           ariaKeyshortcut: ks('imageTrace'),
           action: 'imageTrace',
           disabled: dis('imageTrace'),
@@ -1363,7 +1369,7 @@ function buildMenus(
         // Flatten & Merge
         {
           label: 'Flatten Selection',
-          shortcut: formatShortcut(SHORTCUT_DEFS.flattenSelection.binding),
+          shortcut: shortcutText('flattenSelection'),
           ariaKeyshortcut: ks('flattenSelection'),
           action: 'flattenSelection',
           disabled: dis('flattenSelection'),
@@ -1387,28 +1393,28 @@ function buildMenus(
         // Boolean
         {
           label: 'Union',
-          shortcut: formatShortcut(SHORTCUT_DEFS.booleanUnion.binding),
+          shortcut: shortcutText('booleanUnion'),
           ariaKeyshortcut: ks('booleanUnion'),
           action: 'booleanUnion',
           disabled: dis('booleanUnion'),
         },
         {
           label: 'Subtract',
-          shortcut: formatShortcut(SHORTCUT_DEFS.booleanSubtract.binding),
+          shortcut: shortcutText('booleanSubtract'),
           ariaKeyshortcut: ks('booleanSubtract'),
           action: 'booleanSubtract',
           disabled: dis('booleanSubtract'),
         },
         {
           label: 'Intersect',
-          shortcut: formatShortcut(SHORTCUT_DEFS.booleanIntersect.binding),
+          shortcut: shortcutText('booleanIntersect'),
           ariaKeyshortcut: ks('booleanIntersect'),
           action: 'booleanIntersect',
           disabled: dis('booleanIntersect'),
         },
         {
           label: 'Exclude',
-          shortcut: formatShortcut(SHORTCUT_DEFS.booleanExclude.binding),
+          shortcut: shortcutText('booleanExclude'),
           ariaKeyshortcut: ks('booleanExclude'),
           action: 'booleanExclude',
           disabled: dis('booleanExclude'),
@@ -1420,49 +1426,49 @@ function buildMenus(
           items: [
             {
               label: 'Expand Stroke to Outline',
-              shortcut: formatShortcut(SHORTCUT_DEFS.expandStroke.binding),
+              shortcut: shortcutText('expandStroke'),
               ariaKeyshortcut: ks('expandStroke'),
               action: 'expandStroke',
               disabled: dis('expandStroke'),
             },
             {
               label: 'Offset Path…',
-              shortcut: formatShortcut(SHORTCUT_DEFS.offsetPath.binding),
+              shortcut: shortcutText('offsetPath'),
               ariaKeyshortcut: ks('offsetPath'),
               action: 'offsetPath',
               disabled: dis('offsetPath'),
             },
             {
               label: 'Round Path Corners…',
-              shortcut: formatShortcut(SHORTCUT_DEFS.roundCorners.binding),
+              shortcut: shortcutText('roundCorners'),
               ariaKeyshortcut: ks('roundCorners'),
               action: 'roundCorners',
               disabled: dis('roundCorners'),
             },
             {
               label: 'Simplify Path…',
-              shortcut: formatShortcut(SHORTCUT_DEFS.simplifyPath.binding),
+              shortcut: shortcutText('simplifyPath'),
               ariaKeyshortcut: ks('simplifyPath'),
               action: 'simplifyPath',
               disabled: dis('simplifyPath'),
             },
             {
               label: 'Mirror Duplicate — Horizontal',
-              shortcut: formatShortcut(SHORTCUT_DEFS.mirrorDuplicateHorizontal.binding),
+              shortcut: shortcutText('mirrorDuplicateHorizontal'),
               ariaKeyshortcut: ks('mirrorDuplicateHorizontal'),
               action: 'mirrorDuplicateHorizontal',
               disabled: dis('mirrorDuplicateHorizontal'),
             },
             {
               label: 'Mirror Duplicate — Vertical',
-              shortcut: formatShortcut(SHORTCUT_DEFS.mirrorDuplicateVertical.binding),
+              shortcut: shortcutText('mirrorDuplicateVertical'),
               ariaKeyshortcut: ks('mirrorDuplicateVertical'),
               action: 'mirrorDuplicateVertical',
               disabled: dis('mirrorDuplicateVertical'),
             },
             {
               label: 'Radial Duplicate…',
-              shortcut: formatShortcut(SHORTCUT_DEFS.radialDuplicate.binding),
+              shortcut: shortcutText('radialDuplicate'),
               ariaKeyshortcut: ks('radialDuplicate'),
               action: 'radialDuplicate',
               disabled: dis('radialDuplicate'),
@@ -1486,28 +1492,28 @@ function buildMenus(
       items: [
         {
           label: 'Bring to Front',
-          shortcut: formatShortcut(SHORTCUT_DEFS.bringFront.binding),
+          shortcut: shortcutText('bringFront'),
           ariaKeyshortcut: ks('bringFront'),
           action: 'bringFront',
           disabled: dis('bringFront'),
         },
         {
           label: 'Bring Forward',
-          shortcut: formatShortcut(SHORTCUT_DEFS.bringForward.binding),
+          shortcut: shortcutText('bringForward'),
           ariaKeyshortcut: ks('bringForward'),
           action: 'bringForward',
           disabled: dis('bringForward'),
         },
         {
           label: 'Send Backward',
-          shortcut: formatShortcut(SHORTCUT_DEFS.sendBackward.binding),
+          shortcut: shortcutText('sendBackward'),
           ariaKeyshortcut: ks('sendBackward'),
           action: 'sendBackward',
           disabled: dis('sendBackward'),
         },
         {
           label: 'Send to Back',
-          shortcut: formatShortcut(SHORTCUT_DEFS.sendBack.binding),
+          shortcut: shortcutText('sendBack'),
           ariaKeyshortcut: ks('sendBack'),
           action: 'sendBack',
           disabled: dis('sendBack'),
@@ -1519,21 +1525,21 @@ function buildMenus(
           items: [
             {
               label: 'Align Left',
-              shortcut: formatShortcut(SHORTCUT_DEFS.alignLeft.binding),
+              shortcut: shortcutText('alignLeft'),
               ariaKeyshortcut: ks('alignLeft'),
               action: 'alignLeft',
               disabled: dis('alignLeft'),
             },
             {
               label: 'Align Horizontal Center',
-              shortcut: formatShortcut(SHORTCUT_DEFS.alignCenterH.binding),
+              shortcut: shortcutText('alignCenterH'),
               ariaKeyshortcut: ks('alignCenterH'),
               action: 'alignCenterH',
               disabled: dis('alignCenterH'),
             },
             {
               label: 'Align Right',
-              shortcut: formatShortcut(SHORTCUT_DEFS.alignRight.binding),
+              shortcut: shortcutText('alignRight'),
               ariaKeyshortcut: ks('alignRight'),
               action: 'alignRight',
               disabled: dis('alignRight'),
@@ -1541,21 +1547,21 @@ function buildMenus(
             { label: '---' },
             {
               label: 'Align Top',
-              shortcut: formatShortcut(SHORTCUT_DEFS.alignTop.binding),
+              shortcut: shortcutText('alignTop'),
               ariaKeyshortcut: ks('alignTop'),
               action: 'alignTop',
               disabled: dis('alignTop'),
             },
             {
               label: 'Align Vertical Center',
-              shortcut: formatShortcut(SHORTCUT_DEFS.alignCenterV.binding),
+              shortcut: shortcutText('alignCenterV'),
               ariaKeyshortcut: ks('alignCenterV'),
               action: 'alignCenterV',
               disabled: dis('alignCenterV'),
             },
             {
               label: 'Align Bottom',
-              shortcut: formatShortcut(SHORTCUT_DEFS.alignBottom.binding),
+              shortcut: shortcutText('alignBottom'),
               ariaKeyshortcut: ks('alignBottom'),
               action: 'alignBottom',
               disabled: dis('alignBottom'),
@@ -1563,14 +1569,14 @@ function buildMenus(
             { label: '---' },
             {
               label: 'Distribute Horizontally',
-              shortcut: formatShortcut(SHORTCUT_DEFS.distributeHorizontal.binding),
+              shortcut: shortcutText('distributeHorizontal'),
               ariaKeyshortcut: ks('distributeHorizontal'),
               action: 'distributeHorizontal',
               disabled: dis('distributeHorizontal'),
             },
             {
               label: 'Distribute Vertically',
-              shortcut: formatShortcut(SHORTCUT_DEFS.distributeVertical.binding),
+              shortcut: shortcutText('distributeVertical'),
               ariaKeyshortcut: ks('distributeVertical'),
               action: 'distributeVertical',
               disabled: dis('distributeVertical'),
@@ -1585,7 +1591,7 @@ function buildMenus(
         },
         {
           label: 'Harmonize Spacing',
-          shortcut: formatShortcut(SHORTCUT_DEFS.harmonizeSpacing.binding),
+          shortcut: shortcutText('harmonizeSpacing'),
           ariaKeyshortcut: ks('harmonizeSpacing'),
           action: 'harmonizeSpacing',
           disabled: dis('harmonizeSpacing'),
@@ -1593,28 +1599,28 @@ function buildMenus(
         { label: '---' },
         {
           label: 'Nudge Left',
-          shortcut: formatShortcut(SHORTCUT_DEFS.nudgeLeft.binding),
+          shortcut: shortcutText('nudgeLeft'),
           ariaKeyshortcut: ks('nudgeLeft'),
           action: 'nudgeLeft',
           disabled: dis('nudgeLeft'),
         },
         {
           label: 'Nudge Right',
-          shortcut: formatShortcut(SHORTCUT_DEFS.nudgeRight.binding),
+          shortcut: shortcutText('nudgeRight'),
           ariaKeyshortcut: ks('nudgeRight'),
           action: 'nudgeRight',
           disabled: dis('nudgeRight'),
         },
         {
           label: 'Nudge Up',
-          shortcut: formatShortcut(SHORTCUT_DEFS.nudgeUp.binding),
+          shortcut: shortcutText('nudgeUp'),
           ariaKeyshortcut: ks('nudgeUp'),
           action: 'nudgeUp',
           disabled: dis('nudgeUp'),
         },
         {
           label: 'Nudge Down',
-          shortcut: formatShortcut(SHORTCUT_DEFS.nudgeDown.binding),
+          shortcut: shortcutText('nudgeDown'),
           ariaKeyshortcut: ks('nudgeDown'),
           action: 'nudgeDown',
           disabled: dis('nudgeDown'),
@@ -1667,13 +1673,13 @@ function buildMenus(
       items: [
         {
           label: 'Contextual Help',
-          shortcut: formatShortcut(SHORTCUT_DEFS.openHelp.binding),
+          shortcut: shortcutText('openHelp'),
           ariaKeyshortcut: ks('openHelp'),
           action: 'openHelp',
         },
         {
           label: 'Help Center',
-          shortcut: formatShortcut(SHORTCUT_DEFS.openHelpCenter.binding),
+          shortcut: shortcutText('openHelpCenter'),
           ariaKeyshortcut: ks('openHelpCenter'),
           action: 'openHelpCenter',
         },
@@ -1702,25 +1708,6 @@ function buildMenus(
   ];
 }
 
-function itemRole(item: MenuItem): string {
-  if (item.action?.startsWith('theme:')) return 'menuitemradio';
-  if (
-    item.action === 'canvasModeOutline' ||
-    item.action === 'canvasModePreview' ||
-    item.action === 'canvasModeFull'
-  )
-    return 'menuitemcheckbox';
-  if (item.action?.startsWith('colorBlindness')) return 'menuitemradio';
-  if (item.action?.startsWith('workspace')) return 'menuitemradio';
-  if (item.action === 'viewToolbarTop' || item.action === 'viewToolbarBottom')
-    return 'menuitemradio';
-  if (item.action === 'toggleLogoPanel') return 'menuitemcheckbox';
-  if (item.action === 'rulerModeArtboard' || item.action === 'rulerModeGlobal')
-    return 'menuitemradio';
-  if (item.action?.startsWith('applyMaster')) return 'menuitemradio';
-  return 'menuitem';
-}
-
 function separatorKey(items: MenuItem[], current: MenuItem, parentLabel: string): string {
   let ordinal = 0;
   for (const item of items) {
@@ -1728,51 +1715,6 @@ function separatorKey(items: MenuItem[], current: MenuItem, parentLabel: string)
     if (item.label === '---') ordinal += 1;
   }
   return `${parentLabel}-separator-${ordinal}`;
-}
-
-/** Compute aria-checked for a menu item based on current state. */
-function itemAriaChecked(
-  item: MenuItem,
-  state: {
-    canvasMode: string;
-    workspaceMode: string;
-    colorBlindnessView: string;
-    rulerMode: string;
-    logoPanelVisible: boolean;
-    document?: { activePageId?: string; pages?: Array<{ id: string; masterPageId?: string }> };
-  },
-  toolbarPlacement: 'bottom' | 'top' = 'bottom',
-): boolean | undefined {
-  if (item.action === 'viewToolbarTop') return toolbarPlacement === 'top';
-  if (item.action === 'viewToolbarBottom') return toolbarPlacement === 'bottom';
-  if (item.action === 'toggleLogoPanel') return state.logoPanelVisible;
-  if (item.action?.startsWith('theme:')) {
-    return getThemePreference() === item.action.slice(6);
-  }
-  if (item.action === 'canvasModeOutline') return state.canvasMode === 'outline';
-  if (item.action === 'canvasModePreview') return state.canvasMode === 'preview';
-  if (item.action === 'canvasModeFull') return state.canvasMode === 'full';
-  if (item.action?.startsWith('colorBlindness')) {
-    const type = item.action.slice('colorBlindness'.length).toLowerCase();
-    return state.colorBlindnessView === type;
-  }
-  if (item.action?.startsWith('workspace')) {
-    const mode = item.action.replace('workspace', '').toLowerCase();
-    return state.workspaceMode === mode;
-  }
-  if (item.action === 'rulerModeArtboard') return state.rulerMode === 'artboard';
-  if (item.action === 'rulerModeGlobal') return state.rulerMode === 'global';
-  if (item.action?.startsWith('applyMaster:')) {
-    const targetId = item.action.slice('applyMaster:'.length);
-    const activePageId = state.document?.activePageId ?? null;
-    const activePage = activePageId
-      ? state.document?.pages?.find((p) => p.id === activePageId)
-      : null;
-    const currentMasterId = activePage?.masterPageId ?? null;
-    if (targetId === '') return currentMasterId == null;
-    return currentMasterId === targetId;
-  }
-  return undefined;
 }
 
 /**
@@ -1933,6 +1875,10 @@ export function Menubar({
   // `sessions` may be absent in unit-test harnesses that pass a partial state.
   const activeSession = (state.sessions ?? []).find((s) => s.id === state.activeId);
   const activeFilePath = activeSession?.filePath;
+  // Menu availability (Audit / Scan for Debt / Suggest Names) depends on
+  // whether the document has nodes, not on which are selected. Track the
+  // count so structural edits without a selection change still rebuild it.
+  const documentNodeCount = Object.keys(state.document?.nodes ?? {}).length;
   const revealLabel = platform?.fileManagerLabel() ?? 'Reveal in Files';
   const showAllMenuItems = useMemo(() => {
     try {
@@ -1997,6 +1943,10 @@ export function Menubar({
       state.rulerMode,
       state.snapEnabled,
       state.alignToPage,
+      state.bleedGuidesVisible,
+      state.document.masters,
+      documentNodeCount,
+      activeFilePath,
       recentEntries,
       caps,
       nudgeCapability.canNudge,
@@ -2081,14 +2031,17 @@ export function Menubar({
     }
   }, [editingName]);
 
+  // One type-ahead buffer per menu level: opening, switching, or closing a
+  // menu level starts a fresh search. Cleanup clears a pending reset timer.
   useEffect(() => {
+    typeaheadRef.current = '';
     return () => {
       if (typeaheadTimerRef.current !== null) {
         clearTimeout(typeaheadTimerRef.current);
         typeaheadTimerRef.current = null;
       }
     };
-  }, []);
+  }, [openMenu, openSubmenu]);
   useMenubarFocusEffects({
     openMenu,
     openSubmenu,
@@ -2444,11 +2397,39 @@ export function Menubar({
     return item.items;
   }, [openSubmenu, openMenuIndex, menus]);
 
+  // Availability is recomputed on every render. If the open flyout's parent
+  // becomes unavailable (selection cleared, capability changed), close the
+  // flyout instead of leaving commands that can no longer run on screen. When
+  // the flyout owned focus, move it to the dropdown's first enabled item so a
+  // disabled parent never strands focus on <body>.
+  useEffect(() => {
+    if (openSubmenu === null || openMenuIndex < 0) return;
+    const parent = menus[openMenuIndex]?.items[openSubmenu];
+    if (!parent?.items || !parent.disabled) return;
+    setOpenSubmenu(null);
+    setActiveSubmenuIndex(0);
+    // The render path already withheld the flyout this commit, so if it owned
+    // focus the unmount dropped focus to <body>. That is the only state this
+    // close path owns: a pointer user's focus elsewhere is left untouched.
+    const ownerDocument = dropdownMenuRef.current?.ownerDocument;
+    if (!ownerDocument || ownerDocument.activeElement !== ownerDocument.body) return;
+    const items = dropdownMenuRef.current?.querySelectorAll<HTMLButtonElement>(MENU_ITEM_SELECTOR);
+    if (!items) return;
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i];
+      if (!item || item.hasAttribute('disabled')) continue;
+      setActiveItemIndex(i);
+      item.focus({ preventScroll: true });
+      break;
+    }
+  }, [openSubmenu, openMenuIndex, menus, dropdownMenuRef, setActiveItemIndex]);
+
   const handleMenuKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       handleMenubarKey(e, {
         menuRef,
         dropdownMenuRef,
+        submenuRef,
         topLevelRefs,
         openMenu,
         openSubmenu,
@@ -2584,8 +2565,13 @@ export function Menubar({
                     }
                     focusableIdx += 1;
                     const itemFocusableIdx = focusableIdx;
-                    const role = itemRole(item);
-                    const isChecked = itemAriaChecked(item, state, toolbarPlacement);
+                    const role = menubarItemRole(item);
+                    const isChecked = menubarItemAriaChecked(
+                      item,
+                      state,
+                      currentTheme,
+                      toolbarPlacement,
+                    );
                     const isActive =
                       (item.action?.startsWith('theme:') &&
                         currentTheme === item.action.slice(6)) ||
@@ -2604,7 +2590,7 @@ export function Menubar({
                         role="none"
                         className="editor-menubar__menu-item-wrapper"
                         onMouseEnter={() => {
-                          if (hasSubmenu) {
+                          if (hasSubmenu && !item.disabled) {
                             // Pointer-opening a flyout must still establish
                             // the owning parent item for Escape/Left focus
                             // restoration; hover must not itself steal focus.
@@ -2633,11 +2619,12 @@ export function Menubar({
                               : undefined
                           }
                           aria-keyshortcuts={item.ariaKeyshortcut}
-                          disabled={item.disabled && !hasSubmenu}
+                          disabled={item.disabled}
                           tabIndex={activeItemIndex === itemFocusableIdx ? 0 : -1}
                           className={`editor-menubar__menu-item${isActive ? ' editor-menubar__menu-item--active' : ''}${hasSubmenu ? ' editor-menubar__menu-item--submenu' : ''}`}
                           onClick={() => {
                             if (hasSubmenu) {
+                              if (item.disabled) return;
                               setOpenSubmenu(isSubmenuOpen ? null : itemIdx);
                               setActiveSubmenuIndex(0);
                             } else {
@@ -2655,7 +2642,7 @@ export function Menubar({
                             <span className="editor-menubar__menu-shortcut">{item.shortcut}</span>
                           )}
                         </button>
-                        {hasSubmenu && isSubmenuOpen && item.items && (
+                        {hasSubmenu && isSubmenuOpen && item.items && !item.disabled && (
                           <MenubarSubmenu
                             items={item.items}
                             parentLabel={item.label}

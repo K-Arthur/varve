@@ -167,6 +167,12 @@ test.describe('Menu keyboard navigation', () => {
   // ─── Submenu navigation ─────────────────────────────────────────
 
   test('ArrowRight opens submenu, ArrowLeft closes it', async ({ page }) => {
+    // Align needs a multi-selection to be available; a disabled submenu parent
+    // must not open at all (covered by flyout-dismissal.spec.ts).
+    await seedLayers(page, 2);
+    const tree = page.getByRole('tree', { name: 'Layers' });
+    await tree.locator('[role="treeitem"]').first().click();
+    await page.keyboard.press('Control+a');
     await openMenu(page, 'Arrange');
     const alignItem = page.locator('[role="menu"] [role="menuitem"][aria-haspopup]', {
       hasText: 'Align',
@@ -183,6 +189,12 @@ test.describe('Menu keyboard navigation', () => {
   });
 
   test('Enter on submenu item opens submenu', async ({ page }) => {
+    // Same precondition as the ArrowRight/ArrowLeft journey: Align must be
+    // enabled for the parent to open.
+    await seedLayers(page, 2);
+    const tree = page.getByRole('tree', { name: 'Layers' });
+    await tree.locator('[role="treeitem"]').first().click();
+    await page.keyboard.press('Control+a');
     await openMenu(page, 'Arrange');
     const alignItem = page.locator('[role="menu"] [role="menuitem"][aria-haspopup]', {
       hasText: 'Align',

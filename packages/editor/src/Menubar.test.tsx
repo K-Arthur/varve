@@ -11,6 +11,10 @@ let mockWorkspaceMode = 'design';
 let mockLogoPanelVisible = false;
 let mockSelection: string[] = [];
 let mockDocument = createDocument('Test Doc');
+let mockShortcutOverrides: Record<
+  string,
+  { key: string; ctrl?: boolean; shift?: boolean; alt?: boolean }
+> = {};
 
 vi.mock('./context', () => ({
   useEditor: () => ({
@@ -273,22 +277,40 @@ vi.mock('./shortcuts', () => {
     nudgeUp: { binding: { key: 'ArrowUp' }, label: 'Nudge Up' },
     nudgeDown: { binding: { key: 'ArrowDown' }, label: 'Nudge Down' },
   };
-  // Any def the menu references but this mock does not spell out resolves
-  // to a synthetic binding (the agent menu system grows new commands that
-  // this harness should not need to chase).
+  const formatBinding = (binding: {
+    key?: string;
+    ctrl?: boolean;
+    shift?: boolean;
+    alt?: boolean;
+  }): string => {
+    if (!binding?.key) return '';
+    const parts: string[] = [];
+    if (binding.ctrl) parts.push('Ctrl');
+    if (binding.shift) parts.push('Shift');
+    if (binding.alt) parts.push('Alt');
+    parts.push(binding.key.length === 1 ? binding.key.toUpperCase() : binding.key);
+    return parts.join('+');
+  };
+  type MockBinding = { key: string; ctrl?: boolean; shift?: boolean; alt?: boolean };
+  // Any def the menu references but this mock does not spell out resolves to
+  // its declared binding (the agent menu system grows new commands that this
+  // harness should not need to chase). Overrides behave like the real keymap.
   return {
-    formatShortcut: () => 'Ctrl+S',
-    getEffectiveBinding: (id: string) => {
-      const defs: Record<string, { key: string; ctrl?: boolean; shift?: boolean; alt?: boolean }> =
-        {
-          import: { key: 'i', ctrl: true },
-          present: { key: 'p', ctrl: true, shift: true },
-          delete: { key: 'Backspace' },
-          toggleGrid: { key: 'g', ctrl: true, shift: true },
-          openHelp: { key: 'F1' },
-          openHelpCenter: { key: 'F1', ctrl: true, shift: true },
-        };
-      return defs[id] ?? { key: '' };
+    formatShortcut: formatBinding,
+    getEffectiveBinding: (id: string): MockBinding => {
+      const override = mockShortcutOverrides[id];
+      if (override) return override;
+      const defs: Record<string, MockBinding> = {
+        import: { key: 'i', ctrl: true },
+        present: { key: 'p', ctrl: true, shift: true },
+        delete: { key: 'Backspace' },
+        toggleGrid: { key: 'g', ctrl: true, shift: true },
+        openHelp: { key: 'F1' },
+        openHelpCenter: { key: 'F1', ctrl: true, shift: true },
+      };
+      if (defs[id]) return defs[id];
+      const declared = Reflect.get(shortcutDefs, id) as { binding?: MockBinding } | undefined;
+      return declared?.binding ?? { key: '' };
     },
     SHORTCUT_DEFS: new Proxy(shortcutDefs, {
       get: (target, prop) =>
@@ -308,6 +330,7 @@ afterEach(() => {
   cleanup();
   mockSelection = [];
   mockDocument = createDocument('Test Doc');
+  mockShortcutOverrides = {};
   setCapabilityRestrictions(null);
 });
 
@@ -425,6 +448,28 @@ describe('Menubar menu structure', () => {
     }
   });
 
+  it('renders the Logo Panel toggle as a checked checkbox inside the Panels submenu', async () => {
+    // Regression: the submenu carried a hand-copied role/checked helper that
+    // lacked the toggleLogoPanel case, so once the item moved into the Panels
+    // submenu it rendered as a plain menuitem with no checked state. Both
+    // surfaces now share one helper (menu/menubarItemState.ts).
+    mockWorkspaceMode = 'logo';
+    mockLogoPanelVisible = true;
+    try {
+      const user = userEvent.setup();
+      render(<Menubar />);
+      await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
+      const menu = await screen.findByRole('menu', { name: 'View' });
+      await user.hover(within(menu).getByRole('menuitem', { name: 'Panels' }));
+      const panels = await screen.findByRole('menu', { name: 'Panels' });
+      const logoItem = within(panels).getByRole('menuitemcheckbox', { name: /Logo Panel/ });
+      expect(logoItem).toHaveAttribute('aria-checked', 'true');
+    } finally {
+      mockWorkspaceMode = 'design';
+      mockLogoPanelVisible = false;
+    }
+  });
+
   it('Edit menu contains Undo, Redo, Cut, Copy, Paste, Duplicate, Delete', async () => {
     const user = userEvent.setup();
     render(<Menubar />);
@@ -433,9 +478,9 @@ describe('Menubar menu structure', () => {
     expect(within(menu).getByRole('menuitem', { name: /Undo/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /Redo/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /Cut/ })).toBeTruthy();
-    // Accessible names include the rendered shortcut ("CopyCtrl+S").
-    expect(within(menu).getByRole('menuitem', { name: /^CopyCtrl\+S$/ })).toBeTruthy();
-    expect(within(menu).getByRole('menuitem', { name: /^PasteCtrl\+S$/ })).toBeTruthy();
+    // Accessible names include the rendered effective shortcut ("CopyCtrl+C").
+    expect(within(menu).getByRole('menuitem', { name: /^CopyCtrl\+C$/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /^PasteCtrl\+V$/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /^Copy Text$/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /^Copy as SVG$/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /^Copy as PNG$/ })).toBeTruthy();
@@ -494,9 +539,28 @@ describe('Menubar shortcut display', () => {
     render(<Menubar />);
     await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Edit' }));
     const menu = await screen.findByRole('menu', { name: 'Edit' });
-    // All our shortcuts render as 'Ctrl+S' since formatShortcut mock returns that
     const shortcutElements = menu.querySelectorAll('.editor-menubar__menu-shortcut');
     expect(shortcutElements.length).toBeGreaterThan(0);
+  });
+
+  it('shows the effective (remapped) shortcut instead of the default', async () => {
+    mockShortcutOverrides = {
+      newDocument: { key: 'n', ctrl: true, shift: true, alt: true },
+    };
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'File' }));
+    const menu = await screen.findByRole('menu', { name: 'File' });
+    const newItem = within(menu)
+      .getAllByRole('menuitem')
+      .find(
+        (item) => item.textContent?.trim().startsWith('New') && !item.textContent.includes('Logo'),
+      );
+    expect(newItem).toBeTruthy();
+    expect(newItem?.querySelector('.editor-menubar__menu-shortcut')?.textContent).toBe(
+      'Ctrl+Shift+Alt+N',
+    );
+    expect(newItem).toHaveAttribute('aria-keyshortcuts', 'Ctrl+Shift+Alt+N');
   });
 });
 
@@ -540,6 +604,14 @@ describe('Menubar disabled states', () => {
   });
 
   it('hovering a plain command closes an open submenu', async () => {
+    // Two selected nodes keep Align (a submenu parent) enabled, so the hover
+    // journey exercises an interactive flyout parent rather than a disabled row.
+    const nodes = ['h1', 'h2'].map((id, index) =>
+      makeShapeNode(id, { kind: 'rect', x: index * 20, y: 0, w: 10, h: 10 }),
+    );
+    mockDocument = nodes.reduce((doc, node) => addNode(doc, node), mockDocument);
+    mockSelection = nodes.map((node) => node.id);
+
     const user = userEvent.setup();
     render(<Menubar />);
     await user.click(
@@ -550,6 +622,26 @@ describe('Menubar disabled states', () => {
     expect(await screen.findByRole('menu', { name: 'Align' })).toBeInTheDocument();
 
     await user.hover(within(menu).getByRole('menuitem', { name: /Harmonize Spacing/ }));
+    expect(screen.queryByRole('menu', { name: 'Align' })).not.toBeInTheDocument();
+  });
+
+  it('does not open a disabled submenu parent on hover', async () => {
+    // One selected node keeps Align disabled (relative alignment needs two);
+    // hovering it must behave like any other unavailable command row.
+    const only = makeShapeNode('only', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+    mockDocument = addNode(mockDocument, only);
+    mockSelection = [only.id];
+
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(
+      within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Arrange' }),
+    );
+    const menu = await screen.findByRole('menu', { name: 'Arrange' });
+    const align = within(menu).getByRole('menuitem', { name: 'Align' });
+    expect(align).toBeDisabled();
+
+    await user.hover(align);
     expect(screen.queryByRole('menu', { name: 'Align' })).not.toBeInTheDocument();
   });
 
@@ -588,6 +680,75 @@ describe('Menubar disabled states', () => {
     // The fourth step crosses the first separator; focus must have reached
     // the second group, and the tabindex must have followed it.
     expect(visited.some((name) => name.startsWith('Align Top'))).toBe(true);
+  });
+
+  it('closes an open flyout and moves focus when its parent becomes disabled', async () => {
+    const nodes = ['x1', 'x2'].map((id, index) =>
+      makeShapeNode(id, { kind: 'rect', x: index * 20, y: 0, w: 10, h: 10 }),
+    );
+    mockDocument = nodes.reduce((doc, node) => addNode(doc, node), mockDocument);
+    mockSelection = nodes.map((node) => node.id);
+
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(
+      within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Arrange' }),
+    );
+    const menu = await screen.findByRole('menu', { name: 'Arrange' });
+    await user.hover(within(menu).getByRole('menuitem', { name: 'Align' }));
+    const submenu = await screen.findByRole('menu', { name: 'Align' });
+    within(submenu)
+      .getByRole('menuitem', { name: /^Align Left/ })
+      .focus();
+
+    // The selection shrinks underneath the open flyout, disabling its parent.
+    mockSelection = [nodes[0]!.id];
+    await user.keyboard('{ArrowDown}');
+
+    await waitFor(() => {
+      expect(screen.queryByRole('menu', { name: 'Align' })).not.toBeInTheDocument();
+    });
+    expect(document.activeElement).not.toBe(document.body);
+    expect(
+      within(menu)
+        .getAllByRole('menuitem')
+        .some((item) => item === document.activeElement),
+    ).toBe(true);
+  });
+
+  it('supports type-ahead and Home/End inside a submenu', async () => {
+    const nodes = ['k1', 'k2', 'k3'].map((id, index) =>
+      makeShapeNode(id, { kind: 'rect', x: index * 20, y: 0, w: 10, h: 10 }),
+    );
+    mockDocument = nodes.reduce((doc, node) => addNode(doc, node), mockDocument);
+    mockSelection = nodes.map((node) => node.id);
+
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(
+      within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Arrange' }),
+    );
+    const menu = await screen.findByRole('menu', { name: 'Arrange' });
+    await user.hover(within(menu).getByRole('menuitem', { name: 'Align' }));
+    const submenu = await screen.findByRole('menu', { name: 'Align' });
+    within(submenu)
+      .getByRole('menuitem', { name: /^Align Left/ })
+      .focus();
+
+    await user.keyboard('d');
+    await waitFor(() => {
+      expect(document.activeElement?.textContent?.trim()).toMatch(/^Distribute Horizontally/);
+    });
+
+    await user.keyboard('{End}');
+    await waitFor(() => {
+      expect(document.activeElement?.textContent?.trim()).toMatch(/^Tidy Up/);
+    });
+
+    await user.keyboard('{Home}');
+    await waitFor(() => {
+      expect(document.activeElement?.textContent?.trim()).toMatch(/^Align Left/);
+    });
   });
 
   it('disables withheld demo workspaces and background removal', async () => {

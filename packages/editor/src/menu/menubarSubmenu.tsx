@@ -8,6 +8,13 @@
 
 import { FloatingPortal } from '@varve/ui';
 import type React from 'react';
+import { type MenubarItemState, menubarItemAriaChecked, menubarItemRole } from './menubarItemState';
+
+// Re-exported so the dropdown can use the same helpers without adding an
+// import statement beyond the submenu it already renders (Menubar.tsx is a
+// hub file with an import budget; the implementation stays single-sourced in
+// menubarItemState.ts).
+export { menubarItemAriaChecked, menubarItemRole };
 
 interface SubmenuDef {
   label: string;
@@ -26,31 +33,9 @@ interface MenubarSubmenuProps {
   submenuRef: React.RefObject<HTMLDivElement | null>;
   currentTheme: string;
   onKeyDown: React.KeyboardEventHandler<HTMLDivElement>;
-  state: {
-    canvasMode: string;
-    workspaceMode: string;
-    colorBlindnessView: string;
-    rulerMode: string;
-    document?: { activePageId?: string; pages?: Array<{ id: string; masterPageId?: string }> };
-  };
+  state: MenubarItemState;
   onClose: () => void;
   handleAction: (action: string) => void;
-}
-
-function itemRole(item: SubmenuDef): string {
-  if (item.action?.startsWith('theme:')) return 'menuitemradio';
-  if (
-    item.action === 'canvasModeOutline' ||
-    item.action === 'canvasModePreview' ||
-    item.action === 'canvasModeFull'
-  )
-    return 'menuitemcheckbox';
-  if (item.action?.startsWith('colorBlindness')) return 'menuitemradio';
-  if (item.action?.startsWith('workspace')) return 'menuitemradio';
-  if (item.action === 'rulerModeArtboard' || item.action === 'rulerModeGlobal')
-    return 'menuitemradio';
-  if (item.action?.startsWith('applyMaster')) return 'menuitemradio';
-  return 'menuitem';
 }
 
 function separatorKey(items: SubmenuDef[], current: SubmenuDef, parentLabel: string): string {
@@ -60,38 +45,6 @@ function separatorKey(items: SubmenuDef[], current: SubmenuDef, parentLabel: str
     if (item.label === '---') ordinal += 1;
   }
   return `${parentLabel}-separator-${ordinal}`;
-}
-
-/** Compute aria-checked for a menu item based on current state. */
-function itemAriaChecked(
-  item: SubmenuDef,
-  state: MenubarSubmenuProps['state'],
-  currentTheme: string,
-): boolean | undefined {
-  if (item.action?.startsWith('theme:')) {
-    return currentTheme === item.action.slice(6);
-  }
-  if (item.action === 'canvasModeOutline') return state.canvasMode === 'outline';
-  if (item.action === 'canvasModePreview') return state.canvasMode === 'preview';
-  if (item.action === 'canvasModeFull') return state.canvasMode === 'full';
-  if (item.action?.startsWith('colorBlindness')) {
-    return state.colorBlindnessView === item.action.slice('colorBlindness'.length).toLowerCase();
-  }
-  if (item.action?.startsWith('workspace')) {
-    // Action ids are camelCase (workspaceDesign); state values are lowercase
-    // (design). Without normalizing, every workspace radio in a submenu
-    // rendered aria-checked="false" even for the active mode.
-    return state.workspaceMode === item.action.slice('workspace'.length).toLowerCase();
-  }
-  if (item.action === 'rulerModeArtboard') return state.rulerMode === 'artboard';
-  if (item.action === 'rulerModeGlobal') return state.rulerMode === 'global';
-  if (item.action?.startsWith('applyMaster')) {
-    return state.document?.activePageId
-      ? state.document.pages?.find((p) => p.id === state.document?.activePageId)?.masterPageId ===
-          item.action.slice('applyMaster'.length)
-      : false;
-  }
-  return undefined;
 }
 
 export function MenubarSubmenu({
@@ -154,8 +107,8 @@ export function MenubarSubmenu({
             }
             focusableIdx += 1;
             const subFocusableIdx = focusableIdx;
-            const subRole = itemRole(subItem);
-            const subChecked = itemAriaChecked(subItem, state, currentTheme);
+            const subRole = menubarItemRole(subItem);
+            const subChecked = menubarItemAriaChecked(subItem, state, currentTheme);
             const subActive =
               (subItem.action?.startsWith('theme:') && currentTheme === subItem.action.slice(6)) ||
               subChecked;

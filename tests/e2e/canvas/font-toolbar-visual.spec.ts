@@ -128,7 +128,7 @@ async function measureToolbarConsistency(page: Page, toolbar: Locator) {
 async function measureContextFontControls(
   page: Page,
   contextBar: Locator,
-  referenceToolbar: Locator,
+  expected: { gap: string; fontFamily: string; fontSize: string },
 ) {
   const paletteHeight = await page
     .locator('.floating-toolbar__row')
@@ -152,19 +152,15 @@ async function measureContextFontControls(
         ?.getBoundingClientRect().width,
     };
   });
-  const floatingStyle = await referenceToolbar.evaluate((element) => {
-    const style = getComputedStyle(element);
-    return { gap: style.gap, fontFamily: style.fontFamily, fontSize: style.fontSize };
-  });
   await test.info().attach('context-font-controls', {
     body: JSON.stringify(measured, null, 2),
     contentType: 'application/json',
   });
   expect(measured.height).toBeGreaterThanOrEqual(32);
   expect(measured.height, 'contextual bar height').toBeCloseTo(paletteHeight, 0);
-  expect(measured.gap).toBe(floatingStyle.gap);
-  expect(measured.fontFamily).toBe(floatingStyle.fontFamily);
-  expect(measured.fontSize).toBe(floatingStyle.fontSize);
+  expect(measured.gap).toBe(expected.gap);
+  expect(measured.fontFamily).toBe(expected.fontFamily);
+  expect(measured.fontSize).toBe(expected.fontSize);
   expect(measured.familyWidth ?? 0).toBeGreaterThanOrEqual(180);
   const firstControl = measured.controls[0];
   if (!firstControl) throw new Error('Context bar has no text controls');
@@ -180,6 +176,13 @@ for (const dpr of [1, 2, 3]) {
     test.use({ deviceScaleFactor: dpr, contextOptions: { reducedMotion: 'reduce' } });
     test('fits the viewport with readable menus in every theme', async ({ page }, testInfo) => {
       const toolbar = await startText(page);
+      // Capture the floating text bar's typography style while it exists; in
+      // its non-editing state the context bar must match this text-family
+      // rhythm (the palette uses the interface font instead).
+      const textBarStyle = await toolbar.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return { gap: style.gap, fontFamily: style.fontFamily, fontSize: style.fontSize };
+      });
       const contextBar = page.getByRole('toolbar', { name: 'Contextual properties' });
       await expect(contextBar).toBeVisible();
 
@@ -190,13 +193,12 @@ for (const dpr of [1, 2, 3]) {
       await page.keyboard.press('Escape');
       await expect(toolbar).toHaveCount(0);
       await page.getByRole('treeitem', { name: /Typography in context/i }).click();
-      const paletteToolbar = page.locator('.floating-toolbar [role="toolbar"]');
       for (const theme of ['light', 'dark', 'high-contrast']) {
         await page.evaluate((theme) => {
           document.documentElement.dataset.theme = theme;
         }, theme);
         await page.setViewportSize({ width: 1280, height: 800 });
-        await measureContextFontControls(page, contextBar, paletteToolbar);
+        await measureContextFontControls(page, contextBar, textBarStyle);
       }
 
       // Re-enter editing for the floating-bar measurements below.
