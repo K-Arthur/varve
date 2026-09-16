@@ -120,3 +120,9 @@ Commands and inspections for this screen:
 The existing browser visual lane remains the authoritative UI evidence. This
 screen adds no screenshot baseline and makes no claim that the prompt models
 or a new lightweight model have passed visual acceptance.
+
+The current SD helper now serializes and validates its own
+`image-and-mask`/`white-edit-black-preserve` contract at the native boundary.
+That protects the shipped route from accidentally inheriting MI-GAN's
+keep-mask tensor or Moebius's masked-latent tensor shape; each of those still
+requires a separate adapter.

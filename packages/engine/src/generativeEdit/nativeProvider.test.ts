@@ -76,6 +76,8 @@ describe('nativeGenerativeProvider', () => {
         image_guidance_scale: 1,
         output_w: 8,
         output_h: 6,
+        mask_input: 'image-and-mask',
+        mask_convention: 'white-edit-black-preserve',
       }),
     });
     expect(invoke.mock.calls[0]?.[1]?.options).not.toHaveProperty('model_path');

@@ -1923,6 +1923,10 @@ pub struct GenerativeEditOptions {
     pub guidance_scale: f32,
     #[serde(default = "default_image_guidance_scale")]
     pub image_guidance_scale: f32,
+    #[serde(default = "default_generative_mask_input")]
+    pub mask_input: String,
+    #[serde(default = "default_generative_mask_convention")]
+    pub mask_convention: String,
     pub seed: i64,
     pub strength: f32,
 }
@@ -1933,6 +1937,14 @@ const MAX_GENERATIVE_PROMPT_CHARS: usize = 16_384;
 
 fn default_image_guidance_scale() -> f32 {
     1.0
+}
+
+fn default_generative_mask_input() -> String {
+    "image-and-mask".into()
+}
+
+fn default_generative_mask_convention() -> String {
+    "white-edit-black-preserve".into()
 }
 
 fn validate_generation_buffer(
@@ -1960,6 +1972,17 @@ fn validate_generation_buffer(
 fn validate_generative_edit_options(options: &GenerativeEditOptions) -> Result<(), String> {
     if options.model_handle != GENERATIVE_MODEL_HANDLE {
         return Err("Unknown or unqualified generative model handle".into());
+    }
+    if options.mask_input != "image-and-mask" {
+        return Err(
+            "The packaged SD 1.5 adapter requires the image-and-mask conditioning contract".into(),
+        );
+    }
+    if options.mask_convention != "white-edit-black-preserve" {
+        return Err(
+            "The packaged SD 1.5 adapter requires the white-edit-black-preserve mask convention"
+                .into(),
+        );
     }
     if options.mode != "fill" && options.mode != "replace" && options.mode != "expand" {
         return Err("The diffusion helper supports Fill, Replace, and Expand only".into());
@@ -2828,6 +2851,8 @@ fn qualification_request(model_handle: &str, request_id: String) -> GenerativeEd
         steps: 4,
         guidance_scale: 7.0,
         image_guidance_scale: 1.0,
+        mask_input: "image-and-mask".into(),
+        mask_convention: "white-edit-black-preserve".into(),
         seed: 417,
         strength: 0.85,
     }
@@ -3011,6 +3036,8 @@ struct GenerativeHelperRequest {
     model_path: String,
     init_image_path: String,
     mask_path: String,
+    mask_input: String,
+    mask_convention: String,
     output_path: String,
     prompt: String,
     negative_prompt: String,
@@ -3158,6 +3185,8 @@ fn generative_edit_blocking_with_requirement(
         model_path: model_path.to_string_lossy().into_owned(),
         init_image_path: image_path.to_string_lossy().into_owned(),
         mask_path: mask_path.to_string_lossy().into_owned(),
+        mask_input: options.mask_input,
+        mask_convention: options.mask_convention,
         output_path: output_path.to_string_lossy().into_owned(),
         prompt: options.prompt,
         negative_prompt: options.negative_prompt,
@@ -5918,6 +5947,8 @@ mod tests {
         .expect("older renderer payloads remain readable");
 
         assert_eq!(options.image_guidance_scale, 1.0);
+        assert_eq!(options.mask_input, "image-and-mask");
+        assert_eq!(options.mask_convention, "white-edit-black-preserve");
     }
 
     #[test]

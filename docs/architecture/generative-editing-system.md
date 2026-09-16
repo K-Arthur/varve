@@ -589,8 +589,11 @@ receives an opaque qualified model handle, never a model filesystem path or
 model bytes. Imported safe-format artifacts are hashed and must pass an actual
 masked helper run before prompt modes are enabled. The helper validates that
 the decoded source and mask dimensions match the declared working frame before
-loading weights, so it never guesses at resampling or mask alignment. For the
-currently packaged SD 1.5 profile, that helper boundary additionally requires
+loading weights, so it never guesses at resampling or mask alignment. The
+private request also carries the declared provider mask input shape and mask
+polarity; the helper rejects a low-level masked-image contract or inverted
+polarity rather than passing it to the SD pipeline. For the currently packaged
+SD 1.5 profile, that helper boundary additionally requires
 the exact `sd15-inpainting-q4_0-v1` profile, 512 × 512 frame, and 64-pixel
 granularity; non-square source images must already have passed the shared
 aspect-preserving letterbox adapter. The profile id is required in the private

@@ -227,6 +227,8 @@ export const nativeGenerativeProvider = {
                 mask: Array.from(request.mask),
                 mask_w: request.maskWidth,
                 mask_h: request.maskHeight,
+                mask_input: NATIVE_GENERATIVE_MODEL_PROFILE.frameContract.maskInput,
+                mask_convention: NATIVE_GENERATIVE_MODEL_PROFILE.frameContract.maskConvention,
                 mode: request.mode,
                 prompt: request.prompt?.trim() || defaultPrompt(request.mode),
                 negative_prompt: request.negativePrompt ?? '',

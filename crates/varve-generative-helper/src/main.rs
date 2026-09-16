@@ -37,6 +37,10 @@ struct Request {
     guidance_scale: f32,
     #[serde(default = "default_image_guidance_scale")]
     image_guidance_scale: f32,
+    #[serde(default = "default_mask_input")]
+    mask_input: String,
+    #[serde(default = "default_mask_convention")]
+    mask_convention: String,
     seed: i64,
     strength: f32,
 }
@@ -47,6 +51,14 @@ fn default_guidance_scale() -> f32 {
 
 fn default_image_guidance_scale() -> f32 {
     1.0
+}
+
+fn default_mask_input() -> String {
+    "image-and-mask".into()
+}
+
+fn default_mask_convention() -> String {
+    "white-edit-black-preserve".into()
 }
 
 // The packaged Varve profile is SD 1.5 inpainting. Its latent/configuration
@@ -123,6 +135,18 @@ fn validate_request(request: &Request) -> Result<(), String> {
             "The native helper only supports the {SUPPORTED_MODEL_PROFILE_ID} model profile; use a model-specific adapter for other checkpoints"
         ));
     }
+    if request.mask_input != "image-and-mask" {
+        return Err(
+            "The SD 1.5 inpainting profile requires the image-and-mask conditioning contract"
+                .into(),
+        );
+    }
+    if request.mask_convention != "white-edit-black-preserve" {
+        return Err(
+            "The SD 1.5 inpainting profile requires the white-edit-black-preserve mask convention"
+                .into(),
+        );
+    }
     for (label, path) in [
         ("model", &request.model_path),
         ("source", &request.init_image_path),
@@ -140,8 +164,12 @@ fn validate_request(request: &Request) -> Result<(), String> {
     }
     if request.width != SD15_INPAINTING_FRAME_WIDTH
         || request.height != SD15_INPAINTING_FRAME_HEIGHT
-        || !request.width.is_multiple_of(SD15_INPAINTING_DIMENSION_MULTIPLE)
-        || !request.height.is_multiple_of(SD15_INPAINTING_DIMENSION_MULTIPLE)
+        || !request
+            .width
+            .is_multiple_of(SD15_INPAINTING_DIMENSION_MULTIPLE)
+        || !request
+            .height
+            .is_multiple_of(SD15_INPAINTING_DIMENSION_MULTIPLE)
     {
         return Err(format!(
             "The SD 1.5 inpainting profile requires a {}x{} working frame ({}px dimension multiple); convert the source with the Varve aspect-preserving frame adapter before processing",
@@ -308,6 +336,8 @@ mod tests {
                 model_path: root.join("model.safetensors"),
                 init_image_path: root.join("source.png"),
                 mask_path: root.join("mask.png"),
+                mask_input: "image-and-mask".into(),
+                mask_convention: "white-edit-black-preserve".into(),
                 output_path: root.join("output.png"),
                 prompt: "a red chair".into(),
                 negative_prompt: String::new(),
@@ -387,6 +417,24 @@ mod tests {
         assert!(validate_request(&request)
             .expect_err("a model-specific helper must reject a different profile")
             .contains("only supports the sd15-inpainting-q4_0-v1 model profile"));
+
+        fs::remove_dir_all(root).expect("remove test directory");
+    }
+
+    #[test]
+    fn rejects_a_mask_contract_not_supported_by_the_packaged_adapter() {
+        let (mut request, root) = valid_request();
+
+        request.mask_input = "masked-image-and-mask".into();
+        assert!(validate_request(&request)
+            .expect_err("a low-level mask graph must not enter the SD adapter")
+            .contains("image-and-mask conditioning"));
+
+        request.mask_input = "image-and-mask".into();
+        request.mask_convention = "white-preserve-black-edit".into();
+        assert!(validate_request(&request)
+            .expect_err("the SD adapter must not guess mask polarity")
+            .contains("white-edit-black-preserve"));
 
         fs::remove_dir_all(root).expect("remove test directory");
     }
