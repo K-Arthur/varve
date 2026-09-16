@@ -1,0 +1,399 @@
+/* ==========================================================================
+   Inspector Layer Effects & Popovers Styling
+   ========================================================================== */
+
+/* Enhanced Effect Row Card */
+.insp-effect-row {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  transition:
+    border-color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease;
+}
+
+.insp-effect-row:hover {
+  border-color: var(--color-border-default);
+}
+
+.insp-effect-row--active {
+  border-color: var(--color-interactive-focus-ring);
+  box-shadow: 0 0 0 1px var(--color-interactive-focus-ring);
+}
+
+.insp-effect-row__header {
+  align-items: center;
+  display: flex;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-1) 0;
+}
+
+.insp-effect-row__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* In-Row Quick Blur Scrubber */
+.insp-inrow-blur {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  margin-inline-end: var(--space-1);
+}
+
+.insp-inrow-blur__input {
+  width: 3.5rem;
+  height: var(--component-compact-height);
+  padding: 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  text-align: right;
+}
+
+.insp-inrow-blur__input:focus {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+  border-color: var(--color-interactive-focus-ring);
+}
+
+.insp-inrow-blur__unit {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  user-select: none;
+}
+
+/* Focused Editor Header Refinements */
+.insp-focused-editor__stage-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border-subtle);
+}
+
+/* The badge sits in the popover header beside the title; the title takes the
+ * free space so a long effect name still ellipsizes instead of pushing the
+ * close control off the surface. */
+.insp-focused-editor__header .insp-focused-editor__title {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.insp-focused-editor__header .insp-focused-editor__stage-badge {
+  flex: 0 0 auto;
+}
+
+/* Direction block — the 2D light pad and its polar fields read as one unit. */
+.insp-direction-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.insp-direction-block .insp-field-group {
+  padding-inline: var(--space-2);
+  padding-block-end: var(--space-2);
+  background: var(--color-surface-sunken);
+  border-end-start-radius: var(--radius-control-compact);
+  border-end-end-radius: var(--radius-control-compact);
+}
+
+/* Mask settings disclosure inside an effect popover. */
+.insp-effect-mask__settings {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  margin-block-end: var(--space-2);
+}
+
+.insp-effect-mask__settings .varve-disclosure__trigger {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.insp-effect-mask__settings .varve-disclosure__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-1);
+}
+
+/* Elevation Presets Bar */
+.insp-elevation-presets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-1);
+  padding-block-end: var(--space-2);
+  margin-block-end: var(--space-2);
+  border-block-end: 1px solid var(--color-border-subtle);
+}
+
+.insp-elevation-preset-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+  transition: all var(--duration-fast) ease;
+}
+
+.insp-elevation-preset-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-default);
+}
+
+.insp-elevation-preset-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.insp-elevation-preset-btn--active {
+  color: var(--color-interactive-focus);
+  background: var(--color-interactive-subtle);
+  border-color: var(--color-interactive-focus-ring);
+  font-weight: var(--font-weight-semibold);
+}
+
+.insp-elevation-preset-btn__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.insp-elevation-preset-btn__name {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.insp-elevation-preset-btn__badge {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+}
+
+.insp-elevation-preset-btn--active .insp-elevation-preset-btn__badge {
+  background: var(--color-surface-overlay);
+  color: var(--color-interactive-focus);
+}
+
+/* Quick Radius Chips for Blurs */
+.insp-radius-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding-block-end: var(--space-2);
+}
+
+.insp-radius-chip {
+  padding: 2px 6px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) ease;
+}
+
+.insp-radius-chip:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-default);
+}
+
+.insp-radius-chip--active {
+  background: var(--color-interactive-subtle);
+  border-color: var(--color-interactive-focus-ring);
+  color: var(--color-interactive-focus);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Live Preview Swatch Tile — deliberately compact: it is a confirmation of
+ * the contour, not a canvas. Height keeps the shadow within the tile. */
+.insp-preview-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 4.25rem;
+  width: 100%;
+  border-radius: var(--radius-control);
+  background:
+    linear-gradient(45deg, var(--color-surface-sunken) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--color-surface-sunken) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--color-surface-sunken) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--color-surface-sunken) 75%),
+    var(--color-surface-raised);
+  background-size: 12px 12px;
+  background-position:
+    0 0,
+    0 6px,
+    6px -6px,
+    -6px 0px;
+  border: 1px solid var(--color-border-subtle);
+  margin-block-end: var(--space-2);
+  overflow: hidden;
+  position: relative;
+}
+
+.insp-preview-tile__shape {
+  width: 4.75rem;
+  height: 2.375rem;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-default);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  transition:
+    box-shadow var(--duration-fast) ease,
+    filter var(--duration-fast) ease;
+  user-select: none;
+}
+
+/* 2D Light Direction Pad */
+.insp-light-pad-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-control-compact);
+  margin-block-end: var(--space-2);
+}
+
+.insp-direction-block .insp-light-pad-wrapper {
+  margin-block-end: 0;
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.insp-light-pad {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-default);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+  cursor: crosshair;
+  flex-shrink: 0;
+  touch-action: none;
+}
+
+.insp-light-pad:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+.insp-light-pad__dial {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.insp-light-pad__center-mark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  margin: -2px 0 0 -2px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.insp-light-pad__handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: var(--color-interactive-focus);
+  border: 2px solid var(--color-surface-raised);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  transition: transform var(--duration-fast) ease;
+}
+
+.insp-light-pad__details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1 1 auto;
+}
+
+.insp-light-pad__snap-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+}
+
+.insp-light-pad__snap-btn {
+  padding: 2px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 3px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  text-align: center;
+}
+
+.insp-light-pad__snap-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+}
+
+.insp-light-pad__snap-btn--active {
+  background: var(--color-interactive-subtle);
+  border-color: var(--color-interactive-focus-ring);
+  color: var(--color-interactive-focus);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Categorized Add Effect Menu group headers come from the shared Menu
+ * primitive's label entries, so no local menu-item styles are needed. */
