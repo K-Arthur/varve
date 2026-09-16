@@ -1,4 +1,5 @@
 import { type Adjustment, type AdjustmentKind, filterKindDisplayName } from '@varve/engine';
+import { SolidIcon, type SolidIconName } from '@varve/ui';
 
 /**
  * The treatments that give an immediately visible result on a flat rendered
@@ -26,6 +27,12 @@ const FINISHING_DESCRIPTIONS: Readonly<Record<VectorFinishingKind, string>> = {
   grain: 'Add material texture while preserving the editable fill.',
   edgeFalloff: 'Darken the object edges for focused, vignette-like depth.',
   softBloom: 'Diffuse bright and mid-tone areas into a soft luminous glow.',
+};
+
+const FINISHING_ICONS: Readonly<Record<VectorFinishingKind, SolidIconName>> = {
+  grain: 'GridFour',
+  edgeFalloff: 'CircleHalf',
+  softBloom: 'Sparkle',
 };
 
 /** Returns a new preset object so callers can safely merge it into a filter. */
@@ -65,7 +72,12 @@ export function VectorFinishingQuickActions({ onAdd }: VectorFinishingQuickActio
               aria-label={`Add ${label} object filter`}
               onClick={() => onAdd(kind, vectorFinishingPreset(kind))}
             >
-              <span className="object-finishing__action-label">{label}</span>
+              <div className="object-finishing__action-header">
+                <span className="object-finishing__action-icon-wrap" aria-hidden="true">
+                  <SolidIcon name={FINISHING_ICONS[kind]} size="0.9em" />
+                </span>
+                <span className="object-finishing__action-label">{label}</span>
+              </div>
               <span className="object-finishing__action-description">
                 {FINISHING_DESCRIPTIONS[kind]}
               </span>

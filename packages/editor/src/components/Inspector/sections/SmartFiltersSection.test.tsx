@@ -317,4 +317,26 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
       ]),
     );
   });
+
+  it('renders blend mode badge for non-normal blend mode and count badge in header', () => {
+    const node: SceneNode = {
+      ...vectorNode(),
+      smartFilters: [
+        makeSmartFilter('blur-1', 'blur', { blendMode: 'multiply' }),
+        makeSmartFilter('grain-1', 'grain', { blendMode: 'normal' }),
+      ],
+    } as SceneNode;
+    render(<SmartFiltersSection nodes={[node]} />);
+
+    expect(screen.getByLabelText('2 active filters')).toBeInTheDocument();
+    expect(document.querySelector('.smart-filters__badge--blend')).toHaveTextContent('Multiply');
+  });
+
+  it('renders refined empty state guidance when no filters are applied', () => {
+    render(<SmartFiltersSection nodes={[vectorNode()]} />);
+    expect(screen.getByText('No filters applied.')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Apply a filter below to non-destructively enhance/i),
+    ).toBeInTheDocument();
+  });
 });

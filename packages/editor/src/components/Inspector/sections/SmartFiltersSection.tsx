@@ -19,7 +19,6 @@ import {
   cryptoId,
   isImageShape,
   makeSmartFilter,
-  SMART_FILTER_KINDS,
 } from '@varve/scene';
 import {
   Select,
@@ -36,6 +35,7 @@ import { AdjustmentEditor } from '../../AdjustmentLayer/AdjustmentEditor';
 import { groupBlendOptions } from '../controls/blendModeOptionGroups';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { RangeValueControl } from '../controls/RangeValueControl';
+import { blendModeDisplayName, filterKindIcon, SMART_FILTER_GROUPS } from './smartFilterCatalog';
 import {
   type VectorFinishingKind,
   VectorFinishingQuickActions,
@@ -284,32 +284,55 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
   if (!node || !compatible) return null;
 
   return (
-    <DisclosureSection title="Object Filters" sectionId="smart-filters">
+    <DisclosureSection
+      title="Object Filters"
+      sectionId="smart-filters"
+      action={
+        <div className="smart-filters__header-actions">
+          {filters.length > 0 && (
+            <span
+              role="status"
+              className="smart-filters__count-badge"
+              aria-label={`${filters.length} active filter${filters.length === 1 ? '' : 's'}`}
+            >
+              {filters.length}
+            </span>
+          )}
+          <button
+            type="button"
+            className="smart-filters__stack-visibility"
+            onClick={toggleStack}
+            disabled={filters.length === 0}
+            aria-label={stackEnabled ? 'Disable all Object Filters' : 'Enable all Object Filters'}
+            aria-pressed={stackEnabled}
+            title={stackEnabled ? 'Bypass all object filters' : 'Enable all object filters'}
+          >
+            <SolidIcon
+              name={stackEnabled ? SOLID_CHROME_ICONS.visibility : SOLID_CHROME_ICONS.visibilityOff}
+              size="0.8em"
+            />
+          </button>
+        </div>
+      }
+    >
       <div className="smart-filters__intro-row">
         <div className="smart-filters__intro">
-          {EFFECT_SURFACE_GUIDANCE['object-filter'].scope}. Raster placement and vector geometry
-          stay editable while the rendered result is filtered.
+          <span className="smart-filters__intro-badge">Non-destructive</span>
+          <span className="smart-filters__intro-text">
+            {EFFECT_SURFACE_GUIDANCE['object-filter'].scope}. Raster placement and vector geometry
+            stay editable while the rendered result is filtered.
+          </span>
         </div>
-        <button
-          type="button"
-          className="smart-filters__stack-visibility"
-          onClick={toggleStack}
-          disabled={filters.length === 0}
-          aria-label={stackEnabled ? 'Disable all Object Filters' : 'Enable all Object Filters'}
-          aria-pressed={stackEnabled}
-        >
-          <SolidIcon
-            name={stackEnabled ? SOLID_CHROME_ICONS.visibility : SOLID_CHROME_ICONS.visibilityOff}
-            size="0.8em"
-          />
-        </button>
       </div>
 
       {hasCuratedRecipeMembers && (
-        <p className="smart-filters__curated-notice" role="status">
-          Named treatments are tuned in Effect Studio. Changing an entry here turns that treatment
-          into a customized recipe; its current result remains editable.
-        </p>
+        <div className="smart-filters__curated-notice" role="status">
+          <SolidIcon name="Info" size="0.85em" className="smart-filters__curated-icon" />
+          <span>
+            Named treatments are tuned in Effect Studio. Changing an entry here turns that treatment
+            into a customized recipe; its current result remains editable.
+          </span>
+        </div>
       )}
 
       <details
@@ -317,7 +340,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
         open={advancedOpen}
         onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}
       >
-        <summary>
+        <summary className="smart-filters__advanced-summary">
           <span className="smart-filters__advanced-title">Advanced stack editor</span>
           <small className="smart-filters__advanced-hint">
             Raw filters, order, opacity, and blending
@@ -331,7 +354,18 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
           )}
 
           <ul className="smart-filters__stack" aria-label="Object Filter stack">
-            {filters.length === 0 && <li className="smart-filters__empty">No filters applied.</li>}
+            {filters.length === 0 && (
+              <li className="smart-filters__empty">
+                <div className="smart-filters__empty-content">
+                  <SolidIcon name="Faders" size="1.25em" className="smart-filters__empty-icon" />
+                  <span className="smart-filters__empty-title">No filters applied.</span>
+                  <span className="smart-filters__empty-hint">
+                    Apply a filter below to non-destructively enhance color, depth, texture, or
+                    blur.
+                  </span>
+                </div>
+              </li>
+            )}
             <Sortable
               items={filters.map((filter) => filter.id)}
               layout="vertical"
@@ -350,7 +384,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
               {filters.map((filter, index) => (
                 <SortableItem
                   as="li"
-                  className={`smart-filters__row${selectedId === filter.id ? ' smart-filters__row--selected' : ''}`}
+                  className={`smart-filters__row${selectedId === filter.id ? ' smart-filters__row--selected' : ''}${filter.visible === false ? ' smart-filters__row--disabled' : ''}`}
                   key={filter.id}
                   id={filter.id}
                   data={{ type: 'smart-filter', filterId: filter.id }}
@@ -367,6 +401,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
                       disabled={index === 0}
                       onClick={() => reorderFilter(filter.id, index - 1)}
                       aria-label={`Move ${filterName(filter)} up`}
+                      title="Move filter up"
                     >
                       <SolidIcon name={SOLID_CHROME_ICONS.chevronUp} size="0.65em" />
                     </button>
@@ -375,6 +410,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
                       disabled={index === filters.length - 1}
                       onClick={() => reorderFilter(filter.id, index + 1)}
                       aria-label={`Move ${filterName(filter)} down`}
+                      title="Move filter down"
                     >
                       <SolidIcon name={SOLID_CHROME_ICONS.chevronDown} size="0.65em" />
                     </button>
@@ -389,6 +425,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
                         : `Enable ${filterName(filter)}`
                     }
                     aria-pressed={filter.visible}
+                    title={filter.visible ? 'Bypass filter' : 'Enable filter'}
                   >
                     <SolidIcon
                       name={
@@ -406,7 +443,14 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
                     aria-expanded={selectedId === filter.id}
                   >
                     <span className="smart-filters__name-copy">
-                      <span>{filterName(filter)}</span>
+                      <span className="smart-filters__name-title">
+                        <SolidIcon
+                          name={filterKindIcon(filter.kind)}
+                          size="0.75em"
+                          className="smart-filters__kind-icon"
+                        />
+                        <span>{filterName(filter)}</span>
+                      </span>
                       {studioTreatmentName(filter) && (
                         <small className="smart-filters__treatment-member">
                           {studioTreatmentName(filter)}
@@ -416,20 +460,33 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
                         </small>
                       )}
                     </span>
-                    {!isKnownAdjustmentKind(filter.kind) && (
-                      <span className="smart-filters__unavailable">Unavailable in this build</span>
-                    )}
-                    {(filter.opacity ?? 1) < 1 && (
-                      <span className="smart-filters__meta">
-                        {Math.round((filter.opacity ?? 1) * 100)}%
-                      </span>
-                    )}
+                    <span className="smart-filters__badges">
+                      {!isKnownAdjustmentKind(filter.kind) && (
+                        <span className="smart-filters__unavailable">
+                          Unavailable in this build
+                        </span>
+                      )}
+                      {filter.blendMode && filter.blendMode !== 'normal' && (
+                        <span
+                          className="smart-filters__badge smart-filters__badge--blend"
+                          aria-hidden="true"
+                        >
+                          {blendModeDisplayName(filter.blendMode)}
+                        </span>
+                      )}
+                      {(filter.opacity ?? 1) < 1 && (
+                        <span className="smart-filters__meta">
+                          {Math.round((filter.opacity ?? 1) * 100)}%
+                        </span>
+                      )}
+                    </span>
                   </button>
                   <button
                     type="button"
                     className="smart-filters__remove"
                     onClick={() => removeFilter(filter.id)}
                     aria-label={`Remove ${filterName(filter)}`}
+                    title="Remove filter"
                   >
                     <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.7em" />
                   </button>
@@ -444,10 +501,8 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
               label="Add Object Filter"
               value=""
               placeholder="Choose a filter…"
-              options={SMART_FILTER_KINDS.map((kind) => ({
-                value: kind,
-                label: filterKindDisplayName(kind),
-              }))}
+              groups={SMART_FILTER_GROUPS as import('@varve/ui').SelectOptionGroup[]}
+              searchable={true}
               onChange={(value) => {
                 if (value) addFilter(value as AdjustmentKind);
               }}
@@ -484,46 +539,54 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
                   </span>
                 </div>
               )}
-              <div className="smart-filters__opacity">
-                <span>
-                  <span>Effect Opacity</span>
-                  <span>{Math.round((selected.opacity ?? 1) * 100)}%</span>
-                </span>
-                <RangeValueControl
-                  label={`${filterName(selected)} effect opacity`}
-                  rangeClassName="adj-editor__slider smart-filters__effect-slider"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={Math.round((selected.opacity ?? 1) * 100)}
-                  unit="%"
-                  onChange={(next) => updateFilter(selected.id, { opacity: next / 100 })}
-                />
-              </div>
-              <div className="smart-filters__blend">
-                <span>Effect Blend</span>
-                <Select
-                  label={`${filterName(selected)} effect blend mode`}
-                  value={selected.blendMode}
-                  groups={groupBlendOptions(BLEND_OPTIONS)}
-                  onChange={(value) =>
-                    updateFilter(selected.id, { blendMode: value as AdjustmentBlendMode })
-                  }
-                />
-              </div>
-              <div className="smart-filters__actions">
-                <button
-                  type="button"
-                  disabled={!selectedIsKnown}
-                  onClick={() =>
-                    updateFilter(selected.id, makeSmartFilter(selected.id, selected.kind))
-                  }
-                >
-                  Reset
-                </button>
-                <button type="button" onClick={() => duplicateFilter(selected.id)}>
-                  Duplicate
-                </button>
+
+              <div className="smart-filters__compositing-card">
+                <div className="smart-filters__opacity">
+                  <span>
+                    <span>Effect Opacity</span>
+                    <span>{Math.round((selected.opacity ?? 1) * 100)}%</span>
+                  </span>
+                  <RangeValueControl
+                    label={`${filterName(selected)} effect opacity`}
+                    rangeClassName="adj-editor__slider smart-filters__effect-slider"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={Math.round((selected.opacity ?? 1) * 100)}
+                    unit="%"
+                    onChange={(next) => updateFilter(selected.id, { opacity: next / 100 })}
+                  />
+                </div>
+                <div className="smart-filters__blend">
+                  <span>Effect Blend</span>
+                  <Select
+                    label={`${filterName(selected)} effect blend mode`}
+                    value={selected.blendMode}
+                    groups={groupBlendOptions(BLEND_OPTIONS)}
+                    onChange={(value) =>
+                      updateFilter(selected.id, { blendMode: value as AdjustmentBlendMode })
+                    }
+                  />
+                </div>
+                <div className="smart-filters__actions">
+                  <button
+                    type="button"
+                    disabled={!selectedIsKnown}
+                    onClick={() =>
+                      updateFilter(selected.id, makeSmartFilter(selected.id, selected.kind))
+                    }
+                    title="Reset parameters to defaults"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => duplicateFilter(selected.id)}
+                    title="Duplicate this filter"
+                  >
+                    Duplicate
+                  </button>
+                </div>
               </div>
             </div>
           )}
