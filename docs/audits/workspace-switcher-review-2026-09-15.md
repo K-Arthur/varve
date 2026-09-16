@@ -205,7 +205,9 @@ themes.
 | `npx vitest run packages/editor/src/workspace` (42 files) | 645 passed |
 | `npx vitest run packages/help` | 31 passed (help copy changed) |
 | `pnpm --filter @varve/website exec astro check` | 0 errors, 0 warnings (website pages changed) |
-| `npx playwright test tests/e2e/workspace/switcher-review.spec.ts --project=chromium` | 10 passed |
+| `npx playwright test tests/e2e/workspace/switcher-review.spec.ts --project=chromium` | 11 passed (incl. the 3x icon/chevron capture case) |
+| `npx playwright test tests/e2e/menus/{keyboard-nav,overlay-reliability,chrome-integrity,flyout-dismissal}.spec.ts` | 28 passed |
+| `npx vitest run packages/ui/src/components/Menu.test.tsx` | 42 passed |
 | `pnpm audit:tokens` | 201 pairs pass across 3 themes (was 153) |
 | `pnpm --filter @varve/ui tokens:generate` | `tokens.css` regenerated (65,752 bytes) |
 | `pnpm --filter @varve/desktop exec vite build` (production bundle) | built in 16.4s |
@@ -282,14 +284,15 @@ already resolves `Next` to `ChevronRight`).
 
 ## Remaining work
 
-1. **Reset discovery.** F1–F10 are fixed, but a user who lands in an
-   unfamiliar workspace still has to find reset in the overflow or View menu.
-   A future pass could surface "Reset Workspace" in the command palette
-   results for mode-switch queries (it is already a palette command).
-2. **The View menu duplicates all eight workspace entries** — the toolbar
-   review's recommendation #2 (`docs/audits/toolbar-review-2026-09-15.md`)
-   proposes a Workspace submenu; that remains the right fix and would remove
-   the last competing list of mode names.
+1. ~~Reset discovery~~ Verified 2026-09-15: `resetWorkspace`,
+   `resetAllWorkspaces`, `customizeWorkspace`, and `manageWorkspaceLayouts`
+   are registered command-palette actions (`actions/registerAll.ts`), and the
+   View menu carries a Workspace submenu holding every mode plus Reset,
+   Customize, and Manage Layouts. Nothing further to wire.
+2. ~~View menu duplicates all eight workspace entries~~ Already a
+   `Workspace` submenu (`Menubar.tsx` `label: 'Workspace'`): the eight mode
+   switches, both resets, Customize, and Manage Layouts live inside it, so the
+   toolbar review's recommendation #2 is satisfied.
 3. **Inactive-tab labels** depend on the space budget above; if the menubar
    layout ever gains room, showing all names is the NN/g-aligned direction.
 4. **The shared Menu's wrapping behavior** for long labels is owned by the
@@ -297,11 +300,15 @@ already resolves `Next` to `ChevronRight`).
    to it.
 5. **Browser/OS text-size and assistive-technology matrices** remain untested
    for this surface, as listed above.
-6. **CHANGELOG entry deferred.** `CHANGELOG.md` holds another session's
+6. **CHANGELOG entry deferred.** `CHANGELOG.md` still holds another session's
    uncommitted isometric entries; a pathspec commit would have swept them in.
-   The user-facing change belongs under Unreleased/Changed once that work
-   lands: "the workspace switcher now follows the product accent and passes
-   contrast in every theme; keyboard arrows move focus with the selection".
+   Ready to paste under Unreleased/Changed once that work lands:
+   "The workspace switcher keeps each mode's own accent, verified against
+   WCAG AA in light, dark, and high contrast; keyboard arrows move focus with
+   the selection; submenu affordances are chevron icons instead of text
+   glyphs; the menubar's group rules share one recipe."
+7. **Shared-menu chevron close-up**: captured 3x
+   (`after/shared-menu-arrow-3x.png`) and reviewed on 2026-09-15.
 
 ## Agent validation report
 

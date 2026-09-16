@@ -70,6 +70,8 @@ reverted, or reformatted.
 | `9e58d574f` | `workspace-nav.spec.ts` menuitemradio assertion repair (verified) |
 | `c8ef7150e` | Forced-colors / 480px / enlarged-text verification + production-bundle build record |
 | `14cf5f59e` | `min-height` + bar observation so enlarged text grows the chrome and re-runs the math |
+| `1f758ba13` | Per-mode colors as audited tokens (201 pairs), dark-chroma fix, shared radius API, menubar group-rule unification, generator format stability |
+| `95bbd650d` | Submenu affordance `▶`/`›` → `ChevronRight` icon in `Menubar.tsx` + `Menu.tsx` |
 
 ## Follow-up (same session, after user review)
 
