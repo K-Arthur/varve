@@ -67,3 +67,13 @@ audit): remove the stale `.layers-row__media-badge` rule from `editor.css`
 when that file has a single owner; refresh the two stale
 `effect-stack-transfer` screenshot baselines at the integration checkpoint;
 run the DnD trio / `layer-workflows` specs in the combined gate.
+
+## Git-race note (for whoever owns commit 45f6cff1d)
+
+A `git commit -- <layers paths>` raced a concurrent commit from another
+session and produced commit `45f6cff1d`, whose message describes Layers work
+but whose only content is
+`docs/audits/generative-inpainting-model-landscape-2026-09-15.md` (that
+session's file, preserved intact). The Layers changes landed correctly in
+`fc88740c2`. Nothing was lost; the mismatched message was left in place
+rather than rewriting history another session may reference.
