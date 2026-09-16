@@ -303,17 +303,23 @@ sessions' in-flight changes (engine inference, font pipeline, canvas,
 toolbar). The escalation belongs to the combined integration checkpoint, not
 to this change set; the scoped closure above is this review's evidence.
 
-### Stale visual baseline (not refreshed)
+### Stale visual baselines (not refreshed)
 
-`effect-stack-transfer.spec.ts`'s hover screenshot baseline (last updated
-2026-09-06) no longer matches the panel: the actual capture shows the
-current Layers header, color-coded row icons, the selection-sets section,
-the now-valid effects/object-filter badge background, and the 24 px row
-targets. Its behavioural assertions all passed; only the image comparison
-failed. The baseline was deliberately **not** refreshed here because the
-capture also contains other sessions' in-flight panel redesign, and
-snapshotting unreviewed combined state would hide that. Refresh belongs to
-the integration checkpoint once the panel is frozen.
+`effect-stack-transfer.spec.ts` has two stale screenshot baselines, both
+last updated 2026-09-06:
+
+1. The Layers hover capture no longer matches: the actual image shows the
+   current Layers header, color-coded row icons, the selection-sets section,
+   the now-valid effects/object-filter badge background, and the 24 px row
+   targets.
+2. The Inspector capture differs by panel height (expected 311×677, actual
+   311×626) — an Inspector change owned by another active session.
+
+Both tests' behavioural assertions passed; only the image comparisons
+failed. The baselines were deliberately **not** refreshed because the
+captures also contain other sessions' in-flight redesign, and snapshotting
+unreviewed combined state would hide that. Refresh belongs to the
+integration checkpoint once those surfaces are frozen.
 
 ### Not yet exercised (honest gaps)
 
