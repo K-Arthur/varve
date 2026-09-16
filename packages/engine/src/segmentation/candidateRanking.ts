@@ -323,6 +323,98 @@ export interface CandidateRankingEvaluation {
   acceptableNonOracle: number;
 }
 
+/**
+ * Annotation-only ranking evaluation.
+ *
+ * Oracle IoU cannot express intent: for the same click, "the whole crab" and
+ * "the eye" have different correct answers. This case shape carries an
+ * explicit acceptable set (and optionally the best index) from a human
+ * review, so a policy can be judged without inventing a ground-truth metric
+ * that would silently disagree with the user's intent.
+ *
+ * `candidateIoU` is deliberately absent: IoU-based numbers must come from a
+ * measured oracle, never from an annotation.
+ */
+export interface AnnotatedRankingCase {
+  caseId: string;
+  category: string;
+  features: ReadonlyArray<CandidateRankingFeatures>;
+  /** Candidates a reviewer accepts for this case's declared intent. */
+  acceptableIndices: ReadonlyArray<number>;
+  /** Reviewer's best available candidate, when one exists. */
+  bestIndex?: number;
+  /** Provider's own selected index at capture time. */
+  providerSelectedIndex: number;
+}
+
+export interface AnnotatedRankingEvaluation {
+  policy: CandidateRankingPolicyId;
+  cases: number;
+  /** Fraction of cases whose policy top-1 is in the acceptable set. */
+  top1AcceptableRate: number;
+  /** Fraction of cases with at least one acceptable candidate. */
+  coverageRate: number;
+  /** Cases whose first acceptable candidate appears at rank k (1-based). */
+  acceptableAtK: number[];
+  /** Mean 1-based rank of the first acceptable candidate, over covered cases. */
+  meanClicksToAccept: number | null;
+  /** Cases where no candidate was acceptable for the declared intent. */
+  casesWithoutAcceptable: string[];
+  /** Cases where the policy's top-1 equals the reviewer's best index. */
+  top1MatchesBest: number;
+}
+
+/**
+ * Evaluate declared policies against annotated cases. The ordering comes from
+ * the same `rankCandidateIndices` the runtime ranker uses, so a policy that
+ * looks good here is the same code path the editor runs.
+ */
+export function evaluateAnnotatedRankingPolicy(
+  cases: ReadonlyArray<AnnotatedRankingCase>,
+  policy: CandidateRankingPolicyId,
+  options: CandidateRankingPolicyOptions = {},
+): AnnotatedRankingEvaluation {
+  const maxCandidates = Math.max(1, ...cases.map((entry) => entry.features.length));
+  const acceptableAtK = new Array<number>(maxCandidates).fill(0);
+  const casesWithoutAcceptable: string[] = [];
+  let top1Acceptable = 0;
+  let coverage = 0;
+  let top1MatchesBest = 0;
+  let clicksSum = 0;
+  let coveredCases = 0;
+
+  for (const entry of cases) {
+    const order = rankCandidateIndices(entry.features, policy, options);
+    const acceptable = new Set(entry.acceptableIndices);
+    if (acceptable.size > 0) coverage += 1;
+    else casesWithoutAcceptable.push(entry.caseId);
+
+    const top1 = order[0];
+    if (top1 !== undefined && acceptable.has(top1)) top1Acceptable += 1;
+    if (entry.bestIndex !== undefined && top1 === entry.bestIndex) top1MatchesBest += 1;
+
+    const rank = order.findIndex((index) => acceptable.has(index));
+    if (rank >= 0) {
+      coveredCases += 1;
+      clicksSum += rank + 1;
+      acceptableAtK[Math.min(acceptableAtK.length - 1, rank)] =
+        (acceptableAtK[Math.min(acceptableAtK.length - 1, rank)] ?? 0) + 1;
+    }
+  }
+
+  const count = cases.length || 1;
+  return {
+    policy,
+    cases: cases.length,
+    top1AcceptableRate: top1Acceptable / count,
+    coverageRate: coverage / count,
+    acceptableAtK,
+    meanClicksToAccept: coveredCases > 0 ? clicksSum / coveredCases : null,
+    casesWithoutAcceptable,
+    top1MatchesBest,
+  };
+}
+
 export function evaluateRankingPolicy(
   cases: ReadonlyArray<CandidateRankingCase>,
   policy: CandidateRankingPolicyId,
