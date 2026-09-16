@@ -24,9 +24,9 @@ const VECTOR_FINISHING_PRESETS: Readonly<Record<VectorFinishingKind, Partial<Adj
 };
 
 const FINISHING_DESCRIPTIONS: Readonly<Record<VectorFinishingKind, string>> = {
-  grain: 'Add material texture while preserving the editable fill.',
-  edgeFalloff: 'Darken the object edges for focused, vignette-like depth.',
-  softBloom: 'Diffuse bright and mid-tone areas into a soft luminous glow.',
+  grain: 'Material texture, editable fill',
+  edgeFalloff: 'Focused, vignette-like depth',
+  softBloom: 'Soft luminous highlight glow',
 };
 
 const FINISHING_ICONS: Readonly<Record<VectorFinishingKind, SolidIconName>> = {
@@ -54,10 +54,6 @@ export function VectorFinishingQuickActions({ onAdd }: VectorFinishingQuickActio
     <section className="object-finishing" aria-labelledby="object-finishing-title">
       <div className="object-finishing__heading">
         <h3 id="object-finishing-title">Object Finishing</h3>
-        <p>
-          Apply a non-destructive finish to this vector, text, or container object. Its fill and
-          opacity stay editable.
-        </p>
       </div>
       <fieldset className="object-finishing__actions">
         <legend className="sr-only">Add object finishing</legend>
@@ -86,8 +82,7 @@ export function VectorFinishingQuickActions({ onAdd }: VectorFinishingQuickActio
         })}
       </fieldset>
       <p className="object-finishing__hint">
-        The full filter menu remains available below. Photo-local controls may be subtle on a flat
-        fill; for photo retouching, select an image and use Image Tuning.
+        The full filter menu is below. For photo retouching, select an image and use Image Tuning.
       </p>
     </section>
   );

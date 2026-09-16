@@ -7,7 +7,6 @@
  */
 import type { Adjustment, AdjustmentBlendMode, AdjustmentKind } from '@varve/engine';
 import {
-  EFFECT_SURFACE_GUIDANCE,
   filterKindDisplayName,
   getEffectStudioTreatment,
   isKnownAdjustmentKind,
@@ -315,16 +314,6 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
         </div>
       }
     >
-      <div className="smart-filters__intro-row">
-        <div className="smart-filters__intro">
-          <span className="smart-filters__intro-badge">Non-destructive</span>
-          <span className="smart-filters__intro-text">
-            {EFFECT_SURFACE_GUIDANCE['object-filter'].scope}. Raster placement and vector geometry
-            stay editable while the rendered result is filtered.
-          </span>
-        </div>
-      </div>
-
       {hasCuratedRecipeMembers && (
         <div className="smart-filters__curated-notice" role="status">
           <SolidIcon name="Info" size="0.85em" className="smart-filters__curated-icon" />
@@ -357,11 +346,12 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
             {filters.length === 0 && (
               <li className="smart-filters__empty">
                 <div className="smart-filters__empty-content">
+                  <span className="smart-filters__empty-badge">Non-destructive</span>
                   <SolidIcon name="Faders" size="1.25em" className="smart-filters__empty-icon" />
                   <span className="smart-filters__empty-title">No filters applied.</span>
                   <span className="smart-filters__empty-hint">
                     Apply a filter below to non-destructively enhance color, depth, texture, or
-                    blur.
+                    blur. Raster placement and vector geometry stay editable.
                   </span>
                 </div>
               </li>
@@ -542,9 +532,31 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
 
               <div className="smart-filters__compositing-card">
                 <div className="smart-filters__opacity">
-                  <span>
-                    <span>Effect Opacity</span>
-                    <span>{Math.round((selected.opacity ?? 1) * 100)}%</span>
+                  <span className="smart-filters__compositing-label">
+                    <span>Opacity</span>
+                    <span className="smart-filters__compositing-actions">
+                      <button
+                        type="button"
+                        className="smart-filters__icon-action"
+                        disabled={!selectedIsKnown}
+                        onClick={() =>
+                          updateFilter(selected.id, makeSmartFilter(selected.id, selected.kind))
+                        }
+                        aria-label="Reset"
+                        title="Reset parameters to defaults"
+                      >
+                        <SolidIcon name={SOLID_CHROME_ICONS.rotateCcw} size="0.8em" />
+                      </button>
+                      <button
+                        type="button"
+                        className="smart-filters__icon-action"
+                        onClick={() => duplicateFilter(selected.id)}
+                        aria-label="Duplicate"
+                        title="Duplicate this filter"
+                      >
+                        <SolidIcon name={SOLID_CHROME_ICONS.copy} size="0.8em" />
+                      </button>
+                    </span>
                   </span>
                   <RangeValueControl
                     label={`${filterName(selected)} effect opacity`}
@@ -558,7 +570,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
                   />
                 </div>
                 <div className="smart-filters__blend">
-                  <span>Effect Blend</span>
+                  <span>Blend</span>
                   <Select
                     label={`${filterName(selected)} effect blend mode`}
                     value={selected.blendMode}
@@ -567,25 +579,6 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
                       updateFilter(selected.id, { blendMode: value as AdjustmentBlendMode })
                     }
                   />
-                </div>
-                <div className="smart-filters__actions">
-                  <button
-                    type="button"
-                    disabled={!selectedIsKnown}
-                    onClick={() =>
-                      updateFilter(selected.id, makeSmartFilter(selected.id, selected.kind))
-                    }
-                    title="Reset parameters to defaults"
-                  >
-                    Reset
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => duplicateFilter(selected.id)}
-                    title="Duplicate this filter"
-                  >
-                    Duplicate
-                  </button>
                 </div>
               </div>
             </div>

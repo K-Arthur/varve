@@ -558,11 +558,9 @@ test.describe('Object Filters — Real-world design composition scenario', () =>
     await expect(headerBypass).toHaveAttribute('aria-label', 'Disable all Object Filters');
 
     // 10. Visual validation screenshots
-    // The section root is its registry disclosure wrapper; there is no
-    // dedicated `.smart-filters` block class.
-    const panel = page.locator('.insp-disclosure').filter({
-      has: page.getByRole('button', { name: 'Object Filters', exact: true }),
-    });
+    // The section root is its registry disclosure wrapper, identified by the
+    // registry section id.
+    const panel = page.locator('.insp-disclosure[data-section-id="smart-filters"]');
     await panel.screenshot({
       path: 'reports/smart-filters/real-world-inspector-panel.png',
     });
@@ -649,9 +647,7 @@ test.describe('Object Filters — real photograph composition', () => {
     await expect.poll(() => canvasFingerprint(page), { timeout: 15000 }).not.toBe(baseline);
 
     // 8. Visual validation: the panel must hold up across all three themes.
-    const panel = page.locator('.insp-disclosure').filter({
-      has: page.getByRole('button', { name: 'Object Filters', exact: true }),
-    });
+    const panel = page.locator('.insp-disclosure[data-section-id="smart-filters"]');
     for (const theme of ['light', 'dark', 'high-contrast'] as const) {
       await page.evaluate((value) => {
         document.documentElement.dataset.theme = value;

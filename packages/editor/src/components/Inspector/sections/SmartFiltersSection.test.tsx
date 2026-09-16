@@ -167,7 +167,7 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
     expect(screen.getByRole('heading', { name: 'Object Finishing' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Add object finishing' })).toBeInTheDocument();
     expect(
-      screen.getByText(/vector, text, or container object\. Its fill and opacity stay editable/i),
+      screen.getByText(/for photo retouching, select an image and use Image Tuning/i),
     ).toBeInTheDocument();
 
     for (const kind of ['grain', 'edgeFalloff', 'softBloom'] as const) {
@@ -206,7 +206,7 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
     render(<SmartFiltersSection nodes={[vectorNode()]} />);
 
     expect(
-      screen.getByText(/photo-local controls may be subtle on a flat fill/i),
+      screen.getByText(/for photo retouching, select an image and use Image Tuning/i),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('combobox', { name: 'Add Object Filter' }));
 
@@ -334,9 +334,13 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
 
   it('renders refined empty state guidance when no filters are applied', () => {
     render(<SmartFiltersSection nodes={[vectorNode()]} />);
+    expect(screen.getByText('Non-destructive')).toBeInTheDocument();
     expect(screen.getByText('No filters applied.')).toBeInTheDocument();
     expect(
       screen.getByText(/Apply a filter below to non-destructively enhance/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Raster placement and vector geometry stay editable/i),
     ).toBeInTheDocument();
   });
 });

@@ -188,7 +188,13 @@ function RegistryDisclosure({
   };
 
   return (
-    <section ref={rootRef} {...focusRestore} className="insp-disclosure">
+    <section
+      ref={rootRef}
+      {...focusRestore}
+      className="insp-disclosure"
+      data-section-id={sectionId}
+      data-subsection-id={subsectionId}
+    >
       <div className="insp-disclosure__header">
         {/* APG Accordion: the header button is wrapped in a heading so
             assistive technology can navigate between inspector sections. The
