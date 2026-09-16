@@ -36,7 +36,9 @@ import { sitePath } from '../../../lib/siteUrl';
             <dd>
               Use Design/Properties → Object Filters when an effect belongs to one object, you
               need stack order, per-effect opacity or blend mode, or you are treating a
-              vector, text, frame, or group.
+              vector, text, frame, or group. The redesigned catalog organizes 52 filters into
+              5 searchable categories, displays live blend and opacity badges, and features a
+              one-click whole-stack bypass in the section header.
             </dd>
           </div>
           <div>
@@ -117,10 +119,19 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Refine without losing the source</h2>
         <p>
-          Every treatment keeps an On/Off bypass and parameter-local reset. Advanced controls
-          are grouped with their treatment, rather than collected in a generic advanced list:
-          Vignette exposes placement and feathering with Vignette, and Grain exposes size,
-          roughness, and pattern variation with Grain. Use Object Filters for repeated effects
+          Every treatment keeps an On/Off bypass and parameter-local reset. The Object Filters
+          inspector panel includes productivity enhancements for fine-tuning stacks:
+        </p>
+        <ul>
+          <li><strong>Whole-Stack Bypass:</strong> Click the eye icon in the section header next to the active filter count to immediately toggle all active filters off and on for fast before/after visual evaluation.</li>
+          <li><strong>Searchable Categorized Catalog:</strong> Add filters from five clearly labeled families (Color &amp; Tone, Blur &amp; Detail, Texture &amp; Finishing, Atmosphere &amp; Optics, Color Grading) with keyboard-first search.</li>
+          <li><strong>Live Row Badges:</strong> Active non-normal blend modes (e.g. <code>Multiply</code>, <code>Screen</code>), opacity values, and Effect Studio recipe tags appear directly in the collapsed stack row.</li>
+          <li><strong>Elevated Compositing Card:</strong> Selected filters feature an elevated compositing card containing a dedicated opacity slider with numeric input, a blend mode selector, and one-click Duplicate and Reset actions.</li>
+        </ul>
+        <p>
+          Advanced controls are grouped with their treatment, rather than collected in a generic
+          advanced list: Vignette exposes placement and feathering with Vignette, and Grain exposes
+          size, roughness, and pattern variation with Grain. Use Object Filters for repeated effects
           or ordering; use an Adjustment Layer when the treatment must cross object boundaries.
         </p>
       </section>

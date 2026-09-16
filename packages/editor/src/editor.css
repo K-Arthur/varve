@@ -618,6 +618,11 @@ input[type="number"] {
   grid-column: 2;
   margin-inline: var(--space-2);
   color: var(--color-text-muted);
+  /* Center the chevron in the item's line box; the previous triangle glyph sat on
+   * the text baseline and inherited its weight from the font. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .editor-menubar__menu-item--active > .editor-menubar__menu-label,
