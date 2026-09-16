@@ -363,21 +363,43 @@ Figma, Blender):
    `Color & Tone`, `Blur & Detail`, `Texture & Finishing`, `Atmosphere & Optics`,
    and `Color Grading`. Keyboard search instantly filters the select menu.
 2. **Whole-stack bypass and status pill in section header:** An active count
-   status pill (`role="status"`) and a single-click eye toggle (`.smart-filters__stack-visibility`)
-   allow instant whole-stack A/B comparison without deselecting or toggling
-   individual rows.
+   status pill (`.smart-filters__count-badge`, `role="status"`) and a
+   single-click eye toggle (`.smart-filters__stack-visibility`, labels
+   `Disable all Object Filters` / `Enable all Object Filters`) allow instant
+   whole-stack A/B comparison without deselecting or toggling individual rows.
 3. **Live compositing badges on stack rows:** Rows disclose non-normal blend
    modes (e.g. `Multiply`, `Screen`), non-100% opacity, and Effect Studio recipe
    provenance chips directly on the row, preventing hidden state traps.
-4. **Elevated compositing card:** When a filter is selected, an elevated card
-   provides an interactive opacity range slider with numeric readout, a dedicated
-   blend mode select dropdown, and one-click Duplicate and Reset actions before
-   the parameter list.
+4. **Compact compositing card:** When a filter is selected, a card collects the
+   stack-level compositing properties — an opacity range slider with numeric
+   input, a blend mode select, and Reset/Duplicate as compact icon actions on
+   the card's label row.
 5. **Tactile vector finishing cards:** For non-image vector objects, direct
-   quick-action cards with category icons (`Grain`, `Vignette`, `Soft Bloom`)
-   offer immediate material finish without manual hunting.
+   quick-action cards with category icons (`Grain`, `Vignette`, `Highlight
+   Glow` — the display labels for `grain`, `edgeFalloff`, `softBloom`) offer
+   immediate material finish without manual hunting.
 6. **Muted bypass styling:** Inactive filters display distinct sunken background
    and strike-through titles to distinguish active from bypassed effects.
+
+#### Clutter budget
+
+The section deliberately keeps one copy of every message and reveals
+secondary affordances only when relevant:
+
+- The non-destructive guidance lives in the empty state
+  (`.smart-filters__empty-badge`) instead of an always-visible intro card;
+  once the stack has entries it is not repeated.
+- The "Advanced stack editor" summary hint (`Raw filters, order, opacity, and
+  blending`) is hidden while the editor is open; it describes the collapsed
+  state only.
+- Reorder chevrons are visually hidden until the row is hovered or contains
+  focus on `(hover: hover) and (pointer: fine)` pointers. They remain in the
+  tab order, `:focus-within` reveals them for keyboard users, and touch
+  pointers always see them — no pointer type loses the action.
+- Object Finishing cards carry a one-line description each; the block has a
+  heading and a single hint line rather than a paragraph of preamble.
+- Every interactive control keeps an accessible name (aria-label or visible
+  label) and a ≥24px target on the compact actions.
 
 Node masks remain the stack-level spatial mask for node-local workflows and
 stay separate from source pixels; adjustment-layer masks remain scope masks. A

@@ -84,6 +84,9 @@ Rules:
   value instead of opening the panel.
 - Section state is user preference, not document content — it must never enter
   the undo stack or document JSON.
+- Registry section roots carry `data-section-id` (and `data-subsection-id` for
+  registry subsections) so tests, diagnostics, and visual captures can address
+  a section without matching its display title.
 
 ## Sizing, spacing, and text
 
