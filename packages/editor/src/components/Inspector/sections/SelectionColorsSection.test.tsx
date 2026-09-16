@@ -10,6 +10,29 @@ afterEach(cleanup);
 const red: ManagedColor = { space: 'rgb', r: 255, g: 0, b: 0, a: 255 };
 const blue: ManagedColor = { space: 'rgb', r: 0, g: 0, b: 255, a: 255 };
 
+/**
+ * A single object with two distinct colors: the smallest selection the
+ * section is meant to serve, since one color alone duplicates Fills below it.
+ */
+function makeTwoColorNode() {
+  return {
+    ...makeShapeNode('shape', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }, { fill: red }),
+    strokes: [
+      {
+        color: blue,
+        weight: 1,
+        align: 'center' as const,
+        dashPattern: [],
+        dashOffset: 0,
+        cap: 'round' as const,
+        join: 'miter' as const,
+        miterLimit: 4,
+        visible: true,
+      },
+    ],
+  };
+}
+
 function withNodes(nodes: SceneNode[]): Document {
   const document = createDocument('Selection Colors', true);
   return {
@@ -99,11 +122,18 @@ describe('SelectionColorsSection', () => {
     expect(
       screen.getByRole('button', { name: 'RGB #0000FF, Gradient stop, 1 paint use' }),
     ).toBeTruthy();
-    expect(screen.getByText('3')).toBeTruthy();
+    expect(screen.getByText('3 uses')).toBeTruthy();
+  });
+
+  it('suppresses itself when a single object has one colour already editable below', () => {
+    const node = makeShapeNode('shape', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }, { fill: red });
+    renderSection(withNodes([node]), ['shape']);
+
+    expect(screen.queryByTestId('selection-colors')).toBeNull();
   });
 
   it('opens the authoritative color picker from a focused swatch', async () => {
-    const node = makeShapeNode('shape', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }, { fill: red });
+    const node = makeTwoColorNode();
     renderSection(withNodes([node]), ['shape']);
 
     fireEvent.click(screen.getByRole('button', { name: 'RGB #FF0000, Fill, 1 paint use' }));
@@ -111,7 +141,7 @@ describe('SelectionColorsSection', () => {
   });
 
   it('replaces the selected usage through the standard picker', async () => {
-    const node = makeShapeNode('shape', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }, { fill: red });
+    const node = makeTwoColorNode();
     renderEditableSection(withNodes([node]), ['shape']);
 
     fireEvent.click(screen.getByRole('button', { name: 'RGB #FF0000, Fill, 1 paint use' }));

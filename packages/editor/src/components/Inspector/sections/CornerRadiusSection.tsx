@@ -90,6 +90,7 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
         <div className="insp-corner-radius-row">
           <NumberField
             label="Radius"
+            unit="px"
             value={uniform}
             mixed={mixed}
             min={0}
@@ -148,7 +149,14 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
               size="0.85em"
               className="insp-icon-field__icon"
             />
-            <NumberField label="TL" value={tl} min={0} onChange={(v) => handlePerCorner(0, v)} />
+            <NumberField
+              label="Top left"
+              displayLabel="TL"
+              unit="px"
+              value={tl}
+              min={0}
+              onChange={(v) => handlePerCorner(0, v)}
+            />
           </div>
           <div className="insp-icon-field">
             <Icon
@@ -157,7 +165,14 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
               size="0.85em"
               className="insp-icon-field__icon"
             />
-            <NumberField label="TR" value={tr} min={0} onChange={(v) => handlePerCorner(1, v)} />
+            <NumberField
+              label="Top right"
+              displayLabel="TR"
+              unit="px"
+              value={tr}
+              min={0}
+              onChange={(v) => handlePerCorner(1, v)}
+            />
           </div>
           <div className="insp-icon-field">
             <Icon
@@ -166,7 +181,14 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
               size="0.85em"
               className="insp-icon-field__icon"
             />
-            <NumberField label="BL" value={bl} min={0} onChange={(v) => handlePerCorner(3, v)} />
+            <NumberField
+              label="Bottom left"
+              displayLabel="BL"
+              unit="px"
+              value={bl}
+              min={0}
+              onChange={(v) => handlePerCorner(3, v)}
+            />
           </div>
           <div className="insp-icon-field">
             <Icon
@@ -175,7 +197,14 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
               size="0.85em"
               className="insp-icon-field__icon"
             />
-            <NumberField label="BR" value={br} min={0} onChange={(v) => handlePerCorner(2, v)} />
+            <NumberField
+              label="Bottom right"
+              displayLabel="BR"
+              unit="px"
+              value={br}
+              min={0}
+              onChange={(v) => handlePerCorner(2, v)}
+            />
           </div>
         </fieldset>
       )}

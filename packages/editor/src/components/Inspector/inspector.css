@@ -875,21 +875,22 @@
   white-space: nowrap;
 }
 
-.selection-colors__target-btn {
+.selection-colors__target-btn,
+.selection-colors__copy-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  min-width: 22px;
-  min-height: 22px;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
   padding: 0;
   border: none;
   border-radius: var(--radius-control-compact);
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
-  opacity: 0.6;
+  opacity: 0.55;
   transition:
     opacity var(--duration-quick) var(--ease-standard),
     background var(--duration-quick) var(--ease-standard),
@@ -897,16 +898,22 @@
 }
 
 .selection-colors__item:hover .selection-colors__target-btn,
-.selection-colors__target-btn:focus-visible {
+.selection-colors__item:hover .selection-colors__copy-btn,
+.selection-colors__item:focus-within .selection-colors__copy-btn,
+.selection-colors__item:focus-within .selection-colors__target-btn,
+.selection-colors__target-btn:focus-visible,
+.selection-colors__copy-btn:focus-visible {
   opacity: 1;
 }
 
-.selection-colors__target-btn:hover {
+.selection-colors__target-btn:hover,
+.selection-colors__copy-btn:hover {
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
 }
 
-.selection-colors__target-btn:focus-visible {
+.selection-colors__target-btn:focus-visible,
+.selection-colors__copy-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -1px;
 }
@@ -1682,7 +1689,8 @@
 .insp-align-bar .insp-align-targets .pill-group__btn {
   width: auto;
   min-width: 24px;
-  height: 22px;
+  height: 24px;
+  min-height: 24px;
   padding: 0 var(--space-2);
   font-size: var(--font-size-2xs);
 }
@@ -1976,6 +1984,20 @@
   gap: var(--space-05);
 }
 
+.insp-mask-header-badge {
+  padding: 1px var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-accent-subtle);
+  color: var(--color-interactive-default);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+}
+.insp-mask-header-badge--off {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+}
+
 .insp-mask-card__source-name {
   min-width: 0;
   overflow: hidden;
@@ -2027,40 +2049,6 @@
   color: var(--color-danger);
 }
 
-/* Compact two-state segmented control (fill rule, mask source kind). */
-.insp-segmented {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-05);
-  padding: var(--space-05);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  background: var(--color-surface-raised, transparent);
-}
-.insp-segmented__btn {
-  height: 22px;
-  padding: 0 var(--space-2);
-  border: 0;
-  border-radius: var(--radius-control-compact);
-  background: transparent;
-  color: var(--color-text-muted);
-  font: inherit;
-  font-size: var(--font-size-2xs);
-  cursor: pointer;
-}
-.insp-segmented__btn:hover {
-  color: var(--color-text-primary);
-}
-.insp-segmented__btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 1px;
-}
-.insp-segmented__btn--active {
-  background: var(--color-accent-subtle);
-  color: var(--color-interactive-default);
-  font-weight: var(--font-weight-semibold);
-}
-
 .insp-image-placement__actions {
   display: flex;
   align-items: center;
@@ -2075,15 +2063,14 @@
   margin-bottom: var(--space-2);
 }
 .insp-crop-presets__list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-05);
 }
 .insp-crop-presets__list .insp-btn-sm {
-  flex: 1 1 auto;
-  min-width: 38px;
+  min-width: 0;
   height: 24px;
-  padding: 0 var(--space-1);
+  padding: 0 var(--space-05);
   font-size: var(--font-size-2xs);
   justify-content: center;
 }
@@ -2245,6 +2232,35 @@
   flex-direction: column;
   gap: var(--space-2);
   padding-left: var(--space-4);
+}
+
+/* Non-default per-fill blend mode: compact chip that opens the full list,
+   replacing the always-visible duplicate Blend mode row. */
+.insp-blend-chip {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: var(--space-1);
+  height: 24px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  cursor: pointer;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
+}
+.insp-blend-chip:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+.insp-blend-chip:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
 }
 
 /* Add new fill controls */
@@ -5523,6 +5539,16 @@ fieldset.insp-canvas-props,
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* Label above a full-width control (image fit track): the 38% label column
+   would leave five fit segments too little room at sidebar width. */
+.insp-field--stacked {
+  grid-template-columns: minmax(0, 1fr);
+}
+.insp-field--stacked .insp-field__label {
+  min-height: 0;
+  cursor: default;
+}
+
 .insp-field__control {
   flex: 1 1 0;
   display: flex;
@@ -5620,11 +5646,11 @@ fieldset.insp-canvas-props,
   padding-inline-start: var(--space-2);
 }
 
+/* Quiet informational hint — no filled box, so it does not read as an
+ * interactive surface or compete with the controls above it. */
 .insp-effect-mask-note {
   margin: 0;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-control);
-  background: var(--color-surface-sunken);
+  padding: 0 var(--space-1) var(--space-1);
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   line-height: 1.4;
@@ -5651,7 +5677,10 @@ fieldset.insp-canvas-props,
 /* Compact boxed 2x2 grid of related numeric fields (shadow X/Y/Blur/Spread,
  * per-corner radius) — groups values Figma/Sketch present as one visual
  * unit instead of separate label/field pairs spread down the column. */
-.insp-quad-grid {
+/* `.insp-panel fieldset` sets display:flex for stacked fieldsets; the quad
+   grid needs its own two-column layout to beat that specificity (the 2x2
+   corner grid rendered as a single column until this was scoped). */
+.insp-panel fieldset.insp-quad-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-1) var(--space-2);
@@ -5840,6 +5869,13 @@ fieldset.insp-canvas-props,
   inline-size: 100%;
   max-inline-size: 100%;
   min-inline-size: 0;
+}
+
+/* The five image-fit modes are short, fixed labels: one equal track reads
+   better than the generic auto-fit grid, which wrapped them into 3+2. */
+.editor-inspector .insp-field__control > .insp-segmented--fit {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .editor-inspector .insp-segmented__btn {

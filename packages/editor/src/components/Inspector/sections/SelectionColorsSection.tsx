@@ -65,7 +65,32 @@ export function SelectionColorsSection({
     [editor],
   );
 
+  const handleCopyHex = useCallback(
+    async (group: SelectedPaintGroup) => {
+      const hex = hexLabel(group.color);
+      const clipboard = globalThis.navigator?.clipboard;
+      if (!clipboard) {
+        editor.announce('Clipboard is unavailable in this context');
+        return;
+      }
+      try {
+        await clipboard.writeText(hex);
+        editor.announce(`Copied ${hex}`);
+      } catch {
+        editor.announce('Could not copy the colour value');
+      }
+    },
+    [editor],
+  );
+
   if (summary.groups.length === 0 && summary.nonColorPaints.length === 0) return null;
+
+  // Redundancy rule (Figma's Selection Colors research): one object whose only
+  // paint is already editable one section below does not need a second copy of
+  // itself. Multi-use, multi-role, gradient, and multi-layer selections stay.
+  if (ids.length === 1 && summary.groups.length <= 1 && summary.nonColorPaints.length === 0) {
+    return null;
+  }
 
   return (
     <DisclosureSection title="Selection Colors" sectionId="selection-colors">
@@ -97,12 +122,25 @@ export function SelectionColorsSection({
                     <span className="selection-colors__meta">
                       <span className="selection-colors__hex">{hex}</span>
                       <span className="selection-colors__sub">
-                        <span className="selection-colors__count">{group.references.length}</span>
-                        <span className="selection-colors__role" aria-hidden="true">
-                          {roleLabel(group)}
+                        <span className="selection-colors__role" title={roleLabel(group)}>
+                          {compactRoleLabel(group)}
                         </span>
+                        {group.references.length > 1 && (
+                          <span className="selection-colors__count">
+                            {group.references.length} uses
+                          </span>
+                        )}
                       </span>
                     </span>
+                    <button
+                      type="button"
+                      className="selection-colors__copy-btn"
+                      aria-label={`Copy ${hex}`}
+                      title="Copy colour value"
+                      onClick={() => void handleCopyHex(group)}
+                    >
+                      <Icon name="Copy" size="0.85em" />
+                    </button>
                     <Tooltip label={`Select matching layers (${group.references.length})`}>
                       <button
                         type="button"
@@ -217,29 +255,36 @@ function opacityLabel(group: SelectedPaintGroup): string {
   return opacity === 100 ? '' : `, ${opacity}% opacity`;
 }
 
+function roleName(role: SelectedPaintGroup['roles'][number]): string {
+  switch (role) {
+    case 'fill':
+      return 'Fill';
+    case 'stroke':
+      return 'Stroke';
+    case 'gradient-stop':
+      return 'Gradient stop';
+    case 'text-fill':
+      return 'Text';
+    case 'table-fill':
+      return 'Table fill';
+    case 'table-stroke':
+      return 'Table border';
+    case 'table-text':
+      return 'Table text';
+    default:
+      return role;
+  }
+}
+
 function roleLabel(group: SelectedPaintGroup): string {
-  return group.roles
-    .map((role) => {
-      switch (role) {
-        case 'fill':
-          return 'Fill';
-        case 'stroke':
-          return 'Stroke';
-        case 'gradient-stop':
-          return 'Gradient stop';
-        case 'text-fill':
-          return 'Text';
-        case 'table-fill':
-          return 'Table fill';
-        case 'table-stroke':
-          return 'Table border';
-        case 'table-text':
-          return 'Table text';
-        default:
-          return role;
-      }
-    })
-    .join(' · ');
+  return group.roles.map(roleName).join(' · ');
+}
+
+/** One role plus a count keeps the row readable at sidebar width. */
+function compactRoleLabel(group: SelectedPaintGroup): string {
+  const roles = group.roles.map(roleName);
+  if (roles.length <= 1) return roles[0] ?? '';
+  return `${roles[0]} +${roles.length - 1}`;
 }
 
 function groupDisabledReason(group: SelectedPaintGroup): string | undefined {

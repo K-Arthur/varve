@@ -14,6 +14,7 @@ import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
 import { RangeValueControl } from '../controls/RangeValueControl';
 import type { SectionId } from '../sectionRegistry';
+import { isSectionCollapsed } from '../sectionState';
 
 export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionId?: SectionId }) {
   const editor = useEditor();
@@ -197,9 +198,24 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
   if (!canHaveMask) return null;
 
   const sourceLabel = sourceNode?.name ?? mask?.sourceNodeId?.slice(0, 8) ?? 'none';
+  // When the section is collapsed, the header still has to say a mask is
+  // active — otherwise an enabled mask is invisible until the user expands it.
+  const collapsed = isSectionCollapsed(state.sectionVisibility, sectionId ?? 'mask');
 
   return (
-    <DisclosureSection title="Mask" sectionId={sectionId ?? 'mask'}>
+    <DisclosureSection
+      title="Mask"
+      sectionId={sectionId ?? 'mask'}
+      action={
+        mask && collapsed ? (
+          <span
+            className={`insp-mask-header-badge${mask.visible ? '' : ' insp-mask-header-badge--off'}`}
+          >
+            {maskTypeLabel}
+          </span>
+        ) : undefined
+      }
+    >
       {canAddMask && (
         <div className="insp-mask-add">
           {node.kind === 'adjustment' && sourceCandidates.length > 0 && (

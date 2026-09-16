@@ -18,6 +18,7 @@ import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
 import { SegmentedControl } from '../controls/SegmentedControl';
+import { commonValue, isMixed } from '../selection/selectionState';
 
 const FIT_OPTIONS: readonly { readonly value: ImageFit; readonly label: string }[] = [
   { value: 'fill', label: 'Fill' },
@@ -82,63 +83,86 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
   if (!firstImageFill?.image) return null;
 
   const firstImg = firstImageFill.image;
-  const allSameFit = imageNodes.every((n) => getImageFill(n)?.image?.fit === firstImg.fit);
-  const fitValue = allSameFit ? (firstImg.fit ?? 'fill') : 'fill';
+  const fitRaw = commonValue(imageNodes, (n) => getImageFill(n)?.image?.fit ?? 'fill');
+  const fitValue: ImageFit = isMixed(fitRaw) ? 'fill' : (fitRaw as ImageFit);
+  const fitMixed = isMixed(fitRaw);
+  const scaleRaw = commonValue(imageNodes, (n) => getImageFill(n)?.image?.scale ?? 1);
+  const offsetXRaw = commonValue(imageNodes, (n) => getImageFill(n)?.image?.x ?? 0);
+  const offsetYRaw = commonValue(imageNodes, (n) => getImageFill(n)?.image?.y ?? 0);
   const placementLocked = fitValue === 'stretch';
 
   const isMulti = imageNodes.length > 1;
+  // Stretch pins the image to the shape bounds, so scale/offset would be inert;
+  // every other mode uses them (tile included, via scale).
+  const showOffsetAndScale = fitValue !== 'stretch' || fitMixed;
 
   return (
     <DisclosureSection title="Image Placement" sectionId="image-placement">
       <div className="insp-field-group">
-        <FieldRow label="Fit">
-          <SegmentedControl
-            label="Image fit mode"
-            options={FIT_OPTIONS}
-            value={fitValue}
-            onChange={handleFitChange}
-          />
-        </FieldRow>
-
-        <FieldRow label="Scale">
-          <NumberField
-            label="Image scale"
-            value={firstImg.scale ?? 1}
-            min={0.01}
-            max={100}
-            step={0.1}
-            onChange={handleScale}
-            unit="x"
-            labelWrap
-            disabled={placementLocked}
-          />
-        </FieldRow>
-
-        <div className="insp-field">
-          <span className="insp-field__label" style={{ cursor: 'default' }}>
-            Offset
-          </span>
+        {/* Full-width five-up track: the fit modes are the section's primary
+            decision, so they get the row rather than a cramped 38% column. */}
+        <div className="insp-field insp-field--stacked">
+          <span className="insp-field__label">Fit</span>
           <div className="insp-field__control">
-            <NumberField
-              label="Offset X"
-              displayLabel="X"
-              value={firstImg.x ?? 0}
-              step={1}
-              onChange={handleOffsetX}
-              unit="px"
-              disabled={placementLocked}
-            />
-            <NumberField
-              label="Offset Y"
-              displayLabel="Y"
-              value={firstImg.y ?? 0}
-              step={1}
-              onChange={handleOffsetY}
-              unit="px"
-              disabled={placementLocked}
+            <SegmentedControl
+              label="Image fit mode"
+              className="insp-segmented--fit"
+              options={FIT_OPTIONS}
+              value={fitValue}
+              onChange={handleFitChange}
             />
           </div>
         </div>
+        {fitMixed && (
+          <p className="insp-field__hint">
+            Mixed fit modes — choosing one applies it to all images.
+          </p>
+        )}
+
+        {showOffsetAndScale && (
+          <FieldRow label="Scale">
+            <NumberField
+              label="Scale"
+              hideLabel
+              value={isMixed(scaleRaw) ? 1 : scaleRaw}
+              mixed={isMixed(scaleRaw)}
+              min={0.01}
+              max={100}
+              step={0.1}
+              onChange={handleScale}
+              unit="x"
+              disabled={placementLocked}
+            />
+          </FieldRow>
+        )}
+
+        {showOffsetAndScale && (
+          <div className="insp-field">
+            <span className="insp-field__label">Offset</span>
+            <div className="insp-field__control">
+              <NumberField
+                label="Offset X"
+                displayLabel="X"
+                value={isMixed(offsetXRaw) ? 0 : offsetXRaw}
+                mixed={isMixed(offsetXRaw)}
+                step={1}
+                onChange={handleOffsetX}
+                unit="px"
+              />
+              <NumberField
+                label="Offset Y"
+                displayLabel="Y"
+                value={isMixed(offsetYRaw) ? 0 : offsetYRaw}
+                mixed={isMixed(offsetYRaw)}
+                step={1}
+                onChange={handleOffsetY}
+                unit="px"
+              />
+            </div>
+          </div>
+        )}
+
+        {placementLocked && <p className="insp-field__hint">Stretch ignores offset and scale.</p>}
 
         <div className="insp-image-placement__actions">
           <TooltipProvider>

@@ -44,9 +44,7 @@ import {
   resolvedGradientInterpolationSpace,
 } from '../color/gradientUiState';
 import { BindingMenu } from '../controls/BindingMenu';
-import { groupBlendOptions } from '../controls/blendModeOptionGroups';
 import { DisclosureSection } from '../controls/DisclosureSection';
-import { FieldRow } from '../controls/FieldRow';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { NumberField } from '../controls/NumberField';
 import type { SegmentedOption } from '../controls/SegmentedControl';
@@ -517,10 +515,35 @@ function FillRow({
   // Low-frequency row commands live in one labelled menu (the same grammar as
   // effect rows) instead of a strip of unlabelled icons beside the swatch.
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [blendMenuOpen, setBlendMenuOpen] = useState(false);
   const actionsTriggerRef = useRef<HTMLButtonElement>(null);
+  const blendTriggerRef = useRef<HTMLButtonElement>(null);
   const harmonySource = fill.type === 'solid' && fill.color?.space === 'rgb' ? fill.color : null;
+  const blendIsMixed = isMixed(blendRaw);
+  const blendValue = blendIsMixed ? 'normal' : (blendRaw as BlendMode);
+  const blendLabel =
+    BLEND_OPTIONS.find((option) => option.value === blendValue)?.label ?? 'Blend mode';
+  const blendMenuItems = useMemo<readonly MenuEntry[]>(
+    () =>
+      BLEND_OPTIONS.map((option) => ({
+        id: `blend-${option.value}`,
+        label: option.label,
+        type: 'radio' as const,
+        group: 'fill-blend-mode',
+        checked: !blendIsMixed && blendRaw === option.value,
+        onToggle: () => patch({ blendMode: option.value }),
+      })),
+    [blendIsMixed, blendRaw, patch],
+  );
   const actionItems = useMemo<readonly MenuEntry[]>(
     () => [
+      {
+        id: 'blend-mode',
+        label: 'Blend mode',
+        type: 'submenu' as const,
+        badge: blendLabel,
+        submenu: blendMenuItems,
+      },
       ...(!binding
         ? [
             {
@@ -568,7 +591,19 @@ function FillRow({
         icon: 'X',
       },
     ],
-    [binding, canMoveDown, canMoveUp, editor, harmonySource, label, onRemove, onReorder, patch],
+    [
+      binding,
+      blendLabel,
+      blendMenuItems,
+      canMoveDown,
+      canMoveUp,
+      editor,
+      harmonySource,
+      label,
+      onRemove,
+      onReorder,
+      patch,
+    ],
   );
 
   return (
@@ -795,20 +830,33 @@ function FillRow({
         />
       )}
 
-      <div className="insp-fill-row__properties">
-        <FieldRow label="Blend mode">
-          <Select
-            label="Fill blend mode"
-            value={isMixed(blendRaw) ? '' : blendRaw}
-            options={isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []}
-            groups={groupBlendOptions(BLEND_OPTIONS)}
-            onChange={(v) => {
-              if (v) patch({ blendMode: v as BlendMode });
-            }}
-            placeholder="Mixed"
+      {/* A per-fill blend mode duplicates the layer-level Appearance row when
+          it is the default. Surface a compact chip only when it differs, and
+          keep the full list one click away in the row menu's submenu. */}
+      {(blendIsMixed || blendValue !== 'normal') && (
+        <div className="insp-fill-row__properties">
+          <button
+            ref={blendTriggerRef}
+            type="button"
+            className="insp-blend-chip"
+            aria-haspopup="menu"
+            aria-expanded={blendMenuOpen}
+            aria-label={`${label} blend mode: ${blendIsMixed ? 'Mixed' : blendLabel}`}
+            onClick={() => setBlendMenuOpen((open) => !open)}
+          >
+            <Icon name="Blend" size="0.85em" />
+            <span>{blendIsMixed ? 'Mixed blend' : blendLabel}</span>
+          </button>
+          <Menu
+            triggerRef={blendTriggerRef}
+            open={blendMenuOpen}
+            onClose={() => setBlendMenuOpen(false)}
+            label={`${label} blend mode`}
+            items={blendMenuItems}
+            size="compact"
           />
-        </FieldRow>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -51,7 +51,7 @@ describe('CornerRadiusSection', () => {
 
     render(<CornerRadiusSection nodes={[rect]} />);
 
-    const radiusField = screen.getByRole('spinbutton', { name: 'Radius' });
+    const radiusField = screen.getByRole('spinbutton', { name: 'Radius (px)' });
     expect(radiusField).toHaveValue('8');
 
     const toggleBtn = screen.getByRole('button', { name: 'Edit individual corners' });
@@ -59,10 +59,10 @@ describe('CornerRadiusSection', () => {
 
     fireEvent.click(toggleBtn);
 
-    expect(screen.getByRole('spinbutton', { name: 'TL' })).toHaveValue('8');
-    expect(screen.getByRole('spinbutton', { name: 'TR' })).toHaveValue('8');
-    expect(screen.getByRole('spinbutton', { name: 'BL' })).toHaveValue('8');
-    expect(screen.getByRole('spinbutton', { name: 'BR' })).toHaveValue('8');
+    expect(screen.getByRole('spinbutton', { name: 'Top left (px)' })).toHaveValue('8');
+    expect(screen.getByRole('spinbutton', { name: 'Top right (px)' })).toHaveValue('8');
+    expect(screen.getByRole('spinbutton', { name: 'Bottom left (px)' })).toHaveValue('8');
+    expect(screen.getByRole('spinbutton', { name: 'Bottom right (px)' })).toHaveValue('8');
   });
 
   it('automatically surfaces independent corner inputs for asymmetric shapes', () => {
@@ -81,10 +81,10 @@ describe('CornerRadiusSection', () => {
 
     render(<CornerRadiusSection nodes={[rect]} />);
 
-    expect(screen.getByRole('spinbutton', { name: 'TL' })).toHaveValue('4');
-    expect(screen.getByRole('spinbutton', { name: 'TR' })).toHaveValue('8');
-    expect(screen.getByRole('spinbutton', { name: 'BR' })).toHaveValue('12');
-    expect(screen.getByRole('spinbutton', { name: 'BL' })).toHaveValue('16');
+    expect(screen.getByRole('spinbutton', { name: 'Top left (px)' })).toHaveValue('4');
+    expect(screen.getByRole('spinbutton', { name: 'Top right (px)' })).toHaveValue('8');
+    expect(screen.getByRole('spinbutton', { name: 'Bottom right (px)' })).toHaveValue('12');
+    expect(screen.getByRole('spinbutton', { name: 'Bottom left (px)' })).toHaveValue('16');
   });
 
   it('displays corner smoothing slider when rounding exists', () => {
