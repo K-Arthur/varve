@@ -32,6 +32,7 @@ import {
 import { Disclosure, DisclosureContent, DisclosureTrigger, Icon, Select } from '@varve/ui';
 import { ColorPicker, rgbToHex } from '@varve/ui/components/ColorPicker';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { NumberField } from '../controls/NumberField';
 
 export interface GradientEditorProps {
   gradient: GradientFill;
@@ -346,6 +347,28 @@ export function GradientEditor({
         </div>
       </div>
 
+      {/* Numeric angle is the single most requested gradient control in
+          competitor forums; it stays visible for the types that use it rather
+          than hiding in Gradient options, and scrubs like every inspector
+          number field. */}
+      {(gradient.type === 'linear' || gradient.type === 'angular') && (
+        <NumberField
+          label="Rotation"
+          unit="deg"
+          value={displayRotation}
+          min={0}
+          max={360}
+          step={1}
+          onChange={(rotation) =>
+            onChange(
+              linearGradientBounds
+                ? setGradientRotation(gradient, linearGradientBounds, rotation)
+                : { ...gradient, rotation },
+            )
+          }
+        />
+      )}
+
       <div className="gradient-editor__bar-wrap">
         <div
           ref={barRef}
@@ -544,31 +567,6 @@ export function GradientEditor({
                 <span className="gradient-editor__unit">
                   {Math.round((currentStop.midpoint ?? 0.5) * 100)}%
                 </span>
-              </div>
-            </div>
-          )}
-          {(gradient.type === 'linear' || gradient.type === 'angular') && (
-            <div className="insp-field">
-              <span className="insp-field__label">Rotation</span>
-              <div className="insp-field__control">
-                <input
-                  type="number"
-                  min={0}
-                  max={360}
-                  step={1}
-                  value={displayRotation}
-                  aria-label="Gradient rotation"
-                  onChange={(e) => {
-                    const rotation = Number(e.target.value);
-                    onChange(
-                      linearGradientBounds
-                        ? setGradientRotation(gradient, linearGradientBounds, rotation)
-                        : { ...gradient, rotation },
-                    );
-                  }}
-                  className="insp-num__input gradient-editor__position-input"
-                />
-                <span className="gradient-editor__unit">deg</span>
               </div>
             </div>
           )}

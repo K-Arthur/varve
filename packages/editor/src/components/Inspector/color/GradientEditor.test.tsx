@@ -360,11 +360,12 @@ describe('affine gradient geometry controls', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Gradient options' }));
-
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Gradient rotation' }), {
-      target: { value: '90' },
-    });
+    // Rotation is a first-class control now (scrub + keyboard), not an
+    // options-disclosure field.
+    expect(screen.queryByRole('button', { name: 'Gradient options' })).toBeTruthy();
+    const rotation = screen.getByRole('spinbutton', { name: 'Rotation (deg)' });
+    fireEvent.change(rotation, { target: { value: '90' } });
+    fireEvent.keyDown(rotation, { key: 'Enter' });
 
     const changed = onChange.mock.calls[0]![0] as GradientFill;
     expect(changed.rotation).toBeUndefined();
