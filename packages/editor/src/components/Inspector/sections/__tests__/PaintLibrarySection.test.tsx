@@ -103,6 +103,11 @@ describe('PaintLibrarySection', () => {
       updateDoc,
       announce,
       showToast,
+      // The section renders through the registry DisclosureSection, which
+      // calls these when its trigger is toggled.
+      toggleSectionCollapse: vi.fn(),
+      toggleSubSectionCollapse: vi.fn(),
+      hideInspectorSection: vi.fn(),
     });
   });
 
@@ -119,11 +124,16 @@ describe('PaintLibrarySection', () => {
       },
     });
     mockedUseEditor.mockReturnValue({
-      state: { document: doc },
+      state: { document: doc, sectionVisibility: { 'paint-library': { collapsed: false } } },
       selectedNodes: () => [],
       updateDoc,
       announce,
       showToast,
+      // The section renders through the registry DisclosureSection, which
+      // calls these when its trigger is toggled.
+      toggleSectionCollapse: vi.fn(),
+      toggleSubSectionCollapse: vi.fn(),
+      hideInspectorSection: vi.fn(),
     });
 
     renderLibrary();
@@ -139,11 +149,16 @@ describe('PaintLibrarySection', () => {
       },
     });
     mockedUseEditor.mockReturnValue({
-      state: { document: doc },
+      state: { document: doc, sectionVisibility: { 'paint-library': { collapsed: false } } },
       selectedNodes: () => [],
       updateDoc,
       announce,
       showToast,
+      // The section renders through the registry DisclosureSection, which
+      // calls these when its trigger is toggled.
+      toggleSectionCollapse: vi.fn(),
+      toggleSubSectionCollapse: vi.fn(),
+      hideInspectorSection: vi.fn(),
     });
 
     renderLibrary();
@@ -157,11 +172,16 @@ describe('PaintLibrarySection', () => {
     const node = makeShapeNode();
     const doc = makeDocument();
     mockedUseEditor.mockReturnValue({
-      state: { document: doc },
+      state: { document: doc, sectionVisibility: { 'paint-library': { collapsed: false } } },
       selectedNodes: () => [node],
       updateDoc,
       announce,
       showToast,
+      // The section renders through the registry DisclosureSection, which
+      // calls these when its trigger is toggled.
+      toggleSectionCollapse: vi.fn(),
+      toggleSubSectionCollapse: vi.fn(),
+      hideInspectorSection: vi.fn(),
     });
 
     renderLibrary();
@@ -189,11 +209,16 @@ describe('PaintLibrarySection', () => {
       },
     });
     mockedUseEditor.mockReturnValue({
-      state: { document: doc },
+      state: { document: doc, sectionVisibility: { 'paint-library': { collapsed: false } } },
       selectedNodes: () => [node],
       updateDoc,
       announce,
       showToast,
+      // The section renders through the registry DisclosureSection, which
+      // calls these when its trigger is toggled.
+      toggleSectionCollapse: vi.fn(),
+      toggleSubSectionCollapse: vi.fn(),
+      hideInspectorSection: vi.fn(),
     });
 
     renderLibrary();
@@ -218,11 +243,16 @@ describe('PaintLibrarySection', () => {
       },
     });
     mockedUseEditor.mockReturnValue({
-      state: { document: doc },
+      state: { document: doc, sectionVisibility: { 'paint-library': { collapsed: false } } },
       selectedNodes: () => [node],
       updateDoc,
       announce,
       showToast,
+      // The section renders through the registry DisclosureSection, which
+      // calls these when its trigger is toggled.
+      toggleSectionCollapse: vi.fn(),
+      toggleSubSectionCollapse: vi.fn(),
+      hideInspectorSection: vi.fn(),
     });
 
     renderLibrary();
@@ -248,11 +278,16 @@ describe('PaintLibrarySection', () => {
       },
     });
     mockedUseEditor.mockReturnValue({
-      state: { document: doc },
+      state: { document: doc, sectionVisibility: { 'paint-library': { collapsed: false } } },
       selectedNodes: () => [node],
       updateDoc,
       announce,
       showToast,
+      // The section renders through the registry DisclosureSection, which
+      // calls these when its trigger is toggled.
+      toggleSectionCollapse: vi.fn(),
+      toggleSubSectionCollapse: vi.fn(),
+      hideInspectorSection: vi.fn(),
     });
 
     renderLibrary();
@@ -271,11 +306,16 @@ describe('PaintLibrarySection', () => {
       },
     });
     mockedUseEditor.mockReturnValue({
-      state: { document: doc },
+      state: { document: doc, sectionVisibility: { 'paint-library': { collapsed: false } } },
       selectedNodes: () => [node],
       updateDoc,
       announce,
       showToast,
+      // The section renders through the registry DisclosureSection, which
+      // calls these when its trigger is toggled.
+      toggleSectionCollapse: vi.fn(),
+      toggleSubSectionCollapse: vi.fn(),
+      hideInspectorSection: vi.fn(),
     });
 
     renderLibrary();
@@ -295,11 +335,16 @@ describe('PaintLibrarySection', () => {
     });
     const updateDocMock = vi.fn();
     mockedUseEditor.mockReturnValue({
-      state: { document: doc },
+      state: { document: doc, sectionVisibility: { 'paint-library': { collapsed: false } } },
       selectedNodes: () => [node],
       updateDoc: updateDocMock,
       announce,
       showToast,
+      // The section renders through the registry DisclosureSection, which
+      // calls these when its trigger is toggled.
+      toggleSectionCollapse: vi.fn(),
+      toggleSubSectionCollapse: vi.fn(),
+      hideInspectorSection: vi.fn(),
     });
 
     renderLibrary();
@@ -335,11 +380,16 @@ describe('PaintLibrarySection', () => {
     });
     const updateDocMock = vi.fn();
     mockedUseEditor.mockReturnValue({
-      state: { document: doc },
+      state: { document: doc, sectionVisibility: { 'paint-library': { collapsed: false } } },
       selectedNodes: () => [node],
       updateDoc: updateDocMock,
       announce,
       showToast,
+      // The section renders through the registry DisclosureSection, which
+      // calls these when its trigger is toggled.
+      toggleSectionCollapse: vi.fn(),
+      toggleSubSectionCollapse: vi.fn(),
+      hideInspectorSection: vi.fn(),
     });
 
     renderLibrary();

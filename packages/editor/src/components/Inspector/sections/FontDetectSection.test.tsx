@@ -175,6 +175,12 @@ beforeEach(() => {
     announce,
     setPendingFormat,
     setTool,
+    // The section renders through the registry DisclosureSection; seed the
+    // collapsed-by-default state expanded so its content mounts.
+    state: { sectionVisibility: { 'font-detect': { collapsed: false } } },
+    toggleSectionCollapse: vi.fn(),
+    toggleSubSectionCollapse: vi.fn(),
+    hideInspectorSection: vi.fn(),
     walkNodes: () =>
       new Map([
         ['text-target', { nodeId: 'text-target', node: textTarget, parentId: null, depth: 0 }],
