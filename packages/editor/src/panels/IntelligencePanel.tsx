@@ -100,7 +100,9 @@ import '../components/Inspector/inspector.css';
  * Workspace-aware tab structure:
  * - 'review' tab is the new unified audit finding view using the AuditFinding model
  * - Other tabs remain as specialized tools
- * - Tab order is workspace-aware (primary categories shown first in review tab)
+ * - Tabs are filtered by applicability so a tab never opens onto a dead end
+ *   ("select a frame…") — the 2026-09-16 review found dead tabs were the
+ *   single biggest source of "wrong panel for the current target" noise.
  */
 type ExtendedTab = IntelligenceTab | 'review';
 
@@ -109,9 +111,64 @@ interface IntelligenceTabGroup {
   tabs: ExtendedTab[];
 }
 
+/** Human labels. The raw ids ("review", "debt") leaked implementation jargon. */
+const TAB_LABELS: Record<ExtendedTab, string> = {
+  review: 'Review',
+  audit: 'Contrast',
+  spacing: 'Spacing',
+  naming: 'Names',
+  governance: 'Governance',
+  debt: 'Design debt',
+  prototype: 'Prototype',
+  layout: 'Auto layout',
+  components: 'Components',
+  similar: 'Similar layers',
+  linter: 'Linter',
+};
+
+function tabLabel(tab: ExtendedTab): string {
+  return TAB_LABELS[tab] ?? tab;
+}
+
+/**
+ * Whether a tab has anything to act on for the current document/selection.
+ * Document-level scans are always available; selection-scoped tools need a
+ * target that can produce a result.
+ */
+function isTabApplicable(
+  tab: ExtendedTab,
+  ctx: { selectionCount: number; frameSelected: boolean; hasPrototype: boolean },
+): boolean {
+  switch (tab) {
+    case 'spacing':
+      return ctx.selectionCount >= 2;
+    case 'naming':
+      return ctx.selectionCount >= 1;
+    case 'layout':
+      return ctx.frameSelected;
+    case 'prototype':
+      return ctx.hasPrototype;
+    // Similar layers keeps a no-selection text query, so it stays available
+    // even with nothing selected — its own empty state is the search field.
+    default:
+      return true;
+  }
+}
+
 function useWorkspaceTabs(): { primaryTabs: ExtendedTab[]; moreGroups: IntelligenceTabGroup[] } {
   const { state } = useEditor();
   const profile = getAuditProfile(state.workspaceMode);
+  const applicability = useMemo(() => {
+    const selectionCount = state.selection.length;
+    const first = selectionCount === 1 ? state.document.nodes[state.selection[0]!] : undefined;
+    return {
+      selectionCount,
+      frameSelected: first?.kind === 'frame',
+      hasPrototype: Boolean(state.prototypeData),
+    };
+  }, [state.selection, state.document.nodes, state.prototypeData]);
+  const applicable = (tabs: ExtendedTab[]) =>
+    tabs.filter((tab) => isTabApplicable(tab, applicability));
 
   // Primary tabs: always review + workspace-applicable specialized tabs
   const primaryTabs: ExtendedTab[] = ['review', 'audit'];
@@ -133,6 +190,16 @@ function useWorkspaceTabs(): { primaryTabs: ExtendedTab[]; moreGroups: Intellige
   const moreGroups: IntelligenceTabGroup[] = [];
 
   const qualityTabs: ExtendedTab[] = [];
+  // Naming is a layer-hygiene tool. It rides in the More menu when the
+  // workspace treats governance as secondary (Design), and is promoted to a
+  // primary tab when governance drives the workspace.
+  if (
+    !primaryTabs.includes('naming') &&
+    (profile.secondaryCategories.includes('layer-hygiene') ||
+      profile.secondaryCategories.includes('governance'))
+  ) {
+    qualityTabs.push('naming');
+  }
   if (
     profile.secondaryCategories.includes('accessibility') ||
     profile.hiddenCategories.length === 0
@@ -159,7 +226,12 @@ function useWorkspaceTabs(): { primaryTabs: ExtendedTab[]; moreGroups: Intellige
   analysisTabs.push('layout', 'similar');
   moreGroups.push({ label: 'Analysis', tabs: analysisTabs });
 
-  return { primaryTabs, moreGroups };
+  return {
+    primaryTabs: applicable(primaryTabs),
+    moreGroups: moreGroups
+      .map((group) => ({ ...group, tabs: applicable(group.tabs) }))
+      .filter((group) => group.tabs.length > 0),
+  };
 }
 
 export function IntelligencePanel({ initialTab }: { initialTab?: ExtendedTab } = {}) {
@@ -172,13 +244,23 @@ export function IntelligencePanel({ initialTab }: { initialTab?: ExtendedTab } =
 
   const allMoreTabs = moreGroups.flatMap((g) => g.tabs);
   const moreLabel = allMoreTabs.find((t) => t === tab) ?? null;
+  // A tab can become inapplicable under the current selection (e.g. Spacing
+  // with one layer selected). Fall back to the first applicable tab instead
+  // of leaving the tab bar without a selection.
+  useEffect(() => {
+    const available = [...primaryTabs, ...allMoreTabs];
+    if (!available.includes(tab)) {
+      const fallback = primaryTabs[0] ?? allMoreTabs[0] ?? 'review';
+      setTab(fallback);
+    }
+  }, [primaryTabs, allMoreTabs, tab]);
   const moreMenuItems = useMemo<MenuEntry[]>(
     () =>
       moreGroups.flatMap((group, groupIndex) => [
         ...(groupIndex > 0 ? [{ id: `separator-${group.label}`, separator: true as const }] : []),
         ...group.tabs.map((t) => ({
           id: t,
-          label: `${group.label}: ${t}`,
+          label: `${tabLabel(t)} · ${group.label}`,
           onAction: () => {
             setTab(t);
             setShowMore(false);
@@ -236,7 +318,7 @@ export function IntelligencePanel({ initialTab }: { initialTab?: ExtendedTab } =
             >
               {t === 'review' && <Icon name="ShieldCheck" label={undefined} size="0.9em" />}
               {t === 'audit' && <Icon name="Lightbulb" label={undefined} size="0.9em" />}
-              {t}
+              {tabLabel(t)}
             </button>
           ))}
         </div>
@@ -246,14 +328,14 @@ export function IntelligencePanel({ initialTab }: { initialTab?: ExtendedTab } =
           ref={moreTriggerRef}
           className={`intelligence-tab intelligence-more-trigger${moreLabel ? ' intelligence-tab--active' : ''}`}
           aria-label={
-            moreLabel ? `${moreLabel} (More intelligence tabs)` : 'More intelligence tabs'
+            moreLabel ? `${tabLabel(moreLabel)} (More intelligence tabs)` : 'More intelligence tabs'
           }
           aria-controls={moreLabel ? activePanelId : undefined}
           aria-haspopup="menu"
           aria-expanded={showMore}
           onClick={() => setShowMore((s) => !s)}
         >
-          {moreLabel ?? 'More'}
+          {moreLabel ? tabLabel(moreLabel) : 'More'}
         </button>
       </div>
       <Menu
@@ -689,7 +771,7 @@ function ReviewTab() {
   const [isScanning, setIsScanning] = useState(false);
   const [progress, setProgress] = useState<ScanProgress | null>(null);
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
-  const [filterSeverity, _setFilterSeverity] = useState<string | null>(null);
+  const [filterSeverity, setFilterSeverity] = useState<string | null>(null);
   const [suppressions, setSuppressions] = useState<SuppressionEntry[]>([]);
   const scanIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -859,6 +941,13 @@ function ReviewTab() {
     suggestion: filteredFindings.filter((f) => f.severity === 'suggestion').length,
     advisory: filteredFindings.filter((f) => f.severity === 'advisory').length,
   };
+  // Chip counts come from the unfiltered report so a severity chip does not
+  // disappear while a category filter is active.
+  const severityKinds = (['error', 'warning', 'suggestion', 'advisory'] as const).filter(
+    (severity) => report.findings.some((finding) => finding.severity === severity),
+  );
+  const severityCounts = (severity: string) =>
+    report.findings.filter((finding) => finding.severity === severity).length;
 
   const handleSuppress = (finding: AuditFinding) => {
     setSuppressions((prev) => [
@@ -872,14 +961,6 @@ function ReviewTab() {
       } as SuppressionEntry,
     ]);
     announce(`Suppressed: ${finding.message}`);
-  };
-
-  const handleAutoFix = (finding: AuditFinding) => {
-    if (!finding.autoFixAvailable) return;
-    // Delegate to the rule's auto-fix through the engine
-    announce(`Auto-fixing: ${finding.message}`);
-    // Re-run after fix
-    setTimeout(runReview, 100);
   };
 
   return (
@@ -945,7 +1026,9 @@ function ReviewTab() {
         )}
       </div>
 
-      {/* Filter chips */}
+      {/* Filter chips: category first, then severity. Severity chips only
+          appear when the report actually mixes severities — a single-severity
+          report does not need a filter it can never narrow. */}
       <div
         style={{
           display: 'flex',
@@ -976,6 +1059,49 @@ function ReviewTab() {
           </button>
         )}
       </div>
+      {severityKinds.length > 1 && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 'var(--space-1)',
+            marginBottom: 'var(--space-2)',
+          }}
+        >
+          {severityKinds.map((severity) => (
+            <button
+              key={severity}
+              type="button"
+              className={`intelligence-filter-chip intelligence-filter-chip--severity-${severity}${filterSeverity === severity ? ' intelligence-filter-chip--active' : ''}`}
+              onClick={() => setFilterSeverity(filterSeverity === severity ? null : severity)}
+            >
+              {severity} ({severityCounts(severity)})
+            </button>
+          ))}
+          {filterSeverity && (
+            <button
+              type="button"
+              className="intelligence-filter-chip intelligence-filter-chip--clear"
+              onClick={() => setFilterSeverity(null)}
+            >
+              Clear severity
+            </button>
+          )}
+        </div>
+      )}
+      {suppressions.length > 0 && (
+        <p className="intelligence-hint">
+          {suppressions.length} finding{suppressions.length === 1 ? '' : 's'} suppressed this
+          session.{' '}
+          <button
+            type="button"
+            className="intelligence-inline-action"
+            onClick={() => setSuppressions([])}
+          >
+            Restore
+          </button>
+        </p>
+      )}
 
       {/* Findings list */}
       {filteredFindings.length === 0 ? (
@@ -1036,15 +1162,6 @@ function ReviewTab() {
                     className="intelligence-issue__actions"
                     style={{ display: 'flex', gap: 'var(--space-1)', marginTop: 'var(--space-1)' }}
                   >
-                    {finding.autoFixAvailable && (
-                      <button
-                        type="button"
-                        className="intelligence-action-btn"
-                        onClick={() => handleAutoFix(finding)}
-                      >
-                        <Icon name="Wand" label={undefined} size="0.85em" /> Auto-fix
-                      </button>
-                    )}
                     {finding.evidence && Object.keys(finding.evidence).length > 0 && (
                       <span
                         style={{

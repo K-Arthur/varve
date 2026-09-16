@@ -66,10 +66,10 @@ function lowContrastDocument(): Document {
   };
 }
 
-describe('IntelligencePanel — Audit tab', () => {
-  function switchToAuditTab() {
-    const auditTab = screen.getByRole('tab', { name: /audit/i });
-    fireEvent.click(auditTab);
+describe('IntelligencePanel — Contrast tab', () => {
+  function switchToContrastTab() {
+    const contrastTab = screen.getByRole('tab', { name: /contrast/i });
+    fireEvent.click(contrastTab);
   }
 
   it('shows "no issues" for a document with no contrast problems', () => {
@@ -78,7 +78,7 @@ describe('IntelligencePanel — Audit tab', () => {
         <IntelligencePanel />
       </EditorProvider>,
     );
-    switchToAuditTab();
+    switchToContrastTab();
     expect(screen.getByText('No issues detected')).toBeInTheDocument();
   });
 
@@ -88,7 +88,7 @@ describe('IntelligencePanel — Audit tab', () => {
         <IntelligencePanel />
       </EditorProvider>,
     );
-    switchToAuditTab();
+    switchToContrastTab();
     expect(screen.queryByText('No issues detected')).not.toBeInTheDocument();
     expect(screen.getByText(/WCAG AA minimum/i)).toBeInTheDocument();
 
@@ -121,10 +121,18 @@ describe('IntelligencePanel — Naming tab', () => {
     render(
       <EditorProvider initialDocumentJson={JSON.stringify(lowContrastDocument())}>
         <WithSelection id="text1">
-          <IntelligencePanel initialTab="naming" />
+          <IntelligencePanel />
         </WithSelection>
       </EditorProvider>,
     );
+
+    // The Names tab only exists once something is selected (tabs are gated by
+    // applicability); the mount effect establishes that selection. In the
+    // Design workspace naming lives in the More menu.
+    const moreTrigger = await screen.findByRole('button', { name: /more intelligence tabs/i });
+    fireEvent.click(moreTrigger);
+    const namesItem = await screen.findByRole('menuitem', { name: /names/i });
+    fireEvent.click(namesItem);
 
     const suggestBtn = await screen.findByRole('button', { name: /suggest names/i });
     expect(suggestBtn).not.toBeDisabled();
@@ -136,6 +144,37 @@ describe('IntelligencePanel — Naming tab', () => {
     await waitFor(() => expect(screen.getByText('Text: Hello')).toBeInTheDocument());
     expect(screen.queryByText(/identifying photo content/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/downloading photo-identification model/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('IntelligencePanel — tab applicability', () => {
+  it('hides target-dependent tabs when the selection cannot use them', () => {
+    render(
+      <EditorProvider>
+        <IntelligencePanel />
+      </EditorProvider>,
+    );
+
+    expect(screen.queryByRole('tab', { name: 'Spacing' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Names' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Auto layout' })).not.toBeInTheDocument();
+    // Document-level review stays available.
+    expect(screen.getByRole('tab', { name: 'Review' })).toBeInTheDocument();
+  });
+
+  it('shows Auto layout once a frame is selected', async () => {
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(lowContrastDocument())}>
+        <WithSelection id="frame1">
+          <IntelligencePanel />
+        </WithSelection>
+      </EditorProvider>,
+    );
+
+    // Auto layout lives in the More menu for the Design workspace.
+    const moreTrigger = await screen.findByRole('button', { name: /more intelligence tabs/i });
+    fireEvent.click(moreTrigger);
+    expect(await screen.findByRole('menuitem', { name: /auto layout/i })).toBeInTheDocument();
   });
 });
 

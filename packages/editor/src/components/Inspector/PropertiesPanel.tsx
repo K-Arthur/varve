@@ -434,10 +434,11 @@ export function PropertiesPanel() {
           {inspectorContext.scope !== 'pixel-selection' && <SelectionSourcesPanel />}
           {/* Insights remains document-level and last in the Design composition.
               It is lazy because the audit panel is also reachable from the
-              legacy tab/deep-link path. */}
+              legacy tab/deep-link path. Registry-managed (sectionId) so the
+              section manager can hide or restore it. */}
           <Suspense fallback={null}>
             <SelectionLockGuard restriction={restrictionNotice}>
-              <DisclosureSection title="Insights" defaultExpanded={false}>
+              <DisclosureSection title="Insights" sectionId="insights">
                 <AuditPanel request={intelRequest} />
               </DisclosureSection>
             </SelectionLockGuard>

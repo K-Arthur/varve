@@ -3204,7 +3204,6 @@ fieldset.insp-canvas-props,
   color: var(--color-text-muted);
   font: inherit;
   font-size: var(--font-size-xs);
-  text-transform: capitalize;
   cursor: pointer;
   transition:
     color var(--duration-quick) var(--ease-standard),
@@ -4908,6 +4907,32 @@ fieldset.insp-canvas-props,
 }
 .intelligence-filter-chip--clear:hover {
   border-style: solid;
+}
+/* Severity chips carry the same semantic accent as the findings they filter;
+   active state still uses the standard filled treatment above. */
+.intelligence-filter-chip--severity-error {
+  color: var(--color-feedback-danger);
+  border-color: var(--color-feedback-danger);
+}
+.intelligence-filter-chip--severity-warning {
+  color: var(--color-feedback-warning);
+  border-color: var(--color-feedback-warning);
+}
+.intelligence-inline-action {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-interactive-default);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.intelligence-inline-action:hover {
+  color: var(--color-interactive-hover);
+}
+.intelligence-inline-action:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
 }
 
 /* Mask section: soft-edge hint for clip masks with feather/density. */

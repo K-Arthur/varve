@@ -1,7 +1,11 @@
 import type { Document, NodeId } from '@varve/scene';
 import { Tooltip } from '@varve/ui';
 import { useMemo } from 'react';
-import { computeCognitiveLoad } from '../../../intelligence/cognitiveLoad';
+import {
+  type CognitiveLoadReport,
+  computeCognitiveLoad,
+} from '../../../intelligence/cognitiveLoad';
+import { DisclosureSection } from '../controls/DisclosureSection';
 
 export interface CognitiveLoadIndicatorProps {
   document: Document;
@@ -15,9 +19,29 @@ const LEVEL_COLORS: Record<string, string> = {
   critical: 'var(--color-feedback-danger)',
 };
 
+/**
+ * Cognitive-load disclosure for the Insights panel.
+ *
+ * Returns nothing at all when the score is zero. Previously the section header
+ * rendered regardless and opened onto an empty body — an "expanded section
+ * with no content" dead end that the 2026-09-16 Insights review called out.
+ */
+export function CognitiveLoadSection({ document, nodeId }: CognitiveLoadIndicatorProps) {
+  const report = useMemo(() => computeCognitiveLoad(document, nodeId), [document, nodeId]);
+  if (report.score === 0) return null;
+  return (
+    <DisclosureSection title="Cognitive load" sectionId="cognitive-load">
+      <CognitiveLoadReportView report={report} />
+    </DisclosureSection>
+  );
+}
+
 export function CognitiveLoadIndicator({ document, nodeId }: CognitiveLoadIndicatorProps) {
   const report = useMemo(() => computeCognitiveLoad(document, nodeId), [document, nodeId]);
+  return <CognitiveLoadReportView report={report} />;
+}
 
+function CognitiveLoadReportView({ report }: { report: CognitiveLoadReport }) {
   if (report.score === 0) return null;
 
   return (
