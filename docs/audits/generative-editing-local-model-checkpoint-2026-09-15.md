@@ -42,9 +42,11 @@ records for PowerPaint v2-1, FLUX.1-Fill-dev, FIBO-Edit 1.5 turbo, and SDXL
 Inpainting. Research records cannot be routed by the provider facade. Their
 published usage requirements are materially different: PowerPaint documents
 a Python 3.9/Diffusers/PyTorch environment and includes outpainting in its
-task table; FLUX Fill is a gated 12-billion-parameter workflow with separate
-text encoders and VAE; FIBO uses its own structured-edit pipeline; and SDXL
-has a larger 1024-pixel working contract. See the [PowerPaint model
+task table. Its published bundle contains a Realistic Vision / SD 1.5 base and
+a separate BrushNet adapter, so its future sidecar must use a 512-pixel SD 1.5
+frame rather than the SDXL contract. FLUX Fill is a gated 12-billion-parameter
+workflow with separate text encoders and VAE; FIBO uses its own structured-edit
+pipeline; and SDXL has a larger 1024-pixel working contract. See the [PowerPaint model
 card](https://huggingface.co/JunhaoZhuang/PowerPaint-v2-1), [FLUX Fill model
 card](https://huggingface.co/black-forest-labs/FLUX.1-Fill-dev), [FIBO model
 card](https://huggingface.co/briaai/Fibo-Edit-1.5-turbo), and [SDXL inpainting

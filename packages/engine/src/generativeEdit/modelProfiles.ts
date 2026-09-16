@@ -3,7 +3,7 @@ import type {
   DiffusionInputKind,
   DiffusionMaskConvention,
 } from './diffusionFrame';
-import { SD15_INPAINTING_FRAME_CONTRACT, SDXL_INPAINTING_FRAME_CONTRACT } from './diffusionFrame';
+import { SD15_INPAINTING_FRAME_CONTRACT } from './diffusionFrame';
 import type { GenerativeEditMode } from './types';
 
 /**
@@ -135,7 +135,11 @@ export const LOCAL_GENERATIVE_MODEL_RESEARCH_PROFILES: readonly LocalGenerativeM
     supportedModes: ALL_INPAINTING_MODES,
     inputKind: 'masked-inpainting',
     maskConvention: 'white-edit-black-preserve',
-    frameContract: SDXL_INPAINTING_FRAME_CONTRACT,
+    // The published bundle contains a Realistic Vision / SD 1.5 base and a
+    // separate BrushNet adapter. It is not an SDXL checkpoint; retaining the
+    // 512-frame contract prevents a future sidecar from silently using the
+    // wrong latent geometry.
+    frameContract: SD15_INPAINTING_FRAME_CONTRACT,
     artifact: {
       format: 'safetensors',
       source: 'JunhaoZhuang/PowerPaint-v2-1',

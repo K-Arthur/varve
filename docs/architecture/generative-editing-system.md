@@ -557,7 +557,10 @@ keeps the local candidate requirements explicit alongside the provider facade.
 Each profile records its actual masked-input contract, required component roles,
 artifact format and revision, license, adapter identity, offline behaviour,
 backend/architecture qualification, passed/failed evidence reference, target
-platforms, and memory envelope. A profile cannot be runnable merely because it
+platforms, and memory envelope. PowerPaint's published bundle is an SD 1.5
+base plus a separate BrushNet adapter and therefore uses the 512-pixel SD 1.5
+frame contract; it must not inherit the SDXL transform. A profile cannot be
+runnable merely because it
 is marked `qualified`: the registry requires a passed evidence record, an
 explicit target platform, a known backend and architecture, a complete
 component manifest, and measured available memory before startup. PowerPaint,
