@@ -578,6 +578,7 @@ export type {
   LocalGenerativeModelArtifactFormat,
   LocalGenerativeModelDisposition,
   LocalGenerativeModelProfile,
+  LocalGenerativeModelQualification,
   LocalGenerativeModelRuntimeRequirements,
   NativeGenerativeModelDownloadProgress,
   NativeGenerativeModelStatus,

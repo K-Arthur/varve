@@ -49,6 +49,7 @@ export type {
   LocalGenerativeModelArtifactFormat,
   LocalGenerativeModelDisposition,
   LocalGenerativeModelProfile,
+  LocalGenerativeModelQualification,
   LocalGenerativeModelRuntimeRequirements,
 } from './modelProfiles';
 export {

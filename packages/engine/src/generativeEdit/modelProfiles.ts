@@ -46,6 +46,14 @@ export interface LocalGenerativeModelRuntimeRequirements {
   offlineAfterInstall: boolean;
 }
 
+export interface LocalGenerativeModelQualification {
+  status: 'passed' | 'failed' | 'pending';
+  /** Repository-relative evidence report or an equivalent durable artifact. */
+  evidenceRef: string;
+  /** Platform identities that actually ran the masked quality gate. */
+  platforms: readonly string[];
+}
+
 export interface LocalGenerativeModelProfile {
   id: string;
   name: string;
@@ -57,6 +65,7 @@ export interface LocalGenerativeModelProfile {
   frameContract?: DiffusionFrameContract;
   artifact: LocalGenerativeModelArtifact;
   runtime: LocalGenerativeModelRuntimeRequirements;
+  qualification?: LocalGenerativeModelQualification;
   limitations: readonly string[];
   /** Stable explanation shown by setup/qualification tooling. */
   reason: string;
@@ -90,12 +99,17 @@ export const CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE: LocalGenerativeModelProfile
   },
   runtime: {
     adapterId: 'diffusion-rs-0.1.20-varve-image-cfg-v1',
-    executionBackends: ['native-cpu', 'native-vulkan', 'native-metal'],
+    executionBackends: ['native-cpu'],
     architectures: [],
     minimumMemoryBytes: 6 * 1024 ** 3,
     recommendedMemoryBytes: 8 * 1024 ** 3,
     requiresGpu: false,
     offlineAfterInstall: true,
+  },
+  qualification: {
+    status: 'failed',
+    evidenceRef: 'docs/audits/generative-editing-runtime-qualification-2026-09-12.md',
+    platforms: [],
   },
   limitations: [
     'The pinned artifact is documented for a patched llama-box/stable-diffusion.cpp runtime.',
@@ -257,6 +271,7 @@ export function isLocalGenerativeModelRunnable(
     availableMemoryBytes?: number;
     executionBackend?: string;
     architecture?: string;
+    platform?: string;
   },
 ): { runnable: true } | { runnable: false; reason: string } {
   if (profile.disposition !== 'qualified') {
@@ -264,6 +279,16 @@ export function isLocalGenerativeModelRunnable(
   }
   if (!profile.supportedModes.includes(options.mode)) {
     return { runnable: false, reason: `${profile.name} does not support ${options.mode}.` };
+  }
+  if (
+    profile.qualification?.status !== 'passed' ||
+    profile.qualification.evidenceRef.trim().length === 0 ||
+    profile.qualification.platforms.length === 0
+  ) {
+    return {
+      runnable: false,
+      reason: `${profile.name} has no passed local quality qualification evidence.`,
+    };
   }
   if (profile.artifact.sha256?.length !== 64) {
     return {
@@ -287,6 +312,18 @@ export function isLocalGenerativeModelRunnable(
     return {
       runnable: false,
       reason: `${profile.name} is not usable offline after installation.`,
+    };
+  }
+  if (options.platform === undefined) {
+    return {
+      runnable: false,
+      reason: `${profile.name} requires an explicitly qualified target platform.`,
+    };
+  }
+  if (!profile.qualification.platforms.includes(options.platform)) {
+    return {
+      runnable: false,
+      reason: `${profile.name} has not been qualified for ${options.platform}.`,
     };
   }
   if (options.executionBackend === undefined) {

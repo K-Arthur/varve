@@ -556,13 +556,18 @@ The renderer-side model registry in
 keeps the local candidate requirements explicit alongside the provider facade.
 Each profile records its actual masked-input contract, required component roles,
 artifact format and revision, license, adapter identity, offline behaviour,
-backend/architecture qualification, and memory envelope. PowerPaint,
+backend/architecture qualification, passed/failed evidence reference, target
+platforms, and memory envelope. A profile cannot be runnable merely because it
+is marked `qualified`: the registry requires a passed evidence record, an
+explicit target platform, a known backend and architecture, a complete
+component manifest, and measured available memory before startup. PowerPaint,
 FLUX.1-Fill, FIBO-Edit, and SDXL are research-only records; their presence in
 the registry does not make them installable or routable. The current SD 1.5
 GGUF remains disabled because its published runtime is patched and its
-real-photograph results failed review. A future profile must be promoted only
-after its complete local component graph and supervised adapter pass the same
-mask, quality, cancellation, memory, and platform gates.
+real-photograph results failed review; only its CPU diagnostic backend is
+listed, and no Vulkan or Metal qualification is implied. A future profile must
+be promoted only after its complete local component graph and supervised
+adapter pass the same mask, quality, cancellation, memory, and platform gates.
 
 When a prompt-capable result is accepted, its provider provenance also records
 the exact input-frame contract and preprocessing revision (including the model

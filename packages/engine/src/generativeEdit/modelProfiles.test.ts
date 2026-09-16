@@ -20,6 +20,12 @@ describe('local generative model profiles', () => {
       'clip-vit-l-14',
       'vae',
     ]);
+    expect(profile.runtime.executionBackends).toEqual(['native-cpu']);
+    expect(profile.qualification).toMatchObject({
+      status: 'failed',
+      evidenceRef: 'docs/audits/generative-editing-runtime-qualification-2026-09-12.md',
+      platforms: [],
+    });
     expect(profile.runtime.offlineAfterInstall).toBe(true);
     expect(
       isLocalGenerativeModelRunnable(profile, {
@@ -64,11 +70,13 @@ describe('local generative model profiles', () => {
         mode: 'fill',
         executionBackend: 'native-cpu',
         architecture: 'x86_64',
+        platform: 'linux-x86_64',
         availableMemoryBytes: 32 * 1024 ** 3,
       }),
     ).toEqual({
       runnable: false,
-      reason: 'Stable Diffusion 1.5 Inpainting · Q4_0 has no qualified CPU architecture.',
+      reason:
+        'Stable Diffusion 1.5 Inpainting · Q4_0 has no passed local quality qualification evidence.',
     });
   });
 
@@ -80,12 +88,18 @@ describe('local generative model profiles', () => {
         ...CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE.runtime,
         architectures: ['x86_64'],
       },
+      qualification: {
+        status: 'passed' as const,
+        evidenceRef: 'docs/audits/example.md',
+        platforms: ['linux-x86_64'],
+      },
     };
 
     expect(
       isLocalGenerativeModelRunnable(qualifiedProfile, {
         mode: 'fill',
         architecture: 'x86_64',
+        platform: 'linux-x86_64',
         availableMemoryBytes: 8 * 1024 ** 3,
       }),
     ).toEqual({
@@ -99,6 +113,7 @@ describe('local generative model profiles', () => {
         mode: 'fill',
         executionBackend: 'native-cpu',
         architecture: 'x86_64',
+        platform: 'linux-x86_64',
       }),
     ).toEqual({
       runnable: false,
@@ -111,6 +126,7 @@ describe('local generative model profiles', () => {
         mode: 'fill',
         executionBackend: 'native-cpu',
         architecture: 'x86_64',
+        platform: 'linux-x86_64',
         availableMemoryBytes: 8 * 1024 ** 3,
       }),
     ).toEqual({ runnable: true });
