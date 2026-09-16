@@ -99,6 +99,74 @@ For pass-level details, see
 [Effect Rendering Architecture](effect-rendering.md). The marketing website
 has a matching user-facing Layer Effects feature page.
 
+## Inspector UI Architecture (2026-09-16 Redesign)
+
+The Layer Effects section (`EffectsSection.tsx`, 269-line orchestrator) in the
+Design tab coordinates individual effect cards and anchored parameter popovers.
+It is modularized under
+`packages/editor/src/components/Inspector/sections/effects/`:
+
+1. **Card-Style Effect Row (`EffectRow.tsx`)**:
+   - Distinct card container with hover highlight, visibility switch, swatch
+     trigger where the effect exposes a colour, type icon, and name.
+   - **One disclosure control per row.** The card previously carried both an
+     expand chevron and a duplicate "Configure" button that toggled the same
+     state; the single trigger now owns `aria-expanded`, `aria-controls`, and
+     `aria-haspopup="dialog"`.
+   - **Direct in-row blur scrubber**: Single-parameter effects (`layerBlur`,
+     `backgroundBlur`) expose an inline number input (`[ 4 px ]`) so blur radius
+     can be adjusted immediately without opening any dialog.
+   - **Popover anchor invariant**: the parameter popover anchors to the
+     disclosure *trigger*, never to the row card. A ref to an ancestor host
+     node is still `null` when a descendant's layout effect runs (React attaches
+     refs post-order), and `FloatingPortal` resolves its anchor on mount — so
+     the anchor must be an element committed before the portal. Anchoring to
+     the row card leaves the popover latched in the hidden measuring state.
+   - **Random access per row**: the actions menu holds reset, duplicate,
+     reorder, and remove; destructive actions stay separated.
+
+2. **Unified Shadow Popover (`ShadowParams.tsx`)**:
+   - **Header stage badge**: the effect stage (`backdrop` / `content` /
+     `appearance`) renders in the popover header beside the title instead of
+     taking a body row.
+   - **Live Preview Tile (`EffectPreviewTile.tsx`)**: a compact real-time
+     rendering of the contour directly inside the popover.
+   - **1-Click Elevation Presets**: Standardized modern elevation chips
+     (`Subtle / E1`, `Medium / E2`, `Raised / E3`, `Dramatic / E4`, `Ambient`,
+     `Graphic`) instantly setting X, Y, Blur, Spread, and Opacity. The active
+     chip is detected from the live values.
+   - **Direction block**: the 2D light pad (`EffectLightPad.tsx`) and its polar
+     Angle/Distance fields share one surface, so the same vector is not
+     presented as three disconnected groups. The pad keeps cartesian X/Y and
+     polar angle/distance synchronized, with compass snaps (Down 90°, 45°,
+     135°, Center 0) and arrow-key steering.
+   - **Boxed quad grid** (`X`, `Y`, `Blur`, `Spread`) with icon-prefixed fields
+     and an integrated Colour & Opacity row plus Blend select.
+
+3. **Glow / Blur / Material / Distortion Editors**:
+   - `GlowParams.tsx` pairs Spread+Choke and Contour+Origin (inner glow only)
+     in two-up groups and folds Opacity into the colour row.
+   - `BlurParams.tsx` keeps the radius chips and exposes the spatial-blur
+     gallery and depth-blur geometry.
+   - `DistortionParams.tsx` puts Chromatic Aberration's Intensity, Opacity, and
+     Mix on one row; glitch internals stay behind the existing Advanced
+     disclosure.
+   - `GlassMaterialParams.tsx` keeps the grouped backdrop/tint/edge layout.
+
+4. **Effect Mask Authoring (`EffectMaskControl`)**:
+   - The source select is always visible for content-stage effects.
+   - Once a mask is bound, the secondary controls (type, density, feather,
+     invert, coordinate space) live behind a compact "Mask settings"
+     disclosure instead of adding five permanent rows.
+   - Effect types whose renderers ignore masks show a quiet one-line note
+     (`role="note"`) rather than a filled callout box.
+
+5. **Categorized Effect Discovery (`EffectTypes.ts`)**:
+   - Groups the 16 effects into semantic categories: *Shadows & Glows*,
+     *Surface & Blur*, *Photographic (Blur Gallery)*, and *Stylistic & Distortion*,
+     with recognizable icons and clear labels; the shared `Menu` primitive
+     renders category labels and separators.
+
 ## Known renderer gaps (verified 2026-09-13)
 
 An executed audit (code inspection + tests, not documentation) found these
