@@ -658,3 +658,229 @@ test.describe('Object Filters — real photograph composition', () => {
     }
   });
 });
+
+test.describe('Object Filters — redesigned surface behaviour', () => {
+  test.beforeEach(async ({ page }) => {
+    await navigateToEditor(page);
+  });
+
+  /** Draw a rectangle, select it in Layers, and expand Object Filters. */
+  async function drawVectorAndOpenFilters(page: Page) {
+    await page.keyboard.press('r');
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    await expect(canvas).toBeVisible({ timeout: 15000 });
+    await dragOnCanvas(page, 140, 120, 380, 320);
+    await page.getByRole('treeitem').first().waitFor({ timeout: 10000 });
+    await selectLayerInPanel(page, 0);
+    const section = page.getByRole('button', { name: 'Object Filters', exact: true });
+    await section.scrollIntoViewIfNeeded();
+    if ((await section.getAttribute('aria-expanded')) !== 'true') await section.click();
+    await page.waitForTimeout(250);
+    return canvas;
+  }
+
+  /** Ensure the nested raw-stack disclosure is expanded. */
+  async function ensureAdvancedOpen(page: Page) {
+    const advanced = page.locator('.smart-filters__advanced');
+    await advanced.waitFor({ state: 'visible', timeout: 5000 });
+    if (!(await advanced.evaluate((el) => (el as HTMLDetailsElement).open))) {
+      await page.locator('.smart-filters__advanced-summary').click();
+      await page.waitForTimeout(150);
+    }
+  }
+
+  test('catalog groups options, narrows by search, and reports no matches', async ({ page }) => {
+    await drawVectorAndOpenFilters(page);
+    await ensureAdvancedOpen(page);
+
+    // The empty state carries the non-destructive contract that used to be a
+    // separate always-visible intro card.
+    await expect(page.getByText('Non-destructive', { exact: true })).toBeVisible();
+    await expect(page.locator('.smart-filters__empty')).toContainText(
+      /Raster placement and vector geometry stay editable/,
+    );
+
+    const select = page.getByRole('combobox', { name: 'Add Object Filter' });
+    await select.click();
+    const groupLabels = page.locator('.varve-select__group-label');
+    for (const label of [
+      'Color & Tone',
+      'Blur & Detail',
+      'Texture & Finishing',
+      'Atmosphere & Optics',
+      'Color Grading',
+    ]) {
+      await expect(groupLabels.filter({ hasText: label })).toBeVisible();
+    }
+    await expect(page.getByRole('option', { name: 'Invert', exact: true })).toBeVisible();
+
+    // Search narrows the catalog to the matching family only.
+    const search = page.getByRole('searchbox', { name: 'Filter Add Object Filter' });
+    await search.fill('vign');
+    await expect(page.getByRole('option', { name: 'Vignette', exact: true })).toBeVisible();
+    await expect(page.getByRole('option', { name: 'Blur', exact: true })).toHaveCount(0);
+    await expect(groupLabels.filter({ hasText: 'Blur & Detail' })).toHaveCount(0);
+
+    // A query with no matches says so instead of showing an empty list.
+    await search.fill('zzzz-no-such-filter');
+    await expect(page.getByText('No matching options')).toBeVisible();
+    await expect(page.getByRole('option')).toHaveCount(0);
+
+    // Clearing the query and picking a filter adds it to the stack.
+    await search.fill('invert');
+    await page.getByRole('option', { name: 'Invert', exact: true }).click();
+    await expect(page.locator('.smart-filters__row')).toHaveCount(1);
+    await expect(page.locator('.smart-filters__name-title')).toContainText('Invert');
+  });
+
+  test('compositing Reset restores neutral pixels and Duplicate clones the entry', async ({
+    page,
+  }) => {
+    test.setTimeout(300_000);
+    // A real photograph makes the parameter reset observable in pixels.
+    await page
+      .locator('#file-import-input')
+      .setInputFiles('tests/e2e/fixtures/real-life-beech-forest.jpg');
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 30000 });
+    await page.getByRole('button', { name: 'Fit selection to viewport' }).click();
+    await page.waitForTimeout(400);
+
+    await forceFullRedraw(page);
+    const baseline = await canvasFingerprint(page);
+
+    await selectLayerInPanel(page, 0);
+    const section = page.getByRole('button', { name: 'Object Filters', exact: true });
+    await section.scrollIntoViewIfNeeded();
+    if ((await section.getAttribute('aria-expanded')) !== 'true') await section.click();
+    await ensureAdvancedOpen(page);
+    await addFilterBySearch(page, 'vign', 'Vignette');
+
+    const amount = page.getByRole('slider', { name: /Vignette Amount/ });
+    await expect(amount).toHaveValue('0');
+
+    // A real parameter change repaints the photograph.
+    await amount.fill('-70');
+    await amount.press('Enter');
+    await forceFullRedraw(page);
+    await expect.poll(() => canvasFingerprint(page), { timeout: 15000 }).not.toBe(baseline);
+
+    // Reset returns the parameter to its neutral default and the untreated
+    // pixels; it must not merely clear the row.
+    const compositing = page.locator('.smart-filters__compositing-card');
+    await compositing.getByRole('button', { name: 'Reset' }).click();
+    await expect(amount).toHaveValue('0');
+    await forceFullRedraw(page);
+    await expect.poll(() => canvasFingerprint(page), { timeout: 15000 }).toBe(baseline);
+    await expect(page.locator('.smart-filters__row')).toHaveCount(1);
+
+    // Duplicate clones the entry in place instead of moving or replacing it.
+    await compositing.getByRole('button', { name: 'Duplicate' }).click();
+    await expect(page.locator('.smart-filters__row')).toHaveCount(2);
+    await expect(page.locator('.smart-filters__name-title').nth(0)).toContainText('Vignette');
+    await expect(page.locator('.smart-filters__name-title').nth(1)).toContainText('Vignette');
+    await forceFullRedraw(page);
+    await expect.poll(() => canvasFingerprint(page), { timeout: 15000 }).toBe(baseline);
+
+    // Removing the duplicate leaves the original untouched.
+    await page.locator('button.smart-filters__remove').nth(1).click();
+    await expect(page.locator('.smart-filters__row')).toHaveCount(1);
+  });
+
+  test('every Object Finishing quick action produces a visible, removable result', async ({
+    page,
+  }) => {
+    const canvas = await drawVectorAndOpenFilters(page);
+    await ensureAdvancedOpen(page);
+    expect(canvas).toBeTruthy();
+    await forceFullRedraw(page);
+    const baseline = await canvasFingerprint(page);
+
+    for (const kind of ['grain', 'edgeFalloff', 'softBloom'] as const) {
+      const card = page.locator(`button[data-object-finishing-action="${kind}"]`);
+      await expect(card).toBeVisible();
+      await card.click();
+      await expect(page.locator('.smart-filters__row')).toHaveCount(1);
+      await forceFullRedraw(page);
+      await expect.poll(() => canvasFingerprint(page), { timeout: 15000 }).not.toBe(baseline);
+      await page.locator('button.smart-filters__remove').first().click();
+      await expect(page.locator('.smart-filters__row')).toHaveCount(0);
+      await forceFullRedraw(page);
+      await expect.poll(() => canvasFingerprint(page), { timeout: 15000 }).toBe(baseline);
+    }
+  });
+
+  test('reorder chevrons stay quiet at rest but remain reachable by hover, focus, and click', async ({
+    page,
+  }) => {
+    await drawVectorAndOpenFilters(page);
+    await ensureAdvancedOpen(page);
+    await addSmartFilter(page, 'Invert');
+    await addSmartFilter(page, 'Blur');
+
+    const rows = page.locator('.smart-filters__row');
+    await expect(rows).toHaveCount(2);
+
+    // At rest on a fine pointer the chevrons do not compete with the names.
+    const moveBlurUp = rows.nth(1).getByRole('button', { name: 'Move Blur up' });
+    await expect(moveBlurUp).toHaveCSS('opacity', '0');
+
+    // Pointer hover reveals them...
+    await rows.nth(1).hover();
+    await expect(moveBlurUp).toHaveCSS('opacity', '1');
+
+    // ...and keyboard focus reveals them without a pointer.
+    const moveInvertDown = rows.nth(0).getByRole('button', { name: 'Move Invert down' });
+    await moveInvertDown.focus();
+    await expect(moveInvertDown).toHaveCSS('opacity', '1');
+
+    // The revealed control still reorders the stack.
+    await moveBlurUp.click();
+    await expect(rows.nth(0).locator('.smart-filters__name-title')).toContainText('Blur');
+    await expect(rows.nth(1).locator('.smart-filters__name-title')).toContainText('Invert');
+  });
+
+  test('an Effect Studio recipe collapses the raw stack and stays editable', async ({ page }) => {
+    test.setTimeout(300_000);
+    await drawVectorAndOpenFilters(page);
+
+    // The Studio launcher lives in the Adjustments tab.
+    await page
+      .locator('[role="tablist"] [role="tab"]')
+      .filter({ hasText: /^Adjustments$/i })
+      .click();
+    await page.getByTestId('open-effect-studio').click();
+    const studio = page.getByTestId('effect-studio-dialog');
+    await expect(studio).toBeVisible({ timeout: 30000 });
+    await studio.getByRole('searchbox', { name: 'Search treatments' }).fill('halftone pattern');
+    await studio.getByRole('button', { name: 'Apply Halftone Pattern' }).click();
+    await studio.getByRole('button', { name: 'Close dialog' }).click();
+    // The dialog element may stay mounted for state reuse; it must not remain
+    // visible or interactive.
+    await expect(studio).toBeHidden({ timeout: 15000 });
+
+    // Back on the Design surface, the curated recipe is visible as a count,
+    // the provenance notice, and a collapsed raw-stack editor.
+    await page
+      .locator('[role="tablist"] [role="tab"]')
+      .filter({ hasText: /^Design$/i })
+      .click();
+    const section = page.getByRole('button', { name: 'Object Filters', exact: true });
+    await section.scrollIntoViewIfNeeded();
+    if ((await section.getAttribute('aria-expanded')) !== 'true') await section.click();
+    await expect(page.locator('.smart-filters__count-badge')).toHaveText(/[1-9]/);
+    await expect(page.getByText(/Named treatments are tuned in Effect Studio/)).toBeVisible();
+    const advanced = page.locator('.smart-filters__advanced');
+    expect(await advanced.evaluate((el) => (el as HTMLDetailsElement).open)).toBe(false);
+
+    // Expanding reveals the named members; toggling one is a real edit.
+    await page.locator('.smart-filters__advanced-summary').click();
+    const memberLine = page.locator('.smart-filters__treatment-member').first();
+    await expect(memberLine).toContainText('recipe member');
+    const before = await canvasFingerprint(page);
+    await page.locator('button.smart-filters__visibility').first().click();
+    await forceFullRedraw(page);
+    await expect.poll(() => canvasFingerprint(page), { timeout: 15000 }).not.toBe(before);
+    await expect(memberLine).toContainText('customized recipe');
+    await expect(page.locator('.smart-filters__row--disabled')).toHaveCount(1);
+  });
+});
