@@ -74,6 +74,36 @@ Passed:
 - `pnpm audit:docs`, `pnpm audit:emoji`, and `pnpm audit:tokens` passed.
 - Commit hooks passed for `60c59abe7`, `7432b0778`, and `b2110a17c`.
 
+## Follow-on validation slices — 2026-09-16
+
+The completion work added four bounded, reviewable commits on `master`:
+
+- `cf5a88a07` corrects the research-only PowerPaint profile to the published
+  SD 1.5 / 512-pixel frame contract; it must not inherit the SDXL transform.
+- `9d19b3657` retains the failed real-photo helper and Q4/F16 candidates that
+  the model-comparison and native-boundary audits cite.
+- `16b0faaa4` and `4baa88f70` refresh the CAF dialog baselines for the full
+  additional photographic fixture set after the panel gained its current
+  resource and mask-source controls.
+
+Validation recorded for these slices:
+
+- The focused engine lane passed 8 files and 68 tests, including diffusion
+  frame conversion, model-profile gating, resource preflight, expansion,
+  native-provider cancellation, PatchMatch, and soft-mask coverage.
+- The real-photo CAF visual lane passed all 8 additional photographs after
+  baseline regeneration. Interior, braided-portrait, and Brookings Hall
+  captures were inspected at full dialog scale. The refreshed screenshots are
+  UI evidence only; they are not model-quality evidence.
+- `pnpm typecheck:e2e`, `pnpm audit:docs`, `pnpm audit:emoji`, and
+  `pnpm audit:tokens` passed. The architecture audit reported the existing
+  shared-workspace cycle and hub-budget warnings without an enforced ceiling
+  breach.
+
+These slices do not change the release decision below: no local prompt model
+has passed semantic photographic qualification, and the retained output
+artifacts remain rejected candidates.
+
 The retained real-model evidence is in the runtime and SDXL qualification
 reports:
 

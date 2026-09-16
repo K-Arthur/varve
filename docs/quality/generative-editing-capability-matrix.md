@@ -6,7 +6,7 @@ verified” means a repeatable repository check passed. “Visually reviewed” 
 reserved for an inspected output from the production provider; interface
 screenshots and mocks do not qualify.
 
-Last updated: 2026-09-15.
+Last updated: 2026-09-16.
 
 The frozen input gate can be checked offline with:
 
