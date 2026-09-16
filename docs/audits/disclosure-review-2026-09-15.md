@@ -159,4 +159,5 @@ The first handoff listed remaining work; this pass closed it.
 | `fb2e1ee09` | Sidebar persistence, chevron contract, registry aria, ImportResults, minimap |
 | `5a7e00a7b` | Website FAQ headings/print/parity + docs |
 | `36163f604` | Space-activation fix + rendered disclosure contract spec |
-| (this commit) | Preflight chevron repair, changelog chevron alignment, capture specs, architecture doc, this audit, AGENTS.md truth pass |
+| `3a3545ea5` | Preflight chevron repair, changelog chevron alignment, capture specs, architecture doc, this audit, AGENTS.md truth pass |
+| `72c0bb62f` | Completion pass: registry subsection defaults, dead-prop removal, paint-library/warp wiring, LayersPanel persistence, FormatMigration deletion, a11y/touch validation |

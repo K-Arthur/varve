@@ -115,4 +115,4 @@ Commits on `master`:
 | `5a7e00a7b` | Website FAQ headings/print/parity |
 | `36163f604` | Space-activation fix + contract E2E |
 | `3a3545ea5` | Preflight chevron, changelog, capture specs, docs |
-| (final) | Completion pass: registry subsection defaults, dead-prop removal, paint-library/warp wiring, LayersPanel persistence, FormatMigration deletion, a11y/touch validation |
+| `72c0bb62f` | Completion pass: registry subsection defaults, dead-prop removal, paint-library/warp wiring, LayersPanel persistence, FormatMigration deletion, a11y/touch validation |
