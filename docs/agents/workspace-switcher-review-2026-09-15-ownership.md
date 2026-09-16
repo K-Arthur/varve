@@ -62,3 +62,31 @@ It is kept and included, because the owned file cannot compile without it.
 Progressive, one commit per coherent slice; staged paths are always a subset
 of the table above. Other sessions' uncommitted work is never staged,
 reverted, or reformatted.
+
+| Commit | Slice |
+|---|---|
+| `0bed515ba` | Tokenized switcher, ARIA ownership, roving-focus fix, measured gap, renamed label, real-app contract spec, reviewed baselines |
+| `bad5884f6` | Review record, switcher contract, doc/help/website copy |
+| `9e58d574f` | `workspace-nav.spec.ts` menuitemradio assertion repair (verified) |
+| `c8ef7150e` | Forced-colors / 480px / enlarged-text verification + production-bundle build record |
+
+## Applicability decisions (prompt Sections 6A–6D)
+
+- **6A dense chrome: applied.** Typography (2xs → xs), single-accent token
+  palette, spacing tokenization for the gap, measured geometry contract.
+- **6B numeric scrubbing: not applicable.** The switcher has no numeric input.
+- **6C hierarchy virtualization: not applicable.** Eight fixed items, no tree.
+- **6D menus: partially applied** to the overflow menu only (role ownership,
+  reachability, real switching, focus return, hidden-count name). The shared
+  Menu primitive and the menu-contract session's work were not touched.
+
+## Status: complete (2026-09-15 session G)
+
+Delivered: the switcher repair and its real-app contract spec (9 tests),
+rendered before/after evidence in
+`docs/screenshots/2026-09-15-workspace-switcher-review/`, the review record
+(`docs/audits/workspace-switcher-review-2026-09-15.md`), the switcher contract
+in `docs/architecture/workspace-system.md`, and doc/help/website copy updates.
+Deferred: the CHANGELOG entry (another session's uncommitted entries occupy the
+file), View-menu workspace deduplication, and the browser-zoom /
+assistive-technology matrices recorded in the review's remaining work.
