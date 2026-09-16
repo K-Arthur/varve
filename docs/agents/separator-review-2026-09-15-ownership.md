@@ -57,3 +57,25 @@ directive is satisfied even where a divider is intentionally retained.
 Progressive, docs-first, one commit per coherent slice; staged paths are always
 a subset of the table above. Other sessions' uncommitted work is never staged,
 reverted, or reformatted.
+
+| Commit | Slice |
+|---|---|
+| `05c1e8c65` | Audit of every divider in both apps + forced-colors contract |
+| `fa39f8f18` | Forced-colors visibility for all separator recipes + spec + reviewed captures |
+| `a0549d9ad` | Border-token shorthand repairs (15 dead declarations) + static guard |
+| `08e1ace1a` | Homepage single section boundary + `section-rules.spec.ts` + reviewed baselines |
+
+## Status: complete (2026-09-15 session F)
+
+Delivered: the app-wide separator audit (`docs/audits/separator-system-review-2026-09-15.md`),
+forced-colors survivability for every separator recipe in both apps,
+15 border declarations that painted nothing, a homepage doubled seam, a
+regression guard for shorthand-token nesting, and two new Playwright specs
+with reviewed screenshots. Deferred items (editor doubled seams, website
+mock-artwork palette, `--divider` removal, `tokens.css`/generator drift,
+vertical-recipe unification) are recorded with exact file:line evidence and
+the blocker for each.
+
+Not staged or modified, though it needs entries for these fixes: `CHANGELOG.md`
+holds another session's uncommitted isometric release notes (36 insertions),
+so a changelog entry for this session must wait for that work to land.
