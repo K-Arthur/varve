@@ -6,6 +6,7 @@
  * it cannot promote a model, inspect pixels, or replace human review.
  */
 
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -218,7 +219,25 @@ function validateCorpus(corpus, options = {}) {
   };
 }
 
-function resolveEvidenceArtifact(root, candidatePath, label, errors) {
+function sha256File(filePath) {
+  const descriptor = fs.openSync(filePath, 'r');
+  const hash = createHash('sha256');
+  const buffer = Buffer.allocUnsafe(1024 * 1024);
+  try {
+    let offset = 0;
+    let bytesRead = 0;
+    do {
+      bytesRead = fs.readSync(descriptor, buffer, 0, buffer.length, offset);
+      if (bytesRead > 0) hash.update(buffer.subarray(0, bytesRead));
+      offset += bytesRead;
+    } while (bytesRead > 0);
+    return hash.digest('hex');
+  } finally {
+    fs.closeSync(descriptor);
+  }
+}
+
+function resolveEvidenceArtifact(root, candidatePath, label, errors, expectedSha256) {
   if (typeof candidatePath !== 'string' || candidatePath.length === 0) {
     errors.push(`${label} must name a retained artifact`);
     return;
@@ -242,8 +261,14 @@ function resolveEvidenceArtifact(root, candidatePath, label, errors) {
   }
   if (!stat.isFile() || stat.size === 0)
     errors.push(`${label} must be a non-empty file: ${candidatePath}`);
-  else if (!looksLikeRasterArtifact(resolved, candidatePath))
+  else if (!looksLikeRasterArtifact(resolved, candidatePath)) {
     errors.push(`${label} must be a PNG, JPEG, or WebP raster artifact: ${candidatePath}`);
+  } else if (requireSha256(expectedSha256, `${label}Sha256`, errors)) {
+    const actualSha256 = sha256File(resolved);
+    if (actualSha256 !== expectedSha256) {
+      errors.push(`${label} checksum does not match its retained artifact`);
+    }
+  }
 }
 
 function looksLikeRasterArtifact(filePath, reportedPath) {
@@ -276,11 +301,30 @@ function requireString(object, key, label, errors) {
   }
 }
 
-function validateCandidate(candidate, task, fixture, evidenceRoot, candidateIndex, errors) {
+function requireSha256(value, label, errors) {
+  if (typeof value !== 'string' || !/^[0-9a-f]{64}$/.test(value)) {
+    errors.push(`${label} must be a lowercase hexadecimal SHA-256`);
+    return false;
+  }
+  return true;
+}
+
+function validateCandidate(
+  candidate,
+  task,
+  fixture,
+  evidenceModel,
+  evidenceRoot,
+  candidateIndex,
+  errors,
+) {
   const label = `${task.id} candidate ${candidateIndex + 1}`;
   if (!isObject(candidate)) {
     errors.push(`${label} must be an object`);
     return false;
+  }
+  if (candidate.sourceFixtureSha256 !== fixture.sha256) {
+    errors.push(`${label} sourceFixtureSha256 does not match the frozen photograph`);
   }
   if (!task.seeds.includes(candidate.seed))
     errors.push(`${label} has seed ${candidate.seed}, not one of the frozen seeds`);
@@ -297,7 +341,22 @@ function validateCandidate(candidate, task, fixture, evidenceRoot, candidateInde
   } else {
     requireString(candidate.provider, 'id', label, errors);
     requireString(candidate.provider, 'runtime', label, errors);
-    requireString(candidate.provider, 'modelChecksum', label, errors);
+    if (
+      requireSha256(candidate.provider.modelChecksum, `${label}.provider.modelChecksum`, errors)
+    ) {
+      if (candidate.provider.modelChecksum !== evidenceModel.checksumSha256) {
+        errors.push(`${label}.provider.modelChecksum does not match evidence.model.checksumSha256`);
+      }
+    }
+    if (typeof evidenceModel.id === 'string' && candidate.provider.id !== evidenceModel.id) {
+      errors.push(`${label}.provider.id does not match evidence.model.id`);
+    }
+    if (
+      typeof evidenceModel.runtime === 'string' &&
+      candidate.provider.runtime !== evidenceModel.runtime
+    ) {
+      errors.push(`${label}.provider.runtime does not match evidence.model.runtime`);
+    }
   }
   if (!isObject(candidate.timing)) errors.push(`${label} must record timing`);
   else {
@@ -315,6 +374,7 @@ function validateCandidate(candidate, task, fixture, evidenceRoot, candidateInde
   }
 
   const artifacts = isObject(candidate.artifacts) ? candidate.artifacts : {};
+  const artifactHashes = isObject(artifacts.sha256) ? artifacts.sha256 : {};
   for (const key of REQUIRED_ARTIFACTS) {
     const artifact = artifacts[key];
     const outputArtifact = [
@@ -324,18 +384,31 @@ function validateCandidate(candidate, task, fixture, evidenceRoot, candidateInde
       'boundaryCrop',
     ].includes(key);
     if (candidate.status === 'passed' || !outputArtifact || artifact !== null) {
-      resolveEvidenceArtifact(evidenceRoot, artifact, `${label}.artifacts.${key}`, errors);
+      resolveEvidenceArtifact(
+        evidenceRoot,
+        artifact,
+        `${label}.artifacts.${key}`,
+        errors,
+        artifactHashes[key],
+      );
+    } else if (artifactHashes[key] !== null) {
+      errors.push(`${label}.artifacts.sha256.${key} must be null when the artifact is null`);
     }
   }
   if (!Array.isArray(artifacts.maskForms) || artifacts.maskForms.length === 0) {
     errors.push(`${label}.artifacts.maskForms must retain at least one mask representation`);
   } else {
+    const maskFormHashes = Array.isArray(artifactHashes.maskForms) ? artifactHashes.maskForms : [];
+    if (maskFormHashes.length !== artifacts.maskForms.length) {
+      errors.push(`${label}.artifacts.sha256.maskForms must hash every mask representation`);
+    }
     for (const [index, maskForm] of artifacts.maskForms.entries()) {
       resolveEvidenceArtifact(
         evidenceRoot,
         maskForm,
         `${label}.artifacts.maskForms[${index}]`,
         errors,
+        maskFormHashes[index],
       );
     }
   }
@@ -353,6 +426,9 @@ function validateCandidate(candidate, task, fixture, evidenceRoot, candidateInde
   }
 
   const scores = isObject(candidate.review) ? candidate.review : {};
+  if (scores.acceptable !== true) {
+    errors.push(`${label}.review.acceptable must be true for a passed candidate`);
+  }
   for (const score of REQUIRED_SCORES) {
     if (!isIntegerInRange(scores[score], 0, 4))
       errors.push(`${label}.review.${score} must be an integer from 0 to 4`);
@@ -378,9 +454,6 @@ function validateCandidate(candidate, task, fixture, evidenceRoot, candidateInde
     checks.alphaSafe === true;
   if (!acceptable)
     errors.push(`${label} is marked passed but does not meet the 0–4 acceptance rubric`);
-  if (candidate.sourceFixtureSha256 !== fixture.sha256) {
-    errors.push(`${label} sourceFixtureSha256 does not match the frozen photograph`);
-  }
   return acceptable;
 }
 
@@ -410,6 +483,7 @@ function validateEvidence(corpus, evidence, evidenceRoot, options = {}) {
     requireString(evidence.target, 'backend', 'evidence.target', errors);
     requireString(evidence.target, 'architecture', 'evidence.target', errors);
   }
+  const evidenceModel = isObject(evidence.model) ? evidence.model : {};
   const reportTasks = Array.isArray(evidence.tasks) ? evidence.tasks : [];
   if (reportTasks.length !== corpusInfo.taskCount)
     errors.push(
@@ -450,7 +524,15 @@ function validateEvidence(corpus, evidence, evidenceRoot, options = {}) {
         errors.push(`${taskId} is missing frozen seed ${seed}`);
         return false;
       }
-      return validateCandidate(candidate, task, fixture, evidenceRoot, index, errors);
+      return validateCandidate(
+        candidate,
+        task,
+        fixture,
+        evidenceModel,
+        evidenceRoot,
+        index,
+        errors,
+      );
     });
     if (acceptableCandidates[0] === true) firstCandidatePasses += 1;
     if (acceptableCandidates.some((value) => value === true)) {
