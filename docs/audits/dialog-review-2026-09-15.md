@@ -174,14 +174,12 @@ before the Select could consume Escape.
   900x560, Create Table from Data end to end (toolbar → paste → create →
   layer in the tree), Batch Rename with undo, focus fallback to the selected
   tree row, an axe scan, Enhance Image from the layer context menu, and
-  light/dark captures. Ten of eleven passed in the final full run; the
-  Enhance Image journey crashed the renderer at random steps on repeated
-  attempts under memory pressure, while a direct probe of the identical flow
-  (import → select → context menu → Enhance Image) opened
-  `dialog.upscale-dialog` with no page errors. Treat that one journey as
-  verified by probe, and re-run the spec on an unloaded machine.
-  Earlier in the session the same suite's axe test failed once on the
-  mouse-driven `seedLayers` helper timing out, then passed on retry.
+  light/dark captures. Final run: 10/11 passed, and the one crashed capture
+  test passed immediately on retry. The Enhance Image journey also passed
+  in-harness on that run; earlier attempts crashed the renderer at random
+  steps under memory pressure, and a direct probe of the identical flow had
+  already verified the dialog (opens at 1120x688 inside 1280x720, grid body,
+  footer, Escape closes, focus returns to the selected row).
 - **Machine conditions**: the afternoon ran ~14 concurrent agent processes;
   RAM/swap were exhausted at times and the 12 GiB `/tmp` tmpfs hit 100%,
   which crashed Chromium renderers mid-journey. Browser runs were done with
