@@ -53,7 +53,7 @@ describe('nativeLaMaProvider', () => {
       }),
     });
     expect(decodeImageBytesToImageData).toHaveBeenCalledWith(new Uint8Array([137, 80, 78, 71]));
-    expect(result.executionProvider).toBe('native');
+    expect(result.executionProvider).toBe('ort-native');
     expect(result.processingTimeMs).toBe(42);
   });
 

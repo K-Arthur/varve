@@ -24,6 +24,7 @@ import {
   type GenerativeEditProvider,
   type GenerativeEditRequest,
   type GenerativeEditResult,
+  type GenerativeEditRuntime,
 } from './types';
 
 const BROWSER_LIMITS = {
@@ -182,6 +183,35 @@ function mapQuality(quality: GenerativeEditRequest['quality']): ContentAwareFill
   return quality === 'draft' ? 'fast' : 'ai';
 }
 
+/**
+ * Convert an observed provider label into the persisted runtime enum without
+ * treating native CPU inference as WASM. Native ONNX reports stable labels,
+ * while the aliases keep older helper responses readable during migration.
+ */
+export function runtimeForContentAwareExecutionProvider(
+  executionProvider: string,
+): GenerativeEditRuntime {
+  switch (executionProvider) {
+    case 'heuristic':
+      return 'patchmatch';
+    case 'wasm':
+      return 'wasm';
+    case 'webgpu':
+      return 'webgpu';
+    case 'native-cpu':
+      return 'native-cpu';
+    case 'native':
+    case 'ort-native':
+    case 'native-webgpu':
+    case 'native-vulkan':
+    case 'native-metal':
+    case 'native-accelerated':
+      return 'native-accelerated';
+    default:
+      throw new Error(`Unknown content-aware execution provider: ${executionProvider}`);
+  }
+}
+
 function providerFor(
   result: Awaited<ReturnType<typeof runContentAwareFillPipeline>>,
 ): GenerativeEditProvider {
@@ -190,12 +220,7 @@ function providerFor(
     kind: 'local',
     id: executionProvider === 'heuristic' ? 'varve-content-aware' : 'varve-lama-inpainting',
     ...(result.modelId ? { modelId: result.modelId } : {}),
-    runtime:
-      executionProvider === 'heuristic'
-        ? 'patchmatch'
-        : executionProvider === 'native'
-          ? 'native-accelerated'
-          : 'wasm',
+    runtime: runtimeForContentAwareExecutionProvider(executionProvider),
   };
 }
 

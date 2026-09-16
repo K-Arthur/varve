@@ -174,7 +174,11 @@ export const nativeLaMaProvider = {
         imageData: decoded,
         width: raw.width,
         height: raw.height,
-        executionProvider: 'native',
+        // Keep the observed backend rather than collapsing CPU and
+        // accelerated runs into a generic label. The generative-edit
+        // provenance record uses this value to distinguish a native CPU
+        // result from an accelerated result during reopen and diagnostics.
+        executionProvider: raw.execution_backend,
         processingTimeMs: raw.processing_time_ms,
         warnings: raw.warnings ?? [],
       };

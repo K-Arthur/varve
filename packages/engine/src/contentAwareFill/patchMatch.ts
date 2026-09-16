@@ -41,6 +41,11 @@ export interface PatchMatchResult {
   filledBounds: { x: number; y: number; w: number; h: number };
 }
 
+/** Any non-zero coverage is editable; the compositor applies its strength. */
+function hasEditableCoverage(value: number): boolean {
+  return value > 0;
+}
+
 /**
  * Return whether the source patch centred at `(x, y)` is safe to sample.
  *
@@ -123,7 +128,7 @@ export function patchMatchFill(
         mx < maskWidth &&
         my >= 0 &&
         my < maskHeight &&
-        (mask[my * maskWidth + mx] ?? 0) > 128
+        hasEditableCoverage(mask[my * maskWidth + mx] ?? 0)
       ) {
         fillPixels.push({ x, y });
       }
@@ -170,7 +175,7 @@ export function patchMatchFill(
         mx < maskWidth &&
         my >= 0 &&
         my < maskHeight &&
-        (mask[my * maskWidth + mx] ?? 0) > 128;
+        hasEditableCoverage(mask[my * maskWidth + mx] ?? 0);
       knownTarget[y * w + x] = masked ? 0 : 1;
     }
   }
@@ -292,9 +297,11 @@ export function patchMatchFill(
           const ti = y + dy;
           const tj = x + dx;
           if (ti < 0 || ti >= h || tj < 0 || tj >= w) continue;
-          const mi = (ti - maskOffsetY) * maskWidth + (tj - maskOffsetX);
-          if (mi < 0 || mi >= mask.length) continue;
-          if ((mask[mi] ?? 0) <= 128) continue;
+          const maskX = tj - maskOffsetX;
+          const maskY = ti - maskOffsetY;
+          if (maskX < 0 || maskX >= maskWidth || maskY < 0 || maskY >= maskHeight) continue;
+          const mi = maskY * maskWidth + maskX;
+          if (!hasEditableCoverage(mask[mi] ?? 0)) continue;
 
           const si = (ty * w + tx) * 4;
           const di = (ti * w + tj) * 4;

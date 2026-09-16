@@ -48,6 +48,16 @@ describe('PatchMatch source safety', () => {
     expect(Array.from(result.data.slice(0, 4))).toEqual([18, 36, 54, 255]);
   });
 
+  it('generates feathered coverage instead of treating soft edge pixels as preserved', () => {
+    const source = makeImage(40, 20, [18, 36, 54]);
+    const mask = new Uint8Array(40 * 20);
+    mask[10 * 40 + 20] = 32;
+
+    const result = patchMatchFill(source, mask, 40, 20, 0, 0, undefined, 17);
+
+    expect(result.filledBounds).toEqual({ x: 20, y: 10, w: 1, h: 1 });
+  });
+
   it('leaves a fully masked context unchanged when no source patch exists', () => {
     const source = makeImage(5, 5, [80, 90, 100]);
     const mask = new Uint8Array(25).fill(255);

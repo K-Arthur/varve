@@ -70,7 +70,11 @@ export {
   NATIVE_GENERATIVE_MODEL_PROFILE,
   qualifyNativeGenerativeModel,
 } from './nativeModel';
-export { getGenerativeEditCapabilities, runGenerativeEdit } from './pipeline';
+export {
+  getGenerativeEditCapabilities,
+  runGenerativeEdit,
+  runtimeForContentAwareExecutionProvider,
+} from './pipeline';
 export {
   assessGenerativeEditResources,
   getGenerativeEditResourceProfile,

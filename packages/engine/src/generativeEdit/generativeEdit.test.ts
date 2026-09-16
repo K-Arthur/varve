@@ -6,6 +6,7 @@ import {
   GenerativeJobController,
   getGenerativeEditCapabilities,
   runGenerativeEdit,
+  runtimeForContentAwareExecutionProvider,
 } from './index';
 
 function makeImage(width = 12, height = 12): ImageData {
@@ -35,6 +36,15 @@ function request(overrides: Partial<Parameters<typeof runGenerativeEdit>[0]> = {
 }
 
 describe('generative edit capabilities', () => {
+  it('preserves the observed native backend in the persisted runtime classification', () => {
+    expect(runtimeForContentAwareExecutionProvider('native-cpu')).toBe('native-cpu');
+    expect(runtimeForContentAwareExecutionProvider('native-webgpu')).toBe('native-accelerated');
+    expect(runtimeForContentAwareExecutionProvider('heuristic')).toBe('patchmatch');
+    expect(() => runtimeForContentAwareExecutionProvider('unreported-provider')).toThrow(
+      'Unknown content-aware execution provider',
+    );
+  });
+
   it('keeps promptless reconstruction and model-backed coherence distinct', () => {
     expect(chooseExpandGenerationStrategy(768, 768, 'ai', true)).toBe('coherent-full-frame');
     expect(chooseExpandGenerationStrategy(768, 768, 'ai', false)).toBe('staged-border');
