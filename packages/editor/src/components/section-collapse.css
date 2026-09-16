@@ -24,6 +24,20 @@
   outline-offset: -2px;
 }
 
+/* Direction contract: expanded reads down, collapsed reads right. This is the
+ * same chevron direction as the shared Disclosure primitive (which rotates
+ * 90deg when open), so a section never looks collapsed while it is open. */
+.section-collapse-btn__icon {
+  transform: rotate(90deg);
+  transition: transform var(--duration-quick) var(--ease-standard);
+}
+
 .section-collapse-btn__icon--collapsed {
-  transform: rotate(-90deg);
+  transform: rotate(0deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .section-collapse-btn__icon {
+    transition: none;
+  }
 }

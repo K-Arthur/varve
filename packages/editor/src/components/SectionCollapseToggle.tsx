@@ -43,7 +43,11 @@ export function SectionCollapseToggle({
           viewBox="0 0 12 12"
           fill="none"
           aria-hidden="true"
-          className={collapsed ? 'section-collapse-btn__icon--collapsed' : undefined}
+          className={
+            collapsed
+              ? 'section-collapse-btn__icon section-collapse-btn__icon--collapsed'
+              : 'section-collapse-btn__icon'
+          }
         >
           <path
             d="M4.5 3L7.5 6L4.5 9"

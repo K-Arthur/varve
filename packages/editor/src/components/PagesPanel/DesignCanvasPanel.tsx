@@ -16,10 +16,11 @@ import {
   setActiveDesignCanvas,
 } from '@varve/scene';
 import { Tooltip } from '@varve/ui';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../context';
 import { confirmDialog, promptDialog } from '../PromptDialog';
 import { SectionCollapseToggle } from '../SectionCollapseToggle';
+import { usePersistedDisclosure } from '../usePersistedDisclosure';
 import './pages-panel.css';
 
 function orderedCanvases(canvases: DesignCanvas[] | undefined): DesignCanvas[] {
@@ -28,7 +29,7 @@ function orderedCanvases(canvases: DesignCanvas[] | undefined): DesignCanvas[] {
 
 export function DesignCanvasPanel() {
   const { state, updateDoc, setSelection, announce } = useEditor();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = usePersistedDisclosure('design-canvases');
   const canvases = useMemo(
     () => orderedCanvases(state.document.designCanvases),
     [state.document.designCanvases],

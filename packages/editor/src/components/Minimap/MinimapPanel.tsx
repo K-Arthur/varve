@@ -418,6 +418,7 @@ export function MinimapPanel({ canvasOwnerRef }: MinimapPanelProps) {
             className="minimap-panel minimap-panel--collapsed"
             onClick={() => setCollapsed(false)}
             aria-label="Show minimap"
+            aria-expanded={!collapsed}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <rect
@@ -443,6 +444,7 @@ export function MinimapPanel({ canvasOwnerRef }: MinimapPanelProps) {
   return (
     <section
       ref={containerRef}
+      id="minimap-panel"
       className="minimap-panel"
       data-testid="minimap-panel"
       data-surface-key={scene.surfaceKey}
@@ -472,6 +474,8 @@ export function MinimapPanel({ canvasOwnerRef }: MinimapPanelProps) {
           <button
             type="button"
             className="minimap-panel__collapse-btn"
+            aria-expanded={!collapsed}
+            aria-controls="minimap-panel"
             onClick={() => setCollapsed(true)}
             aria-label="Hide minimap"
           >

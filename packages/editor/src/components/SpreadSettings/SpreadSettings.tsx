@@ -1,14 +1,14 @@
 import { Switch } from '@varve/ui';
-import { useState } from 'react';
 import { useEditor } from '../../context';
 import { SectionCollapseToggle } from '../SectionCollapseToggle';
+import { usePersistedDisclosure } from '../usePersistedDisclosure';
 import './spread-settings.css';
 
 export function SpreadSettings() {
   const { state, setFacingPagesEnabled, getPageSide } = useEditor();
   // Collapsible for the same reason as its sibling sections: they stack above
   // the layers tree in one fixed-height column.
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = usePersistedDisclosure('spreads');
 
   const doc = state.document;
   const config = doc.facingPages;

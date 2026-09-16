@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { useEditor } from '../../context';
 import { confirmDialog } from '../PromptDialog';
 import { SectionCollapseToggle } from '../SectionCollapseToggle';
+import { usePersistedDisclosure } from '../usePersistedDisclosure';
 import './master-panel.css';
 
 export function MasterPanel() {
@@ -32,7 +33,7 @@ export function MasterPanel() {
   // Collapsible for the same reason the minimap is: these sections stack in one
   // sidebar column with the layers tree, and a document with many masters would
   // otherwise keep the tree short for the whole session.
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = usePersistedDisclosure('masters');
 
   const handleCreate = useCallback(() => {
     const activePage = pages.find((page) => page.id === doc.activePageId);

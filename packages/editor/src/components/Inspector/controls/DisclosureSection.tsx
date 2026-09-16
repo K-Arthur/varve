@@ -19,6 +19,7 @@ import {
   Icon,
   type OverlayAnchor,
   pointAnchor,
+  useDisclosureFocusRestore,
   viewportPoint,
 } from '@varve/ui';
 import type { ReactNode } from 'react';
@@ -36,6 +37,14 @@ export interface DisclosureSectionProps {
   sectionId?: SectionId;
   /** Nested subsection identifier under a parent sectionId. Requires sectionId. */
   subsectionId?: string;
+  /**
+   * Default expansion for the legacy (non-registry) mode only.
+   *
+   * Registry sections resolve their default from `sectionRegistry` so the
+   * value stays consistent across every call site and survives with the rest
+   * of `sectionVisibility`; passing this together with `sectionId` has no
+   * effect. See docs/architecture/disclosure-system.md.
+   */
   defaultExpanded?: boolean;
   /** Optional action rendered beside the disclosure trigger. */
   action?: ReactNode;
@@ -136,7 +145,13 @@ function RegistryDisclosure({
     : isSectionVisible(state.sectionVisibility, sectionId);
   const [contextMenu, setContextMenu] = useState<OverlayAnchor | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const rootRef = useRef<HTMLElement>(null);
   const def = getSectionDefinition(sectionId);
+  const focusRestore = useDisclosureFocusRestore({
+    open: expanded,
+    rootRef,
+    triggerRef,
+  });
 
   if (!visible) return null;
 
@@ -172,7 +187,7 @@ function RegistryDisclosure({
   };
 
   return (
-    <section className="insp-disclosure">
+    <section ref={rootRef} {...focusRestore} className="insp-disclosure">
       <div className="insp-disclosure__header">
         {/* APG Accordion: the header button is wrapped in a heading so
             assistive technology can navigate between inspector sections. The
@@ -183,7 +198,9 @@ function RegistryDisclosure({
             type="button"
             className="insp-disclosure__trigger"
             aria-expanded={expanded}
-            aria-controls={panelId}
+            /* The panel is unmounted while collapsed, so aria-controls only
+               points at something that actually exists. */
+            aria-controls={expanded ? panelId : undefined}
             aria-haspopup={def?.canHide ? 'menu' : undefined}
             onClick={handleToggle}
             onContextMenu={handleTriggerContextMenu}

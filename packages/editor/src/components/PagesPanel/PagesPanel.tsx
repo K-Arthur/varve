@@ -31,6 +31,7 @@ import {
 } from '../../workspace/useWorkspaceConfig';
 import { usePageThumbnail } from '../PageNav/usePageThumbnail';
 import { SectionCollapseToggle } from '../SectionCollapseToggle';
+import { usePersistedDisclosure } from '../usePersistedDisclosure';
 import { DesignCanvasPanel } from './DesignCanvasPanel';
 import './pages-panel.css';
 
@@ -74,7 +75,7 @@ function PublishingPagesPanel() {
     pagePanelVisible: effectiveConfig.panels.pagenav.visible,
   });
 
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = usePersistedDisclosure('pages');
   const [scrollTop, setScrollTop] = useState(0);
   const [focusedId, setFocusedId] = useState<NodeId | null>(null);
   const scrollRef = useRef<HTMLUListElement | null>(null);

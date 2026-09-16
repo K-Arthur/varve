@@ -12,6 +12,7 @@
 import { Select, Tooltip } from '@varve/ui';
 import { useEffect, useRef, useState } from 'react';
 import { SectionCollapseToggle } from './components/SectionCollapseToggle';
+import { usePersistedDisclosure } from './components/usePersistedDisclosure';
 import { useEditor } from './context';
 import { docVariableStore } from './docVariableStore';
 import './VariablePanel.css';
@@ -29,7 +30,7 @@ export function VariablePanel() {
   const [adding, setAdding] = useState(false);
   // Collapsible like its sibling sidebar sections: they stack above the layers
   // tree in one fixed-height column.
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = usePersistedDisclosure('variables');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);

@@ -1,5 +1,5 @@
 import type { BatchImportResult, ImportCapabilities, ImportReport } from '@varve/import';
-import { type KeyboardEvent, useCallback, useState } from 'react';
+import { type KeyboardEvent, useCallback, useId, useState } from 'react';
 
 import './ImportResults.css';
 
@@ -86,6 +86,7 @@ function capabilitySummary(capabilities: ImportCapabilities): string {
 
 export function ImportResults({ result, onClose, onRevealSelection }: ImportResultsProps) {
   const [expanded, setExpanded] = useState(false);
+  const detailListId = useId();
   const rows = rowsFor(result);
   const serviceReport = isServiceReport(result);
   const successCount = result.successCount;
@@ -187,13 +188,15 @@ export function ImportResults({ result, onClose, onRevealSelection }: ImportResu
             <button
               type="button"
               className="import-results__toggle"
+              aria-expanded={expanded}
+              aria-controls={expanded ? detailListId : undefined}
               onClick={() => setExpanded(!expanded)}
             >
               {expanded ? 'Hide' : 'Show'} details ({rows.length} files)
             </button>
 
             {expanded && (
-              <ul className="import-results__list">
+              <ul className="import-results__list" id={detailListId}>
                 {rows.map((file, i) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: file names can repeat across imports; rows are stateless (no id in BatchFileResult)
                   <li key={i} className="import-results__file">
