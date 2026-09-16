@@ -352,6 +352,33 @@ visible Object Filters as replay features and rasterizes the smallest affected
 boundary; raster export keeps the shared replay path so vector and raster
 content use the same filter math.
 
+### 12.1 Object Filters inspector UX architecture
+
+The inspector surface for Object Filters (`SmartFiltersSection.tsx`) solves
+classic usability issues present in competitor applications (Photoshop, Affinity,
+Figma, Blender):
+
+1. **Categorized and searchable catalog:** Instead of flat unsorted lists of 52
+   filters, filters are organized into five semantically coherent groups:
+   `Color & Tone`, `Blur & Detail`, `Texture & Finishing`, `Atmosphere & Optics`,
+   and `Color Grading`. Keyboard search instantly filters the select menu.
+2. **Whole-stack bypass and status pill in section header:** An active count
+   status pill (`role="status"`) and a single-click eye toggle (`.smart-filters__stack-visibility`)
+   allow instant whole-stack A/B comparison without deselecting or toggling
+   individual rows.
+3. **Live compositing badges on stack rows:** Rows disclose non-normal blend
+   modes (e.g. `Multiply`, `Screen`), non-100% opacity, and Effect Studio recipe
+   provenance chips directly on the row, preventing hidden state traps.
+4. **Elevated compositing card:** When a filter is selected, an elevated card
+   provides an interactive opacity range slider with numeric readout, a dedicated
+   blend mode select dropdown, and one-click Duplicate and Reset actions before
+   the parameter list.
+5. **Tactile vector finishing cards:** For non-image vector objects, direct
+   quick-action cards with category icons (`Grain`, `Vignette`, `Soft Bloom`)
+   offer immediate material finish without manual hunting.
+6. **Muted bypass styling:** Inactive filters display distinct sunken background
+   and strike-through titles to distinguish active from bypassed effects.
+
 Node masks remain the stack-level spatial mask for node-local workflows and
 stay separate from source pixels; adjustment-layer masks remain scope masks. A
 future per-entry mask would add a second spatial coordinate system and is
