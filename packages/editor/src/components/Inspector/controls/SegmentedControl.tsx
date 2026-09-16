@@ -16,6 +16,15 @@ export interface SegmentedOption<T extends string> {
   value: T;
   label: string;
   icon?: IconName;
+  /**
+   * Hide the visible label when an icon already carries the meaning. The
+   * label still becomes the accessible name and the tooltip, so the option
+   * is never an unlabelled glyph (WCAG 4.1.2; the 2026-09-16 icon-only
+   * control research).
+   */
+  hideLabel?: boolean;
+  /** Explicit tooltip when it should say more than the label. */
+  tooltip?: string;
   disabled?: boolean;
   disabledReason?: string;
 }
@@ -104,15 +113,16 @@ export function SegmentedControl<T extends string>({
             type="button"
             role="radio"
             aria-checked={checked}
+            aria-label={opt.hideLabel ? opt.label : undefined}
             tabIndex={i === focusIndex ? 0 : -1}
             disabled={disabled || opt.disabled}
-            title={opt.disabled ? opt.disabledReason : undefined}
+            title={opt.disabled ? opt.disabledReason : (opt.tooltip ?? opt.label)}
             className="insp-segmented__btn"
             onClick={() => onChange(opt.value)}
             onKeyDown={(e) => onKeyDown(e, i)}
           >
             {opt.icon && <Icon name={opt.icon} label={undefined} size="0.95em" />}
-            <span>{opt.label}</span>
+            {!opt.hideLabel && <span>{opt.label}</span>}
           </button>
         );
       })}

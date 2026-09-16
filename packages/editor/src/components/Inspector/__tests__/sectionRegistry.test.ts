@@ -271,13 +271,21 @@ describe('Section availability predicates', () => {
     ).toBe(true);
   });
 
-  it('corner-radius only available for single rect or frame', () => {
+  it('corner-radius available for rects and frames, including multi-select', () => {
     const def = getSectionDefinition('corner-radius')!;
     expect(def.isAvailable(baseCtx({ selectedNodes: [makeNode()] }))).toBe(true);
     expect(def.isAvailable(baseCtx({ selectedNodes: [makeFrameNode()] }))).toBe(true);
     expect(def.isAvailable(baseCtx({ selectedNodes: [makeTextNode()] }))).toBe(false);
+    // Multi-selection is supported when at least one member can round a
+    // corner (the 2026-09-15 Design-tab review), but stays hidden when no
+    // member can.
     expect(
       def.isAvailable(baseCtx({ selectionKind: 'multi', selectedNodes: [makeNode(), makeNode()] })),
+    ).toBe(true);
+    expect(
+      def.isAvailable(
+        baseCtx({ selectionKind: 'multi', selectedNodes: [makeTextNode(), makeTextNode()] }),
+      ),
     ).toBe(false);
   });
 
@@ -669,11 +677,12 @@ describe('Subsection state', () => {
     // Start by opening the parent so subsections are accessible
     let state = createDefaultSectionState();
     state = toggleSubSectionCollapsed(state, 'typography', 'openTypeFeatures');
-    // After toggle, subsection collapsed should be true (started as false/expanded)
-    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(true);
+    // The registry declares openTypeFeatures collapsed, so the first toggle
+    // opens it (the toggle inverts the effective default, not "unset = false").
+    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(false);
     // Toggle back
     state = toggleSubSectionCollapsed(state, 'typography', 'openTypeFeatures');
-    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(false);
+    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(true);
   });
 
   it('setSubSectionCollapsed sets nested collapsed state', () => {
@@ -687,7 +696,8 @@ describe('Subsection state', () => {
   it('multiple subsections have independent state', () => {
     let state = createDefaultSectionState();
     state = toggleSubSectionCollapsed(state, 'typography', 'openTypeFeatures');
-    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(true);
+    // One toggle opens the registry-declared collapsed subsection.
+    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(false);
     // Variable font axes is untouched and keeps its registry-declared default
     // (collapsed), and no stored entry was created for it.
     expect(isSubSectionCollapsed(state, 'typography', 'variableFontAxes')).toBe(true);
@@ -726,8 +736,9 @@ describe('Subsection state', () => {
 
   it('subsections with no parent state get defaults', () => {
     const state = createDefaultSectionState();
-    // Default collapsed = false (not collapsed) for subsection with no stored state
-    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(false);
+    // openTypeFeatures is declared collapsed in the registry, so the
+    // registry default applies until the user stores a preference.
+    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(true);
   });
 
   it('different section parents have independent subsection trees', () => {
@@ -735,10 +746,13 @@ describe('Subsection state', () => {
     let state = createDefaultSectionState();
     state = toggleSubSectionCollapsed(state, 'typography', 'openTypeFeatures');
     state = toggleSubSectionCollapsed(state, 'typography', 'variableFontAxes');
-    // openTypeFeatures defaults to expanded, so one toggle collapses it.
+    // Both typography subsections are declared collapsed in the registry, so
+    // one toggle opens each.
+    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(false);
+    expect(isSubSectionCollapsed(state, 'typography', 'variableFontAxes')).toBe(false);
+    // A second toggle on one leaves the other alone.
+    state = toggleSubSectionCollapsed(state, 'typography', 'openTypeFeatures');
     expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(true);
-    // variableFontAxes is declared collapsed in the registry, so one toggle
-    // opens it (the toggle inverts the effective default, not "unset = false").
     expect(isSubSectionCollapsed(state, 'typography', 'variableFontAxes')).toBe(false);
     // Unrelated section has no subsections
     expect(state.fills.subsections).toBeUndefined();
@@ -747,7 +761,9 @@ describe('Subsection state', () => {
   it('honors a registry-declared subsection default before any preference exists', () => {
     const state = createDefaultSectionState();
     expect(isSubSectionCollapsed(state, 'typography', 'variableFontAxes')).toBe(true);
-    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(false);
+    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(true);
+    expect(isSubSectionCollapsed(state, 'typography', 'advancedText')).toBe(true);
+    expect(isSubSectionCollapsed(state, 'typography', 'glyphAdjustments')).toBe(true);
   });
 });
 

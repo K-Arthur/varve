@@ -459,6 +459,15 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     status: 'functional',
     rationale: 'A diagnostic score belongs with other design audits.',
   },
+  insights: {
+    surface: 'audit',
+    scope: 'document',
+    frequency: 'occasional',
+    complexity: 'large-editor',
+    status: 'functional',
+    rationale:
+      'Document-level review (audit, spacing, naming, governance) stays in the Design tab as a collapsed, hideable last section.',
+  },
   interaction: {
     surface: 'prototype',
     scope: 'selection',

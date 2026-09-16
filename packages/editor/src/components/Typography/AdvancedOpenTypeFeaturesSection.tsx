@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { getFontRegistry } from '@varve/engine';
+import { canResolveCanvasFontFamily, getFontRegistry } from '@varve/engine';
 import type { TextNode } from '@varve/scene';
 import { richTextToPlainText } from '@varve/scene';
 import type {
@@ -8,12 +8,14 @@ import type {
   OpenTypeFeatureValue,
 } from '@varve/shared';
 import { REQUIRED_SHAPING_FEATURE_TAGS } from '@varve/shared';
+import { Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useEditor } from '../../context';
 import { DisclosureSection } from '../Inspector/controls/DisclosureSection';
 import type { MaybeMixed } from '../Inspector/selection/selectionState';
 import { isMixed } from '../Inspector/selection/selectionState';
 import type { TypographyTextChanges } from './typographyCommand';
+import { hasSelectedCharacters } from './typographyCommand';
 
 interface AdvancedOpenTypeFeaturesSectionProps {
   textNodes: TextNode[];
@@ -146,7 +148,25 @@ export function AdvancedOpenTypeFeaturesSection({
     const available = metadataKnown ? [...supported] : UNKNOWN_FEATURES;
     return [...new Set([...available, ...persisted])].sort((a, b) => a.localeCompare(b));
   }, [currentFeatures, metadataKnown, supported]);
-  const alternateTags = useMemo(() => knownTags.filter(isAlternateTag), [knownTags]);
+  // Features the shaper must always run (rlig, ccmp, locl, mark…) are not
+  // user decisions. Listing them as disabled rows added a wall of inert
+  // controls to every face; they are silently correct and stay hidden.
+  const visibleTags = useMemo(
+    () => knownTags.filter((tag) => !REQUIRED_SHAPING_FEATURE_TAGS.has(tag)),
+    [knownTags],
+  );
+  const alternateTags = useMemo(() => visibleTags.filter(isAlternateTag), [visibleTags]);
+  // Collapsed-header badge: how many of this face's features the layer (or
+  // run) has already switched away from the font default.
+  const activeFeatureCount = useMemo(
+    () => visibleTags.filter((tag) => featureBaseValue(currentFeatures[tag]) !== undefined).length,
+    [currentFeatures, visibleTags],
+  );
+  const rangeSelection =
+    textNodes.length === 1 && hasSelectedCharacters(editor.state.selectionRange)
+      ? editor.state.selectionRange
+      : null;
+  const liveWholeRunAvailable = family ? canResolveCanvasFontFamily(family, { liga: true }) : false;
   const previewActiveRef = useRef(false);
 
   const cancelPreview = useCallback(() => {
@@ -238,7 +258,11 @@ export function AdvancedOpenTypeFeaturesSection({
       title="OpenType features"
       sectionId="typography"
       subsectionId="openTypeFeatures"
-      defaultExpanded={false}
+      action={
+        activeFeatureCount > 0 ? (
+          <span className="typography__count">{activeFeatureCount} on</span>
+        ) : undefined
+      }
     >
       {!family && (
         <p className="insp-opentype-status">Select one font face to inspect its features.</p>
@@ -249,22 +273,34 @@ export function AdvancedOpenTypeFeaturesSection({
           ignore unsupported tags.
         </p>
       )}
-      {family && metadataKnown && knownTags.length === 0 && (
+      {family && metadataKnown && visibleTags.length === 0 && (
         <p className="insp-opentype-status">No OpenType feature tags were reported by this face.</p>
       )}
-      {family && knownTags.length > 0 && (
+      {family && metadataKnown && !liveWholeRunAvailable && (
+        <p className="insp-opentype-status" data-state="unavailable">
+          This face has no local CSS font source for live Canvas feature preview. Values remain
+          stored for a compatible shaping or outline backend.
+        </p>
+      )}
+      {rangeSelection && (
+        <p className="insp-opentype-status" data-state="unavailable">
+          Source-range feature values require the exact shaping backend; the browser preview keeps
+          the current whole-run appearance until the range is committed through that path.
+        </p>
+      )}
+      {family && visibleTags.length > 0 && (
         <div className="insp-opentype-list">
-          {knownTags.map((tag) => {
+          {visibleTags.map((tag) => {
             const value = featureBaseValue(currentFeatures[tag]);
-            const available = !metadataKnown || supported.has(tag);
-            const required = REQUIRED_SHAPING_FEATURE_TAGS.has(tag);
+            const available = metadataKnown && supported.has(tag);
             return (
               <FeatureRow
                 key={tag}
                 tag={tag}
                 value={value}
                 available={available}
-                required={required}
+                metadataKnown={metadataKnown}
+                runtimeAvailable={liveWholeRunAvailable && !rangeSelection}
                 onChange={(next) => updateFeature(tag, next)}
                 onReset={() => clearFeature(tag)}
               />
@@ -290,49 +326,85 @@ function FeatureRow({
   tag,
   value,
   available,
-  required,
+  metadataKnown,
+  runtimeAvailable,
   onChange,
   onReset,
 }: {
   tag: string;
   value: OpenTypeFeatureValue | undefined;
   available: boolean;
-  required: boolean;
+  metadataKnown: boolean;
+  runtimeAvailable: boolean;
   onChange: (value: OpenTypeFeatureValue) => void;
   onReset: () => void;
 }) {
   const current = featureControlValue(value);
   const indexed = /^cv|^ss/u.test(tag) || (typeof value === 'number' && value > 1);
-  const canEdit = available && !required;
+  // A face with no metadata is not known to support this tag, but a local
+  // whole-run CSS source can still honor the request. Keep that distinction
+  // visible instead of pretending metadata is authoritative; disable only
+  // when neither the shaping source nor the runtime can accept the setting.
+  const canEdit = (available || !metadataKnown) && runtimeAvailable;
+  // Plain language first, tag second: the OpenType spec is the source of the
+  // label, but the tag remains visible because it is what a font editor and
+  // CSS use. Option descriptions say what Inherit/Off/On/Indexed actually do
+  // (the "be honest about the menu option" OpenType-interface rule).
   return (
     <div
       className="insp-opentype-row"
-      data-feature-availability={required ? 'required' : available ? 'available' : 'unsupported'}
+      data-feature-availability={
+        !metadataKnown
+          ? 'unknown'
+          : !available
+            ? 'unsupported'
+            : !runtimeAvailable
+              ? 'unavailable'
+              : 'available'
+      }
     >
       <span className="insp-opentype-label">
         {labelForFeature(tag)}
-        {!available && <small className="insp-opentype-state">unsupported by face</small>}
-        {required && <small className="insp-opentype-state">required for script shaping</small>}
+        {!metadataKnown && <small className="insp-opentype-state">support unknown</small>}
+        {metadataKnown && !available && (
+          <small className="insp-opentype-state">unsupported by face</small>
+        )}
+        {available && !runtimeAvailable && (
+          <small className="insp-opentype-state">live preview unavailable</small>
+        )}
         {available && value === undefined && <small className="insp-opentype-state">inherit</small>}
       </span>
       <code className="insp-opentype-tag">{tag}</code>
-      <select
-        aria-label={`${labelForFeature(tag)} value`}
+      <Select
+        className="insp-opentype-select"
+        label={`${labelForFeature(tag)} value`}
         value={current}
         disabled={!canEdit}
-        onChange={(event) => {
-          const next = event.currentTarget.value;
+        options={[
+          {
+            value: 'inherit',
+            label: 'Inherit',
+            description: 'Use the font or paragraph default',
+          },
+          { value: 'off', label: 'Off', description: 'Disable this feature' },
+          { value: 'on', label: 'On', description: 'Enable this feature' },
+          ...(indexed
+            ? [
+                {
+                  value: 'value',
+                  label: 'Indexed…',
+                  description: 'Pick a numbered alternate between 2 and 99',
+                },
+              ]
+            : []),
+        ]}
+        onChange={(next) => {
           if (next === 'inherit') return onReset();
           if (next === 'off') return onChange(false);
           if (next === 'on') return onChange(true);
           return onChange(typeof value === 'number' && value > 1 ? value : indexed ? 2 : 1);
         }}
-      >
-        <option value="inherit">Inherit</option>
-        <option value="off">Off</option>
-        <option value="on">On</option>
-        {indexed && <option value="value">Indexed…</option>}
-      </select>
+      />
       {indexed && current === 'value' && (
         <input
           className="insp-opentype-index"

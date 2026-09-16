@@ -38,3 +38,30 @@
   overflow: visible;
   text-overflow: clip;
 }
+
+/* Collapsed-subsection badge: "3 set", "2 on", or a raw adjustment count.
+   Quiet by default so it reads as status, not as a control. */
+.typography__count {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* Icon-only alignment segments need a real square target; the shared
+   segmented control sizes to content and would otherwise collapse. */
+.editor-inspector .typography-controls .insp-segmented__btn:has(> svg):not(:has(> span)) {
+  min-width: 28px;
+  flex: 1 1 0;
+  padding-inline: 0;
+}
+
+.editor-inspector .typography-controls .insp-segmented__btn > svg {
+  flex-shrink: 0;
+}

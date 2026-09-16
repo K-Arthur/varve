@@ -83,7 +83,8 @@ export type SectionId =
   | 'table-rows'
   | 'ai-tools-hint'
   | 'layer-states'
-  | 'snapping';
+  | 'snapping'
+  | 'insights';
 
 // ---------------------------------------------------------------------------
 // Section categories for management UI grouping
@@ -417,10 +418,18 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     id: 'typography',
     title: 'Typography',
     defaultExpanded: true,
-    // Variable font axes are an advanced sub-panel; keep them collapsed until
-    // the user asks for them (matches the previous call-site intent, which a
-    // registry subsection default can now express).
-    subsections: { variableFontAxes: { defaultExpanded: false } },
+    // Advanced sub-panels stay collapsed until the user asks for them. The
+    // always-visible spine is content, family, weight, style, size,
+    // line-height, letter-spacing and alignment; everything a first-time
+    // user does not need (tracking, paragraph spacing, vertical align,
+    // direction, writing mode, case, decoration, list, overflow, resize)
+    // is one labelled row away rather than eleven rows of clutter.
+    subsections: {
+      advancedText: { defaultExpanded: false },
+      openTypeFeatures: { defaultExpanded: false },
+      variableFontAxes: { defaultExpanded: false },
+      glyphAdjustments: { defaultExpanded: false },
+    },
     canHide: true,
     essential: false,
     order: 300,
@@ -522,7 +531,10 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     defaultExpanded: true,
     canHide: true,
     essential: false,
-    order: 270,
+    // Follows Stroke so a mixed multi-selection still reaches it before the
+    // effects tail; an all-image selection reorders it to the top of the tab
+    // via IMAGE_SELECTION_ORDER below.
+    order: 242,
     category: 'advanced',
     isAvailable: (ctx) => ctx.selectedNodes.length > 0 && ctx.selectedNodes.some(isImageShape),
   },
@@ -838,6 +850,20 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     order: 500,
     category: 'advanced',
     isAvailable: (ctx) => hasNodes(ctx),
+  },
+  {
+    // Document-level review surface. It stays available with or without a
+    // selection (the whole-document audit is the point), renders last in the
+    // Design composition, and is now registry-managed so a user who never
+    // wants review chrome can hide it like any other optional section.
+    id: 'insights',
+    title: 'Insights',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    order: 900,
+    category: 'advanced',
+    isAvailable: () => true,
   },
 
   // -- Prototype --

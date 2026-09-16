@@ -98,84 +98,160 @@ export interface TypographySectionProps {
 }
 
 const DIRECTION_OPTIONS: readonly SegmentedOption<'auto' | 'ltr' | 'rtl'>[] = [
-  { value: 'auto', label: 'Auto' },
-  { value: 'ltr', label: 'LTR' },
-  { value: 'rtl', label: 'RTL' },
+  { value: 'auto', label: 'Auto', tooltip: 'Detect direction from the text content' },
+  { value: 'ltr', label: 'LTR', tooltip: 'Left-to-right, e.g. Latin scripts' },
+  { value: 'rtl', label: 'RTL', tooltip: 'Right-to-left, e.g. Arabic or Hebrew' },
 ] as const;
 
 const WRITING_MODE_OPTIONS: readonly {
   value: NonNullable<TextNode['writingMode']>;
   label: string;
+  description: string;
 }[] = [
-  { value: 'horizontal-tb', label: 'Horizontal' },
-  { value: 'vertical-rl', label: 'Vertical RL' },
-  { value: 'vertical-lr', label: 'Vertical LR' },
+  {
+    value: 'horizontal-tb',
+    label: 'Horizontal',
+    description: 'Lines run left to right, stacked top to bottom',
+  },
+  {
+    value: 'vertical-rl',
+    label: 'Vertical, right to left',
+    description: 'Lines run top to bottom, columns stack right to left',
+  },
+  {
+    value: 'vertical-lr',
+    label: 'Vertical, left to right',
+    description: 'Lines run top to bottom, columns stack left to right',
+  },
 ];
 
 const TEXT_ORIENTATION_OPTIONS: readonly {
   value: NonNullable<TextNode['textOrientation']>;
   label: string;
+  description: string;
 }[] = [
-  { value: 'mixed', label: 'Mixed' },
-  { value: 'upright', label: 'Upright' },
-  { value: 'sideways', label: 'Sideways' },
+  { value: 'mixed', label: 'Mixed', description: 'Rotate Latin text, keep CJK upright' },
+  { value: 'upright', label: 'Upright', description: 'Keep every glyph upright' },
+  { value: 'sideways', label: 'Sideways', description: 'Rotate every glyph 90 degrees' },
 ];
 
+// Alignment is the most-recognised icon family in design tools; the single
+// letters (L/C/R/J, T/M/B) it replaces were unreadable without a legend.
 const TEXT_ALIGN_OPTIONS: readonly SegmentedOption<'left' | 'center' | 'right' | 'justify'>[] = [
-  { value: 'left', label: 'L' },
-  { value: 'center', label: 'C' },
-  { value: 'right', label: 'R' },
-  { value: 'justify', label: 'J' },
+  { value: 'left', label: 'Align left', icon: 'TextAlignStart', hideLabel: true },
+  { value: 'center', label: 'Align center', icon: 'TextAlignCenter', hideLabel: true },
+  { value: 'right', label: 'Align right', icon: 'TextAlignEnd', hideLabel: true },
+  { value: 'justify', label: 'Justify', icon: 'TextAlignJustify', hideLabel: true },
 ] as const;
 
 const TEXT_ALIGN_V_OPTIONS: readonly SegmentedOption<'top' | 'middle' | 'bottom'>[] = [
-  { value: 'top', label: 'T' },
-  { value: 'middle', label: 'M' },
-  { value: 'bottom', label: 'B' },
+  { value: 'top', label: 'Align top', icon: 'AlignStartVertical', hideLabel: true },
+  { value: 'middle', label: 'Align middle', icon: 'AlignCenterVertical', hideLabel: true },
+  { value: 'bottom', label: 'Align bottom', icon: 'AlignEndVertical', hideLabel: true },
 ] as const;
 
+// Case transforms read as their own output: "ABC" uppercases, "abc"
+// lowercases, "Abc" title-cases. That is self-describing in a way that a
+// generic "Aa"/"AA" pair never was.
 const TEXT_CASE_OPTIONS: readonly SegmentedOption<
   'none' | 'uppercase' | 'lowercase' | 'capitalize'
 >[] = [
-  { value: 'none', label: 'Aa' },
-  { value: 'uppercase', label: 'AA' },
-  { value: 'lowercase', label: 'aa' },
-  { value: 'capitalize', label: 'A' },
+  { value: 'none', label: 'None', tooltip: 'Use the text exactly as typed' },
+  { value: 'uppercase', label: 'ABC', tooltip: 'UPPERCASE' },
+  { value: 'lowercase', label: 'abc', tooltip: 'lowercase' },
+  { value: 'capitalize', label: 'Abc', tooltip: 'Title Case each word' },
 ] as const;
 
 const TEXT_DECORATION_OPTIONS: readonly SegmentedOption<'none' | 'underline' | 'line-through'>[] = [
-  { value: 'none', label: 'None' },
-  { value: 'underline', label: 'U' },
-  { value: 'line-through', label: 'S' },
+  { value: 'none', label: 'No decoration', icon: 'Minus', hideLabel: true },
+  { value: 'underline', label: 'Underline', icon: 'Underline', hideLabel: true },
+  { value: 'line-through', label: 'Strikethrough', icon: 'Strikethrough', hideLabel: true },
 ] as const;
 
 const FONT_STYLE_OPTIONS: readonly SegmentedOption<'normal' | 'italic'>[] = [
-  { value: 'normal', label: 'Reg' },
-  { value: 'italic', label: 'Ital' },
+  { value: 'normal', label: 'Regular', tooltip: 'Upright roman face' },
+  { value: 'italic', label: 'Italic', tooltip: 'True italic face when the font provides one' },
 ] as const;
 
-const LIST_STYLE_OPTIONS: { value: TextNode['listStyle']; label: string }[] = [
-  { value: 'none', label: 'None' },
-  { value: 'disc', label: 'Bullet' },
-  { value: 'decimal', label: 'Number' },
-  { value: 'circle', label: 'Circle' },
-  { value: 'square', label: 'Square' },
-];
+const LIST_STYLE_OPTIONS: { value: TextNode['listStyle']; label: string; description?: string }[] =
+  [
+    { value: 'none', label: 'None' },
+    { value: 'disc', label: 'Bullet (•)' },
+    { value: 'decimal', label: 'Numbered (1.)' },
+    { value: 'circle', label: 'Circle' },
+    { value: 'square', label: 'Square' },
+  ];
 
-const OVERFLOW_OPTIONS: { value: TextNode['textOverflow']; label: string }[] = [
-  { value: 'visible', label: 'Visible' },
-  { value: 'clip', label: 'Clip' },
-  { value: 'ellipsis', label: 'Ellipsis' },
-];
+const OVERFLOW_OPTIONS: { value: TextNode['textOverflow']; label: string; description: string }[] =
+  [
+    {
+      value: 'visible',
+      label: 'Visible',
+      description: 'Let the text paint outside its bounds',
+    },
+    {
+      value: 'clip',
+      label: 'Clip',
+      description: 'Cut off anything past the edges',
+    },
+    {
+      value: 'ellipsis',
+      label: 'Ellipsis (…)',
+      description: 'Fade the end of the last visible line',
+    },
+  ];
 
-const RESIZING_OPTIONS: { value: TextNode['textResizing']; label: string }[] = [
-  { value: 'autoWidth', label: 'Auto W' },
-  { value: 'autoHeight', label: 'Auto H' },
-  { value: 'fixed', label: 'Fixed' },
-];
+const RESIZING_OPTIONS: { value: TextNode['textResizing']; label: string; description: string }[] =
+  [
+    {
+      value: 'autoWidth',
+      label: 'Auto width',
+      description: 'The box hugs a single line of text',
+    },
+    {
+      value: 'autoHeight',
+      label: 'Auto height',
+      description: 'Fixed width, height follows the wrapped text',
+    },
+    {
+      value: 'fixed',
+      label: 'Fixed size',
+      description: 'Both edges are controlled and text can overflow',
+    },
+  ];
+
+/**
+ * Advanced typography properties the common case never touches. Used for the
+ * subsection badge so a collapsed "Advanced typography" still tells the user
+ * that the current layer already uses one of them.
+ */
+function advancedTypographyCount(nodes: TextNode[]): number {
+  let count = 0;
+  for (const node of nodes) {
+    if ((node.tracking ?? 0) !== 0) count += 1;
+    if ((node.paragraphSpacing ?? 0) !== 0) count += 1;
+    if ((node.textCase ?? 'none') !== 'none') count += 1;
+    if ((node.textDecoration ?? 'none') !== 'none') count += 1;
+    if ((node.listStyle ?? 'none') !== 'none') count += 1;
+    if ((node.textOverflow ?? 'visible') !== 'visible') count += 1;
+    if ((node.textResizing ?? 'fixed') !== 'fixed') count += 1;
+    if ((node.direction ?? 'auto') !== 'auto') count += 1;
+    if ((node.writingMode ?? 'horizontal-tb') !== 'horizontal-tb') count += 1;
+    if ((node.textOrientation ?? 'mixed') !== 'mixed') count += 1;
+    if ((node.textAlignVertical ?? 'top') !== 'top') count += 1;
+  }
+  return count;
+}
 
 function getTextValue<T>(n: SceneNode, accessor: (t: TextNode) => T): T {
   return accessor(n as TextNode);
+}
+
+/** Manual per-cluster and pair adjustments currently applied to one node. */
+function glyphAdjustmentCount(node: TextNode): number {
+  return (
+    Object.keys(node.glyphAdjustments ?? {}).length + Object.keys(node.pairAdjustments ?? {}).length
+  );
 }
 
 export function TypographySection({ nodes }: TypographySectionProps) {
@@ -358,6 +434,16 @@ export function TypographySection({ nodes }: TypographySectionProps) {
       ),
     [italicAvailable],
   );
+  // Vertical alignment and text flow only exist once the text has a container;
+  // a point-text layer has no box for either to act on.
+  const isAreaText = textNodes.some((node) => (node.textResizing ?? 'fixed') !== 'autoWidth');
+  // Orientation only affects a vertical writing mode, so hide it until the
+  // selection actually writes vertically (the previous always-on select wrote
+  // values the renderer ignored).
+  const isVerticalWriting = textNodes.some(
+    (node) => (node.writingMode ?? 'horizontal-tb') !== 'horizontal-tb',
+  );
+  const advancedCount = advancedTypographyCount(textNodes);
 
   return (
     <DisclosureSection title="Typography" sectionId="typography">
@@ -408,14 +494,16 @@ export function TypographySection({ nodes }: TypographySectionProps) {
                 />
               )}
             </FieldRow>
-            <FieldRow label="Rich Text">
-              <Switch
-                aria-label="Enable rich text editing"
-                className="insp-switch"
-                checked={richTextEnabled}
-                onChange={(event) => setRichTextEnabled(event.target.checked)}
-              />
-            </FieldRow>
+            {textNodes.length === 1 && (
+              <FieldRow label="Rich text">
+                <Switch
+                  aria-label="Enable rich text editing"
+                  className="insp-switch"
+                  checked={richTextEnabled}
+                  onChange={(event) => setRichTextEnabled(event.target.checked)}
+                />
+              </FieldRow>
+            )}
             {textNodes.length === 1 && (
               <FieldRow label="Layer name">
                 <button
@@ -543,132 +631,173 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           onShiftClick={() => setBindingField('letterSpacing')}
           onChange={(v) => applyTypographyToSelection({ letterSpacing: v })}
         />
-        <NumberField
-          label="Tracking"
-          unit="‰"
-          value={isMixed(trackingRaw) ? 0 : trackingRaw}
-          mixed={isMixed(trackingRaw)}
-          step={10}
-          fieldName="tracking"
-          draftKey={`${typographyDraftKey}:tracking`}
-          onShiftClick={() => setBindingField('tracking')}
-          onChange={(v) => applyTypographyToSelection({ tracking: v })}
-        />
-        <NumberField
-          label="Para spacing"
-          unit="px"
-          value={isMixed(paraSpacingRaw) ? 0 : paraSpacingRaw}
-          mixed={isMixed(paraSpacingRaw)}
-          step={1}
-          min={0}
-          fieldName="paragraphSpacing"
-          draftKey={`${typographyDraftKey}:paragraph-spacing`}
-          onShiftClick={() => setBindingField('paragraphSpacing')}
-          onChange={(v) => batchUpdate((n) => ({ ...n, paragraphSpacing: v }))}
-        />
-        <FieldRow label="Align">
+        <FieldRow label="Alignment">
           <SegmentedControl
-            label="Text align"
+            label="Horizontal align"
             value={isMixed(alignRaw) ? 'left' : alignRaw}
             options={TEXT_ALIGN_OPTIONS}
             onChange={(v) => batchUpdate((n) => ({ ...n, textAlign: v }))}
           />
         </FieldRow>
-        <FieldRow label="Direction">
-          <SegmentedControl
-            label="Text direction"
-            value={isMixed(directionRaw) ? 'auto' : directionRaw}
-            options={DIRECTION_OPTIONS}
-            onChange={(v) => batchUpdate((n) => ({ ...n, direction: v }))}
+        <DisclosureSection
+          title="Advanced typography"
+          sectionId="typography"
+          subsectionId="advancedText"
+          action={
+            advancedCount > 0 ? (
+              <span className="typography__count">{advancedCount} set</span>
+            ) : undefined
+          }
+        >
+          <NumberField
+            label="Tracking"
+            labelWrap
+            unit="‰"
+            value={isMixed(trackingRaw) ? 0 : trackingRaw}
+            mixed={isMixed(trackingRaw)}
+            step={10}
+            fieldName="tracking"
+            draftKey={`${typographyDraftKey}:tracking`}
+            onShiftClick={() => setBindingField('tracking')}
+            onChange={(v) => applyTypographyToSelection({ tracking: v })}
           />
-        </FieldRow>
-        <FieldRow label="Writing mode">
-          <Select
-            label="Writing mode (not rotation)"
-            value={isMixed(writingModeRaw) ? 'horizontal-tb' : writingModeRaw}
-            options={WRITING_MODE_OPTIONS.map((option) => ({
-              value: option.value,
-              label: option.label,
-            }))}
-            onChange={(value) =>
-              batchUpdate((n) => ({
-                ...n,
-                writingMode: value as TextNode['writingMode'],
-              }))
-            }
+          <p className="insp-field__hint">
+            Tracking scales with the font size (per mille of the em); Letter spacing above stays a
+            fixed pixel offset.
+          </p>
+          <NumberField
+            label="Paragraph spacing"
+            labelWrap
+            unit="px"
+            value={isMixed(paraSpacingRaw) ? 0 : paraSpacingRaw}
+            mixed={isMixed(paraSpacingRaw)}
+            step={1}
+            min={0}
+            fieldName="paragraphSpacing"
+            draftKey={`${typographyDraftKey}:paragraph-spacing`}
+            onShiftClick={() => setBindingField('paragraphSpacing')}
+            onChange={(v) => batchUpdate((n) => ({ ...n, paragraphSpacing: v }))}
           />
-        </FieldRow>
-        <FieldRow label="Orientation">
-          <Select
-            label="Vertical text orientation"
-            value={isMixed(textOrientationRaw) ? 'mixed' : textOrientationRaw}
-            options={TEXT_ORIENTATION_OPTIONS.map((option) => ({
-              value: option.value,
-              label: option.label,
-            }))}
-            onChange={(value) =>
-              batchUpdate((n) => ({
-                ...n,
-                textOrientation: value as TextNode['textOrientation'],
-              }))
-            }
-          />
-        </FieldRow>
-        <FieldRow label="V Align">
-          <SegmentedControl
-            label="Text vertical align"
-            value={isMixed(alignVRaw) ? 'top' : alignVRaw}
-            options={TEXT_ALIGN_V_OPTIONS}
-            onChange={(v) => batchUpdate((n) => ({ ...n, textAlignVertical: v }))}
-          />
-        </FieldRow>
-        <FieldRow label="Case">
-          <SegmentedControl
-            label="Text case"
-            value={isMixed(caseRaw) ? 'none' : caseRaw}
-            options={TEXT_CASE_OPTIONS}
-            onChange={(v) => batchUpdate((n) => ({ ...n, textCase: v }))}
-          />
-        </FieldRow>
-        <FieldRow label="Decoration">
-          <SegmentedControl
-            label="Text decoration"
-            value={isMixed(decorationRaw) ? 'none' : decorationRaw}
-            options={TEXT_DECORATION_OPTIONS}
-            onChange={(v) => batchUpdate((n) => ({ ...n, textDecoration: v }))}
-          />
-        </FieldRow>
-        <FieldRow label="List">
-          <Select
-            label="List style"
-            value={isMixed(listRaw) ? 'none' : listRaw}
-            options={LIST_STYLE_OPTIONS.map((o) => ({ value: o.value as string, label: o.label }))}
-            onChange={(v) => batchUpdate((n) => ({ ...n, listStyle: v as TextNode['listStyle'] }))}
-          />
-        </FieldRow>
-        <FieldRow label="Overflow">
-          <Select
-            label="Text overflow"
-            value={isMixed(overflowRaw) ? 'visible' : overflowRaw}
-            options={OVERFLOW_OPTIONS.map((o) => ({ value: o.value as string, label: o.label }))}
-            onChange={(v) =>
-              batchUpdate((n) => ({
-                ...n,
-                textOverflow: v as TextNode['textOverflow'],
-              }))
-            }
-          />
-        </FieldRow>
-        <FieldRow label="Resize">
-          <Select
-            label="Text resizing mode"
-            value={isMixed(resizingRaw) ? 'fixed' : resizingRaw}
-            options={RESIZING_OPTIONS.map((o) => ({ value: o.value as string, label: o.label }))}
-            onChange={(v) =>
-              batchUpdate((n) => applyTextResizing(n, v as TextNode['textResizing']))
-            }
-          />
-        </FieldRow>
+          <FieldRow label="Direction">
+            <SegmentedControl
+              label="Text direction"
+              value={isMixed(directionRaw) ? 'auto' : directionRaw}
+              options={DIRECTION_OPTIONS}
+              onChange={(v) => batchUpdate((n) => ({ ...n, direction: v }))}
+            />
+          </FieldRow>
+          <FieldRow label="Writing mode">
+            <Select
+              label="Writing mode (not rotation)"
+              value={isMixed(writingModeRaw) ? 'horizontal-tb' : writingModeRaw}
+              options={WRITING_MODE_OPTIONS.map((option) => ({
+                value: option.value,
+                label: option.label,
+                description: option.description,
+              }))}
+              onChange={(value) =>
+                batchUpdate((n) => ({
+                  ...n,
+                  writingMode: value as TextNode['writingMode'],
+                }))
+              }
+            />
+          </FieldRow>
+          {isVerticalWriting && (
+            <FieldRow label="Vertical orientation">
+              <Select
+                label="Vertical text orientation"
+                value={isMixed(textOrientationRaw) ? 'mixed' : textOrientationRaw}
+                options={TEXT_ORIENTATION_OPTIONS.map((option) => ({
+                  value: option.value,
+                  label: option.label,
+                  description: option.description,
+                }))}
+                onChange={(value) =>
+                  batchUpdate((n) => ({
+                    ...n,
+                    textOrientation: value as TextNode['textOrientation'],
+                  }))
+                }
+              />
+            </FieldRow>
+          )}
+          {isAreaText && (
+            <FieldRow label="Vertical align">
+              <SegmentedControl
+                label="Text vertical align"
+                value={isMixed(alignVRaw) ? 'top' : alignVRaw}
+                options={TEXT_ALIGN_V_OPTIONS}
+                onChange={(v) => batchUpdate((n) => ({ ...n, textAlignVertical: v }))}
+              />
+            </FieldRow>
+          )}
+          <FieldRow label="Case">
+            <SegmentedControl
+              label="Text case"
+              value={isMixed(caseRaw) ? 'none' : caseRaw}
+              options={TEXT_CASE_OPTIONS}
+              onChange={(v) => batchUpdate((n) => ({ ...n, textCase: v }))}
+            />
+          </FieldRow>
+          <FieldRow label="Decoration">
+            <SegmentedControl
+              label="Text decoration"
+              value={isMixed(decorationRaw) ? 'none' : decorationRaw}
+              options={TEXT_DECORATION_OPTIONS}
+              onChange={(v) => batchUpdate((n) => ({ ...n, textDecoration: v }))}
+            />
+          </FieldRow>
+          <FieldRow label="List style">
+            <Select
+              label="List style"
+              value={isMixed(listRaw) ? 'none' : listRaw}
+              options={LIST_STYLE_OPTIONS.map((o) => ({
+                value: o.value as string,
+                label: o.label,
+                description: o.description,
+              }))}
+              onChange={(v) =>
+                batchUpdate((n) => ({ ...n, listStyle: v as TextNode['listStyle'] }))
+              }
+            />
+          </FieldRow>
+          {isAreaText && (
+            <>
+              <FieldRow label="Text sizing">
+                <Select
+                  label="Text resizing mode"
+                  value={isMixed(resizingRaw) ? 'fixed' : resizingRaw}
+                  options={RESIZING_OPTIONS.map((o) => ({
+                    value: o.value as string,
+                    label: o.label,
+                    description: o.description,
+                  }))}
+                  onChange={(v) =>
+                    batchUpdate((n) => applyTextResizing(n, v as TextNode['textResizing']))
+                  }
+                />
+              </FieldRow>
+              <FieldRow label="Overflow">
+                <Select
+                  label="Text overflow"
+                  value={isMixed(overflowRaw) ? 'visible' : overflowRaw}
+                  options={OVERFLOW_OPTIONS.map((o) => ({
+                    value: o.value as string,
+                    label: o.label,
+                    description: o.description,
+                  }))}
+                  onChange={(v) =>
+                    batchUpdate((n) => ({
+                      ...n,
+                      textOverflow: v as TextNode['textOverflow'],
+                    }))
+                  }
+                />
+              </FieldRow>
+            </>
+          )}
+        </DisclosureSection>
         {/* OpenType features */}
         <AdvancedOpenTypeFeaturesSection
           textNodes={textNodes}
@@ -701,10 +830,21 @@ export function TypographySection({ nodes }: TypographySectionProps) {
       </div>
       {textNodes.length === 1 && (
         <div className="insp-field-group">
-          <GlyphTypographySection
-            node={textNodes[0]!}
-            onConvertToOutlines={() => editor.convertTextToOutlines()}
-          />
+          <DisclosureSection
+            title="Glyph adjustments"
+            sectionId="typography"
+            subsectionId="glyphAdjustments"
+            action={
+              glyphAdjustmentCount(textNodes[0]!) > 0 ? (
+                <span className="typography__count">{glyphAdjustmentCount(textNodes[0]!)}</span>
+              ) : undefined
+            }
+          >
+            <GlyphTypographySection
+              node={textNodes[0]!}
+              onConvertToOutlines={() => editor.convertTextToOutlines()}
+            />
+          </DisclosureSection>
         </div>
       )}
     </DisclosureSection>
