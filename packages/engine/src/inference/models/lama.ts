@@ -110,16 +110,41 @@ export function decodeLamaOutput(
   const xRatio = srcW / targetWidth;
   const yRatio = srcH / targetHeight;
   const result = new ImageData(targetWidth, targetHeight);
+  const maxSrcX = srcW - 1;
+  const maxSrcY = srcH - 1;
 
+  // Bilinear, not nearest-neighbor: LaMa's fixed 512x512 frame is enlarged
+  // to the caller's target resolution, and that enlargement factor can be
+  // large for Expand (a wide output frame letterboxed down to 512 before
+  // inference, then back up). Nearest-neighbor visibly blocks/pixelates the
+  // generated border at those factors — see
+  // docs/audits/lama-decode-interpolation-2026-09-16.md for the real-photo
+  // evidence. Fill/Remove's typically-small enlargement made this
+  // invisible there, which is why it went unnoticed until Expand was
+  // exercised against the real model.
   for (let y = 0; y < targetHeight; y++) {
+    const fy = Math.min(Math.max((y + 0.5) * yRatio - 0.5, 0), maxSrcY);
+    const y0 = Math.floor(fy);
+    const y1 = Math.min(y0 + 1, maxSrcY);
+    const wy = fy - y0;
     for (let x = 0; x < targetWidth; x++) {
-      const sx = cropX + Math.min(Math.floor(x * xRatio), srcW - 1);
-      const sy = cropY + Math.min(Math.floor(y * yRatio), srcH - 1);
-      const srcIdx = sy * outputWidth + sx;
+      const fx = Math.min(Math.max((x + 0.5) * xRatio - 0.5, 0), maxSrcX);
+      const x0 = Math.floor(fx);
+      const x1 = Math.min(x0 + 1, maxSrcX);
+      const wx = fx - x0;
+
+      const i00 = (cropY + y0) * outputWidth + (cropX + x0);
+      const i10 = (cropY + y0) * outputWidth + (cropX + x1);
+      const i01 = (cropY + y1) * outputWidth + (cropX + x0);
+      const i11 = (cropY + y1) * outputWidth + (cropX + x1);
       const dstIdx = (y * targetWidth + x) * 4;
-      result.data[dstIdx] = clampByte(data[srcIdx]!);
-      result.data[dstIdx + 1] = clampByte(data[pixelCount + srcIdx]!);
-      result.data[dstIdx + 2] = clampByte(data[pixelCount * 2 + srcIdx]!);
+
+      for (let channel = 0; channel < 3; channel++) {
+        const plane = pixelCount * channel;
+        const top = data[plane + i00]! * (1 - wx) + data[plane + i10]! * wx;
+        const bottom = data[plane + i01]! * (1 - wx) + data[plane + i11]! * wx;
+        result.data[dstIdx + channel] = clampByte(top * (1 - wy) + bottom * wy);
+      }
       result.data[dstIdx + 3] = 255;
     }
   }

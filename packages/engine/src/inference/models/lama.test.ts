@@ -104,6 +104,19 @@ describe('lama', () => {
       ).toBe(true);
     });
 
+    it('bilinearly interpolates when enlarging, instead of blocking to the nearest source pixel', () => {
+      // 2x1 planar source: R = [0, 100]. Enlarging 4x (target width 4)
+      // must produce a smooth ramp, not a hard nearest-neighbor step —
+      // a large enlargement factor (e.g. Expand's fixed 512x512 model
+      // frame stretched to a much larger output) made nearest-neighbor
+      // visibly block/pixelate real photographs (see
+      // docs/audits/lama-decode-interpolation-2026-09-16.md).
+      const data = new Float32Array([0, 100, 0, 0, 0, 0]); // R plane, then flat G/B planes
+      const result = decodeLamaOutput(data, 2, 1, 4, 1);
+      const reds = [result.data[0], result.data[4], result.data[8], result.data[12]];
+      expect(reds).toEqual([0, 25, 75, 100]);
+    });
+
     it('rejects an output buffer whose planar channels are incomplete', () => {
       expect(() => decodeLamaOutput(new Float32Array(2), 1, 1, 1, 1)).toThrow('does not match');
     });
