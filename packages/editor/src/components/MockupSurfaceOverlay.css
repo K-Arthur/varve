@@ -103,7 +103,7 @@
 
 .mockup-overlay__action {
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border-micro);
+  border: var(--border-micro);
   border-radius: var(--radius-control-compact);
   background: transparent;
   color: var(--text-secondary);

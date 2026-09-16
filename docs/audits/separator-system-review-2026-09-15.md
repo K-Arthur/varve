@@ -61,16 +61,23 @@ separators, menubar submenu separators, `.settings-divider`,
 `.insp-separator`, `.timeline-playback-sep`, `.editor-menubar__divider`,
 `.workspace-dock__divider`, and any other `background`-based rule.
 
-### P1-2 — Four separator declarations paint nothing at all (invalid CSS)
+### P1-2 — Four separator declarations paint nothing at all (invalid CSS) — FIXED
 
 `--border-micro` is a full shorthand (`1px solid …`). Nesting it inside a
 longhand produces `border-top: 1px solid 1px solid …` → invalid → **no line
-paints**:
+paints**. Fifteen declarations were affected across the Mockups section,
+Mockups panel, mockup surface overlay, and the Preflight warnings panel:
 
-- `MockupsSection.css:74` (`.mockups-section__actions`), `:210` (`.mockups-section__geometry`)
-- `PreflightWarnings.tsx:214`, `:279` (inline styles)
+- `MockupsSection.css:52,74,102,192,210,243,254` (two of them separators)
+- `MockupsPanel.css:71,105,141`; `MockupSurfaceOverlay.css:106`
+- `PreflightWarnings.tsx:180,214,257,279` (inline styles)
 
-These are missing separators in real panels, not styling nits.
+Fixed to `border(-top): var(--border-micro)` / `borderTop: 'var(--border-micro)'`
+(the established pattern used across the codebase). Runtime check:
+fixed rule paints `1px`, the historical nesting paints `0px`
+(`tests/e2e/theme/separators.spec.ts`). Static guard:
+`packages/editor/src/components/__tests__/borderTokenShorthand.test.ts`
+derives every shorthand token from `tokens.css` and fails on any nesting.
 
 ### P1-3 — Doubled separator seams
 
@@ -84,20 +91,30 @@ compounding fractional-DPR artifacts):
 - High-contrast codegen: `.editor__codegen-panel` `border-left` +
   `.code-panel` `border-left` (HC override).
 
-### P2-4 — Marketing homepage has a doubled section seam
+### P2-4 — Marketing homepage had a doubled section seam — FIXED
 
 `ProductShowcase .showcase { border-bottom }` + the immediately following
-`.interface-section { border-top }` render a 2px rule between the hero band and
-the interface section.
+`.interface-section { border-top }` rendered a 2px seam between the showcase
+band and the interface section (verified: `showcase.nextElementSibling ===
+.interface-section`). The showcase's bottom edge is removed; the band that
+starts owns the boundary. Regression: `apps/website/tests/e2e/section-rules.spec.ts`
+(exactly one of the two edges may draw). Homepage visual baselines
+(`home-light`, `home-dark`, `home-mobile-light`, `home-mobile-dark`,
+`showcase-light`) were updated after reviewing the diffs: the only change is
+the removed 1px edge (element height 913 → 912).
 
-### P2-5 — Website divider token drift
+### P2-5 — Website divider token drift — PARTLY FIXED
 
-- `--divider` is defined in light/dark/forced-colors blocks and asserted in
-  `tokens.test.ts`, but has **zero consumers** (dead token).
-- Hardcoded border colors bypass the token layer in
-  `docs/tools/grids.astro:247,254,306,308,310,315` and
-  `features/canvas.astro:534`; `docs/tools/grids.astro:333` uses
-  `--border-footer` (a dark-only token) on a light content page.
+- `--divider` was defined in light/dark/forced-colors blocks and asserted in
+  `tokens.test.ts`, but had **zero consumers**. Removed from all three blocks
+  and the required-token list; `--border-default`/`--border-subtle` remain the
+  divider channels.
+- Hardcoded border colors remain in `docs/tools/grids.astro:247,254,306,308,310,315`
+  and `features/canvas.astro:534`. Inspection shows they are mock-artwork
+  palette (simulated tool frames/guides), not content rules;
+  `.layout-guide-section__note` (`#dd6d62`) is a content callout and is a
+  legitimate candidate for `--brand-terracotta`, but the exact brand value was
+  not verified in this session, so it is left documented rather than recolored.
 
 ### P2-6 — Vertical separator recipe drift (desktop)
 
@@ -150,6 +167,19 @@ unchanged (the light baseline test pins the subtle palette).
 rendering, and native (Tauri/WebKitGTK) menus were not exercised. Playwright's
 forced-colors emulation uses the browser's light/dark palette pair.
 
+**Website.** `apps/website/tests/e2e/section-rules.spec.ts` passes in both
+build variants; the updated homepage baselines were reviewed before
+acceptance. `pnpm test:website` currently fails for reasons that predate this
+session and are not separator-related: `demoDocuments.test.ts` reports all
+four committed `.varve` fixtures stale (fixtures contain `formatVersion`
+`2.27`, the working-tree writer emits `2.28`; regenerate with
+`UPDATE_DEMO_DOCS=1 pnpm test:website` and review), and
+`tokens.test.ts > pages/components/layouts contain no legacy or hardcoded
+colors` flags two pre-existing artwork colors present in `HEAD`
+(`features/canvas.astro` `background: #172126`,
+`docs/tools/grids.astro` `color: #dce7eb`). Both are recorded here as
+pre-existing red tests that block the website unit lane for every session.
+
 ## 5. Token generator drift (found while fixing)
 
 `packages/ui/src/tokens/tokens.css` is generated by
@@ -176,5 +206,13 @@ recorded as remaining work.
   the exact drift; the surface owners should consume one shared recipe.
 - `editor.css` vs `TimelinePanel.css` duplicate selector removal (cascade
   verification required; the duplicates currently provide the HC override).
-- `FindReplaceBar` marker size after the owner's session settles.
+- Editor doubled seams still open: `.editor__timeline-panel` +
+  `.timeline-panel` both draw a top edge, and `.context-control-bar` +
+  `.editor-tabs-row` both draw the bar boundary. Both need a runtime
+  measurement in the Motion workspace and a shared-shell owner (the toolbar
+  session was writing `editor.css` during this review).
 - Website `prefers-contrast: more` handling (absent; `forced-colors` handled).
+- Pre-existing website unit failures (stale demo `.varve` fixtures at schema
+  2.27 vs writer 2.28; two raw artwork colors) block `pnpm test:website`;
+  recorded in §4 rather than fixed here because they belong to other owners'
+  work.

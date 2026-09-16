@@ -177,7 +177,7 @@ export function PreflightWarnings() {
               left: 0,
               zIndex: 1000,
               background: 'var(--elevation-surface-raised)',
-              border: '1px solid var(--border-micro)',
+              border: 'var(--border-micro)',
               borderRadius: 'var(--radius-surface)',
               boxShadow: 'var(--shadow-lg)',
               minWidth: 280,
@@ -211,7 +211,7 @@ export function PreflightWarnings() {
                     fontWeight: 600,
                     fontSize: 'var(--font-size-sm)',
                     padding: 'var(--space-1) var(--space-2)',
-                    borderBottom: '1px solid var(--border-micro)',
+                    borderBottom: 'var(--border-micro)',
                     marginBottom: 'var(--space-1)',
                     display: 'flex',
                     alignItems: 'center',
@@ -254,7 +254,7 @@ export function PreflightWarnings() {
                           flexShrink: 0,
                           fontSize: 'var(--font-size-xs)',
                           padding: '1px 4px',
-                          border: '1px solid var(--border-micro)',
+                          border: 'var(--border-micro)',
                           borderRadius: 'var(--radius-control-compact)',
                           background: 'var(--elevation-surface-default)',
                           cursor: 'pointer',
@@ -276,7 +276,7 @@ export function PreflightWarnings() {
                 style={{
                   marginTop: 'var(--space-2)',
                   paddingTop: 'var(--space-2)',
-                  borderTop: '1px solid var(--border-micro)',
+                  borderTop: 'var(--border-micro)',
                 }}
               >
                 <div

@@ -162,6 +162,29 @@ test.describe('separator system — forced-colors', () => {
 });
 
 test.describe('separator system — real editor surfaces', () => {
+  test('shorthand border tokens paint a real line (runtime declaration check)', async ({
+    page,
+  }) => {
+    const mockupsCss = readFileSync(
+      path.resolve('packages/editor/src/components/Inspector/sections/MockupsSection.css'),
+      'utf8',
+    );
+    await page.setContent(`
+      <div id="fixed-probe" class="mockups-section__actions"></div>
+      <div id="broken-probe" style="border-top: 1px solid var(--border-micro)"></div>
+    `);
+    await page.addStyleTag({ content: tokensCss });
+    await page.addStyleTag({ content: mockupsCss });
+
+    const fixed = await painted(page, '#fixed-probe');
+    expect(fixed.borderTopWidth).toBe('1px');
+    expect(fixed.borderTopColor).not.toBe('rgba(0, 0, 0, 0)');
+
+    // Negative control: the historical nesting is invalid and paints nothing.
+    const broken = await painted(page, '#broken-probe');
+    expect(broken.borderTopWidth).toBe('0px');
+  });
+
   test('menubar menu separators render in all themes and survive forced-colors', async ({
     page,
   }, testInfo) => {

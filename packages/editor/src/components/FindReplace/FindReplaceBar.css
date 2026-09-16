@@ -127,7 +127,7 @@
 }
 
 .find-replace-bar__separator {
-  inline-size: var(--space-1);
+  inline-size: var(--separator-thickness);
   block-size: var(--space-5);
   background: var(--color-border-subtle);
 }
