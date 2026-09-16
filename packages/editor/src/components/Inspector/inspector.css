@@ -1518,6 +1518,14 @@
   scrollbar-gutter: stable;
 }
 
+/* Per-paint settings live inside the dialog so a single fill does not force
+ * a trip through the row menu's submenu. Reads as one labelled row; the
+ * select keeps the same option groups as the Appearance blend control. */
+.insp-picker-dialog__paint {
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-2);
+}
+
 .insp-picker-dialog__header {
   display: flex;
   align-items: center;
@@ -6199,6 +6207,20 @@ fieldset.insp-canvas-props,
   outline-offset: 1px;
 }
 
+.insp-preset-dropdown__trigger-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  overflow: hidden;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.insp-preset-dropdown__trigger-leading-icon {
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
 .insp-preset-dropdown__trigger-text {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6246,7 +6268,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-preset-popover {
-  width: 260px;
+  width: 280px;
   max-width: 90vw;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
@@ -6296,8 +6318,62 @@ fieldset.insp-canvas-props,
   color: var(--color-text-primary);
 }
 
+/* Category filter chips */
+.insp-preset-chips {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  overflow-x: auto;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-sunken);
+  scrollbar-width: none;
+}
+
+.insp-preset-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.insp-preset-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 22px;
+  padding: 0 var(--space-2);
+  border-radius: 11px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all var(--duration-quick) var(--ease-standard);
+}
+
+.insp-preset-chip:hover {
+  color: var(--color-text-primary);
+  background: var(--color-interactive-hover-surface);
+}
+
+.insp-preset-chip:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.insp-preset-chip--active {
+  border-color: var(--color-border-subtle);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+.insp-preset-chip__icon {
+  flex-shrink: 0;
+}
+
 .insp-preset-popover__list {
-  max-height: 320px;
+  max-height: 300px;
   overflow-y: auto;
   padding: var(--space-1) 0;
 }
@@ -6322,30 +6398,48 @@ fieldset.insp-canvas-props,
   color: var(--color-text-muted);
 }
 
+.insp-preset-item-wrapper {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding-right: var(--space-2);
+  transition: background-color var(--duration-quick) var(--ease-standard);
+}
+
+.insp-preset-item-wrapper:hover {
+  background: var(--color-interactive-hover-surface);
+}
+
+.insp-preset-item-wrapper--selected {
+  background: color-mix(in srgb, var(--color-interactive-default) 12%, transparent);
+}
+
 .insp-preset-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   width: 100%;
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
   border: none;
   background: transparent;
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
   cursor: pointer;
   text-align: left;
-  transition: background-color var(--duration-quick) var(--ease-standard);
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
-.insp-preset-item:hover,
 .insp-preset-item:focus-visible {
-  background: var(--color-interactive-hover-surface);
   outline: none;
 }
 
-.insp-preset-item--selected {
-  background: color-mix(in srgb, var(--color-interactive-default) 12%, transparent);
-  font-weight: var(--font-weight-medium);
+.insp-preset-item__preview {
+  display: inline-block;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 2px;
+  background: var(--color-surface-sunken);
+  margin-right: var(--space-2);
+  flex-shrink: 0;
 }
 
 .insp-preset-item__name {
@@ -6375,6 +6469,101 @@ fieldset.insp-canvas-props,
   font-size: var(--font-size-2xs);
   font-variant-numeric: tabular-nums;
   margin-left: var(--space-2);
+  flex-shrink: 0;
+}
+
+.insp-preset-fav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: 3px;
+  flex-shrink: 0;
+  opacity: 0.3;
+  transition: opacity var(--duration-quick) var(--ease-standard);
+}
+
+.insp-preset-item-wrapper:hover .insp-preset-fav-btn,
+.insp-preset-fav-btn:focus-visible {
+  opacity: 1;
+}
+
+.insp-preset-fav-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.insp-preset-fav-btn--active {
+  color: var(--color-warning-default);
+  opacity: 1;
+}
+
+.insp-preset-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-radius: 3px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--duration-quick) var(--ease-standard);
+}
+
+.insp-preset-item-wrapper:hover .insp-preset-delete-btn,
+.insp-preset-delete-btn:focus-visible {
+  opacity: 1;
+}
+
+.insp-preset-delete-btn:hover {
+  color: var(--color-danger-default);
+}
+
+/* Footer save button */
+.insp-preset-popover__footer {
+  border-top: 1px solid var(--color-border-subtle);
+  padding: var(--space-2);
+  background: var(--color-surface-base);
+}
+
+.insp-preset-popover__save-btn {
+  width: 100%;
+  height: var(--space-7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: all var(--duration-quick) var(--ease-standard);
+}
+
+.insp-preset-popover__save-btn:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+  background: var(--color-interactive-hover-surface);
+}
+
+.insp-preset-popover__save-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.insp-preset-popover__save-icon {
   flex-shrink: 0;
 }
 

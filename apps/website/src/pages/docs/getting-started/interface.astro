@@ -190,8 +190,7 @@ import { sitePath } from '../../../lib/siteUrl';
           the brushes, marquees, magic wand, text, and crop, show a <strong>Show … options</strong>
           button that opens their Tool options beside the toolbar. Every other tool keeps the
           canvas and document settings in view, and the Page tool adds the page's print geometry at
-          the top. A selected frame offers <strong>Resize to Preset</strong> directly below
-          Position &amp; Size, including <strong>Save current size as preset</strong>.
+          the top. A selected frame (or multi-frame selection) embeds a searchable <strong>Resize to Preset</strong> dropdown and orientation swap toggle directly inside <strong>Position &amp; Size</strong>, featuring instant search by name or dimension, category filter chips (Phone, Desktop, Social, Print, Custom, Favorites), multi-frame batch resizing, and <strong>Save current size as preset</strong>.
         </p>
         <ul>
           <li><strong>Position &amp; Size</strong> — X, Y, W, H, rotation, bounds, and aspect-ratio editing with mixed-selection support</li>
@@ -282,7 +281,9 @@ import { sitePath } from '../../../lib/siteUrl';
           solids, the paint type otherwise, and <em>Mixed</em> when the selected layers disagree —
           so checking a fill no longer requires opening a picker. The compact type button beside
           the swatch switches Solid, Gradient, Image, and Pattern from one menu while keeping the
-          current paint's data. Stacked fills get direct reorder and remove controls; opacity and
+          current paint's data. Blend mode is one click inside the swatch's own colour
+          popover — no trip through the row menu — and a compact chip on the row names the mode
+          whenever it differs from Normal or several fills stack. Stacked fills get direct reorder and remove controls; opacity and
           the per-fill blend chip sit on the row's second line whenever a stack or mixed selection
           needs the horizontal room, keeping the value legible. Fills are gated to layers whose
           renderer actually paints them — group layers and line primitives hide the section rather

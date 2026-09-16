@@ -727,6 +727,12 @@ function FillRow({
             value={fill.color}
             onChange={(c) => patch({ color: c })}
             valueText={valueText}
+            blend={{
+              label: `${label} blend mode`,
+              value: blendIsMixed ? 'mixed' : blendValue,
+              onChange: (b) => patch({ blendMode: b }),
+              options: BLEND_OPTIONS,
+            }}
             swatchStyle={{
               background: swatchBg,
               border: '2px solid var(--color-border-strong)',
@@ -755,6 +761,12 @@ function FillRow({
               gradientBounds: gradientBounds ?? undefined,
             }}
             valueText={valueText}
+            blend={{
+              label: `${label} blend mode`,
+              value: blendIsMixed ? 'mixed' : blendValue,
+              onChange: (b) => patch({ blendMode: b }),
+              options: BLEND_OPTIONS,
+            }}
             swatchStyle={{
               background: swatchBg,
               border: '2px solid var(--color-border-strong)',

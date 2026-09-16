@@ -6,15 +6,16 @@
  *
  * Research basis: APG Dialog (Modal); Floating UI placement; WCAG 2.2 target size.
  */
-import type { ColorMode, Document, GradientFill, ManagedColor } from '@varve/scene';
+import type { BlendMode, ColorMode, Document, GradientFill, ManagedColor } from '@varve/scene';
 import { managedColorKey, managedColorToRgba } from '@varve/shared';
-import { FloatingPortal, FocusTrap, Icon, Tooltip } from '@varve/ui';
+import { FloatingPortal, FocusTrap, Icon, Select, Tooltip } from '@varve/ui';
 import type { Color } from '@varve/ui/components/ColorPicker';
 import { ColorPicker } from '@varve/ui/components/ColorPicker';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { addRecentColor, extractDocumentColors, getRecentColors } from '../color/colorCollections';
 import { GradientEditor } from '../color/GradientEditor';
+import { groupBlendOptions } from './blendModeOptionGroups';
 
 /**
  * Current document, when rendered inside EditorProvider. Standalone renders
@@ -70,6 +71,19 @@ export interface InspectorColorPopoverProps {
   /** Swatch face styles (background / gradient). */
   swatchStyle?: React.CSSProperties;
   /**
+   * Optional per-paint blend control rendered as a labelled row under the
+   * picker, so a single fill does not force a trip through the row menu's
+   * submenu to reach its blend mode. The host owns which modes apply and
+   * receives 'mixed' for multi-selections that disagree.
+   */
+  blend?: {
+    /** Accessible name, e.g. "Fill blend mode". */
+    label: string;
+    value: BlendMode | 'mixed';
+    onChange: (blend: BlendMode) => void;
+    options: readonly { value: BlendMode; label: string }[];
+  };
+  /**
    * Optional value readout rendered beside the swatch inside the trigger
    * ("#4A90E2", "Gradient", "Mixed"). When set, the trigger grows into a
    * labelled pill so the row summarises its paint without opening the picker;
@@ -100,6 +114,7 @@ export function InspectorColorPopover({
   value,
   onChange,
   swatchStyle,
+  blend,
   valueText,
   className = 'insp-swatch',
   tooltipLabel,
@@ -315,6 +330,29 @@ export function InspectorColorPopover({
                 />
               )}
             </div>
+            {blend && (
+              <div className="insp-picker-dialog__paint">
+                <div className="insp-field">
+                  <span className="insp-field__label">Blend mode</span>
+                  <div className="insp-field__control">
+                    <Select
+                      label={blend.label}
+                      value={blend.value === 'mixed' ? '' : blend.value}
+                      options={
+                        blend.value === 'mixed'
+                          ? [{ value: '', label: 'Mixed', disabled: true }]
+                          : []
+                      }
+                      groups={groupBlendOptions(blend.options)}
+                      onChange={(v) => {
+                        if (v) blend.onChange(v as BlendMode);
+                      }}
+                      placeholder="Mixed"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
             <button type="button" onClick={close} className="insp-picker-done">
               Done
             </button>

@@ -115,7 +115,7 @@ describe('Fill row redesign', () => {
 
     await waitFor(() => {
       const stored = getCtx()?.state.document.nodes[ids[0]!] as {
-        fills?: { type: string; gradient?: { stops: { color: ManagedColor }[] } }[];
+        fills?: { type: string; gradient?: { stops: { color: { r: number } }[] } }[];
       };
       expect(stored.fills?.[0]?.type).toBe('gradient');
       expect(stored.fills?.[0]?.gradient?.stops[0]?.color.r).toBe(BLUE.r);
@@ -198,6 +198,61 @@ describe('Fill row redesign', () => {
     });
     const group = getCtx()?.state.document.nodes[ids[0]!] as { fills?: unknown[] };
     expect(group.fills).toBeUndefined();
+  });
+  it('exposes blend mode inside the fill popover and applies it in one commit', async () => {
+    const { getCtx, ids } = renderWithSelection(
+      (nodes) => <FillSection nodes={nodes} />,
+      [['fill-rect', solidFill(BLUE)]],
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Fill colour' }));
+    const dialog = await screen.findByRole('dialog', { name: /fill colour/i });
+    const blend = within(dialog).getByRole('combobox', { name: 'Fill blend mode' });
+    expect(blend).toHaveTextContent('Normal');
+    fireEvent.click(blend);
+    fireEvent.click(await screen.findByRole('option', { name: 'Multiply' }));
+
+    await waitFor(() => {
+      const stored = getCtx()?.state.document.nodes[ids[0]!] as {
+        fills?: { blendMode?: string }[];
+      };
+      expect(stored.fills?.[0]?.blendMode).toBe('multiply');
+    });
+    // The row chip follows the committed value, staying in sync with the popover.
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /blend mode: multiply/i })).toBeTruthy();
+    });
+  });
+
+  it('shows a Mixed blend placeholder in the popover for disagreeing layers', async () => {
+    // Same paint colour, different blend: the row keeps the shared hex and a
+    // "Mixed blend" chip, while the popover's blend select says Mixed.
+    renderWithSelection(
+      (nodes) => <FillSection nodes={nodes} />,
+      [
+        ['fill-a', solidFill(BLUE)],
+        [
+          'fill-b',
+          {
+            fills: [
+              {
+                type: 'solid',
+                color: BLUE,
+                opacity: 1,
+                blendMode: 'multiply',
+                visible: true,
+              },
+            ],
+          },
+        ],
+      ],
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Fill colour' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('combobox', { name: 'Fill blend mode' })).toHaveTextContent(
+      'Mixed',
+    );
   });
 });
 
@@ -315,7 +370,7 @@ describe('Stroke advanced redesign', () => {
 
     await waitFor(() => {
       const stored = getCtx()?.state.document.nodes[ids[0]!] as {
-        strokes?: { color: ManagedColor; dashPattern: number[]; cap: string }[];
+        strokes?: { color: { r: number }; dashPattern: number[]; cap: string }[];
       };
       expect(stored.strokes?.length).toBe(2);
       expect(stored.strokes?.[1]?.color.r).toBe(RED.r);

@@ -139,6 +139,22 @@ Varve had the field, but inside the collapsed "Gradient options" disclosure.
 inspector NumberField (scrub, step keys, Enter commit, unit in the accessible
 name). Radial and diamond omit it because the value does not apply.
 
+### 1.9 Per-fill blend modes with no one-click route
+
+The 2026-09-16 follow-up deliberately surfaced the per-fill blend chip only
+for stacked, mixed, or non-normal fills, to stop duplicating the layer-level
+Appearance row. The consequence: a single normal fill — the case where the
+user has not yet diverged — could only reach blend through the row menu's
+submenu, two interactions behind an unlabeled discoverability step. Sketch and
+the Photoshop paint popover both keep the paint's compositing next to its
+colour instead.
+
+**Decision.** The fill colour/gradient popover owns a labelled **Blend mode**
+row (same option groups as Appearance) under the picker, so the control is
+one click from the swatch in exactly the state where the row chip is hidden.
+The chip (non-normal/mixed/stacked) and the row menu submenu stay as the
+parities for every other state; all three write the same field.
+
 ## 2. Accessibility and interaction constraints honored
 
 - The type trigger keeps a 24×24 target (`insp-inline-btn`), a tooltip naming
