@@ -546,6 +546,7 @@ records; check the current code before acting on their findings.
 | `audits/ui-visual-optimization-2026-09-09.md` | Evidence-based UI map, visual audit, design direction, implementation groups, and residual debt |
 | `audits/illustration-workflow-improvement-2026-09-13.md` | Research-backed illustration/concept-art workflow slice: explicit smudge sampling, complaint evidence, validation, website claims, and deferred boundaries |
 | `audits/illustration-selection-fill-2026-09-13.md` | Selection-to-flats implementation evidence: sparse raster fill, target refusal, research, and deferred bucket-fill boundaries |
+| `audits/object-filters-design-review-2026-09-15.md` | Object Filters inspector redesign: sourced competitive evidence, catalog taxonomy, clutter budget, real-photo E2E verification, and three-theme visual validation record |
 
 ## Website-specific (current state)
 
