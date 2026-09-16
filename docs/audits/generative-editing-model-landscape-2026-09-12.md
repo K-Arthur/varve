@@ -5,6 +5,9 @@ the completion work; it does not turn an unqualified model into a product
 capability. The recommendations are for Varve's local-first desktop and
 browser architecture, with no silent upload or remote fallback.
 
+The subsequent Hugging Face review adds current candidate details and local
+runtime requirements in the [2026-09-15 model landscape](../research/generative-inpainting-model-landscape-2026-09-15.md).
+
 ## Executive decision
 
 There should not be one “generative fill” path. The user-visible operation is
@@ -118,13 +121,14 @@ edits.
 
 - PowerPaint is especially relevant to Varve because its stated task coverage
   includes text-guided insertion, promptless object removal, shape-guided
-  insertion, and outpainting in one task-conditioned system. The official
-  checkpoint card describes a Diffusers/Safetensors distribution of about
-  6.06 GB, based on SD 1.5, and currently has no hosted inference provider.
-  It is therefore a high-memory lab candidate until its exact checkpoint
-  license, native-runtime parity, and measured peak memory are qualified.
-  [PowerPaint repository](https://github.com/open-mmlab/PowerPaint),
-  [PowerPaint v2 model card](https://huggingface.co/Sanster/PowerPaint_v2)
+  insertion, and outpainting in one task-conditioned system. The current v2-1
+  card identifies a Diffusers/Safetensors distribution, a Python 3.9/Conda
+  setup, and no hosted inference provider. Its model-card license and the
+  repository code notice must both be retained; download size and peak memory
+  must be measured from the pinned component set rather than inferred from a
+  card. It is therefore a high-memory lab candidate until native-runtime
+  parity and measured memory are qualified. [PowerPaint repository](https://github.com/zhuang2002/PowerPaint),
+  [PowerPaint v2-1 model card](https://huggingface.co/JunhaoZhuang/PowerPaint-v2-1)
 
 - BrushNet is a plug-and-play dual-branch approach intended to preserve
   pixel-level masked image features while using a diffusion model. It may

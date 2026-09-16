@@ -82,6 +82,8 @@ describe('prepareDiffusionFrame', () => {
     const contract = {
       id: 'test-768x512-inpainting-v1',
       preprocessingVersion: 'test-letterbox-v1',
+      inputKind: 'masked-inpainting',
+      maskConvention: 'white-edit-black-preserve',
       frameWidth: 768,
       frameHeight: 512,
       dimensionMultiple: 64,
@@ -123,11 +125,50 @@ describe('prepareDiffusionFrame', () => {
     expect(frame.mask.slice(0, frame.width)).toEqual(new Uint8Array(frame.width));
   });
 
+  it('converts canonical coverage for providers with the opposite mask polarity', () => {
+    const source = image(4, 2);
+    const mask = new Uint8Array(source.width * source.height);
+    mask[0] = 255;
+    const frame = prepareDiffusionFrame(source, mask, source.width, source.height, {
+      id: 'test-inverse-mask-v1',
+      preprocessingVersion: 'test-letterbox-v1',
+      inputKind: 'masked-inpainting',
+      maskConvention: 'white-preserve-black-edit',
+      frameWidth: 4,
+      frameHeight: 4,
+      dimensionMultiple: 2,
+    });
+
+    // The top and bottom rows are letterbox padding and must be preserved.
+    expect(frame.mask[0]).toBe(255);
+    // The first source pixel is editable in Varve's canonical representation.
+    expect(frame.mask[frame.contentY * frame.width]).toBe(0);
+    // A canonical preserve value becomes white for this provider.
+    expect(frame.mask[frame.contentY * frame.width + 1]).toBe(255);
+    expect(frame.maskConvention).toBe('white-preserve-black-edit');
+  });
+
+  it('does not send a reference-only editor through the masked frame path', () => {
+    expect(() =>
+      prepareDiffusionFrame(image(2, 2), new Uint8Array(4), 2, 2, {
+        id: 'reference-editor-v1',
+        preprocessingVersion: 'test-letterbox-v1',
+        inputKind: 'reference-edit',
+        maskConvention: 'white-edit-black-preserve',
+        frameWidth: 2,
+        frameHeight: 2,
+        dimensionMultiple: 2,
+      }),
+    ).toThrow('masked-inpainting provider');
+  });
+
   it('rejects a model frame that violates its declared dimension multiple', () => {
     expect(() =>
       prepareDiffusionFrame(image(4, 2), new Uint8Array(8), 4, 2, {
         id: 'invalid-contract',
         preprocessingVersion: 'test-letterbox-v1',
+        inputKind: 'masked-inpainting',
+        maskConvention: 'white-edit-black-preserve',
         frameWidth: 510,
         frameHeight: 512,
         dimensionMultiple: 64,

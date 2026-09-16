@@ -16,6 +16,10 @@ export interface DiffusionFrameContract {
   id: string;
   /** Explicit revision for resize, padding, mask, and color handling. */
   preprocessingVersion: string;
+  /** Whether the provider consumes an explicit editable mask. */
+  inputKind: DiffusionInputKind;
+  /** How the provider interprets the mask bytes supplied with the frame. */
+  maskConvention: DiffusionMaskConvention;
   /** Exact frame dimensions sent to the provider. */
   frameWidth: number;
   frameHeight: number;
@@ -23,11 +27,19 @@ export interface DiffusionFrameContract {
   dimensionMultiple?: number;
 }
 
+/** The two provider families that can otherwise look interchangeable in a UI. */
+export type DiffusionInputKind = 'masked-inpainting' | 'reference-edit';
+
+/** Canonical Varve coverage is 0 = preserve and 255 = edit. */
+export type DiffusionMaskConvention = 'white-edit-black-preserve' | 'white-preserve-black-edit';
+
 /** SD 1.5 inpainting's reference working frame. */
 export const SD15_INPAINTING_FRAME_SIZE = 512;
 export const SD15_INPAINTING_FRAME_CONTRACT = {
   id: 'sd15-inpainting-512-square-v1',
   preprocessingVersion: 'varve-diffusion-letterbox-linear-srgb-v1',
+  inputKind: 'masked-inpainting',
+  maskConvention: 'white-edit-black-preserve',
   frameWidth: SD15_INPAINTING_FRAME_SIZE,
   frameHeight: SD15_INPAINTING_FRAME_SIZE,
   dimensionMultiple: 64,
@@ -43,6 +55,8 @@ export const SD15_INPAINTING_FRAME_CONTRACT = {
 export const SDXL_INPAINTING_FRAME_CONTRACT = {
   id: 'sdxl-inpainting-1024-square-v1',
   preprocessingVersion: 'varve-diffusion-letterbox-linear-srgb-v1',
+  inputKind: 'masked-inpainting',
+  maskConvention: 'white-edit-black-preserve',
   frameWidth: 1024,
   frameHeight: 1024,
   dimensionMultiple: 64,
@@ -55,6 +69,8 @@ export interface DiffusionFrame {
   height: number;
   contractId: string;
   preprocessingVersion: string;
+  inputKind: DiffusionInputKind;
+  maskConvention: DiffusionMaskConvention;
   contentX: number;
   contentY: number;
   contentWidth: number;
@@ -72,6 +88,15 @@ function assertDimensions(width: number, height: number, label: string): void {
 function validateContract(contract: DiffusionFrameContract): void {
   if (typeof contract.id !== 'string' || contract.id.trim().length === 0) {
     throw new Error('Diffusion frame contract must have a stable id');
+  }
+  if (contract.inputKind !== 'masked-inpainting' && contract.inputKind !== 'reference-edit') {
+    throw new Error('Diffusion frame contract has an unsupported input kind');
+  }
+  if (
+    contract.maskConvention !== 'white-edit-black-preserve' &&
+    contract.maskConvention !== 'white-preserve-black-edit'
+  ) {
+    throw new Error('Diffusion frame contract has an unsupported mask convention');
   }
   if (
     typeof contract.preprocessingVersion !== 'string' ||
@@ -93,6 +118,17 @@ function validateContract(contract: DiffusionFrameContract): void {
       throw new Error('Diffusion model frame does not satisfy its dimension multiple');
     }
   }
+}
+
+function encodeMaskForProvider(mask: Uint8Array, convention: DiffusionMaskConvention): Uint8Array {
+  if (convention === 'white-edit-black-preserve') {
+    return new Uint8Array(mask);
+  }
+  const encoded = new Uint8Array(mask.length);
+  for (let index = 0; index < mask.length; index += 1) {
+    encoded[index] = 255 - (mask[index] ?? 0);
+  }
+  return encoded;
 }
 
 function resizeMaskBilinear(
@@ -191,6 +227,9 @@ export function prepareDiffusionFrame(
   assertDimensions(source.width, source.height, 'Diffusion source');
   assertDimensions(maskWidth, maskHeight, 'Diffusion mask');
   validateContract(contract);
+  if (contract.inputKind !== 'masked-inpainting') {
+    throw new Error('Diffusion frame preparation requires a masked-inpainting provider');
+  }
   if (mask.length !== maskWidth * maskHeight) {
     throw new Error('Diffusion mask dimensions do not match its pixels');
   }
@@ -226,9 +265,11 @@ export function prepareDiffusionFrame(
   fillLetterbox(modelImage);
   copyIntoLetterbox(modelImage, resized, contentX, contentY);
   const modelMask = new Uint8Array(contract.frameWidth * contract.frameHeight);
+  modelMask.fill(contract.maskConvention === 'white-edit-black-preserve' ? 0 : 255);
+  const encodedMask = encodeMaskForProvider(resizedMask, contract.maskConvention);
   copyMaskIntoLetterbox(
     modelMask,
-    resizedMask,
+    encodedMask,
     contentWidth,
     contentHeight,
     contract.frameWidth,
@@ -243,6 +284,8 @@ export function prepareDiffusionFrame(
     height: contract.frameHeight,
     contractId: contract.id,
     preprocessingVersion: contract.preprocessingVersion,
+    inputKind: contract.inputKind,
+    maskConvention: contract.maskConvention,
     contentX,
     contentY,
     contentWidth,

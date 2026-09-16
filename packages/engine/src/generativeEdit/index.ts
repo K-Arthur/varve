@@ -1,4 +1,9 @@
-export type { DiffusionFrame, DiffusionFrameContract } from './diffusionFrame';
+export type {
+  DiffusionFrame,
+  DiffusionFrameContract,
+  DiffusionInputKind,
+  DiffusionMaskConvention,
+} from './diffusionFrame';
 export {
   prepareDiffusionFrame,
   SD15_INPAINTING_FRAME_CONTRACT,

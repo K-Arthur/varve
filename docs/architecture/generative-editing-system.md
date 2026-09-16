@@ -174,8 +174,13 @@ for the evidence ledger and real-photograph qualification status.
 
 Prompt-capable models also publish an immutable input-frame contract. The
 contract identifies the preprocessing revision, exact model-frame dimensions,
-and required dimension multiple; the pipeline validates it before allocating
-the provider frame. The source context and its mask are uniformly scaled by
+required dimension multiple, input kind, and mask convention; the pipeline
+validates all of these before allocating the provider frame. The masked frame
+path rejects reference-only editors instead of assuming that any image-editing
+model honours a hard protection mask. Varve's canonical mask is 0 = preserve
+and 255 = edit; the provider frame converts that coverage only according to
+the declared convention, so a future model cannot silently invert the edit.
+The source context and its mask are uniformly scaled by
 one factor to fit that frame and centered into neutral, opaque letterbox
 padding. The rasterized content rectangle and its padding offsets are integer
 coordinates shared by the image and mask; fractional canvas placement is not

@@ -545,6 +545,8 @@ export * from './frequencySeparation';
 export type {
   DiffusionFrame,
   DiffusionFrameContract,
+  DiffusionInputKind,
+  DiffusionMaskConvention,
   ExpandedFrame,
   ExpandGenerationEstimate,
   ExpandLimits,
