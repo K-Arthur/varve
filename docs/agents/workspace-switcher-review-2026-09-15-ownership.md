@@ -69,6 +69,7 @@ reverted, or reformatted.
 | `bad5884f6` | Review record, switcher contract, doc/help/website copy |
 | `9e58d574f` | `workspace-nav.spec.ts` menuitemradio assertion repair (verified) |
 | `c8ef7150e` | Forced-colors / 480px / enlarged-text verification + production-bundle build record |
+| `14cf5f59e` | `min-height` + bar observation so enlarged text grows the chrome and re-runs the math |
 
 ## Applicability decisions (prompt Sections 6A–6D)
 
