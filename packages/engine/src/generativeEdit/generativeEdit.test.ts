@@ -56,7 +56,7 @@ describe('generative edit capabilities', () => {
       fill: true,
       remove: true,
       replace: false,
-      expand: false,
+      expand: true,
       prompt: false,
     });
     expect(capabilities.modes.remove).toMatchObject({
@@ -70,11 +70,18 @@ describe('generative edit capabilities', () => {
       ready: false,
       reasonCode: 'runtime-unavailable',
     });
+    // Promptless Expand runs through the same shared reconstruction pipeline
+    // as Fill/Remove (native, or the browser worker once the model is
+    // installed) and is therefore structurally available here too; only the
+    // prompt-conditioned path is still gated on the desktop-only provider.
     expect(capabilities.modes.expand).toMatchObject({
-      available: false,
+      available: true,
       ready: false,
-      reasonCode: 'runtime-unavailable',
+      reasonCode: 'model-required',
     });
+    expect(capabilities.modes.expand.supportedParameters).toEqual(
+      expect.arrayContaining(['contextPadding', 'maskExpansion', 'feather']),
+    );
     expect(capabilities.modes.remove.supportedParameters).toEqual(
       expect.arrayContaining(['contextPadding', 'maskExpansion', 'feather']),
     );
@@ -198,7 +205,12 @@ describe('generative edit capabilities', () => {
     });
   });
 
-  it('does not route browser Expand through the unqualified heuristic fallback', async () => {
+  it('does not route Fast-quality Expand through the unqualified heuristic fallback here', async () => {
+    // quality: 'draft' maps to the Fast/PatchMatch tier, which visibly
+    // repeated/striped photographic edges on real-photo review and stays
+    // blocked for Expand specifically wherever no native diffusion helper
+    // is present (i.e. the browser). AI-quality Expand is a separate case
+    // covered below and is now allowed to reach the reconstruction pipeline.
     await expect(
       runGenerativeEdit(
         request({
@@ -206,10 +218,32 @@ describe('generative edit capabilities', () => {
           mask: new Uint8Array(144).fill(255),
           maskWidth: 12,
           maskHeight: 12,
+          quality: 'draft',
         }),
       ),
     ).rejects.toMatchObject({
       code: 'unsupported-mode',
+    });
+  });
+
+  it('routes AI-quality Expand through the shared reconstruction pipeline here', async () => {
+    // A fully-"generate" mask has no protected source rectangle to restore,
+    // so the deterministic expand fallback correctly rejects it on its own
+    // geometry contract — proving execution actually reached the shared
+    // reconstruction pipeline instead of being blocked purely for running
+    // outside the desktop app.
+    await expect(
+      runGenerativeEdit(
+        request({
+          mode: 'expand',
+          mask: new Uint8Array(144).fill(255),
+          maskWidth: 12,
+          maskHeight: 12,
+          quality: 'quality',
+        }),
+      ),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('protected source'),
     });
   });
 

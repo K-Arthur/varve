@@ -62,12 +62,6 @@ describe('local generative model profiles', () => {
     expect(getLocalGenerativeModelProfile('flux-fill-dev-research')?.inputKind).toBe(
       'masked-inpainting',
     );
-    expect(getLocalGenerativeModelProfile('powerpaint-v2-1-research')?.frameContract).toMatchObject(
-      {
-        frameWidth: 512,
-        frameHeight: 512,
-      },
-    );
     expect(getLocalGenerativeModelProfile('sd2-inpainting-f16-research')).toMatchObject({
       inputKind: 'masked-inpainting',
       supportedModes: ['fill', 'remove', 'replace', 'expand'],

@@ -103,7 +103,7 @@ async function openGenerativeEdit(page: import('@playwright/test').Page): Promis
 test.describe('real photographic Expand capability boundary', () => {
   test.setTimeout(60_000);
 
-  test('does not offer browser Expand before a qualified provider exists', async ({
+  test('does not offer Fast-quality browser Expand, but AI-quality unlocks it', async ({
     page,
   }, testInfo) => {
     await navigateToEditor(page);
@@ -114,10 +114,12 @@ test.describe('real photographic Expand capability boundary', () => {
     await expect(dialog).toBeVisible();
     await dialog.getByRole('tab', { name: 'Expand' }).click();
     await expect(dialog.locator('#caf-dialog-prompt')).toBeDisabled();
+
+    // Default quality is Fast (PatchMatch), which visibly repeated/striped
+    // photographic edges on real-photo review and stays blocked for Expand
+    // specifically, wherever no native diffusion helper is present.
     await expect(
-      dialog
-        .locator('.caf-dialog__hint')
-        .filter({ hasText: 'Expand is unavailable in the browser' }),
+      dialog.locator('.caf-dialog__hint').filter({ hasText: 'Fast preview cannot expand' }),
     ).toBeVisible();
     await expect(
       dialog.locator('button.varve-btn--secondary').filter({ hasText: /^expand$/i }),
@@ -132,6 +134,18 @@ test.describe('real photographic Expand capability boundary', () => {
       path: path.join(evidenceDir, 'real-landscape-expand-unavailable.png'),
       animations: 'disabled',
     });
+
+    // AI quality runs the same shared reconstruction pipeline Fill/Remove
+    // already use in the browser (native LaMa, or the browser worker once
+    // the model is installed) and is not subject to the Fast/PatchMatch
+    // edge-striping failure — it must not carry the same blocked message,
+    // and must instead offer to download the local model.
+    await dialog.locator('.caf-dialog__quality-btn', { hasText: 'AI (LaMa' }).click();
+    await expect(
+      dialog.locator('.caf-dialog__hint').filter({ hasText: 'Fast preview cannot expand' }),
+    ).toHaveCount(0);
+    await expect(dialog.getByRole('button', { name: /Download AI Model/i })).toBeVisible();
+
     await dialog.getByRole('button', { name: /^cancel$/i }).click();
     await expect(dialog).not.toBeVisible();
   });

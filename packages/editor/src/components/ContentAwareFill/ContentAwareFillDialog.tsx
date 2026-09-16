@@ -687,9 +687,16 @@ export function ContentAwareFillDialog({
   const promptNeedsDiffusion =
     (mode === 'replace' || mode === 'expand' || mode === 'fill') && prompt.trim().length > 0;
   const usesDiffusion = mode === 'replace' || promptNeedsDiffusion;
+  // Fast/PatchMatch border continuation visibly repeated/striped
+  // photographic edges on real-photo review and stays blocked for Expand
+  // specifically wherever no native diffusion helper is present (the
+  // browser). AI-quality Expand runs the same reconstruction model
+  // Fill/Remove already use here and is not subject to that failure.
+  const expandFastBlockedHere = mode === 'expand' && quality === 'fast' && !modeCapability.prompt;
   const modeMissingModel =
     (!usesDiffusion && quality === 'ai' && (!modelAvailable || modelFitsMemory === false)) ||
-    (usesDiffusion && !diffusionModelHandle);
+    (usesDiffusion && !diffusionModelHandle) ||
+    expandFastBlockedHere;
   const diffusionMemoryFits =
     !usesDiffusion ||
     !diffusionResource ||
@@ -788,7 +795,9 @@ export function ContentAwareFillDialog({
       ? expandWorkingPlanPreview.message
       : mode === 'expand' && expandPlanPreview && !expandPlanPreview.ok
         ? expandPlanPreview.error.message
-        : (modeCapability.reason ?? null);
+        : expandFastBlockedHere
+          ? 'Fast preview cannot expand image borders reliably here. Switch to AI quality (downloads the local reconstruction model), or use the desktop app.'
+          : (modeCapability.reason ?? null);
 
   const sourceSignature = typedNode
     ? JSON.stringify({

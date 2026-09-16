@@ -11,8 +11,18 @@ provider, while the document semantics remain the same.
 ## Current capability boundary
 
 The verified local pipeline currently supports mask-guided Fill and Remove.
-Promptless Expand is available only through the desktop local path; the browser
-does not expose its currently unqualified edge-continuation fallback:
+Promptless Expand at AI quality (native LaMa, or the browser worker once the
+model is installed) runs on both desktop and browser through the same shared
+reconstruction pipeline as Fill/Remove; Fast/PatchMatch stays blocked for
+Expand specifically, on every runtime that lacks the desktop native diffusion
+helper, because it visibly repeats/stripes photographic edges. The
+engine-level gate and dialog UX for browser AI-quality Expand are implemented
+and unit-tested (2026-09-16); a real in-browser Playwright pass with the
+downloaded model against a real photograph — the bar every other capability
+in this document is held to — has not yet been run (see [the real-model
+check](../audits/lama-reconstruction-real-model-check-2026-09-16.md) for why
+and what evidence exists so far). Treat browser AI-quality Expand as
+implemented-pending-qualification, not yet a verified capability:
 
 ```text
 selection / painted mask / confirmed Object Selection candidate
@@ -38,8 +48,9 @@ local provider and is not persisted as if it conditioned the result.
 Prompt-conditioned Replace and Expand use the same session and job contract but
 remain capability-gated until a verified prompt-conditioned model exists.
 Desktop promptless Expand is available within the limited photographic boundary
-that was measured; the browser path is intentionally unavailable because its
-real-photo Fast output showed visible edge striping. See [the Expand
+that was measured; the browser Fast/PatchMatch path is intentionally
+unavailable for Expand because its real-photo output showed visible edge
+striping — that rejection is unchanged. See [the Expand
 qualification](../audits/generative-expand-qualification-2026-09-13.md) and the
 rejected browser evidence recorded there.
 
@@ -298,9 +309,13 @@ convert a containing output frame into margins; they never crop or scale
 the retained source. The same computed margins feed the planner, preview,
 inference mask, output-frame record, and acceptance transaction. If the selected
 device budget would round the generated border away, the control surface marks
-the frame unavailable before a job can start. In a browser runtime, the
-controls remain explainable but generation is disabled until a qualified local
-outpainting provider is available; Fill and Remove remain usable there.
+the frame unavailable before a job can start. In a browser runtime, AI-quality
+Expand (native LaMa, or the browser worker once the model is installed) uses
+the same reconstruction path as Fill/Remove; Fast quality stays disabled for
+Expand specifically wherever no native diffusion helper is present, because it
+visibly repeats/stripes photographic edges — see [the real-model
+check](../audits/lama-reconstruction-real-model-check-2026-09-16.md) for the
+evidence behind that split and its current qualification status.
 
 On Apply, the source is revalidated, the accepted result and mask assets are
 embedded, and the existing image node is updated in one editor transaction.
@@ -563,15 +578,29 @@ keeps the local candidate requirements explicit alongside the provider facade.
 Each profile records its actual masked-input contract, mask tensor conditioning
 shape, required component roles, artifact format and revision, license, adapter
 identity, offline behaviour, backend/architecture qualification, passed/failed
-evidence reference, target platforms, and memory envelope. PowerPaint's published bundle is an SD 1.5
-base plus a separate BrushNet adapter and therefore uses the 512-pixel SD 1.5
-frame contract; it must not inherit the SDXL transform. A profile cannot be
+evidence reference, target platforms, and memory envelope. A profile cannot be
 runnable merely because it
 is marked `qualified`: the registry requires a passed evidence record, an
 explicit target platform, a known backend and architecture, a complete
-component manifest, and measured available memory before startup. PowerPaint,
-FLUX.1-Fill, FIBO-Edit, and SDXL are research-only records; their presence in
-the registry does not make them installable or routable. The current SD 1.5
+component manifest, and measured available memory before startup. FLUX.1-Fill,
+FIBO-Edit, and SDXL are research-only records; their presence in
+the registry does not make them installable or routable. PowerPaint v2-1 was
+screened as a candidate ([2026-09-15 landscape
+review](../research/generative-inpainting-model-landscape-2026-09-15.md)) but
+was dropped before any adapter work started — its Python/Diffusers/PyTorch
+runtime is a poor match for Varve's low-end/CPU-first target, and an
+environment check ahead of that work
+([2026-09-16](../plans/powerpaint-adapter-qualification-scope-2026-09-16.md))
+found the available machine unsafe to even attempt it on. This does not
+change the prompt-conditioned gate below: no local text-conditioned model is
+qualified. Separately, and without any new model, a real-model check
+([2026-09-16](../audits/lama-reconstruction-real-model-check-2026-09-16.md))
+found that the *promptless* LaMa reconstruction model Varve already ships and
+has already qualified natively runs cleanly through the same tensor contract
+in the browser worker — closing a capability gap that had been over-scoped to
+the whole browser Expand surface rather than the one quality tier that
+actually failed review (Fast/PatchMatch). See §"Current capability boundary"
+above. The current SD 1.5
 GGUF remains disabled because its published runtime is patched and its
 real-photograph results failed review; only its CPU diagnostic backend is
 listed, and no Vulkan or Metal qualification is implied. A future profile must

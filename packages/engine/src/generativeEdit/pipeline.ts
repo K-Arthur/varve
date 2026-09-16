@@ -83,16 +83,20 @@ function localCapabilities(
     ? 'Install and validate the local diffusion model before generating.'
     : 'Prompt-conditioned generation requires the packaged desktop diffusion provider.';
   const unavailableBrowserExpandReason =
-    'Expand is unavailable in the browser because no qualified local outpainting provider is available. Use the desktop app for local expansion; Fill and Remove remain available here.';
+    'Expand needs the local reconstruction model here (Fast preview repeats/stripes photographic edges). Download it, or use the desktop app for prompt-conditioned expansion.';
   return {
     fill: true,
     remove: true,
     replace: promptCapable,
-    // The browser fallback can produce a structurally valid frame while
-    // visibly repeating/striping photographic edges. Keep that unqualified
-    // path out of the user-facing capability contract until a browser
-    // outpainting provider passes the real-photo quality gate.
-    expand: promptCapable,
+    // Promptless Expand uses the same shared LaMa reconstruction pipeline as
+    // Fill/Remove (native, or the browser worker when the model is
+    // installed) and is available wherever that pipeline runs. Only the
+    // Fast/PatchMatch tier is excluded for Expand specifically — it produced
+    // visibly repeating/striped photographic edges on real-photo review
+    // (see docs/audits/generative-expand-qualification-2026-09-13.md) — the
+    // dialog enforces that quality-tier restriction, not this capability
+    // gate. Prompt-conditioned Expand remains desktop-only.
+    expand: true,
     prompt: promptCapable,
     variations: promptCapable,
     modes: {
@@ -122,18 +126,24 @@ function localCapabilities(
         reason: unavailablePromptReason,
       }),
       expand: modeCapabilities({
-        // Desktop can use the shared local reconstruction path for promptless
-        // expansion and the native provider for prompts. Browser expansion is
-        // deliberately unavailable until its photographic quality is
-        // qualified; do not expose a heuristic result as outpainting.
-        available: promptCapable,
+        // Structurally available everywhere: promptless Expand runs through
+        // the same shared reconstruction pipeline Fill/Remove already use
+        // (native LaMa, or the browser worker once the model is
+        // downloaded). `ready` still gates only the prompt-conditioned path,
+        // which remains desktop-only. The dialog is responsible for keeping
+        // Fast/PatchMatch unselectable for Expand where no native helper is
+        // present — that tier failed real-photo review at the image edge.
+        available: true,
         ready: promptReady,
         prompt: promptCapable,
         variations: promptCapable,
-        supportedParameters: promptCapable ? diffusionParameters : [],
+        supportedParameters: promptCapable ? diffusionParameters : reconstructionParameters,
         limits: promptCapable ? NATIVE_LIMITS : BROWSER_LIMITS,
-        reasonCode: promptCapable ? undefined : 'runtime-unavailable',
-        reason: promptCapable ? undefined : unavailableBrowserExpandReason,
+        // Describes the still-missing prompt-conditioned path, not the
+        // (already available) promptless one; the dialog only surfaces it
+        // when the user actually requests a prompt or Fast quality here.
+        reasonCode: promptCapable ? undefined : 'model-required',
+        reason: unavailableBrowserExpandReason,
       }),
     },
     resourceProfile,
@@ -259,6 +269,24 @@ export async function runGenerativeEdit(
     request.mode === 'replace' ||
     (request.mode === 'expand' && promptRequested) ||
     (request.mode === 'fill' && promptRequested);
+  if (
+    request.mode === 'expand' &&
+    !promptRequested &&
+    mapQuality(request.quality) === 'fast' &&
+    !capabilities.modes.expand.prompt
+  ) {
+    // Fast/PatchMatch border continuation visibly repeated/striped
+    // photographic edges on real-photo review (see
+    // docs/audits/generative-expand-qualification-2026-09-13.md) and was
+    // removed from the public capability surface. The AI-quality
+    // reconstruction path (native LaMa, or the browser worker once the
+    // model is installed) does not share that failure and remains
+    // available — see docs/audits/lama-reconstruction-real-model-check-2026-09-16.md.
+    throw new GenerativeEditError(
+      'unsupported-mode',
+      'Fast preview cannot expand image borders reliably here. Download the local reconstruction model for AI-quality Expand, or use the desktop app.',
+    );
+  }
   const diffusionFrameContract = requiresDiffusion
     ? NATIVE_GENERATIVE_MODEL_PROFILE.frameContract
     : undefined;

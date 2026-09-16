@@ -92,8 +92,9 @@ import StatusPill from '../../components/StatusPill.astro';
           This reviewed desktop example extends the right and bottom edges without moving or
           rewriting the retained source pixels. The new border is synthesized at a bounded
           resolution and can be softer than the original, so the result remains subject to review
-          before acceptance. Browser Expand is currently unavailable because its real-photo Fast
-          fallback did not pass visual review.
+          before acceptance. Browser Expand's Fast preview stays unavailable because it did not pass
+          real-photo visual review; an AI-quality browser path using this same LaMa model is
+          implemented but not yet independently verified there.
           Prompt-conditioned Replace and Expand are not represented here because their local model
           qualification is still incomplete.
         </p>
@@ -107,7 +108,7 @@ import StatusPill from '../../components/StatusPill.astro';
       <section class="feature-section qualification-section" aria-labelledby="qualification-title">
         <p class="eyebrow">Qualification status</p>
         <h2 id="qualification-title">Prompt modes stay gated until they pass.</h2>
-        <p class="qualification-note">Varve publishes the verified desktop-local Fill, Remove, and promptless Expand boundary. Promptless Expand was measured on four public-domain photographs: the retained source was byte-identical after composition, generation ran locally in 20 to 60 seconds per image, and the results held for sky, water, grass, studio backdrop, and plain print surround, with a documented architecture limitation. The browser Fast continuation was visually rejected for edge striping and is not offered. The prompt-conditioned model candidates tested on a real photograph did not meet the semantic-quality and runtime-integrity bar, so Replace, prompt-conditioned Fill, and prompt-conditioned Expand remain unavailable. PowerPaint v2-1 and FLUX.1-Fill-dev are research candidates for a future high-memory local qualification lane, not shipped capabilities; FLUX.1.1 [pro] is hosted and outside this local workflow. LaMa is not a dedicated outpainting model: the generated border is synthesized at a bounded resolution and detail there is approximate. We do not show an unreviewed before/after as product proof.</p>
+        <p class="qualification-note">Varve publishes the verified desktop-local Fill, Remove, and promptless Expand boundary. Promptless Expand was measured on four public-domain photographs: the retained source was byte-identical after composition, generation ran locally in 20 to 60 seconds per image, and the results held for sky, water, grass, studio backdrop, and plain print surround, with a documented architecture limitation. The browser Fast continuation was visually rejected for edge striping and is not offered. The prompt-conditioned model candidates tested on a real photograph did not meet the semantic-quality and runtime-integrity bar, so Replace, prompt-conditioned Fill, and prompt-conditioned Expand remain unavailable. FLUX.1-Fill-dev is a research candidate for a possible future high-memory or hosted-provider qualification lane, not a shipped capability; FLUX.1.1 [pro] is hosted and outside this local workflow. LaMa is not a dedicated outpainting model: the generated border is synthesized at a bounded resolution and detail there is approximate. We do not show an unreviewed before/after as product proof.</p>
       </section>
 
       <section class="feature-section integration-section" aria-labelledby="integration-title">
@@ -116,7 +117,7 @@ import StatusPill from '../../components/StatusPill.astro';
         <div class="integration-grid">
           <p><strong>Reuse existing intent.</strong><br />Start with a brush mask, the current pixel selection, an image layer mask, source alpha, a current Background Removal preview, or a confirmed Object Selection candidate. Expansion, feathering, and bounded context keep the edit aligned to source pixels.</p>
           <p><strong>Keep the document honest.</strong><br />Apply updates the selected image in place, preserves its identity and layout, and retains the original pixels for Restore Original. Provenance, undo, save/reopen, export, and the Layers panel stay on one document state.</p>
-          <p><strong>Know what is available.</strong><br />Fill and Remove run locally in the browser and desktop app today. Desktop also exposes promptless Expand within its reviewed photographic boundary. Fast/PatchMatch is the lightweight path for constrained devices, including many Chromebooks and ARM systems; large photographs use a bounded source region and a transparent accepted patch instead of a full inference frame. Desktop Expand copies the retained source through exactly and generates only the new border. Browser Expand, Replace, and prompt-conditioned generation remain gated until a provider passes Varve's compatibility and visual-quality requirements.</p>
+          <p><strong>Know what is available.</strong><br />Fill and Remove run locally in the browser and desktop app today. Desktop also exposes promptless Expand within its reviewed photographic boundary. Fast/PatchMatch is the lightweight path for constrained devices, including many Chromebooks and ARM systems; large photographs use a bounded source region and a transparent accepted patch instead of a full inference frame. Desktop Expand copies the retained source through exactly and generates only the new border. Browser Expand's Fast preview, Replace, and prompt-conditioned generation remain gated until a provider passes Varve's compatibility and visual-quality requirements; an AI-quality browser Expand path is implemented but pending that same verification before it is treated as shipped.</p>
         </div>
       </section>
 

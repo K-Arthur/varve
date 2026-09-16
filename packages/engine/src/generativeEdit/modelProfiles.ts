@@ -269,46 +269,6 @@ export const LOCAL_GENERATIVE_MODEL_RESEARCH_PROFILES: readonly LocalGenerativeM
       'Research-only fixed-resolution mask-repair candidate; the three-graph adapter and memory/platform qualification are not implemented.',
   },
   {
-    id: 'powerpaint-v2-1-research',
-    name: 'PowerPaint v2-1',
-    family: 'powerpaint',
-    disposition: 'research-only',
-    supportedModes: ALL_INPAINTING_MODES,
-    inputKind: 'masked-inpainting',
-    maskConvention: 'white-edit-black-preserve',
-    // The published bundle contains a Realistic Vision / SD 1.5 base and a
-    // separate BrushNet adapter. It is not an SDXL checkpoint; retaining the
-    // 512-frame contract prevents a future sidecar from silently using the
-    // wrong latent geometry.
-    frameContract: SD15_INPAINTING_FRAME_CONTRACT,
-    artifact: {
-      format: 'safetensors',
-      source: 'JunhaoZhuang/PowerPaint-v2-1',
-      revision: 'research-pinned-by-qualification-run',
-      license: 'Apache-2.0 (model card; verify repository notices)',
-      requiredComponentRoles: [
-        'powerpaint-adapter',
-        'base-diffusion-model',
-        'text-encoder',
-        'vae',
-        'scheduler',
-      ],
-    },
-    runtime: {
-      adapterId: 'powerpaint-diffusers-sidecar-unimplemented',
-      executionBackends: [],
-      architectures: [],
-      requiresGpu: false,
-      offlineAfterInstall: true,
-    },
-    limitations: [
-      'Requires a separately pinned Python/Diffusers/PyTorch sidecar or a qualified native port.',
-      'No Varve production adapter or measured low-memory/ARM profile exists yet.',
-    ],
-    reason:
-      'Research-only candidate; never route a request until every component and backend is qualified.',
-  },
-  {
     id: 'flux-fill-dev-research',
     name: 'FLUX.1-Fill-dev',
     family: 'flux-fill',
