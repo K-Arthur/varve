@@ -99,9 +99,18 @@ test.describe('Inspector — Effects/Shadow row and Corner Radius redesign', () 
     await expect(quad).toBeVisible();
     const fields = quad.locator('.insp-icon-field');
     await expect(fields).toHaveCount(4);
-    await expect(quad.getByLabel('TL', { exact: true })).toBeVisible();
-    await expect(quad.getByLabel('TR', { exact: true })).toBeVisible();
-    await expect(quad.getByLabel('BL', { exact: true })).toBeVisible();
-    await expect(quad.getByLabel('BR', { exact: true })).toBeVisible();
+
+    // The visible short labels stay visible, while each spinbutton keeps a
+    // full, unit-suffixed accessible name ("Top left (px)") — the unit is part
+    // of the name so screen readers never announce a bare, ambiguous number.
+    for (const short of ['TL', 'TR', 'BL', 'BR']) {
+      await expect(
+        quad.locator('.insp-field__label', { hasText: new RegExp(`^${short}$`) }),
+      ).toBeVisible();
+    }
+    await expect(quad.getByLabel('Top left (px)')).toBeVisible();
+    await expect(quad.getByLabel('Top right (px)')).toBeVisible();
+    await expect(quad.getByLabel('Bottom left (px)')).toBeVisible();
+    await expect(quad.getByLabel('Bottom right (px)')).toBeVisible();
   });
 });
