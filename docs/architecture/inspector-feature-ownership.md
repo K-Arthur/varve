@@ -79,11 +79,13 @@ Tool names always come from the tool registry (`toolLabel`), never the raw
 tool id. Selection always wins over tool context: once something is selected,
 the Inspector shows that selection's properties under any tool.
 
-A selected, non-component frame also gets **Resize to Preset** (`frame-resize`),
-one collapsed row directly beneath Position & Size. It is a separate section
-from `frame-presets` so creation (expanded) and resizing (collapsed) keep their
-own disclosure state. Its **Save current size as preset** action adds the
-frame's size to the custom presets used by both.
+A selected frame (or multi-frame selection) embeds **Resize to Preset**
+directly within the **Position & Size** section as a compact selector alongside
+the orientation swap toggle. This eliminates an unnecessary separate accordion row
+(`frame-resize`), keeping geometry and dimensions unified. When opened, it reveals
+instant dimension and text search, category chips (Phone, Desktop, Social, Print,
+Custom, Favorites), star favoriting, multi-frame batch resizing, and a
+**Save current size as preset** action that persists custom dimensions to the preset library.
 
 ## Placement decision
 
