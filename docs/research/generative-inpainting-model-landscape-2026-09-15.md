@@ -6,6 +6,11 @@ against the linked Hugging Face model cards and upstream repositories on
 Varve remains local-first: no model in this document authorizes a silent upload,
 hosted fallback, or arbitrary model-supplied code.
 
+See also the [2026-09-16 external market check](generative-inpainting-external-check-2026-09-16.md):
+a follow-up web search found no new candidate and one independent
+corroboration that no currently available small model clears the CPU/low-memory
+quality bar.
+
 ## Decision in one page
 
 The model name is not enough to select an implementation. A model is eligible
