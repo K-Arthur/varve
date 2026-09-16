@@ -413,7 +413,9 @@ export function EffectRow({
             className="insp-disclosure__trigger"
             style={{ width: 'auto', padding: 0 }}
             aria-expanded={expanded}
-            aria-controls={paramsId}
+            // The panel is portaled and unmounted while collapsed, so the
+            // relationship is only declared when the referenced node exists.
+            aria-controls={expanded ? paramsId : undefined}
             aria-haspopup="dialog"
             aria-label={`${expanded ? 'Collapse' : 'Expand'} ${rowLabel} parameters`}
             onClick={() => setExpanded((v) => !v)}
