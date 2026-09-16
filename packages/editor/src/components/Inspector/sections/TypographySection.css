@@ -65,3 +65,12 @@
 .editor-inspector .typography-controls .insp-segmented__btn > svg {
   flex-shrink: 0;
 }
+
+/* OpenType feature rows: the shared Select defaults to width: 100%, which
+   squeezed the feature name into three-line wraps. Bound it so the name gets
+   the row's free space instead. */
+.insp-opentype-select {
+  flex: 0 0 auto;
+  width: 104px;
+  min-width: 0;
+}

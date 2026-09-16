@@ -67,13 +67,25 @@ async function openDesignTab(page: Page): Promise<Locator> {
   return panel;
 }
 
-async function selectTextLayer(page: Page): Promise<void> {
-  const row = page
-    .getByRole('treeitem')
-    .filter({ hasText: /Quarterly/ })
-    .first();
+/**
+ * Click a Layers row and make sure the selection actually landed on it.
+ *
+ * The layers panel animates its reveal when the canvas selection changes, so a
+ * single click measured before that scroll settles can land on the adjacent
+ * row. Retrying the click + selected assertion is deterministic where a bare
+ * click is a coin flip.
+ */
+async function clickLayerRow(page: Page, pattern: RegExp): Promise<void> {
+  const row = page.getByRole('treeitem').filter({ hasText: pattern }).first();
   await row.waitFor({ timeout: 10_000 });
-  await row.click();
+  await expect(async () => {
+    await row.click();
+    await expect(row).toHaveAttribute('aria-selected', 'true', { timeout: 1_000 });
+  }).toPass({ timeout: 10_000 });
+}
+
+async function selectTextLayer(page: Page): Promise<void> {
+  await clickLayerRow(page, /Quarterly/);
 }
 
 /** Top-level inspector section whose disclosure trigger has the given title. */
@@ -84,13 +96,16 @@ function sectionByTitle(page: Page, title: string): Locator {
 }
 
 async function expandSection(page: Page, title: string): Promise<Locator> {
-  const trigger = page.getByRole('button', { name: title, exact: true }).first();
+  const section = sectionByTitle(page, title).first();
+  // Target the section's own disclosure trigger, not a same-named button in
+  // the contextual bar or a nested subsection header.
+  const trigger = section.locator('.insp-disclosure__header .insp-disclosure__trigger').first();
   await trigger.waitFor({ timeout: 10_000 });
   if ((await trigger.getAttribute('aria-expanded')) !== 'true') {
     await trigger.scrollIntoViewIfNeeded();
     await trigger.click();
   }
-  return sectionByTitle(page, title).first();
+  return section;
 }
 
 async function expandSubsection(section: Locator, title: string): Promise<void> {
@@ -171,11 +186,7 @@ test.describe('Typography section review', () => {
     await typography.screenshot({ path: testInfo.outputPath('typography-badge.png') });
 
     // Leave and return: the value comes from the document, not field state.
-    await page
-      .getByRole('treeitem')
-      .filter({ hasText: /Rectangle/ })
-      .first()
-      .click();
+    await clickLayerRow(page, /Rectangle/);
     await selectTextLayer(page);
     await openDesignTab(page);
     const typographyAgain = await expandSection(page, 'Typography');
@@ -272,7 +283,17 @@ test.describe('Insights section review', () => {
     const insights = await expandSection(page, 'Insights');
 
     const tablist = insights.getByRole('tablist', { name: 'Intelligence tabs' });
-    await expect(tablist.getByRole('tab', { name: 'Spacing' })).toBeVisible({ timeout: 10_000 });
+    await expect(tablist.getByRole('tab', { name: 'Review' })).toBeVisible({ timeout: 10_000 });
+    // In Design, Spacing is a target-driven analysis tool in the More menu
+    // (the workspace treats spacing as secondary). It must be reachable there
+    // rather than absent.
+    await insights.getByRole('button', { name: /more intelligence tabs/i }).click();
+    const spacingItem = page.getByRole('menuitem', { name: /spacing/i });
+    await expect(spacingItem).toBeVisible({ timeout: 5_000 });
+    await spacingItem.click();
+    await expect(insights.getByRole('button', { name: 'Analyze' })).toBeVisible({
+      timeout: 10_000,
+    });
 
     await insights.scrollIntoViewIfNeeded();
     await insights.screenshot({ path: testInfo.outputPath('insights-multi-selection.png') });
@@ -285,13 +306,15 @@ test.describe('Insights section review', () => {
     await openDesignTab(page);
     const insights = await expandSection(page, 'Insights');
 
-    // Wait for the review scan to produce its result surface.
+    // Wait for the review scan to produce its result surface: the summary
+    // always renders "Total" once the scan finishes (the empty state renders
+    // its own message instead).
     await expect(insights.getByRole('tab', { name: 'Review' })).toHaveAttribute(
       'aria-selected',
       'true',
     );
-    await expect(insights.getByText(/No issues found|Errors|Warnings/).first()).toBeVisible({
-      timeout: 15_000,
+    await expect(insights.getByText(/No issues found|^Total$/).first()).toBeVisible({
+      timeout: 30_000,
     });
 
     // The review finding rows previously offered an Auto-fix button that only

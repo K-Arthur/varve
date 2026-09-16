@@ -131,6 +131,17 @@ function tabLabel(tab: ExtendedTab): string {
 }
 
 /**
+ * Turn an internal token ("layer-hygiene", "debt/unnamed-layers") into display
+ * text ("Layer hygiene", "Unnamed layers"). Internal ids stay in `title`
+ * attributes so they remain traceable to the rule source.
+ */
+function humanizeToken(value: string): string {
+  const tail = value.includes('/') ? value.slice(value.lastIndexOf('/') + 1) : value;
+  const spaced = tail.replace(/[-_]/g, ' ');
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+/**
  * Whether a tab has anything to act on for the current document/selection.
  * Document-level scans are always available; selection-scoped tools need a
  * target that can produce a result.
@@ -224,6 +235,16 @@ function useWorkspaceTabs(): { primaryTabs: ExtendedTab[]; moreGroups: Intellige
     if (dsTabs.length > 0) moreGroups.push({ label: 'Design Systems', tabs: dsTabs });
 
     const analysisTabs: ExtendedTab[] = [];
+    // Spacing rides with the other target-driven analysis tools when the
+    // workspace treats it as secondary (Design). Without this it had no entry
+    // point at all outside workspace modes that promote it.
+    if (
+      !primaryTabs.includes('spacing') &&
+      (profile.secondaryCategories.includes('spacing') ||
+        profile.secondaryCategories.includes('layout'))
+    ) {
+      analysisTabs.push('spacing');
+    }
     if (profile.primaryCategories.includes('prototype')) {
       analysisTabs.push('prototype');
     }
@@ -506,7 +527,7 @@ function LinterTab() {
             {category === 'layer-hygiene' && <Icon name="Layers" label={undefined} size="0.85em" />}
             {category === 'touch-target' && <Icon name="Pointer" label={undefined} size="0.85em" />}
             {category === 'focus-order' && <Icon name="List" label={undefined} size="0.85em" />}{' '}
-            {category.replace('-', ' ')} ({issues.length})
+            {humanizeToken(category)} ({issues.length})
           </summary>
 
           <div className="intelligence-issue-list">
@@ -1051,7 +1072,7 @@ function ReviewTab() {
               className={`intelligence-filter-chip${filterCategory === cat ? ' intelligence-filter-chip--active' : ''}`}
               onClick={() => setFilterCategory(filterCategory === cat ? null : cat)}
             >
-              {cat} ({byCategory[cat]!.length})
+              {humanizeToken(cat)} ({byCategory[cat]!.length})
             </button>
           ))}
         {filterCategory && (
@@ -1122,7 +1143,7 @@ function ReviewTab() {
         Object.entries(byCategory).map(([category, findings]) => (
           <details key={category} className="intelligence-section" open>
             <summary className="intelligence-section__summary">
-              {category} ({findings.length})
+              {humanizeToken(category)} ({findings.length})
             </summary>
             <div className="intelligence-issue-list">
               {findings.slice(0, profile.maxFindings).map((finding) => (
@@ -1143,7 +1164,9 @@ function ReviewTab() {
                       disabled={!finding.nodeId}
                     >
                       <span className="intelligence-severity-dot" />
-                      <span className="intelligence-issue__type">{finding.ruleId}</span>
+                      <span className="intelligence-issue__type" title={finding.ruleId}>
+                        {humanizeToken(finding.ruleId)}
+                      </span>
                       {finding.confidence < 1 && (
                         <span
                           className="intelligence-badge intelligence-badge--medium"

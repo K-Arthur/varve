@@ -365,12 +365,8 @@ function FeatureRow({
     >
       <span className="insp-opentype-label">
         {labelForFeature(tag)}
-        {!metadataKnown && <small className="insp-opentype-state">support unknown</small>}
         {metadataKnown && !available && (
           <small className="insp-opentype-state">unsupported by face</small>
-        )}
-        {available && !runtimeAvailable && (
-          <small className="insp-opentype-state">live preview unavailable</small>
         )}
         {available && value === undefined && <small className="insp-opentype-state">inherit</small>}
       </span>

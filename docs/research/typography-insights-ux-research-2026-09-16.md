@@ -171,9 +171,11 @@ disabled primary button.
 **Applied to Varve.** Insights tabs are filtered by applicability: Spacing
 requires two or more selected layers, Names requires a selection, Auto
 layout requires a selected frame, Prototype requires prototype data. The
-active tab falls back to Review when its target disappears. "Similar
-layers" deliberately stays available with no selection because its empty
-state is a working natural-language search field.
+active tab falls back to Review when its target disappears. Tabs the current
+workspace treats as secondary (Spacing and Names in Design) stay reachable
+through the More menu's Analysis and Quality groups instead of having no
+entry point. "Similar layers" deliberately stays available with no selection
+because its empty state is a working natural-language search field.
 
 ### 2.3 Jargon in navigation
 
