@@ -32,8 +32,8 @@
 | Slider | ✅ | — | ✅ | APG slider pattern |
 | Tabs | ✅ | — | ✅ | APG tabs + roving tabindex |
 | SegmentedControl | ✅ | ✅ | — | APG radiogroup |
-| Disclosure | 🧪 | ✅ | ✅ | APG disclosure; controlled/uncontrolled, compact/standard, keepMounted |
-| Accordion | 🧪 | ✅ | ✅ | Coordinated disclosure group; single/multiple modes, collapsible single-selection |
+| Disclosure | 🧪 | ✅ | ✅ | APG disclosure; controlled/uncontrolled, compact/standard, keepMounted; focus restore on close (`useDisclosureFocusRestore`); contract in `docs/architecture/disclosure-system.md` |
+| Accordion | 🧪 | ✅ | ✅ | Coordinated disclosure group; single/multiple modes, collapsible single-selection; same focus/aria contract |
 | ViewModeSwitcher | ✅ | — | — | |
 
 ## Overlays & feedback

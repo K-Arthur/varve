@@ -69,3 +69,44 @@ them apart. Commits from this session stage only disclosure-owned paths.
   sessionStorage). Both must receive the same behaviour fixes; the canonical
   contract lives in `docs/architecture/disclosure-system.md`.
 - No new dependencies.
+
+## Outcome (final)
+
+**Contract:** `docs/architecture/disclosure-system.md`.
+**Audit/evidence:** `docs/audits/disclosure-review-2026-09-15.md`.
+**Visual captures:** `reports/disclosure-review-2026-09-15/` (generated).
+
+Commits on `master`:
+
+| Commit | Content |
+|---|---|
+| `0822251f4` | Ownership record + research ledger |
+| `13b6e26a4` | Shared primitive focus/keyboard/APG repairs + tests |
+| `fb2e1ee09` | Sidebar persistence, chevron contract, registry aria, ImportResults, minimap |
+| `5a7e00a7b` | Website FAQ headings/print/parity + website tests |
+| `36163f604` | Space-activation fix + rendered disclosure contract spec |
+| (final) | Preflight chevron repair, changelog chevron alignment, capture specs, architecture doc, audit, AGENTS.md truth pass |
+
+## Handoffs to other owners
+
+- **Layers panel owner:** `LayerStatesSection.tsx` and
+  `SelectionSetsSection.tsx` still use per-mount `useState(false)` for their
+  section collapse. Adopt `usePersistedDisclosure('layer-states')` /
+  `usePersistedDisclosure('selection-sets')` from
+  `packages/editor/src/components/usePersistedDisclosure.ts` when the
+  LayersPanel work integrates. The chevron direction is already fixed for
+  both via `SectionCollapseToggle`.
+- **Inspector Design tab owner:** nine `DisclosureSection` call sites pass a
+  `defaultExpanded` prop that registry mode ignores
+  (`EffectsSection`, `FramePresetsSection`, `ImageCropSection`,
+  `PathTextSection`, `DocumentPanel` ×3, `PrototypePanel`, `PagePrintSection`,
+  `AiToolsHintSection`, `AnimationSection`). Either remove the dead props or
+  move the intent into `sectionRegistry`; the prop's doc comment now says it is
+  legacy-mode only.
+- **Home owner:** `packages/home/src/FormatMigration.tsx` is unreachable and
+  has no CSS for its `format-migration__*` classes. Delete it or wire it with
+  the shared trigger contract (no `hideIndicator`, stateful show/hide label).
+- **Future sections:** registry ids without a `sectionId` consumer
+  (`mask`, `warp`, `paint-library`, `interaction`, `mockups`) can be hidden and
+  ordered but not reset through the section manager. Do not add new sections
+  that way.

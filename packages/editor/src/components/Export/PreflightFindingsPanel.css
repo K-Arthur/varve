@@ -41,14 +41,6 @@
   outline-offset: -2px;
   border-radius: var(--radius-control);
 }
-.preflight-panel__chevron {
-  flex: none;
-  color: var(--color-text-muted);
-  transition: transform var(--duration-quick) var(--ease-standard);
-}
-.preflight-panel__chevron--open {
-  transform: rotate(180deg);
-}
 .preflight-panel__summary {
   color: var(--color-text-primary);
 }

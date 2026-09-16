@@ -109,17 +109,7 @@ export function PreflightFindingsPanel({
     >
       <Disclosure defaultOpen>
         <div className="preflight-panel__header">
-          <DisclosureTrigger
-            className="preflight-panel__toggle"
-            indicator={
-              <Icon
-                name="ChevronDown"
-                size={14}
-                label={undefined}
-                className="preflight-panel__chevron"
-              />
-            }
-          >
+          <DisclosureTrigger className="preflight-panel__toggle">
             <span className="preflight-panel__summary">Preflight: {summary}</span>
           </DisclosureTrigger>
           {onApplyFix && (

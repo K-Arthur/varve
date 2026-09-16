@@ -574,37 +574,48 @@ See `docs/architecture/text-pipeline.md`.
 
 ## Disclosure / Accordion System
 
-Shared primitives for collapsible sections. Canonical components:
+Canonical contract: `docs/architecture/disclosure-system.md`. Review evidence:
+`docs/audits/disclosure-review-2026-09-15.md`.
+
+Shared primitives for collapsible sections:
 `packages/ui/src/components/Disclosure.tsx`, `Accordion.tsx`.
 
 | Component | Purpose | Key Features |
 |---|---|---|
 | `Disclosure` | Standalone show/hide | Controlled/uncontrolled, compact/standard variants, keepMounted |
-| `DisclosureTrigger` | Toggle button | Chevron indicator, leading icon, custom indicator support |
+| `DisclosureTrigger` | Toggle button | Chevron indicator (right collapsed → down open), leading icon, custom indicator support |
 | `DisclosureContent` | Collapsible panel | Mount/unmount or hidden state, `section` element for a11y |
 | `Accordion` | Coordinated group | Single/multiple modes, collapsible single-selection, value-based state |
 | `AccordionItem` | Individual section | Wraps trigger + content, disabled state |
 | `AccordionTrigger` | Group toggle | Same API as DisclosureTrigger, wired to Accordion state |
 | `AccordionContent` | Group panel | Same API as DisclosureContent, wired to Accordion state |
+| `useDisclosureFocusRestore` | Focus handoff | Returns focus to the trigger when a close strands it; never steals focus |
 
-**Editor-specific wrappers:**
+**Hosts:**
 - `DisclosureSection` (`Inspector/controls/DisclosureSection.tsx`) — Inspector
-  panel sections. **Legacy mode** (no sectionId) uses shared `Disclosure`
-  with sessionStorage persistence. **Registry mode** (with sectionId)
-  retains custom implementation for centralized EditorState + context menu
-  integration.
-- `SectionCollapseToggle` (`components/SectionCollapseToggle.tsx`) — Left sidebar
-  section headers. Chevron SVG unified with shared component.
+  sections. **Registry mode** (`sectionId`): state in
+  `EditorState.sectionVisibility`, persisted in `varve-editor-settings`,
+  hide/reorder via the section manager. **Legacy mode** (no `sectionId`):
+  shared `Disclosure` + sessionStorage, migrated once into the registry.
+  New sections must use `sectionId`.
+- `SectionCollapseToggle` (`components/SectionCollapseToggle.tsx`) — left
+  sidebar section headers; collapse state persists via
+  `usePersistedDisclosure` (localStorage).
+- Website FAQ/compare/changelog, the demo banner, and most editor detail
+  panes use **native `<details>/<summary>`** with an `h3` per question and a
+  print reveal — deliberately, not as an unmigrated state.
 
-**Migrated surfaces:** NewDesignDialog advanced settings, FormatMigration
-per-file report, PreflightFindingsPanel findings list, SidebarNav
-Projects section, DisclosureSection legacy mode, website FAQ page (15
-items), website compare page FAQ section (4 items).
+**Consumer surfaces:** NewDesignDialog advanced settings, PreflightFindingsPanel
+findings list, GradientEditor options, ImportResults details, MinimapPanel,
+SidebarNav Projects section, DisclosureSection legacy mode, and the four
+sidebar sections listed above. (`FormatMigration.tsx` in `@varve/home` is
+unreachable and unstyled — delete or wire it, do not extend it.)
 
-**Migration status:** Beta API. Inspector DisclosureSection registry mode
-and 7 sidebar panels still use local implementations with shared visual
-language (chevron, tokens). Full migration planned for remaining sidebar
-panels.
+**Contract highlights:** Enter/Space are never re-implemented (native buttons);
+`aria-controls` only references panels that exist; collapsed content leaves the
+accessibility tree; toggling must not scroll the page; Space must not be
+captured by editor shortcuts while a Space-activatable control has focus
+(`isNativeActivationKeyTarget`).
 
 ## Layout — what each package/crate now contains
 

@@ -708,11 +708,15 @@ const pageDescription = 'Version history and release notes for Varve. See what c
 
   .changelog-older-icon {
     display: flex;
+    /* Down-chevron base, rotated to the shared disclosure contract:
+     * collapsed reads right, expanded reads down (same as the FAQ pages and
+     * the shared Disclosure primitive). */
+    transform: rotate(-90deg);
     transition: transform var(--duration-quick) var(--ease-default);
   }
 
   .changelog-older[open] .changelog-older-icon {
-    transform: rotate(180deg);
+    transform: rotate(0deg);
   }
 
   .changelog-older-label-hide {
