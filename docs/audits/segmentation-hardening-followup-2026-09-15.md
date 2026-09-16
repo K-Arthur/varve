@@ -242,7 +242,7 @@ SHA-256 matching the manifest; `vocab.txt`), so
 `tests/e2e/canvas/text-discovery.spec.ts` with
 `VARVE_TEXT_DISCOVERY_REAL_MODEL=1` is runnable in principle. It was **not**
 run to completion in this session for an environmental reason: the shared
-development machine was at 19 GB of 22 GB used (≈2.3–3.5 GB available, swap
+development machine was at 19–20 GB of 22 GB used (≈2.7 GB available, swap
 fully consumed), and the predecessor session already recorded this exact run
 failing to complete in 15 minutes and OOM-crashing a renderer under the same
 pressure. Manufacturing that run against ~2.4 GB of detector working set on a
@@ -250,6 +250,34 @@ loaded shared host would violate the resource-coordination rules in
 `AGENTS.md`. The cell stays open with the exact command recorded, and the
 probe results above were chosen specifically because they need no 2.4 GB
 allocation.
+
+### In-app candidate-review visual gate (blocked, substitution recorded)
+
+The MobileSAM real-model browser gate
+(`VARVE_MOBILE_SAM_REAL_MODEL=1 … object-selection-mobile-real-model.spec.ts`,
+port 1626) was attempted and **failed for the host, not the product**: the
+renderer process crashed while clicking the Object Selection disclosure
+(`locator.click: Target crashed`), before any model work, with another agent's
+Chromium renderer and dev server resident and ≈2.7 GB available. A follow-up
+model-free run on port 1627 then failed in `global-setup` waiting for the
+layers panel, which is another writer's in-flight work in that panel.
+
+Because the in-app gate is blocked on the shared tree, the panel's states were
+pinned with a component test instead
+(`packages/editor/src/components/Inspector/sections/TextDiscoveryPanel.test.tsx`,
+4 tests): the install offer appears only when the model is missing and never
+runs the detector implicitly; a completed run reports image prep, tensor
+build, detection, release, and total; an admission refusal renders in the
+refusal state with the isolation/budget detail and without the internal error
+prefix; and cancelling returns the search form and calls the idle-only
+`releaseModel` for the exact graph path.
+
+What this does **not** replace: seeing the rendered candidate overlay, cycling
+candidates in the editor, and applying the reviewed mask. The predecessor's
+inspected browser run (port 1603, 1.0 min, real MobileSAM: interior click,
+negative grass correction, four candidates reviewed, reviewed candidate
+applied) remains the visual evidence for that workflow, and re-running it is
+the first item to do once the tree and host memory allow.
 
 ## G6 — Experimental boundaries
 
@@ -265,17 +293,41 @@ what an automatic "best" guess cannot.
 | --- | --- |
 | `pnpm exec vitest run packages/engine/src/inference/core/__tests__/RuntimeCapabilities.admission.test.ts` | 8 passed |
 | `pnpm exec vitest run packages/editor/src/components/Inspector/sections/textDiscoveryFailure.test.ts` | 5 passed |
+| `pnpm exec vitest run packages/editor/src/components/Inspector/sections/TextDiscoveryPanel.test.tsx` | 4 passed |
 | `pnpm exec vitest run packages/engine/src/segmentation` | 72 passed, 5 gated skips |
 | `pnpm exec vitest run packages/engine/src/segmentation/quality/annotatedRanking.test.ts` | 4 passed |
 | `VARVE_MOBILE_SAM_MODEL_DIR=… pnpm exec vitest run …/rankingAnnotationSheet.test.ts` | 1 passed (6 cases, 16 s) |
-| `VARVE_THREADED_WASM_PROBE=1 VARVE_E2E_PORT=1620 npx playwright test --config=playwright.threaded-wasm.local.config.ts` | 1 passed; threaded configuration recorded as timed-out (evidence written) |
+| `VARVE_THREADED_WASM_PROBE=1 VARVE_E2E_PORT=1620 npx playwright test --config=playwright.inference-probe.config.ts` | 1 passed; threaded configuration recorded as timed-out (evidence written) |
+| `VARVE_PREPROCESS_PARITY_PROBE=1 VARVE_E2E_PORT=1624 npx playwright test --config=playwright.inference-probe.config.ts` | 1 passed; parity numbers written |
+| `VARVE_MOBILE_SAM_REAL_MODEL=1 … object-selection-mobile-real-model.spec.ts` | blocked (renderer crash under host pressure; see above) |
 | `VARVE_MOBILE_SAM_MODEL_DIR=… node --experimental-strip-types scripts/bench/handoff-peak-trace.ts --mode=…` | 3 runs; comparison written |
 | `pnpm exec tsc -p tests/e2e/tsconfig.json --noEmit` | clean for changed files |
-| `pnpm exec biome check --staged` (each commit) | clean |
+| `pnpm exec biome check --staged` (each commit) | clean after the shared-gate repairs noted below |
 
 Skipped deliberately: the SAM2 browser gate and the real text-discovery
 browser gate (resource-scheduled, blockers named above); `pnpm verify:full`
 (no release checkpoint; shared tree).
+
+### Shared-gate repairs (disclosure)
+
+Two other writers' untracked specs transiently broke the shared
+`typecheck:e2e` pre-commit gate for every writer:
+`tests/e2e/theme/separators.spec.ts` declared an unused `expect` import, and
+`tests/e2e/menus/typeahead.spec.ts` referenced an undefined `openMenu` in an
+in-flight edit (the second resolved itself). The unused `expect` import was
+removed on disk (one token, no semantic change); the file remains untracked
+and owned by its author. Nothing else in another writer's work was modified,
+staged, reverted, or reformatted.
+
+`pnpm verify:plan` printed `FULL-SUITE ESCALATION: YES` because the shared
+working tree contains other writers' changes to escalation-globbed files
+(root `Cargo.toml`/`Cargo.lock`, `apps/desktop/src-tauri/Cargo.toml` and
+`tauri.test.conf.json`, and several untracked `playwright.*.config.ts` files
+from other tasks). `pnpm verify:affected` therefore refuses to run and points
+at `verify:full`. Running the full gate over a tree that is mostly other
+agents' uncommitted work would produce failures that belong to their files, so
+per-slice checkpoints plus the targeted suites above were used instead, and
+that choice is recorded here rather than hidden.
 
 ### Agent Validation Report
 

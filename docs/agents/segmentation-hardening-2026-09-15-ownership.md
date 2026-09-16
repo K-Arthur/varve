@@ -64,6 +64,58 @@ are authored by the maintainer with no AI attribution trailers.
 | `3782a611c` | Editor ranker policy hook, frozen-set evaluation, keyboard candidate cycling |
 | docs commit | `docs/quality/validation-record-integrity.md`, `docs/quality/candidate-ranking-evaluation.md`, architecture updates, `docs/audits/segmentation-hardening-2026-09-15.md` |
 
+## Follow-up session (same task, 2026-09-15 late)
+
+| Commit | Content |
+| --- | --- |
+| `c602e7c9e` | Admission refusals explained; detector release on cancel; full discovery timing breakdown; failure classification |
+| `d23125b78` | Threaded-WASM probe on a real shipped graph (one worker/context per configuration) + matrix outcome |
+| (ranking) | Intent-annotated real-photo corpus, annotation sheets, per-intent evaluation, reviewed fixture |
+| `474be04a7` | Detection→segmentation handoff trace (overlap vs handoff orderings, separate processes) |
+| `e7ef4146b` | Audit ledger + architecture/quality/website corrections |
+| `6cf90b669` | Browser preprocessing parity probe; verified-run preprocessing identity named |
+
+Ledger for the follow-up: `docs/audits/segmentation-hardening-followup-2026-09-15.md`.
+
+### Closed by the follow-up
+
+* Threaded WASM is no longer "unverified by assumption": a cross-origin
+  isolated probe on a real shipped graph created a single-threaded session in
+  1283 ms and ran 156.9 ms/run, while `numThreads = 2` never returned from
+  session creation (terminated at 120 s). The matrix cell stays `unverified`
+  with that measured reason.
+* Human-annotated real-photograph acceptable/best sets now exist
+  (`annotated-ranking-real-photos-v1.json`, 6 intent cases, inspected sheets),
+  with recorded policy baselines and named residual ranking failures.
+* The detection→segmentation transition peak is measured for both orderings in
+  Node CPU: handoff 571 MB vs overlap 590 MB, release returned in 4 ms with
+  RSS −15 MB.
+* Browser preprocessing parity is measured: the shipped canvas path differs
+  from the reference path (mean |Δ| 0.31 normalized) and is 2.15× closer to an
+  independent area average.
+* Discovery cancellation releases the detector; refusals name the binding
+  constraint; the timing row reports image prep, tensor build, detection,
+  release, and total.
+
+### Still open (do these first)
+
+1. **In-app candidate-review visual gate.** Re-run
+   `VARVE_MOBILE_SAM_REAL_MODEL=1 … object-selection-mobile-real-model.spec.ts`
+   once the shared tree and host memory allow; the follow-up attempt crashed
+   the renderer at the Object Selection disclosure under another agent's
+   concurrent Chromium + dev server, and a model-free follow-up was blocked in
+   `global-setup` by the layers panel. Panel states are pinned by
+   `TextDiscoveryPanel.test.tsx` meanwhile.
+2. **Browser detector run** (`VARVE_TEXT_DISCOVERY_REAL_MODEL=1
+   … text-discovery.spec.ts`) for detection parity on the v2 preprocessing
+   identity and a real wall-clock number. Needs the 2.4 GB-class allocation.
+3. **SAM2 browser gate** (the MobileSAM gate covers the same workflow with a
+   smaller model).
+4. **Human-annotated corpus growth**: 6 cases is enough to name residuals and
+   set floors, not enough to promote a policy; add cases (especially
+   `multiple-similar`, `thin-geometry`, and no-match negatives) before any
+   ranker change is justified by it.
+
 Two shared-tree incidents are recorded for the next writer:
 
 1. The first documentation draft was swept into a concurrent writer's commit
