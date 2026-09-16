@@ -44,16 +44,14 @@ test.describe('Inspector tool context', () => {
     await expect(resize).toHaveAttribute('aria-expanded', 'false');
 
     await resize.click();
-    await inspector.getByRole('option', { name: /^iPhone 15 Pro(?! Max)\b/ }).click();
+    await expect(page.getByRole('button', { name: 'Save current size as preset' })).toBeVisible();
+    await page.getByRole('option', { name: /^iPhone 15 Pro(?! Max)\b/ }).click();
     await expect(inspector.getByRole('spinbutton', { name: 'W (px)', exact: true })).toHaveValue(
       '393',
     );
     await expect(inspector.getByRole('spinbutton', { name: 'H (px)', exact: true })).toHaveValue(
       '852',
     );
-    await expect(
-      inspector.getByRole('button', { name: 'Save current size as preset' }),
-    ).toBeVisible();
   });
 
   test('tools with Tool Options offer a button that opens them', async ({ page }) => {
