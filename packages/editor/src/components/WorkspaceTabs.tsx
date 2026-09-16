@@ -117,6 +117,7 @@ function resolveTabGap(el: HTMLElement | null): number {
 export function WorkspaceTabs() {
   const { state, requestWorkspaceSwitch, resetWorkspaceToDefault } = useEditor();
   const wrapRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
   const groupRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Partial<Record<WorkspaceMode, HTMLButtonElement | null>>>({});
   const naturalWidths = useRef<Partial<Record<WorkspaceMode, number>>>({});
@@ -158,6 +159,11 @@ export function WorkspaceTabs() {
     if (!wrap) return;
     const ro = new ResizeObserver(() => measure());
     ro.observe(wrap);
+    // The bar's own box changes when its content does — a user font-size
+    // preference, a webfont swap, a density change — even though the
+    // flex-sized wrapper's width stays put. Without this the overflow math
+    // keeps stale tab widths after a text-size change.
+    if (barRef.current) ro.observe(barRef.current);
     return () => ro.disconnect();
   }, [measure]);
 
@@ -234,6 +240,7 @@ export function WorkspaceTabs() {
   return (
     <div ref={wrapRef} className="workspace-dock">
       <div
+        ref={barRef}
         className={`workspace-dock__bar${layout.compactActive ? ' workspace-dock--compact-active' : ''}`}
       >
         <div

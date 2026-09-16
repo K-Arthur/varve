@@ -1716,7 +1716,9 @@ input[type="number"] {
   border-radius: var(--radius-pill);
   padding: var(--dock-inset-block) var(--dock-inset-inline);
   box-sizing: border-box;
-  height: var(--dock-bar-height);
+  /* min-height, not height: with a user font-size preference the rem-based
+     label grows and the bar must grow with it instead of clipping the text. */
+  min-height: var(--dock-bar-height);
   flex: 0 0 auto;
   min-width: 0;
   overflow: visible;
@@ -1744,7 +1746,7 @@ input[type="number"] {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   line-height: var(--font-line-control);
-  height: var(--dock-item-size);
+  min-height: var(--dock-item-size);
   width: var(--dock-item-size);
   padding: 0;
   border: none;
