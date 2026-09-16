@@ -204,14 +204,6 @@ function isTableEditActive(ctx: SectionAvailabilityContext): boolean {
   return ctx.tableEdit !== undefined && ctx.tableEdit !== null;
 }
 
-function isRectNode(nodes: SceneNode[]): boolean {
-  if (nodes.length !== 1) return false;
-  const n = nodes[0];
-  return Boolean(
-    n && n.kind === 'shape' && (n as { shape?: { kind?: string } }).shape?.kind === 'rect',
-  );
-}
-
 /** Single selected native table node. */
 
 function isAdjustmentNode(nodes: SceneNode[]): boolean {
@@ -276,7 +268,12 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     order: 110,
     category: 'geometry',
     isAvailable: (ctx) =>
-      isSingleSelection(ctx) && (isRectNode(ctx.selectedNodes) || isFrameNode(ctx.selectedNodes)),
+      ctx.selectedNodes.length > 0 &&
+      ctx.selectedNodes.some(
+        (n) =>
+          n.kind === 'frame' ||
+          (n.kind === 'shape' && (n as { shape?: { kind?: string } }).shape?.kind === 'rect'),
+      ),
   },
   {
     id: 'layout',
@@ -336,7 +333,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     defaultExpanded: false,
     canHide: true,
     essential: false,
-    order: 215,
+    order: 252,
     category: 'appearance',
     isAvailable: (ctx) => hasNodes(ctx),
   },
@@ -527,7 +524,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 270,
     category: 'advanced',
-    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+    isAvailable: (ctx) => ctx.selectedNodes.length > 0 && ctx.selectedNodes.some(isImageShape),
   },
   {
     id: 'image-perspective',

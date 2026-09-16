@@ -796,9 +796,9 @@
 }
 
 .selection-colors__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(2.75rem, 1fr));
-  gap: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   width: 100%;
   margin: 0;
   padding: 0;
@@ -808,46 +808,107 @@
 .selection-colors__item {
   display: flex;
   min-width: 0;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-2);
+  padding: var(--space-05) var(--space-1);
+  border-radius: var(--radius-control-compact);
+  transition: background var(--duration-quick) var(--ease-standard);
+}
+
+.selection-colors__item:hover {
+  background: var(--color-surface-hover);
 }
 
 .selection-colors__swatch-wrap {
   display: inline-flex;
+  flex-shrink: 0;
 }
 
 .selection-colors__swatch {
-  width: var(--space-7);
-  height: var(--space-7);
-  min-width: var(--space-7);
-  min-height: var(--space-7);
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  border-radius: var(--radius-control-compact);
   border-color: var(--color-border-strong);
   background-position: center;
 }
 
 .selection-colors__meta {
   display: flex;
-  width: 100%;
+  flex: 1;
   min-width: 0;
-  flex-direction: column;
-  align-items: center;
+  flex-direction: row;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.selection-colors__hex {
+  font-family: var(--font-family-mono, monospace);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  letter-spacing: 0.02em;
+}
+
+.selection-colors__sub {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
-  line-height: 1.1;
 }
 
 .selection-colors__count {
   font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-medium);
 }
 
 .selection-colors__role {
   display: block;
-  max-width: 100%;
+  max-width: 90px;
   overflow: hidden;
-  text-align: center;
+  text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.selection-colors__target-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-control-compact);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  opacity: 0.6;
+  transition:
+    opacity var(--duration-quick) var(--ease-standard),
+    background var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
+}
+
+.selection-colors__item:hover .selection-colors__target-btn,
+.selection-colors__target-btn:focus-visible {
+  opacity: 1;
+}
+
+.selection-colors__target-btn:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+}
+
+.selection-colors__target-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
 }
 
 .selection-colors__more {
@@ -1047,19 +1108,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  min-width: 0;
-}
-
-/* Nested field pairs (X/Y, W/H sharing one row): WebKit resolves the nested
- * flex items' automatic minimum size against the text input's intrinsic width
- * (~176px), so a two-field row overflows the card. Force zero-basis equal
- * split with an explicit min-width so rows can never exceed the card. */
-.insp-field .insp-field {
-  flex: 1 1 0;
-  min-width: 0;
-}
-.insp-field .insp-field .insp-field__label {
-  width: auto;
   min-width: 0;
 }
 
@@ -1516,6 +1564,40 @@
   outline-offset: 1px;
 }
 
+.insp-flip-btn--active {
+  background: var(--color-accent-subtle);
+  border-color: var(--color-interactive-default);
+  color: var(--color-interactive-default);
+}
+
+.insp-orientation-btn {
+  width: var(--component-compact-height);
+  height: var(--component-compact-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  padding: 0;
+  flex-shrink: 0;
+  border-radius: var(--radius-control-compact);
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
+}
+.insp-orientation-btn:hover {
+  background: var(--color-surface-app);
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+}
+.insp-orientation-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
 .insp-proportion-lock {
   display: flex;
   align-items: center;
@@ -1566,6 +1648,39 @@
   padding: var(--space-05) 0;
   flex-wrap: wrap;
 }
+.insp-align-bar .pill-group__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  padding: 0;
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-secondary);
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
+}
+
+.insp-align-bar .pill-group__btn:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.insp-align-bar .pill-group__btn--active {
+  background: var(--color-accent-subtle);
+  color: var(--color-interactive-default);
+}
+
+.insp-align-bar .insp-align-targets .pill-group__btn {
+  width: auto;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 var(--space-15);
+  font-size: var(--font-size-2xs);
+}
+
 /* Keep a command cluster intact when the inspector is narrow: the group
  * wraps internally as a block instead of scattering its buttons between
  * unrelated controls. */
@@ -1716,6 +1831,25 @@
 .insp-align-section:hover {
   border-color: color-mix(in srgb, var(--color-border-strong) 40%, var(--color-border-subtle));
 }
+.insp-align-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.insp-align-section__header .insp-align-section__title {
+  margin: 0;
+}
+.insp-align-section__target-badge {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  padding: 1px var(--space-15);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+  color: var(--color-interactive-default);
+  border: 1px solid var(--color-border-subtle);
+}
 .insp-align-section__title {
   margin: 0 0 var(--space-2);
   color: var(--color-text-secondary);
@@ -1759,6 +1893,84 @@
   border-radius: 50%;
   background: var(--color-interactive-default);
   margin-left: var(--space-05);
+}
+
+.insp-corner-radius-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+}
+.insp-corner-radius-row > .insp-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.insp-mask-card {
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-sunken);
+  margin-top: var(--space-1);
+}
+
+.insp-mask-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.insp-mask-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.insp-mask-actions .insp-btn-sm {
+  height: 24px;
+  min-height: 24px;
+  padding: 0 var(--space-15);
+  font-size: var(--font-size-2xs);
+  gap: var(--space-1);
+}
+
+.insp-mask-actions .insp-btn-sm--danger {
+  color: var(--color-danger);
+}
+.insp-mask-actions .insp-btn-sm--danger:hover {
+  background: var(--color-danger-subtle, rgba(239, 68, 68, 0.15));
+  color: var(--color-danger);
+}
+
+.insp-image-placement__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.insp-crop-presets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+.insp-crop-presets__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.insp-crop-presets__list .insp-btn-sm {
+  flex: 1 1 auto;
+  min-width: 38px;
+  height: 24px;
+  padding: 0 var(--space-1);
+  font-size: var(--font-size-2xs);
+  justify-content: center;
 }
 
 .insp-dropdown {
@@ -5148,6 +5360,21 @@ fieldset.insp-canvas-props,
   text-overflow: ellipsis;
   text-transform: uppercase;
   letter-spacing: 0.02em;
+}
+
+/* Nested field pairs (X/Y, W/H sharing one row): WebKit resolves the nested
+ * flex items' automatic minimum size against the text input's intrinsic width
+ * (~176px), so a two-field row overflows the card. Force zero-basis equal
+ * split with an explicit min-width so rows can never exceed the card.
+ * Placed after the base .insp-field__label rule so specificity ordering is
+ * consistent with source order. */
+.insp-field .insp-field {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.insp-field .insp-field .insp-field__label {
+  width: auto;
+  min-width: 0;
 }
 
 /* A visually hidden label leaves the grid flow, so without this the control

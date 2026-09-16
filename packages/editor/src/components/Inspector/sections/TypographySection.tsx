@@ -34,6 +34,7 @@ import { FontSelector } from '../../FontBrowser/FontSelector';
 import { AdvancedOpenTypeFeaturesSection } from '../../Typography/AdvancedOpenTypeFeaturesSection';
 import {
   fontFamilyChanges,
+  fontStyleAvailable,
   fontStyleChanges,
   fontWeightChanges,
   fontWeightOptions,
@@ -44,6 +45,7 @@ import {
   type TypographyCommandSurface,
   type TypographyTextChanges,
 } from '../../Typography/typographyCommand';
+import { useTypographyPreview } from '../../Typography/useTypographyPreview';
 import { BindingMenu } from '../controls/BindingMenu';
 import { ContrastIndicator } from '../controls/ContrastIndicator';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -178,10 +180,12 @@ function getTextValue<T>(n: SceneNode, accessor: (t: TextNode) => T): T {
 
 export function TypographySection({ nodes }: TypographySectionProps) {
   const editor = useEditor();
+  const registry = useMemo(() => getFontRegistry(), []);
   const {
     updateNode,
     beginTransaction,
     commitTransaction,
+    abortTransaction,
     setBindingField,
     bindingField,
     setSelectedBinding,
@@ -242,6 +246,21 @@ export function TypographySection({ nodes }: TypographySectionProps) {
     },
     [batchUpdate, textNodes, typographySurface],
   );
+
+  const typographyTargetKey = textNodes
+    .map((node) => node.id)
+    .sort()
+    .join(',');
+  const {
+    previewChanges: previewTypographyChanges,
+    commitChanges: commitTypographyChanges,
+    clearPreview: clearTypographyPreview,
+  } = useTypographyPreview(applyTypographyToSelection, {
+    beginPreview: () => beginTransaction('preview'),
+    commitPreview: commitTransaction,
+    abortPreview: abortTransaction,
+    resetKey: typographyTargetKey,
+  });
 
   const textContent = useMemo(() => {
     const textVals = textNodes.map((n) => (n.richText ? richTextToPlainText(n.richText) : n.text));
@@ -310,10 +329,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
   const alignVRaw = commonValue(textNodes, (n) =>
     getTextValue(n, (t) => t.textAlignVertical ?? 'top'),
   );
-  const typographyDraftKey = textNodes
-    .map((node) => node.id)
-    .sort()
-    .join(',');
+  const typographyDraftKey = typographyTargetKey;
   const caseRaw = commonValue(textNodes, (n) => getTextValue(n, (t) => t.textCase ?? 'none'));
   const decorationRaw = commonValue(textNodes, (n) =>
     getTextValue(n, (t) => t.textDecoration ?? 'none'),
@@ -325,6 +341,23 @@ export function TypographySection({ nodes }: TypographySectionProps) {
   const resizingRaw = commonValue(textNodes, (n) =>
     getTextValue(n, (t) => t.textResizing ?? 'fixed'),
   );
+  const italicAvailable = textNodes.every(
+    (node) =>
+      (node.fontStyle ?? 'normal') === 'italic' || fontStyleAvailable(node, 'italic', registry),
+  );
+  const fontStyleOptions = useMemo(
+    () =>
+      FONT_STYLE_OPTIONS.map((option) =>
+        option.value === 'italic' && !italicAvailable
+          ? {
+              ...option,
+              disabled: true,
+              disabledReason: 'This font has no real italic face for the selection',
+            }
+          : option,
+      ),
+    [italicAvailable],
+  );
 
   return (
     <DisclosureSection title="Typography" sectionId="typography">
@@ -332,6 +365,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
         open={fontBrowserOpen}
         onClose={() => setFontBrowserOpen(false)}
         selectedFamily={isMixed(familyRaw) ? undefined : familyRaw}
+        documentId={editor.state.document.id}
         onSelect={(family) => {
           applyTypographyToSelection(fontFamilyChanges(family || undefined));
           setFontBrowserOpen(false);
@@ -401,9 +435,21 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             value={isMixed(familyRaw) ? '' : familyRaw}
             fontReference={textNodes.length === 1 ? textNodes[0]?.fontReference : undefined}
             variableAxes={textNodes.length === 1 ? textNodes[0]?.variableAxes : undefined}
-            onChange={(v) => applyTypographyToSelection(fontFamilyChanges(v || undefined))}
+            mixed={isMixed(familyRaw)}
+            onChange={(v) => commitTypographyChanges(fontFamilyChanges(v || undefined))}
+            onPreviewFamily={(v) => previewTypographyChanges(fontFamilyChanges(v || undefined))}
+            onClearPreview={clearTypographyPreview}
             onSelectFace={(selection) =>
-              applyTypographyToSelection({
+              commitTypographyChanges({
+                fontFamily: selection.family,
+                fontWeight: selection.weight,
+                fontStyle: selection.style,
+                fontReference: selection.fontReference,
+                variableAxes: selection.variableAxes,
+              })
+            }
+            onPreviewFace={(selection) =>
+              previewTypographyChanges({
                 fontFamily: selection.family,
                 fontWeight: selection.weight,
                 fontStyle: selection.style,
@@ -445,7 +491,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           <SegmentedControl
             label="Font style"
             value={isMixed(styleRaw) ? 'normal' : styleRaw}
-            options={FONT_STYLE_OPTIONS}
+            options={fontStyleOptions}
             onChange={(v) =>
               textNodes.length === 1
                 ? applyTypographyToSelection(fontStyleChanges(textNodes[0]!, v))
@@ -487,6 +533,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
         />
         <NumberField
           label="Letter spacing"
+          labelWrap
           unit="px"
           value={isMixed(letterSpacingRaw) ? 0 : letterSpacingRaw}
           mixed={isMixed(letterSpacingRaw)}

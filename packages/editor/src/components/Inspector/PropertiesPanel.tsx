@@ -865,15 +865,26 @@ function MultiSelectionPanel({
     const { add, sorted } = composeSections(state, availabilityCtx);
 
     add('position-size', <PositionSizeSection nodes={nodes} />);
+    const hasCornerRadius = nodes.some(
+      (n) =>
+        n.kind === 'frame' ||
+        (n.kind === 'shape' && (n as { shape?: { kind?: string } }).shape?.kind === 'rect'),
+    );
+    if (hasCornerRadius) {
+      add('corner-radius', <CornerRadiusSection nodes={nodes} />);
+    }
     add('layout-child', <LayoutChildSection nodes={nodes} />);
     add('appearance', <AppearanceSection nodes={nodes} />);
     add('paint-library', <PaintLibrarySection />);
     add('adjustment-layer-access', <AdjustmentLayerAccessSection nodes={nodes} />);
-    add('selection-colors', <SelectionColorsSection nodes={nodes} />);
     add('fills', <FillSection nodes={nodes} />);
     add('stroke', <StrokeSection nodes={nodes} />);
     if (nodes.every(canHaveLayerEffects)) {
       add('effects', <EffectsSection nodes={nodes} sectionId="effects" />);
+    }
+    add('selection-colors', <SelectionColorsSection nodes={nodes} />);
+    if (nodes.some(isImageShape)) {
+      add('image-placement', <ImagePlacementSection nodes={nodes} />);
     }
     add('typography', <TypographySection nodes={nodes} />);
     if (nodes.some((n) => 'warps' in n) || state.tool === 'warp') {

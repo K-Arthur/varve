@@ -425,9 +425,19 @@ export function AlignDistributeBar() {
 
   return (
     <section className="insp-align-section" aria-labelledby="align-distribute-heading">
-      <h2 id="align-distribute-heading" className="insp-align-section__title">
-        Align &amp; distribute
-      </h2>
+      <div className="insp-align-section__header">
+        <h2 id="align-distribute-heading" className="insp-align-section__title">
+          Align &amp; distribute
+        </h2>
+        {alignmentReference !== 'selection' && (
+          <span
+            className="insp-align-section__target-badge"
+            title={`Aligning to ${alignmentReference}`}
+          >
+            {alignmentReference === 'container' ? 'To Frame' : 'To Page'}
+          </span>
+        )}
+      </div>
       <TooltipProvider>
         <div className="insp-align-bar" role="toolbar" aria-label="Align and distribute">
           <div className="insp-align-group">

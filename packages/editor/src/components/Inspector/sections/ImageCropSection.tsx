@@ -41,12 +41,22 @@ const TRIM_SOURCE_OPTIONS = [
   { value: 'combined', label: 'Combined' },
 ] as const;
 
+const ASPECT_PRESETS = [
+  { label: 'Free', ratio: null },
+  { label: '1:1', ratio: 1 },
+  { label: '4:3', ratio: 4 / 3 },
+  { label: '16:9', ratio: 16 / 9 },
+  { label: '3:2', ratio: 3 / 2 },
+  { label: '9:16', ratio: 9 / 16 },
+] as const;
+
 interface ImageCropSectionProps {
   nodes: SceneNode[];
   sectionId?: SectionId;
 }
 
 export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
+  const editor = useEditor();
   const {
     state,
     trimToSubject,
@@ -55,7 +65,9 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
     resetImageBounds,
     applyFaceAwareCrop,
     openCafDialog,
-  } = useEditor();
+    updateDoc,
+    announce,
+  } = editor;
   const node = nodes[0];
 
   // Analysis reads the document and never mutates it; the reviewed result is
@@ -63,6 +75,31 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
   const handleAnalyzeFaces = useCallback(
     (): Promise<FaceCropAnalysis | null> => analyzeFaceAwareCrop(state.document, state.selection),
     [state.document, state.selection],
+  );
+
+  const applyAspectRatio = useCallback(
+    (ratio: number | null) => {
+      if (!ratio || !node || node.kind !== 'shape') return;
+      const shape = (node as ShapeNode).shape;
+      const currentW = shape.w;
+      const targetH = Math.round(currentW / ratio);
+      updateDoc((doc) => {
+        const current = doc.nodes[node.id];
+        if (current?.kind !== 'shape') return doc;
+        return {
+          ...doc,
+          nodes: {
+            ...doc.nodes,
+            [node.id]: {
+              ...current,
+              shape: { ...current.shape, h: targetH },
+            },
+          },
+        };
+      });
+      announce?.(`Aspect ratio set to ${currentW} by ${targetH}`);
+    },
+    [node, updateDoc, announce],
   );
 
   if (!node || nodes.length !== 1 || !isImageShape(node)) return null;
@@ -77,6 +114,22 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
   return (
     <DisclosureSection title="Crop & Bounds" sectionId={sectionId}>
       <div className="insp-field-group">
+        <fieldset className="insp-crop-presets">
+          <legend className="insp-field__label">Aspect ratio</legend>
+          <div className="insp-crop-presets__list">
+            {ASPECT_PRESETS.map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                className="insp-btn-sm"
+                onClick={() => applyAspectRatio(preset.ratio)}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
         {/* Trim to Subject */}
         <TrimControls
           sectionId={sectionId}

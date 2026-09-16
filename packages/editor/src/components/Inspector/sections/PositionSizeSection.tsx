@@ -108,6 +108,14 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
     return (Math.atan(skewYFactor) * 180) / Math.PI;
   });
 
+  const hasSkew =
+    (typeof skewRaw === 'number' && Math.abs(skewRaw) > 0.001) ||
+    (typeof skewYRaw === 'number' && Math.abs(skewYRaw) > 0.001) ||
+    isMixed(skewRaw) ||
+    isMixed(skewYRaw);
+  const [showSkew, setShowSkew] = useState(false);
+  const isSkewVisible = showSkew || hasSkew;
+
   const activePage = editor.state.document.pages?.find(
     (p) => p.id === editor.state.document.activePageId,
   );
@@ -429,7 +437,10 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 fieldName="width"
                 onShiftClick={() => editor.setBindingField('width')}
               />
-              <label className="insp-proportion-lock">
+              <label
+                className="insp-proportion-lock"
+                title={locked ? 'Constrain proportions (active)' : 'Constrain proportions'}
+              >
                 <input
                   type="checkbox"
                   className="insp-proportion-lock__input"
@@ -437,25 +448,46 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                   onChange={() => setLocked((p) => !p)}
                   aria-label="Constrain proportions"
                 />
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                  className="insp-proportion-icon"
-                  style={{
-                    color: locked ? 'var(--color-interactive-default)' : 'var(--color-text-muted)',
-                  }}
-                >
-                  <path d="M12 3v18" />
-                  <path d="M8 21h8" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
+                {locked ? (
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    className="insp-proportion-icon"
+                    style={{
+                      color: 'var(--color-interactive-default)',
+                    }}
+                  >
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                  </svg>
+                ) : (
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    className="insp-proportion-icon"
+                    style={{
+                      color: 'var(--color-text-muted)',
+                    }}
+                  >
+                    <path d="m18.84 12.25 1.72-1.71a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                    <path d="m5.16 11.75-1.72 1.71a5 5 0 0 0 7.07 7.07l1.72-1.71" />
+                    <line x1="2" y1="2" x2="22" y2="22" />
+                  </svg>
+                )}
               </label>
               <NumberField
                 label="H"
@@ -568,39 +600,13 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
               </svg>
             </button>
           </Tooltip>
-        </TooltipProvider>
-      </InspectorFieldGroup>
-      {/* Skew row */}
-      <InspectorFieldGroup className="insp-field-group--skew">
-        <NumberField
-          label="Skew X"
-          unit="°"
-          value={isMixed(skewRaw) ? 0 : skewRaw}
-          mixed={isMixed(skewRaw)}
-          min={-89}
-          max={89}
-          draftKey={draftKey}
-          onChange={(v) => editor.setSelectedSkew(v, isMixed(skewYRaw) ? 0 : skewYRaw)}
-          fieldName="skewX"
-        />
-        <NumberField
-          label="Skew Y"
-          unit="°"
-          value={isMixed(skewYRaw) ? 0 : skewYRaw}
-          mixed={isMixed(skewYRaw)}
-          min={-89}
-          max={89}
-          draftKey={draftKey}
-          onChange={(v) => editor.setSelectedSkew(isMixed(skewRaw) ? 0 : skewRaw, v)}
-          fieldName="skewY"
-        />
-        <TooltipProvider>
-          <Tooltip label="Reset skew to 0">
+          <Tooltip label={isSkewVisible ? 'Hide skew controls' : 'More transforms (Skew)'}>
             <button
               type="button"
-              aria-label="Reset skew"
-              onClick={() => editor.setSelectedSkew(0, 0)}
-              className="insp-flip-btn"
+              aria-label={isSkewVisible ? 'Hide skew controls' : 'Show skew controls'}
+              aria-expanded={isSkewVisible}
+              onClick={() => setShowSkew((p) => !p)}
+              className={`insp-flip-btn ${isSkewVisible ? 'insp-flip-btn--active' : ''}`}
             >
               <svg
                 width="14"
@@ -613,14 +619,68 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 strokeLinejoin="round"
                 aria-hidden="true"
               >
-                <title>Reset skew</title>
-                <path d="M3 12a9 9 0 1 0 9-9" />
-                <path d="M3 4v5h5" />
+                <path d="M4 20h14l4-16H8L4 20z" />
               </svg>
             </button>
           </Tooltip>
         </TooltipProvider>
       </InspectorFieldGroup>
+      {/* Skew row — progressively disclosed */}
+      {isSkewVisible && (
+        <InspectorFieldGroup className="insp-field-group--skew">
+          <NumberField
+            label="Skew X"
+            unit="°"
+            value={isMixed(skewRaw) ? 0 : skewRaw}
+            mixed={isMixed(skewRaw)}
+            min={-89}
+            max={89}
+            draftKey={draftKey}
+            onChange={(v) => editor.setSelectedSkew(v, isMixed(skewYRaw) ? 0 : skewYRaw)}
+            fieldName="skewX"
+          />
+          <NumberField
+            label="Skew Y"
+            unit="°"
+            value={isMixed(skewYRaw) ? 0 : skewYRaw}
+            mixed={isMixed(skewYRaw)}
+            min={-89}
+            max={89}
+            draftKey={draftKey}
+            onChange={(v) => editor.setSelectedSkew(isMixed(skewRaw) ? 0 : skewRaw, v)}
+            fieldName="skewY"
+          />
+          <TooltipProvider>
+            <Tooltip label="Reset skew to 0">
+              <button
+                type="button"
+                aria-label="Reset skew"
+                onClick={() => {
+                  editor.setSelectedSkew(0, 0);
+                  setShowSkew(false);
+                }}
+                className="insp-flip-btn"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <title>Reset skew</title>
+                  <path d="M3 12a9 9 0 1 0 9-9" />
+                  <path d="M3 4v5h5" />
+                </svg>
+              </button>
+            </Tooltip>
+          </TooltipProvider>
+        </InspectorFieldGroup>
+      )}
       {/* Constraint controls — embedded from the former standalone Constraints
           section (ADR-0230). Hidden when the parent frame uses auto-layout
           where constraints are semantically meaningless. */}

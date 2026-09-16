@@ -6,7 +6,7 @@ import {
   isVisualMaskTarget,
   walkNodes,
 } from '@varve/scene';
-import { Select, Tooltip } from '@varve/ui';
+import { Icon, Select, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -283,39 +283,37 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
       )}
 
       {mask && (
-        <div className="insp-field-group">
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: 'var(--space-1)',
-            }}
-          >
-            <span className="insp-field__label" style={{ fontSize: 'var(--font-size-sm)' }}>
+        <div className="insp-field-group insp-mask-card">
+          <div className="insp-mask-card__header">
+            <span
+              className="insp-field__label"
+              style={{ fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-medium)' }}
+            >
               Type: {maskTypeLabel}
             </span>
-            <div style={{ display: 'flex', gap: 'var(--space-1)', alignItems: 'center' }}>
+            <div className="insp-mask-actions">
               <Tooltip label={mask.visible ? 'Mask is active' : 'Mask is disabled'}>
                 <button
                   type="button"
-                  className="insp-btn-sm"
+                  className={`insp-btn-sm ${mask.visible ? 'insp-btn-sm--active' : ''}`}
                   onClick={handleToggleVisible}
                   aria-label={mask.visible ? 'Disable mask' : 'Enable mask'}
                   aria-pressed={mask.visible}
                 >
-                  {mask.visible ? 'On' : 'Off'}
+                  <Icon name={mask.visible ? 'Eye' : 'EyeOff'} size="0.85em" />
+                  <span>{mask.visible ? 'On' : 'Off'}</span>
                 </button>
               </Tooltip>
               <Tooltip label={mask.inverted ? 'Mask is inverted' : 'Mask is not inverted'}>
                 <button
                   type="button"
-                  className="insp-btn-sm"
+                  className={`insp-btn-sm ${mask.inverted ? 'insp-btn-sm--active' : ''}`}
                   onClick={handleToggleInverted}
                   aria-label={mask.inverted ? 'Disable inversion' : 'Enable inversion'}
                   aria-pressed={mask.inverted ?? false}
                 >
-                  Invert
+                  <Icon name="FlipHorizontal" size="0.85em" />
+                  <span>Invert</span>
                 </button>
               </Tooltip>
               {mask.sourceNodeId && (
@@ -328,12 +326,13 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
                 >
                   <button
                     type="button"
-                    className="insp-btn-sm"
+                    className={`insp-btn-sm ${mask.hideMaskSource ? 'insp-btn-sm--active' : ''}`}
                     onClick={handleToggleHideSource}
                     aria-label={mask.hideMaskSource ? 'Show mask source' : 'Hide mask source'}
                     aria-pressed={mask.hideMaskSource ?? false}
                   >
-                    Hide
+                    <Icon name={mask.hideMaskSource ? 'EyeOff' : 'Eye'} size="0.85em" />
+                    <span>Hide</span>
                   </button>
                 </Tooltip>
               )}
@@ -347,14 +346,15 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
                 >
                   <button
                     type="button"
-                    className="insp-btn-sm"
+                    className={`insp-btn-sm ${mask.linked !== false ? 'insp-btn-sm--active' : ''}`}
                     onClick={handleToggleLinked}
                     aria-label={
                       mask.linked !== false ? 'Unlink mask transform' : 'Link mask transform'
                     }
                     aria-pressed={mask.linked !== false}
                   >
-                    Link
+                    <Icon name="Link" size="0.85em" />
+                    <span>Link</span>
                   </button>
                 </Tooltip>
               )}
@@ -366,7 +366,8 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
                   aria-label="Remove mask"
                   style={{ color: 'var(--color-feedback-danger)' }}
                 >
-                  Remove
+                  <Icon name="Trash2" size="0.85em" />
+                  <span>Remove</span>
                 </button>
               </Tooltip>
             </div>

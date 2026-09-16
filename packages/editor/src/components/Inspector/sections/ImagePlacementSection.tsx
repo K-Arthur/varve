@@ -33,53 +33,60 @@ interface ImagePlacementSectionProps {
 
 export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
   const { updateDoc, setTool } = useEditor();
-  const node = nodes[0];
-  const nodeId = node?.id;
+  const imageNodes = nodes.filter(isImageShape) as ShapeNode[];
 
-  const updateImage = useCallback(
+  const updateImages = useCallback(
     (patch: Partial<ImageFillData>) => {
-      if (!nodeId) return;
+      if (imageNodes.length === 0) return;
+      const ids = imageNodes.map((n) => n.id);
       updateDoc((doc) => {
-        const n = doc.nodes[nodeId];
-        if (n?.kind !== 'shape') return doc;
-        const fills = (n.fills ?? []).map((f) => {
-          if (f.type !== 'image' || !f.image) return f;
-          return { ...f, image: { ...f.image, ...patch } };
-        });
-        return {
-          ...doc,
-          nodes: { ...doc.nodes, [nodeId]: { ...n, fills } },
-        };
+        let changed = false;
+        const nextNodes = { ...doc.nodes };
+        for (const id of ids) {
+          const n = nextNodes[id];
+          if (n?.kind !== 'shape') continue;
+          const fills = (n.fills ?? []).map((f) => {
+            if (f.type !== 'image' || !f.image) return f;
+            return { ...f, image: { ...f.image, ...patch } };
+          });
+          nextNodes[id] = { ...n, fills } as SceneNode;
+          changed = true;
+        }
+        return changed ? { ...doc, nodes: nextNodes } : doc;
       });
     },
-    [nodeId, updateDoc],
+    [imageNodes, updateDoc],
   );
 
   const handleFitChange = useCallback(
-    (value: string) => updateImage({ fit: value as ImageFit }),
-    [updateImage],
+    (value: string) => updateImages({ fit: value as ImageFit }),
+    [updateImages],
   );
 
-  const handleOffsetX = useCallback((v: number) => updateImage({ x: v }), [updateImage]);
+  const handleOffsetX = useCallback((v: number) => updateImages({ x: v }), [updateImages]);
 
-  const handleOffsetY = useCallback((v: number) => updateImage({ y: v }), [updateImage]);
+  const handleOffsetY = useCallback((v: number) => updateImages({ y: v }), [updateImages]);
 
   const handleScale = useCallback(
-    (v: number) => updateImage({ scale: Math.max(0.01, v) }),
-    [updateImage],
+    (v: number) => updateImages({ scale: Math.max(0.01, v) }),
+    [updateImages],
   );
 
   const resetPlacement = useCallback(() => {
-    updateImage({ x: 0, y: 0, scale: 1, fit: 'fill' });
-  }, [updateImage]);
+    updateImages({ x: 0, y: 0, scale: 1, fit: 'fill' });
+  }, [updateImages]);
 
-  if (!node || nodes.length !== 1 || !isImageShape(node)) return null;
-  const shapeNode = node as ShapeNode;
-  const imageFill = getImageFill(shapeNode);
-  if (!imageFill?.image) return null;
-  const img = imageFill.image;
+  if (imageNodes.length === 0) return null;
+  const firstNode = imageNodes[0]!;
+  const firstImageFill = getImageFill(firstNode);
+  if (!firstImageFill?.image) return null;
 
-  const placementLocked = img.fit === 'stretch';
+  const firstImg = firstImageFill.image;
+  const allSameFit = imageNodes.every((n) => getImageFill(n)?.image?.fit === firstImg.fit);
+  const fitValue = allSameFit ? (firstImg.fit ?? 'fill') : 'fill';
+  const placementLocked = fitValue === 'stretch';
+
+  const isMulti = imageNodes.length > 1;
 
   return (
     <DisclosureSection title="Image Placement" sectionId="image-placement">
@@ -88,7 +95,7 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
           <SegmentedControl
             label="Image fit mode"
             options={FIT_OPTIONS}
-            value={img.fit}
+            value={fitValue}
             onChange={handleFitChange}
           />
         </FieldRow>
@@ -96,7 +103,7 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
         <FieldRow label="Scale">
           <NumberField
             label="Image scale"
-            value={img.scale ?? 1}
+            value={firstImg.scale ?? 1}
             min={0.01}
             max={100}
             step={0.1}
@@ -115,7 +122,7 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
             <NumberField
               label="Offset X"
               displayLabel="X"
-              value={img.x ?? 0}
+              value={firstImg.x ?? 0}
               step={1}
               onChange={handleOffsetX}
               unit="px"
@@ -124,7 +131,7 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
             <NumberField
               label="Offset Y"
               displayLabel="Y"
-              value={img.y ?? 0}
+              value={firstImg.y ?? 0}
               step={1}
               onChange={handleOffsetY}
               unit="px"
@@ -135,13 +142,21 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
 
         <div className="insp-image-placement__actions">
           <TooltipProvider>
-            <Tooltip label="Edit crop (C)">
-              <button type="button" className="insp-btn-sm" onClick={() => setTool('crop')}>
-                <Icon name="Crop" size="0.85em" />
-                <span>Edit crop</span>
-              </button>
-            </Tooltip>
-            <Tooltip label="Reset image placement">
+            {!isMulti && (
+              <Tooltip label="Edit crop (C)">
+                <button type="button" className="insp-btn-sm" onClick={() => setTool('crop')}>
+                  <Icon name="Crop" size="0.85em" />
+                  <span>Edit crop</span>
+                </button>
+              </Tooltip>
+            )}
+            <Tooltip
+              label={
+                isMulti
+                  ? `Reset placement for ${imageNodes.length} images`
+                  : 'Reset image placement'
+              }
+            >
               <button type="button" className="insp-btn-sm" onClick={resetPlacement}>
                 <Icon name="RotateCcw" size="0.85em" />
                 <span>Reset placement</span>

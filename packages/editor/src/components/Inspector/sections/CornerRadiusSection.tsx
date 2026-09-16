@@ -24,7 +24,6 @@ import { commonValue, isMixed } from '../selection/selectionState';
 export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
   const editor = useEditor();
   const { setSelectedCornerRadius, setSelectedCornerSmoothing } = editor;
-  const [perCorner, setPerCorner] = useState(false);
   const bindingTriggerRef = useRef<HTMLDivElement>(null);
 
   const radiusRaw = commonValue(nodes, (n) => {
@@ -38,6 +37,12 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
       ? (radiusRaw as number | [number, number, number, number])
       : null;
 
+  const isAsymmetric =
+    Array.isArray(radius) &&
+    (radius[0] !== radius[1] || radius[1] !== radius[2] || radius[2] !== radius[3]);
+  const [userPerCorner, setUserPerCorner] = useState<boolean | null>(null);
+  const perCorner = userPerCorner ?? isAsymmetric;
+
   const smoothingRaw = commonValue(nodes, (n) => {
     if (n.kind !== 'shape' && n.kind !== 'frame') return undefined;
     return n.cornerSmoothing ?? 0;
@@ -45,7 +50,7 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
   const smoothingMixed = isMixed(smoothingRaw);
   const smoothing = smoothingMixed ? 0 : Math.round((smoothingRaw as number | undefined) ?? 0);
 
-  const uniform = typeof radius === 'number' ? radius : 0;
+  const uniform = typeof radius === 'number' ? radius : Array.isArray(radius) ? radius[0] : 0;
   const tl = Array.isArray(radius) ? radius[0] : uniform;
   const tr = Array.isArray(radius) ? radius[1] : uniform;
   const br = Array.isArray(radius) ? radius[2] : uniform;
@@ -71,34 +76,53 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
     if (perCorner) {
       // Collapse back to uniform: use TL value
       setSelectedCornerRadius(Math.max(0, tl));
+      setUserPerCorner(false);
+    } else {
+      setUserPerCorner(true);
     }
-    setPerCorner((p) => !p);
   }, [perCorner, setSelectedCornerRadius, tl]);
+
+  const hasAnyRounding = uniform > 0 || tl > 0 || tr > 0 || br > 0 || bl > 0 || smoothing > 0;
 
   return (
     <DisclosureSection title="Corner Radius" sectionId="corner-radius">
       <div ref={bindingTriggerRef} className="insp-field-group insp-field-group--binding">
-        {!perCorner && !mixed && (
+        <div className="insp-corner-radius-row">
           <NumberField
             label="Radius"
             value={uniform}
+            mixed={mixed}
             min={0}
             onChange={handleUniform}
             fieldName="cornerRadius"
             onShiftClick={() => editor.setBindingField('cornerRadius')}
           />
-        )}
-        {!perCorner && mixed && (
-          <NumberField
-            label="Radius"
-            value={0}
-            mixed
-            min={0}
-            onChange={handleUniform}
-            fieldName="cornerRadius"
-            onShiftClick={() => editor.setBindingField('cornerRadius')}
-          />
-        )}
+          <button
+            type="button"
+            onClick={toggleMode}
+            className={`insp-flip-btn ${perCorner ? 'insp-flip-btn--active' : ''}`}
+            style={{
+              color: perCorner ? 'var(--color-interactive-default)' : 'var(--color-text-muted)',
+            }}
+            aria-label={perCorner ? 'Use uniform radius' : 'Edit individual corners'}
+            aria-pressed={perCorner}
+            title={perCorner ? 'Uniform radius' : 'Independent corners'}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M7 17V7h10" />
+            </svg>
+          </button>
+        </div>
         {editor.bindingField === 'cornerRadius' && (
           <BindingMenu
             variableStore={docVariableStore(editor.state.document)}
@@ -115,7 +139,8 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
         )}
       </div>
       {perCorner && (
-        <div className="insp-quad-grid">
+        <fieldset className="insp-quad-grid">
+          <legend className="sr-only">Individual corner radii</legend>
           <div className="insp-icon-field">
             <Icon
               name="CornerUpLeft"
@@ -152,46 +177,24 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
             />
             <NumberField label="BR" value={br} min={0} onChange={(v) => handlePerCorner(2, v)} />
           </div>
-        </div>
+        </fieldset>
       )}
-      <button
-        type="button"
-        onClick={toggleMode}
-        className="insp-advanced-btn"
-        style={{
-          color: perCorner ? 'var(--color-interactive-default)' : 'var(--color-text-muted)',
-        }}
-        aria-label={perCorner ? 'Use uniform radius' : 'Edit individual corners'}
-      >
-        <svg
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <path d="M7 17V7h10" />
-        </svg>
-        {perCorner ? 'Uniform' : 'Individual'}
-      </button>
-      {/* Corner smoothing slider */}
-      <FieldRow label="Smoothing" htmlFor="corner-smoothing-range">
-        <RangeValueControl
-          id="corner-smoothing"
-          label="Smoothing"
-          value={smoothing}
-          min={0}
-          max={100}
-          unit="%"
-          rangeClassName="insp-range"
-          rangeAriaLabel="Corner smoothing"
-          onChange={setSelectedCornerSmoothing}
-        />
-      </FieldRow>
+      {/* Corner smoothing slider — contextual on rounding */}
+      {hasAnyRounding && (
+        <FieldRow label="Smoothing" htmlFor="corner-smoothing-range">
+          <RangeValueControl
+            id="corner-smoothing"
+            label="Smoothing"
+            value={smoothing}
+            min={0}
+            max={100}
+            unit="%"
+            rangeClassName="insp-range"
+            rangeAriaLabel="Corner smoothing"
+            onChange={setSelectedCornerSmoothing}
+          />
+        </FieldRow>
+      )}
     </DisclosureSection>
   );
 }

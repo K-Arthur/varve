@@ -9,7 +9,7 @@
 import type { Document, ManagedColor, NodeId, SceneNode, SelectedPaintGroup } from '@varve/scene';
 import { collectSelectedPaints, replaceSelectedPaintReferences } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
-import { TooltipProvider } from '@varve/ui';
+import { Icon, Tooltip, TooltipProvider } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -54,6 +54,17 @@ export function SelectionColorsSection({
     [editor],
   );
 
+  const handleSelectMatching = useCallback(
+    (group: SelectedPaintGroup) => {
+      const targetIds = Array.from(new Set(group.references.map((r) => r.nodeId)));
+      if (targetIds.length > 0 && editor.setSelectionRefs) {
+        editor.setSelectionRefs(targetIds);
+        editor.announce(`Selected ${targetIds.length} ${pluralize(targetIds.length, 'layer')}`);
+      }
+    },
+    [editor],
+  );
+
   if (summary.groups.length === 0 && summary.nonColorPaints.length === 0) return null;
 
   return (
@@ -65,6 +76,7 @@ export function SelectionColorsSection({
               {visibleGroups.map((group) => {
                 const label = paintGroupLabel(group);
                 const disabledReason = groupDisabledReason(group);
+                const hex = hexLabel(group.color);
                 return (
                   <li key={group.key} className="selection-colors__item">
                     <span className="selection-colors__swatch-wrap">
@@ -82,10 +94,25 @@ export function SelectionColorsSection({
                         swatchStyle={swatchStyle(group.color, group.paintOpacity)}
                       />
                     </span>
-                    <span className="selection-colors__meta" aria-hidden="true">
-                      <span className="selection-colors__count">{group.references.length}</span>
-                      <span className="selection-colors__role">{roleLabel(group)}</span>
+                    <span className="selection-colors__meta">
+                      <span className="selection-colors__hex">{hex}</span>
+                      <span className="selection-colors__sub">
+                        <span className="selection-colors__count">{group.references.length}</span>
+                        <span className="selection-colors__role" aria-hidden="true">
+                          {roleLabel(group)}
+                        </span>
+                      </span>
                     </span>
+                    <Tooltip label={`Select matching layers (${group.references.length})`}>
+                      <button
+                        type="button"
+                        className="selection-colors__target-btn"
+                        aria-label={`Select layers using ${hex}`}
+                        onClick={() => handleSelectMatching(group)}
+                      >
+                        <Icon name="Crosshair" size="0.85em" />
+                      </button>
+                    </Tooltip>
                   </li>
                 );
               })}
@@ -164,6 +191,23 @@ function colorLabel(color: ManagedColor): string {
       return 'Registration color';
     case 'unresolved':
       return `Unresolved color${color.reason ? ` (${color.reason})` : ''}`;
+  }
+}
+
+function hexLabel(color: ManagedColor): string {
+  switch (color.space) {
+    case 'rgb': {
+      const [r, g, b] = managedColorToRgba(color);
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+    }
+    case 'spot':
+      return color.name;
+    case 'gray':
+      return `${Math.round(color.v * 100)}%`;
+    default: {
+      const [r, g, b] = managedColorToRgba(color);
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`.toUpperCase();
+    }
   }
 }
 
