@@ -2039,7 +2039,7 @@ const GENERATIVE_MODEL_METADATA_SCHEMA_VERSION: u32 = 4;
 // This identifier includes Varve's safe image-guidance extension. Changing
 // the helper or its binding must invalidate qualification metadata so a
 // result cannot be trusted under a different runtime contract.
-const GENERATIVE_MODEL_RUNTIME_ID: &str = "diffusion-rs-0.1.20-varve-image-cfg-v1";
+const GENERATIVE_MODEL_RUNTIME_ID: &str = "diffusion-rs-0.1.20-varve-image-cfg-profile-contract-v2";
 const GENERATIVE_MODEL_FILENAME: &str = "varve-diffusion-inpainting.gguf";
 const GENERATIVE_MODEL_DOWNLOAD_URL: &str = "https://huggingface.co/gpustack/stable-diffusion-v1-5-inpainting-GGUF/resolve/21491e4/stable-diffusion-v1-5-inpainting-Q4_0.gguf?download=true";
 const GENERATIVE_MODEL_DOWNLOAD_SIZE: u64 = 1_747_219_584;
@@ -3004,6 +3004,10 @@ pub struct GenerativeEditResult {
 #[derive(Debug, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct GenerativeHelperRequest {
+    /// This private protocol field binds the request to the model-specific
+    /// adapter compiled into the helper. It is not a user-controlled model
+    /// selector.
+    profile_id: String,
     model_path: String,
     init_image_path: String,
     mask_path: String,
@@ -3152,6 +3156,7 @@ fn generative_edit_blocking_with_requirement(
     let stdout_path = root.join("helper.stdout");
     let stderr_path = root.join("helper.stderr");
     let helper_request = GenerativeHelperRequest {
+        profile_id: GENERATIVE_MODEL_PROFILE.into(),
         model_path: model_path.to_string_lossy().into_owned(),
         init_image_path: image_path.to_string_lossy().into_owned(),
         mask_path: mask_path.to_string_lossy().into_owned(),

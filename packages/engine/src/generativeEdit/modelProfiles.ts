@@ -3,7 +3,7 @@ import type {
   DiffusionInputKind,
   DiffusionMaskConvention,
 } from './diffusionFrame';
-import { SD15_INPAINTING_FRAME_CONTRACT } from './diffusionFrame';
+import { SD2_INPAINTING_FRAME_CONTRACT, SD15_INPAINTING_FRAME_CONTRACT } from './diffusionFrame';
 import type { GenerativeEditMode } from './types';
 
 /**
@@ -132,6 +132,46 @@ export const CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE: LocalGenerativeModelProfile
  * use, especially on ARM, ChromeOS, and low-memory desktops.
  */
 export const LOCAL_GENERATIVE_MODEL_RESEARCH_PROFILES: readonly LocalGenerativeModelProfile[] = [
+  {
+    id: 'sd2-inpainting-f16-research',
+    name: 'Stable Diffusion 2 Inpainting · F16',
+    family: 'stable-diffusion-2-inpainting',
+    disposition: 'research-only',
+    supportedModes: ALL_INPAINTING_MODES,
+    inputKind: 'masked-inpainting',
+    maskConvention: 'white-edit-black-preserve',
+    frameContract: SD2_INPAINTING_FRAME_CONTRACT,
+    artifact: {
+      format: 'safetensors',
+      source: 'stabilityai/stable-diffusion-2-inpainting',
+      revision: '512-inpainting-ema.safetensors (mirror; verify upstream pin)',
+      sha256: 'b29e2ed9a8fe58e76f7e801bda091d23738bd74c1da3f339bcbe2d40922fcb60',
+      sizeBytes: 5_214_662_094,
+      license: 'CreativeML Open RAIL++-M',
+      requiredComponentRoles: ['sd2-inpainting', 'openclip-vit-h-14', 'vae'],
+    },
+    runtime: {
+      adapterId: 'diffusion-rs-0.1.20-sd2-diagnostic-only',
+      executionBackends: [],
+      architectures: [],
+      minimumMemoryBytes: 7 * 1024 ** 3,
+      recommendedMemoryBytes: 10 * 1024 ** 3,
+      requiresGpu: false,
+      offlineAfterInstall: true,
+    },
+    qualification: {
+      status: 'failed',
+      evidenceRef: 'docs/audits/generative-editing-native-probe-2026-09-14.md',
+      platforms: [],
+    },
+    limitations: [
+      'The 512px SD 2 model is a large F16 artifact and is not a low-memory Chromebook or ARM default.',
+      'The retained Linux CPU diagnostic produced a recognizable but semantically wrong object and did not pass the real-photograph rubric.',
+      'The current native helper is compiled for the SD 1.5 profile and rejects this profile until a separate adapter is implemented.',
+    ],
+    reason:
+      'Research-only diagnostic candidate; no production SD 2 adapter or real-photograph quality certificate exists.',
+  },
   {
     id: 'powerpaint-v2-1-research',
     name: 'PowerPaint v2-1',

@@ -585,8 +585,15 @@ masked helper run before prompt modes are enabled. The helper validates that
 the decoded source and mask dimensions match the declared working frame before
 loading weights, so it never guesses at resampling or mask alignment. For the
 currently packaged SD 1.5 profile, that helper boundary additionally requires
-the exact 512 × 512 frame and its 64-pixel granularity; non-square source
-images must already have passed the shared aspect-preserving letterbox adapter.
+the exact `sd15-inpainting-q4_0-v1` profile, 512 × 512 frame, and 64-pixel
+granularity; non-square source images must already have passed the shared
+aspect-preserving letterbox adapter. The profile id is required in the private
+helper request, so an SD 2, SDXL, FLUX, or reference-edit checkpoint cannot be
+silently loaded through the SD 1.5 adapter. Adding or changing that protocol
+invalidates the runtime identity recorded by model qualification and requires a
+fresh qualification run. A different model family must receive its own
+adapter, frame contract, component manifest, and evidence rather than being
+selected by file extension.
 The desktop command repeats this boundary before resource/model lookup: it rejects
 unsupported modes, non-finite or out-of-range strength/guidance values, steps
 outside 1–100, prompts over 16,384 characters, and source/mask buffers whose

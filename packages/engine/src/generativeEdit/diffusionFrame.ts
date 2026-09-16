@@ -46,6 +46,22 @@ export const SD15_INPAINTING_FRAME_CONTRACT = {
 } as const satisfies DiffusionFrameContract;
 
 /**
+ * SD 2 inpainting's documented 512px crop contract. This is a research
+ * contract only: Varve has no SD 2 production adapter or quality certificate.
+ * Keeping it separate from SD 1.5 prevents a future profile from inheriting
+ * the wrong text-encoder/runtime assumptions by accident.
+ */
+export const SD2_INPAINTING_FRAME_CONTRACT = {
+  id: 'sd2-inpainting-512-square-v1',
+  preprocessingVersion: 'varve-diffusion-letterbox-linear-srgb-v1',
+  inputKind: 'masked-inpainting',
+  maskConvention: 'white-edit-black-preserve',
+  frameWidth: 512,
+  frameHeight: 512,
+  dimensionMultiple: 64,
+} as const satisfies DiffusionFrameContract;
+
+/**
  * Reference contract for a future SDXL inpainting profile.
  *
  * This is a transform contract only. The current SDXL candidate has not

@@ -61,6 +61,16 @@ describe('local generative model profiles', () => {
         frameHeight: 512,
       },
     );
+    expect(getLocalGenerativeModelProfile('sd2-inpainting-f16-research')).toMatchObject({
+      inputKind: 'masked-inpainting',
+      supportedModes: ['fill', 'remove', 'replace', 'expand'],
+      frameContract: { frameWidth: 512, frameHeight: 512 },
+      artifact: {
+        sizeBytes: 5_214_662_094,
+        sha256: 'b29e2ed9a8fe58e76f7e801bda091d23738bd74c1da3f339bcbe2d40922fcb60',
+      },
+      qualification: { status: 'failed' },
+    });
     const flux2Profile = getLocalGenerativeModelProfile('flux2-klein-4b-reference-research');
     expect(flux2Profile).toMatchObject({
       inputKind: 'reference-edit',

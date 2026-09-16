@@ -19,6 +19,10 @@ use std::path::PathBuf;
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Request {
+    /// The helper is a model-specific adapter. Requiring the profile identity
+    /// prevents a different checkpoint family from entering the SD 1.5
+    /// tensor/frame contract through the private request protocol.
+    profile_id: String,
     model_path: PathBuf,
     init_image_path: PathBuf,
     mask_path: PathBuf,
@@ -53,6 +57,7 @@ fn default_image_guidance_scale() -> f32 {
 const SD15_INPAINTING_FRAME_WIDTH: u32 = 512;
 const SD15_INPAINTING_FRAME_HEIGHT: u32 = 512;
 const SD15_INPAINTING_DIMENSION_MULTIPLE: u32 = 64;
+const SUPPORTED_MODEL_PROFILE_ID: &str = "sd15-inpainting-q4_0-v1";
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -113,6 +118,11 @@ impl RequestedBackend {
 }
 
 fn validate_request(request: &Request) -> Result<(), String> {
+    if request.profile_id != SUPPORTED_MODEL_PROFILE_ID {
+        return Err(format!(
+            "The native helper only supports the {SUPPORTED_MODEL_PROFILE_ID} model profile; use a model-specific adapter for other checkpoints"
+        ));
+    }
     for (label, path) in [
         ("model", &request.model_path),
         ("source", &request.init_image_path),
@@ -130,8 +140,8 @@ fn validate_request(request: &Request) -> Result<(), String> {
     }
     if request.width != SD15_INPAINTING_FRAME_WIDTH
         || request.height != SD15_INPAINTING_FRAME_HEIGHT
-        || request.width % SD15_INPAINTING_DIMENSION_MULTIPLE != 0
-        || request.height % SD15_INPAINTING_DIMENSION_MULTIPLE != 0
+        || !request.width.is_multiple_of(SD15_INPAINTING_DIMENSION_MULTIPLE)
+        || !request.height.is_multiple_of(SD15_INPAINTING_DIMENSION_MULTIPLE)
     {
         return Err(format!(
             "The SD 1.5 inpainting profile requires a {}x{} working frame ({}px dimension multiple); convert the source with the Varve aspect-preserving frame adapter before processing",
@@ -271,7 +281,7 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{validate_request, Request};
+    use super::{validate_request, Request, SUPPORTED_MODEL_PROFILE_ID};
     use std::fs;
     use std::path::PathBuf;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -294,6 +304,7 @@ mod tests {
             .expect("create mask artifact");
         (
             Request {
+                profile_id: SUPPORTED_MODEL_PROFILE_ID.into(),
                 model_path: root.join("model.safetensors"),
                 init_image_path: root.join("source.png"),
                 mask_path: root.join("mask.png"),
@@ -334,14 +345,18 @@ mod tests {
 
     #[test]
     fn rejects_source_or_mask_dimensions_that_do_not_match_the_working_frame() {
-        let (mut request, root) = valid_request();
+        let (request, root) = valid_request();
 
-        request.width = 256;
+        image::RgbaImage::from_pixel(256, 512, image::Rgba([238, 238, 238, 255]))
+            .save(&request.init_image_path)
+            .expect("write mismatched source");
         assert!(validate_request(&request)
             .expect_err("a resized working frame must not be guessed")
             .contains("source artifact dimensions"));
 
-        request.width = 512;
+        image::RgbaImage::from_pixel(512, 512, image::Rgba([238, 238, 238, 255]))
+            .save(&request.init_image_path)
+            .expect("restore valid source");
         image::GrayImage::from_pixel(256, 512, image::Luma([255]))
             .save(&request.mask_path)
             .expect("write mismatched mask");
@@ -360,6 +375,18 @@ mod tests {
         assert!(validate_request(&request)
             .expect_err("a non-contract frame must be adapted before inference")
             .contains("requires a 512x512 working frame"));
+
+        fs::remove_dir_all(root).expect("remove test directory");
+    }
+
+    #[test]
+    fn rejects_checkpoints_sent_under_the_wrong_model_profile() {
+        let (mut request, root) = valid_request();
+
+        request.profile_id = "sd2-inpainting-f16-research".into();
+        assert!(validate_request(&request)
+            .expect_err("a model-specific helper must reject a different profile")
+            .contains("only supports the sd15-inpainting-q4_0-v1 model profile"));
 
         fs::remove_dir_all(root).expect("remove test directory");
     }

@@ -6,6 +6,7 @@ export type {
 } from './diffusionFrame';
 export {
   prepareDiffusionFrame,
+  SD2_INPAINTING_FRAME_CONTRACT,
   SD15_INPAINTING_FRAME_CONTRACT,
   SD15_INPAINTING_FRAME_SIZE,
   SDXL_INPAINTING_FRAME_CONTRACT,

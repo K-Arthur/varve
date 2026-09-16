@@ -54,6 +54,15 @@ Remove, Replace, or Expand mode. This distinction is deliberate: a model can
 produce a convincing whole-image edit while still being unsafe for a
 protected-pixel workflow.
 
+The local SD 2 diagnostic is represented as its own research profile. The
+official card documents a 512 × 512 inpainting model with the OpenRAIL++-M
+license; its complete F16 artifact is much larger than the current SD 1.5 Q4
+candidate. A retained Linux CPU run produced a recognizable balloon-like
+insertion but missed the requested bright-red object, so this is useful
+runtime evidence—not a quality promotion. The SD 1.5 helper now rejects the SD
+2 profile at its private protocol boundary instead of allowing an arbitrary
+checkpoint to inherit the wrong adapter.
+
 ## Important naming correction: FLUX.1.1 versus FLUX Fill
 
 “FLUX dev 1.1” combines two different products:
@@ -106,6 +115,7 @@ bundled, or used as marketing evidence.
 | Candidate | Actual input contract and likely modes | Local usage requirements and risks | Varve decision |
 | --- | --- | --- | --- |
 | Current `sd15-inpainting-q4_0-v1` | Masked inpainting; intended for Fill/Remove/Replace/Expand | Pinned GGUF is documented as experimental for a patched runtime. The current `diffusion-rs` helper is not that runtime; real-photo output also failed semantic review. | Disabled and diagnostic only |
+| `stabilityai/stable-diffusion-2-inpainting` | Explicit 512px masked text-guided inpainting; a possible Fill/Remove/Replace/Expand candidate | The F16 artifact is about 5.21 GB, uses the OpenRAIL++-M terms, and needs a separate SD 2 adapter/component contract. The retained local CPU run was recognizable but missed the requested object/color and did not pass the real-photo rubric. The SD 1.5 helper rejects this profile rather than guessing its tensor contract. [Model card](https://huggingface.co/stabilityai/stable-diffusion-2-inpainting) · [diagnostic](../audits/generative-editing-native-probe-2026-09-14.md) | Research-only diagnostic; no product route |
 | `JunhaoZhuang/PowerPaint-v2-1` | Explicit task-conditioned inpainting; object insertion, removal, shape-guided insertion, and outpainting are listed by the project | Hugging Face documents Diffusers/Safetensors, Python 3.9/Conda setup, and no Inference Provider. It needs a separate pinned Python/PyTorch adapter or a proven native port. The model card reports Apache-2.0; the repository code has its own notice, so both must be retained. [Model card](https://huggingface.co/JunhaoZhuang/PowerPaint-v2-1) · [repository](https://github.com/zhuang2002/PowerPaint) | **First local qualification candidate; research-only** |
 | `black-forest-labs/FLUX.1-Fill-dev` | Explicit masked Fill and Outpaint; suitable for prompt-conditioned Fill, Replace, and border generation when the mask and output frame are supplied correctly | 12B BF16 Diffusers workflow, gated non-commercial license, large model/runtime, and no proof of compatibility with Varve’s Rust helper. The official reference implementation and Diffusers pipeline must be treated as a new supervised adapter, not as an SD checkpoint. [Model card](https://huggingface.co/black-forest-labs/FLUX.1-Fill-dev) · [Fill implementation](https://github.com/black-forest-labs/flux/blob/main/docs/fill.md) | **Second local qualification candidate; high-memory research-only** |
 | `briaai/Fibo-Edit-1.5-turbo` | Native mask-based editing, structured VGL/JSON controls, and up to four references; useful for precise Replace and reference-guided edits | 8B, four-step distilled pipeline, non-commercial source/weight terms, and a separate prompt-to-JSON example that uses `trust_remote_code` and a Gemini API key. Varve must not use that remote prompt converter or arbitrary remote code; a local hand-authored/validated structured request is required. [Model card](https://huggingface.co/briaai/Fibo-Edit-1.5-turbo) | **Third comparison candidate; research-only pending licensing and safe-runtime review** |

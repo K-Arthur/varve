@@ -38,8 +38,9 @@ allowlist and research ledger. A runnable profile must identify:
 - a measured available-memory value meeting the profile's working-set floor.
 
 The registry contains the disabled SD 1.5 Q4 profile and research-only
-records for PowerPaint v2-1, FLUX.1-Fill-dev, FIBO-Edit 1.5 turbo, and SDXL
-Inpainting. Research records cannot be routed by the provider facade. Their
+records for SD 2 Inpainting, PowerPaint v2-1, FLUX.1-Fill-dev, FIBO-Edit 1.5
+turbo, and SDXL Inpainting. Research records cannot be routed by the provider
+facade. Their
 published usage requirements are materially different: PowerPaint documents
 a Python 3.9/Diffusers/PyTorch environment and includes outpainting in its
 task table. Its published bundle contains a Realistic Vision / SD 1.5 base and
