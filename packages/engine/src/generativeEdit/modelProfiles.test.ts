@@ -71,4 +71,48 @@ describe('local generative model profiles', () => {
       reason: 'Stable Diffusion 1.5 Inpainting · Q4_0 has no qualified CPU architecture.',
     });
   });
+
+  it('requires complete local provenance and measured runtime identity before startup', () => {
+    const qualifiedProfile = {
+      ...CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE,
+      disposition: 'qualified' as const,
+      runtime: {
+        ...CURRENT_LOCAL_GENERATIVE_MODEL_PROFILE.runtime,
+        architectures: ['x86_64'],
+      },
+    };
+
+    expect(
+      isLocalGenerativeModelRunnable(qualifiedProfile, {
+        mode: 'fill',
+        architecture: 'x86_64',
+        availableMemoryBytes: 8 * 1024 ** 3,
+      }),
+    ).toEqual({
+      runnable: false,
+      reason:
+        'Stable Diffusion 1.5 Inpainting · Q4_0 requires an explicitly selected qualified execution backend.',
+    });
+
+    expect(
+      isLocalGenerativeModelRunnable(qualifiedProfile, {
+        mode: 'fill',
+        executionBackend: 'native-cpu',
+        architecture: 'x86_64',
+      }),
+    ).toEqual({
+      runnable: false,
+      reason:
+        'Stable Diffusion 1.5 Inpainting · Q4_0 requires a measured available-memory value before startup.',
+    });
+
+    expect(
+      isLocalGenerativeModelRunnable(qualifiedProfile, {
+        mode: 'fill',
+        executionBackend: 'native-cpu',
+        architecture: 'x86_64',
+        availableMemoryBytes: 8 * 1024 ** 3,
+      }),
+    ).toEqual({ runnable: true });
+  });
 });

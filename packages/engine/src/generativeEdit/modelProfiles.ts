@@ -265,10 +265,37 @@ export function isLocalGenerativeModelRunnable(
   if (!profile.supportedModes.includes(options.mode)) {
     return { runnable: false, reason: `${profile.name} does not support ${options.mode}.` };
   }
-  if (
-    options.executionBackend !== undefined &&
-    !profile.runtime.executionBackends.includes(options.executionBackend)
-  ) {
+  if (profile.artifact.sha256?.length !== 64) {
+    return {
+      runnable: false,
+      reason: `${profile.name} has no pinned artifact checksum.`,
+    };
+  }
+  if (profile.artifact.requiredComponentRoles.length === 0) {
+    return {
+      runnable: false,
+      reason: `${profile.name} has no complete component manifest.`,
+    };
+  }
+  if (!profile.runtime.adapterId || !profile.frameContract) {
+    return {
+      runnable: false,
+      reason: `${profile.name} has no qualified model adapter and frame contract.`,
+    };
+  }
+  if (!profile.runtime.offlineAfterInstall) {
+    return {
+      runnable: false,
+      reason: `${profile.name} is not usable offline after installation.`,
+    };
+  }
+  if (options.executionBackend === undefined) {
+    return {
+      runnable: false,
+      reason: `${profile.name} requires an explicitly selected qualified execution backend.`,
+    };
+  }
+  if (!profile.runtime.executionBackends.includes(options.executionBackend)) {
     return {
       runnable: false,
       reason: `${profile.name} has not been qualified for the ${options.executionBackend} backend.`,
@@ -286,13 +313,25 @@ export function isLocalGenerativeModelRunnable(
       reason: `${profile.name} has no qualified CPU architecture.`,
     };
   }
-  if (
-    options.architecture !== undefined &&
-    !profile.runtime.architectures.includes(options.architecture)
-  ) {
+  if (options.architecture === undefined) {
+    return {
+      runnable: false,
+      reason: `${profile.name} requires an explicitly qualified CPU architecture.`,
+    };
+  }
+  if (!profile.runtime.architectures.includes(options.architecture)) {
     return {
       runnable: false,
       reason: `${profile.name} has not been qualified for ${options.architecture}.`,
+    };
+  }
+  if (
+    profile.runtime.minimumMemoryBytes !== undefined &&
+    options.availableMemoryBytes === undefined
+  ) {
+    return {
+      runnable: false,
+      reason: `${profile.name} requires a measured available-memory value before startup.`,
     };
   }
   if (
