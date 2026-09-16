@@ -76,4 +76,5 @@ carried into the commits.
 |---|---|
 | `31cd4bbd1` | feat(typography): progressive disclosure and descriptive controls |
 | `834b337dc` | feat(insights): human labels, applicability gating, honest actions |
-| _pending_ | docs: research + audit + website |
+| `c89c62176` | fix(typography,insights): badge counting, row gating, tab memoization + research/ownership docs |
+| `c387cab4d` | refine(typography,insights): quiet OpenType rows, humanized review text, More-tab active state, Spacing reachable in Design |

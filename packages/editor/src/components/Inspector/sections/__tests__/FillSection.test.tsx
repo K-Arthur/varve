@@ -1,0 +1,186 @@
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { addChild, createDocument, type ManagedColor, makeShapeNode } from '@varve/scene';
+import * as React from 'react';
+import { afterEach, describe, expect, it } from 'vitest';
+import { EditorProvider, useEditor } from '../../../../context';
+import { FillSection } from '../FillSection';
+
+afterEach(cleanup);
+
+const colorA: ManagedColor = { space: 'rgb', r: 20, g: 120, b: 220, a: 255 };
+const colorB: ManagedColor = { space: 'rgb', r: 220, g: 40, b: 60, a: 255 };
+const colorC: ManagedColor = { space: 'rgb', r: 40, g: 200, b: 100, a: 255 };
+
+function renderSelectedSection(
+  makeSection: (nodes: import('@varve/scene').SceneNode[]) => React.ReactElement,
+  nodeOverrides: Record<string, unknown>,
+) {
+  const document = createDocument('fill-test-doc');
+  const rootId = document.pages?.[0]?.contentRoot as string;
+  const node = {
+    ...makeShapeNode('fill-rect', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }),
+    ...nodeOverrides,
+  };
+  const withNode = addChild(document, rootId, node as import('@varve/scene').SceneNode);
+  let ctx: ReturnType<typeof useEditor> | undefined;
+  function Harness() {
+    ctx = useEditor();
+    React.useEffect(() => {
+      ctx?.setSelection(node.id);
+    }, []);
+    const nodes = ctx.selectedNodes();
+    return nodes.length > 0 ? makeSection(nodes) : null;
+  }
+  render(
+    <EditorProvider initialDocumentJson={JSON.stringify(withNode)}>
+      <Harness />
+    </EditorProvider>,
+  );
+  return { nodeId: node.id, getCtx: () => ctx };
+}
+
+describe('FillSection Redesign & Multi-Fill Controls', () => {
+  it('single fill: shows Op label, scrubbable opacity, hides reorder/remove buttons and default blend chip', async () => {
+    const { nodeId, getCtx } = renderSelectedSection((nodes) => <FillSection nodes={nodes} />, {
+      fills: [{ type: 'solid', color: colorA, opacity: 0.8, blendMode: 'normal', visible: true }],
+    });
+
+    // Opacity input has full accessible name and shows initial value
+    const input = await screen.findByLabelText('Fill opacity (%)');
+    expect(input).toHaveValue('80');
+
+    // Visual label contains "Op"
+    const label = screen.getByText('Op');
+    expect(label).toBeTruthy();
+
+    // Reorder and remove buttons are NOT rendered for a single fill
+    expect(screen.queryByRole('button', { name: 'Move fill up' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Move fill down' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Remove fill' })).toBeNull();
+
+    // Blend chip is hidden when normal for a single fill (avoids clutter)
+    expect(screen.queryByRole('button', { name: /blend mode/i })).toBeNull();
+
+    // Actions menu is available
+    expect(screen.getByRole('button', { name: 'Fill actions' })).toBeTruthy();
+
+    // Editing opacity persists to document
+    fireEvent.change(input, { target: { value: '45' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => {
+      const stored = getCtx()?.state.document.nodes[nodeId] as { fills?: { opacity: number }[] };
+      expect(stored.fills?.[0]?.opacity).toBeCloseTo(0.45, 5);
+    });
+  });
+
+  it('multi-fill stack: renders direct reorder arrows with correct boundary disabled states', async () => {
+    const { nodeId, getCtx } = renderSelectedSection((nodes) => <FillSection nodes={nodes} />, {
+      fills: [
+        { type: 'solid', color: colorA, opacity: 1, blendMode: 'normal', visible: true },
+        { type: 'solid', color: colorB, opacity: 0.7, blendMode: 'normal', visible: true },
+        { type: 'solid', color: colorC, opacity: 0.5, blendMode: 'normal', visible: true },
+      ],
+    });
+
+    // Wait for rows to render
+    expect(await screen.findByLabelText('Fill opacity (%)')).toBeTruthy();
+    expect(screen.getByLabelText('Fill 2 opacity (%)')).toBeTruthy();
+    expect(screen.getByLabelText('Fill 3 opacity (%)')).toBeTruthy();
+
+    // Fill 1 (index 0, bottom of stack): cannot move up, can move down
+    const fill1Up = screen.getByRole('button', { name: 'Move fill up' });
+    const fill1Down = screen.getByRole('button', { name: 'Move fill down' });
+    expect(fill1Up).toBeDisabled();
+    expect(fill1Down).not.toBeDisabled();
+
+    // Fill 2 (index 1, middle): can move up and can move down
+    const fill2Up = screen.getByRole('button', { name: 'Move fill 2 up' });
+    const fill2Down = screen.getByRole('button', { name: 'Move fill 2 down' });
+    expect(fill2Up).not.toBeDisabled();
+    expect(fill2Down).not.toBeDisabled();
+
+    // Fill 3 (index 2, top of stack): can move up, cannot move down
+    const fill3Up = screen.getByRole('button', { name: 'Move fill 3 up' });
+    const fill3Down = screen.getByRole('button', { name: 'Move fill 3 down' });
+    expect(fill3Up).not.toBeDisabled();
+    expect(fill3Down).toBeDisabled();
+
+    // Click Move fill down on Fill 1: reorders Fill 1 to index 1
+    fireEvent.click(fill1Down);
+    await waitFor(() => {
+      const stored = getCtx()?.state.document.nodes[nodeId] as {
+        fills?: { color?: { r: number } }[];
+      };
+      // Original colorA was index 0, now should be index 1
+      expect(stored.fills?.[1]?.color?.r).toBe(colorA.r);
+      expect(stored.fills?.[0]?.color?.r).toBe(colorB.r);
+    });
+  });
+
+  it('multi-fill stack: renders direct remove button for 1-click fill deletion', async () => {
+    const { nodeId, getCtx } = renderSelectedSection((nodes) => <FillSection nodes={nodes} />, {
+      fills: [
+        { type: 'solid', color: colorA, opacity: 1, blendMode: 'normal', visible: true },
+        { type: 'solid', color: colorB, opacity: 0.7, blendMode: 'normal', visible: true },
+      ],
+    });
+
+    const removeFill1 = await screen.findByRole('button', { name: 'Remove fill' });
+    const removeFill2 = screen.getByRole('button', { name: 'Remove fill 2' });
+    expect(removeFill1).toBeTruthy();
+    expect(removeFill2).toBeTruthy();
+
+    // Click direct remove button on Fill 2
+    fireEvent.click(removeFill2);
+    await waitFor(() => {
+      const stored = getCtx()?.state.document.nodes[nodeId] as { fills?: unknown[] };
+      expect(stored.fills?.length).toBe(1);
+    });
+  });
+
+  it('multi-fill stack: always displays blend mode chip and allows changing blend mode in 1 click', async () => {
+    const { nodeId, getCtx } = renderSelectedSection((nodes) => <FillSection nodes={nodes} />, {
+      fills: [
+        { type: 'solid', color: colorA, opacity: 1, blendMode: 'normal', visible: true },
+        { type: 'solid', color: colorB, opacity: 0.8, blendMode: 'normal', visible: true },
+      ],
+    });
+
+    // Both fills display the blend chip even when normal
+    const blendChips = await screen.findAllByRole('button', { name: /blend mode/i });
+    expect(blendChips.length).toBe(2);
+
+    // Open blend mode menu on Fill 2
+    fireEvent.click(blendChips[1]!);
+
+    // Select Multiply
+    const multiplyOption = await screen.findByRole('menuitemradio', { name: 'Multiply' });
+    fireEvent.click(multiplyOption);
+
+    await waitFor(() => {
+      const stored = getCtx()?.state.document.nodes[nodeId] as {
+        fills?: { blendMode?: string }[];
+      };
+      expect(stored.fills?.[1]?.blendMode).toBe('multiply');
+    });
+  });
+
+  it('real-world complex fill stack: supports opacity scrubbing via horizontal drag on Op label', async () => {
+    renderSelectedSection((nodes) => <FillSection nodes={nodes} />, {
+      fills: [{ type: 'solid', color: colorA, opacity: 0.5, blendMode: 'normal', visible: true }],
+    });
+
+    const label = await screen.findByText('Op');
+    expect(label).toBeTruthy();
+
+    // Start scrub gesture on the Op label
+    fireEvent.pointerDown(label, { clientX: 100, clientY: 100, pointerId: 1 });
+    // Move pointer right
+    fireEvent.pointerMove(window, { clientX: 140, clientY: 100, pointerId: 1 });
+    fireEvent.pointerUp(window, { clientX: 140, clientY: 100, pointerId: 1 });
+
+    // The opacity input receives scrubbed updates
+    const input = screen.getByLabelText('Fill opacity (%)') as HTMLInputElement;
+    expect(Number(input.value)).toBeGreaterThan(50);
+  });
+});

@@ -106,7 +106,15 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>Text Properties</h2>
         <p>
-          The Typography section in the Inspector provides controls for every text property:
+          The Typography section in the Inspector provides controls for every text property. The
+          common spine — content, family, weight, style, size, line height, letter spacing, and
+          alignment — stays visible, while tracking, paragraph spacing, vertical alignment,
+          direction, writing mode, case, decoration, list style, overflow, and text sizing live
+          in a collapsed <strong>Advanced typography</strong> subsection. Its header badge reports
+          how many of those properties the current layer already uses, so nothing is silently
+          hidden. Controls are named in plain language, and options that only apply to some text
+          (vertical alignment for area text, vertical orientation for vertical writing) appear
+          only when they can act.
         </p>
 
         <h3>Font Selection</h3>
@@ -184,18 +192,20 @@ import { sitePath } from '../../../lib/siteUrl';
 
         <h3>Alignment and Spacing</h3>
         <ul>
-          <li><strong>Text Align</strong> — Left, Center, Right, Justify</li>
-          <li><strong>Text Align Vertical</strong> — Top, Middle, Bottom</li>
+          <li><strong>Alignment</strong> — Left, Center, Right, and Justify, shown as the standard alignment icons with named labels and tooltips</li>
+          <li><strong>Vertical align</strong> — Top, Middle, Bottom; appears for area text (a fixed or auto-height box) where the alignment can act</li>
           <li><strong>Line Height</strong> — Percentage of the font size (for example, 150%)</li>
-          <li><strong>Letter Spacing</strong> — Per-glyph spacing in pixels</li>
-          <li><strong>Paragraph Spacing</strong> — Additional space between paragraphs</li>
+          <li><strong>Letter spacing</strong> — Per-glyph spacing in pixels, a fixed offset that does not scale with the font size</li>
+          <li><strong>Tracking</strong> — Per-mille of the em (‰); scales with the font size. Lives in Advanced typography, with the field hint explaining the difference from letter spacing</li>
+          <li><strong>Paragraph spacing</strong> — Additional space between paragraphs, in Advanced typography</li>
         </ul>
 
         <h3>Case and Decoration</h3>
         <ul>
-          <li><strong>Text Case</strong> — Uppercase, Lowercase, Capitalize (Title Case), or Normal</li>
-          <li><strong>Text Decoration</strong> — Underline, Line-through, or None</li>
-          <li><strong>Text Overflow</strong> — Clip (hide overflow) or Ellipsis (show "...")</li>
+          <li><strong>Text Case</strong> — Uppercase (ABC), Lowercase (abc), Capitalize (Abc), or None; each option states what it produces</li>
+          <li><strong>Text Decoration</strong> — Underline, Strikethrough, or None, shown as labelled underline/strikethrough icons</li>
+          <li><strong>Text Overflow</strong> — Visible, Clip, or Ellipsis (…), each with a one-line explanation in the dropdown</li>
+          <li><strong>Text sizing</strong> — Auto width, Auto height, or Fixed size, with the wrapping behavior described per option</li>
         </ul>
 
         <h3>Lists</h3>
@@ -207,7 +217,15 @@ import { sitePath } from '../../../lib/siteUrl';
       <section class="docs-section">
         <h2>OpenType Features</h2>
         <p>
-          Open the <strong>Advanced typography</strong> disclosure in the Typography inspector. Varve reads the selected face's feature metadata; it does not fabricate a feature that the font does not declare. Whole-run values can be Boolean or numeric/indexed, while byte-backed shaping also accepts UTF-16 source ranges. Unset/inherit, explicit off, and a selected numeric value remain distinct in the document.
+          Open the <strong>OpenType features</strong> disclosure in the Typography inspector. Varve
+          reads the selected face's feature metadata; it does not fabricate a feature that the font
+          does not declare, and required script-shaping features (<code>rlig</code>,
+          <code>ccmp</code>, <code>locl</code>, <code>mark</code>, and friends) are not offered as
+          disabled rows because they are not user decisions. The disclosure header shows how many
+          features the layer currently changes away from the font default. Whole-run values can be
+          Boolean or numeric/indexed, while byte-backed shaping also accepts UTF-16 source ranges.
+          Unset/inherit, explicit off, and a selected numeric value remain distinct in the
+          document; each dropdown option explains what Inherit, Off, On, and Indexed do.
         </p>
         <ul>
           <li><code>liga</code> — Standard ligatures</li>

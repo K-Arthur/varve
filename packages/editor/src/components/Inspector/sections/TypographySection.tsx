@@ -675,8 +675,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             onChange={(v) => applyTypographyToSelection({ tracking: v })}
           />
           <p className="insp-field__hint">
-            Tracking scales with the font size (parts per thousand); Letter spacing above is a fixed
-            pixel offset.
+            Tracking scales with font size (‰); Letter spacing above is fixed px.
           </p>
           <NumberField
             label="Paragraph spacing"

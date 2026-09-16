@@ -27,7 +27,7 @@ import { useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { suggestAutoLayout } from '../../../intelligence/autoLayoutSuggestor';
 import { DisclosureSection } from '../controls/DisclosureSection';
-import { FieldRow } from '../controls/FieldRow';
+import { FieldRow, InspectorFieldGroup } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
 import type { SegmentedOption } from '../controls/SegmentedControl';
 import { SegmentedControl } from '../controls/SegmentedControl';
@@ -279,28 +279,22 @@ export function LayoutSection({ node }: { node: FrameNode }) {
                 ))}
               </div>
             </FieldRow>
-            <FieldRow label="Grow">
-              <input
-                type="number"
-                aria-label="Flex grow"
+            <InspectorFieldGroup columns={2}>
+              <NumberField
+                label="Grow"
                 value={ls.grow}
-                step={1}
                 min={0}
-                onChange={(e) => patch({ grow: Number(e.target.value) || 0 })}
-                className="insp-select"
+                step={1}
+                onChange={(v) => patch({ grow: v })}
               />
-            </FieldRow>
-            <FieldRow label="Shrink">
-              <input
-                type="number"
-                aria-label="Flex shrink"
+              <NumberField
+                label="Shrink"
                 value={ls.shrink}
-                step={1}
                 min={0}
-                onChange={(e) => patch({ shrink: Number(e.target.value) || 0 })}
-                className="insp-select"
+                step={1}
+                onChange={(v) => patch({ shrink: v })}
               />
-            </FieldRow>
+            </InspectorFieldGroup>
             <FieldRow label="Borders in layout" wrapLabel>
               <Switch
                 aria-label="Include visible borders in layout"
@@ -612,58 +606,98 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
           onChange={(v) => setSelectedLayoutSizingHeight(v as LayoutSizing)}
         />
       </FieldRow>
-      <NumberField
-        label="Min W"
-        unit="px"
-        value={isMixed(minWRaw) ? 0 : (minWRaw ?? 0)}
-        mixed={isMixed(minWRaw)}
-        min={0}
-        disabled={widthIsFixed}
-        draftKey={`${draftKey}:min-width`}
-        onChange={setSelectedMinWidth}
-      />
-      <button type="button" className="insp-btn insp-btn--compact" onClick={clearSelectedMinWidth}>
-        Clear min W
-      </button>
-      <NumberField
-        label="Max W"
-        unit="px"
-        value={isMixed(maxWRaw) ? 0 : (maxWRaw ?? 0)}
-        mixed={isMixed(maxWRaw)}
-        min={0}
-        disabled={widthIsFixed}
-        draftKey={`${draftKey}:max-width`}
-        onChange={setSelectedMaxWidth}
-      />
-      <button type="button" className="insp-btn insp-btn--compact" onClick={clearSelectedMaxWidth}>
-        Clear max W
-      </button>
-      <NumberField
-        label="Min H"
-        unit="px"
-        value={isMixed(minHRaw) ? 0 : (minHRaw ?? 0)}
-        mixed={isMixed(minHRaw)}
-        min={0}
-        disabled={heightIsFixed}
-        draftKey={`${draftKey}:min-height`}
-        onChange={setSelectedMinHeight}
-      />
-      <button type="button" className="insp-btn insp-btn--compact" onClick={clearSelectedMinHeight}>
-        Clear min H
-      </button>
-      <NumberField
-        label="Max H"
-        unit="px"
-        value={isMixed(maxHRaw) ? 0 : (maxHRaw ?? 0)}
-        mixed={isMixed(maxHRaw)}
-        min={0}
-        disabled={heightIsFixed}
-        draftKey={`${draftKey}:max-height`}
-        onChange={setSelectedMaxHeight}
-      />
-      <button type="button" className="insp-btn insp-btn--compact" onClick={clearSelectedMaxHeight}>
-        Clear max H
-      </button>
+      <InspectorFieldGroup columns={2}>
+        <NumberField
+          label="Min W"
+          unit="px"
+          value={isMixed(minWRaw) ? 0 : (minWRaw ?? 0)}
+          mixed={isMixed(minWRaw)}
+          min={0}
+          disabled={widthIsFixed}
+          draftKey={`${draftKey}:min-width`}
+          onChange={setSelectedMinWidth}
+        />
+        <NumberField
+          label="Max W"
+          unit="px"
+          value={isMixed(maxWRaw) ? 0 : (maxWRaw ?? 0)}
+          mixed={isMixed(maxWRaw)}
+          min={0}
+          disabled={widthIsFixed}
+          draftKey={`${draftKey}:max-width`}
+          onChange={setSelectedMaxWidth}
+        />
+      </InspectorFieldGroup>
+      {(minWRaw != null || maxWRaw != null) && (
+        <div style={{ display: 'flex', gap: 'var(--space-1)', justifyContent: 'flex-end' }}>
+          {minWRaw != null && (
+            <button
+              type="button"
+              className="insp-btn insp-btn--compact"
+              onClick={clearSelectedMinWidth}
+              aria-label="Clear min width"
+            >
+              Clear min W
+            </button>
+          )}
+          {maxWRaw != null && (
+            <button
+              type="button"
+              className="insp-btn insp-btn--compact"
+              onClick={clearSelectedMaxWidth}
+              aria-label="Clear max width"
+            >
+              Clear max W
+            </button>
+          )}
+        </div>
+      )}
+      <InspectorFieldGroup columns={2}>
+        <NumberField
+          label="Min H"
+          unit="px"
+          value={isMixed(minHRaw) ? 0 : (minHRaw ?? 0)}
+          mixed={isMixed(minHRaw)}
+          min={0}
+          disabled={heightIsFixed}
+          draftKey={`${draftKey}:min-height`}
+          onChange={setSelectedMinHeight}
+        />
+        <NumberField
+          label="Max H"
+          unit="px"
+          value={isMixed(maxHRaw) ? 0 : (maxHRaw ?? 0)}
+          mixed={isMixed(maxHRaw)}
+          min={0}
+          disabled={heightIsFixed}
+          draftKey={`${draftKey}:max-height`}
+          onChange={setSelectedMaxHeight}
+        />
+      </InspectorFieldGroup>
+      {(minHRaw != null || maxHRaw != null) && (
+        <div style={{ display: 'flex', gap: 'var(--space-1)', justifyContent: 'flex-end' }}>
+          {minHRaw != null && (
+            <button
+              type="button"
+              className="insp-btn insp-btn--compact"
+              onClick={clearSelectedMinHeight}
+              aria-label="Clear min height"
+            >
+              Clear min H
+            </button>
+          )}
+          {maxHRaw != null && (
+            <button
+              type="button"
+              className="insp-btn insp-btn--compact"
+              onClick={clearSelectedMaxHeight}
+              aria-label="Clear max height"
+            >
+              Clear max H
+            </button>
+          )}
+        </div>
+      )}
       {(widthIsFixed || heightIsFixed) && (
         <p className="insp-panel__color-mode-note" role="note">
           Fixed axes keep their constraints for later mode changes, but the bounds are inactive

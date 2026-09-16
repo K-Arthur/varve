@@ -161,3 +161,68 @@ active mask type so an enabled mask cannot be invisible.
   layers" action and its expand-more pagination.
 - Crop & Bounds keeps all five aspect presets plus its Trim/Protect/Expand
   subsections; only the preset row's wrapping changed.
+
+## 5. Fill Section: Opacity, Reordering, and Blend Modes
+
+### 5.1 The unscrubbable opacity trap
+In previous iterations, the Fill row used `hideLabel: true` on its opacity `NumberField`.
+In `NumberField.tsx`, when `hideLabel` is enabled, the `<label>` is given class
+`varve-visually-hidden`, and pointer events are stripped (`onPointerDown={disabled || hideLabel ? undefined : handleLabelPointerDown}`).
+This led to two major user complaints commonly heard in design tools:
+1. "I can't tell what this 100% number box does without hovering or typing."
+2. "Dragging to scrub opacity doesn't work on the fill row."
+
+**Solution:** Replace `hideLabel` with `displayLabel="Op"`. The visible label displays a compact
+"Op" prefix with `cursor: ew-resize`, activating horizontal scrub gestures. The underlying
+accessible name remains `Fill opacity (%)`, ensuring zero regression for screen readers
+and automated test assertions (`findByLabelText('Fill opacity (%)')`).
+
+### 5.2 Multi-fill reordering without drag drop misplacement
+In tools like Figma and Sketch, reordering fills requires dragging tiny 24px rows. Users
+frequently complain about misplacement, jerky drop indicators, and accessibility failure
+("reordering small inspector rows with a mouse is error prone and impossible with a keyboard").
+In Varve, reordering had previously been buried under `... > Move fill up` / `Move fill down`,
+requiring 6+ clicks across menu open/close cycles to reorder a 3-layer fill stack.
+
+**Solution:** When `totalFills > 1`, render accessible direct reorder buttons (`ChevronUp` /
+`ChevronDown`) directly within the paint row. They feature boundary disabled states (top cannot
+move up, bottom cannot move down) and announce reordering actions (`Fill reordered`) to screen
+readers. When `totalFills === 1`, the reorder buttons are omitted, keeping the single-fill row
+clean and uncluttered.
+
+### 5.3 Surfacing blend modes when multiple fills interact
+When an object has a single fill, layer-level blend mode governs its appearance. However, when
+a designer adds a secondary fill (e.g. gradient overlay or texture pattern), adjusting the blend
+mode of each fill layer is essential. Previously, the blend chip was only rendered when non-normal
+or mixed (`blendIsMixed || blendValue !== 'normal'`). A user adding a new fill layer was met with
+no visible blend mode control at all unless they discovered it buried in `... > Submenu > 19 items`.
+
+**Solution:** Render the compact blend mode chip whenever `totalFills > 1 || blendIsMixed || blendValue !== 'normal'`.
+In multi-fill stacks, each fill displays its blend mode chip (`Normal ▾`, `Multiply ▾`), opening the
+blend mode menu in 1 click. When a single fill uses `normal`, the chip remains hidden to reduce clutter.
+
+### 5.4 1-click removal in multi-fill stacks
+When pruning multi-fill stacks, digging through `... > Remove fill` for every layer was tedious.
+When `totalFills > 1`, a direct `X` icon button is provided beside the actions menu trigger.
+
+## 6. Layout and Table Section De-cluttering
+
+### 6.1 Layout: Grow/Shrink and Fluid Clamp Sizing
+- **Flex Grow / Shrink:** Replaced raw unstyled HTML `<input className="insp-select">` with
+  paired `<NumberField>` components inside `<InspectorFieldGroup columns={2}>`, saving a full row
+  and restoring numeric scrubbing and keyboard step handling.
+- **Min/Max Fluid Bounds:** Paired `[Min W] [Max W]` and `[Min H] [Max H]` into 2-column tracks.
+  Replaced 4 full-width standalone "Clear" text buttons with compact conditional clear actions
+  rendered only when bounds are set, eliminating 4 unnecessary vertical rows from the default view.
+
+### 6.2 Table: Tabular Dimensions Pairing
+In `TableSection.tsx`, 8 full-width single-value rows were paired into 4 two-column groups using
+`<InspectorFieldGroup columns={2}>`:
+1. `Header rows` + `Header columns`
+2. `Frozen rows` + `Frozen columns`
+3. `Row gap` + `Column gap`
+4. `Border width` + `Corner radius`
+
+This clusters related horizontal/vertical tabular dimensions together as standard desktop controls,
+cutting vertical inspector height in half while preserving all labels and validation.
+

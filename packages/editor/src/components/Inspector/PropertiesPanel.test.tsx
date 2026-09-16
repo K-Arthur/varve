@@ -309,16 +309,14 @@ describe('PropertiesPanel section gating for a real single selection', () => {
     await renderPanelWithSelectedFrame();
     expect(screen.getByRole('tab', { name: 'Prototype' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Align & distribute' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Align to page' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /align to page/i })).toBeEnabled();
   });
 
   it('exposes page alignment for a selected object and enables it when requested', async () => {
     await renderPanelWithSelectedRect();
     const alignLeft = screen.getByRole('button', { name: 'Align left edges' });
-    expect(alignLeft).toBeDisabled();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Align to page' }));
-    await waitFor(() => expect(alignLeft).toBeEnabled());
+    expect(alignLeft).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Align to page (active)' })).toBeEnabled();
   });
 
   it('surfaces child layout controls for multiple flow children in one auto-layout frame', async () => {

@@ -27,7 +27,7 @@ import { Switch } from '@varve/ui';
 import { useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
-import { FieldRow } from '../controls/FieldRow';
+import { FieldRow, InspectorFieldGroup } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
 import { SegmentedControl, type SegmentedOption } from '../controls/SegmentedControl';
 import { TableAppearanceSection } from './TableAppearanceSection';
@@ -118,41 +118,46 @@ export function TableSection({ node }: Props) {
         </div>
       ))}
 
-      <NumberField
-        label="Header rows"
-        value={table.headerRows}
-        step={1}
-        min={0}
-        max={rowCount}
-        onChange={(v) => op((t) => setHeaderRows(t, v))}
-      />
-      <NumberField
-        label="Header columns"
-        labelWrap
-        value={table.headerColumns}
-        step={1}
-        min={0}
-        max={columnCount}
-        onChange={(v) => op((t) => setHeaderColumns(t, v))}
-      />
-      <NumberField
-        label="Frozen rows"
-        labelWrap
-        value={table.frozenRows}
-        step={1}
-        min={0}
-        max={rowCount}
-        onChange={(v) => op((t) => setFrozenRows(t, v))}
-      />
-      <NumberField
-        label="Frozen columns"
-        labelWrap
-        value={table.frozenColumns}
-        step={1}
-        min={0}
-        max={columnCount}
-        onChange={(v) => op((t) => setFrozenColumns(t, v))}
-      />
+      <InspectorFieldGroup columns={2}>
+        <NumberField
+          label="Header rows"
+          labelWrap
+          value={table.headerRows}
+          step={1}
+          min={0}
+          max={rowCount}
+          onChange={(v) => op((t) => setHeaderRows(t, v))}
+        />
+        <NumberField
+          label="Header columns"
+          labelWrap
+          value={table.headerColumns}
+          step={1}
+          min={0}
+          max={columnCount}
+          onChange={(v) => op((t) => setHeaderColumns(t, v))}
+        />
+      </InspectorFieldGroup>
+      <InspectorFieldGroup columns={2}>
+        <NumberField
+          label="Frozen rows"
+          labelWrap
+          value={table.frozenRows}
+          step={1}
+          min={0}
+          max={rowCount}
+          onChange={(v) => op((t) => setFrozenRows(t, v))}
+        />
+        <NumberField
+          label="Frozen columns"
+          labelWrap
+          value={table.frozenColumns}
+          step={1}
+          min={0}
+          max={columnCount}
+          onChange={(v) => op((t) => setFrozenColumns(t, v))}
+        />
+      </InspectorFieldGroup>
       <FieldRow label="Density">
         <SegmentedControl
           label="Density"
@@ -168,20 +173,22 @@ export function TableSection({ node }: Props) {
           onChange={(e) => op((t) => setZebra(t, e.target.checked))}
         />
       </FieldRow>
-      <NumberField
-        label="Row gap"
-        value={table.appearance.rowGap}
-        step={1}
-        min={0}
-        onChange={(v) => op((t) => setAppearance(t, { rowGap: v }))}
-      />
-      <NumberField
-        label="Column gap"
-        value={table.appearance.columnGap}
-        step={1}
-        min={0}
-        onChange={(v) => op((t) => setAppearance(t, { columnGap: v }))}
-      />
+      <InspectorFieldGroup columns={2}>
+        <NumberField
+          label="Row gap"
+          value={table.appearance.rowGap}
+          step={1}
+          min={0}
+          onChange={(v) => op((t) => setAppearance(t, { rowGap: v }))}
+        />
+        <NumberField
+          label="Column gap"
+          value={table.appearance.columnGap}
+          step={1}
+          min={0}
+          onChange={(v) => op((t) => setAppearance(t, { columnGap: v }))}
+        />
+      </InspectorFieldGroup>
       <FieldRow label="Border mode">
         <SegmentedControl
           label="Border mode"
@@ -193,20 +200,24 @@ export function TableSection({ node }: Props) {
           onChange={(v) => op((t) => setAppearance(t, { borderCollapse: v }))}
         />
       </FieldRow>
-      <NumberField
-        label="Border width"
-        value={table.appearance.borderWidth}
-        step={1}
-        min={0}
-        onChange={(v) => op((t) => setAppearance(t, { borderWidth: v }))}
-      />
-      <NumberField
-        label="Corner radius"
-        value={table.appearance.cornerRadius}
-        step={1}
-        min={0}
-        onChange={(v) => op((t) => setAppearance(t, { cornerRadius: v }))}
-      />
+      <InspectorFieldGroup columns={2}>
+        <NumberField
+          label="Border width"
+          labelWrap
+          value={table.appearance.borderWidth}
+          step={1}
+          min={0}
+          onChange={(v) => op((t) => setAppearance(t, { borderWidth: v }))}
+        />
+        <NumberField
+          label="Corner radius"
+          labelWrap
+          value={table.appearance.cornerRadius}
+          step={1}
+          min={0}
+          onChange={(v) => op((t) => setAppearance(t, { cornerRadius: v }))}
+        />
+      </InspectorFieldGroup>
       <FieldRow label="Distribute columns" wrapLabel>
         <button
           type="button"

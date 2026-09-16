@@ -1086,10 +1086,84 @@
 /* Fixed slot: "100 %" or "12 px" must stay readable while the type select
  * absorbs narrow rails (it ellipsizes). Three digits need less than the
  * general field minimum, which leaves room for the visible unit. */
-.insp-paint-row__opacity,
+.insp-paint-row__opacity {
+  flex: 0 0 5.25rem;
+  min-width: 5.25rem;
+}
+
 .insp-paint-row__weight {
   flex: 0 0 4.5rem;
   min-width: 4.5rem;
+}
+
+.insp-paint-row__reorder {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  flex: 0 0 auto;
+}
+
+.insp-paint-row__reorder-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 0.8125rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control-compact, 2px);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  line-height: 1;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
+}
+
+.insp-paint-row__reorder-btn:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.insp-paint-row__reorder-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+.insp-paint-row__reorder-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+
+.insp-paint-row__remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-control-compact, 4px);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  flex: 0 0 auto;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
+}
+
+.insp-paint-row__remove-btn:hover {
+  background: var(--color-feedback-danger-subtle, rgba(214, 69, 69, 0.12));
+  color: var(--color-feedback-danger, #d64545);
+}
+
+.insp-paint-row__remove-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
 }
 
 /* High-contrast: make the card borders more visible. */
@@ -2261,6 +2335,11 @@
 .insp-blend-chip:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
+}
+.insp-blend-chip--active {
+  border-color: var(--color-interactive-default, #39d0c6);
+  color: var(--color-text-primary);
+  background: var(--color-interactive-subtle, rgba(57, 208, 198, 0.12));
 }
 
 /* Add new fill controls */
@@ -5553,6 +5632,18 @@ fieldset.insp-canvas-props,
 .insp-field--stacked .insp-field__label {
   min-height: 0;
   cursor: default;
+}
+
+.insp-paint-row__opacity .insp-field {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-1);
+}
+
+.insp-paint-row__opacity .insp-field__label {
+  min-width: 1.125rem;
+  padding: 0 2px;
+  font-size: var(--insp-label-size, var(--font-size-2xs));
+  cursor: ew-resize;
 }
 
 .insp-field__control {

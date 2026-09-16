@@ -252,8 +252,9 @@ export function FillSection({ nodes }: FillSectionProps) {
       beginTransaction();
       reorderSelectedFill(from, to);
       commitTransaction();
+      announce('Fill reordered');
     },
-    [beginTransaction, commitTransaction, reorderSelectedFill],
+    [announce, beginTransaction, commitTransaction, reorderSelectedFill],
   );
 
   const addMenuItems = useMemo(
@@ -304,6 +305,7 @@ export function FillSection({ nodes }: FillSectionProps) {
             // biome-ignore lint/suspicious/noArrayIndexKey: fill rows have no stable id in the document model; index identifies the slot
             key={i}
             index={i}
+            totalFills={fills.length}
             fill={fill}
             nodes={nodes}
             onChange={(f) => updateFill(i, f)}
@@ -378,6 +380,7 @@ export function FillSection({ nodes }: FillSectionProps) {
 
 interface FillRowProps {
   index: number;
+  totalFills: number;
   fill: Fill;
   nodes: SceneNode[];
   onChange: (fill: Fill) => void;
@@ -395,6 +398,7 @@ interface FillRowProps {
 
 function FillRow({
   index,
+  totalFills,
   fill,
   nodes,
   onChange,
@@ -744,7 +748,7 @@ function FillRow({
               percentage like layer opacity. Convert only at this boundary. */}
           <NumberField
             label={`${label} opacity`}
-            hideLabel
+            displayLabel="Op"
             value={isMixed(opacityRaw) ? 100 : Math.round(opacityRaw * 1000) / 10}
             mixed={isMixed(opacityRaw)}
             unit="%"
@@ -755,6 +759,41 @@ function FillRow({
             onChange={(v) => patch({ opacity: Math.min(1, Math.max(0, v / 100)) })}
           />
         </div>
+        {totalFills > 1 && (
+          <div className="insp-paint-row__reorder">
+            <button
+              type="button"
+              className="insp-paint-row__reorder-btn"
+              aria-label={`Move ${label.toLowerCase()} up`}
+              title={`Move ${label.toLowerCase()} up`}
+              disabled={!canMoveUp}
+              onClick={() => onReorder(-1)}
+            >
+              <Icon name="ChevronUp" size="0.75em" />
+            </button>
+            <button
+              type="button"
+              className="insp-paint-row__reorder-btn"
+              aria-label={`Move ${label.toLowerCase()} down`}
+              title={`Move ${label.toLowerCase()} down`}
+              disabled={!canMoveDown}
+              onClick={() => onReorder(1)}
+            >
+              <Icon name="ChevronDown" size="0.75em" />
+            </button>
+          </div>
+        )}
+        {totalFills > 1 && (
+          <button
+            type="button"
+            className="insp-paint-row__remove-btn"
+            aria-label={`Remove ${label.toLowerCase()}`}
+            title={`Remove ${label.toLowerCase()}`}
+            onClick={onRemove}
+          >
+            <Icon name="X" size="0.75em" />
+          </button>
+        )}
         <button
           type="button"
           ref={actionsTriggerRef}
@@ -831,14 +870,14 @@ function FillRow({
       )}
 
       {/* A per-fill blend mode duplicates the layer-level Appearance row when
-          it is the default. Surface a compact chip only when it differs, and
-          keep the full list one click away in the row menu's submenu. */}
-      {(blendIsMixed || blendValue !== 'normal') && (
+          it is the default for a single fill. When multiple fills exist, or when
+          the blend differs from normal, surface a compact chip for 1-click access. */}
+      {(totalFills > 1 || blendIsMixed || blendValue !== 'normal') && (
         <div className="insp-fill-row__properties">
           <button
             ref={blendTriggerRef}
             type="button"
-            className="insp-blend-chip"
+            className={`insp-blend-chip${blendValue !== 'normal' ? ' insp-blend-chip--active' : ''}`}
             aria-haspopup="menu"
             aria-expanded={blendMenuOpen}
             aria-label={`${label} blend mode: ${blendIsMixed ? 'Mixed' : blendLabel}`}
