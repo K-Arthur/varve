@@ -70,7 +70,9 @@ Two browser workflow lanes complement the native run:
   Generate control is disabled, and the user-visible reason explains the
   desktop/provider boundary. The previous browser generation run was retained
   as rejected evidence because its 1664x1272 output showed edge striping;
-  `real-landscape-expand-unavailable.png` is the current boundary capture.
+  `tests/e2e/fixtures/generative-evidence/expand-2026-09-13/real-landscape-expand-unavailable.png`
+  is the current boundary capture; its SHA-256 is recorded in the evidence
+  manifest.
 - The promptless reconstruction warning is visible in the review footer, so
   the provider boundary is disclosed at acceptance time.
 - `tests/e2e/caf/caf.spec.ts` drives the real Remove workflow on the same
