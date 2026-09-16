@@ -3040,13 +3040,11 @@ fn valid_generation_request_id(request_id: &str) -> bool {
 }
 
 fn resolve_generative_helper(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
-    if let Some(path) = std::env::var_os("VARVE_GENERATIVE_HELPER") {
-        let path = std::path::PathBuf::from(path);
-        if path.is_file() {
-            return Ok(path);
-        }
-        return Err("Configured generative helper does not exist".into());
-    }
+    // The helper is part of the trusted desktop runtime boundary. Do not
+    // accept an arbitrary executable path from an environment variable or
+    // renderer payload: that would turn the native command into a local code
+    // execution hook. Development builds use the exact Cargo target path
+    // below, while packaged builds use the bundled resource path.
     let file_name = if cfg!(target_os = "windows") {
         "varve-generative-helper.exe"
     } else {
