@@ -48,3 +48,22 @@ LayersPanel-owned paths.
    before/after screenshots.
 4. Docs updated (audit + architecture + user-facing help where applicable).
 5. Marketing website copy checked/updated against actual behavior.
+
+## Status: complete (2026-09-15 session)
+
+Audit and evidence: `docs/audits/layers-panel-review-2026-09-15.md`.
+Harness: `tests/e2e/layers/layers-panel-real-world.spec.ts` (13 tests) with
+`layers-mobile-app.svg`, `layers-stress-board.svg`, and a real photograph.
+
+Commits (master): `d5ab74313` context-menu state-awareness + arrange parity;
+`034e57cd2` filter-chip labels and toggle semantics; `a65eadbdc` token/target/
+focus repairs + selection-set semantics; `9b7dab01c` layer-state semantics;
+`4860015be` SVG authored layer names; `0f1be321c` docs + website copy;
+`110f97653` bulk-bar containment, menu viewport cap, real-world harness and
+two spec repairs; plus test/docs follow-ups.
+
+**Scope is free.** Remaining follow-ups (not blocking, recorded in the
+audit): remove the stale `.layers-row__media-badge` rule from `editor.css`
+when that file has a single owner; refresh the two stale
+`effect-stack-transfer` screenshot baselines at the integration checkpoint;
+run the DnD trio / `layer-workflows` specs in the combined gate.
