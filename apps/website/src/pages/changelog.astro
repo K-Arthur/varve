@@ -188,7 +188,10 @@ const pageDescription = 'Version history and release notes for Varve. See what c
                   <path d="M4 6l4 4 4-4" />
                 </svg>
               </span>
-              Show {olderReleases.length} older release{olderReleases.length !== 1 ? 's' : ''}
+              {/* The label reflects the state so it never says "Show" while
+                  the releases are visible. CSS hides the unused form; no JS. */}
+              <span class="changelog-older-label-show">Show {olderReleases.length} older release{olderReleases.length !== 1 ? 's' : ''}</span>
+              <span class="changelog-older-label-hide">Hide {olderReleases.length} older release{olderReleases.length !== 1 ? 's' : ''}</span>
             </summary>
             <ol class="changelog-timeline changelog-timeline-nested" reversed>
               {olderReleases.map((rel) => {
@@ -710,6 +713,30 @@ const pageDescription = 'Version history and release notes for Varve. See what c
 
   .changelog-older[open] .changelog-older-icon {
     transform: rotate(180deg);
+  }
+
+  .changelog-older-label-hide {
+    display: none;
+  }
+  .changelog-older[open] .changelog-older-label-show {
+    display: none;
+  }
+  .changelog-older[open] .changelog-older-label-hide {
+    display: inline;
+  }
+
+  /* Print: the older releases are content, so a printed changelog includes
+   * them rather than a closed disclosure (see faq.astro). */
+  @media print {
+    .changelog-older::details-content {
+      content-visibility: visible;
+    }
+    .changelog-older > ol {
+      display: block;
+    }
+    .changelog-older-icon {
+      display: none;
+    }
   }
 
   .changelog-timeline-nested {

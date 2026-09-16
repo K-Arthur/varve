@@ -12,6 +12,10 @@ const releaseDateStr = release.releaseDate
 // FAQPage structured data: mirrors the visible Q&As so answer engines can
 // extract and cite them. Keep the answers here in sync with the markup below —
 // the questions are duplicated by design (schema + visible content).
+//
+// Note: Google retired FAQ rich results from Search on 2026-05-07, so this is
+// not a results-dropdown mechanism anymore. It is retained for answer engines
+// and AI citation, and `faqParity.test.ts` guards question-level drift.
 const faqSchema = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
@@ -189,7 +193,7 @@ const breadcrumbSchema = {
             <span class="faq-item__chevron" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            Is Varve free?
+            <h3 class="faq-item__question-text">Is Varve free?</h3>
           </summary>
           <div class="faq-item__answer">
             <p>Yes, the Varve Community Edition is free to download and use, and it stays free. There are no subscriptions, no feature lockouts, and no cloud requirements. The source code is available on <a href="https://github.com/K-Arthur/varve">GitHub</a>. If a paid Pro edition ever exists, it will be a separate product — it will never be this one.</p>
@@ -201,7 +205,7 @@ const breadcrumbSchema = {
             <span class="faq-item__chevron" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            Does Varve work offline?
+            <h3 class="faq-item__question-text">Does Varve work offline?</h3>
           </summary>
           <div class="faq-item__answer">
             <p>Yes. Core editing works fully offline with no account required. Optional network features — model downloads, additional font downloads, update checks, and user-configured cloud providers — are each explicit and user-controlled. See the <a href={sitePath('/about/privacy')}>privacy policy</a> for details. In the browser demo, offline operation requires one complete online visit first.</p>
@@ -213,7 +217,7 @@ const breadcrumbSchema = {
             <span class="faq-item__chevron" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            Can I use Varve in a browser?
+            <h3 class="faq-item__question-text">Can I use Varve in a browser?</h3>
           </summary>
           <div class="faq-item__answer">
             <p>
@@ -235,7 +239,7 @@ const breadcrumbSchema = {
             <span class="faq-item__chevron" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            How do updates work?
+            <h3 class="faq-item__question-text">How do updates work?</h3>
           </summary>
           <div class="faq-item__answer">
             <p>
@@ -257,7 +261,7 @@ const breadcrumbSchema = {
             <span class="faq-item__chevron" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            Does checking for updates send my documents anywhere?
+            <h3 class="faq-item__question-text">Does checking for updates send my documents anywhere?</h3>
           </summary>
           <div class="faq-item__answer">
             <p>No. An update check sends only your current version, platform, architecture and release channel to Varve's release endpoint. No account, document data, machine identifier or device fingerprint is transmitted, and update consent is separate from any analytics or diagnostics consent.</p>
@@ -269,7 +273,7 @@ const breadcrumbSchema = {
             <span class="faq-item__chevron" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            What platforms does Varve support?
+            <h3 class="faq-item__question-text">What platforms does Varve support?</h3>
           </summary>
           <div class="faq-item__answer">
             <p>Varve publishes Linux x86_64 and ARM64 (aarch64) packages (AppImage, deb, rpm), Apple Silicon macOS builds, and Windows x86_64 and ARM64 installers. There is no Intel macOS build: Varve's on-device AI runs on the ONNX Runtime, whose upstream discontinued macOS Intel binaries in February 2026, and Apple has ended new Intel macOS support — a deliberate dependency constraint, not an oversight.</p>
@@ -281,7 +285,7 @@ const breadcrumbSchema = {
             <span class="faq-item__chevron" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            Has Varve shipped a release yet?
+            <h3 class="faq-item__question-text">Has Varve shipped a release yet?</h3>
           </summary>
           <div class="faq-item__answer">
             <p>Yes. The latest published application release is Varve {releaseVersion}, released in {releaseDateStr}. Published installers cover Linux (x86_64 and ARM64: AppImage, deb, rpm), macOS (Apple Silicon), and Windows (x86_64 and ARM64). It is public beta software: expect bugs, incomplete tools, and a document format that may still change. See the <a href={sitePath('/download')}>download page</a> for checksums and the <a href={sitePath('/releases')}>release notes</a> for what changed. Downloads labeled "Varve" anywhere other than the official GitHub repository are not official.
@@ -294,7 +298,7 @@ const breadcrumbSchema = {
             <span class="faq-item__chevron" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            What does FSL-1.1-MIT mean?
+            <h3 class="faq-item__question-text">What does FSL-1.1-MIT mean?</h3>
           </summary>
           <div class="faq-item__answer">
             <p>FSL-1.1-MIT (Functional Source License, Version 1.1, MIT Future License) is a source-available license. You can use, modify, and redistribute Varve for any Permitted Purpose — anything other than a Competing Use, such as offering a substitute product or hosted service. After two years, each release converts to the MIT license. See the <a href={sitePath('/about/license')}>license page</a> for details.</p>
@@ -306,7 +310,7 @@ const breadcrumbSchema = {
             <span class="faq-item__chevron" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            Is Varve open source?
+            <h3 class="faq-item__question-text">Is Varve open source?</h3>
           </summary>
           <div class="faq-item__answer">
             <p>The source code is publicly available, but Varve is licensed under FSL-1.1-MIT, which is a source-available (not OSI-approved open-source) license. After two years from each release, the code converts to the MIT license and becomes fully open-source. See the <a href={sitePath('/about/license')}>license page</a> for the reasoning behind this choice.</p>
@@ -322,7 +326,7 @@ const breadcrumbSchema = {
             <span class="faq-item__chevron" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            Does Varve have real-time collaboration?
+            <h3 class="faq-item__question-text">Does Varve have real-time collaboration?</h3>
           </summary>
           <div class="faq-item__answer">
             <p>Not yet. Collaboration features are currently UI scaffolding only with no transport or wire protocol. This is planned for future development.</p>
@@ -334,7 +338,7 @@ const breadcrumbSchema = {
             <span class="faq-item__chevron" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            Can I use Varve for professional print work?
+            <h3 class="faq-item__question-text">Can I use Varve for professional print work?</h3>
           </summary>
           <div class="faq-item__answer">
             <p>Varve has CMYK color management, ICC profiles, PDF/X-1a and PDF/X-4 export, crop marks, color bars, and print preflight checks. However, Varve is in beta — test thoroughly before using for critical print production. See the <a href={sitePath('/features/color-effects')}>Color & Effects</a> page for current status.</p>
@@ -346,7 +350,7 @@ const breadcrumbSchema = {
             <span class="faq-item__chevron" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            Does Varve support ARM processors?
+            <h3 class="faq-item__question-text">Does Varve support ARM processors?</h3>
           </summary>
           <div class="faq-item__answer">
             <p>Yes. Apple Silicon (ARM64) on macOS, Linux ARM64, and Windows ARM64 are all published as native builds. Use the architecture-labeled download on the <a href={sitePath('/download')}>download page</a> — do not install an x86_64 build by assumption on ARM hardware.</p>
@@ -358,7 +362,7 @@ const breadcrumbSchema = {
             <span class="faq-item__chevron" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            What export formats does Varve support?
+            <h3 class="faq-item__question-text">What export formats does Varve support?</h3>
           </summary>
           <div class="faq-item__answer">
             <p>Varve exports to SVG, React/Tailwind, React/CSS-Modules, Flutter, SwiftUI, and PDF with CMYK support. See the <a href={sitePath('/features/export')}>Export & Code Generation</a> page for details.</p>
@@ -375,7 +379,7 @@ const breadcrumbSchema = {
             <span class="faq-item__chevron" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            Who develops Varve?
+            <h3 class="faq-item__question-text">Who develops Varve?</h3>
           </summary>
           <div class="faq-item__answer">
             <p>Varve is built by one designer-developer independently. See the <a href={sitePath('/about')}>About page</a> for the full story.</p>
@@ -387,7 +391,7 @@ const breadcrumbSchema = {
             <span class="faq-item__chevron" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            How can I contribute?
+            <h3 class="faq-item__question-text">How can I contribute to Varve?</h3>
           </summary>
           <div class="faq-item__answer">
             <p>You can contribute code, documentation, testing, or design. See the <a href={sitePath('/contribute')}>contribution guidelines</a> for details. Non-financial contributions are equally valuable to financial support.</p>
@@ -399,7 +403,7 @@ const breadcrumbSchema = {
             <span class="faq-item__chevron" aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
-            How can I support the project financially?
+            <h3 class="faq-item__question-text">How can I support the project financially?</h3>
           </summary>
           <div class="faq-item__answer">
             <p>Varve accepts financial support via GitHub Sponsors. See the <a href={sitePath('/support-project')}>Support Project</a> page for sponsorship tiers and what support enables.</p>
@@ -471,6 +475,15 @@ const breadcrumbSchema = {
     list-style: none;
     line-height: 1.4;
   }
+  /* The question is a real heading so screen-reader heading navigation finds
+   * every FAQ entry (APG accordion pattern). `display: inline` keeps it on the
+   * summary's text baseline instead of introducing a block box. */
+  .faq-item__question-text {
+    display: inline;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+  }
   .faq-item__question::-webkit-details-marker,
   .faq-item__question::marker {
     display: none;
@@ -490,7 +503,7 @@ const breadcrumbSchema = {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    color: var(--text-muted, #888);
+    color: var(--text-muted);
     transition: transform 0.2s ease;
   }
   .faq-item[open] .faq-item__chevron {
@@ -528,5 +541,24 @@ const breadcrumbSchema = {
   
   .faq-cta p {
     color: var(--text-secondary);
+  }
+
+  /* Print: a printed FAQ must contain every answer, not only the open ones.
+   * `<details>` keeps closed content in the DOM, so this is a pure CSS reveal
+   * with no JavaScript and no state change. */
+  @media print {
+    .faq-item {
+      break-inside: avoid;
+      background: none;
+    }
+    .faq-item::details-content {
+      content-visibility: visible;
+    }
+    .faq-item > .faq-item__answer {
+      display: block;
+    }
+    .faq-item__chevron {
+      display: none;
+    }
   }
 </style>

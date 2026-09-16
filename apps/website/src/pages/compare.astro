@@ -229,7 +229,7 @@ const faqSchema = {
                 <span class="faq-item__chevron" aria-hidden="true">
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </span>
-                {q}
+                <h3 class="faq-item__question-text">{q}</h3>
               </summary>
               <div class="faq-item__answer">
                 <p>{a}</p>
@@ -397,6 +397,13 @@ const faqSchema = {
     display: none;
     content: '';
   }
+  /* Real heading so screen-reader heading navigation reaches every question. */
+  .faq-item__question-text {
+    display: inline;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+  }
   .faq-item__question:hover {
     color: var(--text-link);
   }
@@ -411,7 +418,7 @@ const faqSchema = {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    color: var(--text-muted, #888);
+    color: var(--text-muted);
     transition: transform 0.2s ease;
   }
   .faq-item[open] .faq-item__chevron {
@@ -428,6 +435,22 @@ const faqSchema = {
     padding: 0 0 1rem 1.75rem;
     color: var(--text-secondary);
     line-height: 1.7;
+  }
+
+  /* Print: reveal every answer, not only the open ones (see faq.astro). */
+  @media print {
+    .faq-item {
+      break-inside: avoid;
+    }
+    .faq-item::details-content {
+      content-visibility: visible;
+    }
+    .faq-item > .faq-item__answer {
+      display: block;
+    }
+    .faq-item__chevron {
+      display: none;
+    }
   }
 
   .compare-table-wrap {
