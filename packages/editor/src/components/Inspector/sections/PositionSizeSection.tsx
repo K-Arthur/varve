@@ -19,7 +19,7 @@
 import type { FrameNode, SceneNode } from '@varve/scene';
 import { getParent, isExportRegion } from '@varve/scene';
 import { decomposeAffineFull, formatCoordForRuler } from '@varve/shared';
-import { Tooltip, TooltipProvider } from '@varve/ui';
+import { Icon, Tooltip, TooltipProvider } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
@@ -448,46 +448,14 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                   onChange={() => setLocked((p) => !p)}
                   aria-label="Constrain proportions"
                 />
-                {locked ? (
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                    className="insp-proportion-icon"
-                    style={{
-                      color: 'var(--color-interactive-default)',
-                    }}
-                  >
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                  </svg>
-                ) : (
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                    className="insp-proportion-icon"
-                    style={{
-                      color: 'var(--color-text-muted)',
-                    }}
-                  >
-                    <path d="m18.84 12.25 1.72-1.71a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                    <path d="m5.16 11.75-1.72 1.71a5 5 0 0 0 7.07 7.07l1.72-1.71" />
-                    <line x1="2" y1="2" x2="22" y2="22" />
-                  </svg>
-                )}
+                {/* Linked/unlinked use the Lucide chain pair rather than a
+                    bespoke path, so the slashed state is unmistakable at 14px
+                    (2026-09-15 competitor research: ambiguous lock affordances). */}
+                <Icon
+                  name={locked ? 'Link2' : 'Link2Off'}
+                  size={14}
+                  className={`insp-proportion-icon${locked ? ' insp-proportion-icon--locked' : ''}`}
+                />
               </label>
               <NumberField
                 label="H"

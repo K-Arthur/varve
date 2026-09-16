@@ -9,7 +9,7 @@
 
 import { convertDocumentUnit, type DocumentUnit, type TidyLayoutOptions } from '@varve/shared';
 import { FloatingPortal, NumberInput, Tooltip, TooltipProvider } from '@varve/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import {
   type AlignmentReference,
@@ -349,14 +349,52 @@ export function AlignDistributeBar() {
     keyObjectId && capabilities.eligibleRootIds.includes(keyObjectId) ? keyObjectId : null;
   const gapUnit: DocumentUnit = state.document.documentUnit ?? 'px';
   const displayDistributionGap = convertDocumentUnit(distributionGap, 'px', gapUnit);
+
+  // Progressive disclosure: a single selection can only align to its frame or
+  // the page, so the distribute/gap/key-object/tidy/OBB clusters are omitted
+  // entirely instead of rendering an all-disabled second toolbar (the
+  // "dead toolbar" complaint from the 2026-09-15 competitor research).
+  const showSelectionTarget = capabilities.canAlign;
+  const showContainerTarget = capabilities.canAlignToContainer;
+  const showPageTarget = capabilities.canAlignToPage;
+  const showDistributionCluster = capabilities.canSetGap;
+  const showKeyObject = state.selection.length >= 2 && capabilities.canAlign;
+  const showTidy = capabilities.canTidy;
+  const showObb = state.selection.length >= 2 && capabilities.canAlign;
+
+  // The stored reference can outlive its target (a frame was ungrouped, the
+  // second layer was deselected). Resolve it against live capabilities so the
+  // active segment and the alignment command always agree.
+  const effectiveReference: AlignmentReference = useMemo(() => {
+    if (alignmentReference === 'selection' && !capabilities.canAlign) {
+      return capabilities.canAlignToContainer ? 'container' : 'page';
+    }
+    if (alignmentReference === 'container' && !capabilities.canAlignToContainer) {
+      return capabilities.canAlignToPage ? 'page' : 'selection';
+    }
+    if (alignmentReference === 'page' && !capabilities.canAlignToPage) {
+      return capabilities.canAlignToContainer ? 'container' : 'selection';
+    }
+    return alignmentReference;
+  }, [
+    alignmentReference,
+    capabilities.canAlign,
+    capabilities.canAlignToContainer,
+    capabilities.canAlignToPage,
+  ]);
+
   const canAlign =
-    alignmentReference === 'page'
+    effectiveReference === 'page'
       ? capabilities.canAlignToPage
-      : alignmentReference === 'container'
+      : effectiveReference === 'container'
         ? capabilities.canAlignToContainer
         : capabilities.canAlign;
   const canRunDistribution =
     capabilities.canDistribute || (distributionMode === 'fixedGap' && capabilities.canSetGap);
+  const targetOptionCount =
+    Number(showSelectionTarget) + Number(showContainerTarget) + Number(showPageTarget);
+  const hasTargetOptions = targetOptionCount > 0;
+  const hasAdvancedRow = showKeyObject || hasTargetOptions || showTidy || showObb;
 
   useEffect(() => {
     if (alignToPage) setAlignmentReference('page');
@@ -378,12 +416,12 @@ export function AlignDistributeBar() {
   const doAlign = useCallback(
     (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => {
       if (obbEnabled) {
-        obbAlignSelected(axis, alignmentReference);
+        obbAlignSelected(axis, effectiveReference);
       } else {
-        alignSelected(axis, alignmentReference);
+        alignSelected(axis, effectiveReference);
       }
     },
-    [alignSelected, alignmentReference, obbAlignSelected, obbEnabled],
+    [alignSelected, effectiveReference, obbAlignSelected, obbEnabled],
   );
 
   const handleDistribute = useCallback(
@@ -429,15 +467,13 @@ export function AlignDistributeBar() {
         <h2 id="align-distribute-heading" className="insp-align-section__title">
           Align &amp; distribute
         </h2>
-        {alignmentReference !== 'selection' && (
-          <span
-            className="insp-align-section__target-badge"
-            title={`Aligning to ${alignmentReference}`}
-          >
-            {alignmentReference === 'container' ? 'To Frame' : 'To Page'}
-          </span>
-        )}
       </div>
+      {!showDistributionCluster && (
+        <p className="sr-only">
+          Distribute, gap, tidy up, key object, and oriented bounding box options become available
+          with two or more selected layers.
+        </p>
+      )}
       <TooltipProvider>
         <div className="insp-align-bar" role="toolbar" aria-label="Align and distribute">
           <div className="insp-align-group">
@@ -508,236 +544,264 @@ export function AlignDistributeBar() {
                 <AlignIcon type="alignBottom" />
               </button>
             </Tooltip>
-            <div className="insp-separator" />
-            <Tooltip label="Distribute horizontal spacing">
-              <button
-                type="button"
-                className="pill-group__btn"
-                aria-label="Distribute horizontal spacing"
-                onClick={() => handleDistribute('horizontal')}
-                disabled={!canRunDistribution}
-              >
-                <DistributeIcon type="horizontal" />
-              </button>
-            </Tooltip>
-            <Tooltip label="Distribute vertical spacing">
-              <button
-                type="button"
-                className="pill-group__btn"
-                aria-label="Distribute vertical spacing"
-                onClick={() => handleDistribute('vertical')}
-                disabled={!canRunDistribution}
-              >
-                <DistributeIcon type="vertical" />
-              </button>
-            </Tooltip>
-          </div>
-          <div className="insp-align-options">
-            <Tooltip label="Distribution options">
-              <button
-                type="button"
-                ref={distributionBtnRef}
-                className={`pill-group__btn ${showDistributionMenu ? 'pill-group__btn--active' : ''}`}
-                aria-label="Distribution options"
-                aria-expanded={showDistributionMenu}
-                onClick={() => setShowDistributionMenu((open) => !open)}
-                disabled={!capabilities.canSetGap}
-              >
-                Gap
-              </button>
-            </Tooltip>
-            <FloatingPortal
-              anchorRef={distributionBtnRef}
-              open={showDistributionMenu}
-              kind="popover"
-              placement="bottom-end"
-              fallbackPlacements={['top-end', 'bottom-start', 'top-start']}
-              onClose={() => setShowDistributionMenu(false)}
-              dismissOnEscape
-              initialFocus
-              yieldTabToAnchor
-              className="varve-floating-layer"
-            >
-              <div
-                className="insp-align-popover"
-                role="dialog"
-                aria-label="Distribution options"
-                style={{ position: 'static' }}
-              >
-                <div className="insp-align-popover__header">
-                  <span>Distribution options</span>
+            {showDistributionCluster && (
+              <>
+                <div className="insp-separator" />
+                <Tooltip label="Distribute horizontal spacing">
                   <button
                     type="button"
-                    className="insp-align-popover__close"
-                    aria-label="Close distribution options"
-                    onClick={() => setShowDistributionMenu(false)}
+                    className="pill-group__btn"
+                    aria-label="Distribute horizontal spacing"
+                    onClick={() => handleDistribute('horizontal')}
+                    disabled={!canRunDistribution}
                   >
-                    <CloseIcon />
+                    <DistributeIcon type="horizontal" />
                   </button>
-                </div>
-                <fieldset>
-                  <legend>Spacing mode</legend>
-                  <label>
-                    <input
-                      type="radio"
-                      name="distribution-mode"
-                      checked={distributionMode === 'equalGap'}
-                      onChange={() => setDistributionMode('equalGap')}
-                    />
-                    Equal gaps
-                  </label>
-                  <label>
-                    <input
-                      type="radio"
-                      name="distribution-mode"
-                      checked={distributionMode === 'equalCenter'}
-                      onChange={() => setDistributionMode('equalCenter')}
-                    />
-                    Equal centers
-                  </label>
-                  <label>
-                    <input
-                      type="radio"
-                      name="distribution-mode"
-                      checked={distributionMode === 'fixedGap'}
-                      onChange={() => setDistributionMode('fixedGap')}
-                    />
-                    Fixed gap
-                  </label>
-                </fieldset>
-                {distributionMode === 'fixedGap' && (
-                  <NumberInput
-                    label={`Gap (${gapUnit})`}
-                    value={displayDistributionGap}
-                    min={-99999}
-                    max={99999}
-                    step={1}
-                    onChange={(value) =>
-                      setDistributionGap(convertDocumentUnit(value, gapUnit, 'px'))
-                    }
-                  />
-                )}
-                <p>Negative gaps intentionally overlap items.</p>
-              </div>
-            </FloatingPortal>
+                </Tooltip>
+                <Tooltip label="Distribute vertical spacing">
+                  <button
+                    type="button"
+                    className="pill-group__btn"
+                    aria-label="Distribute vertical spacing"
+                    onClick={() => handleDistribute('vertical')}
+                    disabled={!canRunDistribution}
+                  >
+                    <DistributeIcon type="vertical" />
+                  </button>
+                </Tooltip>
+              </>
+            )}
           </div>
-        </div>
-        <div className="insp-align-bar" role="toolbar" aria-label="Advanced alignment options">
-          <div className="insp-align-group">
-            <Tooltip
-              label={
-                effectiveKeyObjectId
-                  ? 'Key object set. Click to clear'
-                  : 'Set key object from selection'
-              }
-            >
-              <button
-                type="button"
-                className={`pill-group__btn ${effectiveKeyObjectId ? 'pill-group__btn--active' : ''}`}
-                aria-label={
-                  effectiveKeyObjectId ? 'Clear key object' : 'Set key object from selection'
-                }
-                onClick={handleToggleKeyObject}
-                disabled={!capabilities.canAlign}
-              >
-                <KeyObjectIcon />
-                {effectiveKeyObjectId && <span className="insp-badge" />}
-              </button>
-            </Tooltip>
-            <div className="insp-align-targets" role="radiogroup" aria-label="Alignment reference">
-              <Tooltip label="Align to selection bounds">
+          {showDistributionCluster && (
+            <div className="insp-align-options">
+              <Tooltip label="Distribution options">
                 <button
                   type="button"
-                  className={`pill-group__btn ${alignmentReference === 'selection' ? 'pill-group__btn--active' : ''}`}
-                  aria-label={
-                    alignmentReference === 'selection'
-                      ? 'Align to selection bounds (active)'
-                      : 'Align to selection bounds'
-                  }
-                  aria-pressed={alignmentReference === 'selection'}
-                  onClick={() => chooseAlignmentReference('selection')}
-                  disabled={!capabilities.canAlign}
+                  ref={distributionBtnRef}
+                  className={`pill-group__btn ${showDistributionMenu ? 'pill-group__btn--active' : ''}`}
+                  aria-label="Distribution options"
+                  aria-expanded={showDistributionMenu}
+                  onClick={() => setShowDistributionMenu((open) => !open)}
+                  disabled={!capabilities.canSetGap}
                 >
-                  Selection
+                  Gap
                 </button>
               </Tooltip>
-              <Tooltip label="Align to parent frame bounds">
-                <button
-                  type="button"
-                  className={`pill-group__btn ${alignmentReference === 'container' ? 'pill-group__btn--active' : ''}`}
-                  aria-label={
-                    alignmentReference === 'container'
-                      ? 'Align to parent frame (active)'
-                      : 'Align to parent frame'
-                  }
-                  aria-pressed={alignmentReference === 'container'}
-                  onClick={() => chooseAlignmentReference('container')}
-                  disabled={!capabilities.canAlignToContainer}
-                >
-                  Frame
-                </button>
-              </Tooltip>
-              <Tooltip label="Align to active page / canvas bounds">
-                <button
-                  type="button"
-                  className={`pill-group__btn ${alignmentReference === 'page' ? 'pill-group__btn--active' : ''}`}
-                  aria-label={
-                    alignmentReference === 'page' ? 'Align to page (active)' : 'Align to page'
-                  }
-                  aria-pressed={alignmentReference === 'page'}
-                  onClick={() =>
-                    chooseAlignmentReference(alignmentReference === 'page' ? 'selection' : 'page')
-                  }
-                  disabled={!capabilities.canAlignToPage}
-                >
-                  <PageIcon />
-                  <span className="insp-align-target-label">Page</span>
-                </button>
-              </Tooltip>
-            </div>
-          </div>
-          <div className="insp-align-group">
-            <div className="insp-separator" />
-            <div style={{ position: 'relative' }}>
-              <button
-                ref={tidyBtnRef}
-                type="button"
-                className="pill-group__btn"
-                aria-label="Tidy up grid"
-                title="Tidy up — arrange in grid"
-                onClick={() => setShowTidyMenu(!showTidyMenu)}
-                disabled={!capabilities.canTidy}
-              >
-                <GridIcon />
-              </button>
               <FloatingPortal
-                anchorRef={tidyBtnRef}
-                open={showTidyMenu}
+                anchorRef={distributionBtnRef}
+                open={showDistributionMenu}
                 kind="popover"
                 placement="bottom-end"
                 fallbackPlacements={['top-end', 'bottom-start', 'top-start']}
-                onClose={() => setShowTidyMenu(false)}
+                onClose={() => setShowDistributionMenu(false)}
                 dismissOnEscape
                 initialFocus
                 yieldTabToAnchor
                 className="varve-floating-layer"
               >
-                <TidyUpPopover onApply={handleTidyUp} onClose={() => setShowTidyMenu(false)} />
+                <div
+                  className="insp-align-popover"
+                  role="dialog"
+                  aria-label="Distribution options"
+                  style={{ position: 'static' }}
+                >
+                  <div className="insp-align-popover__header">
+                    <span>Distribution options</span>
+                    <button
+                      type="button"
+                      className="insp-align-popover__close"
+                      aria-label="Close distribution options"
+                      onClick={() => setShowDistributionMenu(false)}
+                    >
+                      <CloseIcon />
+                    </button>
+                  </div>
+                  <fieldset>
+                    <legend>Spacing mode</legend>
+                    <label>
+                      <input
+                        type="radio"
+                        name="distribution-mode"
+                        checked={distributionMode === 'equalGap'}
+                        onChange={() => setDistributionMode('equalGap')}
+                      />
+                      Equal gaps
+                    </label>
+                    <label>
+                      <input
+                        type="radio"
+                        name="distribution-mode"
+                        checked={distributionMode === 'equalCenter'}
+                        onChange={() => setDistributionMode('equalCenter')}
+                      />
+                      Equal centers
+                    </label>
+                    <label>
+                      <input
+                        type="radio"
+                        name="distribution-mode"
+                        checked={distributionMode === 'fixedGap'}
+                        onChange={() => setDistributionMode('fixedGap')}
+                      />
+                      Fixed gap
+                    </label>
+                  </fieldset>
+                  {distributionMode === 'fixedGap' && (
+                    <NumberInput
+                      label={`Gap (${gapUnit})`}
+                      value={displayDistributionGap}
+                      min={-99999}
+                      max={99999}
+                      step={1}
+                      onChange={(value) =>
+                        setDistributionGap(convertDocumentUnit(value, gapUnit, 'px'))
+                      }
+                    />
+                  )}
+                  <p>Negative gaps intentionally overlap items.</p>
+                </div>
               </FloatingPortal>
             </div>
-            <Tooltip label="Toggle oriented bounding box alignment">
-              <button
-                type="button"
-                className={`pill-group__btn ${obbEnabled ? 'pill-group__btn--active' : ''}`}
-                aria-label={obbEnabled ? 'OBB alignment on' : 'OBB alignment off'}
-                onClick={() => setObbEnabled(!obbEnabled)}
-                disabled={!canAlign}
-              >
-                <OBBIcon />
-              </button>
-            </Tooltip>
-          </div>
+          )}
         </div>
+        {hasAdvancedRow && (
+          <div
+            className="insp-align-bar insp-align-bar--advanced"
+            role="toolbar"
+            aria-label="Alignment target and advanced options"
+          >
+            <div className="insp-align-group">
+              {showKeyObject && (
+                <Tooltip
+                  label={
+                    effectiveKeyObjectId
+                      ? 'Key object set. Click to clear'
+                      : 'Set key object from selection'
+                  }
+                >
+                  <button
+                    type="button"
+                    className={`pill-group__btn ${effectiveKeyObjectId ? 'pill-group__btn--active' : ''}`}
+                    aria-label={
+                      effectiveKeyObjectId ? 'Clear key object' : 'Set key object from selection'
+                    }
+                    onClick={handleToggleKeyObject}
+                    disabled={!capabilities.canAlign}
+                  >
+                    <KeyObjectIcon />
+                    {effectiveKeyObjectId && <span className="insp-badge" />}
+                  </button>
+                </Tooltip>
+              )}
+              {hasTargetOptions && (
+                <div
+                  className={`insp-align-targets${targetOptionCount === 1 ? ' insp-align-targets--single' : ''}`}
+                  role="radiogroup"
+                  aria-label="Alignment reference"
+                >
+                  {showSelectionTarget && (
+                    <Tooltip label="Align to selection bounds">
+                      <button
+                        type="button"
+                        className={`pill-group__btn ${effectiveReference === 'selection' ? 'pill-group__btn--active' : ''}`}
+                        aria-label={
+                          effectiveReference === 'selection'
+                            ? 'Align to selection bounds (active)'
+                            : 'Align to selection bounds'
+                        }
+                        aria-pressed={effectiveReference === 'selection'}
+                        onClick={() => chooseAlignmentReference('selection')}
+                      >
+                        Selection
+                      </button>
+                    </Tooltip>
+                  )}
+                  {showContainerTarget && (
+                    <Tooltip label="Align to parent frame bounds">
+                      <button
+                        type="button"
+                        className={`pill-group__btn ${effectiveReference === 'container' ? 'pill-group__btn--active' : ''}`}
+                        aria-label={
+                          effectiveReference === 'container'
+                            ? 'Align to parent frame (active)'
+                            : 'Align to parent frame'
+                        }
+                        aria-pressed={effectiveReference === 'container'}
+                        onClick={() => chooseAlignmentReference('container')}
+                      >
+                        Frame
+                      </button>
+                    </Tooltip>
+                  )}
+                  {showPageTarget && (
+                    <Tooltip label="Align to active page / canvas bounds">
+                      <button
+                        type="button"
+                        className={`pill-group__btn ${effectiveReference === 'page' ? 'pill-group__btn--active' : ''}`}
+                        aria-label={
+                          effectiveReference === 'page' ? 'Align to page (active)' : 'Align to page'
+                        }
+                        aria-pressed={effectiveReference === 'page'}
+                        onClick={() => chooseAlignmentReference('page')}
+                      >
+                        <PageIcon />
+                        <span className="insp-align-target-label">Page</span>
+                      </button>
+                    </Tooltip>
+                  )}
+                </div>
+              )}
+            </div>
+            {(showTidy || showObb) && (
+              <div className="insp-align-group">
+                <div className="insp-separator" />
+                {showTidy && (
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      ref={tidyBtnRef}
+                      type="button"
+                      className="pill-group__btn"
+                      aria-label="Tidy up grid"
+                      title="Tidy up — arrange in grid"
+                      onClick={() => setShowTidyMenu(!showTidyMenu)}
+                    >
+                      <GridIcon />
+                    </button>
+                    <FloatingPortal
+                      anchorRef={tidyBtnRef}
+                      open={showTidyMenu}
+                      kind="popover"
+                      placement="bottom-end"
+                      fallbackPlacements={['top-end', 'bottom-start', 'top-start']}
+                      onClose={() => setShowTidyMenu(false)}
+                      dismissOnEscape
+                      initialFocus
+                      yieldTabToAnchor
+                      className="varve-floating-layer"
+                    >
+                      <TidyUpPopover
+                        onApply={handleTidyUp}
+                        onClose={() => setShowTidyMenu(false)}
+                      />
+                    </FloatingPortal>
+                  </div>
+                )}
+                {showObb && (
+                  <Tooltip label="Toggle oriented bounding box alignment">
+                    <button
+                      type="button"
+                      className={`pill-group__btn ${obbEnabled ? 'pill-group__btn--active' : ''}`}
+                      aria-label={obbEnabled ? 'OBB alignment on' : 'OBB alignment off'}
+                      onClick={() => setObbEnabled(!obbEnabled)}
+                    >
+                      <OBBIcon />
+                    </button>
+                  </Tooltip>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </TooltipProvider>
     </section>
   );

@@ -1639,6 +1639,9 @@
 .insp-proportion-icon {
   flex-shrink: 0;
 }
+.insp-proportion-icon--locked {
+  color: var(--color-interactive-default);
+}
 
 .insp-align-bar {
   display: flex;
@@ -1647,6 +1650,9 @@
   gap: var(--space-1) var(--space-2);
   padding: var(--space-05) 0;
   flex-wrap: wrap;
+}
+.insp-align-bar--advanced {
+  margin-top: var(--space-05);
 }
 .insp-align-bar .pill-group__btn {
   display: inline-flex;
@@ -1677,7 +1683,7 @@
   width: auto;
   min-width: 24px;
   height: 22px;
-  padding: 0 var(--space-15);
+  padding: 0 var(--space-2);
   font-size: var(--font-size-2xs);
 }
 
@@ -1705,6 +1711,13 @@
   min-width: 0;
   padding-inline: var(--space-2);
   font-size: var(--font-size-2xs);
+}
+/* With exactly one meaningful target the bordered radiogroup is noise: show
+   the single option as a plain toggle pill (single selection → page/frame). */
+.insp-align-targets--single {
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
 }
 .insp-align-target-label {
   margin-inline-start: var(--space-1);
@@ -1844,7 +1857,7 @@
 .insp-align-section__target-badge {
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
-  padding: 1px var(--space-15);
+  padding: 1px var(--space-2);
   border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
   color: var(--color-interactive-default);
@@ -1906,12 +1919,37 @@
   min-width: 0;
 }
 
+.insp-mask-add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.insp-mask-add__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.insp-mask-add__actions .insp-btn-sm,
+.insp-mask-card .insp-btn-sm {
+  height: 24px;
+  min-height: 24px;
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-2xs);
+  gap: var(--space-1);
+}
+
 .insp-mask-card {
   padding: var(--space-2);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
   background: var(--color-surface-sunken);
   margin-top: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .insp-mask-card__header {
@@ -1919,31 +1957,108 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  margin-bottom: var(--space-2);
-  flex-wrap: wrap;
+  margin-bottom: var(--space-1);
 }
 
-.insp-mask-actions {
-  display: flex;
+.insp-mask-card__title {
+  display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  flex-wrap: wrap;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: capitalize;
 }
 
-.insp-mask-actions .insp-btn-sm {
+.insp-mask-card__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-05);
+}
+
+.insp-mask-card__source-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Shared 24x24 icon-button grammar for compact inspector affordances. */
+.insp-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
   height: 24px;
-  min-height: 24px;
-  padding: 0 var(--space-15);
-  font-size: var(--font-size-2xs);
-  gap: var(--space-1);
+  min-width: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control-compact);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
+}
+.insp-icon-btn:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-subtle);
+  color: var(--color-text-primary);
+}
+.insp-icon-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+.insp-icon-btn--active {
+  background: var(--color-accent-subtle);
+  border-color: var(--color-interactive-default);
+  color: var(--color-interactive-default);
+}
+.insp-icon-btn--danger {
+  color: var(--color-danger);
+}
+.insp-icon-btn--danger:hover {
+  background: var(--color-danger-subtle, rgba(239, 68, 68, 0.15));
+  border-color: transparent;
+  color: var(--color-danger);
 }
 
-.insp-mask-actions .insp-btn-sm--danger {
-  color: var(--color-danger);
+/* Compact two-state segmented control (fill rule, mask source kind). */
+.insp-segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-05);
+  padding: var(--space-05);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-raised, transparent);
 }
-.insp-mask-actions .insp-btn-sm--danger:hover {
-  background: var(--color-danger-subtle, rgba(239, 68, 68, 0.15));
-  color: var(--color-danger);
+.insp-segmented__btn {
+  height: 22px;
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control-compact);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  cursor: pointer;
+}
+.insp-segmented__btn:hover {
+  color: var(--color-text-primary);
+}
+.insp-segmented__btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+.insp-segmented__btn--active {
+  background: var(--color-accent-subtle);
+  color: var(--color-interactive-default);
+  font-weight: var(--font-weight-semibold);
 }
 
 .insp-image-placement__actions {
@@ -5436,7 +5551,9 @@ fieldset.insp-canvas-props,
 
 .insp-field-group--rotation {
   align-items: center;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  /* R field + flip H + flip V + skew disclosure stay on one line; a wrapped
+     fourth control previously landed alone on a row (2026-09-16 review). */
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
 }
 
 .insp-field-group--skew {

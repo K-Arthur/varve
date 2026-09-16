@@ -57,7 +57,7 @@ describe('MaskSection', () => {
 
     render(<MaskSection nodes={[frame]} />);
 
-    expect(screen.getByText('Type: Clip')).toBeInTheDocument();
+    expect(screen.getByText('Clip mask')).toBeInTheDocument();
 
     const toggleBtn = screen.getByRole('button', { name: 'Disable mask' });
     expect(toggleBtn).toBeInTheDocument();
@@ -92,7 +92,7 @@ describe('MaskSection', () => {
 
     render(<MaskSection nodes={[frame]} />);
 
-    expect(screen.getByText('Add Mask')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Add Mask' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Add clip mask' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Add alpha mask' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Add luminance mask' })).toBeEnabled();

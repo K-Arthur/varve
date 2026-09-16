@@ -57,17 +57,20 @@ describe('AlignDistributeBar', () => {
     expect(screen.getByRole('button', { name: 'Set key object from selection' })).toBeEnabled();
   });
 
-  it('shows page alignment for a single selection while keeping relative commands disabled', () => {
+  it('aligns a single root selection to the page and hides relative-only commands', () => {
     mocks.useEditor.mockReturnValue(editorForSelection(['a']));
     render(<AlignDistributeBar />);
 
     expect(screen.getByRole('heading', { name: 'Align & distribute' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Align left edges' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Align to page' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Set key object from selection' })).toBeDisabled();
-    const distribute = screen.getByRole('button', { name: 'Distribute horizontal spacing' });
-    expect(distribute).toBeDisabled();
-    expect(distribute.querySelectorAll('svg')).toHaveLength(1);
+    // Single root selection has exactly one meaningful target (the page), so
+    // the align commands are live rather than rendering a dead toolbar.
+    expect(screen.getByRole('button', { name: 'Align left edges' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Align to page (active)' })).toBeEnabled();
+    // Key object, distribute, gap, tidy and OBB need 2+ layers: omitted.
+    expect(screen.queryByRole('button', { name: 'Set key object from selection' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Distribute horizontal spacing' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Distribution options' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Tidy up grid' })).toBeNull();
   });
 
   it('uses the explicit primary node when setting a key object', () => {
@@ -80,15 +83,15 @@ describe('AlignDistributeBar', () => {
     expect(editor.setKeyObject).toHaveBeenCalledWith('b');
   });
 
-  it('enables an eligible single selection after the page target is chosen', () => {
+  it('honours the stored page preference for a single selection', () => {
     mocks.useEditor.mockReturnValue(editorForSelection(['a'], true));
     render(<AlignDistributeBar />);
 
     expect(screen.getByRole('button', { name: 'Align left edges' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Distribute horizontal spacing' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Distribute horizontal spacing' })).toBeNull();
   });
 
-  it('offers the nearest frame as an explicit alignment reference', () => {
+  it('prefers the nearest frame for a single child selection', () => {
     const editor = editorForSelection(['child']);
     const frame = makeFrameNode('frame', { w: 240, h: 160 });
     const child = makeShapeNode('child', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 });
@@ -96,13 +99,38 @@ describe('AlignDistributeBar', () => {
     mocks.useEditor.mockReturnValue(editor);
     render(<AlignDistributeBar />);
 
-    expect(screen.getByRole('button', { name: 'Align to parent frame' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Align left edges' })).toBeDisabled();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Align to parent frame' }));
-    expect(screen.getByRole('button', { name: 'Align left edges' })).toBeEnabled();
+    // The only sensible target for one child is its frame, so it is active
+    // immediately and relative-only commands are not rendered at all.
+    expect(screen.getByRole('button', { name: 'Align to parent frame (active)' })).toBeEnabled();
     fireEvent.click(screen.getByRole('button', { name: 'Align left edges' }));
     expect(editor.alignSelected).toHaveBeenCalledWith('left', 'container');
+    expect(screen.queryByRole('button', { name: 'Set key object from selection' })).toBeNull();
+  });
+
+  it('shows the selection reference only once two layers are selected', () => {
+    const editor = editorForSelection(['child1', 'child2']);
+    const frame = makeFrameNode('frame', { w: 240, h: 160 });
+    let document = addNode(editor.state.document, frame);
+    document = addChild(
+      document,
+      frame.id,
+      makeShapeNode('child1', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 }),
+    );
+    document = addChild(
+      document,
+      frame.id,
+      makeShapeNode('child2', { kind: 'rect', x: 40, y: 0, w: 20, h: 20 }),
+    );
+    editor.state.document = document;
+    mocks.useEditor.mockReturnValue(editor);
+    render(<AlignDistributeBar />);
+
+    expect(
+      screen.getByRole('button', { name: 'Align to selection bounds (active)' }),
+    ).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Align to parent frame' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Align to page' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Set key object from selection' })).toBeEnabled();
   });
 
   it('exposes fixed and negative gap distribution settings', () => {

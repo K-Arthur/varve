@@ -6,7 +6,7 @@ import {
   isVisualMaskTarget,
   walkNodes,
 } from '@varve/scene';
-import { Icon, Select, Tooltip } from '@varve/ui';
+import { Icon, Select, Switch, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -196,11 +196,12 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
 
   if (!canHaveMask) return null;
 
+  const sourceLabel = sourceNode?.name ?? mask?.sourceNodeId?.slice(0, 8) ?? 'none';
+
   return (
     <DisclosureSection title="Mask" sectionId={sectionId ?? 'mask'}>
       {canAddMask && (
-        <div className="insp-field-group">
-          <span className="insp-field__label">Add Mask</span>
+        <div className="insp-mask-add">
           {node.kind === 'adjustment' && sourceCandidates.length > 0 && (
             <Select
               label="Spatial mask source"
@@ -210,180 +211,122 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
               onChange={setPendingSourceId}
             />
           )}
-          {isVisualLeaf ? (
-            <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-              <Tooltip label="Vector mask: adds an editable vector path that clips or masks this layer">
+          <div className="insp-mask-add__actions" role="group" aria-label="Add Mask">
+            {isVisualLeaf ? (
+              <Tooltip label="Editable vector path that clips this layer">
                 <button
                   type="button"
                   className="insp-btn-sm"
                   onClick={() => addMaskToSelected('alpha')}
                   aria-label="Add vector mask"
                 >
-                  Vector Mask
+                  <Icon name="PenTool" size="0.85em" />
+                  <span>Vector mask</span>
                 </button>
               </Tooltip>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-              <Tooltip label="Clip mask: uses the first child's outline to clip other children">
+            ) : (
+              <>
+                <Tooltip label="Uses the first child's outline to clip the others">
+                  <button
+                    type="button"
+                    className="insp-btn-sm"
+                    onClick={() => addMaskToSelected('clip', pendingSourceId || undefined)}
+                    aria-label="Add clip mask"
+                    disabled={node.kind === 'adjustment' && !pendingSourceId}
+                  >
+                    <Icon name="SquareDashed" size="0.85em" />
+                    <span>Clip</span>
+                  </button>
+                </Tooltip>
+                <Tooltip label="Uses the first child's alpha channel to modulate visibility">
+                  <button
+                    type="button"
+                    className="insp-btn-sm"
+                    onClick={() => addMaskToSelected('alpha', pendingSourceId || undefined)}
+                    aria-label="Add alpha mask"
+                    disabled={node.kind === 'adjustment' && !pendingSourceId}
+                  >
+                    <Icon name="CircleDashed" size="0.85em" />
+                    <span>Alpha</span>
+                  </button>
+                </Tooltip>
+                <Tooltip label="Uses the first child's luminance to modulate visibility">
+                  <button
+                    type="button"
+                    className="insp-btn-sm"
+                    onClick={() => addMaskToSelected('luminance', pendingSourceId || undefined)}
+                    aria-label="Add luminance mask"
+                    disabled={node.kind === 'adjustment' && !pendingSourceId}
+                  >
+                    <Icon name="Contrast" size="0.85em" />
+                    <span>Luminance</span>
+                  </button>
+                </Tooltip>
+              </>
+            )}
+            {canPaintRasterMask && (
+              <Tooltip label="Paints a pixel alpha mask over this layer. Paint reveals, Alt+paint hides.">
                 <button
                   type="button"
                   className="insp-btn-sm"
-                  onClick={() => addMaskToSelected('clip', pendingSourceId || undefined)}
-                  aria-label="Add clip mask"
-                  disabled={node.kind === 'adjustment' && !pendingSourceId}
+                  onClick={() => {
+                    setTool?.('refineMask');
+                  }}
+                  aria-label="Paint mask with the brush tool"
                 >
-                  Clip
+                  <Icon name="Paintbrush" size="0.85em" />
+                  <span>{mask?.rasterMask ? 'Paint mask…' : 'Brush mask…'}</span>
                 </button>
               </Tooltip>
-              <Tooltip label="Alpha mask: uses the first child's alpha channel to modulate visibility">
-                <button
-                  type="button"
-                  className="insp-btn-sm"
-                  onClick={() => addMaskToSelected('alpha', pendingSourceId || undefined)}
-                  aria-label="Add alpha mask"
-                  disabled={node.kind === 'adjustment' && !pendingSourceId}
-                >
-                  Alpha
-                </button>
-              </Tooltip>
-              <Tooltip label="Luminance mask: uses the first child's luminance to modulate visibility">
-                <button
-                  type="button"
-                  className="insp-btn-sm"
-                  onClick={() => addMaskToSelected('luminance', pendingSourceId || undefined)}
-                  aria-label="Add luminance mask"
-                  disabled={node.kind === 'adjustment' && !pendingSourceId}
-                >
-                  Luminance
-                </button>
-              </Tooltip>
-            </div>
-          )}
-        </div>
-      )}
-
-      {canPaintRasterMask && (
-        <div className="insp-field-group">
-          <span className="insp-field__label">Brush mask</span>
-          <button
-            type="button"
-            className="insp-btn-sm"
-            onClick={() => {
-              setTool?.('refineMask');
-            }}
-            aria-label="Paint mask with the brush tool"
-          >
-            {mask?.rasterMask ? 'Paint mask…' : 'Create brush mask…'}
-          </button>
-          <p className="insp-field__hint">
-            Paints a pixel alpha mask over this layer. Paint reveals, Alt+paint hides.
-          </p>
+            )}
+          </div>
         </div>
       )}
 
       {mask && (
-        <div className="insp-field-group insp-mask-card">
+        <div className="insp-mask-card">
           <div className="insp-mask-card__header">
-            <span
-              className="insp-field__label"
-              style={{ fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-medium)' }}
-            >
-              Type: {maskTypeLabel}
+            <span className="insp-mask-card__title">
+              <Icon name="Layers2" size="0.85em" />
+              {maskTypeLabel} mask
             </span>
-            <div className="insp-mask-actions">
+            <div className="insp-mask-card__actions">
               <Tooltip label={mask.visible ? 'Mask is active' : 'Mask is disabled'}>
                 <button
                   type="button"
-                  className={`insp-btn-sm ${mask.visible ? 'insp-btn-sm--active' : ''}`}
+                  className={`insp-icon-btn ${mask.visible ? 'insp-icon-btn--active' : ''}`}
                   onClick={handleToggleVisible}
                   aria-label={mask.visible ? 'Disable mask' : 'Enable mask'}
                   aria-pressed={mask.visible}
                 >
-                  <Icon name={mask.visible ? 'Eye' : 'EyeOff'} size="0.85em" />
-                  <span>{mask.visible ? 'On' : 'Off'}</span>
+                  <Icon name={mask.visible ? 'Eye' : 'EyeOff'} size="0.9em" />
                 </button>
               </Tooltip>
               <Tooltip label={mask.inverted ? 'Mask is inverted' : 'Mask is not inverted'}>
                 <button
                   type="button"
-                  className={`insp-btn-sm ${mask.inverted ? 'insp-btn-sm--active' : ''}`}
+                  className={`insp-icon-btn ${mask.inverted ? 'insp-icon-btn--active' : ''}`}
                   onClick={handleToggleInverted}
                   aria-label={mask.inverted ? 'Disable inversion' : 'Enable inversion'}
                   aria-pressed={mask.inverted ?? false}
                 >
-                  <Icon name="FlipHorizontal" size="0.85em" />
-                  <span>Invert</span>
+                  <Icon name="Contrast" size="0.9em" />
                 </button>
               </Tooltip>
-              {mask.sourceNodeId && (
-                <Tooltip
-                  label={
-                    mask.hideMaskSource
-                      ? 'Mask source is hidden from direct rendering'
-                      : 'Mask source is rendered normally'
-                  }
-                >
-                  <button
-                    type="button"
-                    className={`insp-btn-sm ${mask.hideMaskSource ? 'insp-btn-sm--active' : ''}`}
-                    onClick={handleToggleHideSource}
-                    aria-label={mask.hideMaskSource ? 'Show mask source' : 'Hide mask source'}
-                    aria-pressed={mask.hideMaskSource ?? false}
-                  >
-                    <Icon name={mask.hideMaskSource ? 'EyeOff' : 'Eye'} size="0.85em" />
-                    <span>Hide</span>
-                  </button>
-                </Tooltip>
-              )}
-              {mask.sourceNodeId && (
-                <Tooltip
-                  label={
-                    mask.linked !== false
-                      ? 'Mask transforms with masked content'
-                      : 'Mask has independent transform'
-                  }
-                >
-                  <button
-                    type="button"
-                    className={`insp-btn-sm ${mask.linked !== false ? 'insp-btn-sm--active' : ''}`}
-                    onClick={handleToggleLinked}
-                    aria-label={
-                      mask.linked !== false ? 'Unlink mask transform' : 'Link mask transform'
-                    }
-                    aria-pressed={mask.linked !== false}
-                  >
-                    <Icon name="Link" size="0.85em" />
-                    <span>Link</span>
-                  </button>
-                </Tooltip>
-              )}
               <Tooltip label="Remove mask (source node is preserved)">
                 <button
                   type="button"
-                  className="insp-btn-sm"
+                  className="insp-icon-btn insp-icon-btn--danger"
                   onClick={handleRemove}
                   aria-label="Remove mask"
-                  style={{ color: 'var(--color-feedback-danger)' }}
                 >
-                  <Icon name="Trash2" size="0.85em" />
-                  <span>Remove</span>
+                  <Icon name="Trash2" size="0.9em" />
                 </button>
               </Tooltip>
             </div>
           </div>
 
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-1)',
-              marginTop: 'var(--space-1)',
-            }}
-          >
-            <span className="insp-field__label" style={{ fontSize: 'var(--font-size-xs)' }}>
-              Type
-            </span>
+          <FieldRow label="Type">
             <Select
               label="Mask type"
               value={mask.type}
@@ -394,30 +337,83 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
               ]}
               onChange={handleTypeChange}
             />
-          </div>
+          </FieldRow>
+
+          {sourceCandidates.length > 0 ? (
+            <Select
+              label="Mask source"
+              value={mask?.sourceNodeId ?? ''}
+              options={sourceCandidates}
+              placeholder="Select a child as mask source"
+              onChange={(v) => {
+                if (setMaskSourceNode && v) {
+                  setMaskSourceNode(v);
+                  editor.announce('Mask source updated');
+                }
+              }}
+            />
+          ) : (
+            <FieldRow label="Source">
+              <span className="insp-mask-card__source-name">{sourceLabel}</span>
+            </FieldRow>
+          )}
+
+          {mask.sourceNodeId && (
+            <>
+              <FieldRow label="Hide source">
+                <Switch
+                  aria-label={mask.hideMaskSource ? 'Show mask source' : 'Hide mask source'}
+                  checked={mask.hideMaskSource ?? false}
+                  onChange={handleToggleHideSource}
+                />
+              </FieldRow>
+              <FieldRow label="Link transform">
+                <Switch
+                  aria-label={
+                    mask.linked !== false ? 'Unlink mask transform' : 'Link mask transform'
+                  }
+                  checked={mask.linked !== false}
+                  onChange={handleToggleLinked}
+                />
+              </FieldRow>
+            </>
+          )}
+
+          <NumberField
+            label="Feather"
+            value={mask.feather ?? 0}
+            min={0}
+            step={0.5}
+            onChange={handleFeather}
+            fieldName="maskFeather"
+          />
+
+          <FieldRow label="Density" htmlFor="mask-density-range">
+            <RangeValueControl
+              id="mask-density"
+              label="Density"
+              value={mask.density ?? 1}
+              min={0}
+              max={1}
+              step={0.05}
+              displayScale={100}
+              unit="%"
+              rangeClassName="insp-range"
+              rangeAriaLabel="Mask density"
+              onChange={handleDensity}
+            />
+          </FieldRow>
 
           {supportsFillRule && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 'var(--space-1)',
-              }}
-            >
-              <span className="insp-field__label" style={{ fontSize: 'var(--font-size-xs)' }}>
-                Fill Rule
-              </span>
-              <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
+            <FieldRow label="Fill rule">
+              <div className="insp-segmented" role="group" aria-label="Fill rule">
                 <Tooltip label="Nonzero winding rule: determines interior by winding direction">
                   <button
                     type="button"
-                    className="insp-btn-sm"
+                    className={`insp-segmented__btn ${mask.fillRule !== 'evenodd' ? 'insp-segmented__btn--active' : ''}`}
                     onClick={() => handleSetFillRule('nonzero')}
                     aria-pressed={mask.fillRule !== 'evenodd'}
                     aria-label="Nonzero fill rule"
-                    style={{
-                      fontWeight: mask.fillRule !== 'evenodd' ? 'bold' : 'normal',
-                    }}
                   >
                     Nonzero
                   </button>
@@ -425,34 +421,24 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
                 <Tooltip label="Even-odd rule: determines interior by raycast parity">
                   <button
                     type="button"
-                    className="insp-btn-sm"
+                    className={`insp-segmented__btn ${mask.fillRule === 'evenodd' ? 'insp-segmented__btn--active' : ''}`}
                     onClick={() => handleSetFillRule('evenodd')}
                     aria-pressed={mask.fillRule === 'evenodd'}
                     aria-label="Even-odd fill rule"
-                    style={{
-                      fontWeight: mask.fillRule === 'evenodd' ? 'bold' : 'normal',
-                    }}
                   >
                     Even-Odd
                   </button>
                 </Tooltip>
               </div>
-            </div>
+            </FieldRow>
           )}
 
           {mask.vectorMask && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 'var(--space-1)',
-              }}
-            >
-              <span className="insp-field__label" style={{ fontSize: 'var(--font-size-xs)' }}>
-                Vector: {mask.vectorMask.points.length} pt
+            <FieldRow label="Vector path">
+              <span className="insp-mask-card__source-name">
+                {mask.vectorMask.points.length} pt
                 {mask.vectorMask.points.length !== 1 ? 's' : ''}
-                {mask.vectorMask.closed ? ' (closed)' : ' (open)'}
+                {mask.vectorMask.closed ? ' · closed' : ' · open'}
               </span>
               <Tooltip label="Edit the vector mask path points">
                 <button
@@ -461,66 +447,17 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
                   onClick={handleEditVectorPath}
                   aria-label="Edit vector mask path"
                 >
-                  Edit path
+                  <Icon name="Spline" size="0.85em" />
+                  <span>Edit path</span>
                 </button>
               </Tooltip>
-            </div>
+            </FieldRow>
           )}
 
-          {mask.type === 'clip' ? (
+          {mask.type === 'clip' && (
             <p className="insp-field__hint">
-              Feather and density apply to clip masks as soft-edged masking: feather blurs the clip
-              boundary and density reduces its strength.
+              Feather blurs the clip boundary; density reduces the mask's strength.
             </p>
-          ) : null}
-
-          {
-            <>
-              <NumberField
-                label="Feather"
-                value={mask.feather ?? 0}
-                min={0}
-                step={0.5}
-                onChange={handleFeather}
-                fieldName="maskFeather"
-              />
-              <FieldRow label="Density" htmlFor="mask-density-range">
-                <RangeValueControl
-                  id="mask-density"
-                  label="Density"
-                  value={mask.density ?? 1}
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  displayScale={100}
-                  unit="%"
-                  rangeClassName="insp-range"
-                  rangeAriaLabel="Mask density"
-                  onChange={handleDensity}
-                />
-              </FieldRow>
-            </>
-          }
-
-          {sourceCandidates.length > 0 ? (
-            <div style={{ marginTop: 'var(--space-1)' }}>
-              <Select
-                label="Mask source"
-                value={mask?.sourceNodeId ?? ''}
-                options={sourceCandidates}
-                placeholder="Select a child as mask source"
-                onChange={(v) => {
-                  if (setMaskSourceNode && v) {
-                    setMaskSourceNode(v);
-                    editor.announce('Mask source updated');
-                  }
-                }}
-              />
-            </div>
-          ) : (
-            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-subtle)' }}>
-              Source: {sourceNode?.name ?? mask?.sourceNodeId?.slice(0, 8) ?? 'none'}
-            </div>
           )}
         </div>
       )}
