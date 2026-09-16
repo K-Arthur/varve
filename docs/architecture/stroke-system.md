@@ -1,6 +1,6 @@
 # Stroke system
 
-**Updated:** 2026-09-08
+**Updated:** 2026-09-16
 
 This document is the capability contract for live strokes. It separates the
 authored document model from the Canvas2D replay path and from export
@@ -49,9 +49,28 @@ fallback hairline.
 
 Stroke gradients use the same canonical spatial gradient evaluator as fills.
 The renderer resets Canvas2D dash state for every entry, so a solid stroke
-cannot inherit a previous entry's pattern. The inspector accepts comma- or
-space-separated finite non-negative values; blank and all-zero patterns mean
-solid, while malformed input is rejected without mutating the document.
+cannot inherit a previous entry's pattern. The inspector offers Solid,
+Dashed, Dotted, and Dash-dot presets in absolute canvas units with an exact
+comma- or space-separated pattern field under Custom; blank and all-zero
+patterns mean solid, while malformed input is rejected without mutating the
+document.
+
+## Inspector presentation (2026-09-16)
+
+- The collapsed **Advanced** toggle carries a live summary of every
+  non-default setting ("Advanced · Dashed · Per-side"), so hidden state never
+  reads as default.
+- Miter limit renders only for miter joins; dash offset only for non-solid
+  dash styles; arrowheads share one row and only for line/path selections;
+  per-side weights are a switch (initialized from the uniform weight) with a
+  **Use one width** action to clear the quadrille — never permanently
+  disabled rows.
+- **Add Stroke** copies the layer's last stroke (colour, width, dash, caps)
+  with a fresh id instead of resetting to 1px black; multi-stroke stacks get
+  direct reorder/remove controls like multi-fill stacks.
+- A zero-width stroke with no per-side widths is flagged in place
+  ("Zero width — this stroke is invisible on the canvas").
+- Research: `docs/research/inspector-fill-stroke-research-2026-09-16.md`.
 
 ## Capability matrix
 

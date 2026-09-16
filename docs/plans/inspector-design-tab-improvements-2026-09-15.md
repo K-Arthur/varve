@@ -120,6 +120,7 @@ validation on the real-world audit document:
 | Stroke memory | Add Stroke reset to 1px black | Copies the layer's last stroke |
 | Gradient angle | Inside the Gradient options disclosure | Inline scrubbable Rotation field for linear/angular |
 | Zero-width strokes | Not flagged | "Zero width — this stroke is invisible" note |
+| Per-fill blend reach | Row-menu submenu only | Labelled Blend mode row inside the fill colour/gradient popover; chip and menu unchanged |
 
 E2E: `tests/e2e/inspector/design-tab-audit.spec.ts` → "Design tab paint rows
 (fill / stroke pass)" (5 scenarios, screenshots in

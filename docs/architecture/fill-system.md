@@ -32,11 +32,31 @@ The Fill panel has exactly one creation affordance:
 - **`+ Add fill`** opens a menu: Solid, Linear gradient, Radial gradient,
   Image, Pattern. Choosing an item **creates the fill immediately** — one
   click, no intervening state, no second "Add" button.
-- An existing fill's **Fill type combo** converts that fill in place
-  (immediate document change + canvas repaint). Converting to Gradient
-  seeds stop 0 from the current solid colour and stop 1 from a
-  complementary-harmony derivation; converting back to Solid prefers the
-  previously retained colour, then the gradient's first stop.
+- An existing fill's **Fill type trigger** (a compact named icon button beside
+  the swatch) converts that fill in place through a radio menu (immediate
+  document change + canvas repaint). Converting to Gradient seeds stop 0 from
+  the current solid colour and stop 1 from a complementary-harmony
+  derivation; converting back to Solid prefers the previously retained
+  colour, then the gradient's first stop.
+
+### Paint-row presentation (2026-09-16)
+
+- The swatch is a pill that states the paint's value without opening a
+  picker: `#RRGGBB` for solids, the paint type otherwise, and `Mixed` when
+  the selection disagrees (also named in the swatch's accessible name; the
+  type trigger switches to a dashed-circle icon).
+- The fill colour/gradient popover owns a labelled **Blend mode** row under
+  the picker (same option groups as Appearance), so a single normal fill
+  reaches blend one click from the swatch. The row chip (stacked, mixed, or
+  non-normal fills) and the row-menu submenu write the same field.
+- Stacked fills and mixed selections move opacity onto the row's properties
+  line so the value readout stays legible; uniform single fills keep it
+  inline. Remove is disabled with a "last fill" badge on a single fill
+  (removal is a silent no-op there) and direct otherwise.
+- `canPaintFills()` (`packages/scene/src/fills.ts`) gates the section and
+  the registry entry: groups and line/arrow primitives never paint fills, so
+  the section hides and every fill operation skips those nodes instead of
+  accumulating invisible state.
 
 Historical note (why the old design was wrong): the panel used to render a
 "New fill type" tab group *plus* a separate Add button. The tabs only set
@@ -127,6 +147,13 @@ original source containing the bytes is required for the old pixels to return.
   `tests/e2e/canvas/fill-interaction.spec.ts` (7 specs, incl. /try demo
   parity) and `tests/e2e/canvas/fill-visuals.spec.ts` (screenshot
   evidence set).
+- Paint-row contract: `packages/editor/src/components/Inspector/sections/__tests__/paintRows.test.tsx`
+  (value pill, type menu, mixed naming, unpaintable-node exclusion,
+  popover blend, stroke dash/per-side/arrowheads/memory) and the
+  "Design tab paint rows" block in
+  `tests/e2e/inspector/design-tab-audit.spec.ts` with screenshots under
+  `reports/inspector-review/paint-rows/`.
+- Research: `docs/research/inspector-fill-stroke-research-2026-09-16.md`.
 
 ## Known limitations
 
