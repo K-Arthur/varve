@@ -62,32 +62,6 @@ component and mask/frame contract before a candidate can enter the app.
 The product must never label the hosted API as a local model or use it as a
 fallback when a local provider fails.
 
-### Quantized FLUX Fill files are not drop-in local profiles
-
-The Hugging Face search also found several quantized `FLUX.1-Fill-dev` uploads.
-They reduce storage size, but they do not remove the adapter and runtime
-qualification work:
-
-- [GPUStack FLUX.1-Fill-dev GGUF](https://huggingface.co/gpustack/FLUX.1-Fill-dev-GGUF)
-  describes its support as experimental and tied to `llama-box` v0.0.98 or
-  newer, using a patched `stable-diffusion.cpp` revision. That is not the
-  vendored `diffusion-rs` runtime in Varve.
-- [GaiaNet FLUX.1-Fill-dev GGUF](https://huggingface.co/gaianet/FLUX.1-Fill-dev-GGUF)
-  lists Q2_K and Q4_0 files in the multi-gigabyte range and identifies a
-  particular `stable-diffusion.cpp` conversion revision. The file size is not
-  evidence that the tensors or runtime are compatible with Varve.
-- [Second State FLUX.1-Fill-dev GGUF](https://huggingface.co/second-state/FLUX.1-Fill-dev-GGUF)
-  notes that the text encoders and VAE are not supplied with the quantized
-  file. Those components must be version-pinned and managed as part of one
-  profile; accepting the single GGUF would create an incomplete provider.
-
-These artifacts therefore remain research inputs, not downloadable or
-importable app profiles. A future FLUX adapter must supervise the exact
-runtime, resolve every required component from opaque managed handles, verify
-the white-edit/black-preserve mask contract, and pass the same real-photo,
-memory, cancellation, and platform gates as every other provider. A smaller
-file alone is not a low-memory qualification.
-
 ## Candidate matrix
 
 “Research-only” means a candidate may be downloaded into a disposable,
