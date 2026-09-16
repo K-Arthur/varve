@@ -78,3 +78,19 @@ carried into the commits.
 | `834b337dc` | feat(insights): human labels, applicability gating, honest actions |
 | `c89c62176` | fix(typography,insights): badge counting, row gating, tab memoization + research/ownership docs |
 | `c387cab4d` | refine(typography,insights): quiet OpenType rows, humanized review text, More-tab active state, Spacing reachable in Design |
+| `fa9a70f70` | website docs + final audit/ownership text (carried into another stream's commit; content verified at HEAD) |
+
+## 5. Final validation (2026-09-16)
+
+- `npx playwright test tests/e2e/inspector/typography-insights-review.spec.ts
+  tests/e2e/inspector/design-tab-audit.spec.ts --project=chromium` →
+  **21 passed (8.3m)**: 7 review tests + 14 whole-panel audit tests, with
+  `smallTargets: []`, `fieldOverflows: []`, `truncatedLabels: []`.
+- `pnpm build:website` → 104 pages built.
+- `pnpm audit:docs` / `pnpm audit:tokens` / `pnpm audit:emoji` → clean.
+- `pnpm verify:plan` escalates the aggregate 163-file tree (other streams'
+  workspace/toolchain changes), so `pnpm verify:affected` would run unrelated
+  suites; each commit instead passed the repo's bounded commit checkpoint
+  (staged-file direct units, `typecheck:e2e`, audits, secret scan, import
+  boundaries). The review's own closure (editor unit + typecheck, E2E) is
+  recorded in the audit report.
