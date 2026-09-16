@@ -310,6 +310,36 @@ browser gate (resource-scheduled, blockers named above); `pnpm verify:full`
 
 ### Shared-gate repairs (disclosure)
 
+**A concurrent stale-index commit reverted part of this work.** Commit
+`b9713c8ff` ("refactor(editor): finish the Family C dialog migrations and add a
+settings filter", 2026-09-15 17:25) was created from a tree that predated this
+session, so it *deleted* five files this session had committed
+(`textDiscoveryFailure.ts`/`.test.ts`,
+`annotated-ranking-real-photos-v1.json`, `rankingAnnotationSheet.test.ts`,
+`threaded-wasm-probe.spec.ts`) and reverted the session's edits to
+`RuntimeCapabilities.ts`, `inferenceWorker.ts`, `TextDiscoveryPanel.tsx`, and
+`candidateRanking.ts`. Nothing was lost (the worktree still held every final
+version); the restoration is commit `9d384897c`, and the four reverted files
+were verified to contain exactly this session's hunks and nothing else before
+being re-committed.
+
+The mechanism is worth recording for the next writer: a commit built from a
+stale index records a **complete tree**, so any file the index does not know
+about is deleted by that commit — even though the commit's message is about
+something else. Two consequences for this repository:
+
+1. After a private-index commit, run `git status` and confirm the committed
+   paths do not appear as `D` (index-vs-HEAD deletions). If they do, restore
+   the index entries with `git reset -q -- <paths>` (never a worktree reset).
+2. Verify `git cat-file -e HEAD:<path>` for every artifact an evidence ledger
+   cites before treating the ledger as authoritative. A ledger that cites a
+   file which no longer exists in HEAD is the same class of integrity failure
+   this task set out to eliminate.
+
+During this session the shared index was reset to an older tree repeatedly, so
+the sync step was run more than once; the final state at handoff is HEAD
+`9d384897c` with the index synced for every owned path.
+
 Two other writers' untracked specs transiently broke the shared
 `typecheck:e2e` pre-commit gate for every writer:
 `tests/e2e/theme/separators.spec.ts` declared an unused `expect` import, and
