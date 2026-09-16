@@ -35,7 +35,7 @@ them apart. Commits from this session stage only disclosure-owned paths.
 | `packages/editor/src/components/Inspector/controls/DisclosureSection.tsx` | Inspector section host repairs |
 | `packages/editor/src/components/SectionCollapseToggle.tsx`, `section-collapse.css` | Sidebar collapse control |
 | `packages/editor/src/components/Inspector/inspector.css` | Disclosure-related rules only (`.insp-disclosure*`) |
-| `packages/home/src/FormatMigration.tsx`, `NewDesignDialog.tsx`, `SidebarNav.tsx` | Shared-primitive consumers |
+| `packages/home/src/FormatMigration.tsx` (deleted — orphaned duplicate), `NewDesignDialog.tsx`, `SidebarNav.tsx` | Shared-primitive consumers |
 | `packages/editor/src/components/Export/PreflightFindingsPanel.tsx` | Shared-primitive consumer |
 | `apps/website/src/pages/support/faq.astro` | FAQ disclosure surface |
 | `apps/website/src/pages/compare.astro`, `changelog.astro` | Native `<details>` surfaces |
@@ -89,24 +89,30 @@ Commits on `master`:
 
 ## Handoffs to other owners
 
-- **Layers panel owner:** `LayerStatesSection.tsx` and
-  `SelectionSetsSection.tsx` still use per-mount `useState(false)` for their
-  section collapse. Adopt `usePersistedDisclosure('layer-states')` /
-  `usePersistedDisclosure('selection-sets')` from
-  `packages/editor/src/components/usePersistedDisclosure.ts` when the
-  LayersPanel work integrates. The chevron direction is already fixed for
-  both via `SectionCollapseToggle`.
-- **Inspector Design tab owner:** nine `DisclosureSection` call sites pass a
-  `defaultExpanded` prop that registry mode ignores
-  (`EffectsSection`, `FramePresetsSection`, `ImageCropSection`,
-  `PathTextSection`, `DocumentPanel` ×3, `PrototypePanel`, `PagePrintSection`,
-  `AiToolsHintSection`, `AnimationSection`). Either remove the dead props or
-  move the intent into `sectionRegistry`; the prop's doc comment now says it is
-  legacy-mode only.
-- **Home owner:** `packages/home/src/FormatMigration.tsx` is unreachable and
-  has no CSS for its `format-migration__*` classes. Delete it or wire it with
-  the shared trigger contract (no `hideIndicator`, stateful show/hide label).
-- **Future sections:** registry ids without a `sectionId` consumer
-  (`mask`, `warp`, `paint-library`, `interaction`, `mockups`) can be hidden and
-  ordered but not reset through the section manager. Do not add new sections
-  that way.
+- **Layers panel owner:** this session applied `usePersistedDisclosure('layer-states')` /
+  `usePersistedDisclosure('selection-sets')` to `LayerStatesSection.tsx` and
+  `SelectionSetsSection.tsx` while both files were clean (`layerPresentation.test.ts`
+  was the only dirty LayersPanel path). Re-check before your next edit to those
+  two files; if you change their section headers, keep the collapsed state on
+  the hook.
+- **Inspector Design tab owner:** the twelve dead top-level `defaultExpanded`
+  props were removed this session. Subsection defaults now live in the
+  section definition (`SectionDefinition.subsections`); declare any new
+  subsection default there, not at the call site.
+- **Home owner:** `packages/home/src/FormatMigration.tsx` was deleted (no
+  importer, no CSS, duplicate of the editor's `ImportResults`).
+- **Future sections:** `mask` remains legacy by decision (conditional default);
+  `interaction`, `mockups`, and `align-distribute` have no section-level
+  collapse and their registry entries govern availability/hide/order only.
+
+## Final commits
+
+| Commit | Content |
+|---|---|
+| `0822251f4` | Ownership + research ledger |
+| `13b6e26a4` | Shared primitive focus/keyboard/APG repairs |
+| `fb2e1ee09` | Sidebar persistence, chevron contract, registry aria |
+| `5a7e00a7b` | Website FAQ headings/print/parity |
+| `36163f604` | Space-activation fix + contract E2E |
+| `3a3545ea5` | Preflight chevron, changelog, capture specs, docs |
+| (final) | Completion pass: registry subsection defaults, dead-prop removal, paint-library/warp wiring, LayersPanel persistence, FormatMigration deletion, a11y/touch validation |

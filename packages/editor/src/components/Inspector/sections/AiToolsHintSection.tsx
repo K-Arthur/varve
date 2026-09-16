@@ -24,7 +24,7 @@ export function AiToolsHintSection() {
   const shortcut = workspaceShortcutLabel('image');
 
   return (
-    <DisclosureSection title="AI Tools" sectionId="ai-tools-hint" defaultExpanded>
+    <DisclosureSection title="AI Tools" sectionId="ai-tools-hint">
       <div className="insp-ai-hint">
         <p className="insp-panel__empty-hint insp-ai-hint__text">
           Background removal, colorize, denoise, and more live in {label} mode.

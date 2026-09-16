@@ -719,7 +719,6 @@ function VariableAxesSection({ textNodes, familyRaw, batchUpdate }: VariableAxes
       title="Variable Font Axes"
       sectionId="typography"
       subsectionId="variableFontAxes"
-      defaultExpanded={false}
     >
       {activeAxisTags.map((tag) => {
         const info = registry.getAxisInfo(tag, family);

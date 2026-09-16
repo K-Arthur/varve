@@ -83,6 +83,15 @@ test.describe('FAQ disclosure surfaces', () => {
     await expect(closedAnswer).toBeVisible();
   });
 
+  test('FAQ questions expose a comfortable touch target', async ({ page }) => {
+    await page.goto('/support/faq');
+    const summary = page.locator('details.faq-item').first().locator('summary');
+    const box = await summary.boundingBox();
+    expect(box, 'FAQ summary should be measurable').toBeTruthy();
+    // WCAG 2.5.5 (enhanced) 44px default for a stacked list of page controls.
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+  });
+
   test('FAQ structured data matches the visible question set', async ({ page }) => {
     await page.goto('/support/faq');
     const schemaQuestions = await page.evaluate(() => {

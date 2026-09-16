@@ -10,6 +10,7 @@ import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { SectionCollapseToggle } from '../SectionCollapseToggle';
+import { usePersistedDisclosure } from '../usePersistedDisclosure';
 import './layerStatesSection.css';
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -31,7 +32,7 @@ export function LayerStatesSection() {
   } = useEditor();
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = usePersistedDisclosure('layer-states');
   const [editingName, setEditingName] = useState('');
   const [lastSkipped, setLastSkipped] = useState<{ id: string; count: number } | null>(null);
 

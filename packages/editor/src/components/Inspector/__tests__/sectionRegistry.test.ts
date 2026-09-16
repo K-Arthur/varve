@@ -688,8 +688,11 @@ describe('Subsection state', () => {
     let state = createDefaultSectionState();
     state = toggleSubSectionCollapsed(state, 'typography', 'openTypeFeatures');
     expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(true);
-    // Variable font axes remains expanded
-    expect(isSubSectionCollapsed(state, 'typography', 'variableFontAxes')).toBe(false);
+    // Variable font axes is untouched and keeps its registry-declared default
+    // (collapsed), and no stored entry was created for it.
+    expect(isSubSectionCollapsed(state, 'typography', 'variableFontAxes')).toBe(true);
+    expect(state.typography.subsections?.openTypeFeatures).toBeDefined();
+    expect(state.typography.subsections?.variableFontAxes).toBeUndefined();
   });
 
   it('subsections survive parent collapse and reopen', () => {
@@ -732,11 +735,19 @@ describe('Subsection state', () => {
     let state = createDefaultSectionState();
     state = toggleSubSectionCollapsed(state, 'typography', 'openTypeFeatures');
     state = toggleSubSectionCollapsed(state, 'typography', 'variableFontAxes');
-    // Both subsections on `typography` are collapsed
+    // openTypeFeatures defaults to expanded, so one toggle collapses it.
     expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(true);
-    expect(isSubSectionCollapsed(state, 'typography', 'variableFontAxes')).toBe(true);
+    // variableFontAxes is declared collapsed in the registry, so one toggle
+    // opens it (the toggle inverts the effective default, not "unset = false").
+    expect(isSubSectionCollapsed(state, 'typography', 'variableFontAxes')).toBe(false);
     // Unrelated section has no subsections
     expect(state.fills.subsections).toBeUndefined();
+  });
+
+  it('honors a registry-declared subsection default before any preference exists', () => {
+    const state = createDefaultSectionState();
+    expect(isSubSectionCollapsed(state, 'typography', 'variableFontAxes')).toBe(true);
+    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(false);
   });
 });
 

@@ -112,7 +112,7 @@ export function DocumentPanel() {
   return (
     <>
       <PagePrintSection />
-      <DisclosureSection title="Canvas" sectionId="canvas-background" defaultExpanded>
+      <DisclosureSection title="Canvas" sectionId="canvas-background">
         <div className="insp-canvas-props">
           <div className="insp-field">
             <span className="insp-field__label">Background</span>
@@ -208,7 +208,7 @@ export function DocumentPanel() {
           </div>
         </fieldset>
       </DisclosureSection>
-      <DisclosureSection title="Document Color" sectionId="document-color" defaultExpanded>
+      <DisclosureSection title="Document Color" sectionId="document-color">
         <div className="insp-panel__color-mode">
           <span className="insp-panel__color-mode-label">Mode</span>
           <SegmentedControl
@@ -329,7 +329,7 @@ export function DocumentPanel() {
           </p>
         </div>
       </DisclosureSection>
-      <DisclosureSection title="Soft Proof" sectionId="document-proof" defaultExpanded={false}>
+      <DisclosureSection title="Soft Proof" sectionId="document-proof">
         <div className="insp-canvas-props">
           <div className="insp-field">
             <span className="insp-field__label">Preview</span>
@@ -403,7 +403,7 @@ export function DocumentPanel() {
           </p>
         </div>
       </DisclosureSection>
-      <DisclosureSection title="Document Grid" sectionId="document-grid" defaultExpanded={false}>
+      <DisclosureSection title="Document Grid" sectionId="document-grid">
         <fieldset className="insp-canvas-props" aria-label="Document grid settings">
           <div className="insp-field">
             <span className="insp-field__label">Visible</span>
@@ -762,7 +762,7 @@ function IsometricGridSection() {
   }, [grid.axes]);
 
   return (
-    <DisclosureSection title="Isometric Grid" sectionId="isometric-grid" defaultExpanded={false}>
+    <DisclosureSection title="Isometric Grid" sectionId="isometric-grid">
       <fieldset className="insp-canvas-props" aria-label="Isometric grid settings">
         <div className="insp-field">
           <span className="insp-field__label">Visible</span>

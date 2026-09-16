@@ -102,10 +102,35 @@ toggling, multi-open comparison, Tab containment, print reveal via
 | `website-faq-print.png` | Print emulation shows every answer including previously closed ones; chevrons hidden |
 | `website-changelog-older-open.png` | “Hide 2 older releases” state label; content revealed below |
 
+## 3. Completion pass (same session)
+
+The first handoff listed remaining work; this pass closed it.
+
+| # | Item | Outcome |
+|---|---|---|
+| 18 | LayersPanel sections still used per-mount state | `LayerStatesSection` and `SelectionSetsSection` now use `usePersistedDisclosure` (`layer-states`, `selection-sets`); the two files were clean at edit time and the change is recorded in the ownership handoff |
+| 19 | `FormatMigration.tsx` unreachable + unstyled | Deleted (no importer, no CSS, duplicate of the editor's `ImportResults`); recorded in the architecture doc |
+| 20 | 12 dead top-level `defaultExpanded` props | Removed from `AdaptiveContrast`, `AiToolsHint`, `Animation`, `Effects`, `FramePresets`, `ImageCrop`, `PagePrint`, `PathText`, `Perspective`, `PrototypePanel`, and `DocumentPanel` (×5); registry defaults are unchanged, so no behaviour change |
+| 21 | Variable Font Axes subsection ignored its collapsed default | Root cause: `getSubsectionState` treated missing state as expanded, so the toggle inverted the wrong value. Fixed at the source: subsection defaults are now declared on the section definition (`SectionDefinition.subsections`), `isSubSectionCollapsed` consults them, and the call-site prop was removed. First toggle now opens the panel |
+| 22 | `paint-library` registry id had no consumer | Wired `sectionId="paint-library"` (component and registry defaults both collapsed) |
+| 23 | `warp` registry id had no consumer | Wired `sectionId="warp"` and set the registry default to expanded, preserving the component's previous behaviour while gaining persistence and restore-defaults |
+| 24 | `interaction` / `mockups` / `align-distribute` | Investigated: no section-level collapse exists for them (`interaction` renders inside `PrototypePanel`, `mockups` inside its own list, the align bar is anchored and marked essential), and they are not in the manager's collapsible set. Recorded in the architecture doc instead of forcing a wrapper |
+| 25 | `mask` | Kept legacy on purpose: its default depends on whether a mask exists, which the registry cannot express. Documented as the remaining conditional-default exception |
+
+### Completion-pass verification
+
+| Command | Result |
+|---|---|
+| `pnpm exec vitest run` on `sectionRegistry`, `registryDisclosure` (new), `controls`, `featureOwnership`, `SectionManagerTrigger`, `FramePresetsSection`, `AdaptiveContrastSection`, `PaintLibrarySection`, `EffectsSection`, `ImageEnhancementSection`, `SmartFiltersSection`, `ColorizeSection`, `PropertiesPanel`, `sectionOrdering`, `AdjustmentsPanel`, `AppearancePanel`, `persistedDisclosure` | 8 files / 125 passed in the second batch; 3 files / 81 passed in the subsection batch; 99 passed in the first batch |
+| `npx playwright test tests/e2e/a11y --project=chromium --workers=1` | 9/9 passed, including focus-order guards (“focus never lands inside aria-hidden content”, “no positive tabindex”) |
+| `npx playwright test tests/e2e/disclosures/disclosure-contract.spec.ts --project=chromium --workers=1` | 4/4 passed after the registry changes |
+| website `faq-disclosure.spec.ts` (7 tests, incl. the new 44px target check) + `touch-targets.spec.ts` (touch project) | 7/7 + 1/1 passed |
+
 ## 4. Known limitations / not verified here
 
-- **Physical input devices** (touch/pen/AT combinations) were not exercised;
-  the work is mouse/keyboard plus harness checks. Screen-reader output was not
+- **Physical input devices** (touch/pen/AT combinations) were not exercised.
+  Coarse-pointer target size is asserted for the website FAQ summary (44px)
+  and the touch-project header spec passes; screen-reader output was not
   captured.
 - **Native desktop (Tauri/WebKitGTK)** was not run; all rendered evidence is
   Chromium. The affected code is DOM/React-level and platform-independent, but
@@ -115,13 +140,15 @@ toggling, multi-open comparison, Tab containment, print reveal via
 - **`/tmp` contention**: an early E2E run hit environment disk exhaustion. The
   disk-redirect workaround is recorded, but the underlying shared-tmpfs
   pressure is a machine/coordination issue, not fixed by this work.
-- **Text enlargement / 200% zoom** was not re-measured for the changed
-  surfaces; the token-based CSS uses `rem` sizes and no fixed heights were
-  introduced, but the formal check belongs to a full accessibility pass.
-- **LayersPanel sections** (`LayerStatesSection`, `SelectionSetsSection`) keep
-  per-mount state pending the layers-panel session’s integration.
-- **`FormatMigration`** remains unreachable and unstyled by design decision
-  (delete-or-wire recorded).
+- **Text enlargement / 200% zoom** for the changed website surfaces is covered
+  by the site’s `visibility.spec.ts` (“text enlarged to 200%”); the editor
+  inspector was not re-measured at 200% zoom in this session.
+- **Legacy inspector sections** (`mask`, `warp`’s nested Settings, crop
+  sub-panels, brush sub-panels, state-machine sub-panels, effect-studio
+  details) keep sessionStorage collapse state; only the registry entries are
+  reset by “Restore defaults”.
+- **Residual format/lint**: the two LayersPanel files carry pre-existing
+  Biome `useSemanticElements` warnings (4) unrelated to this change.
 
 ## 5. Commits
 

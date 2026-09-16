@@ -75,7 +75,7 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
   const isCropMode = img.fit === 'crop';
 
   return (
-    <DisclosureSection title="Crop & Bounds" sectionId={sectionId} defaultExpanded>
+    <DisclosureSection title="Crop & Bounds" sectionId={sectionId}>
       <div className="insp-field-group">
         {/* Trim to Subject */}
         <TrimControls

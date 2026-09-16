@@ -133,7 +133,7 @@ export function PathTextSection({ nodes }: PathTextSectionProps) {
     : 0;
 
   return (
-    <DisclosureSection title="Text on Path" sectionId="text-on-path" defaultExpanded={true}>
+    <DisclosureSection title="Text on Path" sectionId="text-on-path">
       <FieldRow label="Path">
         <span className={`insp-hint${pathAvailable ? '' : ' insp-hint--warning'}`}>
           {pathAvailable ? pathNode.name : 'Missing path'}

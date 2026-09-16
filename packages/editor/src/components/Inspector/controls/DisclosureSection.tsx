@@ -40,10 +40,12 @@ export interface DisclosureSectionProps {
   /**
    * Default expansion for the legacy (non-registry) mode only.
    *
-   * Registry sections resolve their default from `sectionRegistry` so the
-   * value stays consistent across every call site and survives with the rest
-   * of `sectionVisibility`; passing this together with `sectionId` has no
-   * effect. See docs/architecture/disclosure-system.md.
+   * Registry sections resolve their defaults from `sectionRegistry` — for
+   * top-level sections via `defaultExpanded` and for subsections via the
+   * section definition's `subsections` map — so the value stays consistent
+   * across every call site and survives with the rest of `sectionVisibility`.
+   * Passing this together with `sectionId` has no effect. See
+   * docs/architecture/disclosure-system.md.
    */
   defaultExpanded?: boolean;
   /** Optional action rendered beside the disclosure trigger. */
@@ -120,7 +122,6 @@ function RegistryDisclosure({
   title,
   panelId,
   action,
-  defaultExpanded: _defaultExpanded,
   children,
 }: {
   sectionId: SectionId;
@@ -128,15 +129,15 @@ function RegistryDisclosure({
   title: string;
   panelId: string;
   action?: ReactNode;
-  defaultExpanded?: boolean;
   children: ReactNode;
 }) {
   const { state, toggleSectionCollapse, toggleSubSectionCollapse, hideInspectorSection } =
     useEditor();
 
-  // Determine expanded state:
-  // - subsection reads parent.subsections[subId].collapsed directly
-  // - top-level reads from the flat sectionVisibility state
+  // Determine expanded state. Both levels read from the registry-backed
+  // section state: top-level `defaultExpanded` comes from the section
+  // definition, and a registry subsection may declare its own default (see
+  // SectionDefinition.subsections). The call-site prop is legacy-mode only.
   const expanded = subsectionId
     ? !isSubSectionCollapsed(state.sectionVisibility, sectionId, subsectionId)
     : !isSectionCollapsed(state.sectionVisibility, sectionId);

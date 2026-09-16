@@ -261,11 +261,7 @@ function AdaptiveContrastSectionInner({ nodes }: { nodes: TextNode[] }) {
   const showRatioStatus = common.enabled !== false && common.resolvedColor != null;
 
   return (
-    <DisclosureSection
-      title="Adaptive Contrast"
-      sectionId="adaptive-contrast"
-      defaultExpanded={false}
-    >
+    <DisclosureSection title="Adaptive Contrast" sectionId="adaptive-contrast">
       <div className="insp-field-group">
         <label className="insp-field">
           <span className="insp-field__label">Enable</span>

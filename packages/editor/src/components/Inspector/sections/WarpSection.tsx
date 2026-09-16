@@ -208,7 +208,7 @@ export function WarpSection({ nodes, node }: WarpSectionProps) {
   };
 
   return (
-    <DisclosureSection title={`Warp (${warps.length})`}>
+    <DisclosureSection title={`Warp (${warps.length})`} sectionId="warp">
       {warps.length === 0 && (
         <p className="warp-section__hint">
           No warp modifiers. Add one below, or select a node and press W for the Warp tool.

@@ -77,6 +77,11 @@ Rules:
   #123653/#141506, Godot #81481) and is pinned by the E2E contract spec.
 - Registry `defaultExpanded` wins over the `DisclosureSection` prop; the prop
   is legacy-mode only and must not be treated as an override.
+- **Subsection defaults live in the registry too**
+  (`SectionDefinition.subsections.<subsectionId>.defaultExpanded`); a missing
+  declaration means expanded. The toggle inverts the *effective* default, so a
+  default declared anywhere else would make the first click write a redundant
+  value instead of opening the panel.
 - Section state is user preference, not document content — it must never enter
   the undo stack or document JSON.
 
@@ -98,17 +103,18 @@ Rules:
   sessionStorage). The legacy branch is migration-compatible; new sections
   must use `sectionId`. A future pass should inventory and retire the legacy
   branch.
-- **Registry ids without a `sectionId` consumer** (`mask`, `warp`,
-  `paint-library`, `interaction`, `mockups`, `align-distribute`): hide/order
-  work through `composeSections`, but their collapse state is local, so the
-  section manager's "Restore defaults" cannot reset it. Do not add new
-  sections this way.
+- **`mask` stays legacy by decision.** Its default depends on whether the
+  selected node already has a mask (`defaultExpanded={!!mask}`), which
+  registry state cannot express; wiring it to the registry would close the
+  section for mask users or open it for everyone. Revisit if the registry
+  gains conditional defaults.
+- **No section-level collapse for `interaction`, `mockups`, and
+  `align-distribute`.** Those registry entries govern availability, hide, and
+  order through `composeSections`; `interaction` and `mockups` render inside
+  their panel without a collapsible wrapper, and the align bar is anchored.
+  They must not be listed as collapsible in new UI.
 - **`Accordion` has no production consumer yet**; it is exported for future
   coordinated groups and carries the same focus/aria contract as `Disclosure`.
-- **`FormatMigration.tsx` (`@varve/home`) is unreachable** (no importer) and
-  has no CSS. If it is wired up, apply the trigger/label contract and add
-  styles; otherwise delete it.
-- **The two LayersPanel sections** (`LayerStatesSection`,
-  `SelectionSetsSection`) still use per-mount state; they are owned by the
-  layers-panel session and should adopt `usePersistedDisclosure` on
-  integration.
+- **Legacy-mode sections still keep their own sessionStorage state**
+  (`strata:inspector:disclosure:<slug>`), migrated once into the registry.
+  `restoreDefaultCollapsed` resets registry entries only.

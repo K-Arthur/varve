@@ -298,7 +298,6 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
     <DisclosureSection
       title="Layer Effects"
       sectionId={sectionId}
-      defaultExpanded={effectNodes.some((n) => (n.effects?.length ?? 0) > 0)}
       action={
         <EffectAddAction value={newEffectType} onChange={setNewEffectType} onAdd={addEffect} />
       }

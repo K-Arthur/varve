@@ -9,6 +9,7 @@ import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { SectionCollapseToggle } from '../SectionCollapseToggle';
+import { usePersistedDisclosure } from '../usePersistedDisclosure';
 import './selectionSetsSection.css';
 
 export function SelectionSetsSection() {
@@ -26,8 +27,9 @@ export function SelectionSetsSection() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   // Collapsible like its sibling sidebar sections: they stack above the layers
-  // tree in one fixed-height column.
-  const [collapsed, setCollapsed] = useState(false);
+  // tree in one fixed-height column. Persisted so the workspace does not
+  // re-order itself on remount (see docs/architecture/disclosure-system.md).
+  const [collapsed, setCollapsed] = usePersistedDisclosure('selection-sets');
   const [editingName, setEditingName] = useState('');
 
   const sets = state.document.selectionSets?.sets ?? [];

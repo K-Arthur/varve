@@ -90,7 +90,7 @@ export function AnimationSection({ nodes, sectionId }: AnimationSectionProps) {
   }
 
   return (
-    <DisclosureSection title="Animation" sectionId={sectionId ?? 'animation'} defaultExpanded>
+    <DisclosureSection title="Animation" sectionId={sectionId ?? 'animation'}>
       <div className="animation-section">
         <div className="animation-section__meta">
           <span>

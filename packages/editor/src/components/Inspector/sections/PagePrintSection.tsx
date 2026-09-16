@@ -263,7 +263,7 @@ export function PagePrintSection() {
   const maxInsetUnit = Math.max(0, pxToPhysical(Math.min(pageWidth, pageHeight) / 2, bleedUnit));
 
   return (
-    <DisclosureSection title="Page Print" sectionId="page-print" defaultExpanded>
+    <DisclosureSection title="Page Print" sectionId="page-print">
       <div className="page-print">
         <h4 className="page-print__sub">Size</h4>
         <FieldRow label="Preset">

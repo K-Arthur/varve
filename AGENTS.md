@@ -608,8 +608,8 @@ Shared primitives for collapsible sections:
 **Consumer surfaces:** NewDesignDialog advanced settings, PreflightFindingsPanel
 findings list, GradientEditor options, ImportResults details, MinimapPanel,
 SidebarNav Projects section, DisclosureSection legacy mode, and the four
-sidebar sections listed above. (`FormatMigration.tsx` in `@varve/home` is
-unreachable and unstyled — delete or wire it, do not extend it.)
+sidebar sections listed above. (`FormatMigration.tsx` in `@varve/home` was
+deleted — it had no importer and duplicated the editor's import report.)
 
 **Contract highlights:** Enter/Space are never re-implemented (native buttons);
 `aria-controls` only references panels that exist; collapsed content leaves the

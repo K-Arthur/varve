@@ -91,11 +91,7 @@ export function PerspectiveSection({ nodes, sectionId }: PerspectiveSectionProps
   if (!node || nodes.length !== 1 || !image) return null;
 
   return (
-    <DisclosureSection
-      title="Perspective"
-      sectionId={sectionId}
-      defaultExpanded={Boolean(perspective)}
-    >
+    <DisclosureSection title="Perspective" sectionId={sectionId}>
       <div className="insp-field-group">
         {!perspective ? (
           <>

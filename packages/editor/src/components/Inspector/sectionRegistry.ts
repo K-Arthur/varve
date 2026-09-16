@@ -123,6 +123,15 @@ export interface SectionDefinition {
   title: string;
   /** Default expanded state when no user preference exists. */
   defaultExpanded: boolean;
+  /**
+   * Default expansion for nested subsections, keyed by `subsectionId`.
+   *
+   * Subsections have no top-level registry state of their own, so their
+   * default must live here to stay a single source of truth: a missing entry
+   * means "expanded". Declaring it here is what makes the first toggle move in
+   * the direction the user sees (the toggle inverts the effective default).
+   */
+  subsections?: Record<string, { defaultExpanded: boolean }>;
   /** Can the user hide this section via the management UI? */
   canHide: boolean;
   /** Essential sections are always shown when available (not hideable). */
@@ -394,7 +403,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'warp',
     title: 'Warp',
-    defaultExpanded: false,
+    defaultExpanded: true,
     canHide: true,
     essential: false,
     order: 255,
@@ -408,6 +417,10 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     id: 'typography',
     title: 'Typography',
     defaultExpanded: true,
+    // Variable font axes are an advanced sub-panel; keep them collapsed until
+    // the user asks for them (matches the previous call-site intent, which a
+    // registry subsection default can now express).
+    subsections: { variableFontAxes: { defaultExpanded: false } },
     canHide: true,
     essential: false,
     order: 300,

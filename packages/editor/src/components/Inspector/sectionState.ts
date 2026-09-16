@@ -312,17 +312,21 @@ export function hideOptionalSections(state: SectionVisibilityState): SectionVisi
 // Nested subsection state operations
 // ---------------------------------------------------------------------------
 
-/** Get the sub-section state, or a default if not set. */
+/**
+ * Get the sub-section state, using the registry-declared default when the
+ * user has no stored preference. A missing declaration means expanded, which
+ * matches the historic behaviour for the subsections that never declared one.
+ */
 function getSubsectionState(
   state: SectionVisibilityState,
   sectionId: SectionId,
   subId: string,
 ): SectionState {
-  const parent = state[sectionId];
-  if (!parent?.subsections) {
-    return { collapsed: false, hidden: false };
-  }
-  return parent.subsections[subId] ?? { collapsed: false, hidden: false };
+  const stored = state[sectionId]?.subsections?.[subId];
+  if (stored) return stored;
+  const defaultExpanded =
+    getSectionDefinition(sectionId)?.subsections?.[subId]?.defaultExpanded ?? true;
+  return { collapsed: !defaultExpanded, hidden: false };
 }
 
 /** Toggle collapsed state for a nested subsection. */
@@ -372,10 +376,7 @@ export function isSubSectionCollapsed(
   sectionId: SectionId,
   subId: string,
 ): boolean {
-  const parent = state[sectionId];
-  if (!parent?.subsections) return false;
-  const sub = parent.subsections[subId];
-  return sub ? sub.collapsed : false;
+  return getSubsectionState(state, sectionId, subId).collapsed;
 }
 
 /**

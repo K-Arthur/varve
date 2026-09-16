@@ -27,7 +27,7 @@ export function PrototypePanel() {
           description="Select a frame or layer to add triggers and actions."
         />
       )}
-      <DisclosureSection title="Prototype Flow" sectionId="prototype-flow" defaultExpanded>
+      <DisclosureSection title="Prototype Flow" sectionId="prototype-flow">
         <PrototypeFlowView
           document={state.document}
           currentScreenId={prototypeCurrentScreen}

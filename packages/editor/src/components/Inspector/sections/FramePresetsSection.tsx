@@ -117,7 +117,7 @@ export function FramePresetsSection({
   const label = mode === 'resize' ? 'Resize to Preset' : 'Frame Presets';
 
   return (
-    <DisclosureSection title={label} sectionId={sectionId} defaultExpanded={mode === 'create'}>
+    <DisclosureSection title={label} sectionId={sectionId}>
       <PresetPicker
         groups={FRAME_PRESET_GROUPS}
         density="compact"
