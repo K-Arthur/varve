@@ -325,3 +325,20 @@ describe('AlertDialog', () => {
     expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus();
   });
 });
+
+describe('Dialog focusFirstControl', () => {
+  // Regression: querySelector returns the first match in document order, so
+  // a plain input earlier in the body beat a later control marked
+  // data-autofocus (Settings' section filter beat the active section tab).
+  it('prefers an explicit data-autofocus marker over an earlier plain input', () => {
+    render(
+      <Dialog open title="Settings" onClose={vi.fn()} focusFirstControl>
+        <input aria-label="filter" />
+        <button type="button" data-autofocus>
+          Active section
+        </button>
+      </Dialog>,
+    );
+    expect(screen.getByRole('button', { name: 'Active section' })).toHaveFocus();
+  });
+});

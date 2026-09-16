@@ -30,17 +30,8 @@ import {
 } from '@varve/engine';
 import { Button, Select } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { classifyDiscoveryFailure } from './textDiscoveryFailure';
 
-type PanelState =
-  | 'checking'
-  | 'missing'
-  | 'downloading'
-  | 'running'
-  | 'ready'
-  | 'empty'
-  | 'refused'
-  | 'error';
+type PanelState = 'checking' | 'missing' | 'downloading' | 'running' | 'ready' | 'empty' | 'error';
 
 /** Measured stage breakdown for the last completed discovery run. */
 interface DiscoveryTimings {
@@ -50,7 +41,6 @@ interface DiscoveryTimings {
   inferMs: number;
   postprocessMs: number;
   releaseMs: number;
-  totalMs: number;
   releaseStatus: 'released' | 'recycled' | 'unchanged' | 'failed' | 'busy';
   releaseDetail: string;
 }
@@ -236,10 +226,6 @@ export function TextDiscoveryPanel({
     setReleaseNote(null);
     const detectorPeakBytes =
       getModelById(GROUNDING_DINO_MODEL_ID)?.peakMemoryBytes ?? 2_600_000_000;
-    // Time-to-first-usable-result spans path/vocab resolution, image load,
-    // preprocessing, session load, inference, postprocessing, and detector
-    // release; it is the number the review list first becomes interactive.
-    const runStarted = performance.now();
     const sourceStarted = performance.now();
     let sourceMs = 0;
     let workerTimings: WorkerInferTimings | null = null;
@@ -387,7 +373,6 @@ export function TextDiscoveryPanel({
       }
       detectorReleased = releaseStatus !== 'failed';
       releaseMs = performance.now() - releaseStarted;
-      const totalMs = performance.now() - runStarted;
       setTimings({
         sourceMs,
         sessionMs: workerTimings?.sessionMs ?? 0,
@@ -395,7 +380,6 @@ export function TextDiscoveryPanel({
         inferMs: workerTimings?.inferMs ?? 0,
         postprocessMs: workerTimings?.postprocessMs ?? 0,
         releaseMs,
-        totalMs,
         releaseStatus,
         releaseDetail,
       });
@@ -413,26 +397,31 @@ export function TextDiscoveryPanel({
         `Found ${decoded.length} matching region${decoded.length === 1 ? '' : 's'}. Review one, then segment it.`,
       );
     } catch (discoveryError) {
+      if (timedOutRef.current) {
+        setState('error');
+        setError(
+          `Text discovery did not finish within ${Math.round(TEXT_DISCOVERY_SOFT_DEADLINE_MS / 60_000)} minutes on this device. The detector is a background-scale model; use point or box Object Selection for an immediate result.`,
+        );
+        return;
+      }
+      if (controller.signal.aborted) return;
       const message =
         discoveryError instanceof Error ? discoveryError.message : String(discoveryError);
-      const failure = classifyDiscoveryFailure({
-        message,
-        aborted: controller.signal.aborted,
-        timedOut: timedOutRef.current,
-        deadlineMinutes: Math.round(TEXT_DISCOVERY_SOFT_DEADLINE_MS / 60_000),
-      });
-      if (failure.kind === 'cancelled') return;
-      setState(failure.kind === 'refused' ? 'refused' : 'error');
-      setError(failure.message);
+      setState('error');
+      setError(
+        /memory|allocation|out of memory/i.test(message)
+          ? 'Text discovery needs more memory than this device can spare. Use point or box Object Selection instead.'
+          : `Text discovery failed: ${message}`,
+      );
     } finally {
       window.clearTimeout(deadline);
       setStage(null);
       if (abortRef.current === controller) abortRef.current = null;
-      // A terminal path must not leave the 2.6 GB-scale detector resident just
-      // because the UI moved on, including a user cancellation: ORT has no
-      // portable mid-graph cancel, so the graph may still be running and the
-      // idle-only release reports it as in use instead of freeing it.
-      if (!detectorReleased && resolvedGraphPath) {
+      // A failed terminal path must not leave the 2.6 GB-scale detector
+      // resident just because the UI moved on. This is an idle-only release:
+      // if a graph is still finishing, the worker reports it as in-use and the
+      // session stays accounted rather than being force-freed.
+      if (!detectorReleased && resolvedGraphPath && !controller.signal.aborted) {
         void getInferenceWorkerHost()
           .releaseModel('grounding-dino', resolvedGraphPath)
           .catch(() => undefined);
@@ -443,10 +432,7 @@ export function TextDiscoveryPanel({
   const cancel = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
-    // Cancelling returns to the pre-run panel, not to the install prompt: the
-    // detector model is already installed whenever the search form is visible.
-    setError(null);
-    setState('ready');
+    setState(detections.length > 0 ? 'ready' : 'missing');
     announce('Text discovery cancelled.');
   }, [announce, detections.length]);
 
@@ -543,11 +529,7 @@ export function TextDiscoveryPanel({
       )}
 
       {error && (
-        <p
-          className="insp-hint insp-hint--error"
-          role="alert"
-          data-testid={state === 'refused' ? 'text-discovery-refusal' : 'text-discovery-error'}
-        >
+        <p className="insp-hint insp-hint--error" role="alert">
           {error}
         </p>
       )}
@@ -568,12 +550,10 @@ export function TextDiscoveryPanel({
         <p className="insp-field__hint" role="status" data-testid="text-discovery-timings">
           Last run:{' '}
           {timings.sessionMs === 0
-            ? 'model load warm'
+            ? 'warm session'
             : `model load ${(timings.sessionMs / 1000).toFixed(1)}s`}{' '}
-          · image prep {(timings.sourceMs / 1000).toFixed(1)}s · tensor build{' '}
-          {(timings.preprocessMs / 1000).toFixed(1)}s · detection{' '}
+          · preprocess {(timings.preprocessMs / 1000).toFixed(1)}s · detection{' '}
           {(timings.inferMs / 1000).toFixed(1)}s · release {(timings.releaseMs / 1000).toFixed(1)}s
-          · total {(timings.totalMs / 1000).toFixed(1)}s
         </p>
       )}
       {releaseNote && (

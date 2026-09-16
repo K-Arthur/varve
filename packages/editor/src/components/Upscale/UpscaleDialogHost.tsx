@@ -94,8 +94,6 @@ export function UpscaleDialogHost({ open, onClose }: UpscaleDialogHostProps) {
     };
   }, [open, state.document, state.selection]);
 
-  if (!open) return null;
-
   return (
     <UpscaleDialog
       sourceWidth={source?.width ?? 0}

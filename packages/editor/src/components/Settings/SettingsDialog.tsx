@@ -11,6 +11,7 @@ import {
   FilePickerButton,
   NestedOverlayProvider,
   NumberInput,
+  SearchField,
   Select,
   SwitchField,
   Tooltip,
@@ -103,40 +104,63 @@ export function SettingsDialog({
   const { updateSection, resetSettings } = useSettings();
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [sectionQuery, setSectionQuery] = useState('');
 
   useEffect(() => {
     if (open) setActiveSection(initialSection);
   }, [open, initialSection]);
 
+  useEffect(() => {
+    if (open) setSectionQuery('');
+  }, [open]);
+
+  // The settings surface has grown past the point where scanning is cheap;
+  // filter the section list by name. Matches are the only tabs rendered, so
+  // roving focus and arrow navigation operate on what the user can see.
+  const visibleSections = useMemo(() => {
+    const query = sectionQuery.trim().toLocaleLowerCase();
+    if (!query) return SECTIONS;
+    return SECTIONS.filter((section) => section.label.toLocaleLowerCase().includes(query));
+  }, [sectionQuery]);
+
+  // If the active section is filtered out, follow the search to the first
+  // match instead of leaving the panel on a hidden selection.
+  useEffect(() => {
+    if (visibleSections.length === 0) return;
+    if (visibleSections.some((section) => section.id === activeSection)) return;
+    setActiveSection(visibleSections[0]!.id);
+  }, [visibleSections, activeSection]);
+
   const handleSectionKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      const current = SECTIONS.findIndex((s) => s.id === activeSection);
+      if (visibleSections.length === 0) return;
+      const current = visibleSections.findIndex((s) => s.id === activeSection);
       let next = current;
       switch (e.key) {
         case 'ArrowDown':
         case 'ArrowRight':
-          next = (current + 1) % SECTIONS.length;
+          next = (current + 1) % visibleSections.length;
           break;
         case 'ArrowUp':
         case 'ArrowLeft':
-          next = (current - 1 + SECTIONS.length) % SECTIONS.length;
+          next = (current - 1 + visibleSections.length) % visibleSections.length;
           break;
         case 'Home':
           next = 0;
           break;
         case 'End':
-          next = SECTIONS.length - 1;
+          next = visibleSections.length - 1;
           break;
         default:
           return;
       }
       e.preventDefault();
-      const nextSection = SECTIONS[next];
+      const nextSection = visibleSections[next];
       if (!nextSection) return;
       setActiveSection(nextSection.id);
       document.getElementById(`settings-tab-${nextSection.id}`)?.focus();
     },
-    [activeSection],
+    [activeSection, visibleSections],
   );
 
   const handleThemeChange = useCallback(
@@ -166,33 +190,58 @@ export function SettingsDialog({
         <div className="settings-dialog__layout">
           {/* APG Tabs: the container must be the tablist, only the selected
               tab stays in the Tab sequence, and Arrow/Home/End move between
-              sections. Previously all 12 tabs were individual tab stops with
-              no arrow support. */}
-          <div
-            className="settings-dialog__nav"
-            role="tablist"
-            aria-label="Settings sections"
-            aria-orientation="vertical"
-            onKeyDown={handleSectionKeyDown}
-          >
-            {SECTIONS.map((sec) => (
-              <button
-                key={sec.id}
-                id={`settings-tab-${sec.id}`}
-                type="button"
-                role="tab"
-                aria-selected={activeSection === sec.id}
-                aria-controls="settings-tabpanel"
-                tabIndex={activeSection === sec.id ? 0 : -1}
-                // Initial focus lands on the section the user was last in,
-                // not on the header Close button (see Dialog.focusFirstControl).
-                data-autofocus={activeSection === sec.id ? '' : undefined}
-                className={`settings-dialog__tab${activeSection === sec.id ? ' settings-dialog__tab--active' : ''}`}
-                onClick={() => setActiveSection(sec.id)}
-              >
-                {sec.label}
-              </button>
-            ))}
+              sections. The filter narrows the tab set itself so keyboard
+              navigation only traverses visible sections. */}
+          <div className="settings-dialog__nav-column">
+            <SearchField
+              className="settings-dialog__section-search"
+              value={sectionQuery}
+              onChange={setSectionQuery}
+              placeholder="Filter settings…"
+              aria-label="Filter settings sections"
+              resultCount={visibleSections.length}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown' && visibleSections.length > 0) {
+                  e.preventDefault();
+                  const target =
+                    visibleSections.find((section) => section.id === activeSection) ??
+                    visibleSections[0]!;
+                  setActiveSection(target.id);
+                  document.getElementById(`settings-tab-${target.id}`)?.focus();
+                }
+              }}
+            />
+            <div
+              className="settings-dialog__nav"
+              role="tablist"
+              aria-label="Settings sections"
+              aria-orientation="vertical"
+              onKeyDown={handleSectionKeyDown}
+            >
+              {visibleSections.map((sec) => (
+                <button
+                  key={sec.id}
+                  id={`settings-tab-${sec.id}`}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeSection === sec.id}
+                  aria-controls="settings-tabpanel"
+                  tabIndex={activeSection === sec.id ? 0 : -1}
+                  // Initial focus lands on the section the user was last in,
+                  // not on the header Close button (see Dialog.focusFirstControl).
+                  data-autofocus={activeSection === sec.id ? '' : undefined}
+                  className={`settings-dialog__tab${activeSection === sec.id ? ' settings-dialog__tab--active' : ''}`}
+                  onClick={() => setActiveSection(sec.id)}
+                >
+                  {sec.label}
+                </button>
+              ))}
+              {visibleSections.length === 0 && (
+                <p className="settings-dialog__nav-empty" role="status">
+                  No settings match “{sectionQuery.trim()}”.
+                </p>
+              )}
+            </div>
           </div>
 
           <div

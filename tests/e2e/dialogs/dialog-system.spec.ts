@@ -1,3 +1,4 @@
+import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { navigateToEditor, seedLayers } from '../shared';
@@ -102,6 +103,25 @@ test.describe('Settings dialog', () => {
 
     await page.mouse.click(6, 6);
     await expect(settings).not.toHaveAttribute('open', '');
+  });
+
+  test('filters sections and follows the first match', async ({ page }) => {
+    await navigateToEditor(page);
+    await page.keyboard.press('Control+,');
+    const settings = page.locator('dialog.varve-dialog--settings');
+    await expect(settings).toHaveAttribute('open', '');
+
+    const filter = settings.getByLabel('Filter settings sections');
+    await filter.fill('keyboard');
+    await expect(settings.getByRole('tab')).toHaveCount(1);
+    await expect(settings.getByRole('tab', { name: 'Keyboard Shortcuts' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+
+    await filter.fill('no-such-section');
+    await expect(settings.getByText(/No settings match/)).toBeVisible();
+    await expect(settings.getByRole('tab')).toHaveCount(0);
   });
 });
 
@@ -249,6 +269,54 @@ test.describe('Create table from data', () => {
     await dialog.getByRole('button', { name: /create table/i }).click();
     await expect(dialog).toBeHidden();
     await expect(page.getByRole('treeitem', { name: /Table/ }).first()).toBeVisible();
+  });
+});
+
+test.describe('Enhance Image dialog', () => {
+  test('opens from the layer context menu, fits the viewport, and closes on Escape', async ({
+    page,
+  }) => {
+    await navigateToEditor(page);
+    await page
+      .locator('#file-import-input')
+      .setInputFiles(path.resolve('tests/e2e/fixtures/real-life-architecture.jpg'));
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 20000 });
+    const item = page.getByRole('treeitem').first();
+    await item.click();
+
+    await item.click({ button: 'right' });
+    const menu = page.locator('.varve-ctxmenu');
+    await expect(menu).toBeVisible();
+    // Settle the menu's fade/scale before clicking: a click during the
+    // animation retries actionability against a moving target.
+    await expect(menu).toHaveCSS('opacity', '1');
+    await menu.getByRole('menuitem', { name: /enhance image/i }).click();
+
+    const dialog = page.locator('dialog[open]').filter({ hasText: 'Enhance image' });
+    await expect(dialog).toBeVisible({ timeout: 15000 });
+    await expect(dialog).toHaveCSS('opacity', '1');
+
+    const geometry = await dialog.evaluate((el) => {
+      const rect = el.getBoundingClientRect();
+      const body = el.querySelector('.upscale-dialog__body');
+      return {
+        width: rect.width,
+        height: rect.height,
+        fitsHeight: rect.bottom <= window.innerHeight + 1 && rect.top >= -1,
+        bodyDisplay: body ? getComputedStyle(body).display : null,
+      };
+    });
+    // The enhance workspace keeps its wide two-column layout and stays
+    // inside the viewport through the shared dialog's clamping.
+    expect(geometry.width).toBeGreaterThan(700);
+    expect(geometry.fitsHeight).toBe(true);
+    expect(geometry.bodyDisplay).toBe('grid');
+
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    // The invoking menu item unmounted with the menu; focus falls back to
+    // the selected layer row rather than the document body.
+    await expect(item).toBeFocused();
   });
 });
 

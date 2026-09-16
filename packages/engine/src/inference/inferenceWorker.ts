@@ -642,11 +642,10 @@ async function getSession(
     }
 
     try {
-      const { assessWasmModelAdmission } = await import('./core/RuntimeCapabilities');
-      const admission = await assessWasmModelAdmission(modelId);
-      if (!admission.allowed) {
+      const { isWasmModelSafe } = await import('../backgroundRemoval/environmentCapabilities');
+      if (!(await isWasmModelSafe(modelId))) {
         throw new Error(
-          `Model exceeds safe WASM memory limit. ${admission.detail}${lastError ? ` Accelerated backend also failed: ${lastError.message}` : ''}`.trim(),
+          `Model exceeds safe WASM memory limit. ${lastError ? `Accelerated backend also failed: ${lastError.message}` : ''}`.trim(),
         );
       }
     } catch (gateErr) {

@@ -274,18 +274,24 @@ function validProvider(value: unknown): value is GenerativeEditProvider {
     !hasInputFrameGeometry ||
     (inputFrame !== null &&
       typeof inputFrame === 'object' &&
+      typeof inputFrame.sourceWidth === 'number' &&
       Number.isSafeInteger(inputFrame.sourceWidth) &&
       inputFrame.sourceWidth > 0 &&
       inputFrame.sourceWidth <= 16_777_216 &&
+      typeof inputFrame.sourceHeight === 'number' &&
       Number.isSafeInteger(inputFrame.sourceHeight) &&
       inputFrame.sourceHeight > 0 &&
       inputFrame.sourceHeight <= 16_777_216 &&
+      typeof inputFrame.contentX === 'number' &&
       Number.isSafeInteger(inputFrame.contentX) &&
       inputFrame.contentX >= 0 &&
+      typeof inputFrame.contentY === 'number' &&
       Number.isSafeInteger(inputFrame.contentY) &&
       inputFrame.contentY >= 0 &&
+      typeof inputFrame.contentWidth === 'number' &&
       Number.isSafeInteger(inputFrame.contentWidth) &&
       inputFrame.contentWidth > 0 &&
+      typeof inputFrame.contentHeight === 'number' &&
       Number.isSafeInteger(inputFrame.contentHeight) &&
       inputFrame.contentHeight > 0 &&
       inputFrame.contentX + inputFrame.contentWidth <= inputFrame.width &&

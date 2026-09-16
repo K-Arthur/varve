@@ -1117,10 +1117,9 @@ function ShellInner({
         {/* Logo small-size preview */}
         <LogoPreviewDialog />
 
-        {/* Upscale dialog */}
-        {editor.upscaleDialogOpen && (
-          <UpscaleDialogHost open={editor.upscaleDialogOpen} onClose={editor.closeUpscaleDialog} />
-        )}
+        {/* Upscale dialog — always mounted so the native dialog can run its
+            close() focus restoration; the body only mounts while open. */}
+        <UpscaleDialogHost open={editor.upscaleDialogOpen} onClose={editor.closeUpscaleDialog} />
 
         {/* Curated effects dialog — shares the live primary editor state. */}
         <EffectStudioDialogHost />

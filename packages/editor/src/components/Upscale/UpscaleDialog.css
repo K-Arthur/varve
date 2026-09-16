@@ -1,46 +1,7 @@
-/* ── Upscale Dialog ──────────────────────────────────────────────────────── */
-
-.upscale-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-overlay, 1000);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  padding: var(--space-5);
-  background: var(--elevation-scrim);
-  backdrop-filter: blur(2px);
-}
-
-.upscale-dialog {
-  display: flex;
-  flex-direction: column;
-  width: min(1120px, 100%);
-  height: min(900px, calc(100vh - 2 * var(--space-5)));
-  max-height: calc(100vh - 2 * var(--space-5));
-  background: var(--elevation-surface-default);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-floating);
-  box-shadow: var(--elevation-shadow-overlay);
-  overflow: hidden;
-}
-
-.upscale-dialog__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex: 0 0 auto;
-  padding: var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--color-border-subtle);
-}
-
-.upscale-dialog__title {
-  margin: 0;
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
+/* ── Upscale Dialog ────────────────────────────────────────────────────────
+   The shared Dialog owns the shell (top layer, surface, header, close,
+   scrollable body, sticky footer). These rules keep the enhance workspace's
+   larger two-column layout. */
 
 .upscale-dialog__body {
   display: grid;
@@ -48,7 +9,6 @@
   align-items: stretch;
   gap: var(--space-5);
   min-height: 0;
-  padding: var(--space-5);
   overflow: hidden;
 }
 
@@ -56,10 +16,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  flex: 0 0 auto;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-5);
-  border-top: 1px solid var(--color-border-subtle);
 }
 
 /* ── Preview ─────────────────────────────────────────────────────────────── */
@@ -566,4 +523,15 @@
   border: 1px solid var(--color-border-error, var(--color-border-subtle));
   border-radius: var(--radius-control-compact);
   background: var(--color-surface-error, transparent);
+}
+
+/* ── Workspace size override ────────────────────────────────────────────────
+   The enhance workspace is deliberately much wider/taller than the shared
+   lg dialog. `dialog.` elevates specificity above the base .varve-dialog
+   rule; placed last so no lower-specificity selector follows it. */
+dialog.upscale-dialog {
+  width: min(1120px, 92vw);
+  max-width: min(1120px, 92vw);
+  height: min(900px, calc(var(--visual-viewport-height, 100dvh) - 2rem));
+  max-height: min(calc(var(--visual-viewport-height, 100dvh) - 2rem), 56rem);
 }

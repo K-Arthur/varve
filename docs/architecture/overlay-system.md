@@ -229,7 +229,9 @@ consumers do not re-implement them:
 - **Initial focus is deliberate.** `showModal()` focuses the first focusable
   element, which is the header Close button; dialogs whose purpose is a
   specific control opt into `focusFirstControl` + `data-autofocus`, and
-  `AlertDialog` focuses its cancel (least destructive) action.
+  `AlertDialog` focuses its cancel (least destructive) action. An explicit
+  `data-autofocus` marker wins over generic fallbacks regardless of document
+  order, so a filter input above a marked tab cannot steal the placement.
 - **Focus restoration is the platform's, with a marked fallback.** Native
   `close()` restores focus to the pre-open element; if that element unmounted
   (a context-menu item), `Dialog` focuses the first

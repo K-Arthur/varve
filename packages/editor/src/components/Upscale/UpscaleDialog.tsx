@@ -32,7 +32,7 @@ import {
   UPSCALE_MODES,
   upscalePreviewRegion,
 } from '@varve/engine';
-import { Button, FocusTrap, IconButton, SegmentedControl, Select } from '@varve/ui';
+import { Button, Dialog, SegmentedControl, Select } from '@varve/ui';
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
@@ -859,8 +859,6 @@ export function UpscaleDialog({
         ? 'upscale-preview__slider-handle--end'
         : '';
 
-  if (!open) return null;
-
   const modeOptions = UPSCALE_MODES.map((m) => ({
     value: m.id,
     label: m.label,
@@ -872,678 +870,17 @@ export function UpscaleDialog({
   }));
 
   return (
-    <div
-      className="upscale-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Enhance image"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !processing) handleCancel();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape' && !processing) handleCancel();
-      }}
-    >
-      <FocusTrap active={open}>
-        <div className="upscale-dialog">
-          <div className="upscale-dialog__header">
-            <h2 className="upscale-dialog__title">
-              Enhance image{batchCount > 1 ? ` (${batchCount} selected)` : ''}
-            </h2>
-            <IconButton
-              icon="X"
-              label="Close upscale dialog"
-              size="icon-xs"
-              variant="ghost"
-              type="button"
-              className="upscale-dialog__close"
-              onClick={handleCancel}
-              disabled={processing}
-            />
-          </div>
-
-          <div className="upscale-dialog__body">
-            {/* Preview */}
-            <div className="upscale-preview">
-              <div className="upscale-preview__toolbar">
-                <div className="upscale-preview__toolbar-heading">
-                  <span className="upscale-preview__toolbar-label">Preview</span>
-                  <span className="upscale-preview__toolbar-status">
-                    {previewBaselineUrl ? 'Live comparison' : 'Source image'}
-                  </span>
-                </div>
-                <div className="upscale-preview__toolbar-controls">
-                  <div className="upscale-preview__control-group">
-                    <span className="upscale-preview__control-label">Inspect</span>
-                    <fieldset
-                      className="upscale-preview__focus-picker"
-                      aria-label="Preview region (pick the area to inspect)"
-                    >
-                      {([0, 0.5, 1] as const).flatMap((fy) =>
-                        ([0, 0.5, 1] as const).map((fx) => {
-                          const active = previewFocus.x === fx && previewFocus.y === fy;
-                          return (
-                            <button
-                              key={`${fx}-${fy}`}
-                              type="button"
-                              className={`upscale-preview__focus-cell ${active ? 'upscale-preview__focus-cell--active' : ''}`}
-                              aria-pressed={active}
-                              aria-label={`Preview ${fy === 0 ? 'top' : fy === 1 ? 'bottom' : 'middle'} ${fx === 0 ? 'left' : fx === 1 ? 'right' : 'center'}`}
-                              onClick={() => setPreviewFocus({ x: fx, y: fy })}
-                            />
-                          );
-                        }),
-                      )}
-                    </fieldset>
-                  </div>
-                  <div className="upscale-preview__control-group">
-                    <span className="upscale-preview__control-label">Zoom</span>
-                    <fieldset className="upscale-preview__zoom-toggle" aria-label="Preview zoom">
-                      <button
-                        type="button"
-                        className={`upscale-preview__zoom-btn ${previewZoom === 'fit' ? 'upscale-preview__zoom-btn--active' : ''}`}
-                        aria-pressed={previewZoom === 'fit'}
-                        onClick={() => setPreviewZoom('fit')}
-                      >
-                        Fit
-                      </button>
-                      <button
-                        type="button"
-                        className={`upscale-preview__zoom-btn ${previewZoom === '100%' ? 'upscale-preview__zoom-btn--active' : ''}`}
-                        aria-pressed={previewZoom === '100%'}
-                        onClick={() => setPreviewZoom('100%')}
-                      >
-                        100%
-                      </button>
-                    </fieldset>
-                  </div>
-                </div>
-              </div>
-              <div
-                className={`upscale-preview__viewport ${previewZoom === '100%' ? 'upscale-preview__viewport--zoom100' : ''}`}
-              >
-                <div
-                  ref={previewContainerRef}
-                  className={`upscale-preview__image-container ${previewZoom === '100%' ? 'upscale-preview__image-container--zoom100' : ''}`}
-                  style={previewSurfaceStyle}
-                  onPointerDown={handlePointerDown}
-                  onPointerMove={handlePointerMove}
-                  onPointerUp={handlePointerUp}
-                >
-                  <img
-                    src={previewBaselineUrl ?? (sourceDataUrl || undefined)}
-                    alt="Original preview — same crop as enhanced output"
-                    className="upscale-preview__image upscale-preview__image--original"
-                    style={{
-                      ...previewSurfaceStyle,
-                      imageRendering:
-                        mode?.id === 'pixel-art' ? ('pixelated' as const) : ('auto' as const),
-                    }}
-                  />
-                  <div
-                    className="upscale-preview__overlay"
-                    style={{ clipPath: `inset(0 0 0 ${100 - previewPosition}%)` }}
-                  >
-                    {previewDataUrl ? (
-                      <img
-                        src={previewDataUrl}
-                        alt="Enhanced preview — same crop and output size as original"
-                        className="upscale-preview__image upscale-preview__image--upscaled"
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'fill' as const,
-                          imageRendering:
-                            mode?.id === 'pixel-art' ? ('pixelated' as const) : undefined,
-                        }}
-                      />
-                    ) : mode?.isAi ? (
-                      <img
-                        src={sourceDataUrl || undefined}
-                        alt="AI upscaled preview placeholder"
-                        className="upscale-preview__image upscale-preview__image--upscaled"
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'fill' as const,
-                          opacity: 0.45,
-                        }}
-                      />
-                    ) : (
-                      <img
-                        src={sourceDataUrl || undefined}
-                        alt="Preview placeholder"
-                        className="upscale-preview__image upscale-preview__image--upscaled"
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'fill' as const,
-                          opacity: 0.45,
-                        }}
-                      />
-                    )}
-                  </div>
-                  <div
-                    ref={previewSliderRef}
-                    className="upscale-preview__slider"
-                    style={sliderPositionStyle}
-                    role="slider"
-                    aria-label="Before / after comparison"
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={Math.round(previewPosition)}
-                    aria-valuetext={`${Math.round(previewPosition)}% enhanced`}
-                    tabIndex={0}
-                    onKeyDown={handleSliderKeyDown}
-                  >
-                    <div className="upscale-preview__slider-line" />
-                    <div
-                      className={`upscale-preview__slider-handle ${sliderHandleEdgeClass}`.trim()}
-                      aria-hidden="true"
-                    >
-                      <span aria-hidden="true">&lt;-&gt;</span>
-                    </div>
-                  </div>
-                  <span className="upscale-preview__label upscale-preview__label--before">
-                    Original
-                  </span>
-                  <span className="upscale-preview__label upscale-preview__label--after">
-                    {operation === 'denoise'
-                      ? 'Denoised'
-                      : operation === 'deblur'
-                        ? 'Deblurred'
-                        : operation === 'compression-restoration'
-                          ? 'Restored'
-                          : operation === 'restore-upscale'
-                            ? 'Restored + enhanced'
-                            : operation === 'deblur-upscale'
-                              ? 'Deblurred + enhanced'
-                              : 'Enhanced'}
-                  </span>
-                  {mode?.isAi && !previewDataUrl && (
-                    <p className="upscale-preview__ai-hint">
-                      AI preview is opt-in — generates a 512 px crop. Tap Generate to see real
-                      output.
-                    </p>
-                  )}
-                  {previewGenerating && (
-                    <div className="upscale-preview__generating" role="status" aria-live="polite">
-                      Generating preview…
-                    </div>
-                  )}
-                </div>
-              </div>
-              <p className="upscale-preview__hint">
-                {previewBaselineUrl
-                  ? `Original crop vs enhanced output — ${previewComparisonLabel} (${usesUpscale ? (mode?.isAi ? 'AI' : (mode?.label ?? 'CPU')) : 'source'}). Drag or use left/right keys to compare. ${previewZoom === '100%' ? '100% pixel view.' : 'Fit view.'} Output: ${outW}x${outH}px`
-                  : `Drag or use left/right keys to compare. Output: ${outW}x${outH}px`}
-              </p>
-            </div>
-
-            {/* Settings */}
-            <div className="upscale-settings">
-              <div className="upscale-settings__group">
-                <span className="upscale-settings__label">Preset</span>
-                <Select
-                  label="Enhancement preset"
-                  value={presetId}
-                  disabled={processing}
-                  options={[
-                    ...ENHANCEMENT_PRESETS.map((preset) => ({
-                      value: preset.id,
-                      label: preset.label,
-                      description: preset.description,
-                    })),
-                    {
-                      value: 'custom',
-                      label: 'Custom settings',
-                      description: 'Keep the individual settings selected below.',
-                    },
-                  ]}
-                  onChange={(value) => {
-                    const nextPresetId = value as EnhancementPresetId;
-                    if (nextPresetId === 'custom') setPresetId('custom');
-                    else applyPreset(nextPresetId);
-                  }}
-                />
-                <p className="insp-hint">
-                  {presetId === 'custom'
-                    ? 'Individual settings are active. Choosing a preset replaces only processing settings; output behavior stays unchanged.'
-                    : (getEnhancementPreset(presetId)?.description ?? '')}
-                </p>
-              </div>
-
-              <div className="upscale-settings__group">
-                <span className="upscale-settings__label">Enhancement</span>
-                <Select
-                  label="Enhancement operation"
-                  value={operation}
-                  disabled={processing}
-                  options={[
-                    { value: 'auto', label: 'Auto / Recommended' },
-                    { value: 'upscale', label: 'Upscale' },
-                    { value: 'denoise', label: 'Denoise' },
-                    { value: 'restore-upscale', label: 'Restore + Upscale' },
-                    {
-                      value: 'deblur',
-                      label: isRestorationOperationAvailable('deblur')
-                        ? 'Deblur'
-                        : 'Deblur (not available)',
-                    },
-                    {
-                      value: 'deblur-upscale',
-                      label: isRestorationOperationAvailable('deblur-upscale')
-                        ? 'Deblur + Upscale'
-                        : 'Deblur + Upscale (not available)',
-                    },
-                    {
-                      value: 'compression-restoration',
-                      label: isRestorationOperationAvailable('compression-restoration')
-                        ? 'Remove compression artifacts'
-                        : 'Remove compression artifacts (not available)',
-                    },
-                  ]}
-                  onChange={(value) => {
-                    const next = value as RestorationOperation | 'auto';
-                    denoiseUserEditedRef.current = false;
-                    markPresetCustom();
-                    setOperation(next);
-                    if (next === 'upscale') setDenoiseStrength('none');
-                    if (next === 'denoise' || next === 'restore-upscale') {
-                      setDenoiseStrength((current) => (current === 'none' ? 'medium' : current));
-                    }
-                    if (next === 'deblur' || next === 'deblur-upscale') {
-                      setDenoiseStrength('none');
-                    }
-                  }}
-                />
-                {operation === 'auto' && (
-                  <div className="upscale-auto" role="status" aria-live="polite">
-                    {autoAnalysis ? (
-                      autoAnalysis.recommendation[0] === 'none' ? (
-                        <p className="insp-hint">No specific restoration suggested.</p>
-                      ) : (
-                        <>
-                          <p className="insp-hint">
-                            <strong>Detected:</strong>{' '}
-                            {autoAnalysis.findings.join('; ').toLowerCase()}
-                          </p>
-                          <p className="insp-hint">
-                            <strong>Recommended:</strong>{' '}
-                            {recommendationLabel(autoAnalysis.recommendation)} (
-                            {recommendationStrengthLabel(autoAnalysis.confidence)})
-                          </p>
-                          {autoResolution?.operation && (
-                            <p className="insp-hint">
-                              <strong>Will run:</strong> {operationLabel(autoResolution.operation)}
-                            </p>
-                          )}
-                          {autoResolution?.note && (
-                            <p className="insp-hint insp-hint--warn">{autoResolution.note}</p>
-                          )}
-                        </>
-                      )
-                    ) : (
-                      <p className="insp-hint">Analyzing image…</p>
-                    )}
-                  </div>
-                )}
-                {!operationAvailable && operation === 'compression-restoration' && (
-                  <p className="insp-hint insp-hint--warn">
-                    No JPEG/artifact-removal model has passed the design-content corpus yet. SCUNet
-                    denoise damages thin lines and text; the only NAFNet JPEG checkpoint was
-                    rejected on provenance. Denoise can reduce some artifacts but is not a dedicated
-                    compression restorer. A validated model (e.g. FBCNN) will be added when its ONNX
-                    export is verified.
-                  </p>
-                )}
-                {!operationAvailable && operation !== 'compression-restoration' && (
-                  <p className="insp-hint insp-hint--warn">
-                    No task-specific model is installed and validated for this operation yet.
-                  </p>
-                )}
-              </div>
-
-              <div className="upscale-settings__group">
-                <span className="upscale-settings__label">Quality</span>
-                <SegmentedControl
-                  label="Quality policy"
-                  value={qualityPolicy}
-                  disabled={processing}
-                  options={[
-                    { value: 'faithful', label: 'Faithful' },
-                    { value: 'balanced', label: 'Balanced' },
-                  ]}
-                  onChange={(v) => {
-                    markPresetCustom();
-                    setQualityPolicy(v as 'faithful' | 'balanced');
-                  }}
-                />
-                <p className="insp-hint">
-                  {qualityPolicy === 'faithful'
-                    ? 'Preserve original detail. Lighter restoration, fewer artifacts.'
-                    : 'Allow stronger reconstruction for better perceptual results.'}
-                </p>
-              </div>
-
-              {usesUpscale && (
-                <div className="upscale-settings__group">
-                  <span className="upscale-settings__label">Mode</span>
-                  <Select
-                    label="Upscale quality"
-                    value={modeId}
-                    disabled={processing}
-                    options={modeOptions}
-                    onChange={(v) => {
-                      markPresetCustom();
-                      setModeId(v as UpscaleModeId);
-                    }}
-                  />
-                  {mode && <p className="insp-hint">{mode.description}</p>}
-                  {modeId === 'illustration' && (
-                    <p className="insp-hint">
-                      Anime-optimized Real-ESRGAN x4 (6B RRDB blocks) — produces sharper edges and
-                      cleaner lines on anime and illustrations than the general model.
-                    </p>
-                  )}
-                  {mode?.isAi && (
-                    <div className="upscale-settings__ai-preview">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        disabled={previewGenerating || processing}
-                        onClick={() => void generatePreview()}
-                      >
-                        {previewGenerating ? 'Generating…' : 'Generate AI preview'}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {(usesDenoise || operation === 'upscale') && operation !== 'deblur-upscale' && (
-                <div className="upscale-settings__group">
-                  <span className="upscale-settings__label">Denoise</span>
-                  <SegmentedControl
-                    label="Denoise strength"
-                    value={denoiseStrength}
-                    disabled={processing || operation === 'upscale'}
-                    options={[
-                      { value: 'none', label: 'None' },
-                      { value: 'light', label: 'Light' },
-                      { value: 'medium', label: 'Medium' },
-                      { value: 'strong', label: 'Strong' },
-                    ]}
-                    onChange={(v) => {
-                      denoiseUserEditedRef.current = true;
-                      markPresetCustom();
-                      setDenoiseStrength(v as DenoiseStrength);
-                    }}
-                  />
-                  {operation !== 'upscale' && (
-                    <p className="insp-hint">
-                      {denoiseStrength === 'none'
-                        ? 'No denoising'
-                        : `${denoiseStrength} denoise before upscale`}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {(operation === 'deblur' || operation === 'deblur-upscale') && (
-                <div className="upscale-settings__group">
-                  <span className="upscale-settings__label">Deblur</span>
-                  <SegmentedControl
-                    label="Deblur strength"
-                    value={String(deblurStrength)}
-                    disabled={processing}
-                    options={[
-                      { value: '0.3', label: 'Light' },
-                      { value: '0.5', label: 'Medium' },
-                      { value: '0.7', label: 'Strong' },
-                      { value: '0.9', label: 'Maximum' },
-                    ]}
-                    onChange={(v) => {
-                      markPresetCustom();
-                      setDeblurStrength(Number(v));
-                    }}
-                  />
-                  <p className="insp-hint">
-                    {operation === 'deblur-upscale'
-                      ? `Deblur strength ${deblurStrength} before upscale`
-                      : deblurStrength <= 0.3
-                        ? 'Conservative — preserves original detail'
-                        : deblurStrength >= 0.9
-                          ? 'Maximum — may create ringing on already-sharp images'
-                          : `Deblur strength ${deblurStrength}`}
-                  </p>
-                </div>
-              )}
-
-              {usesUpscale && modeId === 'pixel-art' && (
-                <div className="upscale-settings__group">
-                  <span className="upscale-settings__label">Algorithm</span>
-                  <Select
-                    label="Pixel-art algorithm"
-                    value={pixelArtAlgorithm}
-                    disabled={processing}
-                    options={[
-                      { value: 'nearest', label: 'Nearest neighbour' },
-                      { value: 'epx', label: 'EPX (smooth diagonals)' },
-                      { value: 'scale2x', label: 'Scale2x' },
-                      { value: 'scale3x', label: 'Scale3x' },
-                      { value: 'scale4x', label: 'Scale4x' },
-                      { value: 'hqx', label: 'hqx (high quality)' },
-                      { value: 'xbr', label: 'xBR (pattern aware)' },
-                    ]}
-                    onChange={(v) => {
-                      markPresetCustom();
-                      setPixelArtAlgorithm(v as PixelArtAlgorithm);
-                    }}
-                  />
-                  <p className="insp-hint">
-                    {pixelArtAlgorithm === 'nearest'
-                      ? 'Hard edges, no smoothing'
-                      : pixelArtAlgorithm === 'epx'
-                        ? 'Smooth diagonal lines, preserves pixel grid'
-                        : pixelArtAlgorithm === 'hqx'
-                          ? 'Area-based interpolation for curved edges'
-                          : pixelArtAlgorithm === 'xbr'
-                            ? 'Pattern-aware scaling for complex pixel art'
-                            : 'Pure integer nearest-neighbour scaling'}
-                  </p>
-                </div>
-              )}
-
-              {usesUpscale && (
-                <div className="upscale-settings__group">
-                  <span className="upscale-settings__label">Scale</span>
-                  <SegmentedControl
-                    label="Scale factor"
-                    value={String(scale)}
-                    disabled={processing || mode?.lockedScale}
-                    options={scaleOptions}
-                    onChange={(v) => {
-                      markPresetCustom();
-                      setScale(Number(v));
-                    }}
-                  />
-                </div>
-              )}
-
-              <div className="upscale-settings__group">
-                <span className="upscale-settings__label">Result</span>
-                <SegmentedControl
-                  label="Output behavior"
-                  value={output}
-                  disabled={processing}
-                  options={[
-                    { value: 'new-layer', label: 'New layer' },
-                    { value: 'replace-source', label: 'Replace source' },
-                    { value: 'non-destructive', label: 'Non-destructive' },
-                  ]}
-                  onChange={(v) => setOutput(v as OutputBehavior)}
-                />
-              </div>
-
-              {/* Output info */}
-              <div className="upscale-output-info">
-                <span className="insp-hint">
-                  Output {outW}x{outH}px
-                  {outputBytes > 0 && ` ~${formatBytes(outputBytes)}`}
-                  {mode?.isAi && ' slow, runs locally'}
-                  {peakMemoryBytes > 0 && ` · estimated peak ~${formatBytes(peakMemoryBytes)}`}
-                </span>
-                {capabilities && (
-                  <span className="insp-hint">Path: {capabilities.pathDescription}</span>
-                )}
-                {autoAnalysis?.findings.some((f) => f.includes('pixel art')) && (
-                  <span className="insp-hint">
-                    Hint: limited palette — Pixel Art mode will preserve hard edges (no photographic
-                    smoothing).
-                  </span>
-                )}
-                {usesUpscale && mode?.isAi && scale !== 4 && (
-                  <span className="insp-hint">
-                    AI is fixed 4x — your {scale}x is served as 4x AI then high-quality lanczos3
-                    downsample to {outW}x{outH}px.
-                  </span>
-                )}
-              </div>
-
-              {modelCheckPending && (
-                <p className="insp-hint" role="status">
-                  Checking local model availability…
-                </p>
-              )}
-
-              {!modelCheckPending && modelMissing && requiredModelId && (
-                <div className="upscale-model-missing" role="status">
-                  <p className="insp-hint insp-hint--warn">
-                    {requiredModelId === 'scunet'
-                      ? 'Denoise needs the SCUNet model, which is not installed yet.'
-                      : requiredModelId === 'nafnet-deblur-gopro'
-                        ? 'Deblur needs the NAFNet model, which is not installed yet.'
-                        : 'This mode needs an AI model that is not installed yet.'}
-                  </p>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    disabled={processing}
-                    onClick={() => setShowModelDownload(true)}
-                  >
-                    Download model
-                  </Button>
-                </div>
-              )}
-
-              {noOpRequested && (
-                <p className="insp-hint" role="status">
-                  No denoising selected; the source remains unchanged.
-                </p>
-              )}
-
-              {memoryWarning && (
-                <p className="insp-hint insp-hint--warn" role="status">
-                  {memoryExceeded
-                    ? `Estimated peak memory exceeds the safe limit (${formatBytes(peakMemoryBytes)}). Choose a smaller scale or a lighter operation.`
-                    : `Estimated peak memory is ~${formatBytes(peakMemoryBytes)}. Processing may be slow or exhaust memory on low-RAM systems.`}
-                </p>
-              )}
-
-              {/* Progress — stage-aware */}
-              {processing && (
-                <div className="upscale-progress" role="status" aria-live="polite">
-                  {stages.length > 0 && (
-                    <div className="upscale-progress__stages">
-                      {stages.map((s) => {
-                        const isActive = s.status === 'running';
-                        const isDone = s.status === 'completed';
-                        const isFailed = s.status === 'failed';
-                        return (
-                          <span
-                            key={s.id}
-                            className={`upscale-progress__stage ${isDone ? 'upscale-progress__stage--done' : ''} ${isActive ? 'upscale-progress__stage--active' : ''} ${isFailed ? 'upscale-progress__stage--failed' : ''}`}
-                          >
-                            <span aria-hidden="true">
-                              {isDone
-                                ? 'done'
-                                : isFailed
-                                  ? 'failed'
-                                  : isActive
-                                    ? 'active'
-                                    : 'pending'}
-                            </span>{' '}
-                            {s.id}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                  {progress && progress.total > 0 && (
-                    <div
-                      className="insp-progress"
-                      role="progressbar"
-                      aria-valuenow={progressPct}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-label="Enhancement progress"
-                    >
-                      <div className="insp-progress__bar" style={{ width: `${progressPct}%` }} />
-                      <span className="insp-progress__label">
-                        {(() => {
-                          const active = stages.find((s) => s.status === 'running');
-                          if (active) return `${active.id} · ${progress.done}/${progress.total}`;
-                          const failed = stages.find((s) => s.status === 'failed');
-                          return failed
-                            ? `${failed.id} failed`
-                            : `${progress.done}/${progress.total}`;
-                        })()}
-                      </span>
-                    </div>
-                  )}
-                  {!progress && <p className="insp-hint">Enhancing image…</p>}
-                </div>
-              )}
-
-              {error && (
-                <div className="upscale-error" role="alert">
-                  <p className="insp-hint insp-hint--error">{error}</p>
-                  {errorCode && errorActionForCode(errorCode) && (
-                    <p className="insp-hint">{errorActionForCode(errorCode)}</p>
-                  )}
-                  {errorCode === 'model-not-installed' && requiredModelId && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setShowModelDownload(true)}
-                    >
-                      Download model
-                    </Button>
-                  )}
-                  {errorCode === 'hash-mismatch' && requiredModelId && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setShowModelDownload(true)}
-                    >
-                      Re-download model
-                    </Button>
-                  )}
-                  {(errorCode === 'dimension-limit' || errorCode === 'tensor-allocation') && (
-                    <p className="insp-hint">
-                      Try a smaller output scale or a smaller source crop.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
+    <>
+      <Dialog
+        open={open}
+        onClose={handleCancel}
+        title={`Enhance image${batchCount > 1 ? ` (${batchCount} selected)` : ''}`}
+        size="lg"
+        className="upscale-dialog"
+        // While processing, the footer's Cancel is the only exit; backdrop
+        // and Escape dismissal must not contradict that.
+        dismissible={!processing}
+        footer={
           <div className="upscale-dialog__footer">
             <Button
               type="button"
@@ -1596,15 +933,654 @@ export function UpscaleDialog({
                             : 'Upscale image'}
             </Button>
           </div>
+        }
+      >
+        <div className="upscale-dialog__body">
+          {/* Preview */}
+          <div className="upscale-preview">
+            <div className="upscale-preview__toolbar">
+              <div className="upscale-preview__toolbar-heading">
+                <span className="upscale-preview__toolbar-label">Preview</span>
+                <span className="upscale-preview__toolbar-status">
+                  {previewBaselineUrl ? 'Live comparison' : 'Source image'}
+                </span>
+              </div>
+              <div className="upscale-preview__toolbar-controls">
+                <div className="upscale-preview__control-group">
+                  <span className="upscale-preview__control-label">Inspect</span>
+                  <fieldset
+                    className="upscale-preview__focus-picker"
+                    aria-label="Preview region (pick the area to inspect)"
+                  >
+                    {([0, 0.5, 1] as const).flatMap((fy) =>
+                      ([0, 0.5, 1] as const).map((fx) => {
+                        const active = previewFocus.x === fx && previewFocus.y === fy;
+                        return (
+                          <button
+                            key={`${fx}-${fy}`}
+                            type="button"
+                            className={`upscale-preview__focus-cell ${active ? 'upscale-preview__focus-cell--active' : ''}`}
+                            aria-pressed={active}
+                            aria-label={`Preview ${fy === 0 ? 'top' : fy === 1 ? 'bottom' : 'middle'} ${fx === 0 ? 'left' : fx === 1 ? 'right' : 'center'}`}
+                            onClick={() => setPreviewFocus({ x: fx, y: fy })}
+                          />
+                        );
+                      }),
+                    )}
+                  </fieldset>
+                </div>
+                <div className="upscale-preview__control-group">
+                  <span className="upscale-preview__control-label">Zoom</span>
+                  <fieldset className="upscale-preview__zoom-toggle" aria-label="Preview zoom">
+                    <button
+                      type="button"
+                      className={`upscale-preview__zoom-btn ${previewZoom === 'fit' ? 'upscale-preview__zoom-btn--active' : ''}`}
+                      aria-pressed={previewZoom === 'fit'}
+                      onClick={() => setPreviewZoom('fit')}
+                    >
+                      Fit
+                    </button>
+                    <button
+                      type="button"
+                      className={`upscale-preview__zoom-btn ${previewZoom === '100%' ? 'upscale-preview__zoom-btn--active' : ''}`}
+                      aria-pressed={previewZoom === '100%'}
+                      onClick={() => setPreviewZoom('100%')}
+                    >
+                      100%
+                    </button>
+                  </fieldset>
+                </div>
+              </div>
+            </div>
+            <div
+              className={`upscale-preview__viewport ${previewZoom === '100%' ? 'upscale-preview__viewport--zoom100' : ''}`}
+            >
+              <div
+                ref={previewContainerRef}
+                className={`upscale-preview__image-container ${previewZoom === '100%' ? 'upscale-preview__image-container--zoom100' : ''}`}
+                style={previewSurfaceStyle}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+              >
+                <img
+                  src={previewBaselineUrl ?? (sourceDataUrl || undefined)}
+                  alt="Original preview — same crop as enhanced output"
+                  className="upscale-preview__image upscale-preview__image--original"
+                  style={{
+                    ...previewSurfaceStyle,
+                    imageRendering:
+                      mode?.id === 'pixel-art' ? ('pixelated' as const) : ('auto' as const),
+                  }}
+                />
+                <div
+                  className="upscale-preview__overlay"
+                  style={{ clipPath: `inset(0 0 0 ${100 - previewPosition}%)` }}
+                >
+                  {previewDataUrl ? (
+                    <img
+                      src={previewDataUrl}
+                      alt="Enhanced preview — same crop and output size as original"
+                      className="upscale-preview__image upscale-preview__image--upscaled"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'fill' as const,
+                        imageRendering:
+                          mode?.id === 'pixel-art' ? ('pixelated' as const) : undefined,
+                      }}
+                    />
+                  ) : mode?.isAi ? (
+                    <img
+                      src={sourceDataUrl || undefined}
+                      alt="AI upscaled preview placeholder"
+                      className="upscale-preview__image upscale-preview__image--upscaled"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'fill' as const,
+                        opacity: 0.45,
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src={sourceDataUrl || undefined}
+                      alt="Preview placeholder"
+                      className="upscale-preview__image upscale-preview__image--upscaled"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'fill' as const,
+                        opacity: 0.45,
+                      }}
+                    />
+                  )}
+                </div>
+                <div
+                  ref={previewSliderRef}
+                  className="upscale-preview__slider"
+                  style={sliderPositionStyle}
+                  role="slider"
+                  aria-label="Before / after comparison"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(previewPosition)}
+                  aria-valuetext={`${Math.round(previewPosition)}% enhanced`}
+                  tabIndex={0}
+                  onKeyDown={handleSliderKeyDown}
+                >
+                  <div className="upscale-preview__slider-line" />
+                  <div
+                    className={`upscale-preview__slider-handle ${sliderHandleEdgeClass}`.trim()}
+                    aria-hidden="true"
+                  >
+                    <span aria-hidden="true">&lt;-&gt;</span>
+                  </div>
+                </div>
+                <span className="upscale-preview__label upscale-preview__label--before">
+                  Original
+                </span>
+                <span className="upscale-preview__label upscale-preview__label--after">
+                  {operation === 'denoise'
+                    ? 'Denoised'
+                    : operation === 'deblur'
+                      ? 'Deblurred'
+                      : operation === 'compression-restoration'
+                        ? 'Restored'
+                        : operation === 'restore-upscale'
+                          ? 'Restored + enhanced'
+                          : operation === 'deblur-upscale'
+                            ? 'Deblurred + enhanced'
+                            : 'Enhanced'}
+                </span>
+                {mode?.isAi && !previewDataUrl && (
+                  <p className="upscale-preview__ai-hint">
+                    AI preview is opt-in — generates a 512 px crop. Tap Generate to see real output.
+                  </p>
+                )}
+                {previewGenerating && (
+                  <div className="upscale-preview__generating" role="status" aria-live="polite">
+                    Generating preview…
+                  </div>
+                )}
+              </div>
+            </div>
+            <p className="upscale-preview__hint">
+              {previewBaselineUrl
+                ? `Original crop vs enhanced output — ${previewComparisonLabel} (${usesUpscale ? (mode?.isAi ? 'AI' : (mode?.label ?? 'CPU')) : 'source'}). Drag or use left/right keys to compare. ${previewZoom === '100%' ? '100% pixel view.' : 'Fit view.'} Output: ${outW}x${outH}px`
+                : `Drag or use left/right keys to compare. Output: ${outW}x${outH}px`}
+            </p>
+          </div>
 
-          {/* Screen-reader announcements */}
-          <div role="status" aria-live="polite" className="varve-visually-hidden">
-            {processing && progress
-              ? `Enhancing: step ${progress.done} of ${progress.total}`
-              : (error ?? '')}
+          {/* Settings */}
+          <div className="upscale-settings">
+            <div className="upscale-settings__group">
+              <span className="upscale-settings__label">Preset</span>
+              <Select
+                label="Enhancement preset"
+                value={presetId}
+                disabled={processing}
+                options={[
+                  ...ENHANCEMENT_PRESETS.map((preset) => ({
+                    value: preset.id,
+                    label: preset.label,
+                    description: preset.description,
+                  })),
+                  {
+                    value: 'custom',
+                    label: 'Custom settings',
+                    description: 'Keep the individual settings selected below.',
+                  },
+                ]}
+                onChange={(value) => {
+                  const nextPresetId = value as EnhancementPresetId;
+                  if (nextPresetId === 'custom') setPresetId('custom');
+                  else applyPreset(nextPresetId);
+                }}
+              />
+              <p className="insp-hint">
+                {presetId === 'custom'
+                  ? 'Individual settings are active. Choosing a preset replaces only processing settings; output behavior stays unchanged.'
+                  : (getEnhancementPreset(presetId)?.description ?? '')}
+              </p>
+            </div>
+
+            <div className="upscale-settings__group">
+              <span className="upscale-settings__label">Enhancement</span>
+              <Select
+                label="Enhancement operation"
+                value={operation}
+                disabled={processing}
+                options={[
+                  { value: 'auto', label: 'Auto / Recommended' },
+                  { value: 'upscale', label: 'Upscale' },
+                  { value: 'denoise', label: 'Denoise' },
+                  { value: 'restore-upscale', label: 'Restore + Upscale' },
+                  {
+                    value: 'deblur',
+                    label: isRestorationOperationAvailable('deblur')
+                      ? 'Deblur'
+                      : 'Deblur (not available)',
+                  },
+                  {
+                    value: 'deblur-upscale',
+                    label: isRestorationOperationAvailable('deblur-upscale')
+                      ? 'Deblur + Upscale'
+                      : 'Deblur + Upscale (not available)',
+                  },
+                  {
+                    value: 'compression-restoration',
+                    label: isRestorationOperationAvailable('compression-restoration')
+                      ? 'Remove compression artifacts'
+                      : 'Remove compression artifacts (not available)',
+                  },
+                ]}
+                onChange={(value) => {
+                  const next = value as RestorationOperation | 'auto';
+                  denoiseUserEditedRef.current = false;
+                  markPresetCustom();
+                  setOperation(next);
+                  if (next === 'upscale') setDenoiseStrength('none');
+                  if (next === 'denoise' || next === 'restore-upscale') {
+                    setDenoiseStrength((current) => (current === 'none' ? 'medium' : current));
+                  }
+                  if (next === 'deblur' || next === 'deblur-upscale') {
+                    setDenoiseStrength('none');
+                  }
+                }}
+              />
+              {operation === 'auto' && (
+                <div className="upscale-auto" role="status" aria-live="polite">
+                  {autoAnalysis ? (
+                    autoAnalysis.recommendation[0] === 'none' ? (
+                      <p className="insp-hint">No specific restoration suggested.</p>
+                    ) : (
+                      <>
+                        <p className="insp-hint">
+                          <strong>Detected:</strong>{' '}
+                          {autoAnalysis.findings.join('; ').toLowerCase()}
+                        </p>
+                        <p className="insp-hint">
+                          <strong>Recommended:</strong>{' '}
+                          {recommendationLabel(autoAnalysis.recommendation)} (
+                          {recommendationStrengthLabel(autoAnalysis.confidence)})
+                        </p>
+                        {autoResolution?.operation && (
+                          <p className="insp-hint">
+                            <strong>Will run:</strong> {operationLabel(autoResolution.operation)}
+                          </p>
+                        )}
+                        {autoResolution?.note && (
+                          <p className="insp-hint insp-hint--warn">{autoResolution.note}</p>
+                        )}
+                      </>
+                    )
+                  ) : (
+                    <p className="insp-hint">Analyzing image…</p>
+                  )}
+                </div>
+              )}
+              {!operationAvailable && operation === 'compression-restoration' && (
+                <p className="insp-hint insp-hint--warn">
+                  No JPEG/artifact-removal model has passed the design-content corpus yet. SCUNet
+                  denoise damages thin lines and text; the only NAFNet JPEG checkpoint was rejected
+                  on provenance. Denoise can reduce some artifacts but is not a dedicated
+                  compression restorer. A validated model (e.g. FBCNN) will be added when its ONNX
+                  export is verified.
+                </p>
+              )}
+              {!operationAvailable && operation !== 'compression-restoration' && (
+                <p className="insp-hint insp-hint--warn">
+                  No task-specific model is installed and validated for this operation yet.
+                </p>
+              )}
+            </div>
+
+            <div className="upscale-settings__group">
+              <span className="upscale-settings__label">Quality</span>
+              <SegmentedControl
+                label="Quality policy"
+                value={qualityPolicy}
+                disabled={processing}
+                options={[
+                  { value: 'faithful', label: 'Faithful' },
+                  { value: 'balanced', label: 'Balanced' },
+                ]}
+                onChange={(v) => {
+                  markPresetCustom();
+                  setQualityPolicy(v as 'faithful' | 'balanced');
+                }}
+              />
+              <p className="insp-hint">
+                {qualityPolicy === 'faithful'
+                  ? 'Preserve original detail. Lighter restoration, fewer artifacts.'
+                  : 'Allow stronger reconstruction for better perceptual results.'}
+              </p>
+            </div>
+
+            {usesUpscale && (
+              <div className="upscale-settings__group">
+                <span className="upscale-settings__label">Mode</span>
+                <Select
+                  label="Upscale quality"
+                  value={modeId}
+                  disabled={processing}
+                  options={modeOptions}
+                  onChange={(v) => {
+                    markPresetCustom();
+                    setModeId(v as UpscaleModeId);
+                  }}
+                />
+                {mode && <p className="insp-hint">{mode.description}</p>}
+                {modeId === 'illustration' && (
+                  <p className="insp-hint">
+                    Anime-optimized Real-ESRGAN x4 (6B RRDB blocks) — produces sharper edges and
+                    cleaner lines on anime and illustrations than the general model.
+                  </p>
+                )}
+                {mode?.isAi && (
+                  <div className="upscale-settings__ai-preview">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={previewGenerating || processing}
+                      onClick={() => void generatePreview()}
+                    >
+                      {previewGenerating ? 'Generating…' : 'Generate AI preview'}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {(usesDenoise || operation === 'upscale') && operation !== 'deblur-upscale' && (
+              <div className="upscale-settings__group">
+                <span className="upscale-settings__label">Denoise</span>
+                <SegmentedControl
+                  label="Denoise strength"
+                  value={denoiseStrength}
+                  disabled={processing || operation === 'upscale'}
+                  options={[
+                    { value: 'none', label: 'None' },
+                    { value: 'light', label: 'Light' },
+                    { value: 'medium', label: 'Medium' },
+                    { value: 'strong', label: 'Strong' },
+                  ]}
+                  onChange={(v) => {
+                    denoiseUserEditedRef.current = true;
+                    markPresetCustom();
+                    setDenoiseStrength(v as DenoiseStrength);
+                  }}
+                />
+                {operation !== 'upscale' && (
+                  <p className="insp-hint">
+                    {denoiseStrength === 'none'
+                      ? 'No denoising'
+                      : `${denoiseStrength} denoise before upscale`}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {(operation === 'deblur' || operation === 'deblur-upscale') && (
+              <div className="upscale-settings__group">
+                <span className="upscale-settings__label">Deblur</span>
+                <SegmentedControl
+                  label="Deblur strength"
+                  value={String(deblurStrength)}
+                  disabled={processing}
+                  options={[
+                    { value: '0.3', label: 'Light' },
+                    { value: '0.5', label: 'Medium' },
+                    { value: '0.7', label: 'Strong' },
+                    { value: '0.9', label: 'Maximum' },
+                  ]}
+                  onChange={(v) => {
+                    markPresetCustom();
+                    setDeblurStrength(Number(v));
+                  }}
+                />
+                <p className="insp-hint">
+                  {operation === 'deblur-upscale'
+                    ? `Deblur strength ${deblurStrength} before upscale`
+                    : deblurStrength <= 0.3
+                      ? 'Conservative — preserves original detail'
+                      : deblurStrength >= 0.9
+                        ? 'Maximum — may create ringing on already-sharp images'
+                        : `Deblur strength ${deblurStrength}`}
+                </p>
+              </div>
+            )}
+
+            {usesUpscale && modeId === 'pixel-art' && (
+              <div className="upscale-settings__group">
+                <span className="upscale-settings__label">Algorithm</span>
+                <Select
+                  label="Pixel-art algorithm"
+                  value={pixelArtAlgorithm}
+                  disabled={processing}
+                  options={[
+                    { value: 'nearest', label: 'Nearest neighbour' },
+                    { value: 'epx', label: 'EPX (smooth diagonals)' },
+                    { value: 'scale2x', label: 'Scale2x' },
+                    { value: 'scale3x', label: 'Scale3x' },
+                    { value: 'scale4x', label: 'Scale4x' },
+                    { value: 'hqx', label: 'hqx (high quality)' },
+                    { value: 'xbr', label: 'xBR (pattern aware)' },
+                  ]}
+                  onChange={(v) => {
+                    markPresetCustom();
+                    setPixelArtAlgorithm(v as PixelArtAlgorithm);
+                  }}
+                />
+                <p className="insp-hint">
+                  {pixelArtAlgorithm === 'nearest'
+                    ? 'Hard edges, no smoothing'
+                    : pixelArtAlgorithm === 'epx'
+                      ? 'Smooth diagonal lines, preserves pixel grid'
+                      : pixelArtAlgorithm === 'hqx'
+                        ? 'Area-based interpolation for curved edges'
+                        : pixelArtAlgorithm === 'xbr'
+                          ? 'Pattern-aware scaling for complex pixel art'
+                          : 'Pure integer nearest-neighbour scaling'}
+                </p>
+              </div>
+            )}
+
+            {usesUpscale && (
+              <div className="upscale-settings__group">
+                <span className="upscale-settings__label">Scale</span>
+                <SegmentedControl
+                  label="Scale factor"
+                  value={String(scale)}
+                  disabled={processing || mode?.lockedScale}
+                  options={scaleOptions}
+                  onChange={(v) => {
+                    markPresetCustom();
+                    setScale(Number(v));
+                  }}
+                />
+              </div>
+            )}
+
+            <div className="upscale-settings__group">
+              <span className="upscale-settings__label">Result</span>
+              <SegmentedControl
+                label="Output behavior"
+                value={output}
+                disabled={processing}
+                options={[
+                  { value: 'new-layer', label: 'New layer' },
+                  { value: 'replace-source', label: 'Replace source' },
+                  { value: 'non-destructive', label: 'Non-destructive' },
+                ]}
+                onChange={(v) => setOutput(v as OutputBehavior)}
+              />
+            </div>
+
+            {/* Output info */}
+            <div className="upscale-output-info">
+              <span className="insp-hint">
+                Output {outW}x{outH}px
+                {outputBytes > 0 && ` ~${formatBytes(outputBytes)}`}
+                {mode?.isAi && ' slow, runs locally'}
+                {peakMemoryBytes > 0 && ` · estimated peak ~${formatBytes(peakMemoryBytes)}`}
+              </span>
+              {capabilities && (
+                <span className="insp-hint">Path: {capabilities.pathDescription}</span>
+              )}
+              {autoAnalysis?.findings.some((f) => f.includes('pixel art')) && (
+                <span className="insp-hint">
+                  Hint: limited palette — Pixel Art mode will preserve hard edges (no photographic
+                  smoothing).
+                </span>
+              )}
+              {usesUpscale && mode?.isAi && scale !== 4 && (
+                <span className="insp-hint">
+                  AI is fixed 4x — your {scale}x is served as 4x AI then high-quality lanczos3
+                  downsample to {outW}x{outH}px.
+                </span>
+              )}
+            </div>
+
+            {modelCheckPending && (
+              <p className="insp-hint" role="status">
+                Checking local model availability…
+              </p>
+            )}
+
+            {!modelCheckPending && modelMissing && requiredModelId && (
+              <div className="upscale-model-missing" role="status">
+                <p className="insp-hint insp-hint--warn">
+                  {requiredModelId === 'scunet'
+                    ? 'Denoise needs the SCUNet model, which is not installed yet.'
+                    : requiredModelId === 'nafnet-deblur-gopro'
+                      ? 'Deblur needs the NAFNet model, which is not installed yet.'
+                      : 'This mode needs an AI model that is not installed yet.'}
+                </p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={processing}
+                  onClick={() => setShowModelDownload(true)}
+                >
+                  Download model
+                </Button>
+              </div>
+            )}
+
+            {noOpRequested && (
+              <p className="insp-hint" role="status">
+                No denoising selected; the source remains unchanged.
+              </p>
+            )}
+
+            {memoryWarning && (
+              <p className="insp-hint insp-hint--warn" role="status">
+                {memoryExceeded
+                  ? `Estimated peak memory exceeds the safe limit (${formatBytes(peakMemoryBytes)}). Choose a smaller scale or a lighter operation.`
+                  : `Estimated peak memory is ~${formatBytes(peakMemoryBytes)}. Processing may be slow or exhaust memory on low-RAM systems.`}
+              </p>
+            )}
+
+            {/* Progress — stage-aware */}
+            {processing && (
+              <div className="upscale-progress" role="status" aria-live="polite">
+                {stages.length > 0 && (
+                  <div className="upscale-progress__stages">
+                    {stages.map((s) => {
+                      const isActive = s.status === 'running';
+                      const isDone = s.status === 'completed';
+                      const isFailed = s.status === 'failed';
+                      return (
+                        <span
+                          key={s.id}
+                          className={`upscale-progress__stage ${isDone ? 'upscale-progress__stage--done' : ''} ${isActive ? 'upscale-progress__stage--active' : ''} ${isFailed ? 'upscale-progress__stage--failed' : ''}`}
+                        >
+                          <span aria-hidden="true">
+                            {isDone
+                              ? 'done'
+                              : isFailed
+                                ? 'failed'
+                                : isActive
+                                  ? 'active'
+                                  : 'pending'}
+                          </span>{' '}
+                          {s.id}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                {progress && progress.total > 0 && (
+                  <div
+                    className="insp-progress"
+                    role="progressbar"
+                    aria-valuenow={progressPct}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label="Enhancement progress"
+                  >
+                    <div className="insp-progress__bar" style={{ width: `${progressPct}%` }} />
+                    <span className="insp-progress__label">
+                      {(() => {
+                        const active = stages.find((s) => s.status === 'running');
+                        if (active) return `${active.id} · ${progress.done}/${progress.total}`;
+                        const failed = stages.find((s) => s.status === 'failed');
+                        return failed
+                          ? `${failed.id} failed`
+                          : `${progress.done}/${progress.total}`;
+                      })()}
+                    </span>
+                  </div>
+                )}
+                {!progress && <p className="insp-hint">Enhancing image…</p>}
+              </div>
+            )}
+
+            {error && (
+              <div className="upscale-error" role="alert">
+                <p className="insp-hint insp-hint--error">{error}</p>
+                {errorCode && errorActionForCode(errorCode) && (
+                  <p className="insp-hint">{errorActionForCode(errorCode)}</p>
+                )}
+                {errorCode === 'model-not-installed' && requiredModelId && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setShowModelDownload(true)}
+                  >
+                    Download model
+                  </Button>
+                )}
+                {errorCode === 'hash-mismatch' && requiredModelId && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setShowModelDownload(true)}
+                  >
+                    Re-download model
+                  </Button>
+                )}
+                {(errorCode === 'dimension-limit' || errorCode === 'tensor-allocation') && (
+                  <p className="insp-hint">Try a smaller output scale or a smaller source crop.</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
-      </FocusTrap>
+
+        {/* Screen-reader announcements */}
+        <div role="status" aria-live="polite" className="varve-visually-hidden">
+          {processing && progress
+            ? `Enhancing: step ${progress.done} of ${progress.total}`
+            : (error ?? '')}
+        </div>
+      </Dialog>
 
       {showModelDownload && requiredModelId && (
         <ModelDownloadDialog
@@ -1616,6 +1592,6 @@ export function UpscaleDialog({
           }}
         />
       )}
-    </div>
+    </>
   );
 }

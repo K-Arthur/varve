@@ -65,10 +65,11 @@ system and menu audits.
 | F3 | Medium | `AlertDialog` put initial focus on the header Close button, so an immediate Enter could activate the focused default and confirm a destructive action. | Native `showModal()` focuses the first focusable element; the shared AlertDialog never opted into deliberate initial focus. | **Fixed** (focus moves to the cancel action; unit-tested) |
 | F4 | Medium | Settings opened with focus on "Close dialog"; screen readers announced the close affordance rather than the dialog's purpose. | `Dialog`'s `focusFirstControl` is opt-in and Settings had not adopted it. | **Fixed** (focus lands on the active section tab; e2e-verified) |
 | F5 | High | **Batch Rename was unreachable.** `BatchRenameDialog` and its logic were complete and unit-tested but no component rendered it. | The dialog was never wired into the Layers context menu or any command. | **Fixed** (context-menu entry, migrated to the shared Dialog; full workflow + undo + axe covered in e2e) |
-| F6 | Medium | Family C modals keep the background in the accessibility tree; screen-reader users can browse content that is visually blocked. | `role="dialog"` + `aria-modal` on a `div` does not remove background content from the a11y tree the way a native `showModal()` does. | **Partially fixed** — Image Resize, Export, Model Download, and Create Table from Data migrated to the shared Dialog; Upscale, Batch Background Removal, Missing Fonts remain |
+| F6 | Medium | Family C modals keep the background in the accessibility tree; screen-reader users can browse content that is visually blocked. | `role="dialog"` + `aria-modal` on a `div` does not remove background content from the a11y tree the way a native `showModal()` does. | **Partially fixed** — Image Resize, Export, Model Download, Create Table from Data, Batch Background Removal, and Enhance Image migrated to the shared Dialog; Missing Fonts remains (its controller is mid-edit by another agent) |
 | F7 | Medium | Capture-phase window Escape handlers in bespoke modals can dismiss a layer underneath an open nested overlay — same class as F1, different components. | Ad-hoc per-component Escape listeners instead of the shared nested-overlay contract. | **Open for `FontBrowserDialog` / `DocumentFontsPanel`** (both mid-edit by another agent during this review, deliberately untouched); `BatchBgRemoveDialog` and `TableEditOverlay` were checked and hold no nested Select/Combobox/Popover, so their capture handlers cannot race one |
 | F8 | Low | When the invoking element is gone (a context-menu item that unmounted), native focus restoration has nowhere to go and focus falls to `<body>`; there is no fallback contract. | The platform restores focus to the element that had it before `showModal()`; it cannot invent a survivor. | **Fixed** — `Dialog` focuses the first `[data-dialog-focus-fallback]` marker when focus would land on `<body>`; the Layers tree marks itself |
-| F9 | Low | Long dialogs have no in-dialog search or grouping review at the ≥15-item threshold (Settings sections, font/icon browsers). | No search affordance; settings nav relies on scanning. | **Open** — review trigger, not a defect |
+| F9 | Low | Long dialogs have no in-dialog search or grouping review at the ≥15-item threshold (Settings sections, font/icon browsers). | No search affordance; settings nav relied on scanning. | **Fixed for Settings** — the section list filters by name, follows the first match, keeps arrow navigation to visible sections, and reports when nothing matches; font/icon browsers remain |
+| F12 | Medium | `data-autofocus` could lose to a plain `<input>` earlier in the body: `querySelector` returns the first match in document order, so Settings' new section filter stole the deliberate initial focus from the active section tab. | The focus query mixed the explicit marker with generic fallbacks in one selector. | **Fixed** — the explicit marker is queried first; unit-tested |
 | F10 | Info | `pnpm typecheck` failed on `master` before any dialog work (`ToolbarProps.children` required while the toolbar legitimately mounts empty; an untracked e2e spec used `Element.tabIndex`) and blocked the commit gate. | Missing optionality and a narrow element type. | **Fixed** (drive-by, both one-liners) |
 | F11 | High | **Create table from data committed the table to the raw document root** (`rootChildren`) instead of the active surface's content root. The table rendered and was selected, but the Layers panel still showed "0 objects" and the node belonged to no page/canvas. Found by driving the real workflow end to end after the dialog was migrated. | The dialog reimplemented insertion instead of using the editor's `addNodeToActiveWorkspace` helper that every other create path uses. | **Fixed** — the helper moved to `scene/activeWorkspace.ts` and both the editor and the dialog use it; unit-tested against a real design canvas |
 
@@ -145,23 +146,42 @@ before the Select could consume Escape.
   Escape, matching the disabled Close button. The model download prompt is
   the only div-based modal that was safe to keep nested before it too became
   a native dialog; its consent action receives initial focus.
+- `packages/editor/src/components/BatchBgRemoveDialog.{tsx,css}` and
+  `Upscale/UpscaleDialog.{tsx,css}` — migrated to the shared Dialog with
+  their stage/workspace layouts preserved (the enhance workspace keeps its
+  1120x900 two-column grid through a `dialog.upscale-dialog` size override),
+  their nested model prompts moved to sibling dialogs, and their dead shell
+  CSS deleted. Batch removal focuses the first method choice; both dialogs
+  are not dismissible while processing.
+- `packages/editor/src/components/Settings/SettingsDialog.tsx` — a section
+  filter (`SearchField`) narrows the tablist, follows the first match when
+  the active section is filtered out, keeps Arrow/Home/End navigation to the
+  visible tabs, and reports "No settings match" with an empty list.
+- `packages/editor/src/components/Dialog.tsx` — `data-autofocus` now wins
+  over an earlier plain input (the Settings filter had stolen the deliberate
+  initial focus); the explicit marker is queried before generic fallbacks.
 
 ## Verification record (final)
 
-- **Unit, all passing**: Dialog/Select/MultiSelect/Combobox; Export (22),
-  Model Download (9), Image Resize (3), Batch Rename (12), Create Table from
-  Data (5, including the active-surface regression), plus the 566-test
-  affected closure for the earlier slices and a 66-test re-run of the
-  migrated dialog families at the end of the session.
-- **E2E, `tests/e2e/dialogs/dialog-system.spec.ts`**: 9 journeys covering
+- **Unit, all passing**: Dialog (16), Export (22), Model Download (9),
+  Image Resize (3), Batch Rename (12), Create Table from Data (5, including
+  the active-surface regression), Batch Background Removal (16), Settings
+  (19, including the section filter), plus the 566-test affected closure for
+  the earlier slices and a 66-test re-run of the migrated dialog families.
+- **E2E, `tests/e2e/dialogs/dialog-system.spec.ts`**: 11 journeys covering
   Escape layering (Export + nested Select), Settings initial focus / focus
-  restoration / drag-out / backdrop click, Export at 900x560, Create Table
-  from Data end to end (toolbar → paste → create → layer in the tree), Batch
-  Rename with undo, focus fallback to the selected tree row, an axe scan, and
-  light/dark captures. The suite passed 8/9 in one run and the remaining
-  axe test passed immediately on retry; the lone failure was the mouse-driven
-  `seedLayers` helper not producing a treeitem within its 5s wait under
-  machine load, not an app assertion.
+  restoration / drag-out / backdrop click / section filter, Export at
+  900x560, Create Table from Data end to end (toolbar → paste → create →
+  layer in the tree), Batch Rename with undo, focus fallback to the selected
+  tree row, an axe scan, Enhance Image from the layer context menu, and
+  light/dark captures. Ten of eleven passed in the final full run; the
+  Enhance Image journey crashed the renderer at random steps on repeated
+  attempts under memory pressure, while a direct probe of the identical flow
+  (import → select → context menu → Enhance Image) opened
+  `dialog.upscale-dialog` with no page errors. Treat that one journey as
+  verified by probe, and re-run the spec on an unloaded machine.
+  Earlier in the session the same suite's axe test failed once on the
+  mouse-driven `seedLayers` helper timing out, then passed on retry.
 - **Machine conditions**: the afternoon ran ~14 concurrent agent processes;
   RAM/swap were exhausted at times and the 12 GiB `/tmp` tmpfs hit 100%,
   which crashed Chromium renderers mid-journey. Browser runs were done with
@@ -169,8 +189,9 @@ before the Select could consume Escape.
 - **Concurrent-regression repairs (not dialog work, but found here)**: the
   context-menu extraction left `isVisualMaskTarget` unimported in
   `LayersPanel/index.tsx`, crashing every layer right-click into the error
-  boundary; three untracked e2e/engine files carried type errors that
-  blocked the shared commit gate. All fixed minimally.
+  boundary; several untracked e2e/engine files carried type errors that
+  blocked the shared commit gate; a WASM-probe spec referenced an undefined
+  model-path constant. All fixed minimally or resolved by their owner.
 
 ### Still open
 
@@ -179,14 +200,13 @@ before the Select could consume Escape.
 
 ## Remaining work (explicitly not done)
 
-1. Migrate the remaining Family C modals (F6) to the shared Dialog: Upscale,
-   Batch Background Removal, Missing Fonts.
+1. Migrate the last Family C modal (F6): Missing Fonts — its controller is
+   mid-edit by another agent, so it was deliberately untouched.
 2. Apply the nested-overlay guard to the remaining capture-phase Escape
    handlers (F7) once `FontBrowserDialog` / `DocumentFontsPanel` are no
    longer mid-edit.
-3. Define a focus fallback for a removed invoker (F8).
-4. Review in-dialog search for the longest dialogs (F9).
-5. Adopt `focusFirstControl` in the remaining large shared dialogs whose
+3. Adopt `focusFirstControl` in the remaining large shared dialogs whose
    first control is meaningful (Archive, Vectorize, Icon Browser).
-6. Native/Tauri host verification of the migrated dialogs was **not** run in
+4. In-dialog search for the font/icon browsers (the Settings filter shipped).
+5. Native/Tauri host verification of the migrated dialogs was **not** run in
    this session; the e2e evidence is Chromium in the web build.

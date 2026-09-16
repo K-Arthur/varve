@@ -265,41 +265,20 @@ describe('BatchBgRemoveDialog', () => {
 
   it('escape dismisses dialog', () => {
     const { onClose } = renderDialog([imageNode('i1')]);
-    fireEvent.keyDown(window, { key: 'Escape' });
+    const dialog = screen.getByRole('dialog', { name: /remove background/i });
+    fireEvent.keyDown(dialog, { key: 'Escape' });
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('traps focus inside the dialog and auto-focuses on open (keyboard-only users cannot tab behind the modal)', async () => {
+  it('moves initial focus to the first method choice', async () => {
     renderDialog([imageNode('i1')]);
 
-    const dialog = screen.getByRole('dialog', { name: /batch background removal/i });
-
-    // FocusTrap uses requestAnimationFrame — wait for initial focus to land.
+    const dialog = screen.getByRole('dialog', { name: /remove background/i });
     await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
 
-    const focusable = Array.from(
-      dialog.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      ),
-    );
-    expect(focusable.length).toBeGreaterThan(1);
-    const first = focusable[0]!;
-    const last = focusable[focusable.length - 1]!;
-
-    // Polyfill offsetParent in jsdom so FocusTrap's getFocusable finds these.
-    for (const el of focusable) {
-      Object.defineProperty(el, 'offsetParent', { value: dialog, configurable: true });
-    }
-
-    // Shift+Tab from the first element wraps around to the last.
-    first.focus();
-    fireEvent.keyDown(first, { key: 'Tab', shiftKey: true });
-    expect(document.activeElement).toBe(last);
-
-    // Tab from the last element wraps around to the first.
-    last.focus();
-    fireEvent.keyDown(last, { key: 'Tab' });
-    expect(document.activeElement).toBe(first);
+    // The shared Dialog owns containment (native top layer); initial focus
+    // lands on the method choice that is the reason the dialog opened.
+    expect(document.activeElement).toBe(screen.getAllByRole('radio')[0]);
   });
 
   it('retry failed item', async () => {

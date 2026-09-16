@@ -65,20 +65,8 @@ export const PLATFORM_EVIDENCE_MATRIX: readonly PlatformMatrixCell[] = [
     platform: 'chromium-linux-x64 (editor worker)',
     status: 'unverified',
     reason:
-      'The shared inference worker pins ort.env.wasm.numThreads = 1 (a documented headless/AMD deadlock workaround), so no threaded configuration has ever executed this graph. A cross-origin isolated probe page reproduced the underlying failure on a different shipped graph: threaded session creation never returned within 120 s and was terminated. Cross-origin isolation raises the memory budget only.',
-    evidence: 'tests/e2e/canvas/threaded-wasm-probe.spec.ts',
-  },
-  {
-    id: 'wasm-threaded-runtime:chromium-linux-x64',
-    group: 'vision',
-    capability: 'wasm-threaded-runtime',
-    runtime: 'wasm-threaded',
-    platform: 'chromium-linux-x64, cross-origin isolated (8 logical CPUs)',
-    status: 'unverified',
-    reason:
-      'Measured, not assumed: in a minimal COOP/COEP page (crossOriginIsolated true, SharedArrayBuffer present, 4 GiB shared-memory ceiling reservable) a real shipped 233 KB graph ran single-threaded in 157 ms/run after a 1.3 s session create, while numThreads = 2 never returned from session creation within 120 s and had to be terminated. Threaded WASM is therefore unusable on this host/browser/architecture until a different build or thread arrangement is measured.',
-    evidence: 'tests/e2e/canvas/threaded-wasm-probe.spec.ts',
-    artifact: 'yunet-face-detect.onnx (233 KB, input [1,3,640,640])',
+      'The shared inference worker pins ort.env.wasm.numThreads = 1 (a documented headless/AMD deadlock workaround), so no threaded configuration has ever executed this graph. Cross-origin isolation raises the memory budget only.',
+    evidence: 'packages/engine/src/backgroundRemoval/ortRuntimeAssets.ts',
   },
   {
     id: 'grounding-dino:webgpu',

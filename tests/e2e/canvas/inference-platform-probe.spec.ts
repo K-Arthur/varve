@@ -1,5 +1,3 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
@@ -26,7 +24,7 @@ test.describe('inference platform probe', () => {
   test('records the browser inference environment without promoting platforms', async ({
     page,
   }, testInfo) => {
-    await navigateToEditor(page, '/', { startupTimeout: 120_000 });
+    await navigateToEditor(page);
     await expect(page.getByTestId('editor-canvas')).toBeVisible();
 
     const facts = await page.evaluate(async () => {
@@ -61,15 +59,6 @@ test.describe('inference platform probe', () => {
       body: JSON.stringify(facts, null, 2),
       contentType: 'application/json',
     });
-    // Durable evidence outside the disposable test-results directory; the
-    // ledger references this path.
-    const evidenceDir = path.resolve('reports/inference-platform');
-    await mkdir(evidenceDir, { recursive: true });
-    await writeFile(
-      path.join(evidenceDir, `facts-${process.env.VARVE_E2E_PORT ?? 'default'}.json`),
-      `${JSON.stringify(facts, null, 2)}\n`,
-      'utf8',
-    );
 
     // The probe's contract: collect facts. Assert only what the page itself
     // must always be able to answer, so a headless environment without WebGPU

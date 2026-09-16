@@ -24,12 +24,12 @@ import type {
   SceneNode,
 } from '@varve/scene';
 import { resolveNodePaints } from '@varve/scene';
+import { Button, Dialog } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type PreparedBackgroundRemoval,
   runtimeForBackgroundRemovalProvider,
 } from '../backgroundRemoval/commitRasterMask';
-import { FocusTrap } from '../onboard/FocusTrap';
 import { ModelDownloadDialog } from './BackgroundRemoval/ModelDownloadDialog';
 import './BatchBgRemoveDialog.css';
 
@@ -395,290 +395,238 @@ export function BatchBgRemoveDialog({
   const failedCount = files.filter((f) => f.status === 'error').length;
   const skippedCount = files.filter((f) => f.status === 'skipped').length;
 
-  if (!open) return null;
+  const footer = (
+    <div className="batch-bg-remove__footer">
+      {stage === 'select' && (
+        <>
+          <Button variant="ghost" onClick={handleClose}>
+            Cancel
+          </Button>
+          <Button variant="default" onClick={handleStart} disabled={!canStart}>
+            Remove background{files.length > 0 ? ` (${files.length})` : ''}
+          </Button>
+        </>
+      )}
+      {stage === 'processing' && (
+        <Button variant="ghost" onClick={handleClose}>
+          Cancel
+        </Button>
+      )}
+      {stage === 'results' && (
+        <Button variant="default" onClick={handleClose}>
+          Done
+        </Button>
+      )}
+    </div>
+  );
 
   return (
-    <div
-      className="batch-bg-remove-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Batch background removal"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) handleClose();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') handleClose();
-      }}
-    >
-      <FocusTrap active={open}>
-        <div className="batch-bg-remove">
-          <div className="batch-bg-remove__header">
-            <h2 className="batch-bg-remove__title">Remove background</h2>
-            <button
-              type="button"
-              className="batch-bg-remove__close"
-              aria-label="Close"
-              onClick={handleClose}
-              disabled={stage === 'processing'}
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                aria-hidden="true"
-              >
-                <path d="M18 6 6 18" />
-                <path d="m6 6 12 12" />
-              </svg>
-            </button>
-          </div>
-
-          {stage === 'select' && (
-            <>
-              <div className="batch-bg-remove__body">
-                <p>
-                  Each completed image is applied separately and replaces its existing mask. Undo
-                  restores the previous mask.
+    <>
+      <Dialog
+        open={open}
+        onClose={handleClose}
+        title="Remove background"
+        dismissible={stage !== 'processing'}
+        className="batch-bg-remove"
+        // Land focus on the first method choice, the reason the dialog opened.
+        focusFirstControl
+        footer={footer}
+      >
+        {stage === 'select' && (
+          <div className="batch-bg-remove__body">
+            <p>
+              Each completed image is applied separately and replaces its existing mask. Undo
+              restores the previous mask.
+            </p>
+            {imageNodes.length === 0 ? (
+              <div className="batch-bg-remove__empty">
+                <p className="batch-bg-remove__empty-text">
+                  No image nodes selected. Select one or more image layers to remove their
+                  background.
                 </p>
-                {imageNodes.length === 0 ? (
-                  <div className="batch-bg-remove__empty">
-                    <p className="batch-bg-remove__empty-text">
-                      No image nodes selected. Select one or more image layers to remove their
-                      background.
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <section className="batch-bg-remove__section" aria-label="Method">
-                      <h3 className="batch-bg-remove__section-title">Method</h3>
-                      <div
-                        className="batch-bg-remove__method-list"
-                        role="radiogroup"
-                        aria-label="Background removal method"
+              </div>
+            ) : (
+              <>
+                <section className="batch-bg-remove__section" aria-label="Method">
+                  <h3 className="batch-bg-remove__section-title">Method</h3>
+                  <div
+                    className="batch-bg-remove__method-list"
+                    role="radiogroup"
+                    aria-label="Background removal method"
+                  >
+                    {METHOD_OPTIONS.map((opt) => (
+                      <label
+                        key={opt.value}
+                        className={`batch-bg-remove__method-item ${method === opt.value ? 'batch-bg-remove__method-item--active' : ''}`}
                       >
-                        {METHOD_OPTIONS.map((opt) => (
-                          <label
-                            key={opt.value}
-                            className={`batch-bg-remove__method-item ${method === opt.value ? 'batch-bg-remove__method-item--active' : ''}`}
-                          >
-                            <input
-                              type="radio"
-                              name="bg-remove-method"
-                              value={opt.value}
-                              checked={method === opt.value}
-                              onChange={() => {
-                                setMethod(opt.value);
-                                void (async () => {
-                                  if (opt.value === 'quick') {
-                                    setAiAvailable(true);
-                                    return;
-                                  }
-                                  const modelId = workerModelIdForMethod(opt.value);
-                                  if (!modelId) {
-                                    setAiAvailable(true);
-                                    return;
-                                  }
-                                  const loader = await getModelLoaderReady();
-                                  setAiAvailable(await loader.isModelAvailable(modelId));
-                                })();
-                              }}
-                              className="batch-bg-remove__method-radio"
-                            />
-                            <span className="batch-bg-remove__method-label">{opt.label}</span>
-                            <span className="batch-bg-remove__method-desc">{opt.desc}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </section>
+                        <input
+                          type="radio"
+                          name="bg-remove-method"
+                          value={opt.value}
+                          checked={method === opt.value}
+                          onChange={() => {
+                            setMethod(opt.value);
+                            void (async () => {
+                              if (opt.value === 'quick') {
+                                setAiAvailable(true);
+                                return;
+                              }
+                              const modelId = workerModelIdForMethod(opt.value);
+                              if (!modelId) {
+                                setAiAvailable(true);
+                                return;
+                              }
+                              const loader = await getModelLoaderReady();
+                              setAiAvailable(await loader.isModelAvailable(modelId));
+                            })();
+                          }}
+                          className="batch-bg-remove__method-radio"
+                        />
+                        <span className="batch-bg-remove__method-label">{opt.label}</span>
+                        <span className="batch-bg-remove__method-desc">{opt.desc}</span>
+                      </label>
+                    ))}
+                  </div>
+                </section>
 
-                    {method !== 'quick' && !aiAvailable && (
-                      <div className="batch-bg-remove__section">
-                        <p className="batch-bg-remove__hint">
-                          AI model not downloaded. Download it first or switch to Quick mode.
-                        </p>
-                        <button
-                          type="button"
-                          className="batch-bg-remove__btn batch-bg-remove__btn--secondary"
-                          onClick={() => setShowDownloadDialog(true)}
-                        >
-                          Download AI Model
-                        </button>
-                      </div>
-                    )}
-                    {method === 'ai-quality' && !wasmModelSafe && !hasGpuAccel && (
-                      <p className="batch-bg-remove__hint batch-bg-remove__hint--warn">
-                        AI Quality model may exceed available memory without GPU acceleration. AI
-                        Balanced will be used as fallback if this fails.
-                      </p>
-                    )}
+                {method !== 'quick' && !aiAvailable && (
+                  <div className="batch-bg-remove__section">
+                    <p className="batch-bg-remove__hint">
+                      AI model not downloaded. Download it first or switch to Quick mode.
+                    </p>
+                    <button
+                      type="button"
+                      className="batch-bg-remove__btn batch-bg-remove__btn--secondary"
+                      onClick={() => setShowDownloadDialog(true)}
+                    >
+                      Download AI Model
+                    </button>
+                  </div>
+                )}
+                {method === 'ai-quality' && !wasmModelSafe && !hasGpuAccel && (
+                  <p className="batch-bg-remove__hint batch-bg-remove__hint--warn">
+                    AI Quality model may exceed available memory without GPU acceleration. AI
+                    Balanced will be used as fallback if this fails.
+                  </p>
+                )}
 
-                    <section className="batch-bg-remove__section" aria-label="Files">
-                      <h3 className="batch-bg-remove__section-title">
-                        {files.length} image{files.length !== 1 ? 's' : ''} selected
-                      </h3>
-                      <div className="batch-bg-remove__file-list">
-                        {files.map((f) => (
-                          <div key={f.id} className="batch-bg-remove__file-row">
-                            <div className="batch-bg-remove__file-thumb">
-                              <Thumbnail src={f.src} w={f.w} h={f.h} />
-                            </div>
-                            <span className="batch-bg-remove__file-name">{f.name}</span>
-                            <StatusBadge status={f.status} />
-                          </div>
-                        ))}
+                <section className="batch-bg-remove__section" aria-label="Files">
+                  <h3 className="batch-bg-remove__section-title">
+                    {files.length} image{files.length !== 1 ? 's' : ''} selected
+                  </h3>
+                  <div className="batch-bg-remove__file-list">
+                    {files.map((f) => (
+                      <div key={f.id} className="batch-bg-remove__file-row">
+                        <div className="batch-bg-remove__file-thumb">
+                          <Thumbnail src={f.src} w={f.w} h={f.h} />
+                        </div>
+                        <span className="batch-bg-remove__file-name">{f.name}</span>
+                        <StatusBadge status={f.status} />
                       </div>
-                    </section>
+                    ))}
+                  </div>
+                </section>
+              </>
+            )}
+          </div>
+        )}
+
+        {stage === 'processing' && (
+          <div className="batch-bg-remove__body">
+            <div className="batch-bg-remove__progress">
+              <div className="batch-bg-remove__progress-bar">
+                <div
+                  className="batch-bg-remove__progress-fill"
+                  style={{
+                    width: `${files.length > 0 ? (progress / files.length) * 100 : 0}%`,
+                  }}
+                />
+              </div>
+              <p className="batch-bg-remove__progress-text">
+                Processing file {Math.min(progress + 1, files.length)} of {files.length}
+              </p>
+            </div>
+
+            <div className="batch-bg-remove__file-list">
+              {files.map((f) => (
+                <div
+                  key={f.id}
+                  className={`batch-bg-remove__file-row batch-bg-remove__file-row--${f.status}`}
+                >
+                  <div className="batch-bg-remove__file-thumb">
+                    <Thumbnail src={f.src} w={f.w} h={f.h} />
+                  </div>
+                  <span className="batch-bg-remove__file-name">{f.name}</span>
+                  <StatusBadge status={f.status} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {stage === 'results' && (
+          <div className="batch-bg-remove__body">
+            <div className="batch-bg-remove__results-summary">
+              <span className="batch-bg-remove__results-count">
+                <span className="batch-bg-remove__results-success">{doneCount} succeeded</span>
+                {failedCount > 0 && (
+                  <>
+                    <span className="batch-bg-remove__results-sep">, </span>
+                    <span className="batch-bg-remove__results-fail">{failedCount} failed</span>
                   </>
                 )}
-              </div>
+                {skippedCount > 0 && (
+                  <>
+                    <span className="batch-bg-remove__results-sep">, </span>
+                    <span className="batch-bg-remove__results-skipped">{skippedCount} skipped</span>
+                  </>
+                )}
+              </span>
+            </div>
 
-              <div className="batch-bg-remove__footer">
-                <button
-                  type="button"
-                  className="batch-bg-remove__btn batch-bg-remove__btn--secondary"
-                  onClick={handleClose}
+            <div className="batch-bg-remove__file-list">
+              {files.map((f) => (
+                <div
+                  key={f.id}
+                  className={`batch-bg-remove__file-row batch-bg-remove__file-row--${f.status}`}
                 >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="batch-bg-remove__btn batch-bg-remove__btn--primary"
-                  disabled={!canStart}
-                  onClick={handleStart}
-                >
-                  Remove background{files.length > 0 ? ` (${files.length})` : ''}
-                </button>
-              </div>
-            </>
-          )}
-
-          {stage === 'processing' && (
-            <>
-              <div className="batch-bg-remove__body">
-                <div className="batch-bg-remove__progress">
-                  <div className="batch-bg-remove__progress-bar">
-                    <div
-                      className="batch-bg-remove__progress-fill"
-                      style={{
-                        width: `${files.length > 0 ? (progress / files.length) * 100 : 0}%`,
-                      }}
-                    />
+                  <div className="batch-bg-remove__file-thumb">
+                    <Thumbnail src={f.src} w={f.w} h={f.h} />
                   </div>
-                  <p className="batch-bg-remove__progress-text">
-                    Processing file {Math.min(progress + 1, files.length)} of {files.length}
-                  </p>
-                </div>
-
-                <div className="batch-bg-remove__file-list">
-                  {files.map((f) => (
-                    <div
-                      key={f.id}
-                      className={`batch-bg-remove__file-row batch-bg-remove__file-row--${f.status}`}
+                  <span className="batch-bg-remove__file-name">{f.name}</span>
+                  <StatusBadge status={f.status} />
+                  {f.status === 'error' && (
+                    <button
+                      type="button"
+                      className="batch-bg-remove__retry-btn"
+                      onClick={() => handleRetry(f.id)}
+                      aria-label={`Retry ${f.name}`}
                     >
-                      <div className="batch-bg-remove__file-thumb">
-                        <Thumbnail src={f.src} w={f.w} h={f.h} />
-                      </div>
-                      <span className="batch-bg-remove__file-name">{f.name}</span>
-                      <StatusBadge status={f.status} />
-                    </div>
-                  ))}
+                      Retry
+                    </button>
+                  )}
                 </div>
-              </div>
-
-              <div className="batch-bg-remove__footer">
-                <button
-                  type="button"
-                  className="batch-bg-remove__btn batch-bg-remove__btn--secondary"
-                  onClick={handleClose}
-                >
-                  Cancel
-                </button>
-              </div>
-            </>
-          )}
-
-          {stage === 'results' && (
-            <>
-              <div className="batch-bg-remove__body">
-                <div className="batch-bg-remove__results-summary">
-                  <span className="batch-bg-remove__results-count">
-                    <span className="batch-bg-remove__results-success">{doneCount} succeeded</span>
-                    {failedCount > 0 && (
-                      <>
-                        <span className="batch-bg-remove__results-sep">, </span>
-                        <span className="batch-bg-remove__results-fail">{failedCount} failed</span>
-                      </>
-                    )}
-                    {skippedCount > 0 && (
-                      <>
-                        <span className="batch-bg-remove__results-sep">, </span>
-                        <span className="batch-bg-remove__results-skipped">
-                          {skippedCount} skipped
-                        </span>
-                      </>
-                    )}
-                  </span>
-                </div>
-
-                <div className="batch-bg-remove__file-list">
-                  {files.map((f) => (
-                    <div
-                      key={f.id}
-                      className={`batch-bg-remove__file-row batch-bg-remove__file-row--${f.status}`}
-                    >
-                      <div className="batch-bg-remove__file-thumb">
-                        <Thumbnail src={f.src} w={f.w} h={f.h} />
-                      </div>
-                      <span className="batch-bg-remove__file-name">{f.name}</span>
-                      <StatusBadge status={f.status} />
-                      {f.status === 'error' && (
-                        <button
-                          type="button"
-                          className="batch-bg-remove__retry-btn"
-                          onClick={() => handleRetry(f.id)}
-                          aria-label={`Retry ${f.name}`}
-                        >
-                          Retry
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="batch-bg-remove__footer">
-                <button
-                  type="button"
-                  className="batch-bg-remove__btn batch-bg-remove__btn--primary"
-                  onClick={handleClose}
-                >
-                  Done
-                </button>
-              </div>
-            </>
-          )}
-
-          <div role="status" aria-live="polite" className="varve-visually-hidden">
-            {announceMsg}
+              ))}
+            </div>
           </div>
+        )}
 
-          {showDownloadDialog && (
-            <ModelDownloadDialog
-              modelId={downloadModelId ?? ''}
-              onClose={() => setShowDownloadDialog(false)}
-              onComplete={() => {
-                setShowDownloadDialog(false);
-                void refreshModelStatus();
-              }}
-            />
-          )}
+        <div role="status" aria-live="polite" className="varve-visually-hidden">
+          {announceMsg}
         </div>
-      </FocusTrap>
-    </div>
+      </Dialog>
+
+      {showDownloadDialog && (
+        <ModelDownloadDialog
+          modelId={downloadModelId ?? ''}
+          onClose={() => setShowDownloadDialog(false)}
+          onComplete={() => {
+            setShowDownloadDialog(false);
+            void refreshModelStatus();
+          }}
+        />
+      )}
+    </>
   );
 }
 

@@ -38,6 +38,29 @@ describe('SettingsDialog', () => {
     expect(exportTab?.getAttribute('aria-selected')).toBe('true');
   });
 
+  it('filters sections by name and follows the first match', () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} />);
+    const filter = screen.getByLabelText('Filter settings sections');
+
+    fireEvent.change(filter, { target: { value: 'keyboard' } });
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.map((tab) => tab.textContent)).toEqual(['Keyboard Shortcuts']);
+    expect(tabs[0]?.getAttribute('aria-selected')).toBe('true');
+
+    // Arrow navigation moves within the filtered set, not the full list.
+    fireEvent.keyDown(tabs[0]!, { key: 'ArrowDown' });
+    expect(screen.getByRole('tab', { name: 'Keyboard Shortcuts' })).toBeTruthy();
+  });
+
+  it('reports when no settings match the filter', () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} />);
+    fireEvent.change(screen.getByLabelText('Filter settings sections'), {
+      target: { value: 'zzz-no-section' },
+    });
+    expect(screen.queryAllByRole('tab')).toHaveLength(0);
+    expect(screen.getByText(/No settings match/)).toBeTruthy();
+  });
+
   it('exposes a reachable drawing input policy and persists it', async () => {
     renderWithProvider(<SettingsDialog open={true} onClose={() => {}} initialSection="input" />);
     const mode = screen.getByRole('combobox', { name: 'Finger / unknown contact' });

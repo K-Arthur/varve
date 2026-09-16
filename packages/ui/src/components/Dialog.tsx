@@ -93,9 +93,15 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
     if (open && !el.open) {
       el.showModal();
       if (focusFirstControl) {
-        const target = el.querySelector<HTMLElement>(
-          '.varve-dialog__body [data-autofocus], .varve-dialog__body button, .varve-dialog__body [role="combobox"], .varve-dialog__body input, .varve-dialog__body [role="slider"], .varve-dialog__body [tabindex]:not([tabindex="-1"])',
-        );
+        // An explicit data-autofocus marker is authoritative regardless of
+        // document order: querySelector returns the first match in document
+        // order, so a plain <input> earlier in the body would otherwise beat
+        // a deliberately marked control later in it.
+        const target =
+          el.querySelector<HTMLElement>('.varve-dialog__body [data-autofocus]') ??
+          el.querySelector<HTMLElement>(
+            '.varve-dialog__body button, .varve-dialog__body [role="combobox"], .varve-dialog__body input, .varve-dialog__body [role="slider"], .varve-dialog__body [tabindex]:not([tabindex="-1"])',
+          );
         target?.focus();
       }
     } else if (!open && el.open) {
