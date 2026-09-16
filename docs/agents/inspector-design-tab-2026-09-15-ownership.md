@@ -84,6 +84,19 @@ named blocks so they can be moved without re-deriving intent.
 Deferred to integration/candidate CI per the validation economy: full browser
 E2E matrix, full Vitest, Cargo workspaces, native desktop GUI, packaging.
 
+## Continuation pass (2026-09-16)
+
+A follow-up review of the same Design-tab surfaces shipped as commits
+`318e9e786`, `e4cd0d5b3`, and `dcaa823a5`, with the ledger in
+`docs/research/inspector-design-tab-followup-2026-09-16.md`. Additional owned
+paths in that pass: `AlignDistributeBar.tsx` (+ test), `MaskSection.tsx` (+
+test), `PositionSizeSection.tsx`, `CornerRadiusSection.tsx` (+ test),
+`FillSection.tsx`, `ImagePlacementSection.tsx`, `SelectionColorsSection.tsx`
+(+ test), `sectionRegistry.ts` (image-placement order), `inspector.css`, and
+extended coverage in `tests/e2e/inspector/design-tab-audit.spec.ts`.
+Marketing screenshot regeneration remains deferred for the same reason as the
+2026-09-15 pass (the shared tree carries other writers' uncommitted UI).
+
 ## Remaining / not claimed
 
 - Undo anomaly after a typed X edit on a multi-node document: see the research
