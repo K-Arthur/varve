@@ -145,6 +145,9 @@ Evidence for the commit:
   frame switched to Grid with a selected child; the latter captured
   `grid-child-placement.png` after scrolling the placement group into view.
 - Real Chromium `control-layout.spec.ts`: all supported rail widths passed.
+- Follow-up evidence commit `de20e3620` captures the complete `.insp-grid-placement`
+  group (rather than a viewport slice), making all four aligned controls
+  directly reviewable in the visual artifact.
 - `@varve/editor` typecheck, E2E typecheck, Biome checks, `audit:docs`,
   `audit:emoji`, `audit:tokens` (201 pairs), and architecture audit passed.
 - The older `typography-layout.spec.ts` still expects the stale accessible
