@@ -359,6 +359,23 @@ safe provider lookup and passes it to the picker, which displays the profile
 name and labels converted values as approximate. Standalone renders fall
 back to no profile.
 
+### Canvas background lifecycle
+The canvas background is document-scoped (`Document.canvasBackground`), not an
+app preference, so the Settings dialog's global "Reset to defaults" cannot
+touch it. The default is *no stored color*: the renderer paints the board with
+the theme `--color-surface-sunken` token (see `docs/design/elevation-system.md`)
+and swatches in the Inspector Document panel and Settings General tab show that
+token while unset. `setCanvasBackground` writes a `ManagedColor`; colour-mode
+conversion rewrites non-spot values like every other document color.
+
+`clearCanvasBackground` removes the key inside a
+`beginTransaction`/`commitTransaction` pair (one undo entry, reference-identity
+no-op when already unset). Reset controls in the Inspector "Canvas" section and
+the Settings General row call it and are disabled while no custom color is
+stored. Exports do not consume this value; the board fill is presentation-only
+(`renderPipeline.ts` resolves it per frame and falls back to the sunken token
+on conversion errors).
+
 ### Gamut warning
 `GamutWarning` is a heuristic (HSV thresholds + process-color allowlist), not
 profile-based. It is intentionally conservative: pure process colors and

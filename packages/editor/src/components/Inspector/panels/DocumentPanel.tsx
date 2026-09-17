@@ -56,6 +56,7 @@ export function DocumentPanel() {
   const {
     state,
     setCanvasBackground,
+    clearCanvasBackground,
     assignDocumentColorMode,
     documentColorMode,
     setDocumentBitDepth,
@@ -118,7 +119,7 @@ export function DocumentPanel() {
         <div className="insp-canvas-props">
           <div className="insp-field">
             <span className="insp-field__label">Background</span>
-            <div className="insp-field__control">
+            <div className="insp-field__control insp-field__control--inline">
               <InspectorColorPopover
                 label="Canvas background"
                 value={canvasBgColor}
@@ -128,8 +129,24 @@ export function DocumentPanel() {
                 onEditStart={beginTransaction}
                 onEditEnd={commitTransaction}
               />
+              <button
+                type="button"
+                className="insp-btn"
+                disabled={!doc.canvasBackground}
+                onClick={() => {
+                  beginTransaction();
+                  clearCanvasBackground();
+                  commitTransaction();
+                }}
+                aria-label="Reset canvas background to default"
+              >
+                Reset
+              </button>
             </div>
           </div>
+          <p className="insp-panel__color-mode-note" role="note">
+            When no custom background is set the canvas uses the theme surface color.
+          </p>
         </div>
       </DisclosureSection>
       <DisclosureSection title="Snapping" sectionId="snapping">

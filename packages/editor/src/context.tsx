@@ -1238,6 +1238,8 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
   setCanvasHeight: (value: number) => void;
   /** P3: set the document canvas background color. */
   setCanvasBackground: (value: ManagedColor) => void;
+  /** P3: clear the custom canvas background (falls back to the theme surface). */
+  clearCanvasBackground: () => void;
   /** F6: batch-set a variable binding on all selected nodes. */
   setSelectedBinding: (
     target: string,
@@ -8850,6 +8852,13 @@ export function EditorProvider({
 
       setCanvasBackground: (value) => {
         updateDoc((doc) => ({ ...doc, canvasBackground: value }));
+      },
+      clearCanvasBackground: () => {
+        updateDoc((doc) => {
+          if (!doc.canvasBackground) return doc;
+          const { canvasBackground: _removed, ...rest } = doc;
+          return rest;
+        });
       },
 
       documentColorMode: state.document.colorConfig?.mode ?? 'rgb',

@@ -972,6 +972,8 @@ export interface EditorContextValue {
   setCanvasWidth: (value: number) => void;
   setCanvasHeight: (value: number) => void;
   setCanvasBackground: (value: import('@varve/scene').ManagedColor) => void;
+  /** Remove the custom canvas background; the canvas falls back to the theme sunken surface. */
+  clearCanvasBackground: () => void;
   setSelectedBinding: (
     target: string,
     binding: import('@varve/scene').PropertyBinding | null,

@@ -322,8 +322,14 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
     () => whiteForMode(editor?.documentColorMode ?? 'rgb'),
     [editor?.documentColorMode],
   );
+  const hasCustomBackground = Boolean(editor?.state.document.canvasBackground);
   const canvasBgColor = editor?.state.document.canvasBackground ?? fallbackColor;
-  const swatchBackground = useMemo(() => managedColorToCss(canvasBgColor), [canvasBgColor]);
+  // Match the canvas reality: unset falls back to the theme sunken surface,
+  // not white.
+  const swatchBackground = useMemo(
+    () => (hasCustomBackground ? managedColorToCss(canvasBgColor) : 'var(--color-surface-sunken)'),
+    [hasCustomBackground, canvasBgColor],
+  );
 
   return (
     <div className="settings-section">
@@ -357,9 +363,22 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
               onEditStart={editor.beginTransaction}
               onEditEnd={editor.commitTransaction}
             />
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!hasCustomBackground}
+              onClick={() => {
+                editor.beginTransaction();
+                editor.clearCanvasBackground();
+                editor.commitTransaction();
+              }}
+            >
+              Reset
+            </Button>
           </FieldRow>
           <p className="settings-hint">
-            Background of the currently open document. Changes apply immediately.
+            Background of the currently open document. When no custom color is set the canvas uses
+            the theme surface color. Changes apply immediately.
           </p>
         </>
       )}
