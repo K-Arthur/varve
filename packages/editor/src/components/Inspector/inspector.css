@@ -1108,12 +1108,17 @@
   white-space: nowrap;
 }
 
-/* Fixed slot: "100 %" or "12 px" must stay readable while the type select
- * absorbs narrow rails (it ellipsizes). Three digits need less than the
- * general field minimum, which leaves room for the visible unit. */
+/* Fixed slot: the stacked "Opacity (%)" label plus its bounded numeric input
+ * must stay readable while the type select absorbs narrow rails (it
+ * ellipsizes instead). min-width is sized to the label's own max-content
+ * (measured ~4.9rem at the shared label font) plus padding, not the shorter
+ * value text — the label is what actually overflows when this shrinks. The
+ * full geometry (single-column stack, gap) lives in the rule below; this is
+ * the only rule setting this selector's flex sizing, so there is no
+ * conflicting min-width for the cascade to silently drop. */
 .insp-paint-row__opacity {
   flex: 0 1 10rem;
-  min-width: 8rem;
+  min-width: 5.5rem;
 }
 
 .insp-paint-row__weight {
@@ -2561,14 +2566,14 @@
   display: flex;
   inline-size: 100%;
   justify-self: end;
-  min-width: 0;
   flex-direction: column;
   gap: var(--space-1);
 }
 
 .insp-paint-row__opacity .insp-field {
   inline-size: 100%;
-  grid-template-columns: minmax(0, max-content);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
 }
 
 .insp-paint-row__opacity .insp-field__control {
@@ -5909,11 +5914,6 @@ fieldset.insp-canvas-props,
 .insp-field--stacked .insp-field__label {
   min-height: 0;
   cursor: default;
-}
-
-.insp-paint-row__opacity .insp-field {
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-1);
 }
 
 .insp-paint-row__opacity .insp-field__label {
