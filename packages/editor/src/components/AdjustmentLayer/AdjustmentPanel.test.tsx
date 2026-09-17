@@ -138,7 +138,7 @@ describe('AdjustmentPanel', () => {
 
     await user.click(screen.getByRole('button', { name: 'Reset' }));
     expect(screen.getByRole('slider', { name: 'Brightness' })).toHaveValue('0');
-    expect(screen.getByRole('spinbutton', { name: 'Opacity' })).toHaveValue('1');
+    expect(screen.getByRole('spinbutton', { name: 'Opacity (%)' })).toHaveValue('100');
   });
 
   it('captures a discrete adjustment edit as one undoable history step', async () => {

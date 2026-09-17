@@ -96,27 +96,24 @@ test.describe('Gradient Map Adjustment', () => {
     await addAdjBtn.click();
     await page.waitForTimeout(200);
 
-    const addDialog = page.getByRole('dialog', { name: 'Add adjustment' });
-    await expect(addDialog).toBeVisible();
-    const dialogBounds = await addDialog.boundingBox();
+    const addMenu = page.getByRole('menu', { name: 'Add adjustment' });
+    await expect(addMenu).toBeVisible();
+    const menuBounds = await addMenu.boundingBox();
     const viewport = page.viewportSize();
-    expect(dialogBounds).not.toBeNull();
+    expect(menuBounds).not.toBeNull();
     expect(viewport).not.toBeNull();
-    expect(dialogBounds!.x).toBeGreaterThanOrEqual(0);
-    expect(dialogBounds!.y).toBeGreaterThanOrEqual(0);
-    expect(dialogBounds!.x + dialogBounds!.width).toBeLessThanOrEqual(viewport!.width);
-    expect(dialogBounds!.y + dialogBounds!.height).toBeLessThanOrEqual(viewport!.height);
+    expect(menuBounds!.x).toBeGreaterThanOrEqual(0);
+    expect(menuBounds!.y).toBeGreaterThanOrEqual(0);
+    expect(menuBounds!.x + menuBounds!.width).toBeLessThanOrEqual(viewport!.width);
+    expect(menuBounds!.y + menuBounds!.height).toBeLessThanOrEqual(viewport!.height);
 
     await page.screenshot({
       path: testInfo.outputPath('gradient-map-add-dialog.png'),
       fullPage: true,
     });
 
-    // Select "Gradient Map" from the add dialog
-    const gradMapMenuItem = page
-      .locator('.adj-panel__add-menu-item')
-      .filter({ hasText: 'Gradient Map' });
-    await gradMapMenuItem.click();
+    // Select "Gradient Map" from the add menu
+    await page.getByRole('menuitem', { name: 'Gradient Map', exact: true }).click();
     await page.waitForTimeout(300);
 
     // Verify the gradient map editor appears with dither toggle
@@ -147,10 +144,7 @@ test.describe('Gradient Map Adjustment', () => {
     await addAdjBtn.click();
     await page.waitForTimeout(200);
 
-    const gradMapMenuItem = page
-      .locator('.adj-panel__add-menu-item')
-      .filter({ hasText: 'Gradient Map' });
-    await gradMapMenuItem.click();
+    await page.getByRole('menuitem', { name: 'Gradient Map', exact: true }).click();
     await page.waitForTimeout(300);
 
     // Verify the gradient bar is rendered (gm-editor__bar)
@@ -185,10 +179,7 @@ test.describe('Gradient Map Adjustment', () => {
     await addAdjBtn.click();
     await page.waitForTimeout(200);
 
-    const gradMapMenuItem = page
-      .locator('.adj-panel__add-menu-item')
-      .filter({ hasText: 'Gradient Map' });
-    await gradMapMenuItem.click();
+    await page.getByRole('menuitem', { name: 'Gradient Map', exact: true }).click();
     await page.waitForTimeout(300);
 
     // Toggle dither checkbox

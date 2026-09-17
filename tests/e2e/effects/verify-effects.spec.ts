@@ -131,20 +131,11 @@ async function setupWithImage(page: import('@playwright/test').Page) {
 async function addAdjustment(page: import('@playwright/test').Page, kind: string) {
   await page.getByRole('button', { name: /add adjustment/i }).click();
   await page.waitForTimeout(300);
-  await page.evaluate(
-    ({ kind: k }) => {
-      const menu = document.querySelector('.adj-panel__add-menu');
-      if (!menu) return;
-      const items = menu.querySelectorAll('[role="menuitem"]');
-      for (const item of items) {
-        if (item.textContent?.trim().toLowerCase() === k.toLowerCase()) {
-          item.scrollIntoView({ block: 'center' });
-          break;
-        }
-      }
-    },
-    { kind },
-  );
+  await page.evaluate((k) => {
+    const items = Array.from(document.querySelectorAll('[role="menuitem"]'));
+    const item = items.find((el) => el.textContent?.trim().toLowerCase() === k.toLowerCase());
+    item?.scrollIntoView({ block: 'center' });
+  }, kind);
   await page.waitForTimeout(100);
   await page.getByRole('menuitem', { name: new RegExp(`^${kind}$`, 'i') }).click();
   await page.waitForTimeout(500);

@@ -183,7 +183,7 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
         </p>
         <div className="insp-actions">
           <Button type="button" variant="secondary" size="sm" onClick={() => openVectorizeDialog()}>
-            Open Vectorize Dialog…
+            Vectorize image…
           </Button>
         </div>
 

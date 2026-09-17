@@ -11,7 +11,7 @@ import {
   resolveAdjustmentScope,
   validateScope,
 } from '@varve/scene';
-import { Icon, Select } from '@varve/ui';
+import { Button, Dialog, Icon, Select } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 
 export interface AdjustmentScopeSectionProps {
@@ -21,13 +21,34 @@ export interface AdjustmentScopeSectionProps {
   onChangeScope: (scope: AdjustmentScope) => void;
 }
 
+/**
+ * One vocabulary for scope modes. The read-only summary, the selector, and the
+ * impact dialog previously used three different names for the same mode
+ * ("Single Image" / "Single image", "Explicit (N targets)" / "Multiple
+ * targets", "Multiple explicit targets").
+ */
+const SCOPE_MODE_LABELS = {
+  'image-local': 'Single image',
+  'explicit-targets': 'Multiple targets',
+  'container-descendant': 'Container descendants',
+  document: 'Document (global)',
+} as const satisfies Record<AdjustmentScope['mode'], string>;
+
+const SCOPE_MODE_OPTIONS = Object.entries(SCOPE_MODE_LABELS).map(([value, label]) => ({
+  value,
+  label,
+}));
+
+function plural(count: number, singular: string): string {
+  return `${count} ${singular}${count === 1 ? '' : 's'}`;
+}
+
 export function AdjustmentScopeSection({
   nodeId,
   doc,
   scope,
   onChangeScope,
 }: AdjustmentScopeSectionProps) {
-  const [showImpact, setShowImpact] = useState(false);
   const [pendingScope, setPendingScope] = useState<AdjustmentScope | null>(null);
 
   const resolvedCount = useMemo(() => {
@@ -73,17 +94,8 @@ export function AdjustmentScopeSection({
     return new Set(resolveAdjustmentScope(doc, scope, nodeId));
   }, [doc, nodeId, scope]);
 
-  const scopeMode = scope?.mode ?? 'legacy';
-  const modeLabel =
-    scopeMode === 'image-local'
-      ? 'Single Image'
-      : scopeMode === 'explicit-targets'
-        ? `Explicit (${(scope?.mode === 'explicit-targets' ? scope.targetNodeIds : []).length} targets)`
-        : scopeMode === 'container-descendant'
-          ? 'Container Descendants'
-          : scopeMode === 'document'
-            ? 'Document'
-            : 'Legacy (no scope)';
+  const scopeMode = scope?.mode;
+  const modeLabel = scopeMode ? SCOPE_MODE_LABELS[scopeMode] : 'Not set';
 
   const handleModeChange = useCallback(
     (newMode: string) => {
@@ -125,7 +137,6 @@ export function AdjustmentScopeSection({
         }
         case 'document':
           setPendingScope({ mode: 'document' });
-          setShowImpact(true);
           break;
       }
     },
@@ -142,29 +153,19 @@ export function AdjustmentScopeSection({
     [explicitTargetIds, onChangeScope],
   );
 
+  const cancelPendingScope = useCallback(() => setPendingScope(null), []);
+
   const handleConfirmGlobal = useCallback(() => {
     if (pendingScope) {
       onChangeScope(pendingScope);
-      setShowImpact(false);
       setPendingScope(null);
     }
   }, [pendingScope, onChangeScope]);
 
-  const scopeName =
-    scopeMode === 'image-local'
-      ? 'Single image'
-      : scopeMode === 'explicit-targets'
-        ? 'Multiple explicit targets'
-        : scopeMode === 'container-descendant'
-          ? 'Container descendants'
-          : scopeMode === 'document'
-            ? 'Document — all eligible nodes'
-            : 'Legacy (no explicit scope)';
-
   return (
     <div className="insp-section">
       <div className="insp-section__header">
-        <Icon name="SlidersHorizontal" label="" />
+        <Icon name="SlidersHorizontal" />
         <span>Adjustment Scope</span>
       </div>
       <div className="insp-field">
@@ -175,15 +176,17 @@ export function AdjustmentScopeSection({
       {scope && (
         <>
           <div className="insp-field">
-            <span className="insp-field__label">Affected targets</span>
+            <span className="insp-field__label insp-field__label--wrap">Affected targets</span>
             <span className="insp-field__value">{resolvedCount}</span>
           </div>
 
-          {impact && (
+          {/* A zero-area estimate is noise on an inactive layer; the warning
+              below already explains that nothing is targeted. */}
+          {impact && resolvedCount > 0 && (
             <div className="insp-field">
-              <span className="insp-field__label">Est. pixel area</span>
+              <span className="insp-field__label">Pixel area</span>
               <span className="insp-field__value">
-                {(impact.estimatedPixelArea / 1000000).toFixed(1)} MPix
+                {(impact.estimatedPixelArea / 1_000_000).toFixed(1)} MP
               </span>
             </div>
           )}
@@ -206,20 +209,12 @@ export function AdjustmentScopeSection({
       {scope?.mode === 'explicit-targets' && (
         <fieldset className="insp-field" aria-label="Explicit adjustment targets">
           <legend className="insp-field__label">Targets</legend>
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 'var(--space-1)',
-              maxHeight: '12rem',
-              overflowY: 'auto',
-            }}
-          >
+          <div className="adjustment-scope__targets">
             {eligibleTargets.length === 0 ? (
               <span className="insp-field__hint">No eligible layers</span>
             ) : (
               eligibleTargets.map((target) => (
-                <label key={target.id} style={{ display: 'flex', gap: 'var(--space-1)' }}>
+                <label key={target.id} className="adjustment-scope__target">
                   <input
                     type="checkbox"
                     checked={explicitTargetIds.has(target.id)}
@@ -240,54 +235,51 @@ export function AdjustmentScopeSection({
         <div className="insp-field__control">
           <Select
             label="Adjustment scope mode"
-            value={scopeMode === 'legacy' ? '' : scopeMode}
-            placeholder="— Select scope —"
-            options={[
-              { value: 'image-local', label: 'Single image' },
-              { value: 'explicit-targets', label: 'Multiple targets' },
-              { value: 'container-descendant', label: 'Container descendants' },
-              { value: 'document', label: 'Document (global)' },
-            ]}
+            value={scopeMode ?? ''}
+            placeholder="Choose a scope…"
+            options={SCOPE_MODE_OPTIONS}
             onChange={(v) => handleModeChange(v)}
           />
         </div>
       </div>
 
-      <div className="insp-field insp-field--help">
-        <span className="insp-field__value">{scopeName}</span>
-      </div>
-
-      {/* Impact summary dialog */}
-      {showImpact && pendingScope && pendingImpact && (
-        <div className="insp-overlay" role="dialog" aria-label="Adjustment impact preview">
-          <div className="insp-overlay__content">
-            <h3>Adjustment Impact</h3>
-            <p>This adjustment will affect:</p>
-            <ul>
-              <li>{pendingImpact.targetCount} target(s)</li>
-              <li>{pendingImpact.affectedFrames} frame(s)</li>
-              <li>{pendingImpact.affectedPages} page(s)</li>
-              <li>Est. {(pendingImpact.estimatedPixelArea / 1000000).toFixed(1)} MPix processed</li>
-              <li>{pendingImpact.activeAdjustmentCount} active adjustment(s)</li>
-            </ul>
-            <div className="insp-overlay__actions">
-              <button
-                type="button"
-                className="insp-btn insp-btn--secondary"
-                onClick={() => setShowImpact(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="insp-btn insp-btn--primary"
-                onClick={handleConfirmGlobal}
-              >
-                Apply
-              </button>
-            </div>
-          </div>
+      {!scope && (
+        <div className="insp-field insp-field--help">
+          <span className="insp-field__value">
+            No scope is set. Choose a mode to control which layers this adjustment affects.
+          </span>
         </div>
+      )}
+
+      {/* Impact preview before a document-wide scope is committed. */}
+      {pendingScope && pendingImpact && (
+        <Dialog
+          open
+          onClose={cancelPendingScope}
+          title="Adjustment Impact"
+          footer={
+            <>
+              <Button variant="ghost" onClick={cancelPendingScope}>
+                Cancel
+              </Button>
+              <Button variant="default" onClick={handleConfirmGlobal}>
+                Apply
+              </Button>
+            </>
+          }
+        >
+          <p>This adjustment will affect:</p>
+          <ul className="adjustment-scope-impact__list">
+            <li>{plural(pendingImpact.targetCount, 'target')}</li>
+            <li>{plural(pendingImpact.affectedFrames, 'frame')}</li>
+            <li>{plural(pendingImpact.affectedPages, 'page')}</li>
+            <li>
+              Estimated {(pendingImpact.estimatedPixelArea / 1_000_000).toFixed(1)} megapixels
+              processed
+            </li>
+            <li>{plural(pendingImpact.activeAdjustmentCount, 'active adjustment')}</li>
+          </ul>
+        </Dialog>
       )}
     </div>
   );

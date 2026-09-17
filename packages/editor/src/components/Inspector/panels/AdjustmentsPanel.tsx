@@ -49,7 +49,9 @@ export function AdjustmentsPanel() {
           <AdjustmentLayerAccessSection nodes={nodes} />
           <EffectStudioAccessSection nodes={nodes} />
           <SmartFiltersSection nodes={nodes} />
-          <EffectsSection nodes={nodes} />
+          {/* Same section identity as the Design composition: collapse state,
+              hide/show, and the section manager stay in sync across tabs. */}
+          <EffectsSection nodes={nodes} sectionId="effects" />
         </div>
       );
     }
@@ -62,8 +64,8 @@ export function AdjustmentsPanel() {
         }
         description={
           nodes.length === 0
-            ? 'Use Image Tuning for a selected raster image. Select an Adjustment Layer to edit a scoped correction, or create one from Properties or Object.'
-            : 'Use Effect Studio for object-local creative treatments. For a shared raster-and-vector correction, add an Adjustment Layer from Properties or Object.'
+            ? 'Use Image Tuning for a selected raster image. Select an Adjustment Layer to edit a scoped correction, or create one from the Design tab or the Object menu.'
+            : 'Use Effect Studio for object-local creative treatments. For a shared raster-and-vector correction, add an Adjustment Layer from the Design tab or the Object menu.'
         }
       />
     );

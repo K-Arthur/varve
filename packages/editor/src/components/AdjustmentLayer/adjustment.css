@@ -301,6 +301,12 @@
   background-color: var(--color-interactive-hover);
 }
 
+/* Positioning context for the Add adjustment trigger (kept as a class so the
+ * panel carries no inline layout styles). */
+.adj-panel__add-row {
+  position: relative;
+}
+
 .adj-panel__add-btn {
   display: flex;
   align-items: center;
@@ -325,44 +331,9 @@
   background-color: var(--color-accent-subtle);
 }
 
-.adj-panel__add-menu {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-1);
-  min-width: min(26rem, calc(90vw - 2 * var(--space-dialog)));
-}
-
-.adj-panel__add-menu-item {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  text-align: left;
-  min-height: var(--touch-target-min);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border-subtle);
-  background: var(--color-surface-sunken);
-  border-radius: var(--radius-control-compact);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  cursor: pointer;
-}
-
-.adj-panel__add-menu-item:hover {
-  background-color: var(--color-interactive-hover);
-  border-color: var(--color-interactive-default);
-}
-
-.adj-panel__add-menu-item:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 1px;
-}
-
-@media (max-width: 28rem) {
-  .adj-panel__add-menu {
-    grid-template-columns: 1fr;
-    min-width: 0;
-  }
-}
+/* The Add-adjustment picker is the shared Menu primitive (popover), so its
+ * list styling lives in @varve/ui — the local dialog/grid rules that dressed
+ * the former modal were removed 2026-09-17. */
 
 .adj-panel__editor {
   padding: 0 var(--space-3) var(--space-2);
@@ -1087,15 +1058,10 @@
 
 /* ─── Adjustment Scope Section ───────────────────────────── */
 
-.insp-select {
-  background: var(--color-surface-raised);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--font-size-sm);
-  width: 100%;
-}
+/* `.insp-select` styling lives in components/Inspector/inspector.css — this
+ * stylesheet is only loaded when an adjustment component mounts, and
+ * LayoutSection (Design tab) consumes the same class. Do not re-declare it
+ * here; a second copy wins or loses by module load order. */
 
 .insp-field--warning {
   border-left: 2px solid var(--color-feedback-warning);
@@ -1104,7 +1070,10 @@
 
 .insp-warning {
   font-size: var(--font-size-xs);
-  color: var(--color-feedback-warning);
+  /* AA-safe warning *text* token. The base --color-feedback-warning is for
+   * fills/borders; as 12px text on the light inspector surface it measured
+   * 3.12:1 (axe, 2026-09-17). */
+  color: var(--color-feedback-warning-strong);
 }
 
 .insp-field--help {
@@ -1112,43 +1081,28 @@
   color: var(--color-text-muted);
 }
 
-.insp-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+/* Explicit target checklist inside Adjustment Scope. */
+.adjustment-scope__targets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 12rem;
+  overflow-y: auto;
+}
+
+.adjustment-scope__target {
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: var(--z-overlay);
+  gap: var(--space-1);
 }
 
-.insp-overlay__content {
-  background: var(--color-surface-raised);
-  border-radius: var(--radius-floating);
-  padding: var(--space-4);
-  max-width: 400px;
-  width: 90%;
-  box-shadow: var(--shadow-lg);
-}
-
-.insp-overlay__content h3 {
-  margin: 0 0 var(--space-2);
-  font-size: var(--font-size-lg);
-  color: var(--color-text-primary);
-}
-
-.insp-overlay__content ul {
-  margin: var(--space-2) 0;
+/* Impact preview dialog (rendered by the shared Dialog primitive). */
+.adjustment-scope-impact__list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
   padding-left: var(--space-4);
-  font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
-}
-
-.insp-overlay__actions {
-  display: flex;
-  gap: var(--space-2);
-  justify-content: flex-end;
-  margin-top: var(--space-3);
 }
 
 /* Shared compact inspector buttons live in

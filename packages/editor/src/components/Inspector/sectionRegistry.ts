@@ -742,7 +742,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   },
   {
     id: 'ocr',
-    title: 'OCR / Recognize Text',
+    title: 'Recognize Text',
     defaultExpanded: false,
     canHide: true,
     essential: false,

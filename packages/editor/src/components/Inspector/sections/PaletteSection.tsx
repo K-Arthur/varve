@@ -289,7 +289,7 @@ export function PaletteSection() {
   if (!source) return null;
 
   return (
-    <DisclosureSection title="Palette" sectionId="palette">
+    <DisclosureSection title="Extract Palette" sectionId="palette">
       <div className="palette-section__controls">
         <fieldset className="palette-section__source">
           <legend className="palette-section__source-label">From {source.label}</legend>

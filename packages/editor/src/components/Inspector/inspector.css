@@ -424,6 +424,16 @@
 /* Frame presets now render via @varve/ui's PresetPicker/PresetTile
  * (preset-picker.css) — see FramePresetsSection.tsx. */
 
+/* The Adjustments tab's object-selection composition (Adjustment Layer
+ * access + Effect Studio + Object Filters + Layer Effects) wraps its
+ * sections in this element. Match the .insp-panel rhythm so section spacing
+ * is identical to the raster composition, where sections are direct children. */
+.adjustments-object-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
 /* ---------- Disclosure section (APG) — quiet grouping ----------
  * The Inspector is a long, frequently scanned property list. A card around
  * every section creates nested borders and makes each section compete with

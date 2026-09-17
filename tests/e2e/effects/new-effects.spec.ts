@@ -81,7 +81,7 @@ test.describe('New Adjustment Effects', () => {
     await expect(addAdjBtn).toBeVisible({ timeout: 3000 });
     await addAdjBtn.click();
     await page.waitForTimeout(200);
-    const menuItem = page.locator('.adj-panel__add-menu-item').filter({ hasText: name });
+    const menuItem = page.getByRole('menuitem', { name, exact: true });
     if (await menuItem.isVisible()) {
       await menuItem.click();
       await page.waitForTimeout(300);

@@ -10,8 +10,8 @@ import {
 } from '@varve/engine';
 import type { Adjustment, AdjustmentKind, AdjustmentNode, SceneNode } from '@varve/scene';
 import { cryptoId, makeAdjustment } from '@varve/scene';
-import { Dialog, Select, SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
-import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { Menu, type MenuItem, Select, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { NumberField } from '../Inspector/controls/NumberField';
 import { RangeValueControl } from '../Inspector/controls/RangeValueControl';
@@ -266,10 +266,20 @@ export function AdjustmentPanel() {
     [mutateNode, nodeId],
   );
 
-  const closeAddMenu = useCallback(() => {
-    setShowAddMenu(false);
-    addBtnRef.current?.focus();
-  }, []);
+  // The picker is the canonical anchored Menu (popover semantics): it does not
+  // block the canvas while browsing, scrolls against the visual viewport, and
+  // supports type-ahead over ~25 filter kinds. It was a modal Dialog before
+  // 2026-09-17, which dimmed the canvas, covered the inspector, and clipped its
+  // last row at 720p.
+  const addMenuItems = useMemo<readonly MenuItem[]>(
+    () =>
+      ADJUSTMENT_LAYER_KINDS.map((kind) => ({
+        id: `add-adjustment-${kind}`,
+        label: filterKindDisplayName(kind),
+        onAction: () => handleAddAdjustment(kind),
+      })),
+    [handleAddAdjustment],
+  );
 
   if (!isAdjustmentNode) return null;
 
@@ -298,11 +308,12 @@ export function AdjustmentPanel() {
       <div className="adj-panel__opacity">
         <NumberField
           label="Opacity"
-          value={opacity}
-          onChange={setSelectedOpacity}
-          step={0.01}
+          value={opacity * 100}
+          onChange={(value) => setSelectedOpacity(value / 100)}
+          step={1}
           min={0}
-          max={1}
+          max={100}
+          unit="%"
         />
       </div>
 
@@ -355,15 +366,17 @@ export function AdjustmentPanel() {
       <div className="adj-panel__stack">
         <div className="adj-panel__stack-header">
           <span className="adj-panel__stack-title">Filter Stack</span>
-          <button
-            type="button"
-            className="adj-panel__auto-btn"
-            onClick={handleAutoWhiteBalance}
-            disabled={!sourceHistogram}
-            aria-label="Auto White Balance"
-          >
-            Auto WB
-          </button>
+          <Tooltip label="Auto White Balance" disabledReason="Waiting for a measurable preview">
+            <button
+              type="button"
+              className="adj-panel__auto-btn"
+              onClick={handleAutoWhiteBalance}
+              disabled={!sourceHistogram}
+              aria-label="Auto White Balance"
+            >
+              Auto WB
+            </button>
+          </Tooltip>
         </div>
 
         {adjustments.map((adj, index) => (
@@ -437,7 +450,7 @@ export function AdjustmentPanel() {
           </div>
         ))}
 
-        <div style={{ position: 'relative' }}>
+        <div className="adj-panel__add-row">
           <button
             ref={addBtnRef}
             type="button"
@@ -450,9 +463,14 @@ export function AdjustmentPanel() {
             Add adjustment
           </button>
 
-          {showAddMenu && (
-            <AddAdjustmentMenu onSelect={handleAddAdjustment} onClose={closeAddMenu} />
-          )}
+          <Menu
+            items={addMenuItems}
+            triggerRef={addBtnRef}
+            open={showAddMenu}
+            onClose={() => setShowAddMenu(false)}
+            label="Add adjustment"
+            size="default"
+          />
         </div>
       </div>
 
@@ -477,9 +495,6 @@ export function AdjustmentPanel() {
           <div className="adj-panel__editor-header">
             <span className="adj-panel__editor-title">
               {filterKindDisplayName(selectedAdj.kind)}
-            </span>
-            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
-              {Math.round(selectedAdj.opacity * 100)}%
             </span>
           </div>
           <AdjustmentEditor
@@ -546,68 +561,5 @@ export function AdjustmentPanel() {
         </div>
       )}
     </div>
-  );
-}
-
-function AddAdjustmentMenu({
-  onSelect,
-  onClose,
-}: {
-  onSelect: (kind: AdjustmentKind) => void;
-  onClose: () => void;
-}) {
-  const handleMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (!['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(event.key)) {
-      return;
-    }
-    const items = Array.from(
-      event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'),
-    );
-    const currentIndex = items.indexOf(document.activeElement as HTMLButtonElement);
-    if (currentIndex < 0 || items.length === 0) return;
-
-    const nextIndex =
-      event.key === 'Home'
-        ? 0
-        : event.key === 'End'
-          ? items.length - 1
-          : (currentIndex +
-              (event.key === 'ArrowUp' || event.key === 'ArrowLeft' ? -1 : 1) +
-              items.length) %
-            items.length;
-    event.preventDefault();
-    items[nextIndex]?.focus();
-  };
-
-  return (
-    <Dialog
-      open
-      onClose={onClose}
-      title="Add adjustment"
-      focusFirstControl
-      className="adj-panel__add-dialog"
-    >
-      <div
-        className="adj-panel__add-menu"
-        role="menu"
-        aria-label="Add adjustment"
-        onKeyDown={handleMenuKeyDown}
-      >
-        {ADJUSTMENT_LAYER_KINDS.map((kind) => (
-          <button
-            key={kind}
-            type="button"
-            role="menuitem"
-            className="adj-panel__add-menu-item"
-            onClick={() => {
-              onSelect(kind);
-              onClose();
-            }}
-          >
-            {filterKindDisplayName(kind)}
-          </button>
-        ))}
-      </div>
-    </Dialog>
   );
 }
