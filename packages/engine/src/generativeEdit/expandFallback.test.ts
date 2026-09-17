@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { chooseExpandGenerationStrategy, runDeterministicExpandFallback } from './expandFallback';
+import {
+  chooseExpandGenerationStrategy,
+  resolveExpandContextPadding,
+  runDeterministicExpandFallback,
+} from './expandFallback';
 
 function expandedFrame(): {
   imageData: ImageData;
@@ -69,6 +73,27 @@ describe('deterministic Expand fallback', () => {
     expect(sourcePixels({ ...frame, imageData: result.imageData })).toEqual(sourcePixels(frame));
     expect(result.filledBounds).toEqual({ x: 0, y: 0, w: 14, h: 12 });
     expect(result.warnings.join(' ')).toMatch(/promptless local reconstruction/i);
+  });
+
+  it('uses a wider default context padding for AI-quality tiles than for Fast', () => {
+    // Real-photo measurement (docs/audits/lama-tile-seam-context-padding-2026-09-16.md):
+    // 96px measurably reduced tile-boundary color discontinuity vs the
+    // original 32px default for LaMa's staged-border tiling, with no
+    // observed downside. Fast/PatchMatch keeps the original default — its
+    // context need (a local neighbourhood search) was not what that
+    // measurement covered.
+    expect(resolveExpandContextPadding('ai')).toBe(96);
+    expect(resolveExpandContextPadding('fast')).toBe(32);
+  });
+
+  it('still honours an explicit contextPadding override for either quality', () => {
+    expect(resolveExpandContextPadding('ai', 10)).toBe(10);
+    expect(resolveExpandContextPadding('fast', 200)).toBe(200);
+  });
+
+  it('never returns less padding than the PatchMatch neighbourhood guard needs', () => {
+    expect(resolveExpandContextPadding('ai', 0)).toBe(5);
+    expect(resolveExpandContextPadding('fast', 1)).toBe(5);
   });
 
   it('rejects an aborted request before allocating the guarded frame', async () => {

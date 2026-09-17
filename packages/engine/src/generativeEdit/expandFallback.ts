@@ -14,7 +14,32 @@ import type { ContentAwareFillQuality, ContentAwareFillResult } from '../content
  */
 const CONTEXT_GUARD_PIXELS = 4;
 const DEFAULT_CONTEXT_PADDING = 32;
+/**
+ * LaMa's staged-border tiling (below) generates each border tile from an
+ * independent model pass; the only signal keeping adjacent tiles' color and
+ * lighting consistent is how much *real* shared context each pass sees
+ * around its own target rectangle. A real-photo measurement (32px vs 96px,
+ * see docs/audits/lama-tile-seam-context-padding-2026-09-16.md) found the
+ * default 32px measurably worse at the tile-boundary seam than 96px, with
+ * no observed downside (the letterboxed model input is always 512x512
+ * either way, so this does not change inference cost). Fast/PatchMatch
+ * keeps the original default — PatchMatch's context need is a local
+ * neighbourhood search, not measured here, and is not the case that showed
+ * seams.
+ */
+const AI_CONTEXT_PADDING = 96;
 const MAX_TILE_PIXELS = 262_144;
+
+/** Exported for direct unit coverage of the padding default itself. */
+export function resolveExpandContextPadding(
+  quality: ContentAwareFillQuality,
+  requested?: number,
+): number {
+  return Math.max(
+    requested ?? (quality === 'ai' ? AI_CONTEXT_PADDING : DEFAULT_CONTEXT_PADDING),
+    CONTEXT_GUARD_PIXELS + 1,
+  );
+}
 /**
  * A single model pass keeps horizons, lighting, and corners in one shared
  * context. Above this bound the native/WASM model input and decoded result can
@@ -284,10 +309,7 @@ export async function runDeterministicExpandFallback(options: {
   if (!protectedBounds) {
     throw new Error('Expand must retain a protected source frame');
   }
-  const contextPadding = Math.max(
-    options.contextPadding ?? DEFAULT_CONTEXT_PADDING,
-    CONTEXT_GUARD_PIXELS + 1,
-  );
+  const contextPadding = resolveExpandContextPadding(options.quality, options.contextPadding);
   const strategy = chooseExpandGenerationStrategy(
     imageData.width,
     imageData.height,
