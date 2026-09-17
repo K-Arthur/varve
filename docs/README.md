@@ -26,6 +26,13 @@ Current interface typography and component sizing contracts are documented in
 Current inspector and form-field composition, spacing, precision-entry, and
 viewport behavior are documented in
 [`architecture/label-field-system.md`](architecture/label-field-system.md).
+The selection-aware Inspector input-surface, value-family, density, popup, and
+contextual section contract is documented in
+[`architecture/inspector-input-surface-system.md`](architecture/inspector-input-surface-system.md),
+with the dated research, inventory, and selection matrix in
+[`research/inspector-input-surface-system-audit-2026-09-16.md`](research/inspector-input-surface-system-audit-2026-09-16.md)
+and the staged implementation plan in
+[`plans/inspector-input-surface-system-implementation-2026-09-16.md`](plans/inspector-input-surface-system-implementation-2026-09-16.md).
 Current export accessibility boundaries and format-specific author guidance
 are documented in
 [`architecture/output-accessibility-guidance.md`](architecture/output-accessibility-guidance.md).
@@ -244,6 +251,7 @@ The current automated and manual accessibility evidence matrix is in
 | `architecture/typography-platform.md` | Typography platform |
 | `architecture/spacing-system.md` | Canonical spacing primitives, semantic roles, responsive gutters, and ownership boundaries |
 | `architecture/label-field-system.md` | Label/control composition, responsive inspector groups, precision inputs, and theme behavior |
+| `architecture/inspector-input-surface-system.md` | Selection-aware Inspector composition, input-family contracts, density, state, popup, and migration governance |
 | `architecture/font-provider-architecture.md` | Fontsource catalog, explicit installation, persistence, and provider boundaries |
 | `architecture/font-system.md` | Canonical font identity, discovery, persistence, readiness, and privacy contract |
 | `audits/font-acceptance-matrix-2026-09-09.md` | Dated typography scenarios, status, and evidence ownership |
