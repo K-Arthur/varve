@@ -886,7 +886,7 @@ test.describe('Design tab paint rows (fill / stroke pass)', () => {
       .locator('.insp-disclosure')
       .filter({ has: page.locator('.insp-disclosure__trigger', { hasText: 'Stroke' }) });
     // Drawn rectangles start with no stroke: add one to reach the row.
-    await strokeSection.getByRole('button', { name: 'Add Stroke', exact: true }).click();
+    await strokeSection.getByRole('button', { name: 'Add stroke', exact: true }).click();
     const advanced = strokeSection.getByRole('button', { name: /^Advanced/ });
     await advanced.click();
     const dashSelect = strokeSection.getByRole('combobox', { name: 'Stroke dash style' });
@@ -966,8 +966,12 @@ test.describe('Design tab paint rows (fill / stroke pass)', () => {
     await openDesignTab(page);
 
     // Add a stroke, then set its width to zero through the visible field.
-    // (exact: the context bar also carries an "Add stroke" affordance.)
-    await page.getByRole('button', { name: 'Add Stroke', exact: true }).click();
+    // (exact + scoped to the Inspector: the context bar also carries an
+    // "Add stroke" affordance, and both labels are sentence case now.)
+    await page
+      .locator('.editor-inspector')
+      .getByRole('button', { name: 'Add stroke', exact: true })
+      .click();
     const weight = page.getByRole('spinbutton', { name: 'Stroke weight (px)' });
     await weight.fill('0');
     await weight.press('Enter');

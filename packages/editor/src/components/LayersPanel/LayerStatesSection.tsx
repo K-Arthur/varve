@@ -14,9 +14,9 @@ import { usePersistedDisclosure } from '../usePersistedDisclosure';
 import './layerStatesSection.css';
 
 const CATEGORY_LABEL: Record<string, string> = {
-  visibility: 'vis',
-  transforms: 'xf',
-  appearance: 'app',
+  visibility: 'Visibility',
+  transforms: 'Transforms',
+  appearance: 'Appearance',
 };
 
 export function LayerStatesSection() {
@@ -88,7 +88,7 @@ export function LayerStatesSection() {
           onToggle={() => setCollapsed((value) => !value)}
           label="layer states"
         />
-        <span className="layer-states__title">Layer States</span>
+        <h3 className="layer-states__title">Layer States</h3>
         {selCount > 0 && (
           <Tooltip label={`Capture state from selection (${selCount})`}>
             <button

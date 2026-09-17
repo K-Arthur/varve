@@ -18,7 +18,7 @@
 }
 
 .insp-effect-row:hover {
-  border-color: var(--color-border-default);
+  border-color: var(--color-border-subtle);
 }
 
 .insp-effect-row--active {
@@ -169,7 +169,7 @@
 .insp-elevation-preset-btn:hover {
   color: var(--color-text-primary);
   background: var(--color-surface-hover);
-  border-color: var(--color-border-default);
+  border-color: var(--color-border-subtle);
 }
 
 .insp-elevation-preset-btn:focus-visible {
@@ -236,7 +236,7 @@
 .insp-radius-chip:hover {
   background: var(--color-surface-hover);
   color: var(--color-text-primary);
-  border-color: var(--color-border-default);
+  border-color: var(--color-border-subtle);
 }
 
 .insp-radius-chip--active {
@@ -278,7 +278,7 @@
   height: 2.375rem;
   border-radius: var(--radius-control);
   background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-default);
+  border: 1px solid var(--color-border-subtle);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -315,7 +315,7 @@
   height: 72px;
   border-radius: 50%;
   background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-default);
+  border: 1px solid var(--color-border-subtle);
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
   cursor: crosshair;
   flex-shrink: 0;

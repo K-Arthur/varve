@@ -227,7 +227,7 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
               onChange={setPendingSourceId}
             />
           )}
-          <div className="insp-mask-add__actions" role="group" aria-label="Add Mask">
+          <div className="insp-mask-add__actions" role="group" aria-label="Add mask">
             {isVisualLeaf ? (
               <Tooltip label="Editable vector path that clips this layer">
                 <button

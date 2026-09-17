@@ -71,7 +71,7 @@ describe('DisclosureSection registry mode', () => {
     // and the first toggle must open (not write a redundant collapse).
     renderWithProvider(
       <DisclosureSection
-        title="Variable Font Axes"
+        title="Variable font axes"
         sectionId="typography"
         subsectionId="variableFontAxes"
       >

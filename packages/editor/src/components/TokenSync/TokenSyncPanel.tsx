@@ -21,6 +21,8 @@ import {
   sourceStatusRows,
   syncStatusLabel,
 } from '../../tokenSync/tokenSyncSelectors';
+import { SectionCollapseToggle } from '../SectionCollapseToggle';
+import { usePersistedDisclosure } from '../usePersistedDisclosure';
 import './TokenSyncPanel.css';
 
 interface ImportPreviewState {
@@ -36,7 +38,7 @@ export function TokenSyncPanel() {
   const sync = variableStore.tokenSync;
   const rows = sourceStatusRows(sync);
   const summary: ChangeSummary = changeSummary(sync);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = usePersistedDisclosure('token-sync');
   const [preview, setPreview] = useState<ImportPreviewState | null>(null);
   const [applying, setApplying] = useState(false);
 
@@ -109,16 +111,12 @@ export function TokenSyncPanel() {
   return (
     <section className="token-sync-panel" aria-label="Token Sync Center">
       <div className="token-sync-panel__header">
-        <h2 className="token-sync-panel__title">Token Sync</h2>
-        <button
-          type="button"
-          className="token-sync-panel__collapse"
-          aria-expanded={!collapsed}
-          aria-label={collapsed ? 'Expand Token Sync panel' : 'Collapse Token Sync panel'}
-          onClick={() => setCollapsed((c) => !c)}
-        >
-          {collapsed ? 'Expand' : 'Collapse'}
-        </button>
+        <SectionCollapseToggle
+          collapsed={collapsed}
+          onToggle={() => setCollapsed((c) => !c)}
+          label="Token Sync panel"
+        />
+        <h3 className="token-sync-panel__title">Token Sync</h3>
       </div>
 
       {!collapsed && (

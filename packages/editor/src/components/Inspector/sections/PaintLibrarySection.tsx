@@ -228,7 +228,7 @@ export function PaintLibrarySection() {
         <SearchField
           value={search}
           onChange={setSearch}
-          placeholder="Filter paints..."
+          placeholder="Filter paints…"
           aria-label="Filter paint library"
         />
 
@@ -332,7 +332,7 @@ export function PaintLibrarySection() {
               className="insp-paint-library__confirm-btn insp-paint-library__confirm-btn--danger"
               onClick={confirmDeleteWithDetach}
             >
-              Detach & Delete
+              Detach and delete
             </button>
             <button
               type="button"

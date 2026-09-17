@@ -2773,6 +2773,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen e
         "shortcut": "Ctrl+Shift+M",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-panels",
         "separator": true,
       },
@@ -4461,6 +4468,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen w
         "label": "Minimap",
         "onAction": [Function],
         "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
       },
       {
         "id": "sep-after-panels",
@@ -6306,6 +6320,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design em
         "label": "Minimap",
         "onAction": [Function],
         "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
       },
       {
         "id": "sep-after-panels",
@@ -8510,6 +8531,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design wi
         "shortcut": "Ctrl+Shift+M",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-panels",
         "separator": true,
       },
@@ -10663,6 +10691,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing e
         "shortcut": "Ctrl+Shift+M",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-panels",
         "separator": true,
       },
@@ -12742,6 +12777,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing w
         "label": "Minimap",
         "onAction": [Function],
         "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
       },
       {
         "id": "sep-after-panels",
@@ -14827,6 +14869,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image emp
         "shortcut": "Ctrl+Shift+M",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-panels",
         "separator": true,
       },
@@ -16800,6 +16849,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image wit
         "label": "Minimap",
         "onAction": [Function],
         "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
       },
       {
         "id": "sep-after-panels",
@@ -18791,6 +18847,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion em
         "shortcut": "Ctrl+Shift+M",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-panels",
         "separator": true,
       },
@@ -20601,6 +20664,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion wi
         "label": "Minimap",
         "onAction": [Function],
         "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
       },
       {
         "id": "sep-after-panels",
@@ -22446,6 +22516,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print emp
         "label": "Minimap",
         "onAction": [Function],
         "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
       },
       {
         "id": "sep-after-panels",
@@ -24627,6 +24704,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print wit
         "shortcut": "Ctrl+Shift+M",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-panels",
         "separator": true,
       },
@@ -26651,6 +26735,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen emp
         "shortcut": "Ctrl+Shift+M",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-panels",
         "separator": true,
       },
@@ -28339,6 +28430,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen wit
         "label": "Minimap",
         "onAction": [Function],
         "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
       },
       {
         "id": "sep-after-panels",
@@ -30184,6 +30282,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design empt
         "label": "Minimap",
         "onAction": [Function],
         "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
       },
       {
         "id": "sep-after-panels",
@@ -32388,6 +32493,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design with
         "shortcut": "Ctrl+Shift+M",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-panels",
         "separator": true,
       },
@@ -34541,6 +34653,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing emp
         "shortcut": "Ctrl+Shift+M",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-panels",
         "separator": true,
       },
@@ -36620,6 +36739,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing wit
         "label": "Minimap",
         "onAction": [Function],
         "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
       },
       {
         "id": "sep-after-panels",
@@ -38705,6 +38831,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image empty
         "shortcut": "Ctrl+Shift+M",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-panels",
         "separator": true,
       },
@@ -40678,6 +40811,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image with 
         "label": "Minimap",
         "onAction": [Function],
         "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
       },
       {
         "id": "sep-after-panels",
@@ -42669,6 +42809,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion empt
         "shortcut": "Ctrl+Shift+M",
       },
       {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
+      },
+      {
         "id": "sep-after-panels",
         "separator": true,
       },
@@ -44479,6 +44626,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion with
         "label": "Minimap",
         "onAction": [Function],
         "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
       },
       {
         "id": "sep-after-panels",
@@ -46324,6 +46478,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print empty
         "label": "Minimap",
         "onAction": [Function],
         "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
       },
       {
         "id": "sep-after-panels",
@@ -48503,6 +48664,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print with 
         "label": "Minimap",
         "onAction": [Function],
         "shortcut": "Ctrl+Shift+M",
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "openVariablesPanel",
+        "label": "Variables and Tokens…",
+        "onAction": [Function],
       },
       {
         "id": "sep-after-panels",

@@ -1112,6 +1112,13 @@ export function getViewMenu(
       run: () => runAction('toggleMinimap'),
     },
     {
+      id: 'openVariablesPanel',
+      labelKey: 'menu.view.variablesPanel',
+      kind: 'command',
+      group: 'panels',
+      run: () => runAction('openVariablesPanel'),
+    },
+    {
       id: 'bringAllPanelsToCurrentDisplay',
       labelKey: 'menu.view.bringAllPanelsToCurrentDisplay',
       kind: 'command',

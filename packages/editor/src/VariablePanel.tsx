@@ -101,7 +101,7 @@ export function VariablePanel() {
           onToggle={() => setCollapsed((value) => !value)}
           label="variables"
         />
-        <span className="editor-inspector__group-title variable-panel__title">Variables</span>
+        <h3 className="editor-inspector__group-title variable-panel__title">Variables</h3>
         <div className="variable-panel__controls">
           {variableStore.modes.length > 1 && (
             <Select
@@ -199,11 +199,16 @@ export function VariablePanel() {
         </table>
       )}
 
+      {!collapsed && vars.length === 0 && !adding && (
+        <p className="variable-panel__empty-hint">No variables yet. Choose + Add to create one.</p>
+      )}
+
       {!collapsed && adding && (
         <div className="variable-panel__add-form">
           <input
             ref={addNameRef}
             placeholder="name"
+            aria-label="Variable name"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => {
@@ -220,6 +225,7 @@ export function VariablePanel() {
           />
           <input
             placeholder="value"
+            aria-label="Variable value"
             value={newValue}
             onChange={(e) => setNewValue(e.target.value)}
             onKeyDown={(e) => {

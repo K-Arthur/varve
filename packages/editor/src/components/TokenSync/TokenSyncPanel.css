@@ -6,7 +6,6 @@
 .token-sync-panel__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 0.5rem;
 }
 
@@ -16,7 +15,6 @@
   font-weight: var(--font-weight-semibold);
 }
 
-.token-sync-panel__collapse,
 .token-sync-panel__import,
 .token-sync-panel__apply,
 .token-sync-panel__cancel {

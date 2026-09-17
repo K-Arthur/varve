@@ -919,7 +919,7 @@ function VariableAxesSection({ textNodes, familyRaw, batchUpdate }: VariableAxes
 
   return (
     <DisclosureSection
-      title="Variable Font Axes"
+      title="Variable font axes"
       sectionId="typography"
       subsectionId="variableFontAxes"
     >

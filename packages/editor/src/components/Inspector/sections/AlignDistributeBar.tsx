@@ -313,7 +313,7 @@ function TidyUpPopover({
         className="insp-tidy-popover__apply"
         onClick={() => onApply(columns, { rowGap, columnGap })}
       >
-        Apply Tidy Up
+        Apply tidy up
       </button>
     </div>
   );
@@ -612,7 +612,7 @@ export function AlignDistributeBar() {
                   type="button"
                   ref={distributionBtnRef}
                   className={`pill-group__btn ${showDistributionMenu ? 'pill-group__btn--active' : ''}`}
-                  aria-label="Distribution options"
+                  aria-label="Gap: distribution options"
                   aria-expanded={showDistributionMenu}
                   onClick={() => setShowDistributionMenu((open) => !open)}
                   disabled={!capabilities.canSetGap}

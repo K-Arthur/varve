@@ -1074,6 +1074,10 @@ function buildMenus(
               label: 'History Panel',
               action: 'toggleHistoryPanel',
             },
+            {
+              label: 'Variables and Tokens…',
+              action: 'openVariablesPanel',
+            },
             { label: '---' },
             {
               label: 'Show All Panels',

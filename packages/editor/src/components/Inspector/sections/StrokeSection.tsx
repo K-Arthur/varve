@@ -63,7 +63,7 @@ const ALIGN_OPTIONS: readonly { value: StrokeAlign; label: string }[] = [
 const CAP_OPTIONS: readonly SegmentedOption<StrokeCap>[] = [
   { value: 'butt', label: 'Butt' },
   { value: 'round', label: 'Round' },
-  { value: 'square', label: 'Sq' },
+  { value: 'square', label: 'Square' },
 ] as const;
 
 const JOIN_OPTIONS: readonly SegmentedOption<StrokeJoin>[] = [
@@ -358,7 +358,7 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
       action={
         <button type="button" className="insp-add-btn" onClick={addStroke}>
           <Icon name="Plus" label={undefined} size="0.85em" />
-          <span>Add Stroke</span>
+          <span>Add stroke</span>
         </button>
       }
     >

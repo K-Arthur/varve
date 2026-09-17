@@ -844,6 +844,8 @@ function SingleSelectionPanel({
       <header className="insp-panel__node-header">
         <h2 className="insp-panel__node-name">
           {node.name}
+          {/* The explicit space keeps the accessible name from gluing the kind
+              onto the name ("Rectangle 1shape"); it renders collapsed. */}{' '}
           <span className="insp-panel__node-kind">
             {isExportRegionNode ? 'export region' : node.kind}
           </span>

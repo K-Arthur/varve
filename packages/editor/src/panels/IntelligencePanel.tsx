@@ -436,7 +436,7 @@ function LinterTab() {
   if (!report) {
     return (
       <div className="intelligence-empty">
-        <p>Scanning\u2026</p>
+        <p>Scanning…</p>
       </div>
     );
   }
@@ -928,12 +928,12 @@ function ReviewTab() {
   if (!report) {
     return (
       <div className="intelligence-empty">
-        <p>Running audit...</p>
+        <p>Running audit…</p>
         {progress && (
           <p style={{ fontSize: 'var(--font-size-xs)', opacity: 0.7 }}>
             {progress.currentRule
               ? `${progress.completed}/${progress.total} — ${progress.currentRule}`
-              : 'Initializing...'}
+              : 'Initializing…'}
           </p>
         )}
       </div>
@@ -1043,7 +1043,7 @@ function ReviewTab() {
           disabled={isScanning}
         >
           <Icon name={isScanning ? 'Loader' : 'RotateCcw'} label={undefined} size="0.85em" />
-          {isScanning ? 'Scanning...' : 'Re-scan'}
+          {isScanning ? 'Scanning…' : 'Re-scan'}
         </button>
         {isScanning && progress && (
           <span style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.6 }}>
@@ -1788,7 +1788,7 @@ function DebtTab() {
         onClick={handleScan}
       >
         <Icon name={isScanning ? 'Loader' : 'Search'} label={undefined} size="0.85em" />
-        {isScanning ? 'Scanning...' : report ? 'Re-scan' : 'Scan for debt'}
+        {isScanning ? 'Scanning…' : report ? 'Re-scan' : 'Scan for debt'}
       </button>
 
       {report && (

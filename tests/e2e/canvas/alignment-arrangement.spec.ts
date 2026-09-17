@@ -241,7 +241,7 @@ test.describe('Alignment and arrangement workflow', () => {
       body: await page.screenshot(),
       contentType: 'image/png',
     });
-    await tidyDialog.getByRole('button', { name: 'Apply Tidy Up' }).click();
+    await tidyDialog.getByRole('button', { name: 'Apply tidy up' }).click();
     await expect(tidyDialog).toBeHidden();
 
     const canvas = page.getByTestId('editor-canvas');

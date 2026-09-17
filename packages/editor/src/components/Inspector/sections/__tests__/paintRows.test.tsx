@@ -417,7 +417,7 @@ describe('Stroke advanced redesign', () => {
       ],
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Add Stroke' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add stroke' }));
 
     await waitFor(() => {
       const stored = getCtx()?.state.document.nodes[ids[0]!] as {

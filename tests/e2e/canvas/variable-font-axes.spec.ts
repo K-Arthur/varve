@@ -43,7 +43,7 @@ async function typeSpecimen(page: import('@playwright/test').Page, family: strin
 async function openVariableAxes(page: import('@playwright/test').Page) {
   const trigger = page
     .locator('button.insp-disclosure__trigger')
-    .filter({ hasText: 'Variable Font Axes' });
+    .filter({ hasText: 'Variable font axes' });
   await expect(trigger).toBeVisible({ timeout: 10000 });
   if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click();
   await expect(trigger).toHaveAttribute('aria-expanded', 'true');

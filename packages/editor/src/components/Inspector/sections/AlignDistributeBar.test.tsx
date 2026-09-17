@@ -89,7 +89,7 @@ describe('AlignDistributeBar', () => {
     // Key object, distribute, gap, tidy and OBB need 2+ layers: omitted.
     expect(screen.queryByRole('button', { name: 'Set key object from selection' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Distribute horizontal spacing' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Distribution options' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Gap: distribution options' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Tidy up grid' })).toBeNull();
   });
 
@@ -196,7 +196,7 @@ describe('AlignDistributeBar', () => {
     mocks.useEditor.mockReturnValue(editor);
     render(<AlignDistributeBar />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Distribution options' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Gap: distribution options' }));
     fireEvent.click(screen.getByLabelText('Fixed gap'));
     fireEvent.change(screen.getByLabelText('Gap (px)'), { target: { value: '-12' } });
     fireEvent.blur(screen.getByLabelText('Gap (px)'));
@@ -210,10 +210,10 @@ describe('AlignDistributeBar', () => {
     mocks.useEditor.mockReturnValue(editor);
     render(<AlignDistributeBar />);
 
-    expect(screen.getByRole('button', { name: 'Distribution options' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Gap: distribution options' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Distribute horizontal spacing' })).toBeDisabled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Distribution options' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Gap: distribution options' }));
     fireEvent.click(screen.getByLabelText('Fixed gap'));
     fireEvent.change(screen.getByLabelText('Gap (px)'), { target: { value: '24' } });
     fireEvent.blur(screen.getByLabelText('Gap (px)'));
@@ -241,7 +241,7 @@ describe('AlignDistributeBar', () => {
     const rowGap = screen.getByLabelText('Row gap (px)');
     fireEvent.change(rowGap, { target: { value: '24' } });
     fireEvent.keyDown(rowGap, { key: 'Enter' });
-    fireEvent.click(screen.getByRole('button', { name: 'Apply Tidy Up' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply tidy up' }));
 
     expect(editor.tidySelected).toHaveBeenCalledWith(3, { rowGap: 24, columnGap: 16 });
   });

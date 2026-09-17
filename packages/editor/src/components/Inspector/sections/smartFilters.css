@@ -30,7 +30,7 @@
   min-height: 1.5rem;
   min-width: 1.5rem;
   padding: 0;
-  transition: all var(--motion-fast, 120ms) ease;
+  transition: all var(--duration-quick) var(--ease-standard);
 }
 
 .smart-filters__stack-visibility:hover:not(:disabled) {
@@ -47,7 +47,7 @@
 .smart-filters__curated-notice {
   align-items: flex-start;
   background: var(--color-surface-sunken);
-  border-left: 3px solid var(--color-accent);
+  border-left: 3px solid var(--color-accent-primary);
   border-radius: 0 var(--radius-control-compact) var(--radius-control-compact) 0;
   color: var(--color-text-secondary);
   display: flex;
@@ -59,7 +59,7 @@
 }
 
 .smart-filters__curated-icon {
-  color: var(--color-accent);
+  color: var(--color-accent-primary);
   flex-shrink: 0;
   margin-top: 2px;
 }
@@ -112,7 +112,7 @@
   min-height: 3.25rem;
   padding: var(--space-2);
   text-align: left;
-  transition: all var(--motion-fast, 120ms) ease;
+  transition: all var(--duration-quick) var(--ease-standard);
 }
 
 .object-finishing__action:hover {
@@ -135,7 +135,7 @@
 
 .object-finishing__action-icon-wrap {
   align-items: center;
-  color: var(--color-accent);
+  color: var(--color-accent-primary);
   display: inline-flex;
   flex-shrink: 0;
   justify-content: center;
@@ -187,7 +187,7 @@
   font-size: var(--font-size-md);
   line-height: 1;
   transform: rotate(0deg);
-  transition: transform var(--motion-fast, 120ms) ease;
+  transition: transform var(--duration-quick) var(--ease-standard);
 }
 
 .smart-filters__advanced[open] > summary::before {
@@ -283,8 +283,8 @@
   min-width: 0;
   padding: 0 4px;
   transition:
-    border-color var(--motion-fast, 120ms) ease,
-    background-color var(--motion-fast, 120ms) ease;
+    border-color var(--duration-quick) var(--ease-standard),
+    background-color var(--duration-quick) var(--ease-standard);
 }
 
 .smart-filters__row:hover:not(.smart-filters__row--selected) {
@@ -341,7 +341,7 @@
   min-height: 22px;
   min-width: 22px;
   padding: 0;
-  transition: color var(--motion-fast, 120ms) ease;
+  transition: color var(--duration-quick) var(--ease-standard);
   width: 22px;
 }
 
@@ -566,7 +566,7 @@
 }
 
 .smart-filters__editor-kind-icon {
-  color: var(--color-accent);
+  color: var(--color-accent-primary);
   flex-shrink: 0;
 }
 
@@ -615,8 +615,8 @@
   min-width: 24px;
   padding: 0;
   transition:
-    background-color var(--motion-fast, 120ms) ease,
-    color var(--motion-fast, 120ms) ease;
+    background-color var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
   width: 24px;
 }
 

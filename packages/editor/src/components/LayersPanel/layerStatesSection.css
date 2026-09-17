@@ -6,14 +6,14 @@
 .layer-states__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: var(--space-1);
   margin-bottom: var(--space-1);
 }
 
 .layer-states__title {
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-muted);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
 }
@@ -25,6 +25,7 @@
   /* WCAG 2.5.8: keep the glyph small but give it a 24x24 pointer target. */
   width: var(--target-min-compact);
   height: var(--target-min-compact);
+  margin-left: auto;
   padding: 0;
   color: var(--color-text-muted);
   background: transparent;
