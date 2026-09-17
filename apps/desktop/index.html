@@ -34,6 +34,33 @@
       })();
     </script>
     <script>
+      // Mirror the interface density / UI font size preferences before paint,
+      // the same no-flash contract the theme block above provides. Values are
+      // re-applied and kept authoritative by SettingsProvider after bootstrap.
+      (function () {
+        var raw = null;
+        try {
+          raw = localStorage.getItem('varve-editor-settings');
+        } catch (e) {}
+        var appearance = null;
+        try {
+          appearance = raw ? JSON.parse(raw).appearance : null;
+        } catch (e) {}
+        var density =
+          appearance && (appearance.uiDensity === 'compact' || appearance.uiDensity === 'default')
+            ? appearance.uiDensity
+            : 'default';
+        document.documentElement.dataset.density = density === 'compact' ? 'compact' : 'comfortable';
+        var fontSize =
+          appearance &&
+          (appearance.fontSizeUI === 'small' || appearance.fontSizeUI === 'large')
+            ? appearance.fontSizeUI
+            : null;
+        document.documentElement.style.fontSize =
+          fontSize === 'small' ? '15px' : fontSize === 'large' ? '18px' : '';
+      })();
+    </script>
+    <script>
       if (typeof performance !== 'undefined' && performance.mark) {
         performance.mark('varve-html-paint');
       }

@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useCallback, useContext, useState } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import {
   refreshInteractivePreviewSettings,
   refreshNavigationSettings,
@@ -11,6 +11,7 @@ import {
   loadSettings as loadEditorSettings,
   saveSettings as saveEditorSettings,
 } from '../../settings';
+import { applyInterfaceAppearance } from '../../settings/interfaceDensity';
 
 export type Settings = EditorSettings;
 
@@ -49,6 +50,17 @@ const SettingsCtx = createContext<SettingsContextValue | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<EditorSettings>(loadEditorSettings);
+
+  // Interface appearance (density, UI font size) is root-level DOM state,
+  // like the theme. The pre-paint script applies the persisted values before
+  // first paint; this effect keeps the DOM contract in sync afterwards — on
+  // mount, on every change, and after a settings reset. Both the home and
+  // editor shells mount a provider, so every view is covered.
+  const uiDensity = settings.appearance.uiDensity;
+  const fontSizeUI = settings.appearance.fontSizeUI;
+  useEffect(() => {
+    applyInterfaceAppearance(uiDensity, fontSizeUI);
+  }, [uiDensity, fontSizeUI]);
 
   const persist = useCallback((next: EditorSettings) => {
     setSettings(next);

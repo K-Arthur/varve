@@ -157,6 +157,23 @@ describe('loadSettings', () => {
     expect(loadSettings().appearance.theme).toBe('system');
   });
 
+  it('sanitizes unknown density and UI font sizes to their defaults', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ appearance: { uiDensity: 'cozy', fontSizeUI: 'huge' } }),
+    );
+    expect(loadSettings().appearance.uiDensity).toBe('default');
+    expect(loadSettings().appearance.fontSizeUI).toBe('medium');
+  });
+
+  it('round-trips both density modes and UI font sizes', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ appearance: { uiDensity: 'compact', fontSizeUI: 'large' } }),
+    );
+    expect(loadSettings().appearance).toMatchObject({ uiDensity: 'compact', fontSizeUI: 'large' });
+  });
+
   it('preserves the minimap view preference and recovers missing legacy values', () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ panel: { minimapVisible: false } }));
     expect(loadSettings().panel.minimapVisible).toBe(false);

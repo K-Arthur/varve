@@ -155,6 +155,35 @@ describe('AppearanceSettingsTab', () => {
       screen.getByLabelText('Show all menu items (bypass workspace mode filtering)'),
     ).toBeTruthy();
   });
+
+  it('renders the density control with the two pro modes and the active contract', () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));
+
+    const density = screen.getByRole('combobox', { name: 'Interface density' });
+    expect(density).toHaveTextContent('Default Pro');
+    expect(screen.getByText('Comfortable 34px rows for pointer-first work.')).toBeTruthy();
+  });
+
+  it('persists Compact Pro and announces the compact contract', async () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Interface density' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Compact Pro' }));
+
+    expect(screen.getByRole('combobox', { name: 'Interface density' })).toHaveTextContent(
+      'Compact Pro',
+    );
+    expect(
+      screen.getByText(
+        '28px rows show more of the stack at once; text and targets keep their readable floor.',
+      ),
+    ).toBeTruthy();
+    const stored = JSON.parse(localStorage.getItem('varve-editor-settings')!);
+    expect(stored.appearance.uiDensity).toBe('compact');
+    expect(document.documentElement.dataset.density).toBe('compact');
+  });
 });
 
 describe('ExportSettingsTab', () => {

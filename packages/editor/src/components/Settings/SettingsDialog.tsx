@@ -88,6 +88,18 @@ const FONT_SIZE_OPTIONS = [
   { value: 'large', label: 'Large' },
 ];
 
+// Row density for scan-heavy surfaces. Labels name the pro modes; the stored
+// values are the stable internal contract ('default' | 'compact').
+const DENSITY_OPTIONS = [
+  { value: 'default', label: 'Default Pro' },
+  { value: 'compact', label: 'Compact Pro' },
+];
+
+const DENSITY_HINT: Record<string, string> = {
+  default: 'Comfortable 34px rows for pointer-first work.',
+  compact: '28px rows show more of the stack at once; text and targets keep their readable floor.',
+};
+
 export interface SettingsDialogProps {
   open: boolean;
   onClose: () => void;
@@ -607,6 +619,15 @@ function AppearanceSection({ onThemeChange }: { onThemeChange: (theme: string) =
           label="UI font size"
         />
       </FieldRow>
+      <FieldRow label="Interface density">
+        <Select
+          options={DENSITY_OPTIONS}
+          value={settings.appearance.uiDensity}
+          onChange={(v) => updateSection('appearance', { uiDensity: v })}
+          label="Interface density"
+        />
+      </FieldRow>
+      <p className="settings-hint">{DENSITY_HINT[settings.appearance.uiDensity]}</p>
       <SwitchField
         label="Show all menu items (bypass workspace mode filtering)"
         checked={settings.appearance.showAllMenuItems}

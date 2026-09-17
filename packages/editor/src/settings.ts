@@ -23,6 +23,14 @@ export type ThemeMode = ThemePreference;
 export type UnitType = 'px' | 'pt' | 'cm' | 'mm' | 'in';
 export type FontSizeUI = 'small' | 'medium' | 'large';
 
+/**
+ * Interface row density. `default` is the comfortable desktop contract;
+ * `compact` trades row height for scan range without shrinking text below
+ * the readable floor. The values map onto the shared `data-density` CSS
+ * contract (`comfortable` / `compact` in `@varve/ui` components.css).
+ */
+export type InterfaceDensity = 'default' | 'compact';
+
 export interface ExportSettingsStore {
   defaultScale: ExportScale;
   defaultFormat: ExportFormat;
@@ -78,7 +86,9 @@ export interface AppearanceSettingsStore {
   /** Show shortcut-tip chip in the status bar. */
   showShortcutTips: boolean;
   /** UI font size: 'small' | 'medium' | 'large'. */
-  fontSizeUI: 'small' | 'medium' | 'large';
+  fontSizeUI: FontSizeUI;
+  /** Row density for scan-heavy surfaces (Layers, lists, tables). */
+  uiDensity: InterfaceDensity;
 }
 
 /** How unmodified wheel input is interpreted while the canvas owns it. */
@@ -268,6 +278,7 @@ export const DEFAULT_APPEARANCE_SETTINGS: AppearanceSettingsStore = {
   showAllMenuItems: false,
   showShortcutTips: true,
   fontSizeUI: 'medium',
+  uiDensity: 'default',
 };
 
 export const DEFAULT_GENERAL_SETTINGS: GeneralSettingsStore = {
@@ -511,7 +522,9 @@ export function loadSettings(): EditorSettings {
           if (typeof app.theme === 'string')
             result.appearance.theme = normalizeThemePreference(app.theme);
           if (typeof app.fontSizeUI === 'string')
-            result.appearance.fontSizeUI = app.fontSizeUI as AppearanceSettingsStore['fontSizeUI'];
+            result.appearance.fontSizeUI = normalizeFontSizeUI(app.fontSizeUI);
+          if (typeof app.uiDensity === 'string')
+            result.appearance.uiDensity = normalizeInterfaceDensity(app.uiDensity);
         }
         const cl = uiParsed.collab as Record<string, unknown> | undefined;
         if (cl) {
@@ -565,10 +578,7 @@ export function loadSettings(): EditorSettings {
       ),
       export: exportSettings,
       appearance: {
-        ...mergePartial(
-          DEFAULT_APPEARANCE_SETTINGS,
-          parsed.appearance as Partial<AppearanceSettingsStore>,
-        ),
+        ...normalizeAppearanceSettings(parsed.appearance as Partial<AppearanceSettingsStore>),
         theme: normalizeThemePreference(
           (parsed.appearance as Partial<AppearanceSettingsStore> | undefined)?.theme,
         ),
@@ -632,6 +642,28 @@ export function loadSettings(): EditorSettings {
       features: { ...DEFAULT_FEATURES },
     };
   }
+}
+
+/** Enum normalizers for the appearance store; unknown values return to the default. */
+export function normalizeFontSizeUI(value: unknown): FontSizeUI {
+  return value === 'small' || value === 'medium' || value === 'large'
+    ? value
+    : DEFAULT_APPEARANCE_SETTINGS.fontSizeUI;
+}
+
+export function normalizeInterfaceDensity(value: unknown): InterfaceDensity {
+  return value === 'compact' || value === 'default' ? value : DEFAULT_APPEARANCE_SETTINGS.uiDensity;
+}
+
+function normalizeAppearanceSettings(
+  partial: Partial<AppearanceSettingsStore> | undefined,
+): AppearanceSettingsStore {
+  const appearance = mergePartial(DEFAULT_APPEARANCE_SETTINGS, partial);
+  return {
+    ...appearance,
+    fontSizeUI: normalizeFontSizeUI(appearance.fontSizeUI),
+    uiDensity: normalizeInterfaceDensity(appearance.uiDensity),
+  };
 }
 
 function normalizeLayersSettings(
