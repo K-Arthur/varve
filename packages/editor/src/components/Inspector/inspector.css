@@ -13,7 +13,7 @@
 .insp-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
   padding: var(--space-2);
 }
 .insp-panel .insp-panel {
@@ -424,21 +424,28 @@
 /* Frame presets now render via @varve/ui's PresetPicker/PresetTile
  * (preset-picker.css) — see FramePresetsSection.tsx. */
 
-/* ---------- Disclosure section (APG) — Card Containment ----------
- * Sections are enclosed cards with subtle borders, rounded corners,
- * and clear spatial grouping matching the instrument-grade reference.
+/* ---------- Disclosure section (APG) — quiet grouping ----------
+ * The Inspector is a long, frequently scanned property list. A card around
+ * every section creates nested borders and makes each section compete with
+ * the selected object. Keep one quiet separator per section instead; controls
+ * still retain their own focus, hover, and field grouping.
  */
 .insp-disclosure {
   position: relative;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control);
-  background: var(--color-surface-raised);
-  padding: var(--space-2);
+  border: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
   margin-bottom: 0;
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
 .insp-disclosure:hover {
-  border-color: color-mix(in srgb, var(--color-border-strong) 40%, var(--color-border-subtle));
+  border-bottom-color: color-mix(
+    in srgb,
+    var(--color-border-strong) 40%,
+    var(--color-border-subtle)
+  );
 }
 .insp-disclosure:last-child {
   margin-bottom: 0;
@@ -459,10 +466,10 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  margin-inline: calc(-1 * var(--space-2));
-  padding: var(--space-1) var(--space-2);
-  background: var(--color-surface-raised);
-  border-radius: var(--radius-control);
+  margin-inline: 0;
+  padding: var(--space-1) 0;
+  background: var(--color-surface-base);
+  border-radius: 0;
 }
 
 .insp-disclosure__trigger {
@@ -527,12 +534,12 @@
 .insp-disclosure__content {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2, 8px);
+  gap: var(--space-1);
   /* Reset UA fieldset chrome (groove border, inline margins, min-content sizing) */
   border: none;
   margin: 0;
   min-inline-size: 0;
-  padding: var(--space-2) 0 0;
+  padding: var(--space-1) 0 var(--space-2);
 }
 
 /* ── Section Manager (panel header customize button) ── */
@@ -1166,12 +1173,14 @@
   outline-offset: 1px;
 }
 
-/* High-contrast: make the card borders more visible. */
+/* High-contrast: preserve the quiet grouping while strengthening its separator. */
 [data-theme="high-contrast"] .insp-disclosure {
-  border: 2px solid var(--color-border-subtle);
+  border: 0;
+  border-bottom: 2px solid var(--color-border-subtle);
 }
 [data-theme="high-contrast"] .insp-disclosure:last-child {
-  border: 2px solid var(--color-border-subtle);
+  border: 0;
+  border-bottom: 2px solid var(--color-border-subtle);
 }
 @media (forced-colors: active) {
   .insp-disclosure {
@@ -1230,6 +1239,14 @@
 }
 .insp-num__control {
   flex-wrap: wrap;
+}
+/* A narrow-range field (opacity, rotation, ...) gets an intrinsic width
+ * instead of stretching across the whole control column (see
+ * compactFieldWidthCh in NumberField.tsx) — align it to the same right edge
+ * every other value in the panel sits on, rather than leaving it stranded at
+ * the left of a mostly-empty row. */
+.insp-num__control--compact {
+  justify-content: flex-end;
 }
 .insp-num {
   flex: 1;
@@ -2431,7 +2448,7 @@
   padding-top: var(--space-1);
 }
 
-/* Fill row properties: opacity (stacked fills only) plus the blend chip.
+/* Fill row properties: opacity (stacked fills only) plus the blend select.
  * Wraps instead of stacking so the pair shares the row's height. */
 .insp-fill-row__properties {
   display: flex;
@@ -2441,38 +2458,12 @@
   padding-left: var(--space-4);
 }
 
-/* Non-default per-fill blend mode: compact chip that opens the full list,
-   replacing the always-visible duplicate Blend mode row. */
-.insp-blend-chip {
-  display: inline-flex;
-  align-self: flex-start;
-  align-items: center;
-  gap: var(--space-1);
-  height: 24px;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  background: var(--color-surface-sunken);
-  color: var(--color-text-secondary);
-  font: inherit;
-  font-size: var(--font-size-2xs);
-  cursor: pointer;
-  transition:
-    background var(--duration-quick) var(--ease-standard),
-    color var(--duration-quick) var(--ease-standard);
-}
-.insp-blend-chip:hover {
-  background: var(--color-surface-hover);
-  color: var(--color-text-primary);
-}
-.insp-blend-chip:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 1px;
-}
-.insp-blend-chip--active {
-  border-color: var(--color-interactive-default, #39d0c6);
-  color: var(--color-text-primary);
-  background: var(--color-interactive-subtle, rgba(57, 208, 198, 0.12));
+/* Per-fill blend mode uses the same Select as Appearance, with a compact row
+   width while the popover variant remains full-width. */
+.insp-paint-blend-select {
+  flex: 0 1 11rem;
+  inline-size: min(11rem, 100%);
+  min-width: 7rem;
 }
 
 /* Add new fill controls */

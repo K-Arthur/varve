@@ -93,9 +93,11 @@ Rules:
 - Trigger minimum block size is 24 px (`WCAG 2.2 SC 2.5.8`); stacked headers
   get no spacing exception. `SectionCollapseToggle` is 24×24.
 - Spacing comes from the shared 4/8 token scale (`--space-*`), never literals.
-- Inspector sections are cards with a subtle border; sidebar sections are flat
-  rows. Do not add a nested card per disclosure inside the inspector
-  (ADR-0230 discourages nested section disclosures).
+- Inspector sections use quiet bottom separators and a shared panel surface;
+  controls provide the visual grouping inside them. Do not add a nested card
+  per disclosure inside the inspector (ADR-0230 discourages nested section
+  disclosures). This keeps long property lists scannable without hiding or
+  removing any controls.
 - Labels wrap or truncate per surface: the primitive label truncates with a
   full-name tooltip path; inspector section titles wrap. Never shrink essential
   text to fit a header.
