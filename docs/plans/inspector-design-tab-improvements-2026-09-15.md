@@ -121,6 +121,8 @@ validation on the real-world audit document:
 | Gradient angle | Inside the Gradient options disclosure | Inline scrubbable Rotation field for linear/angular |
 | Zero-width strokes | Not flagged | "Zero width — this stroke is invisible" note |
 | Per-fill blend reach | Row-menu submenu only | Labelled Blend mode row inside the fill colour/gradient popover; chip and menu unchanged |
+| Image/pattern blend reach | Single Normal paint had no per-fill control | Compact Blend mode chip remains visible on every non-colour paint row |
+| Compact numeric fields | `ch` width excluded input padding | NumberField inputs use border-box sizing so values and units fit |
 
 E2E: `tests/e2e/inspector/design-tab-audit.spec.ts` → "Design tab paint rows
 (fill / stroke pass)" (5 scenarios, screenshots in

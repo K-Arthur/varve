@@ -152,8 +152,21 @@ colour instead.
 **Decision.** The fill colour/gradient popover owns a labelled **Blend mode**
 row (same option groups as Appearance) under the picker, so the control is
 one click from the swatch in exactly the state where the row chip is hidden.
-The chip (non-normal/mixed/stacked) and the row menu submenu stay as the
-parities for every other state; all three write the same field.
+For image and pattern paints, whose previews are not colour editors, the row
+keeps a compact Blend mode chip even when the value is Normal. The chip
+(non-normal/mixed/stacked, plus image/pattern Normal) and the row menu submenu
+stay as the parities for every other state; all three write the same field.
+
+### 1.10 Compact numeric controls must fit their values
+
+The first rendered pass exposed a basic sizing defect: `NumberField` calculated
+a compact width in `ch`, but the input used content-box sizing. Its horizontal
+padding was therefore added outside the calculated width, clipping values or
+the unit in narrow paint rows.
+
+**Decision.** Compact numeric inputs use `box-sizing: border-box`; the width
+contract includes padding and leaves the unit visible. This is validated at
+the shared control boundary rather than by widening individual inspector rows.
 
 ## 2. Accessibility and interaction constraints honored
 

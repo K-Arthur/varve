@@ -258,6 +258,46 @@ describe('Fill row redesign', () => {
       'Mixed',
     );
   });
+
+  it('keeps blend mode reachable for a single image fill', async () => {
+    const { getCtx, ids } = renderWithSelection(
+      (nodes) => <FillSection nodes={nodes} />,
+      [
+        [
+          'image-fill',
+          {
+            fills: [
+              {
+                type: 'image',
+                image: {
+                  src: 'asset:asset-image',
+                  assetId: 'asset-image',
+                  fit: 'fill',
+                  x: 0,
+                  y: 0,
+                  scale: 1,
+                },
+                opacity: 1,
+                blendMode: 'normal',
+                visible: true,
+              },
+            ],
+          },
+        ],
+      ],
+    );
+
+    const chip = await screen.findByRole('button', { name: 'Fill blend mode: Normal' });
+    fireEvent.click(chip);
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Multiply' }));
+
+    await waitFor(() => {
+      const stored = getCtx()?.state.document.nodes[ids[0]!] as {
+        fills?: { blendMode?: string }[];
+      };
+      expect(stored.fills?.[0]?.blendMode).toBe('multiply');
+    });
+  });
 });
 
 describe('Stroke advanced redesign', () => {

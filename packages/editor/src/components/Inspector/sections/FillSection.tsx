@@ -689,7 +689,12 @@ function FillRow({
   // away. Uniform normal single fills keep opacity inline.
   const opacityOnPropertiesLine =
     totalFills > 1 || paintMixed || blendIsMixed || blendValue !== 'normal';
-  const showPropertiesLine = opacityOnPropertiesLine || blendIsMixed || blendValue !== 'normal';
+  // Image and pattern previews are intentionally non-editable buttons, so
+  // their blend mode cannot live in a colour popover. Keep the per-fill
+  // control visible for those paint types even in the default Normal state.
+  const showBlendChip =
+    fill.type === 'image' || fill.type === 'pattern' || blendIsMixed || blendValue !== 'normal';
+  const showPropertiesLine = opacityOnPropertiesLine || showBlendChip;
   const opacityField = (
     <div className="insp-paint-row__opacity">
       {/* Stored as 0–1 like every paint in the engine; shown as a
@@ -999,26 +1004,30 @@ function FillRow({
       {showPropertiesLine && (
         <div className="insp-fill-row__properties">
           {opacityOnPropertiesLine && opacityField}
-          <button
-            ref={blendTriggerRef}
-            type="button"
-            className={`insp-blend-chip${blendValue !== 'normal' ? ' insp-blend-chip--active' : ''}`}
-            aria-haspopup="menu"
-            aria-expanded={blendMenuOpen}
-            aria-label={`${label} blend mode: ${blendIsMixed ? 'Mixed' : blendLabel}`}
-            onClick={() => setBlendMenuOpen((open) => !open)}
-          >
-            <Icon name="Blend" size="0.85em" />
-            <span>{blendIsMixed ? 'Mixed blend' : blendLabel}</span>
-          </button>
-          <Menu
-            triggerRef={blendTriggerRef}
-            open={blendMenuOpen}
-            onClose={() => setBlendMenuOpen(false)}
-            label={`${label} blend mode`}
-            items={blendMenuItems}
-            size="compact"
-          />
+          {showBlendChip && (
+            <button
+              ref={blendTriggerRef}
+              type="button"
+              className={`insp-blend-chip${blendValue !== 'normal' ? ' insp-blend-chip--active' : ''}`}
+              aria-haspopup="menu"
+              aria-expanded={blendMenuOpen}
+              aria-label={`${label} blend mode: ${blendIsMixed ? 'Mixed' : blendLabel}`}
+              onClick={() => setBlendMenuOpen((open) => !open)}
+            >
+              <Icon name="Blend" size="0.85em" />
+              <span>{blendIsMixed ? 'Mixed blend' : blendLabel}</span>
+            </button>
+          )}
+          {showBlendChip && (
+            <Menu
+              triggerRef={blendTriggerRef}
+              open={blendMenuOpen}
+              onClose={() => setBlendMenuOpen(false)}
+              label={`${label} blend mode`}
+              items={blendMenuItems}
+              size="compact"
+            />
+          )}
         </div>
       )}
     </div>
