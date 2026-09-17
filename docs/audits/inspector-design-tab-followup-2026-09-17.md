@@ -94,7 +94,40 @@ accessibility contract or hides functionality; **S3** polish/consistency.
   remains the one legacy (non-registry) disclosure in the composition, so the
   section manager cannot hide or restore it.
 
-## 3. Verification
+## 3. Spacing and child-arrangement pass (same day, follow-up)
+
+The first pass fixed tokens and text; a second rendered pass compared section
+bodies side by side with measured geometry (fieldset padding, inter-child gaps,
+type sizes) and found the shell uniform but two sections visually alien to the
+rest of the tab, plus one promo-style block:
+
+- **Object Finishing quick-pick cards** rendered as three tall boxes in a
+  3-column grid (descriptions wrapping mid-phrase at panel width) under a
+  sentence-case `--font-size-sm` heading — while every other sub-header in the
+  tab is an uppercase `xs` micro-label. Cards are now compact one-per-row
+  blocks (label row + full-width description, `--target-min-compact` min
+  height) and the heading follows the uppercase idiom.
+- **The "Advanced stack editor" `<details>`** was a card inside the section
+  (bordered, raised, padded) containing the empty state, producing
+  box-in-box-in-box. It is now a plain disclosure row aligned to the section's
+  content edges, with its title in the same uppercase idiom.
+- **The "Non-destructive" empty state** was a centered, dashed-border promo
+  panel with a large icon. It is now a left-aligned inline note (icon, badge,
+  title on one line, muted hint below) consistent with the panel's hint
+  grammar.
+- **The Adjustment Layer section** rendered its help text at `--font-size-sm`
+  secondary color — visibly larger than every adjacent section's copy — with
+  loose padding. It now uses the panel's hint grammar (`xs`, muted,
+  1.45 line height, `--space-1` rhythm). The full-width secondary button is
+  kept: it is the section's single action.
+
+Deliberately not changed in this pass: the Fill footer and "Add Object
+Filter" rows use stacked labels because two properties share one row — that
+is a different, internally consistent grammar from the one-property-per-row
+sections, not drift. Verification: `SmartFiltersSection` unit suites (28
+passed), `design-tab-audit.spec.ts` 21/21, biome clean on touched files.
+
+## 4. Verification
 
 Environment: Linux (CachyOS), Chromium via Playwright (heavy-lease wrapped,
 `--workers=1`, isolated `VARVE_E2E_PORT`, TMPDIR on disk), vitest jsdom.

@@ -1,12 +1,15 @@
 .insp-adjustment-access {
   display: grid;
-  gap: var(--space-2, 8px);
-  padding: var(--space-2, 8px) 0;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
 }
 
+/* Matches the panel's hint grammar (.insp-tool-context__hint): xs, muted,
+   bounded line height — this section previously read as large secondary prose
+   next to every compact label-row section around it. */
 .insp-adjustment-access__description {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm, 12px);
-  line-height: 1.4;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
   margin: 0;
 }

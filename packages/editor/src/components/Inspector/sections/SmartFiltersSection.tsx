@@ -346,8 +346,8 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
             {filters.length === 0 && (
               <li className="smart-filters__empty">
                 <div className="smart-filters__empty-content">
+                  <SolidIcon name="Faders" size="1em" className="smart-filters__empty-icon" />
                   <span className="smart-filters__empty-badge">Non-destructive</span>
-                  <SolidIcon name="Faders" size="1.25em" className="smart-filters__empty-icon" />
                   <span className="smart-filters__empty-title">No filters applied.</span>
                   <span className="smart-filters__empty-hint">
                     Apply a filter below to non-destructively enhance color, depth, texture, or
