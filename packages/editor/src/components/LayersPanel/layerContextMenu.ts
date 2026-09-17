@@ -24,6 +24,7 @@ import {
   type SceneNode,
 } from '@varve/scene';
 import type { MenuEntry } from '@varve/ui';
+import { menuShortcutForAction } from '../../menu/contextMenuShortcuts';
 
 export interface EffectStackClipboardSummary {
   sourceId: NodeId;
@@ -188,7 +189,13 @@ export function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuE
 
   const items: MenuEntry[] = [
     { id: 'layer-label', label: 'Layer', type: 'label' },
-    { id: 'rename', label: 'Rename', icon: 'Pencil', badge: 'F2', onAction: handleRenameFromMenu },
+    {
+      id: 'rename',
+      label: 'Rename',
+      icon: 'Pencil',
+      shortcut: 'F2',
+      onAction: handleRenameFromMenu,
+    },
     {
       id: 'batch-rename',
       label: 'Batch Rename\u2026',
@@ -200,14 +207,32 @@ export function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuE
       label: 'Delete',
       icon: 'Trash2',
       destructive: true,
-      badge: 'Del',
+      shortcut: menuShortcutForAction('delete'),
       onAction: handleDeleteFromMenu,
     },
     { id: 'sep1', separator: true },
     { id: 'clipboard-label', label: 'Clipboard', type: 'label' },
-    { id: 'copy', label: 'Copy', icon: 'Copy', badge: 'Ctrl+C', onAction: handleCopy },
-    { id: 'cut', label: 'Cut', icon: 'Scissors', badge: 'Ctrl+X', onAction: handleCut },
-    { id: 'paste', label: 'Paste', icon: 'ClipboardPaste', badge: 'Ctrl+V', onAction: handlePaste },
+    {
+      id: 'copy',
+      label: 'Copy',
+      icon: 'Copy',
+      shortcut: menuShortcutForAction('copy'),
+      onAction: handleCopy,
+    },
+    {
+      id: 'cut',
+      label: 'Cut',
+      icon: 'Scissors',
+      shortcut: menuShortcutForAction('cut'),
+      onAction: handleCut,
+    },
+    {
+      id: 'paste',
+      label: 'Paste',
+      icon: 'ClipboardPaste',
+      shortcut: menuShortcutForAction('paste'),
+      onAction: handlePaste,
+    },
   ];
 
   const layerEffectCount =
@@ -254,28 +279,28 @@ export function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuE
       id: 'front',
       label: 'Bring to Front',
       icon: 'ArrowUpToLine',
-      badge: 'Ctrl+Shift+]',
+      shortcut: menuShortcutForAction('bringFront'),
       onAction: handleMoveToFront,
     },
     {
       id: 'forward',
       label: 'Bring Forward',
       icon: 'ArrowUp',
-      badge: 'Ctrl+]',
+      shortcut: menuShortcutForAction('bringForward'),
       onAction: handleBringForward,
     },
     {
       id: 'backward',
       label: 'Send Backward',
       icon: 'ArrowDown',
-      badge: 'Ctrl+[',
+      shortcut: menuShortcutForAction('sendBackward'),
       onAction: handleSendBackward,
     },
     {
       id: 'back',
       label: 'Send to Back',
       icon: 'ArrowDownToLine',
-      badge: 'Ctrl+Shift+[',
+      shortcut: menuShortcutForAction('sendBack'),
       onAction: handleMoveToBack,
     },
   );
@@ -333,20 +358,19 @@ export function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuE
   }
 
   // File thumbnail entries: a frame/group row can directly become the file
-  // thumbnail; every row can open the picker.
+  // thumbnail; every row can open the picker. The entries form their own
+  // group behind a separator rather than dangling after the Arrange items.
+  items.push({ id: 'sep-thumb', separator: true });
   if (contextMenuNode?.kind === 'frame' || contextMenuNode?.kind === 'group') {
-    items.push(
-      { id: 'sep-thumb', separator: true },
-      {
-        id: 'use-as-file-thumbnail',
-        label: 'Use Frame as File Thumbnail',
-        onAction: () => {
-          setSelection(nodeId);
-          args.onUseFrameAsFileThumbnail?.(nodeId);
-          closeMenu();
-        },
+    items.push({
+      id: 'use-as-file-thumbnail',
+      label: 'Use Frame as File Thumbnail',
+      onAction: () => {
+        setSelection(nodeId);
+        args.onUseFrameAsFileThumbnail?.(nodeId);
+        closeMenu();
       },
-    );
+    });
   }
   items.push({
     id: 'set-file-thumbnail',
@@ -372,14 +396,14 @@ export function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuE
           {
             id: 'group',
             label: 'Group',
-            badge: 'Ctrl+G',
+            shortcut: menuShortcutForAction('group'),
             disabled: !canGroup,
             onAction: handleGroup,
           },
           {
             id: 'ungroup',
             label: 'Ungroup',
-            badge: 'Ctrl+Shift+G',
+            shortcut: menuShortcutForAction('ungroup'),
             disabled: !isGroupSelected,
             onAction: handleUngroup,
           },
@@ -591,12 +615,12 @@ export function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuE
       id: 'fit-canvas',
       label: 'Zoom to Selection',
       description: 'Center and fit the selected layers',
-      badge: 'Shift+2',
+      shortcut: menuShortcutForAction('fitSelection'),
       onAction: () => handleCanvasNavigation('fit'),
     },
     {
       id: 'reveal-layers',
-      label: 'Reveal in Layers panel',
+      label: 'Reveal in Layers Panel',
       onAction: () => {
         if (selection.length > 0) {
           enableAutoReveal();

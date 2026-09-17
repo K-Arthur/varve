@@ -56,13 +56,15 @@ describe('GuideContextMenu', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('renders a separator between Lock/Unlock and Delete', async () => {
+  it('separates Delete behind a Danger Zone heading', async () => {
     render(<GuideContextMenu {...defaultProps} />);
     // ContextMenu is measured before it becomes visible; wait for the
     // accessible surface rather than querying the hidden first frame.
     const menu = await screen.findByRole('menu', { name: 'Guide context menu' });
-    const separators = menu.querySelectorAll('hr.varve-menu__sep');
-    expect(separators.length).toBe(1);
+    // A trailing Danger Zone section label is the group break; the normalizer
+    // absorbs an explicit separator that directly precedes a label.
+    expect(menu.textContent).toContain('Danger Zone');
+    expect(menu.querySelectorAll('hr.varve-menu__sep')).toHaveLength(0);
   });
 
   it('fires onClose when Escape is pressed', async () => {

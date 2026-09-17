@@ -95,7 +95,7 @@ export function GradientMapPresetBrowser({
       const isFav = favoriteIds.has(id);
       items.push({
         id: 'favorite',
-        label: isFav ? 'Remove from favorites' : 'Add to favorites',
+        label: isFav ? 'Remove from Favorites' : 'Add to Favorites',
         icon: isFav ? 'StarOff' : 'Star',
         onAction: () => onToggleFavorite(id),
       });
@@ -122,14 +122,14 @@ export function GradientMapPresetBrowser({
     if (onExport) {
       items.push({
         id: 'export',
-        label: 'Export preset',
+        label: 'Export Preset',
         icon: 'Download',
         onAction: () => onExport(context.preset),
       });
     }
     if (onDelete && (!canEditPreset || canEditPreset(context.preset))) {
       items.push(
-        { id: 'danger-sep', separator: true },
+        { id: 'danger-label', label: 'Danger Zone', type: 'label', danger: true },
         {
           id: 'delete',
           label: 'Delete',

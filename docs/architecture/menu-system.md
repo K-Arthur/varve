@@ -100,6 +100,16 @@ Every context menu should follow these content rules:
   a `danger: true` label heading.
 - **Disabled items**: Show disabled items when their visible presence explains
   an unavailable operation; hide items that are irrelevant or forbidden.
+- **Label text**: Menu labels use Title Case, matching the menubar
+  (`Rename Page`, `Move to Trash`, `Add to Favorites`) — never sentence case
+  in some menus and Title Case in others.
+- **Dialog markers**: A command that opens a dialog carries the trailing
+  ellipsis through `dialog: true` (`focusTransfer` preserves focus-handoff
+  semantics). Do not mix that marker with hand-written in-label ellipses in
+  the same menu.
+- **Shortcut lane**: Keyboard shortcuts render in the muted `shortcut` lane,
+  resolved from the effective binding — never as `badge` pills and never as
+  hand-written key strings that can drift from the registered key.
 - **Selection snapshot**: Capture the target on invocation; do not act on
   whichever object happens to be selected when the action runs.
 - **Stale-target guard**: Close the menu or disable actions when the target

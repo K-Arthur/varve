@@ -33,10 +33,10 @@ describe('FileContextMenu', () => {
       />,
     );
 
-    fireEvent.click(screen.getByText('Move earlier in order'));
+    fireEvent.click(screen.getByText('Move Earlier in Order'));
     expect(onAction).toHaveBeenCalledWith('move-earlier');
 
-    fireEvent.click(screen.getByText('Move later in order'));
+    fireEvent.click(screen.getByText('Move Later in Order'));
     expect(onAction).toHaveBeenCalledWith('move-later');
   });
 
@@ -54,8 +54,8 @@ describe('FileContextMenu', () => {
       />,
     );
 
-    expect(screen.getByText('Move earlier in order').closest('button')).toBeDisabled();
-    expect(screen.getByText('Move later in order').closest('button')).toBeDisabled();
+    expect(screen.getByText('Move Earlier in Order').closest('button')).toBeDisabled();
+    expect(screen.getByText('Move Later in Order').closest('button')).toBeDisabled();
   });
 
   it('does not offer reordering in the trash or missing-file menus', () => {
@@ -70,6 +70,6 @@ describe('FileContextMenu', () => {
         isTrash
       />,
     );
-    expect(screen.queryByText('Move earlier in order')).toBeNull();
+    expect(screen.queryByText('Move Earlier in Order')).toBeNull();
   });
 });

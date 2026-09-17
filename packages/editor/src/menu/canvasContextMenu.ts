@@ -15,6 +15,7 @@ import { isImageShape, isLiveBooleanNode, isVisualMaskTarget } from '@varve/scen
 import type { MenuEntry } from '@varve/ui';
 import { getActionRegistry } from '../actions/ActionRegistry';
 import type { EditorContextValue } from '../context';
+import { menuShortcutForAction } from './contextMenuShortcuts';
 
 interface CanvasContextMenuOptions {
   editor: EditorContextValue;
@@ -93,6 +94,7 @@ export function buildCanvasContextMenuItems({
             id: 'ctx-cut',
             label: 'Cut',
             icon: 'Scissors' as const,
+            shortcut: menuShortcutForAction('cut'),
             onAction: () => {
               record('cut');
               editor.cutSelected();
@@ -103,6 +105,7 @@ export function buildCanvasContextMenuItems({
             id: 'ctx-copy',
             label: 'Copy',
             icon: 'Copy' as const,
+            shortcut: menuShortcutForAction('copy'),
             onAction: () => {
               record('copy');
               editor.copySelected();
@@ -115,6 +118,7 @@ export function buildCanvasContextMenuItems({
       id: 'ctx-paste',
       label: 'Paste',
       icon: 'ClipboardPaste' as const,
+      shortcut: menuShortcutForAction('paste'),
       onAction: () => {
         record('paste');
         editor.paste();
@@ -126,6 +130,7 @@ export function buildCanvasContextMenuItems({
           {
             id: 'ctx-copy-properties',
             label: 'Copy Properties',
+            shortcut: menuShortcutForAction('copyProperties'),
             onAction: () => {
               record('copyProperties');
               editor.copySelectedProperties();
@@ -135,6 +140,7 @@ export function buildCanvasContextMenuItems({
           {
             id: 'ctx-paste-properties',
             label: 'Paste Properties',
+            shortcut: menuShortcutForAction('pasteProperties'),
             onAction: () => {
               record('pasteProperties');
               editor.pastePropertiesToSelection();
@@ -154,6 +160,7 @@ export function buildCanvasContextMenuItems({
             id: 'ctx-dup',
             label: 'Duplicate',
             icon: 'CopyPlus' as const,
+            shortcut: menuShortcutForAction('duplicate'),
             onAction: () => {
               record('duplicate');
               editor.duplicateSelected();
@@ -165,6 +172,7 @@ export function buildCanvasContextMenuItems({
             label: 'Delete',
             icon: 'Trash2' as const,
             destructive: true,
+            shortcut: menuShortcutForAction('delete'),
             onAction: () => {
               record('delete');
               editor.removeSelected();
@@ -179,6 +187,7 @@ export function buildCanvasContextMenuItems({
             id: 'ctx-group',
             label: 'Group Selection',
             icon: 'Group' as const,
+            shortcut: menuShortcutForAction('group'),
             onAction: () => {
               record('group');
               editor.groupSelected();
@@ -193,6 +202,7 @@ export function buildCanvasContextMenuItems({
             id: 'ctx-ungroup',
             label: isSingleLiveBoolean ? 'Expand Boolean' : 'Ungroup',
             icon: 'Ungroup' as const,
+            shortcut: menuShortcutForAction('ungroup'),
             onAction: () => {
               record('ungroup');
               editor.ungroupSelected();
@@ -331,7 +341,7 @@ export function buildCanvasContextMenuItems({
       ? [
           {
             id: 'ctx-mockups',
-            label: 'Apply mockup…',
+            label: 'Apply Mockup…',
             onAction: () => {
               record('applyMockup');
               getActionRegistry().get('applyMockup')?.handler(undefined);
@@ -340,7 +350,7 @@ export function buildCanvasContextMenuItems({
           } satisfies MenuEntry,
           {
             id: 'ctx-create-mockup-template',
-            label: 'Create mockup template from selection…',
+            label: 'Create Mockup Template from Selection…',
             onAction: () => {
               record('createMockupTemplate');
               getActionRegistry().get('createMockupTemplate')?.handler(undefined);
@@ -365,7 +375,7 @@ export function buildCanvasContextMenuItems({
                 } satisfies MenuEntry,
                 {
                   id: 'ctx-vectorize',
-                  label: 'Vectorize image…',
+                  label: 'Vectorize Image…',
                   icon: 'Spline' as const,
                   onAction: () => {
                     record('vectorize');
@@ -520,6 +530,7 @@ export function buildCanvasContextMenuItems({
       id: 'ctx-selectall',
       label: 'Select All',
       icon: 'MousePointer2' as const,
+      shortcut: menuShortcutForAction('selectAll'),
       onAction: () => {
         record('selectAll');
         getActionRegistry().get('selectAll')?.handler(undefined);

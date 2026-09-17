@@ -63,9 +63,9 @@ test.describe('Home context menu', () => {
     const labelTexts = labels.map((label) => label.text);
 
     for (const text of [
-      'Move earlier in order',
-      'Move later in order',
-      'Version History…',
+      'Move Earlier in Order',
+      'Move Later in Order',
+      'Version History',
       'Show in Folder',
       'Move to Trash',
     ]) {

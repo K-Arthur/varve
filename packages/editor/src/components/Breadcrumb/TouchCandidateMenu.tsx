@@ -100,7 +100,7 @@ export function TouchCandidateMenu({
               {isCont && (
                 <span className="varve-menu__trailing">
                   <span style={{ fontSize: '0.75em', color: 'var(--color-text-muted)' }}>
-                    frame
+                    Frame
                   </span>
                 </span>
               )}

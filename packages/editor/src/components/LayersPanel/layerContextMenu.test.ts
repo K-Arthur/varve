@@ -204,10 +204,10 @@ describe('buildLayerContextMenuItems — arrange alternatives (WCAG 2.5.7)', () 
     expect(handlers.handleMoveToBack).toHaveBeenCalledTimes(1);
   });
 
-  it('shows the real shortcut badges for stepwise arrange', () => {
+  it('resolves arrange shortcuts from the effective binding', () => {
     const items = buildLayerContextMenuItems(baseArgs(makeNode('n1', 'Layer')));
-    expect(findAction(items, 'forward')?.badge).toBe('Ctrl+]');
-    expect(findAction(items, 'backward')?.badge).toBe('Ctrl+[');
+    expect(findAction(items, 'forward')?.shortcut).toBe('Ctrl+]');
+    expect(findAction(items, 'backward')?.shortcut).toBe('Ctrl+[');
   });
 });
 

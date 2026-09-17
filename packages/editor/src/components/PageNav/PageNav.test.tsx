@@ -153,12 +153,12 @@ describe('PageNav', () => {
     render(<PageNav />);
     fireEvent.contextMenu(screen.getAllByRole('tab')[0]!);
 
-    expect(screen.getByText('Duplicate page')).toBeTruthy();
-    expect(screen.getByText('Rename page')).toBeTruthy();
+    expect(screen.getByText('Duplicate Page')).toBeTruthy();
+    expect(screen.getByText('Rename Page')).toBeTruthy();
     // Two distinct deletes: the default preserves page content, discarding it
     // is a separate explicitly labelled command.
-    expect(screen.getByText('Delete page (keep contents)')).toBeTruthy();
-    expect(screen.getByText('Delete page and contents')).toBeTruthy();
+    expect(screen.getByText('Delete Page (Keep Contents)')).toBeTruthy();
+    expect(screen.getByText('Delete Page and Contents')).toBeTruthy();
   });
 
   it('allows deleting the last page but not discarding its contents', () => {
@@ -171,8 +171,8 @@ describe('PageNav', () => {
     // Removing the final page returns the document to a plain canvas, so it
     // stays available; discarding the content of the only page does not,
     // since that content is the whole document.
-    expect(screen.getByText('Delete page (keep contents)').closest('button')).not.toBeDisabled();
-    expect(screen.getByText('Delete page and contents').closest('button')).toBeDisabled();
+    expect(screen.getByText('Delete Page (Keep Contents)').closest('button')).not.toBeDisabled();
+    expect(screen.getByText('Delete Page and Contents').closest('button')).toBeDisabled();
   });
 
   it('calls updateDoc (duplicatePage) from context menu', () => {
@@ -182,7 +182,7 @@ describe('PageNav', () => {
 
     render(<PageNav />);
     fireEvent.contextMenu(screen.getAllByRole('tab')[0]!);
-    fireEvent.click(screen.getByText('Duplicate page'));
+    fireEvent.click(screen.getByText('Duplicate Page'));
 
     expect(updateDoc).toHaveBeenCalledTimes(1);
   });
@@ -194,7 +194,7 @@ describe('PageNav', () => {
 
     render(<PageNav />);
     fireEvent.contextMenu(screen.getAllByRole('tab')[1]!);
-    fireEvent.click(screen.getByText('Delete page (keep contents)'));
+    fireEvent.click(screen.getByText('Delete Page (Keep Contents)'));
 
     expect(updateDoc).toHaveBeenCalledTimes(1);
   });
@@ -207,10 +207,10 @@ describe('PageNav', () => {
     render(<PageNav />);
     // Middle page: both directions available.
     fireEvent.contextMenu(screen.getAllByRole('tab')[1]!);
-    expect(screen.getByText('Move page left').closest('button')).not.toBeDisabled();
-    expect(screen.getByText('Move page right').closest('button')).not.toBeDisabled();
+    expect(screen.getByText('Move Page Left').closest('button')).not.toBeDisabled();
+    expect(screen.getByText('Move Page Right').closest('button')).not.toBeDisabled();
 
-    fireEvent.click(screen.getByText('Move page right'));
+    fireEvent.click(screen.getByText('Move Page Right'));
     expect(updateDoc).toHaveBeenCalledTimes(1);
   });
 
@@ -221,8 +221,8 @@ describe('PageNav', () => {
     render(<PageNav />);
     fireEvent.contextMenu(screen.getAllByRole('tab')[0]!);
     let menu = await screen.findByRole('menu', { name: 'Page context menu' });
-    expect(within(menu).getByRole('menuitem', { name: 'Move page left' })).toBeDisabled();
-    expect(within(menu).getByRole('menuitem', { name: 'Move page right' })).not.toBeDisabled();
+    expect(within(menu).getByRole('menuitem', { name: 'Move Page Left' })).toBeDisabled();
+    expect(within(menu).getByRole('menuitem', { name: 'Move Page Right' })).not.toBeDisabled();
 
     fireEvent.keyDown(menu, { key: 'Escape' });
     await waitFor(() =>
@@ -230,8 +230,8 @@ describe('PageNav', () => {
     );
     fireEvent.contextMenu(screen.getAllByRole('tab')[2]!);
     menu = await screen.findByRole('menu', { name: 'Page context menu' });
-    expect(within(menu).getByRole('menuitem', { name: 'Move page left' })).not.toBeDisabled();
-    expect(within(menu).getByRole('menuitem', { name: 'Move page right' })).toBeDisabled();
+    expect(within(menu).getByRole('menuitem', { name: 'Move Page Left' })).not.toBeDisabled();
+    expect(within(menu).getByRole('menuitem', { name: 'Move Page Right' })).toBeDisabled();
   });
 
   it('closes context menu on Escape', async () => {
@@ -241,7 +241,7 @@ describe('PageNav', () => {
     render(<PageNav />);
     fireEvent.contextMenu(screen.getByRole('tab'));
     const menu = await screen.findByRole('menu', { name: 'Page context menu' });
-    expect(within(menu).getByRole('menuitem', { name: 'Duplicate page' })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: 'Duplicate Page' })).toBeTruthy();
 
     fireEvent.keyDown(menu, { key: 'Escape' });
     await waitFor(() =>

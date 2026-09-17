@@ -39,7 +39,7 @@ export function GuideContextMenu({
       icon: isLocked ? 'LockOpen' : 'Lock',
       onAction: handleToggleLock,
     },
-    { id: 'sep', separator: true },
+    { id: 'danger-label', label: 'Danger Zone', type: 'label', danger: true },
     {
       id: 'delete',
       label: 'Delete',

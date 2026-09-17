@@ -111,7 +111,7 @@ describe('TimelineRuler', () => {
     fireEvent.contextMenu(marker);
     const menu = await screen.findByRole('menu', { name: 'Marker context menu' });
     expect(menu).toBeTruthy();
-    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Delete marker' }));
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Delete Marker' }));
     expect(onDeleteMarker).toHaveBeenCalledWith('m1');
   });
 
@@ -125,7 +125,7 @@ describe('TimelineRuler', () => {
       />,
     );
     fireEvent.contextMenu(screen.getByLabelText('Marker: Beat'));
-    fireEvent.click(screen.getByText('Rename marker'));
+    fireEvent.click(screen.getByText('Rename Marker'));
     expect(onRenameMarker).toHaveBeenCalledWith('m1');
   });
 });

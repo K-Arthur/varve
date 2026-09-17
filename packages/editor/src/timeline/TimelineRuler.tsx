@@ -141,7 +141,7 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({
   if (onRenameMarker && ctxMarkerId) {
     ctxItems.push({
       id: 'rename',
-      label: 'Rename marker',
+      label: 'Rename Marker',
       icon: 'Pencil',
       onAction: () => {
         onRenameMarker(ctxMarkerId);
@@ -150,16 +150,19 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({
     });
   }
   if (onDeleteMarker && ctxMarkerId) {
-    ctxItems.push({
-      id: 'delete',
-      label: 'Delete marker',
-      icon: 'Trash2',
-      destructive: true,
-      onAction: () => {
-        onDeleteMarker(ctxMarkerId);
-        closeContextMenu();
+    ctxItems.push(
+      { id: 'danger-label', label: 'Danger Zone', type: 'label', danger: true },
+      {
+        id: 'delete',
+        label: 'Delete Marker',
+        icon: 'Trash2',
+        destructive: true,
+        onAction: () => {
+          onDeleteMarker(ctxMarkerId);
+          closeContextMenu();
+        },
       },
-    });
+    );
   }
 
   const interval = getTickInterval(zoom);

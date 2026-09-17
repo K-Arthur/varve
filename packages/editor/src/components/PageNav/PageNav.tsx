@@ -299,18 +299,18 @@ export function PageNav() {
 
   const ctxItems: MenuEntry[] = [
     { id: 'page-label', label: 'Page', type: 'label' },
-    { id: 'rename', label: 'Rename page', icon: 'Pencil', onAction: handleRenamePage },
-    { id: 'duplicate', label: 'Duplicate page', icon: 'CopyPlus', onAction: handleDuplicatePage },
+    { id: 'rename', label: 'Rename Page', icon: 'Pencil', onAction: handleRenamePage },
+    { id: 'duplicate', label: 'Duplicate Page', icon: 'CopyPlus', onAction: handleDuplicatePage },
     {
       id: 'move-left',
-      label: 'Move page left',
+      label: 'Move Page Left',
       icon: 'ArrowLeft',
       onAction: () => handleMovePage('left'),
       disabled: ctxPageIdx <= 0,
     },
     {
       id: 'move-right',
-      label: 'Move page right',
+      label: 'Move Page Right',
       icon: 'ArrowRight',
       onAction: () => handleMovePage('right'),
       disabled: ctxPageIdx === -1 || ctxPageIdx >= pages.length - 1,
@@ -342,14 +342,14 @@ export function PageNav() {
     { id: 'danger-label', label: 'Danger Zone', type: 'label', danger: true },
     {
       id: 'delete',
-      label: 'Delete page (keep contents)',
+      label: 'Delete Page (Keep Contents)',
       icon: 'Trash2',
       destructive: true,
       onAction: handleDeletePage,
     },
     {
       id: 'delete-with-contents',
-      label: 'Delete page and contents',
+      label: 'Delete Page and Contents',
       icon: 'Trash2',
       destructive: true,
       onAction: handleDeletePageAndContents,

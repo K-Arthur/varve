@@ -63,15 +63,17 @@ export function FileContextMenu({
     items.push({ id: 'file-label', label: 'File', type: 'label' });
     items.push({
       id: 'locate',
-      label: 'Locate file…',
+      label: 'Locate File',
       icon: 'FolderSearch',
+      dialog: true,
+      focusTransfer: 'dialog',
       onAction: () => onAction('locate'),
     });
     items.push({ id: 'sep1', separator: true });
     items.push({ id: 'danger-label', label: 'Danger Zone', type: 'label', danger: true });
     items.push({
       id: 'remove',
-      label: 'Remove from recents',
+      label: 'Remove from Recents',
       icon: 'X',
       destructive: true,
       onAction: () => onAction('remove'),
@@ -88,7 +90,7 @@ export function FileContextMenu({
     items.push({ id: 'danger-label', label: 'Danger Zone', type: 'label', danger: true });
     items.push({
       id: 'purge',
-      label: 'Delete permanently',
+      label: 'Delete Permanently',
       icon: 'Trash2',
       destructive: true,
       onAction: () => onAction('purge'),
@@ -138,14 +140,14 @@ export function FileContextMenu({
     items.push({ id: 'order-label', label: 'Order', type: 'label' });
     items.push({
       id: 'move-earlier',
-      label: 'Move earlier in order',
+      label: 'Move Earlier in Order',
       icon: 'ArrowLeft',
       onAction: () => onAction('move-earlier'),
       disabled: !canMoveEarlier,
     });
     items.push({
       id: 'move-later',
-      label: 'Move later in order',
+      label: 'Move Later in Order',
       icon: 'ArrowRight',
       onAction: () => onAction('move-later'),
       disabled: !canMoveLater,
@@ -173,8 +175,10 @@ export function FileContextMenu({
     items.push({ id: 'info-label', label: 'Info', type: 'label' });
     items.push({
       id: 'versions',
-      label: 'Version History…',
+      label: 'Version History',
       icon: 'Clock',
+      dialog: true,
+      focusTransfer: 'dialog',
       onAction: () => onAction('versions'),
     });
     items.push({
