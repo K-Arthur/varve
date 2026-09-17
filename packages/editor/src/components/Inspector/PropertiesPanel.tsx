@@ -49,6 +49,7 @@ import { SectionManagerTrigger } from './SectionManagerTrigger';
 import { SelectionSourcesPanel } from './SelectionSourcesPanel';
 import {
   getSectionDefinition,
+  isContextualPrimarySection,
   resolveSectionOrder,
   type SectionAvailabilityContext,
   type SectionId,
@@ -651,8 +652,9 @@ function SelectionLockGuard({
  */
 function composeSections(state: EditorState, availability: SectionAvailabilityContext) {
   const entries: { id: SectionId; order: number; el: React.ReactNode }[] = [];
-  // A user's reordering wins; otherwise the selection decides (text layers
-  // lead with Typography).
+  // A user's reordering applies within the contextual bands. The primary band
+  // remains selection-driven so Typography/Image Placement/Table context
+  // cannot be buried by a previous global reorder.
   const customOrder = hasCustomSectionOrder(state.sectionVisibility);
   const add = (id: SectionId, el: React.ReactNode) => {
     const def = getSectionDefinition(id);
@@ -660,7 +662,12 @@ function composeSections(state: EditorState, availability: SectionAvailabilityCo
     if (state.sectionVisibility[id]?.hidden && def?.canHide) return;
     const saved = state.sectionVisibility[id]?.order;
     const contextual = def ? resolveSectionOrder(def, availability) : 500;
-    entries.push({ id, order: customOrder ? (saved ?? contextual) : contextual, el });
+    const primary = def ? isContextualPrimarySection(id, availability) : false;
+    entries.push({
+      id,
+      order: primary ? contextual : customOrder ? (saved ?? contextual) : contextual,
+      el,
+    });
   };
   const sorted = () => entries.sort((a, b) => a.order - b.order);
   return { add, sorted };

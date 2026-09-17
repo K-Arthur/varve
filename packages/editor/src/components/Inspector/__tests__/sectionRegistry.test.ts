@@ -15,6 +15,7 @@ import {
   getSectionDefinition,
   getSectionRegistryIntegrityIssues,
   getSectionsByCategory,
+  isContextualPrimarySection,
   resolveSectionOrder,
   SECTION_DEFINITIONS,
   type SectionAvailabilityContext,
@@ -831,12 +832,17 @@ describe('Section state migration', () => {
 });
 
 describe('contextual section order', () => {
-  it('leads with Typography for text selections and keeps registry order otherwise', () => {
+  it('puts Typography in the primary band for text selections', () => {
     const typography = getSectionDefinition('typography')!;
     const fills = getSectionDefinition('fills')!;
     const appearance = getSectionDefinition('appearance')!;
+    const position = getSectionDefinition('position-size')!;
     const textCtx = baseCtx({ selectedNodes: [makeTextNode()] });
-    expect(resolveSectionOrder(typography, textCtx)).toBeGreaterThan(
+    expect(isContextualPrimarySection('typography', textCtx)).toBe(true);
+    expect(resolveSectionOrder(typography, textCtx)).toBeLessThan(
+      resolveSectionOrder(position, textCtx),
+    );
+    expect(resolveSectionOrder(typography, textCtx)).toBeLessThan(
       resolveSectionOrder(appearance, textCtx),
     );
     expect(resolveSectionOrder(typography, textCtx)).toBeLessThan(
@@ -863,9 +869,11 @@ describe('contextual section order', () => {
     const effect = getSectionDefinition('effects')!;
     const imageCtx = baseCtx({ selectedNodes: [makeImageNode()] });
 
-    // Both image sections must follow Position & Size and precede Appearance,
-    // so the real-photo audit no longer scrolls past eleven generic sections
-    // to reach Crop & Bounds.
+    // Preserve the already-reviewed image order until its owned rendered audit
+    // can migrate atomically: placement/crop lead the generic appearance tail,
+    // while Position & Size remains the first section for now.
+    expect(isContextualPrimarySection('image-placement', imageCtx)).toBe(false);
+    expect(isContextualPrimarySection('image-crop', imageCtx)).toBe(false);
     expect(resolveSectionOrder(placement, imageCtx)).toBeGreaterThan(
       getSectionDefinition('position-size')!.order,
     );
@@ -885,5 +893,44 @@ describe('contextual section order', () => {
     // A mixed selection has no single primary content, so registry order wins.
     const mixedCtx = baseCtx({ selectedNodes: [makeImageNode(), makeNode({ id: 'shape-2' })] });
     expect(resolveSectionOrder(placement, mixedCtx)).toBe(placement.order);
+  });
+
+  it('promotes scoped table context and active mask state', () => {
+    const tableCtx = baseCtx({
+      selectedNodes: [makeNode({ kind: 'table' })],
+      tableEdit: { tableId: 'table-1' },
+    });
+    expect(tableCtx.selectedNodes[0]?.kind).toBe('table');
+    expect(isContextualPrimarySection('table', tableCtx)).toBe(true);
+    expect(resolveSectionOrder(getSectionDefinition('table')!, tableCtx)).toBeLessThan(
+      getSectionDefinition('position-size')!.order,
+    );
+
+    const maskedShape = makeNode({ mask: { type: 'alpha', visible: true } } as never);
+    const maskCtx = baseCtx({ selectedNodes: [maskedShape] });
+    expect(isContextualPrimarySection('mask', maskCtx)).toBe(true);
+    expect(resolveSectionOrder(getSectionDefinition('mask')!, maskCtx)).toBe(72);
+
+    const disabledMaskCtx = baseCtx({
+      selectedNodes: [makeNode({ mask: { type: 'alpha', visible: false } } as never)],
+    });
+    expect(isContextualPrimarySection('mask', disabledMaskCtx)).toBe(false);
+    expect(resolveSectionOrder(getSectionDefinition('mask')!, disabledMaskCtx)).toBe(
+      getSectionDefinition('mask')!.order,
+    );
+  });
+
+  it('promotes component context without changing ordinary frame order', () => {
+    const componentCtx = baseCtx({ selectedNodes: [makeComponentFrame()] });
+    expect(isContextualPrimarySection('component', componentCtx)).toBe(true);
+    expect(resolveSectionOrder(getSectionDefinition('component')!, componentCtx)).toBeLessThan(
+      getSectionDefinition('position-size')!.order,
+    );
+
+    const frameCtx = baseCtx({ selectedNodes: [makeFrameNode()] });
+    expect(isContextualPrimarySection('component', frameCtx)).toBe(false);
+    expect(resolveSectionOrder(getSectionDefinition('position-size')!, frameCtx)).toBe(
+      getSectionDefinition('position-size')!.order,
+    );
   });
 });

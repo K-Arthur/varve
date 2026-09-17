@@ -1040,14 +1040,15 @@ export function getSectionRegistryIntegrityIssues(): string[] {
 
 /** Get a section definition by ID. Returns undefined for unknown IDs (safe migration). */
 /**
- * Contextual order for selections whose primary content is not geometry.
- * For text layers, Typography is the property people edit most, so it
- * follows Appearance instead of trailing fills, strokes, and effects
- * (the Figma and Sketch convention). A user's saved order still wins.
+ * Contextual primary-band order for selections whose primary content is not
+ * generic geometry. These values intentionally sit before the ordinary
+ * registry orders. The primary band is protected from a saved global reorder
+ * so a previous customization cannot make the selected object's main task
+ * disappear below unrelated sections.
  */
 const TEXT_SELECTION_ORDER: Partial<Record<SectionId, number>> = {
-  typography: 205,
-  'text-on-path': 206,
+  typography: 70,
+  'text-on-path': 71,
 };
 
 /**
@@ -1057,22 +1058,92 @@ const TEXT_SELECTION_ORDER: Partial<Record<SectionId, number>> = {
  * audit had to scroll past Mask, Paint Library, Object Filters and Layer
  * Effects to reach Crop & Bounds. Resolution and perspective deliberately
  * stay in the advanced tail: they are read-outs and rare operations, not
- * per-selection tasks. A user's saved order still wins.
+ * per-selection tasks.
  */
 const IMAGE_SELECTION_ORDER: Partial<Record<SectionId, number>> = {
   'image-placement': 111,
   'image-crop': 112,
 };
 
+/** Table editing is a scoped content workflow, not generic frame geometry. */
+const TABLE_SELECTION_ORDER: Partial<Record<SectionId, number>> = {
+  table: 70,
+  'table-cells': 71,
+  'table-columns': 72,
+  'table-rows': 73,
+};
+
+/** Component and mockup context is more useful than generic appearance. */
+const FRAME_CONTEXT_ORDER: Record<'component' | 'mockups' | 'frame-resize', number> = {
+  component: 70,
+  mockups: 71,
+  'frame-resize': 72,
+};
+
+function hasActiveMask(ctx: SectionAvailabilityContext): boolean {
+  if (ctx.selectedNodes.length !== 1) return false;
+  const node = ctx.selectedNodes[0] as (SceneNode & { mask?: { visible?: boolean } }) | undefined;
+  return Boolean(node?.mask) && node?.mask?.visible !== false;
+}
+
+/**
+ * Returns whether a section belongs to the selection's contextual primary
+ * band. The value is deliberately separate from `resolveSectionOrder`: the
+ * composition can protect only the primary band while preserving the user's
+ * saved order for secondary and advanced sections.
+ */
+export function isContextualPrimarySection(
+  id: SectionId,
+  ctx: SectionAvailabilityContext,
+): boolean {
+  const textOnly =
+    ctx.selectedNodes.length > 0 && ctx.selectedNodes.every((node) => node.kind === 'text');
+  if (textOnly && (id === 'typography' || id === 'text-on-path')) return true;
+
+  const tableOnly = isSingleSelection(ctx) && isTableNode(ctx.selectedNodes);
+  if (tableOnly && id in TABLE_SELECTION_ORDER) return true;
+
+  const frameOnly = isSingleSelection(ctx) && isFrameNode(ctx.selectedNodes);
+  if (frameOnly) {
+    const frame = ctx.selectedNodes[0] as SceneNode & {
+      componentId?: string;
+      mockup?: unknown;
+    };
+    if (id === 'component' && frame.componentId) return true;
+    if (id === 'mockups' && frame.mockup) return true;
+    if (id === 'frame-resize') return true;
+  }
+
+  return id === 'mask' && hasActiveMask(ctx);
+}
+
 export function resolveSectionOrder(
   def: SectionDefinition,
   ctx: SectionAvailabilityContext,
 ): number {
+  const singleSelection = isSingleSelection(ctx);
+  const tableSelection = singleSelection && isTableNode(ctx.selectedNodes);
+  const frameSelection = singleSelection && isFrameNode(ctx.selectedNodes);
   const textOnly =
     ctx.selectedNodes.length > 0 && ctx.selectedNodes.every((node) => node.kind === 'text');
   if (textOnly) return TEXT_SELECTION_ORDER[def.id] ?? def.order;
   const imageOnly = ctx.selectedNodes.length > 0 && isImageNode(ctx.selectedNodes);
-  if (imageOnly) return IMAGE_SELECTION_ORDER[def.id] ?? def.order;
+  if (imageOnly) {
+    return IMAGE_SELECTION_ORDER[def.id] ?? def.order;
+  }
+  if (tableSelection) {
+    return TABLE_SELECTION_ORDER[def.id] ?? def.order;
+  }
+  if (frameSelection) {
+    const frame = ctx.selectedNodes[0] as SceneNode & {
+      componentId?: string;
+      mockup?: unknown;
+    };
+    if (def.id === 'component' && frame.componentId) return FRAME_CONTEXT_ORDER.component;
+    if (def.id === 'mockups' && frame.mockup) return FRAME_CONTEXT_ORDER.mockups;
+    if (def.id === 'frame-resize') return FRAME_CONTEXT_ORDER['frame-resize'];
+  }
+  if (def.id === 'mask' && hasActiveMask(ctx)) return 72;
   return def.order;
 }
 
