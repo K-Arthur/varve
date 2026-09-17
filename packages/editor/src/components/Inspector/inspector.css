@@ -5576,7 +5576,33 @@ fieldset.insp-canvas-props,
   margin: var(--space-1) 0 0;
 }
 
+/* ─── Contrast indicator (WCAG AA/AAA pass/fail chip) ── */
+.contrast-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-05);
+}
+.contrast-indicator__dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.contrast-indicator__label {
+  font-size: var(--font-size-2xs);
+  line-height: 1;
+}
+
 /* ─── Cognitive load indicator ───────────────────────── */
+.insp-cognitive-load {
+  padding: var(--space-2) 0;
+}
+.insp-cognitive-load__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
 .insp-cognitive-load__meter {
   flex: 1;
   height: 6px;
@@ -5584,9 +5610,15 @@ fieldset.insp-canvas-props,
   background: var(--color-surface-sunken);
   overflow: hidden;
 }
+.insp-cognitive-load__fill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  transition: width var(--duration-standard, 0.3s) var(--ease-standard, ease);
+}
 .insp-cognitive-load__score {
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
 }
 .insp-cognitive-load__suggestions {
   margin: 4px 0 0;

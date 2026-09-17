@@ -64,7 +64,6 @@ export function ContrastIndicator({
           className="contrast-indicator"
           role="status"
           aria-label="No foreground color to check"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}
         >
           <Icon name="CircleQuestionMark" size={10} label={undefined} />
         </span>
@@ -100,18 +99,10 @@ export function ContrastIndicator({
         className="contrast-indicator"
         role="status"
         aria-label={`Contrast ${label}`}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color }}
+        style={{ color }}
       >
-        <span
-          style={{
-            display: 'inline-block',
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            background: color,
-          }}
-        />
-        <span style={{ fontSize: '0.7em', lineHeight: 1 }}>{label}</span>
+        <span className="contrast-indicator__dot" />
+        <span className="contrast-indicator__label">{label}</span>
       </span>
     </Tooltip>
   );
