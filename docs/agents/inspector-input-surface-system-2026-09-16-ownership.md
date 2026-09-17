@@ -29,6 +29,21 @@ Production and test files are claimed milestone-by-milestone after checking the
 shared working tree. Existing Inspector composition, disclosure, popover,
 website, and Design-tab owners remain authoritative for their paths.
 
+## Milestone 4 claim — contextual ordering
+
+At 2026-09-16 18:50 local time, the working tree was rechecked: the registry
+and `PropertiesPanel.tsx` had no uncommitted diff and no other agent process was
+running. This milestone therefore claims only:
+
+- `packages/editor/src/components/Inspector/sectionRegistry.ts`
+- `packages/editor/src/components/Inspector/PropertiesPanel.tsx`
+- `packages/editor/src/components/Inspector/__tests__/sectionRegistry.test.ts`
+- a new selection-order E2E spec under `tests/e2e/inspector/`
+
+The change is limited to contextual primary-band ordering and its tests. Dirty
+`DocumentPanel.tsx`, `NumberField.tsx`, `FillSection.tsx`, existing Design-tab
+specs, and other owners' paths remain excluded.
+
 ## Invariants
 
 1. Work remains on `master`; no branch is created for this task.
