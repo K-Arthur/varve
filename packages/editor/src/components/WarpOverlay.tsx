@@ -561,8 +561,8 @@ export function WarpOverlay({
           y={-size / 2}
           width={size}
           height={size}
-          fill="var(--color-interactive-default)"
-          stroke="var(--color-surface-overlay)"
+          fill="var(--color-canvas-selection)"
+          stroke="var(--color-canvas-handle-fill)"
           strokeWidth={1}
           rx={1}
           style={{ pointerEvents: 'none' }}
@@ -609,7 +609,7 @@ export function WarpOverlay({
         className="warp-overlay__cage"
         points={polygon}
         fill="none"
-        stroke="var(--color-interactive-default)"
+        stroke="var(--color-canvas-selection)"
         strokeWidth={1.5 / Math.max(1, zoom * 0.5)}
         strokeDasharray="6 4"
       />
@@ -793,8 +793,8 @@ function SkewHandles({
           y={-4}
           width={8}
           height={8}
-          fill="var(--color-interactive-default)"
-          stroke="var(--color-surface-overlay)"
+          fill="var(--color-canvas-selection)"
+          stroke="var(--color-canvas-handle-fill)"
           rx={1}
           transform="rotate(45)"
         />
@@ -805,17 +805,11 @@ function SkewHandles({
     <>
       <polygon
         points={polygonPoints}
-        fill="var(--color-interactive-default)"
+        fill="var(--color-canvas-selection)"
         fillOpacity={0.08}
         stroke="none"
       />
-      <circle
-        cx={pivot.x}
-        cy={pivot.y}
-        r={3}
-        fill="#fff"
-        stroke="var(--color-interactive-default)"
-      />
+      <circle cx={pivot.x} cy={pivot.y} r={3} fill="#fff" stroke="var(--color-canvas-selection)" />
       {handle('skew-x', mids[0]!, 'x')}
       {handle('skew-x-bottom', mids[2]!, 'x')}
       {handle('skew-y', mids[1]!, 'y')}
@@ -931,7 +925,7 @@ function EnvelopeHandles({
           key={edge}
           points={edgeCurve(edge)}
           fill="none"
-          stroke="var(--color-interactive-default)"
+          stroke="var(--color-canvas-selection)"
           strokeWidth={1.5}
           strokeDasharray="6 4"
         />
@@ -1015,7 +1009,7 @@ function MeshHandles({
             y1={pa.y}
             x2={pb.x}
             y2={pb.y}
-            stroke="var(--color-interactive-default)"
+            stroke="var(--color-canvas-selection)"
             strokeOpacity={0.45}
             strokeWidth={1 / Math.max(1, zoom * 0.5)}
           />
@@ -1075,8 +1069,8 @@ function MeshHandles({
             />
             <circle
               r={selected ? 4.5 : 3.2}
-              fill={selected ? 'var(--color-surface-overlay)' : 'var(--color-interactive-default)'}
-              stroke="var(--color-surface-overlay)"
+              fill={selected ? 'var(--color-canvas-handle-fill)' : 'var(--color-canvas-selection)'}
+              stroke="var(--color-canvas-handle-fill)"
               strokeWidth={selected ? 1 : 0.5}
               style={{ pointerEvents: 'none' }}
             />
@@ -1130,7 +1124,7 @@ function BendHandles({
         y1={s.y}
         x2={s.x}
         y2={s.y - 30}
-        stroke="var(--color-interactive-default)"
+        stroke="var(--color-canvas-selection)"
         strokeWidth={1}
         strokeDasharray="3 3"
         strokeOpacity={0.6}
@@ -1153,8 +1147,8 @@ function BendHandles({
         />
         <circle
           r={5}
-          fill="var(--color-interactive-default)"
-          stroke="var(--color-surface-overlay)"
+          fill="var(--color-canvas-selection)"
+          stroke="var(--color-canvas-handle-fill)"
           strokeWidth={1}
           style={{ pointerEvents: 'none' }}
         />

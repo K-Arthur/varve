@@ -118,7 +118,7 @@ export function NodeEditOverlay({
                     y1={anchor.y}
                     x2={inScreen.x}
                     y2={inScreen.y}
-                    stroke="var(--color-interactive-default)"
+                    stroke="var(--color-canvas-selection)"
                     strokeWidth={1}
                   />
                   <circle
@@ -127,7 +127,7 @@ export function NodeEditOverlay({
                     cx={inScreen.x}
                     cy={inScreen.y}
                     r={3}
-                    fill="var(--color-interactive-default)"
+                    fill="var(--color-canvas-selection)"
                   />
                 </>
               )}
@@ -139,7 +139,7 @@ export function NodeEditOverlay({
                     y1={anchor.y}
                     x2={outScreen.x}
                     y2={outScreen.y}
-                    stroke="var(--color-interactive-default)"
+                    stroke="var(--color-canvas-selection)"
                     strokeWidth={1}
                   />
                   <circle
@@ -148,7 +148,7 @@ export function NodeEditOverlay({
                     cx={outScreen.x}
                     cy={outScreen.y}
                     r={3}
-                    fill="var(--color-interactive-default)"
+                    fill="var(--color-canvas-selection)"
                   />
                 </>
               )}
@@ -160,9 +160,9 @@ export function NodeEditOverlay({
                   width={8}
                   height={8}
                   fill={
-                    selected ? 'var(--color-interactive-default)' : 'var(--color-surface-overlay)'
+                    selected ? 'var(--color-canvas-selection)' : 'var(--color-canvas-handle-fill)'
                   }
-                  stroke="var(--color-interactive-default)"
+                  stroke="var(--color-canvas-selection)"
                   strokeWidth={1.5}
                 />
               ) : (
@@ -172,9 +172,9 @@ export function NodeEditOverlay({
                   cy={anchor.y}
                   r={5}
                   fill={
-                    selected ? 'var(--color-interactive-default)' : 'var(--color-surface-overlay)'
+                    selected ? 'var(--color-canvas-selection)' : 'var(--color-canvas-handle-fill)'
                   }
-                  stroke="var(--color-interactive-default)"
+                  stroke="var(--color-canvas-selection)"
                   strokeWidth={mode === 'automatic' ? 2.5 : 1.5}
                   strokeDasharray={mode === 'symmetric' ? '2 1' : undefined}
                 />

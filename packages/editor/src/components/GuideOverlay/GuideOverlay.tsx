@@ -185,7 +185,7 @@ export function GuideOverlay({
           const line = lineForGuide(guide);
           const isHover = hoveredId === guide.id || draggingRef.current === guide.id;
           const isSelected = selectedGuideId === guide.id;
-          const color = guide.color ?? 'var(--color-accent-primary, #39d0c6)';
+          const color = guide.color ?? 'var(--color-canvas-guide)';
           const midX = (line.x1 + line.x2) / 2;
           const midY = (line.y1 + line.y2) / 2;
 

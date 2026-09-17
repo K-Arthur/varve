@@ -93,7 +93,7 @@ export function KnifeHoverOverlay({
         points={outline.points}
         fill="none"
         stroke={
-          outline.eligible ? 'var(--color-accent, #2f6f62)' : 'var(--color-text-muted, #8a8a8a)'
+          outline.eligible ? 'var(--color-canvas-selection)' : 'var(--color-text-muted, #8a8a8a)'
         }
         strokeWidth={outline.eligible ? 2 : 1}
         strokeDasharray={outline.eligible ? undefined : '4 4'}

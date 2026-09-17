@@ -290,7 +290,7 @@ function Handle({
       cx={point.x}
       cy={point.y}
       r={active ? HANDLE_RADIUS + 2 : HANDLE_RADIUS}
-      fill="var(--color-accent-primary, #39d0c6)"
+      fill="var(--color-canvas-selection)"
       stroke="var(--color-surface-raised, #fff)"
       strokeWidth={2}
       role="button"
@@ -467,7 +467,7 @@ export function BlurGalleryOverlay({
         <path
           d={pointsToPath(points)}
           fill="none"
-          stroke="var(--color-accent-primary, #39d0c6)"
+          stroke="var(--color-canvas-selection)"
           strokeDasharray="5 5"
           opacity={0.45}
         />
@@ -503,7 +503,7 @@ export function BlurGalleryOverlay({
           <path
             d={path}
             fill="none"
-            stroke="var(--color-accent-primary, #39d0c6)"
+            stroke="var(--color-canvas-selection)"
             strokeWidth={2}
             strokeDasharray="6 4"
             opacity={0.8}
@@ -591,7 +591,7 @@ export function BlurGalleryOverlay({
                 y1={start.y}
                 x2={end.x}
                 y2={end.y}
-                stroke="var(--color-accent-primary, #39d0c6)"
+                stroke="var(--color-canvas-selection)"
                 strokeDasharray={lineIndex === 0 ? undefined : '6 4'}
                 opacity={lineIndex === 0 ? 0.35 : lineIndex < 3 ? 0.8 : 0.45}
               />
@@ -618,7 +618,7 @@ export function BlurGalleryOverlay({
           <path
             d={pointsToPath(points)}
             fill="none"
-            stroke="var(--color-accent-primary, #39d0c6)"
+            stroke="var(--color-canvas-selection)"
             strokeWidth={2}
             strokeDasharray="7 4"
             opacity={0.85}
@@ -655,7 +655,7 @@ export function BlurGalleryOverlay({
         <path
           d={ellipse}
           fill="none"
-          stroke="var(--color-accent-primary, #39d0c6)"
+          stroke="var(--color-canvas-selection)"
           strokeWidth={2}
           strokeDasharray="6 4"
           opacity={0.8}

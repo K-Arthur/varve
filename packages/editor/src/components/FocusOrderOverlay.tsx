@@ -64,7 +64,7 @@ export function FocusOrderOverlay({ enabled, zoom, pan }: FocusOrderOverlayProps
             cx={entry.cx}
             cy={entry.cy}
             r={12}
-            fill="var(--color-accent-primary, #39d0c6)"
+            fill="var(--color-canvas-selection)"
             fillOpacity={0.85}
             stroke="white"
             strokeWidth={2}

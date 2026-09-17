@@ -193,7 +193,7 @@ export function MotionPathOverlay({
       <path
         d={pathD}
         fill="none"
-        stroke="var(--color-accent-primary, #39d0c6)"
+        stroke="var(--color-canvas-selection)"
         strokeWidth={2 / zoom}
         strokeDasharray={`${4 / zoom}, ${4 / zoom}`}
         opacity={0.7}
@@ -228,8 +228,8 @@ export function MotionPathOverlay({
               cx={sp.x}
               cy={sp.y}
               r={isCurrent ? 6 / zoom : 4 / zoom}
-              fill={isCurrent ? 'var(--color-accent-primary)' : 'var(--color-surface-raised)'}
-              stroke="var(--color-accent-primary)"
+              fill={isCurrent ? 'var(--color-canvas-selection)' : 'var(--color-canvas-handle-fill)'}
+              stroke="var(--color-canvas-selection)"
               strokeWidth={1.5 / zoom}
             />
           </g>

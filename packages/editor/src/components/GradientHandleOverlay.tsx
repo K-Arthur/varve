@@ -292,7 +292,7 @@ export function GradientHandleOverlay({
               y1={startCanvas.y}
               x2={primaryCanvas.x}
               y2={primaryCanvas.y}
-              stroke="var(--color-accent-primary, #39d0c6)"
+              stroke="var(--color-canvas-selection)"
               strokeWidth={2}
               strokeDasharray="4 4"
               opacity={0.7}
@@ -303,7 +303,7 @@ export function GradientHandleOverlay({
                 y1={startCanvas.y}
                 x2={secondaryCanvas.x}
                 y2={secondaryCanvas.y}
-                stroke="var(--color-accent-primary, #39d0c6)"
+                stroke="var(--color-canvas-selection)"
                 strokeWidth={2}
                 strokeDasharray="4 4"
                 opacity={0.45}
@@ -337,7 +337,7 @@ export function GradientHandleOverlay({
             />
             <HandleCircle
               point={primaryCanvas}
-              fill="var(--color-accent-primary, #39d0c6)"
+              fill="var(--color-canvas-selection)"
               active={isDragging(primaryKind)}
               handleKind={primaryKind}
               fillIndex={handle.fillIndex}
@@ -346,7 +346,7 @@ export function GradientHandleOverlay({
             {secondaryCanvas && (
               <HandleCircle
                 point={secondaryCanvas}
-                fill="var(--color-accent-primary, #39d0c6)"
+                fill="var(--color-canvas-selection)"
                 active={isDragging('radial-v-axis')}
                 handleKind="radial-v-axis"
                 fillIndex={handle.fillIndex}

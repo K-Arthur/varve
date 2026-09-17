@@ -117,7 +117,7 @@ export function ExportRegionOverlay({
           <polygon
             points={outline.points}
             fill="none"
-            stroke="var(--color-accent, #2f6f62)"
+            stroke="var(--color-canvas-selection)"
             strokeWidth={outline.selected ? 2 : 1}
             strokeDasharray="6 4"
             opacity={outline.selected ? 1 : 0.75}
@@ -125,7 +125,7 @@ export function ExportRegionOverlay({
           <text
             x={outline.labelX}
             y={outline.labelY}
-            fill="var(--color-accent, #2f6f62)"
+            fill="var(--color-canvas-selection)"
             fontSize={10}
             fontFamily="var(--font-body, system-ui, sans-serif)"
             fontWeight={600}

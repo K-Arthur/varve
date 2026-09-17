@@ -266,6 +266,22 @@ export type SemanticToken =
   | 'highlight-search-current'
   | 'highlight-text-selection'
   | 'highlight-text-selection-foreground'
+  /* Canvas overlay identity (2026-09-17). Selection, handles, guides, and
+   * drop-target marks are drawn OVER ARBITRARY ARTWORK, so they must never
+   * inherit the interface accent family: a document-derived accent mode
+   * (appearance.accentSource) overrides the accent/interactive tokens and
+   * would otherwise be able to recolor or hide the very marks users steer
+   * by. These tokens are intentionally not overridden by that mode. Values
+   * mirror what the overlays rendered before the split (interactive-default
+   * / accent-primary / surface-overlay), so fixed-accent appearance is
+   * unchanged by the migration. Against artwork itself no fixed pair can
+   * prove contrast — the dual-tone handle (core + stroke) and theme-stable
+   * hue are the mitigation, per the design-token contract doc. */
+  | 'canvas-selection'
+  | 'canvas-selection-wash'
+  | 'canvas-handle-fill'
+  | 'canvas-guide'
+  | 'canvas-drop-target'
   | 'feedback-success'
   | 'feedback-warning'
   | 'feedback-danger'
@@ -413,6 +429,15 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'highlight-search-current': A(5),
     'highlight-text-selection': T(2),
     'highlight-text-selection-foreground': N(12),
+    'canvas-selection': T(9),
+    'canvas-selection-wash': T(9),
+    'canvas-handle-fill': N(1),
+    /* Guide/drop-target were the bright accent T(6) before the split; on the
+     * light board that measured 1.78:1 (WCAG 1.4.11 fail, surfaced by
+     * audit:tokens when the pairs were first added 2026-09-17). T(9) is the
+     * selection step and passes 3:1. */
+    'canvas-guide': T(9),
+    'canvas-drop-target': T(9),
     'feedback-success': SUCCESS,
     'feedback-warning': WARNING,
     'feedback-danger': DANGER,
@@ -532,6 +557,11 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'highlight-search-current': ok(0.45, 0.08, 80),
     'highlight-text-selection': T(11),
     'highlight-text-selection-foreground': N(2),
+    'canvas-selection': T(5),
+    'canvas-selection-wash': T(5),
+    'canvas-handle-fill': ok(0.1335, 0.0152, 259.32),
+    'canvas-guide': T(6),
+    'canvas-drop-target': T(6),
     'feedback-success': SUCCESS,
     'feedback-warning': WARNING,
     'feedback-danger': DANGER,
@@ -653,6 +683,11 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'highlight-search-current': ok(0.36, 0.0, 0),
     'highlight-text-selection': ok(0.9519, 0.2924, 111.62),
     'highlight-text-selection-foreground': ok(0.0, 0.0, 0),
+    'canvas-selection': ok(0.9519, 0.2924, 111.62),
+    'canvas-selection-wash': ok(0.9519, 0.2924, 111.62),
+    'canvas-handle-fill': ok(0.0, 0.0, 0),
+    'canvas-guide': ok(0.9519, 0.2924, 111.62),
+    'canvas-drop-target': ok(0.9519, 0.2924, 111.62),
     'feedback-success': ok(0.8649, 0.2979, 142.49),
     'feedback-warning': ok(0.8446, 0.1616, 82.25),
     'feedback-danger': ok(0.6559, 0.1934, 27.47),
@@ -819,6 +854,33 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
     fg: 'text-on-accent',
     bg: 'interactive-default',
     grade: 'AA',
+  },
+  /* Canvas overlay marks: WCAG 1.4.11 non-text (3:1) against the shell
+   * surfaces they are drawn adjacent to. Contrast against the artwork itself
+   * cannot be proven by a fixed pair — see the canvas token note above. */
+  {
+    name: 'canvas-selection on surface-base',
+    fg: 'canvas-selection',
+    bg: 'surface-base',
+    grade: 'UI',
+  },
+  {
+    name: 'canvas-guide on surface-base',
+    fg: 'canvas-guide',
+    bg: 'surface-base',
+    grade: 'UI',
+  },
+  {
+    name: 'canvas-drop-target on surface-base',
+    fg: 'canvas-drop-target',
+    bg: 'surface-base',
+    grade: 'UI',
+  },
+  {
+    name: 'canvas-selection on canvas-handle-fill',
+    fg: 'canvas-selection',
+    bg: 'canvas-handle-fill',
+    grade: 'UI',
   },
   {
     name: 'text-primary on interactive-hover-surface',

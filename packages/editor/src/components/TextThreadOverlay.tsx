@@ -124,7 +124,7 @@ export const TextThreadOverlay = memo(function TextThreadOverlay({
             <polyline
               points={view.frames.map((f) => `${f.cx},${f.cy}`).join(' ')}
               fill="none"
-              stroke="var(--color-accent-primary)"
+              stroke="var(--color-canvas-selection)"
               strokeWidth={1.5}
               strokeDasharray="4 3"
               opacity={0.7}
@@ -138,14 +138,14 @@ export const TextThreadOverlay = memo(function TextThreadOverlay({
                 cy={frame.cy}
                 r={3.5}
                 fill="var(--color-surface-raised)"
-                stroke="var(--color-accent-primary)"
+                stroke="var(--color-canvas-selection)"
                 strokeWidth={1.5}
               />
               <circle
                 cx={frame.right}
                 cy={frame.cy}
                 r={3.5}
-                fill="var(--color-accent-primary)"
+                fill="var(--color-canvas-selection)"
                 stroke="var(--color-surface-raised)"
                 strokeWidth={1}
               />

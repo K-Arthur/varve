@@ -289,8 +289,8 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
               y={sy}
               width={cell.w * scale}
               height={cell.h * scale}
-              fill="var(--color-accent-subtle, rgba(57, 208, 198, 0.16))"
-              stroke="var(--color-accent-primary, #39d0c6)"
+              fill="var(--color-canvas-selection-wash)"
+              stroke="var(--color-canvas-selection)"
               strokeWidth={1.5 / scale}
               vectorEffect="non-scaling-stroke"
             />
@@ -312,7 +312,7 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
                 width={cell.w * scale}
                 height={cell.h * scale}
                 fill="none"
-                stroke="var(--color-accent-primary, #39d0c6)"
+                stroke="var(--color-canvas-selection)"
                 strokeWidth={2.5 / scale}
                 vectorEffect="non-scaling-stroke"
               />
@@ -324,7 +324,7 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
             y1={screenOf(0, frozenY)[1]}
             x2={topLeft[0] + (layout.totalW || tableNode.w) * scale}
             y2={screenOf(0, frozenY)[1]}
-            stroke="var(--color-accent-primary, rgba(57, 208, 198, 0.55))"
+            stroke="var(--color-canvas-selection)"
             strokeWidth={2 / scale}
             strokeDasharray={`${6 / scale} ${4 / scale}`}
             vectorEffect="non-scaling-stroke"
@@ -336,7 +336,7 @@ export function TableEditOverlay({ zoom, pan, cameraRotation, worldToScreen }: P
             y1={topLeft[1]}
             x2={screenOf(frozenX, 0)[0]}
             y2={topLeft[1] + (layout.totalH || tableNode.h) * scale}
-            stroke="var(--color-accent-primary, rgba(57, 208, 198, 0.55))"
+            stroke="var(--color-canvas-selection)"
             strokeWidth={2 / scale}
             strokeDasharray={`${6 / scale} ${4 / scale}`}
             vectorEffect="non-scaling-stroke"

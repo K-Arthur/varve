@@ -192,8 +192,8 @@ export function PerspectiveOverlay({ tool, zoom, pan, cameraRotation, buildToolC
       >
         <polygon
           points={corners.map((c) => `${c!.x},${c!.y}`).join(' ')}
-          fill="color-mix(in oklch, var(--color-accent-primary) 6%, transparent)"
-          stroke="color-mix(in oklch, var(--color-accent-primary) 85%, transparent)"
+          fill="color-mix(in oklch, var(--color-canvas-guide) 6%, transparent)"
+          stroke="color-mix(in oklch, var(--color-canvas-guide) 85%, transparent)"
           strokeWidth={1.5}
           strokeDasharray="6 3"
         />
@@ -226,7 +226,7 @@ export function PerspectiveOverlay({ tool, zoom, pan, cameraRotation, buildToolC
             width: HANDLE_HIT_SIZE,
             height: HANDLE_HIT_SIZE,
             borderRadius: '50%',
-            background: `radial-gradient(circle ${HANDLE_R}px, color-mix(in oklch, var(--color-accent-primary) 95%, transparent) ${HANDLE_R - 1}px, var(--color-surface-raised) ${HANDLE_R}px, var(--color-surface-raised) ${HANDLE_R + 2}px, transparent ${HANDLE_R + 3}px)`,
+            background: `radial-gradient(circle ${HANDLE_R}px, color-mix(in oklch, var(--color-canvas-selection) 95%, transparent) ${HANDLE_R - 1}px, var(--color-canvas-handle-fill) ${HANDLE_R}px, var(--color-canvas-handle-fill) ${HANDLE_R + 2}px, transparent ${HANDLE_R + 3}px)`,
             border: 0,
             cursor: 'grab',
             pointerEvents: 'auto',

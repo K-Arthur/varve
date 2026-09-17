@@ -57,7 +57,7 @@ function renderDimensionLine(
         y1={y1}
         x2={x2}
         y2={y2}
-        stroke="var(--color-interactive-default, #39d0c6)"
+        stroke="var(--color-canvas-selection)"
         strokeWidth={1}
         strokeDasharray="4,2"
       />
@@ -65,7 +65,7 @@ function renderDimensionLine(
         x={midX}
         y={midY - 4}
         textAnchor="middle"
-        fill="var(--color-interactive-default, #39d0c6)"
+        fill="var(--color-canvas-selection)"
         fontSize={10}
         fontFamily="var(--font-mono, monospace)"
       >
@@ -134,7 +134,7 @@ export function MeasureOverlay({
         width={sx2 - sx}
         height={sy2 - sy}
         fill="none"
-        stroke="var(--color-interactive-default, #39d0c6)"
+        stroke="var(--color-canvas-selection)"
         strokeWidth={1 / Math.max(zoom, 0.1)}
         strokeDasharray={`${4 / Math.max(zoom, 0.1)},${2 / Math.max(zoom, 0.1)}`}
       />
@@ -144,7 +144,7 @@ export function MeasureOverlay({
         x={(sx + sx2) / 2}
         y={sy - 4 / Math.max(zoom, 0.1)}
         textAnchor="middle"
-        fill="var(--color-interactive-default, #39d0c6)"
+        fill="var(--color-canvas-selection)"
         fontSize={11}
         fontFamily="var(--font-mono, monospace)"
       >

@@ -167,7 +167,8 @@ export function MeshWarpOverlay({
     }
   }
 
-  const accentColor = 'var(--color-accent-primary, #39d0c6)';
+  const guideColor = 'var(--color-canvas-guide)';
+  const handleStrokeColor = 'var(--color-canvas-selection)';
 
   return (
     <svg
@@ -196,7 +197,7 @@ export function MeshWarpOverlay({
             y1={s1.y}
             x2={s2.x}
             y2={s2.y}
-            stroke={accentColor}
+            stroke={guideColor}
             strokeWidth={lineWidth}
             opacity={0.6}
           />
@@ -212,10 +213,10 @@ export function MeshWarpOverlay({
             r={handleRadius}
             fill={
               dragging && dragRef.current?.vertexIndex === vi
-                ? 'var(--color-accent-primary)'
-                : 'var(--color-surface-overlay)'
+                ? 'var(--color-canvas-selection)'
+                : 'var(--color-canvas-handle-fill)'
             }
-            stroke={accentColor}
+            stroke={handleStrokeColor}
             strokeWidth={lineWidth}
             style={{ cursor: dragging ? 'grabbing' : 'grab' }}
             onPointerDown={(e) => onPointerDown(e, vi)}

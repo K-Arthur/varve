@@ -90,7 +90,7 @@ export function TableCellEditor({ cellId, zoom, worldToScreen, onDone }: Props) 
           ? 'var(--color-text-strong, #292d36)'
           : 'var(--color-text-strong, #292d36)',
         background: 'var(--color-surface-raised, rgba(255,255,255,0.92))',
-        border: '2px solid var(--color-accent-primary, #39d0c6)',
+        border: '2px solid var(--color-canvas-selection)',
         borderRadius: 'var(--radius-control-compact)',
         boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
         resize: 'none',

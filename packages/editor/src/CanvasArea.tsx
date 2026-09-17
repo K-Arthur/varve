@@ -477,12 +477,16 @@ export function CanvasArea({
   // getComputedStyle() every frame (forces style recalc). Updated only on
   // theme change via the effect below.
   const sunkenColorRef = useRef('');
+  // Feeds the overlay-canvas interaction marks (subject-picker highlight,
+  // drop/mask target outlines). Deliberately the dedicated canvas token, not
+  // the interface accent: these marks are drawn over arbitrary artwork and
+  // must stay identifiable under the optional document-derived accent mode.
   const accentColorRef = useRef('');
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const cs = getComputedStyle(document.documentElement);
     sunkenColorRef.current = cs.getPropertyValue('--color-surface-sunken').trim();
-    accentColorRef.current = cs.getPropertyValue('--color-accent-primary').trim();
+    accentColorRef.current = cs.getPropertyValue('--color-canvas-drop-target').trim();
   }, [state.themeRevision]);
 
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);

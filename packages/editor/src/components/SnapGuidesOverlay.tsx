@@ -15,14 +15,14 @@ interface SnapGuidesOverlayProps {
 function guideColor(type?: string, targetId?: string): string {
   if (targetId?.startsWith('isometric:')) {
     // The isometric lattice target is the primary construction aid: render it
-    // in the accent colour so the winning relationship is unmistakable.
-    return resolveCanvasColor('var(--color-accent-primary, #3b82f6)');
+    // in the guide colour so the winning relationship is unmistakable.
+    return resolveCanvasColor('var(--color-canvas-guide)');
   }
   switch (type) {
     case 'midpoint':
       return resolveCanvasColor('var(--color-feedback-success, #22c55e)');
     case 'size-match':
-      return resolveCanvasColor('var(--color-accent-primary, #3b82f6)');
+      return resolveCanvasColor('var(--color-canvas-guide)');
     default:
       return 'currentColor';
   }

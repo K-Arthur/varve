@@ -464,7 +464,7 @@ export function TextEditOverlay({
         letterSpacing: `${node.letterSpacing ?? 0}px`,
         padding: 0,
         margin: 0,
-        border: '1px solid var(--color-interactive-default, #3b82f6)',
+        border: '1px solid var(--color-canvas-selection)',
         outline: 'none',
         resize: 'none',
         overflow: 'hidden',
@@ -475,7 +475,7 @@ export function TextEditOverlay({
         // a second copy of the glyphs.
         color: 'transparent',
         WebkitTextFillColor: 'transparent',
-        caretColor: 'var(--color-interactive-default, #3b82f6)',
+        caretColor: 'var(--color-canvas-selection)',
         whiteSpace: 'pre-wrap',
         wordWrap: 'break-word',
         transform: `matrix(${cssMatrix.join(',')})`,

@@ -189,7 +189,7 @@ export function ShapeBuilderOverlay({
             fillRule="evenodd"
             stroke={
               face.id === hovered?.id
-                ? 'var(--color-accent-primary)'
+                ? 'var(--color-canvas-selection)'
                 : face.selectable
                   ? 'rgba(35, 190, 178, 0.62)'
                   : 'rgba(130, 140, 155, 0.4)'
@@ -205,7 +205,7 @@ export function ShapeBuilderOverlay({
             d={pathForRings([component.outer, ...component.holes], worldToCanvas)}
             fill="rgba(35, 190, 178, 0.09)"
             fillRule="evenodd"
-            stroke="var(--color-accent-primary)"
+            stroke="var(--color-canvas-selection)"
             strokeWidth={2}
             vectorEffect="non-scaling-stroke"
           />
