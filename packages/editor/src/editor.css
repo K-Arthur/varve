@@ -313,6 +313,16 @@ input[type="number"] {
    * always agree; the bar previously hard-coded 28px against a 24.8-28px
    * row and was silently clipped at narrow widths. */
   --statusbar-height: max(1.625rem, clamp(1.5rem, 1.45rem + 0.25vw, 1.75rem));
+  /* Total height of the header stack: menubar + context control bar + tab strip.
+   * Used by responsive panel drawers (<=899px) so they start below the header
+   * instead of covering the context control bar. */
+  --menubar-total-height: calc(
+    var(--topbar-height) +
+    var(--space-2) +
+    var(--toolbar-height) +
+    2px +
+    32px
+  );
   grid-template-areas:
     "menubar  menubar   menubar   logoarea"
     "tabs     tabs      tabs      logoarea"
@@ -329,7 +339,7 @@ input[type="number"] {
       --logo-panel-width,
       0px
     );
-  grid-template-rows: auto 32px minmax(120px, 1fr) auto auto auto var(--statusbar-height);
+  grid-template-rows: auto 32px minmax(120px, 1fr) auto auto auto auto var(--statusbar-height);
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -2116,11 +2126,15 @@ input[type="number"] {
   .editor__library-panel,
   .editor__logo-panel {
     position: fixed;
-    inset-block: 0;
+    /* Start below the header stack (menubar + context bar + tab strip)
+     * so the context control bar and tab strip remain visible and
+     * interactive even when a drawer is open. */
+    top: var(--menubar-total-height);
+    bottom: 0;
     grid-area: unset;
     margin: 0;
     z-index: var(--z-overlay);
-    height: 100dvh;
+    height: auto;
     width: var(--sidebar-width);
     background: var(--color-surface-raised);
     transform: translateX(-100%);
@@ -2977,7 +2991,8 @@ input[type="number"] {
   .editor__inspector-panel,
   .editor__library-panel {
     position: fixed;
-    inset-block: 0;
+    top: var(--menubar-total-height);
+    bottom: 0;
     grid-area: unset;
     margin: 0;
   }
@@ -3025,9 +3040,8 @@ input[type="number"] {
     transform: translateY(0);
   }
 
-  .editor__layers-panel {
-    height: 100dvh;
-  }
+  /* Layers stays a side drawer in portrait; the base rule's top/bottom
+   * already constrains it below the header. */
 }
 
 /* ── Portrait menubar consolidation ──
