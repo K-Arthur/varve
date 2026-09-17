@@ -58,6 +58,7 @@ import { isNodeEffectivelyLocked } from '../../scene/world';
 import { resolvePrimarySelectionId } from '../../selection/selectionContext';
 import { applySelectionRange, selectionRangeBetween } from '../../selection/selectionRange';
 import { loadSettings } from '../../settings';
+import { appliedRowHeight, subscribeInterfaceDensity } from '../../settings/interfaceDensity';
 import { getEffectStackInspectorTarget } from './effectStackNavigation';
 import type { LayerDropTarget } from './layerDropResolver';
 import type { LayerFilterSpec } from './layerFilterTypes';
@@ -358,6 +359,11 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     return init;
   });
   const [renamingId, setRenamingId] = useState<NodeId | null>(null);
+  // Row height for the virtualizer's estimate: the applied density mode's
+  // row-height contract. Re-rendered by the same signal that applies the
+  // root attribute, so estimateSize follows the mode immediately.
+  const [densityRowHeight, setDensityRowHeight] = useState<number>(() => appliedRowHeight());
+
   // True while DOM focus is inside the tree (or was dropped to body by a
   // focused row being removed) — drives focus retargeting after deletes,
   // filtering, and collapse.
@@ -544,7 +550,10 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   const virtualizer = useVirtualizer({
     count: entries.length,
     getScrollElement: () => treeRef.current,
-    estimateSize: () => 28,
+    // Density-aware estimate: the mode's row-height contract keeps estimate-
+    // driven scroll math (jump to index, overscan bounds before remeasure)
+    // honest. measureElement below remains the authoritative per-row size.
+    estimateSize: () => densityRowHeight,
     getItemKey: (i) => {
       const entry = entries[i];
       if (!entry) throw new Error('entry not found');
@@ -562,11 +571,26 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   const virtualizerRef = useRef<{
     scrollToIndex: (index: number, options?: Record<string, unknown>) => void;
     getVirtualItems: () => Array<{ index: number }>;
+    measure: () => void;
   } | null>(null);
   virtualizerRef.current = virtualizer as unknown as {
     scrollToIndex: (index: number, options?: Record<string, unknown>) => void;
     getVirtualItems: () => Array<{ index: number }>;
+    measure: () => void;
   };
+  // A density switch changes every row's min-height at once. Rows mounted
+  // after the switch measure themselves via measureElement, but the cached
+  // sizes of previously mounted rows and the estimate would keep the old
+  // geometry until then — re-measure immediately so scroll anchoring and the
+  // spacer height never go stale (no invisible focused rows after a switch).
+  useEffect(
+    () =>
+      subscribeInterfaceDensity(() => {
+        setDensityRowHeight(appliedRowHeight());
+        virtualizerRef.current?.measure();
+      }),
+    [],
+  );
   const focusIdxRef = useRef(focusIdx);
   focusIdxRef.current = focusIdx;
 
