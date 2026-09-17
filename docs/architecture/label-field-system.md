@@ -138,6 +138,36 @@ error copy belongs below the group.
   high-contrast adds visible edges to controls that are transparent-border in
   the regular themes.
 
+### Semantic compact widths
+
+A numeric field with a finite `min`/`max` (opacity, rotation, grid spacing —
+never position, most sizes) gets an intrinsic width instead of stretching
+across the whole control column: `compactFieldWidthCh(min, max, step)` in
+`NumberField.tsx` computes a `ch`-based width from the value's digit count,
+sign, and decimal precision, applied via `insp-num__control--compact` +
+an inline `flex`/`width: min(Nch, 100%)`. This is the fix for "some input
+boxes are unnecessarily large" — Opacity/Rotation-style fields no longer
+claim full-row width they can never use.
+
+**Gotcha (found twice in this system, 2026-09-17):** when a field's visible
+*label* is wider than its compact input — e.g. per-fill "Opacity (%)" sits
+above its 5ch value, stacked rather than inline — the container's min-width
+must be sized to the *label's* content, not the value's. Two real bugs
+shipped this way: `.insp-paint-row__opacity` had a `min-width: 8rem` rule
+silently overridden by a later, same-specificity rule setting `min-width: 0`
+for the same selector (cascade drops the earlier value per-property, not
+per-rule — a partial override is easy to miss in review), and the sibling
+`.insp-fill-row__properties` grid track allocated a fixed `8ch` to that same
+column independently, so even after the container's floor was fixed the
+label still had nowhere to render into. Both silently ellipsized "Opacity
+(%)" on every fill/stroke/effect row at normal (non-narrowed) panel width —
+caught by `design-tab-audit.spec.ts`, not by any unit test, because Vitest/RTL
+never lays out real CSS grid tracks. **When two rules target the same
+selector, check every property each one sets, not just the one you're
+touching — and search for every place a paired dimension (a container's
+min-width and its grid parent's track size) is hardcoded independently
+before assuming one edit is complete.**
+
 ```tsx
 // Editor Inspector pattern (specialized, not migrated)
 <FieldRow label="Opacity" htmlFor={opacityId}>
