@@ -22,7 +22,18 @@ import type {
 } from '@varve/scene';
 import { createStrokeId, defaultStroke } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
-import { Icon, Menu, type MenuEntry, Select, Switch } from '@varve/ui';
+import {
+  Icon,
+  Menu,
+  type MenuEntry,
+  Select,
+  Sortable,
+  type SortableEndResult,
+  SortableItem,
+  SortableItemHandle,
+  SortableOverlay,
+  Switch,
+} from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import {
@@ -187,8 +198,10 @@ function gradientSwatchBg(gradient: import('@varve/scene').GradientFill): string
 }
 
 export function StrokeSection({ nodes }: StrokeSectionProps) {
-  const { updateNode, beginTransaction, commitTransaction, announce } = useEditor();
+  const { updateNode, beginTransaction, commitTransaction, abortTransaction, announce } =
+    useEditor();
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const reorderActiveRef = useRef(false);
 
   const strokeNodes = useMemo(() => nodes.filter(hasStrokes), [nodes]);
 
@@ -251,18 +264,33 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
     [batchUpdate, announce],
   );
 
-  const reorderStroke = useCallback(
+  const applyStrokeReorder = useCallback(
     (from: number, to: number) => {
       if (from === to) return;
-      batchUpdate((strokes) => {
-        if (from < 0 || from >= strokes.length || to < 0 || to >= strokes.length) return strokes;
-        const next = [...strokes];
-        const [item] = next.splice(from, 1);
-        if (item) next.splice(to, 0, item);
-        return next;
-      });
+      for (const node of strokeNodes) {
+        updateNode(node.id, (current) => {
+          const strokeNode = current as StrokeNode;
+          const strokes = strokeNode.strokes ?? [];
+          if (from < 0 || from >= strokes.length || to < 0 || to >= strokes.length) {
+            return current;
+          }
+          const next = [...strokes];
+          const [item] = next.splice(from, 1);
+          if (item) next.splice(to, 0, item);
+          return { ...current, strokes: next };
+        });
+      }
     },
-    [batchUpdate],
+    [strokeNodes, updateNode],
+  );
+
+  const reorderStroke = useCallback(
+    (from: number, to: number) => {
+      beginTransaction();
+      applyStrokeReorder(from, to);
+      commitTransaction();
+    },
+    [applyStrokeReorder, beginTransaction, commitTransaction],
   );
 
   if (strokeNodes.length === 0) return null;
@@ -270,6 +298,58 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
   const minStrokes = Math.min(...strokeNodes.map((n) => n.strokes.length));
   const allEqual = strokeNodes.every((n) => n.strokes.length === minStrokes);
   const countMixed = !allEqual;
+  const strokeSortIds = useMemo(
+    () =>
+      Array.from(
+        { length: minStrokes },
+        (_, index) => `stroke-${strokeRowId(strokeNodes[0]!, index)}`,
+      ),
+    [minStrokes, strokeNodes],
+  );
+
+  const finishReorder = useCallback(
+    (cancel: boolean) => {
+      if (!reorderActiveRef.current) return;
+      reorderActiveRef.current = false;
+      if (cancel) abortTransaction();
+      else commitTransaction();
+    },
+    [abortTransaction, commitTransaction],
+  );
+
+  const startReorder = useCallback(() => {
+    if (reorderActiveRef.current) return;
+    reorderActiveRef.current = true;
+    beginTransaction();
+  }, [beginTransaction]);
+
+  const handleStrokeReorder = useCallback(
+    ({ event, items }: SortableEndResult) => {
+      if (!items) {
+        finishReorder(true);
+        return;
+      }
+      const activeId = String(event.active.id);
+      const from = strokeSortIds.indexOf(activeId);
+      const to = items.map(String).indexOf(activeId);
+      if (from >= 0 && to >= 0 && from !== to) {
+        applyStrokeReorder(from, to);
+        announce(`Moved ${from === 0 ? 'stroke' : `stroke ${from + 1}`} to position ${to + 1}`);
+      }
+      finishReorder(false);
+    },
+    [announce, applyStrokeReorder, finishReorder, strokeSortIds],
+  );
+
+  useEffect(
+    () => () => {
+      if (reorderActiveRef.current) {
+        reorderActiveRef.current = false;
+        commitTransaction();
+      }
+    },
+    [commitTransaction],
+  );
 
   return (
     <DisclosureSection
@@ -285,22 +365,47 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
       {strokeNodes.every((n) => n.strokes.length === 0) ? (
         <div className="insp-empty-message">No stroke</div>
       ) : (
-        Array.from({ length: minStrokes }, (_, i) => (
-          <StrokeRow
-            key={strokeRowId(strokeNodes[0]!, i)}
-            rowId={strokeRowId(strokeNodes[0]!, i)}
-            index={i}
-            totalStrokes={minStrokes}
-            nodes={strokeNodes}
-            expanded={expandedRows.has(strokeRowId(strokeNodes[0]!, i))}
-            onToggle={() => toggleRow(strokeRowId(strokeNodes[0]!, i))}
-            onChange={(updater) => updateStroke(i, updater)}
-            onRemove={() => removeStroke(i)}
-            onReorder={(dir) => reorderStroke(i, i + dir)}
-            canMoveUp={i > 0}
-            canMoveDown={i < minStrokes - 1}
-          />
-        ))
+        <Sortable
+          items={strokeSortIds}
+          layout="vertical"
+          onDragStart={startReorder}
+          onDragCancel={() => finishReorder(true)}
+          onReorder={handleStrokeReorder}
+          renderOverlay={(id) => {
+            const index = strokeSortIds.indexOf(String(id));
+            return (
+              <SortableOverlay className="insp-paint-stack__drag-overlay">
+                {index >= 0 ? (index === 0 ? 'Stroke' : `Stroke ${index + 1}`) : 'Stroke'}
+              </SortableOverlay>
+            );
+          }}
+        >
+          {Array.from({ length: minStrokes }, (_, i) => {
+            const rowId = strokeRowId(strokeNodes[0]!, i);
+            return (
+              <SortableItem
+                key={strokeSortIds[i]}
+                id={strokeSortIds[i]!}
+                className="insp-paint-stack__sortable-item"
+                data={{ type: 'stroke', index: i }}
+              >
+                <StrokeRow
+                  rowId={rowId}
+                  index={i}
+                  totalStrokes={minStrokes}
+                  nodes={strokeNodes}
+                  expanded={expandedRows.has(rowId)}
+                  onToggle={() => toggleRow(rowId)}
+                  onChange={(updater) => updateStroke(i, updater)}
+                  onRemove={() => removeStroke(i)}
+                  onReorder={(dir) => reorderStroke(i, i + dir)}
+                  canMoveUp={i > 0}
+                  canMoveDown={i < minStrokes - 1}
+                />
+              </SortableItem>
+            );
+          })}
+        </Sortable>
       )}
       {countMixed && minStrokes > 0 && (
         <div className="insp-empty-message">
@@ -535,43 +640,17 @@ function StrokeRow({
             placeholder="Mixed"
           />
         </div>
-        {/* Multi-stroke stacks get the same direct reorder/remove affordances
-            as multi-fill stacks; a single stroke keeps the row quiet and uses
-            the actions menu. */}
+        {/* Multi-stroke stacks expose one drag target. The labelled actions menu
+            retains arrow-key/menu reordering and removal without duplicating
+            destructive or positional icons in the primary row. */}
         {totalStrokes > 1 && (
-          <div className="insp-paint-row__reorder">
-            <button
-              type="button"
-              className="insp-paint-row__reorder-btn"
-              aria-label={`Move ${label.toLowerCase()} up`}
-              title={`Move ${label.toLowerCase()} up`}
-              disabled={!canMoveUp}
-              onClick={() => onReorder(-1)}
-            >
-              <Icon name="ChevronUp" size="0.75em" />
-            </button>
-            <button
-              type="button"
-              className="insp-paint-row__reorder-btn"
-              aria-label={`Move ${label.toLowerCase()} down`}
-              title={`Move ${label.toLowerCase()} down`}
-              disabled={!canMoveDown}
-              onClick={() => onReorder(1)}
-            >
-              <Icon name="ChevronDown" size="0.75em" />
-            </button>
-          </div>
-        )}
-        {totalStrokes > 1 && (
-          <button
-            type="button"
-            className="insp-paint-row__remove-btn"
-            aria-label={`Remove ${label.toLowerCase()}`}
-            title={`Remove ${label.toLowerCase()}`}
-            onClick={onRemove}
+          <SortableItemHandle
+            className="insp-paint-row__drag-handle"
+            aria-label={`Drag ${label.toLowerCase()} to reorder`}
+            title={`Drag ${label.toLowerCase()} to reorder`}
           >
-            <Icon name="X" size="0.75em" />
-          </button>
+            <Icon name="GripVertical" label={undefined} size="0.85em" />
+          </SortableItemHandle>
         )}
         <button
           type="button"

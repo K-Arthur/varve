@@ -26,6 +26,7 @@ import {
   Menu,
   type MenuEntry,
   Select,
+  SortableItemHandle,
   Switch,
 } from '@varve/ui';
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
@@ -56,6 +57,7 @@ import { ShadowParams } from './ShadowParams';
 
 export interface EffectRowProps {
   index: number;
+  totalEffects: number;
   nodes: EffectNode[];
   onChange: (updater: (e: Effect) => Effect) => void;
   onRemove: () => void;
@@ -310,6 +312,7 @@ export function EffectMaskControl({ nodes, index }: { nodes: EffectNode[]; index
 
 export function EffectRow({
   index,
+  totalEffects,
   nodes,
   onChange,
   onRemove,
@@ -483,6 +486,16 @@ export function EffectRow({
             />
             <span className="insp-inrow-blur__unit">px</span>
           </div>
+        )}
+
+        {totalEffects > 1 && (
+          <SortableItemHandle
+            className="insp-paint-row__drag-handle insp-effect-row__drag-handle"
+            aria-label={`Drag ${rowLabel} to reorder`}
+            title={`Drag ${rowLabel} to reorder`}
+          >
+            <Icon name="GripVertical" label={undefined} size="0.85em" />
+          </SortableItemHandle>
         )}
 
         <button

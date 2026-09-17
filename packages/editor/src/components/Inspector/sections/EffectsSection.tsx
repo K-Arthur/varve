@@ -9,9 +9,22 @@
  * Elevation Presets & 2D Light Direction controller.
  */
 import type { Effect, SceneNode } from '@varve/scene';
-import { cloneEffects, createDefaultEffect, layerEffectMoveTarget } from '@varve/scene';
-import { Icon, Menu, type MenuEntry } from '@varve/ui';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import {
+  cloneEffects,
+  createDefaultEffect,
+  layerEffectMoveTarget,
+  layerEffectStage,
+} from '@varve/scene';
+import {
+  Icon,
+  Menu,
+  type MenuEntry,
+  Sortable,
+  type SortableEndResult,
+  SortableItem,
+  SortableOverlay,
+} from '@varve/ui';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { EffectRow } from './effects/EffectRow';
@@ -32,11 +45,13 @@ export interface EffectsSectionProps {
 }
 
 export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
-  const { updateNode, beginTransaction, commitTransaction, announce } = useEditor();
+  const { updateNode, beginTransaction, commitTransaction, abortTransaction, announce } =
+    useEditor();
   const [newEffectType, setNewEffectType] = useState<Effect['type']>('dropShadow');
   // Effect just added via the picker below — that row should mount expanded
   // (ready to configure) instead of collapsed like the rest of the stack.
   const [lastAddedIndex, setLastAddedIndex] = useState<number | null>(null);
+  const reorderActiveRef = useRef(false);
 
   const effectNodes = useMemo(() => nodes.filter(hasEffects), [nodes]);
   const referenceEffects = useMemo(
@@ -127,26 +142,96 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
     [updateEffect, announce],
   );
 
+  const applyEffectReorder = useCallback(
+    (from: number, to: number) => {
+      const sourceReference = referenceEffects[from];
+      const targetReference = referenceEffects[to];
+      if (!sourceReference || !targetReference) return false;
+      if (layerEffectStage(sourceReference) !== layerEffectStage(targetReference)) return false;
+      for (const node of effectNodes) {
+        updateNode(node.id, (current) => {
+          const effects = (current as EffectNode).effects ?? [];
+          const sourceIndex = matchingEffectIndex(effects, from, sourceReference, referenceEffects);
+          const targetIndex = matchingEffectIndex(effects, to, targetReference, referenceEffects);
+          if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return current;
+          const next = [...effects];
+          const [item] = next.splice(sourceIndex, 1);
+          if (item) next.splice(targetIndex, 0, item);
+          return { ...current, effects: next };
+        });
+      }
+      return true;
+    },
+    [effectNodes, referenceEffects, updateNode],
+  );
+
   const reorderEffect = useCallback(
     (from: number, direction: -1 | 1) => {
-      const reference = referenceEffects[from];
-      batchUpdate((effects) => {
-        const sourceIndex = matchingEffectIndex(effects, from, reference, referenceEffects);
-        const targetIndex = layerEffectMoveTarget(effects, sourceIndex, direction);
-        if (sourceIndex < 0 || targetIndex < 0) return effects;
-        const next = [...effects];
-        const [item] = next.splice(sourceIndex, 1);
-        if (item) next.splice(targetIndex, 0, item);
-        return next;
-      });
+      const target = layerEffectMoveTarget(referenceEffects, from, direction);
+      if (target < 0) return;
+      beginTransaction();
+      applyEffectReorder(from, target);
+      commitTransaction();
     },
-    [batchUpdate, effectNodes, referenceEffects],
+    [applyEffectReorder, beginTransaction, commitTransaction, referenceEffects],
   );
 
   if (effectNodes.length === 0) return null;
 
   const rowCount = referenceEffects.length;
   const countMixed = !effectNodes.every((n) => (n.effects?.length ?? 0) === rowCount);
+  const effectSortIds = useMemo(
+    () => Array.from({ length: rowCount }, (_, index) => `effect-${index}`),
+    [rowCount],
+  );
+
+  const finishReorder = useCallback(
+    (cancel: boolean) => {
+      if (!reorderActiveRef.current) return;
+      reorderActiveRef.current = false;
+      if (cancel) abortTransaction();
+      else commitTransaction();
+    },
+    [abortTransaction, commitTransaction],
+  );
+
+  const startReorder = useCallback(() => {
+    if (reorderActiveRef.current) return;
+    reorderActiveRef.current = true;
+    beginTransaction();
+  }, [beginTransaction]);
+
+  const handleEffectReorder = useCallback(
+    ({ event, items }: SortableEndResult) => {
+      if (!items) {
+        finishReorder(true);
+        return;
+      }
+      const activeId = String(event.active.id);
+      const from = effectSortIds.indexOf(activeId);
+      const to = items.map(String).indexOf(activeId);
+      if (from >= 0 && to >= 0 && from !== to) {
+        const moved = applyEffectReorder(from, to);
+        announce(
+          moved
+            ? `Moved ${from === 0 ? 'effect' : `effect ${from + 1}`} to position ${to + 1}`
+            : 'Effects can be reordered within their processing stage',
+        );
+      }
+      finishReorder(false);
+    },
+    [announce, applyEffectReorder, effectSortIds, finishReorder],
+  );
+
+  useEffect(
+    () => () => {
+      if (reorderActiveRef.current) {
+        reorderActiveRef.current = false;
+        commitTransaction();
+      }
+    },
+    [commitTransaction],
+  );
 
   return (
     <DisclosureSection
@@ -159,25 +244,46 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
       {effectNodes.every((n) => (n.effects?.length ?? 0) === 0) ? (
         <div className="insp-empty-message">No effects</div>
       ) : (
-        Array.from({ length: rowCount }, (_, i) => {
-          const first = referenceEffects[i];
-          const rowKey = first?.id ?? `${i}-${first?.type ?? 'effect'}`;
-          return (
-            <EffectRow
-              key={rowKey}
-              index={i}
-              nodes={effectNodes}
-              onChange={(updater) => updateEffect(i, updater)}
-              onRemove={() => removeEffect(i)}
-              onDuplicate={() => duplicateEffect(i)}
-              onReset={() => resetEffect(i)}
-              onReorder={(dir: number) => reorderEffect(i, dir as -1 | 1)}
-              canMoveUp={layerEffectMoveTarget(referenceEffects, i, -1) >= 0}
-              canMoveDown={layerEffectMoveTarget(referenceEffects, i, 1) >= 0}
-              startExpanded={i === lastAddedIndex}
-            />
-          );
-        })
+        <Sortable
+          items={effectSortIds}
+          layout="vertical"
+          onDragStart={startReorder}
+          onDragCancel={() => finishReorder(true)}
+          onReorder={handleEffectReorder}
+          renderOverlay={(id) => {
+            const index = effectSortIds.indexOf(String(id));
+            return (
+              <SortableOverlay className="insp-paint-stack__drag-overlay">
+                {index >= 0 ? (index === 0 ? 'Effect' : `Effect ${index + 1}`) : 'Effect'}
+              </SortableOverlay>
+            );
+          }}
+        >
+          {Array.from({ length: rowCount }, (_, i) => {
+            return (
+              <SortableItem
+                key={effectSortIds[i]}
+                id={effectSortIds[i]!}
+                className="insp-paint-stack__sortable-item"
+                data={{ type: 'effect', index: i }}
+              >
+                <EffectRow
+                  index={i}
+                  totalEffects={rowCount}
+                  nodes={effectNodes}
+                  onChange={(updater) => updateEffect(i, updater)}
+                  onRemove={() => removeEffect(i)}
+                  onDuplicate={() => duplicateEffect(i)}
+                  onReset={() => resetEffect(i)}
+                  onReorder={(dir: number) => reorderEffect(i, dir as -1 | 1)}
+                  canMoveUp={layerEffectMoveTarget(referenceEffects, i, -1) >= 0}
+                  canMoveDown={layerEffectMoveTarget(referenceEffects, i, 1) >= 0}
+                  startExpanded={i === lastAddedIndex}
+                />
+              </SortableItem>
+            );
+          })}
+        </Sortable>
       )}
       {countMixed && rowCount > 0 && (
         <div className="insp-empty-message">Some selected nodes have additional effects</div>

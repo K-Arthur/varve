@@ -1116,74 +1116,42 @@
   min-width: 4.5rem;
 }
 
-.insp-paint-row__reorder {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
-  flex: 0 0 auto;
+/* Paint stacks use the shared dnd-kit handle. The two arrow commands remain
+ * available in the overflow menu as a precise keyboard fallback, while this
+ * single compact target keeps the visible row from carrying four
+ * reorder/remove icons. */
+.insp-paint-row .insp-paint-row__drag-handle {
+  min-inline-size: var(--component-compact-height);
+  min-block-size: var(--component-compact-height);
+  flex: 0 0 var(--component-compact-height);
 }
 
-.insp-paint-row__reorder-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.125rem;
-  height: 0.8125rem;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-control-compact, 2px);
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  line-height: 1;
-  transition:
-    background var(--duration-quick) var(--ease-standard),
-    color var(--duration-quick) var(--ease-standard);
+.insp-effect-row__drag-handle {
+  min-inline-size: var(--component-compact-height);
+  min-block-size: var(--component-compact-height);
+  flex: 0 0 var(--component-compact-height);
 }
 
-.insp-paint-row__reorder-btn:hover:not(:disabled) {
-  background: var(--color-surface-hover);
+/* Touch and stylus pointers get the larger target without making the default
+ * desktop inspector rows taller. */
+@media (any-pointer: coarse) {
+  .insp-paint-row .insp-paint-row__drag-handle,
+  .insp-effect-row__drag-handle {
+    min-inline-size: var(--touch-target-min);
+    min-block-size: var(--touch-target-min);
+    flex-basis: var(--touch-target-min);
+  }
+}
+
+.insp-paint-stack__sortable-item {
+  min-width: 0;
+}
+
+.insp-paint-stack__drag-overlay {
+  padding: var(--space-2) var(--space-3);
   color: var(--color-text-primary);
-}
-
-.insp-paint-row__reorder-btn:disabled {
-  opacity: 0.25;
-  cursor: not-allowed;
-}
-
-.insp-paint-row__reorder-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 1px;
-}
-
-.insp-paint-row__remove-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-control-compact, 4px);
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  flex: 0 0 auto;
-  transition:
-    background var(--duration-quick) var(--ease-standard),
-    color var(--duration-quick) var(--ease-standard);
-}
-
-.insp-paint-row__remove-btn:hover {
-  background: var(--color-feedback-danger-subtle, rgba(214, 69, 69, 0.12));
-  color: var(--color-feedback-danger, #d64545);
-}
-
-.insp-paint-row__remove-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 1px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
 }
 
 /* High-contrast: preserve the quiet grouping while strengthening its separator. */
@@ -2486,18 +2454,22 @@
   padding-top: var(--space-1);
 }
 
-/* Fill row properties: opacity (stacked fills only) plus the blend select.
- * Wraps instead of stacking so the pair shares the row's height. */
+/* Fill row properties: the frequent fill type and opacity values share one
+ * grid. The type absorbs available width; the bounded numeric field keeps its
+ * intrinsic width and aligns to the same trailing edge as other compact
+ * number fields. Low-frequency per-fill blend mode lives in the row menu or
+ * colour editor instead of repeating a full select in every row. */
 .insp-fill-row__properties {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* The visible label is wider than the bounded 0–100 input. Give that
+   * semantic column a stable text rail, then right-align the 5ch value inside
+   * it; otherwise the nested NumberField's flex basis steals the type column. */
+  grid-template-columns: minmax(0, 1fr) 8ch;
   align-items: center;
   gap: var(--space-2);
   padding-left: var(--space-4);
-}
-
-.insp-paint-property--blend {
-  grid-column: 1 / -1;
+  margin-inline-end: calc(-1 * var(--space-2));
+  min-width: 0;
 }
 
 .insp-paint-property {
@@ -2519,20 +2491,25 @@
 
 .insp-paint-row__opacity {
   display: flex;
+  inline-size: 100%;
+  justify-self: end;
   min-width: 0;
   flex-direction: column;
   gap: var(--space-1);
 }
 
-.insp-paint-row__opacity .insp-field,
-.insp-paint-row__opacity .insp-field__control {
-  width: 100%;
+.insp-paint-row__opacity .insp-field {
+  inline-size: 100%;
+  grid-template-columns: minmax(0, max-content);
 }
 
-/* Per-fill blend mode uses the same Select as Appearance, with a compact row
-   width while the popover variant remains full-width. */
-.insp-paint-type-select,
-.insp-paint-blend-select {
+.insp-paint-row__opacity .insp-field__control {
+  inline-size: 100%;
+  justify-content: flex-end;
+}
+
+/* The type select is the flexible member of the pair. */
+.insp-paint-type-select {
   inline-size: 100%;
   min-width: 0;
 }
@@ -5836,6 +5813,7 @@ fieldset.insp-canvas-props,
 
 .insp-paint-row__opacity .insp-field__label {
   min-width: auto;
+  min-height: 1rem;
   padding: 0 2px;
   font-size: var(--insp-label-size, var(--font-size-2xs));
   cursor: ew-resize;
@@ -6003,14 +5981,14 @@ fieldset.insp-canvas-props,
 
 .insp-effect-row__header {
   align-items: center;
-  display: grid;
+  display: flex;
   gap: var(--space-1);
-  grid-template-columns: auto auto auto auto minmax(0, 1fr) auto;
   min-width: 0;
   padding: var(--space-1) 0;
 }
 
 .insp-effect-row__name {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   color: var(--color-text-secondary);
@@ -6020,7 +5998,8 @@ fieldset.insp-canvas-props,
 }
 
 .insp-effect-row__menu-trigger {
-  justify-self: end;
+  flex: 0 0 auto;
+  margin-inline-start: auto;
 }
 
 .insp-focused-editor__portal {

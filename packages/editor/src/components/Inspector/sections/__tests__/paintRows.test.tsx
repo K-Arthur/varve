@@ -6,7 +6,7 @@
  * the document, the same boundary the Inspector uses at runtime. They pin the
  * behaviours the redesign adds on top of the 2026-09-16 fill pass:
  *
- *  - fill type is a compact labelled trigger, not a full-width combobox;
+ *  - fill type is a bounded, labelled select beside a bounded opacity field;
  *  - the row states its value (#hex / Gradient / Mixed) without opening a picker;
  *  - mixed selections are named, and paint edits never touch unpaintable nodes;
  *  - stroke dash presets replace raw-number-only entry, with the custom field
@@ -94,24 +94,28 @@ const stroke = (extra: Overrides = {}) => [
 ];
 
 describe('Fill row redesign', () => {
-  it('shows a compact type trigger and the solid hex value, not a type combobox', async () => {
+  it('shows a labelled type select and the solid hex value', async () => {
     renderWithSelection((nodes) => <FillSection nodes={nodes} />, [['fill-rect', solidFill(BLUE)]]);
 
-    const trigger = await screen.findByRole('button', { name: 'Fill type: Solid' });
+    const trigger = await screen.findByRole('combobox', { name: 'Fill type' });
     expect(trigger).toBeTruthy();
-    expect(screen.queryByRole('combobox', { name: 'Fill type' })).toBeNull();
+    expect(trigger).toHaveTextContent('Solid');
+    fireEvent.click(trigger);
+    expect(await screen.findAllByRole('option')).toHaveLength(4);
+    expect(document.querySelectorAll('.varve-select__option-icon')).toHaveLength(4);
+    fireEvent.click(trigger);
     // The value readout states the paint without opening the picker.
     expect(screen.getByText('#1478DC')).toBeTruthy();
   });
 
-  it('changes the fill type from the type menu and preserves the solid colour', async () => {
+  it('changes the fill type from the type select and preserves the solid colour', async () => {
     const { getCtx, ids } = renderWithSelection(
       (nodes) => <FillSection nodes={nodes} />,
       [['fill-rect', solidFill(BLUE)]],
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Fill type: Solid' }));
-    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Gradient' }));
+    fireEvent.click(await screen.findByRole('combobox', { name: 'Fill type' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Gradient' }));
 
     await waitFor(() => {
       const stored = getCtx()?.state.document.nodes[ids[0]!] as {
@@ -138,8 +142,8 @@ describe('Fill row redesign', () => {
       ],
     );
 
-    expect(await screen.findByRole('button', { name: 'Fill type: Solid' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Fill 2 type: Solid' })).toBeTruthy();
+    expect(await screen.findByRole('combobox', { name: 'Fill type' })).toHaveTextContent('Solid');
+    expect(screen.getByRole('combobox', { name: 'Fill 2 type' })).toHaveTextContent('Solid');
   });
 
   it('shows "Mixed" on the row when selected layers disagree, and says so in the name', async () => {
@@ -218,9 +222,12 @@ describe('Fill row redesign', () => {
       };
       expect(stored.fills?.[0]?.blendMode).toBe('multiply');
     });
-    // The row chip follows the committed value, staying in sync with the popover.
+    // The visible row control follows the committed value, staying in sync
+    // with the popover.
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /blend mode: multiply/i })).toBeTruthy();
+      expect(screen.getAllByRole('combobox', { name: 'Fill blend mode' })[0]).toHaveTextContent(
+        'Multiply',
+      );
     });
     // With a non-normal blend the row keeps the full hex: opacity moved to
     // the properties line beside the chip instead of squeezing the pill.
@@ -287,8 +294,8 @@ describe('Fill row redesign', () => {
       ],
     );
 
-    const chip = await screen.findByRole('button', { name: 'Fill blend mode: Normal' });
-    fireEvent.click(chip);
+    fireEvent.click(await screen.findByRole('button', { name: 'Fill actions' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /^Blend mode/ }));
     fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Multiply' }));
 
     await waitFor(() => {

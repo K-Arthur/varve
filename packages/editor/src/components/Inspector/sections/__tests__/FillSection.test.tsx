@@ -40,7 +40,7 @@ function renderSelectedSection(
 }
 
 describe('FillSection Redesign & Multi-Fill Controls', () => {
-  it('single fill: shows Op label, scrubbable opacity, hides reorder/remove buttons and default blend chip', async () => {
+  it('single fill: shows a scrubbable opacity field, hides direct stack clutter, and keeps actions labelled', async () => {
     const { nodeId, getCtx } = renderSelectedSection((nodes) => <FillSection nodes={nodes} />, {
       fills: [{ type: 'solid', color: colorA, opacity: 0.8, blendMode: 'normal', visible: true }],
     });
@@ -49,8 +49,9 @@ describe('FillSection Redesign & Multi-Fill Controls', () => {
     const input = await screen.findByLabelText('Fill opacity (%)');
     expect(input).toHaveValue('80');
 
-    // Visual label contains "Op"
-    const label = screen.getByText('Op');
+    // The visible label remains the scrub target while the input keeps its
+    // complete accessible name.
+    const label = screen.getByText('Opacity (%)');
     expect(label).toBeTruthy();
 
     // Reorder and remove buttons are NOT rendered for a single fill
@@ -73,7 +74,7 @@ describe('FillSection Redesign & Multi-Fill Controls', () => {
     });
   });
 
-  it('multi-fill stack: renders direct reorder arrows with correct boundary disabled states', async () => {
+  it('multi-fill stack: exposes drag handles and labelled menu reorder fallbacks', async () => {
     const { nodeId, getCtx } = renderSelectedSection((nodes) => <FillSection nodes={nodes} />, {
       fills: [
         { type: 'solid', color: colorA, opacity: 1, blendMode: 'normal', visible: true },
@@ -87,26 +88,36 @@ describe('FillSection Redesign & Multi-Fill Controls', () => {
     expect(screen.getByLabelText('Fill 2 opacity (%)')).toBeTruthy();
     expect(screen.getByLabelText('Fill 3 opacity (%)')).toBeTruthy();
 
-    // Fill 1 (index 0, bottom of stack): cannot move up, can move down
-    const fill1Up = screen.getByRole('button', { name: 'Move fill up' });
-    const fill1Down = screen.getByRole('button', { name: 'Move fill down' });
+    expect(screen.getByRole('button', { name: 'Drag fill to reorder' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Drag fill 2 to reorder' })).toBeTruthy();
+
+    // Fill 1 (index 0, bottom of stack): cannot move up, can move down.
+    fireEvent.click(screen.getByRole('button', { name: 'Fill actions' }));
+    const fill1Up = await screen.findByRole('menuitem', { name: 'Move fill up' });
+    const fill1Down = screen.getByRole('menuitem', { name: 'Move fill down' });
     expect(fill1Up).toBeDisabled();
     expect(fill1Down).not.toBeDisabled();
+    fireEvent.keyDown(fill1Up, { key: 'Escape' });
 
-    // Fill 2 (index 1, middle): can move up and can move down
-    const fill2Up = screen.getByRole('button', { name: 'Move fill 2 up' });
-    const fill2Down = screen.getByRole('button', { name: 'Move fill 2 down' });
+    // Fill 2 (index 1, middle): can move up and can move down.
+    fireEvent.click(screen.getByRole('button', { name: 'Fill 2 actions' }));
+    const fill2Up = await screen.findByRole('menuitem', { name: 'Move fill 2 up' });
+    const fill2Down = screen.getByRole('menuitem', { name: 'Move fill 2 down' });
     expect(fill2Up).not.toBeDisabled();
     expect(fill2Down).not.toBeDisabled();
+    fireEvent.keyDown(fill2Up, { key: 'Escape' });
 
-    // Fill 3 (index 2, top of stack): can move up, cannot move down
-    const fill3Up = screen.getByRole('button', { name: 'Move fill 3 up' });
-    const fill3Down = screen.getByRole('button', { name: 'Move fill 3 down' });
+    // Fill 3 (index 2, top of stack): can move up, cannot move down.
+    fireEvent.click(screen.getByRole('button', { name: 'Fill 3 actions' }));
+    const fill3Up = await screen.findByRole('menuitem', { name: 'Move fill 3 up' });
+    const fill3Down = screen.getByRole('menuitem', { name: 'Move fill 3 down' });
     expect(fill3Up).not.toBeDisabled();
     expect(fill3Down).toBeDisabled();
+    fireEvent.keyDown(fill3Up, { key: 'Escape' });
 
     // Click Move fill down on Fill 1: reorders Fill 1 to index 1
-    fireEvent.click(fill1Down);
+    fireEvent.click(screen.getByRole('button', { name: 'Fill actions' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Move fill down' }));
     await waitFor(() => {
       const stored = getCtx()?.state.document.nodes[nodeId] as {
         fills?: { color?: { r: number } }[];
@@ -117,7 +128,7 @@ describe('FillSection Redesign & Multi-Fill Controls', () => {
     });
   });
 
-  it('multi-fill stack: renders direct remove button for 1-click fill deletion', async () => {
+  it('multi-fill stack: keeps destructive removal in the labelled overflow menu', async () => {
     const { nodeId, getCtx } = renderSelectedSection((nodes) => <FillSection nodes={nodes} />, {
       fills: [
         { type: 'solid', color: colorA, opacity: 1, blendMode: 'normal', visible: true },
@@ -125,12 +136,15 @@ describe('FillSection Redesign & Multi-Fill Controls', () => {
       ],
     });
 
-    const removeFill1 = await screen.findByRole('button', { name: 'Remove fill' });
-    const removeFill2 = screen.getByRole('button', { name: 'Remove fill 2' });
-    expect(removeFill1).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: 'Fill actions' }));
+    expect(await screen.findByRole('menuitem', { name: 'Remove fill' })).toBeTruthy();
+    const removeFill1 = await screen.findByRole('menuitem', { name: 'Remove fill' });
+    fireEvent.keyDown(removeFill1, { key: 'Escape' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fill 2 actions' }));
+    const removeFill2 = await screen.findByRole('menuitem', { name: 'Remove fill 2' });
     expect(removeFill2).toBeTruthy();
 
-    // Click direct remove button on Fill 2
     fireEvent.click(removeFill2);
     await waitFor(() => {
       const stored = getCtx()?.state.document.nodes[nodeId] as { fills?: unknown[] };
@@ -138,7 +152,7 @@ describe('FillSection Redesign & Multi-Fill Controls', () => {
     });
   });
 
-  it('multi-fill stack: always displays blend mode chip and allows changing blend mode in 1 click', async () => {
+  it('multi-fill stack: keeps per-fill blend mode in the labelled actions menu', async () => {
     const { nodeId, getCtx } = renderSelectedSection((nodes) => <FillSection nodes={nodes} />, {
       fills: [
         { type: 'solid', color: colorA, opacity: 1, blendMode: 'normal', visible: true },
@@ -146,12 +160,8 @@ describe('FillSection Redesign & Multi-Fill Controls', () => {
       ],
     });
 
-    // Both fills display the blend chip even when normal
-    const blendChips = await screen.findAllByRole('button', { name: /blend mode/i });
-    expect(blendChips.length).toBe(2);
-
-    // Open blend mode menu on Fill 2
-    fireEvent.click(blendChips[1]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Fill 2 actions' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Blend mode/ }));
 
     // Select Multiply
     const multiplyOption = await screen.findByRole('menuitemradio', { name: 'Multiply' });
@@ -170,7 +180,7 @@ describe('FillSection Redesign & Multi-Fill Controls', () => {
       fills: [{ type: 'solid', color: colorA, opacity: 0.5, blendMode: 'normal', visible: true }],
     });
 
-    const label = await screen.findByText('Op');
+    const label = await screen.findByText('Opacity (%)');
     expect(label).toBeTruthy();
 
     // Start scrub gesture on the Op label
