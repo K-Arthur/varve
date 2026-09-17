@@ -1,12 +1,15 @@
 /* ─── Context Control Bar ────────────────────────────────────────────────── */
 
 .context-control-bar {
-  --context-toolbar-control-height: var(--component-compact-height);
+  /* Same density contract as the floating palette so both pro modes change
+   * the command surfaces together (see components.css --density-control-size). */
+  --context-toolbar-control-height: var(--density-control-size, var(--component-compact-height));
   display: flex;
   align-items: center;
   /* The contextual row is a toolbar surface too. Use the same border-box
    * height and vertical padding as the floating palette so switching between
-   * editing surfaces never moves the control centerline. */
+   * editing surfaces never moves the control centerline. Comfortable keeps
+   * the fluid clamp; Compact Pro compacts with its controls (override below). */
   min-height: calc(var(--toolbar-height) + 2px);
   height: auto;
   box-sizing: border-box;
@@ -284,12 +287,9 @@
   user-select: none;
 }
 
-/* The swatch trigger is a colour-well, not a chrome button: a filled round
- * face reads as the current value instead of another icon. */
+/* The swatch trigger keeps the shared 24px insp-swatch target (WCAG 2.5.8);
+ * the CCB previously shrank it to 20px, below the floor. */
 .context-control-bar .ccb__swatch.insp-swatch {
-  width: 20px;
-  height: 20px;
-  min-width: 20px;
   padding: 0;
   border-radius: var(--radius-control-compact);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-border-strong) 60%, transparent);
@@ -305,7 +305,11 @@
 }
 
 .ccb__btn--no-stroke {
+  /* One dash motif: the dashed well says "empty", the plus says what to do.
+   * The old dashed-circle icon inside the dashed well stacked two dash
+   * patterns and read as a broken image. */
   border: 1px dashed var(--color-border-strong);
+  color: var(--color-text-muted);
 }
 
 /* ── Compact field display (size, weight) ── */
@@ -350,6 +354,13 @@
   .context-control-bar {
     --context-toolbar-control-height: var(--touch-target-min);
   }
+}
+
+/* Compact Pro: the surface compacts with its 28px controls. The comfortable
+ * clamp above stays untouched so the default mode is pixel-identical to
+ * before. 28px keeps the WCAG 2.5.8 floor with headroom. */
+[data-density="compact"] .context-control-bar {
+  min-height: calc(var(--density-control-size) + 2 * var(--space-toolbar) + 2px);
 }
 
 [data-theme="high-contrast"] .ccb__btn:focus-visible,

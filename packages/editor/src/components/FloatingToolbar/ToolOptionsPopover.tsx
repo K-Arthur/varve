@@ -6,10 +6,18 @@ import {
   Switch,
   ToggleButton,
 } from '@varve/ui';
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import {
+  lazy,
+  type KeyboardEvent as ReactKeyboardEvent,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { type ToolId, useEditor } from '../../context';
 import { setToolOptionsHandler } from '../../context/toolOptionsBridge';
 import { toolLabel } from '../../tools/toolRegistry';
+import { NumberField } from '../Inspector/controls/NumberField';
 import { hasToolOptions } from '../Inspector/toolContext';
 import { type RetouchToolId, RetouchToolOptions } from './RetouchToolOptions';
 import './ToolOptionsPopover.css';
@@ -44,6 +52,67 @@ const DEFAULT_TEXT_CREATION_SETTINGS = {
   textOrientation: 'mixed' as const,
 };
 
+/**
+ * One segmented-control grammar for every mutually exclusive tool-option row.
+ * Roving tabindex with arrow keys (APG radiogroup): the marquee's Operation
+ * control already worked this way, the magic wand's did not, so the two
+ * visually identical groups behaved differently by keyboard.
+ */
+function SegmentedRadioGroup<T extends string>({
+  ariaLabel,
+  legend,
+  value,
+  options,
+  onChange,
+}: {
+  ariaLabel: string;
+  legend?: string;
+  value: T;
+  options: ReadonlyArray<{ value: T; label: string }>;
+  onChange: (value: T) => void;
+}) {
+  const move = (event: ReactKeyboardEvent<HTMLElement>, delta: number) => {
+    const index = options.findIndex((option) => option.value === value);
+    const next = options[(index + delta + options.length) % options.length]!;
+    onChange(next.value);
+    // Query the group, not the pressed button: currentTarget has no
+    // descendants, so the old node-scoped lookup silently no-oped.
+    const group = event.currentTarget.closest('[role="radiogroup"]');
+    const nextButton = group?.querySelectorAll('button')[options.indexOf(next)];
+    nextButton instanceof HTMLElement && nextButton.focus();
+  };
+  return (
+    <fieldset className="tool-options__operation">
+      {legend && <legend className="tool-options__label">{legend}</legend>}
+      <div className="tool-options__segmented" role="radiogroup" aria-label={ariaLabel}>
+        {options.map((option) => (
+          // biome-ignore lint/a11y/useSemanticElements: APG radiogroup uses buttons for the custom segmented control
+          <button
+            key={option.value}
+            type="button"
+            className={value === option.value ? 'is-active' : ''}
+            role="radio"
+            aria-checked={value === option.value}
+            tabIndex={value === option.value ? 0 : -1}
+            onClick={() => onChange(option.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                move(event, -1);
+              } else if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                move(event, 1);
+              }
+            }}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
 function AreaSelectionOptions({
   tool,
   settings,
@@ -53,47 +122,23 @@ function AreaSelectionOptions({
   settings: AreaSelectionSettings;
   onChange: (patch: Partial<AreaSelectionSettings>) => void;
 }) {
-  const numberValue = (value: string) => {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  };
   return (
     <div className="tool-options__selection" data-testid="marquee-options">
       <div className="tool-options__heading">
         {tool === 'ellipseMarquee' ? 'Elliptical' : 'Rectangular'} marquee
       </div>
-      <fieldset className="tool-options__operation">
-        <legend className="tool-options__label">Operation</legend>
-        <div className="tool-options__segmented" role="radiogroup" aria-label="Operation">
-          {(['replace', 'add', 'subtract', 'intersect'] as const).map(
-            (operation, index, operations) => (
-              // biome-ignore lint/a11y/useSemanticElements: APG radiogroup uses buttons for the custom segmented control
-              <button
-                key={operation}
-                type="button"
-                className={settings.operation === operation ? 'is-active' : ''}
-                role="radio"
-                aria-checked={settings.operation === operation}
-                tabIndex={settings.operation === operation ? 0 : -1}
-                aria-label={`${operation} selection`}
-                onClick={() => onChange({ operation })}
-                onKeyDown={(event) => {
-                  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-                  event.preventDefault();
-                  const delta = event.key === 'ArrowRight' ? 1 : -1;
-                  const nextIndex = (index + delta + operations.length) % operations.length;
-                  onChange({ operation: operations[nextIndex] });
-                  const next =
-                    event.currentTarget.parentElement?.querySelectorAll('button')[nextIndex];
-                  next instanceof HTMLElement && next.focus();
-                }}
-              >
-                {operation === 'replace' ? 'New' : operation[0]!.toUpperCase() + operation.slice(1)}
-              </button>
-            ),
-          )}
-        </div>
-      </fieldset>
+      <SegmentedRadioGroup
+        legend="Operation"
+        ariaLabel="Operation"
+        value={settings.operation}
+        options={[
+          { value: 'replace', label: 'New' },
+          { value: 'add', label: 'Add' },
+          { value: 'subtract', label: 'Subtract' },
+          { value: 'intersect', label: 'Intersect' },
+        ]}
+        onChange={(operation) => onChange({ operation })}
+      />
       <NativeSelect
         className="tool-options__field tool-options__native-select"
         label="Selection style"
@@ -106,55 +151,46 @@ function AreaSelectionOptions({
         ]}
       />
       {settings.style === 'fixed-ratio' && (
-        <label className="tool-options__field">
-          <span>Ratio</span>
-          <input
-            aria-label="Selection ratio"
-            type="number"
-            min="0.01"
-            step="0.01"
-            value={settings.ratio}
-            onChange={(event) => onChange({ ratio: numberValue(event.target.value) })}
-          />
-        </label>
+        <NumberField
+          label="Ratio (width over height)"
+          displayLabel="Ratio"
+          value={settings.ratio}
+          min={0.01}
+          step={0.01}
+          onChange={(ratio) => onChange({ ratio })}
+        />
       )}
       {settings.style === 'fixed-size' && (
         <div className="tool-options__field-row">
-          <label className="tool-options__field">
-            <span>Width</span>
-            <input
-              aria-label="Selection width"
-              type="number"
-              min="0"
-              step="1"
-              value={settings.fixedWidth}
-              onChange={(event) => onChange({ fixedWidth: numberValue(event.target.value) })}
-            />
-          </label>
-          <label className="tool-options__field">
-            <span>Height</span>
-            <input
-              aria-label="Selection height"
-              type="number"
-              min="0"
-              step="1"
-              value={settings.fixedHeight}
-              onChange={(event) => onChange({ fixedHeight: numberValue(event.target.value) })}
-            />
-          </label>
+          <NumberField
+            label="Selection width"
+            displayLabel="Width"
+            unit="px"
+            value={settings.fixedWidth}
+            min={0}
+            step={1}
+            onChange={(fixedWidth) => onChange({ fixedWidth })}
+          />
+          <NumberField
+            label="Selection height"
+            displayLabel="Height"
+            unit="px"
+            value={settings.fixedHeight}
+            min={0}
+            step={1}
+            onChange={(fixedHeight) => onChange({ fixedHeight })}
+          />
         </div>
       )}
-      <label className="tool-options__field">
-        <span>Feather (document px)</span>
-        <input
-          aria-label="Selection feather"
-          type="number"
-          min="0"
-          step="0.5"
-          value={settings.feather}
-          onChange={(event) => onChange({ feather: numberValue(event.target.value) })}
-        />
-      </label>
+      <NumberField
+        label="Selection feather"
+        displayLabel="Feather"
+        unit="px"
+        value={settings.feather}
+        min={0}
+        step={0.5}
+        onChange={(feather) => onChange({ feather })}
+      />
       <Switch
         className="tool-options__check"
         label="Anti-alias edges"
@@ -186,23 +222,18 @@ function MagicWandOptions({
   return (
     <div className="tool-options__selection" data-testid="magicwand-options">
       <div className="tool-options__heading">Magic Wand</div>
-      <fieldset className="tool-options__operation">
-        <legend className="tool-options__label">Operation</legend>
-        <div className="tool-options__segmented">
-          {(['replace', 'add', 'subtract', 'intersect'] as const).map((op) => (
-            <button
-              key={op}
-              type="button"
-              className={settings.operation === op ? 'is-active' : ''}
-              aria-pressed={settings.operation === op}
-              aria-label={`${op} selection`}
-              onClick={() => onChange({ operation: op })}
-            >
-              {op.charAt(0).toUpperCase() + op.slice(1)}
-            </button>
-          ))}
-        </div>
-      </fieldset>
+      <SegmentedRadioGroup
+        legend="Operation"
+        ariaLabel="Operation"
+        value={settings.operation}
+        options={[
+          { value: 'replace', label: 'Replace' },
+          { value: 'add', label: 'Add' },
+          { value: 'subtract', label: 'Subtract' },
+          { value: 'intersect', label: 'Intersect' },
+        ]}
+        onChange={(operation) => onChange({ operation })}
+      />
       <label className="tool-options__field">
         <span className="tool-options__label">Tolerance</span>
         <input
@@ -227,27 +258,16 @@ function MagicWandOptions({
         />
         <span className="tool-options__value">{settings.edgeFeather}</span>
       </label>
-      <fieldset className="tool-options__operation">
-        <legend className="tool-options__label">Mode</legend>
-        <div className="tool-options__segmented">
-          <button
-            type="button"
-            className={settings.mode === 'contiguous' ? 'is-active' : ''}
-            aria-pressed={settings.mode === 'contiguous'}
-            onClick={() => onChange({ mode: 'contiguous' })}
-          >
-            Contiguous
-          </button>
-          <button
-            type="button"
-            className={settings.mode === 'global' ? 'is-active' : ''}
-            aria-pressed={settings.mode === 'global'}
-            onClick={() => onChange({ mode: 'global' })}
-          >
-            Global
-          </button>
-        </div>
-      </fieldset>
+      <SegmentedRadioGroup
+        legend="Mode"
+        ariaLabel="Selection mode"
+        value={settings.mode}
+        options={[
+          { value: 'contiguous', label: 'Contiguous' },
+          { value: 'global', label: 'Global' },
+        ]}
+        onChange={(mode) => onChange({ mode })}
+      />
       <p className="tool-options__hint">
         Click on an image to select similar colours. Shift adds, Alt subtracts.
       </p>
@@ -275,8 +295,8 @@ function TextToolOptions({
         onValueChange={(value) => onChange({ writingMode: value as typeof settings.writingMode })}
         options={[
           { value: 'horizontal-tb', label: 'Horizontal' },
-          { value: 'vertical-rl', label: 'Vertical — right to left' },
-          { value: 'vertical-lr', label: 'Vertical — left to right' },
+          { value: 'vertical-rl', label: 'Vertical right-to-left' },
+          { value: 'vertical-lr', label: 'Vertical left-to-right' },
         ]}
       />
       <NativeSelect
@@ -287,7 +307,7 @@ function TextToolOptions({
           onChange({ textOrientation: value as typeof settings.textOrientation })
         }
         options={[
-          { value: 'mixed', label: 'Mixed (standard vertical)' },
+          { value: 'mixed', label: 'Mixed (vertical)' },
           { value: 'upright', label: 'Upright' },
           { value: 'sideways', label: 'Sideways' },
         ]}

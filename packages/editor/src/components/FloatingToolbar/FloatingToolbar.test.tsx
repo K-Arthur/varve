@@ -11,7 +11,7 @@ import {
   updateWorkspacePreferences,
 } from '../../workspace/workspaceStore';
 import type { WorkspaceMode } from '../../workspace/workspaceTypes';
-import { FloatingToolbar } from './FloatingToolbar';
+import { FloatingToolbar, getFlyoutMenuItems } from './FloatingToolbar';
 
 function SetWorkspaceMode({ mode }: { mode: WorkspaceMode }) {
   const { requestWorkspaceSwitch } = useEditor();
@@ -174,5 +174,43 @@ describe('FloatingToolbar — per-mode tool adaptation', () => {
     updateWorkspacePreferences((prefs) => setToolbarPlacementOverride(prefs, 'design', 'bottom'));
     await waitFor(() => expect(palette).toHaveAttribute('data-placement', 'bottom'));
     expect(getWorkspacePreferences().design.toolbarPlacement).toBeUndefined();
+  });
+});
+
+describe('getFlyoutMenuItems — boolean precondition truth', () => {
+  const booleanFlyout = {
+    kind: 'flyout' as const,
+    id: 'boolean',
+    label: 'Boolean operations',
+    groupStart: true,
+    tools: ['booleanUnion', 'booleanSubtract', 'booleanIntersect', 'booleanExclude'],
+  };
+  const shapesFlyout = {
+    kind: 'flyout' as const,
+    id: 'shapes',
+    label: 'Shapes',
+    tools: ['rect', 'ellipse'],
+  };
+  const activate = () => undefined;
+  const onClose = () => undefined;
+
+  it('disables boolean members while the selection precondition fails', () => {
+    const items = getFlyoutMenuItems(booleanFlyout as never, false, activate, onClose);
+    expect(items).toHaveLength(4);
+    expect(items.every((item) => item.disabled === true)).toBe(true);
+  });
+
+  it('keeps boolean members enabled once the precondition holds', () => {
+    const items = getFlyoutMenuItems(booleanFlyout as never, true, activate, onClose);
+    expect(items.every((item) => item.disabled !== true)).toBe(true);
+  });
+
+  it('never applies the boolean rule to other flyouts', () => {
+    const items = getFlyoutMenuItems(shapesFlyout as never, false, activate, onClose);
+    expect(items.every((item) => item.disabled !== true)).toBe(true);
+  });
+
+  it('returns no entries when no flyout is open', () => {
+    expect(getFlyoutMenuItems(undefined, true, activate, onClose)).toEqual([]);
   });
 });

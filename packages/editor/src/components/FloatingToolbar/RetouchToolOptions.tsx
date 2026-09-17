@@ -246,16 +246,20 @@ function SamplingScope({
   onChange: (value: RetouchSamplingScope) => void;
 }) {
   return (
-    <Select
-      label="Sampling scope"
-      value={value}
-      options={[
-        { value: 'current', label: 'Current layer' },
-        { value: 'below', label: 'Current and below' },
-        { value: 'allVisible', label: 'All visible layers' },
-      ]}
-      onChange={(next) => onChange(next as RetouchSamplingScope)}
-    />
+    <div className="tool-options__field">
+      <span className="tool-options__label">Sampling</span>
+      <Select
+        className="tool-options__scope-select"
+        label="Sampling scope"
+        value={value}
+        options={[
+          { value: 'current', label: 'Current layer' },
+          { value: 'below', label: 'Current and below' },
+          { value: 'allVisible', label: 'All visible layers' },
+        ]}
+        onChange={(next) => onChange(next as RetouchSamplingScope)}
+      />
+    </div>
   );
 }
 

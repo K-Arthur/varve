@@ -2399,6 +2399,10 @@
   --density-icon-size: 16px;
   --density-font-size: var(--font-size-sm);
   --density-avatar-size: 20px;
+  /* Command surfaces (tool palette, context bar, quick bars) share the row
+   * contract so both pro modes change the same chrome. 32px keeps the WCAG
+   * 2.5.8 floor with headroom; compact drops to 28px, still above 24px. */
+  --density-control-size: 32px;
 }
 
 [data-density="compact"] {
@@ -2408,6 +2412,7 @@
   --density-icon-size: 14px;
   --density-font-size: var(--font-size-xs);
   --density-avatar-size: 16px;
+  --density-control-size: 28px;
 }
 
 [data-density="cozy"] {
@@ -2417,6 +2422,7 @@
   --density-icon-size: 18px;
   --density-font-size: var(--font-size-md);
   --density-avatar-size: 24px;
+  --density-control-size: 36px;
 }
 
 /* ════════════════════════════════════════════════════════════════════

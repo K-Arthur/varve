@@ -208,7 +208,7 @@ export function ShapeQuickControls({
             aria-label="Add stroke"
             onClick={addStroke}
           >
-            <Icon name="CircleDashed" size={16} />
+            <Icon name="Plus" size={16} />
           </button>
         </Tooltip>
       )}

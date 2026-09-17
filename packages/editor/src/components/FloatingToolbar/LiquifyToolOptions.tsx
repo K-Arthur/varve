@@ -121,18 +121,18 @@ export function LiquifyOptionsPanel() {
         </p>
       )}
 
-      <div className="liquify-options__field">
-        <span className="liquify-options__label">Size</span>
-        <NumberField
-          label="Size"
-          value={Math.round(options.brushSize)}
-          min={4}
-          max={4000}
-          step={4}
-          unit="px"
-          onChange={(value) => update('brushSize', value)}
-        />
-      </div>
+      {/* The NumberField row carries its own visible label; an outer "Size"
+       * span labelled the row twice (Size / SIZE (PX)). */}
+      <NumberField
+        label="Liquify brush size"
+        displayLabel="Size"
+        value={Math.round(options.brushSize)}
+        min={4}
+        max={4000}
+        step={4}
+        unit="px"
+        onChange={(value) => update('brushSize', value)}
+      />
 
       <label className="liquify-options__slider">
         <span className="liquify-options__label">

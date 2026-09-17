@@ -258,7 +258,9 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
             aria-label="Toggle artboard ruler origin"
             className={`editor-status__toggle${state.rulerMode === 'artboard' ? ' editor-status__toggle--active' : ''}`}
           >
-            AB
+            {/* The old literal "AB" text was not guessable and sat out of
+             * alignment with the icon toggles beside it. */}
+            <Icon name="Ruler" size={12} />
           </button>
         </Tooltip>
         <Tooltip label="Baseline grid" shortcut={sc('gridOverlayBaseline')}>

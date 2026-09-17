@@ -1,5 +1,8 @@
 .floating-toolbar {
-  --floating-toolbar-control-height: var(--component-compact-height);
+  /* The palette obeys the density contract: comfortable = 32px controls,
+   * compact = 28px. Coarse pointers promote to --touch-target-min below and
+   * that promotion must keep winning (it appears later in this file). */
+  --floating-toolbar-control-height: var(--density-control-size, var(--component-compact-height));
   /* Stack in the canvas grid cell so the tool palette sits above page chrome
    * without viewport-fixed math fighting SelectionInfoBar / status / page-nav. */
   grid-area: canvas;
@@ -82,6 +85,14 @@
   background: transparent;
 }
 
+/* Compact Pro: the palette row compacts with its 28px controls instead of the
+ * viewport-fluid toolbar clamp (which density never changes). Comfortable is
+ * pixel-identical to before. The row's own 1px borders complete the border box
+ * to match the context bar/text-bar compact minimums (+2px). */
+[data-density="compact"] .floating-toolbar [role="toolbar"] {
+  min-block-size: calc(var(--density-control-size) + 2 * var(--space-toolbar));
+}
+
 .floating-toolbar__actions {
   display: flex;
   align-items: center;
@@ -107,6 +118,17 @@
   transition:
     background-color 120ms ease,
     color 120ms ease;
+}
+
+/* The palette owns the box of the primitives it renders: the sm toggle and
+ * icon buttons hard-code the compact tier (--component-compact-height), which
+ * does not follow density — scope them to the palette's density-aware height
+ * so Compact Pro actually compacts the toolbar (28px, still ≥ 24px). */
+.floating-toolbar .varve-toggle-btn--sm,
+.floating-toolbar .varve-btn--icon-sm {
+  inline-size: var(--floating-toolbar-control-height);
+  min-inline-size: var(--floating-toolbar-control-height);
+  min-block-size: var(--floating-toolbar-control-height);
 }
 
 .floating-toolbar__btn:hover {
@@ -168,7 +190,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 14px;
+  /* 24px hit area (WCAG 2.2 SC 2.5.8): the glyph stays 14px wide, the target
+   * does not. The adjacent primary button would defeat the spacing exception,
+   * so the hit width itself must carry the minimum. */
+  width: 24px;
   height: var(--floating-toolbar-control-height);
   background: transparent;
   border: none;
@@ -273,6 +298,12 @@
   letter-spacing: 0.05em;
   color: var(--color-text-muted);
 }
+.floating-toolbar__drawing-value {
+  min-width: 3.5ch;
+  font-size: var(--font-size-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+}
 .floating-toolbar__drawing-slider {
   width: 5.5rem;
   accent-color: var(--color-interactive-default);
@@ -294,8 +325,10 @@
 .floating-toolbar__color-swatch {
   position: relative;
   display: block;
-  width: 20px;
-  height: 20px;
+  /* 24px target: the swatch face is the click target (it wraps the hidden
+   * colour input), so it carries the WCAG 2.5.8 minimum itself. */
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   cursor: pointer;
 }
@@ -333,9 +366,16 @@
 }
 
 @media (hover: none), (pointer: coarse) {
-  .floating-toolbar__btn {
+  /* Element rules must also cover the scoped primitive overrides above, or
+   * the 44px touch promotion loses to them (higher specificity). */
+  .floating-toolbar__btn,
+  .floating-toolbar .varve-toggle-btn--sm,
+  .floating-toolbar .varve-btn--icon-sm {
     width: var(--touch-target-min);
     height: var(--touch-target-min);
+    inline-size: var(--touch-target-min);
+    min-inline-size: var(--touch-target-min);
+    min-block-size: var(--touch-target-min);
   }
   .floating-toolbar__btn:hover {
     background: transparent;

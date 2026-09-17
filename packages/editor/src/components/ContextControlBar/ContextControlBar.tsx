@@ -28,6 +28,7 @@ import { Icon, Select, Toolbar, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import { getTextEditSessionNodeId, subscribeTextEditSession } from '../../context/textEditSession';
+import { formatShortcut, getEffectiveBinding } from '../../shortcuts/ShortcutManager';
 import { type FontFaceSelection, FontSelector } from '../FontBrowser/FontSelector';
 import {
   fontFamilyChanges,
@@ -88,11 +89,17 @@ function CcbButton({
 
 /* ── Context sections ────────────────────────────────────────────── */
 
+/** Display shortcut for a registered id, resolved like the status bar does —
+ *  never a hard-coded letter (remapped bindings must not lie). */
+function toolKeyHint(shortcutId: string): string {
+  return formatShortcut(getEffectiveBinding(shortcutId));
+}
+
 function EmptySection({ setTool }: { setTool: (id: ToolId) => void }) {
   return (
     <>
       <span className="ccb__hint">No selection —</span>
-      <Tooltip label="Create frame (F)">
+      <Tooltip label={`Create frame (${toolKeyHint('toolFrame')})`}>
         <button
           type="button"
           className="ccb__tool-pill"
@@ -101,10 +108,10 @@ function EmptySection({ setTool }: { setTool: (id: ToolId) => void }) {
         >
           <Icon name="Frame" size={16} />
           <span>Frame</span>
-          <kbd className="ccb__kbd">F</kbd>
+          <kbd className="ccb__kbd">{toolKeyHint('toolFrame')}</kbd>
         </button>
       </Tooltip>
-      <Tooltip label="Draw rectangle (R)">
+      <Tooltip label={`Draw rectangle (${toolKeyHint('toolRect')})`}>
         <button
           type="button"
           className="ccb__tool-pill"
@@ -113,10 +120,10 @@ function EmptySection({ setTool }: { setTool: (id: ToolId) => void }) {
         >
           <Icon name="Square" size={16} />
           <span>Rect</span>
-          <kbd className="ccb__kbd">R</kbd>
+          <kbd className="ccb__kbd">{toolKeyHint('toolRect')}</kbd>
         </button>
       </Tooltip>
-      <Tooltip label="Add text (T)">
+      <Tooltip label={`Add text (${toolKeyHint('toolText')})`}>
         <button
           type="button"
           className="ccb__tool-pill"
@@ -125,10 +132,10 @@ function EmptySection({ setTool }: { setTool: (id: ToolId) => void }) {
         >
           <Icon name="Type" size={16} />
           <span>Text</span>
-          <kbd className="ccb__kbd">T</kbd>
+          <kbd className="ccb__kbd">{toolKeyHint('toolText')}</kbd>
         </button>
       </Tooltip>
-      <Tooltip label="Pen tool (P)">
+      <Tooltip label={`Pen tool (${toolKeyHint('toolPen')})`}>
         <button
           type="button"
           className="ccb__tool-pill"
@@ -137,7 +144,7 @@ function EmptySection({ setTool }: { setTool: (id: ToolId) => void }) {
         >
           <Icon name="Pen" size={16} />
           <span>Pen</span>
-          <kbd className="ccb__kbd">P</kbd>
+          <kbd className="ccb__kbd">{toolKeyHint('toolPen')}</kbd>
         </button>
       </Tooltip>
     </>

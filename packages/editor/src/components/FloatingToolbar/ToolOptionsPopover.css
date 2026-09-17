@@ -22,7 +22,10 @@
 .tool-options__selection {
   display: grid;
   gap: var(--space-3);
-  min-inline-size: 18rem;
+  /* Wide enough that the text options' longest select label ("Vertical
+   * right-to-left") fits the closed control; native selects cannot ellipsize
+   * their closed state portably. */
+  min-inline-size: 20rem;
   padding: var(--space-3);
 }
 
@@ -48,20 +51,20 @@
 }
 
 .tool-options__segmented {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1px;
+  display: flex;
   overflow: hidden;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
 }
 
 .tool-options__segmented button {
+  flex: 1 1 0;
   min-block-size: 2rem;
   border: 0;
   background: var(--color-surface-sunken);
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
+  white-space: nowrap;
 }
 
 .tool-options__segmented button:hover,
@@ -87,30 +90,57 @@
   flex: 1;
 }
 
-.tool-options__field input,
-.tool-options__field select,
-.tool-options__field .varve-native-select__control {
-  inline-size: 7rem;
-  min-block-size: 2rem;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  background: var(--color-surface-sunken);
+/* Sliders use the interactive accent like every other range in the toolbar
+ * family; the browser-default blue leaked through before. */
+.tool-options__field input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  accent-color: var(--color-interactive-default);
+}
+
+.tool-options__value {
+  min-width: 2.5ch;
+  text-align: end;
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
   color: var(--color-text-primary);
-  padding-inline: var(--space-2);
+}
+
+.tool-options__field-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.tool-options__field-row > * {
+  min-inline-size: 0;
+  flex: 1;
 }
 
 .tool-options__native-select {
   flex-direction: row;
 }
 
+/* Selects size to their longest option within a bound: the fixed 7rem field
+ * width ellipsized option labels in the text options panel (native selects
+ * cannot ellipsize their closed state portably). The selection panel is wide
+ * enough to give the control its content width. */
+.tool-options__native-select .varve-native-select__control {
+  inline-size: auto;
+  min-width: 7rem;
+  max-width: 12rem;
+}
+
+/* Bounded trigger for labeled selects (retouch sampling scope) so the row
+ * keeps the label/value grammar of its siblings. */
+.tool-options__scope-select .varve-select__trigger {
+  inline-size: 9rem;
+}
+
 .tool-options__native-select .varve-native-select__label {
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   font-weight: 600;
-}
-
-.tool-options__field-row input {
-  inline-size: 100%;
 }
 
 .tool-options__check {

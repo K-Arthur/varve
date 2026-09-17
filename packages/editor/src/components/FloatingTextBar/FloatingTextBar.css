@@ -29,7 +29,8 @@
   width: max-content;
   /* Match the main palette's border-box geometry at every viewport. The
    * shared toolbar height is fluid by design, so a wide canvas does not leave
-   * the text bar visibly shorter than the palette it sits beside. */
+   * the text bar visibly shorter than the palette it sits beside. Compact Pro
+   * compacts with its controls (override below). */
   min-block-size: calc(var(--toolbar-height) + 2px);
   max-width: calc(100vw - 24px);
   white-space: nowrap;
@@ -61,6 +62,29 @@
   color: var(--color-text-secondary);
   cursor: pointer;
   flex-shrink: 0;
+}
+
+/* Scope the text bar's primitives to its density-aware control height: the
+ * sm toggle and the font-family input hard-code the 32px compact tier. */
+.floating-text-bar .varve-toggle-btn--sm,
+.floating-text-bar .varve-btn--icon-sm {
+  inline-size: var(--text-toolbar-control-height);
+  min-inline-size: var(--text-toolbar-control-height);
+  min-block-size: var(--text-toolbar-control-height);
+}
+
+.floating-text-bar .font-selector__input {
+  height: var(--text-toolbar-control-height);
+  min-height: var(--text-toolbar-control-height);
+  padding-block: 0;
+}
+
+.floating-text-bar__weight-select .varve-select__trigger {
+  height: var(--text-toolbar-control-height);
+  min-height: var(--text-toolbar-control-height);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
 }
 
 .floating-text-bar__btn:hover,
@@ -176,4 +200,10 @@
 [data-theme="high-contrast"] .floating-text-bar__btn--active {
   outline: 2px solid var(--color-border-strong);
   outline-offset: 1px;
+}
+
+/* Compact Pro compacts the surface with its 28px controls; the comfortable
+ * fluid clamp above stays untouched (see ContextControlBar for the same rule). */
+[data-density="compact"] .floating-text-bar {
+  min-block-size: calc(var(--density-control-size) + 2 * var(--space-toolbar) + 2px);
 }

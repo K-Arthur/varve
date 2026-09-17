@@ -197,6 +197,29 @@ function categoryLabel(category: string): string {
   return category.replace(/^./, (letter) => letter.toUpperCase());
 }
 
+/**
+ * Menu entries for a rendered flyout. Boolean members disable when the
+ * precondition fails — the same truth the overflow menu applies — so a menu
+ * left open across a selection change cannot present runnable-looking
+ * members that would silently no-op.
+ */
+export function getFlyoutMenuItems(
+  openFlyout: ToolbarFlyoutSlot | undefined,
+  canBoolean: boolean,
+  activate: (flyoutId: string, toolId: ToolId) => void,
+  onClose: () => void,
+): MenuEntry[] {
+  return (openFlyout?.tools ?? []).map((id) => ({
+    id,
+    label: toolLabel(id),
+    disabled: openFlyout?.id === ACTION_FLYOUT_ID && !canBoolean,
+    onAction: () => {
+      if (openFlyout) activate(openFlyout.id, id);
+      onClose();
+    },
+  }));
+}
+
 function getOverflowMenuItems(
   slots: ToolbarSlot[],
   canBoolean: boolean,
@@ -295,7 +318,10 @@ function DrawingToolbarControls() {
         aria-label="Brush size"
         aria-valuetext={`${state.brushSettings.radius}px`}
       />
-      <span className="floating-toolbar__drawing-label">Op</span>
+      <span className="floating-toolbar__drawing-value" aria-hidden="true">
+        {state.brushSettings.radius}px
+      </span>
+      <span className="floating-toolbar__drawing-label">Opacity</span>
       <input
         type="range"
         className="varve-native-range floating-toolbar__drawing-slider"
@@ -306,6 +332,9 @@ function DrawingToolbarControls() {
         aria-label="Opacity"
         aria-valuetext={`${Math.round(state.brushSettings.opacity * 100)}%`}
       />
+      <span className="floating-toolbar__drawing-value" aria-hidden="true">
+        {Math.round(state.brushSettings.opacity * 100)}%
+      </span>
       <div className="floating-toolbar__colors">
         <label className="floating-toolbar__color-swatch">
           <input
@@ -457,19 +486,14 @@ export function FloatingToolbar() {
   const openFlyout = slots.find(
     (slot): slot is ToolbarFlyoutSlot => slot.kind === 'flyout' && slot.id === openMenu?.id,
   );
-  const menuItems: MenuEntry[] = (openFlyout?.tools ?? []).map((id) => ({
-    id,
-    label: toolLabel(id),
-    onAction: () => {
-      if (openFlyout) activate(openFlyout.id, id);
-      setOpenMenu(null);
-    },
-  }));
   const isMoreToolsOpen = openMenu?.id === RESPONSIVE_MORE_ID;
   const overflowMenuItems = getOverflowMenuItems(collapsedSlots, canBoolean, activate, () =>
     setOpenMenu(null),
   );
-  const contextMenuItems = isMoreToolsOpen ? overflowMenuItems : menuItems;
+  const flyoutMenuItems = getFlyoutMenuItems(openFlyout, canBoolean, activate, () =>
+    setOpenMenu(null),
+  );
+  const contextMenuItems = isMoreToolsOpen ? overflowMenuItems : flyoutMenuItems;
   const contextMenuLabel = isMoreToolsOpen ? 'More tools' : (openFlyout?.label ?? '');
 
   return (

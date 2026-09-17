@@ -5,7 +5,11 @@
  */
 
 .selection-quick-bar {
-  --selection-quick-bar-control-height: var(--component-compact-height);
+  /* Same density contract as the floating palette (see components.css). */
+  --selection-quick-bar-control-height: var(
+    --density-control-size,
+    var(--component-compact-height)
+  );
   position: absolute;
   z-index: var(--elevation-z-raised);
   transform: translateX(-50%);
@@ -237,4 +241,10 @@
   .selection-quick-bar {
     --selection-quick-bar-control-height: var(--touch-target-min);
   }
+}
+
+/* Compact Pro compacts the surface with its 28px controls; the comfortable
+ * fluid clamp above stays untouched (same rule as the context bar). */
+[data-density="compact"] .selection-quick-bar__inner {
+  min-block-size: calc(var(--density-control-size) + 2 * var(--space-toolbar) + 2px);
 }
