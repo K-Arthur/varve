@@ -369,6 +369,40 @@ npx playwright test tests/e2e --project=chromium --reporter=list
 npx playwright test tests/e2e/canvas/tools.spec.ts --project=chromium --reporter=list
 ```
 
+### Running E2E under memory pressure — use the lease, not raw `npx playwright`
+
+This is a shared, frequently-oversubscribed machine: other agent sessions,
+other worktrees, and the operator's own browser all compete for RAM at once.
+Running `npx playwright test` directly, unwrapped, has repeatedly hit two
+concrete failure modes here — the kernel OOM-killer taking the Chromium
+process outright (confirmed via `journalctl | grep -i oom`), and a "Page
+crashed" error on the very first `page.goto()` in `global-setup.ts` — both
+observed with the heavy-task lease free, because the pressure came from
+processes (another session's raw Playwright call, a browser with many tabs)
+that never touched the lease at all.
+
+**Always wrap Playwright runs through the lease**, which now also gates on
+actual `MemAvailable` (not just serializing against other lease users):
+
+```bash
+node scripts/quality/heavy-lease.mjs "e2e: <what you're testing>" -- \
+  npx playwright test tests/e2e/inspector/some.spec.ts --project=chromium --workers=1 --reporter=list
+```
+
+If available memory is under the floor (default 1536MB, `VARVE_LEASE_MIN_MEM_MB`
+to change it), the wrapper waits and polls rather than launching straight into
+a likely crash — this is strictly better than eyeballing `free -h` yourself
+before every run. It still respects `VARVE_HEAVY_TASK_PARALLELISM=0` as a full
+opt-out (lease and memory gate both) for a deliberate override.
+
+Prefer `--workers=1` for Playwright regardless — one Chromium instance at a
+time keeps the peak memory footprint predictable and matches how the lease
+serializes everything else. If a run is going to cover many spec files,
+split it into a few smaller lease-wrapped invocations rather than one very
+long one: a mid-run crash on file 3 of 6 then costs re-running only that
+slice, not starting over, and each invocation gets its own fresh memory
+check at start.
+
 ### Standard nav helper for canvas specs
 ```ts
 async function navigateToEditor(page: import('@playwright/test').Page) {

@@ -7,9 +7,23 @@
  * the repository's common git directory (so worktrees share one lock) before
  * it starts, waits a bounded time, and never kills unrelated processes.
  *
+ * It also gates on actual system memory headroom, not just the lease: the
+ * lease alone only serializes tasks that go through this script, but a
+ * memory-hungry process outside that set — another agent's raw `npx
+ * playwright test`, the operator's own browser — can still starve a heavy
+ * task that "won" the lease. Observed repeatedly in practice: Playwright's
+ * Chromium got OOM-killed by the kernel (confirmed via `journalctl`) and,
+ * separately, crashed on its first page load ("Page crashed" in
+ * global-setup.ts) while available memory sat under ~250MB — in both cases
+ * with the lease free, because the pressure came from processes that never
+ * touch this lease. Checking `MemAvailable` directly is the only way to
+ * catch that case.
+ *
  * Usage:
  *   node scripts/quality/heavy-lease.mjs <lane-or-command> [-- cmd args...]
- *   VARVE_HEAVY_TASK_PARALLELISM=0  opt out entirely (run immediately)
+ *   VARVE_HEAVY_TASK_PARALLELISM=0  opt out of both the lease and the
+ *     memory gate entirely (run immediately) — an explicit, deliberate
+ *     override, not the default escape hatch for a slow wait.
  *
  * Lock file: $XDG_RUNTIME_DIR|/tmp/varve-leases/<common-gitdir-hash>.lock
  * Stale locks (older than 30 min or dead owner PID) are reclaimed.
@@ -17,11 +31,58 @@
 
 import { execSync, spawn } from 'node:child_process';
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { freemem, homedir, platform, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 const MAX_WAIT_MS = Number(process.env.VARVE_LEASE_TIMEOUT ?? 600000);
 const STALE_MS = Number(process.env.VARVE_LEASE_STALE ?? 1800000);
+// Below this, a freshly-launched Chromium (~300-500MB RSS to first paint)
+// is a plausible OOM-kill candidate rather than a safe bet. Tune with
+// VARVE_LEASE_MIN_MEM_MB; the number is deliberately conservative because
+// the cost of waiting a few seconds longer is far lower than the cost of
+// crashing a run (or, worse, having the kernel pick an unrelated victim
+// process) partway through.
+const MIN_MEM_MB = Number(process.env.VARVE_LEASE_MIN_MEM_MB ?? 1536);
+const MEM_POLL_MS = Number(process.env.VARVE_LEASE_MEM_POLL_MS ?? 5000);
+
+/** MemAvailable in MB — the same figure `free -h`'s "available" column
+ * reports (free + reclaimable cache/buffers), not raw freemem(), which
+ * undercounts by treating reclaimable page cache as unavailable. Falls
+ * back to freemem() off Linux or if /proc/meminfo is unreadable. */
+function memAvailableMB() {
+  if (platform() === 'linux') {
+    try {
+      const meminfo = readFileSync('/proc/meminfo', 'utf-8');
+      const match = meminfo.match(/^MemAvailable:\s+(\d+)\s*kB/m);
+      if (match) return Math.round(Number(match[1]) / 1024);
+    } catch {
+      /* fall through to freemem() */
+    }
+  }
+  return Math.round(freemem() / (1024 * 1024));
+}
+
+async function waitForMemoryHeadroom(label) {
+  const deadline = Date.now() + MAX_WAIT_MS;
+  let warned = false;
+  while (Date.now() < deadline) {
+    const availableMB = memAvailableMB();
+    if (availableMB >= MIN_MEM_MB) {
+      if (warned) console.log(`heavy-lease: memory recovered (${availableMB}MB available)`);
+      return;
+    }
+    if (!warned) {
+      console.warn(
+        `heavy-lease: ${availableMB}MB available, below the ${MIN_MEM_MB}MB floor for ${label} — waiting rather than risk an OOM kill or a browser crash mid-run.`,
+      );
+      warned = true;
+    }
+    await new Promise((r) => setTimeout(r, MEM_POLL_MS));
+  }
+  console.error(
+    `heavy-lease: memory still under ${MIN_MEM_MB}MB after ${MAX_WAIT_MS / 1000}s — proceeding anyway (deadline reached). Consider closing other applications, or set VARVE_LEASE_MIN_MEM_MB lower if this is a low-memory machine by design.`,
+  );
+}
 
 function commonGitDir() {
   try {
@@ -135,6 +196,9 @@ async function main() {
   const label = args.slice(0, dashIdx).join(' ');
   const rest = args.slice(dashIdx + 1);
   await acquire(label);
+  // Re-check right before spawning: the lease wait above may have taken a
+  // while, and memory pressure is independent of who holds the lease.
+  await waitForMemoryHeadroom(label);
   const child = spawn(rest[0], rest.slice(1), { stdio: 'inherit', shell: false });
   child.on('exit', (code) => {
     release(lockPath());
