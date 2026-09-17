@@ -53,10 +53,46 @@ test('precision editing marketing page explains the workflow and links to docs',
     }),
   ).toBeVisible();
   await expect(
+    page.getByRole('heading', { name: 'The useful control stays close to the work.', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Context before clutter', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: /See how the Inspector and context bar work together/ }),
+  ).toHaveAttribute('href', /\/docs\/getting-started\/interface/);
+  await expect(
     page.getByRole('link', { name: /Read the Precision Placement guide/ }),
   ).toHaveAttribute('href', /\/docs\/tools\/precision-placement/);
 
   const screenshotPath = testInfo.outputPath('precision-editing-feature.png');
   await page.screenshot({ path: screenshotPath, fullPage: true });
   await testInfo.attach('precision-editing-feature', { path: screenshotPath });
+});
+
+test('precision editing marketing page keeps the Inspector story usable at phone width', async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/features/precision-editing?test-motion=static');
+
+  await expect(
+    page.getByRole('heading', { name: 'The useful control stays close to the work.', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Context before clutter', exact: true }),
+  ).toBeVisible();
+
+  const layout = await page.evaluate(() => ({
+    viewportWidth: document.documentElement.clientWidth,
+    pageWidth: document.documentElement.scrollWidth,
+    cards: getComputedStyle(document.querySelector('.inspector-contract__grid')!)
+      .gridTemplateColumns,
+  }));
+  expect(layout.pageWidth).toBeLessThanOrEqual(layout.viewportWidth);
+  expect(layout.cards.trim().split(/\s+/)).toHaveLength(1);
+
+  const screenshotPath = testInfo.outputPath('precision-editing-feature-mobile.png');
+  await page.screenshot({ path: screenshotPath, fullPage: true });
+  await testInfo.attach('precision-editing-feature-mobile', { path: screenshotPath });
 });

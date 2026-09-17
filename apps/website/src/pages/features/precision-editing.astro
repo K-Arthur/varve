@@ -57,6 +57,32 @@ import { sitePath } from '../../lib/siteUrl';
         </div>
       </section>
 
+      <section class="inspector-contract" aria-labelledby="inspector-contract-title">
+        <p class="eyebrow">A contextual Inspector</p>
+        <h2 id="inspector-contract-title">The useful control stays close to the work.</h2>
+        <p class="inspector-contract__intro">
+          Varve keeps quick actions in the selection-following context bar, while the Inspector
+          remains the complete, labelled editor. Sections appear when a selected layer can use
+          them, so a text layer leads with typography, an image leads with placement and crop,
+          and a grid child exposes placement without adding dead controls to an ordinary frame.
+        </p>
+        <div class="inspector-contract__grid">
+          <article>
+            <h3>Context before clutter</h3>
+            <p>Common text controls form a compact spine, while advanced type features stay behind labelled disclosures until they are needed.</p>
+          </article>
+          <article>
+            <h3>Geometry that adapts</h3>
+            <p>Paired values share a measured grid and fall back before labels or units clip when the Inspector is resized.</p>
+          </article>
+          <article>
+            <h3>One complete editor</h3>
+            <p>The context bar is a fast path; the Inspector owns full fills, strokes, effects, layout, mixed values, and recovery of stored properties.</p>
+          </article>
+        </div>
+        <a class="docs-link" href={sitePath('/docs/getting-started/interface')}>See how the Inspector and context bar work together →</a>
+      </section>
+
       <section class="why" aria-labelledby="why-title">
         <p class="eyebrow">Designed around real failure modes</p>
         <h2 id="why-title">No mystery jumps, distant targets, or decorative controls.</h2>
@@ -96,9 +122,16 @@ import { sitePath } from '../../lib/siteUrl';
   .capability-grid article { background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); padding: var(--space-4); }
   .capability-grid h3 { color: var(--text-primary); font-size: 1rem; margin: 0 0 .5rem; }
   .capability-grid p { color: var(--text-secondary); font-size: .93rem; line-height: 1.6; margin: 0; }
+  .inspector-contract { margin-bottom: 5rem; }
+  .inspector-contract h2 { color: var(--text-primary); font-size: clamp(1.7rem, 3vw, 2.5rem); letter-spacing: -.02em; margin: .45rem 0 1rem; }
+  .inspector-contract__intro { color: var(--text-secondary); line-height: 1.75; max-width: 760px; }
+  .inspector-contract__grid { display: grid; gap: var(--space-3); grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: var(--space-4); }
+  .inspector-contract__grid article { background: var(--surface-muted); border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); padding: var(--space-4); }
+  .inspector-contract__grid h3 { color: var(--text-primary); font-size: 1rem; margin: 0 0 .5rem; }
+  .inspector-contract__grid p { color: var(--text-secondary); font-size: .93rem; line-height: 1.6; margin: 0; }
   .why { background: var(--surface-muted); border: 1px solid var(--border-default); }
   .why p:not(.eyebrow) { max-width: 720px; }
   .docs-link { color: var(--text-link); display: inline-block; font-weight: 600; margin-top: var(--space-3); }
-  @media (max-width: 780px) { .hero-card { grid-template-columns: 1fr; } .capability-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-  @media (max-width: 520px) { .precision-page { padding-top: 2rem; } .flow { grid-template-columns: 1fr; } .flow-arrow { justify-self: start; transform: rotate(90deg); } .capability-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 780px) { .hero-card { grid-template-columns: 1fr; } .capability-grid, .inspector-contract__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 520px) { .precision-page { padding-top: 2rem; } .flow { grid-template-columns: 1fr; } .flow-arrow { justify-self: start; transform: rotate(90deg); } .capability-grid, .inspector-contract__grid { grid-template-columns: 1fr; } }
 </style>
