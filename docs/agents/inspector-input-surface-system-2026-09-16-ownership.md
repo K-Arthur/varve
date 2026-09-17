@@ -151,3 +151,25 @@ Evidence for the commit:
   name `Text align`; current production semantics expose `Horizontal align`.
   This is recorded as a pre-existing test-contract mismatch, not counted as
   evidence for this milestone.
+
+### Website delivery — `98f1c2f88`, `168b4ab91`
+
+The website now explains the same contextual contract: selection-following
+quick actions stay in the context bar, while the Inspector owns the complete
+labelled editor and only exposes capability-relevant sections. The marketing
+page uses restrained three-up cards at desktop widths and a one-column
+fallback below 520px; a real 390px Playwright run asserts no horizontal
+overflow and captures the rendered result. The related interface link and
+copy are covered by `apps/website/tests/e2e/precision-placement.spec.ts`.
+
+`98f1c2f88` separately fixes a pre-existing Astro parsing/build failure in the
+Export documentation by escaping literal filename-template braces. It does
+not alter Export Inspector behavior.
+
+Website evidence:
+
+- `pnpm build:website`: passed; Astro check reported 0 errors and 6 hints,
+  104 pages built.
+- `pnpm build:website:pages`: passed; 104 pages built.
+- Website Playwright precision-placement spec: 6/6 passed across `ghpages`
+  and `custom-domain`, including the 390px capture.
