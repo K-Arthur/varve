@@ -10,14 +10,15 @@ test.describe('Home shell', () => {
   });
 
   test('renders toolbar with New File button', async ({ page }) => {
-    await expect(page.getByRole('button', { name: /new file/i })).toBeVisible();
+    await expect(page.getByTestId('new-file-button')).toBeVisible();
     await expect(page.getByRole('button', { name: /open/i })).toBeVisible();
   });
 
   test('renders sidebar navigation with sections', async ({ page }) => {
     const nav = page.getByRole('navigation', { name: 'File navigation' });
-    const items = nav.getByRole('option');
-    const labels = await items.allTextContents();
+    // Sidebar entries are real buttons (the previous spec expected stale
+    // role="option" markup). Counts live in sibling spans, so match on text.
+    const labels = await nav.locator('button').allTextContents();
     expect(labels.join(' ')).toContain('Recent');
     expect(labels.join(' ')).toContain('All Files');
     expect(labels.join(' ')).toContain('Templates');
@@ -26,20 +27,15 @@ test.describe('Home shell', () => {
 
   test('renders project entries in sidebar', async ({ page }) => {
     const nav = page.getByRole('navigation', { name: 'File navigation' });
-    const items = nav.getByRole('option');
-    const labels = await items.allTextContents();
+    const labels = await nav.locator('button').allTextContents();
     expect(labels.join(' ')).toContain('Brand');
     expect(labels.join(' ')).toContain('Marketing');
     expect(labels.join(' ')).toContain('App UI');
   });
 
   test('sidebar selection navigates to section', async ({ page }) => {
-    // Navigate to All Files via menu icon - this is in the toolbar
-    await page.goto(TEST_PAGE);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(500);
-    // Click the sidebar item for All Files
-    const allFiles = page.getByRole('option', { name: /all files/i });
+    const nav = page.getByRole('navigation', { name: 'File navigation' });
+    const allFiles = nav.getByRole('button', { name: /all files/i });
     await allFiles.click();
     // Check content area renders files
     await expect(page.getByRole('grid', { name: 'File grid' })).toBeVisible();

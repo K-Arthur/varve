@@ -137,15 +137,24 @@ export function SidebarNav({
   const [focusIdx, setFocusIdx] = useState(0);
   const navRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLElement | null)[]>([]);
+  // `entries` is rebuilt on every parent render, so it must not be an effect
+  // dependency: doing so re-synced focus to the active item after every
+  // ArrowDown/ArrowUp and made keyboard navigation snap back (2026-09-17).
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
 
   useEffect(() => {
-    const idx = entries.findIndex((e) => e.id === activeId);
+    const idx = entriesRef.current.findIndex((e) => e.id === activeId);
     if (idx >= 0) setFocusIdx(idx);
-  }, [activeId, entries]);
+  }, [activeId]);
 
   useEffect(() => {
     const el = itemRefs.current[focusIdx];
-    el?.focus();
+    // Project rows register their wrapper div, which is not focusable; the
+    // focusable control is the button inside it. Focus that when present so
+    // arrow-key navigation does not stall on project entries (2026-09-17).
+    const target = el?.querySelector<HTMLElement>('button') ?? el;
+    target?.focus();
   }, [focusIdx]);
 
   const navigate = useCallback(

@@ -5,7 +5,7 @@ import type {
   Project,
   TemplateLibrary,
 } from '@varve/platform';
-import { fuzzySearch } from '@varve/platform';
+import { formatRelativeTime, fuzzySearch } from '@varve/platform';
 import { SemanticIcon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -98,7 +98,39 @@ export function HomeSearchPalette({
 
   const allItems = useMemo(() => {
     const q = query.trim();
-    if (!q) return [];
+    if (!q) {
+      // Empty query shows the most recently opened files as default
+      // suggestions (2026-09-17): the palette previously rendered a tall
+      // empty panel with only "Start typing to search", wasting its height
+      // on content-free space. Project/template matches stay query-gated
+      // (their selection currently only opens files).
+      const recent = [...files]
+        .sort((a, b) => b.openedAt - a.openedAt || b.updatedAt - a.updatedAt)
+        .slice(0, 6);
+      if (recent.length === 0) return [];
+      const items: ResultItem[] = [
+        {
+          id: '__header__recent',
+          name: 'Recent files',
+          groupKind: 'header',
+          groupLabel: '',
+          groupIcon: 'FileText',
+          isFirstInGroup: false,
+        },
+      ];
+      for (const f of recent) {
+        items.push({
+          id: f.id,
+          name: f.name,
+          sub: formatRelativeTime(f.openedAt || f.updatedAt),
+          groupKind: 'file',
+          groupLabel: 'Recent files',
+          groupIcon: 'FileText',
+          isFirstInGroup: false,
+        });
+      }
+      return items;
+    }
 
     const items: ResultItem[] = [];
 
@@ -329,7 +361,7 @@ export function HomeSearchPalette({
             </div>
           )}
           {allItems.length === 0 && !query && (
-            <div className="search-palette__empty">Start typing to search</div>
+            <div className="search-palette__empty">Type to search files and document contents</div>
           )}
           {allItems.map((item, idx) => {
             if (item.groupKind === 'header') {

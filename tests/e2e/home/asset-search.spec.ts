@@ -39,7 +39,9 @@ test('exact filename search retrieves the asset with the exact-match reason', as
   await importFixture(page, 'sunset-final.png');
   const input = page.getByLabel('Search assets');
   await input.fill('sunset-final.png');
-  await expect(page.getByText('sunset-final.png')).toBeVisible();
+  await expect(
+    page.locator('.asset-browser__card-name').filter({ hasText: 'sunset-final.png' }),
+  ).toBeVisible();
   await expect(page.getByText('Exact filename match')).toBeVisible({ timeout: 10000 });
 });
 
@@ -67,7 +69,9 @@ test('model-absent state offers the explicit download and keeps lexical search w
   });
   // Lexical search still works with the model absent.
   await input.fill('poster-red');
-  await expect(page.getByText('poster-red.png')).toBeVisible();
+  await expect(
+    page.locator('.asset-browser__card-name').filter({ hasText: 'poster-red.png' }),
+  ).toBeVisible();
   await expect(page.getByText('Exact filename match')).toBeVisible({ timeout: 10000 });
 });
 

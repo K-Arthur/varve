@@ -344,11 +344,35 @@ function HomeShellContent({
     }, [platform, onOpenFile]),
     templates: useCallback(() => view.setSection('templates'), [view]),
     closeDialog: useCallback(() => {
+      const hadOverlay =
+        newFileOpen ||
+        contextAnchor !== null ||
+        searchPaletteOpen ||
+        importOpen ||
+        shortcutHelpOpen ||
+        versionHistoryFileId !== null ||
+        newProjectOpen ||
+        saveSearchDialogOpen;
       setNewFileOpen(false);
       setContextAnchor(null);
       setContextFile(null);
       setContextSelection([]);
-    }, []),
+      // Escape hierarchy: with no overlay open, Escape clears the selection
+      // (Figma/Drive convention) instead of doing nothing (2026-09-17). While
+      // an overlay is open it belongs to that overlay; while inline rename is
+      // active the input handles its own Escape.
+      if (!hadOverlay && renamingId === null) setSelectedIds([]);
+    }, [
+      newFileOpen,
+      contextAnchor,
+      searchPaletteOpen,
+      importOpen,
+      shortcutHelpOpen,
+      versionHistoryFileId,
+      newProjectOpen,
+      saveSearchDialogOpen,
+      renamingId,
+    ]),
     selectAll: useCallback(() => {
       setSelectedIds(view.visibleFiles.map((f) => f.id));
     }, [view.visibleFiles]),

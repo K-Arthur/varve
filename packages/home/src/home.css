@@ -304,6 +304,16 @@
   font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;
 }
+/* DisclosureTrigger renders its children inside one label span, so the
+   count's margin-left:auto had no flex context and rendered "PROJECTS3"
+   jammed together (2026-09-17). Scope a flex context to this header only. */
+.sidebar-section__header .varve-disclosure__label {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
 .sidebar-item {
   display: flex;
   align-items: center;
@@ -501,11 +511,19 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  /* Fixed 24x24 box (2026-09-17): the fluid --space padding around a 12px
+     icon produced a ~17px pointer target, below WCAG 2.5.8 AA. The visual
+     star is unchanged; the button box carries the target size. */
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  flex-shrink: 0;
   background: none;
   border: none;
   cursor: pointer;
   color: var(--color-text-muted);
-  padding: var(--space-1);
   border-radius: var(--radius-sm);
   line-height: 1;
   transition:
@@ -598,6 +616,17 @@
   border-radius: var(--radius-card);
   background: var(--color-surface-raised);
   border: var(--border-micro);
+}
+/* Click/drag on a card is a selection gesture, not a text-selection
+   gesture (2026-09-17): shift-click multi-select was dragging a browser
+   text selection across card labels. Rename inputs re-enable selection. */
+.file-card,
+.file-row {
+  user-select: none;
+}
+.file-card__rename-input,
+.file-row__rename-input {
+  user-select: text;
 }
 .file-card.bento-cell:hover {
   box-shadow: var(--elevation-shadow-overlay);
@@ -1825,6 +1854,10 @@
   z-index: var(--z-overlay);
   display: flex;
   justify-content: center;
+  /* align-items: flex-start (2026-09-17): flex's default `stretch` made the
+     container fill up to max-height even when its content was one empty
+     message, presenting a tall hollow panel. */
+  align-items: flex-start;
   padding-top: 12vh;
   background: var(--elevation-scrim);
 }

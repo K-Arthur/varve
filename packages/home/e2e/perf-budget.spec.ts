@@ -16,7 +16,7 @@ test.describe('Performance budget', () => {
     await page.goto(TEST_PAGE);
     await page.waitForLoadState('networkidle');
     await page.getByRole('grid', { name: 'File grid' }).waitFor({ timeout: 10000 });
-    const searchInput = page.getByPlaceholder('Search files...');
+    const searchInput = page.getByRole('searchbox', { name: /search files/i });
     const start = Date.now();
     await searchInput.fill('Design');
     await page.waitForTimeout(200);

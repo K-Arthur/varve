@@ -19,9 +19,15 @@ test.describe('Accessibility', () => {
 
   test('sidebar items have accessible roles', async ({ page }) => {
     const nav = page.getByRole('navigation', { name: 'File navigation' });
-    const items = nav.getByRole('option');
+    // Sidebar entries are buttons; each must expose an accessible name.
+    const items = nav.getByRole('button');
     const count = await items.count();
     expect(count).toBeGreaterThanOrEqual(6); // Recent, All, 3 projects, Templates, Trash
+    for (let i = 0; i < count; i++) {
+      const name = await items.nth(i).getAttribute('aria-label');
+      const text = (await items.nth(i).textContent())?.trim();
+      expect(name ?? text, `sidebar button ${i} has an accessible name`).toBeTruthy();
+    }
   });
 
   test('file cards have accessible labels', async ({ page }) => {

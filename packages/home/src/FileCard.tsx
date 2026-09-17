@@ -115,10 +115,6 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
     onStartRename?.(null);
   }, [renameValue, entry.id, entry.name, onRename, onStartRename]);
 
-  useEffect(() => {
-    setRenameValue(entry.name);
-  }, [entry.name]);
-
   const handleKey = (e: KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();

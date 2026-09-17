@@ -10,7 +10,7 @@ test.describe('Empty states', () => {
   });
 
   test('search with no results shows no results message', async ({ page }) => {
-    const searchInput = page.getByPlaceholder('Search files...');
+    const searchInput = page.getByRole('searchbox', { name: /search files/i });
     await searchInput.fill('zzzznonexistent');
     await page.waitForTimeout(300);
     await expect(page.getByText(/no results/i).first()).toBeVisible();

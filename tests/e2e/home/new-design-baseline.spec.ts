@@ -13,7 +13,7 @@ async function openNewFileDialog(page: Page) {
 }
 
 async function chooseStartMode(dialog: Locator, label: string): Promise<void> {
-  await dialog.locator('label.new-design__start-card').filter({ hasText: label }).click();
+  await dialog.locator('label.varve-radio').filter({ hasText: label }).click();
 }
 
 async function dialogOverflowInfo(page: Page) {
@@ -56,10 +56,12 @@ test.describe('New Design dialog', () => {
     const dialog = await openNewFileDialog(page);
 
     await expect(dialog.locator('.varve-dialog__title')).toContainText(/new design/i);
-    await expect(dialog.locator('input[aria-label="Document name"]')).toBeVisible();
+    await expect(dialog.getByLabel('Document name')).toBeVisible();
     await expect(dialog.getByText('Empty design canvas')).toBeVisible();
     await chooseStartMode(dialog, 'Start with a frame');
-    await expect(dialog.getByText('Presets')).toBeVisible();
+    // The preset browser is labelled "Frame presets"; assert its listbox and a
+    // known built-in preset (the old spec filtered on a removed tab label).
+    await expect(dialog.getByRole('listbox', { name: 'Frame presets' })).toBeVisible();
     await expect(dialog.getByText('A4')).toBeVisible();
   });
 

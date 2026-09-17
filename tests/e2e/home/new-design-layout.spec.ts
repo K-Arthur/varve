@@ -28,7 +28,7 @@ async function openNewDesignDialog(page: Page) {
 }
 
 async function chooseStartMode(dialog: import('@playwright/test').Locator, label: string) {
-  await dialog.locator('label.new-design__start-card').filter({ hasText: label }).click();
+  await dialog.locator('label.varve-radio').filter({ hasText: label }).click();
 }
 
 async function dialogLayoutInfo(page: Page) {

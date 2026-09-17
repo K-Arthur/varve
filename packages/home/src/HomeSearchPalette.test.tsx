@@ -169,4 +169,62 @@ describe('HomeSearchPalette', () => {
     fireEvent.keyDown(dialog, { key: 'Enter' });
     expect(onOpenFile).toHaveBeenCalledWith('f1');
   });
+
+  it('shows recent files, most recently opened first, when the query is empty', () => {
+    const files = [
+      { ...mockFiles[0]!, id: 'old', name: 'Older', openedAt: 100 },
+      { ...mockFiles[1]!, id: 'new', name: 'Newer', openedAt: 200 },
+    ];
+    render(
+      <HomeSearchPalette
+        open={true}
+        onClose={vi.fn()}
+        onOpenFile={vi.fn()}
+        files={files}
+        projects={mockProjects}
+        templates={mockTemplates}
+        platform={mockPlatform}
+      />,
+    );
+    expect(screen.getByText('Recent files')).toBeInTheDocument();
+    const options = screen.getAllByRole('option');
+    expect(options[0]).toHaveTextContent('Newer');
+    expect(options[1]).toHaveTextContent('Older');
+  });
+
+  it('opens the first recent file on Enter with an empty query', () => {
+    const onOpenFile = vi.fn();
+    const files = [
+      { ...mockFiles[0]!, id: 'old', name: 'Older', openedAt: 100 },
+      { ...mockFiles[1]!, id: 'new', name: 'Newer', openedAt: 200 },
+    ];
+    render(
+      <HomeSearchPalette
+        open={true}
+        onClose={vi.fn()}
+        onOpenFile={onOpenFile}
+        files={files}
+        projects={mockProjects}
+        templates={mockTemplates}
+        platform={mockPlatform}
+      />,
+    );
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Enter' });
+    expect(onOpenFile).toHaveBeenCalledWith('new');
+  });
+
+  it('explains the empty state when no files exist', () => {
+    render(
+      <HomeSearchPalette
+        open={true}
+        onClose={vi.fn()}
+        onOpenFile={vi.fn()}
+        files={[]}
+        projects={mockProjects}
+        templates={mockTemplates}
+        platform={mockPlatform}
+      />,
+    );
+    expect(screen.getByText(/Type to search files and document contents/)).toBeInTheDocument();
+  });
 });

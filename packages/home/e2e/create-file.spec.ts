@@ -10,14 +10,15 @@ test.describe('Create file', () => {
   });
 
   test('New File dialog opens on button click', async ({ page }) => {
-    await page.getByRole('button', { name: /new file/i }).click();
+    await page.getByTestId('new-file-button').click();
     await page.waitForTimeout(500);
     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 3000 });
   });
 
-  test('dialog shows presets tab by default', async ({ page }) => {
-    await page.getByRole('button', { name: /new file/i }).click();
+  test('dialog shows starting-point choices by default', async ({ page }) => {
+    await page.getByTestId('new-file-button').click();
     await page.waitForTimeout(500);
-    await expect(page.getByText('Presets')).toBeVisible();
+    await expect(page.getByText('Starting point')).toBeVisible();
+    await expect(page.getByRole('button', { name: /create design/i })).toBeVisible();
   });
 });
