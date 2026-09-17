@@ -53,3 +53,7 @@ Progressive, evidence-first; staged paths limited to the table above.
 
 | SHA | Subject |
 |---|---|
+| pending | feat(density): command surfaces follow the density contract |
+| pending | fix(toolbar): targets, labels, and state truth in the toolbar family |
+| pending | test(toolbar): surface-review regressions + after evidence |
+|---|---|

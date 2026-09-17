@@ -68,6 +68,32 @@ Status bar is deliberately excluded from density (its 24px control floor
 already pins the 26px row); the palette, context bar, text bar, and selection
 quick bar become density-aware.
 
+## Resolution (landed with this review)
+
+Each defect above was fixed and re-verified in the running app; the fixes and
+their regression coverage are:
+
+| # | Fix | Where | Regression |
+|---|---|---|---|
+| D1 | `--density-control-size` in the density blocks; palette/context bar/text bar/quick bar rows and inner primitives consume it (comfortable byte-identical) | `packages/ui/src/components/components.css`, four toolbar CSS files | `toolbar-surface-review.spec.ts` D1/D2 test (28px compact, palette↔CCB parity) |
+| D2 | Chevron hit width 14px → 24px (glyph unchanged) | `FloatingToolbar.css` | same spec, chevron ≥ 24px |
+| D3 | Literal "AB" → `Ruler` icon | `StatusBar.tsx` | toolbar-followup 24px-target suite |
+| D4 | Segmented rows flex equal-width (2- and 4-option groups fill) | `ToolOptionsPopover.css` | D4/D5/D6 test |
+| D5 | `accent-color` token on popover range inputs | `ToolOptionsPopover.css` | same |
+| D6 | One `SegmentedRadioGroup` (radiogroup + roving + arrows) for marquee and magic wand | `ToolOptionsPopover.tsx` | same, ArrowRight moves check + focus |
+| D7 | `getFlyoutMenuItems` applies the overflow menu's boolean precondition | `FloatingToolbar.tsx` | unit tests in `FloatingToolbar.test.tsx` |
+| D8 | Liquify size row labels once (NumberField owns it) | `LiquifyToolOptions.tsx` | D8/D9 test |
+| D9 | Retouch sampling scope carries a visible label row | `RetouchToolOptions.tsx` | same |
+| D10 | Native selects size to content (bounded); longest option labels tightened where still over the row's space | `ToolOptionsPopover.tsx/.css` | D10 test (canvas-measured text fit) |
+| D11 | Drawing sliders show values; "Op" → "Opacity" | `FloatingToolbar.tsx/.css` | D11/D12 test |
+| D12 | Empty-selection kbd badges resolve `getEffectiveBinding` | `ContextControlBar.tsx` | same (pressing the badge activates Rect) |
+| D13 | CCB swatch keeps the 24px primitive target; add-stroke is one dash motif + plus | `ContextControlBar.css`, `ShapeQuickControls.tsx` | forced-colors target suite |
+
+After-evidence in the same screenshot directory (`32-after-…` … `36-after-…`).
+Marquee number fields also moved to the canonical `NumberField` (scrub,
+wheel, draft/restore, aria-invalid) — the old inline `numberValue` mapped
+invalid input to `0`, violating the numeric-field contract.
+
 ## What was deliberately not redesigned
 
 - Palette placement, overflow retention, keyboard roving, status-bar tiers,
@@ -76,3 +102,6 @@ quick bar become density-aware.
 - Duplicate access across context bar / quick bar / flyouts (D15 note above).
 - The 9px `.ccb__kbd` micro-badges stay (supplementary metadata beside a
   labelled pill; the pill text carries the essential information).
+- The status bar is density-invariant by design (24px control floor pins the
+  row); density reaches the four floating/docked command surfaces instead.
+

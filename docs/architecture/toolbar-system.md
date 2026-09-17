@@ -171,6 +171,14 @@ mouse-only device it is inert chrome.
   `--touch-target-min` (44px) under `(any-pointer: coarse)`. This satisfies
   WCAG 2.2 SC 2.5.8 (minimum 24×24) with headroom and reaches the enhanced
   44×44 target on touch.
+- The command surfaces follow the interface-density preference
+  (`data-density`, Default Pro / Compact Pro): the palette, context bar,
+  floating text bar, and selection quick bar read `--density-control-size`
+  (32px comfortable / 28px compact) and compact their rows and inner
+  primitives together, so both pro modes change the same chrome. The
+  comfortable formulas are byte-identical to the pre-density geometry, and
+  28px keeps the 24px floor with headroom. The status bar is deliberately
+  density-invariant (its 24px control floor already pins the row).
 - Toolbar spacing uses `--space-toolbar` / `--space-toolbar-item`; the palette,
   context bar, text bar, and quick bar share one rhythm so switching surfaces
   never moves the control centreline.

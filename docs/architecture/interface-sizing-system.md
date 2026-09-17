@@ -95,6 +95,11 @@ Interface density is a **user preference**, applied at the document root:
   `@varve/ui` (compact 28px rows / comfortable 34px rows; the website-only
   `cozy` block is not exposed in the editor). Density changes geometry only —
   text sizes, 24px target floors, and semantics are identical in both modes.
+- The editor command surfaces are a density consumer too:
+  `--density-control-size` (32px / 28px / cozy 36px) is the shared contract
+  for the floating tool palette, context bar, floating text bar, and
+  selection quick bar (`docs/architecture/toolbar-system.md`). Coarse
+  pointers promote these to `--touch-target-min` regardless of density.
 - Density never touches document zoom, scene geometry, selection bounds, or
   exported output, and never enters the document undo stack.
 - Virtualized consumers must follow the mode: the Layers tree's
