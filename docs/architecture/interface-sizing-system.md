@@ -83,15 +83,39 @@ move neighboring content.
 
 ### Responsive and density behavior
 
-The editor's existing `compact`, `comfortable`, and `cozy` density settings
-remain for scan-heavy rows. They do not change document zoom, scene geometry,
-selection bounds, or exported output. Website forms keep at least the browser's
-16px text threshold to avoid unwanted mobile zoom; marketing display roles
-remain fluid and bounded with `clamp()`.
+Interface density is a **user preference**, applied at the document root:
 
-Menus, dialogs, and popovers are viewport-constrained. Dialog titles wrap at
-word boundaries or long unbroken strings instead of hiding content with a
-single-line ellipsis.
+- `settings.appearance.uiDensity` (`'default' | 'compact'`, labeled
+  Default Pro / Compact Pro in Settings ▸ Appearance) maps to the shared
+  `data-density` attribute (`comfortable` / `compact`); the pre-paint script
+  in `apps/desktop/index.html` applies the persisted value before first
+  paint, and `SettingsProvider` keeps the attribute in sync afterwards.
+  `packages/editor/src/settings/interfaceDensity.ts` is the single writer.
+- The attribute drives the existing `--density-*` row contracts in
+  `@varve/ui` (compact 28px rows / comfortable 34px rows; the website-only
+  `cozy` block is not exposed in the editor). Density changes geometry only —
+  text sizes, 24px target floors, and semantics are identical in both modes.
+- Density never touches document zoom, scene geometry, selection bounds, or
+  exported output, and never enters the document undo stack.
+- Virtualized consumers must follow the mode: the Layers tree's
+  `estimateSize` reads the mode's row-height contract and re-measures on
+  change (`subscribeInterfaceDensity` → `virtualizer.measure()`), so no
+  stale cached height or invisible focused row survives a switch.
+- Touch accommodation stays **device-derived**: `@media (pointer: coarse)`
+  promotes interactive minimums to `--touch-target-min` (44px) and the
+  toolbar gates touch affordances via `useHasTouchInput`. A manual override
+  setting is deliberately not offered — it would make dimensions change
+  whenever a hybrid device's primary pointer class changes.
+- `settings.appearance.fontSizeUI` scales rem-based typography (and spacing
+  roles) through a root font-size override (small 15px / medium —browser
+  default— / large 18px); px-based component geometry intentionally does not
+  scale, and rows grow with their content via `min-height`.
+
+Website forms keep at least the browser's 16px text threshold to avoid
+unwanted mobile zoom; marketing display roles remain fluid and bounded with
+`clamp()`. Menus, dialogs, and popovers are viewport-constrained. Dialog
+titles wrap at word boundaries or long unbroken strings instead of hiding
+content with a single-line ellipsis.
 
 ### Dense field rows and metadata
 
@@ -124,6 +148,7 @@ must never rely on intrinsic flex widths at the narrow inspector size.
 | TypeScript-only icon constants | Emitted `--icon-size-*`, stroke, and touch-target CSS tokens |
 | Ellipsized dialog title | Wrapping title with stable close-button hit region |
 | Website page-specific lead and section formulas | Shared marketing/content role aliases |
+| Density tokens with no runtime writer | `data-density` applied from `settings.appearance.uiDensity` (Default Pro / Compact Pro) — see the density contract above |
 
 ## Exceptions and ownership
 

@@ -75,12 +75,16 @@ general spacing roles.
 
 ### Density and responsive behavior
 
-The editor retains `compact`, `comfortable`, and `cozy` density mappings. These
-are for scan-heavy rows and controls; they do not alter canvas coordinates,
-selection bounds, exported geometry, or persisted document data. Website page
-gutter uses `--space-page-inline` (24px max, 16px on narrow screens), while
-editor panels continue to use their dense panel roles and minimum viewport
-contract.
+Interface density is a documented user preference — Default Pro and Compact
+Pro, applied through the root `data-density` attribute
+(`packages/editor/src/settings/interfaceDensity.ts`); see
+`interface-sizing-system.md` for the runtime and virtualization contract.
+The `--density-*` row roles below it are consumed with `:root` fallbacks so
+surfaces that have not opted in still render a consistent baseline. Density
+does not alter canvas coordinates, selection bounds, exported geometry, or
+persisted document data. Website page gutter uses `--space-page-inline`
+(24px max, 16px on narrow screens), while editor panels continue to use
+their dense panel roles and minimum viewport contract.
 
 ### Interface versus authored geometry
 
