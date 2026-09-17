@@ -32,7 +32,7 @@ describe('BatchJobList', () => {
       />,
     );
     expect(screen.getByText('rect.png')).toBeTruthy();
-    expect(screen.getByText('50.0KB')).toBeTruthy();
+    expect(screen.getByText('50.0 KB')).toBeTruthy();
   });
 
   it('select-all toggles all', () => {
@@ -83,5 +83,67 @@ describe('BatchJobList', () => {
     expect(screen.getByLabelText('Select all jobs')).toBeTruthy();
     expect(screen.getByText('r3.png')).toBeTruthy();
     expect(screen.getByText('r4.png')).toBeTruthy();
+  });
+
+  it('labels the dimension column and keeps PPI visible beside it', () => {
+    const { container } = render(
+      <BatchJobList
+        jobs={[makeJob({ outputPpi: 300, dimensions: { w: 2480, h: 3508 } })]}
+        selectedIds={new Set()}
+        onToggleJob={() => {}}
+        onToggleAll={() => {}}
+      />,
+    );
+    expect(screen.getByText('Dimensions')).toBeTruthy();
+    expect(screen.getByText('Size')).toBeTruthy();
+    const dims = container.querySelector('.batch-job-row__dims');
+    expect(dims?.textContent).toBe('2480 \u00d7 3508 300 PPI');
+    expect(container.querySelector('.batch-job-row__ppi')?.textContent).toBe('300 PPI');
+  });
+
+  it('renders the format badge uppercase through the shared component', () => {
+    const { container } = render(
+      <BatchJobList
+        jobs={[makeJob({ format: 'pdf-x1a', fileName: 'card.pdf' })]}
+        selectedIds={new Set()}
+        onToggleJob={() => {}}
+        onToggleAll={() => {}}
+      />,
+    );
+    expect(container.querySelector('.format-badge')?.textContent).toBe('PDF/X-1a');
+  });
+
+  it('exposes pressed state on the format filter chips', () => {
+    render(
+      <BatchJobList
+        jobs={[
+          makeJob({ presetId: 'p1', nodeId: 'n1', format: 'png' }),
+          makeJob({ presetId: 'p2', nodeId: 'n2', format: 'svg', fileName: 'rect.svg' }),
+        ]}
+        selectedIds={new Set()}
+        onToggleJob={() => {}}
+        onToggleAll={() => {}}
+      />,
+    );
+    const all = screen.getByRole('button', { name: 'All (2)' });
+    expect(all.getAttribute('aria-pressed')).toBe('true');
+    const svgChip = screen.getByRole('button', { name: 'SVG (1)' });
+    fireEvent.click(svgChip);
+    expect(svgChip.getAttribute('aria-pressed')).toBe('true');
+    expect(all.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('uses a provided empty state instead of the default line', () => {
+    render(
+      <BatchJobList
+        jobs={[]}
+        selectedIds={new Set()}
+        onToggleJob={() => {}}
+        onToggleAll={() => {}}
+        emptyState={<p>Nothing configured yet</p>}
+      />,
+    );
+    expect(screen.getByText('Nothing configured yet')).toBeTruthy();
+    expect(screen.queryByText('No export jobs to display.')).toBeNull();
   });
 });

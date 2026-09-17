@@ -30,6 +30,7 @@ import { isCapabilityRestricted } from '../../capabilities/restrictions';
 import { runBatchPreflight } from '../../exportService';
 import { suggestExportFormat } from '../../intelligence/exportAdvisor';
 import { buildJobs } from '../Export/ExportDialog';
+import { FormatBadge } from '../Export/FormatBadge';
 import { SegmentedControl } from '../Inspector/controls/SegmentedControl';
 import {
   buildFilename,
@@ -286,11 +287,12 @@ function presetFileName(nodeName: string, preset: ExportPreset): string {
 }
 
 function presetSummary(preset: ExportPreset): string {
-  const format = legacyFormatToCanonical(preset.format);
-  const label = capabilitiesForFormat(format, 'web').label;
+  // The format badge already names the format; repeating it here read as
+  // "PNG PNG". The summary carries what the badge cannot: output scale and
+  // filename suffix.
   const scale = scaleLabel(preset.scale);
-  const suffix = preset.suffix ? ` \u00b7 ${preset.suffix}` : '';
-  return `${label}${scale ? ` \u00b7 ${scale}` : ''}${suffix}`;
+  const parts = [scale, preset.suffix].filter((part): part is string => Boolean(part));
+  return parts.length > 0 ? parts.join(' \u00b7 ') : '1x';
 }
 
 function scaleLabel(scale: ExportScale): string {
@@ -922,7 +924,7 @@ export function AssetExportControls({
                 type="button"
                 className="spec-export__advanced"
                 onClick={onOpenAdvancedExport}
-                aria-label="Open advanced export workspace"
+                aria-label="Open export workspace"
               >
                 <Icon name="SlidersHorizontal" size={14} label={undefined} />
                 <span>
@@ -1026,9 +1028,7 @@ function PresetRow({
       </label>
       <div className="spec-export__preset-info">
         <div className="spec-export__preset-meta-row">
-          <span className={`spec-export__preset-badge spec-export__preset-badge--${preset.format}`}>
-            {preset.format.toUpperCase()}
-          </span>
+          <FormatBadge format={preset.format} />
           <span className="spec-export__preset-summary">{presetSummary(preset)}</span>
         </div>
         <code className="spec-export__preset-file">{displayFileName}</code>

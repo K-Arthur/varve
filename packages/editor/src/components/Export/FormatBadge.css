@@ -1,0 +1,25 @@
+/* Shared format-identity chip. Neutral by design: format is metadata, not a
+   status, so it must not reuse the danger/warning/success palette, and the
+   format name is always visible as text. See FormatBadge.tsx. */
+
+.format-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-control-compact);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--elevation-surface-sunken);
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-wide);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+/* High-contrast themes: keep the chip boundary explicit. */
+[data-theme="high-contrast"] .format-badge {
+  border-color: var(--color-border-strong);
+}

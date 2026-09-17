@@ -72,7 +72,7 @@ export function OutputResolutionPanel({ value, onChange }: OutputResolutionPanel
                 const next = Number(event.target.value);
                 if (Number.isFinite(next) && next > 0) onChange(Math.min(2400, next));
               }}
-              aria-label="Temporary raster output resolution in PPI"
+              aria-label="Custom resolution in PPI"
             />
             <span aria-hidden="true">PPI</span>
           </div>

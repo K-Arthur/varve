@@ -18,6 +18,18 @@ test.describe('Inspector export settings — per-node configurations', () => {
     const exportTab = page.locator('[role="tablist"] button[role="tab"]', {
       hasText: /^export$/i,
     });
+    // Narrow layouts (and contextual frame selections) can move Export behind
+    // the inspector's More menu; the overflow policy is shared workspace
+    // configuration (see the 2026-09-17 review's D3), so follow the menu here
+    // exactly as a user would.
+    if ((await exportTab.count()) === 0 || !(await exportTab.isVisible().catch(() => false))) {
+      const moreBtn = page.getByRole('button', { name: /More inspector tabs/i });
+      if (await moreBtn.isVisible().catch(() => false)) {
+        await moreBtn.click();
+        await page.getByRole('menuitem', { name: /^Export$/i }).click();
+        return;
+      }
+    }
     await exportTab.waitFor({ state: 'visible', timeout: 5000 });
     await exportTab.click();
   }
@@ -39,7 +51,7 @@ test.describe('Inspector export settings — per-node configurations', () => {
     await expect(page.getByText('Preset library', { exact: true })).toBeVisible();
     await expect(page.getByText('Custom format', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Add configuration' })).toBeVisible();
-    await expect(page.getByRole('button', { name: /Open advanced export/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Open export workspace/ })).toBeVisible();
     await expect(page.getByText(/\\u2026/)).toHaveCount(0);
 
     const inspectorFits = await page.locator('#insp-tabpanel-export').evaluate((element) => {
@@ -58,7 +70,9 @@ test.describe('Inspector export settings — per-node configurations', () => {
 
     // Canonical naming: '@2x' suffix (no '-' separator) with a .png extension.
     await expect(page.locator('.spec-export__preset-file')).toHaveText(/@2x\.png$/);
-    await expect(page.locator('.spec-export__preset-summary')).toContainText('PNG');
+    // The badge carries the format; the summary carries scale and suffix.
+    await expect(page.locator('.spec-export__preset-row .format-badge')).toHaveText('PNG');
+    await expect(page.locator('.spec-export__preset-summary')).toContainText('2x');
   });
 
   test('toggles and removes an export setting', async ({ page }) => {
@@ -82,7 +96,7 @@ test.describe('Inspector export settings — per-node configurations', () => {
     await createExportableFrame(page);
     await selectExportTab(page);
 
-    await page.getByRole('button', { name: /Open advanced export/ }).click();
+    await page.getByRole('button', { name: /Open export workspace/ }).click();
     await expect(page.getByRole('dialog', { name: 'Export' })).toBeVisible();
   });
 });

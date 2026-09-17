@@ -10,7 +10,7 @@ describe('OutputResolutionPanel', () => {
   it('keeps saved preset resolution by default', () => {
     render(<OutputResolutionPanel value={null} onChange={() => {}} />);
     expect(screen.getByLabelText("Use each preset's resolution")).toBeChecked();
-    expect(screen.queryByLabelText('Temporary raster output resolution in PPI')).toBeNull();
+    expect(screen.queryByLabelText('Custom resolution in PPI')).toBeNull();
   });
 
   it('applies a temporary PPI override without mutating presets', () => {
@@ -23,7 +23,7 @@ describe('OutputResolutionPanel', () => {
   it('allows an accessible custom PPI value', () => {
     const onChange = vi.fn();
     render(<OutputResolutionPanel value={300} onChange={onChange} />);
-    fireEvent.change(screen.getByLabelText('Temporary raster output resolution in PPI'), {
+    fireEvent.change(screen.getByLabelText('Custom resolution in PPI'), {
       target: { value: '600' },
     });
     expect(onChange).toHaveBeenLastCalledWith(600);

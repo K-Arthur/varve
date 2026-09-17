@@ -520,7 +520,7 @@ describe('AssetExportControls', () => {
           onOpenAdvancedExport={onOpenAdvancedExport}
         />,
       );
-      fireEvent.click(screen.getByRole('button', { name: /Open advanced export/ }));
+      fireEvent.click(screen.getByRole('button', { name: /Open export workspace/ }));
       expect(onOpenAdvancedExport).toHaveBeenCalledOnce();
     });
 

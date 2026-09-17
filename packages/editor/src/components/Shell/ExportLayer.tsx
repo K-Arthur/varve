@@ -437,6 +437,10 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
         onExportMotion={handleExportMotion}
         onSaveVideoFile={handleSaveVideoFile}
         onApplyBackgroundRemoval={applyPreparedCutout}
+        onOpenExportTab={() => {
+          editor.setInspectorTab('export');
+          editor.setShowExportDialog(false);
+        }}
       />
 
       <BatchBgRemoveDialog

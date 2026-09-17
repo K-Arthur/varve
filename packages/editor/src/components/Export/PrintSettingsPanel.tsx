@@ -57,10 +57,10 @@ export function PrintSettingsPanel({
 
   return (
     <section className="print-settings" aria-label="Print settings">
-      <h4 className="print-settings__title">
+      <h3 className="print-settings__title">
         <Icon name="Printer" size={14} label={undefined} />
         Press / print settings ({standard === 'pdf-x1a' ? 'PDF/X-1a' : 'PDF/X-4'})
-      </h4>
+      </h3>
 
       <div className="print-settings__grid">
         <div className="print-settings__field">
@@ -76,7 +76,7 @@ export function PrintSettingsPanel({
             step={0.5}
             value={value.bleedMm ?? 3}
             onChange={(e) => setBleed(e.target.value)}
-            aria-label="Bleed in millimetres"
+            aria-label="Bleed (mm) — overrides the document bleed for this export"
           />
         </div>
 
@@ -93,7 +93,7 @@ export function PrintSettingsPanel({
             step={50}
             value={value.enforceDpi ?? 300}
             onChange={(e) => setDpi(e.target.value)}
-            aria-label="Minimum effective image resolution in DPI"
+            aria-label="Minimum image resolution (PPI) — preflight floor for raster content"
           />
         </div>
       </div>

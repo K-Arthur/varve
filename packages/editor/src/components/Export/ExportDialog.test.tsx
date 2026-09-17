@@ -144,6 +144,54 @@ describe('ExportDialog', () => {
     expect(screen.getByRole('dialog', { name: 'Export' })).toBeTruthy();
   });
 
+  it('explains how jobs appear and offers the Export tab when nothing is configured', () => {
+    const onOpenExportTab = vi.fn();
+    render(
+      <ExportDialog
+        isOpen={true}
+        onClose={() => {}}
+        nodes={[mockNode({ presets: [] })]}
+        onExport={async () => {}}
+        onOpenExportTab={onOpenExportTab}
+      />,
+    );
+    expect(screen.getByText('No saved export configurations yet.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Open the Export tab' }));
+    expect(onOpenExportTab).toHaveBeenCalledOnce();
+  });
+
+  it('names the actual blocking finding in the preflight confirmation', async () => {
+    const node = mockNode({
+      presets: [
+        {
+          id: 'p1',
+          format: 'pdf-x4' as const,
+          scale: { type: 'factor' as const, value: 1 },
+          suffix: '',
+          enabled: true,
+        },
+      ],
+    });
+    const doc = { ...createDocument('Doc', true), rootChildren: ['n1'], nodes: { n1: node } };
+    render(
+      <>
+        <ExportDialog
+          isOpen={true}
+          onClose={() => {}}
+          nodes={[node]}
+          document={doc}
+          onExport={async () => {}}
+        />
+        <ConfirmDialog />
+      </>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Export \(1\)/ }));
+    const message = await screen.findByText(/Preflight found 1 error:/);
+    expect(message.textContent).toContain('Format not available');
+    // The old generic sentence implied findings that were not present.
+    expect(message.textContent).not.toContain('out-of-gamut');
+  });
+
   it('closes on a real backdrop press and release', () => {
     const onClose = vi.fn();
     const { container } = render(
@@ -196,7 +244,7 @@ describe('ExportDialog', () => {
       />,
     );
 
-    expect(container.querySelector('.batch-job-row__dims')?.textContent).toBe('400x320');
+    expect(container.querySelector('.batch-job-row__dims')?.textContent).toBe('400 \u00d7 320');
   });
 
   it('builds jobs through the canonical plan with consistent naming', () => {
@@ -216,7 +264,9 @@ describe('ExportDialog', () => {
 
     // Canonical naming: '@2x' suffix must not get an extra '-' separator.
     expect(container.querySelector('.batch-job-row__name')?.textContent).toBe('Logo@2x.png');
-    expect(container.querySelector('.batch-job-row__dims')?.textContent).toBe('200x160 · 192 PPI');
+    expect(container.querySelector('.batch-job-row__dims')?.textContent).toBe(
+      '200 \u00d7 160 192 PPI',
+    );
   });
 
   it('shows close button when not running', () => {
@@ -393,7 +443,9 @@ describe('ExportDialog', () => {
       />,
     );
     expect(screen.getByText('Press / print settings (PDF/X-1a)')).toBeTruthy();
-    expect(screen.getByLabelText('Bleed in millimetres')).toBeTruthy();
+    expect(
+      screen.getByLabelText('Bleed (mm) — overrides the document bleed for this export'),
+    ).toBeTruthy();
     expect(screen.getByLabelText('Crop marks')).toBeTruthy();
   });
 
@@ -426,7 +478,9 @@ describe('ExportDialog', () => {
         onExport={async () => {}}
       />,
     );
-    const input = screen.getByLabelText('Bleed in millimetres') as HTMLInputElement;
+    const input = screen.getByLabelText(
+      'Bleed (mm) — overrides the document bleed for this export',
+    ) as HTMLInputElement;
     expect(input.value).toBe('5');
     expect(screen.getByText(/Document bleed: 5\.00 mm/)).toBeTruthy();
   });
@@ -473,7 +527,9 @@ describe('ExportDialog', () => {
         onExport={async () => {}}
       />,
     );
-    const input = screen.getByLabelText('Bleed in millimetres') as HTMLInputElement;
+    const input = screen.getByLabelText(
+      'Bleed (mm) — overrides the document bleed for this export',
+    ) as HTMLInputElement;
     expect(input.value).toBe('8');
     expect(screen.getByText(/Document bleed: 8\.00 mm/)).toBeTruthy();
   });
@@ -500,7 +556,9 @@ describe('ExportDialog', () => {
         onExport={async () => {}}
       />,
     );
-    const input = screen.getByLabelText('Bleed in millimetres') as HTMLInputElement;
+    const input = screen.getByLabelText(
+      'Bleed (mm) — overrides the document bleed for this export',
+    ) as HTMLInputElement;
     // App default is 3mm (settings.ts) — untouched by the document.
     expect(input.value).toBe('3');
     expect(screen.getByText(/has no bleed configured/)).toBeTruthy();

@@ -23,8 +23,12 @@ describe('PrintSettingsPanel', () => {
   it('renders all press controls with accessible labels', () => {
     render(<PrintSettingsPanel value={makePrint()} onChange={() => {}} standard="pdf-x4" />);
     expect(screen.getByText('Press / print settings (PDF/X-4)')).toBeTruthy();
-    expect(screen.getByLabelText('Bleed in millimetres')).toBeTruthy();
-    expect(screen.getByLabelText('Minimum effective image resolution in DPI')).toBeTruthy();
+    expect(
+      screen.getByLabelText('Bleed (mm) — overrides the document bleed for this export'),
+    ).toBeTruthy();
+    expect(
+      screen.getByLabelText('Minimum image resolution (PPI) — preflight floor for raster content'),
+    ).toBeTruthy();
     expect(screen.getByLabelText('Crop marks')).toBeTruthy();
     expect(screen.getByLabelText('Registration marks')).toBeTruthy();
     expect(screen.getByLabelText('Color bars')).toBeTruthy();
@@ -34,7 +38,9 @@ describe('PrintSettingsPanel', () => {
   it('updates bleed and clamps to the supported range', () => {
     const onChange = vi.fn();
     render(<PrintSettingsPanel value={makePrint()} onChange={onChange} standard="pdf-x4" />);
-    const bleed = screen.getByLabelText('Bleed in millimetres');
+    const bleed = screen.getByLabelText(
+      'Bleed (mm) — overrides the document bleed for this export',
+    );
     fireEvent.change(bleed, { target: { value: '12.5' } });
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ bleedMm: 12.5 }));
   });
@@ -42,7 +48,9 @@ describe('PrintSettingsPanel', () => {
   it('updates the resolution floor', () => {
     const onChange = vi.fn();
     render(<PrintSettingsPanel value={makePrint()} onChange={onChange} standard="pdf-x4" />);
-    const dpi = screen.getByLabelText('Minimum effective image resolution in DPI');
+    const dpi = screen.getByLabelText(
+      'Minimum image resolution (PPI) — preflight floor for raster content',
+    );
     fireEvent.change(dpi, { target: { value: '600' } });
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ enforceDpi: 600 }));
   });

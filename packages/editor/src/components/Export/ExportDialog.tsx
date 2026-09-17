@@ -69,17 +69,12 @@ import { BatchJobList } from './BatchJobList';
 import { DestinationPicker } from './DestinationPicker';
 import { ExportProgressBar } from './ExportProgressBar';
 import { ExportResultsList } from './ExportResultsList';
+import { formatFileSize } from './formatBytes';
 import { OutputResolutionPanel } from './OutputResolutionPanel';
 import { PreflightFindingsPanel } from './PreflightFindingsPanel';
 import { PrintSettingsPanel } from './PrintSettingsPanel';
 
 import './ExportDialog.css';
-
-function formatBatchSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 export interface ExportDialogProps {
   isOpen: boolean;
@@ -106,6 +101,12 @@ export interface ExportDialogProps {
   /** Native file-manager integration for completed outputs. */
   onRevealOutput?: (path: string) => Promise<void>;
   revealOutputLabel?: string;
+  /**
+   * Reveal the Inspector's Export tab (closes the dialog). Wired to the
+   * empty-state recovery path so a document with no configurations is not a
+   * dead end.
+   */
+  onOpenExportTab?: () => void;
 }
 
 function safeFilename(name: string): string {
@@ -340,6 +341,7 @@ export function ExportDialog({
   onSelectDestination,
   onRevealOutput,
   revealOutputLabel,
+  onOpenExportTab,
 }: ExportDialogProps) {
   const [running, setRunning] = useState(false);
   const [packaging, setPackaging] = useState(false);
@@ -550,9 +552,15 @@ export function ExportDialog({
   const handleExport = useCallback(async () => {
     const blockingErrors = findings.filter((f) => f.severity === 'error');
     if (blockingErrors.length > 0) {
+      // Name the actual blockers. The previous generic sentence ("e.g. missing
+      // fonts, out-of-gamut colors") described findings that were not present
+      // and hid what the user could act on.
+      const named = blockingErrors.slice(0, 3).map((finding) => finding.title);
+      const remaining = blockingErrors.length - named.length;
+      const list = remaining > 0 ? `${named.join('; ')} and ${remaining} more` : named.join('; ');
       const proceed = await confirmDialog(
         'Preflight errors found',
-        `Preflight found ${blockingErrors.length} error${blockingErrors.length === 1 ? '' : 's'} that may make the exported file${blockingErrors.length === 1 ? '' : 's'} unusable (e.g. missing fonts, out-of-gamut colors). Export anyway?`,
+        `Preflight found ${blockingErrors.length} error${blockingErrors.length === 1 ? '' : 's'}: ${list}. ${blockingErrors.length === 1 ? 'This' : 'These'} may make the exported files unusable or overwrite each other. Export anyway?`,
         { confirmLabel: 'Export anyway', variant: 'destructive' },
       );
       if (!proceed) return;
@@ -927,7 +935,7 @@ export function ExportDialog({
               {batchSummary && (
                 <span>
                   {selectedIds.size} of {batchSummary.count} selected
-                  {selectedEstimatedBytes > 0 && ` · ~${formatBatchSize(selectedEstimatedBytes)}`}
+                  {selectedEstimatedBytes > 0 && ` · ~${formatFileSize(selectedEstimatedBytes)}`}
                 </span>
               )}
             </div>
@@ -947,7 +955,7 @@ export function ExportDialog({
                   onClick={handlePackageExport}
                   disabled={running || videoExporting || packaging}
                 >
-                  {packaging ? 'Packaging...' : 'Package'}
+                  {packaging ? 'Packaging…' : 'Package'}
                 </button>
               )}
               <button
@@ -975,7 +983,7 @@ export function ExportDialog({
                     <p className="export-dialog__batch-summary">
                       {batchSummary.count} file{batchSummary.count !== 1 ? 's' : ''}
                       {batchSummary.largestW > 0 &&
-                        ` · Largest: ${batchSummary.largestW} x ${batchSummary.largestH} px`}
+                        ` · Largest: ${batchSummary.largestW} \u00d7 ${batchSummary.largestH} px`}
                     </p>
                   )}
                 </div>
@@ -984,6 +992,27 @@ export function ExportDialog({
                   selectedIds={selectedIds}
                   onToggleJob={handleToggleJob}
                   onToggleAll={handleToggleAll}
+                  emptyState={
+                    jobs.length === 0 ? (
+                      <div className="batch-job-list__empty">
+                        <p>No saved export configurations yet.</p>
+                        <p>
+                          Each enabled export configuration on a layer adds one file to this batch.
+                          Add PNG, SVG, or PDF configurations in the Inspector&apos;s Export tab,
+                          then return here to export them together.
+                        </p>
+                        {onOpenExportTab && (
+                          <button
+                            type="button"
+                            className="batch-job-list__clear-filter-btn"
+                            onClick={onOpenExportTab}
+                          >
+                            Open the Export tab
+                          </button>
+                        )}
+                      </div>
+                    ) : undefined
+                  }
                 />
               </section>
 
@@ -1012,7 +1041,7 @@ export function ExportDialog({
               </section>
 
               {hasPdfXJobs && (
-                <section className="export-dialog__section" aria-label="Print settings">
+                <div className="export-dialog__section">
                   <PrintSettingsPanel
                     value={printSettings}
                     onChange={setPrintSettings}
@@ -1027,16 +1056,16 @@ export function ExportDialog({
                           : undefined
                     }
                   />
-                </section>
+                </div>
               )}
 
               {hasRasterJobs && document && (
-                <section className="export-dialog__section" aria-label="Output resolution">
+                <div className="export-dialog__section">
                   <OutputResolutionPanel
                     value={resolutionOverride}
                     onChange={setResolutionOverride}
                   />
-                </section>
+                </div>
               )}
 
               <section
@@ -1119,16 +1148,15 @@ export function ExportDialog({
                   className="export-dialog__section export-dialog__section--card"
                   aria-label="Motion export"
                 >
-                  <h3 className="export-dialog__section-title">Motion Export</h3>
-                  <p className="export-dialog__note" style={{ paddingLeft: 0 }}>
+                  <h3 className="export-dialog__section-title">Motion export</h3>
+                  <p className="export-dialog__note export-dialog__note--flush">
                     Export document timelines as CSS keyframes, Lottie JSON, or video (WebCodecs;
                     Chromium recommended).
                   </p>
                   {!videoSupport.supported && onSaveVideoFile && (
                     <p
-                      className="export-dialog__note export-dialog__note--warn"
+                      className="export-dialog__note export-dialog__note--flush export-dialog__note--warn"
                       role="status"
-                      style={{ paddingLeft: 0 }}
                     >
                       Video export unavailable: {videoSupport.reason}
                     </p>

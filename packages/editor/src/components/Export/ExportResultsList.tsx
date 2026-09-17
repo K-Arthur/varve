@@ -12,6 +12,8 @@
 import { Icon, ShineBorder } from '@varve/ui';
 import { useState } from 'react';
 import type { ExportFileReport } from '../../exportService';
+import { formatLabel } from './FormatBadge';
+import { formatFileSize } from './formatBytes';
 
 import './ExportResultsList.css';
 
@@ -24,12 +26,6 @@ export interface ExportResultsListProps {
   /** Reveal the first successful saved output in the native file manager. */
   onRevealOutput?: (path: string) => Promise<void>;
   revealOutputLabel?: string;
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
 function formatDuration(ms: number): string {
@@ -88,7 +84,7 @@ export function ExportResultsList({
               <span className="export-results__file">{file.fileName}</span>
               <span className="export-results__meta">
                 {file.status === 'success'
-                  ? `${file.mimeType} \u00b7 ${formatBytes(file.byteCount)} \u00b7 ${formatDuration(file.durationMs)}`
+                  ? `${formatLabel(file.format)} \u00b7 ${formatFileSize(file.byteCount)} \u00b7 ${formatDuration(file.durationMs)}`
                   : 'Failed'}
               </span>
               {file.status === 'failed' && file.error && (

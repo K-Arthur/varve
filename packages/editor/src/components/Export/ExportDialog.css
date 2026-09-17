@@ -184,6 +184,12 @@
   padding-left: calc(var(--space-5) + var(--space-1));
 }
 
+/* Notes that do not sit under a checkbox/switch label keep the card's own
+   inline padding (the indent exists to clear the control above). */
+.export-dialog__note--flush {
+  padding-left: 0;
+}
+
 .export-dialog__motion-actions {
   display: flex;
   flex-direction: column;
@@ -211,7 +217,7 @@
 }
 
 .export-dialog__note--warn {
-  color: var(--color-feedback-warning, #b45309);
+  color: var(--color-feedback-warning);
 }
 
 /* ── High-contrast overrides ──────────────────────────── */

@@ -60,7 +60,7 @@ test.describe('Export workspace — batch dialog surfaces', () => {
 
   async function openAdvancedExport(page: import('@playwright/test').Page) {
     await selectExportTab(page);
-    await page.getByRole('button', { name: /Open advanced export/ }).click();
+    await page.getByRole('button', { name: /Open export workspace/ }).click();
     await expect(page.getByRole('dialog', { name: 'Export' })).toBeVisible();
   }
 
@@ -104,7 +104,7 @@ test.describe('Export workspace — batch dialog surfaces', () => {
     await expect(dialog.locator('.output-resolution')).toBeVisible();
     await dialog.getByLabel('Override raster outputs').check();
 
-    const ppi = dialog.getByLabel('Temporary raster output resolution in PPI');
+    const ppi = dialog.getByLabel('Custom resolution in PPI');
     await ppi.fill('300');
     await expect(dialog.locator('.batch-job-row__dims').first()).toContainText('300 PPI');
   });

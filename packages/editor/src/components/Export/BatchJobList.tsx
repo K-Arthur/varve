@@ -6,6 +6,8 @@
 import type { ExportJob } from '@varve/scene';
 import { Icon } from '@varve/ui';
 import { useMemo, useState } from 'react';
+import { FormatBadge, formatLabel } from './FormatBadge';
+import { formatFileSize } from './formatBytes';
 
 import './BatchJobList.css';
 
@@ -14,12 +16,8 @@ export interface BatchJobListProps {
   selectedIds: Set<string>;
   onToggleJob: (jobId: string) => void;
   onToggleAll: () => void;
-}
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+  /** Replaces the default "No export jobs" line when the list is empty. */
+  emptyState?: React.ReactNode;
 }
 
 function StatusIcon({ status }: { status: ExportJob['status'] }) {
@@ -27,11 +25,11 @@ function StatusIcon({ status }: { status: ExportJob['status'] }) {
     case 'pending':
       return <Icon name="Clock" size={13} label="Pending" />;
     case 'running':
-      return <Icon name="Loader2" size={13} className="batch-job-row__spin" label="Running" />;
+      return <Icon name="LoaderCircle" size={13} className="batch-job-row__spin" label="Running" />;
     case 'done':
       return <Icon name="Check" size={13} label="Done" />;
     case 'error':
-      return <Icon name="AlertCircle" size={13} label="Error" />;
+      return <Icon name="CircleAlert" size={13} label="Error" />;
   }
 }
 
@@ -44,14 +42,16 @@ function VirtualizedList({ children, itemCount }: VirtualizedListProps) {
   if (itemCount <= 50) {
     return <>{children}</>;
   }
-  return (
-    <div className="batch-job-list__virtual" style={{ maxHeight: 400, overflowY: 'auto' }}>
-      {children}
-    </div>
-  );
+  return <div className="batch-job-list__virtual">{children}</div>;
 }
 
-export function BatchJobList({ jobs, selectedIds, onToggleJob, onToggleAll }: BatchJobListProps) {
+export function BatchJobList({
+  jobs,
+  selectedIds,
+  onToggleJob,
+  onToggleAll,
+  emptyState,
+}: BatchJobListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFormat, setSelectedFormat] = useState<string | null>(null);
 
@@ -80,7 +80,6 @@ export function BatchJobList({ jobs, selectedIds, onToggleJob, onToggleAll }: Ba
   const rows = useMemo(() => {
     return filteredJobs.map((job) => {
       const isSelected = selectedIds.has(`${job.nodeId}-${job.presetId}`);
-      const formatKey = job.format.toLowerCase();
       return (
         <div
           key={`${job.nodeId}-${job.presetId}`}
@@ -98,17 +97,18 @@ export function BatchJobList({ jobs, selectedIds, onToggleJob, onToggleAll }: Ba
             {job.fileName}
           </span>
           <span className="batch-job-row__format">
-            <span
-              className={`batch-job-row__format-badge batch-job-row__format-badge--${formatKey}`}
-            >
-              {job.format}
-            </span>
+            <FormatBadge format={job.format} />
           </span>
           <span className="batch-job-row__dims">
-            {job.dimensions.w}x{job.dimensions.h}
-            {job.outputPpi ? ` · ${Math.round(job.outputPpi)} PPI` : ''}
+            {job.dimensions.w} {'\u00d7'} {job.dimensions.h}
+            {job.outputPpi ? (
+              <>
+                {' '}
+                <span className="batch-job-row__ppi">{Math.round(job.outputPpi)} PPI</span>
+              </>
+            ) : null}
           </span>
-          <span className="batch-job-row__size">{formatSize(job.estimatedSize)}</span>
+          <span className="batch-job-row__size">{formatFileSize(job.estimatedSize)}</span>
           <span className={`batch-job-row__status batch-job-row__status--${job.status}`}>
             <StatusIcon status={job.status} />
             <span className="sr-only">{job.status}</span>
@@ -127,10 +127,10 @@ export function BatchJobList({ jobs, selectedIds, onToggleJob, onToggleAll }: Ba
             <input
               type="search"
               className="batch-job-list__search"
-              placeholder="Filter files..."
+              placeholder="Filter files…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              aria-label="Filter jobs"
+              aria-label="Filter files"
             />
             {searchQuery && (
               <button
@@ -152,6 +152,7 @@ export function BatchJobList({ jobs, selectedIds, onToggleJob, onToggleAll }: Ba
               <button
                 type="button"
                 className={`batch-job-list__filter-btn${selectedFormat === null ? ' batch-job-list__filter-btn--active' : ''}`}
+                aria-pressed={selectedFormat === null}
                 onClick={() => setSelectedFormat(null)}
               >
                 All ({jobs.length})
@@ -160,10 +161,11 @@ export function BatchJobList({ jobs, selectedIds, onToggleJob, onToggleAll }: Ba
                 <button
                   key={format}
                   type="button"
-                  className={`batch-job-list__filter-btn batch-job-list__filter-btn--${format}${selectedFormat === format ? ' batch-job-list__filter-btn--active' : ''}`}
+                  className={`batch-job-list__filter-btn${selectedFormat === format ? ' batch-job-list__filter-btn--active' : ''}`}
+                  aria-pressed={selectedFormat === format}
                   onClick={() => setSelectedFormat(selectedFormat === format ? null : format)}
                 >
-                  {format.toUpperCase()} ({count})
+                  {formatLabel(format)} ({count})
                 </button>
               ))}
             </div>
@@ -182,14 +184,15 @@ export function BatchJobList({ jobs, selectedIds, onToggleJob, onToggleAll }: Ba
         </label>
         <span className="batch-job-list__col-name">File</span>
         <span className="batch-job-list__col-format">Format</span>
-        <span className="batch-job-list__col-dims">Size</span>
-        <span className="batch-job-list__col-est">Est.</span>
+        <span className="batch-job-list__col-dims">Dimensions</span>
+        <span className="batch-job-list__col-est">Size</span>
         <span className="batch-job-list__col-status">Status</span>
       </div>
 
       <VirtualizedList itemCount={filteredJobs.length}>{rows}</VirtualizedList>
 
-      {jobs.length === 0 && <div className="batch-job-list__empty">No export jobs to display.</div>}
+      {jobs.length === 0 &&
+        (emptyState ?? <div className="batch-job-list__empty">No export jobs to display.</div>)}
 
       {jobs.length > 0 && filteredJobs.length === 0 && (
         <div className="batch-job-list__empty">

@@ -53,7 +53,7 @@ describe('ExportResultsList', () => {
 
   it('shows size and duration metadata for successful files', () => {
     render(<ExportResultsList files={[makeFile()]} />);
-    expect(screen.getByText(/image\/png \u00b7 50.0KB \u00b7 120ms/i)).toBeTruthy();
+    expect(screen.getByText(/PNG \u00b7 50.0 KB \u00b7 120ms/i)).toBeTruthy();
     expect(screen.getByRole('region', { name: 'Export results' })).toHaveClass(
       'varve-shine-border--beam',
       'varve-shine-border--tone-success',
