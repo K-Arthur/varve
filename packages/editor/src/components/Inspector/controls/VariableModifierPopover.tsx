@@ -101,53 +101,22 @@ export function VariableModifierPopover({
       className="varve-modifier-popover"
     >
       <FocusTrap active onClose={onClose}>
-        <div
-          role="dialog"
-          aria-label="Alpha modifier"
-          style={{
-            minWidth: 240,
-            maxWidth: 300,
-            background: 'var(--color-surface-raised, #fff)',
-            border: '1px solid var(--color-border-strong, #cdd3de)',
-            borderRadius: 'var(--radius-surface)',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.16)',
-            padding: 12,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 10,
-          }}
-        >
-          <div className="insp-field-row__split" style={{ justifyContent: 'space-between' }}>
-            <strong style={{ fontSize: 12 }}>Alpha modifier</strong>
+        <div role="dialog" aria-label="Alpha modifier" className="varve-modifier-popover__panel">
+          <div className="varve-modifier-popover__header">
+            <strong className="varve-modifier-popover__title">Alpha modifier</strong>
             <button type="button" className="insp-inline-btn" aria-label="Close" onClick={onClose}>
               <Icon name="X" label={undefined} size="0.9em" />
             </button>
           </div>
 
-          <fieldset
-            style={{
-              display: 'flex',
-              gap: 4,
-              margin: 0,
-              padding: 0,
-              border: 'none',
-              minInlineSize: 0,
-            }}
-          >
+          <fieldset className="varve-modifier-popover__ops">
             <legend className="varve-visually-hidden">Operation</legend>
             {OPERATIONS.map((op) => (
               <button
                 key={op.value}
                 type="button"
-                className="insp-inline-btn"
+                className="insp-inline-btn varve-modifier-popover__op-btn"
                 aria-pressed={operation === op.value}
-                style={{
-                  fontWeight: operation === op.value ? 700 : 400,
-                  borderBottom:
-                    operation === op.value
-                      ? '2px solid var(--color-accent-primary, #39d0c6)'
-                      : '2px solid transparent',
-                }}
                 onClick={() => setOperation(op.value)}
               >
                 {op.label}
@@ -155,13 +124,13 @@ export function VariableModifierPopover({
             ))}
           </fieldset>
 
-          <label style={{ fontSize: 12 }}>
+          <label className="varve-modifier-popover__value-label">
             {operation === 'multiply'
               ? 'Factor (%)'
               : operation === 'set'
                 ? 'Alpha (%)'
                 : 'Delta (percentage points)'}
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div className="varve-modifier-popover__value-row">
               <input
                 type="range"
                 aria-label="Modifier value"
@@ -170,9 +139,9 @@ export function VariableModifierPopover({
                 step={1}
                 value={displayValue}
                 onChange={(e) => setValue(Number(e.target.value) / 100)}
-                style={{ flex: 1 }}
+                className="varve-modifier-popover__slider"
               />
-              <InputGroup style={{ flex: '0 1 92px', minWidth: 0 }}>
+              <InputGroup className="varve-modifier-popover__value-group">
                 <InputGroupInput
                   type="number"
                   aria-label="Modifier value"
@@ -192,7 +161,7 @@ export function VariableModifierPopover({
             </div>
           </label>
 
-          <div style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div className="varve-modifier-popover__summary">
             <span>
               Token alpha: <strong>{Math.round(tokenAlpha * 100)}%</strong>
             </span>
@@ -200,13 +169,13 @@ export function VariableModifierPopover({
               Effective alpha: <strong>{Math.round(effectiveAlpha * 100)}%</strong>
             </span>
             {operation === 'multiply' && (
-              <span className="insp-empty-message" style={{ fontSize: 11 }}>
+              <span className="insp-empty-message varve-modifier-popover__hint">
                 Relative: follows the variable when its alpha changes
               </span>
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <div className="varve-modifier-popover__actions">
             <button
               type="button"
               className="insp-inline-btn"
@@ -232,7 +201,7 @@ export function VariableModifierPopover({
             </button>
           </div>
           {currentModifiers.length > 0 && (
-            <span style={{ fontSize: 11 }}>
+            <span className="varve-modifier-popover__current">
               Current: {currentModifiers.map((m) => alphaModifierLabel(m)).join(', ')}
             </span>
           )}

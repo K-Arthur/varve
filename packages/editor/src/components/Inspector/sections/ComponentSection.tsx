@@ -39,14 +39,7 @@ export function ComponentSection({ node }: { node: FrameNode }) {
   return (
     <DisclosureSection title="Component" sectionId="component">
       <div className="insp-empty-message">
-        <span
-          style={{
-            fontWeight: 'var(--font-weight-medium)',
-            color: 'var(--color-text-primary)',
-          }}
-        >
-          {componentName}
-        </span>
+        <span className="insp-component__name">{componentName}</span>
       </div>
 
       {/* Swap control */}
@@ -62,39 +55,20 @@ export function ComponentSection({ node }: { node: FrameNode }) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 'var(--space-1)', marginBottom: 'var(--space-2)' }}>
+      <div className="insp-component-actions">
         <button
           type="button"
+          className="insp-component-action-btn"
           onClick={() => editor.resetInstanceOverrides(node.id)}
           disabled={overrides.length === 0}
-          style={{
-            flex: 1,
-            padding: 'var(--space-1) var(--space-2)',
-            fontSize: 'var(--font-size-xs)',
-            background: 'var(--color-surface-sunken)',
-            border: '1px solid var(--color-border-subtle)',
-            borderRadius: 'var(--radius-control-compact)',
-            cursor: overrides.length === 0 ? 'not-allowed' : 'pointer',
-            color: 'var(--color-text-primary)',
-            opacity: overrides.length === 0 ? 0.5 : 1,
-          }}
           aria-label="Reset overrides to master defaults"
         >
           Reset
         </button>
         <button
           type="button"
+          className="insp-component-action-btn"
           onClick={() => editor.detachSelected()}
-          style={{
-            flex: 1,
-            padding: 'var(--space-1) var(--space-2)',
-            fontSize: 'var(--font-size-xs)',
-            background: 'var(--color-surface-sunken)',
-            border: '1px solid var(--color-border-subtle)',
-            borderRadius: 'var(--radius-control-compact)',
-            cursor: 'pointer',
-            color: 'var(--color-text-primary)',
-          }}
           aria-label="Detach instance to plain frame"
         >
           Detach
@@ -103,25 +77,11 @@ export function ComponentSection({ node }: { node: FrameNode }) {
 
       {/* Override indicators */}
       {overrides.length > 0 && (
-        <div style={{ marginBottom: 'var(--space-2)' }}>
-          <div className="insp-empty-message" style={{ padding: '0 0 var(--space-1)' }}>
-            Overridden properties
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)' }}>
+        <div className="insp-component-overrides">
+          <div className="insp-empty-message insp-empty-message--tight">Overridden properties</div>
+          <div className="insp-component-override-chips">
             {overrides.map((prop) => (
-              <span
-                key={prop}
-                style={{
-                  fontSize: 'var(--font-size-xs)',
-                  padding: '2px 6px',
-                  borderRadius: 'var(--radius-control-compact)',
-                  background:
-                    'color-mix(in oklch, var(--color-interactive-default) 15%, transparent)',
-                  color: 'var(--color-text-on-accent, var(--color-accent-primary))',
-                  border:
-                    '1px solid color-mix(in oklch, var(--color-interactive-default) 30%, transparent)',
-                }}
-              >
+              <span key={prop} className="insp-component-override-chip">
                 {prop}
               </span>
             ))}
@@ -131,33 +91,14 @@ export function ComponentSection({ node }: { node: FrameNode }) {
 
       {/* Slot fills */}
       {component?.slots && component.slots.length > 0 && (
-        <div style={{ marginTop: 'var(--space-2)' }}>
-          <div className="insp-empty-message" style={{ padding: '0 0 var(--space-1)' }}>
-            Slots
-          </div>
+        <div className="insp-component-slots">
+          <div className="insp-empty-message insp-empty-message--tight">Slots</div>
           {component.slots.map((slot) => {
             const fillNodeId = node.slots?.[slot.id];
 
             return (
-              <div
-                key={slot.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 'var(--space-1)',
-                  padding: 'var(--space-1)',
-                  background: 'var(--color-surface-sunken)',
-                  border: '1px solid var(--color-border-subtle)',
-                  borderRadius: 'var(--radius-control-compact)',
-                  marginBottom: 'var(--space-1)',
-                }}
-              >
-                <span
-                  style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}
-                >
-                  {slot.name}
-                </span>
+              <div key={slot.id} className="insp-component-slot-row">
+                <span className="insp-component-slot-row__name">{slot.name}</span>
                 <Select
                   label={`Fill slot ${slot.name}`}
                   value={fillNodeId ?? ''}
