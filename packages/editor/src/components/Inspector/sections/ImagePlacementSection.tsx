@@ -1,6 +1,8 @@
 /**
- * ImagePlacementSection — fit mode, scale, offset, and reset controls
- * for shapes with image fills.
+ * ImagePlacementSection — selection-wide scale, offset, and reset controls
+ * for shapes with image fills. Per-paint Fit/Rotation/Flip controls live in
+ * the Fill section because those values belong to ImageFillData and can differ
+ * between stacked image paints.
  *
  * Appears when a single ShapeNode with an image fill is selected.
  * Scale and offset are disabled when the fit mode is "stretch" because the
@@ -17,16 +19,7 @@ import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
-import { SegmentedControl } from '../controls/SegmentedControl';
 import { commonValue, isMixed } from '../selection/selectionState';
-
-const FIT_OPTIONS: readonly { readonly value: ImageFit; readonly label: string }[] = [
-  { value: 'fill', label: 'Fill' },
-  { value: 'fit', label: 'Fit' },
-  { value: 'crop', label: 'Crop' },
-  { value: 'stretch', label: 'Stretch' },
-  { value: 'tile', label: 'Tile' },
-];
 
 interface ImagePlacementSectionProps {
   nodes: SceneNode[];
@@ -59,11 +52,6 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
     [imageNodes, updateDoc],
   );
 
-  const handleFitChange = useCallback(
-    (value: string) => updateImages({ fit: value as ImageFit }),
-    [updateImages],
-  );
-
   const handleOffsetX = useCallback((v: number) => updateImages({ x: v }), [updateImages]);
 
   const handleOffsetY = useCallback((v: number) => updateImages({ y: v }), [updateImages]);
@@ -82,13 +70,14 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
   const firstImageFill = getImageFill(firstNode);
   if (!firstImageFill?.image) return null;
 
-  const firstImg = firstImageFill.image;
-  const fitRaw = commonValue(imageNodes, (n) => getImageFill(n)?.image?.fit ?? 'fill');
+  const imageData = (node: SceneNode) =>
+    node.kind === 'shape' ? getImageFill(node)?.image : undefined;
+  const fitRaw = commonValue(imageNodes, (n) => imageData(n)?.fit ?? 'fill');
   const fitValue: ImageFit = isMixed(fitRaw) ? 'fill' : (fitRaw as ImageFit);
   const fitMixed = isMixed(fitRaw);
-  const scaleRaw = commonValue(imageNodes, (n) => getImageFill(n)?.image?.scale ?? 1);
-  const offsetXRaw = commonValue(imageNodes, (n) => getImageFill(n)?.image?.x ?? 0);
-  const offsetYRaw = commonValue(imageNodes, (n) => getImageFill(n)?.image?.y ?? 0);
+  const scaleRaw = commonValue(imageNodes, (n) => imageData(n)?.scale ?? 1);
+  const offsetXRaw = commonValue(imageNodes, (n) => imageData(n)?.x ?? 0);
+  const offsetYRaw = commonValue(imageNodes, (n) => imageData(n)?.y ?? 0);
   const placementLocked = fitValue === 'stretch';
 
   const isMulti = imageNodes.length > 1;
@@ -99,23 +88,11 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
   return (
     <DisclosureSection title="Image Placement" sectionId="image-placement">
       <div className="insp-field-group">
-        {/* Full-width five-up track: the fit modes are the section's primary
-            decision, so they get the row rather than a cramped 38% column. */}
-        <div className="insp-field insp-field--stacked">
-          <span className="insp-field__label">Fit</span>
-          <div className="insp-field__control">
-            <SegmentedControl
-              label="Image fit mode"
-              className="insp-segmented--fit"
-              options={FIT_OPTIONS}
-              value={fitValue}
-              onChange={handleFitChange}
-            />
-          </div>
-        </div>
-        {fitMixed && (
+        {(fitMixed || placementLocked) && (
           <p className="insp-field__hint">
-            Mixed fit modes — choosing one applies it to all images.
+            {fitMixed
+              ? 'Mixed fit modes — choose Fit in the Fill section for each image paint.'
+              : 'Stretch ignores offset and scale; change Fit in the Fill section.'}
           </p>
         )}
 
@@ -178,7 +155,7 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
               label={
                 isMulti
                   ? `Reset placement for ${imageNodes.length} images`
-                  : 'Reset image placement'
+                  : 'Reset image placement and image fit'
               }
             >
               <button type="button" className="insp-btn-sm" onClick={resetPlacement}>

@@ -36,6 +36,7 @@ import {
 import { LayerStatesSection } from '../../LayersPanel/LayerStatesSection';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
+import { NumberField } from '../controls/NumberField';
 import { SegmentedControl } from '../controls/SegmentedControl';
 import { PagePrintSection } from '../sections/PagePrintSection';
 
@@ -784,7 +785,7 @@ function IsometricGridSection() {
           </div>
         </div>
         <div className="insp-field">
-          <span className="insp-field__label">Snap Enabled</span>
+          <span className="insp-field__label insp-field__label--wrap">Snap Enabled</span>
           <div className="insp-field__control insp-field__control--inline">
             <Switch
               label="Snap to isometric grid"
@@ -794,34 +795,31 @@ function IsometricGridSection() {
           </div>
         </div>
         <div className="insp-field">
-          <Select
-            label="Isometric grid preset"
-            value={presetId}
-            onChange={handlePresetChange}
-            options={[
-              ...ISOMETRIC_PRESETS.map((p) => ({ value: p.id, label: p.label })),
-              { value: 'custom', label: 'Custom' },
-            ]}
-          />
-          {(() => {
-            const preset = ISOMETRIC_PRESETS.find((p) => p.id === presetId);
-            return preset ? (
-              <p
-                className="insp-field__hint"
-                style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.75, margin: '2px 0 0' }}
-              >
-                {preset.description}
-              </p>
-            ) : null;
-          })()}
+          <span className="insp-field__label">Preset</span>
+          <div className="insp-field__control">
+            <Select
+              label="Isometric grid preset"
+              value={presetId}
+              onChange={handlePresetChange}
+              options={[
+                ...ISOMETRIC_PRESETS.map((p) => ({ value: p.id, label: p.label })),
+                { value: 'custom', label: 'Custom' },
+              ]}
+            />
+          </div>
         </div>
+        {(() => {
+          const preset = ISOMETRIC_PRESETS.find((p) => p.id === presetId);
+          return preset ? (
+            <p className="insp-panel__color-mode-note" role="note">
+              {preset.description}
+            </p>
+          ) : null;
+        })()}
 
         <div className="insp-field">
-          <span className="insp-field__label">Construction plane</span>
-          <div
-            className="insp-field__control"
-            style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
-          >
+          <span className="insp-field__label insp-field__label--wrap">Construction plane</span>
+          <div className="insp-field__control">
             <SegmentedControl
               label="Active construction plane"
               value={grid.activePlaneId ?? 'top'}
@@ -836,16 +834,16 @@ function IsometricGridSection() {
                 setActiveIsometricPlane(value === 'none' ? 'none' : (value as IsometricPlaneId))
               }
             />
-            <span style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.75 }}>
-              {ISOMETRIC_PLANES.find((plane) => plane.id === (grid.activePlaneId ?? 'top'))
-                ?.description ?? ''}{' '}
-              New shapes follow this plane; existing artwork is not transformed.
-            </span>
           </div>
         </div>
+        <p className="insp-panel__color-mode-note" role="note">
+          {ISOMETRIC_PLANES.find((plane) => plane.id === (grid.activePlaneId ?? 'top'))
+            ?.description ?? ''}{' '}
+          New shapes follow this plane; existing artwork is not transformed.
+        </p>
 
         <div className="insp-field">
-          <span className="insp-field__label">Fit existing artwork</span>
+          <span className="insp-field__label insp-field__label--wrap">Fit existing artwork</span>
           <div
             className="insp-field__control"
             style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}
@@ -1052,78 +1050,36 @@ function IsometricGridSection() {
           </>
         )}
 
-        <div className="insp-field">
-          <span className="insp-field__label">Spacing (axis step)</span>
-          <div
-            className="insp-field__control"
-            style={{ display: 'flex', flexDirection: 'column', gap: 2 }}
-          >
-            <input
-              type="number"
-              min="0.01"
-              max="100000"
-              value={grid.spacing}
-              onChange={(e) => {
-                const v = parseFloat(e.target.value);
-                if (!Number.isNaN(v) && v > 0) updateGrid({ spacing: v });
-              }}
-              className="insp-num__input"
-              aria-label={`Isometric grid spacing ${grid.spacing}`}
-            />
-            <span style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.75 }}>
-              Projected length of one step along each grid axis; line separations are derived from
-              it.
-            </span>
-          </div>
-        </div>
-        <div className="insp-field">
-          <span className="insp-field__label">Major line every</span>
-          <div className="insp-field__control">
-            <input
-              type="number"
-              min="1"
-              max="64"
-              step="1"
-              value={grid.majorEvery ?? 4}
-              onChange={(e) => {
-                const v = parseInt(e.target.value, 10);
-                if (Number.isInteger(v) && v >= 1 && v <= 64) updateGrid({ majorEvery: v });
-              }}
-              className="insp-num__input"
-              aria-label={`Major line every ${grid.majorEvery ?? 4} grid steps`}
-            />
-          </div>
-        </div>
-        <div className="insp-field">
-          <span className="insp-field__label">Origin X</span>
-          <div className="insp-field__control">
-            <input
-              type="number"
-              value={grid.originX}
-              onChange={(e) => {
-                const v = parseFloat(e.target.value);
-                if (!Number.isNaN(v)) updateGrid({ originX: v });
-              }}
-              className="insp-num__input"
-              aria-label={`Isometric grid origin X ${grid.originX}`}
-            />
-          </div>
-        </div>
-        <div className="insp-field">
-          <span className="insp-field__label">Origin Y</span>
-          <div className="insp-field__control">
-            <input
-              type="number"
-              value={grid.originY}
-              onChange={(e) => {
-                const v = parseFloat(e.target.value);
-                if (!Number.isNaN(v)) updateGrid({ originY: v });
-              }}
-              className="insp-num__input"
-              aria-label={`Isometric grid origin Y ${grid.originY}`}
-            />
-          </div>
-        </div>
+        <NumberField
+          label="Spacing (axis step)"
+          labelWrap
+          value={grid.spacing}
+          min={0.01}
+          max={100_000}
+          onChange={(v) => updateGrid({ spacing: v })}
+        />
+        <p className="insp-panel__color-mode-note" role="note">
+          Projected length of one step along each grid axis; line separations are derived from it.
+        </p>
+        <NumberField
+          label="Major line every"
+          labelWrap
+          value={grid.majorEvery ?? 4}
+          min={1}
+          max={64}
+          step={1}
+          onChange={(v) => updateGrid({ majorEvery: Math.max(1, Math.round(v)) })}
+        />
+        <NumberField
+          label="Origin X"
+          value={grid.originX}
+          onChange={(v) => updateGrid({ originX: v })}
+        />
+        <NumberField
+          label="Origin Y"
+          value={grid.originY}
+          onChange={(v) => updateGrid({ originY: v })}
+        />
         <div className="insp-field">
           <span className="insp-field__label">Origin</span>
           <div className="insp-field__control" style={{ display: 'flex', gap: 6 }}>
@@ -1135,13 +1091,13 @@ function IsometricGridSection() {
             >
               Reset origin
             </button>
-            <span style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.75, alignSelf: 'center' }}>
-              Grid origin only; rulers and artwork are unaffected.
-            </span>
           </div>
         </div>
+        <p className="insp-panel__color-mode-note" role="note">
+          Grid origin only; rulers and artwork are unaffected.
+        </p>
         <div className="insp-field">
-          <span className="insp-field__label">Snap targets</span>
+          <span className="insp-field__label insp-field__label--wrap">Snap targets</span>
           <div
             className="insp-field__control"
             style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
@@ -1158,24 +1114,15 @@ function IsometricGridSection() {
             />
           </div>
         </div>
-        <div className="insp-field">
-          <span className="insp-field__label">Rotation (deg)</span>
-          <div className="insp-field__control">
-            <input
-              type="number"
-              min="0"
-              max="360"
-              step="1"
-              value={grid.rotation}
-              onChange={(e) => {
-                const v = parseFloat(e.target.value);
-                if (!Number.isNaN(v)) updateGrid({ rotation: v });
-              }}
-              className="insp-num__input"
-              aria-label={`Isometric grid rotation ${grid.rotation} degrees`}
-            />
-          </div>
-        </div>
+        <NumberField
+          label="Rotation"
+          unit="deg"
+          min={0}
+          max={360}
+          step={1}
+          value={grid.rotation}
+          onChange={(v) => updateGrid({ rotation: v })}
+        />
         <div className="insp-field">
           <span className="insp-field__label">Color</span>
           <div className="insp-field__control">

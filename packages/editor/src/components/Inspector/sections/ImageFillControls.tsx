@@ -434,57 +434,57 @@ export function ImageFillControls({
           </button>
         </Tooltip>
       </FieldRow>
-      <FieldRow label="Fit">
-        <Select
-          label="Image fit mode"
-          value={image.fit}
-          options={FIT_OPTIONS}
-          onChange={handleFitChange}
-        />
-      </FieldRow>
-      <FieldRow label="Rotation">
-        <div className="insp-image-fill__transform-row">
-          <input
-            type="number"
-            value={image.rotation ?? 0}
-            onChange={(e) => onChange({ ...image, rotation: parseFloat(e.target.value) || 0 })}
-            aria-label="Image rotation degrees"
-            className="insp-num__input insp-image-fill__rot-input"
-            step={15}
-            min={-360}
-            max={360}
+      <div className="insp-image-fill__fit-transform-group">
+        <FieldRow label="Fit">
+          <Select
+            label="Image fit mode"
+            value={image.fit}
+            options={FIT_OPTIONS}
+            onChange={handleFitChange}
           />
-          <span className="insp-image-fill__deg">°</span>
-        </div>
-      </FieldRow>
-      <FieldRow label="Flip">
-        <div className="insp-image-fill__flip-row">
-          <TooltipProvider>
-            <Tooltip label="Flip horizontal">
-              <button
-                type="button"
-                className={`insp-image-fill__flip-btn${image.flipH ? ' insp-image-fill__flip-btn--active' : ''}`}
-                aria-pressed={!!image.flipH}
-                aria-label="Flip horizontal"
-                onClick={() => onChange({ ...image, flipH: !image.flipH })}
-              >
-                <Icon name="FlipHorizontal2" label={undefined} size="0.85em" />
-              </button>
-            </Tooltip>
-            <Tooltip label="Flip vertical">
-              <button
-                type="button"
-                className={`insp-image-fill__flip-btn${image.flipV ? ' insp-image-fill__flip-btn--active' : ''}`}
-                aria-pressed={!!image.flipV}
-                aria-label="Flip vertical"
-                onClick={() => onChange({ ...image, flipV: !image.flipV })}
-              >
-                <Icon name="FlipVertical2" label={undefined} size="0.85em" />
-              </button>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-      </FieldRow>
+        </FieldRow>
+        <FieldRow label="Rotation">
+          <div className="insp-image-fill__transform-row">
+            <input
+              type="number"
+              value={image.rotation ?? 0}
+              onChange={(e) => onChange({ ...image, rotation: parseFloat(e.target.value) || 0 })}
+              aria-label="Image rotation degrees"
+              className="insp-num__input insp-image-fill__rot-input"
+              step={15}
+              min={-360}
+              max={360}
+            />
+            <span className="insp-image-fill__deg">°</span>
+            <div className="insp-image-fill__flip-row">
+              <TooltipProvider>
+                <Tooltip label="Flip horizontal">
+                  <button
+                    type="button"
+                    className={`insp-image-fill__flip-btn${image.flipH ? ' insp-image-fill__flip-btn--active' : ''}`}
+                    aria-pressed={!!image.flipH}
+                    aria-label="Flip horizontal"
+                    onClick={() => onChange({ ...image, flipH: !image.flipH })}
+                  >
+                    <Icon name="FlipHorizontal2" label={undefined} size="0.85em" />
+                  </button>
+                </Tooltip>
+                <Tooltip label="Flip vertical">
+                  <button
+                    type="button"
+                    className={`insp-image-fill__flip-btn${image.flipV ? ' insp-image-fill__flip-btn--active' : ''}`}
+                    aria-pressed={!!image.flipV}
+                    aria-label="Flip vertical"
+                    onClick={() => onChange({ ...image, flipV: !image.flipV })}
+                  >
+                    <Icon name="FlipVertical2" label={undefined} size="0.85em" />
+                  </button>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </div>
+        </FieldRow>
+      </div>
       {image.crop && (
         <FieldRow label="Crop">
           <div className="insp-image-fill__crop-info">
@@ -612,7 +612,7 @@ function ImageColorInfo({ asset }: { asset: DocumentAsset }) {
         {details.length > 0 && (
           <button
             type="button"
-            className="insp-inline-btn"
+            className="insp-inline-btn insp-image-fill__color-toggle"
             aria-expanded={expanded}
             aria-label={expanded ? 'Hide colour details' : 'Show colour details'}
             onClick={() => setExpanded((v) => !v)}

@@ -98,229 +98,213 @@ export function LayoutSection({ node }: { node: FrameNode }) {
   return (
     <>
       <DisclosureSection title="Stack / Grid" sectionId="layout">
-        <FieldRow label="Clip content" htmlFor={`frame-clip-content-${node.id}`}>
-          <Switch
-            id={`frame-clip-content-${node.id}`}
-            aria-label="Clip content"
-            checked={node.clipContent !== false}
-            onChange={(event) => setNodeClipContent(node.id, event.target.checked)}
-          />
-        </FieldRow>
-        {suggestion && !ls && (
-          <div
-            className="insp-hint"
-            style={{
-              fontSize: 'var(--font-size-xs)',
-              padding: 'var(--space-1) var(--space-2)',
-              background: 'var(--color-surface-sunken)',
-              borderRadius: 'var(--radius-control-compact)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 'var(--space-1)',
-              marginBottom: 'var(--space-1)',
-            }}
-          >
-            <span style={{ flex: 1 }}>
-              Auto-layout suggested ({Math.round(suggestion.confidence * 100)}% confidence)
-            </span>
-            <button
-              type="button"
-              className="insp-hint__apply"
-              onClick={() => setNodeLayout(node.id, suggestion.suggestedStyle)}
-              style={{
-                fontSize: 'var(--font-size-xs)',
-                padding: '2px 6px',
-                border: '1px solid var(--color-border-subtle)',
-                borderRadius: 'var(--radius-control-compact)',
-                background: 'var(--elevation-surface-default)',
-                cursor: 'pointer',
+        <div className="insp-layout-controls">
+          <FieldRow label="Clip content" htmlFor={`frame-clip-content-${node.id}`}>
+            <Switch
+              id={`frame-clip-content-${node.id}`}
+              aria-label="Clip content"
+              checked={node.clipContent !== false}
+              onChange={(event) => setNodeClipContent(node.id, event.target.checked)}
+            />
+          </FieldRow>
+          {suggestion && !ls && (
+            <div className="insp-layout-suggestion">
+              <span className="insp-layout-suggestion__copy">
+                Auto-layout suggested ({Math.round(suggestion.confidence * 100)}% confidence)
+              </span>
+              <button
+                type="button"
+                className="insp-hint__apply"
+                onClick={() => setNodeLayout(node.id, suggestion.suggestedStyle)}
+              >
+                Apply
+              </button>
+            </div>
+          )}
+          <FieldRow label="Mode">
+            <Select
+              label="Layout mode"
+              value={ls?.mode ?? 'none'}
+              options={[
+                { value: 'none', label: 'None' },
+                { value: 'flex', label: 'Flex' },
+                { value: 'grid', label: 'Grid' },
+              ]}
+              onChange={(v) => {
+                if (v === 'none') setNodeLayout(node.id, undefined);
+                else patch({ mode: v as LayoutMode });
               }}
-            >
-              Apply
-            </button>
-          </div>
-        )}
-        <FieldRow label="Mode">
-          <Select
-            label="Layout mode"
-            value={ls?.mode ?? 'none'}
-            options={[
-              { value: 'none', label: 'None' },
-              { value: 'flex', label: 'Flex' },
-              { value: 'grid', label: 'Grid' },
-            ]}
-            onChange={(v) => {
-              if (v === 'none') setNodeLayout(node.id, undefined);
-              else patch({ mode: v as LayoutMode });
-            }}
-          />
-        </FieldRow>
-        {ls && (
-          <>
-            <FieldRow label="Direction">
-              <Select
-                label="Layout direction"
-                value={ls.direction}
-                options={[
-                  { value: 'row', label: 'Row' },
-                  { value: 'column', label: 'Column' },
-                  { value: 'rowReverse', label: 'Row reverse' },
-                  { value: 'columnReverse', label: 'Column reverse' },
-                ]}
-                onChange={(v) => patch({ direction: v as FlexDirection })}
-              />
-            </FieldRow>
-            {ls.mode === 'grid' && (
-              <>
-                <FieldRow label="Grid Cols" htmlFor={`layout-grid-cols-${node.id}`}>
-                  <input
-                    id={`layout-grid-cols-${node.id}`}
-                    type="text"
-                    value={ls.gridTemplateColumns ?? ''}
-                    placeholder="e.g., 1fr 1fr 1fr"
-                    className="insp-select"
-                    onChange={(e) => patch({ gridTemplateColumns: e.target.value || undefined })}
-                    aria-label="Grid template columns"
-                  />
-                </FieldRow>
-                <FieldRow label="Grid Rows" htmlFor={`layout-grid-rows-${node.id}`}>
-                  <input
-                    id={`layout-grid-rows-${node.id}`}
-                    type="text"
-                    value={ls.gridTemplateRows ?? ''}
-                    placeholder="e.g., auto 1fr auto"
-                    className="insp-select"
-                    onChange={(e) => patch({ gridTemplateRows: e.target.value || undefined })}
-                    aria-label="Grid template rows"
-                  />
-                </FieldRow>
-                <FieldRow label="Auto Flow">
-                  <Select
-                    label="Grid auto flow"
-                    value={ls.gridAutoFlow ?? 'row'}
-                    options={GRID_AUTO_FLOW_OPTIONS.map((o) => ({
-                      value: o.value,
-                      label: o.label,
-                    }))}
-                    onChange={(v) =>
-                      patch({
-                        gridAutoFlow: v as NonNullable<LayoutStyle['gridAutoFlow']>,
-                      })
-                    }
-                  />
-                </FieldRow>
-                <NumberField
-                  label="Row gap"
-                  unit="px"
-                  value={ls.rowGap ?? ls.gap}
-                  min={0}
-                  onChange={(v) => patch({ rowGap: v })}
+            />
+          </FieldRow>
+          {ls && (
+            <>
+              <FieldRow label="Direction">
+                <Select
+                  label="Layout direction"
+                  value={ls.direction}
+                  options={[
+                    { value: 'row', label: 'Row' },
+                    { value: 'column', label: 'Column' },
+                    { value: 'rowReverse', label: 'Row reverse' },
+                    { value: 'columnReverse', label: 'Column reverse' },
+                  ]}
+                  onChange={(v) => patch({ direction: v as FlexDirection })}
                 />
-                <NumberField
-                  label="Col gap"
-                  unit="px"
-                  value={ls.columnGap ?? ls.gap}
-                  min={0}
-                  onChange={(v) => patch({ columnGap: v })}
-                />
-              </>
-            )}
-            {ls.mode === 'flex' && (
-              <>
-                <NumberField
-                  label="Gap"
-                  unit="px"
-                  value={ls.gap}
-                  min={-100000}
-                  onChange={(v) => patch({ gap: v })}
-                />
-                <FieldRow label="Wrap">
-                  <Switch
-                    aria-label="Wrap"
-                    checked={ls.wrap}
-                    onChange={(e) => patch({ wrap: e.target.checked })}
-                  />
-                </FieldRow>
-                <FieldRow label="Align">
-                  <SegmentedControl
-                    label="Align items"
-                    value={ls.alignItems ?? 'start'}
-                    options={ALIGN_ITEMS_OPTIONS}
-                    onChange={(v) => patch({ alignItems: v })}
-                  />
-                </FieldRow>
-                <FieldRow label="Justify">
-                  <SegmentedControl
-                    label="Justify content"
-                    value={ls.justifyContent ?? 'start'}
-                    options={JUSTIFY_OPTIONS}
-                    onChange={(v) => patch({ justifyContent: v })}
-                  />
-                </FieldRow>
-              </>
-            )}
-            <FieldRow label="Padding">
-              <div className="insp-per-side-grid" style={{ gap: 'var(--space-1)', flex: 1 }}>
-                {(['T', 'R', 'B', 'L'] as const).map((side, i) => (
-                  <input
-                    key={side}
-                    type="number"
-                    aria-label={`Padding ${side}`}
-                    value={ls.padding[i] ?? 0}
-                    step={1}
+              </FieldRow>
+              {ls.mode === 'grid' && (
+                <>
+                  <FieldRow label="Grid Cols" htmlFor={`layout-grid-cols-${node.id}`}>
+                    <input
+                      id={`layout-grid-cols-${node.id}`}
+                      type="text"
+                      value={ls.gridTemplateColumns ?? ''}
+                      placeholder="e.g., 1fr 1fr 1fr"
+                      className="insp-select"
+                      onChange={(e) => patch({ gridTemplateColumns: e.target.value || undefined })}
+                      aria-label="Grid template columns"
+                    />
+                  </FieldRow>
+                  <FieldRow label="Grid Rows" htmlFor={`layout-grid-rows-${node.id}`}>
+                    <input
+                      id={`layout-grid-rows-${node.id}`}
+                      type="text"
+                      value={ls.gridTemplateRows ?? ''}
+                      placeholder="e.g., auto 1fr auto"
+                      className="insp-select"
+                      onChange={(e) => patch({ gridTemplateRows: e.target.value || undefined })}
+                      aria-label="Grid template rows"
+                    />
+                  </FieldRow>
+                  <FieldRow label="Auto Flow">
+                    <Select
+                      label="Grid auto flow"
+                      value={ls.gridAutoFlow ?? 'row'}
+                      options={GRID_AUTO_FLOW_OPTIONS.map((o) => ({
+                        value: o.value,
+                        label: o.label,
+                      }))}
+                      onChange={(v) =>
+                        patch({
+                          gridAutoFlow: v as NonNullable<LayoutStyle['gridAutoFlow']>,
+                        })
+                      }
+                    />
+                  </FieldRow>
+                  <NumberField
+                    label="Row gap"
+                    unit="px"
+                    value={ls.rowGap ?? ls.gap}
                     min={0}
-                    onChange={(e) => {
-                      const p = [...ls.padding] as [number, number, number, number];
-                      p[i] = Number(e.target.value) || 0;
-                      patch({ padding: p });
-                    }}
-                    className="insp-per-side"
+                    onChange={(v) => patch({ rowGap: v })}
                   />
-                ))}
-              </div>
-            </FieldRow>
-            <InspectorFieldGroup columns={2}>
-              <NumberField
-                label="Grow"
-                value={ls.grow}
-                min={0}
-                step={1}
-                onChange={(v) => patch({ grow: v })}
-              />
-              <NumberField
-                label="Shrink"
-                value={ls.shrink}
-                min={0}
-                step={1}
-                onChange={(v) => patch({ shrink: v })}
-              />
-            </InspectorFieldGroup>
-            <FieldRow label="Borders in layout" wrapLabel>
-              <Switch
-                aria-label="Include visible borders in layout"
-                checked={ls.includeBordersInLayout === true}
-                onChange={(event) => patch({ includeBordersInLayout: event.target.checked })}
-              />
-            </FieldRow>
-            <FieldRow label="Overlap order" wrapLabel>
-              <Select
-                label="Overlap paint order"
-                value={ls.overlapOrder ?? 'legacy'}
-                options={[
-                  { value: 'legacy', label: 'Legacy (last on top)' },
-                  { value: 'firstOnTop', label: 'First child on top' },
-                  { value: 'lastOnTop', label: 'Last child on top' },
-                ]}
-                onChange={(value) => patch({ overlapOrder: value as LayoutStyle['overlapOrder'] })}
-              />
-            </FieldRow>
-            <p className="insp-panel__color-mode-note" role="note">
-              Negative gaps overlap items. Shadows and blur stay out of layout measurement.
-            </p>
-          </>
-        )}
-        {/* Clamp() fluid sizing for the frame itself */}
-        <ClampSizingControls nodes={[node]} />
+                  <NumberField
+                    label="Col gap"
+                    unit="px"
+                    value={ls.columnGap ?? ls.gap}
+                    min={0}
+                    onChange={(v) => patch({ columnGap: v })}
+                  />
+                </>
+              )}
+              {ls.mode === 'flex' && (
+                <>
+                  <NumberField
+                    label="Gap"
+                    unit="px"
+                    value={ls.gap}
+                    min={-100000}
+                    onChange={(v) => patch({ gap: v })}
+                  />
+                  <FieldRow label="Wrap">
+                    <Switch
+                      aria-label="Wrap"
+                      checked={ls.wrap}
+                      onChange={(e) => patch({ wrap: e.target.checked })}
+                    />
+                  </FieldRow>
+                  <FieldRow label="Align">
+                    <SegmentedControl
+                      label="Align items"
+                      value={ls.alignItems ?? 'start'}
+                      options={ALIGN_ITEMS_OPTIONS}
+                      onChange={(v) => patch({ alignItems: v })}
+                    />
+                  </FieldRow>
+                  <FieldRow label="Justify">
+                    <SegmentedControl
+                      label="Justify content"
+                      value={ls.justifyContent ?? 'start'}
+                      options={JUSTIFY_OPTIONS}
+                      onChange={(v) => patch({ justifyContent: v })}
+                    />
+                  </FieldRow>
+                </>
+              )}
+              <FieldRow label="Padding">
+                <div className="insp-per-side-grid">
+                  {(['T', 'R', 'B', 'L'] as const).map((side, i) => (
+                    <input
+                      key={side}
+                      type="number"
+                      aria-label={`Padding ${side}`}
+                      value={ls.padding[i] ?? 0}
+                      step={1}
+                      min={0}
+                      onChange={(e) => {
+                        const p = [...ls.padding] as [number, number, number, number];
+                        p[i] = Number(e.target.value) || 0;
+                        patch({ padding: p });
+                      }}
+                      className="insp-per-side"
+                    />
+                  ))}
+                </div>
+              </FieldRow>
+              <InspectorFieldGroup columns={2} className="insp-field-group--numeric-pair">
+                <NumberField
+                  label="Grow"
+                  value={ls.grow}
+                  min={0}
+                  step={1}
+                  onChange={(v) => patch({ grow: v })}
+                />
+                <NumberField
+                  label="Shrink"
+                  value={ls.shrink}
+                  min={0}
+                  step={1}
+                  onChange={(v) => patch({ shrink: v })}
+                />
+              </InspectorFieldGroup>
+              <FieldRow label="Borders in layout" wrapLabel>
+                <Switch
+                  aria-label="Include visible borders in layout"
+                  checked={ls.includeBordersInLayout === true}
+                  onChange={(event) => patch({ includeBordersInLayout: event.target.checked })}
+                />
+              </FieldRow>
+              <FieldRow label="Overlap order" wrapLabel>
+                <Select
+                  label="Overlap paint order"
+                  value={ls.overlapOrder ?? 'legacy'}
+                  options={[
+                    { value: 'legacy', label: 'Legacy (last on top)' },
+                    { value: 'firstOnTop', label: 'First child on top' },
+                    { value: 'lastOnTop', label: 'Last child on top' },
+                  ]}
+                  onChange={(value) =>
+                    patch({ overlapOrder: value as LayoutStyle['overlapOrder'] })
+                  }
+                />
+              </FieldRow>
+              <p className="insp-panel__color-mode-note" role="note">
+                Negative gaps overlap items. Shadows and blur stay out of layout measurement.
+              </p>
+            </>
+          )}
+          {/* Clamp() fluid sizing for the frame itself */}
+          <ClampSizingControls nodes={[node]} />
+        </div>
       </DisclosureSection>
       <GridPlacementFields nodes={[node]} />
       <LayoutGuidesSection node={node} />
@@ -555,25 +539,8 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
     .sort()
     .join(',');
   return (
-    <div
-      style={{
-        marginTop: 'var(--space-1)',
-        paddingTop: 'var(--space-1)',
-        borderTop: '1px solid var(--color-border-subtle)',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 'var(--space-1)',
-      }}
-    >
-      <div
-        style={{
-          fontSize: 'var(--font-size-xs)',
-          fontWeight: 'var(--font-weight-medium)',
-          color: 'var(--color-text-secondary)',
-        }}
-      >
-        Sizing
-      </div>
+    <div className="insp-layout-sizing">
+      <div className="insp-layout-sizing__title">Sizing</div>
       <FieldRow label="Width">
         <Select
           label="Width sizing mode"
@@ -592,7 +559,7 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
           onChange={(v) => setSelectedLayoutSizingHeight(v as LayoutSizing)}
         />
       </FieldRow>
-      <InspectorFieldGroup columns={2}>
+      <InspectorFieldGroup columns={2} className="insp-field-group--numeric-pair">
         <NumberField
           label="Min W"
           unit="px"
@@ -615,7 +582,7 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
         />
       </InspectorFieldGroup>
       {(minWRaw != null || maxWRaw != null) && (
-        <div style={{ display: 'flex', gap: 'var(--space-1)', justifyContent: 'flex-end' }}>
+        <div className="insp-layout-sizing__actions">
           {minWRaw != null && (
             <button
               type="button"
@@ -638,7 +605,7 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
           )}
         </div>
       )}
-      <InspectorFieldGroup columns={2}>
+      <InspectorFieldGroup columns={2} className="insp-field-group--numeric-pair">
         <NumberField
           label="Min H"
           unit="px"
@@ -661,7 +628,7 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
         />
       </InspectorFieldGroup>
       {(minHRaw != null || maxHRaw != null) && (
-        <div style={{ display: 'flex', gap: 'var(--space-1)', justifyContent: 'flex-end' }}>
+        <div className="insp-layout-sizing__actions">
           {minHRaw != null && (
             <button
               type="button"

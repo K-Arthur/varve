@@ -748,25 +748,21 @@ test.describe('Design tab follow-up (2026-09-16)', () => {
     await expect(page.locator('.insp-mask-header-badge')).toHaveText(/alpha|clip|luminance/i);
   });
 
-  test('Per-fill blend mode appears as a chip only when it differs from Normal', async ({
-    page,
-  }) => {
+  test('Per-fill blend mode uses the same grouped select as Appearance', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await seedRealWorldDocument(page);
     await selectRectangleLayer(page);
     await openDesignTab(page);
 
-    // Default fill: no duplicate blend row, and the row menu still owns it.
-    await expect(page.locator('.insp-blend-chip')).toHaveCount(0);
-    await page.getByRole('button', { name: 'Fill actions' }).click();
-    const blendItem = page.getByRole('menuitem', { name: 'Blend mode' });
-    await expect(blendItem).toBeVisible();
-    await blendItem.click();
-    await page.getByRole('menuitemradio', { name: 'Multiply' }).click();
+    // Default fill: the row exposes the same grouped combobox affordance as
+    // Appearance, instead of hiding the control in an actions submenu.
+    const fillBlend = page.getByRole('combobox', { name: 'Fill blend mode' });
+    await expect(fillBlend).toHaveText('Normal');
+    await fillBlend.click();
+    await page.getByRole('option', { name: 'Multiply' }).click();
 
-    // Non-normal fill blend: compact chip names the mode.
-    await expect(page.locator('.insp-blend-chip')).toBeVisible();
-    await expect(page.locator('.insp-blend-chip')).toContainText('Multiply');
+    // Non-normal fill blend remains visible in the same control.
+    await expect(fillBlend).toHaveText('Multiply');
   });
 });
 
@@ -776,7 +772,7 @@ const PAINT_EVIDENCE_DIR = 'reports/inspector-review/paint-rows';
 test.describe('Design tab paint rows (fill / stroke pass)', () => {
   test.describe.configure({ retries: 1 });
 
-  test('Fill row states its value and changes type without a full-width select', async ({
+  test('Fill row states its value and changes type through the labelled select', async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -784,17 +780,17 @@ test.describe('Design tab paint rows (fill / stroke pass)', () => {
     await selectRectangleLayer(page);
     await openDesignTab(page);
 
-    // Value pill: swatch + hex, no "Fill type" combobox on the row.
+    // Value pill: swatch + hex, with an explicit type selector on the properties grid.
     const valuePill = page.locator('.insp-swatch--valued').first();
     await expect(valuePill).toBeVisible({ timeout: 10_000 });
     await expect(valuePill.locator('.insp-swatch__value')).toHaveText(/^#[0-9A-F]{6}$/);
-    await expect(page.getByRole('combobox', { name: 'Fill type' })).toHaveCount(0);
 
-    // Type trigger names the current paint and converts to Gradient.
-    const typeTrigger = page.getByRole('button', { name: 'Fill type: Solid' });
+    // The labelled select names the current paint and converts to Gradient.
+    const typeTrigger = page.getByRole('combobox', { name: 'Fill type' });
     await expect(typeTrigger).toBeVisible();
     await typeTrigger.click();
-    await page.getByRole('menuitemradio', { name: 'Gradient' }).click();
+    await expect(page.getByRole('option', { name: 'Gradient' })).toBeVisible();
+    await page.getByRole('option', { name: 'Gradient' }).click();
 
     // The gradient swatch keeps the value pill and opens the gradient editor.
     await expect(page.getByRole('button', { name: 'Fill gradient' })).toBeVisible();
@@ -820,8 +816,8 @@ test.describe('Design tab paint rows (fill / stroke pass)', () => {
 
     // Make the rectangle a gradient, then select everything: the rectangle and
     // the photo disagree with the other layers' solid fills.
-    await page.getByRole('button', { name: 'Fill type: Solid' }).click();
-    await page.getByRole('menuitemradio', { name: 'Gradient' }).click();
+    await page.getByRole('combobox', { name: 'Fill type' }).click();
+    await page.getByRole('option', { name: 'Gradient' }).click();
     await page.keyboard.press('Escape');
     await page.keyboard.press('ControlOrMeta+a');
     await openDesignTab(page);
@@ -920,8 +916,28 @@ test.describe('Design tab paint rows (fill / stroke pass)', () => {
     await selectRectangleLayer(page);
     await openDesignTab(page);
 
-    // The single default fill shows no chip; the popover still owns the control.
-    await expect(page.locator('.insp-blend-chip')).toHaveCount(0);
+    // Bounded spinbuttons must retain a usable value box after the shared
+    // containment rules are applied; a collapsed border is not an acceptable
+    // compact control.
+    const appearance = page.locator('.insp-disclosure').filter({
+      has: page.locator('.insp-disclosure__trigger', { hasText: 'Appearance' }),
+    });
+    const opacityInput = appearance.getByRole('spinbutton', { name: 'Opacity (%)' });
+    await expect(opacityInput).toBeVisible();
+    const opacityBox = await opacityInput.boundingBox();
+    expect(opacityBox?.width ?? 0).toBeGreaterThanOrEqual(32);
+    expect(opacityBox?.height ?? 0).toBeGreaterThanOrEqual(24);
+
+    // The single default fill exposes a labelled Normal control on the row;
+    // the popover owns the same value for colour and gradient editing.
+    const fillType = page.getByRole('combobox', { name: 'Fill type' });
+    await expect(fillType).toContainText('Solid');
+    const fillTypeBox = await fillType.boundingBox();
+    expect(fillTypeBox?.width ?? 0).toBeGreaterThanOrEqual(96);
+    const rowBlend = page.locator('.insp-paint-blend-select').getByRole('combobox', {
+      name: 'Fill blend mode',
+    });
+    await expect(rowBlend).toHaveCount(1);
     // Scope to the Inspector: the context bar carries its own fill swatch.
     const fillGroup = page.getByRole('group', { name: 'Fill' });
     await fillGroup.getByRole('button', { name: 'Fill colour' }).click();
@@ -933,11 +949,10 @@ test.describe('Design tab paint rows (fill / stroke pass)', () => {
     await page.getByRole('option', { name: 'Multiply' }).click();
     await page.keyboard.press('Escape');
 
-    // Committing in the popover surfaces the one-click chip on the row, and
+    // Committing in the popover updates the same row control, and
     // the value readout keeps its full hex now that opacity moved down.
-    const chip = page.locator('.insp-blend-chip');
-    await expect(chip).toBeVisible({ timeout: 5_000 });
-    await expect(chip).toContainText('Multiply');
+    await expect(rowBlend).toBeVisible({ timeout: 5_000 });
+    await expect(rowBlend).toHaveText('Multiply');
     const value = page.locator('.insp-fill-row .insp-swatch__value');
     await expect(value).toHaveText(/^#[0-9A-F]{6}$/);
     const clipped = await value.evaluate((el) => el.scrollWidth > el.clientWidth + 1);

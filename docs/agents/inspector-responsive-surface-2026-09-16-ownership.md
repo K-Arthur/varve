@@ -18,8 +18,13 @@ bounded responsive CSS hunks after re-reading them immediately before edits.
 ## Intended scope after the evidence gate
 
 - `PositionSizeSection.tsx` and its focused tests.
+- `LayoutSection.tsx` and its focused tests, limited to the Frame
+  Stack/Grid wrapper, sizing subsection rhythm, and paired numeric rails.
 - `ImageFillControls.tsx`, `ImagePlacementSection.tsx`, and their focused
   tests, if the duplicate/placement evidence supports a change.
+- `sectionRegistry.ts` and its focused order test, after the clean-tree
+  recheck below; the change is limited to the image contextual order so the
+  canonical per-paint Fit editor is reachable before advanced image panels.
 - `FieldRow.tsx` only if a semantic layout primitive is required.
 - The smallest reviewed responsive rules in the existing Inspector stylesheet;
   no second design system or per-section arbitrary widths.
@@ -29,9 +34,33 @@ bounded responsive CSS hunks after re-reading them immediately before edits.
   shapes, narrow/typical/wide rails, zoom, and horizontal-overflow assertions.
 - This audit and the corresponding implementation evidence document.
 
+## 2026-09-17 implementation update
+
+The Frame follow-up is now included in this ownership slice because the live
+rail measurements showed that the same shared geometry defect affected
+Position & Size and Stack/Grid. The owned CSS changes are limited to the
+existing Inspector grammar: stable position/size action columns, a narrow
+two-up fallback with a centered proportion lock, the compact field-height
+contract for per-side layout inputs, and tokenized Stack/Grid subsection
+spacing. No `NumberField` implementation or document semantics were changed.
+
+Real-editor validation covered a drawn shape, an imported photograph, and a
+real Frame at 240/280/320/400/640px rails. Position and size value right edges
+matched within 1px at every rail; Stack/Grid had zero horizontal overflow and
+32px field shells; the full four-test responsive audit passed. Focused Vitest
+passed 100 tests in 5 files. The affected planner escalated because the shared
+worktree contains 152 dirty files; those concurrent paths remain outside this
+ownership claim.
+
 `NumberField.tsx`, `DocumentPanel.tsx`, `PropertiesPanel.tsx`, and the
 concurrent `design-tab-audit.spec.ts` remain excluded unless their owners
 explicitly reconcile the overlap in the coordination record.
+
+At the 2026-09-17 implementation handoff, `sectionRegistry.ts` and
+`sectionRegistry.test.ts` were re-read with no working-tree diff. This pass
+claims only the `IMAGE_SELECTION_ORDER` values and the corresponding focused
+expectations; no other registry availability or saved-order behavior will be
+changed.
 
 ## Required evidence before production edits
 

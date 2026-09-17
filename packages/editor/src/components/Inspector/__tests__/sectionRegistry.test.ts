@@ -862,18 +862,25 @@ describe('contextual section order', () => {
     expect(hasCustomSectionOrder(reordered)).toBe(true);
   });
 
-  it('leads with image placement and crop for image selections', () => {
+  it('leads with per-paint Fill before image placement and crop', () => {
+    const fills = getSectionDefinition('fills')!;
     const placement = getSectionDefinition('image-placement')!;
     const crop = getSectionDefinition('image-crop')!;
     const appearance = getSectionDefinition('appearance')!;
     const effect = getSectionDefinition('effects')!;
     const imageCtx = baseCtx({ selectedNodes: [makeImageNode()] });
 
-    // Preserve the already-reviewed image order until its owned rendered audit
-    // can migrate atomically: placement/crop lead the generic appearance tail,
-    // while Position & Size remains the first section for now.
+    // Fit is stored on each image paint, so Fill must be reachable before the
+    // selection-wide placement/crop surfaces while Position & Size remains
+    // first.
     expect(isContextualPrimarySection('image-placement', imageCtx)).toBe(false);
     expect(isContextualPrimarySection('image-crop', imageCtx)).toBe(false);
+    expect(resolveSectionOrder(fills, imageCtx)).toBeGreaterThan(
+      getSectionDefinition('position-size')!.order,
+    );
+    expect(resolveSectionOrder(fills, imageCtx)).toBeLessThan(
+      resolveSectionOrder(placement, imageCtx),
+    );
     expect(resolveSectionOrder(placement, imageCtx)).toBeGreaterThan(
       getSectionDefinition('position-size')!.order,
     );

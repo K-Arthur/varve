@@ -1052,17 +1052,18 @@ const TEXT_SELECTION_ORDER: Partial<Record<SectionId, number>> = {
 };
 
 /**
- * Contextual order for image selections. A selected bitmap leads with the
- * controls that place and crop it (fit, flip, crop bounds) instead of
- * trailing eleven generic appearance sections — the 2026-09-15 real-photo
- * audit had to scroll past Mask, Paint Library, Object Filters and Layer
- * Effects to reach Crop & Bounds. Resolution and perspective deliberately
- * stay in the advanced tail: they are read-outs and rare operations, not
- * per-selection tasks.
+ * Contextual order for image selections. A selected bitmap leads with its
+ * geometry and per-paint Fill controls before selection-wide placement/crop,
+ * instead of trailing eleven generic appearance sections. Fit is stored on an
+ * image paint, so Fill is the canonical editor; Image Placement retains
+ * selection-wide scale/offset/reset actions without a second Fit editor.
+ * Resolution and perspective deliberately stay in the advanced tail: they
+ * are read-outs and rare operations, not per-selection tasks.
  */
 const IMAGE_SELECTION_ORDER: Partial<Record<SectionId, number>> = {
-  'image-placement': 111,
-  'image-crop': 112,
+  fills: 111,
+  'image-placement': 112,
+  'image-crop': 113,
 };
 
 /** Table editing is a scoped content workflow, not generic frame geometry. */

@@ -4,8 +4,8 @@
 **Branch:** `master`
 **Scope:** Inspector geometry fields, image fill/placement surfaces, shared
 field containment, and the responsive migration boundary
-**Status:** evidence and implementation decision; production changes follow in
-small, owned commits
+**Status:** evidence-backed responsive implementation slice; visual and
+interaction validation recorded below before the owned commit
 
 This audit follows the existing Inspector input-surface contract and the
 paint-stack handoff. It is deliberately narrower than the application-wide
@@ -23,7 +23,7 @@ areas. The active ownership record is
 This slice owns:
 
 - this audit and its real-editor evidence spec;
-- `PositionSizeSection.tsx`, `ImageFillControls.tsx`,
+- `PositionSizeSection.tsx`, `LayoutSection.tsx`, `ImageFillControls.tsx`,
   `ImagePlacementSection.tsx`, and focused tests;
 - explicitly scoped responsive rules in the existing Inspector stylesheet.
 
@@ -137,6 +137,41 @@ paint content. The screenshots are stored in the corresponding
 `test-results/run-*/.../image-rail-*.png` run directory and were visually
 reviewed at narrow and wide rails.
 
+### Post-implementation Frame and Stack/Grid evidence
+
+The Frame scenario was added to the real-editor audit after the initial image
+slice exposed a second geometry contract: Position & Size used a two-track X/Y
+grid while W/H added lock/orientation tracks, so corresponding value edges
+shifted. The implementation now reserves action columns at normal rails and
+uses a shared compact two-up grammar below the 20rem container threshold. At
+the very narrow threshold (13rem), position fields stack; W/H keeps the lock
+between its two values rather than allowing the lock to become a stray row.
+
+Measured after the change, using a real Frame and the same 240/280/320/400/640
+CSS-pixel rails:
+
+| Rail | X/Y right-edge delta vs W/H | visible action slots | field height | Stack/Grid overflow |
+| ---: | ---: | ---: | ---: | ---: |
+| 240 | 0px | 0 (narrow grammar) | 32px | 0px |
+| 280 | 0px | 0 (narrow grammar) | 32px | 0px |
+| 320 | 0px | 0 (narrow grammar) | 32px | 0px |
+| 400 | 0px | 2 stable reserved slots | 32px | 0px |
+| 640 | 0px | 2 stable reserved slots | 32px | 0px |
+
+Stack/Grid now uses one shared wrapper instead of inline spacing overrides. Its
+Sizing subsection resolves `margin-block-start` and `padding-block-start` from
+`--space-2` (5.92px at the test root) and its internal gap from `--space-1`
+(2.96px), with all measured field shells at 32px. The assertion resolves the
+tokens in the browser, so it remains valid under a different root font size.
+The Frame screenshots at 240, 400, and 640px were visually inspected; the
+240px capture confirms the centered proportion lock does not overlap the H
+label, while the wider captures restore the full orientation/action grammar.
+
+The current responsive E2E artifact is
+`tests/e2e/inspector/inspector-responsive-surface-audit.spec.ts`; screenshots
+are emitted under the Playwright `test-results/run-*/...` directory for each
+validation run.
+
 ### Root causes
 
 1. Unbounded `NumberField` instances in Position & Size inherit the remaining
@@ -212,9 +247,13 @@ These are container widths, not viewport widths:
 
 | Inspector content width | Geometry | Image transform | Rationale |
 | ---: | --- | --- | --- |
-| ≥ 18rem (288px) | Two-up X/Y and W/H with bounded numeric rails; lock/actions remain fixed. | Fit + Rotation/Flip share a two-column group; preview is capped. | Typical docked desktop rail; preserves scan paths and reduces empty boxes. |
-| 14–18rem (224–288px) | Keep two-up geometry when each control can retain at least a compact 5ch value area; controls shrink, labels remain persistent. | Fit + transform group stays paired only if each control retains its target; otherwise it stacks. | Matches the measured 240/280 rails without horizontal scrolling. |
-| < 14rem (224px) | Stack geometry fields intentionally; never let a value input define a second scroll container. | Stack Fit and transform controls; keep Flip actions next to Rotation. | A narrow/floating rail must reflow rather than clip labels or actions. |
+| ≥ 20rem | Four-track X/Y and W/H geometry with stable lock/orientation action columns; numeric rails are bounded. | Fit + Rotation/Flip share a two-column group; preview is capped. | Typical docked desktop rail; preserves scan paths and reduces empty boxes. |
+| 13–20rem | X/Y and W/H remain two-up, but empty action columns collapse; the proportion lock is centered in a reserved gap. | Fit + transform group stays paired only if each control retains its target; otherwise it stacks. | Narrow docked rails keep labels and value edges readable without horizontal scrolling. |
+| < 13rem | Position fields stack intentionally; W/H retains a centered lock and never creates a second scroll container. | Stack Fit and transform controls; keep Flip actions next to Rotation. | A very narrow/floating rail must reflow rather than clip labels or actions. |
+
+The image transform pairing still uses its own 18rem content threshold; these
+geometry thresholds are separate because the lock and action columns have a
+different minimum width contract.
 
 The exact CSS uses the existing Inspector container query and semantic custom
 properties, not viewport media queries. Numeric values remain editable and
@@ -271,7 +310,7 @@ universal component with many booleans.
 | Sticky section headers | Previous-section rows show through/clipped above a sticky header | Reserve and paint a single explicit header inset in the Inspector scroller | This slice |
 | `NumberField` finite widths | Concurrent fix exists and is dirty | Do not overwrite; integrate after owner handoff | Concurrent Inspector pass |
 | `DocumentPanel` inline widths | Many one-off width overrides | Audit and migrate after shared field contract lands | Follow-up |
-| Layout/Grid/constraints | Raw inputs and clipped labels remain | Use same group roles; preserve functionality and test grid placement | Follow-up, existing grid owner |
+| Layout/Grid/constraints | Raw inputs, clipped labels, and mixed inline spacing | Use the shared Stack/Grid wrapper, bounded numeric pairs, and tokenized sizing subsection; preserve functionality and test grid placement | This slice for Frame Stack/Grid; deeper grid-placement cleanup remains follow-up |
 | Popover/listbox surfaces | Need collision/zoom/forced-colors coverage | Keep existing overlay primitives; add geometry assertions | Follow-up |
 | Website/marketing | Must explain responsive/contextual Inspector behavior | Update only after implementation evidence and screenshots are stable | Website owner/handoff |
 
@@ -316,6 +355,24 @@ Before the responsive slice is considered complete:
   resizing the rail while focus remains in a field;
 - the affected validation planner and docs/token/accessibility audits are
   recorded with unrelated shared-worktree failures separated.
+
+### Validation completed for this slice
+
+- Focused Vitest: 5 files, 100 tests passed.
+- Real-editor Playwright responsive audit: 4 tests passed across the five
+  rails, including the imported photograph, a drawn shape, a real Frame, and
+  sticky-header scrolling.
+- `pnpm typecheck:e2e`: passed.
+- `pnpm audit:docs`: passed.
+- `pnpm audit:emoji`: passed.
+- `pnpm audit:tokens`: all 201 pairs passed across light, dark, and
+  high-contrast themes.
+- `pnpm verify:affected`: stopped at the repository-mandated full-gate
+  escalation because 152 shared-worktree files are dirty; it did not report a
+  failure in this slice. The editor package typecheck was run separately and
+  remains blocked by unrelated concurrent errors in Menubar, canvas/tools,
+  FramePresetDropdown, masks, mockups, workspace, and other files; none point
+  to the owned responsive files.
 
 ## 10. Explicit non-goals
 

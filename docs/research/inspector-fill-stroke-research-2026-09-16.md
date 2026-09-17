@@ -152,21 +152,23 @@ colour instead.
 **Decision.** The fill colour/gradient popover owns a labelled **Blend mode**
 row (same option groups as Appearance) under the picker, so the control is
 one click from the swatch in exactly the state where the row chip is hidden.
-For image and pattern paints, whose previews are not colour editors, the row
-keeps a compact Blend mode chip even when the value is Normal. The chip
-(non-normal/mixed/stacked, plus image/pattern Normal) and the row menu submenu
-stay as the parities for every other state; all three write the same field.
+The row also keeps a compact, labelled Blend mode chip for every paint,
+including a single Normal fill. This removes the discoverability failure of a
+closed row showing no per-fill route; image and pattern previews, which are not
+colour editors, rely on that row control. Solid and gradient popovers mirror
+the same value, and the row-menu submenu remains an additional route.
 
 ### 1.10 Compact numeric controls must fit their values
 
 The first rendered pass exposed a basic sizing defect: `NumberField` calculated
-a compact width in `ch`, but the input used content-box sizing. Its horizontal
-padding was therefore added outside the calculated width, clipping values or
-the unit in narrow paint rows.
+a compact width in `ch`, but a later containment rule replaced its flex basis
+with `0`. The input therefore collapsed to its minimum border width in
+Appearance opacity and other bounded fields.
 
-**Decision.** Compact numeric inputs use `box-sizing: border-box`; the width
-contract includes padding and leaves the unit visible. This is validated at
-the shared control boundary rather than by widening individual inspector rows.
+**Decision.** Compact numeric inputs set an explicit `flex: 0 1 <width>` basis
+and use `box-sizing: border-box`; the width contract includes padding and leaves
+the value and unit visible. This is validated at the shared control boundary
+rather than by widening individual inspector rows.
 
 ## 2. Accessibility and interaction constraints honored
 

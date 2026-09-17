@@ -1,9 +1,9 @@
 /**
- * Baseline evidence for Inspector rail responsiveness.
+ * Real-editor regression coverage for Inspector rail responsiveness.
  *
  * These scenarios use the real editor shell, a drawn shape, and an imported
- * photograph. They deliberately measure the live DOM at multiple rail widths
- * before the responsive-surface repair.
+ * photograph. They measure the live DOM at multiple rail widths so geometry
+ * contracts are verified against the actual editor rather than fixtures only.
  */
 import path from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
@@ -21,6 +21,13 @@ async function drawRectangle(page: Page): Promise<void> {
   await page.mouse.down();
   await page.mouse.move(box.x + 360, box.y + 300, { steps: 4 });
   await page.mouse.up();
+  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10_000 });
+}
+
+async function createFrame(page: Page): Promise<void> {
+  await page.keyboard.press('f');
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
+  await canvas.click({ position: { x: 640, y: 380 } });
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10_000 });
 }
 
@@ -71,6 +78,12 @@ async function surfaceMetrics(page: Page) {
       scrollWidth: element instanceof HTMLElement ? element.scrollWidth : 0,
       clientWidth: element instanceof HTMLElement ? element.clientWidth : 0,
     }));
+    const fitTransform = document.querySelector('.insp-image-fill__fit-transform-group');
+    const fitTransformFields = fitTransform
+      ? [...fitTransform.querySelectorAll<HTMLElement>(':scope > .insp-field')].map((field) =>
+          rectOf(field),
+        )
+      : [];
     return {
       panel: panel ? rectOf(panel) : null,
       scroller: scroller
@@ -82,14 +95,18 @@ async function surfaceMetrics(page: Page) {
         : null,
       groups,
       controls,
+      fitTransformFields,
     };
   });
 }
 
-test('baseline: Position & Size remains over-wide across Inspector rails', async ({
+test('Position & Size keeps bounded numeric rails across Inspector widths', async ({
   page,
 }, testInfo) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
+  // Keep the CSS viewport equivalent to the normal 1440px editor while the
+  // page is rendered at 200%; this isolates component reflow from the shell's
+  // physical-window minimums.
+  await page.setViewportSize({ width: 2880, height: 1800 });
   await navigateToEditor(page);
   await drawRectangle(page);
   await openDesign(page);
@@ -100,7 +117,7 @@ test('baseline: Position & Size remains over-wide across Inspector rails', async
   for (const width of RAILS) {
     await setRail(page, width);
     await position.scrollIntoViewIfNeeded();
-    samples[width] = await position.evaluate((group) => {
+    const metrics = await position.evaluate((group) => {
       const rectOf = (element: Element) => {
         const rect = element.getBoundingClientRect();
         return {
@@ -122,15 +139,22 @@ test('baseline: Position & Size remains over-wide across Inspector rails', async
         overflow: (group as HTMLElement).scrollWidth - (group as HTMLElement).clientWidth,
       };
     });
+    expect(metrics.overflow).toBeLessThanOrEqual(1);
+    for (const field of metrics.fields) {
+      if (!field.input) continue;
+      expect(field.input.width).toBeLessThanOrEqual(100);
+      expect(field.input.height).toBe(32);
+    }
+    samples[width] = metrics;
   }
-  console.log(`position-size baseline: ${JSON.stringify(samples)}`);
+  console.log(`position-size responsive: ${JSON.stringify(samples)}`);
   await page.screenshot({
     path: testInfo.outputPath('position-size-baseline.png'),
     fullPage: false,
   });
 });
 
-test('baseline: image Fill and placement controls duplicate and stretch across rails', async ({
+test('image Fill and placement controls compose without duplicate Fit or overflow', async ({
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -140,11 +164,30 @@ test('baseline: image Fill and placement controls duplicate and stretch across r
   await page.getByRole('treeitem').first().click();
   await openDesign(page);
   await expect(page.locator('.insp-image-fill__preview-img')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('combobox', { name: /image fit/i })).toHaveCount(1);
+  const imagePlacement = page.getByRole('group', { name: 'Image Placement' });
+  await expect(imagePlacement).toBeVisible();
+  await expect(imagePlacement.getByRole('combobox', { name: /image fit/i })).toHaveCount(0);
 
   const samples: Record<number, unknown> = {};
   for (const width of RAILS) {
     await setRail(page, width);
     const metrics = await surfaceMetrics(page);
+    const fill = metrics.groups.find((group) => group.title === 'Fill');
+    expect(fill).toBeDefined();
+    expect((fill?.scrollWidth ?? 0) - (fill?.clientWidth ?? 0)).toBeLessThanOrEqual(1);
+    const preview = metrics.controls.find((control) =>
+      String(control.className).includes('insp-image-fill__preview'),
+    );
+    expect(preview).toBeDefined();
+    expect(preview?.rect.width ?? 0).toBeLessThanOrEqual(321);
+    expect(metrics.fitTransformFields).toHaveLength(2);
+    const [fitField, transformField] = metrics.fitTransformFields;
+    if (width >= 320) {
+      expect(Math.abs((fitField?.top ?? 0) - (transformField?.top ?? 0))).toBeLessThanOrEqual(1);
+    } else {
+      expect(transformField?.top ?? 0).toBeGreaterThan(fitField?.bottom ?? 0);
+    }
     samples[width] = metrics;
     await page.screenshot({
       path: testInfo.outputPath(`image-rail-${width}.png`),
@@ -154,9 +197,170 @@ test('baseline: image Fill and placement controls duplicate and stretch across r
   console.log(`image-rail baseline: ${JSON.stringify(samples)}`);
 });
 
-test('baseline: sticky section headers expose the padded-top overlap', async ({
+test('frame geometry and Stack / Grid keep stable inspector rails', async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await navigateToEditor(page);
+  await createFrame(page);
+  await openDesign(page);
+
+  const position = page.getByRole('group', { name: 'Position & Size' });
+  const layout = page.getByRole('group', { name: 'Stack / Grid' });
+  await expect(position).toBeVisible();
+  await expect(layout).toBeVisible();
+
+  const samples: Record<number, unknown> = {};
+  for (const width of RAILS) {
+    await setRail(page, width);
+    const geometry = await position.evaluate((section) => {
+      const rectOf = (element: Element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          left: rect.left,
+          right: rect.right,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+        };
+      };
+      const input = (name: RegExp) => {
+        const field = [...section.querySelectorAll<HTMLElement>('.insp-field')].find((candidate) =>
+          name.test(candidate.querySelector('.insp-field__label')?.textContent ?? ''),
+        );
+        return field?.querySelector('input') ? rectOf(field.querySelector('input')!) : null;
+      };
+      const group = section.querySelector<HTMLElement>('.insp-field-group--position');
+      const slots = group
+        ? [...group.querySelectorAll<HTMLElement>(':scope > .insp-field-group__action-slot')].map(
+            rectOf,
+          )
+        : [];
+      return {
+        x: input(/^X/),
+        y: input(/^Y/),
+        width: input(/^W/),
+        height: input(/^H/),
+        slots,
+        overflow: group ? group.scrollWidth - group.clientWidth : 0,
+      };
+    });
+    expect(geometry.overflow).toBeLessThanOrEqual(1);
+    expect(geometry.x).not.toBeNull();
+    expect(geometry.y).not.toBeNull();
+    expect(geometry.width).not.toBeNull();
+    expect(geometry.height).not.toBeNull();
+    expect(Math.abs((geometry.x?.right ?? 0) - (geometry.width?.right ?? 0))).toBeLessThanOrEqual(
+      1,
+    );
+    expect(Math.abs((geometry.y?.right ?? 0) - (geometry.height?.right ?? 0))).toBeLessThanOrEqual(
+      1,
+    );
+    if (width >= 400) expect(geometry.slots.filter((slot) => slot.width > 0)).toHaveLength(2);
+    else expect(geometry.slots.every((slot) => slot.width === 0)).toBe(true);
+
+    const layoutMetrics = await layout.evaluate((section) => {
+      const fields = [...section.querySelectorAll<HTMLElement>('.insp-field')];
+      const inputs = [
+        ...section.querySelectorAll<HTMLElement>('.insp-layout-sizing .insp-num__input'),
+      ];
+      const sizing = section.querySelector<HTMLElement>('.insp-layout-sizing');
+      const sizingStyle = sizing ? getComputedStyle(sizing) : null;
+      const spacingProbe = document.createElement('div');
+      spacingProbe.style.position = 'absolute';
+      spacingProbe.style.marginBlockStart = 'var(--space-2)';
+      spacingProbe.style.paddingBlockStart = 'var(--space-2)';
+      spacingProbe.style.rowGap = 'var(--space-1)';
+      document.body.append(spacingProbe);
+      const spacingProbeStyle = getComputedStyle(spacingProbe);
+      const tokenSpacing = {
+        space1: spacingProbeStyle.rowGap,
+        space2: spacingProbeStyle.marginBlockStart,
+      };
+      spacingProbe.remove();
+      return {
+        overflow: section.scrollWidth - section.clientWidth,
+        fieldHeights: fields.map((field) => field.getBoundingClientRect().height),
+        inputWidths: inputs.map((input) => input.getBoundingClientRect().width),
+        sizing: sizingStyle
+          ? {
+              marginBlockStart: sizingStyle.marginBlockStart,
+              paddingBlockStart: sizingStyle.paddingBlockStart,
+              gap: sizingStyle.rowGap,
+            }
+          : null,
+        tokenSpacing,
+      };
+    });
+    expect(layoutMetrics.overflow).toBeLessThanOrEqual(1);
+    expect(layoutMetrics.fieldHeights.every((height) => height >= 31 && height <= 33)).toBe(true);
+    expect(layoutMetrics.inputWidths.every((inputWidth) => inputWidth <= 100)).toBe(true);
+    expect(layoutMetrics.sizing).toEqual({
+      marginBlockStart: layoutMetrics.tokenSpacing.space2,
+      paddingBlockStart: layoutMetrics.tokenSpacing.space2,
+      gap: layoutMetrics.tokenSpacing.space1,
+    });
+    samples[width] = { geometry, layout: layoutMetrics };
+    if (width === 240 || width === 400 || width === 640) {
+      await page.screenshot({
+        path: testInfo.outputPath(`frame-rail-${width}.png`),
+        fullPage: false,
+      });
+    }
+  }
+
+  console.log(`frame responsive inspector: ${JSON.stringify(samples)}`);
+  await page.screenshot({
+    path: testInfo.outputPath('frame-position-layout.png'),
+    fullPage: false,
+  });
+});
+
+test('Frame inspector keeps its geometry contract at 200% text scale', async ({
   page,
 }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await navigateToEditor(page);
+  await createFrame(page);
+  await openDesign(page);
+  await setRail(page, 320);
+
+  // A root-font-size increase exercises rem-relative labels and spacing while
+  // keeping the desktop shell in the viewport. It is distinct from canvas
+  // zoom and from a browser's device-pixel scaling.
+  await page.evaluate(() => {
+    (document.documentElement as HTMLElement).style.fontSize = '200%';
+  });
+  await page.waitForTimeout(250);
+
+  const metrics = await page.evaluate(() => {
+    const position = document.querySelector<HTMLElement>(
+      '.insp-disclosure:has(.insp-field-group--position)',
+    );
+    const panel = document.querySelector<HTMLElement>('.editor__inspector-panel');
+    const group = position?.querySelector<HTMLElement>('.insp-field-group--position');
+    const inputs = [...(position?.querySelectorAll<HTMLElement>('.insp-num__input') ?? [])];
+    return {
+      panelOverflow: panel ? panel.scrollWidth - panel.clientWidth : null,
+      groupOverflow: group ? group.scrollWidth - group.clientWidth : null,
+      fieldHeights: inputs.map((input) => input.getBoundingClientRect().height),
+    };
+  });
+
+  expect(metrics.panelOverflow).not.toBeNull();
+  expect(metrics.panelOverflow ?? 0).toBeLessThanOrEqual(1);
+  expect(metrics.groupOverflow).not.toBeNull();
+  expect(metrics.groupOverflow ?? 0).toBeLessThanOrEqual(1);
+  expect(metrics.fieldHeights.every((height) => height >= 31 && height <= 64)).toBe(true);
+  await page.screenshot({
+    path: testInfo.outputPath('frame-text-200.png'),
+    fullPage: false,
+  });
+
+  await page.evaluate(() => {
+    (document.documentElement as HTMLElement).style.fontSize = '';
+  });
+});
+
+test('sticky section headers own the Inspector scroller inset', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await navigateToEditor(page);
 
@@ -196,6 +400,8 @@ test('baseline: sticky section headers expose the padded-top overlap', async ({
     };
   });
   console.log(`sticky-header baseline: ${JSON.stringify(metrics)}`);
+  expect(Math.abs(metrics.header.top - metrics.scroller.top)).toBeLessThanOrEqual(0.5);
+  expect(metrics.intersectingLabels).toEqual([]);
   await panel.screenshot({
     path: testInfo.outputPath('sticky-header-baseline.png'),
   });

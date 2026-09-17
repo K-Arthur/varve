@@ -275,6 +275,15 @@ describe('NumberField', () => {
     expect(input.getAttribute('aria-valuetext')).toBe('80%');
   });
 
+  it('keeps bounded spinbuttons on an explicit flex basis', () => {
+    render(
+      <NumberField label="Opacity" value={80} min={0} max={100} unit="%" onChange={() => {}} />,
+    );
+    const input = screen.getByLabelText('Opacity (%)') as HTMLInputElement;
+    expect(input.style.flex).toContain('0 1');
+    expect(input.style.width).toContain('5ch');
+  });
+
   it('keeps a bound value inspectable and requires explicit unbinding to edit', () => {
     const onChange = vi.fn();
     const onUnbind = vi.fn();

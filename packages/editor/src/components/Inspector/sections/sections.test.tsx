@@ -308,5 +308,6 @@ describe('ImagePlacementSection', () => {
       ),
     ).not.toThrow();
     expect(screen.getAllByText('Image Placement')).toHaveLength(2);
+    expect(screen.queryByRole('combobox', { name: /image fit/i })).toBeNull();
   });
 });

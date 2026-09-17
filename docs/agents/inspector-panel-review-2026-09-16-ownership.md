@@ -70,6 +70,82 @@ this session's commits.
 - Commit-checkpoint gate (biome/staged lint, emoji/health/contacts/secret
   audits, import-boundary check, `typecheck:e2e`) run before commit.
 
+## Continuation: numeric-field alignment/sizing consistency + Isometric Grid repair (2026-09-16, same day)
+
+**Trigger:** user follow-up reporting (1) visible inconsistency in numeric
+input-box alignment/width across the Inspector and (2) specifically broken,
+unstyled controls in "the grid section" of the empty-selection Document
+panel (screenshot showing a collapsed spinner-like artifact and a
+misaligned preset control in Isometric Grid).
+
+### Root causes found
+
+1. **`NumberField` compact-width regression.** A `flex-direction: column`
+   wrapper (used to stack an input above its own hint text in the Isometric
+   Grid's "Spacing" row) broke `.insp-num__input`'s `width: 0; flex: 1`
+   row-axis assumption: with the main axis rotated 90°, the explicit
+   `width: 0` became the literal cross-axis size instead of being overridden
+   by `flex-grow`, collapsing the input to ~13.5px (screenshotted: an
+   unreadable sliver). Separately — found while building the general fix —
+   any inline override that sets only `width` without resetting
+   `flex-basis` is silently ignored, because the base class's `flex: 1`
+   shorthand already pins `flex-basis: 0%`, which wins over `width` on the
+   main axis per the flexbox spec. Both are fixed in
+   `NumberField.tsx`/`inspector.css` (see commit message for detail);
+   `compactFieldWidthCh()` now gives every bounded numeric field (opacity,
+   rotation, and — after this pass — Isometric Grid's spacing/major-line/
+   rotation) an intrinsic, right-aligned width instead of stretching across
+   the whole control column, which was the actual "some input boxes are
+   unnecessarily large" complaint: Opacity/Rotation style fields had no
+   reason to be full-row width, and now aren't.
+2. **Isometric Grid section used raw HTML instead of the shared Inspector
+   components**, unlike every other section: plain `<input type="number">`
+   instead of `NumberField`, a `<Select>` with no accompanying label span
+   (so it fell into the label's 38% grid column instead of the control's
+   62% column — the actual "misaligned preset dropdown" the user saw), and
+   several multi-word labels missing the `--wrap` treatment other sections
+   already received. Migrated Spacing/Major line every/Origin X/Origin Y/
+   Rotation to `NumberField`; gave Preset its own label; added
+   `insp-field__label--wrap` to Snap Enabled/Construction plane/Fit existing
+   artwork/Snap targets; moved hint text out of the field's control column
+   and into sibling `.insp-panel__color-mode-note` paragraphs (the
+   convention every other section in this file already uses), which
+   incidentally removes the fragile `flexDirection: column` pattern
+   entirely from this section.
+
+### Owned paths (continuation)
+
+| Path | Change |
+|---|---|
+| `packages/editor/src/components/Inspector/controls/NumberField.tsx` | `compactFieldWidthCh()` helper; explicit `flex`/`width` override with the correct flex-basis reset |
+| `packages/editor/src/components/Inspector/controls/NumberField.test.tsx` | Regression test asserting the explicit flex basis |
+| `packages/editor/src/components/Inspector/inspector.css` | `.insp-num__control--compact` (right-align via `justify-content: flex-end`); `box-sizing: border-box` on `.insp-num__input` so declared widths include padding |
+| `packages/editor/src/components/Inspector/panels/DocumentPanel.tsx` | Isometric Grid: Preset label fix, wrap labels, `NumberField` migration for Spacing/Major line every/Origin X/Origin Y/Rotation, hint paragraphs moved to siblings |
+| `packages/editor/src/components/Inspector/sections/FillSection.tsx` | Unified per-fill blend mode onto the same grouped `Select` Appearance uses (found while fixing the compact-width regression in the same paint rows; the old `insp-blend-chip` + custom `Menu` popup only appeared in some fill states — one control now, always visible, in every state) |
+| `packages/editor/src/components/Inspector/sections/__tests__/paintRows.test.tsx`, `tests/e2e/inspector/design-tab-audit.spec.ts` | Updated/added coverage for both fixes above |
+| `docs/plans/inspector-design-tab-improvements-2026-09-15.md`, `docs/research/inspector-fill-stroke-research-2026-09-16.md` | Updated to describe the corrected root cause and decision |
+
+### Note on concurrent sessions
+
+This machine ran several other agent sessions against the same working tree
+throughout this pass (confirmed via `ps aux` showing other `claude`/
+`opencode2` processes and a live `playwright test
+design-tab-audit.spec.ts` run that was not this session's). Two commits
+landed mid-session with the message `fix(inspector): expose blend mode for
+every fill type` and one more (`improve(inspector): clarify alignment
+target`, touching `AlignDistributeBar.tsx`) that this session did not
+author. `git status`/`git diff --cached` were re-checked immediately before
+every commit in this continuation specifically to avoid staging or
+reverting another session's concurrent work; no conflicts were found beyond
+one compatible, purely-additive test assertion (left unstaged for its
+author to commit).
+
+The commit-checkpoint gate (which runs a `tsc` pass over all e2e specs)
+failed to complete five times in a row here purely from host memory
+pressure (`available` memory dropped as low as ~900MB with multiple
+concurrent Vite dev servers and headless Chromium instances running) —
+not from any defect in the change. Retried until it passed.
+
 ## Remaining / not claimed
 
 - No help or website copy exists anywhere for the Layer States feature

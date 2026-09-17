@@ -353,7 +353,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
       )}
       <div
         ref={bindingTriggerRef}
-        className="insp-field-group insp-field-group--columns-2 insp-field-group--binding"
+        className="insp-field-group insp-field-group--columns-2 insp-field-group--numeric-pair insp-field-group--binding insp-field-group--position"
       >
         <NumberField
           label={useArtboardCoords ? 'X (AB)' : 'X'}
@@ -372,6 +372,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           fieldName="x"
           onShiftClick={() => editor.setBindingField('x')}
         />
+        <span className="insp-field-group__action-slot" aria-hidden="true" />
         <NumberField
           label={useArtboardCoords ? 'Y (AB)' : 'Y'}
           unit="px"
@@ -389,6 +390,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           fieldName="y"
           onShiftClick={() => editor.setBindingField('y')}
         />
+        <span className="insp-field-group__action-slot" aria-hidden="true" />
         {editor.bindingField &&
           ['x', 'y', 'width', 'height', 'rotation'].includes(editor.bindingField) && (
             <BindingMenu
@@ -408,7 +410,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
       {allSizable && (
         <InspectorFieldGroup>
           {isLineOrArrow ? (
-            <InspectorFieldGroup columns={2}>
+            <InspectorFieldGroup columns={2} className="insp-field-group--numeric-pair">
               <NumberField
                 label="L"
                 unit="px"
@@ -428,7 +430,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
               />
             </InspectorFieldGroup>
           ) : (
-            <InspectorFieldGroup className="insp-field-group--size">
+            <InspectorFieldGroup className="insp-field-group--size insp-field-group--numeric-pair">
               <NumberField
                 label="W"
                 unit="px"
@@ -471,7 +473,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 fieldName="height"
                 onShiftClick={() => editor.setBindingField('height')}
               />
-              {isFrameSelection && (
+              {isFrameSelection ? (
                 <Tooltip label="Swap orientation (Portrait / Landscape)">
                   <button
                     type="button"
@@ -497,13 +499,15 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                     </svg>
                   </button>
                 </Tooltip>
+              ) : (
+                <span className="insp-field-group__action-slot" aria-hidden="true" />
               )}
             </InspectorFieldGroup>
           )}
         </InspectorFieldGroup>
       )}
       {/* Rotation + Flip row */}
-      <InspectorFieldGroup className="insp-field-group--rotation">
+      <InspectorFieldGroup className="insp-field-group--rotation insp-field-group--numeric-actions">
         <NumberField
           label="R"
           unit="°"
@@ -598,7 +602,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
       </InspectorFieldGroup>
       {/* Skew row — progressively disclosed */}
       {isSkewVisible && (
-        <InspectorFieldGroup className="insp-field-group--skew">
+        <InspectorFieldGroup className="insp-field-group--skew insp-field-group--numeric-pair">
           <NumberField
             label="Skew X"
             unit="°"

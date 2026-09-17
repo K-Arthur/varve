@@ -460,7 +460,10 @@
  * card padding so content cannot show through beside it. */
 .insp-disclosure__header {
   position: sticky;
-  top: 0;
+  /* `.insp-panel` owns an 8px outer inset. Offset the sticky box through that
+     inset so preceding rows cannot remain visible above a section header when
+     the rail is scrolled. The opaque surface below owns the overlap. */
+  top: calc(-1 * var(--space-2));
   z-index: 2;
   display: flex;
   align-items: center;
@@ -469,6 +472,7 @@
   margin-inline: 0;
   padding: var(--space-1) 0;
   background: var(--color-surface-base);
+  box-shadow: 0 1px 0 var(--color-border-subtle);
   border-radius: 0;
 }
 
@@ -1055,6 +1059,7 @@
 
 .insp-fill-row,
 .insp-stroke-row {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -1180,6 +1185,66 @@
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
+}
+
+/* Layout sections contain several related grammars (mode, sizing, and
+ * optional grid/flex details). Keep their rhythm in one wrapper so a frame
+ * does not alternate between inline style gaps and field-group gaps. */
+.insp-layout-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.insp-layout-suggestion {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-control-compact);
+}
+
+.insp-layout-suggestion__copy {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  font-size: var(--font-size-xs);
+}
+
+.insp-layout-suggestion .insp-hint__apply {
+  flex: 0 0 auto;
+  padding: var(--space-05) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--elevation-surface-default);
+}
+
+.insp-layout-sizing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-inline-size: 0;
+  margin-block-start: var(--space-2);
+  padding-block-start: var(--space-2);
+  border-block-start: 1px solid var(--color-border-subtle);
+}
+
+.insp-layout-sizing__title {
+  color: var(--color-text-secondary);
+  font-size: var(--insp-label-size, var(--font-size-2xs));
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+  line-height: var(--type-interface-label-line-height);
+  text-transform: uppercase;
+}
+
+.insp-layout-sizing__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  min-inline-size: 0;
 }
 
 /* Long labels (e.g. "Distribute columns", "Responsive rules"): wrap inside
@@ -1700,7 +1765,8 @@
 
 .insp-per-side {
   width: var(--space-7);
-  height: var(--space-5);
+  height: var(--component-compact-height);
+  box-sizing: border-box;
   font-size: var(--font-size-xs);
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
@@ -2468,7 +2534,9 @@
   align-items: center;
   gap: var(--space-2);
   padding-left: var(--space-4);
-  margin-inline-end: calc(-1 * var(--space-2));
+  padding-right: 0;
+  margin-inline-end: 0;
+  box-sizing: border-box;
   min-width: 0;
 }
 
@@ -2529,7 +2597,8 @@
   margin-top: var(--space-1);
 }
 .insp-image-fill__preview {
-  width: 100%;
+  width: min(100%, var(--insp-preview-max-inline-size, 20rem));
+  align-self: center;
   aspect-ratio: 16 / 9;
   max-height: 7.5rem;
   overflow: hidden;
@@ -2584,13 +2653,42 @@
 }
 
 /* Image transform controls (rotation, flip, crop). */
+.insp-image-fill__fit-transform-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(9rem, 1.1fr);
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.insp-image-fill__fit-transform-group > .insp-field {
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.insp-image-fill__fit-transform-group > .insp-field > .insp-field__label {
+  min-block-size: 0;
+}
+
+.insp-image-fill__fit-transform-group > .insp-field > .insp-field__control {
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+
 .insp-image-fill__transform-row {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: var(--space-1);
+  min-inline-size: 0;
 }
 .insp-image-fill__rot-input {
+  flex: 0 1 5rem;
   width: 5rem;
+  max-inline-size: 100%;
+  box-sizing: border-box;
 }
 .insp-image-fill__deg {
   color: var(--color-text-muted);
@@ -2598,6 +2696,7 @@
 }
 .insp-image-fill__flip-row {
   display: flex;
+  flex: 0 0 auto;
   gap: var(--space-1);
 }
 .insp-image-fill__flip-btn {
@@ -2626,6 +2725,12 @@
 }
 .insp-image-fill__flip-btn--active:hover {
   background: var(--color-surface-hover);
+}
+
+@container inspector (max-width: 18rem) {
+  .insp-image-fill__fit-transform-group {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .insp-image-fill__crop-info {
   display: flex;
@@ -5863,11 +5968,12 @@ fieldset.insp-canvas-props,
 
 .insp-field-group--size {
   gap: var(--space-2);
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-}
-
-.insp-field-group--size:has(.insp-orientation-btn) {
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  /* Keep the lock and orientation action columns stable even when the
+     orientation action is unavailable. This keeps W/H aligned with X/Y and
+     prevents a selection change from moving the value rails. */
+  grid-template-columns:
+    minmax(0, 1fr) var(--component-compact-height) minmax(0, 1fr)
+    var(--component-compact-height);
 }
 
 .insp-field-group--rotation {
@@ -5900,6 +6006,96 @@ fieldset.insp-canvas-props,
   gap: var(--space-1);
   grid-template-columns: max-content minmax(0, 1fr);
   min-width: 0;
+}
+
+/* Position and size share one four-track geometry: value, action slot, value,
+ * action slot. Empty slots are intentional; they reserve the lock/orientation
+ * columns so related rows keep the same reading edges. */
+.insp-field-group--position {
+  grid-template-columns:
+    minmax(0, 1fr) var(--component-compact-height) minmax(0, 1fr)
+    var(--component-compact-height);
+}
+
+.insp-field-group__action-slot {
+  inline-size: var(--component-compact-height);
+  block-size: 1px;
+  pointer-events: none;
+}
+
+/* Bounded numeric rails --------------------------------------------------
+ * Position/size values are unbounded document coordinates, but their visible
+ * boxes do not need to absorb every spare pixel in a wide Inspector. Keep the
+ * grid and labels fluid while giving the value region a stable reading rail.
+ * The input remains a real text editor: long values can still be caret/
+ * horizontally scrolled and are never clamped by this presentation rule. */
+.insp-field-group--numeric-pair > .insp-field > .insp-field__control,
+.insp-field-group--numeric-actions > .insp-field > .insp-field__control {
+  flex: 0 1 var(--insp-numeric-rail, 9ch);
+  inline-size: min(var(--insp-numeric-rail, 9ch), 100%);
+  justify-self: end;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.insp-field-group--numeric-pair > .insp-field > .insp-field__control > .insp-num__input,
+.insp-field-group--numeric-actions > .insp-field > .insp-field__control > .insp-num__input {
+  flex: 1 1 auto;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+@container inspector (max-width: 18rem) {
+  .insp-field-group--numeric-pair > .insp-field > .insp-field__control,
+  .insp-field-group--numeric-actions > .insp-field > .insp-field__control {
+    --insp-numeric-rail: 8ch;
+  }
+}
+
+/* At the narrow inspector rails used by docked and split-window layouts, four
+ * tracks make the value editors unreadably small. Collapse only the empty
+ * action columns first: X/Y become a two-up pair and W/H retain their
+ * centered proportion lock. The very narrow rule below then stacks the
+ * position pair while preserving the lock between size values. */
+@container inspector (max-width: 20rem) {
+  .insp-field-group--position {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--component-compact-height);
+  }
+
+  .insp-field-group--position > .insp-field-group__action-slot,
+  .insp-field-group--size > .insp-field-group__action-slot,
+  .insp-field-group--size > .insp-orientation-btn {
+    display: none;
+  }
+
+  .insp-field-group--size {
+    position: relative;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--component-compact-height);
+  }
+
+  .insp-field-group--size > .insp-proportion-lock {
+    position: absolute;
+    inset-inline-start: 50%;
+    transform: translateX(-50%);
+    z-index: 1;
+  }
+}
+
+@container inspector (max-width: 13rem) {
+  .insp-field-group--columns-2.insp-field-group--numeric-pair,
+  .insp-field-group--position {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .insp-field-group--position > .insp-field-group__action-slot {
+    display: none;
+  }
+
+  .insp-field-group--numeric-actions {
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+  }
 }
 
 .insp-field-group--size > .insp-proportion-lock,
@@ -6140,13 +6336,6 @@ fieldset.insp-canvas-props,
   inline-size: 100%;
   max-inline-size: 100%;
   min-inline-size: 0;
-}
-
-/* The five image-fit modes are short, fixed labels: one equal track reads
-   better than the generic auto-fit grid, which wrapped them into 3+2. */
-.editor-inspector .insp-field__control > .insp-segmented--fit {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
 .editor-inspector .insp-segmented__btn {
@@ -6731,6 +6920,8 @@ fieldset.insp-canvas-props,
 .editor-inspector {
   --insp-label-size: clamp(0.6875rem, calc(0.663rem + 0.1087vw), 0.75rem);
   --insp-value-size: clamp(0.75rem, calc(0.7255rem + 0.1087vw), 0.8125rem);
+  --insp-numeric-rail: 9ch;
+  --insp-preview-max-inline-size: 20rem;
 }
 
 /* ── Shared compact inspector buttons ──────────────────────────────────
@@ -6771,4 +6962,22 @@ fieldset.insp-canvas-props,
 .insp-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
+}
+
+/* Standalone layout numbers (Gap and relative shares) use the same quiet
+ * numeric rail as paired fields. Keep this override after the shared field
+ * grammar so it wins without making unrelated field selectors more specific.
+ * The editor remains able to enter a long value; only its resting presentation
+ * is bounded. */
+.insp-layout-controls
+  > .insp-field:has(> .insp-field__control > .insp-num__control)
+  > .insp-field__control,
+.insp-layout-sizing
+  > .insp-field:has(> .insp-field__control > .insp-num__control)
+  > .insp-field__control {
+  flex: 0 1 var(--insp-numeric-rail, 9ch);
+  inline-size: min(var(--insp-numeric-rail, 9ch), 100%);
+  justify-self: end;
+  max-inline-size: 100%;
+  min-inline-size: 0;
 }

@@ -43,6 +43,25 @@ export function stripFloatResidue(value: number): number {
   return Object.is(next, -0) ? 0 : next;
 }
 
+/**
+ * Width (in `ch`) for a field whose bounds are narrow enough that stretching
+ * it to fill the whole control column is just empty box, not room the value
+ * could ever use — opacity (0-100), rotation (0-360), and similar. Fields
+ * with no finite `max` (position, most sizes) return `null` and keep the
+ * existing flexible width, since their range genuinely can need the space.
+ * A generous digit/sign/decimal allowance plus caret padding, not an exact
+ * fit — this only needs to beat "stretches across the whole panel."
+ */
+export function compactFieldWidthCh(min: number, max: number, step: number): number | null {
+  if (!Number.isFinite(max)) return null;
+  const maxAbs = Math.max(Math.abs(Number.isFinite(min) ? min : 0), Math.abs(max));
+  if (maxAbs > 999_999) return null;
+  const intDigits = Math.max(1, Math.floor(maxAbs).toString().length);
+  const hasSign = Number.isFinite(min) && min < 0 ? 1 : 0;
+  const hasDecimals = Number.isFinite(step) && step > 0 && !Number.isInteger(step) ? 1 : 0;
+  return intDigits + hasSign + (hasDecimals ? 2 : 0) + 2;
+}
+
 // One gesture may own the global cursor/user-select override; overlapping
 // sessions (two pointers, two fields) restore the previous inline styles only
 // when the last session ends.
@@ -231,6 +250,8 @@ export function NumberField({
     },
     [aliases, clamp, onChange],
   );
+
+  const compactWidthCh = compactFieldWidthCh(min, max, step);
 
   const visualMixed =
     mixed || propertyState?.kind === 'mixed' || propertyState?.kind === 'partially-applicable';
@@ -651,11 +672,21 @@ export function NumberField({
       >
         {displayLabel ?? name}
       </label>
-      <div className="insp-field__control insp-num__control">
+      <div
+        className={`insp-field__control insp-num__control${compactWidthCh ? ' insp-num__control--compact' : ''}`}
+      >
         <input
           ref={inputRef}
           id={inputId}
           type="text"
+          style={
+            compactWidthCh
+              ? {
+                  flex: `0 1 min(${compactWidthCh}ch, 100%)`,
+                  width: `min(${compactWidthCh}ch, 100%)`,
+                }
+              : undefined
+          }
           // A full text keyboard keeps signed values (-40), unit math (120/2)
           // and {alias} expressions typeable. iOS decimal pads omit the minus
           // key, so negative coordinates are untypeable with inputMode="decimal"
