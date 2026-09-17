@@ -406,6 +406,10 @@ export function AlignDistributeBar() {
       : effectiveReference === 'page'
         ? surfaceLabel.toLowerCase()
         : 'selection';
+  const targetSummary =
+    effectiveReference === 'selection'
+      ? `${state.selection.length} layers`
+      : `Align to ${targetName}`;
   const alignLabels = {
     left: `Align left edges to ${targetName}`,
     centerH: `Align horizontal centers to ${targetName}`,
@@ -484,11 +488,18 @@ export function AlignDistributeBar() {
   if (capabilities.movableRootCount < 1) return null;
 
   return (
-    <section className="insp-align-section" aria-labelledby="align-distribute-heading">
+    <section
+      className="insp-align-section"
+      aria-labelledby="align-distribute-heading"
+      aria-describedby="align-distribute-summary"
+    >
       <div className="insp-align-section__header">
-        <h2 id="align-distribute-heading" className="insp-align-section__title">
+        <h3 id="align-distribute-heading" className="insp-align-section__title">
           Align &amp; distribute
-        </h2>
+        </h3>
+        <span id="align-distribute-summary" className="insp-align-section__summary">
+          {targetSummary}
+        </span>
       </div>
       {!showDistributionCluster && (
         <p className="sr-only">
