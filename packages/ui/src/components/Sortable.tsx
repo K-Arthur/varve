@@ -32,6 +32,17 @@ import { createContext, createElement, useContext, useMemo, useState } from 'rea
 
 export type SortableLayout = 'vertical' | 'horizontal' | 'grid';
 
+/**
+ * Preserve precise pointer hit-testing while keeping keyboard dragging
+ * usable. `pointerWithin` intentionally returns no collisions when the
+ * keyboard sensor supplies no pointer coordinates, so vertical lists need a
+ * deterministic geometric fallback.
+ */
+export function pointerWithinOrClosestCenter(args: Parameters<CollisionDetection>[0]) {
+  const pointerCollisions = pointerWithin(args);
+  return pointerCollisions.length > 0 ? pointerCollisions : closestCenter(args);
+}
+
 export interface SortableItemRenderProps {
   attributes: DraggableAttributes;
   listeners: DraggableSyntheticListeners;
@@ -94,7 +105,7 @@ function layoutConfig(layout: SortableLayout): {
   }
   return {
     strategy: verticalListSortingStrategy,
-    collisionDetection: pointerWithin,
+    collisionDetection: pointerWithinOrClosestCenter,
   };
 }
 
