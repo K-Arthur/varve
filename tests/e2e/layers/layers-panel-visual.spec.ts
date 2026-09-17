@@ -72,6 +72,41 @@ test.describe('Layers panel visual states', () => {
       await collapseRightBtn.click();
       const restoreRight = page.getByTestId('restore-right-panel');
       await expect(restoreRight).toBeVisible();
+
+      // Geometry regression guard: the restore chips must sit inside the
+      // canvas grid cell, below the 20px ruler overlay. A viewport-fixed
+      // top offset used to drift into the quick context bar / tab strip
+      // (they anchored the chips over header chrome).
+      const geometry = await page.evaluate(() => {
+        const rect = (selector: string) => {
+          const el = document.querySelector(selector);
+          if (!el) return null;
+          const { top, bottom } = el.getBoundingClientRect();
+          return { top, bottom };
+        };
+        return {
+          canvas: rect('.editor-canvas'),
+          ruler: rect('.ruler-top-wrapper'),
+          left: rect('[data-testid="restore-left-panel"]'),
+          right: rect('[data-testid="restore-right-panel"]'),
+        };
+      });
+      const canvasTop = geometry.canvas?.top ?? Number.POSITIVE_INFINITY;
+      const rulerFloor = geometry.ruler?.bottom ?? canvasTop + 20;
+      for (const [name, btn] of Object.entries({
+        left: geometry.left,
+        right: geometry.right,
+      })) {
+        if (!btn) continue;
+        expect(
+          btn.top,
+          `${name} restore chip must be inside the canvas cell`,
+        ).toBeGreaterThanOrEqual(canvasTop);
+        expect(
+          btn.top,
+          `${name} restore chip must sit below the ruler overlay`,
+        ).toBeGreaterThanOrEqual(rulerFloor);
+      }
       await page.screenshot({
         path: testInfo.outputPath('canvas-both-panels-collapsed.png'),
       });

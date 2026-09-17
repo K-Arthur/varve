@@ -128,6 +128,16 @@ layer already rolls back without leaving an undo entry or stuck drag.
   (right) on desktop routes; in the browser, `Ctrl+Shift+B` is the ChromeOS
   bookmarks-bar shortcut and the View menu and command palette remain the
   reliable paths.
+- When a docked panel is collapsed, `SelectionInfoBar` renders a compact
+  restore chip ("Layers" / "Inspector"; `data-testid="restore-left-panel"` /
+  `restore-right-panel`). The chip anchors inside the canvas grid cell's top
+  corners — `position: absolute` + `grid-area: canvas`, below the 20px ruler
+  overlay (`.editor__panel-restore-btn` in `editor.css`), the same
+  absolutely-positioned grid-area mechanism as the floating toolbar. Do not
+  replace this with viewport-fixed offsets computed from header tokens:
+  `--menubar-total-height` arithmetic has drifted under the tab strip / top
+  toolbar whenever the real header height moved. Geometry is asserted in
+  `tests/e2e/layers/layers-panel-visual.spec.ts`.
 
 ## Test coverage
 

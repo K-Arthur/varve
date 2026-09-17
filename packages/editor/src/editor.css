@@ -3376,8 +3376,16 @@ input[type="number"] {
 
 /* ── Collapsed panel restore affordance ── */
 .editor__panel-restore-btn {
-  position: fixed;
-  top: calc(var(--topbar-height, 40px) + 32px + 28px);
+  position: absolute;
+  /* Anchor inside the canvas grid cell — the same absolutely-positioned
+   * grid-area mechanism as .floating-toolbar (see the .editor-shell comment
+   * on position:relative). Viewport-fixed offsets computed from header
+   * tokens kept drifting into the quick context bar / tab strip whenever the
+   * real header height moved. Anchoring to the canvas cell tracks the actual
+   * header height; the 20px ruler overlay plus a gap keeps the buttons on
+   * unoccupied canvas just below the ruler, at the cell's top corners. */
+  grid-area: canvas;
+  top: calc(20px + var(--space-3, 12px));
   z-index: var(--elevation-z-overlay, 100);
   display: inline-flex;
   align-items: center;
