@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createDocument, makeShapeNode } from '../document';
+import { legacyBatchToRequest } from './adapter';
 import { createExportConfiguration, type ExportBatchRequest } from './model';
 import { runExportPreflight } from './preflight';
 
@@ -392,5 +393,84 @@ describe('runExportPreflight', () => {
     });
     const result = runExportPreflight(doc, request([config]));
     expect(result.findings.some((f) => f.code === 'low-effective-resolution')).toBe(false);
+  });
+
+  it('treats legacy same-format presets with distinct suffixes as distinct paths', () => {
+    // Regression (2026-09-17): `legacyBatchToRequest` dropped the job suffix,
+    // so the standard PNG 1x + PNG 2x pair collided on `{name}.png` and
+    // preflight blocked a valid export with "Duplicate output path".
+    const doc = docWithShapes();
+    const legacyRequest = legacyBatchToRequest({
+      jobs: [
+        {
+          presetId: 'a',
+          nodeId: 'n1',
+          nodeName: 'Card',
+          format: 'png',
+          fileName: 'Card.png',
+          suffix: '',
+          dimensions: { w: 200, h: 100 },
+          estimatedSize: 1024,
+          status: 'pending',
+        },
+        {
+          presetId: 'b',
+          nodeId: 'n1',
+          nodeName: 'Card',
+          format: 'png',
+          fileName: 'Card@2x.png',
+          suffix: '@2x',
+          scale: { type: 'factor', value: 2 },
+          dimensions: { w: 400, h: 200 },
+          estimatedSize: 4096,
+          status: 'pending',
+        },
+      ],
+      destinationFolder: null,
+      filenameTemplate: '{name}{suffix}.{ext}',
+      folderRule: 'flat',
+    });
+
+    const result = runExportPreflight(doc, legacyRequest);
+    expect(result.findings.some((f) => f.code === 'path-collision')).toBe(false);
+    expect(result.blocked).toBe(false);
+  });
+
+  it('still blocks a real legacy collision when suffixes are identical', () => {
+    const doc = docWithShapes();
+    const legacyRequest = legacyBatchToRequest({
+      jobs: [
+        {
+          presetId: 'a',
+          nodeId: 'n1',
+          nodeName: 'Card',
+          format: 'png',
+          fileName: 'Card.png',
+          suffix: '',
+          dimensions: { w: 200, h: 100 },
+          estimatedSize: 1024,
+          status: 'pending',
+        },
+        {
+          presetId: 'b',
+          nodeId: 'n1',
+          nodeName: 'Card',
+          format: 'png',
+          fileName: 'Card.png',
+          suffix: '',
+          dimensions: { w: 200, h: 100 },
+          estimatedSize: 1024,
+          status: 'pending',
+        },
+      ],
+      destinationFolder: null,
+      filenameTemplate: '{name}{suffix}.{ext}',
+      folderRule: 'flat',
+    });
+
+    const result = runExportPreflight(doc, legacyRequest);
+    const collision = result.findings.find((f) => f.code === 'path-collision');
+    expect(collision).toMatchObject({ severity: 'error' });
+    expect(collision?.description).toContain('Card.png');
   });
 });

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import type { ExportBatch } from '../export-types';
 import {
   canonicalFormatToLegacy,
   canonicalScaleToLegacy,
   configurationToLegacyPreset,
+  legacyBatchToRequest,
   legacyFormatToCanonical,
   legacyJobToJobSpec,
   legacyPresetsToConfigurations,
@@ -255,6 +257,46 @@ describe('configurationToLegacyPreset', () => {
       overprintBlack: true,
       outlineText: true,
     });
+  });
+});
+
+describe('legacyBatchToRequest', () => {
+  function batchWithSuffixes(): ExportBatch {
+    const base = {
+      nodeId: 'n1',
+      nodeName: 'Card',
+      dimensions: { w: 200, h: 100 },
+      estimatedSize: 1024,
+      status: 'pending' as const,
+    };
+    return {
+      jobs: [
+        { ...base, presetId: 'a', format: 'png', fileName: 'Card.png', suffix: '' },
+        {
+          ...base,
+          presetId: 'b',
+          format: 'png',
+          fileName: 'Card@2x.png',
+          suffix: '@2x',
+          scale: { type: 'factor', value: 2 },
+        },
+      ],
+      destinationFolder: null,
+      filenameTemplate: '{name}{suffix}.{ext}',
+      folderRule: 'flat',
+    };
+  }
+
+  it('carries each job suffix into the canonical configuration', () => {
+    const request = legacyBatchToRequest(batchWithSuffixes());
+    expect(request.configurations.map((c) => c.suffix)).toEqual(['', '@2x']);
+  });
+
+  it('normalizes hyphenless non-at suffixes like the preset adapter', () => {
+    const batch = batchWithSuffixes();
+    batch.jobs[1]!.suffix = 'display';
+    const request = legacyBatchToRequest(batch);
+    expect(request.configurations[1]?.suffix).toBe('-display');
   });
 });
 

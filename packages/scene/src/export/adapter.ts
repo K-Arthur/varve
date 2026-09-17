@@ -287,6 +287,11 @@ export function legacyBatchToRequest(batch: ExportBatch): ExportBatchRequest {
         target: { type: 'node', nodeId: job.nodeId },
         format: legacyFormatToCanonical(job.format),
         scale: job.scale ? legacyScaleToCanonical(job.scale) : { mode: 'multiplier', value: 1 },
+        // The suffix is part of the output identity: two configurations of the
+        // same format that differ only by suffix (the standard 1x/2x pair)
+        // resolve to the same `{name}{suffix}.{ext}` path when this is
+        // dropped, which made preflight report a false blocking collision.
+        suffix: normalizeSuffix(job.suffix ?? ''),
         filenameTemplate: batch.filenameTemplate,
         raster: job.raster ? mapLegacyRasterOptions(job.raster) : undefined,
         vector: job.vector ? mapLegacyVectorOptions(job.vector) : undefined,
