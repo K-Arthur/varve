@@ -187,7 +187,7 @@ test.describe('contextual Inspector order', () => {
     expect(clippedLabels).toEqual([]);
 
     await page.getByText('Grid placement', { exact: true }).scrollIntoViewIfNeeded();
-    await page.locator('#insp-tabpanel-properties').screenshot({
+    await page.locator('.insp-grid-placement').screenshot({
       path: testInfo.outputPath('grid-child-placement.png'),
     });
   });
