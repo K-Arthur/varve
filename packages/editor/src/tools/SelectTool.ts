@@ -179,6 +179,12 @@ export class SelectTool extends BaseTool {
   }
 
   override onPointerDown(e: PointerEvent, ctx: ToolContext): GestureResult {
+    // Only the primary button drives selection gestures. A secondary-button
+    // press owns the canvas context menu: the click resolution below (deselect
+    // on empty canvas, retarget on hit) would mutate the selection after the
+    // menu captured its invocation snapshot, and the stale-target guard would
+    // close the menu before it could be used.
+    if (e.button > 0) return { consumed: false };
     // Capture the semantic modes at pointer-down. Modifier changes during a
     // drag may affect other interactions, but must not make one marquee switch
     // between replace/add/subtract or containment halfway through the gesture.
