@@ -672,7 +672,9 @@ test.describe('Design tab follow-up (2026-09-16)', () => {
     expect(await items.count()).toBeGreaterThanOrEqual(1);
   });
 
-  test('Image fit modes occupy one row and Stretch hides offset/scale', async ({ page }) => {
+  test('Image fit is one compact select in Fill, and Stretch hides offset/scale', async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await seedRealWorldDocument(page);
     const photoRow = page
@@ -682,19 +684,23 @@ test.describe('Design tab follow-up (2026-09-16)', () => {
     await photoRow.click();
     await openDesignTab(page);
 
-    const fitTrack = page.locator('.insp-segmented--fit');
-    await expect(fitTrack).toBeVisible({ timeout: 10_000 });
-    const buttons = fitTrack.locator('button');
-    await expect(buttons).toHaveCount(5);
-    const ys = await buttons.evaluateAll((els) =>
-      els.map((el) => Math.round(el.getBoundingClientRect().top)),
+    // Fit lives once, in the Fill section, as a compact select — not a
+    // five-button segmented track (removed 2026-09-17: it duplicated the
+    // Image Placement section's own fit control and ate a full row).
+    const fitSelect = page.getByRole('combobox', { name: 'Image fit mode' });
+    await expect(fitSelect).toBeVisible({ timeout: 10_000 });
+    const fitBox = await fitSelect.boundingBox();
+    expect(fitBox, 'fit select has no bounds').not.toBeNull();
+    expect(fitBox!.height, 'fit select should be one compact row, not stacked').toBeLessThanOrEqual(
+      40,
     );
-    expect(new Set(ys).size, `fit modes wrapped onto ${new Set(ys).size} rows`).toBe(1);
 
     // The imported photo defaults to Stretch: offset/scale are not rendered.
     await expect(page.getByLabel('Offset X (px)')).toHaveCount(0);
-    await expect(fitTrack.getByRole('radio', { name: 'Fill' })).toBeVisible();
-    await fitTrack.getByRole('radio', { name: 'Fill' }).click();
+    await expect(fitSelect).toHaveText('Stretch');
+    await fitSelect.click();
+    await page.getByRole('option', { name: 'Fill' }).click();
+    await expect(fitSelect).toHaveText('Fill');
     await expect(page.getByLabel('Offset X (px)')).toBeVisible();
   });
 
@@ -748,22 +754,12 @@ test.describe('Design tab follow-up (2026-09-16)', () => {
     await expect(page.locator('.insp-mask-header-badge')).toHaveText(/alpha|clip|luminance/i);
   });
 
-  test('Per-fill blend mode uses the same grouped select as Appearance', async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await seedRealWorldDocument(page);
-    await selectRectangleLayer(page);
-    await openDesignTab(page);
-
-    // Default fill: the row exposes the same grouped combobox affordance as
-    // Appearance, instead of hiding the control in an actions submenu.
-    const fillBlend = page.getByRole('combobox', { name: 'Fill blend mode' });
-    await expect(fillBlend).toHaveText('Normal');
-    await fillBlend.click();
-    await page.getByRole('option', { name: 'Multiply' }).click();
-
-    // Non-normal fill blend remains visible in the same control.
-    await expect(fillBlend).toHaveText('Multiply');
-  });
+  // A "Per-fill blend mode uses the same grouped select as Appearance" test
+  // previously lived here, asserting a row-level 'Fill blend mode' combobox.
+  // That control was deliberately removed (it duplicated the colour
+  // popover's own blend control on every row) — superseded by 'Fill blend
+  // mode is reachable inside the colour popover, not just the row menu'
+  // below, which covers the same behavior against the current design.
 });
 
 /** Screenshot evidence lands beside the other inspector review runs. */
@@ -934,10 +930,9 @@ test.describe('Design tab paint rows (fill / stroke pass)', () => {
     await expect(fillType).toContainText('Solid');
     const fillTypeBox = await fillType.boundingBox();
     expect(fillTypeBox?.width ?? 0).toBeGreaterThanOrEqual(96);
-    const rowBlend = page.locator('.insp-paint-blend-select').getByRole('combobox', {
-      name: 'Fill blend mode',
-    });
-    await expect(rowBlend).toHaveCount(1);
+    // Blend mode has no separate row-level control (deliberate — it would
+    // duplicate the popover's own value); it lives only inside the colour
+    // popover, reached from the row.
     // Scope to the Inspector: the context bar carries its own fill swatch.
     const fillGroup = page.getByRole('group', { name: 'Fill' });
     await fillGroup.getByRole('button', { name: 'Fill colour' }).click();
@@ -947,12 +942,16 @@ test.describe('Design tab paint rows (fill / stroke pass)', () => {
     await expect(blend).toHaveText('Normal');
     await blend.click();
     await page.getByRole('option', { name: 'Multiply' }).click();
+    await expect(blend).toHaveText('Multiply');
     await page.keyboard.press('Escape');
 
-    // Committing in the popover updates the same row control, and
-    // the value readout keeps its full hex now that opacity moved down.
-    await expect(rowBlend).toBeVisible({ timeout: 5_000 });
-    await expect(rowBlend).toHaveText('Multiply');
+    // Committing in the popover persists: reopening shows the same value,
+    // and the row's hex readout keeps its full value now that opacity
+    // moved down (not truncated by the chip).
+    await fillGroup.getByRole('button', { name: 'Fill colour' }).click();
+    await expect(dialog).toBeVisible({ timeout: 5_000 });
+    await expect(blend).toHaveText('Multiply');
+    await page.keyboard.press('Escape');
     const value = page.locator('.insp-fill-row .insp-swatch__value');
     await expect(value).toHaveText(/^#[0-9A-F]{6}$/);
     const clipped = await value.evaluate((el) => el.scrollWidth > el.clientWidth + 1);

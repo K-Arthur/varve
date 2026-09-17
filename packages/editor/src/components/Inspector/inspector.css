@@ -437,7 +437,10 @@
   border-radius: 0;
   background: transparent;
   padding: 0;
-  margin-bottom: 0;
+  /* Content stays close to its own header (space-1 top padding below); this
+   * margin is the section-to-section gap, so grouping reads correctly:
+   * tighter within a section than between two different sections. */
+  margin-bottom: var(--space-2);
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
 .insp-disclosure:hover {
@@ -6192,8 +6195,31 @@ fieldset.insp-canvas-props,
 .insp-field-group--rotation {
   align-items: center;
   /* R field + flip H + flip V + skew disclosure stay on one line; a wrapped
-     fourth control previously landed alone on a row (2026-09-16 review). */
-  grid-template-columns: minmax(0, 1fr) auto auto auto;
+     fourth control previously landed alone on a row (2026-09-16 review).
+     R's own track is an explicit width, not `minmax(0, 1fr)`: unlike
+     X/Y/W/H, R is bounded (compactFieldWidthCh gives it an intrinsic
+     ~39px value box), so a flexible 1fr track reserves space the value
+     never fills — that dead space showed up as a gap on whichever side
+     justify-content picked. `max-content` was tried first but a CSS grid
+     track's max-content sizing does not reliably shrink-wrap a child that
+     is itself a grid container with a `1fr` column (the nested `1fr`
+     doesn't propagate a tight intrinsic size the way a flex item would) —
+     confirmed empirically live, not assumed. An explicit width sized to
+     the label + gap + compact value (measured: 25px label + 39px value +
+     gap) is the robust fix; 4.75rem leaves a little breathing room. */
+  grid-template-columns: 4.75rem auto auto auto;
+}
+
+/* Complete, standalone rule for R's own label/control pair — deliberately
+ * NOT folded into the shared columns-2/3/size/skew selector below (which
+ * sets a tighter --space-1 gap): a same-specificity selector later in the
+ * file would silently win per-property over anything set here, which is
+ * exactly the drift bug already fixed twice elsewhere in this file
+ * (99ee3effa, 174e524fc). One selector, one owner, every property it needs. */
+.insp-field-group--rotation > .insp-field {
+  gap: var(--space-2);
+  grid-template-columns: max-content minmax(0, 1fr);
+  min-width: 0;
 }
 
 .insp-field-group--skew {
@@ -6214,7 +6240,6 @@ fieldset.insp-canvas-props,
 .insp-field-group--columns-2 > .insp-field,
 .insp-field-group--columns-3 > .insp-field,
 .insp-field-group--size > .insp-field,
-.insp-field-group--rotation > .insp-field,
 .insp-field-group--skew > .insp-field {
   gap: var(--space-1);
   grid-template-columns: max-content minmax(0, 1fr);
@@ -6242,8 +6267,7 @@ fieldset.insp-canvas-props,
  * grid and labels fluid while giving the value region a stable reading rail.
  * The input remains a real text editor: long values can still be caret/
  * horizontally scrolled and are never clamped by this presentation rule. */
-.insp-field-group--numeric-pair > .insp-field > .insp-field__control,
-.insp-field-group--numeric-actions > .insp-field > .insp-field__control {
+.insp-field-group--numeric-pair > .insp-field > .insp-field__control {
   flex: 0 1 var(--insp-numeric-rail, 9ch);
   inline-size: min(var(--insp-numeric-rail, 9ch), 100%);
   justify-self: end;
@@ -6251,16 +6275,14 @@ fieldset.insp-canvas-props,
   min-inline-size: 0;
 }
 
-.insp-field-group--numeric-pair > .insp-field > .insp-field__control > .insp-num__input,
-.insp-field-group--numeric-actions > .insp-field > .insp-field__control > .insp-num__input {
+.insp-field-group--numeric-pair > .insp-field > .insp-field__control > .insp-num__input {
   flex: 1 1 auto;
   inline-size: 100%;
   min-inline-size: 0;
 }
 
 @container inspector (max-width: 18rem) {
-  .insp-field-group--numeric-pair > .insp-field > .insp-field__control,
-  .insp-field-group--numeric-actions > .insp-field > .insp-field__control {
+  .insp-field-group--numeric-pair > .insp-field > .insp-field__control {
     --insp-numeric-rail: 8ch;
   }
 }
@@ -6304,10 +6326,6 @@ fieldset.insp-canvas-props,
 
   .insp-field-group--position > .insp-field-group__action-slot {
     display: none;
-  }
-
-  .insp-field-group--numeric-actions {
-    grid-template-columns: minmax(0, 1fr) auto auto auto;
   }
 }
 

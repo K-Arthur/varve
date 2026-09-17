@@ -507,7 +507,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
         </InspectorFieldGroup>
       )}
       {/* Rotation + Flip row */}
-      <InspectorFieldGroup className="insp-field-group--rotation insp-field-group--numeric-actions">
+      <InspectorFieldGroup className="insp-field-group--rotation">
         <NumberField
           label="R"
           unit="°"
