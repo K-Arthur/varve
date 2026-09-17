@@ -1288,6 +1288,49 @@
   width: auto;
   max-width: 100%;
 }
+.insp-field__control--gap-2 {
+  gap: var(--space-2);
+}
+.insp-field__control--column {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* Isometric Grid custom-axes editor: one row per axis (angle, visibility,
+ * colour, opacity, remove). Kept as its own small grammar rather than
+ * reusing the general field-group primitives — an axis is not a field, it's
+ * a compact cluster of controls sharing one line. */
+.insp-iso-axis-row {
+  border-block-end: 1px solid var(--color-border-subtle);
+  padding-block-end: var(--space-1);
+  margin-block-end: var(--space-1);
+}
+.insp-iso-axis-row:last-of-type {
+  border-block-end: none;
+}
+.insp-iso-axis-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-inline-size: 0;
+}
+.insp-iso-axis-hint {
+  flex: none;
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+}
+.insp-iso-axis-input {
+  width: 4.4rem;
+}
+.insp-iso-axis-opacity {
+  width: 3.75rem;
+}
+.insp-iso-axis-remove {
+  flex: none;
+  font-size: var(--font-size-2xs);
+  padding: 1px var(--space-1);
+}
 .insp-num__control {
   flex-wrap: wrap;
 }

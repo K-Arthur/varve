@@ -844,10 +844,7 @@ function IsometricGridSection() {
 
         <div className="insp-field">
           <span className="insp-field__label insp-field__label--wrap">Fit existing artwork</span>
-          <div
-            className="insp-field__control"
-            style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}
-          >
+          <div className="insp-field__control insp-field__control--gap-2">
             <button
               type="button"
               className="insp-btn"
@@ -889,14 +886,13 @@ function IsometricGridSection() {
         {presetId === 'custom' && (
           <div className="insp-field">
             <span className="insp-field__label">Ratio to angle</span>
-            <div className="insp-field__control" style={{ display: 'flex', gap: 6 }}>
+            <div className="insp-field__control insp-field__control--gap-2">
               <input
                 type="text"
                 value={ratioInput}
                 placeholder="2:1"
                 onChange={(e) => setRatioInput(e.target.value)}
-                className="insp-num__input"
-                style={{ width: 70 }}
+                className="insp-num__input insp-iso-axis-input"
                 aria-label="Aspect ratio for the first axis, for example 2:1"
               />
               <button
@@ -922,22 +918,11 @@ function IsometricGridSection() {
         {presetId === 'custom' && (
           <>
             {grid.axes.map((axis, index) => (
-              <div
-                key={`axis-${index}`}
-                className="insp-field"
-                style={{
-                  borderBottom: '1px solid var(--color-border-subtle)',
-                  paddingBottom: 6,
-                  marginBottom: 4,
-                }}
-              >
+              <div key={`axis-${index}`} className="insp-field insp-iso-axis-row">
                 <span className="insp-field__label">{axis.label ?? `Axis ${index + 1}`}</span>
-                <div
-                  className="insp-field__control"
-                  style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.7 }}>Angle</span>
+                <div className="insp-field__control insp-field__control--column">
+                  <div className="insp-iso-axis-line">
+                    <span className="insp-iso-axis-hint">Angle</span>
                     <input
                       type="number"
                       min="0"
@@ -949,18 +934,17 @@ function IsometricGridSection() {
                         if (!Number.isNaN(v)) updateAxis(index, { angle: v });
                       }}
                       onBlur={() => updateAxis(index, { angle: normaliseAngle(axis.angle) })}
-                      className="insp-num__input"
-                      style={{ width: 70 }}
+                      className="insp-num__input insp-iso-axis-input"
                       aria-label={`Axis ${index + 1} angle ${axis.angle} degrees`}
                     />
-                    <span style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.7 }}>deg</span>
+                    <span className="insp-iso-axis-hint">deg</span>
                     {index === 0 && Number.isFinite(axis.angle)
                       ? (() => {
                           const ratio = axisAngleToRatio(axis.angle);
                           return ratio ? (
                             <span
-                              style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.7 }}
-                              aria-label={`Axis 1 ratio ${ratio.height} to ${ratio.width}`}
+                              className="insp-iso-axis-hint"
+                              title={`Axis 1 ratio ${ratio.height} to ${ratio.width}`}
                             >
                               {ratio.height}:{ratio.width}
                             </span>
@@ -968,7 +952,7 @@ function IsometricGridSection() {
                         })()
                       : null}
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div className="insp-iso-axis-line">
                     <Switch
                       label="Visible"
                       checked={axis.visible}
@@ -991,7 +975,7 @@ function IsometricGridSection() {
                       swatchStyle={{ background: axis.color ?? 'var(--color-text-muted)' }}
                       documentColorMode={documentColorMode}
                     />
-                    <span style={{ fontSize: 'var(--font-size-2xs)', opacity: 0.7 }}>
+                    <span className="insp-iso-axis-hint">
                       {Math.round((axis.opacity ?? 1) * 100)}%
                     </span>
                     <input
@@ -1001,17 +985,15 @@ function IsometricGridSection() {
                       step="0.1"
                       value={axis.opacity ?? 1}
                       onChange={(e) => updateAxis(index, { opacity: parseFloat(e.target.value) })}
-                      className="insp-range"
-                      style={{ width: 60 }}
+                      className="insp-range insp-iso-axis-opacity"
                       aria-label={`Axis ${index + 1} opacity`}
                     />
                     {grid.axes.length > 2 && (
                       <button
                         type="button"
-                        className="insp-btn"
+                        className="insp-btn insp-iso-axis-remove"
                         onClick={() => removeAxis(index)}
                         aria-label={`Remove axis ${index + 1}`}
-                        style={{ fontSize: 'var(--font-size-2xs)', padding: '1px 4px' }}
                       >
                         &times;
                       </button>
@@ -1035,17 +1017,9 @@ function IsometricGridSection() {
               </div>
             )}
             {axisValidation.errors.length > 0 && (
-              <div className="insp-field" role="alert">
-                <div
-                  className="insp-field__control"
-                  style={{
-                    fontSize: 'var(--font-size-2xs)',
-                    color: 'var(--color-feedback-warning)',
-                  }}
-                >
-                  {axisValidation.errors.join('; ')}
-                </div>
-              </div>
+              <p className="insp-hint insp-hint--error" role="alert">
+                {axisValidation.errors.join('; ')}
+              </p>
             )}
           </>
         )}
@@ -1082,7 +1056,7 @@ function IsometricGridSection() {
         />
         <div className="insp-field">
           <span className="insp-field__label">Origin</span>
-          <div className="insp-field__control" style={{ display: 'flex', gap: 6 }}>
+          <div className="insp-field__control insp-field__control--gap-2">
             <button
               type="button"
               className="insp-btn"
@@ -1098,10 +1072,7 @@ function IsometricGridSection() {
         </p>
         <div className="insp-field">
           <span className="insp-field__label insp-field__label--wrap">Snap targets</span>
-          <div
-            className="insp-field__control"
-            style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
-          >
+          <div className="insp-field__control insp-field__control--column">
             <Switch
               label="Snap to lattice intersections"
               checked={grid.snapToSubdivisions !== false}

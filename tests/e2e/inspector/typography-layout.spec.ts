@@ -40,7 +40,7 @@ test('typography inspector uses readable labels and aligned controls at both pan
           .map((label) => label.textContent),
       );
       expect(clipped).toEqual([]);
-      const align = section.getByRole('radiogroup', { name: 'Text align', exact: true });
+      const align = section.getByRole('radiogroup', { name: 'Horizontal align', exact: true });
       const rows = await align
         .getByRole('radio')
         .evaluateAll(
