@@ -120,3 +120,34 @@ weight/style and size/line-height. No generic field primitive, NumberField
 semantics, scene model, serialization, or history behavior is changed by this
 milestone. If an owned file becomes dirty or an active process claims the same
 hunk, stop and split the work rather than folding it into this change.
+
+### Milestone 5 delivery — `73bc07a9e`
+
+The first contextual-compression slice is committed on `master`.
+
+- `GridPlacementFields` is a shared child-capability surface. It mounts for a
+  selected node with a grid parent or authored placement, remains discoverable
+  after a node leaves a grid, and stays absent on ordinary frames.
+- Grid placement uses readable stacked labels with a responsive two-up grid;
+  the real child workflow no longer clips `Column start`, `Column end`, `Row
+  start`, or `Row end` at the inspected panel width.
+- Typography keeps its existing semantic section and mutations while pairing
+  Weight/Style and Size/Line height when the panel can support both cells. The
+  paired grid falls back before labels or controls can overflow.
+- The existing Context Control Bar remains the quick-action surface; this
+  slice does not duplicate its commands in the Inspector.
+
+Evidence for the commit:
+
+- Focused Vitest: 20/20 (`GridPlacementFields`, `LayoutSection`, and
+  `TypographySection`).
+- Real Chromium E2E: contextual ordering, image/frame grammar, and a drawn
+  frame switched to Grid with a selected child; the latter captured
+  `grid-child-placement.png` after scrolling the placement group into view.
+- Real Chromium `control-layout.spec.ts`: all supported rail widths passed.
+- `@varve/editor` typecheck, E2E typecheck, Biome checks, `audit:docs`,
+  `audit:emoji`, `audit:tokens` (201 pairs), and architecture audit passed.
+- The older `typography-layout.spec.ts` still expects the stale accessible
+  name `Text align`; current production semantics expose `Horizontal align`.
+  This is recorded as a pre-existing test-contract mismatch, not counted as
+  evidence for this milestone.
