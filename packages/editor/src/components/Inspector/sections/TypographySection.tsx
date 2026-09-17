@@ -49,7 +49,7 @@ import { useTypographyPreview } from '../../Typography/useTypographyPreview';
 import { BindingMenu } from '../controls/BindingMenu';
 import { ContrastIndicator } from '../controls/ContrastIndicator';
 import { DisclosureSection } from '../controls/DisclosureSection';
-import { FieldRow } from '../controls/FieldRow';
+import { FieldRow, InspectorFieldGroup } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
 import { RangeValueControl } from '../controls/RangeValueControl';
 import { RichTextSpanEditor } from '../controls/RichTextSpanEditor';
@@ -570,68 +570,72 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             </button>
           </Tooltip>
         </div>
-        <FieldRow label="Weight">
-          <Select
-            label="Font weight"
-            value={isMixed(weightRaw) ? '400' : String(weightRaw)}
-            placeholder={isMixed(weightRaw) ? 'Mixed' : undefined}
-            options={fontWeightOptions(textNodes).map((option) => ({
-              value: String(option.value),
-              label: option.label,
-              disabled: option.disabled,
-              disabledReason: option.disabledReason,
-            }))}
-            onChange={(v) =>
-              textNodes.length === 1
-                ? applyTypographyToSelection(fontWeightChanges(textNodes[0]!, Number(v)))
-                : batchUpdate((n) => ({ ...n, ...fontWeightChanges(n, Number(v)) }))
-            }
-          />
-        </FieldRow>
-        <FieldRow label="Style">
-          <SegmentedControl
-            label="Font style"
-            value={isMixed(styleRaw) ? 'normal' : styleRaw}
-            options={fontStyleOptions}
-            onChange={(v) =>
-              textNodes.length === 1
-                ? applyTypographyToSelection(fontStyleChanges(textNodes[0]!, v))
-                : batchUpdate((n) => ({ ...n, ...fontStyleChanges(n, v) }))
-            }
-          />
-          {textFillColor && (
-            <ContrastIndicator
-              fgColor={textFillColor}
-              bgColor={null}
-              fontSize={isMixed(sizeRaw) ? 16 : sizeRaw}
-              fontWeight={isMixed(weightRaw) ? 400 : weightRaw}
+        <InspectorFieldGroup columns={2} className="typography__paired-fields">
+          <FieldRow label="Weight">
+            <Select
+              label="Font weight"
+              value={isMixed(weightRaw) ? '400' : String(weightRaw)}
+              placeholder={isMixed(weightRaw) ? 'Mixed' : undefined}
+              options={fontWeightOptions(textNodes).map((option) => ({
+                value: String(option.value),
+                label: option.label,
+                disabled: option.disabled,
+                disabledReason: option.disabledReason,
+              }))}
+              onChange={(v) =>
+                textNodes.length === 1
+                  ? applyTypographyToSelection(fontWeightChanges(textNodes[0]!, Number(v)))
+                  : batchUpdate((n) => ({ ...n, ...fontWeightChanges(n, Number(v)) }))
+              }
             />
-          )}
-        </FieldRow>
-        <NumberField
-          label="Size"
-          unit="px"
-          value={isMixed(sizeRaw) ? 16 : sizeRaw}
-          mixed={isMixed(sizeRaw)}
-          step={1}
-          min={0}
-          fieldName="fontSize"
-          draftKey={`${typographyDraftKey}:font-size`}
-          onShiftClick={() => setBindingField('fontSize')}
-          onChange={(v) => applyTypographyToSelection({ fontSize: v })}
-        />
-        <NumberField
-          label="Line height"
-          unit="%"
-          value={isMixed(lineHeightRaw) ? 120 : lineHeightRaw * 100}
-          mixed={isMixed(lineHeightRaw)}
-          step={1}
-          min={0}
-          fieldName="lineHeight"
-          draftKey={`${typographyDraftKey}:line-height`}
-          onShiftClick={() => setBindingField('lineHeight')}
-          onChange={(v) => applyTypographyToSelection({ lineHeight: v / 100 })}
-        />
+          </FieldRow>
+          <FieldRow label="Style">
+            <SegmentedControl
+              label="Font style"
+              value={isMixed(styleRaw) ? 'normal' : styleRaw}
+              options={fontStyleOptions}
+              onChange={(v) =>
+                textNodes.length === 1
+                  ? applyTypographyToSelection(fontStyleChanges(textNodes[0]!, v))
+                  : batchUpdate((n) => ({ ...n, ...fontStyleChanges(n, v) }))
+              }
+            />
+            {textFillColor && (
+              <ContrastIndicator
+                fgColor={textFillColor}
+                bgColor={null}
+                fontSize={isMixed(sizeRaw) ? 16 : sizeRaw}
+                fontWeight={isMixed(weightRaw) ? 400 : weightRaw}
+              />
+            )}
+          </FieldRow>
+        </InspectorFieldGroup>
+        <InspectorFieldGroup columns={2} className="typography__paired-fields">
+          <NumberField
+            label="Size"
+            unit="px"
+            value={isMixed(sizeRaw) ? 16 : sizeRaw}
+            mixed={isMixed(sizeRaw)}
+            step={1}
+            min={0}
+            fieldName="fontSize"
+            draftKey={`${typographyDraftKey}:font-size`}
+            onShiftClick={() => setBindingField('fontSize')}
+            onChange={(v) => applyTypographyToSelection({ fontSize: v })}
+          />
+          <NumberField
+            label="Line height"
+            unit="%"
+            value={isMixed(lineHeightRaw) ? 120 : lineHeightRaw * 100}
+            mixed={isMixed(lineHeightRaw)}
+            step={1}
+            min={0}
+            fieldName="lineHeight"
+            draftKey={`${typographyDraftKey}:line-height`}
+            onShiftClick={() => setBindingField('lineHeight')}
+            onChange={(v) => applyTypographyToSelection({ lineHeight: v / 100 })}
+          />
+        </InspectorFieldGroup>
         <NumberField
           label="Letter spacing"
           labelWrap

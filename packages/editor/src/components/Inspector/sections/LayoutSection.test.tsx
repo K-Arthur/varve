@@ -89,6 +89,14 @@ describe('LayoutSection per-node Width/Height sizing controls', () => {
     });
   });
 
+  it('does not show grid placement on an ordinary frame container', async () => {
+    const getCtx = setup();
+    getCtx().applyFramePreset({ name: 'Test Frame', w: 400, h: 300 });
+    await waitFor(() => expect(getCtx().state.selection).toHaveLength(1));
+
+    expect(screen.queryByText('Grid placement')).not.toBeInTheDocument();
+  });
+
   it('setting both axes independently keeps them independent', async () => {
     const getCtx = setup();
     getCtx().applyFramePreset({ name: 'Test Frame', w: 400, h: 300 });

@@ -15,7 +15,6 @@
 import type {
   FlexDirection,
   FrameNode,
-  GridItemPlacement,
   LayoutGrid,
   LayoutMode,
   LayoutSizing,
@@ -32,6 +31,7 @@ import { NumberField } from '../controls/NumberField';
 import type { SegmentedOption } from '../controls/SegmentedControl';
 import { SegmentedControl } from '../controls/SegmentedControl';
 import { commonValue, isMixed } from '../selection/selectionState';
+import { GridPlacementFields } from './GridPlacementFields';
 
 const ALIGN_ITEMS_OPTIONS: readonly SegmentedOption<'start' | 'center' | 'end' | 'stretch'>[] = [
   { value: 'start', label: 'Start' },
@@ -322,6 +322,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
         {/* Clamp() fluid sizing for the frame itself */}
         <ClampSizingControls nodes={[node]} />
       </DisclosureSection>
+      <GridPlacementFields nodes={[node]} />
       <LayoutGuidesSection node={node} />
     </>
   );
@@ -512,8 +513,9 @@ function LayoutGuidesSection({ node }: { node: FrameNode }) {
 
 /**
  * ClampSizingControls — min/preferred/max width/height for clamp() fluid sizing.
- * Also surfaces per-child sizing mode (fixed/hug/fill) and grid item placement
- * when the selected nodes are children of a layout-enabled frame.
+ * Also surfaces per-child sizing mode (fixed/hug/fill) for a frame's own
+ * content bounds. Grid item placement is rendered by GridPlacementFields so it
+ * can be gated by the selected node's actual parent.
  */
 function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
   const editor = useEditor();
@@ -526,7 +528,6 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
     setSelectedLayoutSizingHeight,
     setSelectedLayoutRelativeWidth,
     setSelectedLayoutRelativeHeight,
-    setSelectedGridPlacement,
     clearSelectedMinWidth,
     clearSelectedMaxWidth,
     clearSelectedMinHeight,
@@ -553,21 +554,6 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
     .map((node) => node.id)
     .sort()
     .join(',');
-  const gridColStartRaw = commonValue(nodes, (n) => n.gridPlacement?.gridColumnStart);
-  const gridColEndRaw = commonValue(nodes, (n) => n.gridPlacement?.gridColumnEnd);
-  const gridRowStartRaw = commonValue(nodes, (n) => n.gridPlacement?.gridRowStart);
-  const gridRowEndRaw = commonValue(nodes, (n) => n.gridPlacement?.gridRowEnd);
-
-  const patchGrid = (partial: Partial<GridItemPlacement>) => {
-    const base: GridItemPlacement = {
-      gridColumnStart: !isMixed(gridColStartRaw) ? gridColStartRaw : undefined,
-      gridColumnEnd: !isMixed(gridColEndRaw) ? gridColEndRaw : undefined,
-      gridRowStart: !isMixed(gridRowStartRaw) ? gridRowStartRaw : undefined,
-      gridRowEnd: !isMixed(gridRowEndRaw) ? gridRowEndRaw : undefined,
-    };
-    setSelectedGridPlacement({ ...base, ...partial });
-  };
-
   return (
     <div
       style={{
@@ -728,53 +714,6 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
           onChange={setSelectedLayoutRelativeHeight}
         />
       )}
-      {/* Grid item placement */}
-      <div
-        style={{
-          fontSize: 'var(--font-size-xs)',
-          fontWeight: 'var(--font-weight-medium)',
-          color: 'var(--color-text-secondary)',
-          marginTop: 'var(--space-1)',
-        }}
-      >
-        Grid Placement
-      </div>
-      <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-        <NumberField
-          label="Col start"
-          value={isMixed(gridColStartRaw) ? 0 : (gridColStartRaw ?? 0)}
-          mixed={isMixed(gridColStartRaw)}
-          min={0}
-          labelWrap
-          onChange={(v) => patchGrid({ gridColumnStart: v || undefined })}
-        />
-        <NumberField
-          label="Col end"
-          value={isMixed(gridColEndRaw) ? 0 : (gridColEndRaw ?? 0)}
-          mixed={isMixed(gridColEndRaw)}
-          min={0}
-          labelWrap
-          onChange={(v) => patchGrid({ gridColumnEnd: v || undefined })}
-        />
-      </div>
-      <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-        <NumberField
-          label="Row start"
-          value={isMixed(gridRowStartRaw) ? 0 : (gridRowStartRaw ?? 0)}
-          mixed={isMixed(gridRowStartRaw)}
-          min={0}
-          labelWrap
-          onChange={(v) => patchGrid({ gridRowStart: v || undefined })}
-        />
-        <NumberField
-          label="Row end"
-          value={isMixed(gridRowEndRaw) ? 0 : (gridRowEndRaw ?? 0)}
-          mixed={isMixed(gridRowEndRaw)}
-          min={0}
-          labelWrap
-          onChange={(v) => patchGrid({ gridRowEnd: v || undefined })}
-        />
-      </div>
     </div>
   );
 }

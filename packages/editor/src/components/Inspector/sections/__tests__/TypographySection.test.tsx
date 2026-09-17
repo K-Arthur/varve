@@ -161,6 +161,16 @@ describe('TypographySection direction', () => {
 });
 
 describe('TypographySection progressive disclosure', () => {
+  it('pairs common typography controls without changing their semantics', () => {
+    const node = makeTextNode('t1', 'auto');
+    const { container } = renderSection(<TypographySection nodes={[node]} />);
+
+    expect(container.querySelectorAll('.typography__paired-fields')).toHaveLength(2);
+    expect(screen.getByRole('combobox', { name: 'Font weight' })).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: 'Size (px)' })).toBeInTheDocument();
+    expect(screen.getByRole('spinbutton', { name: 'Line height (%)' })).toBeInTheDocument();
+  });
+
   it('keeps uncommon controls collapsed behind "Advanced typography"', () => {
     const node = makeTextNode('t1', 'auto');
     renderSection(<TypographySection nodes={[node]} />);

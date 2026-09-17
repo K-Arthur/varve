@@ -39,6 +39,41 @@
   text-overflow: clip;
 }
 
+/* The common typography spine is two-up only while both cells retain enough
+ * room for a persistent label and a full compact control. At a narrower
+ * inspector width auto-fit falls back to one column before text can clip. */
+.editor-inspector .typography__paired-fields {
+  grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.editor-inspector .typography__paired-fields > .insp-field {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-1);
+  min-width: 0;
+  min-height: 0;
+}
+
+.editor-inspector .typography__paired-fields > .insp-field > .insp-field__label {
+  min-width: 0;
+  min-height: 1.15rem;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.editor-inspector .typography__paired-fields .insp-field__control {
+  width: 100%;
+  min-width: 0;
+}
+
+.editor-inspector .typography-controls .typography__paired-fields .insp-segmented {
+  min-width: 0;
+  width: 100%;
+}
+
 /* Collapsed-subsection badge: "3 set", "2 on", or a raw adjustment count.
    Quiet by default so it reads as status, not as a control. */
 .typography__count {
