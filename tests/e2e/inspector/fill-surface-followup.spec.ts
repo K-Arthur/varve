@@ -98,27 +98,36 @@ test('keeps Appearance and per-fill opacity geometry aligned across inspector ra
       const fill = document.querySelector('[aria-label="Fill opacity (%)"]');
       const type = document.querySelector('.insp-paint-type-select');
       const row = document.querySelector('.insp-fill-row .insp-paint-row');
-      if (!appearance || !fill || !type || !row) return null;
+      const fillCard = document.querySelector('.insp-fill-row');
+      if (!appearance || !fill || !type || !row || !fillCard) return null;
       const read = (element: Element) => {
         const rect = element.getBoundingClientRect();
         return { left: rect.left, right: rect.right, width: rect.width, height: rect.height };
       };
       const rowStyle = getComputedStyle(row);
+      const cardStyle = getComputedStyle(fillCard);
       return {
         appearance: read(appearance),
         fill: read(fill),
         type: read(type),
         row: { scrollWidth: row.scrollWidth, clientWidth: row.clientWidth },
         rowDisplay: rowStyle.display,
+        // .insp-fill-row is a bordered card (visually groups one paint's
+        // controls, including the drag handle used for reordering) with its
+        // own right padding/border — the per-fill value sits inset from the
+        // section edge by exactly that card inset, not flush with it like a
+        // plain field row. That inset is real, deliberate, and independent
+        // of this assertion, so we measure it instead of assuming zero.
+        cardInsetRight:
+          Number.parseFloat(cardStyle.paddingRight) + Number.parseFloat(cardStyle.borderRightWidth),
       };
     });
 
     expect(railMetrics, `missing paint geometry at ${width}px`).not.toBeNull();
     expect(railMetrics!.appearance.width).toBe(railMetrics!.fill.width);
     expect(railMetrics!.appearance.height).toBe(railMetrics!.fill.height);
-    expect(Math.abs(railMetrics!.appearance.right - railMetrics!.fill.right)).toBeLessThanOrEqual(
-      2,
-    );
+    const observedGap = railMetrics!.appearance.right - railMetrics!.fill.right;
+    expect(Math.abs(observedGap - railMetrics!.cardInsetRight)).toBeLessThanOrEqual(2);
     expect(railMetrics!.type.width).toBeGreaterThanOrEqual(width < 280 ? 64 : 96);
     expect(railMetrics!.row.scrollWidth).toBeLessThanOrEqual(railMetrics!.row.clientWidth + 1);
   }

@@ -2575,10 +2575,13 @@
  * colour editor instead of repeating a full select in every row. */
 .insp-fill-row__properties {
   display: grid;
-  /* The visible label is wider than the bounded 0–100 input. Give that
-   * semantic column a stable text rail, then right-align the 5ch value inside
-   * it; otherwise the nested NumberField's flex basis steals the type column. */
-  grid-template-columns: minmax(0, 1fr) 8ch;
+  /* The visible "Opacity (%)" label is wider than the bounded 0–100 input
+   * below it (stacked, not inline) — this track must match
+   * .insp-paint-row__opacity's own min-width so the two aren't independently
+   * hardcoded numbers that can drift out of sync (they did: 8ch was sized for
+   * the value alone and silently clipped the label once it became visible).
+   * The type column absorbs the rest. */
+  grid-template-columns: minmax(0, 1fr) 5.5rem;
   align-items: center;
   gap: var(--space-2);
   padding-left: var(--space-4);
