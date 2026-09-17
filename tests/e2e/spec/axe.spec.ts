@@ -66,4 +66,32 @@ test.describe('Inspect mode - axe-core scan', () => {
 
     expect(results.violations).toEqual([]);
   });
+
+  test('locked selection with the restriction notice has no automated accessibility violations', async ({
+    page,
+  }) => {
+    await navigateToEditor(page);
+
+    await activateTool(page, 'Rectangle');
+    await getCanvas(page).click({ position: { x: 200, y: 200 } });
+    await page.waitForTimeout(500);
+
+    // Lock the selected layer from its Layers row, then re-select it so the
+    // restriction notice (and its unlock action) renders in the Inspector.
+    const row = page.locator('[role="treeitem"]').first();
+    await row.click();
+    const lock = row.locator('.layers-row__toggle--locked-off');
+    await lock.click();
+    await expect(row.locator('.layers-row__toggle--locked-on')).toBeVisible();
+    await expect(page.locator('[data-inspector-restriction="locked"]').first()).toBeVisible({
+      timeout: 5000,
+    });
+
+    const results = await new AxeBuilder({ page })
+      .include(INSPECTOR)
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+
+    expect(results.violations).toEqual([]);
+  });
 });

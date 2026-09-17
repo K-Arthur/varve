@@ -15,63 +15,75 @@ describe('Inspector feature ownership', () => {
   });
 
   it('keeps the contextual Properties surface intentionally concise, including selection colors and document settings', () => {
-    expect(getFeaturesForSurface('properties')).toEqual([
-      'align-distribute',
-      'position-size',
-      'frame-resize',
-      'component',
-      'icon',
-      'corner-radius',
-      'table',
-      'table-cells',
-      'layout',
-      'layout-child',
-      'frame-presets',
-      'appearance',
-      'selection-colors',
-      'fills',
-      'stroke',
-      'adjustment-layer-access',
-      'animation',
-      'image-placement',
-      'image-resolution',
-      'image-perspective',
-      'typography',
-      'layer-states',
-      'text-on-path',
-      'page-print',
-      'canvas-background',
-      'document-color',
-      'document-proof',
-      'document-grid',
-      'isometric-grid',
-      'table-columns',
-      'table-rows',
-    ]);
+    // Asserted as a set: ownership is membership, not file order.
+    expect(getFeaturesForSurface('properties').sort()).toEqual(
+      [
+        'align-distribute',
+        'boolean',
+        'position-size',
+        'component',
+        'icon',
+        'corner-radius',
+        'table',
+        'table-cells',
+        'layout',
+        'layout-child',
+        'frame-presets',
+        'appearance',
+        'mask',
+        'selection-colors',
+        'fills',
+        'paint-library',
+        'stroke',
+        'effects',
+        'smart-filters',
+        'adjustment-layer-access',
+        'animation',
+        'image-placement',
+        'image-resolution',
+        'image-perspective',
+        'typography',
+        'layer-states',
+        'text-on-path',
+        'warp',
+        'palette',
+        'page-print',
+        'canvas-background',
+        'snapping',
+        'document-color',
+        'document-proof',
+        'document-grid',
+        'isometric-grid',
+        'table-columns',
+      ].sort(),
+    );
   });
 
   it('moves temporary tool configuration out of selection properties', () => {
-    expect(getFeaturesForSurface('tool-options')).toEqual(['brush-settings', 'image-crop']);
+    expect(getFeaturesForSurface('tool-options').sort()).toEqual(
+      ['brush-settings', 'image-crop'].sort(),
+    );
   });
 
   it('keeps complex image processing on one workflow surface', () => {
-    expect(getFeaturesForSurface('adjustments')).toEqual([
-      'adjustment',
-      'ai-tools-hint',
-      'image-enhancement',
-      'background-removal',
-      'colorize',
-      'ai-denoise',
-      'depth-mask',
-      'lens-blur',
-      'line-art',
-      'content-aware-fill',
-      'detect-text',
-      'ocr',
-      'blend-images',
-      'font-detect',
-      'image-tuning',
-    ]);
+    expect(getFeaturesForSurface('adjustments').sort()).toEqual(
+      [
+        'ai-tools-hint',
+        'image-enhancement',
+        'background-removal',
+        'colorize',
+        'ai-denoise',
+        'depth-mask',
+        'lens-blur',
+        'line-art',
+        'content-aware-fill',
+        'detect-text',
+        'ocr',
+        'blend-images',
+        'font-detect',
+        'image-tuning',
+      ].sort(),
+    );
   });
 
   it('describes the RIFE tool as experimental derived-image interpolation', () => {
@@ -81,8 +93,12 @@ describe('Inspector feature ownership', () => {
     });
   });
 
-  it('keeps selected-image palette work beside reusable appearance resources', () => {
-    expect(getFeaturesForSurface('appearance')).toContain('palette');
+  it('keeps selected-image palette work on the Properties surface beside the Design-tab paint stack', () => {
+    // The legacy Appearance tab was merged into Design, so the paint-stack
+    // neighbours (fills, effects, palette) all report the properties surface.
+    expect(getFeaturesForSurface('properties')).toContain('palette');
+    expect(getFeaturesForSurface('properties')).toContain('fills');
+    expect(getFeaturesForSurface('properties')).toContain('effects');
   });
 
   it('uses only known ownership surfaces', () => {

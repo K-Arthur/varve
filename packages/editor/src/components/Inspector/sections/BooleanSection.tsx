@@ -71,7 +71,7 @@ export function BooleanSection({ node }: { node: GroupNode }) {
   };
 
   return (
-    <DisclosureSection title="Pathfinder" id="pathfinder-boolean">
+    <DisclosureSection title="Pathfinder" sectionId="boolean">
       <FieldRow label="Operation">
         <Select
           label="Boolean operation"

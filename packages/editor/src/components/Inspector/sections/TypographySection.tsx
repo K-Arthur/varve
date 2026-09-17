@@ -392,6 +392,13 @@ export function TypographySection({ nodes }: TypographySectionProps) {
   const styleRaw = commonValue(textNodes, (n) => getTextValue(n, (t) => t.fontStyle ?? 'normal'));
   const sizeRaw = commonValue(textNodes, (n) => getTextValue(n, (t) => t.fontSize));
   const lineHeightRaw = commonValue(textNodes, (n) => getTextValue(n, (t) => t.lineHeight ?? 1.2));
+  // Collapsed summary: family · size / line-height — the three values that
+  // decide whether the hidden stack is the one worth expanding.
+  const typographySummary = isMixed(familyRaw)
+    ? 'Mixed fonts'
+    : `${familyRaw || 'Mixed'} · ${isMixed(sizeRaw) ? '–' : Math.round(sizeRaw * 100) / 100} / ${
+        isMixed(lineHeightRaw) ? '–' : Math.round(lineHeightRaw * 100) / 100
+      }`;
   const letterSpacingRaw = commonValue(textNodes, (n) =>
     getTextValue(n, (t) => t.letterSpacing ?? 0),
   );
@@ -459,7 +466,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
   const advancedCount = advancedTypographyCount(textNodes);
 
   return (
-    <DisclosureSection title="Typography" sectionId="typography">
+    <DisclosureSection title="Typography" sectionId="typography" summary={typographySummary}>
       <FontBrowserDialog
         open={fontBrowserOpen}
         onClose={() => setFontBrowserOpen(false)}

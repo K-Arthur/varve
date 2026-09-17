@@ -359,10 +359,19 @@ export function FillSection({ nodes }: FillSectionProps) {
   // rendering dead rows.
   if (fillNodes.length === 0) return null;
 
+  // Collapsed summary: the paint stack's shape at a glance. Mixed stacks say
+  // so in words; a single paint names its type; deeper stacks count on.
+  const fillSummary = countMixed
+    ? 'Mixed'
+    : fills.length === 0
+      ? 'No fill'
+      : `${FILL_TYPE_META[fills[0]!.type].label}${fills.length > 1 ? ` +${fills.length - 1}` : ''}`;
+
   return (
     <DisclosureSection
       title="Fill"
       sectionId="fills"
+      summary={fillSummary}
       action={
         <div className="insp-fill-add__controls">
           <button

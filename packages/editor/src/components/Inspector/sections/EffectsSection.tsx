@@ -180,6 +180,9 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
 
   const rowCount = referenceEffects.length;
   const countMixed = !effectNodes.every((n) => (n.effects?.length ?? 0) === rowCount);
+  // Collapsed summary: how many effects the stack holds, or the word that says
+  // the selection does not share one stack length.
+  const effectsSummary = countMixed ? 'Mixed' : rowCount === 0 ? 'None' : String(rowCount);
   const effectSortIds = useMemo(
     () => Array.from({ length: rowCount }, (_, index) => `effect-${index}`),
     [rowCount],
@@ -237,6 +240,7 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
     <DisclosureSection
       title="Layer Effects"
       sectionId={sectionId}
+      summary={effectsSummary}
       action={
         <EffectAddAction value={newEffectType} onChange={setNewEffectType} onAdd={addEffect} />
       }

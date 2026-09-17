@@ -73,14 +73,6 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     status: 'functional',
     rationale: 'Column width modes and row height modes',
   },
-  'table-rows': {
-    surface: 'properties',
-    scope: 'selection',
-    frequency: 'frequent',
-    complexity: 'moderate',
-    status: 'functional',
-    rationale: 'Row height modes (alias of table-columns track editor)',
-  },
   'position-size': {
     surface: 'properties',
     scope: 'mixed-selection',
@@ -123,12 +115,21 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     rationale: 'Visibility, opacity, and blend are routine selection edits.',
   },
   mask: {
-    surface: 'appearance',
+    surface: 'properties',
     scope: 'selection',
     frequency: 'occasional',
     complexity: 'moderate',
     status: 'functional',
     rationale: 'Mask creation and refinement form a persistent appearance workflow.',
+  },
+  boolean: {
+    surface: 'properties',
+    scope: 'selection',
+    frequency: 'occasional',
+    complexity: 'compact',
+    status: 'functional',
+    rationale:
+      'Live Boolean groups edit their operation and operand list where the group is selected.',
   },
   'selection-colors': {
     surface: 'properties',
@@ -147,7 +148,7 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     rationale: 'Primary paint is adjusted constantly and gives immediate feedback.',
   },
   'paint-library': {
-    surface: 'appearance',
+    surface: 'properties',
     scope: 'mixed-selection',
     frequency: 'occasional',
     complexity: 'moderate',
@@ -163,7 +164,7 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     rationale: 'Primary outline controls are routine selection edits.',
   },
   effects: {
-    surface: 'appearance',
+    surface: 'properties',
     scope: 'mixed-selection',
     frequency: 'occasional',
     complexity: 'large-editor',
@@ -172,7 +173,7 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
       'Layer effects such as shadows, glows, and blur need dedicated vertical space and remain distinct from Studio treatments and Object Filters.',
   },
   'smart-filters': {
-    surface: 'appearance',
+    surface: 'properties',
     scope: 'selection',
     frequency: 'occasional',
     complexity: 'large-editor',
@@ -214,14 +215,8 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     status: 'functional',
     rationale: 'Instance identity and overrides belong to the selected instance.',
   },
-  adjustment: {
-    surface: 'adjustments',
-    scope: 'selection',
-    frequency: 'occasional',
-    complexity: 'large-editor',
-    status: 'functional',
-    rationale: 'Adjustment stacks are a persistent image-editing workflow.',
-  },
+  // 'adjustment' was retired: the Adjustments tab owns adjustment editing and
+  // no Design-tab section rendered it.
   'frame-presets': {
     surface: 'properties',
     scope: 'active-tool',
@@ -231,15 +226,8 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     rationale:
       'With the Frame tool active and nothing selected, preset sizes are the only relevant choice, so the Inspector shows them in place of object properties.',
   },
-  'frame-resize': {
-    surface: 'properties',
-    scope: 'selection',
-    frequency: 'occasional',
-    complexity: 'compact',
-    status: 'functional',
-    rationale:
-      'Snapping a selected frame to a preset size (and saving its size as a preset) edits that frame; it stays one collapsed row beside Position & Size.',
-  },
+  // 'frame-resize' was retired: preset resizing is owned by the compact
+  // FramePresetDropdown inside Position & Size (see sectionRegistry).
   icon: {
     surface: 'properties',
     scope: 'selection',
@@ -401,7 +389,7 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     rationale: 'Font identification is an image-analysis operation that needs results space.',
   },
   warp: {
-    surface: 'appearance',
+    surface: 'properties',
     scope: 'selection',
     frequency: 'occasional',
     complexity: 'moderate',
@@ -427,7 +415,7 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
       'RIFE frame interpolation creates a derived in-between raster; it is not layer compositing and remains experimental until its model output is reference-validated.',
   },
   palette: {
-    surface: 'appearance',
+    surface: 'properties',
     scope: 'selection',
     frequency: 'rare',
     complexity: 'moderate',

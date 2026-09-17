@@ -95,9 +95,17 @@ export function LayoutSection({ node }: { node: FrameNode }) {
     setNodeLayout(node.id, { ...base, ...partial });
   }
 
+  // Collapsed summary: the frame's sizing behaviour without expanding —
+  // fixed, grid, or the flex axis (plus wrap) in plain words.
+  const layoutSummary = !ls
+    ? 'Fixed'
+    : ls.mode === 'grid'
+      ? 'Grid'
+      : `${ls.direction === 'column' ? 'Vertical' : 'Horizontal'}${ls.wrap ? ' · Wrap' : ''}`;
+
   return (
     <>
-      <DisclosureSection title="Stack / Grid" sectionId="layout">
+      <DisclosureSection title="Stack / Grid" sectionId="layout" summary={layoutSummary}>
         <div className="insp-layout-controls">
           <FieldRow label="Clip content" htmlFor={`frame-clip-content-${node.id}`}>
             <Switch

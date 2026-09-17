@@ -7,6 +7,18 @@ container for new editor features. Every section registered in
 by `featureOwnership.test.ts`; adding a section without classifying it fails the
 test suite.
 
+**Membership has its own single surface.** Since 2026-09-17, which sections
+render in which composition (single / single-table / multi / tool) is declared
+once in `components/Inspector/sectionComposition.tsx`; the registry stays
+UI-free and owns availability predicates, ordering, titles, and collapse
+state. Never re-check a registry predicate as a JSX guard in the panel — move
+the nuance into the registry predicate instead (see `smart-filters`,
+`effects`, `layout` for the pattern). Retired ids (`constraints`,
+`adjustment`, `table-rows`, `frame-resize`) are dropped by
+`migrateSectionState` and must not be re-registered; their capabilities are
+owned elsewhere (the Adjustments tab, the combined Columns & Rows track
+editor, and the Position & Size preset dropdown respectively).
+
 Single selection uses the canonical sections directly. Position & Size owns
 X, Y, W, H, rotation, and sizing controls; Appearance owns opacity and blend
 mode; Fill owns paint rows and the primary color editor; Stroke owns stroke

@@ -298,6 +298,19 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
   const minStrokes = Math.min(...strokeNodes.map((n) => n.strokes.length));
   const allEqual = strokeNodes.every((n) => n.strokes.length === minStrokes);
   const countMixed = !allEqual;
+  // Collapsed summary: width and alignment of the first stroke, or the word
+  // that says the stack cannot be summarised as one value.
+  const firstStroke = strokeNodes[0]?.strokes[0];
+  const strokeSummary = countMixed
+    ? 'Mixed'
+    : minStrokes === 0
+      ? 'No stroke'
+      : firstStroke
+        ? `${Math.round(firstStroke.weight * 100) / 100} px · ${
+            ALIGN_OPTIONS.find((option) => option.value === firstStroke.align)?.label ??
+            firstStroke.align
+          }`
+        : 'No stroke';
   const strokeSortIds = useMemo(
     () =>
       Array.from(
@@ -355,6 +368,7 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
     <DisclosureSection
       title="Stroke"
       sectionId="stroke"
+      summary={strokeSummary}
       action={
         <button type="button" className="insp-add-btn" onClick={addStroke}>
           <Icon name="Plus" label={undefined} size="0.85em" />

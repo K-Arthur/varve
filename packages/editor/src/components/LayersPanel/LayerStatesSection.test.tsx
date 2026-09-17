@@ -16,6 +16,7 @@ const handlers = {
   renameLayerState: vi.fn(),
   deleteLayerState: vi.fn(),
   duplicateLayerState: vi.fn(),
+  toggleSectionCollapse: vi.fn(),
   announce: vi.fn(),
 };
 
@@ -23,6 +24,9 @@ const handlers = {
 const mockState = {
   document: { layerStates: [] as LayerState[] },
   selection: [] as string[],
+  // A persisted "expanded" preference: collapse state now lives in the
+  // registry-backed sectionVisibility store (with a collapsed default).
+  sectionVisibility: { 'layer-states': { collapsed: false } } as Record<string, unknown>,
 };
 
 vi.mock('../../context', () => ({
@@ -51,6 +55,20 @@ describe('LayerStatesSection', () => {
     const btn = screen.getByLabelText(/Capture state from selection/);
     fireEvent.click(btn);
     expect(handlers.captureLayerState).toHaveBeenCalledTimes(1);
+  });
+
+  it('defaults to collapsed and routes the toggle through the registry store', () => {
+    setState([], ['a']);
+    // Remove the persisted preference so the registry default applies
+    // (layer-states defaults to collapsed).
+    delete mockState.sectionVisibility['layer-states'];
+    render(<LayerStatesSection />);
+    expect(screen.queryByRole('list', { name: 'Layer states' })).toBeNull();
+    const toggle = screen.getByRole('button', { name: 'Show layer states' });
+    fireEvent.click(toggle);
+    expect(handlers.toggleSectionCollapse).toHaveBeenCalledWith('layer-states');
+    // Restore the expanded preference for the remaining tests.
+    mockState.sectionVisibility['layer-states'] = { collapsed: false };
   });
 
   it('applies, recaptures, duplicates, renames, and deletes an existing state', () => {

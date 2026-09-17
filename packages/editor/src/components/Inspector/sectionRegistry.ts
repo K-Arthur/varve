@@ -11,10 +11,14 @@
  * Research basis: Figma section visibility, Sketch Inspector organization, APG Disclosure.
  */
 import {
+  canHaveLayerEffects,
+  canHaveSmartFilters,
   canPaintFills,
   isAdjustmentEligible,
   isAnimatedMediaNode,
+  isExportRegion,
   isImageShape,
+  isLiveBooleanNode,
   type SceneNode,
 } from '@varve/scene';
 import type { WorkspaceMode } from '../../workspace/workspaceTypes';
@@ -31,6 +35,7 @@ export type SectionId =
   | 'layout-child'
   | 'appearance'
   | 'mask'
+  | 'boolean'
   | 'selection-colors'
   | 'fills'
   | 'paint-library'
@@ -52,8 +57,6 @@ export type SectionId =
   | 'component'
   | 'icon'
   | 'frame-presets'
-  | 'frame-resize'
-  | 'adjustment'
   | 'align-distribute'
   | 'cognitive-load'
   | 'prototype-flow'
@@ -81,7 +84,6 @@ export type SectionId =
   | 'table'
   | 'table-cells'
   | 'table-columns'
-  | 'table-rows'
   | 'ai-tools-hint'
   | 'layer-states'
   | 'snapping'
@@ -206,12 +208,6 @@ function isTableEditActive(ctx: SectionAvailabilityContext): boolean {
   return ctx.tableEdit !== undefined && ctx.tableEdit !== null;
 }
 
-/** Single selected native table node. */
-
-function isAdjustmentNode(nodes: SceneNode[]): boolean {
-  return nodes.length === 1 && nodes[0]?.kind === 'adjustment';
-}
-
 function isAllTextNodes(nodes: SceneNode[]): boolean {
   return nodes.length > 0 && nodes.every((n) => n.kind === 'text');
 }
@@ -224,15 +220,15 @@ function isAllStrokeNodes(nodes: SceneNode[]): boolean {
 }
 
 function isAllEffectNodes(nodes: SceneNode[]): boolean {
+  // The kind list and canHaveLayerEffects together were the effective gate
+  // when the composition re-checked this predicate on top of its own JSX
+  // guard; both halves are kept so rendered availability is unchanged.
   return (
     nodes.length > 0 &&
     nodes.every(
       (n) =>
-        n.kind === 'shape' ||
-        n.kind === 'text' ||
-        n.kind === 'frame' ||
-        n.kind === 'adjustment' ||
-        n.kind === 'path',
+        (n.kind === 'shape' || n.kind === 'text' || n.kind === 'frame' || n.kind === 'path') &&
+        canHaveLayerEffects(n),
     )
   );
 }
@@ -286,7 +282,12 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 120,
     category: 'geometry',
-    isAvailable: (ctx) => isSingleSelection(ctx) && isFrameNode(ctx.selectedNodes),
+    // Export regions are stored as frames but own no children, so auto-layout
+    // and clipping controls would be inert switches for them.
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) &&
+      isFrameNode(ctx.selectedNodes) &&
+      !ctx.selectedNodes.some((node) => isExportRegion(node)),
   },
   {
     // Child-owned layout controls (flow/absolute, per-axis sizing) for
@@ -300,7 +301,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     defaultExpanded: true,
     canHide: true,
     essential: false,
-    order: 120,
+    order: 121,
     category: 'geometry',
     isAvailable: (ctx) => hasNodes(ctx) && !isFrameNode(ctx.selectedNodes),
   },
@@ -328,6 +329,22 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     order: 210,
     category: 'appearance',
     isAvailable: (ctx) => isSingleSelection(ctx),
+  },
+  {
+    id: 'boolean',
+    title: 'Pathfinder',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 95,
+    category: 'geometry',
+    // Live Boolean groups only; isLiveBooleanNode already checks the group
+    // kind. Previously rendered outside the registry as the one legacy
+    // disclosure the section manager could not manage.
+    isAvailable: (ctx) => {
+      const node = ctx.selectedNodes[0];
+      return isSingleSelection(ctx) && node !== undefined && isLiveBooleanNode(node);
+    },
   },
   {
     id: 'selection-colors',
@@ -393,7 +410,10 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 245,
     category: 'appearance',
-    isAvailable: (ctx) => isSingleSelection(ctx) && ctx.selectedNodes[0]?.kind !== 'adjustment',
+    // canHaveSmartFilters is the capability gate the JSX composition used to
+    // re-implement: a plain rect has no filter stack to edit.
+    isAvailable: (ctx) =>
+      ctx.selectedNodes.length > 0 && ctx.selectedNodes.every((node) => canHaveSmartFilters(node)),
   },
   {
     id: 'adjustment-layer-access',
@@ -492,16 +512,11 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     isAvailable: (ctx) => isSingleSelection(ctx) && Boolean(ctx.selectedNodes[0]?.iconAssetId),
   },
   {
-    id: 'adjustment',
-    title: 'Adjustment Layer',
-    defaultExpanded: true,
-    canHide: true,
-    essential: false,
-    order: 260,
-    category: 'content',
-    isAvailable: (ctx) => isSingleSelection(ctx) && isAdjustmentNode(ctx.selectedNodes),
-  },
-  {
+    // No generic Design-tab section exists for adjustment nodes: the
+    // Adjustments tab is their canonical editor and is auto-switched to on
+    // selection (PropertiesPanel). The former 'adjustment' registry entry had
+    // no renderer anywhere, so it was retired rather than left as a
+    // registered-but-never-rendered definition.
     id: 'frame-presets',
     title: 'Frame Presets',
     defaultExpanded: true,
@@ -513,23 +528,11 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     // a preset places a new frame of that size.
     isAvailable: (ctx) => ctx.activeTool === 'frame' && ctx.selectionKind === 'empty',
   },
-  {
-    id: 'frame-resize',
-    title: 'Resize to Preset',
-    defaultExpanded: false,
-    canHide: true,
-    essential: false,
-    // Directly beneath Position & Size, whose W/H it sets.
-    order: 102,
-    category: 'geometry',
-    // A selected, non-component frame can snap to a preset size (under any
-    // tool). Separate from frame-presets so the two keep their own collapse
-    // state: creation opens expanded, resizing stays one collapsed row.
-    isAvailable: (ctx) =>
-      isSingleSelection(ctx) &&
-      isFrameNode(ctx.selectedNodes) &&
-      !isComponentInstance(ctx.selectedNodes),
-  },
+  // 'frame-resize' was retired: the compact FramePresetDropdown inside
+  // Position & Size already owns preset resizing, including "Save current
+  // size as preset". A full "Resize to Preset" section would duplicate that
+  // affordance in two places. Stale persisted state is dropped by
+  // migrateSectionState.
 
   // -- Image-specific --
   {
@@ -604,7 +607,10 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'ai-tools-hint',
     title: 'AI Tools',
-    defaultExpanded: true,
+    // A collapsed pointer, not a headline: the hint is one header row that
+    // expands on demand, so image selections outside Photo mode keep their
+    // scroll budget while the Photo-workspace route stays discoverable.
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 279,
@@ -720,7 +726,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   },
   {
     id: 'content-aware-fill',
-    title: 'Content-Aware Fill',
+    title: 'Generative Edit',
     defaultExpanded: false,
     canHide: true,
     essential: false,
@@ -757,7 +763,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     defaultExpanded: false,
     canHide: true,
     essential: false,
-    order: 300,
+    order: 301,
     category: 'advanced',
     isAvailable: (ctx) =>
       isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
@@ -768,7 +774,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     defaultExpanded: false,
     canHide: true,
     essential: false,
-    order: 301,
+    order: 302,
     category: 'advanced',
     isAvailable: (ctx) =>
       isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
@@ -795,21 +801,11 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   },
   {
     id: 'table-columns',
-    title: 'Columns',
+    title: 'Columns & Rows',
     defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 1195,
-    category: 'content',
-    isAvailable: (ctx) => isTableEditActive(ctx),
-  },
-  {
-    id: 'table-rows',
-    title: 'Rows',
-    defaultExpanded: false,
-    canHide: true,
-    essential: false,
-    order: 1196,
     category: 'content',
     isAvailable: (ctx) => isTableEditActive(ctx),
   },
@@ -819,7 +815,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     defaultExpanded: false,
     canHide: true,
     essential: false,
-    order: 302,
+    order: 303,
     category: 'advanced',
     isAvailable: (ctx) =>
       isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
@@ -830,7 +826,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     defaultExpanded: false,
     canHide: true,
     essential: false,
-    order: 310,
+    order: 311,
     category: 'content',
     isAvailable: (ctx) => isAllTextNodes(ctx.selectedNodes),
   },
@@ -850,7 +846,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   // -- Analysis --
   {
     id: 'cognitive-load',
-    title: 'Cognitive Load',
+    title: 'Cognitive load',
     defaultExpanded: false,
     canHide: true,
     essential: false,
@@ -1023,11 +1019,20 @@ const ORDERED_SECTION_DEFINITIONS = [...SECTION_DEFINITIONS].sort(compareSection
 export function getSectionRegistryIntegrityIssues(): string[] {
   const issues: string[] = [];
   const seenIds = new Set<string>();
+  const seenOrders = new Map<number, string>();
   for (const definition of SECTION_DEFINITIONS) {
     if (seenIds.has(definition.id)) issues.push(`duplicate section id: ${definition.id}`);
     seenIds.add(definition.id);
     if (!definition.title.trim()) issues.push(`empty section title: ${definition.id}`);
     if (!Number.isFinite(definition.order)) issues.push(`invalid section order: ${definition.id}`);
+    // Duplicate orders are only resolvable by declaration order, which makes
+    // composition ordering depend on import-time layout. Every section owns a
+    // unique order so the rendered sequence is deterministic.
+    const priorOwner = seenOrders.get(definition.order);
+    if (priorOwner !== undefined) {
+      issues.push(`duplicate section order ${definition.order}: ${priorOwner}, ${definition.id}`);
+    }
+    seenOrders.set(definition.order, definition.id);
     if (typeof definition.isAvailable !== 'function') {
       issues.push(`missing availability predicate: ${definition.id}`);
     }
@@ -1071,14 +1076,12 @@ const TABLE_SELECTION_ORDER: Partial<Record<SectionId, number>> = {
   table: 70,
   'table-cells': 71,
   'table-columns': 72,
-  'table-rows': 73,
 };
 
 /** Component and mockup context is more useful than generic appearance. */
-const FRAME_CONTEXT_ORDER: Record<'component' | 'mockups' | 'frame-resize', number> = {
+const FRAME_CONTEXT_ORDER: Record<'component' | 'mockups', number> = {
   component: 70,
   mockups: 71,
-  'frame-resize': 72,
 };
 
 function hasActiveMask(ctx: SectionAvailabilityContext): boolean {
@@ -1112,7 +1115,6 @@ export function isContextualPrimarySection(
     };
     if (id === 'component' && frame.componentId) return true;
     if (id === 'mockups' && frame.mockup) return true;
-    if (id === 'frame-resize') return true;
   }
 
   return id === 'mask' && hasActiveMask(ctx);
@@ -1142,7 +1144,6 @@ export function resolveSectionOrder(
     };
     if (def.id === 'component' && frame.componentId) return FRAME_CONTEXT_ORDER.component;
     if (def.id === 'mockups' && frame.mockup) return FRAME_CONTEXT_ORDER.mockups;
-    if (def.id === 'frame-resize') return FRAME_CONTEXT_ORDER['frame-resize'];
   }
   if (def.id === 'mask' && hasActiveMask(ctx)) return 72;
   return def.order;
@@ -1159,14 +1160,6 @@ export function getAllSections(): readonly SectionDefinition[] {
 
 /** Get sections available for the current context, sorted by order. */
 export function getAvailableSections(ctx: SectionAvailabilityContext): SectionDefinition[] {
-  if (
-    ctx.selectionKind === 'single' &&
-    ctx.selectedNodes.length === 1 &&
-    ctx.selectedNodes[0]?.kind === 'adjustment'
-  ) {
-    const adjustment = getSectionDefinition('adjustment');
-    return adjustment ? [adjustment] : [];
-  }
   return SECTION_DEFINITIONS.filter((def) => def.isAvailable(ctx)).sort(compareSectionDefinitions);
 }
 

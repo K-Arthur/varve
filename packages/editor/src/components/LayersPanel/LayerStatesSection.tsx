@@ -9,8 +9,8 @@
 import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
+import { isSectionCollapsed } from '../Inspector/sectionState';
 import { SectionCollapseToggle } from '../SectionCollapseToggle';
-import { usePersistedDisclosure } from '../usePersistedDisclosure';
 import './layerStatesSection.css';
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -28,11 +28,14 @@ export function LayerStatesSection() {
     renameLayerState,
     deleteLayerState,
     duplicateLayerState,
+    toggleSectionCollapse,
     announce,
   } = useEditor();
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = usePersistedDisclosure('layer-states');
+  // Collapse state flows through the registry-backed sectionVisibility store
+  // (one persistence path, one default source), not a private localStorage key.
+  const collapsed = isSectionCollapsed(state.sectionVisibility, 'layer-states');
   const [editingName, setEditingName] = useState('');
   const [lastSkipped, setLastSkipped] = useState<{ id: string; count: number } | null>(null);
 
@@ -85,7 +88,7 @@ export function LayerStatesSection() {
       <div className="layer-states__header">
         <SectionCollapseToggle
           collapsed={collapsed}
-          onToggle={() => setCollapsed((value) => !value)}
+          onToggle={() => toggleSectionCollapse('layer-states')}
           label="layer states"
         />
         <h3 className="layer-states__title">Layer States</h3>
@@ -103,11 +106,11 @@ export function LayerStatesSection() {
         )}
       </div>
       {!collapsed && (
-        <div className="layer-states__list" role="list" aria-label="Layer states">
+        <ol className="layer-states__list" aria-label="Layer states">
           {states.map((ls) => {
             const isEditing = editingId === ls.id;
             return (
-              <div key={ls.id} className="layer-states__item" role="listitem">
+              <li key={ls.id} className="layer-states__item">
                 {isEditing ? (
                   <input
                     type="text"
@@ -181,10 +184,10 @@ export function LayerStatesSection() {
                     </button>
                   </Tooltip>
                 </div>
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ol>
       )}
       {lastSkipped && (
         <p className="layer-states__conflict" role="status" aria-live="polite">

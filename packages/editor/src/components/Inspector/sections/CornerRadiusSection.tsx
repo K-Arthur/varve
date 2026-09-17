@@ -84,8 +84,18 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
 
   const hasAnyRounding = uniform > 0 || tl > 0 || tr > 0 || br > 0 || bl > 0 || smoothing > 0;
 
+  // Collapsed summary: the uniform radius, a per-corner marker, or "Mixed"
+  // when the selection does not share one radius value.
+  const radiusSummary = mixed
+    ? 'Mixed'
+    : !hasAnyRounding
+      ? '0 px'
+      : perCorner
+        ? 'Per corner'
+        : `${uniform} px`;
+
   return (
-    <DisclosureSection title="Corner Radius" sectionId="corner-radius">
+    <DisclosureSection title="Corner Radius" sectionId="corner-radius" summary={radiusSummary}>
       <div ref={bindingTriggerRef} className="insp-field-group insp-field-group--binding">
         <div className="insp-corner-radius-row">
           <NumberField

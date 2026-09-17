@@ -338,6 +338,30 @@
   line-height: 1.4;
 }
 
+/* Inline recovery action in the restriction notice (stays clickable even
+ * though the guarded content below is inert). */
+.insp-panel__restriction-action {
+  display: inline;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: var(--font-weight-bold, 700);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.insp-panel__restriction-action:hover {
+  color: var(--color-text-primary);
+  text-decoration-thickness: 2px;
+}
+.insp-panel__restriction-action:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-control-compact);
+}
+
 /* ---------- AI tools hint (Photo-mode redirect) ---------- */
 .insp-ai-hint {
   display: flex;
@@ -547,6 +571,22 @@
 }
 .insp-disclosure__trigger[aria-expanded="true"] .insp-disclosure__chevron {
   transform: rotate(90deg);
+}
+/* Collapsed-state summary: a text-only value preview in the header row, wired
+ * to the trigger via aria-describedby (accessible description, not name).
+ * Uppercase/letter-spacing are reset because the values themselves are not
+ * headings. */
+.insp-disclosure__summary {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-left: var(--space-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  font-weight: var(--font-weight-normal, 400);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
 }
 .insp-disclosure__content {
   display: flex;

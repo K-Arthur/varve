@@ -12,7 +12,6 @@
  * Spinbutton, Combobox, Radiogroup, Slider patterns.
  */
 import {
-  canHaveLayerEffects,
   canHaveSmartFilters,
   type ExportPreset,
   isExportRegion,
@@ -35,7 +34,6 @@ import {
   type InspectorTabConfig,
   TAB_GROUP_ORDER,
 } from '../../workspace/workspaceTypes';
-import { LayerStatesSection } from '../LayersPanel/LayerStatesSection';
 import { PanelDetachButton, PanelDragHandle } from '../PanelDragHandle';
 import { AssetExportControls } from '../SpecPanel/AssetExportControls';
 import { CodeGenView } from '../SpecPanel/CodeGenView';
@@ -48,6 +46,11 @@ import { describeSelectionRestrictions, type SelectionRestrictionNotice } from '
 import { SectionManagerTrigger } from './SectionManagerTrigger';
 import { SelectionSourcesPanel } from './SelectionSourcesPanel';
 import {
+  type CompositionContext,
+  type CompositionKind,
+  getCompositionMembers,
+} from './sectionComposition';
+import {
   getSectionDefinition,
   isContextualPrimarySection,
   resolveSectionOrder,
@@ -55,36 +58,6 @@ import {
   type SectionId,
 } from './sectionRegistry';
 import { hasCustomSectionOrder } from './sectionState';
-import { AdjustmentLayerAccessSection } from './sections/AdjustmentLayerAccessSection';
-import { AlignDistributeBar } from './sections/AlignDistributeBar';
-import { AnimationSection } from './sections/AnimationSection';
-import { AppearanceSection } from './sections/AppearanceSection';
-import { BooleanSection } from './sections/BooleanSection';
-import { ComponentSection } from './sections/ComponentSection';
-import { CornerRadiusSection } from './sections/CornerRadiusSection';
-import { EffectsSection } from './sections/EffectsSection';
-import { FillSection } from './sections/FillSection';
-import { FramePresetsSection } from './sections/FramePresetsSection';
-import { IconSection } from './sections/IconSection';
-import { ImageCropSection } from './sections/ImageCropSection';
-import { ImagePlacementSection } from './sections/ImagePlacementSection';
-import { ImageResolutionSection } from './sections/ImageResolutionSection';
-import { LayoutChildSection } from './sections/LayoutChildSection';
-import { LayoutSection } from './sections/LayoutSection';
-import { MaskSection } from './sections/MaskSection';
-import { MockupsSection } from './sections/MockupsSection';
-import { PaintLibrarySection } from './sections/PaintLibrarySection';
-import { PaletteSection } from './sections/PaletteSection';
-import { PathTextSection } from './sections/PathTextSection';
-import { PerspectiveSection } from './sections/PerspectiveSection';
-import { PositionSizeSection } from './sections/PositionSizeSection';
-import { SelectionColorsSection } from './sections/SelectionColorsSection';
-import { SmartFiltersSection } from './sections/SmartFiltersSection';
-import { StrokeSection } from './sections/StrokeSection';
-import { TableCellsSection, TableTracksSection } from './sections/TableCellsSection';
-import { TableSection } from './sections/TableSection';
-import { TypographySection } from './sections/TypographySection';
-import { WarpSection } from './sections/WarpSection';
 import { type SelectionSummary, summarize } from './selection/selectionState';
 import { toolContextSurface } from './toolContext';
 
@@ -616,6 +589,17 @@ function SelectionLockGuard({
   showNotice?: boolean;
   children: React.ReactNode;
 }) {
+  const { bulkSetNodeLocked, state } = useEditor();
+  const lockedIds = restriction.locked
+    ? state.selection.filter((id) => {
+        const node = state.document.nodes[id];
+        return node?.locked === true;
+      })
+    : [];
+  const handleUnlock = () => {
+    if (lockedIds.length === 0) return;
+    bulkSetNodeLocked(lockedIds, false);
+  };
   const lockMessage = restriction.hasPartialLock
     ? `${restriction.lockedCount} of ${restriction.totalCount} selected layers are locked. Inspector editing is disabled until all selected layers are unlocked.`
     : `Selection is locked${restriction.lockSourceLabel ? ` by ${restriction.lockSourceLabel}` : ''}. Unlock it in Layers to edit these controls.`;
@@ -626,7 +610,14 @@ function SelectionLockGuard({
     <>
       {showNotice && restriction.locked && (
         <p className="insp-panel__restriction" role="status" aria-live="polite">
-          {lockMessage}
+          {lockMessage}{' '}
+          {/* Direct route back to an editable state: the values stay visible
+              for inspection, and unlocking is one undoable step. */}
+          {lockedIds.length > 0 && (
+            <button type="button" className="insp-panel__restriction-action" onClick={handleUnlock}>
+              Unlock {lockedIds.length === 1 ? 'layer' : `${lockedIds.length} layers`}
+            </button>
+          )}
         </p>
       )}
       {showNotice && restriction.hidden && (
@@ -693,7 +684,10 @@ function ToolContextState({ context }: { context: InspectorContext }) {
       tableEdit: state.tableEdit,
       document: state.document,
     });
-    add('frame-presets', <FramePresetsSection mode="create" sectionId="frame-presets" />);
+    const composition: CompositionContext = { state, nodes: [] };
+    for (const member of getCompositionMembers('tool')) {
+      add(member.id, member.render(composition));
+    }
     const entries = sorted();
     return (
       <div className="insp-tool-context" data-tool-context={tool}>
@@ -767,12 +761,9 @@ function SingleSelectionPanel({
   const node = nodes[0] as SceneNode;
   // An Export Region is stored as a frame but is not a layout container: it
   // owns no children, so auto-layout, clipping and child-slot controls would
-  // all be inert switches. Treat it as a plain rectangular region here.
+  // all be inert switches. The registry predicates express that nuance; here
+  // it only decides the accessible kind label.
   const isExportRegionNode = isExportRegion(node);
-  const isFrame = node.kind === 'frame' && !isExportRegionNode;
-  const isComponentInstance = isFrame && (node as import('@varve/scene').FrameNode).componentId;
-  const isRect =
-    node.kind === 'shape' && (node as import('@varve/scene').ShapeNode).shape.kind === 'rect';
 
   const sectionEntries = useMemo(() => {
     const availabilityCtx: SectionAvailabilityContext = {
@@ -786,58 +777,16 @@ function SingleSelectionPanel({
       document: state.document,
     };
     const { add, sorted } = composeSections(state, availabilityCtx);
-
-    // AdjustmentPanel is the canonical editor for adjustment nodes. Generic
-    // fill/stroke/legacy-effects sections expose unrelated NodeBase fields and
-    // create a second, conflicting effects pipeline.
+    // Adjustment nodes have no generic Design-tab composition: the Adjustments
+    // tab is their canonical editor and is auto-switched to on selection.
     if (node.kind === 'adjustment') return sorted();
-
-    if (node.kind === 'table') {
-      add('table', <TableSection node={node as import('@varve/scene').TableNode} />);
-      add('table-cells', <TableCellsSection tableId={node.id} />);
-      add('table-columns', <TableTracksSection tableId={node.id} />);
-      add('appearance', <AppearanceSection nodes={nodes} />);
-      add('adjustment-layer-access', <AdjustmentLayerAccessSection nodes={nodes} />);
-      return sorted();
+    const compositionKind: CompositionKind = node.kind === 'table' ? 'single-table' : 'single';
+    const composition: CompositionContext = { state, nodes, node };
+    for (const member of getCompositionMembers(compositionKind)) {
+      add(member.id, member.render(composition));
     }
-
-    if (isComponentInstance)
-      add('component', <ComponentSection node={node as import('@varve/scene').FrameNode} />);
-    if (node.iconAssetId) add('icon', <IconSection node={node} />);
-    if (isFrame && 'mockup' in node) {
-      add('mockups', <MockupsSection node={node as import('@varve/scene').FrameNode} />);
-    }
-    add('position-size', <PositionSizeSection nodes={nodes} />);
-    if (!isFrame) add('layout-child', <LayoutChildSection nodes={nodes} />);
-    if (isRect || isFrame) add('corner-radius', <CornerRadiusSection nodes={nodes} />);
-    if (isFrame) add('layout', <LayoutSection node={node as import('@varve/scene').FrameNode} />);
-    add('appearance', <AppearanceSection nodes={nodes} />);
-    if (nodes.length === 1) add('mask', <MaskSection nodes={nodes} />);
-    add('adjustment-layer-access', <AdjustmentLayerAccessSection nodes={nodes} />);
-    add('selection-colors', <SelectionColorsSection nodes={nodes} />);
-    add('fills', <FillSection nodes={nodes} />);
-    add('paint-library', <PaintLibrarySection />);
-    if (isImageShape(node)) add('palette', <PaletteSection />);
-    if (canHaveSmartFilters(node)) add('smart-filters', <SmartFiltersSection nodes={nodes} />);
-    if (canHaveLayerEffects(node)) {
-      add('effects', <EffectsSection nodes={nodes} sectionId="effects" />);
-    }
-    add('animation', <AnimationSection nodes={nodes} />);
-    add('image-placement', <ImagePlacementSection nodes={nodes} />);
-    add('image-perspective', <PerspectiveSection nodes={nodes} sectionId="image-perspective" />);
-    add('image-resolution', <ImageResolutionSection nodes={nodes} />);
-    add('image-crop', <ImageCropSection nodes={nodes} sectionId="image-crop" />);
-    add('stroke', <StrokeSection nodes={nodes} />);
-    add('typography', <TypographySection nodes={nodes} />);
-    add('text-on-path', <PathTextSection nodes={nodes} />);
-    if ('warps' in node || state.tool === 'warp') {
-      add('warp', <WarpSection nodes={nodes} node={node} />);
-    }
-
-    add('layer-states', <LayerStatesSection />);
-
     return sorted();
-  }, [nodes, node, isFrame, isExportRegionNode, isComponentInstance, isRect, state]);
+  }, [nodes, node, state]);
 
   return (
     <>
@@ -852,8 +801,6 @@ function SingleSelectionPanel({
         </h2>
         {headerAction}
       </header>
-      <AlignDistributeBar />
-      {node.kind === 'group' && <BooleanSection node={node} />}
       {sectionEntries.map((entry) => (
         <div key={entry.id}>{entry.el}</div>
       ))}
@@ -884,36 +831,10 @@ function MultiSelectionPanel({
       document: state.document,
     };
     const { add, sorted } = composeSections(state, availabilityCtx);
-
-    add('position-size', <PositionSizeSection nodes={nodes} />);
-    const hasCornerRadius = nodes.some(
-      (n) =>
-        n.kind === 'frame' ||
-        (n.kind === 'shape' && (n as { shape?: { kind?: string } }).shape?.kind === 'rect'),
-    );
-    if (hasCornerRadius) {
-      add('corner-radius', <CornerRadiusSection nodes={nodes} />);
+    const composition: CompositionContext = { state, nodes };
+    for (const member of getCompositionMembers('multi')) {
+      add(member.id, member.render(composition));
     }
-    add('layout-child', <LayoutChildSection nodes={nodes} />);
-    add('appearance', <AppearanceSection nodes={nodes} />);
-    add('paint-library', <PaintLibrarySection />);
-    add('adjustment-layer-access', <AdjustmentLayerAccessSection nodes={nodes} />);
-    add('fills', <FillSection nodes={nodes} />);
-    add('stroke', <StrokeSection nodes={nodes} />);
-    if (nodes.every(canHaveLayerEffects)) {
-      add('effects', <EffectsSection nodes={nodes} sectionId="effects" />);
-    }
-    add('selection-colors', <SelectionColorsSection nodes={nodes} />);
-    if (nodes.some(isImageShape)) {
-      add('image-placement', <ImagePlacementSection nodes={nodes} />);
-    }
-    add('typography', <TypographySection nodes={nodes} />);
-    if (nodes.some((n) => 'warps' in n) || state.tool === 'warp') {
-      add('warp', <WarpSection nodes={nodes} node={nodes[0]} />);
-    }
-
-    add('layer-states', <LayerStatesSection />);
-
     return sorted();
   }, [nodes, state, summary.sharedKind]);
 
@@ -927,7 +848,6 @@ function MultiSelectionPanel({
         </h2>
         {headerAction}
       </header>
-      <AlignDistributeBar />
       {sectionEntries.map((entry) => (
         <div key={entry.id}>{entry.el}</div>
       ))}

@@ -88,6 +88,22 @@ Rules:
   registry subsections) so tests, diagnostics, and visual captures can address
   a section without matching its display title.
 
+## Collapsed summaries
+
+Registry `DisclosureSection` accepts an optional text-only `summary` node
+(2026-09-17 Inspector systems pass). It renders in the header row **only while
+collapsed** and is wired to the trigger via `aria-describedby`, so assistive
+technology announces it as the trigger's accessible *description* without
+widening its accessible *name*; consumers that read `textContent` (section
+inventories, snapshots) therefore never see it. Contract:
+
+- Text only — never interactive controls, never colour-only state.
+- It describes the hidden body ("0 px", "Solid +1", "Mixed", "Inter · 16 / 24")
+  and must say "Mixed" in words when the selection does not share one value.
+- Long summaries ellipsize; they never push the title or action out of the row.
+- Sections with an existing header affordance (Object Filters count badge,
+  Mask state badge) keep that affordance instead of a summary.
+
 ## Sizing, spacing, and text
 
 - Trigger minimum block size is 24 px (`WCAG 2.2 SC 2.5.8`); stacked headers

@@ -44,19 +44,6 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
     .map((id) => getSectionDefinition(id))
     .filter((section): section is SectionDefinition => section !== undefined);
 
-  const managerTitle = (definition: SectionDefinition): string => {
-    switch (definition.id) {
-      case 'position-size':
-        return 'Position & size';
-      case 'layout':
-        return 'Frame layout';
-      case 'layout-child':
-        return 'Child layout';
-      default:
-        return definition.title;
-    }
-  };
-
   return (
     <div className="insp-section-manager">
       <button
@@ -141,7 +128,9 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
               const hidden = state.sectionVisibility[def.id]?.hidden ?? false;
               const checkboxId = `${surface}-section-${def.id}`;
               const category = CATEGORY_LABELS[def.category] ?? def.category;
-              const title = managerTitle(def);
+              // The registry title is the single display name for a section;
+              // the manager shows exactly what the panel header shows.
+              const title = def.title;
               return (
                 <li
                   key={def.id}

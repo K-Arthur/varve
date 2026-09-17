@@ -50,6 +50,14 @@ export interface DisclosureSectionProps {
   defaultExpanded?: boolean;
   /** Optional action rendered beside the disclosure trigger. */
   action?: ReactNode;
+  /**
+   * Collapsed-state summary rendered in the header row while the section is
+   * collapsed and hidden while expanded. Text only. It is wired to the
+   * trigger via `aria-describedby`, so it is announced as the trigger's
+   * accessible description without changing its accessible name. It must not
+   * encode state by colour alone.
+   */
+  summary?: ReactNode;
   children: ReactNode;
 }
 
@@ -83,6 +91,7 @@ export function DisclosureSection({
   subsectionId,
   defaultExpanded = true,
   action,
+  summary,
   children,
 }: DisclosureSectionProps) {
   const auto = useId();
@@ -98,6 +107,7 @@ export function DisclosureSection({
         title={title}
         panelId={panelId}
         action={action}
+        summary={summary}
       >
         {children}
       </RegistryDisclosure>
@@ -122,6 +132,7 @@ function RegistryDisclosure({
   title,
   panelId,
   action,
+  summary,
   children,
 }: {
   sectionId: SectionId;
@@ -129,6 +140,7 @@ function RegistryDisclosure({
   title: string;
   panelId: string;
   action?: ReactNode;
+  summary?: ReactNode;
   children: ReactNode;
 }) {
   const { state, toggleSectionCollapse, toggleSubSectionCollapse, hideInspectorSection } =
@@ -155,6 +167,8 @@ function RegistryDisclosure({
   });
 
   if (!visible) return null;
+
+  const summaryId = `${panelId}-summary`;
 
   const handleToggle = () => {
     if (subsectionId) {
@@ -209,6 +223,10 @@ function RegistryDisclosure({
                points at something that actually exists. */
             aria-controls={expanded ? panelId : undefined}
             aria-haspopup={def?.canHide ? 'menu' : undefined}
+            /* The collapsed summary is the trigger's accessible description:
+               announced after the name by screen readers without widening the
+               name itself or leaking into text-content-based consumers. */
+            aria-describedby={!expanded && summary != null ? summaryId : undefined}
             onClick={handleToggle}
             onContextMenu={handleTriggerContextMenu}
             onKeyDown={handleTriggerKeyDown}
@@ -222,6 +240,11 @@ function RegistryDisclosure({
             <span>{title}</span>
           </button>
         </h3>
+        {!expanded && summary != null && (
+          <span id={summaryId} className="insp-disclosure__summary">
+            {summary}
+          </span>
+        )}
         {action && <div className="insp-disclosure__action">{action}</div>}
       </div>
       {expanded && (

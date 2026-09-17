@@ -35,7 +35,11 @@ test.describe('Inspector feature ownership', () => {
     await expect(page.locator('[data-inspector-context-header="true"]')).toContainText('Canvas');
     await expect(page.getByRole('button', { name: 'Canvas', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Document Color' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Canvas background' })).toBeVisible();
+    // exact: the panel also has a "Reset canvas background to default" button
+    // whose accessible name contains this one as a substring.
+    await expect(
+      page.getByRole('button', { name: 'Canvas background', exact: true }),
+    ).toBeVisible();
     await expect(page.locator('.editor-inspector')).toHaveScreenshot('document-settings.png', {
       animations: 'disabled',
     });

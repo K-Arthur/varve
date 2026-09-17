@@ -79,6 +79,15 @@ function makeAdjustmentNode(overrides: Partial<SceneNode> = {}): SceneNode {
   return makeNode({ kind: 'adjustment', name: 'Adjustment 1', ...overrides });
 }
 
+function makeBooleanGroup(overrides: Partial<SceneNode> = {}): SceneNode {
+  return makeNode({
+    kind: 'group',
+    name: 'Boolean Union 1',
+    boolean: { schemaVersion: 1, operation: 'union' },
+    ...overrides,
+  } as unknown as Partial<SceneNode>);
+}
+
 /**
  * A placed image asset — a `shape` node with an image fill, exactly what
  * `isImageShape` (and every image section: placement, crop, denoise, lens
@@ -302,9 +311,9 @@ describe('Section availability predicates', () => {
     expect(def.isAvailable(baseCtx({ selectedNodes: [makeFrameNode()] }))).toBe(false);
   });
 
-  it('adjustment only available for adjustment nodes', () => {
-    const def = getSectionDefinition('adjustment')!;
-    expect(def.isAvailable(baseCtx({ selectedNodes: [makeAdjustmentNode()] }))).toBe(true);
+  it('boolean only available for live Boolean groups', () => {
+    const def = getSectionDefinition('boolean')!;
+    expect(def.isAvailable(baseCtx({ selectedNodes: [makeBooleanGroup()] }))).toBe(true);
     expect(def.isAvailable(baseCtx({ selectedNodes: [makeNode()] }))).toBe(false);
   });
 
@@ -450,17 +459,9 @@ describe('Section availability predicates', () => {
     expect(def.isAvailable(baseCtx({ activeTool: 'frame', selectionKind: 'single' }))).toBe(false);
   });
 
-  it('frame-resize only available for a single non-component frame, under any tool', () => {
-    const def = getSectionDefinition('frame-resize')!;
-    const frame = { id: 'f', kind: 'frame' } as unknown as SceneNode;
-    const instance = { id: 'i', kind: 'frame', componentId: 'c' } as unknown as SceneNode;
-    const rect = { id: 'r', kind: 'shape', shape: { kind: 'rect' } } as unknown as SceneNode;
-    const single = (node: SceneNode, activeTool = 'select') =>
-      baseCtx({ selectionKind: 'single', selectedNodes: [node], activeTool });
-    expect(def.isAvailable(single(frame))).toBe(true);
-    expect(def.isAvailable(single(frame, 'frame'))).toBe(true);
-    expect(def.isAvailable(single(instance))).toBe(false);
-    expect(def.isAvailable(single(rect))).toBe(false);
+  it('frame-resize is retired: preset resizing is owned by the Position & Size dropdown', () => {
+    expect(getSectionDefinition('frame-resize')).toBeUndefined();
+    expect(getAllSectionIds()).not.toContain('frame-resize');
   });
 
   it('interaction is available for any single selection, independent of prototypeMode', () => {
@@ -498,13 +499,17 @@ describe('Section availability predicates', () => {
     expect(ids).not.toContain('corner-radius');
     expect(ids).not.toContain('layout');
     expect(ids).not.toContain('component');
-    expect(ids).not.toContain('adjustment');
+    // Retired: the former 'adjustment' entry had no Design-tab renderer.
     expect(ids).not.toContain('image-placement');
     expect(ids).toContain('align-distribute');
     expect(ids).not.toContain('brush-settings');
   });
 
-  it('does not expose generic appearance or legacy effects sections for an adjustment node', () => {
+  it('adjustment nodes are covered by the registry without a generic Design-tab section', () => {
+    // The Adjustments tab is the canonical editor for adjustment nodes and is
+    // auto-switched to on selection; the Design composition renders no generic
+    // section for them (the composition returns early), so paint sections stay
+    // out of the rendered panel even where the registry predicate is broad.
     const available = getAvailableSections(
       baseCtx({
         selectionKind: 'single',
@@ -512,7 +517,9 @@ describe('Section availability predicates', () => {
       }),
     );
 
-    expect(available.map((definition) => definition.id)).toEqual(['adjustment']);
+    expect(available.map((definition) => definition.id)).not.toContain('adjustment');
+    expect(available.map((definition) => definition.id)).not.toContain('fills');
+    expect(available.map((definition) => definition.id)).not.toContain('stroke');
   });
 });
 

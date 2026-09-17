@@ -106,7 +106,6 @@ const LEGACY_SLUG_MAP: Record<string, SectionId> = {
   interaction: 'interaction',
   component: 'component',
   'frame-presets': 'frame-presets',
-  adjustment: 'adjustment',
   'align-&-distribute': 'align-distribute',
   'cognitive-load': 'cognitive-load',
   'prototype-flow': 'prototype-flow',
@@ -155,7 +154,16 @@ export function migrateLegacyDisclosureState(
 }
 
 /** IDs retired by ADRs that must be silently dropped during migration. */
-const RETIRED_IDS = new Set(['constraints']);
+const RETIRED_IDS = new Set([
+  'constraints',
+  // The former 'adjustment' registry entry had no renderer (the Adjustments
+  // tab owns adjustment editing); 'table-rows' was an unrendered alias of the
+  // combined 'table-columns' (Columns & Rows) track editor; 'frame-resize' was
+  // superseded by the compact FramePresetDropdown inside Position & Size.
+  'adjustment',
+  'table-rows',
+  'frame-resize',
+]);
 
 /** Migrate persisted state from older versions. Unknown IDs are ignored. */
 export function migrateSectionState(

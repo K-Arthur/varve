@@ -289,12 +289,14 @@ describe('PropertiesPanel section gating for a real single selection', () => {
 
   it('honors section-manager visibility for optional Properties sections', async () => {
     await renderPanelWithSelectedRect();
-    expect(screen.getByRole('button', { name: 'Corner Radius' })).toBeTruthy();
+    // The collapsed summary is part of the trigger's accessible name, so the
+    // header match is a prefix, not an exact string.
+    expect(screen.getByRole('button', { name: /^Corner Radius/ })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Customize sections' }));
     fireEvent.click(screen.getByLabelText('Corner Radius'));
 
-    expect(screen.queryByRole('button', { name: 'Corner Radius' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Corner Radius/ })).toBeNull();
   });
 
   it('moves Prototype Interactions to the dedicated Prototype surface', async () => {

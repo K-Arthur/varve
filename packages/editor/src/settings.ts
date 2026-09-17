@@ -31,6 +31,15 @@ export type FontSizeUI = 'small' | 'medium' | 'large';
  */
 export type InterfaceDensity = 'default' | 'compact';
 
+/**
+ * Source of the interface accent family. `'fixed'` (default) keeps the brand
+ * teal; `'document'` derives the accent hue from the active page preview via
+ * the opt-in document-accent pipeline. Focus, canvas selection/handles,
+ * semantic feedback, and identity tokens are never derived — see
+ * `appearance/documentAccent.ts` and the design-token contract doc.
+ */
+export type AccentSourcePreference = 'fixed' | 'document';
+
 export interface ExportSettingsStore {
   defaultScale: ExportScale;
   defaultFormat: ExportFormat;
@@ -89,6 +98,8 @@ export interface AppearanceSettingsStore {
   fontSizeUI: FontSizeUI;
   /** Row density for scan-heavy surfaces (Layers, lists, tables). */
   uiDensity: InterfaceDensity;
+  /** Interface accent source; see {@link AccentSourcePreference}. */
+  accentSource: AccentSourcePreference;
 }
 
 /** How unmodified wheel input is interpreted while the canvas owns it. */
@@ -279,6 +290,7 @@ export const DEFAULT_APPEARANCE_SETTINGS: AppearanceSettingsStore = {
   showShortcutTips: true,
   fontSizeUI: 'medium',
   uiDensity: 'default',
+  accentSource: 'fixed',
 };
 
 export const DEFAULT_GENERAL_SETTINGS: GeneralSettingsStore = {
@@ -368,7 +380,9 @@ export const WHEEL_SENSITIVITY_MIN = 0.25;
 export const WHEEL_SENSITIVITY_MAX = 4;
 
 export const DEFAULT_SECTION_SETTINGS: SectionSettingsStore = {
-  version: 1,
+  // Matches SECTION_STATE_VERSION in sectionState.ts — the migration itself
+  // keys on entry presence, but the flag must not lie about the schema.
+  version: 2,
   sections: createDefaultSectionState(),
 };
 
@@ -655,6 +669,12 @@ export function normalizeInterfaceDensity(value: unknown): InterfaceDensity {
   return value === 'compact' || value === 'default' ? value : DEFAULT_APPEARANCE_SETTINGS.uiDensity;
 }
 
+export function normalizeAccentSource(value: unknown): AccentSourcePreference {
+  return value === 'document' || value === 'fixed'
+    ? value
+    : DEFAULT_APPEARANCE_SETTINGS.accentSource;
+}
+
 function normalizeAppearanceSettings(
   partial: Partial<AppearanceSettingsStore> | undefined,
 ): AppearanceSettingsStore {
@@ -663,6 +683,7 @@ function normalizeAppearanceSettings(
     ...appearance,
     fontSizeUI: normalizeFontSizeUI(appearance.fontSizeUI),
     uiDensity: normalizeInterfaceDensity(appearance.uiDensity),
+    accentSource: normalizeAccentSource(appearance.accentSource),
   };
 }
 

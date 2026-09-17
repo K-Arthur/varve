@@ -85,8 +85,22 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
   // every other mode uses them (tile included, via scale).
   const showOffsetAndScale = fitValue !== 'stretch' || fitMixed;
 
+  // Collapsed summary: the effective fit mode of the image fill.
+  const FIT_LABELS: Record<ImageFit, string> = {
+    fill: 'Fill',
+    fit: 'Fit',
+    stretch: 'Stretch',
+    tile: 'Tile',
+    crop: 'Crop',
+  };
+  const placementSummary = fitMixed ? 'Mixed fit' : (FIT_LABELS[fitValue] ?? fitValue);
+
   return (
-    <DisclosureSection title="Image Placement" sectionId="image-placement">
+    <DisclosureSection
+      title="Image Placement"
+      sectionId="image-placement"
+      summary={placementSummary}
+    >
       <div className="insp-field-group">
         {(fitMixed || placementLocked) && (
           <p className="insp-field__hint">
