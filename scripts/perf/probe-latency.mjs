@@ -36,7 +36,7 @@ page.on('crash', () => errs.push('[page-crash]'));
 await page.goto(BASE, { timeout: 90000, waitUntil: 'domcontentloaded' });
 await page.getByRole('button', { name: /^new$/i }).click({ force: true, timeout: 30000 });
 await page.waitForTimeout(1500);
-const createBtn = page.getByRole('button', { name: /^create$/i }).first();
+const createBtn = page.getByRole('button', { name: /^create design$/i }).first();
 await createBtn.click({ force: true, timeout: 15000 });
 await page.locator('.layers-panel').waitFor({ timeout: 20000 });
 for (let i = 0; i < 4; i++) {

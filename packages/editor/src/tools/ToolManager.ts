@@ -35,6 +35,8 @@ export class ToolManager {
   private _ctrlKey = false;
   private _metaKey = false;
   private genericNudge = new CanvasNudgeController();
+  /** Pointer driving an in-progress middle-button pan, when any. */
+  private middlePanPointerId: number | null = null;
 
   constructor(defaultTool: ToolId = 'select') {
     this.activeId = defaultTool;
@@ -136,7 +138,12 @@ export class ToolManager {
   }
 
   get cursor(): string {
-    const spec = this.activeTool.cursor(this.cursorState);
+    // A middle-button pan is a Hand-tool drag even under another active tool;
+    // reflect the grabbing cursor so the viewport navigation is visible.
+    const spec =
+      this.middlePanPointerId !== null
+        ? this.getOrCreate('hand').cursor('drag')
+        : this.activeTool.cursor(this.cursorState);
     return spec.css;
   }
 
@@ -190,6 +197,20 @@ export class ToolManager {
 
   handlePointerDown(e: PointerEvent, base: ToolContext): GestureResult {
     const ctx = this.buildContext(e, base);
+    // The middle button is viewport navigation wherever it lands (the
+    // Figma/Illustrator convention): route it to the Hand tool even under
+    // another active tool so one-handed panning never depends on the tool
+    // selection. Escape, blur, pointercancel, and release momentum then flow
+    // through the Hand tool's ordinary drag lifecycle.
+    if (e.button === 1 && this.activeId !== 'hand') {
+      const hand = this.getOrCreate('hand');
+      const result = hand.onPointerDown?.(e, ctx) ?? { consumed: false };
+      if (result.consumed) {
+        this.middlePanPointerId = e.pointerId;
+        this.cursorState = 'drag';
+        return result;
+      }
+    }
     this.cursorState = 'drag';
     return this.activeTool.onPointerDown?.(e, ctx) ?? { consumed: false };
   }
@@ -197,18 +218,34 @@ export class ToolManager {
   handlePointerMove(e: PointerEvent, base: ToolContext): void {
     const ctx = this.buildContext(e, base);
     if (this.cursorState === 'idle') this.cursorState = 'hover';
+    if (this.middlePanPointerId !== null && this.middlePanPointerId === e.pointerId) {
+      this.getOrCreate('hand').onPointerMove?.(e, ctx);
+      return;
+    }
     this.activeTool.onPointerMove?.(e, ctx);
   }
 
   handlePointerUp(e: PointerEvent, base: ToolContext): void {
     const ctx = this.buildContext(e, base);
     this.cursorState = 'idle';
+    if (this.middlePanPointerId !== null && this.middlePanPointerId === e.pointerId) {
+      this.middlePanPointerId = null;
+      this.getOrCreate('hand').onPointerUp?.(e, ctx);
+      return;
+    }
     this.activeTool.onPointerUp?.(e, ctx);
   }
 
   handlePointerCancel(e: PointerEvent, base: ToolContext): void {
     const ctx = this.buildContext(e, base);
     this.cursorState = 'idle';
+    // A cancel ends an in-progress middle pan (its pointer may no longer
+    // exist, so match on the pan being open rather than the event id) while
+    // the active tool's own drag keeps its existing cancel contract.
+    if (this.middlePanPointerId !== null) {
+      this.middlePanPointerId = null;
+      this.getOrCreate('hand').onPointerCancel?.(e, ctx);
+    }
     this.activeTool.onPointerCancel?.(e, ctx);
   }
 

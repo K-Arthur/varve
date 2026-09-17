@@ -1,6 +1,6 @@
 # Input System — Behavior Matrix (cross-platform)
 
-Canonical behavior — refreshed 2026-09-13 on `master`
+Canonical behavior — refreshed 2026-09-17 on `master`
 
 This matrix is the canonical statement of *intended* input behavior for the
 Varve canvas. It accompanies the dated audits in
@@ -31,7 +31,7 @@ diagnostics behavior.
 | Wheel (vertical) | Pan canvas vertically. Direction follows the OS natural-scroll setting via `deltaY`. |
 | Wheel (horizontal / Shift+vertical) | Pan canvas horizontally. |
 | Ctrl/Cmd + wheel | Zoom around the cursor (focal point preserved). |
-| Middle-button drag | Pan (Hand tool accepts button 1). Browser autoscroll suppressed. |
+| Middle-button drag | Pan with the Hand tool's drag/momentum semantics **regardless of the active tool** (ToolManager routes button 1 to Hand). Browser autoscroll suppressed; no context menu. |
 | Right-click | Native context menu suppressed on canvas; custom context menu shown. |
 | Side buttons (back/forward) | Intercepted on canvas; never trigger browser history. |
 | Alt+click (Zoom tool) | Zoom out around the cursor. |
@@ -42,9 +42,9 @@ diagnostics behavior.
 | Input | Behavior |
 |---|---|
 | Two-finger scroll | Pan 2D (vertical + horizontal + diagonal). |
-| Pinch (Chromium/WebView2) | ctrl+wheel signal → zoom around cursor. |
+| Pinch (Chromium/WebView2) | ctrl+wheel signal → zoom around cursor. Linux Chromium pinch delivery is historically unreliable (crbug 40332613); where the browser does not synthesize ctrl+wheel, use the on-screen zoom controls. |
 | Pinch (macOS WebKit) | Native `gesturestart/change/end` → cumulative scale with a world anchor that follows the moving gesture centroid. |
-| Pinch (WebKitGTK/Tauri) | `canvas://pinch-zoom` bridge re-emits the page-zoom factor onto the artwork. |
+| Pinch (WebKitGTK/Tauri) | Native `GtkGestureZoom` attached to the webview forwards `begin/update/end` + cumulative scale to the canvas (WebKITGTK itself performs no pinch zoom — verified against 2.52.6). A second fallback arm watches WebKit page `zoom_level` and forwards *delta* factors, suppressed while the gesture arm owns the pinch. Canvas anchor semantics are shared with the macOS gesture path. Hardware validation on KDE Wayland is pending — capture evidence with `window.__varveInputDiagnostics`. |
 | Momentum | OS momentum flows through; app does NOT double it (trackpad-classified events skip app inertia). |
 
 ### 2.3 Touchscreen
@@ -171,7 +171,8 @@ cannot leave the editor stuck.
 | Interactive preview quality | Settings > Performance exposes Automatic versus Full resolution while navigating; settled frames and exports remain authoritative. |
 | `zoomBy`/`zoomAtScreenPoint`/`panToWorldPoint` convenience API | Absorbed by existing `commitCamera`/`computeZoom*`; not re-exported |
 | Viewport-rotation gestures (touch twist) | Not implemented; rotation via toolbar/shortcuts only |
-| Diagnostics HUD toggle | Ring buffer exists; opt-in via `?perf=1` query param. Exposed as `window.__varvePerf` (see `drawDiagnostics.ts`); input diagnostics module (`inputDiagnostics.ts`) provides a ring buffer of normalized events but does not currently expose a window global |
+| Diagnostics HUD toggle | Ring buffer exists; opt-in via `?perf=1` query param. Exposed as `window.__varvePerf` (see `drawDiagnostics.ts`). The input ring (`inputDiagnostics.ts`) installs `window.__varveInputDiagnostics` unconditionally and records nothing until `enable()` — the console workflow for capturing real wheel/pinch sessions is `__varveInputDiagnostics.enable()` → gesture → `export()`. |
+| WebKitGTK pinch hardware validation | Implemented (GtkGestureZoom bridge + guarded page-zoom fallback); real-trackpad confirmation on Linux Wayland is on the manual checklist below. |
 | Real USI Pen 2 pressure/tilt/eraser/palm behavior | Hardware truth is untested in this workspace; use the open checklist in [`drawing-input-quality-audit-2026-09-13.md`](../audits/drawing-input-quality-audit-2026-09-13.md). |
 | Real on-screen keyboard appearance/dismissal | Inset model and surface adaptation implemented and unit/E2E-tested with synthetic geometry; real OSK is a device check |
 | ChromeOS-reserved shortcut conflicts | Documented in section 8; no app code change required (menu/palette provide alternatives) |
@@ -183,6 +184,7 @@ Before shipping an input milestone, verify on each available device:
 - [ ] Detented mouse wheel: pan, shift+wheel horizontal, ctrl+wheel zoom (focal point held).
 - [ ] High-resolution (smooth-scroll) mouse wheel: pan is smooth, no jumps.
 - [ ] Precision trackpad: two-finger scroll + pinch; pinch keeps the point under the fingers.
+- [ ] Trackpad pinch in the Tauri desktop shell on Linux Wayland: canvas zooms about the gesture centre; capture `window.__varveInputDiagnostics` evidence if it does not.
 - [ ] Trackpad under Linux Wayland: pinch works or falls back without page zoom.
 - [ ] Touchscreen: one-finger tool action, two-finger pinch/pan, no accidental select/draw.
 - [ ] Pen display/tablet: stroke pressure, palm rejection (no stray strokes).

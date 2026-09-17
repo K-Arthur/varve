@@ -164,8 +164,9 @@ export function resolveWheelAction(e: {
   }
 
   // Shift + vertical wheel scrolls horizontally (mouse convention). Preserved
-  // for trackpads too, where the user may hold Shift deliberately.
-  if (wheelMode !== 'zoom' && e.shiftKey && normX === 0) {
+  // for trackpads too, where the user may hold Shift deliberately. (The zoom
+  // branch above already returned, so `wheelMode` cannot be 'zoom' here.)
+  if (e.shiftKey && normX === 0) {
     return {
       kind: 'pan',
       source,

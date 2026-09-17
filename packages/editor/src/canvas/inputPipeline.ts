@@ -64,7 +64,7 @@ import {
 import type { SnapGuide } from '../tools/snapping';
 import { createSnapSession } from '../tools/snapping';
 import type { CanvasViewportAnchor } from './canvasSurface';
-import { recordInputDiagnostic } from './inputDiagnostics';
+import { installInputDiagnosticsHandle, recordInputDiagnostic } from './inputDiagnostics';
 import { getNavigationSettings } from './navigationRuntime';
 import {
   type NavigationGestureEvent,
@@ -72,6 +72,7 @@ import {
   transitionNavigationState,
 } from './navigationState';
 import { cancelCanvasFrame, createCanvasFrameKey, scheduleCanvasFrame } from './perfRuntime';
+import { type PinchBridgePayload, resolvePinchBridgeAction } from './pinchBridge';
 import { resolveWheelAction } from './wheelClassifier';
 import { createWheelGestureClassifier } from './wheelGesture';
 
@@ -231,6 +232,9 @@ export function useCanvasInputs({
   const wheelInteractionEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wheelEditorInteractionOpen = useRef(false);
   const cancelWheelInertiaRef = useRef<(() => void) | null>(null);
+  const wheelGestureClassifierRef = useRef<ReturnType<typeof createWheelGestureClassifier> | null>(
+    null,
+  );
 
   function endWheelInteractionSoon(): void {
     if (wheelInteractionEndTimer.current !== null) {
@@ -953,7 +957,16 @@ export function useCanvasInputs({
     }
     cancelWheelInertiaRef.current = cancelInertia;
 
-    const wheelClassifier = createWheelGestureClassifier();
+    // The gesture classifier's sticky history must survive effect rebinds (a
+    // rebind happens on any camera/editor dependency change, which tools
+    // trigger on every pointerdown) — exactly the lifetime rule the pointer
+    // ownership state documents below. A classifier recreated per rebind
+    // would forget mid-gesture evidence and could flip inertia on/off.
+    if (!wheelGestureClassifierRef.current) {
+      wheelGestureClassifierRef.current = createWheelGestureClassifier();
+    }
+    const wheelClassifier = wheelGestureClassifierRef.current;
+    installInputDiagnosticsHandle();
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -1107,7 +1120,7 @@ export function useCanvasInputs({
       const anchor = screenToWorld(cam, point.x - left, point.y - top, viewport, origin);
       if (!anchor.every(Number.isFinite)) return false;
       nativeGestureRef.current = {
-        worldAnchor: anchor,
+        worldAnchor: [anchor[0], anchor[1]],
         baseZoom: Number.isFinite(s.zoom) ? clampZoom(s.zoom) : 1,
       };
       return true;
@@ -1185,35 +1198,109 @@ export function useCanvasInputs({
     };
 
     /**
-     * WebKitGTK consumes the touchpad pinch itself and applies it as page zoom,
-     * so no wheel or gesture event ever reaches this handler — the desktop shell
-     * intercepts that zoom, restores the page, and re-emits the factor here so
-     * the pinch lands on the artwork instead of scaling the whole UI.
+     * WebKitGTK performs no pinch zoom of its own and no wheel or DOM gesture
+     * event ever reaches this page for the gesture — the desktop shell's raw
+     * touchpad pinch is recognized by a native GtkGestureZoom attached to the
+     * webview, which re-emits the gesture here as a structured stream:
+     * `{ phase: 'begin'|'update'|'end', scale, x, y }`. `scale` is cumulative
+     * since begin, and `x`/`y` are webview-local CSS pixels for the gesture
+     * centre, so the update semantics are identical to the macOS WebKit
+     * `gesturechange` stream above and reuse the same handlers.
      *
-     * `gesturechange` covers the same gesture on macOS WebKit, and ctrl+wheel
-     * covers Chromium, so this is the third arm of one behaviour rather than a
-     * separate feature.
+     * A second, fallback payload `{ factor }` (an absolute multiplicative
+     * delta) covers WebKit builds that page-zoom on pinch themselves: the
+     * native side intercepts that zoom, restores the page, and re-emits the
+     * factor so the pinch lands on the artwork instead of scaling the whole UI.
+     *
+     * The three arms — ctrl+wheel (Chromium), gesture events (macOS WebKit),
+     * and this bridge (WebKitGTK) — are one behaviour with per-platform
+     * transports rather than separate features.
      */
     let disposePinchBridge: (() => void) | undefined;
     let pinchBridgeCancelled = false;
+    let pinchBridgeUpdateCount = 0;
+    const recordPinchBridgeDiagnostic = (phase: string, scale: number | undefined): void => {
+      // Sample the (potentially 120 Hz) update stream so a pinch does not
+      // flush the bounded diagnostic ring on its own.
+      pinchBridgeUpdateCount += 1;
+      if (phase === 'update' && pinchBridgeUpdateCount % 4 !== 0) return;
+      recordInputDiagnostic({
+        eventType: `pinch-bridge:${phase}`,
+        source: 'trackpad',
+        modifiers: { shift: false, ctrl: false, alt: false, meta: false },
+        wheel:
+          phase === 'end'
+            ? undefined
+            : {
+                deltaX: 0,
+                deltaY: 0,
+                deltaMode: 0,
+                source: 'trackpad',
+                kind: 'zoom',
+                scale: typeof scale === 'number' && Number.isFinite(scale) ? scale : 1,
+              },
+        viewport: {
+          zoom: stateRef.current.zoom,
+          panX: stateRef.current.pan.x,
+          panY: stateRef.current.pan.y,
+          rotation: stateRef.current.cameraRotation,
+        },
+      });
+    };
+    const pinchBridgeEvent = (
+      clientX: number | null | undefined,
+      clientY: number | null | undefined,
+      scale: number,
+    ): Event => {
+      const point = resolveGesturePoint(
+        typeof clientX === 'number' ? clientX : undefined,
+        typeof clientY === 'number' ? clientY : undefined,
+      );
+      return {
+        preventDefault() {},
+        clientX: point.x,
+        clientY: point.y,
+        scale,
+      } as unknown as Event;
+    };
     void import('@varve/platform')
       .then(({ isTauriRuntime }) => {
         if (!isTauriRuntime() || pinchBridgeCancelled) return;
         return import('@tauri-apps/api/event').then(({ listen }) =>
-          listen<{ factor?: number }>('canvas://pinch-zoom', (event) => {
-            const factor = event.payload?.factor;
-            if (typeof factor !== 'number' || !Number.isFinite(factor) || factor <= 0) return;
+          listen<PinchBridgePayload>('canvas://pinch-zoom', (event) => {
+            const action = resolvePinchBridgeAction(event.payload);
+            if (action.kind === 'ignore') return;
+            if (action.kind === 'gesture') {
+              recordPinchBridgeDiagnostic(action.phase, action.scale);
+              // Pinching over a panel should not move the artwork: drop the
+              // gesture unless the pointer was last seen on the canvas (a
+              // gesture that began before any pointer movement still zooms,
+              // mirroring the `pointerInside === null` contract below).
+              if (pointerInside === false) return;
+              cancelWheelInertiaRef.current?.();
+              const scale = action.phase === 'update' ? action.scale : 1;
+              if (action.phase === 'begin') {
+                onGestureStart(pinchBridgeEvent(action.x, action.y, 1));
+              } else if (action.phase === 'update') {
+                if (!nativeGestureRef.current) return;
+                onGestureChange(pinchBridgeEvent(action.x, action.y, scale));
+              } else if (nativeGestureRef.current) {
+                onGestureEnd(pinchBridgeEvent(action.x, action.y, 1));
+              }
+              return;
+            }
             if (nativeGestureRef.current) return;
             // Pinching over a panel should not move the artwork. The page zoom
             // has already been reverted natively, so swallowing it is enough.
             if (pointerInside === false) return;
+            recordPinchBridgeDiagnostic('factor', action.factor);
             refreshCanvasRect?.();
             const point = resolveGesturePoint(undefined, undefined);
             const x = point.x;
             const y = point.y;
             setViewportAnchor(x, y);
             cancelWheelInertiaRef.current?.();
-            zoomAboutClientPoint(x, y, stateRef.current.zoom * factor);
+            zoomAboutClientPoint(x, y, stateRef.current.zoom * action.factor);
           }).then((unlisten) => {
             if (pinchBridgeCancelled) unlisten();
             else disposePinchBridge = unlisten;

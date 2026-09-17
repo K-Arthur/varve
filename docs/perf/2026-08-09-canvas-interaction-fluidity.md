@@ -76,7 +76,10 @@ native non-passive WheelEvent listener
 ```
 
 Trackpad-classified input retains fractional deltas and receives no additional
-application inertia. Unknown sources currently inherit mouse-wheel inertia.
+application inertia. (An earlier revision of this document said unknown
+sources inherit mouse-wheel inertia; since the sequence classifier landed,
+inertia applies to `mouse`-classified gestures only — `unknown` stays
+direct-only until burst evidence resolves it. See `wheelClassifier.ts`.)
 
 ### Trackpad/browser pinch and touch pinch
 

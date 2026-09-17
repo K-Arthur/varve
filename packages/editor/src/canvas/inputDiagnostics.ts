@@ -103,3 +103,47 @@ export function recordInputDiagnostic(
   if (ring.length > MAX_DIAG_RECORDS) ring.shift();
   return record;
 }
+
+/**
+ * Install the input-diagnostics debug handle as `window.__varveInputDiagnostics`.
+ *
+ * Installing the handle is free — the ring records nothing until
+ * `enable()` is called — so unlike `__varvePerf` this installs
+ * unconditionally: the gesture-debug workflow it exists for (capture a real
+ * trackpad pinch/wheel session on a device that may not expose a query
+ * parameter, e.g. the Tauri desktop shell) needs a console one-liner:
+ *
+ * ```js
+ * __varveInputDiagnostics.enable();   // …perform the gestures…
+ * copy(__varveInputDiagnostics.export())  // raw + normalized records
+ * ```
+ */
+export function installInputDiagnosticsHandle(): void {
+  if (typeof window === 'undefined') return;
+  const globalThisAny = window as unknown as {
+    __varveInputDiagnostics?: {
+      enable: (on?: boolean) => void;
+      isEnabled: () => boolean;
+      records: (n?: number) => InputDiagnosticRecord[];
+      export: () => string;
+      clear: () => void;
+    };
+  };
+  if (globalThisAny.__varveInputDiagnostics) return;
+  globalThisAny.__varveInputDiagnostics = {
+    enable: (on = true) => enableInputDiagnostics(on),
+    isEnabled: isInputDiagnosticsEnabled,
+    records: (n = 200) => getRecentInputDiagnostics(n),
+    export: () =>
+      JSON.stringify(
+        {
+          capturedAt: new Date().toISOString(),
+          userAgent: navigator.userAgent,
+          records: getRecentInputDiagnostics(200),
+        },
+        null,
+        2,
+      ),
+    clear: resetInputDiagnostics,
+  };
+}
