@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -21,13 +21,15 @@ const options: ComboboxOption[] = [
 function ComboboxFixture({
   onChange = vi.fn(),
   items = options,
+  initialValue = '',
   restrictToOptions = false,
 }: {
   onChange?: (value: string) => void;
   items?: ComboboxOption[];
+  initialValue?: string;
   restrictToOptions?: boolean;
 }) {
-  const [value, setValue] = useState('');
+  const [value, setValue] = useState(initialValue);
   return (
     <Combobox
       label="Fruit"
@@ -84,6 +86,18 @@ describe('Combobox disabled options', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it('commits the stable option value on pointer selection', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<ComboboxFixture onChange={onChange} />);
+
+    await user.click(screen.getByRole('combobox'));
+    await user.click(screen.getByRole('option', { name: 'Cherry' }));
+
+    expect(onChange).toHaveBeenCalledWith('cherry');
+    expect(screen.getByRole('combobox')).toHaveValue('Cherry');
+  });
+
   it('allows selecting an enabled option by keyboard', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
@@ -91,6 +105,82 @@ describe('Combobox disabled options', () => {
 
     await user.click(screen.getByRole('combobox'));
     await user.keyboard('{ArrowDown}{Enter}');
-    expect(onChange).toHaveBeenCalledWith('Cherry');
+    expect(onChange).toHaveBeenCalledWith('cherry');
+  });
+
+  it('renders the option label while preserving the committed value id', async () => {
+    render(<ComboboxFixture initialValue="apple" />);
+    const input = screen.getByRole('combobox');
+    expect(input).toHaveValue('Apple');
+
+    await userEvent.setup().click(input);
+    expect(screen.getAllByRole('option')).toHaveLength(3);
+    const selected = screen.getByRole('option', { name: 'Apple' });
+    expect(selected).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('Escape restores an unfinished query without committing it', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<ComboboxFixture onChange={onChange} initialValue="apple" />);
+    const input = screen.getByRole('combobox');
+
+    await user.click(input);
+    await user.clear(input);
+    await user.type(input, 'Che');
+    await user.keyboard('{ArrowDown}{Escape}');
+
+    expect(input).toHaveValue('Apple');
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('keeps duplicate labels navigable by their distinct values', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <ComboboxFixture
+        onChange={onChange}
+        restrictToOptions
+        items={[
+          { value: 'system-regular', label: 'System' },
+          { value: 'system-bold', label: 'System' },
+        ]}
+      />,
+    );
+    const input = screen.getByRole('combobox');
+    await user.type(input, 'System');
+    await user.keyboard('{ArrowDown}{Enter}');
+
+    expect(onChange).toHaveBeenCalledWith('system-bold');
+  });
+
+  it('exposes loading and empty states through the open listbox', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <Combobox
+        label="Font"
+        value=""
+        onChange={() => {}}
+        options={[]}
+        loading
+        description="Choose a document font"
+      />,
+    );
+    const input = screen.getByRole('combobox');
+    expect(input.getAttribute('aria-describedby')).toBeTruthy();
+    await user.click(input);
+    expect(within(screen.getByRole('listbox')).getByText('Loading options…')).toBeVisible();
+
+    rerender(
+      <Combobox
+        label="Font"
+        value=""
+        onChange={() => {}}
+        options={[]}
+        noResultsLabel="No fonts found"
+      />,
+    );
+    expect(within(screen.getByRole('listbox')).getByText('No fonts found')).toBeVisible();
   });
 });

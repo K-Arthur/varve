@@ -9,6 +9,9 @@ const meta: Meta<typeof Combobox> = {
   argTypes: {
     disabled: { control: 'boolean' },
     error: { control: 'text' },
+    description: { control: 'text' },
+    loading: { control: 'boolean' },
+    loadError: { control: 'text' },
     restrictToOptions: { control: 'boolean' },
   },
 };
@@ -59,6 +62,37 @@ export const RestrictToOptions: Story = {
         restrictToOptions
       />
     );
+  },
+};
+
+export const DuplicateLabelsStayDistinct: Story = {
+  render: () => {
+    const [value, setValue] = useState('system-regular');
+    return (
+      <Combobox
+        label="Font weight"
+        value={value}
+        onChange={setValue}
+        options={[
+          { value: 'system-regular', label: 'System' },
+          { value: 'system-bold', label: 'System' },
+          { value: 'inter', label: 'Inter' },
+        ]}
+        restrictToOptions
+        description="Labels may repeat; the committed value remains stable."
+      />
+    );
+  },
+};
+
+export const LoadingState: Story = {
+  args: {
+    label: 'Font family',
+    value: '',
+    onChange: () => {},
+    options: [],
+    loading: true,
+    description: 'Options are being loaded from the local font catalog.',
   },
 };
 

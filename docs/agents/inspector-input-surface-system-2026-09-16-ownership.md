@@ -78,3 +78,19 @@ Before touching `PropertiesPanel.tsx`, `sectionRegistry.ts`, `DocumentPanel.tsx`
 listed in another ownership record, coordinate with that record and split the
 change into a separately reviewable commit. The new contract and matrix are
 independent so foundation work can proceed without overwriting concurrent work.
+
+## Milestone 3 claim — editable combobox contract
+
+At 2026-09-17 20:30 local time, `packages/ui/src/components/Combobox.tsx`,
+its focused test, and its story were clean and had no active owner. This
+milestone claims only those shared combobox files plus the existing UI export
+surface if an export change is required. It does not replace `Select`, change
+editor call sites, or touch the concurrently modified Inspector number/fill/
+document files.
+
+The implementation will keep query text separate from the committed option
+value, preserve native text-editing keys, expose loading/empty/error states,
+and verify duplicate labels, disabled options, Escape cancellation, and a
+persisted value whose label differs from its ID. The existing real editor
+combobox/select workflows remain the integration evidence for later migration;
+this milestone is the shared primitive contract only.
