@@ -88,9 +88,35 @@ surface if an export change is required. It does not replace `Select`, change
 editor call sites, or touch the concurrently modified Inspector number/fill/
 document files.
 
-The implementation will keep query text separate from the committed option
-value, preserve native text-editing keys, expose loading/empty/error states,
-and verify duplicate labels, disabled options, Escape cancellation, and a
-persisted value whose label differs from its ID. The existing real editor
-combobox/select workflows remain the integration evidence for later migration;
-this milestone is the shared primitive contract only.
+The implementation kept query text separate from the committed option value,
+preserved native text-editing keys, exposed loading/empty/error states, and
+verified duplicate labels, disabled options, Escape cancellation, and a
+persisted value whose label differs from its ID. The popup was visually checked
+against helper/error text and anchored to the complete field block. Delivered
+in `0d2d8224b`; the existing real editor combobox/select workflows remain
+integration evidence for later migration.
+
+## Milestone 5 claim — contextual compression and field geometry
+
+At 2026-09-17 21:00 local time, the working tree was rechecked. The targeted
+LayoutSection and TypographySection files were clean, while the shared
+NumberField and generic inspector CSS remain owned by concurrent inspector
+passes. This follow-up therefore claims only the smallest integration surface
+needed to repair the observed screenshots:
+
+- `packages/editor/src/components/Inspector/sections/LayoutSection.tsx`
+- `packages/editor/src/components/Inspector/sections/LayoutChildSection.tsx`
+- `packages/editor/src/components/Inspector/sections/TypographySection.tsx`
+- `packages/editor/src/components/Inspector/sections/TypographySection.css`
+- `packages/editor/src/components/Inspector/PropertiesPanel.tsx` only if a
+  frame child must expose the child-owned layout section
+- focused section tests and the existing contextual-order E2E spec
+
+The geometry contract is additive and scoped: grid-placement controls move to
+the child-owned layout surface and render only when a shared parent is a grid;
+their labels use stacked-label two-up cells. Typography keeps its semantic
+section and advanced disclosures, but its common spine uses two-up pairs for
+weight/style and size/line-height. No generic field primitive, NumberField
+semantics, scene model, serialization, or history behavior is changed by this
+milestone. If an owned file becomes dirty or an active process claims the same
+hunk, stop and split the work rather than folding it into this change.

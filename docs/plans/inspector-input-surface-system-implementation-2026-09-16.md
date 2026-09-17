@@ -65,6 +65,33 @@ Prove one section per family before broad migration:
 Run real create/select/edit/commit/cancel/undo/redo workflows, selection changes
 while focused, mixed values, resize with popup open, and keyboard/touch paths.
 
+### Follow-up decision — long-section compression and field geometry
+
+The 2026-09-17 screenshot review adds a focused sub-milestone before migrating
+more panels:
+
+- Keep Typography, Appearance, Fill, Stroke, and Effects semantically separate;
+  do not merge unrelated appearance state into a giant text section.
+- Compact Typography's common spine with paired size/line-height and other
+  related controls where the measured panel width permits it. Keep Content
+  editable and keep advanced text controls behind labelled disclosures with
+  non-default summaries.
+- Do not add a duplicate quick-action bar until its controls can reuse the
+  same view-model and mutation/undo handlers as the section. Align &
+  Distribute remains a real action strip because it is command-oriented.
+- Mount Grid Placement only when a selected node has an authored placement or
+  a grid parent. Render it as a readable stacked-label two-up grid, not four
+  nested horizontal label/value rows.
+- Introduce width roles for shared inspector fields (`fill`, `bounded`,
+  `grid-cell`) and verify 32px compact height, stable value edges, and no
+  intrinsic-width overflow at 360/480/640px panel widths.
+
+Research and complaints driving this decision are recorded in the follow-up
+section of the dated audit, including Figma/Photoshop contextual organization,
+Apple progressive disclosure/popover guidance, Spectrum/Carbon field geometry,
+and Adobe/Figma user reports about hidden sections, scroll failures, and
+unintentional popup changes while scrolling.
+
 ## Milestone 6 — repository migration
 
 For every old surface: identify consumers and semantic family; add a compatibility

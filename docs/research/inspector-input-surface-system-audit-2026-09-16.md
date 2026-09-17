@@ -348,3 +348,72 @@ Explicit non-goals at this gate: replacing `@varve/ui`, adding a dependency,
 redesigning the canvas/document model/undo architecture, turning every section
 into a card, deleting advanced capabilities, or claiming conformance from one
 automated scan.
+
+## 8. Follow-up research — long sections, quick actions, and field geometry
+
+The screenshots reviewed on 2026-09-17 show a different failure mode from
+simple ordering: a long Typography body pushes Fill and Appearance below the
+first useful viewport, while layout-specific fields remain mounted when they
+are not applicable. The grid-placement labels also wrap inside a two-up
+numeric grid until individual words are clipped. This section records the
+research and the implementation decision before changing those surfaces.
+
+| Source | Finding | Varve implication | Evidence type |
+| --- | --- | --- | --- |
+| [Figma Guide to text in Figma Design](https://help.figma.com/hc/en-us/articles/360039956434-Guide-to-text-in-Figma-Design) (accessed 2026-09-17) | Typography is a named, text-specific group; layout/resizing, fill, stroke, and effects remain separate property families. | Keep semantic ownership separate, but place the text family first and compress its common rows rather than merging unrelated appearance state into typography. | Official product documentation |
+| [Figma Explore text properties](https://help.figma.com/hc/en-us/articles/360039956634-Explore-text-properties) (accessed 2026-09-17) | Common font, size, line-height, spacing, and alignment controls stay in Typography; less frequent type settings are opened from a dedicated type-settings surface. | Keep a short always-visible typography spine. Put OpenType, variable axes, glyph, paragraph, and writing-mode details behind labelled disclosures or a focused editor with an active-value summary. | Official product documentation |
+| [Adobe Photoshop workspace overview](https://helpx.adobe.com/photoshop/desktop/get-started/learn-the-basics/workspace-overview.html) (accessed 2026-09-17) | A contextual task bar exposes relevant next steps while panels remain the detailed editing surface. | Varve can expose a small contextual action strip for high-frequency actions, but it must call the same mutation handlers as the inspector sections; no duplicate property state or silent alternate semantics. | Official product documentation |
+| [Adobe Photoshop panel collapse guidance](https://helpx.adobe.com/photoshop/desktop/get-started/learn-the-basics/collapse-expand-icons.html) (accessed 2026-09-17) | Panel collapse is used to keep dense workspaces usable, with labels retained when there is room. | Use disclosure as progressive disclosure, not deletion. Collapsed rows must remain visible, keyboard reachable, and summarize non-default values. | Official product documentation |
+| [Apple HIG: Layout](https://developer.apple.com/design/human-interface-guidelines/layout) (accessed 2026-09-17) | Proximity, alignment, progressive disclosure, and adapting at defined size changes are preferred over arbitrary compression. | Establish one inspector row grammar and switch paired rows to stacked cells at a measured container threshold; do not let intrinsic input widths define the panel. | Official platform guidance |
+| [Apple HIG: Popovers](https://developer.apple.com/design/human-interface-guidelines/popovers/) (accessed 2026-09-17) | Popovers should expose a small related task and should not cover the trigger or essential content. | A focused editor is appropriate for advanced typography/color work; a long property family should not be moved into a giant popover merely to hide scrolling. | Official platform guidance |
+| [Adobe Spectrum Text Field](https://spectrum.adobe.com/page/text-field/) (accessed 2026-09-17) | Field labels may be top or side; side labels are for constrained vertical layouts. Field size and width are contextual, with a minimum width tied to height; mixed values use an en dash. | Inspector fields need explicit width roles: fill for long values, bounded for compact numeric values, and stacked labels for narrow paired cells. One unconstrained flex rule is not sufficient. | Official design-system guidance |
+| [Carbon form usage](https://carbondesignsystem.com/components/form/usage/) (accessed 2026-09-17) | Multi-column fields should be proportional and respond as a group when one field grows for an error. | Paired inspector fields must share a grid row and error/description expansion must not overlap the adjacent field; actions need a stable end column. | Official design-system guidance |
+| [Adobe community: better panel sizing](https://community.adobe.com/feature-requests-730/better-panel-sizing-optimization-e-g-properties-panel-1328209) (accessed 2026-09-17) | Users reported that a narrow Properties panel could hide entire inputs without indicating that content was unavailable. | Varve must measure overflow at representative widths, keep a visible scroll affordance, and stack/wrap before labels or controls clip. | User complaint / product feedback |
+| [Adobe community: type-layer sections](https://community.adobe.com/bug-reports-711/properties-panel-for-a-type-layer-shows-only-two-property-sections-when-expanded-657403) (accessed 2026-09-17) | Users reported expanding type sections without receiving a scrollbar for lower sections. | Section expansion cannot remove the panel’s scroll path. Keep one authoritative scroll container and test expansion combinations, not just the initial screenshot. | User complaint / product feedback |
+| [Adobe community: panel scroll changes popup values](https://community.adobe.com/bug-reports-733/when-scrolling-panels-pop-up-menus-get-changed-906102) (accessed 2026-09-17) | Users reported that scrolling the panel while a pointer passed over a closed popup changed its value accidentally. | Select/combobox controls must not mutate on wheel merely because they are under the pointer; wheel changes remain an explicit focused NumberField gesture only. | User complaint / product feedback |
+| [Figma UI3 feedback](https://forum.figma.com/share-your-feedback-26/ui3-feedback-3058/index2.html?fid=26&tid=3058) (accessed 2026-09-17) | Users complained that moving width/height and changing right-sidebar density made values harder to scan and required hover to understand dimensions. | Preserve stable W/H placement, visible labels, and a consistent value column; do not solve density by shrinking labels or relying on hover-only affordances. | User complaint / product feedback |
+| [Blender Properties editor panels](https://docs.blender.org/manual/en/4.1/interface/window_system/tabs_panels.html) (accessed 2026-09-17) | Blender uses collapsible panels and supports collapsing siblings, but users have also requested better navigation for long Properties side panels. | Adopt bounded disclosure with active-state summaries and preserve a predictable scroll model; do not make “only one open section” the only navigation method. | Official product documentation + observed complaint context |
+
+### Decision: compress the grammar, not the capability
+
+The research does not support merging all text appearance into Typography. That
+would make the section semantically broad and would recreate the failure where
+different node types expose different meanings under the same heading. The
+chosen Varve pattern is:
+
+1. Keep Typography, Appearance, Fill, Stroke, and Effects as distinct semantic
+   sections.
+2. Give text a compact primary spine: Content remains editable, but common
+   numeric pairs (size/line height) and short mutually related controls use a
+   measured two-up grid; advanced text controls stay collapsed with summaries.
+3. Place contextual high-frequency sections in the primary band, but do not
+   duplicate their controls in a second “quick bar” until a shared view-model
+   or render composition exists. Existing Align & Distribute is retained as a
+   real action strip because it owns actions rather than a second property
+   value.
+4. Make capability-specific subsections conditional. Grid Placement appears
+   only for a selected node with a grid parent or an authored placement. Empty
+   controls are not useful discoverability; the Layout section remains the
+   recovery path for enabling a grid.
+5. Replace nested horizontal numeric fields that have insufficient label space
+   with stacked, two-up cells. Labels remain persistent and full enough to scan;
+   they are not rescued with arbitrary font shrinking.
+6. Define field width roles: `fill` for family/select/text values, `bounded` for
+   finite-range values, and `grid-cell` for related pairs. All roles use the
+   same 32px compact height, border, radius, and focus contract.
+
+### Acceptance additions for this follow-up
+
+- A selected text node exposes Typography first, with Fill/Stroke/Appearance
+  still discoverable without entering a separate tab or losing the scroll path.
+- A text Typography screenshot at 360px, 480px, and 640px panel widths has no
+  clipped labels, horizontal overflow, or controls that change width merely
+  because another row contains a longer label.
+- Grid Placement is absent for an ordinary frame with no grid parent and is a
+  readable stacked-label two-up grid when a real grid-child workflow activates
+  it.
+- Numeric/select/text controls measure 32px in compact desktop mode, with
+  documented exceptions for multiline content and touch density; related
+  fields share a column edge and do not stretch past their value role.
+- Expanding any Typography advanced subsection leaves the direct inspector
+  scroll container reachable and preserves focus visibility.

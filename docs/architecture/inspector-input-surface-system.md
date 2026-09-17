@@ -124,6 +124,41 @@ values stack, long controls span the row, and popup width is bounded by the
 viewport. Important properties do not disappear solely because a panel was
 narrowed; they move behind an explicit, discoverable disclosure.
 
+## Contextual compression contract
+
+Compression is capability-aware, not a global “make every row smaller” switch.
+
+- Semantic families remain separate: Typography does not absorb Fill, Stroke,
+  Appearance, or Effects just to reduce scrolling.
+- A primary section may use a compact spine of common controls. Related values
+  such as text size and line height may share a two-up grid when each cell can
+  retain a readable label and a 32px control.
+- Advanced properties use labelled disclosures or focused editors and expose a
+  summary/count when a non-default value is hidden. They are not removed from
+  the DOM solely because the panel is narrow.
+- Contextual action strips may expose high-frequency actions, but they must
+  reuse the section's mutation and undo handlers. No second source of truth or
+  duplicate control is permitted.
+- Capability-specific groups are not mounted when the selected node cannot use
+  them. For example, Grid Placement is shown only for an authored placement or
+  a selected child whose parent is a grid frame; the parent Layout section is
+  the discoverable route for enabling the grid.
+
+### Width roles
+
+Inspector fields declare a width role rather than inheriting arbitrary flex
+growth:
+
+| Role | Use | Layout contract |
+| --- | --- | --- |
+| `fill` | Font family, long select values, text content, blend modes | Uses the value column; truncates or scrolls text without changing sibling geometry. |
+| `bounded` | Finite-range opacity, rotation, percentages, small counts | Uses the smallest readable width and aligns to the value edge. |
+| `grid-cell` | X/Y, W/H, min/max, grid placement | Equal tracks, zero intrinsic minimum, stacked label when the cell is narrow. |
+
+All roles retain the shared compact height, radius, border, focus, mixed-value,
+and disabled-state contract. Multiline text and touch density are documented
+exceptions, not accidental per-section variants.
+
 ## Governance
 
 New Inspector controls must:
