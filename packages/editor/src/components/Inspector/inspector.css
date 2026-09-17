@@ -1091,7 +1091,8 @@
 }
 .insp-paint-row__type-trigger {
   width: auto;
-  min-width: 5.5rem;
+  min-width: 7rem;
+  flex: 0 1 8rem;
   padding: 0 var(--space-2);
   gap: var(--space-1);
   color: var(--color-text-secondary);
@@ -2076,22 +2077,34 @@
   background: var(--color-interactive-hover);
 }
 .insp-align-section {
-  padding: var(--space-2);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control);
-  background: var(--color-surface-raised);
+  position: relative;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+  border-radius: 0;
+  background: transparent;
   margin-bottom: 0;
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
 .insp-align-section:hover {
-  border-color: color-mix(in srgb, var(--color-border-strong) 40%, var(--color-border-subtle));
+  border-bottom-color: color-mix(
+    in srgb,
+    var(--color-border-strong) 40%,
+    var(--color-border-subtle)
+  );
 }
 .insp-align-section__header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  margin-bottom: var(--space-1);
+  min-width: 0;
+  padding: var(--space-1) 0;
+  margin-bottom: 0;
+  background: var(--color-surface-base);
 }
 .insp-align-section__header .insp-align-section__title {
   margin: 0;
@@ -2122,8 +2135,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.insp-align-section > .insp-align-bar {
+  padding-bottom: var(--space-2);
+}
 [data-theme="high-contrast"] .insp-align-section {
-  border: 2px solid var(--color-border-subtle);
+  border: 0;
+  border-bottom: 2px solid var(--color-border-subtle);
 }
 @media (forced-colors: active) {
   .insp-align-section {
@@ -2472,19 +2489,52 @@
 /* Fill row properties: opacity (stacked fills only) plus the blend select.
  * Wraps instead of stacking so the pair shares the row's height. */
 .insp-fill-row__properties {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
   gap: var(--space-2);
   padding-left: var(--space-4);
 }
 
+.insp-paint-property--blend {
+  grid-column: 1 / -1;
+}
+
+.insp-paint-property {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.insp-paint-property__label {
+  min-height: 1rem;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.insp-paint-row__opacity {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.insp-paint-row__opacity .insp-field,
+.insp-paint-row__opacity .insp-field__control {
+  width: 100%;
+}
+
 /* Per-fill blend mode uses the same Select as Appearance, with a compact row
    width while the popover variant remains full-width. */
+.insp-paint-type-select,
 .insp-paint-blend-select {
-  flex: 0 1 11rem;
-  inline-size: min(11rem, 100%);
-  min-width: 7rem;
+  inline-size: 100%;
+  min-width: 0;
 }
 
 /* Add new fill controls */
@@ -5780,7 +5830,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-paint-row__opacity .insp-field {
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-1);
 }
 

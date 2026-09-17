@@ -17,6 +17,12 @@ extra-click failure documented in the competitor research. Add a live summary
 to the heading (`2 layers`, `Align to parent frame`, or `Align to page/canvas`)
 so the current target remains legible while the controls are scanned.
 
+The host must share the same visual contract as registry-backed Inspector
+sections. Align is not a separate card: it uses the common panel surface,
+quiet separator, sticky header, token spacing, and heading treatment. Its
+toolbar remains a distinct control primitive only because six alignment actions
+and distribution actions are spatially related.
+
 The existing rules remain intentionally unchanged:
 
 - inapplicable distribution and advanced clusters are omitted;
