@@ -1265,6 +1265,9 @@
    * must never contribute to row sizing, or rows overflow the card. */
   width: 0;
   min-width: 2.25rem;
+  /* The compact width supplied by NumberField includes the visible padding;
+     otherwise the browser adds padding on top and clips values beside units. */
+  box-sizing: border-box;
   /* One field-height contract: match the shared compact control height and
    * the dropdowns beside it instead of a fluid spacing token. */
   height: var(--component-compact-height);
