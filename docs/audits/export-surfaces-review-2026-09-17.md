@@ -273,7 +273,7 @@ pnpm --filter @varve/editor typecheck              # 41 pre-existing errors in o
 VARVE_E2E_PORT=14481 VARVE_E2E_WORKERS=1 TMPDIR=/var/tmp/varve-tmp \
   npx playwright test tests/e2e/spec/export-settings.spec.ts tests/e2e/spec/export-workspace.spec.ts \
   --project=chromium --reporter=list               # 8 passed (1.4m + 1.9m across two runs)
-node .tmp-export-after.mjs                         # isolated-port browser re-verification (port 14473)
+node .tmp-export-after.mjs                         # isolated-port browser re-verification (port 14473; capture script transient, screenshots committed)
 ```
 
 Passed: scene export 36; editor Export + SpecPanel + scene export 368 across

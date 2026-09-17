@@ -67,6 +67,20 @@ Progressive commits on `master`, staged with explicit path lists, verified
 with `git diff --cached` immediately before each commit. No push, no tag, no
 deploy.
 
+## Progress log
+
+- 2026-09-17 — suffix root cause + regressions land as `65da81887`
+  (`fix(export): carry preset suffixes into batch preflight`).
+- 2026-09-17 — the shared badge, dialog text/layout repairs, empty-state
+  recovery, accessible-name alignment, token cleanups, tests, website copy,
+  audit, and evidence land as `728ced318`
+  (`fix(export): one honest badge, unclipped dimensions, and a recoverable
+  empty dialog`). Pre-commit checkpoint: biome staged, emoji/docs/health/
+  secrets/contacts/boundaries audits, e2e typecheck, and the six staged
+  suites (79 tests) — all passed. The shared index was found to contain
+  another session's staged `packages/home` work mid-session; the commit used
+  explicit pathspecs so that work stayed staged and untouched.
+
 ## Validation ownership
 
 - Unit: targeted vitest runs for `packages/scene/src/export/{adapter,preflight}`
