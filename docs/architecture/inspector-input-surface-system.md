@@ -159,6 +159,30 @@ All roles retain the shared compact height, radius, border, focus, mixed-value,
 and disabled-state contract. Multiline text and touch density are documented
 exceptions, not accidental per-section variants.
 
+### Context toolbar parity boundary
+
+The selection-following Context Control Bar is a geometry reference, not a
+second Inspector. Inspector controls should share its measured compact contract
+(32px controls, token-backed gap/padding, aligned baselines, bounded long-value
+fields, and horizontal overflow where the surface is intrinsically linear), but
+the two surfaces have different information architecture:
+
+- The context bar is a short, capability-specific command strip. It may use
+  icon-only actions with tooltips and omit persistent labels when the action
+  context is unambiguous.
+- The Inspector is a persistent property editor. It keeps visible labels,
+  units, mixed values, validation, and descriptions; it must not use tooltip
+  discovery as a substitute for field naming.
+- Both surfaces must route document changes through the same command,
+  transaction, preview, and undo path. A quick action is not allowed to create
+  a second value model.
+- Toolbar arrow navigation yields to embedded text, spinbutton, combobox, and
+  IME controls. Inspector fields follow the same input ownership rule even
+  when they are arranged in a paired grid.
+- Toolbar-specific raw inputs are documented exceptions. New Inspector
+  consumers use the canonical field primitives instead of copying a compact
+  toolbar implementation.
+
 ## Governance
 
 New Inspector controls must:

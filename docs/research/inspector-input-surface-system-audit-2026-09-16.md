@@ -417,3 +417,32 @@ chosen Varve pattern is:
   fields share a column edge and do not stretch past their value role.
 - Expanding any Typography advanced subsection leaves the direct inspector
   scroll container reachable and preserves focus visibility.
+
+## 9. Context-control toolbar as a local reference surface
+
+The context-control toolbar is not a replacement for the Inspector, but it is
+Varve's strongest existing example of a compact, capability-aware input
+surface. I inspected its implementation and ran the real text-editing browser
+workflow at DPR 1 across light, dark, and high-contrast themes. The run passed
+and produced the evidence under
+`test-results/run-4127000-1511/canvas-font-toolbar-visual-76f26-adable-menus-in-every-theme-chromium/`.
+
+| Evidence | Finding | Inspector implication | Classification |
+| --- | --- | --- | --- |
+| `ContextControlBar.tsx`, `ContextControlBar.css`, and `font-toolbar-visual.spec.ts` | The context and floating text bars use one 32px compact control height, a shared centerline, `2.88px` gap, `5.76px 9.44px` padding, and `14.72px` field text. | Use the same compact geometry tokens for Inspector controls; section layout may change, but equivalent fields must not change height or text metrics by panel. | Local implementation + measured browser evidence |
+| DPR 1 browser metrics, light/dark/high contrast | The rendered floating surface measured `46.796875px` high; every family, weight, style, size, colour, and overflow control measured `32px`; all centers matched. | Treat control height and baseline alignment as assertions, not visual preference. Allow fractional shell height from token interpolation, but never fractional control height. | Runtime measurement |
+| `ContextControlBar` overflow rules | Text controls stay in one row with `overflow-x: auto` and `flex-wrap: nowrap`; the font family field is bounded instead of squeezing until unreadable. | Inspector rows should use explicit `fill`, `bounded`, and `grid-cell` width roles. At narrow widths, switch paired fields to stacked cells or scroll the owning surface; do not clip labels or values. | Local implementation + measured browser evidence |
+| `Toolbar.tsx` and toolbar tests | Icon actions use a toolbar role, one roving button stop, arrow navigation, and yield arrow keys to embedded inputs/selects. | Inspector action clusters may reuse the same keyboard contract. Field controls must continue to own text editing, spinbutton stepping, combobox navigation, and IME behavior. | APG-aligned local implementation |
+| `ContextControlBar.tsx`, `ShapeQuickControls.tsx` | Contents are capability-specific: image actions, text formatting, frame actions, shape paint/flip, or multi-selection commands. The bar explicitly leaves complete/rare properties in the Inspector. | Quick actions are appropriate for high-frequency commands, not as a second property editor. Any Inspector action strip must reuse the canonical mutation and undo path. | Local product contract |
+| `textEditSession` suppression and toolbar follow-up tests | When canvas text editing is active, the context bar points to the floating text bar instead of duplicating font controls. | Do not duplicate Typography controls across Inspector and a quick bar in the same interaction state. The focused editing surface must be explicit. | Local interaction evidence |
+| `ShapeQuickControls.tsx` stroke-width field | The context toolbar still contains a small toolbar-specific raw number input. It has explicit compact geometry and transaction boundaries, but it is not a general Inspector primitive. | Do not copy this exception into Inspector sections. Inspector numeric fields remain on `NumberField` so parsing, mixed values, units, binding, scrubbing, validation, and accessibility stay canonical. | Intentional exception / migration boundary |
+
+### Resulting standard
+
+The Inspector should borrow the context toolbar's measured geometry and
+capability gating, but not its horizontal information architecture. A toolbar
+can omit persistent labels because it is a short, selection-following command
+strip with tooltips and a stable visual context. The Inspector is a durable
+property editor: labels, values, units, mixed states, and errors must remain
+visible and associated. This distinction resolves the temptation to make every
+Inspector row icon-only or to add a second quick bar for every long section.

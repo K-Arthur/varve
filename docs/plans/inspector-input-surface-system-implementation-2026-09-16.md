@@ -111,6 +111,14 @@ Contact sheets must cover text, image, frame, shape, group, table, adjustment,
 raster, mask, mixed, narrow, wide, light, dark, high zoom, keyboard focus,
 popup edge, and touch-oriented scenarios.
 
+The existing Context Control Bar is the local geometry reference for this
+milestone. Its real browser run measured 32px controls, a 46.796875px shell,
+aligned centers, `2.88px` gaps, `5.76px 9.44px` padding, and non-wrapping
+horizontal overflow in all three tested themes. Reuse those token contracts in
+Inspector fields while retaining Inspector-specific persistent labels and
+descriptions. Do not copy the toolbar's intentionally compact icon-only action
+anatomy or its raw stroke-width input into the canonical Inspector primitives.
+
 ## Validation commands
 
 For every system-level change:
