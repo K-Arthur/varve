@@ -264,7 +264,16 @@ export const LayersRow = memo(function LayersRow({
     layerPresentation,
     {
       maskRole,
-      detail: adjustmentSummary?.tooltip,
+      detail: [
+        adjustmentSummary?.tooltip,
+        // Restriction states in text, so a screen reader on the row learns
+        // them without tabbing into the toggles (WCAG 1.4.1: never state
+        // conveyed by appearance alone; the tinted row is the sighted cue).
+        node.locked === true ? 'locked' : undefined,
+        node.visible === false ? 'hidden' : undefined,
+      ]
+        .filter((part): part is string => part != null)
+        .join(', '),
     },
   );
   const adjustmentBadgeText =

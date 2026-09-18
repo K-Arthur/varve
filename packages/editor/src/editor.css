@@ -6189,18 +6189,6 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-text-secondary, inherit);
 }
 
-.layers-row__media-badge {
-  margin-left: 6px;
-  padding: 0 4px;
-  border-radius: var(--radius-control-compact);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  color: var(--color-accent-primary, #14b8a6);
-  background: color-mix(in srgb, var(--color-accent-primary, #14b8a6) 12%, transparent);
-  white-space: nowrap;
-}
-
 /* Findings overlay hover affordance — class is toggled at runtime in
  * AuditOverlayHost but had no styling, so the highlight was a no-op. */
 .finding-highlighted {
@@ -6785,6 +6773,18 @@ dialog.varve-dialog--settings[open] {
   font-family: var(--type-interface-body-family);
   font-size: var(--type-interface-body-size);
   line-height: var(--type-interface-body-line-height);
+}
+
+.editor-inspector .insp-image-fill__color-summary > span {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.editor-inspector .insp-image-fill__color-toggle {
+  width: auto;
+  min-inline-size: max-content;
+  padding-inline: var(--space-1);
+  gap: var(--space-1);
 }
 
 .editor-inspector .insp-image-fill__color-details {

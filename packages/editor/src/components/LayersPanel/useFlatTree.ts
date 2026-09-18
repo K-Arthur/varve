@@ -424,6 +424,7 @@ export function useFlatTree(
   isolatedNodeId?: NodeId,
   masterEditId?: NodeId,
   designCanvasId?: NodeId,
+  precomputedDiff?: DocumentDiff,
 ): FlatEntry[] {
   const prevDocRef = useRef<Document | null>(null);
   const prevEntriesRef = useRef<FlatEntry[]>([]);
@@ -458,9 +459,12 @@ export function useFlatTree(
       return prevEntriesRef.current;
     }
 
-    // Doc changed — detect structural vs property-only
+    // Doc changed — detect structural vs property-only. `precomputedDiff`
+    // lets the caller share one diff across consumers (the search-index
+    // patch and this projection diff the same doc transition every render);
+    // it must describe exactly (prevDoc → doc) for THIS call.
     if (prevDoc !== doc) {
-      const diff = computeDocumentDiff(prevDoc, doc);
+      const diff = precomputedDiff ?? computeDocumentDiff(prevDoc, doc);
 
       // Same nodes map (top-level properties changed, e.g., name, canvasWidth).
       // Only safe to reuse cached entries as-is when the filter/search/page/

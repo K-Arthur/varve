@@ -90,6 +90,10 @@ import { useTypeAhead } from './useTypeAhead';
 
 // ── Expand/Collapse utilities ───────────────────────────────────────────
 
+/** How many animation frames the roving-focus effect may wait for a
+ * long-jump target row (Home/End, reveal) to mount before giving up. */
+const FOCUS_RETRY_FRAMES = 10;
+
 export function expandAllDescendants(
   doc: Document,
   containerId: NodeId,
@@ -229,17 +233,21 @@ export { computeMultiMoveSteps, isNoOpMove } from './layerMovePlan';
  * in place when patching (cheap: only touched nodes are re-tokenized) — the
  * return value is always a fresh object reference so memoized consumers
  * keyed on it (e.g. matchedIds) correctly recompute after a patch.
+ * `precomputedDiff` lets the caller share one document diff across the
+ * search-index patch and the tree projection (they diff the same
+ * transition) instead of paying the O(n) scan twice per render.
  */
 export function updateSearchIndexIncremental(
   prevDoc: Document | null,
   doc: Document,
   prevIndex: LayerSearchIndex | null,
+  precomputedDiff?: import('./useFlatTree').DocumentDiff,
 ): LayerSearchIndex {
   if (!prevIndex || !prevDoc) {
     return createSearchIndex(doc);
   }
 
-  const diff = computeDocumentDiff(prevDoc, doc);
+  const diff = precomputedDiff ?? computeDocumentDiff(prevDoc, doc);
   if (diff.structureChanged) {
     return createSearchIndex(doc);
   }
@@ -441,6 +449,15 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   // (renames are the common case while a search/filter is active) instead of
   // a full O(n) rebuild on every document reference change. Structural
   // changes (add/remove/reparent) still fall back to a full rebuild.
+  // The document diff is computed ONCE per doc transition here and shared
+  // by the search-index patch and the tree projection below — both used to
+  // run the same O(n) scan separately on every property-only edit.
+  const prevDocForDiffRef = useRef<Document | null>(null);
+  const docDiff = useMemo(
+    () => computeDocumentDiff(prevDocForDiffRef.current, state.document),
+    [state.document],
+  );
+  prevDocForDiffRef.current = state.document;
   const searchIndexRef = useRef<LayerSearchIndex | null>(null);
   const prevDocForIndexRef = useRef<Document | null>(null);
   const searchIdx = useMemo(() => {
@@ -448,11 +465,12 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       prevDocForIndexRef.current,
       state.document,
       searchIndexRef.current,
+      docDiff,
     );
     searchIndexRef.current = next;
     prevDocForIndexRef.current = state.document;
     return next;
-  }, [state.document]);
+  }, [state.document, docDiff]);
 
   // Pre-compute matched IDs via search index when filtering by name
   const matchedIds = useMemo<Set<NodeId> | undefined>(() => {
@@ -526,6 +544,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     state.isolatedNodeId ?? undefined,
     state.masterEditId ?? undefined,
     state.workspaceMode !== 'print' ? state.document.activeDesignCanvasId : undefined,
+    docDiff,
   );
 
   // Dev-mode performance benchmark: log when flatten takes > 50ms
@@ -572,7 +591,29 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     // and focus fell to body (delete/filter/collapse retarget).
     const active = document.activeElement;
     if (active !== document.body && !treeRef.current?.contains(active)) return;
-    rowRefs.current.get(focusedNodeId)?.focus({ preventScroll: true });
+    // Long jumps (Home/End, reveal on huge documents) scroll first and the
+    // target row mounts a frame or two later. Retry a bounded number of
+    // frames instead of leaving DOM focus one row behind the visual
+    // highlight. The ownership check re-runs every attempt so a user who
+    // tabs away mid-retry never has focus stolen back.
+    let raf = 0;
+    let tries = 0;
+    const focusWhenMounted = () => {
+      const row = rowRefs.current.get(focusedNodeId);
+      if (row) {
+        const current = document.activeElement;
+        if (current === document.body || treeRef.current?.contains(current)) {
+          row.focus({ preventScroll: true });
+        }
+        return;
+      }
+      if (tries < FOCUS_RETRY_FRAMES) {
+        tries += 1;
+        raf = requestAnimationFrame(focusWhenMounted);
+      }
+    };
+    focusWhenMounted();
+    return () => cancelAnimationFrame(raf);
     // Depends on the focused id itself, not the whole `entries` array —
     // useFlatTree's property-only fast path allocates a new `entries`
     // reference on any single-node edit (rename, recolor, ...) even when the
@@ -858,7 +899,11 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     (id: NodeId, withAdditiveModifier: boolean) => {
       const index = entries.findIndex((entry) => entry.node.id === id);
       if (index < 0) return;
-      const anchorId = anchorIdRef.current ?? id;
+      // The range anchor is panel-local, but the user may have built their
+      // selection on the canvas without ever interacting with the panel —
+      // the first Shift+Arrow/Shift+click then extends from the primary
+      // selection instead of replacing it with a one-row range.
+      const anchorId = anchorIdRef.current ?? primarySelectionId ?? id;
       const range = selectionRangeBetween(
         entries.map((entry) => entry.node),
         anchorId,
@@ -873,7 +918,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       if (!withAdditiveModifier) anchorIdRef.current = anchorId;
       setFocusIdx(index);
     },
-    [entries, setFocusIdx, setSelectionRefs, state.selection],
+    [entries, primarySelectionId, setFocusIdx, setSelectionRefs, state.selection],
   );
 
   const doKeyboardMove = useCallback(

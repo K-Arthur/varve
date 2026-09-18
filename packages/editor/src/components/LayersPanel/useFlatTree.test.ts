@@ -690,3 +690,80 @@ describe('flattenTree (corrupt documents)', () => {
     expect(entries.map((e) => e.node.id).sort()).toEqual([a.id, b.id].sort());
   });
 });
+
+describe('flattenTree — shared precomputed diff', () => {
+  it('accepts a precomputed property-only diff and updates the changed entry in place', () => {
+    let doc = createDocument('shared-diff', true);
+    const ids: string[] = [];
+    for (const name of ['A', 'B']) {
+      const next = nextNodeId(doc);
+      doc = next.doc;
+      ids.push(next.id);
+      doc = addNode(
+        doc,
+        makeShapeNode(next.id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name }),
+      );
+    }
+
+    const expanded = new Set(doc.rootChildren);
+    const first = flattenTree(doc, expanded);
+    expect(first.map((e) => e.node.name)).toEqual(['B', 'A']);
+
+    // Property-only change (rename A): compute the diff once, share it.
+    const renamedNode = { ...doc.nodes[ids[0]!], name: 'A renamed' };
+    const renamedDoc = {
+      ...doc,
+      nodes: { ...doc.nodes, [ids[0]!]: renamedNode },
+    } as Document;
+    const shared = computeDocumentDiff(doc, renamedDoc);
+    expect(shared.structureChanged).toBe(false);
+
+    const second = flattenTree(
+      renamedDoc,
+      expanded,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      shared,
+    );
+    expect(second.map((e) => e.node.name)).toEqual(['B', 'A renamed']);
+    // Same projection shape as an internally computed diff would produce.
+    expect(second.map((e) => e.node.id)).toEqual(first.map((e) => e.node.id));
+  });
+
+  it('accepts a structural diff and re-projects the whole tree', () => {
+    let doc = createDocument('shared-diff-structural', true);
+    const { id: shapeId, doc: d2 } = nextNodeId(doc);
+    doc = addNode(
+      d2,
+      makeShapeNode(shapeId, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'A' }),
+    );
+
+    const expanded = new Set(doc.rootChildren);
+    flattenTree(doc, expanded);
+
+    const { id: newId, doc: d3 } = nextNodeId(doc);
+    const addedDoc = addNode(
+      d3,
+      makeShapeNode(newId, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'B' }),
+    );
+    const shared = computeDocumentDiff(doc, addedDoc);
+    expect(shared.structureChanged).toBe(true);
+
+    const entries = flattenTree(
+      addedDoc,
+      new Set(addedDoc.rootChildren),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      shared,
+    );
+    expect(entries.map((e) => e.node.id)).toEqual([newId, shapeId]);
+  });
+});
