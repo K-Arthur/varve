@@ -1,4 +1,5 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from 'react';
+import { documentAccentController } from '../../appearance/documentAccent';
 import {
   refreshInteractivePreviewSettings,
   refreshNavigationSettings,
@@ -61,6 +62,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     applyInterfaceAppearance(uiDensity, fontSizeUI);
   }, [uiDensity, fontSizeUI]);
+
+  // Accent-source preference flows through the same application path as the
+  // density/font contract above: one effect covers mount, change, and reset.
+  // The home shell mounts a provider too; with no document published the
+  // controller simply keeps the fixed accent.
+  const accentSource = settings.appearance.accentSource;
+  useEffect(() => {
+    documentAccentController.setPreference(accentSource);
+  }, [accentSource]);
 
   const persist = useCallback((next: EditorSettings) => {
     setSettings(next);

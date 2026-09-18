@@ -184,6 +184,24 @@ describe('AppearanceSettingsTab', () => {
     expect(stored.appearance.uiDensity).toBe('compact');
     expect(document.documentElement.dataset.density).toBe('compact');
   });
+
+  it('offers the accent source with fixed as the safe default', async () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Appearance' }));
+
+    const accent = screen.getByRole('combobox', { name: 'Accent source' });
+    expect(accent).toHaveTextContent('Fixed');
+    expect(screen.getByText('Brand teal across every theme.')).toBeTruthy();
+
+    fireEvent.click(accent);
+    fireEvent.click(await screen.findByRole('option', { name: 'From document' }));
+
+    expect(screen.getByRole('combobox', { name: 'Accent source' })).toHaveTextContent(
+      'From document',
+    );
+    const stored = JSON.parse(localStorage.getItem('varve-editor-settings')!);
+    expect(stored.appearance.accentSource).toBe('document');
+  });
 });
 
 describe('ExportSettingsTab', () => {

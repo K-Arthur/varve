@@ -100,6 +100,20 @@ const DENSITY_HINT: Record<string, string> = {
   compact: '28px rows show more of the stack at once; text and targets keep their readable floor.',
 };
 
+// Interface accent source. 'document' re-tints accent/interactive controls
+// from the active page; focus rings, canvas selection and handles, semantic
+// feedback, and High-Contrast always keep their fixed colors.
+const ACCENT_SOURCE_OPTIONS = [
+  { value: 'fixed', label: 'Fixed' },
+  { value: 'document', label: 'From document' },
+];
+
+const ACCENT_SOURCE_HINT: Record<string, string> = {
+  fixed: 'Brand teal across every theme.',
+  document:
+    'Controls follow the active page palette. Focus, canvas handles, and status colors stay fixed; grayscale or empty pages keep the fixed accent.',
+};
+
 export interface SettingsDialogProps {
   open: boolean;
   onClose: () => void;
@@ -628,6 +642,15 @@ function AppearanceSection({ onThemeChange }: { onThemeChange: (theme: string) =
         />
       </FieldRow>
       <p className="settings-hint">{DENSITY_HINT[settings.appearance.uiDensity]}</p>
+      <FieldRow label="Accent source">
+        <Select
+          options={ACCENT_SOURCE_OPTIONS}
+          value={settings.appearance.accentSource}
+          onChange={(v) => updateSection('appearance', { accentSource: v })}
+          label="Accent source"
+        />
+      </FieldRow>
+      <p className="settings-hint">{ACCENT_SOURCE_HINT[settings.appearance.accentSource]}</p>
       <SwitchField
         label="Show all menu items (bypass workspace mode filtering)"
         checked={settings.appearance.showAllMenuItems}
