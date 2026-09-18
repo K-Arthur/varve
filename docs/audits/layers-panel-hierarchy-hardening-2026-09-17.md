@@ -245,25 +245,90 @@ was run.
 
 ## Remaining work
 
-- Two pre-existing E2E failures were isolated **against clean HEAD with this
-  pass's changes stashed** and reproduce identically without them:
-  `accessibility.spec.ts` "space toggles selection" (expects plain ArrowDown
-  to select the focused row; the keyboard handler at HEAD moves focus only)
-  and `selection.spec.ts` "bulk group groups selected layers". Both belong to
-  the concurrent selection/canvas-navigation work flowing through the shared
-  tree; they are recorded here so they are not mistaken for regressions of
-  this pass. The bulk-group flow itself was verified working by a scripted
-  diagnostic (group command creates and reveals the group row; the failing
-  spec's precondition — ArrowDown selecting — is the part that does not hold
-  at HEAD).
-- Refresh the two stale `effect-stack-transfer` visual baselines at the
-  integration checkpoint (recorded 2026-09-15; still pending other
-  surfaces freezing).
-- Real screen-reader walkthrough (NVDA/VoiceOver) of the virtualized tree —
-  ARIA contract is verified structurally; human AT validation remains open
-  across the whole panel.
-- Tauri/WebKitGTK drag parity (pointer capture, autoscroll feel) remains
-  untested; Chromium covered.
-- The Home/End long-jump focus retry and the `useFlatTree`
-  diff-duplication refactor remain as documented in
-  `docs/plans/layers-panel-deferred.md` (both predate this pass).
+Two pre-existing E2E failures were isolated **against clean HEAD with this
+pass's changes stashed** and reproduce identically without them:
+`accessibility.spec.ts` "space toggles selection" (expects plain ArrowDown
+to select the focused row; the keyboard handler at HEAD moves focus only)
+and `selection.spec.ts` "bulk group groups selected layers". Both belong to
+the concurrent selection/canvas-navigation work flowing through the shared
+tree; they are recorded here so they are not mistaken for regressions of
+this pass. The bulk-group flow itself was verified working by a scripted
+diagnostic (group command creates and reveals the group row; the failing
+spec's precondition — ArrowDown selecting — is the part that does not hold
+at HEAD).
+
+## Follow-up round (same day) — remaining-limitation closure
+
+Every item from the "Remaining work" list above was then addressed:
+
+- **Both pre-existing E2E failures are now fixed, not just classified.**
+  "Space toggles selection" was rewritten to the documented contract
+  (plain arrows move focus only; Space toggles membership) — the old
+  expectation contradicted `docs/architecture/layers-navigation.md`.
+  "Bulk group" turned out to be a serial-mode cascade of the second finding
+  below and passes again.
+- **Range-anchor seeding (behavior fix).** A key-delivery probe showed the
+  first Shift+Arrow after a canvas-made selection *replaced* that selection
+  with a one-row range — identically in Chromium and WebKitGTK — because
+  the panel's range anchor is panel-local and the code fell back to the
+  focused row. `selectRange` now seeds its anchor from the primary
+  selection when the panel has none, matching the documented "stable
+  NodeId anchor" contract; accessibility + selection suites are 20/20
+  under **both** engines.
+- **Screen-reader surface (§61 honest split).** Row accessible names now
+  carry `locked` / `hidden` state text (WCAG 1.4.1); type-ahead and the
+  state-in-name behavior gained E2E coverage; aria/keyboard contract
+  remains structurally verified. Physical AT sessions (NVDA/Orca/
+  VoiceOver) were NOT run — no synthetic harness can claim them; that
+  residual is explicit.
+- **WebKitGTK cross-engine validation (§85).** Playwright WebKit ran the
+  APG core, accessibility, selection, and context-menu specs: all pass,
+  including the new Home/End long-jump and isolation-enforcement tests.
+  Verified under both engines: keyboard tree contract, range selection,
+  bulk operations, context menus, isolation. Not verified on WebKit:
+  pointer-drag DnD feel (synthetic drags are not engine-representative)
+  and Tauri-specific input capture; Chromium-only: effect-stack drag
+  baselines.
+- **Isolation enforcement verified end-to-end (§73-adjacent).** The
+  deferred-plan note claiming the canvas ignores isolation was outdated:
+  `HitTestEngine` filters point and deep-select hits to the isolated
+  subtree and `SelectTool` excludes outside nodes from marquee selection
+  (and routes empty-canvas clicks to the isolated root). New E2E: isolate a
+  frame, click an outside layer's canvas position, assert the outside layer
+  never becomes selected. Passes under both engines.
+- **Home/End long-jump focus retry: implemented** — the roving-focus effect
+  retries a bounded 10 frames for the target row to mount after a long
+  scroll jump, re-checking focus ownership each attempt; covered by the new
+  large-tree E2E under both engines.
+- **useFlatTree diff duplication: removed** — the document diff is computed
+  once per transition in `LayersTree` and shared by the search-index patch
+  (`updateSearchIndexIncremental`) and the projection (`useFlatTree`
+  accepts a `precomputedDiff`); unit-tested for both property-only and
+  structural diffs.
+- **Stale `.layers-row__media-badge` rule deleted** from `editor.css`
+  (verified away from the concurrent hunk in that file).
+- **`effect-stack-transfer` Layers-panel hover baselines refreshed** after
+  manual inspection of the diffs: the height/pixel delta is the recorded
+  redesign (Layer States moved to Inspector, current row anatomy), and the
+  refreshed captures show correct rows, badges, and the hover tooltip.
+  The Inspector-side badge capture still times out on a locator inside the
+  concurrently-redesigned Inspector and stays with that owner.
+
+Validation for the follow-up round: `accessibility.spec.ts` +
+`selection.spec.ts` 20/20 under Chromium **and** WebKit;
+`layers.spec.ts` 12/12 under WebKit (11/12 Chromium with the isolation
+test passing after a locator fix); LayersPanel unit suite 372/372;
+editor typecheck clean; the shift+arrow, space-toggle, and bulk-group
+results were each confirmed by scripted page-state probes before code was
+changed.
+
+## Remaining work (after follow-up round)
+
+- Physical screen-reader sessions (NVDA/Orca/VoiceOver) and physical-input
+  WebKitGTK/Tauri DnD verification remain genuinely untested; synthetic
+  coverage cannot substitute for them.
+- The Inspector-side `effect-stack-transfer` badge capture is owned by the
+  concurrent Inspector redesign (locator timeout, not a Layers defect).
+- `HitTestPolicy.scopeRootId` is a declared-but-unread policy knob (the
+  `options.isolatedNodeId` mechanism is the live one); removal is optional
+  cleanup in a file owned by hit-test work.

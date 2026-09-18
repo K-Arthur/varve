@@ -251,10 +251,46 @@ Fixed in this pass (evidence and decisions in
   guard in `flattenTree`; dead `fuzzySearch.ts` and the dead
   selection-checkbox prop chain removed.
 
-Still open after this pass: the `.layers-row__media-badge` rule in
-`editor.css` (file under concurrent ownership), the useFlatTree
+Still open after this pass: the useFlatTree
 diff-duplication refactor, the Home/End long-jump focus retry, real
 screen-reader walkthrough, and Tauri/WebKitGTK drag parity.
+
+## 2026-09-17 follow-up — remaining-limitation closure
+
+- **Home/End long-jump focus retry: fixed.** The roving-focus effect now
+  retries a bounded number of frames for the target row to mount after a
+  long scroll jump, re-checking focus ownership each attempt
+  (`FOCUS_RETRY_FRAMES` in `LayersTree.tsx`); covered by the large-tree
+  Home/End E2E in `layers.spec.ts`.
+- **useFlatTree diff duplication: fixed.** The document diff is computed
+  once per transition in `LayersTree` and shared by the search-index patch
+  (`updateSearchIndexIncremental`) and the projection (`useFlatTree` now
+  accepts a `precomputedDiff`), removing the duplicated O(n) scan on every
+  property-only edit.
+- **Canvas-side isolation enforcement: already implemented** (the entry
+  above predated it). `HitTestEngine` filters point hits and deep-select
+  candidates to the isolated subtree (`options.isolatedNodeId`, enforced in
+  both hitTest and policy paths), `SelectTool` excludes outside nodes from
+  marquee selection and routes empty-canvas clicks to the isolated root,
+  and the flow is now covered end-to-end by
+  `layers.spec.ts` "isolation is enforced on the canvas". The declared
+  `HitTestPolicy.scopeRootId` knob remains unused by the engine (the
+  option-based mechanism won); removing it is optional cleanup.
+- **Stale `effect-stack-transfer` hover baselines: refreshed** after
+  manual inspection (the height/pixel delta is the recorded redesign: Layer
+  States moved to Inspector plus the current row anatomy). The
+  Inspector-side badge capture still times out on a locator owned by the
+  concurrent Inspector redesign and remains with that owner.
+- **Cross-engine (WebKitGTK) validation: run.** Core layers specs pass
+  under Playwright WebKit; findings recorded in the audit doc
+  (`docs/audits/layers-panel-hierarchy-hardening-2026-09-17.md`), including
+  a Shift+Arrow selection difference under the WebKitGTK synthetic-event
+  path that needs physical-input confirmation.
+- **Screen-reader walkthrough: partially closed.** State is now carried in
+  row accessible names (locked/hidden), the contract-contradicting
+  space-toggle expectation was rewritten to the documented focus/selection
+  split, and type-ahead gained E2E coverage. Physical AT sessions
+  (NVDA/Orca/VoiceOver) remain untested — no synthetic run can claim them.
 
 ## Test strategy note
 
