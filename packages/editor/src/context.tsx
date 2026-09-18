@@ -360,6 +360,7 @@ import {
   clampZoom,
   type DistributeMode,
   fitBoundsCameraWithRotation,
+  generateKeyBetween,
   revealBoundsCameraWithRotation,
   screenDeltaToWorld,
   type TidyLayoutOptions,
@@ -5185,6 +5186,38 @@ export function EditorProvider({
               // means the node sits under the active page's contentRoot — not
               // doc.rootChildren, which holds page group IDs.
               const parentId = getParentFast(s.document, id, parentCacheRef.current);
+              // The clone carries the SOURCE node's order key verbatim.
+              // Splicing it next to its source leaves two siblings with the
+              // same key, and any later reorder through that slot throws
+              // `generateKeyBetween`'s "a >= b" and takes the editor down.
+              // Give the duplicate a key after the parent's current last
+              // child before it is appended.
+              const orderPatch: Record<string, SceneNode> = {};
+              const resolveSiblingIds = (container: ContainerNode | null): NodeId[] =>
+                container ? (container.children ?? []) : d.rootChildren;
+              let siblingIds: NodeId[] = [];
+              let destContainerId: NodeId | null = null;
+              if (parentId === null) {
+                const contentRootId = activeWorkspaceContentRoot(d, s.workspaceMode);
+                destContainerId = contentRootId && d.nodes[contentRootId] ? contentRootId : null;
+                siblingIds = resolveSiblingIds(
+                  destContainerId ? (d.nodes[destContainerId] as ContainerNode) : null,
+                );
+              } else {
+                const parent = d.nodes[parentId];
+                if (parent && 'children' in parent) {
+                  destContainerId = parentId;
+                  siblingIds = (parent as ContainerNode).children ?? [];
+                }
+              }
+              if (destContainerId != null) {
+                const lastSiblingId: NodeId | undefined =
+                  siblingIds.length > 0 ? siblingIds[siblingIds.length - 1] : undefined;
+                const prevOrder =
+                  lastSiblingId != null ? (d.nodes[lastSiblingId]?.order ?? null) : null;
+                const freshOrder = generateKeyBetween(prevOrder, null);
+                orderPatch[newId] = { ...d.nodes[newId], order: freshOrder } as SceneNode;
+              }
               if (parentId === null) {
                 const contentRootId = activeWorkspaceContentRoot(d, s.workspaceMode);
                 if (contentRootId && d.nodes[contentRootId]) {
@@ -5194,11 +5227,16 @@ export function EditorProvider({
                     ...d,
                     nodes: {
                       ...d.nodes,
+                      ...orderPatch,
                       [contentRootId]: { ...cr, children: [...crChildren, newId] } as SceneNode,
                     },
                   };
                 } else {
-                  d = { ...d, rootChildren: [...d.rootChildren, newId] };
+                  d = {
+                    ...d,
+                    nodes: { ...d.nodes, ...orderPatch },
+                    rootChildren: [...d.rootChildren, newId],
+                  };
                 }
               } else {
                 const parent = d.nodes[parentId];
@@ -5207,6 +5245,7 @@ export function EditorProvider({
                     ...d,
                     nodes: {
                       ...d.nodes,
+                      ...orderPatch,
                       [parentId]: { ...parent, children: [...(parent.children || []), newId] },
                     },
                   };
@@ -8635,7 +8674,7 @@ export function EditorProvider({
           bounds,
           maxLines: options?.maxLines,
         });
-        if (!plan || !plan.groupId) {
+        if (!plan?.groupId) {
           announcerRef.current?.announceOperation(
             'Create grid artwork',
             'The grid could not be resolved into bounded geometry.',
