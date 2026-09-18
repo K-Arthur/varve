@@ -227,4 +227,84 @@ test.describe('Layers Panel - APG Tree View', () => {
       expect(newFirstName).not.toBe(firstName);
     }
   });
+
+  test('Home/End long jump focuses the mounted row in a large tree', async ({ page }) => {
+    // Enough rows to overflow the virtualizer's mounted window: the End
+    // target row only exists after the scroll completes, which is exactly
+    // the window where DOM focus used to lag one row behind the highlight.
+    await page
+      .locator('#file-import-input')
+      .setInputFiles('tests/e2e/fixtures/layers-stress-board.svg');
+    await page.waitForTimeout(800);
+    const tree = page.getByRole('tree', { name: /layers/i });
+    const overflows = await page.evaluate(() => {
+      const el = document.querySelector('.layers-panel__tree');
+      return el ? el.scrollHeight > el.clientHeight + 8 : false;
+    });
+    expect(overflows).toBe(true);
+
+    await tree.focus();
+    await page.keyboard.press('End');
+    const last = page.getByRole('treeitem').last();
+    await expect(last).toBeFocused({ timeout: 10_000 });
+    await expect(last).toHaveClass(/layers-row--focused/);
+
+    await page.keyboard.press('Home');
+    await expect(page.getByRole('treeitem').first()).toBeFocused({ timeout: 10_000 });
+  });
+
+  test('isolation is enforced on the canvas: outside layers are not selectable', async ({
+    page,
+  }) => {
+    // Frame F with a child inside, plus a loose rect outside.
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('no canvas');
+    const drag = async (x1: number, y1: number, x2: number, y2: number) => {
+      await page.mouse.move(box.x + x1, box.y + y1);
+      await page.mouse.down();
+      await page.mouse.move(box.x + x2, box.y + y2, { steps: 3 });
+      await page.mouse.up();
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(100);
+    };
+    await page.keyboard.press('f');
+    await drag(100, 100, 300, 260);
+    await page.keyboard.press('r');
+    await drag(140, 140, 180, 180);
+    await page.keyboard.press('r');
+    await drag(500, 400, 560, 460);
+
+    // The front-most root-level leaf is the outside rect (drawn last). Pin
+    // its durable node id before isolating so the final assertion targets
+    // exactly that row.
+    const outsideRow = page
+      .locator('[role="treeitem"][aria-level="1"]:not([aria-expanded])')
+      .first();
+    const outsideId = await outsideRow.getAttribute('data-node-id');
+    if (!outsideId) throw new Error('outside rect row missing');
+
+    // Isolate the frame (the only container row).
+    const frameRow = page.locator('[role="treeitem"][aria-expanded]').first();
+    await frameRow.click({ button: 'right' });
+    await page
+      .locator('.varve-ctxmenu')
+      .getByRole('menuitem', { name: /isolate/i })
+      .click();
+    await expect(page.locator('.layers-panel__isolation-breadcrumb')).toBeVisible();
+
+    // Click the loose rect's canvas position: canvas-side isolation keeps it
+    // unselectable, so nothing outside the subtree may become selected.
+    await page.mouse.click(box.x + 530, box.y + 430);
+    await page.waitForTimeout(200);
+    await expect(page.locator('.layers-panel__isolation-breadcrumb')).toBeVisible();
+
+    // Exit isolation and confirm the loose rect was never selected.
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.layers-panel__isolation-breadcrumb')).toBeHidden();
+    await expect(page.locator(`[role="treeitem"][data-node-id="${outsideId}"]`)).toHaveAttribute(
+      'aria-selected',
+      'false',
+    );
+  });
 });

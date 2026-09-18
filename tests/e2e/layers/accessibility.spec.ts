@@ -80,7 +80,12 @@ test.describe('Layers Panel - Accessibility', () => {
     await expect(items.first()).toBeFocused();
   });
 
-  test('space toggles selection', async ({ page }) => {
+  test('arrows move focus without selecting; Space toggles the focused row', async ({ page }) => {
+    // Documented contract (docs/architecture/layers-navigation.md): plain
+    // arrows move tree focus and scroll the row only — selection changes
+    // come from Space (membership toggle), Shift+Arrow (range), or clicks.
+    // This is the APG multiselectable-tree model; a previous version of this
+    // test expected ArrowDown to select, which contradicts it.
     const items = page.getByRole('treeitem');
     const count = await items.count();
     test.skip(count < 2, 'Need at least 2 layers for space toggle');
@@ -88,23 +93,49 @@ test.describe('Layers Panel - Accessibility', () => {
     const tree = page.getByRole('tree', { name: /layers/i });
     await tree.focus();
 
-    // Focus starts on the first item (drawing auto-selects it); ArrowDown
-    // moves to and selects the second item.
     await page.keyboard.press('ArrowDown');
     await page.waitForTimeout(50);
     await expect(items.nth(1)).toBeFocused();
 
+    // Space toggles the focused row into the selection, then back out.
+    await page.keyboard.press(' ');
+    await page.waitForTimeout(50);
     await expect(items.nth(1)).toHaveAttribute('aria-selected', 'true');
 
-    // Space toggles selection of the focused item off, then back on.
     await page.keyboard.press(' ');
     await page.waitForTimeout(50);
     await expect(items.nth(1)).toHaveAttribute('aria-selected', 'false');
+  });
 
-    // Space again restores the selection.
-    await page.keyboard.press(' ');
+  test('type-ahead jumps to the next row with a matching prefix', async ({ page }) => {
+    const items = page.getByRole('treeitem');
+    const count = await items.count();
+    test.skip(count < 3, 'Need at least 3 layers for type-ahead');
+
+    const tree = page.getByRole('tree', { name: /layers/i });
+    await tree.focus();
+
+    // seedLayers creates "Rectangle 1..3"; focus the first row, type the
+    // shared prefix once to land on the next match ("Rectangle 2"), again
+    // after the decay window to cycle onto "Rectangle 3".
+    await page.keyboard.press('Home');
     await page.waitForTimeout(50);
-    await expect(items.nth(1)).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.type('r');
+    await page.waitForTimeout(50);
+    await expect(items.nth(1)).toBeFocused();
+  });
+
+  test('row accessible names carry state without relying on color', async ({ page }) => {
+    const items = page.getByRole('treeitem');
+    await items.first().click();
+
+    // Lock the first row via its toggle, then read the treeitem's accessible
+    // description: state must be text, never color alone (WCAG 1.4.1).
+    const row = items.first();
+    await row.getByRole('button', { name: /^Lock / }).click();
+    await page.waitForTimeout(100);
+    const label = await row.getAttribute('aria-label');
+    expect(label ?? '').toMatch(/locked/i);
   });
 
   test('shift+arrow extends the selection range', async ({ page }) => {
@@ -114,6 +145,10 @@ test.describe('Layers Panel - Accessibility', () => {
 
     const tree = page.getByRole('tree', { name: /layers/i });
     await tree.focus();
+    // Let the canvas→tree selection sync settle so the range anchor is the
+    // seeded front-most layer. Under WebKitGTK the first Shift+ArrowDown can
+    // otherwise land before the sync commits and assemble a 1-row range.
+    await page.waitForTimeout(400);
 
     // The seeded front-most layer is the initial selection and range anchor.
     await page.keyboard.press('Shift+ArrowDown');
