@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <title>Layers baseline: deep nesting, masks, unicode and long names</title>
+  <defs>
+    <clipPath id="hero-clip">
+      <circle cx="150" cy="150" r="90"/>
+    </clipPath>
+    <clipPath id="badge-clip">
+      <rect x="0" y="0" width="120" height="60" rx="12"/>
+    </clipPath>
+  </defs>
+
+  <!-- Deep nesting: 22 nested groups, each with a named leaf -->
+  <g id="L01 Root Capsule">
+    <rect id="Capsule Outline" x="40" y="40" width="720" height="520" fill="none" stroke="#94a3b8"/>
+    <g id="L02 Shell">
+      <g id="L03 Casing">
+        <g id="L04 Body">
+          <g id="L05 Core Housing">
+            <g id="L06 Power Unit">
+              <g id="L07 Cell Stack">
+                <g id="L08 Cell Array">
+                  <g id="L09 Module A">
+                    <g id="L10 Substrate">
+                      <g id="L11 Die">
+                        <g id="L12 Wafer">
+                          <g id="L13 Ingot">
+                            <g id="L14 Crystal">
+                              <g id="L15 Lattice">
+                                <g id="L16 Unit Cell">
+                                  <g id="L17 Motif">
+                                    <g id="L18 Cluster">
+                                      <g id="L19 Pair">
+                                        <g id="L20 Twin">
+                                          <g id="L21 Atom">
+                                            <g id="L22 Nucleus">
+                                              <circle id="Nucleus Dot" cx="120" cy="560" r="6" fill="#0f766e"/>
+                                            </g>
+                                            <rect id="Electron Marker" x="128" y="554" width="24" height="12" fill="#14b8a6"/>
+                                          </g>
+                                          <circle id="Valence" cx="170" cy="560" r="5" fill="#2dd4bf"/>
+                                        </g>
+                                      </g>
+                                    </g>
+                                  </g>
+                                </g>
+                              </g>
+                            </g>
+                          </g>
+                        </g>
+                      </g>
+                    </g>
+                  </g>
+                </g>
+              </g>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+
+  <!-- Masked group: clipPath applied to a group -->
+  <g clip-path="url(#hero-clip)" id="Hero Medallion">
+    <rect id="Sky Field" x="60" y="60" width="180" height="180" fill="#0ea5e9"/>
+    <circle id="Sun Disc" cx="150" cy="150" r="40" fill="#fbbf24"/>
+    <path id="Ridge Line" d="M 70 200 L 130 140 L 170 190 L 210 130 L 230 200 Z" fill="#166534"/>
+  </g>
+
+  <!-- Second masked group with rounded-rect matte -->
+  <g clip-path="url(#badge-clip)" id="Status Badge">
+    <rect id="Badge Fill" x="300" y="80" width="120" height="60" fill="#7c3aed"/>
+    <text id="Badge Label" x="312" y="118" font-family="sans-serif" font-size="20" fill="#ffffff">ACTIVE</text>
+  </g>
+
+  <!-- Unicode / RTL / long names -->
+  <text id="Überschrift mit Umlauten" x="40" y="280" font-family="sans-serif" font-size="16">Überschrift mit Umlauten</text>
+  <text id="العنوان الرئيسي" x="40" y="310" font-family="sans-serif" font-size="16">العنوان الرئيسي</text>
+  <text id="Extraordinarily long layer name that must truncate gracefully inside any reasonable panel width without losing its identity" x="40" y="340" font-family="sans-serif" font-size="16">long name sample</text>
+  <text id="日本語のレイヤー名" x="40" y="370" font-family="sans-serif" font-size="16">日本語のレイヤー名</text>
+
+  <!-- Plain shapes for a text/vector mix -->
+  <rect id="Poster Panel" x="480" y="300" width="140" height="90" fill="#f97316"/>
+  <circle id="Accent Circle" cx="680" cy="340" r="45" fill="#ec4899"/>
+  <path id="Gesture Stroke" d="M 500 420 C 540 380, 600 460, 660 420" stroke="#334155" stroke-width="4" fill="none"/>
+  <text id="Caption Text" x="500" y="470" font-family="sans-serif" font-size="14">Caption under artwork</text>
+</svg>

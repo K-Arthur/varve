@@ -51,6 +51,8 @@ export interface BuildLayerMenuItemsArgs {
   documentNodes: Record<string, SceneNode>;
   /** Effective lock (own lock or an ancestor's) for a node id. */
   isEffectivelyLocked: (id: string) => boolean;
+  /** Effective visibility (own flag AND all ancestors visible) for a node id. */
+  isEffectivelyHidden: (id: string) => boolean;
   handleRenameFromMenu: () => void;
   handleBatchRenameFromMenu: () => void;
   handleDeleteFromMenu: () => void;
@@ -70,6 +72,10 @@ export interface BuildLayerMenuItemsArgs {
   handleBringForward: () => void;
   handleSendBackward: () => void;
   handleMoveToBack: () => void;
+  /** Move the context target into the container displayed above it. */
+  handleIndentFromMenu: () => void;
+  /** Move the context target out of its container. */
+  handleOutdentFromMenu: () => void;
   handleCollapseOthers: () => void;
   handleIsolate: () => void;
   handleLockFromMenu: (locked: boolean) => void;
@@ -142,6 +148,7 @@ export function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuE
     selection,
     documentNodes,
     isEffectivelyLocked,
+    isEffectivelyHidden,
     handleRenameFromMenu,
     handleBatchRenameFromMenu,
     handleDeleteFromMenu,
@@ -161,6 +168,8 @@ export function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuE
     handleBringForward,
     handleSendBackward,
     handleMoveToBack,
+    handleIndentFromMenu,
+    handleOutdentFromMenu,
     handleCollapseOthers,
     handleIsolate,
     handleLockFromMenu,
@@ -302,6 +311,18 @@ export function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuE
       icon: 'ArrowDownToLine',
       shortcut: menuShortcutForAction('sendBack'),
       onAction: handleMoveToBack,
+    },
+    {
+      id: 'indent',
+      label: 'Move Into Container Above',
+      icon: 'CornerDownRight',
+      onAction: handleIndentFromMenu,
+    },
+    {
+      id: 'outdent',
+      label: 'Move Out of Container',
+      icon: 'CornerUpRight',
+      onAction: handleOutdentFromMenu,
     },
   );
 
@@ -542,6 +563,11 @@ export function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuE
   const allOwnLocked = selectionAllOwnLocked(selection, documentNodes);
   const allHidden = selectionAllHidden(selection, documentNodes);
   const lockBlockedByAncestor = effectiveLocked && !ownLocked;
+  // A node can carry visible=true yet paint nothing because an ancestor is
+  // hidden. The command still flips the own flag (the right eventual state),
+  // but it must explain why the result will not be visible until the
+  // restricting ancestor is shown too.
+  const hiddenByAncestor = !allHidden && isEffectivelyHidden(nodeId);
 
   items.push({
     id: 'lock',
@@ -555,6 +581,7 @@ export function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuE
     id: 'hide',
     label: allHidden ? 'Show' : 'Hide',
     icon: allHidden ? 'Eye' : 'EyeOff',
+    description: hiddenByAncestor ? 'Hidden by an ancestor layer' : undefined,
     onAction: () => handleVisibilityFromMenu(allHidden),
   });
 

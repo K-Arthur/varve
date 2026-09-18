@@ -1,4 +1,5 @@
 import type { Affine } from '@varve/engine';
+import type { Document } from '@varve/scene';
 import {
   addChild,
   addNode,
@@ -19,6 +20,9 @@ import {
   invalidateSubtree,
 } from './transformCache';
 import {
+  hidingAncestorOf,
+  isNodeEffectivelyHidden,
+  isNodeEffectivelyLocked,
   nodeLocalBounds,
   nodeWorldBounds,
   nodeWorldTransform,
@@ -727,5 +731,53 @@ describe('transformCache getWorldBounds group handling', () => {
     const cache = createTransformCache();
     const groupBounds = getCachedWorldBounds(cache, d, gId);
     expect(groupBounds).toEqual({ x: 5, y: 7, w: 125, h: 48 });
+  });
+});
+
+describe('isNodeEffectivelyHidden / hidingAncestorOf', () => {
+  function makeHiddenChainDoc(): { doc: Document } {
+    let doc = createDocument();
+    const frame = makeFrameNode('f1', { name: 'F1', w: 100, h: 100, children: [] });
+    doc = addNode(doc, frame);
+    const inner = makeFrameNode('f2', { name: 'F2', w: 50, h: 50, children: [] });
+    doc = addChild(doc, 'f1', inner);
+    const leaf = makeShapeNode('s1', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'S1' });
+    doc = addChild(doc, 'f2', leaf);
+    return { doc };
+  }
+
+  function withNode(doc: Document, id: string, patch: Record<string, unknown>): Document {
+    return { ...doc, nodes: { ...doc.nodes, [id]: { ...doc.nodes[id], ...patch } } } as Document;
+  }
+
+  it('a directly hidden node is effectively hidden with no hiding ancestor', () => {
+    const { doc } = makeHiddenChainDoc();
+    const withHidden = withNode(doc, 's1', { visible: false });
+    expect(isNodeEffectivelyHidden(withHidden, 's1')).toBe(true);
+    expect(hidingAncestorOf(withHidden, 's1')).toBeNull();
+  });
+
+  it('a child of a hidden group is effectively hidden through the ancestor', () => {
+    const { doc } = makeHiddenChainDoc();
+    const withHidden = withNode(doc, 'f1', { visible: false });
+    expect(doc.nodes.s1?.visible).not.toBe(false);
+    expect(isNodeEffectivelyHidden(withHidden, 's1')).toBe(true);
+    expect(hidingAncestorOf(withHidden, 's1')).toBe('f1');
+    // The nearest hiding ancestor wins when several are hidden.
+    const both = withNode(withHidden, 'f2', { visible: false });
+    expect(hidingAncestorOf(both, 's1')).toBe('f2');
+  });
+
+  it('a live node in a fully visible chain is neither hidden nor restricted', () => {
+    const { doc } = makeHiddenChainDoc();
+    expect(isNodeEffectivelyHidden(doc, 's1')).toBe(false);
+    expect(hidingAncestorOf(doc, 's1')).toBeNull();
+  });
+
+  it('mirrors the effective-lock model for a matching chain', () => {
+    const { doc } = makeHiddenChainDoc();
+    const withLocked = withNode(doc, 'f1', { locked: true });
+    expect(isNodeEffectivelyLocked(withLocked, 's1')).toBe(true);
+    expect(isNodeEffectivelyHidden(withLocked, 's1')).toBe(false);
   });
 });

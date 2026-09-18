@@ -9,8 +9,10 @@ import {
   designCanvasContentRoot,
   makeFrameNode,
   makeShapeNode,
+  type NodeId,
   nextNodeId,
   renameNode,
+  reparentNode,
 } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_FILTER, type LayerFilterSpec } from './layerFilterTypes';
@@ -619,5 +621,72 @@ describe('flattenTree (Design Canvas surface)', () => {
 
     expect(entries.map((entry) => entry.node.id)).toEqual([artworkId]);
     expect(entries.some((entry) => entry.node.id === rootId)).toBe(false);
+  });
+});
+
+describe('flattenTree (corrupt documents)', () => {
+  /**
+   * The panel must not freeze, infinitely recurse, or fabricate structure
+   * when a damaged document is loaded (task §73). Each case constructs a
+   * structurally invalid Document directly.
+   */
+  const allExpanded = (doc: Document) => new Set(Object.keys(doc.nodes) as NodeId[]);
+
+  it('skips children that reference a missing node id', () => {
+    let doc = createDocument('corrupt-missing', true);
+    const f = nextNodeId(doc);
+    doc = addNode(f.doc, makeFrameNode(f.id, { w: 10, h: 10, children: [], name: 'F' }));
+    // A child id that does not exist in doc.nodes (dangling reference).
+    const withDangling = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        [f.id]: { ...doc.nodes[f.id], children: ['ghost-id' as NodeId] },
+      },
+    } as Document;
+    const entries = flattenTree(withDangling, allExpanded(withDangling));
+    expect(entries.map((e) => e.node.id)).toEqual([f.id]);
+  });
+
+  it('projects a node referenced twice by its parent exactly once', () => {
+    let doc = createDocument('corrupt-duplicate', true);
+    const f = nextNodeId(doc);
+    doc = addNode(f.doc, makeFrameNode(f.id, { w: 10, h: 10, children: [], name: 'F' }));
+    const s = nextNodeId(doc);
+    doc = addNode(
+      s.doc,
+      makeShapeNode(s.id, { kind: 'rect', x: 0, y: 0, w: 5, h: 5 }, { name: 'S' }),
+    );
+    doc = reparentNode(doc, s.id, f.id, 0);
+    const duplicated = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        [f.id]: { ...doc.nodes[f.id], children: [s.id, s.id] },
+      },
+    } as Document;
+    const entries = flattenTree(duplicated, allExpanded(duplicated));
+    const shapeRows = entries.filter((e) => e.node.id === s.id);
+    expect(shapeRows).toHaveLength(1);
+  });
+
+  it('terminates on a parent/child cycle and emits each node once', () => {
+    let doc = createDocument('corrupt-cycle', true);
+    const a = nextNodeId(doc);
+    doc = addNode(a.doc, makeFrameNode(a.id, { w: 10, h: 10, children: [], name: 'A' }));
+    const b = nextNodeId(doc);
+    doc = addNode(b.doc, makeFrameNode(b.id, { w: 10, h: 10, children: [], name: 'B' }));
+    // Damage the chain so each container names the other as a child.
+    const cycled = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        [a.id]: { ...doc.nodes[a.id], children: [b.id] },
+        [b.id]: { ...doc.nodes[b.id], children: [a.id] },
+      },
+    } as Document;
+    const entries = flattenTree(cycled, allExpanded(cycled));
+    expect(entries).toHaveLength(2);
+    expect(entries.map((e) => e.node.id).sort()).toEqual([a.id, b.id].sort());
   });
 });

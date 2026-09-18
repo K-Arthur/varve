@@ -40,6 +40,10 @@ interface UseTreeKeyboardNavigationArgs {
   ) => number | null;
   startRename: (id: NodeId) => void;
   reparentNode: (id: NodeId, parentId: NodeId | null, toIndex: number) => void;
+  /** Move the focused selection into the container displayed above (indent). */
+  indentSelection: () => void;
+  /** Move the focused selection out of its container, below its block (outdent). */
+  outdentSelection: () => void;
   announce: (message: string) => void;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   onContextMenuKeyboard?: (id: NodeId, focusedRow?: HTMLElement) => void;
@@ -65,6 +69,8 @@ export function useTreeKeyboardNavigation({
   handleTypeAhead,
   startRename,
   reparentNode,
+  indentSelection,
+  outdentSelection,
   announce,
   virtualizer,
   onContextMenuKeyboard,
@@ -215,6 +221,22 @@ export function useTreeKeyboardNavigation({
         return;
       }
 
+      // Keyboard structural editing beyond sibling order: Ctrl+Alt+] indents
+      // the focused selection into the container displayed above it,
+      // Ctrl+Alt+[ outdents it below its container's block. Same physical
+      // keys as the sibling reorder but with Alt — level change vs position
+      // change. Free in the global registry (Alt alone rotates the view);
+      // see layerIndentPlan.ts for the order model.
+      if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key === '[' || e.key === ']')) {
+        e.preventDefault();
+        if (e.key === ']') {
+          indentSelection();
+        } else {
+          outdentSelection();
+        }
+        return;
+      }
+
       // Keyboard reorder: Ctrl+[ move up (visually, toward front-most),
       // Ctrl+] move down (visually, toward back-most).
       if ((e.ctrlKey || e.metaKey) && (e.key === '[' || e.key === ']')) {
@@ -286,6 +308,8 @@ export function useTreeKeyboardNavigation({
       handleTypeAhead,
       startRename,
       reparentNode,
+      indentSelection,
+      outdentSelection,
       announce,
       virtualizer,
       onContextMenuKeyboard,

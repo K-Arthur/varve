@@ -76,6 +76,21 @@ function lockedParentDocument(): { doc: Document; parent: SceneNode; child: Scen
   };
 }
 
+function hiddenParentDocument(): { doc: Document; parent: SceneNode; child: SceneNode } {
+  const parent = makeNode('parent', 'Parent', 'frame', { visible: false, children: ['child'] });
+  const child = makeNode('child', 'Child');
+  const base = createDocument('hidden-ancestor');
+  return {
+    doc: {
+      ...base,
+      rootChildren: ['parent'],
+      nodes: { parent, child },
+    },
+    parent,
+    child,
+  };
+}
+
 describe('LayersRow roving tabindex', () => {
   it('gives the treeitem tabIndex=0 when focused', () => {
     const { container } = renderRow({ focused: true });
@@ -130,6 +145,46 @@ describe('LayersRow effective lock state', () => {
     const { container } = renderRow({ node: parent, doc });
 
     expect(container.querySelector('button[aria-label="Unlock Parent"]')).not.toBeNull();
+  });
+});
+
+describe('LayersRow effective visibility state', () => {
+  it('marks a child of a hidden group as inherited-hidden and names the restricting layer', () => {
+    const { doc, child } = hiddenParentDocument();
+    const { container } = renderRow({ node: child, doc, depth: 1 });
+    const row = container.querySelector('[role="treeitem"]');
+
+    // Distinct from both a live row and a directly hidden row.
+    expect(row).toHaveClass('layers-row--hidden-inherited');
+    expect(row).not.toHaveClass('layers-row--hidden');
+
+    const eye = container.querySelector('button[aria-label="Child is hidden by Parent"]');
+    expect(eye).not.toBeNull();
+    expect(eye).toHaveClass('layers-row__toggle--visibility-inherited');
+    // The row's own visible flag is still on, so pressed state stays false.
+    expect(eye).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('keeps the direct-hidden treatment for a row hidden by its own flag', () => {
+    const hidden = makeNode('n1', 'Hidden', 'shape', { visible: false });
+    const { container } = renderRow({ node: hidden });
+    const row = container.querySelector('[role="treeitem"]');
+
+    expect(row).toHaveClass('layers-row--hidden');
+    expect(row).not.toHaveClass('layers-row--hidden-inherited');
+    expect(container.querySelector('button[aria-label="Show Hidden"]')).toHaveClass(
+      'layers-row__toggle--visibility-off',
+    );
+  });
+
+  it('keeps visibility toggling available for an inherited-hidden child', () => {
+    const { doc, child } = hiddenParentDocument();
+    const onToggleVisibility = vi.fn();
+    const { container } = renderRow({ node: child, doc, onToggleVisibility });
+    const eye = container.querySelector('button[aria-label="Child is hidden by Parent"]');
+
+    fireEvent.click(eye!);
+    expect(onToggleVisibility).toHaveBeenCalledWith('child');
   });
 });
 

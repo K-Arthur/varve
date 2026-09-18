@@ -58,6 +58,7 @@ function baseArgs(
     selection: [node.id],
     documentNodes: { [node.id]: node },
     isEffectivelyLocked: (id) => (id === node.id ? node.locked : false),
+    isEffectivelyHidden: (id) => (id === node.id ? node.visible === false : false),
     handleRenameFromMenu: vi.fn(),
     handleBatchRenameFromMenu: vi.fn(),
     handleDeleteFromMenu: vi.fn(),
@@ -77,6 +78,8 @@ function baseArgs(
     handleBringForward: vi.fn(),
     handleSendBackward: vi.fn(),
     handleMoveToBack: vi.fn(),
+    handleIndentFromMenu: vi.fn(),
+    handleOutdentFromMenu: vi.fn(),
     handleCollapseOthers: vi.fn(),
     handleIsolate: vi.fn(),
     handleLockFromMenu: vi.fn(),
@@ -160,6 +163,18 @@ describe('buildLayerContextMenuItems — state-aware commands', () => {
     expect(lock?.label).toBe('Lock');
     expect(lock?.disabled).toBe(true);
     expect(lock?.description).toMatch(/ancestor/i);
+  });
+
+  it('describes the restricting ancestor on Hide when the layer is hidden through a parent', () => {
+    const child = makeNode('n1', 'Child');
+    const items = buildLayerContextMenuItems(baseArgs(child, { isEffectivelyHidden: () => true }));
+    const hide = findAction(items, 'hide');
+    expect(hide?.label).toBe('Hide');
+    expect(hide?.description).toMatch(/ancestor/i);
+    // No false positive for a live layer.
+    expect(
+      findAction(buildLayerContextMenuItems(baseArgs(makeNode('n2', 'Live'))), 'hide')?.description,
+    ).toBeUndefined();
   });
 
   it('invokes the visibility handler with true when the selection is entirely hidden', () => {

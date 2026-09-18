@@ -8,6 +8,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import type { Virtualizer } from '@tanstack/react-virtual';
 import { getInstanceStatus, type NodeId, type SceneNode } from '@varve/scene';
+import { type ComponentProps, memo } from 'react';
 import { useEditor } from '../../context';
 import { useEffectStackDrag } from '../Shell/effectStackDragContext';
 import { LayersRow } from './LayersRow';
@@ -47,7 +48,6 @@ export interface SortableVirtualRowProps {
   onToggleVisibility: (id: NodeId) => void;
   onToggleLock: (id: NodeId) => void;
   onToggleSolo?: (id: NodeId) => void;
-  onToggleSelectionCheckbox?: (id: NodeId) => void;
   onFocus: (idx: number) => void;
   idx: number;
   siblingIndex?: number;
@@ -65,7 +65,7 @@ export interface SortableVirtualRowProps {
   onOpenAdjustment: (id: NodeId) => void;
 }
 
-export function SortableVirtualRow({
+function SortableVirtualRowImpl({
   node,
   depth,
   selected,
@@ -96,7 +96,6 @@ export function SortableVirtualRow({
   onToggleVisibility,
   onToggleLock,
   onToggleSolo,
-  onToggleSelectionCheckbox,
   onFocus,
   idx,
   siblingIndex,
@@ -215,7 +214,6 @@ export function SortableVirtualRow({
         onToggleVisibility={onToggleVisibility}
         onToggleLock={onToggleLock}
         onToggleSolo={onToggleSolo}
-        onToggleSelectionCheckbox={onToggleSelectionCheckbox}
         onFocus={onFocus}
         idx={idx}
         totalRows={totalRows}
@@ -243,3 +241,36 @@ export function SortableVirtualRow({
     </div>
   );
 }
+
+/**
+ * Memoized like LayersRow, with two value-based exceptions:
+ *  - `virtualItem` is a fresh object per virtualizer recalculation but only
+ *    `index`/`start` are consumed (position + data-index);
+ *  - `virtualizer.options.count` feeds the ARIA setsize fallback, and count
+ *    changes must re-render every row even when each row's own props held.
+ * Everything else compares by reference: unchanged entries keep their node
+ * reference (useFlatTree's property-only path), and LayersTree's handlers
+ * are useCallback-stable. This skips re-rendering every mounted row on
+ * tree-local state churn (drag hover, roving focus, scrub preview) while
+ * context subscriptions still re-render through useEditor as before.
+ */
+export const SortableVirtualRow = memo(
+  SortableVirtualRowImpl,
+  (
+    a: ComponentProps<typeof SortableVirtualRowImpl>,
+    b: ComponentProps<typeof SortableVirtualRowImpl>,
+  ) => {
+    if (
+      a.virtualItem.index !== b.virtualItem.index ||
+      a.virtualItem.start !== b.virtualItem.start
+    ) {
+      return false;
+    }
+    if (a.virtualizer.options.count !== b.virtualizer.options.count) return false;
+    for (const key of Object.keys(a) as (keyof ComponentProps<typeof SortableVirtualRowImpl>)[]) {
+      if (key === 'virtualItem' || key === 'virtualizer') continue;
+      if (a[key] !== b[key]) return false;
+    }
+    return true;
+  },
+);

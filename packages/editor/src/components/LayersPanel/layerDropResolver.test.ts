@@ -436,3 +436,92 @@ describe('surface ownership', () => {
     expect(target).toBeNull();
   });
 });
+
+describe('resolveLayerDropTarget — filtered tree policy', () => {
+  /**
+   * Task §32 policy: structural drag stays enabled while the tree is
+   * filtered, and insertion indices are computed against the FULL sibling
+   * array — "immediately above the row you can see" resolves to the correct
+   * raw slot even though hidden siblings sit between the visible ones.
+   * The indicator and the commit read the same resolved value, so these
+   * assertions are literally what the user is shown and what lands.
+   */
+  it('maps a before-band drop on a visible row to the full-sibling slot, not the filtered position', () => {
+    const { doc, ids } = makeSiblingsDoc();
+    const [a, b, d] = ids;
+    // Filtered projection: only D and B are visible (display order D, B).
+    const expanded = new Set<NodeId>(Object.keys(doc.nodes) as NodeId[]);
+    const allEntries = flattenTree(doc, expanded, undefined, undefined, doc.activePageId);
+    const filteredEntries = allEntries.filter((e) => e.node.id === d || e.node.id === b);
+    const target = resolveLayerDropTarget({
+      doc,
+      entries: filteredEntries,
+      geometry: geometryFor(filteredEntries.length),
+      // Pointer inside B's top (before) band: B is the second visible row,
+      // its band is [ROW*1, ROW*2) — top half.
+      pointerY: ROW + 4,
+      viewport: { top: 0, bottom: 400 },
+      contentTop: 0,
+      activeIds: [a],
+      isDescendant: (ancestorId, nodeId) => ancestorId === nodeId,
+    });
+    expect(target?.targetId).toBe(b);
+    expect(target?.zone).toBe('before');
+    // Full raw siblings are [A, B, C, D]; "above B" = slot B+1 = 2 — NOT 1,
+    // which is what a naive index into the filtered two-row list would give.
+    expect(target?.insertionIndex).toBe(2);
+  });
+
+  it('resolves the true structural destination even when the container row is filtered out', () => {
+    // Frame holds A and B (raw back-to-front); Loose sits beside Frame.
+    // The filter hides Frame and Loose: only B and A are visible rows.
+    // Policy B (allow reparent, show the true destination): dropping below A
+    // must resolve into the hidden Frame at A's full-array slot — never into
+    // whatever is visibly nearby.
+    let doc = createDocument('filtered-structure', true);
+    const f = nextNodeId(doc);
+    doc = addNode(f.doc, makeFrameNode(f.id, { w: 100, h: 100, children: [], name: 'Frame' }));
+    const a = nextNodeId(doc);
+    doc = addNode(
+      a.doc,
+      makeShapeNode(a.id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'A' }),
+    );
+    doc = reparentNode(doc, a.id, f.id, 0);
+    const b = nextNodeId(doc);
+    doc = addNode(
+      b.doc,
+      makeShapeNode(b.id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'B' }),
+    );
+    doc = reparentNode(doc, b.id, f.id, 1);
+    const l = nextNodeId(doc);
+    doc = addNode(
+      l.doc,
+      makeShapeNode(l.id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Loose' }),
+    );
+
+    const expanded = new Set<NodeId>(Object.keys(doc.nodes) as NodeId[]);
+    const allEntries = flattenTree(doc, expanded, undefined, undefined, doc.activePageId);
+    // Filtered projection: only B and A (display order B, A — front-most first).
+    const filteredEntries = allEntries.filter((e) => e.node.id === a.id || e.node.id === b.id);
+    expect(filteredEntries.map((e) => e.node.id)).toEqual([b.id, a.id]);
+
+    const target = resolveLayerDropTarget({
+      doc,
+      entries: filteredEntries,
+      geometry: geometryFor(filteredEntries.length),
+      // Bottom (after) band of the second visible row = A.
+      pointerY: ROW + ROW - 4,
+      viewport: { top: 0, bottom: 400 },
+      contentTop: 0,
+      activeIds: [l.id],
+      isDescendant: (ancestorId, nodeId) => ancestorId === nodeId,
+    });
+    expect(target?.targetId).toBe(a.id);
+    expect(target?.zone).toBe('after');
+    expect(target?.targetParentId).toBe(f.id);
+    // A's slot in the FULL hidden children array [A, B] — not a position
+    // invented from the two visible rows.
+    expect(target?.insertionIndex).toBe(0);
+    expect(target?.valid).toBe(true);
+  });
+});

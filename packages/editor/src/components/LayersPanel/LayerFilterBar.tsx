@@ -16,7 +16,10 @@ const KIND_CHIPS: { value: LayerFilterSpec['kinds'][number]; label: string }[] =
   { value: 'text', label: 'Text' },
   { value: 'frame', label: 'Frame' },
   { value: 'group', label: 'Group' },
+  { value: 'path', label: 'Path' },
+  { value: 'rasterLayer', label: 'Raster' },
   { value: 'adjustment', label: 'Adjustment' },
+  { value: 'table', label: 'Table' },
 ];
 
 /**

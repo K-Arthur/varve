@@ -259,6 +259,12 @@ export function flattenTree(
   const filtering = isFiltering(filterSpec);
   const hasSearchIndex = matchedIds !== undefined && filterSpec.search !== '';
 
+  // Corrupt-document guard: children arrays can reference the same id twice,
+  // or a damaged parent chain can loop (A → B → A). A node must project at
+  // most once per flatten; without this a cycle would recurse until the
+  // stack overflows and take the whole panel down with it.
+  const seen = new Set<NodeId>();
+
   function matchesAllExceptSearch(node: SceneNode, spec: LayerFilterSpec): boolean {
     if (spec.kinds.length > 0) {
       const effectiveKind: SceneNode['kind'] | 'component' = isComponentFrame(node)
@@ -311,6 +317,8 @@ export function flattenTree(
       if (!nid) continue;
       const node = doc.nodes[nid];
       if (!node) continue;
+      if (seen.has(nid)) continue;
+      seen.add(nid);
       // A filtered view is a temporary projection, not a mutation of the
       // user's expansion state. Walk collapsed branches so a matching
       // descendant can be revealed with its ancestry; the unfiltered tree

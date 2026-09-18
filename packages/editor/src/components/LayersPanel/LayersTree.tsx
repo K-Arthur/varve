@@ -59,8 +59,14 @@ import { resolvePrimarySelectionId } from '../../selection/selectionContext';
 import { applySelectionRange, selectionRangeBetween } from '../../selection/selectionRange';
 import { loadSettings } from '../../settings';
 import { appliedRowHeight, subscribeInterfaceDensity } from '../../settings/interfaceDensity';
+import { usePanelLocalState } from '../../workspace/panelLocalState';
 import { getEffectStackInspectorTarget } from './effectStackNavigation';
 import type { LayerDropTarget } from './layerDropResolver';
+import {
+  addedIdsBetween,
+  expandAddedContainers,
+  PANEL_TRANSFER_EXPANSION_LIMIT,
+} from './layerExpansionState';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER } from './layerFilterTypes';
 import { canonicalizeMoveIds } from './layerMovePlan';
@@ -74,6 +80,7 @@ import {
 import { SortableVirtualRow } from './SortableVirtualRow';
 import { computeDocumentDiff, type FlatEntry, useFlatTree } from './useFlatTree';
 import { useLayerNavigation } from './useLayerNavigation';
+import { useLayerStructureCommands } from './useLayerStructureCommands';
 import { useLayersDnD } from './useLayersDnD';
 import { useLayersSelectionScrub } from './useLayersSelectionScrub';
 import { sharedThumbnailCache } from './useThumbnail';
@@ -172,6 +179,12 @@ export function collapseOthers(
   }
   return next;
 }
+
+export {
+  addedIdsBetween,
+  expandAddedContainers,
+  PANEL_TRANSFER_EXPANSION_LIMIT,
+} from './layerExpansionState';
 
 /**
  * Resolve which node ids should actually move when a drag starts on a row
@@ -319,6 +332,14 @@ export interface LayersDnDHandle {
   collapseOthers: (containerId: NodeId) => void;
   startRename: (id: NodeId) => void;
   expandAncestors: (nodeId: NodeId) => void;
+  /**
+   * Non-drag reparenting: move the focused selection (or the row named by
+   * `nodeId`, for context-menu invocation) into the container displayed
+   * above it.
+   */
+  indentSelection: (nodeId?: NodeId) => void;
+  /** Non-drag reparenting: move the anchored selection out of its container. */
+  outdentSelection: (nodeId?: NodeId) => void;
 }
 
 export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function LayersTree(
@@ -348,7 +369,18 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 
   // Pre-expand all containers with children on init so every layer is visible
   // on first paint — no useEffect flicker or collapsed-subtree blindness.
+  // A detached-panel transfer (panel-local state) replaces that default so
+  // the user's disclosure survives detach/reattach. Bounded to the transfer
+  // codec's array ceiling; beyond it the state resets to all-expanded.
+  const [transferredExpandedIds, setTransferredExpandedIds] = usePanelLocalState<NodeId[] | null>(
+    'layers',
+    'expandedIds',
+    null,
+  );
   const [expanded, setExpanded] = useState<Set<NodeId>>(() => {
+    if (transferredExpandedIds && transferredExpandedIds.length > 0) {
+      return new Set(transferredExpandedIds);
+    }
     const init = new Set<NodeId>();
     for (const [id, node] of Object.entries(state.document.nodes)) {
       const n = node as { kind: string; children?: string[] };
@@ -358,6 +390,11 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     }
     return init;
   });
+  // Mirror the expansion set into the panel-transfer codec so a detached
+  // Layers window reattaches with the same disclosure. Never document data.
+  useEffect(() => {
+    setTransferredExpandedIds([...expanded].slice(0, PANEL_TRANSFER_EXPANSION_LIMIT));
+  }, [expanded, setTransferredExpandedIds]);
   const [renamingId, setRenamingId] = useState<NodeId | null>(null);
   // Row height for the virtualizer's estimate: the applied density mode's
   // row-height contract. Re-rendered by the same signal that applies the
@@ -655,23 +692,17 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     state.document,
   ]);
 
-  // Keep containers auto-expanded when new nodes are added (e.g. after import or paste).
+  // Expand containers that are NEW to the document (import, paste, creation)
+  // so freshly added subtrees stay visible — see expandAddedContainers for
+  // why membership is decided by node id, not node-object identity.
+  const knownNodeIdsRef = useRef<Set<NodeId> | null>(null);
   useEffect(() => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      let changed = false;
-      for (const [id, node] of Object.entries(state.document.nodes)) {
-        const n = node as { kind: string; children?: string[] };
-        if ((n.kind === 'frame' || n.kind === 'group') && n.children && n.children.length > 0) {
-          if (!next.has(id)) {
-            next.add(id);
-            changed = true;
-          }
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [state.document.nodes]);
+    const nextIds = new Set(Object.keys(state.document.nodes));
+    const addedIds = addedIdsBetween(knownNodeIdsRef.current, nextIds);
+    knownNodeIdsRef.current = nextIds;
+    if (addedIds.length === 0) return;
+    setExpanded((prev) => expandAddedContainers(state.document, addedIds, prev));
+  }, [state.document]);
 
   const toggleExpand = useCallback((id: NodeId) => {
     setExpanded((prev) => {
@@ -884,6 +915,41 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     [entries, focusIdx],
   );
 
+  // Dragging a row that's part of a multi-selection carries the whole
+  // selection along (Figma/Sketch/Illustrator convention), not just the row
+  // under the pointer.
+  const resolveMoveIds = useCallback(
+    (activeNodeId: NodeId) =>
+      resolveDragMoveIds(
+        state.document,
+        state.selection,
+        entriesRef.current,
+        activeNodeId,
+        parentCacheRef.current,
+      ),
+    [state.document, state.selection],
+  );
+
+  // Non-drag reparenting (WCAG 2.5.7 alternative to the grip drag): indent
+  // into the container displayed above, outdent below the container's block.
+  // Planning lives in layerIndentPlan.ts, the interaction wiring in
+  // useLayerStructureCommands (extracted for the complexity ceiling).
+  const { indentSelection: handleIndentSelection, outdentSelection: handleOutdentSelection } =
+    useLayerStructureCommands({
+      doc: state.document,
+      entries,
+      focusIdx,
+      parentCacheRef,
+      designCanvasId:
+        state.workspaceMode !== 'print' ? state.document.activeDesignCanvasId : undefined,
+      resolveMoveIds,
+      reparentNode,
+      setExpanded,
+      announce,
+      beginTransaction,
+      commitTransaction,
+    });
+
   const { handleKeyDown } = useTreeKeyboardNavigation({
     entries,
     focusIdx,
@@ -904,6 +970,8 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     handleTypeAhead,
     startRename: handleRenameStart,
     reparentNode,
+    indentSelection: handleIndentSelection,
+    outdentSelection: handleOutdentSelection,
     announce,
     virtualizer,
     onContextMenuKeyboard,
@@ -921,21 +989,6 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   );
 
   // DnD ----------------------------------------------------------------
-
-  // Dragging a row that's part of a multi-selection carries the whole
-  // selection along (Figma/Sketch/Illustrator convention), not just the row
-  // under the pointer.
-  const resolveMoveIds = useCallback(
-    (activeNodeId: NodeId) =>
-      resolveDragMoveIds(
-        state.document,
-        state.selection,
-        entriesRef.current,
-        activeNodeId,
-        parentCacheRef.current,
-      ),
-    [state.document, state.selection],
-  );
 
   const {
     activeId,
@@ -978,6 +1031,8 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       collapseAll: handleCollapseAll,
       collapseOthers: handleCollapseOthers,
       startRename: handleRenameStart,
+      indentSelection: handleIndentSelection,
+      outdentSelection: handleOutdentSelection,
       expandAncestors: (nodeId: NodeId) => {
         setExpanded((prev) => {
           const next = new Set(prev);
@@ -1184,9 +1239,6 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                       : [id];
                   const anyLocked = ids.some((sid) => state.document.nodes[sid]?.locked);
                   for (const sid of ids) setNodeLocked(sid, !anyLocked);
-                }}
-                onToggleSelectionCheckbox={(id) => {
-                  toggleLayerSelection(id, true, 'layers');
                 }}
                 onFocus={handleRowFocus}
                 idx={virtualItem.index}

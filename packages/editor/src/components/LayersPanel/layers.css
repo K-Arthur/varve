@@ -263,6 +263,18 @@
   border: 1px solid transparent;
 }
 
+/* One faint vertical tick per ancestor level, aligned with each level's
+   content start. Past the visual-indent clamp the guides stop too — the
+   flattened lanes stay readable without the guides crowding the icon. */
+.layers-row__indent-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-border-subtle);
+  pointer-events: none;
+}
+
 .layers-row:active {
   cursor: grabbing;
 }
@@ -481,6 +493,12 @@
 
 .layers-row--hidden {
   opacity: 0.4;
+}
+
+/* Hidden through an ancestor: dimmer than a live row, but visibly distinct
+   from a directly hidden one (0.4) so the two states do not read as one. */
+.layers-row--hidden-inherited {
+  opacity: 0.62;
 }
 
 .layers-row--locked {
@@ -1115,6 +1133,13 @@
 .layers-row__toggle--visibility-off {
   color: var(--color-text-primary);
   opacity: 1;
+}
+
+/* Hidden through an ancestor: the row's own flag is on, so the toggle sits
+   between the live and directly-hidden treatments. */
+.layers-row__toggle--visibility-inherited {
+  color: var(--color-text-secondary);
+  opacity: 0.9;
 }
 
 .layers-row__toggle--locked-on {

@@ -65,6 +65,29 @@ function isEffectivelyLocked(
   return false;
 }
 
+/**
+ * Which of the containers a drag sprang open should snap back to collapsed.
+ * Containers on the landed path (the landing container itself and its
+ * ancestors among `opened`) stay open so the moved layer remains visible;
+ * `landingContainerId: null` (cancel, invalid drop, root drop) restores
+ * everything. Pure, so the policy is directly unit-testable.
+ */
+export function resolveAutoExpandRestore(
+  opened: ReadonlySet<NodeId>,
+  landingContainerId: NodeId | null,
+  doc: Document,
+  parentCache: ParentIndexCache | null,
+): NodeId[] {
+  const restore: NodeId[] = [];
+  for (const id of opened) {
+    const staysOpen =
+      landingContainerId != null &&
+      (id === landingContainerId || isDescendantFast(doc, id, landingContainerId, parentCache));
+    if (!staysOpen) restore.push(id);
+  }
+  return restore;
+}
+
 /** Structural equality, so an unchanged target does not re-render the tree. */
 export function sameDropTarget(a: LayerDropTarget | null, b: LayerDropTarget | null): boolean {
   if (a === b) return true;
@@ -168,6 +191,8 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
   const activeIdRef = useRef<NodeId | null>(null);
   const autoExpandTimerRef = useRef<number | null>(null);
   const autoExpandTargetRef = useRef<NodeId | null>(null);
+  /** Containers auto-expanded during the current drag session (restored on end/cancel). */
+  const dragAutoExpandedRef = useRef<Set<NodeId>>(new Set());
   const dragSessionRef = useRef(0);
   const moveIdsRef = useRef<NodeId[]>([]);
   const autoScrollRafRef = useRef<number | null>(null);
@@ -214,9 +239,43 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
           next.add(nodeId);
           return next;
         });
+        // Remember containers this drag sprang open so drag end/cancel can
+        // restore the user's pre-drag disclosure (see restoreAutoExpanded).
+        dragAutoExpandedRef.current.add(nodeId);
       }, AUTO_EXPAND_DELAY_MS);
     },
     [cancelAutoExpand, setExpanded],
+  );
+
+  /**
+   * Undo the auto-expansions this drag performed. Containers the drop actually
+   * landed in (or under) stay open so the moved layer remains visible; the
+   * rest snap back to their pre-drag state. Without this, hovering a closed
+   * group for 500ms — even on the way to somewhere else — permanently changed
+   * the user's disclosure.
+   */
+  const restoreAutoExpanded = useCallback(
+    (landingContainerId: NodeId | null) => {
+      const opened = dragAutoExpandedRef.current;
+      dragAutoExpandedRef.current = new Set();
+      if (opened.size === 0) return;
+      const toRestore = resolveAutoExpandRestore(
+        opened,
+        landingContainerId,
+        docRef.current,
+        parentCacheRef.current,
+      );
+      if (toRestore.length === 0) return;
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        let changed = false;
+        for (const id of toRestore) {
+          if (next.delete(id)) changed = true;
+        }
+        return changed ? next : prev;
+      });
+    },
+    [parentCacheRef, setExpanded],
   );
 
   const cancelAutoScroll = useCallback(() => {
@@ -396,6 +455,8 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
       dropIndicatorRef.current = null;
       setDropIndicator(null);
       cancelAutoScroll();
+      // Fresh session: nothing has been auto-expanded yet.
+      dragAutoExpandedRef.current = new Set();
 
       const activator = event.activatorEvent;
       if (activator instanceof MouseEvent || activator instanceof PointerEvent) {
@@ -483,13 +544,21 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
     cancelAutoScroll();
     detachPointerTracking();
 
-    // The target the user was shown, committed verbatim. Nothing is
-    // recomputed here: recomputing is exactly how the preview and the
-    // mutation used to disagree.
     const target = dropIndicatorRef.current;
     dropIndicatorRef.current = null;
     setDropIndicator(null);
-    if (!target?.valid || !activeNodeId) return;
+    if (!target?.valid || !activeNodeId) {
+      // Nothing committed: no container "receives" the layer, so every
+      // auto-expansion the drag performed reverts.
+      restoreAutoExpanded(null);
+      return;
+    }
+    // The container the drop landed in — an `into` drop lands inside the
+    // target row; a before/after drop lands in the target's parent; a root
+    // drop lands in the content root. Auto-expanded containers on the landed
+    // path stay open; the rest revert.
+    const landingId = target.zone === 'into' ? target.targetId : (target.targetParentId ?? null);
+    restoreAutoExpanded(landingId);
 
     const currentDoc = docRef.current;
     const activeNode = currentDoc.nodes[activeNodeId];
@@ -533,6 +602,14 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
       return;
     }
 
+    // The landing container must be open, or the layer just moved would
+    // vanish from the tree (dropping into a never-expanded empty frame is
+    // the common case — the blanket re-expansion this replaced used to mask
+    // it). Kept open by the restore policy above, so this also sticks.
+    if (landingId) {
+      setExpanded((prev) => (prev.has(landingId) ? prev : new Set(prev).add(landingId)));
+    }
+
     const isMulti = moveIds.length > 1;
     if (isMulti) beginTransaction();
     for (const step of steps) reparentNode(step.id, targetParentId, step.index);
@@ -547,6 +624,8 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
     cancelAutoExpand,
     cancelAutoScroll,
     detachPointerTracking,
+    restoreAutoExpanded,
+    setExpanded,
     swallowNextClick,
     beginTransaction,
     commitTransaction,
@@ -564,7 +643,15 @@ export function useLayersDnD(args: UseLayersDnDArgs): UseLayersDnDResult {
     cancelAutoScroll();
     detachPointerTracking();
     clearSwallowClick();
-  }, [cancelAutoExpand, cancelAutoScroll, clearSwallowClick, detachPointerTracking]);
+    // A cancelled drag commits nothing, so nothing it opened should stay open.
+    restoreAutoExpanded(null);
+  }, [
+    cancelAutoExpand,
+    cancelAutoScroll,
+    clearSwallowClick,
+    detachPointerTracking,
+    restoreAutoExpanded,
+  ]);
 
   // A drag can end with the component unmounting (panel detach, page switch).
   // Leaving a window-level pointermove listener behind would keep the whole

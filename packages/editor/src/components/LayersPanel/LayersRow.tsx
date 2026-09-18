@@ -29,7 +29,11 @@ import {
 import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { autoName } from '../../intelligence/autoNamer';
-import { isNodeEffectivelyLocked } from '../../scene/world';
+import {
+  hidingAncestorOf,
+  isNodeEffectivelyHidden,
+  isNodeEffectivelyLocked,
+} from '../../scene/world';
 import { summarizeAdjustmentStack } from './adjustmentStackSummary';
 import { EffectStackTransferBadge } from './EffectStackTransferBadge';
 import {
@@ -66,7 +70,6 @@ export interface LayersRowProps {
   onToggleVisibility: (id: NodeId) => void;
   onToggleLock: (id: NodeId) => void;
   onToggleSolo?: (id: NodeId) => void;
-  onToggleSelectionCheckbox?: (id: NodeId) => void;
   onFocus: (idx: number) => void;
   idx: number;
   /** Total visible rows (for aria-setsize on virtualized trees). */
@@ -147,7 +150,6 @@ export const LayersRow = memo(function LayersRow({
   onToggleVisibility,
   onToggleLock,
   onToggleSolo,
-  onToggleSelectionCheckbox: _onToggleSelectionCheckbox,
   onFocus,
   idx,
   totalRows,
@@ -198,6 +200,13 @@ export const LayersRow = memo(function LayersRow({
   const displayName = hasRealName ? node.name : (ghostName ?? node.name);
   const maskLabel = maskTypeLabel(node.mask);
   const isEffectivelyLocked = doc ? isNodeEffectivelyLocked(doc, node.id) : node.locked;
+  // Visibility inherits down: a child of a hidden group paints nothing even
+  // though its own visible flag is still true. Distinguish that inherited
+  // state from a directly hidden row (same model as effective lock).
+  const isEffectivelyHidden = doc ? isNodeEffectivelyHidden(doc, node.id) : node.visible === false;
+  const hiddenByAncestor = isEffectivelyHidden && node.visible !== false;
+  const hidingAncestorId = hiddenByAncestor && doc ? hidingAncestorOf(doc, node.id) : null;
+  const hidingAncestorName = hidingAncestorId ? doc?.nodes[hidingAncestorId]?.name : null;
   const canReceiveDroppedStack =
     effectStackDrop != null &&
     effectStackDrop.sourceId !== node.id &&
@@ -212,7 +221,8 @@ export const LayersRow = memo(function LayersRow({
     if (!hasMultiSelection || !selectedIds) return false;
     const vals = [...selectedIds].map((id) => {
       const n = doc?.nodes[id];
-      return n ? 'visible' in n && n.visible : true;
+      if (!doc || !n) return true;
+      return !isNodeEffectivelyHidden(doc, id);
     });
     return vals.some((v) => v !== vals[0]);
   }, [hasMultiSelection, selectedIds, doc]);
@@ -357,12 +367,28 @@ export const LayersRow = memo(function LayersRow({
   const isSoloed = node.solo === true;
   const soloDimmed = anySolo && !isSoloed;
 
+  // One faint tick per ancestor level, clamped with the visual indent so
+  // rows beyond MAX_VISUAL_INDENT_DEPTH keep a readable cue of their
+  // (flattened) nesting lane.
+  const indentGuides = Array.from({ length: visualDepth }, (_, level) => {
+    const offset = `calc(var(--space-2) + ${level} * var(--space-3))`;
+    return (
+      <span
+        key={offset}
+        className="layers-row__indent-guide"
+        aria-hidden="true"
+        style={{ left: offset }}
+      />
+    );
+  });
+
   const rowClass = [
     'layers-row',
     selected ? 'layers-row--selected' : '',
     selectionPreview ? 'layers-row--selection-preview' : '',
     focused ? 'layers-row--focused' : '',
-    !node.visible ? 'layers-row--hidden' : '',
+    node.visible === false ? 'layers-row--hidden' : '',
+    hiddenByAncestor ? 'layers-row--hidden-inherited' : '',
     isEffectivelyLocked ? 'layers-row--locked' : '',
     isSoloed ? 'layers-row--soloed' : '',
     soloDimmed ? 'layers-row--solo-dimmed' : '',
@@ -408,6 +434,11 @@ export const LayersRow = memo(function LayersRow({
           } as React.CSSProperties
         }
       >
+        {/* Indent guides: one faint tick per ancestor level, clamped with the
+            visual indent so rows beyond MAX_VISUAL_INDENT_DEPTH keep a
+            readable cue of their (flattened) nesting lane. */}
+        {indentGuides}
+
         {/* Drag handle */}
         <button
           {...dragHandleAttributes}
@@ -727,15 +758,19 @@ export const LayersRow = memo(function LayersRow({
           <PresenceIndicator presences={presences} />
         )}
 
-        {/* Visibility toggle */}
+        {/* Visibility toggle. A row hidden through an ancestor keeps its own
+            visible flag but paints nothing; the toggle says so instead of
+            presenting as identical to a directly hidden row. */}
         <button
           type="button"
           className={`layers-row__toggle ${
             isMixedVisibility
               ? 'layers-row__toggle--visibility-mixed'
-              : node.visible
-                ? 'layers-row__toggle--visibility-on'
-                : 'layers-row__toggle--visibility-off'
+              : node.visible === false
+                ? 'layers-row__toggle--visibility-off'
+                : hiddenByAncestor
+                  ? 'layers-row__toggle--visibility-inherited'
+                  : 'layers-row__toggle--visibility-on'
           }`}
           tabIndex={-1}
           onPointerDown={stopDragActivation}
@@ -746,17 +781,25 @@ export const LayersRow = memo(function LayersRow({
           aria-label={
             isMixedVisibility
               ? `Mixed visibility for selection`
-              : node.visible
-                ? `Hide ${node.name}`
-                : `Show ${node.name}`
+              : node.visible === false
+                ? `Show ${node.name}`
+                : hiddenByAncestor
+                  ? hidingAncestorName
+                    ? `${node.name} is hidden by ${hidingAncestorName}`
+                    : `${node.name} is hidden by an ancestor`
+                  : `Hide ${node.name}`
           }
-          aria-pressed={isMixedVisibility ? undefined : !node.visible}
+          aria-pressed={isMixedVisibility ? undefined : node.visible === false}
         >
           {isMixedVisibility ? (
             <SolidIcon name={SOLID_CHROME_ICONS.minus} size="0.85em" />
           ) : (
             <SolidIcon
-              name={node.visible ? SOLID_CHROME_ICONS.visibility : SOLID_CHROME_ICONS.visibilityOff}
+              name={
+                isEffectivelyHidden
+                  ? SOLID_CHROME_ICONS.visibilityOff
+                  : SOLID_CHROME_ICONS.visibility
+              }
               size="0.85em"
             />
           )}

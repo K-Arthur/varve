@@ -18,9 +18,11 @@ import { describe, expect, it } from 'vitest';
 
 // Import the utility functions (they'll be exported from LayersTree.tsx)
 import {
+  addedIdsBetween,
   collapseAll,
   collapseAllDescendants,
   collapseOthers,
+  expandAddedContainers,
   expandAllDescendants,
 } from './LayersTree';
 
@@ -210,5 +212,87 @@ describe('collapseOthers', () => {
 
     expect(result.has(f1)).toBe(true);
     expect(result.size).toBe(1);
+  });
+});
+
+describe('addedIdsBetween', () => {
+  it('returns ids present in next but not in prev', () => {
+    const prev = new Set<string>(['n1', 'n2']);
+    const next = new Set<string>(['n1', 'n2', 'n3', 'n4']);
+    expect(addedIdsBetween(prev, next)).toEqual(['n3', 'n4']);
+  });
+
+  it('returns empty when nothing was added', () => {
+    const ids = new Set<string>(['n1', 'n2']);
+    expect(addedIdsBetween(ids, new Set(ids))).toEqual([]);
+  });
+
+  it('returns empty on first sight (prev null) — initial mount adds nothing', () => {
+    const next = new Set<string>(['n1', 'n2']);
+    expect(addedIdsBetween(null, next)).toEqual([]);
+  });
+});
+
+describe('expandAddedContainers', () => {
+  it('expands a newly added container so imported subtrees stay visible', () => {
+    const { doc: baseDoc, f1 } = makeNestedDoc();
+    // Simulate an import that added a populated container.
+    const { id: imported, doc: d2 } = nextNodeId(baseDoc);
+    let doc = d2;
+    doc = addNode(doc, makeFrameNode(imported, { name: 'Imported', w: 50, h: 50, children: [] }));
+    const { id: child, doc: d3 } = nextNodeId(doc);
+    doc = d3;
+    doc = addChild(
+      doc,
+      imported,
+      makeShapeNode(child, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Imported child' }),
+    );
+
+    const expanded = new Set<string>([f1]);
+    const result = expandAddedContainers(doc, [imported], expanded);
+
+    expect(result.has(imported)).toBe(true);
+    expect(result.has(f1)).toBe(true);
+  });
+
+  it('does not re-expand an existing collapsed container when other nodes are added', () => {
+    const { doc: baseDoc, f1 } = makeNestedDoc();
+    // The user collapsed F1: it is not in the expanded set.
+    const expanded = new Set<string>();
+    // An unrelated new shape arrives (rename/nudge produce no new ids, so a
+    // new id is the conservative stand-in for "any document edit").
+    const { id: newcomer, doc: d2 } = nextNodeId(baseDoc);
+    let doc = d2;
+    doc = addNode(
+      doc,
+      makeShapeNode(newcomer, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Newcomer' }),
+    );
+
+    const result = expandAddedContainers(doc, [newcomer], expanded);
+
+    expect(result.has(f1)).toBe(false);
+  });
+
+  it('skips empty containers and plain shapes', () => {
+    const { doc: baseDoc, f3 } = makeNestedDoc();
+    const { id: emptyFrame, doc: d2 } = nextNodeId(baseDoc);
+    let doc = d2;
+    doc = addNode(doc, makeFrameNode(emptyFrame, { name: 'Empty', w: 10, h: 10, children: [] }));
+    const { id: shape, doc: d3 } = nextNodeId(doc);
+    doc = d3;
+    doc = addNode(
+      doc,
+      makeShapeNode(shape, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Shape' }),
+    );
+
+    const result = expandAddedContainers(doc, [emptyFrame, shape, f3], new Set<string>());
+
+    expect(result.size).toBe(0);
+  });
+
+  it('returns the same set reference when there is nothing to expand', () => {
+    const { doc } = makeNestedDoc();
+    const expanded = new Set<string>(['n1']);
+    expect(expandAddedContainers(doc, [], expanded)).toBe(expanded);
   });
 });

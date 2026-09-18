@@ -39,7 +39,7 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { getOrCreateParentCache, type ParentIndexCache } from '../../scene/parentIndexCache';
-import { isNodeEffectivelyLocked } from '../../scene/world';
+import { isNodeEffectivelyHidden, isNodeEffectivelyLocked } from '../../scene/world';
 import { type LayersSettingsStore, loadSettings, updateSettings } from '../../settings';
 import { applyThumbnailPreference } from '../../thumbnail/thumbnailCommands';
 import { openThumbnailPicker } from '../../thumbnail/thumbnailPickerBridge';
@@ -567,6 +567,21 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     }
   }, [dndRef, contextMenu, closeMenu]);
 
+  // Non-drag reparenting routes through the tree's own handlers so the menu,
+  // the keyboard, and any future surface share one implementation. The
+  // context row is passed explicitly: the roving focus may be elsewhere.
+  const handleIndentFromMenu = useCallback(() => {
+    if (!contextMenu) return;
+    dndRef?.current?.indentSelection(contextMenu.id);
+    closeMenu();
+  }, [dndRef, contextMenu, closeMenu]);
+
+  const handleOutdentFromMenu = useCallback(() => {
+    if (!contextMenu) return;
+    dndRef?.current?.outdentSelection(contextMenu.id);
+    closeMenu();
+  }, [dndRef, contextMenu, closeMenu]);
+
   const contextSelection = contextMenu?.selection ?? state.selection;
   const handleCanvasNavigation = useCallback(
     (behavior: 'reveal' | 'center' | 'fit') => {
@@ -825,10 +840,13 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             handleSendBackward: () => handleArrange('backward'),
             handleMoveToBack: () => handleArrange('back'),
             handleCollapseOthers,
+            handleIndentFromMenu,
+            handleOutdentFromMenu,
             handleIsolate,
             handleLockFromMenu,
             handleVisibilityFromMenu,
             isEffectivelyLocked: (id) => isNodeEffectivelyLocked(state.document, id),
+            isEffectivelyHidden: (id) => isNodeEffectivelyHidden(state.document, id),
             handleSnapExclusionToggle,
             handleSetLayerColor,
             handleSelectSameType,

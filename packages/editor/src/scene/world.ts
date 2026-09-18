@@ -51,6 +51,40 @@ export function isNodeEffectivelyLocked(doc: Document, nodeId: NodeId): boolean 
 }
 
 /**
+ * True when a node paints nothing because it — or any ancestor — is hidden
+ * (`visible === false`). Visibility inherits down the hierarchy, so a child
+ * of a hidden group is invisible on canvas even though its own `visible`
+ * flag is still true. Layers rows use this (mirroring
+ * {@link isNodeEffectivelyLocked}) so an inherited-hidden row does not
+ * present as identical to a directly-hidden one.
+ *
+ * Returns the nearest hiding ancestor via {@link hidingAncestorOf} when the
+ * caller needs to explain WHY the node is invisible.
+ */
+export function isNodeEffectivelyHidden(doc: Document, nodeId: NodeId): boolean {
+  let current: NodeId | null = nodeId;
+  while (current) {
+    if (doc.nodes[current]?.visible === false) return true;
+    current = getParent(doc, current);
+  }
+  return false;
+}
+
+/**
+ * The nearest ancestor (excluding `nodeId` itself) with `visible === false`,
+ * or null when the node is not hidden by an ancestor. Lets the UI offer a
+ * path to the restricting layer instead of a toggle with no visible effect.
+ */
+export function hidingAncestorOf(doc: Document, nodeId: NodeId): NodeId | null {
+  let current = getParent(doc, nodeId);
+  while (current) {
+    if (doc.nodes[current]?.visible === false) return current;
+    current = getParent(doc, current);
+  }
+  return null;
+}
+
+/**
  * Convert a placed-world point into a parent's local space via the full
  * inverse parent world transform. Returns null when the parent is
  * non-invertible.
