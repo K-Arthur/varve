@@ -1,7 +1,7 @@
 import type { RasterTraceMode } from '@varve/engine';
 import type { LiveTraceParams, SceneNode } from '@varve/scene';
 import { isImageShape } from '@varve/scene';
-import { Button, Select, Separator, Switch } from '@varve/ui';
+import { Button, NumberInput, Select, Separator, Switch } from '@varve/ui';
 import { useEffect, useId, useRef, useState } from 'react';
 import { isCapabilityRestricted } from '../../../capabilities/restrictions';
 import { useEditor } from '../../../context';
@@ -252,32 +252,26 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
           </FieldRow>
         ) : (
           <FieldRow label="Colors" htmlFor={colorsId}>
-            <input
+            <NumberInput
               id={colorsId}
-              type="number"
-              className="insp-num__input"
+              label="Trace color count"
               min={2}
               max={32}
               value={maxColors}
               disabled={pending !== null}
-              aria-label="Trace color count"
-              onChange={(event) =>
-                setMaxColors(Math.max(2, Math.min(32, Number(event.target.value) || 2)))
-              }
+              onChange={setMaxColors}
             />
           </FieldRow>
         )}
         <FieldRow label="Min area" htmlFor={areaId}>
-          <input
+          <NumberInput
             id={areaId}
-            type="number"
-            className="insp-num__input"
+            label="Minimum trace area"
             min={1}
             max={10000}
             value={minArea}
             disabled={pending !== null}
-            aria-label="Minimum trace area"
-            onChange={(event) => setMinArea(Math.max(1, Number(event.target.value)))}
+            onChange={setMinArea}
           />
         </FieldRow>
 
@@ -320,32 +314,27 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
               />
             </FieldRow>
             <FieldRow label="Max paths" htmlFor={maxPathsId}>
-              <input
+              <NumberInput
                 id={maxPathsId}
-                type="number"
-                className="insp-num__input"
+                label="Maximum paths"
                 min={100}
                 max={10000}
                 step={100}
+                shiftStep={1000}
                 value={maxPaths}
-                aria-label="Maximum paths"
-                onChange={(event) =>
-                  setMaxPaths(Math.max(100, Math.min(10000, Number(event.target.value) || 100)))
-                }
+                disabled={pending !== null}
+                onChange={setMaxPaths}
               />
             </FieldRow>
             <FieldRow label="Alpha threshold" htmlFor={alphaThresholdId} wrapLabel>
-              <input
+              <NumberInput
                 id={alphaThresholdId}
-                type="number"
-                className="insp-num__input"
+                label="Alpha threshold"
                 min={0}
                 max={255}
                 value={alphaThreshold}
-                aria-label="Alpha threshold"
-                onChange={(event) =>
-                  setAlphaThreshold(Math.max(0, Math.min(255, Number(event.target.value) || 0)))
-                }
+                disabled={pending !== null}
+                onChange={setAlphaThreshold}
               />
             </FieldRow>
             <FieldRow label="Compound holes" wrapLabel>

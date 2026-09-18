@@ -2012,6 +2012,11 @@
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
+.varve-number-input:disabled {
+  cursor: default;
+  opacity: 0.5;
+  pointer-events: none;
+}
 
 /* ── Slider (APG linear slider with fieldset) ───── */
 .varve-slider {

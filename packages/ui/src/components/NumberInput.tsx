@@ -67,6 +67,7 @@ export interface NumberInputProps {
   label?: string;
   onChange: (value: number) => void;
   id?: string;
+  disabled?: boolean;
 }
 
 export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(function NumberInput(
@@ -80,6 +81,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(functi
     label,
     onChange,
     id,
+    disabled = false,
   },
   ref,
 ) {
@@ -133,7 +135,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(functi
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLInputElement>) => {
-      if (e.button !== 0 || dragRef.current) return;
+      if (disabled || e.button !== 0 || dragRef.current) return;
       const target = e.currentTarget;
       const pointerId = e.pointerId;
       const startX = e.clientX;
@@ -205,11 +207,12 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(functi
       window.addEventListener('keydown', onKeyDown, true);
       acquireScrubStyles();
     },
-    [altStep, clamp, finishScrub, onChange, shiftStep, step, value],
+    [altStep, clamp, disabled, finishScrub, onChange, shiftStep, step, value],
   );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (disabled) return;
       const factor = e.shiftKey ? shiftStep : e.altKey ? altStep : step;
       if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
         e.preventDefault();
@@ -220,7 +223,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(functi
         commitValue(dirty);
       }
     },
-    [altStep, clamp, commitValue, dirty, onChange, shiftStep, step, value],
+    [altStep, clamp, commitValue, dirty, disabled, onChange, shiftStep, step, value],
   );
 
   return (
@@ -231,6 +234,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(functi
       inputMode="decimal"
       className="varve-number-input"
       value={dirty ?? String(value)}
+      disabled={disabled}
       onChange={(e) => setDirty(e.target.value)}
       onPointerDown={handlePointerDown}
       onBlur={() => {

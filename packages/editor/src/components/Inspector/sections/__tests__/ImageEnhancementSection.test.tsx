@@ -336,8 +336,12 @@ describe('ImageEnhancementSection — original one-shot', () => {
     // Trace controls are still inline
     fireEvent.click(screen.getByLabelText('Trace mode'));
     fireEvent.click(await screen.findByRole('option', { name: 'Color' }));
-    fireEvent.change(screen.getByLabelText('Trace color count'), { target: { value: '6' } });
-    fireEvent.change(screen.getByLabelText('Minimum trace area'), { target: { value: '3' } });
+    const colorCount = screen.getByLabelText('Trace color count');
+    fireEvent.change(colorCount, { target: { value: '6' } });
+    fireEvent.blur(colorCount);
+    const minAreaField = screen.getByLabelText('Minimum trace area');
+    fireEvent.change(minAreaField, { target: { value: '3' } });
+    fireEvent.blur(minAreaField);
     fireEvent.click(screen.getByRole('button', { name: 'Trace color' }));
 
     await waitFor(() =>

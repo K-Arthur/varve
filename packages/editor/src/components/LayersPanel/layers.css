@@ -981,7 +981,11 @@
   padding: 0 var(--space-1);
   margin-left: auto;
   white-space: nowrap;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ─── Node-local Object Filter badge ──────────────────────── */
@@ -1021,10 +1025,14 @@
   background: color-mix(in oklab, var(--color-accent) 14%, transparent);
   border-radius: var(--radius-control-compact);
   color: var(--color-accent);
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 10rem;
+  overflow: hidden;
   font-size: var(--font-size-2xs);
   padding: 0 var(--space-1);
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /* ─── Effects badge (drop shadow, blur, glow, etc.) ───────── */
