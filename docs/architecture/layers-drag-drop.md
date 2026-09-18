@@ -172,7 +172,11 @@ simply arrivals, and the simulation accounts for them.
 Structural drag stays enabled while the tree is filtered or isolated. Indices
 are computed against the **full** sibling array via `indexOf`, never against
 the filtered row list, so "immediately above the row you can see" resolves to
-the correct slot even when the siblings between are hidden from view.
+the correct slot even when the siblings between are hidden from view. This is
+the documented policy (task §32 option B: allow the operation, show the true
+structural destination), and it is asserted by explicit tests — including the
+case where the destination container row itself is filtered out
+(`layerDropResolver.test.ts`, "filtered tree policy").
 
 ### Layers to canvas
 
@@ -219,6 +223,15 @@ row does not postpone it, while moving to another row cancels and rearms it.
 Expansion only occurs when the current document still contains a container at
 that target id.
 
+**Auto-expand is a loan, not a gift.** Containers a drag sprang open are
+recorded per session. When the drag ends, containers on the landed path — the
+dropped-into container and its opened ancestors — stay open so the moved layer
+remains visible; every other auto-expanded container snaps back to collapsed.
+Cancel and invalid drops revert everything. The pure policy lives in
+`resolveAutoExpandRestore` (`useLayersDnD.ts`), tested in
+`dragAutoExpand.test.ts`. Without this, hovering a closed group on the way to
+somewhere else permanently changed the user's disclosure.
+
 ## Gesture disambiguation
 
 Structural DnD is activated by the dedicated grip only. The row body belongs
@@ -244,6 +257,19 @@ hierarchy changes. The Layers panel previously reimplemented front/back as a
 per-id reparent loop against a captured document; that duplicate path is
 gone.
 
+**Reparenting without drag** (added 2026-09-17): the Arrange group also
+offers **Move Into Container Above** and **Move Out of Container**, and the
+tree binds `Ctrl+Alt+]` / `Ctrl+Alt+[` to the same operations — sibling
+reorder (Ctrl+[/]) changes position, the Alt variants change level. Both are
+planned by the pure module `layerIndentPlan.ts` and share one implementation
+with the context menu via the tree's imperative handle. Indent appends into
+the container displayed above (skipping rows that belong to another moved
+subtree; refusing cycles); outdent inserts at the parent's raw slot in the
+grandparent, which displays the node directly below the parent's subtree
+block. Multi-root moves append back-most first so the selection keeps its
+stacking; each command is one undo entry. A mixed-parent outdent moves only
+the anchored container's group per command and says so.
+
 A completed drag also produces a synthetic `click` on the dropped row, which
 would run the row's ordinary click handler and replace the selection the user
 just moved. Drag end installs a one-shot capturing `click` listener to swallow
@@ -259,6 +285,8 @@ causes no flicker.
 | --- | --- |
 | Resolver (pointer → target, zones, indices, validity) | `layerDropResolver.test.ts` |
 | Move planning, composed step-by-step application | `dragMove.test.ts` |
+| Indent/outdent planning (non-drag reparenting) | `layerIndentPlan.test.ts` |
+| Auto-expand restore policy | `dragAutoExpand.test.ts` |
 | Layers-to-canvas roots, spacing, transformed-parent rebasing | `Shell/layerCanvasDrop.test.ts` |
 | File-drop surface ownership and descendant dragleave behavior | `dropUtils.test.ts` |
 | Real-pointer invariant: preview read mid-drag vs committed hierarchy | `tests/e2e/layers/layers-dnd-invariant.spec.ts` |

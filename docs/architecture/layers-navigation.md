@@ -68,6 +68,45 @@ This keeps the focused tree item, primary selection, range anchor, and camera
 as distinct state. Camera transitions are cancelled by direct pan/zoom/camera
 input, and successive automatic requests replace the previous transition.
 
+## Expansion integrity and persistence
+
+The expansion set is user state and is treated accordingly (2026-09-17):
+
+- **Document edits never re-expand.** Only containers that are genuinely new
+  to the document — a different node *id* — are added to the expansion set
+  (`expandAddedContainers` in `LayersTree.tsx`). A rename, restyle, or
+  undo/redo produces a new node object under an existing id and leaves
+  disclosure untouched. Imports and pastes expand their new containers so
+  fresh subtrees are visible.
+- **Search is a projection.** Filtering walks collapsed branches without
+  mutating the expansion set; clearing the query restores the prior
+  disclosure exactly (unit and E2E covered since 2026-08-31).
+- **Drag auto-expand reverts.** Containers a drag sprang open collapse again
+  after the drag unless the drop landed in them (or their subtree) — see
+  `docs/architecture/layers-drag-drop.md`.
+- **Detach transfer.** The set is mirrored into the panel-local presentation
+  codec (`layers` / `expandedIds`, capped at 1 000 ids) so a detached Layers
+  window restores the same disclosure and reattaches with it. It is
+  window-local presentation state, never document content. Focus index and
+  scroll offset intentionally reset on detach.
+
+## Effective visibility (direct vs inherited)
+
+Visibility inherits down the hierarchy: a child of a hidden group paints
+nothing while its own `visible` flag stays true. Rows distinguish the two
+states the same way lock does:
+
+- directly hidden (`visible === false`): the existing 0.4-opacity row and the
+  eye-off toggle;
+- hidden through an ancestor: a lighter 0.62 treatment, an intermediate toggle
+  style, and an accessible name that names the restricting layer
+  (`isNodeEffectivelyHidden` / `hidingAncestorOf` in `scene/world.ts`).
+
+The context menu's Show/Hide item carries the description "Hidden by an
+ancestor layer" when the target is inherited-hidden. The command remains
+enabled: setting the own flag is the correct eventual state, unlike an
+ancestor-locked Lock, which is disabled because it cannot take effect.
+
 ## Range selection and row scrub
 
 The visible tree is a flattened projection of the active surface. Its range

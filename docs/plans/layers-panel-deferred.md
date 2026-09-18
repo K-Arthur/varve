@@ -227,6 +227,35 @@ Still open from this pass: the stale `.layers-row__media-badge` rule in
 once that file has a single owner), and the pre-existing useFlatTree
 diff-duplication and long-jump focus retry noted above.
 
+## 2026-09-17 hierarchy-hardening pass — expansion integrity, effective visibility, non-drag reparenting
+
+Fixed in this pass (evidence and decisions in
+`docs/audits/layers-panel-hierarchy-hardening-2026-09-17.md`):
+
+- **Any-document-edit re-expansion** (the first "noted but not fixed" item
+  above had grown into a real behavior defect): expansion additions are now
+  keyed on new node ids only; user collapse survives renames, nudges, and
+  undo/redo.
+- **Direct vs inherited visibility**: `isNodeEffectivelyHidden` /
+  `hidingAncestorOf` mirror the effective-lock pipeline; rows, aria, and the
+  context menu distinguish a directly hidden layer from one hidden through
+  an ancestor.
+- **Non-drag reparenting (WCAG 2.5.7)**: "Move Into Container Above" /
+  "Move Out of Container" in the context menu plus tree-local
+  `Ctrl+Alt+]` / `Ctrl+Alt+[`, planned by the pure `layerIndentPlan.ts`.
+- **Drag auto-expand restore**: containers a drag sprang open revert on
+  drop/cancel unless the drop landed in them (`resolveAutoExpandRestore`).
+- **Filtered-drag policy** asserted by explicit resolver tests; expansion
+  set transfers across panel detach (bounded to 1 000 ids); indent guides
+  for deep nesting; Path/Raster/Table filter chips; corrupt-document cycle
+  guard in `flattenTree`; dead `fuzzySearch.ts` and the dead
+  selection-checkbox prop chain removed.
+
+Still open after this pass: the `.layers-row__media-badge` rule in
+`editor.css` (file under concurrent ownership), the useFlatTree
+diff-duplication refactor, the Home/End long-jump focus retry, real
+screen-reader walkthrough, and Tauri/WebKitGTK drag parity.
+
 ## Test strategy note
 
 Every fix above followed TDD: a test was written (or an existing test was
