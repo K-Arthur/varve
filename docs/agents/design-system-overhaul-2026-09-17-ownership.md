@@ -54,3 +54,24 @@ and integrates with theirs; it does not re-do owned surfaces.
 Progressive commits on `master` with explicit path lists; `git diff
 --cached` verified before every commit; no push; destructive commands
 prohibited; re-read shared files immediately before editing.
+
+## Outcome (final)
+
+| Commit | Slice |
+|---|---|
+| `fbedb56c5` | M1 canvas overlay token separation + 20-painter migration |
+| `148c9c2c5` | M2 opt-in document-derived accent (setting, module, wiring, dialog, tests, E2E, screenshots) |
+| `3c5bc907c` | M3 token drift repair (stale names, raw label sizes, raw durations) |
+
+Incident: the concurrent Inspector session's `0c54ede60` staged the shared
+`settings.ts` wholesale and swept in this session's already-written
+`accentSource` hunks. Recorded in
+`docs/audits/design-system-overhaul-2026-09-17.md`; not rewritten.
+`editor.css` was shared three more times afterwards; each commit staged
+only this session's hunks via index reverse-apply, verified against the
+worktree (the other session's `insp-image-fill` block stayed theirs and
+landed in their own commit).
+
+Evidence: `docs/audits/design-system-overhaul-2026-09-17.md`,
+`docs/research/design-system-overhaul-2026-09-17.md`,
+`docs/architecture/design-token-system.md`.
