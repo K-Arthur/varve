@@ -64,7 +64,7 @@
   border: 1px solid var(--color-border-subtle);
   color: var(--color-text-muted);
   font-family: var(--type-data-numeric-family, var(--font-mono));
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   line-height: 1;
 }

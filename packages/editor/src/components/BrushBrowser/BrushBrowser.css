@@ -37,8 +37,8 @@
 
 .brush-browser__chip.is-active {
   color: var(--color-text-primary-on-accent);
-  background: var(--color-accent);
-  border-color: var(--color-accent);
+  background: var(--color-accent-primary);
+  border-color: var(--color-accent-primary);
 }
 
 .brush-browser__chip:has(input:focus-visible) {
@@ -71,8 +71,8 @@
 }
 
 .brush-browser__tile.is-selected {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 1px var(--color-accent);
+  border-color: var(--color-accent-primary);
+  box-shadow: 0 0 0 1px var(--color-accent-primary);
 }
 
 .brush-browser__tile-main {

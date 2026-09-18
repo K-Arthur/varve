@@ -83,7 +83,7 @@
 
 .adj-panel__preset:hover,
 .adj-panel__preset:focus-visible {
-  border-color: var(--color-accent);
+  border-color: var(--color-accent-primary);
   color: var(--color-text-primary);
 }
 

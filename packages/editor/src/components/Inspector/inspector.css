@@ -2436,12 +2436,12 @@
   color: var(--color-interactive-default);
 }
 .insp-icon-btn--danger {
-  color: var(--color-danger);
+  color: var(--color-feedback-danger);
 }
 .insp-icon-btn--danger:hover {
   background: var(--color-danger-subtle, rgba(239, 68, 68, 0.15));
   border-color: transparent;
-  color: var(--color-danger);
+  color: var(--color-feedback-danger);
 }
 
 .insp-image-placement__actions {
@@ -4690,7 +4690,7 @@ fieldset.insp-canvas-props,
   height: 100%;
   background: var(--color-interactive-default);
   border-radius: var(--radius-pill);
-  transition: width 120ms ease-out;
+  transition: width var(--duration-quick) ease-out;
 }
 
 .insp-progress__label {
@@ -5707,7 +5707,7 @@ fieldset.insp-canvas-props,
   height: 100%;
   background: var(--color-interactive-default);
   border-radius: var(--radius-pill);
-  transition: width 120ms ease-out;
+  transition: width var(--duration-quick) ease-out;
 }
 
 /* ─── Nested results panel (inspector subsections) ───── */

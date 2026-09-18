@@ -9,7 +9,7 @@
 .insp-selection-sources__hint,
 .insp-selection-sources__saved-title {
   color: var(--color-text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   line-height: 1.4;
   margin: 0;
 }
@@ -35,7 +35,7 @@
   color: var(--color-text-primary);
   background: var(--color-surface-raised);
   font: inherit;
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   min-height: 30px;
   padding: 5px 8px;
 }
@@ -45,22 +45,22 @@
 }
 
 .insp-selection-sources__button--primary {
-  border-color: var(--color-accent);
-  color: var(--color-accent-strong, var(--color-accent));
+  border-color: var(--color-accent-primary);
+  color: var(--color-accent-strong, var(--color-accent-primary));
 }
 
 .insp-selection-sources__button--active {
   background: var(--color-accent-subtle, var(--color-surface-hover));
-  border-color: var(--color-accent);
-  color: var(--color-accent-strong, var(--color-accent));
+  border-color: var(--color-accent-primary);
+  color: var(--color-accent-strong, var(--color-accent-primary));
 }
 
 .insp-selection-sources__error {
   color: var(--color-text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   line-height: 1.4;
   margin: 0;
-  border-left: 2px solid var(--color-warning, var(--color-border-subtle));
+  border-left: 2px solid var(--color-feedback-warning, var(--color-border-subtle));
   padding-left: 8px;
 }
 
@@ -83,14 +83,14 @@
 .insp-selection-sources__session {
   display: grid;
   gap: 6px;
-  border: 1px solid var(--color-accent);
+  border: 1px solid var(--color-accent-primary);
   border-radius: var(--radius-control);
   padding: 8px;
 }
 
 .insp-selection-sources__session-label {
   color: var(--color-text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 600;
 }
 
@@ -104,7 +104,7 @@
   align-items: flex-start;
   color: var(--color-text-secondary);
   display: flex;
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   gap: 6px;
   line-height: 1.4;
 }
@@ -135,7 +135,7 @@
   gap: 4px;
   grid-column: 1 / -1;
   color: var(--color-text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
 }
 
 .insp-selection-sources__name-field input,
@@ -181,7 +181,7 @@
 .insp-selection-sources__saved-name:focus-visible,
 .insp-selection-sources__rename-input:focus-visible,
 .insp-selection-sources__name-field input:focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-accent-primary);
   outline-offset: 1px;
 }
 

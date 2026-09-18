@@ -42,7 +42,7 @@
 
 .quick-convert__dropzone:hover,
 .quick-convert__dropzone:focus-visible {
-  border-color: var(--color-accent);
+  border-color: var(--color-accent-primary);
   background: var(--color-accent-subtle);
 }
 
@@ -200,11 +200,11 @@
 }
 
 .quick-convert__file--failed .quick-convert__file-status {
-  color: var(--color-danger);
+  color: var(--color-feedback-danger);
 }
 
 .quick-convert__file--saved .quick-convert__file-status {
-  color: var(--color-success);
+  color: var(--color-feedback-success);
 }
 
 .quick-convert__footer {
@@ -235,8 +235,8 @@
 }
 
 .quick-convert__button--primary {
-  border-color: var(--color-accent);
-  background: var(--color-accent);
+  border-color: var(--color-accent-primary);
+  background: var(--color-accent-primary);
   color: var(--color-accent-contrast);
 }
 

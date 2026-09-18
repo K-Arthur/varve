@@ -62,7 +62,7 @@
   align-items: center;
   border: 1px solid var(--color-border-subtle, #2d3339);
   border-radius: var(--radius-control-compact, 4px);
-  color: var(--color-accent, #0c8f8f);
+  color: var(--color-accent-primary, #0c8f8f);
   display: inline-flex;
   font-size: var(--font-size-xs, 0.75rem);
   font-weight: 600;
@@ -76,7 +76,7 @@
 .photo-source-section__download:hover,
 .photo-source-section__download:focus-visible {
   background: var(--color-surface-raised, rgba(255, 255, 255, 0.05));
-  border-color: var(--color-accent, #0c8f8f);
+  border-color: var(--color-accent-primary, #0c8f8f);
 }
 
 .photo-source-section__grid {
@@ -128,7 +128,7 @@
 }
 
 .photo-source-section__range input {
-  accent-color: var(--color-accent, #0c8f8f);
+  accent-color: var(--color-accent-primary, #0c8f8f);
   inline-size: 100%;
 }
 
@@ -163,11 +163,11 @@
 }
 
 .photo-source-section__warning {
-  color: var(--color-warning, #d49a26);
+  color: var(--color-feedback-warning, #d49a26);
 }
 
 .photo-source-section__error {
-  color: var(--color-danger, #d45c5c);
+  color: var(--color-feedback-danger, #d45c5c);
 }
 
 .photo-source-section__comparison {
@@ -245,7 +245,7 @@
 
 .hdr-merge-dialog__file:hover,
 .hdr-merge-dialog__file:focus-within {
-  border-color: var(--color-accent, #0c8f8f);
+  border-color: var(--color-accent-primary, #0c8f8f);
 }
 
 .hdr-merge-dialog__file input {
@@ -308,7 +308,7 @@
 }
 
 .hdr-merge-dialog__download {
-  color: var(--color-accent, #0c8f8f);
+  color: var(--color-accent-primary, #0c8f8f);
   font-size: var(--font-size-xs, 0.75rem);
   font-weight: 600;
 }

@@ -120,7 +120,7 @@
 
 .effect-studio-comparison__modes button[aria-pressed="true"] {
   background: var(--color-surface-selected);
-  border-color: var(--color-accent);
+  border-color: var(--color-accent-primary);
   color: var(--color-text-primary);
 }
 
@@ -165,7 +165,7 @@
 
 .effect-studio-comparison__zoom button[aria-pressed="true"] {
   background: var(--color-surface-selected);
-  border-color: var(--color-accent);
+  border-color: var(--color-accent-primary);
   color: var(--color-text-primary);
 }
 
@@ -236,7 +236,7 @@
 }
 
 .effect-studio-comparison__divider {
-  background: var(--color-accent);
+  background: var(--color-accent-primary);
   bottom: 0;
   box-shadow: 0 0 0 1px var(--color-surface-raised);
   left: var(--effect-studio-split);
@@ -278,7 +278,7 @@
 }
 
 .effect-studio-comparison__split-control input {
-  accent-color: var(--color-accent);
+  accent-color: var(--color-accent-primary);
   inline-size: 100%;
   margin: 0;
 }
@@ -297,7 +297,7 @@
 
 .effect-studio-comparison .effect-studio-comparison__notice {
   background: var(--color-surface-raised);
-  border-left: 2px solid var(--color-warning, var(--color-accent));
+  border-left: 2px solid var(--color-feedback-warning, var(--color-accent-primary));
   margin: 0;
   padding: var(--space-1) var(--space-2);
 }
@@ -391,7 +391,7 @@
 .effect-studio__primitives button:focus-visible,
 .effect-studio__looks li button:hover,
 .effect-studio__looks li button:focus-visible {
-  border-color: var(--color-accent);
+  border-color: var(--color-accent-primary);
   color: var(--color-text-primary);
 }
 
@@ -433,7 +433,7 @@
 
 .effect-studio__search-label input:focus-visible,
 .effect-studio__looks > label input:focus-visible {
-  border-color: var(--color-accent);
+  border-color: var(--color-accent-primary);
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
@@ -467,7 +467,7 @@
 .effect-studio__filters button:hover,
 .effect-studio__recent button:hover:not(:disabled) {
   background: var(--color-surface-selected);
-  border-color: var(--color-accent);
+  border-color: var(--color-accent-primary);
   color: var(--color-text-primary);
 }
 
@@ -526,8 +526,8 @@
 }
 
 .effect-studio__recipe-entry.is-selected {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 1px var(--color-accent);
+  border-color: var(--color-accent-primary);
+  box-shadow: 0 0 0 1px var(--color-accent-primary);
 }
 
 .effect-studio__applied-header > small {
@@ -540,7 +540,7 @@
 
 .effect-studio__applied-header > small.is-live {
   background: var(--color-surface-selected);
-  border-color: var(--color-accent);
+  border-color: var(--color-accent-primary);
   color: var(--color-text-primary);
 }
 
@@ -657,12 +657,12 @@
 }
 
 .effect-studio__tuning {
-  border-color: var(--color-accent);
+  border-color: var(--color-accent-primary);
 }
 
 .effect-studio__customized {
   background: var(--color-surface-raised);
-  border-left: 2px solid var(--color-warning, var(--color-accent));
+  border-left: 2px solid var(--color-feedback-warning, var(--color-accent-primary));
   padding: var(--space-1) var(--space-2);
 }
 
@@ -697,7 +697,7 @@
 }
 
 .effect-studio__tuning-controls input[type="range"] {
-  accent-color: var(--color-accent);
+  accent-color: var(--color-accent-primary);
   inline-size: 100%;
   margin: 0;
 }
@@ -821,8 +821,8 @@
 }
 
 .effect-studio__tuning-actions .effect-studio__add {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
+  background: var(--color-accent-primary);
+  border-color: var(--color-accent-primary);
   color: var(--color-text-on-accent);
 }
 
@@ -892,8 +892,8 @@
 }
 
 .effect-studio__treatment-grid > li.is-previewing {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 1px var(--color-accent);
+  border-color: var(--color-accent-primary);
+  box-shadow: 0 0 0 1px var(--color-accent-primary);
 }
 
 .effect-studio__treatment-art {
@@ -915,7 +915,7 @@
 
 .effect-studio__treatment-art::before {
   background:
-    radial-gradient(circle at 68% 30%, var(--color-accent), transparent 34%),
+    radial-gradient(circle at 68% 30%, var(--color-accent-primary), transparent 34%),
     linear-gradient(145deg, var(--color-surface-selected), var(--color-surface-sunken));
 }
 
@@ -1019,9 +1019,13 @@
 
 .effect-studio__treatment-art[data-treatment-art="riso"]::before {
   background:
-    radial-gradient(circle, var(--color-danger, var(--color-accent)) 0 1.8px, transparent 2px) 2px
-    1px / 9px 9px,
-    radial-gradient(circle, var(--color-accent) 0 1.8px, transparent 2px) 0 0 / 9px 9px,
+    radial-gradient(
+      circle,
+      var(--color-feedback-danger, var(--color-accent-primary)) 0 1.8px,
+      transparent 2px
+    )
+    2px 1px / 9px 9px,
+    radial-gradient(circle, var(--color-accent-primary) 0 1.8px, transparent 2px) 0 0 / 9px 9px,
     var(--color-surface-raised);
 }
 
@@ -1082,7 +1086,7 @@
     repeating-radial-gradient(
       ellipse at 62% 34%,
       transparent 0 8px,
-      var(--color-accent) 9px 11px,
+      var(--color-accent-primary) 9px 11px,
       transparent 12px 20px
     ),
     linear-gradient(135deg, var(--color-surface-selected), var(--color-surface-sunken));
@@ -1106,13 +1110,13 @@
   background:
     radial-gradient(
       circle at 50% 50%,
-      var(--color-warning, var(--color-accent)) 0 6%,
+      var(--color-feedback-warning, var(--color-accent-primary)) 0 6%,
       transparent 28%
     ),
     radial-gradient(
       circle at 50% 50%,
       transparent 0 34%,
-      var(--color-accent) 35% 38%,
+      var(--color-accent-primary) 35% 38%,
       transparent 39%
     ),
     linear-gradient(135deg, var(--color-surface-selected), var(--color-surface-sunken));
@@ -1122,7 +1126,7 @@
   background:
     radial-gradient(
       ellipse at 10% 42%,
-      var(--color-warning, var(--color-accent)) 0 20%,
+      var(--color-feedback-warning, var(--color-accent-primary)) 0 20%,
       transparent 58%
     ),
     linear-gradient(135deg, var(--color-surface-selected), var(--color-surface-sunken));
@@ -1148,7 +1152,7 @@
       transparent 20%,
       var(--color-text-primary) 21% 42%,
       transparent 43% 60%,
-      var(--color-accent) 61% 80%,
+      var(--color-accent-primary) 61% 80%,
       transparent 81%
     ),
     var(--color-surface-raised);
@@ -1159,9 +1163,9 @@
     linear-gradient(
       112deg,
       transparent 24%,
-      var(--color-warning, var(--color-accent)) 26% 30%,
+      var(--color-feedback-warning, var(--color-accent-primary)) 26% 30%,
       transparent 32% 42%,
-      var(--color-accent) 44% 47%,
+      var(--color-accent-primary) 44% 47%,
       transparent 49%
     ),
     linear-gradient(135deg, var(--color-surface-selected), var(--color-surface-sunken));
@@ -1177,7 +1181,7 @@
       var(--color-text-muted) 4px 5px,
       transparent 6px 8px
     ),
-    linear-gradient(135deg, var(--color-accent), var(--color-surface-sunken));
+    linear-gradient(135deg, var(--color-accent-primary), var(--color-surface-sunken));
 }
 
 .effect-studio__treatment-art[data-treatment-art="tape"]::before {
@@ -1190,8 +1194,8 @@
     ),
     linear-gradient(
       90deg,
-      var(--color-danger, var(--color-accent)),
-      var(--color-accent),
+      var(--color-feedback-danger, var(--color-accent-primary)),
+      var(--color-accent-primary),
       var(--color-surface-sunken)
     );
 }
@@ -1260,8 +1264,8 @@
 }
 
 .effect-studio__card-actions .effect-studio__add {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
+  background: var(--color-accent-primary);
+  border-color: var(--color-accent-primary);
   color: var(--color-text-on-accent);
 }
 
@@ -1279,7 +1283,7 @@
 .effect-studio__preview-status {
   align-items: center;
   background: var(--color-surface-selected);
-  border: 1px solid var(--color-accent);
+  border: 1px solid var(--color-accent-primary);
   border-radius: var(--radius-control-compact);
   display: flex;
   gap: var(--space-2);

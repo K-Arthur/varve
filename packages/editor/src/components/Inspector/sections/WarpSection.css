@@ -3,7 +3,7 @@
 
 /* ── Canvas overlay ─────────────────────────────────────────── */
 .warp-overlay__handle {
-  transition: stroke-width 120ms ease;
+  transition: stroke-width var(--duration-quick) ease;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -131,7 +131,7 @@
 }
 
 .warp-section__corner-label {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   font-weight: 700;
   color: var(--color-text-secondary);
   width: 22px;

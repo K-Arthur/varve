@@ -42,7 +42,7 @@
 }
 
 .rasterize-dialog__preset[aria-pressed="true"] {
-  border-color: var(--color-accent);
+  border-color: var(--color-accent-primary);
   background: var(--color-accent-subtle);
 }
 
