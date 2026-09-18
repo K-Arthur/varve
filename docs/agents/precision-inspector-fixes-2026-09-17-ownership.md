@@ -101,3 +101,9 @@ Unverified lanes: the new E2E spec (machine memory pressure, not attempted
   live render, deferred); real-device touch, screen reader, macOS/Windows
   native, Chromebook hardware (as with every other same-day pass).
 ```
+
+## Outcome
+
+| Commit | Slice |
+|---|---|
+| `4c5d04563` | NumberInput `disabled`, ImageEnhancementSection numeric-field migration, `.insp-btn` base styling, Layers badge ellipsis, new E2E spec |
