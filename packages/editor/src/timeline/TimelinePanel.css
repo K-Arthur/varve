@@ -184,7 +184,7 @@
   color: var(--color-text-primary);
 }
 
-.timeline-panel__toggle-btn--active {
+.timeline-panel__toggle-btn[aria-pressed="true"] {
   background: var(--color-interactive-checked-surface);
   border-color: var(--color-interactive-selected-border);
   color: var(--color-interactive-selected-foreground);
@@ -242,7 +242,7 @@
   cursor: default;
 }
 
-.timeline-playback-btn--active {
+.timeline-playback-btn[aria-pressed="true"] {
   background: var(--color-interactive-checked-surface);
   color: var(--color-interactive-selected-foreground);
 }
@@ -421,12 +421,12 @@
   color: var(--color-text-on-accent);
 }
 
-.timeline-track-row__mute-btn--active {
+.timeline-track-row__mute-btn[aria-pressed="true"] {
   background: var(--color-interactive-checked-surface);
   color: var(--color-interactive-selected-foreground);
 }
 
-.timeline-track-row__solo-btn--active {
+.timeline-track-row__solo-btn[aria-pressed="true"] {
   background: var(--color-interactive-checked-surface);
   color: var(--color-interactive-selected-foreground);
   font-weight: 700;
@@ -454,16 +454,22 @@
     background: transparent;
   }
 
-  .timeline-panel__toggle-btn:hover:not(:active):not(.timeline-panel__toggle-btn--active),
-  .timeline-track-row__mute-btn:hover:not(:active):not(.timeline-track-row__mute-btn--active),
-  .timeline-track-row__solo-btn:hover:not(:active):not(.timeline-track-row__solo-btn--active) {
+  .timeline-panel__toggle-btn:hover:not(:active):not(
+    .timeline-panel__toggle-btn[aria-pressed="true"]
+  ),
+  .timeline-track-row__mute-btn:hover:not(:active):not(
+    .timeline-track-row__mute-btn[aria-pressed="true"]
+  ),
+  .timeline-track-row__solo-btn:hover:not(:active):not(
+    .timeline-track-row__solo-btn[aria-pressed="true"]
+  ) {
     background: var(--color-surface-sunken);
   }
 
-  .timeline-panel__toggle-btn--active:hover:not(:active),
-  .timeline-playback-btn--active:hover:not(:active),
-  .timeline-track-row__mute-btn--active:hover:not(:active),
-  .timeline-track-row__solo-btn--active:hover:not(:active) {
+  .timeline-panel__toggle-btn[aria-pressed="true"]:hover:not(:active),
+  .timeline-playback-btn[aria-pressed="true"]:hover:not(:active),
+  .timeline-track-row__mute-btn[aria-pressed="true"]:hover:not(:active),
+  .timeline-track-row__solo-btn[aria-pressed="true"]:hover:not(:active) {
     background: var(--color-interactive-checked-surface);
     color: var(--color-interactive-selected-foreground);
   }

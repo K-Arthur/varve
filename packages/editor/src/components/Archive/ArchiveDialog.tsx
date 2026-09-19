@@ -533,9 +533,7 @@ export function ArchiveDialog({
       <section className="archive-dialog__section" aria-label="Archive type">
         <h3 className="archive-dialog__section-title">Archive type</h3>
         <div className="archive-dialog__type-group" role="radiogroup" aria-label="Archive type">
-          <label
-            className={`archive-dialog__type-btn${archiveKind === 'full' ? ' archive-dialog__type-btn--active' : ''}`}
-          >
+          <label className="archive-dialog__type-btn">
             <input
               type="radio"
               name="archive-kind"
@@ -550,9 +548,7 @@ export function ArchiveDialog({
             <span className="archive-dialog__type-label">Full Project</span>
             <span className="archive-dialog__type-desc">Document, assets, and settings</span>
           </label>
-          <label
-            className={`archive-dialog__type-btn${archiveKind === 'settings-only' ? ' archive-dialog__type-btn--active' : ''}`}
-          >
+          <label className="archive-dialog__type-btn">
             <input
               type="radio"
               name="archive-kind"

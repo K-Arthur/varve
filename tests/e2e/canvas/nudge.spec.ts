@@ -138,7 +138,7 @@ test.describe('Nudge transaction resilience', () => {
 
     const frame = page.getByRole('treeitem').filter({ hasText: /frame/i }).last();
     await expect(frame).toBeVisible();
-    await expect(page.locator('[data-tool="frame"].floating-toolbar__btn--active')).toBeVisible();
+    await expect(page.locator('[data-tool="frame"][aria-pressed="true"]')).toBeVisible();
     const before = await getSelectedPosition(page);
 
     const canvas = page.locator('canvas.editor-canvas__content-layer');

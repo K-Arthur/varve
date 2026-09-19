@@ -1329,11 +1329,11 @@ input[type="number"] {
   background: color-mix(in oklch, var(--color-text-primary) 12%, transparent);
   color: var(--color-text-primary);
 }
-.editor-status__toggle--active {
+.editor-status__toggle[aria-pressed="true"] {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
-.editor-status__toggle--active:hover {
+.editor-status__toggle[aria-pressed="true"]:hover {
   background: var(--color-interactive-hover);
 }
 /* Separator dashes in status bar */
@@ -4954,12 +4954,6 @@ dialog.varve-dialog--settings[open] {
   max-height: 280px;
 }
 
-/* ── Timeline playback button active state ─────────────── */
-.timeline-playback-btn--active {
-  color: var(--color-interactive-selected-foreground);
-  background: var(--color-interactive-checked-surface);
-}
-
 /* ── Timeline panel enhanced ───────────────────────────── */
 .timeline-panel {
   display: flex;
@@ -5151,12 +5145,6 @@ dialog.varve-dialog--settings[open] {
 .timeline-panel__toggle-btn:hover {
   background: var(--color-interactive-hover-surface);
   color: var(--color-text-primary);
-}
-
-.timeline-panel__toggle-btn--active {
-  background: var(--color-interactive-checked-surface);
-  border-color: var(--color-interactive-selected-border);
-  color: var(--color-interactive-selected-foreground);
 }
 
 .timeline-panel__empty {

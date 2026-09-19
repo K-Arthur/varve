@@ -40,44 +40,48 @@ vi.mock('../FontBrowser/FontSelector', () => ({
   ),
 }));
 
-vi.mock('@varve/ui', () => ({
-  Icon: () => <span aria-hidden="true" />,
-  FloatingPortal: ({ children }: { children: ReactNode }) => <>{children}</>,
-  FocusTrap: ({ children }: { children: ReactNode }) => <>{children}</>,
-  Toolbar: ({
-    label,
-    children,
-    className,
-  }: {
-    label: string;
-    children: ReactNode;
-    className?: string;
-  }) => (
-    <div className={className} role="toolbar" aria-label={label}>
-      {children}
-    </div>
-  ),
-  Select: ({
-    label,
-    value,
-    options,
-    onChange,
-  }: {
-    label: string;
-    value: string;
-    options: Array<{ value: string; label: string }>;
-    onChange?: (value: string) => void;
-  }) => (
-    <select aria-label={label} value={value} onChange={(event) => onChange?.(event.target.value)}>
-      {options.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-  ),
-  Tooltip: ({ children }: { children: ReactNode }) => <>{children}</>,
-}));
+vi.mock('@varve/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@varve/ui')>();
+  return {
+    ...actual,
+    Icon: () => <span aria-hidden="true" />,
+    FloatingPortal: ({ children }: { children: ReactNode }) => <>{children}</>,
+    FocusTrap: ({ children }: { children: ReactNode }) => <>{children}</>,
+    Toolbar: ({
+      label,
+      children,
+      className,
+    }: {
+      label: string;
+      children: ReactNode;
+      className?: string;
+    }) => (
+      <div className={className} role="toolbar" aria-label={label}>
+        {children}
+      </div>
+    ),
+    Select: ({
+      label,
+      value,
+      options,
+      onChange,
+    }: {
+      label: string;
+      value: string;
+      options: Array<{ value: string; label: string }>;
+      onChange?: (value: string) => void;
+    }) => (
+      <select aria-label={label} value={value} onChange={(event) => onChange?.(event.target.value)}>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    ),
+    Tooltip: ({ children }: { children: ReactNode }) => <>{children}</>,
+  };
+});
 
 const node = makeTextNode('text-1', 'Typography', {
   fontFamily: 'Arial',

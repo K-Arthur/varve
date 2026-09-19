@@ -293,7 +293,7 @@ export function FloatingTextBar({
           onPressedChange={handleBoldToggle}
           label="Bold"
           disabled={!boldAvailable}
-          className={`floating-text-bar__btn${isBold ? ' floating-text-bar__btn--active' : ''}`}
+          className="floating-text-bar__btn"
         />
 
         <ToggleButton
@@ -304,7 +304,7 @@ export function FloatingTextBar({
           label="Italic"
           disabled={!italicAvailable}
           title={italicAvailable ? undefined : 'This font has no real italic face'}
-          className={`floating-text-bar__btn${isItalic ? ' floating-text-bar__btn--active' : ''}`}
+          className="floating-text-bar__btn"
         />
 
         <div className="floating-text-bar__separator" />
@@ -384,7 +384,7 @@ export function FloatingTextBar({
               pressed={isList}
               onPressedChange={handleListToggle}
               label="List"
-              className={`floating-text-bar__btn${isList ? ' floating-text-bar__btn--active' : ''}`}
+              className="floating-text-bar__btn"
             />
           </div>
         </FloatingPortal>

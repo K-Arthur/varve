@@ -43,7 +43,7 @@
   color: var(--color-text-primary);
 }
 
-.crop-toolbar__btn--active {
+.crop-toolbar__btn[aria-checked="true"] {
   border-color: var(--color-interactive-default);
   background: var(--color-interactive-checked-surface);
   color: var(--color-text-on-accent);
@@ -54,7 +54,7 @@
   color: var(--color-text-on-accent);
 }
 
-.crop-toolbar__btn--active:hover {
+.crop-toolbar__btn[aria-checked="true"]:hover {
   background: var(--color-interactive-hover);
   color: var(--color-text-on-accent);
 }
@@ -99,7 +99,7 @@
     background: transparent;
     color: var(--color-text-secondary);
   }
-  .crop-toolbar__btn--active:hover {
+  .crop-toolbar__btn[aria-checked="true"]:hover {
     background: var(--color-interactive-checked-surface);
     color: var(--color-text-on-accent);
   }

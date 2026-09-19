@@ -134,7 +134,7 @@
   cursor: pointer;
 }
 
-.upscale-preview__zoom-btn--active {
+.upscale-preview__zoom-btn[aria-pressed="true"] {
   background: var(--color-interactive-default);
   color: var(--color-on-accent);
 }
@@ -258,7 +258,7 @@
 }
 
 .upscale-preview__slider:focus-visible .upscale-preview__slider-handle {
-  box-shadow: 0 0 0 3px var(--color-interactive-subtle);
+  box-shadow: 0 0 0 3px var(--color-accent-subtle);
 }
 
 .upscale-preview__slider-line {
@@ -520,9 +520,9 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-2);
-  border: 1px solid var(--color-border-error, var(--color-border-subtle));
+  border: 1px solid var(--color-feedback-danger, var(--color-border-subtle));
   border-radius: var(--radius-control-compact);
-  background: var(--color-surface-error, transparent);
+  background: color-mix(in oklab, var(--color-feedback-danger) 12%, transparent);
 }
 
 /* ── Workspace size override ────────────────────────────────────────────────

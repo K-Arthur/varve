@@ -294,7 +294,7 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
               <Tooltip label="Graph editor" shortcut="G">
                 <button
                   type="button"
-                  className={`timeline-panel__toggle-btn ${graphEditorVisible ? 'timeline-panel__toggle-btn--active' : ''}`}
+                  className="timeline-panel__toggle-btn"
                   onClick={onToggleGraphEditor}
                   aria-label="Toggle graph editor"
                   aria-pressed={graphEditorVisible}

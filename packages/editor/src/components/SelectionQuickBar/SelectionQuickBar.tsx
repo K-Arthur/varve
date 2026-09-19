@@ -219,11 +219,7 @@ export function SelectionQuickBar({
           const sep = needsSeparatorBefore(profile.actions, index);
           const short = SHORT_LABELS[a.id] ?? a.label;
           const classBase = iconOnly ? 'selection-quick-bar__btn' : 'selection-quick-bar__text-btn';
-          const className = [
-            classBase,
-            isActive ? `${classBase}--active` : '',
-            isPending ? `${classBase}--pending` : '',
-          ]
+          const className = [classBase, isPending ? `${classBase}--pending` : '']
             .filter(Boolean)
             .join(' ');
 

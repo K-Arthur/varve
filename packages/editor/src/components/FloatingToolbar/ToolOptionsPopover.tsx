@@ -423,7 +423,7 @@ export function ToolOptionsPopover() {
         onBlur={() => {
           keyboardTriggerRef.current = false;
         }}
-        className={`floating-toolbar__btn${open ? ' floating-toolbar__btn--active' : ''}`}
+        className="floating-toolbar__btn"
         aria-haspopup="dialog"
         aria-expanded={open}
       />

@@ -100,12 +100,12 @@
   outline-offset: -2px;
 }
 
-.floating-text-bar__btn--active {
+.floating-text-bar__btn[aria-pressed="true"] {
   background: var(--color-interactive-checked-surface);
   color: var(--color-text-on-accent);
 }
 
-.floating-text-bar__btn--active:hover {
+.floating-text-bar__btn[aria-pressed="true"]:hover {
   background: var(--color-interactive-hover);
   color: var(--color-text-on-accent);
 }
@@ -197,7 +197,7 @@
   outline: 1px solid var(--color-border-subtle);
 }
 
-[data-theme="high-contrast"] .floating-text-bar__btn--active {
+[data-theme="high-contrast"] .floating-text-bar__btn[aria-pressed="true"] {
   outline: 2px solid var(--color-border-strong);
   outline-offset: 1px;
 }

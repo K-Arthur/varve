@@ -68,6 +68,16 @@ guard.
 - Busy, disabled, confirmation, and pressed states are distinct. A disabled
   control is not a substitute for a pending state, and a pending state is not
   represented by a guessed timer.
+- **Pressed state has one source.** `aria-pressed` (toggles) or
+  `aria-checked` (radio/segmented members) is authoritative; styling selects on
+  the attribute, never on a parallel `--active` / `is-active` class. The
+  2026-09-19 consolidation removed that class plumbing from the context bar,
+  floating toolbars, selection quick bar, timeline, status bar, crop, spec
+  units, archive, and upscale surfaces; feature code should not reintroduce it.
+  Add `aria-pressed` first when a control gains a visual engaged state.
+- A popover or menu trigger's engaged highlight comes from `aria-pressed` (it
+  is a toggle) alongside its `aria-expanded` popup semantics — not from a
+  third, trigger-only modifier class.
 
 ## Visual contract
 
@@ -90,6 +100,14 @@ tool-options trigger is a toggle because it represents an open/closed state.
 The floating text bar uses toggles for Bold, Italic, and List, and the shared
 segmented radiogroup for text alignment. Tooltips, roving toolbar focus,
 disabled reasons, and anchored menus remain owned by their existing systems.
+
+The context bar (`ContextControlBar`) composes the same primitives:
+`ToggleButton` for persistent state such as Bold, Italic, and clip content;
+`Button` for one-shot actions such as swap orientation and vectorize. Its
+`.ccb__btn` class owns geometry only. Timeline playback, track mute/solo,
+selection quick bar items, status-bar toggles, crop ratio/guide choices, spec
+unit choices, archive type, and upscale zoom follow the same rule: the ARIA
+attribute carries the state, the surface stylesheet selects on it.
 
 ## Website integration
 

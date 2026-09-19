@@ -109,7 +109,7 @@ export const PlaybackControls: FC<PlaybackControlsProps> = ({
 
       <button
         type="button"
-        className={`timeline-playback-btn ${loop ? 'timeline-playback-btn--active' : ''}`}
+        className="timeline-playback-btn"
         onClick={onToggleLoop}
         aria-label={loop ? 'Disable loop' : 'Enable loop'}
         aria-pressed={loop}
@@ -120,7 +120,7 @@ export const PlaybackControls: FC<PlaybackControlsProps> = ({
       {onToggleAutoKeyframe && (
         <button
           type="button"
-          className={`timeline-playback-btn ${autoKeyframe ? 'timeline-playback-btn--active' : ''}`}
+          className="timeline-playback-btn"
           onClick={onToggleAutoKeyframe}
           aria-label={autoKeyframe ? 'Disable auto-keyframe' : 'Enable auto-keyframe'}
           aria-pressed={autoKeyframe}
@@ -132,7 +132,7 @@ export const PlaybackControls: FC<PlaybackControlsProps> = ({
       {onToggleOnionSkin && (
         <button
           type="button"
-          className={`timeline-playback-btn ${onionSkin ? 'timeline-playback-btn--active' : ''}`}
+          className="timeline-playback-btn"
           onClick={onToggleOnionSkin}
           aria-label={onionSkin ? 'Disable onion skinning' : 'Enable onion skinning'}
           aria-pressed={onionSkin}

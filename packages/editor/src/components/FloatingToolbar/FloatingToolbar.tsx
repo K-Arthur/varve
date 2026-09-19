@@ -68,7 +68,7 @@ function ToolButton({ id, groupStart }: ToolButtonProps) {
         label={label}
         pressed={state.tool === id}
         onPressedChange={() => setTool(id)}
-        className={`floating-toolbar__btn${state.tool === id ? ' floating-toolbar__btn--active' : ''}${groupStart ? ' floating-toolbar__btn--group-start' : ''}`}
+        className={`floating-toolbar__btn${groupStart ? ' floating-toolbar__btn--group-start' : ''}`}
         data-tool={id}
         aria-keyshortcuts={ariaShortcut}
       />
@@ -124,7 +124,7 @@ function FlyoutButton({
         disabled={disabled}
         aria-disabled={disabled || undefined}
         onPressedChange={() => onActivate(current)}
-        className={`floating-toolbar__btn${pressed ? ' floating-toolbar__btn--active' : ''}${slot.groupStart ? ' floating-toolbar__btn--group-start' : ''}`}
+        className={`floating-toolbar__btn${slot.groupStart ? ' floating-toolbar__btn--group-start' : ''}`}
         data-tool={current}
         aria-keyshortcuts={toolAriaKeyShortcut(current)}
       />

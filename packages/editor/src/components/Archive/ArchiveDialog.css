@@ -83,7 +83,7 @@
 .archive-dialog__type-btn:hover {
   background: var(--color-surface-raised);
 }
-.archive-dialog__type-btn--active {
+.archive-dialog__type-btn:has(input:checked) {
   border-color: var(--color-interactive-default);
   background: var(--color-surface-raised);
 }

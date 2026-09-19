@@ -203,7 +203,7 @@ function CropToolbar({
               type="button"
               role="radio"
               aria-checked={activeRatio === preset.label}
-              className={`crop-toolbar__btn ${activeRatio === preset.label ? 'crop-toolbar__btn--active' : ''}`}
+              className="crop-toolbar__btn"
               onClick={() => onRatioChange(preset)}
             >
               {label}
@@ -219,7 +219,7 @@ function CropToolbar({
             type="button"
             role="radio"
             aria-checked={guideMode === mode}
-            className={`crop-toolbar__btn ${guideMode === mode ? 'crop-toolbar__btn--active' : ''}`}
+            className="crop-toolbar__btn"
             onClick={() => onGuideChange(mode)}
           >
             {mode === 'none'

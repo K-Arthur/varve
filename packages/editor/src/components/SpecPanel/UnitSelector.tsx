@@ -36,7 +36,7 @@ export function UnitSelector({ value, onChange }: UnitSelectorProps) {
           type="button"
           role="radio"
           aria-checked={value === opt.value}
-          className={`spec-unit-selector__btn${value === opt.value ? ' spec-unit-selector__btn--active' : ''}`}
+          className="spec-unit-selector__btn"
           onClick={() => {
             onChange(opt.value);
             try {

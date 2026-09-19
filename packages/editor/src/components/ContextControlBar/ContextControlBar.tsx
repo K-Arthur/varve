@@ -24,7 +24,7 @@
 import type { FrameNode, SceneNode, TextNode } from '@varve/scene';
 import { isExportRegion, isImageShape } from '@varve/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from '@varve/shared';
-import { Icon, Select, Toolbar, Tooltip } from '@varve/ui';
+import { Button, Icon, Select, ToggleButton, Toolbar, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import { getTextEditSessionNodeId, subscribeTextEditSession } from '../../context/textEditSession';
@@ -53,6 +53,13 @@ function Divider() {
   return <span aria-hidden className="ccb__divider" />;
 }
 
+type CcbIconName = Parameters<typeof Icon>[0]['name'];
+
+/**
+ * One-shot action or persistent toggle in the context bar. Delegates to the
+ * canonical `Button`/`ToggleButton` primitives so pressed state comes from
+ * `aria-pressed` alone; `.ccb__btn` keeps the context-bar geometry.
+ */
 function CcbButton({
   icon,
   label,
@@ -65,24 +72,40 @@ function CcbButton({
   icon: string;
   label: string;
   shortcut?: string;
+  /** Omit for a one-shot action; pass a boolean for a persistent toggle. */
   active?: boolean;
   disabled?: boolean;
   title?: string;
   onClick: () => void;
 }) {
-  return (
-    <Tooltip label={label} shortcut={shortcut}>
-      <button
-        type="button"
-        className={`ccb__btn${active ? ' ccb__btn--active' : ''}`}
+  const control =
+    active === undefined ? (
+      <Button
+        variant="toolbar"
+        size="icon-sm"
+        className="ccb__btn"
         aria-label={label}
-        aria-pressed={active}
         disabled={disabled}
         title={title}
         onClick={onClick}
       >
-        <Icon name={icon as Parameters<typeof Icon>[0]['name']} size={16} />
-      </button>
+        <Icon name={icon as CcbIconName} size={16} />
+      </Button>
+    ) : (
+      <ToggleButton
+        size="sm"
+        icon={icon as CcbIconName}
+        label={label}
+        pressed={active}
+        onPressedChange={onClick}
+        disabled={disabled}
+        title={title}
+        className="ccb__btn"
+      />
+    );
+  return (
+    <Tooltip label={label} shortcut={shortcut}>
+      {control}
     </Tooltip>
   );
 }
@@ -177,8 +200,9 @@ function ImageSection({
       <Divider />
       <CcbButton icon="Crop" label="Crop image (C)" shortcut="C" onClick={() => setTool('crop')} />
       <Tooltip label="Remove background (B)">
-        <button
-          type="button"
+        <Button
+          variant="toolbar"
+          size="icon-sm"
           className={`ccb__btn${removing ? ' ccb__btn--busy' : ''}`}
           aria-label="Remove background"
           aria-busy={removing}
@@ -186,7 +210,7 @@ function ImageSection({
           onClick={handleRemoveBackground}
         >
           <Icon name="Eraser" size={14} />
-        </button>
+        </Button>
       </Tooltip>
       <CcbButton icon="Sparkles" label="Vectorize image" onClick={() => openVectorizeDialog()} />
     </>
@@ -398,25 +422,25 @@ function FrameSection({
       <span className="ccb__label">Frame</span>
       <Divider />
       <Tooltip label="Swap width and height">
-        <button
-          type="button"
+        <Button
+          variant="toolbar"
+          size="icon-sm"
           className="ccb__btn"
           aria-label="Swap orientation"
           onClick={() => applyFramePreset({ name: node.name, w: node.h, h: node.w })}
         >
           <Icon name="RotateCw" size={14} />
-        </button>
+        </Button>
       </Tooltip>
       <Tooltip label={clipped ? 'Clipping content' : 'Not clipping content'}>
-        <button
-          type="button"
-          className={`ccb__btn${clipped ? ' ccb__btn--active' : ''}`}
-          aria-label="Toggle clip content"
-          aria-pressed={clipped}
-          onClick={() => setNodeClipContent(node.id, !clipped)}
-        >
-          <Icon name="Crop" size={14} />
-        </button>
+        <ToggleButton
+          size="sm"
+          icon="Crop"
+          label="Toggle clip content"
+          pressed={clipped}
+          onPressedChange={() => setNodeClipContent(node.id, !clipped)}
+          className="ccb__btn"
+        />
       </Tooltip>
     </>
   );

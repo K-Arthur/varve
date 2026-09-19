@@ -136,7 +136,7 @@
   color: var(--color-text-primary);
 }
 .floating-toolbar__btn:active:not(:disabled):not([aria-disabled="true"]):not(
-  .floating-toolbar__btn--active
+  [aria-pressed="true"]
 ) {
   background: var(--color-interactive-pressed-surface);
   color: var(--color-text-on-accent);
@@ -147,15 +147,15 @@
   outline-offset: -2px;
 }
 
-.floating-toolbar__btn--active {
+.floating-toolbar__btn[aria-pressed="true"] {
   background: var(--color-interactive-checked-surface);
   color: var(--color-text-on-accent);
 }
-.floating-toolbar__btn--active:hover {
+.floating-toolbar__btn[aria-pressed="true"]:hover {
   background: var(--color-interactive-hover);
   color: var(--color-text-on-accent);
 }
-.floating-toolbar__btn--active:active:not(:disabled):not([aria-disabled="true"]) {
+.floating-toolbar__btn[aria-pressed="true"]:active:not(:disabled):not([aria-disabled="true"]) {
   background: var(--color-interactive-pressed-surface);
   color: var(--color-text-on-accent);
 }
@@ -381,7 +381,7 @@
     background: transparent;
     color: var(--color-text-secondary);
   }
-  .floating-toolbar__btn--active:hover {
+  .floating-toolbar__btn[aria-pressed="true"]:hover {
     background: var(--color-interactive-checked-surface);
     color: var(--color-text-on-accent);
   }

@@ -196,7 +196,7 @@ const TrackRowInner: FC<TrackRowProps> = ({
             <Tooltip label={isMuted ? 'Unmute track' : 'Mute track'}>
               <button
                 type="button"
-                className={`timeline-track-row__mute-btn ${isMuted ? 'timeline-track-row__mute-btn--active' : ''}`}
+                className="timeline-track-row__mute-btn"
                 onClick={(e) => {
                   e.stopPropagation();
                   onSetMuted(!isMuted);
@@ -212,7 +212,7 @@ const TrackRowInner: FC<TrackRowProps> = ({
             <Tooltip label={isSolo ? 'Unsolo track' : 'Solo track'}>
               <button
                 type="button"
-                className={`timeline-track-row__solo-btn ${isSolo ? 'timeline-track-row__solo-btn--active' : ''}`}
+                className="timeline-track-row__solo-btn"
                 onClick={(e) => {
                   e.stopPropagation();
                   onSetSolo(!isSolo);

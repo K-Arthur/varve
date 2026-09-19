@@ -221,7 +221,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
             aria-pressed={state.pixelGridEnabled}
             onClick={() => setPixelGridEnabled(!state.pixelGridEnabled)}
             aria-label="Toggle pixel grid"
-            className={`editor-status__toggle${state.pixelGridEnabled ? ' editor-status__toggle--active' : ''}`}
+            className="editor-status__toggle"
           >
             <Icon name="Grid3x3" size={12} />
           </button>
@@ -235,7 +235,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
             aria-pressed={state.snapEnabled}
             onClick={() => setSnapEnabled(!state.snapEnabled)}
             aria-label={state.snapEnabled ? 'Disable snapping' : 'Enable snapping'}
-            className={`editor-status__toggle${state.snapEnabled ? ' editor-status__toggle--active' : ''}`}
+            className="editor-status__toggle"
           >
             <Icon name="Magnet" size={12} />
           </button>
@@ -256,7 +256,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
             aria-pressed={state.rulerMode === 'artboard'}
             onClick={() => setRulerMode(state.rulerMode === 'artboard' ? 'global' : 'artboard')}
             aria-label="Toggle artboard ruler origin"
-            className={`editor-status__toggle${state.rulerMode === 'artboard' ? ' editor-status__toggle--active' : ''}`}
+            className="editor-status__toggle"
           >
             {/* The old literal "AB" text was not guessable and sat out of
              * alignment with the icon toggles beside it. */}
@@ -271,7 +271,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
               setGridOverlayMode(state.gridOverlayMode === 'baseline' ? 'none' : 'baseline')
             }
             aria-label="Toggle baseline grid overlay"
-            className={`editor-status__toggle${state.gridOverlayMode === 'baseline' ? ' editor-status__toggle--active' : ''}`}
+            className="editor-status__toggle"
           >
             <Icon name="AlignVerticalSpaceAround" size={12} />
           </button>

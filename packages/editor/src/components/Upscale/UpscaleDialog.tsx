@@ -974,7 +974,7 @@ export function UpscaleDialog({
                   <fieldset className="upscale-preview__zoom-toggle" aria-label="Preview zoom">
                     <button
                       type="button"
-                      className={`upscale-preview__zoom-btn ${previewZoom === 'fit' ? 'upscale-preview__zoom-btn--active' : ''}`}
+                      className="upscale-preview__zoom-btn"
                       aria-pressed={previewZoom === 'fit'}
                       onClick={() => setPreviewZoom('fit')}
                     >
@@ -982,7 +982,7 @@ export function UpscaleDialog({
                     </button>
                     <button
                       type="button"
-                      className={`upscale-preview__zoom-btn ${previewZoom === '100%' ? 'upscale-preview__zoom-btn--active' : ''}`}
+                      className="upscale-preview__zoom-btn"
                       aria-pressed={previewZoom === '100%'}
                       onClick={() => setPreviewZoom('100%')}
                     >
