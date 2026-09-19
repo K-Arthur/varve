@@ -42,6 +42,11 @@ async function ensurePressed(page: Page, selector: string) {
   if ((await control.getAttribute('aria-pressed')) !== 'true') {
     await control.click();
   }
+  // Park the pointer away from the control so the assertion sees the resting
+  // pressed state, not the hover variant, and let the background transition
+  // settle before sampling the computed color.
+  await page.mouse.move(2, 2);
+  await page.waitForTimeout(250);
   await expect(control).toHaveAttribute('aria-pressed', 'true');
 }
 
@@ -72,6 +77,7 @@ test.describe('action-state theming', () => {
       expect(status.actual, `${theme}: pressed status toggle background`).toBe(status.expected);
 
       // Floating toolbar: the active tool uses the checked-surface token.
+      await page.mouse.move(2, 2);
       const activeToolSelector = '.floating-toolbar__btn[aria-pressed="true"]';
       await expect(page.locator(activeToolSelector).first()).toBeVisible();
       const tool = await backgroundMatchesToken(
@@ -93,12 +99,13 @@ test.describe('action-state theming', () => {
       await page.getByRole('menuitem', { name: 'Quick Convert…', exact: true }).click();
       const dialog = page.getByRole('dialog', { name: 'Quick Convert' });
       await expect(dialog).toBeVisible();
+      await page.mouse.move(2, 2);
       const select = await backgroundMatchesToken(
         page,
         '#quick-convert-output-format',
-        'var(--color-surface)',
+        'var(--color-surface-base)',
       );
-      expect(select.expected, `${theme}: --color-surface must resolve`).not.toBe(
+      expect(select.expected, `${theme}: --color-surface-base must resolve`).not.toBe(
         'rgba(0, 0, 0, 0)',
       );
       expect(select.actual, `${theme}: quick convert select background`).toBe(select.expected);
