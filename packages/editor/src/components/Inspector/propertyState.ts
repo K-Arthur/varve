@@ -5,6 +5,15 @@
  * this is a derived view model, never a second source of document state. The
  * richer states are available to controls as the rest of the Inspector is
  * migrated away from boolean `mixed` flags.
+ *
+ * Producer status (2026-09-17): `common`/`mixed`/`unset`/`partially-applicable`
+ * come from `classifySelectionProperty`; `bound`/`error`/`unavailable` from
+ * `boundPropertyState`; `calculated` from PositionSizeSection for Hug/Fill
+ * axes sized by the parent layout (NumberField treats it as read-only and
+ * announces the sizing mode). `inherited`, `overridden`, `invalid`, and
+ * `pending` remain declared for their planned producers (component-instance
+ * overrides, field input validation, and async workflow status respectively)
+ * — do not delete them; wire their producer instead.
  */
 
 export type InspectorPropertyState<T> =

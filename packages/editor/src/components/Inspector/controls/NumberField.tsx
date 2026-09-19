@@ -255,7 +255,11 @@ export function NumberField({
 
   const visualMixed =
     mixed || propertyState?.kind === 'mixed' || propertyState?.kind === 'partially-applicable';
-  const isReadOnly = readOnly || propertyState?.kind === 'bound';
+  // Bound values come from the variable store; calculated values (e.g. a
+  // Hug/Fill axis sized by the parent layout) come from the layout engine.
+  // Both are authoritative sources a literal edit cannot stick to.
+  const isReadOnly =
+    readOnly || propertyState?.kind === 'bound' || propertyState?.kind === 'calculated';
   const displayed = visualMixed
     ? 'Mixed'
     : (dirty ?? (formatValue ? formatValue(value) : formatRestingValue(value, step)));

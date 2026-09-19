@@ -10,25 +10,27 @@ function getCanvas(page: import('@playwright/test').Page) {
 // (PropertiesPanel); these scans now target the inspector in inspect mode.
 const INSPECTOR = '.editor-inspector, [aria-label="Inspector"]';
 
-test.describe('Inspect mode - axe-core scan', () => {
-  async function activateTool(page: import('@playwright/test').Page, name: string) {
-    // exact: true — the contextual-help panel contains buttons whose
-    // accessible names merely contain the tool name (e.g. "Inspect Tool (I)",
-    // "Inspector Panel"), which made the un-scoped locator ambiguous
-    // (strict-mode violation) and silently skipped the scan.
-    const btn = page.getByRole('button', { name, exact: true });
-    await btn.waitFor({ state: 'visible', timeout: 5000 });
-    await btn.click();
-    await page.waitForTimeout(200);
-  }
+/**
+ * Tools activate through their keyboard bindings rather than toolbar buttons:
+ * measurement tools (Inspect) have the lowest retention rank and collapse
+ * into the overflow menu at narrow viewports, and Rectangle lives inside the
+ * Shapes flyout — neither is guaranteed visible as a top-level button.
+ * Keyboard activation is the APG-sanctioned route that works at any width.
+ */
+async function activateTool(page: import('@playwright/test').Page, key: string) {
+  await page.locator('canvas.editor-canvas__content-layer').focus();
+  await page.keyboard.press(key);
+  await page.waitForTimeout(200);
+}
 
+test.describe('Inspect mode - axe-core scan', () => {
   test('inspector empty state in inspect mode has no automated accessibility violations', async ({
     page,
   }) => {
     await navigateToEditor(page);
 
     // Enter inspect mode even with no selection — inspector shows its empty state
-    await activateTool(page, 'Inspect');
+    await activateTool(page, 'i');
     await expect(page.locator(INSPECTOR)).toBeVisible({ timeout: 5000 });
 
     const results = await new AxeBuilder({ page })
@@ -44,13 +46,16 @@ test.describe('Inspect mode - axe-core scan', () => {
   }) => {
     await navigateToEditor(page);
 
-    // Create a rect
-    await activateTool(page, 'Rectangle');
-    await getCanvas(page).click({ position: { x: 200, y: 200 } });
+    // Create a rect (rect tool via its keyboard binding, then drag)
+    await activateTool(page, 'r');
+    await getCanvas(page).dragTo(getCanvas(page), {
+      sourcePosition: { x: 200, y: 200 },
+      targetPosition: { x: 320, y: 300 },
+    });
     await page.waitForTimeout(500);
 
     // Enter inspect mode
-    await activateTool(page, 'Inspect');
+    await activateTool(page, 'i');
     // Click inside the created rect, away from its selection-corner handles
     // (a handle rendered at the creation point intercepts pointer events).
     await getCanvas(page).click({ position: { x: 250, y: 250 } });
@@ -72,8 +77,11 @@ test.describe('Inspect mode - axe-core scan', () => {
   }) => {
     await navigateToEditor(page);
 
-    await activateTool(page, 'Rectangle');
-    await getCanvas(page).click({ position: { x: 200, y: 200 } });
+    await activateTool(page, 'r');
+    await getCanvas(page).dragTo(getCanvas(page), {
+      sourcePosition: { x: 200, y: 200 },
+      targetPosition: { x: 320, y: 300 },
+    });
     await page.waitForTimeout(500);
 
     // Lock the selected layer from its Layers row, then re-select it so the

@@ -30,9 +30,15 @@ import { DisclosureSection } from '../controls/DisclosureSection';
 import { InspectorFieldGroup } from '../controls/FieldRow';
 import { FramePresetDropdown } from '../controls/FramePresetDropdown';
 import { NumberField } from '../controls/NumberField';
-import { classifySelectionProperty } from '../propertyState';
+import { classifySelectionProperty, type InspectorPropertyState } from '../propertyState';
 import { commonValue, isMixed, type MaybeMixed } from '../selection/selectionState';
 import { ConstraintControls } from './ConstraintSection';
+
+/** Plain-language names for the layout-computed sizing modes. */
+const SIZING_MODE_DESCRIPTIONS = {
+  hug: 'Hug contents',
+  fill: 'Fill container',
+} as const;
 
 export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
   const editor = useEditor();
@@ -51,6 +57,29 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
       return Boolean((parent as FrameNode).layoutStyle);
     });
   }, [nodes, doc]);
+
+  // Layout-driven per-axis sizing: when the axis is Hug/Fill, the parent's
+  // layout computes the dimension every frame, so the numeric field shows the
+  // actual size but is read-only and explains itself ("Sizing mode: Fill /
+  // Actual size: 428 px"). Fixed/relative axes stay directly editable.
+  const widthSizing = commonValue(
+    nodes,
+    (n) =>
+      n.layoutSizingWidth ??
+      (n as { layoutSizing?: 'fixed' | 'hug' | 'fill' | 'relative' }).layoutSizing ??
+      'fixed',
+  );
+  const heightSizing = commonValue(
+    nodes,
+    (n) =>
+      n.layoutSizingHeight ??
+      (n as { layoutSizing?: 'fixed' | 'hug' | 'fill' | 'relative' }).layoutSizing ??
+      'fixed',
+  );
+  const sizingDescription = (sizing: MaybeMixed<string>): string | undefined =>
+    parentHasAutoLayout && !isMixed(sizing) && typeof sizing === 'string'
+      ? SIZING_MODE_DESCRIPTIONS[sizing as 'hug' | 'fill']
+      : undefined;
   // Default aspect lock ON for image/raster nodes — they should preserve
   // aspect ratio unless the user explicitly unlocks.
   const isImageNode = nodes.some(
@@ -92,6 +121,19 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
   const hRaw: MaybeMixed<number> | null = allSizable
     ? commonValue(nodes, (n) => nodeLocalBounds(n)?.h ?? 0)
     : null;
+  // A layout-computed axis shows the actual size with the `calculated`
+  // property state: read-only in the field, with the sizing mode as its
+  // accessible description. Bindings keep precedence when both apply.
+  const widthSizingDescription = sizingDescription(widthSizing);
+  const heightSizingDescription = sizingDescription(heightSizing);
+  const wPropertyState: InspectorPropertyState<number> | undefined =
+    widthSizingDescription && wRaw !== null && !isMixed(wRaw)
+      ? { kind: 'calculated', value: wRaw, description: widthSizingDescription }
+      : undefined;
+  const hPropertyState: InspectorPropertyState<number> | undefined =
+    heightSizingDescription && hRaw !== null && !isMixed(hRaw)
+      ? { kind: 'calculated', value: hRaw, description: heightSizingDescription }
+      : undefined;
   const rotationRaw = commonValue(nodes, (n) => n.rotation ?? 0);
 
   // Skew: decompose the affine transform to extract shear components.
@@ -436,6 +478,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 unit="px"
                 value={wRaw !== null && !isMixed(wRaw) ? wRaw : 0}
                 mixed={wRaw !== null && isMixed(wRaw)}
+                propertyState={wPropertyState}
                 min={0}
                 draftKey={draftKey}
                 onChange={handleW}
@@ -467,6 +510,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 unit="px"
                 value={hRaw !== null && !isMixed(hRaw) ? hRaw : 0}
                 mixed={hRaw !== null && isMixed(hRaw)}
+                propertyState={hPropertyState}
                 min={0}
                 draftKey={draftKey}
                 onChange={handleH}

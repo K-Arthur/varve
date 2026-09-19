@@ -167,10 +167,14 @@ test.describe('Inspector redesign baseline', () => {
     if (!existsSync(REPORT_DIR)) mkdirSync(REPORT_DIR, { recursive: true });
   });
 
-  test.afterEach(async (_fixtures, testInfo) => {
+  test.afterEach(async () => {
+    // test.info() instead of the fixtures argument: Playwright requires the
+    // first hook argument to destructure {}, which Biome's noEmptyPattern
+    // forbids — this shape satisfies both.
+    const info = test.info();
     if (metrics.length > 0) {
       writeFileSync(
-        path.join(REPORT_DIR, `${testInfo.title.replace(/\W+/g, '-')}.json`),
+        path.join(REPORT_DIR, `${info.title.replace(/\W+/g, '-')}.json`),
         JSON.stringify(metrics, null, 2),
       );
     }
@@ -218,6 +222,23 @@ test.describe('Inspector redesign baseline', () => {
     await captureScenario(page, 'image', metrics);
   });
 
+  /**
+   * Additive selection through the layers rows. Under heavy machine load a
+   * Control+click can land between the click handler attaching and the panel
+   * rerendering, so the second click retries once before giving up.
+   */
+  async function selectTwoRows(page: Page): Promise<void> {
+    const first = page.getByRole('treeitem').first();
+    const second = page.getByRole('treeitem').nth(1);
+    await first.click();
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      await second.click({ modifiers: ['Control'] });
+      const multi = page.locator('.insp-panel__multi-count');
+      if (await multi.isVisible({ timeout: 3000 }).catch(() => false)) return;
+    }
+    await expect(page.locator('.insp-panel__multi-count')).toBeVisible({ timeout: 5000 });
+  }
+
   test('multi-selection (two rectangles) heights', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await navigateToEditor(page);
@@ -225,14 +246,7 @@ test.describe('Inspector redesign baseline', () => {
     await page.keyboard.press('Escape');
     await drawRect(page);
     await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10_000 });
-    // Select the first row, then Control+click the second — the additive
-    // selection gesture for layers rows in this app.
-    await page.getByRole('treeitem').first().click();
-    await page
-      .getByRole('treeitem')
-      .nth(1)
-      .click({ modifiers: ['Control'] });
-    await expect(page.locator('.insp-panel__multi-count')).toBeVisible({ timeout: 5000 });
+    await selectTwoRows(page);
     await captureScenario(page, 'multi-same', metrics);
   });
 
@@ -243,12 +257,7 @@ test.describe('Inspector redesign baseline', () => {
     await page.keyboard.press('Escape');
     await createText(page);
     await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10_000 });
-    await page.getByRole('treeitem').first().click();
-    await page
-      .getByRole('treeitem')
-      .nth(1)
-      .click({ modifiers: ['Control'] });
-    await expect(page.locator('.insp-panel__multi-count')).toBeVisible({ timeout: 5000 });
+    await selectTwoRows(page);
     await captureScenario(page, 'multi-mixed', metrics);
   });
 

@@ -1,5 +1,6 @@
 import { canHaveSmartFilters, isImageShape } from '@varve/scene';
 import { EmptyState } from '@varve/ui';
+import type { ReactNode } from 'react';
 import { useEditor } from '../../../context';
 import { AdjustmentPanel } from '../../AdjustmentLayer/AdjustmentPanel';
 import { AdjustmentLayerAccessSection } from '../sections/AdjustmentLayerAccessSection';
@@ -76,20 +77,41 @@ export function AdjustmentsPanel() {
       <ImageTuningSection nodes={nodes} />
       {nodes.length === 1 && (
         <>
-          <ImageEnhancementSection nodes={nodes} />
-          <BackgroundRemovalSection nodes={nodes} />
-          <ColorizeSection nodes={nodes} />
-          <AIDenoiseSection nodes={nodes} />
-          <DepthMaskSection nodes={nodes} />
-          <LensBlurSection nodes={nodes} />
-          <LineArtSection nodes={nodes} />
-          <ContentAwareFillSection nodes={nodes} onOpenDialog={openCafDialog} />
-          <DetectTextSection nodes={nodes} />
-          <OcrSection nodes={nodes} />
-          <FontDetectSection nodes={nodes} />
-          <FrameInterpolationSection nodes={nodes} />
+          <AdjustmentGroup label="Enhance and restore">
+            <ImageEnhancementSection nodes={nodes} />
+            <BackgroundRemovalSection nodes={nodes} />
+            <AIDenoiseSection nodes={nodes} />
+            <ContentAwareFillSection nodes={nodes} onOpenDialog={openCafDialog} />
+          </AdjustmentGroup>
+          <AdjustmentGroup label="Creative">
+            <ColorizeSection nodes={nodes} />
+            <LineArtSection nodes={nodes} />
+            <DepthMaskSection nodes={nodes} />
+            <LensBlurSection nodes={nodes} />
+            <FrameInterpolationSection nodes={nodes} />
+          </AdjustmentGroup>
+          <AdjustmentGroup label="Text and analysis">
+            <DetectTextSection nodes={nodes} />
+            <OcrSection nodes={nodes} />
+            <FontDetectSection nodes={nodes} />
+          </AdjustmentGroup>
         </>
       )}
     </>
+  );
+}
+
+/**
+ * Quiet category header over a group of specialist sections. This is a label,
+ * not another disclosure level (NN/g: more than two disclosure levels has low
+ * usability) — every section keeps its own registry-backed collapse state, so
+ * grouping changes scannability only, never reachability.
+ */
+function AdjustmentGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <section className="adjustments-group">
+      <h2 className="adjustments-group__title">{label}</h2>
+      {children}
+    </section>
   );
 }

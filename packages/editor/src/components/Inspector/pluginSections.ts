@@ -16,6 +16,7 @@
  *
  * Research basis: VS Code extension API, Figma plugin API, Web Components.
  */
+import type { ReactNode } from 'react';
 import type { WorkspaceMode } from '../../workspace/workspaceTypes';
 import type { SectionCategory } from './sectionRegistry';
 
@@ -53,11 +54,18 @@ export interface ContributionAvailability {
   /** Required active tool(s). Empty = any tool. */
   tools?: string[];
   /** Custom predicate evaluated at render time. */
-  predicate?: (ctx: {
-    selectionCount: number;
-    workspaceMode: WorkspaceMode;
-    activeTool: string;
-  }) => boolean;
+  predicate?: (ctx: PluginSectionHostContext) => boolean;
+}
+
+/**
+ * Host context handed to availability predicates and render factories. The
+ * plugin never receives document state, editor state, or DOM handles — only
+ * this read-only summary (VS Code/Figma-style capability isolation).
+ */
+export interface PluginSectionHostContext {
+  selectionCount: number;
+  workspaceMode: WorkspaceMode;
+  activeTool: string;
 }
 
 /** Plugin section contribution definition. */
@@ -70,6 +78,13 @@ export interface PluginSectionContribution {
   targetTab: string;
   /** Display metadata. */
   display: ContributionDisplay;
+  /**
+   * Render factory invoked by the host inside an error boundary. Returning
+   * null renders the section shell without a body. The host, not the plugin,
+   * owns collapse state, availability, and lifecycle — a throwing factory
+   * disables its plugin instead of crashing the panel.
+   */
+  render?: (ctx: PluginSectionHostContext) => ReactNode;
   /** Default display order within the tab (lower = higher). Default: 1000. */
   order?: number;
   /** Whether the user can hide this section. Default: true. */

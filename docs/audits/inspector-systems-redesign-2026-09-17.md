@@ -176,11 +176,39 @@ locked-selection scan, and the after-state measurement run.
 
 ## 6. Remaining work (recorded, not repaired)
 
-- Adjustments-tab launcher IA (08-30 audit) — the longest single surface.
-- `pluginSections.ts` remains an unwired extension point.
-- Inspect-mode axe specs fail at *setup* on the current shared tree (the
-  "Inspect" toolbar button is not findable under its old name after concurrent
-  toolbar work) — the scans never reach axe; unrelated to this pass but
-  blocks that coverage until reconciled by the toolbar owner.
-- propertyState's `inherited`/`overridden`/`calculated` vocabulary remains
-  unconstructed (documented migration-in-progress by its owner).
+Follow-up pass (2026-09-17, same day) — the five limitations recorded below
+were subsequently addressed in `fix(inspector)` follow-up commits:
+
+- ~~Adjustments-tab launcher IA~~ — **done**: the raster composition now
+  groups its specialist sections under three quiet category headers
+  (Enhance and restore / Creative / Text and analysis). Labels, not
+  disclosures — every section keeps its registry collapse state, so grouping
+  changes scannability only, never reachability.
+- ~~`pluginSections.ts` unwired~~ — **done**: the API gained the documented
+  render factory (`PluginSectionHostContext` handed to a `render` function),
+  and `PluginSections.tsx` is the governed host: tab targeting, availability
+  through `safeCheckAvailability`, declared ordering, section-scoped error
+  boundaries (a throwing factory marks its plugin errored and its sections
+  withdraw), and the shared disclosure grammar. Mounted in the Design tab
+  between the composition and Insights; covered by `PluginSections.test.tsx`.
+- ~~Inspect-mode axe setup~~ — **done**: the specs activate tools through
+  their keyboard bindings (`i`, `r`) instead of toolbar buttons — measurement
+  tools have the lowest retention rank and collapse into overflow at narrow
+  viewports, and Rectangle lives in the Shapes flyout, so neither is
+  guaranteed visible. Both scans now pass with zero violations.
+- ~~propertyState dead vocabulary~~ — **started**: `calculated` is now
+  produced by PositionSizeSection for Hug/Fill axes (read-only field showing
+  the actual size with "Calculated value: Fill container" — the task's
+  "Sizing mode: Fill / Actual size" pattern); `inherited`, `overridden`,
+  `invalid`, and `pending` keep documented intended producers.
+- ~~Multi-selection baseline flakiness~~ — **done**: the baseline spec's
+  additive-selection helper retries the Control+click once before asserting,
+  and the metrics hook uses `test.info()` to satisfy both Playwright's
+  hook-signature rule and Biome's `noEmptyPattern`.
+
+Still open (owned elsewhere):
+
+- propertyState's `inherited`/`overridden`/`invalid`/`pending` producers.
+- Object Filters information architecture consolidation (three competing
+  add-filter entry points) — recorded in the 2026-09-17 design-tab followup
+  as its own slice.

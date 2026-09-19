@@ -41,6 +41,7 @@ import { DisclosureSection } from './controls/DisclosureSection';
 import { InspectorContextHeader } from './InspectorContextHeader';
 import { InspectorTabBar } from './InspectorTabBar';
 import { deriveInspectorContext, type InspectorContext } from './inspectorContext';
+import { PluginSections } from './PluginSections';
 import { VariablesPanelDialog } from './panels/VariablesPanelDialog';
 import { describeSelectionRestrictions, type SelectionRestrictionNotice } from './restrictionState';
 import { SectionManagerTrigger } from './SectionManagerTrigger';
@@ -406,6 +407,17 @@ export function PropertiesPanel() {
             )}
           </SelectionLockGuard>
           {inspectorContext.scope !== 'pixel-selection' && <SelectionSourcesPanel />}
+          {/* Plugin contributions: the governed extension surface. The host
+              applies tab targeting, availability, ordering, and error
+              boundaries — plugins can never bypass the registry grammar. */}
+          <PluginSections
+            tab="properties"
+            host={{
+              selectionCount: selNodes.length,
+              workspaceMode: state.workspaceMode,
+              activeTool: state.tool,
+            }}
+          />
           {/* Insights remains document-level and last in the Design composition.
               It is lazy because the audit panel is also reachable from the
               legacy tab/deep-link path. Registry-managed (sectionId) so the
