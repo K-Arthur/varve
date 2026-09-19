@@ -139,7 +139,11 @@ describe('Button', () => {
   describe('disabledReason', () => {
     it('keeps the control focusable and describes why it is unavailable', async () => {
       const user = userEvent.setup();
-      render(<Button disabledReason="Select a layer first">Align</Button>);
+      render(
+        <Button disabled disabledReason="Select a layer first">
+          Align
+        </Button>,
+      );
       const btn = screen.getByRole('button', { name: 'Align' });
       expect(btn).toHaveAttribute('aria-disabled', 'true');
       expect(btn).not.toHaveAttribute('disabled');
@@ -154,7 +158,7 @@ describe('Button', () => {
       const onClick = vi.fn();
       const user = userEvent.setup();
       render(
-        <Button disabledReason="Nothing selected" onClick={onClick}>
+        <Button disabled disabledReason="Nothing selected" onClick={onClick}>
           Duplicate
         </Button>,
       );
@@ -164,9 +168,25 @@ describe('Button', () => {
       expect(onClick).not.toHaveBeenCalled();
     });
 
+    it('ignores the reason while the action is available', async () => {
+      const onClick = vi.fn();
+      const user = userEvent.setup();
+      render(
+        <Button disabledReason="Not now" onClick={onClick}>
+          Export
+        </Button>,
+      );
+      const btn = screen.getByRole('button');
+      expect(btn).not.toHaveAttribute('aria-disabled');
+      expect(btn).not.toHaveAttribute('title');
+      expect(screen.queryByText('Not now')).toBeFalsy();
+      await user.click(btn);
+      expect(onClick).toHaveBeenCalledTimes(1);
+    });
+
     it('merges an existing aria-describedby instead of replacing it', () => {
       render(
-        <Button disabledReason="Select a layer first" aria-describedby="hint">
+        <Button disabled disabledReason="Select a layer first" aria-describedby="hint">
           Align
         </Button>,
       );

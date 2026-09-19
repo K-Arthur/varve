@@ -1,4 +1,4 @@
-import { Dialog, NativeSelect } from '@varve/ui';
+import { Button, Dialog, NativeSelect } from '@varve/ui';
 import { useEffect, useState } from 'react';
 import {
   DEFAULT_RASTERIZE_SELECTION_OPTIONS,
@@ -132,12 +132,10 @@ export function RasterizeDialog({
         </label>
 
         <div className="rasterize-dialog__actions">
-          <button type="button" className="varve-btn varve-btn--ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={onClose}>
             Cancel
-          </button>
-          <button type="submit" className="varve-btn varve-btn--primary">
-            Rasterize
-          </button>
+          </Button>
+          <Button type="submit">Rasterize</Button>
         </div>
       </form>
     </Dialog>

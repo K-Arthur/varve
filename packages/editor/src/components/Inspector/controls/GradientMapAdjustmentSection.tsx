@@ -21,6 +21,7 @@ import {
   removeGradientPresetsFromDocument,
   renameDocumentGradientPreset,
 } from '@varve/scene';
+import { Button } from '@varve/ui';
 import { useCallback, useState } from 'react';
 import { useEditor } from '../../../context';
 import { openGradientFilePicker, parseGradientFile } from '../../../gradientPresets/importFile';
@@ -413,9 +414,8 @@ export function GradientMapAdjustmentSection({
       />
       <p className="gmp-section__current">
         Preset: <strong>{isCustomized ? 'Customized' : displayName(currentPreset)}</strong>{' '}
-        <button
-          type="button"
-          className="varve-btn varve-btn--ghost"
+        <Button
+          variant="ghost"
           onClick={() => {
             const saved = makeGradientPreset({
               ...currentPreset,
@@ -428,7 +428,7 @@ export function GradientMapAdjustmentSection({
           }}
         >
           Save current preset
-        </button>
+        </Button>
       </p>
       {importError && (
         <div className="gmp-section__error" role="alert">

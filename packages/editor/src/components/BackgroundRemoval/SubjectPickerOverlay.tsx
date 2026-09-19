@@ -8,6 +8,7 @@
  */
 
 import type { MaskComponent } from '@varve/engine';
+import { Button } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import '../BackgroundRemoval/SubjectCard.css';
 import '../BackgroundRemoval/CombinedPreview.css';
@@ -158,20 +159,12 @@ export function SubjectPickerOverlay({
         </div>
 
         <div className="subject-picker-toolbar">
-          <button
-            type="button"
-            className="varve-btn varve-btn--ghost varve-btn--sm"
-            onClick={selectAll}
-          >
+          <Button size="sm" variant="ghost" onClick={selectAll}>
             Select all
-          </button>
-          <button
-            type="button"
-            className="varve-btn varve-btn--ghost varve-btn--sm"
-            onClick={deselectAll}
-          >
+          </Button>
+          <Button size="sm" variant="ghost" onClick={deselectAll}>
             Deselect all
-          </button>
+          </Button>
           <span className="subject-picker-toolbar__count" aria-live="polite">
             {selectedCount} of {totalCount} selected
           </span>
@@ -209,26 +202,21 @@ export function SubjectPickerOverlay({
         )}
 
         <div className="subject-picker-actions">
-          <button
-            type="button"
-            className="varve-btn varve-btn--primary"
-            disabled={selectedCount === 0}
-            onClick={handleConfirm}
-          >
+          <Button disabled={selectedCount === 0} onClick={handleConfirm}>
             {selectedCount === totalCount
               ? `Keep all (${totalCount})`
               : selectedCount === 0
                 ? 'No subjects selected'
                 : `Keep ${selectedCount} subject${selectedCount > 1 ? 's' : ''}`}
-          </button>
+          </Button>
           {selectedCount > 0 && selectedCount < totalCount && (
-            <button type="button" className="varve-btn varve-btn--ghost" onClick={keepAll}>
+            <Button variant="ghost" onClick={keepAll}>
               Keep all ({totalCount})
-            </button>
+            </Button>
           )}
-          <button type="button" className="varve-btn varve-btn--ghost" onClick={onCancel}>
+          <Button variant="ghost" onClick={onCancel}>
             Cancel
-          </button>
+          </Button>
         </div>
       </div>
     </dialog>

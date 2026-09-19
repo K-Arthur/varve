@@ -6,7 +6,7 @@
  * applied immediately and persisted per-workspace. A "Reset" button reverts
  * to built-in defaults (and leaves a recoverable snapshot in Manage Layouts).
  */
-import { Dialog, SearchField } from '@varve/ui';
+import { Button, Dialog, SearchField } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../context';
 import type { ToolId } from '../tools/toolRegistry';
@@ -265,24 +265,18 @@ export function WorkspaceCustomizeDialog({
 
         {/* Actions */}
         <div className="workspace-customize__actions">
-          <button
-            type="button"
-            className="varve-btn varve-btn--secondary"
+          <Button
+            variant="secondary"
             onClick={handleReset}
             disabled={!customizations[mode]}
+            disabledReason="This workspace still uses its built-in defaults"
           >
             Reset {WORKSPACE_LABELS[mode]}
-          </button>
-          <button
-            type="button"
-            className="varve-btn varve-btn--danger"
-            onClick={() => setConfirmResetAll(true)}
-          >
+          </Button>
+          <Button variant="destructive" onClick={() => setConfirmResetAll(true)}>
             Reset All Workspaces
-          </button>
-          <button type="button" className="varve-btn varve-btn--primary" onClick={onClose}>
-            Done
-          </button>
+          </Button>
+          <Button onClick={onClose}>Done</Button>
         </div>
       </div>
 
@@ -299,20 +293,12 @@ export function WorkspaceCustomizeDialog({
           workspaces and restores the built-in defaults. This cannot be undone.
         </p>
         <div className="workspace-customize__actions">
-          <button
-            type="button"
-            className="varve-btn varve-btn--secondary"
-            onClick={() => setConfirmResetAll(false)}
-          >
+          <Button variant="secondary" onClick={() => setConfirmResetAll(false)}>
             Cancel
-          </button>
-          <button
-            type="button"
-            className="varve-btn varve-btn--danger"
-            onClick={handleConfirmResetAll}
-          >
+          </Button>
+          <Button variant="destructive" onClick={handleConfirmResetAll}>
             Reset All Workspaces
-          </button>
+          </Button>
         </div>
       </Dialog>
     </Dialog>

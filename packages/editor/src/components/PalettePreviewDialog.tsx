@@ -1,6 +1,6 @@
 import type { ManagedColor } from '@varve/scene';
 import { managedColorToCss } from '@varve/shared';
-import { Dialog, ScrollArea, Select, Tooltip } from '@varve/ui';
+import { Button, Dialog, ScrollArea, Select, Tooltip } from '@varve/ui';
 import { useCallback, useState } from 'react';
 import type { MappingMode, MappingResult } from '../intelligence/paletteMapper';
 
@@ -309,36 +309,22 @@ export function PalettePreviewDialog({
             paddingTop: 'var(--space-2)',
           }}
         >
-          <button type="button" className="varve-btn varve-btn--ghost" onClick={onCancel}>
+          <Button variant="ghost" onClick={onCancel}>
             Cancel
-          </button>
+          </Button>
           {onSaveAsSwatches && (
-            <button
-              type="button"
-              className="varve-btn varve-btn--secondary"
-              onClick={onSaveAsSwatches}
-            >
+            <Button variant="secondary" onClick={onSaveAsSwatches}>
               Save as swatches
-            </button>
+            </Button>
           )}
           {onRegenerate && (
-            <button
-              type="button"
-              className="varve-btn varve-btn--secondary"
-              onClick={onRegenerate}
-              disabled={loading}
-            >
+            <Button variant="secondary" onClick={onRegenerate} disabled={loading}>
               Regenerate
-            </button>
+            </Button>
           )}
-          <button
-            type="button"
-            className="varve-btn varve-btn--primary"
-            onClick={handleApply}
-            disabled={loading || !!error}
-          >
+          <Button onClick={handleApply} disabled={loading || !!error}>
             Apply
-          </button>
+          </Button>
         </div>
       </div>
     </Dialog>

@@ -12,7 +12,7 @@
  * - Layouts are structured data over registered capabilities. Imports are
  *   validated and can only reference known panels, tabs, sections, and tools.
  */
-import { Dialog, SearchField } from '@varve/ui';
+import { Button, Dialog, SearchField } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../context';
 import {
@@ -252,13 +252,9 @@ export function ManageLayoutsDialog({ open, onClose }: { open: boolean; onClose:
             <h3>Recovery</h3>
             <div className="workspace-layouts__row">
               <span>Before last reset · {formatSavedAt(store.resetSnapshot.savedAt)}</span>
-              <button
-                type="button"
-                className="varve-btn varve-btn--secondary"
-                onClick={handleRestoreSnapshot}
-              >
+              <Button variant="secondary" onClick={handleRestoreSnapshot}>
                 Restore
-              </button>
+              </Button>
             </div>
           </section>
         )}
@@ -275,20 +271,12 @@ export function ManageLayoutsDialog({ open, onClose }: { open: boolean; onClose:
                 )}
               </span>
               <span className="workspace-layouts__actions">
-                <button
-                  type="button"
-                  className="varve-btn varve-btn--secondary"
-                  onClick={() => handleApply(variant)}
-                >
+                <Button variant="secondary" onClick={() => handleApply(variant)}>
                   Apply
-                </button>
-                <button
-                  type="button"
-                  className="varve-btn varve-btn--ghost"
-                  onClick={() => handleDuplicate(variant)}
-                >
+                </Button>
+                <Button variant="ghost" onClick={() => handleDuplicate(variant)}>
                   Duplicate
-                </button>
+                </Button>
               </span>
             </div>
           ))}
@@ -315,49 +303,28 @@ export function ManageLayoutsDialog({ open, onClose }: { open: boolean; onClose:
                 )}
               </span>
               <span className="workspace-layouts__actions">
-                <button
-                  type="button"
-                  className="varve-btn varve-btn--secondary"
-                  onClick={() => handleApply(variant)}
-                >
+                <Button variant="secondary" onClick={() => handleApply(variant)}>
                   Apply
-                </button>
-                <button
-                  type="button"
-                  className="varve-btn varve-btn--ghost"
+                </Button>
+                <Button
+                  variant="ghost"
                   onClick={() => handleUpdate(variant)}
                   title="Replace this layout with the current arrangement"
                 >
                   Update
-                </button>
-                <button
-                  type="button"
-                  className="varve-btn varve-btn--ghost"
-                  onClick={() => void handleRename(variant)}
-                >
+                </Button>
+                <Button variant="ghost" onClick={() => void handleRename(variant)}>
                   Rename
-                </button>
-                <button
-                  type="button"
-                  className="varve-btn varve-btn--ghost"
-                  onClick={() => handleDuplicate(variant)}
-                >
+                </Button>
+                <Button variant="ghost" onClick={() => handleDuplicate(variant)}>
                   Duplicate
-                </button>
-                <button
-                  type="button"
-                  className="varve-btn varve-btn--ghost"
-                  onClick={() => void handleExport(variant)}
-                >
+                </Button>
+                <Button variant="ghost" onClick={() => void handleExport(variant)}>
                   Copy JSON
-                </button>
-                <button
-                  type="button"
-                  className="varve-btn varve-btn--danger"
-                  onClick={() => setPendingDelete(variant)}
-                >
+                </Button>
+                <Button variant="destructive" onClick={() => setPendingDelete(variant)}>
                   Delete
-                </button>
+                </Button>
               </span>
             </div>
           ))}
@@ -381,26 +348,24 @@ export function ManageLayoutsDialog({ open, onClose }: { open: boolean; onClose:
                 }
               }}
             />
-            <button
-              type="button"
-              className="varve-btn varve-btn--primary"
+            <Button
               onClick={handleSaveCurrent}
               disabled={newName.trim().length === 0}
+              disabledReason="Enter a layout name to save"
             >
               Save current
-            </button>
+            </Button>
           </div>
           <div className="workspace-layouts__save">
-            <button
-              type="button"
-              className="varve-btn varve-btn--secondary"
+            <Button
+              variant="secondary"
               onClick={() => {
                 setImportOpen((value) => !value);
                 setError('');
               }}
             >
               Import from JSON...
-            </button>
+            </Button>
           </div>
           {importOpen && (
             <div className="workspace-layouts__import">
@@ -414,14 +379,13 @@ export function ManageLayoutsDialog({ open, onClose }: { open: boolean; onClose:
                 rows={5}
                 onChange={(event) => setImportText(event.target.value)}
               />
-              <button
-                type="button"
-                className="varve-btn varve-btn--primary"
+              <Button
                 onClick={handleImportText}
                 disabled={importText.trim().length === 0}
+                disabledReason="Paste a layout JSON object to import"
               >
                 Import
-              </button>
+              </Button>
             </div>
           )}
         </section>
@@ -435,9 +399,7 @@ export function ManageLayoutsDialog({ open, onClose }: { open: boolean; onClose:
               {error}
             </div>
           )}
-          <button type="button" className="varve-btn varve-btn--primary" onClick={onClose}>
-            Done
-          </button>
+          <Button onClick={onClose}>Done</Button>
         </div>
       </div>
 
@@ -452,20 +414,12 @@ export function ManageLayoutsDialog({ open, onClose }: { open: boolean; onClose:
           arrangement is not changed.
         </p>
         <div className="workspace-layouts__footer">
-          <button
-            type="button"
-            className="varve-btn varve-btn--secondary"
-            onClick={() => setPendingDelete(null)}
-          >
+          <Button variant="secondary" onClick={() => setPendingDelete(null)}>
             Cancel
-          </button>
-          <button
-            type="button"
-            className="varve-btn varve-btn--danger"
-            onClick={handleConfirmDelete}
-          >
+          </Button>
+          <Button variant="destructive" onClick={handleConfirmDelete}>
             Delete layout
-          </button>
+          </Button>
         </div>
       </Dialog>
 
@@ -480,27 +434,15 @@ export function ManageLayoutsDialog({ open, onClose }: { open: boolean; onClose:
           imported layout, or import a duplicate alongside it?
         </p>
         <div className="workspace-layouts__footer">
-          <button
-            type="button"
-            className="varve-btn varve-btn--secondary"
-            onClick={() => setPendingImport(null)}
-          >
+          <Button variant="secondary" onClick={() => setPendingImport(null)}>
             Cancel
-          </button>
-          <button
-            type="button"
-            className="varve-btn varve-btn--secondary"
-            onClick={() => resolveImportCollision('duplicate')}
-          >
+          </Button>
+          <Button variant="secondary" onClick={() => resolveImportCollision('duplicate')}>
             Import as duplicate
-          </button>
-          <button
-            type="button"
-            className="varve-btn varve-btn--danger"
-            onClick={() => resolveImportCollision('replace')}
-          >
+          </Button>
+          <Button variant="destructive" onClick={() => resolveImportCollision('replace')}>
             Replace existing
-          </button>
+          </Button>
         </div>
       </Dialog>
     </Dialog>

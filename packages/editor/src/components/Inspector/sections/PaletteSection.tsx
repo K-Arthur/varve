@@ -14,7 +14,7 @@ import {
   type ManagedColor,
 } from '@varve/scene';
 import { managedColorToCss, managedColorToRgba, rgbToHex } from '@varve/shared';
-import { Icon, Tooltip } from '@varve/ui';
+import { Button, Icon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import {
@@ -452,20 +452,12 @@ function PaletteResultView({
           })}
         </ul>
         <div className="palette-section__actions">
-          <button
-            type="button"
-            className="varve-btn varve-btn--secondary"
-            onClick={() => onSaveSwatches(result.extracted)}
-          >
+          <Button variant="secondary" onClick={() => onSaveSwatches(result.extracted)}>
             Save extracted swatches
-          </button>
-          <button
-            type="button"
-            className="varve-btn varve-btn--secondary"
-            onClick={() => onSaveTokens(result.extracted)}
-          >
+          </Button>
+          <Button variant="secondary" onClick={() => onSaveTokens(result.extracted)}>
             Save as color tokens
-          </button>
+          </Button>
         </div>
       </section>
 

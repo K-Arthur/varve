@@ -6,7 +6,7 @@
  */
 import type { GradientPreset } from '@varve/scene';
 import { displayName } from '@varve/scene';
-import { Checkbox, Dialog, Select } from '@varve/ui';
+import { Button, Checkbox, Dialog, Select } from '@varve/ui';
 import { useMemo, useState } from 'react';
 
 import { gradientPresetToCss } from '../../../gradientPresets/thumbnail';
@@ -143,13 +143,12 @@ export function GradientImportDialog({
         </ul>
       </div>
       <div className="varve-dialog__actions">
-        <button type="button" className="varve-btn varve-btn--ghost" onClick={onClose}>
+        <Button variant="ghost" onClick={onClose}>
           Cancel
-        </button>
-        <button
-          type="button"
-          className="varve-btn varve-btn--primary"
+        </Button>
+        <Button
           disabled={selectedList.length === 0}
+          disabledReason="Select at least one preset to import"
           onClick={() => {
             if (applyFirst) onImport(selectedList, scope, true);
             else onImport(selectedList, scope);
@@ -157,7 +156,7 @@ export function GradientImportDialog({
           }}
         >
           Import {selectedList.length || ''} preset{selectedList.length === 1 ? '' : 's'}
-        </button>
+        </Button>
       </div>
     </Dialog>
   );

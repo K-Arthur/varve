@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import type { ButtonSize, ButtonVariant } from './Button';
+import { BUTTON_SIZES, BUTTON_VARIANTS } from './Button';
 
 /**
  * The Button component and its stylesheet must not drift.
@@ -15,26 +15,8 @@ import type { ButtonSize, ButtonVariant } from './Button';
  */
 const css = readFileSync(new URL('./components.css', import.meta.url), 'utf8');
 
-const VARIANTS: readonly ButtonVariant[] = [
-  'default',
-  'secondary',
-  'outline',
-  'ghost',
-  'destructive',
-  'link',
-  'toolbar',
-];
-
-const SIZES: readonly ButtonSize[] = [
-  'xs',
-  'sm',
-  'md',
-  'lg',
-  'icon-xs',
-  'icon-sm',
-  'icon',
-  'icon-lg',
-];
+const VARIANTS = BUTTON_VARIANTS;
+const SIZES = BUTTON_SIZES;
 
 /** State modifiers the component adds without a matching prop value. */
 const STATES = ['loading', 'confirming', 'pressed'];

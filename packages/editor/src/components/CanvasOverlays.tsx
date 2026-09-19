@@ -23,6 +23,7 @@ import {
 } from '@varve/scene';
 import type { RulerMode } from '@varve/shared';
 import { isWorldRectInViewport } from '@varve/shared';
+import { Button } from '@varve/ui';
 import { useMemo, useSyncExternalStore } from 'react';
 
 import { CanvasNameLabels } from '../canvas/CanvasNameLabels';
@@ -978,16 +979,10 @@ export function CanvasOverlays({
             spellCheck={false}
           />
           <div className="varve-dialog__actions">
-            <button
-              type="button"
-              className="varve-btn varve-btn--ghost"
-              onClick={() => setRenameDialog(null)}
-            >
+            <Button variant="ghost" onClick={() => setRenameDialog(null)}>
               Cancel
-            </button>
-            <button type="submit" className="varve-btn varve-btn--primary">
-              Rename
-            </button>
+            </Button>
+            <Button type="submit">Rename</Button>
           </div>
         </form>
       </dialog>

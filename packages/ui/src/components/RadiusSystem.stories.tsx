@@ -52,15 +52,15 @@ function Gallery() {
         <h2>Grouped and floating surfaces</h2>
         <div className="radius-gallery__surface radius-gallery__surface--floating">
           <div className="radius-gallery__group">
-            <button type="button" className="varve-btn varve-btn--sm">
+            <Button variant="ghost" size="sm">
               A
-            </button>
-            <button type="button" className="varve-btn varve-btn--sm">
+            </Button>
+            <Button variant="ghost" size="sm">
               B
-            </button>
-            <button type="button" className="varve-btn varve-btn--sm">
+            </Button>
+            <Button variant="ghost" size="sm">
               C
-            </button>
+            </Button>
           </div>
           <div className="varve-menu radius-gallery__menu">
             <button type="button" className="varve-menu__item">

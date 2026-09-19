@@ -17,7 +17,7 @@
  *   https://www.w3.org/WAI/ARIA/apg/patterns/tabs/
  */
 
-import { Dialog, Tooltip } from '@varve/ui';
+import { Button, Dialog, Tooltip } from '@varve/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useEditor } from './context';
 
@@ -221,27 +221,13 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
                 Save changes to &ldquo;{closeSess.name}&rdquo; before closing?
               </p>
               <div className="varve-dialog__actions">
-                <button
-                  type="button"
-                  className="varve-btn varve-btn--ghost"
-                  onClick={() => setConfirmCloseId(null)}
-                >
+                <Button variant="ghost" onClick={() => setConfirmCloseId(null)}>
                   Cancel
-                </button>
-                <button
-                  type="button"
-                  className="varve-btn varve-btn--ghost"
-                  onClick={() => forceClose(confirmCloseId)}
-                >
+                </Button>
+                <Button variant="ghost" onClick={() => forceClose(confirmCloseId)}>
                   Don&apos;t save
-                </button>
-                <button
-                  type="button"
-                  className="varve-btn varve-btn--primary"
-                  onClick={() => void saveAndClose(confirmCloseId)}
-                >
-                  Save
-                </button>
+                </Button>
+                <Button onClick={() => void saveAndClose(confirmCloseId)}>Save</Button>
               </div>
             </Dialog>
           );

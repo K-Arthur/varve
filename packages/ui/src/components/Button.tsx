@@ -8,17 +8,29 @@ import { useDelayedLoading } from './useDelayedLoading';
  * `toolbar` is intentionally a visual density variant only; persistent
  * selection belongs to ToggleButton/ToggleGroup, not to Button.
  */
-export type ButtonVariant =
-  | 'default'
-  | 'secondary'
-  | 'outline'
-  | 'ghost'
-  | 'destructive'
-  | 'link'
-  | 'toolbar';
+export const BUTTON_VARIANTS = [
+  'default',
+  'secondary',
+  'outline',
+  'ghost',
+  'destructive',
+  'link',
+  'toolbar',
+] as const;
+export type ButtonVariant = (typeof BUTTON_VARIANTS)[number];
 
 /** Text controls and explicit icon-only controls share one geometry scale. */
-export type ButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'icon-xs' | 'icon-sm' | 'icon' | 'icon-lg';
+export const BUTTON_SIZES = [
+  'xs',
+  'sm',
+  'md',
+  'lg',
+  'icon-xs',
+  'icon-sm',
+  'icon',
+  'icon-lg',
+] as const;
+export type ButtonSize = (typeof BUTTON_SIZES)[number];
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -29,10 +41,11 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** When true, disabled state uses aria-disabled (focusable) instead of HTML disabled. */
   softDisabled?: boolean;
   /**
-   * Why the action is unavailable. Setting it keeps the control focusable
-   * (aria-disabled instead of HTML disabled) and exposes the reason to
-   * assistive technology and pointer users, so a disabled button is never a
-   * communication dead end (NN/g, GOV.UK, Shopify Polaris guidance).
+   * Why the action is unavailable. Pair it with `disabled`/`softDisabled`;
+   * when unavailable, the control stays focusable (aria-disabled instead of
+   * HTML disabled) and the reason reaches assistive technology and pointer
+   * users, so a disabled button is never a communication dead end
+   * (NN/g, GOV.UK, Shopify Polaris guidance).
    */
   disabledReason?: string;
   /** For destructive actions: show a confirm toggle before firing onClick. */
@@ -65,8 +78,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   const [confirming, setConfirming] = useState(false);
   const showLoading = useDelayedLoading(loading);
   const reasonId = useId();
-  const reasonActive = disabledReason !== undefined && !loading;
-  const unavailable = loading || softDisabled || reasonActive || disabled;
+  const reasonActive = disabledReason !== undefined && (disabled || softDisabled) && !loading;
+  const unavailable = loading || softDisabled || disabled;
 
   useEffect(() => {
     if (variant !== 'destructive' || !confirmLabel || disabled || softDisabled || loading) {

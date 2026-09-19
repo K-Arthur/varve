@@ -15,6 +15,7 @@ import {
   screenDeltaToWorld,
   worldToScreen as sharedWorldToScreen,
 } from '@varve/shared';
+import { Button } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getEditorViewport } from '../canvas/cameraState';
 import { useEditor } from '../context';
@@ -257,22 +258,12 @@ export function PerspectiveOverlay({ tool, zoom, pan, cameraRotation, buildToolC
           zIndex: 'var(--z-overlay)',
         }}
       >
-        <button
-          type="button"
-          className="varve-btn varve-btn--primary varve-btn--sm"
-          onClick={commit}
-          aria-label="Apply perspective"
-        >
+        <Button size="sm" onClick={commit} aria-label="Apply perspective">
           Apply
-        </button>
-        <button
-          type="button"
-          className="varve-btn varve-btn--ghost varve-btn--sm"
-          onClick={cancel}
-          aria-label="Cancel perspective"
-        >
+        </Button>
+        <Button size="sm" variant="ghost" onClick={cancel} aria-label="Cancel perspective">
           Cancel
-        </button>
+        </Button>
       </div>
     </>
   );

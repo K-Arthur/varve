@@ -5,6 +5,7 @@ import {
   previewShapeBuilderAction,
   previewShapeBuilderSelection,
 } from '@varve/scene';
+import { Button } from '@varve/ui';
 import { useMemo, useState } from 'react';
 import type { ShapeBuilderDraft } from '../tools';
 
@@ -296,22 +297,20 @@ export function ShapeBuilderOverlay({
           )}
         </div>
         {canOutlineStrokes && onOutlineStrokes && (
-          <button
-            type="button"
-            className="varve-btn varve-btn--secondary"
+          <Button
+            variant="secondary"
             data-testid="shape-builder-outline-strokes"
             onClick={onOutlineStrokes}
             style={{ minHeight: 32, alignSelf: 'flex-start' }}
           >
             Outline strokes and retry
-          </button>
+          </Button>
         )}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-1)' }}>
           {ACTIONS.map(({ action, label, shortcut, title }) => (
-            <button
+            <Button
               key={action}
-              type="button"
-              className="varve-btn varve-btn--secondary"
+              variant="secondary"
               disabled={!canApply(action)}
               aria-label={`${label} selected regions`}
               title={`${title} (${shortcut})`}
@@ -323,17 +322,12 @@ export function ShapeBuilderOverlay({
               style={{ minWidth: 76, minHeight: 32 }}
             >
               {label} <span aria-hidden="true">({shortcut})</span>
-            </button>
+            </Button>
           ))}
         </div>
-        <button
-          type="button"
-          className="varve-btn varve-btn--ghost"
-          onClick={onExit}
-          style={{ alignSelf: 'flex-start', minHeight: 32 }}
-        >
+        <Button variant="ghost" onClick={onExit} style={{ alignSelf: 'flex-start', minHeight: 32 }}>
           Exit Shape Builder (Esc)
-        </button>
+        </Button>
       </section>
     </>
   );
