@@ -600,18 +600,6 @@
   outline-offset: -1px;
 }
 
-/* ─── Active selection dot indicator ───────────────────────── */
-.layers-row__selection-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-full);
-  background: var(--color-interactive-default);
-  flex-shrink: 0;
-  margin-inline-end: var(--space-05);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-interactive-default) 35%, transparent);
-}
-
 /* ─── Type icon semantic colors ─────────────────────────────── */
 .layers-row__type-icon {
   flex-shrink: 0;
@@ -681,21 +669,31 @@
 [data-theme="high-contrast"] .layers-row--selected .layers-row__type-icon {
   color: var(--color-text-on-accent);
 }
-/* HC: selection dot */
-[data-theme="high-contrast"] .layers-row__selection-dot {
-  background: Highlight;
-  box-shadow: none;
-}
-
 /* ─── Name ──────────────────────────────────────────────────── */
 .layers-row__label {
   display: flex;
-  flex: 1 1 auto;
+  /* The identity column grows into free space and yields only after the
+     bounded status area. Keep the name floor independent from badge width so
+     a wide panel does not still render every name at its minimum. */
+  flex: 1 1 0;
   flex-direction: column;
   align-items: flex-start;
-  min-width: 0;
+  min-width: 4ch;
   overflow: hidden;
   line-height: 1.2;
+}
+
+/* At 220px and above the row can protect a visibly useful identity budget. */
+@container layers (min-width: 220px) {
+  .layers-row__label {
+    min-width: 8ch;
+  }
+}
+
+@container layers (max-width: 219px) {
+  .layers-row__label {
+    min-width: 4ch;
+  }
 }
 
 .layers-row__name {
@@ -715,22 +713,6 @@
 
 [data-theme="high-contrast"] .layers-row--selected .layers-row__name {
   color: var(--color-text-on-accent);
-}
-
-/* Deep nesting legibility: smooth horizontal scroll on row hover/focus so long names
- * in deeply indented structures remain fully readable without horizontal clutter. */
-.layers-row:hover .layers-row__label,
-.layers-row:focus-within .layers-row__label {
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.layers-row:hover .layers-row__label::-webkit-scrollbar,
-.layers-row:focus-within .layers-row__label::-webkit-scrollbar {
-  display: none;
-}
-.layers-row:hover .layers-row__name,
-.layers-row:focus-within .layers-row__name {
-  text-overflow: clip;
 }
 
 .layers-row__name--instance {
@@ -813,18 +795,171 @@
 }
 
 /* ─── Secondary badge cluster ─────────────────────────────────
- * Every type/state badge between the name and the toggles lives here. Name
- * keeps default shrink priority (flex: 1 1 auto) so it stays readable; this
- * cluster's very high shrink factor makes it give up its own width first and
- * clip internally (overflow: hidden) once space runs out, instead of pushing
- * the always-needed visibility/lock/solo toggles past the row's right edge. */
+ * Every type/state badge between the name and the toggles lives here. Shrink
+ * priority follows the capacity contract in
+ * `docs/design-system/layers-panel-spec.md` §1.2: the name yields first (it
+ * already owns an ellipsis), so a badge the user just revealed stays at its
+ * readable width. Once the label reaches zero the cluster still has
+ * `min-width: 0` + `overflow: hidden`, so it clips internally instead of
+ * pushing the always-needed visibility/lock/solo toggles (shrink: 0) past
+ * the row's right edge. The previous `flex-shrink: 9999` let the cluster
+ * collapse to zero width before the label yielded at all, which made every
+ * badge invisible on rows with long auto-names (found via the trace-group
+ * row: `AUD-010`). */
 .layers-row__badges {
   display: inline-flex;
   align-items: center;
   gap: var(--density-rows-gap, var(--space-1));
   overflow: hidden;
-  flex: 0 9999 auto;
+  /* Basis follows the badges that actually exist. A percentage basis here
+     reserves an empty 42% rail on every row and clips names even in a wide
+     panel. The max-width still bounds dense status stacks. */
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: min(42%, 12rem);
+}
+
+/* Supplemental status access has a fixed slot, so opening details never moves
+ * the name or the right-side state controls. It is a hover/focus affordance at
+ * wide widths and the header/context-menu routes remain available on narrow
+ * rails. */
+.layers-row__details-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--target-min-compact);
+  height: var(--target-min-compact);
+  flex: 0 0 var(--target-min-compact);
+  border: 0;
+  border-radius: var(--radius-control-compact);
+  background: transparent;
+  color: var(--color-text-secondary);
+  opacity: 0;
+  pointer-events: none;
+  padding: 0;
+}
+
+.layers-row:hover .layers-row__details-trigger,
+.layers-row:focus-within .layers-row__details-trigger {
+  opacity: 0.8;
+  pointer-events: auto;
+}
+
+.layers-row__details-trigger:hover,
+.layers-row__details-trigger:focus-visible {
+  color: var(--color-text-primary);
+  opacity: 1;
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .layers-row__details-trigger {
+    opacity: 0.75;
+    pointer-events: auto;
+  }
+}
+
+.layers-details {
+  width: min(22rem, calc(100vw - 2rem));
+  max-height: min(32rem, calc(100vh - 2rem));
+  overflow: auto;
+  padding: var(--space-3);
+  color: var(--color-text-primary);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-lg);
+  font-size: var(--font-size-sm);
+}
+
+.layers-details__heading,
+.layers-details__ancestor,
+.layers-details__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.layers-details__heading strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.layers-details__type {
+  margin: var(--space-1) 0 var(--space-2);
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.layers-details__section h3 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+
+.layers-details__ancestry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-05);
+  margin-bottom: var(--space-2);
+}
+
+.layers-details button {
+  min-height: var(--target-min-compact);
+  border: 0;
+  border-radius: var(--radius-control-compact);
+  padding: 0 var(--space-1);
+  color: var(--color-interactive-default);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.layers-details button:hover,
+.layers-details button:focus-visible {
+  background: var(--color-interactive-hover-surface);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.layers-details button:disabled {
+  color: var(--color-text-primary);
+  cursor: default;
+}
+
+.layers-details__facts {
+  display: grid;
+  gap: var(--space-05);
+  margin: 0;
+}
+
+.layers-details__row {
+  display: grid;
+  grid-template-columns: minmax(6rem, auto) minmax(0, 1fr);
+  gap: var(--space-2);
+}
+
+.layers-details__row dt {
+  color: var(--color-text-secondary);
+}
+
+.layers-details__row dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.layers-details__actions {
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+}
+
+@container layers (max-width: 260px) {
+  .layers-row__details-trigger {
+    display: none;
+  }
 }
 
 /* ─── Instance badge ────────────────────────────────────────── */
@@ -1997,6 +2132,22 @@
   white-space: nowrap;
 }
 
+/* Trace provenance — a group produced by Image Trace. Neutral, because it
+   states origin, not a warning or a workspace primary fact. */
+.layers-row__trace-badge {
+  align-items: center;
+  border: 1px solid color-mix(in oklab, var(--color-text-secondary) 48%, transparent);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+  padding: 0 var(--space-1);
+  white-space: nowrap;
+}
+
 /* Print story thread — a text frame that continues in another frame. */
 .layers-row__thread-badge {
   align-items: center;
@@ -2019,12 +2170,10 @@
    row's visibility/lock toggles never move — their positions are fixed from
    the right edge, so shrinking labels cannot displace them. */
 @container layers (max-width: 340px) {
-  /* The name yields before the badges do: it already ellipsizes, and a
-     badge that shrinks to zero width tells the user nothing. */
-  .layers-row__label {
-    flex-shrink: 3;
-  }
-
+  /* The name yields before the badges do (its base rule already carries the
+     dominant shrink factor; see `.layers-row__label`), and a badge that
+     shrinks to zero width tells the user nothing — so at this width the
+     chips cap and ellipsize instead. */
   .layers-row__badge {
     max-width: 4.5rem;
   }
@@ -2043,6 +2192,12 @@
      tooltips at wider widths. */
   .layers-row__badges {
     min-width: 1.5rem;
+    /* At the documented minimum the toggles win outright: the cluster yields
+       to its 1.5rem floor (the surviving blend/opacity chip's readable
+       minimum) instead of letting the label's zero-width state push the
+       visibility/lock/solo controls past the panel edge. Above this
+       breakpoint the label yields first — see `.layers-row__label`. */
+    flex-shrink: 9999;
   }
 
   .layers-row__badge {

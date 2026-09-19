@@ -65,7 +65,8 @@ widths.
 
 | Width | Rule |
 |---|---|
-| ≤ 340px | The name yields before the badges (`flex-shrink: 3` on the label); chips cap at 4.5rem and ellipsize |
+| Any | The name yields before the badges: the label carries `flex-shrink: 50` against the badge cluster's `1`, so a revealed/pinned chip keeps its readable width while the truncatable label ellipsizes. The cluster keeps `min-width: 0` + `overflow: hidden` as the final safety net, so the shrink:0 visibility/lock/solo toggles never move (`AUD-010` fixed the inverted precedence where `flex-shrink: 9999` collapsed the cluster to zero width first) |
+| ≤ 340px | Chips cap at 4.5rem and ellipsize |
 | ≤ 260px | The blend/opacity chip keeps a 1.5rem minimum; effect and object-filter chips yield; mask-role chip yields; revealed (non-pinned) groups stay hidden so a hover reveal cannot displace a pinned chip |
 | ≤ 260px, hover-capable | The unpinned solo control's slot collapses. Solo stays in the context menu, the bulk bar, the command palette, and on touch devices and the Photo workspace (pinned slot) |
 
@@ -148,11 +149,10 @@ state.
 Unchanged from `useTreeKeyboardNavigation.ts`: arrows, Home/End,
 Shift+Arrow range, Enter activate, Space toggle, Ctrl+A, F2, Shift+F10/Menu,
 Escape, type-ahead, `Ctrl+]`/`Ctrl+[` reorder, `Ctrl+Alt+]`/`Ctrl+Alt+[`
-indent/outdent. New keys must not shadow typing contexts; the ShortcutManager
+indent/outdent, and APG optional `*` (expand all closed container siblings at
+the focused row's level; focus does not move, no undo entry, no-op on the
+isolation root). New keys must not shadow typing contexts; the ShortcutManager
 already treats tree items as non-typing.
-
-Optional APG `*` (expand all siblings) remains unimplemented and is recorded
-as a known gap.
 
 ### 1.10 Context menu
 
@@ -245,6 +245,12 @@ the same one-click access without a hidden state change.
 Solo pinned only in Photo (the workspace where auditioning variants is the
 core workflow); hover/focus-revealed elsewhere, always in the context menu.
 
+`trace` is the one consumed group no workspace pins: a group produced by
+Image Trace shows `.layers-row__trace-badge` (tooltip with mode/trace mode,
+`traced artwork` in the accessible name) on hover/focus in every mode. The
+vocabulary member without a pin is deliberate — pinning it in one workspace
+would be emphasis without evidence.
+
 ### 2.3 Construct → data source
 
 | Construct | Workspace | Source | Schema change? |
@@ -256,6 +262,7 @@ core workflow); hover/focus-revealed elsewhere, always in the context menu.
 | Animated filter | Motion | keyframe counts (`computeKeyframeCounts`) + animated media assets | **No — projection** |
 | Mask filter | Photo, Draw | `node.mask != null` (existing `isMasked` attribute) | **No — projection** |
 | Component filter | Design, Logo, Codegen | existing `isComponent`/`isInstance` attributes | **No — projection** |
+| Trace provenance badge | all (unpinned) | `GroupNode.traceMetadata` (schema 2.16) | **No — projection** |
 | Blend/effects badges | Photo | existing `blendMode`, `effects` | **No — projection** |
 | Non-printing flag | Print | would need `NodeBase.printExcluded` | **Yes — deferred (REQ-010)** |
 | Granular locks / alpha lock | Photo, Draw | would need per-node lock flags | **Yes — deferred (REQ-011)** |
@@ -305,7 +312,8 @@ core workflow); hover/focus-revealed elsewhere, always in the context menu.
 | Badge emphasis per workspace | Adopt | Photoshop's "most people don't know the filters exist" argues for showing the workspace's two or three relevant facts, not all eleven. |
 | Rive "show only selected/animated" | Adapt | Proven motion pattern; implemented as the `animated` quick filter. |
 | Auto-name ghost + batch rename | Adopt (have) | Name quality is the only Layers-side lever for Codegen handoff. |
-| `*` expand siblings | Reject (optional APG) | Low value against discoverability cost; recorded as a gap. |
+| `*` expand siblings | Adopt | APG optional tree key; keyboard-only (zero clutter or discoverability cost), so the earlier "low value" rejection was outweighed by standards completeness. Implemented: `useTreeKeyboardNavigation` + `LayersTree.handleExpandSiblings`. |
+| Context-menu workspace gating | Reject | No menu entry is workspace-inapplicable: every entry is already capability/state-gated on the right-clicked node. A workspace gate would be decorative configuration (invariant 9). |
 
 ---
 
@@ -360,20 +368,44 @@ Hover/focus revelation is CSS-only (`:hover`, `:focus-within`) with
 
 ## 7. Sequencing roadmap (value / risk ordered)
 
-| Phase | Unit | Schema | Gate |
-|---|---|---|---|
-| 1 | Config field + resolver consumer + badge gating + solo reveal | — | unit + E2E + screenshots |
-| 2 | Email mobile-hidden badge + filter | — | unit + E2E |
-| 3 | Motion animated quick filter | — | unit + bench |
-| 4 | Print thread/master/export-region badges + filters | — | unit + E2E |
-| 5 | Select matches (button + command) | — | unit + E2E |
-| 6 | Context-menu workspace gating | — | unit |
-| 7 | Non-printing flag (`printExcluded`) | **schema** | full gate |
-| 8 | Alpha lock for raster layers | **schema** | full gate |
-| 9 | Trace badge; frame thumbnails | — | perf-gated |
-| 10 | `*` expand-siblings key | — | unit + E2E |
+| Phase | Unit | Schema | Gate | Status |
+|---|---|---|---|---|
+| 1 | Config field + resolver consumer + badge gating + solo reveal | — | unit + E2E + screenshots | Done |
+| 2 | Email mobile-hidden badge + filter | — | unit + E2E | Done |
+| 3 | Motion animated quick filter | — | unit + bench | Done |
+| 4 | Print thread/master/export-region badges + filters | — | unit + E2E | Done |
+| 5 | Select matches (button + command) | — | unit + E2E | Done |
+| 6 | Context-menu workspace gating | — | unit | Rejected — see §3 (no inapplicable entries; would be decorative config) |
+| 7 | Non-printing flag (`printExcluded`) | **schema** | full gate | Deferred — specified here, not implemented |
+| 8 | Alpha lock for raster layers | **schema** | full gate | Deferred — specified here, not implemented |
+| 9a | Trace-group row badge | — | unit + E2E | Done (`data-badge-group="trace"`, revealed everywhere) |
+| 9b | Frame/group 28×28 thumbnails | — | perf-gated | Deferred — needs a measured cache; `useThumbnail.ts` is concurrently owned |
+| 10 | `*` expand-siblings key | — | unit + E2E | Done |
 
-Phases 7 and 8 are specified but not implemented in this pass: they require a
-document version bump, migration, codec normalization, print/codegen
-consumers, and a justified full-gate escalation. Phase 6 and 9/10 are
-candidates for the next pass.
+Phases 7 and 8 remain specified but not implemented: they require a document
+version bump, migration, codec normalization, print/codegen consumers, and a
+justified full-gate escalation. Phase 9b remains perf-gated work for a future
+pass.
+
+## 8. Implementation follow-up — 2026-09-19
+
+The closure implementation keeps one protected identity column in each row.
+The label uses the available width (`flex: 1 1 0`) with a four-character floor
+at the 180px minimum and an eight-character floor from 220px upward. The
+secondary status cluster sizes from the badges it actually contains and is
+bounded to 42% / 12rem; it no longer reserves an empty percentage-based rail.
+This keeps long names readable in a wide panel while preserving the fixed
+visibility, lock, solo, and disclosure targets. Indentation remains adaptive
+and the real `aria-level`/drop ancestry is unchanged.
+
+Layer details are available from the focused row, the selected-layer header
+action, and the row context menu. The shared popover exposes the full name,
+ancestry, direct/effective visibility and lock state, masks, component sync,
+effects, object filters, and motion facts; ancestor buttons reuse selection
+navigation without moving the canvas camera.
+
+Image previews are a panel-local `images | off` preference. Turning them off
+cancels pending preview work and stale asynchronous completions cannot publish
+back into a row. Disclosure transfer uses a tagged compact encoding so an
+explicitly empty expansion set is distinct from missing state and large sets
+are not truncated by the generic panel codec.

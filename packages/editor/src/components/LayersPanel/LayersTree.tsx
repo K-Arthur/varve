@@ -65,11 +65,13 @@ import {
   type LayersPanelWorkspaceConfig,
 } from '../../workspace/workspaceTypes';
 import { getEffectStackInspectorTarget } from './effectStackNavigation';
-import type { LayerDropTarget } from './layerDropResolver';
+import { type LayerDropTarget, siblingsOf } from './layerDropResolver';
 import {
   addedIdsBetween,
+  decodeExpansionTransfer,
+  encodeExpansionTransfer,
   expandAddedContainers,
-  PANEL_TRANSFER_EXPANSION_LIMIT,
+  type LayerExpansionTransfer,
 } from './layerExpansionState';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER } from './layerFilterTypes';
@@ -190,6 +192,8 @@ export function collapseOthers(
 
 export {
   addedIdsBetween,
+  decodeExpansionTransfer,
+  encodeExpansionTransfer,
   expandAddedContainers,
   PANEL_TRANSFER_EXPANSION_LIMIT,
 } from './layerExpansionState';
@@ -329,6 +333,8 @@ export interface LayersTreeProps {
    * default, so a caller that does not care (composition tests) is unchanged.
    */
   layersConfig?: LayersPanelWorkspaceConfig;
+  /** Presentation preference: image-filled rows may show a generated preview. */
+  thumbnailEnabled?: boolean;
 }
 
 /** Handlers exposed to the parent DndContext and LayersPanel via ref. */
@@ -372,6 +378,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     onContextMenuKeyboard,
     onToggleSolo,
     layersConfig = DEFAULT_LAYERS_PANEL_CONFIG,
+    thumbnailEnabled = true,
   },
   ref,
 ) {
@@ -399,17 +406,14 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   // Pre-expand all containers with children on init so every layer is visible
   // on first paint — no useEffect flicker or collapsed-subtree blindness.
   // A detached-panel transfer (panel-local state) replaces that default so
-  // the user's disclosure survives detach/reattach. Bounded to the transfer
-  // codec's array ceiling; beyond it the state resets to all-expanded.
-  const [transferredExpandedIds, setTransferredExpandedIds] = usePanelLocalState<NodeId[] | null>(
-    'layers',
-    'expandedIds',
-    null,
-  );
+  // the user's disclosure survives detach/reattach. The transfer uses a
+  // tagged compact string so an explicit empty set remains distinct from the
+  // initial no-state case and large sets are not silently truncated.
+  const [transferredExpansion, setTransferredExpansion] =
+    usePanelLocalState<LayerExpansionTransfer | null>('layers', 'expandedTransfer', null);
   const [expanded, setExpanded] = useState<Set<NodeId>>(() => {
-    if (transferredExpandedIds && transferredExpandedIds.length > 0) {
-      return new Set(transferredExpandedIds);
-    }
+    const restored = decodeExpansionTransfer(transferredExpansion);
+    if (restored) return restored;
     const init = new Set<NodeId>();
     for (const [id, node] of Object.entries(state.document.nodes)) {
       const n = node as { kind: string; children?: string[] };
@@ -422,8 +426,8 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   // Mirror the expansion set into the panel-transfer codec so a detached
   // Layers window reattaches with the same disclosure. Never document data.
   useEffect(() => {
-    setTransferredExpandedIds([...expanded].slice(0, PANEL_TRANSFER_EXPANSION_LIMIT));
-  }, [expanded, setTransferredExpandedIds]);
+    setTransferredExpansion(encodeExpansionTransfer(expanded));
+  }, [expanded, setTransferredExpansion]);
   const [renamingId, setRenamingId] = useState<NodeId | null>(null);
   // Row height for the virtualizer's estimate: the applied density mode's
   // row-height contract. Re-rendered by the same signal that applies the
@@ -812,6 +816,39 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     [state.document],
   );
 
+  /**
+   * APG optional `*`: expand every closed container sibling at the focused
+   * row's level. Focus does not move, selection is untouched, and expansion
+   * is view state — so there is deliberately no undo entry.
+   */
+  const handleExpandSiblings = useCallback(
+    (id: NodeId) => {
+      const entry = entries.find((e) => e.node.id === id);
+      if (!entry) return;
+      // The isolated root has no visible siblings; expanding document-level
+      // siblings would mutate hidden state with no on-screen effect.
+      if (state.isolatedNodeId && id === state.isolatedNodeId) return;
+      const siblings = siblingsOf(
+        state.document,
+        entry.parentId,
+        state.workspaceMode !== 'print' ? state.document.activeDesignCanvasId : undefined,
+      );
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        let changed = false;
+        for (const siblingId of siblings) {
+          const sibling = state.document.nodes[siblingId];
+          if (sibling && isContainer(sibling) && !next.has(siblingId)) {
+            next.add(siblingId);
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    },
+    [entries, state.document, state.workspaceMode, state.isolatedNodeId],
+  );
+
   const handleCollapseAll = useCallback(() => {
     setExpanded((prev) =>
       collapseAll(state.document, primarySelectionId ?? undefined, prev, parentCacheRef.current),
@@ -1072,6 +1109,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     reparentNode,
     indentSelection: handleIndentSelection,
     outdentSelection: handleOutdentSelection,
+    expandSiblings: handleExpandSiblings,
     announce,
     virtualizer,
     onContextMenuKeyboard,
@@ -1314,6 +1352,8 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                 keyframeCount={keyframeCounts.get(node.id) ?? 0}
                 pinnedBadgeGroups={layersConfig.pinnedBadgeGroups}
                 pinSolo={layersConfig.pinnedRowActions.includes('solo')}
+                thumbnailEnabled={thumbnailEnabled}
+                parentCache={parentCacheRef.current}
                 maskRole={maskRole}
                 onToggleExpand={toggleExpand}
                 onExpandSubtree={handleExpandSubtree}

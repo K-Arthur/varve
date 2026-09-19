@@ -29,9 +29,17 @@ export interface LayerPresentation {
   icon: SolidIconName;
 }
 
-function isComponentDefinition(node: SceneNode, doc?: Document): boolean {
+export function isComponentDefinition(node: SceneNode, doc?: Document): boolean {
   if (node.kind !== 'frame' || node.componentId != null || !doc) return false;
   return Object.values(doc.components).some((component) => component.masterRootId === node.id);
+}
+
+export function isComponentInstance(node: SceneNode): boolean {
+  return node.kind === 'frame' && node.componentId != null;
+}
+
+export function isComponentNode(node: SceneNode, doc?: Document): boolean {
+  return isComponentInstance(node) || isComponentDefinition(node, doc);
 }
 
 /**
@@ -45,7 +53,7 @@ function isComponentDefinition(node: SceneNode, doc?: Document): boolean {
  */
 export function resolveLayerPresentation(node: SceneNode, doc?: Document): LayerPresentation {
   if (node.kind === 'frame') {
-    if (node.componentId != null) {
+    if (isComponentInstance(node)) {
       return {
         dataType: 'instance',
         category: 'instance',

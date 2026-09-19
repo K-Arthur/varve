@@ -11,8 +11,11 @@
  *
  * Real pointer and keyboard input only; no unit-level stand-ins.
  */
+import fs from 'node:fs';
+import path from 'node:path';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Page, test } from '@playwright/test';
+import { openMenu } from '../helpers/menu-helpers';
 import { navigateToEditor, switchWorkspace } from '../shared';
 
 function layerCount(page: Page): Promise<number> {
@@ -28,6 +31,43 @@ async function importSvg(page: Page, svg: string, minLayers: number) {
     .setInputFiles({ name: 'fixture.svg', mimeType: 'image/svg+xml', buffer: Buffer.from(svg) });
   await expect.poll(() => layerCount(page), { timeout: 120_000 }).toBeGreaterThanOrEqual(minLayers);
   await page.waitForTimeout(250);
+}
+
+/**
+ * Import a small donut PNG (same shape the Image Trace spec uses, proven to
+ * trace quickly through the TS fallback). Kept local rather than shared: this
+ * is the only layers spec that needs a traceable raster.
+ */
+async function importTraceableImage(page: Page) {
+  const imageDataUrl = await page.evaluate(() => {
+    const c = document.createElement('canvas');
+    c.width = 160;
+    c.height = 160;
+    const ctx = c.getContext('2d');
+    if (!ctx) throw new Error('no 2d context');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 160, 160);
+    ctx.fillStyle = '#111111';
+    ctx.beginPath();
+    ctx.arc(80, 80, 55, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(80, 80, 22, 0, Math.PI * 2);
+    ctx.fill();
+    return c.toDataURL('image/png');
+  });
+  const tmpFile = path.join('/tmp', `layers-trace-${Date.now()}.png`);
+  fs.writeFileSync(tmpFile, Buffer.from(imageDataUrl.split(',')[1] ?? '', 'base64'));
+  await page.locator('#file-import-input').setInputFiles(tmpFile);
+  await page.waitForTimeout(2500);
+  await page.evaluate(() => {
+    document.querySelectorAll('dialog[open]').forEach((d) => {
+      (d as HTMLDialogElement).close();
+    });
+  });
+  await page.waitForTimeout(300);
+  fs.unlinkSync(tmpFile);
 }
 
 async function importSimpleShapes(page: Page, count = 6) {
@@ -131,6 +171,56 @@ test.describe('Layers — workspace projection', () => {
     // Unclicking restores the full tree.
     await page.getByRole('button', { name: 'Mobile hidden' }).click();
     await expect.poll(() => page.locator('[role="treeitem"]:visible').count()).toBeGreaterThan(1);
+  });
+
+  test('trace provenance is a revealed badge that stays in the accessible name', async ({
+    page,
+  }) => {
+    await navigateToEditor(page);
+    await importTraceableImage(page);
+
+    await openMenu(page, 'Object');
+    await page.getByRole('menuitem', { name: /Vectorize Image/i }).click();
+    await page
+      .getByRole('dialog')
+      .getByText(/Preset/i)
+      .waitFor({ timeout: 10_000 });
+    await page.locator('.vectorize__diagnostics').waitFor({ timeout: 20_000 });
+    await page.getByRole('button', { name: 'Apply trace' }).click();
+    await expect(page.getByText(/Inserted \d+ vector path/)).toBeVisible({ timeout: 20_000 });
+    await page.getByRole('button', { name: 'Close dialog' }).first().click({ timeout: 5000 });
+    await page.waitForTimeout(300);
+
+    const row = page
+      .locator('.layers-panel__tree [role="treeitem"]')
+      .filter({ has: page.locator('.layers-row__trace-badge') });
+    await expect(row).toHaveCount(1);
+    const badge = row.locator('.layers-row__trace-badge');
+    const slot = row.locator('[data-badge-group="trace"]');
+    // Design pins component/layout/appearance; trace is revealed, not pinned.
+    await expect(slot).toHaveAttribute('data-badge-pinned', 'false');
+    await expect(badge).toBeHidden();
+    await row.hover();
+    await expect(badge).toBeVisible();
+
+    // Keyboard focus reveals it too (hover-only functionality would fail
+    // WCAG 2.1.1). Moving the pointer away isolates the focus reveal.
+    await page.mouse.move(0, 0);
+    await row.click();
+    await expect(badge).toBeVisible();
+    await expect(row).toHaveAttribute('aria-label', /traced artwork/i);
+
+    // Clip a page screenshot rather than `row.screenshot()`: element capture
+    // scrolls the virtualized row into view and can drop the reveal the shot
+    // is meant to document. The row is focus-revealed here, so no hover
+    // tooltip obscures the badge.
+    const rowBox = await row.boundingBox();
+    if (!rowBox) throw new Error('trace row has no box');
+    await fs.promises.mkdir('reports/layers-evolution/after', { recursive: true });
+    await page.screenshot({
+      path: 'reports/layers-evolution/after/trace-badge-row.png',
+      clip: rowBox,
+    });
   });
 
   test('Select matches selects the whole filtered projection in one action', async ({ page }) => {

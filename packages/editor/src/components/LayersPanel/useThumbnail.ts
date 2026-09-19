@@ -26,6 +26,49 @@ const THUMB_H = 28;
 const PADDING = 2;
 
 /**
+ * Placeholder ink for nodes with nothing authored to show.
+ *
+ * These marks are drawn on a Layers row, so they must follow the interface
+ * theme: the previous fixed `rgba(200,200,200,...)` grays were near-invisible
+ * on the light row while reading as ink on the dark row. The palette is
+ * memoized per resolved theme — virtualizer churn re-renders rows constantly,
+ * so this must never call getComputedStyle per render.
+ */
+interface ThumbnailInk {
+  /**
+   * Neutral ink for content that has no authored colour (an empty shape, an
+   * unavailable image payload, a path with no points). Deliberately
+   * `--color-text-muted`, not `--color-border-subtle`: measured against the
+   * row surface, border-subtle is 1.33:1 (light) / 1.32:1 (dark) — invisible —
+   * while text-muted is 7.89:1 / 5.99:1 and still reads as subordinate to the
+   * node's own label.
+   */
+  placeholder: string;
+  /** Container-box outline (frame/group); one step stronger than the fill. */
+  containerStroke: string;
+}
+
+let inkTheme: string | null = null;
+let inkCache: ThumbnailInk | null = null;
+
+function readToken(name: string, fallback: string): string {
+  if (typeof document === 'undefined') return fallback;
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
+
+export function thumbnailInk(): ThumbnailInk {
+  const theme =
+    typeof document === 'undefined' ? 'light' : (document.documentElement.dataset.theme ?? 'light');
+  if (inkCache && inkTheme === theme) return inkCache;
+  inkCache = {
+    placeholder: readToken('--color-text-muted', '#8a8a8a'),
+    containerStroke: readToken('--color-text-secondary', '#4a4a4a'),
+  };
+  inkTheme = theme;
+  return inkCache;
+}
+
+/**
  * Thumbnails must never compete with render-critical image memory. The Layers
  * panel regenerates thumbnails on every document change and re-mounts rows on
  * virtualizer churn; sharing the engine's single `ImageCache` let that traffic
@@ -62,12 +105,13 @@ async function renderNodeToCanvas(
   const opacity = node.opacity;
   const hasOpacity = typeof opacity === 'number' && opacity < 1;
 
+  const ink = thumbnailInk();
   const fill = node.fill
     ? (() => {
         const [r, g, b, a] = managedColorToRgba(node.fill!);
         return `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(3)})`;
       })()
-    : 'rgba(200,200,200,1)';
+    : ink.placeholder;
 
   const area = THUMB_W - PADDING * 2;
   const ox = PADDING;
@@ -104,8 +148,11 @@ async function renderNodeToCanvas(
         // document), leave the row as a generated placeholder instead of
         // asking the browser to load `asset:<id>`.
         if (!source || source.startsWith('asset:')) {
-          ctx.fillStyle = 'rgba(200,200,200,0.5)';
+          ctx.save();
+          ctx.globalAlpha = 0.5;
+          ctx.fillStyle = ink.placeholder;
           ctx.fillRect(ox, oy, area, area);
+          ctx.restore();
           if (hasRotation) ctx.restore();
           return canvas;
         }
@@ -118,8 +165,11 @@ async function renderNodeToCanvas(
         );
         ctx.drawImage(img, ox, oy, area, area);
       } catch {
-        ctx.fillStyle = 'rgba(200,200,200,0.5)';
+        ctx.save();
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = ink.placeholder;
         ctx.fillRect(ox, oy, area, area);
+        ctx.restore();
       }
       if (hasRotation) ctx.restore();
       return canvas;
@@ -187,8 +237,11 @@ async function renderNodeToCanvas(
           }
         } else {
           // Path with no points: show placeholder
-          ctx.fillStyle = 'rgba(200,200,200,0.3)';
+          ctx.save();
+          ctx.globalAlpha = 0.3;
+          ctx.fillStyle = ink.placeholder;
           ctx.fillRect(ox, oy, area, area);
+          ctx.restore();
         }
         break;
       }
@@ -220,15 +273,22 @@ async function renderNodeToCanvas(
     'src' in node &&
     typeof (node as unknown as Record<string, unknown>).src === 'string'
   ) {
-    ctx.fillStyle = 'rgba(200,200,255,0.3)';
+    ctx.save();
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = ink.placeholder;
     ctx.fillRect(ox, oy, area, area);
+    ctx.restore();
   } else if (node.kind === 'frame' || node.kind === 'group') {
-    // Frame/group: render as outlined box to distinguish from shapes
-    ctx.fillStyle = 'rgba(200,200,200,0.15)';
+    // Frame/group: an outlined box distinguishes a container from a shape.
+    ctx.save();
+    ctx.globalAlpha = 0.15;
+    ctx.fillStyle = ink.placeholder;
     ctx.fillRect(ox, oy, area, area);
-    ctx.strokeStyle = 'rgba(150,150,150,0.4)';
+    ctx.globalAlpha = 0.4;
+    ctx.strokeStyle = ink.containerStroke;
     ctx.lineWidth = 1;
     ctx.strokeRect(ox, oy, area, area);
+    ctx.restore();
   } else {
     ctx.fillRect(ox, oy, area, area);
   }
@@ -268,6 +328,7 @@ export function useThumbnail(
   node: SceneNode,
   docId?: string,
   doc?: Pick<Document, 'assets' | 'rasterMaskAssets'>,
+  enabled = true,
 ): string | null {
   const cacheKey = thumbnailCacheKey(node, docId);
   const docRef = useRef(doc);
@@ -279,6 +340,9 @@ export function useThumbnail(
   nodeRef.current = node;
   const activeKeyRef = useRef(cacheKey);
   activeKeyRef.current = cacheKey;
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
+  const renderGenerationRef = useRef(0);
 
   const render = useCallback(async (key: string) => {
     let canvas: OffscreenCanvas | HTMLCanvasElement;
@@ -301,17 +365,22 @@ export function useThumbnail(
       reader.onloadend = () => {
         const url = reader.result as string;
         sharedThumbnailCache.set(key, url);
-        if (activeKeyRef.current === key) setDataUrl(url);
+        if (activeKeyRef.current === key && enabledRef.current) setDataUrl(url);
       };
       reader.readAsDataURL(blob);
     } else {
       const url = (canvas as HTMLCanvasElement).toDataURL('image/png');
       sharedThumbnailCache.set(key, url);
-      if (activeKeyRef.current === key) setDataUrl(url);
+      if (activeKeyRef.current === key && enabledRef.current) setDataUrl(url);
     }
   }, []);
 
   useEffect(() => {
+    const generation = ++renderGenerationRef.current;
+    if (!enabled) {
+      setDataUrl(null);
+      return;
+    }
     const cached = sharedThumbnailCache.get(cacheKey);
     if (cached) {
       setDataUrl(cached);
@@ -322,12 +391,20 @@ export function useThumbnail(
     setDataUrl(null);
 
     if (typeof requestIdleCallback !== 'undefined') {
-      const id = requestIdleCallback(() => void render(cacheKey), { timeout: 300 });
+      const id = requestIdleCallback(
+        () => {
+          if (generation === renderGenerationRef.current && enabledRef.current)
+            void render(cacheKey);
+        },
+        { timeout: 300 },
+      );
       return () => cancelIdleCallback(id);
     }
-    const id = setTimeout(() => void render(cacheKey), 50);
+    const id = setTimeout(() => {
+      if (generation === renderGenerationRef.current && enabledRef.current) void render(cacheKey);
+    }, 50);
     return () => clearTimeout(id);
-  }, [cacheKey, render]);
+  }, [cacheKey, enabled, render]);
 
   return dataUrl;
 }

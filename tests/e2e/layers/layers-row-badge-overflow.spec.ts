@@ -111,6 +111,32 @@ async function decorateNodeWithBadges(page: import('@playwright/test').Page, nod
 }
 
 test.describe('Layers row badge overflow', () => {
+  test('names use the available row width and the panel can expand again', async ({ page }) => {
+    await navigateToEditor(page);
+    await seedLayers(page, 1);
+
+    const panel = page.locator('.layers-panel');
+    const row = page.getByRole('treeitem').first();
+    const name = row.locator('.layers-row__name');
+    await expect(name).toBeVisible();
+    const initialPanel = await panel.boundingBox();
+    const initialName = await name.boundingBox();
+    expect(initialPanel).not.toBeNull();
+    expect(initialName).not.toBeNull();
+    expect(initialName!.width).toBeGreaterThan(32);
+
+    const handle = page.getByRole('separator', { name: 'Resize layers panel' });
+    await handle.focus();
+    await handle.press('End');
+    await page.waitForTimeout(150);
+    const expandedPanel = await panel.boundingBox();
+    const expandedName = await name.boundingBox();
+    expect(expandedPanel).not.toBeNull();
+    expect(expandedPanel!.width).toBeGreaterThan(initialPanel!.width + 80);
+    expect(expandedName).not.toBeNull();
+    expect(expandedName!.width).toBeGreaterThan(initialName!.width);
+  });
+
   test('visibility/lock/solo toggles stay inside the panel at minimum width with a fully-badged row', async ({
     page,
   }) => {

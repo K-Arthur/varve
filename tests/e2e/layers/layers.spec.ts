@@ -253,6 +253,60 @@ test.describe('Layers Panel - APG Tree View', () => {
     await expect(page.getByRole('treeitem').first()).toBeFocused({ timeout: 10_000 });
   });
 
+  test('asterisk expands sibling containers without moving focus (APG optional)', async ({
+    page,
+  }) => {
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('no canvas');
+    const drag = async (x1: number, y1: number, x2: number, y2: number) => {
+      await page.mouse.move(box.x + x1, box.y + y1);
+      await page.mouse.down();
+      await page.mouse.move(box.x + x2, box.y + y2, { steps: 3 });
+      await page.mouse.up();
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(100);
+    };
+    // Two sibling frames, each holding a child rect.
+    await page.keyboard.press('f');
+    await drag(100, 100, 320, 300);
+    await page.keyboard.press('r');
+    await drag(140, 140, 200, 200);
+    await page.keyboard.press('f');
+    await drag(400, 100, 620, 300);
+    await page.keyboard.press('r');
+    await drag(440, 140, 500, 200);
+
+    const containers = page.locator('[role="treeitem"][aria-expanded]');
+    await expect(containers.first()).toBeVisible();
+    const count = await containers.count();
+    expect(count).toBeGreaterThanOrEqual(2);
+
+    // Collapse every container so `*` has closed siblings to expand.
+    for (let i = 0; i < count; i++) {
+      const row = containers.nth(i);
+      if ((await row.getAttribute('aria-expanded')) === 'true') {
+        await row.locator('[aria-label="Collapse"]').click();
+        await page.waitForTimeout(100);
+      }
+    }
+    for (let i = 0; i < count; i++) {
+      await expect(containers.nth(i)).toHaveAttribute('aria-expanded', 'false');
+    }
+
+    const first = containers.first();
+    await first.click();
+    await expect(first).toBeFocused();
+    await page.keyboard.press('*');
+
+    // Every sibling container at the focused level is expanded, and the
+    // focused row did not move (APG: focus does not move).
+    for (let i = 0; i < count; i++) {
+      await expect(containers.nth(i)).toHaveAttribute('aria-expanded', 'true');
+    }
+    await expect(first).toBeFocused();
+  });
+
   test('isolation is enforced on the canvas: outside layers are not selectable', async ({
     page,
   }) => {

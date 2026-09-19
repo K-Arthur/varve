@@ -220,6 +220,34 @@ describe('nodeMatchesFilter', () => {
     );
   });
 
+  it('keeps component definitions and instances distinct', () => {
+    const definition = makeTestFrame({ name: 'Master' });
+    const doc = {
+      ...createDocument(),
+      nodes: { [definition.id]: definition },
+      components: { 'component-1': { masterRootId: definition.id } },
+    } as unknown as import('@varve/scene').Document;
+    const instance = makeTestFrame({ componentId: 'component-1' });
+
+    expect(
+      nodeMatchesFilter(
+        definition,
+        { ...DEFAULT_FILTER, attributes: { isComponent: true } },
+        { doc },
+      ),
+    ).toBe(true);
+    expect(
+      nodeMatchesFilter(
+        definition,
+        { ...DEFAULT_FILTER, attributes: { isInstance: true } },
+        { doc },
+      ),
+    ).toBe(false);
+    expect(
+      nodeMatchesFilter(instance, { ...DEFAULT_FILTER, attributes: { isInstance: true } }, { doc }),
+    ).toBe(true);
+  });
+
   it('combines search + kind + attribute with AND logic', () => {
     const node = makeTestShape({ name: 'My Shape', locked: true, blendMode: 'multiply' });
     const filter: LayerFilterSpec = {

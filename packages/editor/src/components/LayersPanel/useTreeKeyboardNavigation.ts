@@ -44,6 +44,8 @@ interface UseTreeKeyboardNavigationArgs {
   indentSelection: () => void;
   /** Move the focused selection out of its container, below its block (outdent). */
   outdentSelection: () => void;
+  /** APG optional `*`: expand all closed container siblings of the node. */
+  expandSiblings: (id: NodeId) => void;
   announce: (message: string) => void;
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   onContextMenuKeyboard?: (id: NodeId, focusedRow?: HTMLElement) => void;
@@ -71,6 +73,7 @@ export function useTreeKeyboardNavigation({
   reparentNode,
   indentSelection,
   outdentSelection,
+  expandSiblings,
   announce,
   virtualizer,
   onContextMenuKeyboard,
@@ -221,6 +224,18 @@ export function useTreeKeyboardNavigation({
         return;
       }
 
+      // APG optional `*` (Shift+8 on most layouts): expand all closed
+      // siblings at the focused row's level. Focus does not move. No
+      // modifier beyond the layout's own Shift, and checked before
+      // type-ahead so the character is never swallowed as a search prefix.
+      if (e.key === '*' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        if (focusedNode) {
+          expandSiblings(focusedNode.id);
+        }
+        return;
+      }
+
       // Keyboard structural editing beyond sibling order: Ctrl+Alt+] indents
       // the focused selection into the container displayed above it,
       // Ctrl+Alt+[ outdents it below its container's block. Same physical
@@ -310,6 +325,7 @@ export function useTreeKeyboardNavigation({
       reparentNode,
       indentSelection,
       outdentSelection,
+      expandSiblings,
       announce,
       virtualizer,
       onContextMenuKeyboard,

@@ -10,6 +10,7 @@ import type { Virtualizer } from '@tanstack/react-virtual';
 import { getInstanceStatus, type NodeId, type SceneNode } from '@varve/scene';
 import { type ComponentProps, memo } from 'react';
 import { useEditor } from '../../context';
+import type { ParentIndexCache } from '../../scene/parentIndexCache';
 import type { LayersBadgeGroup } from '../../workspace/workspaceTypes';
 import { useEffectStackDrag } from '../Shell/effectStackDragContext';
 import { LayersRow } from './LayersRow';
@@ -71,6 +72,9 @@ export interface SortableVirtualRowProps {
   pinnedBadgeGroups?: readonly LayersBadgeGroup[];
   /** Whether the solo control is pinned rather than hover/focus-revealed. */
   pinSolo?: boolean;
+  /** Whether image previews are enabled for this Layers surface. */
+  thumbnailEnabled?: boolean;
+  parentCache?: ParentIndexCache | null;
 }
 
 function SortableVirtualRowImpl({
@@ -115,6 +119,8 @@ function SortableVirtualRowImpl({
   onOpenAdjustment,
   pinnedBadgeGroups,
   pinSolo,
+  thumbnailEnabled,
+  parentCache,
 }: SortableVirtualRowProps) {
   const totalRows = virtualizer.options.count;
   const { state: editorState, revealSelection } = useEditor();
@@ -237,6 +243,8 @@ function SortableVirtualRowImpl({
         keyframeCount={keyframeCount}
         pinnedBadgeGroups={pinnedBadgeGroups}
         pinSolo={pinSolo}
+        thumbnailEnabled={thumbnailEnabled}
+        parentCache={parentCache}
         maskRole={maskRole}
         syncStatus={syncStatus}
         presences={presences}

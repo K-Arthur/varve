@@ -37,6 +37,27 @@ function makeNode(
   return { ...base, ...overrides } as unknown as SceneNode;
 }
 
+const TRACE_META = {
+  schemaVersion: 1 as const,
+  sourceNodeId: 'src1',
+  mode: 'color' as const,
+  traceMode: 'silhouette' as const,
+  threshold: 128,
+  foreground: 'dark' as const,
+  alphaThreshold: 0,
+  minArea: 4,
+  simplifyTolerance: 1,
+  maxPaths: 1000,
+  maxColors: 8,
+  compoundHoles: true,
+  cornerAngle: 45,
+  centerlineWidth: 1,
+  centerlinePrune: 0,
+  engine: 'native' as const,
+  stats: { pathCount: 12, pointCount: 240, holeCount: 0, omittedHoles: 0 },
+  createdAt: 1,
+};
+
 function renderRow(props?: Partial<React.ComponentProps<typeof LayersRow>>) {
   const defaultProps: React.ComponentProps<typeof LayersRow> = {
     node: makeNode('n1', 'Layer 1'),
@@ -114,6 +135,16 @@ describe('LayersRow roving tabindex', () => {
     const row = container.querySelector('[role="treeitem"]');
     expect(row).toHaveAttribute('aria-posinset', '2');
     expect(row).toHaveAttribute('aria-setsize', '3');
+  });
+
+  it('offers the details surface from the focused row without adding a selection marker', () => {
+    const doc = createDocument('details');
+    const { container } = renderRow({ doc, focused: true, selected: true });
+    expect(container.querySelector('[data-row-action="details"]')).toHaveAttribute(
+      'aria-label',
+      'Show details for Layer 1',
+    );
+    expect(container.querySelector('.layers-row__selection-dot')).toBeNull();
   });
 });
 
@@ -559,7 +590,8 @@ describe('LayersRow double-click icon', () => {
     expect(container.querySelector('.layers-row__name')?.textContent).toBe('Page 1');
     expect(container.querySelector('.layers-row__type-icon--frame')).not.toBeNull();
 
-    // Selected: shows selection dot, keeps name clearly visible
+    // Selected: row styling/focus carry selection; the old competing dot is
+    // intentionally gone so the type icon remains the single identity slot.
     rerender(
       <LayersRow
         node={frameNode}
@@ -583,7 +615,7 @@ describe('LayersRow double-click icon', () => {
     );
 
     expect(container.querySelector('.layers-row__selection-checkbox')).toBeNull();
-    expect(container.querySelector('.layers-row__selection-dot')).not.toBeNull();
+    expect(container.querySelector('.layers-row__selection-dot')).toBeNull();
     expect(container.querySelector('.layers-row__name')?.textContent).toBe('Page 1');
   });
 });
@@ -636,6 +668,48 @@ describe('LayersRow — workspace projection', () => {
       'data-row-action-pinned',
       'true',
     );
+  });
+});
+
+describe('LayersRow — trace provenance', () => {
+  const tracedGroup = () =>
+    makeNode('g1', 'Traced mark', 'group', {
+      children: [],
+      traceMetadata: TRACE_META,
+    } as Partial<SceneNode>);
+
+  it('renders the trace badge with its badge group', () => {
+    const { container } = renderRow({ node: tracedGroup() });
+    const badge = container.querySelector('.layers-row__trace-badge');
+    expect(badge).not.toBeNull();
+    expect(badge).toHaveAttribute('data-trace-group', 'true');
+    const slot = badge?.closest('[data-badge-group]');
+    expect(slot).toHaveAttribute('data-badge-group', 'trace');
+  });
+
+  it('is revealed (not pinned) because no built-in workspace pins trace', () => {
+    const { container } = renderRow({
+      node: tracedGroup(),
+      pinnedBadgeGroups: ['component', 'layout', 'appearance'],
+    });
+    const slot = container.querySelector('[data-badge-group="trace"]');
+    expect(slot).toHaveAttribute('data-badge-pinned', 'false');
+  });
+
+  it('keeps the trace state in the accessible name when the badge is revealed', () => {
+    const { container } = renderRow({
+      node: tracedGroup(),
+      pinnedBadgeGroups: [],
+    });
+    const row = container.querySelector('[role="treeitem"]');
+    expect(row?.getAttribute('aria-label')).toContain('traced artwork');
+  });
+
+  it('does not render for an untraced group', () => {
+    const { container } = renderRow({
+      node: makeNode('g1', 'Plain group', 'group', { children: [] } as Partial<SceneNode>),
+    });
+    expect(container.querySelector('.layers-row__trace-badge')).toBeNull();
   });
 });
 

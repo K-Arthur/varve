@@ -47,7 +47,7 @@ branch today is which surface (page vs design canvas) the tree walks.
 | Master-page origin indication | — | — | — | — | — | — | — | — | — |
 | Non-printing flag | — | — | — | — | — | — | — | — | — |
 | Email mobile-hidden indication | — | — | — | — | — | — | — | — | — |
-| Trace-group indication in row | P | P | P | P | P | P | P | P | — |
+| Trace-group indication in row | Y | Y | Y | Y | Y | Y | Y | Y | — |
 | Workspace default filter / presets | — | — | — | — | — | — | — | — | — |
 | Workspace-controlled badges / row actions | — | — | — | — | — | — | — | — | — |
 
@@ -234,7 +234,7 @@ command exists. Touch devices always show the controls (`@media (hover: none)`).
 | Live-region announcements for moves | Pass | `announce(describeDrop(...))` in `useLayersDnD.ts`. |
 | Target size 24×24 (2.5.8) | Pass for existing toggles (24 px measured) | Any new chip/badge action must meet it or use the spacing exception. |
 | Focus not obscured (2.4.11) | Pass | `scrollToIndex` reveals the focused row; drop indicators are pseudo-elements. |
-| `*` expand-siblings (APG optional) | **Absent** | Optional; documented as a gap, not fixed this pass. |
+| `*` expand-siblings (APG optional) | Pass | Expands closed siblings at the focused level without moving focus or creating history. |
 | Physical screen-reader session | **Absent** | Cannot be claimed; noted in `layers-panel-deferred.md` and repeated in the spec. |
 | Reduced-motion | Pass | Existing E2E covers it. |
 
@@ -248,15 +248,15 @@ surfaces), not defect repair.
 
 | Scene capability | Panel surface | Evidence |
 |---|---|---|
-| `EmailSemanticMetadata.hideOnMobile/hideOnDesktop` | none | `emailTypes.ts:119`, `email-compiler.ts:285`, `email-html.ts:816` |
-| `TextNode.storyBinding` + `Document.stories` | none | `types.ts`, `sceneCompositing.ts:211` |
+| `EmailSemanticMetadata.hideOnMobile/hideOnDesktop` | row badges + filters | `emailTypes.ts:119`, `LayersRow.tsx`, `layerFilterTypes.ts` |
+| `TextNode.storyBinding` + `Document.stories` | threaded-text badge + filter | `types.ts`, `LayersRow.tsx`, `layerFilterTypes.ts` |
 | `FrameNode.frameRole === 'exportRegion'` | type icon only, no filter | `layerPresentation.ts` maps it to `export-region` |
-| `GroupNode.traceMetadata` | context menu only | `layerContextMenu.ts:329` |
+| `GroupNode.traceMetadata` | revealed provenance badge + context action | `LayersRow.tsx`, `layerContextMenu.ts` |
 | `Document.masters` + `masterEditId` | tree can edit a master, no origin badge | `useFlatTree.ts:369` |
 | `AdjustmentNode.scope` | badge exists (`layer-row__scope-badge`) | `LayersRow.tsx` |
 | `NodeBase.mask` | badge + role chips exist | `LayersRow.tsx` |
 | Motion tracks | dot + keyframe badge exist, no filter | `LayersRow.tsx`, `computeKeyframeCounts` |
-| Layer previews for frames/groups | image fills only | `useThumbnail.ts`, `LayersRow.tsx:190` |
+| Layer previews for frames/groups | image fills only; preference can disable generation | `useThumbnail.ts`, `LayersRow.tsx` |
 
 No UI was found that is wired to nothing inside the panel (the orphaned
 `PageStrip.tsx` and `fuzzySearch.ts` were already removed by earlier passes).
@@ -301,3 +301,56 @@ Schema-changing items (REQ-010, REQ-011) are specified in
 `docs/design-system/layers-panel-spec.md` §7 with migrations and export
 considerations, and are **not** implemented in this pass; the scene files are
 dirty from another agent and a full-gate escalation would be required.
+
+---
+
+## Addendum — 2026-09-19 closure pass
+
+**AUD-010 — The badge cluster collapsed to zero width on rows with long
+names, clipping every badge.** Found while validating the new trace
+provenance badge (IMPL-011). `.layers-row__badges` carried
+`flex-shrink: 9999`; because flex shrink is proportional, a row with a long
+label (a trace group's auto-name is `<file>.png trace`) let the cluster absorb
+nearly all overflow until its width reached 0. Its own `overflow: hidden` then
+clipped every badge inside it — including one the user had just revealed by
+hover — while Playwright's `toBeVisible` still reported visible, because the
+element's own box was non-empty and ancestor `overflow` clipping is not part
+of that check. The documented capacity contract (spec §1.2: the name yields
+before the badges) was therefore inverted in practice.
+
+Fixed in the closure pass: the label carries `flex-shrink: 50` against the
+cluster's `1` (the truncatable label yields first), and the cluster keeps
+`min-width: 0` + `overflow: hidden` as the final clip fallback so the
+visibility/lock/solo toggles (`flex-shrink: 0`) still never move. Verified by
+computed-style diagnostics (cluster width 0px → 38.1px against the 38.75px
+chip) and the 180px overflow E2E. New requirement mapping: AUD-010 → spec
+§1.2 capacity rules.
+
+Also resolved in the closure pass, without code changes:
+
+- **REQ-012 trace badge: implemented** (`data-badge-group="trace"`; the one
+  consumed badge group no workspace pins).
+- **Spec §7 phase 6 (context-menu workspace gating): rejected** — every entry
+  is already capability/state-gated on the right-clicked node; there is no
+  workspace-inapplicable entry, so workspace gating would be decorative
+  configuration (invariant 9).
+- **Spec §7 phase 10 (APG `*`): implemented** with an E2E.
+- **Spec §7 phase 9b (frame thumbnails): still deferred** — needs a measured
+  preview cache and `useThumbnail.ts` is concurrently owned.
+
+## Addendum — 2026-09-19 follow-up (reported wide-panel clipping)
+
+The maintainer reported that names such as `Sakuya Ta…` and `clipboard…`
+were still clipped while the panel had unused space, and that the resize
+affordance no longer appeared. The remaining layout defect was the badge
+cluster's percentage flex basis: `max-width: 42%` was paired with a percentage
+basis, so rows with few or no badges reserved an empty status rail. The final
+rule uses `flex: 0 1 auto` with the same 42% / 12rem cap; the name is
+`flex: 1 1 0` with the documented 4ch/8ch floors. This restores the name
+budget at widths above 220px while keeping the state controls stable.
+
+The desktop splitter remains the existing APG separator (`Resize layers
+panel`, 180–480px, pointer and keyboard controls). A new regression spec
+checks both computed name width and keyboard expansion. The browser run was
+queued through the heavy-task lease but cancelled while another session held
+the lease, so a fresh screenshot and physical pointer trace remain pending.

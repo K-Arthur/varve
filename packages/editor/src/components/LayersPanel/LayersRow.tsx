@@ -29,6 +29,7 @@ import {
 import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { autoName } from '../../intelligence/autoNamer';
+import type { ParentIndexCache } from '../../scene/parentIndexCache';
 import {
   hidingAncestorOf,
   isNodeEffectivelyHidden,
@@ -37,6 +38,7 @@ import {
 import type { LayersBadgeGroup } from '../../workspace/workspaceTypes';
 import { summarizeAdjustmentStack } from './adjustmentStackSummary';
 import { EffectStackTransferBadge } from './EffectStackTransferBadge';
+import { LayerDetailsPopover } from './LayerDetailsPopover';
 import {
   layerAccessibleDescription,
   maskTypeLabel,
@@ -132,6 +134,10 @@ export interface LayersRowProps {
   pinnedBadgeGroups?: readonly LayersBadgeGroup[];
   /** Whether the solo control is pinned rather than hover/focus-revealed. */
   pinSolo?: boolean;
+  /** Whether image previews are enabled for this Layers surface. */
+  thumbnailEnabled?: boolean;
+  /** Cached ancestry index shared by the virtualized tree. */
+  parentCache?: ParentIndexCache | null;
 }
 
 /** Deeper rows keep their real ARIA depth but stop indenting further, so the
@@ -187,6 +193,8 @@ export const LayersRow = memo(function LayersRow({
   searchMatch = false,
   pinnedBadgeGroups,
   pinSolo = true,
+  thumbnailEnabled = true,
+  parentCache,
 }: LayersRowProps) {
   const [editValue, setEditValue] = useState(node.name);
   // Workspace projection: badge groups the active workspace does not pin are
@@ -206,7 +214,9 @@ export const LayersRow = memo(function LayersRow({
   const isContainerNode = isContainer(node);
   const layerPresentation = resolveLayerPresentation(node, doc);
   const typeIcon = isGroup && expanded ? 'FolderOpen' : layerPresentation.icon;
-  const thumbnailDataUrl = useThumbnail(node, docId, doc);
+  // Hooks stay unconditional for every virtual row, but disabled previews do
+  // no idle work and cannot publish a stale completion.
+  const thumbnailDataUrl = useThumbnail(node, docId, doc, thumbnailEnabled && isImageShape(node));
   // Only show a preview chip for real image content — solid-fill frame
   // thumbnails read as unexplained coloured squares next to the type icon.
   const showThumbnail = isImageShape(node) && thumbnailDataUrl != null;
@@ -224,6 +234,15 @@ export const LayersRow = memo(function LayersRow({
   // Workspace projections read from the document, never from node copies.
   const emailMeta = doc?.emailSemantics?.nodes?.[node.id];
   const isThreadedText = node.kind === 'text' && node.storyBinding?.storyId != null;
+  // Trace provenance (schema 2.16): a group produced by Image Trace. The
+  // group's context menu already offers Edit Trace; the badge is what makes
+  // that affordance discoverable and explains the shape of an otherwise
+  // ordinary group. No workspace pins the group — it is secondary metadata
+  // everywhere, so it reveals on hover/focus and stays in the row's name.
+  const traceMeta = node.kind === 'group' ? node.traceMetadata : undefined;
+  const traceDetail = traceMeta
+    ? `Traced image — ${traceMeta.mode === 'pixel-art' ? 'pixel art' : traceMeta.mode}, ${traceMeta.traceMode}`
+    : undefined;
   const isEffectivelyLocked = doc ? isNodeEffectivelyLocked(doc, node.id) : node.locked;
   // Visibility inherits down: a child of a hidden group paints nothing even
   // though its own visible flag is still true. Distinguish that inherited
@@ -315,6 +334,7 @@ export const LayersRow = memo(function LayersRow({
         emailMeta?.hideOnMobile === true ? 'hidden on mobile' : undefined,
         emailMeta?.hideOnDesktop === true ? 'hidden on desktop' : undefined,
         isThreadedText ? 'threaded text' : undefined,
+        traceMeta ? 'traced artwork' : undefined,
         appearanceDetail,
         // Effect stacks are visually represented by badges that can be
         // hidden (narrow rails) or revealed (workspace projection); the
@@ -547,9 +567,6 @@ export const LayersRow = memo(function LayersRow({
           <span className="layers-row__disclosure-spacer" />
         )}
 
-        {/* Active selection dot indicator */}
-        {selected && !editing && <span className="layers-row__selection-dot" aria-hidden="true" />}
-
         {/* Thumbnail preview (frames and images) */}
         {showThumbnail && (
           <img src={thumbnailDataUrl!} alt="" aria-hidden className="layers-row__thumbnail" />
@@ -756,6 +773,22 @@ export const LayersRow = memo(function LayersRow({
             </span>
           )}
 
+          {/* Trace provenance badge (Image Trace group) */}
+          {traceMeta && !editing && (
+            <span className="layers-row__badge-slot" {...badgeAttrs('trace')}>
+              <Tooltip label={traceDetail ?? 'Traced image'}>
+                <span
+                  className="layers-row__trace-badge"
+                  role="img"
+                  aria-label="Traced image"
+                  data-trace-group="true"
+                >
+                  traced
+                </span>
+              </Tooltip>
+            </span>
+          )}
+
           {/* Adjustment type badge */}
           {node.kind === 'adjustment' && !editing && (
             <span className="layers-row__badge-slot" {...badgeAttrs('mask')}>
@@ -904,6 +937,33 @@ export const LayersRow = memo(function LayersRow({
             </span>
           )}
         </span>
+
+        {!editing && doc && focused && (
+          <LayerDetailsPopover
+            node={node}
+            doc={doc}
+            parentCache={parentCache}
+            maskRole={maskRole}
+            variantName={variantName}
+            syncStatus={syncStatus}
+            hasMotion={hasMotion}
+            onSelectAncestor={onSelect ? (id) => onSelect(id, false, false) : undefined}
+            onOpenEffectStack={onOpenEffectStack}
+            onOpenAdjustment={onOpenAdjustment}
+          >
+            <button
+              type="button"
+              className="layers-row__details-trigger"
+              data-row-action="details"
+              aria-label={`Show details for ${displayName}`}
+              tabIndex={-1}
+              onPointerDown={stopDragActivation}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <SolidIcon name={SOLID_CHROME_ICONS.info} size="0.8em" aria-hidden />
+            </button>
+          </LayerDetailsPopover>
+        )}
 
         {effectStackDrop && !editing && (
           <span className="layers-row__effect-stack-drop-hint" role="status">

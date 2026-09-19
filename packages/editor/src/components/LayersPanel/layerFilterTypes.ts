@@ -1,5 +1,6 @@
-import type { BlendMode, Document, FrameNode, LayerColor, NodeId, SceneNode } from '@varve/scene';
+import type { BlendMode, Document, LayerColor, NodeId, SceneNode } from '@varve/scene';
 import { isContainer } from '@varve/scene';
+import { isComponentInstance, isComponentNode } from './layerPresentation';
 
 /** Filter by node kind (e.g., 'shape', 'text', 'frame', etc.) */
 export type NodeKindFilter = Array<SceneNode['kind'] | 'component'>;
@@ -60,10 +61,6 @@ export const DEFAULT_FILTER: LayerFilterSpec = {
   blendModes: [],
 };
 
-function isComponentFrame(node: SceneNode): node is FrameNode {
-  return node.kind === 'frame' && node.componentId != null;
-}
-
 function hasEffects(node: SceneNode): boolean {
   return ((node as unknown as { effects?: unknown[] }).effects?.length ?? 0) > 0;
 }
@@ -95,7 +92,7 @@ export function nodeMatchesNonSearch(
   ctx: NodeFilterContext = {},
 ): boolean {
   if (filter.kinds.length > 0) {
-    const effectiveKind: SceneNode['kind'] | 'component' = isComponentFrame(node)
+    const effectiveKind: SceneNode['kind'] | 'component' = isComponentNode(node, ctx.doc)
       ? 'component'
       : node.kind;
     if (!filter.kinds.includes(effectiveKind) && !filter.kinds.includes(node.kind)) return false;
@@ -109,11 +106,11 @@ export function nodeMatchesNonSearch(
     if (hasCh !== attr.hasChildren) return false;
   }
   if (attr.isComponent !== undefined) {
-    const isComp = isComponentFrame(node);
+    const isComp = isComponentNode(node, ctx.doc);
     if (isComp !== attr.isComponent) return false;
   }
   if (attr.isInstance !== undefined) {
-    const isInst = isComponentFrame(node);
+    const isInst = isComponentInstance(node);
     if (isInst !== attr.isInstance) return false;
   }
   if (attr.hasEffects !== undefined) {

@@ -213,4 +213,28 @@ describe('useThumbnail caching', () => {
     expect(loadAtSize).not.toHaveBeenCalled();
     unmount();
   });
+
+  it('does no idle work when previews are disabled', async () => {
+    const node = {
+      ...makeShapeNode('thumb-disabled'),
+      fills: [
+        {
+          type: 'image',
+          image: { src: 'data:image/png;base64,DISABLED', fit: 'fill', x: 0, y: 0, scale: 1 },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+    } as unknown as SceneNode;
+    const loadAtSize = vi.spyOn(thumbnailImageCache, 'loadAtSize');
+    const { result, unmount } = renderHook(() => useThumbnail(node, undefined, undefined, false));
+
+    await flushRenderTimer();
+
+    expect(result.current).toBeNull();
+    expect(loadAtSize).not.toHaveBeenCalled();
+    expect(sharedThumbnailCache.get(thumbnailCacheKey(node))).toBeUndefined();
+    unmount();
+  });
 });

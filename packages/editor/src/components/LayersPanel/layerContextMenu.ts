@@ -54,6 +54,7 @@ export interface BuildLayerMenuItemsArgs {
   /** Effective visibility (own flag AND all ancestors visible) for a node id. */
   isEffectivelyHidden: (id: string) => boolean;
   handleRenameFromMenu: () => void;
+  handleDetailsFromMenu?: () => void;
   handleBatchRenameFromMenu: () => void;
   handleDeleteFromMenu: () => void;
   handleCopy: () => void;
@@ -150,6 +151,7 @@ export function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuE
     isEffectivelyLocked,
     isEffectivelyHidden,
     handleRenameFromMenu,
+    handleDetailsFromMenu,
     handleBatchRenameFromMenu,
     handleDeleteFromMenu,
     handleCopy,
@@ -204,6 +206,12 @@ export function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuE
       icon: 'Pencil',
       shortcut: 'F2',
       onAction: handleRenameFromMenu,
+    },
+    {
+      id: 'details',
+      label: 'Layer details',
+      icon: 'Info',
+      onAction: handleDetailsFromMenu ?? closeMenu,
     },
     {
       id: 'batch-rename',

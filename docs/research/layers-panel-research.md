@@ -230,8 +230,8 @@ Source: [W3C APG Tree View Pattern](https://www.w3.org/WAI/ARIA/apg/patterns/tre
   focus is independent of selection in multi-select trees.
 - Type-ahead is recommended for trees with more than seven root nodes.
 
-**Varve status [verified]:** all of the above are implemented; the remaining
-APG gap is the optional `*` (expand all siblings) key.
+**Varve status [verified]:** all of the above are implemented, including the
+optional `*` (expand all siblings) key.
 
 ### D2. Keyboard alternative to drag
 
@@ -271,3 +271,15 @@ path remains focus-order reachable, which the context menu provides.
   to a cited thread.
 - No Teardown of Penpot's tree view was completed; its accessibility issues
   are therefore not asserted.
+
+## F. Implementation interpretation — 2026-09-19
+
+The vendor sources above document familiar patterns: an ancestry-preserving
+tree, explicit reveal/navigation, adjustable presentation, and separate
+selection and focus. The Penpot, Affinity, and Krita community reports are
+workflow evidence only; they are not treated as prevalence measurements. The
+resulting Varve changes therefore stay within the existing scene projection:
+adaptive indentation and a protected name budget, a bounded status cluster,
+shared semantic classification for component rows and filters, an optional
+image-preview preference, and a details surface that exposes full ancestry
+without adding a second tree or scene schema.

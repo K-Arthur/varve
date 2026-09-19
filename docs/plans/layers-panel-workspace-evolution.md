@@ -63,6 +63,44 @@
 | IMPL-009 | REQ-008 | `layersScaleProjection.bench.test.ts` records 1k/10k/50k flatten + search + kind + animated timings |
 | IMPL-010 | REQ-009 | E2E `workspace-evolution.spec.ts` (6 tests) + overflow spec extension; drive-by typecheck fixes in `useFlatTree.test.ts`/`layerDropResolver.test.ts` |
 
+## 2026-09-19 closure pass — verification + remaining non-schema items
+
+Continuation pass on the same task: independently verify the committed work,
+then close the non-schema roadmap items it left open. Findings and changes:
+
+| Unit | Requirement → finding | Change |
+|---|---|---|
+| IMPL-011 | REQ-012 → audit §7 (trace provenance: context menu only) | Trace badge in `LayersRow` (`.layers-row__trace-badge`, `data-badge-group="trace"`, `data-trace-group`), tooltip with mode/trace-mode, `traced artwork` in the accessible name. First consumed `LayersBadgeGroup` that no workspace pins: provenance is secondary everywhere, so hover/focus-revealed in all eight modes. 4 unit tests. |
+| IMPL-012 | APG optional `*` (spec §3 said Reject, §7 phase 10 said candidate — resolved) | `*` expands all closed container siblings at the focused row's level; focus does not move, no selection change, no undo entry, no-op on the isolation root. `handleExpandSiblings` in `LayersTree.tsx`; branch in `useTreeKeyboardNavigation.ts` ahead of type-ahead; E2E in `layers.spec.ts` (13 pass). |
+| IMPL-013 | AUD-010 (found during IMPL-011 verification) | Capacity precedence fix: `.layers-row__badges` had `flex-shrink: 9999`, so the cluster collapsed to width 0 before the label yielded — every badge, including a just-revealed trace chip, was clipped invisible on rows with long auto-names (Playwright `toBeVisible` passed because the element's own box was non-empty; ancestor `overflow: hidden` did not count). Label now carries shrink 50 vs the cluster's 1 (spec §1.2 contract), cluster keeps `min-width: 0` as the final clip fallback so the toggles still never move. Verified by computed-style diagnostics and the overflow E2E. |
+| IMPL-014 | REQ-009 validation | Trace-badge E2E (hover reveal, focus reveal, accessible name) + `reports/layers-evolution/after/trace-badge-row.png`; unit suite for panel + workspace config. |
+
+### Concurrent-agent conflicts found in this pass
+
+- `LayersRow.tsx` and `layers.css` also carried the additive details, preview,
+  and selection-marker work. The final merged rules use `flex: 1 1 0` for the
+  name with a 4ch/8ch container-query floor, and `flex: 0 1 auto` for the
+  content-sized badge cluster capped at 42% / 12rem. This resolves both the
+  original zero-width badge failure and the later empty-rail name clipping.
+- The details popover, preview preference, disclosure transfer codec, and
+  shared component classification are now included in the same milestone;
+  none changes the scene schema or the authoritative drag resolver.
+- The commit uses explicit pathspecs. Unrelated staged work in the shared
+  tree remains outside the Layers milestone.
+
+Resolved without code:
+
+- **Spec §7 phase 6 (context-menu workspace gating): Rejected.** Every menu
+  entry is already capability/state-gated on the right-clicked node; no entry
+  is inapplicable in any workspace, so gating by workspace would be
+  decorative configuration (invariant 9). Recorded in spec §3.
+- **Spec §7 phase 9b (frame/group thumbnails): still deferred.** Needs a
+  measured preview cache; `useThumbnail.ts` is concurrently owned (dirty
+  working tree from another agent's theme-ink work) — touching it now would
+  collide.
+- **Spec §7 phases 7–8 (non-printing flag, alpha lock): still schema-gated**,
+  unchanged from the first pass.
+
 ## Reproduce the evidence
 
 `reports/` is gitignored, so the evidence is regenerated, not committed:

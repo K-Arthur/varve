@@ -14,11 +14,38 @@
 import type { Document, NodeId } from '@varve/scene';
 import { isContainer } from '@varve/scene';
 
-/** Ceiling for the expansion set mirrored into the panel-transfer codec —
- * the codec declines arrays longer than 1 000, and a declined value would
- * silently disable the whole panel transfer. Beyond this many expanded
- * containers the transfer resets to the all-expanded default. */
+/**
+ * The transfer codec uses a compact string rather than an array. The generic
+ * panel state codec bounds arrays and object entries at 1,000 items; keeping
+ * the ids in one delimited string preserves large documents without silently
+ * dropping the tail of the user's disclosure state.
+ */
 export const PANEL_TRANSFER_EXPANSION_LIMIT = 1000;
+
+export interface LayerExpansionTransfer {
+  version: 1;
+  initialized: true;
+  encodedIds: string;
+}
+
+const TRANSFER_SEPARATOR = '\u001f';
+
+export function encodeExpansionTransfer(ids: Iterable<NodeId>): LayerExpansionTransfer {
+  return {
+    version: 1,
+    initialized: true,
+    encodedIds: [...ids].join(TRANSFER_SEPARATOR),
+  };
+}
+
+export function decodeExpansionTransfer(value: unknown): Set<NodeId> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const candidate = value as Partial<LayerExpansionTransfer>;
+  if (candidate.version !== 1 || candidate.initialized !== true) return null;
+  if (typeof candidate.encodedIds !== 'string') return null;
+  if (candidate.encodedIds === '') return new Set<NodeId>();
+  return new Set(candidate.encodedIds.split(TRANSFER_SEPARATOR).filter(Boolean) as NodeId[]);
+}
 
 /** Node ids present in `next` but not in `prev` (prev null = first sight). */
 export function addedIdsBetween(prev: Set<NodeId> | null, next: Set<NodeId>): NodeId[] {

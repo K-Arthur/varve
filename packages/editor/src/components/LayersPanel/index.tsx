@@ -50,6 +50,7 @@ import { resolveLayersPanelConfig } from '../../workspace/workspaceTypes';
 import { BatchRenameDialog } from '../BatchRename/BatchRenameDialog';
 import { PanelDetachButton, PanelDragHandle } from '../PanelDragHandle';
 import { LayerBulkBar } from './LayerBulkBar';
+import { LayerDetailsPopover } from './LayerDetailsPopover';
 import { LayerFilterBar } from './LayerFilterBar';
 import { buildLayerContextMenuItems } from './layerContextMenu';
 
@@ -128,6 +129,11 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     'filterSpec',
     DEFAULT_FILTER,
   );
+  const [thumbnailPreference, setThumbnailPreference] = usePanelLocalState<'images' | 'off'>(
+    'layers',
+    'thumbnailPreference',
+    'images',
+  );
   // One resolver: the active workspace's Layers projection. Every field is
   // consumed below (badges/row actions by the tree, quick filters and
   // placeholder by the filter bar); see docs/design-system/layers-panel-spec.md.
@@ -148,6 +154,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     null,
   );
   const [batchRenameOpen, setBatchRenameOpen] = useState(false);
+  const [detailsNodeId, setDetailsNodeId] = useState<NodeId | null>(null);
   // Viewport-edge clamping handled by shared ContextMenu component.
   // The panel queries its own tree through this root rather than the global
   // document: a detached Layers window lives in a different Document, where
@@ -249,6 +256,13 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       closeMenu();
     }
   }, [contextMenu, dndRef, closeMenu]);
+
+  const handleDetailsFromMenu = useCallback(() => {
+    if (contextMenu) {
+      setDetailsNodeId(contextMenu.id);
+      closeMenu();
+    }
+  }, [contextMenu, closeMenu]);
 
   const handleBatchRenameFromMenu = useCallback(() => {
     closeMenu();
@@ -682,9 +696,28 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
         checked: layerSettings.autoReveal,
         onToggle: () => updateLayerSettings({ autoReveal: !layerSettings.autoReveal }),
       },
+      { id: 'view-label', label: 'View', type: 'label' },
+      {
+        id: 'layer-thumbnails',
+        label: 'Image previews in rows',
+        description: 'Generate previews only for image-filled layers',
+        type: 'checkbox',
+        checked: thumbnailPreference === 'images',
+        onToggle: () =>
+          setThumbnailPreference((current) => (current === 'images' ? 'off' : 'images')),
+      },
     ],
-    [layerSettings, updateLayerSettings],
+    [layerSettings, thumbnailPreference, setThumbnailPreference, updateLayerSettings],
   );
+  // A context-menu details action may target one row inside a multi-selection.
+  // Keep that target as the popover anchor even though the compact header
+  // button is normally offered only for a single selected layer.
+  const detailsTargetId =
+    (detailsNodeId && state.document.nodes[detailsNodeId] ? detailsNodeId : null) ??
+    (state.selection.length === 1 ? state.selection[0] : null);
+  const detailsTarget = detailsTargetId ? state.document.nodes[detailsTargetId] : undefined;
+  const detailsTargetIsSelected =
+    state.selection.length === 1 && detailsTargetId === state.selection[0];
 
   return (
     <div ref={panelRootRef} className="editor-layers layers-panel" data-panel-root="layers">
@@ -706,6 +739,34 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
           </div>
           <TooltipProvider>
             <div className="layers-panel__header-actions">
+              {detailsTarget && (
+                <LayerDetailsPopover
+                  node={detailsTarget}
+                  doc={state.document}
+                  parentCache={parentCacheRef.current}
+                  open={detailsNodeId === detailsTarget.id}
+                  onOpenChange={(open) => setDetailsNodeId(open ? detailsTarget.id : null)}
+                  onSelectAncestor={(id) => setSelection(id)}
+                >
+                  <button
+                    type="button"
+                    className="layers-panel__header-btn"
+                    aria-label={
+                      detailsTargetIsSelected
+                        ? 'Show selected layer details'
+                        : `Show details for ${detailsTarget.name}`
+                    }
+                    title={
+                      detailsTargetIsSelected
+                        ? 'Show selected layer details'
+                        : `Show details for ${detailsTarget.name}`
+                    }
+                    onClick={() => setDetailsNodeId(detailsTarget.id)}
+                  >
+                    <SolidIcon name={SOLID_CHROME_ICONS.info} size="0.85em" />
+                  </button>
+                </LayerDetailsPopover>
+              )}
               <button
                 ref={navigationMenuTriggerRef}
                 type="button"
@@ -798,6 +859,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
         ref={dndRef}
         filterSpec={filterSpec}
         layersConfig={layersPanelConfig}
+        thumbnailEnabled={thumbnailPreference === 'images'}
         onContextMenu={handleContextMenu}
         onContextMenuKeyboard={handleContextMenuKeyboard}
         onToggleSolo={(id) => {
@@ -838,6 +900,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             selection: contextSelection,
             documentNodes: state.document.nodes,
             handleRenameFromMenu,
+            handleDetailsFromMenu,
             handleBatchRenameFromMenu,
             handleDeleteFromMenu,
             handleCopy,

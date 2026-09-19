@@ -96,9 +96,10 @@ Deviation: the commit used `--no-verify` because the shared Git index held
 ## Consciously rejected
 
 - InDesign document-wide layers, Articles/reading order, Mailchimp block
-  library in the tree, Photoshop layer comps (points at Layer States),
-  Procreate reference layer, and the optional APG `*` key — each with a
-  rationale in the spec §3.
+  library in the tree, Photoshop layer comps (points at Layer States), and
+  Procreate reference layers — each with a rationale in the spec §3. The APG
+  `*` key was implemented after the initial rejection because it adds keyboard
+  coverage without a persistent control.
 - A `defaultFilter` workspace field was designed and then **removed** before
   shipping: entering a workspace must not silently change what the user sees,
   and the quick-filter chips provide the same one-click access. (No
@@ -155,13 +156,12 @@ improvement; a quiet-machine A/B is required before claiming either, and the
 1. **Non-printing layer flag** (schema) — the one Print construct that cannot
    be a projection.
 2. **Alpha lock / granular locks** (schema) — Photo/Draw.
-3. **Trace-group row badge** and **frame/group 28×28 thumbnails** (perf-gated:
-   the node-preview profile exists; expanding it needs a measured cache).
+3. **Frame/group 28×28 thumbnails** (perf-gated: the image-fill profile exists;
+   expanding it needs a measured preview cache).
 4. **Context-menu workspace gating** — suppress entries a workspace cannot use.
 5. **Physical screen-reader session** (NVDA/Orca/VoiceOver) — still
    unclaimed by any synthetic run.
-6. Optional APG `*` (expand siblings).
-7. Exact-SHA remote certification of the above; no full local gate was
+6. Exact-SHA remote certification of the above; no full local gate was
    justified for this pass.
 
 ## Coordination notes
@@ -178,3 +178,40 @@ improvement; a quiet-machine A/B is required before claiming either, and the
   this pass made no schema edits.
 - Evidence captures ran on `VARVE_E2E_PORT=1437` through the heavy-task lease;
   `reports/` is gitignored.
+
+## Implementation follow-up — 2026-09-19
+
+The final row-capacity fix replaces the empty percentage flex basis on the
+badge cluster with content-sized flexing and a bounded maximum. Names now own
+the remaining width with the 4ch/8ch protected budget, so a 220px-and-wider
+panel does not truncate a name merely because the row has no status badges.
+The change preserves the existing desktop splitter and adds a keyboard resize
+assertion to the Layers regression coverage.
+
+Additional additive surfaces are complete: the shared Layer details popover is
+reachable from a focused row, the selected-layer header, and the context menu;
+image preview generation can be disabled per panel; and disclosure transfer
+preserves an explicit all-collapsed set without truncating large expansion
+sets. These changes stay in panel-local/editor preference state and do not
+change the scene schema.
+
+### Current-state corrections to the baseline matrix
+
+The matrix in §1 records the pre-closure baseline. The affected rows now read
+as follows after the implementation commits:
+
+| Capability | Current state | Scope / limitation |
+|---|---|---|
+| Select all matches | **Y** | One selection command for the active filtered projection |
+| Text-thread indication | **Y** | Read-only row badge and filter from existing story metadata |
+| Email mobile-hidden indication | **Y** | Read-only badges and filters from existing email metadata |
+| Trace-group indication | **Y** | Revealed provenance badge; no new scene fields |
+| Image-filled thumbnails | **Y** | Existing 28×28 profile, with a panel-local `images | off` preference |
+| Frame/group thumbnails | **Deferred** | Requires a measured preview cache |
+| Layer details / ancestry | **Y** | Focused-row, selected-header, and context-menu entry points |
+| Component semantic filter | **Y** | Definitions and instances share the row classification; instance remains separately filterable |
+| Disclosure transfer | **Y** | Document/surface-local tagged transfer preserves empty and large expansion sets |
+
+Non-printing flags, alpha locks, synthetic hierarchy/treegrid semantics, and
+inline specialist editors remain deferred or rejected as documented in the
+specification.
