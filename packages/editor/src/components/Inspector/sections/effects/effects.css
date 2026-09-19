@@ -88,7 +88,7 @@
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-micro);
   background: var(--color-surface-sunken);
   color: var(--color-text-muted);
   border: 1px solid var(--color-border-subtle);
@@ -178,8 +178,8 @@
 }
 
 .insp-elevation-preset-btn--active {
-  color: var(--color-interactive-focus);
-  background: var(--color-interactive-subtle);
+  color: var(--color-interactive-default);
+  background: var(--color-interactive-selected-surface);
   border-color: var(--color-interactive-focus-ring);
   font-weight: var(--font-weight-semibold);
 }
@@ -210,7 +210,7 @@
 
 .insp-elevation-preset-btn--active .insp-elevation-preset-btn__badge {
   background: var(--color-surface-overlay);
-  color: var(--color-interactive-focus);
+  color: var(--color-interactive-default);
 }
 
 /* Quick Radius Chips for Blurs */
@@ -240,9 +240,9 @@
 }
 
 .insp-radius-chip--active {
-  background: var(--color-interactive-subtle);
+  background: var(--color-interactive-selected-surface);
   border-color: var(--color-interactive-focus-ring);
-  color: var(--color-interactive-focus);
+  color: var(--color-interactive-default);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -351,7 +351,7 @@
   height: 12px;
   margin: -6px 0 0 -6px;
   border-radius: 50%;
-  background: var(--color-interactive-focus);
+  background: var(--color-interactive-default);
   border: 2px solid var(--color-surface-raised);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   pointer-events: none;
@@ -389,9 +389,9 @@
 }
 
 .insp-light-pad__snap-btn--active {
-  background: var(--color-interactive-subtle);
+  background: var(--color-interactive-selected-surface);
   border-color: var(--color-interactive-focus-ring);
-  color: var(--color-interactive-focus);
+  color: var(--color-interactive-default);
   font-weight: var(--font-weight-semibold);
 }
 

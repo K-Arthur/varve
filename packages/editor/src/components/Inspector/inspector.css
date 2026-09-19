@@ -640,7 +640,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: right;
-  font-weight: var(--font-weight-normal, 400);
+  font-weight: var(--font-weight-regular);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
 }
@@ -693,14 +693,14 @@
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   border-radius: var(--radius-pill);
-  font-size: 0.6rem;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   line-height: 1;
 }
 .insp-section-manager__panel {
   position: static;
-  width: 280px;
-  max-height: 400px;
+  width: var(--insp-popover-inline);
+  max-height: var(--insp-popover-max-block);
   overflow-y: auto;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
@@ -762,8 +762,8 @@
   border-radius: var(--radius-control-compact);
   font-size: var(--font-size-sm);
   transition:
-    background 0.1s,
-    opacity 0.1s;
+    background var(--duration-quick),
+    opacity var(--duration-quick);
 }
 .insp-section-manager__item:hover {
   background: var(--color-surface-hover);
@@ -827,7 +827,7 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--tracking-micro);
 }
 .insp-section-manager__essential {
   font-size: var(--font-size-xs);
@@ -966,11 +966,11 @@
 }
 
 .selection-colors__hex {
-  font-family: var(--font-family-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
-  letter-spacing: 0.02em;
+  letter-spacing: var(--tracking-micro);
 }
 
 .selection-colors__sub {
@@ -1349,7 +1349,7 @@
   color: var(--color-text-secondary);
   font-size: var(--insp-label-size, var(--font-size-2xs));
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.02em;
+  letter-spacing: var(--tracking-micro);
   line-height: var(--type-interface-label-line-height);
   text-transform: uppercase;
 }
@@ -1659,6 +1659,16 @@
  * round color chip convention in Figma/Sketch-style effect stacks. */
 .insp-swatch--round {
   border-radius: 50%;
+}
+
+/* Inline status chip beside text (Adaptive Contrast status row). Decorative,
+ * so it is not a pointer target. */
+.insp-swatch--sm {
+  width: 1rem;
+  height: 1rem;
+  min-width: 1rem;
+  min-height: 1rem;
+  cursor: default;
 }
 
 /* Value pill: the swatch face plus the paint's readout (#4A90E2, Gradient,
@@ -2000,34 +2010,6 @@
   color: var(--color-interactive-default);
 }
 
-.insp-orientation-btn {
-  width: var(--component-compact-height);
-  height: var(--component-compact-height);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
-  cursor: pointer;
-  color: var(--color-text-secondary);
-  padding: 0;
-  flex-shrink: 0;
-  border-radius: var(--radius-control-compact);
-  transition:
-    background var(--duration-quick) var(--ease-standard),
-    border-color var(--duration-quick) var(--ease-standard),
-    color var(--duration-quick) var(--ease-standard);
-}
-.insp-orientation-btn:hover {
-  background: var(--color-surface-app);
-  border-color: var(--color-border-strong);
-  color: var(--color-text-primary);
-}
-.insp-orientation-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 1px;
-}
-
 .insp-proportion-lock {
   display: flex;
   align-items: center;
@@ -2367,6 +2349,24 @@
   margin-left: var(--space-05);
 }
 
+/* Text variant: OcrSection reports the detected orientation and confidence in
+ * a badge. The dot base was never a text container, so without this modifier
+ * the copy overflowed a ~3px box. */
+.insp-badge--info {
+  display: inline-flex;
+  align-items: center;
+  width: auto;
+  height: auto;
+  min-height: var(--target-min-compact);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklab, var(--color-feedback-info) 15%, transparent);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  line-height: var(--font-line-label);
+  margin-left: 0;
+}
+
 .insp-corner-radius-row {
   display: flex;
   align-items: center;
@@ -2495,7 +2495,7 @@
   color: var(--color-feedback-danger);
 }
 .insp-icon-btn--danger:hover {
-  background: var(--color-danger-subtle, rgba(239, 68, 68, 0.15));
+  background: color-mix(in oklab, var(--color-feedback-danger) 15%, transparent);
   border-color: transparent;
   color: var(--color-feedback-danger);
 }
@@ -2847,7 +2847,7 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.02em;
+  letter-spacing: var(--tracking-micro);
   line-height: 1;
   text-transform: uppercase;
 }
@@ -3007,8 +3007,8 @@
   font-size: var(--font-size-md);
   cursor: pointer;
   transition:
-    background 0.1s ease,
-    border-color 0.1s ease;
+    background var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard);
 }
 .insp-image-fill__flip-btn:hover {
   background: var(--color-surface-raised);
@@ -3626,7 +3626,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-opentype-status[data-state="unknown"] {
-  color: var(--color-text-warning, var(--color-text-secondary));
+  color: var(--color-feedback-warning);
 }
 
 .insp-feature-browser {
@@ -3671,6 +3671,10 @@ fieldset.insp-canvas-props,
 .insp-feature-browser__size input {
   min-width: 0;
   flex: 1;
+  /* WCAG 2.2 SC 2.5.8: the track is 16px tall, but the input's hit area is
+     the element box — raising it to the compact target keeps the visual track
+     unchanged and the pointer band compliant. */
+  min-block-size: var(--target-min-compact);
   accent-color: var(--color-interactive-default);
 }
 
@@ -3748,6 +3752,19 @@ fieldset.insp-canvas-props,
 }
 
 /* ---------- Variable font axis slider ---------- */
+.insp-axis-control {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.insp-axis-control .range-value-control {
+  flex: 1 1 0;
+  min-inline-size: 0;
+}
+
 .insp-slider__input {
   flex: 1;
   /* Without this the input refuses to shrink below its intrinsic width and
@@ -3829,7 +3846,7 @@ fieldset.insp-canvas-props,
 }
 .insp-slider__reset:hover:not(:disabled) {
   color: var(--color-text-primary);
-  border-color: var(--color-border-default);
+  border-color: var(--color-border-subtle);
 }
 .insp-slider__reset:focus-visible {
   outline: 2px solid var(--color-interactive-default);
@@ -3959,7 +3976,7 @@ fieldset.insp-canvas-props,
   color: var(--color-text-secondary);
   font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--tracking-micro);
 }
 
 .intelligence-text-input {
@@ -4617,7 +4634,7 @@ fieldset.insp-canvas-props,
 .histogram-widget__channels label:has(input:focus-visible) {
   border-color: var(--color-accent-primary);
   color: var(--color-text-primary);
-  background: var(--color-surface-selected);
+  background: var(--color-interactive-selected-surface);
 }
 
 /* ---------- Gap histogram ---------- */
@@ -4692,7 +4709,7 @@ fieldset.insp-canvas-props,
   cursor: pointer;
   width: 100%;
   justify-content: center;
-  transition: background 0.15s;
+  transition: background-color var(--duration-fast) var(--ease-standard);
 }
 .caf-entry-button:hover {
   background: var(--color-interactive-hover);
@@ -5323,7 +5340,7 @@ fieldset.insp-canvas-props,
   font-weight: var(--font-weight-medium);
   color: var(--color-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.025em;
+  letter-spacing: var(--tracking-micro);
 }
 .insp-sm__states,
 .insp-sm__transitions,
@@ -5455,8 +5472,8 @@ fieldset.insp-canvas-props,
   font-size: var(--font-size-xs);
   cursor: pointer;
   transition:
-    background 0.15s,
-    color 0.15s;
+    background var(--duration-fast),
+    color var(--duration-fast);
   line-height: 1;
 }
 .audit-badge:hover {
@@ -5560,8 +5577,8 @@ fieldset.insp-canvas-props,
   font-size: var(--font-size-xs);
   cursor: pointer;
   transition:
-    background 0.15s,
-    border-color 0.15s;
+    background var(--duration-fast),
+    border-color var(--duration-fast);
   line-height: 1.4;
 }
 .intelligence-filter-chip:hover {
@@ -5689,7 +5706,15 @@ fieldset.insp-canvas-props,
 .contrast-indicator {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-05);
+}
+.contrast-indicator__caption {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-micro);
 }
 .contrast-indicator__dot {
   display: inline-block;
@@ -5722,7 +5747,7 @@ fieldset.insp-canvas-props,
 .insp-cognitive-load__fill {
   height: 100%;
   border-radius: var(--radius-pill);
-  transition: width var(--duration-standard, 0.3s) var(--ease-standard, ease);
+  transition: width var(--duration-base) var(--ease-standard, ease);
 }
 .insp-cognitive-load__score {
   font-size: var(--font-size-2xs);
@@ -5802,7 +5827,7 @@ fieldset.insp-canvas-props,
 .email-panel__group h3,
 .email-panel__link h4 {
   margin: 0;
-  color: var(--color-text-default);
+  color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   text-transform: capitalize;
 }
@@ -5900,9 +5925,9 @@ fieldset.insp-canvas-props,
   margin: 0;
   padding: var(--space-2);
   overflow: auto;
-  color: var(--color-text-default);
+  color: var(--color-text-primary);
   background: var(--color-surface-default);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -5912,9 +5937,9 @@ fieldset.insp-canvas-props,
   margin: 0;
   padding: var(--space-2);
   overflow: auto;
-  color: var(--color-text-default);
+  color: var(--color-text-primary);
   background: var(--color-surface-default);
-  font-family: var(--font-family-mono);
+  font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -5958,12 +5983,12 @@ fieldset.insp-canvas-props,
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  color: var(--color-text-default);
+  color: var(--color-text-primary);
   font-size: var(--font-size-sm);
 }
 
 .email-panel__toggle {
-  color: var(--color-text-default);
+  color: var(--color-text-primary);
   font-size: var(--font-size-sm);
 }
 
@@ -5980,7 +6005,7 @@ fieldset.insp-canvas-props,
 }
 .email-preflight h3 {
   margin: 0;
-  color: var(--color-text-default);
+  color: var(--color-text-primary);
   font-size: var(--font-size-sm);
 }
 .email-preflight__summary {
@@ -6028,7 +6053,7 @@ fieldset.insp-canvas-props,
   padding: var(--space-1) 0;
   border: 0;
   background: transparent;
-  color: var(--color-text-default);
+  color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-xs);
   text-align: start;
@@ -6037,7 +6062,7 @@ fieldset.insp-canvas-props,
   cursor: pointer;
 }
 .email-preflight__message {
-  color: var(--color-text-default);
+  color: var(--color-text-primary);
 }
 .email-preflight__item-button:hover .email-preflight__message,
 .email-preflight__item-button:focus-visible .email-preflight__message {
@@ -6075,7 +6100,7 @@ fieldset.insp-canvas-props,
 }
 .email-compat h4 {
   margin: 0;
-  color: var(--color-text-default);
+  color: var(--color-text-primary);
   font-size: var(--font-size-sm);
 }
 .email-compat__badge {
@@ -6125,7 +6150,7 @@ fieldset.insp-canvas-props,
 }
 .email-compat__facts dd {
   margin: 0;
-  color: var(--color-text-default);
+  color: var(--color-text-primary);
   text-align: end;
 }
 .email-compat__degraded {
@@ -6141,10 +6166,10 @@ fieldset.insp-canvas-props,
   gap: var(--space-1);
   margin: 0;
   padding-inline-start: var(--space-4);
-  color: var(--color-text-default);
+  color: var(--color-text-primary);
 }
 .email-compat__degraded code {
-  font-family: var(--font-family-mono);
+  font-family: var(--font-mono);
 }
 
 /* Theme contract for the shared field primitives. Surfaces and text remain
@@ -6204,7 +6229,7 @@ fieldset.insp-canvas-props,
   overflow: hidden;
   text-overflow: ellipsis;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  letter-spacing: var(--tracking-micro);
 }
 
 /* Nested field pairs (X/Y, W/H sharing one row): WebKit resolves the nested
@@ -6864,7 +6889,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-preset-popover {
-  width: 280px;
+  width: var(--insp-popover-inline);
   max-width: 90vw;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
@@ -7095,7 +7120,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-preset-fav-btn--active {
-  color: var(--color-warning-default);
+  color: var(--color-feedback-warning);
   opacity: 1;
 }
 
@@ -7122,7 +7147,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-preset-delete-btn:hover {
-  color: var(--color-danger-default);
+  color: var(--color-feedback-danger);
 }
 
 /* Footer save button */
@@ -7240,7 +7265,7 @@ fieldset.insp-canvas-props,
   font-family: var(--type-interface-label-family);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.02em;
+  letter-spacing: var(--tracking-micro);
   text-transform: uppercase;
 }
 
@@ -7285,6 +7310,11 @@ fieldset.insp-canvas-props,
   --insp-value-size: clamp(0.75rem, calc(0.7255rem + 0.1087vw), 0.8125rem);
   --insp-numeric-rail: 9ch;
   --insp-preview-max-inline-size: 20rem;
+  /* Popover geometry shared by panel menus (section manager, preset
+     popovers). rem keeps the surface proportionate when the user raises the
+     root font size; the previous 280px/400px literals did not. */
+  --insp-popover-inline: 17.5rem;
+  --insp-popover-max-block: 25rem;
 }
 
 /* ── Shared compact inspector buttons ──────────────────────────────────

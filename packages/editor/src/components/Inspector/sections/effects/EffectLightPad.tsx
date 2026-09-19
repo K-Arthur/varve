@@ -176,7 +176,7 @@ export function EffectLightPad({
               y1="36"
               x2={handleX}
               y2={handleY}
-              stroke="var(--color-interactive-focus)"
+              stroke="var(--color-interactive-default)"
               strokeWidth="1.5"
             />
           )}

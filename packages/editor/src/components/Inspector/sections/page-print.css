@@ -28,6 +28,6 @@
 }
 
 .page-print__warning {
-  color: var(--color-text-warning, var(--color-text-secondary));
+  color: var(--color-feedback-warning);
   font-size: var(--font-size-xs);
 }

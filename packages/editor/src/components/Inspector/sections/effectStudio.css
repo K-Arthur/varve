@@ -119,7 +119,7 @@
 }
 
 .effect-studio-comparison__modes button[aria-pressed="true"] {
-  background: var(--color-surface-selected);
+  background: var(--color-interactive-selected-surface);
   border-color: var(--color-accent-primary);
   color: var(--color-text-primary);
 }
@@ -164,7 +164,7 @@
 }
 
 .effect-studio-comparison__zoom button[aria-pressed="true"] {
-  background: var(--color-surface-selected);
+  background: var(--color-interactive-selected-surface);
   border-color: var(--color-accent-primary);
   color: var(--color-text-primary);
 }
@@ -466,7 +466,7 @@
 .effect-studio__filters button.is-selected,
 .effect-studio__filters button:hover,
 .effect-studio__recent button:hover:not(:disabled) {
-  background: var(--color-surface-selected);
+  background: var(--color-interactive-selected-surface);
   border-color: var(--color-accent-primary);
   color: var(--color-text-primary);
 }
@@ -539,7 +539,7 @@
 }
 
 .effect-studio__applied-header > small.is-live {
-  background: var(--color-surface-selected);
+  background: var(--color-interactive-selected-surface);
   border-color: var(--color-accent-primary);
   color: var(--color-text-primary);
 }
@@ -562,7 +562,7 @@
 
 .effect-studio__stack-order {
   align-items: center;
-  background: var(--color-surface-selected);
+  background: var(--color-interactive-selected-surface);
   border-radius: var(--radius-pill);
   color: var(--color-text-secondary);
   display: inline-flex;
@@ -916,7 +916,7 @@
 .effect-studio__treatment-art::before {
   background:
     radial-gradient(circle at 68% 30%, var(--color-accent-primary), transparent 34%),
-    linear-gradient(145deg, var(--color-surface-selected), var(--color-surface-sunken));
+    linear-gradient(145deg, var(--color-interactive-selected-surface), var(--color-surface-sunken));
 }
 
 .effect-studio__treatment-art::after {
@@ -1077,7 +1077,7 @@
       var(--color-text-muted) 0 1px,
       transparent 2px 7px
     ),
-    linear-gradient(135deg, var(--color-surface-selected), var(--color-surface-sunken));
+    linear-gradient(135deg, var(--color-interactive-selected-surface), var(--color-surface-sunken));
 }
 
 .effect-studio__treatment-art[data-treatment-art="glass"]::before,
@@ -1089,7 +1089,7 @@
       var(--color-accent-primary) 9px 11px,
       transparent 12px 20px
     ),
-    linear-gradient(135deg, var(--color-surface-selected), var(--color-surface-sunken));
+    linear-gradient(135deg, var(--color-interactive-selected-surface), var(--color-surface-sunken));
   opacity: 0.85;
 }
 
@@ -1101,7 +1101,7 @@
       var(--color-text-secondary) 7px 8px,
       transparent 9px 15px
     ),
-    linear-gradient(135deg, var(--color-surface-selected), var(--color-surface-sunken));
+    linear-gradient(135deg, var(--color-interactive-selected-surface), var(--color-surface-sunken));
 }
 
 .effect-studio__treatment-art[data-treatment-art="prism"]::before,
@@ -1119,7 +1119,7 @@
       var(--color-accent-primary) 35% 38%,
       transparent 39%
     ),
-    linear-gradient(135deg, var(--color-surface-selected), var(--color-surface-sunken));
+    linear-gradient(135deg, var(--color-interactive-selected-surface), var(--color-surface-sunken));
 }
 
 .effect-studio__treatment-art[data-treatment-art="leak"]::before {
@@ -1129,7 +1129,7 @@
       var(--color-feedback-warning, var(--color-accent-primary)) 0 20%,
       transparent 58%
     ),
-    linear-gradient(135deg, var(--color-surface-selected), var(--color-surface-sunken));
+    linear-gradient(135deg, var(--color-interactive-selected-surface), var(--color-surface-sunken));
 }
 
 .effect-studio__treatment-art[data-treatment-art="relief"]::before,
@@ -1168,7 +1168,7 @@
       var(--color-accent-primary) 44% 47%,
       transparent 49%
     ),
-    linear-gradient(135deg, var(--color-surface-selected), var(--color-surface-sunken));
+    linear-gradient(135deg, var(--color-interactive-selected-surface), var(--color-surface-sunken));
 }
 
 .effect-studio__treatment-art[data-treatment-art="phosphor"]::before,
@@ -1206,7 +1206,7 @@
     repeating-linear-gradient(
       80deg,
       transparent 0 8px,
-      var(--color-surface-selected) 9px 10px,
+      var(--color-interactive-selected-surface) 9px 10px,
       transparent 11px 18px
     ),
     var(--color-surface-raised);
@@ -1282,7 +1282,7 @@
 
 .effect-studio__preview-status {
   align-items: center;
-  background: var(--color-surface-selected);
+  background: var(--color-interactive-selected-surface);
   border: 1px solid var(--color-accent-primary);
   border-radius: var(--radius-control-compact);
   display: flex;

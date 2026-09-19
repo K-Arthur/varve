@@ -23,7 +23,7 @@
 .email-code-editor__language {
   margin-right: auto;
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-micro);
 }
 
 .email-code-editor__tool {

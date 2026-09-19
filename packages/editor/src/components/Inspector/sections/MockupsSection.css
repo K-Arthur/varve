@@ -9,8 +9,8 @@
   margin: 0;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-control-compact);
-  background: var(--color-feedback-danger, var(--surface-muted));
-  color: var(--danger, var(--text-primary));
+  background: var(--color-feedback-danger, var(--color-surface-sunken));
+  color: var(--danger, var(--color-text-primary));
   font-size: var(--font-size-sm);
 }
 
@@ -24,21 +24,21 @@
 .mockups-section__label {
   flex: 0 0 84px;
   font-size: var(--font-size-sm);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .mockups-section__value {
   flex: 1;
   min-width: 0;
   font-size: var(--font-size-sm);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .mockups-section__missing {
-  color: var(--danger, var(--text-secondary));
+  color: var(--danger, var(--color-text-secondary));
 }
 
 .mockups-section__fits {
@@ -52,7 +52,7 @@
   border: var(--border-micro);
   border-radius: var(--radius-control-compact);
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   cursor: pointer;
 }
@@ -60,7 +60,7 @@
 .mockups-section__fit--active {
   background: var(--color-accent-primary);
   border-color: var(--color-accent-primary);
-  color: var(--text-on-accent, #ffffff);
+  color: var(--color-text-on-accent);
 }
 .mockups-section__fit--active:hover {
   background: var(--color-interactive-hover);
@@ -77,15 +77,15 @@
 .mockups-section__note {
   margin: 0;
   font-size: var(--font-size-xs);
-  color: var(--text-tertiary, var(--text-secondary));
+  color: var(--color-text-subtle);
 }
 
 .mockups-section__status {
   margin: 0;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-control-compact);
-  background: var(--surface-muted);
-  color: var(--text-secondary);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
 }
 
@@ -116,7 +116,7 @@
   padding: var(--space-2);
   border: 0;
   background: transparent;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   text-align: left;
   cursor: pointer;
@@ -124,7 +124,7 @@
 
 .mockups-section__surface-header:hover,
 .mockups-section__surface-header:focus-visible {
-  background: var(--surface-muted);
+  background: var(--color-surface-sunken);
 }
 
 .mockups-section__surface-name {
@@ -137,7 +137,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
 }
 
@@ -213,7 +213,7 @@
 .mockups-section__legend {
   width: 100%;
   padding: 0;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
 }
 
@@ -224,7 +224,7 @@
 }
 
 .mockups-section__corner-label {
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   width: 20px;
 }
@@ -233,7 +233,7 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
 }
 
@@ -243,7 +243,7 @@
   border: var(--border-micro);
   border-radius: var(--radius-control-compact);
   background: transparent;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-size: var(--font-size-xs);
 }
 
@@ -254,7 +254,7 @@
   border: var(--border-micro);
   border-radius: var(--radius-control-compact);
   background: transparent;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-size: var(--font-size-sm);
 }
 
@@ -265,12 +265,12 @@
   padding: var(--space-2);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
-  background: var(--surface-muted);
+  background: var(--color-surface-sunken);
 }
 
 .mockups-section__picker-plan {
   margin: 0;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
 }
 
@@ -291,7 +291,7 @@
   border: 1px solid transparent;
   border-radius: var(--radius-control-compact);
   background: transparent;
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   text-align: left;
   cursor: pointer;
@@ -318,6 +318,6 @@
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
   font-size: var(--font-size-sm);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   cursor: pointer;
 }

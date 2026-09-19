@@ -101,6 +101,7 @@ export function ContrastIndicator({
         aria-label={`Contrast ${label}`}
         style={{ color }}
       >
+        <span className="contrast-indicator__caption">Contrast</span>
         <span className="contrast-indicator__dot" />
         <span className="contrast-indicator__label">{label}</span>
       </span>
