@@ -1,6 +1,6 @@
 .insp-selection-sources {
   display: grid;
-  gap: 10px;
+  gap: var(--space-3);
   padding: 12px;
 }
 
@@ -21,7 +21,7 @@
 
 .insp-selection-sources__actions {
   display: grid;
-  gap: 6px;
+  gap: var(--space-2);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -77,12 +77,12 @@
 
 .insp-selection-sources__saved {
   display: grid;
-  gap: 5px;
+  gap: var(--space-2);
 }
 
 .insp-selection-sources__session {
   display: grid;
-  gap: 6px;
+  gap: var(--space-2);
   border: 1px solid var(--color-accent-primary);
   border-radius: var(--radius-control);
   padding: 8px;
@@ -96,7 +96,7 @@
 
 .insp-selection-sources__session-actions {
   display: grid;
-  gap: 6px;
+  gap: var(--space-2);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -105,7 +105,7 @@
   color: var(--color-text-secondary);
   display: flex;
   font-size: var(--font-size-xs);
-  gap: 6px;
+  gap: var(--space-2);
   line-height: 1.4;
 }
 
@@ -116,7 +116,7 @@
 
 .insp-selection-sources__refine-grid {
   display: grid;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .insp-selection-sources__saved-title {
@@ -126,13 +126,13 @@
 
 .insp-selection-sources__saved-row {
   display: grid;
-  gap: 4px;
+  gap: var(--space-2);
   grid-template-columns: minmax(0, 1fr);
 }
 
 .insp-selection-sources__name-field {
   display: grid;
-  gap: 4px;
+  gap: var(--space-2);
   grid-column: 1 / -1;
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
@@ -156,7 +156,7 @@
 .insp-selection-sources__saved-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: var(--space-1);
 }
 
 .insp-selection-sources__saved-action {

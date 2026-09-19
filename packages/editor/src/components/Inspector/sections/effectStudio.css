@@ -575,7 +575,7 @@
 
 .effect-studio__stack-summary {
   display: grid;
-  gap: 1px;
+  gap: var(--space-05);
   min-width: 0;
 }
 
@@ -616,7 +616,7 @@
 
 .effect-studio__reorder-actions {
   display: inline-flex;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .effect-studio__reorder-actions button {
@@ -627,7 +627,7 @@
 
 .effect-studio__applied-summary {
   display: grid;
-  gap: 1px;
+  gap: var(--space-05);
   margin-right: auto;
   min-width: 0;
 }
@@ -736,7 +736,7 @@
 
 .effect-studio__fixed-settings dl {
   display: grid;
-  gap: 1px;
+  gap: var(--space-05);
   margin: 0;
 }
 
@@ -795,7 +795,7 @@
 
 .effect-studio__recipe-details ul {
   display: grid;
-  gap: 1px;
+  gap: var(--space-05);
   list-style: none;
   margin: var(--space-1) 0 0;
   padding: 0;
@@ -858,7 +858,7 @@
 
 .effect-studio__treatment-group-header {
   display: grid;
-  gap: 1px;
+  gap: var(--space-05);
 }
 
 .effect-studio__treatment-group-header h4 {
@@ -1381,7 +1381,7 @@
 
 .effect-studio__looks li > span {
   display: grid;
-  gap: 2px;
+  gap: var(--space-1);
   margin-right: auto;
   min-width: 0;
 }

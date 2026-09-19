@@ -29,7 +29,7 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .warp-section__item {
@@ -48,7 +48,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-3);
 }
 
 .warp-section__name {
@@ -75,7 +75,7 @@
 
 .warp-section__item-tools {
   display: flex;
-  gap: 4px;
+  gap: var(--space-2);
   flex-shrink: 0;
 }
 
@@ -107,7 +107,7 @@
 .warp-section__row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-3);
   margin-top: 6px;
   flex-wrap: wrap;
 }
@@ -125,8 +125,8 @@
 
 .warp-section__corners {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
   margin-top: 6px;
 }
 

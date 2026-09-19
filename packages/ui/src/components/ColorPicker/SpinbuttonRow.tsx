@@ -132,17 +132,17 @@ export function SpinbuttonRow({
   const valueText = unit ? `${display}${unit}` : display;
 
   return (
-    <div className="insp-field">
-      <label className="insp-field__label" htmlFor={inputId}>
+    <div className="color-fields__row">
+      <label className="color-fields__label" htmlFor={inputId}>
         {label}
       </label>
-      <div className="insp-field__control">
+      <div className="color-fields__control">
         <input
           id={inputId}
           type="text"
           inputMode="decimal"
           role="spinbutton"
-          className="insp-num__input color-fields__input-full"
+          className="color-fields__input color-fields__input-full"
           value={display}
           aria-valuenow={value}
           aria-valuemin={min}

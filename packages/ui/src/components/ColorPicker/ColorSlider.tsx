@@ -103,10 +103,10 @@ export function ColorSlider({
   );
 
   return (
-    <div className={`insp-slider color-slider--${channel}`}>
+    <div className={`color-slider color-slider--${channel}`}>
       <div
         ref={trackRef}
-        className="insp-slider__track"
+        className="color-slider__track"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
       >
@@ -128,7 +128,7 @@ export function ColorSlider({
           style={{ background: channel === 'hue' ? HUE_GRADIENT : alphaGradient(baseColor) }}
         />
         <div
-          className="insp-slider__thumb"
+          className="color-slider__thumb"
           style={{ left: `${pct}%` }}
           role="slider"
           tabIndex={0}

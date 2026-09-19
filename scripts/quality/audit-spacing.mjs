@@ -85,9 +85,14 @@ const SPACING_LONGHANDS = [
   'margin-right',
   'margin-bottom',
   'margin-left',
+  /* Row and column spacing: the modern `gap` longhands, the legacy grid-gap
+   * aliases still present in older stylesheets, and table/list gutters. */
   'gap',
   'row-gap',
   'column-gap',
+  'grid-gap',
+  'grid-row-gap',
+  'grid-column-gap',
   'inset',
   'inset-inline',
   'inset-block',
@@ -181,8 +186,17 @@ const mode = process.argv.includes('--update')
     ? 'report'
     : 'check';
 
+/**
+ * A literal fallback attached to a spacing-ladder token. `--space-*` is always
+ * defined by tokens.css, so the fallback can never paint a themed value — it
+ * only hides the token's absence and ships an unthemed 8px. Same rule the
+ * colour token audit already enforces for colour literals.
+ */
+const SPACE_FALLBACK_RE = /var\(\s*(--space-[0-9a-z-]+)\s*,\s*([^)]+)\)/g;
+
 const buckets = new Map();
 const annotated = [];
+const fallbacks = [];
 const files = SOURCE_ROOTS.flatMap((root) => walk(join(ROOT, root)));
 
 for (const file of files) {
@@ -192,6 +206,13 @@ for (const file of files) {
   const re = isTsx ? TSX_PROPERTY_RE : CSS_PROPERTY_RE;
   const rel = relative(ROOT, file);
   const lines = raw.split('\n');
+
+  for (const match of stripped.matchAll(SPACE_FALLBACK_RE)) {
+    const line = lineAt(stripped, match.index ?? 0);
+    const context = `${lines[line - 1] ?? ''} ${lines[line - 2] ?? ''}`;
+    if (context.includes(ALLOW_MARKER)) continue;
+    fallbacks.push(`${rel}:${line} var(${match[1]}, ${match[2]})`);
+  }
 
   for (const match of stripped.matchAll(re)) {
     const property = match[1];
@@ -238,7 +259,7 @@ for (const [key, count] of buckets) {
 const totalDeclarations = [...buckets.values()].reduce((a, b) => a + b, 0);
 const totalBuckets = buckets.size;
 
-if (mode === 'report' || violations.length === 0) {
+if (mode === 'report' || (violations.length === 0 && fallbacks.length === 0)) {
   console.log(
     `audit-spacing — ${totalDeclarations} raw declaration(s) in ${totalBuckets} bucket(s) across ${files.length} file(s).`,
   );
@@ -256,20 +277,28 @@ if (mode === 'report' || violations.length === 0) {
       console.log(String(count).padStart(5), file);
     }
   }
-  if (violations.length === 0) process.exit(0);
+  if (violations.length === 0 && fallbacks.length === 0) process.exit(0);
 }
 
-console.error('audit-spacing — FAILED');
-for (const violation of violations) {
-  const [file, property, value] = violation.key.split('|');
-  const detail =
-    violation.kind === 'new'
-      ? 'new raw value (no baseline bucket)'
-      : `baseline allows ${violation.allowed}, found ${violation.count}`;
-  console.error(`  ERROR ${file} — ${property}: ${value} — ${detail}`);
+if (fallbacks.length > 0) {
+  console.error('audit-spacing — FAILED');
+  for (const fallback of fallbacks) {
+    console.error(`  ERROR ${fallback} — literal fallback on a ladder token`);
+  }
+}
+if (violations.length > 0) {
+  if (fallbacks.length === 0) console.error('audit-spacing — FAILED');
+  for (const violation of violations) {
+    const [file, property, value] = violation.key.split('|');
+    const detail =
+      violation.kind === 'new'
+        ? 'new raw value (no baseline bucket)'
+        : `baseline allows ${violation.allowed}, found ${violation.count}`;
+    console.error(`  ERROR ${file} — ${property}: ${value} — ${detail}`);
+  }
 }
 console.error(
-  `\n${violations.length} drift(s). Use a --space-* token, or annotate with "${ALLOW_MARKER} <reason>".`,
+  `\n${violations.length} drift(s), ${fallbacks.length} fallback(s). Use a --space-* token, or annotate with "${ALLOW_MARKER} <reason>".`,
 );
 console.error(
   'Intentional one-off geometry is recorded in .spacing-baseline.json; it may only shrink.',

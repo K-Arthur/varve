@@ -3,7 +3,7 @@
 .logo-preview {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4, 1rem);
+  gap: var(--space-4);
   max-height: min(70vh, 640px);
   overflow: auto;
 }
@@ -17,7 +17,7 @@
 .logo-preview__controls {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-4, 1rem);
+  gap: var(--space-4);
   align-items: flex-start;
 }
 
@@ -27,20 +27,20 @@
 }
 
 .logo-preview__status--error {
-  color: var(--color-feedback-danger, #c2410c);
+  color: var(--color-feedback-danger);
 }
 
 .logo-preview__ladder {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-  gap: var(--space-4, 1rem);
+  gap: var(--space-4);
 }
 
 .logo-preview__cell {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-2, 0.5rem);
+  gap: var(--space-2);
 }
 
 .logo-preview__canvas-wrap {
@@ -49,7 +49,7 @@
   place-items: center;
   width: 128px;
   height: 128px;
-  border: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.35));
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   overflow: hidden;
 }
@@ -98,7 +98,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-2, 0.5rem);
+  gap: var(--space-2);
 }
 
 .logo-preview__label {
@@ -109,5 +109,5 @@
 .logo-preview__footer {
   display: flex;
   justify-content: flex-end;
-  padding-top: var(--space-2, 0.5rem);
+  padding-top: var(--space-2);
 }

@@ -32,7 +32,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-6, 1.5rem);
+  gap: var(--space-6);
 }
 
 .startup-loader__logo-container {
@@ -83,25 +83,25 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-4, 1rem);
+  gap: var(--space-4);
   max-width: 320px;
   text-align: center;
   animation: varve-startup-fade-in var(--duration-base, 0.25s) var(--ease-out, ease-out);
 }
 
 .startup-loader__error-msg {
-  color: var(--color-feedback-danger, #e5484d);
+  color: var(--color-feedback-danger);
   font-size: var(--font-size-sm, 0.875rem);
   margin: 0;
   line-height: var(--font-line-normal, 1.5);
 }
 
 .startup-loader__retry-btn {
-  background: var(--color-interactive-default, #39d0c6);
-  color: var(--color-text-on-accent, #0a0e14);
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
   border: none;
   border-radius: var(--radius-control);
-  padding: var(--space-2, 0.5rem) var(--space-4, 1rem);
+  padding: var(--space-2) var(--space-4);
   font-family: inherit;
   font-size: var(--font-size-sm, 0.875rem);
   font-weight: var(--font-weight-medium, 500);
@@ -110,7 +110,7 @@
 }
 
 .startup-loader__retry-btn:hover {
-  background: var(--color-interactive-hover, #2bb8af);
+  background: var(--color-interactive-hover);
 }
 
 /* Ambient only — mark geometry stays rock-solid */

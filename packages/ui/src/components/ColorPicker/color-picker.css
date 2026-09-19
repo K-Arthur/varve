@@ -42,16 +42,16 @@
   gap: var(--space-1);
   min-height: 52px;
 }
-.color-picker__sliders .insp-slider {
+.color-picker__sliders .color-slider {
   min-height: 24px;
   flex-shrink: 0;
 }
-.color-picker__sliders .insp-slider__track {
+.color-picker__sliders .color-slider__track {
   height: 20px;
   min-height: 20px;
   border-radius: var(--radius-control-compact);
 }
-.color-picker__sliders .insp-slider__thumb {
+.color-picker__sliders .color-slider__thumb {
   width: 4px;
   height: 24px;
   margin-left: -2px;
@@ -62,7 +62,7 @@
 /* Hide the fill overlay on hue sliders — the rainbow gradient IS the
  * visual indicator. A solid fill obscures the spectrum.  The fill is
  * only meaningful on the alpha slider (shows opacity level). */
-.color-picker__sliders .insp-slider__fill {
+.color-picker__sliders .color-slider__fill {
   background: transparent;
 }
 .color-picker__preview-row {
@@ -157,8 +157,8 @@
 .color-slider--alpha .color-slider__checkerboard {
   z-index: 0;
 }
-.color-slider--alpha .insp-slider__thumb,
-.color-slider--hue .insp-slider__thumb {
+.color-slider--alpha .color-slider__thumb,
+.color-slider--hue .color-slider__thumb {
   z-index: 2;
 }
 
@@ -168,19 +168,95 @@
   flex-direction: column;
   gap: var(--space-1);
 }
+
+/* Field rows. The picker owns its own class names — @varve/ui must never
+ * depend on @varve/editor's stylesheet — but the values mirror the Inspector
+ * field grammar exactly, so a picker embedded in the Inspector is
+ * indistinguishable from a native field row. The --insp-*-size hooks are the
+ * Inspector's label/value type overrides; outside the Inspector the fallbacks
+ * apply. One owner per selector: see docs/architecture/spacing-system.md. */
+.color-fields__row {
+  display: grid;
+  grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 2rem;
+}
+.color-fields__label {
+  display: inline-flex;
+  align-items: center;
+  min-width: 14px;
+  min-height: 2rem;
+  color: var(--color-text-muted);
+  font-family: var(--type-interface-label-family);
+  font-size: var(--insp-label-size, var(--font-size-2xs));
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--type-interface-label-line-height);
+  white-space: nowrap;
+  /* Scrub handle — drag on the label to change the value. */
+  cursor: ew-resize;
+  user-select: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: var(--tracking-micro);
+}
+.color-fields__control {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.color-fields__input {
+  flex: 1;
+  /* The input's UA intrinsic width (size=20, about 176px) must never
+   * contribute to row sizing, or rows overflow the panel. */
+  min-width: 2.25rem;
+  box-sizing: border-box;
+  min-height: var(--component-compact-height);
+  padding: 0 var(--space-2);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-primary);
+  font-family: var(--type-data-numeric-family);
+  font-size: var(--insp-value-size, var(--font-size-xs));
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  cursor: text;
+  outline: none;
+  text-align: right;
+  transition:
+    border-color var(--duration-quick) var(--ease-standard),
+    background var(--duration-quick) var(--ease-standard);
+}
+.color-fields__input:hover {
+  border-color: var(--color-border-strong);
+}
+.color-fields__input:focus-visible {
+  border-color: var(--color-border-focus);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline-offset: var(--focus-ring-offset-inset);
+}
+.color-fields__input[aria-invalid="true"] {
+  border-color: var(--color-feedback-danger);
+}
+
 .color-fields__channel-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-1);
 }
-.color-fields__channel-row .insp-field {
+.color-fields__channel-row .color-fields__row {
   min-width: 0;
 }
-.color-fields__channel-row .insp-field__label {
+.color-fields__channel-row .color-fields__label {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.color-fields__channel-row .insp-field__control {
+.color-fields__channel-row .color-fields__control {
   min-width: 0;
 }
 .color-fields__mode-group {
@@ -378,14 +454,14 @@
 /* Focus visibility: every interactive picker control needs a :focus-visible
    ring in all themes (WCAG 2.4.7, 2.4.11, 2.4.13). */
 .color-picker .color-fields__mode-btn:focus-visible,
-.color-picker .insp-slider__thumb:focus-visible,
+.color-picker .color-slider__thumb:focus-visible,
 .color-picker .color-area:focus-visible,
-.color-picker .insp-num__input:focus-visible {
+.color-picker .color-fields__input:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 
-.color-picker .insp-slider__track {
+.color-picker .color-slider__track {
   overflow: visible;
 }
 
@@ -394,7 +470,7 @@
 @media (forced-colors: active) {
   .color-picker .color-picker__preview,
   .color-picker .swatch-palette__swatch,
-  .color-picker .insp-slider__thumb,
+  .color-picker .color-slider__thumb,
   .color-picker .color-area__thumb {
     border: 1px solid CanvasText;
   }

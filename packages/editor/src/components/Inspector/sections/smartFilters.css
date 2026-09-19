@@ -396,7 +396,7 @@
 
 .smart-filters__name-copy {
   display: grid;
-  gap: 1px;
+  gap: var(--space-05);
   min-width: 0;
 }
 
@@ -596,7 +596,7 @@
 .smart-filters__compositing-actions {
   align-items: center;
   display: inline-flex;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .smart-filters__icon-action {

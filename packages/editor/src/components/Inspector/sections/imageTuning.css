@@ -1,6 +1,6 @@
 .image-tuning {
   display: grid;
-  gap: var(--space-3, 12px);
+  gap: var(--space-3);
 }
 
 .image-tuning__intro,
@@ -20,7 +20,7 @@
 .image-tuning__presets {
   border: 0;
   display: grid;
-  gap: var(--space-2, 8px);
+  gap: var(--space-2);
   margin: 0;
   min-inline-size: 0;
   padding: 0;
@@ -35,7 +35,7 @@
 
 .image-tuning__preset-grid {
   display: grid;
-  gap: var(--space-1, 4px);
+  gap: var(--space-1);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -47,9 +47,9 @@
   color: var(--color-text-secondary);
   cursor: pointer;
   display: grid;
-  gap: 2px;
+  gap: var(--space-1);
   min-width: 0;
-  padding: var(--space-2, 8px);
+  padding: var(--space-2);
   text-align: left;
 }
 
@@ -83,9 +83,9 @@
 
 .image-tuning__group {
   display: grid;
-  gap: var(--space-2, 8px);
+  gap: var(--space-2);
   border-top: 1px solid var(--color-border-subtle);
-  padding-top: var(--space-3, 12px);
+  padding-top: var(--space-3);
 }
 
 .image-tuning__group-heading h3 {
@@ -104,17 +104,17 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   display: grid;
-  gap: var(--space-2, 8px);
+  gap: var(--space-2);
   margin: 0;
   min-inline-size: 0;
-  padding: var(--space-2, 8px);
+  padding: var(--space-2);
 }
 
 .image-tuning__treatment-legend {
   color: var(--color-text-primary);
   font-size: var(--font-size-xs, 0.75rem);
   font-weight: 600;
-  padding: 0 var(--space-1, 4px);
+  padding: 0 var(--space-1);
 }
 
 .image-tuning__treatment-description {
@@ -126,13 +126,13 @@
 
 .image-tuning__control {
   display: grid;
-  gap: var(--space-1, 4px);
+  gap: var(--space-1);
 }
 
 .image-tuning__control-heading {
   align-items: center;
   display: grid;
-  gap: var(--space-1, 4px);
+  gap: var(--space-1);
   grid-template-columns: minmax(0, 1fr) auto auto auto;
 }
 
@@ -183,7 +183,7 @@
 .image-tuning__input-row {
   align-items: center;
   display: grid;
-  gap: var(--space-2, 8px);
+  gap: var(--space-2);
   grid-template-columns: minmax(0, 1fr) minmax(76px, 0.3fr);
 }
 
@@ -208,7 +208,7 @@
 
 .image-tuning__advanced {
   display: grid;
-  gap: var(--space-2, 8px);
+  gap: var(--space-2);
 }
 
 .image-tuning__advanced summary {

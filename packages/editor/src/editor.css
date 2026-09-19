@@ -1424,16 +1424,16 @@ input[type="number"] {
   margin-left: var(--space-1);
 }
 .editor-status__score-badge--good {
-  background: var(--color-feedback-success-strong, #2e7d32);
-  color: var(--color-text-on-feedback, #fff);
+  background: var(--color-feedback-success-strong);
+  color: var(--color-text-on-feedback);
 }
 .editor-status__score-badge--warn {
-  background: var(--color-feedback-warning-strong, #f57c00);
-  color: var(--color-text-on-feedback, #fff);
+  background: var(--color-feedback-warning-strong);
+  color: var(--color-text-on-feedback);
 }
 .editor-status__score-badge--bad {
-  background: var(--color-feedback-danger, #d32f2f);
-  color: var(--color-text-on-feedback, #fff);
+  background: var(--color-feedback-danger);
+  color: var(--color-text-on-feedback);
 }
 
 /* ── Shortcut tip chip (StatusBar) ──────────────────── */
@@ -1538,19 +1538,19 @@ input[type="number"] {
   outline-offset: 0;
 }
 .insp-contrast-dot--pass::before {
-  background: var(--color-feedback-success, #2e7d32);
+  background: var(--color-feedback-success);
 }
 .insp-contrast-dot--fail::before {
-  background: var(--color-feedback-danger, #d32f2f);
+  background: var(--color-feedback-danger);
 }
 .insp-contrast-dot--warn::before {
-  background: var(--color-feedback-warning, #f57c00);
+  background: var(--color-feedback-warning);
 }
 .insp-contrast-popover {
   position: absolute;
   z-index: var(--z-dropdown);
-  background: var(--color-surface-raised, #fff);
-  border: 1px solid var(--color-border-strong, #ccc);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-control);
   padding: 0.75em;
   box-shadow: var(--shadow-lg);
@@ -1561,8 +1561,8 @@ input[type="number"] {
   margin-top: 0.5em;
   padding: 0.25em 0.75em;
   border-radius: var(--radius-control-compact);
-  border: 1px solid var(--color-interactive-default, #14998f);
-  background: var(--color-interactive-default, #14998f);
+  border: 1px solid var(--color-interactive-default);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
   cursor: pointer;
   font-size: inherit;
@@ -1576,15 +1576,15 @@ input[type="number"] {
 .insp-contrast-popover__warning {
   margin: 0 0 0.25em;
   font-size: var(--font-size-xs, 0.8125rem);
-  color: var(--color-feedback-warning, #f57c00);
+  color: var(--color-feedback-warning);
 }
 
 /* ── Layout Score Section (Inspector) ──────────────── */
 .insp-panel__score-section {
-  padding: var(--space-3, 12px);
+  padding: var(--space-3);
 }
 .insp-panel__score-header {
-  margin-bottom: var(--space-3, 12px);
+  margin-bottom: var(--space-3);
 }
 .insp-panel__score-value {
   font-size: var(--font-size-2xl, 1.5rem);
@@ -1592,13 +1592,13 @@ input[type="number"] {
   font-variant-numeric: tabular-nums;
 }
 .insp-panel__score-value--good {
-  color: var(--color-feedback-success, #2e7d32);
+  color: var(--color-feedback-success);
 }
 .insp-panel__score-value--warn {
-  color: var(--color-feedback-warning, #f57c00);
+  color: var(--color-feedback-warning);
 }
 .insp-panel__score-value--bad {
-  color: var(--color-feedback-danger, #d32f2f);
+  color: var(--color-feedback-danger);
 }
 .insp-panel__score-empty {
   color: var(--color-text-muted);
@@ -1611,24 +1611,24 @@ input[type="number"] {
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2, 8px);
+  gap: var(--space-2);
 }
 .insp-panel__score-issue {
   display: flex;
-  gap: var(--space-2, 8px);
+  gap: var(--space-2);
   align-items: flex-start;
-  padding: var(--space-2, 8px);
+  padding: var(--space-2);
   border-radius: var(--radius-control-compact);
   font-size: var(--font-size-sm, 0.8125rem);
 }
 .insp-panel__score-issue--error {
-  background: color-mix(in srgb, var(--color-feedback-danger, #d32f2f) 10%, transparent);
+  background: color-mix(in srgb, var(--color-feedback-danger) 10%, transparent);
 }
 .insp-panel__score-issue--warning {
-  background: color-mix(in srgb, var(--color-feedback-warning, #f57c00) 10%, transparent);
+  background: color-mix(in srgb, var(--color-feedback-warning) 10%, transparent);
 }
 .insp-panel__score-issue--info {
-  background: color-mix(in srgb, var(--color-interactive-default, #14998f) 8%, transparent);
+  background: color-mix(in srgb, var(--color-interactive-default) 8%, transparent);
 }
 .insp-panel__score-issue-icon {
   flex-shrink: 0;
@@ -3385,11 +3385,11 @@ input[type="number"] {
    * header height; the 20px ruler overlay plus a gap keeps the buttons on
    * unoccupied canvas just below the ruler, at the cell's top corners. */
   grid-area: canvas;
-  top: calc(20px + var(--space-3, 12px));
+  top: calc(20px + var(--space-3));
   z-index: var(--elevation-z-overlay, 100);
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1, 4px);
+  gap: var(--space-1);
   padding: var(--space-2) var(--space-3);
   background: var(--elevation-surface-raised);
   color: var(--color-text-secondary);
@@ -6133,7 +6133,7 @@ dialog.varve-dialog--settings[open] {
 }
 
 .media-frame-strip__cells:focus-visible {
-  box-shadow: 0 0 0 2px var(--color-accent-primary, #14b8a6);
+  box-shadow: 0 0 0 2px var(--color-accent-primary);
 }
 
 .media-frame-strip__cell {
@@ -6159,7 +6159,7 @@ dialog.varve-dialog--settings[open] {
   top: 2px;
   bottom: 2px;
   width: 2px;
-  background: var(--color-accent-primary, #14b8a6);
+  background: var(--color-accent-primary);
   pointer-events: none;
 }
 

@@ -49,7 +49,7 @@
 .insp-inrow-blur {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-1);
   flex: 0 0 auto;
   margin-inline-end: var(--space-1);
 }
@@ -215,7 +215,7 @@
 /* Quick Radius Chips for Blurs */
 .insp-radius-chips {
   display: flex;
-  gap: 4px;
+  gap: var(--space-2);
   flex-wrap: wrap;
   padding-block-end: var(--space-2);
 }
@@ -367,7 +367,7 @@
 .insp-light-pad__snap-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .insp-light-pad__snap-btn {

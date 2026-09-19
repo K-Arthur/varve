@@ -1920,100 +1920,25 @@
   border: 0;
 }
 
-/* ---------- ColorPicker: field row ---------- */
-.insp-field {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.insp-field__label {
-  display: inline-flex;
-  align-items: center;
-  width: 3.75rem;
-  flex-shrink: 0;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  cursor: ew-resize;
-  user-select: none;
-  /* The label is the scrub handle: vertical panning stays with the browser so
-     the inspector still scrolls; horizontal drags reach pointermove. */
-  touch-action: pan-y;
-}
-.insp-field__control {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-width: 0;
-}
+/* ---------- ColorPicker field rows ----------
+ * The ColorPicker renders its numeric fields with the host field grammar
+ * (`insp-field` / `insp-num__input`), which the Inspector owns in
+ * `packages/editor/src/components/Inspector/inspector.css`. That grammar must
+ * not be redefined here: two definitions of the same selector meant the
+ * rendered layout depended on stylesheet import order (the shared copy used a
+ * fixed 60px label column, a fluid field height, and a 24px slider thumb; the
+ * Inspector's uses a 38% label column, the compact field height, and a small
+ * thumb). One owner per selector — see docs/architecture/spacing-system.md.
+ *
+ * What the component does own is its colour slider, namespaced below.
+ */
 
-/* ---------- ColorPicker: spinbutton input ---------- */
-.insp-num__input {
-  flex: 1;
-  min-width: 0;
-  height: var(--space-5);
-  padding: 0 var(--space-2);
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-  color: var(--color-text-primary);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  cursor: text;
-  outline: none;
-}
-.insp-num__input:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 1px;
-}
-.insp-num__input:focus-visible,
-.insp-num__input:focus {
-  border-color: var(--color-interactive-default);
-}
-.insp-num__input[aria-invalid="true"] {
-  border-color: var(--color-feedback-danger);
-}
-
-/* ---------- ColorPicker: slider (APG Slider) ---------- */
-.insp-slider {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.insp-slider__track {
-  position: relative;
-  flex: 1;
-  height: 4px;
-  background: var(--color-surface-sunken);
-  border-radius: var(--radius-pill);
-  overflow: hidden;
-}
-.insp-slider__fill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  background: var(--color-interactive-default);
-  border-radius: var(--radius-pill);
-}
-.insp-slider__thumb {
-  position: absolute;
-  top: 50%;
-  width: 24px;
-  height: 24px;
-  margin-left: -12px;
-  background: var(--color-surface-overlay);
-  border: 1px solid var(--color-border-strong);
-  border-radius: 50%;
-  transform: translateY(-50%);
-}
-.insp-slider__thumb:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 2px;
-}
-/* ── NumberInput (drag-to-scrub) ──────────────────── */
+/* ---------- NumberInput (drag-to-scrub) ---------- */
 .varve-number-input {
   flex: 1;
-  height: var(--space-6);
+  /* One field-height contract with the Inspector's numeric fields; a fluid
+   * height made the same control a different size at every window width. */
+  min-height: var(--component-compact-height);
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
@@ -2031,8 +1956,8 @@
   border-color: var(--color-interactive-default);
 }
 .varve-number-input:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -2px;
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline-offset: var(--focus-ring-offset-inset);
 }
 .varve-number-input:disabled {
   cursor: default;

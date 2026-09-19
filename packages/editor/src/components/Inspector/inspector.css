@@ -2532,7 +2532,7 @@
   min-width: 120px;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--space-05);
 }
 
 .insp-dropdown__item {
@@ -3222,7 +3222,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--space-05);
   min-width: 0;
 }
 .insp-paint-library__name {
@@ -3402,46 +3402,6 @@ fieldset.insp-canvas-props,
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-1);
-}
-
-/* ---------- Slider (APG Slider) ---------- */
-.insp-slider {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  /* A flex item's default min-width is its content, so a row holding a
-     range input, a value and a reset button pushes past the panel and
-     scrolls it sideways — which clips the labels of every other row. */
-  min-width: 0;
-}
-.insp-slider__track {
-  position: relative;
-  flex: 1;
-  height: var(--space-1);
-  background: var(--color-surface-sunken);
-  border-radius: var(--radius-pill);
-}
-.insp-slider__fill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  background: var(--color-interactive-default);
-  border-radius: var(--radius-pill);
-}
-.insp-slider__thumb {
-  position: absolute;
-  top: 50%;
-  width: var(--space-3);
-  height: var(--space-3);
-  margin-left: -7px;
-  background: var(--color-surface-overlay);
-  border: 1px solid var(--color-border-strong);
-  border-radius: 50%;
-  transform: translateY(-50%);
-}
-.insp-slider__thumb:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
-  outline-offset: 2px;
 }
 
 /* ---------- Typography text input ---------- */
@@ -3951,7 +3911,7 @@ fieldset.insp-canvas-props,
 
 .similarity-mode-picker {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-1);
   padding: var(--space-1);
   background: var(--elevation-surface-sunken);
@@ -4592,7 +4552,7 @@ fieldset.insp-canvas-props,
 /* ---------- Adjustment histogram channels ---------- */
 .histogram-widget__channels {
   display: inline-flex;
-  gap: 2px;
+  gap: var(--space-1);
   align-self: flex-end;
 }
 
@@ -5447,7 +5407,7 @@ fieldset.insp-canvas-props,
 .audit-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
   padding: 2px 8px;
   border-radius: var(--radius-control-compact);
   border: 1px solid var(--color-border-subtle);
@@ -5488,7 +5448,7 @@ fieldset.insp-canvas-props,
 .contextual-audit-summary {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-2);
   padding: var(--space-1) 0;
 }
 .contextual-audit-chip {
@@ -6642,7 +6602,7 @@ fieldset.insp-canvas-props,
   .insp-field-group,
   .insp-field__control,
   .insp-num,
-  .insp-slider,
+  .color-slider,
   .range-value-control,
   .varve-select,
   .varve-native-select,
@@ -6842,8 +6802,8 @@ fieldset.insp-canvas-props,
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-6, 24px);
-  height: var(--space-7, 28px);
+  width: var(--space-6);
+  height: var(--space-7);
   padding: 0;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
@@ -6939,7 +6899,7 @@ fieldset.insp-canvas-props,
 .insp-preset-chip {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: var(--space-1);
   height: 22px;
   padding: 0 var(--space-2);
   border-radius: 11px;

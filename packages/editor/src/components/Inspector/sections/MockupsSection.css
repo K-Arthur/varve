@@ -185,7 +185,7 @@
   display: grid;
   grid-template-columns: repeat(3, 22px);
   grid-template-rows: repeat(3, 22px);
-  gap: 2px;
+  gap: var(--space-1);
 }
 
 .mockups-section__align-cell {
@@ -232,7 +232,7 @@
 .mockups-section__number {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-1);
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
 }
@@ -277,7 +277,7 @@
 .mockups-section__picker-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   max-height: 200px;
   overflow-y: auto;
   margin: 0;

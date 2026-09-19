@@ -290,15 +290,15 @@ export function ColorFields({
       </div>
 
       {
-        <div className="insp-field">
-          <label className="insp-field__label" htmlFor={hexId}>
+        <div className="color-fields__row">
+          <label className="color-fields__label" htmlFor={hexId}>
             HEX
           </label>
-          <div className="insp-field__control">
+          <div className="color-fields__control">
             <input
               id={hexId}
               type="text"
-              className={`insp-num__input color-fields__input-full${
+              className={`color-fields__input color-fields__input-full${
                 hexError ? ' color-fields__input--invalid' : ''
               }`}
               value={hexDraft ?? currentHex}
