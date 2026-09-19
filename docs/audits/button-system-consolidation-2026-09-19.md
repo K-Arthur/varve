@@ -72,7 +72,8 @@ token pair, not the neutral base.
 | Vocabulary parity (TSX ↔ CSS) | `npx vitest run packages/ui/src/components/ButtonVariantParity.test.ts` | 5 passed |
 | Button unit contract | `npx vitest run packages/ui/src/components/Button.test.tsx` | 16 passed |
 | Repo-wide button guard | `npx vitest run tests/unit/button-system.test.ts` | 3 passed |
-| Migrated surfaces | `npx vitest run packages/editor/src/components/ManageLayoutsDialog.test.tsx packages/editor/src/components/WorkspaceCustomizeDialog.test.tsx packages/editor/src/components/ShapeBuilderOverlay.test.tsx packages/editor/src/components/BackgroundRemoval/SubjectPickerOverlay.test.tsx packages/editor/src/components/Rasterize/RasterizeDialog.test.tsx packages/editor/src/TabStrip.test.tsx packages/editor/src/TabStrip.dirtyClose.test.tsx` | 36 passed |
+| Migrated surfaces (affected closure) | `npx vitest run` over `SubjectPickerOverlay.test.tsx`, `GradientMapEditor.test.tsx`, `GradientMapPresetBrowser.test.tsx`, `ManageLayoutsDialog.test.tsx`, `RasterizeDialog.test.tsx`, `ShapeBuilderOverlay.test.tsx`, `WorkspaceCustomizeDialog.test.tsx`, `TabStrip.test.tsx`, `TabStrip.dirtyClose.test.tsx` | 74 passed (66 + the 8-test preset-browser file re-run after its soft-disabled assertion was updated) |
+| UI package suite | `npx vitest run packages/ui/src` | 680 passed (67 files) |
 | UI typecheck | `pnpm --filter @varve/ui exec tsc --noEmit` | clean |
 | Editor typecheck | `pnpm --filter @varve/editor exec tsc -p tsconfig.json --noEmit` | 45 pre-existing errors from other sessions' in-flight files; 0 in touched files |
 | Website analyzer | `pnpm --filter @varve/website exec astro check` | 0 errors, 0 warnings |
@@ -87,6 +88,13 @@ default geometry. Both projects then passed, visual baselines included.
 
 ## Remaining / deferred
 
+- The full `packages/editor` Vitest package suite was not run to completion in
+  this session: on the shared machine (multiple concurrent agent E2E suites) it
+  exceeded 50 minutes while waiting for the heavy-task lease. The directly
+  affected closure above is the substitute, per the validation-economy policy;
+  the planner's `pnpm verify:plan` additionally escalated to a full-suite gate
+  because of other sessions' workspace/toolchain files, which this session does
+  not own and must not certify.
 - `.insp-btn--primary` / `.insp-btn--secondary` dead rules (0 call sites) live in
   `packages/editor/src/components/Inspector/inspector.css`, which another
   session is actively editing; remove them when that file is free.
