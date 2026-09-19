@@ -33,6 +33,12 @@ with the dated research, inventory, and selection matrix in
 [`research/inspector-input-surface-system-audit-2026-09-16.md`](research/inspector-input-surface-system-audit-2026-09-16.md)
 and the staged implementation plan in
 [`plans/inspector-input-surface-system-implementation-2026-09-16.md`](plans/inspector-input-surface-system-implementation-2026-09-16.md).
+The consolidated Inspector Design-tab design-system contract is
+[`design-system/inspector-spec.md`](design-system/inspector-spec.md); its
+2026-09-19 evidence is
+[`audits/inspector-design-tab-audit-2026-09-19.md`](audits/inspector-design-tab-audit-2026-09-19.md)
+and
+[`research/inspector-design-tab-research.md`](research/inspector-design-tab-research.md).
 Current export accessibility boundaries and format-specific author guidance
 are documented in
 [`architecture/output-accessibility-guidance.md`](architecture/output-accessibility-guidance.md).
