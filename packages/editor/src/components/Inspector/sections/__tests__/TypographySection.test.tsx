@@ -242,3 +242,37 @@ describe('TypographySection progressive disclosure', () => {
     expect(screen.getByText('2 set')).toBeInTheDocument();
   });
 });
+
+describe('TypographySection colour entry point', () => {
+  it('shows the text fill colour as a view of the Fill model', () => {
+    const node = makeTextNode('t1', 'auto');
+    renderSection(<TypographySection nodes={[node]} />);
+
+    expect(screen.getByText('Colour')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Text colour' })).toBeInTheDocument();
+    // rgb(16, 21, 31) from the fixture, formatted the way paint rows format it.
+    expect(screen.getByText(/#10151f/i)).toBeInTheDocument();
+  });
+
+  it('keeps the row visible but routes non-solid text fills to the Fill section', () => {
+    const node = makeTextNode('t1', 'auto');
+    node.fills = [
+      {
+        type: 'gradient',
+        visible: true,
+        gradient: {
+          type: 'linear',
+          angle: 0,
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+          ],
+        },
+      },
+    ] as TextNode['fills'];
+    renderSection(<TypographySection nodes={[node]} />);
+
+    expect(screen.getByText('Colour')).toBeInTheDocument();
+    expect(screen.getByText('Gradient')).toBeInTheDocument();
+  });
+});

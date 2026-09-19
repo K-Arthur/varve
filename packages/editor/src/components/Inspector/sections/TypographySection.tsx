@@ -18,12 +18,14 @@ import { getFontRegistry } from '@varve/engine';
 import type { SceneNode, TextNode } from '@varve/scene';
 import {
   invalidateGlyphAdjustmentsOnTextChange,
+  managedColorToHex,
   plainTextToRichText,
   replaceRichTextContent,
   resolveNodeFills,
   richTextToPlainText,
   textNodeGeometry,
 } from '@varve/scene';
+import { managedColorKey } from '@varve/shared';
 import { Icon, Select, Switch, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
@@ -50,6 +52,7 @@ import { BindingMenu } from '../controls/BindingMenu';
 import { ContrastIndicator } from '../controls/ContrastIndicator';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow, InspectorFieldGroup } from '../controls/FieldRow';
+import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { NumberField } from '../controls/NumberField';
 import { RangeValueControl } from '../controls/RangeValueControl';
 import { RichTextSpanEditor } from '../controls/RichTextSpanEditor';
@@ -385,6 +388,65 @@ export function TypographySection({ nodes }: TypographySectionProps) {
     return null;
   }, [textNodes]);
 
+  /**
+   * Text colour entry point. Fill remains the model — stacks, gradients,
+   * blend modes, and the add/remove affordances live in the Fill section —
+   * while this row is a view of the first visible fill so type styling does
+   * not require a trip past Position/Appearance/Mask. Mixed colours broadcast
+   * the first node's value and say "Mixed", matching the Fill row contract.
+   * Non-solid or stacked fills stay visible but route the user to Fill.
+   */
+  const textFillControl = useMemo(() => {
+    const visibleFills = textNodes.map((node) =>
+      resolveNodeFills(
+        node as unknown as {
+          fill: import('@varve/scene').ManagedColor;
+          fills?: import('@varve/scene').Fill[];
+        },
+      ).filter((fill) => fill.visible !== false),
+    );
+    const base = visibleFills[0]?.[0];
+    if (!base || visibleFills.some((fills) => fills.length === 0)) return null;
+    const baseColor = base.color ?? { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 };
+    const singleVisibleFill = visibleFills.every(
+      (fills) => fills.length === 1 && fills[0]?.type === base.type,
+    );
+    if (!singleVisibleFill) {
+      return {
+        index: 0,
+        fill: base,
+        color: baseColor,
+        valueText: 'Mixed',
+        disabled: true,
+        disabledReason: 'Text has multiple visible fills — edit the stack in the Fill section',
+      };
+    }
+    if (base.type !== 'solid' || !base.color) {
+      const typeLabel = base.type.charAt(0).toUpperCase() + base.type.slice(1);
+      return {
+        index: 0,
+        fill: base,
+        color: baseColor,
+        valueText: typeLabel,
+        disabled: true,
+        disabledReason: `Text uses a ${base.type} fill — edit it in the Fill section`,
+      };
+    }
+    const firstKey = managedColorKey(base.color);
+    const mixed = visibleFills.some((fills) => {
+      const fill = fills[0];
+      return !fill?.color || managedColorKey(fill.color) !== firstKey;
+    });
+    return {
+      index: 0,
+      fill: base,
+      color: base.color,
+      valueText: mixed ? 'Mixed' : managedColorToHex(base.color),
+      disabled: false,
+      disabledReason: undefined,
+    };
+  }, [textNodes]);
+
   if (textNodes.length === 0) return null;
 
   const familyRaw = commonValue(textNodes, (n) => getTextValue(n, (t) => t.fontFamily ?? ''));
@@ -643,6 +705,26 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             onChange={(v) => applyTypographyToSelection({ lineHeight: v / 100 })}
           />
         </InspectorFieldGroup>
+        {textFillControl && (
+          <FieldRow label="Colour">
+            <InspectorColorPopover
+              label="Text colour"
+              value={textFillControl.color}
+              valueText={textFillControl.valueText}
+              disabled={textFillControl.disabled}
+              tooltipDisabledReason={textFillControl.disabledReason}
+              documentColorMode={editor.documentColorMode}
+              onEditStart={beginTransaction}
+              onEditEnd={commitTransaction}
+              onChange={(color) =>
+                editor.updateSelectedFillAt(textFillControl.index, {
+                  ...textFillControl.fill,
+                  color,
+                })
+              }
+            />
+          </FieldRow>
+        )}
         <NumberField
           label="Letter spacing"
           labelWrap
