@@ -237,10 +237,13 @@ import { sitePath } from '../../../lib/siteUrl';
         </p>
         <h3>Position &amp; Size</h3>
         <p>
-          W/H carry a proportion lock built from the standard linked/unlinked chain pair, so the
-          locked state is unmistakable. The rotation row keeps R, flip H, flip V, and the skew
-          disclosure on one line; skew fields auto-surface when a layer already carries shear and
-          otherwise wait behind the diamond toggle.
+          The Position &amp; Size section provides precise, balanced geometric editing. Coordinates and dimensions (X, Y, W, H, R) use clean, single-letter display labels with tabular numbers while preserving full screen-reader descriptions (such as <code>X (px)</code> and <code>W (px)</code>) and accessible spinbutton contracts.
+        </p>
+        <p>
+          W and H feature a centered proportion lock built from the standard linked/unlinked chain pair, guaranteeing the locked state is unmistakable at a glance. For frames, a responsive orientation swap button allows one-click toggling between portrait and landscape dimensions. The rotation row features a dedicated <code>R</code> angle field alongside a compact, segmented pill grouping housing horizontal flip, vertical flip, and progressively-disclosed skew controls—eliminating unsightly voids or misaligned icon scattering.
+        </p>
+        <p>
+          <strong>Scrollbar Gutter Stability:</strong> The inspector panel reserves an intentional, stable gutter (<code>scrollbar-gutter: stable</code>) paired with a slim, themed scrollbar track. Controls never overlap, shift, or become obscured when vertical scrolling activates, maintaining rock-solid right alignment across all rail widths.
         </p>
         <h3>Corner Radius</h3>
         <p>
