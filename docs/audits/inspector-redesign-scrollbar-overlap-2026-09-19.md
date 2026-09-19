@@ -101,3 +101,9 @@ Executed under heavy-task lease (`scripts/quality/heavy-lease.mjs`) on isolated 
 - `pnpm audit:emoji`: 0 violations (4883 files scanned).
 - `pnpm audit:tokens`: 213/213 WCAG 2.2 AA color contrast pairs pass across light, dark, and high-contrast themes.
 
+### 4.4 Layout Integrity & Swap Orientation Geometry
+- Centered the swap orientation button (`[ ⇄ ]`) directly in the middle between Width and Height (`Track 1: W`, `Track 2: [ ⇄ ]`, `Track 3: H`, `Track 4: [ 🔗 ]`).
+- Removed the legacy `@container inspector (max-width: 20rem)` query that previously suppressed the orientation button and forced the proportion lock to center at rails under 320px.
+- Restored unclipped sizing labels (`Min W`, `Max W`, `Min H`, `Max H`) by scoping 14px fixed label widths strictly to single-letter field groups (`.insp-field-group--position`, `.insp-field-group--size`).
+
+

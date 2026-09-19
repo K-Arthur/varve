@@ -6450,37 +6450,6 @@ fieldset.insp-canvas-props,
   }
 }
 
-/* At the narrow inspector rails used by docked and split-window layouts, four
- * tracks make the value editors unreadably small. Collapse only the empty
- * action columns first: X/Y become a two-up pair and W/H retain their
- * centered proportion lock. The very narrow rule below then stacks the
- * position pair while preserving the lock between size values. */
-@container inspector (max-width: 20rem) {
-  .insp-field-group--position {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: var(--component-compact-height);
-  }
-
-  .insp-field-group--position > .insp-field-group__action-slot,
-  .insp-field-group--size > .insp-field-group__action-slot,
-  .insp-field-group--size > .insp-orientation-btn {
-    display: none;
-  }
-
-  .insp-field-group--size {
-    position: relative;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: var(--component-compact-height);
-  }
-
-  .insp-field-group--size > .insp-proportion-lock {
-    position: absolute;
-    inset-inline-start: 50%;
-    transform: translateX(-50%);
-    z-index: 1;
-  }
-}
-
 @container inspector (max-width: 13rem) {
   .insp-field-group--columns-2.insp-field-group--numeric-pair,
   .insp-field-group--position {

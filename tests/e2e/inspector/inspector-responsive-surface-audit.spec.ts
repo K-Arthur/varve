@@ -254,8 +254,7 @@ test('frame geometry and Stack / Grid keep stable inspector rails', async ({ pag
     expect(Math.abs((geometry.y?.right ?? 0) - (geometry.height?.right ?? 0))).toBeLessThanOrEqual(
       1,
     );
-    if (width >= 400) expect(geometry.slots.filter((slot) => slot.width > 0)).toHaveLength(2);
-    else expect(geometry.slots.every((slot) => slot.width === 0)).toBe(true);
+    expect(geometry.slots.filter((slot) => slot.width > 0)).toHaveLength(2);
 
     const layoutMetrics = await layout.evaluate((section) => {
       const fields = [...section.querySelectorAll<HTMLElement>('.insp-field')];
