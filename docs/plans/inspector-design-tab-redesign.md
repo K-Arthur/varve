@@ -1,120 +1,95 @@
 # Inspector Design Tab — Redesign (2026-09-19)
 
-> **Coordinator note:** This document is the live ownership + progress record for
-> the 2026-09-19 Inspector Design-tab pass. Prior passes (2026-09-15/16/17) landed
-> as `docs/plans/inspector-design-tab-improvements-2026-09-15.md`,
-> `docs/plans/inspector-input-surface-system-implementation-2026-09-16.md`, and
-> the Sept-17 inspector review. This pass **starts from the post-Sept-18 state**
-> (commits `dec89862b`, `c8708a27b`, `892fce4fa`, `a8aa28e2e`, `ee31dd147`,
-> `55a5acb01`, `7291571f6`) and treats that state as the baseline to measure.
+> **Coordinator note — pass 2 (current).** This is the live ownership and
+> progress record for the Inspector Design-tab work. Pass 1 (earlier on
+> 2026-09-19) closed with commit `01a043806`; its record is preserved below
+> the pass-2 log. Pass 2 is an **independent re-run**: fresh baseline
+> matrix, fresh web research, fresh audit, fresh spec — it does not inherit
+> pass-1 findings as authority.
 
-## Claimed areas
+## Claimed areas (pass 2)
 
-- `packages/editor/src/components/Inspector/**` (Design tab, controls, sections, css)
-- `packages/editor/src/panels/IntelligencePanel.tsx` (Insights copy/a11y fixes only)
-- Inspector-owned token additions in `packages/ui/src/tokens/**`
-- Inspector-related E2E/visual specs under `tests/e2e/inspector/**` and helpers used only by them
-- Validation infrastructure required by REQ-014: `scripts/quality/audit-inspector-css.mjs`,
-  one lane entry in `scripts/quality/validation-lanes.mjs`, one impact rule in
-  `validation-impact.config.mjs`, one package script
-- Docs: `docs/plans/inspector-design-tab-redesign.md`, `docs/research/inspector-design-tab-research-2026-09-19.md`,
-  `docs/audits/inspector-design-tab-audit-2026-09-19.md`, `docs/design-system/inspector-spec.md`,
-  `docs/audits/inspector-design-tab-redesign-report-2026-09-19.md`, `docs/README.md`
-- Evidence: `reports/inspector-redesign/baseline-matrix/**`, `reports/inspector-redesign/after-matrix/**`,
-  `reports/inspector-redesign/perf/**`
+- `packages/editor/src/components/Inspector/**` (Design tab, controls,
+  sections, css) — `SectionManagerTrigger.tsx` + `PropertiesPanel.tsx` were
+  dirty at session start (uncommitted pass-1 tail: prop-threading refactor);
+  they are left as found, re-read before any edit, and validated before
+  being committed.
+- Inspector-owned token additions in `packages/ui/src/tokens/**` +
+  regenerated `tokens.css` (via `tokens:generate` only).
+- `scripts/quality/audit-inspector-css.mjs` + its policy tests.
+- Inspector E2E specs under `tests/e2e/inspector/**` used for evidence.
+- Docs: this file, `docs/research/inspector-design-tab-research.md`,
+  `docs/audits/inspector-design-tab-audit-2026-09-19-pass2.md`,
+  `docs/design-system/inspector-spec-pass2.md`, `docs/README.md`.
+- Evidence: `reports/inspector-redesign/baseline-matrix/**`,
+  `reports/inspector-redesign/after-matrix/**` (git-ignored).
 
 ## Current phase
 
-Phase 6 — complete. All bounded defects repaired, validated, and committed
-(34110ac4c, 0aeb85a14, 37939087b, d31fc2e2b, 81a1fbecb, c2fb8d75a, eadfaf980,
-7eea0fcc1); the report is
-`docs/audits/inspector-design-tab-redesign-report-2026-09-19.md`.
+Phase 4 — implementation of `inspector-spec-pass2.md` units IMPL-1..IMPL-5.
 
-## Implementation log (2026-09-19)
+## Pass-2 implementation log
 
-| Unit | Finding → requirement | Change |
-|---|---|---|
-| IMPL-001 | AUD-006 → REQ-009 | 66 undefined token references migrated to canonical tokens across `inspector.css`, `effects.css`, `effectStudio.css`, `MockupsSection.css`, `page-print.css`, `selectionSources.css`, `EffectLightPad.tsx` (`--color-text-default`→`--color-text-primary`, `--surface-muted`→`--color-surface-sunken`, `--color-surface-selected`→`--color-interactive-selected-surface`, `--font-family-mono`→`--font-mono`, `--font-weight-normal`→`--font-weight-regular`, `--color-text-warning`→`--color-feedback-warning`, `--duration-standard`→`--duration-base`, plus the previously-known `--color-danger-subtle`/`--color-warning-default`/`--color-danger-default`). |
-| IMPL-002 | AUD-004 → REQ-006 | New `--tracking-micro: 0.02em` token in `generate-token-css.ts`; 10 literal tracking sites (0.02/0.025/0.03/0.04em) normalized to it; `tokens.css` regenerated. |
-| IMPL-003 | AUD-005 → REQ-007/008 | Popover geometry tokens `--insp-popover-inline`/`--insp-popover-max-block`; badge type raised to `--font-size-2xs`; 6 raw transition durations tokenized. |
-| IMPL-004 | AUD-008 → REQ-010 | `FontDetectSection` native `<select>` replaced with `@varve/ui` `Select`; dead `.font-detect-target-select` CSS removed. |
-| IMPL-005 | AUD-010/011/018 → REQ-011 | `.insp-swatch--sm` and `.insp-badge--info` defined; duplicated stale `.insp-orientation-btn` block removed; `.insp-badge--info` fixed a real overflow (the base badge is a 3px dot); unused `ReferenceImagePicker.tsx` deleted. |
-| IMPL-007 | AUD-013 → REQ-012 | `getDesignTabSectionIds()` in `sectionComposition.tsx`; `SectionManagerTrigger` lists cross-surface Design-tab sections; `PropertiesPanel` gates Insights on `isSectionVisible`; regression test added. |
-| IMPL-008 | AUD-015 → REQ-013 | Confidence chip gets `title`/`aria-label`; severity chips humanized ("Errors (2)"); "+ n more (max display: N)" → "+ n more findings"; "Suppress" → "Dismiss" verb unification. |
-| IMPL-009 | AUD-017 → REQ-005 | `.insp-axis-control` layout added (variable-axis slider was collapsing to ~19px — unusable); feature-browser range input raised to `--target-min-compact` hit area. |
-| IMPL-010 | REQ-014 | `scripts/quality/audit-inspector-css.mjs` + `audit:inspector-css` lane + impact rule + package script; policy tests green. |
-| IMPL-011 | AUD-026 → REQ-015 | Typography Colour row (view of the first visible text fill via `updateSelectedFillAt`); non-solid/stacked fills stay visible and route to Fill; `SectionManagerTrigger` takes its id set as a prop (no composition import); unit + E2E coverage. |
-| IMPL-012 | Live-session HMR report → architecture hygiene | `PropertiesPanel` computes the static Design-tab id set once and threads it to `SectionManagerTrigger`; the header control no longer imports `sectionComposition`, so its module graph no longer depends on every section component. |
+| Unit | Findings | Change | Status |
+|---|---|---|---|
+| IMPL-1 | IA-002/003/018/019/021/022 | Tokens: focus-ring geometry (primitive tier), `--insp-icon-size(-lg)`, `--insp-row-height`; label/value sizes fixed rem; wrap-modifier line-height tokenized; 4 raw font-size literals fixed; gate E4/W2/W3/W4 | pending |
+| IMPL-2 | IA-010/011/012 | One segmented selected-state; Weight/Style row alignment; ContrastIndicator placement; icon-step normalization in visible offenders | pending |
+| IMPL-3 | IA-008 | Pair-row trailing-slot contract (W/H vs X/Y right edges) | pending |
+| IMPL-4 | IA-009/013/014/015 | Bounded layout repairs (mask pills, gutter drift, input-width systems) | pending |
+| IMPL-5 | IA-024 | DocumentPanel `type="number"` → NumberField migration (8 inputs) | pending |
 
-Still open from the audit: AUD-014 (Object Filters IA), AUD-007 (DocumentPanel
-numeric controls), AUD-016/AUD-019/AUD-020, workspace-contract test (AUD-022),
-performance probe (PERF-001).
+Deferred (recorded in spec §5): Image-section grouping (IA-016),
+`prototype-flow` wiring (IA-023), Corner-Radius folding, Storybook for
+editor primitives (documented deviation, spec §7).
 
-## Validation progress
+## Pass-2 validation progress
 
-- `pnpm audit:inspector-css` clean (19 stylesheets, 0 errors; 39 raw-colour
-  warnings inventoried in 4 satellite files).
-- `pnpm audit:tokens` 213/213; `pnpm typecheck:e2e` clean; editor typecheck at
-  the pre-existing 48-error baseline (none in changed files).
-- Targeted unit suites: 447 passed / 13 failed in 2 suites that import only
-  other agents' dirty sources (font registry, background removal); recorded as
-  pre-existing. All directly touched suites green: SectionManagerTrigger 3/3,
-  FontDetectSection 9/9 (after adapting its `@varve/ui` mock to the shared
-  Select), ContrastIndicator 8/8, `@varve/ui` tokens 44/44, validation policy
-  46/46.
-- E2E round 1 (2026-09-19 04:24): design-tab-audit + responsive-surface +
-  typography-layout **27/27 passed**.
-- E2E round 2 (after-matrix + perf probe + design-tab/typography re-check):
-  design-tab-audit 21/21 + typography-layout 1/1 (22 passed), after-matrix
-  light sweep green, perf probe 2/2.
-- E2E round 3 (contrast-caption wrap): typography-layout 1/1 at three themes ×
-  expanded/minimum rails; both rails visually inspected — caption legible, no
-  clipping or overflow.
-- Before/after: frame/group/image/multi/no-selection/rectangle scroll budgets
-  identical (±0px); text −24px from the axis-row consolidation; no failing
-  24px target in any after state; remaining 20×20 swatch pills pass the
-  measured spacing exception.
-- `pnpm e2e:visual` (planner-mandated for the token path) was **not run**:
-  the only token change is an additive custom property with no rendering
-  consumer changed; recorded as a deliberate skip with rationale, not a claim.
-- E2E round 4 (typography colour increment): typography-color (new),
-  typography-layout and design-tab-audit **23/23 passed**, plus the refreshed
-  after-matrix light sweep.
-- Live-session incident: a stale HMR module graph in a long-running dev window
-  threw `ReferenceError: getDesignTabSectionIds` in the panel header. A fresh
-  load of the same commit is clean (pageerror probe), and IMPL-012 removes the
-  cross-module dependency that made the header sensitive to update order.
-- WebKit lane attempted and **blocked by host dependencies**
-  (`libicu74`, `libxml2`, `libflite1` missing; installation needs sudo), so
-  WebKitGTK remains not directly validated.
-- `git pull --rebase` was attempted and blocked by the shared dirty tree
-  (other agents' unstaged files); `git fetch` showed no upstream commits to
-  integrate, so there was nothing to rebase onto.
-
+- Baseline matrix re-captured fresh (3/3 passed, 05:11–05:25): 9 scenarios ×
+  3 rails light; 3 themes; 3 text scales; shots + computed metrics.
+- `pnpm verify:plan` at start: full-suite escalation YES — caused by the
+  shared dirty tree (other agents' toolchain files), not inspector paths;
+  affected lanes remain the inner loop.
+- `pnpm audit:tokens`: 213/213 pairs pass across 3 themes (start state).
 
 ## Expected shared files (handle with care)
 
-- `packages/editor/src/components/Inspector/inspector.css` (single large stylesheet)
+- `packages/editor/src/components/Inspector/inspector.css` (single large
+  stylesheet)
 - `packages/ui` token sources + generated `tokens.css` (generator-owned)
-- `packages/editor/src/components/Shell/**` — DO NOT TOUCH (hub; not needed for this work)
+- `packages/editor/src/components/Shell/**` — DO NOT TOUCH (hub)
 - `packages/editor/src/context.tsx` — DO NOT TOUCH (hub at import ceiling)
 
 ## Risky shared surfaces (other agents)
 
-At session start, uncommitted changes existed from other agents in:
-`apps/desktop/src-tauri/**`, `packages/editor/src/components/FontBrowser/**`,
-`packages/editor/src/StatusBar.tsx`, `packages/engine/src/font/**`,
-`packages/scene/src/**`, `packages/shared/src/**`, and several E2E specs.
-Those are **not** claimed here and must not be reverted/overwritten.
+Uncommitted changes from other agents at pass-2 start:
+`apps/desktop/src-tauri/**`, FontBrowser, StatusBar, backgroundRemoval,
+canvas/clipboard, scene/shared/engine font modules, various docs and E2E
+specs. Not claimed here; never reverted/overwritten.
 
-## Deferred because another agent appears to be changing them
+---
 
-- `packages/scene/src/types.ts`, `packages/scene/src/masks.ts` (dirty, other agent)
-- `packages/shared/src/**` (dirty, other agent)
-- `packages/engine/src/font/**` (dirty, other agent)
-- E2E specs `tests/e2e/canvas/*` listed as modified (other agent)
+# Pass 1 record (closed 2026-09-19, commit 01a043806)
 
-## Progress log
+Phase 6 — complete. All bounded defects repaired, validated, and committed
+(34110ac4c, 0aeb85a14, 37939087b, d31fc2e2b, 81a1fbecb, c2fb8d75a,
+eadfaf980, 7eea0fcc1); the report is
+`docs/audits/inspector-design-tab-redesign-report-2026-09-19.md`.
 
-- 2026-09-19 — Phase 0 started. Repo orientation, prior-pass review, baseline
-  capture plan. Nothing edited yet.
+## Pass-1 implementation log
+
+| Unit | Finding → requirement | Change |
+|---|---|---|
+| IMPL-001 | AUD-006 → REQ-009 | 66 undefined token references migrated to canonical tokens across inspector stylesheets. |
+| IMPL-002 | AUD-004 → REQ-006 | `--tracking-micro` token; 10 literal tracking sites normalized. |
+| IMPL-003 | AUD-005 → REQ-007/008 | Popover geometry tokens; badge type raised; 6 raw durations tokenized. |
+| IMPL-004 | AUD-008 → REQ-010 | FontDetectSection native select → shared Select. |
+| IMPL-005 | AUD-010/011/018 → REQ-011 | Dead CSS/pickers removed; `.insp-swatch--sm`, `.insp-badge--info` defined. |
+| IMPL-007 | AUD-013 → REQ-012 | `getDesignTabSectionIds()`; section-manager lists cross-surface sections. |
+| IMPL-008 | AUD-015 → REQ-013 | Insights copy/a11y fixes. |
+| IMPL-009 | AUD-017 → REQ-005 | Axis-slider layout; range hit areas. |
+| IMPL-010 | REQ-014 | `audit-inspector-css` gate + lane + impact rule. |
+
+Pass-1 open items at close: Object Filters IA (superseded by pass-2
+IA-026: single add entry verified), DocumentPanel numerics (→ pass-2
+IMPL-5), alignment attribution (→ pass-2 IA-001), workspace-contract test,
+screen-reader lane.

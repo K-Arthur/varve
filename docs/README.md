@@ -39,6 +39,13 @@ The consolidated Inspector Design-tab design-system contract is
 [`audits/inspector-design-tab-audit-2026-09-19.md`](audits/inspector-design-tab-audit-2026-09-19.md)
 and
 [`research/inspector-design-tab-research-2026-09-19.md`](research/inspector-design-tab-research-2026-09-19.md).
+The second, independent 2026-09-19 pass (fresh baseline matrix, fresh
+research corpus, fresh audit) is governed by
+[`design-system/inspector-spec-pass2.md`](design-system/inspector-spec-pass2.md)
+with evidence in
+[`audits/inspector-design-tab-audit-2026-09-19-pass2.md`](audits/inspector-design-tab-audit-2026-09-19-pass2.md)
+and
+[`research/inspector-design-tab-research.md`](research/inspector-design-tab-research.md).
 Current export accessibility boundaries and format-specific author guidance
 are documented in
 [`architecture/output-accessibility-guidance.md`](architecture/output-accessibility-guidance.md).
