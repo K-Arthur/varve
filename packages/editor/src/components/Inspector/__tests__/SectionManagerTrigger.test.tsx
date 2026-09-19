@@ -61,4 +61,27 @@ describe('SectionManagerTrigger', () => {
     fireEvent.click(within(firstItem).getByRole('button', { name: / down$/i }));
     await waitFor(() => expect(items().slice(0, 2)).toEqual([before[1], before[0]]));
   });
+
+  it('lists sections that render in the Design tab even when owned by another surface', async () => {
+    render(
+      <EditorProvider>
+        <SectionManagerTrigger />
+      </EditorProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Customize sections' }));
+    await waitFor(
+      () =>
+        expect(
+          screen.getByRole('button', { name: 'Show all sections', hidden: true }),
+        ).toBeInTheDocument(),
+      { timeout: 10000 },
+    );
+
+    // Insights is audit-owned but renders in the Design tab and honours its
+    // hidden state, so the manager must be able to hide and restore it.
+    expect(await screen.findByRole('checkbox', { name: 'Insights' })).toBeInTheDocument();
+    // Image Crop is photo-owned and only composes in the Design tab.
+    expect(screen.getByRole('checkbox', { name: 'Crop & Bounds' })).toBeInTheDocument();
+  });
 });

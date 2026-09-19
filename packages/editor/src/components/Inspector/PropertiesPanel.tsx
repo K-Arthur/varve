@@ -58,7 +58,7 @@ import {
   type SectionAvailabilityContext,
   type SectionId,
 } from './sectionRegistry';
-import { hasCustomSectionOrder } from './sectionState';
+import { hasCustomSectionOrder, isSectionVisible } from './sectionState';
 import { type SelectionSummary, summarize } from './selection/selectionState';
 import { toolContextSurface } from './toolContext';
 
@@ -420,13 +420,16 @@ export function PropertiesPanel() {
           />
           {/* Insights remains document-level and last in the Design composition.
               It is lazy because the audit panel is also reachable from the
-              legacy tab/deep-link path. Registry-managed (sectionId) so the
-              section manager can hide or restore it. */}
+              legacy tab/deep-link path. Registry-managed (sectionId); its
+              hidden state is applied here because it renders outside
+              composeSections. */}
           <Suspense fallback={null}>
             <SelectionLockGuard restriction={restrictionNotice}>
-              <DisclosureSection title="Insights" sectionId="insights">
-                <AuditPanel request={intelRequest} />
-              </DisclosureSection>
+              {isSectionVisible(state.sectionVisibility, 'insights') && (
+                <DisclosureSection title="Insights" sectionId="insights">
+                  <AuditPanel request={intelRequest} />
+                </DisclosureSection>
+              )}
             </SelectionLockGuard>
           </Suspense>
         </div>

@@ -10,6 +10,7 @@ import { FloatingPortal, Icon, Tooltip } from '@varve/ui';
 import { useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { FEATURE_OWNERSHIP, type InspectorSurface } from './featureOwnership';
+import { getDesignTabSectionIds } from './sectionComposition';
 import {
   CATEGORY_LABELS,
   getSectionDefinition,
@@ -31,11 +32,16 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const surfaceIds = new Set<SectionId>(
-    Object.entries(FEATURE_OWNERSHIP)
+  const surfaceIds = new Set<SectionId>([
+    ...Object.entries(FEATURE_OWNERSHIP)
       .filter(([, ownership]) => ownership.surface === surface)
       .map(([id]) => id as SectionId),
-  );
+    // Sections that compose in this panel but whose feature ownership lives on
+    // another surface (Insights is audit-owned, Image Crop is photo-owned).
+    // Their hidden state is honoured by the composition; the manager must be
+    // able to produce and restore that state (AUD-013).
+    ...getDesignTabSectionIds(),
+  ]);
   const hiddenIds = getHiddenSectionIds(state.sectionVisibility).filter((id) => surfaceIds.has(id));
   const hiddenCount = hiddenIds.length;
 

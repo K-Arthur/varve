@@ -205,3 +205,18 @@ export function getComposedSectionIds(): Set<SectionId> {
   }
   return ids;
 }
+
+/**
+ * Sections rendered directly by PropertiesPanel outside the composition
+ * members. They are registry-managed (sectionId), honour their hidden state,
+ * and must be listed by the section manager even though their feature
+ * ownership surface is elsewhere.
+ */
+export const DESIGN_TAB_SHELL_SECTION_IDS: readonly SectionId[] = ['insights'];
+
+/** Every section id a user can manage from the Design tab's section manager. */
+export function getDesignTabSectionIds(): Set<SectionId> {
+  const ids = getComposedSectionIds();
+  for (const id of DESIGN_TAB_SHELL_SECTION_IDS) ids.add(id);
+  return ids;
+}
