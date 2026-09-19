@@ -1,4 +1,5 @@
 ---
+import Button from '../components/Button.astro';
 import Layout from '../layouts/Layout.astro';
 import { sitePath } from '../lib/siteUrl';
 import { CONTACTS } from '@varve/shared';
@@ -49,7 +50,7 @@ import { CONTACTS } from '@varve/shared';
         <p>
           After two years from each release, that release's code automatically converts to the MIT licence. This ensures that if the project ever ceases development, the code becomes fully open-source.
         </p>
-        <a href={sitePath('/about/license')} class="btn-secondary">Read the full license</a>
+        <Button variant="secondary" href={sitePath('/about/license')}>Read the full license</Button>
       </section>
 
       <section class="about-section">
@@ -57,7 +58,7 @@ import { CONTACTS } from '@varve/shared';
         <p>
           As an independently developed project, Varve relies on community support to continue development. Financial support enables platform support, stability work, and features that might otherwise be deferred. Non-financial contributions — testing, documentation, design, translations — are equally valuable.
         </p>
-        <a href={sitePath('/support-project')} class="btn-default">Support the Project</a>
+        <Button href={sitePath('/support-project')}>Support the Project</Button>
       </section>
 
       <section class="about-section">
@@ -67,7 +68,7 @@ import { CONTACTS } from '@varve/shared';
           analytics is consent-based, uses no cookies or fingerprinting, and is disabled unless a
           production deployment explicitly configures it. The application keeps design data local.
         </p>
-        <a href={sitePath('/about/privacy')} class="btn-secondary">Read the privacy policy</a>
+        <Button variant="secondary" href={sitePath('/about/privacy')}>Read the privacy policy</Button>
       </section>
 
       <section class="about-section">
@@ -76,7 +77,7 @@ import { CONTACTS } from '@varve/shared';
            Security vulnerabilities can be reported privately via GitHub Private Vulnerability Reporting or{' '}
            <a href={`mailto:${CONTACTS.security}`}>{CONTACTS.security}</a>. The project follows coordinated disclosure practices.
         </p>
-        <a href={sitePath('/security')} class="btn-secondary">Read the security policy</a>
+        <Button variant="secondary" href={sitePath('/security')}>Read the security policy</Button>
       </section>
     </div>
   </div>

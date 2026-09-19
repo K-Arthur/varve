@@ -1,4 +1,5 @@
 ---
+import Button from '../../components/Button.astro';
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 import FeatureVisual from '../../components/FeatureVisual.astro';
@@ -72,7 +73,7 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
 
       <div class="feature-cta">
         <h2>Explore the complete export workflow</h2>
-        <a href={sitePath('/features/export')} class="btn-default">Export &amp; Code Generation</a>
+        <Button href={sitePath('/features/export')}>Export &amp; Code Generation</Button>
       </div>
     </div>
   </div>

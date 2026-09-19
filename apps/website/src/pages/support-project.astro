@@ -1,4 +1,5 @@
 ---
+import Button from '../components/Button.astro';
 import Layout from '../layouts/Layout.astro';
 import { sitePath } from '../lib/siteUrl';
 ---
@@ -60,7 +61,7 @@ import { sitePath } from '../lib/siteUrl';
             <ul>
               <li>Name listed in the supporters section of each release's notes (with your permission)</li>
             </ul>
-            <a href="https://github.com/sponsors/K-Arthur" class="btn-secondary">Sponsor</a>
+            <Button variant="secondary" href="https://github.com/sponsors/K-Arthur">Sponsor</Button>
           </div>
 
           <div class="tier-card site-card site-card--surface">
@@ -70,7 +71,7 @@ import { sitePath } from '../lib/siteUrl';
               <li>All Bronze benefits</li>
               <li>A larger entry with a link to your site or project</li>
             </ul>
-            <a href="https://github.com/sponsors/K-Arthur" class="btn-secondary">Sponsor</a>
+            <Button variant="secondary" href="https://github.com/sponsors/K-Arthur">Sponsor</Button>
           </div>
 
           <div class="tier-card site-card site-card--prominent featured">
@@ -81,7 +82,7 @@ import { sitePath } from '../lib/siteUrl';
               <li>Featured placement in the supporters section</li>
               <li>A direct conversation about what to build next (input, not a roadmap guarantee)</li>
             </ul>
-            <a href="https://github.com/sponsors/K-Arthur" class="btn-default">Sponsor</a>
+            <Button href="https://github.com/sponsors/K-Arthur">Sponsor</Button>
           </div>
 
           <div class="tier-card site-card site-card--surface">
@@ -92,7 +93,7 @@ import { sitePath } from '../lib/siteUrl';
               <li>Company logo in the supporters section</li>
               <li>A conversation about your team's needs and how Varve could serve them (no roadmap or decision guarantees)</li>
             </ul>
-            <a href="https://github.com/sponsors/K-Arthur" class="btn-secondary">Sponsor</a>
+            <Button variant="secondary" href="https://github.com/sponsors/K-Arthur">Sponsor</Button>
           </div>
         </div>
 
@@ -110,7 +111,7 @@ import { sitePath } from '../lib/siteUrl';
           <li><strong>Design:</strong> Create UI mockups, icons, website improvements</li>
           <li><strong>Code:</strong> Fix bugs, add features, improve performance</li>
         </ul>
-        <a href={sitePath('/contribute')} class="btn-secondary">Learn How to Contribute</a>
+        <Button variant="secondary" href={sitePath('/contribute')}>Learn How to Contribute</Button>
       </section>
 
       <section class="support-section">
@@ -125,7 +126,7 @@ import { sitePath } from '../lib/siteUrl';
 
       <div class="support-cta">
         <h2>Ready to support?</h2>
-        <a href="https://github.com/sponsors/K-Arthur" class="btn-default">Become a Sponsor on GitHub</a>
+        <Button href="https://github.com/sponsors/K-Arthur">Become a Sponsor on GitHub</Button>
       </div>
     </div>
   </div>

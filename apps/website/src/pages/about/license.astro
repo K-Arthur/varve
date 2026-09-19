@@ -1,4 +1,5 @@
 ---
+import Button from '../../components/Button.astro';
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
@@ -162,12 +163,12 @@ import { sitePath } from '../../lib/siteUrl';
       </section>
 
       <div class="license-cta">
-        <a href="https://github.com/K-Arthur/varve/blob/main/LICENSE" class="btn-default" target="_blank" rel="noopener noreferrer">
+        <Button href="https://github.com/K-Arthur/varve/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">
           View the LICENSE File on GitHub
-        </a>
-        <a href="https://fsl.software/" class="btn-secondary" target="_blank" rel="noopener noreferrer">
+        </Button>
+        <Button variant="secondary" href="https://fsl.software/" target="_blank" rel="noopener noreferrer">
           Official FSL-1.1-MIT Text
-        </a>
+        </Button>
       </div>
     </div>
   </div>

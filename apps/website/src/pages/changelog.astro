@@ -1,4 +1,5 @@
 ---
+import Button from '../components/Button.astro';
 import Layout from '../layouts/Layout.astro';
 import { sitePath } from '../lib/siteUrl';
 import { parseChangelogFile } from '../lib/changelog';
@@ -65,15 +66,10 @@ const pageDescription = 'Version history and release notes for Varve. See what c
           drawn from the project's release notes.
         </p>
         <div class="changelog-hero-actions">
-          <a href={sitePath('/download')} class="btn-default">Download Varve</a>
-          <a
-            href="https://github.com/K-Arthur/varve/releases"
-            class="btn-secondary"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+          <Button href={sitePath('/download')}>Download Varve</Button>
+          <Button variant="secondary" href="https://github.com/K-Arthur/varve/releases" target="_blank" rel="noopener noreferrer">
             GitHub releases
-          </a>
+          </Button>
         </div>
       </div>
     </div>
@@ -262,15 +258,10 @@ const pageDescription = 'Version history and release notes for Varve. See what c
         and Windows.
       </p>
       <div class="changelog-footer-actions">
-        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
-        <a
-          href="https://github.com/K-Arthur/varve/releases"
-          class="btn-secondary"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <Button href={sitePath('/download')}>Download Varve</Button>
+        <Button variant="secondary" href="https://github.com/K-Arthur/varve/releases" target="_blank" rel="noopener noreferrer">
           All releases on GitHub
-        </a>
+        </Button>
       </div>
     </div>
   </div>

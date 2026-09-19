@@ -1,4 +1,5 @@
 ---
+import Button from '../components/Button.astro';
 /**
  * /releases redirects to /changelog.
  *
@@ -28,9 +29,9 @@ import { sitePath } from '../lib/siteUrl';
         Redirecting in <span id="countdown">2</span> seconds&hellip;
       </p>
       <p>
-        <a href={sitePath('/changelog')} class="btn-secondary">
+        <Button variant="secondary" href={sitePath('/changelog')}>
           Go to the changelog now
-        </a>
+        </Button>
       </p>
     </div>
   </div>

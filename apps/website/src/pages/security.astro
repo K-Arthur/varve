@@ -1,4 +1,5 @@
 ---
+import Button from '../components/Button.astro';
 import Layout from '../layouts/Layout.astro';
 import { sitePath } from '../lib/siteUrl';
 import release from '../data/release-manifest.json';
@@ -70,8 +71,8 @@ const anySigned = Boolean(manifestSigning.windows?.signed || manifestSigning.mac
       </section>
 
       <div class="security-cta">
-        <a href={`mailto:${CONTACTS.security}`} class="btn-default">Email Varve Security</a>
-        <a href="https://github.com/K-Arthur/varve/security/advisories" class="btn-secondary">Open private advisory</a>
+        <Button href={`mailto:${CONTACTS.security}`}>Email Varve Security</Button>
+        <Button variant="secondary" href="https://github.com/K-Arthur/varve/security/advisories">Open private advisory</Button>
       </div>
     </div>
   </div>

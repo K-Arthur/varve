@@ -1,4 +1,5 @@
 ---
+import Button from '../../components/Button.astro';
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 import FeatureVisual from '../../components/FeatureVisual.astro';
@@ -86,8 +87,8 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
 
       <div class="feature-cta">
         <h2>Ready to design?</h2>
-        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
-        <a href={sitePath('/features/image-trace')} class="btn-secondary">See Image Trace</a>
+        <Button href={sitePath('/download')}>Download Varve</Button>
+        <Button variant="secondary" href={sitePath('/features/image-trace')}>See Image Trace</Button>
       </div>
     </div>
   </div>

@@ -1,4 +1,5 @@
 ---
+import Button from '../../components/Button.astro';
 import Layout from '../../layouts/Layout.astro';
 import StatusPill from '../../components/StatusPill.astro';
 import { sitePath } from '../../lib/siteUrl';
@@ -41,7 +42,7 @@ import { sitePath } from '../../lib/siteUrl';
 
       <div class="feature-cta">
         <h2>Read the current workflow notes</h2>
-        <a href={sitePath('/docs/tools/asset-similarity')} class="btn-secondary">Open documentation</a>
+        <Button variant="secondary" href={sitePath('/docs/tools/asset-similarity')}>Open documentation</Button>
       </div>
     </div>
   </div>

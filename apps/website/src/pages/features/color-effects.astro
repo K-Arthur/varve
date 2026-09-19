@@ -1,4 +1,5 @@
 ---
+import Button from '../../components/Button.astro';
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 import manifest from '../../data/screenshot-manifest.json';
@@ -319,7 +320,7 @@ const gradientPickerShot = scenes['gradient-picker']?.status === 'captured' ? sc
 
       <div class="feature-cta">
         <h2>Ready to create with color?</h2>
-        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
+        <Button href={sitePath('/download')}>Download Varve</Button>
       </div>
     </div>
   </div>

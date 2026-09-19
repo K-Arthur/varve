@@ -2,22 +2,26 @@
 interface Props {
   /** Mirrors the product action vocabulary. Pills remain marketing-only classes. */
   variant?: 'default' | 'secondary' | 'outline' | 'ghost' | 'destructive' | 'link';
+  /** Optional size class. The variant classes already carry the default geometry. */
   size?: 'xs' | 'sm' | 'md' | 'lg';
   href?: string;
   type?: 'button' | 'submit' | 'reset';
   disabled?: boolean;
   class?: string;
+  /** Any additional anchor/button attribute (target, rel, aria-*, data-*). */
+  [key: string]: unknown;
 }
 
 const {
   variant = 'default',
-  size = 'md',
+  size,
   href,
   type = 'button',
   disabled = false,
   class: className,
+  ...rest
 } = Astro.props;
-const classes = ['btn', `btn-${variant}`, `btn-${size}`, className];
+const classes = ['btn', `btn-${variant}`, size ? `btn-${size}` : undefined, className];
 ---
 
 {href ? (
@@ -26,11 +30,12 @@ const classes = ['btn', `btn-${variant}`, `btn-${size}`, className];
     class:list={classes}
     aria-disabled={disabled || undefined}
     tabindex={disabled ? -1 : undefined}
+    {...rest}
   >
     <slot />
   </a>
 ) : (
-  <button type={type} class:list={classes} disabled={disabled}>
+  <button type={type} class:list={classes} disabled={disabled} {...rest}>
     <slot />
   </button>
 )}

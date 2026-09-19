@@ -1,4 +1,5 @@
 ---
+import Button from '../../components/Button.astro';
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 import StatusPill from '../../components/StatusPill.astro';
@@ -92,8 +93,8 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
       </section>
 
       <div class="feature-cta">
-        <a href={sitePath('/docs/tools/visual-awareness')} class="btn-default">Read the workflow notes</a>
-        <a href={sitePath('/features/object-selection')} class="btn-secondary">Use Object Selection</a>
+        <Button href={sitePath('/docs/tools/visual-awareness')}>Read the workflow notes</Button>
+        <Button variant="secondary" href={sitePath('/features/object-selection')}>Use Object Selection</Button>
       </div>
     </div>
   </div>

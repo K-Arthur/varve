@@ -1,4 +1,5 @@
 ---
+import Button from '../components/Button.astro';
 import release from '../data/release-manifest.json';
 import Layout from '../layouts/Layout.astro';
 import { sitePath, siteUrl } from '../lib/siteUrl';
@@ -411,19 +412,9 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                           {architecture.label}
                           <span class="arch-chip" hidden>Recommended for you</span>
                         </div>
-                        <a
-                          href={architecture.primary.url}
-                          class="btn-default quick-download-btn"
-                          download
-                          data-analytics-download="true"
-                          data-analytics-platform={p.id}
-                          data-analytics-architecture={analyticsArchitecture(architecture.primary.arch)}
-                          data-analytics-package-type={analyticsPackageType(architecture.primary.format)}
-                          data-analytics-release={release.version}
-                          data-analytics-release-channel={analyticsReleaseChannel}
-                        >
+                        <Button href={architecture.primary.url} download data-analytics-download="true" data-analytics-platform={p.id} data-analytics-architecture={analyticsArchitecture(architecture.primary.arch)} data-analytics-package-type={analyticsPackageType(architecture.primary.format)} data-analytics-release={release.version} data-analytics-release-channel={analyticsReleaseChannel} class="quick-download-btn">
                           Download {architecture.primary.size}
-                        </a>
+                        </Button>
                         {architecture.alternates.length > 0 && (
                           <div class="quick-download-alts">
                             {architecture.alternates.map((alternate) => (
@@ -669,19 +660,9 @@ const allSigned = osSignable.length > 0 && osSignable.every((p) => p.trust.signe
                       {artifact.format === platformPrimaryFormat[p.id] && <span class="badge recommended">Recommended</span>}
                     </div>
                     <p>{artifact.blurb}</p>
-                    <a
-                      href={artifact.url}
-                      class="btn-default"
-                      download
-                      data-analytics-download="true"
-                      data-analytics-platform={p.id}
-                      data-analytics-architecture={analyticsArchitecture(artifact.arch)}
-                      data-analytics-package-type={analyticsPackageType(artifact.format)}
-                      data-analytics-release={release.version}
-                      data-analytics-release-channel={analyticsReleaseChannel}
-                    >
+                    <Button href={artifact.url} download data-analytics-download="true" data-analytics-platform={p.id} data-analytics-architecture={analyticsArchitecture(artifact.arch)} data-analytics-package-type={analyticsPackageType(artifact.format)} data-analytics-release={release.version} data-analytics-release-channel={analyticsReleaseChannel}>
                       Download {artifact.size}
-                    </a>
+                    </Button>
                     <p class="download-meta">
                       <span class="architecture-badge">{artifact.architectureLabel ?? architectureLabel(artifact.arch)}</span>{' '}
                       {artifact.filename}

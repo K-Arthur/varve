@@ -1,4 +1,5 @@
 ---
+import Button from '../../components/Button.astro';
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 import StatusPill from '../../components/StatusPill.astro';
@@ -125,9 +126,9 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
       </section>
 
       <div class="feature-cta">
-        <a href={sitePath('/download')} class="btn-default">Download Varve</a>
-        <a href={sitePath('/docs/tools/image-trace')} class="btn-secondary">Read the image trace guide</a>
-        <a href={sitePath('/features/vector-tools')} class="btn-secondary">Explore vector tools</a>
+        <Button href={sitePath('/download')}>Download Varve</Button>
+        <Button variant="secondary" href={sitePath('/docs/tools/image-trace')}>Read the image trace guide</Button>
+        <Button variant="secondary" href={sitePath('/features/vector-tools')}>Explore vector tools</Button>
       </div>
     </div>
   </div>

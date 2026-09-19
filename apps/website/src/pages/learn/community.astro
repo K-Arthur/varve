@@ -1,4 +1,5 @@
 ---
+import Button from '../../components/Button.astro';
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
@@ -42,7 +43,7 @@ import { sitePath } from '../../lib/siteUrl';
           <li><strong>Docs and examples:</strong> Point out confusing guidance or share a tutorial, example, translation, or accessibility improvement.</li>
           <li><strong>Community support:</strong> Help answer questions and connect people with the right documentation.</li>
         </ul>
-        <a href={sitePath('/contribute')} class="btn-secondary">Read the contributor guide</a>
+        <Button variant="secondary" href={sitePath('/contribute')}>Read the contributor guide</Button>
       </section>
 
       <section class="community-section">
@@ -56,7 +57,7 @@ import { sitePath } from '../../lib/siteUrl';
 
       <div class="learn-cta">
         <h2>Join the community</h2>
-        <a href="https://github.com/K-Arthur/varve/discussions" class="btn-default">Join GitHub Discussions</a>
+        <Button href="https://github.com/K-Arthur/varve/discussions">Join GitHub Discussions</Button>
       </div>
     </div>
   </div>

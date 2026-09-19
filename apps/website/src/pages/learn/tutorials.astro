@@ -1,4 +1,5 @@
 ---
+import Button from '../../components/Button.astro';
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 ---
@@ -28,7 +29,7 @@ import { sitePath } from '../../lib/siteUrl';
           <div class="tutorial-meta">
             <span class="tutorial-tag">Step-by-step guide</span>
           </div>
-          <a href={sitePath('/docs/getting-started')} class="btn-secondary">Read the guide</a>
+          <Button variant="secondary" href={sitePath('/docs/getting-started')}>Read the guide</Button>
         </div>
 
         <div class="tutorial-card site-card site-card--surface">
@@ -40,7 +41,7 @@ import { sitePath } from '../../lib/siteUrl';
           <div class="tutorial-meta">
             <span class="tutorial-tag">Step-by-step guide</span>
           </div>
-          <a href={sitePath('/docs/getting-started/interface')} class="btn-secondary">Read the guide</a>
+          <Button variant="secondary" href={sitePath('/docs/getting-started/interface')}>Read the guide</Button>
         </div>
 
         <div class="tutorial-card site-card site-card--surface">
@@ -51,7 +52,7 @@ import { sitePath } from '../../lib/siteUrl';
           <div class="tutorial-meta">
             <span class="tutorial-tag">Step-by-step guide</span>
           </div>
-          <a href={sitePath('/docs/getting-started/first-project')} class="btn-secondary">Read the guide</a>
+          <Button variant="secondary" href={sitePath('/docs/getting-started/first-project')}>Read the guide</Button>
         </div>
       </div>
 
@@ -70,7 +71,7 @@ import { sitePath } from '../../lib/siteUrl';
           <div class="tutorial-meta">
             <span class="tutorial-tag tutorial-tag-alt">Feature guide</span>
           </div>
-          <a href={sitePath('/features/vector-tools')} class="btn-secondary">See the feature guide</a>
+          <Button variant="secondary" href={sitePath('/features/vector-tools')}>See the feature guide</Button>
         </div>
 
         <div class="tutorial-card site-card site-card--surface">
@@ -82,7 +83,7 @@ import { sitePath } from '../../lib/siteUrl';
           <div class="tutorial-meta">
             <span class="tutorial-tag tutorial-tag-alt">Feature guide</span>
           </div>
-          <a href={sitePath('/features/typography')} class="btn-secondary">See the feature guide</a>
+          <Button variant="secondary" href={sitePath('/features/typography')}>See the feature guide</Button>
         </div>
 
         <div class="tutorial-card site-card site-card--surface">
@@ -93,7 +94,7 @@ import { sitePath } from '../../lib/siteUrl';
           <div class="tutorial-meta">
             <span class="tutorial-tag tutorial-tag-alt">Feature guide</span>
           </div>
-          <a href={sitePath('/features/motion')} class="btn-secondary">See the feature guide</a>
+          <Button variant="secondary" href={sitePath('/features/motion')}>See the feature guide</Button>
         </div>
 
         <div class="tutorial-card site-card site-card--surface">
@@ -104,7 +105,7 @@ import { sitePath } from '../../lib/siteUrl';
           <div class="tutorial-meta">
             <span class="tutorial-tag tutorial-tag-alt">Feature guide</span>
           </div>
-          <a href={sitePath('/features/export')} class="btn-secondary">See the feature guide</a>
+          <Button variant="secondary" href={sitePath('/features/export')}>See the feature guide</Button>
         </div>
       </div>
 

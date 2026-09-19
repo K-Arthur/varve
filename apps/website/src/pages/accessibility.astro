@@ -1,4 +1,5 @@
 ---
+import Button from '../components/Button.astro';
 import Layout from '../layouts/Layout.astro';
 import { CONTACTS } from '@varve/shared';
 import { sitePath } from '../lib/siteUrl';
@@ -81,8 +82,8 @@ import { sitePath } from '../lib/siteUrl';
           personal information unless we ask for it through a secure channel.
         </p>
         <div class="accessibility-cta">
-          <a class="btn-default" href={`mailto:${CONTACTS.feedback}?subject=Accessibility%20feedback`}>Email accessibility feedback</a>
-          <a class="btn-secondary" href={sitePath('/support/report-issue')}>Report an issue</a>
+          <Button href={`mailto:${CONTACTS.feedback}?subject=Accessibility%20feedback`}>Email accessibility feedback</Button>
+          <Button variant="secondary" href={sitePath('/support/report-issue')}>Report an issue</Button>
         </div>
       </section>
 
