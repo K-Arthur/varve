@@ -47,17 +47,25 @@ const SOURCE_ROOTS = [
   'packages/editor/src',
   'packages/home/src',
   'packages/help/src',
+  /**
+   * The website's shared components (header, footer, hero, CTA, trust strip)
+   * repeat on every route, so they belong to the same one spacing system.
+   * Page-local `<style>` blocks are content rhythm composed per page and are
+   * deliberately out of scope: see docs/architecture/spacing-system.md.
+   */
+  'apps/website/src/components',
 ];
 
 /**
- * Stylesheet files are interface styles by definition. Inline style objects
- * live in `.tsx`; `.ts` is excluded because spacing-shaped numbers in plain
- * modules are document geometry, layout algorithms, or pointer thresholds
- * (`scene/`, `layout/`, `tools/`) that must never consume interface tokens.
- * Stories and tests are excluded: they are fixtures, not shipped chrome.
+ * Stylesheet files are interface styles by definition. `.astro` carries its
+ * styles in a `<style>` block, and `.tsx` may carry inline style objects.
+ * `.ts` is excluded because spacing-shaped numbers in plain modules are
+ * document geometry, layout algorithms, or pointer thresholds (`scene/`,
+ * `layout/`, `tools/`) that must never consume interface tokens. Stories and
+ * tests are excluded: they are fixtures, not shipped chrome.
  */
 function isScanned(file) {
-  if (file.endsWith('.css')) return true;
+  if (file.endsWith('.css') || file.endsWith('.astro')) return true;
   if (!file.endsWith('.tsx')) return false;
   return !/(\.stories\.tsx|\.test\.tsx|__tests__|__benchmarks__)/.test(file);
 }
