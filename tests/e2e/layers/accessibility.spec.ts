@@ -231,7 +231,9 @@ test.describe('Layers Panel - Accessibility', () => {
   });
 
   test('screen reader reads aria-expanded state', async ({ page }) => {
-    const container = page.locator('[aria-expanded]').first();
+    // Treeitems only: the row's details disclosure button also carries
+    // aria-expanded, and it is not a hierarchy container.
+    const container = page.locator('[role="treeitem"][aria-expanded]').first();
     const count = await container.count();
     test.skip(count < 1, 'Need at least 1 container with aria-expanded');
 

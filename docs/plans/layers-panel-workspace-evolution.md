@@ -47,6 +47,7 @@
 | 2026-09-19 | 4 — implementation | done (phase 1–5) | Workspace projection (`layersPanel` config), badge/row-action reveal, Email mobile-hidden, Motion animated preset, Print thread/export-region presets, Select matches, appearance-label overflow fix |
 | 2026-09-19 | 5 — validation | done | 409 panel+workspace unit tests, 8 new E2E tests, axe clean, 50k projection bench, after-matrix screenshots |
 | 2026-09-19 | 6 — report | done | `docs/audits/layers-panel-workspace-evolution-report-2026-09-19.md` |
+| 2026-09-19 | verification + correction (post-merge) | done | 180px name-floor fix, icon-only trace badge, three spec-locator repairs against the details disclosure, expansion-assertion fix; APG 13/13, overflow 3/3, workspace 7/7, a11y 11+1 skipped, 10k bench 12/12 alone. See the report's verification section. |
 
 ## Implementation log
 
@@ -72,19 +73,26 @@ then close the non-schema roadmap items it left open. Findings and changes:
 |---|---|---|
 | IMPL-011 | REQ-012 → audit §7 (trace provenance: context menu only) | Trace badge in `LayersRow` (`.layers-row__trace-badge`, `data-badge-group="trace"`, `data-trace-group`), tooltip with mode/trace-mode, `traced artwork` in the accessible name. First consumed `LayersBadgeGroup` that no workspace pins: provenance is secondary everywhere, so hover/focus-revealed in all eight modes. 4 unit tests. |
 | IMPL-012 | APG optional `*` (spec §3 said Reject, §7 phase 10 said candidate — resolved) | `*` expands all closed container siblings at the focused row's level; focus does not move, no selection change, no undo entry, no-op on the isolation root. `handleExpandSiblings` in `LayersTree.tsx`; branch in `useTreeKeyboardNavigation.ts` ahead of type-ahead; E2E in `layers.spec.ts` (13 pass). |
-| IMPL-013 | AUD-010 (found during IMPL-011 verification) | Capacity precedence fix: `.layers-row__badges` had `flex-shrink: 9999`, so the cluster collapsed to width 0 before the label yielded — every badge, including a just-revealed trace chip, was clipped invisible on rows with long auto-names (Playwright `toBeVisible` passed because the element's own box was non-empty; ancestor `overflow: hidden` did not count). Label now carries shrink 50 vs the cluster's 1 (spec §1.2 contract), cluster keeps `min-width: 0` as the final clip fallback so the toggles still never move. Verified by computed-style diagnostics and the overflow E2E. |
+| IMPL-013 | AUD-010 (found during IMPL-011 verification) | Capacity precedence fix: `.layers-row__badges` had `flex-shrink: 9999`, so the cluster collapsed to width 0 before the label yielded — every badge, including a just-revealed trace chip, was clipped invisible on rows with long auto-names (Playwright `toBeVisible` passed because the element's own box was non-empty; ancestor `overflow: hidden` did not count). Final merged design (with the Layer Details pass): identity column `flex: 1 1 0` with 8ch/0 floors by container width; cluster content-sized, capped, and yielding to a 1.5rem floor at ≤260px so the shrink:0 toggles never move. The ≤219px name floor is 0 — at the documented 180px minimum any floor overflows the row (fixed after the merged commit; see follow-up). |
 | IMPL-014 | REQ-009 validation | Trace-badge E2E (hover reveal, focus reveal, accessible name) + `reports/layers-evolution/after/trace-badge-row.png`; unit suite for panel + workspace config. |
 
 ### Concurrent-agent conflicts found in this pass
 
 - `LayersRow.tsx` and `layers.css` also carried the additive details, preview,
   and selection-marker work. The final merged rules use `flex: 1 1 0` for the
-  name with a 4ch/8ch container-query floor, and `flex: 0 1 auto` for the
-  content-sized badge cluster capped at 42% / 12rem. This resolves both the
-  original zero-width badge failure and the later empty-rail name clipping.
+  name with container-query floors (8ch at ≥220px, 0 at ≤219px) and
+  `flex: 0 1 auto` for the content-sized badge cluster capped at 42% / 12rem,
+  yielding to a 1.5rem floor at ≤260px. This resolves the original zero-width
+  badge failure, the empty-rail name clipping, and the 180px overflow
+  (the ≤219px floor was 4ch in the merged commit and overflowed by 25px;
+  corrected to 0 in the follow-up commit after the overflow E2E went red).
 - The details popover, preview preference, disclosure transfer codec, and
   shared component classification are now included in the same milestone;
   none changes the scene schema or the authoritative drag resolver.
+- The merged milestone commit also swept this pass's staged hunks (trace
+  badge, APG `*`, tests, docs). The follow-up commit corrects the narrow-rail
+  floor and records the resolution; no work was lost and no hunk was
+  duplicated.
 - The commit uses explicit pathspecs. Unrelated staged work in the shared
   tree remains outside the Layers milestone.
 

@@ -691,8 +691,15 @@
 }
 
 @container layers (max-width: 219px) {
+  /* No floor at the documented 180px minimum: the fixed row controls (type
+     icon, drag handle, visibility/lock, gaps) plus the badge cluster's
+     1.5rem floor already reach the row's inner width, so even a 4ch name
+     floor pushes the row past the panel edge and clips the toggles
+     (`layers-row-badge-overflow.spec.ts` "blend and effect labels…" asserts
+     scrollWidth <= clientWidth). The name still renders whenever there is
+     free space; at this width the accessible name and the tooltip carry it. */
   .layers-row__label {
-    min-width: 4ch;
+    min-width: 0;
   }
 }
 
@@ -2132,20 +2139,15 @@
   white-space: nowrap;
 }
 
-/* Trace provenance — a group produced by Image Trace. Neutral, because it
-   states origin, not a warning or a workspace primary fact. */
+/* Trace provenance — a group produced by Image Trace. Icon-only (like the
+   grid/style indicators), neutral because it states origin, not a warning or
+   a workspace primary fact. The tooltip and the row's accessible name carry
+   the full value. */
 .layers-row__trace-badge {
   align-items: center;
-  border: 1px solid color-mix(in oklab, var(--color-text-secondary) 48%, transparent);
-  border-radius: var(--radius-control-compact);
   color: var(--color-text-secondary);
   display: inline-flex;
   flex-shrink: 0;
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.25;
-  padding: 0 var(--space-1);
-  white-space: nowrap;
 }
 
 /* Print story thread — a text frame that continues in another frame. */

@@ -102,8 +102,9 @@ test.describe('Layers Panel — real-world document', () => {
     const mountedRows = await page.getByRole('treeitem').count();
     expect(mountedRows).toBeLessThanOrEqual(logicalCount);
 
-    // Nesting: imported groups must appear as containers with aria-expanded.
-    const containers = tree.locator('[aria-expanded]');
+    // Nesting: imported groups must appear as containers with aria-expanded
+    // (treeitems only — the row details disclosure also carries the state).
+    const containers = tree.locator('[role="treeitem"][aria-expanded]');
     expect(await containers.count()).toBeGreaterThan(3);
 
     // Evidence: what names did the imported layers actually get?

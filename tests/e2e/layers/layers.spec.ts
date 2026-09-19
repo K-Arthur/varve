@@ -29,12 +29,13 @@ test.describe('Layers Panel - APG Tree View', () => {
     const tree = page.getByRole('tree', { name: /layers/i });
     await tree.focus();
 
-    // Find first container with aria-expanded — scoped to the tree, since
-    // an unscoped page-wide [aria-expanded] can match unrelated UI (e.g. a
-    // collapsed sidebar section) and seedLayers only draws flat rectangles,
-    // so there's usually nothing here to expand; the count()===0 guard
-    // below is expected to skip the body in that case.
-    const container = tree.locator('[aria-expanded]').first();
+    // Find first container treeitem with aria-expanded — scoped to
+    // `role=treeitem`, since an unscoped [aria-expanded] can match unrelated
+    // UI (a collapsed sidebar section) or the row's details disclosure
+    // button. seedLayers only draws flat rectangles, so there's usually
+    // nothing here to expand; the count()===0 guard below is expected to
+    // skip the body in that case.
+    const container = tree.locator('[role="treeitem"][aria-expanded]').first();
     if ((await container.count()) > 0) {
       const wasExpanded = await container.getAttribute('aria-expanded');
       if (wasExpanded === 'false') {
@@ -60,7 +61,10 @@ test.describe('Layers Panel - APG Tree View', () => {
 
   test('visibility toggle changes row state', async ({ page }) => {
     const firstItem = page.getByRole('treeitem').first();
-    const visBtn = firstItem.locator('[aria-label*="Hide"], [aria-label*="Show"]').first();
+    // Class-scoped: the row's details disclosure ("Show details for …") also
+    // matches an `aria-label*="Show"` matcher and is pointer-inert until
+    // hover. `.layers-row__toggle` order is visibility, lock, solo.
+    const visBtn = firstItem.locator('button.layers-row__toggle').first();
     if ((await visBtn.count()) > 0) {
       await visBtn.click();
       // Row should have hidden style

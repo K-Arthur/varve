@@ -65,9 +65,11 @@ widths.
 
 | Width | Rule |
 |---|---|
-| Any | The name yields before the badges: the label carries `flex-shrink: 50` against the badge cluster's `1`, so a revealed/pinned chip keeps its readable width while the truncatable label ellipsizes. The cluster keeps `min-width: 0` + `overflow: hidden` as the final safety net, so the shrink:0 visibility/lock/solo toggles never move (`AUD-010` fixed the inverted precedence where `flex-shrink: 9999` collapsed the cluster to zero width first) |
+| Any | The identity column takes the leftover width (`flex: 1 1 0`) and the badge cluster is bounded (`max-width: min(42%, 12rem)`) so a dense status stack cannot reserve a rail on every row. The cluster keeps `min-width: 0` + `overflow: hidden`, and the shrink:0 visibility/lock/solo toggles never move (`AUD-010`) |
+| ≥ 220px | The label floor is 8ch: a wide panel does not render every name at its minimum |
+| ≤ 219px | The label floor is 0. At the documented 180px minimum the fixed controls plus the cluster's 1.5rem floor already fill the row's inner width, so any name floor pushes the toggles past the panel edge (`layers-row-badge-overflow.spec.ts` asserts `scrollWidth <= clientWidth`). The name renders whenever there is free space; the accessible name and tooltip carry it otherwise |
 | ≤ 340px | Chips cap at 4.5rem and ellipsize |
-| ≤ 260px | The blend/opacity chip keeps a 1.5rem minimum; effect and object-filter chips yield; mask-role chip yields; revealed (non-pinned) groups stay hidden so a hover reveal cannot displace a pinned chip |
+| ≤ 260px | The blend/opacity chip keeps a 1.5rem minimum; effect and object-filter chips yield; mask-role chip yields; revealed (non-pinned) groups stay hidden so a hover reveal cannot displace a pinned chip. The cluster yields to its 1.5rem floor before the label is displaced |
 | ≤ 260px, hover-capable | The unpinned solo control's slot collapses. Solo stays in the context menu, the bulk bar, the command palette, and on touch devices and the Photo workspace (pinned slot) |
 
 **Labels never hard-clip.** A badge that can truncate owns

@@ -773,7 +773,11 @@ export const LayersRow = memo(function LayersRow({
             </span>
           )}
 
-          {/* Trace provenance badge (Image Trace group) */}
+          {/* Trace provenance badge (Image Trace group). Icon-only like the
+              grid/style indicators: a text chip clipped to "tr…" at the
+              default rail once the row gained its details control, and
+              provenance does not need to occupy reading width. The tooltip
+              and the row's accessible name state it in full. */}
           {traceMeta && !editing && (
             <span className="layers-row__badge-slot" {...badgeAttrs('trace')}>
               <Tooltip label={traceDetail ?? 'Traced image'}>
@@ -783,7 +787,7 @@ export const LayersRow = memo(function LayersRow({
                   aria-label="Traced image"
                   data-trace-group="true"
                 >
-                  traced
+                  <SolidIcon name="BezierCurve" size="0.8em" />
                 </span>
               </Tooltip>
             </span>

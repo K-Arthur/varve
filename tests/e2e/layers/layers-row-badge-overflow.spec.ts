@@ -117,24 +117,28 @@ test.describe('Layers row badge overflow', () => {
 
     const panel = page.locator('.layers-panel');
     const row = page.getByRole('treeitem').first();
-    const name = row.locator('.layers-row__name');
-    await expect(name).toBeVisible();
+    // The identity column is the width actually available to the name: the
+    // `.layers-row__name` element shrink-wraps its text (the label column is
+    // align-items: flex-start), so a short auto-name's own box cannot grow
+    // with the panel even though the space for it did.
+    const identity = row.locator('.layers-row__label');
+    await expect(identity).toBeVisible();
     const initialPanel = await panel.boundingBox();
-    const initialName = await name.boundingBox();
+    const initialIdentity = await identity.boundingBox();
     expect(initialPanel).not.toBeNull();
-    expect(initialName).not.toBeNull();
-    expect(initialName!.width).toBeGreaterThan(32);
+    expect(initialIdentity).not.toBeNull();
+    expect(initialIdentity!.width).toBeGreaterThan(32);
 
     const handle = page.getByRole('separator', { name: 'Resize layers panel' });
     await handle.focus();
     await handle.press('End');
     await page.waitForTimeout(150);
     const expandedPanel = await panel.boundingBox();
-    const expandedName = await name.boundingBox();
+    const expandedIdentity = await identity.boundingBox();
     expect(expandedPanel).not.toBeNull();
     expect(expandedPanel!.width).toBeGreaterThan(initialPanel!.width + 80);
-    expect(expandedName).not.toBeNull();
-    expect(expandedName!.width).toBeGreaterThan(initialName!.width);
+    expect(expandedIdentity).not.toBeNull();
+    expect(expandedIdentity!.width).toBeGreaterThan(initialIdentity!.width);
   });
 
   test('visibility/lock/solo toggles stay inside the panel at minimum width with a fully-badged row', async ({
@@ -172,10 +176,12 @@ test.describe('Layers row badge overflow', () => {
     expect(panelBox!.width).toBeLessThanOrEqual(190); // documented min is 180px
 
     await row.hover();
-    const visToggle = row.locator('button[aria-label*="Hide"], button[aria-label*="Show"]').first();
-    const lockToggle = row
-      .locator('button[aria-label*="Lock"], button[aria-label*="Unlock"]')
-      .first();
+    // Scoped by class, not aria-label: the row's details trigger is labelled
+    // "Show details for …", which an `aria-label*="Show"` matcher would pick
+    // up first (it sits earlier in the DOM) and then fail as hidden at this
+    // width. `.layers-row__toggle` order is visibility, lock, solo.
+    const visToggle = row.locator('button.layers-row__toggle').first();
+    const lockToggle = row.locator('button.layers-row__toggle').nth(1);
 
     for (const toggle of [visToggle, lockToggle]) {
       await expect(toggle).toBeVisible();

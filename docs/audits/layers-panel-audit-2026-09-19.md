@@ -318,13 +318,17 @@ element's own box was non-empty and ancestor `overflow` clipping is not part
 of that check. The documented capacity contract (spec §1.2: the name yields
 before the badges) was therefore inverted in practice.
 
-Fixed in the closure pass: the label carries `flex-shrink: 50` against the
-cluster's `1` (the truncatable label yields first), and the cluster keeps
-`min-width: 0` + `overflow: hidden` as the final clip fallback so the
-visibility/lock/solo toggles (`flex-shrink: 0`) still never move. Verified by
-computed-style diagnostics (cluster width 0px → 38.1px against the 38.75px
-chip) and the 180px overflow E2E. New requirement mapping: AUD-010 → spec
-§1.2 capacity rules.
+Resolved in the closure pass (final merged design): the identity column takes
+the leftover row width (`flex: 1 1 0`) with container-query name floors (8ch
+at ≥220px, 0 at ≤219px), and the badge cluster is content-sized
+(`flex: 0 1 auto`, capped at `min(42%, 12rem)`) with a 1.5rem floor that it
+yields to before the shrink:0 visibility/lock/solo toggles can move. At the
+documented 180px minimum the name floor is 0 — the fixed controls plus the
+cluster floor already fill the row's inner width, and any name floor pushes
+the toggles past the panel edge (asserted by
+`layers-row-badge-overflow.spec.ts`). Verified by computed-style diagnostics
+(cluster width 0px → full chip width on a long-name row) and the 180px
+overflow E2E. New requirement mapping: AUD-010 → spec §1.2 capacity rules.
 
 Also resolved in the closure pass, without code changes:
 

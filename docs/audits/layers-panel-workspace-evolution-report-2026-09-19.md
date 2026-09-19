@@ -215,3 +215,64 @@ as follows after the implementation commits:
 Non-printing flags, alpha locks, synthetic hierarchy/treegrid semantics, and
 inline specialist editors remain deferred or rejected as documented in the
 specification.
+
+---
+
+## Verification and correction pass — 2026-09-19 (later session)
+
+The milestone commits `19a69ac9d`/`ce04204ce` swept this workspace-evolution
+work (trace badge, APG `*`, tests, docs) together with the Layer Details
+milestone. This pass verified the merged result against the committed tests
+and corrected four defects found in it.
+
+### Corrections
+
+1. **180px rail overflow.** The merged capacity rules kept a 4ch name floor
+   at ≤219px; with the fixed row controls and the badge cluster's 1.5rem
+   floor, a decorated row measured `scrollWidth 191 > clientWidth 166` at
+   the documented 180px minimum and clipped the visibility/lock toggles past
+   the panel edge. The floor is now 0 at ≤219px (the 8ch floor at ≥220px is
+   unchanged; the name still renders whenever free space exists).
+2. **Trace chip clipped to "tr…"** at the default rail once the row gained
+   the details control; the row capture showed the fragment. The badge is now
+   icon-only (`BezierCurve`, matching the grid/style indicator pattern) with
+   the tooltip and the row's accessible name carrying the full value;
+   re-captured and visually inspected at the same size.
+3. **Three pre-existing spec locators collided with the new details
+   disclosure** (`aria-expanded`, `aria-label*="Show"`): the container lookup
+   in `layers.spec.ts`, the accessibility spec's expanded-state check, the
+   real-world nesting count, and the visibility-toggle click. All are now
+   scoped to `role=treeitem` / `.layers-row__toggle`. The details trigger is
+   pointer-inert until hover, so the colliding clicks timed out instead of
+   failing fast.
+4. **Panel-expansion assertion measured the wrong box**:
+   `.layers-row__name` shrink-wraps short text and cannot grow; the assertion
+   now measures the identity column (`.layers-row__label`).
+
+### Validation (merged HEAD + corrections)
+
+| Check | Result |
+|---|---|
+| `layers-row-badge-overflow.spec.ts` | 3/3, including the 180px `scrollWidth <= clientWidth` assertion |
+| `workspace-evolution.spec.ts` | 7/7, including trace provenance and the axe-clean projection state |
+| `layers.spec.ts` (APG) | 13/13, including the APG `*` test |
+| `accessibility.spec.ts` | 11 passed, 1 skipped (its own guard) |
+| Panel + workspace unit files | 419/420; the single failure was the `layers10k` wall-clock filter assertion under concurrent E2E load — it passes 12/12 alone (verified on a quiet machine) |
+| `pnpm typecheck:e2e` | only 2 errors, both in another agent's `zz-picker-measure.spec.ts`; the layers specs are clean |
+| biome (touched files) | clean |
+| `audit:docs` / `audit:emoji` | clean |
+| `audit:tokens` | WCAG pairs pass; usage scan reports 2 undefined refs in another agent's uncommitted FloatingToolbar CSS (not Layers) |
+| `audit-architecture --ci` | exit 0 (enforced thresholds pass) |
+
+Environment faults invalidated two intermediate runs (a duplicate
+`const profile` parse error from a concurrent agent's `presetToDocument.ts`,
+and a safe-mode crash-recovery screen); both were re-run clean. Evidence
+captures ran on `VARVE_E2E_PORT=1439` through the heavy-task lease; the trace
+row capture at `reports/layers-evolution/after/trace-badge-row.png` was
+regenerated and inspected after the icon change.
+
+### Still open
+
+Physical screen-reader sessions, frame/group thumbnails (perf-gated),
+non-printing flags and alpha locks (schema-gated), and a cross-engine
+(WebKitGTK) re-run of the merged row remain open as previously documented.
