@@ -1240,7 +1240,7 @@ input[type="number"] {
 .editor-status__zoom-chip {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-1);
   /* No vertical padding: the 24px targets set the chip height so it fits
    * inside the status row at every supported width. */
   padding: 0 var(--space-2);
@@ -2529,13 +2529,13 @@ input[type="number"] {
 }
 
 .history-panel__steps {
-  padding: 2px 0;
+  padding: var(--space-1) 0;
 }
 
 .history-panel__step {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
   cursor: pointer;
   border-left: 3px solid transparent;
@@ -2581,7 +2581,7 @@ input[type="number"] {
 }
 .history-panel__marker {
   display: inline-block;
-  padding: 1px 5px;
+  padding: var(--space-05) var(--space-2);
   border-radius: var(--radius-control-compact);
   font-size: var(--font-size-2xs);
   font-weight: 500;
@@ -2612,7 +2612,7 @@ input[type="number"] {
 
 /* Branches */
 .history-panel__branches {
-  padding: 4px 0;
+  padding: var(--space-1) 0;
 }
 .history-panel__branch {
   display: flex;
@@ -2662,7 +2662,7 @@ input[type="number"] {
   letter-spacing: var(--tracking-wide);
 }
 .history-panel__checkpoints {
-  padding: 4px 0;
+  padding: var(--space-1) 0;
 }
 .history-panel__checkpoint {
   display: flex;
@@ -2680,7 +2680,7 @@ input[type="number"] {
 
 /* Compare */
 .history-panel__compare-form {
-  padding: 8px;
+  padding: var(--space-panel-compact);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -2688,12 +2688,12 @@ input[type="number"] {
 .history-panel__compare-label {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   font-size: var(--font-size-2xs);
   color: var(--color-text-secondary);
 }
 .history-panel__compare-btn {
-  padding: 4px 10px;
+  padding: var(--space-1) var(--space-3);
   border: 1px solid var(--color-interactive-default);
   border-radius: var(--radius-control-compact);
   background: var(--color-interactive-default);
@@ -2707,7 +2707,7 @@ input[type="number"] {
 }
 
 .history-panel__diff-summary {
-  padding: 8px;
+  padding: var(--space-panel-compact);
   border-top: var(--border-micro);
 }
 .history-panel__diff-stat {
@@ -2744,7 +2744,7 @@ input[type="number"] {
 .history-panel__entity {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
-  padding: 6px;
+  padding: var(--space-2);
   background: var(--elevation-surface-sunken);
 }
 .history-panel__entity-head {
@@ -2772,7 +2772,7 @@ input[type="number"] {
   margin-left: auto;
 }
 .history-panel__entity-show {
-  padding: 1px 6px;
+  padding: var(--space-05) var(--space-2);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
@@ -2785,11 +2785,11 @@ input[type="number"] {
 }
 .history-panel__entity-changes {
   list-style: none;
-  margin: 4px 0 0;
+  margin: var(--space-1) 0 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
 .history-panel__entity-change {
   display: flex;
@@ -2799,10 +2799,10 @@ input[type="number"] {
 }
 .history-panel__change-badge {
   flex-shrink: 0;
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   text-transform: uppercase;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
   border-radius: var(--radius-control-compact);
 }
 .history-panel__change-badge--added {
@@ -2854,7 +2854,7 @@ input[type="number"] {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: 16px;
+  padding: var(--space-panel);
   width: min(90vw, 520px);
   max-width: 720px;
   max-height: 70vh;
@@ -2879,22 +2879,22 @@ input[type="number"] {
 .conflict-resolver__item {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control);
-  padding: 10px;
+  padding: var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
   background: var(--elevation-surface-sunken);
 }
 .conflict-resolver__item-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .conflict-resolver__item-kind {
   font-size: var(--font-size-2xs);
   font-weight: 600;
   text-transform: uppercase;
-  padding: 2px 6px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-control-compact);
   background: color-mix(in oklab, var(--color-feedback-warning) 16%, transparent);
   color: var(--color-feedback-warning-strong);
@@ -2910,10 +2910,10 @@ input[type="number"] {
 .conflict-resolver__value {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
-  padding: 6px;
+  padding: var(--space-2);
   background: var(--elevation-surface-default);
   overflow: hidden;
 }
@@ -2937,7 +2937,7 @@ input[type="number"] {
 }
 .conflict-resolver__item-choices {
   display: flex;
-  gap: 12px;
+  gap: var(--space-control-group);
   align-items: center;
 }
 .conflict-resolver__choice {
@@ -2957,12 +2957,12 @@ input[type="number"] {
 .conflict-resolver__actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--space-2);
   border-top: var(--border-micro);
-  padding-top: 10px;
+  padding-top: var(--space-3);
 }
 .conflict-resolver__btn {
-  padding: 6px 14px;
+  padding: var(--space-2) var(--space-4);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
@@ -3338,7 +3338,7 @@ input[type="number"] {
   border: var(--border-micro);
   border-color: var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
-  background: var(--elevation-surface-raised, rgba(255, 255, 255, 0.06));
+  background: var(--elevation-surface-raised);
   color: var(--color-text-secondary);
   cursor: pointer;
   flex-shrink: 0;
@@ -3351,8 +3351,8 @@ input[type="number"] {
     transform var(--duration-fast) var(--ease-default);
 }
 .editor__collapse-btn:hover {
-  background: var(--color-surface-hover, rgba(255, 255, 255, 0.12));
-  border-color: var(--color-border-hover, var(--color-border-default));
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-strong, var(--color-border-subtle));
   color: var(--color-text-primary);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.14);
 }
@@ -3390,7 +3390,7 @@ input[type="number"] {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1, 4px);
-  padding: 6px 10px;
+  padding: var(--space-2) var(--space-3);
   background: var(--elevation-surface-raised);
   color: var(--color-text-secondary);
   border: var(--border-micro);
@@ -3478,6 +3478,11 @@ dialog.varve-dialog--settings[open] {
   overflow: hidden;
 }
 .settings-dialog__layout {
+  /* The settings form's label column. `.settings-field-row__label` and a
+   * standalone `.settings-hint` must agree on this width; defining it once
+   * keeps the hint aligned when the column changes instead of duplicating a
+   * raw 120px offset in two rules. */
+  --settings-label-column: 120px; /* audit-spacing: allow component-local layout constant, shared by two rules */
   display: flex;
   flex: 1;
   min-height: 0;
@@ -3784,7 +3789,7 @@ dialog.varve-dialog--settings[open] {
   gap: var(--space-3);
 }
 .settings-field-row__label {
-  min-width: 120px;
+  min-width: var(--settings-label-column);
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
   flex-shrink: 0;
@@ -3850,7 +3855,9 @@ dialog.varve-dialog--settings[open] {
   color: var(--color-text-muted);
 }
 .settings-hint {
-  margin: 0 0 0 120px;
+  /* Indented to the control column so a hint under a field row aligns with
+   * its control; see --settings-label-column. */
+  margin: 0 0 0 calc(var(--settings-label-column) + var(--space-3));
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
@@ -4138,12 +4145,12 @@ dialog.varve-dialog--settings[open] {
 .spotlight-overlay__backdrop {
   position: absolute;
   inset: 0;
-  background: var(--elevation-scrim, oklch(0 0 0 / 0.55));
+  background: var(--elevation-scrim);
 }
 .spotlight-overlay__highlight {
   position: absolute;
   border-radius: var(--radius-control-compact);
-  box-shadow: 0 0 0 9999px var(--elevation-scrim, oklch(0 0 0 / 0.55));
+  box-shadow: 0 0 0 9999px var(--elevation-scrim);
   z-index: 1;
   pointer-events: none;
 }
@@ -4300,7 +4307,7 @@ dialog.varve-dialog--settings[open] {
 .ai-panel__action-btn {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-1);
   background: none;
   border: var(--border-micro);
   border-radius: var(--radius-control);
@@ -4318,7 +4325,7 @@ dialog.varve-dialog--settings[open] {
 }
 .ai-panel__typing {
   display: flex;
-  gap: 3px;
+  gap: var(--space-1);
   align-items: center;
   padding: var(--space-1) 0;
 }
@@ -4450,7 +4457,8 @@ dialog.varve-dialog--settings[open] {
   height: var(--space-5);
   border-radius: var(--radius-pill);
   border: var(--border-micro);
-  margin-left: -6px;
+  /* Overlapping avatar stack: each avatar overlaps its neighbour. */
+  margin-left: -6px; /* audit-spacing: allow functional overlap geometry */
   overflow: hidden;
   flex-shrink: 0;
   background: var(--elevation-surface-default);
@@ -4790,12 +4798,12 @@ dialog.varve-dialog--settings[open] {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   line-height: 1.4;
-  margin-top: 2px;
+  margin-top: var(--space-1);
 }
 .plugin-marketplace__card-version {
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
-  margin-top: 2px;
+  margin-top: var(--space-1);
 }
 .plugin-marketplace__card-actions {
   display: flex;
@@ -4983,7 +4991,7 @@ dialog.varve-dialog--settings[open] {
 .timeline-playback-controls {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
   border-bottom: var(--border-micro);
   flex-shrink: 0;
@@ -5019,7 +5027,7 @@ dialog.varve-dialog--settings[open] {
   width: 1px;
   height: 16px;
   background: var(--color-border-subtle);
-  margin: 0 4px;
+  margin: 0 var(--space-1);
 }
 
 .timeline-playback-speed {
@@ -5043,7 +5051,7 @@ dialog.varve-dialog--settings[open] {
 
 .timeline-playback-time-sep {
   color: var(--color-text-muted-on-default);
-  margin: 0 2px;
+  margin: 0 var(--space-1);
 }
 
 .timeline-panel__selector {
@@ -5094,7 +5102,7 @@ dialog.varve-dialog--settings[open] {
 .timeline-panel__zoom-controls {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-1);
   margin-left: auto;
 }
 
@@ -5186,7 +5194,7 @@ dialog.varve-dialog--settings[open] {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
   padding: 0 var(--space-2);
   font-size: var(--font-size-xs);
   overflow: hidden;
@@ -5216,7 +5224,8 @@ dialog.varve-dialog--settings[open] {
   top: 50%;
   width: 8px;
   height: 8px;
-  margin: -4px 0 0 -4px;
+  /* Centres the 8px keyframe diamond on its track position (half its size). */
+  margin: -4px 0 0 -4px; /* audit-spacing: allow functional overlay centering */
   border-radius: 50%;
   background: var(--color-interactive-default);
   border: 1px solid var(--color-surface-raised);
@@ -5339,50 +5348,50 @@ dialog.varve-dialog--settings[open] {
   background: rgb(0 0 0 / 0.5);
 }
 .crash-dialog__header {
-  padding: 20px 24px 12px;
+  padding: var(--space-5) var(--space-dialog) var(--space-3);
   border-bottom: var(--border-micro);
 }
 .crash-dialog__title {
   margin: 0;
-  font-size: 1.125rem;
-  line-height: 1.4;
+  font-size: var(--font-size-lg);
+  line-height: var(--font-line-label);
 }
 .crash-dialog__subtitle {
-  margin: 6px 0 0;
+  margin: var(--space-2) 0 0;
   color: var(--color-text-muted);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   line-height: var(--font-line-normal);
 }
 .crash-dialog__section {
-  padding: 12px 24px;
+  padding: var(--space-3) var(--space-dialog);
   border-bottom: var(--border-micro);
 }
 .crash-dialog__section-title {
-  margin: 0 0 8px;
-  font-size: 0.8125rem;
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
   color: var(--color-text-muted);
 }
 .crash-dialog__list {
   margin: 0;
-  padding-left: 20px;
-  font-size: 0.875rem;
+  padding-left: var(--space-5);
+  font-size: var(--font-size-sm);
   line-height: var(--font-line-relaxed);
 }
 .crash-dialog__meta {
-  margin: 10px 0 0;
-  font-size: 0.8125rem;
+  margin: var(--space-3) 0 0;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 .crash-dialog__field {
   display: block;
-  margin-bottom: 10px;
+  margin-bottom: var(--space-3);
 }
 .crash-dialog__field-label {
   display: block;
-  font-size: 0.8125rem;
-  margin-bottom: 4px;
+  font-size: var(--font-size-xs);
+  margin-bottom: var(--space-1);
   color: var(--color-text-muted);
 }
 .crash-dialog__textarea,
@@ -5393,9 +5402,9 @@ dialog.varve-dialog--settings[open] {
   border-radius: var(--radius-control);
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
-  padding: 8px 10px;
+  padding: var(--space-2) var(--space-3);
   font: inherit;
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
 }
 .crash-dialog__textarea:focus-visible,
 .crash-dialog__input:focus-visible {
@@ -5406,41 +5415,42 @@ dialog.varve-dialog--settings[open] {
 .crash-dialog__checkbox {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 6px 0;
-  font-size: 0.875rem;
-  line-height: 1.45;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--font-line-label);
   cursor: pointer;
 }
 .crash-dialog__radio input,
 .crash-dialog__checkbox input {
-  margin-top: 3px;
+  /* Optical: aligns the native control's box with the first text baseline. */
+  margin-top: var(--space-1); /* audit-spacing: allow optical checkbox baseline alignment */
   accent-color: var(--color-interactive-default);
 }
 .crash-dialog__error {
   margin: 0;
-  padding: 10px 24px;
+  padding: var(--space-3) var(--space-dialog);
   color: var(--color-feedback-danger);
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   border-bottom: var(--border-micro);
 }
 .crash-dialog__footer {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
   justify-content: flex-end;
-  padding: 16px 24px 20px;
+  padding: var(--space-4) var(--space-dialog) var(--space-5);
 }
 .crash-dialog__btn {
   border: var(--border-micro);
   border-radius: var(--radius-control);
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
-  padding: 8px 14px;
+  padding: var(--space-2) var(--space-4);
   font: inherit;
-  font-size: 0.875rem;
+  font-size: var(--font-size-sm);
   cursor: pointer;
-  min-height: 36px;
+  min-height: var(--tab-min-height);
 }
 .crash-dialog__btn:hover {
   background: var(--color-surface-hover);
@@ -5464,7 +5474,7 @@ dialog.varve-dialog--settings[open] {
   filter: brightness(1.1);
 }
 .crash-dialog__settings-link {
-  margin: 0 0 16px;
+  margin: 0 0 var(--space-4);
   text-align: center;
 }
 .crash-dialog__link {
@@ -5472,39 +5482,39 @@ dialog.varve-dialog--settings[open] {
   background: none;
   color: var(--color-interactive-default);
   font: inherit;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-xs);
   cursor: pointer;
   text-decoration: underline;
-  padding: 4px;
+  padding: var(--space-1);
 }
 .crash-dialog__receipt {
-  padding: 16px 24px;
+  padding: var(--space-4) var(--space-dialog);
   border-bottom: var(--border-micro);
 }
 .crash-dialog__receipt-title {
   font-weight: 600;
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-2);
 }
 .crash-dialog__report-id {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 10px 0;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
 }
 .crash-dialog__report-id code {
   background: var(--color-surface-sunken);
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-control-compact);
-  font-size: 0.8125rem;
+  font-size: var(--font-size-xs);
   word-break: break-all;
 }
 .crash-dialog__copy {
   border: var(--border-micro);
   border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-default);
-  padding: 4px 10px;
+  padding: var(--space-1) var(--space-3);
   font: inherit;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-xs);
   cursor: pointer;
   min-height: 30px;
 }
@@ -5512,18 +5522,18 @@ dialog.varve-dialog--settings[open] {
   max-width: min(680px, calc(100dvw - 32px));
 }
 .crash-dialog__review {
-  padding: 12px 24px;
+  padding: var(--space-3) var(--space-dialog);
   overflow-y: auto;
   max-height: 46dvh;
 }
 .crash-dialog__review-list {
-  margin: 0 0 12px;
-  font-size: 0.875rem;
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-sm);
 }
 .crash-dialog__review-row {
   display: flex;
-  gap: 12px;
-  padding: 4px 0;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
 }
 .crash-dialog__review-row dt {
   flex: 0 0 160px;
@@ -5534,18 +5544,18 @@ dialog.varve-dialog--settings[open] {
   word-break: break-word;
 }
 .crash-dialog__review-message {
-  font-family: ui-monospace, monospace;
-  font-size: 0.8125rem;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
 }
 .crash-dialog__review-section {
-  margin: 12px 0;
+  margin: var(--space-4) 0;
 }
 .crash-dialog__stack {
   background: var(--color-surface-sunken);
   border: var(--border-micro);
   border-radius: var(--radius-control);
-  padding: 10px 12px;
-  font-size: 0.75rem;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-2xs);
   overflow-x: auto;
   max-height: 200px;
   overflow-y: auto;
@@ -5553,8 +5563,8 @@ dialog.varve-dialog--settings[open] {
 }
 .crash-dialog__crumbs {
   margin: 0;
-  padding-left: 20px;
-  font-size: 0.8125rem;
+  padding-left: var(--space-5);
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   line-height: var(--font-line-relaxed);
 }
@@ -5564,33 +5574,33 @@ dialog.varve-dialog--settings[open] {
   list-style: none;
 }
 .crash-dialog__attachment {
-  padding: 4px 0;
+  padding: var(--space-1) 0;
 }
 .crash-dialog__hint {
-  margin: 0 0 6px;
-  font-size: 0.8125rem;
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 .crash-dialog__tech-summary {
   cursor: pointer;
-  font-size: 0.8125rem;
+  font-size: var(--font-size-xs);
   color: var(--color-interactive-default);
-  padding: 4px 0;
+  padding: var(--space-1) 0;
 }
 .crash-dialog__tech-body {
   background: var(--color-surface-sunken);
   border: var(--border-micro);
   border-radius: var(--radius-control);
-  padding: 10px 12px;
-  font-size: 0.75rem;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-2xs);
   overflow-x: auto;
   white-space: pre-wrap;
   max-height: 240px;
   overflow-y: auto;
 }
 .crash-dialog__required-note {
-  margin: 8px 0 0;
-  font-size: 0.75rem;
+  margin: var(--space-2) 0 0;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   line-height: var(--font-line-normal);
 }
@@ -5604,7 +5614,7 @@ dialog.varve-dialog--settings[open] {
   align-items: center;
   justify-content: center;
   background: var(--color-surface-app);
-  padding: 24px;
+  padding: var(--space-6);
   overflow-y: auto;
 }
 .safe-mode-screen__card {
@@ -5612,52 +5622,53 @@ dialog.varve-dialog--settings[open] {
   background: var(--color-surface-raised);
   border: var(--border-micro);
   border-radius: var(--radius-surface);
-  padding: 28px;
+  padding: var(--space-6);
   box-shadow: 0 16px 48px rgb(0 0 0 / 0.25);
 }
 .safe-mode-screen__badge {
   display: inline-block;
   border-radius: var(--radius-pill);
-  padding: 3px 10px;
+  padding: var(--space-1) var(--space-3);
   font-size: 0.75rem;
   font-weight: 600;
   background: color-mix(in oklch, var(--color-feedback-warning) 16%, transparent);
   color: var(--color-feedback-warning-strong);
-  margin-bottom: 12px;
+  margin-bottom: var(--space-4);
 }
 .safe-mode-screen__title {
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-3);
   font-size: 1.375rem;
 }
 .safe-mode-screen__intro {
-  margin: 0 0 6px;
+  margin: 0 0 var(--space-2);
   font-size: 0.9375rem;
   line-height: var(--font-line-relaxed);
   color: var(--color-text-muted);
 }
 .safe-mode-screen__version {
-  margin: 0 0 16px;
+  margin: 0 0 var(--space-4);
   font-size: 0.8125rem;
   color: var(--color-text-muted);
 }
 .safe-mode-screen__options {
   border: none;
   padding: 0;
-  margin: 0 0 16px;
+  margin: 0 0 var(--space-4);
 }
 .safe-mode-screen__legend {
   font-size: 0.8125rem;
   color: var(--color-text-muted);
-  margin-bottom: 8px;
+  margin-bottom: var(--space-3);
 }
 .safe-mode-screen__option {
   display: flex;
   gap: var(--space-3);
-  padding: 8px 0;
+  padding: var(--space-3) 0;
   cursor: pointer;
 }
 .safe-mode-screen__option input {
-  margin-top: 4px;
+  /* Optical: aligns the native control's box with the first text baseline. */
+  margin-top: var(--space-1); /* audit-spacing: allow optical checkbox baseline alignment */
   accent-color: var(--color-interactive-default);
 }
 .safe-mode-screen__option input:focus-visible {
@@ -5667,7 +5678,7 @@ dialog.varve-dialog--settings[open] {
 .safe-mode-screen__option-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
 .safe-mode-screen__option-label {
   font-size: 0.875rem;
@@ -5680,13 +5691,13 @@ dialog.varve-dialog--settings[open] {
 .safe-mode-screen__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
 }
 .safe-mode-screen__btn {
   border: var(--border-micro);
   border-radius: var(--radius-control);
-  padding: 10px 16px;
+  padding: var(--space-3) var(--space-4);
   font: inherit;
   font-size: 0.875rem;
   cursor: pointer;
@@ -5761,13 +5772,13 @@ dialog.varve-dialog--settings[open] {
 
 /* ── Privacy & Diagnostics settings section ──────────────── */
 .privacy-section__description {
-  margin: 0 0 10px;
+  margin: 0 0 var(--space-3);
   font-size: 0.875rem;
   color: var(--color-text-muted);
   line-height: var(--font-line-normal);
 }
 .privacy-section__choices {
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 .privacy-section__empty {
   font-size: 0.875rem;
@@ -5775,7 +5786,7 @@ dialog.varve-dialog--settings[open] {
 }
 .privacy-section__queue {
   list-style: none;
-  margin: 0 0 10px;
+  margin: 0 0 var(--space-3);
   padding: 0;
   max-height: 220px;
   overflow-y: auto;
@@ -5787,7 +5798,7 @@ dialog.varve-dialog--settings[open] {
   justify-content: space-between;
   gap: var(--space-3);
   align-items: center;
-  padding: 8px 10px;
+  padding: var(--space-3);
   border-bottom: var(--border-micro);
   font-size: 0.8125rem;
 }
@@ -5802,7 +5813,7 @@ dialog.varve-dialog--settings[open] {
 }
 .privacy-section__queue-actions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   flex-shrink: 0;
 }
 .privacy-section__btn {
@@ -5810,7 +5821,7 @@ dialog.varve-dialog--settings[open] {
   border-radius: var(--radius-control);
   background: var(--elevation-surface-default);
   color: var(--color-text-primary);
-  padding: 5px 10px;
+  padding: var(--space-2) var(--space-3);
   font: inherit;
   font-size: 0.8125rem;
   cursor: pointer;
@@ -5834,7 +5845,7 @@ dialog.varve-dialog--settings[open] {
   font-size: 0.875rem;
 }
 .privacy-section__note {
-  margin-top: 16px;
+  margin-top: var(--space-4);
   font-size: 0.75rem;
   color: var(--color-text-muted);
   line-height: var(--font-line-normal);
@@ -6073,14 +6084,14 @@ dialog.varve-dialog--settings[open] {
 .media-frame-strip {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 6px 8px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
 }
 
 .media-frame-strip__toolbar {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 .media-frame-strip__icon-button {
@@ -6098,13 +6109,13 @@ dialog.varve-dialog--settings[open] {
 }
 
 .media-frame-strip__icon-button:hover {
-  background: var(--color-surface-hover, rgba(128, 128, 128, 0.15));
+  background: var(--color-surface-hover);
 }
 
 .media-frame-strip__uniform {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
   margin-left: auto;
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary, inherit);
@@ -6116,7 +6127,7 @@ dialog.varve-dialog--settings[open] {
   width: 100%;
   touch-action: none;
   cursor: ew-resize;
-  background: var(--elevation-surface-sunken, rgba(128, 128, 128, 0.08));
+  background: var(--elevation-surface-sunken);
   border-radius: var(--radius-control-compact);
   outline: none;
 }
@@ -6129,13 +6140,13 @@ dialog.varve-dialog--settings[open] {
   position: absolute;
   top: 6px;
   border-radius: var(--radius-control-compact);
-  background: var(--color-border-strong, rgba(128, 128, 128, 0.4));
+  background: var(--color-border-strong);
   overflow: hidden;
 }
 
 .media-frame-strip__cell-label {
   display: block;
-  padding: 0 2px;
+  padding: 0 var(--space-1);
   font-size: 9px;
   line-height: 12px;
   color: var(--color-text-secondary, inherit);
@@ -6155,8 +6166,8 @@ dialog.varve-dialog--settings[open] {
 .animation-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px;
+  gap: var(--space-2);
+  padding: var(--space-3);
 }
 
 .animation-section__meta {
@@ -6204,7 +6215,7 @@ dialog.varve-dialog--settings[open] {
 
 .constraint-pin-control__parent {
   fill: var(--color-surface-sunken);
-  stroke: var(--color-stroke-subtle);
+  stroke: var(--color-border-subtle);
   stroke-dasharray: 4 3;
 }
 
@@ -6254,7 +6265,7 @@ dialog.varve-dialog--settings[open] {
 .ref-image-picker {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .ref-image-picker__current {
@@ -6283,7 +6294,7 @@ dialog.varve-dialog--settings[open] {
 .ref-image-picker__info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
   min-width: 0;
 }
 
@@ -6304,19 +6315,19 @@ dialog.varve-dialog--settings[open] {
 
 .ref-image-picker__actions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
 .ref-image-picker__empty {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
-  padding: 8px 0;
+  padding: var(--space-3) 0;
 }
 
 .ref-image-picker__import-actions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 
@@ -6350,21 +6361,21 @@ dialog.varve-dialog--settings[open] {
 .model-manager__header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
 }
 
 .model-manager__toolbar {
   display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
 }
 
 .model-manager__diagnostics {
-  padding: 8px 12px;
+  padding: var(--space-3) var(--space-4);
   background: var(--color-surface-sunken);
   border-radius: var(--radius-control-compact);
-  margin-top: 12px;
+  margin-top: var(--space-4);
 }
 
 .model-manager__diag-label {
@@ -6376,7 +6387,7 @@ dialog.varve-dialog--settings[open] {
 .bg-models-list__badge--bundled {
   font-size: var(--font-size-xs);
   font-weight: 600;
-  padding: 1px 6px;
+  padding: var(--space-05) var(--space-2);
   border-radius: var(--radius-pill);
   background: color-mix(in oklch, var(--color-feedback-success) 16%, transparent);
   color: var(--color-feedback-success-strong);
@@ -6391,7 +6402,7 @@ dialog.varve-dialog--settings[open] {
 
 .insp-input {
   width: 100%;
-  padding: 6px 8px;
+  padding: var(--space-2) var(--space-3);
   font: inherit;
   font-size: var(--font-size-sm);
   background: var(--color-surface-sunken);
@@ -6411,7 +6422,7 @@ dialog.varve-dialog--settings[open] {
   font-size: var(--font-size-sm);
   color: var(--color-feedback-danger);
   background: color-mix(in oklch, var(--color-feedback-danger) 12%, transparent);
-  padding: 8px 12px;
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-control-compact);
 }
 
@@ -6420,7 +6431,7 @@ dialog.varve-dialog--settings[open] {
 .upscale-auto {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .upscale-settings__ai-preview {
@@ -6435,7 +6446,7 @@ dialog.varve-dialog--settings[open] {
   font-size: var(--font-size-sm);
   color: var(--color-feedback-warning-strong);
   background: color-mix(in oklch, var(--color-feedback-warning) 12%, transparent);
-  padding: 6px 10px;
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-control-compact);
 }
 
@@ -6444,19 +6455,19 @@ dialog.varve-dialog--settings[open] {
 .gm-editor__opacity {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 /* ---------- GradientImportDialog ------------------------------------------ */
 
 .gmp-import__scope {
-  margin-top: 8px;
+  margin-top: var(--space-3);
 }
 
 .gmp-import__badge--warn {
   font-size: var(--font-size-xs);
   font-weight: 600;
-  padding: 1px 6px;
+  padding: var(--space-05) var(--space-2);
   border-radius: var(--radius-pill);
   background: color-mix(in oklch, var(--color-feedback-warning) 16%, transparent);
   color: var(--color-feedback-warning-strong);
@@ -6475,7 +6486,7 @@ dialog.varve-dialog--settings[open] {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
   line-height: var(--font-line-normal);
-  margin-top: 8px;
+  margin-top: var(--space-3);
 }
 
 /* ---------- ImageFillControls sub-variants --------------------------------- */
@@ -6483,20 +6494,20 @@ dialog.varve-dialog--settings[open] {
 .insp-image-fill__upscale-info {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 
 .insp-image-fill__upscale-actions {
   display: flex;
-  gap: 6px;
-  margin-top: 6px;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 .insp-image-fill__color {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 6px;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 .insp-image-fill__color-summary {
@@ -6511,7 +6522,7 @@ dialog.varve-dialog--settings[open] {
 
 .insp-image-fill__color-detail {
   display: flex;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 /* ---------- SectionManagerTrigger ----------------------------------------- */
@@ -6525,7 +6536,7 @@ dialog.varve-dialog--settings[open] {
 .thumbnail-info-dialog__body {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-4);
 }
 
 .thumbnail-info-dialog__preview {
@@ -6544,7 +6555,7 @@ dialog.varve-dialog--settings[open] {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: var(--space-6);
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   background: var(--color-surface-sunken);
@@ -6559,8 +6570,8 @@ dialog.varve-dialog--settings[open] {
 .thumbnail-info-dialog__footer {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 12px;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
 }
 
 /* ---------- CreateTableFromDataDialog -------------------------------------- */
@@ -6573,7 +6584,7 @@ dialog.varve-dialog--settings[open] {
 
 .varve-preview-table th,
 .varve-preview-table td {
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   border: var(--border-micro);
   text-align: left;
 }
@@ -6588,7 +6599,7 @@ dialog.varve-dialog--settings[open] {
 .export-settings__hint {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 
 /* ---------- RestoreBrowser ------------------------------------------------ */
@@ -6641,7 +6652,7 @@ dialog.varve-dialog--settings[open] {
 /* ---------- PackManager (IconBrowser) ------------------------------------- */
 
 .icon-pack-manager__section {
-  margin-bottom: 12px;
+  margin-bottom: var(--space-4);
 }
 
 /* ---------- PrototypeFlowView --------------------------------------------- */
@@ -6655,16 +6666,16 @@ dialog.varve-dialog--settings[open] {
 .insp-info-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .insp-badge--info {
   font-size: var(--font-size-xs);
   font-weight: 600;
-  padding: 1px 6px;
+  padding: var(--space-05) var(--space-2);
   border-radius: var(--radius-pill);
   background: color-mix(in oklch, var(--color-feedback-info) 16%, transparent);
-  color: var(--color-feedback-info-strong, var(--color-text-primary));
+  color: var(--color-text-info, var(--color-text-primary));
 }
 
 .insp-adaptive-status {
@@ -6673,7 +6684,7 @@ dialog.varve-dialog--settings[open] {
 }
 
 .insp-section {
-  margin-bottom: 12px;
+  margin-bottom: var(--space-4);
 }
 
 .insp-depth-canvas {
@@ -6692,8 +6703,8 @@ dialog.varve-dialog--settings[open] {
 .insp-crop-section__trim-actions,
 .insp-crop-section__expand-actions {
   display: flex;
-  gap: 6px;
-  margin-top: 6px;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 .insp-link-btn,
@@ -6717,7 +6728,7 @@ dialog.varve-dialog--settings[open] {
 .insp-field__control--inline {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 .insp-label {
@@ -6729,14 +6740,14 @@ dialog.varve-dialog--settings[open] {
 .insp-panel__color-mode-note {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 
 .colorize-section__quality-options {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   flex-wrap: wrap;
-  margin-top: 6px;
+  margin-top: var(--space-2);
 }
 
 /* Keep image colour metadata readable at the inspector's narrowest width.

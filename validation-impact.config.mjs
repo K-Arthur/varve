@@ -153,7 +153,32 @@ export const IMPACT_CONFIG = {
       id: 'inspector-css-discipline',
       why: 'Inspector CSS is a hand-maintained multi-file surface where undefined token references and raw values silently render fallbacks; the dedicated audit is the only gate that sees them (AUD-004/005/006).',
       paths: ['packages/editor/src/components/Inspector/**'],
-      require: ['audit:inspector-css'],
+      require: ['audit:inspector-css', 'audit:tokens', 'audit:spacing'],
+    },
+    {
+      id: 'interface-spacing-discipline',
+      why: 'Interface spacing is a single canonical ladder (packages/ui/src/tokens/spacing.ts); a raw length in a spacing property is invisible to every other gate and quietly breaks panel rhythm. The audit ratchets against .spacing-baseline.json.',
+      paths: [
+        'packages/editor/src/editor.css',
+        'packages/editor/src/components/**/*.css',
+        'packages/home/src/**/*.css',
+        'packages/help/src/**/*.css',
+        'packages/ui/src/**/*.css',
+      ],
+      require: ['audit:spacing'],
+    },
+    {
+      id: 'token-usage-discipline',
+      why: 'Stylesheets whose sole contract is theme tokens: a var() reference to an undefined custom property renders a literal fallback (or nothing) and silently escapes the theme. audit:tokens covers both the WCAG pairs and the undefined-reference/literal-fallback scan.',
+      paths: [
+        'packages/ui/src/components/**',
+        'packages/ui/src/tokens/**',
+        'packages/editor/src/editor.css',
+        'packages/home/src/home.css',
+        'apps/desktop/src/global.css',
+        'apps/desktop/src/chrome/**',
+      ],
+      require: ['audit:tokens'],
     },
     {
       id: 'tokens-visual',
