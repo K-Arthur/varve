@@ -141,6 +141,18 @@ function humanizeToken(value: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
+/** Plural, human labels for the severity filter chips (never raw ids). */
+const SEVERITY_LABELS: Record<string, string> = {
+  error: 'Errors',
+  warning: 'Warnings',
+  suggestion: 'Suggestions',
+  advisory: 'Advisories',
+};
+
+function severityLabel(severity: string): string {
+  return SEVERITY_LABELS[severity] ?? humanizeToken(severity);
+}
+
 /**
  * Whether a tab has anything to act on for the current document/selection.
  * Document-level scans are always available; selection-scoped tools need a
@@ -1101,7 +1113,7 @@ function ReviewTab() {
               className={`intelligence-filter-chip intelligence-filter-chip--severity-${severity}${filterSeverity === severity ? ' intelligence-filter-chip--active' : ''}`}
               onClick={() => setFilterSeverity(filterSeverity === severity ? null : severity)}
             >
-              {severity} ({severityCounts(severity)})
+              {severityLabel(severity)} ({severityCounts(severity)})
             </button>
           ))}
           {filterSeverity && (
@@ -1171,6 +1183,9 @@ function ReviewTab() {
                         <span
                           className="intelligence-badge intelligence-badge--medium"
                           style={{ marginLeft: 'var(--space-1)' }}
+                          title={`Confidence: ${Math.round(finding.confidence * 100)}%`}
+                          role="img"
+                          aria-label={`Confidence ${Math.round(finding.confidence * 100)} percent`}
                         >
                           {Math.round(finding.confidence * 100)}%
                         </span>
@@ -1204,12 +1219,12 @@ function ReviewTab() {
                           .join(' | ')}
                       </span>
                     )}
-                    <Tooltip label="Suppress this finding">
+                    <Tooltip label="Dismiss this finding">
                       <button
                         type="button"
                         className="intelligence-action-btn"
                         onClick={() => handleSuppress(finding)}
-                        aria-label="Suppress this finding"
+                        aria-label="Dismiss this finding"
                       >
                         <Icon name="X" label={undefined} size="0.85em" />
                       </button>
@@ -1225,8 +1240,8 @@ function ReviewTab() {
                     padding: 'var(--space-1)',
                   }}
                 >
-                  + {findings.length - profile.maxFindings} more (max display: {profile.maxFindings}
-                  )
+                  + {findings.length - profile.maxFindings} more{' '}
+                  {findings.length - profile.maxFindings === 1 ? 'finding' : 'findings'}
                 </p>
               )}
             </div>
