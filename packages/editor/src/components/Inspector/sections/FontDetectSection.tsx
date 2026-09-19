@@ -25,7 +25,7 @@ import {
 } from '@varve/engine';
 import type { SceneNode, TextNode } from '@varve/scene';
 import { getImageFill, imageShapeSrc, isImageShape, richTextToPlainText } from '@varve/scene';
-import { Button } from '@varve/ui';
+import { Button, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -570,26 +570,24 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
         </label>
 
         {textTargets.length > 0 && (
-          <label className="font-detect-target-field">
+          <div className="font-detect-target-field">
             <span className="insp-subsection__label">Apply result to</span>
-            <select
-              className="font-detect-target-select"
+            <Select
+              label="Existing text target"
               value={targetId}
-              onChange={(event) => setTargetId(event.target.value)}
-              aria-label="Existing text target"
-            >
-              <option value="">New text (choose below)</option>
-              {textTargets.map((target) => (
-                <option key={target.id} value={target.id}>
-                  {target.label}
-                  {target.preview ? ` — ${target.preview}` : ''}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'New text (choose below)' },
+                ...textTargets.map((target) => ({
+                  value: target.id,
+                  label: target.preview ? `${target.label} — ${target.preview}` : target.label,
+                })),
+              ]}
+              onChange={setTargetId}
+            />
             <span className="insp-hint">
               Applying a candidate edits only this layer and creates one undo step.
             </span>
-          </label>
+          </div>
         )}
 
         {needsDownload && (

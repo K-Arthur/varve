@@ -50,6 +50,29 @@ vi.mock('@varve/ui', () => ({
       {children}
     </button>
   ),
+  // The section previously rendered a native <select>; the shared Select is
+  // the canonical control. The mock keeps the same test-facing semantics
+  // (label + options + onChange) without pulling the floating-layer runtime
+  // into jsdom.
+  Select: ({
+    label,
+    value,
+    options,
+    onChange,
+  }: {
+    label: string;
+    value?: string;
+    options?: { value: string; label: string }[];
+    onChange?: (value: string) => void;
+  }) => (
+    <select aria-label={label} value={value} onChange={(event) => onChange?.(event.target.value)}>
+      {(options ?? []).map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  ),
 }));
 
 vi.mock('./fontOcr', () => ({
