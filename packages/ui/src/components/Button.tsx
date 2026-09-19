@@ -1,4 +1,4 @@
-import { type ButtonHTMLAttributes, forwardRef, useEffect, useState } from 'react';
+import { type ButtonHTMLAttributes, forwardRef, useEffect, useId, useState } from 'react';
 import { Spinner } from './Spinner';
 import { useDelayedLoading } from './useDelayedLoading';
 
@@ -28,6 +28,13 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   loadingLabel?: string;
   /** When true, disabled state uses aria-disabled (focusable) instead of HTML disabled. */
   softDisabled?: boolean;
+  /**
+   * Why the action is unavailable. Setting it keeps the control focusable
+   * (aria-disabled instead of HTML disabled) and exposes the reason to
+   * assistive technology and pointer users, so a disabled button is never a
+   * communication dead end (NN/g, GOV.UK, Shopify Polaris guidance).
+   */
+  disabledReason?: string;
   /** For destructive actions: show a confirm toggle before firing onClick. */
   confirmLabel?: string;
 }
@@ -40,20 +47,26 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     loadingLabel,
     disabled = false,
     softDisabled = false,
+    disabledReason,
     confirmLabel,
     type = 'button',
     className = '',
     children,
     onClick,
     onBlur,
+    title,
     'aria-label': ariaLabel,
     'aria-disabled': ariaDisabled,
+    'aria-describedby': ariaDescribedBy,
     ...rest
   },
   ref,
 ) {
   const [confirming, setConfirming] = useState(false);
   const showLoading = useDelayedLoading(loading);
+  const reasonId = useId();
+  const reasonActive = disabledReason !== undefined && !loading;
+  const unavailable = loading || softDisabled || reasonActive || disabled;
 
   useEffect(() => {
     if (variant !== 'destructive' || !confirmLabel || disabled || softDisabled || loading) {
@@ -62,7 +75,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   }, [variant, confirmLabel, disabled, softDisabled, loading]);
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (disabled || softDisabled || loading) return;
+    if (unavailable) return;
     if (variant === 'destructive' && confirmLabel && !confirming) {
       setConfirming(true);
       return;
@@ -76,8 +89,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     onBlur?.(e);
   };
 
-  const isHtmlDisabled = !loading && !softDisabled && disabled;
-  const isAriaDisabled = loading || softDisabled;
+  const isHtmlDisabled = !loading && !softDisabled && !reasonActive && disabled;
+  const isAriaDisabled = loading || softDisabled || reasonActive;
 
   const classes = [
     'varve-btn',
@@ -90,30 +103,42 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     .filter(Boolean)
     .join(' ');
 
+  const describedBy =
+    [ariaDescribedBy, reasonActive ? reasonId : undefined].filter(Boolean).join(' ') || undefined;
+
   return (
-    <button
-      {...rest}
-      ref={ref}
-      className={classes}
-      type={type}
-      disabled={isHtmlDisabled || undefined}
-      aria-disabled={ariaDisabled ?? (isAriaDisabled || undefined)}
-      aria-busy={loading || undefined}
-      aria-label={loading && loadingLabel ? loadingLabel : ariaLabel}
-      onClick={handleClick}
-      onBlur={handleBlur}
-    >
-      {showLoading && <Spinner size="sm" />}
-      <span className="varve-btn__content">
-        {confirming && confirmLabel ? (
-          <>
-            <span className="varve-btn__label">{children}</span>
-            {confirmLabel}
-          </>
-        ) : (
-          children
-        )}
-      </span>
-    </button>
+    <>
+      <button
+        {...rest}
+        ref={ref}
+        className={classes}
+        type={type}
+        disabled={isHtmlDisabled || undefined}
+        aria-disabled={ariaDisabled ?? (isAriaDisabled || undefined)}
+        aria-busy={loading || undefined}
+        aria-label={loading && loadingLabel ? loadingLabel : ariaLabel}
+        aria-describedby={describedBy}
+        title={title ?? (reasonActive ? disabledReason : undefined)}
+        onClick={handleClick}
+        onBlur={handleBlur}
+      >
+        {showLoading && <Spinner size="sm" />}
+        <span className="varve-btn__content">
+          {confirming && confirmLabel ? (
+            <>
+              <span className="varve-btn__label">{children}</span>
+              {confirmLabel}
+            </>
+          ) : (
+            children
+          )}
+        </span>
+      </button>
+      {reasonActive && (
+        <span id={reasonId} className="varve-visually-hidden">
+          {disabledReason}
+        </span>
+      )}
+    </>
   );
 });

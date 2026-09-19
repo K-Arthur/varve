@@ -135,4 +135,44 @@ describe('Button', () => {
     expect(styles.minHeight).toBe('44px');
     expect(styles.minWidth).toBe('44px');
   });
+
+  describe('disabledReason', () => {
+    it('keeps the control focusable and describes why it is unavailable', async () => {
+      const user = userEvent.setup();
+      render(<Button disabledReason="Select a layer first">Align</Button>);
+      const btn = screen.getByRole('button', { name: 'Align' });
+      expect(btn).toHaveAttribute('aria-disabled', 'true');
+      expect(btn).not.toHaveAttribute('disabled');
+      const description = btn.getAttribute('aria-describedby');
+      expect(description).toBeTruthy();
+      expect(screen.getByText('Select a layer first')).toHaveAttribute('id', description);
+      await user.tab();
+      expect(btn).toHaveFocus();
+    });
+
+    it('does not fire onClick and exposes the reason as a pointer tooltip', async () => {
+      const onClick = vi.fn();
+      const user = userEvent.setup();
+      render(
+        <Button disabledReason="Nothing selected" onClick={onClick}>
+          Duplicate
+        </Button>,
+      );
+      const btn = screen.getByRole('button');
+      expect(btn).toHaveAttribute('title', 'Nothing selected');
+      await user.click(btn);
+      expect(onClick).not.toHaveBeenCalled();
+    });
+
+    it('merges an existing aria-describedby instead of replacing it', () => {
+      render(
+        <Button disabledReason="Select a layer first" aria-describedby="hint">
+          Align
+        </Button>,
+      );
+      const describedBy = screen.getByRole('button').getAttribute('aria-describedby');
+      expect(describedBy).toContain('hint');
+      expect(describedBy?.split(' ').length).toBe(2);
+    });
+  });
 });

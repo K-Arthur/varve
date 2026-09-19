@@ -381,6 +381,28 @@
   text-decoration: line-through;
 }
 
+/* Persistent selection on a Button is expressed with aria-pressed (used by
+ * IconButton's `pressed` prop and by text toggles). The variants that carry
+ * no accent background resolve to the shared checked-selection tokens. */
+.varve-btn--ghost[aria-pressed="true"],
+.varve-btn--outline[aria-pressed="true"],
+.varve-btn--secondary[aria-pressed="true"],
+.varve-btn--toolbar[aria-pressed="true"] {
+  background: var(--color-interactive-checked-surface);
+  color: var(--color-interactive-selected-foreground);
+}
+.varve-btn--outline[aria-pressed="true"],
+.varve-btn--secondary[aria-pressed="true"] {
+  border-color: var(--color-interactive-selected-border);
+}
+.varve-btn--ghost[aria-pressed="true"]:hover:not(:disabled),
+.varve-btn--outline[aria-pressed="true"]:hover:not(:disabled),
+.varve-btn--secondary[aria-pressed="true"]:hover:not(:disabled),
+.varve-btn--toolbar[aria-pressed="true"]:hover:not(:disabled) {
+  background: var(--color-interactive-selected-surface-hover);
+  color: var(--color-interactive-selected-foreground);
+}
+
 /* Connected action groups own the shared border. Members stay square at the
  * internal seams, while focus remains visible without clipping. */
 .varve-btn-group {
@@ -2939,6 +2961,16 @@
     background: transparent;
     color: var(--color-text-primary);
     border-color: var(--color-border-strong);
+  }
+
+  /* A tapped toggle keeps its persistent checked state; the temporary hover
+   * tint must not hide it after the pointer leaves. */
+  .varve-btn--ghost[aria-pressed="true"]:hover:not(:active):not(:disabled),
+  .varve-btn--outline[aria-pressed="true"]:hover:not(:active):not(:disabled),
+  .varve-btn--secondary[aria-pressed="true"]:hover:not(:active):not(:disabled),
+  .varve-btn--toolbar[aria-pressed="true"]:hover:not(:active):not(:disabled) {
+    background: var(--color-interactive-checked-surface);
+    color: var(--color-interactive-selected-foreground);
   }
 
   .varve-menu__item:hover:not(:focus-visible):not(:disabled),
