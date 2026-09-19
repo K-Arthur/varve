@@ -570,6 +570,7 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
       <InspectorFieldGroup columns={2} className="insp-field-group--numeric-pair">
         <NumberField
           label="Min W"
+          displayLabel="Min W"
           unit="px"
           value={isMixed(minWRaw) ? 0 : (minWRaw ?? 0)}
           mixed={isMixed(minWRaw)}
@@ -580,6 +581,7 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
         />
         <NumberField
           label="Max W"
+          displayLabel="Max W"
           unit="px"
           value={isMixed(maxWRaw) ? 0 : (maxWRaw ?? 0)}
           mixed={isMixed(maxWRaw)}
@@ -616,6 +618,7 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
       <InspectorFieldGroup columns={2} className="insp-field-group--numeric-pair">
         <NumberField
           label="Min H"
+          displayLabel="Min H"
           unit="px"
           value={isMixed(minHRaw) ? 0 : (minHRaw ?? 0)}
           mixed={isMixed(minHRaw)}
@@ -626,6 +629,7 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
         />
         <NumberField
           label="Max H"
+          displayLabel="Max H"
           unit="px"
           value={isMixed(maxHRaw) ? 0 : (maxHRaw ?? 0)}
           mixed={isMixed(maxHRaw)}

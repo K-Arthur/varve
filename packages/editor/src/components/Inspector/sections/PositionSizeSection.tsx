@@ -488,39 +488,6 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 fieldName="width"
                 onShiftClick={() => editor.setBindingField('width')}
               />
-              <label
-                className="insp-proportion-lock"
-                title={locked ? 'Constrain proportions (active)' : 'Constrain proportions'}
-              >
-                <input
-                  type="checkbox"
-                  className="insp-proportion-lock__input"
-                  checked={locked}
-                  onChange={() => setLocked((p) => !p)}
-                  aria-label="Constrain proportions"
-                />
-                {/* Linked/unlinked use the Lucide chain pair rather than a
-                    bespoke path, so the slashed state is unmistakable at 14px
-                    (2026-09-15 competitor research: ambiguous lock affordances). */}
-                <Icon
-                  name={locked ? 'Link2' : 'Link2Off'}
-                  size={14}
-                  className={`insp-proportion-icon${locked ? ' insp-proportion-icon--locked' : ''}`}
-                />
-              </label>
-              <NumberField
-                label="H"
-                displayLabel="H"
-                unit="px"
-                value={hRaw !== null && !isMixed(hRaw) ? hRaw : 0}
-                mixed={hRaw !== null && isMixed(hRaw)}
-                propertyState={hPropertyState}
-                min={0}
-                draftKey={draftKey}
-                onChange={handleH}
-                fieldName="height"
-                onShiftClick={() => editor.setBindingField('height')}
-              />
               {isFrameSelection ? (
                 <Tooltip label="Swap orientation (Portrait / Landscape)">
                   <button
@@ -550,6 +517,39 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
               ) : (
                 <span className="insp-field-group__action-slot" aria-hidden="true" />
               )}
+              <NumberField
+                label="H"
+                displayLabel="H"
+                unit="px"
+                value={hRaw !== null && !isMixed(hRaw) ? hRaw : 0}
+                mixed={hRaw !== null && isMixed(hRaw)}
+                propertyState={hPropertyState}
+                min={0}
+                draftKey={draftKey}
+                onChange={handleH}
+                fieldName="height"
+                onShiftClick={() => editor.setBindingField('height')}
+              />
+              <label
+                className="insp-proportion-lock"
+                title={locked ? 'Constrain proportions (active)' : 'Constrain proportions'}
+              >
+                <input
+                  type="checkbox"
+                  className="insp-proportion-lock__input"
+                  checked={locked}
+                  onChange={() => setLocked((p) => !p)}
+                  aria-label="Constrain proportions"
+                />
+                {/* Linked/unlinked use the Lucide chain pair rather than a
+                    bespoke path, so the slashed state is unmistakable at 14px
+                    (2026-09-15 competitor research: ambiguous lock affordances). */}
+                <Icon
+                  name={locked ? 'Link2' : 'Link2Off'}
+                  size={14}
+                  className={`insp-proportion-icon${locked ? ' insp-proportion-icon--locked' : ''}`}
+                />
+              </label>
             </InspectorFieldGroup>
           )}
         </InspectorFieldGroup>

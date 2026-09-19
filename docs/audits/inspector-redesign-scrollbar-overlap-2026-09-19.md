@@ -54,12 +54,15 @@ In designing this resolution, we analyzed recent user feedback and design critiq
   ```
 - Implemented `.insp-flip-group`: a compact segmented pill (`border: 1px solid var(--color-border-subtle); background: var(--color-surface-sunken)`) containing 24×24px WCAG 2.2 compliant icon buttons for Flip H, Flip V, and Skew.
 - Enforced `flex-direction: row` on `.insp-field-group--rotation` so rotation angle `R` and the flip/skew pill sit on the exact same row without wrapping or centering.
-- Fixed numeric field label-to-input gap by setting fixed 14px label tracks (`grid-template-columns: 14px minmax(0, 1fr)`) with `justify-self: start`, ensuring inputs sit directly adjacent to labels without unsightly phantom voids.
+- Fixed numeric field label-to-input gap by setting fixed 14px label tracks (`grid-template-columns: 14px minmax(0, 1fr)`) with `justify-self: start` specifically scoped to `.insp-field-group--position` and `.insp-field-group--size`.
+- Restored `grid-template-columns: max-content minmax(0, 1fr)` on generic `.insp-field-group--columns-2` and `.insp-field-group--columns-3`, resolving the label truncation bug in the Sizing section (`Min W`, `Max W`, `Min H`, `Max H`) which previously rendered clipped as `MI` and `MA`.
+- Centered the swap orientation button (`.insp-orientation-btn`) directly between Width (`W`) and Height (`H`) in track 2 of the size row, moving the proportion lock (`.insp-proportion-lock`) to track 4, cleanly matching the user's mental model that the swap action sits between the dimensions it operates on.
 - Preserved clean, unbordered text on `.insp-align-section__summary` to maintain clean single-line section headers without wrapping.
 
-### 3.2 Component Enhancements (`PositionSizeSection.tsx`)
+### 3.2 Component Enhancements (`PositionSizeSection.tsx` & `LayoutSection.tsx`)
 - Added `displayLabel="X"`, `displayLabel="Y"`, `displayLabel="W"`, `displayLabel="H"`, and `displayLabel="R"` to `<NumberField>`. Visible labels display clean single letters, while the underlying DOM preserves full accessible names (`X (px)`, `W (px)`) and APG spinbutton roles.
-- Restored `.insp-field-group--position` class and reserved action slots (`<span className="insp-field-group__action-slot" />`) to maintain pixel-perfect 4-track alignment with W and H.
+- Added `displayLabel="Min W"`, `displayLabel="Max W"`, `displayLabel="Min H"`, `displayLabel="Max H"` to `LayoutSection.tsx`.
+- Positioned `.insp-orientation-btn` between W and H in Track 2, while preserving `.insp-field-group__action-slot` in Track 4 to maintain pixel-perfect 4-track alignment with X and Y.
 - Enclosed Flip H, Flip V, and Skew within `<div className="insp-flip-group" role="group" aria-label="Transform controls">`.
 
 ### 3.3 Documentation & Marketing Updates

@@ -6389,17 +6389,21 @@ fieldset.insp-canvas-props,
 
 .insp-field-group--columns-2 > .insp-field,
 .insp-field-group--columns-3 > .insp-field,
-.insp-field-group--size > .insp-field,
 .insp-field-group--skew > .insp-field {
+  gap: var(--space-1);
+  grid-template-columns: max-content minmax(0, 1fr);
+  min-width: 0;
+}
+
+.insp-field-group--position > .insp-field,
+.insp-field-group--size > .insp-field {
   gap: var(--space-1);
   grid-template-columns: 14px minmax(0, 1fr);
   min-width: 0;
 }
 
-.insp-field-group--columns-2 > .insp-field > .insp-field__label,
-.insp-field-group--columns-3 > .insp-field > .insp-field__label,
-.insp-field-group--size > .insp-field > .insp-field__label,
-.insp-field-group--skew > .insp-field > .insp-field__label {
+.insp-field-group--position > .insp-field > .insp-field__label,
+.insp-field-group--size > .insp-field > .insp-field__label {
   min-width: 14px;
   width: 14px;
   flex-shrink: 0;
@@ -7376,7 +7380,7 @@ fieldset.insp-canvas-props,
   > .insp-field__control {
   flex: 0 1 var(--insp-numeric-rail, 9ch);
   inline-size: min(var(--insp-numeric-rail, 9ch), 100%);
-  justify-self: end;
+  justify-self: start;
   max-inline-size: 100%;
   min-inline-size: 0;
 }
