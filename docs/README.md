@@ -42,6 +42,8 @@ and
 The second, independent 2026-09-19 pass (fresh baseline matrix, fresh
 research corpus, fresh audit) is governed by
 [`design-system/inspector-spec-pass2.md`](design-system/inspector-spec-pass2.md)
+(where a pass-2 clause and a pass-1 clause disagree, pass 2 is the governing
+contract for forward work; pass 1 remains the record for its `IMPL-` ids)
 with evidence in
 [`audits/inspector-design-tab-audit-2026-09-19-pass2.md`](audits/inspector-design-tab-audit-2026-09-19-pass2.md)
 and
@@ -51,6 +53,13 @@ are documented in
 [`architecture/output-accessibility-guidance.md`](architecture/output-accessibility-guidance.md).
 The current automated and manual accessibility evidence matrix is in
 [`quality/accessibility-validation-matrix.md`](quality/accessibility-validation-matrix.md).
+The workspace-aware Layers panel contract (shared core, per-workspace
+projection, adopt/adapt/reject decisions, and sequencing) is
+[`design-system/layers-panel-spec.md`](design-system/layers-panel-spec.md);
+its 2026-09-19 evidence is
+[`audits/layers-panel-audit-2026-09-19.md`](audits/layers-panel-audit-2026-09-19.md)
+with the reference-app research corpus in
+[`research/layers-panel-research.md`](research/layers-panel-research.md).
 
 | Doc | Purpose |
 |-----|---------|
@@ -231,6 +240,7 @@ The current automated and manual accessibility evidence matrix is in
 | `adr/0233-clipboard-import-boundary.md` | Shared clipboard/import ownership, validation, and interoperability boundary |
 | `adr/0234-inspector-stack-layout-contract.md` | Canonical inspector ownership, responsive sizing, spacing, borders, and paint order |
 | `adr/0237-native-gpu-compute.md` | Native GPU compute, truthful accelerator capability stages, and inference-provider honesty |
+| `adr/0238-comic-webtoon-workflow-architecture.md` | Comic/webtoon workflow: no dedicated workspace; document profile, capability-keyed page surfaces, shared tools, optional presets |
 | `adr/0223-palette-extraction-derived-analysis.md` | Palette extraction as derived, versioned analysis (see `architecture/palette-extraction-system.md`) |
 | `adr/0224-non-destructive-effect-attachments.md` | Separate node-local Object Filters from scoped Adjustment Layers |
 | `adr/0225-effect-studio.md` | Integrate Effect Studio with the existing effect pipeline |
@@ -276,6 +286,7 @@ The current automated and manual accessibility evidence matrix is in
 | `architecture/frame-encapsulation.md` | Frame clipping and containment |
 | `architecture/canvas2d-system.md` | Canvas 2D system contract |
 | `architecture/image-lifecycle.md` | Raster ingestion, asset, decode, cache, worker, compositor, and lifecycle contract |
+| `architecture/image-conversion-system.md` | Local Quick Convert workflow boundary between the import lifecycle, the standalone raster converter, and document state |
 | `architecture/figma-import-system.md` | Figma REST/plugin JSON import: acquisition, normalization, conversion, and fidelity |
 | `architecture/import-system.md` | File > Import: Open/Import separation, ingestion pipeline, format registry, SVG fidelity and security |
 | `architecture/image-geometry.md` | Image crop, placement, and transform contract |
@@ -297,6 +308,7 @@ The current automated and manual accessibility evidence matrix is in
 | `architecture/sortable-system.md` | Shared sortable primitives, collection policy, and specialized tree boundaries |
 | `architecture/background-removal-system.md` | Background-removal system contract and local-first workflow |
 | `architecture/blend-evaluation-policy.md` | Blend evaluation policy and compositing operations |
+| `architecture/blur-system.md` | Canonical CPU blur reference: spatial Inspector controls, Canvas2D/WASM replay, transform-safe authoring overlays |
 | `architecture/visual-awareness-system.md` | Demand-driven face, hand, pose, object, and segmentation capability boundary |
 | `audits/face-detection-refinement-2026-09-15.md` | Face detection parity/recovery evidence, upstream references, and the seven per-category acceptance rows (including the categories that remain manual-only) |
 | `architecture/masking-system.md` | Clipping/alpha/luminance mask model and compositing contract |
@@ -312,7 +324,10 @@ The current automated and manual accessibility evidence matrix is in
 | `architecture/page-export-selection.md` | Ordered page export selection, exclusions, ranges, and spread units |
 | `architecture/master-pages.md` | Master source ownership, projection, assignments, and sparse overrides |
 | `architecture/paint-system.md` | Paint subsystem: stroke-to-pixels pipeline, brush library, invariants |
+| `architecture/fill-system.md` | Non-solid fills (gradient, image, pattern) and the multi-fill stack shared with solids |
+| `architecture/vector-fill-transform-contract.md` | Transform-stable gradient fill representation (`GradientFill.transform` affine contract) |
 | `architecture/stroke-system.md` | Live vector stroke model, geometry semantics, target matrix, and export limits |
+| `architecture/boolean-geometry.md` | Pathfinder/Boolean geometry: one shared deterministic TypeScript kernel for web and desktop |
 | `architecture/animated-image-media-system.md` | GIF/APNG/WebP media pipeline |
 | `architecture/effect-rendering.md` | Effect pass structure in `replay.ts` and render-parity contract |
 | `architecture/email-template-system.md` | Email template authoring, preview, and export system |
@@ -330,12 +345,17 @@ The current automated and manual accessibility evidence matrix is in
 | `architecture/layers-drag-drop.md` | Layers panel drag and drop: canonical drop resolver, virtualized hit testing, hierarchy semantics |
 | `architecture/layers-navigation.md` | Layers selection, tree focus, camera navigation modes, canonical bounds, and validation contract |
 | `architecture/pen-pencil-tools.md` | Pen/pencil tool architecture |
+| `architecture/curve-node-editing.md` | Curve and node editing contract, including explicit topology limitations |
+| `architecture/shape-building-system.md` | Shape Builder staged region-construction tool; deliberately separate from whole-object booleans |
 | `architecture/polygonal-lasso.md` | Polygonal lasso |
 | `architecture/skew-transforms.md` | Skew transform contract |
 | `architecture/touch-multi-select.md` | Touch and multi-select |
 | `architecture/viewport-guides-system.md` | Viewport guides contract |
 | `architecture/focus-navigation.md` | Focus and keyboard navigation contract |
 | `architecture/input-system-behavior-matrix.md` | Input behavior matrix |
+| `architecture/select-system.md` | Choice-control family: one-of-many controls that are not dropdowns (distinct from `selection-system.md`) |
+| `architecture/tab-system.md` | Tab-like controls boundary and the shared React API |
+| `architecture/notification-system.md` | Single transient-notification system (`ToastProvider`/`Toast` in `@varve/ui`) |
 | `audits/drawing-input-quality-audit-2026-09-13.md` | Pointer ownership, stylus dynamics, ChromeOS route boundaries, complaint-derived fixes, and validation evidence |
 | `architecture/inspector-feature-ownership.md` | Inspector feature ownership |
 | `architecture/selection-colors.md` | Selection-scoped vector paint collection, safe replacement, and inspector behavior |
@@ -356,6 +376,7 @@ The current automated and manual accessibility evidence matrix is in
 | `architecture/filesystem-boundary.md` | Cross-platform directory, path, storage, and native filesystem boundary |
 | `architecture/website-theme-contrast.md` | Website theme and WCAG contrast architecture |
 | `architecture/theme-system.md` | Canonical application colour tokens, theme lifecycle, persistence, synchronization, and authored-colour boundary |
+| `architecture/design-token-system.md` | Surface tiers, canvas identity, and the document-derived accent (surface tier of `theme-system.md`; token ownership and theme lifecycle live there) |
 | `architecture/multi-window-workspaces.md` | Detachable panels and native multi-monitor workspaces |
 | `architecture/multimodal-edit-plan.md` | Multimodal design edit plans and proposal boundary |
 | `architecture/halftone-system.md` | Halftone screening: canonical parameters, coordinates, tone mapping, export parity |
@@ -565,6 +586,10 @@ records; check the current code before acting on their findings.
 | `audits/minimap-repair-2026-09-05.md` | Minimap geometry, lifecycle, persistence, responsive, and marketing repair record |
 | `audits/drag-drop-repair-2026-09-06.md` | App-wide drag/drop inventory, repaired ownership defects, validation matrix, and known platform limits |
 | `audits/ui-visual-optimization-2026-09-09.md` | Evidence-based UI map, visual audit, design direction, implementation groups, and residual debt |
+| `audits/ui-visual-optimization-2026-09-12.md` | Follow-up UI/visual optimization pass driven by runtime measurement, including website surfaces |
+| `audits/ui-ux-panel-canvas-audit-2026-08-29.md` | Panel/canvas information UI audit: layer-tree semantics, splitter accessibility, drawer focus, selection HUD (moved from the repository root, 2026-09-19) |
+| `audits/ui-ux-panel-canvas-target-2026-08-29.md` | Target information architecture for panels, canvas readouts, and responsive chrome (moved from the repository root, 2026-09-19) |
+| `audits/ui-ux-panel-canvas-verification-2026-08-29.md` | Verification record for the panel/canvas remediation slices (moved from the repository root, 2026-09-19) |
 | `audits/illustration-workflow-improvement-2026-09-13.md` | Research-backed illustration/concept-art workflow slice: explicit smudge sampling, complaint evidence, validation, website claims, and deferred boundaries |
 | `audits/illustration-selection-fill-2026-09-13.md` | Selection-to-flats implementation evidence: sparse raster fill, target refusal, research, and deferred bucket-fill boundaries |
 | `audits/object-filters-design-review-2026-09-15.md` | Object Filters inspector redesign: sourced competitive evidence, catalog taxonomy, clutter budget, real-photo E2E verification, and three-theme visual validation record |

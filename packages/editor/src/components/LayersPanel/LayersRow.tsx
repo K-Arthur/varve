@@ -34,6 +34,7 @@ import {
   isNodeEffectivelyHidden,
   isNodeEffectivelyLocked,
 } from '../../scene/world';
+import type { LayersBadgeGroup } from '../../workspace/workspaceTypes';
 import { summarizeAdjustmentStack } from './adjustmentStackSummary';
 import { EffectStackTransferBadge } from './EffectStackTransferBadge';
 import {
@@ -122,6 +123,15 @@ export interface LayersRowProps {
   };
   /** True when the current layer filter matches this row by name. */
   searchMatch?: boolean;
+  /**
+   * Badge groups the active workspace pins. Groups not listed here are
+   * revealed on row hover/focus (CSS-only) and always remain in the row's
+   * accessible name. Absent means "pin everything" so isolated row renders
+   * (tests, Storybook) keep their previous behaviour.
+   */
+  pinnedBadgeGroups?: readonly LayersBadgeGroup[];
+  /** Whether the solo control is pinned rather than hover/focus-revealed. */
+  pinSolo?: boolean;
 }
 
 /** Deeper rows keep their real ARIA depth but stop indenting further, so the
@@ -175,8 +185,20 @@ export const LayersRow = memo(function LayersRow({
   onOpenAdjustment,
   effectStackDrop,
   searchMatch = false,
+  pinnedBadgeGroups,
+  pinSolo = true,
 }: LayersRowProps) {
   const [editValue, setEditValue] = useState(node.name);
+  // Workspace projection: badge groups the active workspace does not pin are
+  // revealed on row hover/focus (CSS-only) and remain in the accessible name.
+  // `undefined` pins every group, keeping isolated row renders (unit tests,
+  // Storybook) behaviourally identical to the pre-projection panel.
+  const badgeAttrs = (group: LayersBadgeGroup) =>
+    ({
+      'data-badge-group': group,
+      'data-badge-pinned':
+        pinnedBadgeGroups === undefined || pinnedBadgeGroups.includes(group) ? 'true' : 'false',
+    }) as const;
   const inputRef = useRef<HTMLInputElement>(null);
   const ghostName = useMemo(() => (doc ? autoName(doc, node) : null), [doc, node]);
   const isFrame = node.kind === 'frame';
@@ -199,6 +221,9 @@ export const LayersRow = memo(function LayersRow({
   const hasRealName = node.name.trim() !== '';
   const displayName = hasRealName ? node.name : (ghostName ?? node.name);
   const maskLabel = maskTypeLabel(node.mask);
+  // Workspace projections read from the document, never from node copies.
+  const emailMeta = doc?.emailSemantics?.nodes?.[node.id];
+  const isThreadedText = node.kind === 'text' && node.storyBinding?.storyId != null;
   const isEffectivelyLocked = doc ? isNodeEffectivelyLocked(doc, node.id) : node.locked;
   // Visibility inherits down: a child of a hidden group paints nothing even
   // though its own visible flag is still true. Distinguish that inherited
@@ -245,7 +270,20 @@ export const LayersRow = memo(function LayersRow({
     blendModeLabel || opacityLabel
       ? [blendModeLabel, opacityLabel].filter(Boolean).join(' ')
       : null;
+  // Full wording for the tooltip and accessible name: the visible chip is
+  // compact by necessity and may ellipsize on a narrow rail.
+  const appearanceDetail =
+    blendModeLabel || opacityLabel
+      ? [
+          blendModeLabel ? `Blend mode ${blendModeLabel}` : null,
+          opacityLabel ? `Opacity ${opacityLabel}` : null,
+        ]
+          .filter(Boolean)
+          .join(', ')
+      : null;
   const objectFilterCount = node.smartFilters?.length ?? 0;
+  const layerEffectCount =
+    'effects' in node && Array.isArray(node.effects) ? node.effects.length : 0;
   // The stack-level bypass (smartFiltersEnabled) is renderer truth — derive
   // the enabled count through the canonical resolver so the badge can never
   // disagree with what sceneToEngine actually draws.
@@ -271,6 +309,22 @@ export const LayersRow = memo(function LayersRow({
         // conveyed by appearance alone; the tinted row is the sighted cue).
         node.locked === true ? 'locked' : undefined,
         node.visible === false ? 'hidden' : undefined,
+        // Email visibility overrides and print threads are workspace
+        // projections; a hover-revealed badge must never be the only way to
+        // learn the state.
+        emailMeta?.hideOnMobile === true ? 'hidden on mobile' : undefined,
+        emailMeta?.hideOnDesktop === true ? 'hidden on desktop' : undefined,
+        isThreadedText ? 'threaded text' : undefined,
+        appearanceDetail,
+        // Effect stacks are visually represented by badges that can be
+        // hidden (narrow rails) or revealed (workspace projection); the
+        // row's name must carry the fact in every one of those states.
+        layerEffectCount > 0
+          ? `${layerEffectCount} layer effect${layerEffectCount === 1 ? '' : 's'}`
+          : undefined,
+        objectFilterCount > 0
+          ? `${objectFilterCount} object filter${objectFilterCount === 1 ? '' : 's'}`
+          : undefined,
       ]
         .filter((part): part is string => part != null)
         .join(', '),
@@ -577,70 +631,145 @@ export const LayersRow = memo(function LayersRow({
         <span className="layers-row__badges">
           {/* Animated-media badge (subtle, rows without animation unchanged) */}
           {!editing && doc && isAnimatedMediaNode(node, doc) && (
-            <Tooltip label={`Animated media: ${animatedFrameCount(doc, node)} frames`}>
-              <span
-                className="layers-row__media-badge"
-                role="status"
-                aria-label={`Animated: ${animatedFrameCount(doc, node)} frames`}
-              >
-                Animated · {animatedFrameCount(doc, node)}
-              </span>
-            </Tooltip>
+            <span className="layers-row__badge-slot" {...badgeAttrs('media')}>
+              <Tooltip label={`Animated media: ${animatedFrameCount(doc, node)} frames`}>
+                <span
+                  className="layers-row__media-badge"
+                  role="status"
+                  aria-label={`Animated: ${animatedFrameCount(doc, node)} frames`}
+                >
+                  Animated · {animatedFrameCount(doc, node)}
+                </span>
+              </Tooltip>
+            </span>
           )}
 
           {/* Grid layout indicator */}
           {node.kind === 'frame' &&
             (node as { layoutStyle?: { mode?: string } }).layoutStyle?.mode === 'grid' &&
             !editing && (
-              <Tooltip label="Grid layout">
-                <span className="layers-row__grid-indicator" role="img" aria-label="Grid layout">
-                  <SolidIcon name={SOLID_CHROME_ICONS.layoutGrid} size="0.75em" />
-                </span>
-              </Tooltip>
+              <span className="layers-row__badge-slot" {...badgeAttrs('layout')}>
+                <Tooltip label="Grid layout">
+                  <span className="layers-row__grid-indicator" role="img" aria-label="Grid layout">
+                    <SolidIcon name={SOLID_CHROME_ICONS.layoutGrid} size="0.75em" />
+                  </span>
+                </Tooltip>
+              </span>
             )}
 
           {/* Style indicator */}
           {nodeHasStyle(node) && !editing && (
-            <Tooltip label="Linked to style">
-              <span className="layers-row__style-indicator" role="img" aria-label="Linked to style">
-                <SolidIcon name={SOLID_CHROME_ICONS.palette} size="0.75em" />
-              </span>
-            </Tooltip>
+            <span className="layers-row__badge-slot" {...badgeAttrs('layout')}>
+              <Tooltip label="Linked to style">
+                <span
+                  className="layers-row__style-indicator"
+                  role="img"
+                  aria-label="Linked to style"
+                >
+                  <SolidIcon name={SOLID_CHROME_ICONS.palette} size="0.75em" />
+                </span>
+              </Tooltip>
+            </span>
           )}
 
           {/* Instance badge */}
-          {isInstance && !editing && <span className="layers-row__instance-badge">instance</span>}
+          {isInstance && !editing && (
+            <span className="layers-row__badge-slot" {...badgeAttrs('component')}>
+              <span className="layers-row__instance-badge">instance</span>
+            </span>
+          )}
           {/* Sync status indicator for component instances */}
           {isInstance && !editing && syncStatus && syncStatus !== 'synced' && (
-            <Tooltip
-              label={
-                syncStatus === 'overridden'
-                  ? 'Has local overrides'
-                  : 'Broken — master component not found'
-              }
-            >
-              <span className={`layers-row__sync-badge layers-row__sync-badge--${syncStatus}`}>
-                {syncStatus === 'overridden' ? 'modified' : 'broken'}
-              </span>
-            </Tooltip>
+            <span className="layers-row__badge-slot" {...badgeAttrs('component')}>
+              <Tooltip
+                label={
+                  syncStatus === 'overridden'
+                    ? 'Has local overrides'
+                    : 'Broken — master component not found'
+                }
+              >
+                <span className={`layers-row__sync-badge layers-row__sync-badge--${syncStatus}`}>
+                  {syncStatus === 'overridden' ? 'modified' : 'broken'}
+                </span>
+              </Tooltip>
+            </span>
           )}
           {/* Variant badge */}
           {isInstance && !editing && variantName && (
-            <span className="layers-row__variant-badge">{variantName}</span>
+            <span className="layers-row__badge-slot" {...badgeAttrs('component')}>
+              <span className="layers-row__variant-badge">{variantName}</span>
+            </span>
+          )}
+
+          {/* Email: per-block visibility overrides, projected from
+              `emailSemantics` (document-scoped, not node state). */}
+          {!editing && emailMeta?.hideOnMobile === true && (
+            <span className="layers-row__badge-slot" {...badgeAttrs('email')}>
+              <Tooltip label="Hidden on mobile">
+                <span
+                  className="layers-row__email-badge"
+                  role="img"
+                  aria-label="Hidden on mobile"
+                  data-email-visibility="hide-on-mobile"
+                >
+                  mobile hidden
+                </span>
+              </Tooltip>
+            </span>
+          )}
+          {!editing && emailMeta?.hideOnDesktop === true && (
+            <span className="layers-row__badge-slot" {...badgeAttrs('email')}>
+              <Tooltip label="Hidden on desktop">
+                <span
+                  className="layers-row__email-badge"
+                  role="img"
+                  aria-label="Hidden on desktop"
+                  data-email-visibility="hide-on-desktop"
+                >
+                  desktop hidden
+                </span>
+              </Tooltip>
+            </span>
+          )}
+
+          {/* Print: a text frame bound to a story thread that continues
+              across frames. Thread editing stays a text-tool concern; the
+              row only states the relationship. */}
+          {!editing && isThreadedText && (
+            <span className="layers-row__badge-slot" {...badgeAttrs('print')}>
+              <Tooltip
+                label={
+                  node.kind === 'text' && node.storyBinding?.threadIndex != null
+                    ? `Story thread frame ${node.storyBinding.threadIndex + 1}`
+                    : 'Threaded text frame'
+                }
+              >
+                <span
+                  className="layers-row__thread-badge"
+                  role="img"
+                  aria-label="Threaded text frame"
+                  data-thread-frame="true"
+                >
+                  thread
+                </span>
+              </Tooltip>
+            </span>
           )}
 
           {/* Adjustment type badge */}
           {node.kind === 'adjustment' && !editing && (
-            <span
-              className="layers-row__adjustment-badge"
-              role="img"
-              aria-label={
-                adjustmentSummary && adjustmentSummary.totalCount > 0
-                  ? `${adjustmentSummary.activeCount} of ${adjustmentSummary.totalCount} adjustments active`
-                  : `Legacy adjustment type: ${(node as AdjustmentNode).adjustmentType}`
-              }
-            >
-              {adjustmentBadgeText}
+            <span className="layers-row__badge-slot" {...badgeAttrs('mask')}>
+              <span
+                className="layers-row__adjustment-badge"
+                role="img"
+                aria-label={
+                  adjustmentSummary && adjustmentSummary.totalCount > 0
+                    ? `${adjustmentSummary.activeCount} of ${adjustmentSummary.totalCount} adjustments active`
+                    : `Legacy adjustment type: ${(node as AdjustmentNode).adjustmentType}`
+                }
+              >
+                {adjustmentBadgeText}
+              </span>
             </span>
           )}
           {/* Adjustment scope badge */}
@@ -667,88 +796,112 @@ export const LayersRow = memo(function LayersRow({
                       ? 'Container descendants'
                       : 'Document-wide';
               return (
-                <span className="layers-row__scope-badge" role="img" aria-label={title}>
-                  {label}
+                <span className="layers-row__badge-slot" {...badgeAttrs('mask')}>
+                  <span className="layers-row__scope-badge" role="img" aria-label={title}>
+                    {label}
+                  </span>
                 </span>
               );
             })()}
 
           {/* Motion indicator dot */}
           {hasMotion && !editing && (
-            <span className="layers-row__motion-dot" role="img" aria-label="Has animation" />
+            <span className="layers-row__badge-slot" {...badgeAttrs('motion')}>
+              <span className="layers-row__motion-dot" role="img" aria-label="Has animation" />
+            </span>
           )}
 
           {/* Keyframe count badge */}
           {keyframeCount != null && keyframeCount > 0 && !editing && (
-            <span className="layers-row__keyframe-badge">{keyframeCount}</span>
+            <span className="layers-row__badge-slot" {...badgeAttrs('motion')}>
+              <span className="layers-row__keyframe-badge">{keyframeCount}</span>
+            </span>
           )}
 
           {/* Mask indicator badge — inactive masks remain visible so the row
             explains the document structure instead of disappearing when the
             mask is toggled off. */}
           {maskLabel && !editing && (
-            <Tooltip label={maskLabel}>
-              <span
-                className={`layers-row__mask-badge layers-row__mask-badge--${node.mask?.type ?? 'clip'}${node.mask?.visible === false ? ' layers-row__mask-badge--disabled' : ''}`}
-                role="img"
-                aria-label={maskLabel}
-              >
-                {node.mask?.type === 'clip' ? 'clip mask' : `${node.mask?.type} mask`}
-              </span>
-            </Tooltip>
+            <span className="layers-row__badge-slot" {...badgeAttrs('mask')}>
+              <Tooltip label={maskLabel}>
+                <span
+                  className={`layers-row__mask-badge layers-row__mask-badge--${node.mask?.type ?? 'clip'}${node.mask?.visible === false ? ' layers-row__mask-badge--disabled' : ''}`}
+                  role="img"
+                  aria-label={maskLabel}
+                >
+                  {node.mask?.type === 'clip' ? 'clip mask' : `${node.mask?.type} mask`}
+                </span>
+              </Tooltip>
+            </span>
           )}
 
           {maskRole && !editing && (
-            <Tooltip label={maskRole === 'source' ? 'Clipping mask source' : 'Clipped content'}>
-              <span
-                className={`layers-row__mask-role layers-row__mask-role--${maskRole}`}
-                role="img"
-                aria-label={maskRole === 'source' ? 'Clipping mask source' : 'Clipped content'}
-                data-mask-role={maskRole}
-              >
-                {maskRole === 'source' ? 'mask' : 'clipped'}
-              </span>
-            </Tooltip>
+            <span className="layers-row__badge-slot" {...badgeAttrs('mask')}>
+              <Tooltip label={maskRole === 'source' ? 'Clipping mask source' : 'Clipped content'}>
+                <span
+                  className={`layers-row__mask-role layers-row__mask-role--${maskRole}`}
+                  role="img"
+                  aria-label={maskRole === 'source' ? 'Clipping mask source' : 'Clipped content'}
+                  data-mask-role={maskRole}
+                >
+                  {maskRole === 'source' ? 'mask' : 'clipped'}
+                </span>
+              </Tooltip>
+            </span>
           )}
 
-          {/* Blend mode / opacity badge */}
-          {badgeText && !editing && <span className="layers-row__badge">{badgeText}</span>}
+          {/* Blend mode / opacity badge — the full wording is in the tooltip
+              and the row's accessible name, so an ellipsized chip on a narrow
+              rail never becomes an unreadable fragment. */}
+          {badgeText && appearanceDetail && !editing && (
+            <span className="layers-row__badge-slot" {...badgeAttrs('appearance')}>
+              <Tooltip label={appearanceDetail}>
+                <span className="layers-row__badge" role="img" aria-label={appearanceDetail}>
+                  {badgeText}
+                </span>
+              </Tooltip>
+            </span>
+          )}
 
           {/* Effects badge — drop shadow, blur, glow, etc. */}
           {'effects' in node && node.effects && node.effects.length > 0 && !editing && (
-            <EffectStackTransferBadge
-              sourceId={node.id}
-              sourceName={node.name}
-              kind="layer-effects"
-              count={node.effects.length}
-              onCopyToSelected={() => onCopyEffectStack?.(node.id, 'layer-effects')}
-              onOpen={
-                onOpenEffectStack ? () => onOpenEffectStack(node.id, 'layer-effects') : undefined
-              }
-            >
-              {node.effects.length}fx
-            </EffectStackTransferBadge>
+            <span className="layers-row__badge-slot" {...badgeAttrs('appearance')}>
+              <EffectStackTransferBadge
+                sourceId={node.id}
+                sourceName={node.name}
+                kind="layer-effects"
+                count={node.effects.length}
+                onCopyToSelected={() => onCopyEffectStack?.(node.id, 'layer-effects')}
+                onOpen={
+                  onOpenEffectStack ? () => onOpenEffectStack(node.id, 'layer-effects') : undefined
+                }
+              >
+                {node.effects.length}fx
+              </EffectStackTransferBadge>
+            </span>
           )}
 
           {/* Object Filter indicator — filters are node-local, so keep their
             presence discoverable in the layer tree without pretending they
             are separate scene nodes. */}
           {objectFilterCount > 0 && !editing && (
-            <EffectStackTransferBadge
-              sourceId={node.id}
-              sourceName={node.name}
-              kind="object-filters"
-              count={objectFilterCount}
-              statusLabel={`${enabledObjectFilterCount} of ${objectFilterCount} Object Filters enabled on ${node.name}: ${objectFilterSummary?.tooltip ?? ''}`}
-              onCopyToSelected={() => onCopyEffectStack?.(node.id, 'object-filters')}
-              onOpen={
-                onOpenEffectStack ? () => onOpenEffectStack(node.id, 'object-filters') : undefined
-              }
-            >
-              {objectFilterSummary?.label}
-              {enabledObjectFilterCount !== objectFilterCount &&
-                ` · ${enabledObjectFilterCount}/${objectFilterCount}`}
-            </EffectStackTransferBadge>
+            <span className="layers-row__badge-slot" {...badgeAttrs('appearance')}>
+              <EffectStackTransferBadge
+                sourceId={node.id}
+                sourceName={node.name}
+                kind="object-filters"
+                count={objectFilterCount}
+                statusLabel={`${enabledObjectFilterCount} of ${objectFilterCount} Object Filters enabled on ${node.name}: ${objectFilterSummary?.tooltip ?? ''}`}
+                onCopyToSelected={() => onCopyEffectStack?.(node.id, 'object-filters')}
+                onOpen={
+                  onOpenEffectStack ? () => onOpenEffectStack(node.id, 'object-filters') : undefined
+                }
+              >
+                {objectFilterSummary?.label}
+                {enabledObjectFilterCount !== objectFilterCount &&
+                  ` · ${enabledObjectFilterCount}/${objectFilterCount}`}
+              </EffectStackTransferBadge>
+            </span>
           )}
         </span>
 
@@ -851,10 +1004,16 @@ export const LayersRow = memo(function LayersRow({
           )}
         </button>
 
-        {/* Solo toggle — focus the canvas on just this layer (and any others also soloed). */}
+        {/* Solo toggle — focus the canvas on just this layer (and any others also soloed).
+            Where the workspace does not pin it, the control is revealed on
+            row hover/focus; it is always reachable from the context menu and
+            the bulk bar, and touch devices always render it. A soloed row
+            keeps it visible so the active state is never hidden. */}
         {onToggleSolo && (
           <button
             type="button"
+            data-row-action="solo"
+            data-row-action-pinned={pinSolo || isSoloed ? 'true' : 'false'}
             className={`layers-row__toggle ${
               isSoloed ? 'layers-row__toggle--solo-on' : 'layers-row__toggle--solo-off'
             }`}

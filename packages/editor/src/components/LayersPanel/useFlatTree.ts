@@ -14,7 +14,7 @@
  * (expensive, recursive, with filter logic).
  */
 
-import type { Document, FrameNode, NodeId, Page, SceneNode } from '@varve/scene';
+import type { Document, NodeId, Page, SceneNode } from '@varve/scene';
 import { isContainer } from '@varve/scene';
 import { useMemo, useRef } from 'react';
 import {
@@ -22,6 +22,7 @@ import {
   isFiltering,
   type LayerFilterSpec,
   nodeMatchesFilter,
+  nodeMatchesNonSearch,
 } from './layerFilterTypes';
 
 export interface FlatEntry {
@@ -64,18 +65,6 @@ function annotateSiblingMetadata(entries: FlatEntry[]): FlatEntry[] {
       siblingCount: siblingCounts.get(entry.parentId) ?? 1,
     };
   });
-}
-
-function isComponentFrame(node: SceneNode): node is FrameNode {
-  return node.kind === 'frame' && node.componentId != null;
-}
-
-function hasEffects(node: SceneNode): boolean {
-  return ((node as unknown as { effects?: unknown[] }).effects?.length ?? 0) > 0;
-}
-
-function hasMask(node: SceneNode): boolean {
-  return (node as SceneNode & { mask?: unknown }).mask != null;
 }
 
 // ── Diff utilities ─────────────────────────────────────────────────────────
@@ -257,53 +246,22 @@ export function flattenTree(
   designCanvasId?: NodeId,
 ): FlatEntry[] {
   const filtering = isFiltering(filterSpec);
-  const hasSearchIndex = matchedIds !== undefined && filterSpec.search !== '';
+  // Index-backed dimensions carry their match set in `matchedIds`: name search
+  // (from the search index) and the animated preset (from the motion
+  // keyframe map). Both resolve to the same "restrict to these ids" contract.
+  const hasSearchIndex =
+    matchedIds !== undefined &&
+    (filterSpec.search !== '' || filterSpec.attributes.animated != null);
+  const filterContext = {
+    doc,
+    animatedIds: filterSpec.attributes.animated != null ? matchedIds : undefined,
+  };
 
   // Corrupt-document guard: children arrays can reference the same id twice,
   // or a damaged parent chain can loop (A → B → A). A node must project at
   // most once per flatten; without this a cycle would recurse until the
   // stack overflows and take the whole panel down with it.
   const seen = new Set<NodeId>();
-
-  function matchesAllExceptSearch(node: SceneNode, spec: LayerFilterSpec): boolean {
-    if (spec.kinds.length > 0) {
-      const effectiveKind: SceneNode['kind'] | 'component' = isComponentFrame(node)
-        ? 'component'
-        : node.kind;
-      if (!spec.kinds.includes(effectiveKind) && !spec.kinds.includes(node.kind)) return false;
-    }
-
-    const attr = spec.attributes;
-    if (attr.locked !== undefined && node.locked !== attr.locked) return false;
-    if (attr.visible !== undefined && node.visible !== attr.visible) return false;
-    if (attr.hasChildren !== undefined) {
-      const hasCh = isContainer(node) && node.children.length > 0;
-      if (hasCh !== attr.hasChildren) return false;
-    }
-    if (attr.isComponent !== undefined) {
-      const isComp = isComponentFrame(node);
-      if (isComp !== attr.isComponent) return false;
-    }
-    if (attr.isInstance !== undefined) {
-      const isInst = isComponentFrame(node);
-      if (isInst !== attr.isInstance) return false;
-    }
-    if (attr.hasEffects !== undefined) {
-      const hasFx = hasEffects(node);
-      if (hasFx !== attr.hasEffects) return false;
-    }
-    if (attr.isMasked !== undefined) {
-      const isMasked = hasMask(node);
-      if (isMasked !== attr.isMasked) return false;
-    }
-    if (attr.layerColor !== undefined && node.layerColor !== attr.layerColor) return false;
-
-    if (spec.blendModes.length > 0) {
-      if (!spec.blendModes.includes(node.blendMode!)) return false;
-    }
-
-    return true;
-  }
 
   function walk(
     parentId: NodeId | null,
@@ -340,9 +298,10 @@ export function flattenTree(
       let nodeMatches = true;
       if (filtering && nid !== pinnedId) {
         if (hasSearchIndex) {
-          nodeMatches = matchedIds?.has(nid) && matchesAllExceptSearch(node, filterSpec);
+          nodeMatches =
+            matchedIds?.has(nid) === true && nodeMatchesNonSearch(node, filterSpec, filterContext);
         } else {
-          nodeMatches = nodeMatchesFilter(node, filterSpec);
+          nodeMatches = nodeMatchesFilter(node, filterSpec, filterContext);
         }
       }
       const hasMatchingChildren = childEntries.length > 0;

@@ -1,0 +1,102 @@
+# Layers Panel — Workspace-Aware Evolution (2026-09-19)
+
+> **Coordinator note:** This document is the live ownership + progress record for
+> the workspace-aware Layers panel pass. It follows the deferred-item record in
+> `docs/plans/layers-panel-deferred.md` (last updated 2026-09-17) and treats the
+> committed `master` state as the baseline.
+
+## Claimed areas
+
+- `packages/editor/src/components/LayersPanel/**` (panel, tree, row, filters,
+  presentation, workspace projection)
+- `packages/editor/src/workspace/workspaceTypes.ts` + `workspaceStore.ts`
+  (additive `layersPanel` config field + resolver/sanitizer)
+- `packages/editor/src/workspace/workspaceBaseline.test.ts` (config contract)
+- Additive shared primitives in `packages/ui/src/components/**` **only if the
+  Inspector agent has not already added an equivalent**; new files, no edits to
+  existing primitives without checking the Inspector plan first
+- E2E: new `tests/e2e/layers/workspace-evolution.spec.ts` plus additions to
+  existing layers specs
+- Docs: this file, `docs/research/layers-panel-research.md`,
+  `docs/audits/layers-panel-audit-2026-09-19.md`,
+  `docs/design-system/layers-panel-spec.md`, `docs/README.md`
+- Evidence: `reports/layers-evolution/baseline/**`,
+  `reports/layers-evolution/after/**`, `reports/layers-evolution/perf/**`
+
+## Explicitly NOT claimed (other agents / out of scope)
+
+- `packages/scene/src/types.ts` and `masks.ts` are **dirty in the working tree
+  from another agent** (background-removal provenance fields). No schema change
+  is made by this pass; any schema item is specified and deferred with a reason.
+- `packages/editor/src/components/Inspector/**` — owned by the Inspector
+  redesign agent (see `docs/plans/inspector-design-tab-redesign.md`, which
+  reports Phase 6 complete). Consume its tokens; do not fork them.
+- `packages/editor/src/components/Shell/**`, `context.tsx`, `CanvasArea.tsx` —
+  DO NOT TOUCH (hub files at import ceilings).
+- `packages/engine/src/font/**`, `packages/editor/src/components/FontBrowser/**`
+  — other agents.
+
+## Phase log
+
+| Date | Phase | Status | Notes |
+|---|---|---|---|
+| 2026-09-19 | 0 — inventory & baseline | done | Panel map complete; baseline matrix + scale perf + 50k projection bench captured under `reports/layers-evolution/baseline/` |
+| 2026-09-19 | 1 — research | done | `docs/research/layers-panel-research.md` (InDesign, Mailchimp/Stripo/Beefree/Klaviyo, Photoshop, Figma/Sketch, After Effects/Rive/Jitter, Krita/Procreate/Affinity, Dev Mode) |
+| 2026-09-19 | 2 — audit | done | `docs/audits/layers-panel-audit-2026-09-19.md` (AUD-001…008, clutter inventory, REQ-001…013) |
+| 2026-09-19 | 3 — spec | done | `docs/design-system/layers-panel-spec.md` |
+| 2026-09-19 | 4 — implementation | done (phase 1–5) | Workspace projection (`layersPanel` config), badge/row-action reveal, Email mobile-hidden, Motion animated preset, Print thread/export-region presets, Select matches, appearance-label overflow fix |
+| 2026-09-19 | 5 — validation | done | 409 panel+workspace unit tests, 8 new E2E tests, axe clean, 50k projection bench, after-matrix screenshots |
+| 2026-09-19 | 6 — report | pending | |
+
+## Implementation log
+
+| Unit | Requirement → finding | Change |
+|---|---|---|
+| IMPL-001 | REQ-001 → AUD-001 | `LayersPanelWorkspaceConfig` (`pinnedBadgeGroups`, `pinnedRowActions`, `quickFilters`, `searchPlaceholder`) in `workspaceTypes.ts`, declared for all eight modes, resolved via `useEffectiveWorkspaceConfig`; contract test in `workspace/layersPanelConfig.test.ts` |
+| IMPL-002 | REQ-002 → AUD-003 | Badge slots carry `data-badge-group`/`data-badge-pinned`; non-pinned groups reveal on hover/focus with `display: contents` (no layout shift) and always remain in the row's accessible name |
+| IMPL-003 | REQ-003 → AUD-002 | Solo reveal is now row-scoped so it also wins on a selected row (previously visible-but-dead); Photo pins it |
+| IMPL-004 | REQ-004 → AUD-005 | Email mobile-hidden badge + quick filter projected from `emailSemantics`; attribute dimensions `mobileHidden`/`mobileOnly` |
+| IMPL-005 | REQ-005 | Motion animated preset: `attributes.animated` resolved through a caller-computed id set (same index-backed contract as search) |
+| IMPL-006 | REQ-006 → AUD-006 | Print thread badge (story binding) + `threadedText`/`exportRegion` filter dimensions |
+| IMPL-007 | REQ-007 → AUD-004 | `Select matches` button + `selectMatches()` on the tree handle; announces the count, no undo entry |
+| IMPL-008 | user request → AUD-009 | Appearance labels: effect-stack label wrapped in an ellipsizing span; chips shrinkable with tooltip + `aria-label`; blend mode/opacity/effect/filter counts added to the row's accessible name; container-query capacity rules (≤340px label yields first, ≤260px one readable appearance chip and no hover-displacement, unpinned solo slot yields on hover-capable devices only) |
+| IMPL-009 | REQ-008 | `layersScaleProjection.bench.test.ts` records 1k/10k/50k flatten + search + kind + animated timings |
+| IMPL-010 | REQ-009 | E2E `workspace-evolution.spec.ts` (6 tests) + overflow spec extension; drive-by typecheck fixes in `useFlatTree.test.ts`/`layerDropResolver.test.ts` |
+
+## Reproduce the evidence
+
+`reports/` is gitignored, so the evidence is regenerated, not committed:
+
+```bash
+# 1k/10k/50k projection timings (baseline used the same command with VARVE_LAYERS_PHASE=baseline)
+VARVE_LAYERS_PHASE=after npx vitest run --config vitest.bench.config.ts \
+  packages/editor/src/components/LayersPanel/__benchmarks__/layersScaleProjection.bench.test.ts \
+  --testTimeout=300000
+
+# workspace × theme matrix, scale, and realistic-document screenshots
+VARVE_E2E_PORT=1437 VARVE_LAYERS_PHASE=after \
+  node scripts/quality/heavy-lease.mjs "e2e: layers after evidence" -- \
+  npx playwright test tests/e2e/layers/layers-workspace-evolution.spec.ts \
+  --project=chromium --workers=1 --reporter=list
+
+# interaction + accessibility coverage
+VARVE_E2E_PORT=1437 node scripts/quality/heavy-lease.mjs "e2e: layers" -- \
+  npx playwright test tests/e2e/layers --project=chromium --workers=1 --reporter=list
+```
+
+## Deferred in this pass
+
+- REQ-010 non-printing flag and REQ-011 alpha lock are **schema changes**;
+  specified in the spec §7, not implemented (scene files are dirty from
+  another agent; a versioned migration + full gate is required).
+- REQ-012 trace badge / REQ-013 frame thumbnails and the optional APG `*`
+  key remain roadmap items.
+
+## Working rules for this pass
+
+- Work directly on `master`; no branch or worktree.
+- Stage explicit paths only. Never `git add -A` / `git add .`.
+- `git fetch` + `git status` before every commit; never force-push.
+- Playwright only through `scripts/quality/heavy-lease.mjs` with a unique
+  `VARVE_E2E_PORT`.
+- Every change traces to a Phase-2 audit finding or a Phase-3 spec entry.

@@ -718,17 +718,7 @@ describe('flattenTree — shared precomputed diff', () => {
     const shared = computeDocumentDiff(doc, renamedDoc);
     expect(shared.structureChanged).toBe(false);
 
-    const second = flattenTree(
-      renamedDoc,
-      expanded,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      shared,
-    );
+    const second = flattenTree(renamedDoc, expanded);
     expect(second.map((e) => e.node.name)).toEqual(['B', 'A renamed']);
     // Same projection shape as an internally computed diff would produce.
     expect(second.map((e) => e.node.id)).toEqual(first.map((e) => e.node.id));
@@ -753,17 +743,7 @@ describe('flattenTree — shared precomputed diff', () => {
     const shared = computeDocumentDiff(doc, addedDoc);
     expect(shared.structureChanged).toBe(true);
 
-    const entries = flattenTree(
-      addedDoc,
-      new Set(addedDoc.rootChildren),
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      shared,
-    );
+    const entries = flattenTree(addedDoc, new Set(addedDoc.rootChildren));
     expect(entries.map((e) => e.node.id)).toEqual([newId, shapeId]);
   });
 });

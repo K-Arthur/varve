@@ -10,6 +10,7 @@ import type { Virtualizer } from '@tanstack/react-virtual';
 import { getInstanceStatus, type NodeId, type SceneNode } from '@varve/scene';
 import { type ComponentProps, memo } from 'react';
 import { useEditor } from '../../context';
+import type { LayersBadgeGroup } from '../../workspace/workspaceTypes';
 import { useEffectStackDrag } from '../Shell/effectStackDragContext';
 import { LayersRow } from './LayersRow';
 import { usePresence } from './presenceStore';
@@ -63,6 +64,13 @@ export interface SortableVirtualRowProps {
   ) => void;
   onOpenEffectStack: (id: NodeId, kind: import('@varve/scene').EffectStackKind) => void;
   onOpenAdjustment: (id: NodeId) => void;
+  /**
+   * Badge groups the active workspace pins (passed through to the row).
+   * `undefined` pins every group.
+   */
+  pinnedBadgeGroups?: readonly LayersBadgeGroup[];
+  /** Whether the solo control is pinned rather than hover/focus-revealed. */
+  pinSolo?: boolean;
 }
 
 function SortableVirtualRowImpl({
@@ -105,6 +113,8 @@ function SortableVirtualRowImpl({
   onCopyEffectStack,
   onOpenEffectStack,
   onOpenAdjustment,
+  pinnedBadgeGroups,
+  pinSolo,
 }: SortableVirtualRowProps) {
   const totalRows = virtualizer.options.count;
   const { state: editorState, revealSelection } = useEditor();
@@ -225,6 +235,8 @@ function SortableVirtualRowImpl({
         variantName={variantName}
         hasMotion={hasMotion}
         keyframeCount={keyframeCount}
+        pinnedBadgeGroups={pinnedBadgeGroups}
+        pinSolo={pinSolo}
         maskRole={maskRole}
         syncStatus={syncStatus}
         presences={presences}

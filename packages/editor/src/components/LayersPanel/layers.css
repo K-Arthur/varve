@@ -981,9 +981,11 @@
   padding: 0 var(--space-1);
   margin-left: auto;
   white-space: nowrap;
+  /* Shrinks last-resort with an ellipsis rather than a hard cut; the full
+     value is in the tooltip and the row's accessible name. */
   flex-shrink: 1;
   min-width: 0;
-  max-width: 8rem;
+  max-width: 9rem;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -998,7 +1000,22 @@
   font: inherit;
   line-height: 1.35;
   min-height: 1.25rem;
+  /* The badge is the widest optional label on a row ("3 Object Filters enabled"),
+     so it is the one that yields first: shrinkable, ellipsized, and fully
+     described by its `aria-label` and tooltip. */
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 11rem;
+  overflow: hidden;
   touch-action: none;
+}
+
+.layers-row__effect-stack-badge-label {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .layers-row__effect-stack-badge:active,
@@ -1352,13 +1369,18 @@
   color: var(--color-text-primary);
 }
 .layers-filter-bar__chip--active {
-  background: var(--color-interactive-default);
-  color: var(--color-text-on-accent);
-  border-color: var(--color-interactive-default);
+  /* `accent-on-subtle` on `accent-subtle` is an audited AA token pair. The
+     previous `interactive-default` + `text-on-accent` combination resolved to
+     dark-on-dark in the light theme (axe: 1.87:1) and is the reason active
+     chips were unreadable. */
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-on-subtle);
+  border-color: color-mix(in oklab, var(--color-accent-primary) 55%, transparent);
 }
 .layers-filter-bar__chip--active:hover {
-  background: var(--color-interactive-hover);
-  border-color: var(--color-interactive-hover);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-on-subtle);
+  border-color: var(--color-accent-primary);
 }
 .layers-filter-bar__chip--inverse {
   border-color: var(--color-feedback-warning);
@@ -1897,4 +1919,198 @@
   .layers-bulk-bar__actions::-webkit-scrollbar {
     display: none;
   }
+}
+
+/* ─── Workspace projection: badge and row-action revelation ──────────────
+   A workspace pins the badge groups it considers primary; every other group
+   is revealed on row hover/focus. `display: contents` keeps the slot wrapper
+   out of layout, so revealing a badge shifts no geometry beyond the badge
+   cluster itself. Revealed badges are never the only way to learn state:
+   the row's accessible name and the context menu carry the same facts. */
+.layers-row__badge-slot {
+  display: contents;
+}
+
+.layers-row__badge-slot[data-badge-pinned="false"] {
+  display: none;
+}
+
+.layers-row:hover .layers-row__badge-slot[data-badge-pinned="false"],
+.layers-row:focus-within .layers-row__badge-slot[data-badge-pinned="false"] {
+  display: contents;
+}
+
+/* Solo keeps its existing hover-reveal mechanism (`--solo-off` opacity), but
+   the reveal is restated at row scope so it also wins on a *selected* row:
+   `.layers-row--selected .layers-row__toggle` previously forced opacity .85
+   while `--solo-off` kept `pointer-events: none`, so an unpinned solo star
+   looked clickable on the selected row and was not. Pinning it for a
+   workspace (Photo) makes it visible without hover; the context menu and bulk
+   bar always offer the action. No layout shift: the 24px slot is reserved in
+   every state. */
+.layers-row [data-row-action="solo"][data-row-action-pinned="false"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.layers-row:hover [data-row-action="solo"][data-row-action-pinned="false"],
+.layers-row:focus-within [data-row-action="solo"][data-row-action-pinned="false"] {
+  opacity: 0.65;
+  pointer-events: auto;
+}
+
+.layers-row [data-row-action="solo"][data-row-action-pinned="true"] {
+  opacity: 0.65;
+  pointer-events: auto;
+}
+
+.layers-row:hover [data-row-action="solo"][data-row-action-pinned="true"],
+.layers-row:focus-within [data-row-action="solo"][data-row-action-pinned="true"] {
+  opacity: 0.9;
+}
+
+/* Pointer-precision-less inputs always show the full row. */
+@media (hover: none), (pointer: coarse) {
+  .layers-row__badge-slot[data-badge-pinned="false"] {
+    display: contents;
+  }
+
+  .layers-row [data-row-action="solo"],
+  .layers-row__toggle--solo-off {
+    opacity: 0.75;
+    pointer-events: auto;
+  }
+}
+
+/* Email mobile/desktop visibility override — document-scoped projection. */
+.layers-row__email-badge {
+  align-items: center;
+  border: 1px solid color-mix(in oklab, var(--color-feedback-warning) 48%, transparent);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-feedback-warning);
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+  padding: 0 var(--space-1);
+  white-space: nowrap;
+}
+
+/* Print story thread — a text frame that continues in another frame. */
+.layers-row__thread-badge {
+  align-items: center;
+  border: 1px solid color-mix(in oklab, var(--color-accent-primary) 48%, transparent);
+  border-radius: var(--radius-control-compact);
+  color: var(--color-accent-primary);
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.25;
+  padding: 0 var(--space-1);
+  white-space: nowrap;
+}
+
+/* ─── Workspace filter presets ──────────────────────────────────────────── */
+
+/* Narrow rails: appearance labels yield first, with an ellipsis rather than a
+   hard clip, and the full value stays in the tooltip + accessible name. The
+   row's visibility/lock toggles never move — their positions are fixed from
+   the right edge, so shrinking labels cannot displace them. */
+@container layers (max-width: 340px) {
+  /* The name yields before the badges do: it already ellipsizes, and a
+     badge that shrinks to zero width tells the user nothing. */
+  .layers-row__label {
+    flex-shrink: 3;
+  }
+
+  .layers-row__badge {
+    max-width: 4.5rem;
+  }
+
+  .layers-row__effect-stack-badge {
+    max-width: 4.5rem;
+  }
+}
+
+@container layers (max-width: 260px) {
+  /* At the documented 180px minimum only one chip fits next to the icon
+     stack, the label, and the visibility/lock toggles. Keep the
+     blend/opacity summary (the row's most frequent at-a-glance state) and
+     yield the rest: the effects and filter chips stay in the row's
+     accessible name, their Inspector sections, and the effect-badge
+     tooltips at wider widths. */
+  .layers-row__badges {
+    min-width: 1.5rem;
+  }
+
+  .layers-row__badge {
+    max-width: 3.25rem;
+    /* Keep a readable minimum: a badge squeezed to a few pixels is noise. */
+    min-width: 1.5rem;
+  }
+
+  .layers-row__effect-stack-badge,
+  .layers-row__mask-role {
+    display: none;
+  }
+
+  /* Revealed groups stay hidden here: a hover-revealed chip would displace
+     the pinned one the user is relying on, and the state is already in the
+     row's accessible name. */
+  .layers-row:hover .layers-row__badge-slot[data-badge-pinned="false"],
+  .layers-row:focus-within .layers-row__badge-slot[data-badge-pinned="false"] {
+    display: none;
+  }
+}
+
+/* At the documented minimum width (180px) the row cannot hold every slot.
+   The unpinned solo control is the cheapest one to drop: it is already a
+   hover-revealed convenience, and Solo remains in the context menu, the bulk
+   bar, and the command palette. Touch/coarse-pointer devices keep it (the
+   block below only applies where hover exists). */
+@media (hover: hover) and (pointer: fine) {
+  @container layers (max-width: 260px) {
+    .layers-row [data-row-action="solo"][data-row-action-pinned="false"] {
+      display: none;
+    }
+  }
+}
+.layers-filter-bar__quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: 0 var(--space-2) var(--space-1);
+}
+
+.layers-filter-bar__chip--quick {
+  min-height: var(--target-min-compact);
+}
+
+.layers-filter-bar__count {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.layers-filter-bar__select-matches {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-raised, transparent);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--font-size-xs);
+  min-height: var(--target-min-compact);
+  padding: 0 var(--space-2);
+}
+
+.layers-filter-bar__select-matches:hover {
+  background: var(--color-surface-sunken);
+}
+
+.layers-filter-bar__select-matches:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
 }

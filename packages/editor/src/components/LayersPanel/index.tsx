@@ -14,6 +14,7 @@ import {
   documentHasSolo,
   type EffectStackKind,
   type EffectStackPayload,
+  getNodesInTimeline,
   isContainer,
   isVisualMaskTarget,
   LAYER_COLOR_LABELS,
@@ -44,6 +45,8 @@ import { type LayersSettingsStore, loadSettings, updateSettings } from '../../se
 import { applyThumbnailPreference } from '../../thumbnail/thumbnailCommands';
 import { openThumbnailPicker } from '../../thumbnail/thumbnailPickerBridge';
 import { usePanelLocalState } from '../../workspace/panelLocalState';
+import { useEffectiveWorkspaceConfig } from '../../workspace/useWorkspaceConfig';
+import { resolveLayersPanelConfig } from '../../workspace/workspaceTypes';
 import { BatchRenameDialog } from '../BatchRename/BatchRenameDialog';
 import { PanelDetachButton, PanelDragHandle } from '../PanelDragHandle';
 import { LayerBulkBar } from './LayerBulkBar';
@@ -125,6 +128,14 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     'filterSpec',
     DEFAULT_FILTER,
   );
+  // One resolver: the active workspace's Layers projection. Every field is
+  // consumed below (badges/row actions by the tree, quick filters and
+  // placeholder by the filter bar); see docs/design-system/layers-panel-spec.md.
+  const workspaceConfig = useEffectiveWorkspaceConfig(state.workspaceMode);
+  const layersPanelConfig = useMemo(
+    () => resolveLayersPanelConfig(workspaceConfig),
+    [workspaceConfig],
+  );
   const anySolo = useMemo(() => documentHasSolo(state.document), [state.document]);
   const [contextMenu, setContextMenu] = useState<{
     anchor: OverlayAnchor;
@@ -158,9 +169,11 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
   );
   const matchCount = useMemo(() => {
     if (!isFiltering(filterSpec)) return totalCount;
+    const animatedIds =
+      filterSpec.attributes.animated === true ? getNodesInTimeline(state.document) : undefined;
     return countActiveSurfaceNodesMatching(
       state.document,
-      (node) => nodeMatchesFilter(node, filterSpec),
+      (node) => nodeMatchesFilter(node, filterSpec, { doc: state.document, animatedIds }),
       designCanvasId,
     );
   }, [state.document, filterSpec, totalCount, designCanvasId]);
@@ -776,11 +789,15 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
         onChange={setFilterSpec}
         matchCount={matchCount}
         totalCount={totalCount}
+        quickFilters={layersPanelConfig.quickFilters}
+        searchPlaceholder={layersPanelConfig.searchPlaceholder}
+        onSelectMatches={() => dndRef?.current?.selectMatches()}
       />
 
       <LayersTree
         ref={dndRef}
         filterSpec={filterSpec}
+        layersConfig={layersPanelConfig}
         onContextMenu={handleContextMenu}
         onContextMenuKeyboard={handleContextMenuKeyboard}
         onToggleSolo={(id) => {

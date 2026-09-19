@@ -125,8 +125,12 @@ test.describe('Layers row badge overflow', () => {
     const decorated = await decorateNodeWithBadges(page, nodeId!);
     expect(decorated).toBeTruthy();
     // Sanity: the badges we just set are actually rendered (proves the
-    // scenario is real, not a no-op mutation).
+    // scenario is real, not a no-op mutation). Design does not pin the mask
+    // group, so the mask badge is hover/focus-revealed — its state is in the
+    // row's accessible name and the context menu while hidden.
     await expect(row.locator('.layers-row__badge')).toContainText('Multiply');
+    await expect(row.locator('.layers-row__mask-badge')).toHaveCount(1);
+    await row.hover();
     await expect(row.locator('.layers-row__mask-badge')).toBeVisible();
 
     // Drive the panel to its documented minimum width (APG window-splitter:
@@ -146,11 +150,8 @@ test.describe('Layers row badge overflow', () => {
     const lockToggle = row
       .locator('button[aria-label*="Lock"], button[aria-label*="Unlock"]')
       .first();
-    const soloToggle = row
-      .locator('button[aria-label*="Solo"], button[aria-label*="Unsolo"]')
-      .first();
 
-    for (const toggle of [visToggle, lockToggle, soloToggle]) {
+    for (const toggle of [visToggle, lockToggle]) {
       await expect(toggle).toBeVisible();
       const box = await toggle.boundingBox();
       expect(box).not.toBeNull();
@@ -161,6 +162,82 @@ test.describe('Layers row badge overflow', () => {
       expect(box!.width).toBeGreaterThan(0);
     }
 
+    // Capacity decision at the documented 180px minimum: the unpinned solo
+    // slot yields so the blend/opacity chip keeps a readable width. Solo is
+    // not lost — it stays in the row's context menu (and the bulk bar,
+    // command palette, touch devices, and the Photo workspace's pinned slot).
+    const soloToggle = row.locator('[data-row-action="solo"]');
+    await expect(soloToggle).toHaveCount(1);
+    expect(await soloToggle.evaluate((el) => getComputedStyle(el).display)).toBe('none');
+    await row.click({ button: 'right', position: { x: 40, y: 10 } });
+    const menu = page.getByRole('menu');
+    await expect(menu.getByRole('menuitem', { name: 'Solo' })).toBeVisible();
+    await page.keyboard.press('Escape');
+
     await panel.screenshot({ path: 'reports/layers-row-badge-overflow-min-width.png' });
+  });
+
+  test('blend and effect labels ellipsize with their full value still available', async ({
+    page,
+  }) => {
+    await navigateToEditor(page);
+    await seedLayers(page, 1);
+
+    const row = page.getByRole('treeitem').first();
+    await expect(row).toBeVisible();
+    const nodeId = await row.getAttribute('data-node-id');
+    expect(nodeId).toBeTruthy();
+    await decorateNodeWithBadges(page, nodeId!);
+
+    const blend = row.locator('.layers-row__badge');
+    const effects = row.locator(
+      '.layers-row__effect-stack-badge[data-effect-stack-kind="layer-effects"]',
+    );
+    await expect(blend).toBeVisible();
+    await expect(effects).toBeVisible();
+
+    // At the default width both are fully readable.
+    await expect(blend).toHaveText('Multiply 50%');
+    await expect(blend).toHaveAttribute('aria-label', 'Blend mode Multiply, Opacity 50%');
+    await expect(effects).toHaveAttribute('aria-label', /Layer Effect/);
+
+    // Drive the panel to its documented minimum width.
+    const handle = page.getByRole('separator', { name: 'Resize layers panel' });
+    await handle.focus();
+    await handle.press('Home');
+    await page.waitForTimeout(150);
+
+    // A truncated label must be an ellipsis, never a hard clip — and it must
+    // not shrink to nothing or be clipped out of the panel: a badge the user
+    // cannot read is worse than a short one. The blend/opacity chip keeps real
+    // width at the documented 180px minimum, inside the panel's own bounds.
+    const minPanel = await page.locator('.layers-panel').boundingBox();
+    expect(minPanel).not.toBeNull();
+    const blendBox = await blend.boundingBox();
+    expect(blendBox).not.toBeNull();
+    expect(blendBox!.width).toBeGreaterThan(20);
+    expect(blendBox!.x).toBeGreaterThanOrEqual(minPanel!.x);
+    expect(blendBox!.x + blendBox!.width).toBeLessThanOrEqual(minPanel!.x + minPanel!.width + 1);
+    // The effects chip yields at this width (capacity decision, documented in
+    // the spec); its state stays in the row's accessible name.
+    expect(await effects.evaluate((el) => getComputedStyle(el).display)).toBe('none');
+    await expect(row).toHaveAttribute('aria-label', /1 layer effect/);
+
+    const style = await effects.locator('.layers-row__effect-stack-badge-label').evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { overflow: cs.overflow, textOverflow: cs.textOverflow, whiteSpace: cs.whiteSpace };
+    });
+    expect(style.overflow).toBe('hidden');
+    expect(style.textOverflow).toBe('ellipsis');
+    expect(style.whiteSpace).toBe('nowrap');
+
+    const rowOverflow = await row.evaluate((el) => ({
+      scrollWidth: el.scrollWidth,
+      clientWidth: el.clientWidth,
+    }));
+    expect(rowOverflow.scrollWidth).toBeLessThanOrEqual(rowOverflow.clientWidth + 1);
+
+    // The full value stays reachable without hover: the accessible name.
+    await expect(effects).toHaveAttribute('aria-label', /on /);
   });
 });

@@ -109,6 +109,9 @@ export function EffectStackTransferBadge({
   const tooltip = onOpen
     ? `Click to edit ${kind === 'layer-effects' ? 'Layer Effects' : 'Object Filters'} in ${destinationLabel}. Drag to replace the stack on another layer; hold Alt/Option to append. Shift-click to copy to selected layers without dragging.`
     : `Drag to replace ${kind === 'layer-effects' ? 'Layer Effects' : 'Object Filters'} on another layer. Hold Alt/Option to append instead. Select target layers, then activate to copy without dragging.`;
+  // One composed label for the accessible name and the hover tooltip: a chip
+  // that ellipsizes on a narrow rail must still offer its full meaning.
+  const accessibleLabel = `${statusLabel ?? label} on ${sourceName}. ${tooltip}`;
 
   return (
     // The row needs to stop the pointer event from also activating its
@@ -116,14 +119,14 @@ export function EffectStackTransferBadge({
     // pointer-down handler, so explicitly close the hoverable portal while a
     // drag is active. Otherwise it can remain under the pointer and shadow a
     // destination row during a long drag.
-    <Tooltip label={tooltip} open={isDragging ? false : undefined}>
+    <Tooltip label={accessibleLabel} open={isDragging ? false : undefined}>
       <button
         ref={setNodeRef}
         type="button"
         className={`layers-row__effect-stack-badge layers-row__${
           kind === 'layer-effects' ? 'effects' : 'object-filter'
         }-badge${isDragging ? ' layers-row__effect-stack-badge--dragging' : ''}`}
-        aria-label={`${statusLabel ?? label} on ${sourceName}. ${tooltip}`}
+        aria-label={accessibleLabel}
         data-effect-stack-kind={kind}
         {...attributes}
         {...dndListeners}
@@ -131,7 +134,9 @@ export function EffectStackTransferBadge({
         onPointerMove={handlePointerMove}
         onClick={handleClick}
       >
-        {children}
+        {/* The visible label is a real element so a narrow panel can
+            ellipsize it instead of hard-clipping mid-glyph. */}
+        <span className="layers-row__effect-stack-badge-label">{children}</span>
       </button>
     </Tooltip>
   );

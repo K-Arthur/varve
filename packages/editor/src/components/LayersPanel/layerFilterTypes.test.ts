@@ -1,5 +1,12 @@
 import type { Affine } from '@varve/engine';
-import { createDocument, makeFrameNode, makeShapeNode, nextNodeId } from '@varve/scene';
+import {
+  createDocument,
+  DEFAULT_EMAIL_SEMANTIC,
+  DEFAULT_EMAIL_SEMANTIC_MAP,
+  makeFrameNode,
+  makeShapeNode,
+  nextNodeId,
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_FILTER, type LayerFilterSpec, nodeMatchesFilter } from './layerFilterTypes';
 
@@ -270,5 +277,85 @@ describe('nodeMatchesFilter', () => {
     expect(
       nodeMatchesFilter(uncolored, { ...DEFAULT_FILTER, attributes: { layerColor: null } }),
     ).toBe(true);
+  });
+});
+
+describe('nodeMatchesFilter — workspace projections', () => {
+  it('projects email mobile visibility from the document, not the node', () => {
+    const node = makeTestShape();
+    const doc = {
+      ...createDocument(),
+      emailSemantics: {
+        ...DEFAULT_EMAIL_SEMANTIC_MAP,
+        nodes: { [node.id]: { ...DEFAULT_EMAIL_SEMANTIC, hideOnMobile: true } },
+      },
+    };
+    const hidden = { ...DEFAULT_FILTER, attributes: { mobileHidden: true } };
+    const notHidden = { ...DEFAULT_FILTER, attributes: { mobileHidden: false } };
+
+    expect(nodeMatchesFilter(node, hidden, { doc })).toBe(true);
+    expect(nodeMatchesFilter(node, notHidden, { doc })).toBe(false);
+    // A design document carries no email semantics: the dimension is inert.
+    expect(nodeMatchesFilter(node, hidden, { doc: createDocument() })).toBe(false);
+    // Without a document the predicate cannot evaluate the dimension.
+    expect(nodeMatchesFilter(node, hidden)).toBe(false);
+  });
+
+  it('projects desktop visibility from hideOnDesktop', () => {
+    const node = makeTestShape();
+    const doc = {
+      ...createDocument(),
+      emailSemantics: {
+        ...DEFAULT_EMAIL_SEMANTIC_MAP,
+        nodes: { [node.id]: { ...DEFAULT_EMAIL_SEMANTIC, hideOnDesktop: true } },
+      },
+    };
+    expect(
+      nodeMatchesFilter(node, { ...DEFAULT_FILTER, attributes: { mobileOnly: true } }, { doc }),
+    ).toBe(true);
+  });
+
+  it('filters threaded text frames by story binding', () => {
+    const threaded = {
+      ...makeTestText(),
+      storyBinding: { storyId: 'story-1' as import('@varve/scene').NodeId, threadIndex: 0 },
+    };
+    const plain = makeTestText();
+    expect(
+      nodeMatchesFilter(threaded, { ...DEFAULT_FILTER, attributes: { threadedText: true } }),
+    ).toBe(true);
+    expect(
+      nodeMatchesFilter(plain, { ...DEFAULT_FILTER, attributes: { threadedText: true } }),
+    ).toBe(false);
+    // Non-text nodes can never be threaded.
+    expect(
+      nodeMatchesFilter(makeTestShape(), {
+        ...DEFAULT_FILTER,
+        attributes: { threadedText: false },
+      }),
+    ).toBe(true);
+  });
+
+  it('filters export regions by frame role', () => {
+    const region = makeTestFrame({ frameRole: 'exportRegion' });
+    const plain = makeTestFrame();
+    expect(
+      nodeMatchesFilter(region, { ...DEFAULT_FILTER, attributes: { exportRegion: true } }),
+    ).toBe(true);
+    expect(
+      nodeMatchesFilter(plain, { ...DEFAULT_FILTER, attributes: { exportRegion: true } }),
+    ).toBe(false);
+  });
+
+  it('filters animated nodes by the caller-provided id set', () => {
+    const animatedNode = makeTestShape();
+    const staticNode = makeTestShape();
+    const animatedIds = new Set([animatedNode.id]);
+    const filter = { ...DEFAULT_FILTER, attributes: { animated: true } };
+
+    expect(nodeMatchesFilter(animatedNode, filter, { animatedIds })).toBe(true);
+    expect(nodeMatchesFilter(staticNode, filter, { animatedIds })).toBe(false);
+    // Without the set the dimension cannot claim a match.
+    expect(nodeMatchesFilter(animatedNode, filter)).toBe(false);
   });
 });

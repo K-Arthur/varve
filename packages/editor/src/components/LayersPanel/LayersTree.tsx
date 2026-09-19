@@ -60,6 +60,10 @@ import { applySelectionRange, selectionRangeBetween } from '../../selection/sele
 import { loadSettings } from '../../settings';
 import { appliedRowHeight, subscribeInterfaceDensity } from '../../settings/interfaceDensity';
 import { usePanelLocalState } from '../../workspace/panelLocalState';
+import {
+  DEFAULT_LAYERS_PANEL_CONFIG,
+  type LayersPanelWorkspaceConfig,
+} from '../../workspace/workspaceTypes';
 import { getEffectStackInspectorTarget } from './effectStackNavigation';
 import type { LayerDropTarget } from './layerDropResolver';
 import {
@@ -320,6 +324,11 @@ export interface LayersTreeProps {
   onContextMenuKeyboard?: (id: NodeId, focusedRow?: HTMLElement) => void;
   /** Toggle the solo flag on a node (focus mode). */
   onToggleSolo?: (id: NodeId) => void;
+  /**
+   * Active workspace's Layers projection. Absent resolves to the Design
+   * default, so a caller that does not care (composition tests) is unchanged.
+   */
+  layersConfig?: LayersPanelWorkspaceConfig;
 }
 
 /** Handlers exposed to the parent DndContext and LayersPanel via ref. */
@@ -348,10 +357,22 @@ export interface LayersDnDHandle {
   indentSelection: (nodeId?: NodeId) => void;
   /** Non-drag reparenting: move the anchored selection out of its container. */
   outdentSelection: (nodeId?: NodeId) => void;
+  /**
+   * Select every row in the current filtered projection (the "Select matches"
+   * action). One editor selection change, announced; selection is not artwork
+   * history, so this creates no undo entry.
+   */
+  selectMatches: () => void;
 }
 
 export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function LayersTree(
-  { filterSpec = DEFAULT_FILTER, onContextMenu, onContextMenuKeyboard, onToggleSolo },
+  {
+    filterSpec = DEFAULT_FILTER,
+    onContextMenu,
+    onContextMenuKeyboard,
+    onToggleSolo,
+    layersConfig = DEFAULT_LAYERS_PANEL_CONFIG,
+  },
   ref,
 ) {
   const {
@@ -472,19 +493,35 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     return next;
   }, [state.document, docDiff]);
 
-  // Pre-compute matched IDs via search index when filtering by name
-  const matchedIds = useMemo<Set<NodeId> | undefined>(() => {
-    if (!filterSpec.search) return undefined;
-    const ids = searchIndex(searchIdx, filterSpec.search);
-    return new Set(ids);
-  }, [searchIdx, filterSpec.search]);
-
-  // Pre-compute animated nodes for motion indicators
+  // Pre-compute animated nodes for motion indicators (one pass per document
+  // revision) and reuse the same set for the animated filter preset.
   const animatedNodes = useMemo(() => getNodesInTimeline(state.document), [state.document]);
   const keyframeCounts = useMemo(
     () => computeKeyframeCounts(state.document, animatedNodes),
     [state.document, animatedNodes],
   );
+
+  // Pre-compute matched IDs for index-backed dimensions: name search (via the
+  // search index) and the animated preset (via the timeline node set). The
+  // projection restricts to this set; the row name highlight uses the
+  // search-only set so a preset never looks like a text match.
+  const searchMatchedIds = useMemo<Set<NodeId> | undefined>(() => {
+    if (!filterSpec.search) return undefined;
+    const ids = searchIndex(searchIdx, filterSpec.search);
+    return new Set(ids);
+  }, [searchIdx, filterSpec.search]);
+
+  const filterMatchedIds = useMemo<Set<NodeId> | undefined>(() => {
+    const animatedActive = filterSpec.attributes.animated === true;
+    if (!searchMatchedIds && !animatedActive) return undefined;
+    if (!animatedActive) return searchMatchedIds;
+    if (!searchMatchedIds) return new Set(animatedNodes);
+    const intersection = new Set<NodeId>();
+    for (const id of searchMatchedIds) {
+      if (animatedNodes.has(id)) intersection.add(id);
+    }
+    return intersection;
+  }, [searchMatchedIds, filterSpec.attributes.animated, animatedNodes]);
 
   // Convert selection array to a Set for O(1) lookup in row toggle handlers
   const selectedIdSet = useMemo(() => new Set(state.selection), [state.selection]);
@@ -539,7 +576,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     state.document,
     expanded,
     filterSpec,
-    matchedIds,
+    filterMatchedIds,
     state.workspaceMode === 'print' ? (state.document.activePageId ?? undefined) : undefined,
     state.isolatedNodeId ?? undefined,
     state.masterEditId ?? undefined,
@@ -789,6 +826,24 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     },
     [state.document],
   );
+
+  /**
+   * Select every row in the current filtered projection.
+   *
+   * Search and filters already reveal matches with their ancestry; without
+   * this, acting on 40 filtered layers means hand-selecting each one (the
+   * Photoshop "Not Visible" workflow has no Varve equivalent). Selection is
+   * editor state, not artwork, so this is deliberately not an undo entry.
+   */
+  const handleSelectMatches = useCallback(() => {
+    if (entries.length === 0) return;
+    const ids = entries.map((entry) => entry.node.id);
+    const primary = ids[0]!;
+    setSelectionRefs(ids, { primary, origin: 'layers' });
+    anchorIdRef.current = primary;
+    setAnchorIdx(0);
+    announce(`${ids.length} layer${ids.length === 1 ? '' : 's'} selected`);
+  }, [entries, setSelectionRefs, announce, setAnchorIdx]);
 
   const activateLayer = useCallback(
     (id: NodeId) => {
@@ -1078,6 +1133,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       startRename: handleRenameStart,
       indentSelection: handleIndentSelection,
       outdentSelection: handleOutdentSelection,
+      selectMatches: handleSelectMatches,
       expandAncestors: (nodeId: NodeId) => {
         setExpanded((prev) => {
           const next = new Set(prev);
@@ -1192,7 +1248,11 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       // Keep the tree root in the normal Tab order. Rows still use roving
       // tabindex for arrow navigation, but keyboard users must have a
       // reliable way to reach the panel without guessing its Tab position.
-      tabIndex={hasTreeItems ? 0 : undefined}
+      // The empty/filtered-empty state keeps the same Tab stop: a scrollable
+      // region with no focusable content fails WCAG 2.1.1 (axe
+      // `scrollable-region-focusable`), and the empty state is the content
+      // keyboard users need to reach ("clear filters", "add a shape").
+      tabIndex={0}
       // Stable focus target when a dialog opened from this panel closes and
       // its invoker (a context-menu item) no longer exists.
       data-dialog-focus-fallback={hasTreeItems ? '' : undefined}
@@ -1249,9 +1309,11 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                 virtualizer={virtualizer}
                 dropClass={dropClass}
                 dropClip={dropClip}
-                searchMatch={matchedIds?.has(node.id) ?? false}
+                searchMatch={searchMatchedIds?.has(node.id) ?? false}
                 hasMotion={animatedNodes.has(node.id)}
                 keyframeCount={keyframeCounts.get(node.id) ?? 0}
+                pinnedBadgeGroups={layersConfig.pinnedBadgeGroups}
+                pinSolo={layersConfig.pinnedRowActions.includes('solo')}
                 maskRole={maskRole}
                 onToggleExpand={toggleExpand}
                 onExpandSubtree={handleExpandSubtree}

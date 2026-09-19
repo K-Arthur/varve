@@ -587,3 +587,103 @@ describe('LayersRow double-click icon', () => {
     expect(container.querySelector('.layers-row__name')?.textContent).toBe('Page 1');
   });
 });
+
+describe('LayersRow — workspace projection', () => {
+  const maskedGroup = () =>
+    makeNode('n1', 'Masked group', 'group', {
+      children: [],
+      mask: { type: 'clip', sourceNodeId: 'n2', visible: true },
+    });
+
+  it('pins every badge group when no projection is provided (isolated renders)', () => {
+    const { container } = renderRow({ node: maskedGroup() });
+    const slot = container.querySelector('[data-badge-group="mask"]');
+    expect(slot).not.toBeNull();
+    expect(slot).toHaveAttribute('data-badge-pinned', 'true');
+  });
+
+  it('marks groups the workspace does not pin as revealed', () => {
+    const { container } = renderRow({
+      node: maskedGroup(),
+      pinnedBadgeGroups: ['appearance'],
+    });
+    const slot = container.querySelector('[data-badge-group="mask"]');
+    expect(slot).toHaveAttribute('data-badge-pinned', 'false');
+  });
+
+  it('keeps the badge state in the accessible name regardless of pinning', () => {
+    const { container } = renderRow({
+      node: maskedGroup(),
+      pinnedBadgeGroups: [],
+    });
+    const row = container.querySelector('[role="treeitem"]');
+    expect(row?.getAttribute('aria-label')).toContain('mask');
+  });
+
+  it('pins solo only when the workspace configures it', () => {
+    const onToggleSolo = vi.fn();
+    const { container } = renderRow({ onToggleSolo, pinSolo: false });
+    expect(container.querySelector('[data-row-action="solo"]')).toHaveAttribute(
+      'data-row-action-pinned',
+      'false',
+    );
+  });
+
+  it('marks solo pinned when the workspace configures it', () => {
+    const onToggleSolo = vi.fn();
+    const { container } = renderRow({ onToggleSolo, pinSolo: true });
+    expect(container.querySelector('[data-row-action="solo"]')).toHaveAttribute(
+      'data-row-action-pinned',
+      'true',
+    );
+  });
+});
+
+describe('LayersRow — appearance labels', () => {
+  it('labels the blend/opacity chip with its full wording and states it on the row', () => {
+    const node = makeNode('n1', 'Treated hero', 'shape', {
+      blendMode: 'multiply',
+      opacity: 0.5,
+    } as Partial<SceneNode>);
+    const { container } = renderRow({ node });
+
+    const badge = container.querySelector('.layers-row__badge');
+    expect(badge?.textContent).toBe('Multiply 50%');
+    // Compact visible text, complete accessible label.
+    expect(badge).toHaveAttribute('aria-label', 'Blend mode Multiply, Opacity 50%');
+
+    const row = container.querySelector('[role="treeitem"]');
+    const rowLabel = row?.getAttribute('aria-label') ?? '';
+    expect(rowLabel).toContain('Blend mode Multiply');
+    expect(rowLabel).toContain('Opacity 50%');
+  });
+
+  it('omits the appearance chip entirely for a default layer', () => {
+    const { container } = renderRow({ node: makeNode('n1', 'Plain layer') });
+    expect(container.querySelector('.layers-row__badge')).toBeNull();
+    expect(container.querySelector('[role="treeitem"]')?.getAttribute('aria-label')).not.toContain(
+      'Blend mode',
+    );
+  });
+
+  it('announces opacity alone when the blend mode is default', () => {
+    const node = makeNode('n1', 'Faded layer', 'shape', { opacity: 0.4 } as Partial<SceneNode>);
+    const { container } = renderRow({ node });
+    expect(container.querySelector('.layers-row__badge')?.textContent).toBe('40%');
+    expect(container.querySelector('.layers-row__badge')).toHaveAttribute(
+      'aria-label',
+      'Opacity 40%',
+    );
+  });
+
+  it('states layer effects and object filters in the row name even when their chips are hidden', () => {
+    const node = makeNode('n1', 'Treated hero', 'shape', {
+      effects: [{ id: 'fx-1', type: 'blur', visible: true, opacity: 0.5, blendMode: 'normal' }],
+      smartFilters: [{ id: 'sf-1', kind: 'brightness', visible: true, opacity: 1, value: 20 }],
+    } as unknown as Partial<SceneNode>);
+    const { container } = renderRow({ node });
+    const rowLabel = container.querySelector('[role="treeitem"]')?.getAttribute('aria-label') ?? '';
+    expect(rowLabel).toContain('1 layer effect');
+    expect(rowLabel).toContain('1 object filter');
+  });
+});

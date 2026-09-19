@@ -70,6 +70,75 @@ export interface PanelConfig {
 export type PanelLayout = Record<PanelId, PanelConfig>;
 
 // ---------------------------------------------------------------------------
+// Layers panel workspace projection
+// ---------------------------------------------------------------------------
+
+/**
+ * Badge groups the Layers panel renders on a row. A workspace pins the groups
+ * it considers primary; every other group is revealed on row hover/focus (and
+ * always present in the row's accessible name and the context menu).
+ *
+ * The vocabulary is declarative: the panel maps each id to the scene facts it
+ * projects. Adding a group here without a consumer in
+ * `components/LayersPanel/` violates the "no decorative config" invariant.
+ */
+export type LayersBadgeGroup =
+  | 'component'
+  | 'layout'
+  | 'motion'
+  | 'mask'
+  | 'appearance'
+  | 'media'
+  | 'email'
+  | 'print'
+  | 'trace';
+
+/**
+ * One-click filter presets offered by the filter bar. Presets compose with the
+ * existing kind/attribute/blend filters by AND.
+ */
+export type LayersQuickFilter =
+  | 'animated'
+  | 'mobile-hidden'
+  | 'threaded-text'
+  | 'export-regions'
+  | 'masks'
+  | 'components';
+
+/**
+ * Per-workspace Layers panel projection. All fields are consumed at runtime by
+ * `components/LayersPanel/`; see `docs/design-system/layers-panel-spec.md` §2.
+ */
+export interface LayersPanelWorkspaceConfig {
+  /** Badge groups rendered persistently; the rest are hover/focus-revealed. */
+  pinnedBadgeGroups: LayersBadgeGroup[];
+  /** Row actions rendered persistently; the rest reveal on hover/focus. */
+  pinnedRowActions: Array<'solo'>;
+  /** One-click presets presented in the filter bar. */
+  quickFilters: LayersQuickFilter[];
+  /** Search field placeholder copy. */
+  searchPlaceholder: string;
+}
+
+/**
+ * The fallback projection for a mode (or a persisted payload) that declares
+ * none: the Design defaults, which pin the least and reveal the most.
+ */
+export const DEFAULT_LAYERS_PANEL_CONFIG: LayersPanelWorkspaceConfig = {
+  pinnedBadgeGroups: ['component', 'layout', 'appearance'],
+  pinnedRowActions: [],
+  quickFilters: ['components'],
+  searchPlaceholder: 'Filter layers…',
+};
+
+/** Resolve a mode's Layers projection, falling back to the Design default. */
+export function resolveLayersPanelConfig(
+  config: Pick<WorkspaceConfig, 'layersPanel'> | undefined,
+): LayersPanelWorkspaceConfig {
+  return config?.layersPanel ?? DEFAULT_LAYERS_PANEL_CONFIG;
+}
+
+// ---------------------------------------------------------------------------
 // Toolbar composition
 // ---------------------------------------------------------------------------
 
@@ -265,6 +334,11 @@ export interface WorkspaceConfig {
   statusSections: StatusSectionConfig[];
   /** Canvas overlays active by default. */
   canvasOverlays: CanvasOverlayConfig;
+  /**
+   * Layers panel projection for this workspace. Optional in persisted or
+   * future payloads; `resolveLayersPanelConfig` supplies the Design default.
+   */
+  layersPanel?: LayersPanelWorkspaceConfig;
   /** Onboarding and mode metadata. */
   onboarding: OnboardingConfig;
   /** Show the floating toolbar. */
@@ -371,6 +445,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'shapeBuilder' },
         { toolId: 'text', groupStart: true },
         { toolId: 'frame' },
+        { toolId: 'panel' },
         { toolId: 'table' },
         { toolId: 'select', groupStart: true },
         { toolId: 'lasso' },
@@ -427,6 +502,12 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       layoutGrid: false,
       baselineGrid: false,
     },
+    layersPanel: {
+      pinnedBadgeGroups: ['component', 'layout', 'appearance'],
+      pinnedRowActions: [],
+      quickFilters: ['components'],
+      searchPlaceholder: 'Filter layers…',
+    },
     onboarding: {
       description:
         'UI/UX design, components, tokens, responsive layouts, prototyping, and developer handoff.',
@@ -469,6 +550,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'shapeBuilder' },
         { toolId: 'text', groupStart: true },
         { toolId: 'frame' },
+        { toolId: 'panel' },
         { toolId: 'table' },
         { toolId: 'select', groupStart: true },
         { toolId: 'lasso' },
@@ -526,6 +608,12 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       layoutGrid: false,
       baselineGrid: false,
     },
+    layersPanel: {
+      pinnedBadgeGroups: ['print', 'appearance'],
+      pinnedRowActions: [],
+      quickFilters: ['threaded-text', 'export-regions'],
+      searchPlaceholder: 'Filter layers…',
+    },
     onboarding: {
       description:
         'Multi-page layouts, typography, preflight, colour management, and production output.',
@@ -576,6 +664,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'eyedropper' },
         { toolId: 'pixelProbe' },
         { toolId: 'frame' },
+        { toolId: 'panel' },
         { toolId: 'table' },
         { toolId: 'sam2Segment', groupStart: true },
       ],
@@ -622,6 +711,12 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       bleedGuides: false,
       layoutGrid: false,
       baselineGrid: false,
+    },
+    layersPanel: {
+      pinnedBadgeGroups: ['mask', 'appearance'],
+      pinnedRowActions: [],
+      quickFilters: ['masks'],
+      searchPlaceholder: 'Filter layers…',
     },
     onboarding: {
       description:
@@ -733,6 +828,12 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       layoutGrid: false,
       baselineGrid: false,
     },
+    layersPanel: {
+      pinnedBadgeGroups: ['mask', 'appearance', 'media'],
+      pinnedRowActions: ['solo'],
+      quickFilters: ['masks'],
+      searchPlaceholder: 'Filter layers…',
+    },
     onboarding: {
       description:
         'Nondestructive photo editing, retouching, selections, adjustments, masking, and compositing.',
@@ -832,6 +933,12 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       layoutGrid: false,
       baselineGrid: false,
     },
+    layersPanel: {
+      pinnedBadgeGroups: ['component', 'layout'],
+      pinnedRowActions: [],
+      quickFilters: ['components'],
+      searchPlaceholder: 'Filter layers…',
+    },
     onboarding: {
       description:
         'Design-to-code export, design audit, accessibility checks, and specification output.',
@@ -927,6 +1034,12 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       layoutGrid: false,
       baselineGrid: false,
     },
+    layersPanel: {
+      pinnedBadgeGroups: ['component', 'appearance'],
+      pinnedRowActions: [],
+      quickFilters: ['components'],
+      searchPlaceholder: 'Filter layers…',
+    },
     onboarding: {
       description:
         'Logo design: wordmarks, marks, monograms, badges, clear-space, and brand systems on a transparent canvas.',
@@ -1011,6 +1124,12 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       bleedGuides: false,
       layoutGrid: false,
       baselineGrid: false,
+    },
+    layersPanel: {
+      pinnedBadgeGroups: ['motion'],
+      pinnedRowActions: [],
+      quickFilters: ['animated'],
+      searchPlaceholder: 'Filter layers…',
     },
     onboarding: {
       description:
@@ -1101,6 +1220,12 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       bleedGuides: false,
       layoutGrid: false,
       baselineGrid: false,
+    },
+    layersPanel: {
+      pinnedBadgeGroups: ['email', 'appearance'],
+      pinnedRowActions: [],
+      quickFilters: ['mobile-hidden'],
+      searchPlaceholder: 'Filter layers…',
     },
     onboarding: {
       description:

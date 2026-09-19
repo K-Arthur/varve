@@ -462,7 +462,7 @@ describe('resolveLayerDropTarget — filtered tree policy', () => {
       pointerY: ROW + 4,
       viewport: { top: 0, bottom: 400 },
       contentTop: 0,
-      activeIds: [a],
+      activeIds: [a!],
       isDescendant: (ancestorId, nodeId) => ancestorId === nodeId,
     });
     expect(target?.targetId).toBe(b);

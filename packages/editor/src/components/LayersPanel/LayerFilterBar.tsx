@@ -1,6 +1,7 @@
 import type { BlendMode, LayerColor } from '@varve/scene';
 import { SearchField, SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
 import { useCallback, useRef, useState } from 'react';
+import type { LayersQuickFilter } from '../../workspace/workspaceTypes';
 import { LayerColorTagPicker } from './LayerColorTagPicker';
 import { DEFAULT_FILTER, type LayerFilterSpec } from './layerFilterTypes';
 
@@ -9,7 +10,55 @@ interface LayerFilterBarProps {
   onChange: (filter: LayerFilterSpec) => void;
   matchCount: number;
   totalCount: number;
+  /** One-click presets configured by the active workspace. */
+  quickFilters?: readonly LayersQuickFilter[];
+  /** Workspace-provided search placeholder copy. */
+  searchPlaceholder?: string;
+  /** Select every row in the current filtered projection. */
+  onSelectMatches?: () => void;
 }
+
+/**
+ * Attribute dimensions whose value is a boolean flag. Restricting the quick
+ * filter target to these keys keeps `attributes[key] = true` type-safe (a
+ * union key over the whole interface includes `layerColor`, whose type is not
+ * boolean).
+ */
+type BooleanAttributeKey =
+  | 'locked'
+  | 'visible'
+  | 'hasChildren'
+  | 'isComponent'
+  | 'isInstance'
+  | 'hasEffects'
+  | 'isMasked'
+  | 'mobileHidden'
+  | 'mobileOnly'
+  | 'threadedText'
+  | 'exportRegion'
+  | 'animated';
+
+/**
+ * Quick-filter presets map onto the same attribute dimensions as the advanced
+ * chips; a preset is therefore a shortcut, never a second filter model.
+ */
+const QUICK_FILTER_TARGET: Record<LayersQuickFilter, BooleanAttributeKey> = {
+  animated: 'animated',
+  'mobile-hidden': 'mobileHidden',
+  'threaded-text': 'threadedText',
+  'export-regions': 'exportRegion',
+  masks: 'isMasked',
+  components: 'isComponent',
+};
+
+const QUICK_FILTER_LABELS: Record<LayersQuickFilter, string> = {
+  animated: 'Animated',
+  'mobile-hidden': 'Mobile hidden',
+  'threaded-text': 'Threaded text',
+  'export-regions': 'Export regions',
+  masks: 'Masked',
+  components: 'Components',
+};
 
 const KIND_CHIPS: { value: LayerFilterSpec['kinds'][number]; label: string }[] = [
   { value: 'shape', label: 'Shape' },
@@ -57,7 +106,15 @@ const BLEND_CHIPS: { value: BlendMode; label: string }[] = [
   { value: 'exclusion', label: 'Exclusion' },
 ];
 
-export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: LayerFilterBarProps) {
+export function LayerFilterBar({
+  filter,
+  onChange,
+  matchCount,
+  totalCount,
+  quickFilters = [],
+  searchPlaceholder = 'Filter layers…',
+  onSelectMatches,
+}: LayerFilterBarProps) {
   const [expanded, setExpanded] = useState(false);
   const filterRef = useRef<HTMLInputElement>(null);
 
@@ -120,6 +177,18 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
     filterRef.current?.focus();
   }, [onChange]);
 
+  const toggleQuickFilter = useCallback(
+    (preset: LayersQuickFilter) => {
+      const key = QUICK_FILTER_TARGET[preset];
+      const wasActive = filter.attributes[key] === true;
+      const merged: LayerFilterSpec['attributes'] = { ...filter.attributes };
+      merged[key] = true;
+      if (wasActive) delete merged[key];
+      onChange({ ...filter, attributes: merged });
+    },
+    [filter, onChange],
+  );
+
   return (
     <search className="layers-filter-bar" aria-label="Filter layers">
       <div className="layers-filter-bar__search-row">
@@ -127,7 +196,7 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
           ref={filterRef}
           value={filter.search}
           onChange={(v) => onChange({ ...filter, search: v })}
-          placeholder="Filter layers…"
+          placeholder={searchPlaceholder}
           aria-label="Filter layers by name"
           resultCount={matchCount}
         />
@@ -248,9 +317,38 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
         </fieldset>
       )}
 
+      {quickFilters.length > 0 && (
+        <div className="layers-filter-bar__quick" role="group" aria-label="Workspace filters">
+          {quickFilters.map((preset) => {
+            const key = QUICK_FILTER_TARGET[preset];
+            const active = filter.attributes[key] === true;
+            return (
+              <button
+                key={preset}
+                type="button"
+                aria-pressed={active}
+                className={`layers-filter-bar__chip layers-filter-bar__chip--quick${active ? ' layers-filter-bar__chip--active' : ''}`}
+                onClick={() => toggleQuickFilter(preset)}
+              >
+                {QUICK_FILTER_LABELS[preset]}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {hasActiveFilter && (
         <div className="layers-filter-bar__count" aria-live="polite">
           {matchCount} of {totalCount} layer{totalCount !== 1 ? 's' : ''}
+          {onSelectMatches && matchCount > 0 && (
+            <button
+              type="button"
+              className="layers-filter-bar__select-matches"
+              onClick={onSelectMatches}
+            >
+              Select matches
+            </button>
+          )}
         </div>
       )}
     </search>

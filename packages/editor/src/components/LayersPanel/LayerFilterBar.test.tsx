@@ -78,3 +78,98 @@ describe('LayerFilterBar — chip semantics', () => {
     expect(screen.getByRole('button', { name: 'Locked' })).toHaveAttribute('aria-pressed', 'false');
   });
 });
+
+describe('LayerFilterBar — workspace presets', () => {
+  it('renders only the configured quick filters, as toggle buttons', () => {
+    render(
+      <LayerFilterBar
+        filter={DEFAULT_FILTER}
+        onChange={vi.fn()}
+        matchCount={3}
+        totalCount={12}
+        quickFilters={['animated']}
+      />,
+    );
+
+    const preset = screen.getByRole('button', { name: 'Animated' });
+    expect(preset).toHaveAttribute('aria-pressed', 'false');
+    // No other workspace preset leaks in.
+    expect(screen.queryByRole('button', { name: 'Mobile hidden' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Threaded text' })).toBeNull();
+  });
+
+  it('maps each preset onto its attribute dimension and back off', () => {
+    let filter: LayerFilterSpec = DEFAULT_FILTER;
+    const onChange = vi.fn((next: LayerFilterSpec) => {
+      filter = next;
+    });
+    const { rerender } = render(
+      <LayerFilterBar
+        filter={filter}
+        onChange={onChange}
+        matchCount={3}
+        totalCount={12}
+        quickFilters={['mobile-hidden', 'masks']}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mobile hidden' }));
+    expect(filter.attributes.mobileHidden).toBe(true);
+    rerender(
+      <LayerFilterBar
+        filter={filter}
+        onChange={onChange}
+        matchCount={3}
+        totalCount={12}
+        quickFilters={['mobile-hidden', 'masks']}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Mobile hidden' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mobile hidden' }));
+    expect(filter.attributes.mobileHidden).toBeUndefined();
+  });
+
+  it('offers Select matches only while filtering with at least one match', () => {
+    const onSelectMatches = vi.fn();
+    const { rerender } = render(
+      <LayerFilterBar
+        filter={DEFAULT_FILTER}
+        onChange={vi.fn()}
+        matchCount={12}
+        totalCount={12}
+        onSelectMatches={onSelectMatches}
+      />,
+    );
+    // No filter: nothing to select "matches" of.
+    expect(screen.queryByRole('button', { name: 'Select matches' })).toBeNull();
+
+    const filtered = { ...DEFAULT_FILTER, search: 'button' };
+    rerender(
+      <LayerFilterBar
+        filter={filtered}
+        onChange={vi.fn()}
+        matchCount={4}
+        totalCount={12}
+        onSelectMatches={onSelectMatches}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Select matches' }));
+    expect(onSelectMatches).toHaveBeenCalledTimes(1);
+  });
+
+  it('has no Select matches action when the caller does not provide one', () => {
+    render(
+      <LayerFilterBar
+        filter={{ ...DEFAULT_FILTER, search: 'x' }}
+        onChange={vi.fn()}
+        matchCount={1}
+        totalCount={12}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Select matches' })).toBeNull();
+  });
+});
