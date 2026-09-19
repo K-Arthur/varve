@@ -131,7 +131,7 @@ describe('FontBrowser', () => {
     });
     fireEvent.change(search, { target: { value: 'gothic' } });
     fireEvent.click(screen.getByRole('tab', { name: 'Favorites' }));
-    fireEvent.change(screen.getByRole('combobox', { name: 'Semantic font filter' }), {
+    fireEvent.change(screen.getByRole('combobox', { name: 'Refine font list' }), {
       target: { value: 'variable' },
     });
 
@@ -141,7 +141,7 @@ describe('FontBrowser', () => {
 
     expect(search).toHaveValue('');
     expect(screen.getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('combobox', { name: 'Semantic font filter' })).toHaveValue('all');
+    expect(screen.getByRole('combobox', { name: 'Refine font list' })).toHaveValue('all');
     expect(
       screen.queryByRole('button', { name: 'Reset font browser filters' }),
     ).not.toBeInTheDocument();

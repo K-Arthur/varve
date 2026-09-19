@@ -69,6 +69,16 @@ test('opens Quick Convert, discloses the conversion contract, and saves a real o
   await expect(dialog.getByText(/embedded ICC|metadata are not copied/i)).toBeVisible();
   await expect(dialog.getByText('Ready', { exact: true })).toBeVisible();
 
+  // Output format is a canonical NativeSelect: switching it must reconfigure
+  // the format-dependent controls without losing the queued file plan.
+  await dialog.getByLabel('Output format').selectOption('png');
+  await expect(dialog.getByLabel('Output quality')).toHaveCount(0);
+  await dialog.getByLabel('Output format').selectOption('jpeg');
+  await expect(dialog.getByLabel('Output quality')).toBeVisible();
+  await expect(dialog.getByLabel('JPEG background color')).toBeVisible();
+  await dialog.getByLabel('Output format').selectOption('webp');
+  await expect(dialog.getByLabel('JPEG background color')).toHaveCount(0);
+
   // Exercise the browser download fallback deterministically. Chromium may
   // expose the File System Access picker in headed mode, which would require
   // an interactive native dialog rather than emit a Playwright download.

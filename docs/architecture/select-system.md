@@ -105,6 +105,13 @@ but leaves popup rendering to the platform. It should not be replaced merely
 because its menu differs between WebKitGTK, Windows WebView, macOS, and a
 browser.
 
+Feature code must not hand-roll a `<label>`/`<select>` pair: as of 2026-09-19
+the Quick Convert, Rasterize, Content-Aware Fill expand, and Font Browser
+filter fields all use `NativeSelect`, so label/description/error wiring stays
+in the shared component. Adding a new select field means choosing between
+`Select` and `NativeSelect` with this document's decision table, never
+re-declaring the wrapper.
+
 All staged dialog forms update temporary state through the select callback.
 Applying the dialog commits that state; Cancel does not. Immediate inspector
 fields may continue to update the editor directly through their existing

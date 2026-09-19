@@ -41,7 +41,7 @@ import {
   type ShapeNode,
   sha256Utf8,
 } from '@varve/scene';
-import { Button, Switch } from '@varve/ui';
+import { Button, NativeSelect, Switch } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { computePlacementRevision } from '../../backgroundRemoval/SubjectIsolationService';
 import { useEditor } from '../../context';
@@ -3870,40 +3870,37 @@ export function ContentAwareFillDialog({
             <div className="caf-dialog__section">
               <span className="caf-dialog__label">Expansion (source pixels)</span>
               <div className="caf-dialog__expand-presets">
-                <label className="caf-dialog__expand-control">
-                  <span>Aspect ratio</span>
-                  <select
-                    id="caf-expand-aspect-ratio"
-                    value={expandAspectRatio}
-                    onChange={(event) => setExpandAspectRatio(event.target.value)}
-                    disabled={isProcessing}
-                  >
-                    {EXPAND_ASPECT_PRESETS.map((preset) => (
-                      <option key={preset.id} value={preset.id}>
-                        {preset.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="caf-dialog__expand-control">
-                  <span>Source anchor</span>
-                  <select
-                    id="caf-expand-anchor"
-                    value={expandAnchor}
-                    onChange={(event) => setExpandAnchor(event.target.value as ExpandAnchor)}
-                    disabled={isProcessing}
-                  >
-                    <option value="center">Center</option>
-                    <option value="top-left">Top left</option>
-                    <option value="top">Top</option>
-                    <option value="top-right">Top right</option>
-                    <option value="left">Left</option>
-                    <option value="right">Right</option>
-                    <option value="bottom-left">Bottom left</option>
-                    <option value="bottom">Bottom</option>
-                    <option value="bottom-right">Bottom right</option>
-                  </select>
-                </label>
+                <NativeSelect
+                  className="caf-dialog__expand-control"
+                  id="caf-expand-aspect-ratio"
+                  label="Aspect ratio"
+                  value={expandAspectRatio}
+                  onValueChange={setExpandAspectRatio}
+                  disabled={isProcessing}
+                  options={EXPAND_ASPECT_PRESETS.map((preset) => ({
+                    value: preset.id,
+                    label: preset.label,
+                  }))}
+                />
+                <NativeSelect
+                  className="caf-dialog__expand-control"
+                  id="caf-expand-anchor"
+                  label="Source anchor"
+                  value={expandAnchor}
+                  onValueChange={(value) => setExpandAnchor(value as ExpandAnchor)}
+                  disabled={isProcessing}
+                  options={[
+                    { value: 'center', label: 'Center' },
+                    { value: 'top-left', label: 'Top left' },
+                    { value: 'top', label: 'Top' },
+                    { value: 'top-right', label: 'Top right' },
+                    { value: 'left', label: 'Left' },
+                    { value: 'right', label: 'Right' },
+                    { value: 'bottom-left', label: 'Bottom left' },
+                    { value: 'bottom', label: 'Bottom' },
+                    { value: 'bottom-right', label: 'Bottom right' },
+                  ]}
+                />
                 <Button
                   type="button"
                   variant="ghost"

@@ -8,7 +8,7 @@ import {
   type RasterConversionPlan,
 } from '@varve/import';
 import type { Platform } from '@varve/platform';
-import { Dialog } from '@varve/ui';
+import { Dialog, NativeSelect } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { saveExportBytes } from '../../exportSaveAdapter';
 import './quick-convert.css';
@@ -335,20 +335,18 @@ export function QuickConvertDialog({ open, onClose, platform }: QuickConvertDial
         </button>
 
         <div className="quick-convert__controls">
-          <label>
-            <span>Output format</span>
-            <select
-              value={outputFormat}
-              onChange={(event) => setOutputFormat(event.target.value as RasterConversionFormat)}
-              disabled={busy}
-            >
-              {RASTER_CONVERSION_FORMATS.filter(acceptsFormat).map((format) => (
-                <option key={format} value={format}>
-                  {FORMAT_LABELS[format]}
-                </option>
-              ))}
-            </select>
-          </label>
+          <NativeSelect
+            className="quick-convert__field"
+            id="quick-convert-output-format"
+            label="Output format"
+            value={outputFormat}
+            onValueChange={(value) => setOutputFormat(value as RasterConversionFormat)}
+            disabled={busy}
+            options={RASTER_CONVERSION_FORMATS.filter(acceptsFormat).map((format) => ({
+              value: format,
+              label: FORMAT_LABELS[format],
+            }))}
+          />
           {hasLossyOutput && (
             <label>
               <span>
@@ -456,17 +454,18 @@ export function QuickConvertDialog({ open, onClose, platform }: QuickConvertDial
               />
               <span>Lock aspect ratio</span>
             </label>
-            <label>
-              <span>Resampling</span>
-              <select
-                value={resampling}
-                onChange={(event) => setResampling(event.target.value as 'smooth' | 'nearest')}
-                disabled={!resizeEnabled || busy}
-              >
-                <option value="smooth">Smooth</option>
-                <option value="nearest">Nearest neighbor</option>
-              </select>
-            </label>
+            <NativeSelect
+              className="quick-convert__field"
+              id="quick-convert-resampling"
+              label="Resampling"
+              value={resampling}
+              onValueChange={(value) => setResampling(value as 'smooth' | 'nearest')}
+              disabled={!resizeEnabled || busy}
+              options={[
+                { value: 'smooth', label: 'Smooth' },
+                { value: 'nearest', label: 'Nearest neighbor' },
+              ]}
+            />
           </div>
         </details>
 

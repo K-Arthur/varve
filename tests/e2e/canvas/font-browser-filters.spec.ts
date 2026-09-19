@@ -21,7 +21,7 @@ test.describe('Font browser filter reset', () => {
     });
     await search.fill('gothic');
     await dialog.getByRole('tab', { name: 'Favorites' }).click();
-    await dialog.getByRole('combobox', { name: 'Semantic font filter' }).selectOption('variable');
+    await dialog.getByRole('combobox', { name: 'Refine font list' }).selectOption('variable');
 
     const reset = dialog.getByRole('button', { name: 'Reset font browser filters' });
     await expect(reset).toBeVisible();
@@ -50,7 +50,7 @@ test.describe('Font browser filter reset', () => {
     await reset.click();
     await expect(search).toHaveValue('');
     await expect(dialog.getByRole('tab', { name: 'All' })).toHaveAttribute('aria-selected', 'true');
-    await expect(dialog.getByRole('combobox', { name: 'Semantic font filter' })).toHaveValue('all');
+    await expect(dialog.getByRole('combobox', { name: 'Refine font list' })).toHaveValue('all');
     await expect(dialog.getByRole('button', { name: 'Reset font browser filters' })).toHaveCount(0);
 
     const allTab = dialog.getByRole('tab', { name: 'All' });

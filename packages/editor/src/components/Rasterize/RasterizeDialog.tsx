@@ -1,4 +1,4 @@
-import { Dialog } from '@varve/ui';
+import { Dialog, NativeSelect } from '@varve/ui';
 import { useEffect, useState } from 'react';
 import {
   DEFAULT_RASTERIZE_SELECTION_OPTIONS,
@@ -102,22 +102,22 @@ export function RasterizeDialog({
             />
             Include visible effect overflow
           </label>
-          <label className="rasterize-dialog__input-label" htmlFor="rasterize-background">
-            Background
-            <select
-              id="rasterize-background"
-              value={options.background}
-              onChange={(event) =>
-                setOptions((current) => ({
-                  ...current,
-                  background: event.target.value as RasterizeSelectionOptions['background'],
-                }))
-              }
-            >
-              <option value="transparent">Transparent</option>
-              <option value="white">White</option>
-            </select>
-          </label>
+          <NativeSelect
+            id="rasterize-background"
+            className="rasterize-dialog__input-label"
+            label="Background"
+            value={options.background}
+            onValueChange={(value) =>
+              setOptions((current) => ({
+                ...current,
+                background: value as RasterizeSelectionOptions['background'],
+              }))
+            }
+            options={[
+              { value: 'transparent', label: 'Transparent' },
+              { value: 'white', label: 'White' },
+            ]}
+          />
         </fieldset>
 
         <label className="rasterize-dialog__check rasterize-dialog__keep">

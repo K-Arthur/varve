@@ -133,6 +133,7 @@
 .font-browser__semantic-filter {
   display: flex;
   flex: 0 0 auto;
+  flex-direction: row;
   align-items: center;
   gap: var(--space-1);
   color: var(--color-text-muted);
@@ -727,7 +728,7 @@
 
 .font-browser__axis-range {
   color: var(--color-text-muted);
-  font-size: var(--font-size-3xs, var(--font-size-2xs));
+  font-size: var(--font-size-2xs, var(--font-size-2xs));
   font-variant-numeric: tabular-nums;
 }
 

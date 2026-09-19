@@ -3,22 +3,26 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { RasterizeDialog } from './RasterizeDialog';
 
-vi.mock('@varve/ui', () => ({
-  Dialog: ({
-    open,
-    title,
-    children,
-  }: {
-    open: boolean;
-    title: string;
-    children: React.ReactNode;
-  }) =>
-    open ? (
-      <div role="dialog" aria-label={title}>
-        {children}
-      </div>
-    ) : null,
-}));
+vi.mock('@varve/ui', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@varve/ui')>();
+  return {
+    ...actual,
+    Dialog: ({
+      open,
+      title,
+      children,
+    }: {
+      open: boolean;
+      title: string;
+      children: React.ReactNode;
+    }) =>
+      open ? (
+        <div role="dialog" aria-label={title}>
+          {children}
+        </div>
+      ) : null,
+  };
+});
 
 describe('RasterizeDialog', () => {
   it('offers common PPI values and defaults to a non-destructive transparent raster', () => {

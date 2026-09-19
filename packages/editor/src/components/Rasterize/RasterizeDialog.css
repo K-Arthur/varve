@@ -56,6 +56,7 @@
 }
 
 .rasterize-dialog__input-label {
+  flex-direction: row;
   justify-content: space-between;
 }
 

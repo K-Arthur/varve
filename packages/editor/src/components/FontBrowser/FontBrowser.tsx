@@ -23,7 +23,7 @@ import {
   resetSystemFontCache,
   tagLabel,
 } from '@varve/engine/font';
-import { Icon, IconButton, SearchField, Tooltip } from '@varve/ui';
+import { Icon, IconButton, NativeSelect, SearchField, Tooltip } from '@varve/ui';
 import {
   useCallback,
   useEffect,
@@ -813,20 +813,18 @@ export function FontBrowser({
               </button>
             ))}
           </div>
-          <label className="font-browser__semantic-filter">
-            <span>Refine</span>
-            <select
-              value={semanticFilter}
-              onChange={(event) => setSemanticFilter(event.target.value as SemanticFilter)}
-              aria-label="Semantic font filter"
-            >
-              {SEMANTIC_FILTERS.map((filter) => (
-                <option key={filter.key} value={filter.key}>
-                  {filter.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <NativeSelect
+            className="font-browser__semantic-filter"
+            id="font-browser-semantic-filter"
+            label="Refine"
+            aria-label="Refine font list"
+            value={semanticFilter}
+            onValueChange={(value) => setSemanticFilter(value as SemanticFilter)}
+            options={SEMANTIC_FILTERS.map((filter) => ({
+              value: filter.key,
+              label: filter.label,
+            }))}
+          />
           <div className="font-browser__local-fonts">
             <button
               type="button"

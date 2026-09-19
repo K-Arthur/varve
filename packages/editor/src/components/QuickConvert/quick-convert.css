@@ -34,7 +34,7 @@
   padding: 22px 18px;
   border: 1px dashed var(--color-border-strong);
   border-radius: var(--radius-control);
-  background: var(--color-surface-subtle);
+  background: var(--color-surface-sunken);
   color: var(--color-text-primary);
   text-align: left;
   cursor: pointer;
@@ -76,6 +76,12 @@
   font-size: 12px;
 }
 
+.quick-convert__field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
 .quick-convert__controls select,
 .quick-convert__controls input[type="range"] {
   min-width: 0;
@@ -84,9 +90,9 @@
 .quick-convert__controls select {
   min-height: 32px;
   padding: 0 8px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
-  background: var(--color-surface);
+  background: var(--color-surface-base);
   color: var(--color-text-primary);
 }
 
@@ -127,9 +133,9 @@
   min-height: 30px;
   min-width: 0;
   padding: 0 7px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
-  background: var(--color-surface);
+  background: var(--color-surface-base);
   color: var(--color-text-primary);
 }
 
@@ -146,7 +152,9 @@
   margin: 0;
   padding: 10px 12px;
   border-radius: var(--radius-control-compact);
-  background: var(--color-warning-subtle);
+  /* Feedback washes are derived from the audited feedback hue rather than a
+   * separate literal, so the tint follows the theme automatically. */
+  background: color-mix(in oklab, var(--color-feedback-warning) 16%, transparent);
   color: var(--color-text-primary);
   font-size: 12px;
 }
@@ -174,7 +182,7 @@
   padding: 9px 10px;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
-  background: var(--color-surface-subtle);
+  background: var(--color-surface-sunken);
 }
 
 .quick-convert__file > div {
@@ -223,21 +231,21 @@
 .quick-convert__button {
   min-height: 32px;
   padding: 0 13px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   font: inherit;
   cursor: pointer;
 }
 
 .quick-convert__button--quiet {
-  background: var(--color-surface);
+  background: var(--color-surface-base);
   color: var(--color-text-primary);
 }
 
 .quick-convert__button--primary {
   border-color: var(--color-accent-primary);
   background: var(--color-accent-primary);
-  color: var(--color-accent-contrast);
+  color: var(--color-text-on-accent);
 }
 
 .quick-convert__button:disabled {
