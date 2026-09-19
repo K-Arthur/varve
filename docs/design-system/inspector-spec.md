@@ -5,7 +5,7 @@
 > describes the system as it must behave after this pass; where the current code
 > does not yet satisfy a clause, the clause names the implementation id
 > (`IMPL-###`) that lands it. Evidence ids (`RES-###`, `AUD-###`, `A11Y-###`,
-> `PERF-###`) resolve in `docs/research/inspector-design-tab-research.md` and
+> `PERF-###`) resolve in `docs/research/inspector-design-tab-research-2026-09-19.md` and
 > `docs/audits/inspector-design-tab-audit-2026-09-19.md`.
 
 ## 1. Principles

@@ -17,7 +17,7 @@
 - Validation infrastructure required by REQ-014: `scripts/quality/audit-inspector-css.mjs`,
   one lane entry in `scripts/quality/validation-lanes.mjs`, one impact rule in
   `validation-impact.config.mjs`, one package script
-- Docs: `docs/plans/inspector-design-tab-redesign.md`, `docs/research/inspector-design-tab-research.md`,
+- Docs: `docs/plans/inspector-design-tab-redesign.md`, `docs/research/inspector-design-tab-research-2026-09-19.md`,
   `docs/audits/inspector-design-tab-audit-2026-09-19.md`, `docs/design-system/inspector-spec.md`,
   `docs/audits/inspector-design-tab-redesign-report-2026-09-19.md`, `docs/README.md`
 - Evidence: `reports/inspector-redesign/baseline-matrix/**`, `reports/inspector-redesign/after-matrix/**`,

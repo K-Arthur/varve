@@ -23,7 +23,7 @@
   offsets, icon sizes, interactive target sizes, and token probes as JSON.
   Artifacts: `reports/inspector-redesign/baseline-matrix/*.json` and
   `.../shots/*.png` (git-ignored evidence).
-- **Standards corpus**: `docs/research/inspector-design-tab-research.md`
+- **Standards corpus**: `docs/research/inspector-design-tab-research-2026-09-19.md`
   (`RES-###`), current as of 2026-09-19.
 - **Environment**: Linux (CachyOS), Chromium 1.62 / Playwright, light theme
   unless stated, 1440×900 viewport, dev server on an isolated port, run under

@@ -2,7 +2,7 @@
 
 > Deliverable report for the 2026-09-19 Inspector Design-tab pass.
 > Traceability ids resolve in:
-> - `docs/research/inspector-design-tab-research.md` (`RES-###`)
+> - `docs/research/inspector-design-tab-research-2026-09-19.md` (`RES-###`)
 > - `docs/audits/inspector-design-tab-audit-2026-09-19.md` (`AUD-###`)
 > - `docs/design-system/inspector-spec.md` (`REQ-###`, `IMPL-###`)
 > Baseline evidence: `reports/inspector-redesign/baseline-matrix/` (git-ignored).
@@ -238,6 +238,18 @@ for targeted re-inspection.
 - The full-suite escalation the planner prints originates in shared
   workspace/toolchain files (including this pass's own `package.json` and
   `scripts/quality/**` additions), not in inspector product code.
+- **Shared-file collision (research doc).** A second agent session (ZCode
+  AppImage, lease lane "inspector design matrix baseline (fresh pass)") wrote
+  its own "pass 2" corpus over `docs/research/inspector-design-tab-research.md`
+  in the working tree. Per coordinate-don't-overwrite protocol, that file was
+  left untouched; this pass's committed research was republished as
+  `docs/research/inspector-design-tab-research-2026-09-19.md` and every
+  reference (README, spec, audit, report, plan) now points there, so both
+  records can survive independently.
+- A fresh-load page-error probe confirmed the live-session
+  `ReferenceError: getDesignTabSectionIds` was stale-HMR state, not a HEAD
+  defect; IMPL-012 additionally removes the update-order dependency that made
+  the panel header sensitive to it.
 
 ## 12. Remaining gaps
 
