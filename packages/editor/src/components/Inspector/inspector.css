@@ -30,8 +30,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-micro);
 }
 
 /* Only the direct-child content pane scrolls; nested .insp-panel instances
@@ -209,7 +208,7 @@
   transform: translateY(1px);
 }
 .insp-panel__header-btn:focus-visible {
-  outline: 3px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
   color: var(--color-text-primary);
 }
@@ -221,7 +220,7 @@
   border-color: var(--color-interactive-focus-ring);
 }
 .insp-panel__tab-overflow:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 .insp-panel__tab[aria-selected="true"] {
@@ -229,7 +228,7 @@
   border-bottom-color: var(--color-interactive-default);
 }
 .insp-panel__tab:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 /* Export sub-tabs */
@@ -247,8 +246,7 @@
   color: var(--color-text-muted);
   font: inherit;
   font-size: var(--font-size-2xs);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-micro);
   cursor: pointer;
 }
 .insp-panel__sub-tab[aria-selected="true"] {
@@ -256,7 +254,7 @@
   border-bottom-color: var(--color-interactive-default);
 }
 .insp-panel__sub-tab:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 .insp-panel__sub-content {
@@ -320,8 +318,7 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
+  letter-spacing: var(--tracking-micro);
 }
 .insp-context-header__target {
   min-width: 0;
@@ -393,7 +390,7 @@
   text-decoration-thickness: 2px;
 }
 .insp-panel__restriction-action:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
   border-radius: var(--radius-control-compact);
 }
@@ -510,8 +507,7 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold, 700);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
+  letter-spacing: var(--tracking-micro);
 }
 
 /* ---------- Disclosure section (APG) — quiet grouping ----------
@@ -584,8 +580,7 @@
   font: inherit;
   font-size: var(--insp-value-size, var(--font-size-xs));
   font-weight: var(--font-weight-bold, 700);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
+  letter-spacing: var(--tracking-micro);
   cursor: pointer;
   transition: color var(--duration-quick) var(--ease-standard);
 }
@@ -616,7 +611,7 @@
   min-width: 0;
 }
 .insp-disclosure__trigger:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
   border-radius: var(--radius-control-compact);
 }
@@ -680,7 +675,7 @@
   color: var(--color-text-primary);
 }
 .insp-section-manager__trigger:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 .insp-section-manager__badge {
@@ -731,7 +726,7 @@
   color: var(--color-text-primary);
 }
 .insp-section-manager__action:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 .insp-section-manager__list {
@@ -750,8 +745,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-micro);
   padding: var(--space-1) 0;
 }
 .insp-section-manager__item {
@@ -769,7 +763,7 @@
   background: var(--color-surface-hover);
 }
 .insp-section-manager__item:focus-visible {
-  outline: 2px solid var(--color-interactive-default);
+  outline: var(--focus-ring-width) solid var(--color-interactive-default);
   outline-offset: -2px;
 }
 .insp-section-manager__item--hidden {
@@ -808,8 +802,8 @@
   background: var(--color-surface-hover);
 }
 .insp-section-manager__toggle:focus-visible {
-  outline: 2px solid var(--color-interactive-default);
-  outline-offset: -1px;
+  outline: var(--focus-ring-width) solid var(--color-interactive-default);
+  outline-offset: var(--focus-ring-offset-inset);
 }
 .insp-section-manager__toggle:disabled {
   opacity: 0.4;
@@ -826,7 +820,6 @@
   flex-shrink: 0;
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
-  text-transform: uppercase;
   letter-spacing: var(--tracking-micro);
 }
 .insp-section-manager__essential {
@@ -903,7 +896,7 @@
 .insp-disclosure__context-menu-item:hover,
 .insp-disclosure__context-menu-item:focus-visible {
   background: var(--color-surface-hover);
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
@@ -1034,8 +1027,8 @@
 
 .selection-colors__target-btn:focus-visible,
 .selection-colors__copy-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -1px;
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline-offset: var(--focus-ring-offset-inset);
 }
 
 .selection-colors__more {
@@ -1055,7 +1048,7 @@
 }
 
 .selection-colors__more:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -1158,7 +1151,7 @@
 .insp-fill-add__menu-item:hover,
 .insp-fill-add__menu-item:focus-visible {
   background: var(--color-surface-hover);
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
@@ -1351,7 +1344,6 @@
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--tracking-micro);
   line-height: var(--type-interface-label-line-height);
-  text-transform: uppercase;
 }
 
 .insp-layout-sizing__actions {
@@ -1375,7 +1367,9 @@
 .insp-field__label.insp-field__label--wrap {
   white-space: normal;
   overflow-wrap: anywhere;
-  line-height: 1.25;
+  /* Same rhythm line as the unwrapped label — a wrapping label must not
+   * change the row's type beat (pass-2 audit IA-002: 15px vs 16.2px split). */
+  line-height: var(--type-interface-label-line-height);
 }
 .insp-field__label--disabled {
   cursor: default;
@@ -1512,8 +1506,8 @@
 }
 .insp-num__input:focus-visible {
   border-color: var(--color-border-focus);
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -1px;
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline-offset: var(--focus-ring-offset-inset);
   background: var(--color-surface-app);
 }
 .insp-num__input[aria-invalid="true"] {
@@ -1575,7 +1569,7 @@
 }
 .insp-select:focus-visible {
   border-color: var(--color-border-focus);
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
@@ -1628,8 +1622,8 @@
 }
 
 .insp-add-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -1px;
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline-offset: var(--focus-ring-offset-inset);
 }
 
 .insp-swatch {
@@ -1646,7 +1640,7 @@
 }
 
 .insp-swatch:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 
@@ -1788,7 +1782,7 @@
 }
 
 .insp-picker-dialog__close:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 
@@ -1806,7 +1800,7 @@
 }
 
 .insp-picker-done:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 
@@ -1885,7 +1879,7 @@
 }
 
 .insp-text-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -1919,7 +1913,7 @@
   border-color: var(--color-interactive-hover);
 }
 .insp-btn-sm:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 .insp-btn-sm[aria-pressed="true"] {
@@ -1948,7 +1942,7 @@
 }
 .insp-per-side:focus-visible {
   border-color: var(--color-border-focus);
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
@@ -2000,7 +1994,7 @@
 }
 
 .insp-flip-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -2044,7 +2038,7 @@
 }
 
 .insp-proportion-lock:has(.insp-proportion-lock__input:focus-visible) {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -2199,7 +2193,6 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
 }
 .insp-align-popover label {
   display: flex;
@@ -2296,8 +2289,7 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold, 700);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
+  letter-spacing: var(--tracking-micro);
 }
 .insp-align-section__summary {
   min-width: 0;
@@ -2483,7 +2475,7 @@
   color: var(--color-text-primary);
 }
 .insp-icon-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 .insp-icon-btn--active {
@@ -2745,7 +2737,7 @@
 
 .insp-segmented__btn:focus-within,
 .insp-radio-btn:focus-within {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
@@ -2786,7 +2778,7 @@
   background: var(--color-interactive-hover);
 }
 .insp-segmented__btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 [data-theme="high-contrast"] .insp-segmented {
@@ -2849,7 +2841,6 @@
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--tracking-micro);
   line-height: 1;
-  text-transform: uppercase;
 }
 
 .insp-paint-row__opacity {
@@ -3085,7 +3076,7 @@
     .varve-switch__input,
     .varve-checkbox__input
   ):focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 .insp-checkbox-row {
@@ -3117,8 +3108,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
+  letter-spacing: var(--tracking-micro);
   margin-bottom: var(--space-1);
 }
 .insp-panel__color-mode {
@@ -3162,7 +3152,7 @@
 }
 .insp-paint-library__search-input:focus-visible {
   border-color: var(--color-border-focus);
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 .insp-paint-library__add-btn {
@@ -3192,8 +3182,8 @@
   border-color: var(--color-border-strong);
 }
 .insp-paint-library__add-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -1px;
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline-offset: var(--focus-ring-offset-inset);
 }
 .insp-paint-library__list {
   display: flex;
@@ -3216,8 +3206,8 @@
   background: var(--color-surface-sunken);
 }
 .insp-paint-library__entry:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -1px;
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline-offset: var(--focus-ring-offset-inset);
 }
 .insp-paint-library__swatch {
   width: 1.25rem;
@@ -3246,8 +3236,7 @@
 .insp-paint-library__badge {
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-micro);
   line-height: 1.2;
 }
 .insp-paint-library__actions {
@@ -3277,7 +3266,7 @@
   color: var(--color-text-primary);
 }
 .insp-paint-library__action-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 .insp-paint-library__action-btn--danger:hover {
@@ -3330,7 +3319,7 @@
   background: var(--color-surface-hover);
 }
 .insp-paint-library__confirm-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 .insp-paint-library__confirm-btn--danger {
@@ -3451,7 +3440,7 @@ fieldset.insp-canvas-props,
   transform: translateY(-50%);
 }
 .insp-slider__thumb:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 
@@ -3473,7 +3462,7 @@ fieldset.insp-canvas-props,
 
 .typography__text-input:focus-visible {
   border-color: var(--color-interactive-default);
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
@@ -3503,8 +3492,8 @@ fieldset.insp-canvas-props,
 }
 
 .typography__browse-fonts:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -1px;
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline-offset: var(--focus-ring-offset-inset);
 }
 
 /* ---------- Rich text span editor ---------- */
@@ -3533,7 +3522,7 @@ fieldset.insp-canvas-props,
 
 .rich-span-editor__box:focus-visible {
   border-color: var(--color-interactive-default);
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
@@ -3570,7 +3559,7 @@ fieldset.insp-canvas-props,
 }
 
 .rich-span-editor__btn:focus-visible {
-  outline: 2px solid var(--color-interactive-default);
+  outline: var(--focus-ring-width) solid var(--color-interactive-default);
   outline-offset: 1px;
 }
 
@@ -3711,7 +3700,7 @@ fieldset.insp-canvas-props,
 .insp-feature-browser__search:focus-visible,
 .insp-opentype-row select:focus-visible,
 .insp-opentype-index:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -3811,7 +3800,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-slider__input:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 
@@ -3849,7 +3838,7 @@ fieldset.insp-canvas-props,
   border-color: var(--color-border-subtle);
 }
 .insp-slider__reset:focus-visible {
-  outline: 2px solid var(--color-interactive-default);
+  outline: var(--focus-ring-width) solid var(--color-interactive-default);
   outline-offset: 1px;
 }
 .insp-slider__reset:disabled {
@@ -3908,7 +3897,7 @@ fieldset.insp-canvas-props,
   border-bottom-color: var(--color-interactive-default);
 }
 .intelligence-tab:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 .intelligence-tab-content {
@@ -3936,8 +3925,7 @@ fieldset.insp-canvas-props,
   width: 100%;
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-micro);
   padding: var(--space-1) 0 0;
 }
 .intelligence-tab--small {
@@ -3974,7 +3962,7 @@ fieldset.insp-canvas-props,
   display: block;
   margin: 0.75rem 0 0.35rem;
   color: var(--color-text-secondary);
-  font-size: 0.75rem;
+  font-size: var(--insp-label-size);
   font-weight: 600;
   letter-spacing: var(--tracking-micro);
 }
@@ -3991,7 +3979,7 @@ fieldset.insp-canvas-props,
 }
 
 .intelligence-text-input:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 .similarity-mode-picker__option {
@@ -4013,7 +4001,7 @@ fieldset.insp-canvas-props,
 }
 .similarity-mode-picker__option:focus-within,
 .similarity-result:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 .similarity-results {
@@ -4079,7 +4067,7 @@ fieldset.insp-canvas-props,
   color: var(--color-text-primary);
 }
 .intelligence-issue__target:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
   border-radius: var(--radius-control-compact);
 }
@@ -4162,8 +4150,7 @@ fieldset.insp-canvas-props,
   font-size: var(--font-size-2xs);
   padding: 1px var(--space-1);
   border-radius: var(--radius-pill);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-micro);
   font-weight: var(--font-weight-semibold);
   flex-shrink: 0;
 }
@@ -4218,7 +4205,7 @@ fieldset.insp-canvas-props,
   cursor: not-allowed;
 }
 .intelligence-action-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 [data-theme="high-contrast"] .intelligence-action-btn {
@@ -4282,7 +4269,7 @@ fieldset.insp-canvas-props,
   font-weight: var(--font-weight-medium);
 }
 .palette-section__source-mode:has(input:focus-visible) {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 .palette-section__source-mode input {
@@ -4329,7 +4316,7 @@ fieldset.insp-canvas-props,
 }
 .palette-section__count-input:focus-visible {
   border-color: var(--color-border-focus);
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 .palette-section__status {
@@ -4359,7 +4346,7 @@ fieldset.insp-canvas-props,
 .palette-section__swatch-actions button:focus-visible,
 .palette-section__actions button:focus-visible,
 .palette-section__harmony-swatch:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 .palette-section__hint {
@@ -4646,8 +4633,7 @@ fieldset.insp-canvas-props,
 .intelligence-histogram__label {
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-micro);
 }
 .intelligence-histogram__bars {
   display: flex;
@@ -4715,7 +4701,7 @@ fieldset.insp-canvas-props,
   background: var(--color-interactive-hover);
 }
 .caf-entry-button:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 
@@ -4730,8 +4716,7 @@ fieldset.insp-canvas-props,
   margin: 0 0 var(--space-1);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
+  letter-spacing: var(--tracking-micro);
   color: var(--color-text-muted);
 }
 
@@ -4888,7 +4873,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-stepper__btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -4943,7 +4928,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-range:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 
@@ -5119,7 +5104,7 @@ fieldset.insp-canvas-props,
   margin-bottom: var(--space-1);
 }
 .binding-menu__input:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 .binding-menu__list {
@@ -5269,7 +5254,7 @@ fieldset.insp-canvas-props,
   border-color: var(--color-border-strong);
 }
 .debt-badge:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 .debt-badge__count {
@@ -5315,11 +5300,11 @@ fieldset.insp-canvas-props,
 }
 .insp-sm__warning--error {
   background: color-mix(in oklab, var(--color-feedback-danger) 12%, transparent);
-  color: var(--color-feedback-danger, oklch(0.5 0.2 25));
+  color: var(--color-feedback-danger);
 }
 .insp-sm__warning--warning {
   background: color-mix(in oklab, var(--color-feedback-warning) 16%, transparent);
-  color: var(--color-feedback-warning, oklch(0.5 0.15 80));
+  color: var(--color-feedback-warning);
 }
 .insp-sm__warning--info {
   background: var(--elevation-surface-sunken);
@@ -5339,7 +5324,6 @@ fieldset.insp-canvas-props,
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-secondary);
-  text-transform: uppercase;
   letter-spacing: var(--tracking-micro);
 }
 .insp-sm__states,
@@ -5402,10 +5386,10 @@ fieldset.insp-canvas-props,
 }
 .insp-sm__badge--entry {
   background: var(--color-interactive-default);
-  color: var(--color-on-accent, white);
+  color: var(--color-on-accent);
 }
 .insp-sm__state-icon {
-  color: var(--color-feedback-warning, oklch(0.5 0.15 80));
+  color: var(--color-feedback-warning);
   flex-shrink: 0;
 }
 .insp-sm__detail {
@@ -5621,7 +5605,7 @@ fieldset.insp-canvas-props,
   color: var(--color-interactive-hover);
 }
 .intelligence-inline-action:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -5638,7 +5622,7 @@ fieldset.insp-canvas-props,
 
 /* AuditBadge — keyboard focus (badge itself styled above). */
 .audit-badge:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -5668,7 +5652,7 @@ fieldset.insp-canvas-props,
   color: var(--color-interactive-hover);
 }
 .insp-icon__link:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
   border-radius: var(--radius-control-compact);
 }
@@ -5713,7 +5697,6 @@ fieldset.insp-canvas-props,
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
   line-height: 1;
-  text-transform: uppercase;
   letter-spacing: var(--tracking-micro);
 }
 .contrast-indicator__dot {
@@ -6037,8 +6020,7 @@ fieldset.insp-canvas-props,
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-micro);
 }
 .email-preflight__group-count {
   color: var(--color-text-subtle);
@@ -6188,7 +6170,7 @@ fieldset.insp-canvas-props,
 }
 
 [data-theme="high-contrast"] .range-value-control input[type="range"]:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 
@@ -6228,7 +6210,6 @@ fieldset.insp-canvas-props,
   user-select: none;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-transform: uppercase;
   letter-spacing: var(--tracking-micro);
 }
 
@@ -6388,8 +6369,8 @@ fieldset.insp-canvas-props,
 }
 
 .insp-flip-group .insp-flip-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -1px;
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline-offset: var(--focus-ring-offset-inset);
 }
 
 .insp-flip-group .insp-flip-btn--active {
@@ -6642,7 +6623,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-focused-editor__close:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -6824,7 +6805,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-preset-dropdown__trigger:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -6880,7 +6861,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-orientation-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -6978,7 +6959,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-preset-chip:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -7014,8 +6995,7 @@ fieldset.insp-canvas-props,
   padding: var(--space-1) var(--space-3);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold, 700);
-  letter-spacing: var(--tracking-wide);
-  text-transform: uppercase;
+  letter-spacing: var(--tracking-micro);
   color: var(--color-text-muted);
 }
 
@@ -7180,7 +7160,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-preset-popover__save-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -7266,7 +7246,6 @@ fieldset.insp-canvas-props,
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--tracking-micro);
-  text-transform: uppercase;
 }
 
 .insp-boolean__add-list {
@@ -7293,28 +7272,36 @@ fieldset.insp-canvas-props,
 }
 
 /* ── Inspector type scale ─────────────────────────────────────────────
- * Role-based dense-panel sizes. Rendered measurements on 2026-09-15 showed
- * the Inspector at 10.43px field labels and 12.48px values — below every
- * reference dense scale consulted (Carbon caption 12px / productive 14px,
- * Nubisco utility 11px, Blender ~11-12px). These bounded, root-relative
- * sizes raise legibility without inflating the panel on wide windows or
- * shrinking it on a narrow rail. The tokens are scoped to the Inspector;
- * global type tokens are untouched, and every consumer falls back to the
- * previous size outside this scope.
- *   label: 11px @360 → 12px @1280
- *   value: 12px @360 → 13px @1280
- * Evidence: docs/research/inspector-design-tab-review-2026-09-15.md.
+ * Role-based dense-panel sizes. The panel's type ramp is two fixed rem steps
+ * (12px labels, 13px values/titles) — deliberately below the app ramp's
+ * --type-interface-* steps for pro-tool density, and deliberately NOT
+ * viewport-coupled: the Inspector rail is user-resizable and independent of
+ * window width, so shrinking the window must not shrink panel text (the
+ * pre-2026-09-19 clamp did exactly that; measured and removed in the
+ * pass-2 audit, IA-021). Root-relative values keep the 100-200% text-scale
+ * axis working.
+ * Evidence: docs/audits/inspector-design-tab-audit-2026-09-19-pass2.md.
  */
 .editor-inspector {
-  --insp-label-size: clamp(0.6875rem, calc(0.663rem + 0.1087vw), 0.75rem);
-  --insp-value-size: clamp(0.75rem, calc(0.7255rem + 0.1087vw), 0.8125rem);
+  --insp-label-size: 0.75rem;
+  --insp-value-size: 0.8125rem;
   --insp-numeric-rail: 9ch;
   --insp-preview-max-inline-size: 20rem;
   /* Popover geometry shared by panel menus (section manager, preset
-     popovers). rem keeps the surface proportionate when the user raises the
-     root font size; the previous 280px/400px literals did not. */
+     popovers). rem keeps the surface proportionate when the user raises
+     the root font size; the previous 280px/400px literals did not. */
   --insp-popover-inline: 17.5rem;
   --insp-popover-max-block: 25rem;
+  /* Icon steps (pass-2 spec §1.2): the measured panel census was 9-15px with
+   * mass at 11-14 — pro-panel icons live below the kit's 16px step. Two
+   * steps, fixed (never em-relative: 0.95em compounding with font sizes is
+   * what produced the 11/13/15px drift, IA-003). 16 (--icon-size-sm)
+   * remains available for large affordances. */
+  --insp-icon-size: 12px;
+  --insp-icon-size-lg: 14px;
+  /* Flat row height: chips, toggles, meta rows. Equals the 2.5.8 compact
+   * target floor so a flat row can never be shorter than its target. */
+  --insp-row-height: var(--target-min-compact);
 }
 
 /* ── Shared compact inspector buttons ──────────────────────────────────
@@ -7362,7 +7349,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 

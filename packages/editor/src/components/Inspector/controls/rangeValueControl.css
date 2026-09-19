@@ -63,7 +63,7 @@
 
 .range-value-control__number .insp-num__input:focus-visible {
   border-color: var(--color-border-focus);
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 

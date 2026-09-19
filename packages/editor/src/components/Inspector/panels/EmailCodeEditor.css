@@ -46,7 +46,7 @@
 .email-code-editor__tool:focus-visible,
 .email-code-editor__search input:focus-visible,
 .email-code-editor__input:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 

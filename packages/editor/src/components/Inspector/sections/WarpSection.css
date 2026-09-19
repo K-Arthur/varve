@@ -68,7 +68,7 @@
 }
 
 .warp-section__name:focus-visible {
-  outline: 2px solid var(--color-border-focus);
+  outline: var(--focus-ring-width) solid var(--color-border-focus);
   outline-offset: 1px;
   border-radius: var(--radius-control-compact);
 }
@@ -87,7 +87,7 @@
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--insp-label-size);
   padding: 3px 8px;
   cursor: pointer;
 }
@@ -139,14 +139,14 @@
 
 .warp-section__hint {
   margin: 6px 0 0;
-  font-size: 12px;
+  font-size: var(--insp-label-size);
   line-height: 1.45;
   color: var(--color-text-secondary);
 }
 
 .warp-section__warn {
   margin: 6px 0 0;
-  font-size: 12px;
+  font-size: var(--insp-label-size);
   color: var(--color-feedback-warning);
 }
 

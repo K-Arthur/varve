@@ -22,7 +22,12 @@ import { expect, type Page, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
 const PHOTO = path.resolve('tests/e2e/fixtures/real-life-still-life.jpg');
-const PHASE = process.env.VARVE_MATRIX_PHASE === 'after' ? 'after-matrix' : 'baseline-matrix';
+const PHASE =
+  process.env.VARVE_MATRIX_PHASE === 'after'
+    ? 'after-matrix'
+    : process.env.VARVE_MATRIX_PHASE === 'pass3'
+      ? 'pass3-matrix'
+      : 'baseline-matrix';
 const REPORT_DIR = path.resolve(`reports/inspector-redesign/${PHASE}`);
 const SHOT_DIR = path.join(REPORT_DIR, 'shots');
 
@@ -54,6 +59,7 @@ interface PanelMetrics {
   sectionHeights: Record<string, number>;
   sectionOffsets: Record<string, number>;
   typeCensus: Record<string, number>;
+  caseCensus: Record<string, number>;
   labelOffsets: number[];
   controlRightEdges: number[];
   controlHeights: number[];
@@ -136,11 +142,14 @@ async function measurePanel(
       }
 
       const typeCensus: Record<string, number> = {};
+      const caseCensus: Record<string, number> = {};
       const bump = (element: Element | null | undefined, role: string) => {
         if (!element) return;
         const style = getComputedStyle(element as HTMLElement);
         const key = `${role}|${style.fontSize}|${style.fontWeight}|${style.lineHeight}|${style.letterSpacing}|${style.color}`;
         typeCensus[key] = (typeCensus[key] ?? 0) + 1;
+        const caseKey = `${role}|text-transform:${style.textTransform}`;
+        caseCensus[caseKey] = (caseCensus[caseKey] ?? 0) + 1;
       };
       for (const label of document.querySelectorAll('.insp-field__label')) bump(label, 'label');
       for (const value of document.querySelectorAll('.insp-num__input, .insp-select'))
@@ -148,6 +157,10 @@ async function measurePanel(
       for (const header of document.querySelectorAll('.insp-disclosure__trigger'))
         bump(header, 'section');
       for (const hint of document.querySelectorAll('.insp-hint, .insp-empty')) bump(hint, 'hint');
+      for (const badge of document.querySelectorAll(
+        '.insp-badge, .insp-paint-library__badge, .intelligence-badge',
+      ))
+        bump(badge, 'badge');
 
       const labelOffsets: number[] = [];
       for (const label of document.querySelectorAll('.insp-field__label')) {
@@ -290,6 +303,7 @@ async function measurePanel(
         sectionHeights,
         sectionOffsets,
         typeCensus,
+        caseCensus,
         labelOffsets,
         controlRightEdges,
         controlHeights,

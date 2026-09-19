@@ -20,7 +20,7 @@
 
 .font-detect-text-input:focus-visible {
   border-color: var(--color-interactive-focus-ring);
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
@@ -71,7 +71,7 @@
 .font-detect-ocr-preview__box:hover,
 .font-detect-ocr-preview__box:focus-visible {
   background: color-mix(in oklab, var(--color-interactive-default) 28%, transparent);
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 

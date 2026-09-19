@@ -886,15 +886,9 @@ function FillRow({
               borderRadius: 'var(--radius-control-compact)',
               border:
                 '1px solid ' +
-                (bindingValid
-                  ? 'var(--color-accent-primary, #39d0c6)'
-                  : 'var(--color-feedback-danger, #d64545)'),
-              color: bindingValid
-                ? 'var(--color-text-primary, #292d36)'
-                : 'var(--color-feedback-danger, #d64545)',
-              background: bindingValid
-                ? 'var(--color-surface-raised, #fff)'
-                : 'rgba(214,69,69,0.08)',
+                (bindingValid ? 'var(--color-accent-primary)' : 'var(--color-feedback-danger)'),
+              color: bindingValid ? 'var(--color-text-primary)' : 'var(--color-feedback-danger)',
+              background: bindingValid ? 'var(--color-surface-raised)' : 'rgba(214,69,69,0.08)',
               display: 'inline-flex',
               alignItems: 'center',
               gap: 'var(--space-1)',

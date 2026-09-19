@@ -40,6 +40,14 @@ export const COMPONENT_DIMENSIONS = {
   'touch-target-min': '44px',
   'resize-handle-visual': '2px',
   'resize-handle-hit': '12px',
+  /* Focus-ring geometry. The ring COLOR is a semantic color token
+   * (--color-interactive-focus-ring, theme-owned); these carry the shape so
+   * a ring change is one edit, not one per control. The inset offset keeps
+   * the ring inside the control's border box for inset controls (inputs,
+   * selects, segmented chips) where an outer ring would be clipped by the
+   * panel surface or overlap neighbouring rows in dense layouts. */
+  'focus-ring-width': '2px',
+  'focus-ring-offset-inset': '-1px',
 } as const;
 
 export type ComponentSize = keyof typeof COMPONENT_SIZES;

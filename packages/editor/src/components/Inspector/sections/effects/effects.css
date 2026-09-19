@@ -68,8 +68,8 @@
 }
 
 .insp-inrow-blur__input:focus {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -1px;
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline-offset: var(--focus-ring-offset-inset);
   border-color: var(--color-interactive-focus-ring);
 }
 
@@ -87,7 +87,6 @@
   border-radius: var(--radius-pill);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
-  text-transform: uppercase;
   letter-spacing: var(--tracking-micro);
   background: var(--color-surface-sunken);
   color: var(--color-text-muted);
@@ -173,7 +172,7 @@
 }
 
 .insp-elevation-preset-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -200,7 +199,7 @@
 }
 
 .insp-elevation-preset-btn__badge {
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-family: var(--font-mono);
   padding: 0 4px;
   border-radius: 3px;
@@ -323,7 +322,7 @@
 }
 
 .insp-light-pad:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 

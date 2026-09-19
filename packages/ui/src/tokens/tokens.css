@@ -319,6 +319,8 @@
   --touch-target-min: 44px;
   --resize-handle-visual: 2px;
   --resize-handle-hit: 12px;
+  --focus-ring-width: 2px;
+  --focus-ring-offset-inset: -1px;
   --icon-size-xs: 12px;
   --icon-size-sm: 16px;
   --icon-size-md: 20px;

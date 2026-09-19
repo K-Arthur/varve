@@ -125,7 +125,7 @@
 }
 
 .effect-studio-comparison__modes button:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -170,7 +170,7 @@
 }
 
 .effect-studio-comparison__zoom button:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -405,7 +405,7 @@
 .effect-studio__looks li button:focus-visible,
 .effect-studio__filters button:focus-visible,
 .effect-studio__recent button:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -434,7 +434,7 @@
 .effect-studio__search-label input:focus-visible,
 .effect-studio__looks > label input:focus-visible {
   border-color: var(--color-accent-primary);
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -838,7 +838,6 @@
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   margin-right: var(--space-1);
-  text-transform: uppercase;
 }
 
 .effect-studio__gallery,

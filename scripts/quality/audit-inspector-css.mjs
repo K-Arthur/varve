@@ -144,6 +144,98 @@ for (const file of inspectorCssFiles) {
   if (colourCount > 0) {
     warnings.push(`${rel}: ${colourCount} raw colour literal(s)`);
   }
+
+  // E4 — raw font-size literals. The panel's type ramp lives in tokens
+  // (--insp-label-size/--insp-value-size and the --font-size-* ramp); a raw
+  // literal is by definition off the ramp. (pass-2 spec §6, R10)
+  for (const match of stripped.matchAll(/font-size\s*:\s*([^;}]+)/g)) {
+    const value = match[1].trim();
+    if (value.startsWith('var(')) continue;
+    if (/^(inherit|initial|unset|revert)$/.test(value)) continue;
+    const line = lineAt(stripped, match.index ?? 0);
+    const context = raw.split('\n')[line - 1] ?? '';
+    if (context.includes(ALLOW_MARKER)) continue;
+    errors.push(`${rel}:${line} raw font-size "${value}"`);
+  }
+
+  // E5 — case transforms. The panel's hierarchy is carried by size, weight,
+  // and color — not by block capitals. Research (GOV.UK content guidance,
+  // British Dyslexia Association style guide) documents all-caps as a
+  // legibility and accessibility cost, and the measured Design tab set every
+  // field label and section title in caps (pass-3 audit IA-028). A future
+  // uppercase role must be an explicit, annotated exception.
+  for (const match of stripped.matchAll(/text-transform\s*:\s*([^;}]+)/g)) {
+    const value = match[1].trim();
+    if (value !== 'uppercase') continue;
+    const line = lineAt(stripped, match.index ?? 0);
+    const context = raw.split('\n')[line - 1] ?? '';
+    if (context.includes(ALLOW_MARKER)) continue;
+    errors.push(`${rel}:${line} text-transform: uppercase (block capitals)`);
+  }
+  for (const match of stripped.matchAll(/font-variant-caps\s*:\s*([^;}]+)/g)) {
+    const value = match[1].trim();
+    if (value === 'normal') continue;
+    const line = lineAt(stripped, match.index ?? 0);
+    const context = raw.split('\n')[line - 1] ?? '';
+    if (context.includes(ALLOW_MARKER)) continue;
+    errors.push(`${rel}:${line} font-variant-caps: ${value}`);
+  }
+
+  // W2 — raw numeric line-height (debt inventory). Unitless ratios bypass
+  // the type ramp's line-height tokens; reported per file as a count.
+  let lineHeightCount = 0;
+  for (const match of stripped.matchAll(/line-height\s*:\s*([^;}]+)/g)) {
+    const value = match[1].trim();
+    if (value.startsWith('var(')) continue;
+    if (/^(inherit|initial|unset|revert|normal)$/.test(value)) continue;
+    lineHeightCount += 1;
+  }
+  if (lineHeightCount > 0) {
+    warnings.push(`${rel}: ${lineHeightCount} raw line-height value(s)`);
+  }
+
+  // W4 — bespoke grid tracks (trend inventory). The field grammar is
+  // FieldRow / InspectorFieldGroup / paint-row (spec §2); every additional
+  // grid-template-columns declaration is a candidate to fold back in.
+  const gridCount = [...stripped.matchAll(/grid-template-columns\s*:/g)].length;
+  if (gridCount > 0) {
+    warnings.push(`${rel}: ${gridCount} grid-template-columns declaration(s)`);
+  }
+}
+
+// W3 — icon-size drift in Inspector TSX (trend inventory). Sanctioned steps
+// are 12 / 14 / 16 (spec §1.2); anything else — especially em-relative
+// sizes, which compound with font size and produced the measured 9-15px
+// census — is reported as a distinct-value summary.
+{
+  const inspectorTsxFiles = walk(INSPECTOR_ROOT, (f) => f.endsWith('.tsx'));
+  const dist = new Map();
+  for (const file of inspectorTsxFiles) {
+    const raw = readFileSync(file, 'utf8');
+    const stripped = stripComments(raw);
+    for (const match of stripped.matchAll(/\bsize\s*=\s*("([^"]*)"|\{(\d+)\})/g)) {
+      const value = match[2] ?? match[3] ?? '';
+      if (!value) continue;
+      if (/^(12|14|16)$/.test(value)) continue;
+      if (/^(xs|sm|md|lg|xl)$/.test(value)) continue; // kit enum steps
+      // Only icon components: `size=` also appears on non-icon props
+      // (spacing presets, avatars) that are not part of this contract.
+      const lineStart = raw.lastIndexOf('\n', match.index ?? 0) + 1;
+      const lineEnd = raw.indexOf('\n', match.index ?? 0);
+      const line = raw.slice(lineStart, lineEnd === -1 ? undefined : lineEnd);
+      if (!/(<Icon|<SolidIcon|<TablerIcon|Icon name=)/.test(line)) continue;
+      if (line.includes(ALLOW_MARKER)) continue;
+      const key = `${value}`;
+      dist.set(key, (dist.get(key) ?? 0) + 1);
+    }
+  }
+  if (dist.size > 0) {
+    const summary = [...dist.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([v, n]) => `${v}x${n}`)
+      .join(', ');
+    warnings.push(`inspector TSX icon sizes off-step (12/14/16): ${summary}`);
+  }
 }
 
 if (warnings.length > 0) {
@@ -161,5 +253,5 @@ if (errors.length > 0) {
 }
 
 console.log(
-  `audit:inspector-css — clean (${inspectorCssFiles.length} stylesheets; undefined-reference, letter-spacing, and raw-duration rules).`,
+  `audit:inspector-css — clean (${inspectorCssFiles.length} stylesheets; undefined-reference, letter-spacing, raw-duration, raw-font-size, and block-capitals rules).`,
 );

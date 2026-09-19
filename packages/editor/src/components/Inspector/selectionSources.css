@@ -181,7 +181,7 @@
 .insp-selection-sources__saved-name:focus-visible,
 .insp-selection-sources__rename-input:focus-visible,
 .insp-selection-sources__name-field input:focus-visible {
-  outline: 2px solid var(--color-accent-primary);
+  outline: var(--focus-ring-width) solid var(--color-accent-primary);
   outline-offset: 1px;
 }
 

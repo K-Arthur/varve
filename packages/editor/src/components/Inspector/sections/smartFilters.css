@@ -83,9 +83,8 @@
   color: var(--color-text-primary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-micro);
   margin: 0;
-  text-transform: uppercase;
 }
 
 .object-finishing__hint {
@@ -195,9 +194,8 @@
 
 .smart-filters__advanced-title {
   font-weight: var(--font-weight-bold);
-  letter-spacing: var(--tracking-wide);
+  letter-spacing: var(--tracking-micro);
   margin-right: auto;
-  text-transform: uppercase;
 }
 
 .smart-filters__advanced-hint {
@@ -252,7 +250,6 @@
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--tracking-micro);
   padding: 1px 6px;
-  text-transform: uppercase;
 }
 
 .smart-filters__empty-icon {

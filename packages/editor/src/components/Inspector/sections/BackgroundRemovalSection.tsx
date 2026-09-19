@@ -1485,7 +1485,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                   className="insp-mask-review"
                   style={{
                     backgroundImage:
-                      'conic-gradient(var(--color-surface-raised) 25%, var(--color-border-default) 0 50%, var(--color-surface-raised) 0 75%, var(--color-border-default) 0)',
+                      'conic-gradient(var(--color-surface-raised) 25%, var(--color-border-subtle) 0 50%, var(--color-surface-raised) 0 75%, var(--color-border-subtle) 0)',
                     backgroundSize: '16px 16px',
                   }}
                 >
