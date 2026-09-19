@@ -144,7 +144,7 @@ describe('GradientImportDialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('disables confirm when nothing is selected', () => {
+  it('disables confirm when nothing is selected and explains why', () => {
     render(
       <GradientImportDialog
         open
@@ -156,7 +156,13 @@ describe('GradientImportDialog', () => {
       />,
     );
     const confirm = screen.getByRole('button', { name: /import.*preset/i });
-    expect(confirm).toBeDisabled();
+    // Soft-disabled: focusable and described, so keyboard and screen-reader
+    // users can discover the blocker (see button-action-system.md).
+    expect(confirm).toHaveAttribute('aria-disabled', 'true');
+    expect(confirm).not.toHaveAttribute('disabled');
+    const describedBy = confirm.getAttribute('aria-describedby');
+    expect(describedBy).toBeTruthy();
+    expect(screen.getByText(/select at least one preset/i)).toHaveAttribute('id', describedBy);
   });
 
   it('reports duplicate counts', () => {
