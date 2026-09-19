@@ -113,6 +113,38 @@ reliable. Revisit if operator feedback asks for it.
   observed for a 2× request, drift < 1 px) — that route exercises Varve's
   touch pointer pinch, not ctrl+wheel.
 
+## Follow-up (2026-09-19): why pinch was still dead on the operator's machine
+
+After the gesture bridge landed, the trackpad pinch still did nothing on the
+primary dev machine. Two independent causes, both fixed:
+
+1. **The running instance predated the fix and loaded stale assets.** The
+   operator's app was a `target/debug/varve-desktop` process started before
+   the change, launched *directly* (not via `tauri dev`), so it rendered the
+   **embedded frontend bundle** from `apps/desktop/dist` — last built two
+   days earlier, before the pinch-bridge payload handler and diagnostics
+   existed. A fresh binary with stale embedded assets would also have been
+   dead: the old frontend ignores the new `{phase,…}` payloads. Launching
+   raw cargo binaries requires rebuilding the dist (`beforeBuildCommand`'s
+   `pnpm build`, or at minimum `vite build`) *before* `cargo build`.
+2. **GTK3 never delivered touchpad-pinch events to the webview at all.** In
+   GTK3, touchpad gesture events reach a widget only when its GDK event mask
+   includes `GDK_TOUCHPAD_GESTURE_MASK`. Nothing in the wry/WebKitGTK stack
+   sets it — which is exactly why the pinch died silently twice: WebKit
+   never saw it (no page zoom, the original bridge premise), and the
+   `GtkGestureZoom` attached in the first fix never recognized it either.
+   The webview now opts in via `add_events(gtk::gdk::EventMask::TOUCHPAD_GESTURE_MASK)`
+   before the gesture is attached, and the first recognized pinch writes
+   `touchpad pinch recognized by GtkGestureZoom` to `varve.log` so the
+   delivery chain is observable on real hardware.
+
+Verified: fresh dist build (vite), fresh `cargo build` (both fixes embedded —
+native log string present in the binary, dist bundle contains the bridge and
+`__varveInputDiagnostics`), and a clean isolated-data smoke launch. Physical
+trackpad confirmation remains the manual lane; if the pinch still fails after
+this, the native log will show whether the gesture reached GTK at all
+(no log line ⇒ KWin → GDK delivery, not Varve).
+
 ## Open findings (discovered this session)
 
 1. **The input-diagnostics ring records the PRE-mutation viewport**

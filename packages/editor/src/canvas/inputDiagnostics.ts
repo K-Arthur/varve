@@ -50,7 +50,11 @@ export interface InputDiagnosticRecord {
     kind: 'zoom' | 'pan';
     scale: number;
   };
-  /** Viewport after the mutation this event caused. */
+  /** Viewport after the mutation this event caused.
+   *  Note: the wheel handler captures `stateRef.current` before applying the
+   *  action, so this is the viewport BEFORE the event's mutation — the last
+   *  record always lags the live camera by one event. Snapshot the current
+   *  camera by dispatching a zero-delta wheel (records without mutating). */
   viewport?: {
     zoom: number;
     panX: number;
