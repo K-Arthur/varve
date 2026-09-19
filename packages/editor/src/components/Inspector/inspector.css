@@ -2325,10 +2325,6 @@
   font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding: 1px var(--space-15, 6px);
-  border-radius: var(--radius-control-compact);
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
 }
 .insp-align-section > .insp-align-bar {
   padding-bottom: var(--space-2);
@@ -6303,6 +6299,7 @@ fieldset.insp-canvas-props,
 
 .insp-field-group--rotation {
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
@@ -6311,10 +6308,23 @@ fieldset.insp-canvas-props,
 
 /* R field on left, compact grouped transform controls on right. */
 .insp-field-group--rotation > .insp-field {
-  flex: 0 1 5.5rem;
-  min-width: 0;
+  display: flex;
+  align-items: center;
   gap: var(--space-1);
-  grid-template-columns: max-content minmax(0, 1fr);
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.insp-field-group--rotation > .insp-field > .insp-field__label {
+  min-width: 14px;
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.insp-field-group--rotation > .insp-field > .insp-field__control {
+  width: var(--insp-numeric-rail, 9ch);
+  flex: 0 0 var(--insp-numeric-rail, 9ch);
+  min-width: 0;
 }
 
 .insp-flip-group {
@@ -6382,8 +6392,17 @@ fieldset.insp-canvas-props,
 .insp-field-group--size > .insp-field,
 .insp-field-group--skew > .insp-field {
   gap: var(--space-1);
-  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-columns: 14px minmax(0, 1fr);
   min-width: 0;
+}
+
+.insp-field-group--columns-2 > .insp-field > .insp-field__label,
+.insp-field-group--columns-3 > .insp-field > .insp-field__label,
+.insp-field-group--size > .insp-field > .insp-field__label,
+.insp-field-group--skew > .insp-field > .insp-field__label {
+  min-width: 14px;
+  width: 14px;
+  flex-shrink: 0;
 }
 
 /* Position and size share one four-track geometry: value, action slot, value,
@@ -6410,7 +6429,7 @@ fieldset.insp-canvas-props,
 .insp-field-group--numeric-pair > .insp-field > .insp-field__control {
   flex: 0 1 var(--insp-numeric-rail, 9ch);
   inline-size: min(var(--insp-numeric-rail, 9ch), 100%);
-  justify-self: end;
+  justify-self: start;
   max-inline-size: 100%;
   min-inline-size: 0;
 }
