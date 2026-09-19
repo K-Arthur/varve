@@ -124,6 +124,7 @@ const NON_COLOR = `
   --font-weight-bold: 700;
   --tracking-tight: -0.025em;
   --tracking-base: 0;
+  --tracking-micro: 0.02em;
   --tracking-wide: 0.05em;
 ${typographyBlock}
 ${sizingBlock}
