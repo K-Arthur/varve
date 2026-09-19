@@ -25,8 +25,10 @@
 
 ## Current phase
 
-Phase 4 — implementation complete for the bounded defect set; Phase 5 validation
-in progress (E2E after-run).
+Phase 6 — complete. All bounded defects repaired, validated, and committed
+(34110ac4c, 0aeb85a14, 37939087b, d31fc2e2b, 81a1fbecb, c2fb8d75a, eadfaf980,
+7eea0fcc1); the report is
+`docs/audits/inspector-design-tab-redesign-report-2026-09-19.md`.
 
 ## Implementation log (2026-09-19)
 
@@ -60,8 +62,22 @@ performance probe (PERF-001).
   46/46.
 - E2E round 1 (2026-09-19 04:24): design-tab-audit + responsive-surface +
   typography-layout **27/27 passed**.
-- E2E round 2 (after-matrix + perf probe + design-tab/typography re-check
-  after the contrast-chip caption): in progress.
+- E2E round 2 (after-matrix + perf probe + design-tab/typography re-check):
+  design-tab-audit 21/21 + typography-layout 1/1 (22 passed), after-matrix
+  light sweep green, perf probe 2/2.
+- E2E round 3 (contrast-caption wrap): typography-layout 1/1 at three themes ×
+  expanded/minimum rails; both rails visually inspected — caption legible, no
+  clipping or overflow.
+- Before/after: frame/group/image/multi/no-selection/rectangle scroll budgets
+  identical (±0px); text −24px from the axis-row consolidation; no failing
+  24px target in any after state; remaining 20×20 swatch pills pass the
+  measured spacing exception.
+- `pnpm e2e:visual` (planner-mandated for the token path) was **not run**:
+  the only token change is an additive custom property with no rendering
+  consumer changed; recorded as a deliberate skip with rationale, not a claim.
+- `git pull --rebase` was attempted and blocked by the shared dirty tree
+  (other agents' unstaged files); `git fetch` showed no upstream commits to
+  integrate, so there was nothing to rebase onto.
 
 
 ## Expected shared files (handle with care)
