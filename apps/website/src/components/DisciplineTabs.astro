@@ -241,12 +241,13 @@ const disciplines: Discipline[] = [
 
 <style>
   .disciplines {
+    /* audit-spacing: allow editorial section rhythm, scales with viewport height */
     padding: clamp(4rem, 9vh, 7rem) 0;
   }
 
   .disciplines-head {
     max-width: 720px;
-    margin-bottom: 3rem;
+    margin-bottom: var(--space-8);
   }
 
   .disciplines-eyebrow {
@@ -255,7 +256,7 @@ const disciplines: Discipline[] = [
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--text-muted);
-    margin-bottom: 0.75rem;
+    margin-bottom: var(--space-4);
   }
 
   .disciplines-title {
@@ -266,7 +267,7 @@ const disciplines: Discipline[] = [
     letter-spacing: -0.025em;
     line-height: var(--type-marketing-feature-line-height);
     color: var(--text-primary);
-    margin-bottom: 1.25rem;
+    margin-bottom: var(--space-5);
   }
 
   .disciplines-intro {
@@ -279,27 +280,28 @@ const disciplines: Discipline[] = [
   .disciplines-body {
     display: grid;
     grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.6fr);
+    /* audit-spacing: allow editorial two-column rhythm */
     gap: clamp(1.5rem, 3vw, 3rem);
     align-items: start;
     background: var(--surface-card);
     border: 1px solid var(--border-default);
     border-radius: var(--website-radius-surface);
-    padding: 1rem;
+    padding: var(--space-5);
   }
 
   .disciplines-tabs {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
+    gap: var(--space-2);
     border-right: 1px solid var(--border-default);
-    padding-right: 0.75rem;
+    padding-right: var(--space-4);
   }
 
   .disciplines-tabs [role='tab'] {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    padding: 0.65rem 0.8rem;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
     border: none;
     border-inline-start: 2px solid transparent;
     border-radius: var(--website-radius-control);
@@ -354,7 +356,7 @@ const disciplines: Discipline[] = [
 
   .discipline-panel {
     display: none;
-    padding: 1rem 1.25rem 1rem 0.5rem;
+    padding: var(--space-5) var(--space-5) var(--space-5) var(--space-3);
   }
 
   .discipline-panel.active {
@@ -364,8 +366,8 @@ const disciplines: Discipline[] = [
   .discipline-panel-head {
     display: flex;
     align-items: baseline;
-    gap: 0.75rem;
-    margin-bottom: 0.75rem;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
   }
 
   .discipline-panel-num {
@@ -391,19 +393,19 @@ const disciplines: Discipline[] = [
     font-size: 1.0625rem;
     line-height: 1.7;
     color: var(--text-secondary);
-    margin-bottom: 1.25rem;
+    margin-bottom: var(--space-5);
   }
 
   .discipline-points {
     list-style: none;
     display: grid;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
+    gap: var(--space-3);
+    margin-bottom: var(--space-6);
   }
 
   .discipline-points li {
     position: relative;
-    padding-left: 1.4rem;
+    padding-left: var(--space-6);
     color: var(--text-secondary);
     font-size: 0.9375rem;
   }
@@ -422,7 +424,7 @@ const disciplines: Discipline[] = [
   .discipline-link {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: var(--space-2);
     font-weight: 600;
   }
 
@@ -437,7 +439,7 @@ const disciplines: Discipline[] = [
       border-right: none;
       border-bottom: 1px solid var(--border-default);
       padding-right: 0;
-      padding-bottom: 0.5rem;
+      padding-bottom: var(--space-3);
       scrollbar-color: var(--color-border-strong) transparent;
       scrollbar-width: thin;
     }
@@ -453,7 +455,7 @@ const disciplines: Discipline[] = [
     }
 
     .discipline-panel {
-      padding: 1rem 0.5rem;
+      padding: var(--space-5) var(--space-3);
     }
   }
 

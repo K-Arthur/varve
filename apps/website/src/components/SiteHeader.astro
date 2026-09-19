@@ -619,7 +619,7 @@ const versionLabel = release.hasRelease && release.version
 
   .nav-menu-panel a {
     display: grid;
-    gap: 0.15rem;
+    gap: var(--space-1);
     padding: var(--space-2) var(--space-3);
     border-radius: var(--website-radius-control-compact);
     color: var(--text-primary);
@@ -658,6 +658,7 @@ const versionLabel = release.hasRelease && release.version
     position: absolute;
     bottom: 2px;
     left: 50%;
+    /* audit-spacing: allow optical alignment of the badge against its icon */
     margin-left: -2.5px;
   }
 
@@ -674,7 +675,7 @@ const versionLabel = release.hasRelease && release.version
   .nav-search-trigger {
     display: none;
     align-items: center;
-    gap: 0.4rem;
+    gap: var(--space-2);
     padding: 0 var(--space-3);
     min-block-size: 2rem;
     border: 1px solid var(--border-default);
@@ -702,7 +703,7 @@ const versionLabel = release.hasRelease && release.version
   }
 
   .nav-search-trigger__hint {
-    padding: 0 0.28rem;
+    padding: 0 var(--space-2);
     border: 1px solid var(--border-default);
     border-radius: 4px;
     background: var(--surface-card);
@@ -935,7 +936,7 @@ const versionLabel = release.hasRelease && release.version
     .mobile-nav-actions {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: var(--space-3);
     }
 
     .mobile-menu-close {

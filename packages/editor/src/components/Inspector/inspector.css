@@ -519,7 +519,6 @@
 .insp-disclosure {
   position: relative;
   border: 0;
-  border-bottom: 1px solid var(--color-border-subtle);
   border-radius: 0;
   background: transparent;
   padding: 0;
@@ -527,7 +526,6 @@
    * margin is the section-to-section gap, so grouping reads correctly:
    * tighter within a section than between two different sections. */
   margin-bottom: var(--space-2);
-  transition: border-color var(--duration-quick) var(--ease-standard);
 }
 .insp-disclosure:hover {
   border-bottom-color: color-mix(
@@ -561,7 +559,7 @@
   margin-inline: 0;
   padding: var(--space-1) 0;
   background: var(--color-surface-base);
-  box-shadow: 0 1px 0 var(--color-border-subtle);
+  box-shadow: 0 1px 0 var(--insp-section-rule);
   border-radius: 0;
 }
 

@@ -54,6 +54,7 @@ const shot = scenes[scene]?.status === 'captured' ? scenes[scene] : null;
 
 <style>
   .feature-visual {
+    /* audit-spacing: allow optical tuck toward the preceding copy */
     margin: -1rem 0 3rem;
   }
 
@@ -74,7 +75,7 @@ const shot = scenes[scene]?.status === 'captured' ? scenes[scene] : null;
   }
 
   .feature-visual figcaption {
-    margin-top: 0.75rem;
+    margin-top: var(--space-4);
     color: var(--text-secondary);
     font-size: 0.875rem;
     line-height: 1.5;

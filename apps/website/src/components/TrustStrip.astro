@@ -46,16 +46,16 @@
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 0;
-    padding-top: 3rem;
-    padding-bottom: 3rem;
+    padding-top: var(--space-8);
+    padding-bottom: var(--space-8);
   }
 
   .trust-item {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: var(--space-3);
     border-left: 1px solid var(--border-default);
-    padding: 0 1.5rem;
+    padding: 0 var(--space-6);
   }
 
   .trust-item:first-child {
@@ -94,7 +94,7 @@
   @media (max-width: 900px) {
     .trust-grid {
       grid-template-columns: repeat(2, 1fr);
-      gap: 2rem 0;
+      gap: var(--space-7) 0;
     }
 
     .trust-item {
@@ -104,23 +104,23 @@
 
     .trust-item:nth-child(-n+2) {
       border-bottom: 1px solid var(--border-default);
-      padding-bottom: 2rem;
+      padding-bottom: var(--space-7);
     }
 
     .trust-item:nth-child(odd) {
-      padding-right: 1.5rem;
+      padding-right: var(--space-6);
     }
   }
 
   @media (max-width: 480px) {
     .trust-grid {
       grid-template-columns: 1fr;
-      gap: 1.75rem;
+      gap: var(--space-6);
     }
 
     .trust-item {
       border-bottom: 1px solid var(--border-default);
-      padding-bottom: 1.75rem;
+      padding-bottom: var(--space-6);
     }
 
     .trust-item:last-child {

@@ -19,7 +19,7 @@ import {
   type SceneNode,
 } from '@varve/scene';
 import { Button, Icon, Tooltip } from '@varve/ui';
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { setInspectorTabHandler, useEditor } from '../../context';
 import { requestToolOptions } from '../../context/toolOptionsBridge';
 import type { EditorState, InspectorTab, IntelligenceTab } from '../../context/types';
@@ -825,8 +825,11 @@ function SingleSelectionPanel({
         </h2>
         {headerAction}
       </header>
+      {/* A keyed Fragment, not a keyed <div>: the wrapper made every section
+          the last child of its own parent, so the section's :last-child rule
+          matched all of them and zeroed the section-to-section gap. */}
       {sectionEntries.map((entry) => (
-        <div key={entry.id}>{entry.el}</div>
+        <Fragment key={entry.id}>{entry.el}</Fragment>
       ))}
     </>
   );
@@ -872,8 +875,11 @@ function MultiSelectionPanel({
         </h2>
         {headerAction}
       </header>
+      {/* A keyed Fragment, not a keyed <div>: the wrapper made every section
+          the last child of its own parent, so the section's :last-child rule
+          matched all of them and zeroed the section-to-section gap. */}
       {sectionEntries.map((entry) => (
-        <div key={entry.id}>{entry.el}</div>
+        <Fragment key={entry.id}>{entry.el}</Fragment>
       ))}
     </>
   );

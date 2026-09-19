@@ -119,12 +119,14 @@ const DETAILS = ['vector', 'typography', 'layers', 'motion']
     /* No bottom edge: the following band owns the boundary line, so the two
        adjacent sections do not render a doubled 2px seam. */
     padding: clamp(4rem, 8vh, 6.5rem) 0;
+    /* audit-spacing: allow editorial section rhythm */
   }
 
   .showcase-grid {
     display: grid;
     grid-template-columns: minmax(280px, 0.85fr) minmax(0, 1.6fr);
     gap: clamp(2rem, 5vw, 4.5rem);
+    /* audit-spacing: allow editorial two-column rhythm */
     align-items: start;
   }
 
@@ -134,7 +136,7 @@ const DETAILS = ['vector', 'typography', 'layers', 'motion']
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--text-muted);
-    margin-bottom: 1rem;
+    margin-bottom: var(--space-5);
   }
 
   .showcase-title {
@@ -145,14 +147,14 @@ const DETAILS = ['vector', 'typography', 'layers', 'motion']
     letter-spacing: -0.025em;
     line-height: var(--type-marketing-feature-line-height);
     color: var(--text-primary);
-    margin-bottom: 1.25rem;
+    margin-bottom: var(--space-5);
   }
 
   .showcase-text {
     font-size: var(--type-content-lead-size);
     line-height: var(--type-content-lead-line-height);
     color: var(--text-secondary);
-    margin-bottom: 1.75rem;
+    margin-bottom: var(--space-6);
     max-width: 44ch;
   }
 
@@ -175,16 +177,16 @@ const DETAILS = ['vector', 'typography', 'layers', 'motion']
   .window-chrome {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--space-3);
     min-height: 2.25rem;
-    padding: 0.45rem 0.8rem;
+    padding: var(--space-2) var(--space-4);
     background: var(--surface-muted);
     border-bottom: 1px solid var(--border-default);
   }
 
   .window-brand {
     display: grid;
-    gap: 2px;
+    gap: var(--space-1);
     width: 1rem;
     flex: 0 0 1rem;
   }
@@ -246,34 +248,34 @@ const DETAILS = ['vector', 'typography', 'layers', 'motion']
   .showcase-window figcaption {
     font-size: 0.875rem;
     color: var(--text-muted);
-    padding: 0.75rem 1rem;
+    padding: var(--space-4) var(--space-5);
     border-top: 1px solid var(--border-default);
   }
 
   .showcase-placeholder {
     border: 1px dashed var(--border-strong);
     border-radius: var(--website-radius-card);
-    padding: 3rem 2rem;
+    padding: var(--space-8) var(--space-7);
     text-align: center;
     color: var(--text-muted);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1rem;
+    gap: var(--space-5);
   }
 
   .showcase-placeholder code {
     background: var(--surface-code);
     color: var(--text-code);
-    padding: 0.1rem 0.4rem;
+    padding: var(--space-1) var(--space-2);
     border-radius: var(--website-radius-control-compact);
   }
 
   .showcase-details {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 1.25rem;
-    margin-top: 1.5rem;
+    gap: var(--space-5);
+    margin-top: var(--space-6);
   }
 
   .showcase-detail {
@@ -300,7 +302,7 @@ const DETAILS = ['vector', 'typography', 'layers', 'motion']
   .showcase-detail figcaption {
     font-size: 0.8125rem;
     color: var(--text-muted);
-    padding: 0.6rem 0.75rem;
+    padding: var(--space-3) var(--space-4);
   }
 
   @media (max-width: 980px) {

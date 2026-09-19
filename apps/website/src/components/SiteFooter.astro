@@ -178,9 +178,9 @@ const statusLabel = release.hasRelease && release.version
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 2.5rem;
-    padding-top: 3.5rem;
-    padding-bottom: 3.5rem;
+    gap: var(--space-7);
+    padding-top: var(--space-8);
+    padding-bottom: var(--space-8);
   }
 
   .footer-download-title {
@@ -191,7 +191,7 @@ const statusLabel = release.hasRelease && release.version
     letter-spacing: -0.02em;
     line-height: 1.1;
     color: var(--text-footer-heading);
-    margin-bottom: 0.5rem;
+    margin-bottom: var(--space-3);
   }
 
   .footer-download-sub {
@@ -205,7 +205,7 @@ const statusLabel = release.hasRelease && release.version
   }
 
   .footer-download-alt {
-    margin-top: 0.75rem;
+    margin-top: var(--space-4);
     font-size: 0.875rem;
   }
 
@@ -217,9 +217,9 @@ const statusLabel = release.hasRelease && release.version
   .footer-main {
     display: grid;
     grid-template-columns: minmax(240px, 1.1fr) 2.2fr;
-    gap: 3rem;
-    padding-top: 3rem;
-    padding-bottom: 2.5rem;
+    gap: var(--space-8);
+    padding-top: var(--space-8);
+    padding-bottom: var(--space-7);
   }
 
   .footer-brand-title {
@@ -232,13 +232,13 @@ const statusLabel = release.hasRelease && release.version
     font-weight: 700;
     letter-spacing: -0.01em;
     line-height: 1.15;
-    margin: 0 0 0.9rem;
+    margin: 0 0 var(--space-4);
   }
 
   .footer-brand-lockup {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--space-3);
     font-family: var(--font-editorial);
     font-size: 1.35rem;
     font-weight: 600;
@@ -253,7 +253,7 @@ const statusLabel = release.hasRelease && release.version
   }
 
   .footer-brand-desc {
-    margin-top: 0.9rem;
+    margin-top: var(--space-4);
     max-width: 30ch;
     font-size: 0.9375rem;
     line-height: 1.65;
@@ -263,13 +263,13 @@ const statusLabel = release.hasRelease && release.version
   .footer-status {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    margin-top: 1.25rem;
+    gap: var(--space-3);
+    margin-top: var(--space-5);
     font-size: 0.8125rem;
     color: var(--text-footer-muted);
     border: 1px solid var(--border-footer);
     border-radius: var(--website-radius-pill);
-    padding: 0.35rem 0.85rem;
+    padding: var(--space-2) var(--space-4);
   }
 
   .footer-status-dot {
@@ -282,7 +282,7 @@ const statusLabel = release.hasRelease && release.version
   .footer-columns {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 2rem;
+    gap: var(--space-7);
   }
 
   .footer-section h3 {
@@ -290,7 +290,7 @@ const statusLabel = release.hasRelease && release.version
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    margin-bottom: 1rem;
+    margin-bottom: var(--space-5);
     color: var(--text-footer-heading);
   }
 
@@ -299,7 +299,7 @@ const statusLabel = release.hasRelease && release.version
   }
 
   .footer-section li {
-    margin-bottom: 0.55rem;
+    margin-bottom: var(--space-3);
   }
 
   .footer-section a {
@@ -325,10 +325,10 @@ const statusLabel = release.hasRelease && release.version
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1.5rem;
+    gap: var(--space-6);
     flex-wrap: wrap;
-    padding-top: 1.5rem;
-    padding-bottom: 2rem;
+    padding-top: var(--space-6);
+    padding-bottom: var(--space-7);
     border-top: 1px solid var(--border-footer);
     font-size: 0.875rem;
     color: var(--text-footer-muted);
@@ -336,7 +336,7 @@ const statusLabel = release.hasRelease && release.version
 
   .footer-bottom-links {
     display: flex;
-    gap: 1.25rem;
+    gap: var(--space-5);
     flex-wrap: wrap;
   }
 
@@ -366,7 +366,7 @@ const statusLabel = release.hasRelease && release.version
     position: relative;
     overflow: hidden;
     height: clamp(160px, 20vw, 360px);
-    margin-top: 2rem;
+    margin-top: var(--space-7);
     margin-bottom: 0;
     user-select: none;
     pointer-events: none;
@@ -432,7 +432,7 @@ const statusLabel = release.hasRelease && release.version
   @media (max-width: 980px) {
     .footer-main {
       grid-template-columns: 1fr;
-      gap: 2.5rem;
+      gap: var(--space-7);
     }
 
     .footer-columns {
@@ -444,12 +444,12 @@ const statusLabel = release.hasRelease && release.version
     .footer-download-inner {
       flex-direction: column;
       text-align: center;
-      gap: 1.75rem;
+      gap: var(--space-6);
     }
 
     .footer-columns {
       grid-template-columns: repeat(2, 1fr);
-      gap: 2rem 1.5rem;
+      gap: var(--space-7) var(--space-6);
     }
 
     .footer-bottom {
