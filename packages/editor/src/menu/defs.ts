@@ -151,7 +151,7 @@ export function getFileMenu(runAction: (id: string) => void): MenuItemDef[] {
             label: () => labelWithFallback(e.label),
             kind: 'command',
             group: 'recent',
-            run: () => runAction(`openRecent:${e.id}`),
+            run: () => runAction(`recent:${e.id}`),
           }));
           items.push(
             { id: 'recent-sep', kind: 'separator', group: 'recent', run: () => {} },
