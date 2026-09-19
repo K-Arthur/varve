@@ -9,6 +9,7 @@
  */
 
 import type { EditorMode, WorkspaceMode } from '@varve/shared';
+import { capitalize } from '@varve/shared';
 import { Icon } from '@varve/ui';
 import { useState } from 'react';
 import './audit.css';
@@ -209,11 +210,4 @@ export function AuditProfileSwitcher({
       )}
     </div>
   );
-}
-
-/**
- * Capitalize first letter.
- */
-function capitalize(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1);
 }

@@ -10,6 +10,7 @@ import {
   shapeHeight,
   shapeWidth,
 } from '@varve/scene';
+import { escapeRegex } from '@varve/shared';
 
 export interface NamingSuggestion {
   name: string;
@@ -224,8 +225,12 @@ function getShapeKindName(node: SceneNode): string | null {
   }
 }
 
+/** Default names produced by the panel tool; auto-naming numbers these in place. */
+const PANEL_DEFAULT_NAME_RE = /^Panel(?: \d+)?$/;
+
 function getDefaultKindName(node: SceneNode): string {
   if (node.kind === 'frame' && node.frameRole === 'exportRegion') return 'Export Region';
+  if (node.kind === 'frame' && PANEL_DEFAULT_NAME_RE.test(node.name)) return 'Panel';
   if (node.kind === 'shape') {
     return getShapeKindName(node) ?? KIND_NAMES[node.kind] ?? 'Shape';
   }
@@ -451,10 +456,6 @@ export function suggestName(
   };
 }
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function existingNames(doc: Document, excludeId?: NodeId): Set<string> {
   const names = new Set<string>();
   for (const [id, node] of Object.entries(doc.nodes)) {
@@ -475,7 +476,7 @@ function uniqueName(base: string, doc: Document, excludeId?: NodeId): string {
 function nextUniqueDefaultName(doc: Document, kindName: string, excludeId?: NodeId): string {
   const names = existingNames(doc, excludeId);
   const used = new Set<number>();
-  const re = new RegExp(`^${escapeRegExp(kindName)} (\\d+)$`);
+  const re = new RegExp(`^${escapeRegex(kindName)} (\\d+)$`);
   for (const name of names) {
     const match = name.match(re);
     if (match) used.add(Number(match[1]));

@@ -6,6 +6,7 @@ import {
   richTextToPlainText,
   walkNodes,
 } from '@varve/scene';
+import { escapeRegex } from '@varve/shared';
 import type { MatchResult, SearchOptions, TextNodeContent } from './types';
 
 export function hasCatastrophicBacktracking(pattern: string): boolean {
@@ -37,10 +38,6 @@ export function validateRegex(pattern: string): string | null {
     return 'Pattern may cause catastrophic backtracking (nested quantifiers)';
   }
   return null;
-}
-
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function buildSearchPattern(

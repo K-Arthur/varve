@@ -8,6 +8,8 @@
  * Research basis: VS Code ActionRegistry, Figma Command Palette, Penpot Shortcuts.
  */
 
+import { escapeRegex } from '@varve/shared';
+
 /**
  * Fuzzy subsequence match: returns true if all chars of `query` appear in
  * `target` in order (not necessarily contiguously).
@@ -66,9 +68,6 @@ function scoreMatch(
   return 0;
 }
 
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 export type ActionCategory =
   | 'file'
   | 'edit'

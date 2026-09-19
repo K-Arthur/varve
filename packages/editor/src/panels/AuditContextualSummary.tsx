@@ -8,6 +8,7 @@
  */
 
 import type { AuditFinding } from '@varve/shared';
+import { capitalize } from '@varve/shared';
 import { Icon } from '@varve/ui';
 import './audit.css';
 
@@ -170,11 +171,4 @@ export function AuditContextualSummary({
       </div>
     </div>
   );
-}
-
-/**
- * Capitalize first letter.
- */
-function capitalize(str: string): string {
-  return str.charAt(0).toUpperCase() + str.slice(1);
 }

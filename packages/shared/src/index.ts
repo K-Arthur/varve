@@ -578,6 +578,7 @@ export {
   selectionBoxCorners,
   selectionBoxMatrix,
 } from './selectionBox';
+export { capitalize, escapeRegex } from './strings';
 export type {
   TextGeometry,
   TextGeometryInput,

@@ -1,6 +1,8 @@
 import type { Document, NodeId } from '@varve/scene';
 import { renameNode } from '@varve/scene';
 
+import { escapeRegex } from '@varve/shared';
+
 export interface BatchRenameOptions {
   find: string;
   replace: string;
@@ -14,10 +16,6 @@ export interface BatchRenamePreview {
   originalName: string;
   newName: string;
   changed: boolean;
-}
-
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function buildPattern(find: string, options: BatchRenameOptions): RegExp | null {

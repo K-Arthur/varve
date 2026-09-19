@@ -19,6 +19,7 @@ import { CapabilityReportPanel } from './CapabilityReportPanel';
 import { InteractionTracePanel } from './InteractionTracePanel';
 import { NativeAccelerationPanel } from './NativeAccelerationPanel';
 import { useSettings } from './SettingsContext';
+import { SettingsFieldRow } from './SettingsFieldRow';
 
 import './PerformanceSettingsTab.css';
 
@@ -41,15 +42,6 @@ const REDUCED_MOTION_OPTIONS: {
   { value: 'always', label: 'Always reduce motion' },
   { value: 'never', label: 'Never reduce motion' },
 ];
-
-function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="settings-field-row">
-      <span className="settings-field-row__label">{label}</span>
-      <div className="settings-field-row__control">{children}</div>
-    </div>
-  );
-}
 
 export function PerformanceSettingsTab() {
   const { settings, updateSettings } = useSettings();
@@ -114,21 +106,21 @@ export function PerformanceSettingsTab() {
     <div className="settings-section">
       <h3 className="settings-section__title">Performance</h3>
 
-      <FieldRow label="Memory / cache budget">
+      <SettingsFieldRow label="Memory / cache budget">
         <Select
           options={MEMORY_BUDGET_OPTIONS}
           value={settings.render.memoryBudget}
           onChange={(v) => updateRender({ memoryBudget: v as RenderSettingsStore['memoryBudget'] })}
           label="Memory / cache budget"
         />
-      </FieldRow>
+      </SettingsFieldRow>
       <p className="settings-hint">
         Controls how much memory the canvas render cache may retain. Lower budgets reduce memory use
         on constrained devices at the cost of more redraw work on large documents. Takes effect for
         newly opened documents.
       </p>
 
-      <FieldRow label="Interactive preview quality">
+      <SettingsFieldRow label="Interactive preview quality">
         <Select
           options={INTERACTIVE_PREVIEW_OPTIONS}
           value={settings.render.interactivePreview}
@@ -137,7 +129,7 @@ export function PerformanceSettingsTab() {
           }
           label="Interactive preview quality"
         />
-      </FieldRow>
+      </SettingsFieldRow>
       <p className="settings-hint">
         Automatic may lower the temporary canvas backing scale after sustained over-budget frames;
         it always returns to authoritative full resolution after navigation settles. Full resolution
@@ -145,7 +137,7 @@ export function PerformanceSettingsTab() {
         hardware. Exports are full quality in either mode.
       </p>
 
-      <FieldRow label="Reduce motion">
+      <SettingsFieldRow label="Reduce motion">
         <Select
           options={REDUCED_MOTION_OPTIONS}
           value={settings.performance.reducedMotionOverride}
@@ -154,7 +146,7 @@ export function PerformanceSettingsTab() {
           }
           label="Reduce motion"
         />
-      </FieldRow>
+      </SettingsFieldRow>
       <p className="settings-hint">
         Applies immediately and overrides your OS accessibility setting for this app.
       </p>

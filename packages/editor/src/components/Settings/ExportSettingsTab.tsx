@@ -7,6 +7,7 @@ import type { ExportFormat, RenderingIntent } from '@varve/scene';
 import { NumberInput, Select, SwitchField } from '@varve/ui';
 import { useState } from 'react';
 import { useSettings } from './SettingsContext';
+import { SettingsFieldRow } from './SettingsFieldRow';
 
 import './ExportSettingsTab.css';
 
@@ -52,15 +53,6 @@ const INTENT_OPTIONS: { value: RenderingIntent; label: string }[] = [
   { value: 'saturation', label: 'Saturation' },
 ];
 
-function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="settings-field-row">
-      <span className="settings-field-row__label">{label}</span>
-      <div className="settings-field-row__control">{children}</div>
-    </div>
-  );
-}
-
 export function ExportSettingsTab() {
   const { settings, updateSection } = useSettings();
   const [customScale, setCustomScale] = useState('');
@@ -90,16 +82,16 @@ export function ExportSettingsTab() {
     <div className="settings-section">
       <h3 className="settings-section__title">Export</h3>
 
-      <FieldRow label="Default format">
+      <SettingsFieldRow label="Default format">
         <Select
           options={FORMAT_OPTIONS}
           value={settings.export.defaultFormat}
           onChange={(v) => updateExport({ defaultFormat: v as ExportFormat })}
           label="Default format"
         />
-      </FieldRow>
+      </SettingsFieldRow>
 
-      <FieldRow label="Default scale">
+      <SettingsFieldRow label="Default scale">
         <div className="export-settings__scale-row">
           <Select
             options={SCALE_OPTIONS}
@@ -126,9 +118,9 @@ export function ExportSettingsTab() {
             />
           )}
         </div>
-      </FieldRow>
+      </SettingsFieldRow>
 
-      <FieldRow label="Color space">
+      <SettingsFieldRow label="Color space">
         <Select
           options={COLOR_SPACE_OPTIONS}
           value={settings.export.defaultColorProfile}
@@ -144,18 +136,18 @@ export function ExportSettingsTab() {
           profile. WebP cannot embed profiles on this pipeline and stays sRGB (disclosed per
           export).
         </p>
-      </FieldRow>
+      </SettingsFieldRow>
 
-      <FieldRow label="ICC profile">
+      <SettingsFieldRow label="ICC profile">
         <Select
           options={ICC_OPTIONS}
           value={settings.export.defaultIccProfile}
           onChange={(v) => updateExport({ defaultIccProfile: v })}
           label="ICC profile"
         />
-      </FieldRow>
+      </SettingsFieldRow>
 
-      <FieldRow label="Bleed (mm)">
+      <SettingsFieldRow label="Bleed (mm)">
         <NumberInput
           value={settings.export.defaultBleedMm}
           min={0}
@@ -164,7 +156,7 @@ export function ExportSettingsTab() {
           onChange={(v) => updateExport({ defaultBleedMm: v })}
           label="Bleed"
         />
-      </FieldRow>
+      </SettingsFieldRow>
 
       <SwitchField
         label="Convert text to outlines on export"
@@ -173,7 +165,7 @@ export function ExportSettingsTab() {
         onChange={(e) => updateExport({ defaultOutlineText: e.target.checked })}
       />
 
-      <FieldRow label="Filename template">
+      <SettingsFieldRow label="Filename template">
         <input
           type="text"
           className="export-settings__template"
@@ -184,16 +176,16 @@ export function ExportSettingsTab() {
         <div className="export-settings__hints">
           <code>{'{name}'}</code> <code>{'{suffix}'}</code> <code>{'{ext}'}</code>
         </div>
-      </FieldRow>
+      </SettingsFieldRow>
 
-      <FieldRow label="Rendering intent">
+      <SettingsFieldRow label="Rendering intent">
         <Select
           options={INTENT_OPTIONS}
           value={settings.export.defaultRenderingIntent}
           onChange={(v) => updateExport({ defaultRenderingIntent: v as RenderingIntent })}
           label="Rendering intent"
         />
-      </FieldRow>
+      </SettingsFieldRow>
     </div>
   );
 }

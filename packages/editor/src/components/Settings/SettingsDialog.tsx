@@ -47,6 +47,7 @@ import { PerformanceSettingsTab } from './PerformanceSettingsTab';
 import { SemanticSearchTab } from './SemanticSearchTab';
 import type { SettingsSection } from './SettingsContext';
 import { useSettings } from './SettingsContext';
+import { SettingsFieldRow } from './SettingsFieldRow';
 import { StorageSettingsTab } from './StorageSettingsTab';
 
 const SECTIONS: { id: SettingsSection; label: string }[] = [
@@ -326,15 +327,6 @@ export function SettingsDialog({
   );
 }
 
-function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="settings-field-row">
-      <span className="settings-field-row__label">{label}</span>
-      <div className="settings-field-row__control">{children}</div>
-    </div>
-  );
-}
-
 function Divider() {
   return <div className="settings-divider" />;
 }
@@ -360,25 +352,25 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
   return (
     <div className="settings-section">
       <h3 className="settings-section__title">General</h3>
-      <FieldRow label="Language">
+      <SettingsFieldRow label="Language">
         <Select
           options={[{ value: 'en', label: 'English' }]}
           value={settings.general.language}
           onChange={(v) => updateSection('general', { language: v })}
           label="Language"
         />
-      </FieldRow>
-      <FieldRow label="Units">
+      </SettingsFieldRow>
+      <SettingsFieldRow label="Units">
         <Select
           options={UNIT_OPTIONS}
           value={settings.general.units}
           onChange={(v) => updateSection('general', { units: v as UnitType })}
           label="Units"
         />
-      </FieldRow>
+      </SettingsFieldRow>
       {editor && (
         <>
-          <FieldRow label="Canvas background">
+          <SettingsFieldRow label="Canvas background">
             <InspectorColorPopover
               label="Canvas background"
               value={canvasBgColor}
@@ -401,14 +393,14 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
             >
               Reset
             </Button>
-          </FieldRow>
+          </SettingsFieldRow>
           <p className="settings-hint">
             Background of the currently open document. When no custom color is set the canvas uses
             the theme surface color. Changes apply immediately.
           </p>
         </>
       )}
-      <FieldRow label="Autosave interval (min)">
+      <SettingsFieldRow label="Autosave interval (min)">
         <NumberInput
           value={settings.general.autosaveInterval}
           min={1}
@@ -417,7 +409,7 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
           onChange={(v) => updateSection('general', { autosaveInterval: v })}
           label="Autosave interval"
         />
-      </FieldRow>
+      </SettingsFieldRow>
       <Divider />
       <h3 className="settings-section__title">Render performance</h3>
       <SwitchField
@@ -612,44 +604,44 @@ function AppearanceSection({ onThemeChange }: { onThemeChange: (theme: string) =
   return (
     <div className="settings-section">
       <h3 className="settings-section__title">Appearance</h3>
-      <FieldRow label="Theme">
+      <SettingsFieldRow label="Theme">
         <Select
           options={THEME_OPTIONS}
           value={themePreference}
           onChange={onThemeChange}
           label="Theme"
         />
-      </FieldRow>
+      </SettingsFieldRow>
       <p className="settings-hint" aria-live="polite">
         {themePreference === 'system'
           ? `Following system appearance (currently ${currentTheme ?? 'light'}).`
           : `Using ${currentTheme ?? themePreference}. Select “System” to follow OS appearance.`}
       </p>
-      <FieldRow label="UI font size">
+      <SettingsFieldRow label="UI font size">
         <Select
           options={FONT_SIZE_OPTIONS}
           value={settings.appearance.fontSizeUI}
           onChange={(v) => updateSection('appearance', { fontSizeUI: v })}
           label="UI font size"
         />
-      </FieldRow>
-      <FieldRow label="Interface density">
+      </SettingsFieldRow>
+      <SettingsFieldRow label="Interface density">
         <Select
           options={DENSITY_OPTIONS}
           value={settings.appearance.uiDensity}
           onChange={(v) => updateSection('appearance', { uiDensity: v })}
           label="Interface density"
         />
-      </FieldRow>
+      </SettingsFieldRow>
       <p className="settings-hint">{DENSITY_HINT[settings.appearance.uiDensity]}</p>
-      <FieldRow label="Accent source">
+      <SettingsFieldRow label="Accent source">
         <Select
           options={ACCENT_SOURCE_OPTIONS}
           value={settings.appearance.accentSource}
           onChange={(v) => updateSection('appearance', { accentSource: v })}
           label="Accent source"
         />
-      </FieldRow>
+      </SettingsFieldRow>
       <p className="settings-hint">{ACCENT_SOURCE_HINT[settings.appearance.accentSource]}</p>
       <SwitchField
         label="Show all menu items (bypass workspace mode filtering)"
@@ -707,7 +699,7 @@ function CollabSection() {
   return (
     <div className="settings-section">
       <h3 className="settings-section__title">Collaboration</h3>
-      <FieldRow label="Display name">
+      <SettingsFieldRow label="Display name">
         <input
           type="text"
           className="settings-text-input"
@@ -716,8 +708,8 @@ function CollabSection() {
           placeholder="Your name"
           aria-label="Display name"
         />
-      </FieldRow>
-      <FieldRow label="Avatar">
+      </SettingsFieldRow>
+      <SettingsFieldRow label="Avatar">
         <FilePickerButton
           variant="secondary"
           size="sm"
@@ -734,7 +726,7 @@ function CollabSection() {
             reader.readAsDataURL(file);
           }}
         />
-      </FieldRow>
+      </SettingsFieldRow>
       <Divider />
       <SwitchField
         label="Notify when collaborators join/leave"
@@ -759,11 +751,11 @@ function AISection() {
         spacing harmonization) run entirely on your device. Nothing is sent to a server and no model
         downloads are required — the assistants work offline and never leave your document.
       </p>
-      <FieldRow label="Usage & diagnostics">
+      <SettingsFieldRow label="Usage & diagnostics">
         <span className="settings-section__description">
           Consent for product analytics and diagnostic reports is managed in the Privacy section.
         </span>
-      </FieldRow>
+      </SettingsFieldRow>
     </div>
   );
 }
