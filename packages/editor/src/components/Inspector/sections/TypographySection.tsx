@@ -52,6 +52,7 @@ import { BindingMenu } from '../controls/BindingMenu';
 import { ContrastIndicator } from '../controls/ContrastIndicator';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow, InspectorFieldGroup } from '../controls/FieldRow';
+import { fillSwatchBg } from '../controls/fillSwatchBg';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { NumberField } from '../controls/NumberField';
 import { RangeValueControl } from '../controls/RangeValueControl';
@@ -397,6 +398,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
    * Non-solid or stacked fills stay visible but route the user to Fill.
    */
   const textFillControl = useMemo(() => {
+    const assets = editor.state.document.assets;
     const visibleFills = textNodes.map((node) =>
       resolveNodeFills(
         node as unknown as {
@@ -417,6 +419,9 @@ export function TypographySection({ nodes }: TypographySectionProps) {
         fill: base,
         color: baseColor,
         valueText: 'Mixed',
+        // A stack has no single colour to preview; the face stays neutral so
+        // it cannot contradict the "Mixed" label.
+        swatchBackground: 'var(--color-surface-sunken)',
         disabled: true,
         disabledReason: 'Text has multiple visible fills — edit the stack in the Fill section',
       };
@@ -428,6 +433,8 @@ export function TypographySection({ nodes }: TypographySectionProps) {
         fill: base,
         color: baseColor,
         valueText: typeLabel,
+        // Gradient/image previews are honest previews of the actual paint.
+        swatchBackground: fillSwatchBg(base, assets),
         disabled: true,
         disabledReason: `Text uses a ${base.type} fill — edit it in the Fill section`,
       };
@@ -442,10 +449,12 @@ export function TypographySection({ nodes }: TypographySectionProps) {
       fill: base,
       color: base.color,
       valueText: mixed ? 'Mixed' : managedColorToHex(base.color),
+      // Solid single fills use the component's value-derived face.
+      swatchBackground: undefined,
       disabled: false,
       disabledReason: undefined,
     };
-  }, [textNodes]);
+  }, [textNodes, editor.state.document.assets]);
 
   if (textNodes.length === 0) return null;
 
@@ -711,6 +720,17 @@ export function TypographySection({ nodes }: TypographySectionProps) {
               label="Text colour"
               value={textFillControl.color}
               valueText={textFillControl.valueText}
+              // Solid single fills use the component's value-derived face; a
+              // non-solid preview or a stack carries an explicit face (the
+              // paint itself, or a neutral face for "Mixed").
+              swatchStyle={
+                textFillControl.swatchBackground
+                  ? {
+                      background: textFillControl.swatchBackground,
+                      border: '2px solid var(--color-border-strong)',
+                    }
+                  : undefined
+              }
               disabled={textFillControl.disabled}
               tooltipDisabledReason={textFillControl.disabledReason}
               documentColorMode={editor.documentColorMode}

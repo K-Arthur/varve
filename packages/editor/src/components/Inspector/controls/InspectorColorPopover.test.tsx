@@ -35,6 +35,29 @@ describe('InspectorColorPopover', () => {
     );
   });
 
+  it('paints an accurate default face when the caller passes no swatchStyle', () => {
+    const teal: ManagedColor = { space: 'rgb', r: 57, g: 208, b: 198, a: 255 };
+    render(<InspectorColorPopover label="Fill colour" value={teal} onChange={() => {}} />);
+    expect(screen.getByRole('button', { name: /fill colour/i })).toHaveStyle({
+      background: 'rgba(57,208,198,1.00)',
+    });
+  });
+
+  it('paints the value pill face from the value when no swatchStyle is provided', () => {
+    const teal: ManagedColor = { space: 'rgb', r: 57, g: 208, b: 198, a: 128 };
+    const { container } = render(
+      <InspectorColorPopover
+        label="Text colour"
+        value={teal}
+        valueText="#39D0C6"
+        onChange={() => {}}
+      />,
+    );
+    const face = container.querySelector('.insp-swatch__face');
+    expect(face).not.toBeNull();
+    expect(face).toHaveStyle({ background: 'rgba(57,208,198,0.50)' });
+  });
+
   it('opens a portaled dialog and closes on Done', async () => {
     render(
       <InspectorColorPopover

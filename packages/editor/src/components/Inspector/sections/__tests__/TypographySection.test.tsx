@@ -269,7 +269,7 @@ describe('TypographySection colour entry point', () => {
           ],
         },
       },
-    ] as TextNode['fills'];
+    ] as unknown as TextNode['fills'];
     renderSection(<TypographySection nodes={[node]} />);
 
     expect(screen.getByText('Colour')).toBeInTheDocument();

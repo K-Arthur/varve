@@ -14,7 +14,6 @@
 import { complementaryHarmony } from '@varve/engine';
 import type {
   BlendMode,
-  DocumentAsset,
   Fill,
   FillType,
   GradientStop,
@@ -59,6 +58,7 @@ import {
 } from '../color/gradientUiState';
 import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
+import { fillSwatchBg } from '../controls/fillSwatchBg';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { NumberField } from '../controls/NumberField';
 
@@ -190,34 +190,6 @@ function buildNewFill(kind: AddFillKind, source: Fill | undefined): Fill {
     case 'pattern':
       return patternFill('');
   }
-}
-
-function fillSwatchBg(fill: Fill, assets?: Record<string, DocumentAsset>): string {
-  if (fill.type === 'solid' && fill.color) {
-    const [r, g, b, a] = managedColorToRgba(fill.color);
-    return `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`;
-  }
-  if (fill.type === 'gradient' && fill.gradient) {
-    const stops = fill.gradient.stops
-      .map((s) => {
-        const [r, g, b, a] = managedColorToRgba(s.color);
-        return `rgba(${r},${g},${b},${(a / 255).toFixed(2)}) ${(s.position * 100).toFixed(0)}%`;
-      })
-      .join(', ');
-    return `linear-gradient(90deg, ${stops})`;
-  }
-  if (fill.type === 'image') {
-    const canonicalAssetId = fill.image?.src.startsWith('asset:')
-      ? fill.image.src.slice('asset:'.length)
-      : undefined;
-    const assetId =
-      (canonicalAssetId && assets?.[canonicalAssetId] ? canonicalAssetId : undefined) ??
-      (fill.image?.assetId && assets?.[fill.image.assetId] ? fill.image.assetId : undefined);
-    const src = assetId ? assets?.[assetId]?.dataUrl : fill.image?.src;
-    if (src && !src.startsWith('asset:')) return `url(${src}) center/cover`;
-    return 'var(--color-surface-sunken)';
-  }
-  return 'var(--color-surface-sunken)';
 }
 
 export function FillSection({ nodes }: FillSectionProps) {

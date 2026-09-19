@@ -129,6 +129,22 @@ export function InspectorColorPopover({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogId = useId();
   const titleId = useId();
+  /**
+   * A caller that does not describe its own face still gets an accurate
+   * preview derived from the current value, so an omitted `swatchStyle` can
+   * never render an empty swatch. Callers whose paint is richer than the
+   * colour (gradients, images) keep passing an explicit face. Found via the
+   * Typography text-colour row, 2026-09-19: the pill printed the hex while
+   * painting nothing.
+   */
+  const resolvedSwatchStyle = useMemo(() => {
+    if (swatchStyle) return swatchStyle;
+    const [r, g, b, a] = managedColorToRgba(value);
+    return {
+      background: `rgba(${r},${g},${b},${(a / 255).toFixed(2)})`,
+      border: '2px solid var(--color-border-strong)',
+    };
+  }, [swatchStyle, value]);
   const doc = useDocDocument();
   const proof = useProofState();
   const cmykProfile = useMemo(() => doc?.colorConfig?.cmykProfile ?? null, [doc]);
@@ -232,11 +248,11 @@ export function InspectorColorPopover({
       aria-controls={open ? dialogId : undefined}
       disabled={disabled}
       onClick={toggle}
-      style={valueText ? undefined : swatchStyle}
+      style={valueText ? undefined : resolvedSwatchStyle}
     >
       {valueText ? (
         <>
-          <span className="insp-swatch__face" style={swatchStyle} aria-hidden="true" />
+          <span className="insp-swatch__face" style={resolvedSwatchStyle} aria-hidden="true" />
           <span className="insp-swatch__value">{valueText}</span>
         </>
       ) : null}
