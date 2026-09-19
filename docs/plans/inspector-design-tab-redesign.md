@@ -1,11 +1,73 @@
 # Inspector Design Tab — Redesign (2026-09-19)
 
-> **Coordinator note — pass 2 (current).** This is the live ownership and
+> **Coordinator note — pass 3 (current).** Passes 1 and 2 are preserved
+> below. Pass 2 closed its planning corpus but left its Phase-4
+> implementation **uncommitted in the working tree**; pass 3 inherits that
+> in-flight state, validates it, completes the bounded units, and adds the
+> maintainer's new finding: **uppercase overuse** (IA-028) — the Design tab
+> renders every section title and every property label in ALL CAPS.
+>
+> Pass 3 ownership is unchanged (see pass-2 claim list below). Pass 3
+> explicitly **excludes** the concurrently-active repo-wide token-hygiene
+> workstream (`packages/ui/src/tokens/color.ts` elevation/text-feedback
+> additions, `scripts/quality/audit-token-usage.mjs`, UI-component fallback
+> cleanups) — those files are left exactly as found and are not committed
+> here. The one exception is the two focus-ring geometry lines that pass-2
+> IMPL-1 generated into `tokens.css`; they are staged as a single separable
+> hunk (their source, `sizing.ts`, is Inspector-pass-owned) so the
+> Inspector's focus-ring rule is self-contained.
+>
+> **Pass 3 phase:** implementation (uppercase reduction + completion of
+> inherited IMPL units) → validation → report.
+>
+> **Baseline:** pass-2's fresh baseline matrix stands
+> (`reports/inspector-redesign/baseline-matrix/`, 05:11–05:25). The
+> uppercase census is measured from that matrix's computed metrics plus a
+> live computed-style census (pass 3).
+
+> **Coordinator note — pass 2 (closed).** This was the live ownership and
 > progress record for the Inspector Design-tab work. Pass 1 (earlier on
 > 2026-09-19) closed with commit `01a043806`; its record is preserved below
 > the pass-2 log. Pass 2 is an **independent re-run**: fresh baseline
 > matrix, fresh web research, fresh audit, fresh spec — it does not inherit
 > pass-1 findings as authority.
+
+## Pass-3 implementation log
+
+| Unit | Findings | Change | Status |
+|---|---|---|---|
+| IMPL-P3-1 | IA-028, RES-201/202 | 29 `text-transform: uppercase` declarations removed across the Design-tab stylesheets (inspector.css ×23, effectStudio ×1, smartFilters ×3, imageTuning ×1, effects ×1); 17 title/micro rules retracked `--tracking-wide` → `--tracking-micro`; authored case preserved | done |
+| IMPL-P3-2 | IA-028 | Gate E5 (`text-transform: uppercase` / `font-variant-caps` = error, annotated-exception marker) + matrix `caseCensus` | done |
+| IMPL-P3-3 | (adoption) | Pass-2 IMPL-1 worktree state validated and committed (focus-ring tokens, `--insp-*` component tokens, label line-height, fixed-rem ramp, gate E4/W2/W3/W4, Inspector literal-fallback removals) | done |
+
+Deferred and recorded (audit pass-3 §3): icon-step normalization (72
+off-step TSX sites, gate W3), IA-012 segmented selected-state, IA-010/011
+typography-row alignment, IA-008 pair trailing slot, IA-024 DocumentPanel
+numerics, IA-016 image grouping, IA-023 `prototype-flow`.
+
+### Pass-3 validation progress
+
+- Baseline: pass-2 matrix (05:11–05:25) + HEAD case census (29 uppercase
+  declarations) — the before evidence.
+- After-capture: `VARVE_MATRIX_PHASE=pass3` matrix (heavy lease, isolated
+  port) — screenshots + metrics + `caseCensus`; direct screenshot
+  inspection performed before committing. Result: 0 uppercase roles
+  (badge/hint/label/section/value all `text-transform: none`); label
+  line-height unified to the single 16.2px key (IA-002); section tracking
+  0.65px → 0.26px; scroll height within ±4px of baseline except
+  ellipse@240 (−173px) and text@240 (−25px) from now-fits-one-line
+  sentence-case copy; 0 failing targets (SC 2.5.8 spacing-aware).
+- `audit:inspector-css` clean with E5; `@varve/ui` typecheck + tokens
+  (309/309 pairs, 47/47 unit) pass; Inspector unit lane 79/83 files pass
+  (4 pre-existing failures verified unrelated, audit pass-3 §4).
+- E2E: design matrix 3/3 (6.4m); typography-layout 1/1 and
+  responsive-surface 5/5 (1.5m); visual snapshots refreshed — 8 baseline
+  PNGs updated after inspection, 14/15 snapshot-spec tests pass. The one
+  failure (`ownership.spec.ts:352` brush focus) is a pre-existing
+  tool-change focus-handoff mismatch in `ToolOptionsPopover`, pinned in the
+  report §12.
+- Editor package typecheck: pre-existing failures only, none in changed
+  files (concurrent workstreams).
 
 ## Claimed areas (pass 2)
 

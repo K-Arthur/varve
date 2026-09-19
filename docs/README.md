@@ -48,6 +48,15 @@ with evidence in
 [`audits/inspector-design-tab-audit-2026-09-19-pass2.md`](audits/inspector-design-tab-audit-2026-09-19-pass2.md)
 and
 [`research/inspector-design-tab-research.md`](research/inspector-design-tab-research.md).
+The pass-3 typography amendment (sentence-case hierarchy; the block-capital
+overuse finding `IA-028`) is
+[`design-system/inspector-spec-pass3.md`](design-system/inspector-spec-pass3.md),
+with evidence in
+[`audits/inspector-design-tab-audit-2026-09-19-pass3.md`](audits/inspector-design-tab-audit-2026-09-19-pass3.md)
+and
+[`research/inspector-design-tab-case-research-2026-09-19.md`](research/inspector-design-tab-case-research-2026-09-19.md)
+(where pass-3 disagrees with pass 2, pass 3 governs the scoped typography
+contract only).
 Current export accessibility boundaries and format-specific author guidance
 are documented in
 [`architecture/output-accessibility-guidance.md`](architecture/output-accessibility-guidance.md).
