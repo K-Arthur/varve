@@ -45,6 +45,21 @@ test.describe('Inspector feature ownership', () => {
     });
   });
 
+  test('document-grid numerics use the canonical field grammar', async ({ page }) => {
+    const trigger = page.getByRole('button', { name: /document grid/i });
+    if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click();
+
+    const spacingX = page.getByRole('spinbutton', { name: 'Spacing X (px)' });
+    await expect(spacingX).toBeVisible();
+    await expect(page.getByRole('spinbutton', { name: 'Subdivisions' })).toBeVisible();
+    await expect(page.getByRole('spinbutton', { name: 'Offset Y (px)' })).toBeVisible();
+    await spacingX.scrollIntoViewIfNeeded();
+
+    await expect(page.locator('.editor-inspector')).toHaveScreenshot('document-grid-settings.png', {
+      animations: 'disabled',
+    });
+  });
+
   test('uses an accessible overflow menu when the tab row is narrow', async ({ page }) => {
     const tablist = page.getByRole('tablist', { name: 'Inspector tabs' });
     await tablist.evaluate((element) => {

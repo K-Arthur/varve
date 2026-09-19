@@ -39,11 +39,14 @@
 | IMPL-P3-1 | IA-028, RES-201/202 | 29 `text-transform: uppercase` declarations removed across the Design-tab stylesheets (inspector.css ×23, effectStudio ×1, smartFilters ×3, imageTuning ×1, effects ×1); 17 title/micro rules retracked `--tracking-wide` → `--tracking-micro`; authored case preserved | done |
 | IMPL-P3-2 | IA-028 | Gate E5 (`text-transform: uppercase` / `font-variant-caps` = error, annotated-exception marker) + matrix `caseCensus` | done |
 | IMPL-P3-3 | (adoption) | Pass-2 IMPL-1 worktree state validated and committed (focus-ring tokens, `--insp-*` component tokens, label line-height, fixed-rem ramp, gate E4/W2/W3/W4, Inspector literal-fallback removals) | done |
+| IMPL-P3-4 | IA-024 | DocumentPanel: 5 of 8 raw `type="number"` fields (document-grid Spacing X/Y, Subdivisions, Offset X/Y) migrated to `NumberField` with unit-aware names; unit tests (commit/clamp/invalid) + `document-grid-settings.png` visual baseline | done |
 
 Deferred and recorded (audit pass-3 §3): icon-step normalization (72
 off-step TSX sites, gate W3), IA-012 segmented selected-state, IA-010/011
-typography-row alignment, IA-008 pair trailing slot, IA-024 DocumentPanel
-numerics, IA-016 image grouping, IA-023 `prototype-flow`.
+typography-row alignment, IA-008 pair trailing slot, the three composite
+DocumentPanel rows (Tolerance / Grid rotation / Isometric axis — blocked on
+an additive NumberField `showUnit` + trailing-slot extension), IA-016 image
+grouping, IA-023 `prototype-flow`.
 
 ### Pass-3 validation progress
 

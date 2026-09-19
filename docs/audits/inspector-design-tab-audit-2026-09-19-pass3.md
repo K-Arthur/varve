@@ -71,17 +71,38 @@ already applied in the working tree, uncommitted**:
 | IMPL-2 Weight/Style row + ContrastIndicator (IA-010/011) | not applied | deferred, recorded |
 | IMPL-3 pair-row trailing slot (IA-008) | not applied | deferred, recorded |
 | IMPL-4 bounded layout repairs (IA-009/013/014/015) | partially applied (satellite CSS) | adopted; remainder deferred |
-| IMPL-5 DocumentPanel numerics (IA-024) | not applied | deferred, recorded |
+| IMPL-5 DocumentPanel numerics (IA-024) | **partially applied in pass 3** — 5 of 8 fields migrated (see §2b); 3 composite rows deferred | committed |
 | Inspector-scoped literal-fallback removals (`var(--token, literal)` → `var(--token)`) | applied in working tree by the concurrent repo-wide token-hygiene workstream | adopted and committed (references only HEAD-defined tokens; verified) |
+
+## 2b. IA-024 landing (pass 3)
+
+DocumentPanel had 8 raw `type="number"` inputs. Pass 3 migrated the five
+plain rows — document-grid **Spacing X**, **Spacing Y**, **Subdivisions**,
+**Offset X**, **Offset Y** — to `NumberField` (APG spinbutton: scrub, math
+expressions, wheel/arrow/PageUp-Down steps, clamping, commit semantics),
+each now a single canonical `.insp-field` row with a unit-aware accessible
+name. Pinned by new unit tests in `DocumentPanel.test.tsx` (commit on
+Enter, range clamp, invalid-expression rejection) and a new
+`document-grid-settings.png` visual baseline.
+
+Deferred (needs a primitive capability first, recorded as the next slice):
+the three composite rows — **Tolerance** (visible unit suffix),
+**Grid rotation** (trailing reset button), **Isometric axis angle**
+(fixed 4.4rem width, hints, ratio action). `NumberField` has no
+visible-unit affordance for labelled fields and no trailing-actions slot,
+so migrating them today would either drop the visible unit or fork the row
+markup; the right fix is an additive `NumberField` extension
+(`showUnit`, trailing slot) with its own primitive tests and visual
+validation, not a per-row workaround.
 
 ## 3. Deferred (unchanged from pass-2 unless noted)
 
-- Icon-step normalization across 86 `size="0.85em"`-class sites: mechanical
+- Icon-step normalization across 72 off-step icon-size sites: mechanical
   but layout-affecting per surface; needs its own visual-validation slice.
   Gate W3 keeps the inventory visible.
 - `IA-012` one segmented selected-state, `IA-010/011` typography row
-  alignment, `IA-008` pair trailing slot, `IA-024` DocumentPanel numerics:
-  recorded in the pass-2 spec §9 map; not landed in pass 3.
+  alignment, `IA-008` pair trailing slot: recorded in the pass-2 spec §9
+  map; not landed in pass 3.
 - `IA-016` Image-section grouping, `IA-023` `prototype-flow` reachability:
   recorded product decisions.
 - Storybook for editor-local primitives: documented deviation (pass-2 spec

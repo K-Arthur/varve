@@ -451,112 +451,75 @@ export function DocumentPanel() {
               />
             </div>
           </div>
-          <div className="insp-field">
-            <span className="insp-field__label">Spacing X</span>
-            <div className="insp-field__control">
-              <input
-                type="number"
-                min="1"
-                max="10000"
-                value={state.documentGrid.spacingX}
-                onChange={(e) => {
-                  const value = parseFloat(e.target.value);
-                  if (!Number.isNaN(value) && value > 0) {
-                    setDocumentGrid({
-                      ...state.documentGrid,
-                      spacingX: value,
-                    });
-                  }
-                }}
-                className="insp-num__input"
-                aria-label={`Grid horizontal spacing ${state.documentGrid.spacingX} pixels`}
-              />
-            </div>
-          </div>
-          <div className="insp-field">
-            <span className="insp-field__label">Spacing Y</span>
-            <div className="insp-field__control">
-              <input
-                type="number"
-                min="1"
-                max="10000"
-                value={state.documentGrid.spacingY}
-                onChange={(e) => {
-                  const value = parseFloat(e.target.value);
-                  if (!Number.isNaN(value) && value > 0) {
-                    setDocumentGrid({
-                      ...state.documentGrid,
-                      spacingY: value,
-                    });
-                  }
-                }}
-                className="insp-num__input"
-                aria-label={`Grid vertical spacing ${state.documentGrid.spacingY} pixels`}
-              />
-            </div>
-          </div>
-          <div className="insp-field">
-            <span className="insp-field__label">Subdivisions</span>
-            <div className="insp-field__control">
-              <input
-                type="number"
-                min="1"
-                max="100"
-                value={state.documentGrid.subdivisions}
-                onChange={(e) => {
-                  const value = parseInt(e.target.value, 10);
-                  if (!Number.isNaN(value) && value > 0) {
-                    setDocumentGrid({
-                      ...state.documentGrid,
-                      subdivisions: value,
-                    });
-                  }
-                }}
-                className="insp-num__input"
-                aria-label={`Grid subdivisions ${state.documentGrid.subdivisions}`}
-              />
-            </div>
-          </div>
-          <div className="insp-field">
-            <span className="insp-field__label">Offset X</span>
-            <div className="insp-field__control">
-              <input
-                type="number"
-                value={state.documentGrid.offsetX}
-                onChange={(e) => {
-                  const value = parseFloat(e.target.value);
-                  if (!Number.isNaN(value)) {
-                    setDocumentGrid({
-                      ...state.documentGrid,
-                      offsetX: value,
-                    });
-                  }
-                }}
-                className="insp-num__input"
-                aria-label={`Grid horizontal offset ${state.documentGrid.offsetX} pixels`}
-              />
-            </div>
-          </div>
-          <div className="insp-field">
-            <span className="insp-field__label">Offset Y</span>
-            <div className="insp-field__control">
-              <input
-                type="number"
-                value={state.documentGrid.offsetY}
-                onChange={(e) => {
-                  const value = parseFloat(e.target.value);
-                  if (!Number.isNaN(value)) {
-                    setDocumentGrid({
-                      ...state.documentGrid,
-                      offsetY: value,
-                    });
-                  }
-                }}
-                className="insp-num__input"
-                aria-label={`Grid vertical offset ${state.documentGrid.offsetY} pixels`}
-              />
-            </div>
-          </div>
+          <NumberField
+            label="Spacing X"
+            displayLabel="Spacing X"
+            unit="px"
+            min={1}
+            max={10000}
+            step={1}
+            value={state.documentGrid.spacingX}
+            onChange={(value) => {
+              setDocumentGrid({
+                ...state.documentGrid,
+                spacingX: value,
+              });
+            }}
+          />
+          <NumberField
+            label="Spacing Y"
+            displayLabel="Spacing Y"
+            unit="px"
+            min={1}
+            max={10000}
+            step={1}
+            value={state.documentGrid.spacingY}
+            onChange={(value) => {
+              setDocumentGrid({
+                ...state.documentGrid,
+                spacingY: value,
+              });
+            }}
+          />
+          <NumberField
+            label="Subdivisions"
+            min={1}
+            max={100}
+            step={1}
+            value={state.documentGrid.subdivisions}
+            onChange={(value) => {
+              setDocumentGrid({
+                ...state.documentGrid,
+                subdivisions: Math.round(value),
+              });
+            }}
+          />
+          <NumberField
+            label="Offset X"
+            displayLabel="Offset X"
+            unit="px"
+            step={1}
+            value={state.documentGrid.offsetX}
+            onChange={(value) => {
+              setDocumentGrid({
+                ...state.documentGrid,
+                offsetX: value,
+              });
+            }}
+          />
+          <NumberField
+            label="Offset Y"
+            displayLabel="Offset Y"
+            unit="px"
+            step={1}
+            value={state.documentGrid.offsetY}
+            onChange={(value) => {
+              setDocumentGrid({
+                ...state.documentGrid,
+                offsetY: value,
+              });
+            }}
+          />
           <div className="insp-field">
             <span className="insp-field__label">Color</span>
             <div className="insp-field__control">
