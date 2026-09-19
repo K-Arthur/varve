@@ -223,6 +223,14 @@ Normative behaviour (already implemented; the spec pins it against regressions):
   Typography row stays visible, prints the type ("Gradient") or "Mixed", and
   its disabled reason routes the user to Fill. No second piece of state, no
   duplicate add/remove affordances.
+- **Faces default to the value (REQ-016).** `InspectorColorPopover` derives its
+  swatch face from `value` when the caller passes no `swatchStyle`, so an
+  omitted face can never render empty while the pill prints a colour. Callers
+  whose paint is richer than a single colour (gradient, image, a "Mixed"
+  stack) pass an explicit face; a stack face is neutral so it cannot
+  contradict the label. Found 2026-09-19 after the text-colour row shipped
+  with a hex value and no painted face (AUD-027); four pre-existing consumers
+  that omitted `swatchStyle` are fixed by the same default.
 
 ### 5.6 Icon action / toggle
 
@@ -333,6 +341,7 @@ assertions in the real editor catch failures a component story cannot.
 | REQ-013 | States and copy are truthful and human-readable; no raw ids, bare percentages, or internal config wording in user-facing text. | §4, §5.5 |
 | REQ-014 | Machine enforcement prevents re-drift; exemptions are explicit and reasoned. | §9 |
 | REQ-015 | Text colour is reachable from Typography as a view of the single fill model; stacks and non-solid fills route to the Fill section instead of duplicating state. | §5.5 |
+| REQ-016 | A colour trigger's face always previews the value it announces; omitting an explicit face cannot render an empty or misleading swatch. | §5.5 |
 
 ## 12. Acceptance
 A change to the Inspector is complete only when: the new script passes,

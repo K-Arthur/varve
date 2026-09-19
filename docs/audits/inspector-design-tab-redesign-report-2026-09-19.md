@@ -55,6 +55,7 @@ performance work without measurements.
 | AUD-015 Insights copy | screenshot + code | REQ-013 | IMPL-008 | IntelligencePanel 8/8 |
 | AUD-019 orphaned contrast chip | design-tab screenshot | REQ-013 | IMPL-008 | design-tab-audit + typography-layout rerun |
 | AUD-026 text colour entry point | user report | REQ-015 | IMPL-011 | typography-color spec + design-tab-audit rerun |
+| AUD-027 empty/misleading swatch faces | user report | REQ-016 | IMPL-013 | InspectorColorPopover 13/13 + typography-color face assertion |
 | AUD-017/AUD-025 axis slider + range targets | measured 18.6×27.4 | REQ-005 | IMPL-009 | after-matrix metrics |
 | (drift prevention) | — | REQ-014 | IMPL-010 | policy tests 46/46 |
 
@@ -136,6 +137,10 @@ performance work without measurements.
   import the composition graph).
 - Typography Colour row: a view of the first visible text fill via
   `updateSelectedFillAt`; stacks/gradients stay in Fill (REQ-015).
+- `fillSwatchBg` extracted to `controls/fillSwatchBg.ts`; `InspectorColorPopover`
+  derives its face from `value` when no `swatchStyle` is passed, so four
+  pre-existing consumers that omitted it (RichTextSpanEditor, AdaptiveContrast
+  ×2, TableCells, TableAppearance) now preview accurately (REQ-016).
 - `scripts/quality/audit-inspector-css.mjs` + `audit:inspector-css` lane +
   impact rule.
 

@@ -205,6 +205,19 @@ migrated to canonical tokens (IMPL-001); the gate prevents recurrence
   names (verified in the paint-row suite); no colour-only mixed state was
   found.
 
+**AUD-027 (new, user-reported) — colour triggers could announce a value while
+painting nothing.** `InspectorColorPopover` applied `swatchStyle` verbatim;
+callers that omitted it rendered a face with no background. The new Typography
+Colour row shipped in this state (pill printed `#10151F`, face empty), and four
+pre-existing consumers had the same omission: `RichTextSpanEditor`,
+`AdaptiveContrastSection` (×2), `TableCellsSection`, `TableAppearanceSection`.
+Fix (IMPL-013, REQ-016): the component derives a face from `value` when none is
+given; a caller may still pass an explicit face for richer paints, and a
+"Mixed" stack passes a neutral face so the preview can never contradict the
+label. Regression tests: two component unit cases (opaque default face, alpha
+in a value pill) and an E2E assertion that each pill's face background equals
+the hex it prints.
+
 ## 5. Clutter inventory
 
 The 2026-09-16/17 clutter decisions are still in force (suppressed Selection
@@ -312,6 +325,7 @@ optimization is performed without those numbers. (`PERF-001` pending.)
 | AUD-017 undersized targets | REQ-005 | IMPL-009 |
 | AUD-025 axis-slider collapse | REQ-005 | IMPL-009 |
 | AUD-026 text colour entry point | REQ-015 | IMPL-011 |
+| AUD-027 missing swatch face default (user-reported) | REQ-016 | IMPL-013 |
 | (drift prevention) | REQ-014 | IMPL-010 enforcement script |
 | AUD-001/002/012 evidence | REQ-001, REQ-002, REQ-004 | spec + re-measure |
 
