@@ -53,7 +53,9 @@ In designing this resolution, we analyzed recent user feedback and design critiq
   }
   ```
 - Implemented `.insp-flip-group`: a compact segmented pill (`border: 1px solid var(--color-border-subtle); background: var(--color-surface-sunken)`) containing 24×24px WCAG 2.2 compliant icon buttons for Flip H, Flip V, and Skew.
-- Added badge pill styling for `.insp-align-section__summary` ("Align to canvas").
+- Enforced `flex-direction: row` on `.insp-field-group--rotation` so rotation angle `R` and the flip/skew pill sit on the exact same row without wrapping or centering.
+- Fixed numeric field label-to-input gap by setting fixed 14px label tracks (`grid-template-columns: 14px minmax(0, 1fr)`) with `justify-self: start`, ensuring inputs sit directly adjacent to labels without unsightly phantom voids.
+- Preserved clean, unbordered text on `.insp-align-section__summary` to maintain clean single-line section headers without wrapping.
 
 ### 3.2 Component Enhancements (`PositionSizeSection.tsx`)
 - Added `displayLabel="X"`, `displayLabel="Y"`, `displayLabel="W"`, `displayLabel="H"`, and `displayLabel="R"` to `<NumberField>`. Visible labels display clean single letters, while the underlying DOM preserves full accessible names (`X (px)`, `W (px)`) and APG spinbutton roles.
@@ -95,3 +97,4 @@ Executed under heavy-task lease (`scripts/quality/heavy-lease.mjs`) on isolated 
 - `pnpm audit:docs`: 0 violations (1011 docs, 569 links, 174 ADRs indexed).
 - `pnpm audit:emoji`: 0 violations (4883 files scanned).
 - `pnpm audit:tokens`: 213/213 WCAG 2.2 AA color contrast pairs pass across light, dark, and high-contrast themes.
+
