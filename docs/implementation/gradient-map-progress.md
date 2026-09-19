@@ -85,10 +85,11 @@ GPU parity, and full repository gates remain explicit follow-up validation.
 ### 1.5 Persistence / migration / assets
 
 - `DocumentCodec.decode/encode` is the single choke point (`scene/documentCodec.ts:662/751`).
-- `version.ts` authoritative: `CURRENT_DOCUMENT_VERSION = '2.22'`; the
+- `version.ts` authoritative: `CURRENT_DOCUMENT_VERSION = '2.28'`; the
   `2.10 → 2.11` migration introduced document-local gradient presets.
-  `version-migrations.ts` / `version-utils.ts` / `version.ts.partial` are
-  stale dead siblings (do not edit).
+  `version-migrations.ts` / `version.ts.partial` are stale dead siblings
+  (do not edit). `version-utils.ts` was removed 2026-09-19 as an
+  unreferenced duplicate of `version.ts`.
 - `Document.assets` content-addressed embedded assets (`scene/assets.ts`).
 - `Document.swatches` document-local swatches (`scene/swatches.ts`) — the closest pattern for document-local gradient presets.
 - User-level gradient presets: `editor/src/gradientPresets/library.ts` uses the
