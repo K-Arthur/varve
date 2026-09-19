@@ -59,7 +59,9 @@ projection, adopt/adapt/reject decisions, and sequencing) is
 its 2026-09-19 evidence is
 [`audits/layers-panel-audit-2026-09-19.md`](audits/layers-panel-audit-2026-09-19.md)
 with the reference-app research corpus in
-[`research/layers-panel-research.md`](research/layers-panel-research.md).
+[`research/layers-panel-research.md`](research/layers-panel-research.md) and the
+pass report in
+[`audits/layers-panel-workspace-evolution-report-2026-09-19.md`](audits/layers-panel-workspace-evolution-report-2026-09-19.md).
 
 | Doc | Purpose |
 |-----|---------|

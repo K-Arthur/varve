@@ -46,7 +46,7 @@
 | 2026-09-19 | 3 — spec | done | `docs/design-system/layers-panel-spec.md` |
 | 2026-09-19 | 4 — implementation | done (phase 1–5) | Workspace projection (`layersPanel` config), badge/row-action reveal, Email mobile-hidden, Motion animated preset, Print thread/export-region presets, Select matches, appearance-label overflow fix |
 | 2026-09-19 | 5 — validation | done | 409 panel+workspace unit tests, 8 new E2E tests, axe clean, 50k projection bench, after-matrix screenshots |
-| 2026-09-19 | 6 — report | pending | |
+| 2026-09-19 | 6 — report | done | `docs/audits/layers-panel-workspace-evolution-report-2026-09-19.md` |
 
 ## Implementation log
 
