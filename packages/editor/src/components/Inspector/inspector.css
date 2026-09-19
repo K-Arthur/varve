@@ -40,9 +40,38 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
   scrollbar-color: var(--color-border-strong) transparent;
   scrollbar-width: thin;
+  scrollbar-gutter: stable;
+}
+
+.editor-inspector > .insp-panel::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.editor-inspector > .insp-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.editor-inspector > .insp-panel::-webkit-scrollbar-thumb {
+  min-height: 24px;
+  background: var(--color-border-strong);
+  border: 2px solid transparent;
+  border-radius: var(--radius-control-compact);
+  background-clip: padding-box;
+}
+
+.editor-inspector > .insp-panel::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-subtle);
+  background-clip: padding-box;
+}
+
+.editor-inspector > .insp-panel::-webkit-scrollbar-thumb:active {
+  background: var(--color-text-secondary);
+  background-clip: padding-box;
 }
 
 /* Visually-hidden utility lives in components.css; import that instead. */
@@ -528,7 +557,7 @@
      inset so preceding rows cannot remain visible above a section header when
      the rail is scrolled. The opaque surface below owns the overlap. */
   top: calc(-1 * var(--space-2));
-  z-index: 2;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -2258,7 +2287,7 @@
 .insp-align-section__header {
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2296,6 +2325,10 @@
   font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding: 1px var(--space-15, 6px);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
 }
 .insp-align-section > .insp-align-bar {
   padding-bottom: var(--space-2);
@@ -6243,7 +6276,6 @@ fieldset.insp-canvas-props,
 .insp-field-group--columns-2,
 .insp-field-group--columns-3,
 .insp-field-group--size,
-.insp-field-group--rotation,
 .insp-field-group--skew {
   align-items: center;
   display: grid;
@@ -6261,42 +6293,73 @@ fieldset.insp-canvas-props,
 
 .insp-field-group--size {
   gap: var(--space-2);
-  /* Keep the lock and orientation action columns stable even when the
-     orientation action is unavailable. This keeps W/H aligned with X/Y and
-     prevents a selection change from moving the value rails. */
+  /* Keep the lock and orientation action columns compact and stable.
+     W and H are flexible equal tracks, with compact hit targets
+     for the proportion lock and orientation swap button. */
   grid-template-columns:
     minmax(0, 1fr) var(--component-compact-height) minmax(0, 1fr)
     var(--component-compact-height);
 }
 
 .insp-field-group--rotation {
+  display: flex;
   align-items: center;
-  /* R field + flip H + flip V + skew disclosure stay on one line; a wrapped
-     fourth control previously landed alone on a row (2026-09-16 review).
-     R's own track is an explicit width, not `minmax(0, 1fr)`: unlike
-     X/Y/W/H, R is bounded (compactFieldWidthCh gives it an intrinsic
-     ~39px value box), so a flexible 1fr track reserves space the value
-     never fills — that dead space showed up as a gap on whichever side
-     justify-content picked. `max-content` was tried first but a CSS grid
-     track's max-content sizing does not reliably shrink-wrap a child that
-     is itself a grid container with a `1fr` column (the nested `1fr`
-     doesn't propagate a tight intrinsic size the way a flex item would) —
-     confirmed empirically live, not assumed. An explicit width sized to
-     the label + gap + compact value (measured: 25px label + 39px value +
-     gap) is the robust fix; 4.75rem leaves a little breathing room. */
-  grid-template-columns: 4.75rem auto auto auto;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
-/* Complete, standalone rule for R's own label/control pair — deliberately
- * NOT folded into the shared columns-2/3/size/skew selector below (which
- * sets a tighter --space-1 gap): a same-specificity selector later in the
- * file would silently win per-property over anything set here, which is
- * exactly the drift bug already fixed twice elsewhere in this file
- * (99ee3effa, 174e524fc). One selector, one owner, every property it needs. */
+/* R field on left, compact grouped transform controls on right. */
 .insp-field-group--rotation > .insp-field {
-  gap: var(--space-2);
-  grid-template-columns: max-content minmax(0, 1fr);
+  flex: 0 1 5.5rem;
   min-width: 0;
+  gap: var(--space-1);
+  grid-template-columns: max-content minmax(0, 1fr);
+}
+
+.insp-flip-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-05);
+  padding: 2px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+  flex-shrink: 0;
+}
+
+.insp-flip-group .insp-flip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-control-compact);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
+}
+
+.insp-flip-group .insp-flip-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.insp-flip-group .insp-flip-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.insp-flip-group .insp-flip-btn--active {
+  background: var(--color-accent-subtle);
+  color: var(--color-interactive-default);
 }
 
 .insp-field-group--skew {

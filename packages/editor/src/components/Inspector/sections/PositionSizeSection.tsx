@@ -399,6 +399,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
       >
         <NumberField
           label={useArtboardCoords ? 'X (AB)' : 'X'}
+          displayLabel="X"
           unit="px"
           value={toDisplayX(xValue)}
           mixed={xState.kind === 'mixed'}
@@ -417,6 +418,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
         <span className="insp-field-group__action-slot" aria-hidden="true" />
         <NumberField
           label={useArtboardCoords ? 'Y (AB)' : 'Y'}
+          displayLabel="Y"
           unit="px"
           value={toDisplayY(yValue)}
           mixed={yState.kind === 'mixed'}
@@ -475,6 +477,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
             <InspectorFieldGroup className="insp-field-group--size insp-field-group--numeric-pair">
               <NumberField
                 label="W"
+                displayLabel="W"
                 unit="px"
                 value={wRaw !== null && !isMixed(wRaw) ? wRaw : 0}
                 mixed={wRaw !== null && isMixed(wRaw)}
@@ -507,6 +510,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
               </label>
               <NumberField
                 label="H"
+                displayLabel="H"
                 unit="px"
                 value={hRaw !== null && !isMixed(hRaw) ? hRaw : 0}
                 mixed={hRaw !== null && isMixed(hRaw)}
@@ -554,6 +558,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
       <InspectorFieldGroup className="insp-field-group--rotation">
         <NumberField
           label="R"
+          displayLabel="R"
           unit="°"
           value={isMixed(rotationRaw) ? 0 : rotationRaw}
           mixed={isMixed(rotationRaw)}
@@ -565,83 +570,85 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           onShiftClick={() => editor.setBindingField('rotation')}
         />
         <TooltipProvider>
-          <Tooltip label="Flip horizontally">
-            <button
-              type="button"
-              aria-label="Flip horizontal"
-              onClick={editor.setSelectedFlipH}
-              className="insp-flip-btn"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
+          <div className="insp-flip-group" role="group" aria-label="Transform controls">
+            <Tooltip label="Flip horizontally">
+              <button
+                type="button"
+                aria-label="Flip horizontal"
+                onClick={editor.setSelectedFlipH}
+                className="insp-flip-btn"
               >
-                <path d="M8 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h3" />
-                <path d="M16 3h3a2 2 0 0 1 2 2v14c0 1.1-.9 2-2 2h-3" />
-                <path d="M12 20v2" />
-                <path d="M12 14v2" />
-                <path d="M12 8v2" />
-                <path d="M12 2v2" />
-              </svg>
-            </button>
-          </Tooltip>
-          <Tooltip label="Flip vertically">
-            <button
-              type="button"
-              aria-label="Flip vertical"
-              onClick={editor.setSelectedFlipV}
-              className="insp-flip-btn"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M8 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h3" />
+                  <path d="M16 3h3a2 2 0 0 1 2 2v14c0 1.1-.9 2-2 2h-3" />
+                  <path d="M12 20v2" />
+                  <path d="M12 14v2" />
+                  <path d="M12 8v2" />
+                  <path d="M12 2v2" />
+                </svg>
+              </button>
+            </Tooltip>
+            <Tooltip label="Flip vertically">
+              <button
+                type="button"
+                aria-label="Flip vertical"
+                onClick={editor.setSelectedFlipV}
+                className="insp-flip-btn"
               >
-                <path d="M3 8V5c0-1.1.9-2 2-2h14c1.1 0 2 .9 2 2v3" />
-                <path d="M3 16v3c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-3" />
-                <path d="M4 12H2" />
-                <path d="M10 12H8" />
-                <path d="M16 12h-2" />
-                <path d="M22 12h-2" />
-              </svg>
-            </button>
-          </Tooltip>
-          <Tooltip label={isSkewVisible ? 'Hide skew controls' : 'More transforms (Skew)'}>
-            <button
-              type="button"
-              aria-label={isSkewVisible ? 'Hide skew controls' : 'Show skew controls'}
-              aria-expanded={isSkewVisible}
-              onClick={() => setShowSkew((p) => !p)}
-              className={`insp-flip-btn ${isSkewVisible ? 'insp-flip-btn--active' : ''}`}
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3 8V5c0-1.1.9-2 2-2h14c1.1 0 2 .9 2 2v3" />
+                  <path d="M3 16v3c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-3" />
+                  <path d="M4 12H2" />
+                  <path d="M10 12H8" />
+                  <path d="M16 12h-2" />
+                  <path d="M22 12h-2" />
+                </svg>
+              </button>
+            </Tooltip>
+            <Tooltip label={isSkewVisible ? 'Hide skew controls' : 'More transforms (Skew)'}>
+              <button
+                type="button"
+                aria-label={isSkewVisible ? 'Hide skew controls' : 'Show skew controls'}
+                aria-expanded={isSkewVisible}
+                onClick={() => setShowSkew((p) => !p)}
+                className={`insp-flip-btn ${isSkewVisible ? 'insp-flip-btn--active' : ''}`}
               >
-                <path d="M4 20h14l4-16H8L4 20z" />
-              </svg>
-            </button>
-          </Tooltip>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M4 20h14l4-16H8L4 20z" />
+                </svg>
+              </button>
+            </Tooltip>
+          </div>
         </TooltipProvider>
       </InspectorFieldGroup>
       {/* Skew row — progressively disclosed */}
