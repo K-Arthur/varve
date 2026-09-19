@@ -150,6 +150,12 @@ export const IMPACT_CONFIG = {
       require: ['e2e:settings'],
     },
     {
+      id: 'inspector-css-discipline',
+      why: 'Inspector CSS is a hand-maintained multi-file surface where undefined token references and raw values silently render fallbacks; the dedicated audit is the only gate that sees them (AUD-004/005/006).',
+      paths: ['packages/editor/src/components/Inspector/**'],
+      require: ['audit:inspector-css'],
+    },
+    {
       id: 'tokens-visual',
       why: 'Design tokens are consumed by CSS custom properties at runtime; the token audit plus a UI visual smoke is required, not just unit tests.',
       paths: ['packages/ui/src/tokens/**', 'packages/tokens/src/**', 'packages/ui/src/tokens/**'],
