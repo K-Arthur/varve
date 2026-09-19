@@ -791,6 +791,13 @@ machine, and reserve `pnpm verify:full` for explicit escalations.
 - Rust `unsafe_code = deny` workspace-wide.
 - Cross-platform: if it works on macOS but not Linux, it's not done.
 - **No native `<select>` elements** — use `@varve/ui`'s custom `Select` component.
+- **No raw `varve-btn` markup.** Actions go through `@varve/ui` `Button` /
+  `IconButton` / `ToggleButton`; the variant/size vocabulary is closed
+  (`ButtonVariantParity.test.ts`) and `tests/unit/button-system.test.ts` fails
+  on hand-rolled `varve-btn` markup or undeclared modifiers. Website CTAs use
+  `apps/website/src/components/Button.astro`, never raw anchors with `.btn-*`.
+  Unavailable actions whose blocker is not obvious from the label use
+  `disabledReason`. See `docs/architecture/button-action-system.md`.
 - **No AI tool attribution in commit messages or author metadata.** Do not add
   `Co-authored-by:` trailers for Claude, Devin, Copilot, Codex, ChatGPT,
   Gemini, Cursor, Windsurf, or any other AI tool. Do not add "Generated with
