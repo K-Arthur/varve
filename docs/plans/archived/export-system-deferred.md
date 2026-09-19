@@ -1,13 +1,19 @@
 # Export System — Deferred Items Implementation Plan
 
+> **Status: complete — archived 2026-09-19.** All three workstreams landed (see
+> "Completion Status" below); the Rust print engine implements font outlining,
+> ICC-backed CMYK, and PDF/X-1a/X-4 in `crates/varve-print/`. Current-state
+> export review: `docs/audits/export-surfaces-review-2026-09-17.md`.
+
 Status update, 2026-07-07: the import/export compatibility push implemented
 the shared `DocumentCodec`, `ImportService`, `ExportService`, SVG byte fix,
 package export ZIP, platform binary IPC fix, Sketch ZIP import, DTCG structured
 token export, and editor file-picker/canvas/clipboard service wiring. The
 canonical audit, roadmap, and verification report now live at
-`docs/audits/import-export-compatibility-audit.md`. This plan remains useful for
-the still-open print-engine workstream: font outlining, full PDF/X output
-intents, ICC-backed CMYK, and native print IPC expansion.
+`docs/audits/import-export-compatibility-audit-2026-07-07.md`. The print-engine
+workstream (font outlining, full PDF/X output intents, ICC-backed CMYK, native
+print IPC expansion) was completed under Workstream A — see "Completion Status"
+below.
 
 Final verification update, 2026-07-07: the compatibility branch passed
 `pnpm format`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `pnpm audit:emoji`,

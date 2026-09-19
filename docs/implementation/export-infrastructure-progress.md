@@ -286,7 +286,7 @@ Commit hashes recorded below as milestones complete.
 
 > **Session note (2026-08-01):** a concurrent agent is working in the same repo
 > (tooltip-system migration, gradient-map M4, and a screenshot-grounded export
-> panel redesign in `docs/plans/export-infrastructure-redesign.md`). Git
+> panel redesign in `docs/plans/archived/export-infrastructure-redesign.md`). Git
 > history on the working branch is interleaved: this export work shares the
 > branch with that agent's commits. Export work is committed separately and the
 > agent's uncommitted tooltip-doc files are left untouched in the working tree.

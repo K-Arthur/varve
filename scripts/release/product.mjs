@@ -65,7 +65,7 @@ export function repoSlug() {
 }
 
 /**
- * Document file extension without the dot, e.g. `strata`.
+ * Document file extension without the dot, e.g. `varve`.
  *
  * Read from `bundle.fileAssociations` so release notes describe the format the
  * build actually registers, rather than a string that survives a rename.
@@ -74,5 +74,5 @@ export function documentExtension() {
   const conf = JSON.parse(
     readFileSync(join(repoRoot, 'apps/desktop/src-tauri/tauri.conf.json'), 'utf-8'),
   );
-  return conf.bundle?.fileAssociations?.[0]?.ext?.[0] ?? 'strata';
+  return conf.bundle?.fileAssociations?.[0]?.ext?.[0] ?? 'varve';
 }

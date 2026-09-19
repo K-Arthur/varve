@@ -1,5 +1,9 @@
 # Logo System — Progress Tracker
 
+> **Status: complete — archived 2026-09-19.** Manual logo workflow shipped;
+> current-state contract: `docs/architecture/logo-system.md`. AI-assisted
+> milestones remain deferred.
+
 Status: manual logo workflow implemented (workspace, project model, geometry,
 typography, previews, audit, package export). AI-assisted milestones deferred.
 

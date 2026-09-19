@@ -22,11 +22,6 @@ on:
     # Weekly full validation including downloaded models
     - cron: '0 8 * * 1'
   workflow_dispatch:
-    inputs:
-      full_validation:
-        description: 'Run full validation with model downloads'
-        type: boolean
-        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

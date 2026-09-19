@@ -296,7 +296,7 @@ No breaking schema changes. Existing documents with `backgroundRemoval` masks re
 ## References
 
 - `docs/adr/0005-offline-model-bundling.md`
-- `docs/plans/bg-removal-deferred.md`
+- `docs/plans/archived/bg-removal-deferred.md`
 - `docs/plans/archived/bg-removal-phase-e-prompt.md` — Phase E agent prompt + stub inventory
 - BiRefNet / U²-Net model families (on-device segmentation)
 - Photoshop Select Subject + Select and Mask (Adobe, industry baseline)

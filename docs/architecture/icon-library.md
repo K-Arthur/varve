@@ -3,7 +3,7 @@
 Status: current-state documentation for the user-facing icon library
 (Milestones 1–6 of the unified icon-system initiative, implemented
 2026-08-04). Supersedes the architecture audit of 2026-08-02
-(`docs/architecture/icon-system-audit-2026-08-02.md`), which is now
+(`docs/historical/icon-system-audit-2026-08-02.md`), which is now
 historical evidence.
 
 This document covers the **user-inserted document icons** system only.

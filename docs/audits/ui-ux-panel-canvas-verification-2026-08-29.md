@@ -5,7 +5,8 @@ Date: 2026-08-29
 ## Scope
 
 This verification covers the progressive UI/UX remediation documented in
-`UI_UX_PANEL_CANVAS_AUDIT.md` and `UI_UX_PANEL_CANVAS_TARGET.md`:
+`ui-ux-panel-canvas-audit-2026-08-29.md` and
+`ui-ux-panel-canvas-target-2026-08-29.md`:
 
 - logical sibling metadata for the virtualized Layers tree;
 - accessible current value and controlled-pane semantics for panel splitters;

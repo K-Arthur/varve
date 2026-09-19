@@ -1,5 +1,9 @@
 # Export Infrastructure Redesign — Screenshot-Grounded Prompt + Audit
 
+> **Status: complete — archived 2026-09-19.** C1–C3 landed (see the checked
+> steps below); C4 remains explicitly out of scope. Current-state export
+> review: `docs/audits/export-surfaces-review-2026-09-17.md`.
+
 Status, 2026-08-01: created from a pasted redesign brief (reproduced verbatim in
 "§A — Source brief" below) written against a screenshot of the compact Export
 tab. Before acting on it, the codebase was audited to find the real components

@@ -1,5 +1,11 @@
 # Tools System — Deferred Implementation Plan
 
+> **Status: complete — archived 2026-09-19.** All deferred items below have
+> since landed (snapping, floating palette, NodeEditTool, Boolean actions,
+> spring-loaded tools); current contracts live in
+> `docs/architecture/toolbar-system.md` and
+> `docs/architecture/input-system-behavior-matrix.md`.
+
 Use this in a future session to complete the remaining phases.
 
 ## Completed foundation (Session 9, 2026-06-29)

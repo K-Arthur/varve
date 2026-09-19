@@ -28,7 +28,7 @@ the planned milestones.
 | 16. Multimodal assistance | Deferred by directive (2026-08-05) | — |
 | 17. Hardening | Landed (fuzz, fault injection, conflict matrix, CLI smoke, axe a11y, perf benches) | `a0447a` pending — see tracker |
 
-Tracker: `docs/plans/persistent-history-progress.md`.
+Tracker: `docs/plans/archived/persistent-history-progress.md`.
 
 ## Deterministic vector and raster replay (2026-08-28)
 

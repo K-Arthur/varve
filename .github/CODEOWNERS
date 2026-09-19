@@ -12,7 +12,7 @@
 /.github/workflows/                @K-Arthur
 /.github/CODEOWNERS                @K-Arthur
 /.github/dependabot.yml            @K-Arthur
-/.github/hooks/                    @K-Arthur
+/.githooks/                        @K-Arthur
 /.gitleaks.toml                    @K-Arthur
 
 # Release pipeline and signing policy

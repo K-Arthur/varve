@@ -1,7 +1,7 @@
 # Workspace Navigation — unified model, effective configuration, deep links
 
 Status: current-state (2026-08-05). Companion tracker:
-`docs/plans/workspace-navigation-progress.md`.
+`docs/plans/archived/workspace-navigation-progress.md`.
 
 ## 1. Current-state map (audit, 2026-08-05)
 

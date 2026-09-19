@@ -242,7 +242,7 @@ transaction, matching Figma/Sketch behavior.
 - SVG `<pattern>` element for grid in SVG export
 - Grid respects document scope (document/page/frame)
 
-**Dependencies:** Export system (deferred per `docs/plans/export-system-deferred.md`).
+**Dependencies:** Export system (deferred per `docs/plans/archived/export-system-deferred.md`).
 
 ### Issue-004: Grid Codegen Metadata
 

@@ -5,7 +5,7 @@
 Started from clean `master`, `a363c6432`. This is an ongoing audit, not a
 certification of every mutation route. The previous
 [mutation inventory](history-mutation-inventory-2026-08-05.md) and
-[deterministic progress tracker](../plans/deterministic-undo-progress.md)
+[deterministic progress tracker](../plans/archived/deterministic-undo-progress.md)
 contain historical claims that require runtime verification.
 
 ## Findings

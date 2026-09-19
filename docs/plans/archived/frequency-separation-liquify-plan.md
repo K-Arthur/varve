@@ -1,6 +1,11 @@
 # Frequency Separation + Liquify — implementation plan
 
-Status: in progress (2026-09-13). Canonical architecture doc lands at
+> **Status: complete — archived 2026-09-19.** Milestones A–E landed (see the
+> milestone table below); the canonical architecture doc is
+> `docs/architecture/frequency-separation-liquify.md`. A dedicated frame-time
+> benchmark remains open.
+
+Status: implemented (2026-09-13). Canonical architecture doc:
 `docs/architecture/frequency-separation-liquify.md`.
 
 ## Research decisions

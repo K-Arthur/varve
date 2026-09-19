@@ -7,7 +7,9 @@ document-derived accent mode may (and may not) override them. Application
 interface tokens only; user-authored document styles, swatches, and color
 variables are a separate system (see `palette-extraction-system.md` for the
 artwork-facing analysis pipeline). Interface sizing/density lives in
-`interface-sizing-system.md`.
+`interface-sizing-system.md`. Token ownership, the semantic CSS contract, and
+theme lifecycle/persistence live in `theme-system.md`; this document owns the
+surface and identity tiers composed from them.
 
 ## 1. Token architecture
 

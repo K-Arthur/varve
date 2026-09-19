@@ -38,7 +38,7 @@ const SKIP_DIRS = new Set([
 const ALLOWED_UNSAFE_FILES = new Set([
   'packages/editor/src/context/types.ts',
   'packages/editor/src/context.tsx',
-  'packages/editor/src/workspace/useWorkspace.ts',
+  'packages/editor/src/context/useWorkspaceMode.ts',
 ]);
 
 // Pattern: bare `setWorkspaceMode(` — NOT preceded by `__` and NOT `requestWorkspaceSwitch`

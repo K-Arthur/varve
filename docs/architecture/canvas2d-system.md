@@ -3,7 +3,7 @@
 **Updated:** 2026-09-08
 
 This document is the maintained contract for Varve's Canvas 2D path. It supersedes
-older implementation details in `docs/audits/canvas-system-audit.md`.
+older implementation details in `docs/audits/canvas-system-audit-2026-07-06.md`.
 
 ## Deployment reality
 

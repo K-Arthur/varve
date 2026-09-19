@@ -459,7 +459,7 @@ git log --oneline -3
 | Working branch | `master` |
 | Canvas responsiveness work | `perf/canvas-responsiveness` (6 commits ahead of master, merged 2026-07-27) |
 | Deferred plan | `docs/plans/layers-panel-deferred.md` |
-| Export deferred | `docs/plans/export-system-deferred.md` |
+| Export deferred | `docs/plans/archived/export-system-deferred.md` |
 | Home/Workspace System | `docs/plans/archived/projects-home-workspace-completed.md` |
 | Packaging (0.11) | `docs/plans/archived/session-04-packaging.md` (historical; current release pipeline lives in `docs/release/` and `scripts/release/`) |
 | Loading Experience System | `docs/architecture/loading-system.md`, `docs/audits/loading-experience-audit-2026-07-08.md` |
@@ -571,7 +571,7 @@ gaps: `docs/architecture/workspace-system.md`.
 | **Codegen** | `Ctrl+Shift+9` | select | Code export |
 
 Logo workflow docs: `docs/architecture/logo-system.md`,
-`docs/plans/logo-system-progress.md`. New commands must register in
+`docs/plans/archived/logo-system-progress.md`. New commands must register in
 `ShortcutManager` + `createActionHandlers` + both menus; project state
 lives in `Document.logoProject` (scene `logo/logoProject.ts`).
 

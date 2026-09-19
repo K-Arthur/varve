@@ -45,15 +45,14 @@ Thumbs.db
 /*_MEMORY.md
 /CONTINUATION.md
 
-# --- Temporary hygiene audit progress ---
-/docs/repository-hygiene-progress.md
-
 # --- CI debug reports (generated, one-off) ---
 /ci-debug-report*.md
 
 # --- Build caches / tmp ---
 .tmp/
+.tmp-*
 .boot-check.tmp.mjs
+.flatpak-builder/
 
 # --- Env / secrets ---
 .env
@@ -92,6 +91,12 @@ secret-scan-report.*
 # --- Logs ---
 *.log
 npm-debug.log*
+
+# --- Local-only Playwright validation configs (machine accommodations, declared
+# "not part of the committed test matrix"; the committed layer-fidelity config
+# is the deliberate exception) ---
+/playwright.*.local.config.ts
+!/playwright.layer-fidelity.local.config.ts
 
 # --- Test artifacts ---
 test-results/
@@ -134,6 +139,8 @@ tests/fixtures/restore-corpus/
 
 # --- Local AI tool config (personal paths, no secrets) ---
 .claude/
+.codex/
+.agents/
 
 # --- Devin AI agent (workflows directory intentionally empty) ---
 .devin/

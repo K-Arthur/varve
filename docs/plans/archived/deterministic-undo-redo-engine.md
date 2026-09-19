@@ -1,5 +1,9 @@
 # Deterministic Cross-Paradigm Undo/Redo Engine
 
+> **Status: superseded — archived 2026-09-19.** This design plan was executed
+> under the tracker now at `docs/plans/archived/deterministic-undo-progress.md`;
+> the 2026-09-05 hardening audit tracks residual defects and runtime coverage.
+
 ## Executive Summary
 
 Varve has a solid foundation: a persistent revision DAG (ADR-0019 Model A), a semantic diff system, typed operations, transaction grouping, and a content-addressed snapshot scheduler. The plan hardens and extends this foundation to meet the deterministic undo invariant across all vector and raster mutations, without replacing the existing architecture.

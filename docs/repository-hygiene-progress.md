@@ -1,10 +1,81 @@
 # Repository Hygiene Audit — Progress Ledger
 
-**Date:** 2026-07-26 (pass 1, complete) / **2026-08-04 (pass 2, complete) / 2026-08-12 (pass 3, complete) / 2026-08-16 (pass 4, complete) / 2026-08-21 (pass 5, complete) / 2026-08-22 (pass 6, complete) / 2026-08-24 to 2026-08-25 (pass 7, complete)**
+**Date:** 2026-07-26 (pass 1, complete) / **2026-08-04 (pass 2, complete) / 2026-08-12 (pass 3, complete) / 2026-08-16 (pass 4, complete) / 2026-08-21 (pass 5, complete) / 2026-08-22 (pass 6, complete) / 2026-08-24 to 2026-08-25 (pass 7, complete) / 2026-09-19 (pass 8, complete)**
 **Branch:** master
 
-> Working ledger for hygiene audits. Pass 7 is documented below; pass 1–6
+> Working ledger for hygiene audits. Pass 8 is documented below; pass 1–7
 > history is retained further down.
+
+---
+
+## Pass 8 (2026-09-19)
+
+Repository-wide cleanup pass (misplaced docs, plans lifecycle, repository
+metadata, tooling drift) executed against a shared dirty tree carrying
+concurrent unrelated work from other sessions. Only this pass's own changes
+were staged; no concurrent modification was reverted, overwritten, or staged.
+The full gate was not run — `pnpm verify:plan` escalates to `FULL-SUITE
+ESCALATION: YES` solely because of the concurrent workspace/toolchain edits in
+the tree, and this pass touches documentation, ignore rules, and two tooling
+scripts only.
+
+| File or Pattern | Category | Tracked? | Decision | Status |
+| --------------- | -------- | -------: | -------- | ------ |
+| `UI_UX_PANEL_CANVAS_{AUDIT,TARGET,VERIFICATION}.md` (repo root) | Misplaced current-state docs — the only inbound reference was `docs/audits/ui-visual-optimization-2026-09-12.md`, and neither README nor the docs index mentioned them | Yes | `git mv` to `docs/audits/ui-ux-panel-canvas-{audit,target,verification}-2026-08-29.md`; fixed all three cross-references; added the trio plus the previously unindexed `ui-visual-optimization-2026-09-12.md` to the `docs/README.md` audit table | Done |
+| `docs/repository-hygiene-progress.md` | Contradictory metadata — `.gitignore` created the file as "temporary" on 2026-07-25, but passes 6 and 7 deliberately committed it; the rule matched a tracked file and did nothing | Yes | Removed the stale `/docs/repository-hygiene-progress.md` ignore rule; ledger remains tracked | Done |
+| `.tmp-export-*.mjs`, `.tmp-inspect-onnx.mjs`, `.tmp-tabbar-diag.mjs` (root) and `packages/engine/.tmp-{gd-probe,inspect-onnx,matte-gray}.{mjs,cjs}` | Unignored scratch — days-old one-off diagnostics with zero tracked references (`export-surfaces-review-2026-09-17.md` already describes its capture script as transient) | No (untracked) | Added `.tmp-*` to `.gitignore`; moved the files to `/tmp/opencode/varve-leftovers-2026-09-19/` (recoverable) | Done |
+| `.tmp-layers-capture/` | Scratch capture dir for the concurrently active Layers work | No (untracked) | Left in place; now covered by the `.tmp-*` ignore rule | Done |
+| `.flatpak-builder/`, `.codex/`, `.agents/` | Unignored build cache / local AI-tool dirs (only untracked content) | No | Added ignore rules alongside the existing `.claude/` and `.devin/` entries | Done |
+| `playwright.{depth,retouch,photo-verify,export-inspector}.local.config.ts` | Untracked local-run configs whose own headers declare them "not part of the committed test matrix" (machine `/var/tmp` and `/dev/shm` accommodations) | No (untracked) | Added `/playwright.*.local.config.ts` with an explicit `!playwright.layer-fidelity.local.config.ts` exception for the committed config | Done |
+| `docs/plans/{logo-system-progress,persistent-history-progress,workspace-navigation-progress,deterministic-undo-progress,bg-removal-deferred,export-system-deferred,export-infrastructure-redesign}.md` | Completed plans presented as active — each self-declares completion (milestone tables all landed; export workstreams "complete") | Yes | Archived to `docs/plans/archived/` with status banners; repaired relative links for the new depth; updated all inbound references (AGENTS.md, architecture docs, audits, the export progress ledger) | Done |
+| `docs/plans/export-system-deferred.md` (header) | Stale claim — the 2026-07-07 header said the print-engine workstream (font outlining, PDF/X, ICC CMYK) was "still-open" while the same file's Completion Status and `crates/varve-print/{outline,cmyk,icc}.rs` show it implemented; also cited an undated audit path | Yes | Rewrote the header to match reality; corrected the audit citation to `import-export-compatibility-audit-2026-07-07.md` | Done |
+| `docs/architecture/canvas2d-system.md:6` (`docs/audits/canvas-system-audit.md`) and `icon-library.md:6` (`docs/architecture/icon-system-audit-2026-08-02.md`) | Stale code-span path citations invisible to `audit:docs` link checking (targets renamed/moved to dated names and `docs/historical/`) | Yes | Corrected both paths | Done |
+| `.github/CODEOWNERS:15` | Broken path — `/.github/hooks/` does not exist; hooks live in `.githooks/` (and were absent from CODEOWNERS) | Yes | Replaced with `/.githooks/` | Done |
+| `scripts/generate-icons.sh:3` | Stale pre-rename path in the shim comment (the retired master-icon filename); master art is `varve-app-icon.svg` | Yes | Corrected the comment; shim still delegates to `apps/desktop/build-icons.sh` | Done |
+| `scripts/release/product.mjs` | Legacy fallback — `documentExtension()` fell back to `'strata'` (and documented it as the example) although `tauri.conf.json` registers `["varve"]` first; `verify-product-truth.test.mjs` asserts the `varve` expectation | Yes | Fallback and comment changed to `varve` | Done |
+| `scripts/audit-workspace-api.mjs` | Stale allowlist entry — `packages/editor/src/workspace/useWorkspace.ts` no longer exists; `__setWorkspaceModeUnsafe` now lives in `context/useWorkspaceMode.ts`; script had been failing against the moved file | Yes | Updated the allowlist entry; ran the enforcer (clean, 4629 files) rather than deleting the only guard for the one-switch-path invariant | Done |
+| `scripts/validate-pdf.ts`, `scripts/check-lint-trend.mjs`, `scripts/audit-touched-files.mjs` | Orphaned/superseded tooling — the `.ts` PDF validator targeted nonexistent fixtures and was superseded by `validate-pdf.sh` (CI shell-checked); the lint-trend script invokes a `poke` tool that does not exist anywhere; the touched-files enforcer is superseded by the Tier-0 `lint:touched`/`format:touched` verify lanes and was never wired into `just gate` as its header claimed; all three have zero references | Yes | Deleted (git history retains them) | Done |
+
+### Investigated, no action needed (pass 8)
+
+- **Screenshot orphan analysis** (62 files with no per-filename reference, mostly in `2026-09-17-toolbar-review/`, `2026-09-15-toolbar-review/`, `2026-09-15-workspace-switcher-review/before/`, `shape-builder/2026-09-14-verification/`): every file sits in a dated evidence directory referenced at directory level by its audit, the capture workflow is currently active (34 toolbar-review PNGs are regenerated in the dirty tree), and the repo deliberately commits dated screenshot evidence — preserved as an owner-review list rather than deleted.
+- **`.windsurf/plans/`**: documented as intentional brand-history artifacts by `documentation-truth-audit-2026-08-16.md`; kept.
+- **`tests/reference/`** (untracked CPU/GPU model-comparison PNGs, ~1.2 MB, zero references): preserved as uncommitted evidence; owner should decide track/ignore/remove.
+- **Stale pre-rename-name comments in `scripts/audit-perf.mjs` / `audit-emoji.mjs`** (references to section numbers of the original pre-rename planning spec) and the legacy document-extension/MIME/storage-key identifiers: intentional historical/compat references under the rename policy; left untouched.
+- **`docs/agents/session-history.md`**: phantom citation `docs/superpowers/plans/pre-existing-test-failure-investigation.md` (never existed in history) and undated plan paths in session records — historical point-in-time records, left unedited.
+- **Plans with self-contradictory status (reviewed in the pass 8 follow-up below)**: `frequency-separation-liquify-plan.md`, `deterministic-undo-redo-engine.md`, `tools-deferred.md` verified and archived; `pages-frames-surface-model.md` header corrected and kept (edge cases remain open); `website-progress-tracker.md` and `layers-panel-deferred.md` left for the active website/layers workstreams.
+- **Unwired-but-plausible tooling**: `scripts/release/re-sign-release-feed.mjs` (its one-shot workflow no longer exists, needs CI-only secrets — release-adjacent, so not deleted), `scripts/patch-manifest.mjs` (one-off manifest mutator for a field absent from the current manifest), `scripts/regenerate-menu-matrices.test.mjs` (a real drift gate whose counts/hardcoded matrix expectations currently fail because `defs.ts` carries concurrent uncommitted menu growth — do not wire until the owning session regenerates the matrices), and manual helpers `scripts/{visual-review,inspect-bundle}.mjs`, `scripts/release/update-packaging.sh`, `apps/desktop/scripts/verify-icons.sh`.
+- **Icon/lighting scripts** (`just generate-icons`, `scripts/install-dev-icons.sh`) and WebKitGTK/Flatpak paths: verified current; the earlier-refactor icon flow already points at `varve-app-icon.svg` outside the shim comment fixed above.
+
+### Verification (pass 8)
+
+| Gate | Result |
+|------|--------|
+| `node scripts/audit-docs.mjs` | Passed (1028 docs, 575 links, 175 ADRs indexed) |
+| `node scripts/audit-emoji.mjs` | Passed (4888 files) |
+| `node --test scripts/release/{release-pipeline,linux-package-metadata,verify-product-truth}.test.mjs` | Passed (3/3 files) |
+| `node scripts/audit-workspace-api.mjs` | Passed after the allowlist fix (4629 files) |
+| `node scripts/quality/verify.mjs plan` | Reported `FULL-SUITE ESCALATION: YES` — reason: concurrent workspace/toolchain edits already in the shared dirty tree (not this pass's changes). Full suite deliberately not run for a docs/metadata pass. |
+| `git status` review | Concurrent modifications left untouched. An external index reset mid-pass left this pass's moves as delete + untracked in `git status` (worktree content is correct; `git add -A` restores rename detection) |
+
+### Pass 8 follow-up (2026-09-19) — candidate review
+
+The deferred candidate list above was subsequently reviewed; items with strong
+evidence were actioned, items owned by an active workstream or of release-level
+sensitivity were recorded instead of changed.
+
+| Item | Action | Status |
+| ---- | ------ | ------ |
+| `docs/plans/{frequency-separation-liquify-plan,deterministic-undo-redo-engine,tools-deferred}.md` | Verified against code (`docs/architecture/frequency-separation-liquify.md` + two E2E specs exist; `packages/history/src/rasterTileStore.ts` exists; `NodeEditTool.ts`, `snapping.ts`, boolean registry entries, floating palette all present); banner added; archived | Done |
+| `docs/plans/pages-frames-surface-model.md` | Header corrected to "decisions implemented (2026-08-08); edge cases remain open" — the plan itself says the edge-case list is unfinished; kept in `plans/` | Done |
+| Ten unindexed architecture docs + `design-token-system.md` | Index rows added to the `docs/README.md` architecture table | Done |
+| `theme-system.md` ↔ `design-token-system.md` competing token authority | Explicit cross-links added in both docs (token ownership/lifecycle vs surface/identity tiers) | Done |
+| `inspector-spec.md` ↔ `inspector-spec-pass2.md` precedence | Precedence recorded in the `docs/README.md` Inspector entry (pass 2 governs forward work; pass 1 retains its `IMPL-` history); the spec files themselves not edited while the Inspector workstream is active | Done |
+| `.github/workflows/model-validation.yml` unused `full_validation` dispatch input | Removed (declared, never referenced); `validate-workflows` passes | Done |
+| `scripts/audit-contacts.test.mjs` | Ran clean; added to `pnpm test:ci:tools` (its header already claimed membership) | Done |
+| `docs/audits/onnx-model-decision-matrix.md`, `intelligence-feature-roadmap.md` | Zero inbound references; renamed with their internal dates (2026-07-21) per the dated-record convention | Done |
+| `scripts/regenerate-menu-matrices.test.mjs` | Not wired: the drift gate is correct but fails on concurrent uncommitted growth in `packages/editor/src/menu/defs.ts`; the owning session must run `node scripts/regenerate-menu-matrices.mjs` and refresh the hardcoded per-menu counts before it can join CI | Reported |
+| 62 screenshot orphans; `tests/reference/` (untracked model-comparison corpus); `zz-*.spec.ts` diagnostics; `visual-validate-overlap.mjs`; `scripts/release/re-sign-release-feed.mjs`; `scripts/patch-manifest.mjs`; `docs/audits/deferred-lint-debt.md`; `session-history.md` phantom citation | Reviewed and retained: dated screenshot evidence sets are referenced at directory level and partly regenerated by active work; `tests/reference/` has no tracked generator; the diagnostics may still belong to open investigations; the scripts are release/manifest-adjacent; `deferred-lint-debt.md` is a current suppressions register; the phantom citation is inside a historical record | Reported |
 
 ---
 

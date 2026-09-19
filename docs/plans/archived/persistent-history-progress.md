@@ -1,5 +1,8 @@
 # Persistent History Program — Progress Tracker
 
+> **Status: complete — archived 2026-09-19.** Milestones landed; current-state
+> contract: `docs/architecture/persistent-history.md`.
+
 Tracks the persistent step-level history, branching, semantic diff, merge,
 and Git program defined in ADRs 0017-0046. Current-state summary:
 `docs/architecture/persistent-history.md`. Audits:

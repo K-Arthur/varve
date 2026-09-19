@@ -1,8 +1,12 @@
 # Deterministic Undo/Redo Engine — Progress Tracker
 
+> **Status: complete — archived 2026-09-19.** All phases below landed; the
+> linked 2026-09-05 hardening audit tracks defects found afterward and the
+> remaining runtime coverage.
+
 ## Follow-up verification
 
-The [2026-09-05 hardening audit](../audits/undo-redo-hardening-2026-09-05.md)
+The [2026-09-05 hardening audit](../../audits/undo-redo-hardening-2026-09-05.md)
 tracks newly reproduced defects and remaining runtime coverage. The completed
 items below describe the earlier implementation, not universal undo coverage.
 

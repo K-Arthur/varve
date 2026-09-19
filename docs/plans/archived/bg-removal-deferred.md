@@ -2,8 +2,8 @@
 
 > Historical implementation record. The code examples and old completion
 > checklists below are not current contracts. See the
-> [current architecture](../architecture/background-removal-system.md) and
-> [2026-09-05 repair evidence](../audits/background-removal-repair-2026-09-05.md)
+> [current architecture](../../architecture/background-removal-system.md) and
+> [2026-09-05 repair evidence](../../audits/background-removal-repair-2026-09-05.md)
 > for coverage-mask semantics, bounded requests, native asset commits and
 > verified workflow status.
 

@@ -4,7 +4,9 @@ Varve has one application-colour source, one semantic CSS contract, and one
 runtime preference contract across the desktop shell, browser build, detached
 panel windows, and editor packages. The marketing site consumes the same
 generated foundation but owns a smaller site-specific semantic layer; see
-[website-theme-contrast.md](website-theme-contrast.md).
+[website-theme-contrast.md](website-theme-contrast.md). The surface-tier,
+canvas-identity, and document-derived-accent layer built on these tokens is
+specified in [design-token-system.md](design-token-system.md).
 
 ## Ownership and layers
 

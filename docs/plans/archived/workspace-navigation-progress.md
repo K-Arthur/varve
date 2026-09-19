@@ -1,5 +1,8 @@
 # Workspace Navigation — progress tracker
 
+> **Status: complete — archived 2026-09-19.** Milestones landed 2026-08-05;
+> current-state contract: `docs/architecture/workspace-navigation.md`.
+
 Companion to `docs/architecture/workspace-navigation.md` (current state and
 decisions). Milestones landed 2026-08-05.
 

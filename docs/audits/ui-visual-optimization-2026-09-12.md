@@ -3,7 +3,7 @@
 Status: implementation checkpoint on `master`. Continues
 [`ui-visual-optimization-2026-09-09.md`](ui-visual-optimization-2026-09-09.md)
 and the panel/canvas audit in
-[`../../UI_UX_PANEL_CANVAS_AUDIT.md`](../../UI_UX_PANEL_CANVAS_AUDIT.md).
+[`ui-ux-panel-canvas-audit-2026-08-29.md`](ui-ux-panel-canvas-audit-2026-08-29.md).
 
 This pass was driven by runtime evidence from the real editor and website
 (Playwright + DOM measurement), not by reading source alone. Every fix below

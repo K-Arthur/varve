@@ -1,6 +1,6 @@
 # Background Removal — Phase E Completion Prompt
 
-**Use this document as the agent prompt.** Phases A–D are done (Session 39). Phase E closes remaining stubs and deferred advanced features. Do **not** edit this file during execution — update `docs/audits/background-removal-audit.md` and `docs/plans/bg-removal-deferred.md` when finished.
+**Use this document as the agent prompt.** Phases A–D are done (Session 39). Phase E closes remaining stubs and deferred advanced features. Do **not** edit this file during execution — update `docs/audits/background-removal-audit.md` and `docs/plans/archived/bg-removal-deferred.md` when finished.
 
 ---
 
@@ -173,7 +173,7 @@ cargo test -p strata-bgremove --features ai
 
 1. Implementation per approved scope (minimum: E.0 + at least one of E.2/E.3/E.4).
 2. Updated `docs/audits/background-removal-audit.md` — gap table, roadmap, verification counts.
-3. Updated `docs/plans/bg-removal-deferred.md` — Phase E status table.
+3. Updated `docs/plans/archived/bg-removal-deferred.md` — Phase E status table.
 4. `AGENTS.md` Session entry with exact pass counts.
 5. ADR-0005 amendment if E.1 shipped.
 6. Executive summary with focused/full/Rust pass counts.

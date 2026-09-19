@@ -193,7 +193,7 @@ selection summary.
 - keyboard and pointer paths produce the same observable result;
 - no new control is inert, decorative, or unreachable;
 - affected unit, E2E, accessibility, and visual checks are recorded in
-  `UI_UX_PANEL_CANVAS_VERIFICATION.md`.
+  `ui-ux-panel-canvas-verification-2026-08-29.md`.
 
 ## September 2026 Workspace Redesign Target State
 
