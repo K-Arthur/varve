@@ -215,6 +215,14 @@ Normative behaviour (already implemented; the spec pins it against regressions):
   blend mode is reachable both as a chip and inside the popover.
 - Add/remove actions are persistently visible; removing the last paint is
   disabled with a stated reason, not a silent no-op.
+- **Text colour is one model, two views (REQ-015).** For text selections the
+  Typography section renders a Colour row bound to the first visible fill
+  through `updateSelectedFillAt` — the same mutation the Fill section uses.
+  The Fill section remains the stack editor (multiple fills, gradients, image
+  fills, blend modes). When the text fill is non-solid or stacked, the
+  Typography row stays visible, prints the type ("Gradient") or "Mixed", and
+  its disabled reason routes the user to Fill. No second piece of state, no
+  duplicate add/remove affordances.
 
 ### 5.6 Icon action / toggle
 
@@ -324,6 +332,7 @@ assertions in the real editor catch failures a component story cannot.
 | REQ-012 | Every `canHide` section that composes in the Design tab is listed and restorable in the section manager. | §5.1 |
 | REQ-013 | States and copy are truthful and human-readable; no raw ids, bare percentages, or internal config wording in user-facing text. | §4, §5.5 |
 | REQ-014 | Machine enforcement prevents re-drift; exemptions are explicit and reasoned. | §9 |
+| REQ-015 | Text colour is reachable from Typography as a view of the single fill model; stacks and non-solid fills route to the Fill section instead of duplicating state. | §5.5 |
 
 ## 12. Acceptance
 A change to the Inspector is complete only when: the new script passes,

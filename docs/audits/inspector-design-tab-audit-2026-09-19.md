@@ -219,6 +219,7 @@ the remaining vertical budget concentrates in five places:
 | `insights` audit block on every selection | `PropertiesPanel.tsx:425` | ~340px collapsed-by-default | **Manageability defect, not clutter**: `canHide: true` in the registry, but `SectionManagerTrigger` lists only `surface === 'properties'` sections, so `insights` (`surface: 'audit'`), `image-crop` (`tool-options`), `ai-tools-hint` (`adjustments`) and `mockups` (`prototype`) cannot be hidden or restored from the manager even though the composition honours their hidden state. `AUD-013`. |
 | Object Filters triple add-entry | `SmartFiltersSection` | prior audit | Recorded, not repaired here — needs its own consolidation slice (`AUD-014`, see §8). |
 | Insights/Audit micro-copy | `IntelligencePanel` | "70%" chip, "+ n more (max display: N)", severity ids | Bounded copy/a11y repair in this pass (`AUD-015`). |
+| Text colour reachable only in Fill | `TypographySection` | user report 2026-09-19: styling type required scrolling past Position/Appearance/Mask to Fill | **AUD-026** — Typography gains a Colour row bound to the same fill via `updateSelectedFillAt`; Fill remains the stack editor; non-solid/stacked text fills show their type and route to Fill. `IMPL-011`, `REQ-015`. |
 
 ## 6. Accessibility audit
 
@@ -310,6 +311,7 @@ optimization is performed without those numbers. (`PERF-001` pending.)
 | AUD-019 orphaned contrast chip | REQ-013 | IMPL-008 |
 | AUD-017 undersized targets | REQ-005 | IMPL-009 |
 | AUD-025 axis-slider collapse | REQ-005 | IMPL-009 |
+| AUD-026 text colour entry point | REQ-015 | IMPL-011 |
 | (drift prevention) | REQ-014 | IMPL-010 enforcement script |
 | AUD-001/002/012 evidence | REQ-001, REQ-002, REQ-004 | spec + re-measure |
 

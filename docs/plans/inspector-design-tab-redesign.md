@@ -43,6 +43,8 @@ Phase 6 — complete. All bounded defects repaired, validated, and committed
 | IMPL-008 | AUD-015 → REQ-013 | Confidence chip gets `title`/`aria-label`; severity chips humanized ("Errors (2)"); "+ n more (max display: N)" → "+ n more findings"; "Suppress" → "Dismiss" verb unification. |
 | IMPL-009 | AUD-017 → REQ-005 | `.insp-axis-control` layout added (variable-axis slider was collapsing to ~19px — unusable); feature-browser range input raised to `--target-min-compact` hit area. |
 | IMPL-010 | REQ-014 | `scripts/quality/audit-inspector-css.mjs` + `audit:inspector-css` lane + impact rule + package script; policy tests green. |
+| IMPL-011 | AUD-026 → REQ-015 | Typography Colour row (view of the first visible text fill via `updateSelectedFillAt`); non-solid/stacked fills stay visible and route to Fill; `SectionManagerTrigger` takes its id set as a prop (no composition import); unit + E2E coverage. |
+| IMPL-012 | Live-session HMR report → architecture hygiene | `PropertiesPanel` computes the static Design-tab id set once and threads it to `SectionManagerTrigger`; the header control no longer imports `sectionComposition`, so its module graph no longer depends on every section component. |
 
 Still open from the audit: AUD-014 (Object Filters IA), AUD-007 (DocumentPanel
 numeric controls), AUD-016/AUD-019/AUD-020, workspace-contract test (AUD-022),
@@ -75,6 +77,16 @@ performance probe (PERF-001).
 - `pnpm e2e:visual` (planner-mandated for the token path) was **not run**:
   the only token change is an additive custom property with no rendering
   consumer changed; recorded as a deliberate skip with rationale, not a claim.
+- E2E round 4 (typography colour increment): typography-color (new),
+  typography-layout and design-tab-audit **23/23 passed**, plus the refreshed
+  after-matrix light sweep.
+- Live-session incident: a stale HMR module graph in a long-running dev window
+  threw `ReferenceError: getDesignTabSectionIds` in the panel header. A fresh
+  load of the same commit is clean (pageerror probe), and IMPL-012 removes the
+  cross-module dependency that made the header sensitive to update order.
+- WebKit lane attempted and **blocked by host dependencies**
+  (`libicu74`, `libxml2`, `libflite1` missing; installation needs sudo), so
+  WebKitGTK remains not directly validated.
 - `git pull --rebase` was attempted and blocked by the shared dirty tree
   (other agents' unstaged files); `git fetch` showed no upstream commits to
   integrate, so there was nothing to rebase onto.

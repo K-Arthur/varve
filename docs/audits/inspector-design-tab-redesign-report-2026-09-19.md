@@ -33,9 +33,10 @@ defects were **systemic token and wiring failures rather than layout ones**:
 
 All of the above are repaired, plus bounded copy/verb/a11y fixes in the
 Insights block, the previously orphaned typography contrast chip (now visibly
-captioned), and — the durable part — a new machine gate
-(`pnpm audit:inspector-css`) wired into the impact planner so the class cannot
-return silently.
+captioned), a text-colour entry point in Typography (a view of the same fill
+model, per the maintainer's review), and — the durable part — a new machine
+gate (`pnpm audit:inspector-css`) wired into the impact planner so the class
+cannot return silently.
 
 What this pass deliberately did **not** do: restructure the section order,
 change any primitive's semantics, remove any capability, or pursue speculative
@@ -53,6 +54,7 @@ performance work without measurements.
 | AUD-013 unmanageable sections | rendered manager + registry | REQ-012 | IMPL-007 | new unit test 3/3 |
 | AUD-015 Insights copy | screenshot + code | REQ-013 | IMPL-008 | IntelligencePanel 8/8 |
 | AUD-019 orphaned contrast chip | design-tab screenshot | REQ-013 | IMPL-008 | design-tab-audit + typography-layout rerun |
+| AUD-026 text colour entry point | user report | REQ-015 | IMPL-011 | typography-color spec + design-tab-audit rerun |
 | AUD-017/AUD-025 axis slider + range targets | measured 18.6×27.4 | REQ-005 | IMPL-009 | after-matrix metrics |
 | (drift prevention) | — | REQ-014 | IMPL-010 | policy tests 46/46 |
 
@@ -129,7 +131,11 @@ performance work without measurements.
 
 - `.insp-axis-control` layout contract (new rule).
 - `.insp-swatch--sm`, `.insp-badge--info` modifiers (previously undefined).
-- `getDesignTabSectionIds()` in `sectionComposition.tsx` (manageability set).
+- `getDesignTabSectionIds()` in `sectionComposition.tsx` (manageability set;
+  threaded to `SectionManagerTrigger` as a prop so the header control does not
+  import the composition graph).
+- Typography Colour row: a view of the first visible text fill via
+  `updateSelectedFillAt`; stacks/gradients stay in Fill (REQ-015).
 - `scripts/quality/audit-inspector-css.mjs` + `audit:inspector-css` lane +
   impact rule.
 
@@ -141,13 +147,16 @@ performance work without measurements.
 
 ## 6. Clutter reduction accounting
 
-No function was hidden or removed in this pass. The only reachability change is
-an **increase**: `insights`, `image-crop`, `ai-tools-hint`, `mockups` are now
-listed and toggleable in the section manager (AUD-013), and Insights honours
-its hidden state because `PropertiesPanel` now checks `isSectionVisible`
-(previously the hidden state was unreachable and unapplied for that section).
-Object Filters consolidation (AUD-014) and DocumentPanel numeric migration
-(AUD-007) remain recorded, unrouted, and unchanged.
+No function was hidden or removed in this pass. Reachability increased in two
+places: `insights`, `image-crop`, `ai-tools-hint`, `mockups` are now listed and
+toggleable in the section manager (AUD-013), and Insights honours its hidden
+state because `PropertiesPanel` now checks `isSectionVisible` (previously the
+hidden state was unreachable and unapplied for that section). Text colour
+gained a second **view** in Typography (AUD-026/REQ-015) without adding state
+or duplicating add/remove affordances — Fill remains the stack editor and
+non-solid/stacked fills route there with a stated reason. Object Filters
+consolidation (AUD-014) and DocumentPanel numeric migration (AUD-007) remain
+recorded, unrouted, and unchanged.
 
 ## 7. Accessibility results
 
@@ -165,8 +174,8 @@ Object Filters consolidation (AUD-014) and DocumentPanel numeric migration
   AA-audited pairs).
 - Rendered revalidation: design-tab-audit 21/21 (includes the 24px target
   assertion for align references), typography-layout 1/1 (three themes × two
-  rails), responsive-surface 5/5 (240–640 rails, 200% text scale, sticky
-  header inset, no overflow).
+  rails), typography-color 1/1 (the new text-colour view), responsive-surface
+  5/5 (240–640 rails, 200% text scale, sticky header inset, no overflow).
 - Remaining limitation: screen-reader and real-device validation were not
   performed in this environment (honest gap, carried from prior passes).
 
@@ -209,7 +218,12 @@ for targeted re-inspection.
 
 ## 10. Cross-platform status
 - Linux/Chromium: validated (all evidence).
-- WebKitGTK (Linux desktop shell): not directly validated this pass.
+- WebKitGTK (Linux desktop shell): **not directly validated** — the Playwright
+  WebKit lane cannot launch on this host (`libicu74`, `libxml2`, `libflite1`
+  missing; installing them needs sudo). The live-session `ReferenceError`
+  reported from the maintainer's WebKit window was diagnosed as a stale HMR
+  module graph: a fresh load of the same commit raises no page errors, and
+  IMPL-012 removes the update-order dependency that made it possible.
 - macOS/WKWebView, Windows/WebView2: not directly validated.
 - The CSS changes are logical-property/token-level and carry no
   platform-specific APIs; no cross-platform claim beyond that.
