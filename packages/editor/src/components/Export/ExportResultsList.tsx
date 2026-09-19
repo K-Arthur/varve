@@ -9,11 +9,11 @@
  * nonfatal failures instead of leaving the user to guess which files landed.
  */
 
+import { formatFileSize } from '@varve/shared';
 import { Icon, ShineBorder } from '@varve/ui';
 import { useState } from 'react';
 import type { ExportFileReport } from '../../exportService';
 import { formatLabel } from './FormatBadge';
-import { formatFileSize } from './formatBytes';
 
 import './ExportResultsList.css';
 

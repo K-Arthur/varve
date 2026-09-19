@@ -49,6 +49,7 @@ import {
   legacyScaleToCanonical,
   type PlatformKind,
 } from '@varve/scene/export';
+import { formatFileSize } from '@varve/shared';
 import { Dialog, Select, SwitchField } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PreparedBackgroundRemoval } from '../../backgroundRemoval/commitRasterMask';
@@ -69,7 +70,6 @@ import { BatchJobList } from './BatchJobList';
 import { DestinationPicker } from './DestinationPicker';
 import { ExportProgressBar } from './ExportProgressBar';
 import { ExportResultsList } from './ExportResultsList';
-import { formatFileSize } from './formatBytes';
 import { OutputResolutionPanel } from './OutputResolutionPanel';
 import { PreflightFindingsPanel } from './PreflightFindingsPanel';
 import { PrintSettingsPanel } from './PrintSettingsPanel';

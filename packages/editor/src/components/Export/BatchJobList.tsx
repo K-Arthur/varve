@@ -4,10 +4,10 @@
  */
 
 import type { ExportJob } from '@varve/scene';
+import { formatFileSize } from '@varve/shared';
 import { Icon } from '@varve/ui';
 import { useMemo, useState } from 'react';
 import { FormatBadge, formatLabel } from './FormatBadge';
-import { formatFileSize } from './formatBytes';
 
 import './BatchJobList.css';
 
