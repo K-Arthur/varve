@@ -10,7 +10,6 @@ import { FloatingPortal, Icon, Tooltip } from '@varve/ui';
 import { useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { FEATURE_OWNERSHIP, type InspectorSurface } from './featureOwnership';
-import { getDesignTabSectionIds } from './sectionComposition';
 import {
   CATEGORY_LABELS,
   getSectionDefinition,
@@ -19,7 +18,19 @@ import {
 } from './sectionRegistry';
 import { getHiddenSectionIds, getOrderedSectionIds } from './sectionState';
 
-export function SectionManagerTrigger({ surface = 'properties' }: { surface?: InspectorSurface }) {
+export function SectionManagerTrigger({
+  surface = 'properties',
+  sectionIds,
+}: {
+  surface?: InspectorSurface;
+  /**
+   * Every section the Design tab can compose (cross-surface sections
+   * included). Threaded from PropertiesPanel so this small header control
+   * does not import the composition module, which pulls in every section
+   * component (HMR fragility and bundle weight).
+   */
+  sectionIds: ReadonlySet<SectionId>;
+}) {
   const {
     state,
     restoreDefaultSectionState,
@@ -40,7 +51,7 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
     // another surface (Insights is audit-owned, Image Crop is photo-owned).
     // Their hidden state is honoured by the composition; the manager must be
     // able to produce and restore that state (AUD-013).
-    ...getDesignTabSectionIds(),
+    ...sectionIds,
   ]);
   const hiddenIds = getHiddenSectionIds(state.sectionVisibility).filter((id) => surfaceIds.has(id));
   const hiddenCount = hiddenIds.length;

@@ -50,6 +50,7 @@ import {
   type CompositionContext,
   type CompositionKind,
   getCompositionMembers,
+  getDesignTabSectionIds,
 } from './sectionComposition';
 import {
   getSectionDefinition,
@@ -63,6 +64,9 @@ import { type SelectionSummary, summarize } from './selection/selectionState';
 import { toolContextSurface } from './toolContext';
 
 import './inspector.css';
+
+/** Static membership of the Design tab; computed once, passed to the manager. */
+const DESIGN_TAB_SECTION_IDS = getDesignTabSectionIds();
 
 const AppearancePanel = lazy(() =>
   import('./panels/AppearancePanel').then((module) => ({ default: module.AppearancePanel })),
@@ -379,7 +383,9 @@ export function PropertiesPanel() {
       <InspectorContextHeader
         context={inspectorContext}
         action={
-          tab === 'properties' && summary.kind === 'empty' ? <SectionManagerTrigger /> : undefined
+          tab === 'properties' && summary.kind === 'empty' ? (
+            <SectionManagerTrigger sectionIds={DESIGN_TAB_SECTION_IDS} />
+          ) : undefined
         }
       />
 
@@ -396,13 +402,16 @@ export function PropertiesPanel() {
           <SelectionLockGuard restriction={restrictionNotice} showNotice={tab === 'properties'}>
             {summary.kind === 'empty' && <EmptySelectionState context={inspectorContext} />}
             {summary.kind === 'single' && (
-              <SingleSelectionPanel nodes={selNodes} headerAction={<SectionManagerTrigger />} />
+              <SingleSelectionPanel
+                nodes={selNodes}
+                headerAction={<SectionManagerTrigger sectionIds={DESIGN_TAB_SECTION_IDS} />}
+              />
             )}
             {summary.kind === 'multi' && (
               <MultiSelectionPanel
                 nodes={selNodes}
                 summary={summary}
-                headerAction={<SectionManagerTrigger />}
+                headerAction={<SectionManagerTrigger sectionIds={DESIGN_TAB_SECTION_IDS} />}
               />
             )}
           </SelectionLockGuard>

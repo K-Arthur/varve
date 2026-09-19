@@ -3,12 +3,13 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { describe, expect, it } from 'vitest';
 import { EditorProvider } from '../../../context';
 import { SectionManagerTrigger } from '../SectionManagerTrigger';
+import { getDesignTabSectionIds } from '../sectionComposition';
 
 describe('SectionManagerTrigger', () => {
   it('hides and restores an optional section from its checkbox', async () => {
     render(
       <EditorProvider>
-        <SectionManagerTrigger />
+        <SectionManagerTrigger sectionIds={getDesignTabSectionIds()} />
       </EditorProvider>,
     );
 
@@ -33,7 +34,7 @@ describe('SectionManagerTrigger', () => {
   it('exposes stable, keyboard-labeled section reordering within the surface', async () => {
     render(
       <EditorProvider>
-        <SectionManagerTrigger />
+        <SectionManagerTrigger sectionIds={getDesignTabSectionIds()} />
       </EditorProvider>,
     );
 
@@ -65,7 +66,7 @@ describe('SectionManagerTrigger', () => {
   it('lists sections that render in the Design tab even when owned by another surface', async () => {
     render(
       <EditorProvider>
-        <SectionManagerTrigger />
+        <SectionManagerTrigger sectionIds={getDesignTabSectionIds()} />
       </EditorProvider>,
     );
 
