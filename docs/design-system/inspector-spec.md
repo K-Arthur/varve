@@ -104,17 +104,24 @@ inset, section separation, body gap, field-group gap, and content padding:
 |---|---|---|
 | Field/action row | `--density-rows-min-height` (34px) | `--density-rows-min-height` (28px) |
 | Panel inset | `--space-3` | `--space-2` |
-| Section separation | `--space-3` | `--space-2` |
-| Section body gap | `--space-2` | `--space-1` |
-| Field-group gap | `--space-3` | `--space-2` |
-| Body padding | `--space-2` / `--space-3` | `--space-1` / `--space-2` |
+| Section separation (margin, plus the panel gap) | `--space-4` (+ `--space-3`) | `--space-3` (+ `--space-2`) |
+| Section body gap | `--space-3` | `--space-2` |
+| Field-group gap | `--space-4` | `--space-3` |
+| Body padding | `--space-3` / `--space-3` | `--space-2` / `--space-3` |
 
-The effective section separation remains greater than the intra-section row
-gap in both modes. Coarse pointers promote applicable interactive targets to
-`--touch-target-min` (44px); text metrics, semantic names, 24px target floors,
-section order, selection, document history, and canvas geometry do not change.
-The setting is not a third Inspector-specific density and never enters the
-document undo stack.
+The three levels must stay ordered and visibly distinct in both modes: body
+row gap < field-group gap < section separation. The effective section
+separation is the margin plus the panel gap, so the margin sits one step
+above the group gap. Coarse pointers promote applicable interactive targets
+to `--touch-target-min` (44px); text metrics, semantic names, 24px target
+floors, section order, selection, document history, and canvas geometry do
+not change. The setting is not a third Inspector-specific density and never
+enters the document undo stack.
+
+Section headers, the node header, and the alignment label take
+`--insp-row-height` rather than local padding, so section navigation is the
+most comfortable target in the panel in both modes (Compact Pro headers were
+once taller than its own rows).
 
 ## 3. Grid and spatial model
 
@@ -131,13 +138,21 @@ document undo stack.
 - Auxiliary actions (lock, swap orientation, flip) occupy stable
   `action-slot`s in the group, so adding or removing an action never reflows
   the fields (implemented for Position & Size; contract for all groups).
+- Field-like controls share one chrome and one inset: number fields, native
+  text inputs, the frame-preset trigger, and the shared Select trigger under
+  `.editor-inspector` all use the sunken surface, a `1px`
+  `--color-border-subtle` border at rest, the compact radius,
+  `--insp-row-height`, and `--space-3` inline padding. A transparent rest
+  border or a narrower inset makes two fields in one row look like different
+  controls.
 - Label-only-left is the default; a row may stack the label above a full-width
   control (`insp-field--stacked`) only when the control needs the full width
   (e.g. the five-up fit track) — never to save vertical space.
-- Row spacing within a section body follows the active density (`--space-2`
-  Default Pro / `--space-1` Compact Pro); between first-level groups follows
-  `--space-3` / `--space-2`; a subsection body adds no new padding beyond its
-  parent.
+- Row spacing within a section body follows the active density (`--space-3`
+  Default Pro / `--space-2` Compact Pro); between first-level groups follows
+  `--space-4` / `--space-3`; a subsection body adds no new padding beyond its
+  parent. A subgroup is marked by its gap and its label, never by a hairline:
+  in the Inspector, rules mark section boundaries and labels mark groups.
 - Alignment contract: within one section body there is exactly **one label
   column start**; nested contexts (paint rows, subsection bodies) may indent by
   exactly one `--space-3` step. Deviation is a defect (AUD-001, IMPL-006).
@@ -150,7 +165,8 @@ document undo stack.
   above. Inter-section separation is intentionally larger than the body row
   gap so long property lists remain scannable without card-heavy chrome.
 - Section header: full-width button, chevron + title + right-clustered
-  actions; height `--panel-header-height` or content-driven, never below 24px.
+  actions; height `--insp-row-height` (the active density row), never below
+  the 24px pointer-target floor.
 - Collapsed sections may show a **summary** as `aria-describedby` text (never
   inside the accessible name).
 - Actions (`+ Add fill`, `+ Add stroke`) are persistently visible in the header

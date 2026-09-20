@@ -81,6 +81,69 @@ The same pass finished the migration of the shell’s legacy dialog/panel blocks
 declarations across header, hero, footer, trust strip, CTA, product showcase,
 discipline tabs, and search dialog).
 
+### Third pass (2026-09-20): Inspector rhythm, separators, and the field inset
+
+The Inspector had a token-compliant rhythm that still read cramped and
+inconsistent. A measured pass (computed styles + element captures at rails
+240/320/513/640, both density modes, three themes) found six causes:
+
+- **The group level did not exist.** Row gap (5.92px), field-group gap
+  (9.68px) and section margin (9.68px) were adjacent ladder steps, so a
+  subgroup boundary and a section boundary differed by nothing the eye could
+  use. The section separation also relies on the panel gap, so its *margin*
+  was set at the same step as the body gap.
+- **One rule, two meanings.** The section hairline is drawn under the sticky
+  header. For an expanded section that reads as an underlined header; for a
+  collapsed section it sits at the section’s end and reads as a divider. The
+  Sizing subgroup drew the same hairline mid-section, so a label inside Stack /
+  Grid looked like a new section.
+- **A fluid height in a fixed-row panel.** The frame-preset trigger used
+  `height: var(--space-7)` and measured 39.3px at 1440 — taller than every
+  field beside it and identical in both density modes (the same defect class
+  as the earlier `--space-6` `.varve-number-input`).
+- **A field inset below the compact-control floor.** Number fields, selects
+  and the preset trigger inset their content by `--space-2` (5.92px at 1440),
+  under the 8px that compact form controls use in Atlassian/GEL-derived
+  systems, and right-aligned numbers crowded the field edge.
+- **Compact Pro’s body gap was a hairline.** `--space-1` (2.96px) between
+  28px rows made stacked fields read as one grid of boxes rather than a list.
+- **Headers escaped the row contract.** Compact Pro section headers measured
+  29.9px — taller than its own 28px rows — while the node header and align
+  label used fixed local padding. `--insp-layout-sizing` was the one rhythm
+  that never changed with density (hard `--space-2`).
+
+The corrected contract is three readable levels, one step apart in each mode,
+with the section separation one step above the group gap because the panel gap
+contributes to it:
+
+| Role | Default Pro | Compact Pro |
+|---|---|---|
+| Field/action row | `--density-rows-min-height` (34px) | `--density-rows-min-height` (28px) |
+| Body row gap | `--space-3` (9.68px) | `--space-2` (5.92px) |
+| Field-group gap | `--space-4` (13.44px) | `--space-3` (9.68px) |
+| Section margin (+ panel gap) | `--space-4` + `--space-3` (23.1px) | `--space-3` + `--space-2` (15.6px) |
+| Body padding (start/end) | `--space-3` / `--space-3` | `--space-2` / `--space-3` |
+| Panel inset / panel gap | `--space-3` / `--space-3` | `--space-2` / `--space-2` |
+
+Separator language: **rules mark section boundaries; labels mark groups.** The
+Sizing subgroup keeps the group gap and loses its rule, so the only repeating
+hairlines in the panel are the section headers. Section headers, the node
+header and the alignment label all take `--insp-row-height`, so section
+navigation is the most comfortable target in both modes. Field-like controls
+(number fields, native text inputs, the preset trigger, the shared Select
+trigger under `.editor-inspector`) all use one inset (`--space-3`) and one
+chrome (sunken surface, `1px` subtle border, compact radius).
+
+Failure evidence for the direction (see the research record for links):
+Figma’s Variables panel drew sustained complaints for *too much* vertical
+spacing (“cluttered yet empty”, exhausting scroll), so the fix was hierarchy,
+not uniform air; Adobe Photoshop/Premiere users report the opposite failure
+(oversized Properties spacing; narrow panels hiding controls), so horizontal
+geometry was deliberately not reduced; Ant Design, VS Code and end-user
+contrast reports document separators and adjacent surfaces becoming invisible
+in dark themes, so the section hairline keeps a dedicated token rather than a
+translucent literal, and separators are never the only grouping cue.
+
 ### Why the ladder was not rewritten
 
 The obvious alternative — replacing the fluid ladder with a stable 4px grid —

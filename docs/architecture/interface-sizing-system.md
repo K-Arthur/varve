@@ -100,12 +100,17 @@ Interface density is a **user preference**, applied at the document root:
   for the floating tool palette, context bar, floating text bar, and
   selection quick bar (`docs/architecture/toolbar-system.md`). Coarse
   pointers promote these to `--touch-target-min` regardless of density.
-- The Inspector consumes the same root contract through local semantic aliases:
-  Default Pro uses 34px rows with `space-3` panel/section rhythm and
-  `space-2` body gaps; Compact Pro uses 28px rows with `space-2` panel/section
-  rhythm and `space-1` body gaps. Field-group spacing and content padding are
-  reduced in Compact Pro, while horizontal paired-field geometry remains
-  stable so narrow rails do not gain dead width or lose controls.
+- The Inspector consumes the same root contract through local semantic aliases
+  with three ordered levels (body gap < field-group gap < section separation):
+  Default Pro uses 34px rows, `space-3` body gaps, and `space-4` group/section
+  rhythm; Compact Pro uses 28px rows, `space-2` body gaps, and `space-3`
+  group/section rhythm. Section headers, the node header, and the alignment
+  label take the active row height, so panel navigation follows the same
+  contract as its controls. Number fields, text inputs, and select triggers
+  share one `space-3` inline inset and one bordered sunken chrome. Field-group
+  spacing and content padding are reduced in Compact Pro, while horizontal
+  paired-field geometry remains stable so narrow rails do not gain dead width
+  or lose controls.
 - These aliases are an ownership adapter, not an override of the global
   component system. Shared Select/Button/Input primitives keep their global
   typography, borders, focus, and pointer-target behavior; Inspector CSS only
