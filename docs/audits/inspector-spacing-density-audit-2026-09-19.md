@@ -70,7 +70,10 @@ Escalations: `pnpm verify:affected` stopped at the mandated full-gate
   escalation. The full gate was attempted and failed on pre-existing lint,
   architecture-cycle/instability, and engine LUT typecheck errors. The website
   unit suite had five pre-existing fixture/token failures; website E2E completed
-  443/568 with 125 broad light-theme contrast/visual/content failures.
+  443/568 with 125 broad light-theme contrast/visual/content failures. A later
+  isolated responsive retry was blocked before navigation by the unrelated
+  worktree state: `@varve/shared` did not export
+  `resolveTextWrapLineWidths`.
 Full suite run: yes (attempted; failed outside task-owned Inspector/website
   evidence scope).
 If yes, reason: Inspector density spacing contract, visual baselines, and
