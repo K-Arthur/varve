@@ -318,9 +318,23 @@ A physical session still cannot be claimed. Two additions narrow the gap: a
 computed ARIA-tree snapshot assertion in `accessibility.spec.ts` (artifact
 `reports/layers-evolution/after/aria-tree-snapshot.yaml`) and an executable
 manual session script,
-`docs/audits/layers-screen-reader-runbook-2026-09-19.md`, whose completion is
-the remaining human step. The snapshot test is authored but not yet executed
-in this environment (below).
+`docs/audits/layers-screen-reader-runbook-2026-09-19.md`.
+
+The snapshot test **executed and passed** (20.3 s). The captured artifact
+shows the structure an assistive technology receives:
+
+```yaml
+- tree "Layers":
+  - treeitem "Frame 1, Frame" [expanded] [level=1]:
+    - button "Collapse"
+    - button "Show details for Frame 1"
+    - button "Hide Frame 1"
+    ...
+  - treeitem "Rectangle 4, Vector rectangle" [level=2]:
+    ...
+```
+
+Remaining human step: execute the runbook and append its result to the audit.
 
 ### Environment block (why the last E2E items did not run)
 
@@ -339,9 +353,20 @@ works.
 
 Green runs obtained **before** the block (recorded in the previous section):
 APG 13/13, overflow 3/3, workspace projection 7/7, accessibility 11 + 1 skip,
-trace 1/1. The three E2E items authored in this continuation
-(container-preview row, ARIA snapshot) and the WebKit re-run should be
-executed in the next green-tree window with:
+trace 1/1.
+
+Retry batch results (after the re-export unblock):
+
+| Item | Result |
+|---|---|
+| ARIA-tree snapshot (accessibility spec) | **Passed** (20.3 s), artifact captured and inspected |
+| Container-preview row (real-world spec) | Still blocked: captured failure screenshot is a blank page (intermittent boot crash while `Shell.tsx`/`context.tsx` are being edited) |
+| `effect-stack-transfer` hover baseline | Failed, 0.04 pixel ratio — the diff image is confined to row-label/typography rasterization across the panel; no thumbnail-column differences. Concurrent spacing/typography work; the prior pass already flagged these baselines as stale and partly owned by the Inspector redesign |
+| `layers-panel-visual` bulk bar geometry | Failed: the bulk bar computes below the panel rails while panel section layout is mid-migration (no thumbnail involvement — the assertion is panel-section geometry) |
+| `thumbnail-refresh` opacity refresh | Failed, but **A/B-proven pre-existing**: re-running with the pre-commit (parent) versions of `useThumbnail.ts`/`thumbnailCache.ts`/`LayersRow.tsx` fails identically, so the regression is not from this pass (concurrent Layer Details/Inspector work) |
+
+Remaining to execute in the next green-tree window: the container-preview row
+test and the WebKit re-run, with:
 
 ```bash
 VARVE_E2E_PORT=1445 node scripts/quality/heavy-lease.mjs "e2e: container preview" -- \
