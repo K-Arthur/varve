@@ -418,6 +418,18 @@ describe('SelectTool', () => {
     expect(ctx.setTextEditTargetId).toHaveBeenCalledWith('text');
     expect(ctx.setSelection).toHaveBeenCalledWith('text');
     expect(ctx.setTool).not.toHaveBeenCalledWith('nodeEdit');
+
+    // The real canvas hit-test returns the callout group for a balloon click;
+    // the same ancestor walk must resolve its dialogue.
+    const groupCtx = makeCtx({
+      hitTest: vi.fn().mockReturnValue({ nodeId: 'g1', node: group }),
+      getNode: vi.fn((id: string) => doc.nodes[id]),
+      document: doc,
+    });
+    tool.onDoubleClick({ clientX: 50, clientY: 50 } as any, groupCtx);
+    expect(groupCtx.setTextEditTargetId).toHaveBeenCalledWith('text');
+    expect(groupCtx.setSelection).toHaveBeenCalledWith('text');
+    expect(groupCtx.enterIsolation).not.toHaveBeenCalled();
   });
 
   it('double-click on frame announces entry', () => {
