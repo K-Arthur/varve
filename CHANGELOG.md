@@ -147,7 +147,29 @@ update, not for someone reading the commit log.
   sources are generated at a device-budgeted proxy size then recomposed at full
   resolution. Prompt-conditioned expansion remains gated.
 
+### Changed
+
+- **One slider, everywhere** — Every slider in the editor now renders the same
+  native range primitive with the same track, thumb, focus ring, and touch
+  target. The Inspector, adjustment editors, Colorize, Font Browser axes, HDR
+  and RAW photo controls, Crop, Liquify, Quick Convert, tool options, Content
+  Aware Fill, Gradient editor, and Vectorize previously used five different
+  hand-maintained skins (and ten surfaces fell back to platform chrome); the
+  visual language is now identical, and the Vectorize sliders keep their
+  progress fill through the shared skin. The `Slider` component keeps its API
+  (label, value, optional number field, reset, sizes) while the browser now
+  owns keyboard stepping, Home/End, PageUp/PageDown, and click-to-set, so the
+  whole product gains the WCAG 2.5.7 single-pointer path for free.
+
 ### Fixed
+
+- **Slider accessibility** — Sliders whose stored value differs from what the
+  user sees (normalized percentages, unit-bearing values) now announce the
+  displayed value to screen readers instead of the raw number, and the shared
+  slider skin falls back to system colors in Windows Contrast Themes
+  (`forced-colors`), where custom range tracks could previously vanish into the
+  background. Stale end-to-end locators for the colour picker's slider were
+  corrected.
 
 - **Selection mask geometry and refinement parameters** — Raster-mask coverage
   is now evaluated at cell centres, removing a systematic half-pixel shift

@@ -941,6 +941,31 @@ API + Floating UI) on top of `FloatingPortal`/`OverlayRegistry`.
   `FloatingPortal` descendants; a raw portal child can be light-dismissed by
   the browser as "outside".
 
+## Slider System
+
+Canonical doc: `docs/architecture/slider-system.md`. Audit + research:
+`docs/audits/slider-canonicalization-2026-09-19.md`.
+
+- **One primitive, one skin**: every `<input type="range">` uses
+  `.varve-native-range` (`packages/ui/src/components/components.css`). No other
+  stylesheet may declare range pseudo-element styling (only
+  `radius-system.css` may set `border-radius`). Enforced by
+  `tests/unit/slider-system.test.ts`.
+- **Two compositions**: `RangeValueControl` (editor inspector: range +
+  `NumberField`) and `Slider` (`@varve/ui`: legend, value or inline number,
+  optional reset). `rangeClassName` is a layout modifier only — the canonical
+  skin is applied by the component.
+- **The browser owns the interaction**: arrows, Home/End, PageUp/PageDown,
+  click-to-set (WCAG 2.5.7), touch, and AT exposure come from the native
+  range. Do not add a `div[role="slider"]`; `ColorSlider` is the one
+  documented exception (gradient track, full key set implemented).
+- **Precision has a path**: a slider whose exact value matters is paired with
+  a numeric field that edits the same value.
+- **`aria-valuetext`** whenever `unit`/`displayScale` makes the raw number
+  misleading ("65%" not "0.65").
+- **Forced colors**: the skin switches to system colors under
+  `forced-colors: active`; do not remove that block.
+
 ## Masking System
 
 Canonical doc: `docs/architecture/masking-system.md` — model, invariants,
