@@ -155,8 +155,7 @@ import { sitePath } from '../../lib/siteUrl';
     width: 6rem;
     height: 6rem;
     border-radius: 50%;
-    background: color-mix(in oklab, var(--brand-sandstone) 62%, var(--surface-card));
-    opacity: 0.72;
+    background: color-mix(in oklab, var(--brand-sandstone) 50%, var(--surface-muted));
   }
 
   .comic-visual__line {
@@ -169,7 +168,12 @@ import { sitePath } from '../../lib/siteUrl';
   }
 
   .comic-visual__line--one { left: 0; transform: rotate(-8deg); }
-  .comic-visual__line--two { left: 32%; bottom: 7rem; transform: rotate(9deg); opacity: 0.65; }
+  .comic-visual__line--two {
+    left: 32%;
+    bottom: 7rem;
+    transform: rotate(9deg);
+    background: color-mix(in oklab, var(--border-strong) 65%, transparent);
+  }
 
   .comic-visual__baseline {
     position: absolute;
@@ -177,10 +181,9 @@ import { sitePath } from '../../lib/siteUrl';
     bottom: 3.2rem;
     width: 30%;
     height: 5rem;
-    border-top: 3px solid var(--text-primary);
-    border-right: 3px solid var(--text-primary);
+    border-top: 3px solid color-mix(in oklab, var(--text-primary) 72%, transparent);
+    border-right: 3px solid color-mix(in oklab, var(--text-primary) 72%, transparent);
     transform: skewX(-18deg);
-    opacity: 0.72;
   }
 
   .comic-balloon {
@@ -192,7 +195,7 @@ import { sitePath } from '../../lib/siteUrl';
     background: var(--surface-card);
     border: 2px solid var(--text-primary);
     box-shadow: 0 0.6rem 0 color-mix(in oklab, var(--brand-teal) 14%, transparent);
-    font-family: var(--font-sans);
+    font-family: var(--font-interface);
     font-weight: 650;
     text-align: center;
   }
