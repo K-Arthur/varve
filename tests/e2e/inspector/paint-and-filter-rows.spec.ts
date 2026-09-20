@@ -28,18 +28,21 @@ test.describe('Paint and filter rows', () => {
     await page.getByRole('tab', { name: 'Design', exact: true }).click();
   });
 
-  // FIXME: adding a second fill from the header "Add fill" menu did not add a
-  // row in the real browser during this run (the menu item click resolved but
-  // the stack stayed at one row). The direct move/remove controls below are
-  // covered by the unit suite; this browser check stays skipped until the
-  // add-from-menu path is diagnosed.
-  test.fixme('fill rows expose direct reorder and remove controls', async ({ page }) => {
+  test('fill rows expose direct reorder and remove controls', async ({ page }) => {
     await drawRect(page);
     const section = await expandSection(page, 'Fill');
     await expect(section.locator('.insp-paint-row')).toHaveCount(1);
 
+    // Scope to the portaled fill menu: a bare `menuitem` query would match the
+    // application menubar's File/Edit items first.
     await section.getByRole('button', { name: 'Add fill' }).click();
-    await page.getByRole('menuitem').first().click();
+    await page
+      .locator('[role="menu"]')
+      .last()
+      .getByRole('menuitem')
+      .filter({ hasText: 'Solid' })
+      .first()
+      .click();
     await expect(section.locator('.insp-paint-row')).toHaveCount(2);
 
     const firstRow = section.locator('.insp-paint-row').first();
