@@ -6602,21 +6602,35 @@ fieldset.insp-canvas-props,
   max-inline-size: 100%;
 }
 
-/* Auto-fit on a minimum segment width: options wrap onto additional rows
- * instead of being clipped to "Linear R…" (the narrow-rail truncation
- * reported 2026-09-20). 6rem keeps the common four-option groups at a
- * balanced 2×2 inside the default control column; the old hard 2-column
- * container override forced columns below content width and is removed. */
+/* Content-driven wrapping: flex lines are built from each segment's content
+ * width, so short-label groups (Off / Top / Front / Side) stay on one row and
+ * longer labels wrap only when they must. A single label wider than the track
+ * shrinks (min-inline-size: 0) and ellipsizes with its tooltip instead of
+ * overflowing. The old fixed minimum forced four short options into a 2x2
+ * grid and stacked icon-only groups one per row. */
 .editor-inspector .insp-field__control > .varve-segmented {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(6rem, 100%), 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: var(--space-1);
   inline-size: 100%;
   max-inline-size: 100%;
   min-inline-size: 0;
 }
 
-.editor-inspector .varve-segmented__btn {
+.editor-inspector .insp-field__control > .varve-segmented > .varve-segmented__btn {
+  flex: 1 1 auto;
   min-inline-size: 0;
+}
+
+/* Coarse pointers keep the shared touch minimum even though the inspector
+ * lets segments shrink for ellipsis; the min width must win over that shrink. */
+@media (pointer: coarse) {
+  .editor-inspector .insp-field__control > .varve-segmented > .varve-segmented__btn {
+    min-inline-size: var(--touch-target-min);
+  }
+}
+
+.editor-inspector .varve-segmented__btn {
   max-inline-size: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6628,15 +6642,6 @@ fieldset.insp-canvas-props,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* Icon-only field groups keep a compact minimum so a four- or six-icon picker
- * stays on one row (or a balanced wrap) instead of inheriting the 6rem text
- * minimum and stacking one option per row. */
-.editor-inspector
-  .insp-field__control
-  > .varve-segmented:has(> .varve-segmented__btn > .varve-segmented__label.varve-visually-hidden) {
-  grid-template-columns: repeat(auto-fit, minmax(min(2.5rem, 100%), 1fr));
 }
 
 .editor-inspector .insp-field__control > div:has(> .insp-per-side),

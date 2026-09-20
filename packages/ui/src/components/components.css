@@ -1366,6 +1366,15 @@
 .varve-segmented__label {
   display: inline;
 }
+/* Touch devices get the shared minimum target. The compact 24px track is a
+ * desktop density choice; Button, Input, and ToggleButton already raise
+ * themselves the same way on coarse pointers. */
+@media (pointer: coarse) {
+  .varve-segmented__btn {
+    min-block-size: var(--touch-target-min);
+    min-inline-size: var(--touch-target-min);
+  }
+}
 [data-theme="high-contrast"] .varve-segmented {
   border-color: var(--color-border-subtle);
 }

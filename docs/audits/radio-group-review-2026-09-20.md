@@ -18,7 +18,7 @@ the remaining role/keyboard/label defects.
 |----|---------|----------|-------|----------|
 | RG-10 | Segmented geometry | Measured in Chromium: track `border-radius: 8px`, every `.varve-segmented__btn` `0px`; selected "Top" rendered as a square chip inside a rounded track (user-reported screenshot) | P0 visual defect from two radius owners disagreeing (`radius-system.css` flattened members; `components.css` had its own values) | FIX: derived inset radius in `radius-system.css`, duplicate declarations removed |
 | RG-11 | Pill variant geometry | Home view switcher measured track `8px`, thumb `9999px` — capsule inside rounded rectangle | P0 visual defect (same cause; `--pill` track rule lost to load order) | FIX: pill radii for both levels in the geometry owner |
-| RG-12 | Narrow-rail truncation | At a 240px inspector rail, "Linear RGB" (60px) rendered in a 56px segment with `overflow:hidden` and no working ellipsis: hard clip, no indication | P1 readability defect; "clipped labels" is a top segmented-control complaint in the research | FIX: content-width auto-fit grid + label ellipsis + tooltip; the fixed 2-column container override removed |
+| RG-12 | Narrow-rail truncation | At a 240px inspector rail, "Linear RGB" (60px) rendered in a 56px segment with `overflow:hidden` and no working ellipsis: hard clip, no indication | P1 readability defect; "clipped labels" is a top segmented-control complaint in the research | FIX: content-driven auto-fit (`minmax(fit-content, 1fr)`) + label ellipsis + tooltip; the fixed 2-column container override removed |
 | RG-13 | Upscale dialog | `.varve-segmented` used `overflow-x: auto`, producing a horizontal scroll strip for quality/scale options | P1 (hidden options at the inline end) | FIX: `flex-wrap: wrap` |
 | RG-14 | `AlignDistributeBar` alignment reference | `role="radiogroup"` contained three `aria-pressed` buttons; no radio children | P1 ARIA ownership violation (same class as the workspace-dock fix) | FIX: labelled `role="group"` |
 | RG-15 | `CropOverlay` aspect + guides | `role="radio"` buttons, every option a Tab stop, no arrow keys | P1 APG gap in a canvas overlay | FIX: shared local `CropRadioGroup` helper (roving tabindex, arrows, Home/End, focus follows selection) |
@@ -29,7 +29,7 @@ the remaining role/keyboard/label defects.
 | RG-20 | `ToolOptionsPopover`, `WorkspaceTabs`, `BrushBrowser`, `ColorSpaceSelector`, `ColorFields`, website `ThemeToggle` | Purpose-built chrome; APG model already present or completed by the 2026-09-19 pass | Distinct contexts with their own visuals | KEEP, contract pinned in `docs/design/radio-group-system.md` |
 | RG-21 | `TextDiscoveryPanel`, `IntelligencePanel` | Native radios in named groups; Intelligence adds a redundant roving handler but keeps the native name group | Acceptable; native keyboard model present | KEEP (no change) |
 | RG-22 | Modal crop key capture | `inputPipeline`'s window-capture `handleModalCropKey` consumed Arrow keys for `CropTool` before any widget saw them, so the crop toolbar's radiogroups could not be operated by keyboard (`stopPropagation` at window) | P1 keyboard defect found by the new E2E spec | FIX: `[role="radiogroup"]` added to the shortcut-ignore selector, alongside combobox/slider/listbox |
-| RG-23 | Inspector icon groups stacked | After the 6rem text minimum landed, icon-only groups (Layout align/justify) inherited it and rendered one option per row | P2 density regression | FIX: icon-only groups use a 2.5rem minimum and stay on a row |
+| RG-23 | Inspector icon groups stacked | A fixed 6rem text minimum made icon-only groups (Layout align/justify) render one option per row | P2 density regression | FIX: content-driven tracks; the icon-specific minimum is no longer needed |
 
 ## What changed
 
@@ -55,8 +55,12 @@ the remaining role/keyboard/label defects.
     `component-status.md` links the contract; website settings docs describe
     the limits.
 12. `tests/e2e/inspector/radio-group-visual.spec.ts` — permanent rendered
-    geometry + keyboard contract coverage, evidence screenshots under
+    geometry, keyboard, viewport-matrix, and touch-target coverage, with
+    evidence screenshots under
     `docs/screenshots/2026-09-20-radio-group-review/`.
+13. Responsive pass: inspector field rows wrap by content
+    (`flex-wrap: wrap`, `flex: 1 1 auto`, `min-inline-size: 0`), and coarse
+    pointers raise every segment to the shared 44px touch minimum.
 
 ## Rendered evidence
 
@@ -65,13 +69,19 @@ Measured in Chromium (Playwright, lease-wrapped, isolated port):
 - Before: track `8px` / segment `0px`; pill track `8px` / thumb `9999px`;
   construction-plane group 2×2 with 82.5px columns at the default rail.
 - After: track `8px` / segment `6.448px`; pill track and thumb `9999px`;
-  construction-plane 2×2 at 141px columns on a 513px rail, 2×2 at 93–75px on
-  360–300px rails, one full-width column at 240px, no clipping; Layout
-  align/justify icon pickers on one row (4) and a balanced 4+2 wrap (6).
+  construction plane on one row at the reference rail (four columns), a
+  content-driven wrap below that, labels ellipsized with tooltips when a
+  single label exceeds the track, and no group overflow.
+- Viewport matrix (1440×900, 1120×700, 900×700, 640×800, 375×667, inspector
+  drawer opened below 900px): no group overflows its track, no square
+  segments, no clipped label without a tooltip, and no page-level horizontal
+  scrolling.
+- Coarse pointer (`hasTouch`): every segment is at least 44×44 CSS px.
 - Screenshots: `docs/screenshots/2026-09-20-radio-group-review/`
   (construction plane dark/light/narrow, view-mode pill, layout icon
-  pickers, crop toolbar, forced colors). Raw diagnostic captures remain in
-  the gitignored `reports/radio-group-review/`.
+  pickers, crop toolbar, forced colors, phone inspector drawer, touch
+  targets). Raw diagnostic captures remain in the gitignored
+  `reports/radio-group-review/`.
 
 ## Research basis
 

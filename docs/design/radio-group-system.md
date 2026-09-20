@@ -64,16 +64,22 @@ variant rounds both levels. State changes never change radius.
 
 ### Responsive behavior
 
-- **Wrap, never clip.** Inspector field columns use
-  `repeat(auto-fit, minmax(min(6rem, 100%), 1fr))`: options wrap onto
-  additional rows instead of shrinking below their labels. When a segment is
-  genuinely squeezed, its label ellipsizes and the tooltip still carries the
-  full text.
+- **Wrap by content, never clip.** Inspector field rows are flex lines built
+  from each segment's content width (`flex-wrap: wrap`, `flex: 1 1 auto`,
+  `min-inline-size: 0`): short-label groups (Off/Top/Front/Side) stay on one
+  row and longer labels wrap only when they genuinely must. A single label
+  wider than the track shrinks and ellipsizes with its tooltip instead of
+  overflowing.
 - **No horizontal scroll strips.** A scrolled segmented control hides options
   at the inline end; wrap instead (the Upscale dialog does).
 - Icon-only variants stay on one row longest because their targets are
   uniform; text variants wrap by content width.
-- Touch targets stay at the shared minimum on coarse pointers.
+- **Touch devices** raise every segment to the shared 44px minimum
+  (`@media (pointer: coarse)`), matching Button, Input, and ToggleButton; the
+  24px track is a desktop density choice.
+- **Narrow viewports:** below 900px the Inspector is a drawer; the control
+  keeps the same wrap rules and never introduces page-level horizontal
+  scrolling.
 
 ## RadioGroup / native radios
 

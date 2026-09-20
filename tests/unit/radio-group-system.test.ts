@@ -82,9 +82,13 @@ describe('radio-group geometry guard', () => {
     expect(declarations).toContain('border-radius: var(--radius-pill)');
   });
 
-  it('allows inspector segments to wrap at content width instead of clipping', () => {
+  it('wraps inspector segments by content instead of clipping or stacking', () => {
     const inspectorCss = read(INSPECTOR);
-    expect(inspectorCss).toContain('repeat(auto-fit, minmax(min(6rem, 100%), 1fr))');
+    const wrapRule = inspectorCss.match(
+      /\.insp-field__control > \.varve-segmented \{[^}]*flex-wrap: wrap[^}]*\}/s,
+    );
+    expect(wrapRule).not.toBeNull();
+    expect(wrapRule?.[0]).toContain('min-inline-size: 0');
     const fixedGrids = inspectorCss.match(
       /\.insp-field__control > \.varve-segmented \{[^}]*repeat\(\s*\d/gs,
     );
@@ -99,14 +103,5 @@ describe('radio-group geometry guard', () => {
     expect(labelRule).not.toBeNull();
     expect(labelRule?.[0]).toContain('text-overflow: ellipsis');
     expect(labelRule?.[0]).toContain('min-inline-size: 0');
-  });
-
-  it('keeps icon-only field groups compact instead of stacking one per row', () => {
-    const inspectorCss = read(INSPECTOR);
-    const iconRule = inspectorCss.match(
-      /\.varve-segmented:has\([^)]*varve-visually-hidden[^)]*\)\s*\{[^}]*\}/s,
-    );
-    expect(iconRule).not.toBeNull();
-    expect(iconRule?.[0]).toContain('minmax(min(2.5rem, 100%), 1fr)');
   });
 });

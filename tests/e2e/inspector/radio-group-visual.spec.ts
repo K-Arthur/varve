@@ -37,16 +37,21 @@ async function segmentGeometry(page: Page, label: string) {
           checked: button.querySelector('input')?.checked ?? false,
           radius: style.borderRadius,
           width: button.getBoundingClientRect().width,
+          top: Math.round(button.getBoundingClientRect().top),
           labelWidth: labelElement?.getBoundingClientRect().width ?? 0,
           title: button.getAttribute('title'),
         };
       },
     );
-    const columns = getComputedStyle(group).gridTemplateColumns;
+    const rows = [...new Set(buttons.map((button) => button.top))].sort((a, b) => a - b);
+    const columnCount = Math.max(
+      ...rows.map((top) => buttons.filter((button) => button.top === top).length),
+    );
     return {
       trackRadius: track.borderRadius,
       buttons,
-      columnCount: columns === 'none' ? 1 : columns.split(' ').length,
+      rowCount: rows.length,
+      columnCount,
     };
   }, label);
 }
@@ -107,7 +112,10 @@ test.describe('radio-group system', () => {
     const checked = geometry.buttons.find((button) => button.checked);
     expect(checked?.text).toBe('Top');
     expect(parseRadius(checked?.radius ?? '0px')).toBeGreaterThan(0);
-    expect(geometry.columnCount).toBeGreaterThan(1);
+    // Content-driven wrapping: four short labels share one row at the reference
+    // rail instead of wrapping into a 2x2 grid.
+    expect(geometry.rowCount).toBe(1);
+    expect(geometry.columnCount).toBe(4);
 
     await page.evaluate(() => {
       document.documentElement.dataset.theme = 'dark';
@@ -172,13 +180,34 @@ test.describe('radio-group system', () => {
     ]) {
       await expect(justify.getByRole('radio', { name })).toHaveCount(1);
     }
-    // One tab stop; arrows move selection and focus.
+    // One tab stop; arrows move selection and focus. At the reference rail
+    // the six icon pickers share one row; at narrow rails they may wrap, but
+    // never into one option per row.
     const start = justify.getByRole('radio', { name: 'Justify to start' });
     await expect(start).toHaveAttribute('tabindex', '0');
-    const columns = await justify.evaluate(
-      (element) => getComputedStyle(element).gridTemplateColumns.split(' ').length,
-    );
-    expect(columns, 'icon pickers stay on a row instead of stacking').toBeGreaterThan(2);
+    await page.locator('.editor-shell').evaluate((shell) => {
+      (shell as HTMLElement).style.setProperty('--inspector-width', '513px');
+    });
+    await page.waitForTimeout(150);
+    const rowCount = async () =>
+      justify.evaluate((element) => {
+        const tops = new Set(
+          [...element.querySelectorAll<HTMLElement>('.varve-segmented__btn')].map((button) =>
+            Math.round(button.getBoundingClientRect().top),
+          ),
+        );
+        return tops.size;
+      });
+    expect(await rowCount(), 'icon pickers stay on a row at the reference rail').toBe(1);
+    await page.locator('.editor-shell').evaluate((shell) => {
+      (shell as HTMLElement).style.setProperty('--inspector-width', '240px');
+    });
+    await page.waitForTimeout(150);
+    expect(await rowCount(), 'icon pickers never stack one per row').toBeLessThan(6);
+    await page.locator('.editor-shell').evaluate((shell) => {
+      (shell as HTMLElement).style.setProperty('--inspector-width', '513px');
+    });
+    await page.waitForTimeout(150);
     await start.focus();
     await page.keyboard.press('ArrowRight');
     await expect(justify.getByRole('radio', { name: 'Justify center' })).toHaveAttribute(
@@ -279,5 +308,109 @@ test.describe('radio-group system', () => {
     expect(contrast.checkedBg).not.toBe(contrast.uncheckedBg);
     await group.screenshot({ path: resolve(DIR, '07-construction-plane-forced-colors.png') });
     await page.emulateMedia({ forcedColors: 'none' });
+  });
+
+  test('segmented controls stay contained across viewports and rails', async ({ page }) => {
+    test.setTimeout(240_000);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await navigateToEditor(page);
+    await openIsometricGrid(page);
+
+    const viewports = [
+      { name: 'desktop', width: 1440, height: 900 },
+      { name: 'laptop', width: 1120, height: 700 },
+      { name: 'compact', width: 900, height: 700 },
+      { name: 'tablet', width: 640, height: 800 },
+      { name: 'phone', width: 375, height: 667 },
+    ];
+
+    for (const viewport of viewports) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.waitForTimeout(150);
+      // Below 900px the inspector is a drawer; open it with the FAB.
+      const fab = page.locator('.editor__fab--inspector');
+      if (await fab.isVisible().catch(() => false)) {
+        if ((await fab.getAttribute('aria-expanded')) !== 'true') await fab.click();
+        await page.waitForTimeout(250);
+      }
+
+      const report = await page.evaluate(() => {
+        const groups = [
+          ...document.querySelectorAll<HTMLElement>(
+            '.editor-inspector .varve-segmented, .varve-segmented--pill',
+          ),
+        ].filter((element) => element.getBoundingClientRect().height > 0);
+        const problems: string[] = [];
+        let visible = 0;
+        for (const group of groups) {
+          visible += 1;
+          const rect = group.getBoundingClientRect();
+          if (group.scrollWidth > group.clientWidth + 1) {
+            problems.push(`${group.getAttribute('aria-label')}: group overflows`);
+          }
+          for (const button of group.querySelectorAll<HTMLElement>('.varve-segmented__btn')) {
+            const buttonRect = button.getBoundingClientRect();
+            const radius = Number.parseFloat(getComputedStyle(button).borderRadius);
+            if (radius <= 0) {
+              problems.push(`${group.getAttribute('aria-label')}: square segment`);
+            }
+            if (buttonRect.right > rect.right + 1 || buttonRect.left < rect.left - 1) {
+              problems.push(`${group.getAttribute('aria-label')}: segment escapes track`);
+            }
+            const label = button.querySelector<HTMLElement>('.varve-segmented__label');
+            if (
+              label &&
+              getComputedStyle(label).display !== 'none' &&
+              !label.classList.contains('varve-visually-hidden') &&
+              label.scrollWidth > label.clientWidth + 1 &&
+              !button.getAttribute('title')
+            ) {
+              problems.push(`${group.getAttribute('aria-label')}: clipped label without tooltip`);
+            }
+          }
+        }
+        return {
+          problems,
+          visible,
+          pageOverflow: document.documentElement.scrollWidth > window.innerWidth + 1 ? 'yes' : 'no',
+        };
+      });
+
+      expect(report.problems, `${viewport.name} ${viewport.width}x${viewport.height}`).toEqual([]);
+      expect(report.pageOverflow, `${viewport.name} horizontal page scroll`).toBe('no');
+      if (viewport.width >= 900) expect(report.visible).toBeGreaterThan(0);
+    }
+
+    // Evidence: the smallest phone viewport with the inspector drawer open.
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.waitForTimeout(250);
+    await page.screenshot({ path: resolve(DIR, '08-phone-inspector.png') });
+  });
+});
+
+test.describe('radio-group touch targets', () => {
+  test.use({ hasTouch: true, viewport: { width: 1024, height: 768 } });
+
+  test('coarse pointers raise segments to the shared touch minimum', async ({ page }) => {
+    await navigateToEditor(page);
+    await openIsometricGrid(page);
+    const group = page.getByRole('radiogroup', { name: 'Active construction plane' });
+    await group.scrollIntoViewIfNeeded();
+    const sizes = await page.evaluate(() => {
+      const group = [...document.querySelectorAll<HTMLElement>('.varve-segmented')].find(
+        (element) => element.getAttribute('aria-label') === 'Active construction plane',
+      );
+      if (!group) throw new Error('no group');
+      return [...group.querySelectorAll<HTMLElement>('.varve-segmented__btn')].map((button) => {
+        const rect = button.getBoundingClientRect();
+        return { width: rect.width, height: rect.height };
+      });
+    });
+    expect(sizes.length).toBeGreaterThan(0);
+    for (const size of sizes) {
+      expect(size.height).toBeGreaterThanOrEqual(43);
+      expect(size.width).toBeGreaterThanOrEqual(43);
+    }
+    await group.screenshot({ path: resolve(DIR, '09-touch-targets.png') });
   });
 });
