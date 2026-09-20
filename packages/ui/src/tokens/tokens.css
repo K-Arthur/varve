@@ -6,10 +6,10 @@
  */
 
 :root {
-  --color-surface-app: oklch(0.9755 0.0045 258.32);
-  --color-surface-base: oklch(0.9755 0.0045 258.32);
-  --color-surface-raised: oklch(1 0 0);
-  --color-surface-sunken: oklch(0.9448 0.0092 258.34);
+  --color-surface-app: oklch(0.97 0.008 260);
+  --color-surface-base: oklch(0.97 0.008 260);
+  --color-surface-raised: oklch(0.99 0.006 260);
+  --color-surface-sunken: oklch(0.95 0.008 260);
   --color-surface-overlay: oklch(1 0 0);
   --color-surface-hover: oklch(0.88 0.018 258);
   --color-text-primary: oklch(0.1956 0.0217 263.87);
@@ -52,10 +52,14 @@
   --color-canvas-handle-fill: oklch(1 0 0);
   --color-canvas-guide: oklch(0.4452 0.0693 190.9);
   --color-canvas-drop-target: oklch(0.4452 0.0693 190.9);
-  --color-feedback-success: oklch(0.6342 0.1283 156.2);
-  --color-feedback-warning: oklch(0.6399 0.1261 79.82);
+  --color-feedback-success: oklch(0.57 0.12 156);
+  --color-feedback-warning: oklch(0.61 0.1261 79.82);
   --color-feedback-danger: oklch(0.5763 0.1773 22.78);
   --color-feedback-info: oklch(0.6164 0.132 248.02);
+  --color-text-success: oklch(0.45 0.105 156);
+  --color-text-warning: oklch(0.47 0.094 79.82);
+  --color-text-danger: oklch(0.49 0.175 22.78);
+  --color-text-info: oklch(0.47 0.125 248.02);
   --color-accent-primary: oklch(0.779 0.1229 188.31);
   --color-accent-default: oklch(0.779 0.1229 188.31);
   --color-accent-teal: oklch(0.779 0.1229 188.31);
@@ -229,35 +233,47 @@
   --font-line-relaxed: 1.65;
   --font-line-control: 1.25;
   --font-line-label: 1.35;
-  --font-size-2xs: clamp(0.6rem, 0.58rem + 0.08vw, 0.68rem);
-  --font-size-xs: clamp(0.72rem, 0.7rem + 0.1vw, 0.78rem);
-  --font-size-sm: clamp(0.83rem, 0.8rem + 0.15vw, 0.92rem);
-  --font-size-md: clamp(0.95rem, 0.91rem + 0.2vw, 1.06rem);
-  --font-size-lg: clamp(1.08rem, 1.02rem + 0.3vw, 1.25rem);
-  --font-size-xl: clamp(1.25rem, 1.15rem + 0.5vw, 1.55rem);
-  --font-size-2xl: clamp(1.5rem, 1.35rem + 0.75vw, 2rem);
-  --font-size-3xl: clamp(1.85rem, 1.6rem + 1.25vw, 2.65rem);
+  --font-size-2xs: 0.75rem;
+  --font-size-xs: 0.8125rem;
+  --font-size-sm: 0.9375rem;
+  --font-size-md: 1.0625rem;
+  --font-size-lg: 1.3125rem;
+  --font-size-xl: 1.625rem;
+  --font-size-2xl: clamp(1.75rem, 1.35rem + 0.9vw, 2.25rem);
+  --font-size-3xl: clamp(2.125rem, 1.6rem + 1.4vw, 2.75rem);
   --font-interface: var(--font-display);
-  --type-interface-control-size: var(--font-size-sm);
-  --type-interface-control-line-height: var(--font-line-control);
-  --type-interface-control-weight: var(--font-weight-medium);
-  --type-interface-control-family: var(--font-interface);
-  --type-interface-label-size: var(--font-size-sm);
-  --type-interface-label-line-height: var(--font-line-label);
-  --type-interface-label-weight: var(--font-weight-medium);
-  --type-interface-label-family: var(--font-interface);
-  --type-interface-body-size: var(--font-size-md);
-  --type-interface-body-line-height: var(--font-line-normal);
-  --type-interface-body-weight: var(--font-weight-regular);
-  --type-interface-body-family: var(--font-interface);
+  --type-interface-micro-size: var(--font-size-2xs);
+  --type-interface-micro-line-height: var(--font-line-label);
+  --type-interface-micro-weight: var(--font-weight-medium);
+  --type-interface-micro-family: var(--font-interface);
   --type-interface-caption-size: var(--font-size-xs);
   --type-interface-caption-line-height: var(--font-line-label);
   --type-interface-caption-weight: var(--font-weight-regular);
   --type-interface-caption-family: var(--font-interface);
+  --type-interface-label-size: var(--font-size-xs);
+  --type-interface-label-line-height: var(--font-line-label);
+  --type-interface-label-weight: var(--font-weight-medium);
+  --type-interface-label-family: var(--font-interface);
+  --type-interface-control-size: var(--font-size-sm);
+  --type-interface-control-line-height: var(--font-line-control);
+  --type-interface-control-weight: var(--font-weight-medium);
+  --type-interface-control-family: var(--font-interface);
+  --type-interface-subheading-size: var(--font-size-sm);
+  --type-interface-subheading-line-height: var(--font-line-label);
+  --type-interface-subheading-weight: var(--font-weight-semibold);
+  --type-interface-subheading-family: var(--font-interface);
+  --type-interface-body-size: var(--font-size-md);
+  --type-interface-body-line-height: var(--font-line-normal);
+  --type-interface-body-weight: var(--font-weight-regular);
+  --type-interface-body-family: var(--font-interface);
   --type-interface-title-size: var(--font-size-lg);
   --type-interface-title-line-height: var(--font-line-tight);
   --type-interface-title-weight: var(--font-weight-semibold);
   --type-interface-title-family: var(--font-interface);
+  --type-interface-heading-size: var(--font-size-xl);
+  --type-interface-heading-line-height: var(--font-line-tight);
+  --type-interface-heading-weight: var(--font-weight-semibold);
+  --type-interface-heading-family: var(--font-interface);
   --type-content-body-size: var(--font-size-md);
   --type-content-body-line-height: var(--font-line-relaxed);
   --type-content-body-weight: var(--font-weight-regular);
@@ -300,21 +316,27 @@
   --type-data-numeric-family: var(--font-mono);
 
   /* --- Component sizing: generated from src/tokens/sizing.ts --- */
-  --component-compact-height: 32px;
-  --component-compact-icon-size: var(--icon-size-sm);
+  --component-xs-height: 24px;
+  --component-xs-icon-size: var(--icon-size-xs);
+  --component-xs-padding-inline: var(--space-1);
+  --component-compact-height: 28px;
+  --component-compact-icon-size: var(--icon-size-xs);
   --component-compact-padding-inline: var(--space-2);
-  --component-default-height: 40px;
+  --component-default-height: 32px;
   --component-default-icon-size: var(--icon-size-sm);
-  --component-default-padding-inline: var(--space-3);
-  --component-large-height: 48px;
+  --component-default-padding-inline: var(--space-2);
+  --component-large-height: 40px;
   --component-large-icon-size: var(--icon-size-md);
-  --component-large-padding-inline: var(--space-4);
+  --component-large-padding-inline: var(--space-3);
+  --component-xl-height: 48px;
+  --component-xl-icon-size: var(--icon-size-lg);
+  --component-xl-padding-inline: var(--space-4);
   --menu-item-min-height: 32px;
   --menu-compact-width: 12rem;
   --menu-default-width: 15rem;
   --menu-rich-width: 22rem;
   --menu-viewport-gutter: var(--space-4);
-  --tab-min-height: 36px;
+  --tab-min-height: 32px;
   --target-min-compact: 24px;
   --touch-target-min: 44px;
   --resize-handle-visual: 2px;
@@ -354,44 +376,20 @@
   --radius-2xl: var(--radius-device);
   --radius-pill: 9999px;
 
-  /* --- Elevation surfaces (100% opaque, hierarchical) --- */
-  --elevation-surface-sunken: oklch(0.95 0.008 260);
-  --elevation-surface-default: oklch(0.97 0.008 260);
-  --elevation-surface-raised: oklch(0.99 0.006 260);
-  --elevation-surface-overlay: oklch(1 0 0);
-
-  /* --- Elevation shadows (dark-theme adaptive) --- */
-  --elevation-shadow-raised: 0 4px 12px oklch(0 0 0 / 0.14);
-  --elevation-shadow-overlay: 0 12px 32px oklch(0 0 0 / 0.2);
+  /* --- Legacy shadows: aliases of the themed elevation scale so dark mode
+   * does not silently keep light-theme shadow opacities. --- */
+  --shadow-none: none;
+  --shadow-xs: var(--elevation-shadow-subtle);
+  --shadow-sm: var(--elevation-shadow-small);
+  --shadow-md: var(--elevation-shadow-raised);
+  --shadow-lg: var(--elevation-shadow-overlay);
+  --shadow-xl: var(--elevation-shadow-overlay);
 
   /* --- Elevation z-index --- */
   --elevation-z-sunken: 0;
   --elevation-z-default: 1;
   --elevation-z-raised: 100;
   --elevation-z-overlay: 1000;
-
-  /* --- Micro-borders (Linear-style 1px edges) --- */
-  --border-micro: 1px solid oklch(0 0 0 / 0.12);
-  --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.25);
-
-  /* --- Signature accent tokens (bespoke per-feature identity, P3-range) ---
-   * Used for icon tints, tab indicators, and status chips only.
-   * Do NOT use as text-on-background — these are presentational accents.
-   *   branch:  warm amber-gold   (version / branching concept)
-   *   audit:   muted violet      (accessibility / quality audit tab)
-   *   ai:      electric teal-P3  (on-device AI; distinct from brand teal)
-   */
-  --color-signature-branch: oklch(0.75 0.14 78);
-  --color-signature-audit: oklch(0.62 0.14 295);
-  --color-signature-ai: oklch(0.78 0.18 188);
-
-  /* --- Legacy shadows (kept for backward compat, prefer elevation-*) --- */
-  --shadow-none: none;
-  --shadow-xs: 0 1px 2px oklch(0 0 0 / 0.06);
-  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.1);
-  --shadow-md: 0 4px 12px oklch(0 0 0 / 0.14);
-  --shadow-lg: 0 12px 32px oklch(0 0 0 / 0.2);
-  --shadow-xl: 0 24px 48px oklch(0 0 0 / 0.25);
 
   /* --- Motion --- */
   --duration-instant: 50ms;
@@ -427,28 +425,63 @@
   --bp-xl: 1280px;
   --bp-2xl: 1536px;
 
-  /* --- Scrim overlay (semi-transparent backdrop behind dialogs/popovers) --- */
-  --elevation-scrim: oklch(0 0 0 / 0.55);
+  /* --- Theme-invariant domain colors ---
+   *
+   * Deliberately NOT themed. Adding a name here is the sanctioned way to keep
+   * a literal out of a component stylesheet; the justification bar is that the
+   * color encodes something the interface theme has no authority over:
+   *
+   *   media-viewer-*  An image/HDR preview is judged against a fixed neutral
+   *                   dark backdrop so the surrounding app theme cannot bias
+   *                   tonal perception. Same reasoning as the brand splash.
+   *   depth-scale-*   The depth-mask legend depicts *document* data
+   *                   (near -> mid -> far). The scale states absolute depth, so
+   *                   re-theming it would change what the legend says.
+   *
+   * Values are exact sRGB round-trips of the literals they replaced.
+   */
+  --color-media-viewer-backdrop: oklch(0.2543 0.0072 248.11);
+  --color-media-viewer-foreground: oklch(0.8525 0.0129 236.65);
+  --color-depth-scale-near: oklch(0.5569 0.1874 261.2);
+  --color-depth-scale-mid: oklch(0.7762 0.1116 188.54);
+  --color-depth-scale-far: oklch(0.6197 0.189 29.54);
 
   /* --- Compatibility aliases (canonical name → alias) --- */
   --color-surface-default: var(--color-surface-base);
   --color-on-accent: var(--color-text-on-accent);
   --color-accent-hover: var(--color-interactive-hover);
 
-  /* Surface aliases — single elevation system (Neo-Bento redesign). */
-  --color-surface-app: var(--elevation-surface-default);
-  --color-surface-base: var(--elevation-surface-default);
-  --color-surface-raised: var(--elevation-surface-raised);
-  --color-surface-sunken: var(--elevation-surface-sunken);
-  --color-surface-overlay: var(--elevation-surface-overlay);
+  /* --- Elevation surfaces (aliases of the audited surface-* roles) --- */
+  --elevation-surface-sunken: var(--color-surface-sunken);
+  --elevation-surface-default: var(--color-surface-app);
+  --elevation-surface-raised: var(--color-surface-raised);
+  --elevation-surface-overlay: var(--color-surface-overlay);
+
+  /* --- Elevation shadows (theme-aware: dark needs more, HC uses rings) --- */
+  --elevation-shadow-subtle: 0 1px 2px oklch(0 0 0 / 0.06);
+  --elevation-shadow-small: 0 1px 2px oklch(0 0 0 / 0.1);
+  --elevation-shadow-raised: 0 4px 12px oklch(0 0 0 / 0.14);
+  --elevation-shadow-overlay: 0 12px 32px oklch(0 0 0 / 0.2);
+
+  /* --- Scrim overlay (semi-transparent backdrop behind dialogs/popovers) --- */
+  --elevation-scrim: oklch(0 0 0 / 0.55);
+
+  /* --- Micro-borders (hairline surface separation) --- */
+  --border-micro: 1px solid oklch(0 0 0 / 0.12);
+  --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.25);
+
+  /* --- Signature accents (presentational identity; never text-on-surface) --- */
+  --color-signature-branch: oklch(0.75 0.14 78);
+  --color-signature-audit: oklch(0.62 0.14 295);
+  --color-signature-ai: oklch(0.78 0.18 188);
 }
 
 [data-theme="dark"] {
-  --color-surface-app: oklch(0.1956 0.0217 263.87);
-  --color-surface-base: oklch(0.1956 0.0217 263.87);
-  --color-surface-raised: oklch(0.2637 0.0265 262.61);
-  --color-surface-sunken: oklch(0.1719 0.0186 259.66);
-  --color-surface-overlay: oklch(0.1335 0.0152 259.32);
+  --color-surface-app: oklch(0.18 0.008 260);
+  --color-surface-base: oklch(0.18 0.008 260);
+  --color-surface-raised: oklch(0.22 0.006 260);
+  --color-surface-sunken: oklch(0.12 0.008 260);
+  --color-surface-overlay: oklch(0.27 0.005 260);
   --color-surface-hover: oklch(0.22 0.02 263);
   --color-text-primary: oklch(0.9755 0.0045 258.32);
   --color-text-secondary: oklch(0.8948 0.0145 254.61);
@@ -494,6 +527,10 @@
   --color-feedback-warning: oklch(0.6399 0.1261 79.82);
   --color-feedback-danger: oklch(0.5763 0.1773 22.78);
   --color-feedback-info: oklch(0.6164 0.132 248.02);
+  --color-text-success: oklch(0.64 0.1283 156);
+  --color-text-warning: oklch(0.66 0.1261 79.82);
+  --color-text-danger: oklch(0.68 0.1773 22.78);
+  --color-text-info: oklch(0.65 0.132 248.02);
   --color-accent-primary: oklch(0.779 0.1229 188.31);
   --color-accent-default: oklch(0.779 0.1229 188.31);
   --color-accent-teal: oklch(0.779 0.1229 188.31);
@@ -621,42 +658,37 @@
   --separator-inset: var(--space-4);
   --separator-min-length: var(--space-4);
 
-  /* Elevation surfaces (dark mode — front-lit: higher = brighter). */
-  --elevation-surface-sunken: oklch(0.12 0.008 260);
-  --elevation-surface-default: oklch(0.18 0.008 260);
-  --elevation-surface-raised: oklch(0.22 0.006 260);
-  --elevation-surface-overlay: oklch(0.27 0.005 260);
+  /* --- Elevation surfaces (aliases of the audited surface-* roles) --- */
+  --elevation-surface-sunken: var(--color-surface-sunken);
+  --elevation-surface-default: var(--color-surface-app);
+  --elevation-surface-raised: var(--color-surface-raised);
+  --elevation-surface-overlay: var(--color-surface-overlay);
 
-  /* Elevation shadows (dark mode — more visible on dark bg). */
+  /* --- Elevation shadows (theme-aware: dark needs more, HC uses rings) --- */
+  --elevation-shadow-subtle: 0 1px 2px oklch(0 0 0 / 0.3);
+  --elevation-shadow-small: 0 1px 2px oklch(0 0 0 / 0.4);
   --elevation-shadow-raised: 0 4px 12px oklch(0 0 0 / 0.3);
   --elevation-shadow-overlay: 0 12px 32px oklch(0 0 0 / 0.45);
 
-  /* Micro-borders (dark mode — more visible). */
+  /* --- Scrim overlay (semi-transparent backdrop behind dialogs/popovers) --- */
+  --elevation-scrim: oklch(0 0 0 / 0.65);
+
+  /* --- Micro-borders (hairline surface separation) --- */
   --border-micro: 1px solid oklch(1 0 0 / 0.08);
   --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.3);
 
-  /* Scrim overlay (dark mode — slightly more opaque for contrast). */
-  --elevation-scrim: oklch(0 0 0 / 0.65);
-
-  /* Signature accent tokens (dark mode — higher luminance for visibility on dark surfaces). */
+  /* --- Signature accents (presentational identity; never text-on-surface) --- */
   --color-signature-branch: oklch(0.82 0.15 78);
   --color-signature-audit: oklch(0.72 0.16 295);
   --color-signature-ai: oklch(0.84 0.2 188);
-
-  /* Surface aliases — single elevation system (Neo-Bento redesign). */
-  --color-surface-app: var(--elevation-surface-default);
-  --color-surface-base: var(--elevation-surface-default);
-  --color-surface-raised: var(--elevation-surface-raised);
-  --color-surface-sunken: var(--elevation-surface-sunken);
-  --color-surface-overlay: var(--elevation-surface-overlay);
 }
 
 [data-theme="high-contrast"] {
   --color-surface-app: oklch(0 0 0);
   --color-surface-base: oklch(0 0 0);
-  --color-surface-raised: oklch(0.0971 0 0);
+  --color-surface-raised: oklch(0.15 0 0);
   --color-surface-sunken: oklch(0 0 0);
-  --color-surface-overlay: oklch(0 0 0);
+  --color-surface-overlay: oklch(0.2 0 0);
   --color-surface-hover: oklch(0.25 0 0);
   --color-text-primary: oklch(1 0 0);
   --color-text-secondary: oklch(0.92 0 0);
@@ -702,6 +734,10 @@
   --color-feedback-warning: oklch(0.8446 0.1616 82.25);
   --color-feedback-danger: oklch(0.6559 0.1934 27.47);
   --color-feedback-info: oklch(0.7086 0.1456 250.24);
+  --color-text-success: oklch(0.8649 0.2979 142.49);
+  --color-text-warning: oklch(0.8446 0.1616 82.25);
+  --color-text-danger: oklch(0.6559 0.1934 27.47);
+  --color-text-info: oklch(0.7086 0.1456 250.24);
   --color-accent-primary: oklch(0.9519 0.2924 111.62);
   --color-accent-default: oklch(0.9519 0.2924 111.62);
   --color-accent-teal: oklch(0.9519 0.2924 111.62);
@@ -829,44 +865,39 @@
   --separator-inset: var(--space-4);
   --separator-min-length: var(--space-4);
 
-  /* Elevation surfaces (high-contrast — maximum separation). */
-  --elevation-surface-sunken: oklch(0 0 0);
-  --elevation-surface-default: oklch(0 0 0);
-  --elevation-surface-raised: oklch(0.15 0 0);
-  --elevation-surface-overlay: oklch(0.2 0 0);
+  /* --- Elevation surfaces (aliases of the audited surface-* roles) --- */
+  --elevation-surface-sunken: var(--color-surface-sunken);
+  --elevation-surface-default: var(--color-surface-app);
+  --elevation-surface-raised: var(--color-surface-raised);
+  --elevation-surface-overlay: var(--color-surface-overlay);
 
-  /* Elevation shadows (HC — outline-style depth cues). */
+  /* --- Elevation shadows (theme-aware: dark needs more, HC uses rings) --- */
+  --elevation-shadow-subtle: 0 0 0 1px oklch(1 0 0);
+  --elevation-shadow-small: 0 0 0 1px oklch(1 0 0);
   --elevation-shadow-raised: 0 0 0 2px oklch(1 0 0);
   --elevation-shadow-overlay: 0 0 0 3px oklch(1 0 0);
 
-  /* Micro-borders (HC — thicker, full-contrast edges). */
-  --border-micro: 2px solid oklch(1 0 0);
-  --border-micro-accent: 2px solid oklch(0.95 0.2 188);
-
-  /* Scrim overlay (HC — near-opaque for maximum separation). */
+  /* --- Scrim overlay (semi-transparent backdrop behind dialogs/popovers) --- */
   --elevation-scrim: oklch(0 0 0 / 0.7);
 
-  /* Signature accent tokens (HC — maximum-contrast yellow-green for all accents). */
+  /* --- Micro-borders (hairline surface separation) --- */
+  --border-micro: 2px solid oklch(1 0 0 / 1);
+  --border-micro-accent: 2px solid oklch(0.95 0.2 188 / 1);
+
+  /* --- Signature accents (presentational identity; never text-on-surface) --- */
   --color-signature-branch: oklch(0.9519 0.2924 111.62);
   --color-signature-audit: oklch(0.9519 0.2924 111.62);
   --color-signature-ai: oklch(0.9519 0.2924 111.62);
-
-  /* Surface aliases — single elevation system (Neo-Bento redesign). */
-  --color-surface-app: var(--elevation-surface-default);
-  --color-surface-base: var(--elevation-surface-default);
-  --color-surface-raised: var(--elevation-surface-raised);
-  --color-surface-sunken: var(--elevation-surface-sunken);
-  --color-surface-overlay: var(--elevation-surface-overlay);
 }
 
 /* Dark via system preference ONLY when no explicit in-app [data-theme] choice. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --color-surface-app: oklch(0.1956 0.0217 263.87);
-    --color-surface-base: oklch(0.1956 0.0217 263.87);
-    --color-surface-raised: oklch(0.2637 0.0265 262.61);
-    --color-surface-sunken: oklch(0.1719 0.0186 259.66);
-    --color-surface-overlay: oklch(0.1335 0.0152 259.32);
+    --color-surface-app: oklch(0.18 0.008 260);
+    --color-surface-base: oklch(0.18 0.008 260);
+    --color-surface-raised: oklch(0.22 0.006 260);
+    --color-surface-sunken: oklch(0.12 0.008 260);
+    --color-surface-overlay: oklch(0.27 0.005 260);
     --color-surface-hover: oklch(0.22 0.02 263);
     --color-text-primary: oklch(0.9755 0.0045 258.32);
     --color-text-secondary: oklch(0.8948 0.0145 254.61);
@@ -912,6 +943,10 @@
     --color-feedback-warning: oklch(0.6399 0.1261 79.82);
     --color-feedback-danger: oklch(0.5763 0.1773 22.78);
     --color-feedback-info: oklch(0.6164 0.132 248.02);
+    --color-text-success: oklch(0.64 0.1283 156);
+    --color-text-warning: oklch(0.66 0.1261 79.82);
+    --color-text-danger: oklch(0.68 0.1773 22.78);
+    --color-text-info: oklch(0.65 0.132 248.02);
     --color-accent-primary: oklch(0.779 0.1229 188.31);
     --color-accent-default: oklch(0.779 0.1229 188.31);
     --color-accent-teal: oklch(0.779 0.1229 188.31);
@@ -1039,34 +1074,29 @@
     --separator-inset: var(--space-4);
     --separator-min-length: var(--space-4);
 
-    /* Elevation surfaces (dark mode — front-lit: higher = brighter). */
-    --elevation-surface-sunken: oklch(0.12 0.008 260);
-    --elevation-surface-default: oklch(0.18 0.008 260);
-    --elevation-surface-raised: oklch(0.22 0.006 260);
-    --elevation-surface-overlay: oklch(0.27 0.005 260);
+    /* --- Elevation surfaces (aliases of the audited surface-* roles) --- */
+    --elevation-surface-sunken: var(--color-surface-sunken);
+    --elevation-surface-default: var(--color-surface-app);
+    --elevation-surface-raised: var(--color-surface-raised);
+    --elevation-surface-overlay: var(--color-surface-overlay);
 
-    /* Elevation shadows (dark mode — more visible on dark bg). */
+    /* --- Elevation shadows (theme-aware: dark needs more, HC uses rings) --- */
+    --elevation-shadow-subtle: 0 1px 2px oklch(0 0 0 / 0.3);
+    --elevation-shadow-small: 0 1px 2px oklch(0 0 0 / 0.4);
     --elevation-shadow-raised: 0 4px 12px oklch(0 0 0 / 0.3);
     --elevation-shadow-overlay: 0 12px 32px oklch(0 0 0 / 0.45);
 
-    /* Micro-borders (dark mode — more visible). */
+    /* --- Scrim overlay (semi-transparent backdrop behind dialogs/popovers) --- */
+    --elevation-scrim: oklch(0 0 0 / 0.65);
+
+    /* --- Micro-borders (hairline surface separation) --- */
     --border-micro: 1px solid oklch(1 0 0 / 0.08);
     --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.3);
 
-    /* Scrim overlay (dark mode — slightly more opaque for contrast). */
-    --elevation-scrim: oklch(0 0 0 / 0.65);
-
-    /* Signature accent tokens (dark mode — higher luminance for visibility on dark surfaces). */
+    /* --- Signature accents (presentational identity; never text-on-surface) --- */
     --color-signature-branch: oklch(0.82 0.15 78);
     --color-signature-audit: oklch(0.72 0.16 295);
     --color-signature-ai: oklch(0.84 0.2 188);
-
-    /* Surface aliases — single elevation system (Neo-Bento redesign). */
-    --color-surface-app: var(--elevation-surface-default);
-    --color-surface-base: var(--elevation-surface-default);
-    --color-surface-raised: var(--elevation-surface-raised);
-    --color-surface-sunken: var(--elevation-surface-sunken);
-    --color-surface-overlay: var(--elevation-surface-overlay);
   }
 }
 
@@ -1077,9 +1107,9 @@
   :root:not([data-theme]) {
     --color-surface-app: oklch(0 0 0);
     --color-surface-base: oklch(0 0 0);
-    --color-surface-raised: oklch(0.0971 0 0);
+    --color-surface-raised: oklch(0.15 0 0);
     --color-surface-sunken: oklch(0 0 0);
-    --color-surface-overlay: oklch(0 0 0);
+    --color-surface-overlay: oklch(0.2 0 0);
     --color-surface-hover: oklch(0.25 0 0);
     --color-text-primary: oklch(1 0 0);
     --color-text-secondary: oklch(0.92 0 0);
@@ -1125,6 +1155,10 @@
     --color-feedback-warning: oklch(0.8446 0.1616 82.25);
     --color-feedback-danger: oklch(0.6559 0.1934 27.47);
     --color-feedback-info: oklch(0.7086 0.1456 250.24);
+    --color-text-success: oklch(0.8649 0.2979 142.49);
+    --color-text-warning: oklch(0.8446 0.1616 82.25);
+    --color-text-danger: oklch(0.6559 0.1934 27.47);
+    --color-text-info: oklch(0.7086 0.1456 250.24);
     --color-accent-primary: oklch(0.9519 0.2924 111.62);
     --color-accent-default: oklch(0.9519 0.2924 111.62);
     --color-accent-teal: oklch(0.9519 0.2924 111.62);
@@ -1252,34 +1286,29 @@
     --separator-inset: var(--space-4);
     --separator-min-length: var(--space-4);
 
-    /* Elevation surfaces (high-contrast — maximum separation). */
-    --elevation-surface-sunken: oklch(0 0 0);
-    --elevation-surface-default: oklch(0 0 0);
-    --elevation-surface-raised: oklch(0.15 0 0);
-    --elevation-surface-overlay: oklch(0.2 0 0);
+    /* --- Elevation surfaces (aliases of the audited surface-* roles) --- */
+    --elevation-surface-sunken: var(--color-surface-sunken);
+    --elevation-surface-default: var(--color-surface-app);
+    --elevation-surface-raised: var(--color-surface-raised);
+    --elevation-surface-overlay: var(--color-surface-overlay);
 
-    /* Elevation shadows (HC — outline-style depth cues). */
+    /* --- Elevation shadows (theme-aware: dark needs more, HC uses rings) --- */
+    --elevation-shadow-subtle: 0 0 0 1px oklch(1 0 0);
+    --elevation-shadow-small: 0 0 0 1px oklch(1 0 0);
     --elevation-shadow-raised: 0 0 0 2px oklch(1 0 0);
     --elevation-shadow-overlay: 0 0 0 3px oklch(1 0 0);
 
-    /* Micro-borders (HC — thicker, full-contrast edges). */
-    --border-micro: 2px solid oklch(1 0 0);
-    --border-micro-accent: 2px solid oklch(0.95 0.2 188);
-
-    /* Scrim overlay (HC — near-opaque for maximum separation). */
+    /* --- Scrim overlay (semi-transparent backdrop behind dialogs/popovers) --- */
     --elevation-scrim: oklch(0 0 0 / 0.7);
 
-    /* Signature accent tokens (HC — maximum-contrast yellow-green for all accents). */
+    /* --- Micro-borders (hairline surface separation) --- */
+    --border-micro: 2px solid oklch(1 0 0 / 1);
+    --border-micro-accent: 2px solid oklch(0.95 0.2 188 / 1);
+
+    /* --- Signature accents (presentational identity; never text-on-surface) --- */
     --color-signature-branch: oklch(0.9519 0.2924 111.62);
     --color-signature-audit: oklch(0.9519 0.2924 111.62);
     --color-signature-ai: oklch(0.9519 0.2924 111.62);
-
-    /* Surface aliases — single elevation system (Neo-Bento redesign). */
-    --color-surface-app: var(--elevation-surface-default);
-    --color-surface-base: var(--elevation-surface-default);
-    --color-surface-raised: var(--elevation-surface-raised);
-    --color-surface-sunken: var(--elevation-surface-sunken);
-    --color-surface-overlay: var(--elevation-surface-overlay);
   }
 }
 
@@ -1334,10 +1363,10 @@
     --color-text-subtle-on-sunken: GrayText;
     --color-text-subtle-on-overlay: GrayText;
     --color-hero-glow: transparent;
-    --elevation-surface-sunken: Canvas;
-    --elevation-surface-default: Canvas;
-    --elevation-surface-raised: Canvas;
-    --elevation-surface-overlay: Canvas;
+    /* Elevation surfaces are aliases of --color-surface-*, so overriding the
+     * semantic roles above is sufficient — do not restate them here. */
+    --elevation-shadow-subtle: none;
+    --elevation-shadow-small: none;
     --elevation-shadow-raised: none;
     --elevation-shadow-overlay: none;
     --border-micro: 1px solid ButtonBorder;

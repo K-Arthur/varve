@@ -152,31 +152,24 @@
   flex: 0 0 auto;
   padding: 0;
 }
-.varve-iconbtn.varve-btn--sm {
-  min-block-size: var(--component-compact-height);
-  min-inline-size: var(--component-compact-height);
-}
+/* Square icon buttons follow the same ladder as every other control; the
+ * size name determines the visible square and its glyph. */
 .varve-iconbtn.varve-btn--xs,
 .varve-iconbtn.varve-btn--icon-xs {
-  min-block-size: 28px;
-  min-inline-size: 28px;
+  min-block-size: var(--component-xs-height);
+  min-inline-size: var(--component-xs-height);
 }
-.varve-iconbtn.varve-btn--md {
-  min-block-size: var(--component-default-height);
-  min-inline-size: var(--component-default-height);
-}
+.varve-iconbtn.varve-btn--sm,
 .varve-iconbtn.varve-btn--icon-sm {
   min-block-size: var(--component-compact-height);
   min-inline-size: var(--component-compact-height);
 }
+.varve-iconbtn.varve-btn--md,
 .varve-iconbtn.varve-btn--icon {
   min-block-size: var(--component-default-height);
   min-inline-size: var(--component-default-height);
 }
-.varve-iconbtn.varve-btn--lg {
-  min-block-size: var(--component-large-height);
-  min-inline-size: var(--component-large-height);
-}
+.varve-iconbtn.varve-btn--lg,
 .varve-iconbtn.varve-btn--icon-lg {
   min-block-size: var(--component-large-height);
   min-inline-size: var(--component-large-height);
@@ -253,8 +246,8 @@
   background: var(--color-surface-sunken);
 }
 .varve-btn--toolbar {
-  min-block-size: var(--component-compact-height);
-  min-inline-size: var(--component-compact-height);
+  min-block-size: var(--component-default-height);
+  min-inline-size: var(--component-default-height);
   padding-inline: var(--component-compact-padding-inline);
   background: transparent;
   color: var(--color-text-secondary);
@@ -286,10 +279,10 @@
   filter: saturate(1.4);
 }
 .varve-btn--xs {
-  min-block-size: 28px;
-  min-inline-size: 28px;
-  padding-inline: var(--space-2);
-  font-size: var(--type-interface-caption-size);
+  min-block-size: var(--component-xs-height);
+  min-inline-size: var(--component-xs-height);
+  padding-inline: var(--component-xs-padding-inline);
+  font-size: var(--type-interface-micro-size);
 }
 .varve-btn--sm {
   min-block-size: var(--component-compact-height);
@@ -379,6 +372,79 @@
 }
 .varve-btn--confirming .varve-btn__label {
   text-decoration: line-through;
+}
+
+/* ── Close affordance (canonical) ─────────────────────────────────────
+ * Every dismiss control in the application is this button. Before this
+ * contract the app shipped eight different close geometries (16/22/24/28/30/
+ * 32/44/48×28) across three visual treatments, with the tab close invisible
+ * until hover and one popover using the word "Close" while its siblings used
+ * an X — the "close buttons are inconsistent and hard to see" finding.
+ *
+ * Three sizes, mapped to the control ladder:
+ *   sm (24px)  tabs, toasts, dense rows, inline chips
+ *   md (32px)  panels, popovers, and parameter editors
+ *   lg (44px)  modal dialogs, where the target is never sacrificed
+ *
+ * The glyph is always the same X at the same optical weight, the colour is
+ * always text-secondary (graded AA on every surface tier) rising to
+ * text-primary on hover, and the focus ring never moves the glyph.
+ * Coarse pointers keep at least the 24px WCAG 2.5.8 floor on `sm`. */
+.varve-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-control-compact);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  line-height: 1;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
+}
+.varve-close:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+.varve-close:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+.varve-close:disabled,
+.varve-close[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.varve-close--sm {
+  inline-size: var(--component-xs-height);
+  block-size: var(--component-xs-height);
+  --varve-close-glyph: var(--icon-size-xs);
+}
+.varve-close--md {
+  inline-size: var(--component-default-height);
+  block-size: var(--component-default-height);
+  --varve-close-glyph: var(--icon-size-sm);
+}
+.varve-close--lg {
+  min-inline-size: var(--touch-target-min);
+  min-block-size: var(--touch-target-min);
+  border-radius: var(--radius-control);
+  --varve-close-glyph: var(--icon-size-sm);
+}
+.varve-close__glyph {
+  inline-size: var(--varve-close-glyph, var(--icon-size-sm));
+  block-size: var(--varve-close-glyph, var(--icon-size-sm));
+}
+@media (pointer: coarse) {
+  .varve-close {
+    min-inline-size: var(--target-min-compact);
+    min-block-size: var(--target-min-compact);
+  }
 }
 
 /* Persistent selection on a Button is expressed with aria-pressed (used by
@@ -599,28 +665,13 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
-/* H3 (2026-08-16): dialog close button must meet WCAG 2.5.5 target size. */
+/* H3 (2026-08-16): dialog close button must meet WCAG 2.5.5 target size.
+ * Geometry, colour, and focus now come from the canonical `.varve-close--lg`
+ * contract (see the Close affordance block above); this class is retained as
+ * the dialog-scoped hook that feature stylesheets and E2E specs query, and
+ * owns only the flex behavior a long title needs. */
 .varve-dialog__close {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: var(--font-size-xl);
-  color: var(--color-text-secondary);
-  min-width: var(--touch-target-min);
-  min-height: var(--touch-target-min);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  border-radius: var(--radius-control-compact);
-}
-.varve-dialog__close:hover {
-  background: var(--color-surface-sunken);
-}
-/* U18 (2026-08-10): themed focus ring for the dialog close button. */
-.varve-dialog__close:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 2px;
+  flex-shrink: 0;
 }
 .varve-dialog__body {
   padding: var(--space-dialog);
@@ -2377,41 +2428,33 @@
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   Density Controls (Research basis: Linear compact/comfortable/cozy)
-   ════════════════════════════════════════════════════════════════════ */
+   Density Controls
+   ════════════════════════════════════════════════════════════════════
+   Two complete modes, no third half-mode. "Comfortable" is the standard
+   application density and maps onto the canonical `default` control tier;
+   "compact" maps onto `compact`. There is intentionally no `cozy` block —
+   the editor does not expose it and a definition nothing can select rots.
+
+   Density changes geometry and nothing else: text roles, contrast, and the
+   24px target floor are identical in both modes. */
 
 :root,
 [data-density="comfortable"] {
   --density-rows-gap: var(--space-1);
   --density-rows-padding: var(--space-2);
-  --density-rows-min-height: 34px;
-  --density-icon-size: 16px;
-  --density-font-size: var(--font-size-sm);
-  --density-avatar-size: 20px;
-  /* Command surfaces (tool palette, context bar, quick bars) share the row
-   * contract so both pro modes change the same chrome. 32px keeps the WCAG
-   * 2.5.8 floor with headroom; compact drops to 28px, still above 24px. */
-  --density-control-size: 32px;
+  --density-rows-min-height: var(--component-default-height);
+  --density-font-size: var(--type-interface-control-size);
+  /* Command surfaces (tool palette, context bar, quick bars) share the
+   * standard control tier so both modes change the same chrome. */
+  --density-control-size: var(--component-default-height);
 }
 
 [data-density="compact"] {
   --density-rows-gap: 0;
   --density-rows-padding: var(--space-1);
-  --density-rows-min-height: 28px;
-  --density-icon-size: 14px;
-  --density-font-size: var(--font-size-xs);
-  --density-avatar-size: 16px;
-  --density-control-size: 28px;
-}
-
-[data-density="cozy"] {
-  --density-rows-gap: var(--space-2);
-  --density-rows-padding: var(--space-3);
-  --density-rows-min-height: 42px;
-  --density-icon-size: 18px;
-  --density-font-size: var(--font-size-md);
-  --density-avatar-size: 24px;
-  --density-control-size: 36px;
+  --density-rows-min-height: var(--component-compact-height);
+  --density-font-size: var(--type-interface-caption-size);
+  --density-control-size: var(--component-compact-height);
 }
 
 /* ════════════════════════════════════════════════════════════════════

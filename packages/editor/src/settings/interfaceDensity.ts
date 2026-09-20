@@ -7,9 +7,9 @@
  * boot pre-paint script both apply through this module so the DOM contract
  * (`data-density` attribute, root font-size) has exactly one writer.
  *
- * Density maps the setting onto the existing shared `data-density` CSS
- * contract in `@varve/ui` (`comfortable` 34px rows / `compact` 28px rows);
- * no token or consumer CSS is duplicated here.
+ * Density maps the setting onto the shared `data-density` CSS contract in
+ * `@varve/ui` (`comfortable` = the 32px default control tier / `compact` =
+ * the 28px compact tier); no token or consumer CSS is duplicated here.
  */
 
 export type InterfaceDensityValue = 'default' | 'compact';
@@ -17,7 +17,7 @@ export type InterfaceFontSizeValue = 'small' | 'medium' | 'large';
 
 /** Row-height contracts, mirroring the shared density CSS blocks. */
 export const DENSITY_ROW_HEIGHT_PX = {
-  default: 34,
+  default: 32,
   compact: 28,
 } as const;
 

@@ -136,8 +136,8 @@ describe('interface density runtime', () => {
       expect(appliedRowHeight(compactRoot)).toBe(28);
       const comfortableRoot = fakeRoot();
       comfortableRoot.dataset.density = 'comfortable';
-      expect(appliedRowHeight(comfortableRoot)).toBe(34);
-      expect(appliedRowHeight(fakeRoot())).toBe(34);
+      expect(appliedRowHeight(comfortableRoot)).toBe(32);
+      expect(appliedRowHeight(fakeRoot())).toBe(32);
     });
   });
 

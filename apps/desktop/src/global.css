@@ -19,6 +19,47 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ── Native form controls: one typography default, no UA leak ──
+ *
+ * The browser gives `button`, `input`, `select`, and `textarea` a UA
+ * stylesheet default of `font: 13.3333px Arial` (the platform UI font at the
+ * platform size), which is *not* the application's interface face or size.
+ * Without this reset every control silently renders Arial at a size that
+ * matches no token, and each component has to remember `font: inherit` on
+ * its own — the app had 28 scattered copies of that patch and controls were
+ * still leaking (2026-09-20 audit).
+ *
+ * The reset assigns the canonical interface-control role instead of
+ * `inherit`: a control inside a display-font container must not become a
+ * display-font control. Components that need a different role (a caption in
+ * the status bar, a micro icon button) set it explicitly, exactly as they
+ * already do for colour.
+ *
+ * `color: inherit` is deliberate — controls adopt the surrounding text
+ * colour (including disabled/danger contexts) until a component overrides
+ * it with a semantic text role.
+ *
+ * `text-size-adjust: 100%` stops mobile WebKit/Blink text auto-boosting,
+ * which would otherwise enlarge interface text in portrait layouts and break
+ * the control-height ladder.
+ */
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: var(--type-interface-control-family);
+  font-size: var(--type-interface-control-size);
+  font-weight: var(--type-interface-control-weight);
+  line-height: var(--type-interface-control-line-height);
+  color: inherit;
+}
+
+html {
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   font-family: var(--font-body);
   font-size: var(--font-size-md);

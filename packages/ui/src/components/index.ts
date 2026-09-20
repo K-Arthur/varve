@@ -41,6 +41,8 @@ export {
 } from './Card';
 export type { CheckboxProps } from './Checkbox';
 export { Checkbox } from './Checkbox';
+export type { CloseButtonProps, CloseButtonSize } from './CloseButton';
+export { CLOSE_BUTTON_SIZES, CloseButton } from './CloseButton';
 export type {
   Color,
   ColorPickerProps,

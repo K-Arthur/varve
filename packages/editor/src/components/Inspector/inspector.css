@@ -123,14 +123,15 @@
 }
 .insp-panel__tab {
   flex: 1 0 auto;
-  min-block-size: var(--space-8);
+  min-block-size: var(--component-large-height);
   padding: var(--space-1) var(--space-2);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--color-text-muted);
   font: inherit;
-  font-size: var(--font-size-xs);
+  font-size: var(--type-interface-label-size);
+  font-weight: var(--type-interface-label-weight);
   text-transform: capitalize;
   cursor: pointer;
   white-space: nowrap;
@@ -149,14 +150,15 @@
 }
 .insp-panel__tab-overflow {
   flex: 0 0 auto;
-  min-block-size: var(--space-8);
+  min-block-size: var(--component-large-height);
   padding: var(--space-1) var(--space-2);
   background: var(--elevation-surface-raised);
   border: 0;
   border-bottom: 2px solid transparent;
   color: var(--color-text-muted);
   font: inherit;
-  font-size: var(--font-size-xs);
+  font-size: var(--type-interface-label-size);
+  font-weight: var(--type-interface-label-weight);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -593,8 +595,9 @@
   border: none;
   color: var(--color-text-secondary);
   font: inherit;
-  font-size: var(--insp-value-size, var(--font-size-xs));
-  font-weight: var(--font-weight-bold, 700);
+  font-size: var(--type-interface-subheading-size);
+  font-weight: var(--type-interface-subheading-weight);
+  line-height: var(--type-interface-subheading-line-height);
   letter-spacing: var(--tracking-micro);
   cursor: pointer;
   transition: color var(--duration-quick) var(--ease-standard);
@@ -6516,23 +6519,10 @@ fieldset.insp-canvas-props,
   white-space: nowrap;
 }
 
+/* Geometry, colour, and focus come from the canonical `.varve-close--sm`
+ * contract; this hook only pins flex behaviour inside the header. */
 .insp-focused-editor__close {
   flex: 0 0 auto;
-  min-height: var(--insp-row-height);
-  padding-inline: var(--space-2);
-  color: var(--color-text-secondary);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-control-compact);
-  font: inherit;
-  font-size: var(--font-size-xs);
-  cursor: pointer;
-}
-
-.insp-focused-editor__close:hover {
-  color: var(--color-text-primary);
-  background: var(--color-surface-hover);
-  border-color: var(--color-border-subtle);
 }
 
 .insp-focused-editor__close:focus-visible {
@@ -6638,6 +6628,15 @@ fieldset.insp-canvas-props,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Icon-only field groups keep a compact minimum so a four- or six-icon picker
+ * stays on one row (or a balanced wrap) instead of inheriting the 6rem text
+ * minimum and stacking one option per row. */
+.editor-inspector
+  .insp-field__control
+  > .varve-segmented:has(> .varve-segmented__btn > .varve-segmented__label.varve-visually-hidden) {
+  grid-template-columns: repeat(auto-fit, minmax(min(2.5rem, 100%), 1fr));
 }
 
 .editor-inspector .insp-field__control > div:has(> .insp-per-side),
@@ -7196,33 +7195,39 @@ fieldset.insp-canvas-props,
   margin-top: var(--space-2);
 }
 
-/* ── Inspector type scale ─────────────────────────────────────────────
- * Role-based dense-panel sizes. The panel's type ramp is two fixed rem steps
- * (12px labels, 13px values/titles) — deliberately below the app ramp's
- * --type-interface-* steps for pro-tool density, and deliberately NOT
- * viewport-coupled: the Inspector rail is user-resizable and independent of
- * window width, so shrinking the window must not shrink panel text (the
- * pre-2026-09-19 clamp did exactly that; measured and removed in the
- * pass-2 audit, IA-021). Root-relative values keep the 100-200% text-scale
- * axis working.
- * Evidence: docs/audits/inspector-design-tab-audit-2026-09-19-pass2.md.
+/* ── Inspector type and control scale ─────────────────────────────────
+ * The panel consumes the shared semantic roles. An earlier pass gave the
+ * Inspector its own two fixed rem steps (0.75rem labels / 0.8125rem values)
+ * to escape the viewport-coupled clamp the app ramp used at the time; that
+ * fixed the right problem at the wrong layer and left a second, orphan type
+ * scale in the repository, plus a rogue 14px icon step. The shared ramp is
+ * now stable rem (see interface-sizing-system.md), so the panel aliases
+ * resolve to the interface roles again:
+ *
+ *   label        → interface-label (13px, medium)   formerly 12px fixed
+ *   value/title  → interface-control (15px, medium)  formerly 13px fixed
+ *   icon         → --icon-size-xs (12px)             unchanged
+ *   icon-large   → --icon-size-sm (16px)             formerly the 14px orphan
+ *
+ * The rail is user-resizable and independent of window width; because the
+ * roles are rem, panel text still follows the UI font-size preference and
+ * browser text zoom without following the window.
+ * Evidence: docs/audits/inspector-spacing-density-audit-2026-09-19.md,
+ * docs/architecture/interface-sizing-system.md.
  */
 .editor-inspector {
-  --insp-label-size: 0.75rem;
-  --insp-value-size: 0.8125rem;
+  --insp-label-size: var(--type-interface-label-size);
+  --insp-value-size: var(--type-interface-control-size);
   --insp-preview-max-inline-size: 20rem;
   /* Popover geometry shared by panel menus (section manager, preset
      popovers). rem keeps the surface proportionate when the user raises
      the root font size; the previous 280px/400px literals did not. */
   --insp-popover-inline: 17.5rem;
   --insp-popover-max-block: 25rem;
-  /* Icon steps (pass-2 spec §1.2): the measured panel census was 9-15px with
-   * mass at 11-14 — pro-panel icons live below the kit's 16px step. Two
-   * steps, fixed (never em-relative: 0.95em compounding with font sizes is
-   * what produced the 11/13/15px drift, IA-003). 16 (--icon-size-sm)
-   * remains available for large affordances. */
-  --insp-icon-size: 12px;
-  --insp-icon-size-lg: 14px;
+  /* Icon steps: the shared 12/16 pair. Feature code must not invent a step
+   * between them — the 14px step this replaced existed only here. */
+  --insp-icon-size: var(--icon-size-xs);
+  --insp-icon-size-lg: var(--icon-size-sm);
   /* Inspector-local rhythm aliases. They consume the application density
    * contract without changing the document/canvas model.
    *
@@ -7240,6 +7245,10 @@ fieldset.insp-canvas-props,
   --insp-field-group-gap: var(--space-4);
   --insp-content-pad-start: var(--space-3);
   --insp-content-pad-end: var(--space-3);
+  /* One control height for the whole panel, taken from the canonical ladder
+   * (32px standard / 28px compact / 44px coarse). Field rows, section
+   * headers, and the numeric fields all take it from here so navigation and
+   * controls stay on one grid. */
   --insp-row-height: var(--density-rows-min-height);
 }
 

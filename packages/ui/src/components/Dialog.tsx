@@ -8,6 +8,7 @@ import {
   useRef,
 } from 'react';
 import { Button } from './Button';
+import { CloseButton } from './CloseButton';
 import { NestedOverlayProvider, useNestedOverlayRegistry } from './NestedOverlayContext';
 
 // A consumer opts out of the internal dismissal behavior by calling
@@ -197,27 +198,12 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
           <h2 id={titleId} className="varve-dialog__title">
             {title}
           </h2>
-          <button
-            type="button"
+          <CloseButton
+            size="lg"
+            label="Close dialog"
             className="varve-dialog__close"
-            aria-label="Close dialog"
             onClick={onClose}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-          </button>
+          />
         </div>
         <div className="varve-dialog__body">{open ? children : null}</div>
         {footer != null && <div className="varve-dialog__footer">{footer}</div>}

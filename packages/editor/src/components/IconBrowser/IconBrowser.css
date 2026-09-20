@@ -19,10 +19,10 @@
 .varve-dialog:has(.icon-browser) .varve-dialog__title {
   color: var(--color-text-primary);
 }
-.varve-dialog:has(.icon-browser) .varve-dialog__close {
+.varve-dialog:has(.icon-browser) .varve-close {
   color: var(--color-text-muted);
 }
-.varve-dialog:has(.icon-browser) .varve-dialog__close:hover {
+.varve-dialog:has(.icon-browser) .varve-close:hover {
   color: var(--color-text-primary);
   background: var(--color-surface-hover);
 }

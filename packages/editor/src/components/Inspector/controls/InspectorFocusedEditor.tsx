@@ -3,7 +3,7 @@
  * details such as effect parameters. The owning row stays in the inspector;
  * the editor is portaled beside it so the rail remains scannable.
  */
-import { FloatingPortal, FocusTrap } from '@varve/ui';
+import { CloseButton, FloatingPortal, FocusTrap } from '@varve/ui';
 import type { ReactNode, RefObject } from 'react';
 
 /**
@@ -79,9 +79,12 @@ export function InspectorFocusedEditor({
                 {badge}
               </span>
             )}
-            <button type="button" className="insp-focused-editor__close" onClick={onClose}>
-              Close
-            </button>
+            <CloseButton
+              size="sm"
+              label={`Close ${title}`}
+              className="insp-focused-editor__close"
+              onClick={onClose}
+            />
           </header>
           <div className="insp-focused-editor__body">{children}</div>
         </section>
