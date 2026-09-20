@@ -77,6 +77,7 @@
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .layers-panel__header-actions {
@@ -902,6 +903,7 @@
   margin: 0 0 var(--space-1);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
+  text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
 }
 
@@ -1479,6 +1481,7 @@
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 

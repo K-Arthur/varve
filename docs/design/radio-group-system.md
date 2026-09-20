@@ -96,6 +96,9 @@ ownership:
 - A group of `aria-pressed` toggle buttons uses `role="group"`, never
   `role="radiogroup"`.
 - Icon-only options keep an accessible name and a tooltip.
+- A focused radiogroup owns its keys: `[role="radiogroup"]` is part of the
+  widget-ownership selector, so global single-key shortcuts and modal captures
+  (such as the crop-mode arrow handler) never steal arrows from the group.
 
 Documented members of this family: `CropOverlay` (aspect/guides, shared local
 helper), `ToolOptionsPopover` `SegmentedRadioGroup`, `WorkspaceTabs`,

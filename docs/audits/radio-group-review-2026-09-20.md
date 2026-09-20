@@ -28,6 +28,8 @@ the remaining role/keyboard/label defects.
 | RG-19 | Native-radio dialog groups (archive, batch rename/remove, conflict resolver, restore browser, auto arrange, thumbnail pickers, code panel, intelligence, settings, color conversion, content-aware fill, output resolution, crash dialogs, privacy diagnostics, text discovery, histogram, palette) | Native `<input type="radio">` with group labels; browser provides arrow navigation | Correct semantics for form-like choices | KEEP (documented) |
 | RG-20 | `ToolOptionsPopover`, `WorkspaceTabs`, `BrushBrowser`, `ColorSpaceSelector`, `ColorFields`, website `ThemeToggle` | Purpose-built chrome; APG model already present or completed by the 2026-09-19 pass | Distinct contexts with their own visuals | KEEP, contract pinned in `docs/design/radio-group-system.md` |
 | RG-21 | `TextDiscoveryPanel`, `IntelligencePanel` | Native radios in named groups; Intelligence adds a redundant roving handler but keeps the native name group | Acceptable; native keyboard model present | KEEP (no change) |
+| RG-22 | Modal crop key capture | `inputPipeline`'s window-capture `handleModalCropKey` consumed Arrow keys for `CropTool` before any widget saw them, so the crop toolbar's radiogroups could not be operated by keyboard (`stopPropagation` at window) | P1 keyboard defect found by the new E2E spec | FIX: `[role="radiogroup"]` added to the shortcut-ignore selector, alongside combobox/slider/listbox |
+| RG-23 | Inspector icon groups stacked | After the 6rem text minimum landed, icon-only groups (Layout align/justify) inherited it and rendered one option per row | P2 density regression | FIX: icon-only groups use a 2.5rem minimum and stay on a row |
 
 ## What changed
 
@@ -45,10 +47,16 @@ the remaining role/keyboard/label defects.
 8. `LayoutSection.tsx` — icon pickers with full names; unit + E2E selectors
    updated.
 9. `tests/unit/radio-group-system.test.ts` — geometry/ownership guard.
-10. `docs/design/radio-group-system.md` — canonical contract and registry;
+10. `packages/editor/src/shortcuts/ShortcutManager.ts` — radiogroups added to
+    the widget-ownership selector so global/modal key captures (including the
+    modal crop handler) stop stealing Arrow keys from them.
+11. `docs/design/radio-group-system.md` — canonical contract and registry;
     `corner-radius-system.md` clarifies connected vs inset groups;
     `component-status.md` links the contract; website settings docs describe
     the limits.
+12. `tests/e2e/inspector/radio-group-visual.spec.ts` — permanent rendered
+    geometry + keyboard contract coverage, evidence screenshots under
+    `docs/screenshots/2026-09-20-radio-group-review/`.
 
 ## Rendered evidence
 
@@ -57,10 +65,13 @@ Measured in Chromium (Playwright, lease-wrapped, isolated port):
 - Before: track `8px` / segment `0px`; pill track `8px` / thumb `9999px`;
   construction-plane group 2×2 with 82.5px columns at the default rail.
 - After: track `8px` / segment `6.448px`; pill track and thumb `9999px`;
-  construction-plane 2×2 at 141px columns on the default rail, 2×2 at
-  93–75px on 360–300px rails, one full-width column at 240px, no clipping.
-- Screenshots: `reports/radio-group-review/` (construction plane at rails
-  513/360/300/240, 900px viewport, home pill normal + narrow).
+  construction-plane 2×2 at 141px columns on a 513px rail, 2×2 at 93–75px on
+  360–300px rails, one full-width column at 240px, no clipping; Layout
+  align/justify icon pickers on one row (4) and a balanced 4+2 wrap (6).
+- Screenshots: `docs/screenshots/2026-09-20-radio-group-review/`
+  (construction plane dark/light/narrow, view-mode pill, layout icon
+  pickers, crop toolbar, forced colors). Raw diagnostic captures remain in
+  the gitignored `reports/radio-group-review/`.
 
 ## Research basis
 
@@ -76,12 +87,16 @@ Measured in Chromium (Playwright, lease-wrapped, isolated port):
 
 ## Validation
 
-- `tests/unit/radio-group-system.test.ts` 5/5; `SegmentedControl.test.tsx`
-  10/10; `LayoutSection.test.tsx` + `ImportPreview.test.tsx` 12/12.
+- `tests/unit/radio-group-system.test.ts` 6/6; `SegmentedControl.test.tsx`
+  10/10; `LayoutSection.test.tsx` + `ImportPreview.test.tsx` 12/12;
+  `ShortcutManager.test.ts` 28/28.
 - `pnpm --filter @varve/editor typecheck` — no errors in changed files
   (pre-existing failures elsewhere in the shared worktree); `typecheck:e2e`
   clean after the committed `callout.ts` fallback fix.
-- Playwright (lease, `VARVE_E2E_PORT=4213`): segmented geometry diagnostic
-  passed; visual runs recorded below.
+- Playwright (lease, `VARVE_E2E_PORT=4213`):
+  `tests/e2e/inspector/radio-group-visual.spec.ts` 5/5 — segment radii and
+  wrap, pill concentricity, icon pickers + arrow keys, radiogroup ownership
+  across the app, crop radiogroup arrows, forced-colors contrast. The crop
+  case initially failed and exposed RG-22; it passes after the fix.
 - `pnpm audit:docs`, `pnpm audit:emoji`, `pnpm audit:tokens` — see session
   validation report.

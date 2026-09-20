@@ -865,7 +865,7 @@ export function shortcutFromEvent(e: KeyboardEvent): {
  * `<input>`) are already caught by the tag/isContentEditable checks below.
  */
 const SHORTCUT_IGNORE_SELECTOR =
-  '[role="combobox"],[role="listbox"],[role="spinbutton"],[role="textbox"],[role="slider"],dialog[open],[role="dialog"][aria-modal="true"],[role="alertdialog"][aria-modal="true"]';
+  '[role="combobox"],[role="listbox"],[role="spinbutton"],[role="textbox"],[role="slider"],[role="radiogroup"],dialog[open],[role="dialog"][aria-modal="true"],[role="alertdialog"][aria-modal="true"]';
 
 /**
  * Returns true if a keydown event on `target` should be handled by the widget
@@ -874,7 +874,8 @@ const SHORTCUT_IGNORE_SELECTOR =
  * The function walks up the DOM tree checking, in order:
  * 1. Native form controls (input, textarea, select)
  * 2. ContentEditable elements
- * 3. ARIA roles that consume keyboard input (combobox, textbox, spinbutton, slider)
+ * 3. ARIA roles that consume keyboard input (combobox, textbox, spinbutton,
+ *    slider, radiogroup)
  * 4. Open modal dialogs
  * 5. Elements opted out via `data-shortcut-ignore`
  * 6. During IME composition

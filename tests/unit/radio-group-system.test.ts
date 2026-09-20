@@ -100,4 +100,13 @@ describe('radio-group geometry guard', () => {
     expect(labelRule?.[0]).toContain('text-overflow: ellipsis');
     expect(labelRule?.[0]).toContain('min-inline-size: 0');
   });
+
+  it('keeps icon-only field groups compact instead of stacking one per row', () => {
+    const inspectorCss = read(INSPECTOR);
+    const iconRule = inspectorCss.match(
+      /\.varve-segmented:has\([^)]*varve-visually-hidden[^)]*\)\s*\{[^}]*\}/s,
+    );
+    expect(iconRule).not.toBeNull();
+    expect(iconRule?.[0]).toContain('minmax(min(2.5rem, 100%), 1fr)');
+  });
 });

@@ -31,8 +31,8 @@ describe('shouldIgnoreShortcutTarget', () => {
     expect(shouldIgnoreShortcutTarget(input)).toBe(true);
   });
 
-  it('ignores comboboxes, spinbuttons, textboxes, sliders, and listboxes', () => {
-    for (const role of ['combobox', 'spinbutton', 'textbox', 'slider', 'listbox']) {
+  it('ignores comboboxes, spinbuttons, textboxes, sliders, listboxes, and radiogroups', () => {
+    for (const role of ['combobox', 'spinbutton', 'textbox', 'slider', 'listbox', 'radiogroup']) {
       document.body.innerHTML = `<div role="${role}"><span id="inner">x</span></div>`;
       const inner = document.getElementById('inner');
       expect(shouldIgnoreShortcutTarget(inner), `role="${role}"`).toBe(true);
