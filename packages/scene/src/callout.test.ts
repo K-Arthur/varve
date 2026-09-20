@@ -6,9 +6,13 @@ import {
   createDocument,
   detachCalloutRecipe,
   fitCalloutToText,
+  flipCalloutTail,
   getCalloutFitReport,
   getParent,
   makeTextNode,
+  removeCalloutTail,
+  setCalloutTailBaseWidth,
+  setCalloutTailCurve,
   setCalloutWrapShape,
   updateCalloutKind,
   updateCalloutPadding,
@@ -166,11 +170,8 @@ describe('comic callouts', () => {
       h: 140,
       text: 'Stay close.',
     });
-    expect(
-      speech.document.nodes[speech.textId]?.kind === 'text'
-        ? speech.document.nodes[speech.textId]?.textWrapShape
-        : undefined,
-    ).toBe('ellipse');
+    const speechText = speech.document.nodes[speech.textId];
+    expect(speechText?.kind === 'text' ? speechText.textWrapShape : undefined).toBe('ellipse');
 
     const caption = createCallout(createDocument('contour-caption', true), {
       x: 0,
@@ -180,11 +181,8 @@ describe('comic callouts', () => {
       kind: 'caption',
       text: 'Three days earlier.',
     });
-    expect(
-      caption.document.nodes[caption.textId]?.kind === 'text'
-        ? caption.document.nodes[caption.textId]?.textWrapShape
-        : undefined,
-    ).toBe('rect');
+    const captionText = caption.document.nodes[caption.textId];
+    expect(captionText?.kind === 'text' ? captionText.textWrapShape : undefined).toBe('rect');
   });
 
   it('applies the contour to existing text when it is wrapped into a balloon', () => {
@@ -230,13 +228,165 @@ describe('comic callouts', () => {
     const doc = fitCalloutToText(created.document, created.groupId);
     const body = doc.nodes[created.bodyId];
     const textAfter = doc.nodes[created.textId];
-    expect(body?.kind === 'shape' ? body.shape.w : Number.POSITIVE_INFINITY).toBeLessThan(420);
-    expect(body?.kind === 'shape' ? body.shape.h : Number.POSITIVE_INFINITY).toBeLessThan(320);
+    expect(
+      body?.kind === 'shape' && body.shape.kind === 'rect'
+        ? body.shape.w
+        : Number.POSITIVE_INFINITY,
+    ).toBeLessThan(420);
+    expect(
+      body?.kind === 'shape' && body.shape.kind === 'rect'
+        ? body.shape.h
+        : Number.POSITIVE_INFINITY,
+    ).toBeLessThan(320);
     expect(textAfter?.kind === 'text' ? textAfter.text : undefined).toBe(
       textBefore?.kind === 'text' ? textBefore.text : undefined,
     );
     const tail = doc.nodes[created.tailNodeIds[0]!];
     expect(tail?.kind === 'path' ? tail.points.at(-1) : null).toMatchObject({ x: 30, y: 400 });
     expect(getCalloutFitReport(doc, created.groupId)?.status).not.toBe('overflow');
+  });
+
+  it('builds a thought-balloon tail as a chain of decreasing circles at the target', () => {
+    const created = createCallout(createDocument('thought-chain', true), {
+      x: 0,
+      y: 0,
+      w: 160,
+      h: 100,
+      kind: 'thought',
+      text: 'Hmm.',
+      tailEndpoint: { x: 40, y: 180 },
+    });
+    expect(created.tailNodeIds).toHaveLength(3);
+    const radii = created.tailNodeIds.map((id) => {
+      const node = created.document.nodes[id];
+      return node?.kind === 'shape' && node.shape.kind === 'circle' ? node.shape.r : 0;
+    });
+    for (let index = 1; index < radii.length; index++) {
+      expect(radii[index]!).toBeLessThan(radii[index - 1]!);
+      expect(radii[index]!).toBeGreaterThan(0);
+    }
+    const last = created.document.nodes[created.tailNodeIds.at(-1)!];
+    expect(
+      last?.kind === 'shape' && last.shape.kind === 'circle'
+        ? { x: last.shape.cx, y: last.shape.cy }
+        : null,
+    ).toMatchObject({ x: 40, y: 180 });
+  });
+
+  it('bends a pointed tail without moving the tip, and straightens it again', () => {
+    const created = createCallout(createDocument('tail-curve', true), {
+      x: 0,
+      y: 0,
+      w: 160,
+      h: 100,
+      text: 'Over here!',
+      tailEndpoint: { x: 20, y: 200 },
+      tailCurve: 0.5,
+    });
+    const tailId = created.tailNodeIds[0]!;
+    const tail = created.document.nodes[tailId];
+    if (tail?.kind !== 'path') throw new Error('expected a path tail');
+    expect(tail.points.at(-1)).toMatchObject({ x: 20, y: 200 });
+    expect(tail.points[0]!.handleIn).not.toBeNull();
+    expect(tail.points[1]!.handleOut).not.toBeNull();
+
+    const straight = setCalloutTailCurve(created.document, created.groupId, tailId, 0);
+    const straightTail = straight.nodes[tailId];
+    expect(straightTail?.kind === 'path' ? straightTail.points[0]!.handleIn : 'missing').toBeNull();
+
+    const wider = setCalloutTailBaseWidth(straight, created.groupId, tailId, 40);
+    const widerTail = wider.nodes[tailId];
+    if (widerTail?.kind !== 'path') throw new Error('expected a path tail');
+    const baseLeft = widerTail.points[0]!;
+    const baseRight = widerTail.points[1]!;
+    expect(Math.abs(baseRight.x - baseLeft.x)).toBeCloseTo(40, 5);
+  });
+
+  it('flips, removes, and re-adds tails without touching the body or text', () => {
+    const created = createCallout(createDocument('tail-ops', true), {
+      x: 0,
+      y: 0,
+      w: 160,
+      h: 100,
+      text: 'Look out!',
+      tailEndpoint: { x: 20, y: 200 },
+    });
+    const tailId = created.tailNodeIds[0]!;
+    const bodyBefore = created.document.nodes[created.bodyId];
+    const textBefore = created.document.nodes[created.textId];
+
+    const flipped = flipCalloutTail(created.document, created.groupId, tailId);
+    const flippedTail = flipped.nodes[tailId];
+    expect(flippedTail?.kind === 'path' ? flippedTail.points.at(-1) : null).toMatchObject({
+      x: 140,
+      y: 200,
+    });
+    expect(flipped.nodes[created.bodyId]).toBe(bodyBefore);
+    expect(flipped.nodes[created.textId]).toBe(textBefore);
+
+    const removed = removeCalloutTail(flipped, created.groupId, tailId);
+    expect(removed.nodes[tailId]).toBeUndefined();
+    expect((removed.nodes[created.groupId] as GroupNode).callout?.tailNodeIds).toEqual([]);
+    expect(removed.nodes[created.bodyId]).toBe(bodyBefore);
+
+    const reAdded = addCalloutTail(removed, created.groupId, { x: 10, y: 190 });
+    const reGroup = reAdded.nodes[created.groupId] as GroupNode;
+    expect(reGroup.callout?.tailNodeIds).toHaveLength(1);
+    expect(reGroup.children).toHaveLength(3);
+  });
+
+  it('rebuilds tails between pointed and thought styles while preserving the target', () => {
+    const created = createCallout(createDocument('tail-style', true), {
+      x: 0,
+      y: 0,
+      w: 170,
+      h: 110,
+      text: 'Hmm, really?',
+      tailEndpoint: { x: 30, y: 210 },
+    });
+    const thought = updateCalloutKind(created.document, created.groupId, 'thought');
+    const thoughtGroup = thought.nodes[created.groupId] as GroupNode;
+    expect(thoughtGroup.callout?.tails?.[0]?.style).toBe('thought');
+    expect(thoughtGroup.callout?.tailNodeIds).toHaveLength(3);
+    expect(thought.nodes[created.bodyId]?.kind).toBe('shape');
+    expect(thought.nodes[created.textId]?.kind).toBe('text');
+
+    const pointed = updateCalloutKind(thought, created.groupId, 'shout');
+    const pointedGroup = pointed.nodes[created.groupId] as GroupNode;
+    expect(pointedGroup.callout?.tails?.[0]?.style).toBe('pointed');
+    expect(pointedGroup.callout?.tailNodeIds).toHaveLength(1);
+    const tipId = pointedGroup.callout!.tailNodeIds[0]!;
+    const tip = pointed.nodes[tipId];
+    expect(tip?.kind === 'path' ? tip.points.at(-1) : null).toMatchObject({ x: 30, y: 210 });
+  });
+
+  it('keeps a thought chain attached when the balloon is fitted', () => {
+    const created = createCallout(createDocument('thought-fit', true), {
+      x: 0,
+      y: 0,
+      w: 120,
+      h: 80,
+      kind: 'thought',
+      text: 'The east stairs, then.',
+      tailEndpoint: { x: 30, y: 190 },
+    });
+    const doc = fitCalloutToText(created.document, created.groupId);
+    const lastId = created.tailNodeIds.at(-1)!;
+    const last = doc.nodes[lastId];
+    expect(
+      last?.kind === 'shape' && last.shape.kind === 'circle'
+        ? { x: last.shape.cx, y: last.shape.cy }
+        : null,
+    ).toMatchObject({ x: 30, y: 190 });
+    const first = doc.nodes[created.tailNodeIds[0]!];
+    const body = doc.nodes[created.bodyId];
+    if (
+      first?.kind === 'shape' &&
+      first.shape.kind === 'circle' &&
+      body?.kind === 'shape' &&
+      body.shape.kind === 'rect'
+    ) {
+      expect(first.shape.cy).toBeGreaterThan(body.shape.h - 1);
+    }
   });
 });

@@ -2,10 +2,15 @@
 import type { CalloutFitPolicy, CalloutKind, GroupNode, TextWrapShape } from '@varve/scene';
 import {
   addCalloutTail,
+  calloutTails,
   detachCalloutRecipe,
   fitCalloutToText,
+  flipCalloutTail,
   getCalloutFitReport,
+  removeCalloutTail,
   setCalloutFitPolicy,
+  setCalloutTailBaseWidth,
+  setCalloutTailCurve,
   setCalloutWrapShape,
   updateCalloutKind,
   updateCalloutPadding,
@@ -66,11 +71,26 @@ export function CalloutSection({ node, sectionId }: { node: GroupNode; sectionId
   const editor = useEditor();
   const callout = node.callout;
   const fitReport = callout ? getCalloutFitReport(editor.state.document, node.id) : null;
-  const firstTail = callout ? editor.state.document.nodes[callout.tailNodeIds[0]!] : undefined;
+  const tails = callout
+    ? calloutTails(node as GroupNode & { callout: NonNullable<GroupNode['callout']> })
+    : [];
+  const firstTail = tails[0];
+  const firstTailNodeId = firstTail?.nodeIds[0];
+  const firstTailNode = firstTailNodeId ? editor.state.document.nodes[firstTailNodeId] : undefined;
   const endpoint =
-    firstTail?.kind === 'path' && firstTail.points.length > 0
-      ? firstTail.points[firstTail.points.length - 1]
-      : undefined;
+    firstTail?.style === 'thought'
+      ? (() => {
+          const lastId = firstTail.nodeIds[firstTail.nodeIds.length - 1];
+          const last = lastId ? editor.state.document.nodes[lastId] : undefined;
+          return last?.kind === 'shape' && last.shape.kind === 'circle'
+            ? { x: last.shape.cx, y: last.shape.cy }
+            : undefined;
+        })()
+      : firstTailNode?.kind === 'path' && firstTailNode.points.length > 0
+        ? firstTailNode.points[firstTailNode.points.length - 1]
+        : undefined;
+  const firstTailCurve = firstTail?.curve ?? 0;
+  const firstTailBaseWidth = firstTail?.baseWidth;
 
   const mutate = useCallback(
     (
@@ -151,7 +171,7 @@ export function CalloutSection({ node, sectionId }: { node: GroupNode; sectionId
               : `Dialogue exceeds the usable area by ${Math.ceil(Math.max(fitReport.excessWidth, fitReport.excessHeight))} px.`}
         </p>
       )}
-      {endpoint && callout.tailNodeIds[0] && (
+      {endpoint && firstTailNodeId && (
         <div className="insp-field-group">
           <FieldRow label="Tail endpoint">
             <div className="insp-field-group insp-field-group--row">
@@ -161,7 +181,7 @@ export function CalloutSection({ node, sectionId }: { node: GroupNode; sectionId
                 value={endpoint.x}
                 onChange={(value) =>
                   mutate('Move balloon tail', (document) =>
-                    updateCalloutTailEndpoint(document, node.id, callout.tailNodeIds[0]!, {
+                    updateCalloutTailEndpoint(document, node.id, firstTailNodeId, {
                       x: value,
                       y: endpoint.y,
                     }),
@@ -174,7 +194,7 @@ export function CalloutSection({ node, sectionId }: { node: GroupNode; sectionId
                 value={endpoint.y}
                 onChange={(value) =>
                   mutate('Move balloon tail', (document) =>
-                    updateCalloutTailEndpoint(document, node.id, callout.tailNodeIds[0]!, {
+                    updateCalloutTailEndpoint(document, node.id, firstTailNodeId, {
                       x: endpoint.x,
                       y: value,
                     }),
@@ -183,6 +203,39 @@ export function CalloutSection({ node, sectionId }: { node: GroupNode; sectionId
               />
             </div>
           </FieldRow>
+          {firstTail?.style === 'thought' ? (
+            <p className="insp-hint">
+              Thought tails draw as a chain of {firstTail.nodeIds.length} circles aimed at the
+              character's head.
+            </p>
+          ) : (
+            <>
+              <NumberField
+                label="Tail curve"
+                value={firstTailCurve}
+                min={-1}
+                max={1}
+                step={0.05}
+                onChange={(value) =>
+                  mutate('Bend balloon tail', (document) =>
+                    setCalloutTailCurve(document, node.id, firstTailNodeId, value),
+                  )
+                }
+              />
+              <NumberField
+                label="Tail base width"
+                unit="px"
+                value={firstTailBaseWidth ?? 0}
+                min={2}
+                step={1}
+                onChange={(value) =>
+                  mutate('Widen balloon tail', (document) =>
+                    setCalloutTailBaseWidth(document, node.id, firstTailNodeId, value),
+                  )
+                }
+              />
+            </>
+          )}
         </div>
       )}
       <div className="insp-field-group">
@@ -214,9 +267,35 @@ export function CalloutSection({ node, sectionId }: { node: GroupNode; sectionId
         >
           Add tail
         </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() =>
+            firstTailNodeId &&
+            mutate('Flip balloon tail', (document) =>
+              flipCalloutTail(document, node.id, firstTailNodeId),
+            )
+          }
+          disabled={!firstTailNodeId || firstTail?.style === 'thought'}
+        >
+          Flip tail
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() =>
+            firstTailNodeId &&
+            mutate('Remove balloon tail', (document) =>
+              removeCalloutTail(document, node.id, firstTailNodeId),
+            )
+          }
+          disabled={!firstTailNodeId}
+        >
+          Remove tail
+        </Button>
       </div>
       <p className="insp-hint">
-        {callout.tailNodeIds.length} tail{callout.tailNodeIds.length === 1 ? '' : 's'} ·{' '}
+        {tails.length} tail{tails.length === 1 ? '' : 's'} ·{' '}
         {callout.parametric ? 'parametric recipe active' : 'geometry detached'}
       </p>
     </DisclosureSection>

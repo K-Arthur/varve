@@ -19,6 +19,8 @@ import { textGeometryInput } from './textBounds';
 import type {
   CalloutFitPolicy,
   CalloutRecipe,
+  CalloutTail,
+  CalloutTailStyle,
   GroupNode,
   NodeId,
   SceneNode,
@@ -59,6 +61,10 @@ export interface CreateCalloutOptions {
   text?: string;
   padding?: number;
   tailEndpoint?: { x: number; y: number };
+  /** Base width of the pointed tail in px; derived from the body when omitted. */
+  tailBaseWidth?: number;
+  /** Signed bend as a fraction of the tail length (-1..1). */
+  tailCurve?: number;
   parentId?: NodeId | null;
 }
 
@@ -112,10 +118,99 @@ function point(x: number, y: number): PathPoint {
   return { x, y, handleIn: null, handleOut: null };
 }
 
-function tailPoints(w: number, h: number, endpoint: { x: number; y: number }): PathPoint[] {
-  const base = Math.max(12, Math.min(32, w * 0.16));
+function tailBaseWidth(w: number, override?: number): number {
+  if (override !== undefined && Number.isFinite(override)) return Math.max(2, override);
+  return Math.max(12, Math.min(32, w * 0.16));
+}
+
+/**
+ * Control point for a bent tail: perpendicular to the base→endpoint axis at
+ * its midpoint. `curve` is a fraction of the tail length so the bend survives
+ * balloon resizing.
+ */
+function tailControlPoint(
+  baseCenter: { x: number; y: number },
+  endpoint: { x: number; y: number },
+  curve: number,
+): { x: number; y: number } {
+  const dx = endpoint.x - baseCenter.x;
+  const dy = endpoint.y - baseCenter.y;
+  const length = Math.hypot(dx, dy) || 1;
+  // Perpendicular (left normal) scaled by the signed bend amount.
+  const bend = curve * length;
+  return {
+    x: (baseCenter.x + endpoint.x) / 2 + (-dy / length) * bend,
+    y: (baseCenter.y + endpoint.y) / 2 + (dx / length) * bend,
+  };
+}
+
+function pointedTailPoints(
+  w: number,
+  h: number,
+  endpoint: { x: number; y: number },
+  options?: { baseWidth?: number; curve?: number },
+): PathPoint[] {
+  const base = tailBaseWidth(w, options?.baseWidth);
   const cx = w / 2;
-  return [point(cx - base / 2, h - 1), point(cx + base / 2, h - 1), point(endpoint.x, endpoint.y)];
+  const baseY = Math.min(h, h - 1);
+  const left = point(cx - base / 2, baseY);
+  const right = point(cx + base / 2, baseY);
+  const tip = point(endpoint.x, endpoint.y);
+  const curve = Math.max(-1, Math.min(1, options?.curve ?? 0));
+  if (curve !== 0) {
+    const control = tailControlPoint({ x: cx, y: baseY }, endpoint, curve);
+    // Both tail sides bow toward the shared control point, so the outline
+    // bends as one stroke instead of kinking at the tip.
+    const k = 0.65;
+    right.handleOut = [(control.x - right.x) * k, (control.y - right.y) * k];
+    tip.handleIn = [(control.x - tip.x) * k, (control.y - tip.y) * k];
+    tip.handleOut = [(control.x - tip.x) * k, (control.y - tip.y) * k];
+    left.handleIn = [(control.x - left.x) * k, (control.y - left.y) * k];
+  }
+  return [left, right, tip];
+}
+
+/**
+ * A thought tail is a chain of decreasing circles from the balloon edge to
+ * the target, matching the convention that it points at a character's head
+ * rather than a mouth. The last circle's center is the authored endpoint.
+ */
+function thoughtBubbleGeometry(
+  w: number,
+  h: number,
+  endpoint: { x: number; y: number },
+  bubbleCount = 3,
+): Array<{ cx: number; cy: number; r: number }> {
+  const count = Math.max(2, Math.min(6, Math.round(bubbleCount)));
+  const anchor = { x: w / 2, y: Math.min(h, h - 1) };
+  const maxRadius = Math.max(4, Math.min(18, w * 0.06));
+  const bubbles: Array<{ cx: number; cy: number; r: number }> = [];
+  for (let index = 0; index < count; index++) {
+    const t = count === 1 ? 1 : (index + 1) / count;
+    const radius = maxRadius * (1 - (index / (count - 1)) * 0.55);
+    bubbles.push({
+      cx: anchor.x + (endpoint.x - anchor.x) * t,
+      cy: anchor.y + (endpoint.y - anchor.y) * t,
+      r: Math.max(1.5, radius),
+    });
+  }
+  return bubbles;
+}
+
+function bubbleNode(
+  id: NodeId,
+  bubble: { cx: number; cy: number; r: number },
+  kind: CalloutKind,
+): SceneNode {
+  return makeShapeNode(
+    id,
+    { kind: 'circle', cx: bubble.cx, cy: bubble.cy, r: bubble.r },
+    {
+      name: 'Thought bubble',
+      fill: WHITE,
+      strokes: [bubbleStroke(kind)],
+    },
+  );
 }
 
 function bodyNode(id: NodeId, w: number, h: number, kind: CalloutKind): ShapeNode {
@@ -131,21 +226,11 @@ function bodyNode(id: NodeId, w: number, h: number, kind: CalloutKind): ShapeNod
   );
 }
 
-function tailNode(id: NodeId, w: number, h: number, endpoint: { x: number; y: number }): SceneNode {
-  return makePathNode(id, {
-    name: 'Balloon tail',
-    points: tailPoints(w, h, endpoint),
-    closed: true,
-    fill: WHITE,
-    strokes: [bubbleStroke('speech')],
-  });
-}
-
 function recipe(
   kind: CalloutKind,
   bodyId: NodeId,
   textId: NodeId,
-  tailNodeIds: NodeId[],
+  tails: CalloutTail[],
   padding: number,
 ): CalloutRecipe {
   return {
@@ -153,11 +238,69 @@ function recipe(
     kind,
     bodyNodeId: bodyId,
     textNodeId: textId,
-    tailNodeIds,
+    tailNodeIds: tails.flatMap((tail) => tail.nodeIds),
+    tails,
     padding,
     fitToText: false,
     fitPolicy: 'reflow',
     parametric: true,
+  };
+}
+
+function tailStyleForKind(kind: CalloutKind): CalloutTailStyle {
+  return kind === 'thought' ? 'thought' : 'pointed';
+}
+
+/**
+ * Build the nodes for one logical tail and advance the id counter. The caller
+ * owns insertion order; this only allocates ids and geometry.
+ */
+function buildTailNodes(
+  doc: Document,
+  kind: CalloutKind,
+  style: CalloutTailStyle,
+  w: number,
+  h: number,
+  endpoint: { x: number; y: number },
+  options: { curve?: number; baseWidth?: number; bubbleCount?: number } = {},
+): { doc: Document; nodes: SceneNode[]; tail: CalloutTail } {
+  let next = doc;
+  if (style === 'thought') {
+    const geometry = thoughtBubbleGeometry(w, h, endpoint, options.bubbleCount ?? 3);
+    const nodes: SceneNode[] = [];
+    for (const bubble of geometry) {
+      const idResult = nextNodeId(next);
+      next = idResult.doc;
+      nodes.push(bubbleNode(idResult.id, bubble, kind));
+    }
+    return {
+      doc: next,
+      nodes,
+      tail: {
+        nodeIds: nodes.map((node) => node.id),
+        style: 'thought',
+        bubbleCount: options.bubbleCount ?? 3,
+      },
+    };
+  }
+  const idResult = nextNodeId(next);
+  next = idResult.doc;
+  const node = makePathNode(idResult.id, {
+    name: 'Balloon tail',
+    points: pointedTailPoints(w, h, endpoint, options),
+    closed: true,
+    fill: WHITE,
+    strokes: [bubbleStroke(kind)],
+  });
+  return {
+    doc: next,
+    nodes: [node],
+    tail: {
+      nodeIds: [node.id],
+      style: 'pointed',
+      curve: options.curve,
+      baseWidth: options.baseWidth,
+    },
   };
 }
 
@@ -175,12 +318,9 @@ export function createCallout(doc: Document, options: CreateCalloutOptions): Cal
   next = bodyResult.doc;
   const textResult = nextNodeId(next);
   next = textResult.doc;
-  const tailResult = nextNodeId(next);
-  next = tailResult.doc;
   const groupId = groupResult.id;
   const bodyId = bodyResult.id;
   const textId = textResult.id;
-  const tailId = tailResult.id;
 
   const group = makeGroupNode(groupId, {
     name: `${kind[0]!.toUpperCase()}${kind.slice(1)} balloon`,
@@ -188,7 +328,11 @@ export function createCallout(doc: Document, options: CreateCalloutOptions): Cal
     children: [],
   });
   const body = bodyNode(bodyId, w, h, kind);
-  const tail = tailNode(tailId, w, h, endpoint);
+  const built = buildTailNodes(next, kind, tailStyleForKind(kind), w, h, endpoint, {
+    baseWidth: options.tailBaseWidth,
+    curve: options.tailCurve,
+  });
+  next = built.doc;
   const text = makeTextNode(textId, options.text ?? '', {
     name: 'Balloon text',
     transform: [1, 0, 0, 1, padding, padding] as Affine,
@@ -204,7 +348,7 @@ export function createCallout(doc: Document, options: CreateCalloutOptions): Cal
 
   next = options.parentId ? addChild(next, options.parentId, group) : addNode(next, group);
   next = addChild(next, groupId, body);
-  next = addChild(next, groupId, tail);
+  for (const tail of built.nodes) next = addChild(next, groupId, tail);
   next = addChild(next, groupId, text);
   const insertedGroup = next.nodes[groupId] as GroupNode;
   next = {
@@ -213,11 +357,11 @@ export function createCallout(doc: Document, options: CreateCalloutOptions): Cal
       ...next.nodes,
       [groupId]: {
         ...insertedGroup,
-        callout: recipe(kind, bodyId, textId, [tailId], padding),
+        callout: recipe(kind, bodyId, textId, [built.tail], padding),
       },
     },
   };
-  return { document: next, groupId, bodyId, textId, tailNodeIds: [tailId] };
+  return { document: next, groupId, bodyId, textId, tailNodeIds: built.tail.nodeIds };
 }
 
 /** Wrap an existing text node without duplicating its editable source text. */
@@ -362,20 +506,81 @@ export function getCalloutFitReport(doc: Document, groupId: NodeId): CalloutFitR
   };
 }
 
-function updateTailBases(
+/** Logical tails of a recipe; recipes predating `tails` read as pointed tails. */
+export function calloutTails(group: GroupNode & { callout: CalloutRecipe }): CalloutTail[] {
+  const stored = group.callout.tails;
+  if (stored && stored.length > 0) return stored;
+  return group.callout.tailNodeIds.map((nodeId) => ({ nodeIds: [nodeId], style: 'pointed' }));
+}
+
+function replaceTails(
+  doc: Document,
+  group: GroupNode & { callout: CalloutRecipe },
+  tails: CalloutTail[],
+): Document {
+  return {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [group.id]: {
+        ...group,
+        callout: {
+          ...group.callout,
+          tails,
+          tailNodeIds: tails.flatMap((tail) => tail.nodeIds),
+        },
+      },
+    },
+  };
+}
+
+/** Remove a logical tail's nodes from the group children and the node map. */
+function removeTailNodes(
+  doc: Document,
+  groupId: NodeId,
+  tail: CalloutTail,
+): { nodes: Record<NodeId, SceneNode>; children: NodeId[] } {
+  const nodes = { ...doc.nodes };
+  for (const nodeId of tail.nodeIds) delete nodes[nodeId];
+  const group = doc.nodes[groupId];
+  const children =
+    group?.kind === 'group' ? group.children.filter((id) => !tail.nodeIds.includes(id)) : [];
+  return { nodes, children };
+}
+
+/** Geometry refresh for every tail after the body changed size. */
+function updateTailGeometry(
   nodes: Record<NodeId, SceneNode>,
-  tailIds: readonly NodeId[],
+  tails: readonly CalloutTail[],
   width: number,
   height: number,
 ): Record<NodeId, SceneNode> {
   const next = { ...nodes };
-  for (const tailId of tailIds) {
-    const tail = next[tailId];
-    if (tail?.kind !== 'path' || tail.points.length < 3) continue;
-    const endpoint = tail.points[tail.points.length - 1]!;
-    next[tailId] = {
-      ...tail,
-      points: tailPoints(width, height, { x: endpoint.x, y: endpoint.y }),
+  for (const tail of tails) {
+    if (tail.style === 'thought') {
+      const last = tail.nodeIds[tail.nodeIds.length - 1];
+      const lastNode = last ? next[last] : undefined;
+      const endpoint =
+        lastNode?.kind === 'shape' && lastNode.shape.kind === 'circle'
+          ? { x: lastNode.shape.cx, y: lastNode.shape.cy }
+          : { x: width / 2, y: height + 24 };
+      const geometry = thoughtBubbleGeometry(width, height, endpoint, tail.bubbleCount ?? 3);
+      tail.nodeIds.forEach((nodeId, index) => {
+        const node = next[nodeId];
+        const bubble = geometry[index];
+        if (node?.kind === 'shape' && node.shape.kind === 'circle' && bubble) {
+          next[nodeId] = { ...node, shape: { ...node.shape, ...bubble } };
+        }
+      });
+      continue;
+    }
+    const nodeId = tail.nodeIds[0];
+    const tailNode = nodeId ? next[nodeId] : undefined;
+    if (tailNode?.kind !== 'path' || tailNode.points.length < 3) continue;
+    const endpoint = tailNode.points[tailNode.points.length - 1]!;
+    next[nodeId!] = {
+      ...tailNode,
+      points: pointedTailPoints(width, height, { x: endpoint.x, y: endpoint.y }, tail),
     };
   }
   return next;
@@ -403,28 +608,101 @@ function setTextContainer(
   };
 }
 
-/** Update the semantic style while retaining body/text/tail node identities. */
+/**
+ * Update the semantic style while retaining the body and text identities.
+ *
+ * Tails are rebuilt when the style changes between pointed and thought,
+ * because the two draw with different node kinds. The authored endpoint of
+ * each logical tail is preserved, and the body/text node ids never change.
+ */
 export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutKind): Document {
   const group = calloutGroup(doc, groupId);
   if (!group) return doc;
   const body = doc.nodes[group.callout.bodyNodeId];
-  if (body?.kind !== 'shape') return doc;
-  const nodes = {
+  if (body?.kind !== 'shape' || body.shape.kind !== 'rect') return doc;
+  const tails = calloutTails(group);
+  const nextStyle = tailStyleForKind(kind);
+  let nodes: Record<NodeId, SceneNode> = {
     ...doc.nodes,
-    [groupId]: { ...group, callout: { ...group.callout, kind } },
     [body.id]: {
       ...body,
       cornerRadius: calloutStyle(kind).cornerRadius,
       strokes: [bubbleStroke(kind)],
     },
   };
-  for (const tailId of group.callout.tailNodeIds) {
-    const tail = nodes[tailId];
-    if (tail?.kind === 'path' || tail?.kind === 'shape') {
-      nodes[tailId] = { ...tail, strokes: [bubbleStroke(kind)] };
+  const nextTails: CalloutTail[] = [];
+  for (const tail of tails) {
+    if (tail.style === nextStyle) {
+      // Same node kind: keep identities and restyle strokes in place.
+      for (const nodeId of tail.nodeIds) {
+        const node = nodes[nodeId];
+        if (node?.kind === 'path' || node?.kind === 'shape') {
+          nodes[nodeId] = { ...node, strokes: [bubbleStroke(kind)] };
+        }
+      }
+      nextTails.push(tail);
+      continue;
     }
+    const endpoint = tailEndpointFor(tail, nodes, body.shape);
+    for (const nodeId of tail.nodeIds) delete nodes[nodeId];
+    const rebuilt = buildTailNodes(
+      { ...doc, nodes },
+      kind,
+      nextStyle,
+      body.shape.w,
+      body.shape.h,
+      endpoint,
+      {
+        curve: tail.curve,
+        baseWidth: tail.baseWidth,
+        bubbleCount: tail.bubbleCount,
+      },
+    );
+    let builtDoc = rebuilt.doc;
+    for (const node of rebuilt.nodes) builtDoc = addChild(builtDoc, groupId, node);
+    nodes = { ...builtDoc.nodes };
+    nextTails.push(rebuilt.tail);
   }
-  return { ...doc, nodes };
+  const children = [
+    body.id,
+    ...nextTails.flatMap((tail) => tail.nodeIds),
+    group.callout.textNodeId,
+  ];
+  const withChildren = {
+    ...doc,
+    nodes: {
+      ...nodes,
+      [groupId]: { ...group, children, callout: { ...group.callout, kind } },
+    },
+  };
+  return replaceTails(
+    withChildren,
+    withChildren.nodes[groupId] as GroupNode & { callout: CalloutRecipe },
+    nextTails,
+  );
+}
+
+/** Authored endpoint of a logical tail (pointed tip or last thought bubble). */
+function tailEndpointFor(
+  tail: CalloutTail,
+  nodes: Record<NodeId, SceneNode>,
+  body: Extract<ShapeNode['shape'], { kind: 'rect' }>,
+): { x: number; y: number } {
+  if (tail.style === 'thought') {
+    const last = tail.nodeIds[tail.nodeIds.length - 1];
+    const node = last ? nodes[last] : undefined;
+    if (node?.kind === 'shape' && node.shape.kind === 'circle') {
+      return { x: node.shape.cx, y: node.shape.cy };
+    }
+    return { x: body.w / 2, y: body.h + 24 };
+  }
+  const nodeId = tail.nodeIds[0];
+  const node = nodeId ? nodes[nodeId] : undefined;
+  if (node?.kind === 'path' && node.points.length > 0) {
+    const tip = node.points[node.points.length - 1]!;
+    return { x: tip.x, y: tip.y };
+  }
+  return { x: body.w / 2, y: body.h + 24 };
 }
 
 /** Move one tail endpoint in callout-local coordinates. */
@@ -435,15 +713,37 @@ export function updateCalloutTailEndpoint(
   endpoint: { x: number; y: number },
 ): Document {
   const group = calloutGroup(doc, groupId);
-  const tail = doc.nodes[tailId];
-  if (!group?.callout.tailNodeIds.includes(tailId) || tail?.kind !== 'path') return doc;
-  if (tail.points.length === 0) return doc;
-  const points = [...tail.points];
-  points[points.length - 1] = { ...points[points.length - 1]!, x: endpoint.x, y: endpoint.y };
-  return { ...doc, nodes: { ...doc.nodes, [tailId]: { ...tail, points } } };
+  if (!group) return doc;
+  const tails = calloutTails(group);
+  const tail = tails.find((candidate) => candidate.nodeIds.includes(tailId));
+  if (!tail) return doc;
+  const body = doc.nodes[group.callout.bodyNodeId];
+  if (body?.kind !== 'shape' || body.shape.kind !== 'rect') return doc;
+  const w = body.shape.w;
+  const h = body.shape.h;
+  const nodes = { ...doc.nodes };
+  if (tail.style === 'thought') {
+    const geometry = thoughtBubbleGeometry(w, h, endpoint, tail.bubbleCount ?? 3);
+    tail.nodeIds.forEach((nodeId, index) => {
+      const node = nodes[nodeId];
+      const bubble = geometry[index];
+      if (node?.kind === 'shape' && node.shape.kind === 'circle' && bubble) {
+        nodes[nodeId] = { ...node, shape: { ...node.shape, ...bubble } };
+      }
+    });
+  } else {
+    const nodeId = tail.nodeIds[0];
+    const node = nodeId ? nodes[nodeId] : undefined;
+    if (node?.kind !== 'path' || node.points.length < 3) return doc;
+    nodes[nodeId!] = {
+      ...node,
+      points: pointedTailPoints(w, h, endpoint, tail),
+    };
+  }
+  return { ...doc, nodes };
 }
 
-/** Add a second or subsequent ordinary tail to an existing callout group. */
+/** Add a second or subsequent tail to an existing callout group. */
 export function addCalloutTail(
   doc: Document,
   groupId: NodeId,
@@ -453,27 +753,115 @@ export function addCalloutTail(
   if (!group) return doc;
   const body = doc.nodes[group.callout.bodyNodeId];
   if (body?.kind !== 'shape' || body.shape.kind !== 'rect') return doc;
-  const idResult = nextNodeId(doc);
   const w = body.shape.w;
   const h = body.shape.h;
-  const nextTail = tailNode(
-    idResult.id,
+  const tails = calloutTails(group);
+  const built = buildTailNodes(
+    doc,
+    group.callout.kind,
+    calloutTails(group)[0]?.style ?? 'pointed',
     w,
     h,
     endpoint ?? { x: w * 0.7, y: h + Math.max(24, h * 0.3) },
-  );
-  const withTail = addChild(idResult.doc, groupId, nextTail);
-  const updatedGroup = withTail.nodes[groupId] as GroupNode;
-  return {
-    ...withTail,
-    nodes: {
-      ...withTail.nodes,
-      [groupId]: {
-        ...updatedGroup,
-        callout: { ...group.callout, tailNodeIds: [...group.callout.tailNodeIds, idResult.id] },
-      },
+    {
+      curve: tails[0]?.curve,
+      baseWidth: tails[0]?.baseWidth,
+      bubbleCount: tails[0]?.bubbleCount,
     },
+  );
+  let next = built.doc;
+  for (const node of built.nodes) next = addChild(next, groupId, node);
+  const updatedGroup = next.nodes[groupId] as GroupNode & { callout: CalloutRecipe };
+  return replaceTails(next, updatedGroup, [...tails, built.tail]);
+}
+
+/** Remove a tail by any of its node ids; the node map is cleaned too. */
+export function removeCalloutTail(doc: Document, groupId: NodeId, tailId: NodeId): Document {
+  const group = calloutGroup(doc, groupId);
+  if (!group) return doc;
+  const tails = calloutTails(group);
+  const tail = tails.find((candidate) => candidate.nodeIds.includes(tailId));
+  if (!tail) return doc;
+  const { nodes, children } = removeTailNodes(doc, groupId, tail);
+  const withChildren = { ...doc, nodes: { ...nodes, [groupId]: { ...group, children } } };
+  return replaceTails(
+    withChildren,
+    withChildren.nodes[groupId] as GroupNode & { callout: CalloutRecipe },
+    tails.filter((candidate) => candidate !== tail),
+  );
+}
+
+/** Mirror a tail's endpoint across the balloon's vertical centerline. */
+export function flipCalloutTail(doc: Document, groupId: NodeId, tailId: NodeId): Document {
+  const group = calloutGroup(doc, groupId);
+  if (!group) return doc;
+  const body = doc.nodes[group.callout.bodyNodeId];
+  const tail = calloutTails(group).find((candidate) => candidate.nodeIds.includes(tailId));
+  if (body?.kind !== 'shape' || body.shape.kind !== 'rect' || !tail) return doc;
+  const endpoint = tailEndpointFor(tail, doc.nodes, body.shape);
+  return updateCalloutTailEndpoint(doc, groupId, tailId, {
+    x: body.shape.w - endpoint.x,
+    y: endpoint.y,
+  });
+}
+
+function updateTailSetting(
+  doc: Document,
+  groupId: NodeId,
+  tailId: NodeId,
+  patch: Partial<Pick<CalloutTail, 'curve' | 'baseWidth'>>,
+): Document {
+  const group = calloutGroup(doc, groupId);
+  if (!group) return doc;
+  const tails = calloutTails(group);
+  const tail = tails.find((candidate) => candidate.nodeIds.includes(tailId));
+  if (!tail || tail.style !== 'pointed') return doc;
+  const nextTail: CalloutTail = { ...tail, ...patch };
+  const body = doc.nodes[group.callout.bodyNodeId];
+  const nodeId = tail.nodeIds[0];
+  const node = nodeId ? doc.nodes[nodeId] : undefined;
+  if (body?.kind !== 'shape' || body.shape.kind !== 'rect' || node?.kind !== 'path') {
+    return replaceTails(
+      doc,
+      group,
+      tails.map((candidate) => (candidate === tail ? nextTail : candidate)),
+    );
+  }
+  const endpoint = tailEndpointFor(tail, doc.nodes, body.shape);
+  const updated = {
+    ...node,
+    points: pointedTailPoints(body.shape.w, body.shape.h, endpoint, nextTail),
   };
+  const withNode = { ...doc, nodes: { ...doc.nodes, [nodeId!]: updated } };
+  return replaceTails(
+    withNode,
+    withNode.nodes[groupId] as GroupNode & { callout: CalloutRecipe },
+    tails.map((candidate) => (candidate === tail ? nextTail : candidate)),
+  );
+}
+
+/** Signed bend of a pointed tail, -1..1, as a fraction of its length. */
+export function setCalloutTailCurve(
+  doc: Document,
+  groupId: NodeId,
+  tailId: NodeId,
+  curve: number,
+): Document {
+  return updateTailSetting(doc, groupId, tailId, {
+    curve: Math.max(-1, Math.min(1, Number.isFinite(curve) ? curve : 0)),
+  });
+}
+
+/** Base width of a pointed tail in px. */
+export function setCalloutTailBaseWidth(
+  doc: Document,
+  groupId: NodeId,
+  tailId: NodeId,
+  baseWidth: number,
+): Document {
+  return updateTailSetting(doc, groupId, tailId, {
+    baseWidth: Math.max(2, Number.isFinite(baseWidth) ? baseWidth : 2),
+  });
 }
 
 /** Change the inset used by the fit operation; text geometry stays independent. */
@@ -539,7 +927,7 @@ export function fitCalloutToText(doc: Document, groupId: NodeId): Document {
     [body.id]: { ...body, shape: { ...body.shape, w: localW, h: localH } },
     [text.id]: setTextContainer(text, innerW, innerH, p),
   };
-  nodes = updateTailBases(nodes, group.callout.tailNodeIds, localW, localH);
+  nodes = updateTailGeometry(nodes, calloutTails(group), localW, localH);
   return {
     ...doc,
     nodes: {

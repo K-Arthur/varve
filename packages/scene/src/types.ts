@@ -1637,6 +1637,26 @@ export interface GroupNode extends NodeBase {
 
 export type CalloutFitPolicy = 'fit-balloon' | 'reflow' | 'overflow';
 
+/** How one logical balloon tail is drawn. */
+export type CalloutTailStyle = 'pointed' | 'thought';
+
+/**
+ * One logical tail. A pointed tail is one editable path; a thought tail is a
+ * chain of decreasing circles. `nodeIds` lists the nodes that draw it, so
+ * membership stays explicit and ordinary scene operations (delete, layer
+ * visibility, export) keep working on the pieces.
+ */
+export interface CalloutTail {
+  nodeIds: NodeId[];
+  style: CalloutTailStyle;
+  /** Signed bend as a fraction of the tail length (-1..1); pointed tails only. */
+  curve?: number;
+  /** Base width in px; pointed tails only. */
+  baseWidth?: number;
+  /** Circle count for a thought chain. */
+  bubbleCount?: number;
+}
+
 export interface CalloutRecipe {
   version: 1;
   kind: 'speech' | 'thought' | 'caption' | 'whisper' | 'shout';
@@ -1649,6 +1669,11 @@ export interface CalloutRecipe {
   fitPolicy?: CalloutFitPolicy;
   /** False after the author directly edits the generated body path. */
   parametric: boolean;
+  /**
+   * Logical tail grouping. Optional and additive: recipes written before it
+   * exist are read as one pointed tail per `tailNodeIds` entry.
+   */
+  tails?: CalloutTail[];
 }
 
 /**
