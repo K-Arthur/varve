@@ -28,6 +28,15 @@ export interface StrokeReplayDependencies {
     primitive: Extract<RenderItem['primitive'], { kind: 'text' }>,
     stroke: Stroke,
   ): void;
+  /**
+   * Paint a wrapped text stroke from the canonical layout. Returns false when
+   * the primitive must fall back to the simple `\n`-split stroker.
+   */
+  paintTextCanonicalStroke?(
+    target: ReplayTarget,
+    primitive: Extract<RenderItem['primitive'], { kind: 'text' }>,
+    stroke: Stroke,
+  ): boolean;
 }
 
 export function rgba(
@@ -583,6 +592,7 @@ function paintTextStroke(
       return;
     }
   }
+  if (deps.paintTextCanonicalStroke?.(target, primitive, stroke)) return;
   const style = primitive.fontStyle === 'italic' ? 'italic ' : '';
   const weight = deps.effectiveTextWeight?.(primitive) ?? primitive.fontWeight;
   target.font = `${style}${weight} ${primitive.fontSize}px "${primitive.fontFamily}"`;

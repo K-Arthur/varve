@@ -275,6 +275,75 @@ const alphaStrokeOps: AlphaStrokeOps = {
       : rgba(stroke.color),
 };
 
+/**
+ * Stroke a text primitive from the canonical layout so wrapped dialogue and
+ * wrapped display type keep their outline on the same lines as their fill.
+ *
+ * The legacy text stroke split only on `\n`, so an area text node with a
+ * stroke painted one long unwrapped line of outline behind wrapped glyphs —
+ * invisible in short fixtures, obvious on any lettered balloon or caption.
+ *
+ * Returns false when the primitive cannot use the canonical snapshot (rich
+ * text with advanced paragraph formatting, path text, vertical writing, or a
+ * shaping environment without `measureText`), leaving the caller's fallback.
+ */
+function paintCanonicalTextStroke(
+  target: ReplayTarget,
+  p: TextPrimitive,
+  _stroke: Stroke,
+): boolean {
+  if (!target.strokeText) return false;
+  if (isVerticalWritingMode(p.writingMode)) return false;
+  const snapshot = canonicalTextSnapshot(target, p);
+  if (!snapshot) return false;
+  const verticalOffset =
+    p.textAlignVertical === 'middle'
+      ? (p.h - snapshot.height) / 2
+      : p.textAlignVertical === 'bottom'
+        ? p.h - snapshot.height
+        : 0;
+  target.textAlign = 'left';
+  target.textBaseline = 'alphabetic';
+  for (const line of snapshot.lines) {
+    const xOffset =
+      p.textAlign === 'center'
+        ? (p.w - line.width) / 2
+        : p.textAlign === 'right'
+          ? p.w - line.width
+          : 0;
+    for (const run of line.runs) {
+      const weight =
+        p.variableAxes?.wght != null
+          ? effectiveWeight(p)
+          : Math.max(1, Math.min(1000, run.sourceRun.fontWeight));
+      const runText = snapshot.text.slice(run.sourceStart, run.sourceEnd);
+      if (runText.length === 0 || runText.includes('\n')) continue;
+      const restoreSettings = applyReplayTextSettings(
+        target,
+        p.openTypeFeatures,
+        p.variableAxes,
+        run.direction,
+      );
+      setCanvasFont(
+        target,
+        replayFontString(
+          run.sourceRun.fontFamily,
+          run.sourceRun.fontSize,
+          weight,
+          run.sourceRun.fontStyle,
+          p.openTypeFeatures,
+          p.variableAxes,
+          runText,
+          p.fontReference ? fontReferenceKey(p.fontReference) : undefined,
+        ),
+      );
+      target.strokeText(runText, p.x + xOffset + run.x, p.y + verticalOffset + line.baseline);
+      restoreSettings();
+    }
+  }
+  return true;
+}
+
 function replayPaintStrokeWithDependencies(
   target: ReplayTarget,
   stroke: Stroke,
@@ -288,6 +357,7 @@ function replayPaintStrokeWithDependencies(
     effectiveTextWeight: effectiveWeight,
     measureTextAdvance,
     paintTextOnPath: paintPathText,
+    paintTextCanonicalStroke: paintCanonicalTextStroke,
   });
 }
 
