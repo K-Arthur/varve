@@ -1576,6 +1576,24 @@ export interface GroupNode extends NodeBase {
    * groups in this version; ordinary groups ignore it.
    */
   liquify?: LiquifyField;
+  /** Parametric comic callout recipe; geometry and text remain ordinary nodes. */
+  callout?: CalloutRecipe;
+}
+
+export type CalloutFitPolicy = 'fit-balloon' | 'reflow' | 'overflow';
+
+export interface CalloutRecipe {
+  version: 1;
+  kind: 'speech' | 'thought' | 'caption' | 'whisper' | 'shout';
+  bodyNodeId: NodeId;
+  textNodeId: NodeId;
+  tailNodeIds: NodeId[];
+  padding: number;
+  fitToText?: boolean;
+  /** Explicit overflow policy; never silently shrinks the authored type. */
+  fitPolicy?: CalloutFitPolicy;
+  /** False after the author directly edits the generated body path. */
+  parametric: boolean;
 }
 
 /**
