@@ -1243,6 +1243,22 @@ export function getViewMenu(
       run: () => runAction('manageWorkspaceLayouts'),
     },
     {
+      id: 'applyComicWorkspaceLayout',
+      labelKey: 'menu.view.applyComicWorkspaceLayout',
+      kind: 'command',
+      group: 'workspace',
+      workspaces: ['design', 'print', 'drawing'],
+      run: () => runAction('applyComicWorkspaceLayout'),
+    },
+    {
+      id: 'applyWebtoonWorkspaceLayout',
+      labelKey: 'menu.view.applyWebtoonWorkspaceLayout',
+      kind: 'command',
+      group: 'workspace',
+      workspaces: ['design', 'print', 'drawing'],
+      run: () => runAction('applyWebtoonWorkspaceLayout'),
+    },
+    {
       id: 'restoreAllPanels',
       labelKey: 'menu.view.restoreAllPanels',
       kind: 'command',

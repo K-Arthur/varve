@@ -396,3 +396,23 @@
   flex-wrap: wrap;
   gap: var(--space-1);
 }
+
+/* ── Comic workspace suggestion ────────────────────────── */
+
+.pages-panel__comic-suggestion {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+
+.pages-panel__comic-suggestion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}

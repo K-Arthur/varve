@@ -33,6 +33,7 @@ import {
   sanitizeLayoutStore,
   setLayoutStore,
   updateLayoutVariantPayload,
+  type WorkspaceLayoutStoreState,
 } from '../layoutVariants';
 import {
   getEffectiveWorkspaceConfig,
@@ -151,6 +152,48 @@ describe('layoutVariants: apply', () => {
       expect(visible.visible).toBe(true);
     }
     expect(effective.statusBar).toBe(true);
+  });
+
+  it('the Comic (print) template discloses pages and starts on the panel tool', () => {
+    const comic = BUILT_IN_LAYOUT_VARIANTS.find((variant) => variant.id === 'builtin-comic-print')!;
+    const prefs = applyLayoutPayloadToPreferences(
+      getWorkspacePreferences(),
+      'drawing',
+      comic.payload,
+    );
+    const effective = getEffectiveWorkspaceConfig('drawing', prefs);
+    expect(effective.panels.pagenav.visible).toBe(true);
+    expect(effective.panels.library.visible).toBe(true);
+    expect(effective.defaultTool).toBe('panel');
+    expect(effective.inspectorTabs.find((tab) => tab.id === 'fonts')?.visible).toBe(true);
+  });
+
+  it('the Webtoon (vertical) template stays canvas-first without reference chrome', () => {
+    const webtoon = BUILT_IN_LAYOUT_VARIANTS.find(
+      (variant) => variant.id === 'builtin-webtoon-vertical',
+    )!;
+    const prefs = applyLayoutPayloadToPreferences(
+      getWorkspacePreferences(),
+      'drawing',
+      webtoon.payload,
+    );
+    const effective = getEffectiveWorkspaceConfig('drawing', prefs);
+    expect(effective.panels.pagenav.visible).toBe(true);
+    expect(effective.panels.library.visible).toBe(false);
+    expect(effective.defaultTool).toBe('panel');
+  });
+
+  it('round-trips a default-tool override through capture and apply', () => {
+    let prefs = getWorkspacePreferences();
+    prefs = {
+      ...prefs,
+      drawing: { ...prefs.drawing, defaultToolOverride: 'panel', customized: true },
+    };
+    const captured = captureLayoutPayload('drawing', prefs);
+    expect(captured.defaultTool).toBe('panel');
+    const applied = applyLayoutPayloadToPreferences(getWorkspacePreferences(), 'drawing', captured);
+    expect(applied.drawing.defaultToolOverride).toBe('panel');
+    expect(getEffectiveWorkspaceConfig('drawing', applied).defaultTool).toBe('panel');
   });
 });
 
@@ -284,14 +327,23 @@ describe('layoutVariants: import/export and hostile payloads', () => {
       panelWidths: { layers: 9_999, notAPanel: 200 },
       chromeOverrides: { statusBar: false, notAKey: true },
     });
-    expect(payload.panelOverrides?.notAPanel).toBeUndefined();
+    expect(
+      (payload.panelOverrides as Record<string, unknown> | undefined)?.notAPanel,
+    ).toBeUndefined();
     expect(payload.panelOverrides?.layers?.visible).toBe(false);
     expect(payload.inspectorTabOverrides).toEqual({ properties: false });
     expect(payload.statusSectionOverrides).toEqual({ zoom: false });
     expect(payload.toolbarToolOverrides).toEqual({ rect: false });
     expect(payload.panelWidths?.layers).toBe(1200);
-    expect(payload.panelWidths?.notAPanel).toBeUndefined();
+    expect((payload.panelWidths as Record<string, number> | undefined)?.notAPanel).toBeUndefined();
     expect(payload.chromeOverrides).toEqual({ statusBar: false });
+  });
+
+  it('accepts only selectable toolbar tools as a default-tool override', () => {
+    expect(sanitizeLayoutPayload({ defaultTool: 'panel' }).defaultTool).toBe('panel');
+    // Unknown and command-only flyout members are dropped.
+    expect(sanitizeLayoutPayload({ defaultTool: 'notATool' }).defaultTool).toBeUndefined();
+    expect(sanitizeLayoutPayload({ defaultTool: 'booleanUnion' }).defaultTool).toBeUndefined();
   });
 
   it('ignores prototype-pollution keys', () => {

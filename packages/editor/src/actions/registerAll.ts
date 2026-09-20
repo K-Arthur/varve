@@ -547,4 +547,16 @@ export function registerEditorActions(
   );
   reg('joinPanels', 'Join Panels', 'arrange', handlers.joinPanels ?? (() => {}));
   reg('showPanelLayouts', 'Panel Layouts…', 'arrange', handlers.showPanelLayouts ?? (() => {}));
+  reg(
+    'applyComicWorkspaceLayout',
+    'Apply Comic (Print) Workspace Layout',
+    'view',
+    handlers.applyComicWorkspaceLayout ?? (() => {}),
+  );
+  reg(
+    'applyWebtoonWorkspaceLayout',
+    'Apply Webtoon (Vertical) Workspace Layout',
+    'view',
+    handlers.applyWebtoonWorkspaceLayout ?? (() => {}),
+  );
 }

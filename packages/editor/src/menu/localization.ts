@@ -173,6 +173,8 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.view.resetAllWorkspaces': 'Reset All Workspaces',
   'menu.view.customizeWorkspace': 'Customize Workspace…',
   'menu.view.manageWorkspaceLayouts': 'Manage Layouts…',
+  'menu.view.applyComicWorkspaceLayout': 'Apply Comic (Print) Workspace Layout',
+  'menu.view.applyWebtoonWorkspaceLayout': 'Apply Webtoon (Vertical) Workspace Layout',
   'menu.view.restoreAllPanels': 'Show All Panels',
   'menu.view.bringAllPanelsToCurrentDisplay': 'Bring All Panels to This Display',
   'menu.view.resetPanelWindowLayout': 'Reset Window Layout',

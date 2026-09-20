@@ -16,6 +16,7 @@
  */
 
 import type { Platform } from '@varve/platform';
+import { TOOL_REGISTRY } from '../tools/toolRegistry';
 import type { ToolId } from '../tools/types';
 import { ESSENTIAL_TOOL_IDS } from './toolLabels';
 import {
@@ -188,6 +189,19 @@ function sanitizePreference(
   const cleanPlacement: ToolbarPlacement | undefined =
     placement === 'top' || placement === 'bottom' ? placement : undefined;
 
+  // Sanitize the default-tool override. It must be a selectable tool (never a
+  // command-only flyout member) that this mode's toolbar can present.
+  const selectableToolIds = new Set<string>(
+    TOOL_REGISTRY.filter((entry) => entry.kind === 'tool').map((entry) => entry.id),
+  );
+  const defaultToolRaw = pref.defaultToolOverride;
+  const defaultToolOverride =
+    typeof defaultToolRaw === 'string' &&
+    selectableToolIds.has(defaultToolRaw as ToolId) &&
+    baseToolIds.has(defaultToolRaw)
+      ? (defaultToolRaw as ToolId)
+      : undefined;
+
   return {
     ...(clean && Object.keys(clean).length > 0 ? { panelOverrides: clean } : {}),
     ...(cleanTabs && Object.keys(cleanTabs).length > 0 ? { inspectorTabOverrides: cleanTabs } : {}),
@@ -200,6 +214,7 @@ function sanitizePreference(
     ...(cleanWidths && Object.keys(cleanWidths).length > 0 ? { panelWidths: cleanWidths } : {}),
     ...(Object.keys(cleanChrome).length > 0 ? { chromeOverrides: cleanChrome } : {}),
     ...(cleanPlacement ? { toolbarPlacement: cleanPlacement } : {}),
+    ...(defaultToolOverride ? { defaultToolOverride } : {}),
     customized: pref.customized === true,
     ...(typeof pref.lastCustomized === 'number' ? { lastCustomized: pref.lastCustomized } : {}),
     ...(typeof pref.clearedAt === 'number' ? { clearedAt: pref.clearedAt } : {}),
@@ -541,6 +556,11 @@ export function getEffectiveWorkspaceConfig(
   // field is optional, so an absent override needs no patch.
   if (modePrefs.toolbarPlacement) {
     result = { ...result, toolbarPlacement: modePrefs.toolbarPlacement };
+  }
+
+  // Default-tool override from a saved layout (or an explicit tool choice).
+  if (modePrefs.defaultToolOverride) {
+    result = { ...result, defaultTool: modePrefs.defaultToolOverride };
   }
 
   return result;

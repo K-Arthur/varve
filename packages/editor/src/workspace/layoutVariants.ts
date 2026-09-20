@@ -21,13 +21,13 @@
  */
 
 import type { Platform } from '@varve/platform';
+import { TOOL_REGISTRY } from '../tools/toolRegistry';
 import type { ToolId } from '../tools/types';
 import { ESSENTIAL_TOOL_IDS } from './toolLabels';
 import {
   getEffectiveWorkspaceConfig,
   getWorkspacePreferences,
   resetModePreferences,
-  type WorkspacePreferences,
 } from './workspaceStore';
 import {
   ALL_PANEL_IDS,
@@ -41,6 +41,7 @@ import {
   type StatusSectionId,
   type WorkspaceMode,
   type WorkspacePreference,
+  type WorkspacePreferences,
 } from './workspaceTypes';
 
 export const LAYOUT_VARIANT_SCHEMA_VERSION = 1;
@@ -71,6 +72,8 @@ export interface LayoutPreferencePayload {
   toolbarToolOverrides?: Partial<Record<string, boolean>>;
   panelWidths?: Partial<Record<PanelId, number>>;
   chromeOverrides?: Partial<ChromeConfig>;
+  /** Selectable tool a layout starts on, when it differs from the mode default. */
+  defaultTool?: ToolId;
 }
 
 export interface WorkspaceLayoutVariant {
@@ -157,6 +160,54 @@ export const BUILT_IN_LAYOUT_VARIANTS: readonly WorkspaceLayoutVariant[] = [
     payload: {
       panelOverrides: ALL_PANELS_HIDDEN,
       chromeOverrides: { floatingToolbar: true, statusBar: false, tabStrip: false },
+    },
+  },
+  {
+    id: 'builtin-comic-print',
+    name: 'Comic (print)',
+    builtIn: true,
+    createdAt: 0,
+    updatedAt: 0,
+    sourceMode: 'drawing',
+    payload: {
+      panelOverrides: {
+        layers: { visible: true },
+        inspector: { visible: true },
+        pagenav: { visible: true },
+        timeline: { visible: false },
+        library: { visible: true },
+        codegen: { visible: false },
+        logo: { visible: false },
+        history: { visible: true },
+      },
+      inspectorTabOverrides: { fonts: true, export: true },
+      toolbarToolOverrides: { panel: true, text: true, frame: true, pen: true, paint: true },
+      defaultTool: 'panel',
+      chromeOverrides: { floatingToolbar: true, statusBar: true, tabStrip: true },
+    },
+  },
+  {
+    id: 'builtin-webtoon-vertical',
+    name: 'Webtoon (vertical)',
+    builtIn: true,
+    createdAt: 0,
+    updatedAt: 0,
+    sourceMode: 'drawing',
+    payload: {
+      panelOverrides: {
+        layers: { visible: true },
+        inspector: { visible: true },
+        pagenav: { visible: true },
+        timeline: { visible: false },
+        library: { visible: false },
+        codegen: { visible: false },
+        logo: { visible: false },
+        history: { visible: false },
+      },
+      inspectorTabOverrides: { fonts: true, export: true },
+      toolbarToolOverrides: { panel: true, text: true, frame: true, pen: true, paint: true },
+      defaultTool: 'panel',
+      chromeOverrides: { floatingToolbar: true, statusBar: true, tabStrip: true },
     },
   },
 ];
@@ -280,6 +331,12 @@ export function sanitizeLayoutPayload(raw: unknown): LayoutPreferencePayload {
       tools[id] = value;
     }
     if (Object.keys(tools).length > 0) payload.toolbarToolOverrides = tools;
+  }
+
+  const defaultToolRaw = source.defaultTool;
+  if (typeof defaultToolRaw === 'string' && toolbarToolIds.has(defaultToolRaw)) {
+    const definition = TOOL_REGISTRY.find((entry) => entry.id === defaultToolRaw);
+    if (definition?.kind === 'tool') payload.defaultTool = defaultToolRaw as ToolId;
   }
 
   const widthRaw = source.panelWidths;
@@ -511,6 +568,10 @@ export function captureLayoutPayload(
   }
   if (Object.keys(chrome).length > 0) payload.chromeOverrides = chrome;
 
+  if (effective.defaultTool !== base.defaultTool) {
+    payload.defaultTool = effective.defaultTool;
+  }
+
   return payload;
 }
 
@@ -541,6 +602,7 @@ export function applyLayoutPayloadToPreferences(
     ...(clean.toolbarToolOverrides ? { toolbarToolOverrides: clean.toolbarToolOverrides } : {}),
     ...(clean.panelWidths ? { panelWidths: clean.panelWidths } : {}),
     ...(clean.chromeOverrides ? { chromeOverrides: clean.chromeOverrides } : {}),
+    ...(clean.defaultTool ? { defaultToolOverride: clean.defaultTool } : {}),
   };
   return { ...prefs, [mode]: modePrefs };
 }

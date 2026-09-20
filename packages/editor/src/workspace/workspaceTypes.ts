@@ -394,6 +394,12 @@ export interface WorkspacePreference {
   /** Mode-specific toolbar placement override (only stored when not 'bottom'). */
   toolbarPlacement?: ToolbarPlacement;
   /**
+   * Mode-specific default-tool override. Only a selectable tool that the
+   * mode's toolbar can present is accepted; command-only flyout members are
+   * dropped by the sanitizer.
+   */
+  defaultToolOverride?: ToolId;
+  /**
    * When the user reset this mode to defaults.
    *
    * A reset must be an event, not the absence of state: without this marker

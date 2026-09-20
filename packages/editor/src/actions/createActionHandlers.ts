@@ -56,6 +56,7 @@ import {
 } from '../tools/selectionPathConversion';
 import { TOOL_REGISTRY } from '../tools/toolRegistry';
 import { expandWarpAppearance } from '../warp/warpActions';
+import { getBuiltInLayoutVariant } from '../workspace/layoutVariants';
 import {
   setToolbarPlacementOverride,
   updateWorkspacePreferences,
@@ -1277,6 +1278,24 @@ export function createActionHandlers(
       setTool('panel')();
       e.setInspectorTab('properties');
       e.announce?.('Panel Layouts are in the Inspector. Select a frame to divide it into panels.');
+    },
+    applyComicWorkspaceLayout: () => {
+      void e.requestWorkspaceSwitch('drawing').then((switched) => {
+        if (!switched) return;
+        const variant = getBuiltInLayoutVariant('builtin-comic-print');
+        if (variant && e.applyWorkspaceLayout(variant)) {
+          e.announce?.('Comic (print) workspace layout applied in Draw.');
+        }
+      });
+    },
+    applyWebtoonWorkspaceLayout: () => {
+      void e.requestWorkspaceSwitch('drawing').then((switched) => {
+        if (!switched) return;
+        const variant = getBuiltInLayoutVariant('builtin-webtoon-vertical');
+        if (variant && e.applyWorkspaceLayout(variant)) {
+          e.announce?.('Webtoon (vertical) workspace layout applied in Draw.');
+        }
+      });
     },
     newAdjustmentLayer: () => e.createAdjustmentLayer(),
     smartFilterInvert: () => e.addSmartFilterToSelected('invert'),

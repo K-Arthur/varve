@@ -34,6 +34,7 @@ import { usePageThumbnail } from '../PageNav/usePageThumbnail';
 import { SectionCollapseToggle } from '../SectionCollapseToggle';
 import { usePersistedDisclosure } from '../usePersistedDisclosure';
 import { ComicStoryOutlinePanel } from './ComicStoryOutlinePanel';
+import { ComicWorkspaceSuggestion } from './ComicWorkspaceSuggestion';
 import { DesignCanvasPanel } from './DesignCanvasPanel';
 import './pages-panel.css';
 
@@ -61,9 +62,19 @@ export function PagesPanel() {
     pagePanelUserControlled: isPagePanelUserControlled(state.workspaceMode),
   });
   if (state.workspaceMode === 'design') {
-    return pageSurfaceVisibility.showPagesPanel ? <DesignCanvasPanel /> : null;
+    return pageSurfaceVisibility.showPagesPanel ? (
+      <>
+        <ComicWorkspaceSuggestion />
+        <DesignCanvasPanel />
+      </>
+    ) : null;
   }
-  return <PublishingPagesPanel />;
+  return (
+    <>
+      <ComicWorkspaceSuggestion />
+      <PublishingPagesPanel />
+    </>
+  );
 }
 
 function PublishingPagesPanel() {

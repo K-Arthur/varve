@@ -532,3 +532,42 @@ describe('workspaceStore — toolbar placement', () => {
     expect(getEffectiveWorkspaceConfig('design', prefs).toolbarPlacement).toBeUndefined();
   });
 });
+
+describe('workspaceStore: default tool override', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    resetWorkspacePreferenceCache();
+  });
+
+  it('merges a stored selectable tool into the effective config', () => {
+    const base = getWorkspacePreferences();
+    const prefs = {
+      ...base,
+      drawing: { ...base.drawing, defaultToolOverride: 'panel' as const, customized: true },
+    };
+    expect(getEffectiveWorkspaceConfig('drawing', prefs).defaultTool).toBe('panel');
+  });
+
+  it('drops unknown and command-only tools on load', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        design: { customized: true, defaultToolOverride: 'notATool' },
+        drawing: { customized: true, defaultToolOverride: 'booleanUnion' },
+      }),
+    );
+    resetWorkspacePreferenceCache();
+    const prefs = loadWorkspacePreferences();
+    expect(prefs.design.defaultToolOverride).toBeUndefined();
+    expect(prefs.drawing.defaultToolOverride).toBeUndefined();
+  });
+
+  it('accepts a selectable tool the mode toolbar presents', () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ drawing: { customized: true, defaultToolOverride: 'paint' } }),
+    );
+    resetWorkspacePreferenceCache();
+    expect(loadWorkspacePreferences().drawing.defaultToolOverride).toBe('paint');
+  });
+});
