@@ -279,7 +279,11 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  padding: var(--space-2) var(--space-3) var(--space-1);
+  /* The panel's identity row follows the same density row height as the
+   * property rows below it, so the header never reads as a compressed strip
+   * above a roomier panel. */
+  min-height: var(--insp-row-height, var(--density-rows-min-height));
+  padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--color-border-subtle);
 }
 .insp-panel__node-name {
@@ -567,7 +571,7 @@
   gap: var(--space-2);
   min-width: 0;
   margin-inline: 0;
-  padding: var(--space-1) 0;
+  padding: 0;
   background: var(--color-surface-base);
   box-shadow: 0 1px 0 var(--insp-section-rule);
   border-radius: 0;
@@ -578,10 +582,13 @@
   align-items: center;
   gap: var(--space-1);
   width: 100%;
-  /* WCAG 2.5.8: a pointer target of at least 24x24 CSS px. The section
-   * headers are stacked with no gap, so the spacing exception does not apply. */
-  min-height: 24px;
-  padding: var(--space-1) 0;
+  /* WCAG 2.5.8: a pointer target of at least 24x24 CSS px. The header takes
+   * the active density row height so section navigation is the most
+   * comfortable target in the panel in both modes (and Compact Pro headers
+   * are no longer taller than its own rows). The spacing exception does not
+   * apply because the headers are stacked with no gap. */
+  min-height: var(--insp-row-height, 24px);
+  padding: 0;
   background: none;
   border: none;
   color: var(--color-text-secondary);
@@ -1079,7 +1086,9 @@
    * selects taller than the rest of the panel. */
   min-height: var(--insp-row-height, var(--density-rows-min-height));
   height: var(--insp-row-height, var(--density-rows-min-height));
-  padding: 0 var(--space-2);
+  /* Same inset as the numeric fields; the shared trigger's space-3 is the
+   * step every other field already uses, so the panel speaks one inset. */
+  padding: 0 var(--space-3);
   font-size: var(--insp-value-size, var(--font-size-xs));
   border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
@@ -1344,14 +1353,15 @@
 .insp-layout-sizing {
   display: flex;
   flex-direction: column;
-  /* Width/Height and the clamp rows are separate semantic groups. Match the
-   * surrounding layout controls instead of collapsing them into a toolbar
-   * rhythm that makes adjacent fields read as one control. */
+  /* Width/Height and the clamp rows are separate semantic groups. The group
+   * boundary is carried by the group gap alone: the rule this block used to
+   * draw was the same hairline as a section header's, so a mid-section label
+   * ("Sizing") read as a new section. In the Inspector, rules mark section
+   * boundaries only; labels mark groups. */
   gap: var(--insp-content-gap, var(--space-1));
   min-inline-size: 0;
-  margin-block-start: var(--space-2);
-  padding-block-start: var(--space-2);
-  border-block-start: 1px solid var(--color-border-subtle);
+  margin-block-start: var(--insp-field-group-gap, var(--space-2));
+  padding-block-start: var(--space-1);
 }
 
 .insp-layout-sizing__title {
@@ -1508,7 +1518,11 @@
   /* One field-height contract: match the shared compact control height and
    * the dropdowns beside it instead of a fluid spacing token. */
   height: var(--insp-row-height);
-  padding: 0 var(--space-2);
+  /* Every field in the panel insets its value by the same step as the shared
+   * Select trigger. --space-2 measured 5.92px, below the 8px floor compact
+   * form controls use in Atlassian/GEL-style systems, and made right-aligned
+   * numbers crowd the field edge. */
+  padding: 0 var(--space-3);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
@@ -1581,14 +1595,18 @@
   font-size: var(--font-size-xs);
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
-  border: 1px solid transparent;
+  /* Inset text inputs are fields, not flat readouts: the border is visible at
+   * rest like .insp-num__input and the shared Select trigger, and darkens on
+   * hover. A transparent rest border made the grid-template fields look like
+   * a different control than the fields beside them. */
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
-  padding: 0 var(--space-2);
+  padding: 0 var(--space-3);
   font-family: inherit;
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
 .insp-select:hover {
-  border-color: var(--color-border-subtle);
+  border-color: var(--color-border-strong);
 }
 .insp-select:focus-visible {
   border-color: var(--color-border-focus);
@@ -2291,7 +2309,10 @@
   justify-content: space-between;
   gap: var(--space-2);
   min-width: 0;
-  padding: var(--space-1) 0;
+  /* Matches the section-header row height so the alignment block's label
+   * sits on the panel's rhythm instead of a smaller local step. */
+  min-height: var(--insp-row-height, var(--density-rows-min-height));
+  padding: var(--space-2) 0;
   margin-bottom: 0;
   background: var(--color-surface-base);
 }
@@ -2324,7 +2345,7 @@
   white-space: nowrap;
 }
 .insp-align-section > .insp-align-bar {
-  padding-bottom: var(--space-2);
+  padding-bottom: var(--insp-content-gap, var(--space-1));
 }
 [data-theme="high-contrast"] .insp-align-section {
   border: 0;
@@ -2346,7 +2367,9 @@
   height: 18px;
   flex-shrink: 0;
   background: var(--color-border-subtle);
-  margin: 0 var(--space-05);
+  /* A micro step (1.55px) read as a stray edge between two icon buttons; the
+   * separator needs more air than the buttons' own gap to mean a group break. */
+  margin: 0 var(--space-1);
 }
 
 .insp-smoothing-value {
@@ -3353,7 +3376,10 @@ fieldset.insp-canvas-props,
 .typography__text-input {
   width: 100%;
   min-height: 48px;
-  padding: var(--space-1) var(--space-2);
+  /* Matches the one field inset: text areas carry the same horizontal step as
+   * single-line fields, with a small vertical step so wrapped copy is not
+   * pressed against the border. */
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
@@ -6672,7 +6698,9 @@ fieldset.insp-canvas-props,
   display: flex;
   align-items: center;
   width: 100%;
-  margin-bottom: var(--space-2);
+  /* The preset row names the frame; the fields under it edit it. Group the
+   * two with one density-aware step instead of a fixed local margin. */
+  margin-bottom: var(--insp-content-gap, var(--space-1));
 }
 
 .insp-preset-dropdown__trigger {
@@ -6680,8 +6708,11 @@ fieldset.insp-canvas-props,
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  height: var(--space-7);
-  padding: 0 var(--space-2);
+  /* Was a fluid --space-7 height (measured 39.3px at 1440): taller than every
+   * field beside it and identical in both density modes. The row contract is
+   * the one height for a control in this panel. */
+  height: var(--insp-row-height, var(--density-rows-min-height));
+  padding: 0 var(--space-3);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
@@ -7033,7 +7064,7 @@ fieldset.insp-canvas-props,
 
 .insp-preset-popover__save-btn {
   width: 100%;
-  height: var(--space-7);
+  min-height: var(--insp-row-height, var(--density-rows-min-height));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7193,15 +7224,21 @@ fieldset.insp-canvas-props,
   --insp-icon-size: 12px;
   --insp-icon-size-lg: 14px;
   /* Inspector-local rhythm aliases. They consume the application density
-   * contract without changing the document/canvas model. Default Pro gives
-   * long-form property groups a little more air; Compact Pro preserves the
-   * fast-scanning, narrow-gap workflow. */
+   * contract without changing the document/canvas model.
+   *
+   * The ladder has three readable levels, and each must be visibly larger
+   * than the one below it (2026-09-20 pass):
+   *   row gap < group gap < section separation.
+   * Default Pro reads as a long-form property panel; Compact Pro keeps the
+   * same three levels at the next step down so hierarchy survives density.
+   * A section's own separation is its margin plus the panel gap, so the
+   * margin is set one step above the group gap rather than at it. */
   --insp-panel-inset: var(--space-3);
   --insp-panel-gap: var(--space-3);
-  --insp-section-gap: var(--space-3);
-  --insp-content-gap: var(--space-2);
-  --insp-field-group-gap: var(--space-3);
-  --insp-content-pad-start: var(--space-2);
+  --insp-section-gap: var(--space-4);
+  --insp-content-gap: var(--space-3);
+  --insp-field-group-gap: var(--space-4);
+  --insp-content-pad-start: var(--space-3);
   --insp-content-pad-end: var(--space-3);
   --insp-row-height: var(--density-rows-min-height);
 }
@@ -7209,11 +7246,11 @@ fieldset.insp-canvas-props,
 :where([data-density="compact"]) .editor-inspector {
   --insp-panel-inset: var(--space-2);
   --insp-panel-gap: var(--space-2);
-  --insp-section-gap: var(--space-2);
-  --insp-content-gap: var(--space-1);
-  --insp-field-group-gap: var(--space-2);
-  --insp-content-pad-start: var(--space-1);
-  --insp-content-pad-end: var(--space-2);
+  --insp-section-gap: var(--space-3);
+  --insp-content-gap: var(--space-2);
+  --insp-field-group-gap: var(--space-3);
+  --insp-content-pad-start: var(--space-2);
+  --insp-content-pad-end: var(--space-3);
 }
 
 @media (any-pointer: coarse) {
