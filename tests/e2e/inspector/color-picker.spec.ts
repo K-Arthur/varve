@@ -154,7 +154,7 @@ test.describe('Color picker workflow', () => {
 
     // Drag the hue slider through several intermediate values — one
     // committed gesture, matching the transaction contract.
-    const hue = page.locator('.color-slider--hue .insp-slider__track');
+    const hue = page.locator('.color-slider--hue .color-slider__track');
     const hueBox = await hue.boundingBox();
     if (!hueBox) throw new Error('Hue slider not found');
     const y = hueBox.y + hueBox.height / 2;

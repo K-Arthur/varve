@@ -42,12 +42,12 @@ test('hue slider interactive', async ({ page }) => {
   await page.screenshot({ path: 'test-results/hue-before.png', fullPage: false });
 
   // Find the hue slider thumb and drag it
-  const hueThumb = page.locator('.color-picker__sliders .insp-slider__thumb').first();
+  const hueThumb = page.locator('.color-picker__sliders .color-slider__thumb').first();
   if (await hueThumb.isVisible({ timeout: 3000 }).catch(() => false)) {
     const thumbBox = await hueThumb.boundingBox();
     if (thumbBox) {
       // Click near the right side of the hue slider (towards red/yellow)
-      const track = page.locator('.color-picker__sliders .insp-slider__track').first();
+      const track = page.locator('.color-picker__sliders .color-slider__track').first();
       const trackBox = await track.boundingBox();
       if (trackBox) {
         // Click at 75% of the track (yellow/green area)
