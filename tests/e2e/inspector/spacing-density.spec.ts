@@ -57,10 +57,16 @@ async function densityMetrics(page: Page) {
 test('Default Pro is breathable and Compact Pro remains dense', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await navigateToEditor(page);
+  const baselinePanelHeight = await page.locator('.editor-inspector').evaluate(
+    (el) => el.getBoundingClientRect().height,
+  );
   await drawRectangle(page);
 
   const selectedBefore = await page.getByRole('treeitem').first().getAttribute('aria-selected');
   const defaultMetrics = await densityMetrics(page);
+  const defaultPanelHeight = await page.locator('.editor-inspector').evaluate(
+    (el) => el.getBoundingClientRect().height,
+  );
   await page.locator('.editor-inspector').screenshot({
     path: testInfo.outputPath('inspector-spacing-default.png'),
     animations: 'disabled',
@@ -69,6 +75,9 @@ test('Default Pro is breathable and Compact Pro remains dense', async ({ page },
   await page.evaluate(() => document.documentElement.setAttribute('data-density', 'compact'));
   await page.waitForTimeout(100);
   const compactMetrics = await densityMetrics(page);
+  const compactPanelHeight = await page.locator('.editor-inspector').evaluate(
+    (el) => el.getBoundingClientRect().height,
+  );
   await page.locator('.editor-inspector').screenshot({
     path: testInfo.outputPath('inspector-spacing-compact.png'),
     animations: 'disabled',
@@ -91,6 +100,10 @@ test('Default Pro is breathable and Compact Pro remains dense', async ({ page },
   );
   expect(defaultMetrics.horizontalOverflow).toBeLessThanOrEqual(1);
   expect(compactMetrics.horizontalOverflow).toBeLessThanOrEqual(1);
+  expect(defaultPanelHeight).toBeLessThanOrEqual(baselinePanelHeight * 1.15);
+  expect(Math.abs(compactPanelHeight - defaultPanelHeight)).toBeLessThanOrEqual(
+    defaultPanelHeight * 0.02,
+  );
   for (const overflow of [...defaultMetrics.sectionOverflow, ...compactMetrics.sectionOverflow]) {
     expect(overflow).toBeLessThanOrEqual(1);
   }
