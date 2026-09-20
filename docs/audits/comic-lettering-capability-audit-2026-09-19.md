@@ -73,4 +73,3 @@ dedicated lettering workspace stay out of the current completion claim.
 - [Adobe Illustrator area and path text](https://helpx.adobe.com/illustrator/using/add-text-work-with-type-objects.html)
 - [WEBTOON CANVAS publishing checklist](https://webtoons-static.pstatic.net/creator101/en/pdf/Before-You-Publish-Checklist-2024.pdf?dt=2024011001)
 - [Tapas episode publishing specification](https://help.tapas.io/hc/en-us/articles/1260802028970-Series-Basics-How-to-publish-a-comic-episode-on-Tapas)
-
