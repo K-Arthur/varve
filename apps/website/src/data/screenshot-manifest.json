@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "note": "GENERATED FILE — do not hand-edit. Written by scripts/screenshots/product.mjs and validated by scripts/screenshots/validate.mjs. Each scene maps one canonical screenshot consumed by the website and documentation. status: 'captured' when the pipeline produced the file, 'skipped' when the scene could not be produced (reason required).",
-  "generatedAt": "2026-09-20T02:29:56.304Z",
+  "generatedAt": "2026-09-20T06:55:13.120Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -12,7 +12,8 @@
       "status": "captured",
       "lastValidatedAgainst": null,
       "width": 1440,
-      "height": 900
+      "height": 900,
+      "sha256": "b94d5751f9cdea20e1f2e7d8620d2e5a92225d72729ec71b528b271950663241"
     },
     "workspace-dark": {
       "file": "workspace-dark.png",
@@ -23,7 +24,8 @@
       "status": "captured",
       "lastValidatedAgainst": null,
       "width": 1440,
-      "height": 900
+      "height": 900,
+      "sha256": "f909e8435c780227663e7ffa621eb4ea8864d8642ade8ff2759d96ce9eeece86"
     },
     "vector": {
       "file": "vector-light.png",
@@ -80,7 +82,7 @@
       "lastValidatedAgainst": null,
       "width": 320,
       "height": 722,
-      "sha256": "5d92051e4e97e5ac4d3c70e41d7ea926b3b606b9f60448885de138252b9f1615"
+      "sha256": "1d6b3a0acc7449439639ecf0add34e68f3314262460645b823cf5ce2dd96ac31"
     },
     "layers": {
       "file": "layers-light.png",
@@ -102,7 +104,8 @@
       "status": "captured",
       "lastValidatedAgainst": null,
       "width": 1440,
-      "height": 900
+      "height": 900,
+      "sha256": "9e00b936037baf10fb5ce6fc5d208ac34889b9851286058cf44170350d7c0f55"
     },
     "enhance-dialog-auto": {
       "file": "enhance-dialog-auto.png",
@@ -117,14 +120,15 @@
     },
     "export": {
       "file": "export-dialog-light.png",
-      "alt": "The Varve advanced export dialog showing a destination and filename template, flat/by-format/by-node organization, and format options including SVG, PNG, WebP and PDF in the adjacent Quick Export panel",
-      "caption": "Set a destination and filename template, then export to SVG, PNG, WebP, or PDF.",
+      "alt": "The Varve Inspector Export tab showing Format and Code sub-tabs with quick export presets and generated output options",
+      "caption": "Keep export presets and generated code beside the selected object in the Inspector.",
       "feature": "export",
       "theme": "light",
       "status": "captured",
       "lastValidatedAgainst": null,
       "width": 1440,
-      "height": 900
+      "height": 900,
+      "sha256": "faa861924ad455cfd90dee96be0a4ac21f1fb773180ba05c7ff4795244234fa7"
     },
     "print-production": {
       "file": "print-production-light.png",
@@ -135,7 +139,8 @@
       "status": "captured",
       "lastValidatedAgainst": null,
       "width": 1440,
-      "height": 900
+      "height": 900,
+      "sha256": "653a295e7a3ec6f0ccae4ad17fe3f4611320ceb05aedee8b0f0a0e07829c9e65"
     },
     "vectorize": {
       "file": "vectorize-dialog-light.png",
@@ -158,7 +163,8 @@
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": null
+      "lastValidatedAgainst": null,
+      "sha256": "d8e8ca00510dbe58d45f2f59d7bd9e5c106a1f7c82a9349556d94247b300b2ff"
     },
     "image-tools": {
       "file": "image-tools-panel-light.png",
@@ -169,7 +175,8 @@
       "width": 320,
       "height": 722,
       "status": "captured",
-      "lastValidatedAgainst": null
+      "lastValidatedAgainst": null,
+      "sha256": "556706ae6361b0fcf115f73491bb957229e86289c22cf2d2eba9724fd3340a9e"
     },
     "effects": {
       "file": "effects-light.png",
@@ -180,7 +187,8 @@
       "status": "captured",
       "lastValidatedAgainst": null,
       "width": 1440,
-      "height": 900
+      "height": 900,
+      "sha256": "321fc8318074c9208fcb229aed72fc835f3b36668f66b2f3e41cedd0edfeb871"
     },
     "background-removal": {
       "file": "background-removal-light.png",
@@ -191,18 +199,20 @@
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": null
+      "lastValidatedAgainst": null,
+      "sha256": "1e7ee284b1882c6669470b60d6ab4bcb30dc7b2902e47040720ca6dbd8224911"
     },
     "depth-blur": {
       "file": "depth-blur-light.png",
-      "alt": "The Varve Depth Blur inspector showing a generated depth map preview for a photo, with blur amount, focal distance and transition range controls",
+      "alt": "The Varve Depth Blur inspector showing depth-map controls for a photo, with blur amount, focal distance and transition range controls",
       "caption": "A depth map computed on-device drives a non-destructive lens blur.",
       "feature": "depth-aware-effects",
       "theme": "light",
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": null
+      "lastValidatedAgainst": null,
+      "sha256": "fbec299a21bb088a2a6e21a70c0868bfd5dc344f8e35709a69326976e96d66c4"
     },
     "solid-picker": {
       "file": "solid-picker-light.png",
@@ -213,7 +223,8 @@
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": null
+      "lastValidatedAgainst": null,
+      "sha256": "08de15f05c752bbb31f1c73f61debe430be8104afa569ce417bcc26f18da138a"
     },
     "gradient-picker": {
       "file": "gradient-picker-light.png",
@@ -224,7 +235,8 @@
       "width": 1440,
       "height": 900,
       "status": "captured",
-      "lastValidatedAgainst": null
+      "lastValidatedAgainst": null,
+      "sha256": "8b9af39afa98339c6408d754d3af410a4b71dd50dc6ac4325307c8580a0b885b"
     },
     "font-toolbar": {
       "sha256": "25f5f34152290e45a6c1af9fca2bc73cdcd91d98102f773da725ba1a22121579",

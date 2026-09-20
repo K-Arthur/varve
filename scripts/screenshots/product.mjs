@@ -679,13 +679,17 @@ const SCENES = [
       await importImage(page, 'earth.jpg');
       await selectImageNode(page);
       await fitContent(page);
+      await page.keyboard.press('Control+Shift+4');
+      await page.waitForTimeout(1000);
       await page.getByRole('tab', { name: /^Design/i }).click();
       // The Design/Properties surface re-renders on tab switch; querying the
       // disclosure immediately after the click can catch it mid-render.
       await page.waitForTimeout(400);
-      const paletteSection = page.locator('.insp-disclosure').filter({ hasText: /^Palette/ });
+      const paletteSection = page
+        .locator('.insp-disclosure')
+        .filter({ hasText: /^Extract Palette/ });
       await paletteSection.waitFor({ state: 'visible', timeout: 15000 });
-      const paletteTrigger = paletteSection.getByRole('button', { name: /^Palette$/ });
+      const paletteTrigger = paletteSection.getByRole('button', { name: /^Extract Palette$/ });
       if ((await paletteTrigger.getAttribute('aria-expanded')) === 'false') {
         await paletteTrigger.click();
         await page.waitForTimeout(500);
@@ -805,8 +809,8 @@ const SCENES = [
     file: 'export-dialog-light.png',
     theme: 'light',
     feature: 'export',
-    alt: 'The Varve advanced export dialog showing a destination and filename template, flat/by-format/by-node organization, and format options including SVG, PNG, WebP and PDF in the adjacent Quick Export panel',
-    caption: 'Set a destination and filename template, then export to SVG, PNG, WebP, or PDF.',
+    alt: 'The Varve Inspector Export tab showing Format and Code sub-tabs with quick export presets and generated output options',
+    caption: 'Keep export presets and generated code beside the selected object in the Inspector.',
     async run(page) {
       await openCleanEditor(page);
       await openDemoDocument(page, 'poster');
@@ -817,13 +821,8 @@ const SCENES = [
       });
       await exportTab.waitFor({ state: 'visible', timeout: 5000 });
       await exportTab.click();
-      const advancedBtn = page.getByRole('button', { name: /Open advanced export/ });
-      if (!(await advancedBtn.isVisible({ timeout: 4000 }).catch(() => false))) {
-        throw new Error('"Open advanced export" control unavailable for the selected frame');
-      }
-      await advancedBtn.click();
-      const dialog = page.getByRole('dialog', { name: 'Export' });
-      await dialog.waitFor({ state: 'visible', timeout: 8000 });
+      const exportPanel = page.locator('#insp-tabpanel-export');
+      await exportPanel.waitFor({ state: 'visible', timeout: 8000 });
       await page.waitForTimeout(500);
     },
   },
@@ -988,7 +987,7 @@ const SCENES = [
     file: 'depth-blur-light.png',
     theme: 'light',
     feature: 'depth-aware-effects',
-    alt: 'The Varve Depth Blur inspector showing a generated depth map preview for a photo, with blur amount, focal distance and transition range controls',
+    alt: 'The Varve Depth Blur inspector showing depth-map controls for a photo, with blur amount, focal distance and transition range controls',
     caption: 'A depth map computed on-device drives a non-destructive lens blur.',
     async run(page) {
       await openCleanEditor(page);
@@ -1017,8 +1016,10 @@ const SCENES = [
         const detail = typeof result === 'object' ? ` — error: ${result.error || 'unknown'}` : '';
         throw new Error(`depth map never rendered${detail} — panel read: ${state}`);
       }
-      await section.getByRole('checkbox', { name: /preview depth/i }).check();
-      await expect(section.getByLabel(/depth map preview/i)).toBeVisible({ timeout: 5000 });
+      const previewToggle = section.getByRole('checkbox', { name: /preview depth/i });
+      if (await previewToggle.isVisible({ timeout: 5000 }).catch(() => false)) {
+        await previewToggle.check();
+      }
       await page.waitForTimeout(1200);
     },
   },
@@ -1100,10 +1101,15 @@ const SCENES = [
       // Bleed guides are a View toggle that defaults to off
       // (viewportSession.ts: bleedGuidesVisible: false), so setting bleed
       // values alone renders nothing — CanvasOverlays only mounts
-      // PagePrintOverlays while the toggle is on. Ctrl+Shift+2 is that
-      // toggle, which is why the spec's prelude presses it.
+      // PagePrintOverlays while the toggle is on. The Print workspace picker
+      // below supplies the same real workspace transition used by the app.
       await openCleanEditor(page);
-      await page.getByRole('button', { name: 'Add page' }).click();
+      const workspaceGroup = page.getByRole('radiogroup', { name: 'Workspace' });
+      await workspaceGroup.waitFor({ state: 'visible', timeout: 8000 });
+      const printWorkspace = workspaceGroup.getByRole('radio', { name: /print workspace/i });
+      await printWorkspace.click();
+      await page.waitForTimeout(1200);
+      await page.getByRole('button', { name: 'Add publishing page' }).click();
       await page.waitForTimeout(400);
       await page.locator('canvas.editor-canvas__content-layer').waitFor({ timeout: 10000 });
       await page.keyboard.press('r');

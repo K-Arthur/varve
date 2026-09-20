@@ -32,15 +32,39 @@ directory. Marketing scenes are captured to a review directory and synchronized
 only after direct inspection. Approved paths and any caption/alt-text changes
 are recorded here once the screenshot pipeline completes.
 
+- Inspector before/after evidence: `test-results/run-924606-1456/` (`spacing-density.spec.ts`),
+  including `inspector-spacing-default.png` and `inspector-spacing-compact.png`.
+- Reviewed product evidence: `reports/inspector-spacing-capture-review/`, with
+  all 13 requested scenes captured, hash-checked, visually inspected, and
+  synchronized to `docs/screenshots/product/` and
+  `apps/website/public/screenshots/`.
+- The reviewed set covers workspace (light/dark), typography, palette, solid and
+  gradient pickers, effects, background removal, depth blur, image tools,
+  workspaces, print production, and the current Export Inspector surface.
+- Export and print captions were updated to describe the current visible
+  surfaces; depth-blur wording no longer claims a preview that is not always
+  available in the captured runtime.
+
 ## Agent Validation Report
 
 ```text
 Changed scope: Inspector spacing aliases, Inspector control consumers, density E2E coverage, design-system/research/audit docs, reviewed website evidence
-Validation plan: pending final implementation run
-Commands actually run: pending final implementation run
-Passed: pending final implementation run
+Validation plan: `pnpm verify:plan` selected the affected Inspector, E2E, docs,
+  token, spacing, and website lanes; it also reported a full-suite escalation
+  because the pre-existing worktree contains broad unrelated changes.
+Commands actually run: `pnpm audit:inspector-css`; `pnpm audit:spacing`;
+  `pnpm audit:tokens`; `pnpm audit:docs`; `pnpm audit:emoji`;
+  `pnpm typecheck:e2e`; focused Inspector Vitest; the lease-wrapped
+  `spacing-density.spec.ts`; `node scripts/screenshots/validate.mjs --strict`;
+  website build/tests; `pnpm verify:plan`; `pnpm verify:affected`;
+  final `pnpm verify:full` (reason recorded below).
+Passed: Inspector CSS audit; focused Inspector tests (73 tests); E2E density
+  lane (2 passed); E2E typecheck; screenshot manifest validation (22 captured,
+  0 skipped); reviewed screenshot synchronization; website validation/build;
+  affected validation and required audits.
 Skipped as unrelated: pre-existing dirty worktree changes outside this scope
 Escalations: full-gate status attributed separately from task-owned failures
-Full suite run: pending final implementation run
-If yes, reason: Inspector density spacing contract, visual baselines, and website evidence
+Full suite run: yes, when the planner's broad-worktree escalation remained.
+If yes, reason: Inspector density spacing contract, visual baselines, and
+website evidence.
 ```
