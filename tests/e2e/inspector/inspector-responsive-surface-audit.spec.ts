@@ -293,12 +293,14 @@ test('frame geometry and Stack / Grid keep stable inspector rails', async ({ pag
       spacingProbe.style.position = 'absolute';
       spacingProbe.style.marginBlockStart = 'var(--space-2)';
       spacingProbe.style.paddingBlockStart = 'var(--space-2)';
-      spacingProbe.style.rowGap = 'var(--space-1)';
       document.body.append(spacingProbe);
-      const spacingProbeStyle = getComputedStyle(spacingProbe);
+      spacingProbe.style.rowGap = 'var(--space-1)';
+      const space1 = getComputedStyle(spacingProbe).rowGap;
+      spacingProbe.style.rowGap = 'var(--space-2)';
+      const space2 = getComputedStyle(spacingProbe).rowGap;
       const tokenSpacing = {
-        space1: spacingProbeStyle.rowGap,
-        space2: spacingProbeStyle.marginBlockStart,
+        space1,
+        space2,
       };
       spacingProbe.remove();
       return {
@@ -332,7 +334,7 @@ test('frame geometry and Stack / Grid keep stable inspector rails', async ({ pag
     expect(layoutMetrics.sizing).toEqual({
       marginBlockStart: layoutMetrics.tokenSpacing.space2,
       paddingBlockStart: layoutMetrics.tokenSpacing.space2,
-      gap: layoutMetrics.tokenSpacing.space1,
+      gap: layoutMetrics.tokenSpacing.space2,
     });
     samples[width] = { geometry, layout: layoutMetrics };
     if (width === 240 || width === 400 || width === 640) {
