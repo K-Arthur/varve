@@ -74,7 +74,9 @@ Answering the required questions directly:
 | Fit balloon to text | Balloon too big / text too small | CSP "no auto-fit" threads | Shared geometry | Fit button (exists) | Bounded fixpoint | 0.34 ms single | Implemented |
 | Overflow/near-overflow status | Silent clipping/forced shrink | Lettering guidance | Canonical layout metrics | Status line (exists) | None | O(1) | Implemented |
 | Text stroke on wrapped text | Outline detached from wrapped glyphs | Export parity; SFX practice | Canonical snapshot | None | Stroke painter | Same as fill | Fixed |
-| SFX presets (packaged) | SFX drawn outside the app | Manga localization SFX policy | Text+stroke+warp | Preset library | Low | O(1) | Defer (existing controls reusable) |
+| SFX/text-effect preset library | SFX drawn outside the app; one hard-coded style | Manga localization SFX policy; published lettering practice | TextNode fields only | Preset select | Low | O(1) | Implemented (six presets, no bundled assets) |
+| Burst and cloud balloons | Speech/thought/caption shapes only | CSP balloon materials; CC0 SVG structure | Star outline + existing recipe | Kind options | `outlineNodeId` | O(1) | Implemented |
+| Direct balloon text editing | Layer-tree hunt for every line | CSP double-click editing | Existing text editor | None | None | O(1) | Implemented |
 | Per-glyph jitter/radial SFX | Display lettering variety | Lettering books | Warp/glyph adjustments — warp rejects multi-line/RTL | Preset + controls | Needs deterministic seeds and hit testing | Unknown | Defer; expose existing warp first |
 | Speaker-object targeting | Tails follow speakers | CSP discussions; risk of hidden state | Needs persistent reference | Overlay + Inspector | New relationship + deletion handling | O(1) | Defer; explicit endpoint only |
 | Joined balloons | Sequential/alternating dialogue | Blambot; CSP threads | Multiple tails + groups | Connector UI | Model for shared outlines | O(1) | Defer after core stabilizes |
@@ -94,10 +96,16 @@ Answering the required questions directly:
 5. **Visual validation** (2026-09-20): five real-flow E2E scenarios and the
    capture set in `docs/screenshots/comic-lettering/`.
 6. **Remaining** (not started): canvas balloon-drawing tool, canvas tail
-   handles, joined balloons, SFX preset library with deterministic per-glyph
-   effects, vertical contour columns, comic-specific RTL fixtures, batch
-   lettering navigation, script import decision.
-7. **Known defect**: live canvas loses shape corner radii despite correct IR
+   handles, joined balloons, per-glyph deterministic SFX effects, vertical
+   contour columns, comic-specific RTL fixtures, batch lettering navigation,
+   script import decision.
+7. **Shaped balloons, presets, and direct editing** (2026-09-20): Burst and
+   Cloud star-outline kinds; the text-effect/SFX preset library; double-click
+   balloon editing; clone/paste recipe remapping; real-photo E2E validation in
+   `tests/e2e/canvas/comic-workflow.spec.ts` with captures in
+   `docs/screenshots/comic-workflow/`. Research and licensing for the preset
+   vocabulary: `docs/research/comic-preset-svg-research-2026-09-20.md`.
+8. **Known defect**: live canvas loses shape corner radii despite correct IR
    (see the audit); fix in the editor frame path.
 
 ## Validation economy

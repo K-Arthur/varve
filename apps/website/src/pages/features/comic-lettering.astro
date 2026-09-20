@@ -95,11 +95,12 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section">
         <h2>Key capabilities</h2>
         <ul>
-          <li><strong>Balloon recipes:</strong> speech, thought, caption, whisper, and shout treatments built from editable scene nodes</li>
+          <li><strong>Balloon recipes:</strong> speech, thought, caption, whisper, shout, burst, and cloud treatments built from editable scene nodes — the burst and cloud outlines are resizable star shapes, not imported artwork</li>
           <li><strong>Contour-aware wrapping:</strong> line widths derived from the number of lines the dialogue forms, shared by selection, editing, paint, and export</li>
           <li><strong>Tail editing:</strong> one or more tails, an editable endpoint, curve and base width, flip, remove, and a detach action for deliberate freeform edits</li>
           <li><strong>Text-aware fitting:</strong> shared text geometry reports fit, near-overflow, or overflow without mutating the document, and fitting never shrinks the type</li>
-          <li><strong>Sound-effect lettering:</strong> reuse the existing text stroke, effect, warp, and transform systems instead of creating a raster-only SFX layer; strokes follow wrapped lines</li>
+          <li><strong>Text-effect presets:</strong> sound effect, outline, whisper, electronic, display title, and body-text presets are patches over ordinary text fields — no outlined glyphs, no rasterized SFX, and dialogue stays editable</li>
+          <li><strong>Direct editing:</strong> double-click anywhere on a balloon to edit its dialogue, and copied balloons keep their own body, tail, and text references</li>
           <li><strong>Page structure:</strong> comic, manga, and webtoon-vertical starting profiles with page order, panel metadata, reading direction, and bounded slice planning</li>
           <li><strong>Accessible review:</strong> named controls, keyboard-reachable Inspector actions, and status text that explains why a balloon needs attention</li>
         </ul>
@@ -110,9 +111,10 @@ import { sitePath } from '../../lib/siteUrl';
         <p>
           The editable balloon foundation is in the beta. Speaker-target placement, joined balloons
           with shared outlines, a canvas draw-a-balloon tool, vertical contour columns, and full
-          publisher upload automation are intentionally not presented as complete. Webtoon and
-          Tapas limits remain dated, source-linked export guidance rather than hard-coded platform
-          promises.
+          publisher upload automation are intentionally not presented as complete. Tails added by
+          hand to a burst or cloud balloon anchor at the text box rather than the outer edge.
+          Webtoon and Tapas limits remain dated, source-linked export guidance rather than
+          hard-coded platform promises.
         </p>
         <p>
           See the <a href={sitePath('/docs/tools/typography')}>typography guide</a> for the shared

@@ -49,10 +49,16 @@ a second text engine:
   or circle nodes. Both are selectable, restylable, and exportable through the
   normal scene, layer, history, clipboard, and export systems.
 - Selectable in the Comic balloon inspector: Speech, Thought, Caption, Whisper,
-  and Shout recipes; text padding; line shape (Balloon contour / Rectangle);
-  fit policy (`reflow` / `fit-balloon` / `overflow`) with a derived fit status;
-  the first tail's endpoint, curve, and base width; Add/Flip/Remove tail; and
-  Detach geometry.
+  Shout, Burst, and Cloud recipes; text padding; line shape (Balloon contour /
+  Rectangle); fit policy (`reflow` / `fit-balloon` / `overflow`) with a derived
+  fit status; the first tail's endpoint, curve, and base width; Add/Flip/Remove
+  tail; and Detach geometry.
+- Burst and Cloud are **shaped** balloons: an ordinary star outline painted
+  behind the tail/body/text recipe, resized with the body on fit. No new node
+  kind and no imported SVG path; the star's inner radius tracks the text box
+  and its outer radius adds the burst or scallop depth. Tails paint behind the
+  outline so their base is hidden by the balloon fill, and they anchor at the
+  outline's outer edge.
 
 ### Contour (balloon-aware) text layout
 
@@ -101,19 +107,29 @@ decreasing circles sized from the space each one gets, with the last circle at
 the authored target. Add, flip, and remove operate on logical tails; body and
 text identities never change.
 
-### Selection
+### Selection and editing
 
 The group is selected as a whole on the canvas; the body, each tail, and the
 text are reached through the layer tree, and the text node remains a normal
 editable `TextNode`. This is the existing scene container/deep-selection
-model, not a comic-only selection mode.
+model, not a comic-only selection mode. Double-clicking anywhere on a balloon —
+the group, the body, or a tail — starts editing the bound dialogue directly
+(the canvas hit-test returns the callout group, so the ancestor walk resolves
+the recipe instead of entering group isolation).
+
+Copy/paste and duplicate remap the recipe's body, text, tail, and outline
+references through the clone id map; before this a pasted balloon still edited
+the original dialogue, and a cross-document paste kept dangling ids. A clone
+that cannot resolve its members drops the recipe and pastes an ordinary group.
 
 ### Remaining lettering work
 
 The current creation entry point is the Typography inspector action; a
 dedicated canvas drag tool for drawing a new balloon around an arbitrary
 region, canvas tail-drag handles, joined balloons, per-glyph comic effects,
-and a script import stay follow-ups. See `docs/plans/comic-lettering-system.md`
+and a script import stay follow-ups. Tails added by hand to a Burst or Cloud
+balloon anchor at the text box rather than the star's outer edge — the
+creation path anchors them correctly. See `docs/plans/comic-lettering-system.md`
 for the admission matrix and slice ledger.
 
 Known defect observed during visual review (2026-09-20): the live canvas
@@ -126,16 +142,20 @@ evidence.
 
 ### Sound effects and display lettering
 
-The Typography inspector also exposes a Sound effect preset. It uses the
-existing text stroke, weight, case, alignment, and effect pipeline, so sound
-effects remain editable text and export through the same composition snapshot
-as ordinary lettering. Text strokes are painted from the canonical layout, so
+The Typography inspector exposes a Text effects preset library: Sound effect
+(heavy uppercase display type with a contrasting outline), Outline, Whisper,
+Electronic / radio, Display title, and Body text. Each preset is a patch over
+ordinary `TextNode` fields — case, weight, style, spacing, stroke — so content,
+story binding, and geometry are never touched, and Clear outline removes only
+the stroke. A preset never outlines glyphs and never rasterizes: sound effects
+remain editable text and export through the same composition snapshot as
+ordinary lettering. Text strokes are painted from the canonical layout, so
 a stroked area-text node keeps its outline on the same wrapped lines as its
-fill. Clear outline removes only the preset stroke. Ruby / furigana can be
-authored for the currently selected rich-text range; ranges are stored as
-UTF-16 source offsets and the existing ruby rebase logic marks ranges stale
-when their base text changes. These controls are convenience actions over
-shared text primitives, not a parallel comic text renderer.
+fill. Ruby / furigana can be authored for the currently selected rich-text
+range; ranges are stored as UTF-16 source offsets and the existing ruby rebase
+logic marks ranges stale when their base text changes. These controls are
+convenience actions over shared text primitives, not a parallel comic text
+renderer.
 
 ## Panels and paint resolution
 
