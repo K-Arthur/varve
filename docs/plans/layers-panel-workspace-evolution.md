@@ -76,6 +76,15 @@ then close the non-schema roadmap items it left open. Findings and changes:
 | IMPL-013 | AUD-010 (found during IMPL-011 verification) | Capacity precedence fix: `.layers-row__badges` had `flex-shrink: 9999`, so the cluster collapsed to width 0 before the label yielded — every badge, including a just-revealed trace chip, was clipped invisible on rows with long auto-names (Playwright `toBeVisible` passed because the element's own box was non-empty; ancestor `overflow: hidden` did not count). Final merged design (with the Layer Details pass): identity column `flex: 1 1 0` with 8ch/0 floors by container width; cluster content-sized, capped, and yielding to a 1.5rem floor at ≤260px so the shrink:0 toggles never move. The ≤219px name floor is 0 — at the documented 180px minimum any floor overflows the row (fixed after the merged commit; see follow-up). |
 | IMPL-014 | REQ-009 validation | Trace-badge E2E (hover reveal, focus reveal, accessible name) + `reports/layers-evolution/after/trace-badge-row.png`; unit suite for panel + workspace config. |
 
+### Remaining-gap closure (same day, second continuation)
+
+| Unit | Gap | Outcome |
+|---|---|---|
+| IMPL-015 | Frame/group 28×28 thumbnails (perf-gated) | Implemented as bounded content previews: `containerPreview.ts` (64-primitive cap, early-exit content probe, aspect-preserved unit-box normalization, content-signature cache key). Bench caught the O(n) parent-scan fallback (41.6 ms/container on 11 k nodes); threading the panel's `ParentIndexCache` made it 0.078 ms/container (533×) — recorded in `reports/layers-evolution/closure/perf/containerPreview.json`. |
+| IMPL-016 | Physical screen-reader session | Cannot be claimed synthetically. Added a computed-ARIA-tree evidence test (`ariaSnapshot` in `accessibility.spec.ts`, artifact `reports/layers-evolution/after/aria-tree-snapshot.yaml`) plus an executable manual session script: `docs/audits/layers-screen-reader-runbook-2026-09-19.md`. |
+| IMPL-017 | WebKitGTK cross-engine re-run | Blocked at execution: the Panel Layout agent's in-flight feature left the module graph broken (`joinPanels` re-export missing → app boots blank/timeout for every project). Added the missing one-line re-export in their file (uncommitted) to unblock all agents; `Shell.tsx`/`context.tsx`/`sceneNodeGeometry.ts` remain actively dirty, so the dev server is not stable enough for another run. Exact re-run commands are in the report's environment-block section. |
+| GAP-DEFER | Non-printing flag + alpha lock (schema) | Blocked by the concurrent comic-workflow schema migration owning `types.ts` + `version.ts`; a second concurrent migration would corrupt the version history. Made turnkey instead: spec §10 lists exact steps, consumers, gates. |
+
 ### Concurrent-agent conflicts found in this pass
 
 - `LayersRow.tsx` and `layers.css` also carried the additive details, preview,

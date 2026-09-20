@@ -37,6 +37,7 @@ import {
 } from '../../scene/world';
 import type { LayersBadgeGroup } from '../../workspace/workspaceTypes';
 import { summarizeAdjustmentStack } from './adjustmentStackSummary';
+import { containerHasContent } from './containerPreview';
 import { EffectStackTransferBadge } from './EffectStackTransferBadge';
 import { LayerDetailsPopover } from './LayerDetailsPopover';
 import {
@@ -216,10 +217,22 @@ export const LayersRow = memo(function LayersRow({
   const typeIcon = isGroup && expanded ? 'FolderOpen' : layerPresentation.icon;
   // Hooks stay unconditional for every virtual row, but disabled previews do
   // no idle work and cannot publish a stale completion.
-  const thumbnailDataUrl = useThumbnail(node, docId, doc, thumbnailEnabled && isImageShape(node));
-  // Only show a preview chip for real image content — solid-fill frame
-  // thumbnails read as unexplained coloured squares next to the type icon.
-  const showThumbnail = isImageShape(node) && thumbnailDataUrl != null;
+  const isContainerKind = node.kind === 'frame' || node.kind === 'group';
+  // Containers get a content preview when — and only when — they have a
+  // drawable descendant: the probe early-exits, and an empty container keeps
+  // its type icon instead of a redundant outline glyph.
+  const containerPreviewable = isContainerKind && doc ? containerHasContent(doc, node) : false;
+  const thumbnailRequested = isImageShape(node) || containerPreviewable;
+  const thumbnailDataUrl = useThumbnail(
+    node,
+    docId,
+    doc,
+    thumbnailEnabled && thumbnailRequested,
+    parentCache,
+  );
+  // Only show a preview chip for real content — solid-fill frame thumbnails
+  // read as unexplained coloured squares next to the type icon.
+  const showThumbnail = thumbnailRequested && thumbnailDataUrl != null;
   const isInstance = layerPresentation.category === 'instance';
   // An empty name (a real, if uncommon, document state — e.g. a cleared
   // rename, or certain import paths) previously rendered as literally

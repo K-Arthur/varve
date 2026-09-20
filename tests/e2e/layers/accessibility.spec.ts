@@ -1,3 +1,4 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { navigateToEditor, seedLayers } from '../shared';
 
@@ -240,6 +241,48 @@ test.describe('Layers Panel - Accessibility', () => {
     // Container should have aria-expanded
     const expanded = await container.getAttribute('aria-expanded');
     expect(['true', 'false']).toContain(expanded);
+  });
+
+  test('exposes hierarchy, expansion, and selection through the computed ARIA tree', async ({
+    page,
+  }) => {
+    // Synthetic stand-in for a screen-reader walkthrough: `ariaSnapshot()`
+    // serializes Chromium's computed accessibility tree — what an assistive
+    // technology actually receives — rather than the DOM attributes. It
+    // cannot replace a physical NVDA/Orca/VoiceOver session, but it does
+    // catch the class of regression where attributes exist but the tree the
+    // AT sees is flat, unnamed, or missing state.
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas not found');
+    // A frame with a child, so the tree contains a real hierarchy.
+    await page.keyboard.press('f');
+    await page.mouse.move(box.x + 100, box.y + 100);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 320, box.y + 280, { steps: 3 });
+    await page.mouse.up();
+    await page.keyboard.press('r');
+    await page.mouse.move(box.x + 140, box.y + 140);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 200, box.y + 200, { steps: 3 });
+    await page.mouse.up();
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+
+    const tree = page.getByRole('tree', { name: /layers/i });
+    await tree.focus();
+    await page.keyboard.press('Home');
+    const snapshot = await tree.ariaSnapshot();
+
+    expect(snapshot).toContain('treeitem');
+    expect(snapshot).toContain('expanded');
+    expect(snapshot).toContain('level=2');
+    // The focused/selected row states the layer name, so the AT user hears
+    // an identity, not "tree item".
+    expect(snapshot).toMatch(/treeitem "[^"]+"/);
+
+    mkdirSync('reports/layers-evolution/after', { recursive: true });
+    writeFileSync('reports/layers-evolution/after/aria-tree-snapshot.yaml', snapshot);
   });
 
   test('reduced motion disables animations', async ({ page }) => {

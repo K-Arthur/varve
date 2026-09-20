@@ -276,3 +276,93 @@ regenerated and inspected after the icon change.
 Physical screen-reader sessions, frame/group thumbnails (perf-gated),
 non-printing flags and alpha locks (schema-gated), and a cross-engine
 (WebKitGTK) re-run of the merged row remain open as previously documented.
+
+---
+
+## Remaining-gap closure — second continuation (2026-09-19)
+
+### Container previews (phase 9b) — implemented
+
+Frames and groups with drawable descendants now render a bounded content
+layout in the 28×28 row thumbnail (`containerPreview.ts`): ≤ 64 leaf
+primitives, early-exit `containerHasContent` probe gating the row request
+(empty containers keep their type icon), aspect-preserved unit-box
+normalization, transformed AABB for rotated children, and a content-signature
+component in the thumbnail cache key so descendant edits invalidate the
+parent preview.
+
+The benchmark caught a real defect before it shipped: without a parent index
+every `nodeWorldTransform` call falls back to an O(document) parent scan —
+**41.6 ms per container on an 11 k-node document** (45.8 s for 1 000
+containers). Threading the panel's existing `ParentIndexCache`:
+
+| Case | Without parent index | With (`closure` phase record) |
+|---|---|---|
+| 10 k-child container (64-cap) | 227 ms | **0.57 ms** |
+| 200-deep nesting | 7.8 ms | **0.18 ms** |
+| 30-row visible window (11 k-node doc) | 1 249 ms | **2.34 ms** |
+| 1 000 containers | 45 816 ms | **26.7 ms** |
+| empty-but-huge content probe | — | **0.04 ms** |
+
+Evidence: `containerPreview.test.ts` (10 tests), panel+workspace unit suite
+**431/431**, bench record
+`reports/layers-evolution/closure/perf/containerPreview.json`, and the
+`closure` phase projection record alongside it. The E2E test ("container rows
+with content render a bounded content preview",
+`layers-panel-real-world.spec.ts`) and its capture are authored but **not yet
+executed**: see the environment block below.
+
+### Screen-reader evidence — runbook + synthetic tree
+
+A physical session still cannot be claimed. Two additions narrow the gap: a
+computed ARIA-tree snapshot assertion in `accessibility.spec.ts` (artifact
+`reports/layers-evolution/after/aria-tree-snapshot.yaml`) and an executable
+manual session script,
+`docs/audits/layers-screen-reader-runbook-2026-09-19.md`, whose completion is
+the remaining human step. The snapshot test is authored but not yet executed
+in this environment (below).
+
+### Environment block (why the last E2E items did not run)
+
+From ~18:20 PDT the shared tree stopped booting for E2E: the Panel Layout
+agent's in-flight feature left `context.tsx` importing `joinPanels` from a
+re-export that did not include it (`sceneNodeGeometry.ts`), which failed the
+Vite module graph (`Importing binding name 'joinPanels' is not found`) and
+manifested as global-setup/`.layers-panel` timeouts and one blank page across
+chromium and webkit runs. I added the missing re-export binding (one line,
+left uncommitted in that agent's file) and the app booted again
+(`node scripts/audit-...`-equivalent: editor `tsc` returned to its 45-error
+baseline with zero errors in the layers files). Subsequent runs still failed
+intermittently because `Shell.tsx`, `context.tsx`, and `sceneNodeGeometry.ts`
+remain actively dirty — the dev server is a moving target while that agent
+works.
+
+Green runs obtained **before** the block (recorded in the previous section):
+APG 13/13, overflow 3/3, workspace projection 7/7, accessibility 11 + 1 skip,
+trace 1/1. The three E2E items authored in this continuation
+(container-preview row, ARIA snapshot) and the WebKit re-run should be
+executed in the next green-tree window with:
+
+```bash
+VARVE_E2E_PORT=1445 node scripts/quality/heavy-lease.mjs "e2e: container preview" -- \
+  npx playwright test tests/e2e/layers/layers-panel-real-world.spec.ts \
+  --project=chromium --workers=1 --reporter=list --grep "container rows with content"
+VARVE_E2E_PORT=1445 node scripts/quality/heavy-lease.mjs "e2e: aria snapshot" -- \
+  npx playwright test tests/e2e/layers/accessibility.spec.ts \
+  --project=chromium --workers=1 --reporter=list --grep "computed ARIA tree"
+VARVE_E2E_PORT=1445 node scripts/quality/heavy-lease.mjs "e2e(webkit): merged row" -- \
+  npx playwright test tests/e2e/layers/layers.spec.ts \
+  tests/e2e/layers/workspace-evolution.spec.ts --project=webkit --workers=1 \
+  --reporter=list --retries=1
+```
+
+### Schema items — blocked with a turnkey plan
+
+`packages/scene/src/types.ts` + `version.ts` carry the concurrent
+comic-workflow migration. Adding a second migration in the same files
+concurrently is prohibited by the coordination protocol and would risk the
+version history, so `printExcluded` and alpha lock remain unimplemented. The
+spec now carries a turnkey checklist (§10) with exact steps, consumers,
+import/export policy, and gate requirements, ready to execute the moment
+that migration lands. No projection-only imitation was shipped: the spec
+explicitly rejects faking the flag.

@@ -18,7 +18,13 @@ import { ImageCache } from '@varve/engine';
 import type { Document, SceneNode, ShapeNode } from '@varve/scene';
 import { isImageShape } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ParentIndexCache } from '../../scene/parentIndexCache';
+import {
+  type ContainerPreview,
+  collectContainerPreview,
+  containerPreviewSignature,
+} from './containerPreview';
 import { ThumbnailCache, thumbnailCacheKey } from './thumbnailCache';
 
 const THUMB_W = 28;
@@ -83,10 +89,24 @@ export const thumbnailImageCache = new ImageCache({
   maxBytes: 16 * 1024 * 1024,
 });
 
+/**
+ * What the thumbnail renderer reads from the document: asset payloads for
+ * image fills/masks, plus (for container previews) the node map and pages the
+ * world transforms need. Every production caller passes the full document;
+ * the partial shape keeps isolated unit renders working.
+ */
+type ThumbnailDoc = Pick<Document, 'assets' | 'rasterMaskAssets'> &
+  Partial<Pick<Document, 'nodes' | 'pages'>>;
+
+function isContainerKind(node: SceneNode): boolean {
+  return node.kind === 'frame' || node.kind === 'group';
+}
+
 async function renderNodeToCanvas(
   node: SceneNode,
   canvas: OffscreenCanvas | HTMLCanvasElement,
-  doc?: Pick<Document, 'assets' | 'rasterMaskAssets'>,
+  doc?: ThumbnailDoc,
+  preview?: ContainerPreview | null,
 ) {
   const ctx = canvas.getContext('2d') as OffscreenCanvasRenderingContext2D | null;
   if (!ctx) return null;
@@ -279,16 +299,31 @@ async function renderNodeToCanvas(
     ctx.fillRect(ox, oy, area, area);
     ctx.restore();
   } else if (node.kind === 'frame' || node.kind === 'group') {
-    // Frame/group: an outlined box distinguishes a container from a shape.
-    ctx.save();
-    ctx.globalAlpha = 0.15;
-    ctx.fillStyle = ink.placeholder;
-    ctx.fillRect(ox, oy, area, area);
-    ctx.globalAlpha = 0.4;
-    ctx.strokeStyle = ink.containerStroke;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(ox, oy, area, area);
-    ctx.restore();
+    if (preview && preview.primitives.length > 0) {
+      // Content preview: each descendant leaf's bounds, normalized to the
+      // container's own space (bounded and cached — see containerPreview.ts).
+      for (const p of preview.primitives) {
+        ctx.fillStyle = p.fill;
+        ctx.fillRect(
+          ox + p.x * area,
+          oy + p.y * area,
+          Math.max(1, p.w * area),
+          Math.max(1, p.h * area),
+        );
+      }
+    } else {
+      // Frame/group with no drawable content: an outlined box distinguishes a
+      // container from a shape.
+      ctx.save();
+      ctx.globalAlpha = 0.15;
+      ctx.fillStyle = ink.placeholder;
+      ctx.fillRect(ox, oy, area, area);
+      ctx.globalAlpha = 0.4;
+      ctx.strokeStyle = ink.containerStroke;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(ox, oy, area, area);
+      ctx.restore();
+    }
   } else {
     ctx.fillRect(ox, oy, area, area);
   }
@@ -327,10 +362,27 @@ export const sharedThumbnailCache = new ThumbnailCache();
 export function useThumbnail(
   node: SceneNode,
   docId?: string,
-  doc?: Pick<Document, 'assets' | 'rasterMaskAssets'>,
+  doc?: ThumbnailDoc,
   enabled = true,
+  parentCache?: ParentIndexCache | null,
 ): string | null {
-  const cacheKey = thumbnailCacheKey(node, docId);
+  // Container visuals depend on descendants, so the preview layout is part
+  // of the cache identity (via its signature). Collection is bounded and
+  // parent-index backed; it runs per mounted row per document revision.
+  const containerPreview = useMemo(() => {
+    if (!enabled || !isContainerKind(node) || !doc?.nodes || !doc.pages) return null;
+    return collectContainerPreview(doc as Document, node.id, {
+      fallbackFill: thumbnailInk().placeholder,
+      parentCache,
+    });
+  }, [enabled, node, doc, parentCache]);
+  const cacheKey = thumbnailCacheKey(
+    node,
+    docId,
+    containerPreview ? containerPreviewSignature(containerPreview) : undefined,
+  );
+  const previewRef = useRef<ContainerPreview | null>(null);
+  previewRef.current = containerPreview;
   const docRef = useRef(doc);
   docRef.current = doc;
   const [dataUrl, setDataUrl] = useState<string | null>(
@@ -357,7 +409,7 @@ export function useThumbnail(
       canvas.height = THUMB_H;
     }
 
-    await renderNodeToCanvas(nodeRef.current, canvas, docRef.current);
+    await renderNodeToCanvas(nodeRef.current, canvas, docRef.current, previewRef.current);
 
     if (useOffscreen) {
       const blob = await (canvas as OffscreenCanvas).convertToBlob();

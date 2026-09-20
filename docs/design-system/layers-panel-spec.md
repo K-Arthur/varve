@@ -381,13 +381,15 @@ Hover/focus revelation is CSS-only (`:hover`, `:focus-within`) with
 | 7 | Non-printing flag (`printExcluded`) | **schema** | full gate | Deferred — specified here, not implemented |
 | 8 | Alpha lock for raster layers | **schema** | full gate | Deferred — specified here, not implemented |
 | 9a | Trace-group row badge | — | unit + E2E | Done (`data-badge-group="trace"`, revealed everywhere) |
-| 9b | Frame/group 28×28 thumbnails | — | perf-gated | Deferred — needs a measured cache; `useThumbnail.ts` is concurrently owned |
+| 9b | Frame/group 28×28 thumbnails | — | perf-gated | **Done** — bounded content previews, measured (see §9) |
 | 10 | `*` expand-siblings key | — | unit + E2E | Done |
 
 Phases 7 and 8 remain specified but not implemented: they require a document
 version bump, migration, codec normalization, print/codegen consumers, and a
-justified full-gate escalation. Phase 9b remains perf-gated work for a future
-pass.
+justified full-gate escalation. A turnkey checklist for both is in §10; they
+are **blocked on the concurrent comic-workflow schema migration** taking
+`packages/scene/src/types.ts` + `version.ts` (implementing a second migration
+in the same files concurrently is prohibited by the coordination protocol).
 
 ## 8. Implementation follow-up — 2026-09-19
 
@@ -411,3 +413,74 @@ cancels pending preview work and stale asynchronous completions cannot publish
 back into a row. Disclosure transfer uses a tagged compact encoding so an
 explicitly empty expansion set is distinct from missing state and large sets
 are not truncated by the generic panel codec.
+
+## 9. Container previews (phase 9b, implemented 2026-09-19)
+
+Frames and groups with drawable descendants render a bounded content layout
+in the 28×28 row preview instead of the container-outline glyph
+(`containerPreview.ts`):
+
+- **Bounded**: at most 64 leaf primitives per container; a cheap
+  `containerHasContent` probe (early exit, 256-node scan cap) gates the row's
+  request, so an empty container keeps its type icon and never renders a
+  redundant outline.
+- **Parent-index mandatory**: `collectContainerPreview` takes the panel's
+  `ParentIndexCache`; without it every world transform falls back to an
+  O(document) parent scan. Measured on an 11 k-node document:
+  **41.6 ms → 0.078 ms per container** with the cache (533×).
+- **Measured scale** (`reports/layers-evolution/closure/perf/containerPreview.json`):
+  10 k-child container (64-cap) 0.57 ms; 200-deep nesting 0.18 ms; 30-row
+  visible window 2.34 ms; 1 000 containers 26.7 ms; empty-but-huge probe
+  0.04 ms.
+- **Cache identity**: the thumbnail key gains a content signature derived
+  from the collected primitives (rounded), so editing a descendant
+  invalidates the parent's preview without hashing the whole subtree.
+- **Documented simplifications**: axis-aligned bounds (transformed AABB for
+  rotated children), solid fills only (gradient/image fills use the theme
+  placeholder ink), live-boolean nodes contribute nothing, absolute position
+  inside the container is not part of the preview (normalized to the content
+  union, aspect preserved and centered).
+
+Evidence: `containerPreview.test.ts` (10 tests), the bench block above, and
+the E2E "container rows with content render a bounded content preview"
+(`layers-panel-real-world.spec.ts`) with capture
+`reports/layers-evolution/after/container-preview-rows.png`.
+
+## 10. Schema checklist (phases 7–8, blocked)
+
+Both changes are additive, optional node fields. They are **blocked on the
+concurrent comic-workflow migration** owning `types.ts` + `version.ts`; run
+this list only after that work commits and the files are clean.
+
+Common steps:
+
+1. `packages/scene/src/version.ts`: bump `CURRENT_SCHEMA_VERSION`; add the
+   normalizer (omit/`false` for the default; strip `false` on write so old
+   and new documents canonicalize identically) following the `traceMetadata`
+   v2.16 precedent.
+2. `packages/scene/src/types.ts`: add the optional field to `NodeBase`.
+3. `packages/scene/src/version.test.ts`: migration round-trip (old document
+   loads, new field survives serialize→parse→serialize byte-stable).
+4. Undo: toggles go through the standard `updateNode` transaction (one entry
+   per action; no-op when unchanged).
+5. Layers surface: badge group (`print` / `mask`), quick filter, context-menu
+   item with state-aware label, and the row's accessible name.
+6. Full gate: `VARVE_FULL_GATE_REASON` stating the schema migration; include
+   the cross-version load test and import/export checks.
+
+Phase 7 — non-printing (`NodeBase.printExcluded?: boolean`):
+
+- Print/PDF export skips the node (and its subtree) in the print IR; canvas
+  rendering is unchanged.
+- SVG export and codegen follow the print policy; the decision is recorded in
+  the print spec, not in Layers.
+- Print workspace: `non-printing` quick filter + badge; no canvas dimming in
+  v1 (an intentional scope cut, not an omission).
+
+Phase 8 — alpha lock (`NodeBase.alphaLock?: boolean`, raster-capable kinds):
+
+- The paint pipeline confines strokes to existing non-transparent pixels;
+  the kernel change lives with the raster/paint owner, not the panel.
+- Inspector toggle is owned by the Inspector agent — coordinate before
+  touching `components/Inspector/**`.
+- Draw/Photo badge + filter; eraser behavior is explicitly unchanged.

@@ -138,6 +138,29 @@ test.describe('Layers Panel — real-world document', () => {
     await capture(page, '02-tree-rows', tree);
   });
 
+  test('container rows with content render a bounded content preview', async ({ page }) => {
+    await importFixture(page, SVG_APP, 35);
+
+    // A group with drawable descendants shows the 28×28 content preview…
+    const row = page
+      .locator('.layers-panel__tree [role="treeitem"][aria-expanded]')
+      .filter({ has: page.locator('img.layers-row__thumbnail') })
+      .first();
+    await expect(row).toBeVisible({ timeout: 20_000 });
+    await expect(row.locator('img.layers-row__thumbnail')).toHaveAttribute(
+      'src',
+      /^data:image\/png/,
+    );
+
+    // …as a real rendered bitmap (not the 1×1 placeholder data URL), while
+    // the row stays an ordinary treeitem with its accessible name intact.
+    const src = (await row.locator('img.layers-row__thumbnail').getAttribute('src')) ?? '';
+    expect(src.length).toBeGreaterThan(200);
+    await expect(row).toHaveAttribute('aria-label', /.+/);
+
+    await capture(page, 'container-preview-rows', row);
+  });
+
   test('stress hierarchy: virtualization mounts a bounded window and scrolls smoothly', async ({
     page,
   }) => {

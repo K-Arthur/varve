@@ -330,6 +330,20 @@ the toggles past the panel edge (asserted by
 (cluster width 0px → full chip width on a long-name row) and the 180px
 overflow E2E. New requirement mapping: AUD-010 → spec §1.2 capacity rules.
 
+**Physical screen-reader evidence.** Still not claimed. The closure pass adds
+the strongest synthetic substitute available — a computed ARIA-tree snapshot
+(`ariaSnapshot` in `tests/e2e/layers/accessibility.spec.ts`, artifact
+`reports/layers-evolution/after/aria-tree-snapshot.yaml`) — plus an executable
+manual session script: `docs/audits/layers-screen-reader-runbook-2026-09-19.md`.
+Until that runbook is executed and its result appended here, no document may
+claim a physical AT validation.
+
+**Container previews (phase 9b).** Implemented in the second continuation:
+bounded 64-primitive content layouts for frames/groups with drawable
+descendants, gated by an early-exit probe, keyed by a content signature, and
+measured (0.078 ms per container on an 11 k-node document with the shared
+parent index; 41.6 ms without — see spec §9).
+
 Also resolved in the closure pass, without code changes:
 
 - **REQ-012 trace badge: implemented** (`data-badge-group="trace"`; the one

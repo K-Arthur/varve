@@ -159,6 +159,13 @@ export function thumbnailCacheKey(
     fontStyle?: string;
   },
   docId?: string,
+  /**
+   * Container preview layout (see `containerPreview.ts`). Container visuals
+   * depend on descendants, which the node's own fields above cannot express:
+   * without this, editing a child left the parent's preview stale until LRU
+   * eviction. Hashed rather than included verbatim to bound the key length.
+   */
+  contentSignature?: string,
 ): string {
   const fillHash = stableHash(node.fill ? JSON.stringify(node.fill) : 'none');
   const shapeHash = stableHash(node.shape ? JSON.stringify(node.shape) : 'none');
@@ -171,7 +178,8 @@ export function thumbnailCacheKey(
   );
   const maskRev = node.mask?.rasterMask?.editRevision ?? 0;
   const dims = node.w !== undefined && node.h !== undefined ? `${node.w}x${node.h}` : '';
-  return `${docId ?? ''}:${node.id}:${node.kind}:${fillHash}:${shapeHash}:${imageSrcHash}:stroke${strokeHash}:corner${cornerHash}:opacity${node.opacity ?? 1}:rotation${node.rotation ?? 0}:mask${maskRev}:${dims}:${textIdentity(node)}`;
+  const content = contentSignature ? `:content${stableHash(contentSignature)}` : '';
+  return `${docId ?? ''}:${node.id}:${node.kind}:${fillHash}:${shapeHash}:${imageSrcHash}:stroke${strokeHash}:corner${cornerHash}:opacity${node.opacity ?? 1}:rotation${node.rotation ?? 0}:mask${maskRev}:${dims}:${textIdentity(node)}${content}`;
 }
 
 /**
