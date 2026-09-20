@@ -38,6 +38,9 @@ are recorded here once the screenshot pipeline completes.
   and frame Sizing group gaps resolve to the same density-aware body gap as the
   surrounding Inspector sections. Shared Select triggers now resolve to the
   global density row contract instead of a fixed `2rem` local override.
+- Post-patch surface validation: the design-tab audit passed 21/21 cases, and
+  the responsive-surface audit passed 5/5 after its sizing-gap assertion was
+  updated to measure the shared `space-2` token.
 - Reviewed product evidence: `reports/inspector-spacing-capture-review/`, with
   all 13 requested scenes captured, hash-checked, visually inspected, and
   synchronized to `docs/screenshots/product/` and
