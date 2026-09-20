@@ -98,8 +98,10 @@ test('Default Pro is breathable and Compact Pro remains dense', async ({ page },
   });
 
   expect(defaultMetrics.mode).toBe('comfortable');
-  expect(defaultMetrics.rowHeight).toBe(34);
-  expect(defaultMetrics.inputHeight).toBe(34);
+  // Comfortable Pro is the canonical default control tier (32px), not a
+  // separate 34px rail height.
+  expect(defaultMetrics.rowHeight).toBe(32);
+  expect(defaultMetrics.inputHeight).toBe(32);
   expect(compactMetrics.mode).toBe('compact');
   expect(compactMetrics.rowHeight).toBe(28);
   expect(compactMetrics.inputHeight).toBe(28);
@@ -173,7 +175,7 @@ test('Position and frame sizing groups keep semantic breathing room', async ({ p
   });
   expect(metrics.positionGap).toBe(metrics.contentGap);
   expect(metrics.sizingGap).toBe(metrics.contentGap);
-  expect(metrics.selectHeight).toBe(34);
+  expect(metrics.selectHeight).toBe(32);
 
   await page.evaluate(() => document.documentElement.setAttribute('data-density', 'compact'));
   await page.waitForTimeout(100);

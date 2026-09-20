@@ -2481,7 +2481,7 @@
   border-radius: var(--radius-control-compact);
   background: var(--elevation-surface-sunken);
   border: var(--border-micro);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
   font-family: var(--font-mono);

@@ -13,7 +13,7 @@
 
 .quick-convert__intro .quick-convert__fine-print {
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-2xs);
   margin-top: 6px;
 }
 
@@ -60,7 +60,7 @@
 .quick-convert__status,
 .quick-convert__empty {
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-2xs);
 }
 
 .quick-convert__controls {
@@ -73,7 +73,7 @@
   display: grid;
   gap: 6px;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-2xs);
 }
 
 .quick-convert__field {
@@ -110,7 +110,7 @@
 .quick-convert__advanced summary {
   color: var(--color-text-primary);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--font-size-2xs);
   font-weight: 650;
 }
 
@@ -125,7 +125,7 @@
   display: grid;
   gap: 6px;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-2xs);
 }
 
 .quick-convert__advanced-body input[type="number"],
@@ -144,7 +144,7 @@
   align-items: center;
   gap: 7px;
   color: var(--color-text-primary);
-  font-size: 12px;
+  font-size: var(--font-size-2xs);
 }
 
 .quick-convert__notice,
@@ -156,7 +156,7 @@
    * separate literal, so the tint follows the theme automatically. */
   background: color-mix(in oklab, var(--color-feedback-warning) 16%, transparent);
   color: var(--color-text-primary);
-  font-size: 12px;
+  font-size: var(--font-size-2xs);
 }
 
 .quick-convert__warnings ul {
@@ -202,7 +202,7 @@
   max-width: 45%;
   overflow: hidden;
   color: var(--color-text-secondary);
-  font-size: 12px;
+  font-size: var(--font-size-2xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

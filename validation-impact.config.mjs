@@ -165,7 +165,7 @@ export const IMPACT_CONFIG = {
         'packages/help/src/**/*.css',
         'packages/ui/src/**/*.css',
       ],
-      require: ['audit:spacing'],
+      require: ['audit:spacing', 'audit:sizing'],
     },
     {
       id: 'token-usage-discipline',

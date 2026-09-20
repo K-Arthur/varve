@@ -55,7 +55,7 @@
   align-items: center;
   justify-content: center;
   min-width: var(--space-4);
-  height: var(--space-4);
+  height: calc(var(--font-size-2xs) + var(--space-2));
   padding: 0 var(--space-05);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-pill);
@@ -70,7 +70,7 @@
   display: inline-flex;
   align-items: center;
   padding: 0 var(--space-1);
-  height: var(--space-4);
+  height: calc(var(--font-size-2xs) + var(--space-2));
   border-radius: var(--radius-pill);
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
@@ -111,8 +111,8 @@
   justify-content: center;
   min-width: var(--target-min-compact);
   min-height: var(--target-min-compact);
-  width: var(--space-6);
-  height: var(--space-6);
+  width: var(--component-compact-height);
+  height: var(--component-compact-height);
   border: 1px solid transparent;
   background: none;
   color: var(--color-text-muted);
@@ -146,7 +146,7 @@
 
 .layers-panel__header-actions > .panel-detach-btn {
   width: var(--space-6);
-  height: var(--space-6);
+  height: var(--component-compact-height);
   min-width: max(var(--space-6), var(--target-min-compact));
   min-height: max(var(--space-6), var(--target-min-compact));
 }
@@ -1396,7 +1396,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  min-height: var(--space-7);
+  min-height: var(--component-default-height);
   padding: 0 var(--space-1) 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
@@ -1416,8 +1416,8 @@
   justify-content: center;
   min-width: var(--target-min-compact);
   min-height: var(--target-min-compact);
-  width: var(--space-6);
-  height: var(--space-6);
+  width: var(--component-compact-height);
+  height: var(--component-compact-height);
   border: 1px solid transparent;
   background: none;
   color: var(--color-text-muted);
@@ -1665,8 +1665,8 @@
   justify-content: center;
   width: var(--space-5);
   min-width: var(--space-5);
-  min-height: var(--space-5);
-  height: var(--space-5);
+  min-height: var(--component-xs-height);
+  height: var(--component-xs-height);
   flex-shrink: 0;
   cursor: grab;
   opacity: 0;
@@ -1916,7 +1916,7 @@
   /* Deliberate optical exception: a single initial inside an 11-14px circle.
      It is decorative (the participant name is the aria-label), so it does not
      use the type scale — the token floor would overflow the circle. */
-  font-size: 8px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-on-accent);
   overflow: hidden;
@@ -1924,7 +1924,7 @@
 }
 
 .layers-row__presence-overflow {
-  font-size: 8px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   padding: 0 var(--space-1);
 }
@@ -1992,7 +1992,7 @@
   align-items: center;
   justify-content: center;
   width: var(--space-5);
-  height: var(--space-5);
+  height: var(--component-compact-height);
   min-width: var(--target-min-compact);
   min-height: var(--target-min-compact);
   border: none;

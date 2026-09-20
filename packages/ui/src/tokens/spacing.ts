@@ -60,9 +60,9 @@ export const SPACING_SEMANTIC = {
 /** Existing geometry aliases retained as compatibility names during migration. */
 export const SPACING_LAYOUT = {
   'panel-padding': 'var(--space-panel)',
-  'toolbar-height': 'clamp(2.5rem, 2.4rem + 0.5vw, 3rem)',
-  'topbar-height': 'clamp(2.25rem, 2.15rem + 0.25vw, 2.5rem)',
-  'statusbar-height': 'clamp(1.5rem, 1.45rem + 0.25vw, 1.75rem)',
+  'toolbar-height': 'var(--component-large-height)',
+  'topbar-height': 'var(--component-large-height)',
+  'statusbar-height': 'var(--component-default-height)',
   'sidebar-width': 'clamp(14rem, 12rem + 8vw, 18rem)',
   'inspector-width': 'clamp(15rem, 13rem + 8vw, 20rem)',
   /** Consistent vertical height for all panel section headers (layers, inspector, etc.). */

@@ -65,7 +65,7 @@
    plus the disabled-move tooltips make the constraint legible before a drag. */
 .insp-effect-row__stage {
   flex: 0 0 auto;
-  padding: 1px 6px;
+  padding: var(--space-05) var(--space-2);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-pill);
   background: var(--color-surface-sunken);
@@ -78,7 +78,7 @@
 
 .insp-effect-row__blend {
   flex: 0 0 auto;
-  padding: 1px 6px;
+  padding: var(--space-05) var(--space-2);
   border-radius: var(--radius-pill);
   background: var(--color-surface-sunken);
   color: var(--color-text-muted);
@@ -188,7 +188,7 @@
 .insp-focused-editor__stage-badge {
   display: inline-flex;
   align-items: center;
-  padding: 1px 6px;
+  padding: var(--space-05) var(--space-2);
   border-radius: var(--radius-pill);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
@@ -291,11 +291,17 @@
 .insp-elevation-preset-btn__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  /* The badge wraps under the name rather than stealing its width. Three
+   * columns in a ~270px popover leave ~79px per tile; name + badge on one
+   * line needed ~86px and ellipsized "Ambient" to "Ambi…". */
+  flex-wrap: wrap;
+  gap: 0 var(--space-1);
   width: 100%;
 }
 
 .insp-elevation-preset-btn__name {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
@@ -304,10 +310,11 @@
 }
 
 .insp-elevation-preset-btn__badge {
+  flex: 0 0 auto;
   font-size: var(--font-size-2xs);
   font-family: var(--font-mono);
-  padding: 0 4px;
-  border-radius: 3px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-control-compact);
   background: var(--color-surface-raised);
   color: var(--color-text-muted);
 }
@@ -481,7 +488,7 @@
   font-family: var(--font-mono);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
   color: var(--color-text-muted);
   cursor: pointer;
   text-align: center;

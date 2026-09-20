@@ -483,6 +483,9 @@ input[type="number"] {
   cursor: default;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
+  /* Menu titles are interactive: hold the 24px WCAG 2.5.8 activation floor
+   * (measured 20px before this). */
+  min-block-size: var(--target-min-compact);
   background: none;
   border: none;
   color: var(--color-text-muted);
@@ -510,7 +513,7 @@ input[type="number"] {
   align-items: center;
   justify-content: center;
   width: var(--space-6);
-  height: var(--space-6);
+  height: var(--component-compact-height);
   padding: 0;
   background: none;
   border: none;
@@ -727,8 +730,11 @@ input[type="number"] {
   align-items: center;
   gap: var(--space-1);
   padding: 0 var(--space-2);
-  /* L3 (2026-08-10): measured 18px hit area — floor the tab at 28px. */
-  height: max(var(--space-6), 1.75rem);
+  /* Document tabs sit on the canonical default control tier. The tab used to
+   * be sized by a spacing token (--space-6 resolved to 22.4–29.6px depending
+   * on window width) while its close button was a fixed 32px, so the close
+   * button was taller than the tab that contained it. */
+  height: var(--component-default-height);
   min-width: 80px;
   max-width: 180px;
   border: none;
@@ -780,44 +786,22 @@ input[type="number"] {
   text-overflow: ellipsis;
 }
 
-/* Close button — base first so compound selectors (higher specificity) follow */
+/* Close button. Geometry, glyph, colour, and focus come from the canonical
+ * `.varve-close--sm` contract; this block owns only the reveal behavior:
+ * inactive tabs keep their close hidden until the tab is hovered, the active
+ * tab always shows it, and pointer/keyboard focus always reveals it. The
+ * previous bespoke 8px glyph at `color: inherit` + 0.6 opacity was the
+ * "close buttons are hard to see" finding. */
 .editor-tabs__close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  /* L3 (2026-08-10): 8-10px target was far under WCAG 2.5.8's 24px minimum. */
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  min-height: 32px;
-  border: none;
-  border-radius: var(--radius-control-compact);
-  background: transparent;
-  color: inherit;
   opacity: 0;
   flex-shrink: 0;
-  cursor: pointer;
-  padding: 0;
-  transition:
-    opacity var(--duration-fast) var(--ease-default),
-    background var(--duration-fast) var(--ease-default);
-}
-.editor-tabs__close:hover {
-  background: color-mix(in oklch, var(--color-interactive-default) 15%, transparent);
-  color: var(--color-interactive-default);
+  transition: opacity var(--duration-fast) var(--ease-default);
 }
 .editor-tabs__close:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -1px;
   opacity: 1;
 }
-.editor-tabs__tab:hover .editor-tabs__close {
-  opacity: 0.6;
-}
+.editor-tabs__tab:hover .editor-tabs__close,
 .editor-tabs__tab--active .editor-tabs__close {
-  opacity: 0.6;
-}
-.editor-tabs__close:hover {
   opacity: 1;
 }
 /* Touch devices have no hover to reveal the close button (WCAG 2.5.8). */
@@ -828,29 +812,7 @@ input[type="number"] {
 }
 
 .editor-tabs__new {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  min-height: 32px;
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
   flex-shrink: 0;
-  transition:
-    background var(--duration-fast) var(--ease-default),
-    color var(--duration-fast) var(--ease-default);
-}
-.editor-tabs__new:hover {
-  background: var(--color-surface-raised);
-  color: var(--color-text-primary);
-}
-.editor-tabs__new:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -2px;
 }
 
 [data-theme="high-contrast"] .editor-tabs-row {
@@ -1166,7 +1128,6 @@ input[type="number"] {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  height: 20px;
   padding: 0 var(--space-2);
   background: none;
   border: var(--border-micro);
@@ -1252,9 +1213,9 @@ input[type="number"] {
 
 .editor-status__zoom-value {
   width: 3rem;
-  /* Text-entry target: keep the box at the 24px minimum so the field is not
-   * the one undersized control in the chrome. */
-  min-height: var(--space-6);
+  /* Text-entry target: the status bar's control tier, never a spacing token
+   * (--space-6 resolved to 22.4px at a narrow window and 29.6px at 1920). */
+  min-height: var(--component-compact-height);
   text-align: right;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -1286,8 +1247,8 @@ input[type="number"] {
   width: auto;
 }
 .editor-status .varve-select__trigger {
-  min-height: var(--space-6);
-  height: var(--space-6);
+  min-height: var(--component-compact-height);
+  height: var(--component-compact-height);
   padding: 0 var(--space-2);
   font-size: var(--font-size-xs);
   border-radius: var(--radius-control-compact);
@@ -1310,10 +1271,10 @@ input[type="number"] {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* 24px target minimum (WCAG 2.2 SC 2.5.8). The 20px control this replaces
-   * passed only via the spacing exception and still felt like a pixel hunt. */
-  min-width: var(--space-6);
-  height: var(--space-6);
+  /* The status bar's control tier; a spacing token here made the target
+   * 22.4px at a narrow window (WCAG 2.2 SC 2.5.8 failure). */
+  min-width: var(--component-compact-height);
+  height: var(--component-compact-height);
   padding: 0 var(--space-1);
   background: none;
   border: none;
@@ -1352,10 +1313,10 @@ input[type="number"] {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -1px;
 }
-/* Zoom chip toggles (inline, but still 24px targets) */
+/* Zoom chip toggles (inline, but still on the status tier) */
 .editor-status__zoom-chip .editor-status__toggle {
-  width: var(--space-6);
-  height: var(--space-6);
+  width: var(--component-compact-height);
+  height: var(--component-compact-height);
   border-radius: var(--radius-control-compact);
 }
 
@@ -1366,9 +1327,9 @@ input[type="number"] {
   cursor: pointer;
   font: inherit;
   font-size: var(--font-size-xs);
-  /* Interactive control: same 24px minimum as the icon toggles. */
-  min-height: var(--space-6);
-  padding: 2px var(--space-2);
+  /* Interactive control: the status bar's control tier. */
+  min-height: var(--component-compact-height);
+  padding: 0 var(--space-2);
   border-radius: var(--radius-control-compact);
   white-space: nowrap;
   transition:
@@ -1377,14 +1338,14 @@ input[type="number"] {
 }
 
 /* Status-bar badges are interactive controls too (debt report, layout score,
- * save state). Hold the 24px minimum in both axes inside the bar without
- * changing how the same components render in other, denser contexts. The
- * layout-score badge measured 23px wide at 1024px before this. */
+ * save state). They take the status tier in the block axis and the 24px
+ * WCAG floor in the inline axis, without changing how the same components
+ * render in other, denser contexts. */
 .editor-status .debt-badge,
 .editor-status .editor-status__score-badge,
 .editor-status .save-status {
-  min-height: var(--space-6);
-  min-width: var(--space-6);
+  min-height: var(--component-compact-height);
+  min-width: var(--target-min-compact);
   justify-content: center;
 }
 .editor-status__fit-btn:hover {
@@ -1416,8 +1377,8 @@ input[type="number"] {
   font-variant-numeric: tabular-nums;
   padding: 0 0.4em;
   border-radius: var(--radius-control-compact);
-  font-size: var(--font-size-xs, 0.75rem);
-  font-weight: var(--font-weight-semibold, 600);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
   border: none;
   line-height: var(--font-line-relaxed);
@@ -1491,8 +1452,8 @@ input[type="number"] {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 16px;
-  height: 16px;
+  width: var(--component-xs-height);
+  height: var(--component-xs-height);
   padding: 0;
   background: none;
   border: none;
@@ -2830,7 +2791,7 @@ input[type="number"] {
   color: var(--color-text-primary);
 }
 .history-panel__change-path {
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3204,12 +3165,12 @@ input[type="number"] {
   transform: translateY(1px);
 }
 .panel-detach-btn:focus-visible {
-  outline: 3px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
   color: var(--color-text-primary);
 }
 .panel-drag-handle .varve-tooltip-trigger:focus-visible {
-  outline: 3px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
   border-radius: var(--radius-control-compact);
 }
@@ -3292,8 +3253,10 @@ input[type="number"] {
   justify-content: space-between;
   gap: var(--space-2);
   padding: 0 var(--space-2) 0 var(--space-3);
-  height: 36px;
-  min-height: 36px;
+  /* Panel headers sit on the default control tier so the header controls
+   * inside them (28px collapse/detach buttons) still have breathing room. */
+  height: var(--component-default-height);
+  min-height: var(--component-default-height);
   border-bottom: var(--border-micro);
   border-bottom-color: var(--color-border-subtle);
   background: var(--elevation-surface-default);
@@ -3332,8 +3295,8 @@ input[type="number"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: var(--component-xs-height);
+  height: var(--component-xs-height);
   padding: 0;
   border: var(--border-micro);
   border-color: var(--color-border-subtle);
@@ -3800,7 +3763,7 @@ dialog.varve-dialog--settings[open] {
 }
 .settings-text-input {
   width: 100%;
-  height: var(--space-5);
+  height: var(--component-default-height);
   padding: 0 var(--space-2);
   border: var(--border-micro);
   border-radius: var(--radius-control);
@@ -3831,9 +3794,9 @@ dialog.varve-dialog--settings[open] {
 }
 .settings-color-swatch {
   width: var(--space-5);
-  height: var(--space-5);
+  height: var(--component-xs-height);
   min-width: var(--space-5);
-  min-height: var(--space-5);
+  min-height: var(--component-xs-height);
   border-radius: var(--radius-control);
   border: var(--border-micro);
   border-color: var(--color-border-strong);
@@ -4384,7 +4347,7 @@ dialog.varve-dialog--settings[open] {
 .ai-panel__textarea {
   flex: 1;
   resize: none;
-  min-height: var(--space-6);
+  min-height: calc(2 * var(--component-default-height));
   max-height: 120px;
   padding: var(--space-1) var(--space-2);
   border: var(--border-micro);
@@ -4407,7 +4370,7 @@ dialog.varve-dialog--settings[open] {
   align-items: center;
   justify-content: center;
   width: var(--space-6);
-  height: var(--space-6);
+  height: var(--component-compact-height);
   border: none;
   border-radius: var(--radius-floating);
   background: var(--color-interactive-default);
@@ -4478,7 +4441,7 @@ dialog.varve-dialog--settings[open] {
 }
 .collab-avatars__item--overflow .collab-avatars__initial {
   color: var(--color-text-muted);
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
 }
 .collab-avatars__img {
   width: 100%;
@@ -4623,7 +4586,7 @@ dialog.varve-dialog--settings[open] {
   position: relative;
   display: inline-block;
   width: var(--space-6);
-  height: var(--space-4);
+  height: var(--component-xs-height);
   cursor: pointer;
 }
 .plugin-list__toggle input {
@@ -4663,7 +4626,7 @@ dialog.varve-dialog--settings[open] {
   align-items: center;
   justify-content: center;
   width: var(--space-5);
-  height: var(--space-5);
+  height: var(--component-xs-height);
   border: none;
   border-radius: var(--radius-control);
   background: transparent;
@@ -5629,7 +5592,7 @@ dialog.varve-dialog--settings[open] {
   display: inline-block;
   border-radius: var(--radius-pill);
   padding: var(--space-1) var(--space-3);
-  font-size: 0.75rem;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   background: color-mix(in oklch, var(--color-feedback-warning) 16%, transparent);
   color: var(--color-feedback-warning-strong);
@@ -5846,7 +5809,7 @@ dialog.varve-dialog--settings[open] {
 }
 .privacy-section__note {
   margin-top: var(--space-4);
-  font-size: 0.75rem;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   line-height: var(--font-line-normal);
 }
@@ -6147,7 +6110,7 @@ dialog.varve-dialog--settings[open] {
 .media-frame-strip__cell-label {
   display: block;
   padding: 0 var(--space-1);
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   line-height: 12px;
   color: var(--color-text-secondary, inherit);
   white-space: nowrap;

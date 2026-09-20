@@ -1,5 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { SPACING_LAYOUT, SPACING_PRIMITIVES, SPACING_SEMANTIC } from './spacing';
+
+const tokensCss = readFileSync(new URL('./tokens.css', import.meta.url), 'utf8');
 
 describe('spacing source', () => {
   it('keeps a finite primitive ladder with zero as the only unitless value', () => {
@@ -43,8 +46,27 @@ describe('spacing source', () => {
     }
   });
 
-  it('keeps legacy shell geometry as compatibility aliases only', () => {
+  it('keeps shell chrome heights on the control ladder, not a viewport clamp', () => {
+    // Bar heights are control geometry: a clamp made the status bar 22px on a
+    // small window and 30px on a wide one, and controls inside it inherited
+    // that drift. Resizable panel *widths* stay flexible by intent.
+    expect(SPACING_LAYOUT['topbar-height']).toBe('var(--component-large-height)');
+    expect(SPACING_LAYOUT['toolbar-height']).toBe('var(--component-large-height)');
+    expect(SPACING_LAYOUT['statusbar-height']).toBe('var(--component-default-height)');
+    expect(SPACING_LAYOUT['sidebar-width']).toContain('clamp(');
+    expect(SPACING_LAYOUT['inspector-width']).toContain('clamp(');
     expect(SPACING_LAYOUT['panel-padding']).toBe('var(--space-panel)');
-    expect(SPACING_LAYOUT['toolbar-height']).toContain('clamp(');
+  });
+
+  it('emits every primitive, semantic role, and layout alias to tokens.css', () => {
+    for (const [token, value] of Object.entries(SPACING_PRIMITIVES)) {
+      expect(tokensCss).toContain(`--space-${token}: ${value};`);
+    }
+    for (const [token, value] of Object.entries(SPACING_SEMANTIC)) {
+      expect(tokensCss).toContain(`--space-${token}: ${value};`);
+    }
+    for (const [token, value] of Object.entries(SPACING_LAYOUT)) {
+      expect(tokensCss).toContain(`--${token}: ${value};`);
+    }
   });
 });

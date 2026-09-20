@@ -2,9 +2,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* WCAG 2.5.8: keep the glyph small but give it a 24x24 pointer target. */
-  width: 24px;
-  height: 24px;
+  /* WCAG 2.5.8: keep the glyph small but give it the 24px `xs` tier. */
+  width: var(--component-xs-height);
+  height: var(--component-xs-height);
   padding: 0;
   border: none;
   background: transparent;
@@ -20,7 +20,7 @@
 }
 
 .section-collapse-btn:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 

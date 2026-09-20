@@ -15,7 +15,7 @@
 }
 
 .tutorial-banner--minimized {
-  height: var(--space-6);
+  height: var(--component-default-height);
 }
 
 .tutorial-banner__content {
@@ -99,7 +99,7 @@
   align-items: center;
   justify-content: center;
   width: var(--space-5);
-  height: var(--space-5);
+  height: var(--component-xs-height);
   border: none;
   background: transparent;
   cursor: pointer;
@@ -128,7 +128,7 @@
   align-items: center;
   gap: var(--space-1);
   width: 100%;
-  height: var(--space-6);
+  height: var(--component-compact-height);
   padding: 0 var(--space-3);
   border: none;
   background: transparent;

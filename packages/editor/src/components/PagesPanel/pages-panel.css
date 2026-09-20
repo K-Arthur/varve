@@ -191,8 +191,8 @@
 }
 
 .pages-panel__icon-btn {
-  width: 22px;
-  height: 22px;
+  width: var(--component-xs-height);
+  height: var(--component-xs-height);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -263,7 +263,7 @@
   gap: var(--space-2);
   flex: 1 1 auto;
   min-width: 0;
-  min-height: 30px;
+  min-height: var(--component-default-height);
   padding: var(--space-1) var(--space-2);
   border: 0;
   background: transparent;

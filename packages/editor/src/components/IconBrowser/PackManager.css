@@ -141,7 +141,7 @@
 }
 
 .icon-pack-manager__tm {
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   color: var(--color-feedback-warning);
   border: 1px solid currentColor;

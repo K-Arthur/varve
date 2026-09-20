@@ -1210,7 +1210,7 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  min-height: var(--space-6);
+  min-height: var(--component-compact-height);
 }
 
 .insp-paint-row > * {
@@ -1625,7 +1625,7 @@
   min-width: 24px;
   min-height: 24px;
   width: var(--space-5);
-  height: var(--space-5);
+  height: var(--component-xs-height);
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-control-compact);
@@ -1648,7 +1648,7 @@
   justify-content: center;
   gap: var(--space-1);
   width: 100%;
-  height: var(--space-5);
+  height: var(--component-xs-height);
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-control-compact);
@@ -3129,7 +3129,7 @@
   width: 100%;
   /* WCAG 2.5.8 minimum pointer target. */
   min-height: 24px;
-  height: var(--space-5);
+  height: var(--component-xs-height);
   background: transparent;
   border: 1px dashed var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
@@ -3268,7 +3268,7 @@
 }
 .insp-paint-library__confirm-btn {
   flex: 1;
-  height: var(--space-5);
+  height: var(--component-xs-height);
   padding: 0 var(--space-2);
   background: var(--color-surface-default);
   border: 1px solid var(--color-border-subtle);
@@ -3328,7 +3328,7 @@ fieldset.insp-canvas-props,
 .insp-canvas-props .insp-field {
   align-items: center;
   gap: var(--space-3);
-  min-height: var(--space-6);
+  min-height: var(--insp-row-height);
 }
 .insp-canvas-props .insp-field__label {
   min-width: 4.5rem;
@@ -3404,7 +3404,7 @@ fieldset.insp-canvas-props,
 .typography__browse-fonts {
   flex: 0 0 auto;
   width: var(--space-6);
-  height: var(--space-6);
+  height: var(--component-compact-height);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3860,7 +3860,7 @@ fieldset.insp-canvas-props,
   outline-offset: 1px;
 }
 .similarity-mode-picker__option {
-  min-height: var(--space-5);
+  min-height: var(--component-xs-height);
   padding: 0 var(--space-1);
   border: 1px solid transparent;
   border-radius: var(--radius-control-compact);
@@ -4063,7 +4063,7 @@ fieldset.insp-canvas-props,
   /* WCAG 2.5.8 minimum pointer target. */
   min-width: 24px;
   min-height: 24px;
-  height: var(--space-5);
+  height: var(--component-xs-height);
   padding: 0 var(--space-2);
   background: var(--color-interactive-default);
   border: none;
@@ -4336,7 +4336,7 @@ fieldset.insp-canvas-props,
   margin-top: var(--space-2);
 }
 .palette-section__actions .varve-btn {
-  min-height: var(--space-6);
+  min-height: var(--component-compact-height);
   padding: 0 var(--space-1);
   font-size: var(--font-size-2xs);
 }
@@ -4395,7 +4395,7 @@ fieldset.insp-canvas-props,
   align-items: center;
   justify-content: center;
   width: var(--space-8);
-  height: var(--space-6);
+  height: var(--component-compact-height);
   border: var(--border-micro);
   border-radius: var(--radius-control-compact);
   font-weight: var(--font-weight-semibold);
@@ -5044,7 +5044,7 @@ fieldset.insp-canvas-props,
   align-items: center;
   justify-content: center;
   width: var(--space-5);
-  height: var(--space-5);
+  height: var(--component-xs-height);
   background: transparent;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
@@ -6020,7 +6020,13 @@ fieldset.insp-canvas-props,
   gap: var(--space-2);
   min-width: 0;
   min-height: var(--insp-row-height);
-  grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
+  /* The label column is bounded so every control starts on the same edge,
+   * but it must fit the longest real label at the interface-label size
+   * ("Object geometry" measured ~106px at 13px/500). A 38% column plus the
+   * old 600 label weight wrapped it onto two lines and grew every row in the
+   * section; 40% keeps one-line labels while leaving the control column
+   * enough width for a switch and its description. */
+  grid-template-columns: minmax(0, 40%) minmax(0, 1fr);
 }
 
 .insp-field__label {
@@ -6033,7 +6039,9 @@ fieldset.insp-canvas-props,
   color: var(--color-text-muted);
   font-family: var(--type-interface-label-family);
   font-size: var(--insp-label-size, var(--font-size-2xs));
-  font-weight: var(--font-weight-semibold);
+  /* Weight comes from the role, not from a local override: the panel had
+   * drifted to 600 while the role specifies medium. */
+  font-weight: var(--type-interface-label-weight);
   line-height: var(--type-interface-label-line-height);
   white-space: nowrap;
   /* Scrub handle — drag on the label to change the value. */
@@ -6871,7 +6879,7 @@ fieldset.insp-canvas-props,
   gap: var(--space-1);
   height: 22px;
   padding: 0 var(--space-2);
-  border-radius: 11px;
+  border-radius: var(--radius-pill);
   border: 1px solid transparent;
   background: transparent;
   color: var(--color-text-secondary);
@@ -6966,7 +6974,7 @@ fieldset.insp-canvas-props,
 .insp-preset-item__preview {
   display: inline-block;
   border: 1px solid var(--color-border-subtle);
-  border-radius: 2px;
+  border-radius: var(--radius-none);
   background: var(--color-surface-sunken);
   margin-right: var(--space-2);
   flex-shrink: 0;
@@ -7013,7 +7021,7 @@ fieldset.insp-canvas-props,
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
   flex-shrink: 0;
   opacity: 0.3;
   transition: opacity var(--duration-quick) var(--ease-standard);
@@ -7044,7 +7052,7 @@ fieldset.insp-canvas-props,
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: var(--radius-control-compact);
   flex-shrink: 0;
   opacity: 0;
   transition: opacity var(--duration-quick) var(--ease-standard);

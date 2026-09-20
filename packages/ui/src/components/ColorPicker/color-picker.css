@@ -569,6 +569,6 @@
   }
 
   .color-picker__format-bar .color-fields__mode-btn {
-    font-size: 0.6875rem;
+    font-size: var(--font-size-2xs);
   }
 }

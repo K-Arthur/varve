@@ -64,7 +64,7 @@
   padding: 0;
   background: color-mix(in oklab, var(--color-interactive-default) 12%, transparent);
   border: 1px solid var(--color-interactive-default);
-  border-radius: 2px;
+  border-radius: var(--radius-none);
   cursor: pointer;
 }
 

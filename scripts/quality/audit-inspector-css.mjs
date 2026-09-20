@@ -118,7 +118,10 @@ for (const file of inspectorCssFiles) {
   for (const match of stripped.matchAll(/letter-spacing\s*:\s*([^;}]+)/g)) {
     const value = match[1].trim();
     if (value.startsWith('var(--tracking-')) continue;
-    if (/^(inherit|initial|unset|revert)$/.test(value)) continue;
+    /* Keywords that mean "no tracking": the absence of a value is not an
+     * arbitrary literal, and resetting an inherited tracking is the one
+     * legitimate reason to write it. */
+    if (/^(inherit|initial|unset|revert|normal|0)$/.test(value)) continue;
     const line = lineAt(stripped, match.index ?? 0);
     const context = raw.split('\n')[line - 1] ?? '';
     if (context.includes(ALLOW_MARKER)) continue;

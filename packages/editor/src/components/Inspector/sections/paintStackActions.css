@@ -34,7 +34,7 @@
    picker, which is the only place a mode can be changed. */
 .paint-stack__blend {
   flex: 0 0 auto;
-  padding: 1px 6px;
+  padding: var(--space-05) var(--space-2);
   border-radius: var(--radius-pill);
   background: var(--color-surface-sunken);
   color: var(--color-text-muted);

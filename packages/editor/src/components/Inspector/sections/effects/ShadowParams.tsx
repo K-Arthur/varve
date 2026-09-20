@@ -195,7 +195,6 @@ export function ShadowParams({ nodes, index, onChange }: ShadowParamsProps) {
           />
           <NumberField
             label="Distance"
-            displayLabel="Dist"
             value={distanceVal}
             mixed={isMixed(distanceRaw)}
             step={1}

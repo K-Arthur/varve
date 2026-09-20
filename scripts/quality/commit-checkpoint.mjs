@@ -130,6 +130,23 @@ export function selectCommitCommands(stagedFiles) {
     commands.push(command('audit:docs', ['pnpm', 'audit:docs']));
   }
 
+  /**
+   * Application CSS carries the interface sizing contract (type roles,
+   * control ladder, native-control reset). Every other gate passes while a
+   * component hardcodes `font-size: 13px` or sizes a control with
+   * `height: var(--space-6)`; this audit is the only check that sees both.
+   * It is a bounded regex scan over ~160 stylesheets, so it belongs in the
+   * staged checkpoint rather than the full gate.
+   */
+  if (
+    hasPath(files, /^packages\/(?:ui|editor|home|help)\/src\/.*\.css$/) ||
+    hasPath(files, /^apps\/desktop\/src\/.*\.css$/)
+  ) {
+    commands.push(
+      command('audit:interface-sizing', ['node', 'scripts/quality/audit-interface-sizing.mjs']),
+    );
+  }
+
   if (hasPath(files, /^\.github\/workflows\//)) {
     commands.push(
       command('workflow-validate', ['node', 'scripts/validate-workflows.mjs', '--staged']),

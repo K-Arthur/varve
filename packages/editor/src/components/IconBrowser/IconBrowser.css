@@ -305,7 +305,7 @@
   color: var(--color-text-muted);
 }
 .icon-card--compact .icon-card__name {
-  font-size: 8px;
+  font-size: var(--font-size-2xs);
 }
 
 .icon-card__preview {
@@ -363,7 +363,7 @@
   width: 14px;
   height: 14px;
   border-radius: var(--radius-pill);
-  font-size: 8px;
+  font-size: var(--font-size-2xs);
   line-height: 1;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
@@ -537,7 +537,7 @@
   height: 100%;
 }
 .icon-discovery__tile-name {
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -617,7 +617,7 @@
   width: 100%;
 }
 .icon-discovery__pack-brand {
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   color: var(--color-feedback-warning);
   border: 1px solid currentColor;

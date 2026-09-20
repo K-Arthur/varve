@@ -122,7 +122,7 @@ export function EffectColourOpacityRow({
   onEditEnd,
 }: EffectColourOpacityRowProps) {
   return (
-    <FieldRow label="Colour & Opacity">
+    <FieldRow label="Colour & opacity">
       <InspectorColorPopover
         label={colourLabel}
         className="insp-swatch insp-swatch--round"

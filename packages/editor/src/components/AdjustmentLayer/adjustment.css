@@ -58,7 +58,6 @@
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   padding: 0;
-  text-transform: uppercase;
 }
 
 .adj-panel__preset-grid {
@@ -137,7 +136,6 @@
 .adj-panel__stack-title {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-secondary);
   min-width: 0;
@@ -155,7 +153,7 @@
   flex-shrink: 0;
   font-size: var(--font-size-2xs);
   justify-content: center;
-  min-height: var(--space-5);
+  min-height: var(--component-xs-height);
   padding: 0 var(--space-1);
   white-space: nowrap;
 }
@@ -177,7 +175,7 @@
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-control-compact);
   transition: background-color 0.1s;
-  min-height: var(--space-6);
+  min-height: var(--component-compact-height);
   min-width: 0;
 }
 
@@ -390,7 +388,7 @@
 .adj-editor__slider {
   width: 100%;
   min-width: 0;
-  height: var(--space-6);
+  height: var(--component-default-height);
   -webkit-appearance: none;
   appearance: none;
   background: transparent;
@@ -765,7 +763,6 @@
   color: var(--color-interactive-default);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
-  text-transform: uppercase;
   letter-spacing: 0.03em;
 }
 
@@ -797,7 +794,7 @@
 
 .gm-editor__bar {
   position: relative;
-  height: var(--space-6);
+  height: var(--component-compact-height);
   border-radius: var(--radius-control-compact);
   border: 1px solid var(--color-border-subtle);
   cursor: pointer;
@@ -1356,11 +1353,11 @@
 .adj-editor__swatch {
   aspect-ratio: 1;
   border-radius: var(--radius-control-compact);
-  border: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.35));
+  border: 1px solid var(--color-border-subtle);
   cursor: pointer;
 }
 .adj-editor__swatch--active {
-  outline: 2px solid var(--color-accent-primary, #14b8a6);
+  outline: 2px solid var(--color-accent-primary);
   outline-offset: 1px;
 }
 .adj-editor__palette-input {
@@ -1371,7 +1368,7 @@
   resize: vertical;
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary, inherit);
-  border: 1px solid var(--color-border-subtle, rgba(128, 128, 128, 0.35));
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   padding: 6px;
 }

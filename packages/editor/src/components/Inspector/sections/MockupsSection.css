@@ -10,7 +10,7 @@
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-control-compact);
   background: var(--color-feedback-danger, var(--color-surface-sunken));
-  color: var(--danger, var(--color-text-primary));
+  color: var(--color-text-danger, var(--color-text-primary));
   font-size: var(--font-size-sm);
 }
 
@@ -38,7 +38,7 @@
 }
 
 .mockups-section__missing {
-  color: var(--danger, var(--color-text-secondary));
+  color: var(--color-text-danger, var(--color-text-secondary));
 }
 
 .mockups-section__fits {
@@ -190,7 +190,7 @@
 
 .mockups-section__align-cell {
   border: var(--border-micro);
-  border-radius: 2px;
+  border-radius: var(--radius-control-compact);
   background: transparent;
   cursor: pointer;
 }

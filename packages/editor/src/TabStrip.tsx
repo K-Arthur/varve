@@ -17,27 +17,9 @@
  *   https://www.w3.org/WAI/ARIA/apg/patterns/tabs/
  */
 
-import { Button, Dialog, Tooltip } from '@varve/ui';
+import { Button, CloseButton, Dialog, IconButton, Tooltip } from '@varve/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useEditor } from './context';
-
-function CloseIcon() {
-  return (
-    <svg width="8" height="8" viewBox="0 0 8 8" role="presentation">
-      <line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" strokeWidth="1.5" />
-      <line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 10 10" role="presentation">
-      <line x1="5" y1="1" x2="5" y2="9" stroke="currentColor" strokeWidth="1.5" />
-      <line x1="1" y1="5" x2="9" y2="5" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  );
-}
 
 export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () => void }) {
   const { state, switchTab, closeTab, newTab, save, showToast } = useEditor();
@@ -188,18 +170,16 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
                 {sess.dirty && <span className="editor-tabs__dirty-dot" aria-hidden="true" />}
                 <span className="editor-tabs__name">{sess.name}</span>
                 {sess.dirty && <span className="sr-only">, unsaved</span>}
-                <button
-                  type="button"
+                <CloseButton
+                  size="sm"
+                  label={`Close ${sess.name}`}
                   className="editor-tabs__close"
-                  aria-label={`Close ${sess.name}`}
                   tabIndex={-1}
                   onClick={(e) => {
                     e.stopPropagation();
                     requestClose(sess.id);
                   }}
-                >
-                  <CloseIcon />
-                </button>
+                />
               </div>
             </Tooltip>
           );
@@ -234,14 +214,14 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
         })()}
       </div>
       <Tooltip label="New document" shortcut="Ctrl+T">
-        <button
-          type="button"
+        <IconButton
+          icon="Plus"
+          size="icon"
+          variant="ghost"
           className="editor-tabs__new"
           onClick={handleNewTab}
-          aria-label="New document (Ctrl+T)"
-        >
-          <PlusIcon />
-        </button>
+          label="New document (Ctrl+T)"
+        />
       </Tooltip>
     </div>
   );
