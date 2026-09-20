@@ -34,28 +34,103 @@ metadata and callout recipes are optional fields on ordinary `FrameNode` and
 ## Balloons and lettering effects
 
 Selecting a text node in the Typography inspector exposes **Add speech
-balloon**. `wrapTextInCallout` groups the existing text with an ordinary rounded
-body and tail, so the source text is moved rather than copied. Selecting that
-group exposes the Comic balloon inspector: Speech, Thought, Caption, Whisper,
-and Shout recipes; padding; an explicit `reflow` / `fit-balloon` / `overflow`
-policy; a derived fit status; a numeric tail endpoint; additional tails; and
-an explicit Detach geometry action. Fit uses shared text geometry and grows the
-ordinary body without silently shrinking authored type. Body and tail nodes remain
-selectable through the normal layer tree, and direct path edits can be kept
-without the recipe regenerating them.
+balloon**. `wrapTextInCallout` groups the existing text with an ordinary body
+and tail, so the source text is moved rather than copied.
+
+A balloon is a **recipe over ordinary nodes**, never a new node kind and never
+a second text engine:
+
+- `CalloutRecipe` on the group names the body, text, and tails and carries the
+  authored policy: kind, padding, fit policy, wrap-shape override, and logical
+  tails. `CalloutTail` groups the nodes that draw one tail, so a pointed tail
+  is one editable path and a thought tail is a chain of decreasing circles;
+  `tailNodeIds` remains the flat membership list generic scene operations use.
+- The body is a `ShapeNode` rect with a corner radius; tails are ordinary path
+  or circle nodes. Both are selectable, restylable, and exportable through the
+  normal scene, layer, history, clipboard, and export systems.
+- Selectable in the Comic balloon inspector: Speech, Thought, Caption, Whisper,
+  and Shout recipes; text padding; line shape (Balloon contour / Rectangle);
+  fit policy (`reflow` / `fit-balloon` / `overflow`) with a derived fit status;
+  the first tail's endpoint, curve, and base width; Add/Flip/Remove tail; and
+  Detach geometry.
+
+### Contour (balloon-aware) text layout
+
+Dialogue inside a round balloon does not wrap to a rectangle. The interior
+shape narrows the first and last lines so the text mass echoes the outline,
+with the longest line near the vertical middle.
+
+- One derivation: `ellipseLineWidthProfile` in `@varve/shared` turns a box
+  width and a **line count** into per-line maximum widths. The scene geometry
+  resolver (`resolveTextGeometry`) and the canonical engine painter
+  (`layoutText` in `textLayoutSnapshot.ts`) each iterate the same rule — a
+  rectangular pass counts the lines, the profile is applied, and the pass
+  repeats until the count stabilizes (bounded; parity is covered by
+  `balloonWrapParity.test.ts`). Selection, hit testing, editing, paint, and
+  export therefore break the same text the same way.
+- Line count, not container height, shapes the profile: a tall mostly-empty
+  balloon must not squeeze its first line into a sliver, and a one-line caption
+  stays full width.
+- The wrap shape is authored state on the `TextNode` (`textWrapShape:
+  'ellipse' | 'rect'`); the profile is derived and never serialized. Kind
+  defaults apply until the author chooses a shape explicitly, after which the
+  recipe records the override and later style changes keep it.
+- Vertical writing stays rectangular until column profiles are designed.
+
+### Fitting and overflow
+
+`fitCalloutToText` sizes the body around the bound text to a bounded fixpoint
+and unions the final pass so text can never clip. It never reduces the type
+size. Under the `fit-balloon` policy a snug body reports `fit`; `reflow`
+reports `near-overflow` before the edge is tight. Creating a balloon around an
+auto-width text node caps the measure to a lettering-friendly width, converts
+it to a fixed container, and fits once — the previous flow produced
+single-line ribbon balloons hundreds of pixels wide. Authored area text keeps
+its box.
+
+### Tails
+
+Pointed tails support a signed curve (a fraction of the tail length) and a
+base width; both sides bow toward a shared control point, and the authored tip
+never moves when the body is fitted. Thought balloons draw a chain of
+decreasing circles sized from the space each one gets, with the last circle at
+the authored target. Add, flip, and remove operate on logical tails; body and
+text identities never change.
+
+### Selection
+
+The group is selected as a whole on the canvas; the body, each tail, and the
+text are reached through the layer tree, and the text node remains a normal
+editable `TextNode`. This is the existing scene container/deep-selection
+model, not a comic-only selection mode.
+
+### Remaining lettering work
 
 The current creation entry point is the Typography inspector action; a
-dedicated canvas drag tool for drawing a new balloon around an arbitrary region
-is still a follow-up. Existing text, shape, path, selection, and transform
-tools remain the editing surface for the generated nodes.
+dedicated canvas drag tool for drawing a new balloon around an arbitrary
+region, canvas tail-drag handles, joined balloons, per-glyph comic effects,
+and a script import stay follow-ups. See `docs/plans/comic-lettering-system.md`
+for the admission matrix and slice ledger.
+
+Known defect observed during visual review (2026-09-20): the live canvas
+renders shape corner radii square even though the produced IR carries
+`cornerRadius` and `replayIr` calls `roundRect` for it (verified by a unit
+probe against the callout's own IR). The live editor frame path is suspected;
+the defect is pre-existing, affects every rounded shape, and is recorded in
+`docs/audits/comic-lettering-capability-audit-2026-09-19.md` with pixel
+evidence.
+
+### Sound effects and display lettering
 
 The Typography inspector also exposes a Sound effect preset. It uses the
 existing text stroke, weight, case, alignment, and effect pipeline, so sound
 effects remain editable text and export through the same composition snapshot
-as ordinary lettering. Clear outline removes only the preset stroke. Ruby /
-furigana can be authored for the currently selected rich-text range; ranges are
-stored as UTF-16 source offsets and the existing ruby rebase logic marks ranges
-stale when their base text changes. These controls are convenience actions over
+as ordinary lettering. Text strokes are painted from the canonical layout, so
+a stroked area-text node keeps its outline on the same wrapped lines as its
+fill. Clear outline removes only the preset stroke. Ruby / furigana can be
+authored for the currently selected rich-text range; ranges are stored as
+UTF-16 source offsets and the existing ruby rebase logic marks ranges stale
+when their base text changes. These controls are convenience actions over
 shared text primitives, not a parallel comic text renderer.
 
 ## Panels and paint resolution

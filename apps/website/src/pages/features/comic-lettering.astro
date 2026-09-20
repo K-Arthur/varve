@@ -19,9 +19,25 @@ import { sitePath } from '../../lib/siteUrl';
       <h1>Letter the page without flattening it.</h1>
       <p class="feature-intro">
         Varve treats a balloon as a small editable composition: ordinary text, an ordinary body,
-        and one or more ordinary tails held together by a reversible recipe. You can keep working
-        in the same document, with the same typography, layers, selection, and export systems.
+        and one or more ordinary tails held together by a reversible recipe. Dialogue wraps to the
+        shape of the balloon, tails bend and aim, and the words stay selectable text — in the same
+        document, with the same typography, layers, selection, and export systems.
       </p>
+
+      <figure class="comic-shot">
+        <img
+          src={sitePath('/screenshots/comic-lettering-light.png')}
+          alt="A speech balloon selected in Varve with a long dialogue line stacked into a balloon contour; the Comic balloon inspector shows tail endpoint, curve and base width, line shape, fit policy, and add/flip/remove tail actions"
+          width="1280"
+          height="720"
+          loading="lazy"
+          decoding="async"
+        />
+        <figcaption>
+          Four wrapped lines with the longest line mid-balloon, and the Comic balloon inspector:
+          fit policy, line shape, and editable tails.
+        </figcaption>
+      </figure>
 
       <section class="comic-visual" aria-label="Editable comic lettering example">
         <div class="comic-visual__panel">
@@ -41,8 +57,8 @@ import { sitePath } from '../../lib/siteUrl';
         </div>
         <div class="comic-visual__legend">
           <div><span class="legend-dot legend-dot--teal"></span><strong>Text stays text</strong><span>Edit the words, font, language, and writing mode in place.</span></div>
-          <div><span class="legend-dot legend-dot--sandstone"></span><strong>Geometry stays editable</strong><span>Move a tail, change padding, or detach the recipe when needed.</span></div>
-          <div><span class="legend-dot legend-dot--terracotta"></span><strong>Overflow is visible</strong><span>Reflow, grow the balloon, or keep authored geometry and review the warning.</span></div>
+          <div><span class="legend-dot legend-dot--sandstone"></span><strong>Wrapping follows the shape</strong><span>Round balloons narrow their first and last lines so the stack echoes the outline.</span></div>
+          <div><span class="legend-dot legend-dot--terracotta"></span><strong>Tails bend and aim</strong><span>Drag the endpoint, curve it, widen it, flip it, or give one balloon two tails.</span></div>
         </div>
       </section>
 
@@ -53,7 +69,8 @@ import { sitePath } from '../../lib/siteUrl';
           page, and export foundations. It does not create a separate Comic workspace or a second
           text engine. A speech balloon is a selected group with a shared recipe, so body and tail
           nodes remain available for ordinary editing and the source text remains available for
-          localization.
+          localization. Fitting never reduces the font size; overflow is a visible state you can
+          act on.
         </p>
       </section>
 
@@ -62,15 +79,15 @@ import { sitePath } from '../../lib/siteUrl';
         <div class="comic-problems">
           <article>
             <h3>Words should not disappear at the edge</h3>
-            <p>Fit policy is explicit: reflow in the balloon, fit the balloon to text, or show overflow. Varve does not silently shrink type to hide a translation that no longer fits.</p>
+            <p>Fit policy is explicit: reflow in the balloon, fit the balloon to text, or show overflow. A long translation reports overflow instead of quietly shrinking type, and one command re-fits it.</p>
           </article>
           <article>
-            <h3>Tails should point somewhere</h3>
-            <p>Tail endpoints can be adjusted numerically and remain independent of the balloon body. Changing the body updates the base while preserving the authored endpoint.</p>
+            <h3>Dialogue should not run in a ribbon</h3>
+            <p>Wrapping a single-line text node into a balloon caps the measure and stacks the dialogue. The first and last lines narrow so the text mass follows a round balloon, with the longest line near the middle.</p>
           </article>
           <article>
-            <h3>Localization should not destroy the page</h3>
-            <p>The story text and visual relationship are separate concerns. Replace a dialogue line, inspect its fit state, and choose a new balloon geometry without rasterizing the lettering.</p>
+            <h3>Tails should be part of the balloon</h3>
+            <p>Tails are ordinary nodes with a curve, a base width, a flip, and a remove. Thought balloons draw the conventional chain of decreasing circles, and the tail tip stays put when the body is fitted.</p>
           </article>
         </div>
       </section>
@@ -79,9 +96,10 @@ import { sitePath } from '../../lib/siteUrl';
         <h2>Key capabilities</h2>
         <ul>
           <li><strong>Balloon recipes:</strong> speech, thought, caption, whisper, and shout treatments built from editable scene nodes</li>
-          <li><strong>Tail editing:</strong> one or more tails, explicit endpoints, numeric placement, and a detach action for deliberate freeform edits</li>
-          <li><strong>Text-aware fitting:</strong> shared text geometry reports fit, near-overflow, or overflow without mutating the document</li>
-          <li><strong>Sound-effect lettering:</strong> reuse the existing text stroke, effect, warp, and transform systems instead of creating a raster-only SFX layer</li>
+          <li><strong>Contour-aware wrapping:</strong> line widths derived from the number of lines the dialogue forms, shared by selection, editing, paint, and export</li>
+          <li><strong>Tail editing:</strong> one or more tails, an editable endpoint, curve and base width, flip, remove, and a detach action for deliberate freeform edits</li>
+          <li><strong>Text-aware fitting:</strong> shared text geometry reports fit, near-overflow, or overflow without mutating the document, and fitting never shrinks the type</li>
+          <li><strong>Sound-effect lettering:</strong> reuse the existing text stroke, effect, warp, and transform systems instead of creating a raster-only SFX layer; strokes follow wrapped lines</li>
           <li><strong>Page structure:</strong> comic, manga, and webtoon-vertical starting profiles with page order, panel metadata, reading direction, and bounded slice planning</li>
           <li><strong>Accessible review:</strong> named controls, keyboard-reachable Inspector actions, and status text that explains why a balloon needs attention</li>
         </ul>
@@ -90,10 +108,11 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section limitations">
         <h2>Honest status</h2>
         <p>
-          The editable balloon foundation is in the beta. Contour-aware fitting, speaker-target
-          placement, joined balloons, a dedicated lettering workspace, and full publisher upload
-          automation are intentionally not presented as complete. Webtoon and Tapas limits remain
-          dated, source-linked export guidance rather than hard-coded platform promises.
+          The editable balloon foundation is in the beta. Speaker-target placement, joined balloons
+          with shared outlines, a canvas draw-a-balloon tool, vertical contour columns, and full
+          publisher upload automation are intentionally not presented as complete. Webtoon and
+          Tapas limits remain dated, source-linked export guidance rather than hard-coded platform
+          promises.
         </p>
         <p>
           See the <a href={sitePath('/docs/tools/typography')}>typography guide</a> for the shared
@@ -118,6 +137,25 @@ import { sitePath } from '../../lib/siteUrl';
 
   .comic-page h1 {
     max-width: 680px;
+  }
+
+  .comic-shot {
+    margin: -0.5rem 0 2.5rem;
+    display: grid;
+    gap: 0.6rem;
+  }
+
+  .comic-shot img {
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    box-shadow: var(--elevation-shadow-raised);
+  }
+
+  .comic-shot figcaption {
+    color: var(--text-tertiary);
+    font-size: 0.8rem;
   }
 
   .comic-visual {

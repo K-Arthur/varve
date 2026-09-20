@@ -104,3 +104,83 @@ dark, narrow, and zoomed-out states. The scene/unit scenarios additionally cover
 
 The remaining scenarios are recorded as deferred gates rather than claimed as
 complete until the corresponding frontend/export surfaces exist.
+
+## Failure research pass (2026-09-20)
+
+This pass deliberately looked for what other tools get wrong, not for feature
+lists. Each finding is paired with what Varve does about it.
+
+### Balloon-shaped wrapping does not exist where users expect it
+
+- Clip Studio Paint's "Wrap text at frame" wraps to the **text frame**, not the
+  balloon; users report that resizing the balloon leaves the text box
+  unchanged, and that Western text is broken mid-word because the frame wrap is
+  character-based ([r/ClipStudio](https://www.reddit.com/r/ClipStudio/comments/bpp2u4/is_there_any_way_to_arrange_text_for_speech/),
+  [r/ClipStudio](https://www.reddit.com/r/ClipStudio/comments/qbtein/does_clip_studio_have_word_wrap_in_speech_bubbles/)).
+  A user asking for text that "fits to the shape of a balloon" was told the
+  feature does not exist.
+- There is no balloon-to-text auto-resize: "That would be handy feature, but
+  one Celsys hasn't implemented" ([r/ClipStudio](https://www.reddit.com/r/ClipStudio/comments/1mgr9ns/is_there_any_way_to_auto_resize_text_inside_a/)).
+- Varve response: a contour profile derived from the actual line count, applied
+  by the same canonical layout used for selection and paint; word integrity is
+  preserved and a whole word moves to a wider line rather than breaking.
+
+### Fitting is unpredictable and silently ruins type
+
+- Users describe the balloon ending up too big, word wrap making text
+  invisible, and letters being cut instead of wrapped
+  ([r/ClipStudio](https://www.reddit.com/r/ClipStudio/comments/1ah9uut/making_speech_balloons_with_text_is/)).
+- Typography guidance treats a balloon whose text touches the edge, or that
+  distorts to fit badly composed text, as a layout failure
+  ([Graphic Novel Authority](https://graphicnovelauthority.com/lettering-in-graphic-novels)).
+- Varve response: fit is explicit, bounded, never reduces the font size, and
+  reports `overflow` before silently clipping; a fitted body reads as `fit`.
+
+### Tails are welded to the balloon in practice
+
+- CSP users cannot edit only the tail's stroke, cannot move the tail to another
+  layer, and find that selecting the balloon selects the tail
+  ([r/ClipStudio](https://www.reddit.com/r/ClipStudio/comments/1ti8o03/how_do_i_edit_a_balloon_tail_separately_from_rest/)).
+- Tail taper is the only length control for connecting balloons; users are told
+  to add and drag control points by hand
+  ([r/ClipStudio](https://www.reddit.com/r/ClipStudio/comments/11yv669/is_there_a_way_to_adjust_the_speech_bubble_tail/)).
+- Professional convention: a standard tail points at the mouth and stops
+  50–60% of the way to the head; thought tails are at least three decreasing
+  circles aimed at the head ([Blambot](https://blambot.com/pages/comic-book-grammar-tradition)).
+- Varve response: the tail is a child node with a logical record; curve, width,
+  flip, and remove are first-class, thought chains are real circles, and the
+  tip stays fixed across fits.
+
+### Text tools are the reason artists leave (Krita)
+
+- The Krita text tool is repeatedly described as a slog with a popup editor,
+  no dynamic boundary resizing, broken reflow, and performance problems; some
+  users recommend Inkscape for comic text
+  ([r/krita](https://www.reddit.com/r/krita/comments/1desk0u/am_i_just_missing_something_or_does_the_text_tool/),
+  [r/krita webcomics](https://www.reddit.com/r/krita/comments/1qsoro4/is_krita_any_good_for_webcomics/)).
+- Varve response: no separate comic renderer; balloon text is the normal
+  editable text node edited in the existing overlay, with the existing
+  typography inspector.
+
+### Localization breaks hand-lettered pages
+
+- English/German/French expansions of 20–30% (and more for compounds) are
+  documented across localization vendors; without layout-aware typesetting the
+  text overflows or is shrunk to unreadable sizes
+  ([gtelocalize](https://gtelocalize.net/comic-translation/),
+  [DEV](https://dev.to/peterslab/german-compound-words-vs-speech-bubble-layout-engines-22ic)).
+- Varve response: text and balloon relationship persists across replacement,
+  overflow is visible, and recovery is one fit command; the parity tests
+  include a German expansion.
+
+### Vertical CJK cannot be faked by rotating horizontal text
+
+- Rotation-based vertical text produces wrong advances, wrong punctuation, and
+  fake column flow; the correct approach pushes direction into shaping and
+  layout ([Koharu](https://koharu.rs/explanation/text-rendering-and-vertical-cjk-layout/)).
+  Krita's community workaround for vertical Japanese is character-by-character
+  positioning, which breaks editing
+  ([Krita Artists](https://krita-artists.org/t/lazy-text-tool-plugin-and-japanese-vertical-text/28001)).
+- Varve response: the existing logical vertical layout and replay are reused;
+  contour columns are deferred rather than approximated, and vertical balloons
+  stay rectangular today.

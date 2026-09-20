@@ -85,7 +85,7 @@ pnpm verify:affected    # Tiers 0-4. Tier 0 already covers format+lint on the
 pnpm bench              # benchmark mode for .bench.ts files (optional, perf-sensitive)
 pnpm audit:docs         # docs naming/index/link drift — zero violations
 pnpm audit:emoji        # zero violations
-pnpm audit:tokens       # 120/120 WCAG-AA (3 themes)
+pnpm audit:tokens       # WCAG-AA pairs (3 themes) + undefined-token / literal-fallback scan
 ```
 
 The audits above are also auto-selected by the planner when the change
@@ -317,7 +317,11 @@ cleanup tooling, codemods).
 - `just lint` — `cargo clippy -D warnings` + `pnpm lint` (Biome)
 - `just format` — `cargo fmt` + `pnpm format`
 - `pnpm typecheck` — `tsc --noEmit` across packages/* (full workspace — `pnpm verify:affected` runs only the affected closure)
-- `pnpm audit:tokens` — WCAG 2.2 AA token gate (120 checks across 3 themes)
+- `pnpm audit:tokens` — WCAG 2.2 AA token gate (309 pairs across 3 themes) plus
+  `scripts/quality/audit-token-usage.mjs`, which fails on `var()` references to
+  undefined custom properties and on literal fallbacks attached to defined
+  tokens. Override hooks that are undefined by design are listed in that script
+  with a reason.
 - `pnpm audit:emoji` — zero-emoji gate
 - `pnpm audit:docs` — docs drift gate (stale "Strata"/dead-path references in current-state docs, ADR index coverage, broken internal links). Historical docs (dated audits/plans/perf/session history/ADRs/CLA/licensing, and files under `docs/implementation-memory/`) may reference the old name; current-state docs must not.
 - `pnpm --filter @varve/ui tokens:generate` — regenerate `tokens.css` from `color.ts`
@@ -987,3 +991,31 @@ compositing order, renderer parity, export semantics, effect targeting.
   (`acquireMaskSurface`/`releaseMaskSurface`).
 - E2E corpus: `tests/e2e/canvas/clipping-masks.spec.ts` (screenshots to
   `reports/masking-review/`).
+
+## Comic Lettering System
+
+Canonical doc: `docs/architecture/comic-workflow.md`. Admission matrix and
+slice ledger: `docs/plans/comic-lettering-system.md`. Research and competitor
+failures: `docs/research/comic-lettering-research-2026-09-19.md`. Evidence:
+`docs/audits/comic-lettering-capability-audit-2026-09-19.md`.
+
+- **Dialogue stays editable text.** A balloon is a group recipe over ordinary
+  nodes (`GroupNode.callout`); there is no BalloonNode, no copied text, and no
+  comic-specific renderer.
+- **One contour derivation.** `ellipseLineWidthProfile` in
+  `packages/shared/src/balloonTextLayout.ts` turns a box width and a **line
+  count** into per-line widths. Both `resolveTextGeometry` and the engine
+  `layoutText` iterate it to a stable count; parity is enforced by
+  `packages/engine/src/balloonWrapParity.test.ts`. Do not add a third wrapper
+  or derive the profile from the container height.
+- **Fit never shrinks type.** Overflow is a derived status, not a clip;
+  `fitCalloutToText` is a bounded fixpoint with a union pass.
+- **Tails are logical groups of ordinary nodes** (pointed path or thought
+  circle chain); the authored tip survives body fits, and curve/width/flip/
+  remove never change body or text identities.
+- **Guards**: `pnpm bench:lettering` for the derivation;
+  `tests/e2e/canvas/comic-lettering.spec.ts` (heavy-lease wrapped) for the real
+  workflow, capturing to `docs/screenshots/comic-lettering/`.
+- **Known defect**: the live canvas renders shape corner radii square although
+  the IR carries `cornerRadius` and `replayIr` calls `roundRect`. Do not
+  "fix" it by removing radius from balloon recipes; fix the editor frame path.

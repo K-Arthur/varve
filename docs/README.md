@@ -277,6 +277,7 @@ pass report in
 | `architecture/shine-border-system.md` | Restrained decorative emphasis contract, semantic allowlist, fallbacks, and production ceiling |
 | `architecture/button-action-system.md` | Semantic button taxonomy, canonical action variants, state behavior, and validation contract |
 | `architecture/workspace-system.md` | Workspace mode contract, resolution, and persistence |
+| `architecture/comic-workflow.md` | Shared comic, manga, and webtoon profiles, story metadata, panels, painting resolution, and bounded export |
 | `architecture/toolbar-system.md` | Command-surface ownership, toolbar composition, responsive overflow retention, keyboard/target contract, capability gating |
 | `architecture/overlay-system.md` | Shared floating geometry, owner-document, overlay-tree, dismissal, and focus contracts |
 | `architecture/menu-system.md` | Shared menu taxonomy, visual contract, metadata, interaction, and validation |
@@ -566,6 +567,7 @@ The following dated files were moved from `docs/architecture/` to
 | `plans/archived/website-product-truth-matrix.md` | Dated (2026-07-08) product capability audit — superseded by `release/website.md` (archived) |
 | `plans/archived/rename-strata-consultation.md` | Dated record of the product-rename consultation (file retains its original name) |
 | `plans/macos-intel-feasibility.md` | Decision record: macOS Intel support rejected (2026-08-18); grounds a row of `release/platform-support-matrix.md` |
+| `plans/comic-lettering-system.md` | Comic lettering architecture decision, feature admission matrix, slice ledger, and known defects |
 | Other `plans/*.md` | Per-session implementation plans and deferred-work records |
 | `plans/archived/*.md` | Completed/superseded plans, archived per the convention in `plans/archived/session-04-packaging.md` |
 
