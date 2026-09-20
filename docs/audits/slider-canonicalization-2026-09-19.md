@@ -81,6 +81,9 @@ slider guide; the WordPress Gutenberg `RangeControl` forced-colors fix; MDN's
 - `packages/ui/src/components/Slider.tsx` — native-range reimplementation
 - `packages/ui/src/components/Slider.test.tsx` — native contract
 - `packages/ui/src/components/radius-system.css` — radius ownership list
+- `packages/ui/src/components/ColorPicker/color-picker.css` — restored the
+  colour-slider track's positioning context (concurrent regression found while
+  verifying the locator repair)
 - `packages/editor/src/components/Inspector/controls/RangeValueControl.tsx` —
   default class + `aria-valuetext`
 - Editor consumers and CSS: `AdjustmentEditor`, `AdjustmentPanel`,
@@ -107,6 +110,11 @@ slider guide; the WordPress Gutenberg `RangeControl` forced-colors fix; MDN's
   `tests/e2e/inspector/color-picker.spec.ts`,
   `tests/e2e/canvas/gradient-visual-check.spec.ts`
 - Docs: this file, `docs/architecture/slider-system.md`, `AGENTS.md`
+- Website: `docs/screenshots/product/vectorize-dialog-light.png`,
+  `docs/screenshots/product/font-browser-light.png` and their
+  `apps/website/public/screenshots/` copies,
+  `apps/website/src/data/screenshot-manifest.json`,
+  `scripts/screenshots/product.mjs` (alt text)
 
 ## Compatibility
 
@@ -154,11 +162,12 @@ Exact commands and results for this pass:
   opacity slider exposes `aria-valuetext="100%"`; a coarse-pointer context
   sees a ≥44px hit band and a single-pointer click sets the value.
 - **E2E — colour-slider locator repair:** the two stale locators now target
-  `.color-slider__track` / `.color-slider__thumb`. Re-running
-  `color-picker.spec.ts -g "undo groups a slider drag"` is blocked by a
-  concurrent boot breakage (below); the selector correction is mechanical
-  against `ColorSlider.tsx`'s emitted classes, and the same drag contract is
-  covered by the passing real-world spec.
+  `.color-slider__track` / `.color-slider__thumb`. While verifying them, the
+  picker's actionability failure traced to the concurrent namespace migration
+  dropping the track's `position: relative`; that regression is fixed (see
+  below). With the fix, the hex field is clickable and the spec advances
+  through its first action; its remaining assertions fail on concurrent
+  canvas/dialog work, not slider behaviour.
 - **Audits:** `audit:tokens` clean (315 contrast pairs, 561 properties, 0
   undefined references after correcting two pre-existing undefined tokens);
   `audit:emoji`, `audit:docs`, `audit:inspector-css`, `audit:spacing` clean.
@@ -169,23 +178,45 @@ Exact commands and results for this pass:
   work (349 changed files at the time of the pass). The escalation is not
   attributable to the slider changes; their affected closure (ui + editor +
   e2e typecheck + the specs above) was run instead.
+- **Website:** `node scripts/screenshots/product.mjs --scenes
+  vectorize,font-browser` regenerated the two affected scenes (canonical +
+  public copies + manifest hashes) and both images were inspected: the
+  Vectorize dialog keeps its progress fill through the shared skin, and the
+  Font Browser's Variable axes slider now matches the product. The
+  screenshot-manifest test passes; the scene's Vectorize alt text was updated
+  to describe the captured frame. The two remaining website-suite failures
+  are concurrent (stale demo fixtures, website legacy colors).
 
 Baseline and after captures: `reports/slider-canonicalization/`
 (`baseline/`, `after/`, `real-world-adjustment.png`).
 
 ## Blocked by concurrent work (not attributable to this pass)
 
-- The app currently fails to boot in the shared working tree:
-  `context/sceneNodeGeometry.ts` does not export `joinPanels`, which another
-  agent's in-flight panel/comic work imports. Every browser run after that
-  landed fails in `global-setup.ts`. The slider E2E evidence above was
-  captured before the breakage.
+- The shared tree briefly failed to boot while another agent's panel/comic work
+  imported a `joinPanels` export that did not exist yet
+  (`context/sceneNodeGeometry.ts`); it was fixed by that work and browser runs
+  resumed.
+- The colour-picker workflow failed actionability at its first step. Root
+  cause was concurrent, not sliders: the picker's namespace migration
+  (`4a555a5b3`) renamed `.insp-slider__track` but dropped the old rule's
+  `position: relative`, so the absolutely positioned hue/alpha gradient
+  resolved against a distant ancestor and intercepted every click on the hex
+  field. Fixed in `color-picker.css` (commit "fix(ui): restore the colour
+  slider track's positioning context"); the dialog is interactive again and
+  the spec now progresses past its first action. Its remaining failures are
+  concurrent canvas/dialog work (the canvas-pixel assertion, and the dialog
+  staying open after Done), not slider behaviour.
 - `packages/editor/src/workspace/layoutVariants.ts` and its test reference
   types that no longer exist (`WorkspacePreferences`,
   `WorkspaceLayoutStoreState`), so the editor package typecheck cannot go
   green until that refactor lands.
 - `audit:radius` and the `smartFilters.css` spacing warnings pre-date this
   pass.
+- The website unit suite has two concurrent failures unrelated to the slider
+  screenshots: the demo `.varve` fixtures are stale against the document
+  format migration (2.27 → 2.29, `UPDATE_DEMO_DOCS=1` regenerates them) and
+  the website token scan reports legacy colors in concurrently edited pages.
+  The screenshot-manifest test passes with the regenerated assets.
 
 ## Remaining risks
 
