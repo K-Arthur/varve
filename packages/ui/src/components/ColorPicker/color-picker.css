@@ -47,6 +47,11 @@
   flex-shrink: 0;
 }
 .color-picker__sliders .color-slider__track {
+  /* The gradient and thumb are absolutely positioned children; the track must
+   * own their containing block. Without this the gradient resolves against a
+   * distant ancestor and covers the fields (regression from the namespace
+   * migration in 4a555a5b3, where the old insp-slider__track rule carried it). */
+  position: relative;
   height: 20px;
   min-height: 20px;
   border-radius: var(--radius-control-compact);
