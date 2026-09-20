@@ -1988,68 +1988,20 @@
   align-items: center;
   gap: var(--space-2);
 }
-.varve-slider__track {
+/* The range is the shared native primitive; `.varve-native-range` owns its
+ * appearance. This class only places it in the row. */
+.varve-slider__range {
   flex: 1;
-  height: var(--space-1);
-  background: var(--color-surface-sunken);
-  border-radius: var(--radius-pill);
-  position: relative;
-  cursor: pointer;
-  transition: height var(--duration-quick) var(--ease-standard);
+  min-inline-size: 0;
 }
-.varve-slider__track:hover {
-  height: var(--space-2);
+/* Size variants parameterize the shared skin instead of redeclaring it. */
+.varve-slider--sm {
+  --varve-native-range-track: 4px;
+  --varve-native-range-thumb: 14px;
 }
-.varve-slider--disabled .varve-slider__track {
-  cursor: default;
-}
-.varve-slider--disabled .varve-slider__track:hover {
-  height: var(--space-1);
-}
-.varve-slider__fill {
-  height: 100%;
-  background: var(--color-interactive-default);
-  border-radius: var(--radius-pill);
-  transition: width var(--duration-fast) var(--ease-standard);
-}
-.varve-slider__thumb {
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: var(--space-5);
-  height: var(--space-5);
-  border-radius: var(--radius-pill);
-  background: var(--color-surface-raised);
-  border: 2px solid var(--color-interactive-default);
-  box-shadow: var(--shadow-sm);
-  cursor: grab;
-  touch-action: none;
-  transition:
-    transform var(--duration-quick) var(--ease-standard),
-    box-shadow var(--duration-quick) var(--ease-standard);
-}
-.varve-slider__thumb:hover {
-  transform: translate(-50%, -50%) scale(1.12);
-  box-shadow: var(--shadow-md);
-}
-.varve-slider__thumb:active {
-  transform: translate(-50%, -50%) scale(0.92);
-  box-shadow: var(--shadow-xs);
-  cursor: grabbing;
-}
-.varve-slider--disabled .varve-slider__thumb {
-  cursor: default;
-}
-.varve-slider--disabled .varve-slider__thumb:hover,
-.varve-slider--disabled .varve-slider__thumb:active {
-  transform: translate(-50%, -50%);
-  box-shadow: var(--shadow-sm);
-}
-/* U19 (2026-08-10): explicit focus ring for the slider thumb (previously
- * UA-default only, invisible on some platforms). */
-.varve-slider__thumb:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 2px;
+.varve-slider--lg {
+  --varve-native-range-track: 8px;
+  --varve-native-range-thumb: 24px;
 }
 .varve-slider__value {
   min-width: var(--space-8);
@@ -2117,44 +2069,17 @@
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
-/* ── Slider: size variants ─────────────────────── */
-.varve-slider--sm .varve-slider__track {
-  height: 3px;
-}
-.varve-slider--sm .varve-slider__track:hover {
-  height: var(--space-1);
-}
-.varve-slider--sm .varve-slider__thumb {
-  width: 14px;
-  height: 14px;
-  border-width: 1.5px;
-}
-.varve-slider--sm .varve-slider__thumb:hover {
-  transform: translate(-50%, -50%) scale(1.15);
-}
-.varve-slider--sm .varve-slider__thumb:active {
-  transform: translate(-50%, -50%) scale(0.9);
-}
-.varve-slider--lg .varve-slider__track {
-  height: 8px;
-}
-.varve-slider--lg .varve-slider__track:hover {
-  height: 10px;
-}
-.varve-slider--lg .varve-slider__thumb {
-  width: var(--space-6);
-  height: var(--space-6);
-}
-.varve-slider--lg .varve-slider__thumb:hover {
-  transform: translate(-50%, -50%) scale(1.08);
-}
-.varve-slider--lg .varve-slider__thumb:active {
-  transform: translate(-50%, -50%) scale(0.94);
-}
+/* ── Slider: size variants live on the shared skin's custom properties,
+ * declared next to `.varve-slider__range` above. ─────────────────────────── */
 
 /* Native range controls used by editor panels and dialogs. The value stays a
  * real input for reliable keyboard and screen-reader behaviour, while the
- * track and thumb use the same visual language as the APG Slider above. */
+ * track and thumb use the same visual language as the APG Slider above.
+ *
+ * This is the single skin owner for every `<input type="range">` in the
+ * product. Compositions resize it by setting `--varve-native-range-track` and
+ * `--varve-native-range-thumb` on an ancestor; a bare range keeps the
+ * canonical 6px track / 18px thumb. See docs/architecture/slider-system.md. */
 .varve-native-range {
   -webkit-appearance: none;
   appearance: none;
@@ -2164,21 +2089,35 @@
   cursor: pointer;
 }
 .varve-native-range::-webkit-slider-runnable-track {
-  height: 6px;
-  background: var(--color-surface-sunken);
+  height: var(--varve-native-range-track, 6px);
+  background: linear-gradient(
+    to right,
+    var(--color-interactive-default) 0,
+    var(--color-interactive-default) var(--varve-native-range-fill, 0%),
+    var(--color-surface-sunken) var(--varve-native-range-fill, 0%),
+    var(--color-surface-sunken) 100%
+  );
   border-radius: var(--radius-pill);
 }
 .varve-native-range::-moz-range-track {
-  height: 6px;
-  background: var(--color-surface-sunken);
+  height: var(--varve-native-range-track, 6px);
+  background: linear-gradient(
+    to right,
+    var(--color-interactive-default) 0,
+    var(--color-interactive-default) var(--varve-native-range-fill, 0%),
+    var(--color-surface-sunken) var(--varve-native-range-fill, 0%),
+    var(--color-surface-sunken) 100%
+  );
   border-radius: var(--radius-pill);
 }
 .varve-native-range::-webkit-slider-thumb {
   appearance: none;
   -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
-  margin-top: -6px;
+  width: var(--varve-native-range-thumb, 18px);
+  height: var(--varve-native-range-thumb, 18px);
+  margin-top: calc(
+    (var(--varve-native-range-track, 6px) - var(--varve-native-range-thumb, 18px)) / 2
+  );
   border: 2px solid var(--color-interactive-default);
   border-radius: var(--radius-pill);
   background: var(--color-surface-raised);
@@ -2188,8 +2127,8 @@
     box-shadow var(--duration-quick) var(--ease-standard);
 }
 .varve-native-range::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
+  width: var(--varve-native-range-thumb, 18px);
+  height: var(--varve-native-range-thumb, 18px);
   border: 2px solid var(--color-interactive-default);
   border-radius: var(--radius-pill);
   background: var(--color-surface-raised);
@@ -2209,6 +2148,28 @@
 @media (pointer: coarse) {
   .varve-native-range {
     block-size: 44px;
+  }
+}
+/* Forced colors (Windows Contrast Themes): `appearance: none` plus author
+ * colors can leave the track and thumb the same color as the background, so
+ * the skin switches to system colors explicitly. */
+@media (forced-colors: active) {
+  .varve-native-range::-webkit-slider-runnable-track,
+  .varve-native-range::-moz-range-track {
+    background: ButtonText;
+  }
+  .varve-native-range::-webkit-slider-thumb,
+  .varve-native-range::-moz-range-thumb {
+    background: ButtonFace;
+    border-color: ButtonText;
+  }
+  .varve-native-range:disabled::-webkit-slider-runnable-track,
+  .varve-native-range:disabled::-moz-range-track {
+    background: GrayText;
+  }
+  .varve-native-range:disabled::-webkit-slider-thumb,
+  .varve-native-range:disabled::-moz-range-thumb {
+    border-color: GrayText;
   }
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useId, useRef, useState } from 'react';
+import { type CSSProperties, useId, useRef, useState } from 'react';
 import { Icon } from '../icons/Icon';
 
 export interface SliderProps {
@@ -14,10 +14,19 @@ export interface SliderProps {
   showInput?: boolean;
   /** When provided, renders a reset button that calls this handler. */
   onReset?: () => void;
-  /** Size variant: 'sm' (14px thumb), 'md' (20px default), 'lg' (24px thumb). */
+  /** Size variant: 'sm' (14px thumb), 'md' (18px default), 'lg' (24px thumb). */
   size?: 'sm' | 'md' | 'lg';
 }
 
+/**
+ * Labelled slider composition over the shared native range primitive.
+ *
+ * The browser owns the interaction contract — arrows, Home/End,
+ * PageUp/PageDown, click-to-set (WCAG 2.5.7), touch, and assistive-technology
+ * exposure — while `@varve/ui`'s `.varve-native-range` owns the visuals. The
+ * optional numeric input is the precision path; it edits the same value and
+ * stays synchronized. See docs/architecture/slider-system.md.
+ */
 export function Slider({
   value,
   min,
@@ -32,79 +41,10 @@ export function Slider({
   size,
 }: SliderProps) {
   const id = useId();
-  const trackRef = useRef<HTMLDivElement>(null);
-  const thumbRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [inputRaw, setInputRaw] = useState<string | null>(null);
 
-  const fraction = max === min ? 0 : Math.max(0, Math.min(1, (value - min) / (max - min)));
-  const bigStep = step * 10;
-
-  const clamp = useCallback((v: number) => Math.min(max, Math.max(min, v)), [min, max]);
-  const roundToStep = useCallback((v: number) => Math.round(v / step) * step, [step]);
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (disabled) return;
-    let newVal = value;
-    switch (e.key) {
-      case 'ArrowRight':
-      case 'ArrowUp':
-        newVal = clamp(value + step);
-        break;
-      case 'ArrowLeft':
-      case 'ArrowDown':
-        newVal = clamp(value - step);
-        break;
-      case 'PageUp':
-        newVal = clamp(value + bigStep);
-        break;
-      case 'PageDown':
-        newVal = clamp(value - bigStep);
-        break;
-      case 'Home':
-        newVal = min;
-        break;
-      case 'End':
-        newVal = max;
-        break;
-      default:
-        return;
-    }
-    e.preventDefault();
-    if (newVal !== value) onChange(newVal);
-  }
-
-  function handleTrackClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (disabled || !trackRef.current) return;
-    const rect = trackRef.current.getBoundingClientRect();
-    const frac = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const raw = min + frac * (max - min);
-    onChange(clamp(roundToStep(raw)));
-  }
-
-  function handleThumbPointerDown(e: React.PointerEvent) {
-    if (disabled) return;
-    e.preventDefault();
-    const thumbEl = thumbRef.current;
-    if (!thumbEl) return;
-    thumbEl.setPointerCapture(e.pointerId);
-
-    function handlePointerMove(me: PointerEvent) {
-      if (!trackRef.current) return;
-      const rect = trackRef.current.getBoundingClientRect();
-      const frac = Math.max(0, Math.min(1, (me.clientX - rect.left) / rect.width));
-      const raw = min + frac * (max - min);
-      onChange(clamp(roundToStep(raw)));
-    }
-
-    function handlePointerUp() {
-      thumbEl?.removeEventListener('pointermove', handlePointerMove);
-      thumbEl?.removeEventListener('pointerup', handlePointerUp);
-    }
-
-    thumbEl?.addEventListener('pointermove', handlePointerMove);
-    thumbEl?.addEventListener('pointerup', handlePointerUp);
-  }
+  const valueText = formatValue ? formatValue(value) : `${value}`;
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>) {
     const raw = e.target.value;
@@ -112,7 +52,7 @@ export function Slider({
     if (raw === '' || raw === '-' || raw === '.') return;
     const num = parseFloat(raw);
     if (!Number.isNaN(num)) {
-      onChange(clamp(roundToStep(num)));
+      onChange(Math.min(max, Math.max(min, Math.round(num / step) * step)));
     }
   }
 
@@ -127,10 +67,10 @@ export function Slider({
     }
   }
 
-  const valueText = formatValue ? formatValue(value) : `${value}`;
   const displayValue = inputRaw !== null ? inputRaw : valueText;
 
   const sizeClass = size ? ` varve-slider--${size}` : '';
+  const fillPercent = max === min ? 0 : ((value - min) / (max - min)) * 100;
 
   return (
     <fieldset className={`varve-slider${disabled ? ' varve-slider--disabled' : ''}${sizeClass}`}>
@@ -138,30 +78,23 @@ export function Slider({
         {label}
       </legend>
       <div className="varve-slider__row">
-        {/* biome-ignore lint/a11y/noStaticElementInteractions: presentational track; keyboard handled by slider thumb */}
-        <div
-          ref={trackRef}
-          className="varve-slider__track"
-          role="presentation"
-          onClick={handleTrackClick}
-        >
-          <div className="varve-slider__fill" style={{ width: `${fraction * 100}%` }} />
-          <div
-            ref={thumbRef}
-            className="varve-slider__thumb"
-            role="slider"
-            tabIndex={disabled ? -1 : 0}
-            aria-labelledby={`${id}-label`}
-            aria-valuemin={min}
-            aria-valuemax={max}
-            aria-valuenow={value}
-            aria-valuetext={valueText}
-            aria-disabled={disabled}
-            onKeyDown={handleKeyDown}
-            onPointerDown={handleThumbPointerDown}
-            style={{ left: `${fraction * 100}%` }}
-          />
-        </div>
+        <input
+          type="range"
+          className="varve-native-range varve-slider__range"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          disabled={disabled}
+          aria-labelledby={`${id}-label`}
+          // Announce the formatted value only when the raw number would
+          // mislead; a plain 0-100 value speaks for itself.
+          aria-valuetext={formatValue ? valueText : undefined}
+          // The shared skin reads this to paint the progress fill; it is
+          // synced to the value on every render so it cannot drift.
+          style={{ '--varve-native-range-fill': `${fillPercent}%` } as CSSProperties}
+          onChange={(e) => onChange(Number(e.target.value))}
+        />
         {showInput ? (
           <input
             ref={inputRef}

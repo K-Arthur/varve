@@ -94,9 +94,6 @@
   border-radius: var(--radius-control-compact);
 }
 
-.varve-slider__track,
-.varve-slider__fill,
-.varve-slider__thumb,
 .varve-native-range::-webkit-slider-runnable-track,
 .varve-native-range::-moz-range-track,
 .varve-native-range::-webkit-slider-thumb,

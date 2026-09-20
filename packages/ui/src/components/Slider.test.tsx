@@ -4,6 +4,12 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { Slider } from './Slider';
 
+/**
+ * The Slider is a composition over the native range. Keyboard stepping,
+ * Home/End/PageUp/PageDown, click-to-set (WCAG 2.5.7), and AT exposure are
+ * browser behavior, so these tests assert the native contract rather than
+ * re-simulating key events jsdom does not implement.
+ */
 describe('Slider', () => {
   it('renders with label and value', () => {
     const onChange = () => {};
@@ -27,74 +33,68 @@ describe('Slider', () => {
     expect(screen.getByText('75%')).toBeDefined();
   });
 
-  it('sets ARIA attributes on the thumb', () => {
-    const onChange = () => {};
+  it('exposes the native range contract with the canonical skin', () => {
     const { container } = render(
-      <Slider value={30} min={0} max={100} label="Test" onChange={onChange} />,
+      <Slider value={30} min={0} max={100} step={5} label="Test" onChange={() => {}} />,
     );
-    const slider = container.querySelector('[role="slider"]');
-    expect(slider).not.toBeNull();
-    expect(slider?.getAttribute('aria-valuenow')).toBe('30');
-    expect(slider?.getAttribute('aria-valuemin')).toBe('0');
-    expect(slider?.getAttribute('aria-valuemax')).toBe('100');
+    const slider = screen.getByRole('slider');
+    expect(slider.tagName).toBe('INPUT');
+    expect(slider).toHaveAttribute('type', 'range');
+    expect(slider).toHaveClass('varve-native-range');
+    expect(slider).toHaveAttribute('min', '0');
+    expect(slider).toHaveAttribute('max', '100');
+    expect(slider).toHaveAttribute('step', '5');
+    expect(slider).toHaveValue('30');
+    // No parallel role="slider" widget.
+    expect(container.querySelector('div[role="slider"]')).toBeNull();
   });
 
-  it('calls onChange on ArrowRight', () => {
+  it('names the range from the legend', () => {
+    render(<Slider value={30} min={0} max={100} label="Volume" onChange={() => {}} />);
+    expect(screen.getByRole('slider', { name: 'Volume' })).toBeDefined();
+  });
+
+  it('reports value changes through onChange', () => {
     let val = 50;
     const onChange = (v: number) => {
       val = v;
     };
-    const { container } = render(
-      <Slider value={50} min={0} max={100} label="Test" onChange={onChange} />,
-    );
-    const slider = container.querySelector('[role="slider"]') as HTMLElement;
-    fireEvent.keyDown(slider, { key: 'ArrowRight' });
-    expect(val).toBe(51);
+    render(<Slider value={50} min={0} max={100} label="Test" onChange={onChange} />);
+    fireEvent.change(screen.getByRole('slider'), { target: { value: '73' } });
+    expect(val).toBe(73);
   });
 
-  it('calls onChange on Home/End', () => {
-    let val = 50;
-    const onChange = (v: number) => {
-      val = v;
-    };
-    const { container } = render(
-      <Slider value={50} min={0} max={100} label="Test" onChange={onChange} />,
+  it('syncs the progress fill to the value', () => {
+    render(<Slider value={25} min={0} max={100} label="Test" onChange={() => {}} />);
+    expect(screen.getByRole('slider').style.getPropertyValue('--varve-native-range-fill')).toBe(
+      '25%',
     );
-    const slider = container.querySelector('[role="slider"]') as HTMLElement;
-    fireEvent.keyDown(slider, { key: 'Home' });
-    expect(val).toBe(0);
-    val = 50;
-    fireEvent.keyDown(slider, { key: 'End' });
-    expect(val).toBe(100);
   });
 
-  it('does not respond to keys when disabled', () => {
-    let val = 50;
-    const onChange = (v: number) => {
-      val = v;
-    };
-    const { container } = render(
-      <Slider value={50} min={0} max={100} label="Test" onChange={onChange} disabled />,
+  it('adds aria-valuetext only when the raw number is not the value', () => {
+    const { rerender } = render(
+      <Slider value={50} min={0} max={100} label="Plain" onChange={() => {}} />,
     );
-    const slider = container.querySelector('[role="slider"]') as HTMLElement;
-    fireEvent.keyDown(slider, { key: 'ArrowRight' });
-    expect(val).toBe(50);
+    expect(screen.getByRole('slider')).not.toHaveAttribute('aria-valuetext');
+    rerender(
+      <Slider
+        value={50}
+        min={0}
+        max={100}
+        label="Formatted"
+        onChange={() => {}}
+        formatValue={(v) => `${v}%`}
+      />,
+    );
+    expect(screen.getByRole('slider')).toHaveAttribute('aria-valuetext', '50%');
   });
 
-  it('clicks on track updates value', () => {
-    let val = 0;
-    const onChange = (v: number) => {
-      val = v;
-    };
-    const { container } = render(
-      <Slider value={0} min={0} max={100} label="Test" onChange={onChange} />,
-    );
-    const track = container.querySelector('fieldset > div > div:first-child') as HTMLElement;
-    Object.defineProperty(track, 'getBoundingClientRect', {
-      value: () => ({ left: 0, width: 100, top: 0, height: 10, right: 100, bottom: 10 }),
-    });
-    fireEvent.click(track, { clientX: 50 });
-    expect(Math.abs(val - 50)).toBeLessThanOrEqual(1);
+  it('disables the range when disabled', () => {
+    render(<Slider value={50} min={0} max={100} label="Test" onChange={() => {}} disabled />);
+    // The platform blocks pointer and keyboard interaction on a disabled
+    // control; the component only has to expose the disabled state.
+    expect(screen.getByRole('slider')).toBeDisabled();
+    expect(screen.getByRole('slider')).toHaveAttribute('aria-labelledby');
   });
 
   it('renders numeric input when showInput is true', () => {
