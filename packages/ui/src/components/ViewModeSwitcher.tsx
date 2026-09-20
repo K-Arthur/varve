@@ -1,13 +1,14 @@
 /**
- * Varve `<ViewModeSwitcher>` — pill-shaped view mode toggle (design system refresh).
+ * Varve `<ViewModeSwitcher>` — pill-shaped view mode toggle.
  *
- * Built on the pill button variants. Provides a compact, accessible way to switch
- * between view modes (e.g., grid/list, day/week/month). Uses filled icons via SolidIcon.
+ * Thin adapter over the canonical `SegmentedControl` (`variant="pill"`), so
+ * the roving-tabindex APG radiogroup logic lives in exactly one place. Kept
+ * as a named export for existing consumers; new code may use
+ * `<SegmentedControl variant="pill" />` directly.
  */
 
-import { useId } from 'react';
 import type { SolidIconName } from '../icons/SolidIcon';
-import { SolidIcon } from '../icons/SolidIcon';
+import { SegmentedControl, type SegmentedOption } from './SegmentedControl';
 
 export interface ViewModeOption<T extends string> {
   value: T;
@@ -30,71 +31,21 @@ export function ViewModeSwitcher<T extends string>({
   onChange,
   disabled = false,
 }: ViewModeSwitcherProps<T>) {
-  const groupId = useId();
-  const checkedIndex = options.findIndex((o) => o.value === value);
-  const focusIndex = checkedIndex >= 0 ? checkedIndex : 0;
-
-  function move(from: number, delta: number) {
-    if (options.length === 0) return;
-    const n = options.length;
-    const next = (((from + delta) % n) + n) % n;
-    const opt = options[next];
-    if (opt) {
-      onChange(opt.value);
-      const btn = document.getElementById(`${groupId}-${next}`);
-      btn?.focus();
-    }
-  }
-
-  function onKeyDown(e: React.KeyboardEvent, index: number) {
-    switch (e.key) {
-      case 'ArrowRight':
-      case 'ArrowDown':
-        e.preventDefault();
-        move(index, 1);
-        break;
-      case 'ArrowLeft':
-      case 'ArrowUp':
-        e.preventDefault();
-        move(index, -1);
-        break;
-      case 'Home':
-        e.preventDefault();
-        move(index, -index);
-        break;
-      case 'End':
-        e.preventDefault();
-        move(index, options.length - 1 - index);
-        break;
-    }
-  }
+  const segmentedOptions: SegmentedOption<T>[] = options.map((option) => ({
+    value: option.value,
+    label: option.label,
+    icon: option.icon,
+    solid: true,
+  }));
 
   return (
-    <div
-      role="radiogroup"
-      aria-label={label}
-      className="varve-view-mode-switcher"
-      data-disabled={disabled || undefined}
-    >
-      {options.map((opt, i) => {
-        const checked = opt.value === value;
-        return (
-          <label key={opt.value} className="varve-view-mode-switcher__btn">
-            <input
-              id={`${groupId}-${i}`}
-              type="radio"
-              checked={checked}
-              tabIndex={i === focusIndex ? 0 : -1}
-              disabled={disabled}
-              onChange={() => onChange(opt.value)}
-              onKeyDown={(e) => onKeyDown(e, i)}
-              className="varve-visually-hidden"
-            />
-            <SolidIcon name={opt.icon} label={undefined} size="1em" />
-            <span className="varve-view-mode-switcher__label">{opt.label}</span>
-          </label>
-        );
-      })}
-    </div>
+    <SegmentedControl
+      label={label}
+      value={value}
+      options={segmentedOptions}
+      onChange={onChange}
+      disabled={disabled}
+      variant="pill"
+    />
   );
 }

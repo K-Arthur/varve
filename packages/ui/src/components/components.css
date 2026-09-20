@@ -1229,80 +1229,157 @@
   border: 0;
 }
 
+/* ── SegmentedControl (APG radiogroup) ──
+ * Inset-pill style: sunken track, rounded segment buttons, accent fill on
+ * the active segment (reference: Figma constraints/alignment pickers).
+ * The styled <label> provides the visuals while the clipped native radio
+ * inside carries the semantics — never `display:none`, which would remove
+ * the options from the accessibility tree and leave keyboard users with
+ * nothing to select.
+ */
 .varve-segmented {
   display: inline-flex;
+  gap: var(--space-05);
+  padding: var(--space-05);
+  background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control);
-  overflow: hidden;
+  border-radius: var(--radius-control-compact);
 }
 .varve-segmented__btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
+  padding: 0 var(--space-2);
+  min-height: 1.5rem;
+  height: auto;
   background: transparent;
   border: none;
+  border-radius: calc(var(--radius-control-compact) - 1px);
   color: var(--color-text-secondary);
+  font: inherit;
   font-family: var(--font-body);
   font-size: var(--font-size-xs);
   cursor: pointer;
-  outline-offset: -2px;
-  transition: background var(--duration-quick) var(--ease-standard);
-}
-.varve-segmented__btn:has(input:checked) {
-  background: var(--color-interactive-default);
-  color: var(--color-text-on-accent);
-}
-.varve-segmented__btn:hover:not(:has(input:checked)) {
-  background: var(--color-surface-sunken);
-}
-.varve-segmented__btn:has(input:focus-visible) {
-  outline: 2px solid var(--color-interactive-focus-ring);
-}
-
-/* ── ViewModeSwitcher (pill-shaped, design system refresh) ── */
-.varve-view-mode-switcher {
-  display: inline-flex;
-  gap: var(--space-1);
-  background: var(--color-surface-sunken);
-  border-radius: var(--radius-pill);
-  padding: var(--space-1);
-}
-.varve-view-mode-switcher__btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-pill);
-  color: var(--color-text-secondary);
-  font-family: var(--font-body);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  outline-offset: 2px;
   transition:
     background var(--duration-quick) var(--ease-standard),
     color var(--duration-quick) var(--ease-standard);
 }
-.varve-view-mode-switcher__btn:has(input:checked) {
+.varve-segmented__btn:hover {
+  color: var(--color-text-primary);
+}
+/* The track itself is sunken now, so the pre-migration hover fill
+ * (surface-sunken) would be invisible. Lift an unselected segment on the
+ * raised surface instead, matching the pill variant. */
+.varve-segmented__btn:hover:not(:has(input:checked)):not([aria-checked="true"]):not(
+  [aria-pressed="true"]
+) {
+  background: var(--color-surface-raised);
+}
+.varve-segmented__btn:has(input:checked),
+.varve-segmented__btn[aria-checked="true"],
+.varve-segmented__btn[aria-pressed="true"] {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
-.varve-view-mode-switcher__btn:hover:not(:has(input:checked)) {
+.varve-segmented__btn:has(input:checked):hover,
+.varve-segmented__btn[aria-checked="true"]:hover,
+.varve-segmented__btn[aria-pressed="true"]:hover {
+  background: var(--color-interactive-hover);
+}
+.varve-segmented__btn:has(input:focus-visible) {
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+/*
+ * The radio covers its label so the whole segment is one hit target. It is
+ * transparent rather than `display:none`/clipped, which would remove the
+ * options from the accessibility tree and from the pointer hit-test.
+ */
+.varve-segmented__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.varve-segmented__btn:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.varve-segmented__btn:has(input:disabled) .varve-segmented__input {
+  cursor: not-allowed;
+}
+.varve-segmented__label {
+  display: inline;
+}
+[data-theme="high-contrast"] .varve-segmented {
+  border-color: var(--color-border-subtle);
+}
+
+/* Full-width fill-type track: equal segments, centered labels. */
+.varve-segmented--distribute {
+  display: flex;
+  width: 100%;
+}
+.varve-segmented--distribute .varve-segmented__btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 var(--space-1);
+}
+
+/* Pill variant (view-mode switches): rounder track, medium-weight labels. */
+.varve-segmented--pill {
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-color: transparent;
+  border-radius: var(--radius-pill);
+}
+.varve-segmented--pill .varve-segmented__btn {
+  border-radius: var(--radius-pill);
+  padding: var(--space-1) var(--space-2);
+  font-weight: var(--font-weight-medium);
+  outline-offset: 2px;
+}
+.varve-segmented--pill .varve-segmented__btn:hover:not(:has(input:checked)) {
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
 }
-.varve-view-mode-switcher__btn:has(input:focus-visible) {
-  outline: 2px solid var(--color-interactive-focus-ring);
-}
-.varve-view-mode-switcher__label {
+.varve-segmented--pill .varve-segmented__label {
   display: none;
 }
 @media (min-width: 640px) {
-  .varve-view-mode-switcher__label {
+  .varve-segmented--pill .varve-segmented__label {
     display: inline;
+  }
+}
+
+/* Forced colors (Windows Contrast Themes): every author background is
+ * force-adjusted, so the accent-filled selected segment becomes identical to
+ * its track and the selection disappears (the same defect class the
+ * radio-group pass removed in normal themes). Highlight/HighlightText is the
+ * system-guaranteed selected pair; forced-color-adjust keeps it from being
+ * adjusted away. Focus and disabled states stay explicit for the same reason. */
+@media (forced-colors: active) {
+  .varve-segmented {
+    border-color: CanvasText;
+  }
+  .varve-segmented__btn:has(input:checked),
+  .varve-segmented__btn[aria-checked="true"],
+  .varve-segmented__btn[aria-pressed="true"] {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+  .varve-segmented__btn:has(input:disabled):has(input:checked) {
+    background: GrayText;
+    color: Canvas;
+  }
+  .varve-segmented__btn:has(input:focus-visible) {
+    outline-color: Highlight;
   }
 }
 
@@ -2117,7 +2194,7 @@
   height: var(--varve-native-range-thumb, 18px);
   margin-top: calc(
     (var(--varve-native-range-track, 6px) - var(--varve-native-range-thumb, 18px)) /
-      2
+    2
   );
   border: 2px solid var(--color-interactive-default);
   border-radius: var(--radius-pill);

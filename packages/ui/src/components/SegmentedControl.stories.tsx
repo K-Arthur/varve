@@ -15,13 +15,13 @@ export default meta;
 type Story = StoryObj<typeof SegmentedControl>;
 
 const alignmentOptions = [
-  { value: 'left', label: 'Left', icon: 'AlignLeft' as const },
-  { value: 'center', label: 'Center', icon: 'AlignCenter' as const },
-  { value: 'right', label: 'Right', icon: 'AlignRight' as const },
+  { value: 'left', label: 'Left', icon: 'TextAlignStart' as const },
+  { value: 'center', label: 'Center', icon: 'TextAlignCenter' as const },
+  { value: 'right', label: 'Right', icon: 'TextAlignEnd' as const },
 ];
 
 const viewOptions = [
-  { value: 'grid', label: 'Grid', icon: 'SquaresFour' as const },
+  { value: 'grid', label: 'Grid', icon: 'LayoutGrid' as const },
   { value: 'list', label: 'List', icon: 'List' as const },
 ];
 
