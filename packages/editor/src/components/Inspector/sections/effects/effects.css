@@ -56,7 +56,7 @@
 
 .insp-inrow-blur__input {
   width: 3.5rem;
-  height: var(--component-compact-height);
+  height: var(--insp-row-height, var(--component-compact-height));
   padding: 0 var(--space-1);
   font-size: var(--font-size-xs);
   font-family: var(--font-mono);

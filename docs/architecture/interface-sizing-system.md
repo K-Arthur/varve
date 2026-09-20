@@ -100,6 +100,12 @@ Interface density is a **user preference**, applied at the document root:
   for the floating tool palette, context bar, floating text bar, and
   selection quick bar (`docs/architecture/toolbar-system.md`). Coarse
   pointers promote these to `--touch-target-min` regardless of density.
+- The Inspector consumes the same root contract through local semantic aliases:
+  Default Pro uses 34px rows with `space-3` panel/section rhythm and
+  `space-2` body gaps; Compact Pro uses 28px rows with `space-2` panel/section
+  rhythm and `space-1` body gaps. Field-group spacing and content padding are
+  reduced in Compact Pro, while horizontal paired-field geometry remains
+  stable so narrow rails do not gain dead width or lose controls.
 - Density never touches document zoom, scene geometry, selection bounds, or
   exported output, and never enters the document undo stack.
 - Virtualized consumers must follow the mode: the Layers tree's

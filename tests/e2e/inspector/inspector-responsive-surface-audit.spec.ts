@@ -100,7 +100,7 @@ async function surfaceMetrics(page: Page) {
   });
 }
 
-test('Position & Size keeps bounded numeric rails across Inspector widths', async ({
+test('Position & Size keeps equal value columns across Inspector widths', async ({
   page,
 }, testInfo) => {
   // Keep the CSS viewport equivalent to the normal 1440px editor while the
@@ -114,6 +114,9 @@ test('Position & Size keeps bounded numeric rails across Inspector widths', asyn
   const position = page.getByRole('group', { name: 'Position & Size' });
   await expect(position).toBeVisible();
   const samples: Record<number, unknown> = {};
+  const expectedInspectorRowHeight = await page.locator('.editor-inspector').evaluate((el) =>
+    Number.parseFloat(getComputedStyle(el).getPropertyValue('--insp-row-height')),
+  );
   for (const width of RAILS) {
     await setRail(page, width);
     await position.scrollIntoViewIfNeeded();
@@ -140,10 +143,22 @@ test('Position & Size keeps bounded numeric rails across Inspector widths', asyn
       };
     });
     expect(metrics.overflow).toBeLessThanOrEqual(1);
+    const byLabel = (label: string) =>
+      metrics.fields.find((field) => field.label === label && field.input !== null);
     for (const field of metrics.fields) {
       if (!field.input) continue;
-      expect(field.input.width).toBeLessThanOrEqual(100);
-      expect(field.input.height).toBe(32);
+      expect(field.input.height).toBe(expectedInspectorRowHeight);
+    }
+    // The values fill equal columns (X/Y, then W/H around the action gutter);
+    // the retired 9ch rail cap is intentionally gone for this section.
+    const [x, y, w, h] = ['X', 'Y', 'W', 'H'].map(byLabel);
+    if (x?.input && y?.input) {
+      expect(Math.abs(x.input.width - y.input.width)).toBeLessThanOrEqual(1);
+      expect(x.input.left).toBeLessThan(y.input.left);
+    }
+    if (w?.input && h?.input) {
+      expect(Math.abs(w.input.width - h.input.width)).toBeLessThanOrEqual(1);
+      expect(w.input.left).toBeLessThan(h.input.left);
     }
     samples[width] = metrics;
   }
@@ -229,17 +244,15 @@ test('frame geometry and Stack / Grid keep stable inspector rails', async ({ pag
         return field?.querySelector('input') ? rectOf(field.querySelector('input')!) : null;
       };
       const group = section.querySelector<HTMLElement>('.insp-field-group--position');
-      const slots = group
-        ? [...group.querySelectorAll<HTMLElement>(':scope > .insp-field-group__action-slot')].map(
-            rectOf,
-          )
-        : [];
+      const sizeGroup = section.querySelector<HTMLElement>('.insp-field-group--size');
+      const sizeActions = sizeGroup?.querySelector<HTMLElement>('.insp-size-actions');
       return {
         x: input(/^X/),
         y: input(/^Y/),
         width: input(/^W/),
         height: input(/^H/),
-        slots,
+        sizeActions: sizeActions ? rectOf(sizeActions) : null,
+        sizeRight: sizeGroup ? rectOf(sizeGroup).right : null,
         overflow: group ? group.scrollWidth - group.clientWidth : 0,
       };
     });
@@ -248,13 +261,23 @@ test('frame geometry and Stack / Grid keep stable inspector rails', async ({ pag
     expect(geometry.y).not.toBeNull();
     expect(geometry.width).not.toBeNull();
     expect(geometry.height).not.toBeNull();
-    expect(Math.abs((geometry.x?.right ?? 0) - (geometry.width?.right ?? 0))).toBeLessThanOrEqual(
-      1,
-    );
+    // X/Y are equal halves of the row, and W/H are equal halves around the
+    // action gutter; Y and H end on the same panel edge.
+    expect(Math.abs((geometry.x?.width ?? 0) - (geometry.y?.width ?? 0))).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs((geometry.width?.width ?? 0) - (geometry.height?.width ?? 0)),
+    ).toBeLessThanOrEqual(1);
     expect(Math.abs((geometry.y?.right ?? 0) - (geometry.height?.right ?? 0))).toBeLessThanOrEqual(
       1,
     );
-    expect(geometry.slots.filter((slot) => slot.width > 0)).toHaveLength(2);
+    expect(Math.abs((geometry.y?.right ?? 0) - (geometry.sizeRight ?? 0))).toBeLessThanOrEqual(1);
+    expect(geometry.x?.left ?? 0).toBeLessThan(geometry.y?.left ?? 0);
+    // The size actions sit in the gutter between W and H, never overlapping
+    // either value.
+    const gutter = geometry.sizeActions;
+    expect(gutter).not.toBeNull();
+    expect(gutter!.left).toBeGreaterThanOrEqual((geometry.width?.right ?? 0) - 1);
+    expect(gutter!.right).toBeLessThanOrEqual((geometry.height?.left ?? 0) + 1);
 
     const layoutMetrics = await layout.evaluate((section) => {
       const fields = [...section.querySelectorAll<HTMLElement>('.insp-field')];
@@ -291,7 +314,14 @@ test('frame geometry and Stack / Grid keep stable inspector rails', async ({ pag
     });
     expect(layoutMetrics.overflow).toBeLessThanOrEqual(1);
     expect(layoutMetrics.fieldHeights.every((height) => height >= 31 && height <= 33)).toBe(true);
-    expect(layoutMetrics.inputWidths.every((inputWidth) => inputWidth <= 100)).toBe(true);
+    // The sizing numerics (Min/Max W and H) fill shared pair columns, so the
+    // two inputs in each row are equal instead of each fitting its own label
+    // and value range. The two rows are independent groups, so their label
+    // columns may differ by the label text width (measured 3px).
+    expect(layoutMetrics.inputWidths.length).toBeGreaterThanOrEqual(4);
+    expect(
+      Math.max(...layoutMetrics.inputWidths) - Math.min(...layoutMetrics.inputWidths),
+    ).toBeLessThanOrEqual(4);
     expect(layoutMetrics.sizing).toEqual({
       marginBlockStart: layoutMetrics.tokenSpacing.space2,
       paddingBlockStart: layoutMetrics.tokenSpacing.space2,

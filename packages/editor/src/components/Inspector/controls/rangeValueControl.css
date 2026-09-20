@@ -49,7 +49,7 @@
   font-size: var(--insp-value-size, var(--font-size-xs));
   flex: 1 1 0;
   inline-size: auto;
-  height: var(--component-compact-height);
+  height: var(--insp-row-height, var(--component-compact-height));
   min-inline-size: 0;
   outline: none;
   padding: 0 var(--space-2);

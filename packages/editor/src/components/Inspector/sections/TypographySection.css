@@ -1,7 +1,7 @@
 /* Match the shared inspector field rhythm while giving family names room. */
 .typography__family-field {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--component-compact-height);
+  grid-template-columns: minmax(0, 1fr) var(--insp-row-height, var(--component-compact-height));
   align-items: end;
   gap: var(--space-2);
   min-width: 0;
@@ -19,16 +19,16 @@
 }
 
 .typography__family-field .typography__browse-fonts {
-  width: var(--component-compact-height);
-  height: var(--component-compact-height);
+  width: var(--insp-row-height, var(--component-compact-height));
+  height: var(--insp-row-height, var(--component-compact-height));
 }
 
-.editor-inspector .typography-controls .insp-field__control > .insp-segmented {
+.editor-inspector .typography-controls .insp-field__control > .varve-segmented {
   display: flex;
   flex-wrap: nowrap;
 }
 
-.typography-controls .insp-segmented__btn {
+.typography-controls .varve-segmented__btn {
   min-width: 0;
   flex: 1 1 0;
 }
@@ -69,7 +69,7 @@
   min-width: 0;
 }
 
-.editor-inspector .typography-controls .typography__paired-fields .insp-segmented {
+.editor-inspector .typography-controls .typography__paired-fields .varve-segmented {
   min-width: 0;
   width: 100%;
 }
@@ -90,14 +90,17 @@
 }
 
 /* Icon-only alignment segments need a real square target; the shared
-   segmented control sizes to content and would otherwise collapse. */
-.editor-inspector .typography-controls .insp-segmented__btn:has(> svg):not(:has(> span)) {
+   segmented control sizes to content and would otherwise collapse. The
+   canonical control marks a hidden label with varve-visually-hidden. */
+.editor-inspector
+  .typography-controls
+  .varve-segmented__btn:has(> svg):has(> .varve-segmented__label.varve-visually-hidden) {
   min-width: 28px;
   flex: 1 1 0;
   padding-inline: 0;
 }
 
-.editor-inspector .typography-controls .insp-segmented__btn > svg {
+.editor-inspector .typography-controls .varve-segmented__btn > svg {
   flex-shrink: 0;
 }
 

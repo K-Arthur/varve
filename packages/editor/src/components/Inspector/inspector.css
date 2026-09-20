@@ -6,15 +6,16 @@
  * WCAG 2.2 focus-visible (2.4.7) and status-not-by-colour (1.4.1).
  */
 
-/* ---------- Panel shell — card containment ----------
- * Sections are enclosed cards with rounded borders,
- * distinct card elevation, and comfortable vertical rhythm.
+/* ---------- Panel shell — density-aware quiet grouping ----------
+ * The Inspector uses one quiet separator per section. Vertical rhythm is
+ * supplied by Inspector-local aliases below, which follow the application
+ * Default Pro / Compact Pro density contract without changing canvas state.
  */
 .insp-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-2);
+  gap: var(--insp-panel-gap, var(--space-1));
+  padding: var(--insp-panel-inset, var(--space-2));
 }
 .insp-panel .insp-panel {
   padding: 0;
@@ -518,22 +519,31 @@
  */
 .insp-disclosure {
   position: relative;
+  /* The section rule is drawn by the sticky header (it must travel with the
+   * header while scrolling), so the hover affordance tints that hairline
+   * rather than adding a second line at the section's end. */
+  --insp-section-rule: var(--color-border-subtle);
   border: 0;
   border-radius: 0;
   background: transparent;
   padding: 0;
-  /* Content stays close to its own header (space-1 top padding below); this
-   * margin is the section-to-section gap, so grouping reads correctly:
-   * tighter within a section than between two different sections. */
-  margin-bottom: var(--space-2);
+  /* Section-to-section gap. This is what makes grouping legible: it must stay
+   * clearly larger than the space-1 gap between two fields inside a section.
+   * The panel's own gap contributes too, so the rendered separation is about
+   * twice this value. */
+  margin-bottom: var(--insp-section-gap, var(--space-2));
 }
 .insp-disclosure:hover {
-  border-bottom-color: color-mix(
+  --insp-section-rule: color-mix(
     in srgb,
     var(--color-border-strong) 40%,
     var(--color-border-subtle)
   );
 }
+/* The registry composes sections as direct children of the scrolling panel,
+ * so this is the true last section. (A keyed wrapper element used to make
+ * every section its parent's last child, which zeroed the gap for all of
+ * them and left sections separated only by the panel gap.) */
 .insp-disclosure:last-child {
   margin-bottom: 0;
 }
@@ -550,7 +560,7 @@
   /* `.insp-panel` owns an 8px outer inset. Offset the sticky box through that
      inset so preceding rows cannot remain visible above a section header when
      the rail is scrolled. The opaque surface below owns the overlap. */
-  top: calc(-1 * var(--space-2));
+  top: calc(-1 * var(--insp-panel-inset, var(--space-2)));
   z-index: 1;
   display: flex;
   align-items: center;
@@ -640,12 +650,13 @@
 .insp-disclosure__content {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--insp-content-gap, var(--space-1));
   /* Reset UA fieldset chrome (groove border, inline margins, min-content sizing) */
   border: none;
   margin: 0;
   min-inline-size: 0;
-  padding: var(--space-1) 0 var(--space-2);
+  padding: var(--insp-content-pad-start, var(--space-1)) 0
+    var(--insp-content-pad-end, var(--space-2));
 }
 
 /* ── Section Manager (panel header customize button) ── */
@@ -1231,15 +1242,15 @@
  * single compact target keeps the visible row from carrying four
  * reorder/remove icons. */
 .insp-paint-row .insp-paint-row__drag-handle {
-  min-inline-size: var(--component-compact-height);
-  min-block-size: var(--component-compact-height);
-  flex: 0 0 var(--component-compact-height);
+  min-inline-size: var(--insp-row-height);
+  min-block-size: var(--insp-row-height);
+  flex: 0 0 var(--insp-row-height);
 }
 
 .insp-effect-row__drag-handle {
-  min-inline-size: var(--component-compact-height);
-  min-block-size: var(--component-compact-height);
-  flex: 0 0 var(--component-compact-height);
+  min-inline-size: var(--insp-row-height);
+  min-block-size: var(--insp-row-height);
+  flex: 0 0 var(--insp-row-height);
 }
 
 /* Touch and stylus pointers get the larger target without making the default
@@ -1288,7 +1299,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--insp-field-group-gap, var(--space-2));
   min-width: 0;
 }
 
@@ -1298,7 +1309,7 @@
 .insp-layout-controls {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--insp-content-gap, var(--space-1));
   min-inline-size: 0;
 }
 
@@ -1385,14 +1396,21 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.insp-field__control--inline {
+/* Modifiers out-specify the base `.insp-field__control` rule, which is
+ * declared later in the responsive field grammar. At equal specificity the
+ * later base rule wins, so a plain `.insp-field__control--gap-2` or
+ * `--column` here silently lost its declaration: the Snap targets column
+ * rendered centre-aligned (indenting the shorter switch row) and every
+ * `--gap-2` row kept the base gap. The doubled class is the same
+ * cascade-order pattern `.insp-field__label--wrap` uses. */
+.insp-field__control.insp-field__control--inline {
   width: auto;
   max-width: 100%;
 }
-.insp-field__control--gap-2 {
+.insp-field__control.insp-field__control--gap-2 {
   gap: var(--space-2);
 }
-.insp-field__control--column {
+.insp-field__control.insp-field__control--column {
   flex-direction: column;
   align-items: flex-start;
 }
@@ -1482,7 +1500,7 @@
   box-sizing: border-box;
   /* One field-height contract: match the shared compact control height and
    * the dropdowns beside it instead of a fluid spacing token. */
-  height: var(--component-compact-height);
+  height: var(--insp-row-height);
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
@@ -1552,7 +1570,7 @@
   width: 0;
   min-width: 3.5rem;
   /* Match the number fields and shared selects (compact control height). */
-  height: var(--component-compact-height);
+  height: var(--insp-row-height);
   font-size: var(--font-size-xs);
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
@@ -1857,7 +1875,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: var(--component-compact-height);
+  min-height: var(--insp-row-height);
 }
 
 .insp-text-btn {
@@ -1892,7 +1910,7 @@
   align-items: center;
   gap: var(--space-1);
   /* Field-height contract: this button stands in for a text field. */
-  min-height: var(--component-compact-height);
+  min-height: var(--insp-row-height);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
   color: var(--color-text-primary);
@@ -1924,7 +1942,7 @@
 
 .insp-per-side {
   width: var(--space-7);
-  height: var(--component-compact-height);
+  height: var(--insp-row-height);
   box-sizing: border-box;
   font-size: var(--font-size-xs);
   background: var(--color-surface-sunken);
@@ -1968,8 +1986,8 @@
 
 .insp-flip-btn {
   /* Inline field action: same height as the field beside it. */
-  width: var(--component-compact-height);
-  height: var(--component-compact-height);
+  width: var(--insp-row-height);
+  height: var(--insp-row-height);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2700,98 +2718,15 @@
   color: var(--color-text-secondary);
 }
 
-/* ---------- SegmentedControl (APG Radiogroup) ----------
- * Inset-pill style: sunken track, rounded segment buttons, accent fill on
- * the active segment (reference: Figma constraints/alignment pickers).
- */
-.insp-segmented {
-  display: inline-flex;
-  gap: var(--space-05);
-  padding: var(--space-05);
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
-}
-/*
- * The styled <label> provides the visuals while the real radio carries the
- * semantics. `hidden` on that input removed it from the accessibility tree
- * altogether, so the wrapping role="radiogroup" announced a group with no
- * options and keyboard users had nothing to select. Clip it instead: still
- * rendered, still focusable, still exposed.
- */
-.insp-segmented input[type="radio"],
-.insp-segmented input[type="checkbox"],
-.insp-radio-btn input[type="radio"] {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  border: 0;
-  clip-path: inset(50%);
-}
+/* Radio-group visuals live on the canonical @varve/ui SegmentedControl
+ * (.varve-segmented in packages/ui/src/components/components.css); the
+ * Inspector composes that component directly rather than re-implementing
+ * the track, its states, or the APG roving-tabindex behaviour. */
 
-.insp-segmented__btn:focus-within,
-.insp-radio-btn:focus-within {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
-  outline-offset: -2px;
-}
-
-.insp-radio-btn {
-  position: relative;
-}
-
-.insp-segmented__btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-  padding: 0 var(--space-2);
-  min-height: 1.5rem;
-  height: auto;
-  background: transparent;
-  border: none;
-  border-radius: calc(var(--radius-control-compact) - 1px);
-  color: var(--color-text-secondary);
-  font: inherit;
-  font-size: var(--font-size-xs);
-  cursor: pointer;
-  transition:
-    background var(--duration-quick) var(--ease-standard),
-    color var(--duration-quick) var(--ease-standard);
-}
-.insp-segmented__btn:hover {
-  color: var(--color-text-primary);
-}
-.insp-segmented__btn[aria-pressed="true"],
-.insp-segmented__btn[aria-checked="true"] {
-  background: var(--color-interactive-default);
-  color: var(--color-text-on-accent);
-}
-.insp-segmented__btn[aria-pressed="true"]:hover,
-.insp-segmented__btn[aria-checked="true"]:hover {
-  background: var(--color-interactive-hover);
-}
-.insp-segmented__btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
-  outline-offset: -2px;
-}
-[data-theme="high-contrast"] .insp-segmented {
-  border-color: var(--color-border-subtle);
-}
-
-/* Full-width fill-type track: equal segments, centered labels. */
-.insp-segmented--distribute {
-  display: flex;
-  width: 100%;
-}
-.insp-segmented--distribute .insp-segmented__btn {
-  flex: 1 1 0;
-  min-width: 0;
+/* CurveEditor keeps a tighter channel switcher than the Inspector default. */
+.insp-curve-channel .varve-segmented__btn {
   padding: 0 var(--space-1);
+  font-size: var(--font-size-2xs);
 }
 
 /* Image placement actions */
@@ -2987,8 +2922,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--component-compact-height);
-  height: var(--component-compact-height);
+  width: var(--insp-row-height);
+  height: var(--insp-row-height);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   background: var(--color-surface-default);
@@ -3134,7 +3069,7 @@
   flex: 1;
   width: 0;
   min-width: 3.5rem;
-  height: var(--component-compact-height);
+  height: var(--insp-row-height);
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid transparent;
@@ -3341,13 +3276,18 @@
   gap: var(--space-1);
   padding-bottom: var(--space-3);
 }
-.insp-panel fieldset,
+/* Stacked field groups. A section's content container is also a fieldset, but
+ * its rhythm belongs to `.insp-disclosure__content`; without this exclusion
+ * the group gap (space-2) silently replaced the section's own (space-1), so
+ * the gap between two fields equalled the gap between two sections and every
+ * section read as one undifferentiated stack. */
+.insp-panel fieldset:not(.insp-disclosure__content),
 fieldset.insp-canvas-props,
 .insp-canvas-props {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-1) 0 var(--space-2);
+  gap: var(--insp-field-group-gap);
+  padding: var(--insp-content-pad-start) 0 var(--insp-content-pad-end);
   border: none;
   margin: 0;
   min-inline-size: 0;
@@ -3545,7 +3485,7 @@ fieldset.insp-canvas-props,
 .insp-opentype-row select,
 .insp-opentype-index {
   min-width: 74px;
-  min-height: var(--component-compact-height);
+  min-height: var(--insp-row-height);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
@@ -3605,7 +3545,7 @@ fieldset.insp-canvas-props,
 
 .insp-feature-browser__search {
   width: 100%;
-  min-height: var(--component-compact-height);
+  min-height: var(--insp-row-height);
   box-sizing: border-box;
   padding-inline: var(--space-2);
   border: 1px solid var(--color-border-subtle);
@@ -3724,8 +3664,8 @@ fieldset.insp-canvas-props,
 .insp-axis-reset {
   flex: none;
   /* WCAG 2.5.8 target and the shared field height. */
-  min-width: var(--component-compact-height);
-  min-height: var(--component-compact-height);
+  min-width: var(--insp-row-height);
+  min-height: var(--insp-row-height);
   padding: 0 var(--space-1);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
@@ -4199,8 +4139,8 @@ fieldset.insp-canvas-props,
 }
 .palette-section__count-input {
   width: 100%;
-  min-height: var(--component-compact-height);
-  height: var(--component-compact-height);
+  min-height: var(--insp-row-height, var(--component-compact-height));
+  height: var(--insp-row-height, var(--component-compact-height));
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid transparent;
@@ -4686,9 +4626,9 @@ fieldset.insp-canvas-props,
 }
 
 .insp-actions .varve-btn--sm {
-  min-height: 32px;
+  min-height: var(--insp-row-height);
   min-width: auto;
-  height: 32px;
+  height: var(--insp-row-height, var(--component-compact-height));
   padding: 0 var(--space-3);
   font-size: var(--font-size-xs);
 }
@@ -4944,7 +4884,7 @@ fieldset.insp-canvas-props,
 }
 .binding-menu__input {
   width: 100%;
-  height: var(--component-compact-height);
+  height: var(--insp-row-height, var(--component-compact-height));
   font-size: var(--font-size-xs);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
@@ -5004,7 +4944,7 @@ fieldset.insp-canvas-props,
 }
 .gradient-editor__select {
   flex: 1;
-  height: var(--component-compact-height);
+  height: var(--insp-row-height, var(--component-compact-height));
   font-size: var(--font-size-xs);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
@@ -5560,6 +5500,13 @@ fieldset.insp-canvas-props,
   font-size: var(--font-size-2xs);
   line-height: 1;
 }
+/* Attached to a field control, the readout owns a full line below the value.
+ * The value control keeps its readable width at every rail, and the status
+ * reads as helper text for the field it describes instead of squeezing
+ * beside it (Typography's Colour row, IA-011). */
+.editor-inspector .insp-field__control > .contrast-indicator {
+  flex: 1 0 100%;
+}
 
 /* ─── Cognitive load indicator ───────────────────────── */
 .insp-cognitive-load {
@@ -6036,7 +5983,7 @@ fieldset.insp-canvas-props,
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  min-height: 2rem;
+  min-height: var(--insp-row-height);
   grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
 }
 
@@ -6046,7 +5993,7 @@ fieldset.insp-canvas-props,
   flex: none;
   width: auto;
   min-width: 14px;
-  min-height: 2rem;
+  min-height: var(--insp-row-height);
   color: var(--color-text-muted);
   font-family: var(--type-interface-label-family);
   font-size: var(--insp-label-size, var(--font-size-2xs));
@@ -6115,6 +6062,22 @@ fieldset.insp-canvas-props,
   width: auto;
 }
 
+/* A segmented control inside a field row is a field-class control: it takes
+ * the compact field height so its cell shares one control plane with the
+ * Selects and number fields in the same group. The kit's 24px track is the
+ * toolbar density; a form row is not a toolbar, and the mismatch pulled the
+ * Style cell's track 2.9px above its Weight sibling on every rail (IA-010). */
+.editor-inspector .insp-field__control > .varve-segmented {
+  min-block-size: var(--insp-row-height);
+}
+
+/* A value pill in a field row is a field-class control too: it takes the
+ * field height so the Colour row matches the selects and number fields
+ * around it. The paint-row pill keeps its 24px card grammar. */
+.editor-inspector .insp-field__control > .insp-swatch--valued {
+  height: var(--insp-row-height);
+}
+
 /* FieldRow is also used for channel pairs (Red X/Y, Green X/Y, etc.). The
  * control column, rather than the label row, owns that internal grid. */
 .insp-field__control:has(> .insp-field + .insp-field) {
@@ -6129,7 +6092,7 @@ fieldset.insp-canvas-props,
 .insp-field-group--skew {
   align-items: center;
   display: grid;
-  gap: var(--space-2);
+  gap: var(--insp-field-group-gap);
   min-width: 0;
 }
 
@@ -6141,32 +6104,72 @@ fieldset.insp-canvas-props,
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.insp-field-group--size {
-  gap: var(--space-2);
-  /* Keep the lock and orientation action columns compact and stable.
-     W and H are flexible equal tracks, with compact hit targets
-     for the proportion lock and orientation swap button. */
-  grid-template-columns:
-    minmax(0, 1fr) var(--component-compact-height) minmax(0, 1fr)
-    var(--component-compact-height);
-}
-
-.insp-field-group--rotation {
+/* Position & Size rows share one three-track grid:
+ * [value 1fr][action gutter][value 1fr]. X/W/R start in the first track and
+ * Y/H end in the last, so every value column is the same width no matter
+ * which actions a row carries; the gutter is sized by the size row's
+ * lock/swap cluster so the position row's middle track matches it. The
+ * proportion lock belongs next to the two values it constrains (Figma
+ * convention); frames add the orientation swap to the same gutter instead of
+ * stranding it at the row's far edge. */
+.insp-position-size {
+  --insp-size-gutter: var(--insp-row-height);
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
+  flex-direction: column;
+  gap: var(--space-1);
   min-width: 0;
 }
 
-/* R field on left, compact grouped transform controls on right. */
-.insp-field-group--rotation > .insp-field {
+.insp-position-size[data-frame-actions] {
+  --insp-size-gutter: calc(2 * var(--insp-row-height) + var(--space-1));
+}
+
+.insp-field-group--size,
+.insp-field-group--position,
+.insp-field-group--rotation {
+  gap: var(--space-1);
+  grid-template-columns:
+    minmax(0, 1fr)
+    var(--insp-size-gutter, var(--insp-row-height))
+    minmax(0, 1fr);
+}
+
+/* The second value of a two-value row sits in the last track, leaving the
+ * action gutter empty. In the size row the second child is the actions
+ * cluster, so this only matches position (Y) and line metrics (A). */
+.insp-field-group--position > .insp-field:nth-child(2),
+.insp-field-group--size > .insp-field:nth-child(2) {
+  grid-column: 3;
+}
+
+.insp-size-actions {
   display: flex;
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
-  flex: 0 0 auto;
+}
+
+.insp-size-actions .insp-proportion-lock {
+  min-width: var(--insp-row-height);
+  min-height: var(--insp-row-height);
+}
+
+/* R fills the left column (same reading edge as X and W) and the transform
+ * actions sit right-aligned in the last column, under Y and H. The old
+ * `space-between` flex row left the R value stranded at one edge and the
+ * buttons at the other with a wide empty middle. */
+.insp-field-group--rotation {
+  display: grid;
+  align-items: center;
+  min-width: 0;
+}
+
+.insp-field-group--rotation > .insp-field {
+  display: grid;
+  align-items: center;
+  gap: var(--space-1);
+  grid-template-columns: 14px minmax(0, 1fr);
+  min-width: 0;
 }
 
 .insp-field-group--rotation > .insp-field > .insp-field__label {
@@ -6176,9 +6179,15 @@ fieldset.insp-canvas-props,
 }
 
 .insp-field-group--rotation > .insp-field > .insp-field__control {
-  width: var(--insp-numeric-rail, 9ch);
-  flex: 0 0 var(--insp-numeric-rail, 9ch);
+  width: auto;
   min-width: 0;
+}
+
+/* The transform cluster lives in the last track (under Y/H), right-aligned;
+ * without the explicit column it auto-places into the middle gutter. */
+.insp-field-group--rotation > .insp-flip-group {
+  grid-column: 3;
+  justify-self: end;
 }
 
 .insp-flip-group {
@@ -6249,6 +6258,50 @@ fieldset.insp-canvas-props,
   min-width: 0;
 }
 
+/* A pair's cells share their label and control columns: the widest label in
+ * a column sizes it and both control columns are equal, so the inputs match
+ * even when the labels differ ("Min W" vs "Max W"). Without it each cell
+ * sized its own max-content label and the four Min/Max inputs spread by 8px.
+ * The fallback above keeps per-cell label columns on engines without
+ * subgrid. */
+@supports (grid-template-columns: subgrid) {
+  /* The typography paired fields run their own label-above template and
+   * must not inherit the two-track cell span. */
+  .insp-field-group--columns-2:not(.typography__paired-fields) {
+    grid-template-columns: repeat(2, max-content minmax(0, 1fr));
+  }
+
+  .insp-field-group--columns-3 {
+    grid-template-columns: repeat(3, max-content minmax(0, 1fr));
+  }
+
+  .insp-field-group--columns-2:not(.typography__paired-fields) > .insp-field,
+  .insp-field-group--columns-3 > .insp-field {
+    display: grid;
+    grid-column: span 2;
+    grid-template-columns: subgrid;
+  }
+
+  /* At the narrowest rail a numeric pair collapses to one column; a
+   * two-track subgrid cell would force an implicit second track there. */
+  @container inspector (max-width: 13rem) {
+    .insp-field-group--columns-2.insp-field-group--numeric-pair > .insp-field {
+      grid-column: auto;
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+}
+
+/* Peer cells start on one line. The group's center alignment dragged a
+ * shorter cell downward as soon as its sibling carried a second line,
+ * offsetting both the label and the control plane of a semantic peer
+ * (measured 5.2px on Weight/Style, IA-010). Non-field content keeps the
+ * group's center alignment. */
+.insp-field-group--columns-2 > .insp-field,
+.insp-field-group--columns-3 > .insp-field {
+  align-self: start;
+}
+
 .insp-field-group--position > .insp-field,
 .insp-field-group--size > .insp-field {
   gap: var(--space-1);
@@ -6263,45 +6316,22 @@ fieldset.insp-canvas-props,
   flex-shrink: 0;
 }
 
-/* Position and size share one four-track geometry: value, action slot, value,
- * action slot. Empty slots are intentional; they reserve the lock/orientation
- * columns so related rows keep the same reading edges. */
+/* The position row is a value pair in the same three-track grid as the size
+ * row; Y is placed in the last track above. */
 .insp-field-group--position {
-  grid-template-columns:
-    minmax(0, 1fr) var(--component-compact-height) minmax(0, 1fr)
-    var(--component-compact-height);
+  display: grid;
+  align-items: center;
+  min-width: 0;
 }
 
-.insp-field-group__action-slot {
-  inline-size: var(--component-compact-height);
-  block-size: 1px;
-  pointer-events: none;
-}
-
-/* Bounded numeric rails --------------------------------------------------
- * Position/size values are unbounded document coordinates, but their visible
- * boxes do not need to absorb every spare pixel in a wide Inspector. Keep the
- * grid and labels fluid while giving the value region a stable reading rail.
- * The input remains a real text editor: long values can still be caret/
- * horizontally scrolled and are never clamped by this presentation rule. */
+/* Numeric values are sized by the row geometry, not by their range: every
+ * cell in a pair is equal, and single-column fields fill the control column
+ * (the panel declares `fill` sizing for its NumberFields). The retired
+ * bounded rail made a 39px Opacity sit beside a 239px Blend mode field. */
 .insp-field-group--numeric-pair > .insp-field > .insp-field__control {
-  flex: 0 1 var(--insp-numeric-rail, 9ch);
-  inline-size: min(var(--insp-numeric-rail, 9ch), 100%);
-  justify-self: start;
-  max-inline-size: 100%;
-  min-inline-size: 0;
-}
-
-.insp-field-group--numeric-pair > .insp-field > .insp-field__control > .insp-num__input {
   flex: 1 1 auto;
   inline-size: 100%;
   min-inline-size: 0;
-}
-
-@container inspector (max-width: 18rem) {
-  .insp-field-group--numeric-pair > .insp-field > .insp-field__control {
-    --insp-numeric-rail: 8ch;
-  }
 }
 
 @container inspector (max-width: 13rem) {
@@ -6310,12 +6340,11 @@ fieldset.insp-canvas-props,
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .insp-field-group--position > .insp-field-group__action-slot {
-    display: none;
+  .insp-field-group--position > .insp-field:nth-child(2) {
+    grid-column: auto;
   }
 }
 
-.insp-field-group--size > .insp-proportion-lock,
 .insp-field-group--rotation > .insp-flip-btn,
 .insp-field-group--skew > .insp-flip-btn {
   align-self: center;
@@ -6453,7 +6482,7 @@ fieldset.insp-canvas-props,
 
 .insp-focused-editor__close {
   flex: 0 0 auto;
-  min-height: var(--component-compact-height);
+  min-height: var(--insp-row-height);
   padding-inline: var(--space-2);
   color: var(--color-text-secondary);
   background: transparent;
@@ -6547,7 +6576,7 @@ fieldset.insp-canvas-props,
   max-inline-size: 100%;
 }
 
-.editor-inspector .insp-field__control > .insp-segmented {
+.editor-inspector .insp-field__control > .varve-segmented {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(4.5rem, 100%), 1fr));
   inline-size: 100%;
@@ -6555,7 +6584,7 @@ fieldset.insp-canvas-props,
   min-inline-size: 0;
 }
 
-.editor-inspector .insp-segmented__btn {
+.editor-inspector .varve-segmented__btn {
   min-inline-size: 0;
   max-inline-size: 100%;
   overflow: hidden;
@@ -6598,7 +6627,7 @@ fieldset.insp-canvas-props,
 }
 
 @container inspector (max-width: 15.5rem) {
-  .editor-inspector .insp-field__control > .insp-segmented {
+  .editor-inspector .insp-field__control > .varve-segmented {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -6611,7 +6640,7 @@ fieldset.insp-canvas-props,
  * keeping their controls on one line beside the disclosure trigger. */
 .insp-disclosure__action .insp-add-btn {
   width: auto;
-  min-height: var(--component-compact-height);
+  min-height: var(--insp-row-height);
   padding-inline: var(--space-2);
 }
 .insp-disclosure__action .insp-fill-add__controls {
@@ -6686,12 +6715,15 @@ fieldset.insp-canvas-props,
   color: var(--color-text-secondary);
 }
 
+/* Field-class action: the swap stands in the size row beside W/H and takes
+ * the field height. `--space-6/--space-7` made it a fluid 27x39px pill that
+ * was visibly taller than the fields it sits between. */
 .insp-orientation-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-6);
-  height: var(--space-7);
+  width: var(--insp-row-height);
+  height: var(--insp-row-height);
   padding: 0;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
@@ -6711,10 +6743,6 @@ fieldset.insp-canvas-props,
 .insp-orientation-btn:focus-visible {
   outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
-}
-
-.insp-field-group--size > .insp-orientation-btn {
-  align-self: center;
 }
 
 .insp-preset-popover {
@@ -7018,7 +7046,7 @@ fieldset.insp-canvas-props,
 
 /* ── Field-height contract ─────────────────────────────────────────────
  * Every text field, number field, and dropdown inside the inspector renders
- * at the shared compact component height. Controls previously mixed the
+ * at the density-aware Inspector row height. Controls previously mixed the
  * fluid --space-5/6/7 spacing tokens (19-42px depending on viewport) with
  * hardcoded rem values, so inputs and dropdowns no longer matched each other
  * and heights shifted as the window resized. */
@@ -7031,8 +7059,8 @@ fieldset.insp-canvas-props,
 .gradient-editor__position-input,
 .insp-interaction-row__name-input,
 .insp-interaction-row__field select {
-  height: var(--component-compact-height);
-  min-height: var(--component-compact-height);
+  height: var(--insp-row-height);
+  min-height: var(--insp-row-height);
 }
 
 .trimap-preview {
@@ -7133,7 +7161,6 @@ fieldset.insp-canvas-props,
 .editor-inspector {
   --insp-label-size: 0.75rem;
   --insp-value-size: 0.8125rem;
-  --insp-numeric-rail: 9ch;
   --insp-preview-max-inline-size: 20rem;
   /* Popover geometry shared by panel menus (section manager, preset
      popovers). rem keeps the surface proportionate when the user raises
@@ -7147,9 +7174,33 @@ fieldset.insp-canvas-props,
    * remains available for large affordances. */
   --insp-icon-size: 12px;
   --insp-icon-size-lg: 14px;
-  /* Flat row height: chips, toggles, meta rows. Equals the 2.5.8 compact
-   * target floor so a flat row can never be shorter than its target. */
-  --insp-row-height: var(--target-min-compact);
+  /* Inspector-local rhythm aliases. They consume the application density
+   * contract without changing the document/canvas model. Default Pro gives
+   * long-form property groups a little more air; Compact Pro preserves the
+   * fast-scanning, narrow-gap workflow. */
+  --insp-panel-inset: var(--space-3);
+  --insp-panel-gap: var(--space-1);
+  --insp-section-gap: var(--space-3);
+  --insp-content-gap: var(--space-2);
+  --insp-field-group-gap: var(--space-3);
+  --insp-content-pad-start: var(--space-2);
+  --insp-content-pad-end: var(--space-3);
+  --insp-row-height: var(--density-rows-min-height);
+}
+
+:where([data-density="compact"]) .editor-inspector {
+  --insp-panel-inset: var(--space-2);
+  --insp-section-gap: var(--space-2);
+  --insp-content-gap: var(--space-1);
+  --insp-field-group-gap: var(--space-2);
+  --insp-content-pad-start: var(--space-1);
+  --insp-content-pad-end: var(--space-2);
+}
+
+@media (any-pointer: coarse) {
+  .editor-inspector {
+    --insp-row-height: var(--touch-target-min);
+  }
 }
 
 /* ── Shared compact inspector buttons ──────────────────────────────────
@@ -7201,20 +7252,7 @@ fieldset.insp-canvas-props,
   outline-offset: 1px;
 }
 
-/* Standalone layout numbers (Gap and relative shares) use the same quiet
- * numeric rail as paired fields. Keep this override after the shared field
- * grammar so it wins without making unrelated field selectors more specific.
- * The editor remains able to enter a long value; only its resting presentation
- * is bounded. */
-.insp-layout-controls
-  > .insp-field:has(> .insp-field__control > .insp-num__control)
-  > .insp-field__control,
-.insp-layout-sizing
-  > .insp-field:has(> .insp-field__control > .insp-num__control)
-  > .insp-field__control {
-  flex: 0 1 var(--insp-numeric-rail, 9ch);
-  inline-size: min(var(--insp-numeric-rail, 9ch), 100%);
-  justify-self: start;
-  max-inline-size: 100%;
-  min-inline-size: 0;
-}
+/* Standalone layout numbers (Gap and relative shares) fill their control
+ * column like every other panel field. The retired bounded rail presented
+ * them at 9ch beside full-width selects, which read as inconsistent sizing
+ * across the Stack / Grid section. */

@@ -11,15 +11,16 @@
 ## 1. Principles
 
 1. **One spatial rhythm.** Every margin, padding, and gap in the panel resolves
-   to a spacing token. Section *separation* is carried by card containment
-   (border + rounded region); whitespace inside a section groups properties.
+   to a spacing token. Section separation is carried by a quiet separator plus
+   a density-aware vertical gap; whitespace inside a section groups properties.
    (RES-038; AUD-003.)
 2. **Stable section order.** Common geometry/appearance sections keep their
    position regardless of contextual sections; contextual content enters at
    defined order slots and never displaces the primary band. (RES-004;
    `sectionRegistry.ts:1099-1150`.)
-3. **Dense but legible.** Row geometry may be compact (32px control height,
-   12px label ramp); type never drops below the label floor, and hit areas stay
+3. **Dense but legible.** Default Pro uses 34px Inspector rows and a more
+   breathable vertical rhythm; Compact Pro uses 28px rows and the narrow-gap
+   rhythm. Type never drops below the label floor, and hit areas stay
    at or above the 24×24 CSS-pixel target floor or its measured spacing
    exception. (RES-017, RES-025, RES-033, RES-036.)
 4. **One interaction model per value class.** All numeric values scrub, step,
@@ -61,7 +62,7 @@ generator-owned.
 |---|---|---|
 | Primitive | `--space-1` … `--space-32`, `--font-size-2xs`…`--3xl` | No section may hard-code a value the primitive tier already names. |
 | Semantic | `--space-panel`, `--space-control`, `--type-interface-label-*`, `--color-text-muted`, `--color-border-subtle`, `--color-interactive-focus-ring` | Preferred for panel chrome and text. |
-| Component | `--component-compact-height` (32px), `--target-min-compact` (24px), `--touch-target-min` (44px), `--radius-control-compact`, `--tracking-micro` (new), plus Inspector-local aliases | Component geometry must come from this tier, not invented values. |
+| Component | `--density-rows-min-height` (34px/28px), `--target-min-compact` (24px), `--touch-target-min` (44px), `--radius-control-compact`, `--tracking-micro`, plus Inspector-local aliases | Component geometry must come from this tier, not invented values. |
 
 **New tokens (this pass):**
 
@@ -90,13 +91,27 @@ geometry. Allowed exceptions: `1px`/`2px` hairlines and outlines, percentages,
 
 ### 2.3 Density
 
-Varve does **not** introduce a user-selectable density mode for the Inspector
-(RES-033/RES-036 describe end-user consoles; a professional editor has one
-working density). Density adaptation is component-tier: rows use
-`--component-compact-height`, coarse pointers raise interactive minimums via
-`--touch-target-min` (already implemented at `inspector.css:1259-1261`), and
-the responsive field grammar collapses paired fields at narrow rails rather
-than shrinking type or targets.
+The Inspector consumes the existing application density preference. The root
+`data-density="comfortable"` value (Default Pro) resolves to 34px rows; the
+`data-density="compact"` value (Compact Pro) resolves to 28px rows. The
+Inspector-local aliases in `inspector.css` map the same preference onto panel
+inset, section separation, body gap, field-group gap, and content padding:
+
+| Role | Default Pro | Compact Pro |
+|---|---|---|
+| Field/action row | `--density-rows-min-height` (34px) | `--density-rows-min-height` (28px) |
+| Panel inset | `--space-3` | `--space-2` |
+| Section separation | `--space-3` | `--space-2` |
+| Section body gap | `--space-2` | `--space-1` |
+| Field-group gap | `--space-3` | `--space-2` |
+| Body padding | `--space-2` / `--space-3` | `--space-1` / `--space-2` |
+
+The effective section separation remains greater than the intra-section row
+gap in both modes. Coarse pointers promote applicable interactive targets to
+`--touch-target-min` (44px); text metrics, semantic names, 24px target floors,
+section order, selection, document history, and canvas geometry do not change.
+The setting is not a third Inspector-specific density and never enters the
+document undo stack.
 
 ## 3. Grid and spatial model
 
@@ -104,8 +119,8 @@ than shrinking type or targets.
 
 - A property row is a two-column grid: **label column** `minmax(14px, 38%)`
   (existing `.insp-field` contract) and a flexible control column.
-- A compact row is 32px tall (`--component-compact-height`); stacked multi-line
-  rows may grow, and the label uses the wrap variant
+- A row uses the active Inspector density height (34px Default Pro / 28px
+  Compact Pro); stacked multi-line rows may grow, and the label uses the wrap variant
   (`.insp-field__label--wrap`, lh 1.25) instead of overflowing.
 - Paired numeric fields (X/Y, W/H, min/max) render as two `.insp-field`
   children inside one `InspectorFieldGroup`; within a group the fields share
@@ -116,19 +131,21 @@ than shrinking type or targets.
 - Label-only-left is the default; a row may stack the label above a full-width
   control (`insp-field--stacked`) only when the control needs the full width
   (e.g. the five-up fit track) — never to save vertical space.
-- Row spacing within a section body: `--space-1`; between first-level groups:
-  `--space-3`; a subsection body adds no new padding beyond its parent.
+- Row spacing within a section body follows the active density (`--space-2`
+  Default Pro / `--space-1` Compact Pro); between first-level groups follows
+  `--space-3` / `--space-2`; a subsection body adds no new padding beyond its
+  parent.
 - Alignment contract: within one section body there is exactly **one label
   column start**; nested contexts (paint rows, subsection bodies) may indent by
   exactly one `--space-3` step. Deviation is a defect (AUD-001, IMPL-006).
 
 ### 3.2 Section model
 
-- A section is a bordered card (`common region`) with a header and a body.
-- Panel padding: `--space-2`; gap between section cards: `--space-1`.
-  Inter-card gaps are *smaller* than intra-body gaps because containment, not
-  whitespace, carries separation (Gestalt common region); this is deliberate
-  and not a violation of "sections separated more than rows".
+- A section is a quiet separator region with a header and a body; it does not
+  add a nested card border or elevation.
+- Panel inset, section gap, body gap, and body padding follow the density table
+  above. Inter-section separation is intentionally larger than the body row
+  gap so long property lists remain scannable without card-heavy chrome.
 - Section header: full-width button, chevron + title + right-clustered
   actions; height `--panel-header-height` or content-driven, never below 24px.
 - Collapsed sections may show a **summary** as `aria-describedby` text (never
