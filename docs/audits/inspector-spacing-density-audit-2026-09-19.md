@@ -50,21 +50,29 @@ are recorded here once the screenshot pipeline completes.
 ```text
 Changed scope: Inspector spacing aliases, Inspector control consumers, density E2E coverage, design-system/research/audit docs, reviewed website evidence
 Validation plan: `pnpm verify:plan` selected the affected Inspector, E2E, docs,
-  token, spacing, and website lanes; it also reported a full-suite escalation
+  token, spacing, and website lanes; it reported a full-suite escalation
   because the pre-existing worktree contains broad unrelated changes.
 Commands actually run: `pnpm audit:inspector-css`; `pnpm audit:spacing`;
   `pnpm audit:tokens`; `pnpm audit:docs`; `pnpm audit:emoji`;
   `pnpm typecheck:e2e`; focused Inspector Vitest; the lease-wrapped
   `spacing-density.spec.ts`; `node scripts/screenshots/validate.mjs --strict`;
-  website build/tests; `pnpm verify:plan`; `pnpm verify:affected`;
-  final `pnpm verify:full` (reason recorded below).
+  website build/tests; the lease-wrapped website E2E suite;
+  `pnpm verify:plan`; `pnpm verify:affected`; and
+  `VARVE_FULL_GATE_REASON="Inspector density spacing contract, visual baselines, and website evidence" pnpm verify:full`.
 Passed: Inspector CSS audit; focused Inspector tests (73 tests); E2E density
   lane (2 passed); E2E typecheck; screenshot manifest validation (22 captured,
-  0 skipped); reviewed screenshot synchronization; website validation/build;
-  affected validation and required audits.
+  0 skipped); reviewed screenshot synchronization; website build; Inspector
+  form/layout, design-tab, density, performance, and responsive lanes (34/35
+  in the combined run, with the one stale 31–33px assertion repaired to consume
+  `--insp-row-height`); and the required audits.
 Skipped as unrelated: pre-existing dirty worktree changes outside this scope
-Escalations: full-gate status attributed separately from task-owned failures
-Full suite run: yes, when the planner's broad-worktree escalation remained.
+Escalations: `pnpm verify:affected` stopped at the mandated full-gate
+  escalation. The full gate was attempted and failed on pre-existing lint,
+  architecture-cycle/instability, and engine LUT typecheck errors. The website
+  unit suite had five pre-existing fixture/token failures; website E2E completed
+  443/568 with 125 broad light-theme contrast/visual/content failures.
+Full suite run: yes (attempted; failed outside task-owned Inspector/website
+  evidence scope).
 If yes, reason: Inspector density spacing contract, visual baselines, and
 website evidence.
 ```
