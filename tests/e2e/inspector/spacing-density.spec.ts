@@ -40,6 +40,7 @@ async function densityMetrics(page: Page) {
       mode: document.documentElement.dataset.density,
       rowHeight: Number.parseFloat(inspectorStyle.getPropertyValue('--insp-row-height')),
       panelInset: inspectorStyle.paddingTop,
+      panelGap: getComputedStyle(scroller).rowGap,
       sectionGap: sectionStyle.marginBottom,
       contentGap: contentStyle.rowGap,
       contentPadding: `${contentStyle.paddingTop}/${contentStyle.paddingBottom}`,
@@ -91,6 +92,9 @@ test('Default Pro is breathable and Compact Pro remains dense', async ({ page },
   expect(compactMetrics.inputHeight).toBe(28);
   expect(Number.parseFloat(defaultMetrics.contentGap)).toBeGreaterThan(
     Number.parseFloat(compactMetrics.contentGap),
+  );
+  expect(Number.parseFloat(defaultMetrics.panelGap)).toBeGreaterThan(
+    Number.parseFloat(compactMetrics.panelGap),
   );
   expect(Number.parseFloat(defaultMetrics.sectionGap)).toBeGreaterThan(
     Number.parseFloat(defaultMetrics.contentGap),

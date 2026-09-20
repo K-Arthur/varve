@@ -7179,7 +7179,7 @@ fieldset.insp-canvas-props,
    * long-form property groups a little more air; Compact Pro preserves the
    * fast-scanning, narrow-gap workflow. */
   --insp-panel-inset: var(--space-3);
-  --insp-panel-gap: var(--space-1);
+  --insp-panel-gap: var(--space-3);
   --insp-section-gap: var(--space-3);
   --insp-content-gap: var(--space-2);
   --insp-field-group-gap: var(--space-3);
@@ -7190,6 +7190,7 @@ fieldset.insp-canvas-props,
 
 :where([data-density="compact"]) .editor-inspector {
   --insp-panel-inset: var(--space-2);
+  --insp-panel-gap: var(--space-2);
   --insp-section-gap: var(--space-2);
   --insp-content-gap: var(--space-1);
   --insp-field-group-gap: var(--space-2);
