@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
 import { sitePath } from '../../../lib/siteUrl';
+import '../../../styles/docs-prose.css';
 ---
 
 <Layout title="Shape Builder — Varve Docs" description="Select, merge, erase, extract, create, and divide editable vector regions in Varve without guessing at whole-object booleans.">
@@ -10,7 +11,7 @@ import { sitePath } from '../../../lib/siteUrl';
         <a href={sitePath('/docs')}>Documentation</a> / <a href={sitePath('/docs/tools/vector')}>Tools</a> / Shape Builder
       </nav>
 
-      <h1>Shape Builder</h1>
+      <h1 class="site-page-title">Shape Builder</h1>
       <p class="docs-intro">
         Choose the regions you can see, then decide what they should become. Shape Builder works on the actual intersections between selected vector paths, not on object rectangles or a hidden raster fill.
       </p>
@@ -80,16 +81,8 @@ import { sitePath } from '../../../lib/siteUrl';
 
 <style>
   .docs-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
-  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
-  .breadcrumb a { color: var(--text-secondary); }
-  .docs-page h1 { font-size: clamp(2rem, 5vw, 2.5rem); font-family: var(--font-editorial); font-weight: 700; letter-spacing: -0.015em; margin-bottom: 1rem; color: var(--text-primary); }
-  .docs-intro { font-size: 1.125rem; color: var(--text-secondary); margin-bottom: 3rem; line-height: 1.7; }
-  .docs-section { margin-bottom: 3rem; }
-  .docs-section h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-primary); }
-  .docs-section h3 { font-size: 1.05rem; margin-bottom: 0.5rem; color: var(--text-primary); }
-  .docs-section p, .docs-section li { color: var(--text-secondary); line-height: 1.75; }
-  .docs-section ol { padding-left: 1.5rem; margin-bottom: 1rem; }
-  .docs-section li { margin-bottom: 0.5rem; }
+  .docs-page h1 { letter-spacing: -0.015em; }
+
   .action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
   .action-grid article { border: 1px solid var(--border-default); border-radius: var(--website-radius-card); padding: 1rem; background: var(--surface-card); }
   .action-grid p { margin: 0; }

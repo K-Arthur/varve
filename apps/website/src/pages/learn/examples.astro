@@ -97,7 +97,7 @@ const examples: Example[] = candidates
         <a href={sitePath('/learn')}>Learn</a> / Examples
       </nav>
 
-      <h1>Examples</h1>
+      <h1 class="site-page-title">Examples</h1>
       <p class="learn-intro">
         Downloadable starter files aren't ready yet (see below). Until they are, here's what
         real Varve documents look like — actual screenshots from the running app, not mockups —
@@ -160,17 +160,7 @@ const examples: Example[] = candidates
 
   .breadcrumb a {
     color: var(--text-secondary);
-  }
-
-  .learn-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
+  }.learn-page h1 { font-family: var(--font-editorial); font-weight: 700; font-variation-settings: 'opsz' 144; letter-spacing: -0.015em; margin-bottom: 1rem; color: var(--text-primary); }
 
   .learn-intro {
     font-size: 1.125rem;
@@ -236,7 +226,7 @@ const examples: Example[] = candidates
   .example-body p {
     color: var(--text-secondary);
     line-height: 1.6;
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
     margin-bottom: 1rem;
   }
 

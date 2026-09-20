@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 import release from '../../data/release-manifest.json';
+import '../../styles/docs-prose.css';
 
 interface LinuxArtifact {
   filename: string;
@@ -38,7 +39,7 @@ const arm64AppImage = requiredLinuxArtifact('aarch64', 'appimage');
         <a href={sitePath('/docs')}>Documentation</a> / ChromeOS
       </nav>
 
-      <h1>Varve on ChromeOS</h1>
+      <h1 class="site-page-title">Varve on ChromeOS</h1>
       <p class="docs-intro">
         ChromeOS can run Varve as a Linux application through the built-in Linux
         development environment (Crostini). This is a separate route from the
@@ -269,11 +270,6 @@ const arm64AppImage = requiredLinuxArtifact('aarch64', 'appimage');
     padding: 3rem 0;
   }
 
-  .breadcrumb {
-    font-size: 0.875rem;
-    margin-bottom: 1.5rem;
-  }
-
   .breadcrumb a,
   .docs-section a,
   .docs-cta a,
@@ -281,21 +277,7 @@ const arm64AppImage = requiredLinuxArtifact('aarch64', 'appimage');
     color: var(--text-link);
   }
 
-  .docs-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
-
-  .docs-intro {
-    font-size: 1.125rem;
-    color: var(--text-secondary);
-    margin-bottom: 3rem;
-  }
+  .docs-page h1 { font-variation-settings: 'opsz' 144; letter-spacing: -0.015em; }
 
   .docs-note {
     margin: -1rem 0 3rem;
@@ -310,39 +292,10 @@ const arm64AppImage = requiredLinuxArtifact('aarch64', 'appimage');
     color: var(--text-primary);
   }
 
-  .docs-section {
-    margin-bottom: 3rem;
-  }
-
-  .docs-section h2 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
-
-  .docs-section p,
-  .docs-section li {
-    color: var(--text-secondary);
-    line-height: 1.8;
-  }
-
-  .docs-section p {
-    margin-bottom: 1rem;
-  }
-
   .docs-section ol,
   .docs-section ul {
     margin: 0 0 1rem;
     padding-left: 1.5rem;
-  }
-
-  .docs-section li {
-    margin-bottom: 0.75rem;
-  }
-
-  .docs-section strong {
-    color: var(--text-primary);
   }
 
   .docs-section code.code-block {
@@ -371,7 +324,7 @@ const arm64AppImage = requiredLinuxArtifact('aarch64', 'appimage');
     border-bottom: 2px solid var(--border-default);
     background: var(--surface-card);
     white-space: nowrap;
-    font-size: 0.8125rem;
+    font-size: var(--type-interface-caption-size);
   }
 
   .docs-table td {
@@ -387,23 +340,5 @@ const arm64AppImage = requiredLinuxArtifact('aarch64', 'appimage');
 
   .docs-table td strong {
     color: var(--text-primary);
-  }
-
-  .docs-cta {
-    text-align: center;
-    padding: 3rem 0;
-    border-top: 1px solid var(--border-default);
-  }
-
-  .docs-cta h2 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-    color: var(--text-primary);
-  }
-
-  .docs-cta p {
-    color: var(--text-secondary);
-    line-height: 1.8;
   }
 </style>

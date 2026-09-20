@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
 import { sitePath } from '../../../lib/siteUrl';
+import '../../../styles/docs-prose.css';
 ---
 
 <Layout
@@ -110,20 +111,14 @@ import { sitePath } from '../../../lib/siteUrl';
 
 <style>
   .docs-page { max-width: 800px; margin: 0 auto; padding: 3rem 0 5rem; }
-  .breadcrumb { color: var(--text-secondary); font-size: .875rem; margin-bottom: 1.5rem; }
   .breadcrumb a, .docs-section a, .docs-cta a { color: var(--text-link); }
   h1 { color: var(--text-primary); font: 700 clamp(2rem, 5vw, 2.8rem)/1.1 var(--font-editorial); margin-bottom: 1rem; }
-  .docs-intro { color: var(--text-secondary); font-size: 1.15rem; line-height: 1.7; margin-bottom: 3rem; }
-  .docs-section { margin-bottom: 2.75rem; }
-  .docs-section h2 { border-bottom: 2px solid var(--border-accent); color: var(--text-primary); font-size: 1.45rem; margin-bottom: 1rem; padding-bottom: .5rem; }
+  .docs-section h2 { border-bottom: 2px solid var(--border-accent); padding-bottom: var(--space-3); }
+
   .docs-section p, .docs-section li, .state-list dd { color: var(--text-secondary); line-height: 1.8; }
-  .docs-section li { margin-bottom: .5rem; }
   .docs-section strong, .state-list dt { color: var(--text-primary); }
   .state-list { display: grid; gap: .85rem; margin: 1.25rem 0 0; }
   .state-list div { border-left: 2px solid var(--border-accent); padding-left: 1rem; }
   .state-list dt { font-weight: 700; }
   .state-list dd { margin: .25rem 0 0; }
-  .docs-cta { border-top: 1px solid var(--border-default); padding-top: 2.5rem; text-align: center; }
-  .docs-cta h2 { color: var(--text-primary); font-size: 1.25rem; }
-  .docs-cta p { color: var(--text-secondary); }
 </style>

@@ -321,6 +321,83 @@ describe('website theme tokens', () => {
   });
 });
 
+/* ------------------------------------------------------------------ */
+/* Typography: raw font-size ratchet                                   */
+/* ------------------------------------------------------------------ */
+
+const CSS_SOURCE_EXTENSIONS = /\.(astro|css)$/;
+
+function collectCssSources(dir: string, acc: string[] = []): string[] {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === 'test') continue;
+      collectCssSources(full, acc);
+    } else if (CSS_SOURCE_EXTENSIONS.test(entry.name)) {
+      acc.push(full);
+    }
+  }
+  return acc;
+}
+
+/**
+ * Raw `font-size` declarations that remain after the typography migration.
+ * Every one of them is page-specific display/bespoke type (marketing ramps,
+ * mock-UI chrome, `em`-relative code sizing). The ceiling may only go down:
+ * migrating a declaration to a --type-* role must lower this number in the
+ * same change. The separate exact-value check below prevents the shared role
+ * values from ever being spelled as raw numbers again.
+ */
+const RAW_FONT_SIZE_CEILING = 344;
+
+/** Raw values that exactly equal a shared role token; those must use the role. */
+const EXACT_ROLE_VALUES = new Map<string, string>([
+  ['0.75rem', '--type-interface-micro-size'],
+  ['.75rem', '--type-interface-micro-size'],
+  ['0.8125rem', '--type-interface-caption-size'],
+  ['.8125rem', '--type-interface-caption-size'],
+  ['0.9375rem', '--type-interface-control-size'],
+  ['.9375rem', '--type-interface-control-size'],
+  ['1.0625rem', '--type-interface-body-size'],
+  ['1.3125rem', '--type-interface-title-size'],
+  ['1.625rem', '--type-interface-heading-size'],
+]);
+
+function rawFontSizeDeclarations(): string[] {
+  const declarations: string[] = [];
+  for (const file of collectCssSources(ROOT)) {
+    const src = fs.readFileSync(file, 'utf8');
+    for (const match of src.matchAll(/font-size:\s*([^;]+);/g)) {
+      const value = match[1].trim().replace(/\s*!important$/, '');
+      if (value.includes('clamp(') || value.includes('var(')) continue;
+      declarations.push(`${path.relative(ROOT, file)}: font-size: ${value};`);
+    }
+  }
+  return declarations;
+}
+
+describe('website typography tokens', () => {
+  it('never spells a shared role value as a raw font-size', () => {
+    const offenders = rawFontSizeDeclarations().filter((declaration) => {
+      const value = declaration.slice(
+        declaration.lastIndexOf('font-size: ') + 'font-size: '.length,
+        -1,
+      );
+      return EXACT_ROLE_VALUES.has(value);
+    });
+    expect(offenders).toEqual([]);
+  });
+
+  it('does not grow the raw font-size surface', () => {
+    const raw = rawFontSizeDeclarations();
+    expect(
+      raw.length,
+      `raw font-size declarations grew to ${raw.length} (ceiling ${RAW_FONT_SIZE_CEILING}). ` +
+        `Use a --type-* role, or lower the ceiling after migrating:\n${raw.slice(0, 20).join('\n')}`,
+    ).toBeLessThanOrEqual(RAW_FONT_SIZE_CEILING);
+  });
+});
+
 describe('website page styling', () => {
   const pagesDir = path.join(ROOT, 'pages');
   const pageFiles = fs
@@ -355,6 +432,14 @@ describe('website page styling', () => {
       }
       // Raw hex/rgb/white/black in style rules (not SVG fills or inline props).
       const styles = src.split(/<style[^>]*>/)[1]?.split('</style>')[0] ?? '';
+      /**
+       * Explicit, narrow exception: a page that paints a *mock-device
+       * illustration* owns a fixed palette on purpose (a depicted canvas is
+       * light, its chrome is dark, and re-theming it would change what the
+       * picture says). The opt-out must be declared in the style block and
+       * must carry a reason, so it can never be added by accident.
+       */
+      if (/illustration-colors:\s*allow\s+\S/.test(styles)) continue;
       const raw = styles.match(
         /(?:color|background(?:-color)?|border(?:-[a-z]+)?):\s*(?:#[\da-f]{3,8}|white|black|rgba?\()/i,
       );

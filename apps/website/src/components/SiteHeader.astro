@@ -495,6 +495,7 @@ const versionLabel = release.hasRelease && release.version
     font-family: var(--font-editorial);
     font-weight: 600;
     font-variation-settings: 'opsz' 24;
+    /* Display typography: the wordmark is brand art, not interface chrome. */
     font-size: 1.25rem;
     letter-spacing: -0.005em;
   }
@@ -502,7 +503,7 @@ const versionLabel = release.hasRelease && release.version
   /* Version badge: tiny, unobtrusive, always truthful */
   .site-version {
     font-family: var(--font-mono);
-    font-size: 0.625rem;
+    font-size: var(--type-interface-micro-size);
     font-weight: 600;
     letter-spacing: 0.02em;
     padding: 0.15em 0.45em;
@@ -555,7 +556,7 @@ const versionLabel = release.hasRelease && release.version
     gap: var(--space-icon-label);
     color: var(--text-secondary);
     font-weight: 500;
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
     text-decoration: none;
     padding: var(--space-2) var(--space-3);
     border-radius: var(--website-radius-control-compact);
@@ -643,7 +644,7 @@ const versionLabel = release.hasRelease && release.version
 
   .nav-menu-item-description {
     color: var(--text-secondary);
-    font-size: 0.75rem;
+    font-size: var(--type-interface-micro-size);
     line-height: 1.35;
   }
 
@@ -705,11 +706,11 @@ const versionLabel = release.hasRelease && release.version
   .nav-search-trigger__hint {
     padding: 0 var(--space-2);
     border: 1px solid var(--border-default);
-    border-radius: 4px;
+    border-radius: var(--radius-control-compact);
     background: var(--surface-card);
     color: var(--text-subtle);
     font-family: var(--font-mono);
-    font-size: 0.68rem;
+    font-size: var(--type-interface-micro-size);
     line-height: 1.5;
   }
 
@@ -721,7 +722,7 @@ const versionLabel = release.hasRelease && release.version
 
   :global(.nav-download-cta) {
     padding: var(--space-2) var(--space-3);
-    font-size: 0.875rem;
+    font-size: var(--type-interface-control-size);
     border-radius: var(--website-radius-control);
     position: relative;
     transition:
@@ -738,7 +739,7 @@ const versionLabel = release.hasRelease && release.version
     display: inline-flex;
     align-items: center;
     padding: var(--space-2) var(--space-3);
-    font-size: 0.875rem;
+    font-size: var(--type-interface-control-size);
     font-weight: 600;
     border-radius: var(--website-radius-control);
     text-decoration: none;
@@ -764,8 +765,8 @@ const versionLabel = release.hasRelease && release.version
     color: var(--text-secondary);
     border-radius: var(--website-radius-control-compact);
     position: relative;
-    width: 36px;
-    height: 36px;
+    width: var(--component-large-height);
+    height: var(--component-large-height);
     align-items: center;
     justify-content: center;
   }
@@ -921,6 +922,7 @@ const versionLabel = release.hasRelease && release.version
       font-family: var(--font-editorial);
       font-weight: 600;
       font-variation-settings: 'opsz' 24;
+      /* Display typography: the mobile wordmark is brand art. */
       font-size: 1.15rem;
     }
 
@@ -980,7 +982,7 @@ const versionLabel = release.hasRelease && release.version
       padding: var(--space-4) var(--space-5);
       color: var(--text-secondary);
       font-weight: 500;
-      font-size: 1.05rem;
+      font-size: var(--type-interface-body-size);
       text-decoration: none;
       border-radius: var(--website-radius-control);
       transition:

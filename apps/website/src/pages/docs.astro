@@ -61,9 +61,9 @@ import { sitePath } from '../lib/siteUrl';
             <li><a href={sitePath('/docs/tools/halftone')}>Halftone &amp; Screens</a></li>
             <li><a href={sitePath('/docs/tools/shader-effects')}>Shader Effects</a></li>
             <li><a href={sitePath('/docs/tools/colorization')}>Colorize &amp; Recolor</a></li>
+            <li><a href={sitePath('/docs/tools/raw-hdr-photo')}>RAW &amp; HDR Photo</a></li>
             <li><a href={sitePath('/docs/tools/effect-studio')}>Effect Studio</a></li>
             <li><a href={sitePath('/docs/tools/image-treatments')}>Image Treatments</a></li>
-            <li><a href={sitePath('/docs/tools/raw-hdr-photo')}>RAW &amp; HDR Photo</a></li>
             <li><a href={sitePath('/docs/tools/image-conversion')}>Image Conversion</a></li>
             <li><a href={sitePath('/docs/tools/frame-interpolation')}>Frame Interpolation</a></li>
             <li><a href={sitePath('/docs/tools/object-selection')}>Object Selection</a></li>
@@ -167,7 +167,7 @@ import { sitePath } from '../lib/siteUrl';
   .docs-card p {
     color: var(--text-secondary);
     margin-bottom: 1rem;
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
   }
   
   .docs-card ul {
@@ -180,7 +180,7 @@ import { sitePath } from '../lib/siteUrl';
   
   .docs-card a {
     color: var(--text-link);
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
   }
   
   .docs-note {

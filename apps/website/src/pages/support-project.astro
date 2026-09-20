@@ -7,7 +7,7 @@ import { sitePath } from '../lib/siteUrl';
 <Layout title="Support the Project" description="Varve is built by one developer. GitHub Sponsors funds platform work, stability, and new features; non-financial contributions are equally valuable.">
   <div class="container-custom">
     <div class="support-project-page">
-      <h1>Support the Project</h1>
+      <h1 class="site-page-title">Support the Project</h1>
       <p class="support-intro">
         Varve is built by one developer. Your support enables continued development, platform support, and stability improvements.
       </p>
@@ -137,17 +137,7 @@ import { sitePath } from '../lib/siteUrl';
     max-width: 900px;
     margin: 0 auto;
     padding: 3rem 0;
-  }
-  
-  .support-project-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
+  }.support-project-page h1 { font-family: var(--font-editorial); font-weight: 700; font-variation-settings: 'opsz' 144; letter-spacing: -0.015em; margin-bottom: 1rem; color: var(--text-primary); }
   
   .support-intro {
     font-size: 1.125rem;
@@ -216,7 +206,7 @@ import { sitePath } from '../lib/siteUrl';
   }
   
   .support-item p {
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
     margin: 0;
   }
   

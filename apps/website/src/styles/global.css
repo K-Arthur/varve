@@ -217,6 +217,9 @@
     display: inline-flex;
     align-items: center;
     gap: var(--space-icon-label);
+    /* Default tier floor: a button can never render shorter than the shared
+       control ladder for its size class. */
+    min-block-size: var(--component-default-height);
     font-weight: 600;
     border-radius: var(--website-radius-control);
     transition:
@@ -241,7 +244,7 @@
     background: var(--accent-primary);
     color: var(--text-on-accent);
     font-weight: 600;
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
     line-height: 1.4;
     border-radius: var(--website-radius-control);
     border: 1px solid transparent;
@@ -280,7 +283,7 @@
     background: var(--surface-card);
     color: var(--text-primary);
     font-weight: 600;
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
     line-height: 1.4;
     border-radius: var(--website-radius-control);
     border: 1px solid var(--border-strong);
@@ -315,7 +318,7 @@
     background: transparent;
     color: var(--text-primary);
     font-weight: 600;
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
     line-height: 1.4;
     border: 1px solid var(--border-strong);
     border-radius: var(--website-radius-control);
@@ -386,7 +389,7 @@
     background: var(--text-danger);
     color: var(--text-on-accent);
     font-weight: 600;
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
     line-height: 1.4;
     border: 1px solid transparent;
     border-radius: var(--website-radius-control);
@@ -406,31 +409,29 @@
     transform: translateY(-1px);
   }
 
-  .btn-xs,
-  .btn-sm,
-  .btn-md,
-  .btn-lg {
-    min-block-size: var(--component-default-height);
-  }
-
+  /* Each size class picks exactly one tier from the shared control ladder. */
   .btn-xs {
+    min-block-size: var(--component-xs-height);
     padding: var(--space-1) var(--space-2);
-    font-size: var(--font-size-xs);
+    font-size: var(--type-interface-caption-size);
   }
 
   .btn-sm {
+    min-block-size: var(--component-compact-height);
     padding: var(--space-2) var(--space-3);
-    font-size: var(--font-size-sm);
+    font-size: var(--type-interface-control-size);
   }
 
   .btn-md {
+    min-block-size: var(--component-default-height);
     padding: var(--space-3) var(--space-5);
+    font-size: var(--type-interface-control-size);
   }
 
   .btn-lg {
-    min-block-size: var(--component-large-height);
+    min-block-size: var(--component-xl-height);
     padding: var(--space-3) var(--space-6);
-    font-size: var(--font-size-md);
+    font-size: var(--type-interface-body-size);
   }
 
   .btn:disabled,
@@ -455,7 +456,7 @@
       border-color var(--duration-fast) var(--ease-default);
     border: none;
     cursor: pointer;
-    font-size: 0.875rem;
+    font-size: var(--type-interface-control-size);
   }
 
   .btn-pill:visited {
@@ -483,7 +484,7 @@
       border-color var(--duration-fast) var(--ease-default);
     border: 1px solid var(--border-strong);
     cursor: pointer;
-    font-size: 0.875rem;
+    font-size: var(--type-interface-control-size);
   }
 
   .btn-pill-outline:visited {
@@ -775,15 +776,27 @@
     margin-bottom: clamp(2rem, 4vh, 3.5rem);
   }
 
+  /* Closed set of page-level heading utilities. Pages consume these instead
+     of repeating a fluid clamp; the established inner-page title ramp is not
+     one of the frozen --type-* roles, so the utility owns the clamp and the
+     role tokens own everything else. */
+  .site-page-title {
+    font-size: clamp(2rem, 5vw, 2.5rem);
+  }
+
+  .site-eyebrow,
   .section-eyebrow {
-    font-size: 0.8125rem;
-    font-weight: 600;
+    font-family: var(--type-interface-label-family);
+    font-size: var(--type-interface-label-size);
+    font-weight: var(--type-interface-label-weight);
     letter-spacing: 0.14em;
+    line-height: var(--type-interface-label-line-height);
     text-transform: uppercase;
     color: var(--text-muted);
     margin-bottom: 0.75rem;
   }
 
+  .site-section-title,
   .section-title {
     font-family: var(--type-marketing-section-family);
     font-size: var(--type-marketing-section-size);

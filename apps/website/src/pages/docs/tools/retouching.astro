@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
 import { sitePath } from '../../../lib/siteUrl';
+import '../../../styles/docs-prose.css';
 ---
 
 <Layout
@@ -112,16 +113,10 @@ import { sitePath } from '../../../lib/siteUrl';
 
 <style>
   .docs-page { max-width: 860px; margin: 0 auto; padding: 3rem 0 5rem; }
-  .breadcrumb { font-size: .875rem; margin-bottom: 2.5rem; color: var(--text-secondary); }
-  .breadcrumb a { color: var(--text-secondary); }
   .docs-page h1 { max-width: 760px; margin-bottom: 1rem; font: 700 clamp(2.3rem, 6vw, 4rem)/1.05 var(--font-editorial); color: var(--text-primary); letter-spacing: -.025em; }
-  .docs-intro { max-width: 720px; margin-bottom: 3.5rem; color: var(--text-secondary); font-size: 1.2rem; line-height: 1.7; }
-  .docs-section { margin-bottom: 3.5rem; }
-  .docs-section h2 { margin-bottom: 1rem; color: var(--text-primary); font-size: 1.65rem; }
-  .docs-section p, .docs-section li { color: var(--text-secondary); line-height: 1.75; }
-  .docs-section p { margin-bottom: 1rem; }
+  .docs-intro { max-width: 720px; }
+
   .docs-section ol, .docs-section ul { padding-left: 1.4rem; }
-  .docs-section li { margin-bottom: .65rem; }
   .docs-section a, .docs-callout a { color: var(--text-link); }
   .docs-callout { border-left: 3px solid var(--border-accent); padding: 1rem 1.25rem; background: var(--surface-accent-soft); color: var(--text-secondary); }
   .docs-callout p { margin: .5rem 0 0; line-height: 1.7; }

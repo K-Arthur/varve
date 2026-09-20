@@ -10,7 +10,7 @@ import { sitePath } from '../../lib/siteUrl';
         <a href={sitePath('/support')}>Support</a> / Troubleshooting
       </nav>
 
-      <h1>Troubleshooting</h1>
+      <h1 class="site-page-title">Troubleshooting</h1>
       <p class="support-intro">
         Common issues and solutions for Varve.
       </p>
@@ -320,17 +320,7 @@ import { sitePath } from '../../lib/siteUrl';
   
   .breadcrumb a {
     color: var(--text-secondary);
-  }
-  
-  .support-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
+  }.support-page h1 { font-family: var(--font-editorial); font-weight: 700; font-variation-settings: 'opsz' 144; letter-spacing: -0.015em; margin-bottom: 1rem; color: var(--text-primary); }
   
   .support-intro {
     font-size: 1.125rem;
@@ -402,8 +392,7 @@ import { sitePath } from '../../lib/siteUrl';
   .troubleshoot-item a {
     color: var(--text-link);
   }
-  
-  
+
   .troubleshoot-cta {
     text-align: center;
     padding: 3rem 0;

@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
 import { sitePath } from '../../../lib/siteUrl';
+import '../../../styles/docs-prose.css';
 ---
 
 <Layout title="Auto Layout — Varve Docs" description="Use Varve stacks and grids with Fixed, Hug, Fill, and Relative sizing, signed flex spacing, constraints, borders, and overlap order.">
@@ -57,15 +58,6 @@ import { sitePath } from '../../../lib/siteUrl';
 
 <style>
   .docs-page { max-width: 820px; margin: 0 auto; padding: 3rem 0; }
-  .breadcrumb { font-size: .875rem; margin-bottom: 1.5rem; }
-  .breadcrumb a { color: var(--text-secondary); }
   .docs-page h1 { font-size: clamp(2rem, 5vw, 2.7rem); font-family: var(--font-editorial); color: var(--text-primary); margin-bottom: 1rem; }
-  .docs-intro { font-size: 1.2rem; color: var(--text-secondary); line-height: 1.7; margin-bottom: 3rem; }
-  .docs-section { margin-bottom: 2.75rem; }
-  .docs-section h2 { color: var(--text-primary); margin-bottom: .9rem; }
-  .docs-section p { color: var(--text-secondary); line-height: 1.75; }
-  table { width: 100%; border-collapse: collapse; margin: 1.25rem 0; color: var(--text-secondary); }
-  th, td { text-align: left; padding: .75rem; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
-  th { color: var(--text-primary); }
   @media (max-width: 600px) { .docs-page { padding-top: 2rem; } table { font-size: .9rem; } th, td { padding: .55rem .4rem; } }
 </style>

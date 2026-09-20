@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
 import { sitePath } from '../../../lib/siteUrl';
+import '../../../styles/docs-prose.css';
 ---
 
 <Layout title="Strokes — Varve Docs" description="How to edit, transfer, render, and export strokes in Varve.">
@@ -10,7 +11,7 @@ import { sitePath } from '../../../lib/siteUrl';
         <a href={sitePath('/docs')}>Documentation</a> / Tools / Strokes
       </nav>
 
-      <h1>Strokes</h1>
+      <h1 class="site-page-title">Strokes</h1>
       <p class="docs-intro">
         A stroke is an ordered, editable outline attached to a shape, path, text, frame, table, or image-bearing shape. It owns its paint and geometry settings and remains separate from raster brush marks, selection outlines, and guides.
       </p>
@@ -92,17 +93,10 @@ import { sitePath } from '../../../lib/siteUrl';
 
 <style>
   .docs-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
-  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
-  .breadcrumb a { color: var(--text-secondary); }
-  .docs-page h1 { font-family: var(--font-editorial); font-size: clamp(2rem, 5vw, 2.5rem); margin-bottom: 1rem; }
-  .docs-intro { color: var(--text-secondary); font-size: 1.125rem; line-height: 1.8; margin-bottom: 3rem; }
-  .docs-section { margin-bottom: 3rem; }
-  .docs-section h2 { border-bottom: 2px solid var(--border-accent); color: var(--text-primary); font-size: 1.5rem; margin-bottom: 1rem; padding-bottom: 0.5rem; }
-  .docs-section p, .docs-section li { color: var(--text-secondary); line-height: 1.8; }
-  .docs-section li { margin-bottom: 0.5rem; }
-  table { border-collapse: collapse; display: block; max-width: 100%; overflow-x: auto; width: 100%; }
-  th, td { border: 1px solid var(--border-default); padding: 0.7rem; text-align: left; vertical-align: top; }
-  th { background: var(--surface-muted); color: var(--text-primary); }
-  td { color: var(--text-secondary); }
-  .docs-cta { border-top: 1px solid var(--border-default); padding-top: 2rem; }
+  .docs-section h2 { border-bottom: 2px solid var(--border-accent); padding-bottom: var(--space-3); }
+
+  .docs-section table { display: block; max-width: 100%; overflow-x: auto; }
+
+  .docs-section th { background: var(--surface-muted); }
+
 </style>

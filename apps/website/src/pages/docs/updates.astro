@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 import release from '../../data/release-manifest.json';
+import '../../styles/docs-prose.css';
 ---
 
 <Layout
@@ -14,7 +15,7 @@ import release from '../../data/release-manifest.json';
         <a href={sitePath('/docs')}>Documentation</a> / Updates
       </nav>
 
-      <h1>Updates</h1>
+      <h1 class="site-page-title">Updates</h1>
       <p class="docs-intro">
         Varve's desktop updater is consent-first, package-aware, and designed to keep you in
         control of when software is downloaded or installed.
@@ -167,11 +168,6 @@ import release from '../../data/release-manifest.json';
     padding: 3rem 0;
   }
 
-  .breadcrumb {
-    font-size: 0.875rem;
-    margin-bottom: 1.5rem;
-  }
-
   .breadcrumb a,
   .docs-section a,
   .docs-cta a,
@@ -179,21 +175,7 @@ import release from '../../data/release-manifest.json';
     color: var(--text-link);
   }
 
-  .docs-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
-
-  .docs-intro {
-    font-size: 1.125rem;
-    color: var(--text-secondary);
-    margin-bottom: 3rem;
-  }
+  .docs-page h1 { font-variation-settings: 'opsz' 144; letter-spacing: -0.015em; }
 
   .docs-note {
     margin: -1rem 0 3rem;
@@ -206,57 +188,5 @@ import release from '../../data/release-manifest.json';
 
   .docs-note strong {
     color: var(--text-primary);
-  }
-
-  .docs-section {
-    margin-bottom: 3rem;
-  }
-
-  .docs-section h2 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
-
-  .docs-section p,
-  .docs-section li {
-    color: var(--text-secondary);
-    line-height: 1.8;
-  }
-
-  .docs-section p {
-    margin-bottom: 1rem;
-  }
-
-  .docs-section ul {
-    margin: 0 0 1rem;
-    padding-left: 1.5rem;
-  }
-
-  .docs-section li {
-    margin-bottom: 0.75rem;
-  }
-
-  .docs-section strong {
-    color: var(--text-primary);
-  }
-
-  .docs-cta {
-    text-align: center;
-    padding: 3rem 0;
-    border-top: 1px solid var(--border-default);
-  }
-
-  .docs-cta h2 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-    color: var(--text-primary);
-  }
-
-  .docs-cta p {
-    color: var(--text-secondary);
-    line-height: 1.8;
   }
 </style>

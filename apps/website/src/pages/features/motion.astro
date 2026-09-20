@@ -11,7 +11,7 @@ import { sitePath } from '../../lib/siteUrl';
         <a href={sitePath('/features')}>Features</a> / Motion & Prototyping
       </nav>
 
-      <h1>Motion & Prototyping</h1>
+      <h1 class="site-page-title">Motion & Prototyping</h1>
       <p class="feature-intro">
         Timeline-based animation, Smart Animate, prototype interactions, and export to CSS, Lottie, SVG, MP4, and WebM.
       </p>
@@ -118,17 +118,7 @@ import { sitePath } from '../../lib/siteUrl';
   
   .breadcrumb a {
     color: var(--text-secondary);
-  }
-  
-  .feature-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
+  }.feature-page h1 { font-family: var(--font-editorial); font-weight: 700; font-variation-settings: 'opsz' 144; letter-spacing: -0.015em; margin-bottom: 1rem; color: var(--text-primary); }
   
   .feature-intro {
     font-size: 1.25rem;
@@ -225,7 +215,7 @@ import { sitePath } from '../../lib/siteUrl';
     color: var(--text-on-status);
     padding: 0.25rem 0.75rem;
     border-radius: var(--website-radius-control-compact);
-    font-size: 0.75rem;
+    font-size: var(--type-interface-micro-size);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;

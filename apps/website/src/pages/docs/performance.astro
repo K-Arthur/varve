@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import '../../styles/docs-prose.css';
 ---
 
 <Layout
@@ -13,7 +14,7 @@ import { sitePath } from '../../lib/siteUrl';
         <a href={sitePath('/docs')}>Documentation</a> / Performance on lower-memory devices
       </nav>
 
-      <h1>Performance on lower-memory devices</h1>
+      <h1 class="site-page-title">Performance on lower-memory devices</h1>
       <p class="docs-intro">
         This page describes how Varve behaves on Chromebooks and other 4–8 GB devices,
         what the adaptive profile actually changes, and which numbers have been measured
@@ -160,11 +161,6 @@ import { sitePath } from '../../lib/siteUrl';
     padding: 3rem 0;
   }
 
-  .breadcrumb {
-    font-size: 0.875rem;
-    margin-bottom: 1.5rem;
-  }
-
   .breadcrumb a,
   .docs-section a,
   .docs-cta a,
@@ -172,21 +168,7 @@ import { sitePath } from '../../lib/siteUrl';
     color: var(--text-link);
   }
 
-  .docs-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
-
-  .docs-intro {
-    font-size: 1.125rem;
-    color: var(--text-secondary);
-    margin-bottom: 3rem;
-  }
+  .docs-page h1 { font-variation-settings: 'opsz' 144; letter-spacing: -0.015em; }
 
   .docs-note {
     margin: -1rem 0 3rem;
@@ -201,45 +183,10 @@ import { sitePath } from '../../lib/siteUrl';
     color: var(--text-primary);
   }
 
-  .docs-section {
-    margin-bottom: 3rem;
-  }
-
-  .docs-section h2 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
-
-  .docs-section p,
-  .docs-section li,
-  .docs-section td {
-    color: var(--text-secondary);
-    line-height: 1.7;
-  }
-
-  .docs-section p {
-    margin-bottom: 1rem;
-  }
-
-  .docs-section ul {
-    margin: 0 0 1rem;
-    padding-left: 1.5rem;
-  }
-
-  .docs-section li {
-    margin-bottom: 0.6rem;
-  }
-
-  .docs-section strong {
-    color: var(--text-primary);
-  }
-
   .perf-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
     margin-bottom: 1.25rem;
   }
 
@@ -258,24 +205,6 @@ import { sitePath } from '../../lib/siteUrl';
 
   .perf-table td:first-child {
     color: var(--text-primary);
-  }
-
-  .docs-cta {
-    text-align: center;
-    padding: 3rem 0;
-    border-top: 1px solid var(--border-default);
-  }
-
-  .docs-cta h2 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-    color: var(--text-primary);
-  }
-
-  .docs-cta p {
-    color: var(--text-secondary);
-    line-height: 1.9;
   }
 
   @media (max-width: 700px) {

@@ -15,7 +15,7 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
         <a href={sitePath('/features')}>Features</a> / Workspaces
       </nav>
 
-      <h1>Workspaces</h1>
+      <h1 class="site-page-title">Workspaces</h1>
       <p class="feature-intro">
         Eight task-focused modes over one document. Each workspace leads with the tools, panels, and
         inspector tabs its task needs — and remembers how you arrange them.
@@ -108,8 +108,7 @@ import FeatureVisual from '../../components/FeatureVisual.astro';
 <style>
   .feature-page { max-width: 800px; margin: 0 auto; padding: 3rem 0; }
   .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
-  .breadcrumb a { color: var(--text-secondary); }
-  .feature-page h1 { font-size: clamp(2rem, 5vw, 2.5rem); font-family: var(--font-editorial); margin-bottom: 1rem; color: var(--text-primary); }
+  .breadcrumb a { color: var(--text-secondary); }.feature-page h1 { font-family: var(--font-editorial); margin-bottom: 1rem; color: var(--text-primary); }
   .feature-intro { font-size: 1.25rem; color: var(--text-secondary); margin-bottom: 3rem; }
   .feature-section { margin-bottom: 3rem; }
   .feature-section h2 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text-primary); }

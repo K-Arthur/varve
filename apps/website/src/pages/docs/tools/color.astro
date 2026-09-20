@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
 import { sitePath } from '../../../lib/siteUrl';
+import '../../../styles/docs-prose.css';
 ---
 
 <Layout title="Color & Effects — Varve Docs" description="Varve color tools: local image palette extraction, color management, gradients, strokes, blend modes, shadows, blur, and adjustments.">
@@ -10,7 +11,7 @@ import { sitePath } from '../../../lib/siteUrl';
         <a href={sitePath('/docs')}>Documentation</a> / Tools / Color & Effects
       </nav>
 
-      <h1>Color & Effects</h1>
+      <h1 class="site-page-title">Color & Effects</h1>
       <p class="docs-intro">
         Varve provides a professional fill system with support for solid colors, gradients, and image fills, plus a comprehensive effects engine for shadows, blurs, and glows. The color system uses <strong>ManagedColor</strong> as its canonical type, supporting RGB, CMYK, Grayscale, Lab, LCH, and Spot color modes.
       </p>
@@ -251,88 +252,8 @@ import { sitePath } from '../../../lib/siteUrl';
     margin: 0 auto;
     padding: 3rem 0;
   }
-  .breadcrumb {
-    font-size: 0.875rem;
-    margin-bottom: 1.5rem;
-  }
-  .breadcrumb a {
-    color: var(--text-secondary);
-  }
-  .docs-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
-  .docs-intro {
-    font-size: 1.125rem;
-    color: var(--text-secondary);
-    margin-bottom: 3rem;
-  }
-  .docs-section {
-    margin-bottom: 3rem;
-  }
-  .docs-section h2 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-    border-bottom: 2px solid var(--border-accent);
-    padding-bottom: 0.5rem;
-  }
-  .docs-section h3 {
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin-top: 1.5rem;
-    margin-bottom: 0.75rem;
-    color: var(--text-primary);
-  }
-  .docs-section p {
-    color: var(--text-secondary);
-    line-height: 1.8;
-    margin-bottom: 1rem;
-  }
-  .docs-section ul {
-    list-style: none;
-    margin-bottom: 1rem;
-  }
-  .docs-section li {
-    margin-bottom: 0.5rem;
-    padding-left: 1.5rem;
-    position: relative;
-    color: var(--text-secondary);
-  }
-  .docs-section ul li::before {
-    content: "•";
-    position: absolute;
-    left: 0;
-    color: var(--text-link-hover);
-  }
-  .docs-section code:not(.code-block) {
-    background: var(--surface-muted);
-    padding: 0.125rem 0.375rem;
-    border-radius: var(--website-radius-control-compact);
-    font-family: monospace;
-    font-size: 0.875rem;
-  }
-  .docs-section a {
-    color: var(--text-link);
-  }
-  .docs-cta {
-    text-align: center;
-    padding: 3rem 0;
-    border-top: 1px solid var(--border-default);
-  }
-  .docs-cta h2 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-    color: var(--text-primary);
-  }
-  .docs-cta p {
-    color: var(--text-secondary);
-  }
+  .docs-page h1 { font-variation-settings: 'opsz' 144; letter-spacing: -0.015em; }
+
+  .docs-section h2 { border-bottom: 2px solid var(--border-accent); padding-bottom: var(--space-3); }
+
 </style>

@@ -2,6 +2,7 @@
 import Button from '../../../components/Button.astro';
 import Layout from '../../../layouts/Layout.astro';
 import { sitePath } from '../../../lib/siteUrl';
+import '../../../styles/docs-prose.css';
 ---
 
 <Layout
@@ -165,25 +166,20 @@ import { sitePath } from '../../../lib/siteUrl';
 
 <style>
   .docs-page { max-width: 900px; margin: 0 auto; padding: 3rem 0; }
-  .breadcrumb { font-size: 0.875rem; margin-bottom: 1.5rem; }
-  .breadcrumb a { color: var(--text-secondary); }
   .docs-page h1 { max-width: 780px; font-size: clamp(2rem, 5vw, 3.4rem); line-height: 1.05; font-family: var(--font-editorial); color: var(--text-primary); margin-bottom: 1rem; }
-  .docs-intro { max-width: 760px; font-size: 1.125rem; line-height: 1.75; color: var(--text-secondary); margin-bottom: 3rem; }
-  .docs-section { margin-bottom: 3rem; }
-  .docs-section h2 { color: var(--text-primary); font-size: 1.55rem; margin-bottom: 0.9rem; }
-  .docs-section p, .docs-section li { color: var(--text-secondary); line-height: 1.8; }
+  .docs-intro { max-width: 760px; }
+
   .docs-section p + p { margin-top: 1rem; }
   .docs-section ul, .docs-section ol { padding-left: 1.4rem; }
   .docs-section li + li { margin-top: 0.7rem; }
-  .docs-section strong { color: var(--text-primary); }
-  .docs-section a { color: var(--text-link); }
   .intent-table { overflow: hidden; border: 1px solid var(--border-default); border-radius: var(--website-radius-card); }
   .intent-row { display: grid; grid-template-columns: 1fr 1.2fr 1.5fr; gap: 1rem; padding: 1rem; border-top: 1px solid var(--border-default); }
   .intent-row:first-child { border-top: 0; }
   .intent-row--head { background: var(--surface-muted); color: var(--text-primary); font-size: 0.85rem; }
   .intent-row span { color: var(--text-secondary); line-height: 1.5; }
   .docs-section--note { padding: 1.25rem 1.25rem 1.25rem 1rem; border-left: 3px solid var(--accent-primary); background: var(--surface-muted); }
-  .docs-cta { display: flex; flex-wrap: wrap; gap: 0.75rem; border-top: 1px solid var(--border-default); padding-top: 2rem; }
+  .docs-cta { display: flex; flex-wrap: wrap; gap: var(--space-3); padding-block-start: var(--space-6); }
+
   .btn-secondary { display: inline-flex; align-items: center; padding: 0.7rem 1.1rem; border: 1px solid var(--border-default); border-radius: var(--website-radius-control); color: var(--text-primary); text-decoration: none; }
   @media (max-width: 720px) {
     .intent-row { grid-template-columns: 1fr; gap: 0.35rem; }

@@ -64,7 +64,7 @@ const headingId = `contact-${channel.id}`;
   }
 
   .contact-channel-title {
-    font-size: 1.25rem;
+    font-size: var(--type-interface-title-size);
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: var(--space-2);
@@ -87,14 +87,14 @@ const headingId = `contact-${channel.id}`;
 
   .contact-channel-link {
     font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: 1rem;
+    font-size: var(--type-interface-body-size);
     color: var(--text-link);
     /* Long addresses must wrap inside narrow viewports rather than force
        the page into horizontal scrolling. */
     overflow-wrap: anywhere;
     /* Comfortable touch target without turning the address into a button. */
     padding: var(--space-2) 0;
-    min-height: 2.75rem;
+    min-height: var(--touch-target-min);
     display: inline-flex;
     align-items: center;
   }
@@ -136,9 +136,9 @@ const headingId = `contact-${channel.id}`;
     background: var(--surface-muted);
     color: var(--text-secondary);
     font: inherit;
-    font-size: 0.8125rem;
+    font-size: var(--type-interface-caption-size);
     padding: var(--space-2) var(--space-4);
-    min-height: 2.25rem;
+    min-height: var(--component-default-height);
     cursor: pointer;
   }
 

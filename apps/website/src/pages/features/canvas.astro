@@ -11,7 +11,7 @@ import { sitePath } from '../../lib/siteUrl';
         <a href={sitePath('/features')}>Features</a> / Canvas & Rendering
       </nav>
 
-      <h1>Canvas & Rendering</h1>
+      <h1 class="site-page-title">Canvas & Rendering</h1>
       <p class="feature-intro">
         Responsive IR-replay rendering with an infinite canvas, a clear starting surface, precision tools, and native Rust performance.
       </p>
@@ -300,6 +300,11 @@ import { sitePath } from '../../lib/siteUrl';
 </Layout>
 
 <style>
+/* illustration-colors: allow the mock-device palette below depicts a fixed
+   device chrome (dark panel, light canvas, its own ruler/status hues); re-theming
+   it would change what the illustration says, so it is intentionally not a
+   semantic surface. */
+
   .feature-page {
     max-width: 800px;
     margin: 0 auto;
@@ -313,17 +318,7 @@ import { sitePath } from '../../lib/siteUrl';
   
   .breadcrumb a {
     color: var(--text-secondary);
-  }
-  
-  .feature-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
+  }.feature-page h1 { font-family: var(--font-editorial); font-weight: 700; font-variation-settings: 'opsz' 144; letter-spacing: -0.015em; margin-bottom: 1rem; color: var(--text-primary); }
   
   .feature-intro {
     font-size: 1.25rem;
@@ -380,7 +375,7 @@ import { sitePath } from '../../lib/siteUrl';
 
   .arrangement-contract__grid h3 { margin: 0 0 .5rem; color: var(--text-primary); }
   .arrangement-contract__grid p { margin: 0; color: var(--text-secondary); line-height: 1.65; }
-  .arrangement-contract__evidence { margin-bottom: 0; font-size: .9375rem; }
+  .arrangement-contract__evidence { margin-bottom: 0; font-size: var(--type-interface-control-size); }
   .arrangement-contract a { color: var(--text-link); font-weight: 600; }
   
   .feature-section h2 {
@@ -448,13 +443,13 @@ import { sitePath } from '../../lib/siteUrl';
 
   .responsive-contract__grid p {
     margin-bottom: 0;
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
     line-height: 1.6;
   }
 
   .responsive-contract__evidence {
     margin-bottom: 0;
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
   }
 
   .grid-systems {

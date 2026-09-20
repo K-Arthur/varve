@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
 import { sitePath } from '../../../lib/siteUrl';
+import '../../../styles/docs-prose.css';
 ---
 
 <Layout title="Your First Project — Varve Docs" description="Create your first Varve document: choose a template, add shapes and text, and export your work.">
@@ -10,7 +11,7 @@ import { sitePath } from '../../../lib/siteUrl';
         <a href={sitePath('/docs')}>Documentation</a> / <a href={sitePath('/docs/getting-started')}>Getting Started</a> / Your First Project
       </nav>
 
-      <h1>Your First Project</h1>
+      <h1 class="site-page-title">Your First Project</h1>
       <p class="docs-intro">
         Follow along to create your first design in Varve. This step-by-step tutorial covers creating a document, adding shapes, editing properties, working with layers, and exporting your work.
       </p>
@@ -196,58 +197,10 @@ import { sitePath } from '../../../lib/siteUrl';
     margin: 0 auto;
     padding: 3rem 0;
   }
-  .breadcrumb {
-    font-size: 0.875rem;
-    margin-bottom: 1.5rem;
-  }
-  .breadcrumb a {
-    color: var(--text-secondary);
-  }
-  .docs-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
-  .docs-intro {
-    font-size: 1.125rem;
-    color: var(--text-secondary);
-    margin-bottom: 3rem;
-  }
-  .docs-section {
-    margin-bottom: 3rem;
-  }
-  .docs-section h2 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-    border-bottom: 2px solid var(--border-accent);
-    padding-bottom: 0.5rem;
-  }
-  .docs-section p {
-    color: var(--text-secondary);
-    line-height: 1.8;
-    margin-bottom: 1rem;
-  }
-  .docs-section ul, .docs-section ol {
-    margin-bottom: 1rem;
-  }
-  .docs-section li {
-    margin-bottom: 0.5rem;
-    padding-left: 1.5rem;
-    position: relative;
-    color: var(--text-secondary);
-  }
-  .docs-section ul li::before {
-    content: "•";
-    position: absolute;
-    left: 0;
-    color: var(--text-link-hover);
-  }
+  .docs-page h1 { font-variation-settings: 'opsz' 144; letter-spacing: -0.015em; }
+
+  .docs-section h2 { border-bottom: 2px solid var(--border-accent); padding-bottom: var(--space-3); }
+
   .docs-section ol {
     list-style: none;
     counter-reset: item;
@@ -268,18 +221,8 @@ import { sitePath } from '../../../lib/siteUrl';
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.75rem;
+    font-size: var(--type-interface-micro-size);
     font-weight: 600;
-  }
-  .docs-section code:not(.code-block) {
-    background: var(--surface-muted);
-    padding: 0.125rem 0.375rem;
-    border-radius: var(--website-radius-control-compact);
-    font-family: monospace;
-    font-size: 0.875rem;
-  }
-  .docs-section a {
-    color: var(--text-link);
   }
   .docs-tip {
     background: var(--surface-accent-soft);
@@ -297,19 +240,5 @@ import { sitePath } from '../../../lib/siteUrl';
   .docs-tip p {
     color: var(--text-link-hover);
     line-height: 1.7;
-  }
-  .docs-cta {
-    text-align: center;
-    padding: 3rem 0;
-    border-top: 1px solid var(--border-default);
-  }
-  .docs-cta h2 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-    color: var(--text-primary);
-  }
-  .docs-cta p {
-    color: var(--text-secondary);
   }
 </style>

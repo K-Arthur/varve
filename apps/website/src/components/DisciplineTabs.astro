@@ -251,7 +251,7 @@ const disciplines: Discipline[] = [
   }
 
   .disciplines-eyebrow {
-    font-size: 0.8125rem;
+    font-size: var(--type-interface-caption-size);
     font-weight: 600;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -309,7 +309,7 @@ const disciplines: Discipline[] = [
     color: var(--text-secondary);
     font: inherit;
     font-weight: 500;
-    font-size: 0.9rem;
+    font-size: var(--type-interface-control-size);
     cursor: pointer;
     text-align: left;
     transition:
@@ -319,10 +319,10 @@ const disciplines: Discipline[] = [
 
   .discipline-num {
     font-family: var(--font-mono);
-    font-size: 0.65rem;
+    font-size: var(--type-interface-micro-size);
     font-weight: 600;
-    /* Full text-muted, no opacity reduction: at 10.4px it must meet 4.5:1.
-       opacity: 0.6 measured 2.92:1 against the card (axe, 2026-08-12) even
+    /* Full text-muted, no opacity reduction: at the 12px floor it must meet
+       4.5:1. opacity: 0.6 measured 2.92:1 against the card (axe, 2026-08-12) even
        though the numeral is aria-hidden decorative. */
     color: var(--text-muted);
     min-width: 1.4em;
@@ -372,7 +372,7 @@ const disciplines: Discipline[] = [
 
   .discipline-panel-num {
     font-family: var(--font-mono);
-    font-size: 0.7rem;
+    font-size: var(--type-interface-micro-size);
     font-weight: 600;
     color: var(--accent-primary);
     /* Keep the index at full accent contrast; it remains decorative via
@@ -382,6 +382,7 @@ const disciplines: Discipline[] = [
   }
 
   .discipline-headline {
+    /* Display typography: the panel headline ramp is card-scale art. */
     font-size: clamp(1.3rem, 2vw + 0.4rem, 1.8rem);
     font-weight: 700;
     letter-spacing: -0.02em;
@@ -390,7 +391,7 @@ const disciplines: Discipline[] = [
   }
 
   .discipline-body {
-    font-size: 1.0625rem;
+    font-size: var(--type-interface-body-size);
     line-height: 1.7;
     color: var(--text-secondary);
     margin-bottom: var(--space-5);
@@ -407,7 +408,7 @@ const disciplines: Discipline[] = [
     position: relative;
     padding-left: var(--space-6);
     color: var(--text-secondary);
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
   }
 
   .discipline-points li::before {

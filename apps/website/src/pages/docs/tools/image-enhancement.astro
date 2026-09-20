@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
 import { sitePath } from '../../../lib/siteUrl';
+import '../../../styles/docs-prose.css';
 ---
 
 <Layout title="Image Enhance — Varve Docs" description="Use Varve's local-first image enhancement workflow for denoising, deblurring, and upscaling.">
@@ -73,14 +74,9 @@ import { sitePath } from '../../../lib/siteUrl';
 
 <style>
   .docs-page { max-width: 800px; margin: 0 auto; padding: 3rem 0 5rem; }
-  .breadcrumb { color: var(--text-secondary); font-size: .875rem; margin-bottom: 1.5rem; }
-  .breadcrumb a { color: var(--text-secondary); }
   h1 { color: var(--text-primary); font: 700 clamp(2rem, 5vw, 2.8rem)/1.1 var(--font-editorial); margin-bottom: 1rem; }
-  .docs-intro { color: var(--text-secondary); font-size: 1.15rem; margin-bottom: 3rem; }
-  .docs-section { margin-bottom: 2.5rem; }
-  .docs-section h2 { border-bottom: 2px solid var(--border-accent); color: var(--text-primary); font-size: 1.45rem; margin-bottom: 1rem; padding-bottom: .5rem; }
-  .docs-section p, .docs-section li { color: var(--text-secondary); line-height: 1.8; }
-  .docs-section li { margin-bottom: .5rem; }
+  .docs-section h2 { border-bottom: 2px solid var(--border-accent); padding-bottom: var(--space-3); }
+
   .docs-note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
   .docs-callout { border-left: 3px solid var(--border-accent); padding-left: 1rem; }
 </style>

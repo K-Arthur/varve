@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
 import release from '../../data/release-manifest.json';
+import '../../styles/docs-prose.css';
 
 const releaseLabel = release.hasRelease ? `v${release.version}` : 'the next release';
 ---
@@ -16,7 +17,7 @@ const releaseLabel = release.hasRelease ? `v${release.version}` : 'the next rele
         <a href={sitePath('/docs')}>Documentation</a> / Varve on Chromebook
       </nav>
 
-      <h1>Varve on Chromebook</h1>
+      <h1 class="site-page-title">Varve on Chromebook</h1>
       <p class="docs-intro">
         ChromeOS is not one platform: Varve can run in Chrome, as an installed web app,
         or as a Linux application inside ChromeOS's Linux development environment. This
@@ -257,11 +258,6 @@ const releaseLabel = release.hasRelease ? `v${release.version}` : 'the next rele
     padding: 3rem 0;
   }
 
-  .breadcrumb {
-    font-size: 0.875rem;
-    margin-bottom: 1.5rem;
-  }
-
   .breadcrumb a,
   .docs-section a,
   .docs-cta a,
@@ -270,21 +266,7 @@ const releaseLabel = release.hasRelease ? `v${release.version}` : 'the next rele
     color: var(--text-link);
   }
 
-  .docs-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
-
-  .docs-intro {
-    font-size: 1.125rem;
-    color: var(--text-secondary);
-    margin-bottom: 3rem;
-  }
+  .docs-page h1 { font-variation-settings: 'opsz' 144; letter-spacing: -0.015em; }
 
   .docs-note {
     margin: -1rem 0 3rem;
@@ -296,42 +278,6 @@ const releaseLabel = release.hasRelease ? `v${release.version}` : 'the next rele
   }
 
   .docs-note strong {
-    color: var(--text-primary);
-  }
-
-  .docs-section {
-    margin-bottom: 3rem;
-  }
-
-  .docs-section h2 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
-
-  .docs-section p,
-  .docs-section li,
-  .docs-section td {
-    color: var(--text-secondary);
-    line-height: 1.7;
-  }
-
-  .docs-section p {
-    margin-bottom: 1rem;
-  }
-
-  .docs-section ul,
-  .docs-section ol {
-    margin: 0 0 1rem;
-    padding-left: 1.5rem;
-  }
-
-  .docs-section li {
-    margin-bottom: 0.6rem;
-  }
-
-  .docs-section strong {
     color: var(--text-primary);
   }
 
@@ -358,19 +304,19 @@ const releaseLabel = release.hasRelease ? `v${release.version}` : 'the next rele
   }
 
   .route-card h3 {
-    font-size: 1.0625rem;
+    font-size: var(--type-interface-body-size);
     font-weight: 600;
     color: var(--text-primary);
     margin-bottom: 0.6rem;
   }
 
   .route-card p {
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
     margin-bottom: 0.75rem;
   }
 
   .route-meta {
-    font-size: 0.8125rem;
+    font-size: var(--type-interface-caption-size);
     color: var(--text-tertiary);
     margin-bottom: 0;
   }
@@ -394,13 +340,13 @@ const releaseLabel = release.hasRelease ? `v${release.version}` : 'the next rele
     border-radius: var(--website-radius-surface);
     background: var(--surface-info);
     border: 1px solid var(--border-default);
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
   }
 
   .route-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
   }
 
   .route-table th,
@@ -418,24 +364,6 @@ const releaseLabel = release.hasRelease ? `v${release.version}` : 'the next rele
 
   .route-table td:first-child {
     color: var(--text-primary);
-  }
-
-  .docs-cta {
-    text-align: center;
-    padding: 3rem 0;
-    border-top: 1px solid var(--border-default);
-  }
-
-  .docs-cta h2 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-    color: var(--text-primary);
-  }
-
-  .docs-cta p {
-    color: var(--text-secondary);
-    line-height: 1.9;
   }
 
   @media (max-width: 760px) {

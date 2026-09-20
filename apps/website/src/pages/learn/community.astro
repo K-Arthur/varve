@@ -11,7 +11,7 @@ import { sitePath } from '../../lib/siteUrl';
         <a href={sitePath('/learn')}>Learn</a> / Community
       </nav>
 
-      <h1>Community</h1>
+      <h1 class="site-page-title">Community</h1>
       <p class="learn-intro">
         Connect with the Varve community, learn from other makers, and help
         shape a local-first design tool in public.
@@ -77,17 +77,7 @@ import { sitePath } from '../../lib/siteUrl';
   
   .breadcrumb a {
     color: var(--text-secondary);
-  }
-  
-  .learn-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
+  }.learn-page h1 { font-family: var(--font-editorial); font-weight: 700; font-variation-settings: 'opsz' 144; letter-spacing: -0.015em; margin-bottom: 1rem; color: var(--text-primary); }
   
   .learn-intro {
     font-size: 1.125rem;

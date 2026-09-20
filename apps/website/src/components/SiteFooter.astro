@@ -196,7 +196,7 @@ const statusLabel = release.hasRelease && release.version
 
   .footer-download-sub {
     color: var(--text-footer-muted);
-    font-size: 1rem;
+    font-size: var(--type-interface-body-size);
   }
 
   .footer-download-actions {
@@ -206,7 +206,7 @@ const statusLabel = release.hasRelease && release.version
 
   .footer-download-alt {
     margin-top: var(--space-4);
-    font-size: 0.875rem;
+    font-size: var(--type-interface-caption-size);
   }
 
   .footer-download-alt a {
@@ -240,6 +240,7 @@ const statusLabel = release.hasRelease && release.version
     align-items: center;
     gap: var(--space-3);
     font-family: var(--font-editorial);
+    /* Display typography: the footer brand lockup is a wordmark. */
     font-size: 1.35rem;
     font-weight: 600;
     font-variation-settings: "opsz" 24;
@@ -255,7 +256,7 @@ const statusLabel = release.hasRelease && release.version
   .footer-brand-desc {
     margin-top: var(--space-4);
     max-width: 30ch;
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
     line-height: 1.65;
     color: var(--text-footer-muted);
   }
@@ -265,7 +266,7 @@ const statusLabel = release.hasRelease && release.version
     align-items: center;
     gap: var(--space-3);
     margin-top: var(--space-5);
-    font-size: 0.8125rem;
+    font-size: var(--type-interface-caption-size);
     color: var(--text-footer-muted);
     border: 1px solid var(--border-footer);
     border-radius: var(--website-radius-pill);
@@ -286,7 +287,7 @@ const statusLabel = release.hasRelease && release.version
   }
 
   .footer-section h3 {
-    font-size: 0.8125rem;
+    font-size: var(--type-interface-caption-size);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -304,7 +305,7 @@ const statusLabel = release.hasRelease && release.version
 
   .footer-section a {
     color: var(--text-footer-link);
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
     text-decoration: underline;
     text-underline-offset: 3px;
     text-decoration-color: color-mix(in oklch, var(--text-footer-link) 55%, transparent);
@@ -330,7 +331,7 @@ const statusLabel = release.hasRelease && release.version
     padding-top: var(--space-6);
     padding-bottom: var(--space-7);
     border-top: 1px solid var(--border-footer);
-    font-size: 0.875rem;
+    font-size: var(--type-interface-caption-size);
     color: var(--text-footer-muted);
   }
 
@@ -345,7 +346,7 @@ const statusLabel = release.hasRelease && release.version
     text-decoration: underline;
     text-underline-offset: 3px;
     text-decoration-color: color-mix(in oklch, var(--text-footer-link) 55%, transparent);
-    font-size: 0.875rem;
+    font-size: var(--type-interface-caption-size);
   }
 
   .footer-bottom-links a:hover {
@@ -382,6 +383,7 @@ const statusLabel = release.hasRelease && release.version
     font-family: var(--font-editorial);
     font-weight: 700;
     font-variation-settings: "opsz" 144;
+    /* Display typography: the oversized closing signature is viewport art. */
     font-size: 680px;
     letter-spacing: -12px;
   }

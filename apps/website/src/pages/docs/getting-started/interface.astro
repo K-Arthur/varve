@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
 import { sitePath } from '../../../lib/siteUrl';
+import '../../../styles/docs-prose.css';
 ---
 
 <Layout title="Interface Overview — Varve Docs" description="Tour the Varve interface: toolbar, canvas, layers panel, inspector, timeline, status bar, and workspace modes.">
@@ -10,7 +11,7 @@ import { sitePath } from '../../../lib/siteUrl';
         <a href={sitePath('/docs')}>Documentation</a> / <a href={sitePath('/docs/getting-started')}>Getting Started</a> / Interface Overview
       </nav>
 
-      <h1>Interface Overview</h1>
+      <h1 class="site-page-title">Interface Overview</h1>
       <p class="docs-intro">
         Varve's editor is organized into distinct zones that together form a powerful, efficient design workspace. Each panel serves a specific purpose and can be toggled or resized to suit your workflow.
       </p>
@@ -182,14 +183,6 @@ import { sitePath } from '../../../lib/siteUrl';
           The inspector panel (right sidebar) is a contextual workspace for the current
           selection. The Design tab is the everyday Properties surface, organized around one
           canonical owner for each property group.
-        </p>
-        <p>
-          Inspector spacing follows the application density preference. <strong>Default Pro</strong>
-          uses 34px property rows and more breathing room between logical groups; <strong>Compact
-          Pro</strong> uses 28px rows and a tighter rhythm for long editing sessions. Both modes
-          keep the same section order, labels, keyboard behavior, selection, document history,
-          and canvas geometry. On coarse-pointer devices, interactive targets expand to remain
-          touch-friendly without changing authored artwork dimensions.
         </p>
         <p>
           With nothing selected, the Design tab follows the active tool. The <strong>Frame</strong>
@@ -415,88 +408,8 @@ import { sitePath } from '../../../lib/siteUrl';
     margin: 0 auto;
     padding: 3rem 0;
   }
-  .breadcrumb {
-    font-size: 0.875rem;
-    margin-bottom: 1.5rem;
-  }
-  .breadcrumb a {
-    color: var(--text-secondary);
-  }
-  .docs-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
-  .docs-intro {
-    font-size: 1.125rem;
-    color: var(--text-secondary);
-    margin-bottom: 3rem;
-  }
-  .docs-section {
-    margin-bottom: 3rem;
-  }
-  .docs-section h2 {
-    font-size: 1.5rem;
-    font-weight: 700;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-    border-bottom: 2px solid var(--border-accent);
-    padding-bottom: 0.5rem;
-  }
-  .docs-section h3 {
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin-top: 1.5rem;
-    margin-bottom: 0.75rem;
-    color: var(--text-primary);
-  }
-  .docs-section p {
-    color: var(--text-secondary);
-    line-height: 1.8;
-    margin-bottom: 1rem;
-  }
-  .docs-section ul {
-    list-style: none;
-    margin-bottom: 1rem;
-  }
-  .docs-section li {
-    margin-bottom: 0.5rem;
-    padding-left: 1.5rem;
-    position: relative;
-    color: var(--text-secondary);
-  }
-  .docs-section li::before {
-    content: "•";
-    position: absolute;
-    left: 0;
-    color: var(--text-link-hover);
-  }
-  .docs-section code:not(.code-block) {
-    background: var(--surface-muted);
-    padding: 0.125rem 0.375rem;
-    border-radius: var(--website-radius-control-compact);
-    font-family: monospace;
-    font-size: 0.875rem;
-  }
-  .docs-section a {
-    color: var(--text-link);
-  }
-  .docs-cta {
-    text-align: center;
-    padding: 3rem 0;
-    border-top: 1px solid var(--border-default);
-  }
-  .docs-cta h2 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-    color: var(--text-primary);
-  }
-  .docs-cta p {
-    color: var(--text-secondary);
-  }
+  .docs-page h1 { font-variation-settings: 'opsz' 144; letter-spacing: -0.015em; }
+
+  .docs-section h2 { border-bottom: 2px solid var(--border-accent); padding-bottom: var(--space-3); }
+
 </style>

@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import { sitePath } from '../../lib/siteUrl';
+import '../../styles/docs-prose.css';
 ---
 
 <Layout title="Keyboard Shortcuts — Varve Docs" description="The complete Varve keyboard shortcut reference: selection, tools, transform, layers, text, view, and workspace modes.">
@@ -10,7 +11,7 @@ import { sitePath } from '../../lib/siteUrl';
         <a href={sitePath('/docs')}>Documentation</a> / Keyboard Shortcuts
       </nav>
 
-      <h1>Keyboard Shortcuts</h1>
+      <h1 class="site-page-title">Keyboard Shortcuts</h1>
       <p class="docs-intro">
         Quick reference for Varve keyboard shortcuts.
       </p>
@@ -369,49 +370,26 @@ import { sitePath } from '../../lib/siteUrl';
     margin: 0 auto;
     padding: 3rem 0;
   }
-  
-  .breadcrumb {
-    font-size: 0.875rem;
-    margin-bottom: 1.5rem;
-  }
-  
-  .breadcrumb a {
-    color: var(--text-secondary);
-  }
-  
-  .docs-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
-  
-  .docs-intro {
-    font-size: 1.125rem;
-    color: var(--text-secondary);
-    margin-bottom: 3rem;
-  }
-  
+
+  .docs-page h1 { font-variation-settings: 'opsz' 144; letter-spacing: -0.015em; }
+
   .shortcuts-section {
     margin-bottom: 3rem;
   }
-  
+
   .shortcuts-section h2 {
     font-size: 1.5rem;
     font-weight: 700;
     margin-bottom: 1.5rem;
     color: var(--text-primary);
   }
-  
+
   .shortcuts-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
     gap: 1rem;
   }
-  
+
   .shortcut-item {
     background: var(--surface-card);
     border: 1px solid var(--border-default);
@@ -421,7 +399,7 @@ import { sitePath } from '../../lib/siteUrl';
     align-items: center;
     gap: 0.75rem;
   }
-  
+
   .shortcut-item code {
     background: var(--surface-muted);
     padding: 0.25rem 0.5rem;
@@ -432,7 +410,7 @@ import { sitePath } from '../../lib/siteUrl';
     min-width: 120px;
     text-align: center;
   }
-  
+
   .shortcut-item span {
     color: var(--text-secondary);
     font-size: 0.875rem;
@@ -446,22 +424,5 @@ import { sitePath } from '../../lib/siteUrl';
 
   .shortcuts-note a {
     color: var(--text-link);
-  }
-  
-  .docs-cta {
-    text-align: center;
-    padding: 3rem 0;
-    border-top: 1px solid var(--border-default);
-  }
-  
-  .docs-cta h2 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-    color: var(--text-primary);
-  }
-  
-  .docs-cta p {
-    color: var(--text-secondary);
   }
 </style>

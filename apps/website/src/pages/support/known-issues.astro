@@ -181,7 +181,7 @@ const categories = [...new Set(issues.map((i) => i.category))];
     background: var(--surface-muted);
     border-left: 3px solid var(--border-accent);
     color: var(--text-secondary);
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
     line-height: 1.6;
     margin: 1.5rem 0 2.5rem;
     padding: 0.875rem 1rem;
@@ -228,7 +228,7 @@ const categories = [...new Set(issues.map((i) => i.category))];
     color: var(--text-secondary);
     line-height: 1.6;
     margin-bottom: 0.5rem;
-    font-size: 0.9375rem;
+    font-size: var(--type-interface-control-size);
   }
 
   .issue-workaround {

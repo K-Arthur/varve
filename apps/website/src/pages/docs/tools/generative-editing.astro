@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
 import { sitePath } from '../../../lib/siteUrl';
+import '../../../styles/docs-prose.css';
 ---
 
 <Layout title="Generative Editing — Varve Docs" description="Use Varve's local, mask-guided workflow for Fill, Remove / Generative Subtract, and photographic Expand, with desktop prompt modes gated by model qualification.">
@@ -81,17 +82,12 @@ import { sitePath } from '../../../lib/siteUrl';
 
 <style>
   .docs-page { max-width: 800px; margin: 0 auto; padding: 3rem 0 5rem; }
-  .breadcrumb { color: var(--text-secondary); font-size: .875rem; margin-bottom: 1.5rem; }
-  .breadcrumb a { color: var(--text-secondary); }
   h1 { color: var(--text-primary); font: 700 clamp(2rem, 5vw, 2.8rem)/1.1 var(--font-editorial); margin-bottom: 1rem; }
-  .docs-intro { color: var(--text-secondary); font-size: 1.15rem; margin-bottom: 3rem; line-height: 1.7; }
-  .docs-section { margin-bottom: 2.5rem; }
-  .docs-section h2 { border-bottom: 2px solid var(--border-accent); color: var(--text-primary); font-size: 1.45rem; margin-bottom: 1rem; padding-bottom: .5rem; }
+  .docs-section h2 { border-bottom: 2px solid var(--border-accent); padding-bottom: var(--space-3); }
+
   .docs-section p, .docs-section li, td, th { color: var(--text-secondary); line-height: 1.8; }
-  .docs-section li { margin-bottom: .5rem; }
-  table { width: 100%; border-collapse: collapse; margin: 1.25rem 0; }
-  th, td { border-bottom: 1px solid var(--border-default); padding: .75rem .5rem; text-align: left; vertical-align: top; }
-  th { color: var(--text-primary); font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; }
+  .docs-section th { font-size: var(--type-interface-caption-size); letter-spacing: 0.06em; text-transform: uppercase; }
+
   .docs-note { border-left: 3px solid var(--accent-primary); padding-left: 1rem; }
   @media (max-width: 620px) { table { font-size: .9rem; } th, td { padding: .6rem .3rem; } }
 </style>

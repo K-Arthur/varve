@@ -1,0 +1,151 @@
+/*
+ * Shared docs-page prose.
+ *
+ * Imported by the pages under src/pages/docs/. Every text size and line
+ * height comes from the shared --type-* role tokens; every margin, padding,
+ * and gap comes from the --space-* roles. Page-level H1 sizing stays with the
+ * .site-page-title utility (global.css), so the inner-page title ramp lives
+ * in exactly one place and a page only adds its own display overrides.
+ *
+ * Selectors are the docs-* classes (and .docs-page for the breadcrumb), which
+ * no other page uses, so importing this sheet cannot restyle marketing pages.
+ */
+
+.docs-page .breadcrumb {
+  color: var(--text-secondary);
+  font-size: var(--type-interface-caption-size);
+  line-height: var(--type-interface-caption-line-height);
+  margin-block-end: var(--space-5);
+}
+
+.docs-page .breadcrumb a {
+  color: var(--text-secondary);
+}
+
+.docs-page h1 {
+  color: var(--text-primary);
+  font-family: var(--type-display-page-family);
+  font-weight: var(--type-display-page-weight);
+  margin-block-end: var(--space-4);
+}
+
+.docs-intro {
+  color: var(--text-secondary);
+  font-size: var(--type-content-lead-size);
+  font-weight: var(--type-content-lead-weight);
+  line-height: var(--type-content-lead-line-height);
+  margin-block-end: var(--space-8);
+}
+
+.docs-section {
+  margin-block-end: var(--space-8);
+}
+
+.docs-section h2 {
+  color: var(--text-primary);
+  font-size: var(--type-interface-heading-size);
+  font-weight: var(--type-interface-heading-weight);
+  line-height: var(--type-interface-heading-line-height);
+  margin-block-end: var(--space-4);
+}
+
+.docs-section h3 {
+  color: var(--text-primary);
+  font-size: var(--type-interface-title-size);
+  font-weight: var(--type-interface-title-weight);
+  line-height: var(--type-interface-title-line-height);
+  margin-block: var(--space-6) var(--space-4);
+}
+
+.docs-section p,
+.docs-section li,
+.docs-section td {
+  color: var(--text-secondary);
+  font-size: var(--type-content-body-size);
+  line-height: var(--type-content-body-line-height);
+}
+
+.docs-section p {
+  margin-block-end: var(--space-4);
+}
+
+.docs-section ul,
+.docs-section ol {
+  margin-block-end: var(--space-4);
+  padding-inline-start: var(--space-6);
+}
+
+.docs-section ul {
+  list-style: none;
+}
+
+.docs-section li {
+  margin-block-end: var(--space-3);
+}
+
+.docs-section ul li {
+  padding-inline-start: var(--space-6);
+  position: relative;
+}
+
+.docs-section ul li::before {
+  color: var(--text-link-hover);
+  content: "•";
+  inset-inline-start: 0;
+  position: absolute;
+}
+
+.docs-section code:not(.code-block) {
+  background: var(--surface-muted);
+  border-radius: var(--website-radius-control-compact);
+  font-family: var(--type-data-numeric-family);
+  font-size: var(--type-data-numeric-size);
+  padding: var(--space-1) var(--space-2);
+}
+
+.docs-section a {
+  color: var(--text-link);
+}
+
+.docs-section strong {
+  color: var(--text-primary);
+}
+
+.docs-section table {
+  border-collapse: collapse;
+  color: var(--text-secondary);
+  font-size: var(--type-interface-control-size);
+  inline-size: 100%;
+  margin-block: var(--space-5);
+}
+
+.docs-section th,
+.docs-section td {
+  border: 0;
+  border-block-end: 1px solid var(--border-subtle);
+  padding: var(--space-3) var(--space-4);
+  text-align: start;
+  vertical-align: top;
+}
+
+.docs-section th {
+  color: var(--text-primary);
+  font-weight: var(--type-interface-subheading-weight);
+}
+
+.docs-cta {
+  border-block-start: 1px solid var(--border-default);
+  padding-block: var(--space-8);
+  text-align: center;
+}
+
+.docs-cta h2 {
+  color: var(--text-primary);
+  font-size: var(--type-interface-title-size);
+  font-weight: var(--type-interface-title-weight);
+  margin-block-end: var(--space-3);
+}
+
+.docs-cta p {
+  color: var(--text-secondary);
+}

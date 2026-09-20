@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../layouts/Layout.astro';
 import { sitePath } from '../../../lib/siteUrl';
+import '../../../styles/docs-prose.css';
 ---
 
 <Layout
@@ -137,22 +138,12 @@ import { sitePath } from '../../../lib/siteUrl';
 
 <style>
   .docs-page { max-width: 820px; margin: 0 auto; padding: 3rem 0 5rem; }
-  .breadcrumb { color: var(--text-secondary); font-size: .875rem; margin-bottom: 1.5rem; }
-  .breadcrumb a { color: var(--text-secondary); }
   .docs-page h1 { color: var(--text-primary); font: 700 clamp(2rem, 5vw, 2.8rem)/1.1 var(--font-editorial); letter-spacing: -.02em; margin-bottom: 1rem; }
-  .docs-intro { color: var(--text-secondary); font-size: 1.18rem; line-height: 1.7; margin-bottom: 3rem; }
-  .docs-section { margin-bottom: 3rem; }
   .docs-section h2 { color: var(--text-primary); font-size: 1.55rem; margin-bottom: .9rem; }
-  .docs-section h3 { color: var(--text-primary); font-size: 1rem; margin: 0; }
-  .docs-section p { color: var(--text-secondary); line-height: 1.75; }
-  .docs-section a { color: var(--text-link); }
   code { background: var(--surface-muted); border: 1px solid var(--border-subtle); border-radius: var(--website-radius-control-compact); color: var(--text-primary); padding: .1rem .3rem; }
   .contract-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); margin: 1.25rem 0; }
   .contract-grid article { background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); padding: var(--space-4); }
   .contract-grid p { font-size: .92rem; line-height: 1.55; margin: .5rem 0 0; }
-  table { border-collapse: collapse; color: var(--text-secondary); margin: 1.25rem 0; width: 100%; }
-  th, td { border-bottom: 1px solid var(--border-subtle); padding: .75rem; text-align: left; vertical-align: top; }
-  th { color: var(--text-primary); }
   .docs-note { background: var(--surface-muted); border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); color: var(--text-secondary); line-height: 1.65; padding: var(--space-4); }
   .docs-note strong { color: var(--text-primary); }
   @media (max-width: 680px) {

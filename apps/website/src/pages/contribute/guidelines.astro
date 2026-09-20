@@ -7,7 +7,7 @@ import { sitePath } from '../../lib/siteUrl';
 <Layout title="Contribution Guidelines" description="Guidelines for contributing to Varve: code standards, testing requirements, commit conventions, and pull request process.">
   <div class="container-custom">
     <div class="guidelines-page">
-      <h1>Contribution Guidelines</h1>
+      <h1 class="site-page-title">Contribution Guidelines</h1>
       <p class="guidelines-intro">
         <strong>External code contributions are temporarily paused.</strong> These guidelines separate the feedback
         and testing channels available today from the pull-request workflow that will apply when the project opens
@@ -199,17 +199,7 @@ chore: update dependencies to latest versions</code></pre>
     max-width: 760px;
     margin: 0 auto;
     padding: 3rem 0;
-  }
-
-  .guidelines-page h1 {
-    font-size: clamp(2rem, 5vw, 2.5rem);
-    font-family: var(--font-editorial);
-    font-weight: 700;
-    font-variation-settings: 'opsz' 144;
-    letter-spacing: -0.015em;
-    margin-bottom: 1rem;
-    color: var(--text-primary);
-  }
+  }.guidelines-page h1 { font-family: var(--font-editorial); font-weight: 700; font-variation-settings: 'opsz' 144; letter-spacing: -0.015em; margin-bottom: 1rem; color: var(--text-primary); }
 
   .guidelines-intro {
     font-size: 1.125rem;
@@ -261,7 +251,7 @@ chore: update dependencies to latest versions</code></pre>
     background: none;
     padding: 0;
     color: var(--text-code);
-    font-size: 0.8125rem;
+    font-size: var(--type-interface-caption-size);
     line-height: 1.6;
   }
 
@@ -314,7 +304,7 @@ chore: update dependencies to latest versions</code></pre>
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.75rem;
+    font-size: var(--type-interface-micro-size);
     font-weight: 600;
   }
 

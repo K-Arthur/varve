@@ -225,6 +225,7 @@ import { PRODUCT_STATUS } from '@varve/shared';
   .hero {
     position: relative;
     overflow: hidden;
+    /* audit-spacing: allow hero rhythm: deliberately asymmetric and viewport-height driven */
     padding: clamp(6rem, 14vh, 10rem) 0 clamp(5rem, 10vh, 7rem);
     border-bottom: 1px solid var(--border-default);
     background:
@@ -463,16 +464,16 @@ import { PRODUCT_STATUS } from '@varve/shared';
   .hero-eyebrow {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    font-size: 0.8125rem;
+    gap: var(--space-3);
+    font-size: var(--type-interface-caption-size);
     font-weight: 600;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--text-secondary);
     border: 1px solid var(--border-accent);
     border-radius: var(--website-radius-pill);
-    padding: 0.4rem 1rem;
-    margin-bottom: 2rem;
+    padding: var(--space-2) var(--space-5);
+    margin-bottom: var(--space-7);
     background: color-mix(in oklab, var(--surface-card) 60%, transparent);
   }
 
@@ -491,7 +492,7 @@ import { PRODUCT_STATUS } from '@varve/shared';
     font-variation-settings: 'opsz' 144;
     line-height: var(--type-marketing-display-line-height);
     letter-spacing: -0.03em;
-    margin-bottom: 1.75rem;
+    margin-bottom: var(--space-6);
     color: var(--text-primary);
     text-wrap: balance;
   }
@@ -511,27 +512,27 @@ import { PRODUCT_STATUS } from '@varve/shared';
     font-size: var(--type-content-lead-size);
     line-height: var(--type-content-lead-line-height);
     color: var(--text-secondary);
-    margin: 0 auto 2.25rem;
+    margin: 0 auto var(--space-7);
     max-width: 58ch;
   }
 
   .hero-ctas {
     display: flex;
-    gap: 1rem;
+    gap: var(--space-5);
     justify-content: center;
     align-items: center;
     flex-wrap: wrap;
-    margin-bottom: 1.75rem;
+    margin-bottom: var(--space-6);
   }
 
   .hero-platforms {
-    font-size: 0.875rem;
+    font-size: var(--type-interface-caption-size);
     color: var(--text-muted);
     letter-spacing: 0.04em;
   }
 
   @media (max-width: 640px) {
-    .hero { padding-top: 4rem; }
+    .hero { padding-top: var(--space-9); }
     .hero-title { letter-spacing: -0.025em; }
     .hero-ctas {
       flex-direction: column;
