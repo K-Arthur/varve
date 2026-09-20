@@ -276,6 +276,16 @@ test.describe('radio-group system', () => {
       'aria-checked',
       'true',
     );
+    // Pointer activation still selects through the same group.
+    await aspect.getByRole('radio', { name: '1:1' }).click();
+    await expect(aspect.getByRole('radio', { name: '1:1' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await expect(aspect.getByRole('radio', { name: 'Original' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
     await page.locator('.crop-toolbar').screenshot({
       path: resolve(DIR, '06-crop-toolbar.png'),
     });

@@ -97,16 +97,24 @@ Measured in Chromium (Playwright, lease-wrapped, isolated port):
 
 ## Validation
 
-- `tests/unit/radio-group-system.test.ts` 6/6; `SegmentedControl.test.tsx`
+- `tests/unit/radio-group-system.test.ts` 5/5; `SegmentedControl.test.tsx`
   10/10; `LayoutSection.test.tsx` + `ImportPreview.test.tsx` 12/12;
   `ShortcutManager.test.ts` 28/28.
 - `pnpm --filter @varve/editor typecheck` — no errors in changed files
   (pre-existing failures elsewhere in the shared worktree); `typecheck:e2e`
   clean after the committed `callout.ts` fallback fix.
 - Playwright (lease, `VARVE_E2E_PORT=4213`):
-  `tests/e2e/inspector/radio-group-visual.spec.ts` 5/5 — segment radii and
-  wrap, pill concentricity, icon pickers + arrow keys, radiogroup ownership
-  across the app, crop radiogroup arrows, forced-colors contrast. The crop
-  case initially failed and exposed RG-22; it passes after the fix.
-- `pnpm audit:docs`, `pnpm audit:emoji`, `pnpm audit:tokens` — see session
-  validation report.
+  `tests/e2e/inspector/radio-group-visual.spec.ts` 7/7 — segment radii and
+  content-driven wrap, pill concentricity, icon pickers + arrow keys,
+  radiogroup ownership across the app, crop radiogroup keyboard and pointer
+  activation, forced-colors contrast, the 1440→375 viewport matrix, and the
+  coarse-pointer 44px touch minimum. The crop case initially failed and
+  exposed RG-22; it passes after the fix.
+- `tests/e2e/canvas/autolayout-visual.spec.ts` align/justify 5/5 after the
+  icon-picker migration (the spec's option names were updated with it).
+- Website: `astro check` on the edited docs page passes (the website E2E
+  tsconfig has a pre-existing unrelated error in an untouched spec file).
+- `pnpm audit:docs`, `pnpm audit:emoji`, `pnpm audit:tokens` — clean.
+- `pnpm verify:plan` escalated to the full suite because the shared worktree
+  carries workspace/toolchain changes from concurrent sessions; the
+  escalation is not attributable to this pass.
