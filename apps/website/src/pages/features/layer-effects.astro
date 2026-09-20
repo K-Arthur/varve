@@ -55,6 +55,22 @@ import StatusPill from '../../components/StatusPill.astro';
         </p>
         <div class="control-grid">
           <article>
+            <h3>One-step add</h3>
+            <p>Choosing an effect from the categorized picker adds it immediately—no separate confirm click. Add again for another effect, or use a row's Duplicate action to repeat a tuned treatment.</p>
+          </article>
+          <article>
+            <h3>Click the card to edit</h3>
+            <p>Clicking an effect card opens its parameter editor; clicking again closes it. The labelled chevron stays the keyboard and screen-reader trigger, and interactive controls keep their own behaviour.</p>
+          </article>
+          <article>
+            <h3>Every effect previewed</h3>
+            <p>Each of the 16 effect types renders a live preview inside its popover—shadows, glows, every blur family, depth blur, chromatic aberration, glitch, and glass—so you are never editing blind.</p>
+          </article>
+          <article>
+            <h3>Stage-aware reordering</h3>
+            <p>Each row states its execution stage (Backdrop, Content, Appearance), and a disabled move explains that it is already first or last in that stage—no silent no-op reorders.</p>
+          </article>
+          <article>
             <h3>1-Click Elevation Presets</h3>
             <p>Instant modern elevation levels—from subtle 1px card borders (E1) and floating hover states (E2) to raised popovers (E3) and dramatic modal depth (E4), plus ambient glow and graphic hard shadows.</p>
           </article>
@@ -67,8 +83,8 @@ import StatusPill from '../../components/StatusPill.astro';
             <p>Single-parameter effects like Layer Blur and Background Blur expose an inline radius scrubber directly on the card row. Tweak blur in one gesture without opening a popover.</p>
           </article>
           <article>
-            <h3>Unified Popover Studio with Live Preview</h3>
-            <p>Shadow color, opacity, blend modes, quad geometry, and live preview are united in one focused, anchored popover—eliminating disjointed color pickers.</p>
+            <h3>Direct row actions</h3>
+            <p>Move an effect up or down, or remove it, straight from its row. Reset and Duplicate stay in the row menu, and drag-to-reorder remains available for free positioning within a stage.</p>
           </article>
         </div>
       </section>
@@ -80,9 +96,11 @@ import StatusPill from '../../components/StatusPill.astro';
         </p>
         <div class="control-grid">
           <article><h3>Shadows and glows</h3><p>Shadows expose X/Y plus synchronized angle and distance, elevation presets, and light pad. Glows add choke, contour, edge/center origin, and solid or effect-domain gradient colour treatment.</p></article>
-          <article><h3>Chromatic aberration</h3><p>RGB split includes Mix and fractional offsets; Custom Color Split adds independent red, green, blue, luminance, or alpha contributions with output colours, strength, and offsets.</p></article>
+          <article><h3>Shared control vocabulary</h3><p>Colour and opacity sit on one row in every effect that supports them, opacity-like values read as percentages, blend mode is always the same control, and closed sets such as glow contour and origin are one-click segmented choices.</p></article>
+          <article><h3>Accurate row swatches</h3><p>A gradient glow shows its actual ramp in the row chip rather than a single stop, and glass exposes the edge highlight's colour, width, and opacity together.</p></article>
+          <article><h3>Chromatic aberration</h3><p>RGB split includes Mix and fractional offsets; Custom Color Split adds independent red, green, blue, luminance, or alpha contributions with output colours, strength, and offsets—previewed with those same colours.</p></article>
           <article><h3>Glitch</h3><p>Direction, seed, density, slices, blocks, channel shifts, noise, scanlines, and blend mode.</p></article>
-          <article><h3>Glass and depth</h3><p>Tint, saturation, brightness, noise, edge highlight, focus range, falloff, and depth inversion.</p></article>
+          <article><h3>Glass and depth</h3><p>Tint, saturation, brightness, noise, edge highlight with opacity, focus range, falloff, and depth inversion.</p></article>
           <article><h3>Spatial blur family</h3><p>Gaussian stays uniform; Field, Iris, Tilt-Shift, Path, and Spin expose their authored geometry and deterministic CPU reference rendering.</p></article>
           <article><h3>Categorized discovery</h3><p>Organized into Shadows & Glows, Surface & Blur, Photographic Blur Gallery, and Stylistic Distortion for instant discovery.</p></article>
         </div>
@@ -108,11 +126,11 @@ import StatusPill from '../../components/StatusPill.astro';
       <section class="feature-section">
         <h2>Everyday controls, without destructive surprises</h2>
         <ul>
-          <li>Add, edit, bypass, duplicate, reset, remove, and reorder effects with one-step history. Depth Blur enters through its image workflow so an effect is never saved without a valid DepthMap.</li>
+          <li>Add an effect by choosing it once, move it with the row chevrons or drag handle, remove it from the row, and reset or duplicate it from the row menu—all with one-step history. Depth Blur enters through its image workflow so an effect is never saved without a valid DepthMap.</li>
           <li>Stable effect IDs keep masks attached through reorder, reset, duplication, transfer, save, and reload.</li>
           <li>Positive and negative spread use alpha expansion/contraction; spread is not disguised extra blur.</li>
           <li>Transparent backgrounds, compound paths, vector holes, text counters, and sparse raster pixels remain transparent instead of receiving a bounding-box effect.</li>
-          <li>Mixed selections show missing rows and match compatible effects by identity before legacy stage/type order.</li>
+          <li>Mixed selections show missing rows and match compatible effects by identity before legacy stage/type order; a mixed colour chip says "Mixed" rather than guessing one selection's colour.</li>
           <li>Copying a stack deep-clones effect parameters and mints independent IDs for each destination.</li>
         </ul>
       </section>

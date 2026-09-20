@@ -167,6 +167,72 @@ It is modularized under
      with recognizable icons and clear labels; the shared `Menu` primitive
      renders category labels and separators.
 
+### 2026-09-20 — One-step add, shared parameter vocabulary, full preview coverage
+
+Evidence and competitive failure analysis:
+`docs/research/effect-panel-competitive-2026-09-20.md`.
+
+- **One-step add.** Choosing a type in the header picker adds it immediately;
+  the former "select a type, then press Add" confirm step was removed. The
+  picker matches the Fill ("Add fill") and Object Filters ("Add Object Filter")
+  controls. Repeated adds build the stack; same-type repetition with tuned
+  values stays available through each row's Duplicate action. A disabled
+  Depth Blur entry states its blocker (needs a DepthMap from the image
+  workflow) instead of dead-ending.
+- **Inline stack actions.** Move up/down chevrons and Remove live on the row;
+  only Reset and Duplicate remain in the row menu. Move chevrons are secondary
+  to the drag handle (revealed on hover/focus for fine pointers, always
+  visible for touch).
+- **Row-click editor access.** Clicking the card body (name, type icon, stage
+  chip, empty space) toggles the parameter editor. Interactive children keep
+  their own behaviour, and the labelled chevron remains the keyboard/AT
+  disclosure trigger; the card is registered as an inside region so a click
+  toggles instead of dismiss-and-reopen.
+- **Stage legibility.** Every row carries a stage chip (`Backdrop` /
+  `Content` / `Appearance`) whose tooltip states what the stage does, and a
+  disabled move control's title explains that the effect is already
+  first/last in its stage. This is the direct answer to the recurring
+  "reordering effects does nothing" complaint in tools whose render order is
+  type-derived but whose list order is free.
+- **Popover context.** The popover header keeps the effect name, stage badge,
+  and Close control on one row. Per-entry descriptions were deliberately
+  removed from the add picker and the popover: a description per row made the
+  picker taller than the panel. Only the disabled Depth Blur entry states its
+  blocker, inline in the label.
+- **Blend modes have one resolver.** Every blend selector reads
+  `blendModesForDomain` from the engine applicability catalog through
+  `BlendModeField` (grouped, searchable, closes on selection), and non-normal
+  modes read on the row. The hand-written Fill list that offered the
+  non-editable `plusDarker` mode (which made Canvas2D replay throw) is gone.
+- **Picker presentation.** Effect and filter pickers carry one icon per kind
+  (repeated glyphs made them effectively text-only) and title-case category
+  headings; the shared menu-label uppercase idiom is overridden for the
+  effect picker, and adjustment/layer-state titles no longer transform to
+  uppercase.
+- **Shared parameter controls (`EffectControls.tsx`).** `EffectBlendRow`,
+  `EffectColourOpacityRow` (colour swatch + percent opacity, "Mixed" value
+  text for disagreeing selections), `EffectPercentField` (0..1 model values
+  shown as percentages), `EffectChoiceRow` (segmented radiogroup for closed
+  sets, mixed-safe), and `EffectToggleRow` (canonical Switch) are the only
+  vocabulary the editors use. Blur effects whose model has no `blendMode` do
+  not render an empty Blend row.
+- **Control order is uniform:** preview, geometry, closed-set quality choices,
+  colour, blend. Glow geometry now precedes colour; the colour-treatment
+  choice, contour, and origin are segmented controls with icons; chromatic
+  aberration and glitch expose opacity/mix/density as percentages.
+- **Preview coverage for every family.** `EffectPreviewTile` now renders a
+  symbolic preview for all 16 effect types, including the spatial blur
+  gallery, Depth Blur, Chromatic Aberration (declared channel colours or
+  custom contribution colours), and Glitch. Gradient glows render both
+  endpoint colours. The canvas remains authoritative; the tile is labelled
+  "Preview of <effect>".
+- **Swatch accuracy.** The row colour chip renders the gradient ramp for
+  gradient-mode glows instead of the first stop, and glass exposes the
+  previously hidden `edgeHighlightOpacity` alongside the edge colour.
+- **Boolean consistency.** Glass edge highlight, depth-blur inversion,
+  channel-offset linking, and chromatic contribution enablement use the
+  canonical `Switch` rather than bespoke pressed buttons.
+
 ## Known renderer gaps (verified 2026-09-13)
 
 An executed audit (code inspection + tests, not documentation) found these
