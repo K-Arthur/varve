@@ -837,6 +837,18 @@ export interface EditorContextValue {
     text?: string,
   ) => void;
   applyFramePreset: (preset: { name: string; w: number; h: number }) => void;
+  /**
+   * Divide the selected frame into a panel layout (rows x columns with one
+   * constant gutter), duplicating its artwork into every panel. No-op unless
+   * exactly one frame is selected; see `scene/panelLayout.ts`.
+   */
+  applyPanelLayout: (presetId: string) => void;
+  /**
+   * Renumber the selected frame's child panels in reading order. `ltr` follows
+   * Western page order, `rtl` follows manga order; names already used elsewhere
+   * in the document are skipped.
+   */
+  renumberPanels: (direction: 'ltr' | 'rtl') => void;
   findContainingFrame: (
     world: { x: number; y: number },
     frameIndex?: FrameSpatialIndex | null,

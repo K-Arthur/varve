@@ -37,6 +37,7 @@ export type MaskPreviewMode =
 
 export const DRAW_TOOL_IDS: readonly ToolId[] = [
   'frame',
+  'panel',
   'rect',
   'ellipse',
   'polygon',
@@ -423,7 +424,12 @@ export interface ToolContext {
     coordinateSpace?: 'source-image-pixels' | 'container-local-pixels' | 'node-local-pixels',
     expectedNode?: SceneNode,
   ) => void;
-  createRasterLayer: (width: number, height: number, parentId?: NodeId | null) => string | null;
+  createRasterLayer: (
+    width: number,
+    height: number,
+    parentId?: NodeId | null,
+    pixelScale?: number,
+  ) => string | null;
 
   /** SAM2 interactive segmentation */
   objectSelectionSession?: ObjectSelectionSession | null;

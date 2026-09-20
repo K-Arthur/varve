@@ -28,7 +28,27 @@ export function findEditableRasterLayer(ctx: ToolContext): string | null {
     }
     return null;
   };
+  const selectedPanel = ctx.selection
+    .map((id) => doc.nodes[id])
+    .find((node) => node?.kind === 'frame' && Boolean(node.panel));
+  if (selectedPanel?.kind === 'frame') {
+    if (selectedPanel.visible === false || selectedPanel.locked) return null;
+    return visit(selectedPanel.children ?? []);
+  }
   return visit(candidates);
+}
+
+/** Return the local-pixel scale for a raster layer's world transform. */
+export function rasterPixelScale(
+  ctx: Pick<ToolContext, 'getWorldTransform'>,
+  rasterNodeId: string,
+): number {
+  const transform = ctx.getWorldTransform?.(rasterNodeId);
+  if (!transform) return 1;
+  const sx = Math.hypot(transform[0], transform[1]);
+  const sy = Math.hypot(transform[2], transform[3]);
+  const worldScale = (sx + sy) / 2;
+  return worldScale > 0 && Number.isFinite(worldScale) ? 1 / worldScale : 1;
 }
 
 export interface RetouchTargetLayer {
@@ -169,11 +189,14 @@ export function createRasterTarget(
   world: { x: number; y: number },
 ): string | null {
   const page = ctx.document.pages?.find((candidate) => candidate.id === ctx.document.activePageId);
-  return ctx.createRasterLayer(
-    page?.width ?? 4096,
-    page?.height ?? 4096,
-    ctx.findContainingFrame(world),
-  );
+  const ppi = ctx.document.paintingPpi ?? ctx.document.dpi ?? 96;
+  const pixelScale = Math.max(1, ppi / 96);
+  const width = Math.ceil((page?.width ?? 4096) * pixelScale);
+  const height = Math.ceil((page?.height ?? 4096) * pixelScale);
+  const parentId = ctx.findContainingFrame(world);
+  const parent = parentId ? ctx.document.nodes[parentId] : undefined;
+  if (parent && (parent.visible === false || parent.locked === true)) return null;
+  return ctx.createRasterLayer(width, height, parentId, pixelScale);
 }
 
 export function rasterLocalPoint(

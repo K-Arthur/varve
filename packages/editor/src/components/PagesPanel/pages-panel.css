@@ -319,3 +319,80 @@
 .design-canvas-panel__row:focus-within .design-canvas-panel__actions {
   opacity: 1;
 }
+
+/* ── Comic story outline ───────────────────────────────── */
+/* References-only production record: panel order and dialogue order are
+ * derived from the page on demand; status and notes are authored. */
+
+.pages-panel__story-outline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-sunken);
+}
+
+.pages-panel__story-outline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.pages-panel__story-outline-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.pages-panel__story-outline-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-subtle);
+}
+
+.pages-panel__story-outline-field input,
+.pages-panel__story-outline-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
+  font: inherit;
+  resize: vertical;
+}
+
+.pages-panel__story-outline-field textarea {
+  min-height: 3.5rem;
+}
+
+.pages-panel__story-outline-link {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+}
+
+.pages-panel__story-outline-link strong {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.pages-panel__story-outline-link span {
+  color: var(--color-text-subtle);
+}
+
+.pages-panel__story-outline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}

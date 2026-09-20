@@ -106,6 +106,7 @@ const LEGACY_SLUG_MAP: Record<string, SectionId> = {
   interaction: 'interaction',
   component: 'component',
   'frame-presets': 'frame-presets',
+  'panel-layouts': 'panel-layouts',
   'align-&-distribute': 'align-distribute',
   'cognitive-load': 'cognitive-load',
   'prototype-flow': 'prototype-flow',

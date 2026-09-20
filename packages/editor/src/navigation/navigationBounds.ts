@@ -22,7 +22,7 @@ export interface NavigationBoundsResult {
 }
 
 export function activeSurfaceRootIds(doc: Document, workspaceMode: string): NodeId[] {
-  if (workspaceMode === 'print') {
+  if (workspaceMode === 'print' || (workspaceMode === 'drawing' && Boolean(doc.workflowProfile))) {
     const root = doc.pages?.find((page) => page.id === doc.activePageId)?.contentRoot;
     return root ? [root] : [];
   }

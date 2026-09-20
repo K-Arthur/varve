@@ -1,5 +1,26 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
+
+/**
+ * Activate the Panel tool whether it is directly visible or responsive
+ * overflow has moved the Layout group into More tools.
+ */
+async function activatePanelTool(page: Page): Promise<void> {
+  const toolbar = page.getByTestId('toolbar');
+  const directPanelTool = toolbar.locator('[data-tool="panel"]');
+  if (await directPanelTool.isVisible().catch(() => false)) {
+    await directPanelTool.click();
+    return;
+  }
+
+  await toolbar.getByRole('button', { name: 'More tools' }).click();
+  const overflow = page.locator('.varve-ctxmenu');
+  await overflow.getByText('Layout', { exact: true }).click();
+  await page
+    .getByRole('menu', { name: 'Layout submenu', exact: true })
+    .getByRole('menuitem', { name: 'Panel', exact: true })
+    .click();
+}
 
 test.describe('Canvas drawing tools — drag-to-create', () => {
   test.describe.configure({ mode: 'serial' });
@@ -29,6 +50,52 @@ test.describe('Canvas drawing tools — drag-to-create', () => {
 
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
     await expect(page.getByRole('treeitem').first()).toContainText(/frame/i);
+  });
+
+  test('Panel tool creates a panel node on drag', async ({ page }) => {
+    await activatePanelTool(page);
+    await dragOnCanvas(page, 150, 150, 500, 450);
+
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
+    await expect(page.getByRole('treeitem').first()).toContainText(/panel/i);
+  });
+
+  test('Panel Layouts divides the selected panel into a panel grid', async ({ page }) => {
+    await activatePanelTool(page);
+    await dragOnCanvas(page, 150, 150, 650, 650);
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
+
+    await page.getByRole('button', { name: 'Four-panel', exact: true }).click();
+
+    // Child rows may arrive collapsed; expand the container row when needed.
+    const expand = page.getByRole('button', { name: 'Expand' }).first();
+    if (await expand.isVisible().catch(() => false)) await expand.click();
+    await expect(page.getByRole('treeitem')).toHaveCount(5, { timeout: 10000 });
+    await expect(page.getByRole('treeitem').last()).toContainText(/panel/i);
+  });
+
+  test('Panel Layouts duplicates captured artwork into every panel (Shift+F route)', async ({
+    page,
+  }) => {
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 120, 120, 300, 240);
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
+
+    // Shift+F activates the Panel tool; drawing over the rect captures it,
+    // so the tree shows the panel plus the captured rectangle.
+    await page.keyboard.press('Shift+F');
+    await dragOnCanvas(page, 100, 100, 700, 700);
+    await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
+
+    await page.getByRole('button', { name: 'Four-panel', exact: true }).click();
+
+    // Expand the target and each panel to reveal the per-panel art copies.
+    for (let i = 0; i < 6; i++) {
+      const expand = page.getByRole('button', { name: 'Expand' }).first();
+      if (!(await expand.isVisible().catch(() => false))) break;
+      await expand.click();
+    }
+    await expect(page.getByRole('treeitem')).toHaveCount(9, { timeout: 10000 });
   });
 
   test('drag-created rect is visibly painted on the content canvas (not just in the doc)', async ({

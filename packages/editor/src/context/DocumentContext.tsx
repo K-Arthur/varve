@@ -40,6 +40,8 @@ export interface DocumentContextValue {
     text?: string,
   ) => void;
   applyFramePreset: (preset: { name: string; w: number; h: number }) => void;
+  applyPanelLayout: (presetId: string) => void;
+  renumberPanels: (direction: 'ltr' | 'rtl') => void;
   removeSelected: (selection?: NodeId[]) => void;
   renameSelected: (name: string) => void;
   moveNode: (id: NodeId, toIndex: number) => void;

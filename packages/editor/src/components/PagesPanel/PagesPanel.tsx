@@ -26,12 +26,14 @@ import {
   reorderPagesCommand,
 } from '../../pageCommands';
 import {
+  isPagePanelUserControlled,
   resolvePageSurfaceVisibility,
   useEffectiveWorkspaceConfig,
 } from '../../workspace/useWorkspaceConfig';
 import { usePageThumbnail } from '../PageNav/usePageThumbnail';
 import { SectionCollapseToggle } from '../SectionCollapseToggle';
 import { usePersistedDisclosure } from '../usePersistedDisclosure';
+import { ComicStoryOutlinePanel } from './ComicStoryOutlinePanel';
 import { DesignCanvasPanel } from './DesignCanvasPanel';
 import './pages-panel.css';
 
@@ -55,6 +57,8 @@ export function PagesPanel() {
     mode: state.workspaceMode,
     pageCount: state.document.pages?.length ?? 0,
     pagePanelVisible: effectiveConfig.panels.pagenav.visible,
+    workflowProfile: state.document.workflowProfile,
+    pagePanelUserControlled: isPagePanelUserControlled(state.workspaceMode),
   });
   if (state.workspaceMode === 'design') {
     return pageSurfaceVisibility.showPagesPanel ? <DesignCanvasPanel /> : null;
@@ -73,6 +77,8 @@ function PublishingPagesPanel() {
     mode: state.workspaceMode,
     pageCount: pages.length,
     pagePanelVisible: effectiveConfig.panels.pagenav.visible,
+    workflowProfile: doc.workflowProfile,
+    pagePanelUserControlled: isPagePanelUserControlled(state.workspaceMode),
   });
 
   const [collapsed, setCollapsed] = usePersistedDisclosure('pages');
@@ -225,6 +231,7 @@ function PublishingPagesPanel() {
           +
         </button>
       </div>
+      <ComicStoryOutlinePanel />
       <p className="pages-panel__description">
         Publishing pages define trim, print order, and export. Frames remain editable design
         containers.

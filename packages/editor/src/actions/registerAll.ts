@@ -533,4 +533,18 @@ export function registerEditorActions(
   reg('nudgeLeft', 'Nudge Left', 'object', handlers.nudgeLeft ?? (() => {}));
   reg('nudgeRight', 'Nudge Right', 'object', handlers.nudgeRight ?? (() => {}));
   reg('tidySelected', 'Tidy Up', 'arrange', handlers.tidySelected ?? (() => {}));
+  reg(
+    'renumberPanelsLtr',
+    'Renumber Panels (Left to Right)',
+    'arrange',
+    handlers.renumberPanelsLtr ?? (() => {}),
+  );
+  reg(
+    'renumberPanelsRtl',
+    'Renumber Panels (Right to Left)',
+    'arrange',
+    handlers.renumberPanelsRtl ?? (() => {}),
+  );
+  reg('joinPanels', 'Join Panels', 'arrange', handlers.joinPanels ?? (() => {}));
+  reg('showPanelLayouts', 'Panel Layouts…', 'arrange', handlers.showPanelLayouts ?? (() => {}));
 }

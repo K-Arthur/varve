@@ -12,8 +12,11 @@ import {
   type SceneNode,
 } from '@varve/scene';
 import type { Affine } from '@varve/shared';
+import { makePanelNode } from '../scene/panelLayout';
 import type { KnifeCutOutcome, KnifeSelectionPatch } from './knifeCommand';
 import type { ToolId } from './types';
+
+export { divideFrameIntoPanels, joinPanels, renumberPanelsInFrame } from '../scene/panelLayout';
 
 export type { AlignmentReference } from '../scene/selectionArrangement';
 export {
@@ -77,6 +80,40 @@ export function makeDrawingFrameNode(
       },
     ],
   } as FrameNode;
+}
+
+/**
+ * Tools whose drag-create produces a container rather than a leaf shape.
+ *
+ * Panel shares the frame path on purpose: one node model, one factory, one
+ * capture rule. What is panel-specific (paper conventions, outside border,
+ * layout templates) lives in `scene/panelLayout.ts`.
+ */
+export function isContainerTool(tool: ToolId): boolean {
+  return tool === 'frame' || tool === 'slice' || tool === 'panel';
+}
+
+/** Build the container node a frame-like tool creates, with its capture policy. */
+export function makeContainerNodeForTool(
+  tool: ToolId,
+  id: string,
+  transform: Affine,
+  size: { w?: number; h?: number } | undefined,
+): { node: SceneNode; captureSiblings: boolean } {
+  if (tool === 'frame' || tool === 'slice') {
+    const exportRegion = tool === 'slice';
+    // Frame capture-on-draw must not run for a region: adopting the artwork it
+    // is drawn over is the frame behaviour it exists to stop. A panel is a
+    // frame, so drawing one over a rough captures that artwork and clips it.
+    return {
+      node: makeDrawingFrameNode(id, transform, size, exportRegion),
+      captureSiblings: !exportRegion,
+    };
+  }
+  if (tool === 'panel') {
+    return { node: makePanelNode(id, transform, size), captureSiblings: true };
+  }
+  throw new Error(`makeContainerNodeForTool called for non-container tool: ${tool}`);
 }
 
 /** Resolve a selection into the live Boolean document operation, or reject it. */
@@ -187,6 +224,7 @@ export function shapeForTool(tool: ToolId): Shape {
     case 'text':
       return { kind: 'rect', x: 0, y: 0, w: 120, h: 32 };
     case 'frame':
+    case 'panel':
     case 'slice':
       return { kind: 'rect', x: 0, y: 0, w: 200, h: 160 };
     case 'knife':

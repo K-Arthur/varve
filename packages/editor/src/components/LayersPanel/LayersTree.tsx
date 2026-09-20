@@ -48,6 +48,7 @@ import {
 } from 'react';
 import { setInvalidateThumbnailHandler, useEditor } from '../../context';
 import { automaticNavigationForLayerActivation } from '../../navigation/layerNavigationPolicy';
+import { isPublishingPageSurface } from '../../scene/activeWorkspace';
 import {
   getOrCreateParentCache,
   getParentFast,
@@ -575,16 +576,17 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     () => resolvePrimarySelectionId(state.document, state.selection, state.primaryId),
     [state.document, state.selection, state.primaryId],
   );
+  const pageSurface = isPublishingPageSurface(state.document, state.workspaceMode);
 
   const entries = useFlatTree(
     state.document,
     expanded,
     filterSpec,
     filterMatchedIds,
-    state.workspaceMode === 'print' ? (state.document.activePageId ?? undefined) : undefined,
+    pageSurface ? (state.document.activePageId ?? undefined) : undefined,
     state.isolatedNodeId ?? undefined,
     state.masterEditId ?? undefined,
-    state.workspaceMode !== 'print' ? state.document.activeDesignCanvasId : undefined,
+    pageSurface ? undefined : state.document.activeDesignCanvasId,
     docDiff,
   );
 

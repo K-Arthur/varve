@@ -56,4 +56,70 @@ describe('resolvePageSurfaceVisibility', () => {
       showPrintGeometry: false,
     });
   });
+
+  it('discloses publishing pages in Draw for a comic profile', () => {
+    expect(
+      resolvePageSurfaceVisibility({
+        mode: 'drawing',
+        pageCount: 3,
+        pagePanelVisible: true,
+        workflowProfile: 'manga',
+      }),
+    ).toEqual({
+      renderPageSurfaces: true,
+      showPagesPanel: true,
+      showPageNavigation: true,
+      showPrintGeometry: false,
+    });
+  });
+
+  it("reveals a comic Draw document's pages through the Draw default", () => {
+    // Draw's built-in layout hides the Page Navigator. An untouched default
+    // must not make a profiled document's own pages undiscoverable.
+    expect(
+      resolvePageSurfaceVisibility({
+        mode: 'drawing',
+        pageCount: 3,
+        pagePanelVisible: false,
+        workflowProfile: 'comic-print',
+        pagePanelUserControlled: false,
+      }),
+    ).toMatchObject({
+      showPagesPanel: true,
+      showPageNavigation: true,
+      renderPageSurfaces: true,
+    });
+  });
+
+  it('honors an explicit user hide of the Page Navigator in comic Draw', () => {
+    expect(
+      resolvePageSurfaceVisibility({
+        mode: 'drawing',
+        pageCount: 3,
+        pagePanelVisible: false,
+        workflowProfile: 'comic-print',
+        pagePanelUserControlled: true,
+      }),
+    ).toMatchObject({
+      showPagesPanel: false,
+      showPageNavigation: false,
+      renderPageSurfaces: true,
+    });
+  });
+
+  it('keeps ordinary Draw documents free of publishing chrome', () => {
+    expect(
+      resolvePageSurfaceVisibility({
+        mode: 'drawing',
+        pageCount: 3,
+        pagePanelVisible: false,
+        pagePanelUserControlled: false,
+      }),
+    ).toEqual({
+      renderPageSurfaces: false,
+      showPagesPanel: false,
+      showPageNavigation: false,
+      showPrintGeometry: false,
+    });
+  });
 });

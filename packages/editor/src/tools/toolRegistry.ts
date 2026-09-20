@@ -60,6 +60,15 @@ export const TOOL_REGISTRY = [
     aliases: ['artboard', 'container'],
   },
   {
+    id: 'panel',
+    label: 'Panel',
+    icon: 'PanelTop',
+    category: 'layout',
+    kind: 'tool',
+    shortcutId: 'toolPanel',
+    aliases: ['comic panel', 'manga panel', 'webtoon panel', 'frame border'],
+  },
+  {
     id: 'rect',
     label: 'Rectangle',
     icon: 'Square',

@@ -42,6 +42,7 @@ import { MaskSection } from './sections/MaskSection';
 import { MockupsSection } from './sections/MockupsSection';
 import { PaintLibrarySection } from './sections/PaintLibrarySection';
 import { PaletteSection } from './sections/PaletteSection';
+import { PanelLayoutsSection } from './sections/PanelLayoutsSection';
 import { PathTextSection } from './sections/PathTextSection';
 import { PerspectiveSection } from './sections/PerspectiveSection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
@@ -74,6 +75,10 @@ interface CompositionMember {
  */
 const SINGLE_MEMBERS: CompositionMember[] = [
   { id: 'align-distribute', render: () => <AlignDistributeBar /> },
+  {
+    id: 'panel-layouts',
+    render: () => <PanelLayoutsSection sectionId="panel-layouts" />,
+  },
   {
     id: 'component',
     render: ({ node }) => <ComponentSection node={node as import('@varve/scene').FrameNode} />,
@@ -154,6 +159,7 @@ const SINGLE_TABLE_MEMBERS: CompositionMember[] = [
 /** Heterogeneous or same-kind multi-selection: shared intersection controls. */
 const MULTI_MEMBERS: CompositionMember[] = [
   { id: 'align-distribute', render: () => <AlignDistributeBar /> },
+  { id: 'panel-layouts', render: () => <PanelLayoutsSection sectionId="panel-layouts" /> },
   { id: 'position-size', render: ({ nodes }) => <PositionSizeSection nodes={nodes} /> },
   { id: 'corner-radius', render: ({ nodes }) => <CornerRadiusSection nodes={nodes} /> },
   { id: 'layout-child', render: ({ nodes }) => <LayoutChildSection nodes={nodes} /> },

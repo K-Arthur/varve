@@ -254,6 +254,7 @@ export const SHORTCUT_DEFS = {
   toolSelect: { binding: { key: 'v' }, label: 'Select tool', category: 'Tools' },
   toolLasso: { binding: { key: 'l', shift: true }, label: 'Lasso tool', category: 'Tools' },
   toolFrame: { binding: { key: 'f' }, label: 'Frame tool', category: 'Tools' },
+  toolPanel: { binding: { key: 'f', shift: true }, label: 'Panel tool', category: 'Tools' },
   toolRect: { binding: { key: 'r' }, label: 'Rectangle tool', category: 'Tools' },
   toolEllipse: { binding: { key: 'o' }, label: 'Ellipse tool', category: 'Tools' },
   toolLine: { binding: { key: 'l' }, label: 'Line tool', category: 'Tools' },

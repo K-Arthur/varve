@@ -263,6 +263,10 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.arrange.nudgeRight': 'Nudge Right',
   'menu.arrange.harmonizeSpacing': 'Harmonize Spacing',
   'menu.arrange.tidyUp': 'Tidy Up',
+  'menu.arrange.joinPanels': 'Join Panels',
+  'menu.arrange.renumberPanelsLtr': 'Renumber Panels (Left to Right)',
+  'menu.arrange.renumberPanelsRtl': 'Renumber Panels (Right to Left)',
+  'menu.arrange.panelLayouts': 'Panel Layouts…',
 
   // ── Page ───────────────────────────────────────────────────────────────────
   'menu.page.createMaster': 'Create Master Page',

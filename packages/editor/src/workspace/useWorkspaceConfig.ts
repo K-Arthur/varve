@@ -40,17 +40,38 @@ export function resolvePageSurfaceVisibility(input: {
   mode: WorkspaceMode;
   pageCount: number;
   pagePanelVisible: boolean;
+  /** Comic profiles opt Draw into publishing-page presentation without a new mode. */
+  workflowProfile?: 'comic-print' | 'manga' | 'webtoon-vertical';
+  /**
+   * Whether the user explicitly customized the Page Navigator visibility for
+   * this mode. The built-in Draw layout hides it; an explicit choice always
+   * wins, but an untouched default must not hide a comic document's own pages.
+   */
+  pagePanelUserControlled?: boolean;
 }): PageSurfaceVisibility {
   const hasPages = Number.isFinite(input.pageCount) && input.pageCount > 0;
   const isDesign = input.mode === 'design';
   const isPrint = input.mode === 'print';
-  const showPagesPanel = input.pagePanelVisible && (isDesign || isPrint);
+  const isComicDrawing = input.mode === 'drawing' && Boolean(input.workflowProfile);
+  const pagePanelRevealed =
+    isComicDrawing && !input.pagePanelUserControlled ? true : input.pagePanelVisible;
+  const showPagesPanel = pagePanelRevealed && (isDesign || isPrint || isComicDrawing);
   return {
-    renderPageSurfaces: isPrint && hasPages,
+    renderPageSurfaces: (isPrint || isComicDrawing) && hasPages,
     showPagesPanel,
-    showPageNavigation: input.pagePanelVisible && isPrint && hasPages,
+    showPageNavigation: pagePanelRevealed && (isPrint || isComicDrawing) && hasPages,
     showPrintGeometry: isPrint && hasPages,
   };
+}
+
+/**
+ * Whether the user has explicitly customized the Page Navigator panel for a
+ * mode. Callers combine this with `resolvePageSurfaceVisibility` so a comic
+ * document's pages are disclosed in Draw without overriding an explicit
+ * hide/show preference.
+ */
+export function isPagePanelUserControlled(mode: WorkspaceMode): boolean {
+  return getWorkspacePreferences()[mode]?.panelOverrides?.pagenav !== undefined;
 }
 
 export function useEffectiveWorkspaceConfig(mode: WorkspaceMode): WorkspaceConfig {

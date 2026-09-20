@@ -237,6 +237,15 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
   },
   // 'frame-resize' was retired: preset resizing is owned by the compact
   // FramePresetDropdown inside Position & Size (see sectionRegistry).
+  'panel-layouts': {
+    surface: 'properties',
+    scope: 'active-tool',
+    frequency: 'occasional',
+    complexity: 'compact',
+    status: 'functional',
+    rationale:
+      'With the Panel tool active and one frame selected, dividing it into a panel grid (duplicating artwork per panel) is the only relevant choice.',
+  },
   icon: {
     surface: 'properties',
     scope: 'selection',

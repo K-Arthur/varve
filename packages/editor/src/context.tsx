@@ -454,7 +454,11 @@ import {
   createLiveBooleanForSelection,
   distributeSelectionInDocument,
   distributionFeedbackForResult,
-  makeDrawingFrameNode,
+  divideFrameIntoPanels,
+  isContainerTool,
+  joinPanels,
+  makeContainerNodeForTool,
+  renumberPanelsInFrame,
   resizeSceneNode,
   resolveAlignmentSurface,
   runKnifeCut,
@@ -559,7 +563,11 @@ import {
   hasPaintProperties,
   setPropertyClipboard,
 } from './propertyClipboard';
-import { activeWorkspaceContentRoot, addNodeToActiveWorkspace } from './scene/activeWorkspace';
+import {
+  activeWorkspaceContentRoot,
+  addNodeToActiveWorkspace,
+  isPublishingPageSurface,
+} from './scene/activeWorkspace';
 import { findContainingFrameInDoc } from './scene/findContainingFrame';
 import {
   getOrCreateParentCache,
@@ -848,10 +856,9 @@ function insertImportedSubtree(
   // workspace imports belong to the active publishing Page. Adding directly
   // to rootChildren would bypass either scoped renderer and make the layer
   // appear in a panel while silently disappearing from the canvas.
-  const contentRootId =
-    workspaceMode === 'print'
-      ? targetDoc.pages?.find((p) => p.id === targetDoc.activePageId)?.contentRoot
-      : designCanvasContentRoot(targetDoc);
+  const contentRootId = isPublishingPageSurface(targetDoc, workspaceMode)
+    ? targetDoc.pages?.find((p) => p.id === targetDoc.activePageId)?.contentRoot
+    : designCanvasContentRoot(targetDoc);
   if (contentRootId && targetDoc.nodes[contentRootId]) {
     const contentRoot = targetDoc.nodes[contentRootId] as ContainerNode;
     const children = contentRoot.children ?? [];
@@ -1054,6 +1061,20 @@ export interface EditorContextValue extends CanonicalEditorContextValue {
    * and selects it. Used by the inspector's frame-preset panel (Figma model).
    */
   applyFramePreset: (preset: { name: string; w: number; h: number }) => void;
+  /**
+   * Divide the selected frame into a panel layout (rows x columns with one
+   * constant gutter), duplicating its artwork into every panel. No-op unless
+   * exactly one frame is selected; see `scene/panelLayout.ts`.
+   */
+  applyPanelLayout: (presetId: string) => void;
+  /** Join selected sibling panels, preserving every child's world transform. */
+  joinPanels: () => void;
+  /**
+   * Renumber the selected frame's child panels in reading order. `ltr` follows
+   * Western page order, `rtl` follows manga order; names already used elsewhere
+   * in the document are skipped.
+   */
+  renumberPanels: (direction: 'ltr' | 'rtl') => void;
   /** Find the deepest frame/group containing a world point (spatial containment). */
   findContainingFrame: (
     world: { x: number; y: number },
@@ -3350,7 +3371,7 @@ export function EditorProvider({
     if (sourceRoot && 'children' in sourceRoot) {
       return sourceRoot.children.map((id) => nodes[id]).filter((n): n is SceneNode => Boolean(n));
     }
-    if (state.workspaceMode !== 'print') {
+    if (!isPublishingPageSurface(state.document, state.workspaceMode)) {
       const designRootId = designCanvasContentRoot(state.document);
       const designRoot = designRootId ? nodes[designRootId] : undefined;
       if (designRoot && 'children' in designRoot) {
@@ -4553,13 +4574,10 @@ export function EditorProvider({
                 h,
                 columnSizing: { kind: 'fraction', value: 1 },
               });
-            } else if (activeTool === 'frame' || activeTool === 'slice') {
-              const exportRegion = activeTool === 'slice';
-              node = makeDrawingFrameNode(id, transform, size, exportRegion);
-              // Frame capture-on-draw must not run for a region: adopting the
-              // artwork it is drawn over is the frame behaviour it exists to
-              // stop.
-              isFrame = !exportRegion;
+            } else if (isContainerTool(activeTool)) {
+              const container = makeContainerNodeForTool(activeTool, id, transform, size);
+              node = container.node;
+              isFrame = container.captureSiblings;
             } else if (pathPoints && pathPoints.length > 0) {
               // Path tools pass world-space anchors; store node-local relative to origin.
               const localPoints = pathPoints.map((p) => ({
@@ -4619,8 +4637,9 @@ export function EditorProvider({
             const effectiveParentId =
               parentId ??
               findContainingFrameInDoc(d2, world, null, {
-                designCanvasId:
-                  s.workspaceMode === 'print' ? null : (d2.activeDesignCanvasId ?? null),
+                designCanvasId: isPublishingPageSurface(d2, s.workspaceMode)
+                  ? null
+                  : (d2.activeDesignCanvasId ?? null),
               });
             let newDoc: Document;
             if (effectiveParentId) {
@@ -4667,10 +4686,9 @@ export function EditorProvider({
             } else {
               // No containing frame: add to the active workspace surface. Design
               // workspace uses the active Design Canvas; Print uses its page.
-              const activePage =
-                s.workspaceMode === 'print'
-                  ? d2.pages?.find((p) => p.id === d2.activePageId)
-                  : undefined;
+              const activePage = isPublishingPageSurface(s.document, s.workspaceMode)
+                ? d2.pages?.find((p) => p.id === d2.activePageId)
+                : undefined;
               const contentRootId = activeWorkspaceContentRoot(d2, s.workspaceMode);
               if (contentRootId && d2.nodes[contentRootId]) {
                 const local = activePage ? pageContentPoint(d2, activePage.id, world) : world;
@@ -4747,7 +4765,10 @@ export function EditorProvider({
               };
             }
 
-            const keepDrawTool = activeTool === 'pen' || activeTool === 'pencil';
+            // A panel is a layout tool: after placing one, the next drag places
+            // the next panel, and the Inspector keeps offering panel layouts.
+            const keepDrawTool =
+              activeTool === 'pen' || activeTool === 'pencil' || activeTool === 'panel';
             return {
               ...s,
               document: newDoc,
@@ -4798,8 +4819,9 @@ export function EditorProvider({
           const effectiveParentId =
             parentId ??
             findContainingFrameInDoc(d2, world, null, {
-              designCanvasId:
-                s.workspaceMode === 'print' ? null : (d2.activeDesignCanvasId ?? null),
+              designCanvasId: isPublishingPageSurface(d2, s.workspaceMode)
+                ? null
+                : (d2.activeDesignCanvasId ?? null),
             });
           let newDoc: Document;
           if (effectiveParentId) {
@@ -4821,10 +4843,9 @@ export function EditorProvider({
           } else {
             // No containing frame: scope the node to the active workspace
             // surface instead of bypassing its root into rootChildren.
-            const activePage =
-              s.workspaceMode === 'print'
-                ? d2.pages?.find((p) => p.id === d2.activePageId)
-                : undefined;
+            const activePage = isPublishingPageSurface(s.document, s.workspaceMode)
+              ? d2.pages?.find((p) => p.id === d2.activePageId)
+              : undefined;
             const contentRootId = activeWorkspaceContentRoot(d2, s.workspaceMode);
             if (contentRootId && d2.nodes[contentRootId]) {
               const local = activePage ? pageContentPoint(d2, activePage.id, world) : world;
@@ -4917,10 +4938,9 @@ export function EditorProvider({
 
           // Scope the new frame to the active workspace surface: Design
           // Canvas in design-oriented workspaces, publishing Page in Print.
-          const activePage =
-            s.workspaceMode === 'print'
-              ? d2.pages?.find((p) => p.id === d2.activePageId)
-              : undefined;
+          const activePage = isPublishingPageSurface(s.document, s.workspaceMode)
+            ? d2.pages?.find((p) => p.id === d2.activePageId)
+            : undefined;
           const contentRootId = activeWorkspaceContentRoot(d2, s.workspaceMode);
           const localCenter = activePage
             ? pageContentPoint(d2, activePage.id, { x: center[0], y: center[1] })
@@ -4944,14 +4964,27 @@ export function EditorProvider({
         });
       },
 
+      applyPanelLayout: (presetId) => {
+        updateDoc((doc) => divideFrameIntoPanels(doc, state.selection, presetId).doc);
+      },
+
+      joinPanels: () => {
+        updateDoc((doc) => joinPanels(doc, state.selection).doc);
+      },
+
+      renumberPanels: (direction) => {
+        updateDoc((doc) => renumberPanelsInFrame(doc, state.selection, direction).doc);
+      },
+
       findContainingFrame: (world, providedFrameIndex) => {
         const frameIndex =
           providedFrameIndex ??
           getOrCreateFrameSpatialIndex(state.document, frameSpatialIndexRef.current);
         frameSpatialIndexRef.current = frameIndex;
         return findContainingFrameInDoc(state.document, world, frameIndex, {
-          designCanvasId:
-            state.workspaceMode === 'print' ? null : state.document.activeDesignCanvasId,
+          designCanvasId: isPublishingPageSurface(state.document, state.workspaceMode)
+            ? null
+            : state.document.activeDesignCanvasId,
         });
       },
 
@@ -5027,8 +5060,9 @@ export function EditorProvider({
         const engine = new HitTestEngine(state.document, {
           isolatedNodeId: state.isolatedNodeId,
           masterEditId: state.masterEditId,
-          designCanvasId:
-            state.workspaceMode === 'print' ? null : state.document.activeDesignCanvasId,
+          designCanvasId: isPublishingPageSurface(state.document, state.workspaceMode)
+            ? null
+            : state.document.activeDesignCanvasId,
           zoom: state.zoom,
         });
         const hit = engine.hitTest(world);
@@ -5043,8 +5077,9 @@ export function EditorProvider({
         const engine = HitTestEngine.withPolicy(state.document, policyName, {
           isolatedNodeId: state.isolatedNodeId,
           masterEditId: state.masterEditId,
-          designCanvasId:
-            state.workspaceMode === 'print' ? null : state.document.activeDesignCanvasId,
+          designCanvasId: isPublishingPageSurface(state.document, state.workspaceMode)
+            ? null
+            : state.document.activeDesignCanvasId,
           zoom: state.zoom,
         });
         const hit = engine.hitTest(world);
@@ -6980,8 +7015,9 @@ export function EditorProvider({
           state.document,
           state.selection,
           collectLayerColorScope(state.document, {
-            designCanvasId:
-              state.workspaceMode === 'print' ? undefined : state.document.activeDesignCanvasId,
+            designCanvasId: isPublishingPageSurface(state.document, state.workspaceMode)
+              ? undefined
+              : state.document.activeDesignCanvasId,
             isolatedNodeId: state.isolatedNodeId,
             masterEditId: state.masterEditId,
           }),
@@ -10575,6 +10611,9 @@ export function EditorProvider({
       createShapeAt: value.createShapeAt,
       createTextNodeAt: value.createTextNodeAt,
       applyFramePreset: value.applyFramePreset,
+      applyPanelLayout: value.applyPanelLayout,
+      joinPanels: value.joinPanels,
+      renumberPanels: value.renumberPanels,
       removeSelected: value.removeSelected,
       renameSelected: value.renameSelected,
       renameNodeById: value.renameNodeById,

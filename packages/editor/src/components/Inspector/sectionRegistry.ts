@@ -58,6 +58,7 @@ export type SectionId =
   | 'component'
   | 'icon'
   | 'frame-presets'
+  | 'panel-layouts'
   | 'align-distribute'
   | 'cognitive-load'
   | 'prototype-flow'
@@ -541,6 +542,27 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     // The Frame tool's own Inspector content: with nothing selected, choosing
     // a preset places a new frame of that size.
     isAvailable: (ctx) => ctx.activeTool === 'frame' && ctx.selectionKind === 'empty',
+  },
+  {
+    id: 'panel-layouts',
+    title: 'Panel Layouts',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 126,
+    category: 'tool',
+    // The Panel tool's own Inspector content: one frame selected, so choosing
+    // a template divides it into a panel grid (artwork is duplicated per panel),
+    // or multiple semantic panels are selected so they can be joined.
+    isAvailable: (ctx) => {
+      if (ctx.activeTool !== 'panel') return false;
+      if (ctx.selectionKind === 'single') return ctx.selectedNodes[0]?.kind === 'frame';
+      return (
+        ctx.selectionKind === 'multi' &&
+        ctx.selectedNodes.length >= 2 &&
+        ctx.selectedNodes.every((node) => node.kind === 'frame' && Boolean(node.panel))
+      );
+    },
   },
   // 'frame-resize' was retired: the compact FramePresetDropdown inside
   // Position & Size already owns preset resizing, including "Save current

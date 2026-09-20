@@ -123,6 +123,9 @@ export function buildToolContext(
   const drawingInput = getDrawingInputSettings();
   const effectiveDesignCanvasId =
     s.document.activeDesignCanvasId ?? s.document.designCanvases?.[0]?.id ?? null;
+  const pageSurface =
+    s.workspaceMode === 'print' ||
+    (s.workspaceMode === 'drawing' && Boolean(s.document.workflowProfile));
 
   // Active construction plane for new geometry. Resolved from the same
   // explicit active-grid helper as snapping and display so all three agree;
@@ -202,10 +205,10 @@ export function buildToolContext(
     isolatedNodeId: s.isolatedNodeId,
     selectionSurfaceKey: [
       s.masterEditId ? `master:${s.masterEditId}` : null,
-      !s.masterEditId && s.workspaceMode !== 'print' && effectiveDesignCanvasId
+      !s.masterEditId && !pageSurface && effectiveDesignCanvasId
         ? `designCanvas:${effectiveDesignCanvasId}`
         : null,
-      !s.masterEditId && (s.workspaceMode === 'print' || !s.document.designCanvases?.length)
+      !s.masterEditId && (pageSurface || !s.document.designCanvases?.length)
         ? `page:${s.document.activePageId ?? ''}`
         : null,
       `isolation:${s.isolatedNodeId ?? ''}`,
@@ -213,7 +216,7 @@ export function buildToolContext(
       .filter((part): part is string => part !== null)
       .join('|'),
     masterEditId: s.masterEditId,
-    designCanvasId: s.workspaceMode === 'print' ? null : effectiveDesignCanvasId,
+    designCanvasId: pageSurface ? null : effectiveDesignCanvasId,
     enterIsolation: (nodeId) => e.enterIsolation(nodeId),
     exitIsolation: () => e.exitIsolation(),
 
@@ -668,12 +671,17 @@ export function buildToolContext(
         );
       });
     },
-    createRasterLayer: (width, height, parentId = null) => {
+    createRasterLayer: (width, height, parentId = null, pixelScale = 1) => {
       const s2 = deps.stateRef.current;
       const { id, doc: d2 } = nextNodeId(s2.document);
       const layer = makeRasterLayerNode(id, { width, height }, { name: 'Brush Layer' });
-      const activeRoot =
-        parentId ?? (s.workspaceMode === 'print' ? null : designCanvasContentRoot(d2));
+      if (pixelScale !== 1) {
+        layer.transform = [1 / pixelScale, 0, 0, 1 / pixelScale, 0, 0];
+      }
+      const pageContentRoot = pageSurface
+        ? d2.pages?.find((page) => page.id === d2.activePageId)?.contentRoot
+        : null;
+      const activeRoot = parentId ?? pageContentRoot ?? designCanvasContentRoot(d2);
       const newDoc = activeRoot ? addChild(d2, activeRoot, layer) : addNode(d2, layer);
       e.updateDoc(() => newDoc);
       return id;

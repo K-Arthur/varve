@@ -1217,6 +1217,7 @@ export function createActionHandlers(
     // ── Tools ──
     toolSelect: setTool('select'),
     toolFrame: setTool('frame'),
+    toolPanel: setTool('panel'),
     toolRect: setTool('rect'),
     toolEllipse: setTool('ellipse'),
     toolLine: setTool('line'),
@@ -1269,6 +1270,14 @@ export function createActionHandlers(
       e.announce?.('Spacing harmonized');
     },
     tidySelected: () => e.tidySelected?.(4),
+    renumberPanelsLtr: () => e.renumberPanels?.('ltr'),
+    renumberPanelsRtl: () => e.renumberPanels?.('rtl'),
+    joinPanels: () => e.joinPanels?.(),
+    showPanelLayouts: () => {
+      setTool('panel')();
+      e.setInspectorTab('properties');
+      e.announce?.('Panel Layouts are in the Inspector. Select a frame to divide it into panels.');
+    },
     newAdjustmentLayer: () => e.createAdjustmentLayer(),
     smartFilterInvert: () => e.addSmartFilterToSelected('invert'),
     openInspectorProperties: () => e.setInspectorTab('properties'),

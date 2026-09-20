@@ -49,7 +49,12 @@ import {
   paintMaskDab,
 } from './maskPaintSession';
 import { resolvePaintTarget } from './paintTarget';
-import { createRasterTarget, findEditableRasterLayer, rasterLocalPoint } from './rasterTarget';
+import {
+  createRasterTarget,
+  findEditableRasterLayer,
+  rasterLocalPoint,
+  rasterPixelScale,
+} from './rasterTarget';
 import { selectionCoverageForDab } from './selectionCoverage';
 import { resolveSymmetryTransforms, type SymmetrySettings, transformStrokePoint } from './symmetry';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
@@ -305,6 +310,12 @@ export class PaintTool extends BaseTool {
 
     const generation = this.nextGeneration++;
     const preset = { ...this.preset, dynamics: [...this.preset.dynamics] };
+    // Brush settings are expressed in document-space pixels. A high-PPI
+    // layer stores more local pixels for the same physical surface, so scale
+    // the captured preset once per stroke to keep the visible brush size
+    // stable while coordinates continue to map through the layer transform.
+    const pixelScale = rasterPixelScale(ctx, rasterNodeId);
+    preset.radius *= pixelScale;
     const baseStrokeId = `${this.id}:${rasterNodeId}`;
     const branches = this.buildBranches(baseStrokeId);
     const session: PaintStrokeSession = {

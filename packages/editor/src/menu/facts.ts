@@ -32,6 +32,13 @@ export function computeSelectionFacts(
     return s.mask != null;
   });
   const hasAdjustment = selected.some((n) => n.kind === 'adjustment');
+  const semanticPanelCount = selected.filter(
+    (n) => n.kind === 'frame' && (n as SceneNode & { panel?: unknown }).panel != null,
+  ).length;
+  const singleFrame = count === 1 && selected[0]?.kind === 'frame' ? selected[0] : undefined;
+  const selectedFramePanelChildren = singleFrame
+    ? (singleFrame.children ?? []).filter((id) => nodes[id]?.kind === 'frame').length
+    : 0;
 
   const fact: SelectionFacts = {
     count,
@@ -55,6 +62,8 @@ export function computeSelectionFacts(
     canUngroup: count === 1 && selected.some((n) => isContainer(n) && n.children.length > 0),
     hasMask,
     hasAdjustment,
+    semanticPanelCount,
+    selectedFramePanelChildren,
   };
 
   _lastSelectionFacts = fact;

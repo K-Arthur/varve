@@ -6,6 +6,7 @@ import {
   collectLayerColorScope,
   findSameLayerColorIds,
 } from '../components/LayersPanel/layerBulkOperations';
+import { isPublishingPageSurface } from '../scene/activeWorkspace';
 import {
   DEFAULT_SELECTION_ORIGIN,
   type EditorState,
@@ -187,7 +188,9 @@ export function SelectionProvider({ children, state, setState }: SelectionProvid
         s.document,
         s.selection,
         collectLayerColorScope(s.document, {
-          designCanvasId: s.workspaceMode === 'print' ? undefined : s.document.activeDesignCanvasId,
+          designCanvasId: isPublishingPageSurface(s.document, s.workspaceMode)
+            ? undefined
+            : s.document.activeDesignCanvasId,
           isolatedNodeId: s.isolatedNodeId,
           masterEditId: s.masterEditId,
         }),

@@ -18,12 +18,16 @@ import {
 
 /**
  * Resolve the content owner for editor-created layers. Design Canvas content
- * is intentionally unavailable to Print workspace commands; Print commands
+ * is intentionally unavailable to publishing-page workflows; those commands
  * target the active publishing Page instead.
  */
 export function activeWorkspaceContentRoot(doc: Document, workspaceMode: string): NodeId | null {
-  if (workspaceMode !== 'print') return designCanvasContentRoot(doc);
+  if (!isPublishingPageSurface(doc, workspaceMode)) return designCanvasContentRoot(doc);
   return doc.pages?.find((page) => page.id === doc.activePageId)?.contentRoot ?? null;
+}
+
+export function isPublishingPageSurface(doc: Document, workspaceMode: string): boolean {
+  return workspaceMode === 'print' || (workspaceMode === 'drawing' && Boolean(doc.workflowProfile));
 }
 
 export function addNodeToActiveWorkspace(

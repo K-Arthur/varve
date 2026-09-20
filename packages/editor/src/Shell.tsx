@@ -98,6 +98,7 @@ import { TabStrip } from './TabStrip';
 import { TimelinePanel } from './timeline/TimelinePanel';
 import {
   editorHeadingLabel,
+  isPagePanelUserControlled,
   resolvePageSurfaceVisibility,
   useDetachedPanels,
   useEffectiveWorkspaceConfig,
@@ -561,6 +562,8 @@ function ShellInner({
     mode: workspaceMode,
     pageCount,
     pagePanelVisible: effectiveConfig.panels.pagenav.visible,
+    workflowProfile: editor.state.document.workflowProfile,
+    pagePanelUserControlled: isPagePanelUserControlled(workspaceMode),
   });
   // Mode-preferred panel widths apply only when the user hasn't resized the
   // panel (a saved width always wins over the mode default).

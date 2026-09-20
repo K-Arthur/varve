@@ -45,6 +45,16 @@ function enabledWithTripleSelection(ctx: MenuContext): true | { reason: string }
   return { reason: 'Select at least three layers to distribute.' };
 }
 
+function enabledWithPanelJoin(ctx: MenuContext): true | { reason: string } {
+  if (ctx.selection.semanticPanelCount >= 2) return true;
+  return { reason: 'Select 2 or more comic panels' };
+}
+
+function enabledWithFramePanels(ctx: MenuContext): true | { reason: string } {
+  if (ctx.selection.selectedFramePanelChildren > 0) return true;
+  return { reason: 'Select a frame that contains panels' };
+}
+
 function enabledWithSingleGroup(ctx: MenuContext): true | { reason: string } {
   if (ctx.selection.isSingle && ctx.selection.hasGroup) return true;
   return { reason: 'Select a group to ungroup' };
@@ -1883,6 +1893,41 @@ function getAlignSubmenuItems(runAction: (id: string) => void): MenuItemDef[] {
       group: 'tidy',
       enabled: enabledWithMultiSelection,
       run: () => runAction('tidySelected'),
+    },
+    {
+      id: 'joinPanels',
+      labelKey: 'menu.arrange.joinPanels',
+      kind: 'command',
+      group: 'panels',
+      workspaces: ['design', 'print', 'drawing'],
+      enabled: enabledWithPanelJoin,
+      run: () => runAction('joinPanels'),
+    },
+    {
+      id: 'renumberPanelsLtr',
+      labelKey: 'menu.arrange.renumberPanelsLtr',
+      kind: 'command',
+      group: 'panels',
+      workspaces: ['design', 'print', 'drawing'],
+      enabled: enabledWithFramePanels,
+      run: () => runAction('renumberPanelsLtr'),
+    },
+    {
+      id: 'renumberPanelsRtl',
+      labelKey: 'menu.arrange.renumberPanelsRtl',
+      kind: 'command',
+      group: 'panels',
+      workspaces: ['design', 'print', 'drawing'],
+      enabled: enabledWithFramePanels,
+      run: () => runAction('renumberPanelsRtl'),
+    },
+    {
+      id: 'showPanelLayouts',
+      labelKey: 'menu.arrange.panelLayouts',
+      kind: 'command',
+      group: 'panels',
+      workspaces: ['design', 'print', 'drawing'],
+      run: () => runAction('showPanelLayouts'),
     },
   ];
 }

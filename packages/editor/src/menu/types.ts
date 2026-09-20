@@ -47,6 +47,10 @@ export interface SelectionFacts {
   canUngroup: boolean;
   hasMask: boolean;
   hasAdjustment: boolean;
+  /** Selected frames carrying semantic panel metadata (comic panels). */
+  semanticPanelCount: number;
+  /** Child frames of the single selected frame — renumbering operates on these. */
+  selectedFramePanelChildren: number;
 }
 
 export interface DocumentFacts {
