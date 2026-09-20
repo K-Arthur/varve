@@ -114,9 +114,11 @@ test('Position & Size keeps equal value columns across Inspector widths', async 
   const position = page.getByRole('group', { name: 'Position & Size' });
   await expect(position).toBeVisible();
   const samples: Record<number, unknown> = {};
-  const expectedInspectorRowHeight = await page.locator('.editor-inspector').evaluate((el) =>
-    Number.parseFloat(getComputedStyle(el).getPropertyValue('--insp-row-height')),
-  );
+  const expectedInspectorRowHeight = await page
+    .locator('.editor-inspector')
+    .evaluate((el) =>
+      Number.parseFloat(getComputedStyle(el).getPropertyValue('--insp-row-height')),
+    );
   for (const width of RAILS) {
     await setRail(page, width);
     await position.scrollIntoViewIfNeeded();
@@ -224,9 +226,11 @@ test('frame geometry and Stack / Grid keep stable inspector rails', async ({ pag
   await expect(layout).toBeVisible();
 
   const samples: Record<number, unknown> = {};
-  const expectedInspectorRowHeight = await page.locator('.editor-inspector').evaluate((el) =>
-    Number.parseFloat(getComputedStyle(el).getPropertyValue('--insp-row-height')),
-  );
+  const expectedInspectorRowHeight = await page
+    .locator('.editor-inspector')
+    .evaluate((el) =>
+      Number.parseFloat(getComputedStyle(el).getPropertyValue('--insp-row-height')),
+    );
   for (const width of RAILS) {
     await setRail(page, width);
     const geometry = await position.evaluate((section) => {
@@ -298,9 +302,15 @@ test('frame geometry and Stack / Grid keep stable inspector rails', async ({ pag
       const space1 = getComputedStyle(spacingProbe).rowGap;
       spacingProbe.style.rowGap = 'var(--space-2)';
       const space2 = getComputedStyle(spacingProbe).rowGap;
+      spacingProbe.style.rowGap = 'var(--space-3)';
+      const space3 = getComputedStyle(spacingProbe).rowGap;
+      spacingProbe.style.rowGap = 'var(--space-4)';
+      const space4 = getComputedStyle(spacingProbe).rowGap;
       const tokenSpacing = {
         space1,
         space2,
+        space3,
+        space4,
       };
       spacingProbe.remove();
       return {
@@ -331,10 +341,13 @@ test('frame geometry and Stack / Grid keep stable inspector rails', async ({ pag
     expect(
       Math.max(...layoutMetrics.inputWidths) - Math.min(...layoutMetrics.inputWidths),
     ).toBeLessThanOrEqual(4);
+    // The Sizing subgroup carries the group gap above it (one step above the
+    // body row gap) and no rule of its own: in the Inspector, rules mark
+    // section boundaries and labels mark groups.
     expect(layoutMetrics.sizing).toEqual({
-      marginBlockStart: layoutMetrics.tokenSpacing.space2,
-      paddingBlockStart: layoutMetrics.tokenSpacing.space2,
-      gap: layoutMetrics.tokenSpacing.space2,
+      marginBlockStart: layoutMetrics.tokenSpacing.space4,
+      paddingBlockStart: layoutMetrics.tokenSpacing.space1,
+      gap: layoutMetrics.tokenSpacing.space3,
     });
     samples[width] = { geometry, layout: layoutMetrics };
     if (width === 240 || width === 400 || width === 640) {
@@ -406,9 +419,29 @@ test('sticky section headers own the Inspector scroller inset', async ({ page },
   const isometricTrigger = page.getByRole('button', { name: /isometric grid/i }).first();
   await isometricTrigger.scrollIntoViewIfNeeded();
   await isometricTrigger.click();
-  await panel.evaluate((element) => {
-    element.scrollTop = Math.min(element.scrollHeight, 1_650);
+  // Scroll relative to the section's own offset instead of a hard-coded
+  // position: a fixed 1,650px depended on the panel's total height, so any
+  // rhythm change silently stopped before the header reached its sticky
+  // threshold and the assertion below measured an unstuck header.
+  const scrollTarget = await panel.evaluate((element) => {
+    const owner = [...element.querySelectorAll<HTMLElement>('.insp-disclosure')].find((section) =>
+      section
+        .querySelector('.insp-disclosure__trigger')
+        ?.textContent?.trim()
+        .toLowerCase()
+        .includes('isometric grid'),
+    );
+    const header = owner?.querySelector<HTMLElement>('.insp-disclosure__header');
+    if (!header) throw new Error('expanded Isometric Grid header not found');
+    const scrollerRect = element.getBoundingClientRect();
+    return {
+      headerOffset: header.getBoundingClientRect().top - scrollerRect.top + element.scrollTop,
+      maxScroll: element.scrollHeight - element.clientHeight,
+    };
   });
+  await panel.evaluate((element, target) => {
+    element.scrollTop = Math.min(target.maxScroll, target.headerOffset + 160);
+  }, scrollTarget);
   await page.waitForTimeout(120);
 
   const metrics = await panel.evaluate((element) => {
@@ -434,11 +467,19 @@ test('sticky section headers own the Inspector scroller inset', async ({ page },
       scrollTop: element.scrollTop,
       scroller: { top: scrollerRect.top, bottom: scrollerRect.bottom },
       header: { top: headerRect.top, bottom: headerRect.bottom },
+      // The header deliberately sticks through the panel's top inset so
+      // preceding rows cannot show above it; the contract is "stuck at the
+      // declared offset", not "stuck at exactly the scroller edge".
+      stickyOffset: Number.parseFloat(getComputedStyle(header).top),
       intersectingLabels,
     };
   });
   console.log(`sticky-header baseline: ${JSON.stringify(metrics)}`);
+  // The negative top offset compensates the scroller's own padding, so the
+  // stuck header lands exactly on the scroller edge and owns the inset strip
+  // (measured: header.top === scroller.top with stickyOffset === -panelInset).
   expect(Math.abs(metrics.header.top - metrics.scroller.top)).toBeLessThanOrEqual(0.5);
+  expect(metrics.stickyOffset).toBeLessThan(0);
   expect(metrics.intersectingLabels).toEqual([]);
   await panel.screenshot({
     path: testInfo.outputPath('sticky-header-baseline.png'),
