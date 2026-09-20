@@ -8,7 +8,12 @@
  */
 
 import type { Affine, PathPoint } from '@varve/engine';
-import { resolveTextGeometry, resolveTextGeometryMode, type TextWrapShape } from '@varve/shared';
+import {
+  measureAdvanceWidth,
+  resolveTextGeometry,
+  resolveTextGeometryMode,
+  type TextWrapShape,
+} from '@varve/shared';
 import { computeReparentTransform, nodeWorldBounds, worldRectToLocal } from './coordinateService';
 import type { Document } from './document';
 import { addChild, addNode, makePathNode, makeShapeNode, makeTextNode } from './document';
@@ -656,6 +661,35 @@ function updateTailGeometry(
   return next;
 }
 
+/**
+ * Width of the widest unbreakable token in the bound text, in text-local px.
+ *
+ * A contour balloon may wrap lines, but no line can be narrower than its
+ * longest word without char-breaking it. Fit uses this as a floor so a long
+ * translation in a small balloon grows a readable box instead of a column of
+ * broken syllables. Rich runs are approximated with the node's base format.
+ */
+function widestWordWidth(text: TextNode): number {
+  const source =
+    text.richText?.paragraphs.map((p) => p.runs.map((run) => run.text).join('')).join('\n') ??
+    text.text;
+  if (!source) return 0;
+  const options = {
+    fontSize: text.fontSize ?? 16,
+    fontFamily: text.fontFamily,
+    fontWeight: text.fontWeight,
+    fontStyle: text.fontStyle,
+    letterSpacing: text.letterSpacing,
+    tracking: text.tracking,
+  };
+  let widest = 0;
+  for (const word of source.split(/\s+/)) {
+    if (!word) continue;
+    widest = Math.max(widest, measureAdvanceWidth(word, options));
+  }
+  return widest;
+}
+
 function setTextContainer(
   text: TextNode,
   width: number,
@@ -963,6 +997,45 @@ export function updateCalloutPadding(doc: Document, groupId: NodeId, padding: nu
   };
 }
 
+/**
+ * Keep an authored tail endpoint outside a resized body. Preserving the
+ * endpoint is right when the body grows away from it, but a fit can grow the
+ * body past the tip, which would leave the tail pointing inside the balloon.
+ * The direction the author aimed (dominant vertical or horizontal offset from
+ * the old body center) is preserved and re-applied to the new body, so a
+ * balloon that grows downward keeps its downward tail.
+ */
+function projectEndpointOutsideBody(
+  endpoint: { x: number; y: number },
+  oldWidth: number,
+  oldHeight: number,
+  newWidth: number,
+  newHeight: number,
+): { x: number; y: number } {
+  const margin = 6;
+  const inside =
+    endpoint.x >= -margin &&
+    endpoint.x <= newWidth + margin &&
+    endpoint.y >= -margin &&
+    endpoint.y <= newHeight + margin;
+  if (!inside) return endpoint;
+  const nx = oldWidth > 0 ? (endpoint.x - oldWidth / 2) / (oldWidth / 2) : 0;
+  const ny = oldHeight > 0 ? (endpoint.y - oldHeight / 2) / (oldHeight / 2) : 0;
+  const length = Math.max(24, newHeight * 0.3);
+  if (Math.abs(ny) >= Math.abs(nx)) {
+    const sign = ny >= 0 ? 1 : -1;
+    return {
+      x: newWidth / 2 + nx * (newWidth / 2),
+      y: sign > 0 ? newHeight + length : -length,
+    };
+  }
+  const sign = nx >= 0 ? 1 : -1;
+  return {
+    x: sign > 0 ? newWidth + length : -length,
+    y: newHeight / 2 + ny * (newHeight / 2),
+  };
+}
+
 /** Fit the body around the bound text without rewriting the text content. */
 export function fitCalloutToText(doc: Document, groupId: NodeId): Document {
   const group = calloutGroup(doc, groupId);
@@ -990,6 +1063,12 @@ export function fitCalloutToText(doc: Document, groupId: NodeId): Document {
     });
   let innerW = current.w;
   let innerH = current.h;
+  if (contour) {
+    // Never fit narrower than the longest word: a small balloon holding a
+    // long translated word must grow into a readable box, not a column of
+    // character-broken syllables that still overflows.
+    innerW = Math.max(innerW, widestWordWidth(text) + 2);
+  }
   for (let pass = 0; pass < 4; pass++) {
     const geometry = geometryAt(innerW, innerH);
     const nextW = contour
@@ -1002,14 +1081,57 @@ export function fitCalloutToText(doc: Document, groupId: NodeId): Document {
     innerW = nextW;
     innerH = nextH;
   }
+  if (contour) {
+    // Balance a column into a balloon: a stack more than twice as tall as it
+    // is wide reads as a strip, so widen in bounded deterministic steps until
+    // the mass is roughly two-to-one or the steps run out.
+    for (let step = 0; step < 4 && innerH > innerW * 2; step++) {
+      const candidate = Math.round(innerW * 1.35);
+      const geometry = geometryAt(candidate, innerH);
+      innerW = Math.max(candidate, geometry.layout.w);
+      innerH = Math.max(1, geometry.layout.h);
+    }
+  }
   const settled = geometryAt(innerW, innerH);
   innerW = Math.max(innerW, settled.layout.w);
   innerH = Math.max(innerH, settled.layout.h);
 
   const localW = innerW + p * 2;
   const localH = innerH + p * 2;
-  let nodes: Record<NodeId, SceneNode> = {
-    ...doc.nodes,
+  let nodes: Record<NodeId, SceneNode> = { ...doc.nodes };
+  // A fit can grow the body past a preserved tip; move only those endpoints
+  // that the new geometry swallowed, then rebuild every tail from them.
+  for (const tail of calloutTails(group)) {
+    const endpoint = tailEndpointFor(tail, nodes, body.shape);
+    const projected = projectEndpointOutsideBody(
+      endpoint,
+      body.shape.w,
+      body.shape.h,
+      localW,
+      localH,
+    );
+    if (projected === endpoint) continue;
+    if (tail.style === 'thought') {
+      const lastId = tail.nodeIds[tail.nodeIds.length - 1];
+      const last = lastId ? nodes[lastId] : undefined;
+      if (last?.kind === 'shape' && last.shape.kind === 'circle') {
+        nodes[lastId!] = {
+          ...last,
+          shape: { ...last.shape, cx: projected.x, cy: projected.y },
+        };
+      }
+    } else {
+      const nodeId = tail.nodeIds[0];
+      const node = nodeId ? nodes[nodeId] : undefined;
+      if (node?.kind === 'path' && node.points.length > 0) {
+        const points = [...node.points];
+        points[points.length - 1] = { ...points[points.length - 1]!, ...projected };
+        nodes[nodeId!] = { ...node, points };
+      }
+    }
+  }
+  nodes = {
+    ...nodes,
     [body.id]: { ...body, shape: { ...body.shape, w: localW, h: localH } },
     [text.id]: setTextContainer(text, innerW, innerH, p),
   };

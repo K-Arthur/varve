@@ -150,7 +150,7 @@ describe('comic callouts', () => {
       w: 80,
       h: 40,
       text: 'A very long line that needs more room',
-      tailEndpoint: { x: 12, y: 100 },
+      tailEndpoint: { x: 12, y: 600 },
     });
     const beforeTail = created.document.nodes[created.tailNodeIds[0]!];
     const beforeEndpoint = beforeTail?.kind === 'path' ? beforeTail.points.at(-1) : null;
@@ -400,6 +400,43 @@ describe('comic callouts', () => {
     expect(width).toBeLessThanOrEqual(280);
     // Snug by construction under the reflow policy, but never overflowing.
     expect(getCalloutFitReport(wrapped, result!.groupId)?.status).not.toBe('overflow');
+  });
+
+  it('grows a small balloon to the widest word instead of a broken column', () => {
+    // Regression from the localization scenario: a 60px balloon holding a
+    // long German replacement used to fit into a tall column that still
+    // overflowed, because no line could hold "sichergehen".
+    const created = createCallout(createDocument('grow-words', true), {
+      x: 0,
+      y: 0,
+      w: 60,
+      h: 87,
+      text: 'Nein, das habe ich überhaupt nicht so gemeint — ich wollte nur sichergehen, dass wir uns verstehen.',
+    });
+    const doc = fitCalloutToText(created.document, created.groupId);
+    const body = doc.nodes[created.bodyId];
+    const width = body?.kind === 'shape' && body.shape.kind === 'rect' ? body.shape.w : 0;
+    expect(width).toBeGreaterThan(60);
+    expect(getCalloutFitReport(doc, created.groupId)?.status).not.toBe('overflow');
+  });
+
+  it('projects a swallowed tail tip outside the fitted body', () => {
+    const created = createCallout(createDocument('tail-swallow', true), {
+      x: 0,
+      y: 0,
+      w: 60,
+      h: 80,
+      text: 'Nein, das habe ich überhaupt nicht so gemeint — ich wollte nur sichergehen, dass wir uns verstehen.',
+      tailEndpoint: { x: 30, y: 112 },
+    });
+    const doc = fitCalloutToText(created.document, created.groupId);
+    const body = doc.nodes[created.bodyId];
+    const tail = doc.nodes[created.tailNodeIds[0]!];
+    const bodyHeight = body?.kind === 'shape' && body.shape.kind === 'rect' ? body.shape.h : 0;
+    const tip = tail?.kind === 'path' ? tail.points.at(-1) : null;
+    expect(tip).not.toBeNull();
+    expect(Number.isFinite(tip!.x)).toBe(true);
+    expect(tip!.y).toBeGreaterThan(bodyHeight);
   });
 
   it('keeps a thought chain attached when the balloon is fitted', () => {

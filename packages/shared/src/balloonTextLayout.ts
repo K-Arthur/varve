@@ -12,9 +12,12 @@
  * The profile is expressed over the number of lines the text actually forms,
  * not over the container height. A tall, mostly empty balloon must not squeeze
  * its first line into a sliver just because the box is tall; a one-line
- * caption must stay full width; and a five-line speech balloon gets the
- * diamond. Callers derive the line count with a plain rectangular pass, then
- * re-lay out with the profile, iterating until the count is stable.
+ * caption must stay (nearly) full width; and a five-line speech balloon gets
+ * the diamond. Callers derive the line count with a plain rectangular pass,
+ * then re-lay out with the profile, iterating until the count is stable.
+ *
+ * The widest chord is held at 94% of the interior measure so no line kisses
+ * the padding edge — the optical inset letterers keep by hand.
  *
  * This module is pure and shared. The scene bounds resolver
  * (`@varve/scene` → `textBounds` → `@varve/shared` `resolveTextGeometry`) and
@@ -42,6 +45,12 @@ export interface BalloonLineWidthProfileOptions {
 }
 
 const DEFAULT_MIN_WIDTH_RATIO = 0.34;
+/**
+ * The widest line of a stack is held just inside the full interior measure
+ * (the lettering "94% line width" convention), so no line ever kisses the
+ * padding edge and a fit keeps an optical margin.
+ */
+const MAX_LINE_FRACTION = 0.94;
 
 function finitePositive(value: number, fallback: number): number {
   return Number.isFinite(value) && value > 0 ? value : fallback;
@@ -56,7 +65,8 @@ function finitePositive(value: number, fallback: number): number {
  * back to a single full-width entry rather than producing NaN.
  */
 export function ellipseLineWidthProfile(options: BalloonLineWidthProfileOptions): number[] {
-  const width = finitePositive(options.width, 1);
+  const interior = finitePositive(options.width, 1);
+  const width = interior * MAX_LINE_FRACTION;
   const lineCount = Math.max(
     1,
     Math.min(512, Number.isFinite(options.lineCount) ? Math.floor(options.lineCount) : 1),

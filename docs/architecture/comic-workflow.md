@@ -81,12 +81,16 @@ with the longest line near the vertical middle.
 
 `fitCalloutToText` sizes the body around the bound text to a bounded fixpoint
 and unions the final pass so text can never clip. It never reduces the type
-size. Under the `fit-balloon` policy a snug body reports `fit`; `reflow`
-reports `near-overflow` before the edge is tight. Creating a balloon around an
-auto-width text node caps the measure to a lettering-friendly width, converts
-it to a fixed container, and fits once — the previous flow produced
-single-line ribbon balloons hundreds of pixels wide. Authored area text keeps
-its box.
+size, and it never fits a contour balloon narrower than its longest word, so a
+long translation grows a readable box instead of a column of broken syllables;
+a bounded balance pass widens a stack that would read as a strip. A tail tip
+the grown body would swallow is re-aimed along the direction the author gave
+it, outside the new edge. Under the `fit-balloon` policy a snug body reports
+`fit`; `reflow` reports `near-overflow` before the edge is tight. Creating a
+balloon around an auto-width text node caps the measure to a lettering-friendly
+width, converts it to a fixed container, and fits once — the previous flow
+produced single-line ribbon balloons hundreds of pixels wide. Authored area
+text keeps its box.
 
 ### Tails
 

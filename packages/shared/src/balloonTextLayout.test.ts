@@ -27,8 +27,10 @@ describe('ellipseLineWidthProfile', () => {
     }
   });
 
-  it('keeps a one-line caption at full width', () => {
-    expect(ellipseLineWidthProfile({ width: 300, lineCount: 1 })).toEqual([300]);
+  it('holds the widest line just inside the measure (94% rule)', () => {
+    expect(ellipseLineWidthProfile({ width: 300, lineCount: 1 })).toEqual([300 * 0.94]);
+    const stack = ellipseLineWidthProfile({ width: 300, lineCount: 5 });
+    for (const width of stack) expect(width).toBeLessThanOrEqual(300 * 0.94 + 1e-9);
   });
 
   it('floors narrow lines so a word is never squeezed into a sliver', () => {
@@ -37,11 +39,11 @@ describe('ellipseLineWidthProfile', () => {
       lineCount: 12,
       minWidthRatio: 0.5,
     });
-    for (const width of widths) expect(width).toBeGreaterThanOrEqual(150 - 1e-9);
+    for (const width of widths) expect(width).toBeGreaterThanOrEqual(300 * 0.94 * 0.5 - 1e-9);
   });
 
   it('returns finite entries for degenerate input instead of NaN', () => {
-    expect(ellipseLineWidthProfile({ width: 0, lineCount: 0 })).toEqual([1]);
+    expect(ellipseLineWidthProfile({ width: 0, lineCount: 0 })).toEqual([0.94]);
     const nanWidth = ellipseLineWidthProfile({ width: Number.NaN, lineCount: 4 });
     expect(nanWidth).toHaveLength(4);
     expect(nanWidth.every((width) => Number.isFinite(width) && width > 0 && width <= 1)).toBe(true);
