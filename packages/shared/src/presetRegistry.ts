@@ -813,6 +813,57 @@ const PAPER_GROUP: PresetGroup = {
   ],
 };
 
+const COMIC_GROUP: PresetGroup = {
+  category: 'comic',
+  label: 'Comic pages & strips',
+  presets: [
+    definePreset({
+      id: 'comic-print-a4',
+      name: 'Comic print (A4)',
+      category: 'comic',
+      width: 210,
+      height: 297,
+      unit: 'mm',
+      dpi: 300,
+      colorMode: 'rgb',
+      background: 'white',
+      description:
+        'A4 page starting point for print comics; bleed and printer profile remain editable.',
+      tags: ['comic', 'print', 'ltr'],
+      workflowHint: 'Comic print profile',
+    }),
+    definePreset({
+      id: 'manga-a5',
+      name: 'Manga (A5)',
+      category: 'comic',
+      width: 148,
+      height: 210,
+      unit: 'mm',
+      dpi: 600,
+      colorMode: 'grayscale',
+      background: 'white',
+      description:
+        'A5 manga page starting point with grayscale and right-to-left binding defaults.',
+      tags: ['manga', 'print', 'rtl', 'grayscale'],
+      workflowHint: 'Manga profile with RTL binding',
+    }),
+    definePreset({
+      id: 'webtoon-vertical',
+      name: 'Webtoon vertical (1600 × 8000)',
+      category: 'comic',
+      width: 1600,
+      height: 8000,
+      unit: 'px',
+      colorMode: 'rgb',
+      background: 'white',
+      description: 'Editable vertical source strip; publisher slice limits are applied at export.',
+      tags: ['webtoon', 'vertical', 'scroll'],
+      workflowHint: 'Vertical episode strip; export slices separately',
+      hasFixedRatio: false,
+    }),
+  ],
+};
+
 const ICON_ASSET_GROUP: PresetGroup = {
   category: 'icon-asset',
   label: 'Icon & Asset',
@@ -981,6 +1032,7 @@ export const BUILTIN_PRESET_GROUPS: PresetGroup[] = [
   VIDEO_MOTION_GROUP,
   PRESENTATION_GROUP,
   PAPER_GROUP,
+  COMIC_GROUP,
   ICON_ASSET_GROUP,
   LOGO_GROUP,
 ];

@@ -30,12 +30,17 @@ import {
   physicalToPx,
 } from '@varve/shared';
 import { defaultColorConfig, uniformBleed } from './colorManagement';
+import { applyComicWorkflowProfile, COMIC_PROFILE_DEFAULTS } from './comicWorkflow';
 import { createDesignCanvas, designCanvasContentRoot } from './designCanvas';
 import { createDocument, type Document, makeFrameNode, nextNodeId } from './document';
 import { addChild, addNode } from './document-nodes';
 import { DocumentCodec } from './documentCodec';
-import { resolveColorProfileRef } from './presetToDocument';
-import type { NodeId } from './types';
+import {
+  comicProfileForPreset,
+  createDocumentOptionsFromPreset,
+  resolveColorProfileRef,
+} from './presetToDocument';
+import type { ComicWorkflowProfile, NodeId } from './types';
 
 /** Hard ceiling for an initial frame's larger dimension, in the document's
  *  fixed-96dpi world unit. Mirrors the engine's practical scene limits. */
@@ -61,6 +66,11 @@ export interface NewDocumentRequest {
   /** Serialized template document ('template'); decoded through the same
    *  versioned migration pipeline as any opened file. */
   templateJson?: string;
+  /** Advisory comic/manga/webtoon production profile. Derived from a comic
+   *  page preset when omitted; a profiled request creates a paged document
+   *  (one publishing page at the preset or profile size) instead of a Design
+   *  Canvas with an initial frame. */
+  workflowProfile?: ComicWorkflowProfile;
   // ── Advanced document settings (all optional, safe screen defaults) ──────
   colorMode?: ColorMode;
   bitDepth?: 8 | 16;
@@ -159,20 +169,44 @@ export function createNewDocument(request: NewDocumentRequest): NewDocumentReque
     if (error) return { ok: false, error };
   }
 
+  const documentName = request.documentName?.trim() || 'Untitled';
+  const workflowProfile =
+    request.workflowProfile ??
+    (request.preset ? comicProfileForPreset(request.preset.id) : undefined);
+
   // Base: a Design Canvas document. It never carries a default page size —
   // dimensions arrive only via an initial frame or template.
   // 'pages' start mode (M14): a paged document with one default page — the
   // entry point for print/publication documents.
-  let doc =
-    startMode === 'pages'
-      ? createDocument(request.documentName?.trim() || 'Untitled', false)
-      : createDocument(request.documentName?.trim() || 'Untitled', { flat: true });
-  if (startMode !== 'pages') {
-    doc = createDesignCanvas(doc, { name: 'Canvas 1' });
+  // A comic/manga/webtoon profile is page-shaped production work: it starts
+  // as a paged document at the preset (or profile-default) size and never
+  // gains a Design Canvas — the publishing page is the drawing surface.
+  let doc: Document;
+  if (workflowProfile) {
+    const defaults = COMIC_PROFILE_DEFAULTS[workflowProfile];
+    const options = request.preset
+      ? createDocumentOptionsFromPreset(request.preset)
+      : {
+          physicalWidth: defaults.width,
+          physicalHeight: defaults.height,
+          documentUnit: defaults.unit,
+          colorMode: defaults.colorMode,
+          dpi: defaults.paintingPpi,
+        };
+    doc = applyComicWorkflowProfile(createDocument(documentName, options), workflowProfile);
+  } else {
+    doc =
+      startMode === 'pages'
+        ? createDocument(documentName, false)
+        : createDocument(documentName, { flat: true });
+    if (startMode !== 'pages') {
+      doc = createDesignCanvas(doc, { name: 'Canvas 1' });
+    }
   }
 
   let initialFrameId: NodeId | undefined;
   if (
+    !workflowProfile &&
     startMode === 'framePreset' &&
     request.preset &&
     request.preset.id !== BLANK_DOCUMENT_PRESET.id
@@ -185,7 +219,7 @@ export function createNewDocument(request: NewDocumentRequest): NewDocumentReque
     });
     doc = d;
     initialFrameId = id;
-  } else if (startMode === 'customFrame' && request.customFrame) {
+  } else if (!workflowProfile && startMode === 'customFrame' && request.customFrame) {
     const { doc: d, id } = makeInitialFrame(doc, {
       name: 'Custom frame',
       width: request.customFrame.width,

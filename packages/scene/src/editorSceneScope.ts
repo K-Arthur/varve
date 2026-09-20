@@ -82,7 +82,12 @@ function resolveBaseSurface(doc: Document, options: EditorSceneScopeOptions): Ba
     return { kind: 'masterSource', masterId: options.masterEditId };
   }
 
-  if (options.workspaceMode !== 'print' && (doc.designCanvases?.length ?? 0) > 0) {
+  const comicPageWorkflow = options.workspaceMode === 'drawing' && Boolean(doc.workflowProfile);
+  if (
+    !comicPageWorkflow &&
+    options.workspaceMode !== 'print' &&
+    (doc.designCanvases?.length ?? 0) > 0
+  ) {
     // An invalid/stale active id must never fall through to publishing pages or
     // every root child. Prefer the first explicitly allowed canvas instead.
     return {

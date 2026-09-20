@@ -620,7 +620,11 @@ export function defaultColorConfig(
   bitDepth: BitDepth = DEFAULT_BIT_DEPTH,
 ): ColorConfig {
   if (mode === 'cmyk') return defaultCmykColorConfig(bitDepth);
-  return defaultRgbColorConfig(bitDepth);
+  const rgb = defaultRgbColorConfig(bitDepth);
+  // Grayscale documents keep the RGB working space for authored values but
+  // declare grayscale mode so conversion, preflight, and export honor it.
+  // Without this the manga preset's grayscale claim was silently dropped.
+  return mode === 'grayscale' ? { ...rgb, mode: 'grayscale' } : rgb;
 }
 
 /** Return a ColorConfig with bitDepth and workingSpace fields set to safe

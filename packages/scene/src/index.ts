@@ -25,6 +25,8 @@ export * from './clone';
 export * from './colorManagement';
 export * from './colorMode';
 export * from './colorValidation';
+export * from './comicExport';
+export * from './comicWorkflow';
 export * from './component';
 export * from './component-sync';
 export * from './constraints';

@@ -82,6 +82,65 @@ describe('createNewDocument — framePreset mode', () => {
   });
 });
 
+describe('createNewDocument — comic workflow profiles', () => {
+  const COMIC_PRINT = findBuiltinPreset('comic-print-a4')!;
+  const MANGA = findBuiltinPreset('manga-a5')!;
+  const WEBTOON = findBuiltinPreset('webtoon-vertical')!;
+
+  it('creates a paged comic-print document with the production profile', () => {
+    const res = createNewDocument({ startMode: 'framePreset', preset: COMIC_PRINT });
+    if (!res.ok) throw new Error(res.error);
+    const { document, initialFrameId } = res.result;
+    expect(initialFrameId).toBeUndefined();
+    expect(document.designCanvases).toBeUndefined();
+    expect(document.pages).toHaveLength(1);
+    expect(document.pages?.[0]?.width).toBeCloseTo((210 / 25.4) * 96, 1);
+    expect(document.pages?.[0]?.height).toBeCloseTo((297 / 25.4) * 96, 1);
+    expect(document.workflowProfile).toBe('comic-print');
+    expect(document.paintingPpi).toBe(300);
+    expect(document.readingDirection).toBe('ltr');
+    expect(document.publishingTarget).toBe('print');
+  });
+
+  it('creates a right-to-left grayscale manga document', () => {
+    const res = createNewDocument({ startMode: 'framePreset', preset: MANGA });
+    if (!res.ok) throw new Error(res.error);
+    const { document } = res.result;
+    expect(document.workflowProfile).toBe('manga');
+    expect(document.readingDirection).toBe('rtl');
+    expect(document.paintingPpi).toBe(600);
+    expect(document.colorConfig?.mode).toBe('grayscale');
+    expect(document.pages?.[0]?.height).toBeCloseTo((210 / 25.4) * 96, 1);
+  });
+
+  it('creates a tall webtoon strip with the webtoon publishing target', () => {
+    const res = createNewDocument({ startMode: 'framePreset', preset: WEBTOON });
+    if (!res.ok) throw new Error(res.error);
+    const { document } = res.result;
+    expect(document.workflowProfile).toBe('webtoon-vertical');
+    expect(document.publishingTarget).toBe('webtoon');
+    expect(document.pages?.[0]?.width).toBe(1600);
+    expect(document.pages?.[0]?.height).toBe(8000);
+  });
+
+  it('honors an explicit profile without a preset using profile defaults', () => {
+    const res = createNewDocument({ workflowProfile: 'webtoon-vertical' });
+    if (!res.ok) throw new Error(res.error);
+    const { document } = res.result;
+    expect(document.workflowProfile).toBe('webtoon-vertical');
+    expect(document.pages?.[0]?.width).toBe(1600);
+    expect(document.pages?.[0]?.height).toBe(8000);
+    expect(document.paintingPpi).toBe(96);
+  });
+
+  it('leaves ordinary presets without a workflow profile', () => {
+    const res = createNewDocument({ startMode: 'framePreset', preset: A4 });
+    if (!res.ok) throw new Error(res.error);
+    expect(res.result.document.workflowProfile).toBeUndefined();
+    expect(res.result.document.pages).toBeUndefined();
+  });
+});
+
 describe('createNewDocument — customFrame mode', () => {
   it('creates a frame with the custom dimensions', () => {
     const res = createNewDocument({
