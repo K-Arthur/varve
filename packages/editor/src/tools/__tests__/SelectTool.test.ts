@@ -373,6 +373,53 @@ describe('SelectTool', () => {
     expect(ctx.setTool).toHaveBeenCalledWith('nodeEdit');
   });
 
+  it('double-click on a balloon body edits its dialogue text', () => {
+    const tool = new SelectTool();
+    const body = {
+      id: 'body',
+      kind: 'shape' as const,
+      name: 'Speech balloon',
+      shape: { kind: 'rect' as const, x: 0, y: 0, w: 100, h: 60 },
+      transform: [1, 0, 0, 1, 0, 0],
+    };
+    const text = {
+      id: 'text',
+      kind: 'text' as const,
+      name: 'Dialogue',
+      transform: [1, 0, 0, 1, 0, 0],
+    };
+    const group = {
+      id: 'g1',
+      kind: 'group' as const,
+      name: 'Balloon',
+      children: ['body', 'text'],
+      transform: [1, 0, 0, 1, 0, 0],
+      callout: {
+        version: 1 as const,
+        kind: 'speech' as const,
+        bodyNodeId: 'body',
+        textNodeId: 'text',
+        tailNodeIds: [],
+        padding: 18,
+        parametric: true,
+      },
+    };
+    const doc = {
+      ...createDocument('balloon'),
+      nodes: { g1: group, body, text },
+      rootChildren: ['g1'],
+    } as any;
+    const ctx = makeCtx({
+      hitTest: vi.fn().mockReturnValue({ nodeId: 'body', node: body }),
+      getNode: vi.fn((id: string) => doc.nodes[id]),
+      document: doc,
+    });
+    tool.onDoubleClick({ clientX: 50, clientY: 50 } as any, ctx);
+    expect(ctx.setTextEditTargetId).toHaveBeenCalledWith('text');
+    expect(ctx.setSelection).toHaveBeenCalledWith('text');
+    expect(ctx.setTool).not.toHaveBeenCalledWith('nodeEdit');
+  });
+
   it('double-click on frame announces entry', () => {
     const tool = new SelectTool();
     const hitNode = { id: 'f1', kind: 'frame' as const, name: 'Frame 1' };

@@ -1098,6 +1098,34 @@ export class SelectTool extends BaseTool {
         ctx.announceOperation('Edit Text', node.name);
         ctx.setTextEditTargetId(hit.nodeId);
         ctx.setSelection(hit.nodeId);
+      } else if (node && node.kind === 'shape') {
+        // Double-clicking a balloon body or tail edits the balloon's own
+        // dialogue: the text node is the editable source, and reaching it
+        // through the layer tree for every line of dialogue is the kind of
+        // friction letterers leave tools over.
+        let ancestorId: NodeId | null = hit.nodeId;
+        let calloutGroup: { id: NodeId; textNodeId: NodeId; name: string } | null = null;
+        while (ancestorId) {
+          const ancestor = ctx.getNode(ancestorId);
+          if (ancestor?.kind === 'group' && ancestor.callout) {
+            calloutGroup = {
+              id: ancestor.id,
+              textNodeId: ancestor.callout.textNodeId,
+              name: ancestor.name,
+            };
+            break;
+          }
+          ancestorId = getParent(ctx.document, ancestorId);
+        }
+        if (calloutGroup) {
+          ctx.announceOperation('Edit balloon text', calloutGroup.name);
+          ctx.setTextEditTargetId(calloutGroup.textNodeId);
+          ctx.setSelection(calloutGroup.textNodeId);
+        } else if (node.shape.kind === 'path') {
+          ctx.setNodeEditTargetId(hit.nodeId);
+          ctx.setTool('nodeEdit');
+          ctx.announceOperation('Node Edit', node.name);
+        }
       } else if (node && node.kind === 'table') {
         // ADR-0016: double-click enters table edit mode (cell selection,
         // keyboard navigation, structural ops).
@@ -1114,10 +1142,6 @@ export class SelectTool extends BaseTool {
         ctx.enterIsolation?.(hit.nodeId);
         ctx.setSelection(hit.nodeId);
         ctx.announceOperation('Enter', node.name);
-      } else if (node && node.kind === 'shape' && node.shape.kind === 'path') {
-        ctx.setNodeEditTargetId(hit.nodeId);
-        ctx.setTool('nodeEdit');
-        ctx.announceOperation('Node Edit', node.name);
       }
     }
   }

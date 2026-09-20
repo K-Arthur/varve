@@ -1659,9 +1659,16 @@ export interface CalloutTail {
 
 export interface CalloutRecipe {
   version: 1;
-  kind: 'speech' | 'thought' | 'caption' | 'whisper' | 'shout';
+  kind: 'speech' | 'thought' | 'caption' | 'whisper' | 'shout' | 'burst' | 'cloud';
   bodyNodeId: NodeId;
   textNodeId: NodeId;
+  /**
+   * Decorative outline node for shaped balloons (burst, cloud). The body stays
+   * the text container and geometry authority; the outline is an ordinary star
+   * shape painted behind the tails and body so it can be stroked and resized
+   * with the balloon. Absent for rect-bodied kinds.
+   */
+  outlineNodeId?: NodeId;
   tailNodeIds: NodeId[];
   padding: number;
   fitToText?: boolean;

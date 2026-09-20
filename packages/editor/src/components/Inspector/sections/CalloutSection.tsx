@@ -30,6 +30,12 @@ const KIND_OPTIONS: readonly { value: CalloutKind; label: string; description: s
   { value: 'caption', label: 'Caption', description: 'Compact editorial caption box' },
   { value: 'whisper', label: 'Whisper', description: 'Dashed outline for a quiet voice' },
   { value: 'shout', label: 'Shout', description: 'Heavy outline for emphasis' },
+  {
+    value: 'burst',
+    label: 'Burst',
+    description: 'Explosive star balloon for impact and loud voices',
+  },
+  { value: 'cloud', label: 'Cloud', description: 'Scalloped balloon for weak or remote voices' },
 ];
 
 const FIT_OPTIONS = [

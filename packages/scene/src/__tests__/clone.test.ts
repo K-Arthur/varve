@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createCallout } from '../callout';
 import { deepCloneSubtree } from '../clone';
 import type { Document } from '../document';
 import {
@@ -667,5 +668,50 @@ describe('deepCloneSubtree — duplicate fidelity', () => {
     // Children keep their local transform; only the root moves.
     expect(clonedChild.transform[4]).toBeCloseTo(5);
     expect(clonedChild.transform[5]).toBeCloseTo(6);
+  });
+});
+
+describe('deepCloneSubtree — callout recipes', () => {
+  it('remaps body, text, and tail references into the clone', () => {
+    const doc = createDocument('comic', true);
+    const created = createCallout(doc, { kind: 'speech', x: 0, y: 0, w: 220, h: 120 });
+    const original = created.document.nodes[created.groupId] as GroupNode & {
+      callout: import('../types').CalloutRecipe;
+    };
+    const result = deepCloneSubtree(
+      created.document.nodes,
+      created.document.nextId,
+      created.groupId,
+    );
+    const cloned = result.nodes[result.rootId] as GroupNode & {
+      callout: import('../types').CalloutRecipe;
+    };
+    expect(cloned.callout.bodyNodeId).toBe(result.idMap.get(original.callout.bodyNodeId));
+    expect(cloned.callout.textNodeId).toBe(result.idMap.get(original.callout.textNodeId));
+    expect(cloned.callout.tailNodeIds).toEqual(
+      original.callout.tailNodeIds.map((id) => result.idMap.get(id)),
+    );
+    expect(cloned.callout.bodyNodeId).not.toBe(original.callout.bodyNodeId);
+    expect(result.nodes[cloned.callout.bodyNodeId]).toBeDefined();
+    expect(result.nodes[cloned.callout.textNodeId]).toBeDefined();
+    for (const tailId of cloned.callout.tailNodeIds) {
+      expect(result.nodes[tailId]).toBeDefined();
+    }
+  });
+
+  it('drops a callout recipe when a cross-document clone lacks its members', () => {
+    const doc = createDocument('comic', true);
+    const created = createCallout(doc, { kind: 'speech', x: 0, y: 0, w: 220, h: 120 });
+    const groupNode = created.document.nodes[created.groupId] as GroupNode;
+    // Only the group is present: its body/text/tail nodes are foreign to the
+    // clone. The recipe must be released rather than left dangling.
+    const result = deepCloneSubtree(
+      { [groupNode.id]: { ...groupNode, children: [] } },
+      1,
+      groupNode.id,
+      { dropForeignReferences: true },
+    );
+    const cloned = result.nodes[result.rootId] as GroupNode & { callout?: unknown };
+    expect(cloned.callout).toBeUndefined();
   });
 });

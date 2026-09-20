@@ -106,9 +106,67 @@ function calloutStyle(kind: CalloutKind): {
       return { cornerRadius: 8, strokeWeight: 4, dashPattern: [] };
     case 'thought':
       return { cornerRadius: 48, strokeWeight: 2, dashPattern: [] };
+    case 'burst':
+      return { cornerRadius: 0, strokeWeight: 2.5, dashPattern: [] };
+    case 'cloud':
+      return { cornerRadius: 0, strokeWeight: 1.5, dashPattern: [] };
     default:
       return { cornerRadius: 28, strokeWeight: 2, dashPattern: [] };
   }
+}
+
+/** Shaped balloons carry their stroke on a decorative star outline. */
+export function isShapedCalloutKind(kind: CalloutKind): boolean {
+  return kind === 'burst' || kind === 'cloud';
+}
+
+const BURST_INNER_RATIO = 0.62;
+const CLOUD_INNER_RATIO = 0.9;
+
+/**
+ * Star geometry for a shaped balloon. The star's inner radius tracks the text
+ * box so fitting keeps the same meaning as a rect body: the inner radius is
+ * the text container, and the outer radius adds the burst/cloud depth.
+ */
+function outlineStarShape(
+  kind: CalloutKind,
+  w: number,
+  h: number,
+): Extract<ShapeNode['shape'], { kind: 'star' }> {
+  const inner = Math.max(24, Math.max(w, h) / 2);
+  const ratio = kind === 'cloud' ? CLOUD_INNER_RATIO : BURST_INNER_RATIO;
+  return {
+    kind: 'star',
+    cx: w / 2,
+    cy: h / 2,
+    innerRadius: inner,
+    outerRadius: inner / ratio,
+    points: kind === 'cloud' ? 12 : 14,
+    rotation: 0,
+  };
+}
+
+/** Outer bottom edge of a star outline in body-local coordinates. */
+function outlineBottom(shape: Extract<ShapeNode['shape'], { kind: 'star' }>): number {
+  return shape.cy + shape.outerRadius * Math.cos(Math.PI / shape.points);
+}
+
+/**
+ * Vertical anchor for tail geometry. Rect balloons anchor at the body's bottom
+ * edge; shaped balloons anchor at the outline's outer bottom so a tail emerges
+ * from the visible balloon rather than from inside the burst.
+ */
+function tailAnchorHeight(
+  group: GroupNode & { callout: CalloutRecipe },
+  body: ShapeNode,
+  nodes: Record<NodeId, SceneNode>,
+): number {
+  const outlineId = group.callout.outlineNodeId;
+  const outline = outlineId ? nodes[outlineId] : undefined;
+  if (outline?.kind === 'shape' && outline.shape.kind === 'star') {
+    return outlineBottom(outline.shape);
+  }
+  return body.shape.kind === 'rect' ? body.shape.h : 0;
 }
 
 function bubbleStroke(kind: CalloutKind) {
@@ -226,16 +284,27 @@ function bubbleNode(
 }
 
 function bodyNode(id: NodeId, w: number, h: number, kind: CalloutKind): ShapeNode {
+  const shaped = isShapedCalloutKind(kind);
   return makeShapeNode(
     id,
     { kind: 'rect', x: 0, y: 0, w, h },
     {
       name: `${kind[0]!.toUpperCase()}${kind.slice(1)} balloon`,
       fill: WHITE,
-      strokes: [bubbleStroke(kind)],
-      cornerRadius: calloutStyle(kind).cornerRadius,
+      // Shaped balloons draw their stroke on the outline; a rect stroke would
+      // show through the star's interior.
+      strokes: shaped ? [] : [bubbleStroke(kind)],
+      cornerRadius: shaped ? 0 : calloutStyle(kind).cornerRadius,
     },
   );
+}
+
+function outlineNode(id: NodeId, w: number, h: number, kind: CalloutKind): ShapeNode {
+  return makeShapeNode(id, outlineStarShape(kind, w, h), {
+    name: `${kind[0]!.toUpperCase()}${kind.slice(1)} outline`,
+    fill: WHITE,
+    strokes: [bubbleStroke(kind)],
+  });
 }
 
 function recipe(
@@ -244,12 +313,14 @@ function recipe(
   textId: NodeId,
   tails: CalloutTail[],
   padding: number,
+  outlineId?: NodeId,
 ): CalloutRecipe {
   return {
     version: 1,
     kind,
     bodyNodeId: bodyId,
     textNodeId: textId,
+    ...(outlineId ? { outlineNodeId: outlineId } : {}),
     tailNodeIds: tails.flatMap((tail) => tail.nodeIds),
     tails,
     padding,
@@ -322,7 +393,7 @@ export function createCallout(doc: Document, options: CreateCalloutOptions): Cal
   const padding = Math.max(0, options.padding ?? 18);
   const w = Math.max(24, options.w);
   const h = Math.max(24, options.h);
-  const endpoint = options.tailEndpoint ?? { x: w / 2, y: h + Math.max(32, h * 0.35) };
+  const shaped = isShapedCalloutKind(kind);
   let next = doc;
   const groupResult = nextNodeId(next);
   next = groupResult.doc;
@@ -330,9 +401,12 @@ export function createCallout(doc: Document, options: CreateCalloutOptions): Cal
   next = bodyResult.doc;
   const textResult = nextNodeId(next);
   next = textResult.doc;
+  const outlineResult = shaped ? nextNodeId(next) : null;
+  if (outlineResult) next = outlineResult.doc;
   const groupId = groupResult.id;
   const bodyId = bodyResult.id;
   const textId = textResult.id;
+  const outlineId = outlineResult?.id;
 
   const group = makeGroupNode(groupId, {
     name: `${kind[0]!.toUpperCase()}${kind.slice(1)} balloon`,
@@ -340,7 +414,15 @@ export function createCallout(doc: Document, options: CreateCalloutOptions): Cal
     children: [],
   });
   const body = bodyNode(bodyId, w, h, kind);
-  const built = buildTailNodes(next, kind, tailStyleForKind(kind), w, h, endpoint, {
+  const outline = outlineId ? outlineNode(outlineId, w, h, kind) : undefined;
+  const tailH = outline
+    ? outlineBottom(outline.shape as Extract<ShapeNode['shape'], { kind: 'star' }>)
+    : h;
+  const endpoint = options.tailEndpoint ?? {
+    x: w / 2,
+    y: tailH + Math.max(32, h * 0.35),
+  };
+  const built = buildTailNodes(next, kind, tailStyleForKind(kind), w, tailH, endpoint, {
     baseWidth: options.tailBaseWidth,
     curve: options.tailCurve,
   });
@@ -359,8 +441,16 @@ export function createCallout(doc: Document, options: CreateCalloutOptions): Cal
   });
 
   next = options.parentId ? addChild(next, options.parentId, group) : addNode(next, group);
+  // Shaped balloons paint tails behind the outline so the tail base is hidden
+  // by the balloon fill; rect balloons keep tails over the body edge.
+  if (shaped) {
+    for (const tail of built.nodes) next = addChild(next, groupId, tail);
+    if (outline) next = addChild(next, groupId, outline);
+  }
   next = addChild(next, groupId, body);
-  for (const tail of built.nodes) next = addChild(next, groupId, tail);
+  if (!shaped) {
+    for (const tail of built.nodes) next = addChild(next, groupId, tail);
+  }
   next = addChild(next, groupId, text);
   const insertedGroup = next.nodes[groupId] as GroupNode;
   next = {
@@ -369,7 +459,7 @@ export function createCallout(doc: Document, options: CreateCalloutOptions): Cal
       ...next.nodes,
       [groupId]: {
         ...insertedGroup,
-        callout: recipe(kind, bodyId, textId, [built.tail], padding),
+        callout: recipe(kind, bodyId, textId, [built.tail], padding, outlineId),
       },
     },
   };
@@ -499,9 +589,14 @@ export function wrapTextInCallout(
       const body = next.nodes[created.bodyId];
       const firstTailId = fittedGroup.callout.tailNodeIds[0];
       if (body?.kind === 'shape' && body.shape.kind === 'rect' && firstTailId) {
+        const anchorH = tailAnchorHeight(
+          fittedGroup as GroupNode & { callout: CalloutRecipe },
+          body,
+          next.nodes,
+        );
         next = updateCalloutTailEndpoint(next, created.groupId, firstTailId, {
           x: body.shape.w / 2,
-          y: body.shape.h + Math.max(24, options.tailLength ?? 32),
+          y: anchorH + Math.max(24, options.tailLength ?? 32),
         });
       }
     }
@@ -729,14 +824,44 @@ export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutK
   const nextWrapShape = group.callout.wrapShape ?? defaultCalloutWrapShape(kind);
   const tails = calloutTails(group);
   const nextStyle = tailStyleForKind(kind);
-  let nodes: Record<NodeId, SceneNode> = {
-    ...doc.nodes,
-    [body.id]: {
-      ...body,
-      cornerRadius: calloutStyle(kind).cornerRadius,
+  const shaped = isShapedCalloutKind(kind);
+  let nextId = doc.nextId;
+  let nodes: Record<NodeId, SceneNode> = { ...doc.nodes };
+
+  // Outline lifecycle: shaped kinds carry a star outline behind the body;
+  // rect-bodied kinds must not keep one.
+  let outlineId = group.callout.outlineNodeId;
+  const existingOutline = outlineId ? nodes[outlineId] : undefined;
+  const hasStarOutline = existingOutline?.kind === 'shape' && existingOutline.shape.kind === 'star';
+  if (shaped && outlineId && hasStarOutline) {
+    nodes[outlineId] = {
+      ...(existingOutline as ShapeNode),
+      shape: outlineStarShape(kind, body.shape.w, body.shape.h),
       strokes: [bubbleStroke(kind)],
-    },
+    };
+  } else if (shaped) {
+    if (outlineId) delete nodes[outlineId];
+    const minted = nextNodeId({ ...doc, nextId });
+    outlineId = minted.id;
+    nextId = minted.doc.nextId;
+    nodes[outlineId] = outlineNode(outlineId, body.shape.w, body.shape.h, kind);
+  } else if (outlineId) {
+    delete nodes[outlineId];
+    outlineId = undefined;
+  }
+
+  nodes[body.id] = {
+    ...body,
+    cornerRadius: shaped ? 0 : calloutStyle(kind).cornerRadius,
+    strokes: shaped ? [] : [bubbleStroke(kind)],
   };
+
+  const outline = outlineId ? nodes[outlineId] : undefined;
+  const anchorH =
+    outline?.kind === 'shape' && outline.shape.kind === 'star'
+      ? outlineBottom(outline.shape)
+      : body.shape.h;
+
   const nextTails: CalloutTail[] = [];
   for (const tail of tails) {
     if (tail.style === nextStyle) {
@@ -753,11 +878,11 @@ export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutK
     const endpoint = tailEndpointFor(tail, nodes, body.shape);
     for (const nodeId of tail.nodeIds) delete nodes[nodeId];
     const rebuilt = buildTailNodes(
-      { ...doc, nodes },
+      { ...doc, nextId, nodes },
       kind,
       nextStyle,
       body.shape.w,
-      body.shape.h,
+      anchorH,
       endpoint,
       {
         curve: tail.curve,
@@ -768,18 +893,24 @@ export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutK
     let builtDoc = rebuilt.doc;
     for (const node of rebuilt.nodes) builtDoc = addChild(builtDoc, groupId, node);
     nodes = { ...builtDoc.nodes };
+    nextId = builtDoc.nextId;
     nextTails.push(rebuilt.tail);
   }
-  const children = [
-    body.id,
-    ...nextTails.flatMap((tail) => tail.nodeIds),
-    group.callout.textNodeId,
-  ];
+  const tailIds = nextTails.flatMap((tail) => tail.nodeIds);
+  // Shaped balloons paint tails behind the outline so the tail base is hidden
+  // by the balloon fill; rect balloons keep tails over the body edge.
+  const children = shaped
+    ? [...tailIds, ...(outlineId ? [outlineId] : []), body.id, group.callout.textNodeId]
+    : [body.id, ...tailIds, group.callout.textNodeId];
+  const nextCallout: CalloutRecipe = { ...group.callout, kind };
+  if (outlineId) nextCallout.outlineNodeId = outlineId;
+  else delete nextCallout.outlineNodeId;
   const withChildren = {
     ...doc,
+    nextId,
     nodes: {
       ...nodes,
-      [groupId]: { ...group, children, callout: { ...group.callout, kind } },
+      [groupId]: { ...group, children, callout: nextCallout },
       ...(text?.kind === 'text' && text.textWrapShape !== nextWrapShape
         ? { [text.id]: { ...text, textWrapShape: nextWrapShape } }
         : {}),
@@ -830,7 +961,7 @@ export function updateCalloutTailEndpoint(
   const body = doc.nodes[group.callout.bodyNodeId];
   if (body?.kind !== 'shape' || body.shape.kind !== 'rect') return doc;
   const w = body.shape.w;
-  const h = body.shape.h;
+  const h = tailAnchorHeight(group, body, doc.nodes);
   const nodes = { ...doc.nodes };
   if (tail.style === 'thought') {
     const geometry = thoughtBubbleGeometry(w, h, endpoint, tail.bubbleCount ?? 3);
@@ -864,7 +995,7 @@ export function addCalloutTail(
   const body = doc.nodes[group.callout.bodyNodeId];
   if (body?.kind !== 'shape' || body.shape.kind !== 'rect') return doc;
   const w = body.shape.w;
-  const h = body.shape.h;
+  const h = tailAnchorHeight(group, body, doc.nodes);
   const tails = calloutTails(group);
   const built = buildTailNodes(
     doc,
@@ -940,7 +1071,12 @@ function updateTailSetting(
   const endpoint = tailEndpointFor(tail, doc.nodes, body.shape);
   const updated = {
     ...node,
-    points: pointedTailPoints(body.shape.w, body.shape.h, endpoint, nextTail),
+    points: pointedTailPoints(
+      body.shape.w,
+      tailAnchorHeight(group, body, doc.nodes),
+      endpoint,
+      nextTail,
+    ),
   };
   const withNode = { ...doc, nodes: { ...doc.nodes, [nodeId!]: updated } };
   return replaceTails(
@@ -1099,6 +1235,28 @@ export function fitCalloutToText(doc: Document, groupId: NodeId): Document {
   const localW = innerW + p * 2;
   const localH = innerH + p * 2;
   let nodes: Record<NodeId, SceneNode> = { ...doc.nodes };
+  // A shaped balloon's outline tracks the fitted body; tails anchor at its
+  // outer bottom edge, not at the text box.
+  const outlineId = group.callout.outlineNodeId;
+  const previousOutline = outlineId ? nodes[outlineId] : undefined;
+  const previousAnchorH =
+    previousOutline?.kind === 'shape' && previousOutline.shape.kind === 'star'
+      ? outlineBottom(previousOutline.shape)
+      : body.shape.h;
+  if (outlineId) {
+    const outline = nodes[outlineId];
+    if (outline?.kind === 'shape' && outline.shape.kind === 'star') {
+      nodes[outlineId] = {
+        ...outline,
+        shape: outlineStarShape(group.callout.kind, localW, localH),
+      };
+    }
+  }
+  const nextOutline = outlineId ? nodes[outlineId] : undefined;
+  const nextAnchorH =
+    nextOutline?.kind === 'shape' && nextOutline.shape.kind === 'star'
+      ? outlineBottom(nextOutline.shape)
+      : localH;
   // A fit can grow the body past a preserved tip; move only those endpoints
   // that the new geometry swallowed, then rebuild every tail from them.
   for (const tail of calloutTails(group)) {
@@ -1106,9 +1264,9 @@ export function fitCalloutToText(doc: Document, groupId: NodeId): Document {
     const projected = projectEndpointOutsideBody(
       endpoint,
       body.shape.w,
-      body.shape.h,
+      previousAnchorH,
       localW,
-      localH,
+      nextAnchorH,
     );
     if (projected === endpoint) continue;
     if (tail.style === 'thought') {
@@ -1135,7 +1293,7 @@ export function fitCalloutToText(doc: Document, groupId: NodeId): Document {
     [body.id]: { ...body, shape: { ...body.shape, w: localW, h: localH } },
     [text.id]: setTextContainer(text, innerW, innerH, p),
   };
-  nodes = updateTailGeometry(nodes, calloutTails(group), localW, localH);
+  nodes = updateTailGeometry(nodes, calloutTails(group), localW, nextAnchorH);
   return {
     ...doc,
     nodes: {

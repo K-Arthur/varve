@@ -17,7 +17,6 @@
 import { getFontRegistry } from '@varve/engine';
 import type { RichText, SceneNode, TextNode } from '@varve/scene';
 import {
-  defaultStroke,
   invalidateGlyphAdjustmentsOnTextChange,
   managedColorToHex,
   plainTextToRichText,
@@ -52,6 +51,12 @@ import {
   fontWeightOptions,
 } from '../../Typography/fontWeight';
 import { GlyphTypographySection } from '../../Typography/GlyphTypographySection';
+import {
+  applyTextEffectPreset,
+  CLEAR_TEXT_EFFECT_PATCH,
+  TEXT_EFFECT_PRESETS,
+  textEffectPresetById,
+} from '../../Typography/textEffectPresets';
 import {
   applyTypographyChanges,
   type TypographyCommandSurface,
@@ -342,37 +347,27 @@ export function TypographySection({ nodes }: TypographySectionProps) {
     if (groupId) editor.setSelectionRefs([groupId], { primary: groupId, origin: 'api' });
   }, [calloutTextIds, editor, textNodes]);
 
-  const applySoundEffectStyle = useCallback(() => {
-    if (textNodes.length === 0) return;
-    editor.groupCompoundOperation('Apply sound effect lettering', () => {
-      for (const textNode of textNodes) {
-        editor.updateNode(textNode.id, (node) => {
-          if (node.kind !== 'text') return node;
-          return {
-            ...node,
-            fontWeight: Math.max(700, node.fontWeight ?? 400),
-            textCase: 'uppercase',
-            textAlign: 'center',
-            textDecoration: 'none',
-            strokes: [
-              {
-                ...defaultStroke(),
-                color: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
-                weight: 3,
-              },
-            ],
-          };
-        });
-      }
-    });
-  }, [editor, textNodes]);
+  const applySoundEffectStyle = useCallback(
+    (presetId: string) => {
+      const preset = textEffectPresetById(presetId);
+      if (!preset || textNodes.length === 0) return;
+      editor.groupCompoundOperation(`Apply ${preset.label} lettering`, () => {
+        for (const textNode of textNodes) {
+          editor.updateNode(textNode.id, (node) =>
+            node.kind === 'text' ? applyTextEffectPreset(node, preset) : node,
+          );
+        }
+      });
+    },
+    [editor, textNodes],
+  );
 
   const clearSoundEffectStyle = useCallback(() => {
     if (textNodes.length === 0) return;
     editor.groupCompoundOperation('Clear sound effect lettering', () => {
       for (const textNode of textNodes) {
         editor.updateNode(textNode.id, (node) =>
-          node.kind === 'text' ? { ...node, strokes: [] } : node,
+          node.kind === 'text' ? { ...node, ...CLEAR_TEXT_EFFECT_PATCH } : node,
         );
       }
     });
@@ -712,9 +707,17 @@ export function TypographySection({ nodes }: TypographySectionProps) {
       {textNodes.length > 0 && (
         <FieldRow label="Text effects">
           <div className="insp-field-group">
-            <Button variant="ghost" size="sm" onClick={applySoundEffectStyle}>
-              Sound effect
-            </Button>
+            <Select
+              value=""
+              label="Text effect preset"
+              placeholder="Apply effect…"
+              onChange={applySoundEffectStyle}
+              options={TEXT_EFFECT_PRESETS.map((preset) => ({
+                value: preset.id,
+                label: preset.label,
+                description: preset.description,
+              }))}
+            />
             <Button variant="ghost" size="sm" onClick={clearSoundEffectStyle}>
               Clear outline
             </Button>

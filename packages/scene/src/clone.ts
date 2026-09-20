@@ -420,6 +420,56 @@ export function deepCloneSubtree(
           newNodes[newId] = withoutMarker as SceneNode;
         }
       }
+
+      // Remap callout recipe references. Body, text, and every logical tail are
+      // descendants of the group, so an in-document duplicate always finds them
+      // in the idMap. A pasted balloon that kept pointing at the source nodes
+      // would edit the original dialogue; a cross-document paste without the
+      // members must release the group to a plain group instead of leaving
+      // dangling ids.
+      const originalCallout = (original as { callout?: import('./types').CalloutRecipe }).callout;
+      if (originalCallout) {
+        const body = idMap.get(originalCallout.bodyNodeId);
+        const text = idMap.get(originalCallout.textNodeId);
+        const outline = originalCallout.outlineNodeId
+          ? idMap.get(originalCallout.outlineNodeId)
+          : undefined;
+        const tailNodeIds = remapTargetList(originalCallout.tailNodeIds, idMap, dropForeign);
+        const tails = originalCallout.tails?.map((tail) => ({
+          ...tail,
+          nodeIds: remapTargetList(tail.nodeIds, idMap, dropForeign),
+        }));
+        const tailsComplete =
+          !originalCallout.tails ||
+          originalCallout.tails.every(
+            (tail, index) => tails?.[index]?.nodeIds.length === tail.nodeIds.length,
+          );
+        const outlineComplete = !originalCallout.outlineNodeId || Boolean(outline);
+        if (
+          body &&
+          text &&
+          outlineComplete &&
+          tailNodeIds.length === originalCallout.tailNodeIds.length &&
+          tailsComplete
+        ) {
+          newNodes[newId] = {
+            ...newNodes[newId]!,
+            callout: {
+              ...originalCallout,
+              bodyNodeId: body,
+              textNodeId: text,
+              ...(outline ? { outlineNodeId: outline } : {}),
+              tailNodeIds,
+              ...(tails ? { tails } : {}),
+            },
+          } as SceneNode;
+        } else if (dropForeign) {
+          const { callout: _callout, ...withoutCallout } = newNodes[newId]! as {
+            callout?: unknown;
+          };
+          newNodes[newId] = withoutCallout as SceneNode;
+        }
+      }
     }
     // Remap pathTextSettings.pathNodeId: if the referenced path was cloned,
     // point at the new clone. Under dropForeign (cross-document paste), a

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { deepCloneSubtree } from './clone';
 import {
   addCalloutTail,
   addNode,
@@ -467,5 +468,118 @@ describe('comic callouts', () => {
     ) {
       expect(first.shape.cy).toBeGreaterThan(body.shape.h - 1);
     }
+  });
+});
+
+describe('shaped balloons (burst and cloud)', () => {
+  it('creates a star outline behind a stroke-free body and keeps tails behind it', () => {
+    const result = createCallout(createDocument('burst', true), {
+      kind: 'burst',
+      x: 0,
+      y: 0,
+      w: 220,
+      h: 120,
+      text: 'BOOM',
+    });
+    const group = result.document.nodes[result.groupId] as GroupNode;
+    const outlineId = group.callout?.outlineNodeId;
+    expect(outlineId).toBeDefined();
+    const outline = result.document.nodes[outlineId!];
+    const body = result.document.nodes[result.bodyId];
+    expect(outline?.kind).toBe('shape');
+    if (outline?.kind !== 'shape' || outline.shape.kind !== 'star') throw new Error('no star');
+    expect(outline.shape.points).toBe(14);
+    expect(outline.shape.outerRadius).toBeGreaterThan(outline.shape.innerRadius);
+    expect(body?.kind).toBe('shape');
+    if (body?.kind !== 'shape') throw new Error('no body');
+    expect(body.strokes).toEqual([]);
+    // Tails paint before the outline so their base is hidden by the balloon.
+    expect(group.children?.[0]).toBe(result.tailNodeIds[0]);
+    expect(group.children?.[1]).toBe(outlineId);
+    expect(group.children?.[2]).toBe(result.bodyId);
+  });
+
+  it('fit keeps the outline tracking the body and the tail outside it', () => {
+    const created = createCallout(createDocument('fit-burst', true), {
+      kind: 'cloud',
+      x: 0,
+      y: 0,
+      w: 200,
+      h: 100,
+      text: 'A much longer line of dialogue that needs more room',
+    });
+    const doc = fitCalloutToText(created.document, created.groupId);
+    const group = doc.nodes[created.groupId] as GroupNode;
+    const outline = doc.nodes[group.callout!.outlineNodeId!];
+    const body = doc.nodes[created.bodyId];
+    if (outline?.kind !== 'shape' || outline.shape.kind !== 'star') throw new Error('no star');
+    if (body?.kind !== 'shape' || body.shape.kind !== 'rect') throw new Error('no body');
+    expect(outline.shape.points).toBe(12);
+    // The star's inner core follows the fitted text container.
+    expect(outline.shape.innerRadius).toBeCloseTo(Math.max(body.shape.w, body.shape.h) / 2, 1);
+    const tail = doc.nodes[created.tailNodeIds[0]!];
+    if (tail?.kind !== 'path') throw new Error('no tail');
+    const tip = tail.points[tail.points.length - 1]!;
+    expect(tip.y).toBeGreaterThan(body.shape.h);
+  });
+
+  it('switching kinds adds, updates, and removes the outline without changing identities', () => {
+    const created = createCallout(createDocument('switch', true), {
+      x: 0,
+      y: 0,
+      w: 180,
+      h: 90,
+      text: 'Hey',
+    });
+    const burst = updateCalloutKind(created.document, created.groupId, 'burst');
+    const burstGroup = burst.nodes[created.groupId] as GroupNode;
+    const burstOutlineId = burstGroup.callout?.outlineNodeId;
+    expect(burstOutlineId).toBeDefined();
+    expect(burstGroup.callout?.bodyNodeId).toBe(created.bodyId);
+    expect(burstGroup.callout?.textNodeId).toBe(created.textId);
+
+    const cloud = updateCalloutKind(burst, created.groupId, 'cloud');
+    const cloudGroup = cloud.nodes[created.groupId] as GroupNode;
+    expect(cloudGroup.callout?.outlineNodeId).toBe(burstOutlineId);
+    const cloudOutline = cloud.nodes[burstOutlineId!];
+    if (cloudOutline?.kind !== 'shape' || cloudOutline.shape.kind !== 'star') {
+      throw new Error('no star');
+    }
+    expect(cloudOutline.shape.points).toBe(12);
+
+    const speech = updateCalloutKind(cloud, created.groupId, 'speech');
+    const speechGroup = speech.nodes[created.groupId] as GroupNode;
+    expect(speechGroup.callout?.outlineNodeId).toBeUndefined();
+    expect(speech.nodes[burstOutlineId!]).toBeUndefined();
+    const body = speech.nodes[created.bodyId];
+    if (body?.kind !== 'shape') throw new Error('no body');
+    expect(body.strokes?.length).toBeGreaterThan(0);
+    expect(speechGroup.children).toEqual([
+      created.bodyId,
+      ...(speechGroup.callout?.tailNodeIds ?? []),
+      created.textId,
+    ]);
+  });
+
+  it('clone remaps the outline reference into the duplicate', () => {
+    const created = createCallout(createDocument('clone-burst', true), {
+      kind: 'burst',
+      x: 0,
+      y: 0,
+      w: 200,
+      h: 100,
+      text: 'ZAP',
+    });
+    const group = created.document.nodes[created.groupId] as GroupNode;
+    const outlineId = group.callout?.outlineNodeId;
+    expect(outlineId).toBeDefined();
+    const result = deepCloneSubtree(
+      created.document.nodes,
+      created.document.nextId,
+      created.groupId,
+    );
+    const cloned = result.nodes[result.rootId] as GroupNode;
+    expect(cloned.callout?.outlineNodeId).toBe(result.idMap.get(outlineId!));
+    expect(result.nodes[cloned.callout!.outlineNodeId!]).toBeDefined();
   });
 });
