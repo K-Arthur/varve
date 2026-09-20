@@ -20,7 +20,7 @@
 | Button | ✅ | ✅ | ✅ | 6 variants × 3 sizes |
 | IconButton | ✅ | — | — | Wraps Button |
 | Checkbox | ✅ | — | — | Includes indeterminate |
-| Radio | 🧪 | ✅ | ✅ | Native radio groups and roving choice surfaces |
+| Radio | 🧪 | ✅ | ✅ | Native radio groups and roving choice surfaces; decision rules in [radio-group-system.md](radio-group-system.md) |
 | Switch | 🧪 | ✅ | ✅ | `Switch` + `SwitchField`; see switch-system.md |
 | ToggleButton | 🧪 | ✅ | ✅ | Toolbar/action toggle semantics |
 | Input (text) | 🧪 | ✅ | ✅ | |
@@ -31,7 +31,7 @@
 | Combobox | 🧪 | — | — | Not yet extracted |
 | Slider | ✅ | — | ✅ | APG slider pattern |
 | Tabs | ✅ | — | ✅ | APG tabs + roving tabindex |
-| SegmentedControl | ✅ | ✅ | — | APG radiogroup |
+| SegmentedControl | ✅ | ✅ | — | APG radiogroup for short enumerations; contract in [radio-group-system.md](radio-group-system.md) |
 | Disclosure | 🧪 | ✅ | ✅ | APG disclosure; controlled/uncontrolled, compact/standard, keepMounted; focus restore on close (`useDisclosureFocusRestore`); contract in `docs/architecture/disclosure-system.md` |
 | Accordion | 🧪 | ✅ | ✅ | Coordinated disclosure group; single/multiple modes, collapsible single-selection; same focus/aria contract |
 | ViewModeSwitcher | ✅ | — | — | |
