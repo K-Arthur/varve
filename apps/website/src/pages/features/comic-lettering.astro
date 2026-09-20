@@ -1,0 +1,299 @@
+---
+import Button from '../../components/Button.astro';
+import Layout from '../../layouts/Layout.astro';
+import StatusPill from '../../components/StatusPill.astro';
+import { sitePath } from '../../lib/siteUrl';
+---
+
+<Layout
+  title="Comic & Webtoon Lettering"
+  description="Varve keeps comic lettering editable: reusable balloon recipes, tails, captions, sound effects, text-aware fitting, and webtoon-ready page structure."
+>
+  <div class="container-custom">
+    <div class="feature-page comic-page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <a href={sitePath('/features')}>Features</a> / Comic &amp; Webtoon Lettering
+      </nav>
+
+      <div class="comic-page__kicker"><StatusPill status="partial" label="Built foundation" /></div>
+      <h1>Letter the page without flattening it.</h1>
+      <p class="feature-intro">
+        Varve treats a balloon as a small editable composition: ordinary text, an ordinary body,
+        and one or more ordinary tails held together by a reversible recipe. You can keep working
+        in the same document, with the same typography, layers, selection, and export systems.
+      </p>
+
+      <section class="comic-visual" aria-label="Editable comic lettering example">
+        <div class="comic-visual__panel">
+          <span class="comic-visual__caption">PAGE 01 · CITY BLOCK</span>
+          <div class="comic-visual__sun" aria-hidden="true"></div>
+          <div class="comic-visual__line comic-visual__line--one" aria-hidden="true"></div>
+          <div class="comic-visual__line comic-visual__line--two" aria-hidden="true"></div>
+          <div class="comic-balloon comic-balloon--speech">
+            <span>We can still make the last train.</span>
+            <i aria-hidden="true"></i>
+          </div>
+          <div class="comic-balloon comic-balloon--caption">
+            <span>Meanwhile, above the station...</span>
+          </div>
+          <div class="comic-sfx" aria-label="Sound effect text">CLACK</div>
+          <div class="comic-visual__baseline" aria-hidden="true"></div>
+        </div>
+        <div class="comic-visual__legend">
+          <div><span class="legend-dot legend-dot--teal"></span><strong>Text stays text</strong><span>Edit the words, font, language, and writing mode in place.</span></div>
+          <div><span class="legend-dot legend-dot--sandstone"></span><strong>Geometry stays editable</strong><span>Move a tail, change padding, or detach the recipe when needed.</span></div>
+          <div><span class="legend-dot legend-dot--terracotta"></span><strong>Overflow is visible</strong><span>Reflow, grow the balloon, or keep authored geometry and review the warning.</span></div>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <h2>What it is</h2>
+        <p>
+          Comic lettering builds on Varve's existing text, strokes, effects, warp, group, layer,
+          page, and export foundations. It does not create a separate Comic workspace or a second
+          text engine. A speech balloon is a selected group with a shared recipe, so body and tail
+          nodes remain available for ordinary editing and the source text remains available for
+          localization.
+        </p>
+      </section>
+
+      <section class="feature-section">
+        <h2>Designed around real lettering problems</h2>
+        <div class="comic-problems">
+          <article>
+            <h3>Words should not disappear at the edge</h3>
+            <p>Fit policy is explicit: reflow in the balloon, fit the balloon to text, or show overflow. Varve does not silently shrink type to hide a translation that no longer fits.</p>
+          </article>
+          <article>
+            <h3>Tails should point somewhere</h3>
+            <p>Tail endpoints can be adjusted numerically and remain independent of the balloon body. Changing the body updates the base while preserving the authored endpoint.</p>
+          </article>
+          <article>
+            <h3>Localization should not destroy the page</h3>
+            <p>The story text and visual relationship are separate concerns. Replace a dialogue line, inspect its fit state, and choose a new balloon geometry without rasterizing the lettering.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="feature-section">
+        <h2>Key capabilities</h2>
+        <ul>
+          <li><strong>Balloon recipes:</strong> speech, thought, caption, whisper, and shout treatments built from editable scene nodes</li>
+          <li><strong>Tail editing:</strong> one or more tails, explicit endpoints, numeric placement, and a detach action for deliberate freeform edits</li>
+          <li><strong>Text-aware fitting:</strong> shared text geometry reports fit, near-overflow, or overflow without mutating the document</li>
+          <li><strong>Sound-effect lettering:</strong> reuse the existing text stroke, effect, warp, and transform systems instead of creating a raster-only SFX layer</li>
+          <li><strong>Page structure:</strong> comic, manga, and webtoon-vertical starting profiles with page order, panel metadata, reading direction, and bounded slice planning</li>
+          <li><strong>Accessible review:</strong> named controls, keyboard-reachable Inspector actions, and status text that explains why a balloon needs attention</li>
+        </ul>
+      </section>
+
+      <section class="feature-section limitations">
+        <h2>Honest status</h2>
+        <p>
+          The editable balloon foundation is in the beta. Contour-aware fitting, speaker-target
+          placement, joined balloons, a dedicated lettering workspace, and full publisher upload
+          automation are intentionally not presented as complete. Webtoon and Tapas limits remain
+          dated, source-linked export guidance rather than hard-coded platform promises.
+        </p>
+        <p>
+          See the <a href={sitePath('/docs/tools/typography')}>typography guide</a> for the shared
+          text model and the <a href={sitePath('/docs/file-formats')}>file-format guide</a> for
+          document dependencies and export boundaries.
+        </p>
+      </section>
+
+      <div class="feature-cta">
+        <h2>Keep the lettering alive.</h2>
+        <Button href={sitePath('/download')}>Download Varve</Button>
+        <Button variant="secondary" href={sitePath('/features/typography')}>Explore Typography</Button>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .comic-page__kicker {
+    margin-bottom: 0.75rem;
+  }
+
+  .comic-page h1 {
+    max-width: 680px;
+  }
+
+  .comic-visual {
+    margin: -0.5rem 0 3rem;
+    display: grid;
+    gap: 1rem;
+  }
+
+  .comic-visual__panel {
+    position: relative;
+    min-height: 390px;
+    overflow: hidden;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    background:
+      linear-gradient(155deg, transparent 0 58%, color-mix(in oklab, var(--brand-teal) 12%, transparent) 58% 59%, transparent 59%),
+      linear-gradient(20deg, transparent 0 67%, color-mix(in oklab, var(--brand-terracotta) 11%, transparent) 67% 68%, transparent 68%),
+      var(--surface-muted);
+    box-shadow: var(--elevation-shadow-raised);
+  }
+
+  .comic-visual__caption {
+    position: absolute;
+    top: 1.25rem;
+    left: 1.5rem;
+    color: var(--text-tertiary);
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+  }
+
+  .comic-visual__sun {
+    position: absolute;
+    top: 4.5rem;
+    right: 16%;
+    width: 6rem;
+    height: 6rem;
+    border-radius: 50%;
+    background: color-mix(in oklab, var(--brand-sandstone) 62%, var(--surface-card));
+    opacity: 0.72;
+  }
+
+  .comic-visual__line {
+    position: absolute;
+    bottom: 4rem;
+    width: 72%;
+    height: 1px;
+    background: var(--border-strong);
+    transform-origin: left;
+  }
+
+  .comic-visual__line--one { left: 0; transform: rotate(-8deg); }
+  .comic-visual__line--two { left: 32%; bottom: 7rem; transform: rotate(9deg); opacity: 0.65; }
+
+  .comic-visual__baseline {
+    position: absolute;
+    right: 9%;
+    bottom: 3.2rem;
+    width: 30%;
+    height: 5rem;
+    border-top: 3px solid var(--text-primary);
+    border-right: 3px solid var(--text-primary);
+    transform: skewX(-18deg);
+    opacity: 0.72;
+  }
+
+  .comic-balloon {
+    position: absolute;
+    display: grid;
+    place-items: center;
+    padding: 1.1rem 1.5rem;
+    color: var(--text-primary);
+    background: var(--surface-card);
+    border: 2px solid var(--text-primary);
+    box-shadow: 0 0.6rem 0 color-mix(in oklab, var(--brand-teal) 14%, transparent);
+    font-family: var(--font-sans);
+    font-weight: 650;
+    text-align: center;
+  }
+
+  .comic-balloon--speech {
+    top: 6.5rem;
+    left: 10%;
+    width: min(48%, 330px);
+    min-height: 100px;
+    border-radius: 50%;
+  }
+
+  .comic-balloon--speech i {
+    position: absolute;
+    right: 12%;
+    bottom: -2.1rem;
+    width: 2.2rem;
+    height: 3.2rem;
+    background: var(--surface-card);
+    border-right: 2px solid var(--text-primary);
+    border-bottom: 2px solid var(--text-primary);
+    clip-path: polygon(0 0, 100% 0, 62% 100%);
+    transform: rotate(18deg);
+  }
+
+  .comic-balloon--caption {
+    top: 18rem;
+    right: 10%;
+    padding: 0.9rem 1.1rem;
+    border-radius: 0.25rem;
+    border-color: var(--brand-terracotta);
+    font-family: var(--font-editorial);
+    font-weight: 600;
+  }
+
+  .comic-sfx {
+    position: absolute;
+    right: 18%;
+    bottom: 7.3rem;
+    color: var(--brand-terracotta);
+    font-family: var(--font-editorial);
+    font-size: clamp(2rem, 7vw, 3.6rem);
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    transform: rotate(-9deg) skewX(-10deg);
+    text-shadow: 0.06em 0.06em 0 var(--surface-card), 0.11em 0.11em 0 var(--text-primary);
+  }
+
+  .comic-visual__legend {
+    display: grid;
+    gap: 0.7rem;
+    padding: 1.1rem 1.25rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    background: var(--surface-card);
+  }
+
+  .comic-visual__legend > div {
+    display: grid;
+    grid-template-columns: 0.65rem 10rem 1fr;
+    gap: 0.7rem;
+    align-items: baseline;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+  }
+
+  .comic-visual__legend strong { color: var(--text-primary); }
+
+  .legend-dot { width: 0.6rem; height: 0.6rem; border-radius: 50%; }
+  .legend-dot--teal { background: var(--brand-teal); }
+  .legend-dot--sandstone { background: var(--brand-sandstone); }
+  .legend-dot--terracotta { background: var(--brand-terracotta); }
+
+  .comic-problems {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+
+  .comic-problems article {
+    padding: 1.25rem;
+    border: 1px solid var(--border-default);
+    border-radius: var(--website-radius-card);
+    background: var(--surface-card);
+  }
+
+  .comic-problems h3 {
+    margin: 0 0 0.6rem;
+    color: var(--text-primary);
+    font-size: 1rem;
+  }
+
+  .comic-problems p { margin: 0; color: var(--text-secondary); line-height: 1.65; }
+
+  @media (max-width: 680px) {
+    .comic-visual__panel { min-height: 330px; }
+    .comic-balloon--speech { left: 6%; width: 62%; }
+    .comic-balloon--caption { right: 5%; top: 17rem; max-width: 48%; }
+    .comic-sfx { right: 10%; bottom: 5.5rem; }
+    .comic-visual__legend > div { grid-template-columns: 0.65rem 1fr; }
+    .comic-visual__legend > div span:last-child { grid-column: 2; }
+    .comic-problems { grid-template-columns: 1fr; }
+  }
+</style>

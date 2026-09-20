@@ -6,7 +6,7 @@ documentation, downloads, and community.
 ## Architecture
 
 - **Framework**: Astro 7 with static output (`astro build`)
-- **Content**: `src/pages/` (69 routes), `src/components/`, `src/data/`
+- **Content**: `src/pages/` (70 routes), `src/components/`, `src/data/`
 - **Search**: build-time index + heading anchors via the
   `varve-search-index` integration (`scripts/search-index.mjs`); client-side
   ranking in `src/lib/search/` with no runtime dependency
@@ -74,7 +74,7 @@ default to `type="button"`, and all action transitions honor reduced motion.
 
 | Path | Purpose |
 |------|---------|
-| `src/pages/` | Astro page components (69 routes, including generated sitemap/robots/security endpoints) |
+| `src/pages/` | Astro page components (70 routes, including generated sitemap/robots/security endpoints) |
 | `src/components/` | Shared Astro components (header, footer, CTA, search dialog) |
 | `src/data/` | Release manifest, structured data |
 | `src/lib/search/` | Pure search index extraction and ranking |
