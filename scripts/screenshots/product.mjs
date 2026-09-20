@@ -900,7 +900,10 @@ const SCENES = [
       // Add a real drop shadow rather than screenshotting an empty section:
       // 'dropShadow' is the default in the "New effect type" select, and the
       // newly added row starts expanded so its controls are on screen.
-      const addBtn = effects.getByRole('button', { name: /^Add$/ });
+      // The add control's accessible name has been both "Add" and
+      // "Add effect"; match both so a copy change never silently downgrades
+      // this scene to a skip (the effects panel review renamed it).
+      const addBtn = effects.getByRole('button', { name: /^Add( effect)?$/ });
       await addBtn.click({ timeout: 5000 });
       await page.waitForTimeout(1200);
       await effects.evaluate((el) => el.scrollIntoView({ block: 'start' }));

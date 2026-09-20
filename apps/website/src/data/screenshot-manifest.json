@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "note": "GENERATED FILE — do not hand-edit. Written by scripts/screenshots/product.mjs and validated by scripts/screenshots/validate.mjs. Each scene maps one canonical screenshot consumed by the website and documentation. status: 'captured' when the pipeline produced the file, 'skipped' when the scene could not be produced (reason required).",
-  "generatedAt": "2026-09-20T06:55:13.120Z",
+  "generatedAt": "2026-09-20T19:29:33.957Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -13,7 +13,7 @@
       "lastValidatedAgainst": null,
       "width": 1440,
       "height": 900,
-      "sha256": "b94d5751f9cdea20e1f2e7d8620d2e5a92225d72729ec71b528b271950663241"
+      "sha256": "121c56bd2d810c112de32c09c36874e9837d2e48bef7736801c77fdbc0a8b9d2"
     },
     "workspace-dark": {
       "file": "workspace-dark.png",
@@ -25,7 +25,7 @@
       "lastValidatedAgainst": null,
       "width": 1440,
       "height": 900,
-      "sha256": "f909e8435c780227663e7ffa621eb4ea8864d8642ade8ff2759d96ce9eeece86"
+      "sha256": "b96635620a4066dd331d5af9c7940b16f9241323fed44d4ca93bfb31d48a44b7"
     },
     "vector": {
       "file": "vector-light.png",
@@ -82,7 +82,7 @@
       "lastValidatedAgainst": null,
       "width": 320,
       "height": 722,
-      "sha256": "1d6b3a0acc7449439639ecf0add34e68f3314262460645b823cf5ce2dd96ac31"
+      "sha256": "a71be39a896ba3f0441560b65ec3b1452d0648532f898971cc32c607bafd155b"
     },
     "layers": {
       "file": "layers-light.png",
@@ -105,7 +105,7 @@
       "lastValidatedAgainst": null,
       "width": 1440,
       "height": 900,
-      "sha256": "9e00b936037baf10fb5ce6fc5d208ac34889b9851286058cf44170350d7c0f55"
+      "sha256": "5aef2dbb2832fc63b39c1d23fc4356e6c812580c22c05aef983244522e52bb06"
     },
     "enhance-dialog-auto": {
       "file": "enhance-dialog-auto.png",
@@ -128,7 +128,7 @@
       "lastValidatedAgainst": null,
       "width": 1440,
       "height": 900,
-      "sha256": "faa861924ad455cfd90dee96be0a4ac21f1fb773180ba05c7ff4795244234fa7"
+      "sha256": "836206d38a330fae310b5a9f27f75d238d5414cf405a3e6be64fb8a5208bd2b6"
     },
     "print-production": {
       "file": "print-production-light.png",
@@ -140,7 +140,7 @@
       "lastValidatedAgainst": null,
       "width": 1440,
       "height": 900,
-      "sha256": "653a295e7a3ec6f0ccae4ad17fe3f4611320ceb05aedee8b0f0a0e07829c9e65"
+      "sha256": "7770ed9b869e6082c7e84f7642c305426d0a4b23af12feb810dadd278a48916a"
     },
     "vectorize": {
       "file": "vectorize-dialog-light.png",
@@ -164,7 +164,7 @@
       "height": 900,
       "status": "captured",
       "lastValidatedAgainst": null,
-      "sha256": "d8e8ca00510dbe58d45f2f59d7bd9e5c106a1f7c82a9349556d94247b300b2ff"
+      "sha256": "24c922d04265b81c5ef59b9002d11b793bf147150971b65edf55e10b85097f54"
     },
     "image-tools": {
       "file": "image-tools-panel-light.png",
@@ -176,7 +176,7 @@
       "height": 722,
       "status": "captured",
       "lastValidatedAgainst": null,
-      "sha256": "556706ae6361b0fcf115f73491bb957229e86289c22cf2d2eba9724fd3340a9e"
+      "sha256": "93542eacf7d1c9bfdf951b69f4e1ce0a93aae21376ccd1c683c1976920e1ced0"
     },
     "effects": {
       "file": "effects-light.png",
@@ -200,7 +200,7 @@
       "height": 900,
       "status": "captured",
       "lastValidatedAgainst": null,
-      "sha256": "1e7ee284b1882c6669470b60d6ab4bcb30dc7b2902e47040720ca6dbd8224911"
+      "sha256": "44063aaa58d82785cb21b8276e2f9643f3b5dd192030f382b3492d5855293b1c"
     },
     "depth-blur": {
       "file": "depth-blur-light.png",
@@ -212,7 +212,7 @@
       "height": 900,
       "status": "captured",
       "lastValidatedAgainst": null,
-      "sha256": "fbec299a21bb088a2a6e21a70c0868bfd5dc344f8e35709a69326976e96d66c4"
+      "sha256": "d72b1ce8584939a181c9c7667b76247a204a4ea4395def2f57e93747b4b8a078"
     },
     "solid-picker": {
       "file": "solid-picker-light.png",
@@ -224,7 +224,7 @@
       "height": 900,
       "status": "captured",
       "lastValidatedAgainst": null,
-      "sha256": "08de15f05c752bbb31f1c73f61debe430be8104afa569ce417bcc26f18da138a"
+      "sha256": "dde6cb0f831959a608ad1e68ce3d67fd48984064db80f0b040a8a8f7fffa2ddb"
     },
     "gradient-picker": {
       "file": "gradient-picker-light.png",
@@ -236,7 +236,7 @@
       "height": 900,
       "status": "captured",
       "lastValidatedAgainst": null,
-      "sha256": "8b9af39afa98339c6408d754d3af410a4b71dd50dc6ac4325307c8580a0b885b"
+      "sha256": "61a5392d16fe4eaeff24caf0a56b9b814cd551d57e365d304cfece202062b778"
     },
     "font-toolbar": {
       "sha256": "25f5f34152290e45a6c1af9fca2bc73cdcd91d98102f773da725ba1a22121579",
