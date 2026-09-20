@@ -676,7 +676,7 @@ function widestWordWidth(text: TextNode): number {
   if (!source) return 0;
   const options = {
     fontSize: text.fontSize ?? 16,
-    fontFamily: text.fontFamily,
+    fontFamily: text.fontFamily ?? 'sans-serif',
     fontWeight: text.fontWeight,
     fontStyle: text.fontStyle,
     letterSpacing: text.letterSpacing,
