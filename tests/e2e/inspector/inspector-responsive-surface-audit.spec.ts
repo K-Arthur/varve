@@ -224,6 +224,9 @@ test('frame geometry and Stack / Grid keep stable inspector rails', async ({ pag
   await expect(layout).toBeVisible();
 
   const samples: Record<number, unknown> = {};
+  const expectedInspectorRowHeight = await page.locator('.editor-inspector').evaluate((el) =>
+    Number.parseFloat(getComputedStyle(el).getPropertyValue('--insp-row-height')),
+  );
   for (const width of RAILS) {
     await setRail(page, width);
     const geometry = await position.evaluate((section) => {
@@ -313,7 +316,11 @@ test('frame geometry and Stack / Grid keep stable inspector rails', async ({ pag
       };
     });
     expect(layoutMetrics.overflow).toBeLessThanOrEqual(1);
-    expect(layoutMetrics.fieldHeights.every((height) => height >= 31 && height <= 33)).toBe(true);
+    expect(
+      layoutMetrics.fieldHeights.every(
+        (height) => Math.abs(height - expectedInspectorRowHeight) <= 0.5,
+      ),
+    ).toBe(true);
     // The sizing numerics (Min/Max W and H) fill shared pair columns, so the
     // two inputs in each row are equal instead of each fitting its own label
     // and value range. The two rows are independent groups, so their label
