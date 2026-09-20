@@ -77,11 +77,14 @@ deliberately **not** added: popover option rows already consume
 `--menu-item-min-height` (32px) from the sizing tier, so a second token would
 have had no consumer. Dead tokens are prohibited by review, not just by taste.
 
-Existing Inspector-local aliases (`inspector.css:7284-7288`) stay and are
-normative: `--insp-label-size`, `--insp-value-size`, `--insp-numeric-rail`,
-`--insp-preview-max-inline-size`. New local aliases must alias an existing
-token or a rem value with a named semantic role; raw px is prohibited
-(REQ-014 enforces).
+Existing Inspector-local aliases (`inspector.css:7181-7188`) stay and are
+normative for Inspector semantics: `--insp-label-size`, `--insp-value-size`,
+`--insp-preview-max-inline-size`, and the density-aware rhythm aliases. They
+are adapters, not a second component system: shared Select/Button/Input
+primitives continue to own their global chrome, while the Inspector supplies
+only its row-height and semantic spacing context. New local aliases must alias
+an existing token or a rem value with a named semantic role; raw px is
+prohibited (REQ-014 enforces).
 
 **Prohibited:** literals for colour (`#hex`, `rgb()`, `oklch()` outside a token
 definition), `font-size` outside the type ramp, `letter-spacing` outside

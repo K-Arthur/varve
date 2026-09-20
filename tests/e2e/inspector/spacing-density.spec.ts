@@ -21,6 +21,19 @@ async function drawRectangle(page: Page): Promise<void> {
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10_000 });
 }
 
+async function drawFrame(page: Page): Promise<void> {
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
+  await canvas.waitFor({ state: 'visible', timeout: 15_000 });
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('canvas not found');
+  await page.keyboard.press('f');
+  await page.mouse.move(box.x + 140, box.y + 140);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 360, box.y + 290, { steps: 3 });
+  await page.mouse.up();
+  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10_000 });
+}
+
 async function densityMetrics(page: Page) {
   return page.evaluate(() => {
     const inspector = document.querySelector<HTMLElement>('.editor-inspector');
@@ -58,16 +71,16 @@ async function densityMetrics(page: Page) {
 test('Default Pro is breathable and Compact Pro remains dense', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await navigateToEditor(page);
-  const baselinePanelHeight = await page.locator('.editor-inspector').evaluate(
-    (el) => el.getBoundingClientRect().height,
-  );
+  const baselinePanelHeight = await page
+    .locator('.editor-inspector')
+    .evaluate((el) => el.getBoundingClientRect().height);
   await drawRectangle(page);
 
   const selectedBefore = await page.getByRole('treeitem').first().getAttribute('aria-selected');
   const defaultMetrics = await densityMetrics(page);
-  const defaultPanelHeight = await page.locator('.editor-inspector').evaluate(
-    (el) => el.getBoundingClientRect().height,
-  );
+  const defaultPanelHeight = await page
+    .locator('.editor-inspector')
+    .evaluate((el) => el.getBoundingClientRect().height);
   await page.locator('.editor-inspector').screenshot({
     path: testInfo.outputPath('inspector-spacing-default.png'),
     animations: 'disabled',
@@ -76,9 +89,9 @@ test('Default Pro is breathable and Compact Pro remains dense', async ({ page },
   await page.evaluate(() => document.documentElement.setAttribute('data-density', 'compact'));
   await page.waitForTimeout(100);
   const compactMetrics = await densityMetrics(page);
-  const compactPanelHeight = await page.locator('.editor-inspector').evaluate(
-    (el) => el.getBoundingClientRect().height,
-  );
+  const compactPanelHeight = await page
+    .locator('.editor-inspector')
+    .evaluate((el) => el.getBoundingClientRect().height);
   await page.locator('.editor-inspector').screenshot({
     path: testInfo.outputPath('inspector-spacing-compact.png'),
     animations: 'disabled',
@@ -112,7 +125,9 @@ test('Default Pro is breathable and Compact Pro remains dense', async ({ page },
     expect(overflow).toBeLessThanOrEqual(1);
   }
   expect(compactMetrics.panelScrollHeight).toBeLessThan(defaultMetrics.panelScrollHeight);
-  expect(await page.getByRole('treeitem').first().getAttribute('aria-selected')).toBe(selectedBefore);
+  expect(await page.getByRole('treeitem').first().getAttribute('aria-selected')).toBe(
+    selectedBefore,
+  );
 
   await page.screenshot({ path: testInfo.outputPath('inspector-density-context.png') });
 });
@@ -133,4 +148,54 @@ test('Inspector density stays usable at narrow rails and across themes', async (
     expect(metrics.horizontalOverflow).toBeLessThanOrEqual(1);
     expect(metrics.sectionOverflow.every((overflow) => overflow <= 1)).toBe(true);
   }
+});
+
+test('Position and frame sizing groups keep semantic breathing room', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await navigateToEditor(page);
+  await drawFrame(page);
+
+  const metrics = await page.evaluate(() => {
+    const position = document.querySelector<HTMLElement>('.insp-position-size');
+    const sizing = document.querySelector<HTMLElement>('.insp-layout-sizing');
+    const select = document.querySelector<HTMLElement>(
+      '.insp-layout-sizing .varve-select__trigger',
+    );
+    if (!position || !sizing || !select) {
+      throw new Error('Frame spacing probe could not find Position & Size or Sizing');
+    }
+    return {
+      contentGap: getComputedStyle(document.querySelector('.insp-disclosure__content')!).rowGap,
+      positionGap: getComputedStyle(position).rowGap,
+      sizingGap: getComputedStyle(sizing).rowGap,
+      selectHeight: select.getBoundingClientRect().height,
+    };
+  });
+  expect(metrics.positionGap).toBe(metrics.contentGap);
+  expect(metrics.sizingGap).toBe(metrics.contentGap);
+  expect(metrics.selectHeight).toBe(34);
+
+  await page.evaluate(() => document.documentElement.setAttribute('data-density', 'compact'));
+  await page.waitForTimeout(100);
+  const compact = await page.evaluate(() => {
+    const position = document.querySelector<HTMLElement>('.insp-position-size');
+    const sizing = document.querySelector<HTMLElement>('.insp-layout-sizing');
+    const select = document.querySelector<HTMLElement>(
+      '.insp-layout-sizing .varve-select__trigger',
+    );
+    const content = document.querySelector<HTMLElement>('.insp-disclosure__content');
+    if (!position || !sizing || !select || !content) throw new Error('Compact probe failed');
+    return {
+      contentGap: getComputedStyle(content).rowGap,
+      positionGap: getComputedStyle(position).rowGap,
+      sizingGap: getComputedStyle(sizing).rowGap,
+      selectHeight: select.getBoundingClientRect().height,
+    };
+  });
+  expect(compact.positionGap).toBe(compact.contentGap);
+  expect(compact.sizingGap).toBe(compact.contentGap);
+  expect(compact.selectHeight).toBe(28);
+  expect(Number.parseFloat(metrics.positionGap)).toBeGreaterThan(
+    Number.parseFloat(compact.positionGap),
+  );
 });

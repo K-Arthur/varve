@@ -34,6 +34,10 @@ are recorded here once the screenshot pipeline completes.
 
 - Inspector before/after evidence: `test-results/run-924606-1456/` (`spacing-density.spec.ts`),
   including `inspector-spacing-default.png` and `inspector-spacing-compact.png`.
+- Follow-up evidence: `test-results/run-1022746-1477/` confirms Position & Size
+  and frame Sizing group gaps resolve to the same density-aware body gap as the
+  surrounding Inspector sections. Shared Select triggers now resolve to the
+  global density row contract instead of a fixed `2rem` local override.
 - Reviewed product evidence: `reports/inspector-spacing-capture-review/`, with
   all 13 requested scenes captured, hash-checked, visually inspected, and
   synchronized to `docs/screenshots/product/` and
@@ -60,7 +64,7 @@ Commands actually run: `pnpm audit:inspector-css`; `pnpm audit:spacing`;
   `pnpm verify:plan`; `pnpm verify:affected`; and
   `VARVE_FULL_GATE_REASON="Inspector density spacing contract, visual baselines, and website evidence" pnpm verify:full`.
 Passed: Inspector CSS audit; focused Inspector tests (73 tests); E2E density
-  lane (2 passed); E2E typecheck; screenshot manifest validation (22 captured,
+  lane (2 passed, plus the follow-up 3-test spacing lane); E2E typecheck; screenshot manifest validation (22 captured,
   0 skipped); reviewed screenshot synchronization; website build; Inspector
   form/layout, design-tab, density, performance, and responsive lanes (34/35
   in the combined run, with the one stale 31–33px assertion repaired to consume

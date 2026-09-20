@@ -1073,8 +1073,12 @@
 .insp-panel .varve-select__trigger,
 .insp-disclosure .varve-select__trigger,
 .insp-fill-add .varve-select__trigger {
-  min-height: 2rem;
-  height: 2rem;
+  /* The shared Select owns the control grammar; the Inspector only adapts
+   * its row height to the global density contract. Keeping a fixed 2rem here
+   * made Default Pro selects shorter than NumberFields and made Compact Pro
+   * selects taller than the rest of the panel. */
+  min-height: var(--insp-row-height, var(--density-rows-min-height));
+  height: var(--insp-row-height, var(--density-rows-min-height));
   padding: 0 var(--space-2);
   font-size: var(--insp-value-size, var(--font-size-xs));
   border-radius: var(--radius-control-compact);
@@ -1340,7 +1344,10 @@
 .insp-layout-sizing {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  /* Width/Height and the clamp rows are separate semantic groups. Match the
+   * surrounding layout controls instead of collapsing them into a toolbar
+   * rhythm that makes adjacent fields read as one control. */
+  gap: var(--insp-content-gap, var(--space-1));
   min-inline-size: 0;
   margin-block-start: var(--space-2);
   padding-block-start: var(--space-2);
@@ -6116,7 +6123,10 @@ fieldset.insp-canvas-props,
   --insp-size-gutter: var(--insp-row-height);
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  /* X/Y, W/H, and rotation are distinct field groups. The old space-1 gap
+   * left their 34px rows visually touching in Default Pro; use the same
+   * density-aware intra-section rhythm as the other Inspector grammars. */
+  gap: var(--insp-content-gap, var(--space-1));
   min-width: 0;
 }
 

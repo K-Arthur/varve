@@ -106,6 +106,11 @@ Interface density is a **user preference**, applied at the document root:
   rhythm and `space-1` body gaps. Field-group spacing and content padding are
   reduced in Compact Pro, while horizontal paired-field geometry remains
   stable so narrow rails do not gain dead width or lose controls.
+- These aliases are an ownership adapter, not an override of the global
+  component system. Shared Select/Button/Input primitives keep their global
+  typography, borders, focus, and pointer-target behavior; Inspector CSS only
+  supplies `--insp-row-height` and semantic group gaps. Fixed Inspector-local
+  heights such as `2rem` must not replace the shared `--density-*` contract.
 - Density never touches document zoom, scene geometry, selection bounds, or
   exported output, and never enters the document undo stack.
 - Virtualized consumers must follow the mode: the Layers tree's
