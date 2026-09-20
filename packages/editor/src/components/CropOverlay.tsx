@@ -168,6 +168,84 @@ function CropGuides({
   );
 }
 
+/**
+ * APG radiogroup over the crop toolbar's flat buttons: roving tabindex plus
+ * Arrow/Home/End movement. The crop chrome keeps its own visual grammar
+ * (canvas overlay), but not its own keyboard model — every radiogroup in the
+ * app must expose the same contract as `SegmentedControl`.
+ */
+function CropRadioGroup<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: ReadonlyArray<{ value: T; label: string }>;
+  onChange: (value: T) => void;
+}) {
+  const groupRef = useRef<HTMLDivElement>(null);
+
+  function select(index: number) {
+    const option = options[index];
+    if (!option) return;
+    onChange(option.value);
+    const buttons = groupRef.current?.querySelectorAll<HTMLButtonElement>('[role="radio"]');
+    buttons?.[index]?.focus();
+  }
+
+  function onKeyDown(event: React.KeyboardEvent, index: number) {
+    const last = options.length - 1;
+    switch (event.key) {
+      case 'ArrowRight':
+      case 'ArrowDown':
+        event.preventDefault();
+        select(index === last ? 0 : index + 1);
+        break;
+      case 'ArrowLeft':
+      case 'ArrowUp':
+        event.preventDefault();
+        select(index === 0 ? last : index - 1);
+        break;
+      case 'Home':
+        event.preventDefault();
+        select(0);
+        break;
+      case 'End':
+        event.preventDefault();
+        select(last);
+        break;
+    }
+  }
+
+  return (
+    <div ref={groupRef} className="crop-toolbar__group" role="radiogroup" aria-label={label}>
+      {options.map((option, index) => (
+        <button
+          key={option.value}
+          type="button"
+          role="radio"
+          aria-checked={value === option.value}
+          tabIndex={value === option.value ? 0 : -1}
+          className="crop-toolbar__btn"
+          onClick={() => onChange(option.value)}
+          onKeyDown={(event) => onKeyDown(event, index)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const CROP_GUIDE_OPTIONS: ReadonlyArray<{ value: CropGuideMode; label: string }> = [
+  { value: 'none', label: 'No guides' },
+  { value: 'thirds', label: 'Thirds' },
+  { value: 'golden', label: 'Golden' },
+  { value: 'diagonals', label: 'Diags' },
+];
+
 /** Toolbar for crop aspect ratio and guide controls. */
 function CropToolbar({
   activeRatio,
@@ -189,49 +267,30 @@ function CropToolbar({
   void originalRatio;
   return (
     <div className="crop-toolbar" role="toolbar" aria-label="Crop options">
-      <div className="crop-toolbar__group" role="radiogroup" aria-label="Aspect ratio">
-        {CROP_ASPECT_PRESETS.map((preset) => {
-          const label =
+      <CropRadioGroup
+        label="Aspect ratio"
+        value={activeRatio}
+        options={CROP_ASPECT_PRESETS.map((preset) => ({
+          value: preset.label,
+          label:
             preset.label === 'original'
               ? 'Original'
               : preset.label === 'free'
                 ? 'Free'
-                : preset.label;
-          return (
-            <button
-              key={preset.label}
-              type="button"
-              role="radio"
-              aria-checked={activeRatio === preset.label}
-              className="crop-toolbar__btn"
-              onClick={() => onRatioChange(preset)}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </div>
+                : preset.label,
+        }))}
+        onChange={(label) => {
+          const preset = CROP_ASPECT_PRESETS.find((candidate) => candidate.label === label);
+          if (preset) onRatioChange(preset);
+        }}
+      />
       <div className="crop-toolbar__separator" />
-      <div className="crop-toolbar__group" role="radiogroup" aria-label="Guides">
-        {(['none', 'thirds', 'golden', 'diagonals'] as const).map((mode) => (
-          <button
-            key={mode}
-            type="button"
-            role="radio"
-            aria-checked={guideMode === mode}
-            className="crop-toolbar__btn"
-            onClick={() => onGuideChange(mode)}
-          >
-            {mode === 'none'
-              ? 'No guides'
-              : mode === 'thirds'
-                ? 'Thirds'
-                : mode === 'golden'
-                  ? 'Golden'
-                  : 'Diags'}
-          </button>
-        ))}
-      </div>
+      <CropRadioGroup
+        label="Guides"
+        value={guideMode}
+        options={CROP_GUIDE_OPTIONS}
+        onChange={onGuideChange}
+      />
       <div className="crop-toolbar__separator" />
       <div className="crop-toolbar__group">
         <label className="crop-toolbar__label" htmlFor="crop-straighten">

@@ -543,7 +543,7 @@ export function ArchiveDialog({
               className="sr-only"
             />
             <span className="archive-dialog__type-icon" aria-hidden="true">
-              &#128194;
+              <Icon name="FolderArchive" size="1.25em" />
             </span>
             <span className="archive-dialog__type-label">Full Project</span>
             <span className="archive-dialog__type-desc">Document, assets, and settings</span>
@@ -558,7 +558,7 @@ export function ArchiveDialog({
               className="sr-only"
             />
             <span className="archive-dialog__type-icon" aria-hidden="true">
-              &#9881;
+              <Icon name="Settings" size="1.25em" />
             </span>
             <span className="archive-dialog__type-label">Settings Only</span>
             <span className="archive-dialog__type-desc">Preferences and configuration</span>

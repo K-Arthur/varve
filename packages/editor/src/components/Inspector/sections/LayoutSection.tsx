@@ -33,22 +33,51 @@ import { SegmentedControl } from '../controls/SegmentedControl';
 import { commonValue, isMixed } from '../selection/selectionState';
 import { GridPlacementFields } from './GridPlacementFields';
 
+/* Alignment and justification are icon pickers: six abbreviated text segments
+ * ("Spc/Ard/Evn") were unreadable, and six text options exceed the segmented
+ * control's 2-5 text limit (Apple HIG, Primer). Icons + visually hidden full
+ * labels keep one row, and the tooltip carries the full name. */
 const ALIGN_ITEMS_OPTIONS: readonly SegmentedOption<'start' | 'center' | 'end' | 'stretch'>[] = [
-  { value: 'start', label: 'Start' },
-  { value: 'center', label: 'Ctr' },
-  { value: 'end', label: 'End' },
-  { value: 'stretch', label: 'Str' },
+  { value: 'start', label: 'Align to top', icon: 'AlignStartVertical', hideLabel: true },
+  { value: 'center', label: 'Align to middle', icon: 'AlignCenterVertical', hideLabel: true },
+  { value: 'end', label: 'Align to bottom', icon: 'AlignEndVertical', hideLabel: true },
+  { value: 'stretch', label: 'Stretch to fill', icon: 'StretchVertical', hideLabel: true },
 ] as const;
 
 const JUSTIFY_OPTIONS: readonly SegmentedOption<
   'start' | 'center' | 'end' | 'spaceBetween' | 'spaceAround' | 'spaceEvenly'
 >[] = [
-  { value: 'start', label: 'Start' },
-  { value: 'center', label: 'Ctr' },
-  { value: 'end', label: 'End' },
-  { value: 'spaceBetween', label: 'Spc' },
-  { value: 'spaceAround', label: 'Ard' },
-  { value: 'spaceEvenly', label: 'Evn' },
+  {
+    value: 'start',
+    label: 'Justify to start',
+    icon: 'AlignHorizontalJustifyStart',
+    hideLabel: true,
+  },
+  {
+    value: 'center',
+    label: 'Justify center',
+    icon: 'AlignHorizontalJustifyCenter',
+    hideLabel: true,
+  },
+  { value: 'end', label: 'Justify to end', icon: 'AlignHorizontalJustifyEnd', hideLabel: true },
+  {
+    value: 'spaceBetween',
+    label: 'Space between',
+    icon: 'AlignHorizontalSpaceBetween',
+    hideLabel: true,
+  },
+  {
+    value: 'spaceAround',
+    label: 'Space around',
+    icon: 'AlignHorizontalSpaceAround',
+    hideLabel: true,
+  },
+  {
+    value: 'spaceEvenly',
+    label: 'Space evenly',
+    icon: 'AlignHorizontalDistributeCenter',
+    hideLabel: true,
+  },
 ] as const;
 
 const SIZING_OPTIONS: { value: LayoutSizing; label: string }[] = [

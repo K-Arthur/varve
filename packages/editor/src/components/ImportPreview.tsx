@@ -109,29 +109,6 @@ export function ImportPreview({ validation, onConfirm, onCancel }: ImportPreview
                 </ul>
               </div>
             )}
-
-            <div className="import-preview__options">
-              <h3 className="import-preview__options-title">Import options</h3>
-              <label className="import-preview__option">
-                <input
-                  type="radio"
-                  name="importMode"
-                  value="editable"
-                  defaultChecked
-                  aria-label="Import as editable"
-                />
-                <span>Import as editable</span>
-              </label>
-              <label className="import-preview__option">
-                <input
-                  type="radio"
-                  name="importMode"
-                  value="flattened"
-                  aria-label="Import as flattened"
-                />
-                <span>Import as flattened</span>
-              </label>
-            </div>
           </div>
 
           <div className="import-preview__footer">

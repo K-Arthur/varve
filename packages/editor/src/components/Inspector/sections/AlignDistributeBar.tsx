@@ -727,8 +727,11 @@ export function AlignDistributeBar() {
             )}
             {/* All three references stay visible so the alignment mode is
                   never a hidden state; unavailable options are announced as
-                  disabled and explain themselves on hover. */}
-            <div className="insp-align-targets" role="radiogroup" aria-label="Alignment reference">
+                  disabled and explain themselves on hover. These are toggle
+                  buttons (`aria-pressed`), so the container is a `group`:
+                  a `radiogroup` may contain only radios (same ownership rule
+                  fixed for the workspace dock). */}
+            <div className="insp-align-targets" role="group" aria-label="Alignment reference">
               <Tooltip
                 label={
                   showSelectionTarget

@@ -52,17 +52,6 @@ describe('ImportPreview', () => {
     expect(items[1]?.textContent).toMatch(/filter effects not supported/i);
   });
 
-  it('shows import options (editable vs flattened)', () => {
-    const validation = makeValidation();
-    const { container } = render(
-      <ImportPreview validation={validation} onConfirm={() => {}} onCancel={() => {}} />,
-    );
-    const radios = container.querySelectorAll('input[name="importMode"]');
-    expect(radios.length).toBe(2);
-    expect((radios[0] as HTMLInputElement).value).toBe('editable');
-    expect((radios[1] as HTMLInputElement).value).toBe('flattened');
-  });
-
   it('calls onConfirm when import button clicked', () => {
     const onConfirm = vi.fn();
     const validation = makeValidation();

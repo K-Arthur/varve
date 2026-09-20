@@ -49,7 +49,7 @@ describe('LayoutSection per-node Width/Height sizing controls', () => {
       expect(getCtx().state.document.nodes[id]?.kind).toBe('frame');
     });
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Evn' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Space evenly' }));
     await waitFor(() => {
       const id = getCtx().state.selection[0] as string;
       const node = getCtx().state.document.nodes[id];
