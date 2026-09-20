@@ -77,7 +77,9 @@ Escalations: `pnpm verify:affected` stopped at the mandated full-gate
   443/568 with 125 broad light-theme contrast/visual/content failures. A later
   isolated responsive retry was blocked before navigation by the unrelated
   worktree state: `@varve/shared` did not export
-  `resolveTextWrapLineWidths`.
+  `resolveTextWrapLineWidths`. The follow-up `pnpm typecheck:e2e` rerun remains
+  blocked by the pre-existing `packages/scene/src/callout.ts` TextMeasureOptions
+  mismatch; the new three-test spacing lane itself passed 3/3.
 Full suite run: yes (attempted; failed outside task-owned Inspector/website
   evidence scope).
 If yes, reason: Inspector density spacing contract, visual baselines, and
