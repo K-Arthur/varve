@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { ellipseLineWidthProfile } from './balloonTextLayout';
 import {
   resolveTextGeometry,
   resolveTextGeometryMode,
@@ -370,5 +371,72 @@ describe('path text', () => {
     const g = geom({ text: 'Along a path', textMode: 'path', w: 500, h: 120 });
     expect(g.mode).toBe('path');
     expect(g.bounds).toMatchObject({ w: 500, h: 120 });
+  });
+});
+
+describe('contour (balloon) wrapping', () => {
+  const monospace = (charWidth: number) => ({
+    measureAdvance: (text: string) => text.length * charWidth,
+    revision: () => 'contour-test',
+  });
+
+  it('keeps the rectangular wrap when no contour shape is authored', () => {
+    setTextAdvanceMeasurer(monospace(10));
+    const rect = geom({
+      text: 'one two three four five six seven eight',
+      w: 200,
+      h: 200,
+      textResizing: 'fixed',
+    });
+    expect(rect.lines.length).toBeGreaterThan(1);
+    expect(rect.lines[0]!.width).toBeGreaterThan(150);
+  });
+
+  it('narrows the first and last lines so the stack follows a round balloon', () => {
+    setTextAdvanceMeasurer(monospace(10));
+    const input: TextGeometryInput = {
+      ...BASE,
+      text: 'one two three four five six seven eight',
+      w: 200,
+      h: 200,
+      textResizing: 'fixed',
+    };
+    const rect = resolveTextGeometry(input);
+    const contour = resolveTextGeometry({ ...input, textWrapShape: 'ellipse' });
+
+    expect(contour.lines.length).toBeGreaterThanOrEqual(rect.lines.length);
+    expect(contour.lines[0]!.width).toBeLessThan(rect.lines[0]!.width);
+    expect(contour.lines[contour.lines.length - 1]!.width).toBeLessThan(200);
+
+    // Every line respects the profile entry for its index, and the widest
+    // shaped line sits in the middle third of the stack.
+    const expectedProfile = ellipseLineWidthProfile({
+      width: 200,
+      height: 200,
+      lineHeight: LINE,
+    });
+    for (const [index, line] of contour.lines.entries()) {
+      const available = expectedProfile[Math.min(index, expectedProfile.length - 1)];
+      if (available !== undefined) expect(line.width).toBeLessThanOrEqual(available + 0.001);
+    }
+    const widest = Math.max(...contour.lines.map((line) => line.width));
+    const widestIndex = contour.lines.findIndex((line) => line.width === widest);
+    const third = Math.floor(contour.lines.length / 3);
+    expect(widestIndex).toBeGreaterThanOrEqual(Math.max(0, third - 1));
+    expect(widestIndex).toBeLessThanOrEqual(contour.lines.length - third);
+  });
+
+  it('ignores the contour for vertical writing so columns stay rectangular', () => {
+    setTextAdvanceMeasurer(monospace(10));
+    const vertical = resolveTextGeometry({
+      ...BASE,
+      text: '一二三四五六',
+      w: 80,
+      h: 200,
+      textResizing: 'fixed',
+      writingMode: 'vertical-rl',
+      textWrapShape: 'ellipse',
+    });
+    expect(vertical.lines.length).toBeGreaterThan(0);
   });
 });

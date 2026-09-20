@@ -12,7 +12,7 @@
  * for the canvas renderer.
  */
 
-import type { OpenTypeFeatureMap, PathNodeMode } from '@varve/shared';
+import type { OpenTypeFeatureMap, PathNodeMode, TextWrapShape } from '@varve/shared';
 import type { FontReference } from './font/fontIdentity';
 import type { SpatialBlurEffect } from './spatialBlur';
 
@@ -465,6 +465,12 @@ export interface SceneNode {
   textMode?: TextMode;
   /** Resizing contract used to resolve the render mode when the node is built directly. */
   textResizing?: 'autoWidth' | 'autoHeight' | 'fixed';
+  /**
+   * Interior wrap shape for soft wrapping. `'ellipse'` narrows the first and
+   * last lines so the text follows a round balloon; derived per-line widths
+   * come from `resolveTextWrapLineWidths` and are never serialized.
+   */
+  textWrapShape?: TextWrapShape;
   /** Path text settings. */
   pathTextSettings?: PathTextSettings;
   /** Text direction: 'ltr', 'rtl', or 'auto' (auto-detect). */
@@ -692,6 +698,12 @@ export type Primitive =
       openTypeFeatures?: OpenTypeFeatureMap;
       /** Text mode. */
       textMode?: TextMode;
+      /**
+       * Interior wrap shape. `'ellipse'` gives the line stack a balloon
+       * profile; the painter derives per-line widths through the shared
+       * `resolveTextWrapLineWidths`, so bounds and paint agree.
+       */
+      textWrapShape?: TextWrapShape;
       /** Path text settings. */
       pathTextSettings?: PathTextSettings;
       /** Resolved shape for path text (when textMode === 'path'). */

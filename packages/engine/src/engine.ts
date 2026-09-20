@@ -15,6 +15,7 @@ import {
   multiplyAffine,
   resolveTextGeometry,
   resolveTextGeometryMode,
+  type TextWrapShape,
   tryInvertAffine,
 } from '@varve/shared';
 import { hitTest } from './geometry';
@@ -134,6 +135,7 @@ function shapeToPrimitive(
             textMode?: TextMode;
             writingMode?: WritingMode;
             textOrientation?: TextOrientation;
+            textWrapShape?: TextWrapShape;
           })
         : null;
     const fontSize = node.fontSize ?? textShape?.fontSize ?? 14;
@@ -159,6 +161,7 @@ function shapeToPrimitive(
       variableAxes: node.variableAxes,
       writingMode: node.writingMode ?? textShape?.writingMode,
       textOrientation: node.textOrientation ?? textShape?.textOrientation,
+      textWrapShape: node.textWrapShape ?? textShape?.textWrapShape,
     });
     const geometryMode = resolveTextGeometryMode({
       text,
@@ -201,6 +204,7 @@ function shapeToPrimitive(
       textOrientation: (node.textOrientation ?? textShape?.textOrientation) as
         | TextOrientation
         | undefined,
+      textWrapShape: node.textWrapShape ?? textShape?.textWrapShape,
       pathTextSettings: node.pathTextSettings,
       pathShape: resolvePathShape(node, nodeMap),
       direction: (node.direction as 'ltr' | 'rtl' | 'auto' | undefined) ?? 'auto',

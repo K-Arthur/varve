@@ -49,6 +49,7 @@ import { nextNodeId } from './node-id';
 import { createEmptySelectionSetsData } from './selectionSet';
 import { createTableModel, type TableColumnDefinition, type TableModel } from './table';
 import type {
+  ComicWorkflowProfile,
   ContainerNode,
   DesignCanvas,
   DocumentGrid,
@@ -63,6 +64,7 @@ import type {
   PathNode,
   SceneNode,
   ShapeNode,
+  StoryOutline,
   Style,
   TableNode,
   TextNode,
@@ -365,6 +367,17 @@ export interface Document {
    * that augments normal Varve design primitives for the email compiler.
    */
   emailSemantics?: import('./emailTypes').EmailSemanticMap;
+
+  /** Optional comic/manga/webtoon workflow defaults over the shared document. */
+  workflowProfile?: ComicWorkflowProfile;
+  /** Reading order used by comic previews, transcripts, and publishing plans. */
+  readingDirection?: import('./types').ComicReadingDirection;
+  /** Authoring target used to seed export and preflight defaults. */
+  publishingTarget?: import('./types').ComicPublishingTarget;
+  /** Integrated outline metadata referencing pages, panels, and TextStories. */
+  storyOutline?: StoryOutline;
+  /** Source painting resolution for newly-created raster layers. */
+  paintingPpi?: number;
 }
 
 export interface NodeEntry {
@@ -618,6 +631,7 @@ export function makeTextNode(
       | 'direction'
       | 'writingMode'
       | 'textOrientation'
+      | 'textWrapShape'
       | 'language'
       | 'opacity'
       | 'blendMode'
@@ -669,6 +683,7 @@ export function makeTextNode(
     direction: opts.direction,
     writingMode: opts.writingMode,
     textOrientation: opts.textOrientation,
+    textWrapShape: opts.textWrapShape,
     language: opts.language,
     strokes: opts.strokes ?? [],
     effects: opts.effects ?? [],
@@ -703,6 +718,7 @@ export function makeFrameNode(
       | 'propertyOverrides'
       | 'syncBaseline'
       | 'layoutStyle'
+      | 'panel'
     >
   > = {},
 ): FrameNode {
@@ -732,6 +748,7 @@ export function makeFrameNode(
     strokes: opts.strokes ?? [],
     effects: opts.effects ?? [],
     layoutStyle: opts.layoutStyle,
+    panel: opts.panel,
   };
 }
 

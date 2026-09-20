@@ -42,28 +42,113 @@ function getWordSegmenter(): Intl.Segmenter | null {
   return wordSegmenter;
 }
 
+/** Punctuation that must stay glued to the adjacent word (UAX #14 CI/EX/CL). */
+const PUNCT_ONLY_RE = /^[\p{P}]+$/u;
+
 /**
  * Segment a paragraph into break units. Each unit is a maximal word-like
  * segment (including attached punctuation) or a whitespace run; units never
  * split graphemes. NBSP is whitespace but never a break opportunity (ICU may
  * emit it as its own segment; it must stay glued to a word).
+ *
+ * `Intl.Segmenter` at word granularity emits closing punctuation as its own
+ * segment, which let a period orphan onto the next line ("look back" /
+ * "."). UAX #14 keeps closing punctuation with the word it follows and
+ * opening punctuation with the word it precedes, so punctuation is merged
+ * here instead of becoming a break unit of its own. Emoji and other symbol
+ * graphemes are not punctuation and stay independent units.
  */
 export function segmentBreakUnits(text: string): BreakUnit[] {
   if (text.length === 0) return [];
   const segmenter = getWordSegmenter();
   if (segmenter) {
     const units: BreakUnit[] = [];
+    // Opening punctuation (a quote or bracket before a word) waits for the
+    // word it introduces instead of forming a breakable unit.
+    let pendingPrefix: BreakUnit | null = null;
+    const flushPrefix = (): void => {
+      if (pendingPrefix) {
+        units.push(pendingPrefix);
+        pendingPrefix = null;
+      }
+    };
     for (const segment of segmenter.segment(text)) {
       const t = segment.segment;
-      units.push({
-        start: segment.index,
-        end: segment.index + t.length,
-        text: t,
-        isWhitespace: isWhitespaceUnit(t),
-        isWord: segment.isWordLike === true,
-        isBreakable: BREAKABLE_WS_RE.test(t) && !NBSP_ONLY_RE.test(t),
-      });
+      if (isWhitespaceUnit(t)) {
+        flushPrefix();
+        units.push({
+          start: segment.index,
+          end: segment.index + t.length,
+          text: t,
+          isWhitespace: true,
+          isWord: false,
+          isBreakable: BREAKABLE_WS_RE.test(t) && !NBSP_ONLY_RE.test(t),
+        });
+        continue;
+      }
+      const wordLike = segment.isWordLike === true;
+      if (!wordLike && PUNCT_ONLY_RE.test(t)) {
+        const previous = units[units.length - 1];
+        if (
+          previous &&
+          !previous.isWhitespace &&
+          previous.isWord &&
+          previous.end === segment.index
+        ) {
+          // Closing punctuation stays glued to the word it follows.
+          previous.end = segment.index + t.length;
+          previous.text += t;
+        } else if (pendingPrefix) {
+          pendingPrefix.end = segment.index + t.length;
+          pendingPrefix.text += t;
+        } else {
+          pendingPrefix = {
+            start: segment.index,
+            end: segment.index + t.length,
+            text: t,
+            isWhitespace: false,
+            isWord: false,
+            isBreakable: false,
+          };
+        }
+        continue;
+      }
+      if (!wordLike) {
+        // Symbols and emoji are independent break units: they are not
+        // punctuation, and consecutive graphemes may wrap between them.
+        flushPrefix();
+        units.push({
+          start: segment.index,
+          end: segment.index + t.length,
+          text: t,
+          isWhitespace: false,
+          isWord: false,
+          isBreakable: false,
+        });
+        continue;
+      }
+      if (pendingPrefix) {
+        units.push({
+          start: pendingPrefix.start,
+          end: segment.index + t.length,
+          text: pendingPrefix.text + t,
+          isWhitespace: false,
+          isWord: true,
+          isBreakable: false,
+        });
+        pendingPrefix = null;
+      } else {
+        units.push({
+          start: segment.index,
+          end: segment.index + t.length,
+          text: t,
+          isWhitespace: false,
+          isWord: true,
+          isBreakable: false,
+        });
+      }
     }
+    flushPrefix();
     return units;
   }
   return fallbackBreakUnits(text);

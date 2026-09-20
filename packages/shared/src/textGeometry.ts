@@ -33,6 +33,7 @@
  * only the first line.
  */
 
+import { resolveTextWrapLineWidths, type TextWrapShape } from './balloonTextLayout';
 import { type MeasuredLine, measureAdvanceWidth, type TextMeasureOptions } from './textMeasure';
 import { isVerticalWritingMode, type TextOrientation, type WritingMode } from './verticalText';
 
@@ -89,6 +90,13 @@ export interface TextGeometryInput {
   variableAxes?: Record<string, number> | undefined;
   writingMode?: WritingMode | undefined;
   textOrientation?: TextOrientation | undefined;
+  /**
+   * Interior shape for soft wrapping. `'rect'` (default) fills the container
+   * width; `'ellipse'` narrows the first and last lines so the text mass
+   * follows a round balloon. Derived line widths are computed through
+   * `resolveTextWrapLineWidths`, never serialized.
+   */
+  textWrapShape?: TextWrapShape | undefined;
 }
 
 export interface TextGeometry {
@@ -302,12 +310,24 @@ function layoutParagraph(
   paragraph: TextGeometryRichParagraph,
   base: TextMeasureOptions,
   maxWidth: number | null,
+  lineWidths: readonly number[] | null = null,
 ): MeasuredLine[] {
   const tokens = tokenizeParagraph(paragraph, base);
   const emptyHeight = pieceHeight(base);
   if (tokens.length === 0) {
     return [{ text: '', width: 0, height: emptyHeight }];
   }
+
+  // A contour profile narrows specific lines; the caller's maxWidth stays the
+  // hard cap. Lines past the profile's end reuse its final entry so a
+  // pathological box cannot produce an unbounded line.
+  const hardLimit = maxWidth ?? 0;
+  const limitForLine = (lineIndex: number): number | null => {
+    if (!lineWidths || lineWidths.length === 0) return maxWidth;
+    const entry = lineWidths[Math.min(lineIndex, lineWidths.length - 1)];
+    const width = Number.isFinite(entry) ? (entry as number) : hardLimit;
+    return maxWidth === null ? width : Math.min(maxWidth, width);
+  };
 
   const lines: MeasuredLine[] = [];
   let lineTokens: LineToken[] = [];
@@ -330,7 +350,8 @@ function layoutParagraph(
   };
 
   for (const token of tokens) {
-    if (maxWidth === null) {
+    const limit = limitForLine(lines.length);
+    if (limit === null) {
       lineTokens.push(token);
       lineWidth += token.width;
       continue;
@@ -343,19 +364,23 @@ function layoutParagraph(
       lineWidth += token.width;
       continue;
     }
-    if (lineWidth + token.width <= maxWidth) {
+    if (lineWidth + token.width <= limit) {
       lineTokens.push(token);
       lineWidth += token.width;
       continue;
     }
-    if (token.width <= maxWidth) {
+    // The token does not fit this line. If it could fit a wider line later
+    // (the middle of a balloon), move it whole rather than breaking a word;
+    // only char-break when it exceeds every line in the box.
+    if (token.width <= hardLimit) {
       flush();
       lineTokens.push(token);
       lineWidth = token.width;
       continue;
     }
-    // Too wide even alone: break it by character, continuing the current line.
-    const fragments = breakToken(token, maxWidth, lineWidth);
+    // Too wide even for the widest line: break it by character, continuing the
+    // current line.
+    const fragments = breakToken(token, hardLimit, lineWidth);
     for (let i = 0; i < fragments.length; i++) {
       const fragment = fragments[i];
       if (!fragment) continue;
@@ -484,6 +509,19 @@ export function resolveTextGeometry(node: TextGeometryInput): TextGeometry {
       ? Math.max(0, (vertical ? node.h : node.w) ?? 0) || null
       : null;
 
+  // Contour wrapping needs a resolved box: a fixed container provides both
+  // dimensions, while autoHeight derives one from the other. Vertical writing
+  // is deliberately rectangular until column profiles are designed.
+  const lineWidths =
+    !vertical && mode === 'fixed'
+      ? resolveTextWrapLineWidths({
+          wrapShape: node.textWrapShape,
+          width: node.w,
+          height: node.h,
+          lineHeight: fontSize * (base.lineHeight ?? DEFAULT_LINE_HEIGHT),
+        })
+      : null;
+
   const paragraphs = sourceParagraphs(node);
   const lines: TextLineBox[] = [];
   let layoutWidth = 0;
@@ -515,7 +553,7 @@ export function resolveTextGeometry(node: TextGeometryInput): TextGeometry {
     let y = 0;
     for (let p = 0; p < paragraphs.length; p++) {
       if (p > 0) y += paragraphSpacing;
-      for (const line of layoutParagraph(paragraphs[p]!, base, constraintWidth)) {
+      for (const line of layoutParagraph(paragraphs[p]!, base, constraintWidth, lineWidths)) {
         lines.push({ ...line, y });
         layoutWidth = Math.max(layoutWidth, line.width);
         y += line.height;

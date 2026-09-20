@@ -8,13 +8,14 @@
  */
 
 import type { Affine, PathPoint } from '@varve/engine';
-import { resolveTextGeometry } from '@varve/shared';
+import { resolveTextGeometry, type TextWrapShape } from '@varve/shared';
 import { computeReparentTransform, nodeWorldBounds, worldRectToLocal } from './coordinateService';
 import type { Document } from './document';
 import { addChild, addNode, makePathNode, makeShapeNode, makeTextNode } from './document';
 import { reparentPreservingWorldTransform } from './document-nodes';
 import { getParent, makeGroupNode } from './document-utils';
 import { nextNodeId } from './node-id';
+import { textGeometryInput } from './textBounds';
 import type {
   CalloutFitPolicy,
   CalloutRecipe,
@@ -34,6 +35,8 @@ export type CalloutFitStatus = 'fit' | 'near-overflow' | 'overflow';
 export interface CalloutFitReport {
   status: CalloutFitStatus;
   policy: CalloutFitPolicy;
+  /** Authored interior wrap shape for the bound text. */
+  wrapShape: TextWrapShape;
   padding: number;
   availableWidth: number;
   availableHeight: number;
@@ -68,6 +71,15 @@ export interface CalloutResult {
 }
 
 const WHITE = { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 255 };
+
+/**
+ * Round balloons read as a stack that follows the outline (longest line near
+ * the middle); captions and narration are rectangles. This is the authored
+ * default — the Inspector can switch either way per balloon.
+ */
+export function defaultCalloutWrapShape(kind: CalloutKind): TextWrapShape {
+  return kind === 'caption' ? 'rect' : 'ellipse';
+}
 
 function calloutStyle(kind: CalloutKind): {
   cornerRadius: number;
@@ -186,6 +198,7 @@ export function createCallout(doc: Document, options: CreateCalloutOptions): Cal
     textAlignVertical: 'middle',
     textResizing: 'fixed',
     textOverflow: 'visible',
+    textWrapShape: defaultCalloutWrapShape(kind),
     richText: plainTextToRichText(options.text ?? ''),
   });
 
@@ -211,7 +224,12 @@ export function createCallout(doc: Document, options: CreateCalloutOptions): Cal
 export function wrapTextInCallout(
   doc: Document,
   textId: NodeId,
-  options: { kind?: CalloutKind; padding?: number; tailLength?: number } = {},
+  options: {
+    kind?: CalloutKind;
+    padding?: number;
+    tailLength?: number;
+    wrapShape?: TextWrapShape;
+  } = {},
 ): CalloutResult | null {
   const text = doc.nodes[textId];
   if (text?.kind !== 'text') return null;
@@ -247,6 +265,7 @@ export function wrapTextInCallout(
     localTransform ?? undefined,
   );
   const groupAfterReparent = next.nodes[created.groupId] as GroupNode;
+  const wrapShape = options.wrapShape ?? defaultCalloutWrapShape(options.kind ?? 'speech');
   next = {
     ...next,
     nodes: {
@@ -258,6 +277,9 @@ export function wrapTextInCallout(
           textNodeId: textId,
         },
       },
+      // The balloon owns the interior wrap shape by default; switching it is
+      // an explicit, reversible Inspector choice.
+      [textId]: { ...(next.nodes[textId] as TextNode), textWrapShape: wrapShape },
     },
   };
   // `createCallout` made a temporary text node before the existing one was
@@ -329,6 +351,7 @@ export function getCalloutFitReport(doc: Document, groupId: NodeId): CalloutFitR
   return {
     status,
     policy: group.callout.fitPolicy ?? (group.callout.fitToText ? 'fit-balloon' : 'reflow'),
+    wrapShape: text.textWrapShape ?? 'rect',
     padding,
     availableWidth,
     availableHeight,
@@ -484,10 +507,31 @@ export function fitCalloutToText(doc: Document, groupId: NodeId): Document {
   if (!members) return doc;
   const { body, text } = members;
   const p = Math.max(0, group.callout.padding);
-  const geometry = resolveTextGeometry(text);
   const current = textLocalSize(text);
-  const innerW = Math.max(current.w, geometry.layout.w);
-  const innerH = Math.max(current.h, geometry.layout.h);
+
+  // Contour wrapping depends on the inner box height, so a single pass can
+  // change the line count. Iterate to a fixpoint (bounded, synchronous), then
+  // take a final union pass so text can never clip.
+  const layoutAt = (innerW: number, innerH: number): { w: number; h: number } =>
+    resolveTextGeometry({
+      ...textGeometryInput(text),
+      w: Math.max(1, innerW),
+      h: Math.max(1, innerH),
+    }).layout;
+  let innerW = current.w;
+  let innerH = current.h;
+  for (let pass = 0; pass < 4; pass++) {
+    const layout = layoutAt(innerW, innerH);
+    const nextW = Math.max(1, layout.w);
+    const nextH = Math.max(1, layout.h);
+    if (Math.abs(nextW - innerW) < 0.5 && Math.abs(nextH - innerH) < 0.5) break;
+    innerW = nextW;
+    innerH = nextH;
+  }
+  const settled = layoutAt(innerW, innerH);
+  innerW = Math.max(innerW, settled.w);
+  innerH = Math.max(innerH, settled.h);
+
   const localW = innerW + p * 2;
   const localH = innerH + p * 2;
   let nodes: Record<NodeId, SceneNode> = {
@@ -505,6 +549,26 @@ export function fitCalloutToText(doc: Document, groupId: NodeId): Document {
         callout: { ...group.callout, fitToText: true, fitPolicy: 'fit-balloon' },
       },
     },
+  };
+}
+
+/**
+ * Choose the interior wrap shape for the bound text. Authored, reversible, and
+ * separate from fitting: switching a round balloon to a rectangular stack must
+ * not resize the balloon behind the user's back.
+ */
+export function setCalloutWrapShape(
+  doc: Document,
+  groupId: NodeId,
+  wrapShape: TextWrapShape,
+): Document {
+  const group = calloutGroup(doc, groupId);
+  if (!group) return doc;
+  const text = doc.nodes[group.callout.textNodeId];
+  if (text?.kind !== 'text' || text.textWrapShape === wrapShape) return doc;
+  return {
+    ...doc,
+    nodes: { ...doc.nodes, [text.id]: { ...text, textWrapShape: wrapShape } },
   };
 }
 

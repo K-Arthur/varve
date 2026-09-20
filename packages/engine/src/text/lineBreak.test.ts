@@ -14,15 +14,16 @@ describe('segmentBreakUnits', () => {
   });
 
   it('keeps punctuation attached to its word', () => {
-    // ICU word segmentation emits letter runs and punctuation as separate
-    // segments; punctuation-only segments are neither words nor whitespace
-    // (breakable units that never split a word visually).
+    // Regression: ICU word segmentation emits letter runs and punctuation as
+    // separate segments. Treating a punctuation segment as its own break unit
+    // let a closing period or comma orphan onto the next line ("look back" /
+    // "."), so UAX #14 attachment is applied here.
     const units = segmentBreakUnits('Hello, world!');
-    expect(units.map((u) => u.text)).toEqual(['Hello', ',', ' ', 'world', '!']);
-    const comma = units.find((u) => u.text === ',')!;
-    expect(comma.isWord).toBe(false);
-    expect(comma.isWhitespace).toBe(false);
+    expect(units.map((u) => u.text)).toEqual(['Hello,', ' ', 'world!']);
+    expect(units[0]!.isWord).toBe(true);
+    expect(units[0]!.isWhitespace).toBe(false);
     expect(units.find((u) => u.text === ' ')!.isBreakable).toBe(true);
+    expect(units.map((u) => u.text).join('')).toBe('Hello, world!');
   });
 
   it('treats NBSP as non-breaking whitespace (never a break opportunity)', () => {

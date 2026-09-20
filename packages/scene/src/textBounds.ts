@@ -41,6 +41,7 @@ export function textGeometryInput(node: TextNodeLike): TextGeometryInput {
     variableAxes: node.variableAxes,
     writingMode: node.writingMode,
     textOrientation: node.textOrientation,
+    textWrapShape: node.textWrapShape,
   };
 }
 

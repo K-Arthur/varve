@@ -111,6 +111,16 @@ export {
   sharedFindingToSceneShape,
   shouldShowByDefault,
 } from './auditTypes';
+export type {
+  BalloonLineWidthProfileOptions,
+  ResolveTextWrapLineWidthsInput,
+  TextWrapShape,
+} from './balloonTextLayout';
+export {
+  ellipseLineWidthProfile,
+  resolveTextWrapLineWidths,
+  TEXT_WRAP_SHAPES,
+} from './balloonTextLayout';
 export type { CubicBezier, PathNodeMode, PathPoint as BezierPathPoint, Point2D } from './bezier';
 export {
   cubicBezierBBox,
@@ -548,6 +558,23 @@ export {
   registerProfileProofConverterNormalized,
 } from './proofTransform';
 export type {
+  RangeRaster,
+  RangeRasterContract,
+  RangeRasterProvenance,
+  RangeRasterReference,
+  RangeRasterValidation,
+  RangeSanitizeReport,
+} from './rangeRaster';
+export {
+  createRangeRaster,
+  MAX_RANGE_RASTER_PIXELS,
+  RangeRasterError,
+  RGBA_CHANNELS,
+  rangeRasterContractKey,
+  sanitizeRangeRasterInPlace,
+  validateRangeRasterContract,
+} from './rangeRaster';
+export type {
   RasterAlphaMode,
   RasterBitDepth,
   RasterColorEncoding,
@@ -620,7 +647,6 @@ export {
 } from './textMeasure';
 export * from './thumbnail/contracts';
 export { DEFAULT_ARTWORK_FONT_FAMILY } from './typographyDefaults';
-export type { DocumentUnit, SpecUnit } from './units';
 export type {
   FeatureNormalizationResult,
   NormalizedOpenTypeFeature,
@@ -631,15 +657,16 @@ export type {
   OpenTypeFeatureValue,
 } from './typographyFeatures';
 export {
-  isOpenTypeFeatureTag,
   hasPotentialStandardLigatureSequence,
+  isOpenTypeFeatureTag,
   normalizeOpenTypeFeatureMap,
   normalizeOpenTypeFeatureValue,
-  openTypeFeaturesToCss,
   OPTIONAL_LIGATURE_FEATURE_TAGS,
+  openTypeFeaturesToCss,
   REQUIRED_SHAPING_FEATURE_TAGS,
   resolveOpenTypeFeatureMaps,
 } from './typographyFeatures';
+export type { DocumentUnit, SpecUnit } from './units';
 export {
   convertDocumentUnit,
   convertPx,

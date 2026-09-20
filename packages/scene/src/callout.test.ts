@@ -9,6 +9,7 @@ import {
   getCalloutFitReport,
   getParent,
   makeTextNode,
+  setCalloutWrapShape,
   updateCalloutKind,
   updateCalloutPadding,
   updateCalloutTailEndpoint,
@@ -155,5 +156,87 @@ describe('comic callouts', () => {
     expect(afterTail?.kind === 'path' ? afterTail.points[0] : null).not.toEqual(
       beforeTail?.kind === 'path' ? beforeTail.points[0] : null,
     );
+  });
+
+  it('defaults round balloon types to a balloon contour and captions to a rectangle', () => {
+    const speech = createCallout(createDocument('contour-speech', true), {
+      x: 0,
+      y: 0,
+      w: 220,
+      h: 140,
+      text: 'Stay close.',
+    });
+    expect(
+      speech.document.nodes[speech.textId]?.kind === 'text'
+        ? speech.document.nodes[speech.textId]?.textWrapShape
+        : undefined,
+    ).toBe('ellipse');
+
+    const caption = createCallout(createDocument('contour-caption', true), {
+      x: 0,
+      y: 0,
+      w: 220,
+      h: 140,
+      kind: 'caption',
+      text: 'Three days earlier.',
+    });
+    expect(
+      caption.document.nodes[caption.textId]?.kind === 'text'
+        ? caption.document.nodes[caption.textId]?.textWrapShape
+        : undefined,
+    ).toBe('rect');
+  });
+
+  it('applies the contour to existing text when it is wrapped into a balloon', () => {
+    const text = makeTextNode('text-contour', 'I should not have said that.', {
+      transform: [1, 0, 0, 1, 60, 70],
+      w: 180,
+      h: 90,
+      textResizing: 'fixed',
+    });
+    const doc = addNode(createDocument('contour-wrap', true), text);
+    const result = wrapTextInCallout(doc, text.id, { kind: 'speech' });
+    expect(result).not.toBeNull();
+    const wrapped = result!.document.nodes[text.id];
+    expect(wrapped?.kind === 'text' ? wrapped.textWrapShape : undefined).toBe('ellipse');
+  });
+
+  it('switches the line shape without resizing the body and reports the active shape', () => {
+    const created = createCallout(createDocument('contour-switch', true), {
+      x: 0,
+      y: 0,
+      w: 260,
+      h: 160,
+      text: 'Wait for me at the station.',
+    });
+    const bodyBefore = created.document.nodes[created.bodyId];
+    const switched = setCalloutWrapShape(created.document, created.groupId, 'rect');
+    expect(switched.nodes[created.bodyId]).toBe(bodyBefore);
+    expect(getCalloutFitReport(switched, created.groupId)?.wrapShape).toBe('rect');
+    const back = setCalloutWrapShape(switched, created.groupId, 'ellipse');
+    expect(getCalloutFitReport(back, created.groupId)?.wrapShape).toBe('ellipse');
+  });
+
+  it('fits a contour balloon tightly around dialogue without touching text or tail target', () => {
+    const created = createCallout(createDocument('contour-fit', true), {
+      x: 0,
+      y: 0,
+      w: 420,
+      h: 320,
+      text: 'No, that is not what I meant at all.',
+      tailEndpoint: { x: 30, y: 400 },
+    });
+    const textBefore = created.document.nodes[created.textId];
+    const doc = fitCalloutToText(created.document, created.groupId);
+    const body = doc.nodes[created.bodyId];
+    const textAfter = doc.nodes[created.textId];
+    expect(body?.kind === 'shape' ? body.shape.w : Number.POSITIVE_INFINITY).toBeLessThan(420);
+    expect(body?.kind === 'shape' ? body.shape.h : Number.POSITIVE_INFINITY).toBeLessThan(320);
+    expect(textAfter?.kind === 'text' ? textAfter.text : undefined).toBe(
+      textBefore?.kind === 'text' ? textBefore.text : undefined,
+    );
+    const tail = doc.nodes[created.tailNodeIds[0]!];
+    expect(tail?.kind === 'path' ? tail.points.at(-1) : null).toMatchObject({ x: 30, y: 400 });
+    expect(getCalloutFitReport(doc, created.groupId)?.status).not.toBe('overflow');
   });
 });

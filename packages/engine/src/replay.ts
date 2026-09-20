@@ -16,6 +16,7 @@ import {
   hasPotentialStandardLigatureSequence,
   managedColorToRgba,
   openTypeFeaturesToCss,
+  resolveTextWrapLineWidths,
 } from '@varve/shared';
 import { isVerticalWritingMode } from '@varve/shared/verticalText';
 import type { AlphaStrokeOps } from './alphaStroke';
@@ -2629,6 +2630,7 @@ function paintRichText(
         target as import('./richTextLayout').RichTextMeasureContext,
         {
           maxWidth: p.textMode === 'area' ? (isVerticalWritingMode(p.writingMode) ? p.h : p.w) : 0,
+          lineWidths: textLineWidthsForPrimitive(p),
           lineHeight: p.fontSize * p.lineHeight,
           paragraphSpacing: p.paragraphSpacing,
           language: p.language,
@@ -2896,6 +2898,26 @@ function paintCanonicalRichText(
 
 type TextPrimitive = Extract<RenderItem['primitive'], { kind: 'text' }>;
 
+/**
+ * Contour wrap widths for a balloon text primitive, derived through the same
+ * shared function the scene geometry uses. `mode` must be area so a point-text
+ * node with a stale box cannot start folding lines, and vertical columns stay
+ * rectangular until column profiles exist.
+ */
+function textLineWidthsForPrimitive(p: TextPrimitive): readonly number[] | undefined {
+  if (p.textWrapShape !== 'ellipse') return undefined;
+  if (p.textMode !== 'area') return undefined;
+  if (isVerticalWritingMode(p.writingMode)) return undefined;
+  return (
+    resolveTextWrapLineWidths({
+      wrapShape: p.textWrapShape,
+      width: p.w,
+      height: p.h,
+      lineHeight: p.fontSize * p.lineHeight,
+    }) ?? undefined
+  );
+}
+
 function canUseCanonicalTextLayout(p: TextPrimitive): boolean {
   return (
     !p.richText &&
@@ -2955,6 +2977,7 @@ function canonicalTextSnapshot(target: ReplayTarget, p: TextPrimitive): TextLayo
   if (!shaping) return null;
   return buildTextLayoutSnapshot(p.text, shaping, {
     maxWidth,
+    lineWidths: textLineWidthsForPrimitive(p),
     lineHeight: p.fontSize * p.lineHeight,
     language: p.language,
     writingMode: p.writingMode,

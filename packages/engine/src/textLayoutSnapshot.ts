@@ -37,6 +37,8 @@ export interface TextLayoutIdentity {
   sourceRevision: string;
   fontRevision: string;
   maxWidth: number;
+  /** Contour wrapping participates in cache identity; '' means rectangular. */
+  lineWidthsKey: string;
   lineHeight: number | null;
   paragraphSpacing: number;
   direction: 'ltr' | 'rtl';
@@ -139,6 +141,12 @@ export interface TextLayoutSnapshot {
 
 export interface BuildTextLayoutSnapshotOptions {
   maxWidth: number;
+  /**
+   * Per-line width limits for contour (balloon) wrapping. Derived through the
+   * shared `resolveTextWrapLineWidths`; entry `i` bounds line `i`, and lines
+   * past the end reuse the last entry. Omit for rectangular wrapping.
+   */
+  lineWidths?: readonly number[] | undefined;
   sourceRevision?: string;
   fontRevision?: string;
   lineHeight?: number;
@@ -161,6 +169,8 @@ export interface LayoutTextInput {
   text: string;
   paragraphs: readonly LayoutParagraphInput[];
   maxWidth: number;
+  /** Per-line width limits for contour wrapping; see `BuildTextLayoutSnapshotOptions`. */
+  lineWidths?: readonly number[] | undefined;
   sourceRevision?: string;
   fontRevision?: string;
   lineHeight?: number;
@@ -209,6 +219,7 @@ export function layoutText(input: LayoutTextInput): TextLayoutSnapshot {
     sourceRevision: input.sourceRevision ?? 'unknown',
     fontRevision: input.fontRevision ?? 'unknown',
     maxWidth,
+    lineWidthsKey: input.lineWidths?.length ? input.lineWidths.join(',') : '',
     lineHeight: input.lineHeight ?? null,
     paragraphSpacing: Math.max(0, input.paragraphSpacing ?? 0),
     direction: baseDirection,
@@ -239,6 +250,7 @@ export function layoutText(input: LayoutTextInput): TextLayoutSnapshot {
       maxWidth,
       input.lineHeight ?? null,
       paragraphMap,
+      input.lineWidths,
     );
     const paragraphTop =
       lines.length > 0
@@ -536,11 +548,16 @@ function makeLayoutUnit(
  * and are trimmed at paint time). A word that does not fit starts a new line.
  * The paragraph's logical order is preserved: visual reordering happens per
  * line afterwards.
+ *
+ * `lineWidths` narrows specific lines (contour/balloon wrapping). The overall
+ * `maxWidth` remains the hard cap; lines past the end of the profile reuse its
+ * final entry, so a short profile can never produce an unbounded line.
  */
 function wrapLines(
   paragraph: ItemizedParagraph,
   units: readonly LayoutUnit[],
   maxWidth: number,
+  lineWidths?: readonly number[] | undefined,
 ): RawLine[] {
   const lines: RawLine[] = [];
   let current: LayoutUnit[] = [];
@@ -552,13 +569,15 @@ function wrapLines(
       currentWidth = 0;
     }
   };
+  const limitForLine = (lineIndex: number): number => {
+    if (!lineWidths || lineWidths.length === 0) return maxWidth;
+    const entry = lineWidths[Math.min(lineIndex, lineWidths.length - 1)];
+    if (!Number.isFinite(entry)) return maxWidth;
+    return Math.max(0, Math.min(maxWidth, entry as number));
+  };
   for (const unit of units) {
-    if (
-      maxWidth > 0 &&
-      unit.width > 0 &&
-      current.length > 0 &&
-      currentWidth + unit.width > maxWidth
-    ) {
+    const limit = limitForLine(lines.length);
+    if (limit > 0 && unit.width > 0 && current.length > 0 && currentWidth + unit.width > limit) {
       if (!unit.unit.isWhitespace) {
         // A word does not fit: wrap before it.
         flush();
@@ -581,9 +600,10 @@ function layoutParagraphLines(
   maxWidth: number,
   lineHeightOverride: number | null,
   sourceMap: UnicodeIndexMap,
+  lineWidths?: readonly number[] | undefined,
 ): TextLayoutLine[] {
   const units = buildLayoutUnits(paragraph, records, maxWidth, sourceMap);
-  const rawLines = wrapLines(paragraph, units, maxWidth);
+  const rawLines = wrapLines(paragraph, units, maxWidth, lineWidths);
   const lines: TextLayoutLine[] = [];
   let top = 0;
   for (const raw of rawLines) {
@@ -1050,6 +1070,7 @@ export function buildTextLayoutSnapshot(
     text,
     paragraphs,
     maxWidth: options.maxWidth,
+    lineWidths: options.lineWidths,
     sourceRevision: options.sourceRevision,
     fontRevision: options.fontRevision,
     lineHeight: options.lineHeight ?? shaping.height,
@@ -1188,6 +1209,7 @@ export function textLayoutSnapshotCacheKey(text: string, identity: TextLayoutIde
     identity.sourceRevision,
     identity.fontRevision,
     identity.maxWidth,
+    identity.lineWidthsKey,
     identity.lineHeight,
     identity.direction,
     identity.writingMode,

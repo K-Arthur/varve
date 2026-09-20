@@ -160,6 +160,7 @@ const NODE_KIND_KEY_ORDER: Record<string, readonly string[]> = {
     'textAlignVertical',
     'writingMode',
     'textOrientation',
+    'textWrapShape',
     'textCase',
     'textDecoration',
     'listStyle',

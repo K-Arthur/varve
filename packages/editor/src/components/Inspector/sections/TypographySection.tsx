@@ -28,7 +28,15 @@ import {
   wrapTextInCallout,
 } from '@varve/scene';
 import { managedColorKey } from '@varve/shared';
-import { Button, Icon, Select, Switch, Tooltip } from '@varve/ui';
+import {
+  Button,
+  Icon,
+  SegmentedControl,
+  type SegmentedOption,
+  Select,
+  Switch,
+  Tooltip,
+} from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
@@ -59,8 +67,6 @@ import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { NumberField } from '../controls/NumberField';
 import { RangeValueControl } from '../controls/RangeValueControl';
 import { RichTextSpanEditor } from '../controls/RichTextSpanEditor';
-import type { SegmentedOption } from '../controls/SegmentedControl';
-import { SegmentedControl } from '../controls/SegmentedControl';
 import { commonValue, isMixed, type MaybeMixed } from '../selection/selectionState';
 import './TypographySection.css';
 
@@ -861,14 +867,6 @@ export function TypographySection({ nodes }: TypographySectionProps) {
                   : batchUpdate((n) => ({ ...n, ...fontStyleChanges(n, v) }))
               }
             />
-            {textFillColor && (
-              <ContrastIndicator
-                fgColor={textFillColor}
-                bgColor={null}
-                fontSize={isMixed(sizeRaw) ? 16 : sizeRaw}
-                fontWeight={isMixed(weightRaw) ? 400 : weightRaw}
-              />
-            )}
           </FieldRow>
         </InspectorFieldGroup>
         <InspectorFieldGroup columns={2} className="typography__paired-fields">
@@ -926,6 +924,17 @@ export function TypographySection({ nodes }: TypographySectionProps) {
                 })
               }
             />
+            {/* The contrast readout describes the text colour, so it lives
+                with the colour field — not inside the Style cell, where it
+                read as a subordinate of Font style (IA-011). */}
+            {textFillColor && (
+              <ContrastIndicator
+                fgColor={textFillColor}
+                bgColor={null}
+                fontSize={isMixed(sizeRaw) ? 16 : sizeRaw}
+                fontWeight={isMixed(weightRaw) ? 400 : weightRaw}
+              />
+            )}
           </FieldRow>
         )}
         <NumberField

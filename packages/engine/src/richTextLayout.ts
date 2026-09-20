@@ -9,9 +9,9 @@
  */
 
 import { textMeasureRevision, variationSettingsKey } from '@varve/shared';
+import { inheritedFontReference } from './font/fontFaceInheritance';
 import type { FontReference } from './font/fontIdentity';
 import { fontReferenceKey } from './font/fontIdentity';
-import { inheritedFontReference } from './font/fontFaceInheritance';
 import { scriptCodeToTag, shapeRun } from './shaping';
 import { type ItemizedParagraph, itemizeParagraph, type ParagraphRange } from './text/paragraphs';
 import type { TextLayoutSnapshot } from './textLayoutSnapshot';
@@ -49,6 +49,8 @@ export interface RichTextLayoutDefaults {
 
 export interface RichTextLayoutOptions {
   maxWidth: number;
+  /** Per-line width limits for contour (balloon) wrapping. */
+  lineWidths?: readonly number[] | undefined;
   lineHeight: number;
   paragraphSpacing?: number;
   sourceRevision?: string;
@@ -109,9 +111,6 @@ function shapeParagraph(
       const format = span?.run.format ?? {};
       const text = paragraph.text.slice(cursor, end);
       if (text.length > 0) {
-        const lineHeight =
-          (format.lineHeight ?? defaults.lineHeight ?? 1.4) *
-          (format.fontSize ?? defaults.fontSize);
         const runFamily = format.fontFamily ?? defaults.fontFamily;
         const runReference = inheritedFontReference(
           defaults.fontFamily,
@@ -119,6 +118,9 @@ function shapeParagraph(
           format.fontFamily,
           format.fontReference,
         );
+        const lineHeight =
+          (format.lineHeight ?? defaults.lineHeight ?? 1.4) *
+          (format.fontSize ?? defaults.fontSize);
         const runs = shapeRun({
           text,
           fontFamily: runFamily,
@@ -239,6 +241,7 @@ export function layoutRichTextSnapshot(
     text: sourceText.join('\n'),
     paragraphs,
     maxWidth: options.maxWidth,
+    lineWidths: options.lineWidths,
     lineHeight: options.lineHeight,
     paragraphSpacing: options.paragraphSpacing,
     sourceRevision: options.sourceRevision,

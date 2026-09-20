@@ -1,11 +1,12 @@
 /** Inspector controls for a parametric comic callout group. */
-import type { CalloutFitPolicy, CalloutKind, GroupNode } from '@varve/scene';
+import type { CalloutFitPolicy, CalloutKind, GroupNode, TextWrapShape } from '@varve/scene';
 import {
   addCalloutTail,
   detachCalloutRecipe,
   fitCalloutToText,
   getCalloutFitReport,
   setCalloutFitPolicy,
+  setCalloutWrapShape,
   updateCalloutKind,
   updateCalloutPadding,
   updateCalloutTailEndpoint,
@@ -43,6 +44,23 @@ const FIT_OPTIONS = [
     description: 'Keep authored geometry and warn when text exceeds it.',
   },
 ] as const;
+
+const WRAP_SHAPE_OPTIONS: readonly {
+  value: TextWrapShape;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: 'ellipse',
+    label: 'Balloon contour',
+    description: 'Narrow the first and last lines so the stack follows a round balloon.',
+  },
+  {
+    value: 'rect',
+    label: 'Rectangle',
+    description: 'Wrap every line to the full interior width.',
+  },
+];
 
 export function CalloutSection({ node, sectionId }: { node: GroupNode; sectionId?: SectionId }) {
   const editor = useEditor();
@@ -100,6 +118,18 @@ export function CalloutSection({ node, sectionId }: { node: GroupNode; sectionId
           )
         }
       />
+      <FieldRow label="Line shape">
+        <Select
+          label="Balloon line shape"
+          value={fitReport?.wrapShape ?? 'rect'}
+          options={WRAP_SHAPE_OPTIONS.map((option) => ({ ...option }))}
+          onChange={(value) =>
+            mutate('Change balloon line shape', (document) =>
+              setCalloutWrapShape(document, node.id, value as TextWrapShape),
+            )
+          }
+        />
+      </FieldRow>
       <FieldRow label="Fit policy">
         <Select
           label="Balloon fit policy"

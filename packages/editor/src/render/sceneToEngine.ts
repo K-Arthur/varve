@@ -325,6 +325,7 @@ export function sceneNodeToEngineNode(
       textMode,
       writingMode: node.writingMode,
       textOrientation: node.textOrientation,
+      textWrapShape: node.textWrapShape,
       pathTextSettings: node.pathTextSettings,
       // The shape is what the render pipeline turns into a text primitive, so
       // anything the painter reads has to be on it. These two were set on the
@@ -359,6 +360,7 @@ export function sceneNodeToEngineNode(
       textMode,
       writingMode: node.writingMode,
       textOrientation: node.textOrientation,
+      textWrapShape: node.textWrapShape,
       pathTextSettings: node.pathTextSettings,
       direction: node.direction ?? 'auto',
       language: node.language,

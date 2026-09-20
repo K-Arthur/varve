@@ -32,9 +32,10 @@ import type {
   MediaFillSettings,
   RasterColorEncoding,
   OpenTypeFeatureMap as SharedOpenTypeFeatureMap,
+  TextWrapShape,
 } from '@varve/shared';
 
-export type { AnimatedAssetMetadata, MediaFillSettings } from '@varve/shared';
+export type { AnimatedAssetMetadata, MediaFillSettings, TextWrapShape } from '@varve/shared';
 
 import type {
   BleedConfig,
@@ -76,6 +77,33 @@ export type { LayerColor, LayerColorName } from './layerColor';
 export type { GradientInterpolationSpace, ManagedColor };
 
 export type NodeId = string;
+
+/** Shared document-level comic workflow defaults. This is advisory metadata,
+ * never a separate scene or renderer. */
+export type ComicWorkflowProfile = 'comic-print' | 'manga' | 'webtoon-vertical';
+
+export type ComicReadingDirection = 'ltr' | 'rtl';
+export type ComicPublishingTarget = 'print' | 'webtoon' | 'both';
+
+export type ComicProductionStatus = 'planned' | 'rough' | 'inked' | 'lettered' | 'finished';
+
+export interface StoryOutlineEntry {
+  id: string;
+  pageId: NodeId;
+  title?: string;
+  notes?: string;
+  status: ComicProductionStatus;
+  /** Explicit panel order, independent of scene paint order. */
+  panelIds: NodeId[];
+  /** Ordered dialogue story ids, including unplaced stories. */
+  dialogueStoryIds: NodeId[];
+}
+
+export interface StoryOutline {
+  version: 1;
+  entries: StoryOutlineEntry[];
+  updatedAt?: number;
+}
 
 // ── Constraints types (Figma-style responsive positioning) ─────────────────
 
@@ -129,6 +157,10 @@ export interface BackgroundRemovalProvenance {
   modelChecksum?: string;
   runtime: 'typescript' | 'wasm' | 'webgl' | 'webgpu' | 'native-cpu' | 'native-accelerated';
   generatedAt: number;
+  /** Raw provider ranking score, when the result came from prompted selection. */
+  score?: number;
+  /** Meaning of `score`; it is not a probability of user intent. */
+  scoreSource?: 'predicted-iou' | 'stability' | 'heuristic' | 'model-iou' | 'activation-heuristic';
   confidence?: number;
   /** Legacy edge-colour cleanup setting retained during v2.0 migration. */
   decontaminate?: boolean;
@@ -1182,6 +1214,19 @@ export interface Paragraph {
 
 export interface RichText {
   paragraphs: Paragraph[];
+  /** Optional source-ranged ruby/furigana annotations for comic lettering. */
+  ruby?: RubyAnnotation[];
+}
+
+/** Ruby annotation anchored to UTF-16 offsets in the flattened story text. */
+export interface RubyAnnotation {
+  start: number;
+  end: number;
+  text: string;
+  language?: string;
+  position?: 'over' | 'under' | 'inter-character';
+  /** Set when the base range changed and needs author review. */
+  stale?: boolean;
 }
 
 // ── Text Stories (v2.18, ADR-0159) ─────────────────────────────────────────
@@ -1201,6 +1246,9 @@ export interface TextStory {
   thread: NodeId[];
   /** Language tag for shaping/hyphenation (e.g. "en", "ar"). */
   language?: string;
+  /** Optional speaker and production metadata used by comic transcripts. */
+  speaker?: string;
+  dialogueKind?: 'speech' | 'thought' | 'caption' | 'sfx' | 'narration';
 }
 
 /**
@@ -1510,6 +1558,13 @@ export interface TextNode extends NodeBase {
   writingMode?: WritingMode;
   /** Cluster orientation in vertical writing; omitted means mixed. */
   textOrientation?: TextOrientation;
+  /**
+   * Interior wrap shape for soft wrapping. `'ellipse'` narrows the first and
+   * last lines so the text mass follows a round balloon (comic dialogue).
+   * Authored intent only: the per-line widths are derived by
+   * `resolveTextWrapLineWidths` in `@varve/shared`, never serialized.
+   */
+  textWrapShape?: TextWrapShape;
   /** ISO language tag for language-specific shaping (e.g. 'ar', 'hi', 'th'). */
   language?: string;
   /** F6: stacked strokes on text. */
@@ -1798,6 +1853,18 @@ export interface FrameNode extends NodeBase {
   cornerRadius?: number | [number, number, number, number];
   /** Corner smoothing percentage (0-100, Sketch-style continuous corners). */
   cornerSmoothing?: number;
+  /** Optional semantic panel metadata; frame geometry remains authoritative. */
+  panel?: PanelMetadata;
+}
+
+export interface PanelMetadata {
+  version: 1;
+  panelId: string;
+  readingOrder?: number;
+  readingDirection?: 'ltr' | 'rtl';
+  gutter?: number;
+  /** Freeform/diagonal panels may provide a clipping path node. */
+  clipPathId?: NodeId;
 }
 
 /**
