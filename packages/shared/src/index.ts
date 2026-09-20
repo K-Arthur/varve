@@ -113,14 +113,9 @@ export {
 } from './auditTypes';
 export type {
   BalloonLineWidthProfileOptions,
-  ResolveTextWrapLineWidthsInput,
   TextWrapShape,
 } from './balloonTextLayout';
-export {
-  ellipseLineWidthProfile,
-  resolveTextWrapLineWidths,
-  TEXT_WRAP_SHAPES,
-} from './balloonTextLayout';
+export { ellipseLineWidthProfile, lineWidthAt, TEXT_WRAP_SHAPES } from './balloonTextLayout';
 export type { CubicBezier, PathNodeMode, PathPoint as BezierPathPoint, Point2D } from './bezier';
 export {
   cubicBezierBBox,

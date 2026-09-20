@@ -1670,6 +1670,13 @@ export interface CalloutRecipe {
   /** False after the author directly edits the generated body path. */
   parametric: boolean;
   /**
+   * Explicit interior wrap-shape override. Absent means "follow the kind's
+   * default", so switching a balloon to a caption reaches the rectangle and
+   * switching back to a shout reaches the contour. Set only by an explicit
+   * author choice.
+   */
+  wrapShape?: TextWrapShape;
+  /**
    * Logical tail grouping. Optional and additive: recipes written before it
    * exist are read as one pointed tail per `tailNodeIds` entry.
    */

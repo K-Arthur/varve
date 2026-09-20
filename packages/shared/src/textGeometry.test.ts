@@ -396,7 +396,7 @@ describe('contour (balloon) wrapping', () => {
     setTextAdvanceMeasurer(monospace(10));
     const input: TextGeometryInput = {
       ...BASE,
-      text: 'one two three four five six seven eight',
+      text: 'one two three four five six seven eight nine ten eleven twelve',
       w: 200,
       h: 200,
       textResizing: 'fixed',
@@ -412,8 +412,7 @@ describe('contour (balloon) wrapping', () => {
     // shaped line sits in the middle third of the stack.
     const expectedProfile = ellipseLineWidthProfile({
       width: 200,
-      height: 200,
-      lineHeight: LINE,
+      lineCount: contour.lines.length,
     });
     for (const [index, line] of contour.lines.entries()) {
       const available = expectedProfile[Math.min(index, expectedProfile.length - 1)];
@@ -424,6 +423,23 @@ describe('contour (balloon) wrapping', () => {
     const third = Math.floor(contour.lines.length / 3);
     expect(widestIndex).toBeGreaterThanOrEqual(Math.max(0, third - 1));
     expect(widestIndex).toBeLessThanOrEqual(contour.lines.length - third);
+  });
+
+  it('keeps a tall mostly-empty box from squeezing a short dialogue', () => {
+    // Regression: a height-derived profile narrowed the top line just because
+    // the balloon was tall, forcing one word per line. The line count is what
+    // shapes the stack, not the empty space under it.
+    setTextAdvanceMeasurer(monospace(10));
+    const tall = resolveTextGeometry({
+      ...BASE,
+      text: 'No, that is not what I meant at all.',
+      w: 320,
+      h: 420,
+      textResizing: 'fixed',
+      textWrapShape: 'ellipse',
+    });
+    expect(tall.lines.length).toBeLessThanOrEqual(3);
+    expect(tall.lines[0]!.width).toBeGreaterThan(150);
   });
 
   it('ignores the contour for vertical writing so columns stay rectangular', () => {

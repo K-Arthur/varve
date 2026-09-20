@@ -13,6 +13,7 @@
  * entry point for consumers that already hold a `TextShaping` result.
  */
 
+import { ellipseLineWidthProfile, type TextWrapShape } from '@varve/shared';
 import {
   isVerticalWritingMode,
   type TextOrientation,
@@ -142,10 +143,12 @@ export interface TextLayoutSnapshot {
 export interface BuildTextLayoutSnapshotOptions {
   maxWidth: number;
   /**
-   * Per-line width limits for contour (balloon) wrapping. Derived through the
-   * shared `resolveTextWrapLineWidths`; entry `i` bounds line `i`, and lines
-   * past the end reuse the last entry. Omit for rectangular wrapping.
+   * Interior wrap shape. `'ellipse'` gives the line stack a balloon profile,
+   * derived here from the number of lines the text forms (the same derivation
+   * `@varve/shared` uses for scene geometry). Omit for rectangular wrapping.
    */
+  wrapShape?: TextWrapShape | undefined;
+  /** Explicit per-line width limits; overrides `wrapShape` when present. */
   lineWidths?: readonly number[] | undefined;
   sourceRevision?: string;
   fontRevision?: string;
@@ -169,7 +172,9 @@ export interface LayoutTextInput {
   text: string;
   paragraphs: readonly LayoutParagraphInput[];
   maxWidth: number;
-  /** Per-line width limits for contour wrapping; see `BuildTextLayoutSnapshotOptions`. */
+  /** Interior wrap shape; see `BuildTextLayoutSnapshotOptions`. */
+  wrapShape?: TextWrapShape | undefined;
+  /** Explicit per-line width limits; overrides `wrapShape` when present. */
   lineWidths?: readonly number[] | undefined;
   sourceRevision?: string;
   fontRevision?: string;
@@ -211,6 +216,21 @@ interface RawLine {
 export function layoutText(input: LayoutTextInput): TextLayoutSnapshot {
   const sourceMap = createUnicodeIndexMap(input.text);
   const maxWidth = Math.max(0, input.maxWidth);
+  const vertical = isVerticalWritingMode(input.writingMode ?? 'horizontal-tb');
+  // Contour wrapping: derive the profile from the number of lines the text
+  // forms in this width, then re-wrap until the count stabilizes. The derived
+  // widths join the identity so a cache cannot serve a rectangular layout for
+  // a contour request.
+  let lineWidths = input.lineWidths;
+  if (!lineWidths?.length && input.wrapShape === 'ellipse' && maxWidth > 0 && !vertical) {
+    const count = countWrappedLines(input.paragraphs, maxWidth, undefined);
+    lineWidths = ellipseLineWidthProfile({ width: maxWidth, lineCount: count });
+    for (let pass = 0; pass < 3; pass++) {
+      const next = countWrappedLines(input.paragraphs, maxWidth, lineWidths);
+      if (next === lineWidths.length) break;
+      lineWidths = ellipseLineWidthProfile({ width: maxWidth, lineCount: next });
+    }
+  }
   const lines: TextLayoutLine[] = [];
   const paragraphInfos: TextLayoutParagraphInfo[] = [];
   const caretStops: CaretStop[] = [];
@@ -219,7 +239,7 @@ export function layoutText(input: LayoutTextInput): TextLayoutSnapshot {
     sourceRevision: input.sourceRevision ?? 'unknown',
     fontRevision: input.fontRevision ?? 'unknown',
     maxWidth,
-    lineWidthsKey: input.lineWidths?.length ? input.lineWidths.join(',') : '',
+    lineWidthsKey: lineWidths?.length ? lineWidths.join(',') : '',
     lineHeight: input.lineHeight ?? null,
     paragraphSpacing: Math.max(0, input.paragraphSpacing ?? 0),
     direction: baseDirection,
@@ -231,7 +251,7 @@ export function layoutText(input: LayoutTextInput): TextLayoutSnapshot {
   };
   const diagnostics: string[] = [];
 
-  if (isVerticalWritingMode(identity.writingMode)) {
+  if (vertical) {
     return layoutVerticalText(input, sourceMap, identity, diagnostics, baseDirection);
   }
 
@@ -250,7 +270,8 @@ export function layoutText(input: LayoutTextInput): TextLayoutSnapshot {
       maxWidth,
       input.lineHeight ?? null,
       paragraphMap,
-      input.lineWidths,
+      lineWidths,
+      paragraphLineStart,
     );
     const paragraphTop =
       lines.length > 0
@@ -558,6 +579,7 @@ function wrapLines(
   units: readonly LayoutUnit[],
   maxWidth: number,
   lineWidths?: readonly number[] | undefined,
+  lineOffset = 0,
 ): RawLine[] {
   const lines: RawLine[] = [];
   let current: LayoutUnit[] = [];
@@ -571,7 +593,7 @@ function wrapLines(
   };
   const limitForLine = (lineIndex: number): number => {
     if (!lineWidths || lineWidths.length === 0) return maxWidth;
-    const entry = lineWidths[Math.min(lineIndex, lineWidths.length - 1)];
+    const entry = lineWidths[Math.min(lineIndex + lineOffset, lineWidths.length - 1)];
     if (!Number.isFinite(entry)) return maxWidth;
     return Math.max(0, Math.min(maxWidth, entry as number));
   };
@@ -593,6 +615,25 @@ function wrapLines(
   return lines;
 }
 
+/** Line count from wrapping alone, used to shape the contour profile. */
+function countWrappedLines(
+  paragraphs: readonly LayoutParagraphInput[],
+  maxWidth: number,
+  lineWidths: readonly number[] | undefined,
+): number {
+  let total = 0;
+  let offset = 0;
+  for (const { paragraph, runs } of paragraphs) {
+    const records = buildGlyphRecords(runs, paragraph.text.length);
+    const sourceMap = createUnicodeIndexMap(paragraph.text);
+    const units = buildLayoutUnits(paragraph, records, maxWidth, sourceMap);
+    const wrapped = wrapLines(paragraph, units, maxWidth, lineWidths, offset);
+    total += wrapped.length;
+    offset += wrapped.length;
+  }
+  return total;
+}
+
 /** Lay out one paragraph into positioned lines (left-aligned line boxes). */
 function layoutParagraphLines(
   paragraph: ItemizedParagraph,
@@ -601,9 +642,10 @@ function layoutParagraphLines(
   lineHeightOverride: number | null,
   sourceMap: UnicodeIndexMap,
   lineWidths?: readonly number[] | undefined,
+  lineOffset = 0,
 ): TextLayoutLine[] {
   const units = buildLayoutUnits(paragraph, records, maxWidth, sourceMap);
-  const rawLines = wrapLines(paragraph, units, maxWidth, lineWidths);
+  const rawLines = wrapLines(paragraph, units, maxWidth, lineWidths, lineOffset);
   const lines: TextLayoutLine[] = [];
   let top = 0;
   for (const raw of rawLines) {
@@ -1070,6 +1112,7 @@ export function buildTextLayoutSnapshot(
     text,
     paragraphs,
     maxWidth: options.maxWidth,
+    wrapShape: options.wrapShape,
     lineWidths: options.lineWidths,
     sourceRevision: options.sourceRevision,
     fontRevision: options.fontRevision,

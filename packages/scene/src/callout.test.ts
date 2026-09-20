@@ -215,6 +215,27 @@ describe('comic callouts', () => {
     expect(getCalloutFitReport(back, created.groupId)?.wrapShape).toBe('ellipse');
   });
 
+  it('follows the kind default until the author explicitly overrides the line shape', () => {
+    const created = createCallout(createDocument('contour-defaults', true), {
+      x: 0,
+      y: 0,
+      w: 260,
+      h: 160,
+      text: 'Wait for me at the station.',
+    });
+    expect(getCalloutFitReport(created.document, created.groupId)?.wrapShape).toBe('ellipse');
+
+    const caption = updateCalloutKind(created.document, created.groupId, 'caption');
+    expect(getCalloutFitReport(caption, created.groupId)?.wrapShape).toBe('rect');
+    const speechAgain = updateCalloutKind(caption, created.groupId, 'speech');
+    expect(getCalloutFitReport(speechAgain, created.groupId)?.wrapShape).toBe('ellipse');
+
+    // An explicit choice is an override: it survives later style changes.
+    const overridden = setCalloutWrapShape(speechAgain, created.groupId, 'rect');
+    const shout = updateCalloutKind(overridden, created.groupId, 'shout');
+    expect(getCalloutFitReport(shout, created.groupId)?.wrapShape).toBe('rect');
+  });
+
   it('fits a contour balloon tightly around dialogue without touching text or tail target', () => {
     const created = createCallout(createDocument('contour-fit', true), {
       x: 0,
@@ -358,6 +379,27 @@ describe('comic callouts', () => {
     const tipId = pointedGroup.callout!.tailNodeIds[0]!;
     const tip = pointed.nodes[tipId];
     expect(tip?.kind === 'path' ? tip.points.at(-1) : null).toMatchObject({ x: 30, y: 210 });
+  });
+
+  it('stacks auto-width dialogue into a stacked balloon instead of a ribbon', () => {
+    const text = makeTextNode(
+      'auto-wide',
+      'Wait for me at the station. If the lights go out, take the east stairs and do not look back.',
+      { transform: [1, 0, 0, 1, 40, 60] },
+    );
+    const doc = addNode(createDocument('auto-stack', true), text);
+    const result = wrapTextInCallout(doc, text.id, { kind: 'speech' });
+    expect(result).not.toBeNull();
+    const wrapped = result!.document;
+    const wrappedText = wrapped.nodes[text.id];
+    expect(wrappedText?.kind === 'text' ? wrappedText.textResizing : undefined).toBe('fixed');
+    const body = wrapped.nodes[result!.bodyId];
+    const width = body?.kind === 'shape' && body.shape.kind === 'rect' ? body.shape.w : Infinity;
+    // 16px type caps at ~224px of measure plus padding; the unwrapped ribbon
+    // would have been several hundred px wider.
+    expect(width).toBeLessThanOrEqual(280);
+    // Snug by construction under the reflow policy, but never overflowing.
+    expect(getCalloutFitReport(wrapped, result!.groupId)?.status).not.toBe('overflow');
   });
 
   it('keeps a thought chain attached when the balloon is fitted', () => {

@@ -8,7 +8,7 @@
  */
 
 import type { Affine, PathPoint } from '@varve/engine';
-import { resolveTextGeometry, type TextWrapShape } from '@varve/shared';
+import { resolveTextGeometry, resolveTextGeometryMode, type TextWrapShape } from '@varve/shared';
 import { computeReparentTransform, nodeWorldBounds, worldRectToLocal } from './coordinateService';
 import type { Document } from './document';
 import { addChild, addNode, makePathNode, makeShapeNode, makeTextNode } from './document';
@@ -183,15 +183,22 @@ function thoughtBubbleGeometry(
 ): Array<{ cx: number; cy: number; r: number }> {
   const count = Math.max(2, Math.min(6, Math.round(bubbleCount)));
   const anchor = { x: w / 2, y: Math.min(h, h - 1) };
-  const maxRadius = Math.max(4, Math.min(18, w * 0.06));
+  const dx = endpoint.x - anchor.x;
+  const dy = endpoint.y - anchor.y;
+  const length = Math.hypot(dx, dy) || 1;
+  // Circles must read as separate dots, not a blob: size them from the space
+  // each one actually gets along the chain. The last center is the authored
+  // endpoint so dragging the tail moves the whole chain with it.
+  const gap = length / count;
+  const maxRadius = Math.max(1.5, Math.min(gap * 0.42, Math.max(4, Math.min(18, w * 0.08))));
   const bubbles: Array<{ cx: number; cy: number; r: number }> = [];
   for (let index = 0; index < count; index++) {
-    const t = count === 1 ? 1 : (index + 1) / count;
-    const radius = maxRadius * (1 - (index / (count - 1)) * 0.55);
+    const t = (index + 1) / count;
+    const radius = Math.max(1.5, maxRadius * (1 - (index / (count - 1)) * 0.55));
     bubbles.push({
-      cx: anchor.x + (endpoint.x - anchor.x) * t,
-      cy: anchor.y + (endpoint.y - anchor.y) * t,
-      r: Math.max(1.5, radius),
+      cx: anchor.x + dx * t,
+      cy: anchor.y + dy * t,
+      r: radius,
     });
   }
   return bubbles;
@@ -419,10 +426,11 @@ export function wrapTextInCallout(
         callout: {
           ...groupAfterReparent.callout!,
           textNodeId: textId,
+          // Only an explicit choice becomes an override; otherwise the text
+          // keeps the kind default and later style changes update it.
+          ...(options.wrapShape ? { wrapShape: options.wrapShape } : {}),
         },
       },
-      // The balloon owns the interior wrap shape by default; switching it is
-      // an explicit, reversible Inspector choice.
       [textId]: { ...(next.nodes[textId] as TextNode), textWrapShape: wrapShape },
     },
   };
@@ -436,6 +444,62 @@ export function wrapTextInCallout(
     const nodes = { ...next.nodes };
     delete nodes[temporaryTextId];
     next = { ...next, nodes: { ...nodes, [created.groupId]: { ...group, children } } };
+  }
+
+  // Auto-width dialogue is a single long ribbon; a balloon wrapped around it
+  // would be unreadable. Cap the line to a lettering-friendly measure and
+  // stack the text, then fit the body in one bounded pass. Authored area text
+  // keeps its box: only a node with no container is re-shaped.
+  const sourceText = next.nodes[textId] as TextNode;
+  if (resolveTextGeometryMode(sourceText) === 'autoWidth') {
+    const fontSize = sourceText.fontSize ?? 16;
+    // Local, not world: the cap is compared against the type size, so a
+    // scaled parent must not change how many characters a line holds.
+    const localWidth = resolveTextGeometry(textGeometryInput(sourceText)).bounds.w;
+    const cappedInnerWidth = Math.min(Math.max(48, localWidth), Math.max(220, fontSize * 14));
+    const measured = resolveTextGeometry({
+      ...textGeometryInput(sourceText),
+      textResizing: 'fixed',
+      w: cappedInnerWidth,
+      h: 1000,
+      textWrapShape: 'rect',
+    }).layout;
+    next = {
+      ...next,
+      nodes: {
+        ...next.nodes,
+        [textId]: {
+          ...sourceText,
+          textResizing: 'fixed',
+          w: cappedInnerWidth,
+          h: Math.max(1, measured.h),
+        },
+      },
+    };
+    next = fitCalloutToText(next, created.groupId);
+    const fittedGroup = next.nodes[created.groupId];
+    if (fittedGroup?.kind === 'group' && fittedGroup.callout) {
+      // Fit is a one-time sizing here, not a mode switch: the authored policy
+      // stays "reflow" until the author chooses otherwise.
+      next = {
+        ...next,
+        nodes: {
+          ...next.nodes,
+          [created.groupId]: {
+            ...fittedGroup,
+            callout: { ...fittedGroup.callout, fitToText: false, fitPolicy: 'reflow' },
+          },
+        },
+      };
+      const body = next.nodes[created.bodyId];
+      const firstTailId = fittedGroup.callout.tailNodeIds[0];
+      if (body?.kind === 'shape' && body.shape.kind === 'rect' && firstTailId) {
+        next = updateCalloutTailEndpoint(next, created.groupId, firstTailId, {
+          x: body.shape.w / 2,
+          y: body.shape.h + Math.max(24, options.tailLength ?? 32),
+        });
+      }
+    }
   }
   return { ...created, document: next, textId };
 }
@@ -486,15 +550,21 @@ export function getCalloutFitReport(doc: Document, groupId: NodeId): CalloutFitR
   const excessHeight = Math.max(0, geometry.layout.h - availableHeight);
   const widthRatio = availableWidth > 0 ? geometry.layout.w / availableWidth : Infinity;
   const heightRatio = availableHeight > 0 ? geometry.layout.h / availableHeight : Infinity;
+  const policy = group.callout.fitPolicy ?? (group.callout.fitToText ? 'fit-balloon' : 'reflow');
+  // A body fitted to its text is snug by construction: warning that it is
+  // "close to the edge" after an explicit fit would nag about the intended
+  // result. The warning exists to prompt a fit, not to follow it.
   const status: CalloutFitStatus =
     excessWidth > 0.01 || excessHeight > 0.01
       ? 'overflow'
-      : Math.max(widthRatio, heightRatio) >= 0.88
-        ? 'near-overflow'
-        : 'fit';
+      : policy === 'fit-balloon'
+        ? 'fit'
+        : Math.max(widthRatio, heightRatio) >= 0.88
+          ? 'near-overflow'
+          : 'fit';
   return {
     status,
-    policy: group.callout.fitPolicy ?? (group.callout.fitToText ? 'fit-balloon' : 'reflow'),
+    policy,
     wrapShape: text.textWrapShape ?? 'rect',
     padding,
     availableWidth,
@@ -613,13 +683,16 @@ function setTextContainer(
  *
  * Tails are rebuilt when the style changes between pointed and thought,
  * because the two draw with different node kinds. The authored endpoint of
- * each logical tail is preserved, and the body/text node ids never change.
+ * each logical tail is preserved, the body/text node ids never change, and an
+ * explicit wrap-shape override survives while a kind default is re-applied.
  */
 export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutKind): Document {
   const group = calloutGroup(doc, groupId);
   if (!group) return doc;
   const body = doc.nodes[group.callout.bodyNodeId];
+  const text = doc.nodes[group.callout.textNodeId];
   if (body?.kind !== 'shape' || body.shape.kind !== 'rect') return doc;
+  const nextWrapShape = group.callout.wrapShape ?? defaultCalloutWrapShape(kind);
   const tails = calloutTails(group);
   const nextStyle = tailStyleForKind(kind);
   let nodes: Record<NodeId, SceneNode> = {
@@ -673,6 +746,9 @@ export function updateCalloutKind(doc: Document, groupId: NodeId, kind: CalloutK
     nodes: {
       ...nodes,
       [groupId]: { ...group, children, callout: { ...group.callout, kind } },
+      ...(text?.kind === 'text' && text.textWrapShape !== nextWrapShape
+        ? { [text.id]: { ...text, textWrapShape: nextWrapShape } }
+        : {}),
     },
   };
   return replaceTails(
@@ -896,29 +972,39 @@ export function fitCalloutToText(doc: Document, groupId: NodeId): Document {
   const { body, text } = members;
   const p = Math.max(0, group.callout.padding);
   const current = textLocalSize(text);
+  const contour = text.textWrapShape === 'ellipse';
 
   // Contour wrapping depends on the inner box height, so a single pass can
   // change the line count. Iterate to a fixpoint (bounded, synchronous), then
   // take a final union pass so text can never clip.
-  const layoutAt = (innerW: number, innerH: number): { w: number; h: number } =>
+  //
+  // Width is only shrunk when the result stays a single line: narrowing a
+  // multi-line contour box re-profiles it narrower, which re-wraps it taller,
+  // and the fixpoint collapses the balloon into a column. Multi-line contour
+  // balloons keep their authored measure and fit vertically.
+  const geometryAt = (innerW: number, innerH: number) =>
     resolveTextGeometry({
       ...textGeometryInput(text),
       w: Math.max(1, innerW),
       h: Math.max(1, innerH),
-    }).layout;
+    });
   let innerW = current.w;
   let innerH = current.h;
   for (let pass = 0; pass < 4; pass++) {
-    const layout = layoutAt(innerW, innerH);
-    const nextW = Math.max(1, layout.w);
-    const nextH = Math.max(1, layout.h);
+    const geometry = geometryAt(innerW, innerH);
+    const nextW = contour
+      ? geometry.lines.length <= 1
+        ? Math.max(1, geometry.layout.w)
+        : Math.max(innerW, geometry.layout.w)
+      : Math.max(1, geometry.layout.w);
+    const nextH = Math.max(1, geometry.layout.h);
     if (Math.abs(nextW - innerW) < 0.5 && Math.abs(nextH - innerH) < 0.5) break;
     innerW = nextW;
     innerH = nextH;
   }
-  const settled = layoutAt(innerW, innerH);
-  innerW = Math.max(innerW, settled.w);
-  innerH = Math.max(innerH, settled.h);
+  const settled = geometryAt(innerW, innerH);
+  innerW = Math.max(innerW, settled.layout.w);
+  innerH = Math.max(innerH, settled.layout.h);
 
   const localW = innerW + p * 2;
   const localH = innerH + p * 2;
@@ -953,10 +1039,17 @@ export function setCalloutWrapShape(
   const group = calloutGroup(doc, groupId);
   if (!group) return doc;
   const text = doc.nodes[group.callout.textNodeId];
-  if (text?.kind !== 'text' || text.textWrapShape === wrapShape) return doc;
+  if (text?.kind !== 'text') return doc;
+  if (text.textWrapShape === wrapShape && group.callout.wrapShape === wrapShape) return doc;
   return {
     ...doc,
-    nodes: { ...doc.nodes, [text.id]: { ...text, textWrapShape: wrapShape } },
+    nodes: {
+      ...doc.nodes,
+      [text.id]: { ...text, textWrapShape: wrapShape },
+      // The explicit choice is recorded as an override so later style changes
+      // cannot silently reset it.
+      [groupId]: { ...group, callout: { ...group.callout, wrapShape } },
+    },
   };
 }
 

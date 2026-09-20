@@ -33,7 +33,7 @@
  * only the first line.
  */
 
-import { resolveTextWrapLineWidths, type TextWrapShape } from './balloonTextLayout';
+import { ellipseLineWidthProfile, lineWidthAt, type TextWrapShape } from './balloonTextLayout';
 import { type MeasuredLine, measureAdvanceWidth, type TextMeasureOptions } from './textMeasure';
 import { isVerticalWritingMode, type TextOrientation, type WritingMode } from './verticalText';
 
@@ -311,6 +311,7 @@ function layoutParagraph(
   base: TextMeasureOptions,
   maxWidth: number | null,
   lineWidths: readonly number[] | null = null,
+  lineOffset = 0,
 ): MeasuredLine[] {
   const tokens = tokenizeParagraph(paragraph, base);
   const emptyHeight = pieceHeight(base);
@@ -319,14 +320,12 @@ function layoutParagraph(
   }
 
   // A contour profile narrows specific lines; the caller's maxWidth stays the
-  // hard cap. Lines past the profile's end reuse its final entry so a
-  // pathological box cannot produce an unbounded line.
+  // hard cap. `lineOffset` makes the profile index global across paragraphs.
   const hardLimit = maxWidth ?? 0;
   const limitForLine = (lineIndex: number): number | null => {
     if (!lineWidths || lineWidths.length === 0) return maxWidth;
-    const entry = lineWidths[Math.min(lineIndex, lineWidths.length - 1)];
-    const width = Number.isFinite(entry) ? (entry as number) : hardLimit;
-    return maxWidth === null ? width : Math.min(maxWidth, width);
+    if (maxWidth === null) return lineWidthAt(lineWidths, hardLimit, lineIndex + lineOffset);
+    return lineWidthAt(lineWidths, maxWidth, lineIndex + lineOffset);
   };
 
   const lines: MeasuredLine[] = [];
@@ -488,6 +487,36 @@ function layoutVerticalParagraph(
 }
 
 /**
+ * Lay out every horizontal paragraph into positioned line boxes, threading a
+ * global line index through the contour profile so a second paragraph does not
+ * restart the balloon's shape.
+ */
+function layoutHorizontalParagraphs(
+  paragraphs: TextGeometryRichParagraph[],
+  base: TextMeasureOptions,
+  paragraphSpacing: number,
+  constraintWidth: number | null,
+  lineWidths: readonly number[] | null,
+): { lines: TextLineBox[]; height: number } {
+  const lines: TextLineBox[] = [];
+  let y = 0;
+  for (let p = 0; p < paragraphs.length; p++) {
+    if (p > 0) y += paragraphSpacing;
+    for (const line of layoutParagraph(
+      paragraphs[p]!,
+      base,
+      constraintWidth,
+      lineWidths,
+      lines.length,
+    )) {
+      lines.push({ ...line, y });
+      y += line.height;
+    }
+  }
+  return { lines, height: y };
+}
+
+/**
  * Resolve the container, layout, and selection rectangles for a text node.
  *
  * Pure and synchronous. The numbers change when the document changes and when
@@ -509,18 +538,12 @@ export function resolveTextGeometry(node: TextGeometryInput): TextGeometry {
       ? Math.max(0, (vertical ? node.h : node.w) ?? 0) || null
       : null;
 
-  // Contour wrapping needs a resolved box: a fixed container provides both
-  // dimensions, while autoHeight derives one from the other. Vertical writing
-  // is deliberately rectangular until column profiles are designed.
-  const lineWidths =
-    !vertical && mode === 'fixed'
-      ? resolveTextWrapLineWidths({
-          wrapShape: node.textWrapShape,
-          width: node.w,
-          height: node.h,
-          lineHeight: fontSize * (base.lineHeight ?? DEFAULT_LINE_HEIGHT),
-        })
-      : null;
+  // Contour wrapping: derive the profile from the number of lines the text
+  // actually forms in this width, then re-lay out until the count is stable.
+  // Vertical writing is deliberately rectangular until column profiles are
+  // designed, and autoWidth never wraps at all.
+  const contourEligible =
+    !vertical && mode === 'fixed' && node.textWrapShape === 'ellipse' && constraintWidth !== null;
 
   const paragraphs = sourceParagraphs(node);
   const lines: TextLineBox[] = [];
@@ -550,16 +573,47 @@ export function resolveTextGeometry(node: TextGeometryInput): TextGeometry {
       blockOffset += paragraphWidth;
     }
   } else {
-    let y = 0;
-    for (let p = 0; p < paragraphs.length; p++) {
-      if (p > 0) y += paragraphSpacing;
-      for (const line of layoutParagraph(paragraphs[p]!, base, constraintWidth, lineWidths)) {
-        lines.push({ ...line, y });
-        layoutWidth = Math.max(layoutWidth, line.width);
-        y += line.height;
+    let lineWidths: number[] | null = null;
+    if (contourEligible) {
+      let counted = layoutHorizontalParagraphs(
+        paragraphs,
+        base,
+        paragraphSpacing,
+        constraintWidth,
+        null,
+      );
+      lineWidths = ellipseLineWidthProfile({
+        width: constraintWidth as number,
+        lineCount: counted.lines.length,
+      });
+      for (let pass = 0; pass < 3; pass++) {
+        counted = layoutHorizontalParagraphs(
+          paragraphs,
+          base,
+          paragraphSpacing,
+          constraintWidth,
+          lineWidths,
+        );
+        if (counted.lines.length === lineWidths.length) break;
+        lineWidths = ellipseLineWidthProfile({
+          width: constraintWidth as number,
+          lineCount: counted.lines.length,
+        });
       }
     }
-    layoutHeight = y;
+    const shaped =
+      lineWidths === null
+        ? layoutHorizontalParagraphs(paragraphs, base, paragraphSpacing, constraintWidth, null)
+        : layoutHorizontalParagraphs(
+            paragraphs,
+            base,
+            paragraphSpacing,
+            constraintWidth,
+            lineWidths,
+          );
+    lines.push(...shaped.lines);
+    for (const line of shaped.lines) layoutWidth = Math.max(layoutWidth, line.width);
+    layoutHeight = shaped.height;
   }
 
   const container =

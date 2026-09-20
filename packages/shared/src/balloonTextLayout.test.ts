@@ -1,14 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import {
-  ellipseLineWidthProfile,
-  resolveTextWrapLineWidths,
-  TEXT_WRAP_SHAPES,
-} from './balloonTextLayout';
+import { ellipseLineWidthProfile, lineWidthAt, TEXT_WRAP_SHAPES } from './balloonTextLayout';
 
 describe('ellipseLineWidthProfile', () => {
   it('is symmetric with the widest line near the vertical middle', () => {
-    const widths = ellipseLineWidthProfile({ width: 240, height: 200, lineHeight: 25 });
-    expect(widths.length).toBeGreaterThan(3);
+    const widths = ellipseLineWidthProfile({ width: 240, lineCount: 9 });
+    expect(widths).toHaveLength(9);
     for (let index = 0; index < widths.length; index++) {
       expect(widths[index]).toBeCloseTo(widths[widths.length - 1 - index]!, 5);
     }
@@ -21,97 +17,53 @@ describe('ellipseLineWidthProfile', () => {
   });
 
   it('never exceeds the interior width and never returns a non-finite value', () => {
-    const widths = ellipseLineWidthProfile({ width: 180, height: 320, lineHeight: 28 });
-    for (const width of widths) {
-      expect(Number.isFinite(width)).toBe(true);
-      expect(width).toBeGreaterThan(0);
-      expect(width).toBeLessThanOrEqual(180 + 1e-9);
+    for (const lineCount of [1, 2, 3, 7, 40]) {
+      const widths = ellipseLineWidthProfile({ width: 180, lineCount });
+      for (const width of widths) {
+        expect(Number.isFinite(width)).toBe(true);
+        expect(width).toBeGreaterThan(0);
+        expect(width).toBeLessThanOrEqual(180 + 1e-9);
+      }
     }
+  });
+
+  it('keeps a one-line caption at full width', () => {
+    expect(ellipseLineWidthProfile({ width: 300, lineCount: 1 })).toEqual([300]);
   });
 
   it('floors narrow lines so a word is never squeezed into a sliver', () => {
     const widths = ellipseLineWidthProfile({
       width: 300,
-      height: 400,
-      lineHeight: 40,
+      lineCount: 12,
       minWidthRatio: 0.5,
     });
     for (const width of widths) expect(width).toBeGreaterThanOrEqual(150 - 1e-9);
   });
 
-  it('returns a single full-width entry for degenerate boxes instead of NaN', () => {
-    expect(ellipseLineWidthProfile({ width: 0, height: 0, lineHeight: 0 })).toEqual([1]);
-    const pathological = ellipseLineWidthProfile({
-      width: Number.NaN,
-      height: Number.POSITIVE_INFINITY,
-      lineHeight: 16,
-    });
-    expect(pathological.every((width) => Number.isFinite(width) && width > 0)).toBe(true);
-  });
-
-  it('caps the number of entries for extremely tall boxes', () => {
-    const widths = ellipseLineWidthProfile({
-      width: 100,
-      height: 10_000_000,
-      lineHeight: 1,
-      maxLines: 64,
-    });
-    expect(widths).toHaveLength(64);
+  it('returns finite entries for degenerate input instead of NaN', () => {
+    expect(ellipseLineWidthProfile({ width: 0, lineCount: 0 })).toEqual([1]);
+    const nanWidth = ellipseLineWidthProfile({ width: Number.NaN, lineCount: 4 });
+    expect(nanWidth).toHaveLength(4);
+    expect(nanWidth.every((width) => Number.isFinite(width) && width > 0 && width <= 1)).toBe(true);
+    const huge = ellipseLineWidthProfile({ width: 100, lineCount: 10_000 });
+    expect(huge).toHaveLength(512);
+    expect(huge.every((width) => Number.isFinite(width) && width > 0)).toBe(true);
   });
 });
 
-describe('resolveTextWrapLineWidths', () => {
-  it('treats the rectangle as the default and only profiles the ellipse', () => {
-    expect(
-      resolveTextWrapLineWidths({
-        wrapShape: undefined,
-        width: 200,
-        height: 120,
-        lineHeight: 20,
-      }),
-    ).toBeNull();
-    expect(
-      resolveTextWrapLineWidths({
-        wrapShape: 'rect',
-        width: 200,
-        height: 120,
-        lineHeight: 20,
-      }),
-    ).toBeNull();
-    expect(
-      resolveTextWrapLineWidths({
-        wrapShape: 'ellipse',
-        width: 200,
-        height: 120,
-        lineHeight: 20,
-      }),
-    ).not.toBeNull();
+describe('lineWidthAt', () => {
+  it('falls back to the box width without a profile', () => {
+    expect(lineWidthAt(null, 200, 3)).toBe(200);
+    expect(lineWidthAt(undefined, 200, 0)).toBe(200);
+    expect(lineWidthAt([], 200, 0)).toBe(200);
   });
 
-  it('declines non-finite or empty boxes so callers fall back to rectangles', () => {
-    for (const box of [
-      { width: 0, height: 100 },
-      { width: 100, height: 0 },
-      { width: Number.NaN, height: 100 },
-      { width: 100, height: Number.POSITIVE_INFINITY },
-    ]) {
-      expect(
-        resolveTextWrapLineWidths({
-          wrapShape: 'ellipse',
-          width: box.width,
-          height: box.height,
-          lineHeight: 20,
-        }),
-      ).toBeNull();
-    }
-    expect(
-      resolveTextWrapLineWidths({
-        wrapShape: 'ellipse',
-        width: 100,
-        height: 100,
-        lineHeight: 0,
-      }),
-    ).toBeNull();
+  it('clamps to the box and reuses the last entry past the end', () => {
+    const profile = [40, 120, 80];
+    expect(lineWidthAt(profile, 200, 0)).toBe(40);
+    expect(lineWidthAt(profile, 90, 1)).toBe(90);
+    expect(lineWidthAt(profile, 200, 5)).toBe(80);
+    expect(lineWidthAt([Number.NaN], 200, 0)).toBe(200);
   });
 });
 

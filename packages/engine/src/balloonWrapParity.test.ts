@@ -81,7 +81,7 @@ function sharedLineTexts(text: string, w: number, h: number): string[] {
 function engineLineTexts(text: string, w: number, h: number): string[] {
   const snapshot = buildTextLayoutSnapshot(text, makeShaping(text), {
     maxWidth: w,
-    lineWidths: ellipseLineWidthProfile({ width: w, height: h, lineHeight: LINE_HEIGHT }),
+    wrapShape: 'ellipse',
     lineHeight: LINE_HEIGHT,
   });
   return snapshot.lines.map((line) => text.slice(line.sourceStart, line.sourceEnd).trimEnd());

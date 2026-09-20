@@ -8,7 +8,7 @@
  * supplies the same request for every segment.
  */
 
-import { textMeasureRevision, variationSettingsKey } from '@varve/shared';
+import { type TextWrapShape, textMeasureRevision, variationSettingsKey } from '@varve/shared';
 import { inheritedFontReference } from './font/fontFaceInheritance';
 import type { FontReference } from './font/fontIdentity';
 import { fontReferenceKey } from './font/fontIdentity';
@@ -49,7 +49,9 @@ export interface RichTextLayoutDefaults {
 
 export interface RichTextLayoutOptions {
   maxWidth: number;
-  /** Per-line width limits for contour (balloon) wrapping. */
+  /** Interior wrap shape for balloon (contour) wrapping. */
+  wrapShape?: TextWrapShape | undefined;
+  /** Explicit per-line width limits; overrides `wrapShape` when present. */
   lineWidths?: readonly number[] | undefined;
   lineHeight: number;
   paragraphSpacing?: number;
@@ -241,6 +243,7 @@ export function layoutRichTextSnapshot(
     text: sourceText.join('\n'),
     paragraphs,
     maxWidth: options.maxWidth,
+    wrapShape: options.wrapShape,
     lineWidths: options.lineWidths,
     lineHeight: options.lineHeight,
     paragraphSpacing: options.paragraphSpacing,
