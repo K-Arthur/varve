@@ -832,7 +832,7 @@ const SCENES = [
     file: 'vectorize-dialog-light.png',
     theme: 'light',
     feature: 'vector-tools',
-    alt: 'The Varve Vectorize dialog tracing an imported photo into editable vector paths, with colour mode, output structure controls, and a source-versus-vector preview',
+    alt: 'The Varve Vectorize dialog tracing an imported photograph into editable vector paths, with the overlay preview, path/point/hole diagnostics, and source-versus-vector view tabs',
     caption:
       'Trace an imported image into editable paths — entirely on-device, with prepare/overlay/vector previews before anything is committed.',
     async run(page) {

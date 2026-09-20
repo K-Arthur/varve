@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "note": "GENERATED FILE — do not hand-edit. Written by scripts/screenshots/product.mjs and validated by scripts/screenshots/validate.mjs. Each scene maps one canonical screenshot consumed by the website and documentation. status: 'captured' when the pipeline produced the file, 'skipped' when the scene could not be produced (reason required).",
-  "generatedAt": "2026-09-14T08:38:53.451Z",
+  "generatedAt": "2026-09-20T02:29:56.304Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -139,7 +139,7 @@
     },
     "vectorize": {
       "file": "vectorize-dialog-light.png",
-      "alt": "The Varve Vectorize dialog tracing an imported photo into editable vector paths, with colour mode, output structure controls, and a source-versus-vector preview",
+      "alt": "The Varve Vectorize dialog tracing an imported photograph into editable vector paths, with the overlay preview, path/point/hole diagnostics, and source-versus-vector view tabs",
       "caption": "Trace an imported image into editable paths — entirely on-device, with prepare/overlay/vector previews before anything is committed.",
       "feature": "vector-tools",
       "theme": "light",
@@ -147,7 +147,7 @@
       "lastValidatedAgainst": null,
       "width": 1440,
       "height": 900,
-      "sha256": "40d3ec57be45f47bf6c8ba647a610b9b94f12d56c921520221a9df251a234f2c"
+      "sha256": "8298cda0ce1e8b152ae710a30b4e128f5467ddc7e43fba3cb447323e380c8128"
     },
     "workspaces": {
       "file": "workspaces-light.png",
@@ -239,7 +239,7 @@
       "lastValidatedAgainst": null
     },
     "font-browser": {
-      "sha256": "94dfff174ac2912a5a31483159979b1f1092b77b78db5631bc3d49c69d1ab114",
+      "sha256": "03d9272dd046141a3b5b6e99179bf03c19a7761cbde37678f220245675fac956",
       "file": "font-browser-light.png",
       "alt": "Browse fonts with a family list and a local specimen alongside font details",
       "caption": "Browse families and inspect a local specimen",
