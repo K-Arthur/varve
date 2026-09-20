@@ -59,19 +59,20 @@ fixing it is a follow-up outside the lettering slice.
 ## Performance (2026-09-20)
 
 `pnpm bench:lettering` (`packages/scene/src/__benchmarks__/callout.bench.ts`),
-Node 22, 3-round averages:
+Node 22, two runs of 3-round averages after the fit refinements:
 
 | Balloons | Contour layout (all texts) | Fit (all balloons) | Fit status |
 | --- | --- | --- | --- |
-| 1 | 0.13 ms | 0.34 ms | 0.13 ms |
-| 20 | 2.10 ms | 5.49 ms | 1.20 ms |
-| 100 | 3.50 ms | 11.40 ms | 3.56 ms |
-| 500 | 11.82 ms | 1084.78 ms | 11.11 ms |
+| 1 | 0.11–0.18 ms | 0.51–0.56 ms | 0.12–0.13 ms |
+| 20 | 2.63–3.12 ms | 7.10–7.95 ms | 1.45–2.58 ms |
+| 100 | 2.72–2.76 ms | 16.18–17.49 ms | 2.59–2.64 ms |
+| 500 | 12.89–13.18 ms | 1428–1442 ms | 13.77–14.90 ms |
 
-Layout is sub-linear per balloon (0.13 ms for one, 0.024 ms at 500) because a
+Layout is sub-linear per balloon (0.11 ms for one, ~0.026 ms at 500) because a
 balloon's text is short; fit is user-invoked and its 500-balloon cost is
-dominated by the immutable node-map copy of the scene model, not the fit math.
-Fit status is derived on demand and stays linear.
+dominated by the immutable node-map copy of the scene model plus the extra
+width-balance passes, not the fit math. Fit status is derived on demand and
+stays linear.
 
 ## Failure modes converted into requirements
 
