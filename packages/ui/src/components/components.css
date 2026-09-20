@@ -2116,7 +2116,8 @@
   width: var(--varve-native-range-thumb, 18px);
   height: var(--varve-native-range-thumb, 18px);
   margin-top: calc(
-    (var(--varve-native-range-track, 6px) - var(--varve-native-range-thumb, 18px)) / 2
+    (var(--varve-native-range-track, 6px) - var(--varve-native-range-thumb, 18px)) /
+      2
   );
   border: 2px solid var(--color-interactive-default);
   border-radius: var(--radius-pill);
