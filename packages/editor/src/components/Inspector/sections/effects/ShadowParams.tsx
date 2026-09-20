@@ -7,23 +7,16 @@
  * 5. Polar fields (Angle, Distance)
  * 6. Integrated Color, Opacity, and Blend Mode
  */
-import type { BlendMode, Effect, ManagedColor } from '@varve/scene';
-import { Icon, Select } from '@varve/ui';
+import type { BlendMode, Effect } from '@varve/scene';
+import { Icon } from '@varve/ui';
 import { useEditor } from '../../../../context';
-import { groupBlendOptions } from '../../controls/blendModeOptionGroups';
-import { FieldRow, InspectorFieldGroup } from '../../controls/FieldRow';
-import { InspectorColorPopover } from '../../controls/InspectorColorPopover';
+import { InspectorFieldGroup } from '../../controls/FieldRow';
 import { NumberField } from '../../controls/NumberField';
 import { commonValue, isMixed } from '../../selection/selectionState';
+import { EffectBlendRow, EffectColourOpacityRow } from './EffectControls';
 import { EffectLightPad } from './EffectLightPad';
 import { EffectPreviewTile } from './EffectPreviewTile';
-import {
-  BLEND_OPTIONS,
-  type EffectNode,
-  ELEVATION_PRESETS,
-  getEffect,
-  toSwatchBg,
-} from './EffectTypes';
+import { type EffectNode, ELEVATION_PRESETS, getEffect } from './EffectTypes';
 
 interface ShadowParamsProps {
   nodes: EffectNode[];
@@ -294,59 +287,39 @@ export function ShadowParams({ nodes, index, onChange }: ShadowParamsProps) {
         </div>
       </div>
 
-      {/* Integrated Color, Opacity & Blend Mode */}
-      <FieldRow label="Colour & Opacity">
-        <InspectorColorPopover
-          label="Shadow colour"
-          className="insp-swatch insp-swatch--round"
-          value={colorVal}
-          onChange={(c) =>
-            onChange((e) =>
-              e.type === 'dropShadow' || e.type === 'innerShadow'
-                ? { ...e, color: c as ManagedColor }
-                : e,
-            )
-          }
-          swatchStyle={{ background: toSwatchBg(colorVal) }}
-          documentColorMode={documentColorMode}
-          onEditStart={beginTransaction}
-          onEditEnd={commitTransaction}
-        />
-        <NumberField
-          label="Opacity"
-          displayLabel="Opacity"
-          unit="%"
-          value={isMixed(opacityRaw) ? 100 : Math.round(opacityVal * 100)}
-          mixed={isMixed(opacityRaw)}
-          step={1}
-          min={0}
-          max={100}
-          onChange={(v) =>
-            onChange((e) =>
-              e.type === 'dropShadow' || e.type === 'innerShadow' ? { ...e, opacity: v / 100 } : e,
-            )
-          }
-        />
-      </FieldRow>
+      {/* Integrated Colour, Opacity & Blend Mode — shared vocabulary with
+          every other effect editor. */}
+      <EffectColourOpacityRow
+        colourLabel="Shadow colour"
+        colour={colorVal}
+        colourMixed={isMixed(colorRaw)}
+        opacity={opacityVal}
+        opacityMixed={isMixed(opacityRaw)}
+        onColourChange={(colour) =>
+          onChange((e) =>
+            e.type === 'dropShadow' || e.type === 'innerShadow' ? { ...e, color: colour } : e,
+          )
+        }
+        onOpacityChange={(opacity) =>
+          onChange((e) =>
+            e.type === 'dropShadow' || e.type === 'innerShadow' ? { ...e, opacity } : e,
+          )
+        }
+        documentColorMode={documentColorMode}
+        onEditStart={beginTransaction}
+        onEditEnd={commitTransaction}
+      />
 
-      <FieldRow label="Blend">
-        <Select
-          label="Effect blend mode"
-          value={isMixed(blendRaw) ? '' : (blendRaw as string)}
-          options={isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []}
-          groups={groupBlendOptions(BLEND_OPTIONS)}
-          onChange={(v) => {
-            if (!v) return;
-            const mode = v as BlendMode;
-            onChange((eff) =>
-              eff.type === 'dropShadow' || eff.type === 'innerShadow'
-                ? { ...eff, blendMode: mode }
-                : eff,
-            );
-          }}
-          placeholder="Mixed"
-        />
-      </FieldRow>
+      <EffectBlendRow
+        label="Effect blend mode"
+        value={isMixed(blendRaw) ? 'normal' : (blendRaw as BlendMode)}
+        mixed={isMixed(blendRaw)}
+        onChange={(mode) =>
+          onChange((e) =>
+            e.type === 'dropShadow' || e.type === 'innerShadow' ? { ...e, blendMode: mode } : e,
+          )
+        }
+      />
     </div>
   );
 }

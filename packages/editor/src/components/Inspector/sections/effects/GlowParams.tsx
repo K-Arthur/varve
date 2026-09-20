@@ -2,17 +2,27 @@
  * GlowParams — unified glow editor for outerGlow and innerGlow effects.
  * Supports solid and gradient modes, choke/spread tuning, contour shaping,
  * and origin selection with live preview.
+ *
+ * Control order follows the shared effect vocabulary: preview, geometry,
+ * closed-set quality choices, colour, then blend. Contour and origin are
+ * segmented choices with shape/position icons instead of two-click selects
+ * (Photoshop presents the same parity as radio groups).
  */
 import type { BlendMode, Effect, EffectGradient, ManagedColor } from '@varve/scene';
-import { Select } from '@varve/ui';
+import type { SegmentedOption } from '@varve/ui';
 import { useEditor } from '../../../../context';
-import { groupBlendOptions } from '../../controls/blendModeOptionGroups';
 import { FieldRow, InspectorFieldGroup } from '../../controls/FieldRow';
 import { InspectorColorPopover } from '../../controls/InspectorColorPopover';
 import { NumberField } from '../../controls/NumberField';
 import { commonValue, isMixed } from '../../selection/selectionState';
+import {
+  EffectBlendRow,
+  EffectChoiceRow,
+  EffectColourOpacityRow,
+  EffectPercentField,
+} from './EffectControls';
 import { EffectPreviewTile } from './EffectPreviewTile';
-import { BLEND_OPTIONS, type EffectNode, getEffect, toSwatchBg } from './EffectTypes';
+import { type EffectNode, getEffect, toSwatchBg } from './EffectTypes';
 
 interface GlowParamsProps {
   nodes: EffectNode[];
@@ -23,20 +33,28 @@ interface GlowParamsProps {
 type GlowContour = 'linear' | 'smooth' | 'sharp';
 type InnerGlowOrigin = 'edge' | 'center';
 
-const COLOR_TREATMENT_OPTIONS = [
+const COLOR_TREATMENT_OPTIONS: readonly SegmentedOption<'solid' | 'gradient'>[] = [
   { value: 'solid', label: 'Solid colour' },
   { value: 'gradient', label: 'Gradient ramp' },
 ];
 
-const CONTOUR_OPTIONS: { value: GlowContour; label: string }[] = [
-  { value: 'linear', label: 'Linear' },
-  { value: 'smooth', label: 'Soft gaussian' },
-  { value: 'sharp', label: 'Sharp edge' },
+const CONTOUR_OPTIONS: readonly {
+  value: GlowContour;
+  label: string;
+  icon: 'Minus' | 'Spline' | 'Zap';
+}[] = [
+  { value: 'linear', label: 'Linear', icon: 'Minus' },
+  { value: 'smooth', label: 'Soft', icon: 'Spline' },
+  { value: 'sharp', label: 'Sharp', icon: 'Zap' },
 ];
 
-const ORIGIN_OPTIONS: { value: InnerGlowOrigin; label: string }[] = [
-  { value: 'edge', label: 'From edge' },
-  { value: 'center', label: 'From center' },
+const ORIGIN_OPTIONS: readonly {
+  value: InnerGlowOrigin;
+  label: string;
+  icon: 'Scan' | 'CircleDot';
+}[] = [
+  { value: 'edge', label: 'Edge', icon: 'Scan' },
+  { value: 'center', label: 'Center', icon: 'CircleDot' },
 ];
 
 function glowGradientFor(nodes: EffectNode[], index: number): EffectGradient {
@@ -132,6 +150,8 @@ export function GlowParams({ nodes, index, onChange }: GlowParamsProps) {
   const colorVal = isMixed(colorRaw)
     ? { space: 'rgb' as const, r: 255, g: 200, b: 100, a: 255 }
     : colorRaw;
+  const opacityVal = isMixed(opacityRaw) ? 1 : opacityRaw;
+  const isInnerGlow = firstEffect?.type === 'innerGlow';
 
   return (
     <div className="insp-effect-params">
@@ -140,100 +160,25 @@ export function GlowParams({ nodes, index, onChange }: GlowParamsProps) {
         label={currentEffect?.type === 'innerGlow' ? 'Inner Glow' : 'Outer Glow'}
       />
 
-      <FieldRow label="Color treatment">
-        <Select
-          label="Glow color treatment"
-          value={isMixed(colorModeRaw) ? '' : colorModeRaw}
-          options={COLOR_TREATMENT_OPTIONS}
-          onChange={(mode) => {
-            onChange((e) => {
-              if (e.type !== 'outerGlow' && e.type !== 'innerGlow') return e;
-              if (mode === 'gradient') {
-                return {
-                  ...e,
-                  colorMode: 'gradient',
-                  gradient: glowGradientFor(nodes, index),
-                };
-              }
-              return { ...e, colorMode: 'solid' };
-            });
-          }}
-        />
-      </FieldRow>
-
-      {colorModeRaw === 'solid' && (
-        <FieldRow label="Colour & Opacity">
-          <InspectorColorPopover
-            label="Glow colour"
-            className="insp-swatch insp-swatch--round"
-            value={colorVal}
-            onChange={(c) =>
-              onChange((e) =>
-                e.type === 'outerGlow' || e.type === 'innerGlow'
-                  ? { ...e, color: c as ManagedColor }
-                  : e,
-              )
+      <EffectChoiceRow
+        label="Glow colour treatment"
+        value={isMixed(colorModeRaw) ? 'solid' : (colorModeRaw as 'solid' | 'gradient')}
+        mixed={isMixed(colorModeRaw)}
+        options={COLOR_TREATMENT_OPTIONS}
+        onChange={(mode) => {
+          onChange((e) => {
+            if (e.type !== 'outerGlow' && e.type !== 'innerGlow') return e;
+            if (mode === 'gradient') {
+              return {
+                ...e,
+                colorMode: 'gradient',
+                gradient: glowGradientFor(nodes, index),
+              };
             }
-            swatchStyle={{ background: toSwatchBg(colorVal) }}
-            documentColorMode={documentColorMode}
-            onEditStart={beginTransaction}
-            onEditEnd={commitTransaction}
-          />
-          <NumberField
-            label="Opacity"
-            displayLabel="Opacity"
-            unit="%"
-            value={isMixed(opacityRaw) ? 100 : Math.round(opacityRaw * 100)}
-            mixed={isMixed(opacityRaw)}
-            step={1}
-            min={0}
-            max={100}
-            onChange={(v) =>
-              onChange((e) =>
-                e.type === 'outerGlow' || e.type === 'innerGlow' ? { ...e, opacity: v / 100 } : e,
-              )
-            }
-          />
-        </FieldRow>
-      )}
-
-      {colorModeRaw === 'gradient' && (
-        <FieldRow label="Gradient colors" wrapLabel>
-          <InspectorColorPopover
-            label="Glow gradient start"
-            value={glowGradientFor(nodes, index).stops[0]!.color}
-            onChange={(color) => onChange((e) => updateGlowGradientStop(e, 0, color))}
-            swatchStyle={{ background: toSwatchBg(glowGradientFor(nodes, index).stops[0]!.color) }}
-            documentColorMode={documentColorMode}
-            onEditStart={beginTransaction}
-            onEditEnd={commitTransaction}
-          />
-          <InspectorColorPopover
-            label="Glow gradient end"
-            value={glowGradientFor(nodes, index).stops[1]!.color}
-            onChange={(color) => onChange((e) => updateGlowGradientStop(e, 1, color))}
-            swatchStyle={{ background: toSwatchBg(glowGradientFor(nodes, index).stops[1]!.color) }}
-            documentColorMode={documentColorMode}
-            onEditStart={beginTransaction}
-            onEditEnd={commitTransaction}
-          />
-          <NumberField
-            label="Opacity"
-            displayLabel="Opacity"
-            unit="%"
-            value={isMixed(opacityRaw) ? 100 : Math.round(opacityRaw * 100)}
-            mixed={isMixed(opacityRaw)}
-            step={1}
-            min={0}
-            max={100}
-            onChange={(v) =>
-              onChange((e) =>
-                e.type === 'outerGlow' || e.type === 'innerGlow' ? { ...e, opacity: v / 100 } : e,
-              )
-            }
-          />
-        </FieldRow>
-      )}
+            return { ...e, colorMode: 'solid' };
+          });
+        }}
+      />
 
       <InspectorFieldGroup columns={2}>
         <NumberField
@@ -255,6 +200,8 @@ export function GlowParams({ nodes, index, onChange }: GlowParamsProps) {
           step={1}
           min={0}
           max={100}
+          unit="%"
+          displayLabel="Choke"
           onChange={(v) =>
             onChange((e) =>
               e.type === 'outerGlow' || e.type === 'innerGlow' ? { ...e, choke: v } : e,
@@ -263,51 +210,94 @@ export function GlowParams({ nodes, index, onChange }: GlowParamsProps) {
         />
       </InspectorFieldGroup>
 
-      <InspectorFieldGroup columns={firstEffect?.type === 'innerGlow' ? 2 : 1}>
-        <Select
-          label="Glow contour"
-          value={isMixed(contourRaw) ? '' : contourRaw}
-          options={CONTOUR_OPTIONS}
-          onChange={(c) =>
+      <EffectChoiceRow
+        label="Glow contour"
+        value={isMixed(contourRaw) ? 'smooth' : (contourRaw as GlowContour)}
+        mixed={isMixed(contourRaw)}
+        options={CONTOUR_OPTIONS}
+        onChange={(contour) =>
+          onChange((e) =>
+            e.type === 'outerGlow' || e.type === 'innerGlow' ? { ...e, contour } : e,
+          )
+        }
+      />
+
+      {isInnerGlow && (
+        <EffectChoiceRow
+          label="Inner glow origin"
+          value={isMixed(originRaw) ? 'edge' : (originRaw as InnerGlowOrigin)}
+          mixed={isMixed(originRaw)}
+          options={ORIGIN_OPTIONS}
+          onChange={(origin) => onChange((e) => (e.type === 'innerGlow' ? { ...e, origin } : e))}
+        />
+      )}
+
+      {colorModeRaw === 'solid' && (
+        <EffectColourOpacityRow
+          colourLabel="Glow colour"
+          colour={colorVal}
+          colourMixed={isMixed(colorRaw)}
+          opacity={opacityVal}
+          opacityMixed={isMixed(opacityRaw)}
+          onColourChange={(colour) =>
             onChange((e) =>
-              e.type === 'outerGlow' || e.type === 'innerGlow'
-                ? { ...e, contour: c as GlowContour }
-                : e,
+              e.type === 'outerGlow' || e.type === 'innerGlow' ? { ...e, color: colour } : e,
             )
           }
+          onOpacityChange={(opacity) =>
+            onChange((e) =>
+              e.type === 'outerGlow' || e.type === 'innerGlow' ? { ...e, opacity } : e,
+            )
+          }
+          documentColorMode={documentColorMode}
+          onEditStart={beginTransaction}
+          onEditEnd={commitTransaction}
         />
-        {firstEffect?.type === 'innerGlow' && (
-          <Select
-            label="Inner glow origin"
-            value={isMixed(originRaw) ? '' : originRaw}
-            options={ORIGIN_OPTIONS}
-            onChange={(origin) =>
+      )}
+
+      {colorModeRaw === 'gradient' && (
+        <FieldRow label="Gradient colours" wrapLabel>
+          <InspectorColorPopover
+            label="Glow gradient start"
+            value={glowGradientFor(nodes, index).stops[0]!.color}
+            onChange={(color) => onChange((e) => updateGlowGradientStop(e, 0, color))}
+            swatchStyle={{ background: toSwatchBg(glowGradientFor(nodes, index).stops[0]!.color) }}
+            documentColorMode={documentColorMode}
+            onEditStart={beginTransaction}
+            onEditEnd={commitTransaction}
+          />
+          <InspectorColorPopover
+            label="Glow gradient end"
+            value={glowGradientFor(nodes, index).stops[1]!.color}
+            onChange={(color) => onChange((e) => updateGlowGradientStop(e, 1, color))}
+            swatchStyle={{ background: toSwatchBg(glowGradientFor(nodes, index).stops[1]!.color) }}
+            documentColorMode={documentColorMode}
+            onEditStart={beginTransaction}
+            onEditEnd={commitTransaction}
+          />
+          <EffectPercentField
+            label="Opacity"
+            value={opacityVal}
+            mixed={isMixed(opacityRaw)}
+            onChange={(opacity) =>
               onChange((e) =>
-                e.type === 'innerGlow' ? { ...e, origin: origin as InnerGlowOrigin } : e,
+                e.type === 'outerGlow' || e.type === 'innerGlow' ? { ...e, opacity } : e,
               )
             }
           />
-        )}
-      </InspectorFieldGroup>
+        </FieldRow>
+      )}
 
-      <FieldRow label="Blend">
-        <Select
-          label="Effect blend mode"
-          value={isMixed(blendRaw) ? '' : (blendRaw as string)}
-          options={isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []}
-          groups={groupBlendOptions(BLEND_OPTIONS)}
-          onChange={(v) => {
-            if (!v) return;
-            const mode = v as BlendMode;
-            onChange((eff) =>
-              eff.type === 'outerGlow' || eff.type === 'innerGlow'
-                ? { ...eff, blendMode: mode }
-                : eff,
-            );
-          }}
-          placeholder="Mixed"
-        />
-      </FieldRow>
+      <EffectBlendRow
+        label="Effect blend mode"
+        value={isMixed(blendRaw) ? 'screen' : (blendRaw as BlendMode)}
+        mixed={isMixed(blendRaw)}
+        onChange={(mode) =>
+          onChange((e) =>
+            e.type === 'outerGlow' || e.type === 'innerGlow' ? { ...e, blendMode: mode } : e,
+          )
+        }
+      />
     </div>
   );
 }

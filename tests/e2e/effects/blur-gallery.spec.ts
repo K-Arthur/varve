@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { dragOnCanvas, navigateToEditor } from '../shared';
+import { addLayerEffect, dragOnCanvas, navigateToEditor } from '../shared';
 
 async function openEffectsSection(page: import('@playwright/test').Page) {
   const section = page.locator('.insp-disclosure').filter({ hasText: 'Layer Effects' });
@@ -14,10 +14,7 @@ async function addEffect(
   section: import('@playwright/test').Locator,
   label: string,
 ) {
-  await section.getByRole('combobox', { name: 'New effect type' }).click();
-  await page.getByRole('option', { name: label, exact: true }).click();
-  await section.getByRole('button', { name: 'Add', exact: true }).click();
-  await expect(section.locator('.insp-effect-row').filter({ hasText: label })).toBeVisible();
+  await addLayerEffect(page, section, label);
 }
 
 test.describe('Blur Gallery authoring overlay', () => {

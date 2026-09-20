@@ -24,8 +24,8 @@ import { createStrokeId, defaultStroke } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
 import {
   Icon,
-  Menu,
-  type MenuEntry,
+  SegmentedControl,
+  type SegmentedOption,
   Select,
   Sortable,
   type SortableEndResult,
@@ -44,8 +44,6 @@ import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { NumberField } from '../controls/NumberField';
-import type { SegmentedOption } from '../controls/SegmentedControl';
-import { SegmentedControl } from '../controls/SegmentedControl';
 import { commonValue, isMixed } from '../selection/selectionState';
 
 export interface StrokeSectionProps {
@@ -562,36 +560,6 @@ function StrokeRow({
     [onChange],
   );
 
-  const [actionsOpen, setActionsOpen] = useState(false);
-  const actionsTriggerRef = useRef<HTMLButtonElement>(null);
-  const actionItems = useMemo<readonly MenuEntry[]>(
-    () => [
-      {
-        id: 'move-up',
-        label: `Move ${label.toLowerCase()} up`,
-        onAction: () => onReorder(-1),
-        disabled: !canMoveUp,
-        icon: 'ChevronUp',
-      },
-      {
-        id: 'move-down',
-        label: `Move ${label.toLowerCase()} down`,
-        onAction: () => onReorder(1),
-        disabled: !canMoveDown,
-        icon: 'ChevronDown',
-      },
-      { id: 'separator-before-remove', separator: true },
-      {
-        id: 'remove',
-        label: `Remove ${label.toLowerCase()}`,
-        onAction: onRemove,
-        destructive: true,
-        icon: 'X',
-      },
-    ],
-    [canMoveDown, canMoveUp, label, onRemove, onReorder],
-  );
-
   return (
     <div className="insp-stroke-row">
       <div className="insp-paint-row">
@@ -654,9 +622,9 @@ function StrokeRow({
             placeholder="Mixed"
           />
         </div>
-        {/* Multi-stroke stacks expose one drag target. The labelled actions menu
-            retains arrow-key/menu reordering and removal without duplicating
-            destructive or positional icons in the primary row. */}
+        {/* Multi-stroke stacks expose one drag target plus direct move and
+            remove controls; the labelled menu is no longer needed because
+            every action is visible on the row. */}
         {totalStrokes > 1 && (
           <SortableItemHandle
             className="insp-paint-row__drag-handle"
@@ -666,25 +634,43 @@ function StrokeRow({
             <Icon name="GripVertical" label={undefined} size="0.85em" />
           </SortableItemHandle>
         )}
+        {totalStrokes > 1 && (
+          <div className="paint-stack__reorder">
+            <button
+              type="button"
+              className="insp-inline-btn"
+              disabled={!canMoveUp}
+              onClick={() => onReorder(-1)}
+              aria-label={`Move ${label.toLowerCase()} up`}
+              title={
+                canMoveUp ? `Move ${label.toLowerCase()} up` : 'Already bottom of the stroke stack'
+              }
+            >
+              <Icon name="ChevronUp" label={undefined} size="0.7em" />
+            </button>
+            <button
+              type="button"
+              className="insp-inline-btn"
+              disabled={!canMoveDown}
+              onClick={() => onReorder(1)}
+              aria-label={`Move ${label.toLowerCase()} down`}
+              title={
+                canMoveDown ? `Move ${label.toLowerCase()} down` : 'Already top of the stroke stack'
+              }
+            >
+              <Icon name="ChevronDown" label={undefined} size="0.7em" />
+            </button>
+          </div>
+        )}
         <button
           type="button"
-          ref={actionsTriggerRef}
-          className="insp-inline-btn insp-paint-row__menu-trigger"
-          aria-label={`${label} actions`}
-          aria-haspopup="menu"
-          aria-expanded={actionsOpen}
-          onClick={() => setActionsOpen((open) => !open)}
+          className="insp-inline-btn paint-stack__remove"
+          onClick={onRemove}
+          aria-label={`Remove ${label.toLowerCase()}`}
+          title={`Remove ${label.toLowerCase()}`}
         >
-          <Icon name="Ellipsis" label={undefined} size="0.85em" />
+          <Icon name="X" label={undefined} size="0.75em" />
         </button>
-        <Menu
-          triggerRef={actionsTriggerRef}
-          open={actionsOpen}
-          onClose={() => setActionsOpen(false)}
-          label={`${label} actions`}
-          items={actionItems}
-          size="compact"
-        />
       </div>
       <button
         type="button"

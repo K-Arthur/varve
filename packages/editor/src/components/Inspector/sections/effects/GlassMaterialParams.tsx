@@ -1,15 +1,17 @@
 /**
  * GlassMaterialParams — structured glass material editor.
- * Groups parameters into Backdrop & Refraction, Tint & Noise, and Edge Specular Highlight.
+ * Groups parameters into Backdrop & Refraction, Tint & Noise, and Edge
+ * Specular Highlight, using the shared effect control vocabulary (percent
+ * fields for opacity-like values, the canonical Switch for booleans).
  */
 import type { Effect, ManagedColor } from '@varve/scene';
 import { useEditor } from '../../../../context';
-import { FieldRow, InspectorFieldGroup } from '../../controls/FieldRow';
-import { InspectorColorPopover } from '../../controls/InspectorColorPopover';
+import { InspectorFieldGroup } from '../../controls/FieldRow';
 import { NumberField } from '../../controls/NumberField';
 import { commonValue, isMixed } from '../../selection/selectionState';
+import { EffectColourOpacityRow, EffectPercentField, EffectToggleRow } from './EffectControls';
 import { EffectPreviewTile } from './EffectPreviewTile';
-import { type EffectNode, getEffect, toSwatchBg } from './EffectTypes';
+import { type EffectNode, getEffect } from './EffectTypes';
 
 interface GlassMaterialParamsProps {
   nodes: EffectNode[];
@@ -58,15 +60,22 @@ export function GlassMaterialParams({ nodes, index, onChange }: GlassMaterialPar
     if (e && e.type === 'glassMaterial') return e.edgeHighlightWidth;
     return 1;
   });
+  const edgeOpacityRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && e.type === 'glassMaterial') return e.edgeHighlightOpacity ?? 0.4;
+    return 0.4;
+  });
   const edgeColorRaw = commonValue(nodes, (n) => {
     const effect = getEffect(n, index);
     return effect?.type === 'glassMaterial'
       ? effect.edgeHighlightColor
       : ({ space: 'rgb', r: 255, g: 255, b: 255, a: 120 } as ManagedColor);
   });
-  const edgeColor = isMixed(edgeColorRaw)
+  const edgeColorMixed = isMixed(edgeColorRaw);
+  const edgeColor = edgeColorMixed
     ? ({ space: 'rgb', r: 255, g: 255, b: 255, a: 120 } as ManagedColor)
     : edgeColorRaw;
+  const edgeHighlight = isMixed(edgeHighlightRaw) ? false : edgeHighlightRaw;
 
   return (
     <div className="insp-effect-params">
@@ -110,44 +119,34 @@ export function GlassMaterialParams({ nodes, index, onChange }: GlassMaterialPar
 
       {/* Tint & Grain Texture */}
       <InspectorFieldGroup columns={2}>
-        <NumberField
+        <EffectPercentField
           label="Tint"
           value={isMixed(tintOpacityRaw) ? 0 : tintOpacityRaw}
           mixed={isMixed(tintOpacityRaw)}
-          step={0.01}
-          min={0}
-          max={1}
-          onChange={(v) =>
-            onChange((e) => (e.type === 'glassMaterial' ? { ...e, tintOpacity: v } : e))
+          onChange={(tintOpacity) =>
+            onChange((e) => (e.type === 'glassMaterial' ? { ...e, tintOpacity } : e))
           }
         />
-        <NumberField
+        <EffectPercentField
           label="Noise"
           value={isMixed(noiseRaw) ? 0 : noiseRaw}
           mixed={isMixed(noiseRaw)}
-          step={0.01}
-          min={0}
-          max={1}
-          onChange={(v) => onChange((e) => (e.type === 'glassMaterial' ? { ...e, noise: v } : e))}
+          onChange={(noise) => onChange((e) => (e.type === 'glassMaterial' ? { ...e, noise } : e))}
         />
       </InspectorFieldGroup>
 
       {/* Edge Specular Highlight */}
-      <InspectorFieldGroup columns={2}>
-        <button
-          type="button"
-          className={`insp-toggle-btn${isMixed(edgeHighlightRaw) ? '' : edgeHighlightRaw ? ' --active' : ''}`}
-          aria-label="Edge highlight"
-          aria-pressed={isMixed(edgeHighlightRaw) ? 'mixed' : edgeHighlightRaw}
-          onClick={() =>
-            onChange((e) =>
-              e.type === 'glassMaterial' ? { ...e, edgeHighlight: !e.edgeHighlight } : e,
-            )
-          }
-        >
-          {isMixed(edgeHighlightRaw) ? '—' : edgeHighlightRaw ? 'Edge On' : 'Edge Off'}
-        </button>
-        {isMixed(edgeHighlightRaw) || edgeHighlightRaw ? (
+      <EffectToggleRow
+        label="Edge highlight"
+        checked={edgeHighlight}
+        mixed={isMixed(edgeHighlightRaw)}
+        onChange={(enabled) =>
+          onChange((e) => (e.type === 'glassMaterial' ? { ...e, edgeHighlight: enabled } : e))
+        }
+      />
+
+      {(isMixed(edgeHighlightRaw) || edgeHighlight) && (
+        <>
           <NumberField
             label="Width"
             value={isMixed(edgeWidthRaw) ? 1 : edgeWidthRaw}
@@ -159,25 +158,27 @@ export function GlassMaterialParams({ nodes, index, onChange }: GlassMaterialPar
               onChange((e) => (e.type === 'glassMaterial' ? { ...e, edgeHighlightWidth: v } : e))
             }
           />
-        ) : null}
-      </InspectorFieldGroup>
-
-      {(isMixed(edgeHighlightRaw) || edgeHighlightRaw) && (
-        <FieldRow label="Edge colour">
-          <InspectorColorPopover
-            label="Glass edge highlight colour"
-            value={edgeColor}
-            onChange={(next) =>
+          <EffectColourOpacityRow
+            colourLabel="Edge highlight colour"
+            colour={edgeColor}
+            colourMixed={edgeColorMixed}
+            opacity={isMixed(edgeOpacityRaw) ? 0.4 : edgeOpacityRaw}
+            opacityMixed={isMixed(edgeOpacityRaw)}
+            onColourChange={(next) =>
               onChange((effect) =>
                 effect.type === 'glassMaterial' ? { ...effect, edgeHighlightColor: next } : effect,
               )
             }
-            swatchStyle={{ background: toSwatchBg(edgeColor) }}
+            onOpacityChange={(edgeHighlightOpacity) =>
+              onChange((effect) =>
+                effect.type === 'glassMaterial' ? { ...effect, edgeHighlightOpacity } : effect,
+              )
+            }
             documentColorMode={documentColorMode}
             onEditStart={beginTransaction}
             onEditEnd={commitTransaction}
           />
-        </FieldRow>
+        </>
       )}
     </div>
   );

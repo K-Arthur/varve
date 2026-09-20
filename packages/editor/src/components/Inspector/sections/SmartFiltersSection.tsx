@@ -33,6 +33,7 @@ import { useEditor } from '../../../context';
 import { AdjustmentEditor } from '../../AdjustmentLayer/AdjustmentEditor';
 import { groupBlendOptions } from '../controls/blendModeOptionGroups';
 import { DisclosureSection } from '../controls/DisclosureSection';
+import { InspectorFocusedEditor } from '../controls/InspectorFocusedEditor';
 import { RangeValueControl } from '../controls/RangeValueControl';
 import { blendModeDisplayName, filterKindIcon, SMART_FILTER_GROUPS } from './smartFilterCatalog';
 import {
@@ -104,6 +105,10 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(() => !hasCuratedRecipeMembers);
   const editingRef = useRef(false);
+  // Anchor for the focused parameter editor. The editor is portaled beside the
+  // row instead of expanding inline, so the stack stays scannable and the
+  // canvas keeps its width.
+  const editorAnchorRef = useRef<HTMLButtonElement>(null);
 
   const finishTransaction = useCallback(() => {
     if (!editingRef.current) return;
@@ -124,8 +129,11 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
   }, [beginTransaction]);
 
   useEffect(() => {
-    if (!filters.some((filter) => filter.id === selectedId)) {
-      setSelectedId(filters[0]?.id ?? null);
+    // A removed filter closes its editor; a newly added one opens it (addFilter
+    // sets selectedId). Never auto-open on section mount: the popover is an
+    // explicit request, not a side effect of selecting a layer.
+    if (selectedId && !filters.some((filter) => filter.id === selectedId)) {
+      setSelectedId(null);
     }
   }, [filters, selectedId]);
 
@@ -428,9 +436,13 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
                   </button>
                   <button
                     type="button"
+                    ref={selectedId === filter.id ? editorAnchorRef : undefined}
                     className="smart-filters__name"
-                    onClick={() => setSelectedId(filter.id)}
+                    onClick={() =>
+                      setSelectedId((current) => (current === filter.id ? null : filter.id))
+                    }
                     aria-expanded={selectedId === filter.id}
+                    aria-haspopup="dialog"
                   >
                     <span className="smart-filters__name-copy">
                       <span className="smart-filters__name-title">
@@ -500,88 +512,98 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
           </div>
 
           {selected && (
-            <div
-              className="smart-filters__editor"
-              onPointerDownCapture={(event) => {
-                if ((event.target as Element).matches('input[type="range"]')) startTransaction();
-              }}
-              onPointerUpCapture={finishTransaction}
-              onPointerCancelCapture={finishTransaction}
-              onKeyDownCapture={(event) => {
-                if ((event.target as Element).matches('input[type="range"]')) startTransaction();
-              }}
-              onKeyUpCapture={finishTransaction}
+            <InspectorFocusedEditor
+              key={selected.id}
+              anchorRef={editorAnchorRef}
+              open
+              title={`${filterName(selected)} parameters`}
+              badge="filter"
+              ownerKey={`${nodeId ?? 'document'}:${selected.id}`}
+              onClose={() => setSelectedId(null)}
             >
-              {selectedIsKnown ? (
-                <AdjustmentEditor
-                  adjustment={selected}
-                  onChange={(patch) => updateFilter(selected.id, patch)}
-                  onEditStart={startTransaction}
-                  onEditEnd={finishTransaction}
-                  doc={undefined}
-                />
-              ) : (
-                <div className="smart-filters__unavailable-panel" role="status">
-                  <strong>Effect unavailable</strong>
-                  <span>
-                    This effect was created by a newer Varve build. It will round-trip safely, but
-                    it cannot be previewed or edited here.
-                  </span>
-                </div>
-              )}
-
-              <div className="smart-filters__compositing-card">
-                <div className="smart-filters__opacity">
-                  <span className="smart-filters__compositing-label">
-                    <span>Opacity</span>
-                    <span className="smart-filters__compositing-actions">
-                      <button
-                        type="button"
-                        className="smart-filters__icon-action"
-                        disabled={!selectedIsKnown}
-                        onClick={() =>
-                          updateFilter(selected.id, makeSmartFilter(selected.id, selected.kind))
-                        }
-                        aria-label="Reset"
-                        title="Reset parameters to defaults"
-                      >
-                        <SolidIcon name={SOLID_CHROME_ICONS.rotateCcw} size="0.8em" />
-                      </button>
-                      <button
-                        type="button"
-                        className="smart-filters__icon-action"
-                        onClick={() => duplicateFilter(selected.id)}
-                        aria-label="Duplicate"
-                        title="Duplicate this filter"
-                      >
-                        <SolidIcon name={SOLID_CHROME_ICONS.copy} size="0.8em" />
-                      </button>
+              <div
+                className="smart-filters__editor"
+                onPointerDownCapture={(event) => {
+                  if ((event.target as Element).matches('input[type="range"]')) startTransaction();
+                }}
+                onPointerUpCapture={finishTransaction}
+                onPointerCancelCapture={finishTransaction}
+                onKeyDownCapture={(event) => {
+                  if ((event.target as Element).matches('input[type="range"]')) startTransaction();
+                }}
+                onKeyUpCapture={finishTransaction}
+              >
+                {selectedIsKnown ? (
+                  <AdjustmentEditor
+                    adjustment={selected}
+                    onChange={(patch) => updateFilter(selected.id, patch)}
+                    onEditStart={startTransaction}
+                    onEditEnd={finishTransaction}
+                    doc={undefined}
+                  />
+                ) : (
+                  <div className="smart-filters__unavailable-panel" role="status">
+                    <strong>Effect unavailable</strong>
+                    <span>
+                      This effect was created by a newer Varve build. It will round-trip safely, but
+                      it cannot be previewed or edited here.
                     </span>
-                  </span>
-                  <RangeValueControl
-                    label={`${filterName(selected)} effect opacity`}
-                    rangeClassName="smart-filters__effect-slider"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={Math.round((selected.opacity ?? 1) * 100)}
-                    unit="%"
-                    onChange={(next) => updateFilter(selected.id, { opacity: next / 100 })}
-                  />
-                </div>
-                <div className="smart-filters__blend">
-                  <span>Blend</span>
-                  <Select
-                    label={`${filterName(selected)} effect blend mode`}
-                    value={selected.blendMode}
-                    groups={groupBlendOptions(BLEND_OPTIONS)}
-                    onChange={(value) =>
-                      updateFilter(selected.id, { blendMode: value as AdjustmentBlendMode })
-                    }
-                  />
+                  </div>
+                )}
+
+                <div className="smart-filters__compositing-card">
+                  <div className="smart-filters__opacity">
+                    <span className="smart-filters__compositing-label">
+                      <span>Opacity</span>
+                      <span className="smart-filters__compositing-actions">
+                        <button
+                          type="button"
+                          className="smart-filters__icon-action"
+                          disabled={!selectedIsKnown}
+                          onClick={() =>
+                            updateFilter(selected.id, makeSmartFilter(selected.id, selected.kind))
+                          }
+                          aria-label="Reset"
+                          title="Reset parameters to defaults"
+                        >
+                          <SolidIcon name={SOLID_CHROME_ICONS.rotateCcw} size="0.8em" />
+                        </button>
+                        <button
+                          type="button"
+                          className="smart-filters__icon-action"
+                          onClick={() => duplicateFilter(selected.id)}
+                          aria-label="Duplicate"
+                          title="Duplicate this filter"
+                        >
+                          <SolidIcon name={SOLID_CHROME_ICONS.copy} size="0.8em" />
+                        </button>
+                      </span>
+                    </span>
+                    <RangeValueControl
+                      label={`${filterName(selected)} effect opacity`}
+                      rangeClassName="smart-filters__effect-slider"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={Math.round((selected.opacity ?? 1) * 100)}
+                      unit="%"
+                      onChange={(next) => updateFilter(selected.id, { opacity: next / 100 })}
+                    />
+                  </div>
+                  <div className="smart-filters__blend">
+                    <span>Blend</span>
+                    <Select
+                      label={`${filterName(selected)} effect blend mode`}
+                      value={selected.blendMode}
+                      groups={groupBlendOptions(BLEND_OPTIONS)}
+                      onChange={(value) =>
+                        updateFilter(selected.id, { blendMode: value as AdjustmentBlendMode })
+                      }
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            </InspectorFocusedEditor>
           )}
         </div>
       </details>

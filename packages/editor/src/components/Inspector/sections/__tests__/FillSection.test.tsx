@@ -74,7 +74,7 @@ describe('FillSection Redesign & Multi-Fill Controls', () => {
     });
   });
 
-  it('multi-fill stack: exposes drag handles and labelled menu reorder fallbacks', async () => {
+  it('multi-fill stack: exposes drag handles and direct reorder controls', async () => {
     const { nodeId, getCtx } = renderSelectedSection((nodes) => <FillSection nodes={nodes} />, {
       fills: [
         { type: 'solid', color: colorA, opacity: 1, blendMode: 'normal', visible: true },
@@ -92,32 +92,19 @@ describe('FillSection Redesign & Multi-Fill Controls', () => {
     expect(screen.getByRole('button', { name: 'Drag fill 2 to reorder' })).toBeTruthy();
 
     // Fill 1 (index 0, bottom of stack): cannot move up, can move down.
-    fireEvent.click(screen.getByRole('button', { name: 'Fill actions' }));
-    const fill1Up = await screen.findByRole('menuitem', { name: 'Move fill up' });
-    const fill1Down = screen.getByRole('menuitem', { name: 'Move fill down' });
-    expect(fill1Up).toBeDisabled();
-    expect(fill1Down).not.toBeDisabled();
-    fireEvent.keyDown(fill1Up, { key: 'Escape' });
+    expect(screen.getByRole('button', { name: 'Move fill up' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Move fill down' })).not.toBeDisabled();
 
     // Fill 2 (index 1, middle): can move up and can move down.
-    fireEvent.click(screen.getByRole('button', { name: 'Fill 2 actions' }));
-    const fill2Up = await screen.findByRole('menuitem', { name: 'Move fill 2 up' });
-    const fill2Down = screen.getByRole('menuitem', { name: 'Move fill 2 down' });
-    expect(fill2Up).not.toBeDisabled();
-    expect(fill2Down).not.toBeDisabled();
-    fireEvent.keyDown(fill2Up, { key: 'Escape' });
+    expect(screen.getByRole('button', { name: 'Move fill 2 up' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Move fill 2 down' })).not.toBeDisabled();
 
     // Fill 3 (index 2, top of stack): can move up, cannot move down.
-    fireEvent.click(screen.getByRole('button', { name: 'Fill 3 actions' }));
-    const fill3Up = await screen.findByRole('menuitem', { name: 'Move fill 3 up' });
-    const fill3Down = screen.getByRole('menuitem', { name: 'Move fill 3 down' });
-    expect(fill3Up).not.toBeDisabled();
-    expect(fill3Down).toBeDisabled();
-    fireEvent.keyDown(fill3Up, { key: 'Escape' });
+    expect(screen.getByRole('button', { name: 'Move fill 3 up' })).not.toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Move fill 3 down' })).toBeDisabled();
 
     // Click Move fill down on Fill 1: reorders Fill 1 to index 1
-    fireEvent.click(screen.getByRole('button', { name: 'Fill actions' }));
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Move fill down' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move fill down' }));
     await waitFor(() => {
       const stored = getCtx()?.state.document.nodes[nodeId] as {
         fills?: { color?: { r: number } }[];
@@ -128,7 +115,7 @@ describe('FillSection Redesign & Multi-Fill Controls', () => {
     });
   });
 
-  it('multi-fill stack: keeps destructive removal in the labelled overflow menu', async () => {
+  it('multi-fill stack: removes a fill directly from its row', async () => {
     const { nodeId, getCtx } = renderSelectedSection((nodes) => <FillSection nodes={nodes} />, {
       fills: [
         { type: 'solid', color: colorA, opacity: 1, blendMode: 'normal', visible: true },
@@ -136,15 +123,7 @@ describe('FillSection Redesign & Multi-Fill Controls', () => {
       ],
     });
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Fill actions' }));
-    expect(await screen.findByRole('menuitem', { name: 'Remove fill' })).toBeTruthy();
-    const removeFill1 = await screen.findByRole('menuitem', { name: 'Remove fill' });
-    fireEvent.keyDown(removeFill1, { key: 'Escape' });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Fill 2 actions' }));
-    const removeFill2 = await screen.findByRole('menuitem', { name: 'Remove fill 2' });
-    expect(removeFill2).toBeTruthy();
-
+    const removeFill2 = await screen.findByRole('button', { name: 'Remove fill 2' });
     fireEvent.click(removeFill2);
     await waitFor(() => {
       const stored = getCtx()?.state.document.nodes[nodeId] as { fills?: unknown[] };

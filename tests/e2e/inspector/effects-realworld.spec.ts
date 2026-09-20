@@ -18,7 +18,7 @@
  *    - Capturing screenshots of the redesigned inspector panel, elevation presets, and light pad.
  */
 import { expect, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { addLayerEffect, navigateToEditor } from '../shared';
 
 async function drawCard(page: import('@playwright/test').Page) {
   await page.keyboard.press('r');
@@ -45,10 +45,10 @@ test.describe('Inspector — Real-World Layer Effects Workflows', () => {
     const effectsHeading = page.getByRole('button', { name: 'Layer Effects' });
     await effectsHeading.scrollIntoViewIfNeeded();
     await effectsHeading.click();
+    const effectsSection = page.locator('.insp-disclosure').filter({ hasText: 'Layer Effects' });
 
     // Add default drop shadow
-    const addBtn = page.getByRole('button', { name: /^add$/i });
-    await addBtn.click();
+    await addLayerEffect(page, effectsSection, 'Drop Shadow');
     await page.waitForTimeout(200);
 
     const row = page.locator('.insp-effect-row').first();
@@ -147,19 +147,10 @@ test.describe('Inspector — Real-World Layer Effects Workflows', () => {
     const effectsHeading = page.getByRole('button', { name: 'Layer Effects' });
     await effectsHeading.scrollIntoViewIfNeeded();
     await effectsHeading.click();
+    const effectsSection = page.locator('.insp-disclosure').filter({ hasText: 'Layer Effects' });
 
-    // Select 'layerBlur' from effect type dropdown
-    const typeTrigger = page.locator('.insp-effect-type-trigger');
-    await typeTrigger.click();
-    await page.waitForTimeout(100);
-
-    const layerBlurMenuItem = page.getByRole('menuitem', { name: /Layer Blur/i });
-    await layerBlurMenuItem.click();
-    await page.waitForTimeout(100);
-
-    // Add Layer Blur
-    const addBtn = page.getByRole('button', { name: /^add$/i });
-    await addBtn.click();
+    // Pick 'Layer Blur' from the effect picker — choosing the type adds it.
+    await addLayerEffect(page, effectsSection, 'Layer Blur');
     await page.waitForTimeout(200);
 
     const blurRow = page.locator('.insp-effect-row').first();
@@ -213,16 +204,13 @@ test.describe('Inspector — Real-World Layer Effects Workflows', () => {
     const effectsHeading = page.getByRole('button', { name: 'Layer Effects' });
     await effectsHeading.scrollIntoViewIfNeeded();
     await effectsHeading.click();
+    const effectsSection = page.locator('.insp-disclosure').filter({ hasText: 'Layer Effects' });
 
-    // Add default drop shadow
-    await page.getByRole('button', { name: /^add$/i }).click();
+    // Add default drop shadow, then layer blur — each picker choice adds.
+    await addLayerEffect(page, effectsSection, 'Drop Shadow');
     await page.waitForTimeout(200);
 
-    // Add layer blur
-    const typeTrigger = page.locator('.insp-effect-type-trigger');
-    await typeTrigger.click();
-    await page.getByRole('menuitem', { name: /Layer Blur/i }).click();
-    await page.getByRole('button', { name: /^add$/i }).click();
+    await addLayerEffect(page, effectsSection, 'Layer Blur');
     await page.waitForTimeout(200);
 
     // Verify 2 effect rows are present

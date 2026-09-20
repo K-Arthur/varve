@@ -2,9 +2,12 @@
  * EffectTypes — types, option catalogs, elevation presets, and helper utilities
  * for the Layer Effects inspector.
  */
+
+import { blendModeDefinition } from '@varve/engine';
 import type {
   BlendMode,
   Effect,
+  EffectGradient,
   FrameNode,
   GroupNode,
   ManagedColor,
@@ -15,7 +18,7 @@ import type {
   TableNode,
   TextNode,
 } from '@varve/scene';
-import { canHaveLayerEffects, layerEffectStage } from '@varve/scene';
+import { canHaveLayerEffects, type LayerEffectStage, layerEffectStage } from '@varve/scene';
 import { managedColorToRgba } from '@varve/shared';
 import type { IconName } from '@varve/ui';
 
@@ -209,6 +212,53 @@ export const EFFECT_TYPE_OPTIONS: readonly {
   })),
 );
 
+/**
+ * User-facing stage copy. The stage badge on a row or popover otherwise reads
+ * as unexplained jargon; the description is also what disabled cross-stage
+ * move controls cite, so the title can state why the move is a no-op.
+ * See docs/research/effect-panel-competitive-2026-09-20.md (Figma render-order
+ * confusion).
+ */
+export const EFFECT_STAGE_INFO: Record<LayerEffectStage, { label: string; description: string }> = {
+  backdrop: {
+    label: 'Backdrop',
+    description: 'Samples the content behind this layer before content effects run.',
+  },
+  content: {
+    label: 'Content',
+    description: 'Transforms this layer’s painted content before appearance effects run.',
+  },
+  appearance: {
+    label: 'Appearance',
+    description: 'Wraps the layer result with shadows and glows after content effects run.',
+  },
+};
+
+/**
+ * CSS swatch background for a gradient-valued effect (glow ramp). The row
+ * swatch must show the colours the renderer actually paints; a flat first-stop
+ * chip misrepresents gradient glows.
+ */
+export function effectGradientToCss(gradient: EffectGradient): string {
+  const stops = [...gradient.stops]
+    .sort((a, b) => a.position - b.position)
+    .map(
+      (stop) =>
+        `${toSwatchBg(stop.color)} ${Math.round(Math.min(1, Math.max(0, stop.position)) * 100)}%`,
+    );
+  return stops.length > 0 ? `linear-gradient(90deg, ${stops.join(', ')})` : 'transparent';
+}
+
+/** First and last gradient stops by position, for layered CSS approximations. */
+export function effectGradientEndpoints(gradient: EffectGradient): {
+  start: ManagedColor;
+  end: ManagedColor;
+} | null {
+  if (gradient.stops.length === 0) return null;
+  const sorted = [...gradient.stops].sort((a, b) => a.position - b.position);
+  return { start: sorted[0]!.color, end: sorted[sorted.length - 1]!.color };
+}
+
 export interface ElevationPreset {
   id: string;
   label: string;
@@ -292,24 +342,14 @@ export const ELEVATION_PRESETS: readonly ElevationPreset[] = [
 
 export const QUICK_BLUR_PRESETS = [2, 4, 8, 16, 24, 48, 64] as const;
 
-export const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
-  { value: 'normal', label: 'Normal' },
-  { value: 'multiply', label: 'Multiply' },
-  { value: 'screen', label: 'Screen' },
-  { value: 'overlay', label: 'Overlay' },
-  { value: 'darken', label: 'Darken' },
-  { value: 'lighten', label: 'Lighten' },
-  { value: 'colorDodge', label: 'Color Dodge' },
-  { value: 'colorBurn', label: 'Color Burn' },
-  { value: 'hardLight', label: 'Hard Light' },
-  { value: 'softLight', label: 'Soft Light' },
-  { value: 'difference', label: 'Difference' },
-  { value: 'exclusion', label: 'Exclusion' },
-  { value: 'hue', label: 'Hue' },
-  { value: 'saturation', label: 'Saturation' },
-  { value: 'color', label: 'Color' },
-  { value: 'luminosity', label: 'Luminosity' },
-];
+/**
+ * Display label for any blend mode, from the engine's applicability catalog.
+ * Used by row badges so the row and the picker never disagree about a mode's
+ * name, including modes that only some domains offer.
+ */
+export function blendModeLabel(mode: BlendMode): string {
+  return blendModeDefinition(mode)?.label ?? mode;
+}
 
 export function matchingEffectIndex(
   effects: Effect[],

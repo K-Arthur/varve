@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test';
-import { dragOnCanvas, navigateToEditor } from '../shared';
+import { addLayerEffect, dragOnCanvas, navigateToEditor } from '../shared';
 
 /** Locates the Layer Effects disclosure and expands it — the section is
- * collapsed by default (progressive disclosure), and the effect-type
- * combobox lives inside the disclosure content. */
+ * collapsed by default (progressive disclosure), and the effect picker lives
+ * in the section header. */
 async function openEffectsSection(page: import('@playwright/test').Page) {
   const effectsSection = page.locator('section.insp-disclosure').filter({ hasText: 'Effects' });
   await expect(effectsSection).toBeVisible({ timeout: 5000 });
@@ -33,29 +33,10 @@ test.describe('Glass Material Effects', () => {
     // Wait for the shape to be selected and the inspector to render
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
-    // Open the Effects disclosure section if collapsed, then add a new effect
+    // Open the Effects disclosure section if collapsed, then add the effect.
+    // Choosing the type in the picker is the add action.
     const effectsSection = await openEffectsSection(page);
-
-    // The Select combobox for effect type uses aria-label "New effect type"
-    const effectTypeSelect = effectsSection.locator(
-      '.varve-select__trigger[aria-label="New effect type"]',
-    );
-    await effectTypeSelect.click();
-    await page.waitForTimeout(200);
-
-    // Click "Glass Material" in the dropdown listbox
-    const glassOption = page.locator('.varve-select__option').filter({ hasText: 'Glass Material' });
-    if (await glassOption.isVisible()) {
-      await glassOption.click();
-      await page.waitForTimeout(100);
-    }
-
-    // Click the "Add" button to add the effect
-    const addBtn = effectsSection.locator('button.insp-add-btn');
-    if (await addBtn.isVisible()) {
-      await addBtn.click();
-      await page.waitForTimeout(300);
-    }
+    await addLayerEffect(page, effectsSection, 'Glass Material');
 
     // Verify glass material controls are rendered
     // The GlassMaterialParams renders a label "Glass Material" on the effect row
@@ -75,24 +56,7 @@ test.describe('Glass Material Effects', () => {
 
     // Add glass material via Effects section
     const effectsSection = await openEffectsSection(page);
-
-    const effectTypeSelect = effectsSection.locator(
-      '.varve-select__trigger[aria-label="New effect type"]',
-    );
-    await effectTypeSelect.click();
-    await page.waitForTimeout(200);
-
-    const glassOption = page.locator('.varve-select__option').filter({ hasText: 'Glass Material' });
-    if (await glassOption.isVisible()) {
-      await glassOption.click();
-      await page.waitForTimeout(100);
-    }
-
-    const addBtn = effectsSection.locator('button.insp-add-btn');
-    if (await addBtn.isVisible()) {
-      await addBtn.click();
-      await page.waitForTimeout(300);
-    }
+    await addLayerEffect(page, effectsSection, 'Glass Material');
 
     // The GlassTintSwatch renders an InspectorColorPopover with a swatch button
     // The tint swatch is rendered inline in the effect row (not inside NumberField params)
@@ -118,31 +82,15 @@ test.describe('Glass Material Effects', () => {
 
     // Add glass material
     const effectsSection = await openEffectsSection(page);
+    await addLayerEffect(page, effectsSection, 'Glass Material');
 
-    const effectTypeSelect = effectsSection.locator(
-      '.varve-select__trigger[aria-label="New effect type"]',
-    );
-    await effectTypeSelect.click();
-    await page.waitForTimeout(200);
-    const glassOption = page.locator('.varve-select__option').filter({ hasText: 'Glass Material' });
-    if (await glassOption.isVisible()) {
-      await glassOption.click();
-      await page.waitForTimeout(100);
-    }
-    const addBtn = effectsSection.locator('button.insp-add-btn');
-    if (await addBtn.isVisible()) {
-      await addBtn.click();
-      await page.waitForTimeout(300);
-    }
-
-    // Click the edge highlight toggle button (aria-label="Edge highlight")
-    const edgeBtn = page.locator('button[aria-label="Edge highlight"]');
-    if (await edgeBtn.isVisible()) {
-      const textBefore = await edgeBtn.textContent();
-      await edgeBtn.click();
+    // Click the edge highlight switch (aria-label="Edge highlight")
+    const edgeSwitch = page.getByRole('switch', { name: 'Edge highlight' });
+    if (await edgeSwitch.isVisible()) {
+      const checkedBefore = await edgeSwitch.isChecked();
+      await edgeSwitch.click();
       await page.waitForTimeout(200);
-      const textAfter = await edgeBtn.textContent();
-      expect(textAfter).not.toBe(textBefore);
+      expect(await edgeSwitch.isChecked()).not.toBe(checkedBefore);
     }
   });
 
@@ -173,22 +121,7 @@ test.describe('Glass Material Effects', () => {
 
     // Add glass material to the group
     const effectsSection = await openEffectsSection(page);
-
-    const effectTypeSelect = effectsSection.locator(
-      '.varve-select__trigger[aria-label="New effect type"]',
-    );
-    await effectTypeSelect.click();
-    await page.waitForTimeout(200);
-    const glassOption = page.locator('.varve-select__option').filter({ hasText: 'Glass Material' });
-    if (await glassOption.isVisible()) {
-      await glassOption.click();
-      await page.waitForTimeout(100);
-    }
-    const addBtn = effectsSection.locator('button.insp-add-btn');
-    if (await addBtn.isVisible()) {
-      await addBtn.click();
-      await page.waitForTimeout(300);
-    }
+    await addLayerEffect(page, effectsSection, 'Glass Material');
 
     // Verify glass material controls rendered on the group
     const glassLabel = page.locator('text=Glass Material').first();

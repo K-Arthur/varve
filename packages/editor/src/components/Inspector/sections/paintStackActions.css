@@ -1,0 +1,59 @@
+/* ==========================================================================
+   Inline stack actions for the Fill and Stroke paint rows
+   ==========================================================================
+   Mirrors the Layer Effects row vocabulary: move chevrons are secondary to
+   the drag handle (revealed on hover/focus for fine pointers, always visible
+   for touch), remove stays visible, and every control keeps a 24px hit area
+   and a token focus ring.
+   ========================================================================== */
+
+.paint-stack__reorder {
+  display: grid;
+  gap: 0;
+  flex: 0 0 auto;
+}
+
+.paint-stack__reorder .insp-inline-btn:disabled {
+  cursor: default;
+  opacity: 0.3;
+}
+
+.paint-stack__reorder .insp-inline-btn:focus-visible,
+.paint-stack__remove:focus-visible {
+  opacity: 1;
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
+.paint-stack__remove:hover:not(:disabled) {
+  color: var(--color-feedback-danger);
+}
+
+/* Non-normal blend mode reads directly on the row, so a stack can be scanned
+   without opening each colour picker. The full selector stays in the paint
+   picker, which is the only place a mode can be changed. */
+.paint-stack__blend {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .paint-stack__reorder .insp-inline-btn {
+    opacity: 0;
+  }
+
+  .insp-paint-row:hover .paint-stack__reorder .insp-inline-btn,
+  .insp-paint-row:focus-within .paint-stack__reorder .insp-inline-btn {
+    opacity: 1;
+  }
+
+  .insp-paint-row:hover .paint-stack__reorder .insp-inline-btn:disabled,
+  .insp-paint-row:focus-within .paint-stack__reorder .insp-inline-btn:disabled {
+    opacity: 0.3;
+  }
+}

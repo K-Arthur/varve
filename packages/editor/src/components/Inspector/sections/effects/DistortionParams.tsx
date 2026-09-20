@@ -9,15 +9,16 @@ import type {
   ChromaticContribution,
   Effect,
 } from '@varve/scene';
-import { Select } from '@varve/ui';
+import { type SegmentedOption, Select, Switch } from '@varve/ui';
 import { useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../../context';
-import { groupBlendOptions } from '../../controls/blendModeOptionGroups';
 import { FieldRow, InspectorFieldGroup } from '../../controls/FieldRow';
 import { InspectorColorPopover } from '../../controls/InspectorColorPopover';
 import { NumberField } from '../../controls/NumberField';
 import { commonValue, isMixed, type MaybeMixed } from '../../selection/selectionState';
-import { BLEND_OPTIONS, type EffectNode, getEffect, toSwatchBg } from './EffectTypes';
+import { EffectBlendRow, EffectChoiceRow, EffectPercentField } from './EffectControls';
+import { EffectPreviewTile } from './EffectPreviewTile';
+import { type EffectNode, getEffect, toSwatchBg } from './EffectTypes';
 
 export const DEFAULT_CHROMATIC_CHANNEL_COLORS: ChannelColors = {
   red: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
@@ -82,18 +83,17 @@ export function LinkedChannelOffsets({
   }, [value]);
   return (
     <div className="insp-effect-params">
-      <button
-        type="button"
-        className={`insp-toggle-btn${linked ? ' --active' : ''}`}
-        aria-label="Link channel offsets"
-        aria-pressed={linked}
-        onClick={() => {
-          if (!linked) baselineRef.current = value;
-          setLinked(!linked);
-        }}
-      >
-        {linked ? 'Linked' : 'Independent'}
-      </button>
+      <FieldRow label="Link channel offsets">
+        <Switch
+          className="insp-switch"
+          aria-label="Link channel offsets"
+          checked={linked}
+          onChange={() => {
+            if (!linked) baselineRef.current = value;
+            setLinked(!linked);
+          }}
+        />
+      </FieldRow>
       {linked ? (
         <NumberField
           label="Offset"
@@ -222,16 +222,14 @@ export function ChromaticCustomChannels({
       {contributions.map((contribution, contributionIndex) => (
         <div key={contribution.id ?? contributionIndex} className="insp-effect-params">
           <FieldRow label={`Contribution ${contributionIndex + 1}`}>
-            <button
-              type="button"
-              className={`insp-toggle-btn${contribution.enabled ? ' --active' : ''}`}
-              aria-pressed={contribution.enabled}
-              onClick={() =>
-                updateContribution(contributionIndex, { enabled: !contribution.enabled })
+            <Switch
+              className="insp-switch"
+              aria-label={`Contribution ${contributionIndex + 1} enabled`}
+              checked={contribution.enabled}
+              onChange={(event) =>
+                updateContribution(contributionIndex, { enabled: event.target.checked })
               }
-            >
-              {contribution.enabled ? 'On' : 'Off'}
-            </button>
+            />
             <Select
               label={`Contribution ${contributionIndex + 1} source`}
               value={contribution.source}
@@ -319,9 +317,13 @@ export function ChromaticAberrationParams({
     return null;
   });
   const offsets = offsetsRaw && !isMixed(offsetsRaw) ? offsetsRaw : null;
+  const firstEffect = getEffect(nodes[0]!, index);
+  const currentEffect = firstEffect?.type === 'chromaticAberration' ? firstEffect : undefined;
 
   return (
     <div className="insp-effect-params">
+      <EffectPreviewTile effect={currentEffect} label="Chromatic Aberration" />
+
       <InspectorFieldGroup columns={3}>
         <NumberField
           label="Intensity"
@@ -334,26 +336,22 @@ export function ChromaticAberrationParams({
             onChange((e) => (e.type === 'chromaticAberration' ? { ...e, intensity: v } : e))
           }
         />
-        <NumberField
+        <EffectPercentField
           label="Opacity"
           value={isMixed(opacityRaw) ? 1 : opacityRaw}
           mixed={isMixed(opacityRaw)}
-          step={0.05}
-          min={0}
-          max={1}
-          onChange={(v) =>
-            onChange((e) => (e.type === 'chromaticAberration' ? { ...e, opacity: v } : e))
+          step={1}
+          onChange={(opacity) =>
+            onChange((e) => (e.type === 'chromaticAberration' ? { ...e, opacity } : e))
           }
         />
-        <NumberField
+        <EffectPercentField
           label="Mix"
           value={isMixed(mixRaw) ? 1 : mixRaw}
           mixed={isMixed(mixRaw)}
-          step={0.05}
-          min={0}
-          max={1}
-          onChange={(v) =>
-            onChange((e) => (e.type === 'chromaticAberration' ? { ...e, mix: v } : e))
+          step={1}
+          onChange={(mix) =>
+            onChange((e) => (e.type === 'chromaticAberration' ? { ...e, mix } : e))
           }
         />
       </InspectorFieldGroup>
@@ -383,21 +381,14 @@ export function ChromaticAberrationParams({
           placeholder="Mixed"
         />
       </FieldRow>
-      <FieldRow label="Blend">
-        <Select
-          label="Aberration blend mode"
-          value={isMixed(blendRaw) ? '' : (blendRaw as string)}
-          options={isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []}
-          groups={groupBlendOptions(BLEND_OPTIONS)}
-          onChange={(v) => {
-            if (!v) return;
-            onChange((e) =>
-              e.type === 'chromaticAberration' ? { ...e, blendMode: v as BlendMode } : e,
-            );
-          }}
-          placeholder="Mixed"
-        />
-      </FieldRow>
+      <EffectBlendRow
+        label="Aberration blend mode"
+        value={isMixed(blendRaw) ? 'normal' : (blendRaw as BlendMode)}
+        mixed={isMixed(blendRaw)}
+        onChange={(mode) =>
+          onChange((e) => (e.type === 'chromaticAberration' ? { ...e, blendMode: mode } : e))
+        }
+      />
       {modeRaw === 'rgb' && offsets && (
         <LinkedChannelOffsets
           value={offsets}
@@ -554,9 +545,18 @@ export function GlitchParams({
     const e = getEffect(n, index);
     return e?.type === 'glitch' ? e.blendMode : 'normal';
   });
+  const firstEffect = getEffect(nodes[0]!, index);
+  const currentEffect = firstEffect?.type === 'glitch' ? firstEffect : undefined;
+  const directionOptions: readonly SegmentedOption<'horizontal' | 'vertical' | 'both'>[] = [
+    { value: 'horizontal', label: 'Horizontal' },
+    { value: 'vertical', label: 'Vertical' },
+    { value: 'both', label: 'Both' },
+  ];
 
   return (
     <div className="insp-effect-params">
+      <EffectPreviewTile effect={currentEffect} label="Glitch" />
+
       <InspectorFieldGroup columns={2}>
         <NumberField
           label="Strength"
@@ -567,14 +567,11 @@ export function GlitchParams({
           max={200}
           onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, strength: v } : e))}
         />
-        <NumberField
+        <EffectPercentField
           label="Density"
           value={isMixed(densityRaw) ? 0 : densityRaw}
           mixed={isMixed(densityRaw)}
-          step={0.05}
-          min={0}
-          max={1}
-          onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, density: v } : e))}
+          onChange={(density) => onChange((e) => (e.type === 'glitch' ? { ...e, density } : e))}
         />
       </InspectorFieldGroup>
       <InspectorFieldGroup columns={2}>
@@ -587,52 +584,26 @@ export function GlitchParams({
           max={999999}
           onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, seed: v } : e))}
         />
-        <NumberField
+        <EffectPercentField
           label="Opacity"
           value={isMixed(opacityRaw) ? 1 : opacityRaw}
           mixed={isMixed(opacityRaw)}
-          step={0.05}
-          min={0}
-          max={1}
-          onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, opacity: v } : e))}
+          onChange={(opacity) => onChange((e) => (e.type === 'glitch' ? { ...e, opacity } : e))}
         />
       </InspectorFieldGroup>
-      <FieldRow label="Direction">
-        <Select
-          label="Glitch direction"
-          value={isMixed(dirRaw) ? '' : (dirRaw as string)}
-          options={[
-            ...(isMixed(dirRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
-            { value: 'horizontal', label: 'Horizontal' },
-            { value: 'vertical', label: 'Vertical' },
-            { value: 'both', label: 'Both' },
-          ]}
-          onChange={(v) => {
-            if (!v) return;
-            onChange((e) =>
-              e.type === 'glitch'
-                ? { ...e, direction: v as 'horizontal' | 'vertical' | 'both' }
-                : e,
-            );
-          }}
-          placeholder="Mixed"
-        />
-      </FieldRow>
-      <FieldRow label="Blend">
-        <Select
-          label="Glitch blend mode"
-          value={isMixed(blendRaw) ? '' : blendRaw}
-          options={isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []}
-          groups={groupBlendOptions(BLEND_OPTIONS)}
-          onChange={(value) => {
-            if (!value) return;
-            onChange((effect) =>
-              effect.type === 'glitch' ? { ...effect, blendMode: value as BlendMode } : effect,
-            );
-          }}
-          placeholder="Mixed"
-        />
-      </FieldRow>
+      <EffectChoiceRow
+        label="Glitch direction"
+        value={isMixed(dirRaw) ? 'horizontal' : (dirRaw as 'horizontal' | 'vertical' | 'both')}
+        mixed={isMixed(dirRaw)}
+        options={directionOptions}
+        onChange={(direction) => onChange((e) => (e.type === 'glitch' ? { ...e, direction } : e))}
+      />
+      <EffectBlendRow
+        label="Glitch blend mode"
+        value={isMixed(blendRaw) ? 'normal' : (blendRaw as BlendMode)}
+        mixed={isMixed(blendRaw)}
+        onChange={(mode) => onChange((e) => (e.type === 'glitch' ? { ...e, blendMode: mode } : e))}
+      />
       <button
         type="button"
         className="insp-inline-btn"

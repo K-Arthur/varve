@@ -11,7 +11,7 @@
  *
  * Research basis: Figma/Sketch fill panel; APG Disclosure, Listbox, Slider.
  */
-import { complementaryHarmony } from '@varve/engine';
+import { blendModesForDomain, complementaryHarmony } from '@varve/engine';
 import type {
   BlendMode,
   Fill,
@@ -80,27 +80,15 @@ interface FillModifierState {
   variableName: string;
 }
 
-const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
-  { value: 'normal', label: 'Normal' },
-  { value: 'multiply', label: 'Multiply' },
-  { value: 'screen', label: 'Screen' },
-  { value: 'overlay', label: 'Overlay' },
-  { value: 'darken', label: 'Darken' },
-  { value: 'lighten', label: 'Lighten' },
-  { value: 'colorDodge', label: 'Color Dodge' },
-  { value: 'colorBurn', label: 'Color Burn' },
-  { value: 'hardLight', label: 'Hard Light' },
-  { value: 'softLight', label: 'Soft Light' },
-  { value: 'difference', label: 'Difference' },
-  { value: 'exclusion', label: 'Exclusion' },
-  { value: 'hue', label: 'Hue' },
-  { value: 'saturation', label: 'Saturation' },
-  { value: 'color', label: 'Color' },
-  { value: 'luminosity', label: 'Luminosity' },
-  { value: 'plusDarker', label: 'Plus Darker' },
-  { value: 'plusLighter', label: 'Plus Lighter' },
-  { value: 'passThrough', label: 'Pass Through' },
-];
+/**
+ * Blend modes a fill can actually paint, from the engine's applicability
+ * catalog. The previous hand-written list offered `plusDarker`, which the
+ * catalog marks non-editable (`css: null`); selecting it made the Canvas2D
+ * replay throw while lowering the layer. One resolver, no drift.
+ */
+const BLEND_OPTIONS: { value: BlendMode; label: string }[] = blendModesForDomain('fill').map(
+  (definition) => ({ value: definition.id, label: definition.label }),
+);
 
 /**
  * Paint-type metadata uses the filled icon family consumed by Select. Keeping
@@ -691,48 +679,8 @@ function FillRow({
             },
           ]
         : []),
-      { id: 'separator-before-order', separator: true },
-      {
-        id: 'move-up',
-        label: `Move ${label.toLowerCase()} up`,
-        onAction: () => onReorder(-1),
-        disabled: !canMoveUp,
-        icon: 'ChevronUp',
-      },
-      {
-        id: 'move-down',
-        label: `Move ${label.toLowerCase()} down`,
-        onAction: () => onReorder(1),
-        disabled: !canMoveDown,
-        icon: 'ChevronDown',
-      },
-      { id: 'separator-before-remove', separator: true },
-      {
-        id: 'remove',
-        label: `Remove ${label.toLowerCase()}`,
-        onAction: onRemove,
-        // A node always keeps one fill, so a single-fill row explains the
-        // no-op instead of closing the menu on a silent failure.
-        disabled: !canRemove,
-        badge: canRemove ? undefined : 'last fill',
-        destructive: true,
-        icon: 'X',
-      },
     ],
-    [
-      binding,
-      blendLabel,
-      blendMenuItems,
-      canMoveDown,
-      canMoveUp,
-      canRemove,
-      editor,
-      harmonySource,
-      label,
-      onRemove,
-      onReorder,
-      patch,
-    ],
+    [binding, blendLabel, blendMenuItems, editor, harmonySource, patch],
   );
 
   // Keep the primary row for paint identity and actions. The properties line
@@ -901,6 +849,11 @@ function FillRow({
             {!bindingValid && <span>(invalid)</span>}
           </button>
         )}
+        {!blendIsMixed && blendValue !== 'normal' && (
+          <span className="paint-stack__blend" title={`Blend mode: ${blendLabel}`}>
+            {blendLabel}
+          </span>
+        )}
         {!opacityOnPropertiesLine && opacityField}
         {totalFills > 1 && (
           <SortableItemHandle
@@ -910,6 +863,47 @@ function FillRow({
           >
             <Icon name="GripVertical" label={undefined} size="0.85em" />
           </SortableItemHandle>
+        )}
+        {/* Inline stack actions: move and remove are direct row controls; only
+            low-frequency commands stay in the labelled menu. */}
+        {totalFills > 1 && (
+          <div className="paint-stack__reorder">
+            <button
+              type="button"
+              className="insp-inline-btn"
+              disabled={!canMoveUp}
+              onClick={() => onReorder(-1)}
+              aria-label={`Move ${label.toLowerCase()} up`}
+              title={
+                canMoveUp ? `Move ${label.toLowerCase()} up` : 'Already bottom of the fill stack'
+              }
+            >
+              <Icon name="ChevronUp" label={undefined} size="0.7em" />
+            </button>
+            <button
+              type="button"
+              className="insp-inline-btn"
+              disabled={!canMoveDown}
+              onClick={() => onReorder(1)}
+              aria-label={`Move ${label.toLowerCase()} down`}
+              title={
+                canMoveDown ? `Move ${label.toLowerCase()} down` : 'Already top of the fill stack'
+              }
+            >
+              <Icon name="ChevronDown" label={undefined} size="0.7em" />
+            </button>
+          </div>
+        )}
+        {canRemove && (
+          <button
+            type="button"
+            className="insp-inline-btn paint-stack__remove"
+            onClick={onRemove}
+            aria-label={`Remove ${label.toLowerCase()}`}
+            title={`Remove ${label.toLowerCase()}`}
+          >
+            <Icon name="X" label={undefined} size="0.75em" />
+          </button>
         )}
         <button
           type="button"

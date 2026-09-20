@@ -15,7 +15,7 @@
  * radius quad uses the same boxed-grid treatment.
  */
 import { expect, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { addLayerEffect, navigateToEditor } from '../shared';
 
 async function drawRect(page: import('@playwright/test').Page) {
   await page.keyboard.press('r');
@@ -41,7 +41,8 @@ test.describe('Inspector — Effects/Shadow row and Corner Radius redesign', () 
     const effectsHeading = page.getByRole('button', { name: 'Layer Effects' });
     await effectsHeading.scrollIntoViewIfNeeded();
     await effectsHeading.click();
-    await page.getByRole('button', { name: /^add$/i }).click();
+    const effectsSection = page.locator('.insp-disclosure').filter({ hasText: 'Layer Effects' });
+    await addLayerEffect(page, effectsSection, 'Drop Shadow');
     await page.waitForTimeout(200);
 
     const row = page.locator('.insp-effect-row').first();

@@ -9,6 +9,7 @@
  * - Stack actions menu (duplicate, reset, reorder, remove)
  */
 import {
+  type BlendMode,
   canBeMatteSource,
   type Effect,
   type EffectMaskBinding,
@@ -29,7 +30,7 @@ import {
   SortableItemHandle,
   Switch,
 } from '@varve/ui';
-import { useCallback, useId, useMemo, useRef, useState } from 'react';
+import { type MouseEvent, useCallback, useId, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../../context';
 import { FieldRow, InspectorFieldGroup } from '../../controls/FieldRow';
 import { InspectorColorPopover } from '../../controls/InspectorColorPopover';
@@ -45,8 +46,11 @@ import {
 import { ChromaticAberrationParams, GlitchParams } from './DistortionParams';
 import {
   alignEffectRow,
+  blendModeLabel,
+  EFFECT_STAGE_INFO,
   EFFECT_TYPE_OPTIONS,
   type EffectNode,
+  effectGradientToCss,
   getEffect,
   matchingEffectIndex,
   toSwatchBg,
@@ -97,11 +101,27 @@ export function EffectColorSwatch({
     return { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 };
   });
   const color = isMixed(colorRaw) ? null : colorRaw;
-  const swatchBg = color ? toSwatchBg(color) : 'transparent';
+  // Gradient glows paint a ramp, not a flat colour: the row chip must show the
+  // same colours the renderer uses (research: misread swatches are the most
+  // common "that isn't what the effect looks like" complaint against flat
+  // effect-row chips).
+  const firstEffect = getEffect(nodes[0]!, index);
+  const gradient =
+    firstEffect &&
+    (firstEffect.type === 'outerGlow' || firstEffect.type === 'innerGlow') &&
+    firstEffect.colorMode === 'gradient' &&
+    (firstEffect.gradient?.stops.length ?? 0) > 0
+      ? firstEffect.gradient
+      : undefined;
+  const swatchBg = gradient
+    ? effectGradientToCss(gradient)
+    : color
+      ? toSwatchBg(color)
+      : 'transparent';
 
   return (
     <InspectorColorPopover
-      label="Effect colour"
+      label={gradient ? 'Effect gradient' : 'Effect colour'}
       className="insp-swatch insp-swatch--round"
       value={color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }}
       onChange={(c) => onChange((e) => setEffectColor(e, c as ManagedColor))}
@@ -329,6 +349,15 @@ export function EffectRow({
   const hasMissingEffect = rowNodes.some((node) => (node.effects?.length ?? 0) === 0);
   const typeRaw = commonValue(rowNodes, (n) => getEffect(n, index)?.type ?? 'dropShadow');
   const visibleRaw = commonValue(rowNodes, (n) => getEffect(n, index)?.visible ?? true);
+  // Blend mode is optional in the model (blur/glass/depth variants carry
+  // none); the row badge only appears when the effect actually blends.
+  const blendRaw = commonValue(rowNodes, (n) => {
+    const e = getEffect(n, index);
+    if (!e || !('blendMode' in e)) return undefined;
+    return e.blendMode as BlendMode;
+  });
+  const blendValue =
+    isMixed(blendRaw) || !blendRaw || blendRaw === 'normal' ? null : (blendRaw as BlendMode);
 
   const type = isMixed(typeRaw) ? null : typeRaw;
   const visibility = isMixed(visibleRaw) ? true : visibleRaw;
@@ -347,41 +376,42 @@ export function EffectRow({
   // layout effect runs (refs attach post-order), and FloatingPortal resolves
   // its anchor once on mount.
   const chevronRef = useRef<HTMLButtonElement>(null);
+  // The whole card counts as "inside" the open editor: clicking the row must
+  // toggle it closed instead of being treated as an outside pointer-down that
+  // closes and immediately reopens it.
+  const cardRef = useRef<HTMLDivElement>(null);
   const paramsId = useId();
   const ownerKey = `${editor.state?.document?.id ?? 'document'}:${nodes.map((node) => node.id).join(',')}:${index}:${type ?? 'mixed'}`;
 
   const currentEffect = getEffect(nodes[0]!, index);
   const stage = currentEffect ? layerEffectStage(currentEffect) : 'appearance';
 
+  const handleRowClick = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      if (!type) return;
+      const target = event.target as Element | null;
+      // Pointer affordance only: clicking the card's name, type icon, stage
+      // chip, or empty space toggles the parameter editor. Controls keep their
+      // own behaviour, and keyboard/AT users keep the labelled disclosure
+      // button as the single focusable trigger.
+      if (
+        target?.closest(
+          'button, input, select, textarea, a, label, [role="switch"], [role="slider"]',
+        )
+      ) {
+        return;
+      }
+      setExpanded((value) => !value);
+    },
+    [type],
+  );
+
   const actionItems = useMemo<readonly MenuEntry[]>(
     () => [
       { id: 'reset', label: 'Reset effect', onAction: onReset, icon: 'RotateCcw' },
       { id: 'duplicate', label: 'Duplicate effect', onAction: onDuplicate, icon: 'Copy' },
-      { id: 'separator-before-order', separator: true },
-      {
-        id: 'move-up',
-        label: 'Move effect up',
-        onAction: () => onReorder(-1),
-        disabled: !canMoveUp,
-        icon: 'ChevronUp',
-      },
-      {
-        id: 'move-down',
-        label: 'Move effect down',
-        onAction: () => onReorder(1),
-        disabled: !canMoveDown,
-        icon: 'ChevronDown',
-      },
-      { id: 'separator-before-remove', separator: true },
-      {
-        id: 'remove',
-        label: 'Remove effect',
-        onAction: onRemove,
-        destructive: true,
-        icon: 'X',
-      },
     ],
-    [canMoveDown, canMoveUp, onDuplicate, onRemove, onReset, onReorder],
+    [onDuplicate, onReset],
   );
 
   // In-row blur radius for single blurs
@@ -407,8 +437,13 @@ export function EffectRow({
   );
 
   return (
-    <div className={`insp-effect-row${expanded ? ' insp-effect-row--active' : ''}`}>
-      <div className="insp-effect-row__header">
+    <div ref={cardRef} className={`insp-effect-row${expanded ? ' insp-effect-row--active' : ''}`}>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: pointer affordance only; the labelled chevron button is the keyboard/AT disclosure trigger */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard users activate the labelled disclosure button, not the row body */}
+      <div
+        className={`insp-effect-row__header${type ? ' insp-effect-row__header--interactive' : ''}`}
+        onClick={handleRowClick}
+      >
         {type && (
           <button
             ref={chevronRef}
@@ -460,9 +495,26 @@ export function EffectRow({
             name={EFFECT_TYPE_OPTIONS.find((option) => option.value === type)!.icon!}
             label={undefined}
             size="0.85em"
+            className="insp-effect-row__type-icon"
           />
         )}
         <span className="insp-effect-row__name">{rowLabel}</span>
+        {type && (
+          <span
+            className="insp-effect-row__stage"
+            title={`${EFFECT_STAGE_INFO[stage].label} stage: ${EFFECT_STAGE_INFO[stage].description}`}
+          >
+            {EFFECT_STAGE_INFO[stage].label}
+          </span>
+        )}
+        {blendValue && (
+          <span
+            className="insp-effect-row__blend"
+            title={`Blend mode: ${blendModeLabel(blendValue)}`}
+          >
+            {blendModeLabel(blendValue)}
+          </span>
+        )}
 
         {/* In-row quick blur radius input */}
         {isSingleBlur && (
@@ -485,6 +537,42 @@ export function EffectRow({
               }}
             />
             <span className="insp-inrow-blur__unit">px</span>
+          </div>
+        )}
+
+        {/* Reorder control: chevrons are secondary to the drag handle, so they
+            stay quiet until the row is hovered or holds focus. Move/remove are
+            direct row actions; only reset and duplicate remain in the menu. */}
+        {totalEffects > 1 && (
+          <div className="insp-effect-row__reorder">
+            <button
+              type="button"
+              className="insp-inline-btn"
+              disabled={!canMoveUp}
+              onClick={() => onReorder(-1)}
+              aria-label="Move effect up"
+              title={
+                canMoveUp
+                  ? 'Move effect up'
+                  : `Already first in the ${EFFECT_STAGE_INFO[stage].label.toLowerCase()} stage`
+              }
+            >
+              <Icon name="ChevronUp" label={undefined} size="0.7em" />
+            </button>
+            <button
+              type="button"
+              className="insp-inline-btn"
+              disabled={!canMoveDown}
+              onClick={() => onReorder(1)}
+              aria-label="Move effect down"
+              title={
+                canMoveDown
+                  ? 'Move effect down'
+                  : `Already last in the ${EFFECT_STAGE_INFO[stage].label.toLowerCase()} stage`
+              }
+            >
+              <Icon name="ChevronDown" label={undefined} size="0.7em" />
+            </button>
           </div>
         )}
 
@@ -517,11 +605,22 @@ export function EffectRow({
           items={actionItems}
           size="compact"
         />
+
+        <button
+          type="button"
+          className="insp-inline-btn insp-effect-row__remove"
+          onClick={onRemove}
+          aria-label="Remove effect"
+          title="Remove effect"
+        >
+          <Icon name="X" label={undefined} size="0.75em" />
+        </button>
       </div>
 
       {type && expanded && (
         <InspectorFocusedEditor
           anchorRef={chevronRef}
+          interactionRef={cardRef}
           open={expanded}
           title={`${rowLabel} parameters`}
           badge={stage}

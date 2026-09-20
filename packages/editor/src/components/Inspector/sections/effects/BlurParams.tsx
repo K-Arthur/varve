@@ -7,6 +7,7 @@ import type { Effect } from '@varve/scene';
 import { FieldRow, InspectorFieldGroup } from '../../controls/FieldRow';
 import { NumberField } from '../../controls/NumberField';
 import { commonValue, isMixed } from '../../selection/selectionState';
+import { EffectToggleRow } from './EffectControls';
 import { EffectPreviewTile } from './EffectPreviewTile';
 import { type EffectNode, getEffect, QUICK_BLUR_PRESETS } from './EffectTypes';
 
@@ -113,6 +114,7 @@ export function SpatialBlurParams({
     const sigmaY = numeric(4, (candidate) => (candidate.type === type ? candidate.sigmaY : 4));
     return (
       <div className="insp-effect-params">
+        <EffectPreviewTile effect={effect} label="Gaussian Blur" />
         <InspectorFieldGroup columns={2}>
           <NumberField
             label="Sigma X"
@@ -160,6 +162,7 @@ export function SpatialBlurParams({
     );
     return (
       <div className="insp-effect-params">
+        <EffectPreviewTile effect={effect} label="Field Blur" />
         <NumberField
           label="Maximum pin blur"
           labelWrap
@@ -205,6 +208,10 @@ export function SpatialBlurParams({
     );
     return (
       <div className="insp-effect-params">
+        <EffectPreviewTile
+          effect={effect}
+          label={type === 'irisBlur' ? 'Iris Blur' : 'Tilt-Shift Blur'}
+        />
         <InspectorFieldGroup columns={2}>
           <NumberField
             label="Maximum blur"
@@ -273,6 +280,7 @@ export function SpatialBlurParams({
     const samples = numeric(16, (candidate) => (candidate.type === type ? candidate.samples : 16));
     return (
       <div className="insp-effect-params">
+        <EffectPreviewTile effect={effect} label="Path Blur" />
         <InspectorFieldGroup columns={2}>
           <NumberField
             label="Motion amount"
@@ -314,6 +322,7 @@ export function SpatialBlurParams({
   const amount = numeric(1, (candidate) => (candidate.type === type ? candidate.amount : 1));
   return (
     <div className="insp-effect-params">
+      <EffectPreviewTile effect={effect} label="Spin Blur" />
       <InspectorFieldGroup columns={2}>
         <NumberField
           label="Angle"
@@ -384,8 +393,11 @@ export function DepthBlurParams({
     const effect = getEffect(n, index);
     return effect?.type === 'depthBlur' ? effect.invert : false;
   });
+  const firstEffect = getEffect(nodes[0]!, index);
+  const currentEffect = firstEffect?.type === 'depthBlur' ? firstEffect : undefined;
   return (
     <div className="insp-effect-params">
+      <EffectPreviewTile effect={currentEffect} label="Depth Blur" />
       <InspectorFieldGroup columns={2}>
         <NumberField
           label="Focus depth"
@@ -446,7 +458,7 @@ export function DepthBlurParams({
           }
         />
       </InspectorFieldGroup>
-      <InspectorFieldGroup columns={2}>
+      <InspectorFieldGroup columns={1}>
         <NumberField
           label="Edge protection"
           labelWrap
@@ -462,19 +474,17 @@ export function DepthBlurParams({
             )
           }
         />
-        <button
-          type="button"
-          className={`insp-toggle-btn${isMixed(invertRaw) || invertRaw ? ' --active' : ''}`}
-          aria-pressed={isMixed(invertRaw) ? 'mixed' : invertRaw}
-          onClick={() =>
-            onChange((effect) =>
-              effect.type === 'depthBlur' ? { ...effect, invert: !effect.invert } : effect,
-            )
-          }
-        >
-          {isMixed(invertRaw) ? 'Mixed depth' : invertRaw ? 'Invert depth' : 'Normal depth'}
-        </button>
       </InspectorFieldGroup>
+      <EffectToggleRow
+        label="Invert depth"
+        checked={isMixed(invertRaw) ? false : invertRaw}
+        mixed={isMixed(invertRaw)}
+        onChange={(enabled) =>
+          onChange((effect) =>
+            effect.type === 'depthBlur' ? { ...effect, invert: enabled } : effect,
+          )
+        }
+      />
     </div>
   );
 }

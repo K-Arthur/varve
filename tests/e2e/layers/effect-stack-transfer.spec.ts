@@ -6,7 +6,11 @@
  */
 
 import { expect, type Locator, type Page, test } from '@playwright/test';
-import { navigateToEditor, seedLayers } from '../shared';
+import {
+  addLayerEffect as addLayerEffectFromShared,
+  navigateToEditor,
+  seedLayers,
+} from '../shared';
 
 type EffectStackKind = 'layer-effects' | 'object-filters';
 
@@ -42,10 +46,7 @@ async function addLayerEffect(page: Page, row: Locator, label: string): Promise<
   ) {
     await section.getByRole('button', { name: 'Layer Effects' }).click();
   }
-  const select = section.getByRole('combobox', { name: 'New effect type' });
-  await select.click();
-  await page.getByRole('option', { name: label, exact: true }).click();
-  await section.getByRole('button', { name: 'Add' }).click();
+  await addLayerEffectFromShared(page, section, label);
   await expect(row.locator('[data-effect-stack-kind="layer-effects"]')).toBeVisible();
 }
 

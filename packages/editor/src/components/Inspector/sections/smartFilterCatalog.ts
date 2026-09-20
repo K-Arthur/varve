@@ -70,12 +70,81 @@ const COLOR_GRADING_KINDS: readonly AdjustmentKind[] = [
   'lut',
 ];
 
+/**
+ * One icon per filter kind. Repetition defeats the recognition aid: a list
+ * where Brightness, Contrast, Exposure, Levels, Curves, Saturation, and
+ * Threshold all share one glyph is effectively text-only. Icons describe what
+ * the filter does; the group header already carries the family.
+ */
+const FILTER_KIND_ICONS: Record<AdjustmentKind, SolidIconName> = {
+  // Color & tone
+  brightness: 'Sun',
+  contrast: 'CircleHalf',
+  exposure: 'SunHorizon',
+  levels: 'ChartBar',
+  curves: 'BezierCurve',
+  saturation: 'Rainbow',
+  hueSaturation: 'Palette',
+  hueRotate: 'RotateCw',
+  vibrance: 'Sparkle',
+  colorBalance: 'Swatches',
+  temperature: 'ThermometerHot',
+  tint: 'Eyedropper',
+  selectiveColor: 'Fingerprint',
+  invert: 'Moon',
+  blackAndWhite: 'StarHalf',
+  grayscale: 'Square',
+  sepia: 'Coffee',
+  opacity: 'Drop',
+  threshold: 'Hash',
+  // Blur & detail
+  blur: 'CloudFog',
+  motionBlur: 'Wind',
+  sharpen: 'Crosshair',
+  surfaceSmooth: 'Waves',
+  microDetail: 'MagnifyingGlassPlus',
+  definition: 'Diamond',
+  // Texture & finishing
+  grain: 'GridFour',
+  edgeFalloff: 'FrameCorners',
+  softBloom: 'Flower',
+  halftone: 'Circle',
+  colorHalftone: 'Confetti',
+  dither: 'DotsSixVertical',
+  posterize: 'StackSimple',
+  mosaic: 'Table',
+  edgeInk: 'PenNib',
+  paletteSnap: 'PaintBucket',
+  // Atmosphere & optics
+  bloom: 'SunDim',
+  rgbSplit: 'Columns',
+  lightShafts: 'ArrowUp',
+  lensFlare: 'StarFour',
+  lightLeak: 'Flame',
+  caustics: 'WavesThree',
+  atmosphere: 'Cloud',
+  dehaze: 'Eye',
+  crt: 'BoundingBox',
+  vhs: 'FileVideo',
+  // Color grading
+  gradientMap: 'ChartLineUp',
+  duotone: 'SquaresFour',
+  tritone: 'Triangle',
+  channelMixer: 'ArrowsDownUp',
+  photoFilter: 'Image',
+  shadowHighlight: 'MoonStars',
+  lut: 'Cube',
+};
+
 function createGroup(label: string, kinds: readonly AdjustmentKind[]): SelectOptionGroup {
   return {
     label,
     options: kinds.map((kind) => ({
       value: kind,
       label: filterKindDisplayName(kind),
+      // Recognition aid: the same icon the applied row shows, so the picker
+      // and the stack read as one vocabulary instead of a text-only list.
+      icon: filterKindIcon(kind),
     })),
   };
 }
@@ -116,45 +185,7 @@ export function buildSmartFilterGroups(
 export const SMART_FILTER_GROUPS: readonly SelectOptionGroup[] = buildSmartFilterGroups();
 
 export function filterKindIcon(kind: AdjustmentKind): SolidIconName {
-  switch (kind) {
-    case 'blur':
-    case 'motionBlur':
-    case 'surfaceSmooth':
-      return 'Drop';
-    case 'sharpen':
-    case 'microDetail':
-    case 'definition':
-      return 'Crosshair';
-    case 'grain':
-    case 'halftone':
-    case 'colorHalftone':
-    case 'dither':
-    case 'mosaic':
-      return 'GridFour';
-    case 'edgeFalloff':
-    case 'softBloom':
-    case 'bloom':
-    case 'lightShafts':
-    case 'lensFlare':
-    case 'lightLeak':
-    case 'caustics':
-      return 'Sparkle';
-    case 'gradientMap':
-    case 'duotone':
-    case 'tritone':
-    case 'channelMixer':
-    case 'photoFilter':
-    case 'lut':
-      return 'Palette';
-    case 'blackAndWhite':
-    case 'grayscale':
-    case 'sepia':
-    case 'invert':
-    case 'threshold':
-      return 'CircleHalf';
-    default:
-      return 'Faders';
-  }
+  return FILTER_KIND_ICONS[kind] ?? 'Faders';
 }
 
 export function blendModeDisplayName(mode: AdjustmentBlendMode): string {

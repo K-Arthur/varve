@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { dragOnCanvas, navigateToEditor } from '../shared';
+import { addLayerEffect, dragOnCanvas, navigateToEditor } from '../shared';
 
 async function openEffectsSection(page: import('@playwright/test').Page) {
   const section = page.locator('.insp-disclosure').filter({ hasText: 'Layer Effects' });
@@ -14,10 +14,7 @@ async function addEffect(
   section: import('@playwright/test').Locator,
   label: string,
 ) {
-  await section.getByRole('combobox', { name: 'New effect type' }).click();
-  await page.getByRole('option', { name: label, exact: true }).click();
-  await section.getByRole('button', { name: 'Add', exact: true }).click();
-  await expect(section.locator('.insp-effect-row').filter({ hasText: label })).toBeVisible();
+  await addLayerEffect(page, section, label);
 }
 
 test.describe('Layer Effects — real editor workflow', () => {
@@ -48,6 +45,10 @@ test.describe('Layer Effects — real editor workflow', () => {
     await expect(rows.nth(1)).toContainText('Drop Shadow');
 
     await expect(rows.nth(2).getByRole('button', { name: 'Move effect up' })).toBeDisabled();
+    // Move the pointer off the rows so hover-revealed controls are not frozen
+    // into the baseline; the row's reveal state is intentionally dynamic.
+    await page.mouse.move(4, 4);
+    await page.waitForTimeout(150);
     await expect(section).toHaveScreenshot('layer-effects-stage-order.png', {
       maxDiffPixels: 300,
     });
@@ -61,6 +62,10 @@ test.describe('Layer Effects — real editor workflow', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
     await page.getByRole('treeitem').first().click();
     await page.waitForTimeout(500);
+
+    // Painted raster layers carry the complete editable surface in the
+    // Adjustments tab; the Design composition is the vector-object surface.
+    await page.getByRole('tab', { name: 'Adjustments', exact: true }).click();
 
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     const before = await canvas.screenshot({
@@ -212,7 +217,6 @@ test.describe('Layer Effects — real editor workflow', () => {
       'Chromatic Aberration',
       'Glitch',
       'Glass Material',
-      'Depth Blur',
     ];
 
     for (const label of effects) {
@@ -223,11 +227,10 @@ test.describe('Layer Effects — real editor workflow', () => {
         path: testInfo.outputPath(`text-${label.toLowerCase().replaceAll(' ', '-')}.png`),
       });
       const changed = Buffer.compare(before, await canvas.screenshot()) !== 0;
-      // Depth Blur is intentionally neutral until a depth map is attached;
-      // backdrop effects can also be pixel-neutral over a flat backdrop. The
+      // Backdrop effects can be pixel-neutral over a flat backdrop; the
       // important invariant for those cases is that the editable text remains
       // painted and the renderer does not blank its layer.
-      if (!['Depth Blur', 'Background Blur'].includes(label)) expect(changed).toBe(true);
+      if (label !== 'Background Blur') expect(changed).toBe(true);
       const paintedPixels = await canvas.evaluate((el) => {
         const context = (el as HTMLCanvasElement).getContext('2d');
         if (!context) return 0;
@@ -240,6 +243,10 @@ test.describe('Layer Effects — real editor workflow', () => {
       await expect(page.getByRole('treeitem').filter({ hasText: /text/i }).first()).toBeVisible();
 
       const row = section.locator('.insp-effect-row').filter({ hasText: label }).last();
+      // Every effect family must show a live preview tile in its popover; the
+      // "editing blind" complaint against modal layer-style dialogs is not
+      // allowed to reappear for a single type.
+      await expect(row.getByRole('img', { name: `Preview of ${label}` })).toBeVisible();
       if (label === 'Chromatic Aberration') {
         await expect(row.getByLabel('Mix')).toBeVisible();
         await expect(row.getByLabel('Chromatic channel mode')).toBeVisible();
@@ -253,23 +260,103 @@ test.describe('Layer Effects — real editor workflow', () => {
       if (label === 'Drop Shadow') {
         await expect(row.getByLabel('Angle')).toBeVisible();
         await expect(row.getByLabel('Distance')).toBeVisible();
+        // The blend selector offers the full grouped mode list, not a stub.
+        await row.getByRole('combobox', { name: 'Effect blend mode' }).click();
+        await expect(page.getByRole('option', { name: 'Color Dodge', exact: true })).toBeVisible();
+        await expect(page.getByRole('option', { name: 'Luminosity', exact: true })).toBeVisible();
+        await page.keyboard.press('Escape');
       }
       if (label === 'Outer Glow') {
-        await expect(row.getByLabel('Glow color treatment')).toBeVisible();
+        await expect(row.getByLabel('Glow colour treatment')).toBeVisible();
         await expect(row.getByLabel('Choke')).toBeVisible();
         await expect(row.getByLabel('Glow contour')).toBeVisible();
+        // The contour is a segmented choice, not a two-click select.
+        await expect(row.getByRole('radio', { name: 'Linear' })).toBeVisible();
+        await row.getByRole('radio', { name: 'Sharp' }).click();
+        await expect(row.getByRole('radio', { name: 'Sharp' })).toBeChecked();
       }
       if (label === 'Inner Glow') {
         await expect(row.getByLabel('Inner glow origin')).toBeVisible();
+        await expect(row.getByRole('radio', { name: 'Center' })).toBeVisible();
       }
       if (label === 'Glitch') await expect(row.getByLabel('Glitch blend mode')).toBeVisible();
-      if (label === 'Depth Blur') {
-        await expect(row.getByLabel('Focus range')).toBeVisible();
-        await expect(row.getByLabel('Edge protection')).toBeVisible();
-      }
 
       await row.getByRole('button', { name: 'Remove effect' }).click();
       await expect(section.locator('.insp-effect-row').filter({ hasText: label })).toHaveCount(0);
     }
+  });
+
+  test('clicking the effect card opens and closes its parameter editor', async ({ page }) => {
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 160, 160, 420, 340);
+    const section = await openEffectsSection(page);
+    await addEffect(page, section, 'Drop Shadow');
+
+    const row = section.locator('.insp-effect-row').first();
+    const editor = page.locator('.insp-focused-editor');
+    // A freshly added effect mounts with its editor open.
+    await expect(editor).toBeVisible();
+
+    // The card body (name/type/stage area) is a pointer target for the editor.
+    await row.locator('.insp-effect-row__name').click();
+    await expect(editor).toBeHidden();
+    await row.locator('.insp-effect-row__name').click();
+    await expect(editor).toBeVisible();
+
+    // Interactive row controls keep their own behaviour and do not toggle it.
+    await row.getByRole('switch', { name: /hide effect/i }).click();
+    await expect(editor).toBeVisible();
+    await expect(row.getByRole('switch', { name: /show effect/i })).toBeVisible();
+  });
+
+  test('labels each effect with its execution stage and explains constrained moves', async ({
+    page,
+  }) => {
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 160, 160, 420, 340);
+    const section = await openEffectsSection(page);
+    await addEffect(page, section, 'Drop Shadow');
+    await addEffect(page, section, 'Layer Blur');
+
+    const rows = section.locator('.insp-effect-row');
+    await expect(rows.nth(0).locator('.insp-effect-row__stage')).toHaveText('Appearance');
+    await expect(rows.nth(1).locator('.insp-effect-row__stage')).toHaveText('Content');
+
+    // The content-stage row cannot move up into the appearance stage, and the
+    // disabled control says why instead of failing silently.
+    const moveUp = rows.nth(1).getByRole('button', { name: 'Move effect up' });
+    await expect(moveUp).toBeDisabled();
+    await expect(moveUp).toHaveAttribute('title', /content stage/i);
+  });
+
+  test('adds an effect in one step and stacks effects from the same picker', async ({ page }) => {
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 160, 160, 420, 340);
+    const section = await openEffectsSection(page);
+
+    // Choosing the type is the add action: no separate Add confirm exists.
+    await addEffect(page, section, 'Drop Shadow');
+    await addEffect(page, section, 'Layer Blur');
+
+    await expect(section.locator('.insp-effect-row')).toHaveCount(2);
+    await expect(section.locator('.insp-effect-row').nth(0)).toContainText('Drop Shadow');
+    await expect(section.locator('.insp-effect-row').nth(1)).toContainText('Layer Blur');
+    await expect(section.getByRole('button', { name: 'Add', exact: true })).toHaveCount(0);
+  });
+
+  test('keeps Depth Blur out of the generic picker and says why', async ({ page }) => {
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 160, 160, 420, 340);
+    const section = await openEffectsSection(page);
+
+    // Depth Blur is entered through the image workflow, which owns the
+    // DepthMap resource; the generic picker must not create an empty
+    // placeholder (docs/architecture/depth-aware-imaging.md).
+    await section.getByRole('button', { name: 'Add effect' }).click();
+    const depthBlur = page.getByRole('menuitem', { name: /Depth Blur/i });
+    await expect(depthBlur).toHaveAttribute('aria-disabled', 'true');
+    await expect(depthBlur).toContainText(/needs a Depth Map/i);
+    await page.keyboard.press('Escape');
+    await expect(section.locator('.insp-effect-row')).toHaveCount(0);
   });
 });

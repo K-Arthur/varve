@@ -34,6 +34,21 @@
   padding: var(--space-1) 0;
 }
 
+/* The effect picker's category headings: the shared menu-label idiom is
+   uppercase, which reads as shouting in a long chooser. Title case matches
+   the rest of the Inspector's section titles. */
+[role="menu"][aria-label="Add effect"] .varve-menu__label {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+/* The card body is a pointer target for the parameter editor (the labelled
+   chevron remains the keyboard/AT trigger). Interactive children set their
+   own cursors and stop the row toggle. */
+.insp-effect-row__header--interactive {
+  cursor: pointer;
+}
+
 .insp-effect-row__name {
   flex: 1 1 auto;
   min-width: 0;
@@ -43,6 +58,96 @@
   font-weight: var(--font-weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Execution-stage chip. The stage model is Varve-specific, and the most
+   common cross-app complaint is "reordering effects does nothing" — this chip
+   plus the disabled-move tooltips make the constraint legible before a drag. */
+.insp-effect-row__stage {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-micro);
+  white-space: nowrap;
+}
+
+.insp-effect-row__blend {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
+}
+
+/* Compact rail: the row carries identity, bypass, colour, reorder, menu, and
+   remove. Below ~20rem the supplementary chrome yields so the effect name
+   stays legible — the popover header always states the stage, and the move
+   chevrons replace the drag handle as the reorder affordance. */
+@container inspector (max-width: 20rem) {
+  .insp-effect-row__stage,
+  .insp-effect-row__blend,
+  .insp-effect-row__type-icon,
+  .insp-effect-row__drag-handle {
+    display: none;
+  }
+
+  .insp-effect-row__reorder .insp-inline-btn {
+    opacity: 1;
+  }
+
+  .insp-inrow-blur__input {
+    width: 2.75rem;
+  }
+}
+
+/* Inline stack actions. Move chevrons are secondary to the drag handle: on
+   hover-capable pointers they stay out of the way until the row is hovered or
+   contains focus, but remain in the tab order and are revealed by
+   :focus-within. Touch pointers keep them visible. Remove stays visible so
+   deletion is never hidden behind hover. */
+.insp-effect-row__reorder {
+  display: grid;
+  gap: 0;
+  flex: 0 0 auto;
+}
+
+.insp-effect-row__reorder .insp-inline-btn:disabled {
+  cursor: default;
+  opacity: 0.3;
+}
+
+.insp-effect-row__reorder .insp-inline-btn:focus-visible,
+.insp-effect-row__remove:focus-visible {
+  opacity: 1;
+  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
+.insp-effect-row .insp-effect-row__remove:hover {
+  color: var(--color-feedback-danger);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .insp-effect-row__reorder .insp-inline-btn {
+    opacity: 0;
+  }
+
+  .insp-effect-row:hover .insp-effect-row__reorder .insp-inline-btn,
+  .insp-effect-row:focus-within .insp-effect-row__reorder .insp-inline-btn {
+    opacity: 1;
+  }
+
+  .insp-effect-row:hover .insp-effect-row__reorder .insp-inline-btn:disabled,
+  .insp-effect-row:focus-within .insp-effect-row__reorder .insp-inline-btn:disabled {
+    opacity: 0.3;
+  }
 }
 
 /* In-Row Quick Blur Scrubber */

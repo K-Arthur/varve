@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { Effect, ShapeNode } from '@varve/scene';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -62,6 +62,13 @@ function nodeWithGlass(id: string, overrides: Record<string, unknown> = {}) {
 }
 
 type DropShadowEffect = Extract<Effect, { type: 'dropShadow' }>;
+
+/** Opens the header picker and chooses an effect type — the selection is the
+ *  add action (no separate confirm). */
+async function pickEffect(label: string) {
+  fireEvent.click(screen.getByRole('button', { name: 'Add effect' }));
+  fireEvent.click(await screen.findByRole('menuitem', { name: label }));
+}
 
 function nodeWithShadow(id: string): ShapeNode & { effects: [DropShadowEffect] } {
   return {
@@ -432,7 +439,34 @@ describe('EffectsSection — per-row collapse/expand', () => {
     await waitFor(() => expect(screen.queryByLabelText('Blur')).toBeNull());
   });
 
-  it('mounts a newly added effect already expanded', () => {
+  it('opens the parameter editor when the row body is clicked', async () => {
+    render(<EffectsSection nodes={[nodeWithShadow('n1')]} />);
+    const name = document.querySelector('.insp-effect-row__name');
+    if (!(name instanceof HTMLElement)) throw new Error('row name did not render');
+    fireEvent.click(name);
+    expect(await screen.findByRole('dialog', { name: /drop shadow parameters/i })).toBeTruthy();
+  });
+
+  it('closes the parameter editor when the row body is clicked again', async () => {
+    render(<EffectsSection nodes={[nodeWithShadow('n1')]} />);
+    const name = document.querySelector('.insp-effect-row__name');
+    if (!(name instanceof HTMLElement)) throw new Error('row name did not render');
+    fireEvent.click(name);
+    await screen.findByRole('dialog', { name: /drop shadow parameters/i });
+    fireEvent.click(name);
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: /drop shadow parameters/i })).toBeNull(),
+    );
+  });
+
+  it('does not toggle the editor from interactive row controls', () => {
+    render(<EffectsSection nodes={[nodeWithShadow('n1')]} />);
+    fireEvent.click(screen.getByRole('switch', { name: /hide effect/i }));
+    expect(screen.queryByRole('dialog', { name: /drop shadow parameters/i })).toBeNull();
+    expect(updateNode).toHaveBeenCalled();
+  });
+
+  it('mounts a newly added effect already expanded', async () => {
     // updateNode must actually apply the updater and re-render with the new
     // node for this — the plain vi.fn() spy used by the other tests in this
     // file never mutates `nodes`, so a second effect row would never appear.
@@ -450,7 +484,7 @@ describe('EffectsSection — per-row collapse/expand', () => {
     }
 
     render(<StatefulHarness />);
-    fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
+    await pickEffect('Drop Shadow');
 
     // The pre-existing dropShadow row (index 0) stays collapsed…
     expect(screen.getAllByRole('button', { name: /expand drop shadow parameters/i })).toHaveLength(
@@ -481,7 +515,7 @@ describe('EffectsSection — effect type dropdown', () => {
   afterEach(cleanup);
 
   function openDropdown() {
-    const trigger = screen.getByRole('button', { name: /new effect type/i });
+    const trigger = screen.getByRole('button', { name: 'Add effect' });
     fireEvent.click(trigger);
   }
 
@@ -501,6 +535,63 @@ describe('EffectsSection — effect type dropdown', () => {
     const options = await screen.findAllByRole('menuitem');
     const labels = options.map((o) => o.textContent);
     expect(labels).toContain('Glitch');
+  });
+
+  it('adds the chosen effect on selection without a confirm step', async () => {
+    const node = nodeWithShadow('n1');
+    function StatefulHarness() {
+      const [current, setCurrent] = useState(node);
+      mockedUseEditor.mockReturnValue({
+        updateNode: (_id: string, updater: (n: typeof node) => typeof node) =>
+          setCurrent((prev) => updater(prev)),
+        beginTransaction,
+        commitTransaction,
+        announce,
+        documentColorMode: 'rgb',
+      });
+      return <EffectsSection nodes={[current]} />;
+    }
+
+    render(<StatefulHarness />);
+    await pickEffect('Layer Blur');
+
+    expect(screen.getAllByText('Layer Blur').length).toBeGreaterThan(0);
+    expect(beginTransaction).toHaveBeenCalledTimes(1);
+    expect(commitTransaction).toHaveBeenCalledTimes(1);
+    expect(announce).toHaveBeenCalledWith('Added Layer Blur');
+  });
+
+  it('appends further effects from repeated picker use', async () => {
+    const node = nodeWithShadow('n1');
+    function StatefulHarness() {
+      const [current, setCurrent] = useState(node);
+      mockedUseEditor.mockReturnValue({
+        updateNode: (_id: string, updater: (n: typeof node) => typeof node) =>
+          setCurrent((prev) => updater(prev)),
+        beginTransaction,
+        commitTransaction,
+        announce,
+        documentColorMode: 'rgb',
+      });
+      return <EffectsSection nodes={[current]} />;
+    }
+
+    render(<StatefulHarness />);
+    await pickEffect('Layer Blur');
+    await pickEffect('Outer Glow');
+
+    const rows = document.querySelectorAll('.insp-effect-row');
+    expect(rows).toHaveLength(3);
+    expect(rows[1]?.textContent).toContain('Layer Blur');
+    expect(rows[2]?.textContent).toContain('Outer Glow');
+  });
+
+  it('states the blocker on the disabled Depth Blur entry', async () => {
+    render(<EffectsSection nodes={[nodeWithShadow('n1')]} />);
+    openDropdown();
+    const depthBlur = await screen.findByRole('menuitem', { name: /Depth Blur/i });
+    expect(depthBlur).toHaveAttribute('aria-disabled', 'true');
+    expect(depthBlur.textContent).toMatch(/needs a Depth Map/i);
   });
 });
 
@@ -648,7 +739,7 @@ describe('EffectsSection — outerGlow color swatch', () => {
   it('renders editable gradient color treatment controls', async () => {
     render(<EffectsSection nodes={[nodeWithOuterGlow('n1', true)]} />);
     fireEvent.click(screen.getByRole('button', { name: /expand outer glow parameters/i }));
-    expect(await screen.findByLabelText('Glow color treatment')).toBeTruthy();
+    expect(await screen.findByLabelText('Glow colour treatment')).toBeTruthy();
     expect(screen.getByLabelText('Glow gradient start')).toBeTruthy();
     expect(screen.getByLabelText('Glow gradient end')).toBeTruthy();
   });
@@ -725,6 +816,43 @@ describe('EffectsSection — stack actions', () => {
   });
 
   afterEach(cleanup);
+
+  it('removes an effect directly from its row without opening the actions menu', () => {
+    const node = nodeWithShadow('n1');
+    render(<EffectsSection nodes={[node]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove effect' }));
+
+    const updater = updateNode.mock.calls[0]?.[1] as (value: typeof node) => typeof node;
+    const updated = updater(node);
+    expect(updated.effects).toHaveLength(0);
+    expect(announce).toHaveBeenCalledWith('Effect removed');
+  });
+
+  it('reorders an effect directly from its row', () => {
+    const node = nodeWithShadow('n1') as ShapeNode;
+    node.effects.push({
+      type: 'outerGlow' as const,
+      blur: 6,
+      spread: 0,
+      color: { space: 'rgb' as const, r: 255, g: 200, b: 100, a: 128 },
+      opacity: 0.6,
+      blendMode: 'screen' as const,
+      visible: true,
+    });
+    render(<EffectsSection nodes={[node]} />);
+
+    const rows = document.querySelectorAll('.insp-effect-row');
+    expect(rows).toHaveLength(2);
+    fireEvent.click(
+      within(rows[0] as HTMLElement).getByRole('button', { name: 'Move effect down' }),
+    );
+
+    const updater = updateNode.mock.calls[0]?.[1] as (value: typeof node) => typeof node;
+    const updated = updater(node);
+    expect(updated.effects[0]?.type).toBe('outerGlow');
+    expect(updated.effects[1]?.type).toBe('dropShadow');
+  });
 
   it('duplicates an effect next to its source with a fresh stable id', async () => {
     const node = nodeWithShadow('n1');

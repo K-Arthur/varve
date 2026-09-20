@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
+import { addLayerEffect, navigateToEditor } from '../shared';
 
 /**
  * Export tab (Inspector) — real-world diagnosis.
@@ -56,13 +56,8 @@ async function addDropShadow(page: Page) {
   await expect(section).toBeVisible({ timeout: 15000 });
   const trigger = section.getByRole('button', { name: 'Layer Effects', exact: true });
   if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click();
-  // The effect picker is a menu button (aria-haspopup="menu"), not a combobox.
-  await section.getByRole('button', { name: 'New effect type' }).click();
-  await page.getByRole('menuitem', { name: 'Drop Shadow', exact: true }).click();
-  await section.getByRole('button', { name: 'Add', exact: true }).click();
-  await expect(
-    section.locator('.insp-effect-row').filter({ hasText: 'Drop Shadow' }),
-  ).toBeVisible();
+  // Choosing the type in the picker is the add action (no separate confirm).
+  await addLayerEffect(page, section, 'Drop Shadow');
 }
 
 async function drawRect(page: Page) {
@@ -86,10 +81,7 @@ test.describe('Export tab — real-world scenarios', () => {
     await selectExportTab(page);
 
     // The advisor must not default a 1920x1280 JPEG photo to SVG.
-    await expect(page.getByRole('radio', { name: 'JPEG', exact: true })).toHaveAttribute(
-      'aria-checked',
-      'true',
-    );
+    await expect(page.getByRole('radio', { name: 'JPEG', exact: true })).toBeChecked();
 
     await page.getByRole('radio', { name: 'PNG', exact: true }).click();
     await page.getByRole('radio', { name: /^2x$/i }).click();
@@ -187,10 +179,7 @@ test.describe('Export tab — real-world scenarios', () => {
     await input.fill('2.5');
     await expect(download).toBeEnabled();
     await expect(error).toHaveCount(0);
-    await expect(page.getByRole('radio', { name: 'Custom' })).toHaveAttribute(
-      'aria-checked',
-      'true',
-    );
+    await expect(page.getByRole('radio', { name: 'Custom' })).toBeChecked();
     await page
       .locator('.insp-panel')
       .first()

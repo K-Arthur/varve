@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { dragOnCanvas, navigateToEditor } from '../shared';
+import { addLayerEffect, dragOnCanvas, navigateToEditor } from '../shared';
 
 async function openEffectsSection(page: import('@playwright/test').Page) {
   await page.getByRole('tab', { name: 'Design' }).click();
   const effectsSection = page.locator('section.insp-disclosure').filter({ hasText: 'Effects' });
   await expect(effectsSection).toBeVisible({ timeout: 5000 });
   // Layer Effects is collapsed by default (progressive disclosure); the
-  // combobox lives inside the disclosure content.
+  // effect picker lives in the section header.
   const trigger = effectsSection.getByRole('button', { name: 'Layer Effects' });
   if ((await trigger.getAttribute('aria-expanded')) !== 'true') {
     await trigger.click();
@@ -25,28 +25,9 @@ test.describe('Chromatic Aberration & Glitch Effects', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
     const effectsSection = await openEffectsSection(page);
+    await addLayerEffect(page, effectsSection, 'Chromatic Aberration');
 
-    const effectTypeSelect = effectsSection.locator(
-      '.varve-select__trigger[aria-label="New effect type"]',
-    );
-    await effectTypeSelect.click();
-    await page.waitForTimeout(200);
-
-    const caOption = page
-      .locator('.varve-select__option')
-      .filter({ hasText: 'Chromatic Aberration' });
-    if (await caOption.isVisible()) {
-      await caOption.click();
-      await page.waitForTimeout(100);
-    }
-
-    const addBtn = effectsSection.locator('button.insp-add-btn');
-    if (await addBtn.isVisible()) {
-      await addBtn.click();
-      await page.waitForTimeout(300);
-    }
-
-    const caLabel = page.locator('text=chromaticAberration').first();
+    const caLabel = page.locator('text=Chromatic Aberration').first();
     await expect(caLabel).toBeVisible({ timeout: 5000 });
 
     const intensityField = page.locator('.insp-field').filter({ hasText: 'Intensity' }).first();
@@ -62,26 +43,9 @@ test.describe('Chromatic Aberration & Glitch Effects', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
     const effectsSection = await openEffectsSection(page);
+    await addLayerEffect(page, effectsSection, 'Glitch');
 
-    const effectTypeSelect = effectsSection.locator(
-      '.varve-select__trigger[aria-label="New effect type"]',
-    );
-    await effectTypeSelect.click();
-    await page.waitForTimeout(200);
-
-    const glitchOption = page.locator('.varve-select__option').filter({ hasText: 'Glitch' });
-    if (await glitchOption.isVisible()) {
-      await glitchOption.click();
-      await page.waitForTimeout(100);
-    }
-
-    const addBtn = effectsSection.locator('button.insp-add-btn');
-    if (await addBtn.isVisible()) {
-      await addBtn.click();
-      await page.waitForTimeout(300);
-    }
-
-    const glitchLabel = page.locator('text=glitch').first();
+    const glitchLabel = page.locator('text=Glitch').first();
     await expect(glitchLabel).toBeVisible({ timeout: 5000 });
 
     const strengthField = page.locator('.insp-field').filter({ hasText: 'Strength' }).first();
@@ -97,24 +61,7 @@ test.describe('Chromatic Aberration & Glitch Effects', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
     const effectsSection = await openEffectsSection(page);
-
-    const effectTypeSelect = effectsSection.locator(
-      '.varve-select__trigger[aria-label="New effect type"]',
-    );
-    await effectTypeSelect.click();
-    await page.waitForTimeout(200);
-
-    const glitchOption = page.locator('.varve-select__option').filter({ hasText: 'Glitch' });
-    if (await glitchOption.isVisible()) {
-      await glitchOption.click();
-      await page.waitForTimeout(100);
-    }
-
-    const addBtn = effectsSection.locator('button.insp-add-btn');
-    if (await addBtn.isVisible()) {
-      await addBtn.click();
-      await page.waitForTimeout(300);
-    }
+    await addLayerEffect(page, effectsSection, 'Glitch');
 
     const advancedBtn = page.getByText('Advanced...');
     if (await advancedBtn.isVisible()) {
@@ -145,26 +92,7 @@ test.describe('Chromatic Aberration & Glitch Effects', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
     const effectsSection = await openEffectsSection(page);
-
-    const effectTypeSelect = effectsSection.locator(
-      '.varve-select__trigger[aria-label="New effect type"]',
-    );
-    await effectTypeSelect.click();
-    await page.waitForTimeout(200);
-
-    const caOption = page
-      .locator('.varve-select__option')
-      .filter({ hasText: 'Chromatic Aberration' });
-    if (await caOption.isVisible()) {
-      await caOption.click();
-      await page.waitForTimeout(100);
-    }
-
-    const addBtn = effectsSection.locator('button.insp-add-btn');
-    if (await addBtn.isVisible()) {
-      await addBtn.click();
-      await page.waitForTimeout(300);
-    }
+    await addLayerEffect(page, effectsSection, 'Chromatic Aberration');
 
     const colorSwatches = effectsSection.locator('button.insp-swatch');
     const count = await colorSwatches.count();
@@ -177,24 +105,7 @@ test.describe('Chromatic Aberration & Glitch Effects', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
     const effectsSection = await openEffectsSection(page);
-
-    const effectTypeSelect = effectsSection.locator(
-      '.varve-select__trigger[aria-label="New effect type"]',
-    );
-    await effectTypeSelect.click();
-    await page.waitForTimeout(200);
-
-    const shadowOption = page.locator('.varve-select__option').filter({ hasText: 'Drop Shadow' });
-    if (await shadowOption.isVisible()) {
-      await shadowOption.click();
-      await page.waitForTimeout(100);
-    }
-
-    const addBtn = effectsSection.locator('button.insp-add-btn');
-    if (await addBtn.isVisible()) {
-      await addBtn.click();
-      await page.waitForTimeout(300);
-    }
+    await addLayerEffect(page, effectsSection, 'Drop Shadow');
 
     const colorSwatches = effectsSection.locator('button.insp-swatch');
     await expect(colorSwatches.first()).toBeVisible({ timeout: 3000 });

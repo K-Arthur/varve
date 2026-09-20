@@ -230,7 +230,7 @@ describe('Paint rows', () => {
     });
   });
 
-  it('keeps each paint row on one line with its row commands in a labelled menu', async () => {
+  it('keeps each paint row on one line with direct move and remove controls', async () => {
     renderSelectedSection((nodes) => <FillSection nodes={nodes} />, {
       fills: [{ type: 'solid', color: solid, opacity: 1, blendMode: 'normal', visible: true }],
     });
@@ -238,10 +238,11 @@ describe('Paint rows', () => {
     const row = visibility.closest('.insp-paint-row');
     expect(row).not.toBeNull();
     expect(row?.querySelector('[aria-label="Fill actions"]')).not.toBeNull();
-    // Reorder/remove moved into the menu instead of an unlabelled icon strip.
+    // A single fill has no reorder and no remove: neither control is offered.
     expect(screen.queryByRole('button', { name: 'Move Fill up' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Remove fill' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Fill actions' }));
-    expect(await screen.findByRole('menuitem', { name: /remove fill/i })).toBeTruthy();
+    expect(await screen.findByRole('menuitem', { name: /blend mode/i })).toBeTruthy();
   });
 
   it('names stroke position in full words and weight with its unit', async () => {

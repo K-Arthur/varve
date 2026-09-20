@@ -134,10 +134,17 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
 
   afterEach(cleanup);
 
-  it('captures discrete stack changes and numeric edits in history', () => {
+  /** Opens a row's focused parameter editor (the popover is async-mounted). */
+  async function openFilterEditor(label = 'Grain') {
+    fireEvent.click(screen.getByRole('button', { name: label }));
+    await screen.findByRole('dialog', { name: `${label} parameters` });
+  }
+
+  it('captures discrete stack changes and numeric edits in history', async () => {
     const node = grainNode();
     render(<SmartFiltersSection nodes={[node]} />);
     fireEvent.click(screen.getByRole('button', { name: 'Disable all Object Filters' }));
+    await openFilterEditor();
     expect(beginTransaction).toHaveBeenCalledTimes(1);
     expect(commitTransaction).toHaveBeenCalledTimes(1);
     const input = screen.getByRole('spinbutton', { name: /Grain effect opacity value/ });
@@ -149,8 +156,9 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
     expect(latestUpdatedNode(node).smartFilters?.[0]?.opacity).toBe(0.5);
   });
 
-  it('keeps a range gesture in one transaction', () => {
+  it('keeps a range gesture in one transaction', async () => {
     render(<SmartFiltersSection nodes={[grainNode()]} />);
+    await openFilterEditor();
     const slider = screen.getByRole('slider', { name: 'Grain effect opacity' });
     fireEvent.pointerDown(slider);
     fireEvent.change(slider, { target: { value: '60' } });
@@ -224,10 +232,11 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
     expect(screen.getByRole('combobox', { name: 'Add Object Filter' })).toBeInTheDocument();
   });
 
-  it('keeps the selected treatment editor compact and avoids repeating default metadata', () => {
+  it('keeps the selected treatment editor compact and avoids repeating default metadata', async () => {
     render(<SmartFiltersSection nodes={[grainNode()]} />);
 
     expect(screen.getByRole('button', { name: 'Grain' })).toBeInTheDocument();
+    await openFilterEditor();
     expect(screen.queryByText('Grain Amount value')).not.toBeInTheDocument();
     expect(screen.getByRole('slider', { name: 'Grain Amount slider' })).toBeInTheDocument();
     expect(screen.getByRole('spinbutton', { name: 'Grain Amount value (%)' })).toBeInTheDocument();
@@ -242,11 +251,11 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
       'raster',
       { ...treatmentNode('raster-treatment'), fills: imageNode('raster-treatment').fills },
     ],
-  ] as const)('edits an individual %s recipe member blend mode', (_surface, node) => {
+  ] as const)('edits an individual %s recipe member blend mode', async (_surface, node) => {
     render(<SmartFiltersSection nodes={[node]} />);
 
     fireEvent.click(screen.getByRole('button', { name: /^BloomChromatic Bloom/ }));
-    const blendMode = screen.getByRole('combobox', { name: 'Bloom effect blend mode' });
+    const blendMode = await screen.findByRole('combobox', { name: 'Bloom effect blend mode' });
     fireEvent.click(blendMode);
     fireEvent.keyDown(blendMode, { key: 'ArrowDown' });
     fireEvent.keyDown(blendMode, { key: 'ArrowDown' });
@@ -265,7 +274,7 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
     );
   });
 
-  it('keeps unknown future effects visible, reorderable, and explicitly unavailable', () => {
+  it('keeps unknown future effects visible, reorderable, and explicitly unavailable', async () => {
     const node = futureFilterNode();
     render(<SmartFiltersSection nodes={[node]} />);
 
@@ -276,7 +285,7 @@ describe('SmartFiltersSection — object finishing shortcuts', () => {
         name: 'Unavailable effect (futureTreatment)Unavailable in this build',
       }),
     );
-    expect(screen.getByText(/cannot be previewed or edited/i)).toBeInTheDocument();
+    expect(await screen.findByText(/cannot be previewed or edited/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reset' })).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Move Grain up' }));

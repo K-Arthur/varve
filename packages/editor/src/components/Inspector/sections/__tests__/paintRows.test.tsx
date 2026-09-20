@@ -162,13 +162,14 @@ describe('Fill row redesign', () => {
     expect(screen.getByText('Mixed')).toBeTruthy();
   });
 
-  it('disables Remove on a single fill instead of failing silently', async () => {
+  it('hides Remove on a single fill instead of offering a no-op', async () => {
     renderWithSelection((nodes) => <FillSection nodes={nodes} />, [['fill-rect', solidFill(BLUE)]]);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Fill actions' }));
-    const remove = await screen.findByRole('menuitem', { name: /remove fill/i });
-    expect(remove).toHaveAttribute('aria-disabled', 'true');
-    expect(remove).toHaveTextContent(/last fill/i);
+    await screen.findByRole('button', { name: 'Fill actions' });
+    // A layer keeps at least one fill, so the row does not render a destructive
+    // control that cannot act; the menu no longer carries a disabled remove.
+    expect(screen.queryByRole('button', { name: /remove fill/i })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: /remove fill/i })).toBeNull();
   });
 
   it('renders nothing for a group-only selection (groups never paint fills)', () => {

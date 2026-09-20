@@ -47,9 +47,9 @@ export interface EffectsSectionProps {
 export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
   const { updateNode, beginTransaction, commitTransaction, abortTransaction, announce } =
     useEditor();
-  const [newEffectType, setNewEffectType] = useState<Effect['type']>('dropShadow');
-  // Effect just added via the picker below — that row should mount expanded
-  // (ready to configure) instead of collapsed like the rest of the stack.
+  // Effect just added via the picker in the header — that row should mount
+  // expanded (ready to configure) instead of collapsed like the rest of the
+  // stack.
   const [lastAddedIndex, setLastAddedIndex] = useState<number | null>(null);
   const reorderActiveRef = useRef(false);
 
@@ -88,17 +88,24 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
     [batchUpdate, effectNodes, referenceEffects],
   );
 
-  const addEffect = useCallback(() => {
-    if (newEffectType === 'depthBlur') {
-      announce('Generate a DepthMap in the image Depth Blur section before adding Depth Blur');
-      return;
-    }
-    if (effectNodes.length > 0) {
-      setLastAddedIndex(Math.min(...effectNodes.map((n) => n.effects?.length ?? 0)));
-    }
-    batchUpdate((effects) => [...effects, createDefaultEffect(newEffectType)]);
-    announce('Effect added');
-  }, [newEffectType, batchUpdate, announce, effectNodes]);
+  const addEffect = useCallback(
+    (type: Effect['type']) => {
+      // The generic picker deliberately never creates an empty `depthBlur`
+      // placeholder; that effect is created by the image Depth Blur workflow
+      // once a DepthMap resource exists. Keep the guidance for any caller that
+      // still reaches this path (catalog entry is disabled).
+      if (type === 'depthBlur') {
+        announce('Generate a DepthMap in the image Depth Blur section before adding Depth Blur');
+        return;
+      }
+      if (effectNodes.length > 0) {
+        setLastAddedIndex(Math.min(...effectNodes.map((n) => n.effects?.length ?? 0)));
+      }
+      batchUpdate((effects) => [...effects, createDefaultEffect(type)]);
+      announce(`Added ${effectTypeLabel(type)}`);
+    },
+    [batchUpdate, announce, effectNodes],
+  );
 
   const removeEffect = useCallback(
     (index: number) => {
@@ -241,9 +248,7 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
       title="Layer Effects"
       sectionId={sectionId}
       summary={effectsSummary}
-      action={
-        <EffectAddAction value={newEffectType} onChange={setNewEffectType} onAdd={addEffect} />
-      }
+      action={<EffectAddAction onAdd={addEffect} />}
     >
       {effectNodes.every((n) => (n.effects?.length ?? 0) === 0) ? (
         <div className="insp-empty-message">No effects</div>
@@ -296,19 +301,22 @@ export function EffectsSection({ nodes, sectionId }: EffectsSectionProps) {
   );
 }
 
-function EffectAddAction({
-  value,
-  onChange,
-  onAdd,
-}: {
-  value: Effect['type'];
-  onChange: (value: Effect['type']) => void;
-  onAdd: () => void;
-}) {
+function effectTypeLabel(type: Effect['type']): string {
+  return EFFECT_TYPE_OPTIONS.find((option) => option.value === type)?.label ?? type;
+}
+
+/**
+ * Effect picker for the section header.
+ *
+ * Choosing an entry adds it immediately — one gesture, matching the Fill and
+ * Object Filters add controls. The picker stays open until a choice is made,
+ * and re-opens for the next effect, so a multi-effect stack is built by
+ * repeating "Add effect -> type". Repeating the *same* type with tuned values
+ * stays available through each row's Duplicate action.
+ */
+function EffectAddAction({ onAdd }: { onAdd: (type: Effect['type']) => void }) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const selectedLabel =
-    EFFECT_TYPE_OPTIONS.find((option) => option.value === value)?.label ?? 'Effect type';
 
   const menuItems = useMemo<readonly MenuEntry[]>(() => {
     const items: MenuEntry[] = [];
@@ -320,60 +328,39 @@ function EffectAddAction({
       category.options.forEach((option) => {
         items.push({
           id: option.value,
-          label: option.label,
+          label: option.disabled ? `${option.label} (needs a Depth Map)` : option.label,
           icon: option.icon,
-          disabled: option.disabled || option.value === 'depthBlur',
-          onAction: () => {
-            onChange(option.value);
-            setOpen(false);
-          },
+          disabled: option.disabled,
+          onAction: () => onAdd(option.value),
         });
       });
     });
     return items;
-  }, [onChange]);
+  }, [onAdd]);
 
   return (
-    <div className="insp-fill-add__controls">
+    <>
       <button
         ref={triggerRef}
         type="button"
-        className="insp-inline-btn insp-effect-type-trigger"
-        aria-label="New effect type"
+        className="insp-add-btn"
         aria-haspopup="menu"
         aria-expanded={open}
-        title={`Effect type: ${selectedLabel}`}
+        aria-label="Add effect"
+        title="Add a layer effect"
         onClick={() => setOpen((current) => !current)}
       >
-        <Icon
-          name={EFFECT_TYPE_OPTIONS.find((option) => option.value === value)?.icon ?? 'Sparkles'}
-          label={undefined}
-          size="0.85em"
-        />
-        <Icon name="ChevronDown" label={undefined} size="0.75em" />
+        <Icon name="Plus" label={undefined} size="0.85em" />
+        <span>Add effect</span>
       </button>
       <Menu
         triggerRef={triggerRef}
         open={open}
         onClose={() => setOpen(false)}
-        label="New effect type"
+        label="Add effect"
         items={menuItems}
-        size="compact"
+        size="default"
       />
-      <button
-        type="button"
-        className="insp-add-btn"
-        onClick={onAdd}
-        disabled={value === 'depthBlur'}
-        title={
-          value === 'depthBlur'
-            ? 'Generate a DepthMap in the image Depth Blur section first'
-            : `Add ${selectedLabel}`
-        }
-      >
-        <Icon name="Plus" label={undefined} size="0.85em" />
-        <span>Add</span>
-      </button>
-    </div>
+    </>
   );
 }

@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 /**
  * Navigate from the home screen to the editor.
@@ -241,7 +241,10 @@ export async function activateTableTool(page: Page): Promise<void> {
   // Chromium's accessibility tree, so anchor on its stable rendered class.
   const overflow = page.locator('.varve-ctxmenu');
   await overflow.getByText('Layout', { exact: true }).click();
-  await page.locator('.varve-menu__submenu').getByText('Table', { exact: true }).click();
+  await page
+    .getByRole('menu', { name: 'Layout submenu', exact: true })
+    .getByRole('menuitem', { name: 'Table', exact: true })
+    .click();
 }
 
 /** Create a color variable through the Layers panel's scoped add form. */
@@ -399,4 +402,19 @@ export async function sidebarNavClick(page: Page, label: string) {
  */
 export function canvasLocator(page: Page) {
   return page.locator('canvas').first();
+}
+
+/**
+ * Add a Layer Effect through the section-header picker.
+ *
+ * Choosing a type in the picker *is* the add action — the previous
+ * "select a type, then press Add" two-step flow is gone. Mirrors the Fill
+ * ("Add fill") and Object Filters ("Add Object Filter") controls. Repeating
+ * this helper builds a multi-effect stack; repeating the same type with tuned
+ * values stays available through each row's Duplicate action.
+ */
+export async function addLayerEffect(page: Page, section: Locator, label: string): Promise<void> {
+  await section.getByRole('button', { name: 'Add effect' }).click();
+  await page.getByRole('menuitem', { name: label, exact: true }).click();
+  await expect(section.locator('.insp-effect-row').filter({ hasText: label })).toBeVisible();
 }

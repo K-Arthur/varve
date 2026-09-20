@@ -20,6 +20,12 @@ const FALLBACK_PLACEMENTS: Array<'right-start' | 'left-end' | 'right-end'> = [
 
 export interface InspectorFocusedEditorProps {
   anchorRef: RefObject<HTMLElement | null>;
+  /**
+   * Region that owns the editor. Pointer presses inside it must not count as
+   * "outside" dismissal, so the owning row can toggle its own editor closed
+   * instead of being closed and immediately reopened.
+   */
+  interactionRef?: RefObject<HTMLElement | null>;
   open: boolean;
   title: string;
   /** Short stage/context tag rendered in the header beside the title. */
@@ -31,6 +37,7 @@ export interface InspectorFocusedEditorProps {
 
 export function InspectorFocusedEditor({
   anchorRef,
+  interactionRef,
   open,
   title,
   badge,
@@ -50,6 +57,7 @@ export function InspectorFocusedEditor({
       maxHeight={560}
       kind="dialog"
       dismissOnEscape
+      insideRefs={interactionRef ? [interactionRef] : undefined}
       className="insp-focused-editor__portal"
     >
       <FocusTrap active={open} onClose={onClose}>

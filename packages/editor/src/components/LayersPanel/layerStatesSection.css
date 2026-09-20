@@ -14,7 +14,6 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
-  text-transform: uppercase;
   letter-spacing: var(--tracking-wide);
 }
 
