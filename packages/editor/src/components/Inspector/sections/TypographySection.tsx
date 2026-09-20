@@ -15,8 +15,9 @@
  * Research basis: Figma / Sketch typography panel, APG Disclosure, Radiogroup.
  */
 import { getFontRegistry } from '@varve/engine';
-import type { SceneNode, TextNode } from '@varve/scene';
+import type { RichText, SceneNode, TextNode } from '@varve/scene';
 import {
+  defaultStroke,
   invalidateGlyphAdjustmentsOnTextChange,
   managedColorToHex,
   plainTextToRichText,
@@ -24,9 +25,10 @@ import {
   resolveNodeFills,
   richTextToPlainText,
   textNodeGeometry,
+  wrapTextInCallout,
 } from '@varve/scene';
 import { managedColorKey } from '@varve/shared';
-import { Icon, Select, Switch, Tooltip } from '@varve/ui';
+import { Button, Icon, Select, Switch, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
@@ -95,6 +97,23 @@ function applyTextResizing(node: TextNode, mode: TextNode['textResizing']): Text
     w: node.w ?? geometry.bounds.w,
     h: node.h ?? geometry.bounds.h,
   };
+}
+
+function rubyRangeForSelection(
+  richText: RichText,
+  selection: NonNullable<import('@varve/scene').RichSelection>,
+): { start: number; end: number } | null {
+  const flatOffset = (location: { paragraphIndex: number; offset: number }) => {
+    let offset = 0;
+    for (let index = 0; index < location.paragraphIndex; index++) {
+      const paragraph = richText.paragraphs[index];
+      if (paragraph) offset += paragraph.runs.reduce((sum, run) => sum + run.text.length, 0) + 1;
+    }
+    return offset + location.offset;
+  };
+  const start = flatOffset(selection.start);
+  const end = flatOffset(selection.end);
+  return end > start ? { start, end } : null;
 }
 
 export interface TypographySectionProps {
@@ -281,8 +300,127 @@ export function TypographySection({ nodes }: TypographySectionProps) {
   const bindingTriggerRef = useRef<HTMLDivElement>(null);
   const [richTextEnabled, setRichTextEnabled] = useState(false);
   const [fontBrowserOpen, setFontBrowserOpen] = useState(false);
+  const [rubyReading, setRubyReading] = useState('');
 
   const textNodes = useMemo(() => nodes.filter((n): n is TextNode => n.kind === 'text'), [nodes]);
+  const calloutTextIds = useMemo(
+    () =>
+      new Set(
+        Object.values(editor.state.document.nodes).flatMap((node) =>
+          node.kind === 'group' && node.callout ? [node.callout.textNodeId] : [],
+        ),
+      ),
+    [editor.state.document.nodes],
+  );
+  const canCreateBalloon = textNodes.length === 1 && !calloutTextIds.has(textNodes[0]!.id);
+  const rubyRange = useMemo(() => {
+    const textNode = textNodes.length === 1 ? textNodes[0] : undefined;
+    const selection = editor.state.selectionRange;
+    if (!textNode || !selection) return null;
+    const richText = textNode.richText ?? plainTextToRichText(textNode.text);
+    return rubyRangeForSelection(richText, selection);
+  }, [editor.state.selectionRange, textNodes]);
+
+  const createBalloon = useCallback(() => {
+    const textNode = textNodes[0];
+    if (!textNode || calloutTextIds.has(textNode.id)) return;
+    let groupId: string | null = null;
+    editor.groupCompoundOperation('Create speech balloon', () => {
+      editor.updateDoc((document) => {
+        const result = wrapTextInCallout(document, textNode.id, { kind: 'speech' });
+        if (!result) return document;
+        groupId = result.groupId;
+        return result.document;
+      });
+    });
+    if (groupId) editor.setSelectionRefs([groupId], { primary: groupId, origin: 'api' });
+  }, [calloutTextIds, editor, textNodes]);
+
+  const applySoundEffectStyle = useCallback(() => {
+    if (textNodes.length === 0) return;
+    editor.groupCompoundOperation('Apply sound effect lettering', () => {
+      for (const textNode of textNodes) {
+        editor.updateNode(textNode.id, (node) => {
+          if (node.kind !== 'text') return node;
+          return {
+            ...node,
+            fontWeight: Math.max(700, node.fontWeight ?? 400),
+            textCase: 'uppercase',
+            textAlign: 'center',
+            textDecoration: 'none',
+            strokes: [
+              {
+                ...defaultStroke(),
+                color: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
+                weight: 3,
+              },
+            ],
+          };
+        });
+      }
+    });
+  }, [editor, textNodes]);
+
+  const clearSoundEffectStyle = useCallback(() => {
+    if (textNodes.length === 0) return;
+    editor.groupCompoundOperation('Clear sound effect lettering', () => {
+      for (const textNode of textNodes) {
+        editor.updateNode(textNode.id, (node) =>
+          node.kind === 'text' ? { ...node, strokes: [] } : node,
+        );
+      }
+    });
+  }, [editor, textNodes]);
+
+  const addRubyAnnotation = useCallback(() => {
+    const textNode = textNodes[0];
+    if (!textNode || !rubyRange || rubyReading.trim() === '') return;
+    editor.groupCompoundOperation('Add ruby annotation', () => {
+      editor.updateNode(textNode.id, (node) => {
+        if (node.kind !== 'text') return node;
+        const richText = node.richText ?? plainTextToRichText(node.text);
+        const existing = (richText.ruby ?? []).filter(
+          (annotation) => annotation.end <= rubyRange.start || annotation.start >= rubyRange.end,
+        );
+        return {
+          ...node,
+          richText: {
+            ...richText,
+            ruby: [
+              ...existing,
+              {
+                start: rubyRange.start,
+                end: rubyRange.end,
+                text: rubyReading.trim(),
+                position: 'over',
+              },
+            ],
+          },
+        };
+      });
+    });
+  }, [editor, rubyRange, rubyReading, textNodes]);
+
+  const clearRubyAnnotation = useCallback(() => {
+    const textNode = textNodes[0];
+    if (!textNode || !rubyRange) return;
+    editor.groupCompoundOperation('Clear ruby annotation', () => {
+      editor.updateNode(textNode.id, (node) => {
+        if (node.kind !== 'text' || !node.richText?.ruby) return node;
+        return {
+          ...node,
+          richText: {
+            ...node.richText,
+            ruby: node.richText.ruby.filter(
+              (annotation) =>
+                annotation.end <= rubyRange.start || annotation.start >= rubyRange.end,
+            ),
+          },
+        };
+      });
+    });
+    setRubyReading('');
+  }, [editor, rubyRange, textNodes]);
 
   const batchUpdate = useCallback(
     (updater: (node: TextNode) => TextNode) => {
@@ -558,6 +696,51 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           setFontBrowserOpen(false);
         }}
       />
+      {canCreateBalloon && (
+        <FieldRow label="Comic lettering">
+          <Button variant="ghost" size="sm" onClick={createBalloon}>
+            Add speech balloon
+          </Button>
+        </FieldRow>
+      )}
+      {textNodes.length > 0 && (
+        <FieldRow label="Text effects">
+          <div className="insp-field-group">
+            <Button variant="ghost" size="sm" onClick={applySoundEffectStyle}>
+              Sound effect
+            </Button>
+            <Button variant="ghost" size="sm" onClick={clearSoundEffectStyle}>
+              Clear outline
+            </Button>
+          </div>
+        </FieldRow>
+      )}
+      {rubyRange && (
+        <FieldRow label="Ruby / furigana">
+          <div className="insp-field-group">
+            <input
+              className="typography__text-input"
+              value={rubyReading}
+              onChange={(event) => setRubyReading(event.target.value)}
+              placeholder="Reading for selected text"
+              aria-label="Ruby reading"
+            />
+            <div className="insp-field-group insp-field-group--row">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={addRubyAnnotation}
+                disabled={!rubyReading.trim()}
+              >
+                Add ruby
+              </Button>
+              <Button variant="ghost" size="sm" onClick={clearRubyAnnotation}>
+                Clear ruby
+              </Button>
+            </div>
+          </div>
+        </FieldRow>
+      )}
       <div ref={bindingTriggerRef} className="insp-field-group typography-controls">
         {textContent !== null && (
           <>

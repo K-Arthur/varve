@@ -198,6 +198,15 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     status: 'functional',
     rationale: 'Basic text formatting remains contextual; advanced controls may split later.',
   },
+  callout: {
+    surface: 'properties',
+    scope: 'selection',
+    frequency: 'frequent',
+    complexity: 'moderate',
+    status: 'functional',
+    rationale:
+      'Comic balloon style, padding, fit, and parametric geometry are exposed when the callout group is selected.',
+  },
   'text-on-path': {
     surface: 'properties',
     scope: 'selection',

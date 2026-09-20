@@ -52,6 +52,7 @@ export type SectionId =
   | 'warp'
   | 'mockups'
   | 'typography'
+  | 'callout'
   | 'text-on-path'
   | 'interaction'
   | 'component'
@@ -462,6 +463,19 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     order: 300,
     category: 'content',
     isAvailable: (ctx) => isAllTextNodes(ctx.selectedNodes),
+  },
+  {
+    id: 'callout',
+    title: 'Comic balloon',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 304,
+    category: 'content',
+    isAvailable: (ctx) => {
+      const node = ctx.selectedNodes[0];
+      return isSingleSelection(ctx) && node?.kind === 'group' && node.callout !== undefined;
+    },
   },
   {
     id: 'text-on-path',

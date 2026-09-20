@@ -26,6 +26,7 @@ import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AnimationSection } from './sections/AnimationSection';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { BooleanSection } from './sections/BooleanSection';
+import { CalloutSection } from './sections/CalloutSection';
 import { ComponentSection } from './sections/ComponentSection';
 import { CornerRadiusSection } from './sections/CornerRadiusSection';
 import { EffectsSection } from './sections/EffectsSection';
@@ -121,6 +122,10 @@ const SINGLE_MEMBERS: CompositionMember[] = [
   },
   { id: 'stroke', render: ({ nodes }) => <StrokeSection nodes={nodes} /> },
   { id: 'typography', render: ({ nodes }) => <TypographySection nodes={nodes} /> },
+  {
+    id: 'callout',
+    render: ({ node }) => <CalloutSection node={node as GroupNode} sectionId="callout" />,
+  },
   { id: 'text-on-path', render: ({ nodes }) => <PathTextSection nodes={nodes} /> },
   {
     id: 'warp',
