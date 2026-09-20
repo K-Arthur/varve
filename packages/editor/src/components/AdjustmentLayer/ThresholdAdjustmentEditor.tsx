@@ -99,7 +99,6 @@ export function ThresholdAdjustmentEditor({
         </div>
         <RangeValueControl
           label="Threshold level"
-          rangeClassName="adj-editor__slider"
           min={0}
           max={255}
           value={adjustment.level}

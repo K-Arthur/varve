@@ -140,6 +140,7 @@ export function LiquifyOptionsPanel() {
         </span>
         <input
           type="range"
+          className="varve-native-range"
           min={1}
           max={100}
           value={Math.round(options.strength * 100)}
@@ -154,6 +155,7 @@ export function LiquifyOptionsPanel() {
         </span>
         <input
           type="range"
+          className="varve-native-range"
           min={0}
           max={100}
           value={Math.round((1 - options.hardness) * 100)}

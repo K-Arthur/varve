@@ -154,7 +154,6 @@ export function PathTextSection({ nodes }: PathTextSectionProps) {
           max={100}
           step={1}
           unit="%"
-          rangeClassName="insp-slider__input"
           rangeAriaLabel="Start offset along path"
           onRangePointerDown={beginDrag}
           onRangePointerUp={commitDrag}
@@ -171,7 +170,6 @@ export function PathTextSection({ nodes }: PathTextSectionProps) {
           max={100}
           step={1}
           unit="%"
-          rangeClassName="insp-slider__input"
           rangeAriaLabel="End offset along path"
           onRangePointerDown={beginDrag}
           onRangePointerUp={commitDrag}
@@ -188,7 +186,6 @@ export function PathTextSection({ nodes }: PathTextSectionProps) {
           max={100}
           step={0.5}
           unit="px"
-          rangeClassName="insp-slider__input"
           rangeAriaLabel="Baseline shift in pixels"
           onRangePointerDown={beginDrag}
           onRangePointerUp={commitDrag}

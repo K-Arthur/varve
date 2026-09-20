@@ -95,7 +95,6 @@
 .tool-options__field input[type="range"] {
   flex: 1 1 auto;
   min-width: 0;
-  accent-color: var(--color-interactive-default);
 }
 
 .tool-options__value {
@@ -153,7 +152,7 @@
 
 .tool-options__hint {
   margin: 0;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   line-height: 1.4;
 }

@@ -67,7 +67,6 @@ export function ColorBalanceAdjustmentEditor({
                   <RangeValueControl
                     label={`${range.label} ${axis.label}`}
                     rangeAriaLabel={`${range.label} ${axis.label}`}
-                    rangeClassName="adj-editor__slider"
                     min={-100}
                     max={100}
                     value={active[axis.key]}

@@ -45,7 +45,6 @@
 
 .liquify-options__slider input[type="range"] {
   width: 100%;
-  accent-color: var(--color-interactive-default);
 }
 
 .liquify-options__check {
@@ -88,7 +87,7 @@
 .liquify-options__warning {
   margin: 0;
   padding: var(--space-2);
-  border: 1px solid var(--color-border-warning, var(--color-border-subtle));
+  border: 1px solid var(--color-feedback-warning);
   border-radius: var(--radius-control-compact);
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);

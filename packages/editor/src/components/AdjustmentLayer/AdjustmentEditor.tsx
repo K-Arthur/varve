@@ -128,7 +128,6 @@ function LegacyAdjustmentEditor({
           </div>
           <RangeValueControl
             label="Brightness"
-            rangeClassName="adj-editor__slider"
             min={-100}
             max={100}
             value={adjustment.value}
@@ -146,7 +145,6 @@ function LegacyAdjustmentEditor({
           </div>
           <RangeValueControl
             label="Contrast"
-            rangeClassName="adj-editor__slider"
             min={-100}
             max={100}
             value={adjustment.value}
@@ -210,7 +208,6 @@ function LegacyAdjustmentEditor({
           </div>
           <RangeValueControl
             label="Exposure"
-            rangeClassName="adj-editor__slider"
             min={-10}
             max={10}
             step={0.1}
@@ -253,7 +250,6 @@ function LegacyAdjustmentEditor({
           </div>
           <RangeValueControl
             label="Temperature"
-            rangeClassName="adj-editor__slider"
             min={-100}
             max={100}
             value={adjustment.value}
@@ -271,7 +267,6 @@ function LegacyAdjustmentEditor({
           </div>
           <RangeValueControl
             label="Saturation"
-            rangeClassName="adj-editor__slider"
             min={-100}
             max={100}
             value={adjustment.value}
@@ -328,7 +323,6 @@ function LegacyAdjustmentEditor({
               </div>
               <RangeValueControl
                 label={`${label} ${activeRange}`}
-                rangeClassName="adj-editor__slider"
                 min={min}
                 max={max}
                 value={active[key]}
@@ -350,7 +344,6 @@ function LegacyAdjustmentEditor({
           </div>
           <RangeValueControl
             label="Hue rotate"
-            rangeClassName="adj-editor__slider"
             min={-180}
             max={180}
             value={adjustment.value}
@@ -369,7 +362,6 @@ function LegacyAdjustmentEditor({
           </div>
           <RangeValueControl
             label="Sepia"
-            rangeClassName="adj-editor__slider"
             min={0}
             max={100}
             value={adjustment.value}
@@ -388,7 +380,6 @@ function LegacyAdjustmentEditor({
           </div>
           <RangeValueControl
             label="Grayscale"
-            rangeClassName="adj-editor__slider"
             min={0}
             max={100}
             value={adjustment.value}
@@ -407,7 +398,6 @@ function LegacyAdjustmentEditor({
           </div>
           <RangeValueControl
             label="Invert"
-            rangeClassName="adj-editor__slider"
             min={0}
             max={100}
             value={adjustment.value}
@@ -426,7 +416,6 @@ function LegacyAdjustmentEditor({
           </div>
           <RangeValueControl
             label="Opacity"
-            rangeClassName="adj-editor__slider"
             min={0}
             max={100}
             value={adjustment.value}
@@ -445,7 +434,6 @@ function LegacyAdjustmentEditor({
           </div>
           <RangeValueControl
             label="Blur radius"
-            rangeClassName="adj-editor__slider"
             min={0}
             max={50}
             step={0.5}
@@ -506,7 +494,6 @@ function LegacyAdjustmentEditor({
           </div>
           <RangeValueControl
             label="Tint"
-            rangeClassName="adj-editor__slider"
             min={-100}
             max={100}
             value={adjustment.value}
@@ -524,7 +511,6 @@ function LegacyAdjustmentEditor({
           </div>
           <RangeValueControl
             label="Vibrance"
-            rangeClassName="adj-editor__slider"
             min={-100}
             max={100}
             value={adjustment.value}
@@ -771,7 +757,6 @@ function LegacyAdjustmentEditor({
           </div>
           <RangeValueControl
             label="LUT intensity"
-            rangeClassName="adj-editor__slider"
             min={0}
             max={100}
             step={1}
@@ -1037,7 +1022,6 @@ function SelectiveColorEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           </div>
           <RangeValueControl
             label={channel}
-            rangeClassName="adj-editor__slider"
             min={-100}
             max={100}
             value={adj[channel]}
@@ -1309,7 +1293,6 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
         </div>
         <RangeValueControl
           label="Screen frequency"
-          rangeClassName="adj-editor__slider"
           min={5}
           max={150}
           step={1}
@@ -1330,7 +1313,6 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
         </div>
         <RangeValueControl
           label="Screen angle"
-          rangeClassName="adj-editor__slider"
           min={0}
           max={179}
           step={1}
@@ -1348,7 +1330,6 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
         </div>
         <RangeValueControl
           label="Halftone threshold"
-          rangeClassName="adj-editor__slider"
           min={0}
           max={255}
           step={1}
@@ -1363,7 +1344,6 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
         </div>
         <RangeValueControl
           label="Halftone intensity"
-          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           step={1}
@@ -1381,7 +1361,6 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
         </div>
         <RangeValueControl
           label="Dot edge softness"
-          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           step={1}
@@ -1465,7 +1444,6 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
                   </div>
                   <RangeValueControl
                     label="Black generation strength"
-                    rangeClassName="adj-editor__slider"
                     min={0}
                     max={100}
                     step={1}
@@ -1484,7 +1462,6 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
                 </div>
                 <RangeValueControl
                   label="Total area coverage limit"
-                  rangeClassName="adj-editor__slider"
                   min={50}
                   max={100}
                   step={1}
@@ -1575,7 +1552,6 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
                 </div>
                 <RangeValueControl
                   label="Dot gain compensation"
-                  rangeClassName="adj-editor__slider"
                   min={0}
                   max={50}
                   step={1}
@@ -1704,7 +1680,6 @@ function ColorHalftoneEditor({
         </div>
         <RangeValueControl
           label="Screen size"
-          rangeClassName="adj-editor__slider"
           min={3}
           max={60}
           step={1}
@@ -1728,7 +1703,6 @@ function ColorHalftoneEditor({
         </div>
         <RangeValueControl
           label="Screen angle"
-          rangeClassName="adj-editor__slider"
           min={0}
           max={359}
           step={1}
@@ -1744,7 +1718,6 @@ function ColorHalftoneEditor({
         </div>
         <RangeValueControl
           label="Color halftone intensity"
-          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           step={1}
@@ -1791,7 +1764,6 @@ function PhotoFilterEditor({
         <span className="adj-editor__label">Density</span>
         <RangeValueControl
           label="Density"
-          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           value={adj.density}
@@ -1836,7 +1808,6 @@ function ShadowHighlightEditor({ adjustment, onChange }: AdjustmentEditorProps) 
         </div>
         <RangeValueControl
           label="Shadow brightening"
-          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           value={adj.shadows}
@@ -1851,7 +1822,6 @@ function ShadowHighlightEditor({ adjustment, onChange }: AdjustmentEditorProps) 
         </div>
         <RangeValueControl
           label="Highlight recovery"
-          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           value={adj.highlights}
@@ -1866,7 +1836,6 @@ function ShadowHighlightEditor({ adjustment, onChange }: AdjustmentEditorProps) 
         </div>
         <RangeValueControl
           label="Tonal width"
-          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           value={adj.tonalWidth}
@@ -1881,7 +1850,6 @@ function ShadowHighlightEditor({ adjustment, onChange }: AdjustmentEditorProps) 
         </div>
         <RangeValueControl
           label="Midpoint"
-          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           value={adj.midpoint}
@@ -1929,7 +1897,6 @@ function DuotoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustm
         </div>
         <RangeValueControl
           label="Shadow point"
-          rangeClassName="adj-editor__slider"
           min={0}
           max={1}
           step={0.01}
@@ -1944,7 +1911,6 @@ function DuotoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustm
         </div>
         <RangeValueControl
           label="Highlight point"
-          rangeClassName="adj-editor__slider"
           min={0}
           max={1}
           step={0.01}
@@ -1961,7 +1927,6 @@ function DuotoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustm
         </div>
         <RangeValueControl
           label="Intensity"
-          rangeClassName="adj-editor__slider"
           min={0}
           max={1}
           step={0.01}
@@ -2056,7 +2021,6 @@ function BlackAndWhiteEditor({
           </div>
           <RangeValueControl
             label={ch.label}
-            rangeClassName="adj-editor__slider"
             min={-200}
             max={300}
             value={adj[ch.key] as number}
@@ -2071,7 +2035,6 @@ function BlackAndWhiteEditor({
         </div>
         <RangeValueControl
           label="Brightness"
-          rangeClassName="adj-editor__slider"
           min={-100}
           max={100}
           value={adj.brightness}
@@ -2118,7 +2081,6 @@ function PosterizeEditor({ adjustment, onChange }: AdjustmentEditorProps) {
       </div>
       <RangeValueControl
         label="Posterize levels"
-        rangeClassName="adj-editor__slider"
         min={2}
         max={256}
         value={adj.levels}
@@ -2212,7 +2174,6 @@ function TritoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustm
         </div>
         <RangeValueControl
           label="Shadow point"
-          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           step={1}
@@ -2232,7 +2193,6 @@ function TritoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustm
         </div>
         <RangeValueControl
           label="Highlight point"
-          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           step={1}
@@ -2252,7 +2212,6 @@ function TritoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustm
         </div>
         <RangeValueControl
           label="Tritone intensity"
-          rangeClassName="adj-editor__slider"
           min={0}
           max={100}
           step={1}

@@ -139,7 +139,7 @@ export function VariableModifierPopover({
                 step={1}
                 value={displayValue}
                 onChange={(e) => setValue(Number(e.target.value) / 100)}
-                className="varve-modifier-popover__slider"
+                className="varve-native-range varve-modifier-popover__slider"
               />
               <InputGroup className="varve-modifier-popover__value-group">
                 <InputGroupInput

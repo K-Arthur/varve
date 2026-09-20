@@ -560,7 +560,7 @@ export function SmartFiltersSection({ nodes }: SmartFiltersSectionProps) {
                   </span>
                   <RangeValueControl
                     label={`${filterName(selected)} effect opacity`}
-                    rangeClassName="adj-editor__slider smart-filters__effect-slider"
+                    rangeClassName="smart-filters__effect-slider"
                     min={0}
                     max={100}
                     step={1}

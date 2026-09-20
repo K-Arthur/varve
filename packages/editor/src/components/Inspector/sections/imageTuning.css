@@ -188,7 +188,6 @@
 }
 
 .image-tuning__slider {
-  accent-color: var(--color-interactive-default);
   inline-size: 100%;
   min-inline-size: 0;
 }

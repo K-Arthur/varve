@@ -245,7 +245,6 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
               max={255}
               unit=""
               disabled={pending !== null}
-              rangeClassName="insp-range"
               rangeAriaLabel="Trace threshold"
               onChange={setThreshold}
             />
@@ -308,7 +307,6 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
                 max={5}
                 step={0.25}
                 disabled={pending !== null}
-                rangeClassName="insp-range"
                 rangeAriaLabel="Simplify tolerance"
                 onChange={setSimplifyTolerance}
               />

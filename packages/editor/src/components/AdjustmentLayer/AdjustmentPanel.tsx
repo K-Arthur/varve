@@ -515,7 +515,6 @@ export function AdjustmentPanel() {
               </span>
               <RangeValueControl
                 label={`${filterKindDisplayName(selectedAdj.kind)} effect opacity`}
-                rangeClassName="adj-editor__slider"
                 min={0}
                 max={100}
                 step={1}

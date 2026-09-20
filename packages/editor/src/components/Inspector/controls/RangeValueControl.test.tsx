@@ -73,4 +73,30 @@ describe('RangeValueControl', () => {
     fireEvent.keyDown(precision, { key: 'Enter' });
     expect(slider).toHaveValue('0.65');
   });
+
+  it('renders the canonical skin by default and treats rangeClassName as layout only', () => {
+    render(
+      <RangeValueControl
+        label="Intensity"
+        value={25}
+        min={0}
+        max={100}
+        rangeClassName="custom-layout"
+        onChange={() => {}}
+      />,
+    );
+    const slider = screen.getByRole('slider', { name: 'Intensity' });
+    expect(slider).toHaveClass('varve-native-range');
+    expect(slider).toHaveClass('custom-layout');
+  });
+
+  it('announces the displayed value when it differs from the raw number', () => {
+    render(<NormalizedHolder />);
+    expect(screen.getByRole('slider', { name: 'Blend' })).toHaveAttribute('aria-valuetext', '25%');
+  });
+
+  it('leaves aria-valuetext off when the raw number is the value', () => {
+    render(<RangeValueControl label="Steps" value={12} min={0} max={100} onChange={() => {}} />);
+    expect(screen.getByRole('slider', { name: 'Steps' })).not.toHaveAttribute('aria-valuetext');
+  });
 });

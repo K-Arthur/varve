@@ -149,7 +149,6 @@
 
 .fs-dialog__slider {
   width: 100%;
-  accent-color: var(--color-interactive-default);
 }
 
 .fs-dialog__hint {

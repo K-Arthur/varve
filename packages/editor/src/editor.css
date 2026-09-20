@@ -6477,7 +6477,6 @@ dialog.varve-dialog--settings[open] {
 
 .gradient-editor__slider {
   width: 100%;
-  accent-color: var(--color-interactive-default);
 }
 
 /* ---------- ColorConversionDialog ----------------------------------------- */

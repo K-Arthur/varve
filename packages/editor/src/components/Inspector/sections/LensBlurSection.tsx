@@ -826,7 +826,6 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
                 max={20}
                 step={1}
                 unit="px"
-                rangeClassName="insp-range"
                 rangeAriaLabel="Blur amount"
                 onChange={(value) => setParams((p) => ({ ...p, blurAmount: value }))}
               />
@@ -841,7 +840,6 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
                 max={100}
                 step={1}
                 unit="%"
-                rangeClassName="insp-range"
                 rangeAriaLabel="Focal distance"
                 onChange={(value) => setParams((p) => ({ ...p, focalDepth: value }))}
               />
@@ -856,7 +854,6 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
                 max={100}
                 step={1}
                 unit="%"
-                rangeClassName="insp-range"
                 rangeAriaLabel="Transition range"
                 onChange={(value) => setParams((p) => ({ ...p, transitionRange: value }))}
               />

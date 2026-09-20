@@ -31,7 +31,6 @@ export function ImageTreatmentEditor({ adjustment, onChange }: ImageTreatmentEdi
         <div className="adj-editor__parameter-controls">
           <RangeValueControl
             label={parameter.label}
-            rangeClassName="adj-editor__slider"
             min={parameter.min}
             max={parameter.max}
             step={parameter.step}

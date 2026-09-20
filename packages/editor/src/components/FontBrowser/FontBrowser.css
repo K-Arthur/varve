@@ -682,8 +682,7 @@
   opacity: 0.6;
 }
 
-.font-browser__axes-header button:focus-visible,
-.font-browser__axis input[type="range"]:focus-visible {
+.font-browser__axes-header button:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
@@ -723,7 +722,6 @@
   display: block;
   width: 100%;
   margin: 0;
-  accent-color: var(--color-interactive-default);
 }
 
 .font-browser__axis-range {

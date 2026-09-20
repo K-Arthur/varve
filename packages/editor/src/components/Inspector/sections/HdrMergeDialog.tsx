@@ -19,6 +19,7 @@ import { createRangeRaster, type RangeRaster } from '@varve/shared';
 import { Button, Dialog, Select } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import { PhotoRangeControl } from '../controls/PhotoRangeControl';
 import { type HdrDisplayCapabilities, renderExtendedCanvasPreview } from './hdrDisplay';
 import {
   bytesToDataUrl,
@@ -316,19 +317,14 @@ export function HdrMergeDialog({ open, node, onClose, onApplied }: HdrMergeDialo
                 {method === 'radiance' ? 'Radiance reconstruction' : 'Exposure fusion'}
               </strong>
             </div>
-            <label className="photo-source-section__range">
-              <span>
-                Deghost threshold <output>{threshold.toFixed(2)}</output>
-              </span>
-              <input
-                type="range"
-                min="0.05"
-                max="1"
-                step="0.01"
-                value={threshold}
-                onChange={(event) => setThreshold(Number(event.target.value))}
-              />
-            </label>
+            <PhotoRangeControl
+              label="Deghost threshold"
+              min={0.05}
+              max={1}
+              step={0.01}
+              value={threshold}
+              onChange={setThreshold}
+            />
             <div className="hdr-merge-dialog__list">
               {items.map((item, index) => (
                 <div className="hdr-merge-dialog__row" key={item.dataUrl}>

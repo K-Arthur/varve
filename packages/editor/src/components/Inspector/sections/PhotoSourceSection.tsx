@@ -15,6 +15,7 @@ import { Button, Select } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { decodeImageData } from '../../../imageBounds';
+import { PhotoRangeControl } from '../controls/PhotoRangeControl';
 import { HdrSourceSection } from './HdrSourceSection';
 import {
   addPhotoAssetSet,
@@ -674,45 +675,6 @@ export function PhotoSourceSection({ nodes }: { nodes: SceneNode[] }) {
       </section>
       <HdrSourceSection node={node} />
     </>
-  );
-}
-
-function PhotoRangeControl({
-  label,
-  min,
-  max,
-  step,
-  value,
-  unit = '',
-  onChange,
-}: {
-  label: string;
-  min: number;
-  max: number;
-  step: number;
-  value: number;
-  unit?: string;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="photo-source-section__range">
-      <span>
-        {label}{' '}
-        <output>
-          {value.toFixed(step < 0.01 ? 3 : step < 1 ? 2 : 0)}
-          {unit}
-        </output>
-      </span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        aria-label={label}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
-    </label>
   );
 }
 

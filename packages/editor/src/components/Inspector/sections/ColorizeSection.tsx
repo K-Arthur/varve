@@ -169,7 +169,7 @@ function ColorizeCompare({ sourceSrc, previewSrc }: { sourceSrc: string; preview
         </label>
         <input
           id={sliderId}
-          className="colorize-section__compare-slider"
+          className="varve-native-range colorize-section__compare-slider"
           type="range"
           min={0}
           max={100}
@@ -966,7 +966,6 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
                 step={1}
                 unit="deg"
                 disabled={isProcessing}
-                rangeClassName="insp-range"
                 rangeAriaLabel={
                   hueMode === 'set' ? 'Target absolute hue in degrees' : 'Hue rotation in degrees'
                 }
@@ -986,7 +985,6 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
                 step={0.05}
                 unit="x"
                 disabled={isProcessing}
-                rangeClassName="insp-range"
                 rangeAriaLabel="Saturation scale"
                 onChange={(value) => {
                   setSaturationScale(value);
@@ -1061,7 +1059,6 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
                 unit="%"
                 displayScale={100}
                 disabled={isProcessing}
-                rangeClassName="insp-range"
                 rangeAriaLabel="Palette adherence"
                 onChange={(value) => {
                   setAdherence(value);
@@ -1133,7 +1130,6 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
                 unit="%"
                 displayScale={100}
                 disabled={isProcessing}
-                rangeClassName="insp-range"
                 rangeAriaLabel="Line-art paper threshold"
                 onChange={(value) => {
                   setLineThreshold(value);
@@ -1151,7 +1147,6 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
                 step={1}
                 unit="px"
                 disabled={isProcessing}
-                rangeClassName="insp-range"
                 rangeAriaLabel="Gap-closing radius in pixels"
                 onChange={(value) => {
                   setGapClose(value);
@@ -1250,7 +1245,6 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
               unit="%"
               displayScale={100}
               disabled={isProcessing}
-              rangeClassName="insp-range"
               rangeAriaLabel="Source lightness preservation"
               onChange={(value) => {
                 setLuminancePreservation(value);
@@ -1271,7 +1265,6 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
               step={0.05}
               unit="x"
               disabled={isProcessing}
-              rangeClassName="insp-range"
               rangeAriaLabel="Chroma strength"
               onChange={(value) => {
                 setChromaStrength(value);
@@ -1293,7 +1286,6 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
               unit="%"
               displayScale={100}
               disabled={isProcessing}
-              rangeClassName="insp-range"
               rangeAriaLabel="Blend strength"
               onChange={(value) => {
                 setBlendStrength(value);

@@ -1051,13 +1051,12 @@ function VariableAxesSection({ textNodes, familyRaw, batchUpdate }: VariableAxes
                 min={info.min}
                 max={info.max}
                 step={step}
-                rangeClassName="insp-slider__input"
                 rangeAriaLabel={`${info.name} (${tag})`}
                 onChange={(nextValue) => setAxis(tag, nextValue)}
               />
               <button
                 type="button"
-                className="insp-slider__reset"
+                className="insp-axis-reset"
                 onClick={() => resetAxis(tag)}
                 disabled={isDefault}
                 title={`Reset ${info.name} to ${info.default}`}

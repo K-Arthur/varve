@@ -344,7 +344,6 @@ export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
             displayScale={100}
             unit="%"
             disabled={isProcessing}
-            rangeClassName="insp-range"
             rangeAriaLabel="Denoise strength"
             onChange={setStrength}
           />

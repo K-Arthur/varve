@@ -425,6 +425,7 @@ export function EffectStudioComparison({
               <span>Before and after split</span>
               <input
                 type="range"
+                className="varve-native-range"
                 min="0"
                 max="100"
                 step="1"

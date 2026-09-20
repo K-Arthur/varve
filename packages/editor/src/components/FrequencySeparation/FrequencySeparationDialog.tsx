@@ -436,7 +436,7 @@ export function FrequencySeparationDialog({
                 step={1}
                 value={radius}
                 onChange={(event) => setRadius(Number(event.target.value))}
-                className="fs-dialog__slider"
+                className="varve-native-range fs-dialog__slider"
               />
               <p className="fs-dialog__hint">
                 Radius is Gaussian sigma in layer pixels — independent of canvas zoom, device pixel

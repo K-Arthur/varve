@@ -41,7 +41,6 @@ function Slider({
       </div>
       <RangeValueControl
         label={label}
-        rangeClassName="adj-editor__slider"
         rangeAriaLabel={label}
         min={min}
         max={max}

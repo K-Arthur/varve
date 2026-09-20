@@ -1676,7 +1676,6 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 min={5}
                 max={100}
                 unit="px"
-                rangeClassName="insp-range"
                 rangeAriaLabel="Brush size (image pixels)"
                 onChange={(value) => setRefineMaskOptions({ brushSize: value, hardness })}
               />
@@ -1691,7 +1690,6 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 step={0.05}
                 displayScale={100}
                 unit="%"
-                rangeClassName="insp-range"
                 rangeAriaLabel="Hardness"
                 onChange={(value) => setRefineMaskOptions({ brushSize, hardness: value })}
               />
@@ -1725,7 +1723,6 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 min={1}
                 max={24}
                 unit="px"
-                rangeClassName="insp-range"
                 rangeAriaLabel="Edge refinement radius in image pixels"
                 onChange={(value) => setRefineMaskOptions({ radius: value })}
               />
@@ -1739,7 +1736,6 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                   min={1}
                   max={48}
                   unit="px"
-                  rangeClassName="insp-range"
                   rangeAriaLabel="Matting unknown band width in image pixels"
                   onChange={(value) => setRefineMaskOptions({ bandRadius: value })}
                 />
@@ -1790,7 +1786,6 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 min={5}
                 max={100}
                 unit="px"
-                rangeClassName="insp-range"
                 rangeAriaLabel="Trimap brush size"
                 onChange={(value) => setTrimapEditOptions({ brushSize: value })}
               />

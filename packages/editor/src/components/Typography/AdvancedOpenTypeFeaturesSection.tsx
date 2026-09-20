@@ -497,6 +497,7 @@ function AlternateBrowser({
         Preview size
         <input
           type="range"
+          className="varve-native-range"
           min={16}
           max={64}
           step={1}

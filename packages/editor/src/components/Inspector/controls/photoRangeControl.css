@@ -1,0 +1,22 @@
+/* Labelled photo-recipe range row. The range itself is skinned by the shared
+ * `.varve-native-range`; this file owns only the row layout and readout. */
+.photo-range {
+  color: var(--color-text-secondary);
+  display: grid;
+  font-size: var(--font-size-xs, 0.75rem);
+  gap: var(--space-1);
+}
+
+.photo-range span {
+  display: flex;
+  justify-content: space-between;
+}
+
+.photo-range output {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.photo-range input {
+  inline-size: 100%;
+}

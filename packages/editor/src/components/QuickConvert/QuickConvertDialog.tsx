@@ -354,6 +354,7 @@ export function QuickConvertDialog({ open, onClose, platform }: QuickConvertDial
               </span>
               <input
                 type="range"
+                className="varve-native-range"
                 min="0.01"
                 max="1"
                 step="0.01"

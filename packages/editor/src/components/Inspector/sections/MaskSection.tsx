@@ -414,7 +414,6 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
               step={0.05}
               displayScale={100}
               unit="%"
-              rangeClassName="insp-range"
               rangeAriaLabel="Mask density"
               onChange={handleDensity}
             />

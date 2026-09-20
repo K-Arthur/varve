@@ -12,6 +12,7 @@ import {
 import { Button } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import { PhotoRangeControl } from '../controls/PhotoRangeControl';
 import { GainMapExportSection } from './GainMapExportSection';
 import { HdrMergeDialog } from './HdrMergeDialog';
 import {
@@ -307,7 +308,7 @@ export function HdrSourceSection({ node }: { node: SceneNode }) {
               </div>
             </dl>
             <div className="photo-source-section__grid">
-              <HdrRangeControl
+              <PhotoRangeControl
                 label={
                   session.decoded.raster.contract.reference === 'scene-linear'
                     ? 'Tone-map exposure'
@@ -319,7 +320,7 @@ export function HdrSourceSection({ node }: { node: SceneNode }) {
                 step={0.01}
                 onChange={setToneMapExposure}
               />
-              <HdrRangeControl
+              <PhotoRangeControl
                 label="Display white point"
                 value={toneMapWhitePoint}
                 min={0.1}
@@ -391,39 +392,6 @@ export function HdrSourceSection({ node }: { node: SceneNode }) {
         onApplied={() => undefined}
       />
     </>
-  );
-}
-
-function HdrRangeControl({
-  label,
-  min,
-  max,
-  step,
-  value,
-  onChange,
-}: {
-  label: string;
-  min: number;
-  max: number;
-  step: number;
-  value: number;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="photo-source-section__range">
-      <span>
-        {label} <output>{value.toFixed(2)}</output>
-      </span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        aria-label={label}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
-    </label>
   );
 }
 

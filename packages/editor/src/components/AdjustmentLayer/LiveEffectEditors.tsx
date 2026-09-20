@@ -78,7 +78,6 @@ function SliderRow({
       </div>
       <RangeValueControl
         label={ariaLabel}
-        rangeClassName="adj-editor__slider"
         min={min}
         max={max}
         step={step}

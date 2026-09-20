@@ -278,7 +278,6 @@
 }
 
 .effect-studio-comparison__split-control input {
-  accent-color: var(--color-accent-primary);
   inline-size: 100%;
   margin: 0;
 }
@@ -697,7 +696,6 @@
 }
 
 .effect-studio__tuning-controls input[type="range"] {
-  accent-color: var(--color-accent-primary);
   inline-size: 100%;
   margin: 0;
 }

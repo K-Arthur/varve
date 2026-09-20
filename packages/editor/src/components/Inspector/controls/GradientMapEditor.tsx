@@ -873,7 +873,7 @@ export function GradientMapEditor({
           max={100}
           step={1}
           unit="%"
-          rangeClassName="varve-native-range gm-editor__slider"
+          rangeClassName="gm-editor__slider"
           rangeAriaLabel="Gradient map intensity"
           onRangePointerDown={onEditStart}
           onRangePointerUp={onEditEnd}

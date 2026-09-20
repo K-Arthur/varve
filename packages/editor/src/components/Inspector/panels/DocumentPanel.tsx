@@ -555,7 +555,7 @@ export function DocumentPanel() {
                     opacity: value,
                   });
                 }}
-                className="insp-range"
+                className="varve-native-range"
               />
               <output>{Math.round(state.documentGrid.opacity * 100)}%</output>
             </div>
@@ -965,7 +965,7 @@ function IsometricGridSection() {
                       step="0.1"
                       value={axis.opacity ?? 1}
                       onChange={(e) => updateAxis(index, { opacity: parseFloat(e.target.value) })}
-                      className="insp-range insp-iso-axis-opacity"
+                      className="varve-native-range insp-iso-axis-opacity"
                       aria-label={`Axis ${index + 1} opacity`}
                     />
                     {grid.axes.length > 2 && (
@@ -1104,7 +1104,7 @@ function IsometricGridSection() {
               step="0.1"
               value={grid.opacity}
               onChange={(e) => updateGrid({ opacity: parseFloat(e.target.value) })}
-              className="insp-range"
+              className="varve-native-range"
             />
             <output>{Math.round(grid.opacity * 100)}%</output>
           </div>

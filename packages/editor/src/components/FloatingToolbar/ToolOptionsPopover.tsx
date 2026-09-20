@@ -238,6 +238,7 @@ function MagicWandOptions({
         <span className="tool-options__label">Tolerance</span>
         <input
           type="range"
+          className="varve-native-range"
           min={0}
           max={100}
           value={settings.tolerance}
@@ -250,6 +251,7 @@ function MagicWandOptions({
         <span className="tool-options__label">Feather</span>
         <input
           type="range"
+          className="varve-native-range"
           min={0}
           max={50}
           value={settings.edgeFeather}

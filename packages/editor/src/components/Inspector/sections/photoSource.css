@@ -109,27 +109,11 @@
   white-space: nowrap;
 }
 
-.photo-source-section__range,
 .photo-source-section__multipliers label {
   color: var(--color-text-secondary);
   display: grid;
   font-size: var(--font-size-xs, 0.75rem);
   gap: var(--space-1);
-}
-
-.photo-source-section__range span {
-  display: flex;
-  justify-content: space-between;
-}
-
-.photo-source-section__range output {
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.photo-source-section__range input {
-  accent-color: var(--color-accent-primary);
-  inline-size: 100%;
 }
 
 .photo-source-section__multipliers {

@@ -1,6 +1,7 @@
 import type { RangeRaster } from '@varve/shared';
 import { Button } from '@varve/ui';
 import { useCallback, useEffect, useState } from 'react';
+import { PhotoRangeControl } from '../controls/PhotoRangeControl';
 import { buildUltraHdrExport, type UltraHdrExportResult } from './gainMapExport';
 import { rangeRasterToHdrDisplayLinear } from './photoSourceWorkflow';
 
@@ -106,20 +107,14 @@ export function GainMapExportSection({
             </p>
           )}
           <div className="photo-source-section__grid">
-            <label className="photo-source-section__range">
-              <span>
-                Gain map quality <output>{quality.toFixed(2)}</output>
-              </span>
-              <input
-                type="range"
-                min={0.6}
-                max={1}
-                step={0.01}
-                value={quality}
-                aria-label="Gain map JPEG quality"
-                onChange={(event) => setQuality(Number(event.target.value))}
-              />
-            </label>
+            <PhotoRangeControl
+              label="Gain map quality"
+              min={0.6}
+              max={1}
+              step={0.01}
+              value={quality}
+              onChange={setQuality}
+            />
           </div>
           <div className="photo-source-section__actions">
             <Button

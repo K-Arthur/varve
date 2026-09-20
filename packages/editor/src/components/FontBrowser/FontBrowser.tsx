@@ -220,6 +220,7 @@ function VariableAxesPanel({ record, values, onChange, onReset }: VariableAxesPa
             <input
               id={`font-axis-${record.familyId}-${axis.tag}`}
               type="range"
+              className="varve-native-range"
               min={axis.min}
               max={axis.max}
               step={axisStep(axis.min, axis.max)}

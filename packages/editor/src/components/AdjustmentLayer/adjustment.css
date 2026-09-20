@@ -455,70 +455,8 @@
   display: none;
 }
 
-.adj-editor__slider::-webkit-slider-runnable-track {
-  height: var(--space-1);
-  background: var(--color-surface-sunken);
-  border-radius: var(--radius-pill);
-}
-
-.adj-editor__slider::-moz-range-track {
-  height: var(--space-1);
-  background: var(--color-surface-sunken);
-  border-radius: var(--radius-pill);
-}
-
-.adj-editor__slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  width: var(--space-4);
-  height: var(--space-4);
-  border-radius: var(--radius-pill);
-  background: var(--color-surface-raised);
-  cursor: pointer;
-  border: 2px solid var(--color-interactive-default);
-  box-shadow: var(--shadow-xs);
-  margin-top: calc((var(--space-1) - var(--space-4)) / 2);
-  transition:
-    transform var(--duration-quick) var(--ease-standard),
-    box-shadow var(--duration-quick) var(--ease-standard);
-}
-
-.adj-editor__slider::-moz-range-thumb {
-  width: var(--space-4);
-  height: var(--space-4);
-  border-radius: var(--radius-pill);
-  background: var(--color-surface-raised);
-  cursor: pointer;
-  border: 2px solid var(--color-interactive-default);
-  box-shadow: var(--shadow-xs);
-  transition:
-    transform var(--duration-quick) var(--ease-standard),
-    box-shadow var(--duration-quick) var(--ease-standard);
-}
-
-.adj-editor__slider:hover::-webkit-slider-thumb {
-  transform: scale(1.12);
-  box-shadow: var(--shadow-sm);
-}
-
-.adj-editor__slider:active::-webkit-slider-thumb {
-  transform: scale(0.92);
-  box-shadow: var(--shadow-xs);
-}
-
-.adj-editor__slider:hover::-moz-range-thumb {
-  transform: scale(1.12);
-  box-shadow: var(--shadow-sm);
-}
-
-.adj-editor__slider:active::-moz-range-thumb {
-  transform: scale(0.92);
-  box-shadow: var(--shadow-xs);
-}
-
-.adj-editor__slider:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: 2px;
-}
+/* Range inputs in adjustment editors use the shared `.varve-native-range`
+ * skin; this file owns only the slider row layout. */
 
 .adj-editor__number {
   width: var(--space-10);
@@ -1134,7 +1072,6 @@
 
 .gm-editor__slider {
   flex: 1;
-  accent-color: var(--color-interactive-default);
 }
 
 /* ── Gradient map tonal distribution ───────────────────────────────────── */

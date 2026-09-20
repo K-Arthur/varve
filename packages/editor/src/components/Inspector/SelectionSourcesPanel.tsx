@@ -1321,7 +1321,6 @@ export function SelectionSourcesPanel() {
                   max={128}
                   step={0.5}
                   unit="px"
-                  rangeClassName="insp-range"
                   rangeAriaLabel="Refinement radius in document units"
                   onChange={setRefineSigma}
                 />
@@ -1334,7 +1333,6 @@ export function SelectionSourcesPanel() {
                   min={0}
                   max={MAX_REFINE_RADIUS}
                   unit="px"
-                  rangeClassName="insp-range"
                   rangeAriaLabel="Refinement amount in document units"
                   onChange={setRefineAmount}
                 />
@@ -1347,7 +1345,6 @@ export function SelectionSourcesPanel() {
                   min={-64}
                   max={64}
                   unit="px"
-                  rangeClassName="insp-range"
                   rangeAriaLabel="Boundary shift in document units; positive expands"
                   onChange={setRefineShift}
                 />
@@ -1362,7 +1359,6 @@ export function SelectionSourcesPanel() {
                   step={0.05}
                   displayScale={100}
                   unit="%"
-                  rangeClassName="insp-range"
                   rangeAriaLabel="Coverage contrast; 100% removes grey"
                   onChange={setRefineContrast}
                 />
@@ -1377,7 +1373,6 @@ export function SelectionSourcesPanel() {
                   step={0.05}
                   displayScale={100}
                   unit="%"
-                  rangeClassName="insp-range"
                   rangeAriaLabel="Coverage cut for threshold"
                   onChange={setRefineThreshold}
                 />
@@ -1407,7 +1402,6 @@ export function SelectionSourcesPanel() {
                     min={0}
                     max={4096}
                     unit="px"
-                    rangeClassName="insp-range"
                     rangeAriaLabel="Remove islands smaller than this area"
                     onChange={setRefineMinIsland}
                   />
@@ -1418,7 +1412,6 @@ export function SelectionSourcesPanel() {
                     min={0}
                     max={4096}
                     unit="px"
-                    rangeClassName="insp-range"
                     rangeAriaLabel="Fill holes smaller than this area"
                     onChange={setRefineMaxHole}
                   />

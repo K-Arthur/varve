@@ -54,17 +54,29 @@ export function RangeValueControl({
   const precisionStep = step * displayScale;
   const precisionFineStep = fineStep * displayScale;
 
+  // The canonical skin is not opt-in: every RangeValueControl renders the
+  // shared native-range primitive, and `rangeClassName` is a layout modifier.
+  const rangeClass = ['varve-native-range', ...(rangeClassName?.split(/\s+/) ?? [])]
+    .filter((cls, index, all) => cls !== '' && all.indexOf(cls) === index)
+    .join(' ');
+
+  // Announce the displayed value when the raw number would mislead: a
+  // normalized 0.65 shown as 65% must not be read as "0.65".
+  const scaledValue = Math.round(value * displayScale * 100) / 100;
+  const rangeValueText = unit || displayScale !== 1 ? `${scaledValue}${unit ?? ''}` : undefined;
+
   return (
     <div className="range-value-control">
       <input
         id={id ? `${id}-range` : undefined}
         type="range"
-        className={rangeClassName}
+        className={rangeClass}
         min={min}
         max={max}
         step={step}
         value={value}
         aria-label={rangeAriaLabel ?? label}
+        aria-valuetext={rangeValueText}
         disabled={disabled}
         onPointerDown={onRangePointerDown}
         onPointerUp={onRangePointerUp}

@@ -228,7 +228,6 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
             min={0}
             max={100}
             unit="%"
-            rangeClassName="insp-range"
             rangeAriaLabel="Corner smoothing"
             onChange={setSelectedCornerSmoothing}
           />
