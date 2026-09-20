@@ -63,14 +63,24 @@
   border-radius: var(--radius-control-compact);
 }
 
-/* One connected segmented control: the shell owns clipping and the members
- * stay square so internal boundaries do not read as separate cards. */
+/* Inset segmented control: the shell owns the outer radius, and each segment
+ * is a separate visible layer inset by the shell padding, so its radius is
+ * derived (outer − inset). Flattening the members left a square selected chip
+ * floating inside a rounded track (fixed 2026-09-20); connected groups that
+ * genuinely share edges use square members and live outside this component. */
 .varve-segmented {
   border-radius: var(--radius-control);
 }
 
 .varve-segmented__btn {
-  border-radius: var(--radius-none);
+  border-radius: max(0px, calc(var(--radius-control) - var(--space-05)));
+}
+
+/* Pill variant: both levels are fully round so the selected thumb stays
+ * concentric with its track. */
+.varve-segmented--pill,
+.varve-segmented--pill .varve-segmented__btn {
+  border-radius: var(--radius-pill);
 }
 
 .varve-toolbar {

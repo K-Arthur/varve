@@ -6586,9 +6586,14 @@ fieldset.insp-canvas-props,
   max-inline-size: 100%;
 }
 
+/* Auto-fit on a minimum segment width: options wrap onto additional rows
+ * instead of being clipped to "Linear R…" (the narrow-rail truncation
+ * reported 2026-09-20). 6rem keeps the common four-option groups at a
+ * balanced 2×2 inside the default control column; the old hard 2-column
+ * container override forced columns below content width and is removed. */
 .editor-inspector .insp-field__control > .varve-segmented {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(4.5rem, 100%), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(6rem, 100%), 1fr));
   inline-size: 100%;
   max-inline-size: 100%;
   min-inline-size: 0;
@@ -6597,6 +6602,13 @@ fieldset.insp-canvas-props,
 .editor-inspector .varve-segmented__btn {
   min-inline-size: 0;
   max-inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-inspector .varve-segmented__btn > .varve-segmented__label {
+  min-inline-size: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -6637,10 +6649,6 @@ fieldset.insp-canvas-props,
 }
 
 @container inspector (max-width: 15.5rem) {
-  .editor-inspector .insp-field__control > .varve-segmented {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .editor-inspector .insp-field__control > div:has(> .insp-per-side) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

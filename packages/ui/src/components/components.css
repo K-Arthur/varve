@@ -1243,7 +1243,7 @@
   padding: var(--space-05);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-control-compact);
+  /* Radius is owned by radius-system.css (derived inset members). */
 }
 .varve-segmented__btn {
   position: relative;
@@ -1256,7 +1256,6 @@
   height: auto;
   background: transparent;
   border: none;
-  border-radius: calc(var(--radius-control-compact) - 1px);
   color: var(--color-text-secondary);
   font: inherit;
   font-family: var(--font-body);
@@ -1331,15 +1330,14 @@
   padding: 0 var(--space-1);
 }
 
-/* Pill variant (view-mode switches): rounder track, medium-weight labels. */
+/* Pill variant (view-mode switches): rounder track, medium-weight labels.
+ * The pill radii live in radius-system.css. */
 .varve-segmented--pill {
   gap: var(--space-1);
   padding: var(--space-1);
   border-color: transparent;
-  border-radius: var(--radius-pill);
 }
 .varve-segmented--pill .varve-segmented__btn {
-  border-radius: var(--radius-pill);
   padding: var(--space-1) var(--space-2);
   font-weight: var(--font-weight-medium);
   outline-offset: 2px;

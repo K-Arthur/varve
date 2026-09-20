@@ -37,6 +37,10 @@ marketing art and is retained as a compatibility alias for
 - `Popover`, `Dialog`, `Menu`, and floating toolbar shells own surface geometry.
 - Connected groups own their outer radius. Children have square internal edges;
   first/last edges are structural, not individual bubbles.
+- Inset groups (a shell with padding and a visible gap between members, such as
+  `SegmentedControl`) derive each member's radius from the outer value and the
+  inset: `max(0px, outer - inset)`. Flattening those members to `--radius-none`
+  left a square selected chip inside a rounded track (fixed 2026-09-20).
 - A child inside a clipped surface uses `--radius-none` or a derived inset
   radius only when it is a separate visible layer. Do not add `overflow: hidden`
   to conceal an accidental mismatch.
@@ -53,8 +57,12 @@ boundaries are square and the first/last visible members determine the outer
 corners. Conditional groups must use structural selectors or explicit group
 position data so a hidden member cannot leave a stale rounded edge.
 
-For a visible nested surface, the inner radius should be derived from the outer
-radius and inset (`max(0px, outer - inset)`) when concentric corners matter.
+Inset groups (padding between the shell and each member, visible gap between
+members) keep every member rounded: the derived inset radius above applies to
+all members, including the selected one. The two models are mutually exclusive
+within one control; mixing them is the square-chip defect. For a visible nested
+surface, the inner radius should be derived from the outer radius and inset
+(`max(0px, outer - inset)`) when concentric corners matter.
 
 ## Web and desktop
 
