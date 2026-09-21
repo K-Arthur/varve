@@ -389,7 +389,36 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
 
   return (
     <DisclosureSection title="Position & Size" sectionId="position-size">
-      {isFrameSelection && <FramePresetDropdown frames={nodes as FrameNode[]} />}
+      {isFrameSelection && (
+        <div className="insp-preset-row">
+          <FramePresetDropdown frames={nodes as FrameNode[]} />
+          <Tooltip label="Swap orientation (Portrait / Landscape)">
+            <button
+              type="button"
+              className="insp-orientation-btn"
+              onClick={handleSwapOrientation}
+              aria-label="Swap orientation"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M8 3 4 7l4 4" />
+                <path d="M4 7h16" />
+                <path d="m16 21 4-4-4-4" />
+                <path d="M20 17H4" />
+              </svg>
+            </button>
+          </Tooltip>
+        </div>
+      )}
       {useArtboardCoords && (
         <p className="insp-panel__empty-hint">Coordinates shown relative to active artboard</p>
       )}
@@ -550,6 +579,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                   className={`insp-proportion-icon${locked ? ' insp-proportion-icon--locked' : ''}`}
                 />
               </label>
+              <span className="insp-field-group__action-slot" aria-hidden="true" />
             </InspectorFieldGroup>
           )}
         </InspectorFieldGroup>
