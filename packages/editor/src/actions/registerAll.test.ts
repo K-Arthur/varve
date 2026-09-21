@@ -124,7 +124,11 @@ describe('registerEditorActions — intelligence commands', () => {
   it('registers toolbar placement commands that persist the active workspace preference', () => {
     resetWorkspacePreferenceCache();
     const editor = makeEditorMock({
-      state: { selection: [], pixelGridEnabled: false, workspaceMode: 'design' },
+      state: {
+        selection: [],
+        pixelGridEnabled: false,
+        workspaceMode: 'design',
+      } as unknown as EditorContextValue['state'],
     });
     registerEditorActions(editor);
     const registry = getActionRegistry();

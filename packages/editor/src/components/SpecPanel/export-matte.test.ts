@@ -10,7 +10,10 @@ const { imageLoad, matteFillCalls, resetImageState } = vi.hoisted(() => {
       loaded.add(source);
       return document.createElement('img');
     }),
-    matteFillCalls: [] as Array<{ fillStyle: string; args: [number, number, number, number] }>,
+    matteFillCalls: [] as Array<{
+      fillStyle: string | CanvasGradient | CanvasPattern;
+      args: [number, number, number, number];
+    }>,
     resetImageState: () => loaded.clear(),
   };
 });

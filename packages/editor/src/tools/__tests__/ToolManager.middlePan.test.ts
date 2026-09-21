@@ -31,7 +31,9 @@ function makeCtx(): ToolContext {
 function fakeTool(id: string, result: GestureResult = { consumed: true }): Tool {
   return {
     id,
-    cursor: (state) => ({ css: state === 'drag' ? 'grabbing' : 'crosshair' }),
+    cursor: (state: 'idle' | 'hover' | 'drag' | 'resize' | 'rotate') => ({
+      css: state === 'drag' ? 'grabbing' : 'crosshair',
+    }),
     onPointerDown: vi.fn().mockReturnValue(result),
     onPointerMove: vi.fn(),
     onPointerUp: vi.fn(),

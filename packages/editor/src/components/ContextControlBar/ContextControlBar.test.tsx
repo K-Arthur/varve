@@ -311,7 +311,11 @@ describe('ContextControlBar typography controls', () => {
 });
 
 describe('ContextControlBar shape controls', () => {
-  const shape = makeShapeNode('shape-1', { kind: 'rect', width: 10, height: 10 }, { name: 'Rect' });
+  const shape = makeShapeNode(
+    'shape-1',
+    { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+    { name: 'Rect' },
+  );
 
   function mockShapeEditor(selected: typeof shape = shape) {
     vi.mocked(useEditor).mockReturnValue({
@@ -366,7 +370,7 @@ describe('ContextControlBar shape controls', () => {
   it('shows the stroke colour and weight when a stroke exists and commits a weight edit', () => {
     const stroked = makeShapeNode(
       'shape-2',
-      { kind: 'rect', width: 10, height: 10 },
+      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
       { name: 'Rect', strokes: [{ ...defaultStroke(), id: 'stroke-1' }] },
     );
     mockShapeEditor(stroked);

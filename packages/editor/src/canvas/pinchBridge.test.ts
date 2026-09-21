@@ -66,6 +66,10 @@ describe('resolvePinchBridgeAction — malformed payloads', () => {
     expect(resolvePinchBridgeAction(null)).toEqual({ kind: 'ignore' });
     expect(resolvePinchBridgeAction(undefined)).toEqual({ kind: 'ignore' });
     expect(resolvePinchBridgeAction({})).toEqual({ kind: 'ignore' });
-    expect(resolvePinchBridgeAction({ phase: 'sideways' })).toEqual({ kind: 'ignore' });
+    expect(
+      resolvePinchBridgeAction({ phase: 'sideways' } as unknown as Parameters<
+        typeof resolvePinchBridgeAction
+      >[0]),
+    ).toEqual({ kind: 'ignore' });
   });
 });

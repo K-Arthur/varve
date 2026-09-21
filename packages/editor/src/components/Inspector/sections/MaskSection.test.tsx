@@ -80,8 +80,8 @@ describe('MaskSection', () => {
     const editor = createMockEditor(doc);
     mocks.useEditor.mockReturnValue(editor);
 
-    const child1 = makeShapeNode('child-1', { kind: 'rect', w: 50, h: 50 });
-    const child2 = makeShapeNode('child-2', { kind: 'rect', w: 50, h: 50 });
+    const child1 = makeShapeNode('child-1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    const child2 = makeShapeNode('child-2', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
     doc.nodes['child-1'] = child1;
     doc.nodes['child-2'] = child2;
 

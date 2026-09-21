@@ -7,10 +7,7 @@ import type { ToolContext } from '../types';
 
 type AppliedFill = { space: 'rgb'; r: number; g: number; b: number; a: number };
 
-type UpdateNodeFn = (
-  id: string,
-  updater: (n: { fill: AppliedFill }) => { fill: AppliedFill },
-) => void;
+type NodeUpdater = (n: { fill: AppliedFill }) => { fill: AppliedFill };
 
 interface MockCtx {
   announce: ReturnType<typeof vi.fn>;
@@ -184,7 +181,7 @@ describe('EyedropperTool', () => {
   });
 
   it('aborts an in-flight EyeDropper prompt on Escape', async () => {
-    let openSignal: AbortSignal | undefined;
+    let openSignal: AbortSignal | null = null;
     const restore = withFakeEyeDropper(
       class {
         open(options?: { signal?: AbortSignal }) {
@@ -266,12 +263,14 @@ describe('EyedropperTool', () => {
 
 /** Applies the recorded updater to a known seed node and returns the result. */
 function stateOf(ctx: MockCtx): { fill: AppliedFill } {
-  const initial = { fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 } };
+  const initial: { fill: AppliedFill } = {
+    fill: { space: 'rgb', r: 57, g: 208, b: 198, a: 255 },
+  };
   return lastUpdater(ctx)(initial);
 }
 
-function lastUpdater(ctx: MockCtx): UpdateNodeFn {
+function lastUpdater(ctx: MockCtx): NodeUpdater {
   const updater = (ctx.updateNode as ReturnType<typeof vi.fn>).mock.calls[0]?.[1];
   if (typeof updater !== 'function') throw new Error('updateNode was never called');
-  return updater as UpdateNodeFn;
+  return updater as NodeUpdater;
 }

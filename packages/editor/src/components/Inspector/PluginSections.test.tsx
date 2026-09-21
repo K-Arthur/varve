@@ -172,6 +172,8 @@ describe('PluginSections host', () => {
     // stays mounted and every other section keeps working.
     expect(screen.queryByRole('button', { name: 'Widget' })).toBeNull();
     const plugin = getRegisteredPlugins()[0];
+    expect(plugin).toBeDefined();
+    if (!plugin) return;
     expect(plugin.status).toBe('error');
     expect(plugin.error).toBe('render exploded');
   });

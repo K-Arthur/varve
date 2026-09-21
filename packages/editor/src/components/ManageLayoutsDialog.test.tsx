@@ -53,7 +53,9 @@ describe('ManageLayoutsDialog', () => {
     await waitFor(() => expect(getEditor()).toBeDefined());
 
     const dialog = screen.getByRole('dialog');
-    const focusRow = within(dialog).getByText('Focus canvas').closest('.workspace-layouts__row')!;
+    const focusRow = within(dialog)
+      .getByText('Focus canvas')
+      .closest<HTMLElement>('.workspace-layouts__row')!;
     fireEvent.click(within(focusRow).getByRole('button', { name: 'Apply' }));
 
     await waitFor(() => expect(getEditor().state.leftPanelVisible).toBe(false));
@@ -122,7 +124,7 @@ describe('ManageLayoutsDialog', () => {
     await waitFor(() => expect(getEditor()).toBeDefined());
 
     const dialog = screen.getByRole('dialog');
-    const row = within(dialog).getByText('Doomed').closest('.workspace-layouts__row')!;
+    const row = within(dialog).getByText('Doomed').closest<HTMLElement>('.workspace-layouts__row')!;
     fireEvent.click(within(row).getByRole('button', { name: 'Delete' }));
     const confirm = screen.getAllByRole('dialog').at(-1)!;
     expect(within(confirm).getByText(/Delete “Doomed”/)).toBeTruthy();

@@ -73,6 +73,8 @@ function context(overrides: Partial<ToolContext> = {}): ToolContext {
     setNodePosition: vi.fn(),
     setNodePositions: vi.fn(),
     setNodeSize: vi.fn(),
+    engine: null,
+    createRasterLayer: vi.fn(() => null),
     updateNode: vi.fn(),
     updateNodes: vi.fn(),
     removeSelected: vi.fn(),

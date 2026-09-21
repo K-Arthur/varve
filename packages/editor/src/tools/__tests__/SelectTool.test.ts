@@ -146,7 +146,7 @@ function nudgeKeyDown(
   ctx: ReturnType<typeof makeNudgeCtx>,
   event: Record<string, unknown>,
 ): boolean {
-  return manager.handleKeyDown(event as KeyboardEvent, ctx as unknown as ToolContext);
+  return manager.handleKeyDown(event as unknown as KeyboardEvent, ctx as unknown as ToolContext);
 }
 
 function nudgeKeyUp(
@@ -154,7 +154,7 @@ function nudgeKeyUp(
   ctx: ReturnType<typeof makeNudgeCtx>,
   event: Record<string, unknown>,
 ): void {
-  manager.handleKeyUp(event as KeyboardEvent, ctx as unknown as ToolContext);
+  manager.handleKeyUp(event as unknown as KeyboardEvent, ctx as unknown as ToolContext);
 }
 
 function documentWithRootNodes(ids: readonly string[]) {

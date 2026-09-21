@@ -197,17 +197,17 @@ describe('getFlyoutMenuItems — boolean precondition truth', () => {
   it('disables boolean members while the selection precondition fails', () => {
     const items = getFlyoutMenuItems(booleanFlyout as never, false, activate, onClose);
     expect(items).toHaveLength(4);
-    expect(items.every((item) => item.disabled === true)).toBe(true);
+    expect(items.every((item) => 'disabled' in item && item.disabled === true)).toBe(true);
   });
 
   it('keeps boolean members enabled once the precondition holds', () => {
     const items = getFlyoutMenuItems(booleanFlyout as never, true, activate, onClose);
-    expect(items.every((item) => item.disabled !== true)).toBe(true);
+    expect(items.every((item) => !('disabled' in item) || item.disabled !== true)).toBe(true);
   });
 
   it('never applies the boolean rule to other flyouts', () => {
     const items = getFlyoutMenuItems(shapesFlyout as never, false, activate, onClose);
-    expect(items.every((item) => item.disabled !== true)).toBe(true);
+    expect(items.every((item) => !('disabled' in item) || item.disabled !== true)).toBe(true);
   });
 
   it('returns no entries when no flyout is open', () => {

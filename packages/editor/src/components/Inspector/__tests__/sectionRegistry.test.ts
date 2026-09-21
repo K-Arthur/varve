@@ -19,6 +19,7 @@ import {
   resolveSectionOrder,
   SECTION_DEFINITIONS,
   type SectionAvailabilityContext,
+  type SectionId,
 } from '../sectionRegistry';
 import {
   countHiddenSections,
@@ -460,8 +461,9 @@ describe('Section availability predicates', () => {
   });
 
   it('frame-resize is retired: preset resizing is owned by the Position & Size dropdown', () => {
-    expect(getSectionDefinition('frame-resize')).toBeUndefined();
-    expect(getAllSectionIds()).not.toContain('frame-resize');
+    const retiredId = 'frame-resize' as unknown as SectionId;
+    expect(getSectionDefinition(retiredId)).toBeUndefined();
+    expect(getAllSectionIds()).not.toContain(retiredId);
   });
 
   it('interaction is available for any single selection, independent of prototypeMode', () => {
