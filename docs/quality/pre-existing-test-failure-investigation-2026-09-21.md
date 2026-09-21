@@ -57,9 +57,16 @@ single product defect:
    restored the canonical slider and segmented-control CSS contracts, added
    missing model validation timestamps, isolated the model-loader fixtures,
    cleaned the loader reset path, and corrected the normalized LUT fixture.
-4. The marketing/documentation update is being committed separately after
-   its browser visual check: the press page now states the local/offline,
-   pricing, export, and unfinished-feature boundaries explicitly.
+4. `637db8889 docs(website): publish failure-informed trust boundaries`
+   added the marketing press-page trust-boundary section, its narrow-viewport
+   visual test/snapshot, the complaint-informed research note, and this report.
+5. `ce8d8f58 fix(engine): satisfy full-gate type contracts` made loader disposal
+   explicit and narrowed LUT union fixtures without changing runtime behavior.
+6. `6bb900330 test(scene): restore stale document fixtures` corrected the stale
+   scene `Document` import and supplied the required bend-warp fixture fields.
+7. `0781b8fac test(editor): refresh stale type fixtures` repaired 13 stale editor
+   test contracts exposed by workspace typecheck; the pre-existing new ranking
+   evidence file was deliberately left uncommitted and user-owned.
 
 ## Regression evidence after repairs
 
@@ -91,8 +98,13 @@ Tests      486 passed (486)
 ```
 
 The editor subset was also rerun by the commit checkpoint at 111/111, and the
-engine subset at 48/48. Repeated targeted runs stayed green; no failure was
-observed only intermittently after repair.
+engine subset at 48/48. The later model/LUT/integrity subset passed 93/93;
+the scene compatibility subset passed 12/12; and the editor type-fixture
+subset passed 221/221 (one intentionally skipped). Direct package and E2E
+typechecks also pass. The two additional failures observed during the first
+after-fix full Vitest attempt (Menubar and FillSection) passed when rerun in
+isolation and together, so they are recorded as ordering-sensitive/flaky
+environment evidence rather than claimed as repaired deterministic failures.
 
 ## Test-weakening disclosure
 
@@ -110,26 +122,31 @@ stored blob whose checksum does not match the manifest.
 
 ## Deferred, risk, and confidence
 
-The broad affected gate was escalated by the pre-existing 258-file dirty
-worktree. The full repository gate is therefore required and is run after the
-marketing/documentation commit. Browser visual regression, full Vitest/Cargo
-workspace coverage, native desktop matrices, benchmarks, packaging, signing,
-and release checks are not inferred from the 486-test targeted pass; they are
-reported separately below when run.
+The broad affected gate was escalated by the supplied 250-file dirty
+worktree. The explicit full-gate executor reached and passed all package
+typechecks after the repairs, but repeatedly exited at its E2E typecheck
+handoff without a diagnostic; the same `pnpm typecheck` command passes when
+run directly. A leased after-fix full Vitest run started, exposed the two
+ordering-sensitive failures above, and then made no further progress within
+the bounded wait; a second attempt likewise stalled before producing a file
+summary and was terminated. Therefore no after-fix full Vitest/Cargo/browser
+pass is claimed here. Native desktop matrices, benchmarks, packaging,
+signing, and release checks remain deferred.
 
 Confidence is high for the 49 baseline failures because every original failing
 file passes with its original assertions present. Confidence is medium for
-unrelated dirty worktree behavior until the explicit full gate completes.
+unrelated dirty-worktree behavior because the after-fix repository-wide
+Vitest run did not complete in this environment.
 
 ## Agent Validation Report
 
 ```text
 Changed scope: website fixtures/manifest, editor contract tests, engine model/LUT/integrity paths, inspector CSS, marketing press page, research and quality reports
-Validation plan: pnpm verify:plan selected Tiers 0-4 and escalated to FULL-SUITE because the supplied worktree changed 258 files across packages and validation-sensitive areas
-Commands actually run: pnpm verify:plan; pnpm test (launcher failed: unable to open database file); pnpm test:ci:tools; pnpm exec vitest run (baseline); targeted 18-file Vitest regression command; commit checkpoint suites; node scripts/screenshots/validate.mjs; website visual E2E command (pending final report update); pnpm verify:full (pending final report update)
-Passed: CI tooling tests; canonical/website fixture tests; editor 111/111; engine/UI 375/375 in targeted subsets; original failure set 486/486
-Skipped as unrelated: none of the original 49 failures; full affected closure and release/native lanes were deferred until the explicit escalated gate
-Escalations: full-gate escalation caused by the pre-existing dirty worktree; no external write or branch creation
-Full suite run: pending final report update
-If yes, reason: explicit execution brief requires before/after full-suite evidence and the planner escalated the dirty workspace
+Validation plan: pnpm verify:plan selected Tiers 0-4 and escalated to FULL-SUITE because the supplied worktree changed 250 files across packages and validation-sensitive areas
+Commands actually run: pnpm verify:plan; pnpm test (launcher failed: unable to open database file); pnpm test:ci:tools; pnpm exec vitest run (baseline); targeted 18-file Vitest regression command; direct engine/scene/editor typechecks; commit checkpoint suites; node scripts/screenshots/validate.mjs; direct Astro check/build (105 pages); leased website press visual E2E (snapshot generation and final no-update pass); node scripts/quality/verify.mjs full with VARVE_FULL_GATE_REASON (repeated attempts); pnpm typecheck; leased full Vitest attempt (bounded/incomplete); pnpm audit:docs; pnpm audit:emoji; pnpm audit:tokens
+Passed: CI tooling tests; canonical/website fixture tests; original failure set 486/486; model/LUT/integrity subset 93/93; scene compatibility 12/12; editor type-fixture subset 221/221 plus one skipped; all package and E2E typechecks; website build/check; press visual E2E 1/1; audit:docs; audit:emoji; token contrast pairs (315/315)
+Skipped as unrelated: no original failure was skipped; after-fix full Vitest/Cargo/browser completion, native desktop matrices, benchmarks, packaging, signing, and release checks were not claimed after the full runner stalled
+Escalations: explicit full-gate reason; restricted-sandbox permission for Git staging/commits and the existing font-resolver test; no external write or branch creation. audit:tokens:usage still reports 22 undefined references and 4 literal fallbacks in the pre-existing dirty inspector stylesheet outside the changed control blocks; these were not broadened into this investigation.
+Full suite run: baseline yes; after-fix attempted but incomplete (runner stalled after startup/initial file summaries)
+If yes, reason: the supplied execution brief required before/after full-suite evidence and the planner escalated the dirty workspace; the incomplete after-fix result is disclosed above rather than presented as a pass
 ```
