@@ -6,16 +6,15 @@
  * WCAG 2.2 focus-visible (2.4.7) and status-not-by-colour (1.4.1).
  */
 
-/* ---------- Panel shell — density-aware quiet grouping ----------
- * The Inspector uses one quiet separator per section. Vertical rhythm is
- * supplied by Inspector-local aliases below, which follow the application
- * Default Pro / Compact Pro density contract without changing canvas state.
+/* ---------- Panel shell — card containment ----------
+ * Sections are enclosed cards with rounded borders,
+ * distinct card elevation, and comfortable vertical rhythm.
  */
 .insp-panel {
   display: flex;
   flex-direction: column;
-  gap: var(--insp-panel-gap, var(--space-1));
-  padding: var(--insp-panel-inset, var(--space-2));
+  gap: var(--space-1);
+  padding: var(--space-2);
 }
 .insp-panel .insp-panel {
   padding: 0;
@@ -31,7 +30,8 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
-  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
 }
 
 /* Only the direct-child content pane scrolls; nested .insp-panel instances
@@ -130,8 +130,7 @@
   border-bottom: 2px solid transparent;
   color: var(--color-text-muted);
   font: inherit;
-  font-size: var(--type-interface-label-size);
-  font-weight: var(--type-interface-label-weight);
+  font-size: var(--font-size-xs);
   text-transform: capitalize;
   cursor: pointer;
   white-space: nowrap;
@@ -157,8 +156,7 @@
   border-bottom: 2px solid transparent;
   color: var(--color-text-muted);
   font: inherit;
-  font-size: var(--type-interface-label-size);
-  font-weight: var(--type-interface-label-weight);
+  font-size: var(--font-size-xs);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -211,7 +209,7 @@
   transform: translateY(1px);
 }
 .insp-panel__header-btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 3px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
   color: var(--color-text-primary);
 }
@@ -223,7 +221,7 @@
   border-color: var(--color-interactive-focus-ring);
 }
 .insp-panel__tab-overflow:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 .insp-panel__tab[aria-selected="true"] {
@@ -231,7 +229,7 @@
   border-bottom-color: var(--color-interactive-default);
 }
 .insp-panel__tab:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 /* Export sub-tabs */
@@ -249,7 +247,8 @@
   color: var(--color-text-muted);
   font: inherit;
   font-size: var(--font-size-2xs);
-  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
   cursor: pointer;
 }
 .insp-panel__sub-tab[aria-selected="true"] {
@@ -257,7 +256,7 @@
   border-bottom-color: var(--color-interactive-default);
 }
 .insp-panel__sub-tab:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 .insp-panel__sub-content {
@@ -281,11 +280,7 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  /* The panel's identity row follows the same density row height as the
-   * property rows below it, so the header never reads as a compressed strip
-   * above a roomier panel. */
-  min-height: var(--insp-row-height, var(--density-rows-min-height));
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-1);
   border-bottom: 1px solid var(--color-border-subtle);
 }
 .insp-panel__node-name {
@@ -325,7 +320,8 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--tracking-micro);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
 }
 .insp-context-header__target {
   min-width: 0;
@@ -397,7 +393,7 @@
   text-decoration-thickness: 2px;
 }
 .insp-panel__restriction-action:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
   border-radius: var(--radius-control-compact);
 }
@@ -514,7 +510,8 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold, 700);
-  letter-spacing: var(--tracking-micro);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
 }
 
 /* ---------- Disclosure section (APG) — quiet grouping ----------
@@ -525,31 +522,24 @@
  */
 .insp-disclosure {
   position: relative;
-  /* The section rule is drawn by the sticky header (it must travel with the
-   * header while scrolling), so the hover affordance tints that hairline
-   * rather than adding a second line at the section's end. */
-  --insp-section-rule: var(--color-border-subtle);
   border: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
   border-radius: 0;
   background: transparent;
   padding: 0;
-  /* Section-to-section gap. This is what makes grouping legible: it must stay
-   * clearly larger than the space-1 gap between two fields inside a section.
-   * The panel's own gap contributes too, so the rendered separation is about
-   * twice this value. */
-  margin-bottom: var(--insp-section-gap, var(--space-2));
+  /* Content stays close to its own header (space-1 top padding below); this
+   * margin is the section-to-section gap, so grouping reads correctly:
+   * tighter within a section than between two different sections. */
+  margin-bottom: var(--space-2);
+  transition: border-color var(--duration-quick) var(--ease-standard);
 }
 .insp-disclosure:hover {
-  --insp-section-rule: color-mix(
+  border-bottom-color: color-mix(
     in srgb,
     var(--color-border-strong) 40%,
     var(--color-border-subtle)
   );
 }
-/* The registry composes sections as direct children of the scrolling panel,
- * so this is the true last section. (A keyed wrapper element used to make
- * every section its parent's last child, which zeroed the gap for all of
- * them and left sections separated only by the panel gap.) */
 .insp-disclosure:last-child {
   margin-bottom: 0;
 }
@@ -566,16 +556,16 @@
   /* `.insp-panel` owns an 8px outer inset. Offset the sticky box through that
      inset so preceding rows cannot remain visible above a section header when
      the rail is scrolled. The opaque surface below owns the overlap. */
-  top: calc(-1 * var(--insp-panel-inset, var(--space-2)));
+  top: calc(-1 * var(--space-2));
   z-index: 1;
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
   margin-inline: 0;
-  padding: 0;
+  padding: var(--space-1) 0;
   background: var(--color-surface-base);
-  box-shadow: 0 1px 0 var(--insp-section-rule);
+  box-shadow: 0 1px 0 var(--color-border-subtle);
   border-radius: 0;
 }
 
@@ -584,21 +574,18 @@
   align-items: center;
   gap: var(--space-1);
   width: 100%;
-  /* WCAG 2.5.8: a pointer target of at least 24x24 CSS px. The header takes
-   * the active density row height so section navigation is the most
-   * comfortable target in the panel in both modes (and Compact Pro headers
-   * are no longer taller than its own rows). The spacing exception does not
-   * apply because the headers are stacked with no gap. */
-  min-height: var(--insp-row-height, 24px);
-  padding: 0;
+  /* WCAG 2.5.8: a pointer target of at least 24x24 CSS px. The section
+   * headers are stacked with no gap, so the spacing exception does not apply. */
+  min-height: 24px;
+  padding: var(--space-1) 0;
   background: none;
   border: none;
   color: var(--color-text-secondary);
   font: inherit;
-  font-size: var(--type-interface-subheading-size);
-  font-weight: var(--type-interface-subheading-weight);
-  line-height: var(--type-interface-subheading-line-height);
-  letter-spacing: var(--tracking-micro);
+  font-size: var(--insp-value-size, var(--font-size-xs));
+  font-weight: var(--font-weight-bold, 700);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
   cursor: pointer;
   transition: color var(--duration-quick) var(--ease-standard);
 }
@@ -629,7 +616,7 @@
   min-width: 0;
 }
 .insp-disclosure__trigger:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
   border-radius: var(--radius-control-compact);
 }
@@ -653,20 +640,19 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: right;
-  font-weight: var(--font-weight-regular);
+  font-weight: var(--font-weight-normal, 400);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
 }
 .insp-disclosure__content {
   display: flex;
   flex-direction: column;
-  gap: var(--insp-content-gap, var(--space-1));
+  gap: var(--space-1);
   /* Reset UA fieldset chrome (groove border, inline margins, min-content sizing) */
   border: none;
   margin: 0;
   min-inline-size: 0;
-  padding: var(--insp-content-pad-start, var(--space-1)) 0
-    var(--insp-content-pad-end, var(--space-2));
+  padding: var(--space-1) 0 var(--space-2);
 }
 
 /* ── Section Manager (panel header customize button) ── */
@@ -694,7 +680,7 @@
   color: var(--color-text-primary);
 }
 .insp-section-manager__trigger:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 .insp-section-manager__badge {
@@ -713,8 +699,8 @@
 }
 .insp-section-manager__panel {
   position: static;
-  width: var(--insp-popover-inline);
-  max-height: var(--insp-popover-max-block);
+  width: 280px;
+  max-height: 400px;
   overflow-y: auto;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
@@ -745,7 +731,7 @@
   color: var(--color-text-primary);
 }
 .insp-section-manager__action:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 .insp-section-manager__list {
@@ -764,7 +750,8 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
-  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
   padding: var(--space-1) 0;
 }
 .insp-section-manager__item {
@@ -775,14 +762,14 @@
   border-radius: var(--radius-control-compact);
   font-size: var(--font-size-sm);
   transition:
-    background var(--duration-quick),
-    opacity var(--duration-quick);
+    background 0.1s,
+    opacity 0.1s;
 }
 .insp-section-manager__item:hover {
   background: var(--color-surface-hover);
 }
 .insp-section-manager__item:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-default);
+  outline: 2px solid var(--color-interactive-default);
   outline-offset: -2px;
 }
 .insp-section-manager__item--hidden {
@@ -821,8 +808,8 @@
   background: var(--color-surface-hover);
 }
 .insp-section-manager__toggle:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-default);
-  outline-offset: var(--focus-ring-offset-inset);
+  outline: 2px solid var(--color-interactive-default);
+  outline-offset: -1px;
 }
 .insp-section-manager__toggle:disabled {
   opacity: 0.4;
@@ -839,7 +826,8 @@
   flex-shrink: 0;
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
-  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 .insp-section-manager__essential {
   font-size: var(--font-size-xs);
@@ -915,7 +903,7 @@
 .insp-disclosure__context-menu-item:hover,
 .insp-disclosure__context-menu-item:focus-visible {
   background: var(--color-surface-hover);
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
@@ -978,11 +966,11 @@
 }
 
 .selection-colors__hex {
-  font-family: var(--font-mono);
+  font-family: var(--font-family-mono, monospace);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
-  letter-spacing: var(--tracking-micro);
+  letter-spacing: 0.02em;
 }
 
 .selection-colors__sub {
@@ -1046,8 +1034,8 @@
 
 .selection-colors__target-btn:focus-visible,
 .selection-colors__copy-btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
-  outline-offset: var(--focus-ring-offset-inset);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
 }
 
 .selection-colors__more {
@@ -1067,7 +1055,7 @@
 }
 
 .selection-colors__more:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -1083,15 +1071,9 @@
 .insp-panel .varve-select__trigger,
 .insp-disclosure .varve-select__trigger,
 .insp-fill-add .varve-select__trigger {
-  /* The shared Select owns the control grammar; the Inspector only adapts
-   * its row height to the global density contract. Keeping a fixed 2rem here
-   * made Default Pro selects shorter than NumberFields and made Compact Pro
-   * selects taller than the rest of the panel. */
-  min-height: var(--insp-row-height, var(--density-rows-min-height));
-  height: var(--insp-row-height, var(--density-rows-min-height));
-  /* Same inset as the numeric fields; the shared trigger's space-3 is the
-   * step every other field already uses, so the panel speaks one inset. */
-  padding: 0 var(--space-3);
+  min-height: 2rem;
+  height: 2rem;
+  padding: 0 var(--space-2);
   font-size: var(--insp-value-size, var(--font-size-xs));
   border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
@@ -1176,7 +1158,7 @@
 .insp-fill-add__menu-item:hover,
 .insp-fill-add__menu-item:focus-visible {
   background: var(--color-surface-hover);
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
@@ -1258,15 +1240,15 @@
  * single compact target keeps the visible row from carrying four
  * reorder/remove icons. */
 .insp-paint-row .insp-paint-row__drag-handle {
-  min-inline-size: var(--insp-row-height);
-  min-block-size: var(--insp-row-height);
-  flex: 0 0 var(--insp-row-height);
+  min-inline-size: var(--component-compact-height);
+  min-block-size: var(--component-compact-height);
+  flex: 0 0 var(--component-compact-height);
 }
 
 .insp-effect-row__drag-handle {
-  min-inline-size: var(--insp-row-height);
-  min-block-size: var(--insp-row-height);
-  flex: 0 0 var(--insp-row-height);
+  min-inline-size: var(--component-compact-height);
+  min-block-size: var(--component-compact-height);
+  flex: 0 0 var(--component-compact-height);
 }
 
 /* Touch and stylus pointers get the larger target without making the default
@@ -1315,7 +1297,7 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--insp-field-group-gap, var(--space-2));
+  gap: var(--space-2);
   min-width: 0;
 }
 
@@ -1325,7 +1307,7 @@
 .insp-layout-controls {
   display: flex;
   flex-direction: column;
-  gap: var(--insp-content-gap, var(--space-1));
+  gap: var(--space-1);
   min-inline-size: 0;
 }
 
@@ -1356,23 +1338,20 @@
 .insp-layout-sizing {
   display: flex;
   flex-direction: column;
-  /* Width/Height and the clamp rows are separate semantic groups. The group
-   * boundary is carried by the group gap alone: the rule this block used to
-   * draw was the same hairline as a section header's, so a mid-section label
-   * ("Sizing") read as a new section. In the Inspector, rules mark section
-   * boundaries only; labels mark groups. */
-  gap: var(--insp-content-gap, var(--space-1));
+  gap: var(--space-1);
   min-inline-size: 0;
-  margin-block-start: var(--insp-field-group-gap, var(--space-2));
-  padding-block-start: var(--space-1);
+  margin-block-start: var(--space-2);
+  padding-block-start: var(--space-2);
+  border-block-start: 1px solid var(--color-border-subtle);
 }
 
 .insp-layout-sizing__title {
   color: var(--color-text-secondary);
   font-size: var(--insp-label-size, var(--font-size-2xs));
   font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--tracking-micro);
+  letter-spacing: 0.02em;
   line-height: var(--type-interface-label-line-height);
+  text-transform: uppercase;
 }
 
 .insp-layout-sizing__actions {
@@ -1396,9 +1375,7 @@
 .insp-field__label.insp-field__label--wrap {
   white-space: normal;
   overflow-wrap: anywhere;
-  /* Same rhythm line as the unwrapped label — a wrapping label must not
-   * change the row's type beat (pass-2 audit IA-002: 15px vs 16.2px split). */
-  line-height: var(--type-interface-label-line-height);
+  line-height: 1.25;
 }
 .insp-field__label--disabled {
   cursor: default;
@@ -1416,21 +1393,14 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
-/* Modifiers out-specify the base `.insp-field__control` rule, which is
- * declared later in the responsive field grammar. At equal specificity the
- * later base rule wins, so a plain `.insp-field__control--gap-2` or
- * `--column` here silently lost its declaration: the Snap targets column
- * rendered centre-aligned (indenting the shorter switch row) and every
- * `--gap-2` row kept the base gap. The doubled class is the same
- * cascade-order pattern `.insp-field__label--wrap` uses. */
-.insp-field__control.insp-field__control--inline {
+.insp-field__control--inline {
   width: auto;
   max-width: 100%;
 }
-.insp-field__control.insp-field__control--gap-2 {
+.insp-field__control--gap-2 {
   gap: var(--space-2);
 }
-.insp-field__control.insp-field__control--column {
+.insp-field__control--column {
   flex-direction: column;
   align-items: flex-start;
 }
@@ -1520,12 +1490,8 @@
   box-sizing: border-box;
   /* One field-height contract: match the shared compact control height and
    * the dropdowns beside it instead of a fluid spacing token. */
-  height: var(--insp-row-height);
-  /* Every field in the panel insets its value by the same step as the shared
-   * Select trigger. --space-2 measured 5.92px, below the 8px floor compact
-   * form controls use in Atlassian/GEL-style systems, and made right-aligned
-   * numbers crowd the field edge. */
-  padding: 0 var(--space-3);
+  height: var(--component-compact-height);
+  padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
@@ -1546,8 +1512,8 @@
 }
 .insp-num__input:focus-visible {
   border-color: var(--color-border-focus);
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
-  outline-offset: var(--focus-ring-offset-inset);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
   background: var(--color-surface-app);
 }
 .insp-num__input[aria-invalid="true"] {
@@ -1594,26 +1560,22 @@
   width: 0;
   min-width: 3.5rem;
   /* Match the number fields and shared selects (compact control height). */
-  height: var(--insp-row-height);
+  height: var(--component-compact-height);
   font-size: var(--font-size-xs);
   background: var(--color-surface-sunken);
   color: var(--color-text-primary);
-  /* Inset text inputs are fields, not flat readouts: the border is visible at
-   * rest like .insp-num__input and the shared Select trigger, and darkens on
-   * hover. A transparent rest border made the grid-template fields look like
-   * a different control than the fields beside them. */
-  border: 1px solid var(--color-border-subtle);
+  border: 1px solid transparent;
   border-radius: var(--radius-control-compact);
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-2);
   font-family: inherit;
   transition: border-color var(--duration-quick) var(--ease-standard);
 }
 .insp-select:hover {
-  border-color: var(--color-border-strong);
+  border-color: var(--color-border-subtle);
 }
 .insp-select:focus-visible {
   border-color: var(--color-border-focus);
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
@@ -1666,8 +1628,8 @@
 }
 
 .insp-add-btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
-  outline-offset: var(--focus-ring-offset-inset);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
 }
 
 .insp-swatch {
@@ -1684,7 +1646,7 @@
 }
 
 .insp-swatch:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 
@@ -1697,16 +1659,6 @@
  * round color chip convention in Figma/Sketch-style effect stacks. */
 .insp-swatch--round {
   border-radius: 50%;
-}
-
-/* Inline status chip beside text (Adaptive Contrast status row). Decorative,
- * so it is not a pointer target. */
-.insp-swatch--sm {
-  width: 1rem;
-  height: 1rem;
-  min-width: 1rem;
-  min-height: 1rem;
-  cursor: default;
 }
 
 /* Value pill: the swatch face plus the paint's readout (#4A90E2, Gradient,
@@ -1826,7 +1778,7 @@
 }
 
 .insp-picker-dialog__close:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 
@@ -1844,7 +1796,7 @@
 }
 
 .insp-picker-done:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 
@@ -1903,7 +1855,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: var(--insp-row-height);
+  min-height: var(--component-compact-height);
 }
 
 .insp-text-btn {
@@ -1923,7 +1875,7 @@
 }
 
 .insp-text-btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -1938,7 +1890,7 @@
   align-items: center;
   gap: var(--space-1);
   /* Field-height contract: this button stands in for a text field. */
-  min-height: var(--insp-row-height);
+  min-height: var(--component-compact-height);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
   color: var(--color-text-primary);
@@ -1957,7 +1909,7 @@
   border-color: var(--color-interactive-hover);
 }
 .insp-btn-sm:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 .insp-btn-sm[aria-pressed="true"] {
@@ -1970,7 +1922,7 @@
 
 .insp-per-side {
   width: var(--space-7);
-  height: var(--insp-row-height);
+  height: var(--component-compact-height);
   box-sizing: border-box;
   font-size: var(--font-size-xs);
   background: var(--color-surface-sunken);
@@ -1986,7 +1938,7 @@
 }
 .insp-per-side:focus-visible {
   border-color: var(--color-border-focus);
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
@@ -2014,8 +1966,8 @@
 
 .insp-flip-btn {
   /* Inline field action: same height as the field beside it. */
-  width: var(--insp-row-height);
-  height: var(--insp-row-height);
+  width: var(--component-compact-height);
+  height: var(--component-compact-height);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2038,7 +1990,7 @@
 }
 
 .insp-flip-btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -2046,6 +1998,34 @@
   background: var(--color-accent-subtle);
   border-color: var(--color-interactive-default);
   color: var(--color-interactive-default);
+}
+
+.insp-orientation-btn {
+  width: var(--component-compact-height);
+  height: var(--component-compact-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  padding: 0;
+  flex-shrink: 0;
+  border-radius: var(--radius-control-compact);
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
+}
+.insp-orientation-btn:hover {
+  background: var(--color-surface-app);
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+}
+.insp-orientation-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
 }
 
 .insp-proportion-lock {
@@ -2082,7 +2062,7 @@
 }
 
 .insp-proportion-lock:has(.insp-proportion-lock__input:focus-visible) {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -2237,6 +2217,7 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
 }
 .insp-align-popover label {
   display: flex;
@@ -2312,10 +2293,7 @@
   justify-content: space-between;
   gap: var(--space-2);
   min-width: 0;
-  /* Matches the section-header row height so the alignment block's label
-   * sits on the panel's rhythm instead of a smaller local step. */
-  min-height: var(--insp-row-height, var(--density-rows-min-height));
-  padding: var(--space-2) 0;
+  padding: var(--space-1) 0;
   margin-bottom: 0;
   background: var(--color-surface-base);
 }
@@ -2336,7 +2314,8 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold, 700);
-  letter-spacing: var(--tracking-micro);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
 }
 .insp-align-section__summary {
   min-width: 0;
@@ -2348,7 +2327,7 @@
   white-space: nowrap;
 }
 .insp-align-section > .insp-align-bar {
-  padding-bottom: var(--insp-content-gap, var(--space-1));
+  padding-bottom: var(--space-2);
 }
 [data-theme="high-contrast"] .insp-align-section {
   border: 0;
@@ -2370,9 +2349,7 @@
   height: 18px;
   flex-shrink: 0;
   background: var(--color-border-subtle);
-  /* A micro step (1.55px) read as a stray edge between two icon buttons; the
-   * separator needs more air than the buttons' own gap to mean a group break. */
-  margin: 0 var(--space-1);
+  margin: 0 var(--space-05);
 }
 
 .insp-smoothing-value {
@@ -2388,24 +2365,6 @@
   border-radius: 50%;
   background: var(--color-interactive-default);
   margin-left: var(--space-05);
-}
-
-/* Text variant: OcrSection reports the detected orientation and confidence in
- * a badge. The dot base was never a text container, so without this modifier
- * the copy overflowed a ~3px box. */
-.insp-badge--info {
-  display: inline-flex;
-  align-items: center;
-  width: auto;
-  height: auto;
-  min-height: var(--target-min-compact);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-pill);
-  background: color-mix(in oklab, var(--color-feedback-info) 15%, transparent);
-  color: var(--color-text-primary);
-  font-size: var(--font-size-xs);
-  line-height: var(--font-line-label);
-  margin-left: 0;
 }
 
 .insp-corner-radius-row {
@@ -2524,7 +2483,7 @@
   color: var(--color-text-primary);
 }
 .insp-icon-btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 .insp-icon-btn--active {
@@ -2536,7 +2495,7 @@
   color: var(--color-feedback-danger);
 }
 .insp-icon-btn--danger:hover {
-  background: color-mix(in oklab, var(--color-feedback-danger) 15%, transparent);
+  background: var(--color-danger-subtle, rgba(239, 68, 68, 0.15));
   border-color: transparent;
   color: var(--color-feedback-danger);
 }
@@ -2581,7 +2540,7 @@
   min-width: 120px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-05);
+  gap: 1px;
 }
 
 .insp-dropdown__item {
@@ -2751,15 +2710,98 @@
   color: var(--color-text-secondary);
 }
 
-/* Radio-group visuals live on the canonical @varve/ui SegmentedControl
- * (.varve-segmented in packages/ui/src/components/components.css); the
- * Inspector composes that component directly rather than re-implementing
- * the track, its states, or the APG roving-tabindex behaviour. */
+/* ---------- SegmentedControl (APG Radiogroup) ----------
+ * Inset-pill style: sunken track, rounded segment buttons, accent fill on
+ * the active segment (reference: Figma constraints/alignment pickers).
+ */
+.insp-segmented {
+  display: inline-flex;
+  gap: var(--space-05);
+  padding: var(--space-05);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control-compact);
+}
+/*
+ * The styled <label> provides the visuals while the real radio carries the
+ * semantics. `hidden` on that input removed it from the accessibility tree
+ * altogether, so the wrapping role="radiogroup" announced a group with no
+ * options and keyboard users had nothing to select. Clip it instead: still
+ * rendered, still focusable, still exposed.
+ */
+.insp-segmented input[type="radio"],
+.insp-segmented input[type="checkbox"],
+.insp-radio-btn input[type="radio"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  border: 0;
+  clip-path: inset(50%);
+}
 
-/* CurveEditor keeps a tighter channel switcher than the Inspector default. */
-.insp-curve-channel .varve-segmented__btn {
+.insp-segmented__btn:focus-within,
+.insp-radio-btn:focus-within {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
+.insp-radio-btn {
+  position: relative;
+}
+
+.insp-segmented__btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  min-height: 1.5rem;
+  height: auto;
+  background: transparent;
+  border: none;
+  border-radius: calc(var(--radius-control-compact) - 1px);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
+}
+.insp-segmented__btn:hover {
+  color: var(--color-text-primary);
+}
+.insp-segmented__btn[aria-pressed="true"],
+.insp-segmented__btn[aria-checked="true"] {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
+.insp-segmented__btn[aria-pressed="true"]:hover,
+.insp-segmented__btn[aria-checked="true"]:hover {
+  background: var(--color-interactive-hover);
+}
+.insp-segmented__btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+[data-theme="high-contrast"] .insp-segmented {
+  border-color: var(--color-border-subtle);
+}
+
+/* Full-width fill-type track: equal segments, centered labels. */
+.insp-segmented--distribute {
+  display: flex;
+  width: 100%;
+}
+.insp-segmented--distribute .insp-segmented__btn {
+  flex: 1 1 0;
+  min-width: 0;
   padding: 0 var(--space-1);
-  font-size: var(--font-size-2xs);
 }
 
 /* Image placement actions */
@@ -2805,8 +2847,9 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--tracking-micro);
+  letter-spacing: 0.02em;
   line-height: 1;
+  text-transform: uppercase;
 }
 
 .insp-paint-row__opacity {
@@ -2955,8 +2998,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--insp-row-height);
-  height: var(--insp-row-height);
+  width: var(--component-compact-height);
+  height: var(--component-compact-height);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   background: var(--color-surface-default);
@@ -2964,8 +3007,8 @@
   font-size: var(--font-size-md);
   cursor: pointer;
   transition:
-    background var(--duration-quick) var(--ease-standard),
-    border-color var(--duration-quick) var(--ease-standard);
+    background 0.1s ease,
+    border-color 0.1s ease;
 }
 .insp-image-fill__flip-btn:hover {
   background: var(--color-surface-raised);
@@ -3042,7 +3085,7 @@
     .varve-switch__input,
     .varve-checkbox__input
   ):focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 .insp-checkbox-row {
@@ -3074,7 +3117,8 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
-  letter-spacing: var(--tracking-micro);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
   margin-bottom: var(--space-1);
 }
 .insp-panel__color-mode {
@@ -3102,7 +3146,7 @@
   flex: 1;
   width: 0;
   min-width: 3.5rem;
-  height: var(--insp-row-height);
+  height: var(--component-compact-height);
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid transparent;
@@ -3118,7 +3162,7 @@
 }
 .insp-paint-library__search-input:focus-visible {
   border-color: var(--color-border-focus);
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 .insp-paint-library__add-btn {
@@ -3148,8 +3192,8 @@
   border-color: var(--color-border-strong);
 }
 .insp-paint-library__add-btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
-  outline-offset: var(--focus-ring-offset-inset);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
 }
 .insp-paint-library__list {
   display: flex;
@@ -3172,8 +3216,8 @@
   background: var(--color-surface-sunken);
 }
 .insp-paint-library__entry:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
-  outline-offset: var(--focus-ring-offset-inset);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
 }
 .insp-paint-library__swatch {
   width: 1.25rem;
@@ -3188,7 +3232,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--space-05);
+  gap: 1px;
   min-width: 0;
 }
 .insp-paint-library__name {
@@ -3202,7 +3246,8 @@
 .insp-paint-library__badge {
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
-  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
   line-height: 1.2;
 }
 .insp-paint-library__actions {
@@ -3232,7 +3277,7 @@
   color: var(--color-text-primary);
 }
 .insp-paint-library__action-btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 .insp-paint-library__action-btn--danger:hover {
@@ -3285,7 +3330,7 @@
   background: var(--color-surface-hover);
 }
 .insp-paint-library__confirm-btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 .insp-paint-library__confirm-btn--danger {
@@ -3309,18 +3354,13 @@
   gap: var(--space-1);
   padding-bottom: var(--space-3);
 }
-/* Stacked field groups. A section's content container is also a fieldset, but
- * its rhythm belongs to `.insp-disclosure__content`; without this exclusion
- * the group gap (space-2) silently replaced the section's own (space-1), so
- * the gap between two fields equalled the gap between two sections and every
- * section read as one undifferentiated stack. */
-.insp-panel fieldset:not(.insp-disclosure__content),
+.insp-panel fieldset,
 fieldset.insp-canvas-props,
 .insp-canvas-props {
   display: flex;
   flex-direction: column;
-  gap: var(--insp-field-group-gap);
-  padding: var(--insp-content-pad-start) 0 var(--insp-content-pad-end);
+  gap: var(--space-2);
+  padding: var(--space-1) 0 var(--space-2);
   border: none;
   margin: 0;
   min-inline-size: 0;
@@ -3328,7 +3368,7 @@ fieldset.insp-canvas-props,
 .insp-canvas-props .insp-field {
   align-items: center;
   gap: var(--space-3);
-  min-height: var(--insp-row-height);
+  min-height: var(--density-rows-min-height);
 }
 .insp-canvas-props .insp-field__label {
   min-width: 4.5rem;
@@ -3375,14 +3415,51 @@ fieldset.insp-canvas-props,
   gap: var(--space-1);
 }
 
+/* ---------- Slider (APG Slider) ---------- */
+.insp-slider {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  /* A flex item's default min-width is its content, so a row holding a
+     range input, a value and a reset button pushes past the panel and
+     scrolls it sideways — which clips the labels of every other row. */
+  min-width: 0;
+}
+.insp-slider__track {
+  position: relative;
+  flex: 1;
+  height: var(--space-1);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-pill);
+}
+.insp-slider__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--color-interactive-default);
+  border-radius: var(--radius-pill);
+}
+.insp-slider__thumb {
+  position: absolute;
+  top: 50%;
+  width: var(--space-3);
+  height: var(--space-3);
+  margin-left: -7px;
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+  transform: translateY(-50%);
+}
+.insp-slider__thumb:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
 /* ---------- Typography text input ---------- */
 .typography__text-input {
   width: 100%;
   min-height: 48px;
-  /* Matches the one field inset: text areas carry the same horizontal step as
-   * single-line fields, with a small vertical step so wrapped copy is not
-   * pressed against the border. */
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-2);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
@@ -3396,7 +3473,7 @@ fieldset.insp-canvas-props,
 
 .typography__text-input:focus-visible {
   border-color: var(--color-interactive-default);
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
@@ -3426,8 +3503,8 @@ fieldset.insp-canvas-props,
 }
 
 .typography__browse-fonts:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
-  outline-offset: var(--focus-ring-offset-inset);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
 }
 
 /* ---------- Rich text span editor ---------- */
@@ -3456,7 +3533,7 @@ fieldset.insp-canvas-props,
 
 .rich-span-editor__box:focus-visible {
   border-color: var(--color-interactive-default);
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
@@ -3493,7 +3570,7 @@ fieldset.insp-canvas-props,
 }
 
 .rich-span-editor__btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-default);
+  outline: 2px solid var(--color-interactive-default);
   outline-offset: 1px;
 }
 
@@ -3521,7 +3598,7 @@ fieldset.insp-canvas-props,
 .insp-opentype-row select,
 .insp-opentype-index {
   min-width: 74px;
-  min-height: var(--insp-row-height);
+  min-height: var(--component-compact-height);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
@@ -3549,7 +3626,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-opentype-status[data-state="unknown"] {
-  color: var(--color-feedback-warning);
+  color: var(--color-text-warning, var(--color-text-secondary));
 }
 
 .insp-feature-browser {
@@ -3581,7 +3658,7 @@ fieldset.insp-canvas-props,
 
 .insp-feature-browser__search {
   width: 100%;
-  min-height: var(--insp-row-height);
+  min-height: var(--component-compact-height);
   box-sizing: border-box;
   padding-inline: var(--space-2);
   border: 1px solid var(--color-border-subtle);
@@ -3594,10 +3671,7 @@ fieldset.insp-canvas-props,
 .insp-feature-browser__size input {
   min-width: 0;
   flex: 1;
-  /* WCAG 2.2 SC 2.5.8: the visual track is thin, but the input's hit area is
-     the element box — raising it to the compact target keeps the visual track
-     unchanged and the pointer band compliant. */
-  min-block-size: var(--target-min-compact);
+  accent-color: var(--color-interactive-default);
 }
 
 .insp-feature-browser__list {
@@ -3633,7 +3707,7 @@ fieldset.insp-canvas-props,
 .insp-feature-browser__search:focus-visible,
 .insp-opentype-row select:focus-visible,
 .insp-opentype-index:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -3674,34 +3748,77 @@ fieldset.insp-canvas-props,
 }
 
 /* ---------- Variable font axis slider ---------- */
-.insp-axis-control {
-  display: flex;
-  flex: 1 1 0;
-  align-items: center;
-  gap: var(--space-2);
-  min-inline-size: 0;
+.insp-slider__input {
+  flex: 1;
+  /* Without this the input refuses to shrink below its intrinsic width and
+     the row overflows the panel instead. */
+  min-width: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  block-size: var(--component-xs-height);
+  accent-color: var(--color-interactive-default);
+  cursor: pointer;
 }
 
-.insp-axis-control .range-value-control {
-  flex: 1 1 0;
-  min-inline-size: 0;
+.insp-slider__input::-webkit-slider-runnable-track {
+  height: var(--space-1);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-pill);
 }
 
-/* Direct range inputs in a field row (document settings) fill the control
- * column; the skin itself is owned by `.varve-native-range`. */
-.insp-field__control > input[type="range"] {
-  flex: 1 1 0;
-  min-inline-size: 0;
+.insp-slider__input::-moz-range-track {
+  height: var(--space-1);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-pill);
+}
+
+.insp-slider__input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  margin-top: calc((var(--space-1) - var(--space-4)) / 2);
+  border: 2px solid var(--color-interactive-default);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  box-shadow: var(--elevation-shadow-raised);
+}
+
+.insp-slider__input::-moz-range-thumb {
+  width: var(--space-4);
+  height: var(--space-4);
+  border: 2px solid var(--color-interactive-default);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  box-shadow: var(--elevation-shadow-raised);
+}
+
+.insp-slider__input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+.insp-slider__input:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.insp-slider__value {
+  min-width: 32px;
+  text-align: right;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Per-axis reset for variable fonts. Disabled while the axis already sits at
    the font's own default, so the control states what the value is as well as
    offering to change it. */
-.insp-axis-reset {
+.insp-slider__reset {
   flex: none;
   /* WCAG 2.5.8 target and the shared field height. */
-  min-width: var(--insp-row-height);
-  min-height: var(--insp-row-height);
+  min-width: var(--component-compact-height);
+  min-height: var(--component-compact-height);
   padding: 0 var(--space-1);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
@@ -3710,15 +3827,15 @@ fieldset.insp-canvas-props,
   border-radius: var(--radius-control-compact);
   cursor: pointer;
 }
-.insp-axis-reset:hover:not(:disabled) {
+.insp-slider__reset:hover:not(:disabled) {
   color: var(--color-text-primary);
-  border-color: var(--color-border-subtle);
+  border-color: var(--color-border-default);
 }
-.insp-axis-reset:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-default);
+.insp-slider__reset:focus-visible {
+  outline: 2px solid var(--color-interactive-default);
   outline-offset: 1px;
 }
-.insp-axis-reset:disabled {
+.insp-slider__reset:disabled {
   opacity: 0.4;
   cursor: default;
 }
@@ -3774,7 +3891,7 @@ fieldset.insp-canvas-props,
   border-bottom-color: var(--color-interactive-default);
 }
 .intelligence-tab:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 .intelligence-tab-content {
@@ -3802,7 +3919,8 @@ fieldset.insp-canvas-props,
   width: 100%;
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
-  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
   padding: var(--space-1) 0 0;
 }
 .intelligence-tab--small {
@@ -3828,7 +3946,7 @@ fieldset.insp-canvas-props,
 
 .similarity-mode-picker {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: var(--space-1);
   padding: var(--space-1);
   background: var(--elevation-surface-sunken);
@@ -3841,7 +3959,7 @@ fieldset.insp-canvas-props,
   color: var(--color-text-secondary);
   font-size: var(--insp-label-size);
   font-weight: 600;
-  letter-spacing: var(--tracking-micro);
+  letter-spacing: 0.02em;
 }
 
 .intelligence-text-input {
@@ -3856,7 +3974,7 @@ fieldset.insp-canvas-props,
 }
 
 .intelligence-text-input:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 .similarity-mode-picker__option {
@@ -3878,7 +3996,7 @@ fieldset.insp-canvas-props,
 }
 .similarity-mode-picker__option:focus-within,
 .similarity-result:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 .similarity-results {
@@ -3944,7 +4062,7 @@ fieldset.insp-canvas-props,
   color: var(--color-text-primary);
 }
 .intelligence-issue__target:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
   border-radius: var(--radius-control-compact);
 }
@@ -4027,7 +4145,8 @@ fieldset.insp-canvas-props,
   font-size: var(--font-size-2xs);
   padding: 1px var(--space-1);
   border-radius: var(--radius-pill);
-  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
   font-weight: var(--font-weight-semibold);
   flex-shrink: 0;
 }
@@ -4082,7 +4201,7 @@ fieldset.insp-canvas-props,
   cursor: not-allowed;
 }
 .intelligence-action-btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 [data-theme="high-contrast"] .intelligence-action-btn {
@@ -4146,7 +4265,7 @@ fieldset.insp-canvas-props,
   font-weight: var(--font-weight-medium);
 }
 .palette-section__source-mode:has(input:focus-visible) {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 .palette-section__source-mode input {
@@ -4175,8 +4294,8 @@ fieldset.insp-canvas-props,
 }
 .palette-section__count-input {
   width: 100%;
-  min-height: var(--insp-row-height, var(--component-compact-height));
-  height: var(--insp-row-height, var(--component-compact-height));
+  min-height: var(--component-compact-height);
+  height: var(--component-compact-height);
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid transparent;
@@ -4193,7 +4312,7 @@ fieldset.insp-canvas-props,
 }
 .palette-section__count-input:focus-visible {
   border-color: var(--color-border-focus);
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 .palette-section__status {
@@ -4223,7 +4342,7 @@ fieldset.insp-canvas-props,
 .palette-section__swatch-actions button:focus-visible,
 .palette-section__actions button:focus-visible,
 .palette-section__harmony-swatch:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 .palette-section__hint {
@@ -4395,7 +4514,7 @@ fieldset.insp-canvas-props,
   align-items: center;
   justify-content: center;
   width: var(--space-8);
-  height: var(--component-compact-height);
+  height: var(--space-6);
   border: var(--border-micro);
   border-radius: var(--radius-control-compact);
   font-weight: var(--font-weight-semibold);
@@ -4469,7 +4588,7 @@ fieldset.insp-canvas-props,
 /* ---------- Adjustment histogram channels ---------- */
 .histogram-widget__channels {
   display: inline-flex;
-  gap: var(--space-1);
+  gap: 2px;
   align-self: flex-end;
 }
 
@@ -4498,7 +4617,7 @@ fieldset.insp-canvas-props,
 .histogram-widget__channels label:has(input:focus-visible) {
   border-color: var(--color-accent-primary);
   color: var(--color-text-primary);
-  background: var(--color-interactive-selected-surface);
+  background: var(--color-surface-selected);
 }
 
 /* ---------- Gap histogram ---------- */
@@ -4510,7 +4629,8 @@ fieldset.insp-canvas-props,
 .intelligence-histogram__label {
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
-  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
 }
 .intelligence-histogram__bars {
   display: flex;
@@ -4572,13 +4692,13 @@ fieldset.insp-canvas-props,
   cursor: pointer;
   width: 100%;
   justify-content: center;
-  transition: background-color var(--duration-fast) var(--ease-standard);
+  transition: background 0.15s;
 }
 .caf-entry-button:hover {
   background: var(--color-interactive-hover);
 }
 .caf-entry-button:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 
@@ -4593,7 +4713,8 @@ fieldset.insp-canvas-props,
   margin: 0 0 var(--space-1);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  letter-spacing: var(--tracking-micro);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
   color: var(--color-text-muted);
 }
 
@@ -4662,9 +4783,9 @@ fieldset.insp-canvas-props,
 }
 
 .insp-actions .varve-btn--sm {
-  min-height: var(--insp-row-height);
+  min-height: 32px;
   min-width: auto;
-  height: var(--insp-row-height, var(--component-compact-height));
+  height: 32px;
   padding: 0 var(--space-3);
   font-size: var(--font-size-xs);
 }
@@ -4750,7 +4871,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-stepper__btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -4759,9 +4880,60 @@ fieldset.insp-canvas-props,
   text-align: center;
 }
 
-/* Range inputs use the shared `.varve-native-range` skin (components.css).
- * Only layout belongs here; a local track/thumb declaration would fork the
- * design system and is rejected by tests/unit/slider-system.test.ts. */
+.insp-range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  block-size: var(--component-xs-height);
+  border: 0;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--color-interactive-default);
+}
+
+.insp-range::-webkit-slider-runnable-track {
+  height: var(--space-1);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-pill);
+}
+
+.insp-range::-moz-range-track {
+  height: var(--space-1);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-pill);
+}
+
+.insp-range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  margin-top: calc((var(--space-1) - var(--space-4)) / 2);
+  border: 2px solid var(--color-interactive-default);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  box-shadow: var(--elevation-shadow-raised);
+}
+
+.insp-range::-moz-range-thumb {
+  width: var(--space-4);
+  height: var(--space-4);
+  border: 2px solid var(--color-interactive-default);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  box-shadow: var(--elevation-shadow-raised);
+}
+
+.insp-range:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+.insp-range:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
 
 .insp-field__control output {
   min-width: 2.5rem;
@@ -4920,7 +5092,7 @@ fieldset.insp-canvas-props,
 }
 .binding-menu__input {
   width: 100%;
-  height: var(--insp-row-height, var(--component-compact-height));
+  height: var(--component-compact-height);
   font-size: var(--font-size-xs);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
@@ -4930,7 +5102,7 @@ fieldset.insp-canvas-props,
   margin-bottom: var(--space-1);
 }
 .binding-menu__input:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 .binding-menu__list {
@@ -4980,7 +5152,7 @@ fieldset.insp-canvas-props,
 }
 .gradient-editor__select {
   flex: 1;
-  height: var(--insp-row-height, var(--component-compact-height));
+  height: var(--component-compact-height);
   font-size: var(--font-size-xs);
   background: var(--elevation-surface-sunken);
   color: var(--color-text-primary);
@@ -5080,7 +5252,7 @@ fieldset.insp-canvas-props,
   border-color: var(--color-border-strong);
 }
 .debt-badge:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 .debt-badge__count {
@@ -5126,11 +5298,11 @@ fieldset.insp-canvas-props,
 }
 .insp-sm__warning--error {
   background: color-mix(in oklab, var(--color-feedback-danger) 12%, transparent);
-  color: var(--color-feedback-danger);
+  color: var(--color-feedback-danger, oklch(0.5 0.2 25));
 }
 .insp-sm__warning--warning {
   background: color-mix(in oklab, var(--color-feedback-warning) 16%, transparent);
-  color: var(--color-feedback-warning);
+  color: var(--color-feedback-warning, oklch(0.5 0.15 80));
 }
 .insp-sm__warning--info {
   background: var(--elevation-surface-sunken);
@@ -5150,7 +5322,8 @@ fieldset.insp-canvas-props,
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-secondary);
-  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
 }
 .insp-sm__states,
 .insp-sm__transitions,
@@ -5212,10 +5385,10 @@ fieldset.insp-canvas-props,
 }
 .insp-sm__badge--entry {
   background: var(--color-interactive-default);
-  color: var(--color-on-accent);
+  color: var(--color-on-accent, white);
 }
 .insp-sm__state-icon {
-  color: var(--color-feedback-warning);
+  color: var(--color-feedback-warning, oklch(0.5 0.15 80));
   flex-shrink: 0;
 }
 .insp-sm__detail {
@@ -5273,7 +5446,7 @@ fieldset.insp-canvas-props,
 .audit-badge {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 4px;
   padding: 2px 8px;
   border-radius: var(--radius-control-compact);
   border: 1px solid var(--color-border-subtle);
@@ -5282,8 +5455,8 @@ fieldset.insp-canvas-props,
   font-size: var(--font-size-xs);
   cursor: pointer;
   transition:
-    background var(--duration-fast),
-    color var(--duration-fast);
+    background 0.15s,
+    color 0.15s;
   line-height: 1;
 }
 .audit-badge:hover {
@@ -5314,7 +5487,7 @@ fieldset.insp-canvas-props,
 .contextual-audit-summary {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: 4px;
   padding: var(--space-1) 0;
 }
 .contextual-audit-chip {
@@ -5387,8 +5560,8 @@ fieldset.insp-canvas-props,
   font-size: var(--font-size-xs);
   cursor: pointer;
   transition:
-    background var(--duration-fast),
-    border-color var(--duration-fast);
+    background 0.15s,
+    border-color 0.15s;
   line-height: 1.4;
 }
 .intelligence-filter-chip:hover {
@@ -5431,7 +5604,7 @@ fieldset.insp-canvas-props,
   color: var(--color-interactive-hover);
 }
 .intelligence-inline-action:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -5448,7 +5621,7 @@ fieldset.insp-canvas-props,
 
 /* AuditBadge — keyboard focus (badge itself styled above). */
 .audit-badge:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -5478,7 +5651,7 @@ fieldset.insp-canvas-props,
   color: var(--color-interactive-hover);
 }
 .insp-icon__link:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
   border-radius: var(--radius-control-compact);
 }
@@ -5516,14 +5689,7 @@ fieldset.insp-canvas-props,
 .contrast-indicator {
   display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: var(--space-05);
-}
-.contrast-indicator__caption {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
-  line-height: 1;
-  letter-spacing: var(--tracking-micro);
 }
 .contrast-indicator__dot {
   display: inline-block;
@@ -5535,13 +5701,6 @@ fieldset.insp-canvas-props,
 .contrast-indicator__label {
   font-size: var(--font-size-2xs);
   line-height: 1;
-}
-/* Attached to a field control, the readout owns a full line below the value.
- * The value control keeps its readable width at every rail, and the status
- * reads as helper text for the field it describes instead of squeezing
- * beside it (Typography's Colour row, IA-011). */
-.editor-inspector .insp-field__control > .contrast-indicator {
-  flex: 1 0 100%;
 }
 
 /* ─── Cognitive load indicator ───────────────────────── */
@@ -5563,7 +5722,7 @@ fieldset.insp-canvas-props,
 .insp-cognitive-load__fill {
   height: 100%;
   border-radius: var(--radius-pill);
-  transition: width var(--duration-base) var(--ease-standard, ease);
+  transition: width var(--duration-standard, 0.3s) var(--ease-standard, ease);
 }
 .insp-cognitive-load__score {
   font-size: var(--font-size-2xs);
@@ -5643,7 +5802,7 @@ fieldset.insp-canvas-props,
 .email-panel__group h3,
 .email-panel__link h4 {
   margin: 0;
-  color: var(--color-text-primary);
+  color: var(--color-text-default);
   font-size: var(--font-size-sm);
   text-transform: capitalize;
 }
@@ -5741,9 +5900,9 @@ fieldset.insp-canvas-props,
   margin: 0;
   padding: var(--space-2);
   overflow: auto;
-  color: var(--color-text-primary);
+  color: var(--color-text-default);
   background: var(--color-surface-default);
-  font-family: var(--font-mono);
+  font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -5753,9 +5912,9 @@ fieldset.insp-canvas-props,
   margin: 0;
   padding: var(--space-2);
   overflow: auto;
-  color: var(--color-text-primary);
+  color: var(--color-text-default);
   background: var(--color-surface-default);
-  font-family: var(--font-mono);
+  font-family: var(--font-family-mono);
   font-size: var(--font-size-xs);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -5799,12 +5958,12 @@ fieldset.insp-canvas-props,
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  color: var(--color-text-primary);
+  color: var(--color-text-default);
   font-size: var(--font-size-sm);
 }
 
 .email-panel__toggle {
-  color: var(--color-text-primary);
+  color: var(--color-text-default);
   font-size: var(--font-size-sm);
 }
 
@@ -5821,7 +5980,7 @@ fieldset.insp-canvas-props,
 }
 .email-preflight h3 {
   margin: 0;
-  color: var(--color-text-primary);
+  color: var(--color-text-default);
   font-size: var(--font-size-sm);
 }
 .email-preflight__summary {
@@ -5853,7 +6012,8 @@ fieldset.insp-canvas-props,
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
 }
 .email-preflight__group-count {
   color: var(--color-text-subtle);
@@ -5868,7 +6028,7 @@ fieldset.insp-canvas-props,
   padding: var(--space-1) 0;
   border: 0;
   background: transparent;
-  color: var(--color-text-primary);
+  color: var(--color-text-default);
   font: inherit;
   font-size: var(--font-size-xs);
   text-align: start;
@@ -5877,7 +6037,7 @@ fieldset.insp-canvas-props,
   cursor: pointer;
 }
 .email-preflight__message {
-  color: var(--color-text-primary);
+  color: var(--color-text-default);
 }
 .email-preflight__item-button:hover .email-preflight__message,
 .email-preflight__item-button:focus-visible .email-preflight__message {
@@ -5915,7 +6075,7 @@ fieldset.insp-canvas-props,
 }
 .email-compat h4 {
   margin: 0;
-  color: var(--color-text-primary);
+  color: var(--color-text-default);
   font-size: var(--font-size-sm);
 }
 .email-compat__badge {
@@ -5965,7 +6125,7 @@ fieldset.insp-canvas-props,
 }
 .email-compat__facts dd {
   margin: 0;
-  color: var(--color-text-primary);
+  color: var(--color-text-default);
   text-align: end;
 }
 .email-compat__degraded {
@@ -5981,10 +6141,10 @@ fieldset.insp-canvas-props,
   gap: var(--space-1);
   margin: 0;
   padding-inline-start: var(--space-4);
-  color: var(--color-text-primary);
+  color: var(--color-text-default);
 }
 .email-compat__degraded code {
-  font-family: var(--font-mono);
+  font-family: var(--font-family-mono);
 }
 
 /* Theme contract for the shared field primitives. Surfaces and text remain
@@ -5992,16 +6152,18 @@ fieldset.insp-canvas-props,
  * controls that are otherwise intentionally borderless. */
 .insp-num__input,
 .insp-select,
-.varve-native-range {
+.insp-range,
+.range-value-control input[type="range"] {
   color-scheme: inherit;
 }
 
-[data-theme="high-contrast"] .range-value-control .insp-num__input {
+[data-theme="high-contrast"] .range-value-control .insp-num__input,
+[data-theme="high-contrast"] .range-value-control input[type="range"] {
   border-color: var(--color-border-subtle);
 }
 
-[data-theme="high-contrast"] .range-value-control .varve-native-range:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+[data-theme="high-contrast"] .range-value-control input[type="range"]:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
 
@@ -6019,14 +6181,8 @@ fieldset.insp-canvas-props,
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  min-height: var(--insp-row-height);
-  /* The label column is bounded so every control starts on the same edge,
-   * but it must fit the longest real label at the interface-label size
-   * ("Object geometry" measured ~106px at 13px/500). A 38% column plus the
-   * old 600 label weight wrapped it onto two lines and grew every row in the
-   * section; 40% keeps one-line labels while leaving the control column
-   * enough width for a switch and its description. */
-  grid-template-columns: minmax(0, 40%) minmax(0, 1fr);
+  min-height: 2rem;
+  grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
 }
 
 .insp-field__label {
@@ -6035,13 +6191,11 @@ fieldset.insp-canvas-props,
   flex: none;
   width: auto;
   min-width: 14px;
-  min-height: var(--insp-row-height);
+  min-height: 2rem;
   color: var(--color-text-muted);
   font-family: var(--type-interface-label-family);
   font-size: var(--insp-label-size, var(--font-size-2xs));
-  /* Weight comes from the role, not from a local override: the panel had
-   * drifted to 600 while the role specifies medium. */
-  font-weight: var(--type-interface-label-weight);
+  font-weight: var(--font-weight-semibold);
   line-height: var(--type-interface-label-line-height);
   white-space: nowrap;
   /* Scrub handle — drag on the label to change the value. */
@@ -6049,7 +6203,8 @@ fieldset.insp-canvas-props,
   user-select: none;
   overflow: hidden;
   text-overflow: ellipsis;
-  letter-spacing: var(--tracking-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 /* Nested field pairs (X/Y, W/H sharing one row): WebKit resolves the nested
@@ -6106,22 +6261,6 @@ fieldset.insp-canvas-props,
   width: auto;
 }
 
-/* A segmented control inside a field row is a field-class control: it takes
- * the compact field height so its cell shares one control plane with the
- * Selects and number fields in the same group. The kit's 24px track is the
- * toolbar density; a form row is not a toolbar, and the mismatch pulled the
- * Style cell's track 2.9px above its Weight sibling on every rail (IA-010). */
-.editor-inspector .insp-field__control > .varve-segmented {
-  min-block-size: var(--insp-row-height);
-}
-
-/* A value pill in a field row is a field-class control too: it takes the
- * field height so the Colour row matches the selects and number fields
- * around it. The paint-row pill keeps its 24px card grammar. */
-.editor-inspector .insp-field__control > .insp-swatch--valued {
-  height: var(--insp-row-height);
-}
-
 /* FieldRow is also used for channel pairs (Red X/Y, Green X/Y, etc.). The
  * control column, rather than the label row, owns that internal grid. */
 .insp-field__control:has(> .insp-field + .insp-field) {
@@ -6136,7 +6275,7 @@ fieldset.insp-canvas-props,
 .insp-field-group--skew {
   align-items: center;
   display: grid;
-  gap: var(--insp-field-group-gap);
+  gap: var(--space-2);
   min-width: 0;
 }
 
@@ -6148,75 +6287,32 @@ fieldset.insp-canvas-props,
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-/* Position & Size rows share one three-track grid:
- * [value 1fr][action gutter][value 1fr]. X/W/R start in the first track and
- * Y/H end in the last, so every value column is the same width no matter
- * which actions a row carries; the gutter is sized by the size row's
- * lock/swap cluster so the position row's middle track matches it. The
- * proportion lock belongs next to the two values it constrains (Figma
- * convention); frames add the orientation swap to the same gutter instead of
- * stranding it at the row's far edge. */
-.insp-position-size {
-  --insp-size-gutter: var(--insp-row-height);
-  display: flex;
-  flex-direction: column;
-  /* X/Y, W/H, and rotation are distinct field groups. The old space-1 gap
-   * left their 34px rows visually touching in Default Pro; use the same
-   * density-aware intra-section rhythm as the other Inspector grammars. */
-  gap: var(--insp-content-gap, var(--space-1));
-  min-width: 0;
-}
-
-.insp-position-size[data-frame-actions] {
-  --insp-size-gutter: calc(2 * var(--insp-row-height) + var(--space-1));
-}
-
-.insp-field-group--size,
-.insp-field-group--position,
-.insp-field-group--rotation {
-  gap: var(--space-1);
+.insp-field-group--size {
+  gap: var(--space-2);
+  /* Keep the lock and orientation action columns compact and stable.
+     W and H are flexible equal tracks, with compact hit targets
+     for the proportion lock and orientation swap button. */
   grid-template-columns:
-    minmax(0, 1fr)
-    var(--insp-size-gutter, var(--insp-row-height))
-    minmax(0, 1fr);
+    minmax(0, 1fr) var(--component-compact-height) minmax(0, 1fr)
+    var(--component-compact-height);
 }
 
-/* The second value of a two-value row sits in the last track, leaving the
- * action gutter empty. In the size row the second child is the actions
- * cluster, so this only matches position (Y) and line metrics (A). */
-.insp-field-group--position > .insp-field:nth-child(2),
-.insp-field-group--size > .insp-field:nth-child(2) {
-  grid-column: 3;
+.insp-field-group--rotation {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
-.insp-size-actions {
+/* R field on left, compact grouped transform controls on right. */
+.insp-field-group--rotation > .insp-field {
   display: flex;
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
-}
-
-.insp-size-actions .insp-proportion-lock {
-  min-width: var(--insp-row-height);
-  min-height: var(--insp-row-height);
-}
-
-/* R fills the left column (same reading edge as X and W) and the transform
- * actions sit right-aligned in the last column, under Y and H. The old
- * `space-between` flex row left the R value stranded at one edge and the
- * buttons at the other with a wide empty middle. */
-.insp-field-group--rotation {
-  display: grid;
-  align-items: center;
-  min-width: 0;
-}
-
-.insp-field-group--rotation > .insp-field {
-  display: grid;
-  align-items: center;
-  gap: var(--space-1);
-  grid-template-columns: 14px minmax(0, 1fr);
-  min-width: 0;
+  flex: 0 0 auto;
 }
 
 .insp-field-group--rotation > .insp-field > .insp-field__label {
@@ -6226,15 +6322,9 @@ fieldset.insp-canvas-props,
 }
 
 .insp-field-group--rotation > .insp-field > .insp-field__control {
-  width: auto;
+  width: var(--insp-numeric-rail, 9ch);
+  flex: 0 0 var(--insp-numeric-rail, 9ch);
   min-width: 0;
-}
-
-/* The transform cluster lives in the last track (under Y/H), right-aligned;
- * without the explicit column it auto-places into the middle gutter. */
-.insp-field-group--rotation > .insp-flip-group {
-  grid-column: 3;
-  justify-self: end;
 }
 
 .insp-flip-group {
@@ -6273,8 +6363,8 @@ fieldset.insp-canvas-props,
 }
 
 .insp-flip-group .insp-flip-btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
-  outline-offset: var(--focus-ring-offset-inset);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
 }
 
 .insp-flip-group .insp-flip-btn--active {
@@ -6305,50 +6395,6 @@ fieldset.insp-canvas-props,
   min-width: 0;
 }
 
-/* A pair's cells share their label and control columns: the widest label in
- * a column sizes it and both control columns are equal, so the inputs match
- * even when the labels differ ("Min W" vs "Max W"). Without it each cell
- * sized its own max-content label and the four Min/Max inputs spread by 8px.
- * The fallback above keeps per-cell label columns on engines without
- * subgrid. */
-@supports (grid-template-columns: subgrid) {
-  /* The typography paired fields run their own label-above template and
-   * must not inherit the two-track cell span. */
-  .insp-field-group--columns-2:not(.typography__paired-fields) {
-    grid-template-columns: repeat(2, max-content minmax(0, 1fr));
-  }
-
-  .insp-field-group--columns-3 {
-    grid-template-columns: repeat(3, max-content minmax(0, 1fr));
-  }
-
-  .insp-field-group--columns-2:not(.typography__paired-fields) > .insp-field,
-  .insp-field-group--columns-3 > .insp-field {
-    display: grid;
-    grid-column: span 2;
-    grid-template-columns: subgrid;
-  }
-
-  /* At the narrowest rail a numeric pair collapses to one column; a
-   * two-track subgrid cell would force an implicit second track there. */
-  @container inspector (max-width: 13rem) {
-    .insp-field-group--columns-2.insp-field-group--numeric-pair > .insp-field {
-      grid-column: auto;
-      grid-template-columns: minmax(0, 1fr);
-    }
-  }
-}
-
-/* Peer cells start on one line. The group's center alignment dragged a
- * shorter cell downward as soon as its sibling carried a second line,
- * offsetting both the label and the control plane of a semantic peer
- * (measured 5.2px on Weight/Style, IA-010). Non-field content keeps the
- * group's center alignment. */
-.insp-field-group--columns-2 > .insp-field,
-.insp-field-group--columns-3 > .insp-field {
-  align-self: start;
-}
-
 .insp-field-group--position > .insp-field,
 .insp-field-group--size > .insp-field {
   gap: var(--space-1);
@@ -6363,22 +6409,76 @@ fieldset.insp-canvas-props,
   flex-shrink: 0;
 }
 
-/* The position row is a value pair in the same three-track grid as the size
- * row; Y is placed in the last track above. */
+/* Position and size share one four-track geometry: value, action slot, value,
+ * action slot. Empty slots are intentional; they reserve the lock/orientation
+ * columns so related rows keep the same reading edges. */
 .insp-field-group--position {
-  display: grid;
-  align-items: center;
-  min-width: 0;
+  grid-template-columns:
+    minmax(0, 1fr) var(--component-compact-height) minmax(0, 1fr)
+    var(--component-compact-height);
 }
 
-/* Numeric values are sized by the row geometry, not by their range: every
- * cell in a pair is equal, and single-column fields fill the control column
- * (the panel declares `fill` sizing for its NumberFields). The retired
- * bounded rail made a 39px Opacity sit beside a 239px Blend mode field. */
+.insp-field-group__action-slot {
+  inline-size: var(--component-compact-height);
+  block-size: 1px;
+  pointer-events: none;
+}
+
+/* Bounded numeric rails --------------------------------------------------
+ * Position/size values are unbounded document coordinates, but their visible
+ * boxes do not need to absorb every spare pixel in a wide Inspector. Keep the
+ * grid and labels fluid while giving the value region a stable reading rail.
+ * The input remains a real text editor: long values can still be caret/
+ * horizontally scrolled and are never clamped by this presentation rule. */
 .insp-field-group--numeric-pair > .insp-field > .insp-field__control {
+  flex: 0 1 var(--insp-numeric-rail, 9ch);
+  inline-size: min(var(--insp-numeric-rail, 9ch), 100%);
+  justify-self: start;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.insp-field-group--numeric-pair > .insp-field > .insp-field__control > .insp-num__input {
   flex: 1 1 auto;
   inline-size: 100%;
   min-inline-size: 0;
+}
+
+@container inspector (max-width: 18rem) {
+  .insp-field-group--numeric-pair > .insp-field > .insp-field__control {
+    --insp-numeric-rail: 8ch;
+  }
+}
+
+/* At the narrow inspector rails used by docked and split-window layouts, four
+ * tracks make the value editors unreadably small. Collapse only the empty
+ * action columns first: X/Y become a two-up pair and W/H retain their
+ * centered proportion lock. The very narrow rule below then stacks the
+ * position pair while preserving the lock between size values. */
+@container inspector (max-width: 20rem) {
+  .insp-field-group--position {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--component-compact-height);
+  }
+
+  .insp-field-group--position > .insp-field-group__action-slot,
+  .insp-field-group--size > .insp-field-group__action-slot,
+  .insp-field-group--size > .insp-orientation-btn {
+    display: none;
+  }
+
+  .insp-field-group--size {
+    position: relative;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--component-compact-height);
+  }
+
+  .insp-field-group--size > .insp-proportion-lock {
+    position: absolute;
+    inset-inline-start: 50%;
+    transform: translateX(-50%);
+    z-index: 1;
+  }
 }
 
 @container inspector (max-width: 13rem) {
@@ -6387,11 +6487,12 @@ fieldset.insp-canvas-props,
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .insp-field-group--position > .insp-field:nth-child(2) {
-    grid-column: auto;
+  .insp-field-group--position > .insp-field-group__action-slot {
+    display: none;
   }
 }
 
+.insp-field-group--size > .insp-proportion-lock,
 .insp-field-group--rotation > .insp-flip-btn,
 .insp-field-group--skew > .insp-flip-btn {
   align-self: center;
@@ -6527,14 +6628,27 @@ fieldset.insp-canvas-props,
   white-space: nowrap;
 }
 
-/* Geometry, colour, and focus come from the canonical `.varve-close--sm`
- * contract; this hook only pins flex behaviour inside the header. */
 .insp-focused-editor__close {
   flex: 0 0 auto;
+  min-height: var(--component-compact-height);
+  padding-inline: var(--space-2);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control-compact);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.insp-focused-editor__close:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-subtle);
 }
 
 .insp-focused-editor__close:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -6553,7 +6667,7 @@ fieldset.insp-canvas-props,
   .insp-field-group,
   .insp-field__control,
   .insp-num,
-  .color-slider,
+  .insp-slider,
   .range-value-control,
   .varve-select,
   .varve-native-select,
@@ -6610,43 +6724,17 @@ fieldset.insp-canvas-props,
   max-inline-size: 100%;
 }
 
-/* Content-driven wrapping: flex lines are built from each segment's content
- * width, so short-label groups (Off / Top / Front / Side) stay on one row and
- * longer labels wrap only when they must. A single label wider than the track
- * shrinks (min-inline-size: 0) and ellipsizes with its tooltip instead of
- * overflowing. The old fixed minimum forced four short options into a 2x2
- * grid and stacked icon-only groups one per row. */
-.editor-inspector .insp-field__control > .varve-segmented {
-  display: flex;
-  flex-wrap: wrap;
-  row-gap: var(--space-1);
+.editor-inspector .insp-field__control > .insp-segmented {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(4.5rem, 100%), 1fr));
   inline-size: 100%;
   max-inline-size: 100%;
   min-inline-size: 0;
 }
 
-.editor-inspector .insp-field__control > .varve-segmented > .varve-segmented__btn {
-  flex: 1 1 auto;
+.editor-inspector .insp-segmented__btn {
   min-inline-size: 0;
-}
-
-/* Coarse pointers keep the shared touch minimum even though the inspector
- * lets segments shrink for ellipsis; the min width must win over that shrink. */
-@media (pointer: coarse) {
-  .editor-inspector .insp-field__control > .varve-segmented > .varve-segmented__btn {
-    min-inline-size: var(--touch-target-min);
-  }
-}
-
-.editor-inspector .varve-segmented__btn {
   max-inline-size: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.editor-inspector .varve-segmented__btn > .varve-segmented__label {
-  min-inline-size: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -6687,6 +6775,10 @@ fieldset.insp-canvas-props,
 }
 
 @container inspector (max-width: 15.5rem) {
+  .editor-inspector .insp-field__control > .insp-segmented {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .editor-inspector .insp-field__control > div:has(> .insp-per-side) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -6696,7 +6788,7 @@ fieldset.insp-canvas-props,
  * keeping their controls on one line beside the disclosure trigger. */
 .insp-disclosure__action .insp-add-btn {
   width: auto;
-  min-height: var(--insp-row-height);
+  min-height: var(--component-compact-height);
   padding-inline: var(--space-2);
 }
 .insp-disclosure__action .insp-fill-add__controls {
@@ -6710,9 +6802,7 @@ fieldset.insp-canvas-props,
   display: flex;
   align-items: center;
   width: 100%;
-  /* The preset row names the frame; the fields under it edit it. Group the
-   * two with one density-aware step instead of a fixed local margin. */
-  margin-bottom: var(--insp-content-gap, var(--space-1));
+  margin-bottom: var(--space-2);
 }
 
 .insp-preset-dropdown__trigger {
@@ -6720,11 +6810,8 @@ fieldset.insp-canvas-props,
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  /* Was a fluid --space-7 height (measured 39.3px at 1440): taller than every
-   * field beside it and identical in both density modes. The row contract is
-   * the one height for a control in this panel. */
-  height: var(--insp-row-height, var(--density-rows-min-height));
-  padding: 0 var(--space-3);
+  height: var(--density-rows-min-height);
+  padding: 0 var(--space-2);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
   background: var(--color-surface-sunken);
@@ -6743,7 +6830,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-preset-dropdown__trigger:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -6776,15 +6863,12 @@ fieldset.insp-canvas-props,
   color: var(--color-text-secondary);
 }
 
-/* Field-class action: the swap stands in the size row beside W/H and takes
- * the field height. `--space-6/--space-7` made it a fluid 27x39px pill that
- * was visibly taller than the fields it sits between. */
 .insp-orientation-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--insp-row-height);
-  height: var(--insp-row-height);
+  width: var(--space-6, 24px);
+  height: var(--space-7, 28px);
   padding: 0;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-control-compact);
@@ -6802,12 +6886,16 @@ fieldset.insp-canvas-props,
 }
 
 .insp-orientation-btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
+.insp-field-group--size > .insp-orientation-btn {
+  align-self: center;
+}
+
 .insp-preset-popover {
-  width: var(--insp-popover-inline);
+  width: 280px;
   max-width: 90vw;
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
@@ -6876,10 +6964,10 @@ fieldset.insp-canvas-props,
 .insp-preset-chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: 3px;
   height: 22px;
   padding: 0 var(--space-2);
-  border-radius: var(--radius-pill);
+  border-radius: 11px;
   border: 1px solid transparent;
   background: transparent;
   color: var(--color-text-secondary);
@@ -6896,7 +6984,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-preset-chip:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -6932,7 +7020,8 @@ fieldset.insp-canvas-props,
   padding: var(--space-1) var(--space-3);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold, 700);
-  letter-spacing: var(--tracking-micro);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
   color: var(--color-text-muted);
 }
 
@@ -6974,7 +7063,7 @@ fieldset.insp-canvas-props,
 .insp-preset-item__preview {
   display: inline-block;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-none);
+  border-radius: 2px;
   background: var(--color-surface-sunken);
   margin-right: var(--space-2);
   flex-shrink: 0;
@@ -7021,7 +7110,7 @@ fieldset.insp-canvas-props,
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  border-radius: var(--radius-control-compact);
+  border-radius: 3px;
   flex-shrink: 0;
   opacity: 0.3;
   transition: opacity var(--duration-quick) var(--ease-standard);
@@ -7037,7 +7126,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-preset-fav-btn--active {
-  color: var(--color-feedback-warning);
+  color: var(--color-warning-default);
   opacity: 1;
 }
 
@@ -7052,7 +7141,7 @@ fieldset.insp-canvas-props,
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
-  border-radius: var(--radius-control-compact);
+  border-radius: 3px;
   flex-shrink: 0;
   opacity: 0;
   transition: opacity var(--duration-quick) var(--ease-standard);
@@ -7064,7 +7153,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-preset-delete-btn:hover {
-  color: var(--color-feedback-danger);
+  color: var(--color-danger-default);
 }
 
 /* Footer save button */
@@ -7076,7 +7165,7 @@ fieldset.insp-canvas-props,
 
 .insp-preset-popover__save-btn {
   width: 100%;
-  min-height: var(--insp-row-height, var(--density-rows-min-height));
+  min-height: var(--density-rows-min-height);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7097,7 +7186,7 @@ fieldset.insp-canvas-props,
 }
 
 .insp-preset-popover__save-btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
@@ -7107,7 +7196,7 @@ fieldset.insp-canvas-props,
 
 /* ── Field-height contract ─────────────────────────────────────────────
  * Every text field, number field, and dropdown inside the inspector renders
- * at the density-aware Inspector row height. Controls previously mixed the
+ * at the shared compact component height. Controls previously mixed the
  * fluid --space-5/6/7 spacing tokens (19-42px depending on viewport) with
  * hardcoded rem values, so inputs and dropdowns no longer matched each other
  * and heights shifted as the window resized. */
@@ -7120,8 +7209,8 @@ fieldset.insp-canvas-props,
 .gradient-editor__position-input,
 .insp-interaction-row__name-input,
 .insp-interaction-row__field select {
-  height: var(--insp-row-height);
-  min-height: var(--insp-row-height);
+  height: var(--component-compact-height);
+  min-height: var(--component-compact-height);
 }
 
 .trimap-preview {
@@ -7182,7 +7271,8 @@ fieldset.insp-canvas-props,
   font-family: var(--type-interface-label-family);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--tracking-micro);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .insp-boolean__add-list {
@@ -7208,77 +7298,24 @@ fieldset.insp-canvas-props,
   margin-top: var(--space-2);
 }
 
-/* ── Inspector type and control scale ─────────────────────────────────
- * The panel consumes the shared semantic roles. An earlier pass gave the
- * Inspector its own two fixed rem steps (0.75rem labels / 0.8125rem values)
- * to escape the viewport-coupled clamp the app ramp used at the time; that
- * fixed the right problem at the wrong layer and left a second, orphan type
- * scale in the repository, plus a rogue 14px icon step. The shared ramp is
- * now stable rem (see interface-sizing-system.md), so the panel aliases
- * resolve to the interface roles again:
- *
- *   label        → interface-label (13px, medium)   formerly 12px fixed
- *   value/title  → interface-control (15px, medium)  formerly 13px fixed
- *   icon         → --icon-size-xs (12px)             unchanged
- *   icon-large   → --icon-size-sm (16px)             formerly the 14px orphan
- *
- * The rail is user-resizable and independent of window width; because the
- * roles are rem, panel text still follows the UI font-size preference and
- * browser text zoom without following the window.
- * Evidence: docs/audits/inspector-spacing-density-audit-2026-09-19.md,
- * docs/architecture/interface-sizing-system.md.
+/* ── Inspector type scale ─────────────────────────────────────────────
+ * Role-based dense-panel sizes. Rendered measurements on 2026-09-15 showed
+ * the Inspector at 10.43px field labels and 12.48px values — below every
+ * reference dense scale consulted (Carbon caption 12px / productive 14px,
+ * Nubisco utility 11px, Blender ~11-12px). These bounded, root-relative
+ * sizes raise legibility without inflating the panel on wide windows or
+ * shrinking it on a narrow rail. The tokens are scoped to the Inspector;
+ * global type tokens are untouched, and every consumer falls back to the
+ * previous size outside this scope.
+ *   label: 11px @360 → 12px @1280
+ *   value: 12px @360 → 13px @1280
+ * Evidence: docs/research/inspector-design-tab-review-2026-09-15.md.
  */
 .editor-inspector {
-  --insp-label-size: var(--type-interface-label-size);
-  --insp-value-size: var(--type-interface-control-size);
+  --insp-label-size: clamp(0.6875rem, calc(0.663rem + 0.1087vw), 0.75rem);
+  --insp-value-size: clamp(0.75rem, calc(0.7255rem + 0.1087vw), 0.8125rem);
+  --insp-numeric-rail: 9ch;
   --insp-preview-max-inline-size: 20rem;
-  /* Popover geometry shared by panel menus (section manager, preset
-     popovers). rem keeps the surface proportionate when the user raises
-     the root font size; the previous 280px/400px literals did not. */
-  --insp-popover-inline: 17.5rem;
-  --insp-popover-max-block: 25rem;
-  /* Icon steps: the shared 12/16 pair. Feature code must not invent a step
-   * between them — the 14px step this replaced existed only here. */
-  --insp-icon-size: var(--icon-size-xs);
-  --insp-icon-size-lg: var(--icon-size-sm);
-  /* Inspector-local rhythm aliases. They consume the application density
-   * contract without changing the document/canvas model.
-   *
-   * The ladder has three readable levels, and each must be visibly larger
-   * than the one below it (2026-09-20 pass):
-   *   row gap < group gap < section separation.
-   * Default Pro reads as a long-form property panel; Compact Pro keeps the
-   * same three levels at the next step down so hierarchy survives density.
-   * A section's own separation is its margin plus the panel gap, so the
-   * margin is set one step above the group gap rather than at it. */
-  --insp-panel-inset: var(--space-3);
-  --insp-panel-gap: var(--space-3);
-  --insp-section-gap: var(--space-4);
-  --insp-content-gap: var(--space-3);
-  --insp-field-group-gap: var(--space-4);
-  --insp-content-pad-start: var(--space-3);
-  --insp-content-pad-end: var(--space-3);
-  /* One control height for the whole panel, taken from the canonical ladder
-   * (32px standard / 28px compact / 44px coarse). Field rows, section
-   * headers, and the numeric fields all take it from here so navigation and
-   * controls stay on one grid. */
-  --insp-row-height: var(--density-rows-min-height);
-}
-
-:where([data-density="compact"]) .editor-inspector {
-  --insp-panel-inset: var(--space-2);
-  --insp-panel-gap: var(--space-2);
-  --insp-section-gap: var(--space-3);
-  --insp-content-gap: var(--space-2);
-  --insp-field-group-gap: var(--space-3);
-  --insp-content-pad-start: var(--space-2);
-  --insp-content-pad-end: var(--space-3);
-}
-
-@media (any-pointer: coarse) {
-  .editor-inspector {
-    --insp-row-height: var(--touch-target-min);
-  }
 }
 
 /* ── Shared compact inspector buttons ──────────────────────────────────
@@ -7326,11 +7363,24 @@ fieldset.insp-canvas-props,
 }
 
 .insp-btn:focus-visible {
-  outline: var(--focus-ring-width) solid var(--color-interactive-focus-ring);
+  outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 1px;
 }
 
-/* Standalone layout numbers (Gap and relative shares) fill their control
- * column like every other panel field. The retired bounded rail presented
- * them at 9ch beside full-width selects, which read as inconsistent sizing
- * across the Stack / Grid section. */
+/* Standalone layout numbers (Gap and relative shares) use the same quiet
+ * numeric rail as paired fields. Keep this override after the shared field
+ * grammar so it wins without making unrelated field selectors more specific.
+ * The editor remains able to enter a long value; only its resting presentation
+ * is bounded. */
+.insp-layout-controls
+  > .insp-field:has(> .insp-field__control > .insp-num__control)
+  > .insp-field__control,
+.insp-layout-sizing
+  > .insp-field:has(> .insp-field__control > .insp-num__control)
+  > .insp-field__control {
+  flex: 0 1 var(--insp-numeric-rail, 9ch);
+  inline-size: min(var(--insp-numeric-rail, 9ch), 100%);
+  justify-self: start;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
