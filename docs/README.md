@@ -81,6 +81,7 @@ pass report in
 | [CHANGELOG.md](../CHANGELOG.md) (root) | Release notes — source for `release-notes.mjs` |
 | [brand/github-repository-presence.md](brand/github-repository-presence.md) | Canonical GitHub metadata, social preview, and public-content maintenance |
 | [marketing/positioning-and-discovery.md](marketing/positioning-and-discovery.md) | Current positioning, audience/search intent, claim register, and SEO/GEO/AEO contract |
+| [research/design-tool-failure-modes-2026-09-21.md](research/design-tool-failure-modes-2026-09-21.md) | Public complaint research and realistic local-first, export, portability, and trust responses |
 
 ## Architecture Decision Records
 
@@ -504,6 +505,7 @@ The following dated files were moved from `docs/architecture/` to
 | `quality/tauri-command-audit.md` | Tauri command surface audit |
 | `quality/editorprovider-surface.md` | EditorProvider surface |
 | `quality/validation-strategy.md` | **Canonical validation policy** — impact-aware planning, tiers, escalation rules |
+| `quality/pre-existing-test-failure-investigation-2026-09-21.md` | Baseline, triage, repairs, test-weakening disclosure, and validation report for the 2026-09-21 failure investigation |
 | `audits/validation-release-system-audit-2026-08-31.md` | Measured validation/CI/release baseline, root causes, and exact-SHA redesign evidence |
 | `quality/render-path-verification.md` | Render-path verification contract |
 | `quality/object-selection-parity.md` | Object Selection quality/parity methodology |
