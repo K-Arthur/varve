@@ -119,16 +119,16 @@ LUT_3D_SIZE 2
 describe('edge cases — .3dl files', () => {
   it('file with extra whitespace lines', () => {
     const lines = [
-      '0 0 0',
-      '1 0 0',
-      '0 1 0',
-      '1 1 0',
+      '0.0 0.0 0.0',
+      '1.0 0.0 0.0',
+      '0.0 1.0 0.0',
+      '1.0 1.0 0.0',
       '',
       '   ',
-      '0 0 1',
-      '1 0 1',
-      '0 1 1',
-      '1 1 1',
+      '0.0 0.0 1.0',
+      '1.0 0.0 1.0',
+      '0.0 1.0 1.0',
+      '1.0 1.0 1.0',
     ];
     const result = parse3dlData(lines.join('\n'));
     expect(result.transform.size).toBe(2);

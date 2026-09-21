@@ -8,13 +8,13 @@
 // @vitest-environment node
 
 import { createHash } from 'node:crypto';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The loader branches on window + indexedDB presence; fake-indexeddb provides
 // the store, and the window shim makes the blob path reachable in node.
 globalThis.window = globalThis as unknown as Window & typeof globalThis;
 
-const { getModelLoader } = await import('../modelLoader');
+const { getModelLoader, resetModelLoader } = await import('../modelLoader');
 const { saveModelBlob, hasModelBlob } = await import('../modelStore');
 
 const manifestMock = vi.hoisted(() => ({
@@ -57,6 +57,11 @@ const ENTRY = {
 };
 
 describe('modelLoader stored-blob integrity', () => {
+  beforeEach(() => {
+    resetModelLoader();
+    manifestMock.getManifestEntry.mockReset();
+  });
+
   it('returns a valid blob that matches the manifest checksum', async () => {
     manifestMock.getManifestEntry.mockResolvedValue({ ...ENTRY, sha256: sha256(GOOD_BYTES) });
     await saveModelBlob('integrity-model', new Blob([GOOD_BYTES]));

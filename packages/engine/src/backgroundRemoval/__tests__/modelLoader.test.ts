@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -41,6 +42,28 @@ vi.mock('../../inference/models/sam2GraphRepair', () => ({
   repairSam2EncoderGraph: mockRepair,
 }));
 
+function checksum(chunks: Uint8Array[]): string {
+  const hash = createHash('sha256');
+  for (const chunk of chunks) hash.update(chunk);
+  return hash.digest('hex');
+}
+
+function mockManifest(chunks: Uint8Array[]) {
+  return {
+    version: 1,
+    models: [
+      {
+        id: 'u2netp',
+        filename: 'u2netp.onnx',
+        localPath: '/models/u2netp.onnx',
+        sha256: checksum(chunks),
+        bundled: false,
+        remoteUrl: 'https://example.com/u2netp.onnx',
+      },
+    ],
+  };
+}
+
 function mockFetchResponse(opts: { ok: boolean; chunks?: Uint8Array[] }) {
   const chunks = opts.chunks ?? [new Uint8Array([1, 2, 3])];
   let i = 0;
@@ -48,6 +71,7 @@ function mockFetchResponse(opts: { ok: boolean; chunks?: Uint8Array[] }) {
     ok: opts.ok,
     statusText: opts.ok ? 'OK' : 'Not Found',
     headers: { get: () => String(chunks.reduce((n, c) => n + c.length, 0)) },
+    json: async () => mockManifest(chunks),
     body: {
       getReader: () => ({
         read: async () => {
@@ -251,6 +275,7 @@ describe('ModelLoader', () => {
   it('keeps split-provider artifact URLs stable when paths resolve concurrently', async () => {
     const { getModelLoader, resetModelLoader } = await import('../modelLoader');
     resetModelLoader();
+    vi.mocked(URL.revokeObjectURL).mockClear();
 
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
     mockLoad.mockImplementation(async (id: string) =>
@@ -297,11 +322,11 @@ describe('ModelLoader', () => {
       'fetch',
       vi.fn((url: string | URL, init?: RequestInit) => {
         const path = String(url);
+        if (path.includes('manifest.json') || path.includes('u2netp')) {
+          return Promise.resolve(mockFetchResponse({ ok: true, chunks: [new Uint8Array(4)] }));
+        }
         if (init?.method === 'HEAD') {
           return Promise.resolve({ ok: false });
-        }
-        if (path.includes('u2netp')) {
-          return Promise.resolve(mockFetchResponse({ ok: true, chunks: [new Uint8Array(4)] }));
         }
         return Promise.resolve(mockFetchResponse({ ok: false }));
       }),
@@ -589,13 +614,17 @@ describe('ModelLoader', () => {
       vi.fn((url: string, init?: RequestInit) => {
         const path = String(url);
         if (path.includes('manifest.json')) {
-          return Promise.resolve({ ok: true, json: async () => ({ version: 1, models: [] }) });
+          return Promise.resolve({
+            ok: true,
+            json: async () => mockManifest([firstHalf, secondHalf]),
+          });
         }
         if (path.startsWith('/models/')) {
           return Promise.resolve({ ok: false, statusText: 'Not Found' });
         }
         if (init?.headers && (init.headers as Record<string, string>).Range) {
           expect((init.headers as Record<string, string>).Range).toBe('bytes=4-');
+          let resumed = false;
           return Promise.resolve({
             ok: true,
             status: 206,
@@ -610,7 +639,11 @@ describe('ModelLoader', () => {
             },
             body: {
               getReader: () => ({
-                read: async () => ({ done: false, value: secondHalf }),
+                read: async () => {
+                  if (resumed) return { done: true, value: undefined };
+                  resumed = true;
+                  return { done: false, value: secondHalf };
+                },
               }),
             },
           });

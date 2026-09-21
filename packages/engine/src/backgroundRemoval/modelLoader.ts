@@ -1093,6 +1093,7 @@ export async function getModelLoaderReady(signal?: AbortSignal): Promise<ModelLo
 }
 
 export function resetModelLoader(): void {
+  instance?.revokeAllBlobUrls();
   instance = null;
   syncPromise = null;
 }
