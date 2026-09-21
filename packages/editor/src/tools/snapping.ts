@@ -303,7 +303,7 @@ function isInMovingHierarchy(
     const visitedRoot = new Set<string>();
     while (child && !visitedRoot.has(child)) {
       visitedRoot.add(child);
-      const parent = parentIndex.get(child) ?? null;
+      const parent: string | null = parentIndex.get(child) ?? null;
       if (parent === nodeId) return true;
       child = parent;
     }
@@ -581,7 +581,7 @@ function closestLineSnapCandidate(
   const sourceFeatures =
     target.axis === 'vertical' ? VERTICAL_SOURCE_FEATURES : HORIZONTAL_SOURCE_FEATURES;
   let bestValue = values[0]!;
-  let bestSourceFeature = sourceFeatures[0]!;
+  let bestSourceFeature: (typeof sourceFeatures)[number] = sourceFeatures[0]!;
   let bestDistance = Math.abs(bestValue - target.position);
   for (let index = 1; index < values.length; index++) {
     const value = values[index]!;

@@ -17,7 +17,7 @@
  *   selected nodes are duplicated; their descendants travel with them).
  */
 
-import type { Shape } from '@varve/engine';
+import type { PathPoint, Shape } from '@varve/engine';
 import { cubicBezierPoint, expandStroke, offsetPath, roundCorners } from '@varve/engine';
 import type { Document, Fill, NodeId, SceneNode, ShapeNode, Stroke } from '@varve/scene';
 import { addNode } from '@varve/scene';
