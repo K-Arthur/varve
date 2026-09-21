@@ -1402,10 +1402,6 @@
 .insp-field__control--gap-2 {
   gap: var(--space-2);
 }
-.insp-field__control--column {
-  flex-direction: column;
-  align-items: flex-start;
-}
 
 /* Isometric Grid custom-axes editor: one row per axis (angle, visibility,
  * colour, opacity, remove). Kept as its own small grammar rather than
@@ -6259,6 +6255,13 @@ fieldset.insp-canvas-props,
   min-width: 0;
 }
 
+/* Must follow the base rule: column stacks (two switches under one label)
+   share a single left edge, which the base rule's centering would break. */
+.insp-field__control--column {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 .insp-field__control > .insp-field {
   min-width: 0;
   width: auto;
@@ -6290,32 +6293,50 @@ fieldset.insp-canvas-props,
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-.insp-field-group--size {
-  gap: var(--space-2);
-  /* Keep the lock and orientation action columns compact and stable.
-     W and H are flexible equal tracks, with compact hit targets
-     for the proportion lock and orientation swap button. */
+/* Position, size, and rotation share one three-track grid — value, compact
+ * action gutter, value — so X/W/R and Y/H land on the same columns at every
+ * rail. */
+.insp-field-group--size,
+.insp-field-group--position,
+.insp-field-group--rotation {
+  gap: var(--space-1);
   grid-template-columns:
-    minmax(0, 1fr) var(--component-compact-height) minmax(0, 1fr)
-    var(--component-compact-height);
+    minmax(0, 1fr)
+    var(--insp-size-gutter, var(--insp-row-height))
+    minmax(0, 1fr);
+  min-width: 0;
+}
+
+.insp-field-group--position > .insp-field:nth-child(2) {
+  grid-column: 3;
+}
+
+.insp-size-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.insp-size-actions .insp-proportion-lock {
+  min-width: var(--insp-row-height);
+  min-height: var(--insp-row-height);
 }
 
 .insp-field-group--rotation {
-  display: flex;
-  flex-direction: row;
+  display: grid;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  min-width: 0;
 }
 
-/* R field on left, compact grouped transform controls on right. */
+/* R shares the position/size field grammar so its value lands on the same
+   column as X and W; the transform cluster is right-aligned under Y and H. */
 .insp-field-group--rotation > .insp-field {
-  display: flex;
+  display: grid;
   align-items: center;
   gap: var(--space-1);
+  grid-template-columns: 14px minmax(0, 1fr);
   min-width: 0;
-  flex: 0 0 auto;
 }
 
 .insp-field-group--rotation > .insp-field > .insp-field__label {
@@ -6324,10 +6345,9 @@ fieldset.insp-canvas-props,
   flex-shrink: 0;
 }
 
-.insp-field-group--rotation > .insp-field > .insp-field__control {
-  width: var(--insp-numeric-rail, 9ch);
-  flex: 0 0 var(--insp-numeric-rail, 9ch);
-  min-width: 0;
+.insp-field-group--rotation > .insp-flip-group {
+  grid-column: 3;
+  justify-self: end;
 }
 
 .insp-flip-group {
@@ -6412,32 +6432,20 @@ fieldset.insp-canvas-props,
   flex-shrink: 0;
 }
 
-/* Position and size share one four-track geometry: value, action slot, value,
- * action slot. Empty slots are intentional; they reserve the lock/orientation
- * columns so related rows keep the same reading edges. */
+/* Position is a two-up value pair (X, Y); the size row keeps a compact action
+ * gutter between W and H. */
 .insp-field-group--position {
   grid-template-columns:
-    minmax(0, 1fr) var(--component-compact-height) minmax(0, 1fr)
-    var(--component-compact-height);
+    minmax(0, 1fr)
+    var(--insp-size-gutter, var(--insp-row-height))
+    minmax(0, 1fr);
 }
 
-.insp-field-group__action-slot {
-  inline-size: var(--component-compact-height);
-  block-size: 1px;
-  pointer-events: none;
-}
-
-/* Bounded numeric rails --------------------------------------------------
- * Position/size values are unbounded document coordinates, but their visible
- * boxes do not need to absorb every spare pixel in a wide Inspector. Keep the
- * grid and labels fluid while giving the value region a stable reading rail.
- * The input remains a real text editor: long values can still be caret/
- * horizontally scrolled and are never clamped by this presentation rule. */
+/* Pair cells fill their track: the value editor owns the cell width, so the
+ * label and its input stay together at every rail. */
 .insp-field-group--numeric-pair > .insp-field > .insp-field__control {
-  flex: 0 1 var(--insp-numeric-rail, 9ch);
-  inline-size: min(var(--insp-numeric-rail, 9ch), 100%);
-  justify-self: start;
-  max-inline-size: 100%;
+  flex: 1 1 auto;
+  inline-size: 100%;
   min-inline-size: 0;
 }
 
@@ -6447,10 +6455,14 @@ fieldset.insp-canvas-props,
   min-inline-size: 0;
 }
 
-@container inspector (max-width: 18rem) {
-  .insp-field-group--numeric-pair > .insp-field > .insp-field__control {
-    --insp-numeric-rail: 8ch;
-  }
+/* The clamp-sizing pair keeps a bounded rail so four labels of different
+ * width ("Min W" / "Max W") still read as equal cells. */
+.insp-layout-sizing .insp-field-group--numeric-pair > .insp-field > .insp-field__control {
+  flex: 0 1 var(--insp-numeric-rail, 9ch);
+  inline-size: min(var(--insp-numeric-rail, 9ch), 100%);
+  justify-self: start;
+  max-inline-size: 100%;
+  min-inline-size: 0;
 }
 
 /* At the narrow inspector rails used by docked and split-window layouts, four
@@ -6458,40 +6470,14 @@ fieldset.insp-canvas-props,
  * action columns first: X/Y become a two-up pair and W/H retain their
  * centered proportion lock. The very narrow rule below then stacks the
  * position pair while preserving the lock between size values. */
-@container inspector (max-width: 20rem) {
-  .insp-field-group--position {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: var(--component-compact-height);
-  }
-
-  .insp-field-group--position > .insp-field-group__action-slot,
-  .insp-field-group--size > .insp-field-group__action-slot,
-  .insp-field-group--size > .insp-orientation-btn {
-    display: none;
-  }
-
-  .insp-field-group--size {
-    position: relative;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: var(--component-compact-height);
-  }
-
-  .insp-field-group--size > .insp-proportion-lock {
-    position: absolute;
-    inset-inline-start: 50%;
-    transform: translateX(-50%);
-    z-index: 1;
-  }
-}
-
 @container inspector (max-width: 13rem) {
   .insp-field-group--columns-2.insp-field-group--numeric-pair,
   .insp-field-group--position {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .insp-field-group--position > .insp-field-group__action-slot {
-    display: none;
+  .insp-field-group--position > .insp-field:nth-child(2) {
+    grid-column: auto;
   }
 }
 
@@ -7320,6 +7306,9 @@ fieldset.insp-canvas-props,
    * headers, and the numeric fields all take it from here so navigation and
    * controls stay on one grid. */
   --insp-row-height: var(--density-rows-min-height);
+  /* One gutter width for the X/W/R | Y/H column grid; wide enough for the
+   * proportion lock and the frame orientation swap together. */
+  --insp-size-gutter: calc(2 * var(--insp-row-height) + var(--space-1));
   /* The spacing ladder has three readable levels, and each must be visibly
    * larger than the one below it: row gap < group gap < section separation.
    * Section separation is the section margin plus the panel gap, so the

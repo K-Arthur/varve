@@ -389,36 +389,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
 
   return (
     <DisclosureSection title="Position & Size" sectionId="position-size">
-      {isFrameSelection && (
-        <div className="insp-preset-row">
-          <FramePresetDropdown frames={nodes as FrameNode[]} />
-          <Tooltip label="Swap orientation (Portrait / Landscape)">
-            <button
-              type="button"
-              className="insp-orientation-btn"
-              onClick={handleSwapOrientation}
-              aria-label="Swap orientation"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <path d="M8 3 4 7l4 4" />
-                <path d="M4 7h16" />
-                <path d="m16 21 4-4-4-4" />
-                <path d="M20 17H4" />
-              </svg>
-            </button>
-          </Tooltip>
-        </div>
-      )}
+      {isFrameSelection && <FramePresetDropdown frames={nodes as FrameNode[]} />}
       {useArtboardCoords && (
         <p className="insp-panel__empty-hint">Coordinates shown relative to active artboard</p>
       )}
@@ -444,7 +415,6 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           fieldName="x"
           onShiftClick={() => editor.setBindingField('x')}
         />
-        <span className="insp-field-group__action-slot" aria-hidden="true" />
         <NumberField
           label={useArtboardCoords ? 'Y (AB)' : 'Y'}
           displayLabel="Y"
@@ -463,7 +433,6 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           fieldName="y"
           onShiftClick={() => editor.setBindingField('y')}
         />
-        <span className="insp-field-group__action-slot" aria-hidden="true" />
         {editor.bindingField &&
           ['x', 'y', 'width', 'height', 'rotation'].includes(editor.bindingField) && (
             <BindingMenu
@@ -517,35 +486,55 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 fieldName="width"
                 onShiftClick={() => editor.setBindingField('width')}
               />
-              {isFrameSelection ? (
-                <Tooltip label="Swap orientation (Portrait / Landscape)">
-                  <button
-                    type="button"
-                    className="insp-orientation-btn"
-                    onClick={handleSwapOrientation}
-                    aria-label="Swap orientation"
-                  >
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
+              <div className="insp-size-actions">
+                {isFrameSelection && (
+                  <Tooltip label="Swap orientation (Portrait / Landscape)">
+                    <button
+                      type="button"
+                      className="insp-orientation-btn"
+                      onClick={handleSwapOrientation}
+                      aria-label="Swap orientation"
                     >
-                      <path d="M8 3 4 7l4 4" />
-                      <path d="M4 7h16" />
-                      <path d="m16 21 4-4-4-4" />
-                      <path d="M20 17H4" />
-                    </svg>
-                  </button>
-                </Tooltip>
-              ) : (
-                <span className="insp-field-group__action-slot" aria-hidden="true" />
-              )}
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M8 3 4 7l4 4" />
+                        <path d="M4 7h16" />
+                        <path d="m16 21 4-4-4-4" />
+                        <path d="M20 17H4" />
+                      </svg>
+                    </button>
+                  </Tooltip>
+                )}
+                <label
+                  className="insp-proportion-lock"
+                  title={locked ? 'Constrain proportions (active)' : 'Constrain proportions'}
+                >
+                  <input
+                    type="checkbox"
+                    className="insp-proportion-lock__input"
+                    checked={locked}
+                    onChange={() => setLocked((p) => !p)}
+                    aria-label="Constrain proportions"
+                  />
+                  {/* Linked/unlinked use the Lucide chain pair rather than a
+                      bespoke path, so the slashed state is unmistakable at 14px
+                      (2026-09-15 competitor research: ambiguous lock affordances). */}
+                  <Icon
+                    name={locked ? 'Link2' : 'Link2Off'}
+                    size={14}
+                    className={`insp-proportion-icon${locked ? ' insp-proportion-icon--locked' : ''}`}
+                  />
+                </label>
+              </div>
               <NumberField
                 label="H"
                 displayLabel="H"
@@ -559,27 +548,6 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 fieldName="height"
                 onShiftClick={() => editor.setBindingField('height')}
               />
-              <label
-                className="insp-proportion-lock"
-                title={locked ? 'Constrain proportions (active)' : 'Constrain proportions'}
-              >
-                <input
-                  type="checkbox"
-                  className="insp-proportion-lock__input"
-                  checked={locked}
-                  onChange={() => setLocked((p) => !p)}
-                  aria-label="Constrain proportions"
-                />
-                {/* Linked/unlinked use the Lucide chain pair rather than a
-                    bespoke path, so the slashed state is unmistakable at 14px
-                    (2026-09-15 competitor research: ambiguous lock affordances). */}
-                <Icon
-                  name={locked ? 'Link2' : 'Link2Off'}
-                  size={14}
-                  className={`insp-proportion-icon${locked ? ' insp-proportion-icon--locked' : ''}`}
-                />
-              </label>
-              <span className="insp-field-group__action-slot" aria-hidden="true" />
             </InspectorFieldGroup>
           )}
         </InspectorFieldGroup>
