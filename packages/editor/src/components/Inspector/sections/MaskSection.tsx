@@ -291,7 +291,7 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
                   aria-label="Paint mask with the brush tool"
                 >
                   <Icon name="Paintbrush" size="0.85em" />
-                  <span>{mask?.rasterMask ? 'Paint mask…' : 'Brush mask…'}</span>
+                  <span>Brush mask…</span>
                 </button>
               </Tooltip>
             )}
@@ -421,11 +421,11 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
 
           {supportsFillRule && (
             <FieldRow label="Fill rule">
-              <div className="insp-segmented" role="group" aria-label="Fill rule">
+              <div className="varve-segmented" role="group" aria-label="Fill rule">
                 <Tooltip label="Nonzero winding rule: determines interior by winding direction">
                   <button
                     type="button"
-                    className={`insp-segmented__btn ${mask.fillRule !== 'evenodd' ? 'insp-segmented__btn--active' : ''}`}
+                    className="varve-segmented__btn"
                     onClick={() => handleSetFillRule('nonzero')}
                     aria-pressed={mask.fillRule !== 'evenodd'}
                     aria-label="Nonzero fill rule"
@@ -436,7 +436,7 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
                 <Tooltip label="Even-odd rule: determines interior by raycast parity">
                   <button
                     type="button"
-                    className={`insp-segmented__btn ${mask.fillRule === 'evenodd' ? 'insp-segmented__btn--active' : ''}`}
+                    className="varve-segmented__btn"
                     onClick={() => handleSetFillRule('evenodd')}
                     aria-pressed={mask.fillRule === 'evenodd'}
                     aria-label="Even-odd fill rule"

@@ -237,6 +237,12 @@
   font-size: var(--font-size-xs);
 }
 
+.mockups-section__number-label--wrap {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .mockups-section__number input {
   width: 56px;
   padding: 2px var(--space-1);

@@ -430,8 +430,8 @@ export function ManageLayoutsDialog({ open, onClose }: { open: boolean; onClose:
         dismissible={false}
       >
         <p>
-          A layout named “{pendingImport?.variant.name}” already exists. Replace it with the
-          imported layout, or import a duplicate alongside it?
+          A layout named “{pendingImport?.name}” already exists. Replace it with the imported
+          layout, or import a duplicate alongside it?
         </p>
         <div className="workspace-layouts__footer">
           <Button variant="secondary" onClick={() => setPendingImport(null)}>

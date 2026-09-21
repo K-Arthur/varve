@@ -900,11 +900,15 @@ function SurfaceEditor({
 
 function NumberField({
   label,
+  labelWrap = false,
+  hideLabel = false,
   value,
   unit,
   onCommit,
 }: {
   label: string;
+  labelWrap?: boolean;
+  hideLabel?: boolean;
   value: number;
   unit?: string;
   onCommit: (value: number) => void;
@@ -920,7 +924,17 @@ function NumberField({
   };
   return (
     <label className="mockups-section__number">
-      <span className="visually-hidden">{label}</span>
+      <span
+        className={
+          hideLabel
+            ? 'varve-visually-hidden'
+            : `mockups-section__number-label${
+                labelWrap ? ' mockups-section__number-label--wrap' : ''
+              }`
+        }
+      >
+        {label}
+      </span>
       <input
         type="number"
         aria-label={label}

@@ -17,7 +17,7 @@ import {
 } from '@varve/engine';
 import type { Document, SceneNode, ShapeNode } from '@varve/scene';
 import { getImageFill, isImageShape } from '@varve/scene';
-import { Button, Icon, Switch, Tooltip } from '@varve/ui';
+import { Button, Icon, SegmentedControl, Switch, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import {
@@ -29,7 +29,7 @@ import {
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
-import { SegmentedControl } from '../controls/SegmentedControl';
+
 import type { SectionId } from '../sectionRegistry';
 
 const DETR_MODEL_ID = 'detr-resnet-50';
@@ -81,6 +81,9 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
     (ratio: number | null) => {
       if (!ratio || !node || node.kind !== 'shape') return;
       const shape = (node as ShapeNode).shape;
+      // Aspect presets resize the height from the current width; only the rect
+      // family carries those two independent dimensions.
+      if (shape.kind !== 'rect') return;
       const currentW = shape.w;
       const targetH = Math.round(currentW / ratio);
       updateDoc((doc) => {
