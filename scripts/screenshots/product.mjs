@@ -1360,7 +1360,7 @@ try {
   if (onlyScenes.size === 0) {
     const live = new Set(SCENES.map((s) => s.id));
     for (const id of Object.keys(manifest.scenes)) {
-      if (live.has(id)) continue;
+      if (live.has(id) || manifest.scenes[id]?.source) continue;
       const stale = manifest.scenes[id];
       if (stale?.file) {
         for (const dir of OUTPUT_DIRS) rmSync(join(dir, stale.file), { force: true });

@@ -38,6 +38,19 @@
       "height": 620,
       "lastValidatedAgainst": null
     },
+    "comic-lettering": {
+      "file": "comic-lettering-light.png",
+      "alt": "A speech balloon selected in Varve with editable dialogue and the Comic balloon inspector showing fit, line-shape, and tail controls",
+      "caption": "Editable comic lettering with contour-aware wrapping and tail controls",
+      "feature": "comic-lettering",
+      "theme": "light",
+      "status": "captured",
+      "source": "tests/e2e/canvas/comic-lettering.spec.ts",
+      "width": 1280,
+      "height": 720,
+      "sha256": "c32b41c825e7601d311ba8020ab576b1fd322cd164dab7ad5ed9a177af26c06c",
+      "lastValidatedAgainst": null
+    },
     "typography": {
       "file": "typography-light.png",
       "alt": "A type specimen in Varve showing a display character, a character set, a subhead and a body paragraph",
