@@ -368,7 +368,7 @@ it('shows pivot point at center for single selection', () => {
   expect(pivot?.getAttribute('cx')).toBe('100');
   expect(pivot?.getAttribute('cy')).toBe('50');
   expect(pivot?.getAttribute('r')).toBe('4');
-  expect(pivot?.getAttribute('fill')).toBe('var(--color-surface-overlay)');
+  expect(pivot?.getAttribute('fill')).toBe('var(--color-canvas-handle-fill)');
 });
 
 describe('SelectionOverlay — multi-selection', () => {

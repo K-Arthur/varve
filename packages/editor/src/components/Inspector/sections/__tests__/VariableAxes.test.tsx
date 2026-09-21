@@ -46,11 +46,21 @@ function textNode(fontFamily: string, variableAxes?: Record<string, number>): Te
 }
 
 const renderFor = (node: TextNode) =>
-  render(
-    <EditorProvider>
-      <TypographySection nodes={[node]} />
-    </EditorProvider>,
+  expandVariableAxes(
+    render(
+      <EditorProvider>
+        <TypographySection nodes={[node]} />
+      </EditorProvider>,
+    ),
   );
+
+function expandVariableAxes<T>(renderResult: T): T {
+  const trigger = screen.queryByRole('button', { name: 'Variable font axes' });
+  if (trigger && trigger.getAttribute('aria-expanded') !== 'true') {
+    fireEvent.click(trigger);
+  }
+  return renderResult;
+}
 
 /**
  * Renders the section against the live document node, the way
@@ -68,10 +78,12 @@ function renderLive(node: TextNode) {
     return live ? <TypographySection nodes={[live]} /> : null;
   }
 
-  return render(
-    <EditorProvider initialDocumentJson={JSON.stringify(doc)}>
-      <Live />
-    </EditorProvider>,
+  return expandVariableAxes(
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(doc)}>
+        <Live />
+      </EditorProvider>,
+    ),
   );
 }
 

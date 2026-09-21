@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { StateMachinePanel } from './StateMachinePanel';
 
@@ -57,7 +57,12 @@ describe('StateMachinePanel', () => {
     useEditorMock.mockReturnValue(baseEditor());
     render(<StateMachinePanel open={true} onClose={() => {}} />);
 
-    expect(screen.getByRole('heading', { name: 'State Machine' })).toBeTruthy();
+    expect(
+      within(screen.getByRole('dialog')).getByRole('heading', {
+        name: 'State Machine',
+        level: 2,
+      }),
+    ).toBeTruthy();
 
     // The inner disclosure is collapsed by default — expand it to reach content.
     fireEvent.click(screen.getByRole('button', { name: 'State Machine' }));

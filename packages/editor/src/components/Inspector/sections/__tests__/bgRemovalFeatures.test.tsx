@@ -669,16 +669,16 @@ describe('BackgroundRemovalSection - Object Selection', () => {
       },
     };
     const candidates = [candidate];
-    const reviewedCandidateKey = objectSelectionCandidateReviewKey(
-      {
-        candidateSetId: 'test-candidate-set',
-        sourceFingerprint: 'test-source',
-        mappingFingerprint: 'test-mapping',
-        modelId: 'sam2-hiera-tiny',
-        candidates,
-      },
-      0,
-    );
+    const objectSelectionSession = {
+      candidateSetId: 'test-candidate-set',
+      sourceFingerprint: 'test-source',
+      mappingFingerprint: 'test-mapping',
+      modelId: 'sam2-hiera-tiny',
+      width: 200,
+      height: 160,
+      candidates,
+    };
+    const reviewedCandidateKey = objectSelectionCandidateReviewKey(objectSelectionSession, 0);
     mockedUseEditor.mockReturnValue(
       createMockEditorContext({
         applySam2Segmentation,
@@ -686,12 +686,7 @@ describe('BackgroundRemovalSection - Object Selection', () => {
         state: {
           objectSelectionSession: {
             nodeId: 'n1',
-            width: 200,
-            height: 160,
-            candidateSetId: 'test-candidate-set',
-            sourceFingerprint: 'test-source',
-            mappingFingerprint: 'test-mapping',
-            candidates,
+            ...objectSelectionSession,
             selectedCandidate: 0,
             points: [{ x: 100, y: 80, label: 1 }],
             box: null,

@@ -32,12 +32,12 @@ describe('smartFilterCatalog', () => {
   });
 
   it('returns appropriate icon for kinds', () => {
-    expect(filterKindIcon('blur')).toBe('Drop');
+    expect(filterKindIcon('blur')).toBe('CloudFog');
     expect(filterKindIcon('sharpen')).toBe('Crosshair');
     expect(filterKindIcon('grain')).toBe('GridFour');
-    expect(filterKindIcon('softBloom')).toBe('Sparkle');
-    expect(filterKindIcon('gradientMap')).toBe('Palette');
-    expect(filterKindIcon('blackAndWhite')).toBe('CircleHalf');
+    expect(filterKindIcon('softBloom')).toBe('Flower');
+    expect(filterKindIcon('gradientMap')).toBe('ChartLineUp');
+    expect(filterKindIcon('blackAndWhite')).toBe('StarHalf');
   });
 
   it('formats blend modes accurately', () => {

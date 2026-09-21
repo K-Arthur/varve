@@ -71,7 +71,7 @@ describe('ImageTuningSection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockedUseEditor.mockReturnValue({
-      state: { sectionVisibility: {} },
+      state: { sectionVisibility: {}, document: { nodes: {} } },
       toggleSectionCollapse: vi.fn(),
       toggleSubSectionCollapse: vi.fn(),
       hideInspectorSection: vi.fn(),

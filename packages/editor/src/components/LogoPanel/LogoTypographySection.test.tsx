@@ -109,6 +109,7 @@ beforeEach(() => {
   updateDoc.mockReset();
   groupCompoundOperation.mockClear();
   vi.mocked(useEditor).mockReturnValue({
+    state: { document: { id: 'test-document' } },
     updateDoc,
     groupCompoundOperation,
     convertTextToOutlines: vi.fn(),
