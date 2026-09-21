@@ -37,13 +37,13 @@ export interface MenubarFocusDeps {
   setActiveSubmenuIndex: React.Dispatch<React.SetStateAction<number>>;
 }
 
-export interface MenubarContextDeps {
-  openMenu: string | null;
+export interface MenubarContextDeps<TMenu extends string = string> {
+  openMenu: TMenu | null;
   workspaceMode: string;
   activeId: string;
   menuRef: React.RefObject<HTMLDivElement | null>;
   dropdownMenuRef: React.RefObject<HTMLDivElement | null>;
-  setOpenMenu: React.Dispatch<React.SetStateAction<string | null>>;
+  setOpenMenu: React.Dispatch<React.SetStateAction<TMenu | null>>;
   setOpenSubmenu: React.Dispatch<React.SetStateAction<number | null>>;
   setActiveItemIndex: React.Dispatch<React.SetStateAction<number>>;
   setActiveSubmenuIndex: React.Dispatch<React.SetStateAction<number>>;
@@ -55,7 +55,7 @@ export interface MenubarContextDeps {
  * React commit. A context change after the menu was already open still closes
  * it, so stale target-dependent commands cannot remain visible.
  */
-export function useMenubarContextEffects({
+export function useMenubarContextEffects<TMenu extends string>({
   openMenu,
   workspaceMode,
   activeId,
@@ -65,7 +65,7 @@ export function useMenubarContextEffects({
   setOpenSubmenu,
   setActiveItemIndex,
   setActiveSubmenuIndex,
-}: MenubarContextDeps): void {
+}: MenubarContextDeps<TMenu>): void {
   const menuContextRef = useRef({ workspaceMode, activeId });
   const menuOpenedContextRef = useRef<{
     menu: string;
