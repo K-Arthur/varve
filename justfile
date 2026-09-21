@@ -255,9 +255,17 @@ validate-workflows-staged:
 prune-runtimes:
     node scripts/release/prune-foreign-runtimes.mjs
 
+# Local Linux bundles carry no updater artifacts. tauri.conf.json enables
+# createUpdaterArtifacts for the release pipeline, which signs them with
+# TAURI_SIGNING_PRIVATE_KEY; that key is a release secret and is deliberately
+# absent on a dev machine, so an un-overridden local build fails after
+# bundling with "A public key has been found, but no private key". Passing
+# the override below only affects the local artifact — release.yml passes
+# the real key and still produces signed updater artifacts.
+
 # Build all Linux bundles (AppImage + deb + rpm). Requires Linux + Tauri deps.
 package-linux: prune-runtimes
-    cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage,deb,rpm --ci --features ai
+    cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage,deb,rpm --ci --features ai --config '{"bundle":{"createUpdaterArtifacts":false}}'
     node scripts/release/prune-appimage-bundled-libs.mjs --bundle-dir apps/desktop/src-tauri/target/release/bundle
     @echo "Bundles written to apps/desktop/src-tauri/target/release/bundle/"
 
@@ -271,20 +279,21 @@ package-rpm: prune-runtimes
 
 # Build AppImage only. Local smoke-test artifact — see the note above.
 package-appimage: prune-runtimes
-    cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage --ci --features ai
+    cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage --ci --features ai --config '{"bundle":{"createUpdaterArtifacts":false}}'
     node scripts/release/prune-appimage-bundled-libs.mjs --bundle-dir apps/desktop/src-tauri/target/release/bundle
 
 # Dev/test bundles with a snapshot version (<release>-dev.<short-sha>) instead
 # of the committed release version. The tauri config merge overrides only the
-# bundle version — nothing committed changes, so the repo stays release-clean
-# while test installers are distinguishable from the last release and from
-# each other (no ambiguous same-version reinstall of different content).
+# bundle version and the updater artifacts — nothing committed changes, so the
+# repo stays release-clean while test installers are distinguishable from the
+# last release and from each other (no ambiguous same-version reinstall of
+# different content).
 package-linux-dev: prune-runtimes
     #!/usr/bin/env bash
     set -euo pipefail
     V="$(node scripts/release/version.mjs snapshot)"
     echo "Building dev bundles as ${V}..."
-    cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage,deb --ci --features ai --config "{\"version\":\"${V}\"}"
+    cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage,deb --ci --features ai --config "{\"version\":\"${V}\",\"bundle\":{\"createUpdaterArtifacts\":false}}"
     node scripts/release/prune-appimage-bundled-libs.mjs --bundle-dir apps/desktop/src-tauri/target/release/bundle
     echo "Dev bundles written to apps/desktop/src-tauri/target/release/bundle/"
 
