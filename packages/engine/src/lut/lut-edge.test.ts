@@ -131,7 +131,10 @@ describe('edge cases — .3dl files', () => {
       '1.0 1.0 1.0',
     ];
     const result = parse3dlData(lines.join('\n'));
-    expect(result.transform.size).toBe(2);
+    expect(result.transform.kind).toBe('3d');
+    if (result.transform.kind === '3d') {
+      expect(result.transform.size).toBe(2);
+    }
   });
 
   it('rejects malformed data rows instead of dropping tokens', () => {

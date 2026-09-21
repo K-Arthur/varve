@@ -366,7 +366,9 @@ describe('parse3dlData', () => {
   it('parses a valid 2^3 .3dl file', () => {
     const result = parse3dlData(valid3dl);
     expect(result.transform.kind).toBe('3d');
-    expect(result.transform.size).toBe(2);
+    if (result.transform.kind === '3d') {
+      expect(result.transform.size).toBe(2);
+    }
   });
 
   it('throws on empty file', () => {
@@ -391,7 +393,10 @@ describe('parse3dlData', () => {
 1.0 1.0 1.0
 `;
     const result = parse3dlData(withComments);
-    expect(result.transform.size).toBe(2);
+    expect(result.transform.kind).toBe('3d');
+    if (result.transform.kind === '3d') {
+      expect(result.transform.size).toBe(2);
+    }
   });
 
   it("decodes integer .3dl code values in the format's blue-fastest order", () => {

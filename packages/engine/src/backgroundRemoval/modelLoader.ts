@@ -1070,6 +1070,11 @@ class ModelLoader {
     for (const url of this.activeBlobUrls.values()) URL.revokeObjectURL(url);
     this.activeBlobUrls.clear();
   }
+
+  /** Release object URLs before the singleton is discarded between sessions/tests. */
+  dispose(): void {
+    this.revokeAllBlobUrls();
+  }
 }
 
 let instance: ModelLoader | null = null;
@@ -1093,7 +1098,7 @@ export async function getModelLoaderReady(signal?: AbortSignal): Promise<ModelLo
 }
 
 export function resetModelLoader(): void {
-  instance?.revokeAllBlobUrls();
+  instance?.dispose();
   instance = null;
   syncPromise = null;
 }
