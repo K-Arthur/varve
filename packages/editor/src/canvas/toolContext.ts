@@ -660,6 +660,7 @@ export function buildToolContext(
     },
     applySam2Segmentation: (params) => e.applySam2Segmentation(params),
     cancelSam2Segmentation: () => e.cancelSam2Segmentation(),
+    selectSam2Candidate: (index) => e.selectSam2Candidate(index),
     objectSelectionSession: s.objectSelectionSession,
     patchEditorState: (partial) => e.patch(partial),
     commitRasterMask: (nodeId, dataUrl, width, height, coordinateSpace, expectedNode) => {

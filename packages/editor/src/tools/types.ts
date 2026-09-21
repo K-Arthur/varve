@@ -447,6 +447,8 @@ export interface ToolContext {
     candidateIndex?: number;
   }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
   cancelSam2Segmentation?: () => void;
+  /** Select a returned Object Selection candidate by index (bracket cycling). */
+  selectSam2Candidate?: (index: number) => void;
 
   /** Floating raster selection for pixel transforms. */
   getFloatingRaster?: () => import('@varve/engine').FloatingRasterSelection | null;
