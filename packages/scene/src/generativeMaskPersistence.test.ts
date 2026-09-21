@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { createEmbeddedAsset, hashContent } from './assets';
-import { addNode, createDocument, makeShapeNode } from './document';
+import { addNode, createDocument, type Document, makeShapeNode } from './document';
 import { DocumentCodec } from './documentCodec';
 import { imageFill } from './fills';
 import type { GenerativeEditRecord } from './generativeEdit';
 import { sha256Utf8 } from './sha256';
-import type { Document, RasterMaskAsset } from './types';
+import type { RasterMaskAsset } from './types';
 
 const PNG_DATA_URL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';

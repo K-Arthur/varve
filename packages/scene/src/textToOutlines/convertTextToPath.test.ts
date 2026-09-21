@@ -201,7 +201,20 @@ describe('convertTextNodeToPath', () => {
       ...doc,
       nodes: {
         ...doc.nodes,
-        txt1: { ...textNode, warps: [{ id: 'warp-1', kind: 'bend', enabled: true }] },
+        txt1: {
+          ...textNode,
+          warps: [
+            {
+              id: 'warp-1',
+              kind: 'bend' as const,
+              enabled: true,
+              mode: 'arch' as const,
+              amount: 0,
+              axis: 'horizontal' as const,
+              origin: 0.5,
+            },
+          ],
+        },
       },
     };
     const warpedResult = convertTextNodeToPath(warpedDoc, 'txt1', { fontData });
