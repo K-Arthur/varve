@@ -201,6 +201,40 @@ ONNX Runtime and generative helper, and removes stale foreign-platform runtime
 directories from a reused AppDir. The release workflow performs the same
 post-bundle verification before signing and collection.
 
+**Local bundles never require the updater signing key.** `tauri.conf.json`
+sets `createUpdaterArtifacts: true` for the release pipeline, which signs the
+AppImage with `TAURI_SIGNING_PRIVATE_KEY`. That key is release-only, so an
+un-overridden local build bundles the AppImage and then aborts with
+*"A public key has been found, but no private key"* — before the prune step
+runs. The three Linux packaging recipes merge
+`createUpdaterArtifacts: false` for their own invocation; `release.yml` still
+signs with the real key. Nothing committed changes, and local bundles simply
+have no `.sig` (the updater is not part of manual test installs).
+
+### Testing a local AppImage on another machine
+
+`just package-appimage` is the supported way to produce a production-profile
+AppImage for hands-on testing on other machines (release profile,
+`--features ai`, native ONNX Runtime). Two properties are inherited from this
+host and travel with the file:
+
+1. **glibc floor.** Only the release workflow pins the Ubuntu 22.04 (glibc
+   2.35) floor; a build on a current rolling host references the host's
+   newest libc symbols. Measured floor for the 2026-09-20 local build:
+   `GLIBC_2.43` (`acosf`, `asinf`, …) and `GLIBC_2.44` (`cosh`, `sinh`).
+   The AppImage starts on distros at or above that glibc (current
+   Arch/CachyOS) and fails on older ones with
+   `version 'GLIBC_2.44' not found` (Ubuntu 24.04 is 2.39). For a build that
+   runs on the release compatibility baseline, use the `ubuntu-22.04` runner
+   in `release.yml`.
+2. **Host WebKit/GTK.** The prune step removes the bundled GTK/WebKit stack,
+   so the AppImage uses the target machine's libraries — the same set the
+   `.deb` depends on (`libwebkit2gtk-4.1-0`, `libgtk-3-0`, `librsvg2-2`,
+   …). The target needs modern Mesa/EGL. On a FUSE-less machine, run it with
+   `--appimage-extract-and-run`.
+
+Both machines can verify the transfer with `sha256sum Varve_0.2.1_amd64.AppImage`.
+
 ### All Linux formats at once
 
 ```sh

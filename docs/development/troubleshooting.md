@@ -23,12 +23,24 @@ rustup target add wasm32-unknown-unknown
 # Linux: install webkit2gtk-4.1, gtk3, librsvg, libsoup3, openssl, cmake
 ```
 
-### AppImage build fails (`failed to run linuxdeploy`)
+### AppImage build fails (failed to run linuxdeploy)
 
 linuxdeploy's bundled `binutils strip` does not understand the `SHT_RELR`
 section type emitted by modern toolchains. The justfile sets `NO_STRIP=1`
 automatically for `package-appimage` and `package-linux`. If building
 manually, set `NO_STRIP=1` in the environment.
+
+### AppImage builds, then fails: "A public key has been found, but no private key"
+
+`tauri.conf.json` enables `createUpdaterArtifacts` for the release pipeline,
+which signs updater artifacts with `TAURI_SIGNING_PRIVATE_KEY`. That secret
+is not present locally, so the bundler writes the AppImage and then aborts,
+skipping the platform-library prune step (which is what keeps the AppImage
+from white-screening on modern Mesa/EGL). The `just package-appimage` /
+`package-linux` / `package-linux-dev` recipes already merge
+`{"bundle":{"createUpdaterArtifacts":false}}` for the local invocation; if
+you build with raw `pnpm tauri build`, pass the same `--config`, or set a
+release key deliberately (do not commit it).
 
 ### AppImage shows blank white screen
 
