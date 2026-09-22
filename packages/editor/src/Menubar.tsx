@@ -1007,6 +1007,12 @@ function buildMenus(
               action: 'toggleGuidesVisible',
             },
             {
+              label: 'Guide Layouts…',
+              shortcut: shortcutText('openGuideLayouts'),
+              ariaKeyshortcut: ks('openGuideLayouts'),
+              action: 'openGuideLayouts',
+            },
+            {
               label: 'Lock All Guides',
               shortcut: shortcutText('lockAllGuides'),
               ariaKeyshortcut: ks('lockAllGuides'),
@@ -2304,6 +2310,9 @@ export function Menubar({
           return;
         case 'clearGuides':
           clearAllGuides();
+          return;
+        case 'openGuideLayouts':
+          window.dispatchEvent(new Event('varve:open-guide-layouts'));
           return;
         case 'present':
           startPresentation();

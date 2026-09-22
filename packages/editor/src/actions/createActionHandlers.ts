@@ -94,6 +94,7 @@ export interface ActionHandlerCallbacks {
   onOpenFile?: () => void;
   onImportFile?: () => void;
   onQuickConvert?: () => void;
+  onOpenGuideLayouts?: () => void;
   onInsertIcon?: () => void;
   onBackToHome?: () => void;
   onOpenSettings?: () => void;
@@ -1011,6 +1012,7 @@ export function createActionHandlers(
     open: () => cb.onOpenFile?.(),
     import: () => cb.onImportFile?.(),
     quickConvert: () => cb.onQuickConvert?.(),
+    openGuideLayouts: () => cb.onOpenGuideLayouts?.(),
     save: () => e.save(),
     saveAs: () => e.saveAs(),
     saveCopy: () => e.saveCopy(),

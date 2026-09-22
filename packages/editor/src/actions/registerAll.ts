@@ -138,6 +138,7 @@ export function registerEditorActions(
     ['findReplace', 'Find and Replace', 'edit'],
     ['insertIcon', 'Insert Icon…', 'insert'],
     ['quickConvert', 'Quick Convert…', 'file'],
+    ['openGuideLayouts', 'Guide Layouts…', 'view'],
     ['textBold', 'Bold', 'text'],
     ['textItalic', 'Italic', 'text'],
     ['textUnderline', 'Underline', 'text'],

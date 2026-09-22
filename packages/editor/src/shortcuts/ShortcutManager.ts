@@ -95,6 +95,11 @@ export const SHORTCUT_DEFS = {
     label: 'Toggle Grid',
     category: 'View',
   },
+  openGuideLayouts: {
+    binding: { key: 'g', ctrl: true, alt: true, shift: true },
+    label: 'Guide Layouts…',
+    category: 'View',
+  },
   gridOverlayBaseline: {
     binding: { key: 'b', alt: true, shift: true },
     label: 'Baseline Grid Overlay',

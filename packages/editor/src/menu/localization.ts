@@ -140,6 +140,7 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.view.toggleGrid': 'Show Grid',
   'menu.view.toggleSnap': 'Snap',
   'menu.view.toggleGuides': 'Guides',
+  'menu.view.openGuideLayouts': 'Guide Layouts…',
   'menu.view.toggleMarqueeContainment': 'Marquee Selects Contained Objects',
   'menu.view.lockGuides': 'Lock Guides',
   'menu.view.clearGuides': 'Clear Guides',

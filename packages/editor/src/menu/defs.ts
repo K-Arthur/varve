@@ -1031,6 +1031,13 @@ export function getViewMenu(
       run: () => runAction('toggleGuides'),
     },
     {
+      id: 'openGuideLayouts',
+      labelKey: 'menu.view.openGuideLayouts',
+      kind: 'command',
+      group: 'guides',
+      run: () => runAction('openGuideLayouts'),
+    },
+    {
       id: 'toggleMarqueeContainment',
       labelKey: 'menu.view.toggleMarqueeContainment',
       kind: 'command',

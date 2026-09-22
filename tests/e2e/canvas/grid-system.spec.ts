@@ -12,7 +12,7 @@ test.describe('Grid system — real editor controls and visual overlay', () => {
     const showGrid = page.getByRole('switch', { name: 'Show grid', exact: true });
     const snapGrid = page.getByRole('switch', { name: 'Snap to document grid', exact: true });
     const showPixelGrid = page.getByRole('switch', {
-      name: 'Show pixel grid at high zoom',
+      name: 'Show at high zoom',
       exact: true,
     });
     const snapPixels = page.getByRole('switch', { name: 'Snap to integer pixels', exact: true });
@@ -53,5 +53,25 @@ test.describe('Grid system — real editor controls and visual overlay', () => {
     await expect(page.getByRole('switch', { name: /show layout guide 1/i })).toBeChecked();
 
     await page.screenshot({ path: 'test-results/grid-system-editor.png', fullPage: false });
+  });
+
+  test('opens Guide Layouts with preview validation and Escape cancel', async ({ page }) => {
+    await navigateToEditor(page);
+    await page.getByRole('menuitem', { name: 'View', exact: true }).click();
+    const viewMenu = page.getByRole('menu', { name: 'View' });
+    await expect(viewMenu).toBeVisible();
+    await viewMenu.getByRole('menuitem', { name: 'Guides', exact: true }).hover();
+    await page.getByRole('menuitem', { name: /Guide Layouts/ }).click();
+    const dialog = page.getByRole('dialog', { name: 'Guide Layouts' });
+    await expect(dialog).toBeVisible();
+    const count = dialog.locator('input').first();
+    await count.fill('not-a-number');
+    await expect(dialog.getByRole('button', { name: 'Apply' })).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+
+    await page.keyboard.press('Control+Alt+Shift+g');
+    await expect(page.getByRole('dialog', { name: 'Guide Layouts' })).toBeVisible();
+    await page.keyboard.press('Escape');
   });
 });

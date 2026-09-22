@@ -185,6 +185,47 @@ describe('Document Versioning', () => {
       layoutGrids: { frame1: [{ id: 'legacy-guide' }] },
     });
   });
+
+  it('splits legacy coupled uniform geometry into stable row and column guides', () => {
+    const migrated = migrateDocument({
+      id: 'uniform-v229',
+      name: 'Uniform fixture',
+      formatVersion: '2.29',
+      gridSettings: {
+        layoutGrids: {
+          frame1: [
+            {
+              id: 'legacy-uniform',
+              type: 'layout',
+              visible: true,
+              snapEnabled: true,
+              color: '#999',
+              opacity: 0.3,
+              scope: 'frame',
+              frameId: 'frame1',
+              layoutMode: 'uniform',
+              columnCount: 4,
+              rowCount: 3,
+              columnWidth: 80,
+              rowHeight: 48,
+              gutter: 12,
+              margin: [8, 10, 12, 14],
+              alignment: 'left',
+            },
+          ],
+        },
+      },
+    });
+    const guides = migrated?.gridSettings?.layoutGrids?.frame1 ?? [];
+    expect(guides).toHaveLength(2);
+    expect(guides.map((guide) => guide.layoutMode)).toEqual(['columns', 'rows']);
+    expect(guides.map((guide) => guide.id)).toEqual([
+      'legacy-uniform-columns',
+      'legacy-uniform-rows',
+    ]);
+    expect(guides[0]?.alignment).toBe('start');
+    expect(guides[1]?.alignment).toBe('start');
+  });
 });
 
 describe('Generative edit schema migration', () => {

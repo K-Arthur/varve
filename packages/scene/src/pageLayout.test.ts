@@ -119,4 +119,21 @@ describe('page layout', () => {
     );
     expect(resolved?.usableBounds.width).toBe(1920);
   });
+
+  it('keeps row and column gutters independent and reports the source', () => {
+    const doc = setDocumentPageLayout(createDocument('Rows and columns'), {
+      margins: { top: 20, bottom: 20, inside: 30, outside: 30 },
+      columns: { count: 3, gutter: 12 },
+      rows: { count: 2, gutter: 28 },
+      display: true,
+      snapEnabled: true,
+    });
+    const page = doc.pages?.[0];
+    if (!page) throw new Error('expected default page');
+    const resolved = resolvePageLayout(doc, page.id);
+    expect(resolved?.source).toBe('document-default');
+    expect(resolved?.columns).toHaveLength(3);
+    expect(resolved?.rows).toHaveLength(2);
+    expect(resolved?.sharedSegments).toHaveLength(10);
+  });
 });
