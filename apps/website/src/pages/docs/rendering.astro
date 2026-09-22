@@ -22,7 +22,11 @@ import '../../styles/docs-prose.css';
           The core rendering decision (ADR-0001) is that the Rust engine computes the scene and emits a compact IR, while the webview replays it to Canvas2D or WebGPU. This is the opposite of a "pixel-push" architecture where the engine sends pixel data directly.
         </p>
         <p>
-          The decision was compared empirically on one Wayland fixture: IR replay measured 86 fps versus 8.5 fps for a pixel-push comparison. The IR is approximately 42 KB per frame for a scene with 600 shapes; actual performance varies with document complexity, effects, renderer, display cadence, and device headroom.
+          The IR keeps the engine-to-webview seam compact and makes replay
+          deterministic. Throughput and input-to-paint latency still depend on
+          document complexity, effects, renderer, display cadence, and device
+          headroom; dated performance reports carry the fixture and environment
+          whenever a measurement is useful.
         </p>
       </section>
 
