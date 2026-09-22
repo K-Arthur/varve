@@ -48,11 +48,13 @@ export class AutoSaveService {
     | (() => { document: PersistenceRevision['document']; meta: { fileId?: string; name: string } })
     | null;
   private readonly legacySaveFn: ((json: string) => Promise<boolean>) | null;
+  private readonly isInteractionActive: (() => boolean) | null;
 
   constructor(
     saveFn: (revision: AutoSaveRevision, json: string) => Promise<boolean>,
     config?: Partial<AutoSaveConfig>,
     scheduleBackground?: BackgroundSchedule,
+    isInteractionActive?: () => boolean,
   );
   /** @deprecated Compatibility overload for callers migrating to revisions. */
   constructor(
@@ -72,8 +74,8 @@ export class AutoSaveService {
           meta: { fileId?: string; name: string };
         }),
     configOrSaveFn: Partial<AutoSaveConfig> | ((json: string) => Promise<boolean>) = {},
-    scheduleOrConfig?: BackgroundSchedule | Partial<AutoSaveConfig>,
-    legacySchedule?: BackgroundSchedule,
+    scheduleBackground?: BackgroundSchedule | Partial<AutoSaveConfig>,
+    legacySchedule?: BackgroundSchedule | (() => boolean),
   ) {
     if (typeof configOrSaveFn === 'function') {
       this.legacyGetDocument = saveOrGetDocument as () => {
@@ -82,8 +84,12 @@ export class AutoSaveService {
       };
       this.legacySaveFn = configOrSaveFn;
       this.saveFn = async (_revision, json) => this.legacySaveFn?.(json) ?? false;
-      this.cfg = { ...DEFAULTS, ...(scheduleOrConfig as Partial<AutoSaveConfig> | undefined) };
-      this.scheduleBackground = legacySchedule ?? null;
+      this.cfg = {
+        ...DEFAULTS,
+        ...(scheduleBackground as Partial<AutoSaveConfig> | undefined),
+      };
+      this.scheduleBackground = (legacySchedule as BackgroundSchedule | undefined) ?? null;
+      this.isInteractionActive = null;
     } else {
       this.legacyGetDocument = null;
       this.legacySaveFn = null;
@@ -92,7 +98,11 @@ export class AutoSaveService {
         json: string,
       ) => Promise<boolean>;
       this.cfg = { ...DEFAULTS, ...configOrSaveFn };
-      this.scheduleBackground = (scheduleOrConfig as BackgroundSchedule | undefined) ?? null;
+      this.scheduleBackground = (scheduleBackground as BackgroundSchedule | undefined) ?? null;
+      // The modern overload uses the implementation's legacy fourth slot for
+      // the interaction reader; the old overload uses it for its scheduler.
+      this.isInteractionActive =
+        typeof legacySchedule === 'function' ? (legacySchedule as unknown as () => boolean) : null;
     }
   }
 
@@ -238,16 +248,28 @@ export class AutoSaveService {
     }
   }
 
-  private async saveRevisions(revisions: AutoSaveRevision[], epoch: number): Promise<boolean> {
+  private async saveRevisions(
+    revisions: AutoSaveRevision[],
+    epoch: number,
+    automatic = false,
+  ): Promise<boolean> {
     this.setState('saving');
     let allSucceeded = true;
     const maxAttempts = Math.max(1, this.cfg.maxSaveRetries);
 
     for (const revision of revisions) {
       if (this.disposed || epoch !== this.disposeEpoch) return false;
+      if (automatic && this.isInteractionActive?.()) {
+        this.setState('idle');
+        return false;
+      }
       let succeeded = false;
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         if (this.disposed || epoch !== this.disposeEpoch) return false;
+        if (automatic && this.isInteractionActive?.()) {
+          this.setState('idle');
+          return false;
+        }
         try {
           // Materialization is memoized on the revision. A retry or a second
           // persistence service therefore never repeats the document walk.
@@ -307,7 +329,16 @@ export class AutoSaveService {
     const run = () => {
       this.saveQueued = false;
       if (this.disposed || epoch !== this.disposeEpoch) return;
-      void this.saveNow();
+      // The scheduler normally withholds background work while an interaction
+      // is active. Recheck here as well so a late callback or a test/host
+      // scheduler cannot begin a full-document materialization on the input
+      // lane. Manual saveNow() intentionally bypasses this guard.
+      if (this.isInteractionActive?.()) return;
+      const automatic = this.saveRevisions([...this.pending.values()], epoch, true);
+      this.inFlight = automatic;
+      void automatic.finally(() => {
+        if (this.inFlight === automatic) this.inFlight = null;
+      });
     };
     if (this.scheduleBackground) this.scheduleBackground(run);
     else run();

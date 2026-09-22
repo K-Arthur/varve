@@ -31,6 +31,8 @@ export interface BackupServiceConfig {
 export interface BackupServiceOptions {
   /** Schedule automatic work on the editor's background frame lane. */
   scheduleBackground?: (job: () => void) => void;
+  /** Read immediately before automatic materialization starts. */
+  isInteractionActive?: () => boolean;
 }
 
 export const DEFAULT_BACKUP_CONFIG: BackupServiceConfig = {
@@ -81,11 +83,13 @@ export class BackupService {
   private lifecycleEpoch = 0;
   private inFlight = new Set<Promise<unknown>>();
   private scheduleBackground: ((job: () => void) => void) | null;
+  private isInteractionActive: (() => boolean) | null;
   private automaticWorkQueued = false;
 
   constructor(config?: Partial<BackupServiceConfig>, options?: BackupServiceOptions) {
     this.config = { ...DEFAULT_BACKUP_CONFIG, ...config };
     this.scheduleBackground = options?.scheduleBackground ?? null;
+    this.isInteractionActive = options?.isInteractionActive ?? null;
     this.state = this.loadState();
   }
 
@@ -520,10 +524,16 @@ export class BackupService {
   private async runAutomaticBackups(due: Array<[string, DirtyProject]>): Promise<void> {
     for (const [sessionId, data] of due) {
       if (this.disposed || !this.config.enabled) break;
+      // The frame scheduler normally keeps this lane out of active input, but
+      // recheck immediately before materialization so a late callback cannot
+      // serialize a full document during a pointer, pinch, wheel, or keyboard
+      // interaction. The next scheduler tick will retry the same revision.
+      if (this.isInteractionActive?.()) return;
       if (this.dirtyProjects.get(sessionId) !== data) continue;
       const projectId = data.revision.projectId;
       let documentJson: string;
       try {
+        if (this.isInteractionActive?.()) return;
         documentJson = this.materialize(data);
       } catch (error) {
         this.recordMaterializationFailure(error);

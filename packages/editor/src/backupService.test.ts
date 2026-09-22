@@ -137,6 +137,42 @@ describe('BackupService automatic dedup', () => {
     expect(encodes).toBe(1);
   });
 
+  it('rechecks the interaction lease before a queued backup materializes', async () => {
+    const queued: Array<() => void> = [];
+    let active = true;
+    service = new BackupService(
+      { intervalMs: 0 },
+      {
+        scheduleBackground: (job) => queued.push(job),
+        isInteractionActive: () => active,
+      },
+    );
+    await service.initialize();
+    const projectId = uniqueProjectId();
+    let encodes = 0;
+    service.markDirty(
+      projectId,
+      () => {
+        encodes++;
+        return '{"lease":true}';
+      },
+      'Untitled',
+      1,
+    );
+
+    await (service as unknown as { tick: () => Promise<void> }).tick();
+    queued.shift()?.();
+    await Promise.resolve();
+    expect(encodes).toBe(0);
+
+    active = false;
+    await (service as unknown as { tick: () => Promise<void> }).tick();
+    queued.shift()?.();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(encodes).toBe(1);
+  });
+
   it('does not clear a newer revision when an older backup completes', async () => {
     service = new BackupService({ intervalMs: 0 });
     await service.initialize();

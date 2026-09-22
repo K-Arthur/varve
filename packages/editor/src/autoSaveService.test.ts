@@ -462,5 +462,34 @@ describe('AutoSaveService', () => {
       queued.shift()?.();
       expect(encodes).toBe(0);
     });
+
+    it('rechecks the interaction lease before automatic materialization', async () => {
+      const queued: Array<() => void> = [];
+      let active = true;
+      let encodes = 0;
+      const svc = new AutoSaveService(
+        async () => true,
+        { ...config, intervalMs: 0, idleThresholdMs: 0 },
+        (job) => queued.push(job),
+        () => active,
+      );
+      svc.start();
+      svc.notifyEdit(
+        revision('session-a', 1, () => {
+          encodes++;
+          return 'queued';
+        }),
+      );
+      vi.advanceTimersByTime(1000);
+      queued.shift()?.();
+      await Promise.resolve();
+      expect(encodes).toBe(0);
+      active = false;
+      vi.advanceTimersByTime(1000);
+      queued.shift()?.();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(encodes).toBe(1);
+    });
   });
 });

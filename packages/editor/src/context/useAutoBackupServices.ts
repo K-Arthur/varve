@@ -6,6 +6,7 @@ import { loadSettings as loadUiSettings } from '../components/Settings/settings'
 import {
   cancelEditorFrame,
   createEditorFrameKey,
+  isEditorInteractionActive,
   requestEditorFrame,
 } from '../performance/editorFrameRuntime';
 import {
@@ -92,6 +93,7 @@ export function useAutoBackupServices(
         if (key) requestEditorFrame(key, 'background', () => job());
         else job();
       },
+      isEditorInteractionActive,
     );
     autoSaveRef.current.setOnSaveRecovery(async (revision) => {
       // saveFn already persisted an untitled document as a recovery point.
@@ -116,6 +118,7 @@ export function useAutoBackupServices(
         if (key) requestEditorFrame(key, 'background', () => job());
         else job();
       },
+      isInteractionActive: isEditorInteractionActive,
     });
     void backupRef.current.initialize();
   }
