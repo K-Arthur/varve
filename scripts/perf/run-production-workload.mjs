@@ -828,6 +828,12 @@ function summarizeRunnerTraces(traces) {
       timestampSources,
     },
     traceCount: traces.length,
+    cumulativeSamples: {
+      interactions: traces.length,
+      queueDelay: queueDelay.length,
+      frameTotals: frameTotals.length,
+      spans: Object.values(spanDurations).reduce((sum, values) => sum + values.length, 0),
+    },
     interactionBreakdown: {
       traceKinds,
       spans: Object.fromEntries(
@@ -1142,7 +1148,20 @@ try {
         record.status = 'no-evidence';
         record.error = 'workload completed but produced no interaction traces';
       } else if (
-        workload !== 'pointer-move-idle' &&
+        new Set([
+          'single-drag',
+          'multi-drag',
+          'marquee-select',
+          'pan',
+          'zoom',
+          'undo-redo',
+          'resize',
+          'rotate',
+          'alt-drag',
+          'nudge',
+          'layer-visibility',
+          'canvas-resize',
+        ]).has(workload) &&
         (record.interactionBreakdown?.missingPresentation ?? 0) > 0
       ) {
         record.status = 'instrumentation-error';

@@ -15,6 +15,8 @@ test.describe('canvas feature page', () => {
     await expect(contract).toContainText('Plain wheel input pans the canvas');
     await expect(contract).toContainText('Arrow and Shift+Arrow');
     await expect(contract).toContainText('existing Settings panel');
+    await expect(contract).toContainText('Persistence respects the gesture');
+    await expect(contract).toContainText('Manual Save and Backup Now remain immediate');
     await expect(contract.locator('article')).toHaveCount(3);
     const emptySurface = page.getByTestId('canvas-empty-surface-contract');
     await expect(emptySurface).toBeVisible();
@@ -43,6 +45,12 @@ test.describe('canvas feature page', () => {
       path: testInfo.outputPath('canvas-feature-desktop.png'),
       fullPage: false,
     });
+    await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
+    await page.screenshot({
+      path: testInfo.outputPath('canvas-feature-desktop-dark.png'),
+      fullPage: false,
+    });
+    await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
 
     await page.setViewportSize({ width: 375, height: 812 });
     await expect(contract).toBeVisible();
@@ -66,6 +74,11 @@ test.describe('canvas feature page', () => {
     await expect(emptySurface.locator('.surface-state-contract__facts span')).toHaveCount(3);
     await page.screenshot({
       path: testInfo.outputPath('canvas-feature-mobile.png'),
+      fullPage: true,
+    });
+    await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
+    await page.screenshot({
+      path: testInfo.outputPath('canvas-feature-mobile-dark.png'),
       fullPage: true,
     });
   });
