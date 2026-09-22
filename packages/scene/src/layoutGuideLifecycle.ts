@@ -1,16 +1,20 @@
-import type { Document } from './document';
 import type { LayoutGrid } from './gridTypes';
 import type { NodeId } from './types';
+
+type GuideLayoutDocument = {
+  nodes: Record<NodeId, { kind?: string }>;
+  gridSettings?: { layoutGrids?: Record<NodeId, LayoutGrid[]> };
+};
 
 /**
  * Copy keyed frame layouts alongside a cloned node subtree. Layout guides are
  * document metadata rather than node fields, so every clone path must call
  * this helper explicitly after obtaining its node ID map.
  */
-export function cloneLayoutGuidesForIdMap(
-  doc: Document,
+export function cloneLayoutGuidesForIdMap<T extends GuideLayoutDocument>(
+  doc: T,
   idMap: ReadonlyMap<NodeId, NodeId>,
-): Document {
+): T {
   const source = doc.gridSettings?.layoutGrids;
   if (!source) return doc;
   const copied: Record<NodeId, LayoutGrid[]> = { ...(source as Record<NodeId, LayoutGrid[]>) };
@@ -35,15 +39,15 @@ export function cloneLayoutGuidesForIdMap(
       ...(doc.gridSettings ?? {}),
       layoutGrids: copied,
     },
-  };
+  } as T;
 }
 
 /** Import a v3 clipboard guide table while remapping only owners in the fragment. */
-export function remapLayoutGuidesForIdMap(
-  doc: Document,
+export function remapLayoutGuidesForIdMap<T extends GuideLayoutDocument>(
+  doc: T,
   source: Readonly<Record<NodeId, LayoutGrid[]>> | undefined,
   idMap: ReadonlyMap<NodeId, NodeId>,
-): Document {
+): T {
   if (!source) return doc;
   const layoutGrids = { ...(doc.gridSettings?.layoutGrids ?? {}) };
   let changed = false;
@@ -59,11 +63,13 @@ export function remapLayoutGuidesForIdMap(
     }));
     changed = true;
   }
-  return changed ? { ...doc, gridSettings: { ...(doc.gridSettings ?? {}), layoutGrids } } : doc;
+  return changed
+    ? ({ ...doc, gridSettings: { ...(doc.gridSettings ?? {}), layoutGrids } } as T)
+    : doc;
 }
 
 /** Remove keyed layouts whose owning frames no longer exist. */
-export function pruneOrphanedLayoutGuides(doc: Document): Document {
+export function pruneOrphanedLayoutGuides<T extends GuideLayoutDocument>(doc: T): T {
   const source = doc.gridSettings?.layoutGrids;
   if (!source) return doc;
   const layoutGrids = Object.fromEntries(
@@ -79,5 +85,5 @@ export function pruneOrphanedLayoutGuides(doc: Document): Document {
       ...(doc.gridSettings ?? {}),
       layoutGrids: Object.keys(layoutGrids).length > 0 ? layoutGrids : undefined,
     },
-  };
+  } as T;
 }
