@@ -13,7 +13,7 @@ import '../../styles/docs-prose.css';
 
       <h1 class="site-page-title">Rendering Pipeline</h1>
       <p class="docs-intro">
-        Varve's rendering pipeline converts a scene graph into pixels on screen through a compact Intermediate Representation (IR). This approach delivers 86 fps on Canvas2D for 600 shapes by separating computation from drawing.
+        Varve's rendering pipeline converts a scene graph into pixels on screen through a compact Intermediate Representation (IR). A historical Wayland fixture measured 86 fps on Canvas2D for 600 shapes; that result is directional evidence, not a universal frame-rate promise.
       </p>
 
       <section class="docs-section">
@@ -22,7 +22,7 @@ import '../../styles/docs-prose.css';
           The core rendering decision (ADR-0001) is that the Rust engine computes the scene and emits a compact IR, while the webview replays it to Canvas2D or WebGPU. This is the opposite of a "pixel-push" architecture where the engine sends pixel data directly.
         </p>
         <p>
-          The rationale was validated empirically on Wayland: the IR-replay approach achieves 86 fps versus 8.5 fps for a pixel-push approach. The IR is approximately 42 KB per frame for a scene with 600 shapes, making it efficient to serialize across the IPC boundary.
+          The decision was compared empirically on one Wayland fixture: IR replay measured 86 fps versus 8.5 fps for a pixel-push comparison. The IR is approximately 42 KB per frame for a scene with 600 shapes; actual performance varies with document complexity, effects, renderer, display cadence, and device headroom.
         </p>
       </section>
 
