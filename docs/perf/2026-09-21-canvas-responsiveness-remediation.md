@@ -78,7 +78,9 @@ their implementation or defect rate.
   workflow after the oracle first detected the mismatch; the corrected run
   passes with an exact live-surface/forced-full-redraw hash match.
 - The website build and canvas feature E2E pass; desktop/mobile light/dark
-  captures were produced and inspected for layout, labels, and contrast.
+  captures were produced. Desktop light/dark captures were manually inspected
+  for layout, labels, and contrast; mobile artifacts remain available for
+  follow-up review.
 - The repository-wide planner currently escalates because the worktree contains
   hundreds of unrelated dirty paths and existing cross-package edits. The
   resulting typecheck reaches unrelated pre-existing errors in tool context,
