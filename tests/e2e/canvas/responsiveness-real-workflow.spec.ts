@@ -27,7 +27,7 @@ async function surfaceHash(page: import('@playwright/test').Page): Promise<strin
 
 async function forceFullRedraw(page: import('@playwright/test').Page): Promise<void> {
   const result = (await page.evaluate(async () => {
-    (
+    return (
       window as unknown as {
         __varvePerf?: {
           forceFullRedraw?: () => Promise<{
@@ -100,6 +100,18 @@ test('real SVG/photo workflow keeps input and pixels authoritative', async ({ pa
   await page.mouse.move(center.x + 30, center.y + 30, { steps: 6 });
   await page.mouse.up();
   await assertFreshSurface(page, 'second drag');
+
+  // Marquee dragging intentionally leaves multiple imported objects selected.
+  // Add one unlocked real vector shape through the normal tool path before
+  // resizing so the handle has an unambiguous geometry owner (mixed imported
+  // bounds can stay fixed when one locked member is resized).
+  await page.keyboard.press('r');
+  await page.mouse.move(center.x - 90, center.y - 70);
+  await page.mouse.down();
+  await page.mouse.move(center.x - 10, center.y - 10, { steps: 4 });
+  await page.mouse.up();
+  await page.keyboard.press('v');
+  await expect(page.getByLabel('Bottom-right resize handle')).toBeVisible();
 
   const resizeHandle = page.getByLabel('Bottom-right resize handle');
   await expect(resizeHandle, 'imported content must expose a real resize handle').toBeVisible();
