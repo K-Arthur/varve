@@ -35,6 +35,7 @@ import {
   isInteractionTracingEnabled,
   markInteractionCanvasChanged,
   nextPointerSequenceId,
+  recordInteractionEventSample,
   recordInteractionSpan,
 } from '../performance/interactionTrace';
 import { shouldIgnoreShortcutTarget } from '../shortcuts/ShortcutManager';
@@ -582,7 +583,8 @@ export function useCanvasInputs({
       // compatibility event. Do not let it create a second stroke.
       if (e.buttons !== 0 && contact?.role !== 'tool') return;
       if (e.buttons !== 0 && !contact) return;
-      const ctx = buildToolCtx(ne, collectSourceEvents(ne, true));
+      const sourceEvents = collectSourceEvents(ne, true);
+      const ctx = buildToolCtx(ne, sourceEvents);
       if (contact?.role === 'tool' && e.buttons !== 0) {
         if (isTouchLikeContact(contact) && touchPointers.current.has(e.pointerId)) {
           touchPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -595,6 +597,20 @@ export function useCanvasInputs({
       const traceStart = traceOn ? performance.now() : 0;
       const eventSequenceId = traceOn ? traceEventId('pointer') : undefined;
       const activeTrace = traceOn ? getActiveInteractionIdentity() : null;
+      if (traceOn) {
+        // Preserve queue evidence for confirmed coalesced samples without
+        // counting them as additional handler invocations. The primary
+        // sample remains represented by pointer.input below.
+        const confirmed = sourceEvents.filter((sample) => !sample.isPredicted);
+        for (const sample of confirmed.slice(0, Math.max(0, confirmed.length - 1))) {
+          recordInteractionEventSample(
+            'pointer.coalesced',
+            sample.time,
+            traceEventId('pointer-coalesced'),
+            sample.timestampTrusted !== false,
+          );
+        }
+      }
       // Hover-only movement is sampled at 800 ms so idle pointer motion does
       // not churn the trace ring while hover latency stays measurable.
       if (
@@ -612,6 +628,7 @@ export function useCanvasInputs({
           recordInteractionSpan('pointer.input', performance.now() - traceStart, {
             pointerType: e.pointerType,
             buttons: e.buttons,
+            ...(Number.isFinite(ne.timeStamp) ? { eventTimeStamp: ne.timeStamp } : {}),
             ...(eventSequenceId ? { eventSequenceId } : {}),
             ...(queueDelayMs === null
               ? { queueDelayClock: 'untrusted' }
@@ -1116,6 +1133,7 @@ export function useCanvasInputs({
           deltaX: e.deltaX,
           deltaY: e.deltaY,
           deltaMode: e.deltaMode,
+          ...(Number.isFinite(e.timeStamp) ? { eventTimeStamp: e.timeStamp } : {}),
           source: action.source,
           kind: action.kind,
           scale: action.scale,
@@ -1234,6 +1252,7 @@ export function useCanvasInputs({
         const queueDelayMs = eventQueueDelayMs(e.timeStamp, started);
         recordInteractionSpan('pinch.input', performance.now() - started, {
           phase: 'start',
+          ...(Number.isFinite(e.timeStamp) ? { eventTimeStamp: e.timeStamp } : {}),
           ...(queueDelayMs === null
             ? { queueDelayClock: 'untrusted' }
             : { queueDelayMs, queueDelayClock: 'dom.event.timeStamp' }),
@@ -1264,6 +1283,7 @@ export function useCanvasInputs({
         const queueDelayMs = eventQueueDelayMs(e.timeStamp, started);
         recordInteractionSpan('pinch.input', performance.now() - started, {
           phase: 'change',
+          ...(Number.isFinite(e.timeStamp) ? { eventTimeStamp: e.timeStamp } : {}),
           ...(queueDelayMs === null
             ? { queueDelayClock: 'untrusted' }
             : { queueDelayMs, queueDelayClock: 'dom.event.timeStamp' }),
@@ -1285,6 +1305,7 @@ export function useCanvasInputs({
         const queueDelayMs = eventQueueDelayMs(e.timeStamp, started);
         recordInteractionSpan('pinch.input', performance.now() - started, {
           phase: 'end',
+          ...(Number.isFinite(e.timeStamp) ? { eventTimeStamp: e.timeStamp } : {}),
           ...(queueDelayMs === null
             ? { queueDelayClock: 'untrusted' }
             : { queueDelayMs, queueDelayClock: 'dom.event.timeStamp' }),
@@ -1663,6 +1684,7 @@ export function useCanvasInputs({
         const finishKeyboardInput = beginInteractionSpan('keyboard.input', {
           repeat: e.repeat,
           modifiers: Number(e.shiftKey) + Number(e.ctrlKey) + Number(e.altKey) + Number(e.metaKey),
+          ...(Number.isFinite(ne.timeStamp) ? { eventTimeStamp: ne.timeStamp } : {}),
           ...(queueDelayMs === null
             ? { queueDelayClock: 'untrusted' }
             : {

@@ -263,9 +263,6 @@ export function summarizeRunnerTraces(traces) {
       missingPresentation,
       instrumentationErrors,
     },
-    deprecated: {
-      pointerToPresent: distribution(inputToCommit),
-    },
     traceEvidence: traces,
   };
 }

@@ -14,6 +14,7 @@ import {
   markInteractionCanvasChanged,
   nextPointerSequenceId,
   notifyFrameCommit,
+  recordInteractionEventSample,
   recordInteractionSpan,
   recordNextPaintEvidence,
   resetInteractionTraces,
@@ -291,10 +292,7 @@ describe('interactionTrace', () => {
     expect(summary.maxTotalMs).toBeGreaterThanOrEqual(0);
     expect(summary.total.count).toBe(5);
     expect(summary.total.p99).toBeGreaterThanOrEqual(summary.total.p95);
-    expect(summary.deprecated.pointerToPresent.count).toBe(5);
-    expect(summary.deprecated.pointerToPresent.max).toBeGreaterThanOrEqual(
-      summary.deprecated.pointerToPresent.p99,
-    );
+    expect(summary).not.toHaveProperty('deprecated');
   });
 
   describe('interaction identity', () => {
@@ -339,6 +337,33 @@ describe('interactionTrace', () => {
       expect.objectContaining({ disposition: 'background' }),
     ]);
     expect(trace?.frames[1]).not.toHaveProperty('renderRevision');
+  });
+
+  it('matches asynchronous paint evidence to an exact input timestamp', () => {
+    enableInteractionTraces(true);
+    const eventTimeStamp = performance.now();
+    beginInteraction('pointer-drag', eventTimeStamp);
+    recordInteractionEventSample('pointer.coalesced', eventTimeStamp, 'event-1');
+    const trace = endInteraction()!;
+    expect(
+      recordNextPaintEvidence({
+        startTimeMs: eventTimeStamp + 0.9,
+        durationMs: 12,
+        source: 'event-timing',
+        clockTrust: 'trusted',
+        uncertaintyMs: 8,
+      }),
+    ).toBe(false);
+    expect(
+      recordNextPaintEvidence({
+        startTimeMs: eventTimeStamp,
+        durationMs: 12,
+        source: 'event-timing',
+        clockTrust: 'trusted',
+        uncertaintyMs: 8,
+      }),
+    ).toBe(true);
+    expect(trace.inputToNextPaintMs).toBe(12);
   });
 
   it('requires a causal frame for changed interactions and matches late next-paint evidence', () => {

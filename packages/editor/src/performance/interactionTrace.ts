@@ -262,7 +262,9 @@ function appendSpan(
   durationMs: number,
   attributes?: InteractionSpan['attributes'],
 ): void {
-  if (name.endsWith('.input')) trace.eventCount++;
+  if (name.endsWith('.input') || attributes?.eventSequenceId !== undefined) {
+    trace.eventCount++;
+  }
   const queueDelayMs = attributes?.queueDelayMs;
   if (typeof queueDelayMs === 'number' && Number.isFinite(queueDelayMs)) {
     trace.maxQueueDelayMs = Math.max(trace.maxQueueDelayMs ?? 0, queueDelayMs);
@@ -305,6 +307,30 @@ export function recordInteractionSpanAt(
 ): void {
   if (!tracingEnabled || !current || durationMs < 0) return;
   appendSpan(current, name, startTimeMs, durationMs, attributes);
+}
+
+/** Record one browser input sample without folding it into handler duration. */
+export function recordInteractionEventSample(
+  source: string,
+  eventTimeStamp: number | undefined,
+  eventSequenceId: string | undefined,
+  timestampTrusted = true,
+): void {
+  if (!tracingEnabled || !current) return;
+  const now = performance.now();
+  const queueDelayMs =
+    timestampTrusted && typeof eventTimeStamp === 'number'
+      ? eventQueueDelayMs(eventTimeStamp, now)
+      : null;
+  appendSpan(current, `${source}.sample`, now, 0, {
+    ...(eventSequenceId ? { eventSequenceId } : {}),
+    ...(timestampTrusted && typeof eventTimeStamp === 'number' && Number.isFinite(eventTimeStamp)
+      ? { eventTimeStamp }
+      : {}),
+    ...(queueDelayMs === null
+      ? { queueDelayClock: 'untrusted' }
+      : { queueDelayMs, queueDelayClock: 'dom.event.timeStamp' }),
+  });
 }
 
 /** Attach a late diagnostic span to its originating trace without changing
@@ -479,7 +505,9 @@ export interface NextPaintEvidence {
  * Timing callbacks arrive after React and the active trace have already
  * closed, so this never writes to whichever interaction happens to be open.
  * A caller that has a native correlation ID may pass it through `traceId`;
- * browser-only evidence falls back to the bounded timestamp/DOM-event match.
+ * browser-only evidence must match the timestamp recorded on the originating
+ * input span; a broad trace time-window match would attribute a late paint to
+ * the wrong interaction when gestures overlap.
  */
 export function recordNextPaintEvidence(evidence: NextPaintEvidence, traceId?: number): boolean {
   if (!tracingEnabled || !Number.isFinite(evidence.durationMs)) return false;
@@ -487,8 +515,13 @@ export function recordNextPaintEvidence(evidence: NextPaintEvidence, traceId?: n
   const trace = candidates.find((candidate) => {
     if (traceId !== undefined && candidate.id !== traceId) return false;
     if (candidate.inputToNextPaintMs !== null) return false;
-    const end = candidate.endedAt > 0 ? candidate.endedAt : performance.now();
-    return evidence.startTimeMs >= candidate.startedAt - 1 && evidence.startTimeMs <= end + 1;
+    if (traceId !== undefined) return true;
+    return candidate.spans.some((span) => {
+      const eventTimeStamp = span.attributes?.eventTimeStamp;
+      return (
+        typeof eventTimeStamp === 'number' && Math.abs(eventTimeStamp - evidence.startTimeMs) <= 0.5
+      );
+    });
   });
   if (!trace) return false;
   trace.inputToNextPaintMs = Math.max(0, evidence.durationMs);
@@ -602,7 +635,6 @@ export function summarizeInteractionTraces(samples: InteractionTrace[]): {
   maxTotalMs: number;
   inputToCommit: LatencyDistribution;
   inputToNextPaint: LatencyDistribution;
-  deprecated: { pointerToPresent: LatencyDistribution };
   total: LatencyDistribution;
   queueDelay: LatencyDistribution;
   untrustedQueueDelayCount: number;
@@ -611,7 +643,6 @@ export function summarizeInteractionTraces(samples: InteractionTrace[]): {
 } {
   const withPresent = samples.filter((t) => t.inputToCommitMs !== null);
   const inputToCommitValues = withPresent.map((trace) => trace.inputToCommitMs ?? 0);
-  const pointerToPresentValues = inputToCommitValues;
   const nextPaintValues = samples
     .map((trace) => trace.inputToNextPaintMs)
     .filter((value): value is number => value !== null);
@@ -650,7 +681,6 @@ export function summarizeInteractionTraces(samples: InteractionTrace[]): {
     maxTotalMs: totalDistribution.max,
     inputToCommit: distribution(inputToCommitValues),
     inputToNextPaint: distribution(nextPaintValues),
-    deprecated: { pointerToPresent: distribution(pointerToPresentValues) },
     total: totalDistribution,
     queueDelay: distribution(queueDelays),
     untrustedQueueDelayCount: samples.reduce(

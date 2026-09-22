@@ -55,6 +55,8 @@ export interface NormalizedInputEvent {
   isPredicted: boolean;
   /** Timestamp in ms (performance.now epoch or PointerEvent.timeStamp). */
   time: number;
+  /** Whether `time` came from a correlatable DOM timestamp rather than a fallback clock. */
+  timestampTrusted?: boolean;
   /** True when the pen's eraser end is in use. */
   isEraser: boolean;
   /** True when this is the primary pointer in a multi-pointer session. */
@@ -245,6 +247,8 @@ export function normalizeInputEvent(ev: PointerEvent): NormalizedInputEvent {
     azimuthAngle: azimuth,
     isPredicted: false,
     time,
+    timestampTrusted:
+      Number.isFinite(eventTime) && eventTime >= 0 && Math.abs(eventTime - now) <= 60_000,
     isEraser: isEraserEvent(ev, pointerType),
     isPrimary: safeBoolean(ev, 'isPrimary', false),
     pointerId: clampFinite(
