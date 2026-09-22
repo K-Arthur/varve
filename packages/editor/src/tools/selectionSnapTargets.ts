@@ -1,8 +1,14 @@
-import { type Document, getGuidesForPage, type NodeId, pageBoundsInWorld } from '@varve/scene';
+import {
+  type Document,
+  getGuidesForPage,
+  type NodeId,
+  pageBoundsInWorld,
+  resolvePageLayout,
+} from '@varve/scene';
 import { applyAffine } from '@varve/shared';
 import { resolveLayoutGuideGeometry } from '../canvas/layoutGridGeometry';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
-import type { SnapLineTarget } from './snapping';
+import type { SnapLineTarget, SnapSegmentTarget } from './snapping';
 
 export interface SelectionSnapTargetOptions {
   includePages: boolean;
@@ -25,21 +31,33 @@ function addRectEdges(
   );
 }
 
-function addLayoutGuideLines(targets: SnapLineTarget[], doc: Document, frameId: NodeId): void {
+function addLayoutGuideLines(
+  targets: SnapLineTarget[],
+  segments: SnapSegmentTarget[],
+  doc: Document,
+  frameId: NodeId,
+): void {
   const frame = doc.nodes[frameId];
   if (frame?.kind !== 'frame') return;
   const world = nodeWorldTransform(doc, frameId);
   if (!Number.isFinite(world[0]) || !Number.isFinite(world[3])) return;
-  // Layout guide coordinates are frame-local. A rotated/sheared frame needs a
-  // proper oriented-line projection, which this axis-aligned handle solver
-  // does not promise; movement has the same deliberate boundary.
-  if (Math.abs(world[1]) >= 1e-8 || Math.abs(world[2]) >= 1e-8) return;
   const authored = doc.gridSettings?.layoutGrids?.[frameId] ?? [];
   const grids = Array.isArray(authored) ? authored : [authored];
   for (const grid of grids) {
     if (!grid.snapEnabled) continue;
     const geometry = resolveLayoutGuideGeometry(grid, frame.w, frame.h);
     if (!geometry.valid) continue;
+    for (const segment of geometry.segments) {
+      const start = applyAffine(world, [segment.start.x, segment.start.y]);
+      const end = applyAffine(world, [segment.end.x, segment.end.y]);
+      segments.push({
+        start: { x: start[0], y: start[1] },
+        end: { x: end[0], y: end[1] },
+        id: `layout-grid:${frameId}:${grid.id}:${segment.id}`,
+        type: 'layout-grid',
+      });
+    }
+    if (Math.abs(world[1]) >= 1e-8 || Math.abs(world[2]) >= 1e-8) continue;
     for (const x of geometry.vertical) {
       const worldPoint = applyAffine(world, [x, 0]);
       targets.push({
@@ -72,7 +90,17 @@ export function buildSelectionSnapLineTargets(
   parentIndex: ReadonlyMap<NodeId, NodeId | null>,
   options: SelectionSnapTargetOptions,
 ): SnapLineTarget[] {
+  return buildSelectionSnapTargets(doc, selection, parentIndex, options).lineTargets;
+}
+
+export function buildSelectionSnapTargets(
+  doc: Document,
+  selection: readonly NodeId[],
+  parentIndex: ReadonlyMap<NodeId, NodeId | null>,
+  options: SelectionSnapTargetOptions,
+): { lineTargets: SnapLineTarget[]; segmentTargets: SnapSegmentTarget[] } {
   const targets: SnapLineTarget[] = [];
+  const segmentTargets: SnapSegmentTarget[] = [];
   if (options.includePages) {
     for (const page of doc.pages ?? []) {
       const bounds = pageBoundsInWorld(doc, page.id);
@@ -86,7 +114,7 @@ export function buildSelectionSnapLineTargets(
     }
   }
 
-  if (!options.includeGuides) return targets;
+  if (!options.includeGuides) return { lineTargets: targets, segmentTargets };
   for (const guide of getGuidesForPage(doc, doc.activePageId)) {
     if (!Number.isFinite(guide.position)) continue;
     targets.push({
@@ -96,7 +124,29 @@ export function buildSelectionSnapLineTargets(
       type: 'guide',
     });
   }
+  if (doc.activePageId) {
+    const pageLayout = resolvePageLayout(doc, doc.activePageId);
+    const pageBounds = pageBoundsInWorld(doc, doc.activePageId);
+    if (pageLayout && pageBounds && pageLayout.settings.snapEnabled !== false) {
+      for (const segment of pageLayout.sharedSegments) {
+        const start =
+          segment.axis === 'vertical'
+            ? { x: pageBounds.x + segment.x, y: pageBounds.y + segment.y1 }
+            : { x: pageBounds.x + segment.x1, y: pageBounds.y + segment.y };
+        const end =
+          segment.axis === 'vertical'
+            ? { x: pageBounds.x + segment.x, y: pageBounds.y + segment.y2 }
+            : { x: pageBounds.x + segment.x2, y: pageBounds.y + segment.y };
+        segmentTargets.push({
+          start,
+          end,
+          id: `page-layout:${doc.activePageId}:${segment.axis}:${start.x}:${start.y}`,
+          type: 'page-layout',
+        });
+      }
+    }
+  }
   const parentId = selection[0] ? (parentIndex.get(selection[0]) ?? null) : null;
-  if (parentId) addLayoutGuideLines(targets, doc, parentId);
-  return targets;
+  if (parentId) addLayoutGuideLines(targets, segmentTargets, doc, parentId);
+  return { lineTargets: targets, segmentTargets };
 }

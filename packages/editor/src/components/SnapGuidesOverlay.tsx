@@ -50,6 +50,22 @@ export function SnapGuidesOverlay({
       <title>Snap guides overlay</title>
       {guides.map((g) => {
         const color = guideColor(g.type, g.targetId);
+        if (g.segment) {
+          const [startX, startY] = screenForPoint(g.segment.start);
+          const [endX, endY] = screenForPoint(g.segment.end);
+          return (
+            <line
+              key={`s:${g.targetId ?? ''}:${startX}:${startY}`}
+              x1={startX}
+              y1={startY}
+              x2={endX}
+              y2={endY}
+              stroke={color}
+              strokeWidth={2}
+              strokeDasharray="5,3"
+            />
+          );
+        }
         if (g.point) {
           const [cx, cy] = screenForPoint(g.point);
           return (

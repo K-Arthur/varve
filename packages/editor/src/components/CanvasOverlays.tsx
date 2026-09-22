@@ -149,6 +149,7 @@ export function CanvasOverlays({
   colorBlindnessView,
   guidesVisible,
   bleedGuidesVisible,
+  layoutGridVisible,
   selectedGuideId,
   unitType,
   rulerMode,
@@ -918,6 +919,8 @@ export function CanvasOverlays({
         document={doc}
         activePageId={editor.state.document.activePageId ?? null}
         tool={tool}
+        publishingSurfaceActive={editor.state.workspaceMode === 'print'}
+        visible={layoutGridVisible}
         zoom={zoom}
         worldToCanvas={(wx, wy) => editor.worldToCanvas(wx, wy)}
       />

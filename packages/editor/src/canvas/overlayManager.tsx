@@ -888,17 +888,9 @@ export function useOverlayDraw({
           ctx.globalAlpha = layoutGrid.opacity;
           ctx.lineWidth = 1 / s.zoom;
           ctx.setLineDash([]);
-          for (const x of geometry.vertical) {
-            const start = applyAffine(world, [x, 0]);
-            const end = applyAffine(world, [x, frame.h]);
-            ctx.beginPath();
-            ctx.moveTo(start[0], start[1]);
-            ctx.lineTo(end[0], end[1]);
-            ctx.stroke();
-          }
-          for (const y of geometry.horizontal) {
-            const start = applyAffine(world, [0, y]);
-            const end = applyAffine(world, [frame.w, y]);
+          for (const segment of geometry.segments) {
+            const start = applyAffine(world, [segment.start.x, segment.start.y]);
+            const end = applyAffine(world, [segment.end.x, segment.end.y]);
             ctx.beginPath();
             ctx.moveTo(start[0], start[1]);
             ctx.lineTo(end[0], end[1]);

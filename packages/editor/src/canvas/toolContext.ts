@@ -10,10 +10,12 @@ import {
   makeRasterLayerNode,
   type NodeId,
   nextNodeId,
+  pageBoundsInWorld,
   planeToWorld,
   resolveActiveIsometricGrid,
   resolveEditorSceneScope,
   resolveIsometricGeometry,
+  resolvePageLayout,
   type SceneNode,
   walkNodes,
   worldToPlane,
@@ -468,6 +470,7 @@ export function buildToolContext(
         position: number;
         id: string;
       }> = [];
+      const layoutGuideSegments: import('../tools/snapping').SnapSegmentTarget[] = [];
       if (draggedId) {
         const parentId = parentIdx.get(draggedId);
         if (parentId) {
@@ -478,14 +481,25 @@ export function buildToolContext(
               doc,
               parentId,
             );
-            const axisAligned = Math.abs(parentWorld[1]) < 1e-8 && Math.abs(parentWorld[2]) < 1e-8;
-            if (axisAligned) {
-              const authoredGuides = doc.gridSettings?.layoutGrids?.[parentId] ?? [];
-              const guides = Array.isArray(authoredGuides) ? authoredGuides : [authoredGuides];
-              for (const layoutGrid of guides) {
-                if (!layoutGrid.snapEnabled) continue;
-                const geometry = resolveLayoutGuideGeometry(layoutGrid, parentNode.w, parentNode.h);
-                if (!geometry.valid) continue;
+            const authoredGuides = doc.gridSettings?.layoutGrids?.[parentId] ?? [];
+            const guides = Array.isArray(authoredGuides) ? authoredGuides : [authoredGuides];
+            for (const layoutGrid of guides) {
+              if (!layoutGrid.snapEnabled) continue;
+              const geometry = resolveLayoutGuideGeometry(layoutGrid, parentNode.w, parentNode.h);
+              if (!geometry.valid) continue;
+              for (const segment of geometry.segments) {
+                const start = applyAffine(parentWorld, [segment.start.x, segment.start.y]);
+                const end = applyAffine(parentWorld, [segment.end.x, segment.end.y]);
+                layoutGuideSegments.push({
+                  start: { x: start[0], y: start[1] },
+                  end: { x: end[0], y: end[1] },
+                  id: `layout-grid:${parentId}:${layoutGrid.id}:${segment.id}`,
+                  type: 'layout-grid',
+                });
+              }
+              const axisAligned =
+                Math.abs(parentWorld[1]) < 1e-8 && Math.abs(parentWorld[2]) < 1e-8;
+              if (axisAligned) {
                 for (const x of geometry.vertical) {
                   layoutGridTargets.push({
                     axis: 'vertical',
@@ -502,6 +516,33 @@ export function buildToolContext(
                 }
               }
             }
+          }
+        }
+      }
+
+      // Publishing-page guides are scoped to the active page. They use the
+      // same resolved inheritance model as the overlay, and are converted
+      // from page-local coordinates to pasteboard coordinates without ever
+      // moving authored content.
+      if (snapPreferences.snapToGuides && doc.activePageId) {
+        const pageLayout = resolvePageLayout(doc, doc.activePageId);
+        const pageBounds = pageBoundsInWorld(doc, doc.activePageId);
+        if (pageLayout && pageBounds && pageLayout.settings.snapEnabled !== false) {
+          for (const segment of pageLayout.sharedSegments) {
+            const start =
+              segment.axis === 'vertical'
+                ? { x: pageBounds.x + segment.x, y: pageBounds.y + segment.y1 }
+                : { x: pageBounds.x + segment.x1, y: pageBounds.y + segment.y };
+            const end =
+              segment.axis === 'vertical'
+                ? { x: pageBounds.x + segment.x, y: pageBounds.y + segment.y2 }
+                : { x: pageBounds.x + segment.x2, y: pageBounds.y + segment.y };
+            layoutGuideSegments.push({
+              start,
+              end,
+              id: `page-layout:${doc.activePageId}:${segment.axis}:${start.x}:${start.y}`,
+              type: 'page-layout',
+            });
           }
         }
       }
@@ -530,7 +571,7 @@ export function buildToolContext(
           rotation: isometricGrid.rotation,
           axes: isometricGrid.axes,
         });
-        if (geometry && geometry.latticeValid && geometry.families.length > 0) {
+        if (geometry?.latticeValid && geometry.families.length > 0) {
           const tolerancePx = snapPreferences.snapTolerancePx ?? 8;
           const targetId = [
             isometricGrid.id,
@@ -604,6 +645,7 @@ export function buildToolContext(
           session: deps.snapSessionRef.current,
           guideTargets,
           layoutGridTargets: snapPreferences.snapToGuides ? layoutGridTargets : [],
+          layoutGuideSegments: snapPreferences.snapToGuides ? layoutGuideSegments : [],
           pixelGridSnap: s.snapEnabled && s.pixelGridSnapEnabled,
           isometric: isometricTarget,
           snapFeatures: geometryFeatures,

@@ -29,9 +29,12 @@ export interface SnapGuide {
    * axis-aligned line; `axis`/`position` remain a legacy fallback.
    */
   point?: { x: number; y: number };
+  /** Finite winning segment for transformed layout feedback. */
+  segment?: { start: { x: number; y: number }; end: { x: number; y: number } };
   type?:
     | 'guide'
     | 'layout-grid'
+    | 'page-layout'
     | 'edge'
     | 'center'
     | 'midpoint'
@@ -56,6 +59,8 @@ export interface SnapBoxOptions {
   otherBounds?: Array<{ x: number; y: number; w: number; h: number }>;
   /** Page, frame, and authored guide lines available to handle snapping. */
   lineTargets?: SnapLineTarget[];
+  /** Finite transformed guide segments available to selection-box movement. */
+  layoutGuideSegments?: SnapSegmentTarget[];
   /** Handle that produced this box. Enables anchor-preserving resize snaps. */
   resizeHandle?: ResizeHandle;
   /** A centred resize has no fixed opposite edge. */
@@ -88,6 +93,14 @@ export interface SnapMatch {
 export interface SnapLineTarget {
   axis: 'horizontal' | 'vertical';
   position: number;
+  id?: string;
+  type?: SnapGuide['type'];
+}
+
+/** Finite oriented segment target used by transformed frame/page layouts. */
+export interface SnapSegmentTarget {
+  start: { x: number; y: number };
+  end: { x: number; y: number };
   id?: string;
   type?: SnapGuide['type'];
 }
@@ -132,6 +145,8 @@ export interface SnapOptions {
   layoutGridStep?: number;
   /** Authored frame layout-guide line targets in world coordinates. */
   layoutGridTargets?: Array<{ axis: 'horizontal' | 'vertical'; position: number; id?: string }>;
+  /** Finite world-space layout segments; a winning projection moves both axes together. */
+  layoutGuideSegments?: SnapSegmentTarget[];
   /** Pixel grid snapping (snaps to integer pixel coordinates). */
   pixelGridSnap?: boolean;
   /**
@@ -621,6 +636,69 @@ function closestLineSnapCandidate(
   };
 }
 
+function closestSegmentSnapCandidate(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  target: SnapSegmentTarget,
+  threshold: number,
+): { dx: number; dy: number; distance: number; guide: SnapGuide } | null {
+  const vx = target.end.x - target.start.x;
+  const vy = target.end.y - target.start.y;
+  const lengthSquared = vx * vx + vy * vy;
+  if (!(lengthSquared > 1e-12) || !Number.isFinite(lengthSquared)) return null;
+  const features = [
+    { x, y, name: 'top-left' },
+    { x: x + w, y, name: 'top-right' },
+    { x, y: y + h, name: 'bottom-left' },
+    { x: x + w, y: y + h, name: 'bottom-right' },
+    { x: x + w / 2, y: y + h / 2, name: 'center' },
+  ];
+  let best: { dx: number; dy: number; distance: number; feature: string } | null = null;
+  for (const feature of features) {
+    const t = Math.max(
+      0,
+      Math.min(
+        1,
+        ((feature.x - target.start.x) * vx + (feature.y - target.start.y) * vy) / lengthSquared,
+      ),
+    );
+    const px = target.start.x + t * vx;
+    const py = target.start.y + t * vy;
+    const dx = px - feature.x;
+    const dy = py - feature.y;
+    const distance = Math.hypot(dx, dy);
+    if (!best || distance < best.distance) best = { dx, dy, distance, feature: feature.name };
+  }
+  if (!best || best.distance >= threshold) return null;
+  const axis = Math.abs(vx) >= Math.abs(vy) ? 'horizontal' : 'vertical';
+  return {
+    ...best,
+    guide: {
+      axis,
+      position: axis === 'horizontal' ? target.start.y : target.start.x,
+      distance: best.distance,
+      label: 'Layout guide',
+      type: target.type ?? 'layout-grid',
+      ...(target.id
+        ? {
+            targetId: target.id,
+            sourceFeature: best.feature,
+            targetFeature: 'segment',
+            referenceSpace: 'world' as const,
+            correction: axis === 'horizontal' ? best.dy : best.dx,
+            point: {
+              x: best.dx + features.find((feature) => feature.name === best.feature)!.x,
+              y: best.dy + features.find((feature) => feature.name === best.feature)!.y,
+            },
+            segment: { start: target.start, end: target.end },
+          }
+        : {}),
+    },
+  };
+}
+
 export function snapPosition(
   x: number,
   y: number,
@@ -671,6 +749,12 @@ export function snapPosition(
   let bestYSnap = y;
   let bestYGuide: SnapGuide | null = null;
   let bestYPriority = -1;
+  let bestJointLayout: {
+    dx: number;
+    dy: number;
+    distance: number;
+    guide: SnapGuide;
+  } | null = null;
   let isoGuide: SnapGuide | null = null;
   let isoLock: IsometricSnapLock | null = null;
 
@@ -793,6 +877,19 @@ export function snapPosition(
       bestYSnap = bestLayoutY.snapped;
       bestYGuide = bestLayoutY.guide;
       bestYPriority = prio;
+    }
+  }
+
+  // Transformed frame/page layouts are finite segments rather than infinite
+  // axis lines. Choose one projection and apply its complete 2-D correction so
+  // rotated, mirrored, scaled, and nested owners never shear the selection.
+  if (options.layoutGuideSegments && options.layoutGuideSegments.length > 0) {
+    for (const target of options.layoutGuideSegments) {
+      const candidate = closestSegmentSnapCandidate(x, y, w, h, target, thresh);
+      if (!candidate) continue;
+      if (!bestJointLayout || candidate.distance < bestJointLayout.distance) {
+        bestJointLayout = candidate;
+      }
     }
   }
 
@@ -1233,6 +1330,29 @@ export function snapPosition(
     if (stickyResult.snapped || !sticky) guides.push(bestYGuide);
   }
 
+  if (
+    bestJointLayout &&
+    bestJointLayout.distance < thresh &&
+    (bestJointLayout.guide.type === 'layout-grid' ||
+      bestJointLayout.guide.type === 'page-layout') &&
+    bestJointLayout.distance <=
+      (Number.isFinite(bestXDiff) || Number.isFinite(bestYDiff)
+        ? Math.hypot(
+            Number.isFinite(bestXDiff) ? bestXDiff : 0,
+            Number.isFinite(bestYDiff) ? bestYDiff : 0,
+          )
+        : Infinity) +
+        1e-9 &&
+    bestXPriority < SNAP_PRIORITY.guide &&
+    bestYPriority < SNAP_PRIORITY.guide
+  ) {
+    snappedX = x + bestJointLayout.dx;
+    snappedY = y + bestJointLayout.dy;
+    guides.length = 0;
+    guides.push(bestJointLayout.guide);
+    session = { stickyX: null, stickyY: null };
+  }
+
   const matches = guides.flatMap((guide) => {
     if (!guide.targetId || !guide.sourceFeature || !guide.targetFeature) return [];
     const pointCorrection = guide.point ? { x: snappedX - x, y: snappedY - y } : null;
@@ -1482,6 +1602,7 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
     layoutGridStep,
     pixelGridSnap,
     lineTargets = [],
+    layoutGuideSegments = [],
   } = options;
   const thresh = thresholdWorld(zoom, tolerancePx);
 
@@ -1789,6 +1910,23 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
       bestYDiff = dy;
       bestYPriority = SNAP_PRIORITY.layoutGrid;
       snappedCy = ly;
+    }
+  }
+
+  if (!resizeHandle && layoutGuideSegments.length > 0) {
+    const segmentSnap = snapPosition(
+      box.cx - box.w / 2,
+      box.cy - box.h / 2,
+      box.w,
+      box.h,
+      [],
+      undefined,
+      undefined,
+      { zoom, tolerancePx, layoutGuideSegments, sticky: false },
+    );
+    if (segmentSnap.x !== box.cx - box.w / 2 || segmentSnap.y !== box.cy - box.h / 2) {
+      snappedCx = segmentSnap.x + box.w / 2;
+      snappedCy = segmentSnap.y + box.h / 2;
     }
   }
 

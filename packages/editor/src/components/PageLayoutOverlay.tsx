@@ -16,6 +16,10 @@ export interface PageLayoutOverlayProps {
   document: Document;
   activePageId: NodeId | null;
   tool: string;
+  /** Render when the publishing surface is active, even outside Page tool. */
+  publishingSurfaceActive?: boolean;
+  /** Shares the global layout-guide visibility toggle with frame layouts. */
+  visible?: boolean;
   zoom: number;
   worldToCanvas: (wx: number, wy: number) => { x: number; y: number };
 }
@@ -24,11 +28,13 @@ export const PageLayoutOverlay = memo(function PageLayoutOverlay({
   document,
   activePageId,
   tool,
+  publishingSurfaceActive = false,
+  visible = true,
   zoom,
   worldToCanvas,
 }: PageLayoutOverlayProps): React.ReactNode {
   const geometry = useMemo(() => {
-    if (tool !== 'page' || !activePageId) return null;
+    if ((!publishingSurfaceActive && tool !== 'page') || !visible || !activePageId) return null;
     const page = document.pages?.find((candidate) => candidate.id === activePageId);
     const placement = page ? resolvePagePlacement(document, page.id) : null;
     const layout = page ? resolvePageLayout(document, page.id) : null;
@@ -50,9 +56,10 @@ export const PageLayoutOverlay = memo(function PageLayoutOverlay({
       columns: layout.columns.map((column) =>
         polygon(column.x, usable.y, column.width, usable.height),
       ),
+      rows: layout.rows.map((row) => polygon(usable.x, row.y, usable.width, row.height)),
       issueCount: layout.issues.length,
     };
-  }, [document, activePageId, tool, worldToCanvas]);
+  }, [document, activePageId, publishingSurfaceActive, tool, visible, worldToCanvas]);
 
   if (!geometry) return null;
 
@@ -82,6 +89,15 @@ export const PageLayoutOverlay = memo(function PageLayoutOverlay({
         <polygon
           key={points}
           className="page-layout-overlay__column"
+          points={points}
+          fill="none"
+          strokeWidth={Math.max(1, 1 / zoom)}
+        />
+      ))}
+      {geometry.rows.map((points) => (
+        <polygon
+          key={points}
+          className="page-layout-overlay__row"
           points={points}
           fill="none"
           strokeWidth={Math.max(1, 1 / zoom)}

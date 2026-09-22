@@ -34,7 +34,7 @@ import {
   nodeWorldTransform,
 } from './scene/world';
 import { loadSettings } from './settings';
-import { buildSelectionSnapLineTargets } from './tools/selectionSnapTargets';
+import { buildSelectionSnapTargets } from './tools/selectionSnapTargets';
 import { filterSnapTargetEntries, type SnapBoxOptions, snapSelectionBox } from './tools/snapping';
 import { storeRepeatTransform } from './transform/repeatTransform';
 import { type SkewAxis, TransformEngine } from './transform/TransformEngine';
@@ -534,17 +534,18 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
             new Set(state.selection),
           ).map((target) => target.bounds)
         : [];
-    const lineTargets = state.snapEnabled
-      ? buildSelectionSnapLineTargets(state.document, state.selection, parentIndex, {
+    const snapTargets = state.snapEnabled
+      ? buildSelectionSnapTargets(state.document, state.selection, parentIndex, {
           includePages: snapPreferences.snapToPages,
           includeGuides: snapPreferences.snapToGuides,
         })
-      : [];
+      : { lineTargets: [], segmentTargets: [] };
     snapOptionsRef.current = {
       zoom: state.zoom,
       tolerancePx: snapPreferences.snapTolerancePx,
       otherBounds,
-      lineTargets,
+      lineTargets: snapTargets.lineTargets,
+      layoutGuideSegments: snapTargets.segmentTargets,
       grid: state.snapEnabled && state.documentGrid?.snapEnabled ? state.documentGrid : undefined,
       pixelGridSnap: state.snapEnabled && state.pixelGridSnapEnabled,
     };

@@ -3,7 +3,7 @@
  * Canonical geometry lives in @varve/scene so rendering and snapping can use
  * the richer segment/region contract without duplicating arithmetic here.
  */
-import type { LayoutGrid } from '@varve/scene';
+import type { LayoutGrid, LayoutGuideSegment } from '@varve/scene';
 import { resolveLayoutGuideGeometry as resolveCanonicalLayoutGuideGeometry } from '@varve/scene';
 
 export interface LayoutGuideGeometry {
@@ -11,6 +11,7 @@ export interface LayoutGuideGeometry {
   horizontal: number[];
   valid: boolean;
   reason?: string;
+  segments: LayoutGuideSegment[];
 }
 
 export { resolveCanonicalLayoutGuideGeometry };
@@ -28,6 +29,7 @@ export function resolveLayoutGuideGeometry(
       horizontal: [],
       valid: false,
       reason: resolved.issues[0]?.message ?? 'Invalid layout guide geometry.',
+      segments: [],
     };
   }
   const vertical: number[] = [];
@@ -37,5 +39,5 @@ export function resolveLayoutGuideGeometry(
     const lines = segment.axis === 'vertical' ? vertical : horizontal;
     if (!lines.some((entry) => Math.abs(entry - value) < 1e-6)) lines.push(value);
   }
-  return { vertical, horizontal, valid: true };
+  return { vertical, horizontal, valid: true, segments: resolved.segments };
 }
