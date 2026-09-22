@@ -2,6 +2,7 @@ import { deepCloneSubtree } from './clone';
 import type { Document } from './document';
 import { removeNode } from './document-nodes';
 import { cryptoId, makeGroupNode } from './document-utils';
+import { cloneLayoutGuidesForIdMap } from './layoutGuideLifecycle';
 import { nextNodeId } from './node-id';
 import type {
   GroupNode,
@@ -124,10 +125,11 @@ export function duplicateMaster(doc: Document, masterId: NodeId): Document {
   const cloneResult = deepCloneSubtree(doc.nodes, doc.nextId, master.contentRoot);
 
   // Merge cloned nodes into doc
-  const d: Document = {
+  let d: Document = {
     ...doc,
     nodes: { ...doc.nodes, ...cloneResult.nodes },
   };
+  d = cloneLayoutGuidesForIdMap(d, cloneResult.idMap);
 
   const duplicate: MasterPage = {
     ...master,

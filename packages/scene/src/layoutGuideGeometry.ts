@@ -6,12 +6,15 @@
  * transform and decide how to draw them. Snapping and rendering therefore
  * cannot disagree about margins, fixed tracks, or offsets.
  */
-import type { LayoutGrid, LayoutGuideMargins } from './gridTypes';
+import {
+  type LayoutGrid,
+  type LayoutGuideMargins,
+  MAX_LAYOUT_GUIDE_SEGMENTS,
+  MAX_LAYOUT_GUIDE_TRACKS,
+  MAX_LAYOUT_GUIDE_VALUE,
+} from './gridTypes';
 
-export const MAX_LAYOUT_GUIDES_PER_OWNER = 32;
-export const MAX_LAYOUT_GUIDE_TRACKS = 100;
-export const MAX_LAYOUT_GUIDE_SEGMENTS = 4096;
-export const MAX_LAYOUT_GUIDE_VALUE = 10_000_000;
+export { MAX_LAYOUT_GUIDES_PER_OWNER } from './gridTypes';
 
 export interface LayoutGuidePoint {
   x: number;

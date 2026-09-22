@@ -93,6 +93,7 @@ export * from './isometricGeometry';
 export * from './layerColor';
 export * from './layerStates';
 export * from './layoutGuideGeometry';
+export * from './layoutGuideLifecycle';
 export * from './library';
 export * from './liquify';
 export * from './liveBoolean';

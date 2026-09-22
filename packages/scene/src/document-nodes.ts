@@ -6,6 +6,7 @@ import { captureSyncBaseline, detectOverrides } from './component-sync';
 import { pruneUnreferencedDepthMaps } from './depthMaskRecipe';
 import type { Document } from './document';
 import { composeWorldTransform, devValidate, getParent } from './document-utils';
+import { pruneOrphanedLayoutGuides } from './layoutGuideLifecycle';
 import type {
   ArrangeOp,
   ContainerNode,
@@ -273,17 +274,19 @@ export function removeNode(doc: Document, id: NodeId): Document {
         : undefined,
     },
   }));
-  const result = pruneUnreferencedDepthMaps({
-    ...doc,
-    rootChildren,
-    ...(globalChildren ? { globalChildren } : {}),
-    nodes,
-    components: remainingComponents,
-    selectionSets,
-    layerStates,
-    rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
-    assets: Object.keys(assets).length > 0 ? assets : undefined,
-  });
+  const result = pruneOrphanedLayoutGuides(
+    pruneUnreferencedDepthMaps({
+      ...doc,
+      rootChildren,
+      ...(globalChildren ? { globalChildren } : {}),
+      nodes,
+      components: remainingComponents,
+      selectionSets,
+      layerStates,
+      rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
+      assets: Object.keys(assets).length > 0 ? assets : undefined,
+    }),
+  );
   devValidate(result);
   return result;
 }

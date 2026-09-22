@@ -3,6 +3,7 @@ import { generateKeyBetween } from '@varve/shared';
 import type { Document } from './document';
 import { removeNode } from './document-nodes';
 import { cryptoId, devValidate, makeGroupNode } from './document-utils';
+import { cloneLayoutGuidesForIdMap } from './layoutGuideLifecycle';
 import { nextNodeId } from './node-id';
 import { getPageNumbering } from './pageNumbering';
 import { projectSpreads } from './pasteboardLayout';
@@ -309,6 +310,7 @@ export function duplicatePage(doc: Document, pageId: NodeId): Document {
     pages: [...(d.pages ?? []), newPage],
     rootChildren: [...d.rootChildren, newContentRootId],
   };
+  result = cloneLayoutGuidesForIdMap(result, idMap);
 
   // Text chains (legacy): frames of the duplicated page get fresh chain
   // entries so the copied story stays linked within the copy and never

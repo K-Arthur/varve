@@ -13,6 +13,7 @@ import { deepCloneSubtree } from './clone';
 import type { Document } from './document';
 import { removeNode } from './document-nodes';
 import { cryptoId, devValidate, makeGroupNode } from './document-utils';
+import { cloneLayoutGuidesForIdMap } from './layoutGuideLifecycle';
 import { nextNodeId } from './node-id';
 import type { DesignCanvas, GroupNode, NodeId } from './types';
 
@@ -171,8 +172,9 @@ export function duplicateDesignCanvas(doc: Document, canvasId: NodeId): Document
       [clone.rootId]: { ...clonedRoot, name: `${copyName} content` },
     },
   };
-  devValidate(next);
-  return next;
+  const withGuides = cloneLayoutGuidesForIdMap(next, clone.idMap);
+  devValidate(withGuides);
+  return withGuides;
 }
 
 /**

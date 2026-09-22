@@ -12,6 +12,12 @@
 
 import { axisSeparationDegrees, DIMETRIC_2_1_ANGLE_DEG } from './isometricGeometry';
 
+/** Hard bounds shared by layout-guide validation, geometry, and import. */
+export const MAX_LAYOUT_GUIDES_PER_OWNER = 32;
+export const MAX_LAYOUT_GUIDE_TRACKS = 100;
+export const MAX_LAYOUT_GUIDE_SEGMENTS = 4096;
+export const MAX_LAYOUT_GUIDE_VALUE = 10_000_000;
+
 /**
  * Grid scope determines where a grid applies.
  */
@@ -470,16 +476,38 @@ export function validateLayoutGrid(grid: LayoutGrid): boolean {
     value === undefined || (Number.isInteger(value) && value >= 1 && value <= 100);
   const validSize = (value: number | undefined) =>
     value === undefined || (Number.isFinite(value) && value > 0 && value <= 100000);
+  const validOffset = (value: number | undefined) =>
+    value === undefined || (Number.isFinite(value) && Math.abs(value) <= MAX_LAYOUT_GUIDE_VALUE);
+  const validMargins = (value: LayoutGuideMargins | undefined) =>
+    value === undefined ||
+    (Object.values(value).length === 4 &&
+      Object.values(value).every(
+        (entry) => Number.isFinite(entry) && entry >= 0 && entry <= MAX_LAYOUT_GUIDE_VALUE,
+      ));
+  const validColor =
+    typeof grid.color === 'string' &&
+    grid.color.trim().length > 0 &&
+    !/[<>]/.test(grid.color) &&
+    (grid.color.startsWith('var(') || /^[#a-z][#a-z0-9(),.%\s-]*$/i.test(grid.color));
   return (
     Number.isFinite(grid.gutter) &&
     grid.gutter >= 0 &&
     grid.gutter <= 1000 &&
     grid.margin.length === 4 &&
-    grid.margin.every((m) => Number.isFinite(m) && m >= 0 && m <= 1000) &&
+    grid.margin.every((m) => Number.isFinite(m) && m >= 0 && m <= MAX_LAYOUT_GUIDE_VALUE) &&
+    validMargins(grid.margins) &&
     validCount(grid.columnCount) &&
     validCount(grid.rowCount) &&
+    validCount(grid.count) &&
+    (grid.sizing === undefined || grid.sizing === 'stretch' || grid.sizing === 'fixed') &&
+    validSize(grid.trackSize) &&
     validSize(grid.columnWidth) &&
     validSize(grid.rowHeight) &&
+    validOffset(grid.offset) &&
+    validSize(grid.cellSize) &&
+    validOffset(grid.offsetX) &&
+    validOffset(grid.offsetY) &&
+    validColor &&
     validateGridOpacity(grid.opacity)
   );
 }
@@ -632,6 +660,47 @@ export function sanitizeGrid(grid: GridDefinition): GridDefinition {
     }
     if (sanitized.rowHeight !== undefined) {
       sanitized.rowHeight = clampFinite(sanitized.rowHeight, 1, 100000, 1);
+    }
+    if (sanitized.count !== undefined) {
+      sanitized.count = Math.round(clampFinite(sanitized.count, 1, MAX_LAYOUT_GUIDE_TRACKS, 1));
+    }
+    if (sanitized.trackSize !== undefined) {
+      sanitized.trackSize = clampFinite(sanitized.trackSize, 1, 100000, 1);
+    }
+    if (sanitized.margins) {
+      sanitized.margins = {
+        top: clampFinite(sanitized.margins.top, 0, MAX_LAYOUT_GUIDE_VALUE, 0),
+        right: clampFinite(sanitized.margins.right, 0, MAX_LAYOUT_GUIDE_VALUE, 0),
+        bottom: clampFinite(sanitized.margins.bottom, 0, MAX_LAYOUT_GUIDE_VALUE, 0),
+        left: clampFinite(sanitized.margins.left, 0, MAX_LAYOUT_GUIDE_VALUE, 0),
+      };
+    }
+    if (sanitized.offset !== undefined) {
+      sanitized.offset = clampFinite(
+        sanitized.offset,
+        -MAX_LAYOUT_GUIDE_VALUE,
+        MAX_LAYOUT_GUIDE_VALUE,
+        0,
+      );
+    }
+    if (sanitized.cellSize !== undefined) {
+      sanitized.cellSize = clampFinite(sanitized.cellSize, 1, 100000, 8);
+    }
+    if (sanitized.offsetX !== undefined) {
+      sanitized.offsetX = clampFinite(
+        sanitized.offsetX,
+        -MAX_LAYOUT_GUIDE_VALUE,
+        MAX_LAYOUT_GUIDE_VALUE,
+        0,
+      );
+    }
+    if (sanitized.offsetY !== undefined) {
+      sanitized.offsetY = clampFinite(
+        sanitized.offsetY,
+        -MAX_LAYOUT_GUIDE_VALUE,
+        MAX_LAYOUT_GUIDE_VALUE,
+        0,
+      );
     }
   } else if (sanitized.type === 'baseline') {
     sanitized.baselineStep = clampFinite(sanitized.baselineStep, 1, 10000, 24);

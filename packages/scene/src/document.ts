@@ -40,6 +40,7 @@ import {
   createDefaultDocumentGrid,
   createDefaultPixelGrid,
   type IsometricGrid,
+  MAX_LAYOUT_GUIDES_PER_OWNER,
   type PixelGrid,
   sanitizeGrid,
   validateGrid,
@@ -1337,6 +1338,7 @@ export function setLayoutGrid(doc: Document, frameId: string, grid: LayoutGrid):
     index < 0
       ? [...existing, sanitized]
       : existing.map((entry, i) => (i === index ? sanitized : entry));
+  if (next.length > MAX_LAYOUT_GUIDES_PER_OWNER) return doc;
   return {
     ...doc,
     gridSettings: {

@@ -155,6 +155,7 @@ export const SUPPORTED_VERSIONS = [
   '2.27',
   '2.28',
   '2.29',
+  '2.30',
 ];
 
 export interface DocumentMigration {
