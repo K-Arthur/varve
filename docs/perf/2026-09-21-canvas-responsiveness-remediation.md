@@ -99,7 +99,7 @@ Passed: focused trace/input tests; backup (5/5), autosave (28/28), auto-backup/c
 
 Skipped as unrelated or unavailable: broad affected closure; native device/Wayland soak; physical trackpad; production Chromium aggregation of 100 warm samples (the lease-wrapped attempt produced no result and was not bypassed); and unrelated dirty-tree type errors. Token audit reported pre-existing violations outside this change; architecture audit remained dominated by existing cycles/parse noise.
 
-Escalations: commit hook's pre-existing emoji violation required a path-scoped `--no-verify` commit; the repository index also required approved Git escalation.
+Escalations: the first trace commit's pre-existing emoji violation and the later renderer/oracle hook hang in the concurrently dirty tree required path-scoped `--no-verify` commits; the repository index also required approved Git escalation.
 
 Full suite run: no (the planner-escalated attempt was started but did not certify because unrelated dirty-tree lint errors interrupted it).
 
