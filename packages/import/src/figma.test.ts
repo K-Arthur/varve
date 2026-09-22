@@ -474,6 +474,7 @@ describe('Figma JSON importer', () => {
       layoutMode: 'rows',
       rowCount: 3,
       visible: false,
+      alignment: 'stretch',
     });
     expect(mask).toMatchObject({ mask: { hideMaskSource: true, type: 'alpha' } });
     expect(future).toMatchObject({ kind: 'group', children: [expect.any(String)] });

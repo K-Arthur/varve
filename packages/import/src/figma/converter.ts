@@ -1154,11 +1154,14 @@ function buildLayoutGrids(
       }
       const layoutMode: LayoutGrid['layoutMode'] =
         pattern === 'COLUMNS' ? 'columns' : pattern === 'ROWS' ? 'rows' : 'uniform';
+      // Figma's MIN/MAX are axis-relative. Store them as start/end so a row
+      // layout means top/bottom and a column layout means left/right after
+      // import; this avoids the old left/right-only ambiguity.
       const alignment: LayoutGrid['alignment'] =
         grid.alignment === 'MIN'
-          ? 'left'
+          ? 'start'
           : grid.alignment === 'MAX'
-            ? 'right'
+            ? 'end'
             : grid.alignment === 'CENTER'
               ? 'center'
               : 'stretch';
@@ -1175,10 +1178,29 @@ function buildLayoutGrids(
           frameId: nodeId,
           layoutMode,
           ...(pattern === 'COLUMNS'
-            ? { columnCount: Math.max(1, grid.count ?? 1), columnWidth: grid.sectionSize }
+            ? {
+                count: Math.max(1, grid.count ?? 1),
+                columnCount: Math.max(1, grid.count ?? 1),
+                columnWidth: grid.sectionSize,
+                sizing: grid.sectionSize === undefined ? ('stretch' as const) : ('fixed' as const),
+                ...(grid.sectionSize === undefined ? {} : { trackSize: grid.sectionSize }),
+              }
             : {}),
           ...(pattern === 'ROWS'
-            ? { rowCount: Math.max(1, grid.count ?? 1), rowHeight: grid.sectionSize }
+            ? {
+                count: Math.max(1, grid.count ?? 1),
+                rowCount: Math.max(1, grid.count ?? 1),
+                rowHeight: grid.sectionSize,
+                sizing: grid.sectionSize === undefined ? ('stretch' as const) : ('fixed' as const),
+                ...(grid.sectionSize === undefined ? {} : { trackSize: grid.sectionSize }),
+              }
+            : {}),
+          ...(pattern === 'GRID'
+            ? {
+                cellSize: Math.max(1, grid.sectionSize ?? 8),
+                offsetX: grid.offset ?? 0,
+                offsetY: grid.offset ?? 0,
+              }
             : {}),
           gutter: Math.max(0, grid.gutterSize ?? 0),
           margin: [grid.offset ?? 0, grid.offset ?? 0, grid.offset ?? 0, grid.offset ?? 0] as [

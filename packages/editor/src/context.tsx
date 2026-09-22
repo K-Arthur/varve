@@ -255,6 +255,7 @@ import {
   rebuildSpreads as rebuildSpreadsDoc,
   recaptureLayerStateDoc,
   releaseClippingMask as releaseClippingMaskDoc,
+  remapLayoutGuidesForIdMap,
   removeFrameFromChain as removeFrameFromChainDoc,
   removeFromSelectionSet as removeFromSelectionSetDoc,
   removeGuide as removeGuideDoc,
@@ -3784,7 +3785,7 @@ export function EditorProvider({
               if (!rootId) return null;
               const dependencyIds =
                 item.dependencyIds ?? dependencyNodeIdsForRoots(item.sourceDoc, item.rootIds);
-              return insertImportedSubtree(
+              const inserted = insertImportedSubtree(
                 targetDoc,
                 item.sourceDoc,
                 rootId,
@@ -3793,6 +3794,15 @@ export function EditorProvider({
                 item.rootIds.slice(1),
                 dependencyIds,
               );
+              if (!inserted) return null;
+              return {
+                ...inserted,
+                doc: remapLayoutGuidesForIdMap(
+                  inserted.doc,
+                  item.frameGuideLayouts,
+                  inserted.idMap,
+                ),
+              };
             },
             place: (currentDoc, inserted, item, currentFragment, itemIndex) => {
               if (item.worldAnchors && currentFragment.route === 'paste') {
@@ -8154,6 +8164,13 @@ export function EditorProvider({
         );
         const visibleNodeIds = new Set(nodes.map((node) => node.id));
         const dependencyIds = [...closure.nodeIds].filter((id) => !visibleNodeIds.has(id));
+        const frameGuideLayouts = Object.fromEntries(
+          [...closure.nodeIds]
+            .map((id) => [id, snapshot.document.gridSettings?.layoutGrids?.[id]] as const)
+            .filter((entry): entry is readonly [string, NonNullable<(typeof entry)[1]>] =>
+              Boolean(entry[1]),
+            ),
+        );
         // World anchor per selection root (placed world): lets paste preserve
         // the source pose or translate the whole fragment into a destination.
         const worldAnchor: Record<string, Affine> = {};
@@ -8183,6 +8200,7 @@ export function EditorProvider({
           dependencyIds,
           closure.depthMaps,
           closure.fontManifest,
+          frameGuideLayouts,
         ).then(
           (outcome) => {
             if (outcome.status === 'editable') {
@@ -8212,17 +8230,24 @@ export function EditorProvider({
         }
         const nodes = gatherSubtreeNodes(snapshot.document, sel);
         if (nodes.length === 0) return;
+        const sourceDocument = snapshot.document;
         const closure = DocumentCodec.collectNodeClosure(
           snapshot.document,
           nodes.map((n) => n.id),
         );
         const visibleNodeIds = new Set(nodes.map((node) => node.id));
         const dependencyIds = [...closure.nodeIds].filter((id) => !visibleNodeIds.has(id));
+        const frameGuideLayouts = Object.fromEntries(
+          [...closure.nodeIds]
+            .map((id) => [id, sourceDocument.gridSettings?.layoutGrids?.[id]] as const)
+            .filter((entry): entry is readonly [string, NonNullable<(typeof entry)[1]>] =>
+              Boolean(entry[1]),
+            ),
+        );
         const worldAnchor: Record<string, Affine> = {};
         for (const id of sel) {
           worldAnchor[id] = nodeWorldTransform(snapshot.document, id);
         }
-        const sourceDocument = snapshot.document;
         const sourceDocumentId = sourceDocument.id;
         const sourceSessionId = snapshot.activeId;
         const sourceRevision = snapshot.revision;
@@ -8249,6 +8274,7 @@ export function EditorProvider({
           dependencyIds,
           closure.depthMaps,
           closure.fontManifest,
+          frameGuideLayouts,
         ).then(
           (outcome) => {
             if (outcome.status !== 'editable') {
@@ -8423,6 +8449,9 @@ export function EditorProvider({
               rootIds: validRootIds,
               ...(dependencyIds.length > 0 ? { dependencyIds } : {}),
               worldAnchors: worldAnchor,
+              ...(varveData.frameGuideLayouts
+                ? { frameGuideLayouts: varveData.frameGuideLayouts }
+                : {}),
             });
           }
         }

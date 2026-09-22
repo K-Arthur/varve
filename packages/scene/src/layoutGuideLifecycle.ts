@@ -38,6 +38,30 @@ export function cloneLayoutGuidesForIdMap(
   };
 }
 
+/** Import a v3 clipboard guide table while remapping only owners in the fragment. */
+export function remapLayoutGuidesForIdMap(
+  doc: Document,
+  source: Readonly<Record<NodeId, LayoutGrid[]>> | undefined,
+  idMap: ReadonlyMap<NodeId, NodeId>,
+): Document {
+  if (!source) return doc;
+  const layoutGrids = { ...(doc.gridSettings?.layoutGrids ?? {}) };
+  let changed = false;
+  for (const [oldId, newId] of idMap) {
+    const guides = source[oldId];
+    if (!guides || guides.length === 0) continue;
+    layoutGrids[newId] = guides.slice(0, 32).map((guide, index) => ({
+      ...guide,
+      id: `${newId}:layout:${index + 1}`,
+      frameId: newId,
+      margin: [...guide.margin] as [number, number, number, number],
+      ...(guide.margins ? { margins: { ...guide.margins } } : {}),
+    }));
+    changed = true;
+  }
+  return changed ? { ...doc, gridSettings: { ...(doc.gridSettings ?? {}), layoutGrids } } : doc;
+}
+
 /** Remove keyed layouts whose owning frames no longer exist. */
 export function pruneOrphanedLayoutGuides(doc: Document): Document {
   const source = doc.gridSettings?.layoutGrids;

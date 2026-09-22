@@ -1,4 +1,4 @@
-import type { Document, NodeId, RichText, SceneNode } from '@varve/scene';
+import type { Document, LayoutGrid, NodeId, RichText, SceneNode } from '@varve/scene';
 import type { Affine } from '@varve/shared';
 
 /** Acquisition route that prepared a fragment. Placement remains route-owned. */
@@ -20,6 +20,8 @@ export interface PreparedFragmentItem {
   position?: { x: number; y: number };
   /** Source-world anchors used by same-document clipboard paste. */
   worldAnchors?: Readonly<Record<string, Affine>>;
+  /** v3 clipboard frame-owned guide metadata, keyed by source owner id. */
+  frameGuideLayouts?: Readonly<Record<string, LayoutGrid[]>>;
 }
 
 export interface PreparedFragment {

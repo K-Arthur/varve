@@ -822,6 +822,47 @@ describe('readFromClipboardEvent', () => {
     ).toBeNull();
   });
 
+  it('accepts v3 frame-guide metadata only for owners in the fragment', () => {
+    const layout = {
+      id: 'source-layout',
+      type: 'layout',
+      layoutMode: 'columns',
+      frameId: 'frame-1',
+      visible: true,
+      snapEnabled: true,
+      color: '#0aa',
+      opacity: 0.3,
+      scope: 'frame',
+      gutter: 12,
+      margin: [10, 10, 10, 10],
+      alignment: 'stretch',
+      count: 4,
+      sizing: 'stretch',
+    };
+    const parsed = parseClipboardData(
+      JSON.stringify({
+        format: 'varve-clipboard',
+        version: 3,
+        nodes: [{ id: 'frame-1', kind: 'frame', children: [] }],
+        rootIds: ['frame-1'],
+        frameGuideLayouts: { 'frame-1': [layout] },
+      }),
+    );
+    expect(parsed?.version).toBe(3);
+    expect(parsed?.frameGuideLayouts?.['frame-1']?.[0]).toMatchObject({ frameId: 'frame-1' });
+    expect(
+      parseClipboardData(
+        JSON.stringify({
+          format: 'varve-clipboard',
+          version: 3,
+          nodes: [{ id: 'frame-1', kind: 'frame', children: [] }],
+          rootIds: ['frame-1'],
+          frameGuideLayouts: { missing: [layout] },
+        }),
+      ),
+    ).toBeNull();
+  });
+
   it('carries scoped exact font metadata and permitted-byte references across clipboard reads', () => {
     const reference = { artifactHash: 'a'.repeat(64), collectionIndex: 0 };
     const fontManifest = {

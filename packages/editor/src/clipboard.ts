@@ -35,6 +35,7 @@ import {
   type DocumentIconAsset,
   deserializeTiles,
   isContainer,
+  type LayoutGrid,
   type MockupTemplateAsset,
   type RasterLayerNode,
   type RasterMaskAsset,
@@ -76,8 +77,8 @@ const NATIVE_CLIPBOARD_READ_TYPES = [
   'text/plain',
 ];
 const VARVE_CLIPBOARD_FORMAT = 'varve-clipboard';
-/** Version 1 is read for existing system clipboard contents; new writes use v2. */
-const VARVE_CLIPBOARD_VERSION = 2 as const;
+/** Versions 1/2 remain readable; v3 carries frame-owned guide metadata. */
+const VARVE_CLIPBOARD_VERSION = 3 as const;
 const LEGACY_CLIPBOARD_VERSION = 1 as const;
 const MAX_CLIPBOARD_JSON_BYTES = 64 * 1024 * 1024;
 const MAX_CLIPBOARD_NODES = 100_000;
@@ -98,7 +99,7 @@ function isVarvePayloadType(type: string): boolean {
 export interface ClipboardData {
   /** Versioned fragment envelope. Absent only on legacy pre-envelope copies. */
   format?: typeof VARVE_CLIPBOARD_FORMAT;
-  version?: typeof LEGACY_CLIPBOARD_VERSION | typeof VARVE_CLIPBOARD_VERSION;
+  version?: 1 | 2 | typeof VARVE_CLIPBOARD_VERSION;
   /** Source document identity, used to distinguish in-document paste from a foreign paste. */
   sourceDocumentId?: string;
   nodes: SceneNode[];
@@ -144,6 +145,8 @@ export interface ClipboardData {
    * fragment that must be centered for the destination.
    */
   worldAnchor?: Record<string, Affine>;
+  /** v3: only owners present in the copied fragment are included. */
+  frameGuideLayouts?: Record<string, LayoutGrid[]>;
 }
 
 export interface ClipboardFontDependency {
@@ -561,6 +564,21 @@ function validResourceMap(value: unknown): boolean {
   return Object.values(value).every((entry) => isRecord(entry) && finitePayload(entry));
 }
 
+function validFrameGuideLayouts(value: unknown, nodeIds: ReadonlySet<string>): boolean {
+  if (value === undefined) return true;
+  if (!isRecord(value) || Object.keys(value).length > MAX_CLIPBOARD_NODES) return false;
+  for (const [ownerId, entries] of Object.entries(value)) {
+    if (!nodeIds.has(ownerId) || !Array.isArray(entries) || entries.length > 32) return false;
+    for (const entry of entries) {
+      if (!isRecord(entry) || entry.type !== 'layout' || entry.frameId !== ownerId) return false;
+      if (typeof entry.id !== 'string' || entry.id.length === 0 || entry.id.length > 256)
+        return false;
+      if (!finitePayload(entry)) return false;
+    }
+  }
+  return true;
+}
+
 function validClipboardFontReference(value: unknown): value is FontReference {
   if (!isRecord(value) || typeof value.artifactHash !== 'string') return false;
   if (!/^[0-9a-f]{64}$/i.test(value.artifactHash)) return false;
@@ -665,7 +683,9 @@ export function parseClipboardData(text: string): ClipboardData | null {
   if (
     raw.format !== undefined &&
     (raw.format !== VARVE_CLIPBOARD_FORMAT ||
-      (raw.version !== LEGACY_CLIPBOARD_VERSION && raw.version !== VARVE_CLIPBOARD_VERSION))
+      (raw.version !== LEGACY_CLIPBOARD_VERSION &&
+        raw.version !== 2 &&
+        raw.version !== VARVE_CLIPBOARD_VERSION))
   ) {
     return null;
   }
@@ -712,7 +732,8 @@ export function parseClipboardData(text: string): ClipboardData | null {
     !validResourceMap(raw.timelines) ||
     !validResourceMap(raw.stories) ||
     !validResourceMap(raw.motionExtensions) ||
-    !validResourceMap(raw.motionPresets)
+    !validResourceMap(raw.motionPresets) ||
+    !validFrameGuideLayouts(raw.frameGuideLayouts, ids)
   ) {
     return null;
   }
@@ -735,7 +756,9 @@ export function parseClipboardData(text: string): ClipboardData | null {
           version:
             raw.version === VARVE_CLIPBOARD_VERSION
               ? VARVE_CLIPBOARD_VERSION
-              : LEGACY_CLIPBOARD_VERSION,
+              : raw.version === 2
+                ? 2
+                : LEGACY_CLIPBOARD_VERSION,
         }
       : {}),
     ...(typeof raw.sourceDocumentId === 'string' ? { sourceDocumentId: raw.sourceDocumentId } : {}),
@@ -784,6 +807,9 @@ export function parseClipboardData(text: string): ClipboardData | null {
     ...(isRecord(raw.worldAnchor)
       ? { worldAnchor: raw.worldAnchor as ClipboardData['worldAnchor'] }
       : {}),
+    ...(isRecord(raw.frameGuideLayouts)
+      ? { frameGuideLayouts: raw.frameGuideLayouts as ClipboardData['frameGuideLayouts'] }
+      : {}),
   };
 }
 
@@ -810,6 +836,7 @@ function serializeClipboardData(
   depthMaps?: Record<string, DepthMapResource>,
   fontManifest?: Document['fontManifest'],
   fontDependencies?: ClipboardFontDependency[],
+  frameGuideLayouts?: Record<string, LayoutGrid[]>,
 ): string {
   const data: ClipboardData = {
     format: VARVE_CLIPBOARD_FORMAT,
@@ -826,6 +853,9 @@ function serializeClipboardData(
     ...(iconAssets && Object.keys(iconAssets).length > 0 ? { iconAssets } : {}),
     ...(mockupTemplates && Object.keys(mockupTemplates).length > 0 ? { mockupTemplates } : {}),
     ...(worldAnchor && Object.keys(worldAnchor).length > 0 ? { worldAnchor } : {}),
+    ...(frameGuideLayouts && Object.keys(frameGuideLayouts).length > 0
+      ? { frameGuideLayouts }
+      : {}),
     ...(generativeEdits && Object.keys(generativeEdits).length > 0 ? { generativeEdits } : {}),
     ...(components && Object.keys(components).length > 0 ? { components } : {}),
     ...(styles && Object.keys(styles).length > 0 ? { styles } : {}),
@@ -883,6 +913,7 @@ export function writeClipboardOutcome(
   dependencyIds?: string[],
   depthMaps?: Record<string, DepthMapResource>,
   fontManifest?: Document['fontManifest'],
+  frameGuideLayouts?: Record<string, LayoutGrid[]>,
 ): Promise<ClipboardWriteOutcome> {
   return enqueueClipboardWrite((generation) =>
     writeClipboardOutcomeNow(
@@ -909,6 +940,7 @@ export function writeClipboardOutcome(
       dependencyIds,
       depthMaps,
       fontManifest,
+      frameGuideLayouts,
     ),
   );
 }
@@ -1003,6 +1035,7 @@ async function writeClipboardOutcomeNow(
   dependencyIds?: string[],
   depthMaps?: Record<string, DepthMapResource>,
   fontManifest?: Document['fontManifest'],
+  frameGuideLayouts?: Record<string, LayoutGrid[]>,
 ): Promise<ClipboardWriteOutcome> {
   const isCurrentWrite = (): boolean =>
     generation === undefined || generation === latestClipboardWrite;
@@ -1034,6 +1067,7 @@ async function writeClipboardOutcomeNow(
       depthMaps,
       fontManifest,
       fontDependencies,
+      frameGuideLayouts,
     );
   } catch {
     return { status: 'failed', reason: 'write-failed' };
