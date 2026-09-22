@@ -13,6 +13,7 @@ function trace(index, nextPaint = null) {
     inputToNextPaintMs: nextPaint,
     presentationEvidence: {
       source: nextPaint === null ? 'unavailable' : 'event-timing',
+      clockTrust: nextPaint === null ? 'unavailable' : 'trusted',
     },
     timestampSource: 'dom.event.timeStamp',
     untrustedQueueDelayCount: 0,
@@ -68,4 +69,20 @@ test('missing next-paint evidence is unsupported, not zero latency', () => {
     classifyRun({ load1: 0, backgroundActivity: [], thermalMaxC: null }, null, evidence, 8),
     'insufficient_samples',
   );
+});
+
+test('does not count handler-origin commit or paint samples as trusted evidence', () => {
+  const traces = Array.from({ length: 100 }, (_, index) => ({
+    ...trace(index, 18),
+    timestampSource: 'handler.performance.now',
+    presentationEvidence: { source: 'event-timing', clockTrust: 'handler-origin' },
+  }));
+  const evidence = performanceEvidence(
+    traces,
+    { sceneNodeCount: 1000, presentation: { capabilities: { eventTiming: true } } },
+    100,
+  );
+  assert.equal(evidence.distributions.commit.count, 0);
+  assert.equal(evidence.distributions.nextPaint.count, 0);
+  assert.equal(evidence.insufficientSamples, true);
 });

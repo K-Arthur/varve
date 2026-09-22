@@ -98,10 +98,14 @@ export function performanceEvidence(traces, record, minWarmSamples = 100) {
     }
     return values;
   });
-  const commitValues = traces
+  const trustedInputTraces = traces.filter(
+    (trace) => trace.timestampSource === 'dom.event.timeStamp',
+  );
+  const commitValues = trustedInputTraces
     .map((trace) => trace.inputToCommitMs)
     .filter((value) => Number.isFinite(value));
   const nextPaintValues = traces
+    .filter((trace) => trace.presentationEvidence?.clockTrust === 'trusted')
     .map((trace) => trace.inputToNextPaintMs)
     .filter((value) => Number.isFinite(value));
   const distributions = {
