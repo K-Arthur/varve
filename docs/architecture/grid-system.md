@@ -8,6 +8,7 @@ Varve has four different kinds of canvas guidance, each with an explicit owner:
 | Pixel grid | `Document.gridSettings.pixelGrid` plus view toggles | High-zoom pixel inspection and optional integer snapping | No |
 | Baseline / isometric | `Document.gridSettings.baselineGrids` / `isometricGrids` | Typography rhythm and plane-aware isometric construction | No |
 | Frame layout guides | `Document.gridSettings.layoutGrids[frameId][]` | Authored column/row/uniform boundaries and optional child snap targets | No |
+| Publishing page layouts | `Page.layout` → `MasterPage.layout` → `Document.pageLayout` | Independent page rows/columns and margins; derived geometry only | No |
 
 Auto layout is not a grid overlay. `FrameNode.layoutStyle` and `@varve/layout` arrange
 children; they must not be used as a proxy for visual layout-guide geometry.
@@ -84,6 +85,29 @@ single-object-per-frame representation into a one-element array. Figma import pr
 supported layout-grid entry and gives each imported entry a stable per-frame id. Version 2.28
 migrates isometric grids to the canonical spacing contract described above and adds explicit
 `activePlaneId`, `majorEvery`, `snapToSubdivisions`, `snapToLines`, and `customAxes`.
+
+### Guide Layouts workflow (v2.30)
+
+Open **View → Guides → Guide Layouts…**, press **Ctrl+Alt+Shift+G**, use command
+search, or choose it from the frame/page context menu.
+The target is snapshotted when the dialog opens, so later selection changes do
+not retarget a preview. Add is the default; Replace all states its removal
+count, and Clear all is confirmed separately. Apply validates all targets and
+creates one undo entry. Invalid numeric input remains visible with an inline
+error and leaves the last valid preview in place. Escape, Cancel, switching
+documents, or deleting the owner restores only the guide fields in the target
+snapshot.
+
+Frame layouts support columns, rows, and a true square uniform lattice. A
+hidden layout can still snap when global guide snapping and that layout's snap
+toggle are enabled; the transient feedback identifies the winning finite
+segment as “Layout guide”. Locked layouts can be shown/hidden, snap-toggled,
+or unlocked, but their geometry cannot be edited or deleted until unlocked.
+
+Publishing pages resolve page override → master → document default → built-in
+default. Reset to inherited removes only the page override. Page layout guides
+remain separate from auto layout, ruler guides, document grids, pixel grids,
+baseline grids, and isometric construction. They never move authored content.
 
 ## Decision record
 

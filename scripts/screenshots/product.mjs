@@ -419,6 +419,31 @@ const CROP = {
 
 const SCENES = [
   {
+    id: 'guide-layouts',
+    file: 'guide-layouts-light.png',
+    theme: 'light',
+    feature: 'canvas',
+    alt: 'Varve Guide Layouts dialog previewing a column layout over a frame without moving its content',
+    caption: 'Preview columns, rows, and square grids before applying them',
+    async run(page) {
+      await openCleanEditor(page);
+      const canvas = page.locator('canvas.editor-canvas__content-layer');
+      const box = await canvas.boundingBox();
+      if (!box) throw new Error('canvas bounds unavailable for guide-layout capture');
+      await page.keyboard.press('f');
+      await page.mouse.move(box.x + 180, box.y + 150);
+      await page.mouse.down();
+      await page.mouse.move(box.x + 620, box.y + 430, { steps: 8 });
+      await page.mouse.up();
+      await page.keyboard.press('v');
+      await page.getByRole('menuitem', { name: 'View', exact: true }).click();
+      const viewMenu = page.getByRole('menu', { name: 'View' });
+      await viewMenu.getByRole('menuitem', { name: 'Guides', exact: true }).hover();
+      await page.getByRole('menuitem', { name: /Guide Layouts/ }).click();
+      await expect(page.getByRole('dialog', { name: 'Guide Layouts' })).toBeVisible();
+    },
+  },
+  {
     id: 'workspace',
     file: 'workspace-light.png',
     theme: 'light',

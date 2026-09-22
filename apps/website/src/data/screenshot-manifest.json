@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "note": "GENERATED FILE — do not hand-edit. Written by scripts/screenshots/product.mjs and validated by scripts/screenshots/validate.mjs. Each scene maps one canonical screenshot consumed by the website and documentation. status: 'captured' when the pipeline produced the file, 'skipped' when the scene could not be produced (reason required).",
-  "generatedAt": "2026-09-20T19:29:33.957Z",
+  "generatedAt": "2026-09-22T04:53:35.518Z",
   "scenes": {
     "workspace": {
       "file": "workspace-light.png",
@@ -269,6 +269,18 @@
       "alt": "Browse fonts with a family list and a local specimen alongside font details",
       "caption": "Browse families and inspect a local specimen",
       "feature": "typography",
+      "theme": "light",
+      "width": 1440,
+      "height": 900,
+      "status": "captured",
+      "lastValidatedAgainst": null
+    },
+    "guide-layouts": {
+      "sha256": "f8d6f776c983ea91d0c618da0b49132a67b5f5d8a0b02c161e14ba3df74365ca",
+      "file": "guide-layouts-light.png",
+      "alt": "Varve Guide Layouts dialog previewing a column layout over a frame without moving its content",
+      "caption": "Preview columns, rows, and square grids before applying them",
+      "feature": "canvas",
       "theme": "light",
       "width": 1440,
       "height": 900,

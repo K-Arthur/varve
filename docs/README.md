@@ -252,6 +252,7 @@ pass report in
 | `adr/0233-clipboard-import-boundary.md` | Shared clipboard/import ownership, validation, and interoperability boundary |
 | `adr/0234-inspector-stack-layout-contract.md` | Canonical inspector ownership, responsive sizing, spacing, borders, and paint order |
 | `adr/0237-native-gpu-compute.md` | Native GPU compute, truthful accelerator capability stages, and inference-provider honesty |
+| `adr/0238-guide-layouts.md` | Non-destructive frame/page/master guide layouts, v2.30 ownership, preview, and transformed snapping |
 | `adr/0238-comic-webtoon-workflow-architecture.md` | Comic/webtoon workflow: no dedicated workspace; document profile, capability-keyed page surfaces, shared tools, optional presets |
 | `adr/0223-palette-extraction-derived-analysis.md` | Palette extraction as derived, versioned analysis (see `architecture/palette-extraction-system.md`) |
 | `adr/0224-non-destructive-effect-attachments.md` | Separate node-local Object Filters from scoped Adjustment Layers |
@@ -298,6 +299,7 @@ pass report in
 | `architecture/onboarding-help-system.md` | Help/onboarding system |
 | `architecture/frame-encapsulation.md` | Frame clipping and containment |
 | `architecture/canvas2d-system.md` | Canvas 2D system contract |
+| `architecture/grid-system.md` | Distinct document, pixel, baseline/isometric, frame, and publishing-page guide systems |
 | `architecture/image-lifecycle.md` | Raster ingestion, asset, decode, cache, worker, compositor, and lifecycle contract |
 | `architecture/image-conversion-system.md` | Local Quick Convert workflow boundary between the import lifecycle, the standalone raster converter, and document state |
 | `architecture/figma-import-system.md` | Figma REST/plugin JSON import: acquisition, normalization, conversion, and fidelity |
@@ -582,6 +584,7 @@ records; check the current code before acting on their findings.
 | `audits/color-quantization-boundary-inventory.md` | Current high-precision color quantization-boundary inventory |
 | `audits/filesystem-hardening-2026-08-13.md` | Cross-OS directory/path hardening pass: findings fixed, storage map, limitations |
 | `audits/figma-import-audit-2026-08-20.md` | Figma acquisition, semantic conversion, editor integration, fidelity matrix, and backlog |
+| `audits/guide-layouts-verification-2026-09-21.md` | v2.30 guide-layout research, ownership, transformed snapping, import, and validation evidence |
 | `audits/email-current-state-audit-2026-08-20.md` | Email template system baseline audit (moved from `docs/email/`, 2026-08-22) |
 | `audits/font-replacement-audit-2026-08-20.md` | Missing-font detection, ranked replacement UX, rich-text coverage, manifest provenance, and validation |
 | `audits/font-semantic-implementation-audit-2026-09-01.md` | Evidence, benchmark, visual validation, model gate, and known gaps for semantic font discovery |

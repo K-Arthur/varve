@@ -202,6 +202,21 @@ import { sitePath } from '../../../lib/siteUrl';
         </div>
       </section>
 
+      <section class="guide-workflow" aria-labelledby="guide-workflow-title">
+        <div class="section-heading section-heading--compact">
+          <p class="eyebrow">Guide Layouts workflow</p>
+          <h2 id="guide-workflow-title">Preview first. Keep ownership clear.</h2>
+        <p>Open <strong>View → Guides → Guide Layouts…</strong> or press <kbd>Ctrl+Alt+Shift+G</kbd> on a frame, a batch of selected frames, a publishing page, a master, or document defaults.</p>
+        </div>
+        <div class="guide-workflow__steps">
+          <article><span>01</span><h3>Add without surprises</h3><p>Add to existing is the default. Replace all tells you how many layouts will be removed; Clear all is a separate confirmed action.</p></article>
+          <article><span>02</span><h3>Preview, cancel, apply</h3><p>Values preview immediately, invalid input keeps the last valid preview, and Apply creates one undo step. Escape and Cancel restore only the targeted guide fields.</p></article>
+          <article><span>03</span><h3>Reuse structure, not links</h3><p>Built-in and personal presets are copied and reminted. Batch application works across selected frames, while mixed existing collections remain safe to edit one frame at a time.</p></article>
+          <article><span>04</span><h3>Pages inherit visibly</h3><p>Page override wins over master, which wins over document defaults. Reset to inherited removes the page override without touching content.</p></article>
+        </div>
+        <p class="guide-workflow__note"><strong>Hidden does not mean inert:</strong> a hidden guide can still snap when global guide snapping and its snap toggle are enabled. Feedback names the exact winning segment as “Layout guide”.</p>
+      </section>
+
       <section class="troubleshooting" aria-labelledby="troubleshooting-title">
         <div class="section-heading section-heading--compact">
           <p class="eyebrow">Quick diagnosis</p>
@@ -323,6 +338,13 @@ import { sitePath } from '../../../lib/siteUrl';
   .layout-guide-visual__content { color: #698087; font-size: .7rem; left: 0; position: absolute; right: 0; text-align: center; top: 53%; }
   .layout-guide-visual__meta { color: #bac8ca; display: flex; font-size: .65rem; gap: .5rem; justify-content: flex-end; margin-top: .9rem; }
   .layout-guide-visual__meta strong { color: #8fe3d8; }
+  .guide-workflow { margin-bottom: 6rem; }
+  .guide-workflow__steps { display: grid; gap: 1rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .guide-workflow__steps article { background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--website-radius-surface); padding: 1.25rem; }
+  .guide-workflow__steps span { color: var(--accent-primary); font: 700 .7rem/1 monospace; }
+  .guide-workflow__steps h3 { color: var(--text-primary); font-size: 1rem; margin: 1.5rem 0 .5rem; }
+  .guide-workflow__steps p { color: var(--text-secondary); font-size: .86rem; line-height: 1.6; margin: 0; }
+  .guide-workflow__note { background: var(--surface-accent-soft); border-left: 3px solid var(--accent-primary); color: var(--text-secondary); line-height: 1.65; margin: 1rem 0 0; padding: 1rem 1.25rem; }
   .troubleshooting { margin-bottom: 6rem; }
   .section-heading--compact { margin-bottom: 1.5rem; }
   .troubleshooting__list { display: grid; gap: .75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
@@ -343,6 +365,7 @@ import { sitePath } from '../../../lib/siteUrl';
     .grid-hero__visual { max-width: 620px; width: 100%; }
     .grid-family { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .grid-detail, .grid-detail--pixel, .layout-guide-section { grid-template-columns: 1fr; }
+    .guide-workflow__steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .grid-detail__copy { max-width: 650px; }
     .grid-detail--pixel .pixel-preview { max-width: 620px; }
     .grid-cta { align-items: flex-start; flex-direction: column; }
@@ -356,8 +379,8 @@ import { sitePath } from '../../../lib/siteUrl';
     .mock-canvas { height: 190px; }
     .mock-artboard { height: 120px; }
     .mock-artboard__shape { height: 42px; top: 39px; width: 42px; }
-    .grid-overview, .grid-detail, .layout-guide-section, .troubleshooting { margin-bottom: 4rem; }
-    .grid-family, .troubleshooting__list { grid-template-columns: 1fr; }
+    .grid-overview, .grid-detail, .layout-guide-section, .guide-workflow, .troubleshooting { margin-bottom: 4rem; }
+    .grid-family, .troubleshooting__list, .guide-workflow__steps { grid-template-columns: 1fr; }
     .grid-family__card { min-height: 190px; }
     .grid-family__number { margin-bottom: 1.5rem; }
     .grid-detail--document, .layout-guide-section { border-radius: var(--website-radius-surface); padding: 1.5rem; }

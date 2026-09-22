@@ -104,7 +104,10 @@ Auto Layout:
 - layoutPositioning → layoutPosition
 - layoutGrow → fill sizing
 - wrap → wrap
-- layout grids → `Document.gridSettings.layoutGrids`
+- layout grids → `Document.gridSettings.layoutGrids`; every supported entry is
+  preserved with a stable per-owner id. COLUMNS and ROWS map MIN/MAX to
+  axis-neutral start/end, while Figma GRID becomes Varve's square uniform
+  lattice (`cellSize` plus `offsetX`/`offsetY`).
 - export settings → node export presets for supported formats
 
 Components and variants:
