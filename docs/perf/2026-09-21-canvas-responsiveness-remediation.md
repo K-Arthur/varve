@@ -89,7 +89,7 @@ their implementation or defect rate.
 
 ## Agent Validation Report
 
-Changed scope: trace v3/input evidence, production runner aggregation, lazy/background persistence, focused tests, and this report.
+Changed scope: trace v3/input evidence, production runner aggregation, lazy/background persistence, structural redraw guard with pixel oracle, focused tests, marketing/docs, and this report.
 
 Validation plan: `pnpm verify:plan` and `pnpm verify:affected`; both escalate because the pre-existing worktree is broad and includes workspace/toolchain-adjacent edits.
 
