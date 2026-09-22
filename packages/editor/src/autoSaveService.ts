@@ -22,6 +22,7 @@ export interface AutoSaveConfig {
 export type AutoSaveState = 'idle' | 'saving' | 'error';
 
 export type AutoSaveStateCallback = (state: AutoSaveState, lastSavedAt: number | null) => void;
+export type BackgroundSchedule = (job: () => void) => void;
 
 const DEFAULTS: AutoSaveConfig = {
   intervalMs: 300000,
@@ -40,13 +41,17 @@ export class AutoSaveService {
   private onSaveRecovery:
     | ((doc: Document, meta: { fileId?: string; name: string }) => Promise<void>)
     | null = null;
+  private saveQueued = false;
+  private scheduleBackground: BackgroundSchedule | null;
 
   constructor(
     private getDocument: () => { document: Document; meta: { fileId?: string; name: string } },
     private saveFn: (json: string) => Promise<boolean>,
     config?: Partial<AutoSaveConfig>,
+    scheduleBackground?: BackgroundSchedule,
   ) {
     this.cfg = { ...DEFAULTS, ...config };
+    this.scheduleBackground = scheduleBackground ?? null;
   }
 
   get lastSavedAt(): number | null {
@@ -92,6 +97,7 @@ export class AutoSaveService {
   }
 
   async saveNow(): Promise<boolean> {
+    this.saveQueued = false;
     if (this._state === 'saving') return false;
     this.setState('saving');
     let attempts = 0;
@@ -140,6 +146,14 @@ export class AutoSaveService {
     const sinceLastSave =
       this._lastSavedAt !== null ? now - this._lastSavedAt : this.cfg.intervalMs;
     if (sinceLastSave < this.cfg.intervalMs) return;
-    this.saveNow();
+    if (this.saveQueued) return;
+    this.saveQueued = true;
+    const run = () => {
+      this.saveQueued = false;
+      if (!this.dirty) return;
+      void this.saveNow();
+    };
+    if (this.scheduleBackground) this.scheduleBackground(run);
+    else run();
   }
 }

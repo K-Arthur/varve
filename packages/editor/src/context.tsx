@@ -500,7 +500,11 @@ import { useIconAssets } from './context/useIconAssets';
 import { useInteractionState } from './context/useInteractionState';
 import { useLogoGeometry } from './context/useLogoGeometry';
 import { useLogoProject } from './context/useLogoProject';
-import { resolveFontManifest, usePersistence } from './context/usePersistence';
+import {
+  resolveFontManifest,
+  serializeDocumentSnapshot,
+  usePersistence,
+} from './context/usePersistence';
 import { usePersistentHistory } from './context/usePersistentHistory';
 import { useRasterLod } from './context/useRasterLod';
 import { useSam2Segmentation } from './context/useSam2Segmentation';
@@ -3131,20 +3135,16 @@ export function EditorProvider({
       autoSaveRef.current?.notifyEdit();
       const meta = state.sessions.find((sess) => sess.id === state.activeId);
       const pid = meta?.fileId ?? state.activeId;
-      // Pass the serialized document so the scheduler can back it up without
-      // needing to re-serialize at tick time (the snapshot is frozen here).
-      try {
-        const json = serializeDocument();
-        backupRef.current?.markDirty(
-          pid,
-          json,
-          meta?.name ?? 'Untitled',
-          state.revision,
-          meta?.fileId,
-        );
-      } catch {
-        // serialization failure — skip backup this tick
-      }
+      // Capture the immutable revision now, but defer codec work until the
+      // background persistence lane actually reaches this revision.
+      const snapshot = state.document;
+      backupRef.current?.markDirty(
+        pid,
+        () => serializeDocumentSnapshot(snapshot),
+        meta?.name ?? 'Untitled',
+        state.revision,
+        meta?.fileId,
+      );
     }
   }, [state.document, state.dirty, state.sessions, state.activeId, state.revision]);
 

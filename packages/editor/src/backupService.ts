@@ -27,6 +27,11 @@ export interface BackupServiceConfig {
   snapshotBeforeMigration: boolean;
 }
 
+export interface BackupServiceOptions {
+  /** Schedule automatic work on the editor's background frame lane. */
+  scheduleBackground?: (job: () => void) => void;
+}
+
 export const DEFAULT_BACKUP_CONFIG: BackupServiceConfig = {
   enabled: true,
   intervalMs: 5 * 60 * 1000,
@@ -51,7 +56,9 @@ export interface BackupServiceState {
 const STORAGE_KEY = 'strata-backup-service';
 
 interface DirtyProject {
-  documentJson: string;
+  serializeDocument: () => string;
+  /** Memoized only after the revision is actually due for persistence. */
+  materializedJson?: string;
   fileName: string;
   revision: number;
   fileId?: string;
@@ -73,9 +80,12 @@ export class BackupService {
   private onEvent: ((event: BackupEvent) => void) | null = null;
   private onProgress: ((event: BackupEvent) => void) | null = null;
   private running = false;
+  private scheduleBackground: ((job: () => void) => void) | null;
+  private automaticWorkQueued = false;
 
-  constructor(config?: Partial<BackupServiceConfig>) {
+  constructor(config?: Partial<BackupServiceConfig>, options?: BackupServiceOptions) {
     this.config = { ...DEFAULT_BACKUP_CONFIG, ...config };
+    this.scheduleBackground = options?.scheduleBackground ?? null;
     this.state = this.loadState();
   }
 
@@ -136,14 +146,14 @@ export class BackupService {
 
   markDirty(
     projectId: string,
-    documentJson: string,
+    serializeDocument: () => string,
     fileName: string,
     revision: number,
     fileId?: string,
     filePath?: string,
   ): void {
     this.dirtyProjects.set(projectId, {
-      documentJson,
+      serializeDocument,
       fileName,
       revision,
       fileId,
@@ -176,6 +186,7 @@ export class BackupService {
     notes?: string,
     fileId?: string,
     filePath?: string,
+    expectedDirty?: object,
   ): Promise<BackupResult> {
     if (!this.engine) {
       return { success: false, error: 'Backup engine not initialized' };
@@ -201,7 +212,9 @@ export class BackupService {
       this.state.lastBackupAt = Date.now();
       this.state.consecutiveFailures = 0;
       this.state.totalBackups++;
-      this.dirtyProjects.delete(projectId);
+      if (!expectedDirty || this.dirtyProjects.get(projectId) === expectedDirty) {
+        this.dirtyProjects.delete(projectId);
+      }
       if (type === 'automatic') {
         this.lastAutomaticJson.set(projectId, documentJson);
       }
@@ -272,16 +285,15 @@ export class BackupService {
         projectId,
         timestamp: Date.now(),
       });
-      const result = await this.createBackup(
-        projectId,
-        'automatic',
-        data.documentJson,
-        data.fileName,
-        data.revision,
-        undefined,
-        data.fileId,
-        data.filePath,
-      );
+      let documentJson: string;
+      try {
+        documentJson = this.materialize(data);
+      } catch (error) {
+        this.recordMaterializationFailure(error);
+        failed++;
+        continue;
+      }
+      const result = await this.createAutomaticBackup(projectId, data, documentJson);
       if (result.success) {
         backedUp++;
       } else {
@@ -320,6 +332,7 @@ export class BackupService {
       undefined,
       fileId,
       filePath,
+      this.dirtyProjects.get(projectId),
     );
     this.lastBackupTimes.set(projectId, now);
   }
@@ -385,28 +398,74 @@ export class BackupService {
   /** Called every 60s by the scheduler. Creates automatic backups for any
    *  project whose data has been dirty longer than the configured interval. */
   private async tick(): Promise<void> {
-    if (!this.running || this.dirtyProjects.size === 0) return;
+    if (!this.running || this.dirtyProjects.size === 0 || this.automaticWorkQueued) return;
     const now = Date.now();
+    const due: Array<[string, DirtyProject]> = [];
     for (const [projectId, data] of this.dirtyProjects) {
       if (!this.config.enabled) break;
       const lastBackup = this.lastBackupTimes.get(projectId) ?? 0;
       const sinceLast = lastBackup === 0 ? now - data.dirtyAt : now - lastBackup;
       if (sinceLast < this.config.intervalMs) continue;
-      if (this.lastAutomaticJson.get(projectId) === data.documentJson) {
-        this.lastBackupTimes.set(projectId, now);
+      due.push([projectId, data]);
+    }
+    if (due.length === 0) return;
+    this.automaticWorkQueued = true;
+    const run = () => {
+      this.automaticWorkQueued = false;
+      void this.runAutomaticBackups(due);
+    };
+    if (this.scheduleBackground) this.scheduleBackground(run);
+    else run();
+  }
+
+  private async runAutomaticBackups(due: Array<[string, DirtyProject]>): Promise<void> {
+    for (const [projectId, data] of due) {
+      if (!this.config.enabled) break;
+      if (this.dirtyProjects.get(projectId) !== data) continue;
+      let documentJson: string;
+      try {
+        documentJson = this.materialize(data);
+      } catch (error) {
+        this.recordMaterializationFailure(error);
         continue;
       }
-      await this.createBackup(
-        projectId,
-        'automatic',
-        data.documentJson,
-        data.fileName,
-        data.revision,
-        undefined,
-        data.fileId,
-        data.filePath,
-      );
+      if (this.lastAutomaticJson.get(projectId) === documentJson) {
+        this.lastBackupTimes.set(projectId, Date.now());
+        continue;
+      }
+      await this.createAutomaticBackup(projectId, data, documentJson);
     }
+  }
+
+  private async createAutomaticBackup(
+    projectId: string,
+    data: DirtyProject,
+    documentJson: string,
+  ): Promise<BackupResult> {
+    return this.createBackup(
+      projectId,
+      'automatic',
+      documentJson,
+      data.fileName,
+      data.revision,
+      undefined,
+      data.fileId,
+      data.filePath,
+      data,
+    );
+  }
+
+  private materialize(data: DirtyProject): string {
+    if (data.materializedJson === undefined) {
+      data.materializedJson = data.serializeDocument();
+    }
+    return data.materializedJson;
+  }
+
+  private recordMaterializationFailure(error: unknown): void {
+    this.state.consecutiveFailures++;
+    this.state.lastError = error instanceof Error ? error.message : String(error);
+    this.saveState();
   }
 
   private emitEvent(event: BackupEvent): void {

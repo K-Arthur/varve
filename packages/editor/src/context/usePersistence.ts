@@ -32,6 +32,23 @@ export interface PersistenceAPI {
 
 interface SessionUpdate extends SessionFileMeta {}
 
+/**
+ * Encode one immutable document revision for persistence.
+ *
+ * Keeping this pure and document-argument based lets callers capture a
+ * revision cheaply and defer the comparatively expensive codec work until a
+ * background persistence lane actually runs.
+ */
+export function serializeDocumentSnapshot(doc: Document): string {
+  const { manifest } = attachFontManifestToDocument(
+    { nodes: doc.nodes, styles: doc.styles, fontManifest: doc.fontManifest } as Parameters<
+      typeof attachFontManifestToDocument
+    >[0],
+    createFontCatalogFromRegistry(getFontRegistry()),
+  );
+  return DocumentCodec.encode({ ...doc, fontManifest: manifest });
+}
+
 export function usePersistence(
   state: EditorState,
   patch: (partial: Partial<EditorState>) => void,
@@ -53,14 +70,7 @@ export function usePersistence(
   ) => { zoom: number; pan: { x: number; y: number } } | null,
 ): PersistenceAPI {
   const serializeDocument = useCallback(() => {
-    const doc = stateRef.current.document;
-    const { manifest } = attachFontManifestToDocument(
-      { nodes: doc.nodes, styles: doc.styles, fontManifest: doc.fontManifest } as Parameters<
-        typeof attachFontManifestToDocument
-      >[0],
-      createFontCatalogFromRegistry(getFontRegistry()),
-    );
-    return DocumentCodec.encode({ ...doc, fontManifest: manifest });
+    return serializeDocumentSnapshot(stateRef.current.document);
   }, [stateRef]);
 
   /**

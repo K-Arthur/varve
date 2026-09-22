@@ -33,7 +33,7 @@ describe('BackupService automatic dedup', () => {
     const projectId = uniqueProjectId();
     const first = JSON.stringify({ v: 1 });
 
-    service.markDirty(projectId, first, 'Untitled', 1);
+    service.markDirty(projectId, () => first, 'Untitled', 1);
     await service.checkAndBackup(projectId, first, 'Untitled', 1);
     expect((await service.getBackups(projectId)).length).toBe(1);
     expect(getStorageWriteMetrics().byKind.backup.writes).toBe(1);
@@ -43,7 +43,7 @@ describe('BackupService automatic dedup', () => {
     expect(getStorageWriteMetrics().byKind.backup.writes).toBe(1);
 
     const second = JSON.stringify({ v: 2 });
-    service.markDirty(projectId, second, 'Untitled', 2);
+    service.markDirty(projectId, () => second, 'Untitled', 2);
     await service.checkAndBackup(projectId, second, 'Untitled', 2);
     expect((await service.getBackups(projectId)).length).toBe(2);
     expect(getStorageWriteMetrics().byKind.backup.writes).toBe(2);
@@ -56,10 +56,83 @@ describe('BackupService automatic dedup', () => {
     const json = JSON.stringify({ saved: true });
 
     await service.markSaved(projectId, json, 'Untitled', 1);
-    service.markDirty(projectId, json, 'Untitled', 1);
+    service.markDirty(projectId, () => json, 'Untitled', 1);
     await service.checkAndBackup(projectId, json, 'Untitled', 1);
 
     expect((await service.getBackups(projectId)).length).toBe(0);
     expect(getStorageWriteMetrics().byKind.backup.writes).toBe(0);
+  });
+
+  it('does not encode repeated dirty registrations until a backup is due', async () => {
+    service = new BackupService({ intervalMs: 0 });
+    await service.initialize();
+    const projectId = uniqueProjectId();
+    let encodes = 0;
+    const first = () => {
+      encodes++;
+      return '{"revision":1}';
+    };
+    const latest = () => {
+      encodes++;
+      return '{"revision":2}';
+    };
+
+    service.markDirty(projectId, first, 'Untitled', 1);
+    service.markDirty(projectId, latest, 'Untitled', 2);
+    expect(encodes).toBe(0);
+
+    await service.backupAllDirty();
+    expect(encodes).toBe(1);
+    await service.backupAllDirty();
+    expect(encodes).toBe(1);
+  });
+
+  it('retains a failed lazy serialization for a later retry', async () => {
+    service = new BackupService({ intervalMs: 0 });
+    await service.initialize();
+    const projectId = uniqueProjectId();
+    let attempts = 0;
+    service.markDirty(
+      projectId,
+      () => {
+        attempts++;
+        if (attempts === 1) throw new Error('encode failed');
+        return '{"retry":true}';
+      },
+      'Untitled',
+      1,
+    );
+
+    expect((await service.backupAllDirty()).failed).toBe(1);
+    expect((await service.backupAllDirty()).backedUp).toBe(1);
+    expect(attempts).toBe(2);
+  });
+
+  it('queues automatic serialization instead of starting during an interaction', async () => {
+    const queued: Array<() => void> = [];
+    service = new BackupService(
+      { intervalMs: 0 },
+      { scheduleBackground: (job) => queued.push(job) },
+    );
+    await service.initialize();
+    const projectId = uniqueProjectId();
+    let encodes = 0;
+    service.markDirty(
+      projectId,
+      () => {
+        encodes++;
+        return '{"background":true}';
+      },
+      'Untitled',
+      1,
+    );
+
+    await (service as unknown as { tick: () => Promise<void> }).tick();
+    expect(encodes).toBe(0);
+    expect(queued).toHaveLength(1);
+    queued.shift()?.();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(encodes).toBe(1);
   });
 });

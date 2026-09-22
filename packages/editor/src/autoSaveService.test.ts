@@ -16,6 +16,7 @@ describe('AutoSaveService', () => {
   };
   let saveFn: (json: string) => Promise<boolean>;
   let config: { intervalMs: number; idleThresholdMs: number; maxSaveRetries: number };
+  let scheduleBackground: ((job: () => void) => void) | undefined;
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -33,6 +34,7 @@ describe('AutoSaveService', () => {
     });
     saveFn = vi.fn<(json: string) => Promise<boolean>>().mockResolvedValue(true);
     config = { intervalMs: 5000, idleThresholdMs: 1000, maxSaveRetries: 3 };
+    scheduleBackground = undefined;
   });
 
   afterEach(() => {
@@ -40,7 +42,7 @@ describe('AutoSaveService', () => {
   });
 
   function createService(cfg?: Partial<AutoSaveConfig>) {
-    return new AutoSaveService(getDoc, saveFn, { ...config, ...cfg });
+    return new AutoSaveService(getDoc, saveFn, { ...config, ...cfg }, scheduleBackground);
   }
 
   it('starts and stops without error', () => {
@@ -57,6 +59,19 @@ describe('AutoSaveService', () => {
     svc.notifyEdit();
     vi.advanceTimersByTime(config.intervalMs + 500);
     expect(saveFn).toHaveBeenCalledTimes(1);
+  });
+
+  it('defers an automatic save to the background scheduler', async () => {
+    const queued: Array<() => void> = [];
+    scheduleBackground = (job) => queued.push(job);
+    const svc = createService();
+    svc.start();
+    svc.notifyEdit();
+    vi.advanceTimersByTime(config.intervalMs + 500);
+    expect(saveFn).not.toHaveBeenCalled();
+    expect(queued).toHaveLength(1);
+    queued.shift()?.();
+    await vi.waitFor(() => expect(saveFn).toHaveBeenCalledTimes(1));
   });
 
   it('idle detection: save not triggered immediately on edit', () => {

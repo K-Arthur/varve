@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { AutoSaveService } from '../autoSaveService';
 import { BackupService } from '../backupService';
 import { loadSettings as loadUiSettings } from '../components/Settings/settings';
+import { createEditorFrameKey, requestEditorFrame } from '../performance/editorFrameRuntime';
 import {
   type LockManagerLike,
   shouldSkipStaleWrite,
@@ -37,9 +38,12 @@ export function useAutoBackupServices(
   }
   /** Auto-save service ref for lifecycle-triggered saves. */
   const autoSaveRef = useRef<AutoSaveService | null>(null);
+  const autoSaveFrameKeyRef = useRef<string | null>(null);
+  const backupFrameKeyRef = useRef<string | null>(null);
   /** Last successful autosave timestamp per file, for cross-tab conflict checks. */
   const lastWrittenAtRef = useRef(new Map<string, number>());
   if (enabled && !autoSaveRef.current && platform) {
+    autoSaveFrameKeyRef.current ??= createEditorFrameKey('persistence:autosave');
     const uiSettings = loadUiSettings();
     autoSaveRef.current = new AutoSaveService(
       () => {
@@ -90,6 +94,11 @@ export function useAutoBackupServices(
         }
       },
       { intervalMs: (uiSettings.general?.autosaveInterval ?? 5) * 60 * 1000 },
+      (job) => {
+        const key = autoSaveFrameKeyRef.current;
+        if (key) requestEditorFrame(key, 'background', () => job());
+        else job();
+      },
     );
     autoSaveRef.current.setOnSaveRecovery(async (doc, meta) => {
       // saveFn already persisted an untitled document as a recovery point.
@@ -103,7 +112,14 @@ export function useAutoBackupServices(
   /** Automatic versioned-backup service (distinct from crash-recovery auto-save). */
   const backupRef = useRef<BackupService | null>(null);
   if (enabled && !backupRef.current) {
-    backupRef.current = new BackupService();
+    backupFrameKeyRef.current ??= createEditorFrameKey('persistence:backup');
+    backupRef.current = new BackupService(undefined, {
+      scheduleBackground: (job) => {
+        const key = backupFrameKeyRef.current;
+        if (key) requestEditorFrame(key, 'background', () => job());
+        else job();
+      },
+    });
     void backupRef.current.initialize();
   }
   /** Teardown auto-save + backup on unmount. */
