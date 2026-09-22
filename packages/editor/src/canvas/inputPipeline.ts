@@ -230,6 +230,7 @@ export function useCanvasInputs({
     baseZoom: number;
   } | null>(null);
   const nativeGestureEditorInteractionOpen = useRef(false);
+  const nativeFactorInteractionEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Explicit navigation-gesture state machine (see navigationState.ts). Owns
   // the viewport-level pan/pinch transitions; tools own their own drag state.
   const navigationStateRef = useRef<NavigationGestureState>('idle');
@@ -1402,6 +1403,10 @@ export function useCanvasInputs({
             const action = resolvePinchBridgeAction(event.payload);
             if (action.kind === 'ignore') return;
             if (action.kind === 'gesture') {
+              if (nativeFactorInteractionEndTimer.current !== null) {
+                clearTimeout(nativeFactorInteractionEndTimer.current);
+                nativeFactorInteractionEndTimer.current = null;
+              }
               recordPinchBridgeDiagnostic(action.phase, action.scale);
               // Pinching over a panel should not move the artwork: drop the
               // gesture unless the pointer was last seen on the canvas (a
@@ -1452,14 +1457,18 @@ export function useCanvasInputs({
                 queueDelayClock: 'untrusted',
                 ...(eventSequenceId ? { eventSequenceId } : {}),
               });
-              endInteractionIfKind('pinch');
             }
-            queueMicrotask(() => {
-              if (nativeGestureEditorInteractionOpen.current) {
+            if (nativeFactorInteractionEndTimer.current !== null) {
+              clearTimeout(nativeFactorInteractionEndTimer.current);
+            }
+            nativeFactorInteractionEndTimer.current = setTimeout(() => {
+              nativeFactorInteractionEndTimer.current = null;
+              if (nativeGestureEditorInteractionOpen.current && !nativeGestureRef.current) {
                 nativeGestureEditorInteractionOpen.current = false;
                 endEditorInteraction();
               }
-            });
+              endInteractionIfKind('pinch');
+            }, 150);
           }).then((unlisten) => {
             if (pinchBridgeCancelled) unlisten();
             else disposePinchBridge = unlisten;
@@ -1541,6 +1550,10 @@ export function useCanvasInputs({
       el.removeEventListener('gestureend', onGestureEnd);
       el.removeEventListener('lostpointercapture', onLostPointerCapture);
       pinchBridgeCancelled = true;
+      if (nativeFactorInteractionEndTimer.current !== null) {
+        clearTimeout(nativeFactorInteractionEndTimer.current);
+        nativeFactorInteractionEndTimer.current = null;
+      }
       disposePinchBridge?.();
     };
   }, [
@@ -1571,6 +1584,10 @@ export function useCanvasInputs({
       closeKeyboardEditorInteraction();
       pinchRef.current = null;
       nativeGestureRef.current = null;
+      if (nativeFactorInteractionEndTimer.current !== null) {
+        clearTimeout(nativeFactorInteractionEndTimer.current);
+        nativeFactorInteractionEndTimer.current = null;
+      }
       if (nativeGestureEditorInteractionOpen.current) {
         nativeGestureEditorInteractionOpen.current = false;
         endEditorInteraction();
@@ -2028,6 +2045,10 @@ export function useCanvasInputs({
     stopAutoPan();
     cancelWheelInertiaRef.current?.();
     nativeGestureRef.current = null;
+    if (nativeFactorInteractionEndTimer.current !== null) {
+      clearTimeout(nativeFactorInteractionEndTimer.current);
+      nativeFactorInteractionEndTimer.current = null;
+    }
     if (nativeGestureEditorInteractionOpen.current) {
       nativeGestureEditorInteractionOpen.current = false;
       endEditorInteraction();
@@ -2089,6 +2110,10 @@ export function useCanvasInputs({
       touchPointers.current.clear();
       pinchRef.current = null;
       nativeGestureRef.current = null;
+      if (nativeFactorInteractionEndTimer.current !== null) {
+        clearTimeout(nativeFactorInteractionEndTimer.current);
+        nativeFactorInteractionEndTimer.current = null;
+      }
       if (nativeGestureEditorInteractionOpen.current) {
         nativeGestureEditorInteractionOpen.current = false;
         endEditorInteraction();
@@ -2101,6 +2126,7 @@ export function useCanvasInputs({
       // Force-close any open interaction depth (a lost pointerup must never
       // leave background work permanently deferred).
       resetEditorInteractions();
+      endInteraction();
       return heldPointer;
     }
     function onWindowBlur() {
