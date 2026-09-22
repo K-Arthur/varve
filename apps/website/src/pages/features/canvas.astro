@@ -13,13 +13,20 @@ import { sitePath } from '../../lib/siteUrl';
 
       <h1 class="site-page-title">Canvas & Rendering</h1>
       <p class="feature-intro">
-        Responsive IR-replay rendering with an infinite canvas, a clear starting surface, precision tools, and native Rust performance.
+        Responsive IR-replay rendering with an infinite canvas, a clear starting surface, and precision tools — with behavior qualified by document and device.
       </p>
 
       <section class="feature-section">
         <h2>What It Is</h2>
         <p>
-          Varve's canvas system uses IR-replay architecture: the Rust engine computes the scene and emits a compact intermediate representation (~42 KB/frame for 600 shapes), which the webview replays to canvas2D. A historical Wayland fixture measured 86fps with this approach, compared with 8.5fps for the pixel-pushing comparison; actual performance depends on the document, renderer, and device. That historical comparison is directional evidence, not a universal frame-rate promise.
+          Varve's canvas uses an IR-replay fast path: the engine prepares a
+          compact scene representation and the webview replays it to Canvas2D
+          (or an admitted worker bitmap path when the document and runtime
+          allow). Structural scenes and unavailable resources use an
+          authoritative main-thread fallback. Responsiveness depends on the
+          document, Layers state, renderer, display cadence, and device; any
+          performance figure is published only with its fixture, environment,
+          clock-trust, and sample-validity evidence.
         </p>
       </section>
 

@@ -283,7 +283,7 @@ Only backdrop blur is cached. Drop shadow, inner shadow, layer blur, outer glow,
 ## Performance Optimizations (Session 43)
 
 ### Camera-only fast path
-When the worker has a cached bitmap whose `docVersion` matches the current document, pan/zoom applies a compensation transform to the cached bitmap instead of rebuilding the full scene. This gives smooth 60fps camera movement at "last rendered quality."
+When the worker has a cached bitmap whose `docVersion` matches the current document, pan/zoom may apply a compensation transform to the cached bitmap instead of rebuilding the full scene. This is an eligible fast path at last-rendered quality; authoritative redraw admission, document complexity, display cadence, and device determine the observed result.
 
 The compensation transform accounts for:
 - Pan delta (panned + floating-origin shift)
@@ -425,7 +425,13 @@ Fixes shipped this session (see commit messages for full detail; each is indepen
 - **CI never exercises the real WebGPU rendering path (2026-07-11).** `.github/workflows/ci.yml`'s `rust`/`js` matrix runs on GitHub-hosted `ubuntu-latest`/`macos-latest`/`windows-latest` — none provide real GPU hardware. `packages/compositor/src/webgpu/golden.test.ts`'s `native WebGPU path renders without error` test self-skips via `it.skipIf(navigator.gpu === undefined)`, which is always true in Vitest/jsdom. The `e2e` job runs real Chromium via Playwright, but GitHub-hosted runners give headless Chromium no GPU passthrough either — at best it falls back to a software rasterizer (the same class of adapter Task 16 / ADR-0003 now declines at the app level), so even E2E doesn't validate the hardware-accelerated path. "Tests pass" and "E2E passes" should not be read as "the WebGPU path works on real hardware." See `docs/architecture/webgpu-manual-verification.md` for the manual check to run before relying on this path in a release. Resolving this properly (a GPU-enabled CI runner) is an infra/cost decision, not made here.
 - WebKitGTK (Linux Tauri) has no WebGPU; Canvas2D is the production path on CachyOS/Wayland.
 - Leaf IR replay routes through `@varve/compositor.drawVectorItems`; mask/frame-clip/group-flatten structural logic lives in `replaySubtreeToCtx` in `packages/editor/src/canvas/renderPipeline.ts` (extracted from `CanvasArea.tsx` in the 2026-08-10 refactor). Blur compositing uses the separable blur module in `@varve/engine`, not the compositor.
-- Render worker offloads flat, **image-free** scenes via `ImageBitmap` + `compositeRasterLayer`; structural scenes and any scene with image fills stay on main-thread replay (see Render invariant 2). Full `transferControlToOffscreen` deferred.
+- Render worker receives prepared IR plus synchronously admitted `ImageBitmap`
+  payloads via `compositeRasterLayer` when the capability, resource, and
+  structural gates allow. Structural scenes or refused payloads use the
+  authoritative main-thread replay. The worker does not build document IR,
+  and image-containing scenes are not categorically excluded; admission is
+  bounded and runtime-dependent. Full `transferControlToOffscreen` remains
+  deferred.
 - Blur effects are CPU-only for radius > 32px (separable software path). The CSS GPU path is used only for radius ≤ 32px. No WebGPU blur path exists — the WebGPU compositor routes solely on primitive kind and never inspects `item.effects` to dispatch blur.
 - Only backdrop blur has a dedicated LRU cache. Drop shadow, inner shadow, layer blur, outer glow, and inner glow recompute every frame.
 - **No visual-parity test between the native PDF export path (`crates/varve-print`, lopdf-based) and the webview Canvas2D renderer (2026-07-12).** These are two independently-implemented rendering paths for the same document; nothing asserts they agree on geometry, fill, stroke, or text placement. `varve-print` has 44 Rust unit tests but none are golden/pixel comparisons against Canvas2D output. Deferred — moderate severity (a PDF export could silently drift from on-screen appearance with no test catching it), needs a shared fixture + rasterize-and-diff harness (e.g. render the PDF via a Rust PDF rasterizer, compare against a Canvas2D `OffscreenCanvas` render of the same document).

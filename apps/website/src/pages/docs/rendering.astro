@@ -13,7 +13,7 @@ import '../../styles/docs-prose.css';
 
       <h1 class="site-page-title">Rendering Pipeline</h1>
       <p class="docs-intro">
-        Varve's rendering pipeline converts a scene graph into pixels on screen through a compact Intermediate Representation (IR). A historical Wayland fixture measured 86 fps on Canvas2D for 600 shapes; that result is directional evidence, not a universal frame-rate promise.
+        Varve's rendering pipeline converts a scene graph into pixels on screen through a compact Intermediate Representation (IR). Responsiveness depends on the document, renderer, display cadence, and device; measured examples are environment-specific evidence, not a frame-rate promise.
       </p>
 
       <section class="docs-section">
@@ -112,10 +112,10 @@ import '../../styles/docs-prose.css';
           For non-structural scenes (no masks, no clipping frames with children, no special groups), Varve can offload replay to an <strong>OffscreenCanvas</strong> in a Web Worker:
         </p>
         <ul>
-          <li>The document is serialized and sent to the worker</li>
-          <li>The worker builds the IR and replays it to an OffscreenCanvas</li>
-          <li>The resulting bitmap is transferred back to the main thread</li>
-          <li>A <strong>sceneHasImageFills</strong> gate keeps image-containing scenes on the main thread (workers can't decode images)</li>
+          <li>The main thread prepares a compact IR and admits transferable image payloads</li>
+          <li>The worker receives that prepared IR and replays it to an OffscreenCanvas when capability and structural gates allow</li>
+          <li>The resulting bitmap is transferred back to the main thread for presentation</li>
+          <li>Scenes requiring structural compositing, unavailable resources, or an authoritative fallback stay on the main-thread replay path</li>
         </ul>
         <p>
           The render worker includes a <strong>camera fast path</strong>: when the worker bitmap's

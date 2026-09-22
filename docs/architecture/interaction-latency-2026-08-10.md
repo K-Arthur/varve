@@ -4,6 +4,33 @@ Audit-driven pass over Varve's interactive canvas/input pipeline: measure
 first, then fix only what measurements justified. This document records the
 pipeline map, the measured findings, the fixes, and the validation matrix.
 
+## Current evidence contract (schema v4)
+
+Interaction traces distinguish `inputToCommitMs` (trusted event ingress to the
+canvas commit) from `inputToNextPaintMs` (only an Event Timing or native
+profiler observation). rAF callbacks are lower-bound diagnostics and never
+satisfy a presentation threshold. Each event carries a bounded sequence ID,
+queue-delay value, and clock-trust classification; legacy
+`pointerToPresentMs` is retained only for migration and is excluded from
+summaries and claims.
+
+Canvas-changing interactions set a causal ID that travels through redraw
+coalescing and frame diagnostics. A completed interaction must receive a
+`caused`, `coalesced`, or `reused` frame. Missing evidence is an
+instrumentation error, not a zero-latency sample. Chromium next-paint gates
+require at least 100 trusted samples; WebKitGTK reports presentation as
+unavailable without native profiling while still gating queue, handler, and
+commit latency.
+
+Automatic persistence owns a separate background frame lane. A
+`PersistenceRevision` captures the immutable document and its destination in
+O(1); autosave and versioned backup share a memoized materializer and latest
+wins per session. The scheduler rechecks its interaction lease immediately
+before materialization, so pointer, wheel, touch/native pinch, and keyboard
+work never competes with a newly-started full-document encode. Explicit Save,
+Backup Now, restore, and named snapshots remain immediate and acknowledge only
+the exact revision that was written.
+
 ## Interaction pipeline map
 
 ### Object drag (move)
@@ -317,7 +344,7 @@ New Playwright E2E tests:
 - `overlay-alignment.spec.ts`: visual regression tests for selection
   overlay at different zoom levels and handle visibility
 
-## Follow-up pass (2026-09-21) — persistence ownership and trace schema v3
+## Follow-up pass (2026-09-21) — persistence ownership and trace schema v4
 
 Automatic persistence now belongs to the background frame lane. A dirty edit
 captures an immutable document revision and replaces the pending revision in
@@ -327,11 +354,14 @@ Now, restore, and named snapshots remain synchronous from the caller's point of
 view. A failed lazy serialization stays dirty for retry, and an older
 automatic completion cannot clear a newer dirty revision.
 
-The interaction trace schema is v3. Trace starts prefer a trusted DOM event
+The interaction trace schema is v4. Trace starts prefer a trusted DOM event
 timestamp and record its source; queue delay is captured for pointer, wheel,
 keyboard, touch pinch, and WebKit gesture paths where clocks correlate. Native
 bridge samples are explicitly handler-origin when no cross-clock timestamp is
-available. Slow-capture classification includes queue delay, and the bounded
-production runner drains the ring after each iteration so distributions can be
-aggregated beyond the 50-entry browser retention cap. Missing presentation is
-instrumentation failure, never a zero-latency sample.
+available. `inputToCommitMs` is separate from Event Timing/native-profiler
+`inputToNextPaintMs`; rAF is only a lower-bound diagnostic. Stable event and
+causal frame IDs let the runner distinguish caused/coalesced/reused frames from
+background work. Slow-capture classification includes queue delay, and the
+bounded production runner drains the ring after each iteration so distributions
+can be aggregated beyond the 50-entry browser retention cap. Missing
+presentation is instrumentation failure, never a zero-latency sample.
