@@ -18,6 +18,7 @@ import {
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
 import type { CanvasMode, EditorState } from '../context/types';
 import { physicalDigit } from '../input/physicalKey';
+import { eventQueueDelayMs } from '../performance/clockDomain';
 import { dispatchToTool, documentComplexityBucket } from '../performance/dispatchSpan';
 import {
   beginEditorInteraction,
@@ -414,7 +415,8 @@ export function useCanvasInputs({
             pinchRef.current = { lastDist: geo.dist, lastCentroid: geo.centroid };
             setViewportAnchor(geo.centroid.x, geo.centroid.y);
           }
-          if (startedPinch && isInteractionTracingEnabled()) beginInteraction('pinch');
+          if (startedPinch && isInteractionTracingEnabled())
+            beginInteraction('pinch', ne.timeStamp);
         }
         try {
           e.currentTarget.setPointerCapture(e.pointerId);
@@ -448,7 +450,7 @@ export function useCanvasInputs({
       gestureComplexity.current = isInteractionTracingEnabled()
         ? documentComplexityBucket(Object.keys(stateRef.current.document.nodes).length)
         : 'unknown';
-      if (isInteractionTracingEnabled()) beginInteraction('pointer-drag');
+      if (isInteractionTracingEnabled()) beginInteraction('pointer-drag', ne.timeStamp);
       activeDragPointer.current = snapshotHeldPointer(ne);
       snapSessionForPointer.current = createSnapSession();
       snapIndexForPointer.current = null;
@@ -566,7 +568,7 @@ export function useCanvasInputs({
         (lastHoverTraceAt.current === 0 || traceStart - lastHoverTraceAt.current > 800)
       ) {
         lastHoverTraceAt.current = traceStart;
-        beginInteraction('hover');
+        beginInteraction('hover', ne.timeStamp);
       }
       const traceFinish = () => {
         if (traceOn) {
@@ -983,7 +985,7 @@ export function useCanvasInputs({
           (activeTrace.kind === 'wheel' &&
             (lastWheelTraceAt.current === 0 || started - lastWheelTraceAt.current > 150)))
       ) {
-        beginInteraction('wheel');
+        beginInteraction('wheel', e.timeStamp);
       }
       lastWheelTraceAt.current = started;
       const s = stateRef.current;
@@ -1043,6 +1045,7 @@ export function useCanvasInputs({
         }
       }
       const processingMs = performance.now() - started;
+      const queueDelayMs = eventQueueDelayMs(e.timeStamp, started);
       recordInputDiagnostic({
         eventType: 'wheel',
         source: action.source === 'trackpad' ? 'trackpad' : 'wheel',
@@ -1064,6 +1067,12 @@ export function useCanvasInputs({
           source: action.source,
           action: action.kind,
           deltaMode: e.deltaMode,
+          ...(queueDelayMs === null
+            ? { queueDelayClock: 'untrusted' }
+            : {
+                queueDelayMs,
+                queueDelayClock: 'dom.event.timeStamp',
+              }),
         });
         if (wheelTraceEndTimer.current !== null) clearTimeout(wheelTraceEndTimer.current);
         wheelTraceEndTimer.current = setTimeout(() => {
@@ -1127,6 +1136,7 @@ export function useCanvasInputs({
     };
 
     const onGestureStart = (e: Event) => {
+      const started = performance.now();
       e.preventDefault();
       refreshCanvasRect?.();
       const ge = e as Partial<WebKitGestureEvent>;
@@ -1153,10 +1163,20 @@ export function useCanvasInputs({
       setViewportAnchor(point.x, point.y);
       cancelWheelInertiaRef.current?.();
       if (isInteractionTracingEnabled() && getActiveInteractionIdentity()?.kind !== 'pinch') {
-        beginInteraction('pinch');
+        beginInteraction('pinch', e.timeStamp);
+      }
+      if (isInteractionTracingEnabled()) {
+        const queueDelayMs = eventQueueDelayMs(e.timeStamp, started);
+        recordInteractionSpan('pinch.input', performance.now() - started, {
+          phase: 'start',
+          ...(queueDelayMs === null
+            ? { queueDelayClock: 'untrusted' }
+            : { queueDelayMs, queueDelayClock: 'dom.event.timeStamp' }),
+        });
       }
     };
     const onGestureChange = (e: Event) => {
+      const started = performance.now();
       e.preventDefault();
       const ge = e as WebKitGestureEvent;
       const point = resolveGesturePoint(ge.clientX, ge.clientY);
@@ -1172,14 +1192,33 @@ export function useCanvasInputs({
         point.y,
         (nativeGestureRef.current?.baseZoom ?? stateRef.current.zoom) * scale,
       );
+      if (isInteractionTracingEnabled()) {
+        const queueDelayMs = eventQueueDelayMs(e.timeStamp, started);
+        recordInteractionSpan('pinch.input', performance.now() - started, {
+          phase: 'change',
+          ...(queueDelayMs === null
+            ? { queueDelayClock: 'untrusted' }
+            : { queueDelayMs, queueDelayClock: 'dom.event.timeStamp' }),
+        });
+      }
     };
     const onGestureEnd = (e: Event) => {
+      const started = performance.now();
       e.preventDefault();
       nativeGestureRef.current = null;
       pinchRef.current = null;
       if (nativeGestureEditorInteractionOpen.current) {
         nativeGestureEditorInteractionOpen.current = false;
         endEditorInteraction();
+      }
+      if (isInteractionTracingEnabled()) {
+        const queueDelayMs = eventQueueDelayMs(e.timeStamp, started);
+        recordInteractionSpan('pinch.input', performance.now() - started, {
+          phase: 'end',
+          ...(queueDelayMs === null
+            ? { queueDelayClock: 'untrusted' }
+            : { queueDelayMs, queueDelayClock: 'dom.event.timeStamp' }),
+        });
       }
       endInteractionIfKind('pinch');
       clearViewportAnchor();
@@ -1500,13 +1539,21 @@ export function useCanvasInputs({
 
       const tmInst = tmRef.current;
       const activeTrace = isInteractionTracingEnabled() ? getActiveInteractionIdentity() : null;
+      const keyboardHandlerStartedAt = performance.now();
       if (isInteractionTracingEnabled() && activeTrace === null) {
-        beginInteraction('keyboard');
+        beginInteraction('keyboard', ne.timeStamp);
       }
       if (isInteractionTracingEnabled()) {
+        const queueDelayMs = eventQueueDelayMs(ne.timeStamp, keyboardHandlerStartedAt);
         const finishKeyboardInput = beginInteractionSpan('keyboard.input', {
           repeat: e.repeat,
           modifiers: Number(e.shiftKey) + Number(e.ctrlKey) + Number(e.altKey) + Number(e.metaKey),
+          ...(queueDelayMs === null
+            ? { queueDelayClock: 'untrusted' }
+            : {
+                queueDelayMs,
+                queueDelayClock: 'dom.event.timeStamp',
+              }),
         });
         queueMicrotask(finishKeyboardInput);
       }

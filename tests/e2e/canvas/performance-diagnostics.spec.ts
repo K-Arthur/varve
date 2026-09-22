@@ -99,7 +99,7 @@ test.describe('Canvas performance diagnostics', () => {
     });
 
     expect(diagnostics).not.toBeNull();
-    expect(diagnostics?.trace?.schemaVersion).toBe(2);
+    expect(diagnostics?.trace?.schemaVersion).toBe(3);
     expect(diagnostics?.trace?.spans.length).toBeLessThanOrEqual(512);
     expect(diagnostics?.trace?.frames.length).toBeLessThanOrEqual(240);
     expect(diagnostics?.trace?.droppedSpanCount).toBeGreaterThanOrEqual(0);

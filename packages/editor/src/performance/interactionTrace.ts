@@ -5,12 +5,14 @@
  * Groups per-event spans and per-frame commit times into interactions keyed
  * by a monotonic correlation ID, so a slow drag is traceable end-to-end:
  * pointerdown → move events (each with handler duration) → frames presented
- * while the gesture is active → pointer-to-present latency → total gesture
+ * while the gesture is active → input-to-present latency → total gesture
  * time. Off by default; slow-capture mode keeps only gestures that exceed a
  * configurable threshold. Frame correlation is by time window (a frame
  * committed while the interaction is open belongs to it), so no id needs to
  * thread through the render path.
  */
+import { eventQueueDelayMs } from './clockDomain';
+
 export type InteractionKind = 'pointer-drag' | 'wheel' | 'pinch' | 'keyboard' | 'hover' | 'unknown';
 
 export interface InteractionSpan {
@@ -45,7 +47,7 @@ export interface InteractionFrameSample {
 }
 
 export interface InteractionTrace {
-  schemaVersion: 2;
+  schemaVersion: 3;
   /** Stable per-page-load identity; distinguishes traces across reloads. */
   sessionId: string;
   /** Monotonic correlation ID connecting input events to presented frames. */
@@ -53,8 +55,16 @@ export interface InteractionTrace {
   kind: InteractionKind;
   /** Monotonic per-interaction pointer sample counter (last assigned value). */
   pointerSequenceId: number;
-  /** performance.now() of the first event. */
+  /** Timestamp of the first event in the main performance clock domain. */
   startedAt: number;
+  /** Whether startedAt came from a trusted DOM timestamp or handler entry. */
+  timestampSource: 'dom.event.timeStamp' | 'handler.performance.now';
+  /** Delay between the first DOM event timestamp and handler entry, if trusted. */
+  initialQueueDelayMs: number | null;
+  /** Largest trusted event-to-handler delay observed in this interaction. */
+  maxQueueDelayMs: number | null;
+  /** Invalid/untrusted timestamps observed while tracing this interaction. */
+  untrustedQueueDelayCount: number;
   endedAt: number;
   eventCount: number;
   frameCount: number;
@@ -96,7 +106,12 @@ const NOOP_SPAN_END = () => undefined;
 
 function refreshSlow(trace: InteractionTrace): void {
   trace.slow =
-    Math.max(trace.totalMs, trace.busyMs, trace.pointerToPresentMs ?? 0) >= slowThresholdMs;
+    Math.max(
+      trace.totalMs,
+      trace.busyMs,
+      trace.pointerToPresentMs ?? 0,
+      trace.maxQueueDelayMs ?? 0,
+    ) >= slowThresholdMs;
 }
 
 function retainTrace(trace: InteractionTrace): void {
@@ -127,16 +142,26 @@ export function setSlowInteractionThreshold(ms: number): void {
   slowThresholdMs = Math.max(0, ms);
 }
 
-export function beginInteraction(kind: InteractionKind): void {
+export function beginInteraction(kind: InteractionKind, eventTimeStamp?: number): void {
   if (!tracingEnabled) return;
   if (current) endInteraction();
+  const handlerStartedAt = performance.now();
+  const initialQueueDelayMs =
+    typeof eventTimeStamp === 'number' ? eventQueueDelayMs(eventTimeStamp, handlerStartedAt) : null;
   current = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     sessionId,
     id: nextId++,
     kind,
     pointerSequenceId: 0,
-    startedAt: performance.now(),
+    startedAt:
+      initialQueueDelayMs === null ? handlerStartedAt : handlerStartedAt - initialQueueDelayMs,
+    timestampSource:
+      initialQueueDelayMs === null ? 'handler.performance.now' : 'dom.event.timeStamp',
+    initialQueueDelayMs,
+    maxQueueDelayMs: initialQueueDelayMs,
+    untrustedQueueDelayCount:
+      typeof eventTimeStamp === 'number' && initialQueueDelayMs === null ? 1 : 0,
     endedAt: 0,
     eventCount: 0,
     frameCount: 0,
@@ -192,6 +217,11 @@ function appendSpan(
   attributes?: InteractionSpan['attributes'],
 ): void {
   if (name.endsWith('.input')) trace.eventCount++;
+  const queueDelayMs = attributes?.queueDelayMs;
+  if (typeof queueDelayMs === 'number' && Number.isFinite(queueDelayMs)) {
+    trace.maxQueueDelayMs = Math.max(trace.maxQueueDelayMs ?? 0, queueDelayMs);
+  }
+  if (attributes?.queueDelayClock === 'untrusted') trace.untrustedQueueDelayCount++;
   trace.busyMs += durationMs;
   if (trace.endedAt > 0) {
     refreshSlow(trace);
@@ -396,10 +426,20 @@ export function summarizeInteractionTraces(samples: InteractionTrace[]): {
   maxTotalMs: number;
   pointerToPresent: LatencyDistribution;
   total: LatencyDistribution;
+  queueDelay: LatencyDistribution;
+  untrustedQueueDelayCount: number;
+  timestampSources: Record<InteractionTrace['timestampSource'], number>;
 } {
   const withPresent = samples.filter((t) => t.pointerToPresentMs !== null);
   const pointerToPresentValues = withPresent.map((trace) => trace.pointerToPresentMs ?? 0);
   const totals = samples.map((t) => t.totalMs);
+  const queueDelays = samples.flatMap((trace) => [
+    ...(trace.initialQueueDelayMs === null ? [] : [trace.initialQueueDelayMs]),
+    ...trace.spans.flatMap((span) => {
+      const delay = span.attributes?.queueDelayMs;
+      return typeof delay === 'number' && Number.isFinite(delay) ? [delay] : [];
+    }),
+  ]);
   const totalDistribution = distribution(totals);
   return {
     count: samples.length,
@@ -414,5 +454,20 @@ export function summarizeInteractionTraces(samples: InteractionTrace[]): {
     maxTotalMs: totalDistribution.max,
     pointerToPresent: distribution(pointerToPresentValues),
     total: totalDistribution,
+    queueDelay: distribution(queueDelays),
+    untrustedQueueDelayCount: samples.reduce(
+      (count, trace) => count + trace.untrustedQueueDelayCount,
+      0,
+    ),
+    timestampSources: samples.reduce(
+      (sources, trace) => {
+        sources[trace.timestampSource]++;
+        return sources;
+      },
+      {
+        'dom.event.timeStamp': 0,
+        'handler.performance.now': 0,
+      } as Record<InteractionTrace['timestampSource'], number>,
+    ),
   };
 }

@@ -737,6 +737,111 @@ async function driveWorkload(page, box, workload, iteration, dragTarget) {
   }
 }
 
+function percentile(sorted, percent) {
+  if (sorted.length === 0) return null;
+  return sorted[Math.max(0, Math.ceil((percent / 100) * sorted.length) - 1)] ?? null;
+}
+
+function distribution(values) {
+  const sorted = values.filter((value) => Number.isFinite(value)).sort((a, b) => a - b);
+  return {
+    count: sorted.length,
+    p50: percentile(sorted, 50),
+    p75: percentile(sorted, 75),
+    p90: percentile(sorted, 90),
+    p95: percentile(sorted, 95),
+    p99: percentile(sorted, 99),
+    max: sorted.at(-1) ?? null,
+  };
+}
+
+/**
+ * Drain the bounded in-page ring after each measured gesture. Keeping the
+ * aggregate in the runner gives a workload 100+ warm samples without raising
+ * the production ring's memory budget. Re-reading an existing id lets a late
+ * frame commit update the same trace before the workload completes.
+ */
+async function drainInteractionTraces(page, collected) {
+  const traces = await page.evaluate(() => window.__varvePerf?.interactions?.getTraces?.(50) ?? []);
+  for (const trace of traces) {
+    collected.set(`${trace.sessionId ?? 'session'}:${trace.id}`, trace);
+  }
+}
+
+function summarizeRunnerTraces(traces) {
+  const pointerToPresent = traces
+    .map((trace) => trace.pointerToPresentMs)
+    .filter((value) => typeof value === 'number');
+  const totals = traces.map((trace) => trace.totalMs);
+  const queueDelay = traces.flatMap((trace) => [
+    ...(typeof trace.initialQueueDelayMs === 'number' ? [trace.initialQueueDelayMs] : []),
+    ...(trace.spans ?? []).flatMap((span) =>
+      typeof span.attributes?.queueDelayMs === 'number' ? [span.attributes.queueDelayMs] : [],
+    ),
+  ]);
+  const spanDurations = {};
+  const traceKinds = {};
+  const frameDispositions = {};
+  const frameTotals = [];
+  let droppedSpans = 0;
+  let droppedFrames = 0;
+  let missingPresentation = 0;
+  let untrustedQueueDelayCount = 0;
+  const timestampSources = { 'dom.event.timeStamp': 0, 'handler.performance.now': 0 };
+
+  for (const trace of traces) {
+    traceKinds[trace.kind] = (traceKinds[trace.kind] ?? 0) + 1;
+    droppedSpans += trace.droppedSpanCount ?? 0;
+    droppedFrames += trace.droppedFrameCount ?? 0;
+    untrustedQueueDelayCount += trace.untrustedQueueDelayCount ?? 0;
+    if (trace.timestampSource in timestampSources) timestampSources[trace.timestampSource]++;
+    if ((trace.frames?.length ?? 0) === 0) missingPresentation++;
+    for (const span of trace.spans ?? []) {
+      const durations = spanDurations[span.name] ?? [];
+      durations.push(span.durationMs);
+      spanDurations[span.name] = durations;
+    }
+    for (const frame of trace.frames ?? []) {
+      const disposition = frame.disposition ?? 'unspecified';
+      frameDispositions[disposition] = (frameDispositions[disposition] ?? 0) + 1;
+      frameTotals.push(frame.totalMs);
+    }
+  }
+
+  const total = distribution(totals);
+  return {
+    interactions: {
+      count: traces.length,
+      slowCount: traces.filter((trace) => trace.slow).length,
+      avgPointerToPresentMs:
+        pointerToPresent.length > 0
+          ? pointerToPresent.reduce((sum, value) => sum + value, 0) / pointerToPresent.length
+          : 0,
+      avgTotalMs:
+        totals.length > 0 ? totals.reduce((sum, value) => sum + value, 0) / totals.length : 0,
+      p95TotalMs: total.p95 ?? 0,
+      maxTotalMs: total.max ?? 0,
+      pointerToPresent: distribution(pointerToPresent),
+      total,
+      queueDelay: distribution(queueDelay),
+      untrustedQueueDelayCount,
+      timestampSources,
+    },
+    traceCount: traces.length,
+    interactionBreakdown: {
+      traceKinds,
+      spans: Object.fromEntries(
+        Object.entries(spanDurations).map(([name, values]) => [name, distribution(values)]),
+      ),
+      frameDispositions,
+      frameTotal: distribution(frameTotals),
+      droppedSpans,
+      droppedFrames,
+      missingPresentation,
+    },
+  };
+}
+
 // ── Build ───────────────────────────────────────────────────────────────────
 
 const DIST = `${ROOT}apps/desktop/dist`;
@@ -942,6 +1047,7 @@ try {
         perf?.nodeWork?.reset?.();
       });
 
+      const collectedTraces = new Map();
       const heapSamples = [];
       for (let i = 0; i < ITERATIONS; i++) {
         // Re-resolve from the settled selection box right before each drag so
@@ -960,6 +1066,7 @@ try {
           return performance.memory?.usedJSHeapSize ?? null;
         });
         if (heap !== null) heapSamples.push(heap);
+        await drainInteractionTraces(page, collectedTraces);
       }
 
       const measured = await page.evaluate(() => {
@@ -1022,7 +1129,10 @@ try {
           presentation: perf?.presentation?.() ?? null,
         };
       });
-      Object.assign(record, measured, { heapSamples, status: 'ok' });
+      Object.assign(record, measured, summarizeRunnerTraces([...collectedTraces.values()]), {
+        heapSamples,
+        status: 'ok',
+      });
       record.machineAfter = captureMachineState([process.pid, server?.pid]);
       record.validity = classifyRun(record.machineAfter);
 
@@ -1031,6 +1141,12 @@ try {
       if (!record.traceCount) {
         record.status = 'no-evidence';
         record.error = 'workload completed but produced no interaction traces';
+      } else if (
+        workload !== 'pointer-move-idle' &&
+        (record.interactionBreakdown?.missingPresentation ?? 0) > 0
+      ) {
+        record.status = 'instrumentation-error';
+        record.error = `${record.interactionBreakdown.missingPresentation} interaction trace(s) had no presented frame`;
       }
     } catch (error) {
       // One failed workload must not lose the others.

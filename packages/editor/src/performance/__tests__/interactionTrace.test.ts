@@ -54,7 +54,8 @@ describe('interactionTrace', () => {
     expect(trace.pointerToPresentMs).not.toBeNull();
     expect(trace.totalMs).toBeGreaterThanOrEqual(0);
     expect(trace.id).toBeGreaterThan(0);
-    expect(trace.schemaVersion).toBe(2);
+    expect(trace.schemaVersion).toBe(3);
+    expect(trace.timestampSource).toBe('handler.performance.now');
     expect(trace.sessionId).toMatch(/^s[0-9a-z]+-[0-9a-z]+$/);
     expect(trace.droppedSpanCount).toBe(0);
     expect(trace.droppedFrameCount).toBe(0);
@@ -191,6 +192,43 @@ describe('interactionTrace', () => {
     expect(trace.slow).toBe(true);
     expect(getInteractionTraceCount()).toBe(1);
     expect(getRecentInteractionTraces(1)[0]?.id).toBe(trace.id);
+  });
+
+  it('anchors presentation latency to a trusted event timestamp and exposes queue delay', () => {
+    enableInteractionTraces(true);
+    const eventTimeStamp = performance.now() - 12;
+    beginInteraction('pointer-drag', eventTimeStamp);
+    const trace = getRecentInteractionTraces(1)[0];
+    expect(trace).toBeUndefined();
+    notifyFrameCommit(performance.now(), 4);
+    endInteraction();
+
+    const finished = getRecentInteractionTraces(1)[0]!;
+    expect(finished.schemaVersion).toBe(3);
+    expect(finished.timestampSource).toBe('dom.event.timeStamp');
+    expect(finished.initialQueueDelayMs).toBeGreaterThanOrEqual(10);
+    expect(finished.pointerToPresentMs).toBeGreaterThanOrEqual(finished.initialQueueDelayMs ?? 0);
+    expect(summarizeInteractionTraces([finished]).queueDelay.count).toBeGreaterThanOrEqual(1);
+  });
+
+  it('counts untrusted timestamps without manufacturing queue latency', () => {
+    enableInteractionTraces(true);
+    beginInteraction('pinch', Date.now());
+    const trace = endInteraction()!;
+    expect(trace.timestampSource).toBe('handler.performance.now');
+    expect(trace.initialQueueDelayMs).toBeNull();
+    expect(trace.untrustedQueueDelayCount).toBe(1);
+    expect(summarizeInteractionTraces([trace]).queueDelay.count).toBe(0);
+  });
+
+  it('classifies a trace as slow when only event delivery is delayed', () => {
+    enableInteractionTraces(true);
+    setSlowCaptureOnly(true);
+    setSlowInteractionThreshold(5);
+    beginInteraction('wheel', performance.now() - 20);
+    const trace = endInteraction()!;
+    expect(trace.slow).toBe(true);
+    expect(getInteractionTraceCount()).toBe(1);
   });
 
   it('keeps a bounded ring buffer', () => {
