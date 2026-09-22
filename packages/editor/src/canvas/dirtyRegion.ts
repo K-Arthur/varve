@@ -460,9 +460,12 @@ export function resolveFullRedrawReason(opts: {
   dirtyRectArea: number;
   viewportArea: number;
   hasDirtyRect: boolean;
+  /** Structural compositing is conservatively full-frame by design. */
+  requiresStructuralCompositing?: boolean;
   /** Result of `surfaceMatchesBackingStore` for this frame (defaults to true). */
   surfaceMatch?: SurfaceMatch;
 }): FullRedrawReason | null {
+  if (opts.requiresStructuralCompositing) return 'structural';
   if (!opts.hasDirtyRect) return 'no-dirty-rect';
   if (opts.rotation !== 0) return 'camera-rotation';
   const surfaceMatch = opts.surfaceMatch ?? 'match';

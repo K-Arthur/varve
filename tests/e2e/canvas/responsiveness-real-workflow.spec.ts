@@ -11,36 +11,43 @@ import { navigateToEditor } from '../shared';
 const SVG_FIXTURE = resolve('tests/e2e/fixtures/layers-stress-board.svg');
 const PHOTO_FIXTURE = resolve('tests/e2e/fixtures/real-life-still-life.jpg');
 
-async function surfaceHash(page: import('@playwright/test').Page): Promise<number> {
+async function surfaceHash(page: import('@playwright/test').Page): Promise<string> {
   return page.locator('canvas.editor-canvas__content-layer').evaluate((element) => {
     const canvas = element as HTMLCanvasElement;
     const context = canvas.getContext('2d');
     if (!context) throw new Error('canvas context unavailable');
     const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-    let hash = 2166136261;
-    for (let index = 0; index < pixels.length; index += 16) {
-      hash = Math.imul(hash ^ (pixels[index] ?? 0), 16777619);
-      hash = Math.imul(hash ^ (pixels[index + 1] ?? 0), 16777619);
-      hash = Math.imul(hash ^ (pixels[index + 2] ?? 0), 16777619);
-    }
-    return hash;
+    return crypto.subtle
+      .digest('SHA-256', pixels)
+      .then((digest) =>
+        Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join(''),
+      );
   });
 }
 
 async function forceFullRedraw(page: import('@playwright/test').Page): Promise<void> {
-  await page.evaluate(() => {
+  const result = (await page.evaluate(async () => {
     (
-      window as unknown as { __varvePerf?: { forceFullRedraw?: () => void } }
+      window as unknown as {
+        __varvePerf?: {
+          forceFullRedraw?: () => Promise<{
+            authoritative: boolean;
+            renderPath: string;
+            frameIndex: number;
+          }>;
+        };
+      }
     ).__varvePerf?.forceFullRedraw?.();
-  });
-  await page.waitForTimeout(120);
+  })) as { authoritative: boolean; renderPath: string; frameIndex: number } | undefined;
+  expect(result, 'full-redraw oracle must be installed').toBeTruthy();
+  expect(result?.authoritative).toBe(true);
+  expect(['compositor', 'structural']).toContain(result?.renderPath);
 }
 
 async function assertFreshSurface(
   page: import('@playwright/test').Page,
   label: string,
-): Promise<number> {
-  await page.waitForTimeout(300);
+): Promise<string> {
   const liveHash = await surfaceHash(page);
   await forceFullRedraw(page);
   const authoritativeHash = await surfaceHash(page);
@@ -94,6 +101,27 @@ test('real SVG/photo workflow keeps input and pixels authoritative', async ({ pa
   await page.mouse.up();
   await assertFreshSurface(page, 'second drag');
 
+  const resizeHandle = page.getByLabel('Bottom-right resize handle');
+  await expect(resizeHandle, 'imported content must expose a real resize handle').toBeVisible();
+  const beforeResize = await resizeHandle.boundingBox();
+  if (!beforeResize) throw new Error('resize handle bounds unavailable');
+  await page.mouse.move(
+    beforeResize.x + beforeResize.width / 2,
+    beforeResize.y + beforeResize.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    beforeResize.x + beforeResize.width / 2 + 32,
+    beforeResize.y + beforeResize.height / 2 + 24,
+    { steps: 4 },
+  );
+  await page.mouse.up();
+  const afterResize = await resizeHandle.boundingBox();
+  if (!afterResize) throw new Error('resized handle bounds unavailable');
+  expect(afterResize.x).toBeGreaterThan(beforeResize.x);
+  expect(afterResize.y).toBeGreaterThan(beforeResize.y);
+  await assertFreshSurface(page, 'handle resize');
+
   // Pan, zoom, switch to paint, draw a short stroke, nudge, and history round
   // trip. Each action uses real browser input; the settled sequence is checked
   // by the pixel-freshness oracle below rather than a timing-only assertion.
@@ -134,4 +162,14 @@ test('real SVG/photo workflow keeps input and pixels authoritative', async ({ pa
   const liveHash = await assertFreshSurface(page, 'final workflow');
   expect(liveHash, 'real workflow must produce a painted surface').not.toBe(initialHash);
   await page.screenshot({ path: testInfo.outputPath('real-workflow-layers-open.png') });
+
+  const collapse = page.getByRole('button', { name: /hide layers panel/i });
+  if (await collapse.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await collapse.click();
+    await expect(page.getByRole('button', { name: /show layers panel/i })).toBeVisible();
+    await assertFreshSurface(page, 'layers collapsed');
+    await page.screenshot({ path: testInfo.outputPath('real-workflow-layers-collapsed.png') });
+    await page.getByRole('button', { name: /show layers panel/i }).click();
+    await assertFreshSurface(page, 'layers reopened');
+  }
 });

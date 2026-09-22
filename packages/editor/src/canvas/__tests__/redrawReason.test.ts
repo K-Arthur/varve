@@ -87,4 +87,15 @@ describe('resolveFullRedrawReason', () => {
   it('attributes missing dirty rect', () => {
     expect(resolveFullRedrawReason({ ...base, hasDirtyRect: false })).toBe('no-dirty-rect');
   });
+
+  it('attributes structural compositing before other fallback reasons', () => {
+    expect(
+      resolveFullRedrawReason({
+        ...base,
+        profileEnablePartialRedraw: false,
+        surfaceMatch: 'camera-moved',
+        requiresStructuralCompositing: true,
+      }),
+    ).toBe('structural');
+  });
 });

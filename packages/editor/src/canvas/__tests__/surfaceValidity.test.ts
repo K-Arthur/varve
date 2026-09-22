@@ -98,6 +98,12 @@ describe('resolveFullRedrawReason surface attribution', () => {
   it('defaults to a match so existing callers keep their attribution', () => {
     expect(resolveFullRedrawReason(base)).toBeNull();
   });
+
+  it('reports structural compositing as the owning full-redraw reason', () => {
+    expect(resolveFullRedrawReason({ ...base, requiresStructuralCompositing: true })).toBe(
+      'structural',
+    );
+  });
 });
 
 describe('computeDirtyPruneDecision surface gate', () => {

@@ -538,9 +538,19 @@ export function CanvasArea({
   // authoritative full redraw of the *same* document and camera. The
   // incremental-vs-full comparison depends on changing nothing else.
   useEffect(() => {
-    registerPaintedSurfaceInvalidator(() => {
+    registerPaintedSurfaceInvalidator((_requestId) => {
+      const camera = stateRef.current;
       paintedSurfaceRef.current = null;
       requestContentDrawRef.current?.('oracle-full-redraw', 'backing-store-recovery');
+      return {
+        docVersion: docVersionRef.current,
+        camera: {
+          zoom: camera.zoom,
+          panX: camera.pan.x,
+          panY: camera.pan.y,
+          rotation: camera.cameraRotation ?? 0,
+        },
+      };
     });
     return () => registerPaintedSurfaceInvalidator(null);
   }, []);

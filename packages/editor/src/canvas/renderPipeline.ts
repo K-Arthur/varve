@@ -541,6 +541,9 @@ export function renderContent(deps: RenderContentDeps): void {
     return;
   }
   const { coordinator, snapshot: frameSnapshot, decision: frameDecision } = entry;
+  const oracleFullRedraw = frameDecision.explicit.some(
+    (invalidation) => invalidation.source === 'oracle-full-redraw',
+  );
 
   const frameStart = startFrameTiming();
   let frameBackend: CompositorBackend | null = null;
@@ -597,7 +600,11 @@ export function renderContent(deps: RenderContentDeps): void {
     // response).  Never let that stale bitmap win over the main-thread path:
     // Canvas font aliases live in this document realm and cannot be resolved
     // by the worker.
-    if (frameDecision.kind === 'present' && !sceneNeedsMainThreadTypography(doc)) {
+    if (
+      !oracleFullRedraw &&
+      frameDecision.kind === 'present' &&
+      !sceneNeedsMainThreadTypography(doc)
+    ) {
       const presented = tryPresentWorkerFrame({
         ctx,
         canvas,
@@ -760,6 +767,7 @@ export function renderContent(deps: RenderContentDeps): void {
       Boolean(renderWorkerRef.current) &&
       !workerFailedRef.current &&
       profileCanUseWorker &&
+      !oracleFullRedraw &&
       !documentHasPerspectiveImage(doc) &&
       sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src)) &&
       !sceneNeedsMainThreadTypography(doc) &&
@@ -1229,6 +1237,7 @@ export function renderContent(deps: RenderContentDeps): void {
     const dirtyRect = dirtyRectRef.current;
     const usePartialRedraw =
       profile.enablePartialRedraw &&
+      !oracleFullRedraw &&
       !needsStructural &&
       (s.cameraRotation ?? 0) === 0 &&
       // Retained pixels belong to the previous camera/surface; reusing them
@@ -2219,7 +2228,7 @@ export function renderContent(deps: RenderContentDeps): void {
             ? Math.min(1, (dirtyRect.w * dirtyRect.h) / viewportArea)
             : 1;
     const fullRedrawReason =
-      dirty.kind !== 'none' && !usePartialRedraw
+      (dirty.kind !== 'none' || needsStructural) && !usePartialRedraw
         ? (resolveFullRedrawReason({
             rotation: s.cameraRotation ?? 0,
             profileEnablePartialRedraw: profile.enablePartialRedraw,
@@ -2227,6 +2236,7 @@ export function renderContent(deps: RenderContentDeps): void {
             viewportArea,
             hasDirtyRect: dirtyRect !== null,
             surfaceMatch,
+            requiresStructuralCompositing: needsStructural,
           }) ?? undefined)
         : undefined;
     // The surface now shows this camera: a full redraw repainted everything,
@@ -2262,12 +2272,18 @@ export function renderContent(deps: RenderContentDeps): void {
       engineNodeHits: engineMemo.hits - engineMemoHitsAtStart,
       setupMs,
       preLoopMs,
+      camera: {
+        zoom: s.zoom,
+        panX: s.pan.x,
+        panY: s.pan.y,
+        rotation: s.cameraRotation ?? 0,
+      },
       frameWorkClass: budget.workClass,
       frameWorkBudgetMs: budget.budgetMs,
       totalMs: budget.elapsedMs,
       renderPath: needsStructural
         ? 'structural'
-        : workerBitmapRef.current
+        : workerBitmapRef.current && !oracleFullRedraw
           ? 'worker-cached'
           : 'compositor',
       wasDirty: dirty.kind !== 'none',
@@ -2277,7 +2293,9 @@ export function renderContent(deps: RenderContentDeps): void {
       profileTier: profile.tier,
       redrawReason,
       invalidationReasons: [...frameDecision.reasons],
-      frameSource: frameDecision.explicit[0]?.source,
+      frameSource:
+        frameDecision.explicit.find((invalidation) => invalidation.source === 'oracle-full-redraw')
+          ?.source ?? frameDecision.explicit[0]?.source,
       unsuppressedCause: frameDecision.unsuppressedCause ?? undefined,
       dirtyAreaRatio,
       dirtyRects: dirty.kind === 'partial' ? dirty.rectCount : 0,
@@ -2291,7 +2309,8 @@ export function renderContent(deps: RenderContentDeps): void {
     pendingPresentRef.current = false;
     coordinator.completeFrame(frameDecision, frameSnapshot, {
       contentDrawn: true,
-      fullRedraw: dirty.kind === 'full' || (dirty.kind !== 'none' && !usePartialRedraw),
+      fullRedraw:
+        oracleFullRedraw || dirty.kind === 'full' || (dirty.kind !== 'none' && !usePartialRedraw),
     });
     const diag = compositorRef.current?.getDiagnostics?.();
     if (diag) setCompositorDiagnostics(diag);
