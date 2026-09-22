@@ -33,6 +33,8 @@ import {
   endInteractionIfKind,
   getActiveInteractionIdentity,
   isInteractionTracingEnabled,
+  markInteractionCanvasChanged,
+  nextPointerSequenceId,
   recordInteractionSpan,
 } from '../performance/interactionTrace';
 import { shouldIgnoreShortcutTarget } from '../shortcuts/ShortcutManager';
@@ -206,6 +208,9 @@ export function useCanvasInputs({
   const touchPointers = useRef(new Map<number, { x: number; y: number }>());
   const pointerOwnershipRef = useRef(createPointerOwnershipState());
   const pointerEditorInteractionOpen = useRef(false);
+  const touchNavigationEditorInteractionOpen = useRef(false);
+  const keyboardEditorInteractionOpen = useRef(false);
+  const pressedKeyboardKeys = useRef(new Set<string>());
   // Rate limiters for the expanded interaction traces (wheel / keyboard /
   // hover bursts) so instrumentation never alters behaviour.
   const lastWheelTraceAt = useRef(0);
@@ -302,6 +307,21 @@ export function useCanvasInputs({
     endEditorInteraction();
   }, []);
 
+  const closeTouchNavigationInteraction = useCallback(() => {
+    if (touchNavigationEditorInteractionOpen.current && touchPointers.current.size === 0) {
+      touchNavigationEditorInteractionOpen.current = false;
+      endEditorInteraction();
+    }
+  }, []);
+
+  const closeKeyboardEditorInteraction = useCallback(() => {
+    pressedKeyboardKeys.current.clear();
+    if (keyboardEditorInteractionOpen.current) {
+      keyboardEditorInteractionOpen.current = false;
+      endEditorInteraction();
+    }
+  }, []);
+
   const internalSnapSessionRef = useRef(createSnapSession());
   const internalSnapIndexRef = useRef<{
     index: unknown;
@@ -334,6 +354,14 @@ export function useCanvasInputs({
     }),
     [stateRef],
   );
+
+  const traceEventId = useCallback((kind: string): string | undefined => {
+    if (!isInteractionTracingEnabled()) return undefined;
+    const identity = getActiveInteractionIdentity();
+    const sequence = nextPointerSequenceId();
+    if (!identity) return `${kind}:handler:${sequence}`;
+    return sequence === 1 ? 'initial' : `${identity.interactionId}:${sequence}`;
+  }, []);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -398,6 +426,10 @@ export function useCanvasInputs({
       const touchLike = isTouchLikeContact(contact);
       if (touchLike && decision.role !== 'ignored') {
         touchPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (decision.role === 'navigation' && !touchNavigationEditorInteractionOpen.current) {
+          beginEditorInteraction();
+          touchNavigationEditorInteractionOpen.current = true;
+        }
         advanceNavigation({
           type: 'pointer-down',
           pointerType: 'touch',
@@ -459,6 +491,7 @@ export function useCanvasInputs({
       dispatchToTool('down', ne, dispatchAttributes(), () => {
         tmInst.handlePointerDown(ne, ctx);
       });
+      markInteractionCanvasChanged();
     },
     [
       tmRef,
@@ -533,11 +566,13 @@ export function useCanvasInputs({
           const factor = pinch.lastDist > 0 ? geo.dist / pinch.lastDist : 1;
           const newCam = zoomAboutPoint(cam, anchor, clampZoom(s.zoom * factor), viewport);
           commitCamera(newCam);
+          markInteractionCanvasChanged();
           pinchRef.current = { lastDist: geo.dist, lastCentroid: geo.centroid };
         } else if (trackedMove) {
           // One-finger navigation is opt-in and has no tool/history side
           // effects. The delta is already in CSS pixels, matching camera pan.
           editor.panBy(trackedMove.dx, trackedMove.dy);
+          markInteractionCanvasChanged();
           setViewportAnchor(e.clientX, e.clientY);
         }
         return;
@@ -558,6 +593,7 @@ export function useCanvasInputs({
 
       const traceOn = isInteractionTracingEnabled();
       const traceStart = traceOn ? performance.now() : 0;
+      const eventSequenceId = traceOn ? traceEventId('pointer') : undefined;
       const activeTrace = traceOn ? getActiveInteractionIdentity() : null;
       // Hover-only movement is sampled at 800 ms so idle pointer motion does
       // not churn the trace ring while hover latency stays measurable.
@@ -572,9 +608,14 @@ export function useCanvasInputs({
       }
       const traceFinish = () => {
         if (traceOn) {
+          const queueDelayMs = eventQueueDelayMs(ne.timeStamp, traceStart);
           recordInteractionSpan('pointer.input', performance.now() - traceStart, {
             pointerType: e.pointerType,
             buttons: e.buttons,
+            ...(eventSequenceId ? { eventSequenceId } : {}),
+            ...(queueDelayMs === null
+              ? { queueDelayClock: 'untrusted' }
+              : { queueDelayMs, queueDelayClock: 'dom.event.timeStamp' }),
           });
           if (getActiveInteractionIdentity()?.kind === 'hover') {
             if (hoverTraceEndTimer.current !== null) clearTimeout(hoverTraceEndTimer.current);
@@ -617,6 +658,7 @@ export function useCanvasInputs({
       dispatchToTool('move', ne, dispatchAttributes(), () => {
         tmInst.handlePointerMove(ne, ctx);
       });
+      if (e.buttons !== 0) markInteractionCanvasChanged();
 
       if (e.buttons !== 0) {
         const rect = canvasRectRef.current;
@@ -695,6 +737,7 @@ export function useCanvasInputs({
       setHoveredNode,
       stopAutoPan,
       dispatchAttributes,
+      traceEventId,
     ],
   );
 
@@ -709,6 +752,7 @@ export function useCanvasInputs({
           endPointerContact(pointerOwnershipRef.current, pointerId);
           if (isTouchLikeContact(contact)) touchPointers.current.delete(pointerId);
         }
+        closeTouchNavigationInteraction();
         return;
       }
       const wasPinching = pinchRef.current !== null;
@@ -737,10 +781,15 @@ export function useCanvasInputs({
           if (wasPinching) endInteractionIfKind('pinch');
           if (touchPointers.current.size === 0) clearViewportAnchor();
         }
+        closeTouchNavigationInteraction();
         return;
       }
 
       if (contact?.role !== 'tool') {
+        if (isTouchLikePointerType(e.pointerType)) {
+          touchPointers.current.delete(pointerId);
+          closeTouchNavigationInteraction();
+        }
         return;
       }
 
@@ -759,6 +808,7 @@ export function useCanvasInputs({
         if (touchPointers.current.size < 2) pinchRef.current = null;
         if (wasPinching) endInteractionIfKind('pinch');
       }
+      closeTouchNavigationInteraction();
       const ne = e.nativeEvent as PointerEvent;
       const tmInst = tmRef.current;
       if (!tmInst) {
@@ -779,6 +829,7 @@ export function useCanvasInputs({
       dispatchToTool('up', ne, dispatchAttributes(), () => {
         tmInst.handlePointerUp(ne, upCtx);
       });
+      markInteractionCanvasChanged();
       endPointerContact(pointerOwnershipRef.current, pointerId);
       endInteraction();
       closePointerEditorInteraction();
@@ -791,6 +842,7 @@ export function useCanvasInputs({
       dispatchAttributes,
       pointerOwnershipRef,
       closePointerEditorInteraction,
+      closeTouchNavigationInteraction,
     ],
   );
 
@@ -799,10 +851,17 @@ export function useCanvasInputs({
       stopAutoPan();
       const pointerId = e.pointerId;
       const contact = getPointerContact(pointerOwnershipRef.current, pointerId);
-      if (!contact) return;
+      if (!contact) {
+        if (isTouchLikePointerType(e.pointerType)) {
+          touchPointers.current.delete(pointerId);
+          closeTouchNavigationInteraction();
+        }
+        return;
+      }
       if (nativeGestureRef.current && isTouchLikePointerType(e.pointerType)) {
         endPointerContact(pointerOwnershipRef.current, pointerId);
         if (isTouchLikeContact(contact)) touchPointers.current.delete(pointerId);
+        closeTouchNavigationInteraction();
         return;
       }
       if (activeDragPointer.current?.pointerId === pointerId) {
@@ -825,6 +884,7 @@ export function useCanvasInputs({
           if (touchPointers.current.size === 0) clearViewportAnchor();
         }
       }
+      closeTouchNavigationInteraction();
       advanceNavigation({
         type: 'pointer-cancel',
         pointerType: touchLike ? 'touch' : e.pointerType,
@@ -846,6 +906,7 @@ export function useCanvasInputs({
       buildToolCtx,
       pointerOwnershipRef,
       closePointerEditorInteraction,
+      closeTouchNavigationInteraction,
     ],
   );
 
@@ -1044,6 +1105,7 @@ export function useCanvasInputs({
           cancelInertia();
         }
       }
+      markInteractionCanvasChanged();
       const processingMs = performance.now() - started;
       const queueDelayMs = eventQueueDelayMs(e.timeStamp, started);
       recordInputDiagnostic({
@@ -1063,6 +1125,7 @@ export function useCanvasInputs({
         preventedDefault: true,
       });
       if (isInteractionTracingEnabled()) {
+        const eventSequenceId = traceEventId('wheel');
         recordInteractionSpan('wheel.input', processingMs, {
           source: action.source,
           action: action.kind,
@@ -1073,6 +1136,7 @@ export function useCanvasInputs({
                 queueDelayMs,
                 queueDelayClock: 'dom.event.timeStamp',
               }),
+          ...(eventSequenceId ? { eventSequenceId } : {}),
         });
         if (wheelTraceEndTimer.current !== null) clearTimeout(wheelTraceEndTimer.current);
         wheelTraceEndTimer.current = setTimeout(() => {
@@ -1166,12 +1230,14 @@ export function useCanvasInputs({
         beginInteraction('pinch', e.timeStamp);
       }
       if (isInteractionTracingEnabled()) {
+        const eventSequenceId = traceEventId('pinch');
         const queueDelayMs = eventQueueDelayMs(e.timeStamp, started);
         recordInteractionSpan('pinch.input', performance.now() - started, {
           phase: 'start',
           ...(queueDelayMs === null
             ? { queueDelayClock: 'untrusted' }
             : { queueDelayMs, queueDelayClock: 'dom.event.timeStamp' }),
+          ...(eventSequenceId ? { eventSequenceId } : {}),
         });
       }
     };
@@ -1192,13 +1258,16 @@ export function useCanvasInputs({
         point.y,
         (nativeGestureRef.current?.baseZoom ?? stateRef.current.zoom) * scale,
       );
+      markInteractionCanvasChanged();
       if (isInteractionTracingEnabled()) {
+        const eventSequenceId = traceEventId('pinch');
         const queueDelayMs = eventQueueDelayMs(e.timeStamp, started);
         recordInteractionSpan('pinch.input', performance.now() - started, {
           phase: 'change',
           ...(queueDelayMs === null
             ? { queueDelayClock: 'untrusted' }
             : { queueDelayMs, queueDelayClock: 'dom.event.timeStamp' }),
+          ...(eventSequenceId ? { eventSequenceId } : {}),
         });
       }
     };
@@ -1212,12 +1281,14 @@ export function useCanvasInputs({
         endEditorInteraction();
       }
       if (isInteractionTracingEnabled()) {
+        const eventSequenceId = traceEventId('pinch');
         const queueDelayMs = eventQueueDelayMs(e.timeStamp, started);
         recordInteractionSpan('pinch.input', performance.now() - started, {
           phase: 'end',
           ...(queueDelayMs === null
             ? { queueDelayClock: 'untrusted' }
             : { queueDelayMs, queueDelayClock: 'dom.event.timeStamp' }),
+          ...(eventSequenceId ? { eventSequenceId } : {}),
         });
       }
       endInteractionIfKind('pinch');
@@ -1337,9 +1408,37 @@ export function useCanvasInputs({
             const point = resolveGesturePoint(undefined, undefined);
             const x = point.x;
             const y = point.y;
+            if (!isEditorInteractionActive()) {
+              beginEditorInteraction();
+              nativeGestureEditorInteractionOpen.current = true;
+            }
+            if (isInteractionTracingEnabled() && getActiveInteractionIdentity() === null) {
+              // The native bridge does not share the DOM performance clock;
+              // keep the sample explicitly handler-origin rather than
+              // manufacturing a queue delay from Date.now().
+              beginInteraction('pinch');
+            }
+            const bridgeStartedAt = performance.now();
             setViewportAnchor(x, y);
             cancelWheelInertiaRef.current?.();
             zoomAboutClientPoint(x, y, stateRef.current.zoom * action.factor);
+            markInteractionCanvasChanged();
+            if (isInteractionTracingEnabled()) {
+              const eventSequenceId = traceEventId('pinch-bridge');
+              recordInteractionSpan('pinch.input', performance.now() - bridgeStartedAt, {
+                phase: 'factor',
+                timestampSource: 'handler.performance.now',
+                queueDelayClock: 'untrusted',
+                ...(eventSequenceId ? { eventSequenceId } : {}),
+              });
+              endInteractionIfKind('pinch');
+            }
+            queueMicrotask(() => {
+              if (nativeGestureEditorInteractionOpen.current) {
+                nativeGestureEditorInteractionOpen.current = false;
+                endEditorInteraction();
+              }
+            });
           }).then((unlisten) => {
             if (pinchBridgeCancelled) unlisten();
             else disposePinchBridge = unlisten;
@@ -1393,6 +1492,7 @@ export function useCanvasInputs({
           if (wasPinching) endInteractionIfKind('pinch');
           clearViewportAnchor();
         }
+        closeTouchNavigationInteraction();
       } else {
         clearViewportAnchor();
       }
@@ -1434,6 +1534,7 @@ export function useCanvasInputs({
     closePointerEditorInteraction,
     stopAutoPan,
     setSnapGuides,
+    traceEventId,
   ]);
 
   // The native gesture effect is allowed to rebind when camera/editor
@@ -1445,14 +1546,18 @@ export function useCanvasInputs({
     return () => {
       activeDragPointer.current = null;
       touchPointers.current.clear();
+      closeTouchNavigationInteraction();
+      closeKeyboardEditorInteraction();
       pinchRef.current = null;
       nativeGestureRef.current = null;
       if (nativeGestureEditorInteractionOpen.current) {
         nativeGestureEditorInteractionOpen.current = false;
         endEditorInteraction();
       }
+      closeTouchNavigationInteraction();
       resetPointerOwnership(pointerOwnershipRef.current);
       closePointerEditorInteraction();
+      closeKeyboardEditorInteraction();
       clearViewportAnchor();
     };
   }, [closePointerEditorInteraction, pointerOwnershipRef]);
@@ -1494,6 +1599,15 @@ export function useCanvasInputs({
       // composition. `keyCode === 229` is the IME "still composing"
       // sentinel reported by many engines when `isComposing` is false.
       if (shouldSkipCanvasKeydown(ne)) return;
+
+      const keyboardKey = ne.code || ne.key;
+      if (!pressedKeyboardKeys.current.has(keyboardKey)) {
+        pressedKeyboardKeys.current.add(keyboardKey);
+        if (!keyboardEditorInteractionOpen.current) {
+          keyboardEditorInteractionOpen.current = true;
+          beginEditorInteraction();
+        }
+      }
 
       // Keyboard context-menu invocation has no pointer coordinates. Anchor
       // to the selected object's screen-space centre when it is meaningful;
@@ -1544,6 +1658,7 @@ export function useCanvasInputs({
         beginInteraction('keyboard', ne.timeStamp);
       }
       if (isInteractionTracingEnabled()) {
+        const eventSequenceId = traceEventId('keyboard');
         const queueDelayMs = eventQueueDelayMs(ne.timeStamp, keyboardHandlerStartedAt);
         const finishKeyboardInput = beginInteractionSpan('keyboard.input', {
           repeat: e.repeat,
@@ -1554,6 +1669,7 @@ export function useCanvasInputs({
                 queueDelayMs,
                 queueDelayClock: 'dom.event.timeStamp',
               }),
+          ...(eventSequenceId ? { eventSequenceId } : {}),
         });
         queueMicrotask(finishKeyboardInput);
       }
@@ -1586,6 +1702,7 @@ export function useCanvasInputs({
       ) {
         e.preventDefault();
         editor.panBy(panDelta.dx, panDelta.dy);
+        markInteractionCanvasChanged();
         return;
       }
 
@@ -1605,6 +1722,7 @@ export function useCanvasInputs({
         const ctx = buildToolCtx({ pointerType: 'mouse', pressure: 0 } as PointerEvent);
         if (tmInst.handleKeyDown(ne, ctx)) {
           e.preventDefault();
+          markInteractionCanvasChanged();
           return;
         }
       }
@@ -1669,12 +1787,14 @@ export function useCanvasInputs({
           if (prev) {
             eRef.setSelection(prev.id);
             eRef.announceSelection([prev]);
+            markInteractionCanvasChanged();
           }
         } else {
           const next = nodes[(idx + 1) % nodes.length];
           if (next) {
             eRef.setSelection(next.id);
             eRef.announceSelection([next]);
+            markInteractionCanvasChanged();
           }
         }
         return;
@@ -1696,10 +1816,12 @@ export function useCanvasInputs({
           eRef.exitIsolation();
           eRef.setSelection(s.isolatedNodeId);
           eRef.announceOperation('Exit isolation', 'Clipping group');
+          markInteractionCanvasChanged();
           return;
         }
         eRef.setSelection(null);
         eRef.announceSelection([]);
+        markInteractionCanvasChanged();
         if ((s as { canvasMode?: string }).canvasMode !== 'full') {
           (eRef as { setCanvasMode: (m: CanvasMode) => void }).setCanvasMode('full');
         }
@@ -1741,6 +1863,7 @@ export function useCanvasInputs({
         if (zoomLevel !== undefined) {
           e.preventDefault();
           zoomAboutCanvasCentre(zoomLevel);
+          markInteractionCanvasChanged();
           eRef.announceOperation('Zoom', `${Math.round(zoomLevel * 100)}%`);
           return;
         }
@@ -1749,6 +1872,7 @@ export function useCanvasInputs({
       if (digit === '0' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
         e.preventDefault();
         zoomAboutCanvasCentre(1);
+        markInteractionCanvasChanged();
         eRef.announceOperation('Zoom', '100%');
         return;
       }
@@ -1756,12 +1880,14 @@ export function useCanvasInputs({
       if ((e.key === '=' || e.key === '+' || e.code === 'NumpadAdd') && !e.altKey) {
         e.preventDefault();
         zoomAboutCanvasCentre(clampZoom(stateRef.current.zoom * 1.25));
+        markInteractionCanvasChanged();
         eRef.announceOperation('Zoom', `${Math.round(stateRef.current.zoom * 100)}%`);
         return;
       }
       if ((e.key === '-' || e.code === 'NumpadSubtract') && !e.shiftKey && !e.altKey) {
         e.preventDefault();
         zoomAboutCanvasCentre(clampZoom(stateRef.current.zoom * 0.8));
+        markInteractionCanvasChanged();
         eRef.announceOperation('Zoom', `${Math.round(stateRef.current.zoom * 100)}%`);
         return;
       }
@@ -1796,6 +1922,7 @@ export function useCanvasInputs({
             40,
           );
           commitCamera(cam);
+          markInteractionCanvasChanged();
           eRef.announceOperation('Zoom', 'fit all');
         }
       }
@@ -1807,6 +1934,7 @@ export function useCanvasInputs({
             ? { width: parent.clientWidth, height: parent.clientHeight }
             : undefined;
           eRef.revealSelection({ fit: true, viewport });
+          markInteractionCanvasChanged();
           eRef.announceOperation('Zoom', 'to selection');
         }
       }
@@ -1829,22 +1957,25 @@ export function useCanvasInputs({
   const handleKeyUp = useCallback(
     (e: React.KeyboardEvent<HTMLCanvasElement>) => {
       const ne = e.nativeEvent as KeyboardEvent;
+      pressedKeyboardKeys.current.delete(ne.code || ne.key);
+      const lastKeyboardKeyReleased = pressedKeyboardKeys.current.size === 0;
+      if (lastKeyboardKeyReleased) closeKeyboardEditorInteraction();
       const tmInst = tmRef.current;
       if (!tmInst) {
-        endInteractionIfKind('keyboard');
+        if (lastKeyboardKeyReleased) endInteractionIfKind('keyboard');
         return;
       }
       const ctx = buildToolCtx({ pointerType: 'mouse', pressure: 0 } as PointerEvent);
       if (e.key === ' ' && tmInst.springKey === ' ') {
         e.preventDefault();
         tmInst.releaseSpring(ctx);
-        endInteractionIfKind('keyboard');
+        if (lastKeyboardKeyReleased) endInteractionIfKind('keyboard');
         return;
       }
       tmInst.handleKeyUp(ne, ctx);
-      endInteractionIfKind('keyboard');
+      if (lastKeyboardKeyReleased) endInteractionIfKind('keyboard');
     },
-    [tmRef, buildToolCtx],
+    [tmRef, buildToolCtx, closeKeyboardEditorInteraction],
   );
 
   const handleDoubleClick = useCallback(
@@ -1900,6 +2031,8 @@ export function useCanvasInputs({
     endInteraction();
     pointerEditorInteractionOpen.current = false;
     wheelEditorInteractionOpen.current = false;
+    closeTouchNavigationInteraction();
+    closeKeyboardEditorInteraction();
     resetEditorInteractions();
     const cancelEvent = heldPointer ?? ({ pointerType: 'mouse', pressure: 0 } as PointerEvent);
     const ctx = buildToolCtx(cancelEvent);
@@ -1914,6 +2047,8 @@ export function useCanvasInputs({
     buildToolCtx,
     pointerOwnershipRef,
     closePointerEditorInteraction,
+    closeTouchNavigationInteraction,
+    closeKeyboardEditorInteraction,
   ]);
 
   // B4 + G7: Reset modifier state and cancel active interactions when the
@@ -1974,7 +2109,15 @@ export function useCanvasInputs({
       window.removeEventListener('blur', onWindowBlur);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [tmRef, editor, buildToolCtx, stopAutoPan, pointerOwnershipRef]);
+  }, [
+    tmRef,
+    editor,
+    buildToolCtx,
+    stopAutoPan,
+    pointerOwnershipRef,
+    closeTouchNavigationInteraction,
+    closeKeyboardEditorInteraction,
+  ]);
 
   return {
     handlePointerDown,
