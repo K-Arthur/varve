@@ -448,6 +448,9 @@ async function resolveDragTarget(page, seedPoint) {
   await row.click({ force: true });
   await page.waitForTimeout(400);
   const target = await page.evaluate(() => {
+    const canvas = document.querySelector('canvas.editor-canvas__content-layer');
+    const canvasBounds = canvas?.getBoundingClientRect();
+    if (!canvasBounds || canvasBounds.width <= 0 || canvasBounds.height <= 0) return null;
     const rects = [...document.querySelectorAll('.editor-canvas svg rect')]
       .filter((r) => (r.getAttribute('style') || '').includes('resize'))
       .map((r) => {
@@ -463,7 +466,26 @@ async function resolveDragTarget(page, seedPoint) {
     // 16px inside the left edge, vertically centred: clear of the corner
     // handles (8px inward), the edge handles (centred on the edges) and the
     // centre move handle.
-    return { x: minX + 16, y: (minY + maxY) / 2 };
+    const candidate = { x: minX + 16, y: (minY + maxY) / 2 };
+    // Virtualized/rotated overlays can expose stale SVG handles outside the
+    // actual content surface. Never let that diagnostic geometry replace a
+    // known fixture point with an off-canvas coordinate; the hit assertion
+    // below should measure the workload, not fail on overlay bookkeeping.
+    if (
+      candidate.x < canvasBounds.left ||
+      candidate.x > canvasBounds.right ||
+      candidate.y < canvasBounds.top ||
+      candidate.y > canvasBounds.bottom
+    ) {
+      return null;
+    }
+    // The canvas surface can be transformed or expose a world-sized backing
+    // rect, so a bounds-only check is insufficient. Confirm the browser's
+    // actual hit-test sees the editor surface at this viewport coordinate.
+    if (!document.elementFromPoint(candidate.x, candidate.y)?.closest('.editor-canvas')) {
+      return null;
+    }
+    return candidate;
   });
   return target ?? seedPoint;
 }
