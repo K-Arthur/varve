@@ -38,6 +38,12 @@ import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { chromium } from '@playwright/test';
+import {
+  classifyRun,
+  performanceEvidence,
+  summarizeRunnerTraces,
+  worstValidity,
+} from './productionEvidence.mjs';
 
 const ROOT = new URL('../../', import.meta.url).pathname;
 
@@ -48,8 +54,12 @@ const args = new Map(
   }),
 );
 
-const ITERATIONS = Number(args.get('iterations') ?? 24);
-const WARMUP = Number(args.get('warmup') ?? 4);
+const ITERATIONS = Number(args.get('iterations') ?? 120);
+const WARMUP = Number(args.get('warmup') ?? 10);
+const MIN_WARM_SAMPLES = 100;
+const MAX_ATTEMPTS = 500;
+const ATTEMPTS = Math.min(MAX_ATTEMPTS, Math.max(ITERATIONS + WARMUP, WARMUP + MIN_WARM_SAMPLES));
+const MEASURED_ATTEMPTS = ATTEMPTS - WARMUP;
 const ALLOW_DEV = args.get('allow-dev-build') === 'true';
 const OUT = args.get('out') ?? null;
 const DUPLICATIONS = Number(args.get('duplications') ?? 5);
@@ -152,23 +162,6 @@ function captureMachineState(myPids = []) {
     governor: readProc('/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor', 'unknown'),
     backgroundActivity: activity,
   };
-}
-
-/**
- * Benchmark validity classification. Contended/thermal/background runs are
- * retained for diagnostics but must not be used as authoritative regression
- * evidence; `insufficient_samples` and `instrumentation_error` mark the run
- * itself as unreliable.
- */
-function classifyRun(state) {
-  if (!state || state.instrumentationError) return 'instrumentation_error';
-  const loadOK = Number.isFinite(state.load1) && state.load1 > CPU_COUNT * 1.5;
-  if (loadOK) return 'contended';
-  if (Array.isArray(state.backgroundActivity) && state.backgroundActivity.length > 0) {
-    return 'background_activity';
-  }
-  if (state.thermalMaxC !== null && state.thermalMaxC > 90) return 'thermally_suspect';
-  return 'valid';
 }
 
 function run(cmd, cmdArgs, fallback = null) {
@@ -737,24 +730,6 @@ async function driveWorkload(page, box, workload, iteration, dragTarget) {
   }
 }
 
-function percentile(sorted, percent) {
-  if (sorted.length === 0) return null;
-  return sorted[Math.max(0, Math.ceil((percent / 100) * sorted.length) - 1)] ?? null;
-}
-
-function distribution(values) {
-  const sorted = values.filter((value) => Number.isFinite(value)).sort((a, b) => a - b);
-  return {
-    count: sorted.length,
-    p50: percentile(sorted, 50),
-    p75: percentile(sorted, 75),
-    p90: percentile(sorted, 90),
-    p95: percentile(sorted, 95),
-    p99: percentile(sorted, 99),
-    max: sorted.at(-1) ?? null,
-  };
-}
-
 /**
  * Drain the bounded in-page ring after each measured gesture. Keeping the
  * aggregate in the runner gives a workload 100+ warm samples without raising
@@ -766,86 +741,6 @@ async function drainInteractionTraces(page, collected) {
   for (const trace of traces) {
     collected.set(`${trace.sessionId ?? 'session'}:${trace.id}`, trace);
   }
-}
-
-function summarizeRunnerTraces(traces) {
-  const pointerToPresent = traces
-    .map((trace) => trace.pointerToPresentMs)
-    .filter((value) => typeof value === 'number');
-  const totals = traces.map((trace) => trace.totalMs);
-  const queueDelay = traces.flatMap((trace) => [
-    ...(typeof trace.initialQueueDelayMs === 'number' ? [trace.initialQueueDelayMs] : []),
-    ...(trace.spans ?? []).flatMap((span) =>
-      typeof span.attributes?.queueDelayMs === 'number' ? [span.attributes.queueDelayMs] : [],
-    ),
-  ]);
-  const spanDurations = {};
-  const traceKinds = {};
-  const frameDispositions = {};
-  const frameTotals = [];
-  let droppedSpans = 0;
-  let droppedFrames = 0;
-  let missingPresentation = 0;
-  let untrustedQueueDelayCount = 0;
-  const timestampSources = { 'dom.event.timeStamp': 0, 'handler.performance.now': 0 };
-
-  for (const trace of traces) {
-    traceKinds[trace.kind] = (traceKinds[trace.kind] ?? 0) + 1;
-    droppedSpans += trace.droppedSpanCount ?? 0;
-    droppedFrames += trace.droppedFrameCount ?? 0;
-    untrustedQueueDelayCount += trace.untrustedQueueDelayCount ?? 0;
-    if (trace.timestampSource in timestampSources) timestampSources[trace.timestampSource]++;
-    if ((trace.frames?.length ?? 0) === 0) missingPresentation++;
-    for (const span of trace.spans ?? []) {
-      const durations = spanDurations[span.name] ?? [];
-      durations.push(span.durationMs);
-      spanDurations[span.name] = durations;
-    }
-    for (const frame of trace.frames ?? []) {
-      const disposition = frame.disposition ?? 'unspecified';
-      frameDispositions[disposition] = (frameDispositions[disposition] ?? 0) + 1;
-      frameTotals.push(frame.totalMs);
-    }
-  }
-
-  const total = distribution(totals);
-  return {
-    interactions: {
-      count: traces.length,
-      slowCount: traces.filter((trace) => trace.slow).length,
-      avgPointerToPresentMs:
-        pointerToPresent.length > 0
-          ? pointerToPresent.reduce((sum, value) => sum + value, 0) / pointerToPresent.length
-          : 0,
-      avgTotalMs:
-        totals.length > 0 ? totals.reduce((sum, value) => sum + value, 0) / totals.length : 0,
-      p95TotalMs: total.p95 ?? 0,
-      maxTotalMs: total.max ?? 0,
-      pointerToPresent: distribution(pointerToPresent),
-      total,
-      queueDelay: distribution(queueDelay),
-      untrustedQueueDelayCount,
-      timestampSources,
-    },
-    traceCount: traces.length,
-    cumulativeSamples: {
-      interactions: traces.length,
-      queueDelay: queueDelay.length,
-      frameTotals: frameTotals.length,
-      spans: Object.values(spanDurations).reduce((sum, values) => sum + values.length, 0),
-    },
-    interactionBreakdown: {
-      traceKinds,
-      spans: Object.fromEntries(
-        Object.entries(spanDurations).map(([name, values]) => [name, distribution(values)]),
-      ),
-      frameDispositions,
-      frameTotal: distribution(frameTotals),
-      droppedSpans,
-      droppedFrames,
-      missingPresentation,
-    },
-  };
 }
 
 // ── Build ───────────────────────────────────────────────────────────────────
@@ -1028,9 +923,9 @@ try {
     const record = {
       workload,
       warmupIterations: WARMUP,
-      measuredIterations: ITERATIONS,
+      measuredIterations: MEASURED_ATTEMPTS,
       machineBefore: beforeState,
-      validity: classifyRun(beforeState),
+      validity: classifyRun(beforeState, null, null, CPU_COUNT),
     };
     try {
       // Warm-up is separated from measurement: JIT, font and shader
@@ -1055,7 +950,7 @@ try {
 
       const collectedTraces = new Map();
       const heapSamples = [];
-      for (let i = 0; i < ITERATIONS; i++) {
+      for (let i = 0; i < MEASURED_ATTEMPTS; i++) {
         // Re-resolve from the settled selection box right before each drag so
         // the pointer never starts on a selection handle (a drag moves the
         // node's centre to the click point).
@@ -1074,6 +969,12 @@ try {
         if (heap !== null) heapSamples.push(heap);
         await drainInteractionTraces(page, collectedTraces);
       }
+
+      // Event Timing and the final authoritative frame can arrive after the
+      // last input task. Allow the bounded browser ring to settle before the
+      // runner classifies missing evidence.
+      await page.waitForTimeout(300);
+      await drainInteractionTraces(page, collectedTraces);
 
       const measured = await page.evaluate(() => {
         const perf = window.__varvePerf;
@@ -1110,7 +1011,7 @@ try {
             spanDurations[span.name] = durations;
           }
           for (const frame of trace.frames ?? []) {
-            const disposition = frame.disposition ?? 'unspecified';
+            const disposition = frame.causalRelation ?? frame.disposition ?? 'unspecified';
             frameDispositions[disposition] = (frameDispositions[disposition] ?? 0) + 1;
             frameTotals.push(frame.totalMs);
           }
@@ -1135,16 +1036,44 @@ try {
           presentation: perf?.presentation?.() ?? null,
         };
       });
-      Object.assign(record, measured, summarizeRunnerTraces([...collectedTraces.values()]), {
+      const traceSummary = summarizeRunnerTraces([...collectedTraces.values()]);
+      Object.assign(record, measured, traceSummary, {
         heapSamples,
         status: 'ok',
       });
       record.machineAfter = captureMachineState([process.pid, server?.pid]);
-      record.validity = classifyRun(record.machineAfter);
+      const collected = [...collectedTraces.values()];
+      const evidence = performanceEvidence(
+        collected,
+        {
+          ...partial,
+          ...record,
+          fixture: partial.fixture,
+          sceneNodeCount: partial.sceneNodeCount,
+        },
+        MIN_WARM_SAMPLES,
+      );
+      record.evidence = {
+        ...evidence,
+        collectedTraceCount: collected.length,
+        requiredWarmSamples: MIN_WARM_SAMPLES,
+      };
+      const evidenceForValidity = {
+        insufficientSamples: evidence.insufficientSamples,
+        presentationUnavailable: evidence.presentationUnavailable,
+        thresholdBreaches: evidence.thresholdBreaches,
+        instrumentationError:
+          (record.interactionBreakdown?.instrumentationErrors ?? 0) > 0 ||
+          (record.interactionBreakdown?.missingPresentation ?? 0) > 0,
+      };
+      record.validity = worstValidity(
+        classifyRun(beforeState, partial.identity, null, CPU_COUNT),
+        classifyRun(record.machineAfter, partial.identity, evidenceForValidity, CPU_COUNT),
+      );
 
       // A workload that produced no traces measured nothing; recording it as a
       // success would be worse than recording a failure.
-      if (!record.traceCount) {
+      if (!collected.length) {
         record.status = 'no-evidence';
         record.error = 'workload completed but produced no interaction traces';
       } else if (
@@ -1167,18 +1096,19 @@ try {
         record.status = 'instrumentation-error';
         record.error = `${record.interactionBreakdown.missingPresentation} interaction trace(s) had no presented frame`;
       }
+      if (record.validity !== 'valid' || record.status !== 'ok') exitCode = 1;
     } catch (error) {
       // One failed workload must not lose the others.
       record.status = 'failed';
       record.error = error instanceof Error ? error.message : String(error);
     }
     partial.workloads.push(record);
-    const pointerToPresent = record.interactions?.pointerToPresent;
-    const pointerToPresentP95 = pointerToPresent?.count
-      ? `${pointerToPresent.p95.toFixed(1)}ms (${pointerToPresent.count} samples)`
+    const inputToCommit = record.interactions?.inputToCommit;
+    const inputToCommitP95 = inputToCommit?.count
+      ? `${inputToCommit.p95.toFixed(1)}ms (${inputToCommit.count} samples)`
       : 'n/a (0 samples)';
     const summary = record.interactions
-      ? ` p2p p95 ${pointerToPresentP95}, ${record.traceCount} traces`
+      ? `commit p95 ${inputToCommitP95}, ${record.traceCount} traces`
       : '';
     console.log(`  ${workload}: ${record.status}${summary}`);
   }

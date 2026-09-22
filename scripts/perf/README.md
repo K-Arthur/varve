@@ -119,11 +119,23 @@ missing-presentation count, runtime/build/fixture checksum, and machine-validity
 classification. A canvas-changing workload with a trace that has no caused,
 coalesced, or reused presented frame is an instrumentation error, not a zero.
 
-Trace schema v3 prefers a trusted DOM event timestamp and falls back to the
-handler's `performance.now()` clock when the event clock cannot be correlated.
-Native bridge gesture samples are explicitly handler-origin. Queue delay is
-evidence for attribution and slow-capture classification; it is not a product
-feature that depends on Chromium Long Animation Frame diagnostics.
+Trace schema v4 separates `inputToCommitMs` from actual
+`inputToNextPaintMs`. The latter is populated only by trusted Event Timing or
+native-profiler evidence; rAF is retained only as a lower-bound diagnostic.
+Every event has a bounded sequence ID and queue-delay clock classification.
+Native bridge gesture samples are explicitly handler-origin. A canvas-changing
+trace must carry a `caused`, `coalesced`, or `reused` frame or the workload is
+classified as an instrumentation error.
+
+The runner discards ten warm-up interactions and measures until each required
+distribution has 100 valid samples or 500 attempts. It exits non-zero for
+dirty builds, insufficient samples, instrumentation errors, unsupported
+Chromium presentation evidence, threshold breaches, or an invalid machine.
+WebKit reports presentation as unavailable unless native profiling supplies
+it, while queue, handler, and commit distributions remain gated. Raw v4
+traces, span attributes, event IDs, clock trust, causal frame relations,
+fixture checksum, runtime/build metadata, and missing counts remain in the
+result artifact.
 
 ```bash
 node scripts/perf/run-production-workload.mjs --fixture=vector-1k \
