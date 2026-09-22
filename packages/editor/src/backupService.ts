@@ -411,8 +411,9 @@ export class BackupService {
     if (due.length === 0) return;
     this.automaticWorkQueued = true;
     const run = () => {
-      this.automaticWorkQueued = false;
-      void this.runAutomaticBackups(due);
+      void this.runAutomaticBackups(due).finally(() => {
+        this.automaticWorkQueued = false;
+      });
     };
     if (this.scheduleBackground) this.scheduleBackground(run);
     else run();
