@@ -36,6 +36,20 @@ async function forceFullRedraw(page: import('@playwright/test').Page): Promise<v
   await page.waitForTimeout(120);
 }
 
+async function assertFreshSurface(
+  page: import('@playwright/test').Page,
+  label: string,
+): Promise<number> {
+  await page.waitForTimeout(300);
+  const liveHash = await surfaceHash(page);
+  await forceFullRedraw(page);
+  const authoritativeHash = await surfaceHash(page);
+  expect(liveHash, `${label}: live surface must match an authoritative full redraw`).toBe(
+    authoritativeHash,
+  );
+  return liveHash;
+}
+
 test('real SVG/photo workflow keeps input and pixels authoritative', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await navigateToEditor(page, '/?perf=1');
@@ -73,10 +87,12 @@ test('real SVG/photo workflow keeps input and pixels authoritative', async ({ pa
   await page.mouse.down();
   await page.mouse.move(center.x - 40, center.y - 20, { steps: 5 });
   await page.mouse.up();
+  await assertFreshSurface(page, 'first drag');
   await page.mouse.move(center.x - 40, center.y - 20);
   await page.mouse.down();
   await page.mouse.move(center.x + 30, center.y + 30, { steps: 6 });
   await page.mouse.up();
+  await assertFreshSurface(page, 'second drag');
 
   // Pan, zoom, switch to paint, draw a short stroke, nudge, and history round
   // trip. Each action uses real browser input; the settled sequence is checked
@@ -86,35 +102,36 @@ test('real SVG/photo workflow keeps input and pixels authoritative', async ({ pa
   // synthetic mouse-inertia tail that would keep the camera moving while the
   // oracle samples it.
   await page.mouse.wheel(0, 40);
+  await assertFreshSurface(page, 'pan');
   await page.keyboard.down('Control');
   await page.mouse.wheel(0, -120);
   await page.keyboard.up('Control');
+  await assertFreshSurface(page, 'zoom');
   await page.keyboard.press('p');
   await page.mouse.move(center.x - 30, center.y + 20);
   await page.mouse.down();
   await page.mouse.move(center.x + 40, center.y + 25, { steps: 8 });
   await page.mouse.up();
+  await assertFreshSurface(page, 'paint');
   await page.keyboard.press('v');
   await page.keyboard.press('ArrowRight');
+  await assertFreshSurface(page, 'nudge');
   await page.keyboard.press('Control+z');
+  await assertFreshSurface(page, 'undo');
   await page.keyboard.press('Control+Shift+z');
+  await assertFreshSurface(page, 'redo');
 
   const visibility = page
     .locator('.layers-panel [role="treeitem"] button[aria-label^="Hide "]')
     .first();
   if (await visibility.isVisible({ timeout: 1000 }).catch(() => false)) {
     await visibility.click();
+    await assertFreshSurface(page, 'hide layer');
     await expect(page.locator('.layers-panel [role="treeitem"]').first()).toBeVisible();
     await visibility.click();
+    await assertFreshSurface(page, 'show layer');
   }
-  // Let the latest interaction settle before sampling the pixels currently on
-  // screen. The following forced redraw is the authoritative oracle; hashing
-  // only after forcing it would make this test vacuous.
-  await page.waitForTimeout(300);
-  const liveHash = await surfaceHash(page);
-  await forceFullRedraw(page);
-  const authoritativeHash = await surfaceHash(page);
-  expect(liveHash, 'live surface must match an authoritative full redraw').toBe(authoritativeHash);
+  const liveHash = await assertFreshSurface(page, 'final workflow');
   expect(liveHash, 'real workflow must produce a painted surface').not.toBe(initialHash);
   await page.screenshot({ path: testInfo.outputPath('real-workflow-layers-open.png') });
 });
