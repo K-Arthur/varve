@@ -135,6 +135,25 @@ function findAction(items: readonly MenuEntry[], id: string): MenuItem | undefin
 }
 
 describe('buildLayerContextMenuItems — state-aware commands', () => {
+  it('offers Guide Layouts for frame rows when a handler is provided', () => {
+    const frame = makeNode('frame-1', 'Frame', 'frame');
+    const handleOpenGuideLayoutsFromMenu = vi.fn();
+    const items = buildLayerContextMenuItems(baseArgs(frame, { handleOpenGuideLayoutsFromMenu }));
+
+    expect(findAction(items, 'guide-layouts')?.label).toBe('Guide Layouts…');
+    findAction(items, 'guide-layouts')?.onAction?.();
+    expect(handleOpenGuideLayoutsFromMenu).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not offer Guide Layouts for non-frame rows', () => {
+    const shape = makeNode('shape-1', 'Shape');
+    const items = buildLayerContextMenuItems(
+      baseArgs(shape, { handleOpenGuideLayoutsFromMenu: vi.fn() }),
+    );
+
+    expect(findItem(items, 'guide-layouts')).toBeUndefined();
+  });
+
   it('offers Hide on a visible layer and Show on a hidden layer', () => {
     const visible = makeNode('n1', 'Visible');
     const hidden = makeNode('n2', 'Hidden', 'shape', { visible: false });

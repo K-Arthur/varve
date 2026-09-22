@@ -24,6 +24,7 @@ type GuideLayoutTarget = 'selection' | 'page' | 'master' | 'document';
 interface OpenRequest {
   target: GuideLayoutTarget;
   masterId?: string;
+  frameIds?: string[];
 }
 
 interface Draft {
@@ -190,7 +191,9 @@ export function GuideLayoutsDialogHost() {
       const target = detail?.target ?? 'selection';
       const frameIds =
         target === 'selection'
-          ? editor.state.selection.filter((id) => editor.state.document.nodes[id]?.kind === 'frame')
+          ? (detail?.frameIds ?? editor.state.selection).filter(
+              (id) => editor.state.document.nodes[id]?.kind === 'frame',
+            )
           : [];
       const masterId =
         detail?.masterId ??

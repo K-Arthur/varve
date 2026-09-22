@@ -55,6 +55,7 @@ export interface BuildLayerMenuItemsArgs {
   isEffectivelyHidden: (id: string) => boolean;
   handleRenameFromMenu: () => void;
   handleDetailsFromMenu?: () => void;
+  handleOpenGuideLayoutsFromMenu?: () => void;
   handleBatchRenameFromMenu: () => void;
   handleDeleteFromMenu: () => void;
   handleCopy: () => void;
@@ -152,6 +153,7 @@ export function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuE
     isEffectivelyHidden,
     handleRenameFromMenu,
     handleDetailsFromMenu,
+    handleOpenGuideLayoutsFromMenu,
     handleBatchRenameFromMenu,
     handleDeleteFromMenu,
     handleCopy,
@@ -213,6 +215,15 @@ export function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuE
       icon: 'Info',
       onAction: handleDetailsFromMenu ?? closeMenu,
     },
+    ...(contextMenuNode?.kind === 'frame' && handleOpenGuideLayoutsFromMenu
+      ? [
+          {
+            id: 'guide-layouts',
+            label: 'Guide Layouts…',
+            onAction: handleOpenGuideLayoutsFromMenu,
+          } satisfies MenuEntry,
+        ]
+      : []),
     {
       id: 'batch-rename',
       label: 'Batch Rename\u2026',

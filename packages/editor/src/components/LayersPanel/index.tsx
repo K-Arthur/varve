@@ -264,6 +264,22 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     }
   }, [contextMenu, closeMenu]);
 
+  const handleOpenGuideLayoutsFromMenu = useCallback(() => {
+    const frameIds = (contextMenu?.selection ?? state.selection).filter(
+      (id) => state.document.nodes[id]?.kind === 'frame',
+    );
+    if (frameIds.length === 0) {
+      closeMenu();
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent('varve:open-guide-layouts', {
+        detail: { target: 'selection', frameIds },
+      }),
+    );
+    closeMenu();
+  }, [closeMenu, contextMenu?.selection, state.document.nodes, state.selection]);
+
   const handleBatchRenameFromMenu = useCallback(() => {
     closeMenu();
     setBatchRenameOpen(true);
@@ -901,6 +917,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             documentNodes: state.document.nodes,
             handleRenameFromMenu,
             handleDetailsFromMenu,
+            handleOpenGuideLayoutsFromMenu,
             handleBatchRenameFromMenu,
             handleDeleteFromMenu,
             handleCopy,
