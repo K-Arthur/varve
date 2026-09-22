@@ -18,6 +18,13 @@ editor background frame lane, which defers them while pointer, wheel, pinch, or
 keyboard interaction is active. Manual Backup Now, Save, restore, and named
 snapshots remain immediate.
 
+The real-document oracle then found a separate correctness issue: an imported
+SVG/photo scene requiring structural clip/mask/blend replay could still enter
+the dirty-region pruning path. Visibility changes produced pixels that differed
+from a same-camera forced full redraw. Structural scenes now disable both
+candidate pruning and partial repaint, preserving the authoritative fallback;
+the real workflow hash comparison passes after the guard.
+
 ## Evidence contract
 
 Interaction traces are schema v3. A trace records whether its start time came
@@ -67,6 +74,9 @@ their implementation or defect rate.
   Layers is opened and collapsed. The diagnostics observed one cold
   authoritative sample at 18.5 ms against a 15 ms budget; it was not tied to a
   user gesture and is not presented as a general latency result.
+- The follow-up structural-redraw guard was exercised against the same real
+  workflow after the oracle first detected the mismatch; the corrected run
+  passes with an exact live-surface/forced-full-redraw hash match.
 - The website build and canvas feature E2E pass; desktop/mobile light/dark
   captures were produced and inspected for layout, labels, and contrast.
 - The repository-wide planner currently escalates because the worktree contains
@@ -83,9 +93,9 @@ Changed scope: trace v3/input evidence, production runner aggregation, lazy/back
 
 Validation plan: `pnpm verify:plan` and `pnpm verify:affected`; both escalate because the pre-existing worktree is broad and includes workspace/toolchain-adjacent edits.
 
-Commands actually run: focused Vitest suites for trace/input and persistence/autosave/context; lease-wrapped Chromium `performance-diagnostics.spec.ts`; lease-wrapped imported SVG/photo responsiveness E2E; website `astro check` + build; lease-wrapped website canvas-feature E2E; `./node_modules/.bin/biome check --staged`; `node --check scripts/perf/run-production-workload.mjs`; `pnpm verify:plan`; `pnpm verify:affected`; `pnpm typecheck:e2e`; `pnpm audit:docs`; `pnpm audit:emoji`; `pnpm audit:tokens`; `node scripts/audit-architecture.mjs --ci`; editor `tsc --noEmit`.
+Commands actually run: focused Vitest suites for trace/input and persistence/autosave/context; canvas surface/partial-redraw/render-pipeline diagnostics (52 tests); lease-wrapped Chromium `performance-diagnostics.spec.ts`; lease-wrapped imported SVG/photo responsiveness E2E before and after the structural guard; website `astro check` + build; lease-wrapped website canvas-feature E2E; `./node_modules/.bin/biome check --staged`; `node --check scripts/perf/run-production-workload.mjs`; `pnpm verify:plan`; `pnpm verify:affected`; `pnpm typecheck:e2e`; `pnpm audit:docs`; `pnpm audit:emoji`; `pnpm audit:tokens`; `node scripts/audit-architecture.mjs --ci`; editor `tsc --noEmit`.
 
-Passed: focused trace/input tests; backup (5/5), autosave (28/28), auto-backup/context (17/17); Chromium diagnostics (3/3); imported SVG/photo workflow (1/1); website build and canvas feature E2E (1/1); staged Biome; runner syntax check; typecheck-e2e; docs and emoji audits.
+Passed: focused trace/input tests; backup (5/5), autosave (28/28), auto-backup/context (17/17); canvas rendering checks (52/52); Chromium diagnostics (3/3); final imported SVG/photo workflow (1/1) with exact pixel oracle; website build and canvas feature E2E (1/1); staged Biome; runner syntax check; typecheck-e2e; docs and emoji audits.
 
 Skipped as unrelated or unavailable: broad affected closure; native device/Wayland soak; physical trackpad; production Chromium aggregation of 100 warm samples (the lease-wrapped attempt produced no result and was not bypassed); and unrelated dirty-tree type errors. Token audit reported pre-existing violations outside this change; architecture audit remained dominated by existing cycles/parse noise.
 
