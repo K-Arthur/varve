@@ -17,9 +17,10 @@ present on `master`; unrelated changes were not staged or overwritten.
 ## Commands actually run
 
 - `pnpm --filter @varve/scene typecheck` — passed.
-- `pnpm --filter @varve/editor typecheck` — passed.
+- `pnpm --filter @varve/editor typecheck` — passed before the final context-menu change; the later rerun reported only unrelated concurrent errors in `src/autoSaveService.test.ts` and `src/context/__tests__/editorProviderCharacterization.test.tsx`.
 - `node_modules/.bin/vitest run --maxWorkers=1 packages/editor/src/components/GuideLayouts/guideLayoutPresets.test.ts packages/scene/src/pageLayout.test.ts packages/scene/src/version.test.ts packages/editor/src/clipboard.test.ts packages/import/src/figma.test.ts` — passed, 124 tests.
 - `pnpm exec vitest run packages/scene/src/version.test.ts --maxWorkers=1` — passed, 66 tests.
+- `pnpm exec vitest run packages/editor/src/components/LayersPanel/layerContextMenu.test.ts --maxWorkers=1` — passed, 12 tests, including the frame-only Guide Layouts action.
 - `node scripts/audit-architecture.mjs --ci` — completed successfully; the new lifecycle cycle was removed. Existing cycle/instability findings and hub-budget warnings remain in the shared baseline.
 - `pnpm build:website && pnpm build:website:pages` — passed; Astro reported zero errors and six existing hints.
 - `node scripts/quality/heavy-lease.mjs "website guide-layout documentation visuals" -- env VARVE_WEBSITE_E2E_PORT=4331 VARVE_WEBSITE_E2E_PORT_ROOT=4332 pnpm exec playwright test apps/website/tests/e2e/grid-docs.spec.ts apps/website/tests/e2e/canvas-feature.spec.ts --config=playwright.website.config.ts --project=ghpages --workers=1 --reporter=list` — passed, 5 tests.
