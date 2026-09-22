@@ -79,10 +79,13 @@ test('real SVG/photo workflow keeps input and pixels authoritative', async ({ pa
   await page.mouse.up();
 
   // Pan, zoom, switch to paint, draw a short stroke, nudge, and history round
-  // trip. Each action uses real browser input and is followed by the pixel
-  // freshness oracle rather than a timing-only assertion.
+  // trip. Each action uses real browser input; the settled sequence is checked
+  // by the pixel-freshness oracle below rather than a timing-only assertion.
   await page.mouse.move(center.x, center.y);
-  await page.mouse.wheel(0, 180);
+  // Pixel-mode input exercises the trackpad path without introducing a
+  // synthetic mouse-inertia tail that would keep the camera moving while the
+  // oracle samples it.
+  await page.mouse.wheel(0, 40);
   await page.keyboard.down('Control');
   await page.mouse.wheel(0, -120);
   await page.keyboard.up('Control');
@@ -104,8 +107,14 @@ test('real SVG/photo workflow keeps input and pixels authoritative', async ({ pa
     await expect(page.locator('.layers-panel [role="treeitem"]').first()).toBeVisible();
     await visibility.click();
   }
-  await forceFullRedraw(page);
+  // Let the latest interaction settle before sampling the pixels currently on
+  // screen. The following forced redraw is the authoritative oracle; hashing
+  // only after forcing it would make this test vacuous.
+  await page.waitForTimeout(300);
   const liveHash = await surfaceHash(page);
+  await forceFullRedraw(page);
+  const authoritativeHash = await surfaceHash(page);
+  expect(liveHash, 'live surface must match an authoritative full redraw').toBe(authoritativeHash);
   expect(liveHash, 'real workflow must produce a painted surface').not.toBe(initialHash);
   await page.screenshot({ path: testInfo.outputPath('real-workflow-layers-open.png') });
 });

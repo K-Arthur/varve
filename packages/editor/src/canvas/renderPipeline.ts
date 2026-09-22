@@ -752,6 +752,7 @@ export function renderContent(deps: RenderContentDeps): void {
     const profile = computeProfile(getAverageFrameTime(), getOverBudgetCount(), entries.length);
     const cacheMultiplier = profile.cacheMultiplier;
     const profileCanUseWorker = profile.enableWorker;
+    const needsStructural = sceneNeedsStructuralCompositing(doc);
 
     // Pruning is only safe when the paint path uses a partial redraw and
     // pointless when the worker draws the whole frame anyway.
@@ -762,7 +763,7 @@ export function renderContent(deps: RenderContentDeps): void {
       !documentHasPerspectiveImage(doc) &&
       sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src)) &&
       !sceneNeedsMainThreadTypography(doc) &&
-      !sceneNeedsStructuralCompositing(doc) &&
+      !needsStructural &&
       // The worker realm has its own FontFaceSet and does not inherit the
       // document's @font-face rules. Until it has adopted them, text in a
       // declared family would be drawn there in a substituted face — the same
@@ -785,7 +786,12 @@ export function renderContent(deps: RenderContentDeps): void {
     const pruneDecision = computeDirtyPruneDecision({
       dirtyKind: dirty.kind,
       merged: mergedDirty,
-      profileEnablePartialRedraw: profile.enablePartialRedraw,
+      // Structural replay has container-level clip/mask/blend state. The
+      // conservative dirty query cannot prove that a pruned subtree preserves
+      // those compositing dependencies, so force a complete replay for these
+      // scenes instead of retaining pixels that the authoritative frame would
+      // replace differently.
+      profileEnablePartialRedraw: profile.enablePartialRedraw && !needsStructural,
       rotation: s.cameraRotation ?? 0,
       dirtyScreenRect: dirtyRectRef.current,
       viewportW: VP_W,
@@ -1058,7 +1064,6 @@ export function renderContent(deps: RenderContentDeps): void {
       ir = await eng.buildIr({ nodes: flatNodes });
       buildIrMs = performance.now() - t0c;
     }
-    const needsStructural = sceneNeedsStructuralCompositing(doc);
     // A slow or contended render can start after the wheel/pointer interaction
     // has quieted. Keep the frame classified as interaction work when the
     // captured camera differs from the last painted camera; otherwise a late
@@ -1224,6 +1229,7 @@ export function renderContent(deps: RenderContentDeps): void {
     const dirtyRect = dirtyRectRef.current;
     const usePartialRedraw =
       profile.enablePartialRedraw &&
+      !needsStructural &&
       (s.cameraRotation ?? 0) === 0 &&
       // Retained pixels belong to the previous camera/surface; reusing them
       // after a pan, zoom or resize is exactly the stale-pixel failure.
