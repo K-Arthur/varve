@@ -90,6 +90,14 @@ actual hit-tested canvas, but no 100-sample distribution was accepted. No
 native WebKitGTK soak or physical trackpad run was available. Therefore no
 marketing threshold or presentation number is published from this checkpoint.
 
+The application theme matrix also passed 8/8 through the heavy-task lease. It
+captured light, dark, and high-contrast selected-canvas states with Layers both
+open and collapsed, plus the settings and portal-menu states. The assertions
+checked selection-token resolution, the collapsed/expanded panel contract, and
+theme-appropriate menu surfaces. The retained screenshots were inspected for
+overlay and label alignment, cursor placement, contrast, stale pixels, and
+unintended layout changes.
+
 - Focused Vitest coverage is the required first gate for interaction trace,
   input pipeline, persistence, autosave, backup wiring, and EditorProvider
   characterization; the exact commands and results below are the current
@@ -105,9 +113,10 @@ marketing threshold or presentation number is published from this checkpoint.
   workflow after the asynchronous oracle change, with exact live-surface vs
   forced-full-redraw hashes after each drag, pan, zoom, paint, nudge, undo/redo,
   and visibility action.
-- Website build, canvas marketing E2E, desktop/mobile theme captures, and
-  visual inspection pass; the artifacts remain evidence of page behavior, not
-  canvas latency claims.
+- Website build, canvas marketing E2E, application theme-matrix E2E (8/8),
+  desktop/mobile theme captures, and visual inspection pass; the artifacts
+  remain evidence of page behavior and visual correctness, not canvas latency
+  claims.
 - The repository-wide planner currently escalates because the worktree contains
   hundreds of unrelated dirty paths and existing cross-package edits. The
   resulting typecheck reaches unrelated pre-existing errors in tool context,
@@ -123,9 +132,9 @@ Changed scope: trace v4/input evidence, production runner validity, lazy/backgro
 
 Validation plan: `pnpm verify:plan` and `pnpm verify:affected`; both escalate because the pre-existing worktree is broad and includes workspace/toolchain-adjacent edits.
 
-Commands actually run: focused Vitest suites for trace/input, persistence/autosave/context, and canvas redraw/oracle coverage; lease-wrapped Chromium `responsiveness-real-workflow.spec.ts` (final run 1/1); `pnpm verify:plan`; `pnpm verify:affected`; `pnpm typecheck:e2e`; editor typecheck; runner syntax check; website build; lease-wrapped website canvas-feature E2E (2/2 projects); desktop/mobile light/dark screenshot inspection; `pnpm audit:docs`; `pnpm audit:emoji`; `pnpm audit:tokens`; `node scripts/audit-architecture.mjs --ci`; and the staged commit checkpoints (Biome, emoji, health, impact, secret, contacts, import-boundary, and E2E type checks).
+Commands actually run: focused Vitest suites for trace/input, persistence/autosave/context, and canvas redraw/oracle coverage; lease-wrapped Chromium `responsiveness-real-workflow.spec.ts` (final run 1/1); lease-wrapped Chromium `settings/theme-visual.spec.ts` (8/8); `pnpm verify:plan`; `pnpm verify:affected`; `pnpm typecheck:e2e`; editor typecheck; runner syntax check; website build; lease-wrapped website canvas-feature E2E (2/2 projects); website desktop/mobile light/dark screenshot inspection; application light/dark/high-contrast open/collapsed screenshot inspection; `pnpm audit:docs`; `pnpm audit:emoji`; `pnpm audit:tokens`; `node scripts/audit-architecture.mjs --ci`; and the staged commit checkpoints (Biome, emoji, health, impact, secret, contacts, import-boundary, and E2E type checks).
 
-Passed in the current implementation loop: focused trace/input and redraw/oracle tests; editor typecheck; runner syntax check; E2E typecheck; docs and emoji audits; the final real-document Chromium workflow with exact pixel oracle checks; website production build; website canvas-feature E2E; and visual inspection of the four website theme/viewport artifacts.
+Passed in the current implementation loop: focused trace/input and redraw/oracle tests; editor typecheck; runner syntax check; E2E typecheck; docs and emoji audits; the final real-document Chromium workflow with exact pixel oracle checks; application theme-matrix E2E (8/8) and screenshot inspection; website production build; website canvas-feature E2E; and visual inspection of the website theme/viewport artifacts.
 
 Skipped or non-clean: `pnpm verify:affected` stopped at the planner's explicit full-gate escalation; `pnpm audit:tokens` failed on 22 pre-existing undefined references and 4 literal fallbacks in `Inspector/inspector.css`; the architecture audit reported the existing cycle/instability and hub-budget inventory; the disposable production Chromium run did not produce valid 100-warm-sample evidence because of stale-target/background-activity failures; native device/Wayland soak; physical trackpad; and unrelated dirty-tree type errors. No unavailable hardware is represented as passing.
 
