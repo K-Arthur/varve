@@ -76,7 +76,8 @@ their implementation or defect rate.
   user gesture and is not presented as a general latency result.
 - The follow-up structural-redraw guard was exercised against the same real
   workflow after the oracle first detected the mismatch; the corrected run
-  passes with an exact live-surface/forced-full-redraw hash match.
+  passes exact live-surface/forced-full-redraw hash comparisons after each
+  drag, pan, zoom, paint, nudge, undo/redo, and visibility action.
 - The website build and canvas feature E2E pass; desktop/mobile light/dark
   captures were produced. Desktop light/dark captures were manually inspected
   for layout, labels, and contrast; mobile artifacts remain available for
@@ -97,7 +98,7 @@ Validation plan: `pnpm verify:plan` and `pnpm verify:affected`; both escalate be
 
 Commands actually run: focused Vitest suites for trace/input and persistence/autosave/context; canvas surface/partial-redraw/render-pipeline diagnostics (52 tests); lease-wrapped Chromium `performance-diagnostics.spec.ts`; lease-wrapped imported SVG/photo responsiveness E2E before and after the structural guard; website `astro check` + build; lease-wrapped website canvas-feature E2E; `./node_modules/.bin/biome check --staged`; `node --check scripts/perf/run-production-workload.mjs`; `pnpm verify:plan`; `pnpm verify:affected`; `pnpm typecheck:e2e`; `pnpm audit:docs`; `pnpm audit:emoji`; `pnpm audit:tokens`; `node scripts/audit-architecture.mjs --ci`; editor `tsc --noEmit`.
 
-Passed: focused trace/input tests; backup (5/5), autosave (28/28), auto-backup/context (17/17); canvas rendering checks (52/52); Chromium diagnostics (3/3); final imported SVG/photo workflow (1/1) with exact pixel oracle; website build and canvas feature E2E (1/1); staged Biome; runner syntax check; typecheck-e2e; docs and emoji audits.
+Passed: focused trace/input tests; backup (5/5), autosave (28/28), auto-backup/context (17/17); canvas rendering checks (52/52); Chromium diagnostics (3/3); final imported SVG/photo workflow (1/1) with per-interaction exact pixel oracle; website build and canvas feature E2E (1/1); staged Biome; runner syntax check; typecheck-e2e; docs and emoji audits.
 
 Skipped as unrelated or unavailable: broad affected closure; native device/Wayland soak; physical trackpad; production Chromium aggregation of 100 warm samples (the lease-wrapped attempt produced no result and was not bypassed); and unrelated dirty-tree type errors. Token audit reported pre-existing violations outside this change; architecture audit remained dominated by existing cycles/parse noise.
 
