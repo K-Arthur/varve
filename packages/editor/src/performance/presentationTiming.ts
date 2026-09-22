@@ -17,7 +17,7 @@
  * `present.feedback` with its quantization recorded as uncertainty.
  */
 import type { ClockSource } from './clockDomain';
-import { recordInteractionSpanAt } from './interactionTrace';
+import { recordNextPaintEvidence } from './interactionTrace';
 
 export interface PresentationCapabilities {
   /** PerformanceObserver supports the `event` entry type (input → next paint). */
@@ -189,9 +189,13 @@ export function observePresentation(durationThresholdMs = 16): Disposer {
         const sample = presentationFromEventTiming(
           entry as unknown as Parameters<typeof presentationFromEventTiming>[0],
         );
-        recordInteractionSpanAt(sample.name, sample.startTimeMs, sample.durationMs, {
-          ...sample.attributes,
+        recordNextPaintEvidence({
+          startTimeMs: sample.startTimeMs,
+          durationMs: sample.durationMs,
+          source: 'event-timing',
+          clockTrust: 'trusted',
           uncertaintyMs: sample.uncertaintyMs,
+          eventName: entry.name,
         });
       }
     });

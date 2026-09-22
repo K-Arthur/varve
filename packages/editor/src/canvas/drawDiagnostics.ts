@@ -117,12 +117,23 @@ export interface FrameDiagnostics {
    * revision is behind the latest requested).
    */
   renderRevision?: number;
+  /** Camera state painted by this frame, used by the authoritative redraw oracle. */
+  camera?: {
+    zoom: number;
+    panX: number;
+    panY: number;
+    rotation: number;
+  };
   /**
    * The coordinator's frame decision kind at commit time: 'skip', 'present',
    * or 'content'. When present, the interaction trace can distinguish
    * scene-free worker-bitmap composites from full scene replays.
    */
   frameDecision?: string;
+  /** Explicit interaction IDs whose state this frame replaces. */
+  causalInteractionIds?: number[];
+  /** Interaction-level relationship; separate from frameDecision. */
+  frameDisposition?: string;
 }
 
 export function resolveDirtyScreenRect(

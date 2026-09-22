@@ -11,9 +11,11 @@ import {
   isInteractionTracingEnabled,
   MAX_INTERACTION_FRAMES,
   MAX_INTERACTION_SPANS,
+  markInteractionCanvasChanged,
   nextPointerSequenceId,
   notifyFrameCommit,
   recordInteractionSpan,
+  recordNextPaintEvidence,
   resetInteractionTraces,
   setSlowCaptureOnly,
   setSlowInteractionThreshold,
@@ -51,10 +53,10 @@ describe('interactionTrace', () => {
     expect(trace.eventCount).toBe(2);
     expect(trace.frameCount).toBe(1);
     expect(trace.spans.map((s) => s.name)).toEqual(['pointer.input', 'pointer.input']);
-    expect(trace.pointerToPresentMs).not.toBeNull();
+    expect(trace.deprecated.pointerToPresentMs).not.toBeNull();
     expect(trace.totalMs).toBeGreaterThanOrEqual(0);
     expect(trace.id).toBeGreaterThan(0);
-    expect(trace.schemaVersion).toBe(3);
+    expect(trace.schemaVersion).toBe(4);
     expect(trace.timestampSource).toBe('handler.performance.now');
     expect(trace.sessionId).toMatch(/^s[0-9a-z]+-[0-9a-z]+$/);
     expect(trace.droppedSpanCount).toBe(0);
@@ -104,7 +106,7 @@ describe('interactionTrace', () => {
     notifyFrameCommit(t0 + 20, 6);
     endInteraction();
     const trace = getRecentInteractionTraces(1)[0]!;
-    expect(trace.pointerToPresentMs).toBeGreaterThanOrEqual(5);
+    expect(trace.deprecated.pointerToPresentMs).toBeGreaterThanOrEqual(5);
     expect(trace.frames).toHaveLength(2);
   });
 
@@ -113,11 +115,11 @@ describe('interactionTrace', () => {
     beginInteraction('pointer-drag');
     recordInteractionSpan('pointer.input', 1);
     const trace = endInteraction()!;
-    expect(trace.pointerToPresentMs).toBeNull();
+    expect(trace.deprecated.pointerToPresentMs).toBeNull();
 
     notifyFrameCommit(trace.endedAt + 10, 4);
 
-    expect(trace.pointerToPresentMs).toBeGreaterThanOrEqual(0);
+    expect(trace.deprecated.pointerToPresentMs).toBeGreaterThanOrEqual(0);
     expect(trace.frameCount).toBe(1);
   });
 
@@ -131,8 +133,8 @@ describe('interactionTrace', () => {
     const committedAt = Math.max(first.endedAt, second.endedAt) + 10;
     notifyFrameCommit(committedAt, 4, { disposition: 'coalesced' });
 
-    expect(first.pointerToPresentMs).not.toBeNull();
-    expect(second.pointerToPresentMs).not.toBeNull();
+    expect(first.deprecated.pointerToPresentMs).not.toBeNull();
+    expect(second.deprecated.pointerToPresentMs).not.toBeNull();
     expect(first.frames).toEqual([expect.objectContaining({ disposition: 'coalesced' })]);
     expect(second.frames).toEqual([expect.objectContaining({ disposition: 'coalesced' })]);
   });
@@ -145,7 +147,7 @@ describe('interactionTrace', () => {
     notifyFrameCommit(trace.endedAt + 251, 4);
     notifyFrameCommit(trace.endedAt + 252, 4);
 
-    expect(trace.pointerToPresentMs).toBeNull();
+    expect(trace.deprecated.pointerToPresentMs).toBeNull();
     expect(trace.frameCount).toBe(0);
   });
 
@@ -204,10 +206,12 @@ describe('interactionTrace', () => {
     endInteraction();
 
     const finished = getRecentInteractionTraces(1)[0]!;
-    expect(finished.schemaVersion).toBe(3);
+    expect(finished.schemaVersion).toBe(4);
     expect(finished.timestampSource).toBe('dom.event.timeStamp');
     expect(finished.initialQueueDelayMs).toBeGreaterThanOrEqual(10);
-    expect(finished.pointerToPresentMs).toBeGreaterThanOrEqual(finished.initialQueueDelayMs ?? 0);
+    expect(finished.deprecated.pointerToPresentMs).toBeGreaterThanOrEqual(
+      finished.initialQueueDelayMs ?? 0,
+    );
     expect(summarizeInteractionTraces([finished]).queueDelay.count).toBeGreaterThanOrEqual(1);
   });
 
@@ -283,13 +287,14 @@ describe('interactionTrace', () => {
     const summary = summarizeInteractionTraces(getRecentInteractionTraces(5));
     expect(summary.count).toBe(5);
     expect(summary.slowCount).toBe(0);
-    expect(summary.avgPointerToPresentMs).toBeGreaterThanOrEqual(0);
     expect(summary.p95TotalMs).toBeGreaterThanOrEqual(summary.maxTotalMs * 0.9);
     expect(summary.maxTotalMs).toBeGreaterThanOrEqual(0);
     expect(summary.total.count).toBe(5);
     expect(summary.total.p99).toBeGreaterThanOrEqual(summary.total.p95);
-    expect(summary.pointerToPresent.count).toBe(5);
-    expect(summary.pointerToPresent.max).toBeGreaterThanOrEqual(summary.pointerToPresent.p99);
+    expect(summary.deprecated.pointerToPresent.count).toBe(5);
+    expect(summary.deprecated.pointerToPresent.max).toBeGreaterThanOrEqual(
+      summary.deprecated.pointerToPresent.p99,
+    );
   });
 
   describe('interaction identity', () => {
@@ -334,5 +339,29 @@ describe('interactionTrace', () => {
       expect.objectContaining({ disposition: 'background' }),
     ]);
     expect(trace?.frames[1]).not.toHaveProperty('renderRevision');
+  });
+
+  it('requires a causal frame for changed interactions and matches late next-paint evidence', () => {
+    enableInteractionTraces(true);
+    beginInteraction('pointer-drag', performance.now() - 3);
+    const identity = markInteractionCanvasChanged();
+    const trace = endInteraction()!;
+    notifyFrameCommit(trace.endedAt + 4, 2, { causeIds: [identity?.interactionId ?? -1] });
+    expect(trace.frames[0]).toMatchObject({ causalRelation: 'caused' });
+    expect(trace.instrumentationErrors).toEqual([]);
+    expect(
+      recordNextPaintEvidence(
+        {
+          startTimeMs: trace.startedAt + 1,
+          durationMs: 18,
+          source: 'event-timing',
+          clockTrust: 'trusted',
+          uncertaintyMs: 8,
+        },
+        trace.id,
+      ),
+    ).toBe(true);
+    expect(trace.inputToNextPaintMs).toBe(18);
+    expect(trace.presentationEvidence.source).toBe('event-timing');
   });
 });

@@ -27,11 +27,12 @@ import {
   enableInteractionTraces,
   type FrameDisposition,
   getInteractionTraceCount,
+  getPresentationCauseIds,
   getRecentInteractionTraces,
   isInteractionTracingEnabled,
   notifyFrameCommit,
+  recordInteractionDiagnosticAt,
   recordInteractionSpan,
-  recordInteractionSpanAt,
   resetInteractionTraces,
   setSlowCaptureOnly,
   setSlowInteractionThreshold,
@@ -315,17 +316,94 @@ export function buildRenderPathSnapshot(): ReturnType<typeof resolveRenderPathDi
 // drop it without reaching into the component. Registered on mount, cleared on
 // unmount, mirroring `setApplyFixtureHandler`.
 
-let paintedSurfaceInvalidator: (() => void) | null = null;
-
-export function registerPaintedSurfaceInvalidator(fn: (() => void) | null): void {
-  paintedSurfaceInvalidator = fn;
+export interface FullRedrawOracleResult {
+  requestId: number;
+  frameIndex: number;
+  docVersion: number;
+  renderPath: FrameDiagnostics['renderPath'];
+  authoritative: true;
 }
 
-/** Returns false when no canvas is mounted to invalidate. */
-function invalidatePaintedSurface(): boolean {
-  if (!paintedSurfaceInvalidator) return false;
-  paintedSurfaceInvalidator();
-  return true;
+interface OracleState {
+  docVersion: number;
+  camera: {
+    zoom: number;
+    panX: number;
+    panY: number;
+    rotation: number;
+  };
+}
+
+type PaintedSurfaceInvalidator = (requestId: number) => OracleState | undefined;
+type PaintedSurfaceInvalidatorRegistration =
+  | ((requestId: number) => OracleState)
+  | ((requestId: number) => void);
+
+let paintedSurfaceInvalidator: PaintedSurfaceInvalidator | null = null;
+let nextOracleRequestId = 1;
+let pendingOracle: {
+  requestId: number;
+  resolve: (result: FullRedrawOracleResult) => void;
+  reject: (reason: Error) => void;
+  timeout: ReturnType<typeof setTimeout>;
+  expectedState?: OracleState;
+} | null = null;
+
+function sameOracleCamera(
+  actual: FrameDiagnostics['camera'],
+  expected: OracleState['camera'],
+): boolean {
+  return (
+    actual?.zoom === expected.zoom &&
+    actual.panX === expected.panX &&
+    actual.panY === expected.panY &&
+    actual.rotation === expected.rotation
+  );
+}
+
+export function registerPaintedSurfaceInvalidator(
+  fn: PaintedSurfaceInvalidatorRegistration | null,
+): void {
+  paintedSurfaceInvalidator = fn
+    ? (requestId) => {
+        const state = fn(requestId);
+        return state && typeof state === 'object' ? state : undefined;
+      }
+    : null;
+  if (!paintedSurfaceInvalidator && pendingOracle) {
+    clearTimeout(pendingOracle.timeout);
+    pendingOracle.reject(new Error('authoritative redraw oracle unavailable: canvas unmounted'));
+    pendingOracle = null;
+  }
+}
+
+/**
+ * Request a same-state authoritative main-thread redraw. The promise is
+ * settled by `recordFrame` only after a non-partial content frame commits;
+ * merely invalidating the retained bitmap or scheduling rAF is not enough.
+ */
+export function forceFullRedraw(): Promise<FullRedrawOracleResult> {
+  if (!paintedSurfaceInvalidator) {
+    return Promise.reject(
+      new Error('authoritative redraw oracle unavailable: canvas is not mounted'),
+    );
+  }
+  if (pendingOracle) {
+    clearTimeout(pendingOracle.timeout);
+    pendingOracle.reject(new Error('authoritative redraw oracle superseded by a newer request'));
+    pendingOracle = null;
+  }
+  const requestId = nextOracleRequestId++;
+  return new Promise<FullRedrawOracleResult>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      if (pendingOracle?.requestId !== requestId) return;
+      pendingOracle = null;
+      reject(new Error('authoritative redraw oracle timed out'));
+    }, 2_000);
+    pendingOracle = { requestId, resolve, reject, timeout };
+    const expectedState = paintedSurfaceInvalidator?.(requestId);
+    if (pendingOracle?.requestId === requestId) pendingOracle.expectedState = expectedState;
+  });
 }
 
 export function installPerfDiagnosticsHandle(): void {
@@ -408,7 +486,7 @@ function augmentPerfDiagnosticsHandle(): void {
     // vs-full-repaint oracle needs: without it a harness can only force a
     // full redraw by moving the camera, which changes the very state the
     // oracle is trying to hold constant.
-    forceFullRedraw: () => invalidatePaintedSurface(),
+    forceFullRedraw,
     // Park the camera at an exact zoom for the raster-LOD visual corpus
     // (no-op when no editor canvas is mounted).
     camera: {
@@ -570,9 +648,56 @@ export function recordFrame(frame: FrameDiagnostics): void {
     partialRedraw: frame.partialRedraw,
   });
   const committedAt = performance.now();
+  const frameDecision =
+    frame.frameDecision === 'content' ||
+    frame.frameDecision === 'present' ||
+    frame.frameDecision === 'skip'
+      ? frame.frameDecision
+      : undefined;
+  const causalRelation: FrameDisposition | undefined =
+    frame.frameDisposition === 'caused' ||
+    frame.frameDisposition === 'coalesced' ||
+    frame.frameDisposition === 'superseded' ||
+    frame.frameDisposition === 'cancelled' ||
+    frame.frameDisposition === 'dropped' ||
+    frame.frameDisposition === 'replaced' ||
+    frame.frameDisposition === 'reused' ||
+    frame.frameDisposition === 'background'
+      ? frame.frameDisposition
+      : undefined;
+  if (
+    pendingOracle &&
+    frame.frameSource === 'oracle-full-redraw' &&
+    frame.frameDecision === 'content' &&
+    !frame.partialRedraw &&
+    (frame.renderPath === 'compositor' || frame.renderPath === 'structural')
+  ) {
+    const oracle = pendingOracle;
+    pendingOracle = null;
+    clearTimeout(oracle.timeout);
+    if (
+      oracle.expectedState &&
+      (frame.docVersion !== oracle.expectedState.docVersion ||
+        !sameOracleCamera(frame.camera, oracle.expectedState.camera))
+    ) {
+      oracle.reject(
+        new Error('authoritative redraw oracle invalidated by an intervening state change'),
+      );
+    } else {
+      oracle.resolve({
+        requestId: oracle.requestId,
+        frameIndex: frame.frameIndex,
+        docVersion: frame.docVersion,
+        renderPath: frame.renderPath,
+        authoritative: true,
+      });
+    }
+  }
   notifyFrameCommit(committedAt, frame.totalMs, {
     ...(frame.renderRevision !== undefined ? { renderRevision: frame.renderRevision } : {}),
-    ...(frame.frameDecision ? { disposition: frame.frameDecision as FrameDisposition } : {}),
+    ...(frameDecision ? { frameDecision } : {}),
+    ...(causalRelation ? { causalRelation, disposition: causalRelation } : {}),
+    causeIds: frame.causalInteractionIds ?? getPresentationCauseIds(),
   });
   scheduleCompositeEstimate(committedAt);
 }
@@ -593,7 +718,7 @@ function scheduleCompositeEstimate(committedAtMs: number): void {
       rafTimestampMs,
       refreshEstimator.intervalMs,
     );
-    recordInteractionSpanAt(sample.name, sample.startTimeMs, sample.durationMs, {
+    recordInteractionDiagnosticAt(sample.name, sample.startTimeMs, sample.durationMs, {
       ...sample.attributes,
       uncertaintyMs: sample.uncertaintyMs,
     });
@@ -713,7 +838,7 @@ function renderSecondaryPerfPanel(ctx: CanvasRenderingContext2D, canvasWidth: nu
   }
   if (summary.count > 0) {
     lines.push(
-      `interactions: ${summary.count} (${summary.slowCount} slow), p2p p95/p99 ${summary.pointerToPresent.p95.toFixed(1)}/${summary.pointerToPresent.p99.toFixed(1)}ms, total p95 ${summary.p95TotalMs.toFixed(1)}ms`,
+      `interactions: ${summary.count} (${summary.slowCount} slow), commit p95/p99 ${summary.inputToCommit.p95.toFixed(1)}/${summary.inputToCommit.p99.toFixed(1)}ms, next-paint ${summary.inputToNextPaint.count} samples`,
     );
   }
   if (lines.length === 0) return;

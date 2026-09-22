@@ -3,13 +3,10 @@
  * input to presented frames.
  *
  * Groups per-event spans and per-frame commit times into interactions keyed
- * by a monotonic correlation ID, so a slow drag is traceable end-to-end:
- * pointerdown → move events (each with handler duration) → frames presented
- * while the gesture is active → input-to-present latency → total gesture
- * time. Off by default; slow-capture mode keeps only gestures that exceed a
- * configurable threshold. Frame correlation is by time window (a frame
- * committed while the interaction is open belongs to it), so no id needs to
- * thread through the render path.
+ * by a monotonic correlation ID. Trace v4 keeps handler/commit evidence
+ * separate from browser next-paint feedback and accepts an explicit causal
+ * frame ID from the redraw pipeline. Off by default; slow-capture mode keeps
+ * only gestures that exceed a configurable threshold.
  */
 import { eventQueueDelayMs } from './clockDomain';
 
@@ -41,13 +38,18 @@ export type FrameDisposition =
 export interface InteractionFrameSample {
   committedAt: number;
   totalMs: number;
+  /** Renderer decision, independent from interaction causality. */
+  frameDecision?: 'content' | 'present' | 'skip';
+  /** Why this frame belongs to the interaction, when the renderer supplied it. */
+  causalRelation?: FrameDisposition;
+  /** @deprecated Use causalRelation. */
   disposition?: FrameDisposition;
   /** Pixel identity of the frame, when the render path reported one. */
   renderRevision?: number;
 }
 
 export interface InteractionTrace {
-  schemaVersion: 3;
+  schemaVersion: 4;
   /** Stable per-page-load identity; distinguishes traces across reloads. */
   sessionId: string;
   /** Monotonic correlation ID connecting input events to presented frames. */
@@ -71,8 +73,24 @@ export interface InteractionTrace {
   /** Frame commit times (performance.now()) and durations during the gesture. */
   frames: InteractionFrameSample[];
   spans: InteractionSpan[];
-  /** First presented frame after the gesture started (ms), or null. */
-  pointerToPresentMs: number | null;
+  /** First canvas commit after the gesture started (ms), or null. */
+  inputToCommitMs: number | null;
+  /** Input → browser next paint, only when Event Timing/native evidence exists. */
+  inputToNextPaintMs: number | null;
+  presentationEvidence: {
+    source: 'event-timing' | 'native-profiler' | 'raf-lower-bound' | 'unavailable';
+    clockTrust: 'trusted' | 'handler-origin' | 'unavailable';
+    uncertaintyMs: number | null;
+    missingReason?: 'unsupported' | 'not-observed' | 'correlation-failed' | 'timeout';
+  };
+  /** @deprecated Migration-only alias; never use for summaries or gates. */
+  deprecated: {
+    pointerToPresentMs: number | null;
+  };
+  /** True once a document/camera/overlay mutation requires a replacement frame. */
+  presentationExpected: boolean;
+  /** Missing frame/evidence is an instrumentation failure, never zero latency. */
+  instrumentationErrors: string[];
   totalMs: number;
   /** Sum of recorded span durations (work actually spent in the gesture). */
   busyMs: number;
@@ -102,6 +120,7 @@ let slowThresholdMs = DEFAULT_SLOW_THRESHOLD_MS;
 let nextId = 1;
 let current: InteractionTrace | null = null;
 const pendingPresentations: InteractionTrace[] = [];
+const pendingPresentationTimers = new Map<number, ReturnType<typeof setTimeout>>();
 const NOOP_SPAN_END = () => undefined;
 
 function refreshSlow(trace: InteractionTrace): void {
@@ -109,7 +128,8 @@ function refreshSlow(trace: InteractionTrace): void {
     Math.max(
       trace.totalMs,
       trace.busyMs,
-      trace.pointerToPresentMs ?? 0,
+      trace.inputToCommitMs ?? 0,
+      trace.inputToNextPaintMs ?? 0,
       trace.maxQueueDelayMs ?? 0,
     ) >= slowThresholdMs;
 }
@@ -149,7 +169,7 @@ export function beginInteraction(kind: InteractionKind, eventTimeStamp?: number)
   const initialQueueDelayMs =
     typeof eventTimeStamp === 'number' ? eventQueueDelayMs(eventTimeStamp, handlerStartedAt) : null;
   current = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     sessionId,
     id: nextId++,
     kind,
@@ -167,7 +187,16 @@ export function beginInteraction(kind: InteractionKind, eventTimeStamp?: number)
     frameCount: 0,
     frames: [],
     spans: [],
-    pointerToPresentMs: null,
+    inputToCommitMs: null,
+    inputToNextPaintMs: null,
+    presentationEvidence: {
+      source: 'unavailable',
+      clockTrust: initialQueueDelayMs === null ? 'handler-origin' : 'trusted',
+      uncertaintyMs: null,
+    },
+    deprecated: { pointerToPresentMs: null },
+    presentationExpected: false,
+    instrumentationErrors: [],
     totalMs: 0,
     busyMs: 0,
     slow: false,
@@ -196,6 +225,23 @@ export function getActiveInteractionIdentity(): InteractionIdentity | null {
     pointerSequenceId: current.pointerSequenceId,
     kind: current.kind,
   };
+}
+
+/** Mark the active trace as requiring a frame for a canvas-changing action. */
+export function markInteractionCanvasChanged(): InteractionIdentity | null {
+  if (!tracingEnabled || !current) return null;
+  current.presentationExpected = true;
+  return getActiveInteractionIdentity();
+}
+
+/** IDs that the redraw pipeline must carry into its next committed frame. */
+export function getPresentationCauseIds(): number[] {
+  const ids: number[] = [];
+  if (current?.presentationExpected) ids.push(current.id);
+  for (const trace of pendingPresentations) {
+    if (trace.presentationExpected && !ids.includes(trace.id)) ids.push(trace.id);
+  }
+  return ids;
 }
 
 /**
@@ -261,6 +307,25 @@ export function recordInteractionSpanAt(
   appendSpan(current, name, startTimeMs, durationMs, attributes);
 }
 
+/** Attach a late diagnostic span to its originating trace without changing
+ * next-paint evidence or whichever interaction happens to be active now. */
+export function recordInteractionDiagnosticAt(
+  name: string,
+  startTimeMs: number,
+  durationMs: number,
+  attributes?: InteractionSpan['attributes'],
+): boolean {
+  if (!tracingEnabled || durationMs < 0) return false;
+  const candidates = [...(current ? [current] : []), ...pendingPresentations, ...ring];
+  const trace = candidates.find((candidate) => {
+    const end = candidate.endedAt > 0 ? candidate.endedAt : performance.now();
+    return startTimeMs >= candidate.startedAt - 1 && startTimeMs <= end + 1;
+  });
+  if (!trace) return false;
+  appendSpan(trace, name, startTimeMs, durationMs, attributes);
+  return true;
+}
+
 /**
  * Start an async-safe phase span. The returned one-shot completion closure
  * retains the originating trace, so queue/worker work can finish after the
@@ -292,8 +357,9 @@ function recordFrameOnTrace(
   meta?: FrameCommitMeta,
 ): void {
   trace.frameCount++;
-  if (trace.pointerToPresentMs === null) {
-    trace.pointerToPresentMs = Math.max(0, committedAt - trace.startedAt);
+  if (trace.inputToCommitMs === null) {
+    trace.inputToCommitMs = Math.max(0, committedAt - trace.startedAt);
+    trace.deprecated.pointerToPresentMs = trace.inputToCommitMs;
   }
   if (trace.endedAt > 0) {
     refreshSlow(trace);
@@ -303,15 +369,29 @@ function recordFrameOnTrace(
     trace.droppedFrameCount++;
     return;
   }
+  const causalRelation =
+    meta?.causalRelation ??
+    (meta?.causeIds?.includes(trace.id)
+      ? meta.causeIds.length > 1
+        ? 'coalesced'
+        : 'caused'
+      : undefined);
   trace.frames.push({
     committedAt,
     totalMs,
+    ...(meta?.frameDecision ? { frameDecision: meta.frameDecision } : {}),
+    ...(causalRelation ? { causalRelation } : {}),
     ...(meta?.disposition ? { disposition: meta.disposition } : {}),
     ...(meta?.renderRevision !== undefined ? { renderRevision: meta.renderRevision } : {}),
   });
 }
 
 export interface FrameCommitMeta {
+  frameDecision?: 'content' | 'present' | 'skip';
+  causalRelation?: FrameDisposition;
+  /** Explicit interaction IDs whose state this frame replaces. */
+  causeIds?: readonly number[];
+  /** @deprecated Use causalRelation. */
   disposition?: FrameDisposition;
   renderRevision?: number;
 }
@@ -323,7 +403,9 @@ export function notifyFrameCommit(
   meta?: FrameCommitMeta,
 ): void {
   if (!tracingEnabled) return;
-  if (current) recordFrameOnTrace(current, committedAt, totalMs, meta);
+  if (current && (matchesFrameCause(current, meta) || !current.presentationExpected)) {
+    recordFrameOnTrace(current, committedAt, totalMs, meta);
+  }
   if (pendingPresentations.length === 0) return;
   let writeIndex = 0;
   for (const pending of pendingPresentations) {
@@ -332,14 +414,100 @@ export function notifyFrameCommit(
       pendingPresentations[writeIndex++] = pending;
       continue;
     }
-    if (waitMs <= MAX_PRESENTATION_WAIT_MS) {
+    if (waitMs <= MAX_PRESENTATION_WAIT_MS && matchesFrameCause(pending, meta)) {
       // One rendered frame can legitimately coalesce several rapid inputs.
       // Attribute it to every waiting gesture instead of letting the newest
       // keyup/pointerup overwrite the older gesture's pending evidence.
       recordFrameOnTrace(pending, committedAt, totalMs, meta);
+      // Keep the trace pending after commit until Event Timing/native evidence
+      // arrives, otherwise a late next-paint entry would have to rediscover a
+      // trace from the ring and could be evicted before it is observed.
+      if (!pending.presentationExpected || pending.inputToNextPaintMs !== null) {
+        clearPendingPresentation(pending.id);
+      } else {
+        pendingPresentations[writeIndex++] = pending;
+      }
+    } else if (waitMs <= MAX_PRESENTATION_WAIT_MS) {
+      pendingPresentations[writeIndex++] = pending;
+    } else {
+      clearPendingPresentation(pending.id);
+      markPresentationTimeout(pending);
     }
   }
   pendingPresentations.length = writeIndex;
+}
+
+function matchesFrameCause(trace: InteractionTrace, meta?: FrameCommitMeta): boolean {
+  if (!trace.presentationExpected) return true;
+  return meta?.causeIds?.includes(trace.id) === true;
+}
+
+function clearPendingPresentation(id: number): void {
+  const timer = pendingPresentationTimers.get(id);
+  if (timer !== undefined) clearTimeout(timer);
+  pendingPresentationTimers.delete(id);
+}
+
+function markPresentationTimeout(trace: InteractionTrace): void {
+  if (trace.inputToCommitMs === null && trace.presentationExpected) {
+    trace.instrumentationErrors.push('missing-caused-frame');
+  }
+  if (trace.inputToNextPaintMs === null && trace.presentationEvidence.source === 'unavailable') {
+    trace.presentationEvidence = {
+      source: 'unavailable',
+      clockTrust: 'unavailable',
+      uncertaintyMs: null,
+      missingReason: 'timeout',
+    };
+  }
+  refreshSlow(trace);
+  if (!slowOnly || trace.slow) retainTrace(trace);
+}
+
+export interface NextPaintEvidence {
+  /** Event Timing startTime in the main performance clock domain. */
+  startTimeMs: number;
+  durationMs: number;
+  source: 'event-timing' | 'native-profiler';
+  clockTrust: 'trusted' | 'handler-origin';
+  uncertaintyMs: number | null;
+  eventName?: string;
+}
+
+/**
+ * Attach asynchronous next-paint evidence to the originating trace. Event
+ * Timing callbacks arrive after React and the active trace have already
+ * closed, so this never writes to whichever interaction happens to be open.
+ * A caller that has a native correlation ID may pass it through `traceId`;
+ * browser-only evidence falls back to the bounded timestamp/DOM-event match.
+ */
+export function recordNextPaintEvidence(evidence: NextPaintEvidence, traceId?: number): boolean {
+  if (!tracingEnabled || !Number.isFinite(evidence.durationMs)) return false;
+  const candidates = [...(current ? [current] : []), ...pendingPresentations, ...ring];
+  const trace = candidates.find((candidate) => {
+    if (traceId !== undefined && candidate.id !== traceId) return false;
+    if (candidate.inputToNextPaintMs !== null) return false;
+    const end = candidate.endedAt > 0 ? candidate.endedAt : performance.now();
+    return evidence.startTimeMs >= candidate.startedAt - 1 && evidence.startTimeMs <= end + 1;
+  });
+  if (!trace) return false;
+  trace.inputToNextPaintMs = Math.max(0, evidence.durationMs);
+  trace.presentationEvidence = {
+    source: evidence.source,
+    clockTrust: evidence.clockTrust,
+    uncertaintyMs: evidence.uncertaintyMs,
+  };
+  appendSpan(trace, 'present.feedback', evidence.startTimeMs, evidence.durationMs, {
+    evidence: evidence.source,
+    ...(evidence.eventName ? { eventName: evidence.eventName } : {}),
+    ...(evidence.uncertaintyMs === null ? {} : { uncertaintyMs: evidence.uncertaintyMs }),
+  });
+  refreshSlow(trace);
+  if (!slowOnly || trace.slow) retainTrace(trace);
+  clearPendingPresentation(trace.id);
+  const pendingIndex = pendingPresentations.indexOf(trace);
+  if (pendingIndex >= 0) pendingPresentations.splice(pendingIndex, 1);
+  return true;
 }
 
 /** Close the current interaction and retain it (unless slow-only discards it). */
@@ -354,9 +522,16 @@ export function endInteraction(): InteractionTrace | null {
   const finished = current;
   current = null;
   if (!slowOnly || finished.slow) retainTrace(finished);
-  if (finished.pointerToPresentMs === null) {
+  if (finished.inputToCommitMs === null || finished.inputToNextPaintMs === null) {
     pendingPresentations.push(finished);
     if (pendingPresentations.length > MAX_PENDING_PRESENTATIONS) pendingPresentations.shift();
+    const timer = setTimeout(() => {
+      const index = pendingPresentations.indexOf(finished);
+      if (index >= 0) pendingPresentations.splice(index, 1);
+      clearPendingPresentation(finished.id);
+      markPresentationTimeout(finished);
+    }, MAX_PRESENTATION_WAIT_MS);
+    pendingPresentationTimers.set(finished.id, timer);
   }
   return finished;
 }
@@ -384,6 +559,8 @@ export function getInteractionTraceCount(): number {
 export function resetInteractionTraces(): void {
   ring.length = 0;
   current = null;
+  for (const timer of pendingPresentationTimers.values()) clearTimeout(timer);
+  pendingPresentationTimers.clear();
   pendingPresentations.length = 0;
 }
 
@@ -416,43 +593,64 @@ function distribution(values: number[]): LatencyDistribution {
   };
 }
 
-/** Roll up distribution of pointer-to-present + total interaction latency. */
+/** Roll up commit, next-paint, queue, and total interaction latency. */
 export function summarizeInteractionTraces(samples: InteractionTrace[]): {
   count: number;
   slowCount: number;
-  avgPointerToPresentMs: number;
   avgTotalMs: number;
   p95TotalMs: number;
   maxTotalMs: number;
-  pointerToPresent: LatencyDistribution;
+  inputToCommit: LatencyDistribution;
+  inputToNextPaint: LatencyDistribution;
+  deprecated: { pointerToPresent: LatencyDistribution };
   total: LatencyDistribution;
   queueDelay: LatencyDistribution;
   untrustedQueueDelayCount: number;
   timestampSources: Record<InteractionTrace['timestampSource'], number>;
+  presentationEvidence: Record<InteractionTrace['presentationEvidence']['source'], number>;
 } {
-  const withPresent = samples.filter((t) => t.pointerToPresentMs !== null);
-  const pointerToPresentValues = withPresent.map((trace) => trace.pointerToPresentMs ?? 0);
+  const withPresent = samples.filter((t) => t.inputToCommitMs !== null);
+  const inputToCommitValues = withPresent.map((trace) => trace.inputToCommitMs ?? 0);
+  const pointerToPresentValues = inputToCommitValues;
+  const nextPaintValues = samples
+    .map((trace) => trace.inputToNextPaintMs)
+    .filter((value): value is number => value !== null);
   const totals = samples.map((t) => t.totalMs);
-  const queueDelays = samples.flatMap((trace) => [
-    ...(trace.initialQueueDelayMs === null ? [] : [trace.initialQueueDelayMs]),
-    ...trace.spans.flatMap((span) => {
+  const queueDelays = samples.flatMap((trace) => {
+    const seenEventIds = new Set<string>();
+    const values: number[] = [];
+    if (trace.initialQueueDelayMs !== null) {
+      values.push(trace.initialQueueDelayMs);
+      seenEventIds.add('initial');
+    }
+    for (const span of trace.spans) {
       const delay = span.attributes?.queueDelayMs;
-      return typeof delay === 'number' && Number.isFinite(delay) ? [delay] : [];
-    }),
-  ]);
+      if (typeof delay !== 'number' || !Number.isFinite(delay)) continue;
+      const eventId = span.attributes?.eventSequenceId;
+      if (typeof eventId === 'string') {
+        if (seenEventIds.has(eventId)) continue;
+        seenEventIds.add(eventId);
+      } else if (seenEventIds.has('initial') && values.length === 1 && delay === values[0]) {
+        // v3 spans had no event ID and duplicated the initial sample. Keep
+        // the first canonical event once while retaining every later span.
+        seenEventIds.delete('initial');
+        continue;
+      }
+      values.push(delay);
+    }
+    return values;
+  });
   const totalDistribution = distribution(totals);
   return {
     count: samples.length,
     slowCount: samples.filter((t) => t.slow).length,
-    avgPointerToPresentMs:
-      withPresent.length > 0
-        ? withPresent.reduce((s, t) => s + (t.pointerToPresentMs ?? 0), 0) / withPresent.length
-        : 0,
     avgTotalMs:
       samples.length > 0 ? samples.reduce((s, t) => s + t.totalMs, 0) / samples.length : 0,
     p95TotalMs: totalDistribution.p95,
     maxTotalMs: totalDistribution.max,
-    pointerToPresent: distribution(pointerToPresentValues),
+    inputToCommit: distribution(inputToCommitValues),
+    inputToNextPaint: distribution(nextPaintValues),
+    deprecated: { pointerToPresent: distribution(pointerToPresentValues) },
     total: totalDistribution,
     queueDelay: distribution(queueDelays),
     untrustedQueueDelayCount: samples.reduce(
@@ -468,6 +666,18 @@ export function summarizeInteractionTraces(samples: InteractionTrace[]): {
         'dom.event.timeStamp': 0,
         'handler.performance.now': 0,
       } as Record<InteractionTrace['timestampSource'], number>,
+    ),
+    presentationEvidence: samples.reduce(
+      (sources, trace) => {
+        sources[trace.presentationEvidence.source]++;
+        return sources;
+      },
+      {
+        'event-timing': 0,
+        'native-profiler': 0,
+        'raf-lower-bound': 0,
+        unavailable: 0,
+      } as Record<InteractionTrace['presentationEvidence']['source'], number>,
     ),
   };
 }

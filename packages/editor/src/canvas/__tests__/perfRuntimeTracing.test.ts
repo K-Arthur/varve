@@ -7,7 +7,12 @@ import {
   getRecentInteractionTraces,
   resetInteractionTraces,
 } from '../../performance/interactionTrace';
-import { recordFrame, scheduleCanvasFrame } from '../perfRuntime';
+import {
+  forceFullRedraw,
+  recordFrame,
+  registerPaintedSurfaceInvalidator,
+  scheduleCanvasFrame,
+} from '../perfRuntime';
 
 describe('canvas performance trace integration', () => {
   beforeEach(() => {
@@ -17,9 +22,80 @@ describe('canvas performance trace integration', () => {
   });
 
   afterEach(() => {
+    registerPaintedSurfaceInvalidator(null);
     enableInteractionTraces(false);
     resetEditorFrameRuntimeForTests();
     vi.unstubAllGlobals();
+  });
+
+  it('resolves the full-redraw oracle only after an authoritative content frame', async () => {
+    let requestId = 0;
+    registerPaintedSurfaceInvalidator((id) => {
+      requestId = id;
+      return {
+        docVersion: 3,
+        camera: { zoom: 1, panX: 0, panY: 0, rotation: 0 },
+      };
+    });
+
+    const pending = forceFullRedraw();
+    expect(requestId).toBeGreaterThan(0);
+    recordFrame({
+      frameIndex: 9,
+      docVersion: 3,
+      redrawCount: 1,
+      nodeCount: 4,
+      culledCount: 0,
+      cacheHitCount: 0,
+      buildIrMs: 0,
+      replayMs: 1,
+      totalMs: 1,
+      renderPath: 'compositor',
+      wasDirty: true,
+      partialRedraw: false,
+      cacheBytes: 0,
+      cacheEntries: 0,
+      profileTier: 'balanced',
+      frameDecision: 'content',
+      frameSource: 'oracle-full-redraw',
+      camera: { zoom: 1, panX: 0, panY: 0, rotation: 0 },
+    });
+
+    await expect(pending).resolves.toMatchObject({
+      requestId,
+      frameIndex: 9,
+      docVersion: 3,
+      authoritative: true,
+    });
+  });
+
+  it('rejects the oracle when the committed frame is from a newer state', async () => {
+    registerPaintedSurfaceInvalidator(() => ({
+      docVersion: 3,
+      camera: { zoom: 1, panX: 0, panY: 0, rotation: 0 },
+    }));
+    const pending = forceFullRedraw();
+    recordFrame({
+      frameIndex: 10,
+      docVersion: 4,
+      redrawCount: 1,
+      nodeCount: 4,
+      culledCount: 0,
+      cacheHitCount: 0,
+      buildIrMs: 0,
+      replayMs: 1,
+      totalMs: 1,
+      renderPath: 'compositor',
+      wasDirty: true,
+      partialRedraw: false,
+      cacheBytes: 0,
+      cacheEntries: 0,
+      profileTier: 'balanced',
+      frameDecision: 'content',
+      frameSource: 'oracle-full-redraw',
+      camera: { zoom: 1, panX: 0, panY: 0, rotation: 0 },
+    });
+    await expect(pending).rejects.toThrow(/intervening state change/);
   });
 
   it('correlates render queue wait and main-frame work with the active interaction', () => {
@@ -55,7 +131,7 @@ describe('canvas performance trace integration', () => {
 
     expect(trace.spans.map((span) => span.name)).toEqual(['render.queue', 'render.main']);
     expect(trace.frames).toHaveLength(1);
-    expect(trace.pointerToPresentMs).not.toBeNull();
+    expect(trace.deprecated.pointerToPresentMs).not.toBeNull();
     expect(getRecentInteractionTraces(1)[0]?.id).toBe(trace.id);
   });
 
@@ -90,7 +166,7 @@ describe('canvas performance trace integration', () => {
     const trace = endInteraction()!;
 
     expect(trace.frames).toHaveLength(1);
-    expect(trace.frames[0]!.disposition).toBe('content');
+    expect(trace.frames[0]!.frameDecision).toBe('content');
   });
 
   it('propagates render revision when supplied in frame diagnostics', () => {
@@ -125,7 +201,7 @@ describe('canvas performance trace integration', () => {
     const trace = endInteraction()!;
 
     expect(trace.frames).toHaveLength(1);
-    expect(trace.frames[0]!.disposition).toBe('present');
+    expect(trace.frames[0]!.frameDecision).toBe('present');
     expect(trace.frames[0]!.renderRevision).toBe(42);
   });
 });

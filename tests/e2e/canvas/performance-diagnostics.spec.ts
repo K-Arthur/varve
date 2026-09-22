@@ -32,7 +32,7 @@ interface PerformanceDiagnosticsHandle {
       droppedFrameCount: number;
     }>;
     summary: () => {
-      pointerToPresent: { count: number; p95: number; p99: number };
+      inputToCommit: { count: number; p95: number; p99: number };
       total: { count: number; p95: number; p99: number };
     };
   };
@@ -99,7 +99,7 @@ test.describe('Canvas performance diagnostics', () => {
     });
 
     expect(diagnostics).not.toBeNull();
-    expect(diagnostics?.trace?.schemaVersion).toBe(3);
+    expect(diagnostics?.trace?.schemaVersion).toBe(4);
     expect(diagnostics?.trace?.spans.length).toBeLessThanOrEqual(512);
     expect(diagnostics?.trace?.frames.length).toBeLessThanOrEqual(240);
     expect(diagnostics?.trace?.droppedSpanCount).toBeGreaterThanOrEqual(0);
