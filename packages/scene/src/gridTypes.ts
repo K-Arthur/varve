@@ -62,8 +62,20 @@ export interface DocumentGrid extends GridBase {
   rotation?: number;
 }
 
+/** Insets around a frame-owned guide layout, in document pixels. */
+export interface LayoutGuideMargins {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
 /**
- * Layout grid: frame-level grid for responsive layout (columns/rows).
+ * Layout grid: frame-level, non-destructive composition guidance.
+ *
+ * The optional legacy fields are retained for codec compatibility with
+ * documents written before v2.30. New code should use `count`, `sizing`,
+ * `trackSize`, `margins`, `offset`, and (for uniform grids) `cellSize`.
  */
 export interface LayoutGrid extends GridBase {
   type: 'layout';
@@ -73,16 +85,31 @@ export interface LayoutGrid extends GridBase {
   columnCount?: number;
   /** Column width in px (for column mode). */
   columnWidth?: number;
-  /** Gutter width in px. */
+  /** Gutter width in px for a column/row layout. */
   gutter: number;
-  /** Margin [top, right, bottom, left] in px. */
+  /** Margin [top, right, bottom, left] in px (legacy wire shape). */
   margin: [number, number, number, number];
-  /** Alignment mode: stretch, left, center, right. */
-  alignment: 'stretch' | 'left' | 'center' | 'right';
+  /** Axis-neutral alignment. `left`/`right` remain accepted for old files. */
+  alignment: 'stretch' | 'left' | 'center' | 'right' | 'start' | 'end';
   /** Number of rows (for row mode). */
   rowCount?: number;
   /** Row height in px (for row mode). */
   rowHeight?: number;
+  /** v2.30: axis track count (preferred over columnCount/rowCount). */
+  count?: number;
+  /** v2.30: stretch or fixed track sizing. */
+  sizing?: 'stretch' | 'fixed';
+  /** v2.30: fixed track size in px. */
+  trackSize?: number;
+  /** v2.30: named margins (preferred over the tuple). */
+  margins?: LayoutGuideMargins;
+  /** v2.30: signed offset along the layout axis. */
+  offset?: number;
+  /** v2.30: square uniform-grid cell size in px. */
+  cellSize?: number;
+  /** v2.30: square uniform-grid origin offsets in px. */
+  offsetX?: number;
+  offsetY?: number;
 }
 
 /**
@@ -354,7 +381,11 @@ export function createDefaultLayoutGrid(): LayoutGrid {
     columnCount: 12,
     gutter: 20,
     margin: [20, 20, 20, 20],
+    margins: { top: 20, right: 20, bottom: 20, left: 20 },
     alignment: 'stretch',
+    count: 12,
+    sizing: 'stretch',
+    offset: 0,
   };
 }
 
