@@ -60,7 +60,7 @@ describe('EditorProvider characterization — auto-save/backup freshness', () =>
     const lastCall = markDirtySpy.mock.calls[markDirtySpy.mock.calls.length - 1];
     expect(lastCall).toBeDefined();
     if (!lastCall) throw new Error('markDirty was not called');
-    const backedUpJson = (lastCall[1] as () => string)();
+    const backedUpJson = (lastCall[0] as unknown as { materialize: () => string }).materialize();
     const backedUpDoc = JSON.parse(backedUpJson) as { nextId: number };
 
     // The backup must reflect the edit, not the pre-edit document. If the auto-save
@@ -520,7 +520,9 @@ describe('EditorProvider characterization — StrictMode double-invocation', () 
     await waitFor(() => expect(markDirtySpy).toHaveBeenCalled());
     const lastCall = markDirtySpy.mock.calls[markDirtySpy.mock.calls.length - 1];
     if (!lastCall) throw new Error('markDirty was not called');
-    const backedUpDoc = JSON.parse((lastCall[1] as () => string)()) as { nextId: number };
+    const backedUpDoc = JSON.parse(
+      (lastCall[0] as unknown as { materialize(): string }).materialize(),
+    ) as { nextId: number };
     expect(backedUpDoc.nextId).toBe(before + 1);
   });
 });

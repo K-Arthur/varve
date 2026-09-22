@@ -8,6 +8,7 @@
 import type { Document } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type AutoSaveConfig, AutoSaveService } from './autoSaveService';
+import { createPersistenceRevision } from './persistence/documentRevision';
 
 describe('AutoSaveService', () => {
   let getDoc: () => {
@@ -365,6 +366,101 @@ describe('AutoSaveService', () => {
       svc.notifyEdit();
       vi.advanceTimersByTime(config.intervalMs + 500);
       expect(saveFn).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('immutable revisions', () => {
+    function revision(sessionId: string, value: number, materialize: () => string) {
+      const created = createPersistenceRevision({
+        sessionId,
+        projectId: sessionId,
+        fileName: sessionId,
+        revision: value,
+        document: {
+          formatVersion: '1.0',
+          id: `doc-${sessionId}`,
+          name: sessionId,
+          rootChildren: [],
+          nodes: {},
+          components: {},
+          nextId: value,
+        } as Document,
+        capturedAt: Date.now(),
+      });
+      // Keep the test serializer independent of the font registry.
+      return { ...created, materialize };
+    }
+
+    it('serializes only the latest revision and never reads the active tab', async () => {
+      const writes: string[] = [];
+      let firstEncodes = 0;
+      let latestEncodes = 0;
+      const svc = new AutoSaveService(async (_revision, json) => {
+        writes.push(json);
+        return true;
+      }, config);
+      svc.notifyEdit(
+        revision('session-a', 1, () => {
+          firstEncodes++;
+          return 'old';
+        }),
+      );
+      svc.notifyEdit(
+        revision('session-a', 2, () => {
+          latestEncodes++;
+          return 'latest';
+        }),
+      );
+
+      expect(await svc.saveNow('session-a')).toBe(true);
+      expect(writes).toEqual(['latest']);
+      expect(firstEncodes).toBe(0);
+      expect(latestEncodes).toBe(1);
+    });
+
+    it('keeps a newer revision pending when an older write completes', async () => {
+      let resolveWrite: (value: boolean) => void = () => undefined;
+      let writeCount = 0;
+      const writes: string[] = [];
+      const svc = new AutoSaveService((_revision, json) => {
+        writes.push(json);
+        writeCount++;
+        if (writeCount > 1) return Promise.resolve(true);
+        return new Promise<boolean>((resolve) => {
+          resolveWrite = resolve;
+        });
+      }, config);
+      const first = revision('session-a', 1, () => 'old');
+      const latest = revision('session-a', 2, () => 'latest');
+      svc.notifyEdit(first);
+      const firstSave = svc.saveNow('session-a');
+      svc.notifyEdit(latest);
+      resolveWrite(true);
+      expect(await firstSave).toBe(true);
+      expect(await svc.saveNow('session-a')).toBe(true);
+      expect(writes).toEqual(['old', 'latest']);
+    });
+
+    it('does not materialize a queued job after disposal', async () => {
+      const queued: Array<() => void> = [];
+      let encodes = 0;
+      const svc = new AutoSaveService(
+        async () => true,
+        { ...config, intervalMs: 0, idleThresholdMs: 0 },
+        (job) => queued.push(job),
+      );
+      svc.start();
+      svc.notifyEdit(
+        revision('session-a', 1, () => {
+          encodes++;
+          return 'queued';
+        }),
+      );
+      vi.advanceTimersByTime(1000);
+      expect(queued).toHaveLength(1);
+      await svc.dispose();
+      queued.shift()?.();
+      expect(encodes).toBe(0);
     });
   });
 });

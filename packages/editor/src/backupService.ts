@@ -14,6 +14,7 @@ import {
   DEFAULT_RETENTION,
 } from '@varve/engine';
 import { isTauriRuntime, recordStorageWrite } from '@varve/platform';
+import type { PersistenceRevision } from './persistence/documentRevision';
 
 export type IncludeAssetsPolicy = 'none' | 'used' | 'all';
 
@@ -56,13 +57,9 @@ export interface BackupServiceState {
 const STORAGE_KEY = 'strata-backup-service';
 
 interface DirtyProject {
-  serializeDocument: () => string;
+  revision: PersistenceRevision;
   /** Memoized only after the revision is actually due for persistence. */
   materializedJson?: string;
-  fileName: string;
-  revision: number;
-  fileId?: string;
-  filePath?: string;
   /** Revision of this dirty data — refreshed on each markDirty call. */
   dirtyAt: number;
 }
@@ -80,6 +77,9 @@ export class BackupService {
   private onEvent: ((event: BackupEvent) => void) | null = null;
   private onProgress: ((event: BackupEvent) => void) | null = null;
   private running = false;
+  private disposed = false;
+  private lifecycleEpoch = 0;
+  private inFlight = new Set<Promise<unknown>>();
   private scheduleBackground: ((job: () => void) => void) | null;
   private automaticWorkQueued = false;
 
@@ -122,6 +122,8 @@ export class BackupService {
   }
 
   async initialize(): Promise<void> {
+    this.disposed = false;
+    this.lifecycleEpoch++;
     this.store = createBackupStore({
       hasIndexedDb: typeof indexedDB !== 'undefined',
       platform: isTauriRuntime() ? 'tauri' : 'web',
@@ -131,19 +133,26 @@ export class BackupService {
     if (this.config.enabled) {
       this.startScheduler();
     }
+    const epoch = this.lifecycleEpoch;
     const info = await this.store.getStorageInfo();
+    if (this.disposed || epoch !== this.lifecycleEpoch) return;
     this.state.storageUsed = info.totalBytes;
     this.state.totalBackups = info.entryCount;
     this.state.nextBackupAt = this.config.enabled ? Date.now() + this.config.intervalMs : null;
   }
 
   async shutdown(): Promise<void> {
+    this.disposed = true;
+    this.lifecycleEpoch++;
     this.stopScheduler();
+    await Promise.allSettled([...this.inFlight]);
     await this.store?.close();
     this.engine = null;
     this.store = null;
   }
 
+  markDirty(revision: PersistenceRevision): void;
+  /** @deprecated Kept for integrations compiled against the pre-revision API. */
   markDirty(
     projectId: string,
     serializeDocument: () => string,
@@ -151,15 +160,32 @@ export class BackupService {
     revision: number,
     fileId?: string,
     filePath?: string,
+  ): void;
+  markDirty(
+    revisionOrProjectId: PersistenceRevision | string,
+    legacySerializer?: () => string,
+    legacyFileName?: string,
+    legacyRevision?: number,
+    legacyFileId?: string,
+    legacyFilePath?: string,
   ): void {
-    this.dirtyProjects.set(projectId, {
-      serializeDocument,
-      fileName,
-      revision,
-      fileId,
-      filePath,
-      dirtyAt: Date.now(),
-    });
+    if (this.disposed) return;
+    const revision: PersistenceRevision =
+      typeof revisionOrProjectId === 'string'
+        ? ({
+            token: `legacy:${revisionOrProjectId}:${legacyRevision ?? 0}`,
+            sessionId: revisionOrProjectId,
+            projectId: revisionOrProjectId,
+            fileId: legacyFileId,
+            filePath: legacyFilePath,
+            fileName: legacyFileName ?? 'Untitled',
+            revision: legacyRevision ?? 0,
+            document: {} as PersistenceRevision['document'],
+            capturedAt: Date.now(),
+            materialize: legacySerializer ?? (() => ''),
+          } as PersistenceRevision)
+        : revisionOrProjectId;
+    this.dirtyProjects.set(revision.sessionId, { revision, dirtyAt: revision.capturedAt });
   }
 
   async markSaved(
@@ -174,7 +200,34 @@ export class BackupService {
     // Remember the saved content so a later dirty tick does not rewrite an
     // identical full-document backup.
     this.lastAutomaticJson.set(projectId, documentJson);
-    this.dirtyProjects.delete(projectId);
+    for (const [sessionId, dirty] of this.dirtyProjects) {
+      if (
+        dirty.revision.projectId === projectId &&
+        dirty.revision.revision === _revision &&
+        (_fileId === undefined || dirty.revision.fileId === _fileId)
+      ) {
+        this.dirtyProjects.delete(sessionId);
+      }
+    }
+  }
+
+  /** Acknowledge an explicit save without allowing a newer revision to clear. */
+  acknowledgeSaved(revision: PersistenceRevision): void {
+    const dirty = this.dirtyProjects.get(revision.sessionId);
+    if (dirty?.revision.token !== revision.token) return;
+    this.dirtyProjects.delete(revision.sessionId);
+    this.lastBackupTimes.set(revision.projectId, Date.now());
+    try {
+      this.lastAutomaticJson.set(revision.projectId, revision.materialize());
+    } catch {
+      // The explicit save already owns its write result; a failed dedup
+      // materialization must not resurrect or clear unrelated dirty work.
+    }
+  }
+
+  /** Drop only the pending automatic work owned by a closed editor session. */
+  discardSession(sessionId: string): void {
+    this.dirtyProjects.delete(sessionId);
   }
 
   async createBackup(
@@ -188,10 +241,41 @@ export class BackupService {
     filePath?: string,
     expectedDirty?: object,
   ): Promise<BackupResult> {
-    if (!this.engine) {
+    const operation = this.createBackupInternal(
+      projectId,
+      type,
+      documentJson,
+      fileName,
+      revision,
+      notes,
+      fileId,
+      filePath,
+      expectedDirty,
+    );
+    this.inFlight.add(operation);
+    try {
+      return await operation;
+    } finally {
+      this.inFlight.delete(operation);
+    }
+  }
+
+  private async createBackupInternal(
+    projectId: string,
+    type: BackupType,
+    documentJson: string,
+    fileName: string,
+    revision?: number,
+    notes?: string,
+    fileId?: string,
+    filePath?: string,
+    expectedDirty?: object,
+  ): Promise<BackupResult> {
+    if (this.disposed || !this.engine) {
       return { success: false, error: 'Backup engine not initialized' };
     }
-    const result = await this.engine.createBackup(
+    const epoch = this.lifecycleEpoch;
+    const writePromise = this.engine.createBackup(
       projectId,
       type,
       documentJson,
@@ -201,6 +285,11 @@ export class BackupService {
       fileId,
       filePath,
     );
+    let result: BackupResult;
+    result = await writePromise;
+    if (this.disposed || epoch !== this.lifecycleEpoch) {
+      return { success: false, error: 'Backup cancelled during shutdown' };
+    }
     this.emitEvent({
       type: result.success ? 'completed' : 'failed',
       backupId: result.backupId,
@@ -208,12 +297,16 @@ export class BackupService {
       error: result.error,
       timestamp: Date.now(),
     });
-    if (result.success) {
+    if (result.success && !this.disposed && epoch === this.lifecycleEpoch) {
       this.state.lastBackupAt = Date.now();
       this.state.consecutiveFailures = 0;
       this.state.totalBackups++;
-      if (!expectedDirty || this.dirtyProjects.get(projectId) === expectedDirty) {
-        this.dirtyProjects.delete(projectId);
+      if (expectedDirty) {
+        for (const [sessionId, dirty] of this.dirtyProjects) {
+          if (dirty.revision.projectId === projectId && dirty === expectedDirty) {
+            this.dirtyProjects.delete(sessionId);
+          }
+        }
       }
       if (type === 'automatic') {
         this.lastAutomaticJson.set(projectId, documentJson);
@@ -276,10 +369,11 @@ export class BackupService {
   /** Public entry point for manual "Backup Now" — creates an immediate backup
    *  for every dirty project, bypassing the interval gate. */
   async backupAllDirty(): Promise<{ backedUp: number; failed: number }> {
-    if (!this.config.enabled || !this.engine) return { backedUp: 0, failed: 0 };
+    if (this.disposed || !this.engine) return { backedUp: 0, failed: 0 };
     let backedUp = 0;
     let failed = 0;
-    for (const [projectId, data] of this.dirtyProjects) {
+    for (const [, data] of this.dirtyProjects) {
+      const projectId = data.revision.projectId;
       this.emitProgress({
         type: 'started',
         projectId,
@@ -311,11 +405,14 @@ export class BackupService {
     fileId?: string,
     filePath?: string,
   ): Promise<void> {
-    if (!this.config.enabled) return;
+    if (this.disposed || !this.config.enabled) return;
     const now = Date.now();
     const lastBackup = this.lastBackupTimes.get(projectId) ?? 0;
     if (now - lastBackup < this.config.intervalMs) return;
-    if (!this.dirtyProjects.has(projectId)) return;
+    const data = [...this.dirtyProjects.values()].find(
+      (entry) => entry.revision.projectId === projectId,
+    );
+    if (!data) return;
     if (this.lastAutomaticJson.get(projectId) === documentJson) {
       // Unchanged content: count the interval as satisfied without writing a
       // duplicate full-document backup (the dirty map can outlive a manual
@@ -332,7 +429,7 @@ export class BackupService {
       undefined,
       fileId,
       filePath,
-      this.dirtyProjects.get(projectId),
+      data,
     );
     this.lastBackupTimes.set(projectId, now);
   }
@@ -398,15 +495,16 @@ export class BackupService {
   /** Called every 60s by the scheduler. Creates automatic backups for any
    *  project whose data has been dirty longer than the configured interval. */
   private async tick(): Promise<void> {
-    if (!this.running || this.dirtyProjects.size === 0 || this.automaticWorkQueued) return;
+    if (this.disposed || !this.running || this.dirtyProjects.size === 0 || this.automaticWorkQueued)
+      return;
     const now = Date.now();
     const due: Array<[string, DirtyProject]> = [];
-    for (const [projectId, data] of this.dirtyProjects) {
+    for (const [sessionId, data] of this.dirtyProjects) {
       if (!this.config.enabled) break;
-      const lastBackup = this.lastBackupTimes.get(projectId) ?? 0;
+      const lastBackup = this.lastBackupTimes.get(data.revision.projectId) ?? 0;
       const sinceLast = lastBackup === 0 ? now - data.dirtyAt : now - lastBackup;
       if (sinceLast < this.config.intervalMs) continue;
-      due.push([projectId, data]);
+      due.push([sessionId, data]);
     }
     if (due.length === 0) return;
     this.automaticWorkQueued = true;
@@ -420,9 +518,10 @@ export class BackupService {
   }
 
   private async runAutomaticBackups(due: Array<[string, DirtyProject]>): Promise<void> {
-    for (const [projectId, data] of due) {
-      if (!this.config.enabled) break;
-      if (this.dirtyProjects.get(projectId) !== data) continue;
+    for (const [sessionId, data] of due) {
+      if (this.disposed || !this.config.enabled) break;
+      if (this.dirtyProjects.get(sessionId) !== data) continue;
+      const projectId = data.revision.projectId;
       let documentJson: string;
       try {
         documentJson = this.materialize(data);
@@ -447,18 +546,18 @@ export class BackupService {
       projectId,
       'automatic',
       documentJson,
-      data.fileName,
-      data.revision,
+      data.revision.fileName,
+      data.revision.revision,
       undefined,
-      data.fileId,
-      data.filePath,
+      data.revision.fileId,
+      data.revision.filePath,
       data,
     );
   }
 
   private materialize(data: DirtyProject): string {
     if (data.materializedJson === undefined) {
-      data.materializedJson = data.serializeDocument();
+      data.materializedJson = data.revision.materialize();
     }
     return data.materializedJson;
   }

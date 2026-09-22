@@ -10,6 +10,7 @@ import 'fake-indexeddb/auto';
 import { getStorageWriteMetrics, resetStorageWriteMetrics } from '@varve/platform';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { BackupService } from './backupService';
+import { createPersistenceRevision } from './persistence/documentRevision';
 
 function uniqueProjectId(): string {
   return `dedup-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -134,5 +135,75 @@ describe('BackupService automatic dedup', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(encodes).toBe(1);
+  });
+
+  it('does not clear a newer revision when an older backup completes', async () => {
+    service = new BackupService({ intervalMs: 0 });
+    await service.initialize();
+    const projectId = uniqueProjectId();
+    const first = {
+      ...createPersistenceRevision({
+        sessionId: `${projectId}-session`,
+        projectId,
+        fileName: 'Untitled',
+        revision: 1,
+        document: {} as never,
+      }),
+      materialize: () => '{"revision":1}',
+    };
+    const latest = {
+      ...createPersistenceRevision({
+        sessionId: `${projectId}-session`,
+        projectId,
+        fileName: 'Untitled',
+        revision: 2,
+        document: {} as never,
+      }),
+      materialize: () => '{"revision":2}',
+    };
+    service.markDirty(first);
+    const oldBackup = service.backupAllDirty();
+    service.markDirty(latest);
+    expect((await oldBackup).backedUp).toBe(1);
+    expect((await service.backupAllDirty()).backedUp).toBe(1);
+    expect((await service.getBackups(projectId)).length).toBe(2);
+  });
+
+  it('keeps manual Backup Now available when automatic backups are disabled', async () => {
+    service = new BackupService({ enabled: false, intervalMs: 0 });
+    await service.initialize();
+    const projectId = uniqueProjectId();
+    service.markDirty(projectId, () => '{"manual":true}', 'Untitled', 1);
+    expect((await service.backupAllDirty()).backedUp).toBe(1);
+    expect((await service.getBackups(projectId)).length).toBe(1);
+  });
+
+  it('discards only the closed session revision', async () => {
+    service = new BackupService({ enabled: false });
+    await service.initialize();
+    const first = {
+      ...createPersistenceRevision({
+        sessionId: 'closed-session',
+        projectId: uniqueProjectId(),
+        fileName: 'Closed',
+        revision: 1,
+        document: {} as never,
+      }),
+      materialize: () => '{"closed":true}',
+    };
+    const second = {
+      ...createPersistenceRevision({
+        sessionId: 'open-session',
+        projectId: uniqueProjectId(),
+        fileName: 'Open',
+        revision: 1,
+        document: {} as never,
+      }),
+      materialize: () => '{"open":true}',
+    };
+    service.markDirty(first);
+    service.markDirty(second);
+    service.discardSession(first.sessionId);
+    expect(await service.backupAllDirty()).toEqual({ backedUp: 1, failed: 0 });
   });
 });

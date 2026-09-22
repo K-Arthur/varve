@@ -502,8 +502,8 @@ import { useInteractionState } from './context/useInteractionState';
 import { useLogoGeometry } from './context/useLogoGeometry';
 import { useLogoProject } from './context/useLogoProject';
 import {
+  createPersistenceRevision,
   resolveFontManifest,
-  serializeDocumentSnapshot,
   usePersistence,
 } from './context/usePersistence';
 import { usePersistentHistory } from './context/usePersistentHistory';
@@ -3092,6 +3092,10 @@ export function EditorProvider({
     stateRef,
     !projectionMode,
   );
+  /** Exact immutable revisions currently acknowledged by an explicit save. */
+  const persistenceRevisionsRef = useRef(
+    new Map<string, ReturnType<typeof createPersistenceRevision>>(),
+  );
   /** Ref mirror of the active tool, updated synchronously in setTool so that
    *  createShapeAt sees the latest tool even when React 18 automatic batching
    *  queues a setTool + createShapeAt together. Without this, createShapeAt
@@ -3133,21 +3137,48 @@ export function EditorProvider({
   /** Notify auto-save + backup on every document mutation. */
   useEffect(() => {
     if (state.dirty && backupRef.current) {
-      autoSaveRef.current?.notifyEdit();
       const meta = state.sessions.find((sess) => sess.id === state.activeId);
-      const pid = meta?.fileId ?? state.activeId;
+      const revision = createPersistenceRevision({
+        sessionId: state.activeId,
+        projectId: meta?.fileId ?? state.activeId,
+        fileId: meta?.fileId,
+        filePath: meta?.filePath,
+        fileName: meta?.name ?? 'Untitled',
+        revision: state.revision,
+        document: state.document,
+      });
+      persistenceRevisionsRef.current.set(state.activeId, revision);
       // Capture the immutable revision now, but defer codec work until the
-      // background persistence lane actually reaches this revision.
-      const snapshot = state.document;
-      backupRef.current?.markDirty(
-        pid,
-        () => serializeDocumentSnapshot(snapshot),
-        meta?.name ?? 'Untitled',
-        state.revision,
-        meta?.fileId,
-      );
+      // background persistence lane actually reaches this revision. The same
+      // memoized materializer is shared by autosave and versioned backup.
+      autoSaveRef.current?.notifyEdit(revision);
+      backupRef.current?.markDirty(revision);
     }
   }, [state.document, state.dirty, state.sessions, state.activeId, state.revision]);
+
+  // Explicit saves report clean only when the captured document was the one
+  // written. A newer edit must remain pending in both services, even if an
+  // older save completion races this effect.
+  useEffect(() => {
+    if (state.dirty || state.saveState !== 'saved') return;
+    const revision = persistenceRevisionsRef.current.get(state.activeId);
+    if (!revision || revision.document !== state.document) return;
+    autoSaveRef.current?.acknowledgeSaved(state.activeId, revision.token);
+    backupRef.current?.acknowledgeSaved(revision);
+    persistenceRevisionsRef.current.delete(state.activeId);
+  }, [state.activeId, state.dirty, state.document, state.saveState, autoSaveRef, backupRef]);
+
+  // Closing a tab must not leave its captured revision eligible for a later
+  // background write. Other open sessions retain their own latest revisions.
+  useEffect(() => {
+    const openSessionIds = new Set(state.sessions.map((session) => session.id));
+    for (const sessionId of persistenceRevisionsRef.current.keys()) {
+      if (openSessionIds.has(sessionId)) continue;
+      autoSaveRef.current?.discardSession(sessionId);
+      backupRef.current?.discardSession(sessionId);
+      persistenceRevisionsRef.current.delete(sessionId);
+    }
+  }, [state.sessions, autoSaveRef, backupRef]);
 
   /** Cleanup background-removal worker state and worker pool on unmount. */
   useEffect(() => {

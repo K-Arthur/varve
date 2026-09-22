@@ -1,17 +1,17 @@
 /**
- * AutoSaveService — periodic and idle-driven document auto-save.
+ * Auto-save service — periodic and idle-driven persistence of immutable
+ * document revisions.
  *
- * Monitors edit activity and triggers saves via a provided save function.
- * Supports retry, concurrency guard, configurable intervals, save state
- * callbacks for UI feedback, and coordinated recovery point creation.
- *
- * Research basis: Figma autosave architecture (delta-based saves,
- * IndexedDB persistence, stale change detection), Trimble backup model
- * (periodic snapshots + backup rotation).
+ * The service deliberately never reads the active editor tab while a
+ * background job is running. A revision captures its destination and
+ * document before it is queued, so switching tabs or editing again cannot
+ * make an older write land in the wrong file or clear newer work.
  */
 
-import type { Document } from '@varve/scene';
-import { serializeDocument } from '@varve/scene';
+import {
+  createPersistenceRevision,
+  type PersistenceRevision,
+} from './persistence/documentRevision';
 
 export interface AutoSaveConfig {
   intervalMs: number;
@@ -20,9 +20,9 @@ export interface AutoSaveConfig {
 }
 
 export type AutoSaveState = 'idle' | 'saving' | 'error';
-
 export type AutoSaveStateCallback = (state: AutoSaveState, lastSavedAt: number | null) => void;
 export type BackgroundSchedule = (job: () => void) => void;
+export type AutoSaveRevision = PersistenceRevision;
 
 const DEFAULTS: AutoSaveConfig = {
   intervalMs: 300000,
@@ -32,27 +32,72 @@ const DEFAULTS: AutoSaveConfig = {
 
 export class AutoSaveService {
   private cfg: AutoSaveConfig;
-  private dirty = false;
-  private lastEditAt = 0;
+  private readonly pending = new Map<string, AutoSaveRevision>();
+  private readonly lastEditAt = new Map<string, number>();
+  private readonly lastSavedAtBySession = new Map<string, number>();
   private _lastSavedAt: number | null = null;
   private _state: AutoSaveState = 'idle';
   private intervalId: ReturnType<typeof setInterval> | null = null;
-  private stateCallbacks: Set<AutoSaveStateCallback> = new Set();
-  private onSaveRecovery:
-    | ((doc: Document, meta: { fileId?: string; name: string }) => Promise<void>)
-    | null = null;
+  private readonly stateCallbacks = new Set<AutoSaveStateCallback>();
+  private onSaveRecovery: ((revision: AutoSaveRevision) => Promise<void>) | null = null;
   private saveQueued = false;
-  private scheduleBackground: BackgroundSchedule | null;
+  private disposed = false;
+  private disposeEpoch = 0;
+  private inFlight: Promise<boolean> | null = null;
+  private readonly legacyGetDocument:
+    | (() => { document: PersistenceRevision['document']; meta: { fileId?: string; name: string } })
+    | null;
+  private readonly legacySaveFn: ((json: string) => Promise<boolean>) | null;
 
   constructor(
-    private getDocument: () => { document: Document; meta: { fileId?: string; name: string } },
-    private saveFn: (json: string) => Promise<boolean>,
+    saveFn: (revision: AutoSaveRevision, json: string) => Promise<boolean>,
     config?: Partial<AutoSaveConfig>,
     scheduleBackground?: BackgroundSchedule,
+  );
+  /** @deprecated Compatibility overload for callers migrating to revisions. */
+  constructor(
+    getDocument: () => {
+      document: PersistenceRevision['document'];
+      meta: { fileId?: string; name: string };
+    },
+    saveFn: (json: string) => Promise<boolean>,
+    config?: Partial<AutoSaveConfig>,
+    scheduleBackground?: BackgroundSchedule,
+  );
+  constructor(
+    saveOrGetDocument:
+      | ((revision: AutoSaveRevision, json: string) => Promise<boolean>)
+      | (() => {
+          document: PersistenceRevision['document'];
+          meta: { fileId?: string; name: string };
+        }),
+    configOrSaveFn: Partial<AutoSaveConfig> | ((json: string) => Promise<boolean>) = {},
+    scheduleOrConfig?: BackgroundSchedule | Partial<AutoSaveConfig>,
+    legacySchedule?: BackgroundSchedule,
   ) {
-    this.cfg = { ...DEFAULTS, ...config };
-    this.scheduleBackground = scheduleBackground ?? null;
+    if (typeof configOrSaveFn === 'function') {
+      this.legacyGetDocument = saveOrGetDocument as () => {
+        document: PersistenceRevision['document'];
+        meta: { fileId?: string; name: string };
+      };
+      this.legacySaveFn = configOrSaveFn;
+      this.saveFn = async (_revision, json) => this.legacySaveFn?.(json) ?? false;
+      this.cfg = { ...DEFAULTS, ...(scheduleOrConfig as Partial<AutoSaveConfig> | undefined) };
+      this.scheduleBackground = legacySchedule ?? null;
+    } else {
+      this.legacyGetDocument = null;
+      this.legacySaveFn = null;
+      this.saveFn = saveOrGetDocument as (
+        revision: AutoSaveRevision,
+        json: string,
+      ) => Promise<boolean>;
+      this.cfg = { ...DEFAULTS, ...configOrSaveFn };
+      this.scheduleBackground = (scheduleOrConfig as BackgroundSchedule | undefined) ?? null;
+    }
   }
+
+  private readonly saveFn: (revision: AutoSaveRevision, json: string) => Promise<boolean>;
+  private readonly scheduleBackground: BackgroundSchedule | null;
 
   get lastSavedAt(): number | null {
     return this._lastSavedAt;
@@ -63,7 +108,7 @@ export class AutoSaveService {
   }
 
   start(): void {
-    if (this.intervalId !== null) return;
+    if (this.disposed || this.intervalId !== null) return;
     this.intervalId = setInterval(() => this.check(), 1000);
   }
 
@@ -72,85 +117,196 @@ export class AutoSaveService {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
+    this.saveQueued = false;
+  }
+
+  /** Stop scheduling and prevent queued/late callbacks from doing work. */
+  async dispose(): Promise<void> {
+    if (this.disposed) {
+      await this.inFlight;
+      return;
+    }
+    this.disposed = true;
+    this.disposeEpoch++;
+    this.stop();
+    await this.inFlight;
+    this.pending.clear();
+    this.lastEditAt.clear();
   }
 
   updateConfig(cfg: Partial<AutoSaveConfig>): void {
+    if (this.disposed) return;
     this.cfg = { ...this.cfg, ...cfg };
   }
 
   onStateChange(callback: AutoSaveStateCallback): () => void {
     this.stateCallbacks.add(callback);
-    return () => {
-      this.stateCallbacks.delete(callback);
-    };
+    return () => this.stateCallbacks.delete(callback);
   }
 
+  setOnSaveRecovery(fn: ((revision: AutoSaveRevision) => Promise<void>) | null): void;
+  /** @deprecated Compatibility overload for pre-revision recovery callbacks. */
   setOnSaveRecovery(
-    fn: ((doc: Document, meta: { fileId?: string; name: string }) => Promise<void>) | null,
+    fn:
+      | ((
+          document: PersistenceRevision['document'],
+          meta: { fileId?: string; name: string },
+        ) => Promise<void>)
+      | null,
+  ): void;
+  setOnSaveRecovery(
+    fn:
+      | ((revision: AutoSaveRevision) => Promise<void>)
+      | ((
+          document: PersistenceRevision['document'],
+          meta: { fileId?: string; name: string },
+        ) => Promise<void>)
+      | null,
   ): void {
-    this.onSaveRecovery = fn;
+    if (fn === null) {
+      this.onSaveRecovery = null;
+      return;
+    }
+    this.onSaveRecovery = this.legacyGetDocument
+      ? async (revision) =>
+          (
+            fn as (
+              document: PersistenceRevision['document'],
+              meta: { fileId?: string; name: string },
+            ) => Promise<void>
+          )(revision.document, { fileId: revision.fileId, name: revision.fileName })
+      : (fn as (revision: AutoSaveRevision) => Promise<void>);
   }
 
-  notifyEdit(): void {
-    this.dirty = true;
-    this.lastEditAt = Date.now();
+  /** Register the newest immutable revision for one editor session. */
+  notifyEdit(revision?: AutoSaveRevision): void {
+    if (this.disposed) return;
+    if (!revision && this.legacyGetDocument) {
+      const current = this.legacyGetDocument();
+      revision = createPersistenceRevision({
+        sessionId: current.meta.fileId ?? 'legacy-session',
+        projectId: current.meta.fileId ?? 'legacy-session',
+        fileId: current.meta.fileId,
+        fileName: current.meta.name,
+        revision: Date.now(),
+        document: current.document,
+        capturedAt: Date.now(),
+      });
+      // The compatibility path intentionally keeps the old codec contract;
+      // all production callers use the shared revision materializer.
+      const legacyDocument = current.document;
+      revision = { ...revision, materialize: () => JSON.stringify(legacyDocument) };
+    }
+    if (!revision) return;
+    this.pending.set(revision.sessionId, revision);
+    this.lastEditAt.set(revision.sessionId, revision.capturedAt);
   }
 
-  async saveNow(): Promise<boolean> {
-    this.saveQueued = false;
-    if (this._state === 'saving') return false;
+  /** Explicit save acknowledgement; only the exact revision may be removed. */
+  acknowledgeSaved(sessionId: string, token: string): void {
+    const current = this.pending.get(sessionId);
+    if (current?.token === token) {
+      this.pending.delete(sessionId);
+      this.lastSavedAtBySession.set(sessionId, Date.now());
+    }
+  }
+
+  discardSession(sessionId: string): void {
+    this.pending.delete(sessionId);
+    this.lastEditAt.delete(sessionId);
+    this.lastSavedAtBySession.delete(sessionId);
+  }
+
+  /**
+   * Save one session or all currently pending sessions immediately. Automatic
+   * work still enters through the background frame lane.
+   */
+  async saveNow(sessionId?: string): Promise<boolean> {
+    if (this.disposed || this._state === 'saving') return false;
+    const revisions = sessionId
+      ? [this.pending.get(sessionId)].filter((revision): revision is AutoSaveRevision => !!revision)
+      : [...this.pending.values()];
+    if (revisions.length === 0) return false;
+
+    const epoch = this.disposeEpoch;
+    const run = this.saveRevisions(revisions, epoch);
+    this.inFlight = run;
+    try {
+      return await run;
+    } finally {
+      if (this.inFlight === run) this.inFlight = null;
+    }
+  }
+
+  private async saveRevisions(revisions: AutoSaveRevision[], epoch: number): Promise<boolean> {
     this.setState('saving');
-    let attempts = 0;
+    let allSucceeded = true;
     const maxAttempts = Math.max(1, this.cfg.maxSaveRetries);
-    while (attempts < maxAttempts) {
-      attempts++;
-      try {
-        const { document, meta } = this.getDocument();
-        const json = serializeDocument({ ...document });
-        const ok = await this.saveFn(json);
-        if (ok) {
-          this._lastSavedAt = Date.now();
-          this.dirty = false;
-          this.setState('idle');
-          // Create recovery point after successful save
-          if (this.onSaveRecovery) {
-            try {
-              await this.onSaveRecovery(document, meta);
-            } catch {
-              // Recovery point failure should not block the save
-            }
-          }
-          return true;
+
+    for (const revision of revisions) {
+      if (this.disposed || epoch !== this.disposeEpoch) return false;
+      let succeeded = false;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        if (this.disposed || epoch !== this.disposeEpoch) return false;
+        try {
+          // Materialization is memoized on the revision. A retry or a second
+          // persistence service therefore never repeats the document walk.
+          const json = revision.materialize();
+          succeeded = await this.saveFn(revision, json);
+          if (succeeded) break;
+        } catch {
+          // Keep the revision pending for the next interval/manual retry.
         }
-      } catch {
-        // will retry
+        if (this.disposed || epoch !== this.disposeEpoch) return false;
+      }
+      if (!succeeded) {
+        allSucceeded = false;
+        continue;
+      }
+
+      this._lastSavedAt = Date.now();
+      this.lastSavedAtBySession.set(revision.sessionId, this._lastSavedAt);
+      if (this.pending.get(revision.sessionId)?.token === revision.token) {
+        this.pending.delete(revision.sessionId);
+      }
+      if (this.onSaveRecovery && !this.disposed && epoch === this.disposeEpoch) {
+        try {
+          await this.onSaveRecovery(revision);
+        } catch {
+          // Recovery is best-effort and must not turn a successful save into
+          // a retry of the document write.
+        }
       }
     }
-    this.setState('error');
-    return false;
+
+    this.setState(allSucceeded ? 'idle' : 'error');
+    return allSucceeded;
   }
 
-  private setState(s: AutoSaveState): void {
-    this._state = s;
-    for (const cb of this.stateCallbacks) {
-      cb(s, this._lastSavedAt);
-    }
+  private setState(state: AutoSaveState): void {
+    if (this.disposed) return;
+    this._state = state;
+    for (const callback of this.stateCallbacks) callback(state, this._lastSavedAt);
   }
 
   private check(): void {
-    if (!this.dirty) return;
-    if (this._state === 'saving') return;
+    if (this.disposed || this.pending.size === 0 || this._state === 'saving') return;
     const now = Date.now();
-    const idleMs = now - this.lastEditAt;
-    if (idleMs < this.cfg.idleThresholdMs) return;
-    const sinceLastSave =
-      this._lastSavedAt !== null ? now - this._lastSavedAt : this.cfg.intervalMs;
-    if (sinceLastSave < this.cfg.intervalMs) return;
-    if (this.saveQueued) return;
+    const due = [...this.pending.values()].filter((revision) => {
+      const lastEdit = this.lastEditAt.get(revision.sessionId) ?? revision.capturedAt;
+      const lastSave = this.lastSavedAtBySession.get(revision.sessionId);
+      return (
+        now - lastEdit >= this.cfg.idleThresholdMs &&
+        (lastSave === undefined || now - lastSave >= this.cfg.intervalMs)
+      );
+    });
+    if (due.length === 0 || this.saveQueued) return;
+
     this.saveQueued = true;
+    const epoch = this.disposeEpoch;
     const run = () => {
       this.saveQueued = false;
-      if (!this.dirty) return;
+      if (this.disposed || epoch !== this.disposeEpoch) return;
       void this.saveNow();
     };
     if (this.scheduleBackground) this.scheduleBackground(run);

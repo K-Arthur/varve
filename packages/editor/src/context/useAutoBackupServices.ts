@@ -1,15 +1,19 @@
 import { type Platform, upsertPreservingMeta } from '@varve/platform';
-import type { Document } from '@varve/scene';
 import { useEffect, useRef } from 'react';
 import { AutoSaveService } from '../autoSaveService';
 import { BackupService } from '../backupService';
 import { loadSettings as loadUiSettings } from '../components/Settings/settings';
-import { createEditorFrameKey, requestEditorFrame } from '../performance/editorFrameRuntime';
+import {
+  cancelEditorFrame,
+  createEditorFrameKey,
+  requestEditorFrame,
+} from '../performance/editorFrameRuntime';
 import {
   type LockManagerLike,
   shouldSkipStaleWrite,
   withDocumentWriteLock,
 } from '../persistence/crossTabWrite';
+import type { PersistenceRevision } from '../persistence/documentRevision';
 import { getSharedRecoveryManager, type RecoveryManager } from '../recovery';
 import type { EditorState } from './types';
 
@@ -29,7 +33,7 @@ export interface AutoBackupServices {
  */
 export function useAutoBackupServices(
   platform: Platform | undefined,
-  stateRef: React.MutableRefObject<EditorState>,
+  _stateRef: React.MutableRefObject<EditorState>,
   enabled = true,
 ): AutoBackupServices {
   const recoveryRef = useRef<RecoveryManager | null>(null);
@@ -46,21 +50,11 @@ export function useAutoBackupServices(
     autoSaveFrameKeyRef.current ??= createEditorFrameKey('persistence:autosave');
     const uiSettings = loadUiSettings();
     autoSaveRef.current = new AutoSaveService(
-      () => {
-        const s = stateRef.current;
-        const meta = s.sessions.find((sess) => sess.id === s.activeId);
-        return {
-          document: s.document,
-          meta: { fileId: meta?.fileId, name: meta?.name ?? 'Untitled' },
-        };
-      },
-      async (json) => {
+      async (revision: PersistenceRevision, json) => {
         if (!platform) return false;
-        const s = stateRef.current;
-        const meta = s.sessions.find((sess) => sess.id === s.activeId);
         try {
-          if (meta?.fileId) {
-            const fileId = meta.fileId;
+          if (revision.fileId) {
+            const fileId = revision.fileId;
             const locks =
               typeof navigator === 'undefined'
                 ? undefined
@@ -80,14 +74,13 @@ export function useAutoBackupServices(
                 }
                 return false;
               }
-              await upsertPreservingMeta(platform, fileId, meta.name, json);
+              await upsertPreservingMeta(platform, fileId, revision.fileName, json);
               lastWrittenAtRef.current.set(fileId, Date.now());
               return true;
             });
           }
           // Untitled document: persist as recovery point so work is never lost
-          const doc = JSON.parse(json) as Document;
-          await recoveryRef.current?.createRecoveryPoint(doc, meta?.name ?? 'Untitled');
+          await recoveryRef.current?.createRecoveryPoint(revision.document, revision.fileName);
           return true;
         } catch {
           return false;
@@ -100,12 +93,16 @@ export function useAutoBackupServices(
         else job();
       },
     );
-    autoSaveRef.current.setOnSaveRecovery(async (doc, meta) => {
+    autoSaveRef.current.setOnSaveRecovery(async (revision) => {
       // saveFn already persisted an untitled document as a recovery point.
       // Writing a second point here duplicated a full-document write (and
       // consumed two cap slots) on every autosave cycle.
-      if (!meta.fileId) return;
-      await recoveryRef.current?.createRecoveryPoint(doc, meta.name, meta.fileId);
+      if (!revision.fileId) return;
+      await recoveryRef.current?.createRecoveryPoint(
+        revision.document,
+        revision.fileName,
+        revision.fileId,
+      );
     });
     autoSaveRef.current.start();
   }
@@ -125,7 +122,9 @@ export function useAutoBackupServices(
   /** Teardown auto-save + backup on unmount. */
   useEffect(() => {
     return () => {
-      autoSaveRef.current?.stop();
+      if (autoSaveFrameKeyRef.current) cancelEditorFrame(autoSaveFrameKeyRef.current);
+      if (backupFrameKeyRef.current) cancelEditorFrame(backupFrameKeyRef.current);
+      void autoSaveRef.current?.dispose();
       void backupRef.current?.shutdown();
     };
   }, []);

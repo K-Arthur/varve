@@ -11,6 +11,17 @@ import { type Document, DocumentCodec, validateDocument } from '@varve/scene';
 import type { Viewport } from '@varve/shared';
 import { useCallback, useRef } from 'react';
 import { createSaveCoordinator } from '../persistence/saveCoordinator';
+
+export {
+  createPersistenceRevision,
+  getPersistenceFontCatalog,
+  type PersistenceRevision,
+} from '../persistence/documentRevision';
+
+import {
+  getPersistenceFontCatalog,
+  serializeDocumentSnapshot as serializeDocumentSnapshotPure,
+} from '../persistence/documentRevision';
 import { type SaveIntent, type SaveOutcome, saveTargetFromSession } from '../persistence/saveTypes';
 import type { RecoveryManager } from '../recovery';
 import { persistProjectThumbnail } from '../thumbnail/thumbnailManager';
@@ -40,13 +51,7 @@ interface SessionUpdate extends SessionFileMeta {}
  * background persistence lane actually runs.
  */
 export function serializeDocumentSnapshot(doc: Document): string {
-  const { manifest } = attachFontManifestToDocument(
-    { nodes: doc.nodes, styles: doc.styles, fontManifest: doc.fontManifest } as Parameters<
-      typeof attachFontManifestToDocument
-    >[0],
-    createFontCatalogFromRegistry(getFontRegistry()),
-  );
-  return DocumentCodec.encode({ ...doc, fontManifest: manifest });
+  return serializeDocumentSnapshotPure(doc, getPersistenceFontCatalog());
 }
 
 export function usePersistence(
