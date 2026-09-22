@@ -216,7 +216,15 @@ describe('Document Versioning', () => {
         },
       },
     });
-    const guides = migrated?.gridSettings?.layoutGrids?.frame1 ?? [];
+    const gridSettings = migrated?.gridSettings as
+      | {
+          layoutGrids?: Record<
+            string,
+            Array<{ id?: string; layoutMode?: string; alignment?: string }>
+          >;
+        }
+      | undefined;
+    const guides = gridSettings?.layoutGrids?.frame1 ?? [];
     expect(guides).toHaveLength(2);
     expect(guides.map((guide) => guide.layoutMode)).toEqual(['columns', 'rows']);
     expect(guides.map((guide) => guide.id)).toEqual([
