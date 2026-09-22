@@ -66,7 +66,9 @@ import '../../styles/docs-prose.css';
 
         <h3>4. Replay (replayIr)</h3>
         <p>
-          The replay engine draws each RenderItem using Canvas2D calls. This is where the 86fps performance comes from — the replay is deterministic, stateless, and maps directly to canvas API calls:
+          The replay engine draws each RenderItem using Canvas2D calls. This deterministic, stateless
+          fast path maps directly to canvas API calls; its cost depends on the document, effects,
+          renderer, and device rather than implying one universal frame rate:
         </p>
         <ul>
           <li>Apply transform via <code>setTransform()</code></li>
@@ -116,7 +118,11 @@ import '../../styles/docs-prose.css';
           <li>A <strong>sceneHasImageFills</strong> gate keeps image-containing scenes on the main thread (workers can't decode images)</li>
         </ul>
         <p>
-          The render worker includes a <strong>camera fast path</strong>: when the worker bitmap's docVersion matches, the main thread replays the cached bitmap with a compensation transform for the camera delta, achieving smooth 60 fps pan/zoom without a full scene rebuild.
+          The render worker includes a <strong>camera fast path</strong>: when the worker bitmap's
+          docVersion matches, the main thread can reproject the cached bitmap for a camera delta
+          without a full scene rebuild. Admission is synchronous; whenever a fresh worker frame is
+          not guaranteed, the authoritative main-thread replay replaces the reused pixels. Pan and
+          zoom therefore depend on scene complexity, display cadence, and device headroom.
         </p>
       </section>
 

@@ -60,6 +60,21 @@ reference changes.
 - **Primary dev:** CachyOS, Wayland, WebKitGTK 2.52 — WebGPU unavailable in Tauri webview.
 - **WebGPU targets:** macOS 26+ WKWebView, Windows WebView2 (stable), Chromium browser.
 
+## Canvas responsiveness remediation (2026-09-21)
+
+| Workload | Before | After/current | Environment | Confidence | Notes |
+|---|---|---|---|---|---|
+| Dirty registration, 1k nodes | ~10 ms eager encode per mutation | 0 encodes at registration; one lazy encode when due | Node 26 / Vitest characterization, CachyOS Wayland | high for work count; medium for timing | Pure serialization benchmark; not presentation timing |
+| Dirty registration, 5k nodes | ~63–75 ms eager encode | 0 encodes at registration | Same | high for work count | Confirmed main-thread stall removed from the mutation path |
+| Dirty registration, 10k nodes | ~111–148 ms eager encode | 0 encodes at registration | Same | high for work count | Latest immutable revision wins |
+| Automatic persistence | Timer could start codec work during input | Background frame lane; deferred while interaction is active | Browser scheduler unit tests | high | Manual Save/Backup Now remain immediate |
+| Input evidence | Handler-only timestamps; 50-trace ring was final sample set | Trace v3 clock trust + queue-delay distributions; runner drains each iteration | Chromium runner code + unit tests | high for instrumentation contract | 100-warm-sample production run still required |
+
+These rows deliberately do not claim app-wide FPS or latency improvement. A
+valid Chromium production run and a Linux Tauri/WebKitGTK soak must populate
+the input-to-present and queue-delay columns before environment-specific claims
+are published.
+
 ## End-to-end program baseline (2026-07-22)
 
 The measurement audit and raw results are recorded in

@@ -19,7 +19,7 @@ import { sitePath } from '../../lib/siteUrl';
       <section class="feature-section">
         <h2>What It Is</h2>
         <p>
-          Varve's canvas system uses IR-replay architecture: the Rust engine computes the scene and emits a compact intermediate representation (~42 KB/frame for 600 shapes), which the webview replays to canvas2D. A historical Wayland fixture measured 86fps with this approach, compared with 8.5fps for the pixel-pushing comparison; actual performance depends on the document, renderer, and device.
+          Varve's canvas system uses IR-replay architecture: the Rust engine computes the scene and emits a compact intermediate representation (~42 KB/frame for 600 shapes), which the webview replays to canvas2D. A historical Wayland fixture measured 86fps with this approach, compared with 8.5fps for the pixel-pushing comparison; actual performance depends on the document, renderer, and device. That historical comparison is directional evidence, not a universal frame-rate promise.
         </p>
       </section>
 
@@ -48,6 +48,13 @@ import { sitePath } from '../../lib/siteUrl';
           traversal without taking those keys away from object editing or text fields. Finger
           drawing versus one-finger navigation, wheel sensitivity, and the optional mouse-wheel
           continuation are available in the existing Settings panel.
+        </p>
+        <p>
+          Persistence respects the gesture: automatic document snapshots yield to active pointer,
+          wheel, pinch, and keyboard input, then serialize the latest immutable revision on the
+          background lane. Manual Save and Backup Now remain immediate. Responsiveness figures are
+          qualified by fixture, renderer, display cadence, and device rather than presented as a
+          guarantee for every document.
         </p>
         <p class="responsive-contract__evidence">
           This contract is exercised by the canvas browser regressions and documented in the <a href="https://github.com/K-Arthur/varve/blob/main/docs/audits/canvas-responsiveness-2026-09-08.md">canvas responsiveness audit</a>. Performance figures remain fixture-specific rather than a promise for every document or device.

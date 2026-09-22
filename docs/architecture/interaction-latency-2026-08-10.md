@@ -316,3 +316,22 @@ New Playwright E2E tests:
   selection overlay responsiveness
 - `overlay-alignment.spec.ts`: visual regression tests for selection
   overlay at different zoom levels and handle visibility
+
+## Follow-up pass (2026-09-21) — persistence ownership and trace schema v3
+
+Automatic persistence now belongs to the background frame lane. A dirty edit
+captures an immutable document revision and replaces the pending revision in
+constant time; font-manifest attachment and `DocumentCodec.encode` run once,
+when the revision is due, after the interaction settles. Manual Save, Backup
+Now, restore, and named snapshots remain synchronous from the caller's point of
+view. A failed lazy serialization stays dirty for retry, and an older
+automatic completion cannot clear a newer dirty revision.
+
+The interaction trace schema is v3. Trace starts prefer a trusted DOM event
+timestamp and record its source; queue delay is captured for pointer, wheel,
+keyboard, touch pinch, and WebKit gesture paths where clocks correlate. Native
+bridge samples are explicitly handler-origin when no cross-clock timestamp is
+available. Slow-capture classification includes queue delay, and the bounded
+production runner drains the ring after each iteration so distributions can be
+aggregated beyond the 50-entry browser retention cap. Missing presentation is
+instrumentation failure, never a zero-latency sample.

@@ -110,6 +110,21 @@ correlated frame total. Empty distributions retain a zero `count` and `null`
 percentiles, so missing presentation evidence cannot be reported as zero
 latency.
 
+The runner drains `window.__varvePerf.interactions.getTraces(50)` after every
+measured iteration and replaces earlier copies by trace id. This keeps browser
+retention bounded while allowing a production result to aggregate at least 100
+warm samples. Each result preserves the trace schema version, timestamp source,
+trusted/untrusted clock counts, initial/max/span queue delay, frame disposition,
+missing-presentation count, runtime/build/fixture checksum, and machine-validity
+classification. A canvas-changing workload with a trace that has no caused,
+coalesced, or reused presented frame is an instrumentation error, not a zero.
+
+Trace schema v3 prefers a trusted DOM event timestamp and falls back to the
+handler's `performance.now()` clock when the event clock cannot be correlated.
+Native bridge gesture samples are explicitly handler-origin. Queue delay is
+evidence for attribution and slow-capture classification; it is not a product
+feature that depends on Chromium Long Animation Frame diagnostics.
+
 ```bash
 node scripts/perf/run-production-workload.mjs --fixture=vector-1k \
     --workloads=single-drag,nudge,zoom --out=results.json
