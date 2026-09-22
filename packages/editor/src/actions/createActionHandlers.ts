@@ -1013,6 +1013,18 @@ export function createActionHandlers(
     import: () => cb.onImportFile?.(),
     quickConvert: () => cb.onQuickConvert?.(),
     openGuideLayouts: () => cb.onOpenGuideLayouts?.(),
+    openPageGuideLayouts: () =>
+      window.dispatchEvent(
+        new CustomEvent('varve:open-guide-layouts', { detail: { target: 'page' } }),
+      ),
+    openMasterGuideLayouts: () =>
+      window.dispatchEvent(
+        new CustomEvent('varve:open-guide-layouts', { detail: { target: 'master' } }),
+      ),
+    openDocumentGuideLayouts: () =>
+      window.dispatchEvent(
+        new CustomEvent('varve:open-guide-layouts', { detail: { target: 'document' } }),
+      ),
     save: () => e.save(),
     saveAs: () => e.saveAs(),
     saveCopy: () => e.saveCopy(),

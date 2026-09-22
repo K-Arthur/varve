@@ -1013,6 +1013,19 @@ function buildMenus(
               action: 'openGuideLayouts',
             },
             {
+              label: 'Page Guide Layouts…',
+              action: 'openPageGuideLayouts',
+            },
+            {
+              label: 'Master Guide Layouts…',
+              action: 'openMasterGuideLayouts',
+              disabled: !currentPageMasterId,
+            },
+            {
+              label: 'Document Guide Defaults…',
+              action: 'openDocumentGuideLayouts',
+            },
+            {
               label: 'Lock All Guides',
               shortcut: shortcutText('lockAllGuides'),
               ariaKeyshortcut: ks('lockAllGuides'),
@@ -1677,6 +1690,16 @@ function buildMenus(
           action: 'detachMaster',
           disabled: dis('detachMaster'),
         },
+        { label: '---' },
+        {
+          label: 'Page Guide Layouts…',
+          action: 'openPageGuideLayouts',
+        },
+        {
+          label: 'Master Guide Layouts…',
+          action: 'openMasterGuideLayouts',
+          disabled: !currentPageMasterId,
+        },
       ],
     },
     {
@@ -2313,6 +2336,21 @@ export function Menubar({
           return;
         case 'openGuideLayouts':
           window.dispatchEvent(new Event('varve:open-guide-layouts'));
+          return;
+        case 'openPageGuideLayouts':
+          window.dispatchEvent(
+            new CustomEvent('varve:open-guide-layouts', { detail: { target: 'page' } }),
+          );
+          return;
+        case 'openMasterGuideLayouts':
+          window.dispatchEvent(
+            new CustomEvent('varve:open-guide-layouts', { detail: { target: 'master' } }),
+          );
+          return;
+        case 'openDocumentGuideLayouts':
+          window.dispatchEvent(
+            new CustomEvent('varve:open-guide-layouts', { detail: { target: 'document' } }),
+          );
           return;
         case 'present':
           startPresentation();

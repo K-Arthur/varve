@@ -1038,6 +1038,27 @@ export function getViewMenu(
       run: () => runAction('openGuideLayouts'),
     },
     {
+      id: 'openPageGuideLayouts',
+      labelKey: 'menu.view.openPageGuideLayouts',
+      kind: 'command',
+      group: 'guides',
+      run: () => runAction('openPageGuideLayouts'),
+    },
+    {
+      id: 'openMasterGuideLayouts',
+      labelKey: 'menu.view.openMasterGuideLayouts',
+      kind: 'command',
+      group: 'guides',
+      run: () => runAction('openMasterGuideLayouts'),
+    },
+    {
+      id: 'openDocumentGuideLayouts',
+      labelKey: 'menu.view.openDocumentGuideLayouts',
+      kind: 'command',
+      group: 'guides',
+      run: () => runAction('openDocumentGuideLayouts'),
+    },
+    {
       id: 'toggleMarqueeContainment',
       labelKey: 'menu.view.toggleMarqueeContainment',
       kind: 'command',
