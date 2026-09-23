@@ -96,13 +96,13 @@ function listToHtml(lines: string[]): string {
       if (current) current += '</p><p>';
     } else if (current) {
       // Continuation of previous item (soft-wrapped line)
-      current += ' ' + inlineMd(trimmed);
+      current += ` ${inlineMd(trimmed)}`;
     }
   }
   if (current) items.push(current);
 
   if (items.length === 0) return '';
-  return '<ul>\n' + items.map((item) => `  <li>${item}</li>`).join('\n') + '\n</ul>';
+  return `<ul>\n${items.map((item) => `  <li>${item}</li>`).join('\n')}\n</ul>`;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -251,5 +251,5 @@ export function parseChangelogFile(repoRoot?: string): ChangelogRelease[] {
     }
   }
 
-  throw new Error('Could not find CHANGELOG.md. Searched: ' + candidates.join(', '));
+  throw new Error(`Could not find CHANGELOG.md. Searched: ${candidates.join(', ')}`);
 }
