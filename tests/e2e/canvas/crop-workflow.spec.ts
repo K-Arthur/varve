@@ -51,20 +51,25 @@ test.describe('Image crop workflow — trim, expand, convert, reset', () => {
     await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
   });
 
-  test('Fit mode segmented control in Image Placement changes image fit', async ({ page }) => {
+  test('Fit mode select in the Fill section changes image fit', async ({ page }) => {
     test.setTimeout(60000);
     await importImageFile(page, 'test-image.png');
     await selectImageNode(page);
     await page.getByRole('treeitem').first().click();
     await page.waitForTimeout(300);
 
-    const placement = page
-      .locator('.insp-disclosure')
-      .filter({ has: page.getByRole('button', { name: 'Image Placement', exact: true }) });
-    await placement.scrollIntoViewIfNeeded();
-    const fillBtn = placement.getByRole('radio', { name: 'Fill', exact: true });
-    await fillBtn.click();
-    await expect(fillBtn).toHaveAttribute('aria-checked', 'true');
+    const fillSection = page.locator('.insp-disclosure[data-section-id="fills"]');
+    await fillSection.scrollIntoViewIfNeeded();
+    const fillSectionToggle = fillSection.getByRole('button', { name: 'Fill', exact: true });
+    if ((await fillSectionToggle.getAttribute('aria-expanded')) === 'false') {
+      await fillSectionToggle.click();
+    }
+
+    const fitMode = fillSection.getByRole('combobox', { name: 'Image fit mode' });
+    await expect(fitMode).toBeVisible();
+    await fitMode.click();
+    await page.getByRole('option', { name: 'Fit', exact: true }).click();
+    await expect(fitMode).toHaveText('Fit');
   });
 
   test('Trim to Subject button is visible for image with mask', async ({ page }) => {

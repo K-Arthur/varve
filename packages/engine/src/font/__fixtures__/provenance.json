@@ -50,10 +50,7 @@
     "packageVersion": "2.1.5-2",
     "file": "liberation-collection/liberation-sans-serif.ttc",
     "license": "liberation-collection/LICENSE",
-    "derivedFrom": [
-      "LiberationSans-Regular.ttf",
-      "LiberationSerif-Regular.ttf"
-    ],
+    "derivedFrom": ["LiberationSans-Regular.ttf", "LiberationSerif-Regular.ttf"],
     "sha256": "0ea773b2354098ccac1972147993c4d52c6b3cd1338e8bd56ebd0f5cbcd3eefd",
     "expected": {
       "format": "ttc",

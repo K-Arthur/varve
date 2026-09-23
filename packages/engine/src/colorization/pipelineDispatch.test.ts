@@ -178,9 +178,7 @@ describe('dispatchColorization (classical)', () => {
       1,
     );
     const hintsData = new ImageData(
-      new Uint8ClampedArray([
-        255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255,
-      ]),
+      new Uint8ClampedArray([255, 0, 0, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255]),
       5,
       1,
     );

@@ -1,11 +1,6 @@
 /** Shared scene-level ownership and validation for re-editable depth masks. */
 
-import type {
-  DepthMapAsset,
-  DepthMaskRecipe,
-  RasterMaskAsset,
-  SceneNode,
-} from './types';
+import type { DepthMapAsset, DepthMaskRecipe, RasterMaskAsset, SceneNode } from './types';
 
 /**
  * Deliberately structural: this ownership helper is used by document.ts and
@@ -33,10 +28,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 /** Validate intent without decoding the potentially large scalar payload. */
-export function validateDepthMaskRecipe(
-  recipe: unknown,
-  doc: DepthMaskDocument,
-): string | null {
+export function validateDepthMaskRecipe(recipe: unknown, doc: DepthMaskDocument): string | null {
   if (!isObject(recipe)) return 'Depth mask recipe must be an object';
   if (recipe.schemaVersion !== 1) return 'Depth mask recipe schema is unsupported';
   if (typeof recipe.depthMapId !== 'string' || !doc.depthMaps?.[recipe.depthMapId]) {
@@ -111,10 +103,12 @@ export function collectDepthMapIds(doc: { nodes: Record<string, SceneNode> }): S
  * caller controls when pruning occurs; simply saving a document never invokes
  * this helper, so a reusable library resource is not deleted accidentally.
  */
-export function pruneUnreferencedDepthMaps<T extends DepthMaskDocument & {
-  nodes: Record<string, SceneNode>;
-  depthMaps?: Record<string, DepthMapAsset>;
-}>(doc: T): T {
+export function pruneUnreferencedDepthMaps<
+  T extends DepthMaskDocument & {
+    nodes: Record<string, SceneNode>;
+    depthMaps?: Record<string, DepthMapAsset>;
+  },
+>(doc: T): T {
   if (!doc.depthMaps) return doc;
   const references = collectDepthMapIds(doc);
   const depthMaps = Object.fromEntries(

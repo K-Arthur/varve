@@ -227,8 +227,12 @@ lease** keyed by the repository's common git directory, so separate
 worktrees coordinate on the same lock. The lease lives under
 `$XDG_RUNTIME_DIR|/tmp/varve-leases/`, carries owner PID/timestamp, waits
 bounded time (default 10 min), reclaims stale leases (dead PID or >30 min
-old), and never kills unrelated processes. Opt out deliberately with
-`VARVE_HEAVY_TASK_PARALLELISM=0`.
+old), and never kills unrelated processes. Each lease has an owner ID so a
+reclaimed task cannot remove its successor's lock when it eventually exits.
+Opt out deliberately with `VARVE_HEAVY_TASK_PARALLELISM=0`.
+Black-box tests for the lease give child processes a private
+`XDG_RUNTIME_DIR`; otherwise a child launched from a leased full gate would
+wait on the parent process's repository lock.
 
 Playwright runs always use `VARVE_E2E_PORT` (unique port), isolated
 browser profiles, and the per-run output directories — see

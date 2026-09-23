@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 /**
  * Heavy-task lease — cross-worktree coordination for expensive validation.
  *
@@ -30,6 +31,7 @@
  */
 
 import { execSync, spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { freemem, homedir, platform, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -125,6 +127,7 @@ async function acquire(label) {
     if (!lease) {
       const me = {
         pid: process.pid,
+        leaseId: randomUUID(),
         label,
         startedAt: Date.now(),
         hostname: homedir(),
@@ -156,9 +159,11 @@ async function acquire(label) {
   process.exit(1);
 }
 
-function release(path) {
+function release(path, leaseId) {
   try {
-    unlinkSync(path);
+    // A task that outlives STALE_MS may have had its lease reclaimed. It must
+    // not remove the replacement task's lock when it eventually exits.
+    if (leaseId && readLease(path)?.leaseId === leaseId) unlinkSync(path);
   } catch {
     /* already released */
   }
@@ -188,25 +193,25 @@ async function main() {
 
   if (dashIdx === -1) {
     // pure label: acquire + release immediately (lease smoke test)
-    await acquire(args[0] ?? 'unknown');
-    release(lockPath());
+    const lease = await acquire(args[0] ?? 'unknown');
+    release(lockPath(), lease.leaseId);
     return;
   }
 
   const label = args.slice(0, dashIdx).join(' ');
   const rest = args.slice(dashIdx + 1);
-  await acquire(label);
+  const lease = await acquire(label);
   // Re-check right before spawning: the lease wait above may have taken a
   // while, and memory pressure is independent of who holds the lease.
   await waitForMemoryHeadroom(label);
   const child = spawn(rest[0], rest.slice(1), { stdio: 'inherit', shell: false });
   child.on('exit', (code) => {
-    release(lockPath());
+    release(lockPath(), lease.leaseId);
     process.exit(code ?? 1);
   });
   child.on('error', (err) => {
     console.error(`heavy-lease: failed to spawn ${rest[0]}: ${err.message}`);
-    release(lockPath());
+    release(lockPath(), lease.leaseId);
     process.exit(1);
   });
 }
