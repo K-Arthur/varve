@@ -8,5 +8,5 @@
       "@varve/ui": ["../../packages/ui/src"]
     }
   },
-  "exclude": ["dist", "dist-root", "node_modules", "tests"]
+  "exclude": ["dist", "dist-root", "dist-pages", "node_modules", "tests"]
 }

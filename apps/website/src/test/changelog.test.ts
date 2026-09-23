@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type ChangelogRelease, parseChangelog } from '../lib/changelog.js';
+import { parseChangelog } from '../lib/changelog.js';
 
 /* -------------------------------------------------------------------------- */
 /* Test fixtures                                                               */

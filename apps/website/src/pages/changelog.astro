@@ -12,8 +12,6 @@ const currentVersion = release.hasRelease ? release.version : null;
 // Attach release URLs for versions that have corresponding GitHub releases
 const GITHUB_REPO = 'https://github.com/K-Arthur/varve';
 const releaseUrlFor = (v: string) => `${GITHUB_REPO}/releases/tag/v${v}`;
-const latestRelease = releases.find((r) => !r.isUnreleased);
-
 // Show Unreleased section at the top if it has content
 const unreleased = releases.find((r) => r.isUnreleased && r.sections.length > 0);
 // Recent releases: everything except Unreleased (which may or may not have content)

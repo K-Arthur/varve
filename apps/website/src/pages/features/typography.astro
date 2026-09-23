@@ -221,7 +221,7 @@ const fontReplacementFaq = {
             <li>Collection faces with a non-zero face index and COLR/CPAL colour glyphs are refused by the exact outline converter; they are not replaced with a misleading monochrome or placeholder shape</li>
             <li>PDF preflight rasterizes path text, complex/non-Latin text, rich runs, ligature-sensitive strings, explicit features/axes/ranges, tracking, and manual cluster edits through the live renderer. This preserves appearance but loses PDF text searchability for those nodes</li>
             <li>Direct cluster manipulation is intentionally limited around required shaping and likely active standard Latin ligatures; turn Standard ligatures off before moving inside fi, ff, ffi, ffl, or fl</li>
-            <li>Font substitution preserves editability and provenance, but a compatible or category fallback can change text metrics; scoped restore-to-original replacement actions remain under integration</li>
+            <li>Font substitution preserves editability and provenance, but a compatible or category fallback can change text metrics. Document Fonts can preview and restore the recorded original family for the affected exact face and text scope; wrapping, metrics, and overflow can still change</li>
           </ul>
         </div>
       </section>
