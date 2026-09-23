@@ -23,8 +23,10 @@
  *   - values covered by the recorded baseline (existing debt; the ratchet
  *     only turns one way — inflating a baseline bucket fails).
  *
- * Physical `top`/`right`/`bottom`/`left` are deliberately out of scope:
- * overlay and canvas geometry is functional geometry, not rhythm.
+ * Physical offsets (`top`/`right`/`bottom`/`left`, including `inset`
+ * shorthands) are deliberately out of scope: overlay and canvas placement is
+ * functional geometry, not rhythm. Any zero length is also allowed because it
+ * contributes no spacing.
  *
  * Exceptions: annotate the declaration (or the line above it) with
  * `/* audit-spacing: allow <reason> *\/` (CSS) or
@@ -37,6 +39,7 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { extractTsxSpacingDeclarations, SPACING_LONGHANDS } from './spacing-scan.mjs';
 
 const ROOT = process.cwd();
 const BASELINE_PATH = join(ROOT, '.spacing-baseline.json');
@@ -56,6 +59,11 @@ const SOURCE_ROOTS = [
   'apps/website/src/components',
 ];
 
+const CSS_PROPERTY_RE = new RegExp(
+  `(?:^|[;{\\s])(${SPACING_LONGHANDS.join('|')})\\s*:\\s*([^;}]+)`,
+  'g',
+);
+
 /**
  * Stylesheet files are interface styles by definition. `.astro` carries its
  * styles in a `<style>` block, and `.tsx` may carry inline style objects.
@@ -69,63 +77,6 @@ function isScanned(file) {
   if (!file.endsWith('.tsx')) return false;
   return !/(\.stories\.tsx|\.test\.tsx|__tests__|__benchmarks__)/.test(file);
 }
-
-const SPACING_LONGHANDS = [
-  'padding',
-  'padding-inline',
-  'padding-block',
-  'padding-inline-start',
-  'padding-inline-end',
-  'padding-block-start',
-  'padding-block-end',
-  'padding-top',
-  'padding-right',
-  'padding-bottom',
-  'padding-left',
-  'margin',
-  'margin-inline',
-  'margin-block',
-  'margin-inline-start',
-  'margin-inline-end',
-  'margin-block-start',
-  'margin-block-end',
-  'margin-top',
-  'margin-right',
-  'margin-bottom',
-  'margin-left',
-  /* Row and column spacing: the modern `gap` longhands, the legacy grid-gap
-   * aliases still present in older stylesheets, and table/list gutters. */
-  'gap',
-  'row-gap',
-  'column-gap',
-  'grid-gap',
-  'grid-row-gap',
-  'grid-column-gap',
-  'inset',
-  'inset-inline',
-  'inset-block',
-  'inset-inline-start',
-  'inset-inline-end',
-  'inset-block-start',
-  'inset-block-end',
-  'border-spacing',
-  'text-indent',
-  'scroll-margin',
-  'scroll-padding',
-];
-
-function camelCase(property) {
-  return property.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-}
-
-const CSS_PROPERTY_RE = new RegExp(
-  `(?:^|[;{\\s])(${SPACING_LONGHANDS.join('|')})\\s*:\\s*([^;}]+)`,
-  'g',
-);
-const TSX_PROPERTY_RE = new RegExp(
-  `\\b(${SPACING_LONGHANDS.map(camelCase).join('|')})\\s*:\\s*(['"\`]?)([^,;}\\n]*)\\2`,
-  'g',
-);
 
 function walk(dir, out = []) {
   let entries;
@@ -165,7 +116,7 @@ function isAllowedValue(value) {
   const v = value.trim().toLowerCase();
   if (v.length === 0) return true;
   if (
-    /^(0|auto|inherit|initial|unset|revert|normal|none|max-content|min-content|fit-content)$/.test(
+    /^(0(?:[a-z]+|%)?|auto|inherit|initial|unset|revert|normal|none|max-content|min-content|fit-content)$/.test(
       v,
     )
   ) {
@@ -211,7 +162,13 @@ for (const file of files) {
   const raw = readFileSync(file, 'utf8');
   const stripped = stripComments(raw);
   const isTsx = file.endsWith('.tsx');
-  const re = isTsx ? TSX_PROPERTY_RE : CSS_PROPERTY_RE;
+  const declarations = isTsx
+    ? extractTsxSpacingDeclarations(file, raw)
+    : [...stripped.matchAll(CSS_PROPERTY_RE)].map((match) => ({
+        property: match[1],
+        value: match[2] ?? '',
+        index: match.index ?? 0,
+      }));
   const rel = relative(ROOT, file);
   const lines = raw.split('\n');
 
@@ -222,12 +179,11 @@ for (const file of files) {
     fallbacks.push(`${rel}:${line} var(${match[1]}, ${match[2]})`);
   }
 
-  for (const match of stripped.matchAll(re)) {
-    const property = match[1];
-    // For TSX the value is capture group 3 (quotes in group 2).
-    const value = (isTsx ? match[3] : (match[2] ?? '')).trim();
+  for (const declaration of declarations) {
+    const { property, index } = declaration;
+    const value = declaration.value.trim();
     if (isAllowedValue(value)) continue;
-    const line = lineAt(stripped, match.index ?? 0);
+    const line = lineAt(raw, index);
     const context = `${lines[line - 1] ?? ''} ${lines[line - 2] ?? ''}`;
     if (context.includes(ALLOW_MARKER)) {
       annotated.push(`${rel}:${line} ${property}: ${value}`);

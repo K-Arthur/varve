@@ -163,6 +163,12 @@ and paddings *despite tokens being in place*”, with the recommended remedy
 being a small set plus governance that stops the set from growing. That is
 exactly what `audit-spacing` provides.
 
+The audit scans stylesheet declarations and statically authored React `style`
+objects. It does not treat document-model fields such as `marginTop` as CSS.
+Physical placement (`top`/`right`/`bottom`/`left` and `inset` shorthands) is
+functional geometry, and zero lengths contribute no rhythm, so both are outside
+the spacing ratchet.
+
 ## Architecture
 
 The canonical source is [`packages/ui/src/tokens/spacing.ts`](../../packages/ui/src/tokens/spacing.ts).
@@ -227,9 +233,10 @@ general spacing roles.
    `--space-dialog`, `--space-control-group`, `--space-icon-label`,
    `--space-form-field`, `--space-list-row`, `--space-menu-item`,
    `--space-table-cell`). Otherwise use the primitive whose meaning matches.
-3. If nothing fits, ask whether the value is functional geometry (a hit region,
-   an overlay offset, an optical nudge). If it is, keep the raw value and
-   annotate it with `audit-spacing: allow <reason>`.
+3. If nothing fits, ask whether the value is functional geometry (a hit region
+   or optical nudge). Positional offsets are outside the audit; for other
+   intentional one-offs, keep the raw value and annotate it with
+   `audit-spacing: allow <reason>`.
 4. Never add a ladder step for a one-off. Adding a primitive changes every
    consumer’s vocabulary; the ladder is deliberately finite.
 5. Run `pnpm audit:spacing`. If the value is genuine debt, migrate it; the

@@ -23,6 +23,7 @@ import {
 } from '../../scripts/quality/affected-plan.mjs';
 import { REQUIRED_CI_JOBS } from '../../scripts/quality/aggregate-ci.mjs';
 import { auditImpactConfig } from '../../scripts/quality/audit-impact-config.mjs';
+import { extractTsxSpacingDeclarations } from '../../scripts/quality/spacing-scan.mjs';
 import {
   LANES,
   laneArgv,
@@ -64,6 +65,23 @@ function resolveLane(lane) {
   if (lane.startsWith('bench:')) return 'pnpm bench:<domain>';
   return laneCommand(lane) ?? LANES[lane];
 }
+
+describe('spacing audit TSX scanner', () => {
+  it('scans JSX style objects without misclassifying document geometry data', () => {
+    const source = `
+      const pageLayout = { marginTop: 24, margin: [24, 24, 24, 24] };
+      const controlStyle = { gap: 2, padding: 'var(--space-2)' };
+      export function Example() {
+        return <><div style={{ marginTop: '12px', padding: 8, inset: 0 }} /><button style={controlStyle} /></>;
+      }
+    `;
+    const found = extractTsxSpacingDeclarations('fixture.tsx', source)
+      .map(({ property, value }) => `${property}:${value}`)
+      .sort();
+
+    expect(found).toEqual(['gap:2px', 'marginTop:12px', 'padding:8px', 'padding:var(--space-2)']);
+  });
+});
 
 describe('validation infrastructure presence', () => {
   it('exposes the required commands in package.json', () => {
