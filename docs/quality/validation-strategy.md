@@ -212,6 +212,13 @@ Every rule carries a `why` and is audited for staleness
 (`scripts/quality/audit-impact-config.mjs`); the audit fails CI if a rule
 references paths that no longer exist or lanes that are unknown.
 
+Inspector edits also select `audit:inspector-css`, `audit:tokens`, and
+`audit:spacing`; broader interface stylesheet edits select `audit:spacing`
+and `audit:sizing`. Each selected lane must resolve in both the compatibility
+`LANES` map and the CI `laneArgv` executor. The validation-policy tests include
+inspector and interface stylesheet fixtures so local and CI planning cannot
+select an unregistered audit.
+
 ## Multi-agent coordination
 
 Heavy tasks (full vitest, Playwright, cargo workspace tests, desktop

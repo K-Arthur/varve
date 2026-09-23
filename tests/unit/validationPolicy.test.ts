@@ -403,6 +403,11 @@ describe('planner lane -> command resolution (executor contract)', () => {
     ['shared type change', ['packages/shared/src/product.ts']],
     ['canvas renderer change', ['packages/editor/src/canvas/cameraState.ts']],
     ['settings change', ['packages/editor/src/components/Settings/SettingsDialog.tsx']],
+    [
+      'inspector surface change',
+      ['packages/editor/src/components/Inspector/panels/DocumentPanel.tsx'],
+    ],
+    ['interface stylesheet change', ['packages/editor/src/components/SpecPanel/SpecPanel.css']],
     ['keyboard infra change', ['packages/editor/src/shortcuts/ShortcutManager.ts']],
     ['Rust crate change', ['crates/varve-core/src/geom.rs']],
     ['engine render change', ['crates/varve-engine/src/lib.rs']],
@@ -432,6 +437,13 @@ describe('planner lane -> command resolution (executor contract)', () => {
           /undefined/,
         );
       }
+    }
+  });
+
+  it('registers style audits in both local and CI executors', () => {
+    for (const lane of ['audit:spacing', 'audit:sizing']) {
+      expect(laneCommand(lane)).toBe(`pnpm ${lane}`);
+      expect(laneArgv(lane)).toEqual(['pnpm', lane]);
     }
   });
 
