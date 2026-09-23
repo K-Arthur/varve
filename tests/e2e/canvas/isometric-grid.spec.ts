@@ -460,6 +460,12 @@ test.describe('Isometric construction workflow (real editor)', () => {
   test('custom axes survive a preset visit and far zoom keeps major-phase identity', async ({
     page,
   }) => {
+    const historyWarnings: string[] = [];
+    page.on('console', (message) => {
+      if (message.text().includes('updateDoc called outside transaction')) {
+        historyWarnings.push(message.text());
+      }
+    });
     await enterIsometricWorkspace(page);
     await openIsometricInspector(page);
 
@@ -469,6 +475,12 @@ test.describe('Isometric construction workflow (real editor)', () => {
     const axisAngle = page.getByRole('spinbutton', { name: /axis 1 angle/i });
     await axisAngle.fill('26.56505117707799');
     await axisAngle.blur();
+    await expect
+      .poll(async () => (await grid(page)).families[0]!.angleDeg)
+      .toBeCloseTo(26.56505117707799, 6);
+    await page.keyboard.press('Control+z');
+    await expect.poll(async () => (await grid(page)).families[0]!.angleDeg).toBeCloseTo(30, 6);
+    await page.keyboard.press('Control+Shift+z');
     await expect
       .poll(async () => (await grid(page)).families[0]!.angleDeg)
       .toBeCloseTo(26.56505117707799, 6);
@@ -490,6 +502,7 @@ test.describe('Isometric construction workflow (real editor)', () => {
     await page.keyboard.press('End');
     await page.keyboard.type('5');
     await expect(axisAngle).toBeFocused();
+    await axisAngle.blur();
 
     // Zoom far out and in; the visible major lines keep an integer authored
     // phase (checked by reading the rendered overlay's path endpoints through
@@ -503,5 +516,6 @@ test.describe('Isometric construction workflow (real editor)', () => {
     await expect(page.locator('.document-grid-overlay path').first()).toBeVisible();
 
     await page.screenshot({ path: `${REVIEW_DIR}/07-custom-and-zoom.png`, fullPage: false });
+    expect(historyWarnings).toEqual([]);
   });
 });

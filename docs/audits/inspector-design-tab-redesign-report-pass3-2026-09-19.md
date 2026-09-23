@@ -216,6 +216,10 @@ add fixtures.
   typed Enter/blur commit still bypasses persistent capture. A follow-up
   should route `setDocumentGrid` through a transaction like the other
   Inspector operations; it needs its own history-semantics validation.
+- **Resolution update — 2026-09-23:** document-grid, isometric-grid, and active-plane setters
+  now open a transaction when needed, while preserving an enclosing NumberField or focused
+  numeric edit transaction. The real-editor isometric workflow checks a single-step undo/redo,
+  focus retention, and the absence of the history fallback warning.
 - **Non-Inspector uppercase surfaces remain** (out of scope by ownership):
   `editor.css` `.insp-panel__score-issue-cat` (Audit tab),
   LayersPanel (`layers.css`, `layerStatesSection.css`),

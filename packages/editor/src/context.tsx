@@ -2598,6 +2598,21 @@ const PROTO_NOOP: import('./context/PrototypeContext').PrototypeContextValue = {
   selectPrototypeInteraction: () => {},
 };
 
+function withOwnedDocumentTransaction(
+  transactionRef: { current: boolean },
+  beginTransaction: () => void,
+  commitTransaction: () => void,
+  mutate: () => void,
+): void {
+  const ownsTransaction = !transactionRef.current;
+  if (ownsTransaction) beginTransaction();
+  try {
+    mutate();
+  } finally {
+    if (ownsTransaction) commitTransaction();
+  }
+}
+
 export function EditorProvider({
   children,
   onBackToHome,
@@ -8673,18 +8688,22 @@ export function EditorProvider({
         if (next === current.document) return;
         const acceptedGrid = next.gridSettings?.documentGrid;
         if (!acceptedGrid) return;
-        updateDoc(() => next);
-        patch({ documentGrid: acceptedGrid, snapGrid: acceptedGrid.spacingX });
-        persistViewportPrefs({
-          ...current,
-          documentGrid: acceptedGrid,
-          snapGrid: acceptedGrid.spacingX,
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc(() => next);
+          patch({ documentGrid: acceptedGrid, snapGrid: acceptedGrid.spacingX });
+          persistViewportPrefs({
+            ...current,
+            documentGrid: acceptedGrid,
+            snapGrid: acceptedGrid.spacingX,
+          });
         });
       },
       setIsometricGrid: (grid: import('@varve/scene').IsometricGrid) => {
         const g = { ...grid, id: grid.id ?? 'grid-isometric-default', type: 'isometric' as const };
-        updateDoc((doc) => sceneSetIsometricGrid(doc, g.id, g));
-        patch({ isometricGrid: g });
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => sceneSetIsometricGrid(doc, g.id, g));
+          patch({ isometricGrid: g });
+        });
       },
       setActiveIsometricPlane: (planeId) => {
         const current = stateRef.current;
@@ -8695,8 +8714,10 @@ export function EditorProvider({
           type: 'isometric' as const,
           activePlaneId: planeId,
         };
-        updateDoc((doc) => sceneSetIsometricGrid(doc, g.id, g));
-        patch({ isometricGrid: g });
+        withOwnedDocumentTransaction(inTransactionRef, beginTransaction, commitTransaction, () => {
+          updateDoc((doc) => sceneSetIsometricGrid(doc, g.id, g));
+          patch({ isometricGrid: g });
+        });
       },
       fitSelectionToPlane: (planeId, options) => {
         const current = stateRef.current;

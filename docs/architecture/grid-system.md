@@ -123,6 +123,9 @@ baseline grids, and isometric construction. They never move authored content.
 - Grid visibility authored in the document is a normal undoable edit; the transient overlay
   mode toggle (`Alt+Shift+I`) is view state and never enters history. Display visibility and
   snapping remain independent (`visible` draws, `snapEnabled` snaps).
+- Document-grid and isometric-grid setters own an edit transaction when the caller has not
+  already opened one. Inspector number entry keeps the transaction open for the full focused
+  edit, so typing creates one undo step and does not use the history fallback path.
 - `IsometricAxis.spacing` is deprecated and inert: per-family line spacing is derived from the
   basis, and an independent authored value could make the three families disagree.
 

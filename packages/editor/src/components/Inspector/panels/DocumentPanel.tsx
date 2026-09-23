@@ -23,7 +23,7 @@ import {
   resolveBlendEvaluationSpace,
 } from '@varve/shared';
 import { Select, Switch } from '@varve/ui';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import {
   DEFAULT_VIEWPORT_SETTINGS,
@@ -618,6 +618,7 @@ export function DocumentPanel() {
                 max="360"
                 step="15"
                 value={((state.documentGrid.rotation ?? 0) * 180) / Math.PI}
+                onFocus={() => beginTransaction()}
                 onChange={(e) => {
                   const value = parseFloat(e.target.value);
                   if (!Number.isNaN(value)) {
@@ -627,6 +628,7 @@ export function DocumentPanel() {
                     });
                   }
                 }}
+                onBlur={commitTransaction}
                 className="insp-num__input"
                 aria-label={`Grid rotation ${Math.round(((state.documentGrid.rotation ?? 0) * 180) / Math.PI)} degrees`}
               />
@@ -665,6 +667,8 @@ function IsometricGridSection() {
     state,
     setIsometricGrid,
     setActiveIsometricPlane,
+    beginTransaction,
+    commitTransaction,
     fitSelectionToPlane,
     createIsometricGridArtwork,
     documentColorMode,
@@ -673,6 +677,16 @@ function IsometricGridSection() {
   const presetId = grid.preset;
   const selectionCount = state.selection.length;
   const [ratioInput, setRatioInput] = useState('');
+  const axisKeys = useRef(new WeakMap<IsometricAxis, string>());
+  const nextAxisKey = useRef(0);
+  const getAxisKey = useCallback((axis: IsometricAxis) => {
+    let key = axisKeys.current.get(axis);
+    if (!key) {
+      key = `isometric-axis-${nextAxisKey.current++}`;
+      axisKeys.current.set(axis, key);
+    }
+    return key;
+  }, []);
   const activePlaneForCommands: IsometricPlaneId | null =
     grid.activePlaneId && grid.activePlaneId !== 'none' ? grid.activePlaneId : null;
 
@@ -687,10 +701,15 @@ function IsometricGridSection() {
 
   const updateAxis = useCallback(
     (index: number, patch: Partial<IsometricAxis>) => {
-      const nextAxes = grid.axes.map((a, i) => (i === index ? { ...a, ...patch } : a));
+      const nextAxes = grid.axes.map((axis, i) => {
+        if (i !== index) return axis;
+        const updated = { ...axis, ...patch };
+        axisKeys.current.set(updated, getAxisKey(axis));
+        return updated;
+      });
       updateGrid({ axes: nextAxes, customAxes: nextAxes, preset: 'custom' });
     },
-    [grid.axes, updateGrid],
+    [getAxisKey, grid.axes, updateGrid],
   );
 
   const addAxis = useCallback(() => {
@@ -898,7 +917,7 @@ function IsometricGridSection() {
         {presetId === 'custom' && (
           <>
             {grid.axes.map((axis, index) => (
-              <div key={`axis-${index}`} className="insp-field insp-iso-axis-row">
+              <div key={getAxisKey(axis)} className="insp-field insp-iso-axis-row">
                 <span className="insp-field__label">{axis.label ?? `Axis ${index + 1}`}</span>
                 <div className="insp-field__control insp-field__control--column">
                   <div className="insp-iso-axis-line">
@@ -909,11 +928,15 @@ function IsometricGridSection() {
                       max="360"
                       step="0.1"
                       value={axis.angle}
+                      onFocus={() => beginTransaction()}
                       onChange={(e) => {
                         const v = parseFloat(e.target.value);
                         if (!Number.isNaN(v)) updateAxis(index, { angle: v });
                       }}
-                      onBlur={() => updateAxis(index, { angle: normaliseAngle(axis.angle) })}
+                      onBlur={() => {
+                        updateAxis(index, { angle: normaliseAngle(axis.angle) });
+                        commitTransaction();
+                      }}
                       className="insp-num__input insp-iso-axis-input"
                       aria-label={`Axis ${index + 1} angle ${axis.angle} degrees`}
                     />
