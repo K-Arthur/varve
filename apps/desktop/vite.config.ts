@@ -2,8 +2,8 @@ import { existsSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs
 import { join } from 'node:path';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
-import pkg from './package.json';
-import { injectDemoSeo } from './src/demo/demoSeo';
+import pkg from './package.json' with { type: 'json' };
+import { injectDemoSeo } from './src/demo/demoSeo.ts';
 
 /**
  * Dev-only plugin: serve ort-wasm files directly from public/ort-wasm/ without Vite transform.

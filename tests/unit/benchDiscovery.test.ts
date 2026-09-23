@@ -20,7 +20,7 @@ import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import benchConfig from '../../vitest.bench.config';
-import config from '../../vitest.config';
+import config from '../../vitest.config.mts';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 

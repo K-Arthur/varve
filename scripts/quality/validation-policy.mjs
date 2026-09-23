@@ -55,7 +55,7 @@ export const POLICY_FILES = [
   'playwright.website.config.ts',
   'playwright-onboarding.config.ts',
   'playwright.e2e-verify.config.ts',
-  'vitest.config.ts',
+  'vitest.config.mts',
   'vitest.bench.config.ts',
   'vitest.setup.ts',
   'vitest.mocks.ts',

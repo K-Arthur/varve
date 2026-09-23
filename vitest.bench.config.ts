@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config';
-import baseConfig from './vitest.config';
+import baseConfig from './vitest.config.mts';
 
 // Dedicated bench config. The main config excludes `**/*.bench.ts` so bench
 // files never run inside `pnpm test` (AGENTS.md: "excludes .bench.ts — run
@@ -62,7 +62,7 @@ export default defineConfig({
     projects: [
       {
         // Standalone, mirroring the main config's jsdom project (see
-        // vitest.config.ts for why `extends` is avoided there).
+        // vitest.config.mts for why `extends` is avoided there).
         test: {
           name: 'jsdom',
           environment: 'jsdom',

@@ -60,7 +60,7 @@ export const IMPACT_CONFIG = {
     'Cargo.toml',
     'Cargo.lock',
     'rustfmt.toml',
-    'vitest.config.ts',
+    'vitest.config.mts',
     'vitest.bench.config.ts',
     'vitest.setup.ts',
     'vitest.mocks.ts',

@@ -304,7 +304,7 @@ describe('validation infrastructure presence', () => {
   });
 
   it('worktrees are excluded from test discovery', () => {
-    const vitest = readFileSync(join(ROOT, 'vitest.config.ts'), 'utf-8');
+    const vitest = readFileSync(join(ROOT, 'vitest.config.mts'), 'utf-8');
     expect(vitest).toMatch(/\.worktrees/);
   });
 });
@@ -374,7 +374,7 @@ describe('planner fixture classes', () => {
   });
 
   it('root vitest config -> escalates to full', () => {
-    const plan = buildPlan(['vitest.config.ts']);
+    const plan = buildPlan(['vitest.config.mts']);
     expect(plan.full).toBe(true);
   });
 
