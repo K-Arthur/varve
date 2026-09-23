@@ -22,6 +22,7 @@ export function ButtonGroup({
   ...rest
 }: ButtonGroupProps) {
   return (
+    // biome-ignore lint/a11y/useSemanticElements: ButtonGroup also groups action buttons; a fieldset would imply a form relationship.
     <div
       {...rest}
       className={`varve-btn-group varve-btn-group--${orientation} ${className}`.trim()}

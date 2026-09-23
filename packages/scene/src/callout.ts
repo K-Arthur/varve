@@ -1056,7 +1056,7 @@ function updateTailSetting(
   if (!group) return doc;
   const tails = calloutTails(group);
   const tail = tails.find((candidate) => candidate.nodeIds.includes(tailId));
-  if (!tail || tail.style !== 'pointed') return doc;
+  if (tail?.style !== 'pointed') return doc;
   const nextTail: CalloutTail = { ...tail, ...patch };
   const body = doc.nodes[group.callout.bodyNodeId];
   const nodeId = tail.nodeIds[0];

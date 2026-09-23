@@ -18,10 +18,6 @@
   margin-block-end: var(--space-5);
 }
 
-.docs-page .breadcrumb a {
-  color: var(--text-secondary);
-}
-
 .docs-page h1 {
   color: var(--text-primary);
   font-family: var(--type-display-page-family);
@@ -105,6 +101,10 @@
 
 .docs-section a {
   color: var(--text-link);
+}
+
+.docs-page .breadcrumb a {
+  color: var(--text-secondary);
 }
 
 .docs-section strong {

@@ -63,7 +63,6 @@ export function PromptDialogProvider() {
     <dialog
       ref={dialogRef}
       className="varve-dialog"
-      role="dialog"
       aria-labelledby="home-prompt-title"
       onClose={handleCancel}
     >

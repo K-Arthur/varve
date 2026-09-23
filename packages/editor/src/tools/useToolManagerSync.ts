@@ -120,7 +120,7 @@ export function useToolManagerSync(
     perspective.setCommitHandler((ps) => {
       editor.updateDoc((doc) => {
         const node = doc.nodes[ps.nodeId];
-        if (!node || node.kind !== 'shape') return doc;
+        if (node?.kind !== 'shape') return doc;
         const fills = node.fills ?? [];
         const imgFill = fills.find((f) => f.type === 'image' && f.image);
         if (!imgFill) return doc;

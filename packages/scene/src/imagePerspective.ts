@@ -57,7 +57,7 @@ export function perspectiveQuadToEngineQuad(quad: PerspectiveQuad): Quad {
  * folded quads are rejected so rendering never receives corrupted geometry.
  */
 export function isPerspectiveQuadValid(quad: PerspectiveQuad | undefined): boolean {
-  if (!quad || quad.length !== 4) return false;
+  if (quad?.length !== 4) return false;
   for (const p of quad) {
     if (!Array.isArray(p) || p.length !== 2 || !Number.isFinite(p[0]) || !Number.isFinite(p[1])) {
       return false;

@@ -50,6 +50,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .varve-sortable-item {
+    /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override Sortable's inline transition. */
     transition: none !important;
   }
 }

@@ -731,6 +731,7 @@ export function AlignDistributeBar() {
                   buttons (`aria-pressed`), so the container is a `group`:
                   a `radiogroup` may contain only radios (same ownership rule
                   fixed for the workspace dock). */}
+            {/* biome-ignore lint/a11y/useSemanticElements: aria-pressed action buttons use a named APG group; fieldset would add form semantics. */}
             <div className="insp-align-targets" role="group" aria-label="Alignment reference">
               <Tooltip
                 label={

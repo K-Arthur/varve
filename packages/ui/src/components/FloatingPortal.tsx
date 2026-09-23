@@ -663,6 +663,7 @@ export function FloatingPortal({
 
   return createPortal(
     <OverlayParentContext.Provider value={overlayId}>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: the handler only coordinates Tab exit from the portaled panel; keyboard activation stays on child controls. */}
       <div
         ref={floatingRef}
         id={id}

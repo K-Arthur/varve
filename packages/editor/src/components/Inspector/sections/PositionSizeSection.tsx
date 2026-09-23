@@ -568,6 +568,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           onShiftClick={() => editor.setBindingField('rotation')}
         />
         <TooltipProvider>
+          {/* biome-ignore lint/a11y/useSemanticElements: flip buttons are named transform actions, not form fields. */}
           <div className="insp-flip-group" role="group" aria-label="Transform controls">
             <Tooltip label="Flip horizontally">
               <button

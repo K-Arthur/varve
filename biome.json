@@ -12,6 +12,7 @@
       "**/*.mjs",
       "!apps/desktop/public/models/manifest.json",
       "!apps/desktop/public/models/siglip-tokenizer.json",
+      "!packages/engine/src/font/fontsource-catalog.json",
       "!packaging/flatpak/*.json"
     ]
   },

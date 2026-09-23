@@ -100,13 +100,13 @@ export function SelectionSetsSection() {
         )}
       </div>
       {!collapsed && (
-        <div className="selection-sets__list" role="list" aria-label="Selection sets">
+        <ul className="selection-sets__list" aria-label="Selection sets">
           {sets.map((set) => {
             const isEditing = editingId === set.id;
             const memberCount = setMembership.get(set.id) ?? 0;
             const totalCount = set.nodeIds.length;
             return (
-              <div key={set.id} className="selection-sets__item" role="listitem">
+              <li key={set.id} className="selection-sets__item">
                 {isEditing ? (
                   <input
                     type="text"
@@ -205,10 +205,10 @@ export function SelectionSetsSection() {
                     </button>
                   </Tooltip>
                 </div>
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
     </div>
   );

@@ -237,11 +237,12 @@ function summarize(
       caseTop1IoU = top1;
     }
 
-    const bucket = (perCategory[set.category] ??= {
+    const bucket = perCategory[set.category] ?? {
       cases: 0,
       meanTop1IoU: null,
       top1AcceptableRate: 0,
-    });
+    };
+    perCategory[set.category] = bucket;
     bucket.cases += 1;
     if (caseTop1IoU !== null) {
       bucket.meanTop1IoU =

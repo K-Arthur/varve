@@ -227,6 +227,7 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
               onChange={setPendingSourceId}
             />
           )}
+          {/* biome-ignore lint/a11y/useSemanticElements: named group contains mask-creation actions, not form fields. */}
           <div className="insp-mask-add__actions" role="group" aria-label="Add mask">
             {isVisualLeaf ? (
               <Tooltip label="Editable vector path that clips this layer">
@@ -421,6 +422,7 @@ export function MaskSection({ nodes, sectionId }: { nodes: SceneNode[]; sectionI
 
           {supportsFillRule && (
             <FieldRow label="Fill rule">
+              {/* biome-ignore lint/a11y/useSemanticElements: aria-pressed fill-rule buttons use a named action group, not form fields. */}
               <div className="varve-segmented" role="group" aria-label="Fill rule">
                 <Tooltip label="Nonzero winding rule: determines interior by winding direction">
                   <button

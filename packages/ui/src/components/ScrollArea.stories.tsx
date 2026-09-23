@@ -14,6 +14,12 @@ const meta: Meta<typeof ScrollArea> = {
 export default meta;
 type Story = StoryObj<typeof ScrollArea>;
 
+const createStoryItems = (count: number, prefix: string) =>
+  Array.from({ length: count }, (_, index) => ({
+    id: `${prefix}-${index + 1}`,
+    number: index + 1,
+  }));
+
 /* ── Basic orientations ──────────────────────────────────── */
 
 export const Vertical: Story = {
@@ -59,16 +65,15 @@ export const BothAxes: Story = {
   render: (args) => (
     <ScrollArea {...args} style={{ blockSize: '16rem', inlineSize: '16rem' }}>
       <div style={{ padding: 'var(--space-3)', minWidth: '30rem', minHeight: '30rem' }}>
-        {Array.from({ length: 40 }, (_, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: static grid
+        {createStoryItems(40, 'grid-row').map((row) => (
           <div
-            key={i}
+            key={row.id}
             style={{
               padding: 'var(--space-1)',
               borderBlockEnd: '1px solid var(--color-border-subtle)',
             }}
           >
-            Row {i + 1} — wide content to force both axes
+            Row {row.number} — wide content to force both axes
           </div>
         ))}
       </div>
@@ -188,35 +193,32 @@ export const WideTable: Story = {
       <table style={{ width: '40rem', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
         <thead>
           <tr style={{ position: 'sticky', top: 0, background: 'var(--color-surface-raised)' }}>
-            {Array.from({ length: 10 }, (_, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: static headers
+            {createStoryItems(10, 'column').map((column) => (
               <th
-                key={i}
+                key={column.id}
                 style={{
                   padding: 'var(--space-1) var(--space-2)',
                   border: '1px solid var(--color-border-subtle)',
                   textAlign: 'left',
                 }}
               >
-                Column {i + 1}
+                Column {column.number}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {Array.from({ length: 15 }, (_, row) => (
-            // biome-ignore lint/suspicious/noArrayIndexKey: static rows
-            <tr key={row}>
-              {Array.from({ length: 10 }, (_, col) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: static cells
+          {createStoryItems(15, 'row').map((row) => (
+            <tr key={row.id}>
+              {createStoryItems(10, `${row.id}-cell`).map((cell) => (
                 <td
-                  key={col}
+                  key={cell.id}
                   style={{
                     padding: 'var(--space-1) var(--space-2)',
                     border: '1px solid var(--color-border-subtle)',
                   }}
                 >
-                  R{row + 1}C{col + 1}
+                  R{row.number}C{cell.number}
                 </td>
               ))}
             </tr>
@@ -241,10 +243,9 @@ export const HorizontalMediaStrip: Story = {
           inlineSize: 'max-content',
         }}
       >
-        {Array.from({ length: 8 }, (_, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: static gallery items
+        {createStoryItems(8, 'frame').map((frame) => (
           <div
-            key={i}
+            key={frame.id}
             style={{
               inlineSize: '8rem',
               blockSize: '6rem',
@@ -258,7 +259,7 @@ export const HorizontalMediaStrip: Story = {
               flexShrink: 0,
             }}
           >
-            Frame {i + 1}
+            Frame {frame.number}
           </div>
         ))}
       </div>
@@ -291,16 +292,15 @@ export const DynamicContent: Story = {
         </div>
         <ScrollArea orientation="vertical" viewportProps={{ tabIndex: 0 }}>
           <div style={{ padding: 'var(--space-2)' }}>
-            {Array.from({ length: count }, (_, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: dynamic list
+            {createStoryItems(count, 'item').map((item) => (
               <div
-                key={i}
+                key={item.id}
                 style={{
                   padding: 'var(--space-1)',
                   borderBlockEnd: '1px solid var(--color-border-subtle)',
                 }}
               >
-                Item {i + 1}
+                Item {item.number}
               </div>
             ))}
             {count === 0 && (
@@ -338,10 +338,9 @@ export const NestedScrolling: Story = {
         Outer scrolls vertically, inner scrolls horizontally
       </div>
       <ScrollArea orientation="vertical" style={{ flex: 1 }}>
-        {Array.from({ length: 10 }, (_, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: static rows
+        {createStoryItems(10, 'nested-row').map((row) => (
           <div
-            key={i}
+            key={row.id}
             style={{
               padding: 'var(--space-2)',
               borderBlockEnd: '1px solid var(--color-border-subtle)',
@@ -354,7 +353,7 @@ export const NestedScrolling: Story = {
                 marginBottom: 'var(--space-1)',
               }}
             >
-              Row {i + 1}
+              Row {row.number}
             </div>
             <ScrollArea orientation="horizontal" style={{ blockSize: '2rem' }}>
               <div
@@ -365,10 +364,9 @@ export const NestedScrolling: Story = {
                   padding: 'var(--space-1)',
                 }}
               >
-                {Array.from({ length: 8 }, (_, j) => (
-                  // biome-ignore lint/suspicious/noArrayIndexKey: static cells
-                  <span key={j} style={{ fontSize: '0.625rem', whiteSpace: 'nowrap' }}>
-                    Cell {i + 1}-{j + 1}
+                {createStoryItems(8, `${row.id}-cell`).map((cell) => (
+                  <span key={cell.id} style={{ fontSize: '0.625rem', whiteSpace: 'nowrap' }}>
+                    Cell {row.number}-{cell.number}
                   </span>
                 ))}
               </div>

@@ -159,10 +159,18 @@ function CropGuides({
       className="crop-overlay__guides"
       viewBox={`0 0 ${width} ${height}`}
       style={{ width, height }}
-      aria-hidden
+      aria-hidden="true"
     >
-      {lines.map((l, i) => (
-        <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={stroke} strokeWidth={sw} />
+      {lines.map((line) => (
+        <line
+          key={`${line.x1}:${line.y1}:${line.x2}:${line.y2}`}
+          x1={line.x1}
+          y1={line.y1}
+          x2={line.x2}
+          y2={line.y2}
+          stroke={stroke}
+          strokeWidth={sw}
+        />
       ))}
     </svg>
   );
@@ -222,6 +230,7 @@ function CropRadioGroup<T extends string>({
   return (
     <div ref={groupRef} className="crop-toolbar__group" role="radiogroup" aria-label={label}>
       {options.map((option, index) => (
+        // biome-ignore lint/a11y/useSemanticElements: APG radiogroup uses custom button chrome with roving focus and arrow-key selection.
         <button
           key={option.value}
           type="button"

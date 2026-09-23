@@ -197,7 +197,6 @@ function renderSelectedSection(
   let ctx: ReturnType<typeof useEditor> | undefined;
   function Harness() {
     ctx = useEditor();
-    // biome-ignore lint/correctness/useExhaustiveDependencies: select once on mount
     React.useEffect(() => {
       ctx?.setSelection(node.id);
     }, []);

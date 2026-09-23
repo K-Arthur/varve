@@ -1,8 +1,4 @@
-import {
-  ellipseLineWidthProfile,
-  resolveTextGeometry,
-  setTextAdvanceMeasurer,
-} from '@varve/shared';
+import { resolveTextGeometry, setTextAdvanceMeasurer } from '@varve/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildTextLayoutSnapshot } from './textLayoutSnapshot';
 import type { ShapedRun, TextShaping } from './types';
@@ -78,7 +74,7 @@ function sharedLineTexts(text: string, w: number, h: number): string[] {
   }).lines.map((line) => line.text.trimEnd());
 }
 
-function engineLineTexts(text: string, w: number, h: number): string[] {
+function engineLineTexts(text: string, w: number): string[] {
   const snapshot = buildTextLayoutSnapshot(text, makeShaping(text), {
     maxWidth: w,
     wrapShape: 'ellipse',
@@ -129,19 +125,19 @@ describe('balloon contour wrapping parity (shared geometry vs engine paint)', ()
     installMonospaceMeasurer();
     const text =
       'Wait for me at the station. If the lights go out, take the east stairs and do not look back.';
-    expect(engineLineTexts(text, 200, 160)).toEqual(sharedLineTexts(text, 200, 160));
+    expect(engineLineTexts(text, 200)).toEqual(sharedLineTexts(text, 200, 160));
   });
 
   it('agrees on a short paragraph where the profile barely bites', () => {
     installMonospaceMeasurer();
     const text = 'No, that is not what I meant at all.';
-    expect(engineLineTexts(text, 240, 200)).toEqual(sharedLineTexts(text, 240, 200));
+    expect(engineLineTexts(text, 240)).toEqual(sharedLineTexts(text, 240, 200));
   });
 
   it('agrees when a localized replacement expands the same balloon', () => {
     installMonospaceMeasurer();
     const text =
       'Nein, das habe ich überhaupt nicht so gemeint — ich wollte nur sichergehen, dass wir uns verstehen.';
-    expect(engineLineTexts(text, 220, 180)).toEqual(sharedLineTexts(text, 220, 180));
+    expect(engineLineTexts(text, 220)).toEqual(sharedLineTexts(text, 220, 180));
   });
 });

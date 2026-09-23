@@ -318,6 +318,7 @@ export function LayerFilterBar({
       )}
 
       {quickFilters.length > 0 && (
+        // biome-ignore lint/a11y/useSemanticElements: named workspace filter toggles are buttons, not form fields.
         <div className="layers-filter-bar__quick" role="group" aria-label="Workspace filters">
           {quickFilters.map((preset) => {
             const key = QUICK_FILTER_TARGET[preset];

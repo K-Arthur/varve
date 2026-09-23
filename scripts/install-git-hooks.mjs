@@ -35,7 +35,7 @@ function git(root, args) {
  * Only files carrying our own header are removed — a contributor's unrelated
  * hook is never touched.
  */
-export function removeStaleCopies(root, gitDir) {
+export function removeStaleCopies(gitDir) {
   const removed = [];
   for (const hook of OWNED_HOOKS) {
     const stale = join(gitDir, 'hooks', hook);
@@ -80,7 +80,7 @@ export function installHooks(root, { log = console.log } = {}) {
   // so stale copies are cleaned up from wherever they actually live.
   const gitDirOut = git(root, ['rev-parse', '--absolute-git-dir']);
   if (gitDirOut.status === 0 && gitDirOut.stdout) {
-    for (const stale of removeStaleCopies(root, gitDirOut.stdout)) {
+    for (const stale of removeStaleCopies(gitDirOut.stdout)) {
       log(`install-git-hooks: removed stale copy ${stale}`);
       changed = true;
     }
