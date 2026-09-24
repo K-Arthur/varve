@@ -38,6 +38,19 @@ The pinned compatibility set is `@wdio/tauri-service` 1.3.0 with
 an optional manual diagnostic on Linux and Windows; it is not the canonical
 cross-platform native test provider.
 
+The test overlay (`apps/desktop/src-tauri/tauri.test.conf.json`) repeats
+`build.frontendDist: "../dist"` deliberately. Tauri configuration overlays
+are merged by the CLI, and omitting the asset root can leave the embedded
+WebDriver server alive while its first window remains `about:blank`; the Tauri
+globals alone are not proof that the frontend booted. The desktop compatibility
+test guards this setting. The overlay also uses a WDIO-specific application
+identifier, keeping native test font and document data out of the installed
+Varve profile.
+
+For Linux touchpad event diagnostics, set `VARVE_TRACE_INPUT=1` before starting
+the debug app. This opts into one widget-tree dump and non-motion GDK event
+logging; normal sessions do not attach those diagnostic event handlers.
+
 ## Linux
 
 CachyOS and Arch:

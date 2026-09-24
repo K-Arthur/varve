@@ -228,6 +228,7 @@ export function useCanvasInputs({
   const nativeGestureRef = useRef<{
     worldAnchor: [number, number];
     baseZoom: number;
+    clientAnchor: [number, number];
   } | null>(null);
   const nativeGestureEditorInteractionOpen = useRef(false);
   const nativeFactorInteractionEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1214,6 +1215,7 @@ export function useCanvasInputs({
       nativeGestureRef.current = {
         worldAnchor: [anchor[0], anchor[1]],
         baseZoom: Number.isFinite(s.zoom) ? clampZoom(s.zoom) : 1,
+        clientAnchor: [point.x, point.y],
       };
       return true;
     };
@@ -1316,6 +1318,21 @@ export function useCanvasInputs({
       endInteractionIfKind('pinch');
       clearViewportAnchor();
     };
+    const onGestureCancel = (e: Event) => {
+      const gesture = nativeGestureRef.current;
+      if (gesture) {
+        refreshCanvasRect?.();
+        setViewportAnchor(gesture.clientAnchor[0], gesture.clientAnchor[1]);
+        placeWorldAnchorAtClientPoint(
+          gesture.worldAnchor,
+          gesture.clientAnchor[0],
+          gesture.clientAnchor[1],
+          gesture.baseZoom,
+        );
+        markInteractionCanvasChanged();
+      }
+      onGestureEnd(e);
+    };
 
     const trackPointer = (e: PointerEvent) => {
       lastPointer = { x: e.clientX, y: e.clientY };
@@ -1331,10 +1348,10 @@ export function useCanvasInputs({
 
     /**
      * WebKitGTK performs no pinch zoom of its own and no wheel or DOM gesture
-     * event ever reaches this page for the gesture — the desktop shell's raw
-     * touchpad pinch is recognized by a native GtkGestureZoom attached to the
-     * webview, which re-emits the gesture here as a structured stream:
-     * `{ phase: 'begin'|'update'|'end', scale, x, y }`. `scale` is cumulative
+     * event ever reaches this page for the gesture — the desktop shell handles
+     * native GDK TouchpadPinch events on the WebKitGTK webview and re-emits the
+     * gesture here as a structured stream:
+     * `{ phase: 'begin'|'update'|'end'|'cancel', scale, x, y }`. `scale` is cumulative
      * since begin, and `x`/`y` are webview-local CSS pixels for the gesture
      * centre, so the update semantics are identical to the macOS WebKit
      * `gesturechange` stream above and reuse the same handlers.
@@ -1412,7 +1429,14 @@ export function useCanvasInputs({
               // gesture unless the pointer was last seen on the canvas (a
               // gesture that began before any pointer movement still zooms,
               // mirroring the `pointerInside === null` contract below).
-              if (pointerInside === false) return;
+              if (pointerInside === false) {
+                if (action.phase === 'cancel' && nativeGestureRef.current) {
+                  onGestureCancel(pinchBridgeEvent(action.x, action.y, 1));
+                } else if (action.phase === 'end' && nativeGestureRef.current) {
+                  onGestureEnd(pinchBridgeEvent(action.x, action.y, 1));
+                }
+                return;
+              }
               cancelWheelInertiaRef.current?.();
               const scale = action.phase === 'update' ? action.scale : 1;
               if (action.phase === 'begin') {
@@ -1420,6 +1444,9 @@ export function useCanvasInputs({
               } else if (action.phase === 'update') {
                 if (!nativeGestureRef.current) return;
                 onGestureChange(pinchBridgeEvent(action.x, action.y, scale));
+              } else if (action.phase === 'cancel') {
+                if (!nativeGestureRef.current) return;
+                onGestureCancel(pinchBridgeEvent(action.x, action.y, 1));
               } else if (nativeGestureRef.current) {
                 onGestureEnd(pinchBridgeEvent(action.x, action.y, 1));
               }

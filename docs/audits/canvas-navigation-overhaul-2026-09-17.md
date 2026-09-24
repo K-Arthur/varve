@@ -1,5 +1,14 @@
 # Canvas navigation overhaul record — 2026-09-17
 
+Current implementation note (2026-09-24): the initial `GtkGestureZoom`
+approach was removed because it did not recognize touchpad pinches inside
+Tauri. The active Linux route enables GDK's touchpad gesture event mask on the
+WebKit widget tree and handles `TouchpadPinch` events directly. It forwards
+`begin/update/end/cancel`, maps the event's root coordinates into webview-local
+coordinates, and restores the starting camera on cancellation. The catch-all
+event tracer is opt-in with `VARVE_TRACE_INPUT=1`. Physical trackpad validation
+on Linux Wayland remains pending.
+
 Status: implementation checkpoint on `master`. Covers the WebKitGTK pinch
 route, middle-button navigation, wheel-classifier lifetime, and the input
 diagnostics debug surface. Companion to the canonical
@@ -25,9 +34,10 @@ WebKitGTK 2.52.6:
 - The installed `libwebkit2gtk-4.1.so.0.21.10` exposes only
   `ViewGestureController` (macOS-style swipe/magnification) symbols — no zoom
   gesture controller.
-- GTK3 therefore delivers the KWin `wp_pointer_gestures` pinch stream to the
-  webview widget, nobody handles it, and it dies. `zoom_level` never changes,
-  so the old bridge never fired.
+- GTK3 does not deliver KWin's `wp_pointer_gestures` pinch stream to a widget
+  unless its GDK window opts into `GDK_TOUCHPAD_GESTURE_MASK`. The WebKitGTK
+  widget tree had not enabled that mask, so no webview handler received the
+  event. `zoom_level` also never changed, so the old bridge never fired.
 
 Result: trackpad pinch did nothing in the desktop shell. The 2026-09-13
 record had marked this route "device-pending"; this session resolved it as
@@ -37,8 +47,8 @@ record had marked this route "device-pending"; this session resolved it as
 
 | # | Change | Files |
 |---|---|---|
-| 1 | **Primary pinch arm (Linux)**: attach a `GtkGestureZoom` to the webview inside `with_webview`; forward `begin/update/end` + cumulative scale + gesture-centre (webview-local CSS px) as a structured `canvas://pinch-zoom` payload. GTK 3.24+ routes touchpad pinch through `GtkGesture`, and nothing else claims it, so this observes the raw stream WebKit ignores. | `apps/desktop/src-tauri/src/lib.rs`, `apps/desktop/src-tauri/Cargo.toml` (direct `gtk = "0.18"` matching the locked webkit2gtk family) |
-| 2 | **Fallback arm corrected**: where a WebKit build *does* page-zoom on pinch, `zoom_level` is cumulative within a gesture; the old code emitted it raw, so the frontend would compound `zoom ×= level` per notify (explosive overshoot). Now emits a per-notify **delta** against a per-gesture baseline, resets the baseline after a 250 ms quiet period, resets to 1.0 after our own page-zoom restore, and is suppressed while the `GtkGestureZoom` arm owns the gesture (no double-apply in any world). | `apps/desktop/src-tauri/src/lib.rs` |
+| 1 | **Primary pinch arm (Linux)**: opt the WebKit widget tree and top-level window into `TOUCHPAD_GESTURE_MASK`, then handle GDK `TouchpadPinch` events directly inside `with_webview`. Forward phase, cumulative scale, and the gesture point mapped from root coordinates into webview-local CSS pixels. | `apps/desktop/src-tauri/src/lib.rs`, `apps/desktop/src-tauri/Cargo.toml` (`gtk = "0.18"`, matching the GTK3/WebKitGTK family) |
+| 2 | **Fallback arm corrected**: where a WebKit build *does* page-zoom on pinch, `zoom_level` is cumulative within a gesture; the old code emitted it raw, so the frontend would compound `zoom ×= level` per notify (explosive overshoot). Now emits a per-notify **delta** against a per-gesture baseline, resets the baseline after a 250 ms quiet period, resets to 1.0 after our own page-zoom restore, and is suppressed while the direct GDK gesture is active. | `apps/desktop/src-tauri/src/lib.rs` |
 | 3 | **Frontend bridge contract**: the structured gesture stream now reuses the macOS `gesturestart/change/end` handlers verbatim (one semantic path: world anchor captured at begin, `placeWorldPointAtScreen` as the centroid moves). Payload validation extracted to a pure module. | `packages/editor/src/canvas/pinchBridge.ts` (new), `packages/editor/src/canvas/inputPipeline.ts` |
 | 4 | **Middle-button pan (any tool)**: ToolManager routes button 1 to the Hand tool when another tool is active — the Figma/Illustrator convention. Previously middle-drag with Select active did nothing (SelectTool rejects `button > 0`; the pipeline only preventDefaulted autoscroll). Escape/blur/pointercancel/momentum flow through the Hand tool's ordinary lifecycle; the user's tool selection never changes. | `packages/editor/src/tools/ToolManager.ts` |
 | 5 | **Classifier lifetime**: the sequence-aware wheel classifier was created inside the wheel `useEffect` and silently reset on every rebind (tools re-render → effect deps change), discarding mid-gesture burst evidence and potentially toggling inertia mid-flick. Now lives in a ref, same lifetime rule as pointer ownership. | `packages/editor/src/canvas/inputPipeline.ts` |
@@ -48,16 +58,16 @@ record had marked this route "device-pending"; this session resolved it as
 ## Decision log (evidence-based)
 
 ```text
-Decision: WebKitGTK pinch is delivered by a GtkGestureZoom attached to the
-webview, not by intercepting WebKit page zoom.
+Decision: handle GDK `TouchpadPinch` events directly after opting the WebKit
+widget windows into the matching event mask; keep page-zoom delta handling as
+a guarded compatibility fallback.
 Evidence: WebKitGTK 2.52.6 has no pinch-to-zoom implementation (source tree +
-installed library verified); GTK 3.24+ routes touchpad pinch through
-GtkGesture; gtk-rs exposes safe GestureZoom bindings (no unsafe, per
-workspace policy).
-Alternative considered: keep waiting on zoom_level notify.
-Why rejected: the notify never fires on this WebKit — dead code; and GDK's
-raw pinch stream carries more information (phase, centre) than a page-zoom
-level.
+installed library verified); GTK3 requires `GDK_TOUCHPAD_GESTURE_MASK` on
+the receiving GDK window; the WebKit widget tree did not set it, and
+`GtkGestureZoom` did not recognize the stream inside Tauri.
+Alternative considered: a `GtkGestureZoom` attached to the webview.
+Why rejected: it did not recognize touchpad pinches in Tauri. Handling the
+GDK event directly preserves phase, cumulative scale, and gesture position.
 Varve-specific reason: the desktop shell must zoom the artwork, not the page;
 the canvas already has a moving-anchor pinch implementation to reuse.
 Validation method: cargo check/clippy/test; unit-tested payload contract
@@ -97,7 +107,8 @@ reliable. Revisit if operator feedback asks for it.
 ## Validation
 
 - `cargo check` / `cargo clippy` / `cargo test --lib` (varve-desktop):
-  clean; 128/128 tests pass. No new warnings in the pinch block.
+  clean at the original implementation checkpoint; the 2026-09-24 rerun
+  passed `cargo fmt --check` and all 130/130 desktop library tests.
 - `tsc --noEmit -p packages/editor`: navigation modules clean. 47 pre-existing
   errors remain in files owned by concurrent sessions (Menubar, Inspector
   sections, component tests) — untouched by this slice.
@@ -112,6 +123,36 @@ reliable. Revisit if operator feedback asks for it.
   Chromium touch-pinch pipeline zooms the canvas about the anchor (2.48×
   observed for a 2× request, drift < 1 px) — that route exercises Varve's
   touch pointer pinch, not ctrl+wheel.
+- Current native-bridge regression run (2026-09-24): frontend input-pipeline
+  and pinch-bridge unit tests passed 17/17; Tauri library tests passed 130/130;
+  `cargo fmt --check` passed. These checks compile and exercise the bridge
+  contract, but do not replace the pending physical Linux trackpad run.
+
+## Direct-handler attempt and corrected diagnosis (2026-09-19 to 2026-09-24)
+
+An earlier trace suggested that `TouchpadPinch` events reached the webview,
+leading to the diagnosis that only `GtkGestureZoom` recognition failed under
+Tauri. That conclusion was premature: a later fresh-app probe established
+that the WebKit widget tree had not enabled `GDK_TOUCHPAD_GESTURE_MASK`, so
+GTK did not deliver the pinch stream to its handlers. The plain-GTK probe had
+the mask enabled and therefore did not match the Tauri setup.
+
+The final route opts every current widget in the WebKit subtree and the
+toplevel window into `TOUCHPAD_GESTURE_MASK`, then handles
+`GdkEventTouchpadPinch` in the webview's `::event` handler. It forwards
+`begin/update/end/cancel` and cumulative scale. The event's root coordinates
+are translated into the webview's local coordinate system because GDK event
+coordinates belong to the window that received the event, which can be a
+descendant surface. The frontend reuses the macOS world-anchor behavior;
+cancellation restores the camera to the gesture's starting anchor. The
+handler stops the event from propagating into WebKit, and the `zoom_level`
+compatibility fallback is suppressed while the direct gesture is active.
+The coordinate contract follows the GDK [`EventTouchpadPinch`](https://docs.gtk.org/gdk3/struct.EventTouchpadPinch.html)
+fields and GTK's [`translate_coordinates`](https://docs.gtk.org/gtk3/method.Widget.translate_coordinates.html)
+mapping between widget allocations.
+
+First-pinch confirmation line in `varve.log`:
+`touchpad pinch handled directly from TouchpadPinch events`.
 
 ## Follow-up (2026-09-19): why pinch was still dead on the operator's machine
 
@@ -127,23 +168,19 @@ primary dev machine. Two independent causes, both fixed:
    dead: the old frontend ignores the new `{phase,…}` payloads. Launching
    raw cargo binaries requires rebuilding the dist (`beforeBuildCommand`'s
    `pnpm build`, or at minimum `vite build`) *before* `cargo build`.
-2. **GTK3 never delivered touchpad-pinch events to the webview at all.** In
-   GTK3, touchpad gesture events reach a widget only when its GDK event mask
-   includes `GDK_TOUCHPAD_GESTURE_MASK`. Nothing in the wry/WebKitGTK stack
-   sets it — which is exactly why the pinch died silently twice: WebKit
-   never saw it (no page zoom, the original bridge premise), and the
-   `GtkGestureZoom` attached in the first fix never recognized it either.
-   The webview now opts in via `add_events(gtk::gdk::EventMask::TOUCHPAD_GESTURE_MASK)`
-   before the gesture is attached, and the first recognized pinch writes
-   `touchpad pinch recognized by GtkGestureZoom` to `varve.log` so the
-   delivery chain is observable on real hardware.
+2. **GTK3 did not deliver touchpad-pinch events to the webview.** In GTK3,
+   touchpad gesture events reach a widget only when its GDK event mask includes
+   `GDK_TOUCHPAD_GESTURE_MASK`. The bridge now opts the webview subtree and
+   toplevel window in recursively, and the direct handler writes
+   `touchpad pinch handled directly from TouchpadPinch events` on the first
+   recognized pinch so the delivery path is observable on real hardware.
 
 Verified: fresh dist build (vite), fresh `cargo build` (both fixes embedded —
 native log string present in the binary, dist bundle contains the bridge and
 `__varveInputDiagnostics`), and a clean isolated-data smoke launch. Physical
-trackpad confirmation remains the manual lane; if the pinch still fails after
-this, the native log will show whether the gesture reached GTK at all
-(no log line ⇒ KWin → GDK delivery, not Varve).
+trackpad confirmation remains the manual lane; after the handler log appears,
+`window.__varveInputDiagnostics.enable()` → pinch over canvas → `export()`
+confirms the frontend gesture path.
 
 ## Open findings (discovered this session)
 

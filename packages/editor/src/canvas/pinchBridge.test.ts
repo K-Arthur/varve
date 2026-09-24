@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { resolvePinchBridgeAction } from './pinchBridge';
 
-describe('resolvePinchBridgeAction — GtkGestureZoom stream', () => {
+describe('resolvePinchBridgeAction — native touchpad stream', () => {
   it('resolves a begin gesture with cumulative scale 1 and centre', () => {
     expect(resolvePinchBridgeAction({ phase: 'begin', scale: 1, x: 120.5, y: 64 })).toEqual({
       kind: 'gesture',
@@ -26,6 +26,16 @@ describe('resolvePinchBridgeAction — GtkGestureZoom stream', () => {
     expect(resolvePinchBridgeAction({ phase: 'end', scale: 0.82, x: 10, y: 20 })?.kind).toBe(
       'gesture',
     );
+  });
+
+  it('preserves a cancelled gesture so the canvas can restore its starting view', () => {
+    expect(resolvePinchBridgeAction({ phase: 'cancel', scale: 1.4, x: 10, y: 20 })).toEqual({
+      kind: 'gesture',
+      phase: 'cancel',
+      scale: 1.4,
+      x: 10,
+      y: 20,
+    });
   });
 
   it('falls back to scale 1 for a non-finite or non-positive scale', () => {

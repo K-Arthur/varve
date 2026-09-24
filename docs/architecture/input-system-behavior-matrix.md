@@ -44,7 +44,7 @@ diagnostics behavior.
 | Two-finger scroll | Pan 2D (vertical + horizontal + diagonal). |
 | Pinch (Chromium/WebView2) | ctrl+wheel signal → zoom around cursor. Linux Chromium pinch delivery is historically unreliable (crbug 40332613); where the browser does not synthesize ctrl+wheel, use the on-screen zoom controls. |
 | Pinch (macOS WebKit) | Native `gesturestart/change/end` → cumulative scale with a world anchor that follows the moving gesture centroid. |
-| Pinch (WebKitGTK/Tauri) | Native `GtkGestureZoom` attached to the webview forwards `begin/update/end` + cumulative scale to the canvas (WebKITGTK itself performs no pinch zoom — verified against 2.52.6). A second fallback arm watches WebKit page `zoom_level` and forwards *delta* factors, suppressed while the gesture arm owns the pinch. Canvas anchor semantics are shared with the macOS gesture path. Hardware validation on KDE Wayland is pending — capture evidence with `window.__varveInputDiagnostics`. |
+| Pinch (WebKitGTK/Tauri) | The desktop bridge opts GTK widget windows into touchpad gesture events and forwards native GDK `TouchpadPinch` phases plus cumulative scale to the canvas. A cancelled gesture restores the starting camera. A fallback watches WebKit page `zoom_level` and forwards delta factors, suppressed while the native gesture is active. Canvas anchor semantics are shared with the macOS gesture path. Hardware validation on Linux Wayland is pending — capture evidence with `window.__varveInputDiagnostics`. |
 | Momentum | OS momentum flows through; app does NOT double it (trackpad-classified events skip app inertia). |
 
 ### 2.3 Touchscreen
@@ -172,7 +172,7 @@ cannot leave the editor stuck.
 | `zoomBy`/`zoomAtScreenPoint`/`panToWorldPoint` convenience API | Absorbed by existing `commitCamera`/`computeZoom*`; not re-exported |
 | Viewport-rotation gestures (touch twist) | Not implemented; rotation via toolbar/shortcuts only |
 | Diagnostics HUD toggle | Ring buffer exists; opt-in via `?perf=1` query param. Exposed as `window.__varvePerf` (see `drawDiagnostics.ts`). The input ring (`inputDiagnostics.ts`) installs `window.__varveInputDiagnostics` unconditionally and records nothing until `enable()` — the console workflow for capturing real wheel/pinch sessions is `__varveInputDiagnostics.enable()` → gesture → `export()`. |
-| WebKitGTK pinch hardware validation | Implemented (GtkGestureZoom bridge + guarded page-zoom fallback); real-trackpad confirmation on Linux Wayland is on the manual checklist below. |
+| WebKitGTK pinch hardware validation | Implemented (native GDK touchpad event bridge + guarded page-zoom fallback); real-trackpad confirmation on Linux Wayland is on the manual checklist below. |
 | Real USI Pen 2 pressure/tilt/eraser/palm behavior | Hardware truth is untested in this workspace; use the open checklist in [`drawing-input-quality-audit-2026-09-13.md`](../audits/drawing-input-quality-audit-2026-09-13.md). |
 | Real on-screen keyboard appearance/dismissal | Inset model and surface adaptation implemented and unit/E2E-tested with synthetic geometry; real OSK is a device check |
 | ChromeOS-reserved shortcut conflicts | Documented in section 8; no app code change required (menu/palette provide alternatives) |

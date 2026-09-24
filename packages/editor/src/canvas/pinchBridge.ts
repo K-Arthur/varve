@@ -4,10 +4,9 @@
  * The native side (apps/desktop/src-tauri, Linux) emits `canvas://pinch-zoom`
  * in two shapes:
  *
- * - `{ phase: 'begin'|'update'|'end', scale, x, y }` — the GtkGestureZoom
- *   stream. `scale` is cumulative since begin; `x`/`y` are webview-local CSS
- *   pixels for the gesture centre (null when the gesture could not report a
- *   bounding box, e.g. some cancel paths).
+ * - `{ phase: 'begin'|'update'|'end'|'cancel', scale, x, y }` — the native GDK
+ *   `TouchpadPinch` stream. `scale` is cumulative since begin; `x`/`y` are
+ *   webview-local CSS pixels for the gesture centre.
  * - `{ factor }` — the WebKit page-zoom fallback: a per-notify DELTA factor
  *   the canvas should multiply its zoom by.
  *
@@ -18,7 +17,7 @@
 
 export interface PinchBridgePayload {
   factor?: number;
-  phase?: 'begin' | 'update' | 'end';
+  phase?: 'begin' | 'update' | 'end' | 'cancel';
   scale?: number;
   x?: number | null;
   y?: number | null;
@@ -27,7 +26,7 @@ export interface PinchBridgePayload {
 export type PinchBridgeAction =
   | {
       kind: 'gesture';
-      phase: 'begin' | 'update' | 'end';
+      phase: 'begin' | 'update' | 'end' | 'cancel';
       scale: number;
       x: number | null;
       y: number | null;
@@ -43,7 +42,12 @@ export function resolvePinchBridgeAction(
   payload: PinchBridgePayload | undefined | null,
 ): PinchBridgeAction {
   if (!payload) return { kind: 'ignore' };
-  if (payload.phase === 'begin' || payload.phase === 'update' || payload.phase === 'end') {
+  if (
+    payload.phase === 'begin' ||
+    payload.phase === 'update' ||
+    payload.phase === 'end' ||
+    payload.phase === 'cancel'
+  ) {
     const scale =
       typeof payload.scale === 'number' && Number.isFinite(payload.scale) && payload.scale > 0
         ? payload.scale

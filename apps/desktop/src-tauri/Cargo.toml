@@ -56,6 +56,10 @@ glib = "0.22"
 # Pinned to the exact version wry links against so both share one GObject type
 # registry — a mismatched copy would hand back a foreign, unusable WebView.
 webkit2gtk = { version = "=2.0.2", features = ["v2_38"] }
+# GTK3 event masks and GDK touchpad-pinch event bindings are needed to forward
+# native trackpad input from WebKitGTK to the canvas. Same version family as
+# webkit2gtk so the glib/GObject registry stays shared.
+gtk = "0.18"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 # WebKitGTK cannot reliably expose custom clipboard MIME types on Wayland.
