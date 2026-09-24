@@ -32,6 +32,13 @@ test.describe('generative editing marketing pages', () => {
       'Source photograph · 640px review copy',
       'Promptless Expand · LaMa, desktop local CPU',
     ]);
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          window.scrollTo(0, 0);
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        }),
+    );
     await expect(page).toHaveScreenshot('generative-editing-feature-light.png', {
       fullPage: true,
       maxDiffPixelRatio: 0.02,
@@ -57,6 +64,13 @@ test.describe('generative editing marketing pages', () => {
     });
     expect(layout.columns.split(' ').length).toBe(1);
     expect(layout.scrollWidth).toBeLessThanOrEqual(layout.viewportWidth);
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          window.scrollTo(0, 0);
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        }),
+    );
     await expect(page).toHaveScreenshot('generative-editing-feature-mobile-light.png', {
       fullPage: true,
       maxDiffPixelRatio: 0.02,

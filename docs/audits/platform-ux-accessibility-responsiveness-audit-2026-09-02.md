@@ -293,6 +293,11 @@ Both `pnpm build:website` and `pnpm build:website:pages` completed with zero
 Astro diagnostics. The route-wide contrast, 200% reflow, overflow, unresolved
 token, and code-surface checks passed **122/122** on both the GitHub Pages and
 custom-domain builds. Targeted axe home checks and download-page contrast also
-passed on both builds (**4/4**). The remaining marketing interaction and
-visual cases are still under triage; this bounded result does not certify the
-whole website E2E suite.
+passed on both builds (**4/4**). The targeted marketing feature and press
+browser cases passed **76/76** across both deployment builds. After reviewing
+desktop, narrow-screen, and dark-theme renders, the current homepage,
+documentation, feature, accessibility, legal, download, and theme-matrix
+visual corpus passed **27/27** on the GitHub Pages build with no-update
+screenshot verification. The complete website E2E suite has not been run as
+one repository-wide operation; these results certify the listed route,
+interaction, and visual cases.
