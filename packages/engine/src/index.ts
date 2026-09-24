@@ -395,8 +395,8 @@ export {
   createWasmEngineFromModule,
   tryWasmEngine,
 } from './engine';
-export type { TileExportOpts } from './export';
-export { getCanvasSizeLimit, tiledExport } from './export';
+export type { ExportTile, TileExportOpts } from './export';
+export { getCanvasSizeLimit, streamTiledExport, tiledExport, writeTiledExport } from './export';
 export type { DitherImageOptions, DitherResult } from './exportPipeline/dither';
 export { bayerThresholdMatrix, ditherImageData } from './exportPipeline/dither';
 export type { PaletteQuantizeOptions, PaletteQuantizeResult } from './exportPipeline/palette';

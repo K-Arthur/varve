@@ -2,7 +2,7 @@
  * Tile-based export for oversized canvases.
  */
 import { describe, expect, it, type Mock, vi } from 'vitest';
-import { getCanvasSizeLimit, tiledExport } from '../export';
+import { getCanvasSizeLimit, streamTiledExport, tiledExport, writeTiledExport } from '../export';
 
 describe('getCanvasSizeLimit', () => {
   it('returns 32767 for chromium', () => {
@@ -129,5 +129,85 @@ describe('tiledExport', () => {
       coveredX += c.w;
     }
     expect(coveredX).toBe(30000);
+  });
+});
+
+describe('streamTiledExport', () => {
+  it('yields each tile to a bounded consumer in row-major order', async () => {
+    const seen: Array<{ x: number; y: number }> = [];
+    for await (const tile of streamTiledExport(
+      { totalW: 20_000, totalH: 1, dpr: 1 },
+      (viewport) => {
+        seen.push({ x: viewport.x, y: viewport.y });
+        return new ImageData(viewport.w, viewport.h);
+      },
+      'webkit',
+    )) {
+      expect(tile.image.width).toBe(tile.viewport.w);
+    }
+    expect(seen).toEqual([
+      { x: 0, y: 0 },
+      { x: 16_384, y: 0 },
+    ]);
+  });
+
+  it('rejects invalid dimensions and invalid DPR before rendering', async () => {
+    const render = vi.fn(
+      (viewport: { w: number; h: number }) => new ImageData(viewport.w, viewport.h),
+    );
+
+    await expect(async () => {
+      for await (const _tile of streamTiledExport({ totalW: 0, totalH: 1, dpr: 1 }, render)) {
+        // Consume the iterator to run its validation.
+      }
+    }).rejects.toThrow('Tile export width must be a positive safe integer');
+    await expect(async () => {
+      for await (const _tile of streamTiledExport(
+        { totalW: 1, totalH: 1, dpr: Number.NaN },
+        render,
+      )) {
+        // Consume the iterator to run its validation.
+      }
+    }).rejects.toThrow('Tile export DPR must be a finite positive number');
+    expect(render).not.toHaveBeenCalled();
+  });
+
+  it('rejects a renderer result whose pixel dimensions do not match its tile', async () => {
+    await expect(async () => {
+      for await (const _tile of streamTiledExport(
+        { totalW: 2, totalH: 1, dpr: 1 },
+        () => new ImageData(1, 1),
+        'webkit',
+      )) {
+        // Consume the iterator to run its render contract.
+      }
+    }).rejects.toThrow('Tile renderer returned 1x1; expected 2x1');
+  });
+});
+
+describe('writeTiledExport', () => {
+  it('waits for the consumer before rendering the next tile', async () => {
+    const renderedX: number[] = [];
+    let releaseFirstWrite!: () => void;
+    const firstWrite = new Promise<void>((resolve) => {
+      releaseFirstWrite = resolve;
+    });
+    const writing = writeTiledExport(
+      { totalW: 20_000, totalH: 1, dpr: 1 },
+      (viewport) => {
+        renderedX.push(viewport.x);
+        return new ImageData(viewport.w, viewport.h);
+      },
+      async (tile) => {
+        if (tile.column === 0) await firstWrite;
+      },
+      'webkit',
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(renderedX).toEqual([0]);
+    releaseFirstWrite();
+    await writing;
+    expect(renderedX).toEqual([0, 16_384]);
   });
 });
