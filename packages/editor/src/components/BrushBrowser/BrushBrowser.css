@@ -36,7 +36,7 @@
 }
 
 .brush-browser__chip.is-active {
-  color: var(--color-text-primary-on-accent);
+  color: var(--color-text-on-accent);
   background: var(--color-accent-primary);
   border-color: var(--color-accent-primary);
 }
