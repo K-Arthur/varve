@@ -11,7 +11,9 @@ const mediaRuntime = vi.hoisted(() => ({
 }));
 
 const frameRuntime = vi.hoisted(() => ({
+  cancelEditorFrame: vi.fn(),
   createEditorFrameKey: vi.fn(() => 'projection-media-frame'),
+  isEditorInteractionActive: vi.fn(() => false),
   requestEditorFrame: vi.fn(),
 }));
 
