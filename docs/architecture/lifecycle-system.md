@@ -107,8 +107,11 @@ TitleBar X    File menu/Shortcuts  OS event (Alt+F4, WM close, Cmd+Q,
   discarded tab's recovery points only at commit (fileId-precise; unique-name
   untitled; duplicate untitled kept). Discarded edits never reappear as
   crash recovery.
-- **Clean marker**: written only after finalizers complete. A crash mid-quit
-  stays unclean; the next launch offers recovery.
+- **Clean marker**: native termination writes it only after finalizers complete.
+  On the web, a non-bfcache `pagehide` may mark a clean session only when the
+  coordinator is idle or committed and no document is dirty; an active
+  transaction or dirty session stays unclean. A crash mid-quit remains
+  recoverable.
 - **Native authority**: Rust prevents close/exit, asks the webview; one-shot
   per-window tokens prevent recursion. Auxiliary windows close freely
   (ADR-0211 D1).
@@ -134,7 +137,7 @@ TitleBar X    File menu/Shortcuts  OS event (Alt+F4, WM close, Cmd+Q,
 | Cmd+W (macOS) | n/a | n/a | Window > Close Window → CloseRequested → coordinator | n/a |
 | Dirty warning | Coordinator dialog | Coordinator dialog | Coordinator dialog | beforeunload prompt (dirty only) |
 | Save failure blocks exit | Yes (dialog) | Yes (dialog) | Yes (dialog) | Yes (dialog) |
-| Clean marker | After finalization | After finalization | After finalization | After finalization (when unload is graceful) |
+| Clean marker | After finalization | After finalization | After finalization | After finalization; otherwise a clean non-bfcache pagehide with no dirty work |
 | Recovery after forced crash | Yes (IndexedDB) | Yes | Yes | Yes |
 | Back to Home with dirty docs | Allowed — editor stays mounted; quit still sees all sessions | same | same | same |
 
