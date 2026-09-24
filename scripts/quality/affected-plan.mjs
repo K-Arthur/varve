@@ -471,6 +471,10 @@ function buildPlan(files, { includeReverse = true } = {}) {
     for (const rule of IMPACT_CONFIG.impactRules) {
       if (rule.paths.some((g) => matchesGlob(f, g))) {
         for (const lane of rule.require) {
+          // A changed test proves its own behavior. Source-domain browser and
+          // benchmark rules apply to product changes, not colocated unit
+          // tests; shared E2E helpers/fixtures are handled above separately.
+          if (isTestFile && (lane.startsWith('e2e:') || lane.startsWith('bench:'))) continue;
           if (lane.startsWith('e2e:')) {
             e2eTypecheckRequired = true;
             e2eDomains.add(lane.slice(4));

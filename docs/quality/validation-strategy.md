@@ -303,7 +303,10 @@ files and impact rules; you can run a domain directly with
   signal, not just a cost problem.)
 - A changed file's test was not selected -> the test may not be colocated
   or the implicit dependency is not registered; add an impact rule.
-- A test-only change fans out to an entire E2E domain -> every selected
+- A colocated unit or benchmark test change runs that file directly; source
+  domain rules do not add unrelated browser or benchmark corpora. Product
+  source changes still select their configured integration lanes.
+- A shared E2E test-infrastructure change fans out to an entire E2E domain -> every selected
   browser lane first runs `pnpm typecheck:e2e`, catching compiler errors
   before a browser server starts. Direct Playwright specs then run as
   `e2e:file:<path>` at Tier 1. A domain-local E2E helper broadens to that

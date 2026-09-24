@@ -59,6 +59,16 @@ assert.ok(setupPlan.tiers[4].includes('e2e:all'));
 const fixturePlan = buildPlan(['tests/e2e/fixtures/real-life-portrait.jpg']);
 assert.ok(fixturePlan.tiers[4].includes('e2e:all'));
 
+const canvasBenchPlan = buildPlan([
+  'packages/editor/src/canvas/__tests__/cacheSystem.bench.test.ts',
+]);
+assert.deepEqual(canvasBenchPlan.tiers[1], [
+  'js-unit:file:packages/editor/src/canvas/__tests__/cacheSystem.bench.test.ts',
+]);
+assert.ok(!canvasBenchPlan.tiers[4].includes('e2e:canvas'));
+assert.ok(!canvasBenchPlan.tiers[4].includes('bench:render'));
+assert.ok(buildPlan(['packages/editor/src/canvas/cameraState.ts']).tiers[4].includes('e2e:canvas'));
+
 const repo = mkdtempSync(join(tmpdir(), 'varve-affected-since-'));
 try {
   const git = (args) =>

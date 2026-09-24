@@ -21,6 +21,32 @@ function makeItem(id: string): RenderItem {
   } as unknown as RenderItem;
 }
 
+function coldPanMs(): number {
+  const cache = new SubtreeIrCache(1000, 100 * 1024 * 1024);
+  const hashCache = new Map<string, string>();
+
+  // Pre-warm: 500 entries
+  for (let i = 0; i < 500; i++) {
+    const id = `n${i}`;
+    const h = SubtreeIrCache.nodeHash(id, [1, 0, 0, 1, 0, 0], 'style');
+    cache.set(id, h, makeItem(id));
+    hashCache.set(id, h);
+  }
+
+  // Simulate pan: 500 existing + 50 new (camera reveals unseen content)
+  const start = performance.now();
+  for (let i = 0; i < 550; i++) {
+    const id = `n${i}`;
+    const h = hashCache.get(id) ?? SubtreeIrCache.nodeHash(id, [1, 0, 0, 1, 5, 5], 'style');
+    cache.get(id, h);
+    if (!hashCache.has(id)) {
+      hashCache.set(id, h);
+      cache.set(id, h, makeItem(id));
+    }
+  }
+  return performance.now() - start;
+}
+
 describe('SubtreeIrCache benchmarks', () => {
   it('cache hit under 0.1ms for 1000 entry cache', () => {
     const cache = new SubtreeIrCache(2000, 100 * 1024 * 1024);
@@ -87,30 +113,12 @@ describe('SubtreeIrCache benchmarks', () => {
     expect(cache.hits).toBeGreaterThan(0);
   });
 
-  it('cold cache miss during rapid camera pan stays under 5ms overhead', () => {
-    const cache = new SubtreeIrCache(1000, 100 * 1024 * 1024);
-    const hashCache = new Map<string, string>();
-
-    // Pre-warm: 500 entries
-    for (let i = 0; i < 500; i++) {
-      const id = `n${i}`;
-      const h = SubtreeIrCache.nodeHash(id, [1, 0, 0, 1, 0, 0], 'style');
-      cache.set(id, h, makeItem(id));
-      hashCache.set(id, h);
-    }
-
-    // Simulate pan: 500 existing + 50 new (camera reveals unseen content)
-    const start = performance.now();
-    for (let i = 0; i < 550; i++) {
-      const id = `n${i}`;
-      const h = hashCache.get(id) ?? SubtreeIrCache.nodeHash(id, [1, 0, 0, 1, 5, 5], 'style');
-      cache.get(id, h);
-      if (!hashCache.has(id)) {
-        hashCache.set(id, h);
-        cache.set(id, h, makeItem(id));
-      }
-    }
-    const elapsed = performance.now() - start;
-    expect(elapsed).toBeLessThan(15);
+  it('cold cache miss during rapid camera pan stays under 15ms overhead', () => {
+    // A full-suite worker can be descheduled during one timed sample. Keep
+    // the same 15ms budget and require the majority of fresh cache runs to
+    // meet it, as the cache-hit benchmark above already does.
+    const samples = Array.from({ length: 5 }, coldPanMs).sort((a, b) => a - b);
+    const median = samples[2] ?? Number.POSITIVE_INFINITY;
+    expect(median, `cold pan samples: ${samples.join(', ')}`).toBeLessThan(15);
   });
 });
