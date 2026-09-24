@@ -1,7 +1,19 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { ConfirmDialog, confirmDialog, PromptDialog, promptDialog } from './PromptDialog';
+
+beforeEach(() => {
+  // jsdom's dialog does not implement modal open/close semantics. Install
+  // plain functions here so role queries test the visible modal state and
+  // other suites' vi.restoreAllMocks() calls cannot erase the polyfill.
+  HTMLDialogElement.prototype.showModal = function showModal() {
+    this.open = true;
+  };
+  HTMLDialogElement.prototype.close = function close() {
+    this.open = false;
+  };
+});
 
 describe('PromptDialog', () => {
   it('has an accessible name on the text input', async () => {
