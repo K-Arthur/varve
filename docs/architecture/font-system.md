@@ -294,7 +294,9 @@ family-only registry entries retain their compatibility behavior until a
 portable identity is available.
 After each requested load, the browser `FontFaceSet` is also checked with the
 export sample when that API is available; a zero-face load with a failed check
-is an export error, never a successful fallback.
+is an export error, never a successful fallback. Package export also fails
+explicitly when an exact bundled-font fetch reaches its timeout, instead of
+writing an archive that omits the requested face.
 
 ## Compact editing surfaces
 
