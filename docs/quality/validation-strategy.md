@@ -324,6 +324,9 @@ files and impact rules; you can run a domain directly with
   validates the exact refs Git is about to send, remains bounded for a 200-
   commit range, and reports remote-only lanes explicitly. It never calls
   `verify:full` automatically.
+- The hook queries informational CI health only when its local checkpoint
+  fails. Successful pushes avoid a network health query whose result cannot
+  validate the local commit or predict remote acceptance.
 - A meaningful emergency override is
   `VARVE_PUSH_OVERRIDE_REASON="network outage; CI run 123 is green" git push`.
   The override is printed and appended to the common-Git local audit log; it

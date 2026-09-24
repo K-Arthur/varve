@@ -3,6 +3,11 @@
 /** Hook adapter parsing tests; no Git push or validation process is started. */
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseArgs, runLane } from './pre-push.mjs';
 import { PUSH_LANE_TIMEOUT_MS } from './validation-policy.mjs';
 
@@ -70,5 +75,48 @@ assert.ok(
   PUSH_LANE_TIMEOUT_MS['js-unit:@varve/editor'] >= 30 * 60 * 1000,
   'the editor package push check must allow its measured 1528-second suite to finish',
 );
+
+// The hook still reports a failed checkpoint with CI diagnostics. Successful
+// pushes skip those informational network calls on the critical path.
+const hookDir = mkdtempSync(join(tmpdir(), 'varve-hook-check-'));
+try {
+  const hookPath = fileURLToPath(new URL('../../.githooks/pre-push', import.meta.url));
+  const logPath = join(hookDir, 'calls.log');
+  const pnpmPath = join(hookDir, 'pnpm');
+  const nodePath = join(hookDir, 'node');
+  writeFileSync(
+    pnpmPath,
+    '#!/bin/sh\nprintf "pnpm %s\\n" "$*" >> "$HOOK_LOG"\nexit "$VARVE_TEST_PUSH_STATUS"\n',
+  );
+  writeFileSync(nodePath, '#!/bin/sh\nprintf "node %s\\n" "$*" >> "$HOOK_LOG"\n');
+  chmodSync(pnpmPath, 0o755);
+  chmodSync(nodePath, 0o755);
+  for (const [checkpointStatus, expectedCalls] of [
+    ['0', 1],
+    ['1', 3],
+  ]) {
+    writeFileSync(logPath, '');
+    const result = spawnSync('sh', [hookPath, 'origin', 'https://example.invalid/varve.git'], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PATH: `${hookDir}:${process.env.PATH ?? ''}`,
+        CI: '',
+        HOOK_LOG: logPath,
+        VARVE_TEST_PUSH_STATUS: checkpointStatus,
+      },
+    });
+    assert.equal(result.status, Number(checkpointStatus));
+    const calls = readFileSync(logPath, 'utf8').trim().split('\n');
+    assert.equal(calls.length, expectedCalls);
+    assert.match(calls[0], /^pnpm verify:push --pre-push origin /);
+    if (checkpointStatus === '1') {
+      assert.match(calls[1], /^node scripts\/ci-health\.mjs --quiet$/);
+      assert.match(calls[2], /^node scripts\/ci-health\.mjs --status --quiet$/);
+    }
+  }
+} finally {
+  rmSync(hookDir, { recursive: true, force: true });
+}
 
 console.log('pre-push adapter tests passed');

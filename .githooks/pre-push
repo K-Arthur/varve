@@ -13,10 +13,13 @@ fi
 pnpm verify:push --pre-push "$@"
 status=$?
 
-# Pipeline health is informational only.  Preserve the validation status from
-# the driver and never turn a GitHub outage into a local product failure.
-node scripts/ci-health.mjs --quiet || echo "(ci-health unavailable; push result unchanged)"
-node scripts/ci-health.mjs --status --quiet || \
-  node scripts/ci-health.mjs --status || echo "(GitHub incident check unavailable; push result unchanged)"
+# Pipeline health is informational. Query it only when the local checkpoint
+# failed: a successful push has no local failure to diagnose, and the remote
+# result is not known to this hook. Preserve the driver's validation status.
+if [ "$status" -ne 0 ]; then
+  node scripts/ci-health.mjs --quiet || echo "(ci-health unavailable; push result unchanged)"
+  node scripts/ci-health.mjs --status --quiet || \
+    node scripts/ci-health.mjs --status || echo "(GitHub incident check unavailable; push result unchanged)"
+fi
 
 exit "$status"
